@@ -215,13 +215,92 @@ export class RefactorEngine {
     }
 
     /**
+     * Validate a proposed new name against the semantic index to detect global
+     * symbol conflicts. This checks if a symbol with the new name already exists
+     * in the project, which would cause ambiguity or overwriting.
+     *
+     * @param {string} newName - The proposed new identifier name.
+     * @param {string} [currentSymbolId] - The symbol being renamed (to exclude from conflict checks).
+     * @param {Object} [options] - Validation options.
+     * @param {boolean} [options.skipIdentifierValidation=false] - Skip identifier syntax validation (use when name is already validated).
+     * @returns {Promise<{valid: boolean, conflicts: Array<{type: string, message: string, existingSymbolId?: string}>}>}
+     */
+    async validateNewName(newName, currentSymbolId, options = {}) {
+        const { skipIdentifierValidation = false } = options;
+        const conflicts = [];
+        let normalizedNewName;
+
+        // Validate identifier syntax unless explicitly skipped (e.g., when called
+        // from detectRenameConflicts which has already performed this validation).
+        if (skipIdentifierValidation) {
+            normalizedNewName = newName;
+        } else {
+            try {
+                normalizedNewName = assertValidIdentifierName(newName);
+            } catch (error) {
+                conflicts.push({
+                    type: "invalid_identifier",
+                    message: error.message
+                });
+                return { valid: false, conflicts };
+            }
+        }
+
+        // Check if a global symbol with this name already exists in the semantic
+        // index. This prevents renames that would create duplicate top-level
+        // definitions (e.g., renaming scr_a to scr_b when scr_b already exists).
+        if (
+            this.semantic &&
+            typeof this.semantic.hasGlobalSymbol === "function"
+        ) {
+            const existingSymbolId =
+                await this.semantic.hasGlobalSymbol(normalizedNewName);
+            if (existingSymbolId && existingSymbolId !== currentSymbolId) {
+                conflicts.push({
+                    type: "global_collision",
+                    message: `A global symbol named '${normalizedNewName}' already exists`,
+                    existingSymbolId
+                });
+            }
+        }
+
+        // Check if any script, object, or asset uses this name already. The
+        // semantic analyzer may expose a broader symbol query method that covers
+        // all top-level definitions across the project.
+        if (
+            this.semantic &&
+            typeof this.semantic.findGlobalSymbolsByName === "function"
+        ) {
+            const existingSymbols =
+                await this.semantic.findGlobalSymbolsByName(normalizedNewName);
+            for (const symbol of existingSymbols) {
+                if (symbol.id !== currentSymbolId) {
+                    conflicts.push({
+                        type: "global_collision",
+                        message: `Symbol '${symbol.id}' already uses the name '${normalizedNewName}'`,
+                        existingSymbolId: symbol.id
+                    });
+                }
+            }
+        }
+
+        return { valid: conflicts.length === 0, conflicts };
+    }
+
+    /**
      * Check if a rename would introduce scope conflicts.
      * @param {string} oldName - Original symbol name
      * @param {string} newName - Proposed new name
      * @param {Array<{path: string, start: number, end: number, scopeId: string}>} occurrences - Symbol occurrences
+     * @param {string} [currentSymbolId] - The symbol being renamed (to exclude from global conflict checks).
      * @returns {Promise<Array<{type: string, message: string, path?: string}>>}
      */
-    async detectRenameConflicts(oldName, newName, occurrences) {
+    async detectRenameConflicts(
+        oldName,
+        newName,
+        occurrences,
+        currentSymbolId
+    ) {
         const conflicts = [];
         let normalizedNewName;
 
@@ -307,6 +386,19 @@ export class RefactorEngine {
             });
         }
 
+        // Check for global symbol collisions using the dedicated validation method.
+        // This catches cases where the new name would conflict with existing
+        // top-level definitions like scripts, objects, or other global symbols.
+        // We skip identifier validation since we already validated above.
+        const globalValidation = await this.validateNewName(
+            normalizedNewName,
+            currentSymbolId,
+            { skipIdentifierValidation: true }
+        );
+        if (!globalValidation.valid) {
+            conflicts.push(...globalValidation.conflicts);
+        }
+
         return conflicts;
     }
 
@@ -375,7 +467,8 @@ export class RefactorEngine {
         const conflicts = await this.detectRenameConflicts(
             symbolName,
             normalizedNewName,
-            occurrences
+            occurrences,
+            symbolId
         );
 
         if (conflicts.length > 0) {
@@ -1005,7 +1098,8 @@ export class RefactorEngine {
             const detectedConflicts = await this.detectRenameConflicts(
                 summary.oldName,
                 normalizedNewName,
-                occurrences
+                occurrences,
+                symbolId
             );
             conflicts.push(...detectedConflicts);
 
