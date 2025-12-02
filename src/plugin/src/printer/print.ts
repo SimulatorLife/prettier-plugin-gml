@@ -317,6 +317,46 @@ function sliceOriginalText(originalText, startIndex, endIndex) {
     return originalText.slice(startIndex, endIndex);
 }
 
+function isRegionDirectiveClosing(node, sourceMetadata = {}) {
+    const { originalText } = sourceMetadata;
+    if (typeof originalText !== STRING_TYPE) {
+        return false;
+    }
+
+    const { startIndex, endIndex } = resolveNodeIndexRangeWithSource(
+        node,
+        sourceMetadata
+    );
+
+    if (
+        typeof startIndex !== NUMBER_TYPE ||
+        typeof endIndex !== NUMBER_TYPE
+    ) {
+        return false;
+    }
+
+    const directiveSlice = sliceOriginalText(
+        originalText,
+        startIndex,
+        endIndex + 1
+    );
+
+    if (!directiveSlice) {
+        return false;
+    }
+
+    const trimmedDirective =
+        typeof directiveSlice.trimStart === "function"
+            ? directiveSlice.trimStart()
+            : directiveSlice.trim();
+
+    if (typeof trimmedDirective !== STRING_TYPE) {
+        return false;
+    }
+
+    return trimmedDirective.toLowerCase().startsWith("#endregion");
+}
+
 function macroTextHasExplicitTrailingBlankLine(text) {
     if (typeof text !== STRING_TYPE) {
         return false;
@@ -621,13 +661,7 @@ function _printImpl(path, options, print) {
                     );
                 }
                 const bodyParts = printStatements(path, options, print, "body");
-                console.log(
-                    "DEBUG: Program bodyParts:",
-                    JSON.stringify(bodyParts)
-                );
-                const result = concat(bodyParts);
-                console.log("DEBUG: Program result:", JSON.stringify(result));
-                return result;
+                return concat(bodyParts);
             } finally {
                 try {
                     if (
@@ -685,33 +719,6 @@ function _printImpl(path, options, print) {
             }
 
             const stmts = printStatements(path, options, print, "body");
-
-            if (node.body.length === 14) {
-                const varNode = node.body[8];
-                if (varNode.type === "VariableDeclaration") {
-                    console.log(
-                        "DEBUG: Var at index 8:",
-                        JSON.stringify(varNode, null, 2)
-                    );
-                }
-                console.log(
-                    "DEBUG: BlockStatement (14) stmts:",
-                    JSON.stringify(stmts, null, 2)
-                );
-            }
-
-            if (
-                node.body.some(
-                    (s: any) =>
-                        s.type === "VariableDeclaration" &&
-                        s.declarations?.some((d: any) => d.id.name === "w")
-                )
-            ) {
-                console.log(
-                    "DEBUG: BlockStatement stmts for 'w':",
-                    JSON.stringify(stmts, null, 2)
-                );
-            }
 
             return concat([
                 "{",
@@ -937,10 +944,6 @@ function _printImpl(path, options, print) {
         }
         case "FunctionDeclaration":
         case "ConstructorDeclaration": {
-            if (node.id === "scr_create_fx") {
-                console.log("DEBUG: Printing scr_create_fx");
-                return "HELLO WORLD";
-            }
             const parts: any[] = [];
 
             const sourceMetadata = resolvePrinterSourceMetadata(options);
@@ -1102,29 +1105,13 @@ function _printImpl(path, options, print) {
                 // Nested functions (those in BlockStatement parents) should have
                 // a leading blank line before their synthetic doc comments
                 const parentNode = path.getParentNode();
-                if (
-                    parentNode &&
-                    parentNode.type === "BlockStatement" &&
-                    !needsLeadingBlankLine
-                ) {
-                    console.error(
-                        "Setting needsLeadingBlankLine=true because parent is BlockStatement"
-                    );
-                    needsLeadingBlankLine = true;
-                }
+            if (
+                parentNode &&
+                parentNode.type === "BlockStatement" &&
+                !needsLeadingBlankLine
+            ) {
+                needsLeadingBlankLine = true;
             }
-
-            if (node.id === "scr_create_fx") {
-                console.log("DEBUG: Printing scr_create_fx");
-                console.log(
-                    "DEBUG: docCommentDocs length:",
-                    docCommentDocs.length
-                );
-                console.log(
-                    "DEBUG: docCommentDocs:",
-                    JSON.stringify(docCommentDocs)
-                );
-                return "HELLO WORLD";
             }
 
             if (docCommentDocs.length > 0) {
@@ -1696,7 +1683,12 @@ function _printImpl(path, options, print) {
             }
         }
         case "MemberIndexExpression": {
+            const memberNode = path.getValue();
             let accessor = print("accessor");
+            if (memberNode && typeof memberNode.accessor === "string") {
+                accessor = memberNode.accessor;
+            }
+
             // `accessor` is usually a plain string (e.g. "[", "[?", "[#").
             // Be defensive: only append a trailing space when we actually
             // received a string accessor longer than one character so we
@@ -1899,7 +1891,14 @@ function _printImpl(path, options, print) {
             return concat(stripTrailingLineTerminators(textToPrint));
         }
         case "RegionStatement": {
-            return concat(["#region", print("name")]);
+            const sourceMetadata = resolvePrinterSourceMetadata(options);
+            const directiveBase = isRegionDirectiveClosing(
+                node,
+                sourceMetadata
+            )
+                ? "#endregion"
+                : "#region";
+            return concat([directiveBase, print("name")]);
         }
         case "EndRegionStatement": {
             return concat(["#endregion", print("name")]);
@@ -3089,10 +3088,6 @@ function printStatements(path, options, print, childrenAttribute) {
             ? parentNode[childrenAttribute]
             : null;
     if (statements) {
-        console.log(
-            "DEBUG: printStatements statements length:",
-            statements.length
-        );
         applyAssignmentAlignment(statements, options, path, childrenAttribute);
     }
 
@@ -3136,14 +3131,8 @@ function printStatements(path, options, print, childrenAttribute) {
         }
         const isTopLevel = childPath.parent?.type === "Program";
         const printed = print();
-        console.log(
-            "DEBUG: printStatements printed node type:",
-            node.type,
-            "printed:",
-            JSON.stringify(printed)
-        );
 
-        if (printed === undefined) {
+        if (printed === undefined || printed === null) {
             return [];
         }
 
@@ -3614,16 +3603,6 @@ function printStatements(path, options, print, childrenAttribute) {
                 parts.push(hardline);
                 previousNodeHadNewlineAddedAfter = true;
             }
-        }
-
-        if (
-            node.type === "VariableDeclaration" &&
-            node.declarations?.some((d: any) => d.id.name === "w")
-        ) {
-            console.log(
-                "DEBUG: parts for 'w':",
-                JSON.stringify(parts, null, 2)
-            );
         }
 
         return parts;
@@ -8059,30 +8038,6 @@ function buildImplicitArgumentDocEntries({
                 hasDirectReference: true
             });
         }
-    }
-
-    // Debug: log built entries for sample functions so we can trace why
-    // fallback numeric entries might be absent in downstream steps.
-    try {
-        const interesting = result.some(
-            (e) =>
-                e &&
-                (e.canonical === "argument3" ||
-                    e.fallbackCanonical === "argument3" ||
-                    e.canonical === "second")
-        );
-        if (interesting) {
-            try {
-                console.error(
-                    `[feather:debug] buildImplicitArgumentDocEntries: builtEntries=`,
-                    result
-                );
-            } catch {
-                /* ignore */
-            }
-        }
-    } catch {
-        /* ignore */
     }
 
     return result;
