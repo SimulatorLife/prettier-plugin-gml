@@ -5771,7 +5771,18 @@ function resolvePreferredParameterSource(
     return null;
 }
 
-function findEnclosingFunctionNode(path) {
+/**
+ * Walk up the AST path and return the first ancestor node that satisfies the
+ * provided predicate. This helper centralizes the ancestor traversal pattern
+ * that appears in several places across the printer so call sites can avoid
+ * repeating the defensive guards and depth iteration.
+ *
+ * @param {import("prettier").AstPath} path - AST path to traverse.
+ * @param {(node: unknown) => boolean} predicate - Callback returning `true`
+ *        when the ancestor should be returned.
+ * @returns {unknown | null} First matching ancestor or `null` when none match.
+ */
+function findAncestorNode(path, predicate) {
     if (!path || typeof path.getParentNode !== "function") {
         return null;
     }
@@ -5783,12 +5794,16 @@ function findEnclosingFunctionNode(path) {
             break;
         }
 
-        if (isFunctionLikeDeclaration(parent)) {
+        if (predicate(parent)) {
             return parent;
         }
     }
 
     return null;
+}
+
+function findEnclosingFunctionNode(path) {
+    return findAncestorNode(path, isFunctionLikeDeclaration);
 }
 
 function findFunctionParameterContext(path) {
@@ -5947,23 +5962,10 @@ function isInsideConstructorFunction(path) {
 }
 
 function findEnclosingFunctionDeclaration(path) {
-    if (!path || typeof path.getParentNode !== "function") {
-        return null;
-    }
-
-    for (let depth = 0; ; depth += 1) {
-        const parent =
-            depth === 0 ? path.getParentNode() : path.getParentNode(depth);
-        if (!parent) {
-            break;
-        }
-
-        if (parent.type === "FunctionDeclaration") {
-            return parent;
-        }
-    }
-
-    return null;
+    return findAncestorNode(
+        path,
+        (node) => node?.type === "FunctionDeclaration"
+    );
 }
 
 function shouldSynthesizeUndefinedDefaultForIdentifier(path, node) {
@@ -9273,23 +9275,7 @@ function resolveArgumentAliasInitializerDoc(path) {
 }
 
 function findEnclosingFunctionForPath(path) {
-    if (!path || typeof path.getParentNode !== "function") {
-        return null;
-    }
-
-    for (let depth = 0; ; depth += 1) {
-        const parent =
-            depth === 0 ? path.getParentNode() : path.getParentNode(depth);
-        if (!parent) {
-            break;
-        }
-
-        if (isFunctionLikeNode(parent)) {
-            return parent;
-        }
-    }
-
-    return null;
+    return findAncestorNode(path, isFunctionLikeNode);
 }
 
 function getFunctionParameterNameByIndex(functionNode, index) {
