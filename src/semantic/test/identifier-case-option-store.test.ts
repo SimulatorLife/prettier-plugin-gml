@@ -25,7 +25,7 @@ test.afterEach(() => {
     );
 });
 
-test("option store evicts oldest entries when the limit is exceeded", () => {
+void test("option store evicts oldest entries when the limit is exceeded", () => {
     clearIdentifierCaseOptionStore(null);
 
     const totalEntries = MAX_IDENTIFIER_CASE_OPTION_STORE_ENTRIES + 16;
@@ -62,7 +62,7 @@ test("option store evicts oldest entries when the limit is exceeded", () => {
     clearIdentifierCaseOptionStore(null);
 });
 
-test("global option store limit can be tuned programmatically", () => {
+void test("global option store limit can be tuned programmatically", () => {
     clearIdentifierCaseOptionStore(null);
 
     const originalDefault = getDefaultIdentifierCaseOptionStoreMaxEntries();
@@ -107,7 +107,7 @@ test("global option store limit can be tuned programmatically", () => {
     }
 });
 
-test("option store honours the configured max entries", () => {
+void test("option store honours the configured max entries", () => {
     clearIdentifierCaseOptionStore(null);
 
     const customMaxEntries = 16;
@@ -143,7 +143,7 @@ test("option store honours the configured max entries", () => {
     clearIdentifierCaseOptionStore(null);
 });
 
-test("option store keeps all entries when eviction is disabled", () => {
+void test("option store keeps all entries when eviction is disabled", () => {
     clearIdentifierCaseOptionStore(null);
 
     const override = {
@@ -169,7 +169,7 @@ test("option store keeps all entries when eviction is disabled", () => {
     clearIdentifierCaseOptionStore(null);
 });
 
-test("deleteIdentifierCaseOption removes values from options and store", () => {
+void test("deleteIdentifierCaseOption removes values from options and store", () => {
     clearIdentifierCaseOptionStore(null);
 
     const options = buildOptions(0);
@@ -194,7 +194,7 @@ test("deleteIdentifierCaseOption removes values from options and store", () => {
     clearIdentifierCaseOptionStore(null);
 });
 
-test("option store skips blocklisted keys", () => {
+void test("option store skips blocklisted keys", () => {
     clearIdentifierCaseOptionStore(null);
 
     const options = buildOptions(0);

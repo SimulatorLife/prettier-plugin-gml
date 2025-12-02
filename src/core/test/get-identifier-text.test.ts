@@ -5,12 +5,12 @@ import { describe, it } from "node:test";
 
 import { getIdentifierText } from "../src/ast/node-helpers.js";
 
-describe("getIdentifierText", () => {
-    it("returns string arguments unchanged", () => {
+void describe("getIdentifierText", () => {
+    void it("returns string arguments unchanged", () => {
         assert.equal(getIdentifierText("example"), "example");
     });
 
-    it("reads the name property from plain objects", () => {
+    void it("reads the name property from plain objects", () => {
         assert.equal(getIdentifierText({ name: "identifier" }), "identifier");
     });
 });

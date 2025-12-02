@@ -65,8 +65,8 @@ function createSelfAssignment(propertyName) {
     } as any;
 }
 
-describe("applyAssignmentAlignment", () => {
-    it("iterates safely when the active group is mutated during traversal", () => {
+void describe("applyAssignmentAlignment", () => {
+    void it("iterates safely when the active group is mutated during traversal", () => {
         const statements = [];
         let capturedGroupRef: WeakRef<Array<unknown>> | null = null;
         let capturedGroupObserved = false;
@@ -138,7 +138,7 @@ describe("applyAssignmentAlignment", () => {
         );
     });
 
-    it("resets alignment groups across blank lines and leading comments", () => {
+    void it("resets alignment groups across blank lines and leading comments", () => {
         const source = [
             "short = 1;",
             "",
@@ -191,7 +191,7 @@ describe("applyAssignmentAlignment", () => {
         );
     });
 
-    it("aligns assignments targeting self member properties", () => {
+    void it("aligns assignments targeting self member properties", () => {
         const statements = [
             createSelfAssignment("short"),
             createSelfAssignment("longProperty"),
@@ -214,7 +214,7 @@ describe("applyAssignmentAlignment", () => {
         );
     });
 
-    it("aligns argument aliases inside function bodies", () => {
+    void it("aligns argument aliases inside function bodies", () => {
         const statements = [
             createArgumentAliasDeclaration("w", "argument0"),
             createArgumentAliasDeclaration("widthAlias", "argument1"),
@@ -244,7 +244,7 @@ describe("applyAssignmentAlignment", () => {
         );
     });
 
-    it("does not align argument aliases at the program level", () => {
+    void it("does not align argument aliases at the program level", () => {
         const statements = [
             createArgumentAliasDeclaration("alpha", "argument0"),
             createArgumentAliasDeclaration("betaAlias", "argument1")
@@ -269,7 +269,7 @@ describe("applyAssignmentAlignment", () => {
         );
     });
 
-    it("does not align argument aliases when functions lack named parameters", () => {
+    void it("does not align argument aliases when functions lack named parameters", () => {
         const statements = [
             createArgumentAliasDeclaration("first", "argument0"),
             createArgumentAliasDeclaration("second", "argument1"),
@@ -296,7 +296,7 @@ describe("applyAssignmentAlignment", () => {
         );
     });
 
-    it("aligns alias groups that reference named parameters and subsequent declarations", () => {
+    void it("aligns alias groups that reference named parameters and subsequent declarations", () => {
         const statements = [
             createArgumentAliasDeclaration("w", "width"),
             {
@@ -355,7 +355,7 @@ describe("applyAssignmentAlignment", () => {
         );
     });
 
-    it("continues alignment when parameter alias declarations are omitted", () => {
+    void it("continues alignment when parameter alias declarations are omitted", () => {
         const statements = [
             createArgumentAliasDeclaration("w", "argument0"),
             {

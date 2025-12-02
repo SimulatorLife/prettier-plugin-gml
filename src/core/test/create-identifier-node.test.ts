@@ -4,8 +4,8 @@ import { describe, it } from "node:test";
 
 import { createIdentifierNode } from "../src/ast/node-helpers.js";
 
-describe("createIdentifierNode", () => {
-    it("returns an identifier with cloned location metadata", () => {
+void describe("createIdentifierNode", () => {
+    void it("returns an identifier with cloned location metadata", () => {
         const template = {
             start: { index: 12 },
             end: { index: 16 }
@@ -27,7 +27,7 @@ describe("createIdentifierNode", () => {
         assert.equal(identifier.end.index, 16);
     });
 
-    it("returns null for non-string or empty names", () => {
+    void it("returns null for non-string or empty names", () => {
         const template = { start: { index: 0 }, end: { index: 1 } };
 
         assert.equal(createIdentifierNode("", template), null);

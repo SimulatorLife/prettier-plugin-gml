@@ -3,7 +3,7 @@ import test from "node:test";
 
 import { analyseResourceFiles } from "../src/project-index/resource-analysis.js";
 
-test("analyseResourceFiles normalizes invalid resource metadata", async () => {
+void test("analyseResourceFiles normalizes invalid resource metadata", async () => {
     const projectRoot = "/project";
     const relativePath = "scripts/calc_damage/calc_damage.yy";
     const absolutePath = `${projectRoot}/${relativePath}`;

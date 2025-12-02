@@ -7,8 +7,8 @@ import {
     applyEnvOptionOverrides
 } from "../src/cli-core/env-overrides.js";
 
-describe("applyEnvOptionOverride", () => {
-    it("sets the option when the environment variable is defined", () => {
+void describe("applyEnvOptionOverride", () => {
+    void it("sets the option when the environment variable is defined", () => {
         const calls = [];
         const command = {
             setOptionValueWithSource(...args) {
@@ -26,7 +26,7 @@ describe("applyEnvOptionOverride", () => {
         assert.deepEqual(calls, [["testOption", "value", "env"]]);
     });
 
-    it("ignores undefined environment variables", () => {
+    void it("ignores undefined environment variables", () => {
         const command = {
             setOptionValueWithSource() {
                 throw new Error("should not be called");
@@ -41,7 +41,7 @@ describe("applyEnvOptionOverride", () => {
         });
     });
 
-    it("ignores overrides when the command cannot accept option values", () => {
+    void it("ignores overrides when the command cannot accept option values", () => {
         assert.doesNotThrow(() =>
             applyEnvOptionOverride({
                 command: null,
@@ -62,7 +62,7 @@ describe("applyEnvOptionOverride", () => {
         );
     });
 
-    it("wraps resolver failures in a CliUsageError and preserves usage", () => {
+    void it("wraps resolver failures in a CliUsageError and preserves usage", () => {
         const command = {
             setOptionValueWithSource() {
                 throw new Error("should not be called");
@@ -90,7 +90,7 @@ describe("applyEnvOptionOverride", () => {
         );
     });
 
-    it("provides a fallback error message when the resolver throws without one", () => {
+    void it("provides a fallback error message when the resolver throws without one", () => {
         const command = {
             setOptionValueWithSource() {
                 throw new Error("should not be called");
@@ -119,7 +119,7 @@ describe("applyEnvOptionOverride", () => {
         );
     });
 
-    it("preserves resolver failures that mimic Error objects", () => {
+    void it("preserves resolver failures that mimic Error objects", () => {
         const command = {
             setOptionValueWithSource() {
                 throw new Error("should not be called");
@@ -151,8 +151,8 @@ describe("applyEnvOptionOverride", () => {
     });
 });
 
-describe("applyEnvOptionOverrides", () => {
-    it("applies each override when the environment variables are defined", () => {
+void describe("applyEnvOptionOverrides", () => {
+    void it("applies each override when the environment variables are defined", () => {
         const calls = [];
         const command = {
             setOptionValueWithSource(...args) {
@@ -184,7 +184,7 @@ describe("applyEnvOptionOverrides", () => {
         ]);
     });
 
-    it("respects a shared getUsage fallback", () => {
+    void it("respects a shared getUsage fallback", () => {
         const command = {
             setOptionValueWithSource() {
                 throw new Error("should not be called");
@@ -216,7 +216,7 @@ describe("applyEnvOptionOverrides", () => {
         );
     });
 
-    it("prefers override-level getUsage when provided", () => {
+    void it("prefers override-level getUsage when provided", () => {
         const command = {
             setOptionValueWithSource() {
                 throw new Error("should not be called");

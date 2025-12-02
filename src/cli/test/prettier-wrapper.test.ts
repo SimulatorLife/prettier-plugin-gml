@@ -39,8 +39,8 @@ function escapeForRegex(value) {
     return value.replaceAll(/[|\\{}()\[\]\^$+*?.-]/g, String.raw`\$&`);
 }
 
-describe("Prettier wrapper CLI", () => {
-    it("formats files with uppercase .GML extensions", async () => {
+void describe("Prettier wrapper CLI", () => {
+    void it("formats files with uppercase .GML extensions", async () => {
         const tempDirectory = await createTemporaryDirectory();
 
         try {
@@ -56,7 +56,7 @@ describe("Prettier wrapper CLI", () => {
         }
     });
 
-    it("does not mutate tracked repository fixtures when run in write-mode from repo root", async () => {
+    void it("does not mutate tracked repository fixtures when run in write-mode from repo root", async () => {
         // This test validates that running the CLI in write-mode from the
         // repository root does not result in silent mutation of tracked
         // fixture files. If it ever does, the test will fail and restore
@@ -100,7 +100,7 @@ describe("Prettier wrapper CLI", () => {
         }
     });
 
-    it("formats a single file when the target path points to a file", async () => {
+    void it("formats a single file when the target path points to a file", async () => {
         const tempDirectory = await createTemporaryDirectory();
 
         try {
@@ -116,7 +116,7 @@ describe("Prettier wrapper CLI", () => {
         }
     });
 
-    it("derives default extensions from the environment when configured", async () => {
+    void it("derives default extensions from the environment when configured", async () => {
         const tempDirectory = await createTemporaryDirectory();
 
         try {
@@ -137,7 +137,7 @@ describe("Prettier wrapper CLI", () => {
         }
     });
 
-    it("normalizes glob patterns in default extension environment overrides", async () => {
+    void it("normalizes glob patterns in default extension environment overrides", async () => {
         const tempDirectory = await createTemporaryDirectory();
 
         try {
@@ -162,7 +162,7 @@ describe("Prettier wrapper CLI", () => {
         }
     });
 
-    it("recognizes whitespace-separated default extension overrides", async () => {
+    void it("recognizes whitespace-separated default extension overrides", async () => {
         const tempDirectory = await createTemporaryDirectory();
 
         try {
@@ -187,7 +187,7 @@ describe("Prettier wrapper CLI", () => {
         }
     });
 
-    it("accepts custom Prettier log levels via CLI option", async () => {
+    void it("accepts custom Prettier log levels via CLI option", async () => {
         const tempDirectory = await createTemporaryDirectory();
 
         try {
@@ -207,7 +207,7 @@ describe("Prettier wrapper CLI", () => {
         }
     });
 
-    it("honours PRETTIER_PLUGIN_GML_LOG_LEVEL environment overrides", async () => {
+    void it("honours PRETTIER_PLUGIN_GML_LOG_LEVEL environment overrides", async () => {
         const tempDirectory = await createTemporaryDirectory();
 
         try {
@@ -228,7 +228,7 @@ describe("Prettier wrapper CLI", () => {
         }
     });
 
-    it("reports invalid log level values with guidance", async () => {
+    void it("reports invalid log level values with guidance", async () => {
         const tempDirectory = await createTemporaryDirectory();
 
         try {
@@ -261,7 +261,7 @@ describe("Prettier wrapper CLI", () => {
         }
     });
 
-    it("formats files when a custom extension is provided", async () => {
+    void it("formats files when a custom extension is provided", async () => {
         const tempDirectory = await createTemporaryDirectory();
 
         try {
@@ -281,7 +281,7 @@ describe("Prettier wrapper CLI", () => {
         }
     });
 
-    it("merges repeated --extensions flags", async () => {
+    void it("merges repeated --extensions flags", async () => {
         const tempDirectory = await createTemporaryDirectory();
 
         try {
@@ -306,7 +306,7 @@ describe("Prettier wrapper CLI", () => {
         }
     });
 
-    it("applies Prettier configuration from the target project", async () => {
+    void it("applies Prettier configuration from the target project", async () => {
         const tempDirectory = await createTemporaryDirectory();
 
         try {
@@ -336,7 +336,7 @@ describe("Prettier wrapper CLI", () => {
         }
     });
 
-    it("loads plugins declared as strings in project configuration", async () => {
+    void it("loads plugins declared as strings in project configuration", async () => {
         const tempDirectory = await createTemporaryDirectory();
 
         try {
@@ -380,7 +380,7 @@ describe("Prettier wrapper CLI", () => {
         }
     });
 
-    it("overrides conflicting parser configuration from .prettierrc", async () => {
+    void it("overrides conflicting parser configuration from .prettierrc", async () => {
         const tempDirectory = await createTemporaryDirectory();
 
         try {
@@ -415,7 +415,7 @@ describe("Prettier wrapper CLI", () => {
         }
     });
 
-    it("respects ignore rules from .prettierignore", async () => {
+    void it("respects ignore rules from .prettierignore", async () => {
         const tempDirectory = await createTemporaryDirectory();
 
         try {
@@ -434,7 +434,7 @@ describe("Prettier wrapper CLI", () => {
         }
     });
 
-    it("respects .prettierignore entries when invoked with a file path", async () => {
+    void it("respects .prettierignore entries when invoked with a file path", async () => {
         const tempDirectory = await createTemporaryDirectory();
 
         try {
@@ -453,7 +453,7 @@ describe("Prettier wrapper CLI", () => {
         }
     });
 
-    it("formats files restored by negated .prettierignore entries", async () => {
+    void it("formats files restored by negated .prettierignore entries", async () => {
         const tempDirectory = await createTemporaryDirectory();
 
         try {
@@ -479,7 +479,7 @@ describe("Prettier wrapper CLI", () => {
         }
     });
 
-    it("does not descend into directories ignored by .prettierignore", async () => {
+    void it("does not descend into directories ignored by .prettierignore", async () => {
         const tempDirectory = await createTemporaryDirectory();
 
         try {
@@ -525,7 +525,7 @@ describe("Prettier wrapper CLI", () => {
         }
     });
 
-    it("honours the unsupported extension sample limit", async () => {
+    void it("honours the unsupported extension sample limit", async () => {
         const tempDirectory = await createTemporaryDirectory();
 
         try {
@@ -558,7 +558,7 @@ describe("Prettier wrapper CLI", () => {
         }
     });
 
-    it("summarizes files ignored by .prettierignore", async () => {
+    void it("summarizes files ignored by .prettierignore", async () => {
         const tempDirectory = await createTemporaryDirectory();
 
         try {
@@ -596,7 +596,7 @@ describe("Prettier wrapper CLI", () => {
         }
     });
 
-    it("identifies the ignore file that excluded a target", async () => {
+    void it("identifies the ignore file that excluded a target", async () => {
         const tempDirectory = await createTemporaryDirectory();
 
         try {
@@ -637,7 +637,7 @@ describe("Prettier wrapper CLI", () => {
         }
     });
 
-    it("honours the ignored directory sample limit", async () => {
+    void it("honours the ignored directory sample limit", async () => {
         const tempDirectory = await createTemporaryDirectory();
 
         try {
@@ -697,7 +697,7 @@ describe("Prettier wrapper CLI", () => {
         }
     });
 
-    it("limits ignored file skip logs when requested", async () => {
+    void it("limits ignored file skip logs when requested", async () => {
         const tempDirectory = await createTemporaryDirectory();
 
         try {
@@ -749,7 +749,7 @@ describe("Prettier wrapper CLI", () => {
         }
     });
 
-    it("respects .prettierignore entries in ancestor directories when formatting a subdirectory", async () => {
+    void it("respects .prettierignore entries in ancestor directories when formatting a subdirectory", async () => {
         const tempDirectory = await createTemporaryDirectory();
 
         try {
@@ -771,7 +771,7 @@ describe("Prettier wrapper CLI", () => {
         }
     });
 
-    it("respects .prettierignore files within nested directories", async () => {
+    void it("respects .prettierignore files within nested directories", async () => {
         const tempDirectory = await createTemporaryDirectory();
 
         try {
@@ -796,7 +796,7 @@ describe("Prettier wrapper CLI", () => {
         }
     });
 
-    it("ignores .prettierignore files outside the target project", async () => {
+    void it("ignores .prettierignore files outside the target project", async () => {
         const outerDirectory = await createTemporaryDirectory();
         const projectDirectory = await createTemporaryDirectory();
 
@@ -819,7 +819,7 @@ describe("Prettier wrapper CLI", () => {
         }
     });
 
-    it("ignores .prettierignore files above the invocation directory", async () => {
+    void it("ignores .prettierignore files above the invocation directory", async () => {
         const outerDirectory = await createTemporaryDirectory();
         const projectDirectory = path.join(outerDirectory, "project");
 
@@ -847,7 +847,7 @@ describe("Prettier wrapper CLI", () => {
         }
     });
 
-    it("does not rewrite files when formatting produces no changes", async () => {
+    void it("does not rewrite files when formatting produces no changes", async () => {
         const tempDirectory = await createTemporaryDirectory();
 
         try {
@@ -877,7 +877,7 @@ describe("Prettier wrapper CLI", () => {
         }
     });
 
-    it("reports files that need formatting when --check is enabled", async () => {
+    void it("reports files that need formatting when --check is enabled", async () => {
         const tempDirectory = await createTemporaryDirectory();
 
         try {
@@ -933,7 +933,7 @@ describe("Prettier wrapper CLI", () => {
         }
     });
 
-    it("confirms when all files are formatted in --check mode", async () => {
+    void it("confirms when all files are formatted in --check mode", async () => {
         const tempDirectory = await createTemporaryDirectory();
 
         try {
@@ -961,7 +961,7 @@ describe("Prettier wrapper CLI", () => {
         }
     });
 
-    it("explains when --check only encounters ignored files", async () => {
+    void it("explains when --check only encounters ignored files", async () => {
         const tempDirectory = await createTemporaryDirectory();
 
         try {
@@ -992,7 +992,7 @@ describe("Prettier wrapper CLI", () => {
         }
     });
 
-    it("skips symbolic links to avoid infinite directory traversal loops", async (t) => {
+    void it("skips symbolic links to avoid infinite directory traversal loops", async (t) => {
         const tempDirectory = await createTemporaryDirectory();
 
         try {
@@ -1037,7 +1037,7 @@ describe("Prettier wrapper CLI", () => {
         }
     });
 
-    it("reverts formatted files when configured to revert on parser errors", async () => {
+    void it("reverts formatted files when configured to revert on parser errors", async () => {
         const tempDirectory = await createTemporaryDirectory();
 
         try {
@@ -1097,7 +1097,7 @@ describe("Prettier wrapper CLI", () => {
         }
     });
 
-    it("aborts formatting additional files when configured to abort on parser errors", async () => {
+    void it("aborts formatting additional files when configured to abort on parser errors", async () => {
         const tempDirectory = await createTemporaryDirectory();
 
         try {
@@ -1144,7 +1144,7 @@ describe("Prettier wrapper CLI", () => {
         }
     });
 
-    it("exits with a non-zero status when formatting fails", async () => {
+    void it("exits with a non-zero status when formatting fails", async () => {
         const tempDirectory = await createTemporaryDirectory();
 
         try {
@@ -1187,7 +1187,7 @@ describe("Prettier wrapper CLI", () => {
         }
     });
 
-    it("provides usage guidance when the target path cannot be accessed", async () => {
+    void it("provides usage guidance when the target path cannot be accessed", async () => {
         const tempDirectory = await createTemporaryDirectory();
 
         try {
@@ -1229,7 +1229,7 @@ describe("Prettier wrapper CLI", () => {
         }
     });
 
-    it("formats the current working directory when no target path is provided", async () => {
+    void it("formats the current working directory when no target path is provided", async () => {
         const tempDirectory = await createTemporaryDirectory();
 
         try {
@@ -1267,7 +1267,7 @@ describe("Prettier wrapper CLI", () => {
         }
     });
 
-    it("informs the user when no files match the configured extensions", async () => {
+    void it("informs the user when no files match the configured extensions", async () => {
         const tempDirectory = await createTemporaryDirectory();
 
         try {
@@ -1301,7 +1301,7 @@ describe("Prettier wrapper CLI", () => {
         }
     });
 
-    it("describes the current directory explicitly when no files match", async () => {
+    void it("describes the current directory explicitly when no files match", async () => {
         const tempDirectory = await createTemporaryDirectory();
 
         try {
@@ -1342,7 +1342,7 @@ describe("Prettier wrapper CLI", () => {
         }
     });
 
-    it("describes the invocation directory explicitly when run from the repository root", async () => {
+    void it("describes the invocation directory explicitly when run from the repository root", async () => {
         // Run the wrapper from a temporary directory emulating a project root
         // to avoid mutating checked-in fixtures in the repository. Create a
         // sample GML file so the wrapper will find files to format and
@@ -1418,7 +1418,7 @@ describe("Prettier wrapper CLI", () => {
         }
     });
 
-    it("shows help when invoked without arguments by default", async () => {
+    void it("shows help when invoked without arguments by default", async () => {
         const tempDirectory = await createTemporaryDirectory();
 
         try {
@@ -1457,7 +1457,7 @@ describe("Prettier wrapper CLI", () => {
         }
     });
 
-    it("surfaces common format examples in the help output", async () => {
+    void it("surfaces common format examples in the help output", async () => {
         const { stdout, stderr } = await execFileAsync("node", [
             wrapperPath,
             "format",
@@ -1486,7 +1486,7 @@ describe("Prettier wrapper CLI", () => {
         );
     });
 
-    it("prints CLI version information without triggering error handling", async () => {
+    void it("prints CLI version information without triggering error handling", async () => {
         const { stdout, stderr } = await execFileAsync("node", [
             wrapperPath,
             "--version"

@@ -18,8 +18,8 @@ function createStaticFunctionStatement(name, overrides = {}) {
     };
 }
 
-describe("annotateStaticFunctionOverrides", () => {
-    it("marks overriding static functions", () => {
+void describe("annotateStaticFunctionOverrides", () => {
+    void it("marks overriding static functions", () => {
         const parentStatic = createStaticFunctionStatement("build") as any;
         const childStatic = createStaticFunctionStatement("build") as any;
 
@@ -55,7 +55,7 @@ describe("annotateStaticFunctionOverrides", () => {
         assert.equal(childStatic._overridesStaticFunction, true);
     });
 
-    it("ignores static declarations without identifier targets", () => {
+    void it("ignores static declarations without identifier targets", () => {
         const invalidStatic = {
             type: "VariableDeclaration",
             kind: "static",

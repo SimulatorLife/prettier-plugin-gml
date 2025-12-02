@@ -66,7 +66,7 @@ async function writeFile(
     await fs.writeFile(absolutePath, contents, "utf8");
 }
 
-test("buildProjectIndex collects symbols and relationships across project files", async () => {
+void test("buildProjectIndex collects symbols and relationships across project files", async () => {
     const tempRoot = await fs.mkdtemp(path.join(os.tmpdir(), "gml-project-"));
 
     try {

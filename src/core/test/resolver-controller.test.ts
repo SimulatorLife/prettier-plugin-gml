@@ -5,8 +5,8 @@ import { Core } from "@gml-modules/core";
 
 const createResolverController = Core.createResolverController;
 
-describe("createResolverController", () => {
-    it("returns defaults when no resolver is installed", () => {
+void describe("createResolverController", () => {
+    void it("returns defaults when no resolver is installed", () => {
         let defaultCalls = 0;
         const controller = createResolverController({
             defaultFactory() {
@@ -23,7 +23,7 @@ describe("createResolverController", () => {
         assert.equal(defaultCalls, 3);
     });
 
-    it("reuses the cached default when configured", () => {
+    void it("reuses the cached default when configured", () => {
         let defaultCalls = 0;
         const controller = createResolverController({
             reuseDefaultValue: true,
@@ -41,7 +41,7 @@ describe("createResolverController", () => {
         assert.equal(defaultCalls, 1);
     });
 
-    it("passes the previous value through the resolver pipeline", () => {
+    void it("passes the previous value through the resolver pipeline", () => {
         const seen = [];
         const controller = createResolverController({
             defaultFactory: () => ({ version: "baseline" }),
@@ -76,7 +76,7 @@ describe("createResolverController", () => {
         });
     });
 
-    it("restores the default state after clearing the resolver", () => {
+    void it("restores the default state after clearing the resolver", () => {
         const controller = createResolverController({
             defaultFactory: () => ({ value: "default" })
         });

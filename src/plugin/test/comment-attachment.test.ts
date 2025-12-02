@@ -2,8 +2,8 @@ import assert from "node:assert/strict";
 import { describe, it } from "node:test";
 import { Plugin } from "../src/index.js";
 
-describe("comment attachment", () => {
-    it("treats detached own-line comments as leading comments", async () => {
+void describe("comment attachment", () => {
+    void it("treats detached own-line comments as leading comments", async () => {
         const source = [
             "enum A {",
             "    foo,",

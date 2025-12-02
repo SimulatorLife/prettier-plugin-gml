@@ -26,7 +26,6 @@ import {
 import { planAssetRenames, applyAssetRenames } from "./asset-renames.js";
 import { getDefaultIdentifierCaseFsFacade } from "./fs-facade.js";
 import { evaluateIdentifierCaseAssetRenamePolicy } from "./asset-rename-policy.js";
-import { getDebugId } from "./types.js";
 
 type IdentifierCaseDeclaration = {
     name?: string | null;
@@ -756,10 +755,10 @@ export async function prepareIdentifierCasePlan(options) {
     // and rename maps without mutating sources when the style is disabled.
 
     try {
-        console.debug("[DBG] prepareIdentifierCasePlan start", {
-            filepath: options?.filepath ?? null,
-            dryRun: options?.__identifierCaseDryRun
-        });
+        // console.debug("[DBG] prepareIdentifierCasePlan start", {
+        //     filepath: options?.filepath ?? null,
+        //     dryRun: options?.__identifierCaseDryRun
+        // });
     } catch {
         /* ignore */
     }
@@ -1273,9 +1272,9 @@ export async function prepareIdentifierCasePlan(options) {
 
     setIdentifierCaseOption(options, "__identifierCaseRenameMap", renameMap);
     try {
-        console.debug(
-            `[DBG] prepareIdentifierCasePlan set renameMap id=${getDebugId(renameMap)} size=${renameMap.size} operations=${operations.length} conflicts=${conflicts.length}`
-        );
+        // console.debug(
+        //     `[DBG] prepareIdentifierCasePlan set renameMap id=${getDebugId(renameMap)} size=${renameMap.size} operations=${operations.length} conflicts=${conflicts.length}`
+        // );
     } catch {
         /* ignore */
     }
@@ -1294,9 +1293,9 @@ export async function prepareIdentifierCasePlan(options) {
             true
         );
         try {
-            console.debug(
-                "[DBG] prepareIdentifierCasePlan set planGenerated=true"
-            );
+            // console.debug(
+            //     "[DBG] prepareIdentifierCasePlan set planGenerated=true"
+            // );
         } catch {
             /* ignore */
         }

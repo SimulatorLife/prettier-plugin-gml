@@ -8,16 +8,16 @@ import {
     isBooleanLiteral
 } from "../src/ast/node-helpers.js";
 
-describe("boolean literal helpers", () => {
+void describe("boolean literal helpers", () => {
     // Node deprecated assert.equal; prefer the strict helpers to avoid legacy coercion.
-    it("normalizes string literal values", () => {
+    void it("normalizes string literal values", () => {
         const literal = { type: "Literal", value: "TRUE" };
 
         assert.strictEqual(getBooleanLiteralValue(literal), "true");
         assert.strictEqual(isBooleanLiteral(literal), true);
     });
 
-    it("accepts boolean literal nodes when enabled", () => {
+    void it("accepts boolean literal nodes when enabled", () => {
         const literal = { type: "Literal", value: false };
 
         assert.strictEqual(getBooleanLiteralValue(literal), null);
@@ -34,7 +34,7 @@ describe("boolean literal helpers", () => {
         );
     });
 
-    it("normalizes true boolean primitives when enabled", () => {
+    void it("normalizes true boolean primitives when enabled", () => {
         const literal = { type: "Literal", value: true };
 
         assert.strictEqual(getBooleanLiteralValue(literal), null);
@@ -51,7 +51,7 @@ describe("boolean literal helpers", () => {
         );
     });
 
-    it("rejects non-boolean literals", () => {
+    void it("rejects non-boolean literals", () => {
         const numberLiteral = { type: "Literal", value: 0 };
         const identifier = { type: "Identifier", name: "value" };
 

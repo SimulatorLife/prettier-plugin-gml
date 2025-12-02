@@ -12,9 +12,9 @@ function areObjectsEqualById(a, b) {
     return a.id === b.id;
 }
 
-describe("bounded-sample-collector", () => {
-    describe("tryAddSample", () => {
-        it("adds a sample when limit is not reached", () => {
+void describe("bounded-sample-collector", () => {
+    void describe("tryAddSample", () => {
+        void it("adds a sample when limit is not reached", () => {
             const samples = [];
             const result = tryAddSample(samples, "test", 5);
 
@@ -22,7 +22,7 @@ describe("bounded-sample-collector", () => {
             assert.deepStrictEqual(samples, ["test"]);
         });
 
-        it("does not add a sample when limit is 0", () => {
+        void it("does not add a sample when limit is 0", () => {
             const samples = [];
             const result = tryAddSample(samples, "test", 0);
 
@@ -30,7 +30,7 @@ describe("bounded-sample-collector", () => {
             assert.deepStrictEqual(samples, []);
         });
 
-        it("does not add a sample when limit is negative", () => {
+        void it("does not add a sample when limit is negative", () => {
             const samples = [];
             const result = tryAddSample(samples, "test", -1);
 
@@ -38,7 +38,7 @@ describe("bounded-sample-collector", () => {
             assert.deepStrictEqual(samples, []);
         });
 
-        it("does not add a sample when limit is already reached", () => {
+        void it("does not add a sample when limit is already reached", () => {
             const samples = ["a", "b", "c"];
             const result = tryAddSample(samples, "d", 3);
 
@@ -46,7 +46,7 @@ describe("bounded-sample-collector", () => {
             assert.deepStrictEqual(samples, ["a", "b", "c"]);
         });
 
-        it("does not add a duplicate sample (primitive values)", () => {
+        void it("does not add a duplicate sample (primitive values)", () => {
             const samples = ["a", "b"];
             const result = tryAddSample(samples, "a", 5);
 
@@ -54,7 +54,7 @@ describe("bounded-sample-collector", () => {
             assert.deepStrictEqual(samples, ["a", "b"]);
         });
 
-        it("does not add a duplicate sample with custom equality check", () => {
+        void it("does not add a duplicate sample with custom equality check", () => {
             const samples = [
                 { id: 1, name: "Alice" },
                 { id: 2, name: "Bob" }
@@ -71,7 +71,7 @@ describe("bounded-sample-collector", () => {
             assert.strictEqual(samples[0].name, "Alice");
         });
 
-        it("adds a non-duplicate sample with custom equality check", () => {
+        void it("adds a non-duplicate sample with custom equality check", () => {
             const samples = [
                 { id: 1, name: "Alice" },
                 { id: 2, name: "Bob" }
@@ -89,22 +89,22 @@ describe("bounded-sample-collector", () => {
         });
     });
 
-    describe("hasSample", () => {
-        it("returns true when sample exists (primitive)", () => {
+    void describe("hasSample", () => {
+        void it("returns true when sample exists (primitive)", () => {
             const samples = ["a", "b", "c"];
             const result = hasSample(samples, "b");
 
             assert.strictEqual(result, true);
         });
 
-        it("returns false when sample does not exist (primitive)", () => {
+        void it("returns false when sample does not exist (primitive)", () => {
             const samples = ["a", "b", "c"];
             const result = hasSample(samples, "d");
 
             assert.strictEqual(result, false);
         });
 
-        it("returns true when sample exists with custom equality", () => {
+        void it("returns true when sample exists with custom equality", () => {
             const samples = [
                 { id: 1, name: "Alice" },
                 { id: 2, name: "Bob" }
@@ -118,7 +118,7 @@ describe("bounded-sample-collector", () => {
             assert.strictEqual(result, true);
         });
 
-        it("returns false when sample does not exist with custom equality", () => {
+        void it("returns false when sample does not exist with custom equality", () => {
             const samples = [
                 { id: 1, name: "Alice" },
                 { id: 2, name: "Bob" }
@@ -132,7 +132,7 @@ describe("bounded-sample-collector", () => {
             assert.strictEqual(result, false);
         });
 
-        it("returns false for empty array", () => {
+        void it("returns false for empty array", () => {
             const samples = [];
             const result = hasSample(samples, "test");
 

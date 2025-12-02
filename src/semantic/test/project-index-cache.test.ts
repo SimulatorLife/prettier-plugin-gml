@@ -43,7 +43,7 @@ function createDeferred() {
     return { promise, resolve };
 }
 
-test("assertProjectIndexCacheStatus validates status strings", () => {
+void test("assertProjectIndexCacheStatus validates status strings", () => {
     assert.equal(
         assertProjectIndexCacheStatus(ProjectIndexCacheStatus.HIT),
         ProjectIndexCacheStatus.HIT
@@ -71,7 +71,7 @@ async function withTempDir(run) {
     }
 }
 
-test("saveProjectIndexCache writes payload and loadProjectIndexCache returns hit", async () => {
+void test("saveProjectIndexCache writes payload and loadProjectIndexCache returns hit", async () => {
     await withTempDir(async (projectRoot) => {
         const manifestMtimes = { "project.yyp": 100 };
         const sourceMtimes = { "scripts/main.gml": 200 };
@@ -102,7 +102,7 @@ test("saveProjectIndexCache writes payload and loadProjectIndexCache returns hit
     });
 });
 
-test("saveProjectIndexCache normalizes mtime maps to finite numbers", async () => {
+void test("saveProjectIndexCache normalizes mtime maps to finite numbers", async () => {
     await withTempDir(async (projectRoot) => {
         const manifestMtimes = {
             "project.yyp": "101",
@@ -147,7 +147,7 @@ test("saveProjectIndexCache normalizes mtime maps to finite numbers", async () =
     });
 });
 
-test("saveProjectIndexCache respects maxSizeBytes overrides", async () => {
+void test("saveProjectIndexCache respects maxSizeBytes overrides", async () => {
     await withTempDir(async (projectRoot) => {
         const saveResult = await saveProjectIndexCache({
             projectRoot,
@@ -165,7 +165,7 @@ test("saveProjectIndexCache respects maxSizeBytes overrides", async () => {
     });
 });
 
-test("saveProjectIndexCache allows unlimited size when maxSizeBytes is 0", async () => {
+void test("saveProjectIndexCache allows unlimited size when maxSizeBytes is 0", async () => {
     await withTempDir(async (projectRoot) => {
         const projectIndex = createProjectIndex(projectRoot);
 
@@ -192,7 +192,7 @@ test("saveProjectIndexCache allows unlimited size when maxSizeBytes is 0", async
     });
 });
 
-test("loadProjectIndexCache reports version mismatches", async () => {
+void test("loadProjectIndexCache reports version mismatches", async () => {
     await withTempDir(async (projectRoot) => {
         const manifestMtimes = { "project.yyp": 100 };
         const sourceMtimes = { "scripts/main.gml": 200 };
@@ -236,7 +236,7 @@ test("loadProjectIndexCache reports version mismatches", async () => {
     });
 });
 
-test("loadProjectIndexCache reports mtime invalidations", async () => {
+void test("loadProjectIndexCache reports mtime invalidations", async () => {
     await withTempDir(async (projectRoot) => {
         await saveProjectIndexCache({
             projectRoot,
@@ -277,7 +277,7 @@ test("loadProjectIndexCache reports mtime invalidations", async () => {
     });
 });
 
-test("loadProjectIndexCache tolerates sub-millisecond mtime noise", async () => {
+void test("loadProjectIndexCache tolerates sub-millisecond mtime noise", async () => {
     await withTempDir(async (projectRoot) => {
         const manifestBase = 1_700_000_000_000;
         const manifestMtimes = {
@@ -313,7 +313,7 @@ test("loadProjectIndexCache tolerates sub-millisecond mtime noise", async () => 
     });
 });
 
-test("loadProjectIndexCache treats differently ordered mtime maps as equal", async () => {
+void test("loadProjectIndexCache treats differently ordered mtime maps as equal", async () => {
     await withTempDir(async (projectRoot) => {
         await saveProjectIndexCache({
             projectRoot,
@@ -348,7 +348,7 @@ test("loadProjectIndexCache treats differently ordered mtime maps as equal", asy
     });
 });
 
-test("loadProjectIndexCache handles corrupted cache payloads", async () => {
+void test("loadProjectIndexCache handles corrupted cache payloads", async () => {
     await withTempDir(async (projectRoot) => {
         const cacheDir = path.join(projectRoot, PROJECT_INDEX_CACHE_DIRECTORY);
         await mkdir(cacheDir, { recursive: true });
@@ -378,7 +378,7 @@ test("loadProjectIndexCache handles corrupted cache payloads", async () => {
     });
 });
 
-test("createProjectIndexCoordinator serialises builds for the same project", async () => {
+void test("createProjectIndexCoordinator serialises builds for the same project", async () => {
     const storedPayloads = new Map();
     let buildCount = 0;
     const cacheFilePath = path.join(os.tmpdir(), "virtual-cache.json");
@@ -477,10 +477,10 @@ test("createProjectIndexCoordinator serialises builds for the same project", asy
         coordinator.dispose();
     }
 
-    await assert.rejects(coordinator.ensureReady(descriptor), /disposed/i);
+    assert.throws(() => coordinator.ensureReady(descriptor), /disposed/i);
 });
 
-test("createProjectIndexCoordinator aborts in-flight builds on dispose", async () => {
+void test("createProjectIndexCoordinator aborts in-flight builds on dispose", async () => {
     const cacheFilePath = path.join(os.tmpdir(), "virtual-cache.json");
     const buildStarted = createDeferred();
     let saveCalls = 0;
@@ -557,7 +557,7 @@ test("createProjectIndexCoordinator aborts in-flight builds on dispose", async (
     assert.equal(saveCalls, 0, "Cache writes should not occur after dispose");
 });
 
-test("createProjectIndexCoordinator forwards configured cacheMaxSizeBytes", async () => {
+void test("createProjectIndexCoordinator forwards configured cacheMaxSizeBytes", async () => {
     await assertCoordinatorMaxSizeScenario({
         coordinatorOverrides: { cacheMaxSizeBytes: 42 },
         ensureArgs: { projectRoot: "/project" },
@@ -565,7 +565,7 @@ test("createProjectIndexCoordinator forwards configured cacheMaxSizeBytes", asyn
     });
 });
 
-test("createProjectIndexCoordinator allows descriptor maxSizeBytes overrides", async () => {
+void test("createProjectIndexCoordinator allows descriptor maxSizeBytes overrides", async () => {
     await assertCoordinatorMaxSizeScenario({
         coordinatorOverrides: { cacheMaxSizeBytes: 42 },
         ensureArgs: { projectRoot: "/project", maxSizeBytes: 99 },
@@ -615,11 +615,11 @@ async function assertCoordinatorMaxSizeScenario({
 // to assertions that intermittently observed a mutated baseline. Running them
 // sequentially keeps the shared state deterministic without relying on timing
 // quirks or the test scheduler's execution order.
-test.describe(
+void test.describe(
     "project index cache default size overrides",
     { concurrency: false },
     () => {
-        test("project index cache max size can be tuned programmatically", () => {
+        void test("project index cache max size can be tuned programmatically", () => {
             const originalMax = getDefaultProjectIndexCacheMaxSize();
 
             try {
@@ -648,7 +648,7 @@ test.describe(
             }
         });
 
-        test("environment overrides apply before using cache max size default", () => {
+        void test("environment overrides apply before using cache max size default", () => {
             const originalMax = getDefaultProjectIndexCacheMaxSize();
 
             try {
@@ -662,7 +662,7 @@ test.describe(
             }
         });
 
-        test("environment overrides can disable the cache max size", () => {
+        void test("environment overrides can disable the cache max size", () => {
             const originalMax = getDefaultProjectIndexCacheMaxSize();
 
             try {
@@ -676,7 +676,7 @@ test.describe(
             }
         });
 
-        test("createProjectIndexCoordinator uses configured default cache max size", async () => {
+        void test("createProjectIndexCoordinator uses configured default cache max size", async () => {
             const originalMax = getDefaultProjectIndexCacheMaxSize();
             let coordinator = null;
 

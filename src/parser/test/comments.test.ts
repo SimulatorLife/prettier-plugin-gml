@@ -14,7 +14,7 @@ const {
     isLineComment
 } = Core;
 
-test("isCommentNode differentiates comment nodes", () => {
+void test("isCommentNode differentiates comment nodes", () => {
     assert.equal(isCommentNode(null), false);
     assert.equal(isCommentNode({ type: "Program" }), false);
     assert.equal(
@@ -24,7 +24,7 @@ test("isCommentNode differentiates comment nodes", () => {
     assert.equal(isCommentNode({ type: "CommentBlock" }), true);
 });
 
-test("line and block helpers classify comment nodes", () => {
+void test("line and block helpers classify comment nodes", () => {
     const line = { type: "CommentLine", value: "// comment" };
     const block = { type: "CommentBlock", value: "/* comment */" };
 
@@ -34,7 +34,7 @@ test("line and block helpers classify comment nodes", () => {
     assert.equal(isBlockComment(line), false);
 });
 
-test("hasComment reports when nodes contain comments", () => {
+void test("hasComment reports when nodes contain comments", () => {
     const nodeWithComment = {
         comments: [{ type: "CommentLine", value: "// comment" }]
     };
@@ -46,7 +46,7 @@ test("hasComment reports when nodes contain comments", () => {
     assert.equal(hasComment(nodeWithoutCommentsProperty), false);
 });
 
-test("getCommentArray normalizes comment collections", () => {
+void test("getCommentArray normalizes comment collections", () => {
     const comment = { type: "CommentLine", value: "// comment" };
     const nodeWithComments = { comments: [comment] };
     const nodeWithoutComments = {};
@@ -58,7 +58,7 @@ test("getCommentArray normalizes comment collections", () => {
     assert.deepEqual(getCommentArray(null), []);
 });
 
-test("getCommentValue normalizes raw and node inputs", () => {
+void test("getCommentValue normalizes raw and node inputs", () => {
     assert.equal(getCommentValue(" // comment "), " // comment ");
     assert.equal(getCommentValue(" // comment ", { trim: true }), "// comment");
 
@@ -70,7 +70,7 @@ test("getCommentValue normalizes raw and node inputs", () => {
     assert.equal(getCommentValue({ type: "CommentLine" }), "");
 });
 
-test("collectCommentNodes finds nested comment nodes", () => {
+void test("collectCommentNodes finds nested comment nodes", () => {
     const lineComment = { type: "CommentLine", value: "root" };
     const blockComment = { type: "CommentBlock", value: "nested" };
     const functionComment = { type: "CommentLine", value: "function" };
@@ -98,7 +98,7 @@ test("collectCommentNodes finds nested comment nodes", () => {
     assert.ok(collected.includes(functionComment));
 });
 
-test("isDocCommentLine recognises doc-style comments", () => {
+void test("isDocCommentLine recognises doc-style comments", () => {
     assert.equal(
         isDocCommentLine({ type: "CommentLine", value: "/ @description" }),
         true

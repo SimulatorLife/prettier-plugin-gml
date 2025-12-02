@@ -8,7 +8,7 @@ import {
 } from "../src/modules/feather/metadata.js";
 import { REPO_ROOT } from "../src/shared/workspace-paths.js";
 
-test("feather metadata loader resolves bundled snapshot", () => {
+void test("feather metadata loader resolves bundled snapshot", () => {
     const expectedPath = path.resolve(
         REPO_ROOT,
         "resources",

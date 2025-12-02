@@ -4,12 +4,12 @@ import test from "node:test";
 
 import { callWithFallback } from "../src/utils/function.js";
 
-test("callWithFallback returns callback result when successful", () => {
+void test("callWithFallback returns callback result when successful", () => {
     const result = callWithFallback(() => 42);
     assert.strictEqual(result, 42);
 });
 
-test("callWithFallback returns fallback value when callback throws", () => {
+void test("callWithFallback returns fallback value when callback throws", () => {
     const result = callWithFallback(
         () => {
             throw new Error("failure");
@@ -20,7 +20,7 @@ test("callWithFallback returns fallback value when callback throws", () => {
     assert.strictEqual(result, "fallback");
 });
 
-test("callWithFallback invokes fallback function with the thrown error", () => {
+void test("callWithFallback invokes fallback function with the thrown error", () => {
     const error = new Error("failure");
     let receivedError = null;
 
@@ -40,7 +40,7 @@ test("callWithFallback invokes fallback function with the thrown error", () => {
     assert.strictEqual(result, 7);
 });
 
-test("callWithFallback notifies the error handler before returning the fallback", () => {
+void test("callWithFallback notifies the error handler before returning the fallback", () => {
     const error = new Error("failure");
     let handledError = null;
 
@@ -60,7 +60,7 @@ test("callWithFallback notifies the error handler before returning the fallback"
     assert.strictEqual(result, null);
 });
 
-test("callWithFallback defaults to undefined when no fallback is provided", () => {
+void test("callWithFallback defaults to undefined when no fallback is provided", () => {
     const result = callWithFallback(() => {
         throw new Error("failure");
     });

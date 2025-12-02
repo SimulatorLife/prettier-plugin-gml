@@ -20,7 +20,7 @@ test.afterEach(() => {
     resetReservedIdentifierMetadataLoader();
 });
 
-test("custom metadata loader honours default exclusion filters", () => {
+void test("custom metadata loader honours default exclusion filters", () => {
     const cleanup = setReservedIdentifierMetadataLoader(() => ({
         identifiers: {
             foo: { type: "Function" },
@@ -37,7 +37,7 @@ test("custom metadata loader honours default exclusion filters", () => {
     cleanup();
 });
 
-test("cleanup handler only restores the active loader", () => {
+void test("cleanup handler only restores the active loader", () => {
     const cleanupFirst = setReservedIdentifierMetadataLoader(() => ({
         identifiers: {
             foo: { type: "function" }
@@ -58,7 +58,7 @@ test("cleanup handler only restores the active loader", () => {
     assert.ok(!names.has("foo"));
 });
 
-test("invalid loader input resets to the default implementation", () => {
+void test("invalid loader input resets to the default implementation", () => {
     const cleanup = setReservedIdentifierMetadataLoader(null);
 
     assert.equal(typeof cleanup, "function");

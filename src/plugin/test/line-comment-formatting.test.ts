@@ -2,8 +2,8 @@ import assert from "node:assert/strict";
 import { describe, it } from "node:test";
 import { Parser } from "@gml-modules/parser";
 
-describe("line comment formatting helpers", () => {
-    it("promotes leading doc-like single-slash comments to triple-slash", () => {
+void describe("line comment formatting helpers", () => {
+    void it("promotes leading doc-like single-slash comments to triple-slash", () => {
         const docLikeComment = {
             type: "CommentLine",
             value: " Leading summary",
@@ -14,7 +14,7 @@ describe("line comment formatting helpers", () => {
         assert.strictEqual(result.trim(), "/// Leading summary");
     });
 
-    it("formats a long inline comment with preserved spacing", () => {
+    void it("formats a long inline comment with preserved spacing", () => {
         // Scenario:
         // The codebase contains blocks of commented-out code where a comment
         // line itself contains a commented-out statement. In the wild this
@@ -58,7 +58,7 @@ describe("line comment formatting helpers", () => {
         assert.strictEqual(result.trim(), expected);
     });
 
-    it("retains banner content when decorations were stripped upstream", () => {
+    void it("retains banner content when decorations were stripped upstream", () => {
         const normalized = Parser.normalizeBannerCommentText("Heading", {
             assumeDecorated: true
         });

@@ -12,18 +12,18 @@ import {
 } from "../src/modules/memory/index.js";
 import { isCliUsageError } from "../src/cli-core/errors.js";
 
-describe("memory iteration configuration", () => {
+void describe("memory iteration configuration", () => {
     afterEach(() => {
         setDefaultMemoryIterations(DEFAULT_ITERATIONS);
     });
 
-    it("returns the baseline default when no overrides are applied", () => {
+    void it("returns the baseline default when no overrides are applied", () => {
         setDefaultMemoryIterations(DEFAULT_ITERATIONS);
 
         assert.equal(getDefaultMemoryIterations(), DEFAULT_ITERATIONS);
     });
 
-    it("allows overriding the default iteration count", () => {
+    void it("allows overriding the default iteration count", () => {
         setDefaultMemoryIterations(DEFAULT_ITERATIONS);
 
         setDefaultMemoryIterations(125_000);
@@ -32,13 +32,13 @@ describe("memory iteration configuration", () => {
         assert.equal(resolveMemoryIterations(), 125_000);
     });
 
-    it("normalizes string inputs when resolving iteration counts", () => {
+    void it("normalizes string inputs when resolving iteration counts", () => {
         setDefaultMemoryIterations(10_000);
 
         assert.equal(resolveMemoryIterations(" 25000 "), 25_000);
     });
 
-    it("applies environment overrides to the default iteration count", () => {
+    void it("applies environment overrides to the default iteration count", () => {
         setDefaultMemoryIterations(DEFAULT_ITERATIONS);
 
         applyMemoryIterationsEnvOverride({
@@ -48,7 +48,7 @@ describe("memory iteration configuration", () => {
         assert.equal(getDefaultMemoryIterations(), 750_000);
     });
 
-    it("applies environment overrides to commands", () => {
+    void it("applies environment overrides to commands", () => {
         const calls = [];
         const command = {
             setOptionValueWithSource(...args) {
@@ -66,7 +66,7 @@ describe("memory iteration configuration", () => {
         assert.deepEqual(calls, [["iterations", 120_000, "env"]]);
     });
 
-    it("wraps invalid environment overrides in usage errors", () => {
+    void it("wraps invalid environment overrides in usage errors", () => {
         const command = {
             setOptionValueWithSource() {
                 throw new Error("should not be called");

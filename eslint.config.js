@@ -1,4 +1,6 @@
 // eslint.config.ts
+// ESLint Flat Config for the project. Agents: Do NOT modify this to relax rules to 'fix' lint errors. Fix the underlying issues instead.
+
 import path from "node:path";
 import { fileURLToPath } from "node:url";
 
@@ -59,33 +61,6 @@ const baseIgnorePatterns = [
     // Removing the blanket ignore allows the `.github/*.yml` files to
     // be picked up by `npm run lint:yaml` and by CI checks.
 ];
-
-// 1) Global settings (no files filter) so they apply everywhere
-// const sharedSettings = {
-//     "import/resolver": {
-//         typescript: tsImportResolver,
-//         node: { extensions: [".js", ".ts"] }
-//     },
-
-//     "boundaries/include": ["src/**/*.{ts,js}"],
-//     "boundaries/ignore": [
-//         "node_modules/**",
-//         "dist/**",
-//         "**/*.d.ts"
-//     ],
-//     "boundaries/elements": [
-//         { type: "test", pattern: "src/**/test/**" }, // tests first
-//         { type: "core", pattern: "src/core/**" },
-//         { type: "parser", pattern: "src/parser/**" },
-//         { type: "parser-generated", pattern: "src/parser/generated/**" },
-//         { type: "transpiler", pattern: "src/transpiler/**" },
-//         { type: "semantic", pattern: "src/semantic/**" },
-//         { type: "plugin", pattern: "src/plugin/**" },
-//         { type: "refactor", pattern: "src/refactor/**" },
-//         { type: "runtime-wrapper", pattern: "src/runtime-wrapper/**" },
-//         { type: "cli", pattern: "src/cli/**" }
-//     ]
-// };
 
 /**
  * TypeScript configuration:

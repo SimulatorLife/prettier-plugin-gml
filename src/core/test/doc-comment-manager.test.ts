@@ -11,7 +11,7 @@ const {
     resolveDocCommentUpdateService
 } = Core;
 
-test("doc comment services expose segregated contracts", () => {
+void test("doc comment services expose segregated contracts", () => {
     const ast = { type: "Program", body: [] };
 
     const traversal = resolveDocCommentTraversalService(ast);
@@ -39,7 +39,7 @@ test("doc comment services expose segregated contracts", () => {
     assert.strictEqual(typeof updates.applyUpdates, "function");
 });
 
-test("doc comment services reuse cached views and tolerate missing AST", () => {
+void test("doc comment services reuse cached views and tolerate missing AST", () => {
     const ast = { type: "Program", body: [] };
 
     const firstTraversal = resolveDocCommentTraversalService(ast);
@@ -77,7 +77,7 @@ test("doc comment services reuse cached views and tolerate missing AST", () => {
     assert.doesNotThrow(() => noopUpdates.applyUpdates(new Map()));
 });
 
-test("doc comment collection tolerates sibling mutation during traversal", () => {
+void test("doc comment collection tolerates sibling mutation during traversal", () => {
     const docComment = {
         type: "CommentLine",
         value: "/ @description mutated",

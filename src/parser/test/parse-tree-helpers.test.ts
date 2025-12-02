@@ -35,26 +35,26 @@ createBaseCtor.prototype = {
     }
 };
 
-test("collectVisitMethodNames filters generated visitor helpers", () => {
+void test("collectVisitMethodNames filters generated visitor helpers", () => {
     assert.deepEqual(collectVisitMethodNames(SampleVisitor), [
         "visitProgram",
         "visitExpression"
     ]);
 });
 
-test("collectPrototypeMethodNames omits constructors", () => {
+void test("collectPrototypeMethodNames omits constructors", () => {
     const names = collectPrototypeMethodNames(createBaseCtor.prototype);
     assert.deepEqual(names, ["custom"]);
 });
 
-test("deriveListenerMethodNames transforms visit names", () => {
+void test("deriveListenerMethodNames transforms visit names", () => {
     assert.deepEqual(
         deriveListenerMethodNames(["visitProgram", "visitExpression"]),
         ["enterProgram", "exitProgram", "enterExpression", "exitExpression"]
     );
 });
 
-test("definePrototypeMethods attaches generated methods", () => {
+void test("definePrototypeMethods attaches generated methods", () => {
     const target = {};
     definePrototypeMethods(target, ["alpha", "beta"], (name) => () => name);
 
@@ -62,7 +62,7 @@ test("definePrototypeMethods attaches generated methods", () => {
     assert.equal((target as any).beta(), "beta");
 });
 
-test("createWrapperSymbols produces stable symbol keys", () => {
+void test("createWrapperSymbols produces stable symbol keys", () => {
     const one = createWrapperSymbols("Example");
     const two = createWrapperSymbols("Example");
 
@@ -70,7 +70,7 @@ test("createWrapperSymbols produces stable symbol keys", () => {
     assert.equal(one.patchFlag, two.patchFlag);
 });
 
-test("ensureHasInstancePatched recognises marker decorated instances", () => {
+void test("ensureHasInstancePatched recognises marker decorated instances", () => {
     const Base = WrapperBase;
     const { instance, patchFlag } = createWrapperSymbols("ExampleBase");
     ensureHasInstancePatched(Base, {
@@ -84,7 +84,7 @@ test("ensureHasInstancePatched recognises marker decorated instances", () => {
     assert.equal(Base[patchFlag], true);
 });
 
-test("toDelegate returns fallback when the candidate is not callable", () => {
+void test("toDelegate returns fallback when the candidate is not callable", () => {
     assert.equal(toDelegate(null, fallbackDelegate), fallbackDelegate);
     assert.equal(
         toDelegate(fallbackDelegate, alternateDelegate),

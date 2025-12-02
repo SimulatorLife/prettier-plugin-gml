@@ -12,12 +12,12 @@ function createLineComment(value, raw = `//${value}`) {
     };
 }
 
-describe("resolveLineCommentOptions", () => {
+void describe("resolveLineCommentOptions", () => {
     afterEach(() => {
         Parser.restoreDefaultLineCommentOptionsResolver();
     });
 
-    it("returns the default option object when no resolver is installed", () => {
+    void it("returns the default option object when no resolver is installed", () => {
         const resolved = Parser.resolveLineCommentOptions();
 
         assert.strictEqual(resolved, Parser.DEFAULT_LINE_COMMENT_OPTIONS);
@@ -27,7 +27,7 @@ describe("resolveLineCommentOptions", () => {
         );
     });
 
-    it("allows integrators to extend boilerplate heuristics via resolver hook", () => {
+    void it("allows integrators to extend boilerplate heuristics via resolver hook", () => {
         const customFragment = "// AUTO-GENERATED FILE";
         Parser.setLineCommentOptionsResolver(() => ({
             boilerplateFragments: [
@@ -48,7 +48,7 @@ describe("resolveLineCommentOptions", () => {
         );
     });
 
-    it("falls back to defaults when the resolver returns invalid data", () => {
+    void it("falls back to defaults when the resolver returns invalid data", () => {
         Parser.setLineCommentOptionsResolver(() => ({
             boilerplateFragments: null,
             codeDetectionPatterns: ["/^SQL:/i"]
@@ -60,8 +60,8 @@ describe("resolveLineCommentOptions", () => {
     });
 });
 
-describe("formatLineComment", () => {
-    it("treats control-flow snippets as commented-out code using defaults", () => {
+void describe("formatLineComment", () => {
+    void it("treats control-flow snippets as commented-out code using defaults", () => {
         const comment = createLineComment(
             " if (player.hp <= 0) return;",
             "// if (player.hp <= 0) return;"
@@ -75,7 +75,7 @@ describe("formatLineComment", () => {
         assert.equal(formatted, "// if (player.hp <= 0) return;");
     });
 
-    it("respects sanitized override objects when supplied directly", () => {
+    void it("respects sanitized override objects when supplied directly", () => {
         const comment = createLineComment(
             " AUTO-GENERATED FILE - do not edit",
             "// AUTO-GENERATED FILE - do not edit"

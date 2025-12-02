@@ -17,40 +17,40 @@ import {
     uniqueArray
 } from "../src/utils/array.js";
 
-test("toArray wraps non-array values", () => {
+void test("toArray wraps non-array values", () => {
     assert.deepEqual(toArray("value"), ["value"]);
     assert.deepEqual(toArray(0), [0]);
     assert.deepEqual(toArray(false), [false]);
 });
 
-test("toArray preserves arrays", () => {
+void test("toArray preserves arrays", () => {
     const input = [1, 2, 3];
     assert.strictEqual(toArray(input), input);
 });
 
-test("toArray normalizes nullish values to empty arrays", () => {
+void test("toArray normalizes nullish values to empty arrays", () => {
     assert.deepEqual(toArray(null), []);
     assert.deepEqual(toArray(), []);
 });
 
-test("asArray returns arrays unchanged", () => {
+void test("asArray returns arrays unchanged", () => {
     const input = [1, 2, 3];
     assert.strictEqual(asArray(input), input);
 });
 
-test("asArray normalizes non-arrays to empty arrays", () => {
+void test("asArray normalizes non-arrays to empty arrays", () => {
     assert.deepEqual(asArray(null), []);
     assert.deepEqual(asArray(), []);
     assert.deepEqual(asArray("value"), []);
 });
 
-test("isNonEmptyArray identifies arrays with elements", () => {
+void test("isNonEmptyArray identifies arrays with elements", () => {
     assert.strictEqual(isNonEmptyArray([0]), true);
     assert.strictEqual(isNonEmptyArray([]), false);
     assert.strictEqual(isNonEmptyArray(null), false);
 });
 
-test("uniqueArray removes duplicates while preserving order", () => {
+void test("uniqueArray removes duplicates while preserving order", () => {
     assert.deepEqual(uniqueArray(["alpha", "beta", "alpha", "gamma", "beta"]), [
         "alpha",
         "beta",
@@ -58,7 +58,7 @@ test("uniqueArray removes duplicates while preserving order", () => {
     ]);
 });
 
-test("toArrayFromIterable snapshots arrays before mutation", () => {
+void test("toArrayFromIterable snapshots arrays before mutation", () => {
     const input = ["alpha", "beta"];
 
     const snapshot = toArrayFromIterable(input);
@@ -72,7 +72,7 @@ test("toArrayFromIterable snapshots arrays before mutation", () => {
     assert.deepEqual(snapshot, ["alpha", "beta", "gamma"]);
 });
 
-test("uniqueArray supports iterables and optional freezing", () => {
+void test("uniqueArray supports iterables and optional freezing", () => {
     const result = uniqueArray(new Set(["one", "two", "one"]), {
         freeze: true
     });
@@ -81,14 +81,14 @@ test("uniqueArray supports iterables and optional freezing", () => {
     assert.ok(Object.isFrozen(result));
 });
 
-test("compactArray removes falsy entries while preserving order", () => {
+void test("compactArray removes falsy entries while preserving order", () => {
     assert.deepEqual(compactArray([0, "", "alpha", false, "beta", null]), [
         "alpha",
         "beta"
     ]);
 });
 
-test("compactArray tolerates iterables and optional freezing", () => {
+void test("compactArray tolerates iterables and optional freezing", () => {
     const iterable = new Set(["first", "", "second"]);
     const result = compactArray(iterable, { freeze: true });
 
@@ -96,12 +96,12 @@ test("compactArray tolerates iterables and optional freezing", () => {
     assert.ok(Object.isFrozen(result));
 });
 
-test("compactArray normalizes nullish inputs to empty arrays", () => {
+void test("compactArray normalizes nullish inputs to empty arrays", () => {
     assert.deepEqual(compactArray(null), []);
     assert.deepEqual(compactArray(), []);
 });
 
-test("pushUnique appends values that are not present", () => {
+void test("pushUnique appends values that are not present", () => {
     const entries = ["alpha"];
 
     const added = pushUnique(entries, "beta");
@@ -110,7 +110,7 @@ test("pushUnique appends values that are not present", () => {
     assert.deepEqual(entries, ["alpha", "beta"]);
 });
 
-test("pushUnique skips existing values", () => {
+void test("pushUnique skips existing values", () => {
     const entries = ["alpha", "beta"];
 
     const added = pushUnique(entries, "alpha");
@@ -119,7 +119,7 @@ test("pushUnique skips existing values", () => {
     assert.deepEqual(entries, ["alpha", "beta"]);
 });
 
-test("pushUnique can use a custom equality comparator", () => {
+void test("pushUnique can use a custom equality comparator", () => {
     const entries = [{ id: 1 }, { id: 2 }];
 
     const added = pushUnique(
@@ -132,6 +132,6 @@ test("pushUnique can use a custom equality comparator", () => {
     assert.strictEqual(entries.length, 2);
 });
 
-test("pushUnique throws when provided a non-array target", () => {
+void test("pushUnique throws when provided a non-array target", () => {
     assert.throws(() => pushUnique(null, "value"), /requires an array/i);
 });

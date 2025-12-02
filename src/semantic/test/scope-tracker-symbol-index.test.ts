@@ -3,7 +3,7 @@ import assert from "node:assert/strict";
 
 import ScopeTracker from "../src/scopes/scope-tracker.js";
 
-test("getScopesForSymbol returns scopes containing a symbol", () => {
+void test("getScopesForSymbol returns scopes containing a symbol", () => {
     const tracker = new ScopeTracker({ enabled: true });
     const rootScope = tracker.enterScope("program");
 
@@ -52,7 +52,7 @@ test("getScopesForSymbol returns scopes containing a symbol", () => {
     assert.ok(localScopes.includes(childScope1.id));
 });
 
-test("getScopesForSymbol returns empty array for non-existent symbol", () => {
+void test("getScopesForSymbol returns empty array for non-existent symbol", () => {
     const tracker = new ScopeTracker({ enabled: true });
     tracker.enterScope("root");
 
@@ -68,7 +68,7 @@ test("getScopesForSymbol returns empty array for non-existent symbol", () => {
     assert.deepStrictEqual(result, []);
 });
 
-test("getScopesForSymbol returns empty array when disabled", () => {
+void test("getScopesForSymbol returns empty array when disabled", () => {
     const tracker = new ScopeTracker({ enabled: false });
 
     const result = tracker.getScopesForSymbol("any");
@@ -76,7 +76,7 @@ test("getScopesForSymbol returns empty array when disabled", () => {
     assert.deepStrictEqual(result, []);
 });
 
-test("getScopesForSymbol returns empty array for null name", () => {
+void test("getScopesForSymbol returns empty array for null name", () => {
     const tracker = new ScopeTracker({ enabled: true });
     tracker.enterScope("root");
 
@@ -92,7 +92,7 @@ test("getScopesForSymbol returns empty array for null name", () => {
     assert.deepStrictEqual(result, []);
 });
 
-test("getScopesForSymbol provides O(1) lookup for hot reload invalidation", () => {
+void test("getScopesForSymbol provides O(1) lookup for hot reload invalidation", () => {
     const tracker = new ScopeTracker({ enabled: true });
 
     const numScopes = 100;
@@ -130,7 +130,7 @@ test("getScopesForSymbol provides O(1) lookup for hot reload invalidation", () =
     );
 });
 
-test("getScopesForSymbol handles symbols with both declarations and references", () => {
+void test("getScopesForSymbol handles symbols with both declarations and references", () => {
     const tracker = new ScopeTracker({ enabled: true });
     const scope1 = tracker.enterScope("program");
 
@@ -163,7 +163,7 @@ test("getScopesForSymbol handles symbols with both declarations and references",
     assert.ok(result.includes(scope2.id));
 });
 
-test("getSymbolScopeSummary distinguishes declarations and references", () => {
+void test("getSymbolScopeSummary distinguishes declarations and references", () => {
     const tracker = new ScopeTracker({ enabled: true });
     const programScope = tracker.enterScope("program");
 
@@ -233,13 +233,13 @@ test("getSymbolScopeSummary distinguishes declarations and references", () => {
     });
 });
 
-test("getSymbolScopeSummary returns empty array for disabled tracker", () => {
+void test("getSymbolScopeSummary returns empty array for disabled tracker", () => {
     const tracker = new ScopeTracker({ enabled: false });
 
     assert.deepStrictEqual(tracker.getSymbolScopeSummary("anything"), []);
 });
 
-test("getSymbolScopeSummary returns empty array for unknown symbol", () => {
+void test("getSymbolScopeSummary returns empty array for unknown symbol", () => {
     const tracker = new ScopeTracker({ enabled: true });
     tracker.enterScope("program");
     tracker.exitScope();

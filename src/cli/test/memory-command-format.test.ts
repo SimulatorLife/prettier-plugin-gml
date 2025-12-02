@@ -7,7 +7,7 @@ import type { ParseOptions } from "commander";
 
 const USER_PARSE_OPTIONS: ParseOptions = { from: "user" };
 
-test("memory command accepts valid format values", () => {
+void test("memory command accepts valid format values", () => {
     const command = createMemoryCommand({ env: {} });
 
     command.parse(["--format", SuiteOutputFormat.HUMAN], USER_PARSE_OPTIONS);
@@ -15,7 +15,7 @@ test("memory command accepts valid format values", () => {
     assert.equal(command.opts().format, SuiteOutputFormat.HUMAN);
 });
 
-test("memory command rejects invalid format values", () => {
+void test("memory command rejects invalid format values", () => {
     const command = createMemoryCommand({ env: {} });
 
     assert.throws(

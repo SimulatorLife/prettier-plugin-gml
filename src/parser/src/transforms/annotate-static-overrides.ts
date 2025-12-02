@@ -48,17 +48,19 @@ class AnnotateStaticFunctionOverridesTransform extends FunctionalParserTransform
         }
 
         const constructors = new Map<string, ConstructorInfo>();
+        const body = Core.getBodyStatements(ast as Record<string, unknown>);
 
-        for (const node of Core.getBodyStatements(
-            ast as Record<string, unknown>
-        )) {
+        for (const node of body) {
             if (!Core.isNode(node) || node.type !== "ConstructorDeclaration") {
                 continue;
             }
 
             const name = Core.isIdentifierNode(node.id)
                 ? Core.getNonEmptyString(node.id.name)
+                : typeof node.id === "string"
+                ? Core.getNonEmptyString(node.id)
                 : null;
+            
             if (!name) {
                 continue;
             }
@@ -71,6 +73,8 @@ class AnnotateStaticFunctionOverridesTransform extends FunctionalParserTransform
                 const parentId = (node.parent as any).id;
                 parentName = Core.isIdentifierNode(parentId)
                     ? Core.getNonEmptyString(parentId.name)
+                    : typeof parentId === "string"
+                    ? Core.getNonEmptyString(parentId)
                     : null;
             }
 
@@ -148,7 +152,10 @@ class AnnotateStaticFunctionOverridesTransform extends FunctionalParserTransform
         statement: MutableGameMakerAstNode | null | undefined
     ) {
         const declarator = this.getStaticFunctionDeclarator(statement);
-        return declarator?.init?.type === "FunctionDeclaration";
+        return (
+            declarator?.init?.type === "FunctionDeclaration" ||
+            declarator?.init?.type === "FunctionExpression"
+        );
     }
 
     private extractStaticFunctionName(

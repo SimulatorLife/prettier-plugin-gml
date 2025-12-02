@@ -36,7 +36,7 @@ afterEach(() => {
     workspace = undefined;
 });
 
-test("detects regressions when a previously passing test now fails", () => {
+void test("detects regressions when a previously passing test now fails", () => {
     const baseDir = path.join(workspace, "base/reports");
     const mergeDir = path.join(workspace, "merge/reports");
 
@@ -71,7 +71,7 @@ test("detects regressions when a previously passing test now fails", () => {
     assert.strictEqual(regressions[0].to, "failed");
 });
 
-test("treats failing tests without a base counterpart as regressions", () => {
+void test("treats failing tests without a base counterpart as regressions", () => {
     const baseDir = path.join(workspace, "base/reports");
     const headDir = path.join(workspace, "reports");
 
@@ -110,7 +110,7 @@ test("treats failing tests without a base counterpart as regressions", () => {
     );
 });
 
-test("does not treat renamed failures as regressions when totals are stable", () => {
+void test("does not treat renamed failures as regressions when totals are stable", () => {
     const baseDir = path.join(workspace, "base/reports");
     const mergeDir = path.join(workspace, "merge/reports");
 
@@ -147,7 +147,7 @@ test("does not treat renamed failures as regressions when totals are stable", ()
     assert.strictEqual(regressions.length, 0);
 });
 
-test("parses top-level test cases that are not nested in a suite", () => {
+void test("parses top-level test cases that are not nested in a suite", () => {
     const baseDir = path.join(workspace, "base/reports");
     const mergeDir = path.join(workspace, "merge/reports");
 
@@ -180,7 +180,7 @@ test("parses top-level test cases that are not nested in a suite", () => {
     );
 });
 
-test("ignores checkstyle reports when scanning result directories", () => {
+void test("ignores checkstyle reports when scanning result directories", () => {
     const resultsDir = path.join(workspace, "reports");
 
     writeXml(
@@ -223,7 +223,7 @@ test("ignores checkstyle reports when scanning result directories", () => {
     );
 });
 
-test("records a note when XML lacks test suites or cases", () => {
+void test("records a note when XML lacks test suites or cases", () => {
     const resultsDir = path.join(workspace, "reports");
 
     writeXml(
@@ -244,7 +244,7 @@ test("records a note when XML lacks test suites or cases", () => {
     );
 });
 
-test("normalizes whitespace when describing regression candidates", () => {
+void test("normalizes whitespace when describing regression candidates", () => {
     const headDir = path.join(workspace, "reports");
 
     writeXml(
@@ -277,7 +277,7 @@ test("normalizes whitespace when describing regression candidates", () => {
     );
 });
 
-test("ensureResultsAvailability throws when base results are unavailable", () => {
+void test("ensureResultsAvailability throws when base results are unavailable", () => {
     const base = { usedDir: null };
     const target = { usedDir: "./reports" };
 
@@ -293,7 +293,7 @@ test("ensureResultsAvailability throws when base results are unavailable", () =>
     );
 });
 
-test("reportRegressionSummary returns failure details when regressions exist", () => {
+void test("reportRegressionSummary returns failure details when regressions exist", () => {
     const summary = reportRegressionSummary(
         [
             {
@@ -314,7 +314,7 @@ test("reportRegressionSummary returns failure details when regressions exist", (
     ]);
 });
 
-test("reportRegressionSummary returns success details when no regressions exist", () => {
+void test("reportRegressionSummary returns success details when no regressions exist", () => {
     const summary = reportRegressionSummary([], "PR head");
 
     assert.strictEqual(summary.exitCode, 0);
@@ -323,7 +323,7 @@ test("reportRegressionSummary returns success details when no regressions exist"
     ]);
 });
 
-test("reportRegressionSummary clarifies when regressions offset resolved failures", () => {
+void test("reportRegressionSummary clarifies when regressions offset resolved failures", () => {
     const summary = reportRegressionSummary(
         [
             {
@@ -354,7 +354,7 @@ test("reportRegressionSummary clarifies when regressions offset resolved failure
     ]);
 });
 
-test("detectResolvedFailures returns failures that now pass or are missing", () => {
+void test("detectResolvedFailures returns failures that now pass or are missing", () => {
     const baseDir = path.join(workspace, "base/reports");
     const mergeDir = path.join(workspace, "merge/reports");
 
@@ -400,7 +400,7 @@ test("detectResolvedFailures returns failures that now pass or are missing", () 
     assert.strictEqual(regressions[0].key, "sample :: test :: new failure");
 });
 
-test("detectRegressions accepts heterogeneous result containers", () => {
+void test("detectRegressions accepts heterogeneous result containers", () => {
     const base = {
         results: {
             "suite :: test :: scenario": {

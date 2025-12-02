@@ -15,8 +15,8 @@ import {
     isSetLike
 } from "../src/utils/capability-probes.js";
 
-describe("capability probes", () => {
-    it("detects callable properties", () => {
+void describe("capability probes", () => {
+    void it("detects callable properties", () => {
         const method = Symbol("method");
         const target = {
             run() {},
@@ -29,7 +29,7 @@ describe("capability probes", () => {
         assert.equal(hasFunction(null, "run"), false);
     });
 
-    it("detects error-like values", () => {
+    void it("detects error-like values", () => {
         assert.equal(isErrorLike(new Error("boom")), true);
         assert.equal(isErrorLike({ message: "boom", name: "Custom" }), true);
         assert.equal(isErrorLike({ message: 42 }), false);
@@ -44,7 +44,7 @@ describe("capability probes", () => {
         assert.equal(isAggregateErrorLike({ message: "boom" }), false);
     });
 
-    it("identifies regexp-like inputs", () => {
+    void it("identifies regexp-like inputs", () => {
         assert.equal(isRegExpLike(/abc/), true);
         const regExpLike = {
             exec: () => null,
@@ -54,7 +54,7 @@ describe("capability probes", () => {
         assert.equal(isRegExpLike({ test: () => true }), false);
     });
 
-    it("guards map-like collaborators", () => {
+    void it("guards map-like collaborators", () => {
         const base = new Map([["key", 1]]);
         const mapLike = {
             get(key) {
@@ -79,7 +79,7 @@ describe("capability probes", () => {
         assert.equal(getIterableSize(mapLike), 1);
     });
 
-    it("guards set-like collaborators", () => {
+    void it("guards set-like collaborators", () => {
         const base = new Set(["value"]);
         const setLike = {
             add(value) {
@@ -101,7 +101,7 @@ describe("capability probes", () => {
         assert.equal(getIterableSize(setLike), 1);
     });
 
-    it("counts iterables without explicit size", () => {
+    void it("counts iterables without explicit size", () => {
         const iterable = {
             *[Symbol.iterator]() {
                 yield "a";
@@ -112,7 +112,7 @@ describe("capability probes", () => {
         assert.equal(getIterableSize(iterable), 2);
     });
 
-    it("ensures set-like collaborators remain writable", () => {
+    void it("ensures set-like collaborators remain writable", () => {
         const existing = new Set(["macro"]);
         assert.equal(ensureSet(existing), existing);
 
@@ -122,7 +122,7 @@ describe("capability probes", () => {
         assert.equal(ensureSet("macro").size, 0);
     });
 
-    it("coerces map-like collaborators into normalized maps", () => {
+    void it("coerces map-like collaborators into normalized maps", () => {
         const base = new Map([["id", { status: "passed" }]]);
         const adapter = {
             get(key) {
@@ -151,7 +151,7 @@ describe("capability probes", () => {
         assert.equal(fromObject.get("id")?.status, "failed");
     });
 
-    it("ignores invalid iterable shapes when normalizing maps", () => {
+    void it("ignores invalid iterable shapes when normalizing maps", () => {
         assert.equal(ensureMap(new Set(["value"])).size, 0);
 
         const invalidIterable = {

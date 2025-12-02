@@ -3,7 +3,7 @@ import { test } from "node:test";
 
 import { Plugin } from "../src/index.js";
 
-test("formats struct call arguments across multiple lines with aligned colons", async () => {
+void test("formats struct call arguments across multiple lines with aligned colons", async () => {
     const source = [
         "function demo() {",
         "    return instance_create_layer(",

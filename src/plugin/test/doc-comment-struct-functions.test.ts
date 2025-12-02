@@ -27,7 +27,7 @@ function extractDocBlocks(text) {
     return blocks;
 }
 
-test("struct static functions include @function doc tags", async () => {
+void test("struct static functions include @function doc tags", async () => {
     const source = `function container() constructor {
     /// @description Example
     /// @returns {undefined}
@@ -49,7 +49,7 @@ test("struct static functions include @function doc tags", async () => {
     );
 });
 
-test("struct static functions drop stray @param tags when no parameters", async () => {
+void test("struct static functions drop stray @param tags when no parameters", async () => {
     const source = `function container() constructor {
     /// @function generate
     /// @param {real} width
@@ -75,7 +75,7 @@ test("struct static functions drop stray @param tags when no parameters", async 
     ]);
 });
 
-test("struct static functions keep implicit argument docs", async () => {
+void test("struct static functions keep implicit argument docs", async () => {
     const source = `function container() constructor {
     /// @function dispatch
     /// @param {real} argument0
@@ -100,7 +100,7 @@ test("struct static functions keep implicit argument docs", async () => {
     );
 });
 
-test("struct static function descriptions follow the @function tag", async () => {
+void test("struct static function descriptions follow the @function tag", async () => {
     const source = `function container() constructor {
     /// @description Example description
     /// @method print

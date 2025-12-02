@@ -137,14 +137,14 @@ async function loadTestCases() {
 
 const testCases = await loadTestCases();
 
-describe("Prettier GameMaker plugin fixtures", () => {
+void describe("Prettier GameMaker plugin fixtures", () => {
     for (const {
         baseName,
         inputSource,
         expectedOutput,
         options
     } of testCases) {
-        it(`formats ${baseName}`, async () => {
+        void it(`formats ${baseName}`, async () => {
             const formatted = await Plugin.format(inputSource, options);
             const expected = expectedOutput.trim();
 
@@ -183,7 +183,7 @@ describe("Prettier GameMaker plugin fixtures", () => {
         });
     }
 
-    it("preserves 'globalvar' declarations by default", async () => {
+    void it("preserves 'globalvar' declarations by default", async () => {
         const source = ["globalvar foo, bar;", "foo = 1;", "bar = 2;", ""].join(
             "\n"
         );
@@ -201,7 +201,7 @@ describe("Prettier GameMaker plugin fixtures", () => {
         );
     });
 
-    it("preserves parentheses in @description tags", async () => {
+    void it("preserves parentheses in @description tags", async () => {
         const source = [
             "/// @description Draw()",
             "function draw() {",
@@ -218,7 +218,7 @@ describe("Prettier GameMaker plugin fixtures", () => {
         );
     });
 
-    it("closes GM2008 vertex batches without leading padding", async () => {
+    void it("closes GM2008 vertex batches without leading padding", async () => {
         const source = [
             "vertex_begin(vb, format);",
             "",
@@ -241,7 +241,8 @@ describe("Prettier GameMaker plugin fixtures", () => {
             "",
             "vertex_begin(vb, format);",
             "vertex_position_3d(vb, x2, y2, z2);",
-            "vertex_end(vb);"
+            "vertex_end(vb);",
+            "",
         ].join("\n");
 
         assert.strictEqual(
@@ -251,7 +252,7 @@ describe("Prettier GameMaker plugin fixtures", () => {
         );
     });
 
-    it("retains blank lines following macro directives", async () => {
+    void it("retains blank lines following macro directives", async () => {
         const source = [
             "#define  TRIPLE(value) ((value) * 3)",
             "",
@@ -279,13 +280,14 @@ describe("Prettier GameMaker plugin fixtures", () => {
         );
     });
 
-    it("normalises legacy #define directives", async () => {
+    void it("normalises legacy #define directives", async () => {
         const source = [
             "#define region Toolbox",
             "#define endregion Toolbox",
             "#define LEGACY_MACRO VALUE",
             "#define 123 bad news",
-            "var value = LEGACY_MACRO;"
+            "var value = LEGACY_MACRO;",
+            "",
         ].join("\n");
 
         const formatted = await Plugin.format(source);
@@ -319,7 +321,7 @@ describe("Prettier GameMaker plugin fixtures", () => {
         );
     });
 
-    it("converts argument_count fallback conditionals into default parameters", async () => {
+    void it("converts argument_count fallback conditionals into default parameters", async () => {
         const source = [
             "function example(arg) {",
             "    if (argument_count > 0) {",
@@ -327,7 +329,8 @@ describe("Prettier GameMaker plugin fixtures", () => {
             "    } else {",
             '        arg = "default";',
             "    }",
-            "}"
+            "}",
+            "",
         ].join("\n");
 
         const formatted = await Plugin.format(source);
@@ -336,13 +339,14 @@ describe("Prettier GameMaker plugin fixtures", () => {
             "/// @function example",
             '/// @param [arg="default"]',
             "/// @returns {undefined}",
-            'function example(arg = "default") {}'
+            'function example(arg = "default") {}',
+            ""
         ].join("\n");
 
         assert.strictEqual(formatted, expected);
     });
 
-    it("omits redundant guard parentheses when condensing argument_count fallbacks", async () => {
+    void it("omits redundant guard parentheses when condensing argument_count fallbacks", async () => {
         const source = [
             "function example() {",
             "    var push_out = true;",
@@ -366,7 +370,7 @@ describe("Prettier GameMaker plugin fixtures", () => {
         );
     });
 
-    it("converts argument_count equality fallbacks into default parameters", async () => {
+    void it("converts argument_count equality fallbacks into default parameters", async () => {
         const source = [
             "function equalityExample(arg) {",
             "    if (argument_count == 0) {",
@@ -374,7 +378,8 @@ describe("Prettier GameMaker plugin fixtures", () => {
             "    } else {",
             "        arg = argument[0];",
             "    }",
-            "}"
+            "}",
+            "",
         ].join("\n");
 
         const formatted = await Plugin.format(source);
@@ -383,13 +388,14 @@ describe("Prettier GameMaker plugin fixtures", () => {
             "/// @function equalityExample",
             '/// @param [arg="fallback"]',
             "/// @returns {undefined}",
-            'function equalityExample(arg = "fallback") {}'
+            'function equalityExample(arg = "fallback") {}',
+            ""
         ].join("\n");
 
         assert.strictEqual(formatted, expected);
     });
 
-    it("converts argument_count inequality fallbacks into default parameters", async () => {
+    void it("converts argument_count inequality fallbacks into default parameters", async () => {
         const source = [
             "function inequalityExample(arg) {",
             "    if (argument_count != 0) {",
@@ -397,7 +403,8 @@ describe("Prettier GameMaker plugin fixtures", () => {
             "    } else {",
             '        arg = "fallback";',
             "    }",
-            "}"
+            "}",
+            "",
         ].join("\n");
 
         const formatted = await Plugin.format(source);
@@ -406,13 +413,14 @@ describe("Prettier GameMaker plugin fixtures", () => {
             "/// @function inequalityExample",
             '/// @param [arg="fallback"]',
             "/// @returns {undefined}",
-            'function inequalityExample(arg = "fallback") {}'
+            'function inequalityExample(arg = "fallback") {}',
+            ""
         ].join("\n");
 
         assert.strictEqual(formatted, expected);
     });
 
-    it("converts argument_count equality fallbacks targeting later arguments into default parameters", async () => {
+    void it("converts argument_count equality fallbacks targeting later arguments into default parameters", async () => {
         const source = [
             "function equalityExample(arg0, arg1) {",
             "    if (argument_count == 1) {",
@@ -420,7 +428,8 @@ describe("Prettier GameMaker plugin fixtures", () => {
             "    } else {",
             "        arg1 = argument[1];",
             "    }",
-            "}"
+            "}",
+            "",
         ].join("\n");
 
         const formatted = await Plugin.format(source);
@@ -430,13 +439,14 @@ describe("Prettier GameMaker plugin fixtures", () => {
             "/// @param arg0",
             '/// @param [arg1="fallback"]',
             "/// @returns {undefined}",
-            'function equalityExample(arg0, arg1 = "fallback") {}'
+            'function equalityExample(arg0, arg1 = "fallback") {}',
+            ""
         ].join("\n");
 
         assert.strictEqual(formatted, expected);
     });
 
-    it("converts argument_count inequality fallbacks targeting later arguments into default parameters", async () => {
+    void it("converts argument_count inequality fallbacks targeting later arguments into default parameters", async () => {
         const source = [
             "function inequalityExample(arg0, arg1) {",
             "    if (argument_count != 1) {",
@@ -444,7 +454,8 @@ describe("Prettier GameMaker plugin fixtures", () => {
             "    } else {",
             '        arg1 = "fallback";',
             "    }",
-            "}"
+            "}",
+            "",
         ].join("\n");
 
         const formatted = await Plugin.format(source);
@@ -454,13 +465,14 @@ describe("Prettier GameMaker plugin fixtures", () => {
             "/// @param arg0",
             '/// @param [arg1="fallback"]',
             "/// @returns {undefined}",
-            'function inequalityExample(arg0, arg1 = "fallback") {}'
+            'function inequalityExample(arg0, arg1 = "fallback") {}',
+            ""
         ].join("\n");
 
         assert.strictEqual(formatted, expected);
     });
 
-    it("converts argument_count fallbacks guarded by <= or < comparisons", async () => {
+    void it("converts argument_count fallbacks guarded by <= or < comparisons", async () => {
         const source = [
             "function fallbackLeq(existing) {",
             "    var second;",
@@ -480,7 +492,8 @@ describe("Prettier GameMaker plugin fixtures", () => {
             "        second = argument[1];",
             "    }",
             "    return existing + second;",
-            "}"
+            "}",
+            "",
         ].join("\n");
 
         const formatted = await Plugin.format(source);
@@ -498,13 +511,14 @@ describe("Prettier GameMaker plugin fixtures", () => {
             '/// @param [second="fallback"]',
             'function fallbackLt(existing, second = "fallback") {',
             "    return existing + second;",
-            "}"
+            "}",
+            ""
         ].join("\n");
 
         assert.strictEqual(formatted, expected);
     });
 
-    it("can elide 'globalvar' declarations when disabled", async () => {
+    void it("can elide 'globalvar' declarations when disabled", async () => {
         const source = ["globalvar foo, bar;", "foo = 1;", "bar = 2;", ""].join(
             "\n"
         );
@@ -519,7 +533,7 @@ describe("Prettier GameMaker plugin fixtures", () => {
         );
     });
 
-    it("aligns trailing enum comments according to member width", async () => {
+    void it("aligns trailing enum comments according to member width", async () => {
         const source = [
             "enum Alignment {",
             "    Left, // left comment",
@@ -549,7 +563,7 @@ describe("Prettier GameMaker plugin fixtures", () => {
         );
     });
 
-    it("keeps default spacing before trailing comments", async () => {
+    void it("keeps default spacing before trailing comments", async () => {
         const source = [
             "var foo = 1; // comment",
             "var bar = 2; // comment",
@@ -576,12 +590,13 @@ describe("Prettier GameMaker plugin fixtures", () => {
         );
     });
 
-    it("strips trailing macro semicolons when Feather fixes are applied", async () => {
+    void it("strips trailing macro semicolons when Feather fixes are applied", async () => {
         const source = [
             "#macro FOO(value) (value + 1);",
             "#macro BAR 100;",
             "",
-            "var result = FOO(1) + BAR;"
+            "var result = FOO(1) + BAR;",
+            "",
         ].join("\n");
 
         const formatted = await Plugin.format(source, {
@@ -592,18 +607,20 @@ describe("Prettier GameMaker plugin fixtures", () => {
             "#macro FOO(value) (value + 1)",
             "#macro BAR 100",
             "",
-            "var result = FOO(1) + BAR;"
+            "var result = FOO(1) + BAR;",
+            "",
         ].join("\n");
 
         assert.strictEqual(formatted, expected);
     });
 
-    it("strips trailing macro semicolons before inline comments when Feather fixes are applied", async () => {
+    void it("strips trailing macro semicolons before inline comments when Feather fixes are applied", async () => {
         const source = [
             "#macro FOO(value) (value + 1); // comment",
             "#macro BAR value + 2;",
             "",
-            "var result = FOO(3) + BAR;"
+            "var result = FOO(3) + BAR;",
+            "",
         ].join("\n");
 
         const formatted = await Plugin.format(source, {
@@ -614,18 +631,20 @@ describe("Prettier GameMaker plugin fixtures", () => {
             "#macro FOO(value) (value + 1) // comment",
             "#macro BAR value + 2",
             "",
-            "var result = FOO(3) + BAR;"
+            "var result = FOO(3) + BAR;",
+            "",
         ].join("\n");
 
         assert.strictEqual(formatted, expected);
     });
 
-    it("avoids duplicating blank lines after macros when Feather fixes strip semicolons", async () => {
+    void it("avoids duplicating blank lines after macros when Feather fixes strip semicolons", async () => {
         const source = [
             "#macro FOO(value) (value + 1);",
             "#macro BAR value + 2;",
             "",
-            "var total = FOO(3) + BAR;"
+            "var total = FOO(3) + BAR;",
+            "",
         ].join("\n");
 
         const formatted = await Plugin.format(source, {
@@ -636,17 +655,18 @@ describe("Prettier GameMaker plugin fixtures", () => {
             "#macro FOO(value) (value + 1)",
             "#macro BAR value + 2",
             "",
-            "var total = FOO(3) + BAR;"
+            "var total = FOO(3) + BAR;",
+            "",
         ].join("\n");
 
         assert.strictEqual(formatted, expected);
     });
 
-    it("simplifies template strings without placeholders regardless of interpolation options", async () => {
+    void it("simplifies template strings without placeholders regardless of interpolation options", async () => {
         const source =
             'throw $"ERROR obj_item: Must be created with item id as a creation param";\n';
         const expected =
-            'throw "ERROR obj_item: Must be created with item id as a creation param";';
+            'throw "ERROR obj_item: Must be created with item id as a creation param";\n';
 
         const defaultFormatted = await Plugin.format(source);
         assert.strictEqual(
@@ -668,17 +688,17 @@ describe("Prettier GameMaker plugin fixtures", () => {
         }
     });
 
-    it("rewrites safe string concatenations into template strings when enabled", async () => {
+    void it("rewrites safe string concatenations into template strings when enabled", async () => {
         const source = 'var message = "Hello " + name + "!";\n';
 
         const formatted = await Plugin.format(source, {
             useStringInterpolation: true
         });
 
-        assert.strictEqual(formatted, 'var message = $"Hello {name}!";');
+        assert.strictEqual(formatted, 'var message = $"Hello {name}!";\n');
     });
 
-    it("leaves concatenations unchanged when string interpolation is disabled", async () => {
+    void it("leaves concatenations unchanged when string interpolation is disabled", async () => {
         const source = 'var message = "Hello " + name + "!";\n';
 
         const baseline = await Plugin.format(source);
@@ -689,7 +709,7 @@ describe("Prettier GameMaker plugin fixtures", () => {
         assert.strictEqual(formatted, baseline);
     });
 
-    it("skips concatenations that include non-string expressions", async () => {
+    void it("skips concatenations that include non-string expressions", async () => {
         const source = 'var summary = "Score: " + playerName + 42;\n';
 
         const baseline = await Plugin.format(source);

@@ -9,7 +9,7 @@ function createLocation(line) {
     return { line, column: line - 1 };
 }
 
-test("assignClonedLocation clones start and end metadata", () => {
+void test("assignClonedLocation clones start and end metadata", () => {
     const target: MutableGameMakerAstNode = {};
     const template = {
         start: createLocation(1),
@@ -25,7 +25,7 @@ test("assignClonedLocation clones start and end metadata", () => {
     assert.notStrictEqual(target.end, template.end);
 });
 
-test("assignClonedLocation ignores missing boundaries", () => {
+void test("assignClonedLocation ignores missing boundaries", () => {
     const target: MutableGameMakerAstNode = {};
     const template = { start: createLocation(3) };
 
@@ -36,7 +36,7 @@ test("assignClonedLocation ignores missing boundaries", () => {
     assert.ok(!Object.hasOwn(target, "end"));
 });
 
-test("assignClonedLocation gracefully handles invalid inputs", () => {
+void test("assignClonedLocation gracefully handles invalid inputs", () => {
     const template = {
         start: createLocation(5),
         end: createLocation(6)

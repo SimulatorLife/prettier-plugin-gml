@@ -3,7 +3,7 @@ import { test } from "node:test";
 
 import { Plugin } from "../src/index.js";
 
-test("expands single-line if statements by default", async () => {
+void test("expands single-line if statements by default", async () => {
     const source = "if (global.debug) { exit; }";
 
     const formatted = await Plugin.format(source);
@@ -14,7 +14,7 @@ test("expands single-line if statements by default", async () => {
     );
 });
 
-test("preserves compact return guards inside functions when disabled", async () => {
+void test("preserves compact return guards inside functions when disabled", async () => {
     const source = [
         "function guard_example() {",
         "    if (global.debug) return;",
@@ -30,7 +30,6 @@ test("preserves compact return guards inside functions when disabled", async () 
     assert.strictEqual(
         formatted,
         [
-            "",
             "/// @function guard_example",
             "function guard_example() {",
             "    if (global.debug) { return; }",
@@ -41,7 +40,7 @@ test("preserves compact return guards inside functions when disabled", async () 
     );
 });
 
-test("expands guarded returns with values when single-line is disabled", async () => {
+void test("expands guarded returns with values when single-line is disabled", async () => {
     const source = [
         "function guard_with_value() {",
         "    if (should_stop()) return false;",
@@ -57,7 +56,6 @@ test("expands guarded returns with values when single-line is disabled", async (
     assert.strictEqual(
         formatted,
         [
-            "",
             "/// @function guard_with_value",
             "function guard_with_value() {",
             "    if (should_stop()) {",

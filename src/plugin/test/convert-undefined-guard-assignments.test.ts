@@ -11,8 +11,8 @@ function createLiteral(value) {
     return { type: "Literal", value };
 }
 
-describe("convertUndefinedGuardAssignments", () => {
-    it("condenses undefined guard assignments into ternary expressions", () => {
+void describe("convertUndefinedGuardAssignments", () => {
+    void it("condenses undefined guard assignments into ternary expressions", () => {
         const guard = {
             type: "ParenthesizedExpression",
             expression: {

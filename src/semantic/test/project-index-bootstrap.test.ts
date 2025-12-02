@@ -57,7 +57,7 @@ function createBootstrapRunCase(
     };
 }
 
-test("Semantic.bootstrapProjectIndex normalizes cache max size overrides", async () => {
+void test("Semantic.bootstrapProjectIndex normalizes cache max size overrides", async () => {
     await withBootstrapProject(async ({ scriptPath }) => {
         const runCase = createBootstrapRunCase(
             scriptPath,
@@ -98,7 +98,7 @@ test("Semantic.bootstrapProjectIndex normalizes cache max size overrides", async
     });
 });
 
-test("Semantic.bootstrapProjectIndex normalizes concurrency overrides", async () => {
+void test("Semantic.bootstrapProjectIndex normalizes concurrency overrides", async () => {
     await withBootstrapProject(async ({ scriptPath }) => {
         const runCase = createBootstrapRunCase(
             scriptPath,
@@ -140,7 +140,7 @@ test("Semantic.bootstrapProjectIndex normalizes concurrency overrides", async ()
     });
 });
 
-test("Semantic.bootstrapProjectIndex records build failures without throwing", async () => {
+void test("Semantic.bootstrapProjectIndex records build failures without throwing", async () => {
     await withBootstrapProject(async ({ projectRoot, scriptPath }) => {
         const failure = new Error("index build failed");
         const coordinator = {

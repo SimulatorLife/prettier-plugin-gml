@@ -6,8 +6,8 @@ import type { ParseOptions } from "commander";
 
 const USER_PARSE_OPTIONS: ParseOptions = { from: "user" };
 
-describe("performance CLI iterations option", () => {
-    it("parses positive iteration counts from strings", () => {
+void describe("performance CLI iterations option", () => {
+    void it("parses positive iteration counts from strings", () => {
         const command = createPerformanceCommand();
 
         command.parse(["--iterations", "5"], USER_PARSE_OPTIONS);
@@ -15,7 +15,7 @@ describe("performance CLI iterations option", () => {
         assert.equal(command.opts().iterations, 5);
     });
 
-    it("rejects non-positive iteration counts", () => {
+    void it("rejects non-positive iteration counts", () => {
         const command = createPerformanceCommand();
 
         assert.throws(

@@ -3,7 +3,7 @@ import { test } from "node:test";
 
 import { Plugin } from "../src/index.js";
 
-test("omits synthetic docs for anonymous functions without return value", async () => {
+void test("omits synthetic docs for anonymous functions without return value", async () => {
     const source = "var myFunc = function() {\n    var value = 1;\n}\n";
     const formatted = await Plugin.format(source);
     const trimmed = formatted.trim();
@@ -15,7 +15,7 @@ test("omits synthetic docs for anonymous functions without return value", async 
     );
 });
 
-test("adds synthetic @returns doc for onymous/named functions without return value", async () => {
+void test("adds synthetic @returns doc for onymous/named functions without return value", async () => {
     const source = "function demo() {\n    var value = 1;\n}\n";
     const formatted = await Plugin.format(source);
     const trimmed = formatted.trim();
@@ -27,7 +27,7 @@ test("adds synthetic @returns doc for onymous/named functions without return val
     );
 });
 
-test("separates synthetic doc comments from preceding line comments", async () => {
+void test("separates synthetic doc comments from preceding line comments", async () => {
     const source = [
         "// Scenario 2",
         "function scr_custom_gpu_func() {",
@@ -52,7 +52,7 @@ test("separates synthetic doc comments from preceding line comments", async () =
     );
 });
 
-test("adds synthetic @returns doc for empty onymous/named function bodies", async () => {
+void test("adds synthetic @returns doc for empty onymous/named function bodies", async () => {
     const source = "function noop() {}\n";
     const formatted = await Plugin.format(source);
     const trimmed = formatted.trim();
@@ -64,7 +64,7 @@ test("adds synthetic @returns doc for empty onymous/named function bodies", asyn
     );
 });
 
-test("augments static function doc comments with missing @returns metadata", async () => {
+void test("augments static function doc comments with missing @returns metadata", async () => {
     const source = [
         "/// @function helper",
         "static helper = function() {",
@@ -84,7 +84,7 @@ test("augments static function doc comments with missing @returns metadata", asy
     );
 });
 
-test("adds synthetic @returns metadata for parameterless static functions", async () => {
+void test("adds synthetic @returns metadata for parameterless static functions", async () => {
     const source = [
         "function Example() constructor {",
         "    static ping = function() {",
@@ -109,7 +109,7 @@ test("adds synthetic @returns metadata for parameterless static functions", asyn
     );
 });
 
-test("adds synthetic docs for named constructor assignments", async () => {
+void test("adds synthetic docs for named constructor assignments", async () => {
     const source = [
         "item = function() constructor {",
         "    value = 1;",
@@ -127,7 +127,7 @@ test("adds synthetic docs for named constructor assignments", async () => {
     );
 });
 
-test("synthetic constructor docs include trailing parameters", async () => {
+void test("synthetic constructor docs include trailing parameters", async () => {
     const source = [
         "function child(_foo, _value) constructor {",
         "    value = _value;",
@@ -161,7 +161,7 @@ test("synthetic constructor docs include trailing parameters", async () => {
     );
 });
 
-test("updates existing @function tags to reflect static function names", async () => {
+void test("updates existing @function tags to reflect static function names", async () => {
     const source = [
         "function Demo() constructor {",
         "    /// @function helper_wrong",
@@ -194,7 +194,7 @@ test("updates existing @function tags to reflect static function names", async (
     );
 });
 
-test("annotates overriding static functions with @override metadata", async () => {
+void test("annotates overriding static functions with @override metadata", async () => {
     const source = [
         "function Base() constructor {",
         "    static print = function() {",
@@ -248,7 +248,7 @@ test("annotates overriding static functions with @override metadata", async () =
     );
 });
 
-test("adds synthetic @returns metadata when defaults replace argument_count fallbacks", async () => {
+void test("adds synthetic @returns metadata when defaults replace argument_count fallbacks", async () => {
     const source = [
         "function example(arg) {",
         "    if (argument_count > 0) {",
@@ -274,7 +274,7 @@ test("adds synthetic @returns metadata when defaults replace argument_count fall
     );
 });
 
-test("reorders description doc comments between parameters and returns", async () => {
+void test("reorders description doc comments between parameters and returns", async () => {
     const source = [
         "/// @function sample(_first, _second)",
         "/// @desc A longer example description that should wrap into multiple lines and appear after the",
@@ -304,7 +304,7 @@ test("reorders description doc comments between parameters and returns", async (
     );
 });
 
-test("omits alias-style description doc comments when synthetic metadata is emitted", async () => {
+void test("omits alias-style description doc comments when synthetic metadata is emitted", async () => {
     const source = [
         "/// @description sample_alias(arg0, arg1)",
         "/// @param arg0",
@@ -331,7 +331,7 @@ test("omits alias-style description doc comments when synthetic metadata is emit
     );
 });
 
-test("respects wider printWidth when wrapping description doc comments", async () => {
+void test("respects wider printWidth when wrapping description doc comments", async () => {
     const source = [
         "/// @function sample(_first, _second)",
         "/// @desc A longer example description that should wrap into multiple lines and appear after the",
@@ -361,7 +361,7 @@ test("respects wider printWidth when wrapping description doc comments", async (
     );
 });
 
-test("wraps long description doc comments using the formatter cap", async () => {
+void test("wraps long description doc comments using the formatter cap", async () => {
     const source = [
         "/// @function sample(value)",
         "/// @description This synthetic doc comment should leave only the trailing connector on the continuation line when wrapping at the formatter cap for descriptions.",

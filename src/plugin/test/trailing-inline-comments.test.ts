@@ -3,7 +3,7 @@ import { test } from "node:test";
 
 import { Plugin } from "../src/index.js";
 
-test("keeps multi-sentence inline comments on the same line", async () => {
+void test("keeps multi-sentence inline comments on the same line", async () => {
     const source = [
         "function AttackController(attack_bonus = 10) constructor {",
         "    static perform_attack = function() {",
@@ -30,7 +30,7 @@ test("keeps multi-sentence inline comments on the same line", async () => {
     );
 });
 
-test("struct property trailing comments remain inline without blank separators", async () => {
+void test("struct property trailing comments remain inline without blank separators", async () => {
     const source = [
         "function trailing_comment() {",
         "    var stats = {};",

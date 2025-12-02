@@ -8,8 +8,8 @@ import { __private__ } from "../src/identifier-case/asset-rename-executor.js";
 const { ensureWritableDirectory, ensureWritableFile, readJsonFile } =
     __private__;
 
-describe("asset rename executor filesystem utilities", () => {
-    it("skips directory creation when accessSync allows writing", () => {
+void describe("asset rename executor filesystem utilities", () => {
+    void it("skips directory creation when accessSync allows writing", () => {
         const calls = [];
         const fsFacade = {
             accessSync(targetPath, mode) {
@@ -29,7 +29,7 @@ describe("asset rename executor filesystem utilities", () => {
         assert.strictEqual(calls[0].mode, DEFAULT_WRITE_ACCESS_MODE);
     });
 
-    it("uses existsSync fallback when accessSync is unavailable", () => {
+    void it("uses existsSync fallback when accessSync is unavailable", () => {
         let mkdirCalled = false;
         const fsFacade = {
             existsSync(targetPath) {
@@ -46,7 +46,7 @@ describe("asset rename executor filesystem utilities", () => {
         assert.strictEqual(mkdirCalled, false);
     });
 
-    it("skips directory creation when file is already accessible", () => {
+    void it("skips directory creation when file is already accessible", () => {
         let mkdirCalled = false;
         const fsFacade = {
             statSync(targetPath) {
@@ -63,7 +63,7 @@ describe("asset rename executor filesystem utilities", () => {
         assert.strictEqual(mkdirCalled, false);
     });
 
-    it("ensures the parent directory exists when a file is missing", () => {
+    void it("ensures the parent directory exists when a file is missing", () => {
         const ensuredDirectories = [];
         const fsFacade = {
             statSync() {
@@ -87,8 +87,8 @@ describe("asset rename executor filesystem utilities", () => {
     });
 });
 
-describe("asset rename executor JSON helpers", () => {
-    it("caches parsed JSON results", () => {
+void describe("asset rename executor JSON helpers", () => {
+    void it("caches parsed JSON results", () => {
         let readCount = 0;
         const fsFacade = {
             readFileSync(targetPath) {
@@ -107,7 +107,7 @@ describe("asset rename executor JSON helpers", () => {
         assert.deepStrictEqual(first, { name: "demo" });
     });
 
-    it("wraps JSON parse failures with contextual errors", () => {
+    void it("wraps JSON parse failures with contextual errors", () => {
         const fsFacade = {
             readFileSync() {
                 return "{ invalid";
@@ -128,7 +128,7 @@ describe("asset rename executor JSON helpers", () => {
         assert.ok(error.cause instanceof SyntaxError);
     });
 
-    it("rejects resource payloads that are not plain objects", () => {
+    void it("rejects resource payloads that are not plain objects", () => {
         const fsFacade = {
             readFileSync() {
                 return "[]";

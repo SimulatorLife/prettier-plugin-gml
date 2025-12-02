@@ -7,7 +7,7 @@ import { after, describe, it, mock } from "node:test";
 import { runPerformanceCommand } from "../src/modules/performance/index.js";
 import { PerformanceSuiteName } from "../src/modules/performance/suite-options.js";
 
-describe("performance CLI report output", () => {
+void describe("performance CLI report output", () => {
     const disposals = [];
 
     after(async () => {
@@ -18,7 +18,7 @@ describe("performance CLI report output", () => {
         );
     });
 
-    it("writes the JSON report to the requested path", async () => {
+    void it("writes the JSON report to the requested path", async () => {
         const tempRoot = await mkdtemp(
             path.join(os.tmpdir(), "performance-cli-report-")
         );
@@ -73,7 +73,7 @@ describe("performance CLI report output", () => {
         ]);
     });
 
-    it("keeps stdout clean when piping the report", async () => {
+    void it("keeps stdout clean when piping the report", async () => {
         const tempRoot = await mkdtemp(
             path.join(os.tmpdir(), "performance-cli-stdout-")
         );
@@ -138,7 +138,7 @@ describe("performance CLI report output", () => {
         assert.doesNotThrow(() => JSON.parse(payload));
     });
 
-    it("surfaces suite failures in the stderr summary", async () => {
+    void it("surfaces suite failures in the stderr summary", async () => {
         const tempRoot = await mkdtemp(
             path.join(os.tmpdir(), "performance-cli-failure-")
         );
@@ -217,7 +217,7 @@ describe("performance CLI report output", () => {
         ]);
     });
 
-    it("rejects report writes outside permitted workflow paths", async () => {
+    void it("rejects report writes outside permitted workflow paths", async () => {
         const tempRoot = await mkdtemp(
             path.join(os.tmpdir(), "performance-cli-reject-")
         );

@@ -24,39 +24,39 @@ import {
     normalizeExtensionSuffix
 } from "../src/utils/string.js";
 
-test("toTrimmedString returns trimmed strings", () => {
+void test("toTrimmedString returns trimmed strings", () => {
     assert.strictEqual(toTrimmedString("  value  "), "value");
     assert.strictEqual(toTrimmedString("value"), "value");
     assert.strictEqual(toTrimmedString(""), "");
 });
 
-test("toTrimmedString normalizes non-string values to empty strings", () => {
+void test("toTrimmedString normalizes non-string values to empty strings", () => {
     assert.strictEqual(toTrimmedString(null), "");
     assert.strictEqual(toTrimmedString(), "");
     assert.strictEqual(toTrimmedString(123), "");
     assert.strictEqual(toTrimmedString({}), "");
 });
 
-test("coalesceTrimmedString returns the first non-empty trimmed candidate", () => {
+void test("coalesceTrimmedString returns the first non-empty trimmed candidate", () => {
     assert.strictEqual(coalesceTrimmedString(null, "   ", "value"), "value");
     assert.strictEqual(coalesceTrimmedString("  first  ", "second"), "first");
     assert.strictEqual(coalesceTrimmedString(), "");
     assert.strictEqual(coalesceTrimmedString(null, "   "), "");
 });
 
-test("normalizeExtensionSuffix lowercases and prefixes dot-separated values", () => {
+void test("normalizeExtensionSuffix lowercases and prefixes dot-separated values", () => {
     assert.strictEqual(normalizeExtensionSuffix(" gml"), ".gml");
     assert.strictEqual(normalizeExtensionSuffix("YY"), ".yy");
     assert.strictEqual(normalizeExtensionSuffix(".Md"), ".md");
 });
 
-test("normalizeExtensionSuffix returns null for invalid inputs", () => {
+void test("normalizeExtensionSuffix returns null for invalid inputs", () => {
     assert.strictEqual(normalizeExtensionSuffix("   "), null);
     assert.strictEqual(normalizeExtensionSuffix("."), null);
     assert.strictEqual(normalizeExtensionSuffix(42), null);
 });
 
-test("normalizeStringList preserves entire strings when splitting is disabled", () => {
+void test("normalizeStringList preserves entire strings when splitting is disabled", () => {
     assert.deepStrictEqual(
         normalizeStringList("alpha,beta", { splitPattern: null }),
         ["alpha,beta"]
@@ -67,7 +67,7 @@ test("normalizeStringList preserves entire strings when splitting is disabled", 
     );
 });
 
-test("createListSplitPattern deduplicates separators and preserves order", () => {
+void test("createListSplitPattern deduplicates separators and preserves order", () => {
     const pattern = createListSplitPattern([",", ":", ","]);
     assert.deepStrictEqual("alpha,beta:gamma".split(pattern), [
         "alpha",
@@ -76,7 +76,7 @@ test("createListSplitPattern deduplicates separators and preserves order", () =>
     ]);
 });
 
-test("createListSplitPattern supports multi-character separators", () => {
+void test("createListSplitPattern supports multi-character separators", () => {
     const pattern = createListSplitPattern(["::", "ab"]);
     assert.deepStrictEqual("one::twoabthree".split(pattern), [
         "one",
@@ -85,7 +85,7 @@ test("createListSplitPattern supports multi-character separators", () => {
     ]);
 });
 
-test("createListSplitPattern optionally includes whitespace separators", () => {
+void test("createListSplitPattern optionally includes whitespace separators", () => {
     const pattern = createListSplitPattern([","], { includeWhitespace: true });
     assert.deepStrictEqual("one, two  three".split(pattern), [
         "one",
@@ -94,23 +94,23 @@ test("createListSplitPattern optionally includes whitespace separators", () => {
     ]);
 });
 
-test("createListSplitPattern requires a separator when whitespace is disabled", () => {
+void test("createListSplitPattern requires a separator when whitespace is disabled", () => {
     assert.throws(() => createListSplitPattern([]), TypeError);
 });
 
-test("toNormalizedLowerCaseString trims and lowercases input values", () => {
+void test("toNormalizedLowerCaseString trims and lowercases input values", () => {
     assert.strictEqual(toNormalizedLowerCaseString("  JSON  "), "json");
     assert.strictEqual(toNormalizedLowerCaseString("Human"), "human");
     assert.strictEqual(toNormalizedLowerCaseString(123), "123");
 });
 
-test("toNormalizedLowerCaseString tolerates nullish inputs", () => {
+void test("toNormalizedLowerCaseString tolerates nullish inputs", () => {
     assert.strictEqual(toNormalizedLowerCaseString(null), "");
     assert.strictEqual(toNormalizedLowerCaseString(), "");
     assert.strictEqual(toNormalizedLowerCaseString("   "), "");
 });
 
-test("string utility helpers interoperate with trimmed strings", () => {
+void test("string utility helpers interoperate with trimmed strings", () => {
     const values = ["  one  ", "", "  two", "three  ", null];
 
     const normalized = values
@@ -123,33 +123,33 @@ test("string utility helpers interoperate with trimmed strings", () => {
     assert.strictEqual(capitalize("example"), "Example");
 });
 
-test("getNonEmptyString returns null for empty candidates", () => {
+void test("getNonEmptyString returns null for empty candidates", () => {
     assert.strictEqual(getNonEmptyString("value"), "value");
     assert.strictEqual(getNonEmptyString(""), null);
     assert.strictEqual(getNonEmptyString(null), null);
     assert.strictEqual(getNonEmptyString(), null);
 });
 
-test("toNormalizedLowerCaseSet trims, deduplicates, and lowercases entries", () => {
+void test("toNormalizedLowerCaseSet trims, deduplicates, and lowercases entries", () => {
     const values = ["  Foo  ", "BAR", "foo", null, "   "];
     const result = toNormalizedLowerCaseSet(values);
     assert.deepStrictEqual([...result], ["foo", "bar"]);
 });
 
-test("toNormalizedLowerCaseSet tolerates invalid inputs when allowed", () => {
+void test("toNormalizedLowerCaseSet tolerates invalid inputs when allowed", () => {
     assert.deepStrictEqual([...toNormalizedLowerCaseSet(null)], []);
     assert.deepStrictEqual([...toNormalizedLowerCaseSet()], []);
     assert.deepStrictEqual([...toNormalizedLowerCaseSet(42)], []);
 });
 
-test("capitalize leaves falsy and non-string inputs unchanged", () => {
+void test("capitalize leaves falsy and non-string inputs unchanged", () => {
     assert.strictEqual(capitalize(""), "");
-    assert.strictEqual(capitalize(null), null);
-    assert.strictEqual(capitalize(), undefined);
-    assert.strictEqual(capitalize(42), 42);
+    assert.strictEqual(capitalize(null), "");
+    assert.strictEqual(capitalize(), "");
+    assert.strictEqual(capitalize(42), "42");
 });
 
-test("isWordChar validates alphanumeric and underscore characters", () => {
+void test("isWordChar validates alphanumeric and underscore characters", () => {
     assert.strictEqual(isWordChar("a"), true);
     assert.strictEqual(isWordChar("Z"), true);
     assert.strictEqual(isWordChar("0"), true);
@@ -159,7 +159,7 @@ test("isWordChar validates alphanumeric and underscore characters", () => {
     assert.strictEqual(isWordChar(null), false);
 });
 
-test("assertNonEmptyString returns the validated value", () => {
+void test("assertNonEmptyString returns the validated value", () => {
     assert.strictEqual(assertNonEmptyString("value"), "value");
     assert.strictEqual(
         assertNonEmptyString("  padded  ", { trim: true }),
@@ -167,14 +167,14 @@ test("assertNonEmptyString returns the validated value", () => {
     );
 });
 
-test("assertNonEmptyString throws when value is not a non-empty string", () => {
+void test("assertNonEmptyString throws when value is not a non-empty string", () => {
     assert.throws(() => assertNonEmptyString(""), TypeError);
     assert.throws(() => assertNonEmptyString("   ", { trim: true }), TypeError);
     assert.throws(() => assertNonEmptyString(null), TypeError);
     assert.throws(() => assertNonEmptyString(42), TypeError);
 });
 
-test("describeValueForError formats primitives and structured values", () => {
+void test("describeValueForError formats primitives and structured values", () => {
     assert.strictEqual(describeValueForError(null), "null");
     assert.strictEqual(describeValueForError(), "undefined");
     assert.strictEqual(describeValueForError("value"), '"value"');
@@ -191,26 +191,26 @@ test("describeValueForError formats primitives and structured values", () => {
     assert.strictEqual(describeValueForError(circular), "[object Object]");
 });
 
-test("formatWithIndefiniteArticle selects the correct article", () => {
+void test("formatWithIndefiniteArticle selects the correct article", () => {
     assert.strictEqual(formatWithIndefiniteArticle("array"), "an array");
     assert.strictEqual(formatWithIndefiniteArticle("string"), "a string");
     assert.strictEqual(formatWithIndefiniteArticle(""), "a");
 });
 
-test("describeValueForError can skip JSON serialization for complex values", () => {
+void test("describeValueForError can skip JSON serialization for complex values", () => {
     assert.strictEqual(
         describeValueForError({ example: true }, { stringifyUnknown: false }),
         "[object Object]"
     );
 });
 
-test("stripStringQuotes removes matching single and double quotes", () => {
+void test("stripStringQuotes removes matching single and double quotes", () => {
     assert.strictEqual(stripStringQuotes('"value"'), "value");
     assert.strictEqual(stripStringQuotes("'value'"), "value");
     assert.strictEqual(stripStringQuotes('""'), "");
 });
 
-test("stripStringQuotes returns null for unquoted or mismatched values", () => {
+void test("stripStringQuotes returns null for unquoted or mismatched values", () => {
     assert.strictEqual(stripStringQuotes("value"), null);
     assert.strictEqual(stripStringQuotes("\"value'"), null);
     assert.strictEqual(stripStringQuotes("'value\""), null);

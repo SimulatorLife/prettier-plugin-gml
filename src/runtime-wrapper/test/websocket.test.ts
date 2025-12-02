@@ -96,7 +96,7 @@ class MockWebSocket implements RuntimeWebSocketInstance {
     }
 }
 
-test("createWebSocketClient returns client interface", () => {
+void test("createWebSocketClient returns client interface", () => {
     const client = RuntimeWrapper.createWebSocketClient({ autoConnect: false });
     assert.strictEqual(typeof client.connect, "function");
     assert.strictEqual(typeof client.disconnect, "function");
@@ -104,12 +104,12 @@ test("createWebSocketClient returns client interface", () => {
     assert.strictEqual(typeof client.send, "function");
 });
 
-test("createWebSocketClient does not auto-connect when autoConnect is false", () => {
+void test("createWebSocketClient does not auto-connect when autoConnect is false", () => {
     const client = RuntimeWrapper.createWebSocketClient({ autoConnect: false });
     assert.strictEqual(client.isConnected(), false);
 });
 
-test("WebSocket client connects and receives patches", async () => {
+void test("WebSocket client connects and receives patches", async () => {
     const wrapper = RuntimeWrapper.createRuntimeWrapper();
     let connectCalled = false;
 
@@ -132,7 +132,7 @@ test("WebSocket client connects and receives patches", async () => {
     delete globalWithWebSocket.WebSocket;
 });
 
-test("WebSocket client applies patches from messages", async () => {
+void test("WebSocket client applies patches from messages", async () => {
     const wrapper = RuntimeWrapper.createRuntimeWrapper();
 
     globalWithWebSocket.WebSocket = MockWebSocket;
@@ -164,7 +164,7 @@ test("WebSocket client applies patches from messages", async () => {
     delete globalWithWebSocket.WebSocket;
 });
 
-test("WebSocket client applies batch patches from messages", async () => {
+void test("WebSocket client applies batch patches from messages", async () => {
     const wrapper = RuntimeWrapper.createRuntimeWrapper();
 
     globalWithWebSocket.WebSocket = MockWebSocket;
@@ -204,7 +204,7 @@ test("WebSocket client applies batch patches from messages", async () => {
     delete globalWithWebSocket.WebSocket;
 });
 
-test("WebSocket client prefers trySafeApply when available", async () => {
+void test("WebSocket client prefers trySafeApply when available", async () => {
     const wrapper = RuntimeWrapper.createRuntimeWrapper();
     const originalTrySafeApply = wrapper.trySafeApply;
     let trySafeApplyCalls = 0;
@@ -244,7 +244,7 @@ test("WebSocket client prefers trySafeApply when available", async () => {
     delete globalWithWebSocket.WebSocket;
 });
 
-test("WebSocket client handles invalid JSON gracefully", async () => {
+void test("WebSocket client handles invalid JSON gracefully", async () => {
     const wrapper = RuntimeWrapper.createRuntimeWrapper();
     let errorCalled = false;
 
@@ -275,7 +275,7 @@ test("WebSocket client handles invalid JSON gracefully", async () => {
     delete globalWithWebSocket.WebSocket;
 });
 
-test("WebSocket client surfaces trySafeApply failures", async () => {
+void test("WebSocket client surfaces trySafeApply failures", async () => {
     let capturedError: RuntimePatchError | null = null;
     let capturedContext: "connection" | "patch" | null = null;
 
@@ -324,7 +324,7 @@ test("WebSocket client surfaces trySafeApply failures", async () => {
     delete globalWithWebSocket.WebSocket;
 });
 
-test("WebSocket client disconnects cleanly", async () => {
+void test("WebSocket client disconnects cleanly", async () => {
     let disconnectCalled = false;
 
     globalWithWebSocket.WebSocket = MockWebSocket;
@@ -348,7 +348,7 @@ test("WebSocket client disconnects cleanly", async () => {
     delete globalWithWebSocket.WebSocket;
 });
 
-test("WebSocket client reconnects after connection loss", async () => {
+void test("WebSocket client reconnects after connection loss", async () => {
     let reconnectCount = 0;
 
     globalWithWebSocket.WebSocket = MockWebSocket;
@@ -384,7 +384,7 @@ test("WebSocket client reconnects after connection loss", async () => {
     }
 });
 
-test("WebSocket client clears pending reconnect timer on manual reconnect", async () => {
+void test("WebSocket client clears pending reconnect timer on manual reconnect", async () => {
     const wrapper = RuntimeWrapper.createRuntimeWrapper();
 
     globalWithWebSocket.WebSocket = MockWebSocket;
@@ -469,7 +469,7 @@ test("WebSocket client clears pending reconnect timer on manual reconnect", asyn
     }
 });
 
-test("WebSocket client does not reconnect after manual disconnect", async () => {
+void test("WebSocket client does not reconnect after manual disconnect", async () => {
     let connectCount = 0;
 
     globalWithWebSocket.WebSocket = MockWebSocket;
@@ -495,7 +495,7 @@ test("WebSocket client does not reconnect after manual disconnect", async () => 
     delete globalWithWebSocket.WebSocket;
 });
 
-test("WebSocket send throws when not connected", () => {
+void test("WebSocket send throws when not connected", () => {
     const client = RuntimeWrapper.createWebSocketClient({ autoConnect: false });
 
     assert.throws(() => client.send({ test: "data" }), {
@@ -503,7 +503,7 @@ test("WebSocket send throws when not connected", () => {
     });
 });
 
-test("WebSocket send works when connected", async () => {
+void test("WebSocket send works when connected", async () => {
     globalWithWebSocket.WebSocket = MockWebSocket;
 
     const client = RuntimeWrapper.createWebSocketClient({ autoConnect: true });

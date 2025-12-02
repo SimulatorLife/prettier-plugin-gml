@@ -7,8 +7,8 @@ import {
     ensureManualWorkflowArtifactsAllowed
 } from "../src/workflow/path-filter.js";
 
-describe("workflow path filter helpers", () => {
-    it("allows paths that satisfy the workflow filters", () => {
+void describe("workflow path filter helpers", () => {
+    void it("allows paths that satisfy the workflow filters", () => {
         const workspace = path.resolve(
             "/tmp",
             "workflow-path-filter",
@@ -25,7 +25,7 @@ describe("workflow path filter helpers", () => {
         });
     });
 
-    it("allows any path when no allow list is provided", () => {
+    void it("allows any path when no allow list is provided", () => {
         const workspace = path.resolve("/tmp", "workflow-path-filter", "open");
         const filter = createWorkflowPathFilter();
 
@@ -35,7 +35,7 @@ describe("workflow path filter helpers", () => {
         assert.ok(filter.allowsPath(path.join(workspace, "file.json")));
     });
 
-    it("rejects directories outside the workflow filters", () => {
+    void it("rejects directories outside the workflow filters", () => {
         const root = path.resolve("/tmp", "workflow-path-filter", "root");
         const allowed = path.join(root, "allowed");
         const denied = path.join(root, "denied");
@@ -57,7 +57,7 @@ describe("workflow path filter helpers", () => {
         );
     });
 
-    it("rejects files outside the workflow filters", () => {
+    void it("rejects files outside the workflow filters", () => {
         const restricted = path.resolve(
             "/tmp",
             "workflow-path-filter",

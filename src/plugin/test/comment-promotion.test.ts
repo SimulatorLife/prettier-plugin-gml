@@ -2,8 +2,8 @@ import assert from "node:assert/strict";
 import { Plugin } from "../src/index.js";
 import { describe, it } from "node:test";
 
-describe("comment promotion and normalization", () => {
-    it("promotes leading summary comments to @description", async () => {
+void describe("comment promotion and normalization", () => {
+    void it("promotes leading summary comments to @description", async () => {
         const sourceCode = [
             "// / Leading summary",
             "// / Additional note",
@@ -29,7 +29,7 @@ describe("comment promotion and normalization", () => {
         );
     });
 
-    it("normalises @func to @function", async () => {
+    void it("normalises @func to @function", async () => {
         const sourceCode = [
             "function someFunc() {",
             "    // @func freeze()",

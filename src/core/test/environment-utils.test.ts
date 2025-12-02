@@ -9,7 +9,7 @@ import {
     createEnvConfiguredValue
 } from "../src/utils/environment.js";
 
-test("applyEnvironmentOverride forwards values from provided env", () => {
+void test("applyEnvironmentOverride forwards values from provided env", () => {
     let received = null;
 
     applyEnvironmentOverride({
@@ -23,7 +23,7 @@ test("applyEnvironmentOverride forwards values from provided env", () => {
     assert.equal(received, "value");
 });
 
-test("applyEnvironmentOverride skips missing variables", () => {
+void test("applyEnvironmentOverride skips missing variables", () => {
     let called = false;
 
     applyEnvironmentOverride({
@@ -44,7 +44,7 @@ function uniqueEnvVar(prefix) {
     return `${prefix}_${randomUUID()}`;
 }
 
-test("applyEnvironmentOverride falls back to process.env when env is omitted", () => {
+void test("applyEnvironmentOverride falls back to process.env when env is omitted", () => {
     const variable = uniqueEnvVar("TEST_ENV");
     const original = process.env[variable];
     process.env[variable] = "inherited";
@@ -69,7 +69,7 @@ test("applyEnvironmentOverride falls back to process.env when env is omitted", (
     }
 });
 
-test("createEnvConfiguredValue normalizes updates", () => {
+void test("createEnvConfiguredValue normalizes updates", () => {
     const config = createEnvConfiguredValue({
         defaultValue: 5,
         normalize: (value, { defaultValue }) => {
@@ -88,7 +88,7 @@ test("createEnvConfiguredValue normalizes updates", () => {
     assert.equal(config.set(undefined), 5);
 });
 
-test("createEnvConfiguredValue applies environment overrides", () => {
+void test("createEnvConfiguredValue applies environment overrides", () => {
     let applied = null;
     const variable = uniqueEnvVar("CONFIG_ENV");
     const config = createEnvConfiguredValue({

@@ -37,13 +37,13 @@ function createMockStdout() {
     };
 }
 
-describe("manual CLI helpers", () => {
+void describe("manual CLI helpers", () => {
     afterEach(() => {
         mock.restoreAll();
         resetProgressBarRegistryForTesting();
     });
 
-    it("renders progress output with the default progress bar", () => {
+    void it("renders progress output with the default progress bar", () => {
         const stdout = createMockStdout();
         const writes = [];
         stdout.write = (chunk) => {
@@ -70,7 +70,7 @@ describe("manual CLI helpers", () => {
         assert.match(sanitized, /Task \[[^\]]*\] 3\/3/);
     });
 
-    it("throws when createBar is not a function", () => {
+    void it("throws when createBar is not a function", () => {
         const stdout = createMockStdout();
 
         assert.throws(() => {
@@ -81,7 +81,7 @@ describe("manual CLI helpers", () => {
         }, /createBar must be a function/);
     });
 
-    it("disposes active progress bars", () => {
+    void it("disposes active progress bars", () => {
         const createdBars = new Set();
         const stopCounts = new Map();
         const stdout = createMockStdout();
@@ -122,7 +122,7 @@ describe("manual CLI helpers", () => {
         assert.equal(createdBars.size, 2);
     });
 
-    it("stops active progress bars when rendering becomes unavailable", () => {
+    void it("stops active progress bars when rendering becomes unavailable", () => {
         const stdout = createMockStdout();
         const stopMock = mock.fn();
         const createBar = mock.fn(() => ({

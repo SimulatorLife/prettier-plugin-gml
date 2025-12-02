@@ -3,8 +3,8 @@ import { describe, it } from "node:test";
 
 import { Plugin } from "../src/index.js";
 
-describe("GM2007 trailing comment spacing", () => {
-    it("preserves inline comment alignment when terminating var declarations", async () => {
+void describe("GM2007 trailing comment spacing", () => {
+    void it("preserves inline comment alignment when terminating var declarations", async () => {
         const source = [
             "var missing",
             "var intact = 1;",

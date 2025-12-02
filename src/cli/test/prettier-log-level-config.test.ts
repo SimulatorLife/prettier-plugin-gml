@@ -10,7 +10,7 @@ const cliModule = await import("../src/cli.js");
 const { configurePrettierOptionsForTests, getPrettierOptionsForTests } =
     cliModule.__test__;
 
-test("configurePrettierOptions applies the log level Prettier expects", (t) => {
+void test("configurePrettierOptions applies the log level Prettier expects", (t) => {
     const originalLogLevel = getPrettierOptionsForTests().logLevel;
 
     t.after(() => {

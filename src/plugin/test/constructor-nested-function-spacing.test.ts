@@ -2,8 +2,8 @@ import assert from "node:assert/strict";
 import { describe, it } from "node:test";
 import { Plugin } from "../src/index.js";
 
-describe("constructor nested function spacing", () => {
-    it("inserts a blank line after nested functions before closing the constructor", async () => {
+void describe("constructor nested function spacing", () => {
+    void it("inserts a blank line after nested functions before closing the constructor", async () => {
         const source = [
             "function Outer() constructor {",
             "    function inner() {",

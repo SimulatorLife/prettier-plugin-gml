@@ -40,8 +40,8 @@ async function createTempProject(fixtureFileName = "locals.gml") {
     };
 }
 
-describe("identifier case local renaming", { concurrency: false }, () => {
-    it("reports planned renames and conflicts during dry-run", async () => {
+void describe("identifier case local renaming", { concurrency: false }, () => {
+    void it("reports planned renames and conflicts during dry-run", async () => {
         const { projectRoot, fixtureSource, gmlPath, projectIndex } =
             await createTempProject();
 
@@ -167,7 +167,7 @@ describe("identifier case local renaming", { concurrency: false }, () => {
         }
     });
 
-    it("applies local identifier renames when write mode is enabled", async () => {
+    void it("applies local identifier renames when write mode is enabled", async () => {
         const { projectRoot, fixtureSource, gmlPath, projectIndex } =
             await createTempProject();
 
@@ -219,7 +219,7 @@ describe("identifier case local renaming", { concurrency: false }, () => {
         }
     });
 
-    it("differentiates dry-run versus write output for eligible locals", async () => {
+    void it("differentiates dry-run versus write output for eligible locals", async () => {
         const { projectRoot, fixtureSource, gmlPath, projectIndex } =
             await createTempProject("locals-write.gml");
 

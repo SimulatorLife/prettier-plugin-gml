@@ -2,8 +2,8 @@ import assert from "node:assert/strict";
 import { describe, it } from "node:test";
 import { GMLParser } from "../src/gml-parser.js";
 
-describe("function expressions", () => {
-    it("parses inline functions inside conditional expressions", () => {
+void describe("function expressions", () => {
+    void it("parses inline functions inside conditional expressions", () => {
         const source = [
             "var handler = (flag ? function () {",
             "    return 1;",

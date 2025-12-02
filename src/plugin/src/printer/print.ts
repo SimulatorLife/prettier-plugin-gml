@@ -61,148 +61,63 @@ const UNDEFINED_TYPE = "undefined";
 // fallbacks so printing remains robust.
 // TODO: Consider moving these into Core or Semantic for reuse.
 function getSemanticIdentifierCaseRenameForNode(node, options) {
+    // If the caller requested a dry-run for identifier-case, do not
+    // apply or consult the rename snapshot when printing — dry-run
+    // should only report planned changes, not rewrite source text.
+    if (options?.__identifierCaseDryRun === true) {
+        return null;
+    }
+
+    // Prefer the registered Semantic lookup service if available. Some
+    // runtime environments lazily proxy module exports which can hide
+    // properties from enumeration; attempt to call the facade helper but
+    // always fall back to a direct renameMap lookup when a snapshot is
+    // present on the options bag. This keeps printing deterministic even
+    // when the higher-level Semantic facade is not exposing the lookup
+    // function for any reason (circular-init, test-provider swaps, etc.).
+    let finalResult = null;
     try {
-        try {
-            // Emit a small view of the Semantic namespace so we can detect if
-            // the lookup symbol is present at runtime (some lazy proxying
-            // paths can hide or delay properties).
-            const semanticKeys = [];
-            try {
-                semanticKeys.push(...Object.keys(Semantic).slice(0, 10));
-            } catch {
-                /* ignore */
-            }
-        } catch {
-            /* ignore */
+        if (
+            Semantic &&
+            typeof Semantic.getIdentifierCaseRenameForNode === "function"
+        ) {
+            finalResult = Semantic.getIdentifierCaseRenameForNode(
+                node,
+                options
+            );
         }
+    } catch {
+        /* ignore */
+    }
 
-        // If the caller requested a dry-run for identifier-case, do not
-        // apply or consult the rename snapshot when printing — dry-run
-        // should only report planned changes, not rewrite source text.
-        if (options?.__identifierCaseDryRun === true) {
-            try {
-                console.debug(
-                    `[DBG] semantic-lookup: dry-run mode active, skipping rename lookup for filepath=${options?.filepath ?? null}`
-                );
-            } catch {
-                /* ignore */
-            }
-            return null;
-        }
-
-        // Prefer the registered Semantic lookup service if available. Some
-        // runtime environments lazily proxy module exports which can hide
-        // properties from enumeration; attempt to call the facade helper but
-        // always fall back to a direct renameMap lookup when a snapshot is
-        // present on the options bag. This keeps printing deterministic even
-        // when the higher-level Semantic facade is not exposing the lookup
-        // function for any reason (circular-init, test-provider swaps, etc.).
-        let finalResult = null;
-        try {
+    // If the facade lookup did not produce a rename, attempt a narrow
+    // direct lookup against the captured renameMap. This mirrors the
+    // planner's location-based key encoding and emits diagnostics to help
+    // triage any mismatches.
+    try {
+        if (!finalResult) {
+            const renameMap = options?.__identifierCaseRenameMap ?? null;
             if (
-                Semantic &&
-                typeof Semantic.getIdentifierCaseRenameForNode === "function"
+                renameMap &&
+                typeof renameMap.get === "function" &&
+                node &&
+                node.start
             ) {
-                finalResult = Semantic.getIdentifierCaseRenameForNode(
-                    node,
-                    options
-                );
-            }
-        } catch {
-            /* ignore */
-        }
-
-        // If the facade lookup did not produce a rename, attempt a narrow
-        // direct lookup against the captured renameMap. This mirrors the
-        // planner's location-based key encoding and emits diagnostics to help
-        // triage any mismatches.
-        try {
-            if (!finalResult) {
-                const renameMap = options?.__identifierCaseRenameMap ?? null;
-                if (
-                    renameMap &&
-                    typeof renameMap.get === "function" &&
-                    node &&
-                    node.start
-                ) {
-                    const loc =
-                        typeof node.start === "number"
-                            ? { index: node.start }
-                            : node.start;
-                    const key = Core.buildLocationKey(loc);
-                    try {
-                        const hasKey = key
-                            ? Boolean(renameMap.has(key))
-                            : false;
-                        const samples = [];
-                        let c = 0;
-                        for (const k of renameMap.keys()) {
-                            samples.push(String(k));
-                            c += 1;
-                            if (c >= 6) break;
-                        }
-                        console.debug(
-                            `[DBG] semantic-lookup-fallback-attempt: filepath=${options?.filepath ?? null} computedKey=${String(key)} hasKey=${String(hasKey)} renameMapId=${renameMap.__dbgId ?? null} renameMapSize=${renameMap.size} samples=${JSON.stringify(samples)}`
-                        );
-                    } catch {
-                        /* ignore */
-                    }
-
-                    if (key) {
-                        finalResult = renameMap.get(key) ?? finalResult;
-                        if (!finalResult) {
-                            try {
-                                const comparisons = [];
-                                let i = 0;
-                                for (const mk of renameMap.keys()) {
-                                    const same = mk === key;
-                                    comparisons.push({
-                                        mapKey: String(mk),
-                                        mapKeyLength: String(mk).length,
-                                        computedKey: String(key),
-                                        computedKeyLength: String(key).length,
-                                        equal: same
-                                    });
-                                    i += 1;
-                                    if (i >= 8) break;
-                                }
-                                console.debug(
-                                    `[DBG] semantic-lookup-fallback-equality: filepath=${options?.filepath ?? null} computedKey=${String(key)} renameMapId=${renameMap.__dbgId ?? null} renameMapSize=${renameMap.size} comparisons=${JSON.stringify(comparisons)}`
-                                );
-                            } catch {
-                                /* ignore */
-                            }
-                        }
-                    }
+                const loc =
+                    typeof node.start === "number"
+                        ? { index: node.start }
+                        : node.start;
+                const key = Core.buildLocationKey(loc);
+                if (key) {
+                    finalResult = renameMap.get(key) ?? finalResult;
                 }
             }
-        } catch {
-            /* ignore */
         }
-
-        try {
-            console.debug(
-                `[DBG] semantic-lookup: filepath=${options?.filepath ?? null} nodeStart=${JSON.stringify(
-                    node?.start
-                )} scopeId=${String(node?.scopeId ?? null)} result=${String(
-                    finalResult ?? null
-                )} renameMapId=${options?.__identifierCaseRenameMap?.__dbgId ?? null}`
-            );
-        } catch {
-            /* ignore */
-        }
-
-        return finalResult;
-    } catch (error) {
-        try {
-            console.debug(
-                `[DBG] semantic-lookup-exception: ${String(error && error.stack ? error.stack : error)}`
-            );
-        } catch {
-            /* ignore */
-        }
+    } catch {
+        /* ignore */
     }
-    return null;
+
+    return finalResult;
 }
 
 let {
@@ -226,79 +141,7 @@ let {
 const _rawConcat = (builders as any).concat;
 const { willBreak } = utils;
 
-// Monkey-patch Prettier builders to defensively sanitize any array children
-// before they enter Prettier's internal doc traversal. Some internal code
-// paths call builders.* directly and could inadvertently pass `null` or
-// `undefined` into the Prettier doc tree, which causes `InvalidDocError`.
-// Wrapping the original builders here preserves semantics while filtering
-// out null/undefined values at a single central point.
-try {
-    const _origGroup = builders.group;
-    const _origIndent = builders.indent;
-    const _origConditionalGroup = builders.conditionalGroup;
-    const _origIfBreak = builders.ifBreak;
-    const _origLineSuffix = builders.lineSuffix;
-    // Prettier's doc `builders` type does not expose `concat` in types despite
-    // implementation presence; cast to any to access it safely without changing
-    // runtime behavior. We avoid destructuring `Core` and keep explicit Core.*.
-    const _origConcat = (builders as any).concat;
-    const _origJoin = builders.join;
-
-    const _sanitizeArrayArg = (arg) => {
-        // Coerce null/undefined into a safe empty string so Prettier never
-        // receives a top-level null doc fragment. Also ensure non-array
-        // values get sanitized through the child sanitizer so edge-cases
-        // like passing a raw null or undefined are handled uniformly.
-        if (arg === null || arg === undefined) {
-            return "";
-        }
-        if (Array.isArray(arg)) {
-            return arg.map(_sanitizeDocChild);
-        }
-        return _sanitizeDocChild(arg);
-    };
-
-    builders.group = function (parts, options) {
-        return _origGroup.call(this, _sanitizeArrayArg(parts), options);
-    };
-    builders.indent = function (parts) {
-        return _origIndent.call(this, _sanitizeArrayArg(parts));
-    };
-    builders.conditionalGroup = function (parts, options) {
-        return _origConditionalGroup.call(
-            this,
-            _sanitizeArrayArg(parts),
-            options
-        );
-    };
-    builders.ifBreak = function (parts, options) {
-        return _origIfBreak.call(this, _sanitizeArrayArg(parts), options);
-    };
-    builders.lineSuffix = function (parts) {
-        return _origLineSuffix.call(this, _sanitizeArrayArg(parts));
-    };
-    (builders as any).concat = function (parts) {
-        return _origConcat.call(this, _sanitizeArrayArg(parts));
-    };
-    builders.join = function (sep, parts) {
-        // If `parts` is null/undefined, coerce to an empty array so the
-        // underlying Prettier join receives a safe, non-null value. If
-        // `parts` is not an array, sanitize the single value as a doc child.
-        if (parts === null || parts === undefined) {
-            return _origJoin.call(this, sep, []);
-        }
-        return _origJoin.call(
-            this,
-            sep,
-            Array.isArray(parts)
-                ? parts.map(_sanitizeDocChild)
-                : _sanitizeDocChild(parts)
-        );
-    };
-} catch {
-    // If the monkey-patch fails for any environment, do not break printing;
-    // the wrappers above are defensive only.
-}
+// Monkey-patching removed.
 
 // Rebind the local builder references to the (possibly wrapped) builders so
 // subsequent calls use our sanitizing wrappers instead of the original
@@ -314,48 +157,37 @@ try {
     // ignore - maintain best-effort compatibility
 }
 
-// Defensive wrappers around Prettier doc builders to ensure the printer
-// never injects `null` or `undefined` into the Prettier doc tree. A stray
-// null value will cause Prettier to throw `InvalidDocError: Unexpected doc
-// 'null'` during traversal. These wrappers filter null/undefined children
-// while preserving the original builder semantics.
 function _sanitizeDocChild(child) {
-    // Allow raw strings and Prettier doc objects; coerce other falsy values
-    // to an empty string so the doc tree remains valid.
-    if (child === null || child === undefined) {
-        // Emit a single diagnostic on first occurrence so we can trace where
-        // null doc fragments originate without flooding the test output.
-        try {
-            if (!globalThis.__prettier_gml_logged_null_doc_child) {
-                globalThis.__prettier_gml_logged_null_doc_child = true;
-
-                console.warn(
-                    "[feather:diagnostic] printer: encountered null/undefined doc child - logging stack to locate producer"
-                );
-
-                console.warn(new Error("printer: null doc child").stack);
-            }
-        } catch {
-            /* ignore */
-        }
-
+    // Prettier's doc builder functions (concat, join, etc.) expect valid Doc
+    // elements. Null, undefined, and boolean false are not valid Doc elements
+    // and can cause crashes or unexpected behavior if passed directly.
+    // We map them to empty strings to preserve array length/indices if needed,
+    // though usually they just disappear in the output.
+    if (Array.isArray(child)) {
+        return child.map(_sanitizeDocChild);
+    }
+    if (child === null || child === undefined || child === false) {
         return "";
     }
     return child;
 }
 
-function concat(...parts) {
-    if (parts.length === 1 && Array.isArray(parts[0])) {
-        return _rawConcat(parts[0].map(_sanitizeDocChild));
+function concat(parts) {
+    if (!Array.isArray(parts)) {
+        const sanitized = _sanitizeDocChild(parts);
+        return _rawConcat([sanitized]);
     }
-    return _rawConcat(parts.map(_sanitizeDocChild));
+    const sanitizedParts = parts.map(_sanitizeDocChild);
+    return _rawConcat(sanitizedParts);
 }
 
 function join(separator, parts) {
     if (!Array.isArray(parts)) {
-        return _rawJoin(separator, parts);
+        const sanitized = _sanitizeDocChild(parts);
+        return _rawJoin(separator, [sanitized]);
     }
-    return _rawJoin(separator, parts.map(_sanitizeDocChild));
+    const sanitizedParts = parts.map(_sanitizeDocChild);
+    return _rawJoin(separator, sanitizedParts);
 }
 
 const FEATHER_COMMENT_OUT_SYMBOL = Symbol.for(
@@ -734,13 +566,6 @@ function _printImpl(path, options, print) {
         case "Program": {
             if (node && node.__identifierCasePlanSnapshot) {
                 try {
-                    try {
-                        console.debug(
-                            `[DBG] printer: about to apply snapshot for filepath=${options?.filepath ?? null} snapshotPresent=${Boolean(node.__identifierCasePlanSnapshot)}`
-                        );
-                    } catch {
-                        /* ignore */
-                    }
                     if (
                         Semantic &&
                         typeof Semantic.applyIdentifierCasePlanSnapshot ===
@@ -751,21 +576,7 @@ function _printImpl(path, options, print) {
                             options
                         );
                     }
-                    try {
-                        console.debug(
-                            `[DBG] printer: post-apply options.renameMapPresent=${Boolean(options?.__identifierCaseRenameMap)} size=${options?.__identifierCaseRenameMap?.size ?? "n/a"} renameMapId=${options?.__identifierCaseRenameMap?.__dbgId ?? null} filepath=${options?.filepath ?? null}`
-                        );
-                    } catch {
-                        /* ignore */
-                    }
-                } catch (error) {
-                    try {
-                        console.debug(
-                            `[DBG] printer: failed to apply snapshot: ${String(error)}`
-                        );
-                    } catch {
-                        /* ignore */
-                    }
+                } catch {
                     // Non-fatal: identifier case snapshot application is
                     // optional for printing. If the Semantic API isn't
                     // available, continue without it.
@@ -1163,12 +974,11 @@ function _printImpl(path, options, print) {
                         )
                             ? Core.getCommentArray(node).length
                             : 0;
-                        console.debug(
-                            `[doc:debug] function-decl: programComments=${programCommentsCount} nodeComments=${nodeCommentsCount}`
-                        );
                     } catch {
                         // ignore
                     }
+                }
+                if (process.env.GML_PRINTER_DEBUG) {
                 }
                 const { existingDocLines, remainingComments } =
                     collectSyntheticDocCommentLines(
@@ -1185,19 +995,6 @@ function _printImpl(path, options, print) {
                     options
                 );
                 if (process.env.GML_PRINTER_DEBUG) {
-                    console.debug(
-                        `[doc:debug] function-decl-collect: existingDocLines=${existingDocLines.length} leadingLines=${leadingCommentLines.length}`
-                    );
-                    if (existingDocLines.length > 0) {
-                        console.debug(
-                            `[doc:debug] function-decl-collect-existing: ${JSON.stringify(existingDocLines)}`
-                        );
-                    }
-                    if (leadingCommentLines.length > 0) {
-                        console.debug(
-                            `[doc:debug] function-decl-collect-leading: ${JSON.stringify(leadingCommentLines)}`
-                        );
-                    }
                 }
                 if (
                     existingDocLines.length > 0 ||
@@ -1276,6 +1073,7 @@ function _printImpl(path, options, print) {
                     parentNode.type === "BlockStatement" &&
                     !needsLeadingBlankLine
                 ) {
+                    console.error("Setting needsLeadingBlankLine=true because parent is BlockStatement");
                     needsLeadingBlankLine = true;
                 }
             }
@@ -2007,7 +1805,7 @@ function _printImpl(path, options, print) {
                           ) {
                               return options.originalText.slice(
                                   startIndex,
-                                  endIndex + 1
+                                  endIndex
                               );
                           }
                           return "";
@@ -2150,25 +1948,10 @@ function _printImpl(path, options, print) {
                 identifierName = preferredParamName;
             }
 
-            try {
-                console.debug(
-                    `[DBG] identifier-print: filepath=${options?.filepath ?? null} nodeStart=${JSON.stringify(node?.start)} scopeId=${String(node?.scopeId ?? null)} renameMapPresent=${Boolean(options?.__identifierCaseRenameMap)} renameMapId=${options?.__identifierCaseRenameMap?.__dbgId ?? null}`
-                );
-            } catch {
-                /* ignore */
-            }
-
             const renamed = getSemanticIdentifierCaseRenameForNode(
                 node,
                 options
             );
-            try {
-                console.debug(
-                    `[DBG] identifier-print: semantic-rename-result filepath=${options?.filepath ?? null} nodeStart=${JSON.stringify(node?.start)} renamed=${String(renamed ?? null)} renameMapId=${options?.__identifierCaseRenameMap?.__dbgId ?? null}`
-                );
-            } catch {
-                /* ignore */
-            }
             if (Core.isNonEmptyString(renamed)) {
                 identifierName = renamed;
             }
@@ -3322,6 +3105,7 @@ function printStatements(path, options, print, childrenAttribute) {
 
             if (
                 isTopLevel &&
+                index > 0 &&
                 !isPreviousLineEmpty(options.originalText, nodeStartIndex) &&
                 !hasLeadingComment
             ) {
@@ -4228,16 +4012,6 @@ function collectSyntheticDocCommentLines(
     sourceText
 ) {
     const rawComments = Core.getCommentArray(node);
-    if (typeof process !== "undefined" && process.env.GML_PRINTER_DEBUG) {
-        const programCommentsCount = Core.isNonEmptyArray(
-            Core.getCommentArray(programNode)
-        )
-            ? Core.getCommentArray(programNode).length
-            : 0;
-        console.debug(
-            `[doc:debug] collectSyntheticDocCommentLines-enter: node=${(node && node.type) || String(node)} nodeComments=${rawComments.length} programComments=${programCommentsCount}`
-        );
-    }
     if (!Core.isNonEmptyArray(rawComments)) {
         // No node-level comments exist; fallback collection happens later.
     }
@@ -4275,15 +4049,6 @@ function collectSyntheticDocCommentLines(
             /^\/\s*/.test(trimmedRaw) ||
             /^\s*@/.test(trimmedRaw);
 
-        if (process.env.GML_PRINTER_DEBUG) {
-            try {
-                console.debug(
-                    `[doc:debug] collectSyntheticDocCommentLines: evaluated comment formatted=${JSON.stringify(formatted)} trimmedRaw=${JSON.stringify(trimmedRaw)} isFormattedDocStyle=${isFormattedDocStyle} isRawDocLike=${isRawDocLike}`
-                );
-            } catch {
-                /* ignore */
-            }
-        }
         if (!isFormattedDocStyle && !isRawDocLike) {
             remainingComments.push(comment);
             continue;
@@ -4300,11 +4065,6 @@ function collectSyntheticDocCommentLines(
         ) {
             const inner = trimmedRaw.replace(/^\/*\s*/, "").trim();
             formatted = inner.length > 0 ? `/// ${inner}` : "///";
-        }
-        if (process.env.GML_PRINTER_DEBUG) {
-            console.debug(
-                `[doc:debug] collectSyntheticDocCommentLines: comment formatted=${JSON.stringify(formatted)} isFormattedDocStyle=${isFormattedDocStyle} isRawDocLike=${isRawDocLike} trimmedRaw=${JSON.stringify(trimmedRaw)}`
-            );
         }
 
         // If the comment appears before the node's start index, or is
@@ -4347,24 +4107,6 @@ function collectSyntheticDocCommentLines(
         } else {
             existingDocLines.push(formatted);
         }
-    }
-    // Diagnostic: log collected doc lines and raw comments for this node to aid debugging
-    if (process.env.GML_PRINTER_DEBUG) {
-        console.debug(
-            `[doc:debug] collectSyntheticDocCommentLines: node=${(node && node.type) || String(node)} rawComments=${rawComments.length} existingDocLines=${existingDocLines.length}`
-        );
-        for (const [idx, rc] of rawComments.entries()) {
-            try {
-                console.debug(
-                    `  comment[${idx}] type=${rc?.type} raw=${JSON.stringify(Core.getCommentValue(rc))} placement=${rc?.placement} start=${JSON.stringify(rc?.start)} end=${JSON.stringify(rc?.end)} inlinePadding=${rc?.inlinePadding} leadingWS=${rc?.leadingWS?.replaceAll("\n", String.raw`\n`)}`
-                );
-            } catch {
-                // ignore logging error
-            }
-        }
-        console.debug(
-            `  existingDocLines: ${JSON.stringify(existingDocLines)}`
-        );
     }
 
     // If we found no existing doc lines attached to the node, attempt to
@@ -4460,11 +4202,6 @@ function collectSyntheticDocCommentLines(
                         }
                     }
                     for (const c of docCandidates) c.printed = true;
-                    if (process.env.GML_PRINTER_DEBUG) {
-                        console.debug(
-                            `[doc:debug] collectSyntheticDocCommentLines (program-assoc): node=${(node && node.type) || String(node)} programComments=${programComments.length} promoted=${collected.length}`
-                        );
-                    }
                     return {
                         existingDocLines: flattenedCollected,
                         remainingComments: Core.toMutableArray(rawComments)
@@ -4562,11 +4299,6 @@ function collectSyntheticDocCommentLines(
                         const inner = c.text.replace(/^\s*\/+\s*/, "").trim();
                         return inner.length > 0 ? `/// ${inner}` : "///";
                     });
-                    if (process.env.GML_PRINTER_DEBUG) {
-                        console.debug(
-                            `[doc:debug] collectSyntheticDocCommentLines (raw-source): node=${(node && node.type) || String(node)} promoted=${formatted.length}`
-                        );
-                    }
                     // Flatten any multiline entries in the formatted set
                     const flattenedFormatted = [] as string[];
                     for (const entry of formatted) {
@@ -5064,35 +4796,7 @@ function mergeSyntheticDocComments(
             )
         ) as MutableDocCommentLines;
     }
-    // Diagnostic log: show before/after merging
-    if (
-        Array.isArray(normalizedExistingLines) &&
-        normalizedExistingLines.length > 0
-    ) {
-        console.error(
-            `[doc:debug] mergeSyntheticDocComments: normalizedExistingLines=${JSON.stringify(normalizedExistingLines.slice(0, 3))}...`
-        );
-    }
-    if (_computedSynthetic && Array.isArray(_computedSynthetic)) {
-        console.error(
-            `[doc:debug] mergeSyntheticDocComments: synthetic lines computed=${_computedSynthetic.length}`
-        );
-    }
-    try {
-        const fname = Core.getNodeName(node);
-        if (typeof fname === "string" && fname.includes("sample")) {
-            try {
-                console.error(
-                    `[feather:debug] top-level syntheticLines(${String(fname)}):`,
-                    _computedSynthetic
-                );
-            } catch {
-                void 0;
-            }
-        }
-    } catch {
-        void 0;
-    }
+
     const syntheticLines =
         Core.reorderDescriptionLinesAfterFunction(_computedSynthetic);
 
@@ -6197,16 +5901,8 @@ function mergeSyntheticDocComments(
             );
 
         if (originalExistingHasTags || originalExistingHasDocLikePrefixes) {
-            console.log(
-                "promoteLeadingDocCommentTextToDescription: filteredResult pre-promotion",
-                filteredResult
-            );
             filteredResult = Core.toMutableArray(
                 Core.promoteLeadingDocCommentTextToDescription(filteredResult)
-            );
-            console.log(
-                "promoteLeadingDocCommentTextToDescription: filteredResult post-promotion",
-                filteredResult
             );
         }
     } catch {
@@ -6215,9 +5911,6 @@ function mergeSyntheticDocComments(
     }
 
     try {
-        console.error(
-            `[doc:debug] mergeSyntheticDocComments: finalResult=${JSON.stringify(filteredResult)}`
-        );
     } catch {
         void 0;
     }
@@ -7039,17 +6732,17 @@ function computeSyntheticFunctionDocLines(
                 try {
                     const suppressed =
                         suppressedImplicitDocCanonicalByNode.get(node);
-                    console.error(
-                        `[feather:debug] computeSyntheticFunctionDocLines(${fname}): implicitArgumentDocNames=`,
-                        describeImplicitArgumentEntries(
-                            implicitArgumentDocNames,
-                            { includeSuppressDocLine: true }
-                        )
-                    );
-                console.error(
-                    `[feather:debug] computeSyntheticFunctionDocLines(${fname}): suppressedCanonicals=`,
-                    Array.from(suppressed || [])
-                );
+                    // console.error(
+                    //     `[feather:debug] computeSyntheticFunctionDocLines(${fname}): implicitArgumentDocNames=`,
+                    //     describeImplicitArgumentEntries(
+                    //         implicitArgumentDocNames,
+                    //         { includeSuppressDocLine: true }
+                    //     )
+                    // );
+                // console.error(
+                //     `[feather:debug] computeSyntheticFunctionDocLines(${fname}): suppressedCanonicals=`,
+                //     Array.from(suppressed || [])
+                // );
             } catch {
                 void 0;
             }
@@ -7094,11 +6787,11 @@ function computeSyntheticFunctionDocLines(
             } = entry;
             try {
                 const fname = Core.getNodeName(node);
-                if (typeof fname === "string" && fname.includes("sample3")) {
-                    console.error(
-                        `[feather:debug] computeSyntheticFunctionDocLines(${fname}): entry debug docName='${String(docName)}' canonical='${String(canonical)}' fallback='${String(fallbackCanonical)}' documentedDocName=${documentedParamNames.has(docName)} documentedFallback=${documentedParamNames.has(fallbackCanonical)} hasDirectReference=${String(entry.hasDirectReference)} index=${String(index)}`
-                    );
-                }
+                // if (typeof fname === "string" && fname.includes("sample3")) {
+                //     console.error(
+                //         `[feather:debug] computeSyntheticFunctionDocLines(${fname}): entry debug docName='${String(docName)}' canonical='${String(canonical)}' fallback='${String(fallbackCanonical)}' documentedDocName=${documentedParamNames.has(docName)} documentedFallback=${documentedParamNames.has(fallbackCanonical)} hasDirectReference=${String(entry.hasDirectReference)} index=${String(index)}`
+                //     );
+                // }
             } catch {
                 /* ignore */
             }
@@ -7109,10 +6802,10 @@ function computeSyntheticFunctionDocLines(
                         typeof fname === "string" &&
                         fname.includes("sample3")
                     ) {
-                        console.error(
-                            `[feather:debug] computeSyntheticFunctionDocLines(${fname}): skipping adding docName '${String(docName)}' since it's already documented; entry=`,
-                            entry
-                        );
+                        // console.error(
+                        //     `[feather:debug] computeSyntheticFunctionDocLines(${fname}): skipping adding docName '${String(docName)}' since it's already documented; entry=`,
+                        //     entry
+                        // );
                     }
                 } catch {
                     /* ignore */
@@ -7138,9 +6831,9 @@ function computeSyntheticFunctionDocLines(
                             typeof fname === "string" &&
                             fname.includes("sample3")
                         ) {
-                            console.error(
-                                `[feather:debug] computeSyntheticFunctionDocLines(${fname}): considering adding fallback in documented branch docName='${String(docName)}' canonical='${String(canonical)}' fallback='${String(fallbackCanonical)}' hasDirectReference='${String(entry.hasDirectReference)}' documentedFallback='${String(documentedParamNames.has(fallbackCanonical))}'`
-                            );
+                            // console.error(
+                            //     `[feather:debug] computeSyntheticFunctionDocLines(${fname}): considering adding fallback in documented branch docName='${String(docName)}' canonical='${String(canonical)}' fallback='${String(fallbackCanonical)}' hasDirectReference='${String(entry.hasDirectReference)}' documentedFallback='${String(documentedParamNames.has(fallbackCanonical))}'`
+                            // );
                         }
                     } catch {
                         /* ignore */
@@ -7174,9 +6867,9 @@ function computeSyntheticFunctionDocLines(
                         typeof fname === "string" &&
                         fname.includes("sample3")
                     ) {
-                        console.error(
-                            `[feather:debug] computeSyntheticFunctionDocLines(${fname}): adding fallback for docName=${String(docName)} fallbackCanonical=${String(fallbackCanonical)} index=${String(index)} hasDirectReference=${String(entry.hasDirectReference)}`
-                        );
+                        // console.error(
+                        //     `[feather:debug] computeSyntheticFunctionDocLines(${fname}): adding fallback for docName=${String(docName)} fallbackCanonical=${String(fallbackCanonical)} index=${String(index)} hasDirectReference=${String(entry.hasDirectReference)}`
+                        // );
                     }
                 } catch {
                     /* ignore */
@@ -7190,21 +6883,21 @@ function computeSyntheticFunctionDocLines(
                         typeof fname === "string" &&
                         fname.includes("sample3")
                     ) {
-                        console.error(
-                            `[feather:debug] computeSyntheticFunctionDocLines(${fname}): did NOT add fallback for docName='${String(docName)}' fallback='${String(fallbackCanonical)}' reasons=`,
-                            {
-                                canonical: Boolean(canonical),
-                                fallbackCanonical: Boolean(fallbackCanonical),
-                                canonicalNotEqual:
-                                    canonical !== fallbackCanonical,
-                                hasDirectReference:
-                                    entry.hasDirectReference === true,
-                                indexValid:
-                                    Number.isInteger(index) && index >= 0,
-                                alreadyDocumented:
-                                    documentedParamNames.has(fallbackCanonical)
-                            }
-                        );
+                        // console.error(
+                        //     `[feather:debug] computeSyntheticFunctionDocLines(${fname}): did NOT add fallback for docName='${String(docName)}' fallback='${String(fallbackCanonical)}' reasons=`,
+                        //     {
+                        //         canonical: Boolean(canonical),
+                        //         fallbackCanonical: Boolean(fallbackCanonical),
+                        //         canonicalNotEqual:
+                        //             canonical !== fallbackCanonical,
+                        //         hasDirectReference:
+                        //             entry.hasDirectReference === true,
+                        //         indexValid:
+                        //             Number.isInteger(index) && index >= 0,
+                        //         alreadyDocumented:
+                        //             documentedParamNames.has(fallbackCanonical)
+                        //     }
+                        // );
                     }
                 } catch {
                     /* ignore */
@@ -7215,19 +6908,19 @@ function computeSyntheticFunctionDocLines(
         try {
             const fname = Core.getNodeName(node);
             if (typeof fname === "string" && fname.includes("sample3")) {
-                console.error(
-                    `[feather:debug] computeSyntheticFunctionDocLines(${fname}): lines after initial pass=`,
-                    lines
-                );
+                // console.error(
+                //     `[feather:debug] computeSyntheticFunctionDocLines(${fname}): lines after initial pass=`,
+                //     lines
+                // );
                 try {
-                    console.error(
-                        `[feather:debug] computeSyntheticFunctionDocLines(${fname}): documentedParamNames=`,
-                        Array.from(documentedParamNames.values())
-                    );
-                    console.error(
-                        `[feather:debug] computeSyntheticFunctionDocLines(${fname}): lines=`,
-                        lines
-                    );
+                    // console.error(
+                    //     `[feather:debug] computeSyntheticFunctionDocLines(${fname}): documentedParamNames=`,
+                    //     Array.from(documentedParamNames.values())
+                    // );
+                    // console.error(
+                    //     `[feather:debug] computeSyntheticFunctionDocLines(${fname}): lines=`,
+                    //     lines
+                    // );
                 } catch {
                     /* ignore */
                 }
@@ -7265,9 +6958,9 @@ function computeSyntheticFunctionDocLines(
                         typeof fname === "string" &&
                         fname.includes("sample3")
                     ) {
-                        console.error(
-                            `[feather:debug] computeSyntheticFunctionDocLines(${fname}): safety-check entry=index=${String(index)} canonical=${String(canonical)} fallback=${String(fallbackCanonical)} hasDirectReference=${String(entry.hasDirectReference)} documented=${String(documentedParamNames.has(fallbackCanonical))} shouldAdd=${String(shouldAddFallback)}`
-                        );
+                        // console.error(
+                        //     `[feather:debug] computeSyntheticFunctionDocLines(${fname}): safety-check entry=index=${String(index)} canonical=${String(canonical)} fallback=${String(fallbackCanonical)} hasDirectReference=${String(entry.hasDirectReference)} documented=${String(documentedParamNames.has(fallbackCanonical))} shouldAdd=${String(shouldAddFallback)}`
+                        // );
                     }
                 } catch {
                     void 0;
@@ -7288,9 +6981,9 @@ function computeSyntheticFunctionDocLines(
                             typeof fname === "string" &&
                             fname.includes("sample3")
                         ) {
-                            console.error(
-                                `[feather:debug] computeSyntheticFunctionDocLines(${fname}): safety-net adding fallback for index=${String(index)} fallback=${String(fallbackCanonical)} canonical=${String(canonical)} hasDirectReference=${String(entry.hasDirectReference)}`
-                            );
+                            // console.error(
+                            //     `[feather:debug] computeSyntheticFunctionDocLines(${fname}): safety-net adding fallback for index=${String(index)} fallback=${String(fallbackCanonical)} canonical=${String(canonical)} hasDirectReference=${String(entry.hasDirectReference)}`
+                            // );
                         }
                     } catch {
                         void 0;
@@ -7302,10 +6995,10 @@ function computeSyntheticFunctionDocLines(
             try {
                 const fname2 = Core.getNodeName(node);
                 if (typeof fname2 === "string" && fname2.includes("sample3")) {
-                    console.error(
-                        `[feather:debug] computeSyntheticFunctionDocLines(${fname2}): lines after safety-net pass=`,
-                        lines
-                    );
+                    // console.error(
+                    //     `[feather:debug] computeSyntheticFunctionDocLines(${fname2}): lines after safety-net pass=`,
+                    //     lines
+                    // );
                 }
             } catch {
                 /* ignore */
@@ -7648,10 +7341,10 @@ function computeSyntheticFunctionDocLines(
             try {
                 const fname = Core.getNodeName(node);
                 if (typeof fname === "string" && fname.includes("sample3")) {
-                    console.error(
-                        `[feather:debug] computeSyntheticFunctionDocLines(${fname}): documentedParamNames snapshot=`,
-                        Array.from(documentedParamNames.values())
-                    );
+                    // console.error(
+                    //     `[feather:debug] computeSyntheticFunctionDocLines(${fname}): documentedParamNames snapshot=`,
+                    //     Array.from(documentedParamNames.values())
+                    // );
                 }
             } catch {
                 /* ignore */
@@ -7841,10 +7534,10 @@ function collectImplicitArgumentDocNames(functionNode, options) {
                               )
                           }
                         : null;
-                    console.error(
-                        `[feather:debug] gatherImplicitArgumentReferences(${fname}):`,
-                        briefRef
-                    );
+                    // console.error(
+                    //     `[feather:debug] gatherImplicitArgumentReferences(${fname}):`,
+                    //     briefRef
+                    // );
                 }
             } catch {
                 /* ignore */
@@ -8002,10 +7695,10 @@ function collectImplicitArgumentDocNames(functionNode, options) {
                     functionNode.id?.name || functionNode.name || null;
                 if (typeof fname === "string" && fname.includes("sample")) {
                     try {
-                        console.error(
-                            `[feather:debug] collectImplicitArgumentDocNames(${fname}): parserEntries=`,
-                            describeImplicitArgumentEntries(entries)
-                        );
+                        // console.error(
+                        //     `[feather:debug] collectImplicitArgumentDocNames(${fname}): parserEntries=`,
+                        //     describeImplicitArgumentEntries(entries)
+                        // );
 
                         // Provide detailed per-entry filter decisions so we can
                         // see why the printer keeps or drops parser-provided
@@ -8037,19 +7730,19 @@ function collectImplicitArgumentDocNames(functionNode, options) {
                                     !!d.hasDirectReference && d.kept === false
                             );
                             if (droppedDirect.length > 0) {
-                                console.error(
-                                    `[feather:debug] collectImplicitArgumentDocNames(${fname}): DROPPED_DIRECT_ENTRIES=`,
-                                    droppedDirect
-                                );
+                                // console.error(
+                                //     `[feather:debug] collectImplicitArgumentDocNames(${fname}): DROPPED_DIRECT_ENTRIES=`,
+                                //     droppedDirect
+                                // );
                             }
                         } catch {
                             /* ignore diagnostic errors */
                         }
 
-                        console.error(
-                            `[feather:debug] collectImplicitArgumentDocNames(${fname}): filter-decisions=`,
-                            decisions
-                        );
+                        // console.error(
+                        //     `[feather:debug] collectImplicitArgumentDocNames(${fname}): filter-decisions=`,
+                        //     decisions
+                        // );
 
                         return result;
                     } catch {
@@ -8077,10 +7770,10 @@ function collectImplicitArgumentDocNames(functionNode, options) {
                           : null);
             if (typeof fname === "string" && fname.includes("sample")) {
                 try {
-                    console.debug(
-                        `[feather:debug] collectImplicitArgumentDocNames(${fname}): suppressedCanonicals=`,
-                        Array.from(suppressedCanonicals || [])
-                    );
+                    // console.debug(
+                    //     `[feather:debug] collectImplicitArgumentDocNames(${fname}): suppressedCanonicals=`,
+                    //     Array.from(suppressedCanonicals || [])
+                    // );
                 } catch {
                     /* ignore */
                 }
@@ -8127,10 +7820,10 @@ function collectImplicitArgumentDocNames(functionNode, options) {
                     kept: result.includes(e)
                 }));
 
-                console.error(
-                    `[feather:debug] collectImplicitArgumentDocNames(${fname}): filter-decisions=`,
-                    decisions
-                );
+                // console.error(
+                //     `[feather:debug] collectImplicitArgumentDocNames(${fname}): filter-decisions=`,
+                //     decisions
+                // );
 
                 return result;
             }
@@ -8216,14 +7909,14 @@ function collectImplicitArgumentDocNames(functionNode, options) {
                       : null);
         if (typeof fname === "string" && fname.includes("sample")) {
             try {
-                        console.error(
-                            `[feather:debug] collectImplicitArgumentDocNames(${fname}): builtEntries=`,
-                            describeImplicitArgumentEntries(entries)
-                        );
-                console.error(
-                    `[feather:debug] collectImplicitArgumentDocNames(${fname}): suppressedCanonicals=`,
-                    Array.from(suppressedCanonicals || [])
-                );
+                        // console.error(
+                        //     `[feather:debug] collectImplicitArgumentDocNames(${fname}): builtEntries=`,
+                        //     describeImplicitArgumentEntries(entries)
+                        // );
+                // console.error(
+                //     `[feather:debug] collectImplicitArgumentDocNames(${fname}): suppressedCanonicals=`,
+                //     Array.from(suppressedCanonicals || [])
+                // );
             } catch {
                 /* ignore */
             }
@@ -9173,6 +8866,8 @@ function getParameterDocInfo(paramNode, functionNode, options) {
         const defaultText = shouldIncludeDefaultText
             ? getSourceTextForNode(paramNode.right, options)
             : null;
+
+
 
         const docName = defaultText ? `${name}=${defaultText}` : name;
 

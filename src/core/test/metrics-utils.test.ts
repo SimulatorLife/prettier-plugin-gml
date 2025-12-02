@@ -10,13 +10,13 @@ function getCacheKeys(contracts, cacheName = "example") {
     return Object.keys(reporting.caches.cacheSnapshot(cacheName) ?? {});
 }
 
-test("createMetricsTracker uses default cache keys when none provided", () => {
+void test("createMetricsTracker uses default cache keys when none provided", () => {
     const tracker = createMetricsTracker();
 
     assert.deepEqual(getCacheKeys(tracker), ["hits", "misses", "stale"]);
 });
 
-test("createMetricsTracker trims and deduplicates custom cache keys", () => {
+void test("createMetricsTracker trims and deduplicates custom cache keys", () => {
     const tracker = createMetricsTracker({
         cacheKeys: [" hits ", "hits", " misses "]
     });
@@ -24,7 +24,7 @@ test("createMetricsTracker trims and deduplicates custom cache keys", () => {
     assert.deepEqual(getCacheKeys(tracker), ["hits", "misses"]);
 });
 
-test("createMetricsTracker falls back to defaults when overrides are empty", () => {
+void test("createMetricsTracker falls back to defaults when overrides are empty", () => {
     const tracker = createMetricsTracker({ cacheKeys: ["   ", null] });
 
     assert.deepEqual(getCacheKeys(tracker), ["hits", "misses", "stale"]);

@@ -36,8 +36,8 @@ class FakeCommand {
     }
 }
 
-describe("applyStandardCommandOptions", () => {
-    it("applies the shared CLI command defaults", () => {
+void describe("applyStandardCommandOptions", () => {
+    void it("applies the shared CLI command defaults", () => {
         const command = new FakeCommand();
         const configured = applyStandardCommandOptions(command);
 
@@ -64,7 +64,7 @@ describe("applyStandardCommandOptions", () => {
         assert.strictEqual(outputOptions.writeErr, outputOptions.outputError);
     });
 
-    it("throws when invoked without a valid command", () => {
+    void it("throws when invoked without a valid command", () => {
         assert.throws(() => applyStandardCommandOptions(null), {
             name: "TypeError"
         });

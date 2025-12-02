@@ -3,7 +3,7 @@ import { test } from "node:test";
 
 import { resolveCommandUsage } from "../src/cli-core/command-usage.js";
 
-test("resolveCommandUsage reads usage() when helpInformation is absent", () => {
+void test("resolveCommandUsage reads usage() when helpInformation is absent", () => {
     const command = {
         usage() {
             return "usage placeholder";
@@ -13,7 +13,7 @@ test("resolveCommandUsage reads usage() when helpInformation is absent", () => {
     assert.equal(resolveCommandUsage(command), "usage placeholder");
 });
 
-test("resolveCommandUsage falls back when no usage metadata is present", () => {
+void test("resolveCommandUsage falls back when no usage metadata is present", () => {
     assert.equal(
         resolveCommandUsage({}, { fallback: "manual fallback" }),
         "manual fallback"

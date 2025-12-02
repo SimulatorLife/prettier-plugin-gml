@@ -17,8 +17,8 @@ const KEYWORDS = [
 ];
 `;
 
-describe("generate-gml-identifiers", () => {
-    it("normalizes VM evaluation failures", () => {
+void describe("generate-gml-identifiers", () => {
+    void it("normalizes VM evaluation failures", () => {
         const thrown = Object.create(null);
         const restoreVm = mock.method(vm, "runInNewContext", () => {
             throw thrown;
@@ -41,7 +41,7 @@ describe("generate-gml-identifiers", () => {
         }
     });
 
-    it("rejects manual identifier arrays that do not evaluate to arrays", () => {
+    void it("rejects manual identifier arrays that do not evaluate to arrays", () => {
         const identifierMap = new Map();
 
         assert.throws(
@@ -66,7 +66,7 @@ describe("generate-gml-identifiers", () => {
         assert.equal(identifierMap.size, 0);
     });
 
-    it("rejects manual identifier arrays containing non-string entries", () => {
+    void it("rejects manual identifier arrays containing non-string entries", () => {
         const identifierMap = new Map();
 
         assert.throws(
@@ -91,7 +91,7 @@ describe("generate-gml-identifiers", () => {
         assert.equal(identifierMap.size, 0);
     });
 
-    it("exposes assertManualIdentifierArray for tests", () => {
+    void it("exposes assertManualIdentifierArray for tests", () => {
         const values = assertManualIdentifierArray(["alpha"], {
             identifier: "KEYWORDS",
             source: "manual:gml.js:KEYWORDS"

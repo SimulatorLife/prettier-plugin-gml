@@ -14,7 +14,7 @@ async function formatWithPlugin(source, options: any = {}) {
     return formatted.trim();
 }
 
-test("keeps constructor parent clauses inline", async () => {
+void test("keeps constructor parent clauses inline", async () => {
     const source = [
         "function Derived(value) : Base(value, undefined) constructor {",
         "    return new Base(value);",
@@ -33,7 +33,7 @@ test("keeps constructor parent clauses inline", async () => {
     );
 });
 
-test("preserves inline constructor parameters when parent clause is present", async () => {
+void test("preserves inline constructor parameters when parent clause is present", async () => {
     const source = [
         "function AbstractSkyboxParent(sprite = noone, subimg = 0, octahedron_scale = 1, octmap_size = 1024) : ZModelBuffer(sprite, subimg, undefined, c_white, 1, pr_trianglelist) constructor {",
         "    return new ZModelBuffer(sprite, subimg, undefined, c_white, 1, pr_trianglelist);",

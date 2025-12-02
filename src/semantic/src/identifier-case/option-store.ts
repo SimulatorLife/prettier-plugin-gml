@@ -174,9 +174,9 @@ export function setIdentifierCaseOption(options, key, value) {
                 value && (value as DebuggableMap)?.__dbgId
                     ? (value as DebuggableMap).__dbgId
                     : null;
-            console.debug(
-                `[DBG] setIdentifierCaseOption: writing ${key} prevId=${prevId} prevSize=${String(prevSize)} newId=${newId} newSize=${String(newSize)} filepath=${options?.filepath ?? null}`
-            );
+            // console.debug(
+            //     `[DBG] setIdentifierCaseOption: writing ${key} prevId=${prevId} prevSize=${String(prevSize)} newId=${newId} newSize=${String(newSize)} filepath=${options?.filepath ?? null}`
+            // );
         }
     } catch {
         /* ignore */

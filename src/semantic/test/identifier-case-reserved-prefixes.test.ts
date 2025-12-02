@@ -6,7 +6,7 @@ import {
     normalizeIdentifierCaseWithOptions
 } from "../src/identifier-case/identifier-case-utils.js";
 
-test("normalizeIdentifierCase accepts custom reserved prefix overrides", () => {
+void test("normalizeIdentifierCase accepts custom reserved prefix overrides", () => {
     const identifier = "module:subsystem.value";
     const overrides = { reservedPrefixes: ["module:", "module:sub"] };
 
@@ -21,7 +21,7 @@ test("normalizeIdentifierCase accepts custom reserved prefix overrides", () => {
     assert.equal(normalized.tokens[1].normalized, "value");
 });
 
-test("custom reserved prefixes remain intact during formatting", () => {
+void test("custom reserved prefixes remain intact during formatting", () => {
     const identifier = "custom.scope_value";
     const formatOptions = { reservedPrefixes: ["custom.", "custom.scope_"] };
 

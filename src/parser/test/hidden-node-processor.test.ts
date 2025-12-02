@@ -4,7 +4,7 @@ import test from "node:test";
 import { Core } from "@gml-modules/core";
 import { createHiddenNodeProcessor } from "../src/ast/hidden-node-processor.js";
 
-test("createCommentLineNode strips leading markers and records metadata", () => {
+void test("createCommentLineNode strips leading markers and records metadata", () => {
     const token = { line: 5, start: 10, stop: 18 };
     const comment = Core.createCommentLineNode({
         token,
@@ -23,7 +23,7 @@ test("createCommentLineNode strips leading markers and records metadata", () => 
     assert.deepEqual(comment.end, { line: 5, index: 18 });
 });
 
-test("createCommentBlockNode tracks line count and boundaries", () => {
+void test("createCommentBlockNode tracks line count and boundaries", () => {
     const token = { line: 2, start: 4, stop: 25 };
     const comment = Core.createCommentBlockNode({
         token,
@@ -41,7 +41,7 @@ test("createCommentBlockNode tracks line count and boundaries", () => {
     assert.deepEqual(comment.end, { line: 3, index: 25 });
 });
 
-test("createWhitespaceNode annotates newlines", () => {
+void test("createWhitespaceNode annotates newlines", () => {
     const token = { line: 7, start: 3, stop: 4 };
     const whitespace = Core.createWhitespaceNode({
         token,
@@ -57,7 +57,7 @@ test("createWhitespaceNode annotates newlines", () => {
     assert.deepEqual(whitespace.end, { line: 8, index: 4 });
 });
 
-test("hidden node processor collects comments and whitespace", () => {
+void test("hidden node processor collects comments and whitespace", () => {
     const comments = [];
     const whitespaces = [];
     const lexerTokens = {

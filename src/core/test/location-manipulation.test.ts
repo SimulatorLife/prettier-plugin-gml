@@ -8,7 +8,7 @@ import {
     simplifyLocationMetadata
 } from "../src/ast/location-manipulation.js";
 
-test("location metadata helpers mutate nested structures", () => {
+void test("location metadata helpers mutate nested structures", () => {
     const ast = {
         type: "Program",
         start: { index: 0 },

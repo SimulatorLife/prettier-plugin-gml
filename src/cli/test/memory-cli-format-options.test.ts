@@ -5,8 +5,8 @@ import { parseFormatterOptionsFixture } from "../src/modules/memory/index.js";
 import { Core } from "../src/shared/index.js";
 // Use Core.JsonParseError per AGENTS.md rather than destructuring
 
-describe("parseFormatterOptionsFixture", () => {
-    it("parses formatter options objects", () => {
+void describe("parseFormatterOptionsFixture", () => {
+    void it("parses formatter options objects", () => {
         const result = parseFormatterOptionsFixture('{"printWidth": 99}', {
             source: "/tmp/formatter/options.json"
         });
@@ -14,7 +14,7 @@ describe("parseFormatterOptionsFixture", () => {
         assert.deepEqual(result, { printWidth: 99 });
     });
 
-    it("annotates parse failures with context", () => {
+    void it("annotates parse failures with context", () => {
         let error;
         try {
             parseFormatterOptionsFixture("{ invalid", {
@@ -31,7 +31,7 @@ describe("parseFormatterOptionsFixture", () => {
         );
     });
 
-    it("rejects non-object formatter options fixtures", () => {
+    void it("rejects non-object formatter options fixtures", () => {
         let error;
         try {
             parseFormatterOptionsFixture("[]", {

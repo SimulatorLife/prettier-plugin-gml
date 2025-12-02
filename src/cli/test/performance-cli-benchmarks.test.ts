@@ -40,8 +40,8 @@ function createNowStub(step) {
     };
 }
 
-describe("performance CLI benchmarks", () => {
-    it("runs the parser benchmark with injected dataset and parser", async () => {
+void describe("performance CLI benchmarks", () => {
+    void it("runs the parser benchmark with injected dataset and parser", async () => {
         const dataset = [
             { path: "/tmp/a.gml", source: "var a = 1;\n" },
             { path: "/tmp/b.gml", source: "var b = 2;\n" }
@@ -78,7 +78,7 @@ describe("performance CLI benchmarks", () => {
         assert.equal(result.throughput.filesPerMs, 0.4);
     });
 
-    it("runs the formatter benchmark with a custom formatter", async () => {
+    void it("runs the formatter benchmark with a custom formatter", async () => {
         const dataset = [
             {
                 path: "/tmp/sample.gml",
@@ -114,7 +114,7 @@ describe("performance CLI benchmarks", () => {
         assert.equal(result.averageDurationMs, 3);
     });
 
-    it("skips benchmarks when the dataset is empty", async () => {
+    void it("skips benchmarks when the dataset is empty", async () => {
         const parseResult = await runParserBenchmark({ dataset: [] });
         assert.ok(isSkippedBenchmarkResult(parseResult));
         assert.equal(parseResult.skipped, true);

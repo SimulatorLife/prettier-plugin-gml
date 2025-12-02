@@ -20,7 +20,7 @@ async function createSampleFile(directory, label, size = 256 * 1024) {
     return filePath;
 }
 
-describe("memory module sample cache", () => {
+void describe("memory module sample cache", () => {
     let tempDir;
 
     beforeEach(async () => {
@@ -38,7 +38,7 @@ describe("memory module sample cache", () => {
         }
     });
 
-    it("evicts the oldest samples when exceeding the cache capacity", async () => {
+    void it("evicts the oldest samples when exceeding the cache capacity", async () => {
         const limit = SAMPLE_CACHE_MAX_ENTRIES;
         const sampleCount = limit + 3;
 
@@ -66,7 +66,7 @@ describe("memory module sample cache", () => {
         }
     });
 
-    it("refreshes cache entries when samples are reused", async () => {
+    void it("refreshes cache entries when samples are reused", async () => {
         const limit = SAMPLE_CACHE_MAX_ENTRIES;
         const labels = [];
 

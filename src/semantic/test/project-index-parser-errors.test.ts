@@ -6,7 +6,7 @@ import {
     formatProjectIndexSyntaxError
 } from "../src/project-index/index.js";
 
-test("project index parser reports syntax errors with context", () => {
+void test("project index parser reports syntax errors with context", () => {
     const parser = getDefaultProjectIndexParser();
     const invalidSource = [
         "function example() {",
@@ -44,7 +44,7 @@ test("project index parser reports syntax errors with context", () => {
     );
 });
 
-test("syntax error excerpts expand tabs before pointing at the column", () => {
+void test("syntax error excerpts expand tabs before pointing at the column", () => {
     const error = {
         message: "Syntax Error: unexpected token",
         line: 1,
@@ -61,7 +61,7 @@ test("syntax error excerpts expand tabs before pointing at the column", () => {
     );
 });
 
-test("syntax error excerpts clamp oversized column values", () => {
+void test("syntax error excerpts clamp oversized column values", () => {
     const error = {
         message: "Syntax Error: unexpected token",
         line: 1,
@@ -76,7 +76,7 @@ test("syntax error excerpts clamp oversized column values", () => {
     );
 });
 
-test("syntax error excerpts omit indicators for non-finite columns", () => {
+void test("syntax error excerpts omit indicators for non-finite columns", () => {
     const error = {
         message: "Syntax Error: unexpected token",
         line: 1,
@@ -88,7 +88,7 @@ test("syntax error excerpts omit indicators for non-finite columns", () => {
     assert.strictEqual(formatted.sourceExcerpt, "1 | var value = 1;");
 });
 
-test("display path remains absolute when file matches the project root", () => {
+void test("display path remains absolute when file matches the project root", () => {
     const error = {
         message: "Syntax Error: unexpected token",
         line: 1,
@@ -104,7 +104,7 @@ test("display path remains absolute when file matches the project root", () => {
     assert.strictEqual(formatted.filePath, projectRoot);
 });
 
-test("display path stays absolute when file lies outside the project root", () => {
+void test("display path stays absolute when file lies outside the project root", () => {
     const error = {
         message: "Syntax Error: unexpected token",
         line: 1,
@@ -119,7 +119,7 @@ test("display path stays absolute when file lies outside the project root", () =
     assert.strictEqual(formatted.filePath, "/external/project/file.gml");
 });
 
-test("formatProjectIndexSyntaxError tolerates missing error objects", () => {
+void test("formatProjectIndexSyntaxError tolerates missing error objects", () => {
     const formatted = formatProjectIndexSyntaxError(null, "", {
         filePath: "objects/example/Step_0.gml",
         projectRoot: "/project/root"

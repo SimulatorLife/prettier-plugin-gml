@@ -3,7 +3,7 @@ import { test } from "node:test";
 
 import { Plugin } from "../src/index.js";
 
-test("preserves double spaces following doc comment hyphen", async () => {
+void test("preserves double spaces following doc comment hyphen", async () => {
     const source = [
         "/// @function draw_circle",
         "/// @param {real} r -  The radius of the circle",
@@ -26,7 +26,7 @@ test("preserves double spaces following doc comment hyphen", async () => {
     );
 });
 
-test("normalizes extra spaces before doc parameter names", async () => {
+void test("normalizes extra spaces before doc parameter names", async () => {
     const source = [
         "/// @param    x1",
         "/// @param    y1",

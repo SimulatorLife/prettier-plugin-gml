@@ -6,8 +6,8 @@ import {
     getNormalizedDefineReplacementDirective
 } from "../src/printer/util.js";
 
-describe("printer util define replacement directive normalization", () => {
-    it("normalizes recognized directives case-insensitively", () => {
+void describe("printer util define replacement directive normalization", () => {
+    void it("normalizes recognized directives case-insensitively", () => {
         const regionNode = {
             type: "DefineStatement",
             replacementDirective: "#REGION"
@@ -27,7 +27,7 @@ describe("printer util define replacement directive normalization", () => {
         );
     });
 
-    it("returns null when a define statement lacks a directive", () => {
+    void it("returns null when a define statement lacks a directive", () => {
         assert.equal(getNormalizedDefineReplacementDirective(null), null);
         assert.equal(
             getNormalizedDefineReplacementDirective({
@@ -44,7 +44,7 @@ describe("printer util define replacement directive normalization", () => {
         );
     });
 
-    it("throws when the directive string is unsupported", () => {
+    void it("throws when the directive string is unsupported", () => {
         assert.throws(
             () =>
                 getNormalizedDefineReplacementDirective({

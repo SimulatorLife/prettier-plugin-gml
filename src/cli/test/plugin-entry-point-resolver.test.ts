@@ -6,15 +6,15 @@ import {
     resolvePluginEntryPoint as resolveCliPluginEntryPoint
 } from "../src/plugin-runtime/entry-point.js";
 
-describe("resolveCliPluginEntryPoint", () => {
-    it("delegates to the default plugin entry resolver", () => {
+void describe("resolveCliPluginEntryPoint", () => {
+    void it("delegates to the default plugin entry resolver", () => {
         const resolved = resolveCliPluginEntryPoint();
         const expected = resolvePluginEntryPoint();
 
         assert.equal(resolved, expected);
     });
 
-    it("forwards options to the underlying resolver", () => {
+    void it("forwards options to the underlying resolver", () => {
         const env = {
             PRETTIER_PLUGIN_GML_PLUGIN_PATH: "./src/plugin/src/plugin-entry.js"
         };

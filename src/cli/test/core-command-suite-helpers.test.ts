@@ -8,7 +8,7 @@ import {
 } from "../src/cli-core/command-suite-helpers.js";
 import { asErrorLike } from "../src/shared/error-guards.js";
 
-test("collectSuiteResults executes suite runners with shared options", async () => {
+void test("collectSuiteResults executes suite runners with shared options", async () => {
     const calls = [];
     const runnerOptions = { iterations: 5 };
     const availableSuites: Map<string, SuiteRunner> = new Map<
@@ -47,7 +47,7 @@ test("collectSuiteResults executes suite runners with shared options", async () 
     ]);
 });
 
-test("collectSuiteResults maps thrown errors using onError callback", async () => {
+void test("collectSuiteResults maps thrown errors using onError callback", async () => {
     const availableSuites: Map<string, SuiteRunner> = new Map<
         string,
         SuiteRunner
@@ -83,7 +83,7 @@ test("collectSuiteResults maps thrown errors using onError callback", async () =
     assert.equal(details.message, "boom");
 });
 
-test("collectSuiteResults normalizes errors when onError is not provided", async () => {
+void test("collectSuiteResults normalizes errors when onError is not provided", async () => {
     const availableSuites: Map<string, SuiteRunner> = new Map<
         string,
         SuiteRunner
@@ -113,7 +113,7 @@ test("collectSuiteResults normalizes errors when onError is not provided", async
     assert.ok(Array.isArray(details.stack));
 });
 
-test("collectSuiteResults skips suites without registered runners", async () => {
+void test("collectSuiteResults skips suites without registered runners", async () => {
     const availableSuites: Map<string, SuiteRunner> = new Map([
         ["alpha", () => ({ status: "ok" })]
     ]);
@@ -126,7 +126,7 @@ test("collectSuiteResults skips suites without registered runners", async () => 
     assert.deepStrictEqual(results, { alpha: { status: "ok" } });
 });
 
-test("resolveRequestedSuites normalizes explicit suite selections", () => {
+void test("resolveRequestedSuites normalizes explicit suite selections", () => {
     const options = { suite: ["Alpha", "BETA"] };
     const suites: Map<string, SuiteRunner> = new Map([
         ["alpha", () => null],
@@ -139,7 +139,7 @@ test("resolveRequestedSuites normalizes explicit suite selections", () => {
     assert.deepStrictEqual(requested, ["alpha", "beta"]);
 });
 
-test("resolveRequestedSuites defaults to all available suites when unspecified", () => {
+void test("resolveRequestedSuites defaults to all available suites when unspecified", () => {
     const suites: Map<string, SuiteRunner> = new Map([
         ["alpha", () => null],
         ["beta", () => null]

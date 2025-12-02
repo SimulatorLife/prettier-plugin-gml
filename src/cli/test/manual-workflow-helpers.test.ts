@@ -9,8 +9,8 @@ const STUB_MANUAL_SOURCE = Object.freeze({
     packageJson: null
 });
 
-describe("manual workflow helpers", () => {
-    it("resolves manual workflow context and logs the active source", async () => {
+void describe("manual workflow helpers", () => {
+    void it("resolves manual workflow context and logs the active source", async () => {
         const messages = [];
         const result = await prepareManualWorkflow({
             outputPath: "/manual/output.json",
@@ -24,7 +24,7 @@ describe("manual workflow helpers", () => {
         assert.deepEqual(messages, ["Using manual assets from /manual/root."]);
     });
 
-    it("supports custom manual source message formatting", async () => {
+    void it("supports custom manual source message formatting", async () => {
         const messages = [];
         await prepareManualWorkflow({
             outputPath: "/tmp/output.json",
@@ -42,7 +42,7 @@ describe("manual workflow helpers", () => {
         assert.deepEqual(messages, ["Manual source: game-maker-manual@1.2.3"]);
     });
 
-    it("skips logging when quiet", async () => {
+    void it("skips logging when quiet", async () => {
         const messages = [];
         await prepareManualWorkflow({
             outputPath: "/manual/output.json",

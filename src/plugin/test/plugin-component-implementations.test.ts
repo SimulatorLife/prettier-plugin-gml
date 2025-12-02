@@ -11,7 +11,7 @@ import { Semantic } from "@gml-modules/semantic";
 import { LogicalOperatorsStyle } from "../src/options/logical-operators-style.js";
 import { Parser } from "@gml-modules/parser";
 
-test("default implementation bundle is frozen and reuses canonical references", () => {
+void test("default implementation bundle is frozen and reuses canonical references", () => {
     assert.ok(
         Object.isFrozen(gmlPluginComponentImplementations),
         "implementation bundle should be frozen"
@@ -40,7 +40,7 @@ test("default implementation bundle is frozen and reuses canonical references", 
     );
 });
 
-test("resolver returns the canonical implementation bundle", () => {
+void test("resolver returns the canonical implementation bundle", () => {
     const resolved = resolveGmlPluginComponentImplementations();
 
     assert.strictEqual(

@@ -5,8 +5,8 @@ import { describe, it } from "node:test";
 import { prepareIdentifierCasePlan } from "../src/identifier-case/plan-service.js";
 import { createAssetCollisionProject } from "./identifier-case-asset-helpers.js";
 
-describe("identifier case asset conflict planning", () => {
-    it("records collisions when only asset renames are configured", async () => {
+void describe("identifier case asset conflict planning", () => {
+    void it("records collisions when only asset renames are configured", async () => {
         const { projectRoot, projectIndex, scriptPath } =
             await createAssetCollisionProject();
 

@@ -26,7 +26,7 @@ function createStubCommand({
     };
 }
 
-test("collectFormatCommandOptions tolerates commands without option state", () => {
+void test("collectFormatCommandOptions tolerates commands without option state", () => {
     let helpCalled = false;
     const command = createStubCommand({
         opts: () => ({}),
@@ -54,7 +54,7 @@ test("collectFormatCommandOptions tolerates commands without option state", () =
     assert.strictEqual(result.usage, "usage");
 });
 
-test("collectFormatCommandOptions normalizes string extension lists", () => {
+void test("collectFormatCommandOptions normalizes string extension lists", () => {
     const command = createStubCommand({
         opts: () => ({ extensions: ".yy" })
     });
@@ -64,7 +64,7 @@ test("collectFormatCommandOptions normalizes string extension lists", () => {
     assert.deepStrictEqual(result.extensions, [".yy"]);
 });
 
-test("collectFormatCommandOptions splits delimited extension strings", () => {
+void test("collectFormatCommandOptions splits delimited extension strings", () => {
     const command = createStubCommand({
         opts: () => ({ extensions: ".gml,.yy" })
     });
@@ -74,7 +74,7 @@ test("collectFormatCommandOptions splits delimited extension strings", () => {
     assert.deepStrictEqual(result.extensions, [".gml", ".yy"]);
 });
 
-test("collectFormatCommandOptions accepts iterable extension collections", () => {
+void test("collectFormatCommandOptions accepts iterable extension collections", () => {
     const extensions = new Set([".yy", ".gml", ".yy"]);
     const command = createStubCommand({
         opts: () => ({ extensions })
@@ -85,7 +85,7 @@ test("collectFormatCommandOptions accepts iterable extension collections", () =>
     assert.deepStrictEqual(result.extensions, [".yy", ".gml"]);
 });
 
-test("collectFormatCommandOptions derives target path from --path option", () => {
+void test("collectFormatCommandOptions derives target path from --path option", () => {
     const command = createStubCommand({
         args: ["ignored"],
         opts: () => ({ path: " ./project  " })
@@ -98,7 +98,7 @@ test("collectFormatCommandOptions derives target path from --path option", () =>
     assert.strictEqual(result.rawTargetPathInput, " ./project  ");
 });
 
-test("collectFormatCommandOptions treats blank --path as provided but empty", () => {
+void test("collectFormatCommandOptions treats blank --path as provided but empty", () => {
     const command = createStubCommand({
         args: ["ignored"],
         opts: () => ({ path: "   " })
@@ -110,7 +110,7 @@ test("collectFormatCommandOptions treats blank --path as provided but empty", ()
     assert.strictEqual(result.targetPathProvided, true);
 });
 
-test("collectFormatCommandOptions falls back to positional target", () => {
+void test("collectFormatCommandOptions falls back to positional target", () => {
     const command = createStubCommand({
         args: [" ./script.gml  "],
         opts: () => ({})
@@ -122,7 +122,7 @@ test("collectFormatCommandOptions falls back to positional target", () => {
     assert.strictEqual(result.targetPathProvided, true);
 });
 
-test("collectFormatCommandOptions honours ignored directory samples alias", () => {
+void test("collectFormatCommandOptions honours ignored directory samples alias", () => {
     const command = createStubCommand({
         opts: () => ({
             ignoredDirectorySampleLimit: 5,

@@ -3,7 +3,7 @@ import { describe, it } from "node:test";
 
 import { gmlParserAdapter } from "../src/parsers/gml-parser-adapter.js";
 
-describe("gml parser adapter", () => {
+void describe("gml parser adapter", () => {
     const sourceWithMissingBrace = [
         "function func_args()",
         "{",
@@ -50,7 +50,7 @@ describe("gml parser adapter", () => {
         return null;
     }
 
-    it("recovers when Feather fixes are enabled", async () => {
+    void it("recovers when Feather fixes are enabled", async () => {
         const ast = await gmlParserAdapter.parse(sourceWithMissingBrace, {
             applyFeatherFixes: true
         });
@@ -71,7 +71,7 @@ describe("gml parser adapter", () => {
         );
     });
 
-    it("propagates parser errors when Feather fixes are disabled", async () => {
+    void it("propagates parser errors when Feather fixes are disabled", async () => {
         await assert.rejects(
             () => gmlParserAdapter.parse(sourceWithMissingBrace, {}),
             (error) =>
@@ -83,7 +83,7 @@ describe("gml parser adapter", () => {
         );
     });
 
-    it("parses scr_matrix_build calls that omit separators between numeric literals", async () => {
+    void it("parses scr_matrix_build calls that omit separators between numeric literals", async () => {
         const source = [
             "if (scr_matrix_build(1, 2 3, 4)) {",
             "    return 0;",
@@ -101,7 +101,7 @@ describe("gml parser adapter", () => {
         assert.strictEqual(call.preserveOriginalCallText, true);
     });
 
-    it("parses scr_matrix_build calls with inline comments between numeric literals", async () => {
+    void it("parses scr_matrix_build calls with inline comments between numeric literals", async () => {
         const source = [
             "if (scr_matrix_build(1, 2 /* note */ 3, 4)) {",
             "    return 1;",
@@ -118,7 +118,7 @@ describe("gml parser adapter", () => {
         assert.deepStrictEqual(values, ["1", "2", "3", "4"]);
     });
 
-    it("parses generic calls that omit separators between numeric literals", async () => {
+    void it("parses generic calls that omit separators between numeric literals", async () => {
         const source = [
             "if (do_generic(0, 1 2, 3)) {",
             "    return 2;",

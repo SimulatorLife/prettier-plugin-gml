@@ -41,7 +41,7 @@ const NORMALIZATION_CASES = [
     }
 ];
 
-test("normalizes GameMaker doc comment type annotations", () => {
+void test("normalizes GameMaker doc comment type annotations", () => {
     for (const { input, expected } of NORMALIZATION_CASES) {
         assert.equal(
             Core.normalizeDocCommentTypeAnnotations(input),
@@ -51,7 +51,7 @@ test("normalizes GameMaker doc comment type annotations", () => {
     }
 });
 
-test("doc comment type normalization resolver extends the defaults", () => {
+void test("doc comment type normalization resolver extends the defaults", () => {
     const guidInput = "/// @returns {Guid} value";
     assert.equal(
         Core.normalizeDocCommentTypeAnnotations(guidInput),
@@ -96,7 +96,7 @@ test("doc comment type normalization resolver extends the defaults", () => {
     );
 });
 
-test("doc comment normalization accepts entry-capable collaborators", () => {
+void test("doc comment normalization accepts entry-capable collaborators", () => {
     const synonymsEntries = {
         entries() {
             const values = [["Custom", "custom-normalized"]];
@@ -137,7 +137,7 @@ test("doc comment normalization accepts entry-capable collaborators", () => {
     }
 });
 
-test("doc comment normalization ignores invalid entry shapes", () => {
+void test("doc comment normalization ignores invalid entry shapes", () => {
     const synonymsEntries = {
         entries() {
             return (function* () {

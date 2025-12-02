@@ -67,7 +67,7 @@ function createStubCommand(name) {
     };
 }
 
-test("default command usage is reported for option parsing errors", async () => {
+void test("default command usage is reported for option parsing errors", async () => {
     const program = applyStandardCommandOptions(new Command());
     const unhandledErrors = [];
     const { registry, runner } = createCliCommandManager({
@@ -100,7 +100,7 @@ test("default command usage is reported for option parsing errors", async () => 
     assert.ok(error.usage?.includes("--extensions"));
 });
 
-test("subcommand usage is reported when Commander omits command reference", async () => {
+void test("subcommand usage is reported when Commander omits command reference", async () => {
     const program = applyStandardCommandOptions(new Command());
     const unhandledErrors = [];
     const { registry, runner } = createCliCommandManager({
@@ -139,7 +139,7 @@ test("subcommand usage is reported when Commander omits command reference", asyn
     assert.ok(error.usage?.includes("--stdout"));
 });
 
-test("command manager adapts programs that only expose parse()", async () => {
+void test("command manager adapts programs that only expose parse()", async () => {
     const program = createStubProgram();
     const { registry, runner } = createCliCommandManager({ program });
 

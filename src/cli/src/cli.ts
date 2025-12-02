@@ -320,8 +320,7 @@ function isDiagnosticErrorMessage(message) {
     return (
         message.startsWith("[feather:diagnostic]") ||
         message.startsWith("[feather:debug]") ||
-        message.startsWith("[doc:debug]") ||
-        message.startsWith("[DBG]")
+        message.startsWith("[doc:debug]")
     );
 }
 
@@ -341,12 +340,11 @@ function isDiagnosticStdoutMessage(message) {
     if (/^[a-z][\w.-]*:/.test(message)) {
         return true;
     }
-    // Bracketed diagnostic tags (e.g. '[feather:diagnostic]', '[DBG]', '[doc:debug]')
+    // Bracketed diagnostic tags (e.g. '[feather:diagnostic]', '[doc:debug]')
     if (
         message.startsWith("[feather:diagnostic]") ||
         message.startsWith("[feather:debug]") ||
-        message.startsWith("[doc:debug]") ||
-        message.startsWith("[DBG]")
+        message.startsWith("[doc:debug]")
     ) {
         return true;
     }

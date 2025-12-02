@@ -4,13 +4,13 @@ import { describe, it } from "node:test";
 
 import { cloneAstNode } from "../src/ast/node-helpers.js";
 
-describe("cloneAstNode", () => {
-    it("returns null for nullish values", () => {
+void describe("cloneAstNode", () => {
+    void it("returns null for nullish values", () => {
         assert.equal(cloneAstNode(null), null);
         assert.equal(cloneAstNode(), null);
     });
 
-    it("returns primitives unchanged", () => {
+    void it("returns primitives unchanged", () => {
         const text = "identifier";
         const count = 42;
 
@@ -18,7 +18,7 @@ describe("cloneAstNode", () => {
         assert.equal(cloneAstNode(count), count);
     });
 
-    it("clones objects without sharing references", () => {
+    void it("clones objects without sharing references", () => {
         const original = {
             type: "Literal",
             value: "foo",

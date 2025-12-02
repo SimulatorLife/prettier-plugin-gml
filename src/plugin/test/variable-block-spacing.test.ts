@@ -3,7 +3,7 @@ import { test } from "node:test";
 
 import { Plugin } from "../src/index.js";
 
-test("inserts a blank line between large variable blocks and following loops", async () => {
+void test("inserts a blank line between large variable blocks and following loops", async () => {
     const source = [
         "function demo() {",
         "    var alpha = 1;",
@@ -27,7 +27,7 @@ test("inserts a blank line between large variable blocks and following loops", a
     );
 });
 
-test("respects custom minimum declaration run length", async () => {
+void test("respects custom minimum declaration run length", async () => {
     const source = [
         "function demo() {",
         "    var alpha = 1;",
@@ -53,7 +53,7 @@ test("respects custom minimum declaration run length", async () => {
     );
 });
 
-test("formats struct static functions without infinite recursion", async () => {
+void test("formats struct static functions without infinite recursion", async () => {
     const source = [
         "function child_struct(_foo, _value) constructor {",
         "    static remove_ellipse = function() {",

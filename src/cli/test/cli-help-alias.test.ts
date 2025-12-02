@@ -46,8 +46,8 @@ async function loadCliTestUtilities() {
     return __test__;
 }
 
-describe("cli help command normalization", () => {
-    it("passes through arguments when the command is not help", async () => {
+void describe("cli help command normalization", () => {
+    void it("passes through arguments when the command is not help", async () => {
         const { normalizeCommandLineArguments } = await loadCliTestUtilities();
         const argumentsForCli = ["format", "src/scripts"];
         const normalized = normalizeCommandLineArguments(argumentsForCli);
@@ -56,13 +56,13 @@ describe("cli help command normalization", () => {
         assert.notStrictEqual(normalized, argumentsForCli);
     });
 
-    it("maps bare help commands to the --help flag", async () => {
+    void it("maps bare help commands to the --help flag", async () => {
         const { normalizeCommandLineArguments } = await loadCliTestUtilities();
 
         assert.deepEqual(normalizeCommandLineArguments(["help"]), ["--help"]);
     });
 
-    it("converts help <command> into <command> --help", async () => {
+    void it("converts help <command> into <command> --help", async () => {
         const { normalizeCommandLineArguments } = await loadCliTestUtilities();
         const normalized = normalizeCommandLineArguments(["help", "format"]);
 

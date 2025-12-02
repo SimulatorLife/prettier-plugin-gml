@@ -5,8 +5,8 @@ import { createSampleLimitRuntimeOption } from "../src/runtime-options/sample-li
 
 const TEST_SAMPLE_LIMIT_ENV_VAR = "PRETTIER_PLUGIN_GML_TEST_SAMPLE_LIMIT";
 
-describe("createSampleLimitRuntimeOption", () => {
-    it("applies the environment override during initialization", () => {
+void describe("createSampleLimitRuntimeOption", () => {
+    void it("applies the environment override during initialization", () => {
         const env = { [TEST_SAMPLE_LIMIT_ENV_VAR]: "13" };
         const { getDefault } = createSampleLimitRuntimeOption(
             {
@@ -20,7 +20,7 @@ describe("createSampleLimitRuntimeOption", () => {
         assert.strictEqual(getDefault(), 13);
     });
 
-    it("reuses the provided environment map when reapplying overrides", () => {
+    void it("reuses the provided environment map when reapplying overrides", () => {
         const env = { [TEST_SAMPLE_LIMIT_ENV_VAR]: "4" };
 
         const { getDefault, applyEnvOverride } = createSampleLimitRuntimeOption(

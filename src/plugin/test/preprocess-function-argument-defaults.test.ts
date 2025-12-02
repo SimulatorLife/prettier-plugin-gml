@@ -12,8 +12,8 @@ function createFunctionDeclaration(params) {
     };
 }
 
-describe("preprocessFunctionArgumentDefaults", () => {
-    it("adds undefined defaults for parameters that follow explicit defaults", () => {
+void describe("preprocessFunctionArgumentDefaults", () => {
+    void it("adds undefined defaults for parameters that follow explicit defaults", () => {
         const functionNode = createFunctionDeclaration([
             { type: "Identifier", name: "vbuff" },
             {

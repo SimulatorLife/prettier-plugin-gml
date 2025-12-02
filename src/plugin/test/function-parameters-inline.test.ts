@@ -3,7 +3,7 @@ import { test } from "node:test";
 
 import { Plugin } from "../src/index.js";
 
-test("inlines default parameter functions with single call bodies", async () => {
+void test("inlines default parameter functions with single call bodies", async () => {
     const source = [
         "some(",
         "    thisArgumentIsQuiteLong,",

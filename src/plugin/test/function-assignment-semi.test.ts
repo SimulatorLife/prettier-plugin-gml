@@ -3,8 +3,8 @@ import { describe, it } from "node:test";
 
 import { Plugin } from "../src/index.js";
 
-describe("function assignment semicolons", () => {
-    it("omits semicolons when assigning function declarations", async () => {
+void describe("function assignment semicolons", () => {
+    void it("omits semicolons when assigning function declarations", async () => {
         const source = [
             "/// @function get_debug_text",
             "get_debug_text = function() {",

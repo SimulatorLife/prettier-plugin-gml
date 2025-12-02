@@ -6,14 +6,14 @@ import {
     resolveObjectWrapOption
 } from "../src/options/object-wrap-option.js";
 
-describe("resolveObjectWrapOption", () => {
-    it("preserves object wrapping by default", () => {
+void describe("resolveObjectWrapOption", () => {
+    void it("preserves object wrapping by default", () => {
         const resolved = resolveObjectWrapOption();
 
         assert.equal(resolved, ObjectWrapOption.PRESERVE);
     });
 
-    it("honours the collapse option provided by Prettier", () => {
+    void it("honours the collapse option provided by Prettier", () => {
         const resolved = resolveObjectWrapOption({
             objectWrap: ObjectWrapOption.COLLAPSE
         });

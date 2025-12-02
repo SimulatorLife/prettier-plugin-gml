@@ -10,27 +10,27 @@ import {
     setDefaultUnsupportedExtensionSampleLimit
 } from "../src/runtime-options/sample-limits.js";
 
-describe("unsupported extension sample limit", () => {
+void describe("unsupported extension sample limit", () => {
     afterEach(() => {
         setDefaultUnsupportedExtensionSampleLimit(undefined);
         applyUnsupportedExtensionSampleLimitEnvOverride({});
     });
 
-    it("exposes the baseline default", () => {
+    void it("exposes the baseline default", () => {
         assert.strictEqual(
             getDefaultUnsupportedExtensionSampleLimit(),
             DEFAULT_UNSUPPORTED_EXTENSION_SAMPLE_LIMIT
         );
     });
 
-    it("returns the default when no value is provided", () => {
+    void it("returns the default when no value is provided", () => {
         assert.strictEqual(
             resolveUnsupportedExtensionSampleLimit(),
             DEFAULT_UNSUPPORTED_EXTENSION_SAMPLE_LIMIT
         );
     });
 
-    it("normalizes numeric inputs", () => {
+    void it("normalizes numeric inputs", () => {
         const normalizedFromString =
             resolveUnsupportedExtensionSampleLimit("  6  ");
         assert.strictEqual(typeof normalizedFromString, "number");
@@ -41,20 +41,20 @@ describe("unsupported extension sample limit", () => {
         assert.strictEqual(normalizedFromFloat, 2);
     });
 
-    it("rejects negative limits", () => {
+    void it("rejects negative limits", () => {
         assert.throws(() => resolveUnsupportedExtensionSampleLimit(-1), {
             message: /non-negative integer/i
         });
     });
 
-    it("allows configuring the default programmatically", () => {
+    void it("allows configuring the default programmatically", () => {
         setDefaultUnsupportedExtensionSampleLimit(3);
 
         assert.strictEqual(getDefaultUnsupportedExtensionSampleLimit(), 3);
         assert.strictEqual(resolveUnsupportedExtensionSampleLimit(), 3);
     });
 
-    it("resets to the baseline default when set to undefined", () => {
+    void it("resets to the baseline default when set to undefined", () => {
         setDefaultUnsupportedExtensionSampleLimit(9);
         setDefaultUnsupportedExtensionSampleLimit(undefined);
 
@@ -64,7 +64,7 @@ describe("unsupported extension sample limit", () => {
         );
     });
 
-    it("applies the environment override for the default", () => {
+    void it("applies the environment override for the default", () => {
         applyUnsupportedExtensionSampleLimitEnvOverride({
             [UNSUPPORTED_EXTENSION_SAMPLE_LIMIT_ENV_VAR]: "7"
         });

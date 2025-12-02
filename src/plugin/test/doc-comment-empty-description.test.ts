@@ -4,7 +4,7 @@ import { test } from "node:test";
 
 const format = (source, options = {}) => Plugin.format(source, options);
 
-test("omits empty doc descriptions on struct static functions", async () => {
+void test("omits empty doc descriptions on struct static functions", async () => {
     const source = [
         "function container() constructor {",
         "    /// @description",

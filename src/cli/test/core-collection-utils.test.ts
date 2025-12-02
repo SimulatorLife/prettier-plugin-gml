@@ -3,13 +3,13 @@ import test from "node:test";
 
 import { appendToCollection } from "../src/shared/dependencies.js";
 
-test("appendToCollection initializes arrays when accumulator is undefined", () => {
+void test("appendToCollection initializes arrays when accumulator is undefined", () => {
     const result = appendToCollection("alpha");
 
     assert.deepEqual(result, ["alpha"]);
 });
 
-test("appendToCollection appends to existing arrays", () => {
+void test("appendToCollection appends to existing arrays", () => {
     const accumulator = ["alpha"];
 
     const result = appendToCollection("beta", accumulator);
@@ -18,7 +18,7 @@ test("appendToCollection appends to existing arrays", () => {
     assert.deepEqual(accumulator, ["alpha", "beta"]);
 });
 
-test("appendToCollection normalizes scalar accumulators", () => {
+void test("appendToCollection normalizes scalar accumulators", () => {
     const result = appendToCollection("gamma", "beta");
 
     assert.deepEqual(result, ["beta", "gamma"]);

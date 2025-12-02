@@ -3,7 +3,7 @@ import { test } from "node:test";
 
 import { Plugin } from "../src/index.js";
 
-test("enforces the maxParamsPerLine limit even when inline would fit", async () => {
+void test("enforces the maxParamsPerLine limit even when inline would fit", async () => {
     const source = ["call(a, b, c, d, e);", ""].join("\n");
 
     const formatted = await Plugin.format(source, { maxParamsPerLine: 3 });

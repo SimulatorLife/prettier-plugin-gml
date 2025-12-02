@@ -4,7 +4,7 @@ import test from "node:test";
 
 import { createMetricsTracker } from "../src/metrics/metrics.js";
 
-test("snapshot exposes accumulated metrics as plain objects", () => {
+void test("snapshot exposes accumulated metrics as plain objects", () => {
     const tracker = createMetricsTracker({ category: "demo" });
     const { recording, reporting } = tracker;
     const { timers, counters, caches, metadata } = recording;
@@ -38,7 +38,7 @@ test("snapshot exposes accumulated metrics as plain objects", () => {
     assert.deepEqual(report.metadata, { mode: "test", note: "ok" });
 });
 
-test("snapshot ignores non-object extras", () => {
+void test("snapshot ignores non-object extras", () => {
     const tracker = createMetricsTracker({ category: "noop" });
     const { recording, reporting } = tracker;
     recording.counters.increment("runs");
@@ -51,7 +51,7 @@ test("snapshot ignores non-object extras", () => {
     assert.deepEqual(withString, base);
 });
 
-test("cache summaries include untouched counters", () => {
+void test("cache summaries include untouched counters", () => {
     const tracker = createMetricsTracker();
     const { recording, reporting } = tracker;
     recording.caches.recordHit("default");
@@ -64,7 +64,7 @@ test("cache summaries include untouched counters", () => {
     });
 });
 
-test("cacheSnapshot falls back to full cache summary when name omitted", () => {
+void test("cacheSnapshot falls back to full cache summary when name omitted", () => {
     const tracker = createMetricsTracker();
     const { recording, reporting } = tracker;
     recording.caches.recordHit("named");
@@ -77,7 +77,7 @@ test("cacheSnapshot falls back to full cache summary when name omitted", () => {
     });
 });
 
-test("finalize logs once when auto logging is enabled", () => {
+void test("finalize logs once when auto logging is enabled", () => {
     const events = [];
     const tracker = createMetricsTracker({
         category: "auto",
@@ -102,7 +102,7 @@ test("finalize logs once when auto logging is enabled", () => {
     assert.equal(events.length, 1);
 });
 
-test("cache keys are configurable and support custom metrics", () => {
+void test("cache keys are configurable and support custom metrics", () => {
     const tracker = createMetricsTracker({
         cacheKeys: ["hits", "evictions"],
         category: "custom"
@@ -121,7 +121,7 @@ test("cache keys are configurable and support custom metrics", () => {
     });
 });
 
-test("cache key normalization accepts delimited strings", () => {
+void test("cache key normalization accepts delimited strings", () => {
     const tracker = createMetricsTracker({ cacheKeys: " hits , misses " });
     const { recording, reporting } = tracker;
 
@@ -135,7 +135,7 @@ test("cache key normalization accepts delimited strings", () => {
     });
 });
 
-test("cache key normalization trims duplicates from iterable input", () => {
+void test("cache key normalization trims duplicates from iterable input", () => {
     const tracker = createMetricsTracker({
         cacheKeys: new Set([" hits ", "", "misses", "hits"])
     });
@@ -151,7 +151,7 @@ test("cache key normalization trims duplicates from iterable input", () => {
     });
 });
 
-test("cache key normalization falls back to defaults when empty", () => {
+void test("cache key normalization falls back to defaults when empty", () => {
     const tracker = createMetricsTracker({ cacheKeys: [null, undefined] });
     const { recording, reporting } = tracker;
     recording.caches.recordHit("store");
@@ -164,7 +164,7 @@ test("cache key normalization falls back to defaults when empty", () => {
     });
 });
 
-test("snapshot returns fresh copies of accumulated metrics", () => {
+void test("snapshot returns fresh copies of accumulated metrics", () => {
     const tracker = createMetricsTracker({ category: "clone" });
     const { recording, reporting } = tracker;
     recording.counters.increment("runs");

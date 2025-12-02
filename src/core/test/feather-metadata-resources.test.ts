@@ -4,8 +4,8 @@ import { describe, it } from "node:test";
 
 import { __normalizeFeatherMetadataForTests as normalizeFeatherMetadata } from "../src/resources/feather-metadata.js";
 
-describe("normalizeFeatherMetadata", () => {
-    it("trims diagnostic identifiers while preserving other fields", () => {
+void describe("normalizeFeatherMetadata", () => {
+    void it("trims diagnostic identifiers while preserving other fields", () => {
         const meta = { source: "manual" };
         const metadata = {
             meta,
@@ -30,14 +30,14 @@ describe("normalizeFeatherMetadata", () => {
         });
     });
 
-    it("throws when the metadata payload is not a plain object", () => {
+    void it("throws when the metadata payload is not a plain object", () => {
         assert.throws(
             () => normalizeFeatherMetadata(null),
             /Feather metadata must be a plain object/
         );
     });
 
-    it("throws when diagnostics are not provided as an array", () => {
+    void it("throws when diagnostics are not provided as an array", () => {
         assert.throws(
             () =>
                 normalizeFeatherMetadata({
@@ -47,7 +47,7 @@ describe("normalizeFeatherMetadata", () => {
         );
     });
 
-    it("throws when a diagnostic entry lacks an identifier", () => {
+    void it("throws when a diagnostic entry lacks an identifier", () => {
         assert.throws(
             () =>
                 normalizeFeatherMetadata({

@@ -3,7 +3,7 @@ import { test } from "node:test";
 
 import { Plugin } from "../src/index.js";
 
-test("converts manual mean with floating point noise", async () => {
+void test("converts manual mean with floating point noise", async () => {
     const source = [
         "function convert_mean(a, b) {",
         "    return (a + b) * 0.5000000000000001;",
@@ -18,7 +18,6 @@ test("converts manual mean with floating point noise", async () => {
     assert.strictEqual(
         formatted,
         [
-            "",
             "/// @function convert_mean",
             "/// @param a",
             "/// @param b",
@@ -30,7 +29,7 @@ test("converts manual mean with floating point noise", async () => {
     );
 });
 
-test("converts literal square with floating point noise", async () => {
+void test("converts literal square with floating point noise", async () => {
     const source = [
         "function convert_square() {",
         "    return 0.5 * 0.5000000000000001;",
@@ -45,7 +44,6 @@ test("converts literal square with floating point noise", async () => {
     assert.strictEqual(
         formatted,
         [
-            "",
             "/// @function convert_square",
             "function convert_square() {",
             "    return sqr(0.5);",
@@ -55,7 +53,7 @@ test("converts literal square with floating point noise", async () => {
     );
 });
 
-test("preserves inline comments between manual math operands", async () => {
+void test("preserves inline comments between manual math operands", async () => {
     const source = [
         "function keep_comment(value) {",
         "    return value /* keep */ * value;",
@@ -70,7 +68,6 @@ test("preserves inline comments between manual math operands", async () => {
     assert.strictEqual(
         formatted,
         [
-            "",
             "/// @function keep_comment",
             "/// @param value",
             "function keep_comment(value) {",
@@ -81,7 +78,7 @@ test("preserves inline comments between manual math operands", async () => {
     );
 });
 
-test("converts distance formula with floating point noise", async () => {
+void test("converts distance formula with floating point noise", async () => {
     const source = [
         "function convert_distance(x, y) {",
         "    return sqrt((x - 0.5) * (x - 0.5000000000000001) + (y - 2) * (y - 2));",
@@ -96,7 +93,6 @@ test("converts distance formula with floating point noise", async () => {
     assert.strictEqual(
         formatted,
         [
-            "",
             "/// @function convert_distance",
             "/// @param x",
             "/// @param y",
@@ -108,7 +104,7 @@ test("converts distance formula with floating point noise", async () => {
     );
 });
 
-test("condenses chained scalar multipliers into a single coefficient", async () => {
+void test("condenses chained scalar multipliers into a single coefficient", async () => {
     const source = [
         "function convert_scalar(size) {",
         "    return 1.3 * size * 0.12 / 1.5;",
@@ -123,7 +119,6 @@ test("condenses chained scalar multipliers into a single coefficient", async () 
     assert.strictEqual(
         formatted,
         [
-            "",
             "/// @function convert_scalar",
             "/// @param size",
             "function convert_scalar(size) {",
@@ -133,7 +128,7 @@ test("condenses chained scalar multipliers into a single coefficient", async () 
         ].join("\n")
     );
 });
-test("promotes lengthdir half-difference assignments into the declaration", async () => {
+void test("promotes lengthdir half-difference assignments into the declaration", async () => {
     const source = [
         "function promote_lengthdir(size, angle) {",
         "    var s = 1.3 * size * 0.12 / 1.5;",
@@ -150,7 +145,6 @@ test("promotes lengthdir half-difference assignments into the declaration", asyn
     assert.strictEqual(
         formatted,
         [
-            "",
             "/// @function promote_lengthdir",
             "/// @param size",
             "/// @param angle",
@@ -163,7 +157,7 @@ test("promotes lengthdir half-difference assignments into the declaration", asyn
     );
 });
 
-test("combines sequential lengthdir scalar assignments", async () => {
+void test("combines sequential lengthdir scalar assignments", async () => {
     const source = [
         "function combine_lengthdir(size, angle) {",
         "    var s = 1.3 * size * 0.12 / 1.5;",
@@ -180,7 +174,6 @@ test("combines sequential lengthdir scalar assignments", async () => {
     assert.strictEqual(
         formatted,
         [
-            "",
             "/// @function combine_lengthdir",
             "/// @param size",
             "/// @param angle",
@@ -193,7 +186,7 @@ test("combines sequential lengthdir scalar assignments", async () => {
     );
 });
 
-test("preserves blank line before comments when promoting lengthdir assignments", async () => {
+void test("preserves blank line before comments when promoting lengthdir assignments", async () => {
     const source = [
         "function promote_lengthdir_with_comment(size, angle) {",
         "    var s = 1.3 * size * 0.12 / 1.5;",
@@ -212,7 +205,6 @@ test("preserves blank line before comments when promoting lengthdir assignments"
     assert.strictEqual(
         formatted,
         [
-            "",
             "/// @function promote_lengthdir_with_comment",
             "/// @param size",
             "/// @param angle",
@@ -227,7 +219,7 @@ test("preserves blank line before comments when promoting lengthdir assignments"
     );
 });
 
-test("simplifies division by a reciprocal denominator", async () => {
+void test("simplifies division by a reciprocal denominator", async () => {
     const source = [
         "function convert_reciprocal(value, denom) {",
         "    return value / (1 / denom);",
@@ -242,7 +234,6 @@ test("simplifies division by a reciprocal denominator", async () => {
     assert.strictEqual(
         formatted,
         [
-            "",
             "/// @function convert_reciprocal",
             "/// @param value",
             "/// @param denom",
@@ -254,7 +245,7 @@ test("simplifies division by a reciprocal denominator", async () => {
     );
 });
 
-test("preserves grouping when simplifying reciprocal denominators with composite factors", async () => {
+void test("preserves grouping when simplifying reciprocal denominators with composite factors", async () => {
     const source = [
         "function convert_grouped(value, a, b) {",
         "    return value / (1 / (a + b));",
@@ -269,7 +260,6 @@ test("preserves grouping when simplifying reciprocal denominators with composite
     assert.strictEqual(
         formatted,
         [
-            "",
             "/// @function convert_grouped",
             "/// @param value",
             "/// @param a",
@@ -282,7 +272,7 @@ test("preserves grouping when simplifying reciprocal denominators with composite
     );
 });
 
-test("condenses subtraction-based scalar multipliers", async () => {
+void test("condenses subtraction-based scalar multipliers", async () => {
     const source = [
         "function convert_subtracted_scalar(len) {",
         "    return len * (1 - 0.5);",
@@ -297,7 +287,6 @@ test("condenses subtraction-based scalar multipliers", async () => {
     assert.strictEqual(
         formatted,
         [
-            "",
             "/// @function convert_subtracted_scalar",
             "/// @param len",
             "function convert_subtracted_scalar(len) {",
@@ -308,7 +297,7 @@ test("condenses subtraction-based scalar multipliers", async () => {
     );
 });
 
-test("simplifies negative reciprocal multiplication", async () => {
+void test("simplifies negative reciprocal multiplication", async () => {
     const source = [
         "function convert_negative(dx) {",
         "    var result = (dx / -2) * -1;",
@@ -324,7 +313,6 @@ test("simplifies negative reciprocal multiplication", async () => {
     assert.strictEqual(
         formatted,
         [
-            "",
             "/// @function convert_negative",
             "/// @param dx",
             "function convert_negative(dx) {",
@@ -336,7 +324,7 @@ test("simplifies negative reciprocal multiplication", async () => {
     );
 });
 
-test("cancels reciprocal factors paired with their denominator", async () => {
+void test("cancels reciprocal factors paired with their denominator", async () => {
     const source = [
         "function cancel_reciprocal(value_a, value_b) {",
         "    var result = value_a * (1 / value_b) * value_b;",
@@ -352,7 +340,6 @@ test("cancels reciprocal factors paired with their denominator", async () => {
     assert.strictEqual(
         formatted,
         [
-            "",
             "/// @function cancel_reciprocal",
             "/// @param value_a",
             "/// @param value_b",
@@ -365,7 +352,7 @@ test("cancels reciprocal factors paired with their denominator", async () => {
     );
 });
 
-test("removes additive identity scalars with trailing comments", async () => {
+void test("removes additive identity scalars with trailing comments", async () => {
     const source = [
         "function strip_additive_identity(value) {",
         "    return value + 0; // original",
@@ -380,7 +367,6 @@ test("removes additive identity scalars with trailing comments", async () => {
     assert.strictEqual(
         formatted,
         [
-            "",
             "/// @function strip_additive_identity",
             "/// @param value",
             "function strip_additive_identity(value) {",
@@ -391,7 +377,7 @@ test("removes additive identity scalars with trailing comments", async () => {
     );
 });
 
-test("removes multiplicative zero factors inside additive chains", async () => {
+void test("removes multiplicative zero factors inside additive chains", async () => {
     const source = [
         "function collapse_zero_factor(any_val, offset) {",
         "    return any_val * 0 + offset;",
@@ -406,7 +392,6 @@ test("removes multiplicative zero factors inside additive chains", async () => {
     assert.strictEqual(
         formatted,
         [
-            "",
             "/// @function collapse_zero_factor",
             "/// @param any_val",
             "/// @param offset",
@@ -418,7 +403,7 @@ test("removes multiplicative zero factors inside additive chains", async () => {
     );
 });
 
-test("preserves blank line after removing simplified alias", async () => {
+void test("preserves blank line after removing simplified alias", async () => {
     const source = [
         "function preserve_spacing(x, y) {",
         "    var s11 = y + 0;  // original",
@@ -437,7 +422,6 @@ test("preserves blank line after removing simplified alias", async () => {
     assert.strictEqual(
         formatted,
         [
-            "",
             "/// @function preserve_spacing",
             "/// @param x",
             "/// @param y",
@@ -452,7 +436,7 @@ test("preserves blank line after removing simplified alias", async () => {
     );
 });
 
-test("condenses chained multipliers with composite operands", async () => {
+void test("condenses chained multipliers with composite operands", async () => {
     const source = [
         "function convert_frames(acc, dt) {",
         "    return acc * dt / 1000 * 60;",
@@ -467,7 +451,6 @@ test("condenses chained multipliers with composite operands", async () => {
     assert.strictEqual(
         formatted,
         [
-            "",
             "/// @function convert_frames",
             "/// @param acc",
             "/// @param dt",
@@ -479,7 +462,7 @@ test("condenses chained multipliers with composite operands", async () => {
     );
 });
 
-test("collects shared scalar factors across addition", async () => {
+void test("collects shared scalar factors across addition", async () => {
     const source = [
         "function collect_constants(value) {",
         "    return value * 0.3 + value * 0.2;",
@@ -494,7 +477,6 @@ test("collects shared scalar factors across addition", async () => {
     assert.strictEqual(
         formatted,
         [
-            "",
             "/// @function collect_constants",
             "/// @param value",
             "function collect_constants(value) {",
@@ -505,7 +487,7 @@ test("collects shared scalar factors across addition", async () => {
     );
 });
 
-test("reduces shared scalar additions that sum to one", async () => {
+void test("reduces shared scalar additions that sum to one", async () => {
     const source = [
         "function normalize_amount(amount) {",
         "    return amount * 0.4 + amount * 0.1 + amount * 0.5;",
@@ -520,7 +502,6 @@ test("reduces shared scalar additions that sum to one", async () => {
     assert.strictEqual(
         formatted,
         [
-            "",
             "/// @function normalize_amount",
             "/// @param amount",
             "function normalize_amount(amount) {",
@@ -531,7 +512,7 @@ test("reduces shared scalar additions that sum to one", async () => {
     );
 });
 
-test("condenses division by reciprocal scalar multipliers", async () => {
+void test("condenses division by reciprocal scalar multipliers", async () => {
     const source = [
         "function convert_reciprocal(x, x0) {",
         "    return (x - x0) / (1 / 60);",
@@ -546,7 +527,6 @@ test("condenses division by reciprocal scalar multipliers", async () => {
     assert.strictEqual(
         formatted,
         [
-            "",
             "/// @function convert_reciprocal",
             "/// @param x",
             "/// @param x0",
@@ -558,7 +538,7 @@ test("condenses division by reciprocal scalar multipliers", async () => {
     );
 });
 
-test("condenses subtraction-only scalar factors", async () => {
+void test("condenses subtraction-only scalar factors", async () => {
     const source = [
         "function convert_subtraction(len) {",
         "    return len * (1 - 0.5);",
@@ -573,7 +553,6 @@ test("condenses subtraction-only scalar factors", async () => {
     assert.strictEqual(
         formatted,
         [
-            "",
             "/// @function convert_subtraction",
             "/// @param len",
             "function convert_subtraction(len) {",
@@ -584,7 +563,7 @@ test("condenses subtraction-only scalar factors", async () => {
     );
 });
 
-test("condenses nested ratios that mix scalar and non-scalar factors", async () => {
+void test("condenses nested ratios that mix scalar and non-scalar factors", async () => {
     const source = [
         "function convert_percentage(hp, max_hp) {",
         "    return ((hp / max_hp) * 100) / 10;",
@@ -599,7 +578,6 @@ test("condenses nested ratios that mix scalar and non-scalar factors", async () 
     assert.strictEqual(
         formatted,
         [
-            "",
             "/// @function convert_percentage",
             "/// @param hp",
             "/// @param max_hp",
@@ -611,7 +589,7 @@ test("condenses nested ratios that mix scalar and non-scalar factors", async () 
     );
 });
 
-test("cancels reciprocal ratio pairs before scalar condensation", async () => {
+void test("cancels reciprocal ratio pairs before scalar condensation", async () => {
     const source = [
         "function cancel_reciprocal(a, b, c) {",
         "    return a * (b / c) * (c / b);",
@@ -626,7 +604,6 @@ test("cancels reciprocal ratio pairs before scalar condensation", async () => {
     assert.strictEqual(
         formatted,
         [
-            "",
             "/// @function cancel_reciprocal",
             "/// @param a",
             "/// @param b",
@@ -639,7 +616,7 @@ test("cancels reciprocal ratio pairs before scalar condensation", async () => {
     );
 });
 
-test("simplifies reciprocal products with unit numerators", async () => {
+void test("simplifies reciprocal products with unit numerators", async () => {
     const source = [
         "function cancel_unit_reciprocal(value_a, value_b) {",
         "    return value_a * (1 / value_b) * value_b;",
@@ -654,7 +631,6 @@ test("simplifies reciprocal products with unit numerators", async () => {
     assert.strictEqual(
         formatted,
         [
-            "",
             "/// @function cancel_unit_reciprocal",
             "/// @param value_a",
             "/// @param value_b",
@@ -666,7 +642,7 @@ test("simplifies reciprocal products with unit numerators", async () => {
     );
 });
 
-test("cancels numeric identity factors introduced by scalar condensation", async () => {
+void test("cancels numeric identity factors introduced by scalar condensation", async () => {
     const source = [
         "function simplify_scalars(m) {",
         "    return (m / 5) * (10 * 0.5);",
@@ -681,7 +657,6 @@ test("cancels numeric identity factors introduced by scalar condensation", async
     assert.strictEqual(
         formatted,
         [
-            "",
             "/// @function simplify_scalars",
             "/// @param m",
             "function simplify_scalars(m) {",
@@ -692,7 +667,7 @@ test("cancels numeric identity factors introduced by scalar condensation", async
     );
 });
 
-test("preserves simple division when no scalar condensation is needed", async () => {
+void test("preserves simple division when no scalar condensation is needed", async () => {
     const source = [
         "function keep_division(room_width, room_height) {",
         "    return room_width / 4 + room_height / 4;",
@@ -707,7 +682,6 @@ test("preserves simple division when no scalar condensation is needed", async ()
     assert.strictEqual(
         formatted,
         [
-            "",
             "/// @function keep_division",
             "/// @param room_width",
             "/// @param room_height",
@@ -719,7 +693,7 @@ test("preserves simple division when no scalar condensation is needed", async ()
     );
 });
 
-test("converts multiplicative degree ratios into degtorad", async () => {
+void test("converts multiplicative degree ratios into degtorad", async () => {
     const source = [
         "function convert_degrees(angle) {",
         "    return angle * pi / 180;",
@@ -734,7 +708,6 @@ test("converts multiplicative degree ratios into degtorad", async () => {
     assert.strictEqual(
         formatted,
         [
-            "",
             "/// @function convert_degrees",
             "/// @param angle",
             "function convert_degrees(angle) {",
@@ -745,7 +718,7 @@ test("converts multiplicative degree ratios into degtorad", async () => {
     );
 });
 
-test("downgrades numbered triple-slash headings to standard comments", async () => {
+void test("downgrades numbered triple-slash headings to standard comments", async () => {
     const source = [
         "/// 4) Distributive constant collection",
         "var s4 = value;",
@@ -762,7 +735,7 @@ test("downgrades numbered triple-slash headings to standard comments", async () 
     );
 });
 
-test("uses tolerance-aware comparison for ratio numerator simplification", async () => {
+void test("uses tolerance-aware comparison for ratio numerator simplification", async () => {
     const source = ["var result = value / 1000 / 60;", ""].join("\n");
 
     const formatted = await Plugin.format(source, {
@@ -775,7 +748,7 @@ test("uses tolerance-aware comparison for ratio numerator simplification", async
     );
 });
 
-test("safely handles division by denominator near machine epsilon", async () => {
+void test("safely handles division by denominator near machine epsilon", async () => {
     // This test verifies that the tolerance-aware zero check prevents
     // division by denominators that are extremely close to zero due to
     // floating-point rounding errors. The fix ensures we use
@@ -795,7 +768,6 @@ test("safely handles division by denominator near machine epsilon", async () => 
     assert.strictEqual(
         formatted,
         [
-            "",
             "/// @function test_tiny_denominator",
             "/// @param value",
             "function test_tiny_denominator(value) {",
@@ -806,7 +778,7 @@ test("safely handles division by denominator near machine epsilon", async () => 
     );
 });
 
-test("correctly handles multiplicative chain with near-zero factor", async () => {
+void test("correctly handles multiplicative chain with near-zero factor", async () => {
     // Tests that the tolerance check prevents treating near-zero values
     // as exactly zero in multiplicative chains, which was the original bug.
     // Before the fix, using value === 0 could incorrectly treat floating-point
@@ -827,7 +799,6 @@ test("correctly handles multiplicative chain with near-zero factor", async () =>
     assert.strictEqual(
         formatted,
         [
-            "",
             "/// @function chain_with_tiny_factor",
             "/// @param x",
             "function chain_with_tiny_factor(x) {",

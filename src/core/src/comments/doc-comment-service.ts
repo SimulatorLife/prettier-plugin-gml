@@ -17,7 +17,7 @@ export type DocCommentMetadata = {
 const STRING_TYPE = "string";
 
 const RETURN_DOC_TAG_PATTERN = /^\/\/\/\s*@returns\b/i;
-const LEGACY_RETURNS_DESCRIPTION_PATTERN = /^(.+?)\s*-\s*(.*)$/; // simplified pattern for core
+const LEGACY_RETURNS_DESCRIPTION_PATTERN = /^(.+?)\s+-\s+(.*)$/; // simplified pattern for core
 
 const KNOWN_TYPE_IDENTIFIERS = Object.freeze([
     "real",
@@ -364,7 +364,7 @@ export function convertLegacyReturnsDescriptionLinesToMetadata(
         if (returnsColonMatch) {
             payload = (returnsColonMatch[1] ?? "").trim();
         } else if (returnsMatch) {
-            payload = returnsMatch[1]?.trim() ?? "";
+            payload = returnsMatch[0];
         } else {
             // console.log("Retaining line (no match):", line);
             retainedLines.push(line);

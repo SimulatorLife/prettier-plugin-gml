@@ -20,7 +20,7 @@ if (originalSkipFlag === undefined) {
     process.env[SKIP_CLI_RUN_ENV_VAR] = originalSkipFlag;
 }
 
-test("validateTargetPathInput rejects non-string values", () => {
+void test("validateTargetPathInput rejects non-string values", () => {
     const usage = "usage summary";
 
     assert.throws(
@@ -42,7 +42,7 @@ test("validateTargetPathInput rejects non-string values", () => {
     );
 });
 
-test("target path helpers normalize valid inputs", () => {
+void test("target path helpers normalize valid inputs", () => {
     assert.doesNotThrow(() =>
         validateTargetPathInputForTests({
             targetPathProvided: true,
@@ -58,7 +58,7 @@ test("target path helpers normalize valid inputs", () => {
     assert.strictEqual(defaultTarget, path.resolve(process.cwd(), "."));
 });
 
-test("resolveTargetPathFromInput falls back to the raw value when sanitized path is missing", async () => {
+void test("resolveTargetPathFromInput falls back to the raw value when sanitized path is missing", async () => {
     const targetPaths = await prepareTargetPathFixture({
         createRawDirectory: true
     });
@@ -76,7 +76,7 @@ test("resolveTargetPathFromInput falls back to the raw value when sanitized path
     }
 });
 
-test("resolveTargetPathFromInput prefers the raw value when both paths exist", async () => {
+void test("resolveTargetPathFromInput prefers the raw value when both paths exist", async () => {
     const targetPaths = await prepareTargetPathFixture({
         createRawDirectory: true,
         createSanitizedDirectory: true

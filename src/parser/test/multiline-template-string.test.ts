@@ -2,8 +2,8 @@ import assert from "node:assert/strict";
 import { describe, it } from "node:test";
 import { GMLParser } from "../src/gml-parser.js";
 
-describe("Multi-line template strings", () => {
-    it("parses template strings with newlines in the literal text", () => {
+void describe("Multi-line template strings", () => {
+    void it("parses template strings with newlines in the literal text", () => {
         const source = `var _b = $"This is a string split across multiple 
 {lines}
 with {interpolation} in between.";`;
@@ -23,7 +23,7 @@ with {interpolation} in between.";`;
         );
     });
 
-    it("preserves newlines in template string text when parsing", () => {
+    void it("preserves newlines in template string text when parsing", () => {
         const source = `var _x = $"Line one
 Line two
 Line three";`;
@@ -38,7 +38,7 @@ Line three";`;
         assert.ok(ast.body, "AST should have a body");
     });
 
-    it("parses template strings with interpolation across multiple lines", () => {
+    void it("parses template strings with interpolation across multiple lines", () => {
         const source = `var _msg = $"Hello
 {name}
 Welcome!";`;

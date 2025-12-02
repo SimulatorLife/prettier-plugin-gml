@@ -48,8 +48,8 @@ function getCallExpressionName(node) {
     return null;
 }
 
-describe("Feather diagnostic fixer registry", () => {
-    it("registers a fixer entry for every diagnostic", () => {
+void describe("Feather diagnostic fixer registry", () => {
+    void it("registers a fixer entry for every diagnostic", () => {
         const metadata = getFeatherMetadata();
         const diagnostics = Array.isArray(metadata?.diagnostics)
             ? metadata.diagnostics
@@ -71,8 +71,8 @@ describe("Feather diagnostic fixer registry", () => {
     });
 });
 
-describe("Parser.Transforms.applyFeatherFixes transform", () => {
-    it("removes trailing macro semicolons and records fix metadata", () => {
+void describe("Parser.Transforms.applyFeatherFixes transform", () => {
+    void it("removes trailing macro semicolons and records fix metadata", () => {
         const source = ["#macro SAMPLE value;", "", "var data = SAMPLE;"].join(
             "\n"
         );
@@ -109,7 +109,7 @@ describe("Parser.Transforms.applyFeatherFixes transform", () => {
         assert.strictEqual(macroFixes[0].target, "SAMPLE");
     });
 
-    it("removes trailing macro semicolons before inline comments", () => {
+    void it("removes trailing macro semicolons before inline comments", () => {
         const source = [
             "#macro SAMPLE value; // comment",
             "",
@@ -139,7 +139,7 @@ describe("Parser.Transforms.applyFeatherFixes transform", () => {
         assert.strictEqual(macroFixes[0].target, "SAMPLE");
     });
 
-    it("removes break statements without enclosing loops and records GM1000 metadata", () => {
+    void it("removes break statements without enclosing loops and records GM1000 metadata", () => {
         const source = ["break;", "", "var value = 42;"].join("\n");
 
         const ast = Parser.GMLParser.parse(source, {
@@ -177,7 +177,7 @@ describe("Parser.Transforms.applyFeatherFixes transform", () => {
         assert.strictEqual(gm1000Fix.target, "break");
     });
 
-    it("splits inline globalvar initializers into assignments", () => {
+    void it("splits inline globalvar initializers into assignments", () => {
         const declarationSource = "globalvar gameManager;";
         const initializerSource = "gameManager = new GameManager();";
 
@@ -257,7 +257,7 @@ describe("Parser.Transforms.applyFeatherFixes transform", () => {
         );
     });
 
-    it("terminates var declarations flagged by GM2007 and records metadata", () => {
+    void it("terminates var declarations flagged by GM2007 and records metadata", () => {
         const source = [
             "var missing",
             "var intact = 1;",
@@ -356,7 +356,7 @@ describe("Parser.Transforms.applyFeatherFixes transform", () => {
         );
     });
 
-    it("rewrites counted for-loops flagged by GM2004 into repeat statements", () => {
+    void it("rewrites counted for-loops flagged by GM2004 into repeat statements", () => {
         const source = [
             "for (var i = 0; i < amount; i += 1) {",
             "    do_something();",
@@ -446,7 +446,7 @@ describe("Parser.Transforms.applyFeatherFixes transform", () => {
         );
     });
 
-    it("inserts the missing argument for GM1005 and records fix metadata", () => {
+    void it("inserts the missing argument for GM1005 and records fix metadata", () => {
         const source = "draw_set_color();";
 
         const ast = Parser.GMLParser.parse(source, {
@@ -486,7 +486,7 @@ describe("Parser.Transforms.applyFeatherFixes transform", () => {
         );
     });
 
-    it("removes duplicate enum members and records fix metadata", () => {
+    void it("removes duplicate enum members and records fix metadata", () => {
         const source = [
             "enum FRUIT {",
             "    APPLE,",
@@ -541,7 +541,7 @@ describe("Parser.Transforms.applyFeatherFixes transform", () => {
         );
     });
 
-    it("removes non-integer enum assignments and records GM1003 metadata", () => {
+    void it("removes non-integer enum assignments and records GM1003 metadata", () => {
         const ast = {
             type: "Program",
             body: [
@@ -616,7 +616,7 @@ describe("Parser.Transforms.applyFeatherFixes transform", () => {
         );
     });
 
-    it("replaces read-only built-in assignments with local variables", () => {
+    void it("replaces read-only built-in assignments with local variables", () => {
         const source = [
             "function demo() {",
             '    working_directory = @"PlayerData";',
@@ -682,7 +682,7 @@ describe("Parser.Transforms.applyFeatherFixes transform", () => {
         );
     });
 
-    it("replaces file attribute additions with bitwise OR operations", () => {
+    void it("replaces file attribute additions with bitwise OR operations", () => {
         const source = [
             "function scanArchives() {",
             "    var attributes = fa_readonly + fa_archive;",
@@ -725,7 +725,7 @@ describe("Parser.Transforms.applyFeatherFixes transform", () => {
         );
     });
 
-    it("converts room navigation arithmetic into dedicated helpers", () => {
+    void it("converts room navigation arithmetic into dedicated helpers", () => {
         const source = [
             "var next_room = room + 1;",
             "var previous_room = room - 1;",
@@ -826,7 +826,7 @@ describe("Parser.Transforms.applyFeatherFixes transform", () => {
         );
     });
 
-    it("maps room navigation directions to helper names", () => {
+    void it("maps room navigation directions to helper names", () => {
         const nextHelpers = Parser.Transforms.getRoomNavigationHelpers(
             Parser.Transforms.ROOM_NAVIGATION_DIRECTION.NEXT
         );
@@ -846,7 +846,7 @@ describe("Parser.Transforms.applyFeatherFixes transform", () => {
         });
     });
 
-    it("rejects unrecognized room navigation directions", () => {
+    void it("rejects unrecognized room navigation directions", () => {
         assert.throws(
             () => {
                 Parser.Transforms.getRoomNavigationHelpers("sideways");
@@ -858,7 +858,7 @@ describe("Parser.Transforms.applyFeatherFixes transform", () => {
         );
     });
 
-    it("annotates invalid assignment targets with GM1007 metadata", () => {
+    void it("annotates invalid assignment targets with GM1007 metadata", () => {
         const source = [
             "var origin = new Point(0, 0);",
             "",
@@ -888,7 +888,7 @@ describe("Parser.Transforms.applyFeatherFixes transform", () => {
         assert.ok(gm1007Fix.range.end > gm1007Fix.range.start);
     });
 
-    it("removes invalid assignment statements flagged by GM1007", () => {
+    void it("removes invalid assignment statements flagged by GM1007", () => {
         const source = [
             "var origin = new Point(0, 0);",
             "",
@@ -923,7 +923,7 @@ describe("Parser.Transforms.applyFeatherFixes transform", () => {
         );
     });
 
-    it("promotes local variables used within with(other) scopes", () => {
+    void it("promotes local variables used within with(other) scopes", () => {
         const source = [
             "var atk = 1;",
             "",
@@ -1004,7 +1004,7 @@ describe("Parser.Transforms.applyFeatherFixes transform", () => {
         );
     });
 
-    it("preserves function-scoped vars when resolving with(other) references", () => {
+    void it("preserves function-scoped vars when resolving with(other) references", () => {
         const source = [
             "function AttackController() constructor {",
             "    static perform_attack = function() {",
@@ -1055,7 +1055,7 @@ describe("Parser.Transforms.applyFeatherFixes transform", () => {
         assert.strictEqual(rightHand?.property?.name, "attack_bonus");
     });
 
-    it("coerces string literal operands flagged by GM1010", () => {
+    void it("coerces string literal operands flagged by GM1010", () => {
         const source = 'result = 5 + "5";';
 
         const ast = Parser.GMLParser.parse(source, {
@@ -1101,7 +1101,7 @@ describe("Parser.Transforms.applyFeatherFixes transform", () => {
         );
     });
 
-    it("leaves non-numeric string operands unchanged when coercion is unnecessary", () => {
+    void it("leaves non-numeric string operands unchanged when coercion is unnecessary", () => {
         const source = [
             'var base = @"PlayerData";',
             'var combined = base + @"/Screenshots/*.png";',
@@ -1136,7 +1136,7 @@ describe("Parser.Transforms.applyFeatherFixes transform", () => {
         assert.strictEqual(appendedMetadata.length, 0);
     });
 
-    it("converts string length property access into string_length calls", () => {
+    void it("converts string length property access into string_length calls", () => {
         const source = "var result = string(value).length;";
 
         const ast = Parser.GMLParser.parse(source, {
@@ -1169,7 +1169,7 @@ describe("Parser.Transforms.applyFeatherFixes transform", () => {
         assert.strictEqual(gm1012Fix.target, "length");
     });
 
-    it("corrects GM1021 typoed function calls using metadata guidance", () => {
+    void it("corrects GM1021 typoed function calls using metadata guidance", () => {
         const source = [
             "function make_game(_genre) { /* ... */ }",
             "",
@@ -1232,7 +1232,7 @@ describe("Parser.Transforms.applyFeatherFixes transform", () => {
         }
     });
 
-    it("renames deprecated built-in variables and records fix metadata", () => {
+    void it("renames deprecated built-in variables and records fix metadata", () => {
         const source = [
             "score = 0;",
             "score = score + 1;",
@@ -1292,7 +1292,7 @@ describe("Parser.Transforms.applyFeatherFixes transform", () => {
         );
     });
 
-    it("replaces deprecated constants highlighted by GM1023", () => {
+    void it("replaces deprecated constants highlighted by GM1023", () => {
         const source = [
             "if (os_type == os_win32)",
             "{",
@@ -1342,7 +1342,7 @@ describe("Parser.Transforms.applyFeatherFixes transform", () => {
         );
     });
 
-    it("rewrites postfix increment statements flagged by GM1026", () => {
+    void it("rewrites postfix increment statements flagged by GM1026", () => {
         const source = "pi++;";
 
         const ast = Parser.GMLParser.parse(source, {
@@ -1397,7 +1397,7 @@ describe("Parser.Transforms.applyFeatherFixes transform", () => {
         assert.strictEqual(gm1026.automatic, true);
     });
 
-    it("renames reserved identifiers and records fix metadata", () => {
+    void it("renames reserved identifiers and records fix metadata", () => {
         const source = [
             "#macro image_index 1",
             "",
@@ -1466,7 +1466,7 @@ describe("Parser.Transforms.applyFeatherFixes transform", () => {
         );
     });
 
-    it("converts numeric string call arguments into numeric literals for GM1029", () => {
+    void it("converts numeric string call arguments into numeric literals for GM1029", () => {
         const source =
             'draw_sprite(sprite_index, image_index, "1234", "5678");';
 
@@ -1513,7 +1513,7 @@ describe("Parser.Transforms.applyFeatherFixes transform", () => {
         assert.strictEqual(typeof metadata.range.end, "number");
     });
 
-    it("normalizes multidimensional array indexing and records metadata", () => {
+    void it("normalizes multidimensional array indexing and records metadata", () => {
         const source = [
             "function fetch_value(_grid, _row, _column, _depth)",
             "{",
@@ -1587,7 +1587,7 @@ describe("Parser.Transforms.applyFeatherFixes transform", () => {
         assert.ok(returnStatement);
     });
 
-    it("converts instance creation asset strings to identifiers and records metadata", () => {
+    void it("converts instance creation asset strings to identifiers and records metadata", () => {
         const source = 'instance_create_depth(x, y, -100, "obj_player");';
 
         const ast = Parser.GMLParser.parse(source, {
@@ -1631,7 +1631,7 @@ describe("Parser.Transforms.applyFeatherFixes transform", () => {
         );
     });
 
-    it("replaces invalid delete statements and records fix metadata", () => {
+    void it("replaces invalid delete statements and records fix metadata", () => {
         const source = [
             "var values = [2, 403, 202, 303, 773, 573];",
             "",
@@ -1684,7 +1684,7 @@ describe("Parser.Transforms.applyFeatherFixes transform", () => {
         );
     });
 
-    it("marks constructor declarations for functions instantiated with new", () => {
+    void it("marks constructor declarations for functions instantiated with new", () => {
         const source = [
             "function item() {",
             "    return 42;",
@@ -1727,7 +1727,7 @@ describe("Parser.Transforms.applyFeatherFixes transform", () => {
         );
     });
 
-    it("removes duplicate function parameters and records metadata", () => {
+    void it("removes duplicate function parameters and records metadata", () => {
         const source = [
             "function example(value, other, value, value) {",
             "    return value + other;",
@@ -1772,7 +1772,7 @@ describe("Parser.Transforms.applyFeatherFixes transform", () => {
         }
     });
 
-    it("removes duplicate constructor parameters flagged by GM1059", () => {
+    void it("removes duplicate constructor parameters flagged by GM1059", () => {
         const source = [
             "function Example(value, other, value) constructor {",
             "    return value + other;",
@@ -1819,7 +1819,7 @@ describe("Parser.Transforms.applyFeatherFixes transform", () => {
         assert.strictEqual(rootEntry.automatic, true);
     });
 
-    it("continues visiting parameters inserted during GM1059 fixes", () => {
+    void it("continues visiting parameters inserted during GM1059 fixes", () => {
         const createIdentifier = (name) => ({
             type: "Identifier",
             name,
@@ -1889,7 +1889,7 @@ describe("Parser.Transforms.applyFeatherFixes transform", () => {
         assert.deepStrictEqual(injectedNames, ["z"]);
     });
 
-    it("adds missing enum members and records fix metadata", () => {
+    void it("adds missing enum members and records fix metadata", () => {
         const source = [
             "enum FRUIT {",
             "    NONE,",
@@ -1948,7 +1948,7 @@ describe("Parser.Transforms.applyFeatherFixes transform", () => {
         );
     });
 
-    it("initialises missing enum member lists before adding fixes", () => {
+    void it("initialises missing enum member lists before adding fixes", () => {
         const enumDeclaration = {
             type: "EnumDeclaration",
             name: { type: "Identifier", name: "FRUIT" },
@@ -1985,7 +1985,7 @@ describe("Parser.Transforms.applyFeatherFixes transform", () => {
         assert.strictEqual(entry.target, "FRUIT.KIWI");
     });
 
-    it("records manual Feather fix metadata for every diagnostic", () => {
+    void it("records manual Feather fix metadata for every diagnostic", () => {
         const source = "var value = 1;";
 
         const ast = Parser.GMLParser.parse(source, {
@@ -2025,7 +2025,7 @@ describe("Parser.Transforms.applyFeatherFixes transform", () => {
         }
     });
 
-    it("ensures shader_set calls are followed by shader_reset and records metadata", () => {
+    void it("ensures shader_set calls are followed by shader_reset and records metadata", () => {
         const source = [
             "shader_set(sh_fancy_lighting);",
             "",
@@ -2077,7 +2077,7 @@ describe("Parser.Transforms.applyFeatherFixes transform", () => {
         );
     });
 
-    it("inserts surface target resets for GM2046 sequences and records metadata", () => {
+    void it("inserts surface target resets for GM2046 sequences and records metadata", () => {
         const source = [
             "/// Draw Event",
             "",
@@ -2157,7 +2157,7 @@ describe("Parser.Transforms.applyFeatherFixes transform", () => {
         );
     });
 
-    it("appends surface target resets after vertex submissions that draw to the active target", () => {
+    void it("appends surface target resets after vertex submissions that draw to the active target", () => {
         const source = [
             "surface_set_target(sf);",
             "draw_clear_alpha(c_black, 1);",
@@ -2199,7 +2199,7 @@ describe("Parser.Transforms.applyFeatherFixes transform", () => {
         );
     });
 
-    it("captures metadata for deprecated function calls flagged by GM1017", () => {
+    void it("captures metadata for deprecated function calls flagged by GM1017", () => {
         const source = [
             "/// @deprecated Use start_new_game instead.",
             "function make_game() {",
@@ -2258,7 +2258,7 @@ describe("Parser.Transforms.applyFeatherFixes transform", () => {
         );
     });
 
-    it("corrects mismatched data structure accessors using metadata", () => {
+    void it("corrects mismatched data structure accessors using metadata", () => {
         const metadata = getFeatherMetadata();
         const diagnostic = (metadata?.diagnostics ?? []).find(
             (entry) => entry?.id === "GM1028"
@@ -2329,7 +2329,7 @@ describe("Parser.Transforms.applyFeatherFixes transform", () => {
         );
     });
 
-    it("normalizes argument built-ins flagged by GM1032", () => {
+    void it("normalizes argument built-ins flagged by GM1032", () => {
         const metadata = getFeatherMetadata();
         const diagnostic = (metadata?.diagnostics ?? []).find(
             (entry) => entry?.id === "GM1032"
@@ -2443,7 +2443,7 @@ describe("Parser.Transforms.applyFeatherFixes transform", () => {
         assert.ok(applied.some((entry) => entry.id === "GM1032"));
     });
 
-    it("replaces direct argument references with documented aliases for GM1032", () => {
+    void it("replaces direct argument references with documented aliases for GM1032", () => {
         const source = [
             "/// @function sample2",
             "/// @param zero",
@@ -2495,7 +2495,7 @@ describe("Parser.Transforms.applyFeatherFixes transform", () => {
         );
     });
 
-    it("records duplicate semicolon fixes for GM1033", () => {
+    void it("records duplicate semicolon fixes for GM1033", () => {
         const source = [
             "var value = 1;;",
             "var other = 2;",
@@ -2538,7 +2538,7 @@ describe("Parser.Transforms.applyFeatherFixes transform", () => {
         }
     });
 
-    it("moves argument references into the preceding function body", () => {
+    void it("moves argument references into the preceding function body", () => {
         const source = [
             "function args()",
             "{",
@@ -2595,7 +2595,7 @@ describe("Parser.Transforms.applyFeatherFixes transform", () => {
         assert.strictEqual(gm1034Fixes.length, 2);
     });
 
-    it("removes duplicate macro declarations and records fix metadata", () => {
+    void it("removes duplicate macro declarations and records fix metadata", () => {
         const source = [
             "#macro dbg show_debug_message",
             "#macro other value",
@@ -2637,7 +2637,7 @@ describe("Parser.Transforms.applyFeatherFixes transform", () => {
         );
     });
 
-    it("normalizes missing constructor parent clauses and records fix metadata", () => {
+    void it("normalizes missing constructor parent clauses and records fix metadata", () => {
         const source = [
             "function Base() {",
             "    self.value = 1;",
@@ -2693,7 +2693,7 @@ describe("Parser.Transforms.applyFeatherFixes transform", () => {
         assert.strictEqual(recordedIds.has("GM1054"), true);
     });
 
-    it("assigns undefined defaults to required parameters following optional ones", () => {
+    void it("assigns undefined defaults to required parameters following optional ones", () => {
         const source = [
             "function example(a, b = 1, c, d = 2) {",
             "    return a + b + c + d;",
@@ -2763,7 +2763,7 @@ describe("Parser.Transforms.applyFeatherFixes transform", () => {
         );
     });
 
-    it("resets texture repeat flagged by GM2056 and records metadata", () => {
+    void it("resets texture repeat flagged by GM2056 and records metadata", () => {
         const source = [
             "gpu_set_texrepeat(true);",
             "",
@@ -2825,7 +2825,7 @@ describe("Parser.Transforms.applyFeatherFixes transform", () => {
         );
     });
 
-    it("re-enables blending flagged by GM2048 and records metadata", () => {
+    void it("re-enables blending flagged by GM2048 and records metadata", () => {
         const source = [
             "gpu_set_blendenable(false);",
             "",
@@ -2878,7 +2878,7 @@ describe("Parser.Transforms.applyFeatherFixes transform", () => {
         );
     });
 
-    it("suppresses blank lines when inserting GM2048 resets", () => {
+    void it("suppresses blank lines when inserting GM2048 resets", () => {
         const source = [
             "gpu_set_blendenable(false);",
             "",
@@ -2911,7 +2911,7 @@ describe("Parser.Transforms.applyFeatherFixes transform", () => {
         assert.strictEqual(resetCall._featherSuppressLeadingEmptyLine, true);
     });
 
-    it("resets fog flagged by GM2050 and records metadata", () => {
+    void it("resets fog flagged by GM2050 and records metadata", () => {
         const source = [
             "gpu_set_fog(true, c_aqua, 0, 1000);",
             "",
@@ -2972,7 +2972,7 @@ describe("Parser.Transforms.applyFeatherFixes transform", () => {
         );
     });
 
-    it("resets alpha test enable flagged by GM2053 and records metadata", () => {
+    void it("resets alpha test enable flagged by GM2053 and records metadata", () => {
         const source = [
             "/// Draw Event",
             "",
@@ -3038,7 +3038,7 @@ describe("Parser.Transforms.applyFeatherFixes transform", () => {
         );
     });
 
-    it("suppresses blank lines when resetting alpha test enable flagged by GM2053", () => {
+    void it("suppresses blank lines when resetting alpha test enable flagged by GM2053", () => {
         const source = [
             "/// Draw Event",
             "",
@@ -3075,7 +3075,7 @@ describe("Parser.Transforms.applyFeatherFixes transform", () => {
         );
     });
 
-    it("formats alpha test resets without inserting extra blank lines", async () => {
+    void it("formats alpha test resets without inserting extra blank lines", async () => {
         const source = [
             "/// Draw Event",
             "",
@@ -3086,7 +3086,7 @@ describe("Parser.Transforms.applyFeatherFixes transform", () => {
 
         const formatted = await Plugin.format(source, {
             parser: "gml-parse",
-            "Parser.Transforms.applyFeatherFixes": true
+            applyFeatherFixes: true
         });
 
         const expected = [
@@ -3100,7 +3100,7 @@ describe("Parser.Transforms.applyFeatherFixes transform", () => {
         assert.strictEqual(formatted.trimEnd(), expected);
     });
 
-    it("ensures vertex format definitions are closed and records metadata", () => {
+    void it("ensures vertex format definitions are closed and records metadata", () => {
         const source = [
             "/// Create Event",
             "",
@@ -3145,7 +3145,7 @@ describe("Parser.Transforms.applyFeatherFixes transform", () => {
         );
     });
 
-    it("comments out incomplete vertex format definitions flagged by GM2015", async () => {
+    void it("comments out incomplete vertex format definitions flagged by GM2015", async () => {
         const source = [
             "/// Create Event",
             "",
@@ -3155,7 +3155,7 @@ describe("Parser.Transforms.applyFeatherFixes transform", () => {
 
         const formatted = await Plugin.format(source, {
             parser: "gml-parse",
-            "Parser.Transforms.applyFeatherFixes": true
+            applyFeatherFixes: true
         });
 
         const expected = [
@@ -3169,7 +3169,7 @@ describe("Parser.Transforms.applyFeatherFixes transform", () => {
         assert.strictEqual(formatted.trimEnd(), expected);
     });
 
-    it("avoids duplicating vertex format comments when definitions are already commented", async () => {
+    void it("avoids duplicating vertex format comments when definitions are already commented", async () => {
         const source = [
             "vertex_format_begin();",
             "",
@@ -3186,7 +3186,7 @@ describe("Parser.Transforms.applyFeatherFixes transform", () => {
 
         const formatted = await Plugin.format(source, {
             parser: "gml-parse",
-            "Parser.Transforms.applyFeatherFixes": true
+            applyFeatherFixes: true
         });
 
         const expected = [
@@ -3200,7 +3200,7 @@ describe("Parser.Transforms.applyFeatherFixes transform", () => {
         assert.strictEqual(formatted.trimEnd(), expected);
     });
 
-    it("removes incomplete vertex format definitions before subsequent begins and records metadata", () => {
+    void it("removes incomplete vertex format definitions before subsequent begins and records metadata", () => {
         const source = [
             "vertex_format_begin();",
             "vertex_format_add_position_3d();",
@@ -3249,7 +3249,7 @@ describe("Parser.Transforms.applyFeatherFixes transform", () => {
         assert.strictEqual(gm2012.automatic, true);
     });
 
-    it("removes dangling vertex_format_end statements before beginning a new definition", () => {
+    void it("removes dangling vertex_format_end statements before beginning a new definition", () => {
         const source = [
             "vertex_format_end();",
             "vertex_format_begin();",
@@ -3282,7 +3282,7 @@ describe("Parser.Transforms.applyFeatherFixes transform", () => {
         );
     });
 
-    it("removes empty vertex format definitions without recorded assignments", () => {
+    void it("removes empty vertex format definitions without recorded assignments", () => {
         const source = [
             "vertex_format_begin();",
             "vertex_format_end();",
@@ -3320,7 +3320,7 @@ describe("Parser.Transforms.applyFeatherFixes transform", () => {
         assert.strictEqual(gm2012.automatic, true);
     });
 
-    it("inserts missing vertex_end before subsequent begins and records metadata", () => {
+    void it("inserts missing vertex_end before subsequent begins and records metadata", () => {
         const source = [
             "vertex_begin(vb, format);",
             "vertex_position_3d(vb, x, y, z);",
@@ -3369,7 +3369,7 @@ describe("Parser.Transforms.applyFeatherFixes transform", () => {
         );
     });
 
-    it("harmonizes texture ternaries flagged by GM1063 and records metadata", () => {
+    void it("harmonizes texture ternaries flagged by GM1063 and records metadata", () => {
         const source = [
             "/// Create Event",
             "",
@@ -3420,7 +3420,7 @@ describe("Parser.Transforms.applyFeatherFixes transform", () => {
         );
     });
 
-    it("closes vertex buffers flagged by GM2011 and records metadata", () => {
+    void it("closes vertex buffers flagged by GM2011 and records metadata", () => {
         const source = [
             "/// Create Event",
             "",
@@ -3496,7 +3496,7 @@ describe("Parser.Transforms.applyFeatherFixes transform", () => {
         );
     });
 
-    it("removes stray draw_primitive_end calls when fixing GM2028 and records metadata", () => {
+    void it("removes stray draw_primitive_end calls when fixing GM2028 and records metadata", () => {
         const source = ["/// Draw Event", "", "draw_primitive_end();"].join(
             "\n"
         );
@@ -3523,7 +3523,7 @@ describe("Parser.Transforms.applyFeatherFixes transform", () => {
         assert.strictEqual(gm2028.automatic, true);
     });
 
-    it("resets gpu_set_cullmode calls flagged by GM2051 and records metadata", () => {
+    void it("resets gpu_set_cullmode calls flagged by GM2051 and records metadata", () => {
         const source = [
             "/// Draw Event",
             "",
@@ -3571,7 +3571,7 @@ describe("Parser.Transforms.applyFeatherFixes transform", () => {
         assert.ok(gm2051.range);
     });
 
-    it("normalizes simple syntax errors flagged by GM1100 and records metadata", () => {
+    void it("normalizes simple syntax errors flagged by GM1100 and records metadata", () => {
         const source = ["var _this * something;", "", "    = 48;"].join("\n");
 
         const { sourceText, metadata } =
@@ -3632,7 +3632,7 @@ describe("Parser.Transforms.applyFeatherFixes transform", () => {
         }
     });
 
-    it("normalizes zero denominators flagged by GM1015 and records metadata", () => {
+    void it("normalizes zero denominators flagged by GM1015 and records metadata", () => {
         const source = [
             "var total = 10 / 0;",
             "total /= 0;",
@@ -3714,7 +3714,7 @@ describe("Parser.Transforms.applyFeatherFixes transform", () => {
         }
     });
 
-    it("normalizes zero denominators flagged by GM1015 even when the statement list mutates", () => {
+    void it("normalizes zero denominators flagged by GM1015 even when the statement list mutates", () => {
         const source = ["total /= 0;", "other /= 0;"].join("\n");
 
         const ast = Parser.GMLParser.parse(source, {
@@ -3756,7 +3756,7 @@ describe("Parser.Transforms.applyFeatherFixes transform", () => {
         assert.strictEqual(secondAssignment.right?.value, "1");
     });
 
-    it("removes stray boolean literal statements flagged by GM1016 and records metadata", () => {
+    void it("removes stray boolean literal statements flagged by GM1016 and records metadata", () => {
         const topLevelLiteral = {
             type: "ExpressionStatement",
             expression: {
@@ -3859,7 +3859,7 @@ describe("Parser.Transforms.applyFeatherFixes transform", () => {
         }
     });
 
-    it("preprocesses stray boolean literal statements flagged by GM1016", () => {
+    void it("preprocesses stray boolean literal statements flagged by GM1016", () => {
         const source = [
             "/// Feather GM1016 sample",
             "true;",
@@ -3939,7 +3939,7 @@ describe("Parser.Transforms.applyFeatherFixes transform", () => {
         );
     });
 
-    it("preprocesses numeric string enum initializers flagged by GM1003", () => {
+    void it("preprocesses numeric string enum initializers flagged by GM1003", () => {
         const source = [
             "enum Example {",
             '    FIRST = "0",',
@@ -3999,7 +3999,7 @@ describe("Parser.Transforms.applyFeatherFixes transform", () => {
         assert.strictEqual(members[1]?.initializer, "1");
     });
 
-    it("deduplicates local variables flagged by GM2044 and records metadata", () => {
+    void it("deduplicates local variables flagged by GM2044 and records metadata", () => {
         const source = [
             "function demo() {",
             "    var total = 1;",
@@ -4078,7 +4078,7 @@ describe("Parser.Transforms.applyFeatherFixes transform", () => {
         );
     });
 
-    it("inserts a file_find_close call before nested file_find_first invocations flagged by GM2031", () => {
+    void it("inserts a file_find_close call before nested file_find_first invocations flagged by GM2031", () => {
         const source = [
             "var _look_for_description = true;",
             "",
@@ -4134,7 +4134,7 @@ describe("Parser.Transforms.applyFeatherFixes transform", () => {
         );
     });
 
-    it("moves gpu_pop_state calls flagged by GM2035 outside of conditionals and records metadata", () => {
+    void it("moves gpu_pop_state calls flagged by GM2035 outside of conditionals and records metadata", () => {
         const source = [
             "gpu_push_state();",
             "",
@@ -4206,7 +4206,7 @@ describe("Parser.Transforms.applyFeatherFixes transform", () => {
         );
     });
 
-    it("hoists multiple call arguments flagged by GM2023 and records metadata", () => {
+    void it("hoists multiple call arguments flagged by GM2023 and records metadata", () => {
         const source =
             "vertex_position_3d(vb, buffer_read(buff, buffer_f32), buffer_read(buff, buffer_f32), buffer_read(buff, buffer_f32));";
 
@@ -4286,7 +4286,7 @@ describe("Parser.Transforms.applyFeatherFixes transform", () => {
         );
     });
 
-    it("maintains GM2023 hoist order for nested call arguments", () => {
+    void it("maintains GM2023 hoist order for nested call arguments", () => {
         const source = "foo(bar(quux(baz(), qux()), corge()), grault());";
 
         const ast = Parser.GMLParser.parse(source, {
@@ -4357,7 +4357,7 @@ describe("Parser.Transforms.applyFeatherFixes transform", () => {
         assert.strictEqual(callArgs[1]?.name, "__feather_call_arg_5");
     });
 
-    it("coalesces undefined fallbacks flagged by GM2061", () => {
+    void it("coalesces undefined fallbacks flagged by GM2061", () => {
         const source = [
             "array = modify_array(array);",
             "",
@@ -4404,7 +4404,7 @@ describe("Parser.Transforms.applyFeatherFixes transform", () => {
         );
     });
 
-    it("replaces undefined guards with nullish assignment for GM2061", () => {
+    void it("replaces undefined guards with nullish assignment for GM2061", () => {
         const source = "if (value == undefined) value = compute();";
 
         const ast = Parser.GMLParser.parse(source, {
@@ -4440,7 +4440,7 @@ describe("Parser.Transforms.applyFeatherFixes transform", () => {
         );
     });
 
-    it("resets colour write enable after disabling channels and records metadata", () => {
+    void it("resets colour write enable after disabling channels and records metadata", () => {
         const source = [
             "/// Draw Event",
             "",
@@ -4508,7 +4508,7 @@ describe("Parser.Transforms.applyFeatherFixes transform", () => {
         );
     });
 
-    it("suppresses blank lines when resetting colour write enable flagged by GM2052", () => {
+    void it("suppresses blank lines when resetting colour write enable flagged by GM2052", () => {
         const source = [
             "/// Draw Event",
             "",
@@ -4542,7 +4542,7 @@ describe("Parser.Transforms.applyFeatherFixes transform", () => {
         );
     });
 
-    it("resets gpu_set_cullmode calls flagged by GM2051 and records metadata", () => {
+    void it("resets gpu_set_cullmode calls flagged by GM2051 and records metadata", () => {
         const source = [
             "/// Draw Event",
             "",
@@ -4590,7 +4590,7 @@ describe("Parser.Transforms.applyFeatherFixes transform", () => {
         assert.ok(gm2051.range);
     });
 
-    it("removes orphaned event_inherited calls flagged by GM2040 and records metadata", () => {
+    void it("removes orphaned event_inherited calls flagged by GM2040 and records metadata", () => {
         const source = [
             "/// Room Start Event",
             "",
@@ -4660,7 +4660,7 @@ describe("Parser.Transforms.applyFeatherFixes transform", () => {
         }
     });
 
-    it("removes stray file_find_next calls flagged by GM2033", () => {
+    void it("removes stray file_find_next calls flagged by GM2033", () => {
         const source = [
             "fnames = [];",
             "",
@@ -4708,7 +4708,7 @@ describe("Parser.Transforms.applyFeatherFixes transform", () => {
         assert.ok(gm2033.range);
     });
 
-    it("removes consecutive file_find_close calls flagged by GM2032", () => {
+    void it("removes consecutive file_find_close calls flagged by GM2032", () => {
         const source = [
             "file_find_close();",
             "file_find_close();",
@@ -4753,7 +4753,7 @@ describe("Parser.Transforms.applyFeatherFixes transform", () => {
         }
     });
 
-    it("moves draw_primitive_end calls outside flagged GM2030 conditionals", () => {
+    void it("moves draw_primitive_end calls outside flagged GM2030 conditionals", () => {
         const source = [
             "draw_primitive_begin(pr_linelist);",
             "",
@@ -4810,7 +4810,7 @@ describe("Parser.Transforms.applyFeatherFixes transform", () => {
         );
     });
 
-    it("wraps draw vertex calls flagged by GM2029 and records metadata", () => {
+    void it("wraps draw vertex calls flagged by GM2029 and records metadata", () => {
         const source = [
             "/// Draw Event",
             "",
@@ -4874,7 +4874,7 @@ describe("Parser.Transforms.applyFeatherFixes transform", () => {
         assert.strictEqual(lastStatement?.object?.name, "draw_primitive_end");
     });
 
-    it("resets draw_set_halign calls flagged by GM2026 and records metadata", () => {
+    void it("resets draw_set_halign calls flagged by GM2026 and records metadata", () => {
         const source = [
             "draw_set_halign(fa_right);",
             "",
@@ -4920,7 +4920,7 @@ describe("Parser.Transforms.applyFeatherFixes transform", () => {
         );
     });
 
-    it("closes vertex buffers flagged by GM2011 and records metadata", () => {
+    void it("closes vertex buffers flagged by GM2011 and records metadata", () => {
         const source = [
             "/// Create Event",
             "",
@@ -4996,7 +4996,7 @@ describe("Parser.Transforms.applyFeatherFixes transform", () => {
         );
     });
 
-    it("inserts vertex_begin before vertex_end flagged by GM2009 and records metadata", () => {
+    void it("inserts vertex_begin before vertex_end flagged by GM2009 and records metadata", () => {
         const source = "vertex_end(vb);";
 
         const ast = Parser.GMLParser.parse(source, {
@@ -5059,7 +5059,7 @@ describe("Parser.Transforms.applyFeatherFixes transform", () => {
         );
     });
 
-    it("inserts missing vertex_end calls flagged by GM2008 and records metadata", () => {
+    void it("inserts missing vertex_end calls flagged by GM2008 and records metadata", () => {
         const source = [
             "vertex_begin(vb, format);",
             "vertex_position_3d(vb, x, y, z);",
@@ -5103,7 +5103,7 @@ describe("Parser.Transforms.applyFeatherFixes transform", () => {
         );
     });
 
-    it("suppresses blank lines after vertex_begin calls when closing vertex batches", () => {
+    void it("suppresses blank lines after vertex_begin calls when closing vertex batches", () => {
         const source = [
             "vertex_begin(vb, format);",
             "",
@@ -5133,7 +5133,7 @@ describe("Parser.Transforms.applyFeatherFixes transform", () => {
         );
     });
 
-    it("inserts surface_reset_target after surface_set_target flagged by GM2005 and records metadata", () => {
+    void it("inserts surface_reset_target after surface_set_target flagged by GM2005 and records metadata", () => {
         const source = [
             "/// Draw Event",
             "",
@@ -5204,7 +5204,7 @@ describe("Parser.Transforms.applyFeatherFixes transform", () => {
         );
     });
 
-    it("resets blend modes flagged by GM2000 and records metadata", () => {
+    void it("resets blend modes flagged by GM2000 and records metadata", () => {
         const source = [
             "/// Draw Event",
             "",
@@ -5277,7 +5277,7 @@ describe("Parser.Transforms.applyFeatherFixes transform", () => {
         assert.ok(gm2000.range);
     });
 
-    it("removes redeclared global functions flagged by GM1064 and records metadata", () => {
+    void it("removes redeclared global functions flagged by GM1064 and records metadata", () => {
         const source = [
             "function make_game() {",
             '    show_debug_message("first");',
@@ -5338,7 +5338,7 @@ describe("Parser.Transforms.applyFeatherFixes transform", () => {
         );
     });
 
-    it("records manual metadata for GM2025 user event references", () => {
+    void it("records manual metadata for GM2025 user event references", () => {
         const source = [
             "function trigger() {",
             "    event_user(4);",

@@ -2,8 +2,8 @@ import assert from "node:assert/strict";
 import { describe, it } from "node:test";
 import { isSyntaxErrorWithLocation } from "../src/utils/syntax-error-guards.js";
 
-describe("isSyntaxErrorWithLocation", () => {
-    it("identifies syntax errors with location metadata", () => {
+void describe("isSyntaxErrorWithLocation", () => {
+    void it("identifies syntax errors with location metadata", () => {
         const syntaxErrorLike = {
             message: "boom",
             line: 4,

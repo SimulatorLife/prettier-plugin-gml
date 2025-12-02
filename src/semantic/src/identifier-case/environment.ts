@@ -4,7 +4,7 @@ import {
     prepareIdentifierCasePlan,
     captureIdentifierCasePlanSnapshot
 } from "./plan-service.js";
-import { getDebugId, type IdentifierCasePlanSnapshot } from "./types.js";
+import { type IdentifierCasePlanSnapshot } from "./types.js";
 
 import {
     setIdentifierCaseOption,
@@ -100,9 +100,9 @@ function disposeBootstrap(bootstrapResult, logger = null) {
 
 export function prepareIdentifierCaseEnvironment(options) {
     try {
-        console.debug(
-            `[DBG] prepareIdentifierCaseEnvironment: enter filepath=${options?.filepath ?? null}`
-        );
+        // console.debug(
+        //     `[DBG] prepareIdentifierCaseEnvironment: enter filepath=${options?.filepath ?? null}`
+        // );
     } catch {
         /* ignore */
     }
@@ -171,13 +171,13 @@ export function attachIdentifierCasePlanSnapshot(ast, options) {
                         c += 1;
                         if (c >= 5) break;
                     }
-                    console.debug(
-                        `[DBG] attachIdentifierCasePlanSnapshot: attaching snapshot for filepath=${options?.filepath ?? null} planGenerated=${Boolean(snapshot.planGenerated)} renameMapSize=${snapshot.renameMap.size} renameMapId=${getDebugId(snapshot.renameMap)} samples=${JSON.stringify(samples)}`
-                    );
+                    // console.debug(
+                    //     `[DBG] attachIdentifierCasePlanSnapshot: attaching snapshot for filepath=${options?.filepath ?? null} planGenerated=${Boolean(snapshot.planGenerated)} renameMapSize=${snapshot.renameMap.size} renameMapId=${getDebugId(snapshot.renameMap)} samples=${JSON.stringify(samples)}`
+                    // );
                 } else {
-                    console.debug(
-                        `[DBG] attachIdentifierCasePlanSnapshot: attaching snapshot for filepath=${options?.filepath ?? null} planGenerated=${Boolean(snapshot.planGenerated)} renameMapSize=0 renameMapId=${null}`
-                    );
+                    // console.debug(
+                    //     `[DBG] attachIdentifierCasePlanSnapshot: attaching snapshot for filepath=${options?.filepath ?? null} planGenerated=${Boolean(snapshot.planGenerated)} renameMapSize=0 renameMapId=${null}`
+                    // );
                 }
             } catch {
                 /* ignore */

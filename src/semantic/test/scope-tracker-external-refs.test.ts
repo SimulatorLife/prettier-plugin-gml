@@ -3,7 +3,7 @@ import assert from "node:assert/strict";
 
 import ScopeTracker from "../src/scopes/scope-tracker.js";
 
-test("getScopeExternalReferences returns references to symbols declared outside the scope", () => {
+void test("getScopeExternalReferences returns references to symbols declared outside the scope", () => {
     const tracker = new ScopeTracker({ enabled: true });
     const rootScope = tracker.enterScope("program");
 
@@ -52,7 +52,7 @@ test("getScopeExternalReferences returns references to symbols declared outside 
     assert.ok(externalRefs[0].occurrences.length > 0);
 });
 
-test("getScopeExternalReferences handles nested scopes correctly", () => {
+void test("getScopeExternalReferences handles nested scopes correctly", () => {
     const tracker = new ScopeTracker({ enabled: true });
     const rootScope = tracker.enterScope("program");
 
@@ -120,7 +120,7 @@ test("getScopeExternalReferences handles nested scopes correctly", () => {
     });
 });
 
-test("getScopeExternalReferences returns empty array when all references are local", () => {
+void test("getScopeExternalReferences returns empty array when all references are local", () => {
     const tracker = new ScopeTracker({ enabled: true });
     tracker.enterScope("program");
     const funcScope = tracker.enterScope("function");
@@ -145,7 +145,7 @@ test("getScopeExternalReferences returns empty array when all references are loc
     assert.deepStrictEqual(externalRefs, []);
 });
 
-test("getScopeExternalReferences returns empty array for non-existent scope", () => {
+void test("getScopeExternalReferences returns empty array for non-existent scope", () => {
     const tracker = new ScopeTracker({ enabled: true });
     tracker.enterScope("program");
     tracker.exitScope();
@@ -156,7 +156,7 @@ test("getScopeExternalReferences returns empty array for non-existent scope", ()
     assert.deepStrictEqual(externalRefs, []);
 });
 
-test("getScopeExternalReferences returns empty array when disabled", () => {
+void test("getScopeExternalReferences returns empty array when disabled", () => {
     const tracker = new ScopeTracker({ enabled: false });
 
     const externalRefs = tracker.getScopeExternalReferences("any-scope");
@@ -164,7 +164,7 @@ test("getScopeExternalReferences returns empty array when disabled", () => {
     assert.deepStrictEqual(externalRefs, []);
 });
 
-test("getScopeExternalReferences groups multiple references to same external symbol", () => {
+void test("getScopeExternalReferences groups multiple references to same external symbol", () => {
     const tracker = new ScopeTracker({ enabled: true });
     const rootScope = tracker.enterScope("program");
 
@@ -211,7 +211,7 @@ test("getScopeExternalReferences groups multiple references to same external sym
     });
 });
 
-test("getScopeExternalReferences handles unresolved references gracefully", () => {
+void test("getScopeExternalReferences handles unresolved references gracefully", () => {
     const tracker = new ScopeTracker({ enabled: true });
     tracker.enterScope("program");
     const funcScope = tracker.enterScope("function");
@@ -233,7 +233,7 @@ test("getScopeExternalReferences handles unresolved references gracefully", () =
     assert.strictEqual(externalRefs[0].declaration, null);
 });
 
-test("getScopeExternalReferences returns cloned declaration metadata", () => {
+void test("getScopeExternalReferences returns cloned declaration metadata", () => {
     const tracker = new ScopeTracker({ enabled: true });
     const rootScope = tracker.enterScope("program");
 
@@ -302,7 +302,7 @@ test("getScopeExternalReferences returns cloned declaration metadata", () => {
     );
 });
 
-test("getScopeExternalReferences performance is efficient for many references", () => {
+void test("getScopeExternalReferences performance is efficient for many references", () => {
     const tracker = new ScopeTracker({ enabled: true });
     const rootScope = tracker.enterScope("program");
 

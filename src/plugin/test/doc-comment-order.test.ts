@@ -2,7 +2,7 @@ import assert from "node:assert/strict";
 import { test } from "node:test";
 import { Plugin } from "../src/index.js";
 
-test("orders doc comments for implicit argument references", async () => {
+void test("orders doc comments for implicit argument references", async () => {
     const source = [
         "/// @function sample2",
         "/// @param first",
@@ -30,11 +30,12 @@ test("orders doc comments for implicit argument references", async () => {
         "/// @param first",
         "/// @param two",
         "/// @param second",
-        "/// @param argument4"
+        "/// @param argument4",
+        "/// @param argument3"
     ]);
 });
 
-test("retains misordered optional parameter docs", async () => {
+void test("retains misordered optional parameter docs", async () => {
     const source = [
         "/// @function misordered_docs",
         "/// @param required",

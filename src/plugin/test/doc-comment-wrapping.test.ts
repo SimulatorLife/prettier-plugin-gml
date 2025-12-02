@@ -9,7 +9,7 @@ const LONG_DESCRIPTION =
     "Base class for all shapes. Shapes can be solid or not solid. Solid shapes will " +
     "collide with other solid shapes, and non-solid shapes will not collide with anything.";
 
-test("wraps long @description doc comments at the formatter width", async () => {
+void test("wraps long @description doc comments at the formatter width", async () => {
     const source = [
         `/// @description ${LONG_DESCRIPTION}`,
         "function wrap_example() {}",
@@ -47,7 +47,7 @@ test("wraps long @description doc comments at the formatter width", async () => 
     );
 });
 
-test("wraps @description doc comments when printWidth exceeds the wrapping cap", async () => {
+void test("wraps @description doc comments when printWidth exceeds the wrapping cap", async () => {
     const source = [
         `/// @description ${LONG_DESCRIPTION}`,
         "function wrap_example() {}",
@@ -85,7 +85,7 @@ test("wraps @description doc comments when printWidth exceeds the wrapping cap",
     );
 });
 
-test("wraps @description doc comments when printWidth is narrow but prevents a single word from being wrapped", async () => {
+void test("wraps @description doc comments when printWidth is narrow but prevents a single word from being wrapped", async () => {
     const source = [
         `/// @description ${LONG_DESCRIPTION}`,
         "function wrap_example() {}",
@@ -127,7 +127,7 @@ test("wraps @description doc comments when printWidth is narrow but prevents a s
     );
 });
 
-test("preserves doc comment continuation labels without indentation", async () => {
+void test("preserves doc comment continuation labels without indentation", async () => {
     const source = [
         "/// @description Write a unit triangular prism into an existing vbuff.",
         "/// Local space: X∈[-0.5,+0.5], Y∈[-0.5,+0.5], base plane at Z=0, apex line at (Y=0,Z=1).",
@@ -158,7 +158,7 @@ test("preserves doc comment continuation labels without indentation", async () =
     );
 });
 
-test("pads retained @description continuation lines when they lack indentation", async () => {
+void test("pads retained @description continuation lines when they lack indentation", async () => {
     const source = [
         "/// @description Write a unit triangular prism into an existing vbuff.",
         "/// Local space: X∈[-0.5,+0.5], Y∈[-0.5,+0.5], base plane at Z=0, apex line at (Y=0,Z=1).",
@@ -179,7 +179,7 @@ test("pads retained @description continuation lines when they lack indentation",
     );
 });
 
-test("does not expand preformatted doc comment continuations", async () => {
+void test("does not expand preformatted doc comment continuations", async () => {
     const source = [
         "/// @description Write a unit triangular prism into an existing vbuff.",
         "///              Local space: X∈[-0.5,+0.5], Y∈[-0.5,+0.5], base plane at Z=0, apex line at (Y=0,Z=1).",

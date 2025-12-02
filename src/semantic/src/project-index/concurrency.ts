@@ -48,21 +48,21 @@ const projectIndexConcurrencyConfig = Core.createEnvConfiguredValueWithFallback(
     }
 );
 
-function getDefaultProjectIndexGmlConcurrency() {
+function getDefaultProjectIndexGmlConcurrency(): number {
     return projectIndexConcurrencyConfig.get();
 }
 
-function getDefaultProjectIndexGmlConcurrencyLimit() {
+function getDefaultProjectIndexGmlConcurrencyLimit(): number {
     return projectIndexConcurrencyLimitConfig.get();
 }
 
 function clampConcurrency(
-    value,
+    value: unknown,
     {
         min = MIN_CONCURRENCY,
         max = getDefaultProjectIndexGmlConcurrencyLimit(),
         fallback = getDefaultProjectIndexGmlConcurrency()
-    } = {}
+    }: { min?: number; max?: number; fallback?: unknown } = {}
 ) {
     const limit = Math.max(min, max);
     const normalizedFallback = normalizeConcurrencyValue(fallback, {
@@ -80,11 +80,11 @@ function clampConcurrency(
     });
 }
 
-function setDefaultProjectIndexGmlConcurrency(concurrency) {
+function setDefaultProjectIndexGmlConcurrency(concurrency: unknown) {
     return projectIndexConcurrencyConfig.set(concurrency);
 }
 
-function setDefaultProjectIndexGmlConcurrencyLimit(limit) {
+function setDefaultProjectIndexGmlConcurrencyLimit(limit: unknown) {
     return projectIndexConcurrencyLimitConfig.set(limit);
 }
 
@@ -113,13 +113,13 @@ const DEFAULT_PROJECT_INDEX_GML_CONCURRENCY =
     getDefaultProjectIndexGmlConcurrency();
 
 function normalizeConcurrencyValue(
-    value,
+    value: unknown,
     {
         min = MIN_CONCURRENCY,
         max = getDefaultProjectIndexGmlConcurrencyLimit(),
         fallback,
         onInvalid = min
-    } = {}
+    }: { min?: number; max?: number; fallback?: unknown; onInvalid?: number } = {}
 ) {
     const source = value ?? fallback;
 

@@ -11,7 +11,7 @@ import {
 } from "../src/modules/manual/source.js";
 import { resolveFromRepoRoot } from "../src/shared/workspace-paths.js";
 
-test("resolveManualSource returns explicit manual root", async (t) => {
+void test("resolveManualSource returns explicit manual root", async (t) => {
     const tempDir = await fs.mkdtemp(path.join(os.tmpdir(), "manual-root-"));
     t.after(async () => {
         await fs.rm(tempDir, { recursive: true, force: true });
@@ -24,14 +24,14 @@ test("resolveManualSource returns explicit manual root", async (t) => {
     assert.equal(result.packageJson, null);
 });
 
-test("resolveManualSource defaults to vendor submodule", async () => {
+void test("resolveManualSource defaults to vendor submodule", async () => {
     const result = await resolveManualSource();
     const expectedRoot = resolveFromRepoRoot("vendor", "GameMaker-Manual");
 
     assert.equal(result.root, expectedRoot);
 });
 
-test("resolveManualSource rejects missing manual root", async () => {
+void test("resolveManualSource rejects missing manual root", async () => {
     const missingRoot = path.join(os.tmpdir(), `missing-manual-${Date.now()}`);
 
     await assert.rejects(
@@ -40,7 +40,7 @@ test("resolveManualSource rejects missing manual root", async () => {
     );
 });
 
-test("readManualText returns manual asset contents", async (t) => {
+void test("readManualText returns manual asset contents", async (t) => {
     const tempDir = await fs.mkdtemp(path.join(os.tmpdir(), "manual-read-"));
     const relativePath = path.join("Manual", "contents", "sample.txt");
     const absolutePath = path.join(tempDir, relativePath);
@@ -59,7 +59,7 @@ test("readManualText returns manual asset contents", async (t) => {
     assert.equal(contents, "hello world");
 });
 
-test("describeManualSource includes package version", () => {
+void test("describeManualSource includes package version", () => {
     const description = describeManualSource({
         root: "/tmp/manual",
         packageName: "fake-manual",
@@ -69,7 +69,7 @@ test("describeManualSource includes package version", () => {
     assert.equal(description, "fake-manual@1.2.3");
 });
 
-test("describeManualSource falls back to manual root", () => {
+void test("describeManualSource falls back to manual root", () => {
     const description = describeManualSource({
         root: "/tmp/manual",
         packageName: null,

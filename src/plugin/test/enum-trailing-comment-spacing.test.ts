@@ -3,8 +3,8 @@ import { describe, it } from "node:test";
 
 import { Plugin } from "../src/index.js";
 
-describe("enum trailing comment spacing", () => {
-    it("keeps inline comments snug after aligned initializers", async () => {
+void describe("enum trailing comment spacing", () => {
+    void it("keeps inline comments snug after aligned initializers", async () => {
         const source = [
             "enum eTransitionType {",
             "    in = eTransitionState.in, // zoom in",

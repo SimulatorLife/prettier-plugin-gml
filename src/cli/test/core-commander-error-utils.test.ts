@@ -3,8 +3,8 @@ import { describe, it } from "node:test";
 
 import { isCommanderErrorLike } from "../src/cli-core/commander-error-utils.js";
 
-describe("commander error utils", () => {
-    it("recognizes commander-style errors by capability", () => {
+void describe("commander error utils", () => {
+    void it("recognizes commander-style errors by capability", () => {
         const error: Error & { code?: string; exitCode?: number } = new Error(
             "bad option"
         );

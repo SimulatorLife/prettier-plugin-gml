@@ -7,7 +7,7 @@ import {
     getSizeRetrievalFunctionSuffixes
 } from "../src/printer/loop-size-hoisting.js";
 
-test("parses loop length suffix overrides from string lists", () => {
+void test("parses loop length suffix overrides from string lists", () => {
     const overrides = getSizeRetrievalFunctionSuffixes({
         loopLengthHoistFunctionSuffixes:
             "array_length=items\nds_queue_size=count, ds_grid_width=-"
@@ -23,7 +23,7 @@ test("parses loop length suffix overrides from string lists", () => {
     );
 });
 
-test("accepts array inputs when normalizing suffix overrides", () => {
+void test("accepts array inputs when normalizing suffix overrides", () => {
     const overrides = getSizeRetrievalFunctionSuffixes({
         loopLengthHoistFunctionSuffixes: [
             "ds_list_size=items",
@@ -37,7 +37,7 @@ test("accepts array inputs when normalizing suffix overrides", () => {
     assert.strictEqual(overrides.has("ds_grid_height"), false);
 });
 
-test("memoizes suffix overrides per options object", () => {
+void test("memoizes suffix overrides per options object", () => {
     const options = {
         loopLengthHoistFunctionSuffixes: "ds_list_size=items"
     };
@@ -61,7 +61,7 @@ test("memoizes suffix overrides per options object", () => {
     assert.strictEqual(third.get("ds_list_size"), "count");
 });
 
-test("plural array identifiers fall back to bare length suffix", () => {
+void test("plural array identifiers fall back to bare length suffix", () => {
     assert.strictEqual(buildCachedSizeVariableName("nodes", "len"), "len");
     assert.strictEqual(buildCachedSizeVariableName("bosses", "len"), "len");
     assert.strictEqual(

@@ -7,8 +7,8 @@ import net from "node:net";
 
 import { startRuntimeStaticServer } from "../src/modules/runtime/server.js";
 
-describe("runtime static server", () => {
-    it("serves files from the runtime root", async () => {
+void describe("runtime static server", () => {
+    void it("serves files from the runtime root", async () => {
         const tempDir = await mkdtemp(
             path.join(os.tmpdir(), "gml-runtime-server-")
         );
@@ -36,7 +36,7 @@ describe("runtime static server", () => {
         }
     });
 
-    it("responds with 404 for missing files", async () => {
+    void it("responds with 404 for missing files", async () => {
         const tempDir = await mkdtemp(
             path.join(os.tmpdir(), "gml-runtime-server-404-")
         );
@@ -62,7 +62,7 @@ describe("runtime static server", () => {
         }
     });
 
-    it("prevents directory traversal attempts", async () => {
+    void it("prevents directory traversal attempts", async () => {
         const tempDir = await mkdtemp(
             path.join(os.tmpdir(), "gml-runtime-server-403-")
         );

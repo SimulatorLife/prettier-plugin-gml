@@ -8,8 +8,8 @@ import { getSingleMemberIndexPropertyEntry } from "../src/ast/node-helpers.js";
 // confirm the migration away from the deprecated `assert.equal` API preserves the
 // existing semantics for member index property detection.
 
-describe("getSingleMemberIndexPropertyEntry", () => {
-    it("returns null for non-member index expressions", () => {
+void describe("getSingleMemberIndexPropertyEntry", () => {
+    void it("returns null for non-member index expressions", () => {
         assert.strictEqual(getSingleMemberIndexPropertyEntry(null), null);
         assert.strictEqual(
             getSingleMemberIndexPropertyEntry({ type: "MemberDotExpression" }),
@@ -17,7 +17,7 @@ describe("getSingleMemberIndexPropertyEntry", () => {
         );
     });
 
-    it("returns null when the property array is missing or has multiple entries", () => {
+    void it("returns null when the property array is missing or has multiple entries", () => {
         assert.strictEqual(
             getSingleMemberIndexPropertyEntry({
                 type: "MemberIndexExpression"
@@ -42,7 +42,7 @@ describe("getSingleMemberIndexPropertyEntry", () => {
         );
     });
 
-    it("returns the sole property entry when present", () => {
+    void it("returns the sole property entry when present", () => {
         const propertyNode = { type: "Literal", value: 0 };
 
         assert.strictEqual(

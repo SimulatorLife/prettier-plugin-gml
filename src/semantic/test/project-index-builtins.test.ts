@@ -6,7 +6,7 @@ import test from "node:test";
 
 import { buildProjectIndex } from "../src/project-index/index.js";
 
-test("buildProjectIndex excludes built-in script calls", async () => {
+void test("buildProjectIndex excludes built-in script calls", async () => {
     const tempRoot = await mkdtemp(path.join(os.tmpdir(), "project-index-"));
     try {
         await writeFile(path.join(tempRoot, "project.yyp"), "{}", "utf8");

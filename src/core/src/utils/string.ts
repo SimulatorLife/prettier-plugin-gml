@@ -414,10 +414,14 @@ export function toNormalizedLowerCaseString(value?: unknown) {
 }
 
 export function capitalize(value?: unknown): string {
-    if (!isNonEmptyString(value)) {
-        return typeof value === "string" ? value : "";
+    if (value === null || value === undefined) {
+        return "";
     }
-    return value[0].toUpperCase() + value.slice(1);
+    const str = String(value);
+    if (str.length === 0) {
+        return "";
+    }
+    return str[0].toUpperCase() + str.slice(1);
 }
 
 /**

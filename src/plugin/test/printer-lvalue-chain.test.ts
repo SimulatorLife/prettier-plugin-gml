@@ -3,7 +3,7 @@ import assert from "node:assert/strict";
 
 import { print as printNode } from "../src/printer/print.js";
 
-test("call expressions guard missing parent nodes in lvalue chain detection", () => {
+void test("call expressions guard missing parent nodes in lvalue chain detection", () => {
     const callNode = {
         type: "CallExpression",
         object: { type: "Identifier", name: "demo" },

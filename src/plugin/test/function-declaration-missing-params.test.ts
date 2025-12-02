@@ -8,7 +8,7 @@ import {
 
 import { Plugin } from "../src/index.js";
 
-test(
+void test(
     "printer tolerates function declarations missing params arrays",
     { concurrency: false },
     async () => {
@@ -59,7 +59,6 @@ test(
             assert.strictEqual(
                 formatted,
                 [
-                    "",
                     "/// @function demo",
                     "function demo() {",
                     "    return 42;",

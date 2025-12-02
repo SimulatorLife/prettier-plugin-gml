@@ -2,7 +2,7 @@ import assert from "node:assert/strict";
 import { test } from "node:test";
 import { Plugin } from "../src/index.js";
 
-test("macro declarations avoid duplicate blank lines", async () => {
+void test("macro declarations avoid duplicate blank lines", async () => {
     const source = "#macro FOO 1\n\nvar value = FOO;";
     const formatted = await Plugin.format(source, {
         parser: "gml-parse"
@@ -11,7 +11,7 @@ test("macro declarations avoid duplicate blank lines", async () => {
     assert.strictEqual(formatted, "#macro FOO 1\n\nvar value = FOO;\n");
 });
 
-test("macro declarations add a blank line before following statements", async () => {
+void test("macro declarations add a blank line before following statements", async () => {
     const source = "#macro FOO 1\nvar value = FOO;";
     const formatted = await Plugin.format(source, {
         parser: "gml-parse"
@@ -20,7 +20,7 @@ test("macro declarations add a blank line before following statements", async ()
     assert.strictEqual(formatted, "#macro FOO 1\n\nvar value = FOO;\n");
 });
 
-test("macro declarations stay separated on consecutive lines", async () => {
+void test("macro declarations stay separated on consecutive lines", async () => {
     const source = [
         "#macro FOO 1",
         "#macro BAR 2",
@@ -40,7 +40,7 @@ test("macro declarations stay separated on consecutive lines", async () => {
     );
 });
 
-test("Feather-sanitized macros preserve blank lines before following statements", async () => {
+void test("Feather-sanitized macros preserve blank lines before following statements", async () => {
     const source = [
         "#macro FOO(value) (value + 1);",
         "#macro BAR 100;",
@@ -65,7 +65,7 @@ test("Feather-sanitized macros preserve blank lines before following statements"
     );
 });
 
-test("legacy #define macro replacements keep adjacent statements", async () => {
+void test("legacy #define macro replacements keep adjacent statements", async () => {
     const source = [
         "#define LEGACY_MACRO VALUE",
         "var value = LEGACY_MACRO;"

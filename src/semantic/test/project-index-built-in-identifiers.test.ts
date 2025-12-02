@@ -17,8 +17,8 @@ function createMockFsFacade({ contents, mtimeMs }) {
     };
 }
 
-describe("loadBuiltInIdentifiers", () => {
-    it(
+void describe("loadBuiltInIdentifiers", () => {
+    void it(
         "extracts identifier names when metadata is valid",
         { concurrency: false },
         async () => {
@@ -54,7 +54,7 @@ describe("loadBuiltInIdentifiers", () => {
         }
     );
 
-    it(
+    void it(
         "ignores malformed identifier payloads",
         { concurrency: false },
         async () => {
@@ -69,7 +69,7 @@ describe("loadBuiltInIdentifiers", () => {
         }
     );
 
-    it(
+    void it(
         "skips entries with invalid descriptor shapes",
         { concurrency: false },
         async () => {
@@ -94,7 +94,7 @@ describe("loadBuiltInIdentifiers", () => {
         }
     );
 
-    it(
+    void it(
         "treats mtimes within tolerance as cache hits",
         { concurrency: false },
         async () => {

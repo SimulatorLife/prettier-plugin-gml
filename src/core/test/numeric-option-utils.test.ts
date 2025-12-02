@@ -10,7 +10,7 @@ import {
     normalizeNumericOption
 } from "../src/utils/numeric-options.js";
 
-test("coercePositiveInteger enforces a minimum of 1", () => {
+void test("coercePositiveInteger enforces a minimum of 1", () => {
     assert.strictEqual(
         coercePositiveInteger(5, { createErrorMessage: () => "" }),
         5
@@ -22,7 +22,7 @@ test("coercePositiveInteger enforces a minimum of 1", () => {
     );
 });
 
-test("coerceNonNegativeInteger enforces a minimum of 0", () => {
+void test("coerceNonNegativeInteger enforces a minimum of 0", () => {
     assert.strictEqual(
         coerceNonNegativeInteger(2, { createErrorMessage: () => "" }),
         2
@@ -36,14 +36,14 @@ test("coerceNonNegativeInteger enforces a minimum of 0", () => {
     );
 });
 
-test("coercePositiveIntegerOption falls back to defaults", () => {
+void test("coercePositiveIntegerOption falls back to defaults", () => {
     assert.strictEqual(coercePositiveIntegerOption(7, 3), 7);
     assert.strictEqual(coercePositiveIntegerOption(undefined, 3), 3);
     assert.strictEqual(coercePositiveIntegerOption(null, 3), 3);
     assert.strictEqual(coercePositiveIntegerOption(0, 3), 3);
 });
 
-test("coercePositiveIntegerOption respects zero replacement", () => {
+void test("coercePositiveIntegerOption respects zero replacement", () => {
     assert.strictEqual(
         coercePositiveIntegerOption(0, 3, { zeroReplacement: 10 }),
         10
@@ -54,7 +54,7 @@ test("coercePositiveIntegerOption respects zero replacement", () => {
     );
 });
 
-test("coercePositiveIntegerOption normalizes numeric strings", () => {
+void test("coercePositiveIntegerOption normalizes numeric strings", () => {
     assert.strictEqual(coercePositiveIntegerOption("12", 5), 12);
     assert.strictEqual(coercePositiveIntegerOption(" 9 ", 1), 9);
     assert.strictEqual(
@@ -64,7 +64,7 @@ test("coercePositiveIntegerOption normalizes numeric strings", () => {
     assert.strictEqual(coercePositiveIntegerOption("", 6), 6);
 });
 
-test("resolveIntegerOption normalizes string inputs", () => {
+void test("resolveIntegerOption normalizes string inputs", () => {
     const result = resolveIntegerOption(" 42 ", {
         defaultValue: 0,
         coerce(value) {
@@ -74,7 +74,7 @@ test("resolveIntegerOption normalizes string inputs", () => {
     assert.strictEqual(result, 43);
 });
 
-test("resolveIntegerOption returns default for blank strings", () => {
+void test("resolveIntegerOption returns default for blank strings", () => {
     const result = resolveIntegerOption("   ", {
         defaultValue: 9,
         coerce(value) {
@@ -84,7 +84,7 @@ test("resolveIntegerOption returns default for blank strings", () => {
     assert.strictEqual(result, 9);
 });
 
-test("resolveIntegerOption throws for invalid types", () => {
+void test("resolveIntegerOption throws for invalid types", () => {
     assert.throws(
         () =>
             resolveIntegerOption(
@@ -101,7 +101,7 @@ test("resolveIntegerOption throws for invalid types", () => {
     );
 });
 
-test("normalizeNumericOption returns undefined for nullish inputs", () => {
+void test("normalizeNumericOption returns undefined for nullish inputs", () => {
     assert.strictEqual(
         normalizeNumericOption(null, {
             optionName: "example",
@@ -114,7 +114,7 @@ test("normalizeNumericOption returns undefined for nullish inputs", () => {
     );
 });
 
-test("normalizeNumericOption trims strings and forwards context", () => {
+void test("normalizeNumericOption trims strings and forwards context", () => {
     let receivedOptions;
     const result = normalizeNumericOption(" 5 ", {
         optionName: "example",
@@ -132,12 +132,12 @@ test("normalizeNumericOption trims strings and forwards context", () => {
         optionName: "example",
         rawType: "string",
         rawValue: " 5 ",
-        received: "' 5 '",
+        received: '" 5 "',
         isString: true
     });
 });
 
-test("normalizeNumericOption forwards context for numeric inputs", () => {
+void test("normalizeNumericOption forwards context for numeric inputs", () => {
     const result = normalizeNumericOption(7, {
         optionName: "example",
         coerce(value, options) {
@@ -145,7 +145,7 @@ test("normalizeNumericOption forwards context for numeric inputs", () => {
                 optionName: "example",
                 rawType: "number",
                 rawValue: 7,
-                received: 7,
+                received: "7",
                 isString: false
             });
             return value;
@@ -157,7 +157,7 @@ test("normalizeNumericOption forwards context for numeric inputs", () => {
     assert.strictEqual(result, 7);
 });
 
-test("normalizeNumericOption throws when type is invalid", () => {
+void test("normalizeNumericOption throws when type is invalid", () => {
     assert.throws(
         () =>
             normalizeNumericOption(Symbol.for("bad"), {
@@ -173,7 +173,7 @@ test("normalizeNumericOption throws when type is invalid", () => {
     );
 });
 
-test("normalizeNumericOption ignores blank strings", () => {
+void test("normalizeNumericOption ignores blank strings", () => {
     const result = normalizeNumericOption("   ", {
         optionName: "example",
         coerce(value) {

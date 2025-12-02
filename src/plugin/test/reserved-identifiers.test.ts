@@ -3,7 +3,7 @@ import assert from "node:assert/strict";
 
 import { Core } from "@gml-modules/core";
 
-test("Core.loadReservedIdentifierNames returns lowercase reserved names", () => {
+void test("Core.loadReservedIdentifierNames returns lowercase reserved names", () => {
     const reserved = Core.loadReservedIdentifierNames();
 
     assert.equal(reserved instanceof Set, true);
@@ -11,7 +11,7 @@ test("Core.loadReservedIdentifierNames returns lowercase reserved names", () => 
     assert.equal(reserved.has("if"), false);
 });
 
-test("Core.loadReservedIdentifierNames respects custom disallowed types", () => {
+void test("Core.loadReservedIdentifierNames respects custom disallowed types", () => {
     const reserved = Core.loadReservedIdentifierNames({
         disallowedTypes: []
     });
@@ -19,7 +19,7 @@ test("Core.loadReservedIdentifierNames respects custom disallowed types", () => 
     assert.equal(reserved.has("if"), true);
 });
 
-test(
+void test(
     "Core.loadReservedIdentifierNames allows overriding the metadata loader",
     { concurrency: 1 },
     () => {

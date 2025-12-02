@@ -7,7 +7,7 @@ import { Plugin } from "../src/index.js";
 
 const __dirname = import.meta.dirname;
 
-test("treats undefined defaults as required when the signature omits the default", async () => {
+void test("treats undefined defaults as required when the signature omits the default", async () => {
     const source = [
         "/// @function sample",
         "/// @param foo",
@@ -36,7 +36,7 @@ test("treats undefined defaults as required when the signature omits the default
     );
 });
 
-test("preserves optional annotations when parameters are explicitly documented as optional", async () => {
+void test("preserves optional annotations when parameters are explicitly documented as optional", async () => {
     const source = [
         "/// @function sample",
         "/// @param [foo]",
@@ -65,7 +65,7 @@ test("preserves optional annotations when parameters are explicitly documented a
     );
 });
 
-test("omits optional syntax for synthesized docs with undefined defaults", async () => {
+void test("omits optional syntax for synthesized docs with undefined defaults", async () => {
     const source = [
         "function choose_profile(settings, fallback = undefined) {",
         "    var config = settings ?? global.default_settings;",
@@ -98,7 +98,7 @@ test("omits optional syntax for synthesized docs with undefined defaults", async
     );
 });
 
-test("retains optional syntax when constructors keep explicit undefined defaults", async () => {
+void test("retains optional syntax when constructors keep explicit undefined defaults", async () => {
     const source = [
         "/// @function Shape",
         "function Shape(color = undefined) constructor {",
@@ -118,7 +118,7 @@ test("retains optional syntax when constructors keep explicit undefined defaults
     );
 });
 
-test("synthesized docs mark retained undefined defaults as optional", async () => {
+void test("synthesized docs mark retained undefined defaults as optional", async () => {
     async function resolveFixture(name: string) {
         const compiledCandidate = path.resolve(__dirname, name);
         try {

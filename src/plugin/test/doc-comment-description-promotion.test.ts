@@ -3,7 +3,7 @@ import { test } from "node:test";
 
 import { Plugin } from "../src/index.js";
 
-test("promotes leading doc comment text to description metadata", async () => {
+void test("promotes leading doc comment text to description metadata", async () => {
     const source = [
         "/// Summarizes the function behaviour",
         "///",
@@ -61,7 +61,7 @@ test("promotes leading doc comment text to description metadata", async () => {
     );
 });
 
-test("keeps a blank separator before synthetic doc tags when leading text lacks metadata", async () => {
+void test("keeps a blank separator before synthetic doc tags when leading text lacks metadata", async () => {
     const source = [
         "/// Describes function usage",
         "/// Additional summary",
@@ -93,7 +93,7 @@ test("keeps a blank separator before synthetic doc tags when leading text lacks 
     );
 });
 
-test("normalizes doc-like comment prefixes before promoting description metadata", async () => {
+void test("normalizes doc-like comment prefixes before promoting description metadata", async () => {
     const source = [
         "// / Leading summary",
         "// / Additional note",

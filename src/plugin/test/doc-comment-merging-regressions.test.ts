@@ -3,7 +3,7 @@ import { test } from "node:test";
 
 import { Plugin } from "../src/index.js";
 
-test("merges doc comments without duplicating returns metadata", async () => {
+void test("merges doc comments without duplicating returns metadata", async () => {
     const source = [
         "function drawer_factory() constructor {",
         "    /// @function draw_points",
@@ -27,7 +27,7 @@ test("merges doc comments without duplicating returns metadata", async () => {
     );
 });
 
-test("keeps leading line comments before synthetic doc comments", async () => {
+void test("keeps leading line comments before synthetic doc comments", async () => {
     const source = [
         "function example() {",
         "    if (condition) {",
@@ -54,7 +54,7 @@ test("keeps leading line comments before synthetic doc comments", async () => {
     );
 });
 
-test("retains documented parameter aliases when canonical names differ", async () => {
+void test("retains documented parameter aliases when canonical names differ", async () => {
     const source = [
         "/// @param fontName   The target font, as a string",
         "/// @param character  Character to test for, as a string",
@@ -78,7 +78,7 @@ test("retains documented parameter aliases when canonical names differ", async (
     );
 });
 
-test("converts legacy Returns description lines into returns metadata", async () => {
+void test("converts legacy Returns description lines into returns metadata", async () => {
     const source = [
         "/// @function has_feature",
         "///              Returns: Boolean, indicating whether conversion occurs",
@@ -90,9 +90,6 @@ test("converts legacy Returns description lines into returns metadata", async ()
 
     const formatted = await Plugin.format(source);
 
-    if (!formatted.includes("/// @returns {boolean} Indicating whether conversion occurs")) {
-        console.log("FORMATTED OUTPUT:\n", formatted);
-    }
     assert.ok(
         formatted.includes(
             "/// @returns {boolean} Indicating whether conversion occurs"

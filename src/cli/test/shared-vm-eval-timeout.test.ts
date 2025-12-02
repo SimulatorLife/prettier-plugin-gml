@@ -24,80 +24,80 @@ afterEach(() => {
     setDefaultVmEvalTimeoutMs(originalDefaultTimeout);
 });
 
-describe("resolveVmEvalTimeout", () => {
-    it("returns the default when value is undefined", () => {
+void describe("resolveVmEvalTimeout", () => {
+    void it("returns the default when value is undefined", () => {
         assert.strictEqual(resolveVmEvalTimeout(), DEFAULT_VM_EVAL_TIMEOUT_MS);
     });
 
-    it("returns the default when value is null", () => {
+    void it("returns the default when value is null", () => {
         assert.strictEqual(
             resolveVmEvalTimeout(null),
             DEFAULT_VM_EVAL_TIMEOUT_MS
         );
     });
 
-    it("coerces numeric input to an integer", () => {
+    void it("coerces numeric input to an integer", () => {
         assert.strictEqual(resolveVmEvalTimeout(123.75), 123);
     });
 
-    it("accepts numeric strings", () => {
+    void it("accepts numeric strings", () => {
         assert.strictEqual(resolveVmEvalTimeout("2500"), 2500);
     });
 
-    it("returns null when the timeout is disabled", () => {
+    void it("returns null when the timeout is disabled", () => {
         assert.strictEqual(resolveVmEvalTimeout(0), null);
         assert.strictEqual(resolveVmEvalTimeout("0"), null);
     });
 
-    it("ignores empty string overrides", () => {
+    void it("ignores empty string overrides", () => {
         assert.strictEqual(
             resolveVmEvalTimeout("   "),
             DEFAULT_VM_EVAL_TIMEOUT_MS
         );
     });
 
-    it("rejects negative values", () => {
+    void it("rejects negative values", () => {
         assert.throws(() => resolveVmEvalTimeout(-1), {
             name: "TypeError"
         });
     });
 
-    it("rejects unsupported types", () => {
+    void it("rejects unsupported types", () => {
         assert.throws(() => resolveVmEvalTimeout(Symbol.for("timeout")), {
             name: "TypeError"
         });
     });
 });
 
-describe("VM evaluation timeout defaults", () => {
-    it("exposes the configured default timeout", () => {
+void describe("VM evaluation timeout defaults", () => {
+    void it("exposes the configured default timeout", () => {
         assert.strictEqual(
             getDefaultVmEvalTimeoutMs(),
             DEFAULT_VM_EVAL_TIMEOUT_MS
         );
     });
 
-    it("allows overriding the default timeout", () => {
+    void it("allows overriding the default timeout", () => {
         setDefaultVmEvalTimeoutMs(7500);
         assert.strictEqual(getDefaultVmEvalTimeoutMs(), 7500);
         assert.strictEqual(resolveVmEvalTimeout(), 7500);
     });
 
-    it("supports disabling the timeout by default", () => {
+    void it("supports disabling the timeout by default", () => {
         setDefaultVmEvalTimeoutMs(0);
         assert.strictEqual(getDefaultVmEvalTimeoutMs(), 0);
         assert.strictEqual(resolveVmEvalTimeout(), null);
     });
 
-    it("rejects negative overrides", () => {
+    void it("rejects negative overrides", () => {
         assert.throws(() => setDefaultVmEvalTimeoutMs(-1), {
             name: "TypeError"
         });
     });
 });
 
-describe("VM evaluation timeout environment overrides", () => {
-    it("applies the timeout from the environment when provided", () => {
+void describe("VM evaluation timeout environment overrides", () => {
+    void it("applies the timeout from the environment when provided", () => {
         process.env[VM_EVAL_TIMEOUT_ENV_VAR] = "7500";
         applyVmEvalTimeoutEnvOverride();
 
@@ -105,7 +105,7 @@ describe("VM evaluation timeout environment overrides", () => {
         assert.strictEqual(resolveVmEvalTimeout(), 7500);
     });
 
-    it("treats zero as disabling the timeout", () => {
+    void it("treats zero as disabling the timeout", () => {
         process.env[VM_EVAL_TIMEOUT_ENV_VAR] = "0";
         applyVmEvalTimeoutEnvOverride();
 
@@ -113,7 +113,7 @@ describe("VM evaluation timeout environment overrides", () => {
         assert.strictEqual(resolveVmEvalTimeout(), null);
     });
 
-    it("ignores invalid environment overrides", () => {
+    void it("ignores invalid environment overrides", () => {
         process.env[VM_EVAL_TIMEOUT_ENV_VAR] = "not-a-number";
         applyVmEvalTimeoutEnvOverride();
 

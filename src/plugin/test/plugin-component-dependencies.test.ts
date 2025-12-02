@@ -9,7 +9,7 @@ import { createDefaultGmlPluginComponents } from "../src/components/default-plug
 
 const SAMPLE_SOURCE = "function example() { return 1; }";
 
-test("dependency bundle is frozen and exposes expected contract keys", () => {
+void test("dependency bundle is frozen and exposes expected contract keys", () => {
     assert.ok(
         Object.isFrozen(gmlPluginComponentDependencies),
         "dependency bundle should be frozen"
@@ -28,7 +28,7 @@ test("dependency bundle is frozen and exposes expected contract keys", () => {
     );
 });
 
-test("resolver returns the canonical dependency bundle", () => {
+void test("resolver returns the canonical dependency bundle", () => {
     const resolved = resolveGmlPluginComponentDependencies();
 
     assert.strictEqual(
@@ -38,7 +38,7 @@ test("resolver returns the canonical dependency bundle", () => {
     );
 });
 
-test("default component factory wires the dependency bundle", async () => {
+void test("default component factory wires the dependency bundle", async () => {
     const components = createDefaultGmlPluginComponents();
 
     const parser = components.parsers["gml-parse"];

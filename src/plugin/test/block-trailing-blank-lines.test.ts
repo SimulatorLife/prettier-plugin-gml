@@ -2,7 +2,7 @@ import assert from "node:assert/strict";
 import { test } from "node:test";
 import { Plugin } from "../src/index.js";
 
-test("omits blank lines between nested and enclosing block braces", async () => {
+void test("omits blank lines between nested and enclosing block braces", async () => {
     const source = [
         "function demo() {",
         "    while (true) {",
@@ -26,7 +26,7 @@ test("omits blank lines between nested and enclosing block braces", async () => 
     );
 });
 
-test("adds a blank line after nested function declarations", async () => {
+void test("adds a blank line after nested function declarations", async () => {
     const source = [
         "function outer() constructor {",
         "    function inner() {",

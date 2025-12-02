@@ -911,9 +911,9 @@ function applyFeatherFixesImpl(ast: any, opts: ApplyFeatherFixesOptions = {}) {
                           .map((f) => `${String(f?.id)}@${String(f?.target)}`)
                           .join(",")
                     : String(appliedFixes);
-                console.warn(
-                    `[feather:diagnostic] appliedFixes summary=${listed}`
-                );
+                // console.warn(
+                //     `[feather:diagnostic] appliedFixes summary=${listed}`
+                // );
             } catch {
                 void 0;
             }
@@ -943,9 +943,9 @@ function applyFeatherFixesImpl(ast: any, opts: ApplyFeatherFixesOptions = {}) {
                 // diagnostic fixes.
                 if (typeof fix.target === "string") {
                     try {
-                        console.warn(
-                            `[feather:diagnostic] reattach-guard fix=${fix.id} target=${String(fix.target)}`
-                        );
+                        // console.warn(
+                        //     `[feather:diagnostic] reattach-guard fix=${fix.id} target=${String(fix.target)}`
+                        // );
                     } catch {
                         void 0;
                     }
@@ -1013,9 +1013,9 @@ function applyFeatherFixesImpl(ast: any, opts: ApplyFeatherFixesOptions = {}) {
                     typeof fix.range.end === "number"
                 ) {
                     try {
-                        console.warn(
-                            `[feather:diagnostic] reattach-guard-range fix=${fix.id} target=<range:${fix.range.start}-${fix.range.end}>`
-                        );
+                        // console.warn(
+                        //     `[feather:diagnostic] reattach-guard-range fix=${fix.id} target=<range:${fix.range.start}-${fix.range.end}>`
+                        // );
                     } catch {
                         void 0;
                     }
@@ -1197,9 +1197,9 @@ function applyFeatherFixesImpl(ast: any, opts: ApplyFeatherFixesOptions = {}) {
                               .join(",")
                         : "";
 
-                    console.warn(
-                        `[feather:diagnostic] function-node name=${String(name)} start=${String(start)} end=${String(end)} ids=${ids}`
-                    );
+                    // console.warn(
+                    //     `[feather:diagnostic] function-node name=${String(name)} start=${String(start)} end=${String(end)} ids=${ids}`
+                    // );
                 } catch {
                     void 0;
                 }
@@ -18394,11 +18394,11 @@ function attachFeatherFixMetadata(target, fixes) {
         const ids = Array.isArray(fixes)
             ? fixes.map((f) => (f && f.id ? f.id : String(f))).join(",")
             : String(fixes);
-        console.warn(
-            `[feather:diagnostic] attachFeatherFixMetadata targetType=${
-                target && target.type ? target.type : typeof target
-            } ids=${ids}`
-        );
+        // console.warn(
+        //     `[feather:diagnostic] attachFeatherFixMetadata targetType=${
+        //         target && target.type ? target.type : typeof target
+        //     } ids=${ids}`
+        // );
     } catch {
         // swallow any logging failures
     }

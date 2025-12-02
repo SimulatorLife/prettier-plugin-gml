@@ -2,7 +2,7 @@ import assert from "node:assert/strict";
 import { test } from "node:test";
 import { Plugin } from "../src/index.js";
 
-test("breaks simple prefix arguments when callbacks follow", async () => {
+void test("breaks simple prefix arguments when callbacks follow", async () => {
     const source = [
         "function demo() {",
         "    call_later(",

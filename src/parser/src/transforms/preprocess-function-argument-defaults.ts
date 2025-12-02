@@ -326,9 +326,9 @@ function preprocessFunctionDeclaration(node, ast) {
                 );
                 const maybeGuard = matchArgumentCountGuard(cond);
                 if (maybeGuard) {
-                    console.warn(
-                        `[feather:diagnostic] missed-strict-match fn=${node && node.id && node.id.name ? node.id.name : "<anon>"} stmtIndex=${statementIndex} argIdx=${maybeGuard.argumentIndex}`
-                    );
+                    // console.warn(
+                    //     `[feather:diagnostic] missed-strict-match fn=${node && node.id && node.id.name ? node.id.name : "<anon>"} stmtIndex=${statementIndex} argIdx=${maybeGuard.argumentIndex}`
+                    // );
                 }
             }
         } catch {
@@ -433,9 +433,9 @@ function preprocessFunctionDeclaration(node, ast) {
                 const fallBackIdentifier =
                     getIdentifierFromParameter(paramAtIndex);
                 if (fallBackIdentifier) {
-                    console.warn(
-                        `[feather:diagnostic] relaxed-match targetName=${targetName} index=${argumentIndex} paramName=${Core.getIdentifierText(fallBackIdentifier)}`
-                    );
+                    // console.warn(
+                    //     `[feather:diagnostic] relaxed-match targetName=${targetName} index=${argumentIndex} paramName=${Core.getIdentifierText(fallBackIdentifier)}`
+                    // );
                     return registerInfo(argumentIndex, fallBackIdentifier);
                 }
             } catch {
@@ -457,9 +457,9 @@ function preprocessFunctionDeclaration(node, ast) {
             // Diagnostic: log the raw match object so we can see what the
             // matcher produced for each IfStatement.
 
-            console.warn(
-                `[feather:diagnostic] processing match targetName=${match.targetName} argumentIndex=${match.argumentIndex} hasFallback=${!!match.fallbackExpression} hasArgumentExpr=${!!match.argumentExpression}`
-            );
+            // console.warn(
+            //     `[feather:diagnostic] processing match targetName=${match.targetName} argumentIndex=${match.argumentIndex} hasFallback=${!!match.fallbackExpression} hasArgumentExpr=${!!match.argumentExpression}`
+            // );
         } catch {
             // swallow
         }
@@ -469,9 +469,9 @@ function preprocessFunctionDeclaration(node, ast) {
             // Diagnostic: report whether we found a parameter mapping
             // for this match.
 
-            console.warn(
-                `[feather:diagnostic] paramInfo for match: ${paramInfo ? `index=${paramInfo.index} id=${paramInfo.identifier && paramInfo.identifier.name}` : "<none>"}`
-            );
+            // console.warn(
+            //     `[feather:diagnostic] paramInfo for match: ${paramInfo ? `index=${paramInfo.index} id=${paramInfo.identifier && paramInfo.identifier.name}` : "<none>"}`
+            // );
         } catch {
             // swallow
         }
@@ -501,6 +501,27 @@ function preprocessFunctionDeclaration(node, ast) {
 
         if (!paramIsBareIdentifier && !paramIsEmptyDefault) {
             continue;
+        }
+
+        // If we are converting a local variable to a parameter, remove the
+        // variable declaration from the function body to avoid redeclaration.
+        if (match.targetName) {
+            for (const stmt of statements) {
+                if (stmt.type === "VariableDeclaration") {
+                    const declIndex = stmt.declarations.findIndex(
+                        (d) => {
+                            const name = Core.getIdentifierText(d.id);
+                            return name === match.targetName;
+                        }
+                    );
+                    if (declIndex !== -1) {
+                        stmt.declarations.splice(declIndex, 1);
+                        if (stmt.declarations.length === 0) {
+                            statementsToRemove.add(stmt);
+                        }
+                    }
+                }
+            }
         }
 
         const identifier = paramInfo.identifier;
@@ -555,9 +576,9 @@ function preprocessFunctionDeclaration(node, ast) {
                 // when creating a default param so we can trace missed
                 // literal fallbacks in fixtures.
 
-                console.warn(
-                    `[feather:diagnostic] creating DefaultParameter at index=${paramInfo.index} fallbackType=${match.fallbackExpression && match.fallbackExpression.type}`
-                );
+                // console.warn(
+                //     `[feather:diagnostic] creating DefaultParameter at index=${paramInfo.index} fallbackType=${match.fallbackExpression && match.fallbackExpression.type}`
+                // );
             } catch {
                 // swallow
             }
@@ -569,9 +590,9 @@ function preprocessFunctionDeclaration(node, ast) {
                 // existing DefaultParameter.right so we can see why some
                 // placeholder `undefined` values remain.
 
-                console.warn(
-                    `[feather:diagnostic] filling DefaultParameter.right index=${paramInfo.index} fallbackType=${match.fallbackExpression && match.fallbackExpression.type}`
-                );
+                // console.warn(
+                //     `[feather:diagnostic] filling DefaultParameter.right index=${paramInfo.index} fallbackType=${match.fallbackExpression && match.fallbackExpression.type}`
+                // );
 
                 currentParam.right = match.fallbackExpression;
 
@@ -597,7 +618,6 @@ function preprocessFunctionDeclaration(node, ast) {
 
         statementsToRemove.add(match.statementNode);
         appliedChanges = true;
-        body._gmlForceInitialBlankLine = true;
     }
 
     // Remove matched fallback statements in reverse order to keep indices stable.
@@ -691,9 +711,9 @@ function preprocessFunctionDeclaration(node, ast) {
                     paramIndex < 0 ||
                     paramIndex >= params.length)
             ) {
-                console.warn(
-                    `[feather:diagnostic] unmatched-argguard fn=${node && node.id && node.id.name ? node.id.name : "<anon>"} sidx=${sidx} argIdx=${argumentIndex} hadArg=${!!argMatch} hadFallback=${!!fallbackMatch} targetName=${String(targetName)} paramIndex=${paramIndex} paramsLen=${params.length}`
-                );
+                // console.warn(
+                //     `[feather:diagnostic] unmatched-argguard fn=${node && node.id && node.id.name ? node.id.name : "<anon>"} sidx=${sidx} argIdx=${argumentIndex} hadArg=${!!argMatch} hadFallback=${!!fallbackMatch} targetName=${String(targetName)} paramIndex=${paramIndex} paramsLen=${params.length}`
+                // );
             }
         } catch {
             // swallow diagnostics failures
@@ -749,7 +769,7 @@ function preprocessFunctionDeclaration(node, ast) {
             const ridx = statements.indexOf(stmt);
             if (ridx !== -1) statements.splice(ridx, 1);
             appliedChanges = true;
-            body._gmlForceInitialBlankLine = true;
+            // body._gmlForceInitialBlankLine = true;
         } else if (paramIsEmptyDefault) {
             try {
                 currentParam.right = fallbackExpr;
@@ -768,7 +788,7 @@ function preprocessFunctionDeclaration(node, ast) {
             const ridx = statements.indexOf(stmt);
             if (ridx !== -1) statements.splice(ridx, 1);
             appliedChanges = true;
-            body._gmlForceInitialBlankLine = true;
+            // body._gmlForceInitialBlankLine = true;
         }
     }
 
@@ -797,9 +817,9 @@ function preprocessFunctionDeclaration(node, ast) {
     try {
         // Diagnostic: show initial param summary before finalization
         try {
-            console.error(
-                `[feather:diagnostic] finalization-start params=${params.length}`
-            );
+            // console.error(
+            //     `[feather:diagnostic] finalization-start params=${params.length}`
+            // );
         } catch {
             /* swallow */
         }
@@ -829,9 +849,9 @@ function preprocessFunctionDeclaration(node, ast) {
 
         if (lastExplicitDefaultIndex >= 0) {
             try {
-                console.warn(
-                    `[feather:diagnostic] finalization-found-explicit idx=${lastExplicitDefaultIndex}`
-                );
+                // console.warn(
+                //     `[feather:diagnostic] finalization-found-explicit idx=${lastExplicitDefaultIndex}`
+                // );
             } catch {
                 /* swallow */
             }
@@ -845,9 +865,9 @@ function preprocessFunctionDeclaration(node, ast) {
                 const param = params[i];
                 if (!param) continue;
                 try {
-                    console.warn(
-                        `[feather:diagnostic] finalization-loop idx=${i} type=${param.type} right=${param && param.right ? param.right.type || typeof param.right : "<null>"} lastExplicit=${lastExplicitDefaultIndex}`
-                    );
+                    // console.warn(
+                    //     `[feather:diagnostic] finalization-loop idx=${i} type=${param.type} right=${param && param.right ? param.right.type || typeof param.right : "<null>"} lastExplicit=${lastExplicitDefaultIndex}`
+                    // );
                 } catch {
                     /* swallow */
                 }
@@ -873,9 +893,9 @@ function preprocessFunctionDeclaration(node, ast) {
                         param._featherOptionalParameter = true;
                         appliedChanges = true;
                         try {
-                            console.error(
-                                `[feather:diagnostic] finalization-materialized index=${i} name=${param.left && param.left.name}`
-                            );
+                            // console.error(
+                            //     `[feather:diagnostic] finalization-materialized index=${i} name=${param.left && param.left.name}`
+                            // );
                         } catch {
                             /* swallow */
                         }
@@ -906,7 +926,7 @@ function preprocessFunctionDeclaration(node, ast) {
         }
 
         if (appliedChanges) {
-            body._gmlForceInitialBlankLine = true;
+            // body._gmlForceInitialBlankLine = true;
         }
     } catch {
         // Swallow any accidental errors in the conservative finalization
@@ -915,9 +935,9 @@ function preprocessFunctionDeclaration(node, ast) {
     // Ensure we wrote back any mutated params array so the canonical node
     // reflects our finalization changes for downstream passes.
     try {
-        console.error(
-            `[feather:diagnostic] writing-back-params len=${params?.length ?? 0}`
-        );
+        // console.error(
+        //     `[feather:diagnostic] writing-back-params len=${params?.length ?? 0}`
+        // );
         node.params = params;
     } catch {
         // ignore
@@ -1121,9 +1141,9 @@ function preprocessFunctionDeclaration(node, ast) {
     function reconcileDocOptionality() {
         try {
             try {
-                console.warn(
-                    `[feather:diagnostic] reconcile: entering fn=${node && node.id && node.id.name ? node.id.name : "<anon>"} params=${Array.isArray(node.params) ? node.params.length : "na"}`
-                );
+                // console.warn(
+                //     `[feather:diagnostic] reconcile: entering fn=${node && node.id && node.id.name ? node.id.name : "<anon>"} params=${Array.isArray(node.params) ? node.params.length : "na"}`
+                // );
             } catch {
                 /* swallow */
             }
@@ -1141,9 +1161,9 @@ function preprocessFunctionDeclaration(node, ast) {
                               : "<anon>";
                     return `${ii}:${pp && pp.type} left=${left} optional=${pp && pp._featherOptionalParameter} matTrailing=${pp && pp._featherMaterializedTrailingUndefined} matFromLeft=${pp && pp._featherMaterializedFromExplicitLeft}`;
                 });
-                console.warn(
-                    `[feather:diagnostic] reconcile: pre-doc-manager params-snapshot=${lines.join("|")}`
-                );
+                // console.warn(
+                //     `[feather:diagnostic] reconcile: pre-doc-manager params-snapshot=${lines.join("|")}`
+                // );
             } catch {
                 /* swallow */
             }
@@ -1162,9 +1182,9 @@ function preprocessFunctionDeclaration(node, ast) {
                               : "<anon>";
                     return `${ii}:${pp && pp.type} left=${left} optional=${pp && pp._featherOptionalParameter} matTrailing=${pp && pp._featherMaterializedTrailingUndefined} matFromLeft=${pp && pp._featherMaterializedFromExplicitLeft}`;
                 });
-                console.warn(
-                    `[feather:diagnostic] reconcile: params-snapshot=${lines.join("|")}`
-                );
+                // console.warn(
+                //     `[feather:diagnostic] reconcile: params-snapshot=${lines.join("|")}`
+                // );
             } catch {
                 /* swallow */
             }
@@ -1199,9 +1219,9 @@ function preprocessFunctionDeclaration(node, ast) {
                             : p && p.name
                               ? p.name
                               : "<anon>";
-                    console.warn(
-                        `[feather:diagnostic] reconcile: iter-param left=${lname} type=${p && p.type} matFromLeft=${p && p._featherMaterializedFromExplicitLeft} matTrailing=${p && p._featherMaterializedTrailingUndefined}`
-                    );
+                    // console.warn(
+                    //     `[feather:diagnostic] reconcile: iter-param left=${lname} type=${p && p.type} matFromLeft=${p && p._featherMaterializedFromExplicitLeft} matTrailing=${p && p._featherMaterializedTrailingUndefined}`
+                    // );
                 } catch {
                     /* swallow */
                 }
@@ -1298,9 +1318,9 @@ function preprocessFunctionDeclaration(node, ast) {
                                               )
                                               .join(",")
                                         : String(paramsList);
-                                    console.warn(
-                                        `[feather:diagnostic] reconcile: paramsListSummary=${summary} idx=${idx}`
-                                    );
+                                    // console.warn(
+                                    //     `[feather:diagnostic] reconcile: paramsListSummary=${summary} idx=${idx}`
+                                    // );
                                 } catch {
                                     /* swallow */
                                 }
@@ -1348,9 +1368,9 @@ function preprocessFunctionDeclaration(node, ast) {
                             if (foundRealExplicitToLeft) {
                                 try {
                                     // Diagnostic: log why we're marking optional
-                                    console.warn(
-                                        `[feather:diagnostic] reconcile: marking-optional idx=${idx} param=${leftName || (p && p.left && p.left.name)} foundRealExplicitToLeft=${foundRealExplicitToLeft}`
-                                    );
+                                    // console.warn(
+                                    //     `[feather:diagnostic] reconcile: marking-optional idx=${idx} param=${leftName || (p && p.left && p.left.name)} foundRealExplicitToLeft=${foundRealExplicitToLeft}`
+                                    // );
                                 } catch {
                                     /* swallow */
                                 }
@@ -1531,14 +1551,20 @@ function preprocessFunctionDeclaration(node, ast) {
                     // Diagnostic: report when we detect a match for an
                     // argument_count fallback so we can confirm detection.
 
-                    console.warn(
-                        `[feather:diagnostic] match detected argumentIndex=${argumentIndex} argMatch=${!!foundArgMatch} fallbackMatch=${!!foundFallbackMatch}`
-                    );
+                    // console.warn(
+                    //     `[feather:diagnostic] match detected argumentIndex=${argumentIndex} argMatch=${!!foundArgMatch} fallbackMatch=${!!foundFallbackMatch}`
+                    // );
                 } catch {
                     // swallow
                 }
+
+                const targetName =
+                    (foundFallbackMatch && foundFallbackMatch.targetName) ||
+                    (foundArgMatch && foundArgMatch.targetName);
+
                 return {
                     argumentIndex,
+                    targetName,
                     fallbackExpression: foundFallbackMatch
                         ? foundFallbackMatch.fallbackExpression
                         : undefined,

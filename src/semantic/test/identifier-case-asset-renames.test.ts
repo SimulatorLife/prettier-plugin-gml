@@ -4,8 +4,8 @@ import { describe, it } from "node:test";
 import { planAssetRenames } from "../src/identifier-case/asset-renames.js";
 import { IdentifierCaseStyle } from "../src/identifier-case/options.js";
 
-describe("identifier case asset rename planning", () => {
-    it("throws when provided an unknown asset style", () => {
+void describe("identifier case asset rename planning", () => {
+    void it("throws when provided an unknown asset style", () => {
         assert.throws(
             () =>
                 planAssetRenames({
@@ -16,7 +16,7 @@ describe("identifier case asset rename planning", () => {
         );
     });
 
-    it("accepts recognized asset styles", () => {
+    void it("accepts recognized asset styles", () => {
         const result = planAssetRenames({
             projectIndex: { resources: {} },
             assetStyle: IdentifierCaseStyle.CAMEL

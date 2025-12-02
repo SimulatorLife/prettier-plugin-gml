@@ -12,13 +12,13 @@ import {
 
 const { collectCommonNodeTypes } = __test__;
 
-describe("memory AST common node type limit configuration", () => {
+void describe("memory AST common node type limit configuration", () => {
     afterEach(() => {
         setAstCommonNodeTypeLimit(DEFAULT_MEMORY_AST_COMMON_NODE_LIMIT);
         applyAstCommonNodeTypeLimitEnvOverride();
     });
 
-    it("returns the baseline default when no overrides are applied", () => {
+    void it("returns the baseline default when no overrides are applied", () => {
         setAstCommonNodeTypeLimit(DEFAULT_MEMORY_AST_COMMON_NODE_LIMIT);
 
         assert.equal(
@@ -27,7 +27,7 @@ describe("memory AST common node type limit configuration", () => {
         );
     });
 
-    it("allows overriding the default limit", () => {
+    void it("allows overriding the default limit", () => {
         setAstCommonNodeTypeLimit(DEFAULT_MEMORY_AST_COMMON_NODE_LIMIT);
 
         setAstCommonNodeTypeLimit(8);
@@ -35,7 +35,7 @@ describe("memory AST common node type limit configuration", () => {
         assert.equal(getAstCommonNodeTypeLimit(), 8);
     });
 
-    it("applies environment overrides to the default limit", () => {
+    void it("applies environment overrides to the default limit", () => {
         setAstCommonNodeTypeLimit(DEFAULT_MEMORY_AST_COMMON_NODE_LIMIT);
 
         applyAstCommonNodeTypeLimitEnvOverride({
@@ -45,7 +45,7 @@ describe("memory AST common node type limit configuration", () => {
         assert.equal(getAstCommonNodeTypeLimit(), 12);
     });
 
-    it("limits collected node types using the configured value", () => {
+    void it("limits collected node types using the configured value", () => {
         setAstCommonNodeTypeLimit(2);
 
         const typeCounts = new Map([

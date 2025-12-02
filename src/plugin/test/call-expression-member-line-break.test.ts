@@ -2,7 +2,7 @@ import assert from "node:assert/strict";
 import { test } from "node:test";
 import { Plugin } from "../src/index.js";
 
-test("keeps member call property on the same line as the object", async () => {
+void test("keeps member call property on the same line as the object", async () => {
     const source = [
         "global.lighting.draw(",
         "    vmat, pmat,",
@@ -26,7 +26,7 @@ test("keeps member call property on the same line as the object", async () => {
     );
 });
 
-test("keeps simple leading arguments on the same line when callbacks follow", async () => {
+void test("keeps simple leading arguments on the same line when callbacks follow", async () => {
     const source = [
         "global.lighting.draw(",
         "    vmat, pmat,",

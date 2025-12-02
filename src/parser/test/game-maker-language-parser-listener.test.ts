@@ -5,7 +5,7 @@ import GameMakerLanguageParserListener, {
     LISTENER_METHOD_NAMES
 } from "../src/runtime/game-maker-language-parser-listener.js";
 
-test("listener methods default to no-op behaviour", () => {
+void test("listener methods default to no-op behaviour", () => {
     const listener = new GameMakerLanguageParserListener();
 
     for (const methodName of LISTENER_METHOD_NAMES) {
@@ -14,7 +14,7 @@ test("listener methods default to no-op behaviour", () => {
     }
 });
 
-test("listener delegate receives metadata for each call", () => {
+void test("listener delegate receives metadata for each call", () => {
     let callCount = 0;
     let lastPayload = null;
 
@@ -35,7 +35,7 @@ test("listener delegate receives metadata for each call", () => {
     assert.equal(typeof lastPayload.fallback, "function");
 });
 
-test("method-specific handlers can wrap the delegate", () => {
+void test("method-specific handlers can wrap the delegate", () => {
     let handlerCalls = 0;
     let delegateCalls = 0;
 

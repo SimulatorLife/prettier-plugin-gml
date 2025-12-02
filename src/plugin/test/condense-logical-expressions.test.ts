@@ -2,7 +2,7 @@ import assert from "node:assert/strict";
 import { test } from "node:test";
 import { Plugin } from "../src/index.js";
 
-test("condenses boolean branches with unreachable statements", async () => {
+void test("condenses boolean branches with unreachable statements", async () => {
     const source = [
         "function condense_with_unreachable(condition) {",
         "    if (condition) {",
@@ -23,7 +23,6 @@ test("condenses boolean branches with unreachable statements", async () => {
     assert.strictEqual(
         formatted,
         [
-            "",
             "/// @function condense_with_unreachable",
             "/// @param condition",
             "function condense_with_unreachable(condition) {",
@@ -34,7 +33,7 @@ test("condenses boolean branches with unreachable statements", async () => {
     );
 });
 
-test("preserves guard extraction descriptions when condensing", async () => {
+void test("preserves guard extraction descriptions when condensing", async () => {
     const source = [
         "/// @function condense_guard",
         "/// @param {bool} foo",
@@ -68,7 +67,7 @@ test("preserves guard extraction descriptions when condensing", async () => {
     );
 });
 
-test("preserves branching return descriptions without equivalence suffixes", async () => {
+void test("preserves branching return descriptions without equivalence suffixes", async () => {
     const source = [
         "/// @function condense_implication",
         "/// @description Implication: if (foo) return bar; else return true.",
@@ -101,7 +100,7 @@ test("preserves branching return descriptions without equivalence suffixes", asy
     );
 });
 
-test("retains original multi-branch descriptions when condensing", async () => {
+void test("retains original multi-branch descriptions when condensing", async () => {
     const source = [
         "/// @function condense_multi_branch",
         "/// @param {bool} foo",
@@ -128,7 +127,7 @@ test("retains original multi-branch descriptions when condensing", async () => {
     );
 });
 
-test("preserves distinct functions that condense to the same expression", async () => {
+void test("preserves distinct functions that condense to the same expression", async () => {
     const source = [
         "function first(condition) {",
         "    if (condition) {",
@@ -136,7 +135,6 @@ test("preserves distinct functions that condense to the same expression", async 
         "    }",
         "    return false;",
         "}",
-        "",
         "function second(condition) {",
         "    if (condition) {",
         "        return true;",
@@ -163,7 +161,7 @@ test("preserves distinct functions that condense to the same expression", async 
     );
 });
 
-test("prioritizes negated guard when condensing guard fallbacks", async () => {
+void test("prioritizes negated guard when condensing guard fallbacks", async () => {
     const source = [
         "function guard_with_fallback(foo, bar, baz) {",
         "    if ((foo && bar) || baz) {",

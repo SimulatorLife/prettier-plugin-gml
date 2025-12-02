@@ -10,27 +10,27 @@ import {
     setDefaultSkippedDirectorySampleLimit
 } from "../src/runtime-options/sample-limits.js";
 
-describe("skipped directory sample limit", () => {
+void describe("skipped directory sample limit", () => {
     afterEach(() => {
         setDefaultSkippedDirectorySampleLimit(undefined);
         applySkippedDirectorySampleLimitEnvOverride({});
     });
 
-    it("exposes the baseline default", () => {
+    void it("exposes the baseline default", () => {
         assert.strictEqual(
             getDefaultSkippedDirectorySampleLimit(),
             DEFAULT_SKIPPED_DIRECTORY_SAMPLE_LIMIT
         );
     });
 
-    it("returns the default when no value is provided", () => {
+    void it("returns the default when no value is provided", () => {
         assert.strictEqual(
             resolveSkippedDirectorySampleLimit(),
             DEFAULT_SKIPPED_DIRECTORY_SAMPLE_LIMIT
         );
     });
 
-    it("normalizes numeric inputs", () => {
+    void it("normalizes numeric inputs", () => {
         const normalizedFromString =
             resolveSkippedDirectorySampleLimit("  8  ");
         assert.strictEqual(typeof normalizedFromString, "number");
@@ -41,20 +41,20 @@ describe("skipped directory sample limit", () => {
         assert.strictEqual(normalizedFromFloat, 3);
     });
 
-    it("rejects negative limits", () => {
+    void it("rejects negative limits", () => {
         assert.throws(() => resolveSkippedDirectorySampleLimit(-1), {
             message: /non-negative integer/i
         });
     });
 
-    it("allows configuring the default programmatically", () => {
+    void it("allows configuring the default programmatically", () => {
         setDefaultSkippedDirectorySampleLimit(2);
 
         assert.strictEqual(getDefaultSkippedDirectorySampleLimit(), 2);
         assert.strictEqual(resolveSkippedDirectorySampleLimit(), 2);
     });
 
-    it("resets to the baseline default when set to undefined", () => {
+    void it("resets to the baseline default when set to undefined", () => {
         setDefaultSkippedDirectorySampleLimit(7);
         setDefaultSkippedDirectorySampleLimit(undefined);
 
@@ -64,7 +64,7 @@ describe("skipped directory sample limit", () => {
         );
     });
 
-    it("applies the environment override for the default", () => {
+    void it("applies the environment override for the default", () => {
         applySkippedDirectorySampleLimitEnvOverride({
             [SKIPPED_DIRECTORY_SAMPLE_LIMIT_ENV_VAR]: "9"
         });

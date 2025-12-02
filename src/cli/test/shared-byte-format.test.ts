@@ -14,15 +14,15 @@ import {
 // regression coverage for the migration away from the deprecated `assert.equal`
 // shim.
 
-describe("byte-format", () => {
-    describe("formatByteSize", () => {
-        it("formats byte counts with default options", () => {
+void describe("byte-format", () => {
+    void describe("formatByteSize", () => {
+        void it("formats byte counts with default options", () => {
             assert.strictEqual(formatByteSize(0), "0B");
             assert.strictEqual(formatByteSize(512), "512B");
             assert.strictEqual(formatByteSize(2048), "2.0KB");
         });
 
-        it("supports custom separators and precision", () => {
+        void it("supports custom separators and precision", () => {
             assert.strictEqual(
                 formatByteSize(512, {
                     decimals: 2,
@@ -41,7 +41,7 @@ describe("byte-format", () => {
             );
         });
 
-        it("accepts per-call radix overrides", () => {
+        void it("accepts per-call radix overrides", () => {
             assert.strictEqual(formatByteSize(1000, { radix: 1000 }), "1.0KB");
             assert.strictEqual(
                 formatByteSize(1000, { radix: "invalid" }),
@@ -49,7 +49,7 @@ describe("byte-format", () => {
             );
         });
 
-        it("allows adjusting the default radix", () => {
+        void it("allows adjusting the default radix", () => {
             const originalRadix = getDefaultByteFormatRadix();
 
             try {
@@ -63,8 +63,8 @@ describe("byte-format", () => {
         });
     });
 
-    describe("formatBytes", () => {
-        it("formats string sizes using byte counts", () => {
+    void describe("formatBytes", () => {
+        void it("formats string sizes using byte counts", () => {
             assert.strictEqual(formatBytes(""), "0B");
             assert.strictEqual(formatBytes("hello"), "5B");
             assert.strictEqual(formatBytes("a".repeat(2048)), "2.0KB");

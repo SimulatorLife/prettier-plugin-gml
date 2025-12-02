@@ -9,8 +9,8 @@ import type { ParseOptions } from "commander";
 
 const USER_PARSE_OPTIONS: ParseOptions = { from: "user" };
 
-describe("performance CLI suite option", () => {
-    it("accepts known suite names", () => {
+void describe("performance CLI suite option", () => {
+    void it("accepts known suite names", () => {
         const command = createPerformanceCommand();
 
         command.parse(
@@ -29,7 +29,7 @@ describe("performance CLI suite option", () => {
         ]);
     });
 
-    it("rejects unknown suite names", () => {
+    void it("rejects unknown suite names", () => {
         const command = createPerformanceCommand();
 
         assert.throws(
@@ -46,7 +46,7 @@ describe("performance CLI suite option", () => {
         );
     });
 
-    it("documents available suites in the help output", () => {
+    void it("documents available suites in the help output", () => {
         const command = createPerformanceCommand();
         const help = command.helpInformation();
         const suiteList = formatPerformanceSuiteList();

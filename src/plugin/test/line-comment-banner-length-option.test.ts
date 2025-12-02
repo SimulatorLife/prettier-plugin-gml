@@ -12,22 +12,22 @@ function createBannerComment(leadingText) {
     };
 }
 
-describe("line comment banner handling", () => {
-    it("collapses banner comments into a minimal single-line comment", () => {
+void describe("line comment banner handling", () => {
+    void it("collapses banner comments into a minimal single-line comment", () => {
         const comment = createBannerComment("//////// Heading ////////");
         const printed = Parser.printComment({ getValue: () => comment }, {});
 
         assert.strictEqual(printed, "// Heading");
     });
 
-    it("drops decorative banners that have no descriptive text", () => {
+    void it("drops decorative banners that have no descriptive text", () => {
         const comment = createBannerComment("////////////////////////");
         const printed = Parser.printComment({ getValue: () => comment }, {});
 
         assert.strictEqual(printed, "");
     });
 
-    it("preserves regular comments that do not resemble banners", () => {
+    void it("preserves regular comments that do not resemble banners", () => {
         const comment = createBannerComment("// Standard comment");
         const printed = Parser.printComment({ getValue: () => comment }, {});
 

@@ -10,7 +10,7 @@ import type { ParseOptions } from "commander";
 
 const USER_PARSE_OPTIONS: ParseOptions = { from: "user" };
 
-test("memory command accepts known suite names", () => {
+void test("memory command accepts known suite names", () => {
     const command = createMemoryCommand({ env: {} });
 
     command.parse(
@@ -23,7 +23,7 @@ test("memory command accepts known suite names", () => {
     ]);
 });
 
-test("memory command normalizes suite names", () => {
+void test("memory command normalizes suite names", () => {
     const command = createMemoryCommand({ env: {} });
 
     command.parse(["--suite", "Parser-Ast"], USER_PARSE_OPTIONS);
@@ -31,7 +31,7 @@ test("memory command normalizes suite names", () => {
     assert.deepStrictEqual(command.opts().suite, [MemorySuiteName.PARSER_AST]);
 });
 
-test("memory command rejects unknown suite names", () => {
+void test("memory command rejects unknown suite names", () => {
     const command = createMemoryCommand({ env: {} });
 
     assert.throws(
@@ -54,7 +54,7 @@ test("memory command rejects unknown suite names", () => {
     );
 });
 
-test("memory command accepts the common node limit option", () => {
+void test("memory command accepts the common node limit option", () => {
     const command = createMemoryCommand({ env: {} });
 
     command.parse(["--common-node-limit", "7"], USER_PARSE_OPTIONS);
@@ -62,7 +62,7 @@ test("memory command accepts the common node limit option", () => {
     assert.equal(command.opts().commonNodeLimit, 7);
 });
 
-test("memory command rejects invalid common node limits", () => {
+void test("memory command rejects invalid common node limits", () => {
     const command = createMemoryCommand({ env: {} });
 
     assert.throws(

@@ -74,8 +74,8 @@ async function createScopeFixtureProject() {
     return { projectRoot: tempRoot, fixtureSource };
 }
 
-describe("project index scope tracking", () => {
-    it("collects identifiers across macros, enums, and globals", async () => {
+void describe("project index scope tracking", () => {
+    void it("collects identifiers across macros, enums, and globals", async () => {
         const { projectRoot } = await createScopeFixtureProject();
 
         try {

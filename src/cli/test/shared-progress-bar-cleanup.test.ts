@@ -24,13 +24,13 @@ function createMockStdout() {
     };
 }
 
-describe("progress bar cleanup", () => {
+void describe("progress bar cleanup", () => {
     afterEach(() => {
         mock.restoreAll();
         resetProgressBarRegistryForTesting();
     });
 
-    it("disposes active progress bars when callbacks fail", async (t) => {
+    void it("disposes active progress bars when callbacks fail", async (t) => {
         const stdout = createMockStdout();
         const stopMock = mock.fn();
         const createBar = mock.fn(() => ({

@@ -2,7 +2,7 @@ import assert from "node:assert/strict";
 import { test } from "node:test";
 import { Plugin } from "../src/index.js";
 
-test("keeps simple leading arguments inline when callbacks follow", async () => {
+void test("keeps simple leading arguments inline when callbacks follow", async () => {
     const source = [
         "call(1,2,3, someFunctionCallWithBigArgumentsAndACallback, function(aaaaaaaaaaaaaaaaaa){foo()})",
         ""

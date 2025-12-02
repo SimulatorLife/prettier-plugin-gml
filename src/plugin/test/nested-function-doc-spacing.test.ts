@@ -3,7 +3,7 @@ import { test } from "node:test";
 
 import { Plugin } from "../src/index.js";
 
-test("emits a separating blank line after documented nested functions", async () => {
+void test("emits a separating blank line after documented nested functions", async () => {
     const source = [
         "function Outer() constructor {",
         "    /// @function inner",

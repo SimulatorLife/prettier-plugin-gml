@@ -3,8 +3,8 @@ import { describe, it } from "node:test";
 
 import { Plugin } from "../src/index.js";
 
-describe("constructor static function assignments", () => {
-    it("adds semicolons for static function assignments", async () => {
+void describe("constructor static function assignments", () => {
+    void it("adds semicolons for static function assignments", async () => {
         const source = [
             "function Shape() constructor {",
             "    static build = function() {",
@@ -17,7 +17,6 @@ describe("constructor static function assignments", () => {
         const formatted = await Plugin.format(source);
 
         const expected = [
-            "",
             "/// @function Shape",
             "function Shape() constructor {",
             "",
@@ -32,7 +31,7 @@ describe("constructor static function assignments", () => {
         assert.strictEqual(formatted, expected);
     });
 
-    it("adds semicolons for static non-function members", async () => {
+    void it("adds semicolons for static non-function members", async () => {
         const source = [
             "function Shape() constructor {",
             "    static value = 1",
@@ -43,7 +42,6 @@ describe("constructor static function assignments", () => {
         const formatted = await Plugin.format(source);
 
         const expected = [
-            "",
             "/// @function Shape",
             "function Shape() constructor {",
             "",
@@ -55,7 +53,7 @@ describe("constructor static function assignments", () => {
         assert.strictEqual(formatted, expected);
     });
 
-    it("omits semicolons for constructor functions", async () => {
+    void it("omits semicolons for constructor functions", async () => {
         const source = [
             "function Shape() constructor {",
             "    static value = 1;",
@@ -66,7 +64,6 @@ describe("constructor static function assignments", () => {
         const formatted = await Plugin.format(source);
 
         const expected = [
-            "",
             "/// @function Shape",
             "function Shape() constructor {",
             "",

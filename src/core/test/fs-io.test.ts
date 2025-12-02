@@ -3,7 +3,7 @@ import test from "node:test";
 
 import { getFileMtime, listDirectory } from "../src/fs/index.js";
 
-test("listDirectory snapshots iterable results", async () => {
+void test("listDirectory snapshots iterable results", async () => {
     const source = ["alpha", "beta"];
     const facade = {
         readDir: async () => source
@@ -18,7 +18,7 @@ test("listDirectory snapshots iterable results", async () => {
     assert.deepEqual(source, ["alpha", "beta"]);
 });
 
-test("listDirectory returns an empty array for missing directories", async () => {
+void test("listDirectory returns an empty array for missing directories", async () => {
     const error = new Error("missing") as NodeJS.ErrnoException;
     error.code = "ENOENT";
     const facade = {
@@ -32,7 +32,7 @@ test("listDirectory returns an empty array for missing directories", async () =>
     assert.deepEqual(entries, []);
 });
 
-test("getFileMtime resolves to numeric mtimes when available", async () => {
+void test("getFileMtime resolves to numeric mtimes when available", async () => {
     const facade = {
         stat: async () => ({ mtimeMs: 123 })
     };
@@ -43,7 +43,7 @@ test("getFileMtime resolves to numeric mtimes when available", async () => {
     );
 });
 
-test("getFileMtime returns null when file is missing", async () => {
+void test("getFileMtime returns null when file is missing", async () => {
     const error = new Error("deleted") as NodeJS.ErrnoException;
     error.code = "ENOENT";
     const facade = {

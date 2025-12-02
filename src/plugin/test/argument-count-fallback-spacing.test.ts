@@ -3,7 +3,7 @@ import { test } from "node:test";
 
 import { Plugin } from "../src/index.js";
 
-test("preserves blank line after condensing argument_count fallbacks", async () => {
+void test("preserves blank line after condensing argument_count fallbacks", async () => {
     const source = [
         "function demo(value) {",
         "    var setting = true;",

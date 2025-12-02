@@ -9,8 +9,8 @@ import {
     createCliErrorDetails
 } from "../src/cli-core/errors.js";
 
-describe("cli error formatting", () => {
-    it("omits stack traces and prefixes for usage errors", () => {
+void describe("cli error formatting", () => {
+    void it("omits stack traces and prefixes for usage errors", () => {
         const error = new CliUsageError("Missing project path");
 
         const output = formatCliError(error);
@@ -18,7 +18,7 @@ describe("cli error formatting", () => {
         assert.equal(output, "Missing project path");
     });
 
-    it("recognizes branded usage errors even if renamed", () => {
+    void it("recognizes branded usage errors even if renamed", () => {
         const error = new CliUsageError("Missing project path");
         error.name = "OtherCliError";
 
@@ -27,7 +27,7 @@ describe("cli error formatting", () => {
         assert.equal(output, "Missing project path");
     });
 
-    it("brands external error-like values", () => {
+    void it("brands external error-like values", () => {
         const error = markAsCliUsageError({ message: "Missing project path" });
 
         const output = formatCliError(error);
@@ -35,7 +35,7 @@ describe("cli error formatting", () => {
         assert.equal(output, "Missing project path");
     });
 
-    it("logs usage guidance without redundant prefixes", () => {
+    void it("logs usage guidance without redundant prefixes", () => {
         const error = new CliUsageError("Missing project path", {
             usage: "Usage: prettier-wrapper [options] <path>"
         });
@@ -49,7 +49,7 @@ describe("cli error formatting", () => {
         assert.deepEqual(exitCodes, [1]);
     });
 
-    it("includes prefixes for non-usage errors", () => {
+    void it("includes prefixes for non-usage errors", () => {
         const error = new Error("Something exploded");
         const { logged, exitCodes } = captureConsoleAndExit(() => {
             handleCliError(error, { prefix: "Failed." });
@@ -63,8 +63,8 @@ describe("cli error formatting", () => {
     });
 });
 
-describe("cli error details", () => {
-    it("normalizes message, name, code, and stack", () => {
+void describe("cli error details", () => {
+    void it("normalizes message, name, code, and stack", () => {
         const error: Error & { code?: string } = new Error("kaboom");
         error.code = "ENOENT";
 
@@ -77,7 +77,7 @@ describe("cli error details", () => {
         assert.ok(details.stack.length > 0);
     });
 
-    it("uses fallback metadata for non-error values", () => {
+    void it("uses fallback metadata for non-error values", () => {
         const details = createCliErrorDetails(undefined, {
             fallbackMessage: "Something went wrong"
         });
@@ -88,7 +88,7 @@ describe("cli error details", () => {
         assert.equal(details.stack, undefined);
     });
 
-    it("derives the error name from the @@toStringTag when missing", () => {
+    void it("derives the error name from the @@toStringTag when missing", () => {
         const tagError = {
             message: "boom",
             [Symbol.toStringTag]: "DOMException"

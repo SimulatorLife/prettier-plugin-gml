@@ -7,14 +7,14 @@ import {
     normalizeFixtureRoots
 } from "../src/workflow/fixture-roots.js";
 
-describe("normalizeFixtureRoots", () => {
-    it("includes default fixture directories by default", () => {
+void describe("normalizeFixtureRoots", () => {
+    void it("includes default fixture directories by default", () => {
         const roots = normalizeFixtureRoots();
 
         assert.deepEqual(roots, DEFAULT_FIXTURE_DIRECTORIES);
     });
 
-    it("deduplicates and resolves additional fixture roots", () => {
+    void it("deduplicates and resolves additional fixture roots", () => {
         const duplicateRelative = path.relative(
             process.cwd(),
             DEFAULT_FIXTURE_DIRECTORIES[0]
@@ -39,7 +39,7 @@ describe("normalizeFixtureRoots", () => {
         assert.deepEqual(roots, expected);
     });
 
-    it("filters fixture roots using workflow allow paths", () => {
+    void it("filters fixture roots using workflow allow paths", () => {
         const allowedRelative = path.relative(
             process.cwd(),
             DEFAULT_FIXTURE_DIRECTORIES[1]
@@ -52,7 +52,7 @@ describe("normalizeFixtureRoots", () => {
         assert.deepEqual(roots, [DEFAULT_FIXTURE_DIRECTORIES[1]]);
     });
 
-    it("omits denied fixture roots from workflow filters", () => {
+    void it("omits denied fixture roots from workflow filters", () => {
         const roots = normalizeFixtureRoots([], {
             denyPaths: [DEFAULT_FIXTURE_DIRECTORIES[0]]
         });

@@ -5,8 +5,8 @@ import { Parser } from "@gml-modules/parser";
 
 const { CommentTracker, consolidateStructAssignments } = Parser.Transforms;
 
-describe("CommentTracker", () => {
-    it("ignores consumed comments when checking for later comments", () => {
+void describe("CommentTracker", () => {
+    void it("ignores consumed comments when checking for later comments", () => {
         const tracker = new CommentTracker([
             { start: { index: 10 } },
             { start: { index: 20 } }
@@ -17,7 +17,7 @@ describe("CommentTracker", () => {
         assert.equal(tracker.hasAfter(5), true);
     });
 
-    it("removes consumed comments from the original collection", () => {
+    void it("removes consumed comments from the original collection", () => {
         const comments = [{ start: { index: 10 } }, { start: { index: 20 } }];
 
         const tracker = new CommentTracker(comments);
@@ -30,7 +30,7 @@ describe("CommentTracker", () => {
         );
     });
 
-    it("correctly takes multiple consecutive matching comments without skipping", () => {
+    void it("correctly takes multiple consecutive matching comments without skipping", () => {
         const comments = [
             { start: { index: 10 }, type: "match" },
             { start: { index: 20 }, type: "match" },
@@ -53,8 +53,8 @@ describe("CommentTracker", () => {
     });
 });
 
-describe("consolidateStructAssignments", () => {
-    it("attaches trailing comments using the fallback comment tools", () => {
+void describe("consolidateStructAssignments", () => {
+    void it("attaches trailing comments using the fallback comment tools", () => {
         const location = (index, line) => ({ index, line });
 
         const structExpression = {
@@ -135,7 +135,7 @@ describe("consolidateStructAssignments", () => {
         assert.equal(property._hasTrailingInlineComment, true);
     });
 
-    it("normalizes inline comment leading characters for consolidated struct properties", () => {
+    void it("normalizes inline comment leading characters for consolidated struct properties", () => {
         const location = (index, line) => ({ index, line });
 
         const structExpression = {

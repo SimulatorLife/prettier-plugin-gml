@@ -3,8 +3,8 @@ import { describe, it } from "node:test";
 
 import { Plugin } from "../src/index.js";
 
-describe("define normalization spacing", () => {
-    it("surrounds normalized region defines with blank lines", async () => {
+void describe("define normalization spacing", () => {
+    void it("surrounds normalized region defines with blank lines", async () => {
         const source = [
             "#define region Utility Scripts",
             "var util = function(val) {",
@@ -16,7 +16,6 @@ describe("define normalization spacing", () => {
         const formatted = await Plugin.format(source);
 
         const expected = [
-            "",
             "#region Utility Scripts",
             "",
             "var util = function(val) {",
@@ -30,7 +29,7 @@ describe("define normalization spacing", () => {
         assert.strictEqual(formatted, expected);
     });
 
-    it("adds trailing semicolons when normalizing legacy function assignments", async () => {
+    void it("adds trailing semicolons when normalizing legacy function assignments", async () => {
         const source = [
             "#define region Utility Scripts",
             "#define  end region Utility Scripts",

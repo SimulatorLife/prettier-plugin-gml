@@ -6,7 +6,7 @@ import {
     assertValidIdentifierRole
 } from "../src/project-index/identifier-roles.js";
 
-test("assertValidIdentifierRole accepts declared roles", () => {
+void test("assertValidIdentifierRole accepts declared roles", () => {
     assert.equal(
         assertValidIdentifierRole(IdentifierRole.DECLARATION),
         IdentifierRole.DECLARATION
@@ -17,7 +17,7 @@ test("assertValidIdentifierRole accepts declared roles", () => {
     );
 });
 
-test("assertValidIdentifierRole rejects unknown values", () => {
+void test("assertValidIdentifierRole rejects unknown values", () => {
     assert.throws(() => assertValidIdentifierRole("not-a-role"), {
         name: "TypeError",
         message: /Invalid identifier role/i

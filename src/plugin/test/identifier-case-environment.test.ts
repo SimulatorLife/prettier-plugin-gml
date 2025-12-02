@@ -2,14 +2,16 @@ import assert from "node:assert/strict";
 import path from "node:path";
 import test from "node:test";
 
-import {
-    prepareIdentifierCaseEnvironment,
-    teardownIdentifierCaseEnvironment
-} from "../src/identifier-case/environment.js";
-import { Plugin } from "@gml-modules/plugin";
-import { clearIdentifierCaseOptionStore } from "../src/identifier-case/option-store.js";
+import { Semantic } from "@gml-modules/semantic";
+import { Plugin } from "../index.js";
 
-function createBootstrap(dispose) {
+const {
+    prepareIdentifierCaseEnvironment,
+    teardownIdentifierCaseEnvironment,
+    clearIdentifierCaseOptionStore
+} = Semantic;
+
+function createBootstrap(dispose: any) {
     return {
         status: "ready",
         reason: "provided",
@@ -21,7 +23,7 @@ function createBootstrap(dispose) {
     };
 }
 
-test("identifier case bootstrap disposes when the environment is torn down", async () => {
+void test("identifier case bootstrap disposes when the environment is torn down", async () => {
     let disposeCount = 0;
     const filepath = path.join("/virtual/project", "script.gml");
     const bootstrap = createBootstrap(() => {
@@ -44,7 +46,7 @@ test("identifier case bootstrap disposes when the environment is torn down", asy
     clearIdentifierCaseOptionStore(filepath);
 });
 
-test("identifier case bootstrap is disposed when parsing fails", async () => {
+void test("identifier case bootstrap is disposed when parsing fails", async () => {
     let disposeCalls = 0;
     const filepath = path.join("/virtual/project", "leaky.gml");
     const bootstrap = {

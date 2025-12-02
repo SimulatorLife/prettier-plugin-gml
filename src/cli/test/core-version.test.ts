@@ -17,8 +17,8 @@ const cliPackageVersion = JSON.parse(
     )
 ).version;
 
-describe("resolveCliVersion", { concurrency: 1 }, () => {
-    test("resolveCliVersion prefers the PRETTIER_PLUGIN_GML_VERSION override", () => {
+void describe("resolveCliVersion", { concurrency: 1 }, () => {
+    void test("resolveCliVersion prefers the PRETTIER_PLUGIN_GML_VERSION override", () => {
         const originalEnv = process.env.PRETTIER_PLUGIN_GML_VERSION;
         const originalNpmVersion = process.env.npm_package_version;
 
@@ -42,7 +42,7 @@ describe("resolveCliVersion", { concurrency: 1 }, () => {
         }
     });
 
-    test("resolveCliVersion falls back to the CLI package version when metadata is available", () => {
+    void test("resolveCliVersion falls back to the CLI package version when metadata is available", () => {
         const originalEnv = process.env.PRETTIER_PLUGIN_GML_VERSION;
         const originalNpmVersion = process.env.npm_package_version;
 
@@ -66,7 +66,7 @@ describe("resolveCliVersion", { concurrency: 1 }, () => {
         }
     });
 
-    test("resolveCliVersion falls back to npm_package_version when no override is set", () => {
+    void test("resolveCliVersion falls back to npm_package_version when no override is set", () => {
         const originalEnv = process.env.PRETTIER_PLUGIN_GML_VERSION;
         const originalNpmVersion = process.env.npm_package_version;
 

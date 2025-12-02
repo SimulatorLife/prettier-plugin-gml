@@ -51,8 +51,8 @@ async function fileExists(filePath) {
     }
 }
 
-describe("identifier case project index bootstrap", () => {
-    it("discovers the project root and reuses the index cache", async () => {
+void describe("identifier case project index bootstrap", () => {
+    void it("discovers the project root and reuses the index cache", async () => {
         const { projectRoot, fixtureSource, gmlPath } =
             await createTempProject();
 
@@ -130,7 +130,7 @@ describe("identifier case project index bootstrap", () => {
         }
     });
 
-    it("skips discovery when no manifest is present or discovery is disabled", async () => {
+    void it("skips discovery when no manifest is present or discovery is disabled", async () => {
         const tempRoot = await fs.mkdtemp(
             path.join(os.tmpdir(), "gml-identifier-case-autodiscovery-miss-")
         );

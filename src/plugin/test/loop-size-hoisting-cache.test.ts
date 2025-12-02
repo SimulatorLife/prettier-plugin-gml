@@ -10,7 +10,7 @@ const LOOP_SIZE_SUFFIX_CACHE = Symbol.for(
     "prettier-plugin-gml.loopLengthHoistFunctionSuffixes"
 );
 
-test("caches suffix maps on extensible option bags", () => {
+void test("caches suffix maps on extensible option bags", () => {
     const options = {};
 
     const first = getSizeRetrievalFunctionSuffixes(options);
@@ -22,7 +22,7 @@ test("caches suffix maps on extensible option bags", () => {
     assert.strictEqual(options[LOOP_SIZE_SUFFIX_CACHE], first);
 });
 
-test("returns new suffix maps for primitive option inputs", () => {
+void test("returns new suffix maps for primitive option inputs", () => {
     const first = getSizeRetrievalFunctionSuffixes(null);
     const second = getSizeRetrievalFunctionSuffixes();
     const third = getSizeRetrievalFunctionSuffixes("value");
@@ -35,7 +35,7 @@ test("returns new suffix maps for primitive option inputs", () => {
     assert.notStrictEqual(second, third);
 });
 
-test("memoizes suffix maps for frozen option objects", () => {
+void test("memoizes suffix maps for frozen option objects", () => {
     const options = Object.freeze({
         loopLengthHoistFunctionSuffixes: "ds_map_size=entries"
     });

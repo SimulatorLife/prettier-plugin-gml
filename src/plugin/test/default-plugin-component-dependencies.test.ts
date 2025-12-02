@@ -17,7 +17,7 @@ const REQUIRED_KEYS = [
     "LogicalOperatorsStyle"
 ];
 
-test("default dependency bundle exposes canonical components", () => {
+void test("default dependency bundle exposes canonical components", () => {
     const resolved = defaultGmlPluginComponentDependencies;
 
     assert.ok(
@@ -43,7 +43,7 @@ test("default dependency bundle exposes canonical components", () => {
     }
 });
 
-test("default dependency bundle maintains a stable reference", () => {
+void test("default dependency bundle maintains a stable reference", () => {
     const first = defaultGmlPluginComponentDependencies;
     const second = defaultGmlPluginComponentDependencies;
 

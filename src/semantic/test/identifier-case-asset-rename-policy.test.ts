@@ -6,8 +6,8 @@ import {
     IdentifierCaseAssetRenamePolicyReason
 } from "../src/identifier-case/asset-rename-policy.js";
 
-describe("identifier case asset rename policy", () => {
-    it("requires explicit opt-in when dry run is enabled", () => {
+void describe("identifier case asset rename policy", () => {
+    void it("requires explicit opt-in when dry run is enabled", () => {
         const result = evaluateIdentifierCaseAssetRenamePolicy({
             options: {},
             assetRenames: [{ name: "demo" }]
@@ -21,7 +21,7 @@ describe("identifier case asset rename policy", () => {
         });
     });
 
-    it("skips when no renames are planned", () => {
+    void it("skips when no renames are planned", () => {
         const result = evaluateIdentifierCaseAssetRenamePolicy({
             options: { __identifierCaseDryRun: false },
             assetRenames: [],
@@ -36,7 +36,7 @@ describe("identifier case asset rename policy", () => {
         });
     });
 
-    it("skips when conflicts are present", () => {
+    void it("skips when conflicts are present", () => {
         const result = evaluateIdentifierCaseAssetRenamePolicy({
             options: { __identifierCaseDryRun: false },
             assetRenames: [{ name: "demo" }],
@@ -52,7 +52,7 @@ describe("identifier case asset rename policy", () => {
         });
     });
 
-    it("skips when the project index is unavailable", () => {
+    void it("skips when the project index is unavailable", () => {
         const result = evaluateIdentifierCaseAssetRenamePolicy({
             options: { __identifierCaseDryRun: false },
             assetRenames: [{ name: "demo" }]
@@ -66,7 +66,7 @@ describe("identifier case asset rename policy", () => {
         });
     });
 
-    it("skips when renames were already applied", () => {
+    void it("skips when renames were already applied", () => {
         const result = evaluateIdentifierCaseAssetRenamePolicy({
             options: {
                 __identifierCaseDryRun: false,
@@ -84,7 +84,7 @@ describe("identifier case asset rename policy", () => {
         });
     });
 
-    it("approves the rename when all conditions are satisfied", () => {
+    void it("approves the rename when all conditions are satisfied", () => {
         const result = evaluateIdentifierCaseAssetRenamePolicy({
             options: { __identifierCaseDryRun: false },
             assetRenames: [{ name: "demo" }],

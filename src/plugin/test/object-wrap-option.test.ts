@@ -3,7 +3,7 @@ import { test } from "node:test";
 
 import { Plugin } from "../src/index.js";
 
-test("struct literals stay multi-line when objectWrap preserves the leading break", async () => {
+void test("struct literals stay multi-line when objectWrap preserves the leading break", async () => {
     const source = [
         "var enemy = {",
         '    name: "Slime",',
@@ -21,7 +21,7 @@ test("struct literals stay multi-line when objectWrap preserves the leading brea
     );
 });
 
-test("struct literals collapse to a single line when objectWrap is set to collapse", async () => {
+void test("struct literals collapse to a single line when objectWrap is set to collapse", async () => {
     const source = [
         "var enemy = {",
         '    name: "Slime",',
@@ -37,7 +37,7 @@ test("struct literals collapse to a single line when objectWrap is set to collap
     );
 });
 
-test("collapsed structs still wrap when the literal exceeds the print width", async () => {
+void test("collapsed structs still wrap when the literal exceeds the print width", async () => {
     const source = [
         "var config = {",
         '    title: "a very very very long title that exceeds the configured print width",',

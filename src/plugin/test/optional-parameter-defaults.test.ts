@@ -14,7 +14,7 @@ async function formatWithPlugin(source, options: any = {}) {
     return formatted.trim();
 }
 
-test("adds undefined defaults for trailing optional parameters", async () => {
+void test("adds undefined defaults for trailing optional parameters", async () => {
     const formatted = await formatWithPlugin(
         [
             "function demo(first, second = 1, third) {",

@@ -6,7 +6,7 @@ import GameMakerLanguageParserVisitor, {
 } from "../src/runtime/game-maker-language-parser-visitor.js";
 import GameMakerLanguageParserVisitorBase from "../generated/GameMakerLanguageParserVisitor.js";
 
-test("default visitor delegates to visitChildren", () => {
+void test("default visitor delegates to visitChildren", () => {
     const visitor = new GameMakerLanguageParserVisitor();
     const context = {
         children: [{ accept: () => "alpha" }, { accept: () => "beta" }]
@@ -15,7 +15,7 @@ test("default visitor delegates to visitChildren", () => {
     assert.deepEqual(visitor.visitProgram(context), ["alpha", "beta"]);
 });
 
-test("delegate receives method metadata and can alter the result", () => {
+void test("delegate receives method metadata and can alter the result", () => {
     let callCount = 0;
     let receivedMethodName = null;
     let receivedContext = null;
@@ -43,7 +43,7 @@ test("delegate receives method metadata and can alter the result", () => {
     assert.equal(receivedContext, context);
 });
 
-test("all visit methods are exposed on the visitor instance", () => {
+void test("all visit methods are exposed on the visitor instance", () => {
     const visitor = new GameMakerLanguageParserVisitor();
 
     for (const methodName of VISIT_METHOD_NAMES) {
@@ -55,7 +55,7 @@ test("all visit methods are exposed on the visitor instance", () => {
     }
 });
 
-test("visitor instances satisfy instanceof checks against the base visitor", () => {
+void test("visitor instances satisfy instanceof checks against the base visitor", () => {
     const visitor = new GameMakerLanguageParserVisitor();
 
     assert.equal(visitor instanceof GameMakerLanguageParserVisitorBase, true);

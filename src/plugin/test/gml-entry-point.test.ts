@@ -32,7 +32,7 @@ function createCustomComponentBundle() {
     };
 }
 
-test(
+void test(
     "GML entry point mirrors plugin component overrides",
     { concurrency: false },
     () => {

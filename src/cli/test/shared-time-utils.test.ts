@@ -13,25 +13,25 @@ function createCollectingLogger() {
     };
 }
 
-describe("time-utils", () => {
-    describe("formatDuration", () => {
-        it("returns millisecond precision for sub-second durations", () => {
+void describe("time-utils", () => {
+    void describe("formatDuration", () => {
+        void it("returns millisecond precision for sub-second durations", () => {
             const now = () => 200;
             assert.equal(formatDuration(0, now), "200ms");
         });
 
-        it("returns seconds with a decimal when duration exceeds a second", () => {
+        void it("returns seconds with a decimal when duration exceeds a second", () => {
             const now = () => 1500;
             assert.equal(formatDuration(0, now), "1.5s");
         });
 
-        it("rounds noisy millisecond values near one second up to seconds", () => {
+        void it("rounds noisy millisecond values near one second up to seconds", () => {
             const almostOneSecond = () => 999.999_999_999_7;
             assert.equal(formatDuration(0, almostOneSecond), "1.0s");
         });
     });
 
-    it("logs progress when verbose parsing is enabled", () => {
+    void it("logs progress when verbose parsing is enabled", () => {
         const timeline = [1000, 1300];
         const now = () => timeline.shift() ?? 1300;
         const logger = createCollectingLogger();
@@ -49,7 +49,7 @@ describe("time-utils", () => {
         );
     });
 
-    it("skips logging when verbose parsing is disabled", () => {
+    void it("skips logging when verbose parsing is disabled", () => {
         const logger = createCollectingLogger();
         const result = timeSync("quiet task", () => "done", {
             verbose: { parsing: false },

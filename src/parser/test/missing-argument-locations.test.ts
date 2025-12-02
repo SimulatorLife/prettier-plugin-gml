@@ -3,8 +3,8 @@ import { describe, it } from "node:test";
 
 import { GMLParser } from "../src/gml-parser.js";
 
-describe("Missing argument location information", () => {
-    it("assigns correct location metadata to leading omitted call arguments", () => {
+void describe("Missing argument location information", () => {
+    void it("assigns correct location metadata to leading omitted call arguments", () => {
         const source = "func(, arg2);";
         const ast = GMLParser.parse(source, {
             getLocations: true,
@@ -73,7 +73,7 @@ describe("Missing argument location information", () => {
         );
     });
 
-    it("assigns correct locations to the first of multiple leading omitted call arguments", () => {
+    void it("assigns correct locations to the first of multiple leading omitted call arguments", () => {
         const source = "func(,, arg3);";
         const ast = GMLParser.parse(source, {
             getLocations: true,

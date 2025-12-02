@@ -5,7 +5,6 @@ import { Plugin } from "../src/index.js";
 const SOURCE_LINES = ["function demo() {", "    return func(1,,3);", "}", ""];
 
 const DEFAULT_FORMATTED = [
-    "",
     "/// @function demo",
     "function demo() {",
     "    return func(1, undefined, 3);",
@@ -13,12 +12,12 @@ const DEFAULT_FORMATTED = [
     ""
 ].join("\n");
 
-test("prints undefined for missing optional arguments by default", async () => {
+void test("prints undefined for missing optional arguments by default", async () => {
     const formatted = await Plugin.format(SOURCE_LINES.join("\n"));
     assert.strictEqual(formatted, DEFAULT_FORMATTED);
 });
 
-test("plugin no longer exposes removed options", async () => {
+void test("plugin no longer exposes removed options", async () => {
     for (const optionName of [
         "missingOptionalArgumentPlaceholder",
         "allowTrailingCallArguments"
@@ -34,7 +33,7 @@ test("plugin no longer exposes removed options", async () => {
     }
 });
 
-test("collapses redundant missing optional arguments when no values are provided", async () => {
+void test("collapses redundant missing optional arguments when no values are provided", async () => {
     const formatted = await Plugin.format(["my_func4(,);", ""].join("\n"));
 
     assert.strictEqual(formatted, "my_func4(undefined);\n");

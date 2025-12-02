@@ -13,7 +13,7 @@ const SOURCE = [
     ""
 ].join("\n");
 
-test("doc comments preserve optional parameter defaults with nested brackets", async () => {
+void test("doc comments preserve optional parameter defaults with nested brackets", async () => {
     const formatted = await Plugin.format(SOURCE, {
         parser: "gml-parse"
     });
@@ -25,7 +25,7 @@ test("doc comments preserve optional parameter defaults with nested brackets", a
     );
 });
 
-test("doc comment normalization keeps nested optional defaults intact", async () => {
+void test("doc comment normalization keeps nested optional defaults intact", async () => {
     const formatted = await Plugin.format(SOURCE, {
         parser: "gml-parse"
     });

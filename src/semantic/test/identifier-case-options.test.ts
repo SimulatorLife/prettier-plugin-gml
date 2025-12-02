@@ -13,8 +13,8 @@ import {
     IDENTIFIER_CASE_PRESERVE_OPTION_NAME
 } from "../src/identifier-case/options.js";
 
-describe("gml identifier case option normalization", () => {
-    it("defaults to disabled renaming when options are omitted", () => {
+void describe("gml identifier case option normalization", () => {
+    void it("defaults to disabled renaming when options are omitted", () => {
         const normalized = normalizeIdentifierCaseOptions({});
 
         assert.strictEqual(normalized.baseStyle, IdentifierCaseStyle.OFF);
@@ -33,7 +33,7 @@ describe("gml identifier case option normalization", () => {
         assert.strictEqual(normalized.assetRenamesAcknowledged, false);
     });
 
-    it("allows scope overrides while inheriting the base style", () => {
+    void it("allows scope overrides while inheriting the base style", () => {
         const normalized = normalizeIdentifierCaseOptions({
             [IDENTIFIER_CASE_BASE_OPTION_NAME]: "pascal",
             [getIdentifierCaseScopeOptionName("globals")]: "snake-upper",
@@ -59,7 +59,7 @@ describe("gml identifier case option normalization", () => {
         assert.strictEqual(normalized.assetRenamesAcknowledged, true);
     });
 
-    it("rejects unknown locals identifier case style values", () => {
+    void it("rejects unknown locals identifier case style values", () => {
         assert.throws(
             () =>
                 normalizeIdentifierCaseOptions({
@@ -69,7 +69,7 @@ describe("gml identifier case option normalization", () => {
         );
     });
 
-    it("accepts valid locals identifier case style values", () => {
+    void it("accepts valid locals identifier case style values", () => {
         const normalized = normalizeIdentifierCaseOptions({
             [getIdentifierCaseScopeOptionName("locals")]:
                 IdentifierCaseStyle.SNAKE_UPPER
@@ -81,7 +81,7 @@ describe("gml identifier case option normalization", () => {
         );
     });
 
-    it("rejects enabling asset renames without acknowledgment", () => {
+    void it("rejects enabling asset renames without acknowledgment", () => {
         assert.throws(
             () =>
                 normalizeIdentifierCaseOptions({
@@ -93,7 +93,7 @@ describe("gml identifier case option normalization", () => {
         );
     });
 
-    it("rejects unknown asset identifier case style values", () => {
+    void it("rejects unknown asset identifier case style values", () => {
         assert.throws(
             () =>
                 normalizeIdentifierCaseOptions({
@@ -104,7 +104,7 @@ describe("gml identifier case option normalization", () => {
         );
     });
 
-    it("allows asset renames when explicitly acknowledged", () => {
+    void it("allows asset renames when explicitly acknowledged", () => {
         const normalized = normalizeIdentifierCaseOptions({
             [IDENTIFIER_CASE_BASE_OPTION_NAME]: "snake-lower",
             [IDENTIFIER_CASE_ACKNOWLEDGE_ASSETS_OPTION_NAME]: true

@@ -2,7 +2,7 @@ import assert from "node:assert/strict";
 import { test } from "node:test";
 import { Plugin } from "../src/index.js";
 
-test("flatten synthetic addition parentheses from reordered optional parameters", async () => {
+void test("flatten synthetic addition parentheses from reordered optional parameters", async () => {
     const source = [
         "function example(a, b = 1, c, d = 2) {",
         "    return a + b + c + d;",
@@ -33,7 +33,7 @@ test("flatten synthetic addition parentheses from reordered optional parameters"
     );
 });
 
-test("flattens synthetic addition parentheses by default", async () => {
+void test("flattens synthetic addition parentheses by default", async () => {
     const source = ["var value = a + b + c;", ""].join("\n");
 
     const formatted = await Plugin.format(source, { parser: "gml-parse" });
@@ -45,7 +45,7 @@ test("flattens synthetic addition parentheses by default", async () => {
     );
 });
 
-test("flattens longer chains of synthetic addition", async () => {
+void test("flattens longer chains of synthetic addition", async () => {
     const source = ["var combined = a + b + c + d;", ""].join("\n");
 
     const formatted = await Plugin.format(source, { parser: "gml-parse" });
@@ -57,7 +57,7 @@ test("flattens longer chains of synthetic addition", async () => {
     );
 });
 
-test("flattens additive chains that include call expressions", async () => {
+void test("flattens additive chains that include call expressions", async () => {
     const source = [
         "var expr = x + lengthdir_x(radius, angle) - lengthdir_x(radius, aa);",
         ""
@@ -72,7 +72,7 @@ test("flattens additive chains that include call expressions", async () => {
     );
 });
 
-test("flattens numeric multiplication groups inside addition chains", async () => {
+void test("flattens numeric multiplication groups inside addition chains", async () => {
     const source = [
         "var length = sqrt(dir[0] * dir[0] + dir[1] * dir[1] + dir[2] * dir[2]);",
         ""
@@ -87,7 +87,7 @@ test("flattens numeric multiplication groups inside addition chains", async () =
     );
 });
 
-test("flattens chained multiplication operands", async () => {
+void test("flattens chained multiplication operands", async () => {
     const source = [
         "function sample(a, b) {",
         "    var m1, r1;",
@@ -123,7 +123,7 @@ test("flattens chained multiplication operands", async () => {
     );
 });
 
-test("flattens standalone multiplication groups added together", async () => {
+void test("flattens standalone multiplication groups added together", async () => {
     const source = [
         "function dot(ax, ay, bx, by) {",
         "    return ax * bx + ay * by;",
@@ -152,7 +152,7 @@ test("flattens standalone multiplication groups added together", async () => {
     );
 });
 
-test("flattens squared products outside call contexts", async () => {
+void test("flattens squared products outside call contexts", async () => {
     const source = [
         "var xoff = a.x - b.x;",
         "var yoff = a.y - b.y;",
@@ -177,7 +177,7 @@ test("flattens squared products outside call contexts", async () => {
     );
 });
 
-test("flattens forced synthetic multiplication groups outside numeric calls", async () => {
+void test("flattens forced synthetic multiplication groups outside numeric calls", async () => {
     const source = [
         "function spring(a, b, dst, force) {",
         "    if (argument_count > 4) {",
@@ -214,7 +214,7 @@ test("flattens forced synthetic multiplication groups outside numeric calls", as
     );
 });
 
-test("preserves chains of sqr calls without additional parentheses", async () => {
+void test("preserves chains of sqr calls without additional parentheses", async () => {
     const source = ["var ll = sqr(dx) + sqr(dy) + sqr(dz);", ""].join("\n");
 
     const formatted = await Plugin.format(source, {
@@ -228,7 +228,7 @@ test("preserves chains of sqr calls without additional parentheses", async () =>
     );
 });
 
-test("flattens synthetic addition within sqrt calls", async () => {
+void test("flattens synthetic addition within sqrt calls", async () => {
     const source = [
         "function distance(dir) {",
         "    return sqrt(dir[0] * dir[0] + dir[1] * dir[1] + dir[2] * dir[2]);",
@@ -253,7 +253,7 @@ test("flattens synthetic addition within sqrt calls", async () => {
     );
 });
 
-test("flattens squared comparison operands within logical expressions", async () => {
+void test("flattens squared comparison operands within logical expressions", async () => {
     const source = [
         "var actual_dist = xoff * xoff + yoff * yoff;",
         "if ((actual_dist < dst * dst and push_out) or (actual_dist > dst * dst and pull_in)) {",
@@ -279,7 +279,7 @@ test("flattens squared comparison operands within logical expressions", async ()
     );
 });
 
-test("retains synthetic multiplication parentheses within comparisons", async () => {
+void test("retains synthetic multiplication parentheses within comparisons", async () => {
     const source = [
         "do {",
         "    value += 1;",
@@ -304,7 +304,7 @@ test("retains synthetic multiplication parentheses within comparisons", async ()
     );
 });
 
-test("retains synthetic multiplication grouping when subtracting values", async () => {
+void test("retains synthetic multiplication grouping when subtracting values", async () => {
     const source = [
         "function adjust(xnet, ynet, xx, yy, w, i) {",
         "    return draw_line_width(xnet, ynet, xx, yy, 2 * w - (i * 4));",

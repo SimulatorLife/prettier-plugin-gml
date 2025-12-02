@@ -11,8 +11,8 @@ async function createTemporaryDirectory() {
     return fs.mkdtemp(directoryPrefix);
 }
 
-describe("findRepoRoot helper (core)", () => {
-    it("prefers repository sentinels (AGENTS.md) over package.json", async () => {
+void describe("findRepoRoot helper (core)", () => {
+    void it("prefers repository sentinels (AGENTS.md) over package.json", async () => {
         const tempDir = await createTemporaryDirectory();
         try {
             const nested = path.join(tempDir, "sub", "inner");
@@ -34,7 +34,7 @@ describe("findRepoRoot helper (core)", () => {
         }
     });
 
-    it("falls back to the top-most package.json when no sentinel is present", async () => {
+    void it("falls back to the top-most package.json when no sentinel is present", async () => {
         const tempDir = await createTemporaryDirectory();
         try {
             const nested = path.join(tempDir, "a", "b", "c");
@@ -61,8 +61,8 @@ describe("findRepoRoot helper (core)", () => {
     });
 });
 
-describe("findRepoRootSync helper (core)", () => {
-    it("prefers repository sentinels (AGENTS.md) over package.json", async () => {
+void describe("findRepoRootSync helper (core)", () => {
+    void it("prefers repository sentinels (AGENTS.md) over package.json", async () => {
         const tempDir = await createTemporaryDirectory();
         try {
             const nested = path.join(tempDir, "sub", "inner");
@@ -84,7 +84,7 @@ describe("findRepoRootSync helper (core)", () => {
         }
     });
 
-    it("falls back to the top-most package.json when no sentinel is present", async () => {
+    void it("falls back to the top-most package.json when no sentinel is present", async () => {
         const tempDir = await createTemporaryDirectory();
         try {
             const nested = path.join(tempDir, "a", "b", "c");

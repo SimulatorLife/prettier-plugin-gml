@@ -9,8 +9,8 @@ import {
     getRegisteredIgnorePathsSnapshot
 } from "../src/shared/ignore-path-registry.js";
 
-describe("ignore path registry", () => {
-    it("deduplicates registered paths", () => {
+void describe("ignore path registry", () => {
+    void it("deduplicates registered paths", () => {
         resetRegisteredIgnorePaths();
 
         registerIgnorePath("/tmp/example.ignore");
@@ -24,7 +24,7 @@ describe("ignore path registry", () => {
         ]);
     });
 
-    it("resets all tracked paths", () => {
+    void it("resets all tracked paths", () => {
         resetRegisteredIgnorePaths();
 
         for (let index = 0; index < 100; index += 1) {

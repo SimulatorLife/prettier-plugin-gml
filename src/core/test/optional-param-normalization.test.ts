@@ -2,8 +2,8 @@ import assert from "node:assert/strict";
 import { describe, it } from "node:test";
 import { Core } from "@gml-modules/core";
 
-describe("normalizeOptionalParamToken", () => {
-    it("wraps Feather sentinels in brackets", () => {
+void describe("normalizeOptionalParamToken", () => {
+    void it("wraps Feather sentinels in brackets", () => {
         assert.strictEqual(
             Core.normalizeOptionalParamToken("*value*"),
             "[value]"
@@ -14,14 +14,14 @@ describe("normalizeOptionalParamToken", () => {
         );
     });
 
-    it("preserves already normalized tokens", () => {
+    void it("preserves already normalized tokens", () => {
         assert.strictEqual(
             Core.normalizeOptionalParamToken("[existing]"),
             "[existing]"
         );
     });
 
-    it("returns non-string tokens unchanged", () => {
+    void it("returns non-string tokens unchanged", () => {
         const sentinel = Symbol("value");
         assert.strictEqual(Core.normalizeOptionalParamToken(null), null);
         assert.strictEqual(Core.normalizeOptionalParamToken(42), 42);
@@ -31,7 +31,7 @@ describe("normalizeOptionalParamToken", () => {
         );
     });
 
-    it("strips sentinels that contain no identifier", () => {
+    void it("strips sentinels that contain no identifier", () => {
         assert.strictEqual(Core.normalizeOptionalParamToken("***"), "");
     });
 });

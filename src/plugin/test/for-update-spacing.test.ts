@@ -3,7 +3,7 @@ import { test } from "node:test";
 
 import { Plugin } from "../src/index.js";
 
-test("preserves compact augmented assignment spacing in for loop updates", async () => {
+void test("preserves compact augmented assignment spacing in for loop updates", async () => {
     const source = [
         "for (var i = 0; i <= 1; i+= step_size) {",
         "    foo();",

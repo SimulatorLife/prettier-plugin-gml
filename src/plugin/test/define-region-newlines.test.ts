@@ -3,8 +3,8 @@ import { describe, it } from "node:test";
 
 import { Plugin } from "../src/index.js";
 
-describe("legacy define region normalization", () => {
-    it("surrounds region directives rewritten from legacy defines with blank lines", async () => {
+void describe("legacy define region normalization", () => {
+    void it("surrounds region directives rewritten from legacy defines with blank lines", async () => {
         const source = [
             "#define  LEGACY_MACRO 123456",
             "#define region Block",

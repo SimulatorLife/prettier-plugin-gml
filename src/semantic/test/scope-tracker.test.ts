@@ -3,7 +3,7 @@ import assert from "node:assert/strict";
 import ScopeTracker from "../src/scopes/scope-tracker.js";
 import { ScopeOverrideKeyword } from "../src/scopes/index.js";
 
-test("resolveScopeOverride returns the root scope when using the global keyword", () => {
+void test("resolveScopeOverride returns the root scope when using the global keyword", () => {
     const tracker = new ScopeTracker({ enabled: true });
     const rootScope = tracker.enterScope("root");
     tracker.enterScope("child");
@@ -13,7 +13,7 @@ test("resolveScopeOverride returns the root scope when using the global keyword"
     assert.strictEqual(result, rootScope);
 });
 
-test("resolveScopeOverride returns a scope that matches an explicit identifier", () => {
+void test("resolveScopeOverride returns a scope that matches an explicit identifier", () => {
     const tracker = new ScopeTracker({ enabled: true });
     tracker.enterScope("root");
     const explicitScope = tracker.enterScope("explicit");
@@ -23,7 +23,7 @@ test("resolveScopeOverride returns a scope that matches an explicit identifier",
     assert.strictEqual(result, explicitScope);
 });
 
-test("resolveScopeOverride throws when given an unknown string keyword", () => {
+void test("resolveScopeOverride throws when given an unknown string keyword", () => {
     const tracker = new ScopeTracker({ enabled: true });
     tracker.enterScope("root");
 
@@ -40,7 +40,7 @@ test("resolveScopeOverride throws when given an unknown string keyword", () => {
     );
 });
 
-test("exportOccurrences captures declarations and references by scope", () => {
+void test("exportOccurrences captures declarations and references by scope", () => {
     const {
         tracker,
         programScope,
@@ -60,7 +60,7 @@ test("exportOccurrences captures declarations and references by scope", () => {
     assert.deepStrictEqual(tracker.exportOccurrences(), expected);
 });
 
-test("exportOccurrences can omit references and returns cloned metadata", () => {
+void test("exportOccurrences can omit references and returns cloned metadata", () => {
     const { tracker, scope, declarationRange } =
         createSingleScopeTracker("bar");
 
@@ -88,7 +88,7 @@ test("exportOccurrences can omit references and returns cloned metadata", () => 
     );
 });
 
-test("getScopeOccurrences exports a single scope payload", () => {
+void test("getScopeOccurrences exports a single scope payload", () => {
     const {
         tracker,
         programScope,
@@ -112,7 +112,7 @@ test("getScopeOccurrences exports a single scope payload", () => {
     assert.deepStrictEqual(result, expected);
 });
 
-test("getScopeOccurrences omits references when requested and clones metadata", () => {
+void test("getScopeOccurrences omits references when requested and clones metadata", () => {
     const { tracker, scope, declarationRange } =
         createSingleScopeTracker("bar");
 
@@ -138,7 +138,7 @@ test("getScopeOccurrences omits references when requested and clones metadata", 
     );
 });
 
-test("getScopeOccurrences returns null for disabled or unknown scopes", () => {
+void test("getScopeOccurrences returns null for disabled or unknown scopes", () => {
     const tracker = new ScopeTracker({ enabled: true });
     tracker.enterScope("program");
     tracker.exitScope();
@@ -149,7 +149,7 @@ test("getScopeOccurrences returns null for disabled or unknown scopes", () => {
     assert.strictEqual(disabled.getScopeOccurrences("anything"), null);
 });
 
-test("getSymbolOccurrences finds all occurrences of a symbol across scopes", () => {
+void test("getSymbolOccurrences finds all occurrences of a symbol across scopes", () => {
     const tracker = new ScopeTracker({ enabled: true });
     tracker.enterScope("root");
 
@@ -194,7 +194,7 @@ test("getSymbolOccurrences finds all occurrences of a symbol across scopes", () 
     assert.strictEqual(localOccurrences[0].scopeId, childScope.id);
 });
 
-test("getSymbolOccurrences returns empty array when disabled", () => {
+void test("getSymbolOccurrences returns empty array when disabled", () => {
     const tracker = new ScopeTracker({ enabled: false });
 
     const result = tracker.getSymbolOccurrences("any");
@@ -202,7 +202,7 @@ test("getSymbolOccurrences returns empty array when disabled", () => {
     assert.deepStrictEqual(result, []);
 });
 
-test("getSymbolOccurrences returns empty array for non-existent symbol", () => {
+void test("getSymbolOccurrences returns empty array for non-existent symbol", () => {
     const tracker = new ScopeTracker({ enabled: true });
     tracker.enterScope("root");
     tracker.declare("exists", {
@@ -216,7 +216,7 @@ test("getSymbolOccurrences returns empty array for non-existent symbol", () => {
     assert.deepStrictEqual(result, []);
 });
 
-test("getSymbolOccurrences returns cloned occurrence metadata", () => {
+void test("getSymbolOccurrences returns cloned occurrence metadata", () => {
     const tracker = new ScopeTracker({ enabled: true });
     tracker.enterScope("root");
 
@@ -243,7 +243,7 @@ test("getSymbolOccurrences returns cloned occurrence metadata", () => {
     assert.deepStrictEqual(tracker.getSymbolOccurrences("shared"), snapshot);
 });
 
-test("getScopeSymbols returns all unique symbol names in a scope", () => {
+void test("getScopeSymbols returns all unique symbol names in a scope", () => {
     const tracker = new ScopeTracker({ enabled: true });
     const scope = tracker.enterScope("function");
 
@@ -273,7 +273,7 @@ test("getScopeSymbols returns all unique symbol names in a scope", () => {
     assert.deepStrictEqual(sortedSymbols, ["param1", "param2"]);
 });
 
-test("getScopeSymbols returns empty array for non-existent scope", () => {
+void test("getScopeSymbols returns empty array for non-existent scope", () => {
     const tracker = new ScopeTracker({ enabled: true });
     tracker.enterScope("root");
     tracker.exitScope();
@@ -283,7 +283,7 @@ test("getScopeSymbols returns empty array for non-existent scope", () => {
     assert.deepStrictEqual(result, []);
 });
 
-test("getScopeSymbols returns empty array when disabled", () => {
+void test("getScopeSymbols returns empty array when disabled", () => {
     const tracker = new ScopeTracker({ enabled: false });
 
     const result = tracker.getScopeSymbols("any-scope");
@@ -291,7 +291,7 @@ test("getScopeSymbols returns empty array when disabled", () => {
     assert.deepStrictEqual(result, []);
 });
 
-test("resolveIdentifier finds declaration in current scope", () => {
+void test("resolveIdentifier finds declaration in current scope", () => {
     const tracker = new ScopeTracker({ enabled: true });
     const scope = tracker.enterScope("block");
 
@@ -307,7 +307,7 @@ test("resolveIdentifier finds declaration in current scope", () => {
     assert.strictEqual(result.scopeId, scope.id);
 });
 
-test("resolveIdentifier walks up scope chain to find declaration", () => {
+void test("resolveIdentifier walks up scope chain to find declaration", () => {
     const { tracker, outerScope, innerScope } =
         createNestedFunctionAndBlockScopes();
 
@@ -323,7 +323,7 @@ test("resolveIdentifier walks up scope chain to find declaration", () => {
     assert.strictEqual(innerResult.scopeId, innerScope.id);
 });
 
-test("resolveIdentifier respects shadowing", () => {
+void test("resolveIdentifier respects shadowing", () => {
     const tracker = new ScopeTracker({ enabled: true });
     tracker.enterScope("outer");
 
@@ -346,7 +346,7 @@ test("resolveIdentifier respects shadowing", () => {
     assert.strictEqual(result.start.line, 3);
 });
 
-test("resolveIdentifier uses current scope when scopeId omitted", () => {
+void test("resolveIdentifier uses current scope when scopeId omitted", () => {
     const tracker = new ScopeTracker({ enabled: true });
     tracker.enterScope("outer");
 
@@ -373,7 +373,7 @@ test("resolveIdentifier uses current scope when scopeId omitted", () => {
     assert.strictEqual(result2.scopeId, innerScope.id);
 });
 
-test("resolveIdentifier returns null for non-existent identifier", () => {
+void test("resolveIdentifier returns null for non-existent identifier", () => {
     const tracker = new ScopeTracker({ enabled: true });
     const scope = tracker.enterScope("block");
 
@@ -387,7 +387,7 @@ test("resolveIdentifier returns null for non-existent identifier", () => {
     assert.strictEqual(result, null);
 });
 
-test("resolveIdentifier returns null when disabled", () => {
+void test("resolveIdentifier returns null when disabled", () => {
     const tracker = new ScopeTracker({ enabled: false });
 
     const result = tracker.resolveIdentifier("any");
@@ -395,7 +395,7 @@ test("resolveIdentifier returns null when disabled", () => {
     assert.strictEqual(result, null);
 });
 
-test("getScopeChain returns chain from scope to root", () => {
+void test("getScopeChain returns chain from scope to root", () => {
     const tracker = new ScopeTracker({ enabled: true });
     const rootScope = tracker.enterScope("program");
     const functionScope = tracker.enterScope("function");
@@ -410,7 +410,7 @@ test("getScopeChain returns chain from scope to root", () => {
     ]);
 });
 
-test("getScopeChain returns single entry for root scope", () => {
+void test("getScopeChain returns single entry for root scope", () => {
     const tracker = new ScopeTracker({ enabled: true });
     const rootScope = tracker.enterScope("program");
 
@@ -419,7 +419,7 @@ test("getScopeChain returns single entry for root scope", () => {
     assert.deepStrictEqual(chain, [{ id: rootScope.id, kind: "program" }]);
 });
 
-test("getScopeChain returns empty array for non-existent scope", () => {
+void test("getScopeChain returns empty array for non-existent scope", () => {
     const tracker = new ScopeTracker({ enabled: true });
     tracker.enterScope("program");
 
@@ -428,7 +428,7 @@ test("getScopeChain returns empty array for non-existent scope", () => {
     assert.deepStrictEqual(result, []);
 });
 
-test("getScopeChain returns empty array when disabled", () => {
+void test("getScopeChain returns empty array when disabled", () => {
     const tracker = new ScopeTracker({ enabled: false });
 
     const result = tracker.getScopeChain("any-scope");
@@ -436,7 +436,7 @@ test("getScopeChain returns empty array when disabled", () => {
     assert.deepStrictEqual(result, []);
 });
 
-test("getScopeChain works after exiting scopes", () => {
+void test("getScopeChain works after exiting scopes", () => {
     const tracker = new ScopeTracker({ enabled: true });
     const rootScope = tracker.enterScope("program");
     const functionScope = tracker.enterScope("function");
@@ -453,7 +453,7 @@ test("getScopeChain works after exiting scopes", () => {
     ]);
 });
 
-test("getScopeDefinitions returns declarations defined in specific scope", () => {
+void test("getScopeDefinitions returns declarations defined in specific scope", () => {
     const { tracker, outerScope, innerScope } =
         createNestedFunctionAndBlockScopes();
 
@@ -485,7 +485,7 @@ test("getScopeDefinitions returns declarations defined in specific scope", () =>
     assert.deepStrictEqual(innerNames, ["anotherInner", "innerVar"]);
 });
 
-test("getScopeDefinitions returns empty array for non-existent scope", () => {
+void test("getScopeDefinitions returns empty array for non-existent scope", () => {
     const tracker = new ScopeTracker({ enabled: true });
     tracker.enterScope("program");
 
@@ -494,7 +494,7 @@ test("getScopeDefinitions returns empty array for non-existent scope", () => {
     assert.deepStrictEqual(result, []);
 });
 
-test("getScopeDefinitions returns empty array when disabled", () => {
+void test("getScopeDefinitions returns empty array when disabled", () => {
     const tracker = new ScopeTracker({ enabled: false });
 
     const result = tracker.getScopeDefinitions("any-scope");
@@ -502,7 +502,7 @@ test("getScopeDefinitions returns empty array when disabled", () => {
     assert.deepStrictEqual(result, []);
 });
 
-test("getScopeDefinitions returns cloned metadata", () => {
+void test("getScopeDefinitions returns cloned metadata", () => {
     const tracker = new ScopeTracker({ enabled: true });
     const scope = tracker.enterScope("function");
 
@@ -519,7 +519,7 @@ test("getScopeDefinitions returns cloned metadata", () => {
     assert.strictEqual(defs2[0].metadata.mutated, undefined);
 });
 
-test("resolveIdentifier uses cached scope indices for efficient lookups", () => {
+void test("resolveIdentifier uses cached scope indices for efficient lookups", () => {
     const tracker = new ScopeTracker({ enabled: true });
 
     tracker.enterScope("root");

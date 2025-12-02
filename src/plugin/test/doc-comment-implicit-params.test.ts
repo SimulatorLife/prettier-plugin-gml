@@ -38,7 +38,7 @@ function sample3() {
 }
 `;
 
-test("collectImplicitArgumentDocNames omits superseded argument docs", async () => {
+void test("collectImplicitArgumentDocNames omits superseded argument docs", async () => {
     const formatted = await Plugin.format(SOURCE, {
         applyFeatherFixes: true
     });
@@ -112,7 +112,7 @@ function sampleAlias(argument0, argument1) {
 }
 `;
 
-test("collectImplicitArgumentDocNames prefers alias docs without Feather fixes", async () => {
+void test("collectImplicitArgumentDocNames prefers alias docs without Feather fixes", async () => {
     const formatted = await Plugin.format(NO_FEATHER_SOURCE, {
         applyFeatherFixes: false
     });
@@ -151,7 +151,7 @@ function sampleExisting() {
 }
 `;
 
-test("collectImplicitArgumentDocNames reuses documented names when alias is missing", async () => {
+void test("collectImplicitArgumentDocNames reuses documented names when alias is missing", async () => {
     const formatted = await Plugin.format(EXISTING_DOC_SOURCE);
 
     const docStart = formatted.indexOf("/// @function sampleExisting");
@@ -192,7 +192,7 @@ function demo(argument0, argument1) {
 }
 `;
 
-test("collectImplicitArgumentDocNames keeps documented names for direct references", async () => {
+void test("collectImplicitArgumentDocNames keeps documented names for direct references", async () => {
     const formatted = await Plugin.format(DIRECT_REFERENCE_SOURCE, {
         applyFeatherFixes: false
     });
@@ -213,7 +213,7 @@ function preserveDocs(argument0) {
 }
 `;
 
-test("collectImplicitArgumentDocNames retains descriptive docs when alias is shorter", async () => {
+void test("collectImplicitArgumentDocNames retains descriptive docs when alias is shorter", async () => {
     const formatted = await Plugin.format(DESCRIPTIVE_DOC_SOURCE);
 
     const docLines = formatted

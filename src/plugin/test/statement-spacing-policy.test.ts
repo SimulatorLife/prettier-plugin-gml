@@ -13,12 +13,12 @@ import {
     shouldAddNewlinesAroundStatement
 } from "../src/printer/util.js";
 
-describe("statement spacing policy", () => {
+void describe("statement spacing policy", () => {
     afterEach(() => {
         resetSurroundingNewlineNodeTypes();
     });
 
-    it("detects macro-like statements", () => {
+    void it("detects macro-like statements", () => {
         const macroDeclaration = { type: "MacroDeclaration" };
         const defineMacro = {
             type: "DefineStatement",
@@ -43,7 +43,7 @@ describe("statement spacing policy", () => {
         );
     });
 
-    it("requires nested functions to keep trailing padding", () => {
+    void it("requires nested functions to keep trailing padding", () => {
         const nestedFunction = { type: "FunctionDeclaration" };
         const block = { type: "BlockStatement" };
         const container = { type: "FunctionExpression" };
@@ -67,7 +67,7 @@ describe("statement spacing policy", () => {
         );
     });
 
-    it("enforces padding between divergent return paths", () => {
+    void it("enforces padding between divergent return paths", () => {
         const guardedReturn = {
             type: "IfStatement",
             alternate: null,
@@ -106,7 +106,7 @@ describe("statement spacing policy", () => {
         );
     });
 
-    it("keeps default newline padding behavior", () => {
+    void it("keeps default newline padding behavior", () => {
         assert.equal(
             shouldAddNewlinesAroundStatement({ type: "FunctionDeclaration" }),
             true
@@ -121,7 +121,7 @@ describe("statement spacing policy", () => {
         );
     });
 
-    it("allows internal consumers to register extra padded statement types", () => {
+    void it("allows internal consumers to register extra padded statement types", () => {
         const experimentalNode = { type: "ExperimentalStatement" };
 
         assert.equal(shouldAddNewlinesAroundStatement(experimentalNode), false);

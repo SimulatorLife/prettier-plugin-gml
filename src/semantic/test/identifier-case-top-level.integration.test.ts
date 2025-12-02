@@ -40,8 +40,8 @@ async function createTempProject({
     });
 }
 
-describe("identifier case top-level renaming", () => {
-    it("plans renames for top-level scopes without modifying sources during dry-run", async () => {
+void describe("identifier case top-level renaming", () => {
+    void it("plans renames for top-level scopes without modifying sources during dry-run", async () => {
         const { projectRoot, scripts, event, projectIndex } =
             await createTempProject();
 
@@ -163,7 +163,7 @@ describe("identifier case top-level renaming", () => {
         }
     });
 
-    it("applies top-level renames when write mode is enabled", async () => {
+    void it("applies top-level renames when write mode is enabled", async () => {
         const { projectRoot, scripts, event, projectIndex } =
             await createTempProject();
 
@@ -264,7 +264,7 @@ describe("identifier case top-level renaming", () => {
         }
     });
 
-    it("reports cross-scope collisions before applying renames", async () => {
+    void it("reports cross-scope collisions before applying renames", async () => {
         const { projectRoot, scripts, projectIndex } = await createTempProject({
             scriptFixtures: [
                 {

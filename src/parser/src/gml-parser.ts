@@ -140,28 +140,6 @@ export class GMLParser {
         return astTree;
     }
 
-    printTokens(text) {
-        console.log(`===== TOKEN =====${" ".repeat(14)}===== TEXT =====`);
-
-        const chars = new antlr4.InputStream(text);
-        const lexer = new GameMakerLanguageLexer(chars);
-        lexer.strictMode = false;
-        const names = GameMakerLanguageLexer.symbolicNames;
-
-        for (
-            let token = lexer.nextToken();
-            token.type !== GameMakerLanguageLexer.EOF;
-            token = lexer.nextToken()
-        ) {
-            const name = names[token.type];
-            console.log(
-                `${name}:${" ".repeat(29 - name.length)} '${token.text.replace("\n", String.raw`\n`)}'`
-            );
-        }
-
-        console.log("");
-    }
-
     restoreOriginalLiteralText(root) {
         if (!root || typeof root !== "object") {
             return;

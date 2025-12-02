@@ -17,7 +17,7 @@ import {
     resolveIdentifierCaseRenameLookupService
 } from "../src/identifier-case/plan-service.js";
 
-test(
+void test(
     "identifier case plan services expose segregated contracts",
     { concurrency: false },
     () => {
@@ -72,7 +72,7 @@ test(
     }
 );
 
-test(
+void test(
     "identifier case plan helpers delegate through segregated services",
     { concurrency: false },
     async () => {

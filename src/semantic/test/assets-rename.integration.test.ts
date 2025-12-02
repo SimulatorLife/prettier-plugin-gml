@@ -9,8 +9,8 @@ import { Core } from "@gml-modules/core";
 
 const { fromPosixPath } = Core;
 
-describe("asset rename utilities", () => {
-    it("renames script assets and updates dependent resource metadata atomically", async () => {
+void describe("asset rename utilities", () => {
+    void it("renames script assets and updates dependent resource metadata atomically", async () => {
         const projectRoot = await createSyntheticProject();
 
         try {
@@ -125,7 +125,7 @@ describe("asset rename utilities", () => {
         }
     });
 
-    it("skips rename execution when renames input is empty", () => {
+    void it("skips rename execution when renames input is empty", () => {
         const resultWithEmptyArray = Semantic.applyAssetRenames({
             projectIndex: { resources: {} },
             renames: []

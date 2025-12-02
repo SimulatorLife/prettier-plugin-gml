@@ -11,8 +11,8 @@ import {
     walkAncestorDirectories
 } from "../src/fs/path.js";
 
-describe("path-utils", () => {
-    describe("resolveContainedRelativePath", () => {
+void describe("path-utils", () => {
+    void describe("resolveContainedRelativePath", () => {
         const projectRoot = path.join(
             process.cwd(),
             "tmp",
@@ -20,7 +20,7 @@ describe("path-utils", () => {
         );
         const childFile = path.join(projectRoot, "src", "index.gml");
 
-        it("returns a relative path when the child is inside the parent", () => {
+        void it("returns a relative path when the child is inside the parent", () => {
             const relative = resolveContainedRelativePath(
                 childFile,
                 projectRoot
@@ -28,7 +28,7 @@ describe("path-utils", () => {
             assert.strictEqual(relative, path.join("src", "index.gml"));
         });
 
-        it("allows child segments that begin with double dots", () => {
+        void it("allows child segments that begin with double dots", () => {
             const dottedChild = path.join(projectRoot, "..filename");
             const relative = resolveContainedRelativePath(
                 dottedChild,
@@ -37,7 +37,7 @@ describe("path-utils", () => {
             assert.strictEqual(relative, "..filename");
         });
 
-        it("returns an empty string when both paths are identical", () => {
+        void it("returns an empty string when both paths are identical", () => {
             const relative = resolveContainedRelativePath(
                 projectRoot,
                 projectRoot
@@ -45,13 +45,13 @@ describe("path-utils", () => {
             assert.strictEqual(relative, "");
         });
 
-        it("returns null when the child escapes the parent", () => {
+        void it("returns null when the child escapes the parent", () => {
             const sibling = path.join(projectRoot, "..", "other", "file.gml");
             const relative = resolveContainedRelativePath(sibling, projectRoot);
             assert.strictEqual(relative, null);
         });
 
-        it("returns null for empty inputs", () => {
+        void it("returns null for empty inputs", () => {
             assert.strictEqual(
                 resolveContainedRelativePath(null, projectRoot),
                 null
@@ -63,7 +63,7 @@ describe("path-utils", () => {
         });
     });
 
-    describe("walkAncestorDirectories", () => {
+    void describe("walkAncestorDirectories", () => {
         const projectRoot = path.join(
             process.cwd(),
             "tmp",
@@ -72,7 +72,7 @@ describe("path-utils", () => {
         );
         const nested = path.join(projectRoot, "src", "features", "module");
 
-        it("yields each ancestor from the starting directory to the root", () => {
+        void it("yields each ancestor from the starting directory to the root", () => {
             const resolved = path.resolve(nested);
             const ancestors = [...walkAncestorDirectories(resolved)];
 
@@ -81,12 +81,12 @@ describe("path-utils", () => {
             assert.ok(ancestors.includes(path.dirname(resolved)));
         });
 
-        it("skips invalid inputs", () => {
+        void it("skips invalid inputs", () => {
             const ancestors = [...walkAncestorDirectories(null)];
             assert.deepStrictEqual(ancestors, []);
         });
 
-        it("supports omitting the starting directory", () => {
+        void it("supports omitting the starting directory", () => {
             const resolved = path.resolve(nested);
             const ancestors = [
                 ...walkAncestorDirectories(resolved, { includeSelf: false })
@@ -96,31 +96,31 @@ describe("path-utils", () => {
         });
     });
 
-    describe("isPathInside", () => {
-        it("returns true when child equals parent", () => {
+    void describe("isPathInside", () => {
+        void it("returns true when child equals parent", () => {
             const root = path.join(process.cwd(), "tmp", "shared-path-utils");
             assert.strictEqual(isPathInside(root, root), true);
         });
 
-        it("returns true when child resides under parent", () => {
+        void it("returns true when child resides under parent", () => {
             const root = path.join(process.cwd(), "tmp", "shared-path-utils");
             const child = path.join(root, "src", "index.gml");
             assert.strictEqual(isPathInside(child, root), true);
         });
 
-        it("returns true for child names that begin with double dots", () => {
+        void it("returns true for child names that begin with double dots", () => {
             const root = path.join(process.cwd(), "tmp", "shared-path-utils");
             const child = path.join(root, "..filename");
             assert.strictEqual(isPathInside(child, root), true);
         });
 
-        it("returns false when the child escapes the parent", () => {
+        void it("returns false when the child escapes the parent", () => {
             const root = path.join(process.cwd(), "tmp", "shared-path-utils");
             const child = path.join(root, "..", "other", "file.gml");
             assert.strictEqual(isPathInside(child, root), false);
         });
 
-        it("returns false for empty inputs", () => {
+        void it("returns false for empty inputs", () => {
             const root = path.join(process.cwd(), "tmp", "shared-path-utils");
             assert.strictEqual(isPathInside("", root), false);
             assert.strictEqual(isPathInside(root, ""), false);

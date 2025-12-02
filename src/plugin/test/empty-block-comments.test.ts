@@ -3,14 +3,13 @@ import { describe, it } from "node:test";
 
 import { Plugin } from "../src/index.js";
 
-describe("empty block comments", () => {
-    it("keeps single-line block comments inline inside empty blocks", async () => {
+void describe("empty block comments", () => {
+    void it("keeps single-line block comments inline inside empty blocks", async () => {
         const source = "function make_game(_genre) { /* ... */ }\n";
 
         const formatted = await Plugin.format(source);
 
         const expected = [
-            "",
             "/// @function make_game",
             "/// @param genre",
             "/// @returns {undefined}",

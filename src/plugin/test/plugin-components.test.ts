@@ -55,7 +55,7 @@ function createAbortDuringRegistrationSignal() {
     return signal;
 }
 
-test("GML plugin component registry", { concurrency: false }, async (t) => {
+void test("GML plugin component registry", { concurrency: false }, async (t) => {
     await t.test("exposes validated defaults", () => {
         const resolved = resolveGmlPluginComponents();
 

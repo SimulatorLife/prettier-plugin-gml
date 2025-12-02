@@ -349,7 +349,8 @@ export default class GameMakerASTBuilder {
         });
         const endLocation =
             this.buildLocationFromToken(ctx?.stop ?? ctx?.start, {
-                includeLineBreakCount: true
+                includeLineBreakCount: true,
+                useStopIndex: true
             }) ??
             fallbackEndLocation ??
             startLocation ??
@@ -377,10 +378,12 @@ export default class GameMakerASTBuilder {
         const startLocation = this.buildLocationFromToken(startTokenCandidate);
         const endLocation =
             this.buildLocationFromToken(endTokenCandidate, {
-                includeLineBreakCount: true
+                includeLineBreakCount: true,
+                useStopIndex: true
             }) ??
             this.buildLocationFromToken(startTokenCandidate, {
-                includeLineBreakCount: true
+                includeLineBreakCount: true,
+                useStopIndex: true
             });
 
         if (!startLocation && !endLocation) {
@@ -395,7 +398,7 @@ export default class GameMakerASTBuilder {
 
     private buildLocationFromToken(
         token: Token | number | null | undefined,
-        { includeLineBreakCount = false } = {}
+        { includeLineBreakCount = false, useStopIndex = false } = {}
     ): GameMakerAstLocation | null {
         if (!token) {
             return null;
@@ -405,16 +408,34 @@ export default class GameMakerASTBuilder {
         if (typeof token === "number") {
             index = token;
         } else {
-            index =
-                typeof token.startIndex === "number"
-                    ? token.startIndex
-                    : typeof token.start === "number"
-                      ? token.start
-                      : typeof token.stopIndex === "number"
+            if (useStopIndex) {
+                index =
+                    typeof token.stopIndex === "number"
                         ? token.stopIndex
                         : typeof token.stop === "number"
                           ? token.stop
                           : null;
+
+                if (index === null) {
+                    index =
+                        typeof token.startIndex === "number"
+                            ? token.startIndex
+                            : typeof token.start === "number"
+                              ? token.start
+                              : null;
+                }
+            } else {
+                index =
+                    typeof token.startIndex === "number"
+                        ? token.startIndex
+                        : typeof token.start === "number"
+                          ? token.start
+                          : typeof token.stopIndex === "number"
+                            ? token.stopIndex
+                            : typeof token.stop === "number"
+                              ? token.stop
+                              : null;
+            }
         }
 
         if (index === null) {

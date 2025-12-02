@@ -5,8 +5,8 @@ import { describe, it } from "node:test";
 
 import { visitChildNodes } from "../src/ast/node-helpers.js";
 
-describe("visitChildNodes", () => {
-    it("invokes the callback for every array entry", () => {
+void describe("visitChildNodes", () => {
+    void it("invokes the callback for every array entry", () => {
         const calls = [];
 
         visitChildNodes([1, { nested: true }], (...args) => {
@@ -18,7 +18,7 @@ describe("visitChildNodes", () => {
         assert.deepEqual(calls[1], [{ nested: true }]);
     });
 
-    it("only forwards object values from plain objects", () => {
+    void it("only forwards object values from plain objects", () => {
         const child = { nested: true };
         const calls = [];
 
@@ -30,7 +30,7 @@ describe("visitChildNodes", () => {
         assert.deepEqual(calls[0], [child]);
     });
 
-    it("continues iterating when the backing array mutates", () => {
+    void it("continues iterating when the backing array mutates", () => {
         const nodes = [{ name: "alpha" }, { name: "beta" }, { name: "gamma" }];
         const seen = [];
 
@@ -45,7 +45,7 @@ describe("visitChildNodes", () => {
         assert.deepEqual(seen, ["alpha", "beta", "gamma"]);
     });
 
-    it("bails early for nullish parents", () => {
+    void it("bails early for nullish parents", () => {
         const calls = [];
 
         visitChildNodes(null, (...args) => {

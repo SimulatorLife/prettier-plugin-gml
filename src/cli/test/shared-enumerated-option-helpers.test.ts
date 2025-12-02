@@ -7,8 +7,8 @@ import {
     describeValueForError
 } from "../src/shared/dependencies.js";
 
-describe("createEnumeratedOptionHelpers", () => {
-    it("formats the sorted list of enumerated values", () => {
+void describe("createEnumeratedOptionHelpers", () => {
+    void it("formats the sorted list of enumerated values", () => {
         const helpers = createEnumeratedOptionHelpers([
             "json",
             "human",
@@ -17,7 +17,7 @@ describe("createEnumeratedOptionHelpers", () => {
         assert.equal(helpers.formatList(), "human, json, yaml");
     });
 
-    it("normalizes values with fallback support", () => {
+    void it("normalizes values with fallback support", () => {
         const helpers = createEnumeratedOptionHelpers(["json", "human"]);
         assert.equal(helpers.normalize("json"), "json");
         assert.equal(helpers.normalize(null, { fallback: "human" }), "human");
@@ -25,7 +25,7 @@ describe("createEnumeratedOptionHelpers", () => {
         assert.equal(helpers.normalize("xml"), null);
     });
 
-    it("throws with a descriptive message when value is not allowed", () => {
+    void it("throws with a descriptive message when value is not allowed", () => {
         const helpers = createEnumeratedOptionHelpers(["json"], {
             formatErrorMessage: ({ list, received }) =>
                 `Expected values: ${list}. Received: ${received}.`
@@ -39,7 +39,7 @@ describe("createEnumeratedOptionHelpers", () => {
         );
     });
 
-    it("supports custom coercion when validating values", () => {
+    void it("supports custom coercion when validating values", () => {
         const helpers = createEnumeratedOptionHelpers(["json"], {
             coerce(value) {
                 if (typeof value !== "string") {
@@ -57,7 +57,7 @@ describe("createEnumeratedOptionHelpers", () => {
         );
     });
 
-    it("allows overriding error messages per invocation", () => {
+    void it("allows overriding error messages per invocation", () => {
         const helpers = createEnumeratedOptionHelpers(["json"]);
         assert.throws(
             () =>
@@ -66,11 +66,11 @@ describe("createEnumeratedOptionHelpers", () => {
                         `unsupported: ${describeValueForError(value)}`
                 }),
             (error) =>
-                error instanceof Error && error.message === "unsupported: yaml"
+                error instanceof Error && error.message === 'unsupported: "yaml"'
         );
     });
 
-    it("normalizes string inputs while enforcing type guards", () => {
+    void it("normalizes string inputs while enforcing type guards", () => {
         const helpers = createStringEnumeratedOptionHelpers(["json"], {
             valueLabel: "Output format",
             formatErrorMessage: ({ list }) => `Format must be one of: ${list}.`

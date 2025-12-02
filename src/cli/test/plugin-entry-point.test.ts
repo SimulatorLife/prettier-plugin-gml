@@ -40,8 +40,8 @@ afterEach(() => {
     temporaryDirectories.clear();
 });
 
-describe("resolvePluginEntryPoint", () => {
-    it("prefers an environment override when the path exists", () => {
+void describe("resolvePluginEntryPoint", () => {
+    void it("prefers an environment override when the path exists", () => {
         const pluginPath = createTemporaryPluginFile();
 
         const resolved = resolvePluginEntryPoint({
@@ -51,14 +51,14 @@ describe("resolvePluginEntryPoint", () => {
         assert.strictEqual(resolved, pluginPath);
     });
 
-    it("treats null options bags as absent overrides", () => {
+    void it("treats null options bags as absent overrides", () => {
         const expected = resolvePluginEntryPoint();
         const resolved = resolvePluginEntryPoint(null);
 
         assert.strictEqual(resolved, expected);
     });
 
-    it("checks each environment entry before falling back to defaults", () => {
+    void it("checks each environment entry before falling back to defaults", () => {
         const pluginPath = createTemporaryPluginFile();
         const nonexistent = path.join(path.dirname(pluginPath), "missing.mjs");
         const envValue = `${nonexistent}${path.delimiter}${pluginPath}`;
@@ -70,7 +70,7 @@ describe("resolvePluginEntryPoint", () => {
         assert.strictEqual(resolved, pluginPath);
     });
 
-    it("skips directory overrides when resolving the entry point", () => {
+    void it("skips directory overrides when resolving the entry point", () => {
         const defaultEntryPoint = resolvePluginEntryPoint({ env: {} });
         const directoryOverride = fs.mkdtempSync(
             path.join(os.tmpdir(), "prettier-plugin-gml-entry-dir-")
@@ -84,7 +84,7 @@ describe("resolvePluginEntryPoint", () => {
         assert.strictEqual(resolved, defaultEntryPoint);
     });
 
-    it("expands leading tildes in environment overrides", () => {
+    void it("expands leading tildes in environment overrides", () => {
         const homeDirectory = os.homedir();
         if (!homeDirectory) {
             return;
@@ -102,7 +102,7 @@ describe("resolvePluginEntryPoint", () => {
         assert.strictEqual(resolved, pluginPath);
     });
 
-    it("falls back to built-in candidates when overrides are not provided", () => {
+    void it("falls back to built-in candidates when overrides are not provided", () => {
         const repoRoot = path.resolve(
             path.dirname(fileURLToPath(import.meta.url)),
             "..",
@@ -124,8 +124,8 @@ describe("resolvePluginEntryPoint", () => {
     });
 });
 
-describe("importPluginModule", () => {
-    it("imports the module located at the resolved entry point", async () => {
+void describe("importPluginModule", () => {
+    void it("imports the module located at the resolved entry point", async () => {
         const pluginPath = createTemporaryPluginFile();
         const moduleContents = [
             "export const sentinel = 1729;",

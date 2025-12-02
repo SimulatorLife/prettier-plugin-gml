@@ -48,7 +48,7 @@ function createMockFs(entries) {
     };
 }
 
-test("findProjectRoot returns nearest directory containing a manifest", async () => {
+void test("findProjectRoot returns nearest directory containing a manifest", async () => {
     const projectRoot = path.resolve("/workspace/project");
     const filePath = path.join(projectRoot, "scripts", "enemy", "attack.gml");
     const mockFs = createMockFs({
@@ -78,7 +78,7 @@ test("findProjectRoot returns nearest directory containing a manifest", async ()
     assert.equal(result, projectRoot);
 });
 
-test("findProjectRoot returns null when no manifest is discovered", async () => {
+void test("findProjectRoot returns null when no manifest is discovered", async () => {
     const workingDir = path.resolve("/workspace/random");
     const filePath = path.join(workingDir, "scratch", "notes.gml");
     const mockFs = createMockFs({
@@ -94,7 +94,7 @@ test("findProjectRoot returns null when no manifest is discovered", async () => 
     assert.equal(result, null);
 });
 
-test("findProjectRoot treats nullish directory listings as empty", async () => {
+void test("findProjectRoot treats nullish directory listings as empty", async () => {
     const projectRoot = path.resolve("/workspace/project");
     const filePath = path.join(projectRoot, "scripts", "enemy", "attack.gml");
 
@@ -120,7 +120,7 @@ test("findProjectRoot treats nullish directory listings as empty", async () => {
     });
 });
 
-test("findProjectRoot surfaces abort message before filesystem access", async () => {
+void test("findProjectRoot surfaces abort message before filesystem access", async () => {
     const controller = new AbortController();
     controller.abort(null);
 
@@ -152,7 +152,7 @@ test("findProjectRoot surfaces abort message before filesystem access", async ()
     assert.equal(readAttempted, false);
 });
 
-test("deriveCacheKey changes when manifest mtime changes", async () => {
+void test("deriveCacheKey changes when manifest mtime changes", async () => {
     const projectRoot = path.resolve("/workspace/project");
     const manifestName = `project${PROJECT_MANIFEST_EXTENSION}`;
     const filePath = path.join(projectRoot, "scripts", "hero.gml");
@@ -189,7 +189,7 @@ test("deriveCacheKey changes when manifest mtime changes", async () => {
     assert.notEqual(firstKey, secondKey);
 });
 
-test("deriveCacheKey is stable across manifest ordering", async () => {
+void test("deriveCacheKey is stable across manifest ordering", async () => {
     const projectRoot = path.resolve("/workspace/project");
     const filePath = path.join(projectRoot, "scripts", "hero.gml");
     const manifestA = `main${PROJECT_MANIFEST_EXTENSION}`;
@@ -235,7 +235,7 @@ test("deriveCacheKey is stable across manifest ordering", async () => {
     assert.equal(firstKey, secondKey);
 });
 
-test("loadBuiltInIdentifiers respects abort guard", async () => {
+void test("loadBuiltInIdentifiers respects abort guard", async () => {
     const controller = new AbortController();
     controller.abort(null);
 

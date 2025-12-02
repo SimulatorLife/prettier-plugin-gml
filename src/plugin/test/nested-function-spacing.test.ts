@@ -3,7 +3,7 @@ import { test } from "node:test";
 
 import { Plugin } from "../src/index.js";
 
-test("adds a blank line before closing blocks after nested functions", async () => {
+void test("adds a blank line before closing blocks after nested functions", async () => {
     const source = [
         "function outer() constructor {",
         "    function inner() {",

@@ -9,18 +9,18 @@ import {
     setMaxParserIterations
 } from "../src/modules/memory/index.js";
 
-describe("memory parser iteration limit configuration", () => {
+void describe("memory parser iteration limit configuration", () => {
     afterEach(() => {
         setMaxParserIterations(DEFAULT_MAX_PARSER_ITERATIONS);
     });
 
-    it("returns the baseline limit when no overrides are applied", () => {
+    void it("returns the baseline limit when no overrides are applied", () => {
         setMaxParserIterations(DEFAULT_MAX_PARSER_ITERATIONS);
 
         assert.equal(getMaxParserIterations(), DEFAULT_MAX_PARSER_ITERATIONS);
     });
 
-    it("allows overriding the parser iteration limit", () => {
+    void it("allows overriding the parser iteration limit", () => {
         setMaxParserIterations(DEFAULT_MAX_PARSER_ITERATIONS);
 
         setMaxParserIterations(12);
@@ -28,7 +28,7 @@ describe("memory parser iteration limit configuration", () => {
         assert.equal(getMaxParserIterations(), 12);
     });
 
-    it("applies environment overrides to the parser iteration limit", () => {
+    void it("applies environment overrides to the parser iteration limit", () => {
         setMaxParserIterations(DEFAULT_MAX_PARSER_ITERATIONS);
 
         applyParserMaxIterationsEnvOverride({
@@ -38,7 +38,7 @@ describe("memory parser iteration limit configuration", () => {
         assert.equal(getMaxParserIterations(), 18);
     });
 
-    it("ignores invalid environment overrides", () => {
+    void it("ignores invalid environment overrides", () => {
         setMaxParserIterations(DEFAULT_MAX_PARSER_ITERATIONS);
 
         const originalWarn = console.warn;

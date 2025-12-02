@@ -14,13 +14,12 @@ const SOURCE_LINES = [
 
 // This tests the default, opinionated behavior of the formatter
 // To pad leading zeroes around decimal points and trim unnecessary trailing decimal points
-test("pads bare decimal literals by default", async () => {
+void test("pads bare decimal literals by default", async () => {
     const formatted = await Plugin.format(SOURCE_LINES.join("\n"));
 
     assert.strictEqual(
         formatted,
         [
-            "",
             "/// @function coefficients",
             "function coefficients() {",
             "    var a = 0.5;",

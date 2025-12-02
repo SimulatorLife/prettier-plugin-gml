@@ -2,7 +2,7 @@ import assert from "node:assert/strict";
 import { test } from "node:test";
 import { Plugin } from "../src/index.js";
 
-test("wraps single call expression arguments when enforcing maxParamsPerLine", async () => {
+void test("wraps single call expression arguments when enforcing maxParamsPerLine", async () => {
     const source = [
         "buffer_from_vertex_buffer(vertex_buffer_create_triangular_prism(undefined, undefined, false));",
         ""

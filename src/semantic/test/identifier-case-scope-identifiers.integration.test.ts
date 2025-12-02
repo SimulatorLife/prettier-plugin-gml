@@ -101,8 +101,8 @@ async function createIdentifierFixtureProject() {
     return { projectRoot: tempRoot };
 }
 
-describe("project index identifier tracking", () => {
-    it("assigns identifier ids per scope and preserves collision entries", async () => {
+void describe("project index identifier tracking", () => {
+    void it("assigns identifier ids per scope and preserves collision entries", async () => {
         const { projectRoot } = await createIdentifierFixtureProject();
 
         try {

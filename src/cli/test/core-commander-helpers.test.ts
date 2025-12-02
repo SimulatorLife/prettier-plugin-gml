@@ -8,14 +8,14 @@ import {
 
 import { Command, InvalidArgumentError, Option } from "../src/dependencies.js";
 
-describe("commander dependencies", () => {
-    it("re-exports the native Commander constructors", () => {
+void describe("commander dependencies", () => {
+    void it("re-exports the native Commander constructors", () => {
         assert.strictEqual(Command, NativeCommand);
         assert.strictEqual(Option, NativeOption);
         assert.strictEqual(InvalidArgumentError, NativeInvalidArgumentError);
     });
 
-    it("constructs Commander instances via the shared exports", () => {
+    void it("constructs Commander instances via the shared exports", () => {
         const command = new Command("example");
         const option = new Option("--flag");
         const error = new InvalidArgumentError("bad value");

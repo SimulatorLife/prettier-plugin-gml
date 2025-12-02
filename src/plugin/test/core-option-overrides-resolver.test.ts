@@ -9,8 +9,8 @@ import {
 } from "../src/options/core-option-overrides.js";
 import { TRAILING_COMMA } from "../src/options/trailing-comma-option.js";
 
-describe("resolveCoreOptionOverrides", () => {
-    it("returns the default override map when no resolver is registered", () => {
+void describe("resolveCoreOptionOverrides", () => {
+    void it("returns the default override map when no resolver is registered", () => {
         const overrides = resolveCoreOptionOverrides();
 
         assert.strictEqual(overrides, DEFAULT_CORE_OPTION_OVERRIDES);
@@ -24,7 +24,7 @@ describe("resolveCoreOptionOverrides", () => {
         ]);
     });
 
-    it("allows hosts to replace opinionated values via the resolver hook", () => {
+    void it("allows hosts to replace opinionated values via the resolver hook", () => {
         try {
             setCoreOptionOverridesResolver(() => ({
                 trailingComma: TRAILING_COMMA.ES5,
@@ -42,7 +42,7 @@ describe("resolveCoreOptionOverrides", () => {
         }
     });
 
-    it("throws when the resolver returns an invalid trailing comma override", () => {
+    void it("throws when the resolver returns an invalid trailing comma override", () => {
         try {
             assert.throws(
                 () =>
@@ -59,7 +59,7 @@ describe("resolveCoreOptionOverrides", () => {
         }
     });
 
-    it("treats null or undefined entries as opt-outs so user configs can apply", () => {
+    void it("treats null or undefined entries as opt-outs so user configs can apply", () => {
         try {
             setCoreOptionOverridesResolver(() => ({
                 trailingComma: null,
@@ -76,7 +76,7 @@ describe("resolveCoreOptionOverrides", () => {
         }
     });
 
-    it("falls back to the default map when the resolver returns invalid data", () => {
+    void it("falls back to the default map when the resolver returns invalid data", () => {
         try {
             setCoreOptionOverridesResolver(() => ({
                 trailingComma: 42,

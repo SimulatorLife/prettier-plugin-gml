@@ -4,7 +4,7 @@ import test from "node:test";
 
 import { walkObjectGraph } from "../src/ast/object-graph.js";
 
-test("walkObjectGraph visits each object once even with cycles", () => {
+void test("walkObjectGraph visits each object once even with cycles", () => {
     const shared: Record<string, unknown> & { value: number } = { value: 1 };
     const root = {
         left: { nested: shared },

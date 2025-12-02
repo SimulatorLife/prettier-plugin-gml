@@ -10,7 +10,7 @@ import {
 
 // Node.js deprecated assert.equal; rely on the strict helpers to avoid implicit
 // coercion. Manual validation: `node --test src/semantic/test/identifier-case-utils.test.js`.
-test("normalisation preserves prefixes and numeric suffixes", () => {
+void test("normalisation preserves prefixes and numeric suffixes", () => {
     const normalized = normalizeIdentifierCase("global.hp_max_2");
 
     assert.strictEqual(normalized.prefix, "global.");
@@ -28,7 +28,7 @@ test("normalisation preserves prefixes and numeric suffixes", () => {
     assert.strictEqual(rebuilt, "global.hpMax_2");
 });
 
-test("leading and trailing underscores are stable across conversions", () => {
+void test("leading and trailing underscores are stable across conversions", () => {
     const source = "__hpMax__";
     const normalized = normalizeIdentifierCase(source);
 
@@ -49,7 +49,7 @@ test("leading and trailing underscores are stable across conversions", () => {
     );
 });
 
-test("mixed alphanumeric identifiers join digits intelligently in snake cases", () => {
+void test("mixed alphanumeric identifiers join digits intelligently in snake cases", () => {
     const normalized = normalizeIdentifierCase("hp2DMax");
 
     assert.strictEqual(formatIdentifierCase(normalized, "camel"), "hp2DMax");
@@ -64,7 +64,7 @@ test("mixed alphanumeric identifiers join digits intelligently in snake cases", 
     );
 });
 
-test("idempotence checks report already compliant identifiers", () => {
+void test("idempotence checks report already compliant identifiers", () => {
     assert.strictEqual(isIdentifierCase("hpMax", "camel"), true);
     assert.strictEqual(isIdentifierCase("HpMax", "pascal"), true);
     assert.strictEqual(isIdentifierCase("hp_max", "snake-lower"), true);
@@ -73,7 +73,7 @@ test("idempotence checks report already compliant identifiers", () => {
     assert.strictEqual(isIdentifierCase("hp_max", "camel"), false);
 });
 
-test("style metadata exposes descriptions", () => {
+void test("style metadata exposes descriptions", () => {
     assert.strictEqual(
         getIdentifierCaseStyleMetadata("camel").description,
         "Convert identifiers to lower camelCase (e.g. `exampleName`)."
@@ -87,7 +87,7 @@ test("style metadata exposes descriptions", () => {
     });
 });
 
-test("numeric suffixes remain attached regardless of case", () => {
+void test("numeric suffixes remain attached regardless of case", () => {
     const normalized = normalizeIdentifierCase("self.hp_value99");
 
     assert.strictEqual(normalized.prefix, "self.");

@@ -3,7 +3,7 @@ import { test } from "node:test";
 
 import { Plugin } from "../src/index.js";
 
-test("keeps small struct arguments inline", async () => {
+void test("keeps small struct arguments inline", async () => {
     const source = [
         "function create() {",
         "    return instance_create_depth(0, 0, 0, Object2, {",
@@ -26,7 +26,7 @@ test("keeps small struct arguments inline", async () => {
     );
 });
 
-test("still breaks struct arguments with many properties", async () => {
+void test("still breaks struct arguments with many properties", async () => {
     const source = [
         "function build() {",
         "    return create_instance(1, 2, {",

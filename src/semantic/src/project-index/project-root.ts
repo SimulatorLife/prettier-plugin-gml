@@ -35,16 +35,6 @@ export async function findProjectRoot(
         });
         ensureNotAborted();
 
-        try {
-            const sample = (entries || []).slice(0, 20).map(String);
-            const matched = (entries || []).some(isProjectManifestPath);
-            console.debug(
-                `[DBG] findProjectRoot: grep dir=${directory} entriesCount=${(entries || []).length} matched=${matched} sample=${JSON.stringify(sample)}`
-            );
-        } catch {
-            /* ignore */
-        }
-
         if (entries.some(isProjectManifestPath)) {
             return directory;
         }

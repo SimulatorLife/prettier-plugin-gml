@@ -78,8 +78,8 @@ async function createAssetReservedProject() {
     };
 }
 
-describe("asset rename execution", () => {
-    it("renames script assets and updates referencing metadata", async () => {
+void describe("asset rename execution", () => {
+    void it("renames script assets and updates referencing metadata", async () => {
         const { projectRoot, projectIndex, scriptSource, scriptPath } =
             await createAssetRenameProject();
 
@@ -161,8 +161,8 @@ describe("asset rename execution", () => {
     });
 });
 
-describe("asset rename conflict detection", () => {
-    it("aborts renames when converted names collide with existing assets", async () => {
+void describe("asset rename conflict detection", () => {
+    void it("aborts renames when converted names collide with existing assets", async () => {
         const { projectRoot, projectIndex, scriptPath } =
             await createAssetCollisionProject();
 
@@ -232,7 +232,7 @@ describe("asset rename conflict detection", () => {
         }
     });
 
-    it("detects reserved-word conflicts before renaming assets", async () => {
+    void it("detects reserved-word conflicts before renaming assets", async () => {
         const { projectRoot, projectIndex, scriptPath } =
             await createAssetReservedProject();
 

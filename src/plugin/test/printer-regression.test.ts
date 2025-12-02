@@ -3,7 +3,7 @@ import { test } from "node:test";
 
 import { Plugin } from "../src/index.js";
 
-test("prints statements and element lists for GML programs", async () => {
+void test("prints statements and element lists for GML programs", async () => {
     const source = [
         "var counter = 1 + value;",
         "function demo() {",
@@ -30,7 +30,7 @@ test("prints statements and element lists for GML programs", async () => {
     );
 });
 
-test("prints all call arguments in order", async () => {
+void test("prints all call arguments in order", async () => {
     const source = [
         "function demo() {",
         '    return calculate("alpha", 2, true, other());',
@@ -43,7 +43,6 @@ test("prints all call arguments in order", async () => {
     assert.strictEqual(
         formatted,
         [
-            "",
             "/// @function demo",
             "function demo() {",
             '    return calculate("alpha", 2, true, other());',
@@ -53,13 +52,13 @@ test("prints all call arguments in order", async () => {
     );
 });
 
-test("omits redundant unary plus before identifiers", async () => {
+void test("omits redundant unary plus before identifiers", async () => {
     const formatted = await Plugin.format("var value = +count;\n");
 
     assert.strictEqual(formatted, "var value = count;\n");
 });
 
-test("preserves unary plus conversions", async () => {
+void test("preserves unary plus conversions", async () => {
     const formatted = await Plugin.format('var value = +"5";\n');
 
     assert.strictEqual(formatted, 'var value = +"5";\n');

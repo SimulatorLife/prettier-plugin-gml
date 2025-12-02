@@ -6,7 +6,7 @@ import { normalizeIdentifierMetadataEntries } from "../src/resources/gml-identif
 
 const sampleDescriptor = { type: "Function", tags: ["function"] };
 
-test("normalizeIdentifierMetadataEntries returns normalized entries", () => {
+void test("normalizeIdentifierMetadataEntries returns normalized entries", () => {
     const metadata = {
         identifiers: {
             draw_text: sampleDescriptor,
@@ -25,7 +25,7 @@ test("normalizeIdentifierMetadataEntries returns normalized entries", () => {
     ]);
 });
 
-test("normalizeIdentifierMetadataEntries tolerates invalid inputs", () => {
+void test("normalizeIdentifierMetadataEntries tolerates invalid inputs", () => {
     assert.deepEqual(normalizeIdentifierMetadataEntries(null), []);
     assert.deepEqual(normalizeIdentifierMetadataEntries({}), []);
 

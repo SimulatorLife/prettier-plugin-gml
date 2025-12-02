@@ -2,8 +2,8 @@ import assert from "node:assert/strict";
 import { describe, it } from "node:test";
 import { Plugin } from "../src/index.js";
 
-describe("block initial static spacing", () => {
-    it("keeps the first static declaration adjacent to the opening brace", async () => {
+void describe("block initial static spacing", () => {
+    void it("keeps the first static declaration adjacent to the opening brace", async () => {
         const source = [
             "function example() {",
             "    static foo = 1;",

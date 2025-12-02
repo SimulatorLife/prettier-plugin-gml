@@ -23,7 +23,7 @@ function createTempDirFactory() {
     };
 }
 
-describe("manual file helpers", () => {
+void describe("manual file helpers", () => {
     const createTempDir = createTempDirFactory();
     let tempDir;
 
@@ -31,7 +31,7 @@ describe("manual file helpers", () => {
         tempDir = await createTempDir();
     });
 
-    it("writes files after ensuring parent directories exist", async () => {
+    void it("writes files after ensuring parent directories exist", async () => {
         const targetPath = path.join(tempDir, "nested", "manual.txt");
 
         await writeManualFile({
@@ -43,7 +43,7 @@ describe("manual file helpers", () => {
         assert.equal(contents, "manual payload");
     });
 
-    it("serializes JSON payloads with a trailing newline", async () => {
+    void it("serializes JSON payloads with a trailing newline", async () => {
         const targetPath = path.join(tempDir, "output", "artefact.json");
         let observed;
 
@@ -64,7 +64,7 @@ describe("manual file helpers", () => {
         });
     });
 
-    it("rejects writes outside workflow allow paths", async () => {
+    void it("rejects writes outside workflow allow paths", async () => {
         const targetPath = path.join(tempDir, "restricted", "manual.txt");
         const filter = createWorkflowPathFilter({
             denyPaths: [path.join(tempDir, "restricted")]

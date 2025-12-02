@@ -2,8 +2,8 @@ import assert from "node:assert/strict";
 import { describe, it } from "node:test";
 import { Plugin } from "../src/index.js";
 
-describe("constructor instance method semicolons", () => {
-    it("omits semicolons for assignments inside constructor methods", async () => {
+void describe("constructor instance method semicolons", () => {
+    void it("omits semicolons for assignments inside constructor methods", async () => {
         const source = [
             "function Line() : Shape() constructor {",
             "    function set_points(x1, y1) {",
@@ -17,7 +17,6 @@ describe("constructor instance method semicolons", () => {
         const formatted = await Plugin.format(source);
 
         const expected = [
-            "",
             "/// @function Line",
             "function Line() : Shape() constructor {",
             "",

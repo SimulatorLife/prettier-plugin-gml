@@ -6,7 +6,7 @@ import {
     resolveModuleDefaultExport
 } from "../src/dependencies.js";
 
-test("resolveModuleDefaultExport returns the default export when present", () => {
+void test("resolveModuleDefaultExport returns the default export when present", () => {
     const namespace = { default: () => "value" };
     const resolved = resolveModuleDefaultExport(namespace);
     assert.strictEqual(typeof resolved, "function");
@@ -16,12 +16,12 @@ test("resolveModuleDefaultExport returns the default export when present", () =>
     assert.strictEqual(resolved(), "value");
 });
 
-test("resolveModuleDefaultExport preserves falsy defaults", () => {
+void test("resolveModuleDefaultExport preserves falsy defaults", () => {
     const namespace = { default: 0 };
     assert.strictEqual(resolveModuleDefaultExport(namespace), 0);
 });
 
-test("resolveModuleDefaultExport falls back to the module for nullish defaults", () => {
+void test("resolveModuleDefaultExport falls back to the module for nullish defaults", () => {
     const namespaceWithNull = { default: null, extra: true };
     assert.strictEqual(
         resolveModuleDefaultExport(namespaceWithNull),
@@ -35,13 +35,13 @@ test("resolveModuleDefaultExport falls back to the module for nullish defaults",
     );
 });
 
-test("resolveModuleDefaultExport tolerates primitive and null modules", () => {
+void test("resolveModuleDefaultExport tolerates primitive and null modules", () => {
     assert.strictEqual(resolveModuleDefaultExport(null), null);
     assert.strictEqual(resolveModuleDefaultExport(), undefined);
     assert.strictEqual(resolveModuleDefaultExport("module"), "module");
 });
 
-test("isMissingModuleDependency detects ERR_MODULE_NOT_FOUND errors", () => {
+void test("isMissingModuleDependency detects ERR_MODULE_NOT_FOUND errors", () => {
     const error: Error & { code?: string } = new Error(
         "Cannot find module 'prettier'"
     );
@@ -50,7 +50,7 @@ test("isMissingModuleDependency detects ERR_MODULE_NOT_FOUND errors", () => {
     assert.strictEqual(isMissingModuleDependency(error, "prettier"), true);
 });
 
-test("isMissingModuleDependency handles double-quoted module identifiers", () => {
+void test("isMissingModuleDependency handles double-quoted module identifiers", () => {
     const error: Error & { code?: string } = new Error(
         'Cannot find module "fast-xml-parser"'
     );
@@ -62,14 +62,14 @@ test("isMissingModuleDependency handles double-quoted module identifiers", () =>
     );
 });
 
-test("isMissingModuleDependency returns false for unrelated errors", () => {
+void test("isMissingModuleDependency returns false for unrelated errors", () => {
     const error: Error & { code?: string } = new Error("Operation failed");
     error.code = "EFAIL";
 
     assert.strictEqual(isMissingModuleDependency(error, "prettier"), false);
 });
 
-test("isMissingModuleDependency requires a non-empty module identifier", () => {
+void test("isMissingModuleDependency requires a non-empty module identifier", () => {
     const error: Error & { code?: string } = new Error("Cannot find module ''");
     error.code = "ERR_MODULE_NOT_FOUND";
 

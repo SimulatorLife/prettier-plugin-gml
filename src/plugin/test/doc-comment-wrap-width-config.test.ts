@@ -10,7 +10,7 @@ import {
     setDefaultDocCommentMaxWrapWidth
 } from "../src/printer/doc-comment-wrap-width.js";
 
-test("doc comment wrap width exposes a configurable baseline", () => {
+void test("doc comment wrap width exposes a configurable baseline", () => {
     assert.strictEqual(
         DEFAULT_DOC_COMMENT_MAX_WRAP_WIDTH,
         DOC_COMMENT_MAX_WRAP_WIDTH_BASELINE,
@@ -23,7 +23,7 @@ test("doc comment wrap width exposes a configurable baseline", () => {
     );
 });
 
-test("doc comment wrap width respects environment overrides", () => {
+void test("doc comment wrap width respects environment overrides", () => {
     const original = getDefaultDocCommentMaxWrapWidth();
 
     try {

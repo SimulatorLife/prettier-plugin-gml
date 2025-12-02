@@ -125,7 +125,7 @@ class TestMetricsTracker {
     reporting: any;
 }
 
-test("buildProjectIndex falls back to a noop metrics tracker when override is invalid", async () => {
+void test("buildProjectIndex falls back to a noop metrics tracker when override is invalid", async () => {
     const { projectRoot, cleanup } = await createProjectFixture();
 
     try {
@@ -146,7 +146,7 @@ test("buildProjectIndex falls back to a noop metrics tracker when override is in
     }
 });
 
-test("buildProjectIndex reuses a provided metrics tracker", async () => {
+void test("buildProjectIndex reuses a provided metrics tracker", async () => {
     const { projectRoot, cleanup } = await createProjectFixture();
     const tracker = new TestMetricsTracker();
 
@@ -167,7 +167,7 @@ test("buildProjectIndex reuses a provided metrics tracker", async () => {
     }
 });
 
-test("createMetricsTracker trims and deduplicates configured cache keys", () => {
+void test("createMetricsTracker trims and deduplicates configured cache keys", () => {
     const tracker = Core.createMetricsTracker({
         cacheKeys: new Set([
             " hits ",
@@ -190,7 +190,7 @@ test("createMetricsTracker trims and deduplicates configured cache keys", () => 
     });
 });
 
-test("createMetricsTracker falls back to default cache keys when normalization is empty", () => {
+void test("createMetricsTracker falls back to default cache keys when normalization is empty", () => {
     const tracker = Core.createMetricsTracker({
         cacheKeys: [null, "   "]
     });
@@ -205,7 +205,7 @@ test("createMetricsTracker falls back to default cache keys when normalization i
     });
 });
 
-test("createMetricsTracker falls back to default cache keys when option is invalid", () => {
+void test("createMetricsTracker falls back to default cache keys when option is invalid", () => {
     const tracker = Core.createMetricsTracker({ cacheKeys: 42 as any });
 
     tracker.recording.caches.recordMetric("demo", "custom", 0);

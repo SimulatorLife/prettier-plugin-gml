@@ -12,7 +12,7 @@ import {
     PROJECT_INDEX_GML_MAX_CONCURRENCY_BASELINE
 } from "../src/project-index/concurrency.js";
 
-test("project index concurrency default can be tuned programmatically", () => {
+void test("project index concurrency default can be tuned programmatically", () => {
     const originalDefault = getDefaultProjectIndexGmlConcurrency();
     const originalLimit = getDefaultProjectIndexGmlConcurrencyLimit();
     const baselineLimit = setDefaultProjectIndexGmlConcurrencyLimit(
@@ -63,7 +63,7 @@ test("project index concurrency default can be tuned programmatically", () => {
     }
 });
 
-test("invalid environment overrides fall back to the baseline", () => {
+void test("invalid environment overrides fall back to the baseline", () => {
     const originalDefault = getDefaultProjectIndexGmlConcurrency();
     const originalLimit = getDefaultProjectIndexGmlConcurrencyLimit();
     setDefaultProjectIndexGmlConcurrencyLimit(
@@ -94,7 +94,7 @@ test("invalid environment overrides fall back to the baseline", () => {
 });
 
 // Ensure the exported environment variable aligns with the documented name.
-test("project index concurrency env var name is stable", () => {
+void test("project index concurrency env var name is stable", () => {
     assert.equal(
         PROJECT_INDEX_GML_CONCURRENCY_ENV_VAR,
         "GML_PROJECT_INDEX_CONCURRENCY"

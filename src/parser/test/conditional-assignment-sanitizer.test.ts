@@ -9,8 +9,8 @@ import {
     sanitizeConditionalAssignments
 } from "../src/transforms/conditional-assignment-sanitizer.js";
 
-describe("applySanitizedIndexAdjustments", () => {
-    it("maps numeric location fields back to their original indices", () => {
+void describe("applySanitizedIndexAdjustments", () => {
+    void it("maps numeric location fields back to their original indices", () => {
         const ast = {
             start: 10,
             end: 14,
@@ -31,7 +31,7 @@ describe("applySanitizedIndexAdjustments", () => {
         assert.strictEqual(ast.child.nested[1].end.index, 12);
     });
 
-    it("leaves values unchanged when no adjustments are provided", () => {
+    void it("leaves values unchanged when no adjustments are provided", () => {
         const ast = { start: 3, end: { index: 4 } };
 
         applySanitizedIndexAdjustments(ast, null);
@@ -40,15 +40,15 @@ describe("applySanitizedIndexAdjustments", () => {
     });
 });
 
-describe("sanitizeConditionalAssignments", () => {
-    it("returns null adjustments when nothing changes", () => {
+void describe("sanitizeConditionalAssignments", () => {
+    void it("returns null adjustments when nothing changes", () => {
         const result = sanitizeConditionalAssignments("if (foo) { bar(); }");
 
         assert.strictEqual(result.indexAdjustments, null);
         assert.strictEqual(result.sourceText, "if (foo) { bar(); }");
     });
 
-    it("rewrites bare assignments inside if conditions and records positions", () => {
+    void it("rewrites bare assignments inside if conditions and records positions", () => {
         const result = sanitizeConditionalAssignments(
             "if (foo = bar) { baz(); }"
         );

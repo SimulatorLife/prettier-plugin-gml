@@ -1,8 +1,8 @@
 import assert from "node:assert/strict";
 import { describe, it } from "node:test";
 
-describe("formatting session negation tracking", () => {
-    it("resets negated ignore rule tracking between runs", async () => {
+void describe("formatting session negation tracking", () => {
+    void it("resets negated ignore rule tracking between runs", async () => {
         const skipEnvVar = "PRETTIER_PLUGIN_GML_SKIP_CLI_RUN";
         const originalSkipRun = process.env[skipEnvVar];
         process.env[skipEnvVar] = "1";

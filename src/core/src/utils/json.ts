@@ -46,7 +46,7 @@ function toError(value) {
 }
 
 type JsonParseErrorOptions = {
-    cause?: unknown;
+    cause?: Error;
     source?: string | null;
     description?: string | null;
 };
@@ -90,6 +90,9 @@ export class JsonParseError extends SyntaxError {
     ) {
         super(message, cause ? { cause } : undefined);
         this.name = "JsonParseError";
+        if (cause !== undefined) {
+            this.cause = cause;
+        }
         if (source !== undefined) {
             this.source = source;
         }

@@ -6,8 +6,8 @@ import { setTimeout as sleep } from "node:timers/promises";
 
 import { createWatchCommand } from "../src/commands/watch.js";
 
-describe("watch command", () => {
-    it("should create a command instance with correct configuration", () => {
+void describe("watch command", () => {
+    void it("should create a command instance with correct configuration", () => {
         const command = createWatchCommand();
 
         assert.equal(command.name(), "watch");
@@ -23,7 +23,7 @@ describe("watch command", () => {
         assert.ok(options.some((opt) => opt.long === "--verbose"));
     });
 
-    it("should have default extension set to .gml", () => {
+    void it("should have default extension set to .gml", () => {
         const command = createWatchCommand();
         const extensionsOption = command.options.find(
             (opt) => opt.long === "--extensions"
@@ -33,7 +33,7 @@ describe("watch command", () => {
         assert.deepEqual(extensionsOption.defaultValue, [".gml"]);
     });
 
-    it("should have default polling interval of 1000ms", () => {
+    void it("should have default polling interval of 1000ms", () => {
         const command = createWatchCommand();
         const pollingIntervalOption = command.options.find(
             (opt) => opt.long === "--polling-interval"
@@ -44,8 +44,8 @@ describe("watch command", () => {
     });
 });
 
-describe("watch command integration", () => {
-    it("should handle non-existent directory gracefully", async () => {
+void describe("watch command integration", () => {
+    void it("should handle non-existent directory gracefully", async () => {
         const { runWatchCommand } = await import("../src/commands/watch.js");
 
         const nonExistentPath = "/tmp/non-existent-test-directory-12345";
@@ -80,7 +80,7 @@ describe("watch command integration", () => {
         assert.equal(exitCodeHolder.code, 1, "Should exit with code 1");
     });
 
-    it("should normalize file extensions", async () => {
+    void it("should normalize file extensions", async () => {
         // Create a temporary directory for testing
         const testDir = path.join(
             "/tmp",
@@ -123,7 +123,7 @@ describe("watch command integration", () => {
         }
     });
 
-    it("should transpile GML files when they change", async () => {
+    void it("should transpile GML files when they change", async () => {
         // Create a temporary directory for testing
         const testDir = path.join(
             "/tmp",

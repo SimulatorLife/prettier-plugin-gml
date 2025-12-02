@@ -10,12 +10,12 @@ import {
     isJsonParseError
 } from "../src/shared/dependencies.js";
 
-test("decodeManualKeywordsPayload validates keyword mappings", () => {
+void test("decodeManualKeywordsPayload validates keyword mappings", () => {
     const payload = decodeManualKeywordsPayload('{"foo": "bar"}');
     assert.deepEqual(payload, { foo: "bar" });
 });
 
-test("decodeManualKeywordsPayload wraps JSON syntax errors", () => {
+void test("decodeManualKeywordsPayload wraps JSON syntax errors", () => {
     assert.throws(
         () => decodeManualKeywordsPayload("not json"),
         (error) => {
@@ -29,26 +29,26 @@ test("decodeManualKeywordsPayload wraps JSON syntax errors", () => {
     );
 });
 
-test("decodeManualKeywordsPayload rejects non-string entries", () => {
+void test("decodeManualKeywordsPayload rejects non-string entries", () => {
     assert.throws(
         () => decodeManualKeywordsPayload('{"foo": 42}'),
         /Manual keywords entry 'foo' must map to a string value\./
     );
 });
 
-test("decodeManualTagsPayload validates tag mappings", () => {
+void test("decodeManualTagsPayload validates tag mappings", () => {
     const payload = decodeManualTagsPayload('{"foo.html": "tag"}');
     assert.deepEqual(payload, { "foo.html": "tag" });
 });
 
-test("decodeManualTagsPayload enforces object shape", () => {
+void test("decodeManualTagsPayload enforces object shape", () => {
     assert.throws(
         () => decodeManualTagsPayload("[]"),
         /Manual tags payload must be a JSON object\./
     );
 });
 
-test("decodeManualTagsPayload rejects non-string entries", () => {
+void test("decodeManualTagsPayload rejects non-string entries", () => {
     assert.throws(
         () => decodeManualTagsPayload('{"foo": null}'),
         /Manual tags entry 'foo' must map to a string value\./

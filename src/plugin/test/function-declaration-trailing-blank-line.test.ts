@@ -3,7 +3,7 @@ import { test } from "node:test";
 
 import { Plugin } from "../src/index.js";
 
-test("adds padding after trailing function declarations in blocks", async () => {
+void test("adds padding after trailing function declarations in blocks", async () => {
     const source = [
         "function outer() {",
         "    function inner() {",

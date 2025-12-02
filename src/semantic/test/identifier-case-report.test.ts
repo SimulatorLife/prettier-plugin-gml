@@ -141,8 +141,8 @@ async function formatWithReporter({
     });
 }
 
-describe("identifier case reporting", () => {
-    it("emits a dry-run summary and diagnostic report", async () => {
+void describe("identifier case reporting", () => {
+    void it("emits a dry-run summary and diagnostic report", async () => {
         const renamePlan = createSampleRenamePlan();
         const conflicts = createSampleConflicts();
         const diagnostics = [];
@@ -230,7 +230,7 @@ describe("identifier case reporting", () => {
         }
     });
 
-    it("honors public identifier case reporting options", async () => {
+    void it("honors public identifier case reporting options", async () => {
         const renamePlan = createSampleRenamePlan();
         const conflicts = createSampleConflicts();
         const diagnostics = [];
@@ -301,7 +301,7 @@ describe("identifier case reporting", () => {
         }
     });
 
-    it("skips reporting when write mode is enabled", async () => {
+    void it("skips reporting when write mode is enabled", async () => {
         const renamePlan = createSampleRenamePlan();
         const conflicts = createSampleConflicts();
         const diagnostics = [];

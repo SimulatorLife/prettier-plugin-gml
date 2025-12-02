@@ -2,7 +2,7 @@ import assert from "node:assert/strict";
 import { test } from "node:test";
 import { Plugin } from "../src/index.js";
 
-test("prints clause trailing comments with non-block bodies", async () => {
+void test("prints clause trailing comments with non-block bodies", async () => {
     const source = [
         "if (condition)\t//\tClause comment with tabs",
         "    perform_action();"

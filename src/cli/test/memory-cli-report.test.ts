@@ -19,7 +19,7 @@ import {
     MemorySuiteName
 } from "../src/modules/memory/index.js";
 
-test("memory CLI writes suite results to a JSON report", async (t) => {
+void test("memory CLI writes suite results to a JSON report", async (t) => {
     const workspace = await mkdtemp(
         path.join(os.tmpdir(), "memory-cli-report-")
     );
@@ -117,7 +117,7 @@ test("memory CLI writes suite results to a JSON report", async (t) => {
     assert.strictEqual(typeof formatterSuite.memory.delta.heapUsed, "number");
 });
 
-test("memory CLI resolves report directory from the environment", async (t) => {
+void test("memory CLI resolves report directory from the environment", async (t) => {
     const workspace = await mkdtemp(
         path.join(os.tmpdir(), "memory-cli-report-env-")
     );
@@ -143,7 +143,7 @@ test("memory CLI resolves report directory from the environment", async (t) => {
     assert.ok(reportRaw.length > 0);
 });
 
-test("memory CLI respects the common node limit option", async (t) => {
+void test("memory CLI respects the common node limit option", async (t) => {
     const workspace = await mkdtemp(
         path.join(os.tmpdir(), "memory-cli-report-limit-")
     );

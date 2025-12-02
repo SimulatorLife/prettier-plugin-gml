@@ -133,9 +133,9 @@ function storeBootstrapResult(
     writeOption = DEFAULT_OPTION_WRITER
 ) {
     try {
-        console.debug(
-            `[DBG] storeBootstrapResult: filepath=${options?.filepath ?? null} resultStatus=${result?.status ?? null} reason=${result?.reason ?? null} source=${result?.source ?? null}`
-        );
+        // console.debug(
+        //     `[DBG] storeBootstrapResult: filepath=${options?.filepath ?? null} resultStatus=${result?.status ?? null} reason=${result?.reason ?? null} source=${result?.source ?? null}`
+        // );
     } catch {
         /* ignore */
     }
@@ -466,9 +466,9 @@ export async function bootstrapProjectIndex(options, storeOption) {
 
     if (skipResult) {
         try {
-            console.debug(
-                `[DBG] bootstrapProjectIndex: skipping project discovery for filepath=${options?.filepath ?? null} reason=${skipResult?.reason ?? null}`
-            );
+            // console.debug(
+            //     `[DBG] bootstrapProjectIndex: skipping project discovery for filepath=${options?.filepath ?? null} reason=${skipResult?.reason ?? null}`
+            // );
         } catch {
             /* ignore */
         }
@@ -502,9 +502,9 @@ export async function bootstrapProjectIndex(options, storeOption) {
         ready = await coordinator.ensureReady(descriptor);
     } catch (error) {
         try {
-            console.debug(
-                `[DBG] bootstrapProjectIndex: coordinator.ensureReady threw for projectRoot=${projectRoot} error=${error?.stack ?? String(error)}`
-            );
+            // console.debug(
+            //     `[DBG] bootstrapProjectIndex: coordinator.ensureReady threw for projectRoot=${projectRoot} error=${error?.stack ?? String(error)}`
+            // );
         } catch {
             /* ignore */
         }

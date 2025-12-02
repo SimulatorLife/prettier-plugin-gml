@@ -37,7 +37,7 @@ async function writeFile(
     await fs.writeFile(absolutePath, contents, "utf8");
 }
 
-test("buildProjectIndex assigns identifier ids for each scope", async () => {
+void test("buildProjectIndex assigns identifier ids for each scope", async () => {
     const tempRoot = await fs.mkdtemp(
         path.join(os.tmpdir(), "gml-index-scope-")
     );

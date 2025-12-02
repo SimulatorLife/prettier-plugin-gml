@@ -3,7 +3,7 @@ import test from "node:test";
 
 import { cloneObjectEntries } from "../src/project-index/clone-object-entries.js";
 
-test("cloneObjectEntries shallowly clones object entries", () => {
+void test("cloneObjectEntries shallowly clones object entries", () => {
     const original = [{ value: 1 }, { value: 2 }];
     const cloned = cloneObjectEntries(original);
 
@@ -13,7 +13,7 @@ test("cloneObjectEntries shallowly clones object entries", () => {
     assert.notEqual(cloned[1], original[1]);
 });
 
-test("cloneObjectEntries preserves non-object entries", () => {
+void test("cloneObjectEntries preserves non-object entries", () => {
     const original = [1, null, "text"];
     const cloned = cloneObjectEntries(original);
 
@@ -23,7 +23,7 @@ test("cloneObjectEntries preserves non-object entries", () => {
     assert.strictEqual(cloned[2], original[2]);
 });
 
-test("cloneObjectEntries normalizes nullish input to empty arrays", () => {
+void test("cloneObjectEntries normalizes nullish input to empty arrays", () => {
     assert.deepEqual(cloneObjectEntries(null), []);
     assert.deepEqual(cloneObjectEntries(), []);
 });

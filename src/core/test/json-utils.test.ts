@@ -10,8 +10,8 @@ import {
 } from "../src/utils/json.js";
 import { isErrorLike } from "../src/utils/capability-probes.js";
 
-describe("parseJsonWithContext", () => {
-    it("parses JSON payloads with optional revivers", () => {
+void describe("parseJsonWithContext", () => {
+    void it("parses JSON payloads with optional revivers", () => {
         const payload = '{"value": 2}';
         const parsed = parseJsonWithContext(payload, {
             reviver(key, value) {
@@ -22,7 +22,7 @@ describe("parseJsonWithContext", () => {
         assert.deepStrictEqual(parsed, { value: 6 });
     });
 
-    it("annotates errors with contextual metadata", () => {
+    void it("annotates errors with contextual metadata", () => {
         let error: unknown;
         try {
             parseJsonWithContext("{ invalid", {
@@ -55,7 +55,7 @@ describe("parseJsonWithContext", () => {
         );
     });
 
-    it("detects structural JsonParseError facades without relying on names", () => {
+    void it("detects structural JsonParseError facades without relying on names", () => {
         const facade = {
             message: "Failed to parse resource document from demo.json: nope",
             description: "resource document",
@@ -67,7 +67,7 @@ describe("parseJsonWithContext", () => {
         assert.equal(isJsonParseError(facade), true);
     });
 
-    it("honours explicit JsonParseError capability branding", () => {
+    void it("honours explicit JsonParseError capability branding", () => {
         const brand = Symbol.for("prettier-plugin-gml.json-parse-error");
         const facade = {
             message: "boom",
@@ -78,7 +78,7 @@ describe("parseJsonWithContext", () => {
         assert.equal(isJsonParseError(facade), true);
     });
 
-    it("normalizes whitespace-only descriptions and error messages", () => {
+    void it("normalizes whitespace-only descriptions and error messages", () => {
         let error: unknown;
         try {
             parseJsonWithContext('{"value": 1}', {
@@ -107,13 +107,13 @@ describe("parseJsonWithContext", () => {
     });
 });
 
-describe("stringifyJsonForFile", () => {
-    it("serializes objects with a trailing newline by default", () => {
+void describe("stringifyJsonForFile", () => {
+    void it("serializes objects with a trailing newline by default", () => {
         const contents = stringifyJsonForFile({ value: 1 }, { space: 2 });
         assert.equal(contents, '{\n  "value": 1\n}\n');
     });
 
-    it("respects newline suppression requests", () => {
+    void it("respects newline suppression requests", () => {
         const contents = stringifyJsonForFile(
             { value: 1 },
             {
@@ -125,7 +125,7 @@ describe("stringifyJsonForFile", () => {
         assert.equal(contents, '{\n  "value": 1\n}');
     });
 
-    it("honours custom newline tokens without duplicating them", () => {
+    void it("honours custom newline tokens without duplicating them", () => {
         const contents = stringifyJsonForFile(
             { value: 1 },
             {
@@ -138,7 +138,7 @@ describe("stringifyJsonForFile", () => {
         assert.ok(!contents.endsWith("\r\n\r\n"));
     });
 
-    it("falls back to standard newlines when provided an invalid terminator", () => {
+    void it("falls back to standard newlines when provided an invalid terminator", () => {
         const contents = stringifyJsonForFile(
             { value: 1 },
             {
@@ -150,7 +150,7 @@ describe("stringifyJsonForFile", () => {
         assert.ok(contents.endsWith("\n"));
     });
 
-    it("throws a descriptive error when the payload cannot be serialized", () => {
+    void it("throws a descriptive error when the payload cannot be serialized", () => {
         assert.throws(
             () => stringifyJsonForFile(),
             (error: TypeError) => {

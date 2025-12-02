@@ -14,8 +14,8 @@ const createTestCommand = () => {
     return new Command().exitOverride().allowExcessArguments(false);
 };
 
-describe("parseCommandLine", () => {
-    it("parses arguments and exposes command state", () => {
+void describe("parseCommandLine", () => {
+    void it("parses arguments and exposes command state", () => {
         const command = createTestCommand()
             .argument("<value>")
             .option("--flag");
@@ -31,7 +31,7 @@ describe("parseCommandLine", () => {
         assert.strictEqual(value, "example");
     });
 
-    it("returns help metadata when the user requests help", () => {
+    void it("returns help metadata when the user requests help", () => {
         const command = createTestCommand().option("--flag");
 
         const result = parseCommandLine(command, ["--help"]);
@@ -40,7 +40,7 @@ describe("parseCommandLine", () => {
         assert.ok(result.usage.includes("--flag"));
     });
 
-    it("wraps Commander usage errors as CliUsageError instances", () => {
+    void it("wraps Commander usage errors as CliUsageError instances", () => {
         const command = createTestCommand().option("--flag");
 
         assert.throws(
@@ -52,7 +52,7 @@ describe("parseCommandLine", () => {
         );
     });
 
-    it("supports Commander-style errors without Error prototypes", () => {
+    void it("supports Commander-style errors without Error prototypes", () => {
         interface MinimalCommanderError extends Error {
             code: string;
         }
@@ -83,8 +83,8 @@ describe("parseCommandLine", () => {
     });
 });
 
-describe("wrapInvalidArgumentResolver", () => {
-    it("returns the resolver result when no error is thrown", () => {
+void describe("wrapInvalidArgumentResolver", () => {
+    void it("returns the resolver result when no error is thrown", () => {
         const resolver = wrapInvalidArgumentResolver((value: string) =>
             value.toUpperCase()
         );
@@ -92,7 +92,7 @@ describe("wrapInvalidArgumentResolver", () => {
         assert.strictEqual(resolver("value"), "VALUE");
     });
 
-    it("wraps thrown errors as InvalidArgumentError instances", () => {
+    void it("wraps thrown errors as InvalidArgumentError instances", () => {
         const resolver = wrapInvalidArgumentResolver((value) => {
             if (value !== "ok") {
                 throw new TypeError("invalid value");
@@ -110,7 +110,7 @@ describe("wrapInvalidArgumentResolver", () => {
         );
     });
 
-    it("applies the fallback message when the thrown value lacks a message", () => {
+    void it("applies the fallback message when the thrown value lacks a message", () => {
         const fallback = "Invalid option value.";
         const resolver = wrapInvalidArgumentResolver(
             () => {
@@ -144,7 +144,7 @@ describe("wrapInvalidArgumentResolver", () => {
         );
     });
 
-    it("supports custom error constructors", () => {
+    void it("supports custom error constructors", () => {
         class CustomInvalidArgumentError extends Error {}
 
         const resolver = wrapInvalidArgumentResolver(

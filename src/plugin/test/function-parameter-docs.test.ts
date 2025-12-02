@@ -13,7 +13,7 @@ function scr_bezier_4(argument0, argument1, argument2, argument3) {
     return argument2 + argument3;
 }`;
 
-test("formats function parameters using documented argument names", async () => {
+void test("formats function parameters using documented argument names", async () => {
     const formatted = await Plugin.format(SOURCE, {
         parser: "gml-parse",
         applyFeatherFixes: true
@@ -26,7 +26,7 @@ test("formats function parameters using documented argument names", async () => 
     );
 });
 
-test("initializes argument aliases using parameter names", async () => {
+void test("initializes argument aliases using parameter names", async () => {
     const formatted = await Plugin.format(
         `/// @function scr_example
 /// @param width
@@ -54,7 +54,7 @@ function scr_example(argument0, argument1) {
     );
 });
 
-test("replaces argument index references inside function bodies", async () => {
+void test("replaces argument index references inside function bodies", async () => {
     const formatted = await Plugin.format(SOURCE, {
         parser: "gml-parse",
         applyFeatherFixes: true
@@ -67,7 +67,7 @@ test("replaces argument index references inside function bodies", async () => {
     );
 });
 
-test("reuses renamed parameters when formatting argument references", async () => {
+void test("reuses renamed parameters when formatting argument references", async () => {
     const formatted = await Plugin.format(
         `/// @param width
 function demo(argument0) {
@@ -93,7 +93,7 @@ function example(argument0) {
     return argument0;
 }`;
 
-test("omits redundant argument aliases after parameter renaming", async () => {
+void test("omits redundant argument aliases after parameter renaming", async () => {
     const formatted = await Plugin.format(SOURCE_WITH_ALIAS, {
         parser: "gml-parse",
         applyFeatherFixes: true
@@ -127,7 +127,7 @@ function create_fx(sprite) {
     return sprite;
 }`;
 
-test("preserves parameter order when doc comments are misordered", async () => {
+void test("preserves parameter order when doc comments are misordered", async () => {
     const formatted = await Plugin.format(SOURCE_WITH_NAMED_PARAMS, {
         parser: "gml-parse",
         applyFeatherFixes: true
@@ -148,7 +148,7 @@ test("preserves parameter order when doc comments are misordered", async () => {
     );
 });
 
-test("retains existing parameter names when docs reference other names", async () => {
+void test("retains existing parameter names when docs reference other names", async () => {
     const formatted = await Plugin.format(SOURCE_WITH_NAMED_PARAMS, {
         parser: "gml-parse",
         applyFeatherFixes: true
@@ -161,7 +161,7 @@ test("retains existing parameter names when docs reference other names", async (
     );
 });
 
-test("normalizes doc comments that reference renamed parameters", async () => {
+void test("normalizes doc comments that reference renamed parameters", async () => {
     const formatted = await Plugin.format(SOURCE_WITH_DOC_MISMATCH, {
         parser: "gml-parse",
         applyFeatherFixes: true
@@ -182,7 +182,7 @@ test("normalizes doc comments that reference renamed parameters", async () => {
     );
 });
 
-test("preserves doc comment types when renaming parameters", async () => {
+void test("preserves doc comment types when renaming parameters", async () => {
     const formatted = await Plugin.format(
         `/// @param {real} distance
 function spring(dst) {

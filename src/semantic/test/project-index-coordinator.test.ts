@@ -10,14 +10,14 @@ function createProjectIndex(root) {
     };
 }
 
-test("createProjectIndexCoordinator uses getDefaultCacheMaxSize when unspecified", async () => {
+void test("createProjectIndexCoordinator uses getDefaultCacheMaxSize when unspecified", async () => {
     await assertCacheMaxSizeScenario({
         defaultMaxSize: 512,
         expectedMaxSize: 512
     });
 });
 
-test("createProjectIndexCoordinator prioritises explicit cacheMaxSizeBytes", async () => {
+void test("createProjectIndexCoordinator prioritises explicit cacheMaxSizeBytes", async () => {
     await assertCacheMaxSizeScenario({
         cacheMaxSizeBytes: 256,
         defaultMaxSize: 1024,

@@ -2,7 +2,7 @@ import assert from "node:assert/strict";
 import { test } from "node:test";
 import { Plugin } from "../src/index.js";
 
-test("preserves blank line between constructor header and first statement", async () => {
+void test("preserves blank line between constructor header and first statement", async () => {
     const source = [
         "function Demo() constructor {",
         "",
@@ -21,7 +21,7 @@ test("preserves blank line between constructor header and first statement", asyn
     );
 });
 
-test("preserves blank line before constructor closing brace", async () => {
+void test("preserves blank line before constructor closing brace", async () => {
     const source = [
         "function Demo() constructor {",
         "    static helper = function() {",
@@ -42,7 +42,7 @@ test("preserves blank line before constructor closing brace", async () => {
     );
 });
 
-test("preserves blank line after documented static constructor members", async () => {
+void test("preserves blank line after documented static constructor members", async () => {
     const source = [
         "function Demo() constructor {",
         "    /// @function helper",
@@ -65,7 +65,7 @@ test("preserves blank line after documented static constructor members", async (
     );
 });
 
-test("preserves blank lines after nested function declarations inside constructors", async () => {
+void test("preserves blank lines after nested function declarations inside constructors", async () => {
     const source = [
         "function Demo() constructor {",
         "",
@@ -87,7 +87,7 @@ test("preserves blank lines after nested function declarations inside constructo
     );
 });
 
-test("inserts trailing blank line after nested constructor functions when missing", async () => {
+void test("inserts trailing blank line after nested constructor functions when missing", async () => {
     const source = [
         "function Demo() constructor {",
         "    function nested() {",
@@ -107,7 +107,7 @@ test("inserts trailing blank line after nested constructor functions when missin
     );
 });
 
-test("collapses blank lines between simple constructor assignments", async () => {
+void test("collapses blank lines between simple constructor assignments", async () => {
     const source = [
         "Demo = function() constructor {",
         "    self.value = 1;",
@@ -133,7 +133,7 @@ test("collapses blank lines between simple constructor assignments", async () =>
     );
 });
 
-test("inserts blank line after synthetic constructor doc comments", async () => {
+void test("inserts blank line after synthetic constructor doc comments", async () => {
     const source = [
         "function Demo() constructor {",
         "    function nested(value) {",

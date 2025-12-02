@@ -13,7 +13,7 @@ import WebSocket from "ws";
 
 import { runWatchCommand } from "../src/commands/watch.js";
 
-describe("Hot reload integration loop", () => {
+void describe("Hot reload integration loop", () => {
     let testDir;
     let testFile;
     let websocketClient;
@@ -48,7 +48,7 @@ describe("Hot reload integration loop", () => {
         }
     });
 
-    it("should stream patches via WebSocket when files change", async () => {
+    void it("should stream patches via WebSocket when files change", async () => {
         const abortController = new AbortController();
 
         const watchPromise = runWatchCommand(testDir, {
