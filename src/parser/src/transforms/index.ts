@@ -230,12 +230,14 @@ export const availableTransforms = Array.from(TRANSFORM_REGISTRY.keys());
 
 export {
     applyFeatherFixes,
-    applyRemovedIndexAdjustments,
     getFeatherDiagnosticFixers,
     getRoomNavigationHelpers,
-    preprocessSourceForFeatherFixes,
     ROOM_NAVIGATION_DIRECTION
 } from "./apply-feather-fixes.js";
+export {
+    applyRemovedIndexAdjustments,
+    preprocessSourceForFeatherFixes
+} from "./feather/enum-handling.js";
 export { condenseLogicalExpressions } from "./condense-logical-expressions.js";
 export {
     consolidateStructAssignments,
