@@ -4,7 +4,7 @@ import os from "node:os";
 import path from "node:path";
 import { after, describe, it, mock } from "node:test";
 
-import { runPerformanceCommand } from "../src/modules/performance/index.js";
+import { runPerformanceCommand } from "../src/commands/performance.js";
 import { PerformanceSuiteName } from "../src/modules/performance/suite-options.js";
 
 void describe("performance CLI report output", () => {

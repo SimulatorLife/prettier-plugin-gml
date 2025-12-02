@@ -4,7 +4,7 @@ import { describe, it } from "node:test";
 import {
     runFormatterBenchmark,
     runParserBenchmark
-} from "../src/modules/performance/index.js";
+} from "../src/commands/performance.js";
 
 function isCompletedBenchmarkResult(value: unknown): value is {
     iterations: number;

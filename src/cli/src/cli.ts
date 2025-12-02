@@ -79,7 +79,7 @@ import { collectFormatCommandOptions } from "./cli-core/format-command-options.j
 import {
     createPerformanceCommand,
     runPerformanceCommand
-} from "./modules/performance/index.js";
+} from "./commands/performance.js";
 import {
     createMemoryCommand,
     runMemoryCommand
