@@ -93,7 +93,10 @@ async function format(source: string, options: SupportOptions = {}) {
         ...options
     });
 
-    console.log("DEBUG: plugin-entry format result:", JSON.stringify(formatted));
+    console.log(
+        "DEBUG: plugin-entry format result:",
+        JSON.stringify(formatted)
+    );
 
     if (typeof formatted !== "string") {
         throw new TypeError("Expected Prettier to return a string result.");

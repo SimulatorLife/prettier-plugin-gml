@@ -158,8 +158,14 @@ try {
         return builders.group(sanitized, opts);
     };
     indent = (parts) => builders.indent(_sanitizeDocChild(parts));
-    conditionalGroup = (parts, opts) => builders.conditionalGroup(parts.map(_sanitizeDocChild), opts);
-    ifBreak = (breakContents, flatContents, opts) => builders.ifBreak(_sanitizeDocChild(breakContents), _sanitizeDocChild(flatContents), opts);
+    conditionalGroup = (parts, opts) =>
+        builders.conditionalGroup(parts.map(_sanitizeDocChild), opts);
+    ifBreak = (breakContents, flatContents, opts) =>
+        builders.ifBreak(
+            _sanitizeDocChild(breakContents),
+            _sanitizeDocChild(flatContents),
+            opts
+        );
     lineSuffix = (parts) => builders.lineSuffix(_sanitizeDocChild(parts));
 } catch {
     // ignore - maintain best-effort compatibility
@@ -615,7 +621,10 @@ function _printImpl(path, options, print) {
                     );
                 }
                 const bodyParts = printStatements(path, options, print, "body");
-                console.log("DEBUG: Program bodyParts:", JSON.stringify(bodyParts));
+                console.log(
+                    "DEBUG: Program bodyParts:",
+                    JSON.stringify(bodyParts)
+                );
                 const result = concat(bodyParts);
                 console.log("DEBUG: Program result:", JSON.stringify(result));
                 return result;
@@ -678,15 +687,30 @@ function _printImpl(path, options, print) {
             const stmts = printStatements(path, options, print, "body");
 
             if (node.body.length === 14) {
-                 const varNode = node.body[8];
-                 if (varNode.type === "VariableDeclaration") {
-                     console.log("DEBUG: Var at index 8:", JSON.stringify(varNode, null, 2));
-                 }
-                 console.log("DEBUG: BlockStatement (14) stmts:", JSON.stringify(stmts, null, 2));
+                const varNode = node.body[8];
+                if (varNode.type === "VariableDeclaration") {
+                    console.log(
+                        "DEBUG: Var at index 8:",
+                        JSON.stringify(varNode, null, 2)
+                    );
+                }
+                console.log(
+                    "DEBUG: BlockStatement (14) stmts:",
+                    JSON.stringify(stmts, null, 2)
+                );
             }
 
-            if (node.body.some((s: any) => s.type === "VariableDeclaration" && s.declarations?.some((d: any) => d.id.name === 'w'))) {
-                 console.log("DEBUG: BlockStatement stmts for 'w':", JSON.stringify(stmts, null, 2));
+            if (
+                node.body.some(
+                    (s: any) =>
+                        s.type === "VariableDeclaration" &&
+                        s.declarations?.some((d: any) => d.id.name === "w")
+                )
+            ) {
+                console.log(
+                    "DEBUG: BlockStatement stmts for 'w':",
+                    JSON.stringify(stmts, null, 2)
+                );
             }
 
             return concat([
@@ -696,10 +720,7 @@ function _printImpl(path, options, print) {
                     options,
                     (comment) => comment.attachToBrace
                 ),
-                indent([
-                    ...leadingDocs,
-                    stmts
-                ]),
+                indent([...leadingDocs, stmts]),
                 hardline,
                 "}"
             ]);
@@ -1095,8 +1116,14 @@ function _printImpl(path, options, print) {
 
             if (node.id === "scr_create_fx") {
                 console.log("DEBUG: Printing scr_create_fx");
-                console.log("DEBUG: docCommentDocs length:", docCommentDocs.length);
-                console.log("DEBUG: docCommentDocs:", JSON.stringify(docCommentDocs));
+                console.log(
+                    "DEBUG: docCommentDocs length:",
+                    docCommentDocs.length
+                );
+                console.log(
+                    "DEBUG: docCommentDocs:",
+                    JSON.stringify(docCommentDocs)
+                );
                 return "HELLO WORLD";
             }
 
@@ -1248,13 +1275,15 @@ function _printImpl(path, options, print) {
                 spacing = "";
             }
 
-            return group(concat([
-                group(print("left")),
-                spacing,
-                node.operator,
-                " ",
-                group(print("right"))
-            ]));
+            return group(
+                concat([
+                    group(print("left")),
+                    spacing,
+                    node.operator,
+                    " ",
+                    group(print("right"))
+                ])
+            );
         }
         case "GlobalVarStatement": {
             if (options?.preserveGlobalVarStatements === false) {
@@ -1286,12 +1315,14 @@ function _printImpl(path, options, print) {
             const functionNode = findEnclosingFunctionNode(path);
             const declarators = Core.asArray(node.declarations);
 
-            const keptDeclarators = declarators.filter(
-                (declarator: any) => {
-                    const omit = shouldOmitParameterAlias(declarator, functionNode, options);
-                    return !omit;
-                }
-            );
+            const keptDeclarators = declarators.filter((declarator: any) => {
+                const omit = shouldOmitParameterAlias(
+                    declarator,
+                    functionNode,
+                    options
+                );
+                return !omit;
+            });
 
             if (keptDeclarators.length === 0) {
                 return;
@@ -3058,7 +3089,10 @@ function printStatements(path, options, print, childrenAttribute) {
             ? parentNode[childrenAttribute]
             : null;
     if (statements) {
-        console.log("DEBUG: printStatements statements length:", statements.length);
+        console.log(
+            "DEBUG: printStatements statements length:",
+            statements.length
+        );
         applyAssignmentAlignment(statements, options, path, childrenAttribute);
     }
 
@@ -3102,7 +3136,12 @@ function printStatements(path, options, print, childrenAttribute) {
         }
         const isTopLevel = childPath.parent?.type === "Program";
         const printed = print();
-        console.log("DEBUG: printStatements printed node type:", node.type, "printed:", JSON.stringify(printed));
+        console.log(
+            "DEBUG: printStatements printed node type:",
+            node.type,
+            "printed:",
+            JSON.stringify(printed)
+        );
 
         if (printed === undefined) {
             return [];
@@ -3577,8 +3616,14 @@ function printStatements(path, options, print, childrenAttribute) {
             }
         }
 
-        if (node.type === "VariableDeclaration" && node.declarations?.some((d: any) => d.id.name === 'w')) {
-            console.log("DEBUG: parts for 'w':", JSON.stringify(parts, null, 2));
+        if (
+            node.type === "VariableDeclaration" &&
+            node.declarations?.some((d: any) => d.id.name === "w")
+        ) {
+            console.log(
+                "DEBUG: parts for 'w':",
+                JSON.stringify(parts, null, 2)
+            );
         }
 
         return parts;

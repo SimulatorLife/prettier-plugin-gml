@@ -316,7 +316,10 @@ function preprocessFunctionDeclaration(node, ast) {
         if (!match) {
             continue;
         }
-        console.log("DEBUG: matchArgumentCountFallbackStatement matched:", JSON.stringify(match, null, 2));
+        console.log(
+            "DEBUG: matchArgumentCountFallbackStatement matched:",
+            JSON.stringify(match, null, 2)
+        );
 
         matches.push({
             ...match,
@@ -467,7 +470,10 @@ function preprocessFunctionDeclaration(node, ast) {
                         return name === match.targetName;
                     });
                     if (declIndex !== -1) {
-                        console.log("DEBUG: Removing declaration for:", match.targetName);
+                        console.log(
+                            "DEBUG: Removing declaration for:",
+                            match.targetName
+                        );
                         stmt.declarations.splice(declIndex, 1);
                         if (stmt.declarations.length === 0) {
                             statementsToRemove.add(stmt);
