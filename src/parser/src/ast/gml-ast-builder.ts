@@ -310,10 +310,7 @@ export default class GameMakerASTBuilder {
      * @returns {object | null} The visited child node or `null` when no
      *     candidates are available.
      */
-    visitFirstChild(
-        ctx: ParserContext,
-        methodNames: string[]
-    ): any {
+    visitFirstChild(ctx: ParserContext, methodNames: string[]): any {
         if (!ctx || !Array.isArray(methodNames)) {
             return null;
         }

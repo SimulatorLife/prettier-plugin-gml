@@ -35,11 +35,8 @@ import {
     type PatchWebSocketServerController
 } from "../modules/websocket/server.js";
 
-type RuntimeTranspiler =
-    ReturnType<typeof Transpiler.createTranspiler>;
-type RuntimeTranspilerPatch = ReturnType<
-    RuntimeTranspiler["transpileScript"]
->;
+type RuntimeTranspiler = ReturnType<typeof Transpiler.createTranspiler>;
+type RuntimeTranspilerPatch = ReturnType<RuntimeTranspiler["transpileScript"]>;
 
 type RuntimeDescriptorFormatter = (source: RuntimeSourceDescriptor) => string;
 
@@ -552,11 +549,10 @@ async function handleFileChange(
                     const symbolId = `gml/script/${fileName}`;
 
                     // Transpile to JavaScript patch
-                    const patch =
-                        runtimeContext.transpiler.transpileScript({
-                            sourceText: content,
-                            symbolId
-                        });
+                    const patch = runtimeContext.transpiler.transpileScript({
+                        sourceText: content,
+                        symbolId
+                    });
 
                     // Store the patch for future streaming
                     runtimeContext.patches.push(patch);

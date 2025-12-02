@@ -1061,7 +1061,11 @@ export class RefactorEngine {
             );
         }
 
-        return Promise.resolve({ valid: errors.length === 0, errors, warnings });
+        return Promise.resolve({
+            valid: errors.length === 0,
+            errors,
+            warnings
+        });
     }
 
     /**

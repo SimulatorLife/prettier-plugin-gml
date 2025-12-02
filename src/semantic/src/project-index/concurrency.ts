@@ -119,7 +119,12 @@ function normalizeConcurrencyValue(
         max = getDefaultProjectIndexGmlConcurrencyLimit(),
         fallback,
         onInvalid = min
-    }: { min?: number; max?: number; fallback?: unknown; onInvalid?: number } = {}
+    }: {
+        min?: number;
+        max?: number;
+        fallback?: unknown;
+        onInvalid?: number;
+    } = {}
 ) {
     const source = value ?? fallback;
 

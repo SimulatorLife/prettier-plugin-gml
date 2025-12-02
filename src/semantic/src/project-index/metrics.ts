@@ -87,7 +87,8 @@ function isMetricsRecordingSuite(
     }
 
     return Object.entries(REQUIRED_RECORDING_GROUPS).every(
-        ([groupName, methods]) => hasMetricGroup(candidateObject, groupName, methods)
+        ([groupName, methods]) =>
+            hasMetricGroup(candidateObject, groupName, methods)
     );
 }
 
@@ -173,7 +174,7 @@ const NOOP_METRIC_REPORTING_GROUPS = Object.freeze({
     }),
     caches: Object.freeze({
         cachesSnapshot: () => ({}),
-        cacheSnapshot: () => ({} as Record<string, number>)
+        cacheSnapshot: () => ({}) as Record<string, number>
     }),
     logger: Object.freeze({
         logSummary: Core.noop
@@ -203,7 +204,7 @@ export function createProjectIndexMetrics(
         } | null;
         logMetrics?: boolean;
     } = {}
- ): ProjectIndexMetricsContracts {
+): ProjectIndexMetricsContracts {
     const { metrics, logger = null, logMetrics = false } = options;
 
     if (isMetricsContracts(metrics)) {

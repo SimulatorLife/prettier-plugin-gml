@@ -72,8 +72,8 @@ void describe("applyAssignmentAlignment", () => {
         let capturedGroupObserved = false;
 
         function createAssignment(name, shouldMutate = false) {
-                let padding;
-                return {
+            let padding;
+            return {
                 type: "AssignmentExpression",
                 operator: "=",
                 left: { type: "Identifier", name },

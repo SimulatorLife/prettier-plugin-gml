@@ -1073,7 +1073,9 @@ function _printImpl(path, options, print) {
                     parentNode.type === "BlockStatement" &&
                     !needsLeadingBlankLine
                 ) {
-                    console.error("Setting needsLeadingBlankLine=true because parent is BlockStatement");
+                    console.error(
+                        "Setting needsLeadingBlankLine=true because parent is BlockStatement"
+                    );
                     needsLeadingBlankLine = true;
                 }
             }
@@ -4721,8 +4723,9 @@ function mergeSyntheticDocComments(
     options,
     overrides: any = {}
 ) {
-    let normalizedExistingLines: MutableDocCommentLines =
-        Core.toMutableArray(existingDocLines) as MutableDocCommentLines;
+    let normalizedExistingLines: MutableDocCommentLines = Core.toMutableArray(
+        existingDocLines
+    ) as MutableDocCommentLines;
     const originalExistingHasTags =
         Array.isArray(existingDocLines) &&
         existingDocLines.some((line) =>
@@ -4764,8 +4767,7 @@ function mergeSyntheticDocComments(
         Core.convertLegacyReturnsDescriptionLinesToMetadata(
             normalizedExistingLines,
             {
-                normalizeDocCommentTypeAnnotations:
-                    Core.normalizeGameMakerType
+                normalizeDocCommentTypeAnnotations: Core.normalizeGameMakerType
             }
         )
     ) as MutableDocCommentLines;
@@ -5962,7 +5964,9 @@ function mergeSyntheticDocComments(
             if (summaryLines.length > 0 && otherLines.length > 0) {
                 // Ensure a blank separator between summary block and synthetic metadata
                 const combined = [...summaryLines, "", ...otherLines];
-                filteredResult = Core.toMutableArray(combined as any) as MutableDocCommentLines;
+                filteredResult = Core.toMutableArray(
+                    combined as any
+                ) as MutableDocCommentLines;
             }
         }
     } catch {
@@ -6729,16 +6733,16 @@ function computeSyntheticFunctionDocLines(
     try {
         const fname = Core.getNodeName(node);
         if (typeof fname === "string" && fname.includes("sample")) {
-                try {
-                    const suppressed =
-                        suppressedImplicitDocCanonicalByNode.get(node);
-                    // console.error(
-                    //     `[feather:debug] computeSyntheticFunctionDocLines(${fname}): implicitArgumentDocNames=`,
-                    //     describeImplicitArgumentEntries(
-                    //         implicitArgumentDocNames,
-                    //         { includeSuppressDocLine: true }
-                    //     )
-                    // );
+            try {
+                const suppressed =
+                    suppressedImplicitDocCanonicalByNode.get(node);
+                // console.error(
+                //     `[feather:debug] computeSyntheticFunctionDocLines(${fname}): implicitArgumentDocNames=`,
+                //     describeImplicitArgumentEntries(
+                //         implicitArgumentDocNames,
+                //         { includeSuppressDocLine: true }
+                //     )
+                // );
                 // console.error(
                 //     `[feather:debug] computeSyntheticFunctionDocLines(${fname}): suppressedCanonicals=`,
                 //     Array.from(suppressed || [])
@@ -7465,7 +7469,10 @@ function normalizeParamDocType(typeText) {
     return Core.getNonEmptyTrimmedString(typeText);
 }
 
-function describeImplicitArgumentEntries(entries, { includeSuppressDocLine = false } = {}) {
+function describeImplicitArgumentEntries(
+    entries,
+    { includeSuppressDocLine = false } = {}
+) {
     return (entries || []).map((entry) => {
         if (!entry || typeof entry !== "object") {
             return entry;
@@ -7909,10 +7916,10 @@ function collectImplicitArgumentDocNames(functionNode, options) {
                       : null);
         if (typeof fname === "string" && fname.includes("sample")) {
             try {
-                        // console.error(
-                        //     `[feather:debug] collectImplicitArgumentDocNames(${fname}): builtEntries=`,
-                        //     describeImplicitArgumentEntries(entries)
-                        // );
+                // console.error(
+                //     `[feather:debug] collectImplicitArgumentDocNames(${fname}): builtEntries=`,
+                //     describeImplicitArgumentEntries(entries)
+                // );
                 // console.error(
                 //     `[feather:debug] collectImplicitArgumentDocNames(${fname}): suppressedCanonicals=`,
                 //     Array.from(suppressedCanonicals || [])
@@ -7983,7 +7990,7 @@ function gatherImplicitArgumentReferences(functionNode) {
 
         if (node === functionNode) {
             if (functionNode.body) {
-            visit(functionNode.body, node);
+                visit(functionNode.body, node);
             }
             return;
         }
@@ -8866,8 +8873,6 @@ function getParameterDocInfo(paramNode, functionNode, options) {
         const defaultText = shouldIncludeDefaultText
             ? getSourceTextForNode(paramNode.right, options)
             : null;
-
-
 
         const docName = defaultText ? `${name}=${defaultText}` : name;
 

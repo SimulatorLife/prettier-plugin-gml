@@ -530,7 +530,9 @@ type AllowTrailingCommentsBetweenOptions = {
     commentTools: CommentTools;
 };
 
-function allowTrailingCommentsBetween(options: AllowTrailingCommentsBetweenOptions) {
+function allowTrailingCommentsBetween(
+    options: AllowTrailingCommentsBetweenOptions
+) {
     const {
         tracker,
         left,

@@ -58,9 +58,9 @@ class AnnotateStaticFunctionOverridesTransform extends FunctionalParserTransform
             const name = Core.isIdentifierNode(node.id)
                 ? Core.getNonEmptyString(node.id.name)
                 : typeof node.id === "string"
-                ? Core.getNonEmptyString(node.id)
-                : null;
-            
+                  ? Core.getNonEmptyString(node.id)
+                  : null;
+
             if (!name) {
                 continue;
             }
@@ -74,8 +74,8 @@ class AnnotateStaticFunctionOverridesTransform extends FunctionalParserTransform
                 parentName = Core.isIdentifierNode(parentId)
                     ? Core.getNonEmptyString(parentId.name)
                     : typeof parentId === "string"
-                    ? Core.getNonEmptyString(parentId)
-                    : null;
+                      ? Core.getNonEmptyString(parentId)
+                      : null;
             }
 
             const staticFunctions = new Map<string, MutableGameMakerAstNode>();

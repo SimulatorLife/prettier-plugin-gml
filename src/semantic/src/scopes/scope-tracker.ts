@@ -364,7 +364,11 @@ export class ScopeTracker {
             metadata,
             metadata
         );
-        this.recordScopeOccurrence(scope, name, occurrence as unknown as Occurrence);
+        this.recordScopeOccurrence(
+            scope,
+            name,
+            occurrence as unknown as Occurrence
+        );
     }
 
     reference(
@@ -416,7 +420,11 @@ export class ScopeTracker {
             node,
             declaration ?? null
         );
-        this.recordScopeOccurrence(scope, name, occurrence as unknown as Occurrence);
+        this.recordScopeOccurrence(
+            scope,
+            name,
+            occurrence as unknown as Occurrence
+        );
     }
 
     exportOccurrences(

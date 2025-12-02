@@ -67,10 +67,7 @@ function toAbortMessage(value) {
     }
 }
 
-function brandAbortError(
-    error: AbortErrorLike,
-    fallbackMessage: string
-) {
+function brandAbortError(error: AbortErrorLike, fallbackMessage: string) {
     if (!getNonEmptyString(error.name)) {
         error.name = "AbortError";
     }
@@ -307,7 +304,7 @@ export function resolveAbortSignalFromOptions(
     }
 
     const candidate =
-        /** @type {Record<PropertyKey, unknown>} */ (options)[key] ?? null;
+        /** @type {Record<PropertyKey, unknown>} */ options[key] ?? null;
     if (!isAbortSignalLike(candidate)) {
         return null;
     }

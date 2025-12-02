@@ -8190,7 +8190,6 @@ function createVertexEndCallFromBegin(template) {
     return callExpression;
 }
 
-
 function convertUnusedIndexForLoops({ ast, diagnostic }) {
     if (!hasFeatherDiagnosticContext(ast, diagnostic)) {
         return [];
@@ -12510,8 +12509,6 @@ function hasVariableDeclarationInContainer(container, variableName, uptoIndex) {
 
     return false;
 }
-
-
 
 function hoistVariableDeclarationOutOfBlock({
     declarationNode,

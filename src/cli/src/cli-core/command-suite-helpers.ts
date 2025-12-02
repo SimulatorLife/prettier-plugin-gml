@@ -92,7 +92,7 @@ export function resolveRequestedSuites(
 ): Array<string> {
     const suiteInput = options?.suite;
     const suiteCollection =
-        typeof suiteInput === "string" ? [suiteInput] : suiteInput ?? [];
+        typeof suiteInput === "string" ? [suiteInput] : (suiteInput ?? []);
     const suiteOption = toMutableArray(suiteCollection);
     const hasExplicitSuites = suiteOption.length > 0;
     const requested = hasExplicitSuites

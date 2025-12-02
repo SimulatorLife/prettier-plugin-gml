@@ -66,7 +66,8 @@ void describe("createEnumeratedOptionHelpers", () => {
                         `unsupported: ${describeValueForError(value)}`
                 }),
             (error) =>
-                error instanceof Error && error.message === 'unsupported: "yaml"'
+                error instanceof Error &&
+                error.message === 'unsupported: "yaml"'
         );
     });
 

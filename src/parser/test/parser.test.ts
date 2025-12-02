@@ -84,8 +84,6 @@ function parseFixture(
     }
 }
 
-
-
 function collectNodesByType(node, type) {
     const nodes = [];
     const visited = new Set();
@@ -123,10 +121,6 @@ function collectNodesByType(node, type) {
     visit(node);
     return nodes;
 }
-
-
-
-
 
 const fixtureNames = await loadFixtures();
 const expectedFailures = new Set([
@@ -603,6 +597,4 @@ void describe("GameMaker parser fixtures", () => {
             "Template string text should include the escaped newline sequence."
         );
     });
-
 });
-

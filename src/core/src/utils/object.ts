@@ -206,9 +206,7 @@ export function describeValueWithArticle(
  * @param {unknown} value Candidate value to inspect.
  * @returns {boolean} `true` when {@link value} can be treated as an object or function.
  */
-export function isObjectOrFunction(
-    value: unknown
-): value is object | Callable {
+export function isObjectOrFunction(value: unknown): value is object | Callable {
     if (value === null) {
         return false;
     }

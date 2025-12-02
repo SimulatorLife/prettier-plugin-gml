@@ -456,7 +456,6 @@ function preprocessFunctionDeclaration(node, ast) {
         try {
             // Diagnostic: log the raw match object so we can see what the
             // matcher produced for each IfStatement.
-
             // console.warn(
             //     `[feather:diagnostic] processing match targetName=${match.targetName} argumentIndex=${match.argumentIndex} hasFallback=${!!match.fallbackExpression} hasArgumentExpr=${!!match.argumentExpression}`
             // );
@@ -468,7 +467,6 @@ function preprocessFunctionDeclaration(node, ast) {
         try {
             // Diagnostic: report whether we found a parameter mapping
             // for this match.
-
             // console.warn(
             //     `[feather:diagnostic] paramInfo for match: ${paramInfo ? `index=${paramInfo.index} id=${paramInfo.identifier && paramInfo.identifier.name}` : "<none>"}`
             // );
@@ -508,12 +506,10 @@ function preprocessFunctionDeclaration(node, ast) {
         if (match.targetName) {
             for (const stmt of statements) {
                 if (stmt.type === "VariableDeclaration") {
-                    const declIndex = stmt.declarations.findIndex(
-                        (d) => {
-                            const name = Core.getIdentifierText(d.id);
-                            return name === match.targetName;
-                        }
-                    );
+                    const declIndex = stmt.declarations.findIndex((d) => {
+                        const name = Core.getIdentifierText(d.id);
+                        return name === match.targetName;
+                    });
                     if (declIndex !== -1) {
                         stmt.declarations.splice(declIndex, 1);
                         if (stmt.declarations.length === 0) {
@@ -575,7 +571,6 @@ function preprocessFunctionDeclaration(node, ast) {
                 // Diagnostic: report what fallback expression we're using
                 // when creating a default param so we can trace missed
                 // literal fallbacks in fixtures.
-
                 // console.warn(
                 //     `[feather:diagnostic] creating DefaultParameter at index=${paramInfo.index} fallbackType=${match.fallbackExpression && match.fallbackExpression.type}`
                 // );
@@ -1151,7 +1146,9 @@ function preprocessFunctionDeclaration(node, ast) {
             // in edge cases). This helps us diagnose whether the materialized
             // flags exist before further processing.
             try {
-                const snap = Core.toMutableArray(node.params || []) as Array<any>;
+                const snap = Core.toMutableArray(
+                    node.params || []
+                ) as Array<any>;
                 const lines = snap.map((pp, ii) => {
                     const left =
                         pp && pp.left && pp.left.name
@@ -1304,7 +1301,9 @@ function preprocessFunctionDeclaration(node, ast) {
                         // flag was set due to earlier conservative passes where
                         // the left-side default itself was synthesized.
                         try {
-                            const paramsList = Core.toMutableArray(node.params) as Array<any>;
+                            const paramsList = Core.toMutableArray(
+                                node.params
+                            ) as Array<any>;
                             const idx = paramsList.indexOf(p);
                             let foundRealExplicitToLeft = false;
                             try {
@@ -1550,7 +1549,6 @@ function preprocessFunctionDeclaration(node, ast) {
                 try {
                     // Diagnostic: report when we detect a match for an
                     // argument_count fallback so we can confirm detection.
-
                     // console.warn(
                     //     `[feather:diagnostic] match detected argumentIndex=${argumentIndex} argMatch=${!!foundArgMatch} fallbackMatch=${!!foundFallbackMatch}`
                     // );

@@ -9,12 +9,12 @@ import {
 } from "./cache.js";
 import { clampConcurrency } from "./concurrency.js";
 import { createProjectIndexCoordinator as createProjectIndexCoordinatorCore } from "./coordinator.js";
-import {
-    defaultFsFacade,
-    type ProjectIndexFsFacade
-} from "./fs-facade.js";
+import { defaultFsFacade, type ProjectIndexFsFacade } from "./fs-facade.js";
 import { resolveProjectIndexParser } from "./gml-parser-facade.js";
-import { createProjectIndexMetrics, finalizeProjectIndexMetrics } from "./metrics.js";
+import {
+    createProjectIndexMetrics,
+    finalizeProjectIndexMetrics
+} from "./metrics.js";
 import {
     analyseResourceFiles,
     createFileScopeDescriptor
@@ -88,7 +88,9 @@ function cloneIdentifierDeclaration(declaration) {
         scopeId: declaration.scopeId ?? null
     };
 }
-type IdentifierDeclarationRecord = ReturnType<typeof cloneIdentifierDeclaration>;
+type IdentifierDeclarationRecord = ReturnType<
+    typeof cloneIdentifierDeclaration
+>;
 type ProjectIdentifierRecord = {
     name: string | null;
     start: ReturnType<typeof Core.cloneLocation>;

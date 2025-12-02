@@ -93,10 +93,7 @@ function demo(param) {
         const byName = groupIdentifiersByName(identifiers);
 
         const counterNodes = byName.get("counter");
-        assert.ok(
-            counterNodes,
-            "Expected counter identifiers to be present."
-        );
+        assert.ok(counterNodes, "Expected counter identifiers to be present.");
         const counterDeclaration = counterNodes.find((node: any) =>
             node.classifications.includes("declaration")
         );
@@ -213,10 +210,7 @@ with (target) {
         const valueDeclaration = valueNodes.find((node: any) =>
             node.classifications.includes("declaration")
         );
-        assert.ok(
-            valueDeclaration,
-            "Expected a declaration node for value."
-        );
+        assert.ok(valueDeclaration, "Expected a declaration node for value.");
 
         const localNodes = byName.get("local");
         assert.ok(
@@ -332,10 +326,7 @@ var shade = Colors.Green;
         const colorsReference = colorsNodes.find((node: any) =>
             node.classifications.includes("reference")
         );
-        assert.ok(
-            colorsReference,
-            "Expected a reference to the enum name."
-        );
+        assert.ok(colorsReference, "Expected a reference to the enum name.");
         assert.ok(colorsReference.declaration);
         assert.deepStrictEqual(
             colorsReference.declaration.start,
@@ -361,10 +352,7 @@ var shade = Colors.Green;
         const greenReference = greenNodes.find((node: any) =>
             node.classifications.includes("reference")
         );
-        assert.ok(
-            greenReference,
-            "Expected a reference to the enum member."
-        );
+        assert.ok(greenReference, "Expected a reference to the enum member.");
         assert.ok(greenReference.declaration);
         assert.strictEqual(
             greenReference.declaration.scopeId,
@@ -408,10 +396,7 @@ enum eTransitionType {
         );
 
         const members = transitionEnum.members;
-        assert.ok(
-            Array.isArray(members),
-            "Enum members should be an array."
-        );
+        assert.ok(Array.isArray(members), "Enum members should be an array.");
         assert.strictEqual(
             members.length,
             2,

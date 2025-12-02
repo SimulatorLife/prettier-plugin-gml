@@ -126,10 +126,11 @@ export function isErrorLike(value: unknown): value is Error {
  * @param {unknown} value Candidate value to inspect.
  * @returns {value is AggregateError} `true` when the value matches the AggregateError shape.
  */
-export function isAggregateErrorLike(
-    value: unknown
-): value is AggregateError {
-    return isErrorLike(value) && Array.isArray((value as unknown as { errors: unknown }).errors);
+export function isAggregateErrorLike(value: unknown): value is AggregateError {
+    return (
+        isErrorLike(value) &&
+        Array.isArray((value as unknown as { errors: unknown }).errors)
+    );
 }
 
 /**

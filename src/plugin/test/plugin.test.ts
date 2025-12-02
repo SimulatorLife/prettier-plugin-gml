@@ -242,7 +242,7 @@ void describe("Prettier GameMaker plugin fixtures", () => {
             "vertex_begin(vb, format);",
             "vertex_position_3d(vb, x2, y2, z2);",
             "vertex_end(vb);",
-            "",
+            ""
         ].join("\n");
 
         assert.strictEqual(
@@ -287,7 +287,7 @@ void describe("Prettier GameMaker plugin fixtures", () => {
             "#define LEGACY_MACRO VALUE",
             "#define 123 bad news",
             "var value = LEGACY_MACRO;",
-            "",
+            ""
         ].join("\n");
 
         const formatted = await Plugin.format(source);
@@ -330,7 +330,7 @@ void describe("Prettier GameMaker plugin fixtures", () => {
             '        arg = "default";',
             "    }",
             "}",
-            "",
+            ""
         ].join("\n");
 
         const formatted = await Plugin.format(source);
@@ -379,7 +379,7 @@ void describe("Prettier GameMaker plugin fixtures", () => {
             "        arg = argument[0];",
             "    }",
             "}",
-            "",
+            ""
         ].join("\n");
 
         const formatted = await Plugin.format(source);
@@ -404,7 +404,7 @@ void describe("Prettier GameMaker plugin fixtures", () => {
             '        arg = "fallback";',
             "    }",
             "}",
-            "",
+            ""
         ].join("\n");
 
         const formatted = await Plugin.format(source);
@@ -429,7 +429,7 @@ void describe("Prettier GameMaker plugin fixtures", () => {
             "        arg1 = argument[1];",
             "    }",
             "}",
-            "",
+            ""
         ].join("\n");
 
         const formatted = await Plugin.format(source);
@@ -455,7 +455,7 @@ void describe("Prettier GameMaker plugin fixtures", () => {
             '        arg1 = "fallback";',
             "    }",
             "}",
-            "",
+            ""
         ].join("\n");
 
         const formatted = await Plugin.format(source);
@@ -493,7 +493,7 @@ void describe("Prettier GameMaker plugin fixtures", () => {
             "    }",
             "    return existing + second;",
             "}",
-            "",
+            ""
         ].join("\n");
 
         const formatted = await Plugin.format(source);
@@ -596,7 +596,7 @@ void describe("Prettier GameMaker plugin fixtures", () => {
             "#macro BAR 100;",
             "",
             "var result = FOO(1) + BAR;",
-            "",
+            ""
         ].join("\n");
 
         const formatted = await Plugin.format(source, {
@@ -608,7 +608,7 @@ void describe("Prettier GameMaker plugin fixtures", () => {
             "#macro BAR 100",
             "",
             "var result = FOO(1) + BAR;",
-            "",
+            ""
         ].join("\n");
 
         assert.strictEqual(formatted, expected);
@@ -620,7 +620,7 @@ void describe("Prettier GameMaker plugin fixtures", () => {
             "#macro BAR value + 2;",
             "",
             "var result = FOO(3) + BAR;",
-            "",
+            ""
         ].join("\n");
 
         const formatted = await Plugin.format(source, {
@@ -632,7 +632,7 @@ void describe("Prettier GameMaker plugin fixtures", () => {
             "#macro BAR value + 2",
             "",
             "var result = FOO(3) + BAR;",
-            "",
+            ""
         ].join("\n");
 
         assert.strictEqual(formatted, expected);
@@ -644,7 +644,7 @@ void describe("Prettier GameMaker plugin fixtures", () => {
             "#macro BAR value + 2;",
             "",
             "var total = FOO(3) + BAR;",
-            "",
+            ""
         ].join("\n");
 
         const formatted = await Plugin.format(source, {
@@ -656,7 +656,7 @@ void describe("Prettier GameMaker plugin fixtures", () => {
             "#macro BAR value + 2",
             "",
             "var total = FOO(3) + BAR;",
-            "",
+            ""
         ].join("\n");
 
         assert.strictEqual(formatted, expected);

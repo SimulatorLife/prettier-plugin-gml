@@ -265,10 +265,7 @@ function createCloseHandler({
             onDisconnect();
         }
 
-        if (
-            !websocketState.manuallyDisconnected &&
-            reconnectDelay > 0
-        ) {
+        if (!websocketState.manuallyDisconnected && reconnectDelay > 0) {
             websocketState.reconnectTimer = setTimeout(() => {
                 connect();
             }, reconnectDelay);
@@ -288,7 +285,9 @@ function createErrorHandler({
 
         if (onError) {
             const safeError = createRuntimePatchError(
-                event instanceof Error ? event.message : "Unknown WebSocket error"
+                event instanceof Error
+                    ? event.message
+                    : "Unknown WebSocket error"
             );
             onError(safeError, "connection");
         }
@@ -362,9 +361,7 @@ function handleSafeApplyResult(
     }
 
     const safeError = createRuntimePatchError(
-        result?.message ??
-            result?.error ??
-            `Failed to apply patch ${patch.id}`,
+        result?.message ?? result?.error ?? `Failed to apply patch ${patch.id}`,
         patch
     );
     safeError.rolledBack = result?.rolledBack;

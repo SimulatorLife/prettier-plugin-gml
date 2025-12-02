@@ -12,7 +12,11 @@ function hasJsonParseErrorContract(value: unknown) {
         return false;
     }
 
-    const candidate = value as Error & { cause?: unknown; description?: unknown; source?: unknown };
+    const candidate = value as Error & {
+        cause?: unknown;
+        description?: unknown;
+        source?: unknown;
+    };
 
     if (!isErrorLike(candidate.cause)) {
         return false;

@@ -115,8 +115,10 @@ void describe("wrapInvalidArgumentResolver", () => {
         const resolver = wrapInvalidArgumentResolver(
             () => {
                 const reasonError = new Error("bad input");
-                const reasonObject =
-                    reasonError as unknown as Record<string, unknown>;
+                const reasonObject = reasonError as unknown as Record<
+                    string,
+                    unknown
+                >;
                 delete reasonObject.message;
                 reasonObject.reason = "bad input";
                 throw reasonError;
