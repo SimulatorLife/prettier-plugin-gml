@@ -1,6 +1,6 @@
 import assert from "node:assert/strict";
 import { describe, it } from "node:test";
-import { createPerformanceCommand } from "../src/modules/performance/index.js";
+import { createPerformanceCommand } from "../src/commands/performance.js";
 import {
     PerformanceSuiteName,
     formatPerformanceSuiteList
