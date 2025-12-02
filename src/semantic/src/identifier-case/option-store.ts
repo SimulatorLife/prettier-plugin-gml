@@ -3,7 +3,6 @@ import { Core } from "@gml-modules/core";
 import { IDENTIFIER_CASE_OPTION_STORE_MAX_ENTRIES_OPTION_NAME } from "./options.js";
 import { getDefaultIdentifierCaseOptionStoreMaxEntries } from "./option-store-defaults.js";
 
-
 // Use canonical Core namespace instead of destructuring
 // Helpers used from Core.Utils:
 // - Core.getOrCreateMapEntry
@@ -158,8 +157,6 @@ export function setIdentifierCaseOption(options, key, value) {
     if (!Core.isObjectLike(options)) {
         return;
     }
-
-
 
     options[key] = value;
     updateStore(options, key, value);

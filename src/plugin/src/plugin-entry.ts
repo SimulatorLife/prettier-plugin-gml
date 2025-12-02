@@ -35,7 +35,7 @@ const pluginOptions = Core.createReadOnlyView<SupportOptions>(
     "GML plugin options"
 );
 
-export const languages: ReadonlyArray<SupportLanguage> = [
+export const languages: SupportLanguage[] = [
     {
         name: "GameMaker Language",
         extensions: [".gml"],
@@ -93,6 +93,8 @@ async function format(source: string, options: SupportOptions = {}) {
         ...options
     });
 
+    console.log("DEBUG: plugin-entry format result:", JSON.stringify(formatted));
+
     if (typeof formatted !== "string") {
         throw new TypeError("Expected Prettier to return a string result.");
     }
@@ -113,14 +115,12 @@ const defaultOptions = Core.createReadOnlyView<GmlPluginDefaultOptions>(
 export { parsers, printers, pluginOptions, defaultOptions };
 export { pluginOptions as options };
 
-const pluginBundle: GmlPlugin = {
-    languages: [...languages],
+export const Plugin: GmlPlugin = {
+    languages,
     parsers,
     printers,
     options: pluginOptions,
-    defaultOptions,
+    defaultOptions: createDefaultOptionsSnapshot(),
     format
 };
-
-export const Plugin = Object.freeze(pluginBundle);
 export default Plugin;

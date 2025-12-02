@@ -6,7 +6,11 @@ import { fileURLToPath } from "node:url";
 import { Plugin } from "../src/index.js";
 import { describe, it } from "node:test";
 
-const currentDirectory = fileURLToPath(new URL(".", import.meta.url));
+const rawDirectory = fileURLToPath(new URL(".", import.meta.url));
+const currentDirectory = rawDirectory.includes(`${path.sep}dist${path.sep}`)
+    ? path.resolve(rawDirectory, "..", "..", "test")
+    : rawDirectory;
+
 const fileEncoding = "utf8";
 const fixtureExtension = ".gml";
 
@@ -145,7 +149,11 @@ void describe("Prettier GameMaker plugin fixtures", () => {
         options
     } of testCases) {
         void it(`formats ${baseName}`, async () => {
+            console.log(`Running test: ${baseName}`);
             const formatted = await Plugin.format(inputSource, options);
+            if (baseName === "testAligned") {
+                console.log(`DEBUG: testAligned output:\n${  formatted}`);
+            }
             const expected = expectedOutput.trim();
 
             if (formatted === expected) {

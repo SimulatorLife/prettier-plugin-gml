@@ -4,7 +4,8 @@
 // TODO: ALL doc-comment/function-doc functionality here should be extracted and moved to Core's doc-comment manager/module (e.g. computeSyntheticFunctionDocLines, normalizeParamDocType, collectImplicitArgumentDocNames, etc.). Any tests related to doc-comments should also be moved accordingly. Need to be VERY careful that no functionality is lost during the migration. Also be VERY dilligent to ensure that no duplicate functionality is created during the migration.
 
 import { Core, type MutableDocCommentLines } from "@gml-modules/core";
-import { builders, utils } from "prettier/doc";
+// import { builders, utils } from "prettier/doc";
+import { doc } from "prettier";
 
 import {
     DefineReplacementDirective,
@@ -44,6 +45,8 @@ import {
     ObjectWrapOption,
     resolveObjectWrapOption
 } from "../options/object-wrap-option.js";
+
+const { builders, utils } = doc;
 
 // String constants to avoid duplication warnings
 const STRING_TYPE = "string";
@@ -148,11 +151,16 @@ const { willBreak } = utils;
 // raw builder functions captured earlier. Use a try/catch to remain
 // defensive in environments where `builders` may behave unexpectedly.
 try {
-    group = builders.group;
-    indent = builders.indent;
-    conditionalGroup = builders.conditionalGroup;
-    ifBreak = builders.ifBreak;
-    lineSuffix = builders.lineSuffix;
+    group = (parts, opts) => {
+        // console.log("group called with parts:", JSON.stringify(parts, null, 2));
+        const sanitized = _sanitizeDocChild(parts);
+        // console.log("group sanitized:", JSON.stringify(sanitized, null, 2));
+        return builders.group(sanitized, opts);
+    };
+    indent = (parts) => builders.indent(_sanitizeDocChild(parts));
+    conditionalGroup = (parts, opts) => builders.conditionalGroup(parts.map(_sanitizeDocChild), opts);
+    ifBreak = (breakContents, flatContents, opts) => builders.ifBreak(_sanitizeDocChild(breakContents), _sanitizeDocChild(flatContents), opts);
+    lineSuffix = (parts) => builders.lineSuffix(_sanitizeDocChild(parts));
 } catch {
     // ignore - maintain best-effort compatibility
 }
@@ -173,12 +181,13 @@ function _sanitizeDocChild(child) {
 }
 
 function concat(parts) {
+    // console.log("DEBUG: concat called with:", JSON.stringify(parts));
     if (!Array.isArray(parts)) {
-        const sanitized = _sanitizeDocChild(parts);
-        return _rawConcat([sanitized]);
+        return _rawConcat([_sanitizeDocChild(parts)]);
     }
-    const sanitizedParts = parts.map(_sanitizeDocChild);
-    return _rawConcat(sanitizedParts);
+    const sanitized = parts.map(_sanitizeDocChild);
+    // console.log("DEBUG: concat sanitized:", JSON.stringify(sanitized));
+    return _rawConcat(sanitized);
 }
 
 function join(separator, parts) {
@@ -605,7 +614,11 @@ function _printImpl(path, options, print) {
                         )
                     );
                 }
-                return concat(printStatements(path, options, print, "body"));
+                const bodyParts = printStatements(path, options, print, "body");
+                console.log("DEBUG: Program bodyParts:", JSON.stringify(bodyParts));
+                const result = concat(bodyParts);
+                console.log("DEBUG: Program result:", JSON.stringify(result));
+                return result;
             } finally {
                 try {
                     if (
@@ -662,6 +675,20 @@ function _printImpl(path, options, print) {
                 }
             }
 
+            const stmts = printStatements(path, options, print, "body");
+
+            if (node.body.length === 14) {
+                 const varNode = node.body[8];
+                 if (varNode.type === "VariableDeclaration") {
+                     console.log("DEBUG: Var at index 8:", JSON.stringify(varNode, null, 2));
+                 }
+                 console.log("DEBUG: BlockStatement (14) stmts:", JSON.stringify(stmts, null, 2));
+            }
+
+            if (node.body.some((s: any) => s.type === "VariableDeclaration" && s.declarations?.some((d: any) => d.id.name === 'w'))) {
+                 console.log("DEBUG: BlockStatement stmts for 'w':", JSON.stringify(stmts, null, 2));
+            }
+
             return concat([
                 "{",
                 Parser.printDanglingComments(
@@ -671,7 +698,7 @@ function _printImpl(path, options, print) {
                 ),
                 indent([
                     ...leadingDocs,
-                    printStatements(path, options, print, "body")
+                    stmts
                 ]),
                 hardline,
                 "}"
@@ -889,6 +916,10 @@ function _printImpl(path, options, print) {
         }
         case "FunctionDeclaration":
         case "ConstructorDeclaration": {
+            if (node.id === "scr_create_fx") {
+                console.log("DEBUG: Printing scr_create_fx");
+                return "HELLO WORLD";
+            }
             const parts: any[] = [];
 
             const sourceMetadata = resolvePrinterSourceMetadata(options);
@@ -1062,6 +1093,13 @@ function _printImpl(path, options, print) {
                 }
             }
 
+            if (node.id === "scr_create_fx") {
+                console.log("DEBUG: Printing scr_create_fx");
+                console.log("DEBUG: docCommentDocs length:", docCommentDocs.length);
+                console.log("DEBUG: docCommentDocs:", JSON.stringify(docCommentDocs));
+                return "HELLO WORLD";
+            }
+
             if (docCommentDocs.length > 0) {
                 node[DOC_COMMENT_OUTPUT_FLAG] = true;
                 const suppressLeadingBlank =
@@ -1210,13 +1248,13 @@ function _printImpl(path, options, print) {
                 spacing = "";
             }
 
-            return group([
+            return group(concat([
                 group(print("left")),
                 spacing,
                 node.operator,
                 " ",
                 group(print("right"))
-            ]);
+            ]));
         }
         case "GlobalVarStatement": {
             if (options?.preserveGlobalVarStatements === false) {
@@ -1247,9 +1285,12 @@ function _printImpl(path, options, print) {
         case "VariableDeclaration": {
             const functionNode = findEnclosingFunctionNode(path);
             const declarators = Core.asArray(node.declarations);
+
             const keptDeclarators = declarators.filter(
-                (declarator) =>
-                    !shouldOmitParameterAlias(declarator, functionNode, options)
+                (declarator: any) => {
+                    const omit = shouldOmitParameterAlias(declarator, functionNode, options);
+                    return !omit;
+                }
             );
 
             if (keptDeclarators.length === 0) {
@@ -1296,7 +1337,7 @@ function _printImpl(path, options, print) {
                           }
                       )
                     : path.map(print, "declarations");
-            return concat([node.kind, " ", decls]);
+            return group(concat([node.kind, " ", decls]));
         }
         case "VariableDeclarator": {
             const initializerOverride =
@@ -2075,7 +2116,7 @@ function _printImpl(path, options, print) {
 // arrays are coerced into safe string fragments. This prevents Prettier's
 // doc traversal from encountering `null` and throwing `InvalidDocError`.
 function _sanitizeDocOutput(doc) {
-    if (doc === null || doc === undefined) return "";
+    if (doc === null) return "";
     if (Array.isArray(doc)) return doc.map(_sanitizeDocOutput);
     return doc;
 }
@@ -3017,6 +3058,7 @@ function printStatements(path, options, print, childrenAttribute) {
             ? parentNode[childrenAttribute]
             : null;
     if (statements) {
+        console.log("DEBUG: printStatements statements length:", statements.length);
         applyAssignmentAlignment(statements, options, path, childrenAttribute);
     }
 
@@ -3060,6 +3102,7 @@ function printStatements(path, options, print, childrenAttribute) {
         }
         const isTopLevel = childPath.parent?.type === "Program";
         const printed = print();
+        console.log("DEBUG: printStatements printed node type:", node.type, "printed:", JSON.stringify(printed));
 
         if (printed === undefined) {
             return [];
@@ -3532,6 +3575,10 @@ function printStatements(path, options, print, childrenAttribute) {
                 parts.push(hardline);
                 previousNodeHadNewlineAddedAfter = true;
             }
+        }
+
+        if (node.type === "VariableDeclaration" && node.declarations?.some((d: any) => d.id.name === 'w')) {
+            console.log("DEBUG: parts for 'w':", JSON.stringify(parts, null, 2));
         }
 
         return parts;
@@ -5894,8 +5941,6 @@ function mergeSyntheticDocComments(
         // the original behavior without promotion so we don't throw.
     }
 
-
-
     // If the original existing doc lines contained plain triple-slash
     // summary lines but no explicit doc tags, prefer to keep the summary
     // as plain text rather than a promoted `@description` tag and ensure a
@@ -6892,8 +6937,6 @@ function computeSyntheticFunctionDocLines(
                 const suppressedCanonicals =
                     suppressedImplicitDocCanonicalByNode.get(node);
 
-
-
                 if (
                     entry.hasDirectReference === true &&
                     Number.isInteger(index) &&
@@ -7392,8 +7435,6 @@ function computeSyntheticFunctionDocLines(
 function normalizeParamDocType(typeText) {
     return Core.getNonEmptyTrimmedString(typeText);
 }
-
-
 
 function collectImplicitArgumentDocNames(functionNode, options) {
     if (

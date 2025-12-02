@@ -141,8 +141,6 @@ function createIdentifierCaseServiceRegistry({
             // helps correlate runtime behaviour with the provider identity.
 
             cachedService = normalize(provider());
-
-
         }
 
         return cachedService;

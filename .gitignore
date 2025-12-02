@@ -4,7 +4,10 @@ tmp/
 src/parser/.antlr/
 .tools/
 tools/
-./*.txt
+/*.txt
+/*.ts
+/*.js
+*/**/*debug*.txt
 
 # TypeScript
 *.tsbuildinfo

@@ -313,10 +313,10 @@ function preprocessFunctionDeclaration(node, ast) {
         // If this statement looks like an argument_count guard but our
         // stricter matcher didn't recognize it, emit a short diagnostic so
 
-
         if (!match) {
             continue;
         }
+        console.log("DEBUG: matchArgumentCountFallbackStatement matched:", JSON.stringify(match, null, 2));
 
         matches.push({
             ...match,
@@ -459,6 +459,7 @@ function preprocessFunctionDeclaration(node, ast) {
         // If we are converting a local variable to a parameter, remove the
         // variable declaration from the function body to avoid redeclaration.
         if (match.targetName) {
+            console.log("DEBUG: match.targetName found:", match.targetName);
             for (const stmt of statements) {
                 if (stmt.type === "VariableDeclaration") {
                     const declIndex = stmt.declarations.findIndex((d) => {
@@ -466,6 +467,7 @@ function preprocessFunctionDeclaration(node, ast) {
                         return name === match.targetName;
                     });
                     if (declIndex !== -1) {
+                        console.log("DEBUG: Removing declaration for:", match.targetName);
                         stmt.declarations.splice(declIndex, 1);
                         if (stmt.declarations.length === 0) {
                             statementsToRemove.add(stmt);
@@ -525,7 +527,6 @@ function preprocessFunctionDeclaration(node, ast) {
             node.params[paramInfo.index] = defaultParamNode;
         } else if (paramIsEmptyDefault) {
             try {
-
                 currentParam.right = match.fallbackExpression;
 
                 // Do NOT annotate `_featherOptionalParameter` here; leave
@@ -720,7 +721,6 @@ function preprocessFunctionDeclaration(node, ast) {
     // reliance on traversal order while remaining safe for non-standard
     // parameter forms.
     try {
-
         // Find the highest index of a concrete explicit default to the left.
         let lastExplicitDefaultIndex = -1;
         for (const [i, param] of params.entries()) {
@@ -1017,7 +1017,6 @@ function preprocessFunctionDeclaration(node, ast) {
             // in edge cases). This helps us diagnose whether the materialized
             // flags exist before further processing.
 
-
             const docManager = Core.prepareDocCommentEnvironment(ast);
             const comments = docManager.getComments(node);
 
@@ -1045,7 +1044,6 @@ function preprocessFunctionDeclaration(node, ast) {
             // default; plain functions omit unless the doc indicates optional.
             const params = Core.toMutableArray(node.params) as Array<any>;
             for (const p of params) {
-
                 if (!p) continue;
 
                 // Handle both DefaultParameter and AssignmentPattern shapes.

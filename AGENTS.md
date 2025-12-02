@@ -10,7 +10,7 @@
 - When updating or extending the codebase, do not add legacy-support or backwards-compatibility shims. Avoid reintroducing old CLI command formats, deprecated script arguments, outdated plugin options, transitional wrappers, redundant aliases, or any parallel paths meant to preserve previous behavior. Favor clean, forward-looking implementations that document breaking changes succinctly instead of maintaining compatibility code.
 - Do **NOT** add standalone Node scripts outside of `src/cli/src/commands/`. Expose new tooling through the CLI so helpers remain discoverable and consistent.
 - Do not edit the generated files in `src/parser/generated`; any and all changes will be overwritten when the file are re-generated. The generated code is tightly coupled to ANTLR’s runtime. Even a small edit could break assumptions about rule indices, token streams, or the visitor/listener APIs. These files have had manual edits already, and that custom code needs to be exracted out and refactored such that we subclass the generated code.
-- Never add eslint-disable comments to the codebase. If lint errors arise, fix them properly.
+- **NEVER** add eslint-disable or `@ts-*` comments to the codebase. If lint/type errors arise, fix them properly. If you encounter any existing eslint-disable or `@ts-*` comments, remove them and fix the underlying issues.
 - The plugin/formatter should be opinionated and enforce a single opinionated strategy (for indentation, spacing, blank lines, etc.) – avoid adding overly-configurable options that give users too many choices or lead to inconsistent formatting.
 
 ----

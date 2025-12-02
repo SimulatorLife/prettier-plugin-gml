@@ -1163,7 +1163,6 @@ function applyFeatherFixesImpl(ast: any, opts: ApplyFeatherFixesOptions = {}) {
         }
 
         // Diagnostic snapshot: list every FunctionDeclaration in the final
-
     }
 
     return ast;
@@ -18340,8 +18339,6 @@ function attachFeatherFixMetadata(target, fixes) {
             value: []
         });
     }
-
-
 
     target[key].push(...fixes);
 }

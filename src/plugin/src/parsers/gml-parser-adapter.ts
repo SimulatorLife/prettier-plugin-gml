@@ -132,6 +132,28 @@ async function parseImpl(text, options) {
 
         Semantic.attachIdentifierCasePlanSnapshot(ast, options);
 
+        // Filter boilerplate comments to prevent Prettier from printing empty lines for them
+        if (ast.comments && Array.isArray(ast.comments)) {
+            const lineCommentOptions =
+                Parser.Comments.resolveLineCommentOptions(options);
+            const normalizedOptions =
+                Parser.Comments.normalizeLineCommentOptions(lineCommentOptions);
+            const { boilerplateFragments } = normalizedOptions;
+
+            ast.comments = ast.comments.filter((comment) => {
+                if (comment.type !== "CommentLine") {
+                    return true;
+                }
+                const value = Core.getCommentValue(comment, { trim: true });
+                for (const fragment of boilerplateFragments) {
+                    if (value.includes(fragment)) {
+                        return false;
+                    }
+                }
+                return true;
+            });
+        }
+
         if (!ast || typeof ast !== "object") {
             throw new Error(
                 "GameMaker parser returned no AST for the provided source."
