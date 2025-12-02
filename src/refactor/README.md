@@ -102,6 +102,13 @@ const renameValidation = await engine.validateNewName(
     "scr_new_name",
     "gml/script/scr_current"  // Symbol being renamed
 );
+
+// Skip identifier validation when name is already validated
+const globalOnlyValidation = await engine.validateNewName(
+    "scr_validated_name",
+    "gml/script/scr_current",
+    { skipIdentifierValidation: true }
+);
 ```
 
 The `validateNewName` method detects:
@@ -233,7 +240,7 @@ new RefactorEngine({ parser, semantic, formatter })
 - `async executeBatchRename(request)` - Execute multiple renames atomically
 - `async analyzeRenameImpact(request)` - Analyze impact without applying changes
 - `async validateRename(workspace)` - Validate a workspace edit
-- `async validateNewName(newName, currentSymbolId)` - Validate a proposed name against the semantic index
+- `async validateNewName(newName, currentSymbolId, options)` - Validate a proposed name against the semantic index
 - `async validateHotReloadCompatibility(workspace, options)` - Check hot reload compatibility
 - `async applyWorkspaceEdit(workspace, options)` - Apply edits to files
 - `async prepareHotReloadUpdates(workspace)` - Prepare hot reload update metadata

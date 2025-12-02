@@ -221,20 +221,29 @@ export class RefactorEngine {
      *
      * @param {string} newName - The proposed new identifier name.
      * @param {string} [currentSymbolId] - The symbol being renamed (to exclude from conflict checks).
+     * @param {Object} [options] - Validation options.
+     * @param {boolean} [options.skipIdentifierValidation=false] - Skip identifier syntax validation (use when name is already validated).
      * @returns {Promise<{valid: boolean, conflicts: Array<{type: string, message: string, existingSymbolId?: string}>}>}
      */
-    async validateNewName(newName, currentSymbolId) {
+    async validateNewName(newName, currentSymbolId, options = {}) {
+        const { skipIdentifierValidation = false } = options;
         const conflicts = [];
         let normalizedNewName;
 
-        try {
-            normalizedNewName = assertValidIdentifierName(newName);
-        } catch (error) {
-            conflicts.push({
-                type: "invalid_identifier",
-                message: error.message
-            });
-            return { valid: false, conflicts };
+        // Validate identifier syntax unless explicitly skipped (e.g., when called
+        // from detectRenameConflicts which has already performed this validation).
+        if (skipIdentifierValidation) {
+            normalizedNewName = newName;
+        } else {
+            try {
+                normalizedNewName = assertValidIdentifierName(newName);
+            } catch (error) {
+                conflicts.push({
+                    type: "invalid_identifier",
+                    message: error.message
+                });
+                return { valid: false, conflicts };
+            }
         }
 
         // Check if a global symbol with this name already exists in the semantic
@@ -380,9 +389,11 @@ export class RefactorEngine {
         // Check for global symbol collisions using the dedicated validation method.
         // This catches cases where the new name would conflict with existing
         // top-level definitions like scripts, objects, or other global symbols.
+        // We skip identifier validation since we already validated above.
         const globalValidation = await this.validateNewName(
             normalizedNewName,
-            currentSymbolId
+            currentSymbolId,
+            { skipIdentifierValidation: true }
         );
         if (!globalValidation.valid) {
             conflicts.push(...globalValidation.conflicts);
