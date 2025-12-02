@@ -417,7 +417,7 @@ export function capitalize(value?: unknown): string {
     if (value === null || value === undefined) {
         return "";
     }
-    const str = String(value);
+    const str = toSafeString(value);
     if (str.length === 0) {
         return "";
     }

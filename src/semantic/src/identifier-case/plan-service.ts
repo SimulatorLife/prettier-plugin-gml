@@ -142,14 +142,7 @@ function createIdentifierCaseServiceRegistry({
 
             cachedService = normalize(provider());
 
-            try {
-                const sampleKeys = Object.keys(cachedService).slice(0, 5);
-                // console.debug(
-                //     `[DBG] createIdentifierCaseServiceRegistry.resolve: cachedService keys=${JSON.stringify(sampleKeys)}`
-                // );
-            } catch {
-                /* ignore */
-            }
+
         }
 
         return cachedService;

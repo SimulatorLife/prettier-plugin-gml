@@ -962,24 +962,7 @@ function _printImpl(path, options, print) {
                 } else {
                     programNode = parentNode;
                 }
-                if (process.env.GML_PRINTER_DEBUG) {
-                    try {
-                        const programCommentsCount = Core.isNonEmptyArray(
-                            Core.getCommentArray(programNode)
-                        )
-                            ? Core.getCommentArray(programNode).length
-                            : 0;
-                        const nodeCommentsCount = Core.isNonEmptyArray(
-                            Core.getCommentArray(node)
-                        )
-                            ? Core.getCommentArray(node).length
-                            : 0;
-                    } catch {
-                        // ignore
-                    }
-                }
-                if (process.env.GML_PRINTER_DEBUG) {
-                }
+
                 const { existingDocLines, remainingComments } =
                     collectSyntheticDocCommentLines(
                         node,
@@ -994,8 +977,7 @@ function _printImpl(path, options, print) {
                     remainingComments,
                     options
                 );
-                if (process.env.GML_PRINTER_DEBUG) {
-                }
+
                 if (
                     existingDocLines.length > 0 ||
                     leadingCommentLines.length > 0
@@ -5912,10 +5894,7 @@ function mergeSyntheticDocComments(
         // the original behavior without promotion so we don't throw.
     }
 
-    try {
-    } catch {
-        void 0;
-    }
+
 
     // If the original existing doc lines contained plain triple-slash
     // summary lines but no explicit doc tags, prefer to keep the summary
@@ -6730,30 +6709,7 @@ function computeSyntheticFunctionDocLines(
     } catch {
         /* best-effort */
     }
-    try {
-        const fname = Core.getNodeName(node);
-        if (typeof fname === "string" && fname.includes("sample")) {
-            try {
-                const suppressed =
-                    suppressedImplicitDocCanonicalByNode.get(node);
-                // console.error(
-                //     `[feather:debug] computeSyntheticFunctionDocLines(${fname}): implicitArgumentDocNames=`,
-                //     describeImplicitArgumentEntries(
-                //         implicitArgumentDocNames,
-                //         { includeSuppressDocLine: true }
-                //     )
-                // );
-                // console.error(
-                //     `[feather:debug] computeSyntheticFunctionDocLines(${fname}): suppressedCanonicals=`,
-                //     Array.from(suppressed || [])
-                // );
-            } catch {
-                void 0;
-            }
-        }
-    } catch {
-        void 0;
-    }
+
     const implicitDocEntryByIndex = new Map();
 
     for (const entry of implicitArgumentDocNames) {
@@ -6789,16 +6745,7 @@ function computeSyntheticFunctionDocLines(
                 canonical,
                 fallbackCanonical
             } = entry;
-            try {
-                const fname = Core.getNodeName(node);
-                // if (typeof fname === "string" && fname.includes("sample3")) {
-                //     console.error(
-                //         `[feather:debug] computeSyntheticFunctionDocLines(${fname}): entry debug docName='${String(docName)}' canonical='${String(canonical)}' fallback='${String(fallbackCanonical)}' documentedDocName=${documentedParamNames.has(docName)} documentedFallback=${documentedParamNames.has(fallbackCanonical)} hasDirectReference=${String(entry.hasDirectReference)} index=${String(index)}`
-                //     );
-                // }
-            } catch {
-                /* ignore */
-            }
+
             if (documentedParamNames.has(docName)) {
                 try {
                     const fname = Core.getNodeName(node);
@@ -6945,30 +6892,7 @@ function computeSyntheticFunctionDocLines(
                 const suppressedCanonicals =
                     suppressedImplicitDocCanonicalByNode.get(node);
 
-                const shouldAddFallback =
-                    entry.hasDirectReference === true &&
-                    Number.isInteger(index) &&
-                    index >= 0 &&
-                    fallbackCanonical &&
-                    fallbackCanonical !== canonical &&
-                    !documentedParamNames.has(fallbackCanonical) &&
-                    (!suppressedCanonicals ||
-                        !suppressedCanonicals.has(fallbackCanonical));
 
-                // Emit a light debug trace when debugging sample functions so
-                // we can later filter for why a fallback wasn't added.
-                try {
-                    if (
-                        typeof fname === "string" &&
-                        fname.includes("sample3")
-                    ) {
-                        // console.error(
-                        //     `[feather:debug] computeSyntheticFunctionDocLines(${fname}): safety-check entry=index=${String(index)} canonical=${String(canonical)} fallback=${String(fallbackCanonical)} hasDirectReference=${String(entry.hasDirectReference)} documented=${String(documentedParamNames.has(fallbackCanonical))} shouldAdd=${String(shouldAddFallback)}`
-                        // );
-                    }
-                } catch {
-                    void 0;
-                }
 
                 if (
                     entry.hasDirectReference === true &&
@@ -7469,30 +7393,7 @@ function normalizeParamDocType(typeText) {
     return Core.getNonEmptyTrimmedString(typeText);
 }
 
-function describeImplicitArgumentEntries(
-    entries,
-    { includeSuppressDocLine = false } = {}
-) {
-    return (entries || []).map((entry) => {
-        if (!entry || typeof entry !== "object") {
-            return entry;
-        }
 
-        const simplified: Record<string, unknown> = {
-            name: entry.name,
-            index: entry.index,
-            canonical: entry.canonical,
-            fallbackCanonical: entry.fallbackCanonical,
-            hasDirectReference: entry.hasDirectReference
-        };
-
-        if (includeSuppressDocLine) {
-            simplified._suppressDocLine = entry._suppressDocLine;
-        }
-
-        return simplified;
-    });
-}
 
 function collectImplicitArgumentDocNames(functionNode, options) {
     if (
@@ -7522,33 +7423,7 @@ function collectImplicitArgumentDocNames(functionNode, options) {
             // Gather reference info to detect explicit `argumentN` usages.
             const referenceInfo =
                 gatherImplicitArgumentReferences(functionNode);
-            try {
-                const fname =
-                    functionNode.id?.name || functionNode.name || null;
-                if (typeof fname === "string" && fname.includes("sample")) {
-                    const briefRef = referenceInfo
-                        ? {
-                              referencedIndices: Array.from(
-                                  referenceInfo.referencedIndices || []
-                              ),
-                              aliasByIndex: referenceInfo.aliasByIndex
-                                  ? Array.from(
-                                        referenceInfo.aliasByIndex.entries()
-                                    )
-                                  : [],
-                              directReferenceIndices: Array.from(
-                                  referenceInfo.directReferenceIndices || []
-                              )
-                          }
-                        : null;
-                    // console.error(
-                    //     `[feather:debug] gatherImplicitArgumentReferences(${fname}):`,
-                    //     briefRef
-                    // );
-                }
-            } catch {
-                /* ignore */
-            }
+
             // The parser is authoritative for names/indices. If the parser
             // omitted marking `hasDirectReference`, attempt a conservative
             // detection that matches on canonical names rather than numeric
@@ -7810,29 +7685,13 @@ function collectImplicitArgumentDocNames(functionNode, options) {
                           ? functionNode.key.name
                           : null);
             if (typeof fname === "string" && fname.includes("sample")) {
-                const result = entries.filter((entry) => {
+                return entries.filter((entry) => {
                     if (!entry) return false;
                     if (entry.hasDirectReference) return true;
                     const key = entry.canonical || entry.fallbackCanonical;
                     if (!key) return true;
                     return !suppressedCanonicals.has(key);
                 });
-
-                const decisions = entries.map((e) => ({
-                    name: e?.name,
-                    index: e?.index,
-                    canonical: e?.canonical,
-                    fallbackCanonical: e?.fallbackCanonical,
-                    hasDirectReference: !!e?.hasDirectReference,
-                    kept: result.includes(e)
-                }));
-
-                // console.error(
-                //     `[feather:debug] collectImplicitArgumentDocNames(${fname}): filter-decisions=`,
-                //     decisions
-                // );
-
-                return result;
             }
         } catch {
             /* ignore */

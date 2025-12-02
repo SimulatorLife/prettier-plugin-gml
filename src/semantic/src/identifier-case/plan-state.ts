@@ -317,18 +317,7 @@ export function applyIdentifierCasePlanSnapshot(snapshot, options) {
                     // now lives on the options bag. This helps detect cases where
                     // the map may have been cloned, cleared, or replaced between
                     // capture and apply.
-                    try {
-                        const current = object[optionKey];
-                        const same = current === value;
-                        const curSize = Core.isMapLike(current)
-                            ? current.size
-                            : null;
-                        // console.debug(
-                        //     `[DBG] applyIdentifierCasePlanSnapshot: post-write identity optionKey=${optionKey} snapshotId=${getDebugId(value as DebuggableMap)} currentId=${getDebugId(current as DebuggableMap)} same=${String(same)} currentSize=${String(curSize)} filepath=${object?.filepath ?? null}`
-                        // );
-                    } catch {
-                        /* ignore */
-                    }
+
                     continue;
                 }
 

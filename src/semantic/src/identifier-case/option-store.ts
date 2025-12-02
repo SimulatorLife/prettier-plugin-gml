@@ -2,7 +2,7 @@ import { Core } from "@gml-modules/core";
 
 import { IDENTIFIER_CASE_OPTION_STORE_MAX_ENTRIES_OPTION_NAME } from "./options.js";
 import { getDefaultIdentifierCaseOptionStoreMaxEntries } from "./option-store-defaults.js";
-import type { DebuggableMap } from "./types.js";
+
 
 // Use canonical Core namespace instead of destructuring
 // Helpers used from Core.Utils:
@@ -159,28 +159,7 @@ export function setIdentifierCaseOption(options, key, value) {
         return;
     }
 
-    try {
-        if (key === "__identifierCaseRenameMap") {
-            const prev = options[key];
-            const prevSize =
-                prev && typeof prev.size === "number" ? prev.size : null;
-            const prevId =
-                prev && (prev as DebuggableMap)?.__dbgId
-                    ? (prev as DebuggableMap).__dbgId
-                    : null;
-            const newSize =
-                value && typeof value.size === "number" ? value.size : null;
-            const newId =
-                value && (value as DebuggableMap)?.__dbgId
-                    ? (value as DebuggableMap).__dbgId
-                    : null;
-            // console.debug(
-            //     `[DBG] setIdentifierCaseOption: writing ${key} prevId=${prevId} prevSize=${String(prevSize)} newId=${newId} newSize=${String(newSize)} filepath=${options?.filepath ?? null}`
-            // );
-        }
-    } catch {
-        /* ignore */
-    }
+
 
     options[key] = value;
     updateStore(options, key, value);

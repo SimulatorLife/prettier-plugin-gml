@@ -904,20 +904,6 @@ function applyFeatherFixesImpl(ast: any, opts: ApplyFeatherFixesOptions = {}) {
         }
 
         try {
-            // Debug: list applied fixes (id and target) before attaching to the program
-            try {
-                const listed = Array.isArray(appliedFixes)
-                    ? appliedFixes
-                          .map((f) => `${String(f?.id)}@${String(f?.target)}`)
-                          .join(",")
-                    : String(appliedFixes);
-                // console.warn(
-                //     `[feather:diagnostic] appliedFixes summary=${listed}`
-                // );
-            } catch {
-                void 0;
-            }
-
             attachFeatherFixMetadata(ast, appliedFixes);
         } catch {
             // swallow: attachment logging shouldn't break transforms
@@ -1177,36 +1163,7 @@ function applyFeatherFixesImpl(ast: any, opts: ApplyFeatherFixesOptions = {}) {
         }
 
         // Diagnostic snapshot: list every FunctionDeclaration in the final
-        // AST along with any _appliedFeatherDiagnostics attached to it.
-        // This helps determine whether per-function entries exist on the
-        // live nodes that tests inspect (we've observed cases where
-        // metadata is attached to a node instance that is later replaced).
-        try {
-            walkAstNodes(ast, (node) => {
-                if (!node || node.type !== "FunctionDeclaration") {
-                    return;
-                }
 
-                try {
-                    const name = getFunctionIdentifierName(node) ?? "<anon>";
-                    const start = Core.getNodeStartIndex(node);
-                    const end = Core.getNodeEndIndex(node);
-                    const ids = Array.isArray(node._appliedFeatherDiagnostics)
-                        ? node._appliedFeatherDiagnostics
-                              .map((f) => (f && f.id ? f.id : String(f)))
-                              .join(",")
-                        : "";
-
-                    // console.warn(
-                    //     `[feather:diagnostic] function-node name=${String(name)} start=${String(start)} end=${String(end)} ids=${ids}`
-                    // );
-                } catch {
-                    void 0;
-                }
-            });
-        } catch {
-            void 0;
-        }
     }
 
     return ast;
@@ -18384,21 +18341,7 @@ function attachFeatherFixMetadata(target, fixes) {
         });
     }
 
-    try {
-        // Debugging aid: log when attaching fixes to function nodes so we
-        // can trace why some expected per-function metadata may be missing
-        // in tests. This is safe to leave as a non-fatal diagnostic.
-        const ids = Array.isArray(fixes)
-            ? fixes.map((f) => (f && f.id ? f.id : String(f))).join(",")
-            : String(fixes);
-        // console.warn(
-        //     `[feather:diagnostic] attachFeatherFixMetadata targetType=${
-        //         target && target.type ? target.type : typeof target
-        //     } ids=${ids}`
-        // );
-    } catch {
-        // swallow any logging failures
-    }
+
 
     target[key].push(...fixes);
 }
