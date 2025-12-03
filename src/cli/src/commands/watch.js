@@ -217,6 +217,62 @@ function buildScriptSymbolId(filePath, rootPath) {
 }
 
 /**
+ * Retrieve the previously cached source content for a symbol.
+ *
+ * Centralising the cache lookup keeps the orchestrator focused on sequencing
+ * rather than Map bookkeeping.
+ *
+ * @param {object | null | undefined} runtimeContext
+ * @param {string} symbolId
+ * @returns {string | undefined}
+ */
+function getCachedSourceContent(runtimeContext, symbolId) {
+    return runtimeContext?.sourceTextCache?.get(symbolId);
+}
+
+/**
+ * Store source content in the runtime cache for future deduplication checks.
+ *
+ * @param {object | null | undefined} runtimeContext
+ * @param {string} symbolId
+ * @param {string} content
+ */
+function updateSourceCache(runtimeContext, symbolId, content) {
+    runtimeContext?.sourceTextCache?.set(symbolId, content);
+}
+
+/**
+ * Remove a symbol's cached source content, typically after a transpilation error.
+ *
+ * @param {object | null | undefined} runtimeContext
+ * @param {string} symbolId
+ */
+function clearSourceCache(runtimeContext, symbolId) {
+    runtimeContext?.sourceTextCache?.delete(symbolId);
+}
+
+/**
+ * Retrieve the previously stored patch for a symbol.
+ *
+ * @param {object | null | undefined} runtimeContext
+ * @param {string} symbolId
+ * @returns {object | undefined}
+ */
+function getCachedPatch(runtimeContext, symbolId) {
+    return runtimeContext?.patches?.get(symbolId);
+}
+
+/**
+ * Store a transpiled patch in the runtime context for future streaming.
+ *
+ * @param {object | null | undefined} runtimeContext
+ * @param {object} patch
+ */
+function storePatch(runtimeContext, patch) {
+    runtimeContext?.patches?.set(patch.id, patch);
+}
+
+/**
  * Executes the watch command.
  *
  * @param {string} targetPath - Directory to watch
@@ -563,9 +619,11 @@ async function handleFileChange(
             // the hot reload loop stable and avoids spamming clients with
             // duplicate patches.
             const symbolId = buildScriptSymbolId(filePath, rootPath);
-            const previousContent =
-                runtimeContext?.sourceTextCache?.get(symbolId);
-            const previousPatch = runtimeContext?.patches?.get(symbolId);
+            const previousContent = getCachedSourceContent(
+                runtimeContext,
+                symbolId
+            );
+            const previousPatch = getCachedPatch(runtimeContext, symbolId);
 
             if (
                 previousContent === content ||
@@ -579,9 +637,7 @@ async function handleFileChange(
                 return;
             }
 
-            if (runtimeContext?.sourceTextCache) {
-                runtimeContext.sourceTextCache.set(symbolId, content);
-            }
+            updateSourceCache(runtimeContext, symbolId, content);
 
             if (verbose) {
                 console.log(`  ↳ Read ${lines} lines`);
@@ -590,9 +646,6 @@ async function handleFileChange(
             // Transpile the GML source to JavaScript
             if (runtimeContext?.transpiler) {
                 try {
-                    // Generate a script identifier from the file path
-                    const symbolId = buildScriptSymbolId(filePath, rootPath);
-
                     // Transpile to JavaScript patch
                     const patch =
                         await runtimeContext.transpiler.transpileScript({
@@ -601,7 +654,7 @@ async function handleFileChange(
                         });
 
                     // Store the latest patch for future streaming
-                    runtimeContext.patches.set(patch.id, patch);
+                    storePatch(runtimeContext, patch);
 
                     // Broadcast the patch to all connected WebSocket clients
                     if (runtimeContext.websocketServer) {
@@ -638,7 +691,7 @@ async function handleFileChange(
                     // 2. Identify dependent scripts that need recompilation
                 } catch (error) {
                     console.error(`  ↳ Transpilation failed: ${error.message}`);
-                    runtimeContext?.sourceTextCache?.delete(symbolId);
+                    clearSourceCache(runtimeContext, symbolId);
                     if (verbose) {
                         console.error(`     ${error.stack}`);
                     }
