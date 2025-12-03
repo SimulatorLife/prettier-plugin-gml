@@ -219,7 +219,7 @@ function buildScriptSymbolId(filePath, rootPath) {
 /**
  * Retrieve the previously cached source content for a symbol.
  *
- * Centralising the cache lookup keeps the orchestrator focused on sequencing
+ * Centralizing the cache lookup keeps the orchestrator focused on sequencing
  * rather than Map bookkeeping.
  *
  * @param {object | null | undefined} runtimeContext
