@@ -3,12 +3,8 @@
 import { util } from "prettier";
 import { builders } from "prettier/doc";
 import { Core } from "@gml-modules/core";
-import {
-    formatLineComment
-} from "./line-comment-formatting.js";
-import {
-    resolveLineCommentOptions
-} from "./line-comment-options.js";
+import { formatLineComment } from "./line-comment-formatting.js";
+import { resolveLineCommentOptions } from "./line-comment-options.js";
 
 const { addDanglingComment, addLeadingComment } = util;
 const { join, hardline } = builders;

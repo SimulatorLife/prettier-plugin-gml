@@ -184,11 +184,13 @@ function formatLineComment(
             (contentWithoutSlashes.match(INNER_BANNER_DECORATION_PATTERN) || [])
                 .length > 0;
 
-        if (!hasDecorations && // If it's exactly 4 slashes, preserve it (legacy/style choice).
+        if (
+            !hasDecorations && // If it's exactly 4 slashes, preserve it (legacy/style choice).
             // If it's more than 4, normalize it (excessive slashes).
-            slashesMatch[1].length === 4) {
-                return applyInlinePadding(comment, trimmedOriginal);
-            }
+            slashesMatch[1].length === 4
+        ) {
+            return applyInlinePadding(comment, trimmedOriginal);
+        }
 
         // Otherwise treat as a banner/decorative comment as before.
         const bannerContent = normalizeBannerCommentText(trimmedValue);

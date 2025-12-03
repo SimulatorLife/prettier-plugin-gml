@@ -705,9 +705,12 @@ function _printImpl(path, options, print) {
                             JSON.stringify(mergedDocs)
                         );
 
-                        docCommentDocs = mergedDocs.length === 0 ? Core.toMutableArray(
-                                leadingCommentLines
-                            ) as MutableDocCommentLines : mergedDocs;
+                        docCommentDocs =
+                            mergedDocs.length === 0
+                                ? (Core.toMutableArray(
+                                      leadingCommentLines
+                                  ) as MutableDocCommentLines)
+                                : mergedDocs;
                         console.log(
                             "DEBUG: docCommentDocs after fix:",
                             JSON.stringify(docCommentDocs)
@@ -1809,18 +1812,20 @@ function _sanitizeDocOutput(doc) {
 export function print(path, options, print) {
     const node = path.getValue();
     // console.log("DEBUG: Visiting node type:", node.type);
-    if (node.comments && node.comments.length > 0 && (
-            node.type === "ExpressionStatement" ||
+    if (
+        node.comments &&
+        node.comments.length > 0 &&
+        (node.type === "ExpressionStatement" ||
             node.type === "AssignmentExpression" ||
-            node.type === "Program"
-        )) {
-            console.log(
-                `DEBUG: Node ${node.type} has ${node.comments.length} comments`
-            );
-            node.comments.forEach((c) =>
-                console.log(`DEBUG: Comment: ${JSON.stringify(c)}`)
-            );
-        }
+            node.type === "Program")
+    ) {
+        console.log(
+            `DEBUG: Node ${node.type} has ${node.comments.length} comments`
+        );
+        node.comments.forEach((c) =>
+            console.log(`DEBUG: Comment: ${JSON.stringify(c)}`)
+        );
+    }
 
     const doc = _printImpl(path, options, print);
     return _sanitizeDocOutput(doc);

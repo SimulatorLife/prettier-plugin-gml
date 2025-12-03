@@ -142,6 +142,24 @@ function isBooleanBranchExpression(node, allowValueLiterals = false) {
     }
 }
 
+function isBooleanLiteralValue(node, expected) {
+    if (!node || node.type !== "Literal") {
+        return false;
+    }
+
+    const { value } = node;
+    if (typeof value === "boolean") {
+        return value === expected;
+    }
+
+    if (typeof value === "string") {
+        const normalized = toNormalizedLowerCaseString(value);
+        return normalized === (expected ? "true" : "false");
+    }
+
+    return false;
+}
+
 function visit(node, helpers) {
     if (!isNode(node)) {
         return;
@@ -263,6 +281,23 @@ function tryCondenseIfStatement(statements, index, helpers) {
         return false;
     }
 
+    const simpleArgument = resolveSimpleBooleanReturnArgument(
+        statement,
+        consequentExpression,
+        alternateExpression
+    );
+    if (simpleArgument) {
+        statements[index] = buildCondensedReturn(
+            simpleArgument,
+            statement,
+            alternateSourceNode ?? statement
+        );
+        if (removeFollowingReturn) {
+            statements.splice(index + 1, 1);
+        }
+        return true;
+    }
+
     if (
         !isBooleanBranchExpression(consequentExpression) ||
         !isBooleanBranchExpression(alternateExpression)
@@ -312,12 +347,11 @@ function tryCondenseIfStatement(statements, index, helpers) {
         return false;
     }
 
-    const newReturn = {
-        type: "ReturnStatement",
-        argument: argumentAst,
-        start: cloneLocation(statement.start),
-        end: cloneLocation((alternateSourceNode ?? statement).end)
-    };
+    const newReturn = buildCondensedReturn(
+        argumentAst,
+        statement,
+        alternateSourceNode ?? statement
+    );
 
     statements[index] = newReturn;
 
@@ -464,6 +498,61 @@ function canDropUnreachableStatement(node, helpers) {
     }
 }
 
+function resolveSimpleBooleanReturnArgument(
+    statement: any,
+    consequentExpression: unknown,
+    alternateExpression: unknown
+) {
+    if (!statement || !isNode(statement.test)) {
+        return null;
+    }
+
+    const testNode =
+        Core.unwrapParenthesizedExpression(statement.test) ?? statement.test;
+
+    if (
+        isBooleanLiteralValue(consequentExpression, true) &&
+        isBooleanLiteralValue(alternateExpression, false)
+    ) {
+        return cloneAstNode(testNode);
+    }
+
+    if (
+        isBooleanLiteralValue(consequentExpression, false) &&
+        isBooleanLiteralValue(alternateExpression, true)
+    ) {
+        const clone = cloneAstNode(testNode) as {
+            start?: unknown;
+            end?: unknown;
+        };
+        return {
+            type: "UnaryExpression",
+            operator: "!",
+            prefix: true,
+            argument: wrapUnaryArgument(clone),
+            start: cloneLocation(clone.start),
+            end: cloneLocation(clone.end)
+        };
+    }
+
+    return null;
+}
+
+function buildCondensedReturn(
+    argumentAst: unknown,
+    statement: { start?: unknown; end?: unknown },
+    sourceNode: unknown
+) {
+    const source = (sourceNode ?? statement) as { end?: unknown };
+
+    return {
+        type: "ReturnStatement",
+        argument: argumentAst,
+        start: cloneLocation(statement.start),
+        end: cloneLocation(source.end)
+    };
+}
+
 function createBooleanContext() {
     return {
         variables: [],
@@ -490,6 +579,9 @@ function toBooleanExpression(node, context) {
     }
 
     if (node.type === "Literal") {
+        if (typeof node.value === "boolean") {
+            return createBooleanConstant(node.value);
+        }
         if (typeof node.value === "string") {
             const normalized = node.value.toLowerCase();
             if (normalized === "true") {

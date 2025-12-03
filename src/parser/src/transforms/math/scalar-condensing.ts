@@ -4,6 +4,7 @@ import {
     attemptCollectDistributedScalars,
     attemptCondenseNumericChainWithMultipleBases,
     attemptCondenseScalarProduct,
+    attemptCondenseSimpleScalarProduct,
     attemptConvertDegreesToRadians,
     attemptRemoveAdditiveIdentity,
     attemptRemoveMultiplicativeIdentity,
@@ -73,6 +74,7 @@ function traverseForScalarCondense(node, seen, context) {
         attemptCondenseScalarProduct(node, context);
         attemptCondenseNumericChainWithMultipleBases(node, context);
         attemptCollectDistributedScalars(node, context);
+        attemptCondenseSimpleScalarProduct(node, context);
     }
 
     for (const [key, value] of Object.entries(node)) {

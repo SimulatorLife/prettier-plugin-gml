@@ -92,10 +92,14 @@ export class GMLParser {
             lexer.ignoreNewline = false;
             (lexer as any).templateDepth = 0;
 
-            console.log(`DEBUG: Stream size: ${(chars as any).size}, index after seek: ${(chars as any).index}`);
+            console.log(
+                `DEBUG: Stream size: ${(chars as any).size}, index after seek: ${(chars as any).index}`
+            );
 
             this.getHiddenNodes(lexer);
-            console.log(`DEBUG: Adapter parsed ${this.comments.length} comments.`);
+            console.log(
+                `DEBUG: Adapter parsed ${this.comments.length} comments.`
+            );
         }
 
         const builder = new GameMakerASTBuilder(this.options, this.whitespaces);

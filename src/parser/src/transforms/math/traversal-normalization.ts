@@ -267,7 +267,10 @@ function attemptRemoveMultiplicativeIdentity(node, context) {
         return false;
     }
 
-    return removeMultiplicativeIdentityOperand(node, "right", "left", context);
+    return (
+        removeMultiplicativeIdentityOperand(node, "left", "right", context) ||
+        removeMultiplicativeIdentityOperand(node, "right", "left", context)
+    );
 }
 
 function attemptReplaceMultiplicationWithZero(node, context) {
@@ -1581,10 +1584,6 @@ function attemptCondenseScalarProduct(node, context) {
     };
 
     if (!collectMultiplicativeChain(node, chain, false, context)) {
-        return false;
-    }
-
-    if (chain.denominators.length === 0) {
         return false;
     }
 
