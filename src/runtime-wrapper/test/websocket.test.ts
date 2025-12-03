@@ -115,17 +115,23 @@ void test("WebSocket client connects and receives patches", async () => {
 
     globalWithWebSocket.WebSocket = MockWebSocket;
 
-    const client = RuntimeWrapper.createWebSocketClient({
-        wrapper,
-        onConnect: () => {
-            connectCalled = true;
-        },
-        autoConnect: true
+    let client: ReturnType<typeof RuntimeWrapper.createWebSocketClient> | null =
+        null;
+    const connectPromise = new Promise<void>((resolve) => {
+        client = RuntimeWrapper.createWebSocketClient({
+            wrapper,
+            onConnect: () => {
+                connectCalled = true;
+                resolve();
+            },
+            autoConnect: true
+        });
     });
 
-    await wait(50);
+    await connectPromise;
 
     assert.ok(connectCalled);
+    assert.ok(client, "WebSocket client should exist");
     assert.ok(client.isConnected());
 
     client.disconnect();

@@ -2,7 +2,6 @@
 // We should move any and all integration tests to a top-level 'test/' directory
 import assert from "node:assert/strict";
 import { promises as fs } from "node:fs";
-import os from "node:os";
 import path from "node:path";
 import { describe, it } from "node:test";
 import { fileURLToPath } from "node:url";
@@ -131,8 +130,14 @@ void describe("identifier case project index bootstrap", () => {
     });
 
     void it("skips discovery when no manifest is present or discovery is disabled", async () => {
+        const missBase = path.join(
+            currentDirectory,
+            "../../tmp",
+            "gml-identifier-case-autodiscovery-miss"
+        );
+        await fs.mkdir(missBase, { recursive: true });
         const tempRoot = await fs.mkdtemp(
-            path.join(os.tmpdir(), "gml-identifier-case-autodiscovery-miss-")
+            path.join(missBase, "gml-identifier-case-autodiscovery-miss-")
         );
 
         let manifestStoreKey;

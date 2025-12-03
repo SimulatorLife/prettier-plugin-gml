@@ -189,11 +189,9 @@ function printComment(commentPath, options) {
     }
     comment.printed = true;
 
-    let result = "";
     switch (comment.type) {
         case "CommentBlock": {
-            result = `/*${comment.value}*/`;
-            break;
+            return `/*${comment.value}*/`;
         }
         case "CommentLine": {
             const lineCommentOptions = resolveLineCommentOptions(options);
@@ -201,15 +199,12 @@ function printComment(commentPath, options) {
                 ...lineCommentOptions,
                 originalText: options.originalText
             };
-            result = formatLineComment(comment, formattingOptions);
-            break;
+            return formatLineComment(comment, formattingOptions);
         }
         default: {
             throw new Error(`Not a comment: ${JSON.stringify(comment)}`);
         }
     }
-
-    return result;
 }
 
 function applySingleLeadingSpacePadding(comment, options) {

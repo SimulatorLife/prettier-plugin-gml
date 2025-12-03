@@ -926,7 +926,6 @@ function _printImpl(path, options, print) {
 
             return group(
                 concat([
-                    "DEBUG_PRINTED ",
                     group(print("left")),
                     spacing,
                     node.operator,

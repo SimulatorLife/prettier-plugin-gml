@@ -86,8 +86,16 @@ export class GMLParser {
         }
 
         if (this.options.getComments) {
+            // Reset the lexer to the beginning of the input stream
             lexer.reset();
+            (chars as any).seek(0);
+            lexer.ignoreNewline = false;
+            (lexer as any).templateDepth = 0;
+
+            console.log(`DEBUG: Stream size: ${(chars as any).size}, index after seek: ${(chars as any).index}`);
+
             this.getHiddenNodes(lexer);
+            console.log(`DEBUG: Adapter parsed ${this.comments.length} comments.`);
         }
 
         const builder = new GameMakerASTBuilder(this.options, this.whitespaces);
