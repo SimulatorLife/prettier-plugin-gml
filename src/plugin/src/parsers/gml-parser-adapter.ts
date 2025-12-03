@@ -96,6 +96,15 @@ async function parseImpl(text, options) {
 
         try {
             ast = Parser.GMLParser.parse(parseSource, parserOptions);
+            if (ast.comments && ast.comments.length > 0) {
+                console.log(
+                    `DEBUG: Adapter parsed ${ast.comments.length} comments.`
+                );
+                const sample = ast.comments[0];
+                console.log(`DEBUG: First comment: ${JSON.stringify(sample)}`);
+            } else {
+                console.log("DEBUG: Adapter parsed 0 comments.");
+            }
             if (process.env.GML_PRINTER_DEBUG) {
                 try {
                     const length = Array.isArray(ast?.comments)

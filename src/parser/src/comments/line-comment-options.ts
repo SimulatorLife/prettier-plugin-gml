@@ -24,7 +24,7 @@ const DEFAULT_BOILERPLATE_COMMENT_FRAGMENTS = Object.freeze([
 // These heuristics flag the most common "commented out" snippets so they stay
 // verbatim without requiring extra configuration from consumers.
 const DEFAULT_COMMENTED_OUT_CODE_PATTERNS = Object.freeze([
-    /^(?:if|else|for|while|switch|do|return|break|continue|repeat|with|var|global|enum|function)\b/i,
+    /^(?:if|else|for|while|switch|do|return|break|continue|repeat|with|var|global|enum|function|try|catch|finally|throw|delete|new)\b/i,
     /^[A-Za-z_$][A-Za-z0-9_$]*\s*(?:\.|\(|\[|=)/,
     /^[{}()[\].]/,
     /^#/

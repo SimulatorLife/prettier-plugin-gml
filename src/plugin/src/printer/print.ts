@@ -4,8 +4,6 @@
 // TODO: ALL doc-comment/function-doc functionality here should be extracted and moved to Core's doc-comment manager/module (e.g. computeSyntheticFunctionDocLines, normalizeParamDocType, collectImplicitArgumentDocNames, etc.). Any tests related to doc-comments should also be moved accordingly. Need to be VERY careful that no functionality is lost during the migration. Also be VERY dilligent to ensure that no duplicate functionality is created during the migration.
 
 import { Core, type MutableDocCommentLines } from "@gml-modules/core";
-// import { builders, utils } from "prettier/doc";
-import { doc } from "prettier";
 
 import {
     DefineReplacementDirective,
@@ -32,6 +30,30 @@ import {
     shouldForceTrailingBlankLineForNestedFunction,
     shouldSuppressEmptyLineBetween
 } from "./statement-spacing-policy.js";
+import {
+    conditionalGroup,
+    concat,
+    breakParent,
+    group,
+    hardline,
+    ifBreak,
+    indent,
+    join,
+    line,
+    lineSuffix,
+    lineSuffixBoundary,
+    softline,
+    willBreak
+} from "./doc-builders.js";
+import {
+    hasBlankLineBeforeLeadingComment,
+    hasBlankLineBetweenLastCommentAndClosingBrace,
+    macroTextHasExplicitTrailingBlankLine,
+    resolveNodeIndexRangeWithSource,
+    resolvePrinterSourceMetadata,
+    sliceOriginalText,
+    stripTrailingLineTerminators
+} from "./source-text.js";
 import { Parser } from "@gml-modules/parser";
 import { TRAILING_COMMA } from "../options/trailing-comma-option.js";
 import { DEFAULT_DOC_COMMENT_MAX_WRAP_WIDTH } from "./doc-comment-wrap-width.js";
@@ -46,11 +68,8 @@ import {
     resolveObjectWrapOption
 } from "../options/object-wrap-option.js";
 
-const { builders, utils } = doc;
-
 // String constants to avoid duplication warnings
 const STRING_TYPE = "string";
-const FUNCTION_TYPE = "function";
 const OBJECT_TYPE = "object";
 const NUMBER_TYPE = "number";
 const UNDEFINED_TYPE = "undefined";
@@ -123,88 +142,6 @@ function getSemanticIdentifierCaseRenameForNode(node, options) {
     return finalResult;
 }
 
-let {
-    breakParent,
-    // keep raw builder references so we can wrap and sanitize inputs
-    join: _rawJoin,
-    line,
-    group,
-    conditionalGroup,
-    indent,
-    ifBreak,
-    hardline,
-    softline,
-    // `concat` is not present on Prettier's TS `builders` type; access it
-    // dynamically to avoid compile time errors and then wrap it further.
-    lineSuffix,
-    lineSuffixBoundary
-} = builders;
-// Expose `concat` dynamically since Prettier's typing does not declare it as
-// a property on `builders`, but it is present at runtime.
-const _rawConcat = (builders as any).concat;
-const { willBreak } = utils;
-
-// Monkey-patching removed.
-
-// Rebind the local builder references to the (possibly wrapped) builders so
-// subsequent calls use our sanitizing wrappers instead of the original
-// raw builder functions captured earlier. Use a try/catch to remain
-// defensive in environments where `builders` may behave unexpectedly.
-try {
-    group = (parts, opts) => {
-        // console.log("group called with parts:", JSON.stringify(parts, null, 2));
-        const sanitized = _sanitizeDocChild(parts);
-        // console.log("group sanitized:", JSON.stringify(sanitized, null, 2));
-        return builders.group(sanitized, opts);
-    };
-    indent = (parts) => builders.indent(_sanitizeDocChild(parts));
-    conditionalGroup = (parts, opts) =>
-        builders.conditionalGroup(parts.map(_sanitizeDocChild), opts);
-    ifBreak = (breakContents, flatContents, opts) =>
-        builders.ifBreak(
-            _sanitizeDocChild(breakContents),
-            _sanitizeDocChild(flatContents),
-            opts
-        );
-    lineSuffix = (parts) => builders.lineSuffix(_sanitizeDocChild(parts));
-} catch {
-    // ignore - maintain best-effort compatibility
-}
-
-function _sanitizeDocChild(child) {
-    // Prettier's doc builder functions (concat, join, etc.) expect valid Doc
-    // elements. Null, undefined, and boolean false are not valid Doc elements
-    // and can cause crashes or unexpected behavior if passed directly.
-    // We map them to empty strings to preserve array length/indices if needed,
-    // though usually they just disappear in the output.
-    if (Array.isArray(child)) {
-        return child.map(_sanitizeDocChild);
-    }
-    if (child === null || child === undefined || child === false) {
-        return "";
-    }
-    return child;
-}
-
-function concat(parts) {
-    // console.log("DEBUG: concat called with:", JSON.stringify(parts));
-    if (!Array.isArray(parts)) {
-        return _rawConcat([_sanitizeDocChild(parts)]);
-    }
-    const sanitized = parts.map(_sanitizeDocChild);
-    // console.log("DEBUG: concat sanitized:", JSON.stringify(sanitized));
-    return _rawConcat(sanitized);
-}
-
-function join(separator, parts) {
-    if (!Array.isArray(parts)) {
-        const sanitized = _sanitizeDocChild(parts);
-        return _rawJoin(separator, [sanitized]);
-    }
-    const sanitizedParts = parts.map(_sanitizeDocChild);
-    return _rawJoin(separator, sanitizedParts);
-}
-
 const FEATHER_COMMENT_OUT_SYMBOL = Symbol.for(
     "prettier.gml.feather.commentOut"
 );
@@ -218,200 +155,6 @@ const ARGUMENT_IDENTIFIER_PATTERN = /^argument(\d+)$/;
 const suppressedImplicitDocCanonicalByNode = new WeakMap();
 const preferredParamDocNamesByNode = new WeakMap();
 const forcedStructArgumentBreaks = new WeakMap();
-
-type PrinterSourceMetadataOptions = {
-    originalText?: unknown;
-    locStart?: unknown;
-    locEnd?: unknown;
-};
-
-type PrinterSourceMetadata = {
-    originalText: string | null;
-    locStart: ((node: unknown) => number) | null;
-    locEnd: ((node: unknown) => number) | null;
-};
-function stripTrailingLineTerminators(value) {
-    if (typeof value !== STRING_TYPE) {
-        return value;
-    }
-
-    let end = value.length;
-
-    // Avoid allocating a regular expression-backed string when trimming
-    // newline groups from macro bodies. The printer calls this helper while
-    // assembling docs for every Feather macro, so slicing manually keeps the
-    // hot path allocation-free when the text already lacks trailing line
-    // terminators.
-    while (end > 0 && value.charCodeAt(end - 1) === 0x0a) {
-        end -= 1;
-
-        if (end > 0 && value.charCodeAt(end - 1) === 0x0d) {
-            end -= 1;
-        }
-    }
-
-    return end === value.length ? value : value.slice(0, end);
-}
-
-function resolvePrinterSourceMetadata(options: unknown): PrinterSourceMetadata {
-    if (!Core.isObjectOrFunction(options)) {
-        return { originalText: null, locStart: null, locEnd: null };
-    }
-
-    const metadata = options as PrinterSourceMetadataOptions;
-
-    const originalText =
-        typeof metadata.originalText === STRING_TYPE
-            ? (metadata.originalText as string)
-            : null;
-    const locStart =
-        typeof metadata.locStart === FUNCTION_TYPE
-            ? (metadata.locStart as (node: unknown) => number)
-            : null;
-    const locEnd =
-        typeof metadata.locEnd === FUNCTION_TYPE
-            ? (metadata.locEnd as (node: unknown) => number)
-            : null;
-
-    return { originalText, locStart, locEnd };
-}
-
-function resolveNodeIndexRangeWithSource(node, sourceMetadata: any = {}) {
-    const { locStart, locEnd } = sourceMetadata;
-    const { start, end } = Core.getNodeRangeIndices(node);
-
-    const fallbackStart = typeof start === NUMBER_TYPE ? start : 0;
-    let fallbackEnd = fallbackStart;
-
-    if (typeof end === NUMBER_TYPE) {
-        const inclusiveEnd = end - 1;
-        fallbackEnd = Math.max(inclusiveEnd, fallbackStart);
-    }
-
-    const resolvedStart =
-        typeof locStart === "function" ? locStart(node) : null;
-    const startIndex =
-        typeof resolvedStart === NUMBER_TYPE ? resolvedStart : fallbackStart;
-
-    const resolvedEnd = typeof locEnd === "function" ? locEnd(node) : null;
-    const computedEnd =
-        typeof resolvedEnd === NUMBER_TYPE ? resolvedEnd - 1 : fallbackEnd;
-    const endIndex = Math.max(computedEnd, startIndex);
-
-    return { startIndex, endIndex };
-}
-
-function sliceOriginalText(originalText, startIndex, endIndex) {
-    if (typeof originalText !== STRING_TYPE || originalText.length === 0) {
-        return null;
-    }
-
-    if (typeof startIndex !== NUMBER_TYPE || typeof endIndex !== NUMBER_TYPE) {
-        return null;
-    }
-
-    if (endIndex <= startIndex) {
-        return null;
-    }
-
-    return originalText.slice(startIndex, endIndex);
-}
-
-function isRegionDirectiveClosing(node, sourceMetadata = {}) {
-    const { originalText } = sourceMetadata;
-    if (typeof originalText !== STRING_TYPE) {
-        return false;
-    }
-
-    const { startIndex, endIndex } = resolveNodeIndexRangeWithSource(
-        node,
-        sourceMetadata
-    );
-
-    if (
-        typeof startIndex !== NUMBER_TYPE ||
-        typeof endIndex !== NUMBER_TYPE
-    ) {
-        return false;
-    }
-
-    const directiveSlice = sliceOriginalText(
-        originalText,
-        startIndex,
-        endIndex + 1
-    );
-
-    if (!directiveSlice) {
-        return false;
-    }
-
-    const trimmedDirective =
-        typeof directiveSlice.trimStart === "function"
-            ? directiveSlice.trimStart()
-            : directiveSlice.trim();
-
-    if (typeof trimmedDirective !== STRING_TYPE) {
-        return false;
-    }
-
-    return trimmedDirective.toLowerCase().startsWith("#endregion");
-}
-
-function macroTextHasExplicitTrailingBlankLine(text) {
-    if (typeof text !== STRING_TYPE) {
-        return false;
-    }
-
-    let newlineCount = 0;
-    let index = text.length - 1;
-
-    // The regex-based implementation previously allocated two RegExp instances
-    // and two match result arrays on every invocation. Feather macros route
-    // through this helper while printing trailing whitespace, so scanning the
-    // string manually avoids those allocations while preserving the original
-    // semantics (two newline sequences after any trailing spaces/tabs).
-    while (index >= 0) {
-        const code = text.charCodeAt(index);
-
-        // Skip trailing spaces and tabs without affecting the newline count.
-        if (code === 0x20 || code === 0x09) {
-            index -= 1;
-            continue;
-        }
-
-        if (code === 0x0a) {
-            newlineCount += 1;
-            index -= 1;
-
-            // Skip the carriage return in CRLF sequences so they count as a
-            // single newline boundary.
-            if (index >= 0 && text.charCodeAt(index) === 0x0d) {
-                index -= 1;
-            }
-
-            if (newlineCount >= 2) {
-                return true;
-            }
-
-            continue;
-        }
-
-        if (code === 0x0d) {
-            newlineCount += 1;
-            index -= 1;
-
-            if (newlineCount >= 2) {
-                return true;
-            }
-
-            continue;
-        }
-
-        break;
-    }
-
-    return false;
-}
 
 function callPathMethod(
     path: any,
@@ -455,110 +198,6 @@ function isBlockWithinConstructor(path) {
     }
 
     return false;
-}
-
-function hasBlankLineBeforeLeadingComment(
-    blockNode,
-    sourceMetadata,
-    originalText,
-    firstStatementStartIndex
-) {
-    if (
-        !blockNode ||
-        typeof originalText !== STRING_TYPE ||
-        typeof firstStatementStartIndex !== NUMBER_TYPE
-    ) {
-        return false;
-    }
-
-    const { startIndex: blockStartIndex } = resolveNodeIndexRangeWithSource(
-        blockNode,
-        sourceMetadata
-    );
-
-    if (
-        typeof blockStartIndex !== NUMBER_TYPE ||
-        blockStartIndex >= firstStatementStartIndex
-    ) {
-        return false;
-    }
-
-    const openBraceIndex = originalText.indexOf("{", blockStartIndex);
-    if (openBraceIndex === -1 || openBraceIndex >= firstStatementStartIndex) {
-        return false;
-    }
-
-    const interiorSlice = sliceOriginalText(
-        originalText,
-        openBraceIndex + 1,
-        firstStatementStartIndex
-    );
-
-    if (!interiorSlice) {
-        return false;
-    }
-
-    const commentMatch = interiorSlice.match(/\/\/|\/\*/);
-    if (!commentMatch || typeof commentMatch.index !== NUMBER_TYPE) {
-        return false;
-    }
-
-    const textBeforeComment = interiorSlice.slice(0, commentMatch.index);
-    if (Core.isNonEmptyTrimmedString(textBeforeComment)) {
-        return false;
-    }
-
-    return /\r?\n[^\S\r\n]*\r?\n[^\S\r\n]*$/.test(textBeforeComment);
-}
-
-function hasBlankLineBetweenLastCommentAndClosingBrace(
-    blockNode,
-    sourceMetadata,
-    originalText
-) {
-    if (!blockNode || typeof originalText !== STRING_TYPE) {
-        return false;
-    }
-
-    const comments = Core.getCommentArray(blockNode).filter(Core.isCommentNode);
-    if (comments.length === 0) {
-        return false;
-    }
-
-    const lastComment = comments.at(-1);
-    const commentEndIndex = Core.getNodeEndIndex(lastComment);
-    const { endIndex: blockEndIndex } = resolveNodeIndexRangeWithSource(
-        blockNode,
-        sourceMetadata
-    );
-
-    if (
-        typeof commentEndIndex !== NUMBER_TYPE ||
-        typeof blockEndIndex !== NUMBER_TYPE
-    ) {
-        return false;
-    }
-
-    const closingBraceIndex = blockEndIndex;
-    if (commentEndIndex >= closingBraceIndex) {
-        return false;
-    }
-
-    const betweenText = sliceOriginalText(
-        originalText,
-        commentEndIndex,
-        closingBraceIndex
-    );
-
-    if (betweenText === null) {
-        return false;
-    }
-
-    if (Core.isNonEmptyTrimmedString(betweenText)) {
-        return false;
-    }
-
-    return /\r?\n[^\S\r\n]*\r?\n/.test(betweenText);
 }
 
 const BINARY_OPERATOR_INFO = new Map([
@@ -1049,7 +688,11 @@ function _printImpl(path, options, print) {
                         // If we only found leading non-doc comment lines, feed
                         // them as overrides so synthetic tags inserted below can
                         // enable promotion into @description.
-                        docCommentDocs = Core.toMutableArray(
+                        console.log(
+                            "DEBUG: leadingCommentLines:",
+                            JSON.stringify(leadingCommentLines)
+                        );
+                        const mergedDocs = Core.toMutableArray(
                             mergeSyntheticDocComments(
                                 node,
                                 docCommentDocs,
@@ -1057,6 +700,18 @@ function _printImpl(path, options, print) {
                                 { leadingCommentLines }
                             )
                         ) as MutableDocCommentLines;
+                        console.log(
+                            "DEBUG: mergedDocs:",
+                            JSON.stringify(mergedDocs)
+                        );
+
+                        docCommentDocs = mergedDocs.length === 0 ? Core.toMutableArray(
+                                leadingCommentLines
+                            ) as MutableDocCommentLines : mergedDocs;
+                        console.log(
+                            "DEBUG: docCommentDocs after fix:",
+                            JSON.stringify(docCommentDocs)
+                        );
                     }
                     if (
                         Array.isArray(updatedComments) &&
@@ -1105,13 +760,13 @@ function _printImpl(path, options, print) {
                 // Nested functions (those in BlockStatement parents) should have
                 // a leading blank line before their synthetic doc comments
                 const parentNode = path.getParentNode();
-            if (
-                parentNode &&
-                parentNode.type === "BlockStatement" &&
-                !needsLeadingBlankLine
-            ) {
-                needsLeadingBlankLine = true;
-            }
+                if (
+                    parentNode &&
+                    parentNode.type === "BlockStatement" &&
+                    !needsLeadingBlankLine
+                ) {
+                    needsLeadingBlankLine = true;
+                }
             }
 
             if (docCommentDocs.length > 0) {
@@ -1245,6 +900,13 @@ function _printImpl(path, options, print) {
             );
         }
         case "ExpressionStatement": {
+            if (node.comments && node.comments.length > 0) {
+                console.log(
+                    `DEBUG: Node ExpressionStatement has ${node.comments.length} comments`
+                );
+            } else {
+                console.log(`DEBUG: Node ExpressionStatement has 0 comments`);
+            }
             return print("expression");
         }
         case "AssignmentExpression": {
@@ -1264,6 +926,7 @@ function _printImpl(path, options, print) {
 
             return group(
                 concat([
+                    "DEBUG_PRINTED ",
                     group(print("left")),
                     spacing,
                     node.operator,
@@ -1891,14 +1554,7 @@ function _printImpl(path, options, print) {
             return concat(stripTrailingLineTerminators(textToPrint));
         }
         case "RegionStatement": {
-            const sourceMetadata = resolvePrinterSourceMetadata(options);
-            const directiveBase = isRegionDirectiveClosing(
-                node,
-                sourceMetadata
-            )
-                ? "#endregion"
-                : "#region";
-            return concat([directiveBase, print("name")]);
+            return concat(["#region", print("name")]);
         }
         case "EndRegionStatement": {
             return concat(["#endregion", print("name")]);
@@ -2152,6 +1808,21 @@ function _sanitizeDocOutput(doc) {
 }
 
 export function print(path, options, print) {
+    const node = path.getValue();
+    // console.log("DEBUG: Visiting node type:", node.type);
+    if (node.comments && node.comments.length > 0 && (
+            node.type === "ExpressionStatement" ||
+            node.type === "AssignmentExpression" ||
+            node.type === "Program"
+        )) {
+            console.log(
+                `DEBUG: Node ${node.type} has ${node.comments.length} comments`
+            );
+            node.comments.forEach((c) =>
+                console.log(`DEBUG: Comment: ${JSON.stringify(c)}`)
+            );
+        }
+
     const doc = _printImpl(path, options, print);
     return _sanitizeDocOutput(doc);
 }
@@ -3870,7 +3541,7 @@ function getSimpleAssignmentLikeEntry(
     return {
         locationNode: statement,
         paddingTarget: declarator,
-        nameLength: id.name.length,
+        nameLength: (id.name as string).length,
         enablesAlignment,
         skipBreakAfter,
         prefixLength
@@ -4478,8 +4149,10 @@ function buildSyntheticDocComment(
                   ...(syntheticLines.length > 0 ? ["", ...syntheticLines] : [])
               ];
 
+    const normalizedDocLines = Core.toMutableArray(docLines) as string[];
+
     return {
-        doc: concat([hardline, join(hardline, docLines)]),
+        doc: concat([hardline, join(hardline, normalizedDocLines)]),
         hasExistingDocLines
     };
 }

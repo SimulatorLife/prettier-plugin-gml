@@ -1,5 +1,6 @@
 import assert from "node:assert/strict";
 import { describe, it } from "node:test";
+import type { VariableDeclarationNode } from "../src/ast/types.js";
 
 import {
     getVariableDeclarationKind,
@@ -21,8 +22,9 @@ void describe("variable declaration helpers", () => {
             assert.equal(
                 getVariableDeclarationKind({
                     type: "VariableDeclaration",
-                    kind: "VaR"
-                }),
+                    kind: "VaR",
+                    declarations: []
+                } as VariableDeclarationNode),
                 "var"
             );
         });
@@ -30,16 +32,18 @@ void describe("variable declaration helpers", () => {
         void it("returns null for missing or empty kinds", () => {
             assert.equal(
                 getVariableDeclarationKind({
-                    type: "VariableDeclaration"
-                }),
+                    type: "VariableDeclaration",
+                    declarations: []
+                } as VariableDeclarationNode),
                 null
             );
 
             assert.equal(
                 getVariableDeclarationKind({
                     type: "VariableDeclaration",
-                    kind: ""
-                }),
+                    kind: "",
+                    declarations: []
+                } as VariableDeclarationNode),
                 null
             );
         });
@@ -50,14 +54,21 @@ void describe("variable declaration helpers", () => {
             assert.equal(isVariableDeclarationOfKind(null, "var"), false);
             assert.equal(
                 isVariableDeclarationOfKind(
-                    { type: "VariableDeclaration", kind: "let" },
+                    {
+                        type: "VariableDeclaration",
+                        kind: "let",
+                        declarations: []
+                    } as VariableDeclarationNode,
                     "var"
                 ),
                 false
             );
             assert.equal(
                 isVariableDeclarationOfKind(
-                    { type: "VariableDeclaration" },
+                    {
+                        type: "VariableDeclaration",
+                        declarations: []
+                    } as VariableDeclarationNode,
                     ""
                 ),
                 false
@@ -67,7 +78,11 @@ void describe("variable declaration helpers", () => {
         void it("compares declaration kinds case-insensitively", () => {
             assert.equal(
                 isVariableDeclarationOfKind(
-                    { type: "VariableDeclaration", kind: "Var" },
+                    {
+                        type: "VariableDeclaration",
+                        kind: "Var",
+                        declarations: []
+                    } as VariableDeclarationNode,
                     "VAR"
                 ),
                 true
@@ -80,16 +95,18 @@ void describe("variable declaration helpers", () => {
             assert.equal(
                 isVarVariableDeclaration({
                     type: "VariableDeclaration",
-                    kind: "var"
-                }),
+                    kind: "var",
+                    declarations: []
+                } as VariableDeclarationNode),
                 true
             );
 
             assert.equal(
                 isVarVariableDeclaration({
                     type: "VariableDeclaration",
-                    kind: "let"
-                }),
+                    kind: "let",
+                    declarations: []
+                } as VariableDeclarationNode),
                 false
             );
         });

@@ -28,7 +28,14 @@ const INNER_BANNER_DECORATION_PATTERN = new RegExp(
 
 const DOC_TAG_LINE_PREFIX_PATTERN = /^\/+\(\s*\)@/;
 
-function getLineCommentRawText(comment) {
+function getLineCommentRawText(comment, options: any = {}) {
+    if (options.originalText && comment.start && comment.end) {
+        return options.originalText.slice(
+            comment.start.index,
+            comment.end.index + 1
+        );
+    }
+
     if (!Core.isObjectLike(comment)) {
         return "";
     }
@@ -107,7 +114,7 @@ function formatLineComment(
 ) {
     const normalizedOptions = normalizeLineCommentOptions(lineCommentOptions);
     const { boilerplateFragments, codeDetectionPatterns } = normalizedOptions;
-    const original = getLineCommentRawText(comment);
+    const original = getLineCommentRawText(comment, lineCommentOptions);
     const trimmedOriginal = original.trim();
     const rawValue = Core.getCommentValue(comment);
     const trimmedValue = Core.getCommentValue(comment, { trim: true });
@@ -122,6 +129,9 @@ function formatLineComment(
 
     for (const lineFragment of boilerplateFragments) {
         if (trimmedValue.includes(lineFragment)) {
+            console.log(
+                `DEBUG: Suppressing comment "${trimmedValue}" because it matches fragment "${lineFragment}"`
+            );
             return "";
         }
     }
@@ -150,6 +160,7 @@ function formatLineComment(
         slashesMatch &&
         slashesMatch[1].length >= LINE_COMMENT_BANNER_DETECTION_MIN_SLASHES
     ) {
+        console.log(`DEBUG: Banner detected: ${trimmedValue}`);
         // For comments with 4+ leading slashes we usually treat them as
         // decorative banners. However, some inputs use many slashes to
         // indicate nested doc-like tags (for example: "//// @func ...").
@@ -164,16 +175,38 @@ function formatLineComment(
             return applyInlinePadding(comment, formatted);
         }
 
+        // Check if it has decorations other than slashes. If not, preserve the original style.
+        // This ensures that comments like "//// Text" are preserved, while "//// ---- Text ----" are normalized.
+        const contentWithoutSlashes = trimmedValue.replace(/^\/+\s*/, "");
+        const hasDecorations =
+            LEADING_BANNER_DECORATION_PATTERN.test(contentWithoutSlashes) ||
+            TRAILING_BANNER_DECORATION_PATTERN.test(contentWithoutSlashes) ||
+            (contentWithoutSlashes.match(INNER_BANNER_DECORATION_PATTERN) || [])
+                .length > 0;
+
+        if (!hasDecorations && // If it's exactly 4 slashes, preserve it (legacy/style choice).
+            // If it's more than 4, normalize it (excessive slashes).
+            slashesMatch[1].length === 4) {
+                return applyInlinePadding(comment, trimmedOriginal);
+            }
+
         // Otherwise treat as a banner/decorative comment as before.
         const bannerContent = normalizeBannerCommentText(trimmedValue);
+        console.log(`DEBUG: Banner content: "${bannerContent}"`);
         if (bannerContent) {
             return applyInlinePadding(comment, `// ${bannerContent}`);
         }
-        // If normalization fails, return as regular comment without extra slashes
-        return applyInlinePadding(
-            comment,
-            `// ${trimmedValue.replace(/^\/+\s*/, "")}`
-        );
+
+        // If the comment consists entirely of slashes (e.g. "////////////////"),
+        // treat it as a decorative separator and suppress it.
+        const contentAfterStripping = trimmedValue.replace(/^\/+\s*/, "");
+        if (contentAfterStripping.length === 0) {
+            return "";
+        }
+
+        // If normalization fails but there is content, return the original comment
+        // to preserve the user's slash style (e.g. "//// comment").
+        return applyInlinePadding(comment, trimmedOriginal);
     }
 
     // Check if this is a banner-style comment with decorations (even with 2-3 leading slashes)
@@ -328,17 +361,19 @@ function formatLineComment(
     ) {
         return applyInlinePadding(
             comment,
-            `//${leadingWhitespace}${coreValue}`
+            `//${leadingWhitespace}${coreValue}`,
+            true
         );
     }
 
     return applyInlinePadding(comment, `// ${trimmedValue}`);
 }
 
-function applyInlinePadding(comment, formattedText) {
-    const normalizedText = formattedText.includes("\t")
-        ? formattedText.replaceAll("\t", "    ")
-        : formattedText;
+function applyInlinePadding(comment, formattedText, preserveTabs = false) {
+    const normalizedText =
+        !preserveTabs && formattedText.includes("\t")
+            ? formattedText.replaceAll("\t", "    ")
+            : formattedText;
 
     const paddingWidth = resolveInlinePaddingWidth(comment);
 

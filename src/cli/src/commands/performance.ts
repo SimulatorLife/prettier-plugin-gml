@@ -2,7 +2,7 @@ import fs from "node:fs/promises";
 import path from "node:path";
 import { performance } from "node:perf_hooks";
 import process from "node:process";
-
+import { normalizeFixtureRoots } from "../workflow/fixture-roots.js";
 import {
     appendToCollection,
     applyStandardCommandOptions,
@@ -24,7 +24,6 @@ import {
     isFsErrorCode,
     isFiniteNumber,
     isObjectLike,
-    normalizeFixtureRoots,
     Option,
     REPO_ROOT,
     resolveIntegerOption,
@@ -36,8 +35,8 @@ import {
     toNormalizedInteger,
     wrapInvalidArgumentResolver,
     writeJsonArtifact
-} from "../dependencies.js";
-import { resolvePluginEntryPoint as resolveCliPluginEntryPoint } from "../plugin-runtime-dependencies.js";
+} from "../modules/dependencies.js";
+import { resolvePluginEntryPoint as resolveCliPluginEntryPoint } from "../modules/plugin-runtime-dependencies.js";
 import {
     PerformanceSuiteName,
     formatPerformanceSuiteList,
@@ -48,8 +47,6 @@ import { formatMetricValue } from "../modules/performance/metric-formatters.js";
 import type { WorkflowPathFilterOptions } from "../workflow/path-filter.js";
 import type { SuiteRunner } from "../cli-core/command-suite-helpers.js";
 import type { CommanderCommandLike } from "../cli-core/commander-types.js";
-
-export { normalizeFixtureRoots } from "../dependencies.js";
 
 const shouldSkipPerformanceDependencies = isCliRunSkipped();
 

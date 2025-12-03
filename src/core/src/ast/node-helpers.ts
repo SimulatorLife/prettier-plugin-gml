@@ -5,11 +5,14 @@ import { assignClonedLocation } from "./locations.js";
 import type {
     AssignmentPatternNode,
     CallExpressionNode,
+    GameMakerAstLocation,
     GameMakerAstNode,
     IdentifierNode,
     LiteralNode,
     MemberIndexExpressionNode,
-    ParenthesizedExpressionNode
+    ParenthesizedExpressionNode,
+    VariableDeclarationNode,
+    VariableDeclaratorNode
 } from "./types.js";
 
 // Shared AST helper utilities focused on querying common node shapes.
@@ -35,13 +38,13 @@ const ARITHMETIC_OPERATORS = new Set([
 /**
  * Retrieve the sole declarator from a variable declaration node.
  *
- * @param {object | null | undefined} node - Potential variable declaration
- *     node to inspect.
- * @returns {object | null} The single declarator when present, otherwise
- *     `null`.
+ * @param node Potential variable declaration node to inspect.
+ * @returns The single declarator when present, otherwise `null`.
  */
-export function getSingleVariableDeclarator(node) {
-    if (!node || node.type !== "VariableDeclaration") {
+export function getSingleVariableDeclarator(
+    node: GameMakerAstNode | null | undefined
+): VariableDeclaratorNode | null {
+    if (node?.type !== "VariableDeclaration") {
         return null;
     }
 
@@ -51,11 +54,11 @@ export function getSingleVariableDeclarator(node) {
     }
 
     const [declarator] = declarations;
-    if (!declarator || declarator.type !== "VariableDeclarator") {
+    if (declarator?.type !== "VariableDeclarator") {
         return null;
     }
 
-    return declarator;
+    return declarator as VariableDeclaratorNode;
 }
 
 /**
@@ -63,13 +66,13 @@ export function getSingleVariableDeclarator(node) {
  *
  * The helper mirrors the defensive guards scattered across several transforms
  * that previously reimplemented this logic. Returning the original primitive
- * values keeps behaviour consistent for callers that occasionally pass
- * strings or numbers captured from the AST.
+ * values keeps behaviour consistent for callers that occasionally pass strings
+ * or numbers captured from the AST.
  *
- * @param {unknown} node Candidate AST fragment to clone.
- * @returns {unknown} A structural clone of the node or the original primitive
- *                    when cloning is unnecessary. `null` and `undefined`
- *                    resolve to `null` for easier downstream checks.
+ * @param node Candidate AST fragment to clone.
+ * @returns A structural clone of the node or the original primitive when
+ *     cloning is unnecessary. `null` and `undefined` resolve to `null` for
+ *     easier downstream checks.
  */
 export function cloneAstNode(node?: unknown) {
     if (node === null || node === undefined) {
@@ -86,51 +89,47 @@ export function cloneAstNode(node?: unknown) {
 /**
  * Iterate over the object-valued children of an AST node.
  *
- * @param {unknown} node Potential AST node to inspect.
- * @param {(child: object, key: string) => void} callback Invoked for each
- *        enumerable own property whose value is object-like.
+ * @param node Potential AST node to inspect.
+ * @param callback Invoked for each enumerable own property whose value is
+ *     object-like.
  */
-export function forEachNodeChild(node, callback) {
+export function forEachNodeChild(
+    node: unknown,
+    callback: (child: GameMakerAstNode, key: string) => void
+) {
     if (!isObjectLike(node)) {
         return;
     }
 
-    // `Object.entries` allocates a fresh array on every call, which showed up
-    // in micro-benchmarks that hammer transforms iterating across every node.
-    // A guarded `for…in` loop avoids the array allocation while preserving the
-    // existing semantics: only enumerable own properties whose values are
-    // object-like are forwarded to the callback.
-    for (const key in node) {
-        if (!Object.hasOwn(node, key)) {
-            continue;
+    for (const key in node as Record<string, unknown>) {
+        if (Object.hasOwn(node as object, key)) {
+            const value = (node as GameMakerAstNode)[
+                key as keyof GameMakerAstNode
+            ];
+            if (isObjectLike(value)) {
+                callback(value, key);
+            }
         }
-
-        const value = node[key];
-        if (!isObjectLike(value)) {
-            continue;
-        }
-
-        callback(value, key);
     }
 }
 
 /**
  * Read and normalize the `kind` field from a variable declaration node.
  *
- * @param {object | null | undefined} node - Possible variable declaration
- *     wrapper exposed by the parser.
- * @returns {"var" | "global" | "static" | string | null} Lowercase
- *     declaration keyword when present, or `null` when the field is
- *     missing/unknown. The return type intentionally remains permissive so the
- *     printer can surface new keywords added by the parser without needing a
- *     project-wide update.
+ * @param node - Possible variable declaration wrapper exposed by the parser.
+ * @returns Lowercase declaration keyword when present, or `null` when the field
+ *     is missing/unknown. The return type intentionally remains permissive so
+ *     the printer can surface new keywords added by the parser without needing
+ *     a project-wide update.
  */
-export function getVariableDeclarationKind(node) {
-    if (!node || node.type !== "VariableDeclaration") {
+export function getVariableDeclarationKind(
+    node: GameMakerAstNode | null | undefined
+): "var" | "global" | "static" | (string & {}) | null {
+    if (node?.type !== "VariableDeclaration") {
         return null;
     }
 
-    const { kind } = node;
+    const { kind } = node as VariableDeclarationNode;
     if (!isNonEmptyString(kind)) {
         return null;
     }
@@ -141,14 +140,16 @@ export function getVariableDeclarationKind(node) {
 /**
  * Compare a declaration node against a specific keyword.
  *
- * @param {object | null | undefined} node - Candidate variable declaration.
- * @param {string | null | undefined} expectedKind - Keyword to match (e.g.
- *     `"var"`). The comparison is case-insensitive so callers may pass
- *     user input without pre-normalizing it.
- * @returns {boolean} `true` when `node.kind` resolves to the
- *     provided keyword.
+ * @param node - Candidate variable declaration.
+ * @param expectedKind - Keyword to match (e.g. `"var"`). The comparison is
+ *     case-insensitive so callers may pass user input without pre-normalizing
+ *     it.
+ * @returns `true` when `node.kind` resolves to the provided keyword.
  */
-export function isVariableDeclarationOfKind(node, expectedKind) {
+export function isVariableDeclarationOfKind(
+    node: GameMakerAstNode | null | undefined,
+    expectedKind: string | null | undefined
+): boolean {
     if (!isNonEmptyString(expectedKind)) {
         return false;
     }
@@ -161,27 +162,36 @@ export function isVariableDeclarationOfKind(node, expectedKind) {
     return normalizedKind === expectedKind.toLowerCase();
 }
 
-export function isVarVariableDeclaration(node) {
+export function isVarVariableDeclaration(
+    node: GameMakerAstNode | null | undefined
+): boolean {
     return isVariableDeclarationOfKind(node, "var");
 }
 
 /**
  * Normalize various identifier-like nodes to a comparable string.
  *
- * @param {string | null | undefined | { type?: string, name?: unknown, value?: unknown, object?: unknown, property?: unknown }} node
- *     Any AST fragment that may carry a name. String values are returned as-is.
- * @returns {string | null} Canonical identifier text, using underscores to
- *     flatten member access (e.g. `foo.bar` -> `"foo_bar"`) or
- *     `null` when the node does not resolve to a string name. The helper
- *     treats unexpected node shapes defensively, which allows callers inside
- *     hot printer paths to skip type checks without risking runtime failures.
+ * @param node Any AST fragment that may carry a name. String values are
+ *     returned as-is.
+ * @returns Canonical identifier text, using underscores to flatten member
+ *     access (e.g. `foo.bar` -> `"foo_bar"`) or `null` when the node does not
+ *     resolve to a string name. The helper treats unexpected node shapes
+ *     defensively, which allows callers inside hot printer paths to skip type
+ *     checks without risking runtime failures.
  */
-const identifierResolvers = Object.freeze({
+const identifierResolvers: Readonly<
+    Record<string, (node: GameMakerAstNode) => string | null>
+> = Object.freeze({
     Identifier: resolveNodeName,
     Literal: (literal) =>
-        typeof literal?.value === "string" ? literal.value : null,
+        typeof (literal as LiteralNode).value === "string"
+            ? ((literal as LiteralNode).value as string)
+            : null,
     MemberDotExpression: (expression) => {
-        const { object, property } = expression;
+        const { object, property } = expression as {
+            object: unknown;
+            property: unknown;
+        };
         if (!isIdentifierNode(object) || !isIdentifierNode(property)) {
             return null;
         }
@@ -189,7 +199,10 @@ const identifierResolvers = Object.freeze({
         return `${object.name}_${property.name}`;
     },
     MemberIndexExpression: (expression) => {
-        const { object, property } = expression;
+        const { object, property } = expression as {
+            object: unknown;
+            property: unknown;
+        };
         if (!isIdentifierNode(object) || !Array.isArray(property)) {
             return null;
         }
@@ -203,8 +216,16 @@ const identifierResolvers = Object.freeze({
     }
 });
 
-export function resolveNodeName(node) {
-    return typeof node?.name === "string" ? node.name : null;
+export function resolveNodeName(
+    node: GameMakerAstNode | null | undefined
+): string | null {
+    if (isIdentifierNode(node)) {
+        return node.name;
+    }
+    if (isObjectLike(node) && typeof (node as any).name === "string") {
+        return (node as any).name;
+    }
+    return null;
 }
 
 export function isIdentifierNode(node: unknown): node is IdentifierNode {
@@ -241,12 +262,17 @@ export function isMemberIndexExpressionNode(
     return (node as { type?: unknown }).type === "MemberIndexExpression";
 }
 
-export function isIdentifierWithName(node, name) {
+export function isIdentifierWithName(
+    node: GameMakerAstNode | null | undefined,
+    name: string
+) {
     const identifierDetails = getIdentifierDetails(node);
     return identifierDetails?.name === name;
 }
 
-export function getIdentifierText(node) {
+export function getIdentifierText(
+    node: GameMakerAstNode | string | null | undefined
+): string | null {
     if (node === undefined || node === null) {
         return null;
     }
@@ -272,11 +298,10 @@ export function getIdentifierText(node) {
  * string guard and location cloning so individual call sites can focus on the
  * structural mutation instead of repeating the boilerplate checks.
  *
- * @param {unknown} name Potential identifier name to assign to the node.
- * @param {unknown} template Node whose location metadata should be copied.
- * @returns {{ type: "Identifier", name: string } | null} Identifier node with
- *          cloned locations when {@link name} is a non-empty string; otherwise
- *          `null` to signal that construction failed.
+ * @param name Potential identifier name to assign to the node.
+ * @param template Node whose location metadata should be copied.
+ * @returns Identifier node with cloned locations when {@link name} is a
+ *     non-empty string; otherwise `null` to signal that construction failed.
  */
 export function createIdentifierNode(
     name: unknown,
@@ -299,9 +324,9 @@ export function createIdentifierNode(
 /**
  * Clone an {@link IdentifierNode} while preserving its location metadata.
  *
- * @param {unknown} node Candidate identifier to clone.
- * @returns {IdentifierNode | null} Cloned identifier or `null` when the
- *          source node is missing or not an identifier.
+ * @param node Candidate identifier to clone.
+ * @returns Cloned identifier or `null` when the source node is missing or not
+ *     an identifier.
  */
 export function cloneIdentifier(node?: unknown): IdentifierNode | null {
     const identifierDetails = getIdentifierDetails(node);
@@ -318,16 +343,17 @@ export function cloneIdentifier(node?: unknown): IdentifierNode | null {
 /**
  * Extract the printable index portion of a {@link MemberIndexExpression}.
  *
- * @param {string | null | undefined | object} indexNode Possible node nested
- *     within `MemberIndexExpression.property`. Arrays are handled by the
- *     caller; this helper focuses on the single item case enforced by the
- *     parser.
- * @returns {string | null} Resolved index name or `null` when the parser
- *     emitted a non-string structure (for example, computed expressions). The
- *     defensive guards let callers gracefully skip edge cases without
- *     introducing conditional branches at the call site.
+ * @param indexNode Possible node nested within `MemberIndexExpression.property`.
+ *     Arrays are handled by the caller; this helper focuses on the single item
+ *     case enforced by the parser.
+ * @returns Resolved index name or `null` when the parser emitted a non-string
+ *     structure (for example, computed expressions). The defensive guards let
+ *     callers gracefully skip edge cases without introducing conditional
+ *     branches at the call site.
  */
-export function getMemberIndexText(indexNode) {
+export function getMemberIndexText(
+    indexNode: GameMakerAstNode | string | null | undefined
+): string | null {
     if (typeof indexNode === "string") {
         return indexNode;
     }
@@ -350,15 +376,17 @@ export function getMemberIndexText(indexNode) {
  * unexpected array shapes before inspecting the property, so this helper
  * centralizes the defensive checks and keeps those call sites in sync.
  *
- * @param {unknown} node Candidate member index expression.
- * @returns {unknown | null} The single property entry or `null` when missing.
+ * @param node Candidate member index expression.
+ * @returns The single property entry or `null` when missing.
  */
-export function getSingleMemberIndexPropertyEntry(node) {
+export function getSingleMemberIndexPropertyEntry(
+    node: unknown
+): GameMakerAstNode | null {
     if (!isNode(node) || node.type !== "MemberIndexExpression") {
         return null;
     }
 
-    const { property } = node;
+    const { property } = node as MemberIndexExpressionNode;
     if (!Array.isArray(property) || property.length !== 1) {
         return null;
     }
@@ -370,34 +398,30 @@ export function getSingleMemberIndexPropertyEntry(node) {
 /**
  * Safely read the argument array from a call-like AST node.
  *
- * @param {object | null | undefined} callExpression Potential call expression
- *     node that may expose an `arguments` array.
- * @returns {Array<unknown>} Normalized argument collection. Returns a shared
- *     empty array when no arguments exist so callers can iterate without
- *     additional null checks.
+ * @param callExpression Potential call expression node that may expose an
+ *     `arguments` array.
+ * @returns Normalized argument collection. Returns a shared empty array when no
+ *     arguments exist so callers can iterate without additional null checks.
  */
 // Delegate to the shared array normalizer so call-expression traversals always
 // reuse the same frozen empty array rather than recreating bespoke helpers.
 export function getCallExpressionArguments(
-    callExpression
-): Array<GameMakerAstNode> {
+    callExpression: GameMakerAstNode | null | undefined
+): readonly GameMakerAstNode[] {
     if (!isNode(callExpression)) {
         return asArray();
     }
-    // TODO: Use the proper typing here
-    return asArray(
-        callExpression.arguments as GameMakerAstNode[] | null | undefined
-    );
+    return asArray((callExpression as CallExpressionNode).arguments);
 }
 
 export function getCallExpressionIdentifier(
-    callExpression
+    callExpression: GameMakerAstNode | null | undefined
 ): IdentifierNode | null {
     if (!isNode(callExpression) || callExpression.type !== "CallExpression") {
         return null;
     }
 
-    const callee = callExpression.object;
+    const callee = (callExpression as CallExpressionNode).object;
     if (!isIdentifierNode(callee)) {
         return null;
     }
@@ -405,14 +429,18 @@ export function getCallExpressionIdentifier(
     return callee;
 }
 
-export function getCallExpressionIdentifierName(callExpression): string | null {
+export function getCallExpressionIdentifierName(
+    callExpression: GameMakerAstNode | null | undefined
+): string | null {
     const id = getCallExpressionIdentifier(callExpression);
     if (!id) return null;
     return typeof id.name === "string" ? id.name : null;
 }
 
-export function getIdentifierDetails(node: unknown) {
-    if (!isNode(node) || node.type !== "Identifier") {
+export function getIdentifierDetails(
+    node: unknown
+): { identifier: IdentifierNode; name: string } | null {
+    if (!isIdentifierNode(node)) {
         return null;
     }
 
@@ -424,14 +452,16 @@ export function getIdentifierDetails(node: unknown) {
     return { identifier: node, name };
 }
 
-export function getIdentifierName(node) {
+export function getIdentifierName(
+    node: GameMakerAstNode | null | undefined
+): string | null {
     const details = getIdentifierDetails(node);
     return details ? details.name : null;
 }
 
 export function isCallExpressionIdentifierMatch(
-    callExpression,
-    expectedName,
+    callExpression: GameMakerAstNode | null | undefined,
+    expectedName: string,
     { caseInsensitive = false } = {}
 ): boolean {
     if (!isNonEmptyString(expectedName)) {
@@ -451,8 +481,10 @@ export function isCallExpressionIdentifierMatch(
     return identifierName === expectedName;
 }
 
-// TODO: Clean up this function and use the correct typing
-export function getArrayProperty(node: unknown, propertyName: unknown) {
+export function getArrayProperty(
+    node: unknown,
+    propertyName: string
+): readonly GameMakerAstNode[] {
     if (!isNode(node)) {
         return [];
     }
@@ -462,10 +494,15 @@ export function getArrayProperty(node: unknown, propertyName: unknown) {
     }
 
     const astNode = node as Record<PropertyKey, unknown>;
-    return asArray(astNode[propertyName] as unknown[] | null | undefined);
+    return asArray(
+        astNode[propertyName] as GameMakerAstNode[] | null | undefined
+    );
 }
 
-export function hasArrayPropertyEntries(node: unknown, propertyName: unknown) {
+export function hasArrayPropertyEntries(
+    node: unknown,
+    propertyName: string
+): boolean {
     if (!isNode(node)) {
         return false;
     }
@@ -478,13 +515,12 @@ export function hasArrayPropertyEntries(node: unknown, propertyName: unknown) {
     return isNonEmptyArray(astNode[propertyName]);
 }
 
-export function getBodyStatements(node: unknown): Array<GameMakerAstNode> {
+export function getBodyStatements(node: unknown): readonly GameMakerAstNode[] {
     if (!isNode(node)) {
         return [];
     }
 
-    // TODO: Use the proper typing here
-    return asArray(node.body);
+    return asArray((node as { body?: unknown }).body);
 }
 
 export function hasBodyStatements(node: unknown): boolean {
@@ -504,7 +540,9 @@ export function isProgramOrBlockStatement(node: unknown): boolean {
     return type === "Program" || type === "BlockStatement";
 }
 
-export function getLiteralStringValue(node) {
+export function getLiteralStringValue(
+    node: GameMakerAstNode | null | undefined
+): string | null {
     if (!isLiteralNode(node)) {
         return null;
     }
@@ -524,9 +562,9 @@ type BooleanLiteralOptions =
       };
 
 export function getBooleanLiteralValue(
-    node,
+    node: GameMakerAstNode | null | undefined,
     options: BooleanLiteralOptions = {}
-) {
+): "true" | "false" | null {
     if (!isLiteralNode(node)) {
         return null;
     }
@@ -553,15 +591,22 @@ export function getBooleanLiteralValue(
     return value ? "true" : "false";
 }
 
-export function isBooleanLiteral(node, options?: BooleanLiteralOptions) {
+export function isBooleanLiteral(
+    node: GameMakerAstNode | null | undefined,
+    options?: BooleanLiteralOptions
+): boolean {
     return getBooleanLiteralValue(node, options) !== null;
 }
 
-export function isUndefinedLiteral(node) {
+export function isUndefinedLiteral(
+    node: GameMakerAstNode | null | undefined
+): boolean {
     return getLiteralStringValue(node) === "undefined";
 }
 
-export function isUndefinedSentinel(node) {
+export function isUndefinedSentinel(
+    node: GameMakerAstNode | null | undefined
+): boolean {
     if (isUndefinedLiteral(node)) {
         return true;
     }
@@ -589,19 +634,19 @@ export function hasType(
     node: unknown,
     type: string
 ): node is Record<string, unknown> & { type: string } {
-    return isNode(node) && (node as any).type === type;
+    return isNode(node) && (node as { type?: string }).type === type;
 }
 
 /**
  * Retrieve the `type` string from an AST node when present.
  *
- * This helper sits in a hot path—called for nearly every node during
- * traversal and printing—so combining the nullish check (using `==` to cover
- * both `null` and `undefined` in a single comparison) with the type guard
- * reduces branch overhead and yields measurable improvement in tight loops.
+ * This helper sits in a hot path—called for nearly every node during traversal
+ * and printing—so combining the nullish check (using `==` to cover both `null`
+ * and `undefined` in a single comparison) with the type guard reduces branch
+ * overhead and yields measurable improvement in tight loops.
  *
- * @param {unknown} node Candidate AST node-like value.
- * @returns {string | null} The node's `type` when available, otherwise `null`.
+ * @param node Candidate AST node-like value.
+ * @returns The node's `type` when available, otherwise `null`.
  */
 export function getNodeType(node?: unknown): string | null {
     if (!isNode(node)) {
@@ -628,7 +673,9 @@ const FUNCTION_LIKE_NODE_TYPES: ReadonlyArray<string> = Object.freeze([
 
 const FUNCTION_LIKE_NODE_TYPE_SET = new Set(FUNCTION_LIKE_NODE_TYPES);
 
-export function isFunctionLikeNode(node): boolean {
+export function isFunctionLikeNode(
+    node: GameMakerAstNode | null | undefined
+): boolean {
     if (!isNode(node)) {
         return false;
     }
@@ -641,20 +688,24 @@ export function isFunctionLikeNode(node): boolean {
     return FUNCTION_LIKE_NODE_TYPE_SET.has(type);
 }
 
-export function getNodeName(node): string | null {
+export function getNodeName(
+    node: GameMakerAstNode | null | undefined
+): string | null {
     if (!node) {
         return null;
     }
 
-    if (node.id !== undefined) {
-        const idName = getIdentifierText(node.id);
+    if ((node as { id?: unknown }).id !== undefined) {
+        const idName = getIdentifierText((node as { id: GameMakerAstNode }).id);
         if (idName) {
             return idName;
         }
     }
 
-    if (node.key !== undefined) {
-        const keyName = getIdentifierText(node.key);
+    if ((node as { key?: unknown }).key !== undefined) {
+        const keyName = getIdentifierText(
+            (node as { key: GameMakerAstNode }).key
+        );
         if (keyName) {
             return keyName;
         }
@@ -672,63 +723,38 @@ export function getNodeName(node): string | null {
  * objects only forward nested objects to mirror the defensive checks found in
  * the transform visitors that previously duplicated this logic.
  *
- * @param {unknown} node Candidate AST fragment to inspect.
- * @param {(child: unknown) => void} callback Invoked for each descendant value.
+ * @param node Candidate AST fragment to inspect.
+ * @param callback Invoked for each descendant value.
  */
-// Limit the reusable buffer pool so traversing exceptionally deep or broad
-// trees does not retain every intermediate array indefinitely. The pool only
-// needs to cover typical recursion depths to amortize allocations, so a small
-// cap keeps steady-state memory usage predictable while preserving reuse in
-// hot paths.
-const visitChildNodesValuePool = [];
-const VISIT_CHILD_NODES_VALUE_POOL_MAX_SIZE = 32;
-
-export function borrowVisitChildNodesValueBuffer() {
-    return visitChildNodesValuePool.pop() ?? [];
-}
-
-export function isComparisonBinaryOperator(operator) {
+export function isComparisonBinaryOperator(operator: string): boolean {
     return COMPARISON_OPERATORS.has(operator);
 }
 
-export function isLogicalBinaryOperator(operator) {
+export function isLogicalBinaryOperator(operator: string): boolean {
     return LOGICAL_OPERATORS.has(operator);
 }
 
-export function isArithmeticBinaryOperator(operator) {
+export function isArithmeticBinaryOperator(operator: string): boolean {
     return ARITHMETIC_OPERATORS.has(operator);
 }
 
-export function isNumericLiteralBoundaryCharacter(character) {
-    return /[0-9.-]/.test(character ?? "");
+export function isNumericLiteralBoundaryCharacter(character: string): boolean {
+    return character >= "0" && character <= "9";
 }
 
-export function releaseVisitChildNodesValueBuffer(buffer) {
-    buffer.length = 0;
-    if (
-        visitChildNodesValuePool.length < VISIT_CHILD_NODES_VALUE_POOL_MAX_SIZE
-    ) {
-        visitChildNodesValuePool.push(buffer);
-    }
-}
-
-export function visitChildNodes(node, callback) {
+export function visitChildNodes(
+    node: unknown,
+    callback: (child: unknown) => void
+): void {
     if (node === undefined || node === null) {
         return;
     }
 
     if (Array.isArray(node)) {
-        // Iterate over a shallow snapshot so callers that mutate the source
-        // collection (for example by splicing siblings) do not cause entries to
-        // be skipped. Forwarding the original references preserves behavioural
-        // parity while keeping traversal order stable regardless of
-        // modifications performed by the callback.
-        const items = node.slice();
-
-        for (const item of items) {
+        const snapshot = [...node];
+        for (const item of snapshot) {
             callback(item);
         }
-
         return;
     }
 
@@ -736,35 +762,17 @@ export function visitChildNodes(node, callback) {
         return;
     }
 
-    // `Object.values` allocates a fresh array for every call which showed up in
-    // tight printer loops. Snapshot the enumerable own values into a reusable
-    // buffer so mutations performed by callbacks do not affect iteration order
-    // while avoiding per-invocation allocations once the pool is warm.
-    const values = borrowVisitChildNodesValueBuffer();
-    let length = 0;
-
-    try {
-        for (const key in node) {
-            if (!Object.hasOwn(node, key)) {
-                continue;
-            }
-
-            const value = node[key];
+    for (const key in node) {
+        if (Object.hasOwn(node, key)) {
+            const value = (node as Record<string, unknown>)[key];
             if (
                 value !== undefined &&
                 value !== null &&
                 typeof value === "object"
             ) {
-                values[length] = value;
-                length += 1;
+                callback(value);
             }
         }
-
-        for (let index = 0; index < length; index += 1) {
-            callback(values[index]);
-        }
-    } finally {
-        releaseVisitChildNodesValueBuffer(values);
     }
 }
 
@@ -774,10 +782,13 @@ export function visitChildNodes(node, callback) {
  * the defensive guards. Non-object values are ignored to match the manual
  * traversal patterns used across the parser and printer.
  *
- * @param {Array<unknown>} stack
- * @param {unknown} value
+ * @param stack
+ * @param value
  */
-export function enqueueObjectChildValues(stack, value) {
+export function enqueueObjectChildValues(
+    stack: unknown[],
+    value: unknown
+): void {
     if (!value || typeof value !== "object") {
         return;
     }
@@ -802,7 +813,9 @@ export function enqueueObjectChildValues(stack, value) {
     stack.push(value);
 }
 
-export function unwrapParenthesizedExpression(node) {
+export function unwrapParenthesizedExpression(
+    node: GameMakerAstNode | null | undefined
+): GameMakerAstNode | null | undefined {
     let current = node;
 
     while (isNode(current) && current.type === "ParenthesizedExpression") {
@@ -818,12 +831,13 @@ export function unwrapParenthesizedExpression(node) {
 }
 
 // Small binary-operator predicate used by multiple math transforms.
-export function isBinaryOperator(node, operator) {
+export function isBinaryOperator(
+    node: GameMakerAstNode | null | undefined,
+    operator: string
+): boolean {
     return (
-        node &&
-        node.type === "BinaryExpression" &&
-        typeof node.operator === "string" &&
-        node.operator.toLowerCase() === operator
+        node?.type === "BinaryExpression" &&
+        (node as { operator?: string }).operator?.toLowerCase() === operator
     );
 }
 
@@ -834,12 +848,18 @@ export function isBinaryOperator(node, operator) {
  * plugin transforms and keeps the parser-local transform logic
  * self-contained.
  */
-export function getStructPropertyAccess(left, identifierName) {
+export function getStructPropertyAccess(
+    left: GameMakerAstNode | null | undefined,
+    identifierName?: string
+): {
+    propertyNode: GameMakerAstNode;
+    propertyStart: number | GameMakerAstLocation | null | undefined;
+} | null {
     if (!isNode(left)) {
         return null;
     }
 
-    const object = left.object;
+    const object = (left as { object?: GameMakerAstNode }).object;
     if (!isIdentifierNode(object)) {
         return null;
     }

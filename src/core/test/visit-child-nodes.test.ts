@@ -4,9 +4,13 @@ import { describe, it } from "node:test";
 
 import { visitChildNodes } from "../src/ast/node-helpers.js";
 
+interface Named {
+    name: string;
+}
+
 void describe("visitChildNodes", () => {
     void it("invokes the callback for every array entry", () => {
-        const calls = [];
+        const calls: unknown[][] = [];
 
         visitChildNodes([1, { nested: true }], (...args) => {
             calls.push(args);
@@ -19,7 +23,7 @@ void describe("visitChildNodes", () => {
 
     void it("only forwards object values from plain objects", () => {
         const child = { nested: true };
-        const calls = [];
+        const calls: unknown[][] = [];
 
         visitChildNodes({ child, count: 1, empty: null }, (...args) => {
             calls.push(args);
@@ -31,12 +35,13 @@ void describe("visitChildNodes", () => {
 
     void it("continues iterating when the backing array mutates", () => {
         const nodes = [{ name: "alpha" }, { name: "beta" }, { name: "gamma" }];
-        const seen = [];
+        const seen: string[] = [];
 
         visitChildNodes(nodes, (child) => {
-            seen.push(child?.name ?? "");
+            const namedChild = child as Named;
+            seen.push(namedChild?.name ?? "");
 
-            if (child?.name === "alpha") {
+            if (namedChild?.name === "alpha") {
                 nodes.splice(0, 1);
             }
         });
@@ -45,7 +50,7 @@ void describe("visitChildNodes", () => {
     });
 
     void it("bails early for nullish parents", () => {
-        const calls = [];
+        const calls: unknown[][] = [];
 
         visitChildNodes(null, (...args) => {
             calls.push(args);

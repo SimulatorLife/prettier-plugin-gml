@@ -266,7 +266,7 @@ function normalizeRemovalAdjustments(adjustments: unknown) {
                 delta > 0
             );
         })
-        .sort((a, b) => (a).index - (b).index);
+        .sort((a, b) => a.index - b.index);
 }
 
 function mapIndexForRemoval(
@@ -309,12 +309,9 @@ function adjustLocationForRemoval(
     if (
         location &&
         typeof location === "object" &&
-        typeof (location).index === "number"
+        typeof location.index === "number"
     ) {
-        (location).index = mapIndexForRemoval(
-            (location).index,
-            adjustments
-        );
+        location.index = mapIndexForRemoval(location.index, adjustments);
     }
 }
 
@@ -486,7 +483,7 @@ export function preprocessSourceForFeatherFixes(sourceText: string) {
 
     while ((match = newlinePattern.exec(sourceText)) !== null) {
         const lineEnd = match.index;
-        const line = (sourceText).slice(lastIndex, lineEnd);
+        const line = sourceText.slice(lastIndex, lineEnd);
         const newline = match[0];
         const { line: sanitizedLine, context } = processLine(line);
 
@@ -496,11 +493,11 @@ export function preprocessSourceForFeatherFixes(sourceText: string) {
         lineNumber += 1;
     }
 
-    const finalLine = (sourceText).slice(lastIndex);
+    const finalLine = sourceText.slice(lastIndex);
     if (
         finalLine.length > 0 ||
-        (sourceText).endsWith("\n") ||
-        (sourceText).endsWith("\r")
+        sourceText.endsWith("\n") ||
+        sourceText.endsWith("\r")
     ) {
         const { line: sanitizedLine, context } = processLine(finalLine);
         sanitizedParts.push(sanitizedLine);

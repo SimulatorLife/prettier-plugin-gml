@@ -12,7 +12,7 @@ import {
 void describe("array property helpers", () => {
     void it("returns empty arrays for invalid inputs", () => {
         assert.deepEqual(getArrayProperty(null, "items"), []);
-        assert.deepEqual(getArrayProperty({}, 123), []);
+        assert.deepEqual(getArrayProperty({}, "123"), []);
         assert.deepEqual(getArrayProperty({ items: null }, "items"), []);
         assert.deepEqual(getBodyStatements(null), []);
     });

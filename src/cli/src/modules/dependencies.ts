@@ -48,15 +48,16 @@ export {
 
 export { ensureWorkflowPathsAllowed } from "../workflow/path-filter.js";
 
-export { REPO_ROOT, resolveFromRepoRoot } from "../shared/workspace-paths.js";
+export {
+    createCliRunSkippedError,
+    isCliRunSkipped
+} from "../shared/skip-cli-run.js";
+
+export { createPathFilter } from "../workflow/fixture-roots.js";
 
 export {
-    DEFAULT_FIXTURE_DIRECTORIES,
-    createPathFilter,
-    normalizeFixtureRoots
-} from "../workflow/fixture-roots.js";
-
-export {
-    writeFileArtifact,
-    writeJsonArtifact
+    writeJsonArtifact,
+    writeFileArtifact
 } from "../shared/fs-artifacts.js";
+
+export { REPO_ROOT, resolveFromRepoRoot } from "../shared/workspace-paths.js";

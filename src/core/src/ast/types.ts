@@ -68,7 +68,7 @@ export interface GameMakerAstNode {
     /** Scope identifier assigned by semantic scope tracker */
     scopeId?: string | null;
     /** Declaration metadata attached to identifier nodes */
-    declaration?: MutableGameMakerAstNode | null;
+    declaration?: GameMakerAstNode | null;
     /** Classification tags assigned by semantic passes (e.g., 'declaration', 'reference') */
     classifications?: Array<string> | null;
     /** Contained sub-node (eg. `foo.bar`). */
@@ -82,7 +82,7 @@ export interface GameMakerAstNode {
     /** Block or list of statements inside structured nodes. */
     body?: Array<unknown> | null;
     /** Variable declarators for declarations. */
-    declarations?: Array<MutableGameMakerAstNode> | null;
+    declarations?: Array<GameMakerAstNode> | null;
     /** Initializer for variable declarators or assignment right-hand sides */
     init?: GameMakerAstNode | null;
     /** Left-hand side of binary/assignment expressions */
@@ -92,9 +92,9 @@ export interface GameMakerAstNode {
     /** Operator token for binary/unary/infix nodes */
     operator?: string | null;
     /** Function or class identifier node, or id name as a string for historical shapes */
-    id?: string | MutableGameMakerAstNode | null;
+    id?: string | GameMakerAstNode | null;
     /** Name for identifiers; included for flexible access in code (may be a node or string) */
-    name?: string | MutableGameMakerAstNode | null;
+    name?: string | GameMakerAstNode | null;
     /** Parent pointer for nodes that maintain parent links */
     parent?: GameMakerAstNode | null;
     /** Parameters for function declarations or lambdas */
@@ -142,4 +142,16 @@ export interface CallExpressionNode extends GameMakerAstNode {
 export interface ParenthesizedExpressionNode extends GameMakerAstNode {
     type: "ParenthesizedExpression";
     expression?: GameMakerAstNode;
+}
+
+export interface VariableDeclarationNode extends GameMakerAstNode {
+    type: "VariableDeclaration";
+    declarations?: VariableDeclaratorNode[];
+    kind?: "var" | "global" | "static" | (string & {});
+}
+
+export interface VariableDeclaratorNode extends GameMakerAstNode {
+    type: "VariableDeclarator";
+    id?: GameMakerAstNode;
+    init?: GameMakerAstNode | null;
 }

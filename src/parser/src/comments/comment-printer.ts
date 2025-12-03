@@ -4,12 +4,9 @@ import { util } from "prettier";
 import { builders } from "prettier/doc";
 import { Core } from "@gml-modules/core";
 import {
-    formatLineComment,
-    getLineCommentRawText,
-    normalizeBannerCommentText
+    formatLineComment
 } from "./line-comment-formatting.js";
 import {
-    LINE_COMMENT_BANNER_DETECTION_MIN_SLASHES,
     resolveLineCommentOptions
 } from "./line-comment-options.js";
 
@@ -126,6 +123,9 @@ function runCommentHandlers(
 ) {
     for (const handler of handlers) {
         if (handler(comment, text, options, ast, isLastComment)) {
+            console.log(
+                `DEBUG: Comment handled by ${handler.name}: ${comment.value}`
+            );
             return true;
         }
     }
@@ -167,7 +167,12 @@ const handleComments = {
 };
 
 function printComment(commentPath, options) {
+    console.log(
+        "DEBUG: printComment called for",
+        commentPath.getValue()?.value
+    );
     const comment = commentPath.getValue();
+
     if (!Core.isCommentNode(comment)) {
         if (Core.isObjectLike(comment)) {
             comment.printed = true;
@@ -184,57 +189,27 @@ function printComment(commentPath, options) {
     }
     comment.printed = true;
 
+    let result = "";
     switch (comment.type) {
         case "CommentBlock": {
-            return `/*${comment.value}*/`;
+            result = `/*${comment.value}*/`;
+            break;
         }
         case "CommentLine": {
             const lineCommentOptions = resolveLineCommentOptions(options);
-            const rawText = getLineCommentRawText(comment);
-            const bannerMatch = rawText.match(/^\s*(\/{2,})/);
-
-            if (!bannerMatch) {
-                return formatLineComment(comment, lineCommentOptions);
-            }
-
-            const slashRun = bannerMatch[1];
-            const slashCount = slashRun.length;
-            if (slashCount < LINE_COMMENT_BANNER_DETECTION_MIN_SLASHES) {
-                return formatLineComment(comment, lineCommentOptions);
-            }
-
-            const bannerStart =
-                typeof bannerMatch.index === "number"
-                    ? bannerMatch.index
-                    : rawText.indexOf(slashRun);
-            const safeBannerStart = Math.max(bannerStart, 0);
-            const remainder = rawText.slice(safeBannerStart + slashCount);
-            const remainderTrimmed = remainder.trimStart();
-            if (remainderTrimmed.startsWith("@")) {
-                return formatLineComment(comment, lineCommentOptions);
-            }
-
-            const normalizedText = normalizeBannerCommentText(
-                remainderTrimmed,
-                { assumeDecorated: true }
-            );
-            if (normalizedText === null) {
-                return "";
-            }
-
-            const normalizedComment = {
-                ...comment,
-                value: ` ${normalizedText}`,
-                raw: `// ${normalizedText}`,
-                leadingText: `// ${normalizedText}`
+            const formattingOptions = {
+                ...lineCommentOptions,
+                originalText: options.originalText
             };
-
-            return formatLineComment(normalizedComment, lineCommentOptions);
+            result = formatLineComment(comment, formattingOptions);
+            break;
         }
         default: {
             throw new Error(`Not a comment: ${JSON.stringify(comment)}`);
         }
     }
+
+    return result;
 }
 
 function applySingleLeadingSpacePadding(comment, options) {

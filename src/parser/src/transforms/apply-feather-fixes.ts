@@ -1,6 +1,10 @@
 // TODO: This file is way too big and needs to be split up. Things like 'attachFeatherFixMetadata' can live here, but everything else should be split/moved. Can have a file just for enum handling, one for fixing begin/end vertex, colour, etc.
 
-import { Core, type MutableGameMakerAstNode } from "@gml-modules/core";
+import {
+    Core,
+    type MutableGameMakerAstNode,
+    type GameMakerAstNode
+} from "@gml-modules/core";
 import { FunctionalParserTransform } from "./functional-transform.js";
 import {
     getEndFromNode,
@@ -9413,7 +9417,7 @@ function removeRedeclaredGlobalFunctions({ ast, diagnostic }) {
         return [];
     }
 
-    const body = Core.getBodyStatements(ast);
+    const body = Core.getBodyStatements(ast) as GameMakerAstNode[];
 
     if (body.length === 0) {
         return [];
@@ -10022,7 +10026,7 @@ function liftDrawPrimitiveEndCallFromConditional(
         return null;
     }
 
-    branchWithCall.body.splice(match.index, 1);
+    (branchWithCall.body as GameMakerAstNode[]).splice(match.index, 1);
 
     removeSyntheticDrawPrimitiveBeginInsertedByGM2028(branchWithCall.body);
 
@@ -13683,7 +13687,10 @@ function moveGpuPopStateCallOutOfConditional(
         return null;
     }
 
-    const [popStatement] = consequentBody.splice(trailingPopIndex, 1);
+    const [popStatement] = (consequentBody as GameMakerAstNode[]).splice(
+        trailingPopIndex,
+        1
+    );
     const callExpression = getCallExpression(popStatement);
 
     if (
@@ -17930,7 +17937,7 @@ function relocateArgumentReferencesInsideFunctions({ ast, diagnostic }) {
                 break;
             }
 
-            programBody.splice(nextIndex, 1);
+            (programBody as GameMakerAstNode[]).splice(nextIndex, 1);
             block.body.push(candidate);
 
             const fixDetail = createFeatherFixDetail(diagnostic, {

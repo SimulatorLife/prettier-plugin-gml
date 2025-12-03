@@ -1,4 +1,8 @@
-import { Core, type MutableGameMakerAstNode } from "@gml-modules/core";
+import {
+    Core,
+    type MutableGameMakerAstNode,
+    type GameMakerAstNode
+} from "@gml-modules/core";
 import { FunctionalParserTransform } from "./functional-transform.js";
 
 type PreprocessFunctionArgumentDefaultsTransformOptions = Record<string, never>;
@@ -100,7 +104,9 @@ function preprocessFunctionDeclaration(node, ast) {
         node.params = params;
     }
 
-    const statements = Core.getBodyStatements(body as Record<string, unknown>);
+    const statements = Core.getBodyStatements(
+        body as Record<string, unknown>
+    ) as GameMakerAstNode[];
     const statementsToRemove = new Set();
     let appliedChanges = false;
 
