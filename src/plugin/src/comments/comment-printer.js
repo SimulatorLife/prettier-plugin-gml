@@ -198,12 +198,13 @@ function printComment(commentPath, options) {
                 return formatLineComment(comment, lineCommentOptions);
             }
 
-            const normalizedText = normalizeBannerCommentText(
-                remainderTrimmed,
-                { assumeDecorated: true }
-            );
+            // First check if the remainder actually contains decorative patterns
+            // (without assuming). If it doesn't, preserve the original format
+            // with the 4+ leading slashes.
+            const normalizedText = normalizeBannerCommentText(remainderTrimmed);
             if (normalizedText === null) {
-                return "";
+                // No decorations found - preserve the original format
+                return formatLineComment(comment, lineCommentOptions);
             }
 
             const normalizedComment = {
