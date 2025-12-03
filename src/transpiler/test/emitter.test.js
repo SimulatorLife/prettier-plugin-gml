@@ -250,9 +250,7 @@ test("emitJavaScript qualifies global identifiers using the global struct", () =
     const result = emitJavaScript(ast);
 
     assert.ok(
-        result.includes(
-            'if (!Object.prototype.hasOwnProperty.call(globalThis, "foo"))'
-        ),
+        result.includes('if (!Object.hasOwn(globalThis, "foo"))'),
         "Should guard access on the global object"
     );
 
@@ -452,7 +450,7 @@ test("emitJavaScript lowers globalvar declarations into guarded globals", () => 
 
     assert.match(
         result,
-        /Object\.prototype\.hasOwnProperty\.call\(globalThis, "foo"\)/,
+        /Object\.hasOwn\(globalThis, "foo"\)/,
         "Should guard against reinitialising foo"
     );
     assert.match(
@@ -462,7 +460,7 @@ test("emitJavaScript lowers globalvar declarations into guarded globals", () => 
     );
     assert.match(
         result,
-        /Object\.prototype\.hasOwnProperty\.call\(globalThis, "bar"\)/,
+        /Object\.hasOwn\(globalThis, "bar"\)/,
         "Should guard against reinitialising bar"
     );
     assert.match(
