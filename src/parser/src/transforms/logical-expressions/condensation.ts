@@ -297,23 +297,13 @@ function tryCondenseIfStatement(statements, index, helpers) {
         consequentExpression,
         alternateExpression
     );
-    if (simpleArgument) {
-        statements[index] = buildCondensedReturn(
-            simpleArgument,
-            statement,
-            alternateSourceNode ?? statement
-        );
-        if (removeFollowingReturn) {
-            statements.splice(index + 1, 1);
-        }
-        return true;
-    }
-
     if (
         !isBooleanBranchExpression(consequentExpression) ||
         !isBooleanBranchExpression(alternateExpression)
     ) {
-        return false;
+        if (!simpleArgument) {
+            return false;
+        }
     }
 
     const booleanContext = createBooleanContext();
@@ -327,39 +317,41 @@ function tryCondenseIfStatement(statements, index, helpers) {
         booleanContext
     );
 
-    if (!testExpr || !consequentExpr || !alternateExpr) {
-        return false;
+    let argumentAst = null;
+
+    if (testExpr && consequentExpr && alternateExpr) {
+        if (
+            booleanContext.variables.length <=
+            MAX_BOOLEAN_VARIABLES_FOR_TRUTH_TABLE
+        ) {
+            const combinedExpression = combineConditionalBoolean(
+                testExpr,
+                consequentExpr,
+                alternateExpr
+            );
+            const simplifiedCandidates = generateSimplifiedCandidates(
+                combinedExpression,
+                booleanContext
+            );
+            if (simplifiedCandidates.length > 0) {
+                const chosen = chooseBestCandidate(simplifiedCandidates);
+                if (chosen) {
+                    const optimizedExpression = postProcessBooleanExpression(
+                        chosen
+                    );
+                    argumentAst = booleanExpressionToAst(
+                        optimizedExpression,
+                        booleanContext
+                    );
+                }
+            }
+        }
     }
 
-    if (
-        booleanContext.variables.length > MAX_BOOLEAN_VARIABLES_FOR_TRUTH_TABLE
-    ) {
-        return false;
+    if (!argumentAst && simpleArgument) {
+        argumentAst = simpleArgument;
     }
 
-    const combinedExpression = combineConditionalBoolean(
-        testExpr,
-        consequentExpr,
-        alternateExpr
-    );
-    const simplifiedCandidates = generateSimplifiedCandidates(
-        combinedExpression,
-        booleanContext
-    );
-    if (simplifiedCandidates.length === 0) {
-        return false;
-    }
-
-    const chosen = chooseBestCandidate(simplifiedCandidates);
-    if (!chosen) {
-        return false;
-    }
-
-    const optimizedExpression = postProcessBooleanExpression(chosen);
-    const argumentAst = booleanExpressionToAst(
-        optimizedExpression,
-        booleanContext
-    );
     if (!argumentAst) {
         return false;
     }
