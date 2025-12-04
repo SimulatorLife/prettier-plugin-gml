@@ -8358,7 +8358,22 @@ function shouldFlattenSyntheticBinary(parent, expression, path) {
     return false;
 }
 
-function isSyntheticParenFlatteningEnabled(path) {
+/**
+ * Traverse ancestors to determine if synthetic parenthesis flattening is
+ * permitted. Function/constructor declarations with `_flattenSyntheticNumericParens`
+ * set to `true` explicitly enable flattening. For Program nodes, the behaviour
+ * depends on the {@link requireExplicit} flag:
+ *
+ * - When `false` (the default), flattening is enabled unless the Program
+ *   explicitly disables it via `_flattenSyntheticNumericParens === false`.
+ * - When `true`, flattening is only enabled if the Program has the flag
+ *   explicitly set to `true`.
+ *
+ * @param {import("prettier").AstPath} path - AST path to traverse.
+ * @param {{ requireExplicit?: boolean }} [options]
+ * @returns {boolean} `true` when synthetic paren flattening is permitted.
+ */
+function checkSyntheticParenFlattening(path, { requireExplicit = false } = {}) {
     let depth = 1;
     while (true) {
         const ancestor = callPathMethod(path, "getParentNode", {
@@ -8378,38 +8393,21 @@ function isSyntheticParenFlatteningEnabled(path) {
                 return true;
             }
         } else if (ancestor.type === "Program") {
-            return ancestor._flattenSyntheticNumericParens !== false;
+            return requireExplicit
+                ? ancestor._flattenSyntheticNumericParens === true
+                : ancestor._flattenSyntheticNumericParens !== false;
         }
 
         depth += 1;
     }
 }
 
+function isSyntheticParenFlatteningEnabled(path) {
+    return checkSyntheticParenFlattening(path);
+}
+
 function isSyntheticParenFlatteningForced(path) {
-    let depth = 1;
-    while (true) {
-        const ancestor = callPathMethod(path, "getParentNode", {
-            args: depth === 1 ? [] : [depth - 1],
-            defaultValue: null
-        });
-
-        if (!ancestor) {
-            return false;
-        }
-
-        if (
-            ancestor.type === "FunctionDeclaration" ||
-            ancestor.type === "ConstructorDeclaration"
-        ) {
-            if (ancestor._flattenSyntheticNumericParens === true) {
-                return true;
-            }
-        } else if (ancestor.type === "Program") {
-            return ancestor._flattenSyntheticNumericParens === true;
-        }
-
-        depth += 1;
-    }
+    return checkSyntheticParenFlattening(path, { requireExplicit: true });
 }
 
 function isWithinNumericCallArgument(path) {
