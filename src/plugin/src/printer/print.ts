@@ -4014,6 +4014,115 @@ function collectSyntheticDocCommentLines(
     return { existingDocLines, remainingComments };
 }
 
+function collectLeadingProgramLineComments(
+    node,
+    programNode,
+    options,
+    sourceText
+) {
+    console.log("collectLeadingProgramLineComments called for node", node?.type);
+    if (!node || !programNode) {
+        return [];
+    }
+
+    const nodeStartIndex = getNodeStartIndexForAlignment(node, options);
+    if (!Number.isInteger(nodeStartIndex)) {
+        return [];
+    }
+
+    const programComments = Core.getCommentArray(programNode);
+    if (!Core.isNonEmptyArray(programComments)) {
+        return [];
+    }
+
+    const lineCommentOptions =
+        Parser.Comments.resolveLineCommentOptions(options);
+    const leadingLines = [];
+    let anchorIndex = nodeStartIndex;
+
+    for (let i = programComments.length - 1; i >= 0; i -= 1) {
+        const comment = programComments[i];
+        if (!comment || comment.type !== "CommentLine" || comment.printed) {
+            continue;
+        }
+
+        let commentStart =
+            typeof comment.start === NUMBER_TYPE
+                ? comment.start
+                : typeof comment.start?.index === NUMBER_TYPE
+                ? comment.start.index
+                : null;
+        let commentEnd =
+            typeof comment.end === NUMBER_TYPE
+                ? comment.end
+                : typeof comment.end?.index === NUMBER_TYPE
+                ? comment.end.index
+                : null;
+
+        if (!Number.isInteger(commentEnd)) {
+            commentEnd = Number.isInteger(commentStart)
+                ? commentStart
+                : null;
+        }
+
+        if (!Number.isInteger(commentEnd) || commentEnd >= anchorIndex) {
+            continue;
+        }
+
+        const rawText = Parser.getLineCommentRawText(comment);
+        const trimmedRaw =
+            typeof rawText === STRING_TYPE ? rawText.trim() : "";
+        const formatted = Parser.formatLineComment(
+            comment,
+            lineCommentOptions
+        );
+        const trimmedFormatted = Core.toTrimmedString(formatted);
+
+        if (
+            trimmedFormatted.startsWith("///") ||
+            /^\s*@/.test(trimmedRaw) ||
+            /^\/\/\s*\/\s*/.test(trimmedRaw)
+        ) {
+            anchorIndex = Number.isInteger(commentStart)
+                ? commentStart
+                : commentEnd;
+            continue;
+        }
+
+        if (
+            typeof sourceText === STRING_TYPE &&
+            Number.isInteger(commentEnd)
+        ) {
+            const gapText = sourceText.slice(commentEnd, anchorIndex);
+            const blankLines = (gapText.match(/\n/g) || []).length;
+            if (blankLines >= 2) {
+                break;
+            }
+        }
+
+        if (trimmedFormatted.length === 0) {
+            anchorIndex = Number.isInteger(commentStart)
+                ? commentStart
+                : commentEnd;
+            continue;
+        }
+
+        console.log(
+            "collectLeadingProgramLineComments grabbed:",
+            formatted,
+            "for node",
+            node?.type
+        );
+        comment.printed = true;
+        leadingLines.unshift(formatted);
+        anchorIndex = Number.isInteger(commentStart)
+            ? commentStart
+            : commentEnd;
+    }
+
+    return leadingLines;
+}
+
 function extractLeadingNonDocCommentLines(comments, options) {
     if (!Core.isNonEmptyArray(comments)) {
         return {
@@ -4194,7 +4303,18 @@ function getSyntheticDocCommentForStaticVariable(
         remainingComments: updatedComments
     } = extractLeadingNonDocCommentLines(remainingComments, options);
 
-    if (existingDocLines.length > 0 || leadingCommentLines.length > 0) {
+    const programLeadingLines = collectLeadingProgramLineComments(
+        node,
+        programNode,
+        options,
+        sourceText
+    );
+    const combinedLeadingLines = [
+        ...programLeadingLines,
+        ...leadingCommentLines
+    ];
+
+    if (existingDocLines.length > 0 || combinedLeadingLines.length > 0) {
         node.comments = updatedComments;
     }
 
@@ -4209,8 +4329,8 @@ function getSyntheticDocCommentForStaticVariable(
         syntheticOverrides.includeOverrideTag = true;
     }
 
-    if (leadingCommentLines.length > 0) {
-        syntheticOverrides.leadingCommentLines = leadingCommentLines;
+    if (combinedLeadingLines.length > 0) {
+        syntheticOverrides.leadingCommentLines = combinedLeadingLines;
     }
 
     return buildSyntheticDocComment(
@@ -4280,7 +4400,18 @@ function getSyntheticDocCommentForFunctionAssignment(
         remainingComments: updatedComments
     } = extractLeadingNonDocCommentLines(remainingComments, options);
 
-    if (existingDocLines.length > 0 || leadingCommentLines.length > 0) {
+    const programLeadingLines = collectLeadingProgramLineComments(
+        commentTarget,
+        programNode,
+        options,
+        sourceText
+    );
+    const combinedLeadingLines = [
+        ...programLeadingLines,
+        ...leadingCommentLines
+    ];
+
+    if (existingDocLines.length > 0 || combinedLeadingLines.length > 0) {
         commentTarget.comments = updatedComments;
     }
 
@@ -4290,8 +4421,8 @@ function getSyntheticDocCommentForFunctionAssignment(
 
     const syntheticOverrides: any = { nameOverride: assignment.left.name };
 
-    if (leadingCommentLines.length > 0) {
-        syntheticOverrides.leadingCommentLines = leadingCommentLines;
+    if (combinedLeadingLines.length > 0) {
+        syntheticOverrides.leadingCommentLines = combinedLeadingLines;
     }
 
     return buildSyntheticDocComment(

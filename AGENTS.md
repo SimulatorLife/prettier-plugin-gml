@@ -16,6 +16,7 @@
 ----
 
 ## Code Style & Quality
+- You should keep individual source files under ~1000 lines of executable code (excluding comments, blank lines, and imports) by splitting or moving functionality into additional files as needed, organizing related pieces into sub-directories when appropriate and exposing them through a clear, shared interface so the structure remains coherent and discoverable.
 - When fixing lint/test errors/failures, your goal is NOT simply to perform minimal fixes that merely silence type/lint/test errors. Instead, you must drive the codebase toward a well-architected, fully typed, de-duplicated, clean, DRY and maintainable design; fix the underlying issues properly. You *may* introduce short-term breakage if doing so enables a clearer, more correct, and more coherent long-term structure. Structural correctness overrides temporary stability.
 - When debugging issues/failures, prioritize creating or updating unit tests that reproduce the issue instead of adding debug logging.
 - When considering adding new dependencies, prefer packages that are already in use within the monorepo to minimize bloat.
@@ -54,9 +55,9 @@
 
 This project is a TypeScript monorepo targeting Node’s native ESM loader. The key goals are:
 
-- Source of truth lives in *.ts files under src/…
-- Each workspace builds to its own dist/ directory
-- Runtime always executes built JavaScript from dist/
+- Source of truth lives in `*.ts` files under `src/…`
+- Each workspace builds to its own `dist/` directory
+- Runtime always executes built JavaScript from `dist/`
 - Import paths in the emitted JavaScript are valid Node ESM specifiers
 - TypeScript never needs `allowImportingTsExtensions` (so we can still emit JS)
 
@@ -106,10 +107,10 @@ Tests and downstream consumers always run against the dist/**.js output, not the
 
 ### Import style inside TypeScript
 
-All internal imports in *.ts files use Node-valid ESM specifiers. The pattern is:
+All internal imports in `*.ts` files use Node-valid ESM specifiers. The pattern is:
 
-- Use .js extensions in import specifiers, even though the actual source files are .ts.
-- Let TypeScript (with moduleResolution: "NodeNext") resolve those .js specifiers to the corresponding .ts sources at compile time.
+- Use `.js` extensions in import specifiers, even though the actual source files are .ts.
+- Let TypeScript (with moduleResolution: "NodeNext") resolve those `.js` specifiers to the corresponding `.ts` sources at compile time.
 
 Example inside a workspace:
 ````ts
@@ -128,14 +129,14 @@ TypeScript understands that `./parse-node.js` should bind to `parse-node.ts` dur
 
 We do not:
 
-- Import using .ts extensions (e.g. import "./parse-node.ts").
-That would require allowImportingTsExtensions, which in turn forces noEmit or emitDeclarationOnly and would break JS emit for our build.
+- Import using `.ts` extensions (e.g. import "./parse-node.ts").
+That would require `allowImportingTsExtensions`, which in turn forces `noEmit` or `emitDeclarationOnly` and would break JS emit for our build.
 
-- Import from dist/ inside source files. All source-level imports stay inside src/ and use relative paths or package specifiers.
+- Import from `dist/` inside source files. All source-level imports stay inside src/ and use relative paths or package specifiers.
 
 ### Cross-package imports
 
-Each workspace is a proper Node package with its own package.json, for example:
+Each workspace is a proper Node package with its own `package.json`, for example:
 
 ````json
 {
