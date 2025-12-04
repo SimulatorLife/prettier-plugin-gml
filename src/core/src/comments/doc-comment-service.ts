@@ -3,12 +3,14 @@ import {
     capitalize,
     coercePositiveIntegerOption,
     createResolverController,
+    createEnvConfiguredValueWithFallback,
     findLastIndex,
     getNonEmptyString,
     getNonEmptyTrimmedString,
     isNonEmptyArray,
     isNonEmptyString,
     isNonEmptyTrimmedString,
+    toFiniteNumber,
     toMutableArray,
     toTrimmedString
 } from "../utils/index.js";
@@ -60,8 +62,25 @@ const KNOWN_TYPES = new Set(
 
 const DOC_COMMENT_TAG_PATTERN = /^\/\/\/\s*@/i;
 const DOC_COMMENT_ALT_TAG_PATTERN = /^\/\/\s*\/\s*@/i;
-const DEFAULT_DOC_COMMENT_WRAP_WIDTH = 100;
-function resolveDocCommentWrapWidth(options: any) {
+
+const DOC_COMMENT_MAX_WRAP_WIDTH_ENV_VAR =
+    "PRETTIER_PLUGIN_GML_DOC_COMMENT_MAX_WRAP_WIDTH";
+const DOC_COMMENT_MAX_WRAP_WIDTH_BASELINE = 100;
+const MIN_DOC_COMMENT_WRAP_WIDTH = 1;
+
+export const docCommentMaxWrapWidthConfig = createEnvConfiguredValueWithFallback({
+    defaultValue: DOC_COMMENT_MAX_WRAP_WIDTH_BASELINE,
+    envVar: DOC_COMMENT_MAX_WRAP_WIDTH_ENV_VAR,
+    resolve: (raw) => {
+        if (raw === "Infinity" || raw === Infinity) {
+            return Infinity;
+        }
+        const num = toFiniteNumber(raw);
+        return num !== null && num >= MIN_DOC_COMMENT_WRAP_WIDTH ? num : null;
+    }
+});
+
+export function resolveDocCommentWrapWidth(options: any) {
     const candidate = options?.docCommentMaxWrapWidth;
     if (typeof candidate === NUMBER_TYPE) {
         return candidate;
@@ -71,7 +90,7 @@ function resolveDocCommentWrapWidth(options: any) {
         return Infinity;
     }
 
-    return DEFAULT_DOC_COMMENT_WRAP_WIDTH;
+    return docCommentMaxWrapWidthConfig.get();
 }
 
 function isDocCommentTagLine(line: unknown) {
@@ -290,6 +309,10 @@ export function collectSyntheticDocCommentLines(
     dependencies: DocCommentPrinterDependencies
 ) {
     const rawComments = getCommentArray(node);
+    if (node.id === "scr_create_fx" || (node.id && node.id.name === "scr_create_fx")) {
+        console.log("[DEBUG Core] collectSyntheticDocCommentLines for scr_create_fx");
+        console.log("[DEBUG Core] rawComments length:", rawComments.length);
+    }
     if (!isNonEmptyArray(rawComments)) {
         // No node-level comments exist; fallback collection happens later.
     }
@@ -2366,6 +2389,49 @@ export function collectImplicitArgumentDocNames(
     return [];
 }
 
+function hasReturnStatement(node: any): boolean {
+    if (!node) {
+        return false;
+    }
+
+    if (node.type === "ReturnStatement") {
+        return true;
+    }
+
+    if (node.type === "BlockStatement" && Array.isArray(node.body)) {
+        return node.body.some(hasReturnStatement);
+    }
+
+    if (node.type === "IfStatement") {
+        return (
+            hasReturnStatement(node.consequent) ||
+            hasReturnStatement(node.alternate)
+        );
+    }
+
+    if (node.type === "WhileStatement" || node.type === "DoUntilStatement" || node.type === "ForStatement" || node.type === "RepeatStatement" || node.type === "WithStatement") {
+        return hasReturnStatement(node.body);
+    }
+
+    if (node.type === "SwitchStatement" && Array.isArray(node.cases)) {
+        return node.cases.some((c: any) => Array.isArray(c.consequent) && c.consequent.some(hasReturnStatement));
+    }
+    
+    if (node.type === "TryStatement") {
+        return hasReturnStatement(node.block) || hasReturnStatement(node.handler) || hasReturnStatement(node.finalizer);
+    }
+    
+    if (node.type === "CatchClause") {
+        return hasReturnStatement(node.body);
+    }
+    
+    if (node.type === "Finalizer") {
+        return hasReturnStatement(node.body);
+    }
+
+    return false;
+}
+
 function maybeAppendReturnsDoc(
     lines: string[],
     functionNode: any,
@@ -2391,18 +2457,12 @@ function maybeAppendReturnsDoc(
     }
 
     const body = functionNode.body;
-    const statements =
-        body?.type === "BlockStatement" && Array.isArray(body.body)
-            ? body.body
-            : null;
-
-    if (!statements) {
+    
+    if (!body) {
         return lines;
     }
 
-    const hasReturn = statements.some(
-        (stmt: any) => stmt && stmt.type === "ReturnStatement"
-    );
+    const hasReturn = hasReturnStatement(body);
     if (!hasReturn) {
         lines.push("/// @returns {undefined}");
     }

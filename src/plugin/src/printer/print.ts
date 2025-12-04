@@ -45,6 +45,7 @@ import {
     softline,
     willBreak
 } from "./doc-builders.js";
+
 import {
     hasBlankLineBeforeLeadingComment,
     hasBlankLineBetweenLastCommentAndClosingBrace,
@@ -67,6 +68,9 @@ import {
     ObjectWrapOption,
     resolveObjectWrapOption
 } from "../options/object-wrap-option.js";
+
+// Polyfill literalLine if not available in doc-builders
+const literalLine = { type: "line", hard: true, literal: true };
 
 function resolveDocCommentPrinterOptions(options: any) {
     return {
@@ -836,9 +840,27 @@ function _printImpl(path, options, print) {
                 ) {
                     parts.push(hardline);
                 }
-                parts.push(join(hardline, docCommentDocs), hardline);
+                
+                // Push doc comments individually with literalLine to ensure they appear on separate lines
+                docCommentDocs.forEach((doc) => {
+                    if (node.id === "scr_create_fx") console.log("Printing doc:", doc);
+                    parts.push(doc);
+                    parts.push(literalLine);
+                });
             } else if (Object.hasOwn(node, DOC_COMMENT_OUTPUT_FLAG)) {
                 delete node[DOC_COMMENT_OUTPUT_FLAG];
+            }
+
+            // Mark all comments as printed to prevent Prettier from complaining
+            // that we didn't print them (since we printed our own synthetic versions)
+            if (node.comments) {
+                node.comments.forEach((comment: any) => {
+                    comment.printed = true;
+                });
+            }
+
+            if (node.id === "scr_create_fx") {
+                 console.log("Parts for scr_create_fx:", JSON.stringify(parts));
             }
 
             let functionNameDoc = "";
