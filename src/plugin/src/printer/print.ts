@@ -4020,7 +4020,6 @@ function collectLeadingProgramLineComments(
     options,
     sourceText
 ) {
-    console.log("collectLeadingProgramLineComments called for node", node?.type);
     if (!node || !programNode) {
         return [];
     }
@@ -4107,12 +4106,6 @@ function collectLeadingProgramLineComments(
             continue;
         }
 
-        console.log(
-            "collectLeadingProgramLineComments grabbed:",
-            formatted,
-            "for node",
-            node?.type
-        );
         comment.printed = true;
         leadingLines.unshift(formatted);
         anchorIndex = Number.isInteger(commentStart)
