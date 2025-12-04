@@ -3755,23 +3755,20 @@ function collectSyntheticDocCommentLines(
         // Check if comment is either /// style or // / style (doc-like)
         const rawText = Parser.getLineCommentRawText(comment);
         const trimmedRaw = typeof rawText === STRING_TYPE ? rawText.trim() : "";
-
-        // A comment should be treated as a doc comment if any of the
-        // following are true:
-        // 1. It results in a formatted text starting with `///` (already
-        //    recognized by the formatter), OR
-        // 2. Its raw text indicates a doc-like prefix. Some inputs normalize
-        //    to single-slash doc markers ("/ ") or have `@` at the start.
-        //    Accept a few conservative shapes to ensure such cases get
-        //    included in synthetic doc handling.
         const isFormattedDocStyle =
             typeof formatted === STRING_TYPE &&
             formatted.trim().startsWith("///");
+        const trimmedWithoutSlashes = trimmedRaw.replace(/^\/+/, "").trim();
+        const hasDocTagAfterSlash = /^\/+\s*@/.test(trimmedRaw);
+        const isDocStyleSlash = /^\/\/\s+\/\s*/.test(trimmedRaw);
+        const isBlockDocLike =
+            trimmedRaw.startsWith("/*") &&
+            trimmedWithoutSlashes.startsWith("@");
         const isRawDocLike =
-            /^\/\/\s*\//.test(trimmedRaw) ||
-            /^\/\s*/.test(trimmedRaw) ||
-            /^\s*@/.test(trimmedRaw);
-
+            trimmedRaw.startsWith("///") ||
+            hasDocTagAfterSlash ||
+            isDocStyleSlash ||
+            isBlockDocLike;
         if (!isFormattedDocStyle && !isRawDocLike) {
             remainingComments.push(comment);
             continue;
@@ -3874,21 +3871,23 @@ function collectSyntheticDocCommentLines(
                     )
                         continue;
 
-                    const formatted = Parser.formatLineComment(
-                        pc,
-                        Parser.Comments.resolveLineCommentOptions(options)
-                    );
                     const rawText = Parser.getLineCommentRawText(pc);
                     const trimmedRaw =
                         typeof rawText === STRING_TYPE ? rawText.trim() : "";
-                    const isFormattedDocStyle =
-                        typeof formatted === STRING_TYPE &&
-                        formatted.trim().startsWith("///");
+                    const trimmedWithoutSlashes = trimmedRaw
+                        .replace(/^\/+/, "")
+                        .trim();
+                    const hasDocTagAfterSlash = /^\/+\s*@/.test(trimmedRaw);
+                    const isDocStyleSlash = /^\/\/\s+\/\s*/.test(trimmedRaw);
+                    const isBlockDocLike =
+                        trimmedRaw.startsWith("/*") &&
+                        trimmedWithoutSlashes.startsWith("@");
                     const isRawDocLike =
-                        /^\/\/\s*\//.test(trimmedRaw) ||
-                        /^\/\s*/.test(trimmedRaw) ||
-                        /^\s*@/.test(trimmedRaw);
-                    if (!isFormattedDocStyle && !isRawDocLike) break;
+                        trimmedRaw.startsWith("///") ||
+                        hasDocTagAfterSlash ||
+                        isDocStyleSlash ||
+                        isBlockDocLike;
+                    if (!isRawDocLike) break;
                     let allowCandidate = true;
                     if (
                         typeof sourceText === STRING_TYPE &&
