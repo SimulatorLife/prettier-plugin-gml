@@ -4870,6 +4870,12 @@ function mergeSyntheticDocComments(
         removedAnyLine = true;
     }
 
+    const functionIndex = result.findIndex(isFunctionLine);
+    if (functionIndex > 0) {
+        const [functionLine] = result.splice(functionIndex, 1);
+        result.unshift(functionLine);
+    }
+
     const paramDocsByCanonical = new Map();
 
     for (const line of result) {
