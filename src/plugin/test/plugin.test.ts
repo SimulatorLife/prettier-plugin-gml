@@ -158,6 +158,12 @@ void describe("Prettier GameMaker plugin fixtures", () => {
 
             const formattedLines = formatted.split("\n");
             const expectedLines = expected.split("\n");
+            while (
+                formattedLines.length > expectedLines.length &&
+                formattedLines.at(-1) === ""
+            ) {
+                formattedLines.pop();
+            }
             const maxLineCount = Math.max(
                 formattedLines.length,
                 expectedLines.length

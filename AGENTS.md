@@ -16,6 +16,8 @@
 ----
 
 ## Code Style & Quality
+- When fixing lint/test errors/failures, your goal is NOT simply to perform minimal fixes that merely silence type/lint/test errors. Instead, you must drive the codebase toward a well-architected, fully typed, de-duplicated, clean, DRY and maintainable design. You *may* introduce short-term breakage if doing so enables a clearer, more correct, and more coherent long-term structure. Structural correctness overrides temporary stability.
+- When debugging issues/failures, prioritize creating or updating unit tests that reproduce the issue instead of adding debug logging.
 - When considering adding new dependencies, prefer packages that are already in use within the monorepo to minimize bloat.
 - Code must be organized by domain, not by generic utility patterns: New functionality must be placed in domain-appropriate directories (e.g., `src/semantic/analyze/…`, `src/transpiler/emit/…`, `src/runtime-wrapper/bridge/…`), never into catch-all filenames such as `utils.ts`, `helpers.ts`, or `common.ts`. A module’s public exports must present a single cohesive conceptual responsibility, and unrelated helpers must be split into their own domain-specific files instead of accumulating in shared “miscellaneous” locations.
 - Use named package scopes for all inter-package imports, always referencing modules by their declared package name rather than relative paths, and ensure that each package re-exports its public API at the top level so consumers import only from the package root (e.g., use `@gml-modules/core` instead of deep paths like `"../../../src/core/src/ast/comments.js"`); this rule also applies in `package.json`, where dependencies must always be listed by package name rather than filesystem paths.
