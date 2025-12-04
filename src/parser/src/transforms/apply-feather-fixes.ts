@@ -542,6 +542,51 @@ function applyFeatherFixesImpl(ast: any, opts: ApplyFeatherFixesOptions = {}) {
         // Diagnostic snapshot: list every FunctionDeclaration in the final
     }
 
+    // Re-scan the transformed AST to update hasDirectReference metadata
+    // This is crucial for GM1032 fixes where arguments are re-indexed or aliased
+    walkAstNodes(ast, (node) => {
+        if (
+            node &&
+            (node.type === "FunctionDeclaration" ||
+                node.type === "StructFunctionDeclaration") &&
+            Array.isArray(node._featherImplicitArgumentDocEntries)
+        ) {
+            const entries = node._featherImplicitArgumentDocEntries;
+            const remainingDirectRefIndices = new Set<number>();
+
+            // Walk the function body to find argument references
+            // We need to be careful not to walk into nested functions
+            if (node.body) {
+                walkAstNodes(node.body, (child) => {
+                    // Don't descend into nested functions
+                    if (
+                        child.type === "FunctionDeclaration" ||
+                        child.type === "StructFunctionDeclaration"
+                    ) {
+                        return false;
+                    }
+
+                    if (
+                        child.type === "Identifier" &&
+                        /^argument\d+$/.test(child.name)
+                    ) {
+                        const index = parseInt(child.name.substring(8), 10);
+                        remainingDirectRefIndices.add(index);
+                    }
+                });
+            }
+
+            // Update the metadata
+            for (const entry of entries) {
+                if (!remainingDirectRefIndices.has(entry.index)) {
+                    entry.hasDirectReference = false;
+                } else {
+                    entry.hasDirectReference = true;
+                }
+            }
+        }
+    });
+
     return ast;
 }
 
@@ -4074,6 +4119,7 @@ function fixArgumentReferencesWithinFunction(
         const argumentIndex = getArgumentIdentifierIndex(node);
 
         if (typeof argumentIndex === "number") {
+            console.log(`[FeatherFix] Found reference to argument${argumentIndex} at ${node.start}`);
             references.push({ node, index: argumentIndex });
             return;
         }
@@ -4103,6 +4149,32 @@ function fixArgumentReferencesWithinFunction(
 
     if (!Core.isMapLike(mapping) || !Core.hasIterableItems(mapping)) {
         return fixes;
+    }
+
+    // Update the implicit argument doc entries to match the new index
+    if (functionNode._featherImplicitArgumentDocEntries) {
+        console.log(`[FeatherFix] Updating implicit argument doc entries for function ${functionNode.id?.name || "anonymous"}`);
+        for (const entry of functionNode._featherImplicitArgumentDocEntries) {
+            console.log(`[FeatherFix] Entry before: index=${entry.index}, name=${entry.name}`);
+            if (entry && typeof entry.index === "number" && mapping.has(entry.index)) {
+                const oldIndex = entry.index;
+                const newIndex = mapping.get(oldIndex);
+                entry.index = newIndex;
+
+                if (entry.name === `argument${oldIndex}`) {
+                    entry.name = `argument${newIndex}`;
+                }
+                if (entry.canonical === `argument${oldIndex}`) {
+                    entry.canonical = `argument${newIndex}`;
+                }
+                if (entry.fallbackCanonical === `argument${oldIndex}`) {
+                    entry.fallbackCanonical = `argument${newIndex}`;
+                }
+            }
+            console.log(`[FeatherFix] Entry after: index=${entry.index}, name=${entry.name}`);
+        }
+    } else {
+        console.log(`[FeatherFix] No implicit argument doc entries for function ${functionNode.id?.name || "anonymous"}`);
     }
 
     for (const reference of references) {
@@ -4215,6 +4287,31 @@ function fixArgumentReferencesWithinFunction(
                 }
 
                 reference.node.name = alias.name;
+            }
+
+            if (functionNode._featherImplicitArgumentDocEntries) {
+                const remainingDirectRefIndices = new Set();
+
+                for (const reference of references) {
+                    if (aliasInitNodes.has(reference.node)) {
+                        continue;
+                    }
+
+                    if (/^argument\d+$/.test(reference.node.name)) {
+                        const normalizedIndex = mapping.has(reference.index)
+                            ? mapping.get(reference.index)
+                            : reference.index;
+                        remainingDirectRefIndices.add(normalizedIndex);
+                    }
+                }
+
+                for (const entry of functionNode._featherImplicitArgumentDocEntries) {
+                    if (entry && typeof entry.index === "number") {
+                        if (!remainingDirectRefIndices.has(entry.index)) {
+                            entry.hasDirectReference = false;
+                        }
+                    }
+                }
             }
         }
     }
