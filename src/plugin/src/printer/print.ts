@@ -156,6 +156,19 @@ const suppressedImplicitDocCanonicalByNode = new WeakMap();
 const preferredParamDocNamesByNode = new WeakMap();
 const forcedStructArgumentBreaks = new WeakMap();
 
+function isDocLikeLeadingLine(value: unknown) {
+    if (typeof value !== STRING_TYPE) {
+        return false;
+    }
+
+    const trimmed = (value as string).trim();
+    return (
+        trimmed.startsWith("///") ||
+        /^\/\/\s*\/\s*/.test(trimmed) ||
+        /^\/+\s*@/.test(trimmed)
+    );
+}
+
 function callPathMethod(
     path: any,
     methodName: any,
@@ -624,6 +637,10 @@ function _printImpl(path, options, print) {
             // node. This ensures leading `///` summary lines that appear at
             // the file's top get promoted to `@description` when synthetic
             // tags are inserted.
+            let docLikeLeadingLines: string[] = [];
+            let plainLeadingLines: string[] = [];
+            let existingDocLines: MutableDocCommentLines = [];
+            let updatedComments: any[];
             if (docCommentDocs.length === 0) {
                 const parentNode =
                     typeof path.getParentNode === "function"
@@ -657,60 +674,64 @@ function _printImpl(path, options, print) {
                     programNode = parentNode;
                 }
 
-                const { existingDocLines, remainingComments } =
-                    collectSyntheticDocCommentLines(
-                        node,
-                        options,
-                        programNode,
-                        originalText
-                    );
+                const collected = collectSyntheticDocCommentLines(
+                    node,
+                    options,
+                    programNode,
+                    originalText
+                );
+                existingDocLines = collected.existingDocLines;
                 const programLeadingLines = collectLeadingProgramLineComments(
                     node,
                     programNode,
                     options,
                     originalText
                 );
-                const {
-                    leadingLines: leadingCommentLines,
-                    remainingComments: updatedComments
-                } = extractLeadingNonDocCommentLines(
-                    remainingComments,
+                const extracted = extractLeadingNonDocCommentLines(
+                    collected.remainingComments,
                     options
                 );
+                const leadingCommentLines = extracted.leadingLines;
+                updatedComments = extracted.remainingComments;
                 const combinedLeadingLines = [
                     ...programLeadingLines,
                     ...leadingCommentLines
                 ];
+                docLikeLeadingLines = [];
+                plainLeadingLines = [];
+                for (const line of combinedLeadingLines) {
+                    if (isDocLikeLeadingLine(line)) {
+                        docLikeLeadingLines.push(line);
+                    } else {
+                        plainLeadingLines.push(line);
+                    }
+                }
 
                 if (
                     existingDocLines.length > 0 ||
-                    combinedLeadingLines.length > 0
+                    docLikeLeadingLines.length > 0 ||
+                    plainLeadingLines.length > 0
                 ) {
-                    // If we found doc lines attached to the program, treat them
-                    // as the node's doc comments for the rest of the pipeline.
                     docCommentDocs = Core.toMutableArray(
                         existingDocLines.length > 0 ? existingDocLines : []
                     ) as MutableDocCommentLines;
                     if (
-                        combinedLeadingLines.length > 0 &&
+                        docLikeLeadingLines.length > 0 &&
                         docCommentDocs.length === 0
                     ) {
-                        // If we only found leading non-doc comment lines, feed
-                        // them as overrides so synthetic tags inserted below can
-                        // enable promotion into @description.
                         const mergedDocs = Core.toMutableArray(
                             mergeSyntheticDocComments(
                                 node,
                                 docCommentDocs,
                                 options,
-                                { leadingCommentLines: combinedLeadingLines }
+                                { leadingCommentLines: docLikeLeadingLines }
                             )
                         ) as MutableDocCommentLines;
 
                         docCommentDocs =
                             mergedDocs.length === 0
                                 ? (Core.toMutableArray(
-                                      combinedLeadingLines
+                                      docLikeLeadingLines
                                   ) as MutableDocCommentLines)
                                 : mergedDocs;
                     }
@@ -719,22 +740,6 @@ function _printImpl(path, options, print) {
                         updatedComments.length >= 0
                     ) {
                         node.comments = updatedComments;
-                    }
-
-                    if (
-                        combinedLeadingLines.length > 0 &&
-                        docCommentDocs.length > 0 &&
-                        existingDocLines.length === 0
-                    ) {
-                        const docStartsWithBlank =
-                            typeof docCommentDocs[0] === STRING_TYPE &&
-                            docCommentDocs[0].trim().length === 0;
-                        const separator = docStartsWithBlank ? [] : [""];
-                        docCommentDocs = Core.toMutableArray([
-                            ...combinedLeadingLines,
-                            ...separator,
-                            ...docCommentDocs
-                        ]) as MutableDocCommentLines;
                     }
                 }
             }
@@ -784,6 +789,19 @@ function _printImpl(path, options, print) {
                 ) {
                     needsLeadingBlankLine = true;
                 }
+            }
+
+            const shouldEmitPlainLeadingBeforeDoc =
+                plainLeadingLines.length > 0 &&
+                docCommentDocs.length > 0 &&
+                existingDocLines.length === 0;
+
+            if (shouldEmitPlainLeadingBeforeDoc) {
+                parts.push(
+                    join(hardline, plainLeadingLines),
+                    hardline,
+                    hardline
+                );
             }
 
             if (docCommentDocs.length > 0) {
@@ -2840,6 +2858,15 @@ function printStatements(path, options, print, childrenAttribute) {
         const syntheticDocComment = syntheticDocRecord
             ? syntheticDocRecord.doc
             : null;
+        const syntheticPlainLeadingLines = syntheticDocRecord
+            ? syntheticDocRecord.plainLeadingLines
+            : [];
+        if (syntheticPlainLeadingLines.length > 0) {
+            parts.push(join(hardline, syntheticPlainLeadingLines));
+            if (!syntheticDocComment) {
+                parts.push(hardline);
+            }
+        }
         if (syntheticDocComment) {
             parts.push(syntheticDocComment, hardline);
         }
@@ -4369,12 +4396,25 @@ function getSyntheticDocCommentForStaticVariable(
         ...sourceLeadingLines,
         ...leadingCommentLines
     ];
+    const docLikeLeadingLines = [];
+    const plainLeadingLines = [];
+    for (const line of combinedLeadingLines) {
+        if (isDocLikeLeadingLine(line)) {
+            docLikeLeadingLines.push(line);
+        } else {
+            plainLeadingLines.push(line);
+        }
+    }
 
     if (existingDocLines.length > 0 || combinedLeadingLines.length > 0) {
         node.comments = updatedComments;
     }
 
-    if (hasFunctionDoc && existingDocLines.length === 0) {
+    if (
+        hasFunctionDoc &&
+        existingDocLines.length === 0 &&
+        docLikeLeadingLines.length === 0
+    ) {
         return null;
     }
 
@@ -4385,16 +4425,26 @@ function getSyntheticDocCommentForStaticVariable(
         syntheticOverrides.includeOverrideTag = true;
     }
 
-    if (combinedLeadingLines.length > 0) {
-        syntheticOverrides.leadingCommentLines = combinedLeadingLines;
+    if (docLikeLeadingLines.length > 0) {
+        syntheticOverrides.leadingCommentLines = docLikeLeadingLines;
     }
 
-    return buildSyntheticDocComment(
+    const syntheticDoc = buildSyntheticDocComment(
         functionNode,
         existingDocLines,
         options,
         syntheticOverrides
     );
+
+    if (!syntheticDoc && plainLeadingLines.length === 0) {
+        return null;
+    }
+
+    return {
+        doc: syntheticDoc?.doc ?? null,
+        hasExistingDocLines: syntheticDoc?.hasExistingDocLines === true,
+        plainLeadingLines
+    };
 }
 
 function getSyntheticDocCommentForFunctionAssignment(
@@ -4475,27 +4525,50 @@ function getSyntheticDocCommentForFunctionAssignment(
         ...sourceLeadingLines,
         ...leadingCommentLines
     ];
+    const docLikeLeadingLines = [];
+    const plainLeadingLines = [];
+    for (const line of combinedLeadingLines) {
+        if (isDocLikeLeadingLine(line)) {
+            docLikeLeadingLines.push(line);
+        } else {
+            plainLeadingLines.push(line);
+        }
+    }
 
     if (existingDocLines.length > 0 || combinedLeadingLines.length > 0) {
         commentTarget.comments = updatedComments;
     }
 
-    if (hasFunctionDoc && existingDocLines.length === 0) {
+    if (
+        hasFunctionDoc &&
+        existingDocLines.length === 0 &&
+        docLikeLeadingLines.length === 0
+    ) {
         return null;
     }
 
     const syntheticOverrides: any = { nameOverride: assignment.left.name };
 
-    if (combinedLeadingLines.length > 0) {
-        syntheticOverrides.leadingCommentLines = combinedLeadingLines;
+    if (docLikeLeadingLines.length > 0) {
+        syntheticOverrides.leadingCommentLines = docLikeLeadingLines;
     }
 
-    return buildSyntheticDocComment(
+    const syntheticDoc = buildSyntheticDocComment(
         functionNode,
         existingDocLines,
         options,
         syntheticOverrides
     );
+
+    if (!syntheticDoc && plainLeadingLines.length === 0) {
+        return null;
+    }
+
+    return {
+        doc: syntheticDoc?.doc ?? null,
+        hasExistingDocLines: syntheticDoc?.hasExistingDocLines === true,
+        plainLeadingLines
+    };
 }
 
 function isSkippableSemicolonWhitespace(charCode) {
