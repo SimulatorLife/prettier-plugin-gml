@@ -298,12 +298,11 @@ function tryCondenseIfStatement(statements, index, helpers) {
         alternateExpression
     );
     if (
-        !isBooleanBranchExpression(consequentExpression) ||
-        !isBooleanBranchExpression(alternateExpression)
+        (!isBooleanBranchExpression(consequentExpression) ||
+            !isBooleanBranchExpression(alternateExpression)) &&
+        !simpleArgument
     ) {
-        if (!simpleArgument) {
-            return false;
-        }
+        return false;
     }
 
     const booleanContext = createBooleanContext();
@@ -319,31 +318,32 @@ function tryCondenseIfStatement(statements, index, helpers) {
 
     let argumentAst = null;
 
-    if (testExpr && consequentExpr && alternateExpr) {
-        if (
-            booleanContext.variables.length <=
+    if (
+        testExpr &&
+        consequentExpr &&
+        alternateExpr &&
+        booleanContext.variables.length <=
             MAX_BOOLEAN_VARIABLES_FOR_TRUTH_TABLE
-        ) {
-            const combinedExpression = combineConditionalBoolean(
-                testExpr,
-                consequentExpr,
-                alternateExpr
-            );
-            const simplifiedCandidates = generateSimplifiedCandidates(
-                combinedExpression,
-                booleanContext
-            );
-            if (simplifiedCandidates.length > 0) {
-                const chosen = chooseBestCandidate(simplifiedCandidates);
-                if (chosen) {
-                    const optimizedExpression = postProcessBooleanExpression(
-                        chosen
-                    );
-                    argumentAst = booleanExpressionToAst(
-                        optimizedExpression,
-                        booleanContext
-                    );
-                }
+    ) {
+        const combinedExpression = combineConditionalBoolean(
+            testExpr,
+            consequentExpr,
+            alternateExpr
+        );
+        const simplifiedCandidates = generateSimplifiedCandidates(
+            combinedExpression,
+            booleanContext
+        );
+        if (simplifiedCandidates.length > 0) {
+            const chosen = chooseBestCandidate(simplifiedCandidates);
+            if (chosen) {
+                const optimizedExpression = postProcessBooleanExpression(
+                    chosen
+                );
+                argumentAst = booleanExpressionToAst(
+                    optimizedExpression,
+                    booleanContext
+                );
             }
         }
     }
