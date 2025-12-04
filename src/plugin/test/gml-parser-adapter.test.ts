@@ -1,4 +1,5 @@
 import assert from "node:assert/strict";
+import type { MutableGameMakerAstNode } from "@gml-modules/core";
 import { describe, it } from "node:test";
 
 import { gmlParserAdapter } from "../src/parsers/gml-parser-adapter.js";
@@ -50,6 +51,22 @@ void describe("gml parser adapter", () => {
         return null;
     }
 
+    function normalizeNodeBody(
+        node?: MutableGameMakerAstNode | null
+    ): Array<MutableGameMakerAstNode> {
+        if (!node || typeof node !== "object") {
+            return [];
+        }
+
+        const candidate = (node as { body?: unknown }).body;
+        const normalizedCandidate = candidate;
+        if (!Array.isArray(normalizedCandidate)) {
+            return [];
+        }
+
+        return normalizedCandidate as Array<MutableGameMakerAstNode>;
+    }
+
     void it("recovers when Feather fixes are enabled", async () => {
         const ast = await gmlParserAdapter.parse(sourceWithMissingBrace, {
             applyFeatherFixes: true
@@ -58,10 +75,14 @@ void describe("gml parser adapter", () => {
         assert.ok(Array.isArray(ast?.body));
         assert.ok(ast.body.length > 0);
 
-        const [declaration] = ast.body;
+        const [declaration] = normalizeNodeBody(
+            ast
+        );
         assert.strictEqual(declaration?.type, "FunctionDeclaration");
 
-        const blockStatements = declaration?.body?.body ?? [];
+        const blockStatements = normalizeNodeBody(
+            declaration?.body as unknown as MutableGameMakerAstNode | undefined
+        );
         assert.ok(Array.isArray(blockStatements));
         assert.ok(
             blockStatements.some(

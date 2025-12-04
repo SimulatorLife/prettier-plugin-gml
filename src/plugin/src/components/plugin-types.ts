@@ -5,9 +5,12 @@ import type {
     Printer,
     SupportOptions
 } from "prettier";
-import type { AbortSignalLike } from "@gml-modules/core";
+import type {
+    AbortSignalLike,
+    MutableGameMakerAstNode
+} from "@gml-modules/core";
 
-export type GmlAst = unknown;
+export type GmlAst = MutableGameMakerAstNode;
 
 export type GmlParserAdapter = Parser<GmlAst>;
 export type GmlPrinter = Printer<GmlAst>;

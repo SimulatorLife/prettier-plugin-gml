@@ -3,156 +3,94 @@
 // knowledge of the parser's option shape and location metadata across the
 // rest of the plugin configuration.
 
-import { Core } from "@gml-modules/core";
+import { Core, type MutableGameMakerAstNode } from "@gml-modules/core";
 import { util } from "prettier";
 import { Parser } from "@gml-modules/parser";
 import { Semantic } from "@gml-modules/semantic";
 
-// Prefer calling Core's doc comment services directly to avoid adapter
-// layers or re-export shims. This keeps the runtime contract stable and
-// avoids added indirection during printing and parsing.
-
 const { getNodeStartIndex, getNodeEndIndex } = Core;
-
 const { addTrailingComment } = util;
 
-async function parseImpl(text, options) {
-    let parseSource = text;
-    let preprocessedFixMetadata = null;
-    let enumIndexAdjustments = null;
-    let environmentPrepared = false;
+const PARSER_OPTIONS = {
+    getLocations: true,
+    simplifyLocations: false,
+    getComments: true,
+    scopeTrackerOptions: {
+        enabled: true,
+        getIdentifierMetadata: true,
+        createScopeTracker: () => new Semantic.SemanticScopeCoordinator()
+    }
+} as const;
 
-    if (options && typeof options === "object") {
-        options.originalText = text;
+type GmlParserAdapterOptions = {
+    applyFeatherFixes?: boolean;
+    sanitizeMissingArgumentSeparators?: boolean;
+    condenseStructAssignments?: boolean;
+    useStringInterpolation?: boolean;
+    condenseLogicalExpressions?: boolean;
+    convertManualMathToBuiltins?: boolean;
+    originalText?: string;
+    __identifierCaseProjectIndexBootstrap?: unknown;
+    logger?: unknown;
+    variableBlockSpacingMinDeclarations?: number;
+    [key: string]: unknown;
+};
+
+type ParserPreparationContext = {
+    parseSource: string;
+    callIndexAdjustments: Array<number> | null;
+    conditionalAssignmentIndexAdjustments: Array<number> | null;
+    enumIndexAdjustments: Array<number> | null;
+    preprocessedFixMetadata: unknown;
+};
+
+type FeatherPreprocessCandidate = {
+    metadata?: unknown;
+    indexAdjustments?: Array<number> | null;
+    sourceText?: unknown;
+};
+
+type FeatherPreprocessResult = {
+    metadata: unknown;
+    enumIndexAdjustments: Array<number> | null;
+    parseSource: string;
+};
+
+type SanitizerResult = {
+    sourceText?: unknown;
+    indexAdjustments?: Array<number> | null;
+};
+
+function isOptionsObject(
+    value: unknown
+): value is GmlParserAdapterOptions {
+    return Core.isObjectLike(value);
+}
+
+async function parseImpl(
+    text: string,
+    options?: GmlParserAdapterOptions
+): Promise<MutableGameMakerAstNode> {
+    let environmentPrepared = false;
+    const activeOptions = isOptionsObject(options) ? options : undefined;
+
+    if (activeOptions) {
+        Reflect.set(activeOptions, "originalText", text);
     }
 
-    // Enable scope tracking so the printer can detect and prefix global identifiers.
-    const parserOptions = {
-        getLocations: true,
-        simplifyLocations: false,
-        getComments: true,
-        scopeTrackerOptions: {
-            enabled: true,
-            getIdentifierMetadata: true,
-            createScopeTracker: () => new Semantic.SemanticScopeCoordinator()
-        }
-    };
-
     try {
-        if (options) {
-            await Semantic.prepareIdentifierCaseEnvironment(options);
-            environmentPrepared = true;
-        }
+        environmentPrepared = await prepareIdentifierCaseEnvironment(
+            activeOptions
+        );
 
-        if (options?.applyFeatherFixes) {
-            // TODO: 'applyFeatherFixes' should NOT be a separate option but instead one of the transforms
-            const preprocessResult =
-                Parser.Transforms.preprocessSourceForFeatherFixes(text);
+        const preparation = preprocessSource(text, activeOptions);
+        const ast = parseSourceWithRecovery(
+            preparation.parseSource,
+            activeOptions
+        );
 
-            if (
-                preprocessResult &&
-                typeof preprocessResult.sourceText === "string"
-            ) {
-                parseSource = preprocessResult.sourceText;
-            }
-
-            preprocessedFixMetadata = preprocessResult?.metadata ?? null;
-            enumIndexAdjustments = preprocessResult?.indexAdjustments ?? null;
-        }
-
-        // Fix malformed comments that start with single / followed by space
-        // These should be converted to proper // comments to avoid parsing errors
-        parseSource = Parser.Utils.fixMalformedComments(parseSource);
-
-        const sanitizedResult =
-            Parser.Transforms.sanitizeConditionalAssignments(parseSource);
-        const { sourceText: sanitizedSource, indexAdjustments } =
-            sanitizedResult;
-
-        if (typeof sanitizedSource === "string") {
-            parseSource = sanitizedSource;
-        }
-
-        const enableMissingArgumentSeparatorSanitizer =
-            options?.sanitizeMissingArgumentSeparators ?? true;
-        let callIndexAdjustments = null;
-
-        if (enableMissingArgumentSeparatorSanitizer) {
-            const callSanitizedResult =
-                Parser.Transforms.sanitizeMissingArgumentSeparators(
-                    parseSource
-                );
-            const { sourceText: callSanitizedSource, indexAdjustments } =
-                callSanitizedResult;
-
-            if (typeof callSanitizedSource === "string") {
-                parseSource = callSanitizedSource;
-            }
-
-            callIndexAdjustments = indexAdjustments ?? null;
-        }
-
-        let ast;
-
-        try {
-            ast = Parser.GMLParser.parse(parseSource, parserOptions);
-            if (process.env.GML_PRINTER_DEBUG) {
-                try {
-                    const length = Array.isArray(ast?.comments)
-                        ? ast.comments.length
-                        : 0;
-                    console.debug(
-                        `[DBG] gml-parser-adapter: parse called with getComments=true; ast.comments=${length}`
-                    );
-                } catch (debugError) {
-                    void debugError;
-                }
-            }
-        } catch (error) {
-            if (!options?.applyFeatherFixes) {
-                throw error;
-            }
-
-            const recoveredSource =
-                Parser.Utils.recoverParseSourceFromMissingBrace(
-                    parseSource,
-                    error
-                );
-
-            const hasUsableRecovery =
-                typeof recoveredSource === "string" &&
-                recoveredSource !== parseSource;
-            if (!hasUsableRecovery) {
-                throw error;
-            }
-
-            parseSource = recoveredSource;
-            ast = Parser.GMLParser.parse(parseSource, parserOptions);
-        }
-
-        Semantic.attachIdentifierCasePlanSnapshot(ast, options);
-
-        // Filter boilerplate comments to prevent Prettier from printing empty lines for them
-        if (ast.comments && Array.isArray(ast.comments)) {
-            const lineCommentOptions =
-                Parser.Comments.resolveLineCommentOptions(options);
-            const normalizedOptions =
-                Parser.Comments.normalizeLineCommentOptions(lineCommentOptions);
-            const { boilerplateFragments } = normalizedOptions;
-
-            ast.comments = ast.comments.filter((comment) => {
-                if (comment.type !== "CommentLine") {
-                    return true;
-                }
-                const value = Core.getCommentValue(comment, { trim: true });
-                for (const fragment of boilerplateFragments) {
-                    if (value.includes(fragment)) {
-                        return false;
-                    }
-                }
-                return true;
-            });
-        }
+        Semantic.attachIdentifierCasePlanSnapshot(ast, activeOptions);
+        filterParserComments(ast, activeOptions);
 
         if (!ast || typeof ast !== "object") {
             throw new Error(
@@ -160,98 +98,308 @@ async function parseImpl(text, options) {
             );
         }
 
-        if (options?.condenseStructAssignments ?? true) {
-            Parser.Transforms.consolidateStructAssignments(ast, {
-                addTrailingComment
-            });
-        }
-
-        if (options?.applyFeatherFixes) {
-            Parser.Transforms.applyFeatherFixes(ast, {
-                sourceText: parseSource,
-                preprocessedFixMetadata,
-                options: {
-                    ...options,
-                    removeStandaloneVertexEnd: true
-                }
-            });
-        }
-
-        if (enableMissingArgumentSeparatorSanitizer) {
-            Parser.Transforms.applyIndexAdjustmentsIfPresent(
-                ast,
-                callIndexAdjustments,
-                Parser.Transforms.applySanitizedIndexAdjustments,
-                preprocessedFixMetadata
-            );
-        }
-
-        Parser.Transforms.applyIndexAdjustmentsIfPresent(
-            ast,
-            indexAdjustments,
-            Parser.Transforms.applySanitizedIndexAdjustments,
-            preprocessedFixMetadata
-        );
-
-        Parser.Transforms.applyIndexAdjustmentsIfPresent(
-            ast,
-            enumIndexAdjustments,
-            Parser.Transforms.applyRemovedIndexAdjustments,
-            preprocessedFixMetadata
-        );
-
-        if (options?.useStringInterpolation) {
-            Parser.Transforms.convertStringConcatenations(ast);
-        }
-
-        if (options?.condenseLogicalExpressions) {
-            Parser.Transforms.condenseLogicalExpressions(ast);
-        }
-
-        Parser.Transforms.condenseScalarMultipliers(ast, {
-            sourceText: parseSource,
-            originalText: options?.originalText
-        });
-
-        if (options?.convertManualMathToBuiltins) {
-            Parser.Transforms.convertManualMathExpressions(ast, {
-                sourceText: parseSource,
-                originalText: options?.originalText
-            });
-        }
-
-        Parser.Transforms.convertUndefinedGuardAssignments(ast);
-        Parser.Transforms.preprocessFunctionArgumentDefaults(ast);
-        Parser.Transforms.collapseRedundantMissingCallArguments(ast);
-        Parser.Transforms.enforceVariableBlockSpacing(ast, options);
-        Parser.Transforms.annotateStaticFunctionOverrides(ast);
-
-        Parser.Transforms.markCallsMissingArgumentSeparators(
-            ast,
-            options?.originalText ?? text
-        );
-
+        applyParserTransforms(ast, preparation, activeOptions, text);
         return ast;
     } catch (error) {
         if (
             environmentPrepared ||
-            options?.__identifierCaseProjectIndexBootstrap
+            activeOptions?.__identifierCaseProjectIndexBootstrap
         ) {
-            Semantic.teardownIdentifierCaseEnvironment(options);
+            Semantic.teardownIdentifierCaseEnvironment(activeOptions);
         }
+
         throw error;
     }
 }
 
-async function parse(text, options) {
+async function prepareIdentifierCaseEnvironment(
+    options?: GmlParserAdapterOptions
+): Promise<boolean> {
+    if (!options) {
+        return false;
+    }
+
+    await Semantic.prepareIdentifierCaseEnvironment(options);
+    return true;
+}
+
+function preprocessSource(
+    text: string,
+    options?: GmlParserAdapterOptions
+): ParserPreparationContext {
+    const featherResult = preprocessFeatherFixes(
+        text,
+        options?.applyFeatherFixes
+    );
+
+    const commentFixedSource = String(
+        Parser.Utils.fixMalformedComments(featherResult.parseSource)
+    );
+
+    const conditionalResult =
+        Parser.Transforms.sanitizeConditionalAssignments(
+            commentFixedSource
+        ) as SanitizerResult;
+    const conditionalSource = normalizeToString(
+        conditionalResult.sourceText,
+        commentFixedSource
+    );
+
+    const callSanitizedResult =
+        options?.sanitizeMissingArgumentSeparators ?? true
+            ? (Parser.Transforms.sanitizeMissingArgumentSeparators(
+                  conditionalSource
+              ) as SanitizerResult)
+            : null;
+    const callSanitizedSource = callSanitizedResult
+        ? normalizeToString(callSanitizedResult.sourceText, conditionalSource)
+        : conditionalSource;
+
+    return {
+        parseSource: callSanitizedSource,
+        callIndexAdjustments: callSanitizedResult?.indexAdjustments ?? null,
+        conditionalAssignmentIndexAdjustments:
+            conditionalResult.indexAdjustments ?? null,
+        enumIndexAdjustments: featherResult.enumIndexAdjustments,
+        preprocessedFixMetadata: featherResult.metadata
+    };
+}
+
+function preprocessFeatherFixes(
+    sourceText: string,
+    applyFeatherFixes?: boolean
+): FeatherPreprocessResult {
+    if (!applyFeatherFixes) {
+        return {
+            parseSource: sourceText,
+            enumIndexAdjustments: null,
+            metadata: null
+        };
+    }
+
+    const result =
+        Parser.Transforms.preprocessSourceForFeatherFixes(
+            sourceText
+        ) as FeatherPreprocessCandidate | null | undefined;
+
+    return {
+        parseSource: normalizeToString(result?.sourceText, sourceText),
+        enumIndexAdjustments: result?.indexAdjustments ?? null,
+        metadata: result?.metadata ?? null
+    };
+}
+
+function normalizeToString(candidate: unknown, fallback: string): string {
+    return typeof candidate === "string" ? candidate : fallback;
+}
+
+function parseSourceWithRecovery(
+    sourceText: string,
+    options?: GmlParserAdapterOptions
+): MutableGameMakerAstNode {
+    try {
+        const ast = Parser.GMLParser.parse(
+            sourceText,
+            PARSER_OPTIONS
+        ) as MutableGameMakerAstNode;
+        logParsedCommentCount(ast);
+        return ast;
+    } catch (error) {
+        if (!options?.applyFeatherFixes) {
+            throw error;
+        }
+
+        const recoveredSource =
+            Parser.Utils.recoverParseSourceFromMissingBrace(
+                sourceText,
+                error
+            ) as unknown;
+        if (
+            typeof recoveredSource !== "string" ||
+            recoveredSource === sourceText
+        ) {
+            throw error;
+        }
+
+        const ast = Parser.GMLParser.parse(
+            recoveredSource,
+            PARSER_OPTIONS
+        ) as MutableGameMakerAstNode;
+        logParsedCommentCount(ast);
+        return ast;
+    }
+}
+
+function logParsedCommentCount(ast: MutableGameMakerAstNode | null): void {
+    if (!process.env.GML_PRINTER_DEBUG) {
+        return;
+    }
+
+    try {
+        const length = Array.isArray(ast?.comments) ? ast.comments.length : 0;
+        console.debug(
+            `[DBG] gml-parser-adapter: parse called with getComments=true; ast.comments=${length}`
+        );
+    } catch {
+        // ignore
+    }
+}
+
+function filterParserComments(
+    ast: MutableGameMakerAstNode,
+    options?: GmlParserAdapterOptions
+): void {
+    const comments = ast.comments;
+    if (!Array.isArray(comments)) {
+        return;
+    }
+
+    const lineCommentOptions =
+        Parser.Comments.resolveLineCommentOptions(options);
+    const normalizedOptions =
+        Parser.Comments.normalizeLineCommentOptions(lineCommentOptions) as {
+            boilerplateFragments: Array<string>;
+        };
+    const { boilerplateFragments } = normalizedOptions;
+
+    const filteredComments = comments.filter((comment) => {
+        if (comment.type !== "CommentLine") {
+            return true;
+        }
+
+        const value = String(Core.getCommentValue(comment, { trim: true }));
+        for (const fragment of boilerplateFragments) {
+            if (value.includes(fragment)) {
+                return false;
+            }
+        }
+
+        return true;
+    });
+
+    Reflect.set(ast, "comments", filteredComments);
+}
+
+function applyParserTransforms(
+    ast: MutableGameMakerAstNode,
+    context: ParserPreparationContext,
+    options: GmlParserAdapterOptions | undefined,
+    originalSource: string
+): void {
+    applyStructuralTransforms(ast, context, options);
+    applyOptionalTransforms(ast, context, options);
+    applyFinalTransforms(ast, context, options, originalSource);
+}
+
+function applyStructuralTransforms(
+    ast: MutableGameMakerAstNode,
+    context: ParserPreparationContext,
+    options: GmlParserAdapterOptions | undefined
+): void {
+    if (options?.condenseStructAssignments ?? true) {
+        Parser.Transforms.consolidateStructAssignments(ast, {
+            addTrailingComment
+        });
+    }
+
+    if (options?.applyFeatherFixes) {
+        const featherOptions = options
+            ? { ...options, removeStandaloneVertexEnd: true }
+            : { removeStandaloneVertexEnd: true };
+
+        Parser.Transforms.applyFeatherFixes(ast, {
+            sourceText: context.parseSource,
+            preprocessedFixMetadata: context.preprocessedFixMetadata,
+            options: featherOptions
+        });
+    }
+
+    applyIndexAdjustments(ast, context);
+}
+
+function applyIndexAdjustments(
+    ast: MutableGameMakerAstNode,
+    context: ParserPreparationContext
+): void {
+    Parser.Transforms.applyIndexAdjustmentsIfPresent(
+        ast,
+        context.callIndexAdjustments,
+        Parser.Transforms.applySanitizedIndexAdjustments,
+        context.preprocessedFixMetadata
+    );
+
+    Parser.Transforms.applyIndexAdjustmentsIfPresent(
+        ast,
+        context.conditionalAssignmentIndexAdjustments,
+        Parser.Transforms.applySanitizedIndexAdjustments,
+        context.preprocessedFixMetadata
+    );
+
+    Parser.Transforms.applyIndexAdjustmentsIfPresent(
+        ast,
+        context.enumIndexAdjustments,
+        Parser.Transforms.applyRemovedIndexAdjustments,
+        context.preprocessedFixMetadata
+    );
+}
+
+function applyOptionalTransforms(
+    ast: MutableGameMakerAstNode,
+    context: ParserPreparationContext,
+    options: GmlParserAdapterOptions | undefined
+): void {
+    if (options?.useStringInterpolation) {
+        Parser.Transforms.convertStringConcatenations(ast);
+    }
+
+    if (options?.condenseLogicalExpressions) {
+        Parser.Transforms.condenseLogicalExpressions(ast);
+    }
+
+    // Parser.Transforms.condenseScalarMultipliers(ast, {
+    //     sourceText: context.parseSource,
+    //     originalText: options?.originalText
+    // });
+
+    if (options?.convertManualMathToBuiltins) {
+        Parser.Transforms.convertManualMathExpressions(ast, {
+            sourceText: context.parseSource,
+            originalText: options?.originalText,
+            astRoot: ast
+        });
+    }
+}
+
+function applyFinalTransforms(
+    ast: MutableGameMakerAstNode,
+    context: ParserPreparationContext,
+    options: GmlParserAdapterOptions | undefined,
+    originalSource: string
+): void {
+    Parser.Transforms.convertUndefinedGuardAssignments(ast);
+    Parser.Transforms.preprocessFunctionArgumentDefaults(ast);
+    Parser.Transforms.collapseRedundantMissingCallArguments(ast);
+    Parser.Transforms.enforceVariableBlockSpacing(ast, {
+        variableBlockSpacingMinDeclarations:
+            options?.variableBlockSpacingMinDeclarations
+    });
+    Parser.Transforms.annotateStaticFunctionOverrides(ast);
+
+    Parser.Transforms.markCallsMissingArgumentSeparators(
+        ast,
+        options?.originalText ?? originalSource
+    );
+}
+
+function parse(text: string, options?: GmlParserAdapterOptions) {
     return parseImpl(text, options);
 }
 
-function locStart(node) {
+function locStart(node: MutableGameMakerAstNode) {
     return getNodeStartIndex(node) ?? 0;
 }
 
-function locEnd(node) {
+function locEnd(node: MutableGameMakerAstNode) {
     return getNodeEndIndex(node) ?? 0;
 }
 

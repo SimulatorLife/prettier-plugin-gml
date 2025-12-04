@@ -37,6 +37,7 @@ class Scope {
         ReturnType<typeof cloneDeclarationMetadata>
     >;
     public occurrences: Map<string, IdentifierOccurrences>;
+    public stackIndex: number | null;
 
     constructor(id, kind, parent: Scope | null = null) {
         this.id = id;
@@ -44,6 +45,7 @@ class Scope {
         this.parent = parent;
         this.symbolMetadata = new Map();
         this.occurrences = new Map();
+        this.stackIndex = null;
     }
 }
 
@@ -80,7 +82,7 @@ function cloneClassifications(
 
 function cloneLocationValue(value: unknown) {
     if (value === null || value === undefined) {
-        return undefined;
+        return;
     }
 
     if (typeof value !== "object") {
@@ -166,7 +168,6 @@ export class ScopeTracker {
     private rootScope: Scope | null;
     private scopesById: Map<string, Scope>;
     private symbolToScopesIndex: Map<string, Map<string, ScopeSummary>>; // symbol -> Map<scopeId, ScopeSummary>
-    private scopeStackIndices: Map<string, number>;
     private enabled: boolean;
     private identifierRoleTracker: IdentifierRoleTracker;
     private globalIdentifierRegistry: GlobalIdentifierRegistry;
@@ -180,7 +181,6 @@ export class ScopeTracker {
             string,
             Map<string, { hasDeclaration: boolean; hasReference: boolean }>
         >();
-        this.scopeStackIndices = new Map();
         this.enabled = Boolean(enabled);
         this.identifierRoleTracker = new IdentifierRoleTracker();
         this.globalIdentifierRegistry = new GlobalIdentifierRegistry();
@@ -203,8 +203,8 @@ export class ScopeTracker {
             parent
         );
         this.scopeStack.push(scope);
-        this.scopeStackIndices.set(scope.id, this.scopeStack.length - 1);
         this.scopesById.set(scope.id, scope);
+        scope.stackIndex = this.scopeStack.length - 1;
         if (!this.rootScope) {
             this.rootScope = scope;
         }
@@ -214,7 +214,7 @@ export class ScopeTracker {
     exitScope() {
         const scope = this.scopeStack.pop();
         if (scope) {
-            this.scopeStackIndices.delete(scope.id);
+            scope.stackIndex = null;
         }
     }
 
@@ -718,7 +718,14 @@ export class ScopeTracker {
             return null;
         }
 
-        const startIndex = this.scopeStackIndices.get(startScope.id);
+        const storedIndex = startScope.stackIndex;
+        const startIndex =
+            typeof storedIndex === "number" &&
+            storedIndex >= 0 &&
+            storedIndex < this.scopeStack.length &&
+            this.scopeStack[storedIndex] === startScope
+                ? storedIndex
+                : undefined;
         if (startIndex === undefined) {
             let current = startScope;
             while (current) {

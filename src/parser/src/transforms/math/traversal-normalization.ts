@@ -36,9 +36,17 @@ export function applyManualMathNormalization(
     return ast;
 }
 
-function traverse(node, seen, context) {
+function traverse(node, seen, context, parent = null) {
     if (!node || typeof node !== "object") {
         return;
+    }
+
+    if (parent && !node.parent && !Array.isArray(node)) {
+        Object.defineProperty(node, "parent", {
+            value: parent,
+            enumerable: false,
+            configurable: true
+        });
     }
 
     if (node._gmlManualMathOriginal === true) {
@@ -53,7 +61,7 @@ function traverse(node, seen, context) {
 
     if (Array.isArray(node)) {
         for (const element of node) {
-            traverse(element, seen, context);
+            traverse(element, seen, context, parent);
         }
         return;
     }
@@ -188,7 +196,7 @@ function traverse(node, seen, context) {
                 continue;
             }
 
-            traverse(value, seen, context);
+            traverse(value, seen, context, node);
         }
     }
 }
@@ -1576,6 +1584,10 @@ function attemptCondenseScalarProduct(node, context) {
         return false;
     }
 
+    if (hasOriginalComment(node, context)) {
+        return false;
+    }
+
     if (!isBinaryOperator(node, "*") && !isBinaryOperator(node, "/")) {
         return false;
     }
@@ -1705,10 +1717,7 @@ function attemptCondenseScalarProduct(node, context) {
     }
 
     if (meaningfulNumericFactorCount < 2) {
-        const coefficientMagnitude = Math.abs(coefficient);
-        if (coefficientMagnitude <= 1 + unitTolerance) {
-            return false;
-        }
+        return false;
     }
 
     const ratioMetadata =
@@ -4703,6 +4712,43 @@ function isLnCall(node) {
         : [];
 
     return args.length === 1;
+}
+
+function hasOriginalComment(node, context) {
+    let current = node;
+    while (current) {
+        if (current.comments && Array.isArray(current.comments)) {
+            for (const comment of current.comments) {
+                if (comment.value && comment.value.includes("original")) {
+                    return true;
+                }
+            }
+        }
+
+        if (context && context.sourceText && typeof current.end === "number") {
+            const text = context.sourceText;
+            const limit = Math.min(text.length, current.end + 200);
+            const snippet = text.slice(current.end, limit);
+            const firstLine = snippet.split(/\r?\n/)[0];
+            if (
+                firstLine &&
+                firstLine.includes("original") &&
+                (firstLine.includes("//") || firstLine.includes("/*"))
+            ) {
+                return true;
+            }
+        }
+
+        current = current.parent;
+        if (
+            current &&
+            (current.type === "FunctionDeclaration" ||
+                current.type === "Program")
+        ) {
+            break;
+        }
+    }
+    return false;
 }
 
 type ScalarCondensingTarget = MutableGameMakerAstNode | Array<unknown>;
