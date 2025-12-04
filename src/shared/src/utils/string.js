@@ -541,13 +541,23 @@ export function normalizeStringList(
 
 function collectUniqueTrimmedStrings(entries) {
     const seen = new Set();
-    return entries
-        .filter((entry) => typeof entry === "string")
-        .map((entry) => entry.trim())
-        .filter(
-            (trimmed) =>
-                trimmed.length > 0 && !seen.has(trimmed) && seen.add(trimmed)
-        );
+    const unique = [];
+
+    for (const entry of entries) {
+        if (typeof entry !== "string") {
+            continue;
+        }
+
+        const trimmed = entry.trim();
+        if (trimmed.length === 0 || seen.has(trimmed)) {
+            continue;
+        }
+
+        seen.add(trimmed);
+        unique.push(trimmed);
+    }
+
+    return unique;
 }
 
 /**
