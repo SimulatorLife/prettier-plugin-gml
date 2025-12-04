@@ -6,9 +6,12 @@
     "tsBuildInfoFile": "./dist/.tsbuildinfo",
     "baseUrl": ".",
     "paths": {
-      "@gml-modules/core": ["../core/index.ts"],
       "@gml-modules/runtime-wrapper": ["./index.ts"]
     }
   },
-  "include": ["*.ts", "src/**/*.ts", "test/**/*.ts"]
+  "references": [
+    { "path": "../core" }
+  ],
+  "include": ["*.ts", "src/**/*.ts", "test/**/*.ts"],
+  "exclude": ["dist"]
 }

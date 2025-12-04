@@ -1789,7 +1789,7 @@ export default class GameMakerASTBuilder {
         if (regionChars != null) {
             name = regionChars.getText();
         }
-        return ctx.Region() === undefined
+        return ctx.EndRegion()
             ? this.astNode(ctx, {
                   type: "EndRegionStatement",
                   name

@@ -19,6 +19,22 @@ const BOOLEAN_NODE_TYPES = Object.freeze({
     OR: "OR"
 });
 
+const COMMON_IGNORED_NODE_KEYS = [
+    "start",
+    "end",
+    "comments",
+    "parent",
+    "enclosingNode",
+    "precedingNode",
+    "followingNode"
+];
+
+const TRAVERSAL_IGNORED_KEYS = new Set(["body", ...COMMON_IGNORED_NODE_KEYS]);
+
+const IGNORED_NODE_KEYS = new Set(COMMON_IGNORED_NODE_KEYS);
+
+const MAX_BOOLEAN_VARIABLES_FOR_TRUTH_TABLE = 10; // Prevent exponential truth table builds when conditions reference many operands.
+
 /**
  * Options controlling how logical-expression condensation should interpret AST
  * comments while traversing.
@@ -182,12 +198,7 @@ function visit(node, helpers) {
     }
 
     forEachNodeChild(node, (value, key) => {
-        if (
-            key === "body" ||
-            key === "start" ||
-            key === "end" ||
-            key === "comments"
-        ) {
+        if (TRAVERSAL_IGNORED_KEYS.has(key)) {
             return;
         }
         if (isNode(value) || Array.isArray(value)) {
@@ -317,6 +328,12 @@ function tryCondenseIfStatement(statements, index, helpers) {
     );
 
     if (!testExpr || !consequentExpr || !alternateExpr) {
+        return false;
+    }
+
+    if (
+        booleanContext.variables.length > MAX_BOOLEAN_VARIABLES_FOR_TRUTH_TABLE
+    ) {
         return false;
     }
 
@@ -2150,50 +2167,103 @@ function booleanExpressionKey(expression) {
     }
 }
 
-function getAstNodeKey(node) {
-    if (!node || typeof node !== "object") {
+function stringifyNodeScalar(value: unknown) {
+    if (
+        typeof value === "string" ||
+        typeof value === "number" ||
+        typeof value === "boolean" ||
+        typeof value === "bigint"
+    ) {
+        return String(value);
+    }
+    return "";
+}
+
+function getAstNodeKey(node: unknown) {
+    if (node === null) {
+        return "null";
+    }
+
+    if (node === undefined) {
+        return "undefined";
+    }
+
+    if (Array.isArray(node)) {
+        return `Array:[${node.map((item) => getAstNodeKey(item)).join(",")}]`;
+    }
+
+    if (
+        typeof node === "string" ||
+        typeof node === "number" ||
+        typeof node === "boolean" ||
+        typeof node === "bigint"
+    ) {
         return String(node);
     }
 
-    const { type } = node;
+    if (typeof node === "symbol") {
+        return node.toString();
+    }
+
+    if (typeof node === "function") {
+        return `[Function:${node.name || "anonymous"}]`;
+    }
+
+    const typedNode = node as Record<string, unknown>;
+    const { type } = typedNode;
+    if (typeof type !== "string" || type.length === 0) {
+        const entries = Object.entries(typedNode)
+            .filter(([key]) => !IGNORED_NODE_KEYS.has(key))
+            .map(([key, value]) => `${key}:${getAstNodeKey(value)}`)
+            .join("|");
+        return `{${entries}}`;
+    }
+
     switch (type) {
         case "Identifier": {
-            return `Identifier:${node.name ?? ""}`;
+            return `Identifier:${stringifyNodeScalar(typedNode.name)}`;
         }
         case "Literal": {
-            return `Literal:${String(node.value ?? "")}`;
+            return `Literal:${stringifyNodeScalar(typedNode.value)}`;
         }
         case "MemberDotExpression": {
-            return `MemberDot:${getAstNodeKey(node.object)}.${getAstNodeKey(node.property)}`;
+            return `MemberDot:${getAstNodeKey(
+                typedNode.object
+            )}.${getAstNodeKey(typedNode.property)}`;
         }
         case "MemberIndexExpression": {
-            const indices = Array.isArray(node.property)
-                ? node.property.map((item) => getAstNodeKey(item)).join(",")
-                : getAstNodeKey(node.property);
-            return `MemberIndex:${getAstNodeKey(node.object)}[${indices}]`;
+            const indices = Array.isArray(typedNode.property)
+                ? typedNode.property
+                      .map((item) => getAstNodeKey(item))
+                      .join(",")
+                : getAstNodeKey(typedNode.property);
+            return `MemberIndex:${getAstNodeKey(typedNode.object)}[${indices}]`;
         }
         case "CallExpression": {
-            return `Call:${getAstNodeKey(node.object)}(${
-                Array.isArray(node.arguments)
-                    ? node.arguments.map((arg) => getAstNodeKey(arg)).join(",")
+            return `Call:${getAstNodeKey(typedNode.object)}(${
+                Array.isArray(typedNode.arguments)
+                    ? typedNode.arguments
+                          .map((arg) => getAstNodeKey(arg))
+                          .join(",")
                     : ""
             })`;
         }
         case "UnaryExpression": {
-            return `Unary:${node.operator ?? ""}(${getAstNodeKey(node.argument)})`;
+            return `Unary:${stringifyNodeScalar(typedNode.operator)}(${getAstNodeKey(
+                typedNode.argument
+            )})`;
         }
         case "BinaryExpression": {
-            return `Binary:${node.operator ?? ""}(${getAstNodeKey(node.left)}:${getAstNodeKey(node.right)})`;
+            return `Binary:${stringifyNodeScalar(typedNode.operator)}(${getAstNodeKey(
+                typedNode.left
+            )}:${getAstNodeKey(typedNode.right)})`;
         }
         case "ParenthesizedExpression": {
-            return `Paren:${getAstNodeKey(node.expression)}`;
+            return `Paren:${getAstNodeKey(typedNode.expression)}`;
         }
         default: {
-            const entries = Object.entries(node)
-                .filter(
-                    ([key]) =>
-                        key !== "start" && key !== "end" && key !== "comments"
-                )
+            const entries = Object.entries(typedNode)
+                .filter(([key]) => !IGNORED_NODE_KEYS.has(key))
                 .map(([key, value]) => `${key}:${getAstNodeKey(value)}`)
                 .join("|");
             return `${type}:{${entries}}`;

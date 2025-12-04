@@ -119,9 +119,6 @@ function runCommentHandlers(
 ) {
     for (const handler of handlers) {
         if (handler(comment, text, options, ast, isLastComment)) {
-            console.log(
-                `DEBUG: Comment handled by ${handler.name}: ${comment.value}`
-            );
             return true;
         }
     }
@@ -163,10 +160,6 @@ const handleComments = {
 };
 
 function printComment(commentPath, options) {
-    console.log(
-        "DEBUG: printComment called for",
-        commentPath.getValue()?.value
-    );
     const comment = commentPath.getValue();
 
     if (!Core.isCommentNode(comment)) {

@@ -93,7 +93,10 @@ import {
     runGenerateFeatherMetadata
 } from "./commands/generate-feather-metadata.js";
 import { createWatchCommand, runWatchCommand } from "./commands/watch.js";
-import { isCliRunSkipped } from "./shared/dependencies.js";
+import {
+    isCliRunSkipped,
+    SKIP_CLI_RUN_ENV_VAR
+} from "./shared/dependencies.js";
 import {
     getDefaultIgnoredFileSampleLimit,
     getDefaultSkippedDirectorySampleLimit,
@@ -110,7 +113,7 @@ import { normalizeExtensions } from "./cli-core/extension-normalizer.js";
 const WRAPPER_DIRECTORY = path.dirname(fileURLToPath(import.meta.url));
 const PLUGIN_PATH = resolveCliPluginEntryPoint();
 const IGNORE_PATH = path.resolve(WRAPPER_DIRECTORY, ".prettierignore");
-const INITIAL_WORKING_DIRECTORY = path.resolve(process.cwd());
+let initialWorkingDirectory = path.resolve(process.cwd());
 
 const GML_EXTENSION = ".gml";
 const FALLBACK_EXTENSIONS = Object.freeze([GML_EXTENSION]); // TODO: Remove this fallback/legacy variable and JUST have GML_EXTENSION
@@ -217,7 +220,7 @@ function createSampleLimitState({ getDefaultLimit, resolveLimit }) {
 
 function formatPathForDisplay(targetPath) {
     const resolvedTarget = path.resolve(targetPath);
-    const resolvedCwd = INITIAL_WORKING_DIRECTORY;
+    const resolvedCwd = initialWorkingDirectory;
     const relativePath = path.relative(resolvedCwd, resolvedTarget);
 
     if (resolvedTarget === resolvedCwd) {
@@ -279,10 +282,14 @@ function resolvePrettier() {
     return prettierModulePromise;
 }
 
-const DEFAULT_EXTENSIONS = normalizeExtensions(
-    process.env.PRETTIER_PLUGIN_GML_DEFAULT_EXTENSIONS,
-    [...FALLBACK_EXTENSIONS]
-);
+const DEFAULT_EXTENSIONS = resolveDefaultExtensions();
+
+function resolveDefaultExtensions() {
+    return normalizeExtensions(
+        process.env.PRETTIER_PLUGIN_GML_DEFAULT_EXTENSIONS,
+        [...FALLBACK_EXTENSIONS]
+    );
+}
 
 // Default parse error action: abort formatting on parse errors unless the
 // environment override explicitly requests otherwise. Tests and consumers may
@@ -387,10 +394,11 @@ if (process.env.PRETTIER_PLUGIN_GML_LOG_LEVEL === "silent") {
 const FORMAT_ACTION = "format";
 const HELP_ACTION = "help";
 
-const DEFAULT_ACTION =
-    process.env.PRETTIER_PLUGIN_GML_DEFAULT_ACTION === FORMAT_ACTION
+function resolveDefaultAction() {
+    return process.env.PRETTIER_PLUGIN_GML_DEFAULT_ACTION === FORMAT_ACTION
         ? FORMAT_ACTION
         : HELP_ACTION;
+}
 
 const program = applyStandardCommandOptions(new Command())
     .name("prettier-plugin-gml")
@@ -399,7 +407,7 @@ const program = applyStandardCommandOptions(new Command())
         [
             "Utilities for working with the prettier-plugin-gml project.",
             "Provides formatting, benchmarking, and manual data generation commands.",
-            DEFAULT_ACTION === FORMAT_ACTION
+            resolveDefaultAction() === FORMAT_ACTION
                 ? `Defaults to running the ${FORMAT_ACTION} command when no command is provided.`
                 : `Run with a command name to get started (e.g., '${FORMAT_ACTION} --help' for formatting options).`
         ].join(" \n")
@@ -410,7 +418,7 @@ const program = applyStandardCommandOptions(new Command())
         "Show CLI version information."
     );
 
-const { registry: cliCommandRegistry, runner: cliCommandRunner } =
+export const { registry: cliCommandRegistry, runner: cliCommandRunner } =
     createCliCommandManager({
         program,
         onUnhandledError: (error) =>
@@ -419,6 +427,146 @@ const { registry: cliCommandRegistry, runner: cliCommandRunner } =
                 exitCode: 1
             })
     });
+
+export { normalizeCommandLineArguments };
+
+class CliTestExit extends Error {
+    public readonly exitCode: number;
+
+    constructor(exitCode: number) {
+        super(`Cli test exit (${exitCode})`);
+        this.exitCode = exitCode;
+    }
+}
+
+export interface RunCliTestCommandOptions {
+    argv?: Array<string>;
+    env?: NodeJS.ProcessEnv;
+    cwd?: string | URL;
+}
+
+export async function runCliTestCommand({
+    argv = [],
+    env = {},
+    cwd
+}: RunCliTestCommandOptions = {}) {
+    const originalEnvValues = new Map<string, string | undefined>();
+    const envOverrides = {
+        ...env,
+        [SKIP_CLI_RUN_ENV_VAR]: "1"
+    };
+
+    for (const key of Object.keys(envOverrides)) {
+        originalEnvValues.set(key, process.env[key]);
+        if (envOverrides[key] === undefined) {
+            delete process.env[key];
+        } else {
+            process.env[key] = envOverrides[key];
+        }
+    }
+
+    const originalCwd = process.cwd();
+    const originalInitialWorkingDirectory = initialWorkingDirectory;
+    const normalizedCwd =
+        typeof cwd === "string"
+            ? cwd
+            : typeof cwd?.toString === "function"
+              ? cwd.toString()
+              : undefined;
+    if (normalizedCwd) {
+        process.chdir(normalizedCwd);
+    }
+    initialWorkingDirectory = process.cwd();
+
+    const capturedStdout: Array<string> = [];
+    const capturedStderr: Array<string> = [];
+    const originalStdoutWrite = process.stdout.write.bind(process.stdout);
+    const originalStderrWrite = process.stderr.write.bind(process.stderr);
+
+    const normalizeWriteChunk = (
+        chunk: string | Uint8Array,
+        encoding?: BufferEncoding
+    ) =>
+        typeof chunk === "string"
+            ? chunk
+            : Buffer.from(chunk).toString(encoding);
+
+    const createCaptureWrite =
+        (target: Array<string>): typeof process.stdout.write =>
+        (chunk, encodingOrCallback?, callback?) => {
+            const encoding =
+                typeof encodingOrCallback === "string"
+                    ? (encodingOrCallback as BufferEncoding)
+                    : undefined;
+            const text = normalizeWriteChunk(
+                chunk as string | Uint8Array,
+                encoding
+            );
+            target.push(text);
+
+            const cb =
+                typeof encodingOrCallback === "function"
+                    ? encodingOrCallback
+                    : callback;
+
+            if (typeof cb === "function") {
+                cb();
+            }
+
+            return true;
+        };
+
+    process.stdout.write = createCaptureWrite(capturedStdout);
+    process.stderr.write = createCaptureWrite(capturedStderr);
+
+    const originalExit = process.exit.bind(process);
+    let exitCode = 0;
+    process.exit = ((code = 0) => {
+        exitCode = Number.isNaN(Number(code)) ? 0 : Number(code);
+        throw new CliTestExit(exitCode);
+    }) as typeof process.exit;
+    process.exitCode = 0;
+
+    try {
+        const normalizedArgs = normalizeCommandLineArguments(argv);
+        await cliCommandRunner.run(normalizedArgs);
+        exitCode =
+            typeof process.exitCode === "number" &&
+            !Number.isNaN(process.exitCode)
+                ? process.exitCode
+                : 0;
+    } catch (error) {
+        if (error instanceof CliTestExit) {
+            exitCode = error.exitCode;
+        } else {
+            throw error;
+        }
+    } finally {
+        process.exit = originalExit;
+        process.exitCode = 0;
+        initialWorkingDirectory = originalInitialWorkingDirectory;
+        process.stdout.write = originalStdoutWrite;
+        process.stderr.write = originalStderrWrite;
+
+        if (normalizedCwd) {
+            process.chdir(originalCwd);
+        }
+
+        for (const [key, value] of originalEnvValues.entries()) {
+            if (value === undefined) {
+                delete process.env[key];
+            } else {
+                process.env[key] = value;
+            }
+        }
+    }
+
+    return {
+        exitCode,
+        stdout: capturedStdout.join(""),
+        stderr: capturedStderr.join("")
+    };
+}
 
 function createFormatCommand({ name = "prettier-plugin-gml" } = {}) {
     const extensionsOption = new Option(
@@ -576,12 +724,13 @@ let placeholderExtension = targetExtensions[0] ?? DEFAULT_EXTENSIONS[0];
  * @param {readonly string[]} configuredExtensions
  */
 function configureTargetExtensionState(configuredExtensions) {
+    const fallbackExtensions = resolveDefaultExtensions();
     targetExtensions =
         configuredExtensions.length > 0
             ? configuredExtensions
-            : DEFAULT_EXTENSIONS;
+            : fallbackExtensions;
     targetExtensionSet = createTargetExtensionSet(targetExtensions);
-    placeholderExtension = targetExtensions[0] ?? DEFAULT_EXTENSIONS[0];
+    placeholderExtension = targetExtensions[0] ?? fallbackExtensions[0];
 }
 
 function shouldFormatFile(filePath) {
@@ -1124,7 +1273,7 @@ async function shouldSkipDirectory(directory, activeIgnorePaths = []) {
  */
 function resolveIgnoreSearchBounds(directory) {
     const resolvedDirectory = path.resolve(directory);
-    const resolvedWorkingDirectory = INITIAL_WORKING_DIRECTORY;
+    const resolvedWorkingDirectory = initialWorkingDirectory;
     const shouldLimitToWorkingDirectory = isPathInside(
         resolvedDirectory,
         resolvedWorkingDirectory
@@ -1218,7 +1367,7 @@ async function resolveTargetStats(target, { usage }: { usage?: string } = {}) {
             if (isErrorWithCode(error, "ENOENT")) {
                 const guidanceParts = [
                     "Verify the path exists relative to the current working directory",
-                    `(${INITIAL_WORKING_DIRECTORY}) or provide an absolute path.`,
+                    `(${initialWorkingDirectory}) or provide an absolute path.`,
                     'Run "prettier-plugin-gml --help" to review available commands and usage examples.'
                 ];
 
@@ -1700,7 +1849,7 @@ async function runFormattingWorkflow({
 
 async function executeFormatCommand(command) {
     const commandOptions = collectFormatCommandOptions(command, {
-        defaultExtensions: DEFAULT_EXTENSIONS,
+        defaultExtensions: resolveDefaultExtensions(),
         defaultParseErrorAction: DEFAULT_PARSE_ERROR_ACTION,
         defaultPrettierLogLevel: DEFAULT_PRETTIER_LOG_LEVEL
     });
@@ -2091,7 +2240,7 @@ function normalizeCommandLineArguments(argv) {
         // PRETTIER_PLUGIN_GML_DEFAULT_ACTION environment variable.
         // Default is to show help (user-friendly for first-time users).
         // Set PRETTIER_PLUGIN_GML_DEFAULT_ACTION=format for legacy behavior.
-        return DEFAULT_ACTION === FORMAT_ACTION ? [] : ["--help"];
+        return resolveDefaultAction() === FORMAT_ACTION ? [] : ["--help"];
     }
 
     if (argv[0] !== "help") {

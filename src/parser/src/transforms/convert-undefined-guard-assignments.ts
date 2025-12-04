@@ -39,6 +39,9 @@ function convertUndefinedGuardAssignmentsImpl(ast: any) {
         }
 
         Core.forEachNodeChild(node, (child, key) => {
+            if (key === "parent") {
+                return;
+            }
             visit(child, node, key);
         });
     }

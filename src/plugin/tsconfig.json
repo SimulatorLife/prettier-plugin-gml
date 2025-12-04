@@ -10,6 +10,11 @@
       "@gml-modules/plugin": ["./index.ts"]
     }
   },
+  "references": [
+    { "path": "../core" },
+    { "path": "../parser" },
+    { "path": "../semantic" }
+  ],
   "include": ["*.ts", "src/**/*.ts", "test/**/*.ts"],
   "exclude": ["dist"]
 }

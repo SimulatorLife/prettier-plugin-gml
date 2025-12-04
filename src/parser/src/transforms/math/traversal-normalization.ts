@@ -1,5 +1,4 @@
 import { Core, type MutableGameMakerAstNode } from "@gml-modules/core";
-import { applyScalarCondensing } from "./scalar-condensing.js";
 
 const {
     ASSIGNMENT_EXPRESSION,
@@ -18,6 +17,7 @@ const {
 export type ConvertManualMathTransformOptions = {
     sourceText?: string;
     originalText?: string;
+    astRoot?: MutableGameMakerAstNode;
 };
 
 export function applyManualMathNormalization(
@@ -59,8 +59,10 @@ function traverse(node, seen, context) {
     }
 
     let changed = true;
-    while (changed) {
+    let iterations = 0;
+    while (changed && iterations < 1000) {
         changed = false;
+        iterations++;
 
         if (node.type === BINARY_EXPRESSION) {
             if (attemptSimplifyOneMinusFactor(node, context)) {
@@ -4703,7 +4705,99 @@ function isLnCall(node) {
     return args.length === 1;
 }
 
+type ScalarCondensingTarget = MutableGameMakerAstNode | Array<unknown>;
+
+function applyScalarCondensing(
+    ast: unknown,
+    context: ConvertManualMathTransformOptions | null = null
+) {
+    if (!Core.isNode(ast)) {
+        return ast;
+    }
+
+    const root = ast as MutableGameMakerAstNode;
+    const traversalContext = normalizeTraversalContext(root, context);
+
+    traverseForScalarCondense(
+        root,
+        new Set<ScalarCondensingTarget>(),
+        traversalContext
+    );
+
+    return root;
+}
+
+function traverseForScalarCondense(
+    node: ScalarCondensingTarget,
+    seen: Set<ScalarCondensingTarget>,
+    context: ConvertManualMathTransformOptions
+) {
+    if (!node || typeof node !== "object") {
+        return;
+    }
+
+    if (
+        (node as { _gmlManualMathOriginal?: unknown })
+            ._gmlManualMathOriginal === true
+    ) {
+        return;
+    }
+
+    if (seen.has(node)) {
+        return;
+    }
+
+    seen.add(node);
+
+    if (Array.isArray(node)) {
+        for (const element of node) {
+            traverseForScalarCondense(
+                element as ScalarCondensingTarget,
+                seen,
+                context
+            );
+        }
+        return;
+    }
+
+    if (node.type === BINARY_EXPRESSION) {
+        attemptSimplifyOneMinusFactor(node, context);
+        attemptRemoveMultiplicativeIdentity(node, context);
+        attemptRemoveAdditiveIdentity(node, context);
+
+        if (attemptConvertDegreesToRadians(node, context)) {
+            return;
+        }
+
+        if (attemptSimplifyDivisionByReciprocal(node, context)) {
+            return;
+        }
+
+        attemptCancelReciprocalRatios(node, context);
+
+        attemptSimplifyNegativeDivisionProduct(node, context);
+
+        attemptCondenseScalarProduct(node, context);
+        attemptCondenseNumericChainWithMultipleBases(node, context);
+        attemptCollectDistributedScalars(node, context);
+        attemptCondenseSimpleScalarProduct(node, context);
+    }
+
+    for (const [key, value] of Object.entries(node)) {
+        if (key === "parent" || !value || typeof value !== "object") {
+            continue;
+        }
+
+        traverseForScalarCondense(
+            value as ScalarCondensingTarget,
+            seen,
+            context
+        );
+    }
+}
+
 export {
+    applyScalarCondensing,
     attemptCancelReciprocalRatios,
     attemptCollectDistributedScalars,
     attemptCondenseNumericChainWithMultipleBases,

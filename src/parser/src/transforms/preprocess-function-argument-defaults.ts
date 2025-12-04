@@ -322,11 +322,6 @@ function preprocessFunctionDeclaration(node, ast) {
         if (!match) {
             continue;
         }
-        console.log(
-            "DEBUG: matchArgumentCountFallbackStatement matched:",
-            JSON.stringify(match, null, 2)
-        );
-
         matches.push({
             ...match,
             statementIndex
@@ -468,7 +463,6 @@ function preprocessFunctionDeclaration(node, ast) {
         // If we are converting a local variable to a parameter, remove the
         // variable declaration from the function body to avoid redeclaration.
         if (match.targetName) {
-            console.log("DEBUG: match.targetName found:", match.targetName);
             for (const stmt of statements) {
                 if (stmt.type === "VariableDeclaration") {
                     const declIndex = stmt.declarations.findIndex((d) => {
@@ -476,10 +470,6 @@ function preprocessFunctionDeclaration(node, ast) {
                         return name === match.targetName;
                     });
                     if (declIndex !== -1) {
-                        console.log(
-                            "DEBUG: Removing declaration for:",
-                            match.targetName
-                        );
                         stmt.declarations.splice(declIndex, 1);
                         if (stmt.declarations.length === 0) {
                             statementsToRemove.add(stmt);

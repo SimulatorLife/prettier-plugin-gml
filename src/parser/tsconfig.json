@@ -10,6 +10,9 @@
       "@gml-modules/parser": ["./index.ts"]
     }
   },
+  "references": [
+    { "path": "../core" }
+  ],
   "include": [
   "*.ts",
   "src/**/*.ts",

@@ -5,12 +5,67 @@ import os from "node:os";
 import path from "node:path";
 import { fileURLToPath } from "node:url";
 import { promisify } from "node:util";
-import { execFile } from "node:child_process";
+import { execFile, type ExecFileOptions } from "node:child_process";
 
 import { describe, it } from "node:test";
 import { Core } from "@gml-modules/core";
+import { CLI } from "@gml-modules/cli";
 
-const execFileAsync = promisify(execFile);
+const { runCliTestCommand } = CLI;
+
+class ExecFileAsyncError extends Error {
+    public readonly code: number;
+    public readonly stdout: string;
+    public readonly stderr: string;
+
+    constructor(code: number, stdout: string, stderr: string) {
+        super(`Command failed with exit code ${code}`);
+        this.code = code;
+        this.stdout = stdout;
+        this.stderr = stderr;
+    }
+}
+
+const execFileBase = promisify(execFile);
+
+const normalizeExecOutput = (value: string | Buffer) =>
+    typeof value === "string" ? value : value.toString();
+
+async function execFileAsync(
+    command: string,
+    args: Array<string>,
+    options?: ExecFileOptions
+) {
+    if (
+        command === "node" &&
+        Array.isArray(args) &&
+        args.length > 0 &&
+        args[0] === wrapperPath
+    ) {
+        const [, ...cliArgs] = args;
+        const result = await runCliTestCommand({
+            argv: cliArgs,
+            env: options?.env,
+            cwd: options?.cwd
+        });
+
+        if (result.exitCode !== 0) {
+            throw new ExecFileAsyncError(
+                result.exitCode,
+                result.stdout,
+                result.stderr
+            );
+        }
+
+        return result;
+    }
+
+    const output = await execFileBase(command, args, options);
+    return {
+        stdout: normalizeExecOutput(output.stdout),
+        stderr: normalizeExecOutput(output.stderr)
+    };
+}
 const currentDirectory = fileURLToPath(new URL(".", import.meta.url));
 // The repository compiles TypeScript into a parallel 'dist' directory; when
 // running tests against compiled JS, prefer the emitted CLI entrypoint

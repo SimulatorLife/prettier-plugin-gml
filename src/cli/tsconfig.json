@@ -10,6 +10,11 @@
       "@gml-modules/cli": ["./index.ts"]
     }
   },
+  "references": [
+    { "path": "../core" },
+    { "path": "../plugin" },
+    { "path": "../transpiler" }
+  ],
   "include": ["*.ts", "src/**/*.ts", "src/**/*.d.ts", "test/**/*.ts"],
   "exclude": ["dist"]
 }

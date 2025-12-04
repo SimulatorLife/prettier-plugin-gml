@@ -129,9 +129,6 @@ function formatLineComment(
 
     for (const lineFragment of boilerplateFragments) {
         if (trimmedValue.includes(lineFragment)) {
-            console.log(
-                `DEBUG: Suppressing comment "${trimmedValue}" because it matches fragment "${lineFragment}"`
-            );
             return "";
         }
     }
@@ -160,7 +157,6 @@ function formatLineComment(
         slashesMatch &&
         slashesMatch[1].length >= LINE_COMMENT_BANNER_DETECTION_MIN_SLASHES
     ) {
-        console.log(`DEBUG: Banner detected: ${trimmedValue}`);
         // For comments with 4+ leading slashes we usually treat them as
         // decorative banners. However, some inputs use many slashes to
         // indicate nested doc-like tags (for example: "//// @func ...").
@@ -194,7 +190,6 @@ function formatLineComment(
 
         // Otherwise treat as a banner/decorative comment as before.
         const bannerContent = normalizeBannerCommentText(trimmedValue);
-        console.log(`DEBUG: Banner content: "${bannerContent}"`);
         if (bannerContent) {
             return applyInlinePadding(comment, `// ${bannerContent}`);
         }

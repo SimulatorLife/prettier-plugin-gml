@@ -688,10 +688,6 @@ function _printImpl(path, options, print) {
                         // If we only found leading non-doc comment lines, feed
                         // them as overrides so synthetic tags inserted below can
                         // enable promotion into @description.
-                        console.log(
-                            "DEBUG: leadingCommentLines:",
-                            JSON.stringify(leadingCommentLines)
-                        );
                         const mergedDocs = Core.toMutableArray(
                             mergeSyntheticDocComments(
                                 node,
@@ -700,10 +696,6 @@ function _printImpl(path, options, print) {
                                 { leadingCommentLines }
                             )
                         ) as MutableDocCommentLines;
-                        console.log(
-                            "DEBUG: mergedDocs:",
-                            JSON.stringify(mergedDocs)
-                        );
 
                         docCommentDocs =
                             mergedDocs.length === 0
@@ -711,10 +703,6 @@ function _printImpl(path, options, print) {
                                       leadingCommentLines
                                   ) as MutableDocCommentLines)
                                 : mergedDocs;
-                        console.log(
-                            "DEBUG: docCommentDocs after fix:",
-                            JSON.stringify(docCommentDocs)
-                        );
                     }
                     if (
                         Array.isArray(updatedComments) &&
@@ -903,13 +891,6 @@ function _printImpl(path, options, print) {
             );
         }
         case "ExpressionStatement": {
-            if (node.comments && node.comments.length > 0) {
-                console.log(
-                    `DEBUG: Node ExpressionStatement has ${node.comments.length} comments`
-                );
-            } else {
-                console.log(`DEBUG: Node ExpressionStatement has 0 comments`);
-            }
             return print("expression");
         }
         case "AssignmentExpression": {
@@ -1810,23 +1791,6 @@ function _sanitizeDocOutput(doc) {
 }
 
 export function print(path, options, print) {
-    const node = path.getValue();
-    // console.log("DEBUG: Visiting node type:", node.type);
-    if (
-        node.comments &&
-        node.comments.length > 0 &&
-        (node.type === "ExpressionStatement" ||
-            node.type === "AssignmentExpression" ||
-            node.type === "Program")
-    ) {
-        console.log(
-            `DEBUG: Node ${node.type} has ${node.comments.length} comments`
-        );
-        node.comments.forEach((c) =>
-            console.log(`DEBUG: Comment: ${JSON.stringify(c)}`)
-        );
-    }
-
     const doc = _printImpl(path, options, print);
     return _sanitizeDocOutput(doc);
 }

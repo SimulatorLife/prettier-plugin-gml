@@ -93,6 +93,13 @@ export function cloneAstNode(node?: unknown) {
  * @param callback Invoked for each enumerable own property whose value is
  *     object-like.
  */
+const IGNORED_NODE_CHILD_KEYS = new Set([
+    "parent",
+    "enclosingNode",
+    "precedingNode",
+    "followingNode"
+]);
+
 export function forEachNodeChild(
     node: unknown,
     callback: (child: GameMakerAstNode, key: string) => void
@@ -102,6 +109,10 @@ export function forEachNodeChild(
     }
 
     for (const key in node as Record<string, unknown>) {
+        if (IGNORED_NODE_CHILD_KEYS.has(key)) {
+            continue;
+        }
+
         if (Object.hasOwn(node as object, key)) {
             const value = (node as GameMakerAstNode)[
                 key as keyof GameMakerAstNode

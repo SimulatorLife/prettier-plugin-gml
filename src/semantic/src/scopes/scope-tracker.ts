@@ -69,43 +69,61 @@ function createOccurrence(kind, metadata, source, declarationMetadata) {
     );
 }
 
+function cloneClassifications(
+    classifications: ReadonlyArray<string> | null | undefined
+) {
+    if (!Array.isArray(classifications)) {
+        return [];
+    }
+    return classifications.slice();
+}
+
+function cloneLocationValue(value: unknown) {
+    if (value === null || value === undefined) {
+        return undefined;
+    }
+
+    if (typeof value !== "object") {
+        return value;
+    }
+
+    return { ...(value as Record<string, unknown>) };
+}
+
 function cloneDeclarationMetadata(metadata) {
     if (!metadata) {
         return null;
     }
 
-    return Core.assignClonedLocation(
-        {
-            name: metadata.name ?? null,
-            scopeId: metadata.scopeId ?? null,
-            classifications: Core.toMutableArray(metadata.classifications, {
-                clone: true
-            }) as string[]
-        },
-        metadata
-    );
+    return {
+        name: metadata.name ?? null,
+        scopeId: metadata.scopeId ?? null,
+        classifications: cloneClassifications(metadata.classifications),
+        start: cloneLocationValue(metadata.start),
+        end: cloneLocationValue(metadata.end)
+    };
 }
 
 function cloneOccurrence(occurrence) {
-    const declaration = occurrence.declaration
-        ? Core.assignClonedLocation(
-              { scopeId: occurrence.declaration.scopeId ?? null },
-              occurrence.declaration
-          )
+    if (!occurrence) {
+        return null;
+    }
+
+    const declarationClone = occurrence.declaration
+        ? {
+              scopeId: occurrence.declaration.scopeId ?? null,
+              start: cloneLocationValue(occurrence.declaration.start),
+              end: cloneLocationValue(occurrence.declaration.end)
+          }
         : null;
 
-    return Core.assignClonedLocation(
-        {
-            kind: occurrence.kind,
-            name: occurrence.name,
-            scopeId: occurrence.scopeId,
-            classifications: Core.toMutableArray(occurrence.classifications, {
-                clone: true
-            }) as string[],
-            declaration
-        },
-        occurrence
-    );
+    return {
+        ...occurrence,
+        classifications: cloneClassifications(occurrence.classifications),
+        declaration: declarationClone,
+        start: cloneLocationValue(occurrence.start),
+        end: cloneLocationValue(occurrence.end)
+    };
 }
 
 function ensureIdentifierOccurrences(scope, name) {

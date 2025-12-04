@@ -1,0 +1,13 @@
+{
+  "files": [],
+  "references": [
+    { "path": "./src/core" },
+    { "path": "./src/parser" },
+    { "path": "./src/semantic" },
+    { "path": "./src/transpiler" },
+    { "path": "./src/plugin" },
+    { "path": "./src/cli" },
+    { "path": "./src/runtime-wrapper" },
+    { "path": "./src/refactor" }
+  ]
+}

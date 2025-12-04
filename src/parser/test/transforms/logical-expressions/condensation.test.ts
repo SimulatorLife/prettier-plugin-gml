@@ -148,3 +148,47 @@ void test("functions with matching condensed bodies are retained", () => {
         assert.equal(condensedReturn.argument.name, "collide");
     }
 });
+
+void test("condensation tolerates parent references", () => {
+    const functionNode: FunctionDeclarationNode = {
+        type: "FunctionDeclaration",
+        id: { type: "Identifier", name: "cycleExample" },
+        body: {
+            type: "BlockStatement",
+            body: []
+        },
+        start: { index: 10 },
+        end: { index: 200 }
+    };
+
+    const childIf = buildBooleanReturn("cycleFlag", 50);
+
+    const blockAsRecord = functionNode.body as unknown as Record<
+        string,
+        unknown
+    >;
+    blockAsRecord.parent = functionNode;
+    const childIfRecord = childIf as unknown as Record<string, unknown>;
+    childIfRecord.parent = blockAsRecord;
+
+    const consequent = childIf.consequent as unknown as Record<string, unknown>;
+    consequent.parent = childIf;
+
+    const alternate = childIf.alternate as unknown as Record<string, unknown>;
+    alternate.parent = childIf;
+
+    functionNode.body.body = [childIf];
+
+    const ast: ProgramNode = {
+        type: "Program",
+        body: [functionNode]
+    };
+
+    condenseLogicalExpressions(ast);
+
+    const [condensedReturn] = functionNode.body
+        .body as unknown as ReturnStatementNode[];
+    assert.equal(condensedReturn.type, "ReturnStatement");
+    assert.equal(condensedReturn.argument?.type, "Identifier");
+    assert.equal(condensedReturn.argument?.name, "cycleFlag");
+});

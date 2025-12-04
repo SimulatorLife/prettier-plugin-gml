@@ -149,11 +149,7 @@ void describe("Prettier GameMaker plugin fixtures", () => {
         options
     } of testCases) {
         void it(`formats ${baseName}`, async () => {
-            console.log(`Running test: ${baseName}`);
             const formatted = await Plugin.format(inputSource, options);
-            if (baseName === "testAligned") {
-                console.log(`DEBUG: testAligned output:\n${formatted}`);
-            }
             const expected = expectedOutput.trim();
 
             if (formatted === expected) {
