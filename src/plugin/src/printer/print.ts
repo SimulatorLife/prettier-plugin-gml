@@ -77,6 +77,12 @@ function resolveDocCommentPrinterOptions(options: any) {
     };
 }
 
+const DOC_COMMENT_PRINTER_DEPENDENCIES = Object.freeze({
+    formatLineComment: Parser.formatLineComment,
+    getLineCommentRawText: Parser.getLineCommentRawText,
+    resolveLineCommentOptions: Parser.Comments.resolveLineCommentOptions
+});
+
 // String constants to avoid duplication warnings
 const STRING_TYPE = "string";
 const OBJECT_TYPE = "object";
@@ -670,22 +676,26 @@ function _printImpl(path, options, print) {
                     programNode = parentNode;
                 }
 
-                const collected = collectSyntheticDocCommentLines(
+                const collected = Core.collectSyntheticDocCommentLines(
                     node,
                     options,
                     programNode,
-                    originalText
+                    originalText,
+                    DOC_COMMENT_PRINTER_DEPENDENCIES
                 );
                 existingDocLines = collected.existingDocLines;
-                const programLeadingLines = collectLeadingProgramLineComments(
-                    node,
-                    programNode,
-                    options,
-                    originalText
-                );
-                const extracted = extractLeadingNonDocCommentLines(
+                const programLeadingLines =
+                    Core.collectLeadingProgramLineComments(
+                        node,
+                        programNode,
+                        options,
+                        originalText,
+                        DOC_COMMENT_PRINTER_DEPENDENCIES
+                    );
+                const extracted = Core.extractLeadingNonDocCommentLines(
                     collected.remainingComments,
-                    options
+                    options,
+                    DOC_COMMENT_PRINTER_DEPENDENCIES
                 );
                 const leadingCommentLines = extracted.leadingLines;
                 updatedComments = extracted.remainingComments;
@@ -3753,499 +3763,6 @@ function getNodeEndIndexForAlignment(node, locEnd) {
     return Number.isInteger(startIndex) ? startIndex : null;
 }
 
-function collectSyntheticDocCommentLines(
-    node,
-    options,
-    programNode,
-    sourceText
-) {
-    const rawComments = Core.getCommentArray(node);
-    if (!Core.isNonEmptyArray(rawComments)) {
-        // No node-level comments exist; fallback collection happens later.
-    }
-
-    const lineCommentOptions =
-        Parser.Comments.resolveLineCommentOptions(options);
-    const existingDocLines = [];
-    const remainingComments = [];
-
-    const nodeStartIndex = getNodeStartIndexForAlignment(node, options);
-    for (const comment of rawComments) {
-        if (!comment || comment.type !== "CommentLine") {
-            remainingComments.push(comment);
-            continue;
-        }
-
-        let formatted = Parser.formatLineComment(comment, lineCommentOptions);
-        // Check if comment is either /// style or // / style (doc-like)
-        const rawText = Parser.getLineCommentRawText(comment);
-        const trimmedRaw = typeof rawText === STRING_TYPE ? rawText.trim() : "";
-        const isFormattedDocStyle =
-            typeof formatted === STRING_TYPE &&
-            formatted.trim().startsWith("///");
-        const trimmedWithoutSlashes = trimmedRaw.replace(/^\/+/, "").trim();
-        const hasDocTagAfterSlash = /^\/+\s*@/.test(trimmedRaw);
-        const isDocStyleSlash = /^\/\/\s+\/\s*/.test(trimmedRaw);
-        const isBlockDocLike =
-            trimmedRaw.startsWith("/*") &&
-            trimmedWithoutSlashes.startsWith("@");
-        const isRawDocLike =
-            trimmedRaw.startsWith("///") ||
-            hasDocTagAfterSlash ||
-            isDocStyleSlash ||
-            isBlockDocLike;
-        if (!isFormattedDocStyle && !isRawDocLike) {
-            remainingComments.push(comment);
-            continue;
-        }
-
-        // If the formatter returned an empty string (for example, it was
-        // treated as boilerplate) but the raw value is doc-like, synthesize
-        // a fallback formatted representation so merging/promotion can run.
-        if (
-            (!formatted || formatted.trim().length === 0) &&
-            isRawDocLike &&
-            typeof trimmedRaw === STRING_TYPE &&
-            trimmedRaw.length > 0
-        ) {
-            const inner = trimmedRaw.replace(/^\/*\s*/, "").trim();
-            formatted = inner.length > 0 ? `/// ${inner}` : "///";
-        }
-
-        // If the comment appears before the node's start index, or is
-        // explicitly marked as leading, treat it as a doc-like leading
-        // comment even if the parser attached it differently (e.g., as
-        // trailing). This helps when comments are adjacent to the
-        // function declaration but the parser's placement marks them as
-        // trailing due to tokenization quirks.
-        const commentStartIndex =
-            comment && typeof comment.start === NUMBER_TYPE
-                ? comment.start
-                : comment &&
-                    comment.start &&
-                    typeof comment.start.index === NUMBER_TYPE
-                  ? comment.start.index
-                  : null;
-
-        const isBeforeNode =
-            Number.isInteger(commentStartIndex) &&
-            Number.isInteger(nodeStartIndex) &&
-            commentStartIndex < nodeStartIndex;
-
-        const considerAsLeading =
-            isBeforeNode || comment?.placement === "leading";
-        if (!considerAsLeading) {
-            // Not a leading doc-like comment for this node — leave it for
-            // the remaining comments collection so it can be attached to
-            // the nearest node per existing logic.
-            remainingComments.push(comment);
-            continue;
-        }
-
-        comment.printed = true;
-        // Split any multi-line formatted comment into separate array entries
-        if (typeof formatted === "string" && formatted.includes("\n")) {
-            const parts = formatted.split(/\r?\n/);
-            for (const part of parts) {
-                existingDocLines.push(part);
-            }
-        } else {
-            existingDocLines.push(formatted);
-        }
-    }
-
-    // If we found no existing doc lines attached to the node, attempt to
-    // collect physically-adjacent doc lines from the program root's comment
-    // array; this addresses parser attachment heuristics where comments at
-    // the top-level are not attached to their subsequent node. If the
-    // parser does not attach comments to Program-level nodes in certain
-    // environments/fallbacks, fall back to a raw-source scan to find
-    // preceding doc-like comment lines immediately before the node.
-    if (existingDocLines.length === 0 && programNode) {
-        const programCommentArray = Core.getCommentArray(programNode);
-        const programHasComments = Core.isNonEmptyArray(programCommentArray);
-        if (programHasComments) {
-            const programComments = Core.getCommentArray(programNode);
-            const nodeStartIndexFinal = getNodeStartIndexForAlignment(
-                node,
-                options
-            );
-            if (Number.isInteger(nodeStartIndexFinal)) {
-                const docCandidates: any[] = [];
-                let anchorIndex = nodeStartIndexFinal;
-                for (let i = programComments.length - 1; i >= 0; --i) {
-                    const pc = programComments[i];
-                    if (!pc || pc.type !== "CommentLine" || pc.printed)
-                        continue;
-                    let pcEndIndex =
-                        typeof pc.end === NUMBER_TYPE
-                            ? pc.end
-                            : (pc?.end?.index ?? null);
-                    const pcStartIndex =
-                        typeof pc.start === NUMBER_TYPE
-                            ? pc.start
-                            : (pc?.start?.index ?? null);
-                    if (!Number.isInteger(pcEndIndex)) {
-                        pcEndIndex = Number.isInteger(pcStartIndex)
-                            ? pcStartIndex
-                            : null;
-                    }
-                    if (
-                        !Number.isInteger(pcEndIndex) ||
-                        pcEndIndex >= anchorIndex
-                    )
-                        continue;
-
-                    const rawText = Parser.getLineCommentRawText(pc);
-                    const trimmedRaw =
-                        typeof rawText === STRING_TYPE ? rawText.trim() : "";
-                    const trimmedWithoutSlashes = trimmedRaw
-                        .replace(/^\/+/, "")
-                        .trim();
-                    const hasDocTagAfterSlash = /^\/+\s*@/.test(trimmedRaw);
-                    const isDocStyleSlash = /^\/\/\s+\/\s*/.test(trimmedRaw);
-                    const isBlockDocLike =
-                        trimmedRaw.startsWith("/*") &&
-                        trimmedWithoutSlashes.startsWith("@");
-                    const isRawDocLike =
-                        trimmedRaw.startsWith("///") ||
-                        hasDocTagAfterSlash ||
-                        isDocStyleSlash ||
-                        isBlockDocLike;
-                    if (!isRawDocLike) break;
-                    let allowCandidate = true;
-                    if (
-                        typeof sourceText === STRING_TYPE &&
-                        Number.isInteger(pcEndIndex)
-                    ) {
-                        const gapText = sourceText.slice(
-                            pcEndIndex,
-                            anchorIndex
-                        );
-                        const blankLines = (gapText.match(/\n/g) || []).length;
-                        if (blankLines >= 2) allowCandidate = false;
-                    }
-                    if (!allowCandidate) break;
-                    docCandidates.unshift(pc);
-                    anchorIndex = Number.isInteger(pcStartIndex)
-                        ? pcStartIndex
-                        : pcEndIndex;
-                }
-
-                if (docCandidates.length > 0) {
-                    const collected = docCandidates.map((c) =>
-                        Parser.formatLineComment(
-                            c,
-                            Parser.Comments.resolveLineCommentOptions(options)
-                        )
-                    );
-                    // Flatten any multiline entries in the collected set
-                    const flattenedCollected = [] as string[];
-                    for (const entry of collected) {
-                        if (typeof entry === "string" && entry.includes("\n")) {
-                            flattenedCollected.push(...entry.split(/\r?\n/));
-                        } else {
-                            flattenedCollected.push(entry);
-                        }
-                    }
-                    for (const c of docCandidates) c.printed = true;
-                    return {
-                        existingDocLines: flattenedCollected,
-                        remainingComments: Core.toMutableArray(rawComments)
-                    };
-                }
-            }
-        } else {
-            // If the program comments collection is empty or did not yield any
-            // doc candidates, perform a raw-source scan using the provided
-            // `sourceText` to discover physically adjacent `//` lines that
-            // should be treated as doc-like leading comments. This helps when
-            // the parser attaches comments into a separate `ast.comments` array
-            // that isn't accessible on the Program node at printing time.
-            if (
-                typeof sourceText === STRING_TYPE &&
-                Number.isInteger(nodeStartIndex)
-            ) {
-                const candidates: Array<{
-                    text: string;
-                    start: number;
-                    end: number;
-                }> = [];
-                let anchor = nodeStartIndex;
-                // Walk backward line-by-line from the node start, collecting
-                // contiguous comment candidates until we hit a non-comment or
-                // a large blank gap.
-                while (anchor > 0) {
-                    const prevNewline = sourceText.lastIndexOf(
-                        "\n",
-                        anchor - 1
-                    );
-                    const lineStart = prevNewline === -1 ? 0 : prevNewline + 1;
-                    const lineEnd = anchor === 0 ? 0 : anchor - 1;
-                    const rawLine = sourceText.slice(lineStart, lineEnd + 1);
-                    const trimmed = rawLine.trim();
-                    // If it's an empty line (only whitespace), update anchor and
-                    // treat it as a separator; if there are >=2 blank lines, abort.
-                    const isBlank = trimmed.length === 0;
-                    if (isBlank) {
-                        // Count blank lines between previous anchor and current
-                        // anchor; if >= 2, abort the scan.
-                        const gapText = sourceText.slice(
-                            lineStart,
-                            nodeStartIndex
-                        );
-                        const blankLines = (gapText.match(/\n/g) || []).length;
-                        if (blankLines >= 2) break;
-                        // Narrow the anchor to move to previous line
-                        anchor = lineStart - 1;
-                        continue;
-                    }
-                    // Check if the line looks like a `//` comment line
-                    if (!/^\s*\/\//.test(trimmed)) break;
-                    // Consider doc-like shapes only (/// or // / or @-leading)
-                    const isDocLike =
-                        /^\/{2,}/.test(trimmed) ||
-                        /^\/\/\s*\//.test(trimmed) ||
-                        /^\/\s*@/.test(trimmed);
-                    if (!isDocLike) break;
-                    candidates.unshift({
-                        text: rawLine,
-                        start: lineStart,
-                        end: lineEnd
-                    });
-                    anchor = lineStart - 1;
-                }
-
-                if (candidates.length > 0) {
-                    const formatted = candidates.map((c) => {
-                        // Try to match AST comment nodes by start index; if found
-                        // use the formatting routine so we also mark comment nodes
-                        // printed when possible. Otherwise, create a fallback
-                        // formatted string ("/// ...") to keep downstream logic
-                        // consistent.
-                        const matchNode = programCommentArray.find((pc) => {
-                            const startIndex =
-                                typeof pc?.start === NUMBER_TYPE
-                                    ? pc.start
-                                    : (pc?.start?.index ?? null);
-                            return (
-                                Number.isInteger(startIndex) &&
-                                startIndex === c.start
-                            );
-                        });
-                        if (matchNode) {
-                            matchNode.printed = true;
-                            return Parser.formatLineComment(
-                                matchNode,
-                                Parser.Comments.resolveLineCommentOptions(
-                                    options
-                                )
-                            );
-                        }
-                        // Synthesize fallback formatted line
-                        const inner = c.text.replace(/^\s*\/+\s*/, "").trim();
-                        return inner.length > 0 ? `/// ${inner}` : "///";
-                    });
-                    // Flatten any multiline entries in the formatted set
-                    const flattenedFormatted = [] as string[];
-                    for (const entry of formatted) {
-                        if (typeof entry === "string" && entry.includes("\n")) {
-                            flattenedFormatted.push(...entry.split(/\r?\n/));
-                        } else {
-                            flattenedFormatted.push(entry);
-                        }
-                    }
-                    return {
-                        existingDocLines: flattenedFormatted,
-                        remainingComments: Core.toMutableArray(rawComments)
-                    };
-                }
-            }
-        }
-    }
-
-    return { existingDocLines, remainingComments };
-}
-
-function collectLeadingProgramLineComments(
-    node,
-    programNode,
-    options,
-    sourceText
-) {
-    if (!node || !programNode) {
-        return [];
-    }
-
-    const nodeStartIndex = getNodeStartIndexForAlignment(node, options);
-    if (!Number.isInteger(nodeStartIndex)) {
-        return [];
-    }
-
-    const programComments = Core.getCommentArray(programNode);
-    if (!Core.isNonEmptyArray(programComments)) {
-        return [];
-    }
-
-    const lineCommentOptions =
-        Parser.Comments.resolveLineCommentOptions(options);
-    const leadingLines = [];
-    let anchorIndex = nodeStartIndex;
-
-    for (let i = programComments.length - 1; i >= 0; i -= 1) {
-        const comment = programComments[i];
-        if (!comment || comment.type !== "CommentLine" || comment.printed) {
-            continue;
-        }
-
-        const commentEnd =
-            typeof comment.end === NUMBER_TYPE
-                ? comment.end
-                : (comment?.end?.index ?? null);
-        const commentStart =
-            typeof comment.start === NUMBER_TYPE
-                ? comment.start
-                : (comment?.start?.index ?? null);
-
-        if (!Number.isInteger(commentEnd) || commentEnd >= anchorIndex) {
-            continue;
-        }
-
-        const formatted = Parser.formatLineComment(
-            comment,
-            lineCommentOptions
-        );
-        const trimmed = Core.toTrimmedString(formatted);
-
-        if (
-            trimmed.length === 0 ||
-            trimmed.startsWith("///") ||
-            /^\/\/\s*\/\s*/.test(trimmed) ||
-            /^\s*@/.test(trimmed)
-        ) {
-            continue;
-        }
-
-        if (typeof sourceText === STRING_TYPE) {
-            const gapText = sourceText.slice(commentEnd, anchorIndex);
-            const blankLines = (gapText.match(/\n/g) || []).length;
-            if (blankLines >= 2) {
-                break;
-            }
-        }
-
-        comment.printed = true;
-        leadingLines.unshift(formatted);
-        anchorIndex = Number.isInteger(commentStart)
-            ? commentStart
-            : commentEnd;
-    }
-
-    return leadingLines;
-}
-
-function collectAdjacentLeadingSourceLineComments(
-    node,
-    options,
-    sourceText
-) {
-    if (!node || typeof sourceText !== STRING_TYPE) {
-        return [];
-    }
-
-    const nodeStartIndex = getNodeStartIndexForAlignment(node, options);
-    if (!Number.isInteger(nodeStartIndex)) {
-        return [];
-    }
-
-    const leadingLines = [];
-    let anchorIndex = nodeStartIndex;
-
-    while (anchorIndex > 0) {
-        const prevNewline = sourceText.lastIndexOf("\n", anchorIndex - 1);
-        const lineStart = prevNewline === -1 ? 0 : prevNewline + 1;
-        const lineEnd = anchorIndex === 0 ? 0 : anchorIndex - 1;
-        const rawLine = sourceText.slice(lineStart, lineEnd + 1);
-        const trimmed = rawLine.trim();
-
-        if (trimmed.length === 0) {
-            const gapText = sourceText.slice(lineStart, nodeStartIndex);
-            const blankLines = (gapText.match(/\n/g) || []).length;
-            if (blankLines >= 2) break;
-            anchorIndex = lineStart - 1;
-            continue;
-        }
-
-        if (!trimmed.startsWith("//")) {
-            break;
-        }
-
-        if (
-            trimmed.startsWith("///") ||
-            /^\/\/\s*\//.test(trimmed) ||
-            /^\s*@/.test(trimmed)
-        ) {
-            break;
-        }
-
-        leadingLines.unshift(rawLine);
-        anchorIndex = lineStart - 1;
-    }
-
-    return leadingLines;
-}
-
-function extractLeadingNonDocCommentLines(comments, options) {
-    if (!Core.isNonEmptyArray(comments)) {
-        return {
-            leadingLines: [],
-            remainingComments: Core.asArray(comments)
-        };
-    }
-
-    const lineCommentOptions =
-        Parser.Comments.resolveLineCommentOptions(options);
-    const leadingLines = [];
-    const remainingComments = [];
-    let scanningLeadingComments = true;
-
-    for (const comment of comments) {
-        if (
-            scanningLeadingComments &&
-            comment &&
-            comment.type === "CommentLine"
-        ) {
-            const formatted = Parser.formatLineComment(
-                comment,
-                lineCommentOptions
-            );
-            const trimmed = Core.toTrimmedString(formatted);
-
-            if (trimmed.length === 0) {
-                comment.printed = true;
-                continue;
-            }
-
-            // Include regular // comments that don't start with /// or // / in leading lines
-            // But exclude // / style comments which are doc-like and should be handled with doc comments
-            if (
-                trimmed.startsWith("//") &&
-                !trimmed.startsWith("///") &&
-                !/^\/\/\s*\//.test(trimmed)
-            ) {
-                comment.printed = true;
-                leadingLines.push(formatted);
-                continue;
-            }
-        }
-
-        scanningLeadingComments = false;
-        remainingComments.push(comment);
-    }
-
-    return { leadingLines, remainingComments };
-}
-
 function buildSyntheticDocComment(
     functionNode,
     existingDocLines,
@@ -4371,25 +3888,36 @@ function getSyntheticDocCommentForStaticVariable(
         declarator.init.docComments && declarator.init.docComments.length > 0;
 
     const { existingDocLines, remainingComments } =
-        collectSyntheticDocCommentLines(node, options, programNode, sourceText);
+        Core.collectSyntheticDocCommentLines(
+            node,
+            options,
+            programNode,
+            sourceText,
+            DOC_COMMENT_PRINTER_DEPENDENCIES
+        );
     const {
         leadingLines: leadingCommentLines,
         remainingComments: updatedComments
-    } = extractLeadingNonDocCommentLines(remainingComments, options);
+    } = Core.extractLeadingNonDocCommentLines(
+        remainingComments,
+        options,
+        DOC_COMMENT_PRINTER_DEPENDENCIES
+    );
 
     const sourceLeadingLines =
         existingDocLines.length === 0
-            ? collectAdjacentLeadingSourceLineComments(
+            ? Core.collectAdjacentLeadingSourceLineComments(
                   node,
                   options,
                   sourceText
               )
             : [];
-    const programLeadingLines = collectLeadingProgramLineComments(
+    const programLeadingLines = Core.collectLeadingProgramLineComments(
         node,
         programNode,
         options,
-        sourceText
+        sourceText,
+        DOC_COMMENT_PRINTER_DEPENDENCIES
     );
     const combinedLeadingLines = [
         ...programLeadingLines,
@@ -4495,30 +4023,36 @@ function getSyntheticDocCommentForFunctionAssignment(
         functionNode.docComments.length > 0;
 
     const { existingDocLines, remainingComments } =
-        collectSyntheticDocCommentLines(
+        Core.collectSyntheticDocCommentLines(
             commentTarget,
             options,
             programNode,
-            sourceText
+            sourceText,
+            DOC_COMMENT_PRINTER_DEPENDENCIES
         );
     const {
         leadingLines: leadingCommentLines,
         remainingComments: updatedComments
-    } = extractLeadingNonDocCommentLines(remainingComments, options);
+    } = Core.extractLeadingNonDocCommentLines(
+        remainingComments,
+        options,
+        DOC_COMMENT_PRINTER_DEPENDENCIES
+    );
 
     const sourceLeadingLines =
         existingDocLines.length === 0
-            ? collectAdjacentLeadingSourceLineComments(
+            ? Core.collectAdjacentLeadingSourceLineComments(
                   commentTarget,
                   options,
                   sourceText
               )
             : [];
-    const programLeadingLines = collectLeadingProgramLineComments(
+    const programLeadingLines = Core.collectLeadingProgramLineComments(
         commentTarget,
         programNode,
         options,
-        sourceText
+        sourceText,
+        DOC_COMMENT_PRINTER_DEPENDENCIES
     );
     const combinedLeadingLines = [
         ...programLeadingLines,
