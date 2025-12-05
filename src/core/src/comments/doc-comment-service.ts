@@ -1,3 +1,5 @@
+// TODO: This fie is too large. We need to make the doc-comment functionality a sub-module-directory and split this file into multiple smaller files (e.g. one for constants). Some functionality is generic AST functionality that could be moved to @gml-modules/core
+
 import {
     asArray,
     capitalize,

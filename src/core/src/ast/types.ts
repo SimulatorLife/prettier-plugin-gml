@@ -158,6 +158,10 @@ export interface VariableDeclaratorNode extends GameMakerAstNode {
     init?: GameMakerAstNode | null;
 }
 
+/**
+ * Define statements may stash a replacement directive token (e.g., `#region`)
+ * so formatter helpers can reason about the directive context.
+ */
 export interface DefineStatementNode extends GameMakerAstNode {
     type: "DefineStatement";
     replacementDirective?: string | null;

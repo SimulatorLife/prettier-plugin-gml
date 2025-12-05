@@ -84,14 +84,18 @@ function normalizeDefineReplacementDirectiveValue(
 export function getNormalizedDefineReplacementDirective(
     node?: GameMakerAstNode | null
 ): DefineReplacementDirective | null {
-    if (!isDefineStatement(node)) {
+    if (!isDefineStatementNode(node)) {
         return null;
     }
 
     return normalizeDefineReplacementDirectiveValue(node.replacementDirective);
 }
 
-function isDefineStatement(
+/**
+ * Type guard for `{#define}`-style nodes so callers can access the optional
+ * `replacementDirective` metadata without needing to expand the base AST type.
+ */
+export function isDefineStatementNode(
     node?: GameMakerAstNode | null
 ): node is DefineStatementNode {
     return node?.type === "DefineStatement";
@@ -117,7 +121,7 @@ export function isMacroLikeStatement(
         return true;
     }
 
-    if (isDefineStatement(node)) {
+    if (isDefineStatementNode(node)) {
         return (
             getNormalizedDefineReplacementDirective(node) ===
             DefineReplacementDirective.MACRO
