@@ -26,6 +26,10 @@ import {
     type MutableDocCommentLines
 } from "./comment-utils.js";
 import { normalizeOptionalParamToken } from "./optional-param-normalization.js";
+import {
+    DocCommentPrinterDependencies,
+    getDocCommentPrinterDependencies
+} from "./doc-comment-printer-dependencies.js";
 
 export type DocCommentMetadata = {
     tag: string;
@@ -271,15 +275,6 @@ export function hasCommentImmediatelyBefore(text: unknown, index: unknown) {
 }
 
 /**
- * Dependencies required to format and analyze line comments when collecting doc comments.
- */
-export type DocCommentPrinterDependencies = {
-    formatLineComment(comment: any, options: any): string | null | undefined;
-    getLineCommentRawText(comment: any): string | null | undefined;
-    resolveLineCommentOptions(options: any): any;
-};
-
-/**
  * Resolves the node's start index using an optional locator helper from the printer.
  */
 function getNodeStartIndexForDocComments(node: any, locStart: unknown) {
@@ -311,8 +306,10 @@ export function collectSyntheticDocCommentLines(
     options: any,
     programNode: any,
     sourceText: string | null,
-    dependencies: DocCommentPrinterDependencies
+    dependencies?: DocCommentPrinterDependencies
 ) {
+    const deps =
+        dependencies ?? getDocCommentPrinterDependencies();
     const rawComments = getCommentArray(node);
     if (
         node.id === "scr_create_fx" ||
@@ -327,7 +324,7 @@ export function collectSyntheticDocCommentLines(
         // No node-level comments exist; fallback collection happens later.
     }
 
-    const lineCommentOptions = dependencies.resolveLineCommentOptions(options);
+    const lineCommentOptions = deps.resolveLineCommentOptions(options);
     const existingDocLines: string[] = [];
     const remainingComments: any[] = [];
 
@@ -338,11 +335,11 @@ export function collectSyntheticDocCommentLines(
             continue;
         }
 
-        let formatted = dependencies.formatLineComment(
+        let formatted = deps.formatLineComment(
             comment,
             lineCommentOptions
         );
-        const rawText = dependencies.getLineCommentRawText(comment);
+        const rawText = deps.getLineCommentRawText(comment);
         const trimmedRaw = typeof rawText === STRING_TYPE ? rawText.trim() : "";
         const isFormattedDocStyle =
             typeof formatted === STRING_TYPE &&
@@ -441,7 +438,7 @@ export function collectSyntheticDocCommentLines(
                         continue;
                     }
 
-                    const rawText = dependencies.getLineCommentRawText(pc);
+                    const rawText = deps.getLineCommentRawText(pc);
                     const trimmedRaw =
                         typeof rawText === STRING_TYPE ? rawText.trim() : "";
                     const trimmedWithoutSlashes = trimmedRaw
@@ -484,10 +481,11 @@ export function collectSyntheticDocCommentLines(
                 }
 
                 if (docCandidates.length > 0) {
-                    const fallbackOptions =
-                        dependencies.resolveLineCommentOptions(options);
+                    const fallbackOptions = deps.resolveLineCommentOptions(
+                        options
+                    );
                     const collected = docCandidates.map((c) =>
-                        dependencies.formatLineComment(c, fallbackOptions)
+                        deps.formatLineComment(c, fallbackOptions)
                     );
                     const flattenedCollected: string[] = [];
                     for (const entry of collected) {
@@ -558,8 +556,9 @@ export function collectSyntheticDocCommentLines(
                 }
 
                 if (candidates.length > 0) {
-                    const fallbackOptions =
-                        dependencies.resolveLineCommentOptions(options);
+                    const fallbackOptions = deps.resolveLineCommentOptions(
+                        options
+                    );
                     const formatted = candidates.map((c) => {
                         const matchNode = programCommentArray.find((pc) => {
                             const startIndex =
@@ -573,7 +572,7 @@ export function collectSyntheticDocCommentLines(
                         });
                         if (matchNode) {
                             matchNode.printed = true;
-                            return dependencies.formatLineComment(
+                            return deps.formatLineComment(
                                 matchNode,
                                 fallbackOptions
                             );
@@ -606,8 +605,10 @@ export function collectLeadingProgramLineComments(
     programNode: any,
     options: any,
     sourceText: string | null,
-    dependencies: DocCommentPrinterDependencies
+    dependencies?: DocCommentPrinterDependencies
 ) {
+    const deps =
+        dependencies ?? getDocCommentPrinterDependencies();
     if (!node || !programNode) {
         return [];
     }
@@ -622,7 +623,7 @@ export function collectLeadingProgramLineComments(
         return [];
     }
 
-    const lineCommentOptions = dependencies.resolveLineCommentOptions(options);
+    const lineCommentOptions = deps.resolveLineCommentOptions(options);
     const leadingLines: string[] = [];
     let anchorIndex = nodeStartIndex;
 
@@ -645,7 +646,7 @@ export function collectLeadingProgramLineComments(
             continue;
         }
 
-        const formatted = dependencies.formatLineComment(
+        const formatted = deps.formatLineComment(
             comment,
             lineCommentOptions
         );
@@ -732,8 +733,10 @@ export function collectAdjacentLeadingSourceLineComments(
 export function extractLeadingNonDocCommentLines(
     comments: any,
     options: any,
-    dependencies: DocCommentPrinterDependencies
+    dependencies?: DocCommentPrinterDependencies
 ) {
+    const deps =
+        dependencies ?? getDocCommentPrinterDependencies();
     if (!isNonEmptyArray(comments)) {
         return {
             leadingLines: [],
@@ -741,7 +744,7 @@ export function extractLeadingNonDocCommentLines(
         };
     }
 
-    const lineCommentOptions = dependencies.resolveLineCommentOptions(options);
+    const lineCommentOptions = deps.resolveLineCommentOptions(options);
     const leadingLines: string[] = [];
     const remainingComments: any[] = [];
     let scanningLeadingComments = true;
@@ -752,7 +755,7 @@ export function extractLeadingNonDocCommentLines(
             comment &&
             comment.type === "CommentLine"
         ) {
-            const formatted = dependencies.formatLineComment(
+            const formatted = deps.formatLineComment(
                 comment,
                 lineCommentOptions
             );
@@ -4631,3 +4634,5 @@ function updateParamLineWithDocName(line: string, newDocName: string): string {
     const updatedRemainder = remainder.replace(/^[^\s]+/, newDocName);
     return `${prefix}${updatedRemainder}`;
 }
+
+export type { DocCommentPrinterDependencies } from "./doc-comment-printer-dependencies.js";

@@ -1,17 +1,16 @@
 import assert from "node:assert/strict";
 import { afterEach, describe, it } from "node:test";
 
+import { Core } from "@gml-modules/core";
+
 import {
-    isMacroLikeStatement,
+    registerSurroundingNewlineNodeTypes,
+    resetSurroundingNewlineNodeTypes,
+    shouldAddNewlinesAroundStatement,
     shouldForceBlankLineBetweenReturnPaths,
     shouldForceTrailingBlankLineForNestedFunction,
     shouldSuppressEmptyLineBetween
 } from "../src/printer/statement-spacing-policy.js";
-import {
-    registerSurroundingNewlineNodeTypes,
-    resetSurroundingNewlineNodeTypes,
-    shouldAddNewlinesAroundStatement
-} from "../src/printer/util.js";
 
 void describe("statement spacing policy", () => {
     afterEach(() => {
@@ -26,9 +25,9 @@ void describe("statement spacing policy", () => {
         };
         const unrelated = { type: "ReturnStatement" };
 
-        assert.equal(isMacroLikeStatement(macroDeclaration), true);
-        assert.equal(isMacroLikeStatement(defineMacro), true);
-        assert.equal(isMacroLikeStatement(unrelated), false);
+        assert.equal(Core.isMacroLikeStatement(macroDeclaration), true);
+        assert.equal(Core.isMacroLikeStatement(defineMacro), true);
+        assert.equal(Core.isMacroLikeStatement(unrelated), false);
         assert.equal(
             shouldSuppressEmptyLineBetween(macroDeclaration, null),
             false

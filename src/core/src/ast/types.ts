@@ -39,6 +39,8 @@ export interface GameMakerAstNode {
     end?: number | GameMakerAstLocation | null;
     /** Source text captured alongside the node when available. */
     sourceText?: string | null;
+    /** Directive token attached to `DefineStatement` nodes. */
+    replacementDirective?: string | null;
     /** Attached comments or documentation metadata. */
     comments?: Array<GameMakerAstNode> | null;
     docComments?: Array<GameMakerAstNode> | null;

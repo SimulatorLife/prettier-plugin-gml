@@ -6,14 +6,10 @@
 import { Core, type MutableDocCommentLines } from "@gml-modules/core";
 
 import {
-    DefineReplacementDirective,
     isLastStatement,
     optionalSemicolon,
     isNextLineEmpty,
-    isPreviousLineEmpty,
-    shouldAddNewlinesAroundStatement,
-    getNormalizedDefineReplacementDirective,
-    isFunctionLikeDeclaration
+    isPreviousLineEmpty
 } from "./util.js";
 import {
     buildCachedSizeVariableName,
@@ -25,10 +21,10 @@ import {
     prepareEnumMembersForPrinting
 } from "./enum-alignment.js";
 import {
-    isMacroLikeStatement,
     shouldForceBlankLineBetweenReturnPaths,
     shouldForceTrailingBlankLineForNestedFunction,
-    shouldSuppressEmptyLineBetween
+    shouldSuppressEmptyLineBetween,
+    shouldAddNewlinesAroundStatement
 } from "./statement-spacing-policy.js";
 import {
     conditionalGroup,
@@ -55,17 +51,16 @@ import {
     sliceOriginalText,
     stripTrailingLineTerminators
 } from "./source-text.js";
-import { Parser } from "@gml-modules/parser";
 import {
     formatLineComment,
-    getLineCommentRawText,
     printComment,
     printDanglingComments,
     printDanglingCommentsAsGroup,
     resolveLineCommentOptions
 } from "../comments/index.js";
 import { TRAILING_COMMA } from "../options/trailing-comma-option.js";
-import { DEFAULT_DOC_COMMENT_MAX_WRAP_WIDTH } from "./doc-comment-wrap-width.js";
+import { buildSyntheticDocComment } from "./synthetic-doc-comment-builder.js";
+import { resolveDocCommentPrinterOptions } from "./doc-comment-options.js";
 
 import { Semantic } from "@gml-modules/semantic";
 import {
@@ -79,15 +74,6 @@ import {
 
 // Polyfill literalLine if not available in doc-builders
 const literalLine = { type: "line", hard: true, literal: true };
-
-function resolveDocCommentPrinterOptions(options: any) {
-    return {
-        ...options,
-        docCommentMaxWrapWidth:
-            options?.docCommentMaxWrapWidth ??
-            DEFAULT_DOC_COMMENT_MAX_WRAP_WIDTH
-    };
-}
 
 // String constants to avoid duplication warnings
 const STRING_TYPE = "string";
@@ -703,12 +689,7 @@ function _printImpl(path, options, print) {
                     node,
                     options,
                     programNode,
-                    originalText,
-                    {
-                        formatLineComment,
-                        getLineCommentRawText,
-                        resolveLineCommentOptions
-                    }
+                    originalText
                 );
                 existingDocLines = collected.existingDocLines;
                 const programLeadingLines =
@@ -716,21 +697,11 @@ function _printImpl(path, options, print) {
                         node,
                         programNode,
                         options,
-                        originalText,
-                        {
-                            formatLineComment,
-                            getLineCommentRawText,
-                            resolveLineCommentOptions
-                        }
+                        originalText
                     );
                 const extracted = Core.extractLeadingNonDocCommentLines(
                     collected.remainingComments,
-                    options,
-                    {
-                        formatLineComment,
-                        getLineCommentRawText,
-                        resolveLineCommentOptions
-                    }
+                    options
                 );
                 const leadingCommentLines = extracted.leadingLines;
                 updatedComments = extracted.remainingComments;
@@ -1664,8 +1635,8 @@ function _printImpl(path, options, print) {
         }
         case "DefineStatement": {
             const directive =
-                getNormalizedDefineReplacementDirective(node) ??
-                DefineReplacementDirective.MACRO;
+                Core.getNormalizedDefineReplacementDirective(node) ??
+                Core.DefineReplacementDirective.MACRO;
             const suffixDoc =
                 typeof node.replacementSuffix === STRING_TYPE
                     ? node.replacementSuffix
@@ -3054,10 +3025,10 @@ function printStatements(path, options, print, childrenAttribute) {
                 node,
                 nextNode
             );
-            const nextNodeIsMacro = isMacroLikeStatement(nextNode);
+            const nextNodeIsMacro = Core.isMacroLikeStatement(nextNode);
             const shouldSkipStandardHardline =
                 shouldSuppressExtraEmptyLine &&
-                isMacroLikeStatement(node) &&
+                Core.isMacroLikeStatement(node) &&
                 !nextNodeIsMacro;
 
             if (!shouldSkipStandardHardline) {
@@ -3091,10 +3062,10 @@ function printStatements(path, options, print, childrenAttribute) {
                 isSanitizedMacro &&
                 macroTextHasExplicitTrailingBlankLine(node._featherMacroText);
 
-            const isMacroLikeNode = isMacroLikeStatement(node);
+            const isMacroLikeNode = Core.isMacroLikeStatement(node);
             const isDefineMacroReplacement =
-                getNormalizedDefineReplacementDirective(node) ===
-                DefineReplacementDirective.MACRO;
+                Core.getNormalizedDefineReplacementDirective(node) ===
+                Core.DefineReplacementDirective.MACRO;
             const shouldForceMacroPadding =
                 isMacroLikeNode &&
                 !isDefineMacroReplacement &&
@@ -3267,7 +3238,7 @@ function printStatements(path, options, print, childrenAttribute) {
                     hasAttachedDocComment &&
                     blockParent?.type === "BlockStatement"
                 ) {
-                    const isFunctionLike = isFunctionLikeDeclaration(node);
+                    const isFunctionLike = Core.isFunctionLikeDeclaration(node);
 
                     if (isFunctionLike) {
                         shouldPreserveTrailingBlankLine = true;
@@ -3747,69 +3718,6 @@ function getNodeEndIndexForAlignment(node, locEnd) {
     return Number.isInteger(startIndex) ? startIndex : null;
 }
 
-// TODO: Move this to where the other synthetic doc comment functionality lives
-function buildSyntheticDocComment(
-    functionNode,
-    existingDocLines,
-    options,
-    overrides: any = {}
-) {
-    const docCommentOptions = resolveDocCommentPrinterOptions(options);
-
-    const hasExistingDocLines = existingDocLines.length > 0;
-
-    const syntheticLines = hasExistingDocLines
-        ? Core.mergeSyntheticDocComments(
-              functionNode,
-              existingDocLines,
-              docCommentOptions,
-              overrides
-          )
-        : Core.reorderDescriptionLinesAfterFunction(
-              Core.computeSyntheticFunctionDocLines(
-                  functionNode,
-                  [],
-                  options,
-                  overrides
-              )
-          );
-
-    const leadingCommentLines = Array.isArray(overrides?.leadingCommentLines)
-        ? overrides.leadingCommentLines
-              .map((line) => (typeof line === STRING_TYPE ? line : null))
-              .filter((line) => Core.isNonEmptyTrimmedString(line))
-        : [];
-
-    if (syntheticLines.length === 0 && leadingCommentLines.length === 0) {
-        return null;
-    }
-
-    // Apply doc comment promotion to the combined lines if both leading comments and synthetic lines exist
-    // This enables cases where doc-like comments (// / or /// without @) appear before actual doc comments (@param, @function, etc.)
-    const potentiallyPromotableLines =
-        leadingCommentLines.length > 0 && syntheticLines.length > 0
-            ? Core.promoteLeadingDocCommentTextToDescription([
-                  ...leadingCommentLines,
-                  syntheticLines[0]
-              ]).slice(0, leadingCommentLines.length) // Take only the part corresponding to leadingCommentLines
-            : leadingCommentLines;
-
-    const docLines =
-        leadingCommentLines.length === 0
-            ? syntheticLines
-            : [
-                  ...potentiallyPromotableLines,
-                  ...(syntheticLines.length > 0 ? ["", ...syntheticLines] : [])
-              ];
-
-    const normalizedDocLines = Core.toMutableArray(docLines) as string[];
-
-    return {
-        doc: concat([hardline, join(hardline, normalizedDocLines)]),
-        hasExistingDocLines
-    };
-}
-
 /**
  * Detects when a call expression is missing separators between numeric arguments and
  * replays the original text while injecting synthetic commas to keep the formatter's
@@ -3975,25 +3883,12 @@ function getSyntheticDocCommentForStaticVariable(
             node,
             options,
             programNode,
-            sourceText,
-            {
-                formatLineComment,
-                getLineCommentRawText,
-                resolveLineCommentOptions
-            }
+            sourceText
         );
     const {
         leadingLines: leadingCommentLines,
         remainingComments: updatedComments
-    } = Core.extractLeadingNonDocCommentLines(
-        remainingComments,
-        options,
-        {
-            formatLineComment,
-            getLineCommentRawText,
-            resolveLineCommentOptions
-        }
-    );
+    } = Core.extractLeadingNonDocCommentLines(remainingComments, options);
 
     const sourceLeadingLines =
         existingDocLines.length === 0
@@ -4007,12 +3902,7 @@ function getSyntheticDocCommentForStaticVariable(
         node,
         programNode,
         options,
-        sourceText,
-        {
-            formatLineComment,
-            getLineCommentRawText,
-            resolveLineCommentOptions
-        }
+        sourceText
     );
     const combinedLeadingLines = [
         ...programLeadingLines,
@@ -4122,25 +4012,12 @@ function getSyntheticDocCommentForFunctionAssignment(
             commentTarget,
             options,
             programNode,
-            sourceText,
-            {
-                formatLineComment,
-                getLineCommentRawText,
-                resolveLineCommentOptions
-            }
+            sourceText
         );
     const {
         leadingLines: leadingCommentLines,
         remainingComments: updatedComments
-    } = Core.extractLeadingNonDocCommentLines(
-        remainingComments,
-        options,
-        {
-            formatLineComment,
-            getLineCommentRawText,
-            resolveLineCommentOptions
-        }
-    );
+    } = Core.extractLeadingNonDocCommentLines(remainingComments, options);
 
     const sourceLeadingLines =
         existingDocLines.length === 0
@@ -4154,12 +4031,7 @@ function getSyntheticDocCommentForFunctionAssignment(
         commentTarget,
         programNode,
         options,
-        sourceText,
-        {
-            formatLineComment,
-            getLineCommentRawText,
-            resolveLineCommentOptions
-        }
+        sourceText
     );
     const combinedLeadingLines = [
         ...programLeadingLines,
@@ -4417,7 +4289,7 @@ function findEnclosingFunctionNode(path) {
             break;
         }
 
-        if (isFunctionLikeDeclaration(parent)) {
+        if (Core.isFunctionLikeDeclaration(parent)) {
             return parent;
         }
     }
