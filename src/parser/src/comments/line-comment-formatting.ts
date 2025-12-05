@@ -1,4 +1,4 @@
-// TODO: Should this formatting logic be moved into @gml-modules/plugin? The Parser should just handle AST manipulation and the Plugin should handle formatting/printing concerns.
+// TODO: Should this formatting logic be moved into @gml-modules/plugin? The Parser should just handle AST manipulation and the Plugin should handle formatting/printing concerns. This code needs to be audited & moved as/where applicable function-by-function.
 
 import { Core } from "@gml-modules/core";
 import {

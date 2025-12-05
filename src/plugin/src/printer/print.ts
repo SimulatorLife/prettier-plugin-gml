@@ -865,8 +865,7 @@ function _printImpl(path, options, print) {
                 docCommentDocs.forEach((doc) => {
                     if (node.id === "scr_create_fx")
                         console.log("Printing doc:", doc);
-                    parts.push(doc);
-                    parts.push(literalLine);
+                    parts.push(doc, literalLine);
                 });
             } else if (Object.hasOwn(node, DOC_COMMENT_OUTPUT_FLAG)) {
                 delete node[DOC_COMMENT_OUTPUT_FLAG];
