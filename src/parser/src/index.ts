@@ -1,10 +1,9 @@
 import * as GMLParserModule from "./gml-parser.js";
 import * as AST from "./ast/index.js";
-import * as Comments from "./comments/index.js";
 import * as Options from "./options/index.js";
 import * as Runtime from "./runtime/index.js";
 import * as Transforms from "./transforms/index.js";
-import * as Utils from "./utils/index.js";
+import * as Utils from "./utils/index.js"; // TODO: We need a more specific/meaningful name for this module. If it is too generic to be meaningfully named, it probably needs to be broken up.
 
 export { default as GameMakerLanguageParserListenerBase } from "../generated/GameMakerLanguageParserListener.js";
 export { default as GameMakerLanguageParserVisitorBase } from "../generated/GameMakerLanguageParserVisitor.js";
@@ -12,13 +11,11 @@ export { default as GameMakerLanguageParserVisitorBase } from "../generated/Game
 // Define the Parser namespace type from existing module types
 type ParserNamespace = typeof GMLParserModule &
     typeof AST &
-    typeof Comments &
     typeof Options &
     typeof Runtime &
     typeof Transforms &
     typeof Utils & {
         AST: typeof AST;
-        Comments: typeof Comments;
         Options: typeof Options;
         Runtime: typeof Runtime;
         Transforms: typeof Transforms;
@@ -30,13 +27,11 @@ type ParserNamespace = typeof GMLParserModule &
 export const Parser: ParserNamespace = Object.freeze({
     ...GMLParserModule,
     ...AST,
-    ...Comments,
     ...Options,
     ...Runtime,
     ...Transforms,
     ...Utils,
     AST,
-    Comments,
     Options,
     Runtime,
     Transforms,

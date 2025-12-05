@@ -1,5 +1,3 @@
-// TODO: Should this formatting logic be moved into @gml-modules/plugin? The Parser should just handle AST manipulation and the Plugin should handle formatting/printing concerns. This code needs to be audited & moved as/where applicable function-by-function.
-
 import { Core } from "@gml-modules/core";
 import {
     DEFAULT_COMMENTED_OUT_CODE_PATTERNS,
@@ -125,9 +123,6 @@ function formatLineComment(
     }
 
     if (trimmedValue.length === 0) {
-        console.log(
-            `[DEBUG] formatLineComment: Returning empty because trimmedValue is empty. original="${original}"`
-        );
         return "";
     }
 

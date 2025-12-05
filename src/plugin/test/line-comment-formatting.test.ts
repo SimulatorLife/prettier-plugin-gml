@@ -1,6 +1,9 @@
 import assert from "node:assert/strict";
 import { describe, it } from "node:test";
-import { Parser } from "@gml-modules/parser";
+import {
+    formatLineComment,
+    normalizeBannerCommentText
+} from "../src/comments/line-comment-formatting.js";
 
 void describe("line comment formatting helpers", () => {
     void it("promotes leading doc-like single-slash comments to triple-slash", () => {
@@ -10,7 +13,7 @@ void describe("line comment formatting helpers", () => {
             leadingText: "// / Leading summary"
         };
 
-        const result = Parser.formatLineComment(docLikeComment);
+        const result = formatLineComment(docLikeComment);
         assert.strictEqual(result.trim(), "/// Leading summary");
     });
 
@@ -39,7 +42,7 @@ void describe("line comment formatting helpers", () => {
                 "// / foot_spd = min(0.5 * sqrt(sqr(x - xprevious) + sqr(y - yprevious)) + abs(last_crab_dir) * 0.1 + 0.2, 1);"
         };
 
-        const result = Parser.formatLineComment(testComment);
+        const result = formatLineComment(testComment);
 
         // Expected formatting (visualized): the outer comment prefix remains
         // `// ` and the inner, commented-out code remains `// ...` but with
@@ -59,7 +62,7 @@ void describe("line comment formatting helpers", () => {
     });
 
     void it("retains banner content when decorations were stripped upstream", () => {
-        const normalized = Parser.normalizeBannerCommentText("Heading", {
+        const normalized = normalizeBannerCommentText("Heading", {
             assumeDecorated: true
         });
 

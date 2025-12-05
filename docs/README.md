@@ -55,7 +55,7 @@ implementation details:
   — Adjust the boilerplate stripping and commented-code heuristics without
   forking the formatter. Normalization guards keep overrides safe even when hosts
   provide partial data.
-- **Doc comment type normalization** (`src/parser/src/comments/`)
+- **Doc comment type normalization** (`src/plugin/src/comments/`)
   — Extend the doc-comment type synonym tables or resource prefixes without
   patching the formatter's defaults. Resolver helpers expose guardrails and a
   restore helper when experiments end.

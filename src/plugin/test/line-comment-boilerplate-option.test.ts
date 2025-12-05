@@ -1,7 +1,7 @@
 import assert from "node:assert/strict";
 import { describe, it } from "node:test";
-
-import { Parser } from "@gml-modules/parser";
+import { formatLineComment } from "../src/comments/line-comment-formatting.js";
+import { DEFAULT_LINE_COMMENT_OPTIONS } from "../src/comments/line-comment-options.js";
 
 function createLineComment(value, raw = `//${value}`) {
     return {
@@ -18,9 +18,9 @@ void describe("line comment boilerplate defaults", () => {
             " Script assets have changed for v2.3.0; visit https://help.yoyogames.com/hc/en-us/articles/360005277377 for more information"
         );
 
-        const formatted = Parser.formatLineComment(
+        const formatted = formatLineComment(
             comment,
-            Parser.DEFAULT_LINE_COMMENT_OPTIONS
+            DEFAULT_LINE_COMMENT_OPTIONS
         );
 
         assert.strictEqual(formatted, "");
@@ -32,9 +32,9 @@ void describe("line comment boilerplate defaults", () => {
             "/// @description Insert description here"
         );
 
-        const formatted = Parser.formatLineComment(
+        const formatted = formatLineComment(
             comment,
-            Parser.DEFAULT_LINE_COMMENT_OPTIONS
+            DEFAULT_LINE_COMMENT_OPTIONS
         );
 
         assert.strictEqual(formatted, "");
@@ -46,9 +46,9 @@ void describe("line comment boilerplate defaults", () => {
             "// You can write your code in this editor"
         );
 
-        const formatted = Parser.formatLineComment(
+        const formatted = formatLineComment(
             comment,
-            Parser.DEFAULT_LINE_COMMENT_OPTIONS
+            DEFAULT_LINE_COMMENT_OPTIONS
         );
 
         assert.strictEqual(formatted, "");
@@ -57,9 +57,9 @@ void describe("line comment boilerplate defaults", () => {
     void it("preserves unrelated comments", () => {
         const comment = createLineComment(" Remember to sync the controller.");
 
-        const formatted = Parser.formatLineComment(
+        const formatted = formatLineComment(
             comment,
-            Parser.DEFAULT_LINE_COMMENT_OPTIONS
+            DEFAULT_LINE_COMMENT_OPTIONS
         );
 
         assert.strictEqual(formatted, "// Remember to sync the controller.");

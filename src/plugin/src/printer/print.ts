@@ -56,6 +56,14 @@ import {
     stripTrailingLineTerminators
 } from "./source-text.js";
 import { Parser } from "@gml-modules/parser";
+import {
+    formatLineComment,
+    getLineCommentRawText,
+    printComment,
+    printDanglingComments,
+    printDanglingCommentsAsGroup,
+    resolveLineCommentOptions
+} from "../comments/index.js";
 import { TRAILING_COMMA } from "../options/trailing-comma-option.js";
 import { DEFAULT_DOC_COMMENT_MAX_WRAP_WIDTH } from "./doc-comment-wrap-width.js";
 
@@ -80,12 +88,6 @@ function resolveDocCommentPrinterOptions(options: any) {
             DEFAULT_DOC_COMMENT_MAX_WRAP_WIDTH
     };
 }
-
-const DOC_COMMENT_PRINTER_DEPENDENCIES = Object.freeze({
-    formatLineComment: Parser.formatLineComment,
-    getLineCommentRawText: Parser.getLineCommentRawText,
-    resolveLineCommentOptions: Parser.Comments.resolveLineCommentOptions
-});
 
 // String constants to avoid duplication warnings
 const STRING_TYPE = "string";
@@ -308,7 +310,7 @@ function _printImpl(path, options, print) {
 
                 if (node.body.length === 0) {
                     return concat(
-                        Parser.printDanglingCommentsAsGroup(
+                        printDanglingCommentsAsGroup(
                             path,
                             options,
                             () => true
@@ -328,7 +330,7 @@ function _printImpl(path, options, print) {
                 }
 
                 // Print any comments attached to the Program node itself (e.g. top-level comments)
-                const programComments = Parser.printDanglingCommentsAsGroup(
+                const programComments = printDanglingCommentsAsGroup(
                     path,
                     options,
                     () => true
@@ -395,7 +397,7 @@ function _printImpl(path, options, print) {
 
             return concat([
                 "{",
-                Parser.printDanglingComments(
+                printDanglingComments(
                     path,
                     options,
                     (comment) => comment.attachToBrace
@@ -423,7 +425,7 @@ function _printImpl(path, options, print) {
 
             const braceIntro = [
                 "{",
-                Parser.printDanglingComments(
+                printDanglingComments(
                     path,
                     options,
                     (comment) => comment.attachToBrace
@@ -434,7 +436,7 @@ function _printImpl(path, options, print) {
                 parts.push(
                     concat([
                         ...braceIntro,
-                        Parser.printDanglingCommentsAsGroup(
+                        printDanglingCommentsAsGroup(
                             path,
                             options,
                             (comment) => !comment.attachToBrace
@@ -626,7 +628,7 @@ function _printImpl(path, options, print) {
 
             let docCommentDocs: MutableDocCommentLines = [];
             const lineCommentOptions =
-                Parser.Comments.resolveLineCommentOptions(options);
+                resolveLineCommentOptions(options);
             let needsLeadingBlankLine = false;
             const docCommentOptions = resolveDocCommentPrinterOptions(options);
 
@@ -644,7 +646,7 @@ function _printImpl(path, options, print) {
                 }
                 docCommentDocs = node.docComments
                     .map((comment) =>
-                        Parser.formatLineComment(comment, lineCommentOptions)
+                        formatLineComment(comment, lineCommentOptions)
                     )
                     .filter(
                         (text) =>
@@ -702,7 +704,11 @@ function _printImpl(path, options, print) {
                     options,
                     programNode,
                     originalText,
-                    DOC_COMMENT_PRINTER_DEPENDENCIES
+                    {
+                        formatLineComment,
+                        getLineCommentRawText,
+                        resolveLineCommentOptions
+                    }
                 );
                 existingDocLines = collected.existingDocLines;
                 const programLeadingLines =
@@ -711,12 +717,20 @@ function _printImpl(path, options, print) {
                         programNode,
                         options,
                         originalText,
-                        DOC_COMMENT_PRINTER_DEPENDENCIES
+                        {
+                            formatLineComment,
+                            getLineCommentRawText,
+                            resolveLineCommentOptions
+                        }
                     );
                 const extracted = Core.extractLeadingNonDocCommentLines(
                     collected.remainingComments,
                     options,
-                    DOC_COMMENT_PRINTER_DEPENDENCIES
+                    {
+                        formatLineComment,
+                        getLineCommentRawText,
+                        resolveLineCommentOptions
+                    }
                 );
                 const leadingCommentLines = extracted.leadingLines;
                 updatedComments = extracted.remainingComments;
@@ -2005,93 +2019,6 @@ function printDelimitedList(
         : group(groupElements, { id: groupId });
 }
 
-function synthesizeMissingCallArgumentSeparators(
-    node,
-    originalText,
-    startIndex,
-    endIndex
-) {
-    if (
-        !node ||
-        node.type !== "CallExpression" ||
-        !Array.isArray(node.arguments) ||
-        typeof originalText !== STRING_TYPE ||
-        typeof startIndex !== NUMBER_TYPE ||
-        typeof endIndex !== NUMBER_TYPE ||
-        endIndex <= startIndex
-    ) {
-        return null;
-    }
-
-    let cursor = startIndex;
-    let normalizedText = "";
-    let insertedSeparator = false;
-
-    for (let index = 0; index < node.arguments.length; index += 1) {
-        const argument = node.arguments[index];
-        const argumentStart = Core.getNodeStartIndex(argument);
-        const argumentEnd = Core.getNodeEndIndex(argument);
-
-        if (
-            typeof argumentStart !== NUMBER_TYPE ||
-            typeof argumentEnd !== NUMBER_TYPE ||
-            argumentStart < cursor ||
-            argumentEnd > endIndex
-        ) {
-            return null;
-        }
-
-        normalizedText += originalText.slice(cursor, argumentStart);
-        normalizedText += originalText.slice(argumentStart, argumentEnd);
-        cursor = argumentEnd;
-
-        if (index >= node.arguments.length - 1) {
-            continue;
-        }
-
-        const nextArgument = node.arguments[index + 1];
-        const nextStart = Core.getNodeStartIndex(nextArgument);
-
-        if (typeof nextStart !== NUMBER_TYPE || nextStart < cursor) {
-            return null;
-        }
-
-        const between = originalText.slice(cursor, nextStart);
-
-        if (between.includes(",")) {
-            normalizedText += between;
-            cursor = nextStart;
-            continue;
-        }
-
-        const trimmedBetween = between.trim();
-
-        if (trimmedBetween.length === 0) {
-            const previousChar =
-                cursor > startIndex ? originalText[cursor - 1] : "";
-            const nextChar =
-                nextStart < originalText.length ? originalText[nextStart] : "";
-
-            if (
-                Core.isNumericLiteralBoundaryCharacter(previousChar) &&
-                Core.isNumericLiteralBoundaryCharacter(nextChar)
-            ) {
-                normalizedText += `,${between}`;
-                cursor = nextStart;
-                insertedSeparator = true;
-                continue;
-            }
-        }
-
-        normalizedText += between;
-        cursor = nextStart;
-    }
-
-    normalizedText += originalText.slice(cursor, endIndex);
-
-    return insertedSeparator ? normalizedText : null;
-}
-
 function normalizeCallTextNewlines(text, endOfLineOption) {
     if (typeof text !== STRING_TYPE) {
         return text;
@@ -2351,7 +2278,7 @@ function printInBlock(path, options, print, expressionKey) {
         return [print(expressionKey), optionalSemicolon(node.type)];
     }
 
-    const inlineCommentDocs = Parser.printDanglingCommentsAsGroup(
+    const inlineCommentDocs = printDanglingCommentsAsGroup(
         path,
         options,
         (comment) => comment.attachToClauseBody === true
@@ -2642,9 +2569,9 @@ function buildStructPropertyCommentSuffix(path, options) {
 
     for (const comment of comments) {
         if ((comment as any)?._structPropertyTrailing === true) {
-            const formatted = Parser.formatLineComment(
+            const formatted = formatLineComment(
                 comment,
-                Parser.Comments.resolveLineCommentOptions(options)
+                resolveLineCommentOptions(options)
             );
             if (formatted) {
                 commentDocs.push(formatted);
@@ -3820,6 +3747,7 @@ function getNodeEndIndexForAlignment(node, locEnd) {
     return Number.isInteger(startIndex) ? startIndex : null;
 }
 
+// TODO: Move this to where the other synthetic doc comment functionality lives
 function buildSyntheticDocComment(
     functionNode,
     existingDocLines,
@@ -3880,6 +3808,104 @@ function buildSyntheticDocComment(
         doc: concat([hardline, join(hardline, normalizedDocLines)]),
         hasExistingDocLines
     };
+}
+
+/**
+ * Detects when a call expression is missing separators between numeric arguments and
+ * replays the original text while injecting synthetic commas to keep the formatter's
+ * rewrites closer to what the user originally typed, preserving surrounding whitespace.
+ *
+ * @param node Call expression whose arguments should be inspected.
+ * @param originalText Source text that produced {@link node}.
+ * @param startIndex Inclusive start index of {@link node} within {@link originalText}.
+ * @param endIndex Exclusive end index of {@link node} within {@link originalText}.
+ * @returns {string | null} The restored call text with injected separators when a numeric gap was detected, or `null` if nothing needed to change.
+ */
+function synthesizeMissingCallArgumentSeparators(
+    node,
+    originalText,
+    startIndex,
+    endIndex
+) {
+    if (
+        !node ||
+        node.type !== "CallExpression" ||
+        !Array.isArray(node.arguments) ||
+        typeof originalText !== STRING_TYPE ||
+        typeof startIndex !== NUMBER_TYPE ||
+        typeof endIndex !== NUMBER_TYPE ||
+        endIndex <= startIndex
+    ) {
+        return null;
+    }
+
+    let cursor = startIndex;
+    let normalizedText = "";
+    let insertedSeparator = false;
+
+    for (let index = 0; index < node.arguments.length; index += 1) {
+        const argument = node.arguments[index];
+        const argumentStart = Core.getNodeStartIndex(argument);
+        const argumentEnd = Core.getNodeEndIndex(argument);
+
+        if (
+            typeof argumentStart !== NUMBER_TYPE ||
+            typeof argumentEnd !== NUMBER_TYPE ||
+            argumentStart < cursor ||
+            argumentEnd > endIndex
+        ) {
+            return null;
+        }
+
+        normalizedText += originalText.slice(cursor, argumentStart);
+        normalizedText += originalText.slice(argumentStart, argumentEnd);
+        cursor = argumentEnd;
+
+        if (index >= node.arguments.length - 1) {
+            continue;
+        }
+
+        const nextArgument = node.arguments[index + 1];
+        const nextStart = Core.getNodeStartIndex(nextArgument);
+
+        if (typeof nextStart !== NUMBER_TYPE || nextStart < cursor) {
+            return null;
+        }
+
+        const between = originalText.slice(cursor, nextStart);
+
+        if (between.includes(",")) {
+            normalizedText += between;
+            cursor = nextStart;
+            continue;
+        }
+
+        const trimmedBetween = between.trim();
+
+        if (trimmedBetween.length === 0) {
+            const previousChar =
+                cursor > startIndex ? originalText[cursor - 1] : "";
+            const nextChar =
+                nextStart < originalText.length ? originalText[nextStart] : "";
+
+            if (
+                Core.isNumericLiteralBoundaryCharacter(previousChar) &&
+                Core.isNumericLiteralBoundaryCharacter(nextChar)
+            ) {
+                normalizedText += `,${between}`;
+                cursor = nextStart;
+                insertedSeparator = true;
+                continue;
+            }
+        }
+
+        normalizedText += between;
+        cursor = nextStart;
+    }
+
+    normalizedText += originalText.slice(cursor, endIndex);
+
+    return insertedSeparator ? normalizedText : null;
 }
 
 function suppressConstructorAssignmentPadding(functionNode) {
@@ -3950,7 +3976,11 @@ function getSyntheticDocCommentForStaticVariable(
             options,
             programNode,
             sourceText,
-            DOC_COMMENT_PRINTER_DEPENDENCIES
+            {
+                formatLineComment,
+                getLineCommentRawText,
+                resolveLineCommentOptions
+            }
         );
     const {
         leadingLines: leadingCommentLines,
@@ -3958,7 +3988,11 @@ function getSyntheticDocCommentForStaticVariable(
     } = Core.extractLeadingNonDocCommentLines(
         remainingComments,
         options,
-        DOC_COMMENT_PRINTER_DEPENDENCIES
+        {
+            formatLineComment,
+            getLineCommentRawText,
+            resolveLineCommentOptions
+        }
     );
 
     const sourceLeadingLines =
@@ -3974,7 +4008,11 @@ function getSyntheticDocCommentForStaticVariable(
         programNode,
         options,
         sourceText,
-        DOC_COMMENT_PRINTER_DEPENDENCIES
+        {
+            formatLineComment,
+            getLineCommentRawText,
+            resolveLineCommentOptions
+        }
     );
     const combinedLeadingLines = [
         ...programLeadingLines,
@@ -4085,7 +4123,11 @@ function getSyntheticDocCommentForFunctionAssignment(
             options,
             programNode,
             sourceText,
-            DOC_COMMENT_PRINTER_DEPENDENCIES
+            {
+                formatLineComment,
+                getLineCommentRawText,
+                resolveLineCommentOptions
+            }
         );
     const {
         leadingLines: leadingCommentLines,
@@ -4093,7 +4135,11 @@ function getSyntheticDocCommentForFunctionAssignment(
     } = Core.extractLeadingNonDocCommentLines(
         remainingComments,
         options,
-        DOC_COMMENT_PRINTER_DEPENDENCIES
+        {
+            formatLineComment,
+            getLineCommentRawText,
+            resolveLineCommentOptions
+        }
     );
 
     const sourceLeadingLines =
@@ -4109,7 +4155,11 @@ function getSyntheticDocCommentForFunctionAssignment(
         programNode,
         options,
         sourceText,
-        DOC_COMMENT_PRINTER_DEPENDENCIES
+        {
+            formatLineComment,
+            getLineCommentRawText,
+            resolveLineCommentOptions
+        }
     );
     const combinedLeadingLines = [
         ...programLeadingLines,
@@ -7189,7 +7239,7 @@ function printEmptyParens(path, options) {
         [
             "(",
             indent([
-                Parser.printDanglingCommentsAsGroup(
+                printDanglingCommentsAsGroup(
                     path,
                     options,
                     (comment) => !comment.attachToBrace
@@ -7232,12 +7282,12 @@ function printEmptyBlock(path, options) {
         // an empty block with comments
         return [
             "{",
-            Parser.printDanglingComments(
+            printDanglingComments(
                 path,
                 options,
                 (comment) => comment.attachToBrace
             ),
-            Parser.printDanglingCommentsAsGroup(
+            printDanglingCommentsAsGroup(
                 path,
                 options,
                 (comment) => !comment.attachToBrace
@@ -7277,7 +7327,7 @@ function maybePrintInlineEmptyBlockComment(path, options) {
         "{",
         leadingSpacing,
         path.call(
-            (commentPath) => Parser.printComment(commentPath, options),
+            (commentPath) => printComment(commentPath, options),
             "comments",
             inlineIndex
         ),

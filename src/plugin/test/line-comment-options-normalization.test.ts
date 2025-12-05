@@ -1,7 +1,13 @@
 import assert from "node:assert/strict";
 import { afterEach, describe, it } from "node:test";
-
-import { Parser } from "@gml-modules/parser";
+import {
+    DEFAULT_COMMENTED_OUT_CODE_PATTERNS,
+    DEFAULT_LINE_COMMENT_OPTIONS,
+    formatLineComment,
+    resolveLineCommentOptions,
+    restoreDefaultLineCommentOptionsResolver,
+    setLineCommentOptionsResolver
+} from "../src/comments/index.js";
 
 function createLineComment(value, raw = `//${value}`) {
     return {
@@ -14,49 +20,49 @@ function createLineComment(value, raw = `//${value}`) {
 
 void describe("resolveLineCommentOptions", () => {
     afterEach(() => {
-        Parser.restoreDefaultLineCommentOptionsResolver();
+        restoreDefaultLineCommentOptionsResolver();
     });
 
     void it("returns the default option object when no resolver is installed", () => {
-        const resolved = Parser.resolveLineCommentOptions();
+        const resolved = resolveLineCommentOptions();
 
-        assert.strictEqual(resolved, Parser.DEFAULT_LINE_COMMENT_OPTIONS);
+        assert.strictEqual(resolved, DEFAULT_LINE_COMMENT_OPTIONS);
         assert.strictEqual(
             resolved.codeDetectionPatterns,
-            Parser.DEFAULT_COMMENTED_OUT_CODE_PATTERNS
+            DEFAULT_COMMENTED_OUT_CODE_PATTERNS
         );
     });
 
     void it("allows integrators to extend boilerplate heuristics via resolver hook", () => {
         const customFragment = "// AUTO-GENERATED FILE";
-        Parser.setLineCommentOptionsResolver(() => ({
+        setLineCommentOptionsResolver(() => ({
             boilerplateFragments: [
-                ...Parser.DEFAULT_LINE_COMMENT_OPTIONS.boilerplateFragments,
+                ...DEFAULT_LINE_COMMENT_OPTIONS.boilerplateFragments,
                 customFragment
             ]
         }));
 
-        const resolved = Parser.resolveLineCommentOptions();
+        const resolved = resolveLineCommentOptions();
 
-        assert.notStrictEqual(resolved, Parser.DEFAULT_LINE_COMMENT_OPTIONS);
+        assert.notStrictEqual(resolved, DEFAULT_LINE_COMMENT_OPTIONS);
         assert.deepEqual(resolved.boilerplateFragments.slice(-1), [
             customFragment
         ]);
         assert.strictEqual(
             resolved.codeDetectionPatterns,
-            Parser.DEFAULT_COMMENTED_OUT_CODE_PATTERNS
+            DEFAULT_COMMENTED_OUT_CODE_PATTERNS
         );
     });
 
     void it("falls back to defaults when the resolver returns invalid data", () => {
-        Parser.setLineCommentOptionsResolver(() => ({
+        setLineCommentOptionsResolver(() => ({
             boilerplateFragments: null,
             codeDetectionPatterns: ["/^SQL:/i"]
         }));
 
-        const resolved = Parser.resolveLineCommentOptions();
+        const resolved = resolveLineCommentOptions();
 
-        assert.strictEqual(resolved, Parser.DEFAULT_LINE_COMMENT_OPTIONS);
+        assert.strictEqual(resolved, DEFAULT_LINE_COMMENT_OPTIONS);
     });
 });
 
@@ -67,9 +73,9 @@ void describe("formatLineComment", () => {
             "// if (player.hp <= 0) return;"
         );
 
-        const formatted = Parser.formatLineComment(
+        const formatted = formatLineComment(
             comment,
-            Parser.DEFAULT_LINE_COMMENT_OPTIONS
+            DEFAULT_LINE_COMMENT_OPTIONS
         );
 
         assert.equal(formatted, "// if (player.hp <= 0) return;");
@@ -81,13 +87,13 @@ void describe("formatLineComment", () => {
             "// AUTO-GENERATED FILE - do not edit"
         );
 
-        const formatted = Parser.formatLineComment(comment, {
+        const formatted = formatLineComment(comment, {
             boilerplateFragments: [
-                ...Parser.DEFAULT_LINE_COMMENT_OPTIONS.boilerplateFragments,
+                ...DEFAULT_LINE_COMMENT_OPTIONS.boilerplateFragments,
                 "AUTO-GENERATED FILE"
             ],
             codeDetectionPatterns:
-                Parser.DEFAULT_LINE_COMMENT_OPTIONS.codeDetectionPatterns
+                DEFAULT_LINE_COMMENT_OPTIONS.codeDetectionPatterns
         });
 
         assert.equal(formatted, "");

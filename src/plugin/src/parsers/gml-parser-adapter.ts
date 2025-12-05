@@ -7,6 +7,10 @@ import { Core, type MutableGameMakerAstNode } from "@gml-modules/core";
 import { util } from "prettier";
 import { Parser } from "@gml-modules/parser";
 import { Semantic } from "@gml-modules/semantic";
+import {
+    normalizeLineCommentOptions,
+    resolveLineCommentOptions
+} from "../comments/index.js";
 
 const { getNodeStartIndex, getNodeEndIndex } = Core;
 const { addTrailingComment } = util;
@@ -248,9 +252,8 @@ function filterParserComments(
         return;
     }
 
-    const lineCommentOptions =
-        Parser.Comments.resolveLineCommentOptions(options);
-    const normalizedOptions = Parser.Comments.normalizeLineCommentOptions(
+    const lineCommentOptions = resolveLineCommentOptions(options);
+    const normalizedOptions = normalizeLineCommentOptions(
         lineCommentOptions
     ) as {
         boilerplateFragments: Array<string>;

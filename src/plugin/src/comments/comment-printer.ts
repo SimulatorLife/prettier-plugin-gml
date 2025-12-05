@@ -1,4 +1,4 @@
-// TODO: We should move actual formatting logic into @gml-modules/plugin. Parser should just handle AST manipulation.
+// Comment handling helpers relocated to the plugin so Prettier can format comments directly.
 
 import { util } from "prettier";
 import { builders } from "prettier/doc";
@@ -161,9 +161,6 @@ const handleComments = {
 
 function printComment(commentPath, options) {
     const comment = commentPath.getValue();
-    console.log(
-        `[DEBUG] printComment called for: ${comment.value ? comment.value.slice(0, 50) : "undefined"}`
-    );
 
     if (!Core.isCommentNode(comment)) {
         if (Core.isObjectLike(comment)) {
@@ -194,7 +191,7 @@ function printComment(commentPath, options) {
             return formatLineComment(comment, formattingOptions);
         }
         default: {
-            throw new Error(`Not a comment: ${JSON.stringify(comment)}`);
+            throw new Error(`Unknown comment type: ${comment.type}`);
         }
     }
 }
