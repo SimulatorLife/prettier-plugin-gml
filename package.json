@@ -80,6 +80,7 @@
     "test:plugin:report": "npm run build:types --workspace=@gml-modules/plugin && node --test --test-reporter=junit --test-reporter-destination=./reports/plugin.xml src/plugin/dist/test/*.test.js",
     "test:cli": "npm run build:types --workspace=@gml-modules/cli && node --test src/cli/dist/test/*.test.js",
     "test:cli:report": "npm run build:types --workspace=@gml-modules/cli && node --test --test-reporter=junit --test-reporter-destination=./reports/cli.xml src/cli/dist/test/*.test.js",
+    "test:root": "node --test test/*.test.js",
     "format:gml": "npm run build:types --workspace=@gml-modules/cli && node ./src/cli/dist/index.js format",
     "format": "npm exec -- prettier --ignore-path ./.prettierignore --write \"{src/**/*.ts,src/**/*.js,src/**/*.mjs,*.{ts,js,cjs,mjs}}\"",
     "format:check": "npm exec -- prettier --ignore-path ./.prettierignore --check \"{src/**/*.ts,src/**/*.js,src/**/*.mjs,*.{ts,js,cjs,mjs}}\"",

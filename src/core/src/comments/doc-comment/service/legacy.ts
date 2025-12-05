@@ -1,7 +1,10 @@
-import { capitalize, isNonEmptyString, isNonEmptyTrimmedString, toMutableArray, toTrimmedString } from "../../../utils/index.js";
-import type { DocCommentLines, MutableDocCommentLines } from "../../comment-utils.js";
+import {
+    capitalize,
+    isNonEmptyTrimmedString,
+    toTrimmedString
+} from "../../../utils/index.js";
+import type { DocCommentLines } from "../../comment-utils.js";
 import { parseDocCommentMetadata, isDocCommentTagLine } from "./metadata.js";
-import { normalizeDocCommentTypeAnnotations } from "./type-normalization.js";
 
 const STRING_TYPE = "string";
 
@@ -229,6 +232,10 @@ export function convertLegacyReturnsDescriptionLinesToMetadata(
 
     const convertedReturns: string[] = [];
     const retainedLines: string[] = [];
+    const normalizedTypeAnnotation =
+        typeof opts.normalizeDocCommentTypeAnnotations === "function"
+            ? opts.normalizeDocCommentTypeAnnotations
+            : undefined;
 
     for (const line of normalizedLines) {
         if (typeof line !== STRING_TYPE) {
@@ -286,6 +293,10 @@ export function convertLegacyReturnsDescriptionLinesToMetadata(
         let normalizedType = typeText.trim();
         if (normalizedType.length > 0 && !/^\{.*\}$/.test(normalizedType)) {
             normalizedType = `{${normalizedType}}`;
+        }
+
+        if (normalizedTypeAnnotation && normalizedType.length > 0) {
+            normalizedType = normalizedTypeAnnotation(normalizedType);
         }
 
         let converted = `${prefix} @returns`;

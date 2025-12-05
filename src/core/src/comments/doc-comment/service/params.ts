@@ -54,15 +54,13 @@ export function normalizeDocMetadataName(name: unknown) {
         }
 
         const sanitized = stripSyntheticParameterSentinels(normalizedString);
-        return (sanitized as string).length > 0
-            ? sanitized
-            : normalizedString;
+        return (sanitized as string).length > 0 ? sanitized : normalizedString;
     }
 
     return name;
 }
 
-export function getCanonicalParamNameFromText(name: unknown) {
+export function getCanonicalParamNameFromText(name: unknown): string | null {
     if (typeof name !== STRING_TYPE) {
         return null;
     }
@@ -99,7 +97,12 @@ export function getCanonicalParamNameFromText(name: unknown) {
     }
 
     const normalized = normalizeDocMetadataName(trimmed.trim());
-    return normalized && (normalized as string).length > 0 ? normalized : null;
+    if (typeof normalized !== STRING_TYPE) {
+        return null;
+    }
+
+    const normalizedString = (normalized as string).trim();
+    return normalizedString.length > 0 ? normalizedString : null;
 }
 
 export function docParamNamesLooselyEqual(left: unknown, right: unknown) {

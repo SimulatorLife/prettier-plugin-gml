@@ -1,12 +1,27 @@
-import { getIdentifierText, isUndefinedSentinel } from "../../../../ast/node-helpers.js";
-import { getNodeEndIndex, getNodeStartIndex } from "../../../../ast/locations.js";
-import { getNonEmptyString, isNonEmptyTrimmedString } from "../../../../utils/index.js";
-import { normalizeDocMetadataName, getCanonicalParamNameFromText } from "../params.js";
+import {
+    getIdentifierText,
+    isUndefinedSentinel
+} from "../../../../ast/node-helpers.js";
+import {
+    getNodeEndIndex,
+    getNodeStartIndex
+} from "../../../../ast/locations.js";
+import {
+    getNonEmptyString,
+    isNonEmptyTrimmedString
+} from "../../../../utils/index.js";
+import { normalizeDocMetadataName } from "../params.js";
 
 const STRING_TYPE = "string";
 const NUMBER_TYPE = "number";
-export const suppressedImplicitDocCanonicalByNode = new WeakMap<any, Set<string>>();
-export const preferredParamDocNamesByNode = new WeakMap<any, Map<number, string>>();
+export const suppressedImplicitDocCanonicalByNode = new WeakMap<
+    any,
+    Set<string>
+>();
+export const preferredParamDocNamesByNode = new WeakMap<
+    any,
+    Map<number, string>
+>();
 
 export interface SyntheticDocGenerationOptions {
     originalText?: string | null;

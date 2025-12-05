@@ -1,11 +1,10 @@
-import { getNodeName, isUndefinedSentinel } from "../../../../ast/node-helpers.js";
 import {
-    toMutableArray,
-    toTrimmedString,
-    isNonEmptyTrimmedString
-} from "../../../../utils/index.js";
+    getNodeName,
+    isUndefinedSentinel
+} from "../../../../ast/node-helpers.js";
+import { isNonEmptyTrimmedString } from "../../../../utils/index.js";
 import { parseDocCommentMetadata } from "../metadata.js";
-import { normalizeDocCommentTypeAnnotations, normalizeGameMakerType } from "../type-normalization.js";
+import { normalizeDocCommentTypeAnnotations } from "../type-normalization.js";
 import {
     docParamNamesLooselyEqual,
     getCanonicalParamNameFromText,
@@ -256,7 +255,7 @@ export function computeSyntheticFunctionDocLines(
                 ) {
                     const canonicalOrdinalMatchesDeclaredParam = Array.isArray(
                         node?.params
-    )
+                    )
                         ? node.params.some(
                               (candidate: any, candidateIndex: number) => {
                                   if (candidateIndex === paramIndex)

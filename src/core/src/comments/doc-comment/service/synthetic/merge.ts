@@ -1,4 +1,7 @@
-import type { DocCommentLines, MutableDocCommentLines } from "../../../comment-utils.js";
+import type {
+    DocCommentLines,
+    MutableDocCommentLines
+} from "../../../comment-utils.js";
 import {
     coercePositiveIntegerOption,
     findLastIndex,
@@ -14,20 +17,18 @@ import {
     promoteLeadingDocCommentTextToDescription,
     hasLegacyReturnsDescriptionLines
 } from "../legacy.js";
-import { normalizeDocCommentTypeAnnotations, normalizeGameMakerType } from "../type-normalization.js";
-import { resolveDocCommentWrapWidth } from "../wrap.js";
 import {
-    docParamNamesLooselyEqual,
-    getCanonicalParamNameFromText,
-    isOptionalParamDocName,
-    normalizeParamDocType
-} from "../params.js";
+    normalizeDocCommentTypeAnnotations,
+    normalizeGameMakerType
+} from "../type-normalization.js";
+import { resolveDocCommentWrapWidth } from "../wrap.js";
 import {
     collectImplicitArgumentDocNames,
     getParameterDocInfo,
     preferredParamDocNamesByNode,
     suppressedImplicitDocCanonicalByNode
 } from "./helpers.js";
+import { getCanonicalParamNameFromText } from "../params.js";
 import { computeSyntheticFunctionDocLines } from "./generation.js";
 
 const STRING_TYPE = "string";

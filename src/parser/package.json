@@ -5,7 +5,8 @@
   "types": "./dist/index.d.ts",
   "type": "module",
   "exports": {
-    ".": "./dist/index.js"
+    ".": "./dist/index.js",
+    "./package.json": "./package.json"
   },
   "files": [
     "dist"
@@ -13,7 +14,6 @@
   "dependencies": {
     "antlr4": "^4.13.2",
     "@gml-modules/core": "0.0.1"
-
   },
   "engines": {
     "node": ">=25.0.0"

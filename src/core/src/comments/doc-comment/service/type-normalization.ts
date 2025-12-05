@@ -1,4 +1,8 @@
-import { createResolverController, getNonEmptyString, getNonEmptyTrimmedString } from "../../../utils/index.js";
+import {
+    createResolverController,
+    getNonEmptyString,
+    getNonEmptyTrimmedString
+} from "../../../utils/index.js";
 import { normalizeOptionalParamToken } from "./params.js";
 
 const STRING_TYPE = "string" as const;
@@ -114,8 +118,7 @@ export function restoreDefaultDocCommentTypeNormalizationResolver() {
 export function applyJsDocReplacements(text: unknown) {
     const isStringText = typeof text === STRING_TYPE;
     const shouldStripEmptyParams =
-        isStringText &&
-        FUNCTION_LIKE_DOC_TAG_PATTERN.test(text as string);
+        isStringText && FUNCTION_LIKE_DOC_TAG_PATTERN.test(text as string);
 
     let formattedText: unknown = text;
 
@@ -149,8 +152,14 @@ function normalizeFeatherOptionalParamSyntax(text: string) {
 
     return text.replace(
         /(\s*\/\/\/\s*@param(?:\s+\{[^}]+\})?\s*)(\S+)/i,
-        (match, prefix, token) =>
-            `${prefix}${normalizeOptionalParamToken(token)}`
+        (match: string, prefix: string, token: string) => {
+            const normalizedToken = normalizeOptionalParamToken(token);
+            const normalizedTokenText = getDocCommentTokenText(
+                normalizedToken,
+                token
+            );
+            return `${prefix}${normalizedTokenText}`;
+        }
     );
 }
 
@@ -164,6 +173,10 @@ function stripTrailingFunctionParameters(text: string) {
         (match, linePrefix, functionPrefix) =>
             `${linePrefix}${functionPrefix.replace(/\s+$/, "")}`
     );
+}
+
+function getDocCommentTokenText(value: unknown, fallback: string) {
+    return typeof value === "string" ? value : fallback;
 }
 
 export function normalizeDocCommentTypeAnnotations(text: string) {
@@ -184,7 +197,8 @@ export function normalizeGameMakerType(typeText: string) {
     }
 
     const docCommentTypeNormalization = resolveDocCommentTypeNormalization();
-    const segments: Array<{ type: "identifier" | "separator"; value: string }> = [];
+    const segments: Array<{ type: "identifier" | "separator"; value: string }> =
+        [];
     const tokenPattern = /([A-Za-z_][A-Za-z0-9_]*)|([^A-Za-z_]+)/g;
     let match;
 
@@ -386,12 +400,18 @@ function normalizeDocCommentLookupKey(identifier: unknown) {
 
 function createDocCommentTypeNormalization(candidate: unknown) {
     const synonyms = new Map<string, string>();
-    for (const [key, value] of DEFAULT_DOC_COMMENT_TYPE_NORMALIZATION.synonyms) {
+    for (const [
+        key,
+        value
+    ] of DEFAULT_DOC_COMMENT_TYPE_NORMALIZATION.synonyms) {
         synonyms.set(key.toLowerCase(), value);
     }
 
     const canonicalSpecifierNames = new Map<string, string>();
-    for (const [key, value] of DEFAULT_DOC_COMMENT_TYPE_NORMALIZATION.canonicalSpecifierNames) {
+    for (const [
+        key,
+        value
+    ] of DEFAULT_DOC_COMMENT_TYPE_NORMALIZATION.canonicalSpecifierNames) {
         canonicalSpecifierNames.set(key.toLowerCase(), value);
     }
 

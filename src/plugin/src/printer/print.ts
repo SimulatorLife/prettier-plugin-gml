@@ -6,10 +6,7 @@
 import { Core, type MutableDocCommentLines } from "@gml-modules/core";
 import { util } from "prettier";
 
-import {
-    isLastStatement,
-    optionalSemicolon
-} from "./util.js";
+import { isLastStatement, optionalSemicolon } from "./util.js";
 import {
     buildCachedSizeVariableName,
     getLoopLengthHoistInfo,
@@ -297,11 +294,7 @@ function _printImpl(path, options, print) {
 
                 if (node.body.length === 0) {
                     return concat(
-                        printDanglingCommentsAsGroup(
-                            path,
-                            options,
-                            () => true
-                        )
+                        printDanglingCommentsAsGroup(path, options, () => true)
                     );
                 }
                 const bodyParts = printStatements(path, options, print, "body");
@@ -614,8 +607,7 @@ function _printImpl(path, options, print) {
                 resolveNodeIndexRangeWithSource(node, sourceMetadata);
 
             let docCommentDocs: MutableDocCommentLines = [];
-            const lineCommentOptions =
-                resolveLineCommentOptions(options);
+            const lineCommentOptions = resolveLineCommentOptions(options);
             let needsLeadingBlankLine = false;
             const docCommentOptions = resolveDocCommentPrinterOptions(options);
 
@@ -4486,12 +4478,13 @@ function normalizePreferredParameterName(name) {
         return canonical;
     }
 
-    const normalized = Core.normalizeDocMetadataName(name);
-    if (typeof normalized !== STRING_TYPE || normalized.length === 0) {
+    const normalizedValue = Core.normalizeDocMetadataName(name);
+    if (typeof normalizedValue !== STRING_TYPE) {
         return null;
     }
 
-    return normalized.trim();
+    const normalized = (normalizedValue as string).trim();
+    return normalized.length === 0 ? null : normalized;
 }
 
 function isValidIdentifierName(name) {
