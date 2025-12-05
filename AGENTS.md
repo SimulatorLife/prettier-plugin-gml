@@ -12,7 +12,7 @@
 - Do not edit the generated files in `src/parser/generated`; any and all changes will be overwritten when the file are re-generated. The generated code is tightly coupled to ANTLR’s runtime. Even a small edit could break assumptions about rule indices, token streams, or the visitor/listener APIs. These files have had manual edits already, and that custom code needs to be exracted out and refactored such that we subclass the generated code.
 - **NEVER** add eslint-disable or `@ts-*` comments to the codebase. If lint/type errors arise, fix them properly. If you encounter any existing eslint-disable or `@ts-*` comments, remove them and fix the underlying issues.
 - The plugin/formatter should be opinionated and enforce a single opinionated strategy (for indentation, spacing, blank lines, etc.) – avoid adding overly-configurable options that give users too many choices or lead to inconsistent formatting.
-- **ONLY** the `Plugin` workspace may depend on `prettier` and related formatting packages. All other workspaces must remain free of formatting dependencies. If they require formatting-related functionality, it must be moved into and exposed by the `Plugin` package.
+- **ONLY** the `Plugin` workspace may depend on `prettier` and related formatting packages. All other workspaces must remain free of formatting dependencies. If they require formatting-related functionality, it must be moved into and exposed by the `Plugin` package (only the root `package.json` should have Prettier as a `devDependency` for formatting of *this* codebase).
 
 ----
 
