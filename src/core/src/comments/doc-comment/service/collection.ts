@@ -1,4 +1,9 @@
-import { asArray, isNonEmptyArray, toMutableArray, toTrimmedString } from "../../../utils/index.js";
+import {
+    asArray,
+    isNonEmptyArray,
+    toMutableArray,
+    toTrimmedString
+} from "../../../utils/index.js";
 import { getCommentArray } from "../../comment-utils.js";
 import { getDocCommentPrinterDependencies } from "../printer-dependencies.js";
 import type { DocCommentPrinterDependencies } from "../types.js";
@@ -37,8 +42,7 @@ export function collectSyntheticDocCommentLines(
     sourceText: string | null,
     dependencies?: DocCommentPrinterDependencies
 ) {
-    const deps =
-        dependencies ?? getDocCommentPrinterDependencies();
+    const deps = dependencies ?? getDocCommentPrinterDependencies();
     const rawComments = getCommentArray(node);
 
     if (!isNonEmptyArray(rawComments)) {
@@ -56,10 +60,7 @@ export function collectSyntheticDocCommentLines(
             continue;
         }
 
-        let formatted = deps.formatLineComment(
-            comment,
-            lineCommentOptions
-        );
+        let formatted = deps.formatLineComment(comment, lineCommentOptions);
         const rawText = deps.getLineCommentRawText(comment);
         const trimmedRaw = typeof rawText === STRING_TYPE ? rawText.trim() : "";
         const isFormattedDocStyle =
@@ -201,9 +202,8 @@ export function collectSyntheticDocCommentLines(
                 }
 
                 if (docCandidates.length > 0) {
-                    const fallbackOptions = deps.resolveLineCommentOptions(
-                        options
-                    );
+                    const fallbackOptions =
+                        deps.resolveLineCommentOptions(options);
                     const collected = docCandidates.map((c) =>
                         deps.formatLineComment(c, fallbackOptions)
                     );
@@ -276,9 +276,8 @@ export function collectSyntheticDocCommentLines(
                 }
 
                 if (candidates.length > 0) {
-                    const fallbackOptions = deps.resolveLineCommentOptions(
-                        options
-                    );
+                    const fallbackOptions =
+                        deps.resolveLineCommentOptions(options);
                     const formatted = candidates.map((c) => {
                         const matchNode = programCommentArray.find((pc) => {
                             const startIndex =
@@ -327,8 +326,7 @@ export function collectLeadingProgramLineComments(
     sourceText: string | null,
     dependencies?: DocCommentPrinterDependencies
 ) {
-    const deps =
-        dependencies ?? getDocCommentPrinterDependencies();
+    const deps = dependencies ?? getDocCommentPrinterDependencies();
     if (!node || !programNode) {
         return [];
     }
@@ -366,10 +364,7 @@ export function collectLeadingProgramLineComments(
             continue;
         }
 
-        const formatted = deps.formatLineComment(
-            comment,
-            lineCommentOptions
-        );
+        const formatted = deps.formatLineComment(comment, lineCommentOptions);
         const trimmed = toTrimmedString(formatted);
 
         if (
@@ -455,8 +450,7 @@ export function extractLeadingNonDocCommentLines(
     options: any,
     dependencies?: DocCommentPrinterDependencies
 ) {
-    const deps =
-        dependencies ?? getDocCommentPrinterDependencies();
+    const deps = dependencies ?? getDocCommentPrinterDependencies();
     if (!isNonEmptyArray(comments)) {
         return {
             leadingLines: [],

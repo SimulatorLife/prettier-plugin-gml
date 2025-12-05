@@ -54,8 +54,7 @@ void describe("AST node classification helpers", () => {
                     replacementDirective: "#unknown"
                 }),
             (error) =>
-                error instanceof RangeError &&
-                /#unknown/.test(error.message)
+                error instanceof RangeError && /#unknown/.test(error.message)
         );
     });
 

@@ -106,10 +106,7 @@ export function isDocLikeLeadingLine(value: unknown) {
     );
 }
 
-export function hasCommentImmediatelyBefore(
-    text: unknown,
-    index: unknown
-) {
+export function hasCommentImmediatelyBefore(text: unknown, index: unknown) {
     if (typeof text !== STRING_TYPE || typeof index !== NUMBER_TYPE) {
         return false;
     }

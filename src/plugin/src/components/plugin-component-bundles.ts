@@ -5,10 +5,7 @@ import { print } from "../printer/index.js";
 import type { GmlPluginComponentContract } from "./plugin-types.js";
 import { createSingletonComponentRegistry } from "./component-registry.js";
 import { selectPluginComponentContractEntries } from "./plugin-component-contract.js";
-import {
-    handleComments,
-    printComment
-} from "../comments/index.js";
+import { handleComments, printComment } from "../comments/index.js";
 
 /**
  * Builds the canonical component implementation bundle. Keeping the constructor

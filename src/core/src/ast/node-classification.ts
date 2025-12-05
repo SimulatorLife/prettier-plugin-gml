@@ -1,8 +1,5 @@
 import { getNodeType } from "./node-helpers.js";
-import type {
-    DefineStatementNode,
-    GameMakerAstNode
-} from "./types.js";
+import type { DefineStatementNode, GameMakerAstNode } from "./types.js";
 
 const FUNCTION_LIKE_DECLARATION_TYPES = new Set([
     "FunctionDeclaration",
@@ -109,9 +106,7 @@ export function isDefineStatementNode(
  * @returns `true` when `{#macro}`-style directives or macro declarations are
  *          encountered.
  */
-export function isMacroLikeStatement(
-    node?: GameMakerAstNode | null
-): boolean {
+export function isMacroLikeStatement(node?: GameMakerAstNode | null): boolean {
     const nodeType = node?.type;
     if (!nodeType) {
         return false;
