@@ -317,7 +317,22 @@ function _printImpl(path, options, print) {
                     );
                 }
                 const bodyParts = printStatements(path, options, print, "body");
-                return concat(bodyParts);
+
+                // DEBUG: Check if comments are attached to Program
+                if (node.comments && node.comments.length > 0) {
+                    console.log("[DEBUG] Program has comments:", JSON.stringify(node.comments, null, 2));
+                } else {
+                    console.log("[DEBUG] Program has NO comments");
+                }
+
+                // Print any comments attached to the Program node itself (e.g. top-level comments)
+                const programComments = Parser.printDanglingCommentsAsGroup(
+                    path,
+                    options,
+                    () => true
+                );
+
+                return concat([programComments, concat(bodyParts)]);
             } finally {
                 try {
                     if (
@@ -965,9 +980,15 @@ function _printImpl(path, options, print) {
             );
         }
         case "ExpressionStatement": {
+            if (node.comments && node.comments.length > 0) {
+                console.log("[DEBUG] ExpressionStatement has comments:", node.comments.map((c: any) => c.value));
+            }
             return print("expression");
         }
         case "AssignmentExpression": {
+            if (node.comments && node.comments.length > 0) {
+                console.log("[DEBUG] AssignmentExpression has comments:", node.comments.map((c: any) => c.value));
+            }
             const padding =
                 node.operator === "=" &&
                 typeof node._alignAssignmentPadding === NUMBER_TYPE

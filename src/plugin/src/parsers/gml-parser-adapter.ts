@@ -396,6 +396,12 @@ function parse(text: string, options?: GmlParserAdapterOptions) {
 }
 
 function locStart(node: MutableGameMakerAstNode) {
+    if (!node) {
+        return 0;
+    }
+    if (node.type === "Program") {
+        return 0;
+    }
     return getNodeStartIndex(node) ?? 0;
 }
 

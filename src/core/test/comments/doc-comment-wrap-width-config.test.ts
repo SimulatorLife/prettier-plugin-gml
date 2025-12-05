@@ -2,8 +2,7 @@ import assert from "node:assert/strict";
 import test from "node:test";
 
 import {
-    docCommentMaxWrapWidthConfig,
-    resolveDocCommentWrapWidth
+    docCommentMaxWrapWidthConfig
 } from "../../src/comments/doc-comment-service.js";
 
 const DOC_COMMENT_MAX_WRAP_WIDTH_ENV_VAR =

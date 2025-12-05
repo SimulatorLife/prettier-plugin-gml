@@ -1,4 +1,4 @@
-// TODO: We should move actual formatting logic into @gml-modules/plugin. Parser should just handle AST manipulation.
+// TODO: Should this formatting logic be moved into @gml-modules/plugin? The Parser should just handle AST manipulation and the Plugin should handle formatting/printing concerns.
 
 import { Core } from "@gml-modules/core";
 import {
@@ -118,6 +118,15 @@ function formatLineComment(
     const trimmedOriginal = original.trim();
     const rawValue = Core.getCommentValue(comment);
     const trimmedValue = Core.getCommentValue(comment, { trim: true });
+    if (trimmedValue.length === 0 || trimmedValue === "//") {
+        console.log(`[DEBUG] formatLineComment: original="${original}", trimmedValue="${trimmedValue}"`);
+    }
+
+    if (trimmedValue.length === 0) {
+        console.log(`[DEBUG] formatLineComment: Returning empty because trimmedValue is empty. original="${original}"`);
+        return "";
+    }
+
     const startsWithTripleSlash = trimmedOriginal.startsWith("///");
     const isPlainTripleSlash =
         startsWithTripleSlash && !trimmedOriginal.includes("@");
@@ -129,6 +138,7 @@ function formatLineComment(
 
     for (const lineFragment of boilerplateFragments) {
         if (trimmedValue.includes(lineFragment)) {
+            console.log(`[DEBUG] formatLineComment: Returning empty because boilerplate match. original="${original}", fragment="${lineFragment}"`);
             return "";
         }
     }
@@ -197,7 +207,8 @@ function formatLineComment(
         // If the comment consists entirely of slashes (e.g. "////////////////"),
         // treat it as a decorative separator and suppress it.
         const contentAfterStripping = trimmedValue.replace(/^\/+\s*/, "");
-        if (contentAfterStripping.length === 0) {
+        if (contentAfterStripping.length === 0 && trimmedValue.length > 0) {
+            console.log(`[DEBUG] formatLineComment: Returning empty because contentAfterStripping is empty. original="${original}"`);
             return "";
         }
 
@@ -356,6 +367,7 @@ function formatLineComment(
         (trimmedValue.startsWith("//") ||
             looksLikeCommentedOutCode(coreValue, codeDetectionPatterns))
     ) {
+        console.log(`[DEBUG] formatLineComment: Returning commented out code. original="${original}"`);
         return applyInlinePadding(
             comment,
             `//${leadingWhitespace}${coreValue}`,

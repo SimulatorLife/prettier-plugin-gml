@@ -570,7 +570,7 @@ function applyFeatherFixesImpl(ast: any, opts: ApplyFeatherFixesOptions = {}) {
                         child.type === "Identifier" &&
                         /^argument\d+$/.test(child.name)
                     ) {
-                        const index = parseInt(child.name.substring(8), 10);
+                        const index = Number.parseInt(child.name.slice(8), 10);
                         remainingDirectRefIndices.add(index);
                     }
                 });
@@ -578,11 +578,7 @@ function applyFeatherFixesImpl(ast: any, opts: ApplyFeatherFixesOptions = {}) {
 
             // Update the metadata
             for (const entry of entries) {
-                if (!remainingDirectRefIndices.has(entry.index)) {
-                    entry.hasDirectReference = false;
-                } else {
-                    entry.hasDirectReference = true;
-                }
+                entry.hasDirectReference = remainingDirectRefIndices.has(entry.index);
             }
         }
     });
@@ -4306,10 +4302,12 @@ function fixArgumentReferencesWithinFunction(
                 }
 
                 for (const entry of functionNode._featherImplicitArgumentDocEntries) {
-                    if (entry && typeof entry.index === "number") {
-                        if (!remainingDirectRefIndices.has(entry.index)) {
-                            entry.hasDirectReference = false;
-                        }
+                    if (
+                        entry &&
+                        typeof entry.index === "number" &&
+                        !remainingDirectRefIndices.has(entry.index)
+                    ) {
+                        entry.hasDirectReference = false;
                     }
                 }
             }

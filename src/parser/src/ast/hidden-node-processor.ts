@@ -108,6 +108,7 @@ export function createHiddenNodeProcessor({
             const tokenText = token?.text ?? "";
 
             if (tokenType === tokens.SingleLineComment) {
+                console.log(`[DEBUG] SingleLineComment: "${tokenText}"`);
                 handleSingleLineComment(token, tokenText, { state, comments });
                 return;
             }

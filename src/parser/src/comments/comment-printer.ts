@@ -161,6 +161,7 @@ const handleComments = {
 
 function printComment(commentPath, options) {
     const comment = commentPath.getValue();
+    console.log(`[DEBUG] printComment called for: ${comment.value ? comment.value.substring(0, 50) : "undefined"}`);
 
     if (!Core.isCommentNode(comment)) {
         if (Core.isObjectLike(comment)) {
@@ -188,7 +189,8 @@ function printComment(commentPath, options) {
                 ...lineCommentOptions,
                 originalText: options.originalText
             };
-            return formatLineComment(comment, formattingOptions);
+            const result = formatLineComment(comment, formattingOptions);
+            return result;
         }
         default: {
             throw new Error(`Not a comment: ${JSON.stringify(comment)}`);
