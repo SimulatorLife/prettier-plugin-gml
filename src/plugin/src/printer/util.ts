@@ -1,4 +1,5 @@
 import { util } from "prettier";
+
 const { isNextLineEmpty, isPreviousLineEmpty } = util;
 
 // Using a Set avoids re-allocating the list for every membership check when

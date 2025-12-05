@@ -1367,7 +1367,7 @@ const DOC_COMMENT_TYPE_PATTERN = /\{([^}]+)\}/g;
 
 export const DEFAULT_DOC_COMMENT_TYPE_NORMALIZATION = Object.freeze({
     synonyms: Object.freeze([
-        // TODO: Can this be changed into a Map for performance?
+        // TODO: Can this be changed into a Map/other for performance?
         ["void", "undefined"],
         ["undefined", "undefined"],
         ["real", "real"],
