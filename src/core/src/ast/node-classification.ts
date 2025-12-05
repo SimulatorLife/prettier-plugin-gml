@@ -1,5 +1,8 @@
 import { getNodeType } from "./node-helpers.js";
-import type { GameMakerAstNode } from "./types.js";
+import type {
+    DefineStatementNode,
+    GameMakerAstNode
+} from "./types.js";
 
 const FUNCTION_LIKE_DECLARATION_TYPES = new Set([
     "FunctionDeclaration",
@@ -81,11 +84,17 @@ function normalizeDefineReplacementDirectiveValue(
 export function getNormalizedDefineReplacementDirective(
     node?: GameMakerAstNode | null
 ): DefineReplacementDirective | null {
-    if (!node || node.type !== "DefineStatement") {
+    if (!isDefineStatement(node)) {
         return null;
     }
 
     return normalizeDefineReplacementDirectiveValue(node.replacementDirective);
+}
+
+function isDefineStatement(
+    node?: GameMakerAstNode | null
+): node is DefineStatementNode {
+    return node?.type === "DefineStatement";
 }
 
 /**
@@ -108,7 +117,7 @@ export function isMacroLikeStatement(
         return true;
     }
 
-    if (nodeType === "DefineStatement") {
+    if (isDefineStatement(node)) {
         return (
             getNormalizedDefineReplacementDirective(node) ===
             DefineReplacementDirective.MACRO

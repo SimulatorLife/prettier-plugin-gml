@@ -4,12 +4,11 @@
 // TODO: ALL doc-comment/function-doc functionality here should be extracted and moved to Core's doc-comment manager/module (e.g. Core.computeSyntheticFunctionDocLines, Core.normalizeParamDocType, Core.collectImplicitArgumentDocNames, etc.). Any tests related to doc-comments should also be moved accordingly. Need to be VERY careful that no functionality is lost during the migration. Also be VERY dilligent to ensure that no duplicate functionality is created during the migration.
 
 import { Core, type MutableDocCommentLines } from "@gml-modules/core";
+import { util } from "prettier";
 
 import {
     isLastStatement,
-    optionalSemicolon,
-    isNextLineEmpty,
-    isPreviousLineEmpty
+    optionalSemicolon
 } from "./util.js";
 import {
     buildCachedSizeVariableName,
@@ -71,6 +70,8 @@ import {
     ObjectWrapOption,
     resolveObjectWrapOption
 } from "../options/object-wrap-option.js";
+
+const { isNextLineEmpty, isPreviousLineEmpty } = util;
 
 // Polyfill literalLine if not available in doc-builders
 const literalLine = { type: "line", hard: true, literal: true };

@@ -157,3 +157,8 @@ export interface VariableDeclaratorNode extends GameMakerAstNode {
     id?: GameMakerAstNode;
     init?: GameMakerAstNode | null;
 }
+
+export interface DefineStatementNode extends GameMakerAstNode {
+    type: "DefineStatement";
+    replacementDirective?: string | null;
+}

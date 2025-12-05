@@ -1,7 +1,3 @@
-import { util } from "prettier";
-
-const { isNextLineEmpty, isPreviousLineEmpty } = util;
-
 // Using a Set avoids re-allocating the list for every membership check when
 // these helpers run inside tight printer loops.
 const NODE_TYPES_REQUIRING_SEMICOLON = new Set([
@@ -42,7 +38,7 @@ function nodeTypeNeedsSemicolon(type) {
  * @param {import("prettier").AstPath} path AST path for the node being printed.
  * @returns {boolean} `true` when the node is the last statement in its parent.
  */
-function isLastStatement(path) {
+export function isLastStatement(path) {
     const body = getParentNodeListProperty(path);
     if (!body) {
         return true;
@@ -97,13 +93,6 @@ function getNodeListProperty(node) {
  * @param {string | undefined} nodeType AST node `type` to evaluate.
  * @returns {"" | ";"} Semicolon string when required, otherwise an empty string.
  */
-function optionalSemicolon(nodeType) {
+export function optionalSemicolon(nodeType) {
     return nodeTypeNeedsSemicolon(nodeType) ? ";" : "";
 }
-
-export {
-    isLastStatement,
-    optionalSemicolon,
-    isNextLineEmpty,
-    isPreviousLineEmpty
-};
