@@ -1,7 +1,7 @@
 import assert from "node:assert/strict";
 import test from "node:test";
 
-import { docCommentMaxWrapWidthConfig } from "../../src/comments/doc-comment-service.js";
+import { docCommentMaxWrapWidthConfig } from "../../src/comments/doc-comment/service/index.js";
 
 const DOC_COMMENT_MAX_WRAP_WIDTH_ENV_VAR =
     "PRETTIER_PLUGIN_GML_DOC_COMMENT_MAX_WRAP_WIDTH";

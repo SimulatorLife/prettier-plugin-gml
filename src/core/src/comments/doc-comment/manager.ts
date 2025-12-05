@@ -1,15 +1,15 @@
-import { isFunctionLikeNode, isNode } from "../ast/node-helpers.js";
-import { getNodeStartIndex } from "../ast/locations.js";
+import { isFunctionLikeNode, isNode } from "../../ast/node-helpers.js";
+import { getNodeStartIndex } from "../../ast/locations.js";
 import {
     getCommentArray,
     isDocCommentLine,
     type DocCommentLines
-} from "./comment-utils.js";
+} from "../comment-utils.js";
 import {
     isNonEmptyArray,
     isNonEmptyTrimmedString,
     toMutableArray
-} from "../utils/index.js";
+} from "../../utils/index.js";
 
 const DOC_COMMENT_MANAGERS = new WeakMap();
 const DOC_COMMENT_TRAVERSAL_SERVICES = new WeakMap();
@@ -212,10 +212,11 @@ function mapDocCommentsToFunctions(ast) {
 }
 
 function collectFunctionNodes(ast) {
+    // TODO: Is this function duplicating Core.walkObjectGraph? Is this specific to doc-comments?
+
     const functions = [];
 
     function traverse(node) {
-        // TODO: Is this duplicating Core.walkObjectGraph?
         if (!isNode(node)) {
             return;
         }

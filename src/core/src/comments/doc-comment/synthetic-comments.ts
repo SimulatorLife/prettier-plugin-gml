@@ -1,5 +1,5 @@
-import { getSingleVariableDeclarator } from "../ast/node-helpers.js";
-import { hasComment } from "./comment-utils.js";
+import { getSingleVariableDeclarator } from "../../ast/node-helpers.js";
+import { hasComment } from "../comment-utils.js";
 import {
     collectAdjacentLeadingSourceLineComments,
     collectLeadingProgramLineComments,
@@ -11,8 +11,8 @@ import {
     promoteLeadingDocCommentTextToDescription,
     reorderDescriptionLinesAfterFunction,
     resolveDocCommentWrapWidth
-} from "./doc-comment-service.js";
-import { isNonEmptyTrimmedString, toMutableArray } from "../utils/index.js";
+} from "./service/index.js";
+import { isNonEmptyTrimmedString, toMutableArray } from "../../utils/index.js";
 
 const STRING_TYPE = "string";
 

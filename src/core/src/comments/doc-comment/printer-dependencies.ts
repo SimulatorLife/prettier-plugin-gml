@@ -1,4 +1,4 @@
-import type { DocCommentPrinterDependencies } from "./types/doc-comment-printer-dependencies.js";
+import type { DocCommentPrinterDependencies } from "./types.js";
 
 let currentDependencies: DocCommentPrinterDependencies | null = null;
 
@@ -21,7 +21,3 @@ export function setDocCommentPrinterDependencies(
 export function restoreDefaultDocCommentPrinterDependencies() {
     currentDependencies = null;
 }
-
-export type {
-    DocCommentPrinterDependencies
-} from "./types/doc-comment-printer-dependencies.js";
