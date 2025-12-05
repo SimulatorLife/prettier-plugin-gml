@@ -36,6 +36,8 @@ const tsImportResolver = createTypeScriptImportResolver({
     project: ["./tsconfig.eslint.json"]
 });
 
+const typeScriptPlugin = { "@typescript-eslint": tseslint.plugin };
+
 const baseIgnorePatterns = [
     "**/*.d.ts",
     "**/*.config.js",
@@ -116,6 +118,7 @@ const tsConfig = defineConfig({
 
     // Needed for plugin rules
     plugins: {
+        ...typeScriptPlugin,
         sonarjs: pluginSonarjs,
         security: pluginSecurity,
         import: pluginImport,
@@ -511,6 +514,9 @@ export default [
     // Runtime-Wrapper allow eval (needed for patches for dynamic code execution)
     {
         files: ["src/runtime-wrapper/**"],
+        plugins: {
+            ...typeScriptPlugin
+        },
         rules: {
             "@typescript-eslint/no-implied-eval": "off"
         }
@@ -520,6 +526,9 @@ export default [
     // TypeScript lint engine bugs.
     {
         files: ["src/semantic/src/identifier-case/**/*.ts"],
+        plugins: {
+            ...typeScriptPlugin
+        },
         rules: {
             "@typescript-eslint/no-unsafe-assignment": "off",
             "@typescript-eslint/no-unsafe-return": "off",
@@ -530,6 +539,9 @@ export default [
     // Additional TypeScript rule relaxations for files that trigger overload signature issues
     {
         files: ["src/semantic/test/project-index-defaults.test.ts"],
+        plugins: {
+            ...typeScriptPlugin
+        },
         rules: {
             "@typescript-eslint/no-floating-promises": "off",
             "@typescript-eslint/no-misused-promises": "off"
@@ -539,13 +551,16 @@ export default [
     // Tests: relax a few noisy limits
     // Goes AFTER the main ts config to override
     {
-        files: ["**/test/**", "*.test.ts", "*.spec.ts"],
+        files: ["**/test/**/*.ts", "**/*.test.ts", "**/*.spec.ts"],
         languageOptions: {
             parserOptions: {
                 // Use specific project configuration instead of project service to avoid
                 // TypeScript overload signature issues with node:test functions
                 project: ["./tsconfig.eslint.json"]
             }
+        },
+        plugins: {
+            ...typeScriptPlugin
         },
         rules: {
             quotes: ["off"],

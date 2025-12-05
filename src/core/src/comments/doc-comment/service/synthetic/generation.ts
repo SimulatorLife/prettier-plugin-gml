@@ -278,7 +278,7 @@ export function computeSyntheticFunctionDocLines(
                         : false;
 
                     if (!canonicalOrdinalMatchesDeclaredParam) {
-                        initialSuppressed.add(canonicalOrdinal as string);
+                        initialSuppressed.add(canonicalOrdinal);
                     }
                 }
             }
@@ -311,7 +311,7 @@ export function computeSyntheticFunctionDocLines(
                                 getCanonicalParamNameFromText(
                                     `argument${maybeIndex}`
                                 ) ?? `argument${maybeIndex}`;
-                            initialSuppressed.add(fallbackCanonical as string);
+                            initialSuppressed.add(fallbackCanonical);
                         }
                     } catch {
                         /* ignore per-doc errors */
@@ -333,7 +333,7 @@ export function computeSyntheticFunctionDocLines(
                             getCanonicalParamNameFromText(
                                 `argument${ordIndex}`
                             ) || `argument${ordIndex}`;
-                        initialSuppressed.add(fallback as string);
+                        initialSuppressed.add(fallback);
                     }
                 } catch {
                     /* ignore */
@@ -599,7 +599,7 @@ export function computeSyntheticFunctionDocLines(
                         suppressedCanonicals
                     );
                 }
-                suppressedCanonicals.add(canonicalOrdinal as string);
+                suppressedCanonicals.add(canonicalOrdinal);
             }
         }
         const ordinalDocName =
@@ -621,15 +621,15 @@ export function computeSyntheticFunctionDocLines(
                 canonicalOrdinal !== fallbackCanonical &&
                 canonicalOrdinal !== canonicalImplicit
             ) {
-                const ordinalLength = (canonicalOrdinal as string).length;
+                const ordinalLength = (canonicalOrdinal).length;
                 const implicitLength =
                     (canonicalImplicit &&
-                        (canonicalImplicit as string).length > 0) ||
+                        (canonicalImplicit).length > 0) ||
                     isNonEmptyTrimmedString(effectiveImplicitName);
 
                 if (
                     ordinalLength >
-                    (implicitLength ? (canonicalImplicit as string).length : 0)
+                    (implicitLength ? (canonicalImplicit).length : 0)
                 ) {
                     // Simplified check
                     effectiveImplicitName = null;
