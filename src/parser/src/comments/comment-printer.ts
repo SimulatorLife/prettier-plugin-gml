@@ -161,7 +161,9 @@ const handleComments = {
 
 function printComment(commentPath, options) {
     const comment = commentPath.getValue();
-    console.log(`[DEBUG] printComment called for: ${comment.value ? comment.value.substring(0, 50) : "undefined"}`);
+    console.log(
+        `[DEBUG] printComment called for: ${comment.value ? comment.value.substring(0, 50) : "undefined"}`
+    );
 
     if (!Core.isCommentNode(comment)) {
         if (Core.isObjectLike(comment)) {

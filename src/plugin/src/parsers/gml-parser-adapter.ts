@@ -61,9 +61,7 @@ type SanitizerResult = {
     indexAdjustments?: Array<number> | null;
 };
 
-function isOptionsObject(
-    value: unknown
-): value is GmlParserAdapterOptions {
+function isOptionsObject(value: unknown): value is GmlParserAdapterOptions {
     return Core.isObjectLike(value);
 }
 
@@ -79,9 +77,8 @@ async function parseImpl(
     }
 
     try {
-        environmentPrepared = await prepareIdentifierCaseEnvironment(
-            activeOptions
-        );
+        environmentPrepared =
+            await prepareIdentifierCaseEnvironment(activeOptions);
 
         const preparation = preprocessSource(text, activeOptions);
         const ast = parseSourceWithRecovery(
@@ -136,17 +133,16 @@ function preprocessSource(
         Parser.Utils.fixMalformedComments(featherResult.parseSource)
     );
 
-    const conditionalResult =
-        Parser.Transforms.sanitizeConditionalAssignments(
-            commentFixedSource
-        ) as SanitizerResult;
+    const conditionalResult = Parser.Transforms.sanitizeConditionalAssignments(
+        commentFixedSource
+    ) as SanitizerResult;
     const conditionalSource = normalizeToString(
         conditionalResult.sourceText,
         commentFixedSource
     );
 
     const callSanitizedResult =
-        options?.sanitizeMissingArgumentSeparators ?? true
+        (options?.sanitizeMissingArgumentSeparators ?? true)
             ? (Parser.Transforms.sanitizeMissingArgumentSeparators(
                   conditionalSource
               ) as SanitizerResult)
@@ -177,10 +173,9 @@ function preprocessFeatherFixes(
         };
     }
 
-    const result =
-        Parser.Transforms.preprocessSourceForFeatherFixes(
-            sourceText
-        ) as FeatherPreprocessCandidate | null | undefined;
+    const result = Parser.Transforms.preprocessSourceForFeatherFixes(
+        sourceText
+    ) as FeatherPreprocessCandidate | null | undefined;
 
     return {
         parseSource: normalizeToString(result?.sourceText, sourceText),
@@ -209,11 +204,10 @@ function parseSourceWithRecovery(
             throw error;
         }
 
-        const recoveredSource =
-            Parser.Utils.recoverParseSourceFromMissingBrace(
-                sourceText,
-                error
-            ) as unknown;
+        const recoveredSource = Parser.Utils.recoverParseSourceFromMissingBrace(
+            sourceText,
+            error
+        ) as unknown;
         if (
             typeof recoveredSource !== "string" ||
             recoveredSource === sourceText
@@ -256,10 +250,11 @@ function filterParserComments(
 
     const lineCommentOptions =
         Parser.Comments.resolveLineCommentOptions(options);
-    const normalizedOptions =
-        Parser.Comments.normalizeLineCommentOptions(lineCommentOptions) as {
-            boilerplateFragments: Array<string>;
-        };
+    const normalizedOptions = Parser.Comments.normalizeLineCommentOptions(
+        lineCommentOptions
+    ) as {
+        boilerplateFragments: Array<string>;
+    };
     const { boilerplateFragments } = normalizedOptions;
 
     const filteredComments = comments.filter((comment) => {

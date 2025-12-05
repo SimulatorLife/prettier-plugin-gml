@@ -68,17 +68,20 @@ const DOC_COMMENT_MAX_WRAP_WIDTH_ENV_VAR =
 const DOC_COMMENT_MAX_WRAP_WIDTH_BASELINE = 100;
 const MIN_DOC_COMMENT_WRAP_WIDTH = 1;
 
-export const docCommentMaxWrapWidthConfig = createEnvConfiguredValueWithFallback({
-    defaultValue: DOC_COMMENT_MAX_WRAP_WIDTH_BASELINE,
-    envVar: DOC_COMMENT_MAX_WRAP_WIDTH_ENV_VAR,
-    resolve: (raw) => {
-        if (raw === "Infinity" || raw === Infinity) {
-            return Infinity;
+export const docCommentMaxWrapWidthConfig =
+    createEnvConfiguredValueWithFallback({
+        defaultValue: DOC_COMMENT_MAX_WRAP_WIDTH_BASELINE,
+        envVar: DOC_COMMENT_MAX_WRAP_WIDTH_ENV_VAR,
+        resolve: (raw) => {
+            if (raw === "Infinity" || raw === Infinity) {
+                return Infinity;
+            }
+            const num = toFiniteNumber(raw);
+            return num !== null && num >= MIN_DOC_COMMENT_WRAP_WIDTH
+                ? num
+                : null;
         }
-        const num = toFiniteNumber(raw);
-        return num !== null && num >= MIN_DOC_COMMENT_WRAP_WIDTH ? num : null;
-    }
-});
+    });
 
 export function resolveDocCommentWrapWidth(options: any) {
     const candidate = options?.docCommentMaxWrapWidth;
@@ -202,7 +205,10 @@ export function hasCommentImmediatelyBefore(text: unknown, index: unknown) {
     const normalizedIndex = index as number;
 
     let cursor = normalizedIndex - 1;
-    while (cursor >= 0 && isInlineWhitespace(normalizedText.charCodeAt(cursor))) {
+    while (
+        cursor >= 0 &&
+        isInlineWhitespace(normalizedText.charCodeAt(cursor))
+    ) {
         cursor -= 1;
     }
 
@@ -245,7 +251,9 @@ export function hasCommentImmediatelyBefore(text: unknown, index: unknown) {
 
     const first = normalizedText.charCodeAt(lineStart);
     const second =
-        lineStart + 1 <= lineEnd ? normalizedText.charCodeAt(lineStart + 1) : -1;
+        lineStart + 1 <= lineEnd
+            ? normalizedText.charCodeAt(lineStart + 1)
+            : -1;
 
     if (first === 47) {
         if (second === 47 || second === 42) {
@@ -266,10 +274,7 @@ export function hasCommentImmediatelyBefore(text: unknown, index: unknown) {
  * Dependencies required to format and analyze line comments when collecting doc comments.
  */
 export type DocCommentPrinterDependencies = {
-    formatLineComment(
-        comment: any,
-        options: any
-    ): string | null | undefined;
+    formatLineComment(comment: any, options: any): string | null | undefined;
     getLineCommentRawText(comment: any): string | null | undefined;
     resolveLineCommentOptions(options: any): any;
 };
@@ -309,8 +314,13 @@ export function collectSyntheticDocCommentLines(
     dependencies: DocCommentPrinterDependencies
 ) {
     const rawComments = getCommentArray(node);
-    if (node.id === "scr_create_fx" || (node.id && node.id.name === "scr_create_fx")) {
-        console.log("[DEBUG Core] collectSyntheticDocCommentLines for scr_create_fx");
+    if (
+        node.id === "scr_create_fx" ||
+        (node.id && node.id.name === "scr_create_fx")
+    ) {
+        console.log(
+            "[DEBUG Core] collectSyntheticDocCommentLines for scr_create_fx"
+        );
         console.log("[DEBUG Core] rawComments length:", rawComments.length);
     }
     if (!isNonEmptyArray(rawComments)) {
@@ -333,8 +343,7 @@ export function collectSyntheticDocCommentLines(
             lineCommentOptions
         );
         const rawText = dependencies.getLineCommentRawText(comment);
-        const trimmedRaw =
-            typeof rawText === STRING_TYPE ? rawText.trim() : "";
+        const trimmedRaw = typeof rawText === STRING_TYPE ? rawText.trim() : "";
         const isFormattedDocStyle =
             typeof formatted === STRING_TYPE &&
             formatted.trim().startsWith("///");
@@ -613,8 +622,7 @@ export function collectLeadingProgramLineComments(
         return [];
     }
 
-    const lineCommentOptions =
-        dependencies.resolveLineCommentOptions(options);
+    const lineCommentOptions = dependencies.resolveLineCommentOptions(options);
     const leadingLines: string[] = [];
     let anchorIndex = nodeStartIndex;
 
@@ -661,9 +669,7 @@ export function collectLeadingProgramLineComments(
         }
 
         comment.printed = true;
-        leadingLines.unshift(
-            typeof formatted === STRING_TYPE ? formatted : ""
-        );
+        leadingLines.unshift(typeof formatted === STRING_TYPE ? formatted : "");
         anchorIndex = Number.isInteger(commentStart)
             ? commentStart
             : commentEnd;
@@ -735,8 +741,7 @@ export function extractLeadingNonDocCommentLines(
         };
     }
 
-    const lineCommentOptions =
-        dependencies.resolveLineCommentOptions(options);
+    const lineCommentOptions = dependencies.resolveLineCommentOptions(options);
     const leadingLines: string[] = [];
     const remainingComments: any[] = [];
     let scanningLeadingComments = true;
@@ -1107,7 +1112,8 @@ export function convertLegacyReturnsDescriptionLinesToMetadata(
     return resultLines as DocCommentLines;
 }
 
-type LegacyReturnPayload = { // TODO: What is this used for? Is it needed? Document this if actually needed/used or else remove it.
+type LegacyReturnPayload = {
+    // TODO: What is this used for? Is it needed? Document this if actually needed/used or else remove it.
     typeText: string;
     descriptionText: string;
 };
@@ -1888,8 +1894,14 @@ export function normalizeGameMakerType(typeText: string) {
     return outputSegments.join("");
 }
 
-export const suppressedImplicitDocCanonicalByNode = new WeakMap<any, Set<string>>();
-export const preferredParamDocNamesByNode = new WeakMap<any, Map<number, string>>();
+export const suppressedImplicitDocCanonicalByNode = new WeakMap<
+    any,
+    Set<string>
+>();
+export const preferredParamDocNamesByNode = new WeakMap<
+    any,
+    Map<number, string>
+>();
 
 export interface SyntheticDocGenerationOptions {
     originalText?: string | null;
@@ -1923,7 +1935,9 @@ export function normalizeDocMetadataName(name: unknown) {
         }
 
         const sanitized = stripSyntheticParameterSentinels(optionalNormalized);
-        return (sanitized as string).length > 0 ? sanitized : optionalNormalized;
+        return (sanitized as string).length > 0
+            ? sanitized
+            : optionalNormalized;
     }
 
     return name;
@@ -1999,11 +2013,7 @@ export function docParamNamesLooselyEqual(left: unknown, right: unknown) {
     const leftComp = toComparable(left);
     const rightComp = toComparable(right);
 
-    return (
-        leftComp !== null &&
-        rightComp !== null &&
-        leftComp === rightComp
-    );
+    return leftComp !== null && rightComp !== null && leftComp === rightComp;
 }
 
 export function isOptionalParamDocName(name: unknown) {
@@ -2088,7 +2098,10 @@ function getArgumentIndexFromNode(node: any) {
     return null;
 }
 
-function getSourceTextForNode(node: any, options: SyntheticDocGenerationOptions) {
+function getSourceTextForNode(
+    node: any,
+    options: SyntheticDocGenerationOptions
+) {
     if (!node) {
         return null;
     }
@@ -2104,9 +2117,7 @@ function getSourceTextForNode(node: any, options: SyntheticDocGenerationOptions)
             ? locStart(node)
             : getNodeStartIndex(node);
     const endIndex =
-        typeof locEnd === "function"
-            ? locEnd(node)
-            : getNodeEndIndex(node);
+        typeof locEnd === "function" ? locEnd(node) : getNodeEndIndex(node);
 
     if (
         typeof startIndex !== NUMBER_TYPE ||
@@ -2136,7 +2147,11 @@ function shouldOmitUndefinedDefaultForFunctionNode(functionNode: any) {
     return functionNode.type === "FunctionDeclaration";
 }
 
-export function getParameterDocInfo(paramNode: any, functionNode: any, options: SyntheticDocGenerationOptions) {
+export function getParameterDocInfo(
+    paramNode: any,
+    functionNode: any,
+    options: SyntheticDocGenerationOptions
+) {
     if (!paramNode) {
         return null;
     }
@@ -2267,7 +2282,12 @@ export function gatherImplicitArgumentReferences(functionNode: any) {
 
         if (node.type === "VariableDeclarator") {
             const aliasIndex = getArgumentIndexFromNode(node.init);
-            console.log("VariableDeclarator", node.id?.name, "init index:", aliasIndex);
+            console.log(
+                "VariableDeclarator",
+                node.id?.name,
+                "init index:",
+                aliasIndex
+            );
             if (
                 aliasIndex !== null &&
                 node.id?.type === "Identifier" &&
@@ -2299,7 +2319,13 @@ export function gatherImplicitArgumentReferences(functionNode: any) {
         }
 
         for (const key in node) {
-            if (key === "parent" || key === "enclosingNode" || key === "precedingNode" || key === "followingNode") continue;
+            if (
+                key === "parent" ||
+                key === "enclosingNode" ||
+                key === "precedingNode" ||
+                key === "followingNode"
+            )
+                continue;
             const child = node[key];
             if (typeof child === "object" && child !== null) {
                 visit(child, node);
@@ -2409,22 +2435,36 @@ function hasReturnStatement(node: any): boolean {
         );
     }
 
-    if (node.type === "WhileStatement" || node.type === "DoUntilStatement" || node.type === "ForStatement" || node.type === "RepeatStatement" || node.type === "WithStatement") {
+    if (
+        node.type === "WhileStatement" ||
+        node.type === "DoUntilStatement" ||
+        node.type === "ForStatement" ||
+        node.type === "RepeatStatement" ||
+        node.type === "WithStatement"
+    ) {
         return hasReturnStatement(node.body);
     }
 
     if (node.type === "SwitchStatement" && Array.isArray(node.cases)) {
-        return node.cases.some((c: any) => Array.isArray(c.consequent) && c.consequent.some(hasReturnStatement));
+        return node.cases.some(
+            (c: any) =>
+                Array.isArray(c.consequent) &&
+                c.consequent.some(hasReturnStatement)
+        );
     }
-    
+
     if (node.type === "TryStatement") {
-        return hasReturnStatement(node.block) || hasReturnStatement(node.handler) || hasReturnStatement(node.finalizer);
+        return (
+            hasReturnStatement(node.block) ||
+            hasReturnStatement(node.handler) ||
+            hasReturnStatement(node.finalizer)
+        );
     }
-    
+
     if (node.type === "CatchClause") {
         return hasReturnStatement(node.body);
     }
-    
+
     if (node.type === "Finalizer") {
         return hasReturnStatement(node.body);
     }
@@ -2457,7 +2497,7 @@ function maybeAppendReturnsDoc(
     }
 
     const body = functionNode.body;
-    
+
     if (!body) {
         return lines;
     }
@@ -2601,20 +2641,25 @@ export function computeSyntheticFunctionDocLines(
                     const canonicalOrdinalMatchesDeclaredParam = Array.isArray(
                         node?.params
                     )
-                        ? node.params.some((candidate: any, candidateIndex: number) => {
-                              if (candidateIndex === paramIndex) return false;
-                              const candidateInfo = getParameterDocInfo(
-                                  candidate,
-                                  node,
-                                  options
-                              );
-                              const candidateCanonical = candidateInfo?.name
-                                  ? getCanonicalParamNameFromText(
-                                        candidateInfo.name
-                                    )
-                                  : null;
-                              return candidateCanonical === canonicalOrdinal;
-                          })
+                        ? node.params.some(
+                              (candidate: any, candidateIndex: number) => {
+                                  if (candidateIndex === paramIndex)
+                                      return false;
+                                  const candidateInfo = getParameterDocInfo(
+                                      candidate,
+                                      node,
+                                      options
+                                  );
+                                  const candidateCanonical = candidateInfo?.name
+                                      ? getCanonicalParamNameFromText(
+                                            candidateInfo.name
+                                        )
+                                      : null;
+                                  return (
+                                      candidateCanonical === canonicalOrdinal
+                                  );
+                              }
+                          )
                         : false;
 
                     if (!canonicalOrdinalMatchesDeclaredParam) {
@@ -2627,7 +2672,7 @@ export function computeSyntheticFunctionDocLines(
         if (initialSuppressed.size > 0) {
             suppressedImplicitDocCanonicalByNode.set(node, initialSuppressed);
         }
-        
+
         try {
             const refInfo = gatherImplicitArgumentReferences(node);
             if (
@@ -2657,7 +2702,7 @@ export function computeSyntheticFunctionDocLines(
                         /* ignore per-doc errors */
                     }
                 }
-                
+
                 try {
                     for (const [
                         ordIndex,
@@ -2697,7 +2742,7 @@ export function computeSyntheticFunctionDocLines(
         node,
         options
     );
-    
+
     try {
         const fallbacksToAdd = [];
         for (const entry of implicitArgumentDocNames) {
@@ -2787,8 +2832,8 @@ export function computeSyntheticFunctionDocLines(
             }
         }
 
-            try {
-                for (const entry of implicitArgumentDocNames) {
+        try {
+            for (const entry of implicitArgumentDocNames) {
                 if (!entry) continue;
                 const { index, canonical, fallbackCanonical } = entry;
                 const suppressedCanonicals =
@@ -2963,10 +3008,15 @@ export function computeSyntheticFunctionDocLines(
             ) {
                 const ordinalLength = (canonicalOrdinal as string).length;
                 const implicitLength =
-                    (canonicalImplicit && (canonicalImplicit as string).length > 0) ||
+                    (canonicalImplicit &&
+                        (canonicalImplicit as string).length > 0) ||
                     isNonEmptyTrimmedString(effectiveImplicitName);
 
-                if (ordinalLength > (implicitLength ? (canonicalImplicit as string).length : 0)) { // Simplified check
+                if (
+                    ordinalLength >
+                    (implicitLength ? (canonicalImplicit as string).length : 0)
+                ) {
+                    // Simplified check
                     effectiveImplicitName = null;
                     if (implicitDocEntry) {
                         implicitDocEntry._suppressDocLine = true;
@@ -3029,7 +3079,7 @@ export function computeSyntheticFunctionDocLines(
             defaultIsUndefined &&
             typeof parameterSourceText === STRING_TYPE &&
             parameterSourceText.includes("=");
-        
+
         const explicitOptionalMarker =
             param?._featherOptionalParameter === true;
 
@@ -3070,7 +3120,7 @@ export function computeSyntheticFunctionDocLines(
             : false;
         const shouldApplyOptionalSuppression =
             hasExistingMetadata || !hasSiblingExplicitDefault;
-        
+
         const materializedFromExplicitLeft =
             param?._featherMaterializedFromExplicitLeft === true;
         if (
@@ -3237,9 +3287,7 @@ export function mergeSyntheticDocComments(
     const originalExistingHasTags =
         Array.isArray(existingDocLines) &&
         existingDocLines.some((line) =>
-            typeof line === STRING_TYPE
-                ? parseDocCommentMetadata(line)
-                : false
+            typeof line === STRING_TYPE ? parseDocCommentMetadata(line) : false
         );
 
     // Compute synthetic lines early so promotion can consider synthetic tags
@@ -3342,12 +3390,9 @@ export function mergeSyntheticDocComments(
 
     if (normalizedExistingLines.length === 0) {
         return toMutableArray(
-            convertLegacyReturnsDescriptionLinesToMetadata(
-                syntheticLines,
-                {
-                    normalizeDocCommentTypeAnnotations: normalizeGameMakerType
-                }
-            )
+            convertLegacyReturnsDescriptionLinesToMetadata(syntheticLines, {
+                normalizeDocCommentTypeAnnotations: normalizeGameMakerType
+            })
         ) as MutableDocCommentLines;
     }
 
@@ -3401,9 +3446,7 @@ export function mergeSyntheticDocComments(
         }
 
         const docMetadata =
-            metadata === undefined
-                ? parseDocCommentMetadata(line)
-                : metadata;
+            metadata === undefined ? parseDocCommentMetadata(line) : metadata;
         const canonical =
             docMetadata?.tag === "param"
                 ? getCanonicalParamNameFromText(docMetadata.name)
@@ -3635,12 +3678,9 @@ export function mergeSyntheticDocComments(
     ];
 
     if (Array.isArray(returnsLines) && returnsLines.length > 0) {
-        const { lines: dedupedReturns } = dedupeReturnDocLines(
-            returnsLines,
-            {
-                includeNonReturnLine: (line, trimmed) => trimmed.length > 0
-            }
-        );
+        const { lines: dedupedReturns } = dedupeReturnDocLines(returnsLines, {
+            includeNonReturnLine: (line, trimmed) => trimmed.length > 0
+        });
 
         if (dedupedReturns.length > 0) {
             const filteredResult = [];
@@ -3681,9 +3721,7 @@ export function mergeSyntheticDocComments(
     }
 
     const finalDedupedResult = dedupeReturnDocLines(result);
-    result = toMutableArray(
-        finalDedupedResult.lines
-    ) as MutableDocCommentLines;
+    result = toMutableArray(finalDedupedResult.lines) as MutableDocCommentLines;
     if (finalDedupedResult.removed) {
         removedAnyLine = true;
     }
@@ -3718,9 +3756,7 @@ export function mergeSyntheticDocComments(
         const hasOriginalTags =
             Array.isArray(existingDocLines) &&
             existingDocLines.some((l) =>
-                typeof l === STRING_TYPE
-                    ? parseDocCommentMetadata(l)
-                    : false
+                typeof l === STRING_TYPE ? parseDocCommentMetadata(l) : false
             );
         if (
             !hasOriginalTags &&
@@ -4445,9 +4481,7 @@ export function mergeSyntheticDocComments(
         const originalHasTags =
             Array.isArray(existingDocLines) &&
             existingDocLines.some((l) =>
-                typeof l === STRING_TYPE
-                    ? parseDocCommentMetadata(l)
-                    : false
+                typeof l === STRING_TYPE ? parseDocCommentMetadata(l) : false
             );
         if (originalHasPlainSummary && !originalHasTags) {
             const summaryLines = [] as string[];
@@ -4491,10 +4525,6 @@ export function mergeSyntheticDocComments(
         })
     ) as MutableDocCommentLines;
 }
-
-
-
-
 
 /**
  * Determines whether synthetic doc comments should be emitted for the given function.
@@ -4581,8 +4611,6 @@ export function shouldGenerateSyntheticDocForFunction(
         })
     );
 }
-
-
 
 function updateParamLineWithDocName(line: string, newDocName: string): string {
     if (typeof line !== STRING_TYPE || typeof newDocName !== STRING_TYPE) {

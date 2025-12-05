@@ -75,9 +75,7 @@ void describe("gml parser adapter", () => {
         assert.ok(Array.isArray(ast?.body));
         assert.ok(ast.body.length > 0);
 
-        const [declaration] = normalizeNodeBody(
-            ast
-        );
+        const [declaration] = normalizeNodeBody(ast);
         assert.strictEqual(declaration?.type, "FunctionDeclaration");
 
         const blockStatements = normalizeNodeBody(

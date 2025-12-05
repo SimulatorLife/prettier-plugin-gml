@@ -322,8 +322,7 @@ function tryCondenseIfStatement(statements, index, helpers) {
         testExpr &&
         consequentExpr &&
         alternateExpr &&
-        booleanContext.variables.length <=
-            MAX_BOOLEAN_VARIABLES_FOR_TRUTH_TABLE
+        booleanContext.variables.length <= MAX_BOOLEAN_VARIABLES_FOR_TRUTH_TABLE
     ) {
         const combinedExpression = combineConditionalBoolean(
             testExpr,
@@ -337,9 +336,8 @@ function tryCondenseIfStatement(statements, index, helpers) {
         if (simplifiedCandidates.length > 0) {
             const chosen = chooseBestCandidate(simplifiedCandidates);
             if (chosen) {
-                const optimizedExpression = postProcessBooleanExpression(
-                    chosen
-                );
+                const optimizedExpression =
+                    postProcessBooleanExpression(chosen);
                 argumentAst = booleanExpressionToAst(
                     optimizedExpression,
                     booleanContext

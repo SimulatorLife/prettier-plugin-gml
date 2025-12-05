@@ -119,11 +119,15 @@ function formatLineComment(
     const rawValue = Core.getCommentValue(comment);
     const trimmedValue = Core.getCommentValue(comment, { trim: true });
     if (trimmedValue.length === 0 || trimmedValue === "//") {
-        console.log(`[DEBUG] formatLineComment: original="${original}", trimmedValue="${trimmedValue}"`);
+        console.log(
+            `[DEBUG] formatLineComment: original="${original}", trimmedValue="${trimmedValue}"`
+        );
     }
 
     if (trimmedValue.length === 0) {
-        console.log(`[DEBUG] formatLineComment: Returning empty because trimmedValue is empty. original="${original}"`);
+        console.log(
+            `[DEBUG] formatLineComment: Returning empty because trimmedValue is empty. original="${original}"`
+        );
         return "";
     }
 
@@ -138,7 +142,9 @@ function formatLineComment(
 
     for (const lineFragment of boilerplateFragments) {
         if (trimmedValue.includes(lineFragment)) {
-            console.log(`[DEBUG] formatLineComment: Returning empty because boilerplate match. original="${original}", fragment="${lineFragment}"`);
+            console.log(
+                `[DEBUG] formatLineComment: Returning empty because boilerplate match. original="${original}", fragment="${lineFragment}"`
+            );
             return "";
         }
     }
@@ -208,7 +214,9 @@ function formatLineComment(
         // treat it as a decorative separator and suppress it.
         const contentAfterStripping = trimmedValue.replace(/^\/+\s*/, "");
         if (contentAfterStripping.length === 0 && trimmedValue.length > 0) {
-            console.log(`[DEBUG] formatLineComment: Returning empty because contentAfterStripping is empty. original="${original}"`);
+            console.log(
+                `[DEBUG] formatLineComment: Returning empty because contentAfterStripping is empty. original="${original}"`
+            );
             return "";
         }
 
@@ -367,7 +375,9 @@ function formatLineComment(
         (trimmedValue.startsWith("//") ||
             looksLikeCommentedOutCode(coreValue, codeDetectionPatterns))
     ) {
-        console.log(`[DEBUG] formatLineComment: Returning commented out code. original="${original}"`);
+        console.log(
+            `[DEBUG] formatLineComment: Returning commented out code. original="${original}"`
+        );
         return applyInlinePadding(
             comment,
             `//${leadingWhitespace}${coreValue}`,

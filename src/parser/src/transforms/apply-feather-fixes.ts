@@ -578,7 +578,9 @@ function applyFeatherFixesImpl(ast: any, opts: ApplyFeatherFixesOptions = {}) {
 
             // Update the metadata
             for (const entry of entries) {
-                entry.hasDirectReference = remainingDirectRefIndices.has(entry.index);
+                entry.hasDirectReference = remainingDirectRefIndices.has(
+                    entry.index
+                );
             }
         }
     });
@@ -4115,7 +4117,9 @@ function fixArgumentReferencesWithinFunction(
         const argumentIndex = getArgumentIdentifierIndex(node);
 
         if (typeof argumentIndex === "number") {
-            console.log(`[FeatherFix] Found reference to argument${argumentIndex} at ${node.start}`);
+            console.log(
+                `[FeatherFix] Found reference to argument${argumentIndex} at ${node.start}`
+            );
             references.push({ node, index: argumentIndex });
             return;
         }
@@ -4149,10 +4153,18 @@ function fixArgumentReferencesWithinFunction(
 
     // Update the implicit argument doc entries to match the new index
     if (functionNode._featherImplicitArgumentDocEntries) {
-        console.log(`[FeatherFix] Updating implicit argument doc entries for function ${functionNode.id?.name || "anonymous"}`);
+        console.log(
+            `[FeatherFix] Updating implicit argument doc entries for function ${functionNode.id?.name || "anonymous"}`
+        );
         for (const entry of functionNode._featherImplicitArgumentDocEntries) {
-            console.log(`[FeatherFix] Entry before: index=${entry.index}, name=${entry.name}`);
-            if (entry && typeof entry.index === "number" && mapping.has(entry.index)) {
+            console.log(
+                `[FeatherFix] Entry before: index=${entry.index}, name=${entry.name}`
+            );
+            if (
+                entry &&
+                typeof entry.index === "number" &&
+                mapping.has(entry.index)
+            ) {
                 const oldIndex = entry.index;
                 const newIndex = mapping.get(oldIndex);
                 entry.index = newIndex;
@@ -4167,10 +4179,14 @@ function fixArgumentReferencesWithinFunction(
                     entry.fallbackCanonical = `argument${newIndex}`;
                 }
             }
-            console.log(`[FeatherFix] Entry after: index=${entry.index}, name=${entry.name}`);
+            console.log(
+                `[FeatherFix] Entry after: index=${entry.index}, name=${entry.name}`
+            );
         }
     } else {
-        console.log(`[FeatherFix] No implicit argument doc entries for function ${functionNode.id?.name || "anonymous"}`);
+        console.log(
+            `[FeatherFix] No implicit argument doc entries for function ${functionNode.id?.name || "anonymous"}`
+        );
     }
 
     for (const reference of references) {

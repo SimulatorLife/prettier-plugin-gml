@@ -35,9 +35,7 @@ void test("collectSyntheticDocCommentLines prefers node-level doc comments", () 
         docPrinterDeps
     );
 
-    assert.deepStrictEqual(result.existingDocLines, [
-        "/// @function local"
-    ]);
+    assert.deepStrictEqual(result.existingDocLines, ["/// @function local"]);
     assert.deepStrictEqual(result.remainingComments, []);
 });
 
@@ -57,9 +55,7 @@ void test("collectSyntheticDocCommentLines falls back to program-level comments"
         docPrinterDeps
     );
 
-    assert.deepStrictEqual(result.existingDocLines, [
-        "/// @function program"
-    ]);
+    assert.deepStrictEqual(result.existingDocLines, ["/// @function program"]);
 });
 
 void test("collectLeadingProgramLineComments returns plain // comments", () => {
@@ -89,26 +85,16 @@ void test("extractLeadingNonDocCommentLines keeps plain comments only", () => {
     ];
 
     const { leadingLines, remainingComments } =
-        Core.extractLeadingNonDocCommentLines(
-            comments,
-            {},
-            docPrinterDeps
-        );
+        Core.extractLeadingNonDocCommentLines(comments, {}, docPrinterDeps);
 
     assert.deepStrictEqual(leadingLines, ["// plain"]);
-    assert.strictEqual(
-        remainingComments[0]?.value,
-        "/// @description"
-    );
+    assert.strictEqual(remainingComments[0]?.value, "/// @description");
 });
 
 void test("collectAdjacentLeadingSourceLineComments gathers contiguous source lines", () => {
-    const sourceText = [
-        "// first",
-        "// second",
-        "",
-        "function go() {}"
-    ].join("\n");
+    const sourceText = ["// first", "// second", "", "function go() {}"].join(
+        "\n"
+    );
     const node = { start: { index: sourceText.indexOf("function") } };
 
     const lines = Core.collectAdjacentLeadingSourceLineComments(

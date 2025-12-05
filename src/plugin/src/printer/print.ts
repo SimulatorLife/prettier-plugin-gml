@@ -168,7 +168,6 @@ const FEATHER_COMMENT_TEXT_SYMBOL = Symbol.for(
     "prettier.gml.feather.commentText"
 );
 
-
 const ARGUMENT_IDENTIFIER_PATTERN = /^argument(\d+)$/;
 
 const forcedStructArgumentBreaks = new WeakMap();
@@ -320,7 +319,10 @@ function _printImpl(path, options, print) {
 
                 // DEBUG: Check if comments are attached to Program
                 if (node.comments && node.comments.length > 0) {
-                    console.log("[DEBUG] Program has comments:", JSON.stringify(node.comments, null, 2));
+                    console.log(
+                        "[DEBUG] Program has comments:",
+                        JSON.stringify(node.comments, null, 2)
+                    );
                 } else {
                     console.log("[DEBUG] Program has NO comments");
                 }
@@ -742,14 +744,14 @@ function _printImpl(path, options, print) {
                         docLikeLeadingLines.length > 0 &&
                         docCommentDocs.length === 0
                     ) {
-                    const mergedDocs = Core.toMutableArray(
-                        Core.mergeSyntheticDocComments(
-                            node,
-                            docCommentDocs,
-                            docCommentOptions,
-                            { leadingCommentLines: docLikeLeadingLines }
-                        )
-                    ) as MutableDocCommentLines;
+                        const mergedDocs = Core.toMutableArray(
+                            Core.mergeSyntheticDocComments(
+                                node,
+                                docCommentDocs,
+                                docCommentOptions,
+                                { leadingCommentLines: docLikeLeadingLines }
+                            )
+                        ) as MutableDocCommentLines;
 
                         docCommentDocs =
                             mergedDocs.length === 0
@@ -841,7 +843,10 @@ function _printImpl(path, options, print) {
                     !Core.isNonEmptyArray(node.docComments) &&
                     originalText !== null &&
                     typeof nodeStartIndex === NUMBER_TYPE &&
-                    Core.hasCommentImmediatelyBefore(originalText, nodeStartIndex);
+                    Core.hasCommentImmediatelyBefore(
+                        originalText,
+                        nodeStartIndex
+                    );
 
                 const hasExistingBlankLine =
                     originalText !== null &&
@@ -855,10 +860,11 @@ function _printImpl(path, options, print) {
                 ) {
                     parts.push(hardline);
                 }
-                
+
                 // Push doc comments individually with literalLine to ensure they appear on separate lines
                 docCommentDocs.forEach((doc) => {
-                    if (node.id === "scr_create_fx") console.log("Printing doc:", doc);
+                    if (node.id === "scr_create_fx")
+                        console.log("Printing doc:", doc);
                     parts.push(doc);
                     parts.push(literalLine);
                 });
@@ -875,7 +881,7 @@ function _printImpl(path, options, print) {
             }
 
             if (node.id === "scr_create_fx") {
-                 console.log("Parts for scr_create_fx:", JSON.stringify(parts));
+                console.log("Parts for scr_create_fx:", JSON.stringify(parts));
             }
 
             let functionNameDoc = "";
@@ -981,13 +987,19 @@ function _printImpl(path, options, print) {
         }
         case "ExpressionStatement": {
             if (node.comments && node.comments.length > 0) {
-                console.log("[DEBUG] ExpressionStatement has comments:", node.comments.map((c: any) => c.value));
+                console.log(
+                    "[DEBUG] ExpressionStatement has comments:",
+                    node.comments.map((c: any) => c.value)
+                );
             }
             return print("expression");
         }
         case "AssignmentExpression": {
             if (node.comments && node.comments.length > 0) {
-                console.log("[DEBUG] AssignmentExpression has comments:", node.comments.map((c: any) => c.value));
+                console.log(
+                    "[DEBUG] AssignmentExpression has comments:",
+                    node.comments.map((c: any) => c.value)
+                );
             }
             const padding =
                 node.operator === "=" &&
@@ -2838,19 +2850,19 @@ function printStatements(path, options, print, childrenAttribute) {
     syntheticDocByNode = new Map();
     if (statements) {
         for (const statement of statements) {
-        const docComment =
-            getSyntheticDocCommentForStaticVariable(
-                statement,
-                options,
-                programNode,
-                originalTextCache
-            ) ??
-            getSyntheticDocCommentForFunctionAssignment(
-                statement,
-                options,
-                programNode,
-                originalTextCache
-            );
+            const docComment =
+                getSyntheticDocCommentForStaticVariable(
+                    statement,
+                    options,
+                    programNode,
+                    originalTextCache
+                ) ??
+                getSyntheticDocCommentForFunctionAssignment(
+                    statement,
+                    options,
+                    programNode,
+                    originalTextCache
+                );
             if (docComment) {
                 syntheticDocByNode.set(statement, docComment);
             }
@@ -2892,7 +2904,10 @@ function printStatements(path, options, print, childrenAttribute) {
         // rhythm described in docs/statement-spacing-policy.md.
         if (currentNodeRequiresNewline && !previousNodeHadNewlineAddedAfter) {
             const hasLeadingComment = isTopLevel
-                ? Core.hasCommentImmediatelyBefore(originalTextCache, nodeStartIndex)
+                ? Core.hasCommentImmediatelyBefore(
+                      originalTextCache,
+                      nodeStartIndex
+                  )
                 : false;
 
             if (
@@ -4189,7 +4204,9 @@ function getPreferredFunctionParameterName(path, node, options) {
             return null;
         }
 
-        const identifier = Core.getIdentifierFromParameterNode(params[paramIndex]);
+        const identifier = Core.getIdentifierFromParameterNode(
+            params[paramIndex]
+        );
         const currentName =
             (identifier && typeof identifier.name === STRING_TYPE
                 ? identifier.name
@@ -4240,7 +4257,9 @@ function getPreferredFunctionParameterName(path, node, options) {
         return null;
     }
 
-    const identifier = Core.getIdentifierFromParameterNode(params[argumentIndex]);
+    const identifier = Core.getIdentifierFromParameterNode(
+        params[argumentIndex]
+    );
     if (!identifier || typeof identifier.name !== STRING_TYPE) {
         return null;
     }
@@ -4404,7 +4423,9 @@ function shouldOmitParameterAlias(declarator, functionNode, options) {
         return false;
     }
 
-    const argumentIndex = Core.getArgumentIndexFromIdentifier(declarator.init.name);
+    const argumentIndex = Core.getArgumentIndexFromIdentifier(
+        declarator.init.name
+    );
     if (argumentIndex === null) {
         return false;
     }
@@ -4430,7 +4451,9 @@ function shouldOmitParameterAlias(declarator, functionNode, options) {
         return false;
     }
 
-    const identifier = Core.getIdentifierFromParameterNode(params[argumentIndex]);
+    const identifier = Core.getIdentifierFromParameterNode(
+        params[argumentIndex]
+    );
     if (!identifier || typeof identifier.name !== STRING_TYPE) {
         return false;
     }
@@ -4457,8 +4480,6 @@ function shouldOmitParameterAlias(declarator, functionNode, options) {
 
     return false;
 }
-
-
 
 function isInsideConstructorFunction(path) {
     if (!path || typeof path.getParentNode !== "function") {
@@ -4557,25 +4578,10 @@ function isValidIdentifierName(name) {
     );
 }
 
-
-
-
-
 // Collects index/reference bookkeeping for implicit `arguments[index]` usages
 // within a function. The traversal tracks alias declarations, direct
 // references, and the set of indices that require doc entries so the caller
 // can format them without dipping into low-level mutation logic.
-
-
-
-
-
-
-
-
-
-
-
 
 function getSourceTextForNode(node, options) {
     if (!node) {
@@ -5078,10 +5084,6 @@ function getStructPropertyPrefix(node, options) {
 
     return prefix;
 }
-
-
-
-
 
 function shouldOmitDefaultValueForParameter(path, options) {
     const node = path.getValue();
@@ -5690,12 +5692,6 @@ function shouldInsertHoistedLoopSeparator(path, options) {
 
     return options?.optimizeLoopLengthHoisting ?? true;
 }
-
-
-
-
-
-
 
 function docHasTrailingComment(doc) {
     if (Core.isNonEmptyArray(doc)) {
