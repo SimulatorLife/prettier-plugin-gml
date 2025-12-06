@@ -126,8 +126,24 @@ function runCommentHandlers(
     return false;
 }
 
+function shouldSuppressComment(comment, options) {
+    if (comment.type !== "CommentLine") {
+        return false;
+    }
+    const lineCommentOptions = resolveLineCommentOptions(options);
+    const formattingOptions = {
+        ...lineCommentOptions,
+        originalText: options.originalText
+    };
+    return formatLineComment(comment, formattingOptions) === null;
+}
+
 const handleComments = {
     ownLine(comment, text, options, ast, isLastComment) {
+        if (shouldSuppressComment(comment, options)) {
+            comment.printed = true;
+            return true;
+        }
         return runCommentHandlers(
             OWN_LINE_COMMENT_HANDLERS,
             comment,
@@ -138,6 +154,10 @@ const handleComments = {
         );
     },
     endOfLine(comment, text, options, ast, isLastComment) {
+        if (shouldSuppressComment(comment, options)) {
+            comment.printed = true;
+            return true;
+        }
         return runCommentHandlers(
             END_OF_LINE_COMMENT_HANDLERS,
             comment,
@@ -148,6 +168,10 @@ const handleComments = {
         );
     },
     remaining(comment, text, options, ast, isLastComment) {
+        if (shouldSuppressComment(comment, options)) {
+            comment.printed = true;
+            return true;
+        }
         return runCommentHandlers(
             REMAINING_COMMENT_HANDLERS,
             comment,
@@ -188,7 +212,8 @@ function printComment(commentPath, options) {
                 ...lineCommentOptions,
                 originalText: options.originalText
             };
-            return formatLineComment(comment, formattingOptions);
+            const formatted = formatLineComment(comment, formattingOptions);
+            return formatted ?? "";
         }
         default: {
             throw new Error(`Unknown comment type: ${comment.type}`);

@@ -123,12 +123,16 @@ function formatLineComment(
     }
 
     if (trimmedValue.length === 0) {
-        return "";
+        return null;
     }
 
     const startsWithTripleSlash = trimmedOriginal.startsWith("///");
     const isPlainTripleSlash =
         startsWithTripleSlash && !trimmedOriginal.includes("@");
+
+    if (trimmedOriginal.includes("@param string    The string to draw")) {
+        console.log(`[DEBUG] formatLineComment: processing target comment. trimmedValue="${trimmedValue}"`);
+    }
 
     const leadingSlashMatch = trimmedOriginal.match(/^\/+/);
     const leadingSlashCount = leadingSlashMatch
@@ -140,7 +144,7 @@ function formatLineComment(
             console.log(
                 `[DEBUG] formatLineComment: Returning empty because boilerplate match. original="${original}", fragment="${lineFragment}"`
             );
-            return "";
+            return null;
         }
     }
 
@@ -234,6 +238,9 @@ function formatLineComment(
                 const formatted = Core.applyJsDocReplacements(
                     `///${shouldInsertSpace ? " " : ""}${remainder}`
                 );
+                if (trimmedOriginal.includes("@param string    The string to draw")) {
+                    console.log(`[DEBUG] formatLineComment: returning formatted doc comment: "${formatted}"`);
+                }
                 return applyInlinePadding(comment, formatted);
             }
         } else if (normalizeBannerCommentText(trimmedValue)) {
@@ -344,18 +351,6 @@ function formatLineComment(
         return applyInlinePadding(comment, formattedCommentLine);
     }
 
-    const sentences = isInlineComment
-        ? [trimmedValue]
-        : splitCommentIntoSentences(trimmedValue);
-    if (sentences.length > 1) {
-        const continuationIndent = extractContinuationIndentation(comment);
-        const formattedSentences = sentences.map((sentence, index) => {
-            const line = applyInlinePadding(comment, `// ${sentence}`);
-            return index === 0 ? line : continuationIndent + line;
-        });
-        return formattedSentences.join("\n");
-    }
-
     const leadingWhitespaceMatch = rawValue.match(/^\s*/);
     const leadingWhitespace = leadingWhitespaceMatch
         ? leadingWhitespaceMatch[0]
@@ -378,6 +373,18 @@ function formatLineComment(
             `//${leadingWhitespace}${coreValue}`,
             true
         );
+    }
+
+    const sentences = isInlineComment
+        ? [trimmedValue]
+        : splitCommentIntoSentences(trimmedValue);
+    if (sentences.length > 1) {
+        const continuationIndent = extractContinuationIndentation(comment);
+        const formattedSentences = sentences.map((sentence, index) => {
+            const line = applyInlinePadding(comment, `// ${sentence}`);
+            return index === 0 ? line : continuationIndent + line;
+        });
+        return formattedSentences.join("\n");
     }
 
     return applyInlinePadding(comment, `// ${trimmedValue}`);
@@ -476,7 +483,20 @@ function looksLikeCommentedOutCode(text, codeDetectionPatterns) {
 }
 
 function splitCommentIntoSentences(text) {
-    if (!text || !text.includes(". ")) {
+    if (!text) {
+        return [text];
+    }
+
+    // Check for explicit comment separators " // " to split merged comments
+    // e.g. "// Comment 1 // Comment 2" -> ["Comment 1", "Comment 2"]
+    // We use a regex that requires whitespace around the slashes to avoid splitting URLs
+    const commentSeparatorMatch = text.match(/\s\/\/\s/);
+    if (commentSeparatorMatch) {
+        const parts = text.split(/\s\/\/\s/);
+        return parts.flatMap((part) => splitCommentIntoSentences(part));
+    }
+
+    if (!text.includes(". ")) {
         return [text];
     }
 
