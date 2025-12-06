@@ -132,7 +132,9 @@ export function computeSyntheticFunctionDocLines(
     overrides: any = {}
 ) {
     if (node && node.id && node.id.name === "string_height_scribble") {
-        console.log("[DEBUG] computeSyntheticFunctionDocLines for string_height_scribble");
+        console.log(
+            "[DEBUG] computeSyntheticFunctionDocLines for string_height_scribble"
+        );
         console.log("[DEBUG] existingDocLines:", existingDocLines);
     }
 
@@ -626,15 +628,14 @@ export function computeSyntheticFunctionDocLines(
                 canonicalOrdinal !== fallbackCanonical &&
                 canonicalOrdinal !== canonicalImplicit
             ) {
-                const ordinalLength = (canonicalOrdinal).length;
+                const ordinalLength = canonicalOrdinal.length;
                 const implicitLength =
-                    (canonicalImplicit &&
-                        (canonicalImplicit).length > 0) ||
+                    (canonicalImplicit && canonicalImplicit.length > 0) ||
                     isNonEmptyTrimmedString(effectiveImplicitName);
 
                 if (
                     ordinalLength >
-                    (implicitLength ? (canonicalImplicit).length : 0)
+                    (implicitLength ? canonicalImplicit.length : 0)
                 ) {
                     // Simplified check
                     effectiveImplicitName = null;

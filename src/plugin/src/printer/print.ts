@@ -631,7 +631,10 @@ function _printImpl(path, options, print) {
                         (text) =>
                             typeof text === STRING_TYPE && text.trim() !== ""
                     );
-                console.log("[DEBUG] Initial docCommentDocs:", JSON.stringify(docCommentDocs));
+                console.log(
+                    "[DEBUG] Initial docCommentDocs:",
+                    JSON.stringify(docCommentDocs)
+                );
             }
 
             // When parser does not attach doc comments to the node but the
@@ -764,7 +767,10 @@ function _printImpl(path, options, print) {
                 // Non-fatal heuristic failures should not abort printing.
             }
 
-            console.log("[DEBUG] Before shouldGenerateSyntheticDocForFunction check. docCommentDocs:", JSON.stringify(docCommentDocs));
+            console.log(
+                "[DEBUG] Before shouldGenerateSyntheticDocForFunction check. docCommentDocs:",
+                JSON.stringify(docCommentDocs)
+            );
             if (
                 Core.shouldGenerateSyntheticDocForFunction(
                     path,
@@ -772,7 +778,12 @@ function _printImpl(path, options, print) {
                     docCommentOptions
                 )
             ) {
-                console.log("[DEBUG] Calling mergeSyntheticDocComments for node", node.type, "with docs:", JSON.stringify(docCommentDocs));
+                console.log(
+                    "[DEBUG] Calling mergeSyntheticDocComments for node",
+                    node.type,
+                    "with docs:",
+                    JSON.stringify(docCommentDocs)
+                );
                 docCommentDocs = Core.toMutableArray(
                     Core.mergeSyntheticDocComments(
                         node,
@@ -780,7 +791,10 @@ function _printImpl(path, options, print) {
                         docCommentOptions
                     )
                 ) as MutableDocCommentLines;
-                console.log("[DEBUG] Result of mergeSyntheticDocComments:", JSON.stringify(docCommentDocs));
+                console.log(
+                    "[DEBUG] Result of mergeSyntheticDocComments:",
+                    JSON.stringify(docCommentDocs)
+                );
                 if (Array.isArray(docCommentDocs)) {
                     while (
                         docCommentDocs.length > 0 &&
@@ -801,7 +815,9 @@ function _printImpl(path, options, print) {
                     needsLeadingBlankLine = true;
                 }
             } else {
-                console.log("[DEBUG] Skipping mergeSyntheticDocComments (shouldGenerate returned false)");
+                console.log(
+                    "[DEBUG] Skipping mergeSyntheticDocComments (shouldGenerate returned false)"
+                );
             }
 
             const shouldEmitPlainLeadingBeforeDoc =
@@ -818,7 +834,10 @@ function _printImpl(path, options, print) {
             }
 
             if (docCommentDocs.length > 0) {
-                console.log("[DEBUG] Printing docCommentDocs:", JSON.stringify(docCommentDocs));
+                console.log(
+                    "[DEBUG] Printing docCommentDocs:",
+                    JSON.stringify(docCommentDocs)
+                );
                 node[DOC_COMMENT_OUTPUT_FLAG] = true;
                 const suppressLeadingBlank =
                     docCommentDocs &&
@@ -5929,10 +5948,7 @@ function isControlFlowLogicalTest(path) {
             continue;
         }
 
-        if (
-            ancestor.type === "IfStatement" &&
-            ancestor.test === currentNode
-        ) {
+        if (ancestor.type === "IfStatement" && ancestor.test === currentNode) {
             return true;
         }
 
@@ -5950,11 +5966,17 @@ function isControlFlowLogicalTest(path) {
             return true;
         }
 
-        if (ancestor.type === "RepeatStatement" && ancestor.test === currentNode) {
+        if (
+            ancestor.type === "RepeatStatement" &&
+            ancestor.test === currentNode
+        ) {
             return true;
         }
 
-        if (ancestor.type === "WithStatement" && ancestor.test === currentNode) {
+        if (
+            ancestor.type === "WithStatement" &&
+            ancestor.test === currentNode
+        ) {
             return true;
         }
 
@@ -6082,7 +6104,11 @@ function shouldFlattenSyntheticBinary(parent, expression, path) {
         return false;
     }
 
-    if (isAdditivePair && (binaryExpressionContainsString(parent) || binaryExpressionContainsString(expression))) {
+    if (
+        isAdditivePair &&
+        (binaryExpressionContainsString(parent) ||
+            binaryExpressionContainsString(expression))
+    ) {
         return false;
     }
 
