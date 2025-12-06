@@ -58,11 +58,11 @@
     "lint:quiet": "timeout -t 2m -- eslint . --ext .ts,.yml,.yaml --cache --quiet",
     "lint:fix": "eslint . --ext .ts,.yml,.yaml --cache --fix",
     "lint:ci": "timeout -t 2m -- eslint . --ext .ts,.yml,.yaml --max-warnings=0 --report-unused-disable-directives && npm run lint:workflows && npm run lint:yaml",
-    "lint:report": "eslint . --ext .ts,.yml,.yaml --format checkstyle --output-file reports/eslint-checkstyle.xml",
-    "report": "bash -lc 'status=0; npm run lint:report || status=$?; npm run test:report || status=$?; npm run test:coverage || status=$?; npm run memory || status=$?; exit $status'",
+    "lint:report": "eslint . --ext .ts,.yml,.yaml --format checkstyle --output-file reports/eslint-checkstyle.xml && npm exec -- prettier --ignore-path=\"\" --plugin=@prettier/plugin-xml --parser=xml --write reports/eslint-checkstyle.xml",
+    "report": "bash -lc 'status=0; npm run lint:report || status=$?; npm run lint:duplicates:report || status=$?; npm run test:report || status=$?; npm run test:coverage || status=$?; npm run memory || status=$?; npm run tree:report || status=$?; exit $status'",
     "check": "npm run format:check && npm run lint:ci && npm test",
     "test": "npm run build:ts && timeout -t 2m -- node --test --test-timeout=120000 '**/*.test.js'",
-    "test:report": "rm -f reports/tests.xml && mkdir -p reports && node --test --test-reporter=junit --test-reporter-destination=./reports/tests.xml",
+    "test:report": "mkdir -p reports && node --test --test-reporter=junit --test-reporter-destination=./reports/tests.xml",
     "test:coverage": "bash -lc 'rm -f reports/lcov.info && mkdir -p reports && ./node_modules/.bin/c8 --reporter=lcovonly --report-dir=reports node --test; status=$?; rm -rf .nyc_output reports/tmp reports/lcov-report; exit $status'",
     "test:core": "npm run build:types --workspace=@gml-modules/core && node --test src/core/dist/test/*.test.js",
     "test:core:report": "npm run build:types --workspace=@gml-modules/core && node --test --test-reporter=junit --test-reporter-destination=./reports/core.xml src/core/dist/test/*.test.js",
@@ -81,6 +81,7 @@
     "test:cli": "npm run build:types --workspace=@gml-modules/cli && node --test src/cli/dist/test/*.test.js",
     "test:cli:report": "npm run build:types --workspace=@gml-modules/cli && node --test --test-reporter=junit --test-reporter-destination=./reports/cli.xml src/cli/dist/test/*.test.js",
     "test:root": "node --test test/*.test.js",
+    "test:root:report": "node --test --test-reporter=junit --test-reporter-destination=./reports/root.xml test/*.test.js",
     "format:gml": "npm run build:types --workspace=@gml-modules/cli && node ./src/cli/dist/index.js format",
     "format": "npm exec -- prettier --ignore-path ./.prettierignore --write \"{src/**/*.ts,src/**/*.js,src/**/*.mjs,*.{ts,js,cjs,mjs}}\"",
     "format:check": "npm exec -- prettier --ignore-path ./.prettierignore --check \"{src/**/*.ts,src/**/*.js,src/**/*.mjs,*.{ts,js,cjs,mjs}}\"",
@@ -97,8 +98,10 @@
     "cli": "npm run build:types --workspace=@gml-modules/cli && node ./src/cli/dist/index.js",
     "actionlint:install": "mkdir -p node_modules/.bin && curl -sSfL https://raw.githubusercontent.com/rhysd/actionlint/main/scripts/download-actionlint.bash | bash -s -- latest ./node_modules/.bin",
     "lint:actions": "actionlint -color",
-    "lint:duplicates": "jscpd --noSymlinks --format \"javascript,typescript\" --reporters \"json,console\" --output \"./reports/\" --min-lines 7 --min-tokens 100 src/",
+    "lint:duplicates:report": "jscpd --noSymlinks --format \"typescript\" --reporters \"json\" --output \"./reports/\" --min-lines 7 --min-tokens 100 src/",
+    "lint:duplicates": "jscpd --noSymlinks --format \"typescript\" --reporters \"console\" --min-lines 7 --min-tokens 100 src/",
     "tree": "tree -F -I \"eslint-suppressions\\.json|.*\\.log$|node_modules|vendor|dist|.*\\.d\\.ts$|.*\\.d\\.ts\\.map$|.*\\.ts\\.map$|.*\\.js\\.map$\" .",
+    "tree:report": "mkdir -p reports && tree -F -I \"eslint-suppressions\\.json|.*\\.log$|node_modules|vendor|dist|.*\\.d\\.ts$|.*\\.d\\.ts\\.map$|.*\\.ts\\.map$|.*\\.js\\.map$\" . > reports/tree.txt",
     "tree:ts": "tree -F -I \"(?<!tsconfig|tsconfig\\.base)\\.(?!ts$)[^/]+$|node_modules|vendor|dist\" ./src"
   },
   "jscpd": {
@@ -115,6 +118,7 @@
   },
   "devDependencies": {
     "@eslint/js": "^9.38.0",
+    "@prettier/plugin-xml": "^3.4.2",
     "@types/node": "^22.9.0",
     "@typescript-eslint/eslint-plugin": "^8.47.0",
     "@typescript-eslint/parser": "^8.47.0",
@@ -138,11 +142,11 @@
     "globals": "^16.4.0",
     "husky": "^9.1.7",
     "jscpd": "^4.0.5",
+    "patch-package": "^8.0.1",
     "prettier": "^3.6.2",
     "timeout-cli": "^0.3.2",
     "tree-node-cli": "^1.6.0",
     "typescript": "^5.9.3",
-    "typescript-eslint": "^8.47.0",
-    "patch-package": "^8.0.1"
+    "typescript-eslint": "^8.47.0"
   }
 }
