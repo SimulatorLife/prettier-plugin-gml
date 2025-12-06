@@ -76,3 +76,22 @@ function scr_create_fx(sprite, fx_x, fx_y = undefined, fx_z = 0, func_fx_callbac
         }
     );
 }
+
+/// @function scr_struct_get
+/// @param {Struct} structure
+/// @param key
+/// @param [default_value]
+/// @returns {Any}
+scr_struct_get(structure, key, default_value = undefined) {
+    if (is_undefined(structure)) {
+        return default_value;
+    }
+    return struct_get(structure, key) ?? default_value;
+}
+
+/// @function scr_buffer_passthrough
+/// @param {Id.Buffer} buffer
+/// @returns {Id.Buffer}
+scr_buffer_passthrough(buffer) {
+    return buffer;
+}

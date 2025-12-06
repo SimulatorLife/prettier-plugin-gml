@@ -62,7 +62,7 @@ function scr_bezier_4(argument0, argument1, argument2, argument3, argument4, arg
 //// @param {real} fx_x
 ///// @param {real} fx_y*
 /// @param {int} [fx_z=0]
-/// @param {Constant.Colour} [colour=c_white]
+/// @param {constant.Colour} [colour=c_white]
 /// @param {function} *func_fx_callback - A function to call after the animation has completed
 /* @description Create an effect */
 /// @returns {Id.Instance} instance
@@ -82,4 +82,19 @@ function scr_create_fx(sprite, fx_x, fx_y = undefined, fx_z = 0, func_fx_callbac
         obj_fx,
         {z : fx_z, sprite_index : sprite, func_callback : func_fx_callback, image_blend :  colour}
     );
+}
+
+/// @param {Struct} structure
+/// @return {any}
+scr_struct_get(structure, key, default_value = undefined) {
+    if (is_undefined(structure)) {
+        return default_value;
+    }
+    return struct_get(structure, key) ?? default_value;
+}
+
+/// @arg {Buffer} buffer
+/// @return {Buffer}
+scr_buffer_passthrough(buffer) {
+    return buffer;
 }

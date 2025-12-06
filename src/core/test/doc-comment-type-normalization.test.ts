@@ -64,7 +64,6 @@ void test("doc comment type normalization resolver extends the defaults", () => 
                 ["guid", "string"],
                 ["vec3", "vector3"]
             ],
-            canonicalSpecifierNames: [["resource", "Resource"]],
             specifierPrefixes: ["resource"]
         }));
 
@@ -103,22 +102,14 @@ void test("doc comment normalization accepts entry-capable collaborators", () =>
             return values[Symbol.iterator]();
         }
     };
-    const canonicalEntries = {
-        entries() {
-            const values = [["Custom", "CustomCanonical"]];
-            return values[Symbol.iterator]();
-        }
-    };
     const prefixIterable = {
         *[Symbol.iterator]() {
             yield "Custom";
         }
     };
-
     try {
         Core.setDocCommentTypeNormalizationResolver(() => ({
             synonyms: synonymsEntries,
-            canonicalSpecifierNames: canonicalEntries,
             specifierPrefixes: prefixIterable
         }));
 
@@ -129,7 +120,7 @@ void test("doc comment normalization accepts entry-capable collaborators", () =>
         );
         assert.equal(
             normalization.getCanonicalSpecifierName("Custom"),
-            "CustomCanonical"
+            "Custom"
         );
         assert.equal(normalization.hasSpecifierPrefix("Custom"), true);
     } finally {

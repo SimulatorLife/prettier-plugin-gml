@@ -31,10 +31,10 @@ var matrix = scr_matrix_build(
 
 #macro  SQUARE(_value)    ((_value)*(_value))
 
-var total = 0;
-var limit = argument0;
-var arr = argument1;
-var value = 0;
+var total   = 0;
+var limit   = argument0;
+var arr     = argument1;
+var value   = 0;
 var tracker = {data: arr, lastIndex: -1};
 
 do {
@@ -83,8 +83,8 @@ function bool_passthrough(condition) {
 }
 
 /// @function bool_negated
-/// @param {boolean} a - The first boolean
-/// @param {boolean} b - The second boolean
+/// @param {bool} a - The first boolean
+/// @param {bool} b - The second boolean
 function bool_negated(a, b) {
     return !(a and b);
 }

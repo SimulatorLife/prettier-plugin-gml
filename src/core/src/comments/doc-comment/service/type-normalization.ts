@@ -1,4 +1,5 @@
 import {
+    capitalize,
     createResolverController,
     getNonEmptyString,
     getNonEmptyTrimmedString
@@ -44,43 +45,46 @@ const DOC_COMMENT_TYPE_PATTERN = /\{([^}]+)\}/g;
 
 export const DEFAULT_DOC_COMMENT_TYPE_NORMALIZATION = Object.freeze({
     synonyms: Object.freeze([
+        // This maps common possible types to a standardized GML type/form
         ["void", "undefined"],
-        ["undefined", "undefined"],
-        ["real", "real"],
-        ["bool", "bool"],
-        ["boolean", "boolean"],
-        ["string", "string"],
-        ["array", "array"],
-        ["struct", "struct"],
-        ["enum", "enum"],
-        ["pointer", "pointer"],
-        ["method", "method"],
-        ["asset", "asset"],
-        ["constant", "constant"],
-        ["any", "any"],
-        ["var", "var"],
-        ["int64", "int64"],
-        ["int32", "int32"],
-        ["int16", "int16"],
-        ["int8", "int8"],
-        ["uint64", "uint64"],
-        ["uint32", "uint32"],
-        ["uint16", "uint16"],
-        ["uint8", "uint8"]
+        ["null", "undefined"],
+        ["*", "any"],
+        ["unknown", "any"],
+        ["number", "real"],
+        ["bigint", "int64"],
+        ["uint64", "int64"],
+        ["uint32", "int32"],
+        ["uint16", "int16"],
+        ["uint8", "int8"],
+        ["float", "real"],
+        ["double", "real"],
+        ["decimal", "real"],
+        ["int", "real"],
+        ["boolean", "bool"]
+    ]),
+    nativeTypes: Object.freeze([ // GML types
+        "real",
+        "string",
+        "array",
+        "struct",
+        "enum", // This is not a native type but included for normalization purposes
+        "pointer",
+        "method",
+        "asset",
+        "constant",
+        "any",
+        "int64",
+        "int32",
+        "int16",
+        "int8"
     ]),
     specifierPrefixes: Object.freeze([
         "asset",
         "constant",
         "enum",
         "id",
-        "struct"
-    ]),
-    canonicalSpecifierNames: Object.freeze([
-        ["asset", "Asset"],
-        ["constant", "Constant"],
-        ["enum", "Enum"],
-        ["id", "Id"],
-        ["struct", "Struct"]
+        "struct",
+        "any"
     ])
 });
 
@@ -407,13 +411,9 @@ function createDocCommentTypeNormalization(candidate: unknown) {
         synonyms.set(key.toLowerCase(), value);
     }
 
-    const canonicalSpecifierNames = new Map<string, string>();
-    for (const [
-        key,
-        value
-    ] of DEFAULT_DOC_COMMENT_TYPE_NORMALIZATION.canonicalSpecifierNames) {
-        canonicalSpecifierNames.set(key.toLowerCase(), value);
-    }
+    const nativeTypes = new Set(
+        DEFAULT_DOC_COMMENT_TYPE_NORMALIZATION.nativeTypes
+    );
 
     const specifierPrefixes = new Set(
         DEFAULT_DOC_COMMENT_TYPE_NORMALIZATION.specifierPrefixes.map((value) =>
@@ -424,10 +424,6 @@ function createDocCommentTypeNormalization(candidate: unknown) {
     if (candidate && typeof candidate === "object") {
         const cand = candidate as Record<string, unknown>;
         mergeNormalizationEntries(synonyms, cand.synonyms);
-        mergeNormalizationEntries(
-            canonicalSpecifierNames,
-            cand.canonicalSpecifierNames
-        );
         mergeSpecifierPrefixes(specifierPrefixes, cand.specifierPrefixes);
     }
 
@@ -435,14 +431,30 @@ function createDocCommentTypeNormalization(candidate: unknown) {
         lookupTypeIdentifier(identifier: unknown) {
             return withNormalizedDocCommentLookup(
                 identifier,
-                (normalized) => synonyms.get(normalized) ?? null,
+                (normalized) => {
+                    const synonym = synonyms.get(normalized);
+                    if (synonym) {
+                        return synonym;
+                    }
+
+                    if (nativeTypes.has(normalized)) {
+                        return normalized;
+                    }
+
+                    return null;
+                },
                 null
             );
         },
         getCanonicalSpecifierName(identifier: unknown) {
             return withNormalizedDocCommentLookup(
                 identifier,
-                (normalized) => canonicalSpecifierNames.get(normalized) ?? null,
+                (normalized) => {
+                    if (specifierPrefixes.has(normalized)) {
+                        return capitalize(normalized);
+                    }
+                    return null;
+                },
                 null
             );
         },
