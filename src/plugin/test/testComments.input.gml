@@ -7,6 +7,8 @@
 
 //
 
+/** */
+
 // Make body wobble up and down // This is a trailing comment
 z_wobble = ((sin(current_time * 0.004) + 1) * 2) + 2;  // value between 0 and 2, this is subtracted from crabs height
 

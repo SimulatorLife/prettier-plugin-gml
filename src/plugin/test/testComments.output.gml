@@ -25,7 +25,7 @@ function string_height_scribble(_string) {
 // This is an unrelated comment
 
 /// @function scribble_font_has_character
-/// @param fontName - The target font, as a string
+/// @param font_name - The target font, as a string
 /// @param character - Character to test for, as a string
 /// @description Tests to see if a font has the given character
 /// @returns {bool} Indicating whether the given character is found in the font
