@@ -1,3 +1,4 @@
+// TODO: Remove this file and have consumers do direct imports from Core
 import { Core } from "@gml-modules/core";
 
 type CoreBindings = typeof Core;
