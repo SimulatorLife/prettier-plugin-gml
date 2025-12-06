@@ -34,7 +34,7 @@ function func_coords(x = 0, y = 0, z = 0) {
 
 var myCoords = func_coords(10, undefined, 20);
 
-/// @hide
+/// @ignore
 /// @function Shape
 /// @param [color]
 /// @description Base class for all shapes. Shapes can be solid or not solid.

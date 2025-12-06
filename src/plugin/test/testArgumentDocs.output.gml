@@ -104,3 +104,11 @@ scr_struct_get(structure, key, default_value = undefined) {
 scr_lots_of_types(buffer, list, map, count, asset, callback = undefined, extra = undefined) {
     return $"{buffer}, ${list}, ${map}, ${count}, ${asset}, ${callback}, ${extra}";
 }
+
+/// @param {string} [greeting="Hello, World!"]
+/// @description An anonymous function that greets
+/// @returns {string}
+var func_greet = function(greeting = "Hello, World!") {
+    show_debug_message(greeting);
+    return greeting;
+}

@@ -182,7 +182,7 @@ function AbstractSkyboxParent(sprite = noone, subimg = 0, octahedron_scale = 1, 
         if (reset_matrix) { scr_matrix_reset(); }
     };
 
-    /// @hide
+    /// @ignore
     /// @function land_buffer_get_land_type
     /// @param {Id.Buffer} land_buffer
     /// @returns {enum} land_type
