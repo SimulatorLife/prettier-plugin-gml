@@ -110,7 +110,7 @@ scr_lots_of_types(buffer, list, map, count, asset, callback = undefined, extra =
 
 /**
  * @param {string} [greeting="Hello, World!"]
- * @description An anonymous function that greets
+ * @description    An anonymous function that greets
  * @returns {string}
  */
 var func_greet = function(greeting = "Hello, World!") {
