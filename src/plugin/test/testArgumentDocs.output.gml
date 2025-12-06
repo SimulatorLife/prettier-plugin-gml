@@ -89,9 +89,18 @@ scr_struct_get(structure, key, default_value = undefined) {
     return struct_get(structure, key) ?? default_value;
 }
 
+// Note: Multiple data types can also be listed, separated by a comma ,
+// For example string,array<string>, Id.Instance,Asset.GMObject, etc.
+
 /// @function scr_buffer_passthrough
 /// @param {Id.Buffer} buffer
-/// @returns {Id.Buffer}
-scr_buffer_passthrough(buffer) {
-    return buffer;
+/// @param {Id.DsList<array<real>>} list
+/// @param {Id.DsMap} map
+/// @param {real,array} count
+/// @param {Asset.GMScript,Asset.GMObject} asset
+/// @param {function} [callback]
+/// @param {any} [extra]
+/// @returns {string}
+scr_lots_of_types(buffer, list, map, count, asset, callback = undefined, extra = undefined) {
+    return $"{buffer}, ${list}, ${map}, ${count}, ${asset}, ${callback}, ${extra}";
 }

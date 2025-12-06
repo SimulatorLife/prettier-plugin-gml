@@ -25,8 +25,9 @@ const JSDOC_REPLACEMENTS = {
     "@overridden": "@override",
     "@exception": "@throws",
     "@throw": "@throws",
-    "@private": "@hide",
-    "@hidden": "@hide"
+    "@private": "@ignore",
+    "@hidden": "@ignore",
+    "@hide": "@ignore"
 };
 
 const JSDOC_REPLACEMENT_RULES = Object.entries(JSDOC_REPLACEMENTS).map(
@@ -62,16 +63,33 @@ export const DEFAULT_DOC_COMMENT_TYPE_NORMALIZATION = Object.freeze({
         ["int", "real"],
         ["boolean", "bool"]
     ]),
-    nativeTypes: Object.freeze([ // GML types
+    nativeTypes: Object.freeze([
+        // These types, when printed out, will use this exact casing (all lowercase)
+        // See: https://manual.gamemaker.io/beta/en/The_Asset_Editors/Code_Editor_Properties/Feather_Data_Types.htm
+        // NOTE JSDoc base types are case-insensitive, so string and String are the same, however specifiers (after the .) are case-sensitive, meaning Id.DsList is valid (referring to a DS List) but Id.dslist is not
+
+        // Allow this group to be recognized as native types and specifiers
+        // So, for example, these are all valid:
+        /// @param {Struct.MyStruct}
+        /// @param {Struct}
+        /// @param {Asset.GMSprite}
+        /// @param {Constant}
+        // ...
+        "struct",
+        "asset",
+        "constant",
+
+        // For this group, these are not a native types
+        // But included for normalization purposes
+        "enum",
+        "method",
+
+        // Others
+        "undefined",
         "real",
         "string",
         "array",
-        "struct",
-        "enum", // This is not a native type but included for normalization purposes
         "pointer",
-        "method",
-        "asset",
-        "constant",
         "any",
         "int64",
         "int32",
@@ -79,12 +97,13 @@ export const DEFAULT_DOC_COMMENT_TYPE_NORMALIZATION = Object.freeze({
         "int8"
     ]),
     specifierPrefixes: Object.freeze([
+        // Used for type specifiers like Asset.GMSprite, Id.Buffer, etc.
+        // These are case-insensitive for normalization purposes
+        // But will be capitalized when printed out
         "asset",
         "constant",
-        "enum",
         "id",
-        "struct",
-        "any"
+        "struct"
     ])
 });
 
