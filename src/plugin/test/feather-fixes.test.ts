@@ -3159,7 +3159,7 @@ void describe("Parser.Transforms.applyFeatherFixes transform", () => {
         });
 
         const expected = [
-            "/// Create Event",
+            "// Create Event",
             "",
             "// vertex_format_begin();",
             "// vertex_format_add_position_3d();",
