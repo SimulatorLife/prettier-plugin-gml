@@ -2,12 +2,6 @@
 
 This document captures the semantic analysis, scope management, and transpiler planning that underpin the live-reloading pipeline. The live runtime hooks described in [live-reloading concept](./live-reloading-concept.md) depend on these facilities to turn edited GML into hot-swappable JavaScript patches.
 
-> **Implementation note**
-> Skeleton packages now live at `src/transpiler/` and `src/refactor/` so downstream
-> tooling can begin wiring to real modules as the plan milestones graduate into
-> code. The stubs expose placeholder entry points that match the contracts
-> described below.
-
 ## Role of the ANTLR4 → JS Transpiler
 The ANTLR4 grammar supplied with the project yields a parse tree for any `.gml` file. A custom transpiler turns that tree into executable JavaScript on demand, effectively recreating the IDE’s export step at development time.
 

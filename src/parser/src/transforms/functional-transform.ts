@@ -1,7 +1,7 @@
 import type { MutableGameMakerAstNode } from "@gml-modules/core";
 
 type TransformOptions = Record<string, unknown>;
-type EmptyTransformOptions = Record<string, never>;
+export type EmptyTransformOptions = Record<string, never>;
 
 export interface ParserTransform<
     AstType extends MutableGameMakerAstNode = MutableGameMakerAstNode,

@@ -29,10 +29,14 @@ type StripCommentsTransformOptions = {
 };
 
 type ConsolidateStructAssignmentsOptions = {
+    /*
+     * TODO: 'Comment-tools' should not be defined here. It will always need to track comments, and should use the helper from Core.
+     * This entire type can be eliminated once the transform is refactored to use Core's comment functionality directly.
+    */
     commentTools?: CommentTools | null;
 };
 
-type CondenseLogicalExpressionsOptions = {
+type CondenseLogicalExpressionsOptions = { // TODO: Helpers should not be defined here. It will always need to check for comments, and should use the helper from Core.
     helpers?:
         | { hasComment: (node: unknown) => boolean }
         | ((node: unknown) => boolean)

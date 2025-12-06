@@ -161,14 +161,3 @@ The test validates:
 │  └──────────────────────────────────────────────────────┘   │
 └─────────────────────────────────────────────────────────────┘
 ```
-
-## Next Steps
-
-The hot reload integration loop is now complete. Future enhancements include:
-
-- [ ] Semantic analysis for scope-aware transpilation
-- [ ] Dependency tracking to rebuild dependent scripts
-- [ ] Event transpilation (not just scripts)
-- [ ] Shader and asset hot-reloading
-- [ ] Browser-based dev tools UI
-- [ ] Patch history and rollback controls

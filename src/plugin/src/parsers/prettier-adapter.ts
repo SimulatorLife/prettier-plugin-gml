@@ -3,6 +3,9 @@
 // Transform options. This is intentionally small; it demonstrates the mapping
 // layer the plugin should own.
 
+// TODO: The parser also has similar functionality in 'src/parser/src/transforms/index.ts' that
+// needs to be properly integrated/consolidated with this adapter with proper adhesion to their respective concerns (parser: AST parsing, plugin: printing).
+
 import {
     Parser,
     type ParserOptions,
@@ -10,16 +13,12 @@ import {
     type ParserTransformOptions
 } from "@gml-modules/parser";
 
-type PrettierGmlOptions = {
-    gmlLanguageVersion?: string;
-    gmlExperimental?: boolean;
-    gmlRelaxedSemicolons?: boolean;
-    gmlPreserveDocs?: boolean;
-    gmlStrictSemicolons?: boolean;
-};
-
 // Use ParserOptions type from Parser package to ensure compatibility.
 type ParserConfig = ParserOptions;
+
+type PrettierGmlOptions = {
+    gmlStripComments?: boolean;
+}
 
 type TransformOptions = Partial<
     Record<ParserTransformName, ParserTransformOptions>
@@ -52,12 +51,12 @@ export function makeParserConfig(
 export function makeTransformOptions(
     prettierOptions: PrettierGmlOptions = {}
 ): TransformOptions {
-    return prettierOptions.gmlPreserveDocs
+    return prettierOptions.gmlStripComments
         ? {
-              "strip-comments": {
+              "strip-comments": { // TODO: May want to expose more fine-grained options later for each behavior
                   stripComments: true,
-                  stripJsDoc: !prettierOptions.gmlPreserveDocs,
-                  dropCommentedOutCode: false
+                  stripJsDoc: true,
+                  dropCommentedOutCode: true
               }
           }
         : {};
@@ -70,8 +69,8 @@ export function parseForPrettier(
     const parserConfig = makeParserConfig(prettierOptions);
     const transformOpts = makeTransformOptions(prettierOptions);
 
-    // Example pipeline: parse, then run some semantic transforms. The plugin
-    // can decide which transforms to run and pass the options it built above.
+    // Parse, then run transforms. The plugin can decide which transforms to run 
+    // and pass the options it built above.
     const pipelineConfig: PipelineConfig = {
         parser: parserConfig,
         transforms: {

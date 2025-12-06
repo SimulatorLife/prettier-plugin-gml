@@ -6,48 +6,6 @@
 
 See how the plugin rewrites real GameMaker Language (GML) inputs. Each example links to the corresponding regression fixture used by the automated test suite so you can diff behaviour without running the formatter locally.
 
-#### Legacy `#define` cleanup
-
-<table>
-<thead>
-<tr><th>Before</th><th>After</th></tr>
-</thead>
-<tbody>
-<tr>
-<td>
-
-```gml
-#define  LEGACY_MACRO 123456789
-#define region Utility Scripts
-var util = function(val) {
-        return val * LEGACY_MACRO;
-}
-#define    end region Utility Scripts
-#define 123 not valid
-```
-
-</td>
-<td>
-
-```gml
-#macro  LEGACY_MACRO 123456789
-
-#region Utility Scripts
-
-var util = function(val) {
-    return val * LEGACY_MACRO;
-};
-
-#endregion Utility Scripts
-```
-
-</td>
-</tr>
-</tbody>
-</table>
-
-<p align="right"><sub><a href="src/plugin/test/define-normalization.input.gml">Input fixture</a> · <a href="src/plugin/test/define-normalization.output.gml">Output fixture</a></sub></p>
-
 #### Struct consolidation & trailing comments
 
 <table>
@@ -140,12 +98,6 @@ for (var i = 0; i < queue_count; i += 1) {
 - [Contributor onboarding checklist](docs/contributor-onboarding.md) &mdash; Step-by-
   step environment setup, validation commands, and a tour of the workspace
   scripts for new contributors.
-- [Architecture audit log](docs/architecture-audit-log.md) &mdash; Consolidated
-  repository health checks with dated entries. The scheduled workflow appends
-  its results here instead of opening per-day files. Review the
-  [shared module layout refresh](docs/shared-module-layout.md) for historical
-  context around the `src/shared/src/` consolidation. Pair it with the
-  [interface segregation investigation](docs/interface-segregation-investigation.md)
   when you need context on why the CLI and plugin expose separate entry points.
 - [Semantic subsystem reference](src/semantic/README.md) &mdash; Details how the
   scope trackers and project-index coordinator live in the dedicated
@@ -161,17 +113,6 @@ for (var i = 0; i < queue_count; i += 1) {
 - [ANTLR regeneration guide](docs/antlr-regeneration.md) &mdash; Walkthrough for
   rebuilding the generated parser sources with the vendored toolchain and
   understanding where custom extensions live.
-- [Legacy identifier-case plan](docs/legacy-identifier-case-plan.md) &mdash; Archived
-  summary of the previous rename pipeline, scope coverage, rollout workflow, and
-  tricky identifier examples. Use it for historical context; the current roadmap
-  spans the [live reloading concept](docs/live-reloading-concept.md) and the
-  [semantic scope plan](docs/semantic-scope-plan.md).
-- [Project index cache design](docs/legacy-identifier-case-plan.md#project-index-cache-design) &mdash; Design
-  notes and cache architecture guidance for the legacy project index
-  functionality (replaced by the new
-  [semantic scope plan](docs/semantic-scope-plan.md)) preserved alongside the
-  archived
-  [project index roadmap](docs/legacy-identifier-case-plan.md#archived-project-index-roadmap).
 - [Feather data plan](docs/feather-data-plan.md) &mdash; Scraper workflow for
   keeping the generated metadata in `resources/` current, plus validation steps
   for reviewing diffs before publishing updates. Use the
@@ -184,18 +125,6 @@ for (var i = 0; i < queue_count; i += 1) {
 - [Semantic scope plan](docs/semantic-scope-plan.md) &mdash; Roadmap for the
   ANTLR-based transpiler, semantic analysis, and dependency tracking that will
   feed the live reloading pipeline.
-- Formatter extension hooks &mdash; The plugin exposes extension hooks for
-  line-comment options, doc comment type normalization, statement newline
-  padding, and core option overrides that let integrators run controlled
-  experiments without permanently widening the public option surface. Use
-  `setProjectIndexSourceExtensions` when bespoke suffixes (for example,
-  `.npc.gml`) need to participate in rename plans. Documentation for these hooks
-  is pending; refer to the source files in `src/plugin/src/options/` and
-  `src/plugin/src/comments/` for implementation details.
-- [Memory experiments](docs/metrics-tracker-finalize-memory.md) &mdash; Captures the
-  `node --expose-gc` script and before/after measurements that validate the
-  metrics tracker clean-up path. Run with `npm run memory` to execute the
-  benchmark suite.
 
 ---
 
@@ -456,11 +385,14 @@ points while sharing utilities via the `src/shared/src/` module.
 
 | Package / folder | Location | Purpose |
 | --- | --- | --- |
-| `prettier-plugin-gamemaker` | `src/plugin/` | Prettier plugin entry point (`src/gml.js`), printers, option handlers, CLI surface helpers, and regression fixtures. |
-| `gamemaker-language-parser` | `src/parser/` | ANTLR grammar sources, generated parser output, and the parser test suite. |
-| `prettier-plugin-gml-cli` | `src/cli/` | Command-line interface (`cli.js`) for metadata generation, formatting wrapper commands, file watching for hot-reload pipeline, integration tests, and performance tooling. |
-| `gamemaker-language-semantic` | `src/semantic/` | Scope trackers, project-index orchestration, rename bootstrap controls, and the semantic test suite. |
-| Shared modules | `src/shared/src/` | Helper modules shared by the plugin, CLI, parser, and semantic packages (AST utilities, identifier casing primitives, string helpers). |
+| `@gml-module/plugin` | `src/plugin/` | Prettier plugin entry point, printers, option handlers, CLI surface helpers, and regression fixtures. |
+| `@gml-module/parser` | `src/parser/` | ANTLR grammar sources, generated parser output, and the parser test suite. |
+| `@gml-module/cli` | `src/cli/` | Command-line interface (`cli.js`) for metadata generation, formatting wrapper commands, file watching for hot-reload pipeline, integration tests, and performance tooling. |
+| `@gml-module/semantic` | `src/semantic/` | Semantic layer for tracking variable scope, project-index orchestration. |
+| `@gml-module/core` | `src/core/` | Helper modules shared by the other packages/workspaces (AST utilities, string utilities, etc.). |
+| `@gml-module/transpiler` | `src/transpiler/` | GML → JavaScript transpiler/emitter. |
+| `@gml-module/runtime-wrapper` | `src/runtime-wrapper/` | Browser runtime hooks for live reloading during HTML5 gameplay. |
+| `@gml-module/refactor` | `src/refactor/` | Semantic-safe rename engine. |
 | Metadata snapshots | `resources/` | Generated datasets consumed by the formatter (identifier inventories, Feather metadata). |
 | Documentation | `docs/` | Planning notes, rollout guides, and deep-dive references. Start with [`docs/README.md`](docs/README.md) for an index. |
 
@@ -506,117 +438,24 @@ layout stays consistent.
   npx prettier --plugin=prettier-plugin-gamemaker --write scripts/player_attack.gml
   ```
 
-  > **Workspace installs:** Replace the `--plugin` specifier with
-  > `./node_modules/root/src/plugin/src/plugin-entry.js` when the repository is vendored
-  > directly into `node_modules/root/`.
-
 - Use the wrapper helper (accepts the same flags as `npm run format:gml --`).
   Pass the project or file you want to format explicitly:
 
   ```bash
-  node ./node_modules/root/src/cli/src/cli.js format path/to/project --extensions .gml --extensions .yy
+  npm run cli path/to/project
   ```
 
 - Preview formatting changes without writing them back:
 
   ```bash
-  node ./node_modules/root/src/cli/src/cli.js --check
+  npm run cli --check path/to/project
   ```
 
 - Discover supported flags or double-check defaults:
 
   ```bash
-  node ./node_modules/root/src/cli/src/cli.js --help
+  npm run cli --help
   ```
-
-- Inspect formatter-specific switches:
-
-  ```bash
-  node ./node_modules/root/src/cli/src/cli.js format --help
-  ```
-
-- Check the wrapper version label surfaced by `--version` or `-V`:
-
-  ```bash
-  node ./node_modules/root/src/cli/src/cli.js --version
-  ```
-
-### CLI wrapper environment knobs
-
-The wrapper honours environment variables so CI systems can tune behaviour
-without editing project scripts:
-
-- `PRETTIER_PLUGIN_GML_DEFAULT_ACTION` &mdash; Controls the default behavior when
-  the CLI is invoked without any command. Set to `format` to run the formatter
-  on the current directory (legacy behavior), or omit to show help text
-  (default). Helps first-time users discover available commands while preserving
-  backward compatibility for existing scripts.
-- `PRETTIER_PLUGIN_GML_DEFAULT_EXTENSIONS` &mdash; Overrides the implicit
-  extension list used when `--extensions` is omitted. The wrapper defaults to
-  formatting `.gml` only when neither the flag nor the environment variable is
-  present. Use space-separated values (for example, `export
-  PRETTIER_PLUGIN_GML_DEFAULT_EXTENSIONS=".gml .yy"`).
-- `PRETTIER_PLUGIN_GML_LOG_LEVEL` &mdash; Sets the default Prettier log level
-  when the wrapper runs without `--log-level`. Accepted values mirror Prettier:
-  `debug`, `info`, `warn`, `error`, or `silent`.
-- `PRETTIER_PLUGIN_GML_ON_PARSE_ERROR` &mdash; Sets the default
-  `--on-parse-error` strategy (`skip`, `revert`, or `abort`).
-- `PRETTIER_PLUGIN_GML_SKIPPED_DIRECTORY_SAMPLE_LIMIT` &mdash; Caps how many
-  ignored directories appear in the summary when the wrapper honours
-  `.prettierignore` entries. Combine with
-  `--ignored-directory-sample-limit` (or `--ignored-directory-samples`) for
-  per-run overrides.
-- `PRETTIER_PLUGIN_GML_IGNORED_FILE_SAMPLE_LIMIT` &mdash; Limits how many
-  ignored files appear in the inline skip logs and summary examples. Combine
-  with `--ignored-file-sample-limit` for per-run overrides.
-- `PRETTIER_PLUGIN_GML_UNSUPPORTED_EXTENSION_SAMPLE_LIMIT` &mdash; Limits how many
-  example files appear in the unsupported-extension summary. Pair with
-  `--unsupported-extension-sample-limit` when tuning individual runs.
-- `PRETTIER_PLUGIN_GML_PLUGIN_PATHS` (or the singular
-  `PRETTIER_PLUGIN_GML_PLUGIN_PATH`) &mdash; Adds repository-relative or absolute
-  plugin entry point paths for the wrapper to consider before falling back to
-  its built-in candidates. Useful when CI jobs build the plugin into a temporary
-  directory. Separate multiple paths with colons on Unix-like systems or
-  semicolons on Windows.
-- `PRETTIER_PLUGIN_GML_SKIP_CLI_RUN` &mdash; Set to `1` when bundlers or test
-  harnesses import the CLI module but should not automatically execute a command.
-  The wrapper registers commands so manual runs work once the flag is cleared.
-- `PRETTIER_PLUGIN_GML_PRETTIER_MODULE` &mdash; Overrides the module specifier
-  used to resolve Prettier. Useful when the formatter runs inside a monorepo
-  with a custom Prettier build or when you pin a nightly via a local alias.
-- `PRETTIER_PLUGIN_GML_VERSION` &mdash; Injects the version label surfaced by
-  `node ./node_modules/root/src/cli/src/cli.js --version`. Useful when mirroring
-  release tags or packaging nightly builds.
-
-### Formatter environment knobs
-
-The formatter honours a small set of environment variables for teams that need
-to tune formatting behaviour without patching the plugin:
-
-- `PRETTIER_PLUGIN_GML_DOC_COMMENT_MAX_WRAP_WIDTH` &mdash; Caps the width used when
-  wrapping GameMaker doc comments. Increase the value to preserve wider manual
-  descriptions or set it to `Infinity` to fall back to Prettier's configured
-  `printWidth`.
-
-### Visual Studio Code
-
-1. Install the [Prettier](https://marketplace.visualstudio.com/items?itemName=esbenp.prettier-vscode) extension.
-2. Install a GML language service such as [GML Support](https://marketplace.visualstudio.com/items?itemName=electrobrains.gml-support).
-3. Ensure the workspace `package.json` lists `prettier`, `antlr4`, and either the
-   npm package (`prettier-plugin-gamemaker`) or the Git dependency so VS Code can
-   resolve the plugin.
-4. Enable format-on-save:
-
-   ```json
-   {
-     "editor.formatOnSave": true,
-     "[gml]": {
-       "editor.defaultFormatter": "esbenp.prettier-vscode"
-     }
-   }
-   ```
-
----
 
 ## Configuration reference
 
@@ -638,11 +477,7 @@ Keep overrides scoped to `.gml` files so other languages remain unaffected.
 }
 ```
 
-Refer to the [Prettier configuration guide](https://prettier.io/docs/en/configuration.html) for the complete option list. GameMaker-specific overrides live alongside your `.yyp` so both the CLI and editor integrations share a single source of truth.
-
-> **Workspace installs:** When you track `main` directly from GitHub, swap the
-> plugin entry for `"./node_modules/root/src/plugin/src/plugin-entry.js"` so Prettier
-> resolves the bundled workspace build.
+Refer to the [Prettier configuration guide](https://prettier.io/docs/en/configuration.html) for the complete option list.
 
 ### Plugin-specific options
 
@@ -662,18 +497,15 @@ Template strings that never interpolate expressions automatically collapse back 
 | `condenseLogicalExpressions` | `false` | Merges adjacent logical expressions that use the same operator. |
 | `preserveGlobalVarStatements` | `true` | Keeps `globalvar` declarations while still prefixing later assignments with `global.`. |
 | `alignAssignmentsMinGroupSize` | `3` | Aligns simple assignment operators across consecutive lines once the group size threshold is met. |
-| `variableBlockSpacingMinDeclarations` | `4` | Inserts a blank line after runs of local declarations once the specified length is met; set to `0` to disable the spacing entirely. |
 | `maxParamsPerLine` | `0` | Forces argument wrapping after the specified count (set to `0` to remove the numeric limit; nested callbacks may still wrap for readability). |
 | `applyFeatherFixes` | `false` | Applies opt-in fixes backed by GameMaker Feather metadata (e.g. drop trailing semicolons from `#macro`). |
-| `useStringInterpolation` | `false` | Upgrades eligible string concatenations to template strings (`$"Hello {name}"`). |
+| `useStringInterpolation` | `true` | Upgrades eligible string concatenations to template strings (`$"Hello {name}"`). |
 | `convertDivisionToMultiplication` | `false` | Rewrites division by literals into multiplication by the reciprocal when safe. |
 | `convertManualMathToBuiltins` | `false` | Collapses bespoke math expressions into their equivalent built-in helpers (for example, turn repeated multiplication into `sqr()`). |
-| `condenseUnaryBooleanReturns` | `false` | Reserved for future unary boolean condensation logic; currently has no effect. |
-| `condenseReturnStatements` | `false` | Reserved placeholder for boolean return condensation; currently has no effect. |
 
 Line comments automatically drop YoYo Games' generated banner message (`Script assets have changed for v2.3.0 ... for more information`) and the default IDE stubs (`/// @description Insert description here`, `// You can write your code in this editor`) so repository diffs stay focused on deliberate edits instead of generated scaffolding.
 
-> **Note:** The formatter intentionally enforces canonical whitespace. Legacy escape hatches such as `preserveLineBreaks` and the `maintain*Indentation` toggles were removed to keep formatting deterministic.
+> **Note:** The formatter intentionally enforces opinionated formatting for whitespace/line breaks. Legacy escape hatches such as `preserveLineBreaks` and the `maintain*Indentation` toggles were removed to keep formatting deterministic.
 
 Bare struct literals now respect Prettier's [`objectWrap`](https://prettier.io/docs/en/options.html#object-wrap) option introduced in v3.5.0. When formatting GML, the plugin maps the behaviour directly onto struct literals:
 
@@ -701,17 +533,6 @@ rows that contain only decoration disappear. This mirrors Prettier's handling of
 ASCII art headers so the output emphasizes the descriptive message instead of
 banner scaffolding.
 
-#### Identifier-case rollout
-
-| Option | Default | Summary |
-| --- | --- | --- |
-| `gmlIdentifierCase` | `"off"` | Enables automated identifier casing across scopes; review the rollout guide before activating on large projects. |
-| `gmlIdentifierCase<Scope>` | `"inherit"` | Scope overrides such as `gmlIdentifierCaseLocals` or `gmlIdentifierCaseGlobals`; each accepts the same style choices as the base option. |
-| `gmlIdentifierCaseIgnore` | `""` | Comma- or newline-separated list of identifiers or glob patterns that should never be renamed. |
-| `gmlIdentifierCasePreserve` | `""` | Locks specific identifiers to their original spelling even when a new style is enabled. |
-| `gmlIdentifierCaseAcknowledgeAssetRenames` | `false` | Required confirmation before asset renames update `.yy` metadata and on-disk file names. |
-| `gmlIdentifierCaseOptionStoreMaxEntries` | `128` | Caps the identifier-case option store size; set to `0` to keep all historical entries without eviction. |
-
 #### Project discovery & cache controls
 
 The semantic subsystem coordinates project detection and cache persistence when
@@ -721,36 +542,14 @@ monorepos predictable:
 
 | Option | Default | Summary |
 | --- | --- | --- |
-| `gmlIdentifierCaseDiscoverProject` | `true` | Auto-detect the nearest `.yyp` manifest when bootstrapping the project index. Disable when callers manage discovery manually. This option is deprecated in favor of the new scoping/semantic plan described in [docs/semantic-scope-plan.md]. |
-| `gmlIdentifierCaseProjectRoot` | `""` | Pin project discovery to an explicit directory. Helpful when formatting files outside the GameMaker project tree or when CI runs from ephemeral workspaces. This option is deprecated in favor of the new scoping/semantic plan described in [docs/semantic-scope-plan.md]. |
+| `gmlIdentifierCaseDiscoverProject` | `true` | Auto-detect the nearest `.yyp` manifest when bootstrapping the project index. Disable when callers manage discovery manually. This option is deprecated in favor of the new scoping/semantic plan described in [docs/semantic-scope-plan.md](docs/semantic-scope-plan.md). |
+| `gmlIdentifierCaseProjectRoot` | `""` | Pin project discovery to an explicit directory. Helpful when formatting files outside the GameMaker project tree or when CI runs from ephemeral workspaces. This option is deprecated in favor of the new scoping/semantic plan described in [docs/semantic-scope-plan.md](docs/semantic-scope-plan.md). |
 | `gmlIdentifierCaseProjectIndexCacheMaxBytes` | `8 MiB` | Cap the on-disk cache size written to `.prettier-plugin-gml/project-index-cache.json`. Increase alongside `GML_PROJECT_INDEX_CACHE_MAX_SIZE` when coordinating cache pruning yourself. This option is deprecated in favor of the new scoping/semantic plan described in [docs/semantic-scope-plan.md](docs/semantic-scope-plan.md). |
 | `gmlIdentifierCaseProjectIndexConcurrency` | `4` | Control how many files the bootstrap parses in parallel. Combine with `GML_PROJECT_INDEX_CONCURRENCY` and `GML_PROJECT_INDEX_MAX_CONCURRENCY` to tune CI throughput without starving local machines. This option is deprecated in favor of the new scoping/semantic plan described in [docs/semantic-scope-plan.md](docs/semantic-scope-plan.md). |
 
-Project index discovery, cache tuning, and concurrency controls now live under
-the [semantic subsystem](src/semantic/README.md) alongside the new scope-tracking
+Project index discovery, cache tuning, and concurrency controls live under
+the [semantic subsystem](src/semantic/README.md) alongside scope-tracking
 entry points.
-
-Additional automation hooks such as `identifierCaseProjectIndex`,
-`identifierCaseDryRun`, and `identifierCaseReportLogPath` remain captured in the
-[legacy identifier-case plan](docs/legacy-identifier-case-plan.md). Projects that
-checkpoint GML under bespoke suffixes can extend the recognised source list with
-`setProjectIndexSourceExtensions`; refer to the helper's inline JSDoc for
-supported workflows.
-
----
-
-
-## Troubleshooting
-
-- Formatter fails to load the plugin → confirm the explicit `plugins` entry in your Prettier configuration.
-- Wrapper reports "Unable to locate the Prettier plugin entry point" → point the CLI at additional build locations with `PRETTIER_PLUGIN_GML_PLUGIN_PATHS` or update the script’s `node_modules/root/...` path to match your installation layout.
-- CLI reports `Unable to access <path>` after you typed a subcommand name → the formatter runs by default when no subcommand is specified. Re-run the command with `prettier-plugin-gml --help` to review the available commands or provide a valid file/directory path.
-- `npm install` reports `EBADENGINE` → upgrade Node.js to 25.0.0+ (or use the
-  version specified in `.nvmrc` with `nvm install && nvm use`).
-- Wrapper skips files unexpectedly → inspect the skipped-file summary and adjust `.prettierignore` or `--extensions` accordingly.
-- Parser errors → rerun with `--on-parse-error revert` to preserve original
-  files, then report the issue with the offending snippet.
-- Identifier-case bootstrap stuck on stale data → delete `.prettier-plugin-gml/project-index-cache.json` or set `gmlIdentifierCaseProjectRoot` explicitly before rerunning.
 
 ---
 
@@ -765,17 +564,13 @@ prettier-plugin-gml/
 ├─ src/semantic/          # Scope trackers, project index coordinator
 ├─ src/refactor/          # Automated GML-project refactoring utilities (renaming identifiers, etc.)
 ├─ src/runtime-wrapper/   # Wraps the GML HTML5 runtime
-├─ src/core/              # Shared/core utilities (AST helpers, string helpers, file helpers, etc.)
-├─ src/cli/               # Command-line interface
+├─ src/core/              # Shared/core utilities and types (AST helpers, string helpers, file helpers, etc.)
+├─ src/cli/               # Command-line interface for all developer-facing utilities
 ├─ src/transpiler/        # Transpiles/emits JS from GML ASTs
 ├─ resources/             # Generated GML data consumed by various modules, ANTLR jar file
 ├─ vendor/                # Submodules for GameMaker runtime assets
 └─ docs/                  # Design notes and guides
 ```
-
-All developer-facing utilities live under `src/cli/src/commands/`. When adding
-new helpers, expose them through the CLI instead of creating stand-alone scripts
-so contributors have a single, discoverable entry point.
 
 ### Set up the workspace
 
@@ -787,70 +582,44 @@ npm ci # installs dependencies from package-lock.json
 
 If you prefer `npm install`, run it only after confirming the lockfile is up to date. The initial install wires up a local [Husky](https://typicode.github.io/husky/) pre-commit hook that runs `npm run format` and `npm run lint:fix`. Set `HUSKY=0` to bypass the hook when necessary (for example in CI environments).
 
-### Test the plugin and parser
+### Commands Overview
 
 ```bash
+# Run all tests
 npm test
-npm run check
+
+# Run tests for each package individually
 npm run test:plugin
 npm run test:parser
-npm run test:semantic
-npm run test:shared
-npm run test:cli
-npm run lint
-npm run lint:ci
-npm run format:check
+# etc.
+
+# Run linting and formatting checks
 npm run lint:fix
-```
+npm run format
+npm run lint:ci
 
-`npm run check` chains the formatter audit, lint (CI mode), and full test suite.
-All suites run on [Node.js’s built-in test runner](https://nodejs.org/api/test.html);
-append `-- --watch` to any `npm run test --workspace …` command for watch mode.
+# Generate unit test report, checkstyle report, code coverage report, etc.
+npm run report
 
-#### Checkstyle lint reports
-
-`npm run lint:report` relies on ESLint's built-in `checkstyle` formatter to
-produce the XML file parsed by the GitHub automerge workflow. The formatter is
-available out of the box, so the script works in local development environments
-and CI without any extra packages.
-
-Fixtures under `src/plugin/test` and `src/parser/test/input` are golden. Update
-them only when deliberately changing formatter output or parser behaviour.
-
-### Regenerate metadata snapshots
-
-```bash
+# Regenerate metadata snapshots
 npm run build:gml-identifiers
 npm run build:feather-metadata
-```
 
-### Regenerate the parser grammar
-
-Install [ANTLR 4](https://www.antlr.org/download.html) and Java, then run:
-
-```bash
+# Regenerate the parser grammar
+# Install [ANTLR 4](https://www.antlr.org/download.html) and Java, then run:
 npm run build:antlr
+
+# Audit repository formatting without writes
+npm run format:check
+
+# Explore CLI utilities without switching directories
+npm run cli -- --help
+
+# Run the benchmarking helper
+npm run cli -- performance
 ```
 
-### Handy development commands
-
-```bash
-npm run example:plugin      # Format a fixture with the development build
-npm run format:check        # Audit repository formatting without writes
-npm --prefix src/plugin run prettier:plugin -- --path=test/test14.input.gml
-npm run cli -- --help       # Explore CLI utilities without switching directories
-npm run cli -- performance  # Run the benchmarking helpers registered with the CLI
-npm run memory -- --suite normalize-string-list --pretty      # Measure normalizeStringList memory usage
-npm run report              # Generate unit test report, checkstyle report (using the eslint-formatter-checkstyle formatter), and code coverage report.
-```
-
-Omit `--suite` to run every available memory suite; use `npm run memory -- --help` to review the full list of benchmarks.
-
-Tune the memory suites with environment variables when scripting CI runs:
-`GML_MEMORY_ITERATIONS` adjusts the default iteration count, while
-`GML_MEMORY_PARSER_MAX_ITERATIONS` and `GML_MEMORY_FORMAT_MAX_ITERATIONS`
-cap the parser and formatter hot loops respectively when a suite requests more
-work than the configured ceiling.
+See [package.json](package.json) for the full list of available scripts.
 
 ---
 

@@ -33,11 +33,10 @@ type GmlParserAdapterOptions = {
     useStringInterpolation?: boolean;
     condenseLogicalExpressions?: boolean;
     convertManualMathToBuiltins?: boolean;
-    originalText?: string;
-    __identifierCaseProjectIndexBootstrap?: unknown;
-    logger?: unknown;
-    variableBlockSpacingMinDeclarations?: number;
-    [key: string]: unknown;
+    stripComments?: boolean;
+    originalText?: string; // TODO: Why is this here? Not really a parser option.
+    __identifierCaseProjectIndexBootstrap?: unknown; // TODO: Why is this here? Not really a parser option.
+    [key: string]: unknown; // TODO: Why is this here? Not really a parser option.
 };
 
 type ParserPreparationContext = {
@@ -354,10 +353,10 @@ function applyOptionalTransforms(
         Parser.Transforms.condenseLogicalExpressions(ast);
     }
 
-    // Parser.Transforms.condenseScalarMultipliers(ast, {
-    //     sourceText: context.parseSource,
-    //     originalText: options?.originalText
-    // });
+    Parser.Transforms.condenseScalarMultipliers(ast, {
+        sourceText: context.parseSource,
+        originalText: options?.originalText
+    });
 
     if (options?.convertManualMathToBuiltins) {
         Parser.Transforms.convertManualMathExpressions(ast, {
@@ -376,12 +375,9 @@ function applyFinalTransforms(
 ): void {
     Parser.Transforms.convertUndefinedGuardAssignments(ast);
     Parser.Transforms.preprocessFunctionArgumentDefaults(ast);
-    Parser.Transforms.collapseRedundantMissingCallArguments(ast);
-    Parser.Transforms.enforceVariableBlockSpacing(ast, {
-        variableBlockSpacingMinDeclarations:
-            options?.variableBlockSpacingMinDeclarations
-    });
     Parser.Transforms.annotateStaticFunctionOverrides(ast);
+    Parser.Transforms.collapseRedundantMissingCallArguments(ast);
+    Parser.Transforms.enforceVariableBlockSpacing(ast);
 
     Parser.Transforms.markCallsMissingArgumentSeparators(
         ast,

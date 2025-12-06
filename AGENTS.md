@@ -52,6 +52,77 @@
 
 ----
 
+## Module Ownership Boundaries (Parser / Core / Plugin)
+>This section defines clear ownership boundaries between the parser, core, and plugin workspaces to ensure a clean architecture with well-defined responsibilities.
+
+### Parser Ownership
+
+The parser workspace *should* own:
+
+- ✅ Tokenization (lexer)
+- ✅ Grammar
+- ✅ AST node construction
+- ✅ Source locations
+- ✅ Error recovery
+
+The parser should **not** own:
+
+- ❌ Formatting rules
+- ❌ Traversal helpers
+- ❌ Normalization passes
+- ❌ Code generation
+- ❌ Prettier-specific behavior
+
+### Core Ownership
+
+The core workspace *should* own:
+- ✅ AST types/interfaces
+- ✅ Node kind enums
+- ✅ Structural helpers
+- ✅ Traversal helpers (visitors, walkers)
+- ✅ Clone / equality helpers
+- ✅ Path utilities
+
+The core workspace should **not** own:
+- ❌ Parsing logic
+- ❌ Formatting rules
+- ❌ Printing logic
+- ❌ Prettier integration
+
+### Plugin Ownership
+
+The plugin should handle:
+- ✅ AST → AST (normalization)
+- ✅ AST → AST (formatting transforms)
+- ✅ AST → GML (printer)
+- ✅ Prettier glue
+
+The plugin *should* import:
+- AST types + traversal from core
+- A tiny public API from the parser, typically just ``parse(source: string): ProgramNode``
+
+The plugin must **not** import:
+- ❌ Parser internals
+- ❌ Grammar rules
+- ❌ Lexer logic
+
+### Target State Summarized
+- `@gml-modules/core`: Pure data model + shared utilities, AST types/interfaces, traversal helpers used by the plugin and parser to walk the AST.
+- `@gml-modules/parser`: GML → AST only
+- `@gml-modules/plugin`: AST → AST → GML
+
+### The Litmus Test
+
+This single question tells you if the architecture is clean:
+
+>“Could I swap the entire parser implementation without touching the plugin, as long as the AST stays identical?”
+
+If the answer is no, then:
+- The parser owns too much
+- The AST contract is not isolated
+
+----
+
 ## Module structure, imports, and TypeScript / ESM strategy
 
 This project is a TypeScript monorepo targeting Node’s native ESM loader. The key goals are:

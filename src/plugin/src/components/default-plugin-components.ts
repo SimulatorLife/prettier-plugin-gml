@@ -144,7 +144,7 @@ export function createDefaultGmlPluginComponents(): GmlPluginComponentBundle {
                 since: "0.0.0",
                 type: "boolean",
                 category: "gml",
-                default: false,
+                default: true,
                 description:
                     "Rewrite string concatenations like 'Hello ' + name + '!' into template strings such as $\"Hello {name}!\" when all parts are safely composable."
             },
@@ -171,28 +171,12 @@ export function createDefaultGmlPluginComponents(): GmlPluginComponentBundle {
                 default: true,
                 description:
                     "Automatically insert missing commas between adjacent call arguments when safe so parsing and formatting can continue."
-            },
-            condenseUnaryBooleanReturns: {
-                since: "0.0.0",
-                type: "boolean",
-                category: "gml",
-                default: false,
-                description:
-                    "Reserved toggle for future unary boolean return condensation. Exposed for compatibility but currently has no effect."
-            },
-            condenseReturnStatements: {
-                since: "0.0.0",
-                type: "boolean",
-                category: "gml",
-                default: false,
-                description:
-                    "Reserved toggle for future boolean return condensation logic. Present in the option schema yet intentionally inert today."
             }
 
             // Legacy whitespace toggles (preserveLineBreaks, maintainArrayIndentation,
             // maintainStructIndentation, maintainWithIndentation, maintainSwitchIndentation)
             // were intentionally removed so the formatter can enforce a single opinionated
-            // indentation strategy. Avoid re-adding escape hatches that contradict that goal.
+            // indentation strategy. Avoid re-adding extraneous options that contradict that goal.
         }
     } as GmlPluginComponentBundle;
 }

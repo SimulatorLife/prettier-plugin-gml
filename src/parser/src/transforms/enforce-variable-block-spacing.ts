@@ -1,29 +1,23 @@
 import { Core, type MutableGameMakerAstNode } from "@gml-modules/core";
-import { FunctionalParserTransform } from "./functional-transform.js";
-import { resolveVariableBlockSpacingMinDeclarations } from "../options/variable-block-spacing-options.js";
+import { FunctionalParserTransform, type EmptyTransformOptions } from "./functional-transform.js";
 
-type EnforceVariableBlockSpacingTransformOptions = {
-    variableBlockSpacingMinDeclarations?: number;
-};
+const MIN_DECLARATIONS = 4; // Keep this opinionated and not configurable for consistent formatting behavior
 
-class EnforceVariableBlockSpacingTransform extends FunctionalParserTransform<EnforceVariableBlockSpacingTransformOptions> {
+class EnforceVariableBlockSpacingTransform extends FunctionalParserTransform<EmptyTransformOptions> {
     constructor() {
         super("enforce-variable-block-spacing", {});
     }
 
     protected execute(
-        ast: MutableGameMakerAstNode,
-        options: EnforceVariableBlockSpacingTransformOptions
+        ast: MutableGameMakerAstNode
     ): MutableGameMakerAstNode {
         if (!ast || typeof ast !== "object") {
             return ast;
         }
 
         const visitedNodes = new WeakSet();
-        const minDeclarationRunLength =
-            resolveVariableBlockSpacingMinDeclarations(options);
 
-        visitNode(ast, visitedNodes, minDeclarationRunLength);
+        visitNode(ast, visitedNodes, MIN_DECLARATIONS);
         return ast;
     }
 }
@@ -33,7 +27,7 @@ const enforceVariableBlockSpacingTransform =
 
 export function enforceVariableBlockSpacing(
     ast: MutableGameMakerAstNode,
-    options: EnforceVariableBlockSpacingTransformOptions = {}
+    options: EmptyTransformOptions = {}
 ) {
     return enforceVariableBlockSpacingTransform.transform(ast, options);
 }
