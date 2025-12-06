@@ -9,6 +9,7 @@ import test from "node:test";
 import {
     asArray,
     compactArray,
+    findLastIndex,
     isNonEmptyArray,
     pushUnique,
     toArray,
@@ -133,4 +134,47 @@ void test("pushUnique can use a custom equality comparator", () => {
 
 void test("pushUnique throws when provided a non-array target", () => {
     assert.throws(() => pushUnique(null, "value"), /requires an array/i);
+});
+
+void test("findLastIndex returns the index of the last matching element", () => {
+    const entries = [1, 2, 3, 2, 1];
+
+    const index = findLastIndex(entries, (value) => value === 2);
+
+    assert.strictEqual(index, 3);
+});
+
+void test("findLastIndex returns -1 when no element matches", () => {
+    const entries = [1, 2, 3];
+
+    const index = findLastIndex(entries, (value) => value === 5);
+
+    assert.strictEqual(index, -1);
+});
+
+void test("findLastIndex returns -1 for null input", () => {
+    const index = findLastIndex(null, () => true);
+
+    assert.strictEqual(index, -1);
+});
+
+void test("findLastIndex returns -1 for undefined input", () => {
+    const index = findLastIndex(undefined, () => true);
+
+    assert.strictEqual(index, -1);
+});
+
+void test("findLastIndex provides index and array to predicate", () => {
+    const entries = ["a", "b", "c"];
+    const calls: Array<{ value: string; index: number; array: string[] }> = [];
+
+    findLastIndex(entries, (value, index, array) => {
+        calls.push({ value, index, array });
+        return false;
+    });
+
+    assert.strictEqual(calls.length, 3);
+    assert.deepEqual(calls[0], { value: "c", index: 2, array: entries });
+    assert.deepEqual(calls[1], { value: "b", index: 1, array: entries });
+    assert.deepEqual(calls[2], { value: "a", index: 0, array: entries });
 });
