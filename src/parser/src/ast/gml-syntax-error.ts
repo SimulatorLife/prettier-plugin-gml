@@ -136,7 +136,7 @@ class SyntaxErrorFormatter {
 
     formatRuleName(ruleName) {
         return ruleName
-            .replaceAll(/([A-Z]+)*([A-Z][a-z])/g, "$1 $2")
+            .replaceAll(/([A-Z]*)([A-Z][a-z])/g, "$1 $2")
             .toLowerCase();
     }
 }

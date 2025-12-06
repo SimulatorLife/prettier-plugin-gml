@@ -31,8 +31,8 @@ type ApplyFeatherFixesOptions = {
     options?: Record<string, unknown>;
 };
 
-const TRAILING_MACRO_SEMICOLON_PATTERN = new RegExp(
-    ";(?=[^\\S\\r\\n]*(?:(?:\\/\\/[^\\r\\n]*|\\/\\*[\\s\\S]*?\\*\/)[^\\S\\r\\n]*)*(?:\\r?\\n|$))"
+export const TRAILING_MACRO_SEMICOLON_PATTERN = new RegExp(
+    ";(?=[^\\S\\r\\n]*(?:\\/\\*[\\s\\S]*?\\*\/[^\\S\\r\\n]*)*(?:\\/\\/[^\\r\\n]*)?(?:\\r?\\n|$))"
 );
 const DATA_STRUCTURE_ACCESSOR_TOKENS = ["?", "|", "#", "@", "$", "%"];
 const NUMERIC_STRING_LITERAL_PATTERN =
