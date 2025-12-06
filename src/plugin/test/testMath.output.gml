@@ -160,7 +160,6 @@ var s32 = z;
 var s33 = w * 0.25;
 
 // 34) 1000 then thousandth
-var s34 = v * 1000 * 0.001;  // original
 var s34 = v;
 
 // 35) Over-compounded scale
