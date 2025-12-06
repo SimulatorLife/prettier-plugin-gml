@@ -93,7 +93,8 @@ export function computeSyntheticDocComment(
     }
 
     // Apply doc comment promotion to the combined lines if both leading comments and synthetic lines exist
-    // This enables cases where doc-like comments (// / or /// without @) appear before actual doc comments (@param, @function, etc.)
+    // This enables cases where possible-doc-like comments (// / or /// without @) appear before actual doc comments (@param, @function, etc.)
+    // Cases where with `// /` need to be evaluated carefully as they may represent malformed doc-comments OR malformed normal comments
     const potentiallyPromotableLines =
         leadingCommentLines.length > 0 && syntheticLines.length > 0
             ? promoteLeadingDocCommentTextToDescription([
