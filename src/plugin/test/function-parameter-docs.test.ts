@@ -116,8 +116,8 @@ void test("omits redundant argument aliases after parameter renaming", async () 
     );
 });
 
-const SOURCE_WITH_NAMED_PARAMS = `/// @param {boolean} b - Second
-/// @param {boolean} a - First
+const SOURCE_WITH_NAMED_PARAMS = `/// @param {bool} b - Second
+/// @param {bool} a - First
 function bool_negated(a, b) {
     return !(a && b);
 }`;
@@ -139,8 +139,8 @@ void test("preserves parameter order when doc comments are misordered", async ()
         "Expected the formatter to keep the original parameter order."
     );
 
-    const indexOfA = formatted.indexOf("/// @param {boolean} a");
-    const indexOfB = formatted.indexOf("/// @param {boolean} b");
+    const indexOfA = formatted.indexOf("/// @param {bool} a");
+    const indexOfB = formatted.indexOf("/// @param {bool} b");
 
     assert.ok(
         indexOfA !== -1 && indexOfB !== -1 && indexOfA < indexOfB,

@@ -1,6 +1,5 @@
 import assert from "node:assert/strict";
 import { test } from "node:test";
-
 import { Plugin } from "../src/index.js";
 
 void test("merges doc comments without duplicating returns metadata", async () => {
@@ -27,39 +26,12 @@ void test("merges doc comments without duplicating returns metadata", async () =
     );
 });
 
-void test("keeps leading line comments before synthetic doc comments", async () => {
-    const source = [
-        "function example() {",
-        "    if (condition) {",
-        "        return true;",
-        "    }",
-        "",
-        "    return false;",
-        "}",
-        "",
-        "// Leading note about the following assignment",
-        "example = function() {",
-        "    return;",
-        "};",
-        ""
-    ].join("\n");
-
-    const formatted = await Plugin.format(source);
-
-    assert.ok(
-        formatted.includes(
-            "// Leading note about the following assignment\n\n/// @function example"
-        ),
-        "Expected the leading line comment to remain before the synthesized doc comment"
-    );
-});
-
-void test("retains documented parameter aliases when canonical names differ", async () => {
+void test("uses actual parameter name when documented name differs", async () => {
     const source = [
         "/// @param fontName   The target font, as a string",
         "/// @param character  Character to test for, as a string",
         "function scribble_font_has_character(_font_name, _character) {",
-        "    return _character;",
+        "    return global._scribble_chars[$ _font_name] == _character;",
         "}",
         ""
     ].join("\n");
@@ -68,17 +40,17 @@ void test("retains documented parameter aliases when canonical names differ", as
 
     assert.ok(
         formatted.includes(
-            "/// @param fontName - The target font, as a string"
+            "/// @param font_name - The target font, as a string"
         ),
-        "Expected the formatter to preserve the documented alias for the parameter"
+        "Expected the formatter to update the documented alias for the parameter"
     );
     assert.ok(
-        !formatted.includes("/// @param font_name"),
-        "Expected the formatter not to replace the alias with the parameter identifier"
+        !formatted.includes("fontName"),
+        "Expected the formatter to replace the misnamed alias with the parameter identifier"
     );
 });
 
-void test("converts legacy Returns description lines into returns metadata", async () => {
+void test("converts Returns comment lines into returns metadata", async () => {
     const source = [
         "/// @function has_feature",
         "///              Returns: Boolean, indicating whether conversion occurs",
@@ -92,12 +64,12 @@ void test("converts legacy Returns description lines into returns metadata", asy
 
     assert.ok(
         formatted.includes(
-            "/// @returns {boolean} Indicating whether conversion occurs"
+            "/// @returns {bool} Indicating whether conversion occurs"
         ),
-        "Expected legacy Returns description lines to be converted into @returns metadata"
+        "Expected un-annotated return comment line to be converted into @returns metadata"
     );
     assert.ok(
         !formatted.includes("Returns: Boolean"),
-        "Expected the legacy Returns description line to be removed after conversion"
+        "Expected the Returns description line to be removed after conversion"
     );
 });

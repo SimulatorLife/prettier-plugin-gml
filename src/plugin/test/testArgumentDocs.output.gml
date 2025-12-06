@@ -101,7 +101,7 @@ scr_struct_get(structure, key, default_value = undefined) {
 /// @param {function} [callback]
 /// @param {any} [extra]
 /// @returns {string}
-scr_lots_of_types(buffer, list, map, count, asset, callback = undefined, extra = undefined) {
+function scr_lots_of_types(buffer, list, map, count, asset, callback = undefined, extra = undefined) {
     return $"{buffer}, ${list}, ${map}, ${count}, ${asset}, ${callback}, ${extra}";
 }
 
