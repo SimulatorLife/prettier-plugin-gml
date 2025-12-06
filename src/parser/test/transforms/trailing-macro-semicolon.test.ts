@@ -1,5 +1,6 @@
 import assert from "node:assert/strict";
 import { describe, it } from "node:test";
+import { performance } from "node:perf_hooks";
 import { TRAILING_MACRO_SEMICOLON_PATTERN } from "../../src/transforms/apply-feather-fixes.js";
 
 void describe("TRAILING_MACRO_SEMICOLON_PATTERN", () => {
@@ -31,7 +32,8 @@ void describe("TRAILING_MACRO_SEMICOLON_PATTERN", () => {
         const start = performance.now();
         // This string previously caused exponential backtracking
         const pathological = `; //${" ".repeat(50_000)}\rA`;
-        TRAILING_MACRO_SEMICOLON_PATTERN.test(pathological);
+        const result = TRAILING_MACRO_SEMICOLON_PATTERN.test(pathological);
+        assert.equal(result, false);
         const end = performance.now();
 
         assert.ok(end - start < 100, "Regex should not be exponential");
