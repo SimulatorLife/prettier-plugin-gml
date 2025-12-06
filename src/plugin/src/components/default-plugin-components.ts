@@ -1,6 +1,5 @@
 import type { GmlPluginComponentBundle } from "./plugin-types.js";
 import { resolveGmlPluginComponentDependencies } from "./plugin-component-bundles.js";
-import { DEFAULT_MIN_DECLARATION_RUN_LENGTH } from "../options/variable-block-spacing-options.js";
 
 export function createDefaultGmlPluginComponents(): GmlPluginComponentBundle {
     const {
@@ -113,15 +112,6 @@ export function createDefaultGmlPluginComponents(): GmlPluginComponentBundle {
                 range: { start: 0, end: Infinity, step: 1 },
                 description:
                     "Minimum number of consecutive simple assignments required before the formatter aligns their '=' operators. Set to 0 to disable alignment entirely."
-            },
-            variableBlockSpacingMinDeclarations: {
-                since: "0.0.0",
-                type: "int",
-                category: "gml",
-                default: DEFAULT_MIN_DECLARATION_RUN_LENGTH,
-                range: { start: 0, end: Infinity, step: 1 },
-                description:
-                    "Minimum number of consecutive variable declarations/assignments required before the formatter inserts a blank line ahead of the next statement. Set to 0 to disable the automatic spacing."
             },
             maxParamsPerLine: {
                 since: "0.0.0",
