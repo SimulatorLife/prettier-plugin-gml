@@ -34,7 +34,8 @@ function sample3() {
 }
 
 /// @function sample4
-/// @description Unnamed arguments can be safely promoted into named arguments
+/// @description Missing argument documentation leaves all arguments unnamed
+/// @returns {string}
 function sample4() {
     return $"{argument0}, {argument1}, {argument2}";
 }
