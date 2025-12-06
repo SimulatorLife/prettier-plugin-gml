@@ -177,8 +177,8 @@ export function isArrayIndex(container, index) {
 
 /**
  * Find the index of the last element matching the provided predicate.
- * This mirrors Array.prototype.findLastIndex but provides compatibility for
- * targets without the newer lib definitions.
+ * Delegates to the native Array.prototype.findLastIndex while providing
+ * null-safe handling.
  *
  * @template T
  * @param {ReadonlyArray<T> | null | undefined} array Candidate array.
@@ -190,13 +190,7 @@ export function findLastIndex(array, predicate) {
         return -1;
     }
 
-    for (let i = array.length - 1; i >= 0; i -= 1) {
-        if (predicate(array[i], i, array)) {
-            return i;
-        }
-    }
-
-    return -1;
+    return array.findLastIndex(predicate);
 }
 
 /**
