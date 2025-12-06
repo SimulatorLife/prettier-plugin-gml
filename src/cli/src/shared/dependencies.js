@@ -80,12 +80,12 @@ export {
     createCliRunSkippedError,
     isCliRunSkipped,
     SKIP_CLI_RUN_ENV_VAR
-} from "./skip-cli-run.js";
+} from "../runtime-options/skip-cli-run.js";
 
 export {
     collectAncestorDirectories,
     collectUniqueAncestorDirectories
-} from "./ancestor-directories.js";
+} from "../dependencies.js";
 
 export {
     createEnumeratedOptionHelpers,

@@ -8,6 +8,7 @@ import { createIntegerOptionToolkit } from "../core/integer-option-toolkit.js";
 const DEFAULT_PROGRESS_BAR_WIDTH = 24;
 const PROGRESS_BAR_WIDTH_ENV_VAR = "GML_PROGRESS_BAR_WIDTH";
 const activeProgressBars = new Map();
+const PROGRESS_COMPLETION_TOLERANCE_MULTIPLIER = 8;
 
 const CURSOR_HIDE_SEQUENCE = "\u001B[?25l";
 const CURSOR_SHOW_SEQUENCE = "\u001B[?25h";
@@ -155,6 +156,22 @@ function resetProgressBarRegistryForTesting() {
     disposeProgressBars();
 }
 
+function hasReachedProgressTotal(current, total) {
+    if (current >= total) {
+        return true;
+    }
+
+    if (!Number.isFinite(current) || !Number.isFinite(total)) {
+        return false;
+    }
+
+    const scale = Math.max(1, Math.abs(total));
+    const tolerance =
+        Number.EPSILON * scale * PROGRESS_COMPLETION_TOLERANCE_MULTIPLIER;
+
+    return total - current <= tolerance;
+}
+
 function shouldRenderProgressBar(stdout, width) {
     return Boolean(stdout?.isTTY) && width > 0;
 }
@@ -226,7 +243,7 @@ function renderProgressBar(label, current, total, width, options = {}) {
         bar.start(normalizedTotal, normalizedCurrent);
     }
 
-    if (normalizedCurrent >= normalizedTotal) {
+    if (hasReachedProgressTotal(normalizedCurrent, normalizedTotal)) {
         stopAndRemoveProgressBar(label);
     }
 }

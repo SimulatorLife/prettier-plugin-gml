@@ -239,13 +239,16 @@ export function assertFunctionProperties(
         return /** @type {TObject} */ (value);
     }
 
-    const target = /** @type {Record<PropertyKey, unknown> | undefined} */ (
-        isObjectOrFunction(value) ? value : undefined
+    const target = /** @type {Record<PropertyKey, unknown> | null} */ (
+        isObjectOrFunction(value) ? value : null
     );
 
-    const missingMethods = requiredMethods
-        .filter((methodName) => typeof target?.[methodName] !== "function")
-        .map(String);
+    const missingMethods = requiredMethods.reduce((missing, methodName) => {
+        if (typeof target?.[methodName] !== "function") {
+            missing.push(String(methodName));
+        }
+        return missing;
+    }, /** @type {Array<string>} */ ([]));
 
     if (missingMethods.length === 0) {
         return /** @type {TObject} */ (value);

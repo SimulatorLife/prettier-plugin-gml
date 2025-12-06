@@ -2,6 +2,8 @@ import assert from "node:assert/strict";
 import test, { mock } from "node:test";
 import { createRuntimeWrapper, createWebSocketClient } from "../src/index.js";
 
+const flushAsync = () => new Promise((resolve) => setImmediate(resolve));
+
 class MockWebSocket {
     constructor(url) {
         this.url = url;
@@ -91,7 +93,7 @@ test("WebSocket client connects and receives patches", async () => {
         autoConnect: true
     });
 
-    await new Promise((resolve) => setTimeout(resolve, 50));
+    await flushAsync();
 
     assert.ok(connectCalled);
     assert.ok(client.isConnected());
@@ -110,7 +112,7 @@ test("WebSocket client applies patches from messages", async () => {
         autoConnect: true
     });
 
-    await new Promise((resolve) => setTimeout(resolve, 50));
+    await flushAsync();
 
     const patch = {
         kind: "script",
@@ -122,8 +124,6 @@ test("WebSocket client applies patches from messages", async () => {
     assert.ok(ws, "WebSocket should be available");
 
     ws.simulateMessage(JSON.stringify(patch));
-
-    await new Promise((resolve) => setTimeout(resolve, 10));
 
     assert.ok(wrapper.hasScript("script:test"));
 
@@ -141,7 +141,7 @@ test("WebSocket client applies batch patches from messages", async () => {
         autoConnect: true
     });
 
-    await new Promise((resolve) => setTimeout(resolve, 50));
+    await flushAsync();
 
     const patches = [
         {
@@ -160,8 +160,6 @@ test("WebSocket client applies batch patches from messages", async () => {
     assert.ok(ws, "WebSocket should be available");
 
     ws.simulateMessage(JSON.stringify(patches));
-
-    await new Promise((resolve) => setTimeout(resolve, 10));
 
     assert.ok(wrapper.hasScript("script:batch_one"));
     assert.ok(wrapper.hasEvent("obj_batch#Create"));
@@ -187,7 +185,7 @@ test("WebSocket client prefers trySafeApply when available", async () => {
         autoConnect: true
     });
 
-    await new Promise((resolve) => setTimeout(resolve, 50));
+    await flushAsync();
 
     const patch = {
         kind: "script",
@@ -199,8 +197,6 @@ test("WebSocket client prefers trySafeApply when available", async () => {
     assert.ok(ws, "WebSocket should be available");
 
     ws.simulateMessage(JSON.stringify(patch));
-
-    await new Promise((resolve) => setTimeout(resolve, 10));
 
     assert.strictEqual(trySafeApplyCalls, 1);
     assert.ok(wrapper.hasScript("script:prefers_safe"));
@@ -224,14 +220,12 @@ test("WebSocket client handles invalid JSON gracefully", async () => {
         autoConnect: true
     });
 
-    await new Promise((resolve) => setTimeout(resolve, 50));
+    await flushAsync();
 
     const ws = client.getWebSocket();
     assert.ok(ws, "WebSocket should be available");
 
     ws.simulateMessage("invalid json");
-
-    await new Promise((resolve) => setTimeout(resolve, 10));
 
     assert.ok(errorCalled);
 
@@ -263,7 +257,7 @@ test("WebSocket client surfaces trySafeApply failures", async () => {
         autoConnect: true
     });
 
-    await new Promise((resolve) => setTimeout(resolve, 50));
+    await flushAsync();
 
     const ws = client.getWebSocket();
     assert.ok(ws, "WebSocket should be available");
@@ -275,8 +269,6 @@ test("WebSocket client surfaces trySafeApply failures", async () => {
     };
 
     ws.simulateMessage(JSON.stringify(failingPatch));
-
-    await new Promise((resolve) => setTimeout(resolve, 10));
 
     assert.ok(capturedError);
     assert.strictEqual(capturedContext, "patch");
@@ -300,11 +292,11 @@ test("WebSocket client disconnects cleanly", async () => {
         autoConnect: true
     });
 
-    await new Promise((resolve) => setTimeout(resolve, 50));
+    await flushAsync();
 
     client.disconnect();
 
-    await new Promise((resolve) => setTimeout(resolve, 50));
+    await flushAsync();
 
     assert.ok(disconnectCalled);
     assert.strictEqual(client.isConnected(), false);
@@ -429,29 +421,37 @@ test("WebSocket client clears pending reconnect timer on manual reconnect", asyn
 });
 
 test("WebSocket client does not reconnect after manual disconnect", async () => {
+    mock.timers.enable({ apis: ["setTimeout"] });
+
     let connectCount = 0;
+    let client;
 
     globalThis.WebSocket = MockWebSocket;
 
-    const client = createWebSocketClient({
-        onConnect: () => {
-            connectCount++;
-        },
-        reconnectDelay: 50,
-        autoConnect: true
-    });
+    try {
+        client = createWebSocketClient({
+            onConnect: () => {
+                connectCount++;
+            },
+            reconnectDelay: 50,
+            autoConnect: true
+        });
 
-    await new Promise((resolve) => setTimeout(resolve, 50));
+        await flushAsync();
 
-    assert.strictEqual(connectCount, 1);
+        assert.strictEqual(connectCount, 1);
 
-    client.disconnect();
+        client.disconnect();
 
-    await new Promise((resolve) => setTimeout(resolve, 150));
+        mock.timers.tick(200);
+        await flushAsync();
 
-    assert.strictEqual(connectCount, 1);
-
-    delete globalThis.WebSocket;
+        assert.strictEqual(connectCount, 1);
+    } finally {
+        client?.disconnect();
+        mock.timers.reset();
+        delete globalThis.WebSocket;
+    }
 });
 
 test("WebSocket send throws when not connected", () => {
@@ -467,7 +467,7 @@ test("WebSocket send works when connected", async () => {
 
     const client = createWebSocketClient({ autoConnect: true });
 
-    await new Promise((resolve) => setTimeout(resolve, 50));
+    await flushAsync();
 
     assert.doesNotThrow(() => {
         client.send({ kind: "ping" });

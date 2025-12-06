@@ -5771,7 +5771,18 @@ function resolvePreferredParameterSource(
     return null;
 }
 
-function findEnclosingFunctionNode(path) {
+/**
+ * Walk up the AST path and return the first ancestor node that satisfies the
+ * provided predicate. This helper centralizes the ancestor traversal pattern
+ * that appears in several places across the printer so call sites can avoid
+ * repeating the defensive guards and depth iteration.
+ *
+ * @param {import("prettier").AstPath} path - AST path to traverse.
+ * @param {(node: unknown) => boolean} predicate - Callback returning `true`
+ *        when the ancestor should be returned.
+ * @returns {unknown | null} First matching ancestor or `null` when none match.
+ */
+function findAncestorNode(path, predicate) {
     if (!path || typeof path.getParentNode !== "function") {
         return null;
     }
@@ -5783,12 +5794,16 @@ function findEnclosingFunctionNode(path) {
             break;
         }
 
-        if (isFunctionLikeDeclaration(parent)) {
+        if (predicate(parent)) {
             return parent;
         }
     }
 
     return null;
+}
+
+function findEnclosingFunctionNode(path) {
+    return findAncestorNode(path, isFunctionLikeDeclaration);
 }
 
 function findFunctionParameterContext(path) {
@@ -5947,23 +5962,10 @@ function isInsideConstructorFunction(path) {
 }
 
 function findEnclosingFunctionDeclaration(path) {
-    if (!path || typeof path.getParentNode !== "function") {
-        return null;
-    }
-
-    for (let depth = 0; ; depth += 1) {
-        const parent =
-            depth === 0 ? path.getParentNode() : path.getParentNode(depth);
-        if (!parent) {
-            break;
-        }
-
-        if (parent.type === "FunctionDeclaration") {
-            return parent;
-        }
-    }
-
-    return null;
+    return findAncestorNode(
+        path,
+        (node) => node?.type === "FunctionDeclaration"
+    );
 }
 
 function shouldSynthesizeUndefinedDefaultForIdentifier(path, node) {
@@ -8356,7 +8358,22 @@ function shouldFlattenSyntheticBinary(parent, expression, path) {
     return false;
 }
 
-function isSyntheticParenFlatteningEnabled(path) {
+/**
+ * Traverse ancestors to determine if synthetic parenthesis flattening is
+ * permitted. Function/constructor declarations with `_flattenSyntheticNumericParens`
+ * set to `true` explicitly enable flattening. For Program nodes, the behaviour
+ * depends on the {@link requireExplicit} flag:
+ *
+ * - When `false` (the default), flattening is enabled unless the Program
+ *   explicitly disables it via `_flattenSyntheticNumericParens === false`.
+ * - When `true`, flattening is only enabled if the Program has the flag
+ *   explicitly set to `true`.
+ *
+ * @param {import("prettier").AstPath} path - AST path to traverse.
+ * @param {{ requireExplicit?: boolean }} [options]
+ * @returns {boolean} `true` when synthetic paren flattening is permitted.
+ */
+function checkSyntheticParenFlattening(path, { requireExplicit = false } = {}) {
     let depth = 1;
     while (true) {
         const ancestor = callPathMethod(path, "getParentNode", {
@@ -8376,38 +8393,21 @@ function isSyntheticParenFlatteningEnabled(path) {
                 return true;
             }
         } else if (ancestor.type === "Program") {
-            return ancestor._flattenSyntheticNumericParens !== false;
+            return requireExplicit
+                ? ancestor._flattenSyntheticNumericParens === true
+                : ancestor._flattenSyntheticNumericParens !== false;
         }
 
         depth += 1;
     }
 }
 
+function isSyntheticParenFlatteningEnabled(path) {
+    return checkSyntheticParenFlattening(path);
+}
+
 function isSyntheticParenFlatteningForced(path) {
-    let depth = 1;
-    while (true) {
-        const ancestor = callPathMethod(path, "getParentNode", {
-            args: depth === 1 ? [] : [depth - 1],
-            defaultValue: null
-        });
-
-        if (!ancestor) {
-            return false;
-        }
-
-        if (
-            ancestor.type === "FunctionDeclaration" ||
-            ancestor.type === "ConstructorDeclaration"
-        ) {
-            if (ancestor._flattenSyntheticNumericParens === true) {
-                return true;
-            }
-        } else if (ancestor.type === "Program") {
-            return ancestor._flattenSyntheticNumericParens === true;
-        }
-
-        depth += 1;
-    }
+    return checkSyntheticParenFlattening(path, { requireExplicit: true });
 }
 
 function isWithinNumericCallArgument(path) {
@@ -9273,23 +9273,7 @@ function resolveArgumentAliasInitializerDoc(path) {
 }
 
 function findEnclosingFunctionForPath(path) {
-    if (!path || typeof path.getParentNode !== "function") {
-        return null;
-    }
-
-    for (let depth = 0; ; depth += 1) {
-        const parent =
-            depth === 0 ? path.getParentNode() : path.getParentNode(depth);
-        if (!parent) {
-            break;
-        }
-
-        if (isFunctionLikeNode(parent)) {
-            return parent;
-        }
-    }
-
-    return null;
+    return findAncestorNode(path, isFunctionLikeNode);
 }
 
 function getFunctionParameterNameByIndex(functionNode, index) {

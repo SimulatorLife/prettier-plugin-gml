@@ -162,6 +162,25 @@ test("planRename rejects renaming to the existing name", async () => {
     );
 });
 
+test("planRename rejects when semantic has no occurrences", async () => {
+    const mockSemantic = {
+        hasSymbol: () => true,
+        getSymbolOccurrences: () => []
+    };
+    const engine = new RefactorEngine({ semantic: mockSemantic });
+
+    await assert.rejects(
+        () =>
+            engine.planRename({
+                symbolId: "gml/script/scr_empty",
+                newName: "scr_new"
+            }),
+        {
+            message: /No occurrences found for symbol 'gml\/script\/scr_empty'/
+        }
+    );
+});
+
 test("planRename checks symbol existence with semantic analyzer", async () => {
     const mockSemantic = {
         hasSymbol: (id) => id === "gml/script/exists"
@@ -194,6 +213,28 @@ test("planRename detects reserved keyword conflicts", async () => {
             engine.planRename({
                 symbolId: "gml/script/scr_test",
                 newName: "if"
+            }),
+        {
+            message: /reserved keyword/
+        }
+    );
+});
+
+test("detectRenameConflicts normalizes semantic reserved keywords", async () => {
+    const mockSemantic = {
+        hasSymbol: () => true,
+        getSymbolOccurrences: () => [
+            { path: "test.gml", start: 0, end: 10, scopeId: "scope-1" }
+        ],
+        getReservedKeywords: () => ["SpecialKeyword"]
+    };
+    const engine = new RefactorEngine({ semantic: mockSemantic });
+
+    await assert.rejects(
+        () =>
+            engine.planRename({
+                symbolId: "gml/script/scr_test",
+                newName: "specialkeyword"
             }),
         {
             message: /reserved keyword/
@@ -1446,4 +1487,163 @@ test("computeHotReloadCascade works without semantic analyzer", async () => {
     assert.equal(result.cascade.length, 1);
     assert.equal(result.cascade[0].symbolId, "gml/script/scr_test");
     assert.equal(result.cascade[0].distance, 0);
+});
+
+// validateNewName tests
+test("validateNewName rejects invalid identifier characters", async () => {
+    const engine = new RefactorEngine();
+    const result = await engine.validateNewName("scr-new");
+    assert.equal(result.valid, false);
+    assert.ok(result.conflicts.length > 0);
+    assert.equal(result.conflicts[0].type, "invalid_identifier");
+});
+
+test("validateNewName rejects empty strings", async () => {
+    const engine = new RefactorEngine();
+    const result = await engine.validateNewName("");
+    assert.equal(result.valid, false);
+    assert.ok(result.conflicts.some((c) => c.type === "invalid_identifier"));
+});
+
+test("validateNewName rejects whitespace-only strings", async () => {
+    const engine = new RefactorEngine();
+    const result = await engine.validateNewName("   ");
+    assert.equal(result.valid, false);
+    assert.ok(result.conflicts.some((c) => c.type === "invalid_identifier"));
+});
+
+test("validateNewName accepts valid identifiers without semantic", async () => {
+    const engine = new RefactorEngine();
+    const result = await engine.validateNewName("scr_valid_name");
+    assert.equal(result.valid, true);
+    assert.equal(result.conflicts.length, 0);
+});
+
+test("validateNewName detects global collisions via hasGlobalSymbol", async () => {
+    const mockSemantic = {
+        hasGlobalSymbol: async (name) => {
+            if (name === "scr_existing") {
+                return "gml/script/scr_existing";
+            }
+            return null;
+        }
+    };
+    const engine = new RefactorEngine({ semantic: mockSemantic });
+
+    const result = await engine.validateNewName("scr_existing");
+    assert.equal(result.valid, false);
+    assert.ok(result.conflicts.length > 0);
+    assert.equal(result.conflicts[0].type, "global_collision");
+    assert.equal(
+        result.conflicts[0].existingSymbolId,
+        "gml/script/scr_existing"
+    );
+});
+
+test("validateNewName excludes current symbol from collision check", async () => {
+    const mockSemantic = {
+        hasGlobalSymbol: async (name) => {
+            if (name === "scr_self") {
+                return "gml/script/scr_self";
+            }
+            return null;
+        }
+    };
+    const engine = new RefactorEngine({ semantic: mockSemantic });
+
+    // When renaming to the same name, exclude the current symbol
+    const result = await engine.validateNewName(
+        "scr_self",
+        "gml/script/scr_self"
+    );
+    assert.equal(result.valid, true);
+    assert.equal(result.conflicts.length, 0);
+});
+
+test("validateNewName detects collisions via findGlobalSymbolsByName", async () => {
+    const mockSemantic = {
+        findGlobalSymbolsByName: async (name) => {
+            if (name === "scr_conflict") {
+                return [
+                    { id: "gml/script/scr_conflict", name: "scr_conflict" },
+                    { id: "gml/object/scr_conflict", name: "scr_conflict" }
+                ];
+            }
+            return [];
+        }
+    };
+    const engine = new RefactorEngine({ semantic: mockSemantic });
+
+    const result = await engine.validateNewName("scr_conflict");
+    assert.equal(result.valid, false);
+    assert.equal(result.conflicts.length, 2);
+    assert.ok(result.conflicts.every((c) => c.type === "global_collision"));
+});
+
+test("validateNewName filters out current symbol in findGlobalSymbolsByName", async () => {
+    const mockSemantic = {
+        findGlobalSymbolsByName: async (name) => {
+            if (name === "scr_shared") {
+                return [
+                    { id: "gml/script/scr_a", name: "scr_shared" },
+                    { id: "gml/script/scr_b", name: "scr_shared" }
+                ];
+            }
+            return [];
+        }
+    };
+    const engine = new RefactorEngine({ semantic: mockSemantic });
+
+    // Renaming scr_a to scr_shared should only conflict with scr_b
+    const result = await engine.validateNewName(
+        "scr_shared",
+        "gml/script/scr_a"
+    );
+    assert.equal(result.valid, false);
+    assert.equal(result.conflicts.length, 1);
+    assert.equal(result.conflicts[0].existingSymbolId, "gml/script/scr_b");
+});
+
+test("detectRenameConflicts includes global collision checks", async () => {
+    const mockSemantic = {
+        hasGlobalSymbol: async (name) => {
+            if (name === "scr_existing") {
+                return "gml/script/scr_existing";
+            }
+            return null;
+        }
+    };
+    const engine = new RefactorEngine({ semantic: mockSemantic });
+
+    const conflicts = await engine.detectRenameConflicts(
+        "scr_old",
+        "scr_existing",
+        [],
+        "gml/script/scr_old"
+    );
+    assert.ok(conflicts.length > 0);
+    assert.ok(conflicts.some((c) => c.type === "global_collision"));
+});
+
+test("detectRenameConflicts excludes current symbol from global collision", async () => {
+    const mockSemantic = {
+        hasGlobalSymbol: async (name) => {
+            // The symbol being renamed has the same name as the target
+            if (name === "scr_same") {
+                return "gml/script/scr_same";
+            }
+            return null;
+        }
+    };
+    const engine = new RefactorEngine({ semantic: mockSemantic });
+
+    // When renaming to itself (shouldn't happen normally, but tests the exclusion logic)
+    const conflicts = await engine.detectRenameConflicts(
+        "scr_same",
+        "scr_same",
+        [],
+        "gml/script/scr_same"
+    );
+    // Should not have global_collision because we're excluding the current symbol
+    assert.ok(!conflicts.some((c) => c.type === "global_collision"));
 });

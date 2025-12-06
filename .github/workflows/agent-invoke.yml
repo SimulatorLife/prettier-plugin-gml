@@ -191,47 +191,12 @@ jobs:
             echo "${{ inputs.agent }} CLI already installed at: $(command -v ${{ inputs.agent }})"
           fi
 
-      - name: Resolve API key (single or multi-line)
-        shell: bash
-        env:
-          RAW_API_KEYS: ${{ secrets.api_key }}
-        run: |
-          set -euo pipefail
-
-          # Normalize CRLF and split into non-empty lines
-          mapfile -t _keys < <(printf '%s\n' "$RAW_API_KEYS" \
-                              | tr -d '\r' \
-                              | awk 'length($0) > 0')
-
-          if [ "${#_keys[@]}" -eq 0 ]; then
-            echo "No API keys provided in secret 'api_key'." >&2
-            exit 1
-          fi
-
-          if [ "${#_keys[@]}" -eq 1 ]; then
-            picked="${_keys[0]}"
-            echo "Selected 1/1 key."
-          else
-            idx=$(( RANDOM % ${#_keys[@]} ))
-            picked="${_keys[$idx]}"
-            echo "Selected 1/${#_keys[@]} keys at random."
-          fi
-
-          # Export for all later steps (multiline-safe syntax, even though it's one line)
-          {
-            echo 'API_KEY<<EOF'
-            printf '%s\n' "$picked"
-            echo 'EOF'
-          } >> "$GITHUB_ENV"
-
-          echo "API_KEY length: ${#picked}"
-
       - name: Run agent custom command
         if: ${{ inputs.agent_command != '' }}
         shell: bash
         id: run_agent
         continue-on-error: true
-        timeout-minutes: 50
+        timeout-minutes: 59
         env:
           TITLE: ${{ steps.validate_pr.outputs.pr_title }}
           PR_NUMBER: ${{ inputs.pr_number }}
@@ -239,6 +204,7 @@ jobs:
           GH_TOKEN: ${{ github.token }}
           REPOSITORY: ${{ github.repository }}
           ADDITIONAL_CONTEXT: ${{ steps.validate_pr.outputs.additional_context || '' }}
+          API_KEY: ${{ secrets.api_key }}
         run: |
           set -euo pipefail
           echo "Running agent command"
@@ -260,6 +226,62 @@ jobs:
           echo "----------------------"
 
           bash "$script"
+
+      - name: Auto-commit and push agent changes if needed
+        if: ${{ steps.run_agent.outcome == 'success' }}
+        shell: bash
+        env:
+          PR_NUMBER: ${{ inputs.pr_number }}
+          AGENT_NAME: ${{ inputs.agent }}
+          WORKING_BRANCH: ${{ env.WORKING_BRANCH }}
+        run: |
+          set -euo pipefail
+
+          SENTINEL="${RUNNER_TEMP:-/tmp}/.agent_push_succeeded"
+
+          # If the shim already saw a successful git push, don't do anything.
+          if [ -f "$SENTINEL" ]; then
+            echo "[agent] Push sentinel already present; skipping auto-commit/push."
+            exit 0
+          fi
+
+          # Check for any uncommitted changes (staged or unstaged)
+          if git diff --quiet && git diff --cached --quiet; then
+            echo "[agent] No changes detected; nothing to commit."
+            exit 0
+          fi
+
+          echo "[agent] Changes detected; committing and pushing."
+
+          git status
+
+          # Stage everything the agent changed
+          git add -A
+
+          commit_message="chore: apply @${AGENT_NAME} changes for PR #${PR_NUMBER}"
+
+          # Commit may fail if there is nothing staged; treat that as "nothing to do".
+          if git commit -m "$commit_message"; then
+            echo "[agent] Created commit: ${commit_message}"
+          else
+            echo "[agent] git commit failed (likely nothing to commit); aborting auto-push."
+            exit 0
+          fi
+
+          echo "[agent] Pushing branch ${WORKING_BRANCH}..."
+
+          # Because of the git shim, a successful push returns 99, not 0.
+          if git push origin "${WORKING_BRANCH}"; then
+            echo "[agent] git push completed with exit 0 (no shim?)."
+          else
+            code=$?
+            if [ "$code" -eq 99 ]; then
+              echo "[agent] git push succeeded via shim (exit 99)."
+            else
+              echo "[agent] git push failed with code $code"
+              exit $code
+            fi
+          fi
 
       - name: Report outcome
         if: always()

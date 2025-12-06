@@ -151,6 +151,8 @@ export async function startRuntimeStaticServer({
         throw new Error(`Runtime root '${resolvedRoot}' is not a directory.`);
     }
 
+    const activeSockets = new Set();
+
     const server = http.createServer((req, res) => {
         const method = req.method ?? "GET";
         if (method !== "GET" && method !== "HEAD") {
@@ -199,6 +201,13 @@ export async function startRuntimeStaticServer({
         });
     });
 
+    server.on("connection", (socket) => {
+        activeSockets.add(socket);
+        socket.on("close", () => {
+            activeSockets.delete(socket);
+        });
+    });
+
     const address = server.address();
     if (!address || typeof address !== "object" || !("port" in address)) {
         await new Promise((resolve, reject) => {
@@ -229,6 +238,10 @@ export async function startRuntimeStaticServer({
             return;
         }
         closed = true;
+
+        for (const socket of activeSockets) {
+            socket.destroy();
+        }
         await new Promise((resolve, reject) => {
             server.close((error) => {
                 if (error) {

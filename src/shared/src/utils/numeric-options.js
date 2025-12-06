@@ -90,38 +90,32 @@ export function coercePositiveIntegerOption(
     defaultValue,
     { zeroReplacement } = {}
 ) {
-    let candidate = value;
-
-    if (typeof candidate === "string") {
-        const trimmed = candidate.trim();
-
-        if (trimmed === "") {
-            return defaultValue;
-        }
-
-        const parsed = Number(trimmed);
-        if (!Number.isFinite(parsed)) {
-            return defaultValue;
-        }
-
-        candidate = parsed;
-    }
-
+    const candidate = normalizeNumericCandidate(value);
     const normalized = toNormalizedInteger(candidate);
 
     if (normalized === null) {
         return defaultValue;
     }
 
-    if (normalized > 0) {
-        return normalized;
+    if (normalized === 0) {
+        return zeroReplacement ?? defaultValue;
     }
 
-    if (normalized === 0 && zeroReplacement !== undefined) {
-        return zeroReplacement;
+    return normalized > 0 ? normalized : defaultValue;
+}
+
+function normalizeNumericCandidate(value) {
+    if (typeof value === "string") {
+        const trimmed = value.trim();
+        if (trimmed === "") {
+            return null;
+        }
+
+        const parsed = Number(trimmed);
+        return Number.isFinite(parsed) ? parsed : null;
     }
 
-    return defaultValue;
+    return value;
 }
 
 /**

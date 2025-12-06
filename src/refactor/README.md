@@ -79,6 +79,43 @@ const analysis = await engine.analyzeRenameImpact({
 // analysis.warnings contains advisory information
 ```
 
+### Name Validation
+
+Validate a proposed new name against the project's semantic index to detect
+global symbol collisions before attempting a rename:
+
+```javascript
+// Check if a name is valid and doesn't conflict with existing symbols
+const validation = await engine.validateNewName("scr_new_name");
+
+if (!validation.valid) {
+    for (const conflict of validation.conflicts) {
+        console.error(`Conflict: ${conflict.message}`);
+        if (conflict.existingSymbolId) {
+            console.error(`  Existing symbol: ${conflict.existingSymbolId}`);
+        }
+    }
+}
+
+// Exclude the current symbol when renaming (to avoid self-collision)
+const renameValidation = await engine.validateNewName(
+    "scr_new_name",
+    "gml/script/scr_current"  // Symbol being renamed
+);
+
+// Skip identifier validation when name is already validated
+const globalOnlyValidation = await engine.validateNewName(
+    "scr_validated_name",
+    "gml/script/scr_current",
+    { skipIdentifierValidation: true }
+);
+```
+
+The `validateNewName` method detects:
+- Invalid identifier characters (e.g., hyphens, spaces)
+- Global symbol collisions via the semantic analyzer's `hasGlobalSymbol` hook
+- Multiple symbol collisions via the `findGlobalSymbolsByName` hook
+
 ### Hot Reload Validation
 
 Validate that workspace edits won't break hot reload functionality:
@@ -203,6 +240,7 @@ new RefactorEngine({ parser, semantic, formatter })
 - `async executeBatchRename(request)` - Execute multiple renames atomically
 - `async analyzeRenameImpact(request)` - Analyze impact without applying changes
 - `async validateRename(workspace)` - Validate a workspace edit
+- `async validateNewName(newName, currentSymbolId, options)` - Validate a proposed name against the semantic index
 - `async validateHotReloadCompatibility(workspace, options)` - Check hot reload compatibility
 - `async applyWorkspaceEdit(workspace, options)` - Apply edits to files
 - `async prepareHotReloadUpdates(workspace)` - Prepare hot reload update metadata
@@ -210,7 +248,7 @@ new RefactorEngine({ parser, semantic, formatter })
 - `async findSymbolAtLocation(filePath, offset)` - Find symbol at position
 - `async validateSymbolExists(symbolId)` - Check if symbol exists
 - `async gatherSymbolOccurrences(symbolName)` - Get all occurrences of a symbol
-- `async detectRenameConflicts(oldName, newName, occurrences)` - Check for naming conflicts
+- `async detectRenameConflicts(oldName, newName, occurrences, currentSymbolId)` - Check for naming conflicts
 - `async computeHotReloadCascade(changedSymbolIds)` - Compute transitive dependency closure for hot reload
 
 ### WorkspaceEdit

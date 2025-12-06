@@ -614,7 +614,7 @@ export class GmlToJsEmitter {
                 if (!identifier || typeof identifier !== "string") {
                     return "";
                 }
-                return `if (!Object.prototype.hasOwnProperty.call(globalThis, "${identifier}")) { globalThis.${identifier} = undefined; }`;
+                return `if (!Object.hasOwn(globalThis, "${identifier}")) { globalThis.${identifier} = undefined; }`;
             })
             .filter(Boolean);
         return statements.join("\n");

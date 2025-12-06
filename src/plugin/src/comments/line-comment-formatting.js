@@ -487,11 +487,14 @@ function formatLineComment(
         if (bannerContent) {
             return applyInlinePadding(comment, `// ${bannerContent}`);
         }
-        // If normalization fails, return as regular comment without extra slashes
-        return applyInlinePadding(
-            comment,
-            `// ${trimmedValue.replace(/^\/+\s*/, "")}`
-        );
+        // If normalization fails and there's no text content (only slashes),
+        // drop the comment entirely.
+        if (afterStripping.length === 0) {
+            return "";
+        }
+        // Otherwise, there's text content but no decorations found, so preserve
+        // the original format with the 4+ leading slashes intact.
+        return applyInlinePadding(comment, trimmedOriginal);
     }
 
     // Check if this is a banner-style comment with decorations (even with 2-3 leading slashes)

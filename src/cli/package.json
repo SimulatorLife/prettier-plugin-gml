@@ -12,6 +12,7 @@
     "@prettier-plugin-gml/shared": "file:../shared",
     "commander": "^14.0.2",
     "linkedom": "^0.18.12",
+    "gamemaker-language-transpiler": "file:../transpiler",
     "prettier-plugin-gamemaker": "file:../plugin",
     "fast-xml-parser": "^5.3.0",
     "ws": "^8.18.0"

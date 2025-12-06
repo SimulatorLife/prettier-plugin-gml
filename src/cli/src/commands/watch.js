@@ -18,7 +18,6 @@ import process from "node:process";
 
 import { Command, Option } from "commander";
 
-import { createTranspiler } from "../../../transpiler/src/index.js";
 import {
     describeRuntimeSource,
     resolveRuntimeSource,
@@ -26,6 +25,7 @@ import {
 } from "../modules/runtime/source.js";
 import { startRuntimeStaticServer } from "../modules/runtime/server.js";
 import { startPatchWebSocketServer } from "../modules/websocket/server.js";
+import { createCliTranspiler } from "../modules/transpiler/factory.js";
 
 /**
  * Creates the watch command for monitoring GML source files.
@@ -173,6 +173,105 @@ function logWatchStartup(
     }
 }
 
+function replayCachedPatches({ patches, sendPatch, verbose, clientId }) {
+    let replayedCount = 0;
+    const totalPatches = patches.size;
+
+    for (const patch of patches.values()) {
+        try {
+            if (sendPatch(patch)) {
+                replayedCount += 1;
+            }
+        } catch (error) {
+            if (verbose) {
+                console.error(
+                    `  ↳ Failed to replay patch to ${clientId}: ${error.message}`
+                );
+            }
+        }
+    }
+
+    if (verbose && totalPatches > 0 && replayedCount < totalPatches) {
+        console.warn(
+            `  ↳ Replayed ${replayedCount}/${totalPatches} cached patch(es) to ${clientId}`
+        );
+    }
+
+    return replayedCount;
+}
+
+function buildScriptSymbolId(filePath, rootPath) {
+    const relativePath = rootPath
+        ? path.relative(rootPath, filePath)
+        : path.basename(filePath);
+
+    const safeRelativePath =
+        !relativePath || relativePath.startsWith("..")
+            ? path.basename(filePath)
+            : relativePath;
+
+    const normalized = safeRelativePath.split(path.sep).join("/");
+    const withoutExtension = normalized.replace(/\.[^./]+$/, "");
+
+    return `gml/script/${withoutExtension}`;
+}
+
+/**
+ * Retrieve the previously cached source content for a symbol.
+ *
+ * Centralizing the cache lookup keeps the orchestrator focused on sequencing
+ * rather than Map bookkeeping.
+ *
+ * @param {object | null | undefined} runtimeContext
+ * @param {string} symbolId
+ * @returns {string | undefined}
+ */
+function getCachedSourceContent(runtimeContext, symbolId) {
+    return runtimeContext?.sourceTextCache?.get(symbolId);
+}
+
+/**
+ * Store source content in the runtime cache for future deduplication checks.
+ *
+ * @param {object | null | undefined} runtimeContext
+ * @param {string} symbolId
+ * @param {string} content
+ */
+function updateSourceCache(runtimeContext, symbolId, content) {
+    runtimeContext?.sourceTextCache?.set(symbolId, content);
+}
+
+/**
+ * Remove a symbol's cached source content, typically after a transpilation error.
+ *
+ * @param {object | null | undefined} runtimeContext
+ * @param {string} symbolId
+ */
+function clearSourceCache(runtimeContext, symbolId) {
+    runtimeContext?.sourceTextCache?.delete(symbolId);
+}
+
+/**
+ * Retrieve the previously stored patch for a symbol.
+ *
+ * @param {object | null | undefined} runtimeContext
+ * @param {string} symbolId
+ * @returns {object | undefined}
+ */
+function getCachedPatch(runtimeContext, symbolId) {
+    return runtimeContext?.patches?.get(symbolId);
+}
+
+/**
+ * Store a transpiled patch in the runtime context for future streaming.
+ *
+ * @param {object | null | undefined} runtimeContext
+ * @param {object} patch
+ */
+function storePatch(runtimeContext, patch) {
+    runtimeContext?.patches?.set(patch.id, patch);
+}
+
 /**
  * Executes the watch command.
  *
@@ -202,7 +301,9 @@ export async function runWatchCommand(targetPath, options) {
         hydrateRuntime,
         runtimeResolver = resolveRuntimeSource,
         runtimeDescriptor = describeRuntimeSource,
-        runtimeServerStarter = startRuntimeStaticServer
+        runtimeServerStarter = startRuntimeStaticServer,
+        websocketServerStarter = startPatchWebSocketServer,
+        transpilerFactory = createCliTranspiler
     } = options;
 
     const normalizedPath = await validateTargetPath(targetPath);
@@ -216,7 +317,7 @@ export async function runWatchCommand(targetPath, options) {
             ? runtimeServer !== false
             : Boolean(hydrateRuntime);
 
-    const transpiler = createTranspiler();
+    const transpiler = transpilerFactory();
     const runtimeContext = {
         root: null,
         packageName: null,
@@ -224,7 +325,8 @@ export async function runWatchCommand(targetPath, options) {
         server: null,
         noticeLogged: Boolean(verbose),
         transpiler,
-        patches: [],
+        patches: new Map(),
+        sourceTextCache: new Map(),
         websocketServer: null
     };
 
@@ -267,15 +369,30 @@ export async function runWatchCommand(targetPath, options) {
 
     if (enableWebSocket) {
         try {
-            websocketServerController = await startPatchWebSocketServer({
+            websocketServerController = await websocketServerStarter({
                 host: websocketHost,
                 port: websocketPort,
                 verbose,
-                onClientConnect: (clientId) => {
+                onClientConnect: (clientId, sendPatch) => {
                     if (verbose) {
                         console.log(
                             `Patch streaming client connected: ${clientId}`
                         );
+                    }
+
+                    if (sendPatch && runtimeContext.patches.size > 0) {
+                        const replayedCount = replayCachedPatches({
+                            patches: runtimeContext.patches,
+                            sendPatch,
+                            verbose,
+                            clientId
+                        });
+
+                        if (verbose && replayedCount > 0) {
+                            console.log(
+                                `  ↳ Replayed ${replayedCount} patch(es) to ${clientId}`
+                            );
+                        }
                     }
                 },
                 onClientDisconnect: (clientId) => {
@@ -432,7 +549,8 @@ export async function runWatchCommand(targetPath, options) {
                 // For now, we just detect and report changes
                 handleFileChange(fullPath, eventType, {
                     verbose,
-                    runtimeContext
+                    runtimeContext,
+                    rootPath: normalizedPath
                 }).catch((error) => {
                     console.error(
                         `Error processing ${filename}:`,
@@ -455,11 +573,12 @@ export async function runWatchCommand(targetPath, options) {
  * @param {object} options - Processing options
  * @param {boolean} options.verbose - Enable verbose logging
  * @param {object} options.runtimeContext - Runtime context with transpiler and patch storage
+ * @param {string} [options.rootPath] - Watch root used to derive script IDs
  */
 async function handleFileChange(
     filePath,
     eventType,
-    { verbose = false, runtimeContext } = {}
+    { verbose = false, runtimeContext, rootPath } = {}
 ) {
     if (verbose && runtimeContext?.root && !runtimeContext.noticeLogged) {
         console.log(`Runtime target: ${runtimeContext.root}`);
@@ -494,6 +613,32 @@ async function handleFileChange(
             const content = await readFile(filePath, "utf8");
             const lines = content.split("\n").length;
 
+            // Avoid redundant transpilation when the file content has not changed
+            // since the last processed patch. Some file systems emit duplicate
+            // change events for a single write; skipping identical content keeps
+            // the hot reload loop stable and avoids spamming clients with
+            // duplicate patches.
+            const symbolId = buildScriptSymbolId(filePath, rootPath);
+            const previousContent = getCachedSourceContent(
+                runtimeContext,
+                symbolId
+            );
+            const previousPatch = getCachedPatch(runtimeContext, symbolId);
+
+            if (
+                previousContent === content ||
+                previousPatch?.sourceText === content
+            ) {
+                if (verbose) {
+                    console.log(
+                        "  ↳ No content changes detected; skipping patch"
+                    );
+                }
+                return;
+            }
+
+            updateSourceCache(runtimeContext, symbolId, content);
+
             if (verbose) {
                 console.log(`  ↳ Read ${lines} lines`);
             }
@@ -501,13 +646,6 @@ async function handleFileChange(
             // Transpile the GML source to JavaScript
             if (runtimeContext?.transpiler) {
                 try {
-                    // Generate a script identifier from the file path
-                    const fileName = path.basename(
-                        filePath,
-                        path.extname(filePath)
-                    );
-                    const symbolId = `gml/script/${fileName}`;
-
                     // Transpile to JavaScript patch
                     const patch =
                         await runtimeContext.transpiler.transpileScript({
@@ -515,8 +653,8 @@ async function handleFileChange(
                             symbolId
                         });
 
-                    // Store the patch for future streaming
-                    runtimeContext.patches.push(patch);
+                    // Store the latest patch for future streaming
+                    storePatch(runtimeContext, patch);
 
                     // Broadcast the patch to all connected WebSocket clients
                     if (runtimeContext.websocketServer) {
@@ -553,6 +691,7 @@ async function handleFileChange(
                     // 2. Identify dependent scripts that need recompilation
                 } catch (error) {
                     console.error(`  ↳ Transpilation failed: ${error.message}`);
+                    clearSourceCache(runtimeContext, symbolId);
                     if (verbose) {
                         console.error(`     ${error.stack}`);
                     }

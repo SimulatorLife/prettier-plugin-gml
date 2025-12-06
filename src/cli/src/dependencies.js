@@ -1,5 +1,4 @@
 export {
-    appendToCollection,
     applyEnvironmentOverride,
     asArray,
     assertArray,
@@ -28,6 +27,8 @@ export {
     getObjectTagName,
     hasOwn,
     callWithFallback,
+    collectAncestorDirectories,
+    collectUniqueAncestorDirectories,
     identity,
     incrementMapValue,
     isAggregateErrorLike,
@@ -73,6 +74,8 @@ export {
 } from "@prettier-plugin-gml/shared";
 
 export { Command, InvalidArgumentError, Option } from "commander";
+
+export { appendToCollection } from "./core/collection-utils.js";
 
 export {
     isMissingModuleDependency,

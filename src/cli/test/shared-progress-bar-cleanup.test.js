@@ -57,4 +57,35 @@ describe("progress bar cleanup", () => {
 
         assert.equal(stopMock.mock.callCount(), 1);
     });
+
+    it("disposes bars when floating point progress is effectively complete", () => {
+        const stdout = createMockStdout();
+        const stopMock = mock.fn();
+        const createBar = mock.fn(() => ({
+            setTotal: () => {},
+            update: () => {},
+            start: () => {},
+            stop: (...args) => {
+                stopMock(...args);
+            }
+        }));
+
+        const progressTotal = 5;
+        // Simulate progress derived from floating point math that lands just shy
+        // of the nominal total (for example, byte counts summed via division).
+        const floatingProgress = progressTotal - Number.EPSILON / 2;
+
+        renderProgressBar(
+            "near completion",
+            floatingProgress,
+            progressTotal,
+            10,
+            {
+                stdout,
+                createBar
+            }
+        );
+
+        assert.equal(stopMock.mock.callCount(), 1);
+    });
 });
