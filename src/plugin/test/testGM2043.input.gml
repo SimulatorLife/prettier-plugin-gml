@@ -1,10 +1,10 @@
-/// Example 1
+// Example 1
 
 i = 0;
 
 var i = 34;
 
-/// Example 2
+// Example 2
 
 if (something_occurred)
 {

@@ -1,10 +1,10 @@
-/// Example 1
+// Example 1
 
 var i = 0;
 
 i = 34;
 
-/// Example 2
+// Example 2
 
 var _msg;
 

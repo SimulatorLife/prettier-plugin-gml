@@ -1,4 +1,4 @@
-/// Draw Event
+// Draw Event
 
 if (!surface_exists(sf_canvas))
 {

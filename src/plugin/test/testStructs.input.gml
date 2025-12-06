@@ -126,7 +126,7 @@ function InputButtonKeyboard(button) : AbstractInputButton(button, eInputType.ke
 
 }
 var kbInput = new InputButtonKeyboard(); kbInput.cleanup()
-delete kbInput    /// delete the struct
+delete kbInput    // delete the struct
 
 
 global.camera.punch(,, _num_hearts);

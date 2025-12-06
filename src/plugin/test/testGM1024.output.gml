@@ -1,4 +1,4 @@
-/// Step Event
+// Step Event
 points = 0;
 points = points + 1;
 

@@ -1,7 +1,7 @@
-/// Setup complete
+// Setup complete
 var ready = true;
 
-/// Draw Triangle
+// Draw Triangle
 var top = [room_width / 2, 0];
 var left = [0, room_height];
 var right = [room_width, room_height];

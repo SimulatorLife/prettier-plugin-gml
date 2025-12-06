@@ -1,4 +1,4 @@
-/// Step Event
+// Step Event
 score = 0;
 score = score + 1;
 

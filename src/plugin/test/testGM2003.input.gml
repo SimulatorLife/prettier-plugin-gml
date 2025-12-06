@@ -1,4 +1,4 @@
-/// Draw Event
+// Draw Event
 
 shader_set(sh_fancy_lighting);
 

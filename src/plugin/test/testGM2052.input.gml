@@ -1,4 +1,4 @@
-/// Draw Event
+// Draw Event
 
 gpu_set_colourwriteenable(true, true, true, false);
 

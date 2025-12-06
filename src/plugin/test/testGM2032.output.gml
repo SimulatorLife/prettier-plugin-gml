@@ -1,1 +1,1 @@
-/// File cannot be closed if not opened
+// File cannot be closed if not opened

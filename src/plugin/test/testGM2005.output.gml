@@ -1,4 +1,4 @@
-/// Draw Event
+// Draw Event
 
 if (!surface_exists(sf_canvas)) {
     sf_canvas = surface_create(512, 512);

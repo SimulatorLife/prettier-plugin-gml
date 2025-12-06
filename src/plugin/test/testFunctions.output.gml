@@ -125,27 +125,27 @@ function choose_profile(settings, fallback) {
 var best = choose_profile(undefined, {profile: "dev"});
 
 // Feather disable all
-/// .__Destroy()
-///
-/// .__FromBuffer(buffer)
-///
-/// .__CopyFromBuffer(buffer)
-///
-/// .__FromString(string, ...)
-///
-/// .__Delete(position, count)
-///
-/// .__Insert(position, string, ...)
-///
-/// .__Overwrite(position, string, ...)
-///
-/// .__Prefix(string, ...)
-///
-/// .__Suffix(string, ...)
-///
-/// .__GetString()
-///
-/// .__GetBuffer()
+// .__Destroy()
+//
+// .__FromBuffer(buffer)
+//
+// .__CopyFromBuffer(buffer)
+//
+// .__FromString(string, ...)
+//
+// .__Delete(position, count)
+//
+// .__Insert(position, string, ...)
+//
+// .__Overwrite(position, string, ...)
+//
+// .__Prefix(string, ...)
+//
+// .__Suffix(string, ...)
+//
+// .__GetString()
+//
+// .__GetBuffer()
 
 /// @function __ChatterboxBufferBatch
 function __ChatterboxBufferBatch() constructor {
@@ -177,7 +177,7 @@ function __ChatterboxBufferBatch() constructor {
 /// @param [name="friend"]
 /// @param [greeting="Hello"]
 function greet(name = "friend", greeting = "Hello") {
-    return (greeting + ", ") + name;
+    return $"{greeting}, ${name}";
 }
 
 var message1 = greet();
@@ -191,7 +191,7 @@ var message5 = greet(undefined, "Welcome");
 /// @param {array<real>} [light_dir=[0, 0, -1]] - The direction of the light
 function handle_lighting(multiplier = undefined, light_dir = [0, 0, -1]) {
     var dir = light_dir;
-    var length = sqrt(dir[0] * dir[0] + dir[1] * dir[1] + dir[2] * dir[2]);
+    var length = point_distance_3d(0, 0, 0, dir[0], dir[1], dir[2]);
     if (!is_undefined(multiplier)) {
         length *= multiplier;
     }
@@ -210,23 +210,20 @@ function handle_lighting(multiplier = undefined, light_dir = [0, 0, -1]) {
 /// @param {real} force
 /// @param {bool} [push_out=true]
 /// @param {bool} [pull_in=true]
-function scr_spring(a, b, dst, force) {
+function scr_spring(a, b, dst, force, push_out = true, pull_in = true) {
 
 	if (!instance_exists(a) or !instance_exists(b)) {
 		return false;
 	}
 
-	var push_out = (argument_count > 4 ? argument[4] : true);
-	var pull_in = (argument_count > 5 ? argument[5] : true);
-
 	var xoff = a.x - b.x;
 	var yoff = a.y - b.y;
 
-	var actual_dist = xoff * xoff + yoff * yoff;
+	var actual_dist = sqr(xoff) + sqr(yoff);
 	if (actual_dist == 0) {
         return false;
     }
-	if ((actual_dist < dst * dst and push_out) or (actual_dist > dst * dst and pull_in)){
+	if ((actual_dist < sqr(dst) and push_out) or (actual_dist > sqr(dst) and pull_in)){
 	    actual_dist = sqrt(actual_dist);
 	    var diff = actual_dist - dst; 
 	    

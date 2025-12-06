@@ -1,4 +1,4 @@
-/// Create Event
+// Create Event
 
 vb = vertex_create_buffer();
 

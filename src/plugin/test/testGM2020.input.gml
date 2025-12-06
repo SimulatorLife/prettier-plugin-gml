@@ -1,4 +1,4 @@
-/// Step Event
+// Step Event
 // apply value to every instance
 all.hp = base_hp;
 

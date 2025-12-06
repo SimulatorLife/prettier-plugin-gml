@@ -2079,7 +2079,7 @@ void describe("Parser.Transforms.applyFeatherFixes transform", () => {
 
     void it("inserts surface target resets for GM2046 sequences and records metadata", () => {
         const source = [
-            "/// Draw Event",
+            "// Draw Event",
             "",
             "surface_set_target(sf);",
             "draw_clear_alpha(c_blue, 1);",
@@ -2974,7 +2974,7 @@ void describe("Parser.Transforms.applyFeatherFixes transform", () => {
 
     void it("resets alpha test enable flagged by GM2053 and records metadata", () => {
         const source = [
-            "/// Draw Event",
+            "// Draw Event",
             "",
             "gpu_set_alphatestenable(true);",
             "",
@@ -3040,7 +3040,7 @@ void describe("Parser.Transforms.applyFeatherFixes transform", () => {
 
     void it("suppresses blank lines when resetting alpha test enable flagged by GM2053", () => {
         const source = [
-            "/// Draw Event",
+            "// Draw Event",
             "",
             "gpu_set_alphatestenable(true);",
             "",
@@ -3077,7 +3077,7 @@ void describe("Parser.Transforms.applyFeatherFixes transform", () => {
 
     void it("formats alpha test resets without inserting extra blank lines", async () => {
         const source = [
-            "/// Draw Event",
+            "// Draw Event",
             "",
             "gpu_set_alphatestenable(true);",
             "",
@@ -3090,7 +3090,7 @@ void describe("Parser.Transforms.applyFeatherFixes transform", () => {
         });
 
         const expected = [
-            "/// Draw Event",
+            "// Draw Event",
             "",
             "gpu_set_alphatestenable(true);",
             "draw_self();",
@@ -3375,7 +3375,7 @@ void describe("Parser.Transforms.applyFeatherFixes transform", () => {
             "",
             "tex = (texture_defined) ? sprite_get_texture(sprite_index, 0) : -1;",
             "",
-            "/// Draw Event",
+            "// Draw Event",
             "",
             "vertex_submit(vb, pr_trianglelist, tex);"
         ].join("\n");
@@ -3429,7 +3429,7 @@ void describe("Parser.Transforms.applyFeatherFixes transform", () => {
             "vertex_begin(vb, format);",
             "vertex_position_3d(vb, 0, 0, 0);",
             "",
-            "/// Draw Event",
+            "// Draw Event",
             "",
             "vertex_submit(vb, pr_pointlist, -1);"
         ].join("\n");
@@ -3497,7 +3497,7 @@ void describe("Parser.Transforms.applyFeatherFixes transform", () => {
     });
 
     void it("removes stray draw_primitive_end calls when fixing GM2028 and records metadata", () => {
-        const source = ["/// Draw Event", "", "draw_primitive_end();"].join(
+        const source = ["// Draw Event", "", "draw_primitive_end();"].join(
             "\n"
         );
 
@@ -3525,7 +3525,7 @@ void describe("Parser.Transforms.applyFeatherFixes transform", () => {
 
     void it("resets gpu_set_cullmode calls flagged by GM2051 and records metadata", () => {
         const source = [
-            "/// Draw Event",
+            "// Draw Event",
             "",
             "gpu_set_cullmode(cull_clockwise);",
             "",
@@ -4442,7 +4442,7 @@ void describe("Parser.Transforms.applyFeatherFixes transform", () => {
 
     void it("resets colour write enable after disabling channels and records metadata", () => {
         const source = [
-            "/// Draw Event",
+            "// Draw Event",
             "",
             "gpu_set_colourwriteenable(true, true, true, false);",
             "",
@@ -4510,7 +4510,7 @@ void describe("Parser.Transforms.applyFeatherFixes transform", () => {
 
     void it("suppresses blank lines when resetting colour write enable flagged by GM2052", () => {
         const source = [
-            "/// Draw Event",
+            "// Draw Event",
             "",
             "gpu_set_colourwriteenable(true, true, true, false);",
             "",
@@ -4544,7 +4544,7 @@ void describe("Parser.Transforms.applyFeatherFixes transform", () => {
 
     void it("resets gpu_set_cullmode calls flagged by GM2051 and records metadata", () => {
         const source = [
-            "/// Draw Event",
+            "// Draw Event",
             "",
             "gpu_set_cullmode(cull_clockwise);",
             "",
@@ -4812,7 +4812,7 @@ void describe("Parser.Transforms.applyFeatherFixes transform", () => {
 
     void it("wraps draw vertex calls flagged by GM2029 and records metadata", () => {
         const source = [
-            "/// Draw Event",
+            "// Draw Event",
             "",
             "draw_vertex(room_width / 4, room_height / 4);",
             "draw_vertex(room_width / 2, room_height / 4);",
@@ -4929,7 +4929,7 @@ void describe("Parser.Transforms.applyFeatherFixes transform", () => {
             "vertex_begin(vb, format);",
             "vertex_position_3d(vb, 0, 0, 0);",
             "",
-            "/// Draw Event",
+            "// Draw Event",
             "",
             "vertex_submit(vb, pr_pointlist, -1);"
         ].join("\n");
@@ -5135,7 +5135,7 @@ void describe("Parser.Transforms.applyFeatherFixes transform", () => {
 
     void it("inserts surface_reset_target after surface_set_target flagged by GM2005 and records metadata", () => {
         const source = [
-            "/// Draw Event",
+            "// Draw Event",
             "",
             "surface_set_target(sf_canvas);",
             "draw_clear_alpha(c_white, 0);",
@@ -5206,7 +5206,7 @@ void describe("Parser.Transforms.applyFeatherFixes transform", () => {
 
     void it("resets blend modes flagged by GM2000 and records metadata", () => {
         const source = [
-            "/// Draw Event",
+            "// Draw Event",
             "",
             "gpu_set_blendmode(bm_add);",
             "",

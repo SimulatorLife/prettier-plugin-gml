@@ -1,1 +1,1 @@
-/// Cannot close a primitive without starting one
+// Cannot close a primitive without starting one

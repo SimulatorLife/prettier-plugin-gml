@@ -1,4 +1,4 @@
-/// Draw Event
+// Draw Event
 
 surface_set_target(sf);
 draw_clear_alpha(c_blue, 1);

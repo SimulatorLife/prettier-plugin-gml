@@ -1,4 +1,4 @@
-/// Malformed vertex formats should be removed
+// Malformed vertex formats should be removed
 
 vertex_format_begin();
 
