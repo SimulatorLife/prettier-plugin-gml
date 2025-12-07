@@ -74,6 +74,10 @@ jobs:
         run: npm ci
         continue-on-error: ${{ matrix.target == 'merge' }}
 
+      - name: Build typescript
+        run: npm run build:ts
+        continue-on-error: ${{ matrix.target == 'merge' }}
+
       # Runs tests once, generating both JUnit XML and LCOV coverage
       - name: Run tests & coverage
         run: npm run test:ci
