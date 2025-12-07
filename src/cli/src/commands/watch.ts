@@ -143,7 +143,9 @@ export function createWatchCommand(): Command {
                 .argParser((value) => {
                     const parsed = Number.parseInt(value);
                     if (Number.isNaN(parsed) || parsed < 1) {
-                        throw new Error("Max patch history must be at least 1");
+                        throw new Error(
+                            "Max patch history must be a positive integer"
+                        );
                     }
                     return parsed;
                 })
@@ -287,9 +289,9 @@ function displayWatchStatistics(
 
         const compressionRatio =
             totalSourceSize > 0
-                ? ((totalOutputSize / totalSourceSize) * 100).toFixed(1)
+                ? `${((totalOutputSize / totalSourceSize) * 100).toFixed(1)}%`
                 : "N/A";
-        console.log(`Output/source ratio: ${compressionRatio}%`);
+        console.log(`Output/source ratio: ${compressionRatio}`);
 
         const fastestPatch = metrics.reduce((min, m) =>
             m.durationMs < min.durationMs ? m : min
