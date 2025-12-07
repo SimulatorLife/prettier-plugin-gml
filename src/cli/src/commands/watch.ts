@@ -40,6 +40,16 @@ type RuntimeTranspilerPatch = ReturnType<RuntimeTranspiler["transpileScript"]>;
 
 type RuntimeDescriptorFormatter = (source: RuntimeSourceDescriptor) => string;
 
+interface TranspilationMetrics {
+    timestamp: number;
+    filePath: string;
+    patchId: string;
+    durationMs: number;
+    sourceSize: number;
+    outputSize: number;
+    linesProcessed: number;
+}
+
 interface WatchCommandOptions {
     extensions?: Array<string>;
     polling?: boolean;
@@ -52,6 +62,7 @@ interface WatchCommandOptions {
     runtimePackage?: string;
     runtimeServer?: boolean;
     hydrateRuntime?: boolean;
+    maxPatchHistory?: number;
     runtimeResolver?: RuntimeSourceResolver;
     runtimeDescriptor?: RuntimeDescriptorFormatter;
     runtimeServerStarter?: typeof startRuntimeStaticServer;
@@ -66,6 +77,8 @@ interface RuntimeContext {
     noticeLogged: boolean;
     transpiler: RuntimeTranspiler;
     patches: Array<RuntimeTranspilerPatch>;
+    metrics: Array<TranspilationMetrics>;
+    maxPatchHistory: number;
     websocketServer: PatchWebSocketServerController | null;
 }
 
@@ -121,6 +134,20 @@ export function createWatchCommand(): Command {
         )
         .addOption(
             new Option("--verbose", "Enable verbose logging").default(false)
+        )
+        .addOption(
+            new Option(
+                "--max-patch-history <count>",
+                "Maximum number of patches to retain in memory"
+            )
+                .argParser((value) => {
+                    const parsed = Number.parseInt(value);
+                    if (Number.isNaN(parsed) || parsed < 1) {
+                        throw new Error("Max patch history must be at least 1");
+                    }
+                    return parsed;
+                })
+                .default(100)
         )
         .addOption(
             new Option(
@@ -221,6 +248,68 @@ function logWatchStartup(
 }
 
 /**
+ * Displays transpilation statistics when the watch stops.
+ *
+ * @param {Array<TranspilationMetrics>} metrics - Collected transpilation metrics
+ * @param {boolean} verbose - Whether to show detailed statistics
+ */
+function displayWatchStatistics(
+    metrics: ReadonlyArray<TranspilationMetrics>,
+    verbose: boolean
+): void {
+    if (metrics.length === 0) {
+        return;
+    }
+
+    console.log("\n--- Transpilation Statistics ---");
+    console.log(`Total patches generated: ${metrics.length}`);
+
+    if (verbose) {
+        const totalDuration = metrics.reduce((sum, m) => sum + m.durationMs, 0);
+        const totalSourceSize = metrics.reduce(
+            (sum, m) => sum + m.sourceSize,
+            0
+        );
+        const totalOutputSize = metrics.reduce(
+            (sum, m) => sum + m.outputSize,
+            0
+        );
+        const avgDuration = totalDuration / metrics.length;
+
+        console.log(`Total transpilation time: ${totalDuration.toFixed(2)}ms`);
+        console.log(`Average transpilation time: ${avgDuration.toFixed(2)}ms`);
+        console.log(
+            `Total source processed: ${(totalSourceSize / 1024).toFixed(2)} KB`
+        );
+        console.log(
+            `Total output generated: ${(totalOutputSize / 1024).toFixed(2)} KB`
+        );
+
+        const compressionRatio =
+            totalSourceSize > 0
+                ? ((totalOutputSize / totalSourceSize) * 100).toFixed(1)
+                : "N/A";
+        console.log(`Output/source ratio: ${compressionRatio}%`);
+
+        const fastestPatch = metrics.reduce((min, m) =>
+            m.durationMs < min.durationMs ? m : min
+        );
+        const slowestPatch = metrics.reduce((max, m) =>
+            m.durationMs > max.durationMs ? m : max
+        );
+
+        console.log(
+            `Fastest transpilation: ${fastestPatch.durationMs.toFixed(2)}ms (${path.basename(fastestPatch.filePath)})`
+        );
+        console.log(
+            `Slowest transpilation: ${slowestPatch.durationMs.toFixed(2)}ms (${path.basename(slowestPatch.filePath)})`
+        );
+    }
+
+    console.log("-------------------------------\n");
+}
+
+/**
  * Executes the watch command.
  *
  * @param {string} targetPath - Directory to watch
@@ -242,6 +331,7 @@ export async function runWatchCommand(
         polling = false,
         pollingInterval = 1000,
         verbose = false,
+        maxPatchHistory = 100,
         websocketPort = 17_890,
         websocketHost = "127.0.0.1",
         websocketServer: enableWebSocket = true,
@@ -275,6 +365,8 @@ export async function runWatchCommand(
         noticeLogged: Boolean(verbose),
         transpiler,
         patches: [],
+        metrics: [],
+        maxPatchHistory,
         websocketServer: null
     };
 
@@ -384,6 +476,8 @@ export async function runWatchCommand(
             process.off("SIGINT", handleErrorSignal);
             process.off("SIGTERM", handleErrorSignal);
             removeAbortListener();
+
+            displayWatchStatistics(runtimeContext.metrics, verbose);
 
             if (runtimeServerController) {
                 try {
@@ -540,6 +634,7 @@ async function handleFileChange(
 
             // Transpile the GML source to JavaScript
             if (runtimeContext?.transpiler) {
+                const startTime = performance.now();
                 try {
                     // Generate a script identifier from the file path
                     const fileName = path.basename(
@@ -554,8 +649,40 @@ async function handleFileChange(
                         symbolId
                     });
 
+                    const endTime = performance.now();
+                    const durationMs = endTime - startTime;
+
+                    // Collect metrics
+                    const metrics: TranspilationMetrics = {
+                        timestamp: Date.now(),
+                        filePath,
+                        patchId: patch.id,
+                        durationMs,
+                        sourceSize: content.length,
+                        outputSize: patch.js_body.length,
+                        linesProcessed: lines
+                    };
+
+                    runtimeContext.metrics.push(metrics);
+
+                    // Enforce max history limit
+                    if (
+                        runtimeContext.metrics.length >
+                        runtimeContext.maxPatchHistory
+                    ) {
+                        runtimeContext.metrics.shift();
+                    }
+
                     // Store the patch for future streaming
                     runtimeContext.patches.push(patch);
+
+                    // Enforce max history limit for patches too
+                    if (
+                        runtimeContext.patches.length >
+                        runtimeContext.maxPatchHistory
+                    ) {
+                        runtimeContext.patches.shift();
+                    }
 
                     // Broadcast the patch to all connected WebSocket clients
                     if (runtimeContext.websocketServer) {
@@ -580,7 +707,7 @@ async function handleFileChange(
 
                     if (verbose) {
                         console.log(
-                            `  ↳ Transpiled to JavaScript (${patch.js_body.length} chars)`
+                            `  ↳ Transpiled to JavaScript (${patch.js_body.length} chars in ${durationMs.toFixed(2)}ms)`
                         );
                         console.log(`  ↳ Patch ID: ${patch.id}`);
                     } else {
