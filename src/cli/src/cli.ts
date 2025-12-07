@@ -93,6 +93,10 @@ import {
     runGenerateQualityReport
 } from "./commands/generate-quality-report.js";
 import {
+    createCollectStatsCommand,
+    runCollectStats
+} from "./commands/collect-stats.js";
+import {
     createFeatherMetadataCommand,
     runGenerateFeatherMetadata
 } from "./commands/generate-feather-metadata.js";
@@ -2315,6 +2319,16 @@ cliCommandRegistry.registerCommand({
     onError: (error) =>
         handleCliError(error, {
             prefix: "Failed to generate quality report.",
+            exitCode: 1
+        })
+});
+
+cliCommandRegistry.registerCommand({
+    command: createCollectStatsCommand(),
+    run: ({ command }) => runCollectStats({ command }),
+    onError: (error) =>
+        handleCliError(error, {
+            prefix: "Failed to collect project stats.",
             exitCode: 1
         })
 });

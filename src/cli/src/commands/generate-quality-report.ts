@@ -425,6 +425,9 @@ function scanResultDirectory(directory) {
     const jscpdFiles = allFiles.filter(
         (file) => path.basename(file) === "jscpd-report.json"
     );
+    const healthFiles = allFiles.filter(
+        (file) => path.basename(file) === "project-health.json"
+    );
 
     if (xmlFiles.length === 0) {
         return {
@@ -433,7 +436,8 @@ function scanResultDirectory(directory) {
             cases: [],
             coverage: null,
             lint: null,
-            duplicates: null
+            duplicates: null,
+            health: null
         };
     }
 
@@ -441,12 +445,13 @@ function scanResultDirectory(directory) {
     const coverage = readCoverage(lcovFiles);
     const lint = readCheckstyle(checkstyleFiles);
     const duplicates = readDuplicates(jscpdFiles);
+    const health = readProjectHealth(healthFiles);
 
     if (cases.length === 0) {
-        return { status: "empty", notes, cases: [], coverage, lint, duplicates };
+        return { status: "empty", notes, cases: [], coverage, lint, duplicates, health };
     }
 
-    return { status: "found", notes, cases, coverage, lint, duplicates };
+    return { status: "found", notes, cases, coverage, lint, duplicates, health };
 }
 
 function readDuplicates(files) {
@@ -458,6 +463,19 @@ function readDuplicates(files) {
         const content = fs.readFileSync(file, "utf8");
         const data = JSON.parse(content);
         return data.statistics?.total || null;
+    } catch {
+        return null;
+    }
+}
+
+function readProjectHealth(files) {
+    if (!files || files.length === 0) {
+        return null;
+    }
+    const file = files[0];
+    try {
+        const content = fs.readFileSync(file, "utf8");
+        return JSON.parse(content);
     } catch {
         return null;
     }
@@ -1035,7 +1053,7 @@ function runCli(options: any = {}) {
     const testTableRows = [
         "#### Test Results",
         "",
-        "| Target | Total | Passed | Failed | Skipped | New | Removed | Renamed | Duration | Test Coverage |",
+        "| Target | Total | Passed | Failed | Skipped | New | Removed | Renamed | Duration | Coverage |",
         "| --- | ---: | ---: | ---: | ---: | ---: | ---: | ---: | ---: | ---: |"
     ];
 
@@ -1191,12 +1209,13 @@ function generateTestRow(label, results, diffStats) {
 }
 
 function generateQualityRow(label, results, healthStats = null) {
+    const stats = healthStats || results.health;
     const lintWarningsCell = fmtLintCount(results.lint?.warnings);
     const lintErrorsCell = fmtLintCount(results.lint?.errors);
     const duplicatesCell = fmtDuplicates(results.duplicates);
-    const buildSizeCell = healthStats ? healthStats.buildSize : "—";
-    const largeFilesCell = healthStats ? healthStats.largeFiles : "—";
-    const todosCell = healthStats ? healthStats.todos : "—";
+    const buildSizeCell = stats ? stats.buildSize : "—";
+    const largeFilesCell = stats ? stats.largeFiles : "—";
+    const todosCell = stats ? stats.todos : "—";
 
     return `| ${label} | ${lintWarningsCell} | ${lintErrorsCell} | ${duplicatesCell} | ${buildSizeCell} | ${largeFilesCell} | ${todosCell} |`;
 }
