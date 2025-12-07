@@ -896,36 +896,6 @@ function formatRegression(regression) {
     return `- ${descriptor} (${fromLabel} -> ${regression.to})`;
 }
 
-function buildResultCandidates(defaultCandidates, envVariable) {
-    const candidates = [...defaultCandidates];
-    const override = process.env[envVariable];
-    if (override) {
-        candidates.push(override);
-    }
-    return candidates;
-}
-
-function loadResultSets(workspaceRoot) {
-    const baseCandidates = buildResultCandidates(
-        [path.join("base", "reports"), "base-reports"],
-        "BASE_RESULTS_DIR"
-    );
-    const mergeCandidates = buildResultCandidates(
-        [path.join("merge", "reports"), "merge-reports"],
-        "MERGE_RESULTS_DIR"
-    );
-
-    const base = readTestResults(baseCandidates, { workspace: workspaceRoot });
-    const head = readTestResults(["reports"], {
-        workspace: workspaceRoot
-    });
-    const merged = readTestResults(mergeCandidates, {
-        workspace: workspaceRoot
-    });
-
-    return { base, head, merged };
-}
-
 function chooseTargetResultSet({ merged, head }) {
     const usingMerged = Boolean(merged.usedDir);
     const target = usingMerged ? merged : head;
@@ -934,28 +904,6 @@ function chooseTargetResultSet({ merged, head }) {
         : `PR head (${head.displayDir || "reports"})`;
 
     return { target, targetLabel, usingMerged };
-}
-
-function announceTargetSelection({ usingMerged, targetLabel }) {
-    if (usingMerged) {
-        console.log(
-            `Using synthetic merge test results for regression detection: ${targetLabel}.`
-        );
-        return;
-    }
-
-    console.log(
-        "Synthetic merge test results were not found; falling back to PR head results."
-    );
-}
-
-function logResultNotes(base, target) {
-    for (const note of base.notes) {
-        console.log(`[base] ${note}`);
-    }
-    for (const note of target.notes) {
-        console.log(`[target] ${note}`);
-    }
 }
 
 function ensureResultsAvailability(base, target) {
@@ -1111,7 +1059,7 @@ function runCli(options: any = {}) {
     console.log(table);
 
     let exitCode = 0;
-    let statusLine = "";
+    let statusLine;
 
     if (base.usedDir && target.usedDir) {
         const regressions = detectRegressions(base, target);
