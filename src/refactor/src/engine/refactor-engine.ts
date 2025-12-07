@@ -537,7 +537,9 @@ export class RefactorEngine {
 
         const dfs = (nodeId: string): Array<string> | null => {
             if (visiting.has(nodeId)) {
-                // Found a back edge - extract the cycle from the current path
+                // Found a back edge - extract the cycle from the current path.
+                // We append nodeId to close the cycle for clearer visualization
+                // in error messages (e.g., "A → B → C → A" instead of "A → B → C").
                 const cycleStart = path.indexOf(nodeId);
                 return path.slice(cycleStart).concat(nodeId);
             }
@@ -549,7 +551,9 @@ export class RefactorEngine {
             visiting.add(nodeId);
             path.push(nodeId);
 
-            // Follow the rename edge to the next node if it exists
+            // Follow the rename edge to the next node (target of this rename).
+            // We only recurse if the target is itself a source of another rename,
+            // allowing us to detect chains like A→B→C where B is also being renamed.
             const nextId = graph.get(nodeId);
             if (nextId && graph.has(nextId)) {
                 const cycle = dfs(nextId);
