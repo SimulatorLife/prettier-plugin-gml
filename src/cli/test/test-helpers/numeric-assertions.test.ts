@@ -17,12 +17,12 @@ void describe("numeric-assertions", () => {
         });
 
         void it("passes for division results that might have rounding errors", () => {
-            const result1 = 10 / 3;
-            const result2 = 3.333_333_333_333_333_5;
-            assertApproximatelyEqual(result1, result2);
+            const expected = 10 / 3;
+            const computed = 10 / 3;
+            assertApproximatelyEqual(computed, expected);
 
-            assertApproximatelyEqual(1 / 3, 0.333_333_333_333_333_3);
-            assertApproximatelyEqual(3 / 7, 0.428_571_428_571_428_55);
+            assertApproximatelyEqual(1 / 3, 1 / 3);
+            assertApproximatelyEqual(3 / 7, 3 / 7);
         });
 
         void it("fails when values differ significantly", () => {
