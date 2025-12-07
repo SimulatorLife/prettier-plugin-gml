@@ -89,9 +89,9 @@ import {
     runGenerateGmlIdentifiers
 } from "./commands/generate-gml-identifiers.js";
 import {
-    createDetectTestRegressionsCommand,
-    runDetectTestRegressions
-} from "./commands/detect-test-regressions.js";
+    createGenerateQualityReportCommand,
+    runGenerateQualityReport
+} from "./commands/generate-quality-report.js";
 import {
     createFeatherMetadataCommand,
     runGenerateFeatherMetadata
@@ -2310,11 +2310,11 @@ cliCommandRegistry.registerCommand({
 });
 
 cliCommandRegistry.registerCommand({
-    command: createDetectTestRegressionsCommand(),
-    run: ({ command }) => runDetectTestRegressions({ command }),
+    command: createGenerateQualityReportCommand(),
+    run: ({ command }) => runGenerateQualityReport({ command }),
     onError: (error) =>
         handleCliError(error, {
-            prefix: "Failed to detect test regressions.",
+            prefix: "Failed to generate quality report.",
             exitCode: 1
         })
 });

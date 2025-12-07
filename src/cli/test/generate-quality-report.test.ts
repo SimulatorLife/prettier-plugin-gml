@@ -9,7 +9,7 @@ import {
     readTestResults,
     ensureResultsAvailability,
     reportRegressionSummary
-} from "../src/commands/detect-test-regressions.js";
+} from "../src/commands/generate-quality-report.js";
 import { isCliUsageError } from "../src/cli-core/errors.js";
 
 const xmlHeader = '<?xml version="1.0" encoding="utf-8"?>\n';

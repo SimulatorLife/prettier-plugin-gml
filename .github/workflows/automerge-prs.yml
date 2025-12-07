@@ -153,7 +153,7 @@ jobs:
           export BASE_RESULTS_DIR="$(pwd)/junit-base"
           export MERGE_RESULTS_DIR="$(pwd)/junit-merge"
           # Falls back to head when merge isn't available (handled by your script)
-          npm run cli -- detect-test-regressions 2>&1 | tee "$log_file"
+          npm run cli -- generate-quality-report 2>&1 | tee "$log_file"
           code=${PIPESTATUS[0]}
           if [ $code -eq 0 ]; then
             echo "all_green=true" >> "$GITHUB_OUTPUT"
@@ -189,7 +189,7 @@ jobs:
             const notes = [];
             const testResults = {};
 
-            const modulePath = path.resolve(process.cwd(), 'src/cli/src/commands/detect-test-regressions.js');
+            const modulePath = path.resolve(process.cwd(), 'src/cli/src/commands/generate-quality-report.js');
             const regressionModule = await import(pathToFileURL(modulePath).href);
             const { readTestResults, detectRegressions } = regressionModule;
 
