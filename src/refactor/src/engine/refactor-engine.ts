@@ -489,6 +489,96 @@ export class RefactorEngine {
     }
 
     /**
+     * Build a directed graph of rename operations for cycle detection.
+     * @private
+     */
+    private buildRenameGraph(
+        renames: Array<RenameRequest>
+    ): Map<string, string> {
+        const graph = new Map<string, string>();
+
+        for (const rename of renames) {
+            const sourceId = rename.symbolId;
+            const pathParts = sourceId.split("/");
+            pathParts[pathParts.length - 1] = rename.newName;
+            const targetId = pathParts.join("/");
+            graph.set(sourceId, targetId);
+        }
+
+        return graph;
+    }
+
+    /**
+     * Detect circular rename chains in a batch of rename operations.
+     * Returns the first detected cycle as an array of symbol IDs, or an empty array if no cycles exist.
+     *
+     * A circular chain occurs when renames form a cycle, such as:
+     * - A→B, B→A (simple 2-cycle)
+     * - A→B, B→C, C→A (3-cycle)
+     *
+     * These chains are problematic because after applying the first rename, subsequent
+     * renames in the cycle reference symbols that no longer exist by their original names.
+     *
+     * @private
+     * @param {Array<{symbolId: string, newName: string}>} renames - Rename operations to check
+     * @returns {Array<string>} First detected cycle as symbol IDs, or empty array if no cycles
+     */
+    private detectCircularRenames(
+        renames: Array<RenameRequest>
+    ): Array<string> {
+        const graph = this.buildRenameGraph(renames);
+
+        // Use depth-first search to detect cycles. We maintain a "visiting" set to
+        // track nodes currently on the recursion stack, which allows us to identify
+        // back edges that indicate cycles.
+        const visited = new Set<string>();
+        const visiting = new Set<string>();
+        const path: Array<string> = [];
+
+        const dfs = (nodeId: string): Array<string> | null => {
+            if (visiting.has(nodeId)) {
+                // Found a back edge - extract the cycle from the current path
+                const cycleStart = path.indexOf(nodeId);
+                return path.slice(cycleStart).concat(nodeId);
+            }
+
+            if (visited.has(nodeId)) {
+                return null;
+            }
+
+            visiting.add(nodeId);
+            path.push(nodeId);
+
+            // Follow the rename edge to the next node if it exists
+            const nextId = graph.get(nodeId);
+            if (nextId && graph.has(nextId)) {
+                const cycle = dfs(nextId);
+                if (cycle) {
+                    return cycle;
+                }
+            }
+
+            path.pop();
+            visiting.delete(nodeId);
+            visited.add(nodeId);
+
+            return null;
+        };
+
+        // Check each rename operation as a potential cycle starting point
+        for (const sourceId of graph.keys()) {
+            if (!visited.has(sourceId)) {
+                const cycle = dfs(sourceId);
+                if (cycle) {
+                    return cycle;
+                }
+            }
+        }
+
+        return [];
+    }
+
+    /**
      * Plan a rename refactoring for a symbol.
      * @param {Object} request - Rename request
      * @param {string} request.symbolId - Symbol to rename (e.g., "gml/script/scr_foo")
@@ -770,6 +860,23 @@ export class RefactorEngine {
                 );
             }
             newNames.add(normalizedNewName);
+        }
+
+        // Detect circular rename chains where symbol names form a cycle, such as
+        // renaming A→B and B→A simultaneously. These chains create conflicts because
+        // after applying the first rename, the second rename's source symbol no longer
+        // exists by its original name, causing the batch operation to fail or produce
+        // incorrect results. We detect cycles by building a directed graph of renames
+        // and checking for strongly connected components.
+        const circularChain = this.detectCircularRenames(renames);
+        if (circularChain.length > 0) {
+            const chain = circularChain
+                .map((id) => id.split("/").pop())
+                .join(" → ");
+            throw new Error(
+                `Circular rename chain detected: ${chain}. ` +
+                    `Cannot rename symbols in a cycle as it would create conflicts.`
+            );
         }
 
         // Plan each rename independently, collecting the resulting workspace edits.
