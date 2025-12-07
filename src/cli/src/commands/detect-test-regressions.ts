@@ -2,8 +2,10 @@ import fs from "node:fs";
 import path from "node:path";
 import process from "node:process";
 import { fileURLToPath } from "node:url";
+import { Command } from "commander";
 import { Core } from "@gml-modules/core";
 import { CliUsageError, handleCliError } from "../cli-core/errors.js";
+import { applyStandardCommandOptions } from "../cli-core/command-standard-options.js";
 import { XMLParser } from "fast-xml-parser";
 
 const {
@@ -750,6 +752,24 @@ function reportRegressionSummary(
         exitCode: 0,
         lines: [`No new failing tests compared to base using ${targetLabel}.`]
     };
+}
+
+export function createDetectTestRegressionsCommand() {
+    return applyStandardCommandOptions(
+        new Command()
+            .name("detect-test-regressions")
+            .description(
+                "Detect test regressions by comparing JUnit XML reports."
+            )
+    );
+}
+
+export function runDetectTestRegressions() {
+    const exitCode = runCli();
+    if (exitCode !== 0) {
+        process.exitCode = exitCode;
+        throw new CliUsageError("Test regressions detected.");
+    }
 }
 
 function runCli() {

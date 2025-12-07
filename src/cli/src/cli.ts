@@ -89,6 +89,10 @@ import {
     runGenerateGmlIdentifiers
 } from "./commands/generate-gml-identifiers.js";
 import {
+    createDetectTestRegressionsCommand,
+    runDetectTestRegressions
+} from "./commands/detect-test-regressions.js";
+import {
     createFeatherMetadataCommand,
     runGenerateFeatherMetadata
 } from "./commands/generate-feather-metadata.js";
@@ -2301,6 +2305,16 @@ cliCommandRegistry.registerCommand({
     onError: (error) =>
         handleCliError(error, {
             prefix: "Failed to generate GML identifiers.",
+            exitCode: 1
+        })
+});
+
+cliCommandRegistry.registerCommand({
+    command: createDetectTestRegressionsCommand(),
+    run: () => runDetectTestRegressions(),
+    onError: (error) =>
+        handleCliError(error, {
+            prefix: "Failed to detect test regressions.",
             exitCode: 1
         })
 });
