@@ -2311,7 +2311,7 @@ cliCommandRegistry.registerCommand({
 
 cliCommandRegistry.registerCommand({
     command: createDetectTestRegressionsCommand(),
-    run: () => runDetectTestRegressions(),
+    run: ({ command }) => runDetectTestRegressions({ command }),
     onError: (error) =>
         handleCliError(error, {
             prefix: "Failed to detect test regressions.",
