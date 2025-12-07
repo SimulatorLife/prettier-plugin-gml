@@ -9,7 +9,9 @@ function formatBytes(bytes: number) {
     const k = 1024;
     const sizes = ["B", "KB", "MB", "GB"];
     const i = Math.floor(Math.log(bytes) / Math.log(k));
-    return Number.parseFloat((bytes / Math.pow(k, i)).toFixed(2)) + " " + sizes[i];
+    return (
+        `${Number.parseFloat((bytes / Math.pow(k, i)).toFixed(2))  } ${  sizes[i]}`
+    );
 }
 
 function getSourceFiles(dir: string, fileList: string[] = []) {
@@ -97,18 +99,25 @@ export function createCollectStatsCommand() {
     return applyStandardCommandOptions(
         new Command()
             .name("collect-stats")
-            .description("Collect project health statistics (build size, TODOs, etc.)")
-            .option("--output <path>", "Path to write the JSON report", "reports/project-health.json")
+            .description(
+                "Collect project health statistics (build size, TODOs, etc.)"
+            )
+            .option(
+                "--output <path>",
+                "Path to write the JSON report",
+                "reports/project-health.json"
+            )
     );
 }
 
 export function runCollectStats({ command }: any = {}) {
     const options = command?.opts() || {};
     const workspaceRoot = process.env.GITHUB_WORKSPACE || process.cwd();
-    const outputPath = options.output || path.join("reports", "project-health.json");
+    const outputPath =
+        options.output || path.join("reports", "project-health.json");
 
     const stats = scanProjectHealth(workspaceRoot);
-    
+
     const outputDir = path.dirname(outputPath);
     if (!fs.existsSync(outputDir)) {
         fs.mkdirSync(outputDir, { recursive: true });

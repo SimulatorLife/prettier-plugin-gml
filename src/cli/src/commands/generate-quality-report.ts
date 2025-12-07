@@ -327,7 +327,7 @@ function normalizeLocator(testCase) {
     if (rawFile) {
         return `file:${path
             .normalize(rawFile)
-            .replaceAll('\\', "/")
+            .replaceAll("\\", "/")
             .toLowerCase()}`;
     }
     const className =
@@ -448,10 +448,26 @@ function scanResultDirectory(directory) {
     const health = readProjectHealth(healthFiles);
 
     if (cases.length === 0) {
-        return { status: "empty", notes, cases: [], coverage, lint, duplicates, health };
+        return {
+            status: "empty",
+            notes,
+            cases: [],
+            coverage,
+            lint,
+            duplicates,
+            health
+        };
     }
 
-    return { status: "found", notes, cases, coverage, lint, duplicates, health };
+    return {
+        status: "found",
+        notes,
+        cases,
+        coverage,
+        lint,
+        duplicates,
+        health
+    };
 }
 
 function readDuplicates(files) {
@@ -1225,7 +1241,9 @@ function formatBytes(bytes) {
     const k = 1024;
     const sizes = ["B", "KB", "MB", "GB"];
     const i = Math.floor(Math.log(bytes) / Math.log(k));
-    return Number.parseFloat((bytes / Math.pow(k, i)).toFixed(2)) + " " + sizes[i];
+    return (
+        `${Number.parseFloat((bytes / Math.pow(k, i)).toFixed(2))  } ${  sizes[i]}`
+    );
 }
 
 function getSourceFiles(dir, fileList = []) {
