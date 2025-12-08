@@ -646,7 +646,7 @@ function _printImpl(path, options, print) {
             // tags are inserted.
             const docLikeLeadingLines: string[] = [];
             const plainLeadingLines: string[] = [];
-            let existingDocLines: MutableDocCommentLines = [];
+            const existingDocLines: MutableDocCommentLines = [];
             let updatedComments: any[];
 
             // Resolve the root Program node to ensure we can scan program-level
@@ -763,9 +763,9 @@ function _printImpl(path, options, print) {
             const formattedProgramLines = programLeadingLines.map((line) => {
                 const trimmed = line.trim();
                 if (trimmed.startsWith("///")) return trimmed;
-                if (trimmed.startsWith("//")) return "///" + trimmed.slice(2);
-                if (trimmed.startsWith("/")) return "///" + trimmed.slice(1);
-                return "/// " + trimmed;
+                if (trimmed.startsWith("//")) return `///${  trimmed.slice(2)}`;
+                if (trimmed.startsWith("/")) return `///${  trimmed.slice(1)}`;
+                return `/// ${  trimmed}`;
             });
 
             // Also check for node-attached comments that look like doc comments (e.g. // /)
@@ -800,9 +800,9 @@ function _printImpl(path, options, print) {
             const formattedNodeLines = nodeLeadingLines.map((line) => {
                 const trimmed = line.trim();
                 if (trimmed.startsWith("///")) return trimmed;
-                if (trimmed.startsWith("//")) return "///" + trimmed.slice(2);
-                if (trimmed.startsWith("/")) return "///" + trimmed.slice(1);
-                return "/// " + trimmed;
+                if (trimmed.startsWith("//")) return `///${  trimmed.slice(2)}`;
+                if (trimmed.startsWith("/")) return `///${  trimmed.slice(1)}`;
+                return `/// ${  trimmed}`;
             });
 
             // Filter out duplicates that might already be in docCommentDocs
