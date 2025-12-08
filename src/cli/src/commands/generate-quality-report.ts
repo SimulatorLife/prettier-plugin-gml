@@ -108,8 +108,7 @@ function describeTestCase(testNode, suitePath) {
 
 function computeStatus(testNode) {
     const hasFailure =
-        Object.hasOwn(testNode, "failure") ||
-        Object.hasOwn(testNode, "error");
+        Object.hasOwn(testNode, "failure") || Object.hasOwn(testNode, "error");
     if (hasFailure) {
         return "failed";
     }
