@@ -884,6 +884,124 @@ void test("planBatchRename validates merged edits for overlaps", async () => {
     );
 });
 
+void test("planBatchRename detects simple circular rename (A→B, B→A)", async () => {
+    const mockSemantic = {
+        hasSymbol: () => true,
+        getSymbolOccurrences: () => []
+    };
+    const engine = new RefactorEngine({ semantic: mockSemantic });
+
+    await assert.rejects(
+        () =>
+            engine.planBatchRename([
+                { symbolId: "gml/script/scr_foo", newName: "scr_bar" },
+                { symbolId: "gml/script/scr_bar", newName: "scr_foo" }
+            ]),
+        {
+            message: /Circular rename chain detected.*scr_foo.*scr_bar/
+        }
+    );
+});
+
+void test("planBatchRename detects three-way circular rename (A→B→C→A)", async () => {
+    const mockSemantic = {
+        hasSymbol: () => true,
+        getSymbolOccurrences: () => []
+    };
+    const engine = new RefactorEngine({ semantic: mockSemantic });
+
+    await assert.rejects(
+        () =>
+            engine.planBatchRename([
+                { symbolId: "gml/script/scr_alpha", newName: "scr_beta" },
+                { symbolId: "gml/script/scr_beta", newName: "scr_gamma" },
+                { symbolId: "gml/script/scr_gamma", newName: "scr_alpha" }
+            ]),
+        {
+            message: /Circular rename chain detected/
+        }
+    );
+});
+
+void test("planBatchRename allows non-circular chain renames (A→B→C)", async () => {
+    const mockSemantic = {
+        hasSymbol: () => true,
+        getSymbolOccurrences: (name) => {
+            if (name === "scr_alpha") {
+                return [
+                    {
+                        path: "file1.gml",
+                        start: 0,
+                        end: 9,
+                        scopeId: "scope-1"
+                    }
+                ];
+            }
+            if (name === "scr_beta") {
+                return [
+                    {
+                        path: "file2.gml",
+                        start: 10,
+                        end: 18,
+                        scopeId: "scope-2"
+                    }
+                ];
+            }
+            return [];
+        }
+    };
+    const engine = new RefactorEngine({ semantic: mockSemantic });
+
+    // This should succeed because scr_alpha→scr_beta, scr_beta→scr_gamma forms
+    // a non-circular chain (scr_gamma is not renamed back to scr_alpha)
+    const workspace = await engine.planBatchRename([
+        { symbolId: "gml/script/scr_alpha", newName: "scr_beta" },
+        { symbolId: "gml/script/scr_beta", newName: "scr_gamma" }
+    ]);
+
+    assert.ok(workspace instanceof WorkspaceEdit);
+    assert.ok(workspace.edits.length > 0);
+});
+
+void test("planBatchRename allows independent renames without cycles", async () => {
+    const mockSemantic = {
+        hasSymbol: () => true,
+        getSymbolOccurrences: (name) => {
+            if (name === "scr_foo") {
+                return [
+                    {
+                        path: "file1.gml",
+                        start: 0,
+                        end: 7,
+                        scopeId: "scope-1"
+                    }
+                ];
+            }
+            if (name === "scr_bar") {
+                return [
+                    {
+                        path: "file2.gml",
+                        start: 20,
+                        end: 27,
+                        scopeId: "scope-2"
+                    }
+                ];
+            }
+            return [];
+        }
+    };
+    const engine = new RefactorEngine({ semantic: mockSemantic });
+
+    // Independent renames should succeed
+    const workspace = await engine.planBatchRename([
+        { symbolId: "gml/script/scr_foo", newName: "scr_foo_renamed" },
+        { symbolId: "gml/script/scr_bar", newName: "scr_bar_renamed" }
+    ]);
+
+    assert.ok(workspace instanceof WorkspaceEdit);
+    assert.equal(workspace.edits.length, 2);
+});
+
 void test("executeBatchRename validates required parameters", async () => {
     const engine = new RefactorEngine();
     type ExecuteBatchRenameArgs = Parameters<

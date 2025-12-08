@@ -1,6 +1,7 @@
 import fs from "node:fs";
 import path from "node:path";
 import process from "node:process";
+import { execSync } from "node:child_process";
 import { fileURLToPath } from "node:url";
 import { Command } from "commander";
 import { Core } from "@gml-modules/core";
@@ -326,7 +327,7 @@ function normalizeLocator(testCase) {
     if (rawFile) {
         return `file:${path
             .normalize(rawFile)
-            .replaceAll('\\', "/")
+            .replaceAll("\\", "/")
             .toLowerCase()}`;
     }
     const className =
@@ -401,14 +402,15 @@ function computeTestDiff(baseResults, targetResults) {
     };
 }
 
-function scanResultDirectory(directory) {
+function scanResultDirectory(directory, root) {
     if (!isExistingDirectory(directory.resolved)) {
         return {
             status: "missing",
             notes: [],
             cases: [],
             coverage: null,
-            lint: null
+            lint: null,
+            duplicates: null
         };
     }
 
@@ -420,6 +422,12 @@ function scanResultDirectory(directory) {
     const checkstyleFiles = allFiles.filter((file) =>
         /checkstyle/i.test(path.basename(file))
     );
+    const jscpdFiles = allFiles.filter(
+        (file) => path.basename(file) === "jscpd-report.json"
+    );
+    const healthFiles = allFiles.filter(
+        (file) => path.basename(file) === "project-health.json"
+    );
 
     if (xmlFiles.length === 0) {
         return {
@@ -427,19 +435,66 @@ function scanResultDirectory(directory) {
             notes: [],
             cases: [],
             coverage: null,
-            lint: null
+            lint: null,
+            duplicates: null,
+            health: null
         };
     }
 
-    const { cases, notes } = collectDirectoryTestCases(xmlFiles);
+    const { cases, notes } = collectDirectoryTestCases(xmlFiles, root);
     const coverage = readCoverage(lcovFiles);
     const lint = readCheckstyle(checkstyleFiles);
+    const duplicates = readDuplicates(jscpdFiles);
+    const health = readProjectHealth(healthFiles);
 
     if (cases.length === 0) {
-        return { status: "empty", notes, cases: [], coverage, lint };
+        return {
+            status: "empty",
+            notes,
+            cases: [],
+            coverage,
+            lint,
+            duplicates,
+            health
+        };
     }
 
-    return { status: "found", notes, cases, coverage, lint };
+    return {
+        status: "found",
+        notes,
+        cases,
+        coverage,
+        lint,
+        duplicates,
+        health
+    };
+}
+
+function readDuplicates(files) {
+    if (!files || files.length === 0) {
+        return null;
+    }
+    const file = files[0];
+    try {
+        const content = fs.readFileSync(file, "utf8");
+        const data = JSON.parse(content);
+        return data.statistics?.total || null;
+    } catch {
+        return null;
+    }
+}
+
+function readProjectHealth(files) {
+    if (!files || files.length === 0) {
+        return null;
+    }
+    const file = files[0];
+    try {
+        const content = fs.readFileSync(file, "utf8");
+        return JSON.parse(content);
+    } catch {
+        return null;
+    }
 }
 
 function isExistingDirectory(resolvedPath) {
@@ -448,11 +503,11 @@ function isExistingDirectory(resolvedPath) {
     );
 }
 
-function collectDirectoryTestCases(xmlFiles) {
+function collectDirectoryTestCases(xmlFiles, root) {
     const aggregate = createTestCaseAggregate();
 
     for (const filePath of xmlFiles) {
-        const displayPath = path.relative(process.cwd(), filePath);
+        const displayPath = path.relative(root || process.cwd(), filePath);
         const additions = collectTestCasesFromXmlFile(filePath, displayPath);
 
         mergeTestCaseAggregate(aggregate, additions);
@@ -652,7 +707,7 @@ function readTestResults(
     const emptyDirs = [];
 
     for (const directory of directories) {
-        const scan = scanResultDirectory(directory);
+        const scan = scanResultDirectory(directory, workspaceRoot);
 
         if (scan.notes.length > 0) {
             notes.push(...scan.notes);
@@ -670,13 +725,26 @@ function readTestResults(
 
         recordTestCases(aggregates, scan.cases);
 
+        let duplicates = scan.duplicates;
+        if (!duplicates) {
+            const parentFile = path.join(
+                directory.resolved,
+                "..",
+                "jscpd-report.json"
+            );
+            if (fs.existsSync(parentFile)) {
+                duplicates = readDuplicates([parentFile]);
+            }
+        }
+
         return {
             ...aggregates,
             usedDir: directory.resolved,
             displayDir: directory.display,
             notes,
             coverage: scan.coverage,
-            lint: scan.lint
+            lint: scan.lint,
+            duplicates
         };
     }
 
@@ -698,7 +766,8 @@ function readTestResults(
         displayDir: "",
         notes,
         coverage: null,
-        lint: null
+        lint: null,
+        duplicates: null
     };
 }
 
@@ -827,36 +896,6 @@ function formatRegression(regression) {
     return `- ${descriptor} (${fromLabel} -> ${regression.to})`;
 }
 
-function buildResultCandidates(defaultCandidates, envVariable) {
-    const candidates = [...defaultCandidates];
-    const override = process.env[envVariable];
-    if (override) {
-        candidates.push(override);
-    }
-    return candidates;
-}
-
-function loadResultSets(workspaceRoot) {
-    const baseCandidates = buildResultCandidates(
-        [path.join("base", "reports"), "base-reports"],
-        "BASE_RESULTS_DIR"
-    );
-    const mergeCandidates = buildResultCandidates(
-        [path.join("merge", "reports"), "merge-reports"],
-        "MERGE_RESULTS_DIR"
-    );
-
-    const base = readTestResults(baseCandidates, { workspace: workspaceRoot });
-    const head = readTestResults(["reports"], {
-        workspace: workspaceRoot
-    });
-    const merged = readTestResults(mergeCandidates, {
-        workspace: workspaceRoot
-    });
-
-    return { base, head, merged };
-}
-
 function chooseTargetResultSet({ merged, head }) {
     const usingMerged = Boolean(merged.usedDir);
     const target = usingMerged ? merged : head;
@@ -865,28 +904,6 @@ function chooseTargetResultSet({ merged, head }) {
         : `PR head (${head.displayDir || "reports"})`;
 
     return { target, targetLabel, usingMerged };
-}
-
-function announceTargetSelection({ usingMerged, targetLabel }) {
-    if (usingMerged) {
-        console.log(
-            `Using synthetic merge test results for regression detection: ${targetLabel}.`
-        );
-        return;
-    }
-
-    console.log(
-        "Synthetic merge test results were not found; falling back to PR head results."
-    );
-}
-
-function logResultNotes(base, target) {
-    for (const note of base.notes) {
-        console.log(`[base] ${note}`);
-    }
-    for (const note of target.notes) {
-        console.log(`[target] ${note}`);
-    }
 }
 
 function ensureResultsAvailability(base, target) {
@@ -939,12 +956,12 @@ function reportRegressionSummary(
     };
 }
 
-export function createDetectTestRegressionsCommand() {
+export function createGenerateQualityReportCommand() {
     return applyStandardCommandOptions(
         new Command()
-            .name("detect-test-regressions")
+            .name("generate-quality-report")
             .description(
-                "Detect test regressions by comparing JUnit XML reports."
+                "Generate a quality report (tests, lint, coverage, duplicates) and detect regressions."
             )
             .option("--base <path>", "Path to base reports")
             .option("--head <path>", "Path to head reports")
@@ -956,7 +973,7 @@ export function createDetectTestRegressionsCommand() {
     );
 }
 
-export function runDetectTestRegressions({ command }: any = {}) {
+export function runGenerateQualityReport({ command }: any = {}) {
     const options = command?.opts() || {};
     const exitCode = runCli(options);
     if (exitCode !== 0) {
@@ -967,6 +984,8 @@ export function runDetectTestRegressions({ command }: any = {}) {
 
 function runCli(options: any = {}) {
     const workspaceRoot = process.env.GITHUB_WORKSPACE || process.cwd();
+    const reportFile =
+        options.reportFile || path.join("reports", "summary-report.md");
 
     const baseDir = options.base
         ? [options.base]
@@ -993,28 +1012,54 @@ function runCli(options: any = {}) {
         merge: computeTestDiff(base, merged)
     };
 
-    const tableRows = [
-        "| Target | Total | Passed | Failed | Skipped | New Tests | Removed Tests | Renamed Tests | Lint warnings | Lint errors | Coverage | Duration |",
-        "| --- | ---: | ---: | ---: | ---: | ---: | ---: | ---: | ---: | ---: | ---: | ---: |"
+    const healthStats = scanProjectHealth(workspaceRoot);
+
+    const testTableRows = [
+        "#### Test Results",
+        "",
+        "| Target | Total | Passed | Failed | Skipped | New | Removed | Renamed | Duration | Coverage |",
+        "| --- | ---: | ---: | ---: | ---: | ---: | ---: | ---: | ---: | ---: |"
+    ];
+
+    const qualityTableRows = [
+        "#### Code Quality",
+        "",
+        "| Target | Lint Warnings | Lint Errors | Duplicated Code | Build Size | Files > 1k LoC | TODOs |",
+        "| --- | ---: | ---: | ---: | ---: | ---: | ---: |"
     ];
 
     if (base.usedDir) {
-        tableRows.push(generateReportRow("Base", base, diffStats.base));
+        testTableRows.push(generateTestRow("Base", base, diffStats.base));
+        qualityTableRows.push(generateQualityRow("Base", base));
     }
     if (head.usedDir) {
-        tableRows.push(generateReportRow("PR (Head)", head, diffStats.head));
+        let label = "PR (Head)";
+        if (!base.usedDir && !merged.usedDir) {
+            label = "Current";
+            try {
+                const branch = execSync("git rev-parse --abbrev-ref HEAD", {
+                    encoding: "utf8"
+                }).trim();
+                if (branch) {
+                    label = `Local (${branch})`;
+                }
+            } catch {
+                // ignore
+            }
+        }
+        testTableRows.push(generateTestRow(label, head, diffStats.head));
+        qualityTableRows.push(generateQualityRow(label, head, healthStats));
     }
     if (merged.usedDir) {
-        tableRows.push(generateReportRow("Merged", merged, diffStats.merge));
-    } else if (!base.usedDir && !head.usedDir && head.stats.total > 0) {
-            tableRows.push(generateReportRow("Current", head, diffStats.head));
-        }
+        testTableRows.push(generateTestRow("Merged", merged, diffStats.merge));
+        qualityTableRows.push(generateQualityRow("Merged", merged));
+    }
 
-    const table = tableRows.join("\n");
+    const table = [...testTableRows, "", ...qualityTableRows].join("\n");
     console.log(table);
 
     let exitCode = 0;
-    let statusLine = "";
+    let statusLine;
 
     if (base.usedDir && target.usedDir) {
         const regressions = detectRegressions(base, target);
@@ -1033,18 +1078,18 @@ function runCli(options: any = {}) {
         statusLine = "⚠️ Unable to compare base and target results.";
     }
 
-    console.log(`\n${  statusLine}`);
+    console.log(`\n${statusLine}`);
 
-    if (options.reportFile) {
+    if (reportFile) {
         const reportContent = [
             "<!-- automerge-pr-test-summary -->",
-            "### Node.js regression test summary",
+            "### Quality Report Summary",
             "",
             table,
             "",
             statusLine
         ].join("\n");
-        fs.writeFileSync(options.reportFile, reportContent);
+        fs.writeFileSync(reportFile, reportContent);
     }
 
     return exitCode;
@@ -1096,18 +1141,23 @@ const fmtTime = (s) =>
 const fmtLintCount = (value) =>
     value === null || value === undefined ? "—" : `${value}`;
 
+const fmtDuplicates = (data) => {
+    if (!data) {
+        return "—";
+    }
+    return `${data.percentage}% (${data.clones})`;
+};
+
 function formatDiffValue(value) {
     return value === null || value === undefined
         ? "—"
         : `${Math.max(0, value)}`;
 }
 
-function generateReportRow(label, results, diffStats) {
+function generateTestRow(label, results, diffStats) {
     const totals = results.stats || {};
     const hasAny = totals.total > 0;
     const coverageCell = fmtCoverage(results.coverage);
-    const lintWarningsCell = fmtLintCount(results.lint?.warnings);
-    const lintErrorsCell = fmtLintCount(results.lint?.errors);
     const diff = diffStats
         ? {
               newTests: formatDiffValue(diffStats.newTests),
@@ -1117,9 +1167,110 @@ function generateReportRow(label, results, diffStats) {
         : { newTests: "—", removedTests: "—", renamedTests: "—" };
 
     if (!hasAny) {
-        return `| ${label} | — | — | — | — | ${diff.newTests} | ${diff.removedTests} | ${diff.renamedTests} | ${lintWarningsCell} | ${lintErrorsCell} | ${coverageCell} | — |`;
+        return `| ${label} | — | — | — | — | ${diff.newTests} | ${diff.removedTests} | ${diff.renamedTests} | — | ${coverageCell} |`;
     }
-    return `| ${label} | ${totals.total} | ${totals.passed} | ${totals.failed} | ${totals.skipped} | ${diff.newTests} | ${diff.removedTests} | ${diff.renamedTests} | ${lintWarningsCell} | ${lintErrorsCell} | ${coverageCell} | ${fmtTime(totals.time)} |`;
+    return `| ${label} | ${totals.total} | ${totals.passed} | ${totals.failed} | ${totals.skipped} | ${diff.newTests} | ${diff.removedTests} | ${diff.renamedTests} | ${fmtTime(totals.time)} | ${coverageCell} |`;
+}
+
+function generateQualityRow(label, results, healthStats = null) {
+    const stats = healthStats || results.health;
+    const lintWarningsCell = fmtLintCount(results.lint?.warnings);
+    const lintErrorsCell = fmtLintCount(results.lint?.errors);
+    const duplicatesCell = fmtDuplicates(results.duplicates);
+    const buildSizeCell = stats ? stats.buildSize : "—";
+    const largeFilesCell = stats ? stats.largeFiles : "—";
+    const todosCell = stats ? stats.todos : "—";
+
+    return `| ${label} | ${lintWarningsCell} | ${lintErrorsCell} | ${duplicatesCell} | ${buildSizeCell} | ${largeFilesCell} | ${todosCell} |`;
+}
+
+function formatBytes(bytes) {
+    if (bytes === 0) return "0 B";
+    const k = 1024;
+    const sizes = ["B", "KB", "MB", "GB"];
+    const i = Math.floor(Math.log(bytes) / Math.log(k));
+    return `${Number.parseFloat((bytes / Math.pow(k, i)).toFixed(2))} ${sizes[i]}`;
+}
+
+function getSourceFiles(dir, fileList = []) {
+    if (!fs.existsSync(dir)) {
+        return fileList;
+    }
+    const files = fs.readdirSync(dir);
+    for (const file of files) {
+        const filePath = path.join(dir, file);
+        const stat = fs.statSync(filePath);
+        if (stat.isDirectory()) {
+            if (
+                file !== "node_modules" &&
+                file !== "dist" &&
+                file !== "generated" &&
+                file !== "vendor" &&
+                file !== "tmp"
+            ) {
+                getSourceFiles(filePath, fileList);
+            }
+        } else if (file.endsWith(".ts") && !file.endsWith(".d.ts")) {
+            fileList.push(filePath);
+        }
+    }
+    return fileList;
+}
+
+function getBuildSize(dir) {
+    let size = 0;
+    if (!fs.existsSync(dir)) {
+        return 0;
+    }
+
+    const files = fs.readdirSync(dir);
+    for (const file of files) {
+        const filePath = path.join(dir, file);
+        const stat = fs.statSync(filePath);
+        if (stat.isDirectory()) {
+            size += getBuildSize(filePath);
+        } else if (file.endsWith(".js")) {
+            size += stat.size;
+        }
+    }
+    return size;
+}
+
+function scanProjectHealth(rootDir) {
+    const srcDir = path.join(rootDir, "src");
+    const srcFiles = getSourceFiles(srcDir);
+
+    let largeFiles = 0;
+    let todos = 0;
+
+    for (const file of srcFiles) {
+        const content = fs.readFileSync(file, "utf8");
+        const lines = content.split("\n");
+
+        if (lines.length > 1000) {
+            largeFiles += 1;
+        }
+
+        todos += (content.match(/\b(TODO|FIXME|HACK)\b/g) || []).length;
+    }
+
+    let totalBuildSize = 0;
+    if (fs.existsSync(srcDir)) {
+        const packages = fs.readdirSync(srcDir);
+        for (const pkg of packages) {
+            const pkgDir = path.join(srcDir, pkg);
+            if (fs.statSync(pkgDir).isDirectory()) {
+                const distPath = path.join(pkgDir, "dist");
+                totalBuildSize += getBuildSize(distPath);
+            }
+        }
+    }
+
+    return {
+        largeFiles,
+        todos,
+        buildSize: formatBytes(totalBuildSize)
+    };
 }
 
 function describeRegressionCause(regressions, diff) {
