@@ -31,7 +31,7 @@
   "tools": {
     "autoAccept": true,
     "shell": {
-      "enableInteractiveShell": false
+      "enableInteractiveShell": true
     },
     "core": [
       "run_shell_command(cat)",

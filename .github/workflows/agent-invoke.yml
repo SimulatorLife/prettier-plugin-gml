@@ -176,8 +176,8 @@ jobs:
             package-lock.json
             **/package-lock.json
 
-      - name: Install dependencies (root/workspaces)
-        run: npm ci
+      - name: Install dependencies and build (root/workspaces)
+        run: npm ci && npm run build:ts
 
       - name: Install agent CLI (from child)
         if: ${{ inputs.npm_package != '' }}
