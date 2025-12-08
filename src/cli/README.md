@@ -51,6 +51,7 @@ node src/cli/src/cli.js watch /path/to/project --verbose
 - `--polling` - Use polling instead of native file watching
 - `--polling-interval <ms>` - Polling interval in milliseconds (default: 1000)
 - `--verbose` - Enable verbose logging with detailed transpilation output
+- `--max-patch-history <count>` - Maximum number of patches to retain in memory (default: 100)
 - `--websocket-port <port>` - WebSocket server port for streaming patches (default: 17890)
 - `--websocket-host <host>` - WebSocket server host for streaming patches (default: 127.0.0.1)
 - `--no-websocket-server` - Disable WebSocket server for patch streaming
@@ -68,8 +69,21 @@ Waiting for file changes... (Press Ctrl+C to stop)
 
 [2025-11-05T18:28:54.771Z] change: example.gml
   ↳ Read 7 lines
+  ↳ Transpiled to JavaScript (234 chars in 2.45ms)
   ↳ Generated patch: gml/script/example
   ↳ Streamed to 1 client(s)
+  
+^C
+--- Transpilation Statistics ---
+Total patches generated: 15
+Total transpilation time: 42.13ms
+Average transpilation time: 2.81ms
+Total source processed: 12.45 KB
+Total output generated: 8.23 KB
+Output/source ratio: 66.1%
+Fastest transpilation: 1.23ms (simple_script.gml)
+Slowest transpilation: 5.67ms (complex_script.gml)
+-------------------------------
 ```
 
 **Hot-Reload Integration:**
@@ -90,8 +104,11 @@ The watch command now integrates with the transpiler module (`src/transpiler`) t
 ✅ Patch generation with script IDs
 ✅ Runtime context initialization
 ✅ Basic error handling and logging
-✅ **WebSocket server for patch streaming** ✨ NEW
-✅ **Real-time patch broadcast to connected clients** ✨ NEW
+✅ WebSocket server for patch streaming
+✅ Real-time patch broadcast to connected clients
+✅ **Transpilation metrics tracking** ✨ NEW
+✅ **Performance statistics on watch stop** ✨ NEW
+✅ **Configurable patch history limit** ✨ NEW
 
 🚧 Future Enhancements:
 - Semantic analysis integration for scope-aware transpilation
