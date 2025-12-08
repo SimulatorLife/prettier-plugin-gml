@@ -977,7 +977,7 @@ export function runGenerateQualityReport({ command }: any = {}) {
     const options = command?.opts() || {};
     const exitCode = runCli(options);
 
-    if (exitCode === 2) {
+    if (exitCode === 10) {
         return exitCode;
     }
 
@@ -1069,7 +1069,7 @@ function runCli(options: any = {}) {
     if (base.usedDir && target.usedDir) {
         const regressions = detectRegressions(base, target);
         if (regressions.length > 0) {
-            exitCode = 2;
+            exitCode = 10;
             const cause = describeRegressionCause(
                 regressions,
                 diffStats[usingMerged ? "merge" : "head"]

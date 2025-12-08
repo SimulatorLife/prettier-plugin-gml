@@ -114,11 +114,11 @@ jobs:
         run: npm run stats:report
         continue-on-error: true
 
-      - name: Upload JUnit artifacts (${{ matrix.target }})
+      - name: Upload report artifacts (${{ matrix.target }})
         if: ${{ always() }}
         uses: actions/upload-artifact@v4
         with:
-          name: junit-${{ matrix.target }}
+          name: report-${{ matrix.target }}
           path: |
             reports/*.xml
             reports/lcov.info
@@ -146,11 +146,14 @@ jobs:
 
       - name: Install deps
         run: npm ci
+
+      - name: Build typescript
+        run: npm run build:ts
       
       - name: Download artifacts
         uses: actions/download-artifact@v4
         with:
-          pattern: junit-*
+          pattern: report-*
           merge-multiple: false
 
       # Use your repo’s logic to compute regressions (allows legacy failures)
@@ -165,9 +168,9 @@ jobs:
 
           # Run the CLI command with explicit paths to the downloaded artifacts
           npm run cli -- generate-quality-report \
-            --base junit-base \
-            --head junit-head \
-            --merge junit-merge \
+            --base report-base \
+            --head report-head \
+            --merge report-merge \
             --report-file reports/summary-report.md
           
           code=$?
@@ -175,7 +178,7 @@ jobs:
           if [ $code -eq 0 ]; then
             echo "all_green=true" >> "$GITHUB_OUTPUT"
             echo "status=clean" >> "$GITHUB_OUTPUT"
-          elif [ $code -eq 2 ]; then
+          elif [ $code -eq 10 ]; then
             echo "all_green=false" >> "$GITHUB_OUTPUT"
             echo "status=regressions" >> "$GITHUB_OUTPUT"
           else
@@ -260,9 +263,8 @@ jobs:
               `${agentMention} The auto-merge workflow detected test regressions on this PR while comparing \`${pr.head.ref}\` against \`${pr.base.ref}\`. Please review the failing suites, identify the root cause, and provide the fixes so this change can be merged.`,
               '',
               'Suggested next steps:',
-              '1. Review the "Node.js regression test summary" comment and the uploaded junit-* artifacts for detailed failure reports.',
-              '2. Reproduce the failures locally (for example, `npm run test:report` and `npm run test:coverage`) to confirm the regression.',
-              '3. Deliver the smallest possible fix—or a precise explanation of the required follow-up—that resolves the regression blocking auto-merge.'
+              '1. Reproduce the failures locally (for example, `npm run test:report` and `npm run test:coverage`) to confirm the regression.',
+              '2. Deliver the smallest possible fix—or a precise explanation of the required follow-up—that resolves the regression blocking auto-merge.'
             ];
 
             const normalizedAgent = agentMention.replace(/^@/, '').trim().toLowerCase();
