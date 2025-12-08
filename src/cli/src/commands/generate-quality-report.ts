@@ -402,7 +402,7 @@ function computeTestDiff(baseResults, targetResults) {
     };
 }
 
-function scanResultDirectory(directory) {
+function scanResultDirectory(directory, root) {
     if (!isExistingDirectory(directory.resolved)) {
         return {
             status: "missing",
@@ -441,7 +441,7 @@ function scanResultDirectory(directory) {
         };
     }
 
-    const { cases, notes } = collectDirectoryTestCases(xmlFiles);
+    const { cases, notes } = collectDirectoryTestCases(xmlFiles, root);
     const coverage = readCoverage(lcovFiles);
     const lint = readCheckstyle(checkstyleFiles);
     const duplicates = readDuplicates(jscpdFiles);
@@ -503,11 +503,11 @@ function isExistingDirectory(resolvedPath) {
     );
 }
 
-function collectDirectoryTestCases(xmlFiles) {
+function collectDirectoryTestCases(xmlFiles, root) {
     const aggregate = createTestCaseAggregate();
 
     for (const filePath of xmlFiles) {
-        const displayPath = path.relative(process.cwd(), filePath);
+        const displayPath = path.relative(root || process.cwd(), filePath);
         const additions = collectTestCasesFromXmlFile(filePath, displayPath);
 
         mergeTestCaseAggregate(aggregate, additions);
@@ -707,7 +707,7 @@ function readTestResults(
     const emptyDirs = [];
 
     for (const directory of directories) {
-        const scan = scanResultDirectory(directory);
+        const scan = scanResultDirectory(directory, workspaceRoot);
 
         if (scan.notes.length > 0) {
             notes.push(...scan.notes);

@@ -649,106 +649,170 @@ function _printImpl(path, options, print) {
             let existingDocLines: MutableDocCommentLines = [];
             let updatedComments: any[];
 
-            if (docCommentDocs.length === 0) {
-                const parentNode =
-                    typeof path.getParentNode === "function"
-                        ? path.getParentNode()
-                        : null;
-                // Resolve the root Program node to ensure we can scan program-level
-                // comment arrays when parser attachments differ by node. This code
-                // mirrors the logic used in printStatements to find the Program
-                // ancestor in order to support scanning top-level comments.
-                let programNode = null;
-                // Prefer the bound getParentNode call to ensure the method is
-                // invoked with the original `this` context. Some path impls
-                // expose an overload that requires the `this` value to be set.
-                if (path && typeof path.getParentNode === "function") {
-                    const getParentNode = path.getParentNode;
-                    try {
-                        for (let depth = 0; ; depth += 1) {
-                            const p = getParentNode.call(path, depth);
-                            if (!p) break;
-                            if (p.type === "Program") {
-                                programNode = p;
-                                break;
-                            }
+            // Resolve the root Program node to ensure we can scan program-level
+            // comment arrays when parser attachments differ by node. This code
+            // mirrors the logic used in printStatements to find the Program
+            // ancestor in order to support scanning top-level comments.
+            let programNode = null;
+            const parentNode =
+                typeof path.getParentNode === "function"
+                    ? path.getParentNode()
+                    : null;
+
+            // Prefer the bound getParentNode call to ensure the method is
+            // invoked with the original `this` context. Some path impls
+            // expose an overload that requires the `this` value to be set.
+            if (path && typeof path.getParentNode === "function") {
+                const getParentNode = path.getParentNode;
+                try {
+                    for (let depth = 0; ; depth += 1) {
+                        const p = getParentNode.call(path, depth);
+                        if (!p) break;
+                        if (p.type === "Program") {
+                            programNode = p;
+                            break;
                         }
-                    } catch {
-                        // If the depth-based parent lookup fails, fall back to
-                        // the immediate parent as a best-effort program node.
-                        programNode = parentNode;
                     }
-                } else {
+                } catch {
+                    // If the depth-based parent lookup fails, fall back to
+                    // the immediate parent as a best-effort program node.
                     programNode = parentNode;
                 }
+            } else {
+                programNode = parentNode;
+            }
 
-                const collected = Core.collectSyntheticDocCommentLines(
-                    node,
-                    options,
-                    programNode,
-                    originalText
-                );
-                existingDocLines = collected.existingDocLines;
-                const programLeadingLines =
-                    Core.collectLeadingProgramLineComments(
-                        node,
-                        programNode,
-                        options,
-                        originalText
+            // When parser does not attach doc comments to the node but the
+            // doc-like comments are present at the program root, attempt to
+            // collect them as node-level doc comment lines so the promotion
+            // and merging logic runs as though they were attached to the
+            // node. This ensures leading `///` summary lines that appear at
+            // the file's top get promoted to `@description` when synthetic
+            // tags are inserted.
+            const programLeadingLines: string[] = [];
+            if (
+                programNode &&
+                Array.isArray(programNode.comments) &&
+                typeof nodeStartIndex === "number"
+            ) {
+                const programComments = programNode.comments;
+                let anchorIndex = nodeStartIndex;
+
+                for (let i = programComments.length - 1; i >= 0; i--) {
+                    const comment = programComments[i];
+                    if (
+                        !comment ||
+                        comment.type !== "CommentLine" ||
+                        comment.printed
+                    ) {
+                        continue;
+                    }
+
+                    const commentEnd =
+                        typeof comment.end === "number"
+                            ? comment.end
+                            : (comment.end?.index ?? null);
+                    const commentStart =
+                        typeof comment.start === "number"
+                            ? comment.start
+                            : (comment.start?.index ?? null);
+
+                    if (
+                        commentEnd === null ||
+                        commentStart === null ||
+                        commentEnd >= anchorIndex
+                    ) {
+                        continue;
+                    }
+
+                    // Check for gap
+                    if (typeof originalText === "string") {
+                        const gapText = originalText.slice(
+                            commentEnd,
+                            anchorIndex
+                        );
+                        const blankLines = (gapText.match(/\n/g) || []).length;
+                        if (blankLines >= 2) {
+                            break;
+                        }
+                    }
+
+                    const formatted = formatLineComment(
+                        comment,
+                        lineCommentOptions
                     );
-                const extracted = Core.extractLeadingNonDocCommentLines(
-                    collected.remainingComments,
-                    options
-                );
-                const leadingCommentLines = extracted.leadingLines;
-                updatedComments = extracted.remainingComments;
-                const combinedLeadingLines = [
-                    ...programLeadingLines,
-                    ...leadingCommentLines
-                ];
-                for (const line of combinedLeadingLines) {
-                    if (Core.isDocLikeLeadingLine(line)) {
-                        docLikeLeadingLines.push(line);
+                    const trimmed = formatted ? formatted.trim() : "";
+
+                    const isDocLike =
+                        trimmed.startsWith("///") ||
+                        /^\/\/\s*\/(\s|$)/.test(trimmed) ||
+                        /^\/\/\s*@/.test(trimmed);
+
+                    if (isDocLike) {
+                        programLeadingLines.unshift(formatted);
+                        comment.printed = true;
+                        anchorIndex = commentStart;
                     } else {
-                        plainLeadingLines.push(line);
+                        // Stop at the first non-doc comment to avoid jumping over standard comments
+                        // that should break the doc comment chain.
+                        break;
                     }
                 }
+            }
 
+            const formattedProgramLines = programLeadingLines.map((line) => {
+                const trimmed = line.trim();
+                if (trimmed.startsWith("///")) return trimmed;
+                if (trimmed.startsWith("//")) return "///" + trimmed.slice(2);
+                if (trimmed.startsWith("/")) return "///" + trimmed.slice(1);
+                return "/// " + trimmed;
+            });
+
+            // Also check for node-attached comments that look like doc comments (e.g. // /)
+            // but were not parsed as doc comments (e.g. because of intervening comments).
+            const nodeComments = node.comments || [];
+            const nodeLeadingLines: string[] = [];
+            for (const comment of nodeComments) {
                 if (
-                    existingDocLines.length > 0 ||
-                    docLikeLeadingLines.length > 0 ||
-                    plainLeadingLines.length > 0
+                    comment.type === "CommentLine" &&
+                    !comment.printed &&
+                    comment.end < nodeStartIndex
                 ) {
-                    docCommentDocs = Core.toMutableArray(
-                        existingDocLines.length > 0 ? existingDocLines : []
-                    ) as MutableDocCommentLines;
-                    if (
-                        docLikeLeadingLines.length > 0 &&
-                        docCommentDocs.length === 0
-                    ) {
-                        const mergedDocs = Core.toMutableArray(
-                            Core.mergeSyntheticDocComments(
-                                node,
-                                docCommentDocs,
-                                docCommentOptions,
-                                { leadingCommentLines: docLikeLeadingLines }
-                            )
-                        ) as MutableDocCommentLines;
+                    const formatted = formatLineComment(
+                        comment,
+                        lineCommentOptions
+                    );
+                    const trimmed = formatted ? formatted.trim() : "";
+                    // Only treat as doc comment if it explicitly looks like one.
+                    // This avoids consuming regular comments like "// Move camera".
+                    const isDocLike =
+                        trimmed.startsWith("///") ||
+                        /^\/\/\s*\/(\s|$)/.test(trimmed) || // Matches "// /" or "// /..."
+                        /^\/\/\s*@/.test(trimmed); // Matches "// @param"
 
-                        docCommentDocs =
-                            mergedDocs.length === 0
-                                ? (Core.toMutableArray(
-                                      docLikeLeadingLines
-                                  ) as MutableDocCommentLines)
-                                : mergedDocs;
-                    }
-                    if (
-                        Array.isArray(updatedComments) &&
-                        updatedComments.length >= 0
-                    ) {
-                        node.comments = updatedComments;
+                    if (isDocLike) {
+                        nodeLeadingLines.push(formatted);
+                        comment.printed = true;
                     }
                 }
+            }
+
+            const formattedNodeLines = nodeLeadingLines.map((line) => {
+                const trimmed = line.trim();
+                if (trimmed.startsWith("///")) return trimmed;
+                if (trimmed.startsWith("//")) return "///" + trimmed.slice(2);
+                if (trimmed.startsWith("/")) return "///" + trimmed.slice(1);
+                return "/// " + trimmed;
+            });
+
+            // Filter out duplicates that might already be in docCommentDocs
+            const uniqueNewLines = [
+                ...formattedProgramLines,
+                ...formattedNodeLines
+            ].filter((line) => !docCommentDocs.includes(line));
+
+            if (uniqueNewLines.length > 0) {
+                docCommentDocs = [...uniqueNewLines, ...docCommentDocs];
             }
 
             // Inline small argument_count -> default conversions at print time
