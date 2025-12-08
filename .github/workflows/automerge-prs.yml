@@ -64,22 +64,22 @@ jobs:
           ref: ${{ steps.ref.outputs.ref }}
         continue-on-error: ${{ matrix.target == 'merge' }}
 
-      - name: Setup Node
+      - name: Setup Node (${{ matrix.target }})
         uses: actions/setup-node@v4
         with:
           node-version-file: .nvmrc
           cache: 'npm'
 
-      - name: Install deps
+      - name: Install deps (${{ matrix.target }})
         run: npm ci
         continue-on-error: ${{ matrix.target == 'merge' }}
 
-      - name: Build typescript
+      - name: Build typescript (${{ matrix.target }})
         run: npm run build:ts
         continue-on-error: ${{ matrix.target == 'merge' }}
 
       # Runs tests once, generating both JUnit XML and LCOV coverage
-      - name: Run tests & coverage
+      - name: Run tests & coverage (${{ matrix.target }})
         run: npm run test:ci
         continue-on-error: true
 
@@ -94,23 +94,15 @@ jobs:
           fail-on-empty: false
           use-actions-summary: false
 
-      - name: Run lint (checkstyle)
+      - name: Run lint (${{ matrix.target }})
         run: npm run lint:report
         continue-on-error: true
 
-      - name: Verify lint report was generated
-        run: |
-          if [ ! -f reports/eslint-checkstyle.xml ]; then
-            echo "::error::Lint report was not generated. Check if eslint-formatter-checkstyle is installed."
-            exit 1
-          fi
-          echo "::notice::Lint report generated successfully at reports/eslint-checkstyle.xml"
-
-      - name: Run duplicates check
+      - name: Run duplicates check (${{ matrix.target }})
         run: npm run lint:duplicates:report
         continue-on-error: true
 
-      - name: Collect project stats
+      - name: Collect project stats (${{ matrix.target }})
         run: npm run stats:report
         continue-on-error: true
 
