@@ -882,6 +882,11 @@ function _printImpl(path, options, print) {
                     comment.printed = true;
                 });
             }
+            if (node.docComments) {
+                node.docComments.forEach((comment: any) => {
+                    comment.printed = true;
+                });
+            }
 
             if (node.id === "scr_create_fx") {
                 console.log("Parts for scr_create_fx:", JSON.stringify(parts));
