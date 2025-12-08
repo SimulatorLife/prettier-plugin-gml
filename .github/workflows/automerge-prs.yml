@@ -175,9 +175,12 @@ jobs:
           if [ $code -eq 0 ]; then
             echo "all_green=true" >> "$GITHUB_OUTPUT"
             echo "status=clean" >> "$GITHUB_OUTPUT"
-          else
+          elif [ $code -eq 2 ]; then
             echo "all_green=false" >> "$GITHUB_OUTPUT"
             echo "status=regressions" >> "$GITHUB_OUTPUT"
+          else
+            echo "all_green=false" >> "$GITHUB_OUTPUT"
+            echo "status=failure" >> "$GITHUB_OUTPUT"
           fi
           exit 0
 

@@ -976,6 +976,11 @@ export function createGenerateQualityReportCommand() {
 export function runGenerateQualityReport({ command }: any = {}) {
     const options = command?.opts() || {};
     const exitCode = runCli(options);
+
+    if (exitCode === 2) {
+        return exitCode;
+    }
+
     if (exitCode !== 0) {
         process.exitCode = exitCode;
         throw new CliUsageError("Test regressions detected.");
@@ -1064,7 +1069,7 @@ function runCli(options: any = {}) {
     if (base.usedDir && target.usedDir) {
         const regressions = detectRegressions(base, target);
         if (regressions.length > 0) {
-            exitCode = 1;
+            exitCode = 2;
             const cause = describeRegressionCause(
                 regressions,
                 diffStats[usingMerged ? "merge" : "head"]
