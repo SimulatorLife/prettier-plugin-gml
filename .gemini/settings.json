@@ -3,22 +3,6 @@
     "maxSessionTurns": -1,
     "compressionThreshold": 0.7
   },
-  "modelConfigs": {
-    "aliases": {
-      "long-chat": {
-        "extends": "gemini-2.5-pro",
-        "modelConfig": {
-          "generateContentConfig": {
-            "maxOutputTokens": 16000,
-            "thinkingConfig": {
-              "includeThoughts": false,
-              "thinkingBudget": -1
-            }
-          }
-        }
-      }
-    }
-  },
   "context": {
     "fileName": ["AGENTS.md", "docs/README.md"]
   },
