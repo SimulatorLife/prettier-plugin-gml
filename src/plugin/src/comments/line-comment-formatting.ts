@@ -132,7 +132,7 @@ function formatLineComment(
 
     for (const lineFragment of boilerplateFragments) {
         if (trimmedValue.includes(lineFragment)) {
-            return null;
+            return "";
         }
     }
 
