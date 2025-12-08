@@ -91,39 +91,45 @@ function skipStringLiteral(sourceText: string, startIndex: number) {
     return length - 1;
 }
 
+function skipToken(sourceText: string, index: number, length: number) {
+    const char = sourceText[index];
+
+    if (char === '"' || char === "'") {
+        return skipStringLiteral(sourceText, index);
+    }
+
+    if (
+        char === "@" &&
+        index + 1 < length &&
+        (sourceText[index + 1] === '"' || sourceText[index + 1] === "'")
+    ) {
+        return skipStringLiteral(sourceText, index + 1);
+    }
+
+    if (char === "/" && index + 1 < length) {
+        const nextChar = sourceText[index + 1];
+        if (nextChar === "/") {
+            return skipLineComment(sourceText, index + 2);
+        }
+        if (nextChar === "*") {
+            return skipBlockComment(sourceText, index + 2);
+        }
+    }
+
+    return index;
+}
+
 function findNextOpenBrace(sourceText: string, startIndex: number) {
     const length = sourceText.length;
 
     for (let index = startIndex; index < length; index += 1) {
-        const char = sourceText[index];
-
-        if (char === '"' || char === "'") {
-            index = skipStringLiteral(sourceText, index);
+        const skippedIndex = skipToken(sourceText, index, length);
+        if (skippedIndex !== index) {
+            index = skippedIndex;
             continue;
         }
 
-        if (
-            char === "@" &&
-            index + 1 < length &&
-            (sourceText[index + 1] === '"' || sourceText[index + 1] === "'")
-        ) {
-            index = skipStringLiteral(sourceText, index + 1);
-            continue;
-        }
-
-        if (char === "/" && index + 1 < length) {
-            const nextChar = sourceText[index + 1];
-            if (nextChar === "/") {
-                index = skipLineComment(sourceText, index + 2);
-                continue;
-            }
-            if (nextChar === "*") {
-                index = skipBlockComment(sourceText, index + 2);
-                continue;
-            }
-        }
-
-        if (char === "{") {
+        if (sourceText[index] === "{") {
             return index;
         }
     }
@@ -136,34 +142,13 @@ function findMatchingClosingBrace(sourceText: string, openBraceIndex: number) {
     let depth = 0;
 
     for (let index = openBraceIndex; index < length; index += 1) {
+        const skippedIndex = skipToken(sourceText, index, length);
+        if (skippedIndex !== index) {
+            index = skippedIndex;
+            continue;
+        }
+
         const char = sourceText[index];
-
-        if (char === '"' || char === "'") {
-            index = skipStringLiteral(sourceText, index);
-            continue;
-        }
-
-        if (
-            char === "@" &&
-            index + 1 < length &&
-            (sourceText[index + 1] === '"' || sourceText[index + 1] === "'")
-        ) {
-            index = skipStringLiteral(sourceText, index + 1);
-            continue;
-        }
-
-        if (char === "/" && index + 1 < length) {
-            const nextChar = sourceText[index + 1];
-            if (nextChar === "/") {
-                index = skipLineComment(sourceText, index + 2);
-                continue;
-            }
-            if (nextChar === "*") {
-                index = skipBlockComment(sourceText, index + 2);
-                continue;
-            }
-        }
-
         if (char === "{") {
             depth += 1;
             continue;
