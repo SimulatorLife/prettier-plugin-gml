@@ -1,5 +1,8 @@
 import { Core, type MutableGameMakerAstNode } from "@gml-modules/core";
-import { FunctionalParserTransform, type EmptyTransformOptions } from "./functional-transform.js";
+import {
+    FunctionalParserTransform,
+    type EmptyTransformOptions
+} from "./functional-transform.js";
 
 const MIN_DECLARATIONS = 4; // Keep this opinionated and not configurable for consistent formatting behavior
 
@@ -8,9 +11,7 @@ class EnforceVariableBlockSpacingTransform extends FunctionalParserTransform<Emp
         super("enforce-variable-block-spacing", {});
     }
 
-    protected execute(
-        ast: MutableGameMakerAstNode
-    ): MutableGameMakerAstNode {
+    protected execute(ast: MutableGameMakerAstNode): MutableGameMakerAstNode {
         if (!ast || typeof ast !== "object") {
             return ast;
         }

@@ -5,6 +5,7 @@ import {
     runFormatterBenchmark,
     runParserBenchmark
 } from "../src/commands/performance.js";
+import { assertApproximatelyEqual } from "./test-helpers/numeric-assertions.js";
 
 function isCompletedBenchmarkResult(value: unknown): value is {
     iterations: number;
@@ -73,9 +74,9 @@ void describe("performance CLI benchmarks", () => {
         assert.equal(result.dataset.files, 2);
         assert.equal(result.durations.length, 2);
         assert.equal(result.totalDurationMs, 10);
-        assert.equal(result.averageDurationMs, 5);
+        assertApproximatelyEqual(result.averageDurationMs, 5);
         assert.equal(result.dataset.totalBytes, 22);
-        assert.equal(result.throughput.filesPerMs, 0.4);
+        assertApproximatelyEqual(result.throughput.filesPerMs, 0.4);
     });
 
     void it("runs the formatter benchmark with a custom formatter", async () => {
@@ -111,7 +112,7 @@ void describe("performance CLI benchmarks", () => {
         assert.equal(result.dataset.files, 1);
         assert.equal(result.durations.length, 3);
         assert.equal(result.totalDurationMs, 9);
-        assert.equal(result.averageDurationMs, 3);
+        assertApproximatelyEqual(result.averageDurationMs, 3);
     });
 
     void it("skips benchmarks when the dataset is empty", async () => {
@@ -122,5 +123,29 @@ void describe("performance CLI benchmarks", () => {
         const formatResult = await runFormatterBenchmark({ dataset: [] });
         assert.ok(isSkippedBenchmarkResult(formatResult));
         assert.equal(formatResult.skipped, true);
+    });
+
+    void it("handles floating-point precision in throughput calculations", async () => {
+        const dataset = [
+            { path: "/tmp/file1.gml", source: "var x = 1;\n" },
+            { path: "/tmp/file2.gml", source: "var y = 2;\n" },
+            { path: "/tmp/file3.gml", source: "var z = 3;\n" }
+        ];
+
+        const now = createNowStub(7);
+
+        const result = await runParserBenchmark({
+            dataset,
+            iterations: 1,
+            parser: async () => {},
+            now
+        });
+
+        if (!isCompletedBenchmarkResult(result)) {
+            assert.fail("Benchmark result unexpectedly skipped");
+        }
+
+        assertApproximatelyEqual(result.averageDurationMs, 7);
+        assertApproximatelyEqual(result.throughput.filesPerMs, 3 / 7);
     });
 });

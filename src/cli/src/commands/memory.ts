@@ -1,4 +1,5 @@
 #!/usr/bin/env node
+import process from "node:process";
 import { runMemoryCli } from "../modules/memory/index.js";
 import { handleCliError } from "../cli-core/errors.js";
 

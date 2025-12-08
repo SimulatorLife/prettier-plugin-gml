@@ -1,3 +1,4 @@
+// TODO: Remove this export/import shim and consumers import directly
 export {
     appendToCollection,
     applyEnvironmentOverride,

@@ -32,11 +32,12 @@ type ConsolidateStructAssignmentsOptions = {
     /*
      * TODO: 'Comment-tools' should not be defined here. It will always need to track comments, and should use the helper from Core.
      * This entire type can be eliminated once the transform is refactored to use Core's comment functionality directly.
-    */
+     */
     commentTools?: CommentTools | null;
 };
 
-type CondenseLogicalExpressionsOptions = { // TODO: Helpers should not be defined here. It will always need to check for comments, and should use the helper from Core.
+type CondenseLogicalExpressionsOptions = {
+    // TODO: Helpers should not be defined here. It will always need to check for comments, and should use the helper from Core.
     helpers?:
         | { hasComment: (node: unknown) => boolean }
         | ((node: unknown) => boolean)
@@ -52,10 +53,6 @@ type ApplyFeatherFixesOptions = {
     sourceText?: string;
     preprocessedFixMetadata?: unknown;
     options?: Record<string, unknown>;
-};
-
-type EnforceVariableBlockSpacingOptions = {
-    variableBlockSpacingMinDeclarations?: number;
 };
 
 const EMPTY_OPTIONS: EmptyTransformOptions = Object.freeze({});
@@ -129,7 +126,7 @@ const TRANSFORM_REGISTRY_ENTRIES = [
     ],
     [
         "enforce-variable-block-spacing",
-        new FunctionalParserTransformEntry<EnforceVariableBlockSpacingOptions>(
+        new FunctionalParserTransformEntry<EmptyTransformOptions>(
             "enforce-variable-block-spacing",
             (ast, options) => {
                 enforceVariableBlockSpacing(ast, options);

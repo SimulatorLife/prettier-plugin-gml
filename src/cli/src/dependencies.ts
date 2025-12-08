@@ -1,3 +1,4 @@
+// TODO: Remove this file and have consumers do direct imports from Core
 import { Core } from "@gml-modules/core";
 
 type CoreBindings = typeof Core;
@@ -6,6 +7,8 @@ const appendToCollection: CoreBindings["appendToCollection"] =
     Core.appendToCollection;
 const applyEnvironmentOverride: CoreBindings["applyEnvironmentOverride"] =
     Core.applyEnvironmentOverride;
+const areNumbersApproximatelyEqual: CoreBindings["areNumbersApproximatelyEqual"] =
+    Core.areNumbersApproximatelyEqual;
 const asArray: CoreBindings["asArray"] = Core.asArray;
 const assertArray: CoreBindings["assertArray"] = Core.assertArray;
 const assertFunction: CoreBindings["assertFunction"] = Core.assertFunction;
@@ -119,6 +122,7 @@ const withObjectLike: CoreBindings["withObjectLike"] = Core.withObjectLike;
 export {
     appendToCollection,
     applyEnvironmentOverride,
+    areNumbersApproximatelyEqual,
     asArray,
     assertArray,
     assertFunction,

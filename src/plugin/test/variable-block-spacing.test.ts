@@ -27,32 +27,6 @@ void test("inserts a blank line between large variable blocks and following loop
     );
 });
 
-void test("respects custom minimum declaration run length", async () => {
-    const source = [
-        "function demo() {",
-        "    var alpha = 1;",
-        "    var beta = 2;",
-        "    var gamma = 3;",
-        "    var delta = 4;",
-        "    for (var index = 0; index < 10; index += 1) {",
-        "        alpha += index;",
-        "    }",
-        "}",
-        ""
-    ].join("\n");
-
-    const formatted = await Plugin.format(source, {
-        variableBlockSpacingMinDeclarations: 6
-    });
-    const lines = formatted.trim().split("\n");
-
-    assert.notEqual(
-        lines[7],
-        "",
-        "Expected custom thresholds above the declaration count to skip inserting a blank line."
-    );
-});
-
 void test("formats struct static functions without infinite recursion", async () => {
     const source = [
         "function child_struct(_foo, _value) constructor {",

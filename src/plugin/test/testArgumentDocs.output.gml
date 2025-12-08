@@ -82,7 +82,7 @@ function scr_create_fx(sprite, fx_x, fx_y = undefined, fx_z = 0, func_fx_callbac
 /// @param key
 /// @param [default_value]
 /// @returns {Any}
-scr_struct_get(structure, key, default_value = undefined) {
+function scr_struct_get(structure, key, default_value = undefined) {
     if (is_undefined(structure)) {
         return default_value;
     }

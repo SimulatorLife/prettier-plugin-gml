@@ -18,7 +18,7 @@ type ParserConfig = ParserOptions;
 
 type PrettierGmlOptions = {
     gmlStripComments?: boolean;
-}
+};
 
 type TransformOptions = Partial<
     Record<ParserTransformName, ParserTransformOptions>
@@ -53,7 +53,8 @@ export function makeTransformOptions(
 ): TransformOptions {
     return prettierOptions.gmlStripComments
         ? {
-              "strip-comments": { // TODO: May want to expose more fine-grained options later for each behavior
+              "strip-comments": {
+                  // TODO: May want to expose more fine-grained options later for each behavior
                   stripComments: true,
                   stripJsDoc: true,
                   dropCommentedOutCode: true
@@ -69,7 +70,7 @@ export function parseForPrettier(
     const parserConfig = makeParserConfig(prettierOptions);
     const transformOpts = makeTransformOptions(prettierOptions);
 
-    // Parse, then run transforms. The plugin can decide which transforms to run 
+    // Parse, then run transforms. The plugin can decide which transforms to run
     // and pass the options it built above.
     const pipelineConfig: PipelineConfig = {
         parser: parserConfig,

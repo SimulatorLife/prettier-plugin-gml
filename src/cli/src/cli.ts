@@ -89,6 +89,14 @@ import {
     runGenerateGmlIdentifiers
 } from "./commands/generate-gml-identifiers.js";
 import {
+    createGenerateQualityReportCommand,
+    runGenerateQualityReport
+} from "./commands/generate-quality-report.js";
+import {
+    createCollectStatsCommand,
+    runCollectStats
+} from "./commands/collect-stats.js";
+import {
     createFeatherMetadataCommand,
     runGenerateFeatherMetadata
 } from "./commands/generate-feather-metadata.js";
@@ -2301,6 +2309,26 @@ cliCommandRegistry.registerCommand({
     onError: (error) =>
         handleCliError(error, {
             prefix: "Failed to generate GML identifiers.",
+            exitCode: 1
+        })
+});
+
+cliCommandRegistry.registerCommand({
+    command: createGenerateQualityReportCommand(),
+    run: ({ command }) => runGenerateQualityReport({ command }),
+    onError: (error) =>
+        handleCliError(error, {
+            prefix: "Failed to generate quality report.",
+            exitCode: 1
+        })
+});
+
+cliCommandRegistry.registerCommand({
+    command: createCollectStatsCommand(),
+    run: ({ command }) => runCollectStats({ command }),
+    onError: (error) =>
+        handleCliError(error, {
+            prefix: "Failed to collect project stats.",
             exitCode: 1
         })
 });
