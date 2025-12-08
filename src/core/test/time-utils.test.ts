@@ -4,9 +4,9 @@ import { describe, it } from "node:test";
 import { formatDuration, timeSync } from "../src/utils/time.js";
 
 function createCollectingLogger() {
-    const calls = [];
+    const calls: unknown[][] = [];
     return {
-        log: (...args) => {
+        log: (...args: unknown[]) => {
             calls.push(args);
         },
         calls
