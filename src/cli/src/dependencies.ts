@@ -118,6 +118,10 @@ const uniqueArray: CoreBindings["uniqueArray"] = Core.uniqueArray;
 const walkAncestorDirectories: CoreBindings["walkAncestorDirectories"] =
     Core.walkAncestorDirectories;
 const withObjectLike: CoreBindings["withObjectLike"] = Core.withObjectLike;
+const createVerboseDurationLogger: CoreBindings["createVerboseDurationLogger"] =
+    Core.createVerboseDurationLogger;
+const formatDuration: CoreBindings["formatDuration"] = Core.formatDuration;
+const timeSync: CoreBindings["timeSync"] = Core.timeSync;
 
 export {
     appendToCollection,
@@ -190,7 +194,10 @@ export {
     toTrimmedString,
     uniqueArray,
     walkAncestorDirectories,
-    withObjectLike
+    withObjectLike,
+    createVerboseDurationLogger,
+    formatDuration,
+    timeSync
 };
 
 export { Command, InvalidArgumentError, Option } from "commander";
@@ -201,11 +208,5 @@ export {
 } from "./shared/module.js";
 
 export { ensureDir } from "./shared/ensure-dir.js";
-
-export {
-    createVerboseDurationLogger,
-    formatDuration,
-    timeSync
-} from "./shared/reporting/time.js";
 
 export { createEnumeratedOptionHelpers } from "./shared/enumerated-option-helpers.js";
