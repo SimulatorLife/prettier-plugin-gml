@@ -38,6 +38,10 @@ function looksLikeTestCase(node) {
         return false;
     }
 
+    if (Object.hasOwn(node, "tests")) {
+        return false;
+    }
+
     if (!isNonEmptyTrimmedString(node.name)) {
         return false;
     }
@@ -46,9 +50,7 @@ function looksLikeTestCase(node) {
         return true;
     }
 
-    if (
-        hasAnyOwn(node, ["failure", "failures", "error", "errors", "skipped"])
-    ) {
+    if (hasAnyOwn(node, ["failure", "error", "skipped"])) {
         return true;
     }
 
@@ -107,9 +109,7 @@ function describeTestCase(testNode, suitePath) {
 function computeStatus(testNode) {
     const hasFailure =
         Object.hasOwn(testNode, "failure") ||
-        Object.hasOwn(testNode, "failures") ||
-        Object.hasOwn(testNode, "error") ||
-        Object.hasOwn(testNode, "errors");
+        Object.hasOwn(testNode, "error");
     if (hasFailure) {
         return "failed";
     }
