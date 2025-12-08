@@ -644,10 +644,9 @@ function _printImpl(path, options, print) {
             // node. This ensures leading `///` summary lines that appear at
             // the file's top get promoted to `@description` when synthetic
             // tags are inserted.
-            const docLikeLeadingLines: string[] = [];
+            // const docLikeLeadingLines: string[] = []; // TODO: This is not used
             const plainLeadingLines: string[] = [];
             const existingDocLines: MutableDocCommentLines = [];
-            let updatedComments: any[];
 
             // Resolve the root Program node to ensure we can scan program-level
             // comment arrays when parser attachments differ by node. This code
