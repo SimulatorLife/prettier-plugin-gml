@@ -299,16 +299,6 @@ function _printImpl(path, options, print) {
                 }
                 const bodyParts = printStatements(path, options, print, "body");
 
-                // DEBUG: Check if comments are attached to Program
-                if (node.comments && node.comments.length > 0) {
-                    console.log(
-                        "[DEBUG] Program has comments:",
-                        JSON.stringify(node.comments, null, 2)
-                    );
-                } else {
-                    console.log("[DEBUG] Program has NO comments");
-                }
-
                 // Print any comments attached to the Program node itself (e.g. top-level comments)
                 const programComments = printDanglingCommentsAsGroup(
                     path,
@@ -644,10 +634,8 @@ function _printImpl(path, options, print) {
             // node. This ensures leading `///` summary lines that appear at
             // the file's top get promoted to `@description` when synthetic
             // tags are inserted.
-            const docLikeLeadingLines: string[] = [];
             const plainLeadingLines: string[] = [];
             const existingDocLines: MutableDocCommentLines = [];
-            let updatedComments: any[];
 
             // Resolve the root Program node to ensure we can scan program-level
             // comment arrays when parser attachments differ by node. This code
@@ -763,46 +751,76 @@ function _printImpl(path, options, print) {
             const formattedProgramLines = programLeadingLines.map((line) => {
                 const trimmed = line.trim();
                 if (trimmed.startsWith("///")) return trimmed;
-                if (trimmed.startsWith("//")) return `///${  trimmed.slice(2)}`;
-                if (trimmed.startsWith("/")) return `///${  trimmed.slice(1)}`;
-                return `/// ${  trimmed}`;
+                // Handle "// /" pattern which represents a doc comment
+                if (/^\/\/\s*\//.test(trimmed)) {
+                    // Replace "// /" with "///"
+                    return trimmed.replace(/^\/\/\s*\//, "///");
+                }
+                if (trimmed.startsWith("//")) return `///${trimmed.slice(2)}`;
+                if (trimmed.startsWith("/")) return `///${trimmed.slice(1)}`;
+                return `/// ${trimmed}`;
             });
 
             // Also check for node-attached comments that look like doc comments (e.g. // /)
             // but were not parsed as doc comments (e.g. because of intervening comments).
             const nodeComments = node.comments || [];
             const nodeLeadingLines: string[] = [];
+            const commentsToRemove: any[] = [];
             for (const comment of nodeComments) {
                 if (
-                    comment.type === "CommentLine" &&
-                    !comment.printed &&
-                    comment.end < nodeStartIndex
+                    !comment ||
+                    comment.type !== "CommentLine" ||
+                    comment.printed
                 ) {
-                    const formatted = formatLineComment(
-                        comment,
-                        lineCommentOptions
-                    );
-                    const trimmed = formatted ? formatted.trim() : "";
-                    // Only treat as doc comment if it explicitly looks like one.
-                    // This avoids consuming regular comments like "// Move camera".
-                    const isDocLike =
-                        trimmed.startsWith("///") ||
-                        /^\/\/\s*\/(\s|$)/.test(trimmed) || // Matches "// /" or "// /..."
-                        /^\/\/\s*@/.test(trimmed); // Matches "// @param"
-
-                    if (isDocLike) {
-                        nodeLeadingLines.push(formatted);
-                        comment.printed = true;
-                    }
+                    continue;
                 }
+
+                const commentEnd =
+                    typeof comment.end === "number"
+                        ? comment.end
+                        : (comment.end?.index ?? null);
+
+                if (commentEnd === null || commentEnd >= nodeStartIndex) {
+                    continue;
+                }
+
+                const formatted = formatLineComment(
+                    comment,
+                    lineCommentOptions
+                );
+                const trimmed = formatted ? formatted.trim() : "";
+                // Only treat as doc comment if it explicitly looks like one.
+                // This avoids consuming regular comments like "// Move camera".
+                const isDocLike =
+                    trimmed.startsWith("///") ||
+                    /^\/\/\s*\/(\s|$)/.test(trimmed) || // Matches "// /" or "// /..."
+                    /^\/\/\s*@/.test(trimmed); // Matches "// @param"
+
+                if (isDocLike) {
+                    nodeLeadingLines.push(formatted);
+                    comment.printed = true;
+                    commentsToRemove.push(comment);
+                }
+            }
+
+            // Remove the collected doc-like comments from the node so Prettier doesn't print them separately
+            if (commentsToRemove.length > 0 && Array.isArray(node.comments)) {
+                node.comments = node.comments.filter(
+                    (c) => !commentsToRemove.includes(c)
+                );
             }
 
             const formattedNodeLines = nodeLeadingLines.map((line) => {
                 const trimmed = line.trim();
                 if (trimmed.startsWith("///")) return trimmed;
-                if (trimmed.startsWith("//")) return `///${  trimmed.slice(2)}`;
-                if (trimmed.startsWith("/")) return `///${  trimmed.slice(1)}`;
-                return `/// ${  trimmed}`;
+                // Handle "// /" pattern which represents a doc comment
+                if (/^\/\/\s*\//.test(trimmed)) {
+                    // Replace "// /" with "///"
+                    return trimmed.replace(/^\/\/\s*\//, "///");
+                }
+                if (trimmed.startsWith("//")) return `///${trimmed.slice(2)}`;
+                if (trimmed.startsWith("/")) return `///${trimmed.slice(1)}`;
+                return `/// ${trimmed}`;
             });
 
             // Filter out duplicates that might already be in docCommentDocs
@@ -812,7 +830,21 @@ function _printImpl(path, options, print) {
             ].filter((line) => !docCommentDocs.includes(line));
 
             if (uniqueNewLines.length > 0) {
-                docCommentDocs = [...uniqueNewLines, ...docCommentDocs];
+                // Merge the collected doc-like lines using the Core function to ensure
+                // proper promotion of leading text to @description and correct tag ordering
+                // Prepend the leading lines to the existing doc lines so they're treated as part of the doc comment
+                const combinedLines = [...uniqueNewLines, ...docCommentDocs];
+                const mergedDocs = Core.toMutableArray(
+                    Core.mergeSyntheticDocComments(
+                        node,
+                        combinedLines,
+                        docCommentOptions,
+                        {}
+                    )
+                ) as MutableDocCommentLines;
+
+                docCommentDocs =
+                    mergedDocs.length === 0 ? combinedLines : mergedDocs;
             }
 
             // Inline small argument_count -> default conversions at print time
