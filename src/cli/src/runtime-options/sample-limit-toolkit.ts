@@ -2,7 +2,7 @@ import {
     coerceNonNegativeInteger,
     resolveIntegerOption,
     createEnvConfiguredValue
-} from "../shared/dependencies.js";
+} from "../dependencies.js";
 
 interface SampleLimitOptionParams {
     defaultValue?: number;

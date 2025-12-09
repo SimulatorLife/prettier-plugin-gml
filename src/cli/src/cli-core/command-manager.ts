@@ -12,7 +12,8 @@ import type {
     CommanderCommandLike,
     CommanderProgramLike
 } from "./commander-types.js";
-import { compactArray, resolveCommandUsage } from "../shared/dependencies.js";
+import { compactArray } from "../dependencies.js";
+import { resolveCommandUsage } from "./command-usage.js";
 
 type CliCommandRunHandler = (context: {
     command: CommanderCommandLike;

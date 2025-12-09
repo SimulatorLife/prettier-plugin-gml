@@ -7,7 +7,7 @@ import {
     toArray,
     uniqueArray,
     compactArray
-} from "../shared/dependencies.js";
+} from "../dependencies.js";
 
 export interface WorkflowPathFilterOptions {
     allowPaths?: Iterable<unknown>;

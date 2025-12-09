@@ -1,6 +1,6 @@
 import path from "node:path";
 
-import { toArray, pushUnique } from "../shared/dependencies.js";
+import { toArray, pushUnique } from "../dependencies.js";
 import { REPO_ROOT } from "../shared/workspace-paths.js";
 import { createWorkflowPathFilter } from "./path-filter.js";
 

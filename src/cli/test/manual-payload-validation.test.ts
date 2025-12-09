@@ -8,7 +8,7 @@ import {
 import {
     getErrorMessageOrFallback,
     isJsonParseError
-} from "../src/shared/dependencies.js";
+} from "../src/dependencies.js";
 
 void test("decodeManualKeywordsPayload validates keyword mappings", () => {
     const payload = decodeManualKeywordsPayload('{"foo": "bar"}');

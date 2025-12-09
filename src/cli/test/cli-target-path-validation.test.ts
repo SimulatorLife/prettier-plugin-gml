@@ -5,7 +5,7 @@ import path from "node:path";
 import { test } from "node:test";
 
 import { CliUsageError } from "../src/cli-core/errors.js";
-import { SKIP_CLI_RUN_ENV_VAR } from "../src/shared/dependencies.js";
+import { SKIP_CLI_RUN_ENV_VAR } from "../src/shared/skip-cli-run.js";
 
 const originalSkipFlag = process.env[SKIP_CLI_RUN_ENV_VAR];
 process.env[SKIP_CLI_RUN_ENV_VAR] = "1";

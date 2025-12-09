@@ -1,4 +1,4 @@
-import { isErrorLike } from "../shared/dependencies.js";
+import { isErrorLike } from "../dependencies.js";
 import type { CommanderCommandLike } from "./commander-types.js";
 
 const COMMANDER_ERROR_CODE_PREFIX = "commander.";

@@ -17,7 +17,7 @@ import {
     toNormalizedLowerCaseSet,
     toPosixPath,
     compactArray
-} from "../shared/dependencies.js";
+} from "../dependencies.js";
 import { writeManualJsonArtifact } from "../modules/manual/file-helpers.js";
 import {
     resolveVmEvalTimeout,

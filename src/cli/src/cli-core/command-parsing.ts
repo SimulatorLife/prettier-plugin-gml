@@ -7,7 +7,7 @@ import {
     assertFunction,
     InvalidArgumentError,
     getErrorMessage
-} from "../shared/dependencies.js";
+} from "../dependencies.js";
 import type { CommanderCommandLike } from "./commander-types.js";
 
 type InvalidArgumentResolver = (
@@ -29,7 +29,7 @@ export {
     coercePositiveInteger,
     coerceNonNegativeInteger,
     resolveIntegerOption
-} from "../shared/dependencies.js";
+} from "../dependencies.js";
 
 /**
  * Wrap a Commander option resolver so thrown errors are converted into

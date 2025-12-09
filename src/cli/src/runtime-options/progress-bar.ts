@@ -1,7 +1,7 @@
 import {
     coercePositiveInteger,
     createNumericTypeErrorFormatter
-} from "../shared/dependencies.js";
+} from "../dependencies.js";
 import { createIntegerOptionToolkit } from "../cli-core/integer-option-toolkit.js";
 
 const DEFAULT_PROGRESS_BAR_WIDTH = 24;

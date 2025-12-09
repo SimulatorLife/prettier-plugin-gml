@@ -4,12 +4,12 @@ import { CliUsageError, createCliErrorDetails } from "./errors.js";
 // Pull shared helpers from the barrel so new call sites avoid the legacy
 // `array-utils` shim slated for removal.
 import {
-    createStringEnumeratedOptionHelpers,
     isNonEmptyArray,
-    resolveCommandUsage,
     toMutableArray,
     stringifyJsonForFile
-} from "../shared/dependencies.js";
+} from "../dependencies.js";
+import { createStringEnumeratedOptionHelpers } from "../shared/enumerated-option-helpers.js";
+import { resolveCommandUsage } from "./command-usage.js";
 import type { CommanderCommandLike } from "./commander-types.js";
 
 export const SuiteOutputFormat = Object.freeze({

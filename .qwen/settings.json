@@ -1,7 +1,8 @@
 {
+  "sessionTokenLimit": 128000,
   "general": {
     "checkpointing": {
-      "enabled": false
+      "enabled": true
     }
   },
   "tools": {
@@ -17,11 +18,6 @@
   },
   "privacy": {
     "usageStatisticsEnabled": false
-  },
-  "security": {
-    "auth": {
-      "selectedType": "qwen-oauth"
-    }
   },
   "context": {
     "fileName": ["AGENTS.md", "docs/README.md"]

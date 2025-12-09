@@ -5,7 +5,7 @@ import test from "node:test";
 import {
     collectAncestorDirectories,
     collectUniqueAncestorDirectories
-} from "../src/shared/dependencies.js";
+} from "../src/shared/ancestor-directories.js";
 
 void test("collectUniqueAncestorDirectories deduplicates ancestors across inputs", () => {
     const base = path.join(process.cwd(), "tmp", "cli-path-utils", "unique");

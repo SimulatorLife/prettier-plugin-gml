@@ -5,7 +5,7 @@ import {
     getErrorMessage,
     getObjectTagName,
     isAggregateErrorLike
-} from "../shared/dependencies.js";
+} from "../dependencies.js";
 import { asErrorLike } from "../shared/error-guards.js";
 
 const DEFAULT_INDENT = "  ";

@@ -1,4 +1,4 @@
-import { isNonEmptyString } from "./dependencies.js";
+import { isNonEmptyString } from "../dependencies.js";
 
 const registeredIgnorePaths = new Set<string>();
 

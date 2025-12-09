@@ -2,7 +2,7 @@ import {
     assertFunction,
     resolveIntegerOption,
     createEnvConfiguredValue
-} from "../shared/dependencies.js";
+} from "../dependencies.js";
 
 type IntegerCoercer = (
     value: unknown,

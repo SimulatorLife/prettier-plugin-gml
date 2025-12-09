@@ -2,7 +2,7 @@ import path from "node:path";
 import { createRequire } from "node:module";
 import process from "node:process";
 
-import { getNonEmptyTrimmedString } from "../shared/dependencies.js";
+import { getNonEmptyTrimmedString } from "../dependencies.js";
 import { CLI_PACKAGE_DIRECTORY, REPO_ROOT } from "../shared/workspace-paths.js";
 
 const require = createRequire(import.meta.url);

@@ -104,7 +104,7 @@ import { createWatchCommand, runWatchCommand } from "./commands/watch.js";
 import {
     isCliRunSkipped,
     SKIP_CLI_RUN_ENV_VAR
-} from "./shared/dependencies.js";
+} from "./shared/skip-cli-run.js";
 import {
     getDefaultIgnoredFileSampleLimit,
     getDefaultSkippedDirectorySampleLimit,

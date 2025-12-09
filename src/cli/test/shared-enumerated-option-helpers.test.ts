@@ -1,11 +1,11 @@
 import assert from "node:assert/strict";
 import { describe, it } from "node:test";
 
+import { describeValueForError } from "../src/dependencies.js";
 import {
     createEnumeratedOptionHelpers,
-    createStringEnumeratedOptionHelpers,
-    describeValueForError
-} from "../src/shared/dependencies.js";
+    createStringEnumeratedOptionHelpers
+} from "../src/shared/enumerated-option-helpers.js";
 
 void describe("createEnumeratedOptionHelpers", () => {
     void it("formats the sorted list of enumerated values", () => {

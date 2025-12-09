@@ -1,7 +1,7 @@
 import assert from "node:assert/strict";
 import { test } from "node:test";
 
-import { SKIP_CLI_RUN_ENV_VAR } from "../src/shared/dependencies.js";
+import { SKIP_CLI_RUN_ENV_VAR } from "../src/shared/skip-cli-run.js";
 
 const originalSkipFlag = process.env[SKIP_CLI_RUN_ENV_VAR];
 process.env[SKIP_CLI_RUN_ENV_VAR] = "1";

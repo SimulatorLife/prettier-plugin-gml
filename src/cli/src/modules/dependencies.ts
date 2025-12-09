@@ -1,4 +1,7 @@
-export * from "../shared/dependencies.js";
+export * from "../dependencies.js";
+export * from "../shared/skip-cli-run.js";
+export * from "../shared/ancestor-directories.js";
+export * from "../shared/enumerated-option-helpers.js";
 
 export { applyStandardCommandOptions } from "../cli-core/command-standard-options.js";
 

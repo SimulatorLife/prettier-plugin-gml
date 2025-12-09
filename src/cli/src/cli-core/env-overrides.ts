@@ -3,7 +3,7 @@ import {
     assertArray,
     isNonEmptyString,
     isObjectLike
-} from "../shared/dependencies.js";
+} from "../dependencies.js";
 import { asErrorLike } from "../shared/error-guards.js";
 import type { CommanderCommandLike } from "./commander-types.js";
 

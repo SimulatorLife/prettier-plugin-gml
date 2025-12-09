@@ -16,7 +16,7 @@ import {
     isNonEmptyString,
     timeSync,
     toNormalizedLowerCaseSet
-} from "../shared/dependencies.js";
+} from "../dependencies.js";
 import { resolveFromRepoRoot } from "../shared/workspace-paths.js";
 import { assertSupportedNodeVersion } from "../shared/node-version.js";
 import { writeManualJsonArtifact } from "../modules/manual/file-helpers.js";

@@ -6,7 +6,7 @@ import {
     normalizeExtensionSuffix,
     normalizeStringList,
     uniqueArray
-} from "../shared/dependencies.js";
+} from "../dependencies.js";
 
 type ExtensionInput =
     | string

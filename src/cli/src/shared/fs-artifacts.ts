@@ -5,7 +5,7 @@ import {
     ensureDir,
     isNonEmptyString,
     stringifyJsonForFile
-} from "./dependencies.js";
+} from "../dependencies.js";
 import { ensureWorkflowPathsAllowed } from "../workflow/path-filter.js";
 
 type WorkflowPathFilter = Parameters<typeof ensureWorkflowPathsAllowed>[0];
