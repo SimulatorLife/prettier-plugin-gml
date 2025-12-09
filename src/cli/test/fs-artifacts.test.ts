@@ -15,10 +15,7 @@ function createTempDirFactory() {
 
     return async function createTempDir() {
         counter += 1;
-        const prefix = path.join(
-            os.tmpdir(),
-            `fs-artifacts-${counter}-`
-        );
+        const prefix = path.join(os.tmpdir(), `fs-artifacts-${counter}-`);
         return fs.mkdtemp(prefix);
     };
 }

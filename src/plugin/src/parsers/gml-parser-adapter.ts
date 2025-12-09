@@ -177,9 +177,10 @@ function preprocessFeatherFixes(
         };
     }
 
-    const result = Transforms.preprocessSourceForFeatherFixes(
-        sourceText
-    ) as FeatherPreprocessCandidate | null | undefined;
+    const result = Transforms.preprocessSourceForFeatherFixes(sourceText) as
+        | FeatherPreprocessCandidate
+        | null
+        | undefined;
 
     return {
         parseSource: normalizeToString(result?.sourceText, sourceText),

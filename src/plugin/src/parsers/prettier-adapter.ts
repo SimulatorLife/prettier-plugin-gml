@@ -6,10 +6,7 @@
 // TODO: The parser also has similar functionality in 'src/parser/src/transforms/index.ts' that
 // needs to be properly integrated/consolidated with this adapter with proper adhesion to their respective concerns (parser: AST parsing, plugin: printing).
 
-import {
-    Parser,
-    type ParserOptions
-} from "@gml-modules/parser";
+import { Parser, type ParserOptions } from "@gml-modules/parser";
 import * as Transforms from "../transforms/index.js";
 import type {
     ParserTransformName,
@@ -109,9 +106,5 @@ function runPipeline(
         return ast;
     }
 
-    return Transforms.applyTransforms(
-        ast,
-        transformNames,
-        transformOptions
-    );
+    return Transforms.applyTransforms(ast, transformNames, transformOptions);
 }
