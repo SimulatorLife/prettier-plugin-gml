@@ -1,140 +1,63 @@
 import { assertFunction } from "./object.js";
 
-type ResolverInvoke<TOptions, TResult> = (
-    resolver: (...args: Array<unknown>) => unknown,
-    options: TOptions,
-    currentValue: TResult
-) => unknown;
-
-type ResolverNormalize<TOptions, TResult> = (
-    result: unknown,
-    options: TOptions,
-    currentValue: TResult
-) => TResult;
-
-type ResolverControllerConfig<TOptions, TResult> = {
+type ResolverControllerConfig<TResult> = {
     name?: string;
     errorMessage?: string;
     defaultFactory: () => TResult;
-    invoke?: ResolverInvoke<TOptions, TResult>;
-    normalize?: ResolverNormalize<TOptions, TResult>;
-    reuseDefaultValue?: boolean;
+    normalize?: (result: unknown) => TResult;
 };
 
-// Option resolver plumbing now lives alongside the plugin so shared bundles stay
-// focused on cross-environment primitives. The implementation remains unchanged
-// aside from importing its assertions from the shared object helpers.
-
 /**
- * @template TOptions
- * @template TResult
- * @typedef {object} ResolverController
- * @property {(options?: TOptions) => TResult} resolve
- * @property {(candidate: unknown) => TResult} set
- * @property {() => TResult} restore
- */
-
-/**
- * Create a controller for managing optional resolver hooks that customize how
- * option maps or normalization behaviour are derived. The controller tracks the
- * active resolver but now exposes narrow resolution and registry views so
- * collaborators depend only on the helpers they consume. The resolution view
- * focuses on producing the current value, while the registry view owns
- * registration and reset concerns.
+ * Create a controller for managing optional resolver functions with fallback to
+ * a default value. Resolvers allow external customization of configuration or
+ * behavior while maintaining sensible defaults when no customization is provided.
  *
- * @template TOptions
- * @template TResult
- * @param {{
- *     name?: string,
- *     errorMessage?: string,
- *     defaultFactory: () => TResult,
- *     invoke?: (
- *         resolver: (...args: Array<unknown>) => unknown,
- *         options: TOptions,
- *         currentValue: TResult
- *     ) => unknown,
- *     normalize?: (
- *         result: unknown,
- *         options: TOptions,
- *         currentValue: TResult
- *     ) => TResult,
- *     reuseDefaultValue?: boolean
- * }} config
- * @returns {ResolverController<TOptions, TResult>}
+ * When a custom resolver is registered via `set()`, calls to `resolve()` invoke
+ * that resolver with optional context and return its result after normalization.
+ * When no resolver is registered, `resolve()` returns a cached default value.
+ *
+ * @template TOptions - Optional context object that can be passed to resolve()
+ * @template TResult - The resolved value type
+ * @param config - Configuration for the controller
+ * @returns Controller with resolve, set, and restore methods
  */
 export function createResolverController<TOptions, TResult>(
-    config: ResolverControllerConfig<TOptions, TResult>
+    config: ResolverControllerConfig<TResult>
 ) {
     const {
         name = "resolver",
         errorMessage,
         defaultFactory,
-        invoke = ((resolver, options, previous) =>
-            resolver(options, previous)) as ResolverInvoke<TOptions, TResult>,
-        normalize = ((result) => result as TResult) as ResolverNormalize<
-            TOptions,
-            TResult
-        >,
-        reuseDefaultValue = false
+        normalize = (result) => result as TResult
     } = config;
+
     if (typeof defaultFactory !== "function") {
         throw new TypeError("defaultFactory must be a function.");
     }
 
-    /** @type {((options: TOptions) => unknown) | null} */
-    let resolver = null;
-    /** @type {TResult} */
-    let currentValue = defaultFactory();
+    let resolver: ((options?: TOptions) => unknown) | null = null;
+    let cachedDefault: TResult | null = null;
 
-    function resetToDefault() {
-        currentValue = defaultFactory();
-        return currentValue;
-    }
-
-    /**
-     * Resolve the current value, applying the resolver when present and
-     * normalizing the result through the configured hook.
-     *
-     * @param {TOptions} [options]
-     * @returns {TResult}
-     */
-    function resolve(options?: TOptions) {
-        const normalizedOptions = (options ?? {}) as TOptions;
+    function resolve(options?: TOptions): TResult {
         if (!resolver) {
-            return reuseDefaultValue ? currentValue : resetToDefault();
+            if (!cachedDefault) {
+                cachedDefault = defaultFactory();
+            }
+            return cachedDefault;
         }
-
-        const rawResult = invoke(resolver, normalizedOptions, currentValue);
-        const normalized = normalize(
-            rawResult,
-            normalizedOptions,
-            currentValue
-        );
-        currentValue = normalized;
-        return normalized;
+        const result = resolver(options ?? ({} as TOptions));
+        return normalize(result);
     }
 
-    /**
-     * Register a new resolver, ensuring it is callable before storing it, and
-     * immediately compute the resolved value.
-     *
-     * @param {unknown} candidate
-     * @returns {TResult}
-     */
-    function set(candidate) {
+    function set(candidate: unknown): TResult {
         resolver = assertFunction(candidate, name, { errorMessage });
         return resolve();
     }
 
-    /**
-     * Restore the controller to its default state, clearing any active resolver
-     * and reinitializing the cached value from the factory.
-     *
-     * @returns {TResult}
-     */
-    function restore() {
+    function restore(): TResult {
         resolver = null;
-        return resetToDefault();
+        cachedDefault = null;
+        return resolve();
     }
 
     return Object.freeze({ resolve, set, restore });
