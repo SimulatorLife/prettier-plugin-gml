@@ -2,7 +2,10 @@ import fs from "node:fs/promises";
 import path from "node:path";
 import { performance } from "node:perf_hooks";
 import process from "node:process";
-import { normalizeFixtureRoots, createPathFilter } from "../workflow/fixture-roots.js";
+import {
+    normalizeFixtureRoots,
+    createPathFilter
+} from "../workflow/fixture-roots.js";
 import { Command, Option, InvalidArgumentError } from "commander";
 import { Core } from "@gml-modules/core";
 import { applyStandardCommandOptions } from "../cli-core/command-standard-options.js";

@@ -3,11 +3,7 @@ import { Core } from "@gml-modules/core";
 import { asErrorLike } from "../shared/error-guards.js";
 import type { CommanderCommandLike } from "./commander-types.js";
 
-const {
-    isNonEmptyString,
-    assertArray,
-    isObjectLike
-} = Core;
+const { isNonEmptyString, assertArray, isObjectLike } = Core;
 
 const DEFAULT_SOURCE = "env";
 
