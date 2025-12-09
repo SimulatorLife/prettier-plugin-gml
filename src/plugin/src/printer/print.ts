@@ -639,9 +639,11 @@ function _printImpl(path, options, print) {
                     }
                 }
                 docCommentDocs = node.docComments
-                    .map((comment) =>
-                        formatLineComment(comment, lineCommentOptions)
-                    )
+                    .map((comment) => {
+                        const formatted = formatLineComment(comment, lineCommentOptions);
+                        console.log(`[DEBUG] formatLineComment input: "${comment.value}", output: "${formatted}"`);
+                        return formatted;
+                    })
                     .filter(
                         (text) =>
                             typeof text === STRING_TYPE && text.trim() !== ""
@@ -912,10 +914,6 @@ function _printImpl(path, options, print) {
             }
 
             if (docCommentDocs.length > 0) {
-                // console.log(
-                //     "[DEBUG] Printing docCommentDocs:",
-                //     JSON.stringify(docCommentDocs)
-                // );
                 node[DOC_COMMENT_OUTPUT_FLAG] = true;
                 const suppressLeadingBlank =
                     docCommentDocs &&
@@ -1101,6 +1099,7 @@ function _printImpl(path, options, print) {
         }
         case "GlobalVarStatement": {
             if (options.preserveGlobalVarStatements === false) {
+                // console.log("[DEBUG] GlobalVarStatement preserve=false", node);
                 const parts = [];
                 node.declarations.forEach((decl, index) => {
                     if (decl.init) {
@@ -1123,6 +1122,7 @@ function _printImpl(path, options, print) {
                 });
 
                 if (parts.length === 0) {
+                    // console.log("[DEBUG] GlobalVarStatement empty parts, returning empty string");
                     return "";
                 }
 
@@ -2587,7 +2587,7 @@ function buildCallbackArgumentsWithSimplePrefix(
     const shouldForcePrefixBreaks =
         simplePrefixLength > 1 && hasTrailingNonCallbackArgument;
 
-    for (let index = 0; index < args.length; index += 1) {
+    for (let index = 0; index < args.length; index++) {
         parts.push(path.call(print, "arguments", index));
 
         if (index >= args.length - 1) {
@@ -4349,10 +4349,7 @@ function resolvePreferredParameterSource(
         return null;
     }
 
-    if (
-        implicitEntry.canonical &&
-        implicitEntry.canonical !== implicitEntry.fallbackCanonical
-    ) {
+    if (implicitEntry.canonical) {
         return implicitEntry.name || implicitEntry.canonical;
     }
 
@@ -5230,7 +5227,7 @@ function printBooleanReturnIf(path, print) {
 
     if (consequentReturn.value === alternateReturn.value) {
         return null;
-    }
+       }
 
     const conditionDoc = printWithoutExtraParens(path, print, "test");
     const conditionNode = node.test;

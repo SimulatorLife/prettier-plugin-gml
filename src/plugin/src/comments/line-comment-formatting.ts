@@ -136,18 +136,6 @@ function formatLineComment(
         }
     }
 
-    // DEBUG LOGGING
-    if (trimmedValue.includes("scr_create_fx")) {
-        console.log("[DEBUG] formatLineComment scr_create_fx:", {
-            original,
-            trimmedValue,
-            boilerplateFragments,
-            slashesMatch: !!slashesMatch,
-            hasDecorations
-        });
-    }
-
-
     const hasPrecedingLineBreak =
         Core.isObjectLike(comment) &&
         typeof comment.leadingWS === "string" &&

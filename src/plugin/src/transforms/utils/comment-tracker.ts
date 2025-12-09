@@ -8,6 +8,8 @@ export class CommentTracker {
         consumed?: boolean;
     }>;
 
+    private checkpoints: Array<Array<{ index: number; comment: unknown; consumed?: boolean }>> = [];
+
     constructor(ownerOrComments: unknown) {
         const sourceComments = (() => {
             // If the caller provided a raw array of comments, prefer that
@@ -60,6 +62,21 @@ export class CommentTracker {
             })
             .filter((entry) => typeof entry.index === "number")
             .sort((a, b) => a.index - b.index);
+    }
+
+    checkpoint() {
+        this.checkpoints.push(this.entries.map((e) => ({ ...e })));
+    }
+
+    rollback() {
+        const previous = this.checkpoints.pop();
+        if (previous) {
+            this.entries = previous;
+        }
+    }
+
+    commit() {
+        this.checkpoints.pop();
     }
 
     hasBetween(left: number, right: number) {
@@ -190,12 +207,12 @@ export class CommentTracker {
                 // entry is { index, comment }
                 entry.consumed = true;
                 if (entry.comment) {
-                    (entry.comment as any)._removedByConsolidation = true;
+                    (entry.comment)._removedByConsolidation = true;
                 }
             } else {
                 // entry is a plain comment node
                 const commentNode = entry;
-                (commentNode as any)._removedByConsolidation = true;
+                (commentNode)._removedByConsolidation = true;
                 // Find the corresponding tracker entry and mark it consumed if present
                 for (const e of this.entries) {
                     if (e && e.comment === commentNode) {

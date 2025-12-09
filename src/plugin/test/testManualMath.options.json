@@ -1,3 +1,3 @@
 {
-    "convertManualMathToBuiltins": true, "alignAssignmentsMinGroupSize": 0
+    "optimizeMathExpressions": true, "alignAssignmentsMinGroupSize": 0
 }

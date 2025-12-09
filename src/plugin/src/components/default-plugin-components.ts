@@ -138,21 +138,13 @@ export function createDefaultGmlPluginComponents(): GmlPluginComponentBundle {
                 description:
                     "Rewrite string concatenations like 'Hello ' + name + '!' into template strings such as $\"Hello {name}!\" when all parts are safely composable."
             },
-            convertDivisionToMultiplication: {
+            optimizeMathExpressions: {
                 since: "0.0.0",
                 type: "boolean",
                 category: "gml",
                 default: false,
                 description:
-                    "Replace divisions by constant values with multiplication by their reciprocal (for example, 'value / 2' becomes 'value * 0.5')."
-            },
-            convertManualMathToBuiltins: {
-                since: "0.0.0",
-                type: "boolean",
-                category: "gml",
-                default: false,
-                description:
-                    "Convert bespoke math expressions into their builtin GML equivalents (e.g. collapsing repeated multiplication into sqr())."
+                    "Optimize math expressions by converting bespoke patterns to built-ins, condensing scalar multipliers, and replacing divisions by constant values with multiplication by their reciprocal."
             },
             sanitizeMissingArgumentSeparators: {
                 since: "0.0.0",

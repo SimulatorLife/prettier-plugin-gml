@@ -12,7 +12,7 @@ void test("converts manual mean with floating point noise", async () => {
     ].join("\n");
 
     const formatted = await Plugin.format(source, {
-        convertManualMathToBuiltins: true
+        optimizeMathExpressions: true
     });
 
     assert.strictEqual(
@@ -38,7 +38,7 @@ void test("converts literal square with floating point noise", async () => {
     ].join("\n");
 
     const formatted = await Plugin.format(source, {
-        convertManualMathToBuiltins: true
+        optimizeMathExpressions: true
     });
 
     assert.strictEqual(
@@ -62,7 +62,7 @@ void test("preserves inline comments between manual math operands", async () => 
     ].join("\n");
 
     const formatted = await Plugin.format(source, {
-        convertManualMathToBuiltins: true
+        optimizeMathExpressions: true
     });
 
     assert.strictEqual(
@@ -87,7 +87,7 @@ void test("converts distance formula with floating point noise", async () => {
     ].join("\n");
 
     const formatted = await Plugin.format(source, {
-        convertManualMathToBuiltins: true
+        optimizeMathExpressions: true
     });
 
     assert.strictEqual(
@@ -113,7 +113,7 @@ void test("condenses chained scalar multipliers into a single coefficient", asyn
     ].join("\n");
 
     const formatted = await Plugin.format(source, {
-        convertManualMathToBuiltins: true
+        optimizeMathExpressions: true
     });
 
     assert.strictEqual(
@@ -139,7 +139,7 @@ void test("promotes lengthdir half-difference assignments into the declaration",
     ].join("\n");
 
     const formatted = await Plugin.format(source, {
-        convertManualMathToBuiltins: true
+        optimizeMathExpressions: true
     });
 
     assert.strictEqual(
@@ -168,7 +168,7 @@ void test("combines sequential lengthdir scalar assignments", async () => {
     ].join("\n");
 
     const formatted = await Plugin.format(source, {
-        convertManualMathToBuiltins: true
+        optimizeMathExpressions: true
     });
 
     assert.strictEqual(
@@ -199,7 +199,7 @@ void test("preserves blank line before comments when promoting lengthdir assignm
     ].join("\n");
 
     const formatted = await Plugin.format(source, {
-        convertManualMathToBuiltins: true
+        optimizeMathExpressions: true
     });
 
     assert.strictEqual(
@@ -228,7 +228,7 @@ void test("simplifies division by a reciprocal denominator", async () => {
     ].join("\n");
 
     const formatted = await Plugin.format(source, {
-        convertManualMathToBuiltins: true
+        optimizeMathExpressions: true
     });
 
     assert.strictEqual(
@@ -254,7 +254,7 @@ void test("preserves grouping when simplifying reciprocal denominators with comp
     ].join("\n");
 
     const formatted = await Plugin.format(source, {
-        convertManualMathToBuiltins: true
+        optimizeMathExpressions: true
     });
 
     assert.strictEqual(
@@ -281,7 +281,7 @@ void test("condenses subtraction-based scalar multipliers", async () => {
     ].join("\n");
 
     const formatted = await Plugin.format(source, {
-        convertManualMathToBuiltins: true
+        optimizeMathExpressions: true
     });
 
     assert.strictEqual(
@@ -307,7 +307,7 @@ void test("simplifies negative reciprocal multiplication", async () => {
     ].join("\n");
 
     const formatted = await Plugin.format(source, {
-        convertManualMathToBuiltins: true
+        optimizeMathExpressions: true
     });
 
     assert.strictEqual(
@@ -334,7 +334,7 @@ void test("cancels reciprocal factors paired with their denominator", async () =
     ].join("\n");
 
     const formatted = await Plugin.format(source, {
-        convertManualMathToBuiltins: true
+        optimizeMathExpressions: true
     });
 
     assert.strictEqual(
@@ -361,7 +361,7 @@ void test("removes additive identity scalars with trailing comments", async () =
     ].join("\n");
 
     const formatted = await Plugin.format(source, {
-        convertManualMathToBuiltins: true
+        optimizeMathExpressions: true
     });
 
     assert.strictEqual(
@@ -386,7 +386,7 @@ void test("removes multiplicative zero factors inside additive chains", async ()
     ].join("\n");
 
     const formatted = await Plugin.format(source, {
-        convertManualMathToBuiltins: true
+        optimizeMathExpressions: true
     });
 
     assert.strictEqual(
@@ -416,7 +416,7 @@ void test("preserves blank line after removing simplified alias", async () => {
     ].join("\n");
 
     const formatted = await Plugin.format(source, {
-        convertManualMathToBuiltins: true
+        optimizeMathExpressions: true
     });
 
     assert.strictEqual(
@@ -445,7 +445,7 @@ void test("condenses chained multipliers with composite operands", async () => {
     ].join("\n");
 
     const formatted = await Plugin.format(source, {
-        convertManualMathToBuiltins: true
+        optimizeMathExpressions: true
     });
 
     assert.strictEqual(
@@ -471,7 +471,7 @@ void test("collects shared scalar factors across addition", async () => {
     ].join("\n");
 
     const formatted = await Plugin.format(source, {
-        convertManualMathToBuiltins: true
+        optimizeMathExpressions: true
     });
 
     assert.strictEqual(
@@ -496,7 +496,7 @@ void test("reduces shared scalar additions that sum to one", async () => {
     ].join("\n");
 
     const formatted = await Plugin.format(source, {
-        convertManualMathToBuiltins: true
+        optimizeMathExpressions: true
     });
 
     assert.strictEqual(
@@ -521,7 +521,7 @@ void test("condenses division by reciprocal scalar multipliers", async () => {
     ].join("\n");
 
     const formatted = await Plugin.format(source, {
-        convertManualMathToBuiltins: true
+        optimizeMathExpressions: true
     });
 
     assert.strictEqual(
@@ -547,7 +547,7 @@ void test("condenses subtraction-only scalar factors", async () => {
     ].join("\n");
 
     const formatted = await Plugin.format(source, {
-        convertManualMathToBuiltins: true
+        optimizeMathExpressions: true
     });
 
     assert.strictEqual(
@@ -572,7 +572,7 @@ void test("condenses nested ratios that mix scalar and non-scalar factors", asyn
     ].join("\n");
 
     const formatted = await Plugin.format(source, {
-        convertManualMathToBuiltins: true
+        optimizeMathExpressions: true
     });
 
     assert.strictEqual(
@@ -598,7 +598,7 @@ void test("cancels reciprocal ratio pairs before scalar condensation", async () 
     ].join("\n");
 
     const formatted = await Plugin.format(source, {
-        convertManualMathToBuiltins: true
+        optimizeMathExpressions: true
     });
 
     assert.strictEqual(
@@ -625,7 +625,7 @@ void test("simplifies reciprocal products with unit numerators", async () => {
     ].join("\n");
 
     const formatted = await Plugin.format(source, {
-        convertManualMathToBuiltins: true
+        optimizeMathExpressions: true
     });
 
     assert.strictEqual(
@@ -651,7 +651,7 @@ void test("cancels numeric identity factors introduced by scalar condensation", 
     ].join("\n");
 
     const formatted = await Plugin.format(source, {
-        convertManualMathToBuiltins: true
+        optimizeMathExpressions: true
     });
 
     assert.strictEqual(
@@ -676,7 +676,7 @@ void test("preserves simple division when no scalar condensation is needed", asy
     ].join("\n");
 
     const formatted = await Plugin.format(source, {
-        convertManualMathToBuiltins: true
+        optimizeMathExpressions: true
     });
 
     assert.strictEqual(
@@ -702,7 +702,7 @@ void test("converts multiplicative degree ratios into degtorad", async () => {
     ].join("\n");
 
     const formatted = await Plugin.format(source, {
-        convertManualMathToBuiltins: true
+        optimizeMathExpressions: true
     });
 
     assert.strictEqual(
@@ -739,7 +739,7 @@ void test("uses tolerance-aware comparison for ratio numerator simplification", 
     const source = ["var result = value / 1000 / 60;", ""].join("\n");
 
     const formatted = await Plugin.format(source, {
-        convertManualMathToBuiltins: true
+        optimizeMathExpressions: true
     });
 
     assert.strictEqual(
@@ -761,7 +761,7 @@ void test("safely handles division by denominator near machine epsilon", async (
     ].join("\n");
 
     const formatted = await Plugin.format(source, {
-        convertManualMathToBuiltins: true
+        optimizeMathExpressions: true
     });
 
     // The formatter preserves divisions where the denominator is not in a chain
@@ -792,7 +792,7 @@ void test("correctly handles multiplicative chain with near-zero factor", async 
     ].join("\n");
 
     const formatted = await Plugin.format(source, {
-        convertManualMathToBuiltins: true
+        optimizeMathExpressions: true
     });
 
     // The formatter correctly simplifies by converting division to multiplication

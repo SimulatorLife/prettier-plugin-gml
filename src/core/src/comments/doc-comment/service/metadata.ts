@@ -10,6 +10,7 @@ export type DocCommentMetadata = {
     tag: string;
     name?: string | null;
     type?: string | null;
+    description?: string | null;
 };
 
 export function isDocCommentTagLine(line: unknown) {
@@ -74,10 +75,23 @@ export function parseDocCommentMetadata(
             name = paramMatch ? paramMatch[1] : null;
         }
 
+        let description = null;
+        if (name) {
+            const nameLength = name.length;
+            let rawDescription = paramSection.slice(nameLength).trim();
+            if (rawDescription.startsWith("-")) {
+                rawDescription = rawDescription.slice(1).trim();
+            }
+            if (rawDescription.length > 0) {
+                description = rawDescription;
+            }
+        }
+
         return {
             tag,
             name,
-            type: type ?? null
+            type: type ?? null,
+            description
         };
     }
 

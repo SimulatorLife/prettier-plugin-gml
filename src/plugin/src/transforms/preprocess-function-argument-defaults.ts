@@ -7,26 +7,6 @@ import { FunctionalParserTransform } from "./functional-transform.js";
 
 type PreprocessFunctionArgumentDefaultsTransformOptions = Record<string, never>;
 
-function preprocessFunctionArgumentDefaultsImpl(ast: any) {
-    if (!Core.isObjectLike(ast)) {
-        return ast;
-    }
-
-    traverse(ast, (node) => {
-        if (
-            !node ||
-            (node.type !== "FunctionDeclaration" &&
-                node.type !== "ConstructorDeclaration")
-        ) {
-            return;
-        }
-
-        preprocessFunctionDeclaration(node, ast);
-    });
-
-    return ast;
-}
-
 export class PreprocessFunctionArgumentDefaultsTransform extends FunctionalParserTransform<PreprocessFunctionArgumentDefaultsTransformOptions> {
     constructor() {
         super("preprocess-function-argument-defaults", {});
@@ -37,43 +17,55 @@ export class PreprocessFunctionArgumentDefaultsTransform extends FunctionalParse
         _options: PreprocessFunctionArgumentDefaultsTransformOptions
     ) {
         void _options;
-        return preprocessFunctionArgumentDefaultsImpl(ast);
-    }
-}
-
-export const preprocessFunctionArgumentDefaultsTransform =
-    new PreprocessFunctionArgumentDefaultsTransform();
-
-function traverse(node, visitor, seen = new Set()) {
-    if (!Core.isObjectLike(node)) {
-        return;
-    }
-
-    if (seen.has(node)) {
-        return;
-    }
-
-    seen.add(node);
-
-    if (Array.isArray(node)) {
-        for (const child of node) {
-            traverse(child, visitor, seen);
+        if (!Core.isObjectLike(ast)) {
+            return ast;
         }
-        return;
+
+        this.traverse(ast, (node) => {
+            if (
+                !node ||
+                (node.type !== "FunctionDeclaration" &&
+                    node.type !== "ConstructorDeclaration")
+            ) {
+                return;
+            }
+
+            this.preprocessFunctionDeclaration(node, ast);
+        });
+
+        return ast;
     }
 
-    visitor(node);
-
-    Core.forEachNodeChild(node, (value, key) => {
-        if (key === "parent") {
+    private traverse(node, visitor, seen = new Set()) {
+        if (!Core.isObjectLike(node)) {
             return;
         }
 
-        traverse(value, visitor, seen);
-    });
-}
+        if (seen.has(node)) {
+            return;
+        }
 
-function preprocessFunctionDeclaration(node, ast) {
+        seen.add(node);
+
+        if (Array.isArray(node)) {
+            for (const child of node) {
+                this.traverse(child, visitor, seen);
+            }
+            return;
+        }
+
+        visitor(node);
+
+        Core.forEachNodeChild(node, (value, key) => {
+            if (key === "parent") {
+                return;
+            }
+
+            this.traverse(value, visitor, seen);
+        });
+    }
+
+    private preprocessFunctionDeclaration(node, ast) {
     if (
         !node ||
         (node.type !== "FunctionDeclaration" &&
@@ -1755,3 +1747,8 @@ function preprocessFunctionDeclaration(node, ast) {
         return Number.isInteger(parsed) && parsed >= 0 ? parsed : null;
     }
 }
+}
+
+export const preprocessFunctionArgumentDefaultsTransform =
+    new PreprocessFunctionArgumentDefaultsTransform();
+

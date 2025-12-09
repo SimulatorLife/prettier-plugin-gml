@@ -33,7 +33,7 @@ type GmlParserAdapterOptions = {
     condenseStructAssignments?: boolean;
     useStringInterpolation?: boolean;
     condenseLogicalExpressions?: boolean;
-    convertManualMathToBuiltins?: boolean;
+    optimizeMathExpressions?: boolean;
     stripComments?: boolean;
     originalText?: string; // TODO: Why is this here? Not really a parser option.
     __identifierCaseProjectIndexBootstrap?: unknown; // TODO: Why is this here? Not really a parser option.
@@ -370,13 +370,8 @@ function applyOptionalTransforms(
         Transforms.condenseLogicalExpressionsTransform.transform(ast);
     }
 
-    Transforms.condenseScalarMultipliersTransform.transform(ast, {
-        sourceText: context.parseSource,
-        originalText: options?.originalText
-    });
-
-    if (options?.convertManualMathToBuiltins) {
-        Transforms.convertManualMathExpressionsTransform.transform(ast, {
+    if (options?.optimizeMathExpressions) {
+        Transforms.optimizeMathExpressionsTransform.transform(ast, {
             sourceText: context.parseSource,
             originalText: options?.originalText,
             astRoot: ast

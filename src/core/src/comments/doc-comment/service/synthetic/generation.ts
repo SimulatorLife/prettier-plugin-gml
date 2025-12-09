@@ -142,7 +142,12 @@ export function computeSyntheticFunctionDocLines(
         return [];
     }
 
-    type DocMeta = { tag: string; name?: string | null; type?: string | null };
+    type DocMeta = {
+        tag: string;
+        name?: string | null;
+        type?: string | null;
+        description?: string | null;
+    };
     const metadata = (
         Array.isArray(existingDocLines)
             ? existingDocLines.map(parseDocCommentMetadata).filter(Boolean)
@@ -542,6 +547,10 @@ export function computeSyntheticFunctionDocLines(
             Boolean(rawOrdinalName) &&
             (canonicalOrdinalMatchesParam || isGenericArgumentName);
 
+        if (paramIndex === 0) {
+            // console.log("[DEBUG] paramIndex 0 (second loop)");
+        }
+
         if (
             hasCompleteOrdinalDocs &&
             node &&
@@ -799,15 +808,17 @@ export function computeSyntheticFunctionDocLines(
             if (implicitDocEntry?.name) {
                 documentedParamNames.add(implicitDocEntry.name);
             }
-            continue;
+        } else {
+            documentedParamNames.add(docName);
+            const typePart = docType ? `{${docType}} ` : "";
+            const descriptionPart =
+                existingMetadata?.description ??
+                ordinalMetadata?.description ??
+                "";
+            const separator = descriptionPart ? " - " : "";
+            const newLine = `/// @param ${typePart}${docName}${separator}${descriptionPart}`;
+            lines.push(newLine);
         }
-        documentedParamNames.add(docName);
-        if (implicitDocEntry?.name) {
-            documentedParamNames.add(implicitDocEntry.name);
-        }
-
-        const typePrefix = docType ? `{${docType}} ` : "";
-        lines.push(`/// @param ${typePrefix}${docName}`);
     }
 
     for (const entry of implicitArgumentDocNames) {

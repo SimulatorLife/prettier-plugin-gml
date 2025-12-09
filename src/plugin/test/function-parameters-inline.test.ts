@@ -17,7 +17,7 @@ void test("inlines default parameter functions with single call bodies", async (
     ].join("\n");
 
     const formatted = await Plugin.format(source, {
-        convertDivisionToMultiplication: true
+        printWidth: 80
     });
 
     assert.strictEqual(

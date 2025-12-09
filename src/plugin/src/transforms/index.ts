@@ -6,10 +6,7 @@ import { applyFeatherFixesTransform } from "./apply-feather-fixes.js";
 import { preprocessFunctionArgumentDefaultsTransform } from "./preprocess-function-argument-defaults.js";
 import { enforceVariableBlockSpacingTransform } from "./enforce-variable-block-spacing.js";
 import { convertStringConcatenationsTransform } from "./convert-string-concatenations.js";
-import {
-    convertManualMathExpressionsTransform,
-    condenseScalarMultipliersTransform
-} from "./convert-manual-math.js";
+import { optimizeMathExpressionsTransform } from "./optimize-math-expressions.js";
 import { convertUndefinedGuardAssignmentsTransform } from "./convert-undefined-guard-assignments.js";
 import { annotateStaticFunctionOverridesTransform } from "./annotate-static-overrides.js";
 import { collapseRedundantMissingCallArgumentsTransform } from "./collapse-redundant-arguments.js";
@@ -31,8 +28,7 @@ const TRANSFORM_REGISTRY_ENTRIES = [
     ["enforce-variable-block-spacing", enforceVariableBlockSpacingTransform],
     ["convert-string-concatenations", convertStringConcatenationsTransform],
     ["condense-logical-expressions", condenseLogicalExpressionsTransform],
-    ["convert-manual-math", convertManualMathExpressionsTransform],
-    ["condense-scalar-multipliers", condenseScalarMultipliersTransform],
+    ["optimize-math-expressions", optimizeMathExpressionsTransform],
     [
         "convert-undefined-guard-assignments",
         convertUndefinedGuardAssignmentsTransform
@@ -112,10 +108,7 @@ export {
 export { condenseLogicalExpressionsTransform } from "./condense-logical-expressions.js";
 export { consolidateStructAssignmentsTransform } from "./consolidate-struct-assignments.js";
 export { CommentTracker } from "./utils/comment-tracker.js";
-export {
-    convertManualMathExpressionsTransform,
-    condenseScalarMultipliersTransform
-} from "./convert-manual-math.js";
+export { optimizeMathExpressionsTransform } from "./optimize-math-expressions.js";
 export { convertStringConcatenationsTransform } from "./convert-string-concatenations.js";
 export { convertUndefinedGuardAssignmentsTransform } from "./convert-undefined-guard-assignments.js";
 export { enforceVariableBlockSpacingTransform } from "./enforce-variable-block-spacing.js";
