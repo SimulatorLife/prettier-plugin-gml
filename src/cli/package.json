@@ -21,6 +21,7 @@
   },
   "dependencies": {
     "@gml-modules/core": "0.0.1",
+    "@gml-modules/parser": "0.0.1",
     "@gml-modules/plugin": "0.0.1",
     "@gml-modules/transpiler": "0.0.1",
     "commander": "^14.0.2",

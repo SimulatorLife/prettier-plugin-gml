@@ -12,6 +12,7 @@
   },
   "references": [
     { "path": "../core" },
+    { "path": "../parser" },
     { "path": "../plugin" },
     { "path": "../transpiler" }
   ],

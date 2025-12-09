@@ -30,7 +30,7 @@ import {
     resolveFromRepoRoot
 } from "../../shared/workspace-paths.js";
 import { writeJsonArtifact } from "../../shared/fs-artifacts.js";
-import { loadGmlParser } from "./gml-parser.js";
+import { Parser } from "@gml-modules/parser";
 import { importPluginModule } from "../plugin-runtime-dependencies.js";
 import type { CommanderCommandLike } from "../../cli-core/commander-types.js";
 
@@ -904,7 +904,7 @@ async function runParserAstSuite({ iterations }) {
         PARSER_SAMPLE_RELATIVE_PATH
     );
 
-    const GMLParser = await loadGmlParser();
+    const GMLParser = Parser.GMLParser;
 
     const measurement = await tracker.measure(() => {
         let lastAst = null;
