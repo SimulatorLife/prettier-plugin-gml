@@ -112,13 +112,6 @@ const docCommentTypeNormalizationController = createResolverController({
         createDocCommentTypeNormalization(
             DEFAULT_DOC_COMMENT_TYPE_NORMALIZATION
         ),
-    reuseDefaultValue: true,
-    invoke(resolver, options) {
-        return resolver({
-            defaults: DEFAULT_DOC_COMMENT_TYPE_NORMALIZATION,
-            options
-        });
-    },
     normalize(result) {
         return createDocCommentTypeNormalization(result);
     },
