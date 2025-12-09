@@ -77,7 +77,10 @@ async function parseImpl(
     const activeOptions = isOptionsObject(options) ? options : undefined;
 
     if (process.env.GML_PRINTER_DEBUG) {
-        console.debug("[DEBUG] parseImpl options:", JSON.stringify(activeOptions, null, 2));
+        console.debug(
+            "[DEBUG] parseImpl options:",
+            JSON.stringify(activeOptions, null, 2)
+        );
     }
 
     if (activeOptions) {
@@ -90,7 +93,10 @@ async function parseImpl(
 
         const preparation = preprocessSource(text, activeOptions);
         if (process.env.GML_PRINTER_DEBUG) {
-            console.debug("[DEBUG] Preprocessed source:", preparation.parseSource);
+            console.debug(
+                "[DEBUG] Preprocessed source:",
+                preparation.parseSource
+            );
         }
         const ast = parseSourceWithRecovery(
             preparation.parseSource,
@@ -99,6 +105,8 @@ async function parseImpl(
 
         Semantic.attachIdentifierCasePlanSnapshot(ast, activeOptions);
         filterParserComments(ast, activeOptions);
+
+        // console.log("AST comments length:", ast.comments?.length);
 
         if (!ast || typeof ast !== "object") {
             throw new Error(

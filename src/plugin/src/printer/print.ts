@@ -71,7 +71,7 @@ import {
 const { isNextLineEmpty, isPreviousLineEmpty } = util;
 
 // Polyfill literalLine if not available in doc-builders
-const literalLine = { type: "line", hard: true, literal: true };
+// const literalLine = { type: "line", hard: true, literal: true };
 
 // String constants to avoid duplication warnings
 const STRING_TYPE = "string";
@@ -944,8 +944,7 @@ function _printImpl(path, options, print) {
                 }
 
                 // Push doc comments individually with hardline to ensure they appear on separate lines
-                parts.push(join(hardline, docCommentDocs));
-                parts.push(hardline);
+                parts.push(join(hardline, docCommentDocs), hardline);
             } else if (Object.hasOwn(node, DOC_COMMENT_OUTPUT_FLAG)) {
                 delete node[DOC_COMMENT_OUTPUT_FLAG];
             }
@@ -1973,6 +1972,7 @@ function _sanitizeDocOutput(doc) {
 }
 
 export function print(path, options, print) {
+    // console.log("print called. options.originalText length:", options.originalText?.length);
     const doc = _printImpl(path, options, print);
     return _sanitizeDocOutput(doc);
 }
@@ -2601,7 +2601,6 @@ function shouldForceBreakStructArgument(argument) {
     }
 
     const properties = Core.asArray(argument.properties);
-
     if (properties.length === 0) {
         return false;
     }
@@ -2926,6 +2925,13 @@ function printStatements(path, options, print, childrenAttribute) {
         }
 
         const textForSemicolons = originalTextCache || "";
+        let hasTerminatingSemicolon = false;
+        if (nodeEndIndex !== null) {
+            let cursor = nodeEndIndex;
+            while (
+                cursor < textForSemicolons.length &&
+                isSkippableSemicolonWhitespace(
+                    textForSemicolons.charCodeAt(cursor)
                 )
             ) {
                 cursor++;
@@ -4165,34 +4171,6 @@ function getSyntheticDocCommentForFunctionAssignment(
         hasExistingDocLines: syntheticDoc?.hasExistingDocLines === true,
         plainLeadingLines
     };
-}
-
-function isSkippableSemicolonWhitespace(charCode) {
-    // Mirrors the range of characters matched by /\s/ without incurring the
-    // per-iteration RegExp machinery cost.
-    switch (charCode) {
-        case 9: // tab
-        case 10: // line feed
-        case 11: // vertical tab
-        case 12: // form feed
-        case 13: // carriage return
-        case 32: // space
-        case 160:
-        case 0x20_28:
-        case 0x20_29: {
-            // GameMaker occasionally serializes or copy/pastes scripts with the
-            // U+00A0 non-breaking space and the U+2028/U+2029 line and
-            // paragraph separators—for example when creators paste snippets
-            // from the IDE or import JSON exports. Treat them as
-            // semicolon-trimmable whitespace so the cleanup logic keeps
-            // matching GameMaker's parser expectations instead of leaving stray
-            // semicolons behind.
-            return true;
-        }
-        default: {
-            return false;
-        }
-    }
 }
 
 function getPreferredFunctionParameterName(path, node, options) {
@@ -6164,7 +6142,11 @@ function shouldFlattenSyntheticBinary(parent, expression, path) {
         return false;
     }
 
-    if (isAdditivePair && (binaryExpressionContainsString(parent) || binaryExpressionContainsString(expression))) {
+    if (
+        isAdditivePair &&
+        (binaryExpressionContainsString(parent) ||
+            binaryExpressionContainsString(expression))
+    ) {
         return false;
     }
 
@@ -7393,4 +7375,32 @@ function isLValueExpression(nodeType) {
         nodeType === "CallExpression" ||
         nodeType === "MemberDotExpression"
     );
+}
+
+function isSkippableSemicolonWhitespace(charCode) {
+    // Mirrors the range of characters matched by /\s/ without incurring the
+    // per-iteration RegExp machinery cost.
+    switch (charCode) {
+        case 9: // tab
+        case 10: // line feed
+        case 11: // vertical tab
+        case 12: // form feed
+        case 13: // carriage return
+        case 32: // space
+        case 160:
+        case 0x20_28:
+        case 0x20_29: {
+            // GameMaker occasionally serializes or copy/pastes scripts with the
+            // U+00A0 non-breaking space and the U+2028/U+2029 line and
+            // paragraph separators—for example when creators paste snippets
+            // from the IDE or import JSON exports. Treat them as
+            // semicolon-trimmable whitespace so the cleanup logic keeps
+            // matching GameMaker's parser expectations instead of leaving stray
+            // semicolons behind.
+            return true;
+        }
+        default: {
+            return false;
+        }
+    }
 }

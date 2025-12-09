@@ -12,6 +12,8 @@ import {
 } from "./convert-manual-math.js";
 import { convertUndefinedGuardAssignmentsTransform } from "./convert-undefined-guard-assignments.js";
 import { annotateStaticFunctionOverridesTransform } from "./annotate-static-overrides.js";
+import { collapseRedundantMissingCallArgumentsTransform } from "./collapse-redundant-arguments.js";
+import { markCallsMissingArgumentSeparatorsTransform } from "./mark-missing-separators.js";
 
 import { ParserTransform } from "./functional-transform.js";
 
@@ -35,7 +37,15 @@ const TRANSFORM_REGISTRY_ENTRIES = [
         "convert-undefined-guard-assignments",
         convertUndefinedGuardAssignmentsTransform
     ],
-    ["annotate-static-overrides", annotateStaticFunctionOverridesTransform]
+    ["annotate-static-overrides", annotateStaticFunctionOverridesTransform],
+    [
+        "collapse-redundant-missing-call-arguments",
+        collapseRedundantMissingCallArgumentsTransform
+    ],
+    [
+        "mark-calls-missing-argument-separators",
+        markCallsMissingArgumentSeparatorsTransform
+    ]
 ] as const;
 
 type TransformName = (typeof TRANSFORM_REGISTRY_ENTRIES)[number][0];
@@ -118,8 +128,6 @@ export {
     applySanitizedIndexAdjustments
 } from "./conditional-assignment-sanitizer.js";
 export { applyIndexAdjustmentsIfPresent } from "./index-adjustments.js";
-export {
-    sanitizeMissingArgumentSeparators,
-    collapseRedundantMissingCallArguments,
-    markCallsMissingArgumentSeparators
-} from "./missing-argument-separator-sanitizer.js";
+export { sanitizeMissingArgumentSeparators } from "./missing-argument-separator-sanitizer.js";
+export { collapseRedundantMissingCallArguments } from "./collapse-redundant-arguments.js";
+export { markCallsMissingArgumentSeparators } from "./mark-missing-separators.js";
