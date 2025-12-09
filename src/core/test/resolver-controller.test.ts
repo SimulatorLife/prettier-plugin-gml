@@ -7,26 +7,22 @@ const createResolverController = Core.createResolverController;
 
 void describe("createResolverController", () => {
     void it("returns defaults when no resolver is installed", () => {
-        let defaultCalls = 0;
         const controller = createResolverController({
             defaultFactory() {
-                defaultCalls += 1;
-                return { marker: defaultCalls };
+                return { value: "default" };
             }
         });
 
         const first = controller.resolve();
         const second = controller.resolve();
 
-        assert.deepEqual(first, { marker: 2 });
-        assert.deepEqual(second, { marker: 3 });
-        assert.equal(defaultCalls, 3);
+        assert.deepEqual(first, { value: "default" });
+        assert.strictEqual(first, second);
     });
 
-    void it("reuses the cached default when configured", () => {
+    void it("caches the default value to avoid repeated factory calls", () => {
         let defaultCalls = 0;
         const controller = createResolverController({
-            reuseDefaultValue: true,
             defaultFactory() {
                 defaultCalls += 1;
                 return { marker: defaultCalls };
@@ -41,39 +37,19 @@ void describe("createResolverController", () => {
         assert.equal(defaultCalls, 1);
     });
 
-    void it("passes the previous value through the resolver pipeline", () => {
-        const seen = [];
+    void it("applies normalization to resolver results", () => {
         const controller = createResolverController({
-            defaultFactory: () => ({ version: "baseline" }),
-            invoke(resolver, options, previous) {
-                seen.push({ phase: "invoke", previous });
-                return resolver(options, previous);
-            },
-            normalize(result: any, options: any, previous: any) {
-                seen.push({ phase: "normalize", previous, result });
-                return result;
+            defaultFactory: () => ({ value: "default" }),
+            normalize(result: any) {
+                return { value: `normalized:${result.value}` };
             }
         });
 
-        controller.set((options, previous) => ({
-            version: `${previous.version}-${options?.suffix ?? "initial"}`
-        }));
+        controller.set(() => ({ value: "custom" }));
 
-        seen.length = 0;
+        const resolved = controller.resolve();
 
-        const resolved = controller.resolve({ suffix: "next" });
-
-        assert.deepEqual(resolved, { version: "baseline-initial-next" });
-        assert.equal(seen.length, 2);
-        assert.deepEqual(seen[0], {
-            phase: "invoke",
-            previous: { version: "baseline-initial" }
-        });
-        assert.deepEqual(seen[1], {
-            phase: "normalize",
-            previous: { version: "baseline-initial" },
-            result: { version: "baseline-initial-next" }
-        });
+        assert.deepEqual(resolved, { value: "normalized:custom" });
     });
 
     void it("restores the default state after clearing the resolver", () => {
