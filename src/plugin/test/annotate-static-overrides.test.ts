@@ -1,7 +1,7 @@
 import assert from "node:assert/strict";
 import { describe, it } from "node:test";
 
-import { Parser } from "@gml-modules/parser";
+import * as Transforms from "../src/transforms/index.js";
 
 function createStaticFunctionStatement(name, overrides = {}) {
     return {
@@ -49,7 +49,7 @@ void describe("annotateStaticFunctionOverrides", () => {
             ]
         };
 
-        Parser.Transforms.annotateStaticFunctionOverrides(ast);
+        Transforms.annotateStaticFunctionOverrides(ast);
 
         assert.equal(parentStatic._overridesStaticFunction, undefined);
         assert.equal(childStatic._overridesStaticFunction, true);
@@ -85,7 +85,7 @@ void describe("annotateStaticFunctionOverrides", () => {
             ]
         };
 
-        Parser.Transforms.annotateStaticFunctionOverrides(ast);
+        Transforms.annotateStaticFunctionOverrides(ast);
 
         assert.equal(invalidStatic._overridesStaticFunction, undefined);
     });

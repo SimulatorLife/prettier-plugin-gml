@@ -6,6 +6,7 @@
 import { Core, type MutableGameMakerAstNode } from "@gml-modules/core";
 import { util } from "prettier";
 import { Parser } from "@gml-modules/parser";
+import * as Transforms from "../transforms/index.js";
 import { Semantic } from "@gml-modules/semantic";
 import {
     normalizeLineCommentOptions,
@@ -136,7 +137,7 @@ function preprocessSource(
         Parser.Utils.fixMalformedComments(featherResult.parseSource)
     );
 
-    const conditionalResult = Parser.Transforms.sanitizeConditionalAssignments(
+    const conditionalResult = Transforms.sanitizeConditionalAssignments(
         commentFixedSource
     ) as SanitizerResult;
     const conditionalSource = normalizeToString(
@@ -146,7 +147,7 @@ function preprocessSource(
 
     const callSanitizedResult =
         (options?.sanitizeMissingArgumentSeparators ?? true)
-            ? (Parser.Transforms.sanitizeMissingArgumentSeparators(
+            ? (Transforms.sanitizeMissingArgumentSeparators(
                   conditionalSource
               ) as SanitizerResult)
             : null;
@@ -176,7 +177,7 @@ function preprocessFeatherFixes(
         };
     }
 
-    const result = Parser.Transforms.preprocessSourceForFeatherFixes(
+    const result = Transforms.preprocessSourceForFeatherFixes(
         sourceText
     ) as FeatherPreprocessCandidate | null | undefined;
 
@@ -294,7 +295,7 @@ function applyStructuralTransforms(
     options: GmlParserAdapterOptions | undefined
 ): void {
     if (options?.condenseStructAssignments ?? true) {
-        Parser.Transforms.consolidateStructAssignments(ast, {
+        Transforms.consolidateStructAssignments(ast, {
             addTrailingComment
         });
     }
@@ -304,7 +305,7 @@ function applyStructuralTransforms(
             ? { ...options, removeStandaloneVertexEnd: true }
             : { removeStandaloneVertexEnd: true };
 
-        Parser.Transforms.applyFeatherFixes(ast, {
+        Transforms.applyFeatherFixes(ast, {
             sourceText: context.parseSource,
             preprocessedFixMetadata: context.preprocessedFixMetadata,
             options: featherOptions
@@ -318,24 +319,24 @@ function applyIndexAdjustments(
     ast: MutableGameMakerAstNode,
     context: ParserPreparationContext
 ): void {
-    Parser.Transforms.applyIndexAdjustmentsIfPresent(
+    Transforms.applyIndexAdjustmentsIfPresent(
         ast,
         context.callIndexAdjustments,
-        Parser.Transforms.applySanitizedIndexAdjustments,
+        Transforms.applySanitizedIndexAdjustments,
         context.preprocessedFixMetadata
     );
 
-    Parser.Transforms.applyIndexAdjustmentsIfPresent(
+    Transforms.applyIndexAdjustmentsIfPresent(
         ast,
         context.conditionalAssignmentIndexAdjustments,
-        Parser.Transforms.applySanitizedIndexAdjustments,
+        Transforms.applySanitizedIndexAdjustments,
         context.preprocessedFixMetadata
     );
 
-    Parser.Transforms.applyIndexAdjustmentsIfPresent(
+    Transforms.applyIndexAdjustmentsIfPresent(
         ast,
         context.enumIndexAdjustments,
-        Parser.Transforms.applyRemovedIndexAdjustments,
+        Transforms.applyRemovedIndexAdjustments,
         context.preprocessedFixMetadata
     );
 }
@@ -346,20 +347,20 @@ function applyOptionalTransforms(
     options: GmlParserAdapterOptions | undefined
 ): void {
     if (options?.useStringInterpolation) {
-        Parser.Transforms.convertStringConcatenations(ast);
+        Transforms.convertStringConcatenations(ast);
     }
 
     if (options?.condenseLogicalExpressions) {
-        Parser.Transforms.condenseLogicalExpressions(ast);
+        Transforms.condenseLogicalExpressions(ast);
     }
 
-    Parser.Transforms.condenseScalarMultipliers(ast, {
+    Transforms.condenseScalarMultipliers(ast, {
         sourceText: context.parseSource,
         originalText: options?.originalText
     });
 
     if (options?.convertManualMathToBuiltins) {
-        Parser.Transforms.convertManualMathExpressions(ast, {
+        Transforms.convertManualMathExpressions(ast, {
             sourceText: context.parseSource,
             originalText: options?.originalText,
             astRoot: ast
@@ -373,13 +374,13 @@ function applyFinalTransforms(
     options: GmlParserAdapterOptions | undefined,
     originalSource: string
 ): void {
-    Parser.Transforms.convertUndefinedGuardAssignments(ast);
-    Parser.Transforms.preprocessFunctionArgumentDefaults(ast);
-    Parser.Transforms.annotateStaticFunctionOverrides(ast);
-    Parser.Transforms.collapseRedundantMissingCallArguments(ast);
-    Parser.Transforms.enforceVariableBlockSpacing(ast);
+    Transforms.convertUndefinedGuardAssignments(ast);
+    Transforms.preprocessFunctionArgumentDefaults(ast);
+    Transforms.annotateStaticFunctionOverrides(ast);
+    Transforms.collapseRedundantMissingCallArguments(ast);
+    Transforms.enforceVariableBlockSpacing(ast);
 
-    Parser.Transforms.markCallsMissingArgumentSeparators(
+    Transforms.markCallsMissingArgumentSeparators(
         ast,
         options?.originalText ?? originalSource
     );

@@ -1,9 +1,10 @@
 import assert from "node:assert/strict";
 import { describe, it } from "node:test";
 
-import { Parser } from "@gml-modules/parser";
-
-const { CommentTracker, consolidateStructAssignments } = Parser.Transforms;
+import {
+    CommentTracker,
+    consolidateStructAssignments
+} from "../src/transforms/index.js";
 
 void describe("CommentTracker", () => {
     void it("ignores consumed comments when checking for later comments", () => {

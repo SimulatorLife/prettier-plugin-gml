@@ -1,7 +1,6 @@
 import * as GMLParserModule from "./gml-parser.js";
 import * as AST from "./ast/index.js";
 import * as Runtime from "./runtime/index.js";
-import * as Transforms from "./transforms/index.js";
 import * as Utils from "./utils/index.js"; // TODO: We need a more specific/meaningful name for this module. If it is too generic to be meaningfully named, it probably needs to be broken up.
 
 export { default as GameMakerLanguageParserListenerBase } from "../generated/GameMakerLanguageParserListener.js";
@@ -11,11 +10,9 @@ export { default as GameMakerLanguageParserVisitorBase } from "../generated/Game
 type ParserNamespace = typeof GMLParserModule &
     typeof AST &
     typeof Runtime &
-    typeof Transforms &
     typeof Utils & {
         AST: typeof AST;
         Runtime: typeof Runtime;
-        Transforms: typeof Transforms;
         Utils: typeof Utils;
     };
 
@@ -25,11 +22,9 @@ export const Parser: ParserNamespace = Object.freeze({
     ...GMLParserModule,
     ...AST,
     ...Runtime,
-    ...Transforms,
     ...Utils,
     AST,
     Runtime,
-    Transforms,
     Utils
 });
 
@@ -37,7 +32,3 @@ export const Parser: ParserNamespace = Object.freeze({
 // imports. This mirrors `Core`'s exported types and keeps package roots
 // stable for other workspaces.
 export type { ParserOptions } from "./types/parser-types.js";
-export type {
-    ParserTransformName,
-    ParserTransformOptions
-} from "./transforms/index.js";

@@ -3,7 +3,6 @@ import antlr4 from "antlr4";
 import GameMakerLanguageLexer from "../generated/GameMakerLanguageLexer.js";
 import GameMakerLanguageParser from "../generated/GameMakerLanguageParser.js";
 import GameMakerASTBuilder from "./ast/gml-ast-builder.js";
-import { applyTransforms } from "./transforms/index.js";
 import GameMakerParseErrorListener, {
     GameMakerLexerErrorListener
 } from "./ast/gml-syntax-error.js";
@@ -101,18 +100,6 @@ export class GMLParser {
 
         if (this.options.getComments) {
             astTree.comments = this.comments;
-        }
-
-        // Optionally apply parser-level transforms (internal opt-in).
-        if (
-            Array.isArray(this.options.transforms) &&
-            this.options.transforms.length > 0
-        ) {
-            astTree = applyTransforms(
-                astTree,
-                this.options.transforms,
-                this.options.transformOptions || {}
-            );
         }
 
         const shouldConvertToESTree =

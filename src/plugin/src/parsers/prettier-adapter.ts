@@ -8,10 +8,13 @@
 
 import {
     Parser,
-    type ParserOptions,
-    type ParserTransformName,
-    type ParserTransformOptions
+    type ParserOptions
 } from "@gml-modules/parser";
+import * as Transforms from "../transforms/index.js";
+import type {
+    ParserTransformName,
+    ParserTransformOptions
+} from "../transforms/index.js";
 
 // Use ParserOptions type from Parser package to ensure compatibility.
 type ParserConfig = ParserOptions;
@@ -39,9 +42,7 @@ export function makeParserConfig(
         simplifyLocations: true,
         scopeTrackerOptions: { enabled: false },
         astFormat: "gml",
-        asJSON: false,
-        transforms: [],
-        transformOptions: {}
+        asJSON: false
         // The plugin versions and schema are not provided in the ParserOptions
         // object; parser-side validation (when added) should respect additional
         // flags we might pass via transformOptions instead of parser options.
@@ -97,7 +98,7 @@ function runPipeline(
     const transformNames = Object.entries(transformEntries).reduce<
         Array<ParserTransformName>
     >((names, [name, enabled]) => {
-        if (enabled && Parser.Transforms.isParserTransformName(name)) {
+        if (enabled && Transforms.isParserTransformName(name)) {
             names.push(name);
         }
 
@@ -108,7 +109,7 @@ function runPipeline(
         return ast;
     }
 
-    return Parser.Transforms.applyTransforms(
+    return Transforms.applyTransforms(
         ast,
         transformNames,
         transformOptions
