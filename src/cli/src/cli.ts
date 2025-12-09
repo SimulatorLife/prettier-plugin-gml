@@ -126,7 +126,6 @@ const IGNORE_PATH = path.resolve(WRAPPER_DIRECTORY, ".prettierignore");
 let initialWorkingDirectory = path.resolve(process.cwd());
 
 const GML_EXTENSION = ".gml";
-const FALLBACK_EXTENSIONS = Object.freeze([GML_EXTENSION]); // TODO: Remove this fallback/legacy variable and JUST have GML_EXTENSION
 
 const ParseErrorAction = Object.freeze({
     REVERT: "revert",
@@ -297,7 +296,7 @@ const DEFAULT_EXTENSIONS = resolveDefaultExtensions();
 function resolveDefaultExtensions() {
     return normalizeExtensions(
         process.env.PRETTIER_PLUGIN_GML_DEFAULT_EXTENSIONS,
-        [...FALLBACK_EXTENSIONS]
+        [GML_EXTENSION]
     );
 }
 
