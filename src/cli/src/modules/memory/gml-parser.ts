@@ -1,4 +1,5 @@
-import { resolveModuleDefaultExport } from "../dependencies.js";
+// TODO: This seems overly complicated and unnecessary; we can just import the module directly from `@gml-modules/parser` where needed. Then this file can be removed.
+import { resolveModuleDefaultExport } from "../../shared/module.js";
 
 let gmlParserPromise = null;
 

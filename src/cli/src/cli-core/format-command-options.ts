@@ -1,6 +1,8 @@
-import { getNonEmptyTrimmedString } from "../dependencies.js";
+import { Core } from "@gml-modules/core";
 import { normalizeExtensions } from "./extension-normalizer.js";
 import type { CommanderCommandLike } from "./commander-types.js";
+
+const { getNonEmptyTrimmedString } = Core;
 
 interface FormatCommandSampleLimits {
     skippedDirectorySampleLimit?: number;

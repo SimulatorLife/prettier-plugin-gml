@@ -1,11 +1,13 @@
 import assert from "node:assert/strict";
 import { describe, it } from "node:test";
 
-import { describeValueForError } from "../src/dependencies.js";
+import { Core } from "@gml-modules/core";
 import {
     createEnumeratedOptionHelpers,
     createStringEnumeratedOptionHelpers
 } from "../src/shared/enumerated-option-helpers.js";
+
+const { describeValueForError } = Core;
 
 void describe("createEnumeratedOptionHelpers", () => {
     void it("formats the sorted list of enumerated values", () => {

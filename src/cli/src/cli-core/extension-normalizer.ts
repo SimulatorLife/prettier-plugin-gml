@@ -1,12 +1,14 @@
 import path from "node:path";
 
-import {
+import { Core } from "@gml-modules/core";
+
+const {
     compactArray,
     createListSplitPattern,
     normalizeExtensionSuffix,
     normalizeStringList,
     uniqueArray
-} from "../dependencies.js";
+} = Core;
 
 type ExtensionInput =
     | string

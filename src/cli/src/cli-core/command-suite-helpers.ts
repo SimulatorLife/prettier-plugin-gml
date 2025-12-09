@@ -3,14 +3,12 @@ import process from "node:process";
 import { CliUsageError, createCliErrorDetails } from "./errors.js";
 // Pull shared helpers from the barrel so new call sites avoid the legacy
 // `array-utils` shim slated for removal.
-import {
-    isNonEmptyArray,
-    toMutableArray,
-    stringifyJsonForFile
-} from "../dependencies.js";
+import { Core } from "@gml-modules/core";
 import { createStringEnumeratedOptionHelpers } from "../shared/enumerated-option-helpers.js";
 import { resolveCommandUsage } from "./command-usage.js";
 import type { CommanderCommandLike } from "./commander-types.js";
+
+const { isNonEmptyArray, toMutableArray, stringifyJsonForFile } = Core;
 
 export const SuiteOutputFormat = Object.freeze({
     JSON: "json",

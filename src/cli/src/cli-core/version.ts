@@ -2,8 +2,10 @@ import path from "node:path";
 import { createRequire } from "node:module";
 import process from "node:process";
 
-import { getNonEmptyTrimmedString } from "../dependencies.js";
+import { Core } from "@gml-modules/core";
 import { CLI_PACKAGE_DIRECTORY, REPO_ROOT } from "../shared/workspace-paths.js";
+
+const { getNonEmptyTrimmedString } = Core;
 
 const require = createRequire(import.meta.url);
 

@@ -1,8 +1,10 @@
-import {
+import { Core } from "@gml-modules/core";
+
+const {
     coerceNonNegativeInteger,
     resolveIntegerOption,
     createEnvConfiguredValue
-} from "../dependencies.js";
+} = Core;
 
 interface SampleLimitOptionParams {
     defaultValue?: number;

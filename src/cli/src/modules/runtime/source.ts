@@ -3,10 +3,9 @@ import path from "node:path";
 import process from "node:process";
 import { createRequire } from "node:module";
 
-import {
-    assertNonEmptyString,
-    getErrorMessageOrFallback
-} from "../dependencies.js";
+import { Core } from "@gml-modules/core";
+
+const { assertNonEmptyString, getErrorMessageOrFallback } = Core;
 
 const require = createRequire(import.meta.url);
 const DEFAULT_VENDOR_RUNTIME_PATH = path.resolve(

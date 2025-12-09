@@ -1,8 +1,6 @@
-import {
-    assertFunction,
-    resolveIntegerOption,
-    createEnvConfiguredValue
-} from "../dependencies.js";
+import { Core } from "@gml-modules/core";
+
+const { assertFunction, resolveIntegerOption, createEnvConfiguredValue } = Core;
 
 type IntegerCoercer = (
     value: unknown,

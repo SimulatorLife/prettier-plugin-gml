@@ -7,7 +7,9 @@
  */
 
 import { WebSocketServer, WebSocket } from "ws";
-import { describeValueForError } from "../../dependencies.js";
+import { Core } from "@gml-modules/core";
+
+const { describeValueForError } = Core;
 
 const DEFAULT_HOST = "127.0.0.1";
 const DEFAULT_PORT = 17_890;

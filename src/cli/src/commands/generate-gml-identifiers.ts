@@ -7,17 +7,7 @@ import { Command, Option } from "commander";
 import type { CommanderCommandLike } from "../cli-core/commander-types.js";
 
 import { assertSupportedNodeVersion } from "../shared/node-version.js";
-import {
-    createVerboseDurationLogger,
-    describeValueWithArticle,
-    getErrorMessageOrFallback,
-    normalizeIdentifierMetadataEntries,
-    timeSync,
-    toMutableArray,
-    toNormalizedLowerCaseSet,
-    toPosixPath,
-    compactArray
-} from "../dependencies.js";
+import { Core } from "@gml-modules/core";
 import { writeManualJsonArtifact } from "../modules/manual/file-helpers.js";
 import {
     resolveVmEvalTimeout,
@@ -40,6 +30,18 @@ import {
     prepareManualWorkflow
 } from "../modules/manual/workflow.js";
 import { resolveFromRepoRoot } from "../shared/workspace-paths.js";
+
+const {
+    createVerboseDurationLogger,
+    describeValueWithArticle,
+    getErrorMessageOrFallback,
+    normalizeIdentifierMetadataEntries,
+    timeSync,
+    toMutableArray,
+    toNormalizedLowerCaseSet,
+    toPosixPath,
+    compactArray
+} = Core;
 
 const DEFAULT_OUTPUT_PATH = resolveFromRepoRoot(
     "resources",

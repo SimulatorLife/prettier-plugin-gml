@@ -12,8 +12,10 @@ import type {
     CommanderCommandLike,
     CommanderProgramLike
 } from "./commander-types.js";
-import { compactArray } from "../dependencies.js";
+import { Core } from "@gml-modules/core";
 import { resolveCommandUsage } from "./command-usage.js";
+
+const { compactArray } = Core;
 
 type CliCommandRunHandler = (context: {
     command: CommanderCommandLike;

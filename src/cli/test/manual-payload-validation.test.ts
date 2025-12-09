@@ -5,10 +5,9 @@ import {
     decodeManualKeywordsPayload,
     decodeManualTagsPayload
 } from "../src/modules/manual/payload-validation.js";
-import {
-    getErrorMessageOrFallback,
-    isJsonParseError
-} from "../src/dependencies.js";
+import { Core } from "@gml-modules/core";
+
+const { getErrorMessageOrFallback, isJsonParseError } = Core;
 
 void test("decodeManualKeywordsPayload validates keyword mappings", () => {
     const payload = decodeManualKeywordsPayload('{"foo": "bar"}');

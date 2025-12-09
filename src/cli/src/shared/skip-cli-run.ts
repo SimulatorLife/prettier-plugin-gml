@@ -1,4 +1,6 @@
-import { resolveEnvironmentMap, toTrimmedString } from "../dependencies.js";
+import { Core } from "@gml-modules/core";
+
+const { resolveEnvironmentMap, toTrimmedString } = Core;
 
 export const SKIP_CLI_RUN_ENV_VAR = "PRETTIER_PLUGIN_GML_SKIP_CLI_RUN";
 const SKIP_ENABLED_VALUE = "1";

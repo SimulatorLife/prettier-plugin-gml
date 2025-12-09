@@ -4,15 +4,17 @@ import path from "node:path";
 import process from "node:process";
 import { pathToFileURL } from "node:url";
 
-import {
+import { Core } from "@gml-modules/core";
+import { resolveFromRepoRoot } from "../shared/workspace-paths.js";
+
+const {
     compactArray,
     createListSplitPattern,
     getNonEmptyTrimmedString,
     normalizeStringList,
     toArray,
     uniqueArray
-} from "../dependencies.js";
-import { resolveFromRepoRoot } from "../shared/workspace-paths.js";
+} = Core;
 
 // Default plugin entry points shipped within the workspace. Additional
 // candidates can be provided via environment variables or call-site overrides.

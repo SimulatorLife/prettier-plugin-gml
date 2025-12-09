@@ -1,4 +1,6 @@
-import { isNonEmptyString } from "../dependencies.js";
+import { Core } from "@gml-modules/core";
+
+const { isNonEmptyString } = Core;
 
 const registeredIgnorePaths = new Set<string>();
 

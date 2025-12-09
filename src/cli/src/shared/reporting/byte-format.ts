@@ -1,13 +1,15 @@
 import { Buffer } from "node:buffer";
 
-import {
+import { Core } from "@gml-modules/core";
+import { createIntegerOptionToolkit } from "../../cli-core/integer-option-toolkit.js";
+
+const {
     callWithFallback,
     coercePositiveInteger,
     createNumericTypeErrorFormatter,
     describeValueForError,
     isFiniteNumber
-} from "../../dependencies.js";
-import { createIntegerOptionToolkit } from "../../cli-core/integer-option-toolkit.js";
+} = Core;
 
 const BYTE_UNITS = Object.freeze(["B", "KB", "MB", "GB", "TB", "PB"]);
 const DEFAULT_BYTE_FORMAT_RADIX = 1024;

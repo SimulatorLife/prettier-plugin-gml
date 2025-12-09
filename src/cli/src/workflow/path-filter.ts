@@ -1,13 +1,15 @@
 import path from "node:path";
 
-import {
+import { Core } from "@gml-modules/core";
+
+const {
     getNonEmptyTrimmedString,
     isNonEmptyString,
     isPathInside,
     toArray,
     uniqueArray,
     compactArray
-} from "../dependencies.js";
+} = Core;
 
 export interface WorkflowPathFilterOptions {
     allowPaths?: Iterable<unknown>;

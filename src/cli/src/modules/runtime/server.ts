@@ -3,7 +3,9 @@ import { createReadStream } from "node:fs";
 import fs from "node:fs/promises";
 import path from "node:path";
 
-import { isFsErrorCode } from "../dependencies.js";
+import { Core } from "@gml-modules/core";
+
+const { isFsErrorCode } = Core;
 
 const DEFAULT_HOST = "127.0.0.1";
 const DEFAULT_PORT = 0;

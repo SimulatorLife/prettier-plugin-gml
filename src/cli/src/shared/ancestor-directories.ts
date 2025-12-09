@@ -1,8 +1,6 @@
-import {
-    isNonEmptyString,
-    toArrayFromIterable,
-    walkAncestorDirectories
-} from "../dependencies.js";
+import { Core } from "@gml-modules/core";
+
+const { isNonEmptyString, toArrayFromIterable, walkAncestorDirectories } = Core;
 
 export interface CollectUniqueAncestorDirectoriesOptions {
     includeSelf?: boolean;

@@ -1,8 +1,7 @@
-import {
-    coercePositiveInteger,
-    createNumericTypeErrorFormatter
-} from "../dependencies.js";
+import { Core } from "@gml-modules/core";
 import { createIntegerOptionToolkit } from "../cli-core/integer-option-toolkit.js";
+
+const { coercePositiveInteger, createNumericTypeErrorFormatter } = Core;
 
 const DEFAULT_PROGRESS_BAR_WIDTH = 24;
 const PROGRESS_BAR_WIDTH_ENV_VAR = "GML_PROGRESS_BAR_WIDTH";

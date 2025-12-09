@@ -1,12 +1,14 @@
-import {
+import { Core } from "@gml-modules/core";
+import { asErrorLike } from "../shared/error-guards.js";
+
+const {
     compactArray,
     toTrimmedString,
     getErrorCode,
     getErrorMessage,
     getObjectTagName,
     isAggregateErrorLike
-} from "../dependencies.js";
-import { asErrorLike } from "../shared/error-guards.js";
+} = Core;
 
 const DEFAULT_INDENT = "  ";
 

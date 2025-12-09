@@ -1,5 +1,7 @@
 import assert from "node:assert/strict";
-import { areNumbersApproximatelyEqual } from "../../src/dependencies.js";
+import { Core } from "@gml-modules/core";
+
+const { areNumbersApproximatelyEqual } = Core;
 
 /**
  * Assert that two numbers are approximately equal within a tolerance scaled

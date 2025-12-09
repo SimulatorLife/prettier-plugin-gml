@@ -1,4 +1,6 @@
-import { isFiniteNumber } from "../dependencies.js";
+import { Core } from "@gml-modules/core";
+
+const { isFiniteNumber } = Core;
 
 /**
  * Format numeric benchmark metrics while tolerating missing data. Non-finite

@@ -1,8 +1,10 @@
 import path from "node:path";
 
-import { toArray, pushUnique } from "../dependencies.js";
+import { Core } from "@gml-modules/core";
 import { REPO_ROOT } from "../shared/workspace-paths.js";
 import { createWorkflowPathFilter } from "./path-filter.js";
+
+const { toArray, pushUnique } = Core;
 
 export const DEFAULT_FIXTURE_DIRECTORIES = Object.freeze([
     path.resolve(REPO_ROOT, "src", "parser", "test", "input"),

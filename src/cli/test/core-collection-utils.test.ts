@@ -1,7 +1,9 @@
 import assert from "node:assert/strict";
 import test from "node:test";
 
-import { appendToCollection } from "../src/dependencies.js";
+import { Core } from "@gml-modules/core";
+
+const { appendToCollection } = Core;
 
 void test("appendToCollection initializes arrays when accumulator is undefined", () => {
     const result = appendToCollection("alpha");

@@ -8,7 +8,9 @@ import {
     wrapInvalidArgumentResolver
 } from "../src/cli-core/command-parsing.js";
 import { isCliUsageError } from "../src/cli-core/errors.js";
-import { isObjectLike } from "../src/dependencies.js";
+import { Core } from "@gml-modules/core";
+
+const { isObjectLike } = Core;
 
 const createTestCommand = () => {
     return new Command().exitOverride().allowExcessArguments(false);

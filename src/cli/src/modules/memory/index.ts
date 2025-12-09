@@ -5,44 +5,50 @@ import { performance } from "node:perf_hooks";
 import type { PathLike, WriteFileOptions } from "node:fs";
 import type { Stream } from "node:stream";
 
+import { Command, Option, InvalidArgumentError } from "commander";
+import { Core } from "@gml-modules/core";
+import { resolveModuleDefaultExport } from "../../shared/module.js";
+import { createStringEnumeratedOptionHelpers } from "../../shared/enumerated-option-helpers.js";
 import {
-    appendToCollection,
-    callWithFallback,
-    Command,
-    createEnvConfiguredValue,
-    createStringEnumeratedOptionHelpers,
-    describeValueWithArticle,
-    getErrorMessageOrFallback,
-    getNonEmptyTrimmedString,
-    incrementMapValue,
-    InvalidArgumentError,
-    isFsErrorCode,
-    isNonEmptyString,
-    normalizeStringList,
-    Option,
-    resolveModuleDefaultExport,
-    parseJsonObjectWithContext,
-    splitLines,
     SuiteOutputFormat,
-    applyEnvOptionOverrides,
-    applyStandardCommandOptions,
-    coercePositiveInteger,
     collectSuiteResults,
-    createIntegerOptionToolkit,
-    createNumericTypeErrorFormatter,
     createSuiteResultsPayload,
     emitSuiteResults as emitSuiteResultsJson,
     ensureSuitesAreKnown,
     resolveRequestedSuites,
-    resolveSuiteOutputFormatOrThrow,
-    wrapInvalidArgumentResolver,
+    resolveSuiteOutputFormatOrThrow
+} from "../../cli-core/command-suite-helpers.js";
+import { applyEnvOptionOverrides } from "../../cli-core/env-overrides.js";
+import { applyStandardCommandOptions } from "../../cli-core/command-standard-options.js";
+import {
+    coercePositiveInteger,
+    wrapInvalidArgumentResolver
+} from "../../cli-core/command-parsing.js";
+import { createIntegerOptionToolkit } from "../../cli-core/integer-option-toolkit.js";
+import {
     REPO_ROOT,
-    resolveFromRepoRoot,
-    writeJsonArtifact
-} from "../dependencies.js";
+    resolveFromRepoRoot
+} from "../../shared/workspace-paths.js";
+import { writeJsonArtifact } from "../../shared/fs-artifacts.js";
 import { loadGmlParser } from "./gml-parser.js";
 import { importPluginModule } from "../plugin-runtime-dependencies.js";
 import type { CommanderCommandLike } from "../../cli-core/commander-types.js";
+
+const {
+    appendToCollection,
+    callWithFallback,
+    createEnvConfiguredValue,
+    describeValueWithArticle,
+    getErrorMessageOrFallback,
+    getNonEmptyTrimmedString,
+    incrementMapValue,
+    isFsErrorCode,
+    isNonEmptyString,
+    normalizeStringList,
+    parseJsonObjectWithContext,
+    splitLines,
+    createNumericTypeErrorFormatter
+} = Core;
 
 export const DEFAULT_ITERATIONS = 500_000;
 export const MEMORY_ITERATIONS_ENV_VAR = "GML_MEMORY_ITERATIONS";

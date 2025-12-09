@@ -2,40 +2,33 @@ import fs from "node:fs/promises";
 import path from "node:path";
 import { performance } from "node:perf_hooks";
 import process from "node:process";
-import { normalizeFixtureRoots } from "../workflow/fixture-roots.js";
+import { normalizeFixtureRoots, createPathFilter } from "../workflow/fixture-roots.js";
+import { Command, Option, InvalidArgumentError } from "commander";
+import { Core } from "@gml-modules/core";
+import { applyStandardCommandOptions } from "../cli-core/command-standard-options.js";
 import {
-    appendToCollection,
-    applyStandardCommandOptions,
-    assertArray,
-    assertPlainObject,
     coercePositiveInteger,
+    resolveIntegerOption,
+    wrapInvalidArgumentResolver
+} from "../cli-core/command-parsing.js";
+import {
     collectSuiteResults,
-    Command,
-    createCliErrorDetails,
-    createCliRunSkippedError,
-    createPathFilter,
     emitSuiteResults,
     ensureSuitesAreKnown,
-    formatByteSize,
-    getErrorMessageOrFallback,
-    getIdentifierText,
-    InvalidArgumentError,
-    isCliRunSkipped,
-    isFsErrorCode,
-    isFiniteNumber,
-    isObjectLike,
-    Option,
-    REPO_ROOT,
-    resolveIntegerOption,
-    resolveModuleDefaultExport,
     resolveRequestedSuites,
     resolveSuiteOutputFormatOrThrow,
     SuiteOutputFormat,
-    toArray,
-    toNormalizedInteger,
-    wrapInvalidArgumentResolver,
-    writeJsonArtifact
-} from "../modules/dependencies.js";
+    type SuiteRunner
+} from "../cli-core/command-suite-helpers.js";
+import { createCliErrorDetails } from "../cli-core/errors.js";
+import {
+    createCliRunSkippedError,
+    isCliRunSkipped
+} from "../shared/skip-cli-run.js";
+import { formatByteSize } from "../shared/reporting/byte-format.js";
+import { REPO_ROOT } from "../shared/workspace-paths.js";
+import { resolveModuleDefaultExport } from "../shared/module.js";
+import { writeJsonArtifact } from "../shared/fs-artifacts.js";
 import { resolvePluginEntryPoint as resolveCliPluginEntryPoint } from "../modules/plugin-runtime-dependencies.js";
 import {
     PerformanceSuiteName,
@@ -45,8 +38,20 @@ import {
 } from "../modules/performance/suite-options.js";
 import { formatMetricValue } from "../modules/performance/metric-formatters.js";
 import type { WorkflowPathFilterOptions } from "../workflow/path-filter.js";
-import type { SuiteRunner } from "../cli-core/command-suite-helpers.js";
 import type { CommanderCommandLike } from "../cli-core/commander-types.js";
+
+const {
+    appendToCollection,
+    assertArray,
+    assertPlainObject,
+    getErrorMessageOrFallback,
+    getIdentifierText,
+    isFsErrorCode,
+    isFiniteNumber,
+    isObjectLike,
+    toArray,
+    toNormalizedInteger
+} = Core;
 
 const shouldSkipPerformanceDependencies = isCliRunSkipped();
 

@@ -3,12 +3,11 @@ import {
     isCommanderErrorLike,
     isCommanderHelpDisplayedError
 } from "./commander-error-utils.js";
-import {
-    assertFunction,
-    InvalidArgumentError,
-    getErrorMessage
-} from "../dependencies.js";
+import { InvalidArgumentError } from "commander";
+import { Core } from "@gml-modules/core";
 import type { CommanderCommandLike } from "./commander-types.js";
+
+const { assertFunction, getErrorMessage } = Core;
 
 type InvalidArgumentResolver = (
     value: unknown,
@@ -25,11 +24,12 @@ export interface ParseCommandLineResult {
     usage: string;
 }
 
-export {
-    coercePositiveInteger,
-    coerceNonNegativeInteger,
-    resolveIntegerOption
-} from "../dependencies.js";
+export const coercePositiveInteger: typeof Core.coercePositiveInteger =
+    Core.coercePositiveInteger;
+export const coerceNonNegativeInteger: typeof Core.coerceNonNegativeInteger =
+    Core.coerceNonNegativeInteger;
+export const resolveIntegerOption: typeof Core.resolveIntegerOption =
+    Core.resolveIntegerOption;
 
 /**
  * Wrap a Commander option resolver so thrown errors are converted into

@@ -1,11 +1,13 @@
 import { CliUsageError } from "./errors.js";
-import {
-    assertArray,
-    isNonEmptyString,
-    isObjectLike
-} from "../dependencies.js";
+import { Core } from "@gml-modules/core";
 import { asErrorLike } from "../shared/error-guards.js";
 import type { CommanderCommandLike } from "./commander-types.js";
+
+const {
+    isNonEmptyString,
+    assertArray,
+    isObjectLike
+} = Core;
 
 const DEFAULT_SOURCE = "env";
 

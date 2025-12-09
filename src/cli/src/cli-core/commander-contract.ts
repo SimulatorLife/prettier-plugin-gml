@@ -1,8 +1,4 @@
-import {
-    assertFunctionProperties,
-    describeValueWithArticle,
-    isObjectOrFunction
-} from "../dependencies.js";
+import { Core } from "@gml-modules/core";
 import type {
     CommanderAddCommandOptions,
     CommanderActionHandler,
@@ -11,6 +7,12 @@ import type {
     CommanderParseOptions,
     CommanderProgramLike
 } from "./commander-types.js";
+
+const {
+    assertFunctionProperties,
+    describeValueWithArticle,
+    isObjectOrFunction
+} = Core;
 
 type CommanderParse = (
     argv?: Array<string>,

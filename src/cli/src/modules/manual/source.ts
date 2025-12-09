@@ -2,12 +2,10 @@ import fs from "node:fs/promises";
 import path from "node:path";
 import { createRequire } from "node:module";
 
-import {
-    assertNonEmptyString,
-    getErrorMessageOrFallback,
-    isFsErrorCode
-} from "../dependencies.js";
+import { Core } from "@gml-modules/core";
 import { resolveFromRepoRoot } from "../../shared/workspace-paths.js";
+
+const { assertNonEmptyString, getErrorMessageOrFallback, isFsErrorCode } = Core;
 
 export interface ManualSourceDescriptor {
     root: string;

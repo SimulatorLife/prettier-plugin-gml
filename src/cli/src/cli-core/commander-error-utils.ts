@@ -1,5 +1,7 @@
-import { isErrorLike } from "../dependencies.js";
+import { Core } from "@gml-modules/core";
 import type { CommanderCommandLike } from "./commander-types.js";
+
+const { isErrorLike } = Core;
 
 const COMMANDER_ERROR_CODE_PREFIX = "commander.";
 const COMMANDER_HELP_DISPLAYED_CODE = "commander.helpDisplayed";

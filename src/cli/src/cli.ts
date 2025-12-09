@@ -32,27 +32,13 @@ import path from "node:path";
 import process from "node:process";
 import { fileURLToPath } from "node:url";
 
+import { Command, InvalidArgumentError, Option } from "commander";
+import { Core } from "@gml-modules/core";
+import { createEnumeratedOptionHelpers } from "./shared/enumerated-option-helpers.js";
 import {
-    Command,
-    InvalidArgumentError,
-    Option,
-    compactArray,
-    createEnumeratedOptionHelpers,
-    getErrorMessageOrFallback,
-    getObjectTagName,
-    isErrorLike,
-    isErrorWithCode,
     isMissingModuleDependency,
-    isNonEmptyArray,
-    isPathInside,
-    mergeUniqueValues,
-    resolveModuleDefaultExport,
-    toArray,
-    toNormalizedLowerCaseSet,
-    uniqueArray,
-    walkAncestorDirectories,
-    withObjectLike
-} from "./dependencies.js";
+    resolveModuleDefaultExport
+} from "./shared/module.js";
 import {
     hasIgnoreRuleNegations,
     markIgnoreRuleNegationsDetected,
@@ -117,6 +103,22 @@ import {
     UNSUPPORTED_EXTENSION_SAMPLE_LIMIT_ENV_VAR
 } from "./runtime-options/sample-limits.js";
 import { normalizeExtensions } from "./cli-core/extension-normalizer.js";
+
+const {
+    compactArray,
+    getErrorMessageOrFallback,
+    getObjectTagName,
+    isErrorLike,
+    isErrorWithCode,
+    isNonEmptyArray,
+    isPathInside,
+    mergeUniqueValues,
+    toArray,
+    toNormalizedLowerCaseSet,
+    uniqueArray,
+    walkAncestorDirectories,
+    withObjectLike
+} = Core;
 
 const WRAPPER_DIRECTORY = path.dirname(fileURLToPath(import.meta.url));
 const PLUGIN_PATH = resolveCliPluginEntryPoint();

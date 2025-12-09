@@ -1,10 +1,12 @@
-import {
+import { Core } from "@gml-modules/core";
+import { createIntegerOptionToolkit } from "../cli-core/integer-option-toolkit.js";
+
+const {
     callWithFallback,
     coerceNonNegativeInteger,
     createNumericTypeErrorFormatter,
     describeValueForError
-} from "../dependencies.js";
-import { createIntegerOptionToolkit } from "../cli-core/integer-option-toolkit.js";
+} = Core;
 
 export const DEFAULT_VM_EVAL_TIMEOUT_MS = 5000;
 export const VM_EVAL_TIMEOUT_ENV_VAR = "GML_VM_EVAL_TIMEOUT_MS";

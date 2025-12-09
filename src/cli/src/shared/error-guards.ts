@@ -1,4 +1,6 @@
-import { isErrorLike, isErrorWithCode, isObjectLike } from "../dependencies.js";
+import { Core } from "@gml-modules/core";
+
+const { isErrorLike, isErrorWithCode, isObjectLike } = Core;
 
 export interface ErrorLikeDetails {
     name?: string;

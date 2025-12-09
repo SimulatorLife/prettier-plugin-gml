@@ -1,4 +1,6 @@
-import { parseJsonObjectWithContext } from "../dependencies.js";
+import { Core } from "@gml-modules/core";
+
+const { parseJsonObjectWithContext } = Core;
 
 interface ManualPayloadDecoderParameters {
     payloadDescription: string;

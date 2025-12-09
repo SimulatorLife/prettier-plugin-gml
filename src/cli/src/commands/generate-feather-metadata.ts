@@ -7,16 +7,7 @@ import { fileURLToPath } from "node:url";
 import { Command } from "commander";
 import type { CommanderCommandLike } from "../cli-core/commander-types.js";
 
-import {
-    compactArray,
-    createVerboseDurationLogger,
-    escapeRegExp,
-    getNonEmptyTrimmedString,
-    isNonEmptyArray,
-    isNonEmptyString,
-    timeSync,
-    toNormalizedLowerCaseSet
-} from "../dependencies.js";
+import { Core } from "@gml-modules/core";
 import { resolveFromRepoRoot } from "../shared/workspace-paths.js";
 import { assertSupportedNodeVersion } from "../shared/node-version.js";
 import { writeManualJsonArtifact } from "../modules/manual/file-helpers.js";
@@ -31,6 +22,17 @@ import {
 import { applyStandardCommandOptions } from "../cli-core/command-standard-options.js";
 import { createCliCommandManager } from "../cli-core/command-manager.js";
 import { handleCliError } from "../cli-core/errors.js";
+
+const {
+    compactArray,
+    createVerboseDurationLogger,
+    escapeRegExp,
+    getNonEmptyTrimmedString,
+    isNonEmptyArray,
+    isNonEmptyString,
+    timeSync,
+    toNormalizedLowerCaseSet
+} = Core;
 
 const DEFAULT_OUTPUT_PATH = resolveFromRepoRoot(
     "resources",
