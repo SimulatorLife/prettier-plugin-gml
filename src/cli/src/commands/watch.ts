@@ -18,6 +18,7 @@ import process from "node:process";
 
 import { Command, Option } from "commander";
 
+import { Core } from "@gml-modules/core";
 import { Transpiler } from "@gml-modules/transpiler";
 import {
     describeRuntimeSource,
@@ -34,6 +35,9 @@ import {
     startPatchWebSocketServer,
     type PatchWebSocketServerController
 } from "../modules/websocket/server.js";
+import { formatCliError } from "../cli-core/errors.js";
+
+const { getErrorMessage } = Core;
 
 type RuntimeTranspiler = ReturnType<typeof Transpiler.createTranspiler>;
 type RuntimeTranspilerPatch = ReturnType<RuntimeTranspiler["transpileScript"]>;
@@ -208,12 +212,18 @@ async function validateTargetPath(targetPath: string): Promise<string> {
     try {
         const stats = await stat(normalizedPath);
         if (!stats.isDirectory()) {
-            console.error(`Error: ${normalizedPath} is not a directory`);
+            const errorMessage = `${normalizedPath} is not a directory`;
+            console.error(errorMessage);
             process.exit(1);
         }
     } catch (error) {
-        console.error(`Error: Cannot access ${normalizedPath}`);
-        console.error(error.message);
+        const message = getErrorMessage(error, {
+            fallback: "Cannot access path"
+        });
+        const formattedError = formatCliError(
+            new Error(`Cannot access ${normalizedPath}: ${message}`)
+        );
+        console.error(formattedError);
         process.exit(1);
     }
 
@@ -433,10 +443,13 @@ export async function runWatchCommand(
                 `WebSocket patch server ready at ${websocketServerController.url}`
             );
         } catch (error) {
-            console.error(`Failed to start WebSocket server: ${error.message}`);
-            if (verbose) {
-                console.error(error.stack);
-            }
+            const message = getErrorMessage(error, {
+                fallback: "Unknown WebSocket server error"
+            });
+            const formattedError = formatCliError(
+                new Error(`Failed to start WebSocket server: ${message}`)
+            );
+            console.error(formattedError);
             process.exit(1);
         }
     } else if (verbose) {
@@ -485,8 +498,11 @@ export async function runWatchCommand(
                 try {
                     await runtimeServerController.stop();
                 } catch (error) {
+                    const message = getErrorMessage(error, {
+                        fallback: "Unknown server stop error"
+                    });
                     console.error(
-                        `Failed to stop runtime static server: ${error.message}`
+                        `Failed to stop runtime static server: ${message}`
                     );
                 }
             }
@@ -495,8 +511,11 @@ export async function runWatchCommand(
                 try {
                     await websocketServerController.stop();
                 } catch (error) {
+                    const message = getErrorMessage(error, {
+                        fallback: "Unknown server stop error"
+                    });
                     console.error(
-                        `Failed to stop WebSocket server: ${error.message}`
+                        `Failed to stop WebSocket server: ${message}`
                     );
                 }
             }
@@ -512,7 +531,10 @@ export async function runWatchCommand(
 
         const handleErrorSignal = () => {
             cleanup(0).catch((error) => {
-                console.error(`Error during watch cleanup: ${error.message}`);
+                const message = getErrorMessage(error, {
+                    fallback: "Unknown cleanup error"
+                });
+                console.error(`Error during watch cleanup: ${message}`);
                 process.exit(1);
             });
         };
@@ -528,9 +550,10 @@ export async function runWatchCommand(
 
             const abortHandler = () => {
                 cleanup(0).catch((error) => {
-                    console.error(
-                        `Error during watch cleanup: ${error.message}`
-                    );
+                    const message = getErrorMessage(error, {
+                        fallback: "Unknown cleanup error"
+                    });
+                    console.error(`Error during watch cleanup: ${message}`);
                 });
             };
 
@@ -570,10 +593,10 @@ export async function runWatchCommand(
                     verbose,
                     runtimeContext
                 }).catch((error) => {
-                    console.error(
-                        `Error processing ${filename}:`,
-                        error.message
-                    );
+                    const message = getErrorMessage(error, {
+                        fallback: "Unknown file processing error"
+                    });
+                    console.error(`Error processing ${filename}: ${message}`);
                 });
             }
         );
@@ -720,15 +743,23 @@ async function handleFileChange(
                     // 1. Run semantic analysis to understand scope and dependencies
                     // 2. Identify dependent scripts that need recompilation
                 } catch (error) {
-                    console.error(`  ↳ Transpilation failed: ${error.message}`);
-                    if (verbose) {
-                        console.error(`     ${error.stack}`);
-                    }
+                    const message = getErrorMessage(error, {
+                        fallback: "Unknown transpilation error"
+                    });
+                    const formattedError = verbose
+                        ? formatCliError(error)
+                        : message;
+                    console.error(
+                        `  ↳ Transpilation failed: ${formattedError}`
+                    );
                 }
             }
         } catch (error) {
             if (verbose) {
-                console.log(`  ↳ Error reading file: ${error.message}`);
+                const message = getErrorMessage(error, {
+                    fallback: "Unknown file read error"
+                });
+                console.log(`  ↳ Error reading file: ${message}`);
             }
         }
     }
