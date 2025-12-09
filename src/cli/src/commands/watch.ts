@@ -212,8 +212,7 @@ async function validateTargetPath(targetPath: string): Promise<string> {
     try {
         const stats = await stat(normalizedPath);
         if (!stats.isDirectory()) {
-            const errorMessage = `${normalizedPath} is not a directory`;
-            console.error(errorMessage);
+            console.error(`${normalizedPath} is not a directory`);
             process.exit(1);
         }
     } catch (error) {
@@ -743,15 +742,17 @@ async function handleFileChange(
                     // 1. Run semantic analysis to understand scope and dependencies
                     // 2. Identify dependent scripts that need recompilation
                 } catch (error) {
-                    const message = getErrorMessage(error, {
-                        fallback: "Unknown transpilation error"
-                    });
-                    const formattedError = verbose
-                        ? formatCliError(error)
-                        : message;
-                    console.error(
-                        `  ↳ Transpilation failed: ${formattedError}`
-                    );
+                    if (verbose) {
+                        const formattedError = formatCliError(error);
+                        console.error(
+                            `  ↳ Transpilation failed:\n${formattedError}`
+                        );
+                    } else {
+                        const message = getErrorMessage(error, {
+                            fallback: "Unknown transpilation error"
+                        });
+                        console.error(`  ↳ Transpilation failed: ${message}`);
+                    }
                 }
             }
         } catch (error) {
