@@ -10,7 +10,7 @@ import type { CommanderCommandLike } from "../cli-core/commander-types.js";
 import { Core } from "@gml-modules/core";
 import { resolveFromRepoRoot } from "../shared/workspace-paths.js";
 import { assertSupportedNodeVersion } from "../shared/node-version.js";
-import { writeManualJsonArtifact } from "../modules/manual/file-helpers.js";
+import { writeJsonArtifact } from "../shared/fs-artifacts.js";
 import {
     describeManualSource,
     readManualText
@@ -1260,7 +1260,7 @@ export async function runGenerateFeatherMetadata({
               }
     });
 
-    await writeManualJsonArtifact({
+    await writeJsonArtifact({
         outputPath,
         payload,
         pathFilter: workflowPathFilter,

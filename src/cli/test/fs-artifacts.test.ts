@@ -5,9 +5,9 @@ import path from "node:path";
 import { beforeEach, describe, it } from "node:test";
 
 import {
-    writeManualFile,
-    writeManualJsonArtifact
-} from "../src/modules/manual/file-helpers.js";
+    writeFileArtifact,
+    writeJsonArtifact
+} from "../src/shared/fs-artifacts.js";
 import { createWorkflowPathFilter } from "../src/workflow/path-filter.js";
 
 function createTempDirFactory() {
@@ -17,13 +17,13 @@ function createTempDirFactory() {
         counter += 1;
         const prefix = path.join(
             os.tmpdir(),
-            `manual-file-helpers-${counter}-`
+            `fs-artifacts-${counter}-`
         );
         return fs.mkdtemp(prefix);
     };
 }
 
-void describe("manual file helpers", () => {
+void describe("fs artifacts", () => {
     const createTempDir = createTempDirFactory();
     let tempDir;
 
@@ -34,7 +34,7 @@ void describe("manual file helpers", () => {
     void it("writes files after ensuring parent directories exist", async () => {
         const targetPath = path.join(tempDir, "nested", "manual.txt");
 
-        await writeManualFile({
+        await writeFileArtifact({
             outputPath: targetPath,
             contents: "manual payload"
         });
@@ -47,7 +47,7 @@ void describe("manual file helpers", () => {
         const targetPath = path.join(tempDir, "output", "artefact.json");
         let observed;
 
-        await writeManualJsonArtifact({
+        await writeJsonArtifact({
             outputPath: targetPath,
             payload: { answer: 42 },
             onAfterWrite(details) {
@@ -71,7 +71,7 @@ void describe("manual file helpers", () => {
         });
 
         await assert.rejects(
-            writeManualFile({
+            writeFileArtifact({
                 outputPath: targetPath,
                 contents: "payload",
                 pathFilter: filter
