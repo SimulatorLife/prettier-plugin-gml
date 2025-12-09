@@ -7,7 +7,7 @@ type StripCommentsTransformOptions = {
     dropCommentedOutCode: boolean;
 };
 
-class StripCommentsTransform extends FunctionalParserTransform<StripCommentsTransformOptions> {
+export class StripCommentsTransform extends FunctionalParserTransform<StripCommentsTransformOptions> {
     constructor() {
         super("strip-comments", {
             stripComments: true,
@@ -72,7 +72,7 @@ class StripCommentsTransform extends FunctionalParserTransform<StripCommentsTran
     }
 }
 
-const stripCommentsTransformInstance = new StripCommentsTransform();
+export const stripCommentsTransformInstance = new StripCommentsTransform();
 
 export function transform(
     ast: any,

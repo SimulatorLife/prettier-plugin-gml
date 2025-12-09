@@ -4,7 +4,7 @@ import {
     type CondenseLogicalExpressionsOptions
 } from "./logical-expressions/condensation.js";
 
-class CondenseLogicalExpressionsTransform extends FunctionalParserTransform<CondenseLogicalExpressionsOptions> {
+export class CondenseLogicalExpressionsTransform extends FunctionalParserTransform<CondenseLogicalExpressionsOptions> {
     constructor() {
         super("condense-logical-expressions", {});
     }
@@ -14,7 +14,7 @@ class CondenseLogicalExpressionsTransform extends FunctionalParserTransform<Cond
     }
 }
 
-const condenseLogicalExpressionsTransform =
+export const condenseLogicalExpressionsTransform =
     new CondenseLogicalExpressionsTransform();
 
 /**

@@ -6,7 +6,7 @@ import {
 
 const MIN_DECLARATIONS = 4; // Keep this opinionated and not configurable for consistent formatting behavior
 
-class EnforceVariableBlockSpacingTransform extends FunctionalParserTransform<EmptyTransformOptions> {
+export class EnforceVariableBlockSpacingTransform extends FunctionalParserTransform<EmptyTransformOptions> {
     constructor() {
         super("enforce-variable-block-spacing", {});
     }
@@ -23,7 +23,7 @@ class EnforceVariableBlockSpacingTransform extends FunctionalParserTransform<Emp
     }
 }
 
-const enforceVariableBlockSpacingTransform =
+export const enforceVariableBlockSpacingTransform =
     new EnforceVariableBlockSpacingTransform();
 
 export function enforceVariableBlockSpacing(

@@ -40,7 +40,7 @@ function condenseScalarMultipliersImpl(
     return ast;
 }
 
-class ConvertManualMathExpressionsTransform extends FunctionalParserTransform<ConvertManualMathTransformOptions> {
+export class ConvertManualMathExpressionsTransform extends FunctionalParserTransform<ConvertManualMathTransformOptions> {
     constructor() {
         super("convert-manual-math", {});
     }
@@ -53,7 +53,7 @@ class ConvertManualMathExpressionsTransform extends FunctionalParserTransform<Co
     }
 }
 
-const convertManualMathExpressionsTransform =
+export const convertManualMathExpressionsTransform =
     new ConvertManualMathExpressionsTransform();
 
 export function convertManualMathExpressions(
@@ -63,9 +63,25 @@ export function convertManualMathExpressions(
     return convertManualMathExpressionsTransform.transform(ast, context);
 }
 
+export class CondenseScalarMultipliersTransform extends FunctionalParserTransform<ConvertManualMathTransformOptions> {
+    constructor() {
+        super("condense-scalar-multipliers", {});
+    }
+
+    protected execute(
+        ast: MutableGameMakerAstNode,
+        options: ConvertManualMathTransformOptions
+    ): MutableGameMakerAstNode {
+        return condenseScalarMultipliersImpl(ast, options);
+    }
+}
+
+export const condenseScalarMultipliersTransform =
+    new CondenseScalarMultipliersTransform();
+
 export function condenseScalarMultipliers(
     ast: any,
     context: ConvertManualMathTransformOptions | null = null
 ) {
-    return condenseScalarMultipliersImpl(ast, context);
+    return condenseScalarMultipliersTransform.transform(ast, context);
 }

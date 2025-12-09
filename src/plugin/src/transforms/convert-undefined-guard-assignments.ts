@@ -47,7 +47,7 @@ function convertUndefinedGuardAssignmentsImpl(ast: any) {
     }
 }
 
-class ConvertUndefinedGuardAssignmentsTransform extends FunctionalParserTransform<
+export class ConvertUndefinedGuardAssignmentsTransform extends FunctionalParserTransform<
     Record<string, never>
 > {
     constructor() {
@@ -63,7 +63,7 @@ class ConvertUndefinedGuardAssignmentsTransform extends FunctionalParserTransfor
     }
 }
 
-const convertUndefinedGuardAssignmentsTransform =
+export const convertUndefinedGuardAssignmentsTransform =
     new ConvertUndefinedGuardAssignmentsTransform();
 
 export function convertUndefinedGuardAssignments(ast: any) {

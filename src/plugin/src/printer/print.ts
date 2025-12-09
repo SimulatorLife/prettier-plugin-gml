@@ -300,14 +300,14 @@ function _printImpl(path, options, print) {
                 const bodyParts = printStatements(path, options, print, "body");
 
                 // DEBUG: Check if comments are attached to Program
-                if (node.comments && node.comments.length > 0) {
-                    console.log(
-                        "[DEBUG] Program has comments:",
-                        JSON.stringify(node.comments, null, 2)
-                    );
-                } else {
-                    console.log("[DEBUG] Program has NO comments");
-                }
+                // if (node.comments && node.comments.length > 0) {
+                //     console.log(
+                //         "[DEBUG] Program has comments:",
+                //         JSON.stringify(node.comments, null, 2)
+                //     );
+                // } else {
+                //     console.log("[DEBUG] Program has NO comments");
+                // }
 
                 // Print any comments attached to the Program node itself (e.g. top-level comments)
                 const programComments = printDanglingCommentsAsGroup(
@@ -606,6 +606,21 @@ function _printImpl(path, options, print) {
             const { startIndex: nodeStartIndex } =
                 resolveNodeIndexRangeWithSource(node, sourceMetadata);
 
+            // DEBUG: Check leading comments
+            // if ((node as any).leadingComments) {
+            //     console.log("[DEBUG] FunctionDeclaration has leadingComments:", JSON.stringify((node as any).leadingComments));
+            // } else {
+            //     console.log("[DEBUG] FunctionDeclaration has NO leadingComments");
+            // }
+
+            // DEBUG: Check comments
+            if (node.comments || node.docComments) {
+                console.log("[DEBUG] FunctionDeclaration comments:", {
+                    comments: node.comments?.map((c: any) => c.value),
+                    docComments: node.docComments?.map((c: any) => c.value)
+                });
+            }
+
             let docCommentDocs: MutableDocCommentLines = [];
             const lineCommentOptions = resolveLineCommentOptions(options);
             let needsLeadingBlankLine = false;
@@ -631,10 +646,10 @@ function _printImpl(path, options, print) {
                         (text) =>
                             typeof text === STRING_TYPE && text.trim() !== ""
                     );
-                console.log(
-                    "[DEBUG] Initial docCommentDocs:",
-                    JSON.stringify(docCommentDocs)
-                );
+                // console.log(
+                //     "[DEBUG] Initial docCommentDocs:",
+                //     JSON.stringify(docCommentDocs)
+                // );
             }
 
             // When parser does not attach doc comments to the node but the
@@ -644,7 +659,7 @@ function _printImpl(path, options, print) {
             // node. This ensures leading `///` summary lines that appear at
             // the file's top get promoted to `@description` when synthetic
             // tags are inserted.
-            // const docLikeLeadingLines: string[] = []; // TODO: This is not used
+            // const docLikeLeadingLines: string[] =; // TODO: This is not used
             const plainLeadingLines: string[] = [];
             const existingDocLines: MutableDocCommentLines = [];
 
@@ -830,10 +845,10 @@ function _printImpl(path, options, print) {
                 // Non-fatal heuristic failures should not abort printing.
             }
 
-            console.log(
-                "[DEBUG] Before shouldGenerateSyntheticDocForFunction check. docCommentDocs:",
-                JSON.stringify(docCommentDocs)
-            );
+            // console.log(
+            //     "[DEBUG] Before shouldGenerateSyntheticDocForFunction check. docCommentDocs:",
+            //     JSON.stringify(docCommentDocs)
+            // );
             if (
                 Core.shouldGenerateSyntheticDocForFunction(
                     path,
@@ -841,12 +856,12 @@ function _printImpl(path, options, print) {
                     docCommentOptions
                 )
             ) {
-                console.log(
-                    "[DEBUG] Calling mergeSyntheticDocComments for node",
-                    node.type,
-                    "with docs:",
-                    JSON.stringify(docCommentDocs)
-                );
+                // console.log(
+                //     "[DEBUG] Calling mergeSyntheticDocComments for node",
+                //     node.type,
+                //     "with docs:",
+                //     JSON.stringify(docCommentDocs)
+                // );
                 docCommentDocs = Core.toMutableArray(
                     Core.mergeSyntheticDocComments(
                         node,
@@ -854,10 +869,10 @@ function _printImpl(path, options, print) {
                         docCommentOptions
                     )
                 ) as MutableDocCommentLines;
-                console.log(
-                    "[DEBUG] Result of mergeSyntheticDocComments:",
-                    JSON.stringify(docCommentDocs)
-                );
+                // console.log(
+                //     "[DEBUG] Result of mergeSyntheticDocComments:",
+                //     JSON.stringify(docCommentDocs)
+                // );
                 if (Array.isArray(docCommentDocs)) {
                     while (
                         docCommentDocs.length > 0 &&
@@ -878,9 +893,9 @@ function _printImpl(path, options, print) {
                     needsLeadingBlankLine = true;
                 }
             } else {
-                console.log(
-                    "[DEBUG] Skipping mergeSyntheticDocComments (shouldGenerate returned false)"
-                );
+                // console.log(
+                //     "[DEBUG] Skipping mergeSyntheticDocComments (shouldGenerate returned false)"
+                // );
             }
 
             const shouldEmitPlainLeadingBeforeDoc =
@@ -897,10 +912,10 @@ function _printImpl(path, options, print) {
             }
 
             if (docCommentDocs.length > 0) {
-                console.log(
-                    "[DEBUG] Printing docCommentDocs:",
-                    JSON.stringify(docCommentDocs)
-                );
+                // console.log(
+                //     "[DEBUG] Printing docCommentDocs:",
+                //     JSON.stringify(docCommentDocs)
+                // );
                 node[DOC_COMMENT_OUTPUT_FLAG] = true;
                 const suppressLeadingBlank =
                     docCommentDocs &&
@@ -928,26 +943,20 @@ function _printImpl(path, options, print) {
                     parts.push(hardline);
                 }
 
-                // Push doc comments individually with literalLine to ensure they appear on separate lines
-                docCommentDocs.forEach((doc) => {
-                    if (node.id === "scr_create_fx")
-                        console.log("Printing doc:", doc);
-                    parts.push(doc, literalLine);
-                });
+                // Push doc comments individually with hardline to ensure they appear on separate lines
+                parts.push(join(hardline, docCommentDocs));
+                parts.push(hardline);
             } else if (Object.hasOwn(node, DOC_COMMENT_OUTPUT_FLAG)) {
                 delete node[DOC_COMMENT_OUTPUT_FLAG];
             }
 
-            // Mark all comments as printed to prevent Prettier from complaining
-            // that we didn't print them (since we printed our own synthetic versions)
-            if (node.comments) {
-                node.comments.forEach((comment: any) => {
+            // Mark doc comments as printed since we handled them manually.
+            // We do NOT mark all comments as printed, because we want Prettier to handle
+            // regular comments (non-doc comments) that we didn't consume.
+            if (node.docComments) {
+                node.docComments.forEach((comment: any) => {
                     comment.printed = true;
                 });
-            }
-
-            if (node.id === "scr_create_fx") {
-                console.log("Parts for scr_create_fx:", JSON.stringify(parts));
             }
 
             let functionNameDoc = "";
@@ -2917,14 +2926,6 @@ function printStatements(path, options, print, childrenAttribute) {
         }
 
         const textForSemicolons = originalTextCache || "";
-        let hasTerminatingSemicolon = textForSemicolons[nodeEndIndex] === ";";
-        if (!hasTerminatingSemicolon) {
-            const textLength = textForSemicolons.length;
-            let cursor = nodeEndIndex + 1;
-            while (
-                cursor < textLength &&
-                isSkippableSemicolonWhitespace(
-                    textForSemicolons.charCodeAt(cursor)
                 )
             ) {
                 cursor++;
@@ -4647,13 +4648,9 @@ function materializeParamDefaultsFromParamDefault(functionNode) {
                 const defaultExpr = param.default;
                 const defaultNode = {
                     type: "DefaultParameter",
-                    left: { type: "Identifier", name: param.name },
-                    right: defaultExpr,
-                    start: param.start ?? (defaultExpr && defaultExpr.start),
-                    end: defaultExpr?.end ?? param.end
+                    left: param,
+                    right: defaultExpr
                 };
-
-                // preserve any comment metadata if present (best-effort)
                 if (param.leadingComments) {
                     (defaultNode as any).leadingComments =
                         param.leadingComments;
@@ -5470,7 +5467,7 @@ function applyOuterTrigConversion(node, conversionMap) {
     }
 
     const innerName = Core.getIdentifierText(firstArg.object);
-    if (!innerName) {
+    if (typeof innerName !== STRING_TYPE) {
         return false;
     }
 
@@ -6167,11 +6164,7 @@ function shouldFlattenSyntheticBinary(parent, expression, path) {
         return false;
     }
 
-    if (
-        isAdditivePair &&
-        (binaryExpressionContainsString(parent) ||
-            binaryExpressionContainsString(expression))
-    ) {
+    if (isAdditivePair && (binaryExpressionContainsString(parent) || binaryExpressionContainsString(expression))) {
         return false;
     }
 

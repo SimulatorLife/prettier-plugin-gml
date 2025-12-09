@@ -23,7 +23,7 @@ function convertStringConcatenationsImpl(ast: any, helpers?: any) {
     return ast;
 }
 
-class ConvertStringConcatenationsTransform extends FunctionalParserTransform<ConvertStringConcatenationsTransformOptions> {
+export class ConvertStringConcatenationsTransform extends FunctionalParserTransform<ConvertStringConcatenationsTransformOptions> {
     constructor() {
         super("convert-string-concatenations", {});
     }
@@ -36,7 +36,7 @@ class ConvertStringConcatenationsTransform extends FunctionalParserTransform<Con
     }
 }
 
-const convertStringConcatenationsTransform =
+export const convertStringConcatenationsTransform =
     new ConvertStringConcatenationsTransform();
 
 export function convertStringConcatenations(ast: any, helpers?: any) {
@@ -384,6 +384,19 @@ function extractLiteralText(node) {
     const raw = node.value;
     if (raw.length < 2) {
         return "";
+    }
+
+    // Manual stripping to ensure we preserve all internal whitespace
+    const first = raw.charAt(0);
+    const last = raw.charAt(raw.length - 1);
+    
+    if ((first === '"' && last === '"') || (first === "'" && last === "'")) {
+        return raw.slice(1, -1);
+    }
+    
+    // Handle @"..." strings
+    if (first === "@" && raw.charAt(1) === '"' && last === '"') {
+        return raw.slice(2, -1);
     }
 
     return Core.stripStringQuotes(raw) ?? "";

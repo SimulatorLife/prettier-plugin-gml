@@ -9,7 +9,7 @@ type ConstructorInfo = {
     staticFunctions: Map<string, MutableGameMakerAstNode>;
 };
 
-class AnnotateStaticFunctionOverridesTransform extends FunctionalParserTransform<AnnotateStaticFunctionOverridesTransformOptions> {
+export class AnnotateStaticFunctionOverridesTransform extends FunctionalParserTransform<AnnotateStaticFunctionOverridesTransformOptions> {
     constructor() {
         super("annotate-static-overrides", {});
     }
@@ -204,7 +204,7 @@ class AnnotateStaticFunctionOverridesTransform extends FunctionalParserTransform
     }
 }
 
-const annotateStaticFunctionOverridesTransform =
+export const annotateStaticFunctionOverridesTransform =
     new AnnotateStaticFunctionOverridesTransform();
 
 export function transform(

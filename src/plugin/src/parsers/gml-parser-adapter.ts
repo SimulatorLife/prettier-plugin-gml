@@ -76,6 +76,10 @@ async function parseImpl(
     let environmentPrepared = false;
     const activeOptions = isOptionsObject(options) ? options : undefined;
 
+    if (process.env.GML_PRINTER_DEBUG) {
+        console.debug("[DEBUG] parseImpl options:", JSON.stringify(activeOptions, null, 2));
+    }
+
     if (activeOptions) {
         Reflect.set(activeOptions, "originalText", text);
     }
@@ -85,6 +89,9 @@ async function parseImpl(
             await prepareIdentifierCaseEnvironment(activeOptions);
 
         const preparation = preprocessSource(text, activeOptions);
+        if (process.env.GML_PRINTER_DEBUG) {
+            console.debug("[DEBUG] Preprocessed source:", preparation.parseSource);
+        }
         const ast = parseSourceWithRecovery(
             preparation.parseSource,
             activeOptions

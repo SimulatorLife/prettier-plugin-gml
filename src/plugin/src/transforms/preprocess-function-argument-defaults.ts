@@ -27,7 +27,7 @@ function preprocessFunctionArgumentDefaultsImpl(ast: any) {
     return ast;
 }
 
-class PreprocessFunctionArgumentDefaultsTransform extends FunctionalParserTransform<PreprocessFunctionArgumentDefaultsTransformOptions> {
+export class PreprocessFunctionArgumentDefaultsTransform extends FunctionalParserTransform<PreprocessFunctionArgumentDefaultsTransformOptions> {
     constructor() {
         super("preprocess-function-argument-defaults", {});
     }
@@ -41,7 +41,7 @@ class PreprocessFunctionArgumentDefaultsTransform extends FunctionalParserTransf
     }
 }
 
-const preprocessFunctionArgumentDefaultsTransform =
+export const preprocessFunctionArgumentDefaultsTransform =
     new PreprocessFunctionArgumentDefaultsTransform();
 
 export function preprocessFunctionArgumentDefaults(ast: any) {

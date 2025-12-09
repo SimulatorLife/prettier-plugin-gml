@@ -919,7 +919,7 @@ function isBreakableConstruct(node) {
     }
 }
 
-class ApplyFeatherFixesTransform extends FunctionalParserTransform<ApplyFeatherFixesOptions> {
+export class ApplyFeatherFixesTransform extends FunctionalParserTransform<ApplyFeatherFixesOptions> {
     constructor() {
         super("apply-feather-fixes", {});
     }
@@ -932,7 +932,7 @@ class ApplyFeatherFixesTransform extends FunctionalParserTransform<ApplyFeatherF
     }
 }
 
-const applyFeatherFixesTransform = new ApplyFeatherFixesTransform();
+export const applyFeatherFixesTransform = new ApplyFeatherFixesTransform();
 
 export function applyFeatherFixes(
     ast: any,
