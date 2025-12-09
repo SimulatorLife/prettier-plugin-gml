@@ -13,10 +13,10 @@ type ResolverControllerConfig<TResult> = {
  * behavior while maintaining sensible defaults when no customization is provided.
  *
  * When a custom resolver is registered via `set()`, calls to `resolve()` invoke
- * that resolver and return its result after normalization. When no resolver is
- * registered, `resolve()` returns a fresh default value from `defaultFactory`.
+ * that resolver with optional context and return its result after normalization.
+ * When no resolver is registered, `resolve()` returns a cached default value.
  *
- * @template TOptions - Options object passed to resolver functions
+ * @template TOptions - Optional context object that can be passed to resolve()
  * @template TResult - The resolved value type
  * @param config - Configuration for the controller
  * @returns Controller with resolve, set, and restore methods
