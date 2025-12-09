@@ -311,8 +311,8 @@ function applyStructuralTransforms(
     options: GmlParserAdapterOptions | undefined
 ): void {
     if (options?.condenseStructAssignments ?? true) {
-        Transforms.consolidateStructAssignments(ast, {
-            addTrailingComment
+        Transforms.consolidateStructAssignmentsTransform.transform(ast, {
+            commentTools: { addTrailingComment }
         });
     }
 
@@ -321,7 +321,7 @@ function applyStructuralTransforms(
             ? { ...options, removeStandaloneVertexEnd: true }
             : { removeStandaloneVertexEnd: true };
 
-        Transforms.applyFeatherFixes(ast, {
+        Transforms.applyFeatherFixesTransform.transform(ast, {
             sourceText: context.parseSource,
             preprocessedFixMetadata: context.preprocessedFixMetadata,
             options: featherOptions
@@ -363,20 +363,20 @@ function applyOptionalTransforms(
     options: GmlParserAdapterOptions | undefined
 ): void {
     if (options?.useStringInterpolation) {
-        Transforms.convertStringConcatenations(ast);
+        Transforms.convertStringConcatenationsTransform.transform(ast);
     }
 
     if (options?.condenseLogicalExpressions) {
-        Transforms.condenseLogicalExpressions(ast);
+        Transforms.condenseLogicalExpressionsTransform.transform(ast);
     }
 
-    Transforms.condenseScalarMultipliers(ast, {
+    Transforms.condenseScalarMultipliersTransform.transform(ast, {
         sourceText: context.parseSource,
         originalText: options?.originalText
     });
 
     if (options?.convertManualMathToBuiltins) {
-        Transforms.convertManualMathExpressions(ast, {
+        Transforms.convertManualMathExpressionsTransform.transform(ast, {
             sourceText: context.parseSource,
             originalText: options?.originalText,
             astRoot: ast
@@ -390,15 +390,19 @@ function applyFinalTransforms(
     options: GmlParserAdapterOptions | undefined,
     originalSource: string
 ): void {
-    Transforms.convertUndefinedGuardAssignments(ast);
-    Transforms.preprocessFunctionArgumentDefaults(ast);
-    Transforms.annotateStaticFunctionOverrides(ast);
-    Transforms.collapseRedundantMissingCallArguments(ast);
-    Transforms.enforceVariableBlockSpacing(ast);
+    if (options?.stripComments) {
+        Transforms.stripCommentsTransform.transform(ast);
+    }
 
-    Transforms.markCallsMissingArgumentSeparators(
+    Transforms.convertUndefinedGuardAssignmentsTransform.transform(ast);
+    Transforms.preprocessFunctionArgumentDefaultsTransform.transform(ast);
+    Transforms.annotateStaticFunctionOverridesTransform.transform(ast);
+    Transforms.collapseRedundantMissingCallArgumentsTransform.transform(ast);
+    Transforms.enforceVariableBlockSpacingTransform.transform(ast);
+
+    Transforms.markCallsMissingArgumentSeparatorsTransform.transform(
         ast,
-        options?.originalText ?? originalSource
+        { originalText: options?.originalText ?? originalSource }
     );
 }
 

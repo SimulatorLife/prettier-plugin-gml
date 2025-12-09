@@ -1,7 +1,7 @@
 import assert from "node:assert/strict";
 import { describe, it } from "node:test";
 
-import { preprocessFunctionArgumentDefaults } from "../../src/transforms/preprocess-function-argument-defaults.js";
+import { preprocessFunctionArgumentDefaultsTransform } from "../../src/transforms/preprocess-function-argument-defaults.js";
 
 function createFunctionDeclaration(params) {
     return {
@@ -31,7 +31,7 @@ void describe("preprocessFunctionArgumentDefaults", () => {
 
         const ast = { type: "Program", body: [functionNode] };
 
-        preprocessFunctionArgumentDefaults(ast);
+        preprocessFunctionArgumentDefaultsTransform.transform(ast);
 
         const trailingParam = functionNode.params[3];
         assert.equal(trailingParam?.type, "DefaultParameter");

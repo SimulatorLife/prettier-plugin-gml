@@ -72,15 +72,7 @@ export class StripCommentsTransform extends FunctionalParserTransform<StripComme
     }
 }
 
-export const stripCommentsTransformInstance = new StripCommentsTransform();
+export const stripCommentsTransform = new StripCommentsTransform();
 
-export function transform(
-    ast: any,
-    opts: StripCommentsTransformOptions = stripCommentsTransformInstance.defaultOptions
-) {
-    return stripCommentsTransformInstance.transform(ast, opts);
-}
+export default { stripCommentsTransform };
 
-export const stripCommentsTransform = transform;
-
-export default { transform };

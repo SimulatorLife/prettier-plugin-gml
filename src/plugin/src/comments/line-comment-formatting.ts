@@ -344,7 +344,7 @@ function formatLineComment(
         return formattedSentences.join("\n");
     }
 
-    return applyInlinePadding(comment, `// ${trimmedValue}`);
+    return applyInlinePadding(comment, `//${trimmedValue.startsWith("/") ? "" : " "}${trimmedValue}`);
 }
 
 function applyInlinePadding(comment, formattedText, preserveTabs = false) {

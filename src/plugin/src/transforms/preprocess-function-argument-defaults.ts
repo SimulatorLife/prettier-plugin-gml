@@ -44,12 +44,6 @@ export class PreprocessFunctionArgumentDefaultsTransform extends FunctionalParse
 export const preprocessFunctionArgumentDefaultsTransform =
     new PreprocessFunctionArgumentDefaultsTransform();
 
-export function preprocessFunctionArgumentDefaults(ast: any) {
-    return preprocessFunctionArgumentDefaultsTransform.transform(ast);
-}
-
-export const transform = preprocessFunctionArgumentDefaults;
-
 function traverse(node, visitor, seen = new Set()) {
     if (!Core.isObjectLike(node)) {
         return;

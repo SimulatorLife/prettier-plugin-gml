@@ -68,15 +68,6 @@ export class ConsolidateStructAssignmentsTransform extends FunctionalParserTrans
 export const consolidateStructAssignmentsTransform =
     new ConsolidateStructAssignmentsTransform();
 
-export function consolidateStructAssignments(
-    ast: any,
-    commentTools?: ConsolidateStructAssignmentsTransformOptions["commentTools"]
-) {
-    return consolidateStructAssignmentsTransform.transform(ast, {
-        commentTools
-    });
-}
-
 function visit(node, tracker, commentTools) {
     if (!Core.isNode(node)) {
         return;

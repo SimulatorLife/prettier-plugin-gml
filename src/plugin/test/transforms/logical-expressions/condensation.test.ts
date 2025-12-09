@@ -1,7 +1,7 @@
 import assert from "node:assert/strict";
 import test from "node:test";
 
-import { condenseLogicalExpressions } from "../../../src/transforms/condense-logical-expressions.js";
+import { condenseLogicalExpressionsTransform } from "../../../src/transforms/condense-logical-expressions.js";
 
 type CommentNode = {
     readonly type: "CommentLine";
@@ -97,7 +97,7 @@ void test("condensation leaves doc comments unchanged", () => {
         comments: [docComment]
     };
 
-    condenseLogicalExpressions(ast);
+    condenseLogicalExpressionsTransform.transform(ast);
 
     const [condensedReturn] = functionNode.body.body as ReturnStatementNode[];
     assert.equal(condensedReturn.type, "ReturnStatement");
@@ -138,7 +138,7 @@ void test("functions with matching condensed bodies are retained", () => {
         comments: [commentForSecond]
     };
 
-    condenseLogicalExpressions(ast);
+    condenseLogicalExpressionsTransform.transform(ast);
 
     assert.equal(ast.body.length, 2);
     for (const fn of ast.body) {
@@ -184,7 +184,7 @@ void test("condensation tolerates parent references", () => {
         body: [functionNode]
     };
 
-    condenseLogicalExpressions(ast);
+    condenseLogicalExpressionsTransform.transform(ast);
 
     const [condensedReturn] = functionNode.body
         .body as unknown as ReturnStatementNode[];

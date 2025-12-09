@@ -26,13 +26,6 @@ export class EnforceVariableBlockSpacingTransform extends FunctionalParserTransf
 export const enforceVariableBlockSpacingTransform =
     new EnforceVariableBlockSpacingTransform();
 
-export function enforceVariableBlockSpacing(
-    ast: MutableGameMakerAstNode,
-    options: EmptyTransformOptions = {}
-) {
-    return enforceVariableBlockSpacingTransform.transform(ast, options);
-}
-
 function visitNode(node, visitedNodes, minDeclarationRunLength) {
     if (!node || typeof node !== "object") {
         return;

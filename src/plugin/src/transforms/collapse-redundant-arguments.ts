@@ -64,8 +64,3 @@ export class CollapseRedundantMissingCallArgumentsTransform extends FunctionalPa
 export const collapseRedundantMissingCallArgumentsTransform =
     new CollapseRedundantMissingCallArgumentsTransform();
 
-export function collapseRedundantMissingCallArguments(
-    ast: MutableGameMakerAstNode
-) {
-    return collapseRedundantMissingCallArgumentsTransform.transform(ast);
-}

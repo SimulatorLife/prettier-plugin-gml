@@ -14,7 +14,7 @@ import {
     walkAstNodes
 } from "./feather/ast-traversal.js";
 import { parseExample } from "./feather/parser-bootstrap.js";
-import { preprocessFunctionArgumentDefaults } from "./preprocess-function-argument-defaults.js";
+import { preprocessFunctionArgumentDefaultsTransform } from "./preprocess-function-argument-defaults.js";
 
 type RenameOptions = {
     // TODO: This may be duplicated by functionality in the 'refactor' and/or 'semantic' modules. Identifier renaming needs to live in the 'refactor' module, which is built on top of 'semantic' (which handles scope and context) so that identifiers can be renamed properly/safely without introducing conflicts
@@ -209,7 +209,7 @@ function applyFeatherFixesImpl(ast: any, opts: ApplyFeatherFixesOptions = {}) {
     // before any feather fixers so fixers that expect canonical parameter
     // shapes (Identifiers vs DefaultParameter) operate on normalized nodes.
     try {
-        preprocessFunctionArgumentDefaults(ast);
+        preprocessFunctionArgumentDefaultsTransform.transform(ast);
     } catch {
         // Swallow errors to avoid letting preprocessing failures stop the
         // broader fix application pipeline.
@@ -933,13 +933,6 @@ export class ApplyFeatherFixesTransform extends FunctionalParserTransform<ApplyF
 }
 
 export const applyFeatherFixesTransform = new ApplyFeatherFixesTransform();
-
-export function applyFeatherFixes(
-    ast: any,
-    opts: ApplyFeatherFixesOptions = {}
-) {
-    return applyFeatherFixesTransform.transform(ast, opts);
-}
 
 function buildFeatherFixImplementations(diagnostics) {
     const registry = new Map();

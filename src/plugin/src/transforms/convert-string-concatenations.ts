@@ -39,12 +39,6 @@ export class ConvertStringConcatenationsTransform extends FunctionalParserTransf
 export const convertStringConcatenationsTransform =
     new ConvertStringConcatenationsTransform();
 
-export function convertStringConcatenations(ast: any, helpers?: any) {
-    return convertStringConcatenationsTransform.transform(ast, {
-        helpers
-    });
-}
-
 function createTraversalState() {
     return {
         seen: new Set(),
@@ -401,7 +395,4 @@ function extractLiteralText(node) {
 
     return Core.stripStringQuotes(raw) ?? "";
 }
-export function transform(ast: any, opts: any = {}) {
-    void opts;
-    return convertStringConcatenations(ast);
-}
+

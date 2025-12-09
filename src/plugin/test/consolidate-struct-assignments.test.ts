@@ -3,7 +3,7 @@ import { describe, it } from "node:test";
 
 import {
     CommentTracker,
-    consolidateStructAssignments
+    consolidateStructAssignmentsTransform
 } from "../src/transforms/index.js";
 
 void describe("CommentTracker", () => {
@@ -122,7 +122,7 @@ void describe("consolidateStructAssignments", () => {
             comments: [trailingComment]
         };
 
-        consolidateStructAssignments(ast);
+        consolidateStructAssignmentsTransform.transform(ast);
 
         assert.equal(structExpression.properties.length, 1);
 
@@ -210,7 +210,7 @@ void describe("consolidateStructAssignments", () => {
             comments: [trailingComment]
         };
 
-        consolidateStructAssignments(ast);
+        consolidateStructAssignmentsTransform.transform(ast);
 
         assert.equal(structExpression.properties.length, 1);
 

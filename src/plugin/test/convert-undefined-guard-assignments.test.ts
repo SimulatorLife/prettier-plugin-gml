@@ -60,7 +60,7 @@ void describe("convertUndefinedGuardAssignments", () => {
             body: [ifStatement]
         };
 
-        Transforms.convertUndefinedGuardAssignments(program);
+        Transforms.convertUndefinedGuardAssignmentsTransform.transform(program);
 
         assert.equal(program.body.length, 1);
         const statement = program.body[0] as any;

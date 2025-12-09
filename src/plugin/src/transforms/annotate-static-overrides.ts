@@ -207,9 +207,3 @@ export class AnnotateStaticFunctionOverridesTransform extends FunctionalParserTr
 export const annotateStaticFunctionOverridesTransform =
     new AnnotateStaticFunctionOverridesTransform();
 
-export function transform(
-    ast: MutableGameMakerAstNode,
-    opts: AnnotateStaticFunctionOverridesTransformOptions = {}
-) {
-    return annotateStaticFunctionOverridesTransform.transform(ast, opts);
-}

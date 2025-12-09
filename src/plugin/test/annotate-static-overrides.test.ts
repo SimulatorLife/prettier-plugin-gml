@@ -49,7 +49,7 @@ void describe("annotateStaticFunctionOverrides", () => {
             ]
         };
 
-        Transforms.annotateStaticFunctionOverrides(ast);
+        Transforms.annotateStaticFunctionOverridesTransform.transform(ast);
 
         assert.equal(parentStatic._overridesStaticFunction, undefined);
         assert.equal(childStatic._overridesStaticFunction, true);
@@ -85,7 +85,7 @@ void describe("annotateStaticFunctionOverrides", () => {
             ]
         };
 
-        Transforms.annotateStaticFunctionOverrides(ast);
+        Transforms.annotateStaticFunctionOverridesTransform.transform(ast);
 
         assert.equal(invalidStatic._overridesStaticFunction, undefined);
     });

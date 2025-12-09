@@ -17,25 +17,3 @@ export class CondenseLogicalExpressionsTransform extends FunctionalParserTransfo
 export const condenseLogicalExpressionsTransform =
     new CondenseLogicalExpressionsTransform();
 
-/**
- * Applies the logical-expression condensation transform with optional helpers
- * for comment detection.
- */
-export function condenseLogicalExpressions(
-    ast: any,
-    helpersOrOptions?:
-        | CondenseLogicalExpressionsOptions
-        | CondenseLogicalExpressionsOptions["helpers"]
-) {
-    const helpers = (
-        helpersOrOptions &&
-        typeof helpersOrOptions === "object" &&
-        "helpers" in helpersOrOptions
-            ? helpersOrOptions.helpers
-            : helpersOrOptions
-    ) as CondenseLogicalExpressionsOptions["helpers"];
-
-    return condenseLogicalExpressionsTransform.transform(ast, {
-        helpers
-    });
-}

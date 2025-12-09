@@ -66,10 +66,6 @@ export class ConvertUndefinedGuardAssignmentsTransform extends FunctionalParserT
 export const convertUndefinedGuardAssignmentsTransform =
     new ConvertUndefinedGuardAssignmentsTransform();
 
-export function convertUndefinedGuardAssignments(ast: any) {
-    return convertUndefinedGuardAssignmentsTransform.transform(ast);
-}
-
 function convertIfStatement(node, parent, property) {
     if (!node || !parent) {
         return false;
@@ -321,6 +317,4 @@ function unwrapSyntheticParentheses(node, parent, property) {
     return false;
 }
 
-export function transform(ast: any) {
-    return convertUndefinedGuardAssignments(ast);
-}
+

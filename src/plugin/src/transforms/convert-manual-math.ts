@@ -56,13 +56,6 @@ export class ConvertManualMathExpressionsTransform extends FunctionalParserTrans
 export const convertManualMathExpressionsTransform =
     new ConvertManualMathExpressionsTransform();
 
-export function convertManualMathExpressions(
-    ast: any,
-    context: ConvertManualMathTransformOptions | null = null
-) {
-    return convertManualMathExpressionsTransform.transform(ast, context);
-}
-
 export class CondenseScalarMultipliersTransform extends FunctionalParserTransform<ConvertManualMathTransformOptions> {
     constructor() {
         super("condense-scalar-multipliers", {});
@@ -79,9 +72,3 @@ export class CondenseScalarMultipliersTransform extends FunctionalParserTransfor
 export const condenseScalarMultipliersTransform =
     new CondenseScalarMultipliersTransform();
 
-export function condenseScalarMultipliers(
-    ast: any,
-    context: ConvertManualMathTransformOptions | null = null
-) {
-    return condenseScalarMultipliersTransform.transform(ast, context);
-}

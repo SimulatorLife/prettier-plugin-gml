@@ -126,11 +126,3 @@ export class MarkCallsMissingArgumentSeparatorsTransform extends FunctionalParse
 export const markCallsMissingArgumentSeparatorsTransform =
     new MarkCallsMissingArgumentSeparatorsTransform();
 
-export function markCallsMissingArgumentSeparators(
-    ast: MutableGameMakerAstNode,
-    originalText: string
-) {
-    return markCallsMissingArgumentSeparatorsTransform.transform(ast, {
-        originalText
-    });
-}

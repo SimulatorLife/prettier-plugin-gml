@@ -1,5 +1,5 @@
 import type { MutableGameMakerAstNode } from "@gml-modules/core";
-import { stripCommentsTransformInstance } from "./strip-comments.js";
+import { stripCommentsTransform } from "./strip-comments.js";
 import { consolidateStructAssignmentsTransform } from "./consolidate-struct-assignments.js";
 import { condenseLogicalExpressionsTransform } from "./condense-logical-expressions.js";
 import { applyFeatherFixesTransform } from "./apply-feather-fixes.js";
@@ -21,7 +21,7 @@ type TransformOptions = Record<string, unknown>;
 
 // Plugin AST transforms exposed via the parser transform registry.
 const TRANSFORM_REGISTRY_ENTRIES = [
-    ["strip-comments", stripCommentsTransformInstance],
+    ["strip-comments", stripCommentsTransform],
     ["consolidate-struct-assignments", consolidateStructAssignmentsTransform],
     ["apply-feather-fixes", applyFeatherFixesTransform],
     [
@@ -100,7 +100,7 @@ export function applyTransforms(
 export const availableTransforms = Array.from(TRANSFORM_REGISTRY.keys());
 
 export {
-    applyFeatherFixes,
+    applyFeatherFixesTransform,
     getFeatherDiagnosticFixers,
     getRoomNavigationHelpers,
     ROOM_NAVIGATION_DIRECTION
@@ -109,19 +109,19 @@ export {
     applyRemovedIndexAdjustments,
     preprocessSourceForFeatherFixes
 } from "./feather/enum-handling.js";
-export { condenseLogicalExpressions } from "./condense-logical-expressions.js";
-export { consolidateStructAssignments } from "./consolidate-struct-assignments.js";
+export { condenseLogicalExpressionsTransform } from "./condense-logical-expressions.js";
+export { consolidateStructAssignmentsTransform } from "./consolidate-struct-assignments.js";
 export { CommentTracker } from "./utils/comment-tracker.js";
 export {
-    convertManualMathExpressions,
-    condenseScalarMultipliers
+    convertManualMathExpressionsTransform,
+    condenseScalarMultipliersTransform
 } from "./convert-manual-math.js";
-export { convertStringConcatenations } from "./convert-string-concatenations.js";
-export { convertUndefinedGuardAssignments } from "./convert-undefined-guard-assignments.js";
-export { enforceVariableBlockSpacing } from "./enforce-variable-block-spacing.js";
-export { preprocessFunctionArgumentDefaults } from "./preprocess-function-argument-defaults.js";
+export { convertStringConcatenationsTransform } from "./convert-string-concatenations.js";
+export { convertUndefinedGuardAssignmentsTransform } from "./convert-undefined-guard-assignments.js";
+export { enforceVariableBlockSpacingTransform } from "./enforce-variable-block-spacing.js";
+export { preprocessFunctionArgumentDefaultsTransform } from "./preprocess-function-argument-defaults.js";
 export { stripCommentsTransform } from "./strip-comments.js";
-export { transform as annotateStaticFunctionOverrides } from "./annotate-static-overrides.js";
+export { annotateStaticFunctionOverridesTransform } from "./annotate-static-overrides.js";
 export {
     conditionalAssignmentSanitizerTransform,
     sanitizeConditionalAssignments,
@@ -129,5 +129,5 @@ export {
 } from "./conditional-assignment-sanitizer.js";
 export { applyIndexAdjustmentsIfPresent } from "./index-adjustments.js";
 export { sanitizeMissingArgumentSeparators } from "./missing-argument-separator-sanitizer.js";
-export { collapseRedundantMissingCallArguments } from "./collapse-redundant-arguments.js";
-export { markCallsMissingArgumentSeparators } from "./mark-missing-separators.js";
+export { collapseRedundantMissingCallArgumentsTransform } from "./collapse-redundant-arguments.js";
+export { markCallsMissingArgumentSeparatorsTransform } from "./mark-missing-separators.js";
