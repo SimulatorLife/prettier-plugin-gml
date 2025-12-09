@@ -118,7 +118,7 @@ function formatLineComment(
     const trimmedValue = Core.getCommentValue(comment, { trim: true });
 
     if (trimmedValue.length === 0) {
-        return null;
+        return "";
     }
 
     const startsWithTripleSlash = trimmedOriginal.startsWith("///");
@@ -132,9 +132,21 @@ function formatLineComment(
 
     for (const lineFragment of boilerplateFragments) {
         if (trimmedValue.includes(lineFragment)) {
-            return null;
+            return "";
         }
     }
+
+    // DEBUG LOGGING
+    if (trimmedValue.includes("scr_create_fx")) {
+        console.log("[DEBUG] formatLineComment scr_create_fx:", {
+            original,
+            trimmedValue,
+            boilerplateFragments,
+            slashesMatch: !!slashesMatch,
+            hasDecorations
+        });
+    }
+
 
     const hasPrecedingLineBreak =
         Core.isObjectLike(comment) &&
@@ -297,6 +309,11 @@ function formatLineComment(
             const formatted = `///${remainder.length > 0 ? ` ${remainder}` : ""}`;
             return applyInlinePadding(comment, formatted);
         }
+    }
+
+    // Preserve existing doc comments (/// @tag ...)
+    if (startsWithTripleSlash && trimmedOriginal.includes("@")) {
+        return applyInlinePadding(comment, `/// ${trimmedValue}`);
     }
 
     const docTagSource = DOC_TAG_LINE_PREFIX_PATTERN.test(trimmedValue)

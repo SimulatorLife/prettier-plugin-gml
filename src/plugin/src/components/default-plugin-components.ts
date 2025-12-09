@@ -134,7 +134,7 @@ export function createDefaultGmlPluginComponents(): GmlPluginComponentBundle {
                 since: "0.0.0",
                 type: "boolean",
                 category: "gml",
-                default: true,
+                default: false,
                 description:
                     "Rewrite string concatenations like 'Hello ' + name + '!' into template strings such as $\"Hello {name}!\" when all parts are safely composable."
             },

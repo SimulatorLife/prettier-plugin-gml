@@ -1100,8 +1100,33 @@ function _printImpl(path, options, print) {
             );
         }
         case "GlobalVarStatement": {
-            if (options?.preserveGlobalVarStatements === false) {
-                return null;
+            if (options.preserveGlobalVarStatements === false) {
+                const parts = [];
+                node.declarations.forEach((decl, index) => {
+                    if (decl.init) {
+                        const idDoc = path.call(
+                            print,
+                            "declarations",
+                            index,
+                            "id"
+                        );
+                        const initDoc = path.call(
+                            print,
+                            "declarations",
+                            index,
+                            "init"
+                        );
+                        parts.push(
+                            group(concat(["global.", idDoc, " = ", initDoc, ";"]))
+                        );
+                    }
+                });
+
+                if (parts.length === 0) {
+                    return "";
+                }
+
+                return join(hardline, parts);
             }
 
             const decls =
@@ -2604,6 +2629,8 @@ function shouldForceBreakStructArgument(argument) {
     if (properties.length === 0) {
         return false;
     }
+
+
 
     if (
         properties.some(
@@ -6142,11 +6169,7 @@ function shouldFlattenSyntheticBinary(parent, expression, path) {
         return false;
     }
 
-    if (
-        isAdditivePair &&
-        (binaryExpressionContainsString(parent) ||
-            binaryExpressionContainsString(expression))
-    ) {
+    if (isAdditivePair && (binaryExpressionContainsString(parent) || binaryExpressionContainsString(expression))) {
         return false;
     }
 
