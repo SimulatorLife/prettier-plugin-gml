@@ -1,5 +1,5 @@
 import { Core } from "@gml-modules/core";
-import { concat, hardline, join } from "./doc-builders.js";
+import { concat, hardline, join } from "../doc-builders.js";
 import { resolveDocCommentPrinterOptions } from "./doc-comment-options.js";
 
 const STRING_TYPE = "string";
