@@ -38,6 +38,11 @@ import {
 } from "./doc-builders.js";
 
 import {
+    collectFunctionDocCommentDocs,
+    normalizeFunctionDocCommentDocs
+} from "./doc-comment/function-docs.js";
+
+import {
     hasBlankLineBeforeLeadingComment,
     hasBlankLineBetweenLastCommentAndClosingBrace,
     macroTextHasExplicitTrailingBlankLine,
@@ -52,8 +57,7 @@ import {
     printDanglingCommentsAsGroup
 } from "../comments/index.js";
 import { TRAILING_COMMA } from "../options/trailing-comma-option.js";
-import { buildSyntheticDocComment } from "./synthetic-doc-comment-builder.js";
-import { resolveDocCommentPrinterOptions } from "./doc-comment-options.js";
+import { buildSyntheticDocComment } from "./doc-comment/synthetic-doc-comment-builder.js";
 
 import { Semantic } from "@gml-modules/semantic";
 import {
@@ -603,370 +607,37 @@ function _printImpl(path, options, print) {
             const { startIndex: nodeStartIndex } =
                 resolveNodeIndexRangeWithSource(node, sourceMetadata);
 
-            let docCommentDocs: MutableDocCommentLines = [];
-            const lineCommentOptions = {
-                ...Core.resolveLineCommentOptions(options),
+            const {
+                docCommentDocs: collectedDocCommentDocs,
+                existingDocLines,
+                needsLeadingBlankLine: collectedNeedsLeadingBlankLine,
+                plainLeadingLines
+            } = collectFunctionDocCommentDocs({
+                node,
+                options,
+                path,
+                nodeStartIndex,
                 originalText
-            };
-            let needsLeadingBlankLine = false;
-            const docCommentOptions = resolveDocCommentPrinterOptions(options);
-
-            if (Core.isNonEmptyArray(node.docComments)) {
-                const firstDocComment = node.docComments[0];
-                if (
-                    firstDocComment &&
-                    typeof firstDocComment.leadingWS === STRING_TYPE
-                ) {
-                    const blankLinePattern =
-                        /(?:\r\n|\r|\n|\u2028|\u2029)\s*(?:\r\n|\r|\n|\u2028|\u2029)/;
-                    if (blankLinePattern.test(firstDocComment.leadingWS)) {
-                        needsLeadingBlankLine = true;
-                    }
-                }
-                docCommentDocs = node.docComments
-                    .map((comment) => {
-                        const formatted = Core.formatLineComment(
-                            comment,
-                            lineCommentOptions
-                        );
-                        console.log(
-                            `[DEBUG] formatLineComment input: "${comment.value}", output: "${formatted}"`
-                        );
-                        return formatted;
-                    })
-                    .filter(
-                        (text) =>
-                            typeof text === STRING_TYPE && text.trim() !== ""
-                    );
-                // console.log(
-                //     "[DEBUG] Initial docCommentDocs:",
-                //     JSON.stringify(docCommentDocs)
-                // );
-            }
-
-            // When parser does not attach doc comments to the node but the
-            // doc-like comments are present at the program root, attempt to
-            // collect them as node-level doc comment lines so the promotion
-            // and merging logic runs as though they were attached to the
-            // node. This ensures leading `///` summary lines that appear at
-            // the file's top get promoted to `@description` when synthetic
-            // tags are inserted.
-            // const docLikeLeadingLines: string[] =; // TODO: This is not used
-            const plainLeadingLines: string[] = [];
-            const existingDocLines: MutableDocCommentLines = [];
-
-            // Resolve the root Program node to ensure we can scan program-level
-            // comment arrays when parser attachments differ by node. This code
-            // mirrors the logic used in printStatements to find the Program
-            // ancestor in order to support scanning top-level comments.
-            let programNode = null;
-            const parentNode =
-                typeof path.getParentNode === "function"
-                    ? path.getParentNode()
-                    : null;
-
-            // Prefer the bound getParentNode call to ensure the method is
-            // invoked with the original `this` context. Some path impls
-            // expose an overload that requires the `this` value to be set.
-            if (path && typeof path.getParentNode === "function") {
-                const getParentNode = path.getParentNode;
-                try {
-                    for (let depth = 0; ; depth += 1) {
-                        const p = getParentNode.call(path, depth);
-                        if (!p) break;
-                        if (p.type === "Program") {
-                            programNode = p;
-                            break;
-                        }
-                    }
-                } catch {
-                    // If the depth-based parent lookup fails, fall back to
-                    // the immediate parent as a best-effort program node.
-                    programNode = parentNode;
-                }
-            } else {
-                programNode = parentNode;
-            }
-
-            if (programNode) {
-                console.log(
-                    `[DEBUG] programNode found. comments: ${programNode.comments?.length}`
-                );
-            } else {
-                console.log(`[DEBUG] programNode NOT found`);
-            }
-
-            // When parser does not attach doc comments to the node but the
-            // doc-like comments are present at the program root, attempt to
-            // collect them as node-level doc comment lines so the promotion
-            // and merging logic runs as though they were attached to the
-            // node. This ensures leading `///` summary lines that appear at
-            // the file's top get promoted to `@description` when synthetic
-            // tags are inserted.
-            const programLeadingLines: string[] = [];
-            if (
-                programNode &&
-                Array.isArray(programNode.comments) &&
-                typeof nodeStartIndex === "number"
-            ) {
-                const programComments = programNode.comments;
-                let anchorIndex = nodeStartIndex;
-
-                for (let i = programComments.length - 1; i >= 0; i--) {
-                    const comment = programComments[i];
-                    if (
-                        !comment ||
-                        comment.type !== "CommentLine" ||
-                        comment.printed
-                    ) {
-                        continue;
-                    }
-
-                    const commentEnd =
-                        typeof comment.end === "number"
-                            ? comment.end
-                            : (comment.end?.index ?? null);
-                    const commentStart =
-                        typeof comment.start === "number"
-                            ? comment.start
-                            : (comment.start?.index ?? null);
-
-                    console.log(
-                        `[DEBUG] Checking program comment: "${comment.value}", start: ${commentStart}, end: ${commentEnd}, anchor: ${anchorIndex}`
-                    );
-
-                    if (
-                        commentEnd === null ||
-                        commentStart === null ||
-                        commentEnd >= anchorIndex
-                    ) {
-                        continue;
-                    }
-
-                    // Check for gap
-                    if (typeof originalText === "string") {
-                        const gapText = originalText.slice(
-                            commentEnd,
-                            anchorIndex
-                        );
-                        const blankLines = (gapText.match(/\n/g) || []).length;
-                        if (blankLines >= 2) {
-                            break;
-                        }
-                    }
-
-                    const formatted = Core.formatLineComment(
-                        comment,
-                        lineCommentOptions
-                    );
-                    const trimmed = formatted ? formatted.trim() : "";
-
-                    const isDocLike =
-                        trimmed.startsWith("///") ||
-                        /^\/\/\s*\/(\s|$)/.test(trimmed) ||
-                        /^\/\/\s*@/.test(trimmed);
-
-                    if (isDocLike) {
-                        programLeadingLines.unshift(formatted);
-                        comment.printed = true;
-                        anchorIndex = commentStart;
-                    } else {
-                        // Stop at the first non-doc comment to avoid jumping over standard comments
-                        // that should break the doc comment chain.
-                        break;
-                    }
-                }
-            }
-
-            const formattedProgramLines = programLeadingLines.map((line) => {
-                const trimmed = line.trim();
-                if (trimmed.startsWith("///")) return trimmed;
-                if (trimmed.startsWith("//")) return `///${trimmed.slice(2)}`;
-                if (trimmed.startsWith("/")) return `///${trimmed.slice(1)}`;
-                return `/// ${trimmed}`;
             });
 
-            // Also check for node-attached comments that look like doc comments (e.g. // /)
-            // but were not parsed as doc comments (e.g. because of intervening comments).
-            const nodeComments = [...(node.comments || [])];
-            console.log(`[DEBUG] nodeComments count: ${nodeComments.length}`);
-            const nodeLeadingDocs: { start: number; text: string }[] = [];
+            let docCommentDocs: MutableDocCommentLines =
+                collectedDocCommentDocs;
+            let needsLeadingBlankLine = collectedNeedsLeadingBlankLine;
 
-            for (const comment of nodeComments) {
-                const commentEnd =
-                    typeof comment.end === "number"
-                        ? comment.end
-                        : (comment.end?.index ?? 0);
-
-                console.log(
-                    `[DEBUG] Checking node comment: "${comment.value}", end: ${commentEnd}, nodeStart: ${nodeStartIndex}`
-                );
-
-                if (!comment.printed && commentEnd < nodeStartIndex) {
-                    if (comment.type === "CommentLine") {
-                        const formatted = Core.formatLineComment(
-                            comment,
-                            lineCommentOptions
-                        );
-                        const trimmed = formatted ? formatted.trim() : "";
-                        const isDocLike =
-                            trimmed.startsWith("///") ||
-                            /^\/\/\s*\/(\s|$)/.test(trimmed) ||
-                            /^\/\/\s*@/.test(trimmed);
-
-                        if (isDocLike) {
-                            nodeLeadingDocs.push({
-                                start: comment.start,
-                                text: formatted
-                            });
-                            comment.printed = true;
-                            // Remove from node.comments to prevent default printing
-                            if (node.comments) {
-                                const idx = node.comments.indexOf(comment);
-                                if (idx !== -1) node.comments.splice(idx, 1);
-                            }
-                        }
-                    } else if (comment.type === "CommentBlock") {
-                        const value = comment.value.trim();
-                        const isDocLike =
-                            value.startsWith("*") || value.includes("@");
-
-                        if (isDocLike) {
-                            const lines = comment.value.split(/\r\n|\r|\n/);
-                            for (const line of lines) {
-                                let cleanLine = line.trim();
-                                if (cleanLine.startsWith("*")) {
-                                    cleanLine = cleanLine.slice(1).trim();
-                                }
-                                if (cleanLine === "") continue;
-                                nodeLeadingDocs.push({
-                                    start: comment.start,
-                                    text: `/// ${cleanLine}`
-                                });
-                            }
-                            comment.printed = true;
-                            // Remove from node.comments to prevent default printing
-                            if (node.comments) {
-                                const idx = node.comments.indexOf(comment);
-                                if (idx !== -1) node.comments.splice(idx, 1);
-                            }
-                        }
-                    }
-                }
-            }
-
-            // Apply /// formatting to node leading docs
-            const formattedNodeDocs = nodeLeadingDocs.map((doc) => {
-                const trimmed = doc.text.trim();
-                let newText = trimmed;
-                if (trimmed.startsWith("///")) newText = trimmed;
-                else if (trimmed.startsWith("//"))
-                    newText = `///${trimmed.slice(2)}`;
-                else if (trimmed.startsWith("/"))
-                    newText = `///${trimmed.slice(1)}`;
-                else newText = `/// ${trimmed}`;
-                return { start: doc.start, text: newText };
-            });
-
-            // Re-collect original doc comments with positions to ensure correct ordering
-            const originalDocDocs: { start: number; text: string }[] = [];
-            if (Core.isNonEmptyArray(node.docComments)) {
-                for (const comment of node.docComments) {
-                    const formatted = Core.formatLineComment(
-                        comment,
-                        lineCommentOptions
-                    );
-                    if (formatted && formatted.trim() !== "") {
-                        originalDocDocs.push({
-                            start: comment.start,
-                            text: formatted
-                        });
-                    }
-                }
-            }
-
-            // Merge and sort by position
-            const mergedDocs = [...originalDocDocs, ...formattedNodeDocs].sort(
-                (a, b) => a.start - b.start
-            );
-
-            const newDocCommentDocs = mergedDocs.map((x) => x.text);
-
-            // Filter out duplicates from programLeadingLines that might already be in docCommentDocs
-            const uniqueProgramLines = formattedProgramLines.filter(
-                (line) => !newDocCommentDocs.includes(line)
-            );
-
-            docCommentDocs = [...uniqueProgramLines, ...newDocCommentDocs];
-
-            // Inline small argument_count -> default conversions at print time
-            // if the parser/transform pipeline did not already materialize
-            // them as DefaultParameter nodes. This is a conservative, local
-            // heuristic that mirrors the preprocess transform so synthethic
-            // docs and compact signatures appear as expected in output.
             try {
-                // First prefer materializing any parser-side `.default` entries
-                // present on identifier params (set by preprocessFunctionArgumentDefaults).
-                // NOTE: we intentionally do NOT attempt to re-derive defaults by
-                // scanning the function body when the parser provides metadata.
-                // The parser is authoritative for optional/default intent.
                 materializeParamDefaultsFromParamDefault(node);
             } catch {
                 // Non-fatal heuristic failures should not abort printing.
             }
 
-            console.log(
-                "[DEBUG] Before shouldGenerateSyntheticDocForFunction check. docCommentDocs:",
-                JSON.stringify(docCommentDocs)
-            );
-            if (
-                Core.shouldGenerateSyntheticDocForFunction(
-                    path,
+            ({ docCommentDocs, needsLeadingBlankLine } =
+                normalizeFunctionDocCommentDocs({
                     docCommentDocs,
-                    docCommentOptions
-                )
-            ) {
-                console.log(
-                    "[DEBUG] Calling mergeSyntheticDocComments for node",
-                    node.type,
-                    "with docs:",
-                    JSON.stringify(docCommentDocs)
-                );
-                docCommentDocs = Core.toMutableArray(
-                    Core.mergeSyntheticDocComments(
-                        node,
-                        docCommentDocs,
-                        docCommentOptions
-                    )
-                ) as MutableDocCommentLines;
-                console.log(
-                    "[DEBUG] Result of mergeSyntheticDocComments:",
-                    JSON.stringify(docCommentDocs)
-                );
-                if (Array.isArray(docCommentDocs)) {
-                    while (
-                        docCommentDocs.length > 0 &&
-                        typeof docCommentDocs[0] === STRING_TYPE &&
-                        docCommentDocs[0].trim() === ""
-                    ) {
-                        docCommentDocs.shift();
-                    }
-                }
-                // Nested functions (those in BlockStatement parents) should have
-                // a leading blank line before their synthetic doc comments
-                const parentNode = path.getParentNode();
-                if (
-                    parentNode &&
-                    parentNode.type === "BlockStatement" &&
-                    !needsLeadingBlankLine
-                ) {
-                    needsLeadingBlankLine = true;
-                }
-            } else {
-                // console.log(
-                //     "[DEBUG] Skipping mergeSyntheticDocComments (shouldGenerate returned false)"
-                // );
-            }
+                    needsLeadingBlankLine,
+                    node,
+                    options,
+                    path
+                }));
 
             const shouldEmitPlainLeadingBeforeDoc =
                 plainLeadingLines.length > 0 &&
