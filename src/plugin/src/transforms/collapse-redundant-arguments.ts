@@ -2,7 +2,7 @@
  * This transform removes extra trailing `MissingOptionalArgument` nodes from
  * call expressions so that downstream formatting/printer passes do not emit
  * redundant placeholders when all supplied arguments have been elided.
- * 
+ *
  * The transform targets cases where a call contains multiple missing optional
  * arguments, collapsing them down to a single missing placeholder and therefore
  * reducing noise during the printer stage.
