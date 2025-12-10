@@ -136,7 +136,6 @@ void test("keeps division-by-constant grouping when optimizeMathExpressions is d
 
     const formatted = await Plugin.format(source, {
         parser: "gml-parse",
-        applyFeatherFixes: true,
         optimizeMathExpressions: false
     });
 
@@ -160,7 +159,7 @@ void test("keeps division-by-constant grouping when optimizeMathExpressions is d
     );
 });
 
-void test("keeps division-by-two grouping when Feather fixes are disabled", async () => {
+void test("math optimization is not tied to Feather fixes", async () => {
     const source = [
         "function sample(a, b) {",
         "    var m1, r1;",
@@ -171,9 +170,16 @@ void test("keeps division-by-two grouping when Feather fixes are disabled", asyn
         ""
     ].join("\n");
 
-    const formatted = await Plugin.format(source, {
+    const formatted1 = await Plugin.format(source, {
         parser: "gml-parse",
-        applyFeatherFixes: false
+        applyFeatherFixes: false,
+        optimizeMathExpressions: true
+    });
+
+    const formatted2 = await Plugin.format(source, {
+        parser: "gml-parse",
+        applyFeatherFixes: true,
+        optimizeMathExpressions: true
     });
 
     const expectedLines = [
@@ -183,16 +189,22 @@ void test("keeps division-by-two grouping when Feather fixes are disabled", asyn
         "function sample(a, b) {",
         "    var m1, r1;",
         "    m1 = 1 / (b.mass + a.mass);",
-        "    r1 = (b.mass * m1) / 2;",
+        "    r1 = b.mass * m1 * 0.5;",
         "    return r1;",
         "}",
         ""
     ].join("\n");
 
     assert.strictEqual(
-        formatted.trim(),
+        formatted1.trim(),
         expectedLines.trim(),
-        "Expected division-by-two groups to keep their explicit parentheses when Feather fixes are disabled."
+        "Expected division to be converted to multiplication when optimizeMathExpressions is enabled, regardless of whether Feather fixes are being applied or not"
+    );
+
+    assert.strictEqual(
+        formatted2.trim(),
+        expectedLines.trim(),
+        "Expected division to be converted to multiplication when optimizeMathExpressions is enabled, regardless of Feather fixes being applied."
     );
 });
 
