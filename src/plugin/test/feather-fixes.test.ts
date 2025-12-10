@@ -84,7 +84,9 @@ void describe("Transforms.applyFeatherFixes transform", () => {
         });
 
         const [macro] = ast.body ?? [];
-        Transforms.applyFeatherFixesTransform.transform(ast, { sourceText: source });
+        Transforms.applyFeatherFixesTransform.transform(ast, {
+            sourceText: source
+        });
 
         assert.ok(Array.isArray(ast._appliedFeatherDiagnostics));
         assert.strictEqual(
@@ -123,7 +125,9 @@ void describe("Transforms.applyFeatherFixes transform", () => {
         });
 
         const [macro] = ast.body ?? [];
-        Transforms.applyFeatherFixesTransform.transform(ast, { sourceText: source });
+        Transforms.applyFeatherFixesTransform.transform(ast, {
+            sourceText: source
+        });
 
         assert.ok(macro);
         assert.ok(Array.isArray(macro.tokens));
@@ -148,7 +152,9 @@ void describe("Transforms.applyFeatherFixes transform", () => {
             simplifyLocations: false
         });
 
-        Transforms.applyFeatherFixesTransform.transform(ast, { sourceText: source });
+        Transforms.applyFeatherFixesTransform.transform(ast, {
+            sourceText: source
+        });
 
         assert.ok(Array.isArray(ast.body));
         assert.strictEqual(
@@ -275,7 +281,9 @@ void describe("Transforms.applyFeatherFixes transform", () => {
             simplifyLocations: false
         });
 
-        Transforms.applyFeatherFixesTransform.transform(ast, { sourceText: source });
+        Transforms.applyFeatherFixesTransform.transform(ast, {
+            sourceText: source
+        });
 
         const allDeclarations = [];
 
@@ -377,7 +385,9 @@ void describe("Transforms.applyFeatherFixes transform", () => {
             simplifyLocations: false
         });
 
-        Transforms.applyFeatherFixesTransform.transform(ast, { sourceText: source });
+        Transforms.applyFeatherFixesTransform.transform(ast, {
+            sourceText: source
+        });
 
         const programBody = Array.isArray(ast.body) ? ast.body : [];
         const repeatStatements = programBody.filter(
@@ -455,7 +465,9 @@ void describe("Transforms.applyFeatherFixes transform", () => {
             simplifyLocations: false
         });
 
-        Transforms.applyFeatherFixesTransform.transform(ast, { sourceText: source });
+        Transforms.applyFeatherFixesTransform.transform(ast, {
+            sourceText: source
+        });
 
         const [firstStatement] = ast.body ?? [];
         const callExpression =
@@ -504,7 +516,9 @@ void describe("Transforms.applyFeatherFixes transform", () => {
             simplifyLocations: false
         });
 
-        Transforms.applyFeatherFixesTransform.transform(ast, { sourceText: source });
+        Transforms.applyFeatherFixesTransform.transform(ast, {
+            sourceText: source
+        });
 
         const [enumDeclaration] = ast.body ?? [];
         assert.ok(enumDeclaration);
@@ -588,7 +602,9 @@ void describe("Transforms.applyFeatherFixes transform", () => {
             end: { index: 50 }
         };
 
-        Transforms.applyFeatherFixesTransform.transform(ast, { sourceText: "" });
+        Transforms.applyFeatherFixesTransform.transform(ast, {
+            sourceText: ""
+        });
 
         const [enumDeclaration] = ast.body ?? [];
         assert.ok(enumDeclaration);
@@ -631,7 +647,9 @@ void describe("Transforms.applyFeatherFixes transform", () => {
             simplifyLocations: false
         });
 
-        Transforms.applyFeatherFixesTransform.transform(ast, { sourceText: source });
+        Transforms.applyFeatherFixesTransform.transform(ast, {
+            sourceText: source
+        });
 
         const [functionDeclaration] = ast.body ?? [];
         assert.ok(functionDeclaration);
@@ -696,7 +714,9 @@ void describe("Transforms.applyFeatherFixes transform", () => {
             simplifyLocations: false
         });
 
-        Transforms.applyFeatherFixesTransform.transform(ast, { sourceText: source });
+        Transforms.applyFeatherFixesTransform.transform(ast, {
+            sourceText: source
+        });
 
         const [functionDeclaration] = ast.body ?? [];
         assert.ok(functionDeclaration);
@@ -738,7 +758,9 @@ void describe("Transforms.applyFeatherFixes transform", () => {
             simplifyLocations: false
         });
 
-        Transforms.applyFeatherFixesTransform.transform(ast, { sourceText: source });
+        Transforms.applyFeatherFixesTransform.transform(ast, {
+            sourceText: source
+        });
 
         const [nextDeclaration, previousDeclaration, gotoStatement] =
             ast.body ?? [];
@@ -871,7 +893,9 @@ void describe("Transforms.applyFeatherFixes transform", () => {
             simplifyLocations: false
         });
 
-        Transforms.applyFeatherFixesTransform.transform(ast, { sourceText: source });
+        Transforms.applyFeatherFixesTransform.transform(ast, {
+            sourceText: source
+        });
 
         const programFixes = ast._appliedFeatherDiagnostics;
         assert.ok(Array.isArray(programFixes));
@@ -901,7 +925,9 @@ void describe("Transforms.applyFeatherFixes transform", () => {
             simplifyLocations: false
         });
 
-        Transforms.applyFeatherFixesTransform.transform(ast, { sourceText: source });
+        Transforms.applyFeatherFixesTransform.transform(ast, {
+            sourceText: source
+        });
 
         const programBody = Array.isArray(ast.body) ? ast.body : [];
 
@@ -945,7 +971,9 @@ void describe("Transforms.applyFeatherFixes transform", () => {
             simplifyLocations: false
         });
 
-        Transforms.applyFeatherFixesTransform.transform(ast, { sourceText: source });
+        Transforms.applyFeatherFixesTransform.transform(ast, {
+            sourceText: source
+        });
 
         const [promotedAssignment, firstWith, secondWith] = ast.body ?? [];
 
@@ -1025,7 +1053,9 @@ void describe("Transforms.applyFeatherFixes transform", () => {
             simplifyLocations: false
         });
 
-        Transforms.applyFeatherFixesTransform.transform(ast, { sourceText: source });
+        Transforms.applyFeatherFixesTransform.transform(ast, {
+            sourceText: source
+        });
 
         const constructor = ast.body?.[0];
         assert.ok(constructor);
@@ -1064,7 +1094,9 @@ void describe("Transforms.applyFeatherFixes transform", () => {
             simplifyLocations: false
         });
 
-        Transforms.applyFeatherFixesTransform.transform(ast, { sourceText: source });
+        Transforms.applyFeatherFixesTransform.transform(ast, {
+            sourceText: source
+        });
 
         const [assignment] = ast.body ?? [];
         assert.ok(assignment);
@@ -1114,7 +1146,9 @@ void describe("Transforms.applyFeatherFixes transform", () => {
             simplifyLocations: false
         });
 
-        Transforms.applyFeatherFixesTransform.transform(ast, { sourceText: source });
+        Transforms.applyFeatherFixesTransform.transform(ast, {
+            sourceText: source
+        });
 
         const [, combinedDeclaration, appendedDeclaration] = ast.body ?? [];
 
@@ -1151,7 +1185,9 @@ void describe("Transforms.applyFeatherFixes transform", () => {
         assert.ok(originalInit);
         assert.strictEqual(originalInit.type, "MemberDotExpression");
 
-        Transforms.applyFeatherFixesTransform.transform(ast, { sourceText: source });
+        Transforms.applyFeatherFixesTransform.transform(ast, {
+            sourceText: source
+        });
 
         const updatedInit = declaration?.init;
 
@@ -1184,7 +1220,9 @@ void describe("Transforms.applyFeatherFixes transform", () => {
             simplifyLocations: false
         });
 
-        Transforms.applyFeatherFixesTransform.transform(ast, { sourceText: source });
+        Transforms.applyFeatherFixesTransform.transform(ast, {
+            sourceText: source
+        });
 
         const typoCall = ast.body?.find(
             (node) => node?.type === "CallExpression"
@@ -1246,7 +1284,9 @@ void describe("Transforms.applyFeatherFixes transform", () => {
             simplifyLocations: false
         });
 
-        Transforms.applyFeatherFixesTransform.transform(ast, { sourceText: source });
+        Transforms.applyFeatherFixesTransform.transform(ast, {
+            sourceText: source
+        });
 
         const [
             firstAssignment,
@@ -1307,7 +1347,9 @@ void describe("Transforms.applyFeatherFixes transform", () => {
             simplifyLocations: false
         });
 
-        Transforms.applyFeatherFixesTransform.transform(ast, { sourceText: source });
+        Transforms.applyFeatherFixesTransform.transform(ast, {
+            sourceText: source
+        });
 
         const [ifStatement] = ast.body ?? [];
         const comparison = ifStatement?.test?.expression;
@@ -1351,7 +1393,9 @@ void describe("Transforms.applyFeatherFixes transform", () => {
             simplifyLocations: false
         });
 
-        Transforms.applyFeatherFixesTransform.transform(ast, { sourceText: source });
+        Transforms.applyFeatherFixesTransform.transform(ast, {
+            sourceText: source
+        });
 
         const [variableDeclaration, incDecStatement] = ast.body ?? [];
 
@@ -1411,7 +1455,9 @@ void describe("Transforms.applyFeatherFixes transform", () => {
             simplifyLocations: false
         });
 
-        Transforms.applyFeatherFixesTransform.transform(ast, { sourceText: source });
+        Transforms.applyFeatherFixesTransform.transform(ast, {
+            sourceText: source
+        });
 
         const [macro, varDeclaration, staticDeclaration] = ast.body ?? [];
 
@@ -1476,7 +1522,9 @@ void describe("Transforms.applyFeatherFixes transform", () => {
             simplifyLocations: false
         });
 
-        Transforms.applyFeatherFixesTransform.transform(ast, { sourceText: source });
+        Transforms.applyFeatherFixesTransform.transform(ast, {
+            sourceText: source
+        });
 
         const [callExpression] = ast.body ?? [];
         assert.ok(callExpression);
@@ -1531,7 +1579,9 @@ void describe("Transforms.applyFeatherFixes transform", () => {
             simplifyLocations: false
         });
 
-        Transforms.applyFeatherFixesTransform.transform(ast, { sourceText: source });
+        Transforms.applyFeatherFixesTransform.transform(ast, {
+            sourceText: source
+        });
 
         const functionDeclaration = ast.body?.[0];
         assert.ok(functionDeclaration?.body?.body);
@@ -1602,7 +1652,9 @@ void describe("Transforms.applyFeatherFixes transform", () => {
         assert.ok(originalArgument);
         assert.strictEqual(originalArgument.type, "Literal");
 
-        Transforms.applyFeatherFixesTransform.transform(ast, { sourceText: source });
+        Transforms.applyFeatherFixesTransform.transform(ast, {
+            sourceText: source
+        });
 
         const updatedArgument = callExpression.arguments?.[3];
         assert.ok(updatedArgument);
@@ -1644,7 +1696,9 @@ void describe("Transforms.applyFeatherFixes transform", () => {
             simplifyLocations: false
         });
 
-        Transforms.applyFeatherFixesTransform.transform(ast, { sourceText: source });
+        Transforms.applyFeatherFixesTransform.transform(ast, {
+            sourceText: source
+        });
 
         assert.ok(Array.isArray(ast.body));
         assert.strictEqual(ast.body.length >= 2, true);
@@ -1704,7 +1758,9 @@ void describe("Transforms.applyFeatherFixes transform", () => {
         assert.ok(functionNode);
         assert.strictEqual(functionNode.type, "FunctionDeclaration");
 
-        Transforms.applyFeatherFixesTransform.transform(ast, { sourceText: source });
+        Transforms.applyFeatherFixesTransform.transform(ast, {
+            sourceText: source
+        });
 
         assert.strictEqual(functionNode.type, "ConstructorDeclaration");
 
@@ -1740,7 +1796,9 @@ void describe("Transforms.applyFeatherFixes transform", () => {
             simplifyLocations: false
         });
 
-        Transforms.applyFeatherFixesTransform.transform(ast, { sourceText: source });
+        Transforms.applyFeatherFixesTransform.transform(ast, {
+            sourceText: source
+        });
 
         const [fn] = ast.body ?? [];
         assert.ok(fn);
@@ -1785,7 +1843,9 @@ void describe("Transforms.applyFeatherFixes transform", () => {
             simplifyLocations: false
         });
 
-        Transforms.applyFeatherFixesTransform.transform(ast, { sourceText: source });
+        Transforms.applyFeatherFixesTransform.transform(ast, {
+            sourceText: source
+        });
 
         const [ctor] = ast.body ?? [];
         assert.ok(ctor);
@@ -1906,7 +1966,9 @@ void describe("Transforms.applyFeatherFixes transform", () => {
             simplifyLocations: false
         });
 
-        Transforms.applyFeatherFixesTransform.transform(ast, { sourceText: source });
+        Transforms.applyFeatherFixesTransform.transform(ast, {
+            sourceText: source
+        });
 
         const [enumDeclaration] = ast.body ?? [];
         assert.ok(enumDeclaration);
@@ -1994,7 +2056,9 @@ void describe("Transforms.applyFeatherFixes transform", () => {
             simplifyLocations: false
         });
 
-        Transforms.applyFeatherFixesTransform.transform(ast, { sourceText: source });
+        Transforms.applyFeatherFixesTransform.transform(ast, {
+            sourceText: source
+        });
 
         assert.ok(Array.isArray(ast._appliedFeatherDiagnostics));
 
@@ -2038,7 +2102,9 @@ void describe("Transforms.applyFeatherFixes transform", () => {
             simplifyLocations: false
         });
 
-        Transforms.applyFeatherFixesTransform.transform(ast, { sourceText: source });
+        Transforms.applyFeatherFixesTransform.transform(ast, {
+            sourceText: source
+        });
 
         const body = ast.body ?? [];
         assert.ok(Array.isArray(body));
@@ -2093,7 +2159,9 @@ void describe("Transforms.applyFeatherFixes transform", () => {
             simplifyLocations: false
         });
 
-        Transforms.applyFeatherFixesTransform.transform(ast, { sourceText: source });
+        Transforms.applyFeatherFixesTransform.transform(ast, {
+            sourceText: source
+        });
 
         const body = Array.isArray(ast.body) ? ast.body : [];
         const setIndex = body.findIndex(
@@ -2171,7 +2239,9 @@ void describe("Transforms.applyFeatherFixes transform", () => {
             simplifyLocations: false
         });
 
-        Transforms.applyFeatherFixesTransform.transform(ast, { sourceText: source });
+        Transforms.applyFeatherFixesTransform.transform(ast, {
+            sourceText: source
+        });
 
         const body = Array.isArray(ast.body) ? ast.body : [];
         const submitIndex = body.findIndex(
@@ -2215,7 +2285,9 @@ void describe("Transforms.applyFeatherFixes transform", () => {
             simplifyLocations: false
         });
 
-        Transforms.applyFeatherFixesTransform.transform(ast, { sourceText: source });
+        Transforms.applyFeatherFixesTransform.transform(ast, {
+            sourceText: source
+        });
 
         const callExpression = ast.body?.find(
             (node) => node?.type === "CallExpression"
@@ -2294,7 +2366,9 @@ void describe("Transforms.applyFeatherFixes transform", () => {
             simplifyLocations: false
         });
 
-        Transforms.applyFeatherFixesTransform.transform(ast, { sourceText: source });
+        Transforms.applyFeatherFixesTransform.transform(ast, {
+            sourceText: source
+        });
 
         const ifStatement = (ast.body ?? []).find(
             (node) => node?.type === "IfStatement"
@@ -2393,7 +2467,9 @@ void describe("Transforms.applyFeatherFixes transform", () => {
 
         collectArgumentIdentifiers(ast);
 
-        Transforms.applyFeatherFixesTransform.transform(ast, { sourceText: source });
+        Transforms.applyFeatherFixesTransform.transform(ast, {
+            sourceText: source
+        });
 
         const changedIdentifiers = trackedIdentifiers.filter(
             (entry) => entry.node.name !== entry.originalName
@@ -2466,7 +2542,9 @@ void describe("Transforms.applyFeatherFixes transform", () => {
             simplifyLocations: false
         });
 
-        Transforms.applyFeatherFixesTransform.transform(ast, { sourceText: source });
+        Transforms.applyFeatherFixesTransform.transform(ast, {
+            sourceText: source
+        });
 
         const [functionDeclaration] = ast.body ?? [];
         assert.strictEqual(functionDeclaration?.type, "FunctionDeclaration");
@@ -2516,7 +2594,9 @@ void describe("Transforms.applyFeatherFixes transform", () => {
             simplifyLocations: false
         });
 
-        Transforms.applyFeatherFixesTransform.transform(ast, { sourceText: source });
+        Transforms.applyFeatherFixesTransform.transform(ast, {
+            sourceText: source
+        });
 
         const metadata = Array.isArray(ast._appliedFeatherDiagnostics)
             ? ast._appliedFeatherDiagnostics
@@ -2562,7 +2642,9 @@ void describe("Transforms.applyFeatherFixes transform", () => {
         assert.strictEqual(typeof firstStatement, "object");
         assert.strictEqual(typeof secondStatement, "object");
 
-        Transforms.applyFeatherFixesTransform.transform(ast, { sourceText: source });
+        Transforms.applyFeatherFixesTransform.transform(ast, {
+            sourceText: source
+        });
 
         assert.ok(Array.isArray(ast.body));
         assert.strictEqual(ast.body.length > 0, true);
@@ -2610,7 +2692,9 @@ void describe("Transforms.applyFeatherFixes transform", () => {
             simplifyLocations: false
         });
 
-        Transforms.applyFeatherFixesTransform.transform(ast, { sourceText: source });
+        Transforms.applyFeatherFixesTransform.transform(ast, {
+            sourceText: source
+        });
 
         const macros = Array.isArray(ast.body)
             ? ast.body.filter((node) => node?.type === "MacroDeclaration")
@@ -2661,7 +2745,9 @@ void describe("Transforms.applyFeatherFixes transform", () => {
         const [baseFunction, childConstructor, orphanConstructor] =
             ast.body ?? [];
 
-        Transforms.applyFeatherFixesTransform.transform(ast, { sourceText: source });
+        Transforms.applyFeatherFixesTransform.transform(ast, {
+            sourceText: source
+        });
 
         assert.ok(baseFunction);
         assert.strictEqual(baseFunction.type, "ConstructorDeclaration");
@@ -2706,7 +2792,9 @@ void describe("Transforms.applyFeatherFixes transform", () => {
             simplifyLocations: false
         });
 
-        Transforms.applyFeatherFixesTransform.transform(ast, { sourceText: source });
+        Transforms.applyFeatherFixesTransform.transform(ast, {
+            sourceText: source
+        });
 
         const [fn] = ast.body ?? [];
         assert.ok(fn);
@@ -2776,7 +2864,9 @@ void describe("Transforms.applyFeatherFixes transform", () => {
             simplifyLocations: false
         });
 
-        Transforms.applyFeatherFixesTransform.transform(ast, { sourceText: source });
+        Transforms.applyFeatherFixesTransform.transform(ast, {
+            sourceText: source
+        });
 
         const separatorStatements = (ast.body ?? []).filter(
             (node) => node?.type === "EmptyStatement"
@@ -2838,7 +2928,9 @@ void describe("Transforms.applyFeatherFixes transform", () => {
             simplifyLocations: false
         });
 
-        Transforms.applyFeatherFixesTransform.transform(ast, { sourceText: source });
+        Transforms.applyFeatherFixesTransform.transform(ast, {
+            sourceText: source
+        });
 
         const statements = (ast.body ?? []).filter(
             (node) => node?.type !== "EmptyStatement"
@@ -2891,7 +2983,9 @@ void describe("Transforms.applyFeatherFixes transform", () => {
             simplifyLocations: false
         });
 
-        Transforms.applyFeatherFixesTransform.transform(ast, { sourceText: source });
+        Transforms.applyFeatherFixesTransform.transform(ast, {
+            sourceText: source
+        });
 
         const statements = ast.body ?? [];
 
@@ -2924,7 +3018,9 @@ void describe("Transforms.applyFeatherFixes transform", () => {
             simplifyLocations: false
         });
 
-        Transforms.applyFeatherFixesTransform.transform(ast, { sourceText: source });
+        Transforms.applyFeatherFixesTransform.transform(ast, {
+            sourceText: source
+        });
 
         const statements = (ast.body ?? []).filter(
             (node) => node?.type !== "EmptyStatement"
@@ -2987,7 +3083,9 @@ void describe("Transforms.applyFeatherFixes transform", () => {
             simplifyLocations: false
         });
 
-        Transforms.applyFeatherFixesTransform.transform(ast, { sourceText: source });
+        Transforms.applyFeatherFixesTransform.transform(ast, {
+            sourceText: source
+        });
 
         const statements = (ast.body ?? []).filter(
             (node) => node?.type !== "EmptyStatement"
@@ -3053,7 +3151,9 @@ void describe("Transforms.applyFeatherFixes transform", () => {
             simplifyLocations: false
         });
 
-        Transforms.applyFeatherFixesTransform.transform(ast, { sourceText: source });
+        Transforms.applyFeatherFixesTransform.transform(ast, {
+            sourceText: source
+        });
 
         const statements = (ast.body ?? []).filter(
             (node) => node?.type !== "EmptyStatement"
@@ -3117,7 +3217,9 @@ void describe("Transforms.applyFeatherFixes transform", () => {
             simplifyLocations: false
         });
 
-        Transforms.applyFeatherFixesTransform.transform(ast, { sourceText: source });
+        Transforms.applyFeatherFixesTransform.transform(ast, {
+            sourceText: source
+        });
 
         const body = Array.isArray(ast.body) ? ast.body : [];
         const insertedCall = body.at(-1);
@@ -3215,7 +3317,9 @@ void describe("Transforms.applyFeatherFixes transform", () => {
             simplifyLocations: false
         });
 
-        Transforms.applyFeatherFixesTransform.transform(ast, { sourceText: source });
+        Transforms.applyFeatherFixesTransform.transform(ast, {
+            sourceText: source
+        });
 
         const programBody = Array.isArray(ast.body) ? ast.body : [];
         assert.strictEqual(programBody.length, 3);
@@ -3263,7 +3367,9 @@ void describe("Transforms.applyFeatherFixes transform", () => {
             simplifyLocations: false
         });
 
-        Transforms.applyFeatherFixesTransform.transform(ast, { sourceText: source });
+        Transforms.applyFeatherFixesTransform.transform(ast, {
+            sourceText: source
+        });
 
         const programBody = Array.isArray(ast.body) ? ast.body : [];
         const callNames = programBody
@@ -3297,7 +3403,9 @@ void describe("Transforms.applyFeatherFixes transform", () => {
             simplifyLocations: false
         });
 
-        Transforms.applyFeatherFixesTransform.transform(ast, { sourceText: source });
+        Transforms.applyFeatherFixesTransform.transform(ast, {
+            sourceText: source
+        });
 
         const programBody = Array.isArray(ast.body) ? ast.body : [];
         const callNames = programBody
@@ -3335,7 +3443,9 @@ void describe("Transforms.applyFeatherFixes transform", () => {
             simplifyLocations: false
         });
 
-        Transforms.applyFeatherFixesTransform.transform(ast, { sourceText: source });
+        Transforms.applyFeatherFixesTransform.transform(ast, {
+            sourceText: source
+        });
 
         const programBody = Array.isArray(ast.body) ? ast.body : [];
         assert.strictEqual(programBody.length, 6);
@@ -3393,7 +3503,9 @@ void describe("Transforms.applyFeatherFixes transform", () => {
             true
         );
 
-        Transforms.applyFeatherFixesTransform.transform(ast, { sourceText: source });
+        Transforms.applyFeatherFixesTransform.transform(ast, {
+            sourceText: source
+        });
 
         const fixedTernary = assignment?.right;
         assert.ok(fixedTernary);
@@ -3440,7 +3552,9 @@ void describe("Transforms.applyFeatherFixes transform", () => {
             simplifyLocations: false
         });
 
-        Transforms.applyFeatherFixesTransform.transform(ast, { sourceText: source });
+        Transforms.applyFeatherFixesTransform.transform(ast, {
+            sourceText: source
+        });
 
         const body = Array.isArray(ast.body) ? ast.body : [];
         const vertexBeginIndex = body.findIndex(
@@ -3507,7 +3621,9 @@ void describe("Transforms.applyFeatherFixes transform", () => {
             simplifyLocations: false
         });
 
-        Transforms.applyFeatherFixesTransform.transform(ast, { sourceText: source });
+        Transforms.applyFeatherFixesTransform.transform(ast, {
+            sourceText: source
+        });
 
         const body = Array.isArray(ast.body) ? ast.body : [];
         assert.strictEqual(body.length, 0);
@@ -3538,7 +3654,9 @@ void describe("Transforms.applyFeatherFixes transform", () => {
             simplifyLocations: false
         });
 
-        Transforms.applyFeatherFixesTransform.transform(ast, { sourceText: source });
+        Transforms.applyFeatherFixesTransform.transform(ast, {
+            sourceText: source
+        });
 
         const body = ast.body ?? [];
         assert.strictEqual(body.length >= 3, true);
@@ -3646,7 +3764,9 @@ void describe("Transforms.applyFeatherFixes transform", () => {
             simplifyLocations: false
         });
 
-        Transforms.applyFeatherFixesTransform.transform(ast, { sourceText: source });
+        Transforms.applyFeatherFixesTransform.transform(ast, {
+            sourceText: source
+        });
 
         const [declaration, assignment, moduloAssignment, moduloCompound] =
             ast.body ?? [];
@@ -3749,7 +3869,9 @@ void describe("Transforms.applyFeatherFixes transform", () => {
             }
         });
 
-        Transforms.applyFeatherFixesTransform.transform(ast, { sourceText: source });
+        Transforms.applyFeatherFixesTransform.transform(ast, {
+            sourceText: source
+        });
 
         assert.strictEqual(firstAssignment.right?.type, "Literal");
         assert.strictEqual(firstAssignment.right?.value, "1");
@@ -4020,7 +4142,9 @@ void describe("Transforms.applyFeatherFixes transform", () => {
             simplifyLocations: false
         });
 
-        Transforms.applyFeatherFixesTransform.transform(ast, { sourceText: source });
+        Transforms.applyFeatherFixesTransform.transform(ast, {
+            sourceText: source
+        });
 
         const functionNode = ast.body?.[0];
         assert.ok(functionNode?.type === "FunctionDeclaration");
@@ -4098,7 +4222,9 @@ void describe("Transforms.applyFeatherFixes transform", () => {
             simplifyLocations: false
         });
 
-        Transforms.applyFeatherFixesTransform.transform(ast, { sourceText: source });
+        Transforms.applyFeatherFixesTransform.transform(ast, {
+            sourceText: source
+        });
 
         const appliedDiagnostics = ast._appliedFeatherDiagnostics ?? [];
         assert.strictEqual(
@@ -4153,7 +4279,9 @@ void describe("Transforms.applyFeatherFixes transform", () => {
             simplifyLocations: false
         });
 
-        Transforms.applyFeatherFixesTransform.transform(ast, { sourceText: source });
+        Transforms.applyFeatherFixesTransform.transform(ast, {
+            sourceText: source
+        });
 
         const body = Array.isArray(ast.body) ? ast.body : [];
 
@@ -4216,7 +4344,9 @@ void describe("Transforms.applyFeatherFixes transform", () => {
             simplifyLocations: false
         });
 
-        Transforms.applyFeatherFixesTransform.transform(ast, { sourceText: source });
+        Transforms.applyFeatherFixesTransform.transform(ast, {
+            sourceText: source
+        });
 
         const body = Array.isArray(ast.body) ? ast.body : [];
 
@@ -4295,7 +4425,9 @@ void describe("Transforms.applyFeatherFixes transform", () => {
             simplifyLocations: false
         });
 
-        Transforms.applyFeatherFixesTransform.transform(ast, { sourceText: source });
+        Transforms.applyFeatherFixesTransform.transform(ast, {
+            sourceText: source
+        });
 
         const body = Array.isArray(ast.body) ? ast.body : [];
 
@@ -4370,7 +4502,9 @@ void describe("Transforms.applyFeatherFixes transform", () => {
             simplifyLocations: false
         });
 
-        Transforms.applyFeatherFixesTransform.transform(ast, { sourceText: source });
+        Transforms.applyFeatherFixesTransform.transform(ast, {
+            sourceText: source
+        });
 
         const body = Array.isArray(ast.body) ? ast.body : [];
         assert.strictEqual(body.length, 1);
@@ -4413,7 +4547,9 @@ void describe("Transforms.applyFeatherFixes transform", () => {
             simplifyLocations: false
         });
 
-        Transforms.applyFeatherFixesTransform.transform(ast, { sourceText: source });
+        Transforms.applyFeatherFixesTransform.transform(ast, {
+            sourceText: source
+        });
 
         const body = Array.isArray(ast.body) ? ast.body : [];
         assert.strictEqual(body.length, 1);
@@ -4455,7 +4591,9 @@ void describe("Transforms.applyFeatherFixes transform", () => {
             simplifyLocations: false
         });
 
-        Transforms.applyFeatherFixesTransform.transform(ast, { sourceText: source });
+        Transforms.applyFeatherFixesTransform.transform(ast, {
+            sourceText: source
+        });
 
         const body = (ast.body ?? []).filter(
             (node) => node?.type !== "EmptyStatement"
@@ -4523,7 +4661,9 @@ void describe("Transforms.applyFeatherFixes transform", () => {
             simplifyLocations: false
         });
 
-        Transforms.applyFeatherFixesTransform.transform(ast, { sourceText: source });
+        Transforms.applyFeatherFixesTransform.transform(ast, {
+            sourceText: source
+        });
 
         const statements = (ast.body ?? []).filter(
             (node) => node?.type !== "EmptyStatement"
@@ -4557,7 +4697,9 @@ void describe("Transforms.applyFeatherFixes transform", () => {
             simplifyLocations: false
         });
 
-        Transforms.applyFeatherFixesTransform.transform(ast, { sourceText: source });
+        Transforms.applyFeatherFixesTransform.transform(ast, {
+            sourceText: source
+        });
 
         const body = ast.body ?? [];
         assert.strictEqual(body.length >= 3, true);
@@ -4611,7 +4753,9 @@ void describe("Transforms.applyFeatherFixes transform", () => {
             simplifyLocations: false
         });
 
-        Transforms.applyFeatherFixesTransform.transform(ast, { sourceText: source });
+        Transforms.applyFeatherFixesTransform.transform(ast, {
+            sourceText: source
+        });
 
         const statements = Array.isArray(ast.body) ? ast.body : [];
         assert.strictEqual(
@@ -4684,7 +4828,9 @@ void describe("Transforms.applyFeatherFixes transform", () => {
             simplifyLocations: false
         });
 
-        Transforms.applyFeatherFixesTransform.transform(ast, { sourceText: source });
+        Transforms.applyFeatherFixesTransform.transform(ast, {
+            sourceText: source
+        });
 
         const statements = Array.isArray(ast.body) ? ast.body : [];
         assert.strictEqual(
@@ -4722,7 +4868,9 @@ void describe("Transforms.applyFeatherFixes transform", () => {
             simplifyLocations: false
         });
 
-        Transforms.applyFeatherFixesTransform.transform(ast, { sourceText: source });
+        Transforms.applyFeatherFixesTransform.transform(ast, {
+            sourceText: source
+        });
 
         const statements = Array.isArray(ast.body) ? ast.body : [];
         const remainingClosers = statements.filter(
@@ -4781,7 +4929,9 @@ void describe("Transforms.applyFeatherFixes transform", () => {
         const conditional = statements[1];
         assert.ok(conditional?.type === "IfStatement");
 
-        Transforms.applyFeatherFixesTransform.transform(ast, { sourceText: source });
+        Transforms.applyFeatherFixesTransform.transform(ast, {
+            sourceText: source
+        });
 
         const [beginCall, fixedConditional, trailingCall] = ast.body ?? [];
         assert.ok(isCallExpression(beginCall));
@@ -4828,7 +4978,9 @@ void describe("Transforms.applyFeatherFixes transform", () => {
             simplifyLocations: false
         });
 
-        Transforms.applyFeatherFixesTransform.transform(ast, { sourceText: source });
+        Transforms.applyFeatherFixesTransform.transform(ast, {
+            sourceText: source
+        });
 
         const statements = Array.isArray(ast.body) ? ast.body : [];
         assert.ok(
@@ -4887,7 +5039,9 @@ void describe("Transforms.applyFeatherFixes transform", () => {
             simplifyLocations: false
         });
 
-        Transforms.applyFeatherFixesTransform.transform(ast, { sourceText: source });
+        Transforms.applyFeatherFixesTransform.transform(ast, {
+            sourceText: source
+        });
 
         const calls = Array.isArray(ast.body)
             ? ast.body.filter((node) => node?.type === "CallExpression")
@@ -4940,7 +5094,9 @@ void describe("Transforms.applyFeatherFixes transform", () => {
             simplifyLocations: false
         });
 
-        Transforms.applyFeatherFixesTransform.transform(ast, { sourceText: source });
+        Transforms.applyFeatherFixesTransform.transform(ast, {
+            sourceText: source
+        });
 
         const body = Array.isArray(ast.body) ? ast.body : [];
         const vertexBeginIndex = body.findIndex(
@@ -5005,7 +5161,9 @@ void describe("Transforms.applyFeatherFixes transform", () => {
             simplifyLocations: false
         });
 
-        Transforms.applyFeatherFixesTransform.transform(ast, { sourceText: source });
+        Transforms.applyFeatherFixesTransform.transform(ast, {
+            sourceText: source
+        });
 
         const body = Array.isArray(ast.body) ? ast.body : [];
         assert.strictEqual(
@@ -5074,7 +5232,9 @@ void describe("Transforms.applyFeatherFixes transform", () => {
             simplifyLocations: false
         });
 
-        Transforms.applyFeatherFixesTransform.transform(ast, { sourceText: source });
+        Transforms.applyFeatherFixesTransform.transform(ast, {
+            sourceText: source
+        });
 
         const statements = Array.isArray(ast.body) ? ast.body : [];
         assert.strictEqual(statements.length, 6);
@@ -5119,7 +5279,9 @@ void describe("Transforms.applyFeatherFixes transform", () => {
             simplifyLocations: false
         });
 
-        Transforms.applyFeatherFixesTransform.transform(ast, { sourceText: source });
+        Transforms.applyFeatherFixesTransform.transform(ast, {
+            sourceText: source
+        });
 
         const statements = Array.isArray(ast.body) ? ast.body : [];
         assert.strictEqual(statements.length, 6);
@@ -5148,7 +5310,9 @@ void describe("Transforms.applyFeatherFixes transform", () => {
             simplifyLocations: false
         });
 
-        Transforms.applyFeatherFixesTransform.transform(ast, { sourceText: source });
+        Transforms.applyFeatherFixesTransform.transform(ast, {
+            sourceText: source
+        });
 
         const body = Array.isArray(ast.body) ? ast.body : [];
         const setTargetIndex = body.findIndex(
@@ -5219,7 +5383,9 @@ void describe("Transforms.applyFeatherFixes transform", () => {
             simplifyLocations: false
         });
 
-        Transforms.applyFeatherFixesTransform.transform(ast, { sourceText: source });
+        Transforms.applyFeatherFixesTransform.transform(ast, {
+            sourceText: source
+        });
 
         const statements = Array.isArray(ast.body) ? ast.body : [];
         const callExpressions = statements.filter(
@@ -5299,7 +5465,9 @@ void describe("Transforms.applyFeatherFixes transform", () => {
             simplifyLocations: false
         });
 
-        Transforms.applyFeatherFixesTransform.transform(ast, { sourceText: source });
+        Transforms.applyFeatherFixesTransform.transform(ast, {
+            sourceText: source
+        });
 
         const programBody = Array.isArray(ast.body) ? ast.body : [];
         assert.strictEqual(
@@ -5357,7 +5525,9 @@ void describe("Transforms.applyFeatherFixes transform", () => {
         const statements = functionNode?.body?.body ?? [];
         const [directCall, performCall, performObjectCall] = statements;
 
-        Transforms.applyFeatherFixesTransform.transform(ast, { sourceText: source });
+        Transforms.applyFeatherFixesTransform.transform(ast, {
+            sourceText: source
+        });
 
         const assertUserEventMetadata = (node, expectedTarget) => {
             assert.ok(node, `Expected call expression for ${expectedTarget}.`);

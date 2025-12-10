@@ -16,7 +16,7 @@ export function fixMalformedComments(sourceText) {
     }> = [];
     let accumulatedDiff = 0;
 
-    const newText = sourceText.replace(pattern, (match, p1, p2, index) => {
+    const newText = sourceText.replaceAll(pattern, (match, p1, p2, index) => {
         const replacement = `${p1}// ${p2}`;
         const diff = replacement.length - match.length;
 

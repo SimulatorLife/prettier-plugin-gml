@@ -63,4 +63,3 @@ export class CollapseRedundantMissingCallArgumentsTransform extends FunctionalPa
 
 export const collapseRedundantMissingCallArgumentsTransform =
     new CollapseRedundantMissingCallArgumentsTransform();
-

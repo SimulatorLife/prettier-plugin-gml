@@ -404,10 +404,9 @@ function applyFinalTransforms(
     Transforms.collapseRedundantMissingCallArgumentsTransform.transform(ast);
     Transforms.enforceVariableBlockSpacingTransform.transform(ast);
 
-    Transforms.markCallsMissingArgumentSeparatorsTransform.transform(
-        ast,
-        { originalText: options?.originalText ?? originalSource }
-    );
+    Transforms.markCallsMissingArgumentSeparatorsTransform.transform(ast, {
+        originalText: options?.originalText ?? originalSource
+    });
 }
 
 function parse(text: string, options?: GmlParserAdapterOptions) {

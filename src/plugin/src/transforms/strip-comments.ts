@@ -75,4 +75,3 @@ export class StripCommentsTransform extends FunctionalParserTransform<StripComme
 export const stripCommentsTransform = new StripCommentsTransform();
 
 export default { stripCommentsTransform };
-

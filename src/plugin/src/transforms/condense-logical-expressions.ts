@@ -16,4 +16,3 @@ export class CondenseLogicalExpressionsTransform extends FunctionalParserTransfo
 
 export const condenseLogicalExpressionsTransform =
     new CondenseLogicalExpressionsTransform();
-

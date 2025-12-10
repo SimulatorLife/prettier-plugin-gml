@@ -156,7 +156,9 @@ void describe("Prettier GameMaker plugin fixtures", () => {
                 return;
             }
 
-            console.log(`[DEBUG] Failed test ${baseName}. Actual output:\n${formatted}\n-------------------`);
+            console.log(
+                `[DEBUG] Failed test ${baseName}. Actual output:\n${formatted}\n-------------------`
+            );
 
             const formattedLines = formatted.split("\n");
             const expectedLines = expected.split("\n");

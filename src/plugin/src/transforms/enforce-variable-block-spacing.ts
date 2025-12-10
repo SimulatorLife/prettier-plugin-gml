@@ -97,4 +97,3 @@ export class EnforceVariableBlockSpacingTransform extends FunctionalParserTransf
 
 export const enforceVariableBlockSpacingTransform =
     new EnforceVariableBlockSpacingTransform();
-

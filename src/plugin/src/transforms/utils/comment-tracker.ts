@@ -8,7 +8,9 @@ export class CommentTracker {
         consumed?: boolean;
     }>;
 
-    private checkpoints: Array<Array<{ index: number; comment: unknown; consumed?: boolean }>> = [];
+    private checkpoints: Array<
+        Array<{ index: number; comment: unknown; consumed?: boolean }>
+    > = [];
 
     constructor(ownerOrComments: unknown) {
         const sourceComments = (() => {
@@ -50,7 +52,7 @@ export class CommentTracker {
                 // helper when the simple shape is not present so the tracker
                 // remains tolerant across runtime import contexts.
                 let index;
-                const maybeStart = comment && (comment as any).start;
+                const maybeStart = comment && (comment).start;
                 if (maybeStart && typeof maybeStart.index === "number") {
                     index = maybeStart.index;
                 } else if (typeof maybeStart === "number") {
@@ -116,7 +118,11 @@ export class CommentTracker {
         return false;
     }
 
-    takeBetween(left: number, right: number, predicate?: (comment: unknown) => boolean) {
+    takeBetween(
+        left: number,
+        right: number,
+        predicate?: (comment: unknown) => boolean
+    ) {
         if (this.entries.length === 0 || left === undefined) {
             return [];
         }
@@ -207,12 +213,12 @@ export class CommentTracker {
                 // entry is { index, comment }
                 entry.consumed = true;
                 if (entry.comment) {
-                    (entry.comment)._removedByConsolidation = true;
+                    entry.comment._removedByConsolidation = true;
                 }
             } else {
                 // entry is a plain comment node
                 const commentNode = entry;
-                (commentNode)._removedByConsolidation = true;
+                commentNode._removedByConsolidation = true;
                 // Find the corresponding tracker entry and mark it consumed if present
                 for (const e of this.entries) {
                     if (e && e.comment === commentNode) {

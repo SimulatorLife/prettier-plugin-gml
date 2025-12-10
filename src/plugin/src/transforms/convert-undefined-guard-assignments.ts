@@ -71,7 +71,9 @@ export class ConvertUndefinedGuardAssignmentsTransform extends FunctionalParserT
             return false;
         }
 
-        const consequentAssignment = this.extractSoleAssignment(node.consequent);
+        const consequentAssignment = this.extractSoleAssignment(
+            node.consequent
+        );
 
         if (!consequentAssignment) {
             return false;
@@ -82,7 +84,10 @@ export class ConvertUndefinedGuardAssignmentsTransform extends FunctionalParserT
             return false;
         }
 
-        const guardTest = this.resolveUndefinedGuardExpression(node.test, targetName);
+        const guardTest = this.resolveUndefinedGuardExpression(
+            node.test,
+            targetName
+        );
         if (!guardTest) {
             return false;
         }
@@ -90,7 +95,9 @@ export class ConvertUndefinedGuardAssignmentsTransform extends FunctionalParserT
         const alternateAssignment = this.extractSoleAssignment(node.alternate);
 
         if (alternateAssignment) {
-            if (targetName !== Core.getIdentifierText(alternateAssignment.left)) {
+            if (
+                targetName !== Core.getIdentifierText(alternateAssignment.left)
+            ) {
                 return false;
             }
 
@@ -171,7 +178,8 @@ export class ConvertUndefinedGuardAssignmentsTransform extends FunctionalParserT
             return null;
         }
 
-        const unwrapped = Core.unwrapParenthesizedExpression(testNode) ?? testNode;
+        const unwrapped =
+            Core.unwrapParenthesizedExpression(testNode) ?? testNode;
 
         if (Core.hasComment(unwrapped)) {
             return null;
@@ -312,6 +320,3 @@ export class ConvertUndefinedGuardAssignmentsTransform extends FunctionalParserT
 
 export const convertUndefinedGuardAssignmentsTransform =
     new ConvertUndefinedGuardAssignmentsTransform();
-
-
-

@@ -105,21 +105,30 @@ export class ConsolidateStructAssignmentsTransform extends FunctionalParserTrans
         }
         console.log("ConsolidateStructAssignmentsTransform executing");
         if (ast.comments) {
-            console.log(`[DEBUG] Initial comments count: ${ast.comments.length}`);
+            console.log(
+                `[DEBUG] Initial comments count: ${ast.comments.length}`
+            );
         }
 
-        const normalizedCommentTools = normalizeCommentTools(options.commentTools);
+        const normalizedCommentTools = normalizeCommentTools(
+            options.commentTools
+        );
         const tracker = new CommentTracker(ast);
         this.visit(ast, tracker, normalizedCommentTools);
-        
-        const consumedCount = tracker.entries.filter(e => e.consumed).length;
+
+        const consumedCount = tracker.entries.filter((e) => e.consumed).length;
         console.log(`[DEBUG] Consumed comments count: ${consumedCount}`);
         if (consumedCount > 0) {
-            console.log("[DEBUG] Consumed comments:", tracker.entries.filter(e => e.consumed).map(e => Core.getCommentValue(e.comment)));
+            console.log(
+                "[DEBUG] Consumed comments:",
+                tracker.entries
+                    .filter((e) => e.consumed)
+                    .map((e) => Core.getCommentValue(e.comment))
+            );
         }
 
         tracker.removeConsumedComments();
-        
+
         if (ast.comments) {
             console.log(`[DEBUG] Final comments count: ${ast.comments.length}`);
         }
@@ -257,7 +266,8 @@ export class ConsolidateStructAssignmentsTransform extends FunctionalParserTrans
                 break;
             }
 
-            const property = this.buildPropertyFromAssignment(assignmentDetails);
+            const property =
+                this.buildPropertyFromAssignment(assignmentDetails);
             if (!property) {
                 break;
             }
@@ -267,7 +277,8 @@ export class ConsolidateStructAssignmentsTransform extends FunctionalParserTrans
             const attachableComments = tracker.takeBetween(
                 end,
                 nextStart ?? Number.POSITIVE_INFINITY,
-                (comment) => this.isAttachableTrailingComment(comment, statement)
+                (comment) =>
+                    this.isAttachableTrailingComment(comment, statement)
             );
 
             if (attachableComments.length > 0) {
@@ -447,7 +458,10 @@ export class ConsolidateStructAssignmentsTransform extends FunctionalParserTrans
         }
 
         const { assignment, propertyAccess } = assignmentDetails;
-        if (!Core.isNode(assignment) || assignment.type !== ASSIGNMENT_EXPRESSION) {
+        if (
+            !Core.isNode(assignment) ||
+            assignment.type !== ASSIGNMENT_EXPRESSION
+        ) {
             return null;
         }
         const assignmentNode = assignment as MutableGameMakerAstNode;
@@ -456,7 +470,9 @@ export class ConsolidateStructAssignmentsTransform extends FunctionalParserTrans
             return null;
         }
 
-        const propertyKey = this.getPropertyKeyInfo(propertyAccess.propertyNode);
+        const propertyKey = this.getPropertyKeyInfo(
+            propertyAccess.propertyNode
+        );
         const propertyName = this.buildPropertyNameNode(propertyKey);
         if (!propertyName) {
             return null;
@@ -484,7 +500,10 @@ export class ConsolidateStructAssignmentsTransform extends FunctionalParserTrans
     }
 
     private getStructPropertyAssignmentDetails(statement, identifierName) {
-        if (!Core.isNode(statement) || statement.type !== ASSIGNMENT_EXPRESSION) {
+        if (
+            !Core.isNode(statement) ||
+            statement.type !== ASSIGNMENT_EXPRESSION
+        ) {
             return null;
         }
 
@@ -500,7 +519,10 @@ export class ConsolidateStructAssignmentsTransform extends FunctionalParserTrans
             return null;
         }
 
-        return { assignment: statement as MutableGameMakerAstNode, propertyAccess };
+        return {
+            assignment: statement as MutableGameMakerAstNode,
+            propertyAccess
+        };
     }
 
     private getStructPropertyAccess(left, identifierName) {
@@ -618,7 +640,8 @@ export class ConsolidateStructAssignmentsTransform extends FunctionalParserTrans
 
         if (
             commentEntries.some(
-                ({ comment }) => !this.isTrailingLineCommentOnLine(comment, expectedLine)
+                ({ comment }) =>
+                    !this.isTrailingLineCommentOnLine(comment, expectedLine)
             )
         ) {
             return false;
@@ -708,6 +731,3 @@ export class ConsolidateStructAssignmentsTransform extends FunctionalParserTrans
 
 export const consolidateStructAssignmentsTransform =
     new ConsolidateStructAssignmentsTransform();
-
-
-

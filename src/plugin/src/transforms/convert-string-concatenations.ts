@@ -251,7 +251,10 @@ export class ConvertStringConcatenationsTransform extends FunctionalParserTransf
 
             // Check if this is a string conversion call like string(fps) and unwrap it
             // You never need to use string() inside an interpolated string in GML – it is fully redundant
-            if (core.type === "CallExpression" && this.isStringFunctionCall(core)) {
+            if (
+                core.type === "CallExpression" &&
+                this.isStringFunctionCall(core)
+            ) {
                 // Use the first argument of the string function call, or the original if no args
                 const firstArg =
                     Array.isArray(core.arguments) && core.arguments.length > 0
@@ -369,11 +372,14 @@ export class ConvertStringConcatenationsTransform extends FunctionalParserTransf
         // Manual stripping to ensure we preserve all internal whitespace
         const first = raw.charAt(0);
         const last = raw.charAt(raw.length - 1);
-        
-        if ((first === '"' && last === '"') || (first === "'" && last === "'")) {
+
+        if (
+            (first === '"' && last === '"') ||
+            (first === "'" && last === "'")
+        ) {
             return raw.slice(1, -1);
         }
-        
+
         // Handle @"..." strings
         if (first === "@" && raw.charAt(1) === '"' && last === '"') {
             return raw.slice(2, -1);
@@ -385,5 +391,3 @@ export class ConvertStringConcatenationsTransform extends FunctionalParserTransf
 
 export const convertStringConcatenationsTransform =
     new ConvertStringConcatenationsTransform();
-
-

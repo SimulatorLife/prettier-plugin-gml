@@ -206,4 +206,3 @@ export class AnnotateStaticFunctionOverridesTransform extends FunctionalParserTr
 
 export const annotateStaticFunctionOverridesTransform =
     new AnnotateStaticFunctionOverridesTransform();
-

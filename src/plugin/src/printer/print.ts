@@ -613,8 +613,6 @@ function _printImpl(path, options, print) {
             //     console.log("[DEBUG] FunctionDeclaration has NO leadingComments");
             // }
 
-
-
             let docCommentDocs: MutableDocCommentLines = [];
             const lineCommentOptions = resolveLineCommentOptions(options);
             let needsLeadingBlankLine = false;
@@ -634,8 +632,13 @@ function _printImpl(path, options, print) {
                 }
                 docCommentDocs = node.docComments
                     .map((comment) => {
-                        const formatted = formatLineComment(comment, lineCommentOptions);
-                        console.log(`[DEBUG] formatLineComment input: "${comment.value}", output: "${formatted}"`);
+                        const formatted = formatLineComment(
+                            comment,
+                            lineCommentOptions
+                        );
+                        console.log(
+                            `[DEBUG] formatLineComment input: "${comment.value}", output: "${formatted}"`
+                        );
                         return formatted;
                     })
                     .filter(
@@ -818,7 +821,6 @@ function _printImpl(path, options, print) {
                             value.startsWith("*") || value.includes("@");
 
                         if (isDocLike) {
-
                             const lines = comment.value.split(/\r\n|\r|\n/);
                             for (const line of lines) {
                                 let cleanLine = line.trim();
@@ -873,10 +875,9 @@ function _printImpl(path, options, print) {
             }
 
             // Merge and sort by position
-            const mergedDocs = [
-                ...originalDocDocs,
-                ...formattedNodeDocs
-            ].sort((a, b) => a.start - b.start);
+            const mergedDocs = [...originalDocDocs, ...formattedNodeDocs].sort(
+                (a, b) => a.start - b.start
+            );
 
             const newDocCommentDocs = mergedDocs.map((x) => x.text);
 
@@ -1172,7 +1173,9 @@ function _printImpl(path, options, print) {
                             "init"
                         );
                         parts.push(
-                            group(concat(["global.", idDoc, " = ", initDoc, ";"]))
+                            group(
+                                concat(["global.", idDoc, " = ", initDoc, ";"])
+                            )
                         );
                     }
                 });
@@ -2685,8 +2688,6 @@ function shouldForceBreakStructArgument(argument) {
     if (properties.length === 0) {
         return false;
     }
-
-
 
     if (
         properties.some(
@@ -5283,7 +5284,7 @@ function printBooleanReturnIf(path, print) {
 
     if (consequentReturn.value === alternateReturn.value) {
         return null;
-       }
+    }
 
     const conditionDoc = printWithoutExtraParens(path, print, "test");
     const conditionNode = node.test;
@@ -6222,7 +6223,11 @@ function shouldFlattenSyntheticBinary(parent, expression, path) {
         return false;
     }
 
-    if (isAdditivePair && (binaryExpressionContainsString(parent) || binaryExpressionContainsString(expression))) {
+    if (
+        isAdditivePair &&
+        (binaryExpressionContainsString(parent) ||
+            binaryExpressionContainsString(expression))
+    ) {
         return false;
     }
 
