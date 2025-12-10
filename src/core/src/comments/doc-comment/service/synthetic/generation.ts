@@ -147,9 +147,6 @@ export function computeSyntheticFunctionDocLines(
             : []
     ) as DocMeta[];
 
-    if (metadata.some((meta) => meta.tag === "ignore")) {
-        return [];
-    }
 
     const orderedParamMetadata = metadata.filter(
         (meta) => meta.tag === "param"
