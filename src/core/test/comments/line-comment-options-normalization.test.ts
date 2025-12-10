@@ -1,13 +1,15 @@
 import assert from "node:assert/strict";
 import { afterEach, describe, it } from "node:test";
-import {
+import { Core } from "../../src/index.js";
+
+const {
     DEFAULT_COMMENTED_OUT_CODE_PATTERNS,
     DEFAULT_LINE_COMMENT_OPTIONS,
     formatLineComment,
     resolveLineCommentOptions,
     restoreDefaultLineCommentOptionsResolver,
     setLineCommentOptionsResolver
-} from "../src/comments/index.js";
+} = Core;
 
 function createLineComment(value, raw = `//${value}`) {
     return {

@@ -1,7 +1,6 @@
-// TODO: This file is too large and should be split into multiple smaller files.
-// General, non-printer-related Node utils should be moved into Core.
+// TODO: This file is too large and should be split into multiple smaller files. General, non-printer-related Node utils should be moved into Core. This file should be more high level, and focused on coordinating the various lower-level, sub-printers that each handle printing of focused/specific concerns
 
-// TODO: ALL doc-comment/function-doc functionality here should be extracted and moved to Core's doc-comment manager/module (e.g. Core.computeSyntheticFunctionDocLines, Core.normalizeParamDocType, Core.collectImplicitArgumentDocNames, etc.). Any tests related to doc-comments should also be moved accordingly. Need to be VERY careful that no functionality is lost during the migration. Also be VERY dilligent to ensure that no duplicate functionality is created during the migration.
+// TODO: ALL doc-comment/function-doc functionality here should be extracted and moved to the doc-comment manager/module. Any tests related to doc-comments should also be moved accordingly. Need to be VERY careful that no functionality is lost during the migration. Also be VERY dilligent to ensure that no duplicate functionality is created during the migration.
 
 import { Core, type MutableDocCommentLines } from "@gml-modules/core";
 import { util } from "prettier";
@@ -48,11 +47,9 @@ import {
     stripTrailingLineTerminators
 } from "./source-text.js";
 import {
-    formatLineComment,
     printComment,
     printDanglingComments,
-    printDanglingCommentsAsGroup,
-    resolveLineCommentOptions
+    printDanglingCommentsAsGroup
 } from "../comments/index.js";
 import { TRAILING_COMMA } from "../options/trailing-comma-option.js";
 import { buildSyntheticDocComment } from "./synthetic-doc-comment-builder.js";
@@ -608,7 +605,7 @@ function _printImpl(path, options, print) {
 
             let docCommentDocs: MutableDocCommentLines = [];
             const lineCommentOptions = {
-                ...resolveLineCommentOptions(options),
+                ...Core.resolveLineCommentOptions(options),
                 originalText
             };
             let needsLeadingBlankLine = false;
@@ -628,7 +625,7 @@ function _printImpl(path, options, print) {
                 }
                 docCommentDocs = node.docComments
                     .map((comment) => {
-                        const formatted = formatLineComment(
+                        const formatted = Core.formatLineComment(
                             comment,
                             lineCommentOptions
                         );
@@ -758,7 +755,7 @@ function _printImpl(path, options, print) {
                         }
                     }
 
-                    const formatted = formatLineComment(
+                    const formatted = Core.formatLineComment(
                         comment,
                         lineCommentOptions
                     );
@@ -807,7 +804,7 @@ function _printImpl(path, options, print) {
 
                 if (!comment.printed && commentEnd < nodeStartIndex) {
                     if (comment.type === "CommentLine") {
-                        const formatted = formatLineComment(
+                        const formatted = Core.formatLineComment(
                             comment,
                             lineCommentOptions
                         );
@@ -875,7 +872,7 @@ function _printImpl(path, options, print) {
             const originalDocDocs: { start: number; text: string }[] = [];
             if (Core.isNonEmptyArray(node.docComments)) {
                 for (const comment of node.docComments) {
-                    const formatted = formatLineComment(
+                    const formatted = Core.formatLineComment(
                         comment,
                         lineCommentOptions
                     );
@@ -2728,8 +2725,8 @@ function buildStructPropertyCommentSuffix(path, options) {
 
     for (const comment of comments) {
         if ((comment as any)?._structPropertyTrailing === true) {
-            const formatted = formatLineComment(comment, {
-                ...resolveLineCommentOptions(options),
+            const formatted = Core.formatLineComment(comment, {
+                ...Core.resolveLineCommentOptions(options),
                 originalText: options.originalText
             });
             if (formatted) {

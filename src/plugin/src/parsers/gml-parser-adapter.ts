@@ -8,10 +8,6 @@ import { util } from "prettier";
 import { Parser } from "@gml-modules/parser";
 import * as Transforms from "../transforms/index.js";
 import { Semantic } from "@gml-modules/semantic";
-import {
-    normalizeLineCommentOptions,
-    resolveLineCommentOptions
-} from "../comments/index.js";
 
 const { getNodeStartIndex, getNodeEndIndex } = Core;
 const { addTrailingComment } = util;
@@ -273,8 +269,8 @@ function filterParserComments(
         return;
     }
 
-    const lineCommentOptions = resolveLineCommentOptions(options);
-    const normalizedOptions = normalizeLineCommentOptions(
+    const lineCommentOptions = Core.resolveLineCommentOptions(options);
+    const normalizedOptions = Core.normalizeLineCommentOptions(
         lineCommentOptions
     ) as {
         boilerplateFragments: Array<string>;
