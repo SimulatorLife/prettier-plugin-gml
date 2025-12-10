@@ -1,31 +1,32 @@
 import assert from "node:assert/strict";
 import { describe, it } from "node:test";
 
-import {
-    hasBlankLineBeforeLeadingComment,
-    hasBlankLineBetweenLastCommentAndClosingBrace,
-    macroTextHasExplicitTrailingBlankLine,
-    resolveNodeIndexRangeWithSource,
-    resolvePrinterSourceMetadata,
-    sliceOriginalText,
-    stripTrailingLineTerminators
-} from "../src/printer/source-text.js";
+import * as Printer from "../src/printer/index.js";
 
 void describe("printer source text helpers", () => {
     void it("trims trailing line terminators without regex allocation", () => {
-        assert.equal(stripTrailingLineTerminators("macro\n\r\n"), "macro");
-        assert.equal(stripTrailingLineTerminators("macro"), "macro");
+        assert.equal(
+            Printer.SourceText.stripTrailingLineTerminators("macro\n\r\n"),
+            "macro"
+        );
+        assert.equal(
+            Printer.SourceText.stripTrailingLineTerminators("macro"),
+            "macro"
+        );
     });
 
     void it("normalizes printer metadata inputs", () => {
-        assert.deepEqual(resolvePrinterSourceMetadata(null), {
-            originalText: null,
-            locStart: null,
-            locEnd: null
-        });
+        assert.deepEqual(
+            Printer.SourceText.resolvePrinterSourceMetadata(null),
+            {
+                originalText: null,
+                locStart: null,
+                locEnd: null
+            }
+        );
 
         const locStart = () => 1;
-        const metadata = resolvePrinterSourceMetadata({
+        const metadata = Printer.SourceText.resolvePrinterSourceMetadata({
             originalText: "text",
             locStart,
             locEnd: () => 3
@@ -37,7 +38,7 @@ void describe("printer source text helpers", () => {
     });
 
     void it("computes node ranges with metadata overrides", () => {
-        const range = resolveNodeIndexRangeWithSource(
+        const range = Printer.SourceText.resolveNodeIndexRangeWithSource(
             { start: 5, end: 8 },
             { originalText: null, locStart: () => 10, locEnd: () => 15 }
         );
@@ -46,13 +47,27 @@ void describe("printer source text helpers", () => {
     });
 
     void it("slices text only when bounds are valid", () => {
-        assert.equal(sliceOriginalText("abcdef", 1, 4), "bcd");
-        assert.equal(sliceOriginalText("abcdef", 4, 1), null);
+        assert.equal(
+            Printer.SourceText.sliceOriginalText("abcdef", 1, 4),
+            "bcd"
+        );
+        assert.equal(
+            Printer.SourceText.sliceOriginalText("abcdef", 4, 1),
+            null
+        );
     });
 
     void it("detects explicit trailing blank lines in macro text", () => {
-        assert.equal(macroTextHasExplicitTrailingBlankLine("macro\n\n"), true);
-        assert.equal(macroTextHasExplicitTrailingBlankLine("macro\n"), false);
+        assert.equal(
+            Printer.SourceText.macroTextHasExplicitTrailingBlankLine(
+                "macro\n\n"
+            ),
+            true
+        );
+        assert.equal(
+            Printer.SourceText.macroTextHasExplicitTrailingBlankLine("macro\n"),
+            false
+        );
     });
 
     void it("reports absence of surrounding blank lines for compact blocks", () => {
@@ -65,10 +80,12 @@ void describe("printer source text helpers", () => {
         };
 
         const originalText = "{\n//first\n}";
-        const metadata = resolvePrinterSourceMetadata({ originalText });
+        const metadata = Printer.SourceText.resolvePrinterSourceMetadata({
+            originalText
+        });
 
         assert.equal(
-            hasBlankLineBeforeLeadingComment(
+            Printer.SourceText.hasBlankLineBeforeLeadingComment(
                 blockNode,
                 metadata,
                 originalText,
@@ -78,7 +95,7 @@ void describe("printer source text helpers", () => {
         );
 
         assert.equal(
-            hasBlankLineBetweenLastCommentAndClosingBrace(
+            Printer.SourceText.hasBlankLineBetweenLastCommentAndClosingBrace(
                 blockNode,
                 metadata,
                 originalText
