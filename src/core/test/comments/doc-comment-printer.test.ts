@@ -3,16 +3,6 @@ import test from "node:test";
 
 import { Core } from "@gml-modules/core";
 
-const docPrinterDeps = {
-    resolveLineCommentOptions: () => ({}),
-    formatLineComment(comment: any) {
-        return typeof comment?.value === "string" ? comment.value : "";
-    },
-    getLineCommentRawText(comment: any) {
-        return typeof comment?.value === "string" ? comment.value : "";
-    }
-};
-
 function createLineComment(text: string, start = 0, end = start) {
     return {
         type: "CommentLine",
@@ -31,8 +21,7 @@ void test("collectSyntheticDocCommentLines prefers node-level doc comments", () 
         node,
         {},
         null,
-        null,
-        docPrinterDeps
+        null
     );
 
     assert.deepStrictEqual(result.existingDocLines, ["/// @function local"]);
@@ -51,8 +40,7 @@ void test("collectSyntheticDocCommentLines falls back to program-level comments"
         node,
         {},
         programNode,
-        sourceText,
-        docPrinterDeps
+        sourceText
     );
 
     assert.deepStrictEqual(result.existingDocLines, ["/// @function program"]);
@@ -71,8 +59,7 @@ void test("collectLeadingProgramLineComments returns plain // comments", () => {
         node,
         programNode,
         {},
-        "// banner\n// following\nfunction foo() {}",
-        docPrinterDeps
+        "// banner\n// following\nfunction foo() {}"
     );
 
     assert.deepStrictEqual(lines, ["// banner", "// following"]);
@@ -85,7 +72,7 @@ void test("extractLeadingNonDocCommentLines keeps plain comments only", () => {
     ];
 
     const { leadingLines, remainingComments } =
-        Core.extractLeadingNonDocCommentLines(comments, {}, docPrinterDeps);
+        Core.extractLeadingNonDocCommentLines(comments, {});
 
     assert.deepStrictEqual(leadingLines, ["// plain"]);
     assert.strictEqual(remainingComments[0]?.value, "/// @description");

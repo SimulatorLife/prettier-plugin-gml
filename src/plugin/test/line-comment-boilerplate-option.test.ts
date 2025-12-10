@@ -1,7 +1,6 @@
 import assert from "node:assert/strict";
 import { describe, it } from "node:test";
-import { formatLineComment } from "../src/comments/line-comment-formatting.js";
-import { DEFAULT_LINE_COMMENT_OPTIONS } from "../src/comments/line-comment-options.js";
+import { Core } from "@gml-modules/core";
 
 function createLineComment(value, raw = `//${value}`) {
     return {
@@ -18,12 +17,12 @@ void describe("line comment boilerplate defaults", () => {
             " Script assets have changed for v2.3.0; visit https://help.yoyogames.com/hc/en-us/articles/360005277377 for more information"
         );
 
-        const formatted = formatLineComment(
+        const formatted = Core.formatLineComment(
             comment,
-            DEFAULT_LINE_COMMENT_OPTIONS
+            Core.DEFAULT_LINE_COMMENT_OPTIONS
         );
 
-        assert.strictEqual(formatted, "");
+        assert.strictEqual(formatted, null);
     });
 
     void it("removes GameMaker's default script description stub", () => {
@@ -32,12 +31,12 @@ void describe("line comment boilerplate defaults", () => {
             "/// @description Insert description here"
         );
 
-        const formatted = formatLineComment(
+        const formatted = Core.formatLineComment(
             comment,
-            DEFAULT_LINE_COMMENT_OPTIONS
+            Core.DEFAULT_LINE_COMMENT_OPTIONS
         );
 
-        assert.strictEqual(formatted, "");
+        assert.strictEqual(formatted, null);
     });
 
     void it("removes the default editor guidance stub", () => {
@@ -46,20 +45,20 @@ void describe("line comment boilerplate defaults", () => {
             "// You can write your code in this editor"
         );
 
-        const formatted = formatLineComment(
+        const formatted = Core.formatLineComment(
             comment,
-            DEFAULT_LINE_COMMENT_OPTIONS
+            Core.DEFAULT_LINE_COMMENT_OPTIONS
         );
 
-        assert.strictEqual(formatted, "");
+        assert.strictEqual(formatted, null);
     });
 
     void it("preserves unrelated comments", () => {
         const comment = createLineComment(" Remember to sync the controller.");
 
-        const formatted = formatLineComment(
+        const formatted = Core.formatLineComment(
             comment,
-            DEFAULT_LINE_COMMENT_OPTIONS
+            Core.DEFAULT_LINE_COMMENT_OPTIONS
         );
 
         assert.strictEqual(formatted, "// Remember to sync the controller.");

@@ -1,6 +1,7 @@
-import { Core } from "@gml-modules/core";
-
-// Use Core.* helpers directly rather than destructuring the Core namespace.
+import { isObjectLike } from "../../utils/object.js";
+import { createResolverController } from "../../utils/resolver-controller.js";
+import { isNonEmptyString } from "../../utils/string.js";
+import { isRegExpLike } from "../../utils/capability-probes.js";
 
 // Any line comment that starts with at least this many consecutive `/`
 // characters is considered a "banner" comment for formatting purposes.
@@ -9,20 +10,12 @@ import { Core } from "@gml-modules/core";
 const LINE_COMMENT_BANNER_DETECTION_MIN_SLASHES = 4;
 
 const DEFAULT_BOILERPLATE_COMMENT_FRAGMENTS = Object.freeze([
-    // YoYo Games injects this banner while exporting assets; stripping it keeps
-    // source control diffs focused on meaningful edits instead of generated noise.
     "Script assets have changed for v2.3.0",
     "https://help.yoyogames.com/hc/en-us/articles/360005277377 for more information",
-    // New script files start with placeholder documentation that adds no signal to
-    // version control, so we redact it automatically.
     "@description Insert description here",
-    // The IDE also seeds a generic reminder about the built-in editor; keeping it
-    // out of repositories avoids churn when importing starter assets.
     "You can write your code in this editor"
 ]);
 
-// These heuristics flag the most common "commented out" snippets so they stay
-// verbatim without requiring extra configuration from consumers.
 const DEFAULT_COMMENTED_OUT_CODE_PATTERNS = Object.freeze([
     /^(?:if|else|for|while|switch|do|return|break|continue|repeat|with|var|global|enum|function|try|catch|finally|throw|delete|new)\b/i,
     /^[A-Za-z_$][A-Za-z0-9_$]*\s*(?:\.|\(|\[|=)/,
@@ -35,7 +28,7 @@ const DEFAULT_LINE_COMMENT_OPTIONS = Object.freeze({
     codeDetectionPatterns: DEFAULT_COMMENTED_OUT_CODE_PATTERNS
 });
 
-const lineCommentOptionsController = Core.createResolverController({
+const lineCommentOptionsController = createResolverController({
     defaultFactory: () => DEFAULT_LINE_COMMENT_OPTIONS,
     normalize: normalizeLineCommentOptions,
     errorMessage:
@@ -73,7 +66,7 @@ function normalizeArrayOption(
 function normalizeBoilerplateFragments(fragments) {
     return normalizeArrayOption(fragments, {
         defaultValue: DEFAULT_LINE_COMMENT_OPTIONS.boilerplateFragments,
-        filter: Core.isNonEmptyString,
+        filter: isNonEmptyString,
         map: String
     });
 }
@@ -81,7 +74,7 @@ function normalizeBoilerplateFragments(fragments) {
 function normalizeCodeDetectionPatterns(patterns) {
     return normalizeArrayOption(patterns, {
         defaultValue: DEFAULT_LINE_COMMENT_OPTIONS.codeDetectionPatterns,
-        filter: Core.isRegExpLike
+        filter: isRegExpLike
     });
 }
 
@@ -90,7 +83,7 @@ function normalizeLineCommentOptions(options) {
         return DEFAULT_LINE_COMMENT_OPTIONS;
     }
 
-    if (!Core.isObjectLike(options)) {
+    if (!isObjectLike(options)) {
         return DEFAULT_LINE_COMMENT_OPTIONS;
     }
 
@@ -120,19 +113,10 @@ function resolveLineCommentOptions(options = {}) {
     return lineCommentOptionsController.resolve(options);
 }
 
-/**
- * Registers a custom resolver for the line comment heuristics. Intended for
- * host integrations that need to extend the boilerplate detection rules
- * without exposing additional end-user configuration.
- */
 function setLineCommentOptionsResolver(resolver) {
     return lineCommentOptionsController.set(resolver);
 }
 
-/**
- * Restores the built-in resolver so callers can tear down ad-hoc
- * customizations and return to the opinionated defaults.
- */
 function restoreDefaultLineCommentOptionsResolver() {
     return lineCommentOptionsController.restore();
 }

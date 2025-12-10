@@ -616,7 +616,10 @@ function _printImpl(path, options, print) {
             // }
 
             let docCommentDocs: MutableDocCommentLines = [];
-            const lineCommentOptions = resolveLineCommentOptions(options);
+            const lineCommentOptions = {
+                ...resolveLineCommentOptions(options),
+                originalText
+            };
             let needsLeadingBlankLine = false;
             const docCommentOptions = resolveDocCommentPrinterOptions(options);
 
@@ -2736,7 +2739,10 @@ function buildStructPropertyCommentSuffix(path, options) {
         if ((comment as any)?._structPropertyTrailing === true) {
             const formatted = formatLineComment(
                 comment,
-                resolveLineCommentOptions(options)
+                {
+                    ...resolveLineCommentOptions(options),
+                    originalText: options.originalText
+                }
             );
             if (formatted) {
                 commentDocs.push(formatted);

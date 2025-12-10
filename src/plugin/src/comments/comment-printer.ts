@@ -3,8 +3,6 @@
 import { util } from "prettier";
 import { builders } from "prettier/doc";
 import { Core } from "@gml-modules/core";
-import { formatLineComment } from "./line-comment-formatting.js";
-import { resolveLineCommentOptions } from "./line-comment-options.js";
 
 const { addDanglingComment, addLeadingComment } = util;
 const { join, hardline } = builders;
@@ -130,12 +128,12 @@ function shouldSuppressComment(comment, options) {
     if (comment.type !== "CommentLine") {
         return false;
     }
-    const lineCommentOptions = resolveLineCommentOptions(options);
+    const lineCommentOptions = Core.resolveLineCommentOptions(options);
     const formattingOptions = {
         ...lineCommentOptions,
         originalText: options.originalText
     };
-    return formatLineComment(comment, formattingOptions) === null;
+    return Core.formatLineComment(comment, formattingOptions) === null;
 }
 
 const handleComments = {
@@ -185,6 +183,7 @@ const handleComments = {
 
 function printComment(commentPath, options) {
     const comment = commentPath.getValue();
+    console.log(`[DEBUG] printComment called for: ${comment.value}`);
 
     if (!Core.isCommentNode(comment)) {
         if (Core.isObjectLike(comment)) {
@@ -211,12 +210,12 @@ function printComment(commentPath, options) {
             return `/*${comment.value}*/`;
         }
         case "CommentLine": {
-            const lineCommentOptions = resolveLineCommentOptions(options);
+            const lineCommentOptions = Core.resolveLineCommentOptions(options);
             const formattingOptions = {
                 ...lineCommentOptions,
                 originalText: options.originalText
             };
-            const formatted = formatLineComment(comment, formattingOptions);
+            const formatted = Core.formatLineComment(comment, formattingOptions);
             return formatted ?? "";
         }
         default: {
@@ -317,6 +316,7 @@ function collectDanglingComments(path, filter) {
     const entries = [];
     path.each((commentPath) => {
         const comment = commentPath.getValue();
+        console.log(`[DEBUG] collectDanglingComments checking comment: "${comment.value}" leading=${comment.leading} trailing=${comment.trailing}`);
         if (
             Core.isCommentNode(comment) &&
             !comment.leading &&
@@ -713,8 +713,8 @@ function attachDocCommentToFollowingNode(comment, options) {
         return false;
     }
 
-    const lineCommentOptions = resolveLineCommentOptions(options);
-    const formatted = formatLineComment(comment, lineCommentOptions);
+    const lineCommentOptions = Core.resolveLineCommentOptions(options);
+    const formatted = Core.formatLineComment(comment, lineCommentOptions);
     if (!formatted || !formatted.startsWith("///")) {
         return false;
     }

@@ -1,9 +1,6 @@
 import assert from "node:assert/strict";
 import { describe, it } from "node:test";
-import {
-    formatLineComment,
-    normalizeBannerCommentText
-} from "../src/comments/line-comment-formatting.js";
+import { Core } from "@gml-modules/core";
 
 void describe("line comment formatting helpers", () => {
     void it("format triple slash-with-space comment into standard comment", () => {
@@ -13,7 +10,7 @@ void describe("line comment formatting helpers", () => {
             raw: "// / Leading summary"
         };
 
-        const result = formatLineComment(docLikeComment);
+        const result = Core.formatLineComment(docLikeComment);
         assert.strictEqual(result.trim(), "// Leading summary");
     });
 
@@ -42,7 +39,7 @@ void describe("line comment formatting helpers", () => {
                 "// / foot_spd = min(0.5 * sqrt(sqr(x - xprevious) + sqr(y - yprevious)) + abs(last_crab_dir) * 0.1 + 0.2, 1);"
         };
 
-        const result = formatLineComment(testComment);
+        const result = Core.formatLineComment(testComment);
 
         // Expected formatting (visualized): the outer comment prefix remains
         // `// ` and the inner, commented-out code remains `// ...` but with
@@ -62,7 +59,7 @@ void describe("line comment formatting helpers", () => {
     });
 
     void it("retains banner content when decorations were stripped upstream", () => {
-        const normalized = normalizeBannerCommentText("Heading", {
+        const normalized = Core.normalizeBannerCommentText("Heading", {
             assumeDecorated: true
         });
 
@@ -75,7 +72,7 @@ void describe("line comment formatting helpers", () => {
             value: " Scenario 2",
             raw: "// Scenario 2"
         };
-        const result = formatLineComment(comment);
+        const result = Core.formatLineComment(comment);
         assert.strictEqual(result, "// Scenario 2");
     });
 
@@ -85,7 +82,7 @@ void describe("line comment formatting helpers", () => {
             value: " Script assets have changed for v2.3.0",
             raw: "// Script assets have changed for v2.3.0"
         };
-        const result = formatLineComment(comment);
+        const result = Core.formatLineComment(comment);
         assert.strictEqual(result, null);
     });
 
@@ -95,7 +92,7 @@ void describe("line comment formatting helpers", () => {
             value: "// Banner",
             raw: "//// Banner"
         };
-        const result = formatLineComment(comment);
+        const result = Core.formatLineComment(comment);
         assert.strictEqual(result, "// Banner");
     });
 
@@ -105,7 +102,7 @@ void describe("line comment formatting helpers", () => {
             value: " var x = 10;",
             raw: "// var x = 10;"
         };
-        const result = formatLineComment(comment);
+        const result = Core.formatLineComment(comment);
         assert.strictEqual(result, "// var x = 10;");
     });
 
@@ -115,7 +112,7 @@ void describe("line comment formatting helpers", () => {
             value: " @func my_func",
             raw: "// @func my_func"
         };
-        const result = formatLineComment(comment);
+        const result = Core.formatLineComment(comment);
         assert.strictEqual(result, "/// @function my_func");
     });
 
@@ -125,7 +122,7 @@ void describe("line comment formatting helpers", () => {
             value: " ---- Section ----",
             raw: "// ---- Section ----"
         };
-        const result = formatLineComment(comment);
+        const result = Core.formatLineComment(comment);
         assert.strictEqual(result, "// Section");
     });
 
@@ -136,7 +133,7 @@ void describe("line comment formatting helpers", () => {
             raw: "/// @param x",
             placement: "endOfLine"
         };
-        const result = formatLineComment(comment);
+        const result = Core.formatLineComment(comment);
         assert.strictEqual(result, "/// @param x");
     });
 
@@ -146,7 +143,7 @@ void describe("line comment formatting helpers", () => {
             value: "/ 1. Step",
             raw: "/// 1. Step"
         };
-        const result = formatLineComment(comment);
+        const result = Core.formatLineComment(comment);
         assert.strictEqual(result, "// 1. Step");
     });
 
@@ -160,7 +157,7 @@ void describe("line comment formatting helpers", () => {
             boilerplateFragments: ["Custom boilerplate"],
             codeDetectionPatterns: []
         };
-        const result = formatLineComment(comment, options);
+        const result = Core.formatLineComment(comment, options);
         assert.strictEqual(result, null);
     });
 
@@ -170,7 +167,7 @@ void describe("line comment formatting helpers", () => {
             value: " First sentence. Second sentence.",
             raw: "// First sentence. Second sentence."
         };
-        const result = formatLineComment(comment);
+        const result = Core.formatLineComment(comment);
         assert.strictEqual(result, "// First sentence.\n// Second sentence.");
     });
 
@@ -180,7 +177,7 @@ void describe("line comment formatting helpers", () => {
             value: " Comment 1 // Comment 2",
             raw: "// Comment 1 // Comment 2"
         };
-        const result = formatLineComment(comment);
+        const result = Core.formatLineComment(comment);
         assert.strictEqual(result, "// Comment 1\n// Comment 2");
     });
 
@@ -190,7 +187,7 @@ void describe("line comment formatting helpers", () => {
             value: " @desc Description",
             raw: "//// @desc Description"
         };
-        const result = formatLineComment(comment);
+        const result = Core.formatLineComment(comment);
         assert.strictEqual(result, "/// @description Description");
     });
 
@@ -200,7 +197,7 @@ void describe("line comment formatting helpers", () => {
             value: "()@param x",
             raw: "//()@param x"
         };
-        const result = formatLineComment(comment);
+        const result = Core.formatLineComment(comment);
         assert.strictEqual(result, "/// @param x");
     });
 
@@ -210,7 +207,7 @@ void describe("line comment formatting helpers", () => {
             value: " val\tue",
             raw: "// val\tue"
         };
-        const result = formatLineComment(comment);
+        const result = Core.formatLineComment(comment);
         assert.strictEqual(result, "// val    ue");
     });
 
@@ -220,12 +217,12 @@ void describe("line comment formatting helpers", () => {
             value: "///////",
             raw: "/////////"
         };
-        const result = formatLineComment(comment);
+        const result = Core.formatLineComment(comment);
         assert.strictEqual(result, "");
     });
 
     void it("debug: normalizeBannerCommentText works", () => {
-        const result = normalizeBannerCommentText("---- Section ----");
+        const result = Core.normalizeBannerCommentText("---- Section ----");
         assert.strictEqual(result, "Section");
     });
 });

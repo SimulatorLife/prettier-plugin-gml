@@ -123,8 +123,7 @@ export function computeSyntheticDocCommentForStaticVariable(
     node,
     options,
     programNode,
-    sourceText,
-    dependencies
+    sourceText
 ) {
     if (
         !node ||
@@ -151,16 +150,14 @@ export function computeSyntheticDocCommentForStaticVariable(
             node,
             options,
             programNode,
-            sourceText,
-            dependencies
+            sourceText
         );
     const {
         leadingLines: leadingCommentLines,
         remainingComments: updatedComments
     } = extractLeadingNonDocCommentLines(
         remainingComments,
-        options,
-        dependencies
+        options
     );
 
     const sourceLeadingLines =
@@ -175,8 +172,7 @@ export function computeSyntheticDocCommentForStaticVariable(
         node,
         programNode,
         options,
-        sourceText,
-        dependencies
+        sourceText
     );
     const combinedLeadingLines = [
         ...programLeadingLines,
@@ -238,8 +234,7 @@ export function computeSyntheticDocCommentForFunctionAssignment(
     node,
     options,
     programNode,
-    sourceText,
-    dependencies
+    sourceText
 ) {
     if (!node) {
         return null;
@@ -287,16 +282,14 @@ export function computeSyntheticDocCommentForFunctionAssignment(
             commentTarget,
             options,
             programNode,
-            sourceText,
-            dependencies
+            sourceText
         );
     const {
         leadingLines: leadingCommentLines,
         remainingComments: updatedComments
     } = extractLeadingNonDocCommentLines(
         remainingComments,
-        options,
-        dependencies
+        options
     );
 
     const sourceLeadingLines =
@@ -311,8 +304,7 @@ export function computeSyntheticDocCommentForFunctionAssignment(
         commentTarget,
         programNode,
         options,
-        sourceText,
-        dependencies
+        sourceText
     );
     const combinedLeadingLines = [
         ...programLeadingLines,

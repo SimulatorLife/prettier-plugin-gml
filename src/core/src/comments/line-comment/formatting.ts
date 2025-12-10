@@ -1,11 +1,14 @@
-import { Core } from "@gml-modules/core";
 import {
     DEFAULT_COMMENTED_OUT_CODE_PATTERNS,
     DEFAULT_LINE_COMMENT_OPTIONS,
     LINE_COMMENT_BANNER_DETECTION_MIN_SLASHES,
     normalizeLineCommentOptions
-} from "./line-comment-options.js";
-// Use the public Core namespace directly; do not destructure across packages
+} from "./options.js";
+import { applyJsDocReplacements } from "../doc-comment/service/type-normalization.js";
+import { getCommentValue } from "../comment-utils.js";
+import { isObjectLike } from "../../utils/object.js";
+import { toTrimmedString } from "../../utils/string.js";
+import { isRegExpLike } from "../../utils/capability-probes.js";
 
 // Note: '=' is intentionally omitted from the decoration class to avoid
 // treating the equality operator '==' inside commented-out code as a
@@ -34,7 +37,7 @@ function getLineCommentRawText(comment, options: any = {}) {
         );
     }
 
-    if (!Core.isObjectLike(comment)) {
+    if (!isObjectLike(comment)) {
         return "";
     }
 
@@ -108,17 +111,17 @@ function normalizeBannerCommentText(
 
 function formatLineComment(
     comment,
-    lineCommentOptions = DEFAULT_LINE_COMMENT_OPTIONS
+    lineCommentOptions: any = DEFAULT_LINE_COMMENT_OPTIONS
 ) {
     const normalizedOptions = normalizeLineCommentOptions(lineCommentOptions);
     const { boilerplateFragments, codeDetectionPatterns } = normalizedOptions;
     const original = getLineCommentRawText(comment, lineCommentOptions);
     const trimmedOriginal = original.trim();
-    const rawValue = Core.getCommentValue(comment);
-    const trimmedValue = Core.getCommentValue(comment, { trim: true });
+    const rawValue = getCommentValue(comment);
+    const trimmedValue = getCommentValue(comment, { trim: true });
 
     if (trimmedValue.length === 0) {
-        return "";
+        return null;
     }
 
     const startsWithTripleSlash = trimmedOriginal.startsWith("///");
@@ -132,23 +135,23 @@ function formatLineComment(
 
     for (const lineFragment of boilerplateFragments) {
         if (trimmedValue.includes(lineFragment)) {
-            return "";
+            return null;
         }
     }
 
     const hasPrecedingLineBreak =
-        Core.isObjectLike(comment) &&
+        isObjectLike(comment) &&
         typeof comment.leadingWS === "string" &&
         /\r|\n/.test(comment.leadingWS);
 
     const hasInlineLeadingChar =
-        Core.isObjectLike(comment) &&
+        isObjectLike(comment) &&
         typeof comment.leadingChar === "string" &&
         comment.leadingChar.length > 0 &&
         !/\r|\n/.test(comment.leadingChar);
 
     const isInlineComment =
-        Core.isObjectLike(comment) &&
+        isObjectLike(comment) &&
         comment.isTopComment !== true &&
         (typeof comment.inlinePadding === "number" ||
             comment.trailing === true ||
@@ -176,7 +179,7 @@ function formatLineComment(
         const afterStripping = trimmedValue.replace(/^\/+\s*/, "").trimStart();
         if (afterStripping.startsWith("@")) {
             // Promote to /// @... style and apply replacements (e.g. @func -> @function)
-            const formatted = Core.applyJsDocReplacements(
+            const formatted = applyJsDocReplacements(
                 `/// ${afterStripping}`
             );
             return applyInlinePadding(comment, formatted);
@@ -211,7 +214,7 @@ function formatLineComment(
         if (remainder.trim().startsWith("@")) {
             const shouldInsertSpace =
                 remainder.length > 0 && /\w/.test(remainder.charAt(1) || "");
-            const formatted = Core.applyJsDocReplacements(
+            const formatted = applyJsDocReplacements(
                 `///${shouldInsertSpace ? " " : ""}${remainder}`
             );
             return applyInlinePadding(comment, formatted);
@@ -259,7 +262,7 @@ function formatLineComment(
             const shouldInsertSpace =
                 afterSlashes.length > 0 &&
                 /\w/.test(afterSlashes.charAt(1) || "");
-            const formatted = Core.applyJsDocReplacements(
+            const formatted = applyJsDocReplacements(
                 `///${shouldInsertSpace ? " " : ""}${afterSlashes}`
             );
             return applyInlinePadding(comment, formatted);
@@ -281,7 +284,7 @@ function formatLineComment(
         // rather than promoting it to a doc comment ("/// something").
         if (
             remainder.startsWith("//") ||
-            (Core.isObjectLike(comment) &&
+            (isObjectLike(comment) &&
                 typeof comment.value === "string" &&
                 /^\s*\/\//.test(comment.value))
         ) {
@@ -302,7 +305,7 @@ function formatLineComment(
     // Preserve existing doc comments (/// @tag ...)
     if (startsWithTripleSlash && trimmedOriginal.includes("@")) {
         const content = trimmedValue.replace(/^\/+\s*/, "");
-        const formatted = Core.applyJsDocReplacements(
+        const formatted = applyJsDocReplacements(
             `/// ${content}`
         ) as string;
 
@@ -324,7 +327,7 @@ function formatLineComment(
           : null;
     if (docTagSource) {
         let formattedCommentLine = `///${docTagSource.replace(DOC_TAG_LINE_PREFIX_PATTERN, " @")}`;
-        formattedCommentLine = Core.applyJsDocReplacements(
+        formattedCommentLine = applyJsDocReplacements(
             formattedCommentLine
         ) as string;
 
@@ -405,7 +408,7 @@ function applyInlinePadding(comment, formattedText, preserveTabs = false) {
 }
 
 function resolveInlinePaddingWidth(comment) {
-    if (!Core.isObjectLike(comment)) {
+    if (!isObjectLike(comment)) {
         return 0;
     }
 
@@ -432,7 +435,7 @@ function resolveInlinePaddingWidth(comment) {
 }
 
 function extractContinuationIndentation(comment) {
-    if (!Core.isObjectLike(comment)) {
+    if (!isObjectLike(comment)) {
         return "";
     }
 
@@ -450,7 +453,7 @@ function extractContinuationIndentation(comment) {
 }
 
 function looksLikeCommentedOutCode(text, codeDetectionPatterns) {
-    const trimmed = Core.toTrimmedString(text);
+    const trimmed = toTrimmedString(text);
     if (trimmed.length === 0) {
         return false;
     }
@@ -465,7 +468,7 @@ function looksLikeCommentedOutCode(text, codeDetectionPatterns) {
         : DEFAULT_COMMENTED_OUT_CODE_PATTERNS;
 
     for (const pattern of patterns) {
-        if (!Core.isRegExpLike(pattern)) {
+        if (!isRegExpLike(pattern)) {
             continue;
         }
 

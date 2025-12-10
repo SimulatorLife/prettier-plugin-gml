@@ -5,8 +5,11 @@ import {
     toTrimmedString
 } from "../../../utils/index.js";
 import { getCommentArray } from "../../comment-utils.js";
-import { getDocCommentPrinterDependencies } from "../printer-dependencies.js";
-import type { DocCommentPrinterDependencies } from "../types.js";
+import {
+    formatLineComment,
+    getLineCommentRawText,
+    resolveLineCommentOptions
+} from "../../line-comment/index.js";
 
 const STRING_TYPE = "string";
 const NUMBER_TYPE = "number";
@@ -40,16 +43,14 @@ export function collectSyntheticDocCommentLines(
     options: any,
     programNode: any,
     sourceText: string | null,
-    dependencies?: DocCommentPrinterDependencies
 ) {
-    const deps = dependencies ?? getDocCommentPrinterDependencies();
     const rawComments = getCommentArray(node);
 
     if (!isNonEmptyArray(rawComments)) {
         // No node-level comments exist; fallback collection happens later.
     }
 
-    const lineCommentOptions = deps.resolveLineCommentOptions(options);
+    const lineCommentOptions = resolveLineCommentOptions(options);
     const existingDocLines: string[] = [];
     const remainingComments: any[] = [];
 
@@ -60,8 +61,8 @@ export function collectSyntheticDocCommentLines(
             continue;
         }
 
-        let formatted = deps.formatLineComment(comment, lineCommentOptions);
-        const rawText = deps.getLineCommentRawText(comment);
+        let formatted = formatLineComment(comment, lineCommentOptions);
+        const rawText = getLineCommentRawText(comment);
         const trimmedRaw = typeof rawText === STRING_TYPE ? rawText.trim() : "";
         const isFormattedDocStyle =
             typeof formatted === STRING_TYPE &&
@@ -159,7 +160,7 @@ export function collectSyntheticDocCommentLines(
                         continue;
                     }
 
-                    const rawText = deps.getLineCommentRawText(pc);
+                    const rawText = getLineCommentRawText(pc);
                     const trimmedRaw =
                         typeof rawText === STRING_TYPE ? rawText.trim() : "";
                     const trimmedWithoutSlashes = trimmedRaw
@@ -203,9 +204,9 @@ export function collectSyntheticDocCommentLines(
 
                 if (docCandidates.length > 0) {
                     const fallbackOptions =
-                        deps.resolveLineCommentOptions(options);
+                        resolveLineCommentOptions(options);
                     const collected = docCandidates.map((c) =>
-                        deps.formatLineComment(c, fallbackOptions)
+                        formatLineComment(c, fallbackOptions)
                     );
                     const flattenedCollected: string[] = [];
                     for (const entry of collected) {
@@ -277,7 +278,7 @@ export function collectSyntheticDocCommentLines(
 
                 if (candidates.length > 0) {
                     const fallbackOptions =
-                        deps.resolveLineCommentOptions(options);
+                        resolveLineCommentOptions(options);
                     const formatted = candidates.map((c) => {
                         const matchNode = programCommentArray.find((pc) => {
                             const startIndex =
@@ -291,7 +292,7 @@ export function collectSyntheticDocCommentLines(
                         });
                         if (matchNode) {
                             matchNode.printed = true;
-                            return deps.formatLineComment(
+                            return formatLineComment(
                                 matchNode,
                                 fallbackOptions
                             );
@@ -323,10 +324,8 @@ export function collectLeadingProgramLineComments(
     node: any,
     programNode: any,
     options: any,
-    sourceText: string | null,
-    dependencies?: DocCommentPrinterDependencies
+    sourceText: string | null
 ) {
-    const deps = dependencies ?? getDocCommentPrinterDependencies();
     if (!node || !programNode) {
         return [];
     }
@@ -341,7 +340,7 @@ export function collectLeadingProgramLineComments(
         return [];
     }
 
-    const lineCommentOptions = deps.resolveLineCommentOptions(options);
+    const lineCommentOptions = resolveLineCommentOptions(options);
     const leadingLines: string[] = [];
     let anchorIndex = nodeStartIndex;
 
@@ -364,7 +363,7 @@ export function collectLeadingProgramLineComments(
             continue;
         }
 
-        const formatted = deps.formatLineComment(comment, lineCommentOptions);
+        const formatted = formatLineComment(comment, lineCommentOptions);
         const trimmed = toTrimmedString(formatted);
 
         if (
@@ -447,10 +446,8 @@ export function collectAdjacentLeadingSourceLineComments(
 
 export function extractLeadingNonDocCommentLines(
     comments: any,
-    options: any,
-    dependencies?: DocCommentPrinterDependencies
+    options: any
 ) {
-    const deps = dependencies ?? getDocCommentPrinterDependencies();
     if (!isNonEmptyArray(comments)) {
         return {
             leadingLines: [],
@@ -458,7 +455,7 @@ export function extractLeadingNonDocCommentLines(
         };
     }
 
-    const lineCommentOptions = deps.resolveLineCommentOptions(options);
+    const lineCommentOptions = resolveLineCommentOptions(options);
     const leadingLines: string[] = [];
     const remainingComments: any[] = [];
     let scanningLeadingComments = true;
@@ -469,7 +466,7 @@ export function extractLeadingNonDocCommentLines(
             comment &&
             comment.type === "CommentLine"
         ) {
-            const formatted = deps.formatLineComment(
+            const formatted = formatLineComment(
                 comment,
                 lineCommentOptions
             );
