@@ -107,6 +107,8 @@ export interface GameMakerAstNode {
     hasTrailingComma?: boolean;
     /** Value for literal nodes */
     value?: string | number | boolean | null;
+    /** Raw string representation of the value (used for preserving formatting) */
+    raw?: string | null;
 }
 
 export type MutableGameMakerAstNode = GameMakerAstNode &

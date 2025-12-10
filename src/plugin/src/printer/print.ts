@@ -3426,8 +3426,13 @@ function printStatements(path, options, print, childrenAttribute) {
                     blockParent?.type === "BlockStatement"
                 ) {
                     const isFunctionLike = Core.isFunctionLikeDeclaration(node);
-                previousNodeHadNewlineAddedAfter = true;
-            } else if (shouldForceConstructorNestedFunctionPadding) {
+                    if (isFunctionLike) {
+                        shouldPreserveTrailingBlankLine = true;
+                    }
+                }
+            }
+
+            if (shouldPreserveTrailingBlankLine) {
                 parts.push(hardline);
                 previousNodeHadNewlineAddedAfter = true;
             } else if (requiresTrailingPadding) {

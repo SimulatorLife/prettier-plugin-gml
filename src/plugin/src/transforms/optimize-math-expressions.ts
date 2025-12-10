@@ -89,9 +89,8 @@ export class OptimizeMathExpressionsTransform extends FunctionalParserTransform<
         node.right = {
             ...right,
             value: reciprocal,
-            // @ts-ignore - 'raw' is used by the printer but might not be in the strict type
             raw: String(reciprocal)
-        } as any;
+        };
 
         return true;
     }

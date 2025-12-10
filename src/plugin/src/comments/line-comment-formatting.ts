@@ -132,7 +132,7 @@ function formatLineComment(
 
     for (const lineFragment of boilerplateFragments) {
         if (trimmedValue.includes(lineFragment)) {
-            return null;
+            return "";
         }
     }
 
@@ -192,7 +192,7 @@ function formatLineComment(
         // treat it as a decorative separator and suppress it.
         const contentAfterStripping = trimmedValue.replace(/^\/+\s*/, "");
         if (contentAfterStripping.length === 0 && trimmedValue.length > 0) {
-            return null;
+            return "";
         }
 
         // If normalization fails but there is content, return the comment with normalized slashes

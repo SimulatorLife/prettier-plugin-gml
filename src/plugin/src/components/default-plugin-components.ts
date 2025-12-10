@@ -1,5 +1,6 @@
 import type { GmlPluginComponentBundle } from "./plugin-types.js";
 import { resolveGmlPluginComponentDependencies } from "./plugin-component-bundles.js";
+import type { GameMakerAstNode } from "@gml-modules/core";
 
 export function createDefaultGmlPluginComponents(): GmlPluginComponentBundle {
     const {
@@ -24,9 +25,9 @@ export function createDefaultGmlPluginComponents(): GmlPluginComponentBundle {
                 print,
                 // Accept any for the runtime types coming from the AST and comment
                 // helpers, satisfying TypeScript without adding deep imports.
-                isBlockComment: (comment: any) =>
+                isBlockComment: (comment: GameMakerAstNode) =>
                     comment?.type === "CommentBlock",
-                canAttachComment: (node: any) =>
+                canAttachComment: (node: GameMakerAstNode) =>
                     node?.type &&
                     !node.type.includes("Comment") &&
                     node?.type !== "EmptyStatement",
