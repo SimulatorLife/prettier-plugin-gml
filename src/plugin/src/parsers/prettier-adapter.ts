@@ -17,21 +17,10 @@ export function mapPrettierOptionsToParserOptions(
         return undefined;
     }
 
-    const { stripComments, ...adapterOptions } = prettierOptions;
-    if (Object.keys(adapterOptions).length === 0 && !stripComments) {
+    if (Object.keys(prettierOptions).length === 0) {
         return undefined;
     }
-
-    const normalized = { ...adapterOptions } as GmlParserAdapterOptions;
-
-    if (stripComments) {
-        // The parser has its own `stripComments` flag: expose it directly so the
-        // transform toggles apply uniformly from the parser adapter instead of
-        // requiring Prettier to know about a parallel set of options.
-        normalized.stripComments = true;
-    }
-
-    return normalized;
+    return { ...prettierOptions };
 }
 
 /**
