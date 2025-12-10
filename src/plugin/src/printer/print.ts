@@ -606,6 +606,8 @@ function _printImpl(path, options, print) {
             const { startIndex: nodeStartIndex } =
                 resolveNodeIndexRangeWithSource(node, sourceMetadata);
 
+            console.log(`[DEBUG] nodeStartIndex: ${nodeStartIndex}`);
+
             // DEBUG: Check leading comments
             // if ((node as any).leadingComments) {
             //     console.log("[DEBUG] FunctionDeclaration has leadingComments:", JSON.stringify((node as any).leadingComments));
@@ -695,6 +697,12 @@ function _printImpl(path, options, print) {
                 programNode = parentNode;
             }
 
+            if (programNode) {
+                console.log(`[DEBUG] programNode found. comments: ${programNode.comments?.length}`);
+            } else {
+                console.log(`[DEBUG] programNode NOT found`);
+            }
+
             // When parser does not attach doc comments to the node but the
             // doc-like comments are present at the program root, attempt to
             // collect them as node-level doc comment lines so the promotion
@@ -729,6 +737,8 @@ function _printImpl(path, options, print) {
                         typeof comment.start === "number"
                             ? comment.start
                             : (comment.start?.index ?? null);
+
+                    console.log(`[DEBUG] Checking program comment: "${comment.value}", start: ${commentStart}, end: ${commentEnd}, anchor: ${anchorIndex}`);
 
                     if (
                         commentEnd === null ||
@@ -784,6 +794,7 @@ function _printImpl(path, options, print) {
             // Also check for node-attached comments that look like doc comments (e.g. // /)
             // but were not parsed as doc comments (e.g. because of intervening comments).
             const nodeComments = [...(node.comments || [])];
+            console.log(`[DEBUG] nodeComments count: ${nodeComments.length}`);
             const nodeLeadingDocs: { start: number; text: string }[] = [];
 
             for (const comment of nodeComments) {
@@ -791,6 +802,9 @@ function _printImpl(path, options, print) {
                     typeof comment.end === "number"
                         ? comment.end
                         : (comment.end?.index ?? 0);
+                
+                console.log(`[DEBUG] Checking node comment: "${comment.value}", end: ${commentEnd}, nodeStart: ${nodeStartIndex}`);
+
                 if (!comment.printed && commentEnd < nodeStartIndex) {
                     if (comment.type === "CommentLine") {
                         const formatted = formatLineComment(
@@ -3412,20 +3426,6 @@ function printStatements(path, options, print, childrenAttribute) {
                     blockParent?.type === "BlockStatement"
                 ) {
                     const isFunctionLike = Core.isFunctionLikeDeclaration(node);
-
-                    if (isFunctionLike) {
-                        shouldPreserveTrailingBlankLine = true;
-                    }
-                }
-            }
-
-            const shouldForceConstructorNestedFunctionPadding =
-                isConstructorBlock &&
-                node?.type === "FunctionDeclaration" &&
-                !suppressFollowingEmptyLine &&
-                !shouldPreserveTrailingBlankLine;
-            if (shouldPreserveTrailingBlankLine) {
-                parts.push(hardline);
                 previousNodeHadNewlineAddedAfter = true;
             } else if (shouldForceConstructorNestedFunctionPadding) {
                 parts.push(hardline);

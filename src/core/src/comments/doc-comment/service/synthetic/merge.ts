@@ -39,16 +39,15 @@ export function mergeSyntheticDocComments(
     options: any,
     overrides: any = {}
 ): MutableDocCommentLines {
+    console.log("[DEBUG] mergeSyntheticDocComments existingDocLines:", existingDocLines);
     let normalizedExistingLines = existingDocLines.map((line) =>
         line.trim()
     ) as MutableDocCommentLines;
-    console.log("[DEBUG] normalizedExistingLines:", normalizedExistingLines);
     const originalExistingHasTags =
         Array.isArray(existingDocLines) &&
         existingDocLines.some((line) =>
             typeof line === STRING_TYPE ? parseDocCommentMetadata(line) : false
         );
-    console.log("[DEBUG] originalExistingHasTags:", originalExistingHasTags);
 
     // Compute synthetic lines early so promotion can consider synthetic tags
     // such as `/// @function` when deciding whether the file-top doc-like
