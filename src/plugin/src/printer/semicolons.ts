@@ -1,3 +1,5 @@
+import type { AstPath } from "prettier";
+
 // Helpers focused solely on semicolon emission rules within the printer.
 
 const STRING_TYPE = "string";
@@ -178,4 +180,41 @@ export function isSkippableSemicolonWhitespace(charCode: number) {
             return false;
         }
     }
+}
+
+/**
+ * Determine whether the AST path currently points to the final node in its
+ * parent's `body` array. The printer relies on this classification when it
+ * decides whether to emit trailing semicolons or preserve blank lines at the
+ * end of a block without inspecting the broader sibling list manually.
+ *
+ * @param {AstPath<unknown>} path Printer AST path.
+ * @returns {boolean} `true` when the path references the final statement.
+ */
+export function isLastStatement(path: AstPath<unknown>) {
+    const body = getParentNodeListProperty(path);
+    if (!body) {
+        return true;
+    }
+    const node = path.getValue();
+
+    const lastIndex = body.length - 1;
+    return lastIndex >= 0 && body[lastIndex] === node;
+}
+
+function getParentNodeListProperty(path: AstPath<unknown>) {
+    const parent = path.getParentNode();
+    if (!parent) {
+        return null;
+    }
+    return getNodeListProperty(parent);
+}
+
+function getNodeListProperty(node: unknown) {
+    if (!node || typeof node !== "object") {
+        return null;
+    }
+
+    const maybeBody = (node as { body?: unknown }).body;
+    return Array.isArray(maybeBody) ? maybeBody : null;
 }

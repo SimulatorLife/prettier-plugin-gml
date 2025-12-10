@@ -3,10 +3,10 @@
 import { Core, type MutableDocCommentLines } from "@gml-modules/core";
 import { util } from "prettier";
 
-import { isLastStatement } from "./statement-order.js";
 import {
     countTrailingBlankLines,
     getNextNonWhitespaceCharacter,
+    isLastStatement,
     isSkippableSemicolonWhitespace,
     optionalSemicolon
 } from "./semicolons.js";
