@@ -121,9 +121,7 @@ export function countTrailingBlankLines(
         if (characterCode === 13) {
             newlineCount += 1;
             index +=
-                index + 1 < length && text.charCodeAt(index + 1) === 10
-                    ? 2
-                    : 1;
+                index + 1 < length && text.charCodeAt(index + 1) === 10 ? 2 : 1;
             continue;
         }
 
