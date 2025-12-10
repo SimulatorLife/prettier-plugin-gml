@@ -1,1 +1,1 @@
-export * as CLI from "./src/cli.js";
+export * as CLI from "./src/index.js";
