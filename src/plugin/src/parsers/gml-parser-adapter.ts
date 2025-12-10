@@ -152,6 +152,10 @@ function preprocessSource(
     const { sourceText: commentFixedSource, indexMapper: commentFixMapper } =
         Parser.Utils.fixMalformedComments(featherResult.parseSource);
 
+    if (process.env.GML_PRINTER_DEBUG) {
+        console.debug("[DEBUG] commentFixedSource:", commentFixedSource);
+    }
+
     const conditionalResult = Transforms.sanitizeConditionalAssignments(
         commentFixedSource
     ) as SanitizerResult;

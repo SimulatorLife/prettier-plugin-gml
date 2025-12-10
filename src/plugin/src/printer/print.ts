@@ -613,13 +613,7 @@ function _printImpl(path, options, print) {
             //     console.log("[DEBUG] FunctionDeclaration has NO leadingComments");
             // }
 
-            // DEBUG: Check comments
-            if (node.comments || node.docComments) {
-                console.log("[DEBUG] FunctionDeclaration comments:", {
-                    comments: node.comments?.map((c: any) => c.value),
-                    docComments: node.docComments?.map((c: any) => c.value)
-                });
-            }
+
 
             let docCommentDocs: MutableDocCommentLines = [];
             const lineCommentOptions = resolveLineCommentOptions(options);
@@ -786,50 +780,112 @@ function _printImpl(path, options, print) {
 
             // Also check for node-attached comments that look like doc comments (e.g. // /)
             // but were not parsed as doc comments (e.g. because of intervening comments).
-            const nodeComments = node.comments || [];
-            const nodeLeadingLines: string[] = [];
-            for (const comment of nodeComments) {
-                if (
-                    comment.type === "CommentLine" &&
-                    !comment.printed &&
-                    comment.end < nodeStartIndex
-                ) {
-                    const formatted = formatLineComment(
-                        comment,
-                        lineCommentOptions
-                    );
-                    const trimmed = formatted ? formatted.trim() : "";
-                    // Only treat as doc comment if it explicitly looks like one.
-                    // This avoids consuming regular comments like "// Move camera".
-                    const isDocLike =
-                        trimmed.startsWith("///") ||
-                        /^\/\/\s*\/(\s|$)/.test(trimmed) || // Matches "// /" or "// /..."
-                        /^\/\/\s*@/.test(trimmed); // Matches "// @param"
+            const nodeComments = [...(node.comments || [])];
+            const nodeLeadingDocs: { start: number; text: string }[] = [];
 
-                    if (isDocLike) {
-                        nodeLeadingLines.push(formatted);
-                        comment.printed = true;
+            for (const comment of nodeComments) {
+                const commentEnd =
+                    typeof comment.end === "number"
+                        ? comment.end
+                        : (comment.end?.index ?? 0);
+                if (!comment.printed && commentEnd < nodeStartIndex) {
+                    if (comment.type === "CommentLine") {
+                        const formatted = formatLineComment(
+                            comment,
+                            lineCommentOptions
+                        );
+                        const trimmed = formatted ? formatted.trim() : "";
+                        const isDocLike =
+                            trimmed.startsWith("///") ||
+                            /^\/\/\s*\/(\s|$)/.test(trimmed) ||
+                            /^\/\/\s*@/.test(trimmed);
+
+                        if (isDocLike) {
+                            nodeLeadingDocs.push({
+                                start: comment.start,
+                                text: formatted
+                            });
+                            comment.printed = true;
+                            // Remove from node.comments to prevent default printing
+                            if (node.comments) {
+                                const idx = node.comments.indexOf(comment);
+                                if (idx !== -1) node.comments.splice(idx, 1);
+                            }
+                        }
+                    } else if (comment.type === "CommentBlock") {
+                        const value = comment.value.trim();
+                        const isDocLike =
+                            value.startsWith("*") || value.includes("@");
+
+                        if (isDocLike) {
+
+                            const lines = comment.value.split(/\r\n|\r|\n/);
+                            for (const line of lines) {
+                                let cleanLine = line.trim();
+                                if (cleanLine.startsWith("*")) {
+                                    cleanLine = cleanLine.slice(1).trim();
+                                }
+                                if (cleanLine === "") continue;
+                                nodeLeadingDocs.push({
+                                    start: comment.start,
+                                    text: `/// ${cleanLine}`
+                                });
+                            }
+                            comment.printed = true;
+                            // Remove from node.comments to prevent default printing
+                            if (node.comments) {
+                                const idx = node.comments.indexOf(comment);
+                                if (idx !== -1) node.comments.splice(idx, 1);
+                            }
+                        }
                     }
                 }
             }
 
-            const formattedNodeLines = nodeLeadingLines.map((line) => {
-                const trimmed = line.trim();
-                if (trimmed.startsWith("///")) return trimmed;
-                if (trimmed.startsWith("//")) return `///${trimmed.slice(2)}`;
-                if (trimmed.startsWith("/")) return `///${trimmed.slice(1)}`;
-                return `/// ${trimmed}`;
+            // Apply /// formatting to node leading docs
+            const formattedNodeDocs = nodeLeadingDocs.map((doc) => {
+                const trimmed = doc.text.trim();
+                let newText = trimmed;
+                if (trimmed.startsWith("///")) newText = trimmed;
+                else if (trimmed.startsWith("//"))
+                    newText = `///${trimmed.slice(2)}`;
+                else if (trimmed.startsWith("/"))
+                    newText = `///${trimmed.slice(1)}`;
+                else newText = `/// ${trimmed}`;
+                return { start: doc.start, text: newText };
             });
 
-            // Filter out duplicates that might already be in docCommentDocs
-            const uniqueNewLines = [
-                ...formattedProgramLines,
-                ...formattedNodeLines
-            ].filter((line) => !docCommentDocs.includes(line));
-
-            if (uniqueNewLines.length > 0) {
-                docCommentDocs = [...uniqueNewLines, ...docCommentDocs];
+            // Re-collect original doc comments with positions to ensure correct ordering
+            const originalDocDocs: { start: number; text: string }[] = [];
+            if (Core.isNonEmptyArray(node.docComments)) {
+                for (const comment of node.docComments) {
+                    const formatted = formatLineComment(
+                        comment,
+                        lineCommentOptions
+                    );
+                    if (formatted && formatted.trim() !== "") {
+                        originalDocDocs.push({
+                            start: comment.start,
+                            text: formatted
+                        });
+                    }
+                }
             }
+
+            // Merge and sort by position
+            const mergedDocs = [
+                ...originalDocDocs,
+                ...formattedNodeDocs
+            ].sort((a, b) => a.start - b.start);
+
+            const newDocCommentDocs = mergedDocs.map((x) => x.text);
+
+            // Filter out duplicates from programLeadingLines that might already be in docCommentDocs
+            const uniqueProgramLines = formattedProgramLines.filter(
+                (line) => !newDocCommentDocs.includes(line)
+            );
+
+            docCommentDocs = [...uniqueProgramLines, ...newDocCommentDocs];
 
             // Inline small argument_count -> default conversions at print time
             // if the parser/transform pipeline did not already materialize
