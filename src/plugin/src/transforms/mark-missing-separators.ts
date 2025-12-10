@@ -1,3 +1,6 @@
+/**
+ * Detects call expressions written without commas between arguments and flags them so downstream formatters preserve the raw text.
+ */
 import { Core, type MutableGameMakerAstNode } from "@gml-modules/core";
 import { FunctionalParserTransform } from "./functional-transform.js";
 
@@ -5,6 +8,9 @@ type MarkCallsMissingArgumentSeparatorsTransformOptions = {
     originalText?: string;
 };
 
+/**
+ * Transform that marks call nodes to be printed from the original source text when separators are missing.
+ */
 export class MarkCallsMissingArgumentSeparatorsTransform extends FunctionalParserTransform<MarkCallsMissingArgumentSeparatorsTransformOptions> {
     constructor() {
         super("mark-calls-missing-argument-separators", {});
@@ -14,6 +20,7 @@ export class MarkCallsMissingArgumentSeparatorsTransform extends FunctionalParse
         ast: MutableGameMakerAstNode,
         options: MarkCallsMissingArgumentSeparatorsTransformOptions
     ): MutableGameMakerAstNode {
+        // Only run when the original source is available so we can inspect the raw spacing between arguments.
         if (typeof options.originalText === "string") {
             this.markCallsMissingArgumentSeparators(ast, options.originalText);
         }
@@ -24,6 +31,7 @@ export class MarkCallsMissingArgumentSeparatorsTransform extends FunctionalParse
         ast: MutableGameMakerAstNode,
         originalText: string
     ) {
+        // Walk the AST and tag call expressions whose separator information can only be derived from the original source.
         if (!ast || typeof ast !== "object") {
             return;
         }
@@ -61,6 +69,7 @@ export class MarkCallsMissingArgumentSeparatorsTransform extends FunctionalParse
         node: MutableGameMakerAstNode,
         originalText: string
     ) {
+        // Determine whether the spacing between arguments lacks commas and must be preserved.
         if (!node || node.type !== "CallExpression") {
             return false;
         }
@@ -119,6 +128,7 @@ export class MarkCallsMissingArgumentSeparatorsTransform extends FunctionalParse
     }
 
     private isNumericBoundaryCharacter(character: string | undefined) {
+        // Numeric boundaries help identify when separators are truly missing rather than just whitespace.
         return /[0-9.-]/.test(character ?? "");
     }
 }

@@ -1,3 +1,6 @@
+/**
+ * Helpers for detecting and reporting duplicate semicolons so Feather diagnostics can suggest cleanup.
+ */
 import { Core } from "@gml-modules/core";
 import {
     hasFeatherSourceTextContext,
@@ -5,6 +8,9 @@ import {
     attachFeatherFixMetadata
 } from "./utils.js";
 
+/**
+ * Scan the AST/source text for consecutive semicolons and produce metadata consumable by the plugin.
+ */
 export function removeDuplicateSemicolons({ ast, sourceText, diagnostic }) {
     if (!hasFeatherSourceTextContext(ast, diagnostic, sourceText)) {
         return [];
@@ -136,6 +142,7 @@ export function removeDuplicateSemicolons({ ast, sourceText, diagnostic }) {
     return fixes;
 }
 
+/** Identify ranges containing duplicated semicolons while respecting comments and strings. */
 export function findDuplicateSemicolonRanges(segment, offset) {
     const ranges = [];
 

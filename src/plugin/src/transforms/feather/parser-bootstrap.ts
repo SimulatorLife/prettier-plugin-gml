@@ -1,3 +1,6 @@
+/**
+ * Loads a lightweight parser instance to produce example AST fragments for Feather fixes that require small code snippets.
+ */
 import { Parser } from "@gml-modules/parser";
 
 export function parseExample(

@@ -1,3 +1,6 @@
+/**
+ * Encourages canonical math expressions so the printer outputs briefly simplified operations via normalization utilities.
+ */
 import { Core, type MutableGameMakerAstNode } from "@gml-modules/core";
 import { FunctionalParserTransform } from "./functional-transform.js";
 import { cleanupMultiplicativeIdentityParentheses } from "./math/parentheses-cleanup.js";
@@ -10,6 +13,9 @@ import {
 
 const { BINARY_EXPRESSION, LITERAL } = Core;
 
+/**
+ * Transform that composes the various manual math optimizations into the parser transform pipeline.
+ */
 export class OptimizeMathExpressionsTransform extends FunctionalParserTransform<ConvertManualMathTransformOptions> {
     constructor() {
         super("optimize-math-expressions", {});
@@ -19,6 +25,7 @@ export class OptimizeMathExpressionsTransform extends FunctionalParserTransform<
         ast: MutableGameMakerAstNode,
         options: ConvertManualMathTransformOptions
     ): MutableGameMakerAstNode {
+        // Drive the composed math normalization helpers in the prescribed order.
         if (!ast || typeof ast !== "object") {
             return ast;
         }
@@ -35,6 +42,9 @@ export class OptimizeMathExpressionsTransform extends FunctionalParserTransform<
         return ast;
     }
 
+    /**
+     * Walk the AST and turn division-by-constant patterns into multiplications by the reciprocal.
+     */
     private applyDivisionToMultiplication(node: MutableGameMakerAstNode) {
         if (!node || typeof node !== "object") {
             return;

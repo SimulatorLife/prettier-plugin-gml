@@ -1,3 +1,7 @@
+/**
+ * Utility helpers to sanitize enum bodies and maintain metadata needed for Feather diagnostics before parsing.
+ * The module rewrites numeric literal strings and tracks trimmed indentation so fix metadata stays aligned.
+ */
 import { Core } from "@gml-modules/core";
 
 function sanitizeEnumBodyInitializerStrings(
@@ -230,6 +234,7 @@ function sanitizeEnumInitializerStrings(sourceText: string) {
 }
 
 function normalizeRemovalAdjustments(adjustments: unknown) {
+    /** Ensure removal adjustments are sorted by index so location remapping happens deterministically. */
     if (!Array.isArray(adjustments)) {
         return [] as Array<{ index: number; delta: number }>;
     }
@@ -254,6 +259,9 @@ function normalizeRemovalAdjustments(adjustments: unknown) {
         .sort((a, b) => a.index - b.index);
 }
 
+/**
+ * Shift node start/end indices forward as characters are removed from the source.
+ */
 function mapIndexForRemoval(
     index: number,
     adjustments: Array<{ index: number; delta: number }>
@@ -280,6 +288,7 @@ function adjustLocationForRemoval(
     property: string,
     adjustments: Array<{ index: number; delta: number }>
 ) {
+    // Update the recorded `start`/`end` offsets when preceding text has been stripped.
     if (!Object.hasOwn(node, property)) {
         return;
     }
@@ -345,6 +354,9 @@ export function applyRemovedIndexAdjustments(
     }
 }
 
+/**
+ * Preprocess the original source when applying Feather fixes so we capture GM1100/GM1016 metadata cleanly.
+ */
 export function preprocessSourceForFeatherFixes(sourceText: string) {
     if (!Core.isNonEmptyString(sourceText)) {
         return {

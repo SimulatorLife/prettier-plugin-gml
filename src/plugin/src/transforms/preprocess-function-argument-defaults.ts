@@ -1,3 +1,6 @@
+/**
+ * Ensures optional function parameters with implicit `undefined` defaults are materialized before downstream transforms run.
+ */
 import {
     Core,
     type MutableGameMakerAstNode,
@@ -7,6 +10,7 @@ import { FunctionalParserTransform } from "./functional-transform.js";
 
 type PreprocessFunctionArgumentDefaultsTransformOptions = Record<string, never>;
 
+/** Orchestrates the normalization of function parameter default values. */
 export class PreprocessFunctionArgumentDefaultsTransform extends FunctionalParserTransform<PreprocessFunctionArgumentDefaultsTransformOptions> {
     constructor() {
         super("preprocess-function-argument-defaults", {});
@@ -16,6 +20,7 @@ export class PreprocessFunctionArgumentDefaultsTransform extends FunctionalParse
         ast: MutableGameMakerAstNode,
         _options: PreprocessFunctionArgumentDefaultsTransformOptions
     ) {
+        // Visit each function/constructor once and ensure trailing undefined defaults are explicitly modeled.
         void _options;
         if (!Core.isObjectLike(ast)) {
             return ast;
@@ -36,6 +41,7 @@ export class PreprocessFunctionArgumentDefaultsTransform extends FunctionalParse
         return ast;
     }
 
+    // DFS helper that guards against cyclic references while invoking `visitor` on each node.
     private traverse(node, visitor, seen = new Set()) {
         if (!Core.isObjectLike(node)) {
             return;
@@ -65,6 +71,7 @@ export class PreprocessFunctionArgumentDefaultsTransform extends FunctionalParse
         });
     }
 
+    // Normalize the parameters and apply argument_count fallback rewrites within a single declaration.
     private preprocessFunctionDeclaration(node, ast) {
         if (
             !node ||
@@ -105,6 +112,9 @@ export class PreprocessFunctionArgumentDefaultsTransform extends FunctionalParse
         // in-body fallbacks. Run this *before* we early-return so the
         // conservative materialization occurs even when no in-body matches
         // were detected.
+        /**
+         * Completes any trailing `DefaultParameter` nodes that still lack a right-hand value.
+         */
         function finalizeTrailingUndefinedDefaults(params) {
             let changed = false;
             try {
@@ -243,6 +253,9 @@ export class PreprocessFunctionArgumentDefaultsTransform extends FunctionalParse
             body._gmlForceInitialBlankLine = true;
         }
 
+        /**
+         * Stretch the declaration's location metadata to include the removed fallback `if` statement so emitter locs remain accurate.
+         */
         function extendStatementEndLocation(
             targetDeclaration,
             removedStatement

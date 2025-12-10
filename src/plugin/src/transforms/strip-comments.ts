@@ -1,3 +1,6 @@
+/**
+ * Provides a configurable transform that can remove comments or JSDoc before formatting/printing.
+ */
 import { Core, type MutableGameMakerAstNode } from "@gml-modules/core";
 import { FunctionalParserTransform } from "./functional-transform.js";
 
@@ -7,6 +10,9 @@ type StripCommentsTransformOptions = {
     dropCommentedOutCode: boolean;
 };
 
+/**
+ * Removes comment nodes and related metadata according to the caller's options.
+ */
 export class StripCommentsTransform extends FunctionalParserTransform<StripCommentsTransformOptions> {
     constructor() {
         super("strip-comments", {
@@ -20,6 +26,7 @@ export class StripCommentsTransform extends FunctionalParserTransform<StripComme
         ast: any,
         options: StripCommentsTransformOptions
     ): MutableGameMakerAstNode {
+        // Walk the AST and drop comment-related properties as requested by the options.
         if (!ast || typeof ast !== "object") {
             return ast;
         }

@@ -1,3 +1,8 @@
+/**
+ * Fixes scenarios where writers assign a value directly inside a conditional expression (e.g., `if (x = 0)`).
+ * The sanitizer inserts harmless guard operators so the parser and printer treat the expression as a comparison while
+ * recording how indices shift so downstream diagnostics can stay in sync.
+ */
 import { Core } from "@gml-modules/core";
 
 const ASSIGNMENT_GUARD_CHARACTERS = new Set([
@@ -16,6 +21,9 @@ const ASSIGNMENT_GUARD_CHARACTERS = new Set([
     ":"
 ]);
 
+/**
+ * Returns a helper to translate character positions after insertions happen during sanitization.
+ */
 function createIndexMapper(
     insertPositions: Array<number | null | undefined> | null | undefined
 ) {
@@ -59,6 +67,9 @@ function isQuoteCharacter(char: string) {
     return `"'\``.includes(char);
 }
 
+/**
+ * Scans source text for inline assignments within conditions, adds guard characters, and reports index shifts.
+ */
 export function sanitizeConditionalAssignments(sourceText: unknown) {
     if (!Core.isNonEmptyString(sourceText)) {
         return {
@@ -231,6 +242,9 @@ export function sanitizeConditionalAssignments(sourceText: unknown) {
     };
 }
 
+/**
+ * Rewrites location metadata for nodes to account for the inserted guard characters.
+ */
 export function applySanitizedIndexAdjustments(
     target: unknown,
     insertPositions: Array<number> | null | undefined

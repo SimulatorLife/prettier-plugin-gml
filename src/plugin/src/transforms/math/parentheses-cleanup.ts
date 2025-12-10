@@ -1,3 +1,7 @@
+/**
+ * Removes redundant parentheses around multiplicative identities introduced during manual math formatting.
+ * This cleanup keeps expressions concise for the printer while respecting structural safety rules.
+ */
 import { Core } from "@gml-modules/core";
 import {
     attemptCondenseScalarProduct,
@@ -9,6 +13,9 @@ import {
 
 const { BINARY_EXPRESSION, PARENTHESIZED_EXPRESSION, UNARY_EXPRESSION } = Core;
 
+/**
+ * Recursively remove parentheses inserted around multiplicative identity expressions when safe.
+ */
 export function cleanupMultiplicativeIdentityParentheses(
     node,
     context: ConvertManualMathTransformOptions | null,
@@ -69,6 +76,9 @@ export function cleanupMultiplicativeIdentityParentheses(
     }
 }
 
+/**
+ * Certain ancestors (modulo, logical negation) must keep their defending parentheses so semantics stays stable.
+ */
 function shouldPreserveIdentityParenthesesForAncestor(ancestor) {
     if (!ancestor || typeof ancestor !== "object") {
         return false;

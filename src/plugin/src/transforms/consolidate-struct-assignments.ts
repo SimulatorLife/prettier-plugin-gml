@@ -1,3 +1,7 @@
+/**
+ * Attempts to coalesce standalone struct assignments into their declaration site so that formatting can emit concise object literals.
+ * The transform tracks moved comments and ensures no semantic data is lost while shifting property initializers.
+ */
 import { Core, type MutableGameMakerAstNode } from "@gml-modules/core";
 import { FunctionalParserTransform } from "./functional-transform.js";
 import { CommentTracker } from "./utils/comment-tracker.js";
@@ -135,6 +139,9 @@ export class ConsolidateStructAssignmentsTransform extends FunctionalParserTrans
         return ast;
     }
 
+    /**
+     * Recursive visitor that tries to gather struct property assignments after their initializer for consolidation.
+     */
     private visit(node, tracker, commentTools) {
         if (!Core.isNode(node)) {
             return;
@@ -169,6 +176,9 @@ export class ConsolidateStructAssignmentsTransform extends FunctionalParserTrans
         });
     }
 
+    /**
+     * Scan sequential statements for a struct initializer and pull following member assignments into it.
+     */
     private consolidateBlock(statements, tracker, commentTools) {
         if (!Core.isNonEmptyArray(statements)) {
             return;

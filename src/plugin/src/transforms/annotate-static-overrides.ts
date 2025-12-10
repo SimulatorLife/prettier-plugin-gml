@@ -1,3 +1,7 @@
+/**
+ * Marks static constructor helper functions that override implementations inherited from parent constructors.
+ * The `_overridesStaticFunction` flag ensures downstream normalizers and formatters know when a collision exists.
+ */
 import { Core, type MutableGameMakerAstNode } from "@gml-modules/core";
 import { FunctionalParserTransform } from "./functional-transform.js";
 
@@ -14,6 +18,9 @@ export class AnnotateStaticFunctionOverridesTransform extends FunctionalParserTr
         super("annotate-static-overrides", {});
     }
 
+    /**
+     * Walk constructors, find duplicated static helpers, and set override metadata for conflicting members.
+     */
     private annotateStaticFunctionOverrides(ast: MutableGameMakerAstNode) {
         const constructors = this.collectConstructorInfos(ast);
 
@@ -40,6 +47,9 @@ export class AnnotateStaticFunctionOverridesTransform extends FunctionalParserTr
         }
     }
 
+    /**
+     * Build a map of constructors with their names, parents, and declared static helper functions.
+     */
     private collectConstructorInfos(
         ast: MutableGameMakerAstNode
     ): Map<string, ConstructorInfo> {
@@ -119,6 +129,9 @@ export class AnnotateStaticFunctionOverridesTransform extends FunctionalParserTr
         return ast;
     }
 
+    /**
+     * Search the constructor hierarchy to see if an ancestor already defines the named static helper.
+     */
     private hasAncestorStaticFunction(
         constructors: Map<string, ConstructorInfo>,
         startName: string | null | undefined,
@@ -148,6 +161,9 @@ export class AnnotateStaticFunctionOverridesTransform extends FunctionalParserTr
         return false;
     }
 
+    /**
+     * Identify static variable declarations that host function expressions/declarations.
+     */
     private isStaticFunctionDeclaration(
         statement: MutableGameMakerAstNode | null | undefined
     ) {
@@ -158,6 +174,9 @@ export class AnnotateStaticFunctionOverridesTransform extends FunctionalParserTr
         );
     }
 
+    /**
+     * Pull the identifier name from a static declarator.
+     */
     private extractStaticFunctionName(
         statement: MutableGameMakerAstNode | null | undefined
     ) {
@@ -174,6 +193,9 @@ export class AnnotateStaticFunctionOverridesTransform extends FunctionalParserTr
         return Core.getNonEmptyString(declarator.id.name);
     }
 
+    /**
+     * Helper to validate that a statement declares a single static variable with a function initializer.
+     */
     private getStaticFunctionDeclarator(
         statement: MutableGameMakerAstNode | null | undefined
     ) {

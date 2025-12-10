@@ -1,3 +1,7 @@
+/**
+ * Normalizes sequences of string concatenation (`"a" + b + "c"`) into template string literals so the printer renders more idiomatic GML.
+ * The transform only runs when it can guarantee comments and spacing are preserved.
+ */
 import { Core } from "@gml-modules/core";
 import { FunctionalParserTransform } from "./functional-transform.js";
 
@@ -11,6 +15,9 @@ type ConvertStringConcatenationsTransformOptions = {
     helpers?: any;
 };
 
+/**
+ * Hook that exposes the string concatenation cleanup logic to the parser transform pipeline.
+ */
 export class ConvertStringConcatenationsTransform extends FunctionalParserTransform<ConvertStringConcatenationsTransformOptions> {
     constructor() {
         super("convert-string-concatenations", {});
@@ -20,6 +27,7 @@ export class ConvertStringConcatenationsTransform extends FunctionalParserTransf
         ast: any,
         options: ConvertStringConcatenationsTransformOptions
     ) {
+        // Use a dedicated traversal state so repeated passes are safe and re-entrant.
         void options;
         this.traverse(ast, null, null);
         return ast;

@@ -1,6 +1,13 @@
+/**
+ * Consolidates `if` statements that guard assignments with `undefined` into concise `??=` or ternary expressions.
+ * This keeps downstream printers from emitting bloated conditionals when the intent is a fallback assignment.
+ */
 import { Core, type MutableGameMakerAstNode } from "@gml-modules/core";
 import { FunctionalParserTransform } from "./functional-transform.js";
 
+/**
+ * Functional transform orchestrating the `if`-to-`??=` conversions.
+ */
 export class ConvertUndefinedGuardAssignmentsTransform extends FunctionalParserTransform<
     Record<string, never>
 > {
@@ -23,6 +30,7 @@ export class ConvertUndefinedGuardAssignmentsTransform extends FunctionalParserT
     }
 
     private visit(node, parent, property) {
+        // Recursively visit nodes while preserving a safe parent/child context for replacements.
         if (Array.isArray(node)) {
             for (let index = 0; index < node.length; index += 1) {
                 this.visit(node[index], node, index);
@@ -58,6 +66,9 @@ export class ConvertUndefinedGuardAssignmentsTransform extends FunctionalParserT
         });
     }
 
+    /**
+     * Replace an `if` that guards an assignment with ternary or `??=` expressions when safe.
+     */
     private convertIfStatement(node, parent, property) {
         if (!node || !parent) {
             return false;
@@ -132,6 +143,9 @@ export class ConvertUndefinedGuardAssignmentsTransform extends FunctionalParserT
         );
     }
 
+    /**
+     * Ensure a branch contains exactly one assignment expression without comments.
+     */
     private extractSoleAssignment(branchNode) {
         if (!branchNode || branchNode.type !== "BlockStatement") {
             return null;
@@ -169,6 +183,9 @@ export class ConvertUndefinedGuardAssignmentsTransform extends FunctionalParserT
         return null;
     }
 
+    /**
+     * Validate that the `if`-condition matches `is_undefined(foo)` or `foo == undefined`.
+     */
     private resolveUndefinedGuardExpression(testNode, targetName) {
         if (!testNode) {
             return null;
@@ -212,6 +229,9 @@ export class ConvertUndefinedGuardAssignmentsTransform extends FunctionalParserT
         return null;
     }
 
+    /**
+     * Detect `is_undefined(target)` guard calls so we can preserve them when replacing the `if`.
+     */
     private isIsUndefinedCall(node, targetName) {
         if (!node || node.type !== "CallExpression") {
             return false;
@@ -238,6 +258,9 @@ export class ConvertUndefinedGuardAssignmentsTransform extends FunctionalParserT
         return Core.getIdentifierText(args[0]) === targetName;
     }
 
+    /**
+     * Clone the identifier into a fresh `is_undefined` call node for use in replacements.
+     */
     private createIsUndefinedCall(identifierNode) {
         return {
             type: "CallExpression",
@@ -246,6 +269,9 @@ export class ConvertUndefinedGuardAssignmentsTransform extends FunctionalParserT
         };
     }
 
+    /**
+     * Replace the original `if` statement node with an `ExpressionStatement` that contains the new assignment expression.
+     */
     private replaceWithAssignmentStatement(
         parent,
         property,
@@ -277,6 +303,9 @@ export class ConvertUndefinedGuardAssignmentsTransform extends FunctionalParserT
         return false;
     }
 
+    /**
+     * Remove synthetic parentheses introduced during earlier normalization to prevent infinite loops.
+     */
     private unwrapSyntheticParentheses(node, parent, property) {
         if (!node || node.type !== "ParenthesizedExpression") {
             return false;

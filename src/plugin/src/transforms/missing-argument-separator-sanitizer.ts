@@ -1,3 +1,7 @@
+/**
+ * Adds missing commas between numeric arguments when argument separators have been omitted in source text.
+ * The sanitizer emits index adjustments for downstream location remapping.
+ */
 import { Core } from "@gml-modules/core";
 
 const FALLBACK_FORBIDDEN_CALLEE = [
@@ -40,6 +44,9 @@ interface SanitizeMissingSeparatorsResult {
     indexAdjustments: Array<number> | null;
 }
 
+/**
+ * Walks source text to insert commas between numeric literal arguments when they are adjacent without separators.
+ */
 export function sanitizeMissingArgumentSeparators(
     sourceText: unknown
 ): SanitizeMissingSeparatorsResult {
@@ -60,6 +67,7 @@ export function sanitizeMissingArgumentSeparators(
     let insertedCount = 0;
     let modified = false;
 
+    // Copy literal source segments up to a point before we insert a comma.
     function ensureCopied(uptoIndex: number) {
         if (copyIndex >= uptoIndex) {
             return;
@@ -70,6 +78,7 @@ export function sanitizeMissingArgumentSeparators(
         modified = true;
     }
 
+    // Inspect a single call expression so nested calls are handled and missing commas are detected.
     function processCall(startIndex: number, openParenIndex: number) {
         let currentIndex = openParenIndex + 1;
         let stringQuote: string | null = null;

@@ -1,5 +1,11 @@
+/**
+ * Tracks comment ranges so transforms can temporarily re-order or remove statements without losing annotations.
+ */
 import { Core } from "@gml-modules/core";
 
+/**
+ * Keeps a sorted view of comment locations and supports checkpoint/rollback to safely explore rewrites.
+ */
 export class CommentTracker {
     public comments: Array<unknown>;
     public entries: Array<{
@@ -66,10 +72,12 @@ export class CommentTracker {
             .sort((a, b) => a.index - b.index);
     }
 
+    // Save the current comment state so we can revert if a rewrite branch fails.
     checkpoint() {
         this.checkpoints.push(this.entries.map((e) => ({ ...e })));
     }
 
+    // Revert to the last checkpoint when the pending rewrite should be discarded.
     rollback() {
         const previous = this.checkpoints.pop();
         if (previous) {
@@ -77,6 +85,7 @@ export class CommentTracker {
         }
     }
 
+    // Forget the most recent checkpoint when a rewrite succeeds.
     commit() {
         this.checkpoints.pop();
     }
@@ -118,6 +127,7 @@ export class CommentTracker {
         return false;
     }
 
+    // Retrieve and remove entries between the provided indices for relocation.
     takeBetween(
         left: number,
         right: number,
@@ -158,6 +168,7 @@ export class CommentTracker {
         return results;
     }
 
+    // Binary search helper used to find the next comment index beyond the provided offset.
     firstGreaterThan(target: number) {
         let low = 0;
         let high = this.entries.length - 1;
@@ -172,6 +183,7 @@ export class CommentTracker {
         return low;
     }
 
+    // Peek at entries between two offsets without mutating the tracker state.
     getEntriesBetween(left: number, right: number) {
         if (
             this.entries.length === 0 ||
@@ -199,6 +211,7 @@ export class CommentTracker {
     }
 
     consumeEntries(entries: Array<any>) {
+        // Mark the supplied entries as consumed so they are skipped when re-serializing comments.
         for (const entry of entries) {
             if (!entry) {
                 // Defensive: skip nullish values.
@@ -231,6 +244,7 @@ export class CommentTracker {
     }
 
     removeConsumedComments() {
+        // Drop comments that were marked as consumed during consolidation so the printer ignores them.
         if (this.comments.length === 0) {
             return;
         }

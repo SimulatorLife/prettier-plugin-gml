@@ -1,3 +1,6 @@
+/**
+ * Helpers that build boolean truth tables for branches and rewrite redundant logical nesting to concise expressions.
+ */
 import { Core } from "@gml-modules/core";
 
 const {
@@ -177,6 +180,7 @@ function isBooleanLiteralValue(node, expected) {
 }
 
 function visit(node, helpers) {
+    // Walk child nodes and attempt to collapse boolean branches into normalized boolean formulas.
     if (!isNode(node)) {
         return;
     }

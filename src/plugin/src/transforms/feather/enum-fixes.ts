@@ -1,3 +1,6 @@
+/**
+ * Feather-specific enum helpers ensure automatic fixes either remove duplicate members or sanitize invalid initializers.
+ */
 import { Core } from "@gml-modules/core";
 import {
     hasFeatherDiagnosticContext,
@@ -7,6 +10,9 @@ import {
 import { getEndFromNode } from "./ast-traversal.js";
 import { removeDuplicateSemicolons } from "./semicolon-fixes.js";
 
+/**
+ * Remove repeated `enum` members and emit Feather fix metadata describing the deletions.
+ */
 export function removeDuplicateEnumMembers({ ast, diagnostic, sourceText }) {
     if (!hasFeatherDiagnosticContext(ast, diagnostic)) {
         return [];
@@ -106,6 +112,9 @@ export function removeDuplicateEnumMembers({ ast, diagnostic, sourceText }) {
     return fixes;
 }
 
+/**
+ * Guard and sanitize enum initializers that are not numerically valid.
+ */
 export function sanitizeEnumAssignments({ ast, diagnostic }) {
     if (!hasFeatherDiagnosticContext(ast, diagnostic)) {
         return [];
@@ -143,6 +152,9 @@ export function sanitizeEnumAssignments({ ast, diagnostic }) {
     return fixes;
 }
 
+/**
+ * Null out problematic enum member initializers while recording fix metadata.
+ */
 function sanitizeEnumMember(node, diagnostic) {
     if (!node || typeof node !== "object" || !diagnostic) {
         return null;
@@ -184,6 +196,9 @@ function sanitizeEnumMember(node, diagnostic) {
     return fixDetail;
 }
 
+/**
+ * Detect enum initializers that cannot safely be printed (non-numeric strings, objects, etc.).
+ */
 function hasInvalidEnumInitializer(initializer) {
     if (initializer === undefined) {
         return false;

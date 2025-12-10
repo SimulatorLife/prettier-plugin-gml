@@ -16,7 +16,10 @@ import { ParserTransform } from "./functional-transform.js";
 
 type TransformOptions = Record<string, unknown>;
 
-// Plugin AST transforms exposed via the parser transform registry.
+/**
+ * Central registry for parser transforms exposed by the plugin pipeline.
+ * Each entry is referenced by name when `applyTransforms` runs, ensuring a single curated order.
+ */
 const TRANSFORM_REGISTRY_ENTRIES = [
     ["strip-comments", stripCommentsTransform],
     ["consolidate-struct-assignments", consolidateStructAssignmentsTransform],
@@ -68,6 +71,9 @@ export function isParserTransformName(
     );
 }
 
+/**
+ * Apply the requested transforms in the curated order so the plugin can share a single normalization pipeline.
+ */
 export function applyTransforms(
     ast: MutableGameMakerAstNode,
     transformNames: readonly TransformName[] = [],

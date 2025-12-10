@@ -1,3 +1,7 @@
+/**
+ * Collection of helper routines that reshape math-heavy AST fragments into a normalized form.
+ * This includes simplifications, constant conversions, and traversal-safe replacements so the printer emits consistent expressions.
+ */
 import { Core, type MutableGameMakerAstNode } from "@gml-modules/core";
 
 const {
@@ -36,6 +40,9 @@ export function applyManualMathNormalization(
     return ast;
 }
 
+/**
+ * DFS that repeatedly applies all available math simplification rules until the node stabilizes.
+ */
 function traverse(node, seen, context, parent = null) {
     if (!node || typeof node !== "object") {
         return;
@@ -377,6 +384,9 @@ function combineLengthdirScalarAssignments(ast) {
         return;
     }
 
+    /**
+     * Merge consecutive lengthdir scalar assignments into their declaration so the AST represents simplified math patterns.
+     */
     for (let index = 0; index < body.length - 1; index += 1) {
         const declaration = body[index];
         const next = body[index + 1];

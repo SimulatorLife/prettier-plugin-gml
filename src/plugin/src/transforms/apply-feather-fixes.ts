@@ -1,5 +1,10 @@
 // TODO: This file is way too big and needs to be split up. Things like 'attachFeatherFixMetadata' can live here, but everything else should be split/moved. Can have a file just for enum handling, one for fixing begin/end vertex, colour, etc.
 
+/**
+ * Provides a collection of helpers that interpret and apply YoYo Games "Feather" diagnostics as AST fixes.
+ * The transforms here mutate the AST, gather fix metadata, and expose diagnostics-driven helpers to the CLI plugin.
+ */
+
 import {
     Core,
     type MutableGameMakerAstNode,
@@ -131,6 +136,9 @@ function normalizeRoomNavigationDirection(
     return direction as RoomNavigationDirection;
 }
 
+/**
+ * Look up the proper room helper names for a normalized Feather navigation direction.
+ */
 export function getRoomNavigationHelpers(direction: unknown) {
     const normalizedDirection = normalizeRoomNavigationDirection(direction);
     return ROOM_NAVIGATION_HELPERS[normalizedDirection];
@@ -209,6 +217,9 @@ const FEATHER_DIAGNOSTIC_FIXERS = buildFeatherDiagnosticFixers(
     FEATHER_FIX_IMPLEMENTATIONS
 );
 
+/**
+ * Provide a copy of the configured feather diagnostic fixers so callers can iterate without mutating the registry.
+ */
 export function getFeatherDiagnosticFixers() {
     return new Map(FEATHER_DIAGNOSTIC_FIXERS);
 }
@@ -797,6 +808,9 @@ function isBreakableConstruct(node) {
     }
 }
 
+/**
+ * Prettier transform that runs every applicable Feather fixer and returns the mutated AST.
+ */
 export class ApplyFeatherFixesTransform extends FunctionalParserTransform<ApplyFeatherFixesOptions> {
     constructor() {
         super("apply-feather-fixes", {});

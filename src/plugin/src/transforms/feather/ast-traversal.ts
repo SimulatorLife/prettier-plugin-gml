@@ -1,5 +1,11 @@
+/**
+ * Utilities to traverse AST fragments needed by Feather diagnostic fixers.
+ */
 import { Core } from "@gml-modules/core";
 
+/**
+ * Simple walker that invokes a visitor for every node and respects a visitor opt-out signal.
+ */
 export function walkAstNodes(
     root: unknown,
     visitor: (
@@ -60,6 +66,7 @@ export function hasArrayParentWithNumericIndex(
     return true;
 }
 
+/** Return context surrounding a call expression held inside an array so fixers can mutate siblings safely. */
 export function resolveCallExpressionArrayContext(
     node: unknown,
     parent: unknown,
@@ -86,6 +93,7 @@ export function getStartFromNode(node: unknown) {
     return Core.cloneLocation((node as any).start);
 }
 
+/** Clone and return the `end` location associated with a node. */
 export function getEndFromNode(node: unknown) {
     if (!Core.isNode(node)) return null;
     if (!Object.hasOwn(node, "end")) return null;
