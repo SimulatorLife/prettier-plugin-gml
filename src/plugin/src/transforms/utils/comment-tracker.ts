@@ -52,7 +52,7 @@ export class CommentTracker {
                 // helper when the simple shape is not present so the tracker
                 // remains tolerant across runtime import contexts.
                 let index;
-                const maybeStart = comment && (comment).start;
+                const maybeStart = comment && comment.start;
                 if (maybeStart && typeof maybeStart.index === "number") {
                     index = maybeStart.index;
                 } else if (typeof maybeStart === "number") {

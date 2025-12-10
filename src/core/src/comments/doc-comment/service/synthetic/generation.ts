@@ -147,7 +147,6 @@ export function computeSyntheticFunctionDocLines(
             : []
     ) as DocMeta[];
 
-
     const orderedParamMetadata = metadata.filter(
         (meta) => meta.tag === "param"
     );

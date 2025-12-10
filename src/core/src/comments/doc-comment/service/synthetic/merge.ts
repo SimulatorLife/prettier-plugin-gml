@@ -39,7 +39,10 @@ export function mergeSyntheticDocComments(
     options: any,
     overrides: any = {}
 ): MutableDocCommentLines {
-    console.log("[DEBUG] mergeSyntheticDocComments existingDocLines:", existingDocLines);
+    console.log(
+        "[DEBUG] mergeSyntheticDocComments existingDocLines:",
+        existingDocLines
+    );
     let normalizedExistingLines = existingDocLines.map((line) =>
         line.trim()
     ) as MutableDocCommentLines;
@@ -53,7 +56,8 @@ export function mergeSyntheticDocComments(
     // such as `/// @function` when deciding whether the file-top doc-like
     // comment text should be promoted into `@description` metadata.
     const preserveDescriptionBreaks =
-        (existingDocLines as DocCommentLines)._preserveDescriptionBreaks === true;
+        (existingDocLines as DocCommentLines)._preserveDescriptionBreaks ===
+        true;
 
     normalizedExistingLines = toMutableArray(
         reorderDescriptionLinesAfterFunction(normalizedExistingLines)
@@ -169,9 +173,8 @@ export function mergeSyntheticDocComments(
     };
 
     const isFunctionLine = (line) => {
-        const matches = docTagMatches(line, /^\/\/\/\s*@function\b/i);
         // console.log(`[DEBUG] isFunctionLine("${line}") = ${matches}`);
-        return matches;
+        return docTagMatches(line, /^\/\/\/\s*@function\b/i);
     };
     const isOverrideLine = (line) =>
         docTagMatches(line, /^\/\/\/\s*@override\b/i);
@@ -225,8 +228,11 @@ export function mergeSyntheticDocComments(
         const existingFunctionIndices = mergedLines
             .map((line, index) => (isFunctionLine(line) ? index : -1))
             .filter((index) => index !== -1);
-        
-        console.log("[DEBUG] existingFunctionIndices:", existingFunctionIndices);
+
+        console.log(
+            "[DEBUG] existingFunctionIndices:",
+            existingFunctionIndices
+        );
 
         if (existingFunctionIndices.length > 0) {
             const [firstIndex, ...duplicateIndices] = existingFunctionIndices;
@@ -1021,272 +1027,272 @@ export function mergeSyntheticDocComments(
 
                         segments[penultimateIndex] = mergedSegment;
                         segments.pop();
-                      }
                     }
-                  }
-          
-                  return segments;
-                };
-          
-                for (let index = 0; index < reorderedDocs.length; index += 1) {
-                  const line = reorderedDocs[index];
-                  if (isDescriptionLine(line)) {
-                    const blockLines = [line];
-                    let lookahead = index + 1;
-          
-                    while (lookahead < reorderedDocs.length) {
-                      const nextLine = reorderedDocs[lookahead];
-                      if (
+                }
+            }
+
+            return segments;
+        };
+
+        for (let index = 0; index < reorderedDocs.length; index += 1) {
+            const line = reorderedDocs[index];
+            if (isDescriptionLine(line)) {
+                const blockLines = [line];
+                let lookahead = index + 1;
+
+                while (lookahead < reorderedDocs.length) {
+                    const nextLine = reorderedDocs[lookahead];
+                    if (
                         typeof nextLine === STRING_TYPE &&
                         nextLine.startsWith("///") &&
                         !parseDocCommentMetadata(nextLine)
-                      ) {
+                    ) {
                         blockLines.push(nextLine);
                         lookahead += 1;
                         continue;
-                      }
-                      break;
                     }
-          
-                    index = lookahead - 1;
-          
-                    const prefixMatch = line.match(/^(\/\/\/\s*@description\s+)/i);
-                    if (!prefixMatch) {
-                      wrappedDocs.push(...blockLines);
-                      continue;
-                    }
-          
-                    const prefix = prefixMatch[1];
-                    const continuationPrefix = `/// ${" ".repeat(Math.max(prefix.length - 4, 0))}`;
-                    const descriptionText = blockLines
-                      .map((docLine, blockIndex) => {
+                    break;
+                }
+
+                index = lookahead - 1;
+
+                const prefixMatch = line.match(/^(\/\/\/\s*@description\s+)/i);
+                if (!prefixMatch) {
+                    wrappedDocs.push(...blockLines);
+                    continue;
+                }
+
+                const prefix = prefixMatch[1];
+                const continuationPrefix = `/// ${" ".repeat(Math.max(prefix.length - 4, 0))}`;
+                const descriptionText = blockLines
+                    .map((docLine, blockIndex) => {
                         if (blockIndex === 0) {
-                          return docLine.slice(prefix.length).trim();
+                            return docLine.slice(prefix.length).trim();
                         }
-          
+
                         if (docLine.startsWith(continuationPrefix)) {
-                          return docLine
-                            .slice(continuationPrefix.length)
-                            .trim();
+                            return docLine
+                                .slice(continuationPrefix.length)
+                                .trim();
                         }
-          
+
                         if (docLine.startsWith("///")) {
-                          return docLine.slice(3).trim();
+                            return docLine.slice(3).trim();
                         }
-          
+
                         return docLine.trim();
-                      })
-                      .filter((segment) => segment.length > 0)
-                      .join(" ");
-          
-                    if (descriptionText.length === 0) {
-                      wrappedDocs.push(...blockLines);
-                      continue;
-                    }
-          
-                    const available = Math.max(wrapWidth - prefix.length, 16);
-                    const continuationAvailable = Math.max(
-                      Math.min(available, 62),
-                      16
-                    );
-                    const segments = wrapSegments(
-                      descriptionText,
-                      available,
-                      continuationAvailable
-                    );
-          
-                    if (segments.length === 0) {
-                      wrappedDocs.push(...blockLines);
-                      continue;
-                    }
-          
-                    if (blockLines.length > 1) {
-                      if (segments.length > blockLines.length) {
+                    })
+                    .filter((segment) => segment.length > 0)
+                    .join(" ");
+
+                if (descriptionText.length === 0) {
+                    wrappedDocs.push(...blockLines);
+                    continue;
+                }
+
+                const available = Math.max(wrapWidth - prefix.length, 16);
+                const continuationAvailable = Math.max(
+                    Math.min(available, 62),
+                    16
+                );
+                const segments = wrapSegments(
+                    descriptionText,
+                    available,
+                    continuationAvailable
+                );
+
+                if (segments.length === 0) {
+                    wrappedDocs.push(...blockLines);
+                    continue;
+                }
+
+                if (blockLines.length > 1) {
+                    if (segments.length > blockLines.length) {
                         const paddedBlockLines = blockLines.map(
-                          (docLine, blockIndex) => {
-                            if (
-                              blockIndex === 0 ||
-                              typeof docLine !== STRING_TYPE
-                            ) {
-                              return docLine;
+                            (docLine, blockIndex) => {
+                                if (
+                                    blockIndex === 0 ||
+                                    typeof docLine !== STRING_TYPE
+                                ) {
+                                    return docLine;
+                                }
+
+                                if (
+                                    !docLine.startsWith("///") ||
+                                    parseDocCommentMetadata(docLine)
+                                ) {
+                                    return docLine;
+                                }
+
+                                if (docLine.startsWith(continuationPrefix)) {
+                                    return docLine;
+                                }
+
+                                const trimmedContinuation = docLine
+                                    .slice(3)
+                                    .replace(/^\s+/, "");
+
+                                if (trimmedContinuation.length === 0) {
+                                    return docLine;
+                                }
+
+                                return `${continuationPrefix}${trimmedContinuation}`;
                             }
-          
-                            if (
-                              !docLine.startsWith("///") ||
-                              parseDocCommentMetadata(docLine)
-                            ) {
-                              return docLine;
-                            }
-          
-                            if (docLine.startsWith(continuationPrefix)) {
-                              return docLine;
-                            }
-          
-                            const trimmedContinuation = docLine
-                              .slice(3)
-                              .replace(/^\s+/, "");
-          
-                            if (trimmedContinuation.length === 0) {
-                              return docLine;
-                            }
-          
-                            return `${continuationPrefix}${trimmedContinuation}`;
-                          }
                         );
-          
+
                         wrappedDocs.push(...paddedBlockLines);
                         continue;
-                      }
-          
-                      // If the description is already expressed as multiple
-                      // block lines and the wrapping computation compresses it
-                      // into fewer segments (or same number), preserve the
-                      // original blockLines rather than collapsing them into a
-                      // single description line. Tests expect explicit
-                      // continuations to remain visible rather than being
-                      // merged into the first line.
-                      if (segments.length <= blockLines.length) {
+                    }
+
+                    // If the description is already expressed as multiple
+                    // block lines and the wrapping computation compresses it
+                    // into fewer segments (or same number), preserve the
+                    // original blockLines rather than collapsing them into a
+                    // single description line. Tests expect explicit
+                    // continuations to remain visible rather than being
+                    // merged into the first line.
+                    if (segments.length <= blockLines.length) {
                         wrappedDocs.push(...blockLines);
                         continue;
-                      }
                     }
-          
-                    wrappedDocs.push(`${prefix}${segments[0]}`);
-                    for (
-                      let segmentIndex = 1;
-                      segmentIndex < segments.length;
-                      segmentIndex += 1
-                    ) {
-                      wrappedDocs.push(
+                }
+
+                wrappedDocs.push(`${prefix}${segments[0]}`);
+                for (
+                    let segmentIndex = 1;
+                    segmentIndex < segments.length;
+                    segmentIndex += 1
+                ) {
+                    wrappedDocs.push(
                         `${continuationPrefix}${segments[segmentIndex]}`
-                      );
-                    }
-                    continue;
-                  }
-          
-                  wrappedDocs.push(line);
+                    );
                 }
-          
-                reorderedDocs = wrappedDocs;
-          
-                result = reorderedDocs;
-              }
-          
-              if (removedAnyLine || otherLines.length > 0) {
-                result._suppressLeadingBlank = true;
-              }
-          
-              let filteredResult: MutableDocCommentLines = toMutableArray(
-                result.filter((line) => {
-                  if (typeof line !== STRING_TYPE) {
-                    return true;
-                  }
-          
-                  if (!/^\/\/\/\s*@description\b/i.test(line.trim())) {
-                    return true;
-                  }
-          
-                  const metadata = parseDocCommentMetadata(line);
-                  const descriptionText = toTrimmedString(metadata?.name);
-          
-                  return descriptionText.length > 0;
-                })
-              );
-          
-              if (result._suppressLeadingBlank) {
-                filteredResult._suppressLeadingBlank = true;
-              }
-          
-              // If synthetic tags were computed and merged above, re-run promotion to
-              // convert leading doc-like summary lines into a `@description` tag when a
-              // doc tag now follows the summary. This can happen when the tag is
-              // synthetic (inserted by computeSyntheticFunctionDocLines) and not present
-              // in the original `existingDocLines` — re-running promotion here ensures
-              // the presence of synthetic tags enables the promotion and avoids leaving
-              // the summary as a plain inline/trailing comment.
-              try {
-                // Only re-run promotion if the original existing doc lines contained
-                // metadata tags or were doc-like (`// /` style). Avoid promoting plain
-                // triple slash summaries that had no metadata in the original source
-                // so synthetic tags do not cause unwanted `@description` promotions.
-                const originalExistingHasTags =
-                  Array.isArray(existingDocLines) &&
-                  existingDocLines.some((line) =>
-                    typeof line === STRING_TYPE
-                      ? parseDocCommentMetadata(line)
-                      : false
-                  );
-                const originalExistingHasDocLikePrefixes =
-                  Array.isArray(existingDocLines) &&
-                  existingDocLines.some((line) =>
-                    typeof line === STRING_TYPE
-                      ? /^\s*\/\/\s*\/\s*/.test(line)
-                      : false
-                  );
-          
-                if (originalExistingHasTags || originalExistingHasDocLikePrefixes) {
-                  filteredResult = toMutableArray(
-                    promoteLeadingDocCommentTextToDescription(filteredResult)
-                  );
-                }
-              } catch {
-                // If the Core service is unavailable (testing contexts), fall back to
-                // the original behavior without promotion so we don't throw.
-              }
-          
-              // If the original existing doc lines contained plain triple-slash
-              // summary lines but no explicit doc tags, prefer to keep the summary
-              // as plain text rather than a promoted `@description` tag and ensure a
-              // blank line separates the summary from the synthetic metadata.
-              try {
-                const originalHasPlainSummary =
-                  Array.isArray(existingDocLines) &&
-                  existingDocLines.some((l) =>
-                    typeof l === STRING_TYPE
-                      ? /^\/\/\/\s*(?!@).+/.test(l.trim())
-                      : false
-                  );
-                const originalHasTags =
-                  Array.isArray(existingDocLines) &&
-                  existingDocLines.some((l) =>
-                    typeof l === STRING_TYPE ? parseDocCommentMetadata(l) : false
-                  );
-                if (originalHasPlainSummary && !originalHasTags) {
-                  const summaryLines = [] as string[];
-                  const otherLines = [] as string[];
-          
-                  for (const ln of filteredResult) {
-                    if (typeof ln !== STRING_TYPE) continue;
-                    if (/^\/\/\/\s*@description\b/i.test(ln.trim())) {
-                      const meta = parseDocCommentMetadata(ln);
-                      const descriptionText =
+                continue;
+            }
+
+            wrappedDocs.push(line);
+        }
+
+        reorderedDocs = wrappedDocs;
+
+        result = reorderedDocs;
+    }
+
+    if (removedAnyLine || otherLines.length > 0) {
+        result._suppressLeadingBlank = true;
+    }
+
+    let filteredResult: MutableDocCommentLines = toMutableArray(
+        result.filter((line) => {
+            if (typeof line !== STRING_TYPE) {
+                return true;
+            }
+
+            if (!/^\/\/\/\s*@description\b/i.test(line.trim())) {
+                return true;
+            }
+
+            const metadata = parseDocCommentMetadata(line);
+            const descriptionText = toTrimmedString(metadata?.name);
+
+            return descriptionText.length > 0;
+        })
+    );
+
+    if (result._suppressLeadingBlank) {
+        filteredResult._suppressLeadingBlank = true;
+    }
+
+    // If synthetic tags were computed and merged above, re-run promotion to
+    // convert leading doc-like summary lines into a `@description` tag when a
+    // doc tag now follows the summary. This can happen when the tag is
+    // synthetic (inserted by computeSyntheticFunctionDocLines) and not present
+    // in the original `existingDocLines` — re-running promotion here ensures
+    // the presence of synthetic tags enables the promotion and avoids leaving
+    // the summary as a plain inline/trailing comment.
+    try {
+        // Only re-run promotion if the original existing doc lines contained
+        // metadata tags or were doc-like (`// /` style). Avoid promoting plain
+        // triple slash summaries that had no metadata in the original source
+        // so synthetic tags do not cause unwanted `@description` promotions.
+        const originalExistingHasTags =
+            Array.isArray(existingDocLines) &&
+            existingDocLines.some((line) =>
+                typeof line === STRING_TYPE
+                    ? parseDocCommentMetadata(line)
+                    : false
+            );
+        const originalExistingHasDocLikePrefixes =
+            Array.isArray(existingDocLines) &&
+            existingDocLines.some((line) =>
+                typeof line === STRING_TYPE
+                    ? /^\s*\/\/\s*\/\s*/.test(line)
+                    : false
+            );
+
+        if (originalExistingHasTags || originalExistingHasDocLikePrefixes) {
+            filteredResult = toMutableArray(
+                promoteLeadingDocCommentTextToDescription(filteredResult)
+            );
+        }
+    } catch {
+        // If the Core service is unavailable (testing contexts), fall back to
+        // the original behavior without promotion so we don't throw.
+    }
+
+    // If the original existing doc lines contained plain triple-slash
+    // summary lines but no explicit doc tags, prefer to keep the summary
+    // as plain text rather than a promoted `@description` tag and ensure a
+    // blank line separates the summary from the synthetic metadata.
+    try {
+        const originalHasPlainSummary =
+            Array.isArray(existingDocLines) &&
+            existingDocLines.some((l) =>
+                typeof l === STRING_TYPE
+                    ? /^\/\/\/\s*(?!@).+/.test(l.trim())
+                    : false
+            );
+        const originalHasTags =
+            Array.isArray(existingDocLines) &&
+            existingDocLines.some((l) =>
+                typeof l === STRING_TYPE ? parseDocCommentMetadata(l) : false
+            );
+        if (originalHasPlainSummary && !originalHasTags) {
+            const summaryLines = [] as string[];
+            const otherLines = [] as string[];
+
+            for (const ln of filteredResult) {
+                if (typeof ln !== STRING_TYPE) continue;
+                if (/^\/\/\/\s*@description\b/i.test(ln.trim())) {
+                    const meta = parseDocCommentMetadata(ln);
+                    const descriptionText =
                         typeof meta?.name === STRING_TYPE ? meta.name : "";
-                      summaryLines.push(`/// ${descriptionText}`);
-                      continue;
-                    }
-                    if (/^\/\/\/\s*@/i.test(ln.trim())) {
-                      otherLines.push(ln);
-                      continue;
-                    }
-                    // Treat other triple slash lines as summary continuations
-                    if (/^\/\/\/\s*/.test(ln.trim())) {
-                      summaryLines.push(ln);
-                      continue;
-                    }
-                    otherLines.push(ln);
-                  }
-          
-                  if (summaryLines.length > 0 && otherLines.length > 0) {
-                    // Ensure a blank separator between summary block and synthetic metadata
-                    const combined = [...summaryLines, "", ...otherLines];
-                    filteredResult = toMutableArray(
-                      combined as any
-                    ) as MutableDocCommentLines;
-                  }
+                    summaryLines.push(`/// ${descriptionText}`);
+                    continue;
                 }
-              } catch {
-                // Best-effort fallback; do not throw on diagnostic operations
-              }
+                if (/^\/\/\/\s*@/i.test(ln.trim())) {
+                    otherLines.push(ln);
+                    continue;
+                }
+                // Treat other triple slash lines as summary continuations
+                if (/^\/\/\/\s*/.test(ln.trim())) {
+                    summaryLines.push(ln);
+                    continue;
+                }
+                otherLines.push(ln);
+            }
+
+            if (summaryLines.length > 0 && otherLines.length > 0) {
+                // Ensure a blank separator between summary block and synthetic metadata
+                const combined = [...summaryLines, "", ...otherLines];
+                filteredResult = toMutableArray(
+                    combined as any
+                ) as MutableDocCommentLines;
+            }
+        }
+    } catch {
+        // Best-effort fallback; do not throw on diagnostic operations
+    }
     return toMutableArray(
         convertLegacyReturnsDescriptionLinesToMetadata(filteredResult, {
             normalizeDocCommentTypeAnnotations: normalizeGameMakerType

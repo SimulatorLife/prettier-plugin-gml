@@ -698,7 +698,9 @@ function _printImpl(path, options, print) {
             }
 
             if (programNode) {
-                console.log(`[DEBUG] programNode found. comments: ${programNode.comments?.length}`);
+                console.log(
+                    `[DEBUG] programNode found. comments: ${programNode.comments?.length}`
+                );
             } else {
                 console.log(`[DEBUG] programNode NOT found`);
             }
@@ -738,7 +740,9 @@ function _printImpl(path, options, print) {
                             ? comment.start
                             : (comment.start?.index ?? null);
 
-                    console.log(`[DEBUG] Checking program comment: "${comment.value}", start: ${commentStart}, end: ${commentEnd}, anchor: ${anchorIndex}`);
+                    console.log(
+                        `[DEBUG] Checking program comment: "${comment.value}", start: ${commentStart}, end: ${commentEnd}, anchor: ${anchorIndex}`
+                    );
 
                     if (
                         commentEnd === null ||
@@ -802,8 +806,10 @@ function _printImpl(path, options, print) {
                     typeof comment.end === "number"
                         ? comment.end
                         : (comment.end?.index ?? 0);
-                
-                console.log(`[DEBUG] Checking node comment: "${comment.value}", end: ${commentEnd}, nodeStart: ${nodeStartIndex}`);
+
+                console.log(
+                    `[DEBUG] Checking node comment: "${comment.value}", end: ${commentEnd}, nodeStart: ${nodeStartIndex}`
+                );
 
                 if (!comment.printed && commentEnd < nodeStartIndex) {
                     if (comment.type === "CommentLine") {

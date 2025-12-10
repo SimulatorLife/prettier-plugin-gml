@@ -110,22 +110,22 @@ export function removeDuplicateSemicolons({ ast, sourceText, diagnostic }) {
         }
 
         switch (node.type) {
-        case "BlockStatement": {
-            processStatementList(node, node.body);
-        
-        break;
-        }
-        case "Program": {
-            processStatementList(node, node.body);
-        
-        break;
-        }
-        case "SwitchCase": {
-            processStatementList(node, node.consequent);
-        
-        break;
-        }
-        // No default
+            case "BlockStatement": {
+                processStatementList(node, node.body);
+
+                break;
+            }
+            case "Program": {
+                processStatementList(node, node.body);
+
+                break;
+            }
+            case "SwitchCase": {
+                processStatementList(node, node.consequent);
+
+                break;
+            }
+            // No default
         }
 
         Core.visitChildNodes(node, visit);
