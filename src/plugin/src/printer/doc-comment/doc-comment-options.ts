@@ -1,11 +1,11 @@
 import { Core } from "@gml-modules/core";
 
 type DocCommentPrinterOptions = Record<string, unknown> & {
-    docCommentMaxWrapWidth?: number  ;
+    docCommentMaxWrapWidth?: number;
 };
 
 type ResolvedDocCommentPrinterOptions = DocCommentPrinterOptions & {
-    docCommentMaxWrapWidth: number  ;
+    docCommentMaxWrapWidth: number;
 };
 
 export function resolveDocCommentPrinterOptions(
