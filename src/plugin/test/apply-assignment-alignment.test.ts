@@ -1,7 +1,7 @@
 import assert from "node:assert/strict";
 import { describe, it } from "node:test";
 
-import { applyAssignmentAlignment } from "../src/printer/print.js";
+import * as Printer from "../src/printer/index.js";
 
 function createFunctionBodyPath(statements, params = []) {
     const block = { type: "BlockStatement", body: statements };
@@ -119,7 +119,7 @@ void describe("applyAssignmentAlignment", () => {
                 return originalPush.apply(this, args);
             };
 
-            applyAssignmentAlignment(statements, {
+            Printer.applyAssignmentAlignment(statements, {
                 alignAssignmentsMinGroupSize: 1
             });
         } finally {
@@ -179,7 +179,7 @@ void describe("applyAssignmentAlignment", () => {
             createAssignment("third")
         ];
 
-        applyAssignmentAlignment(statements, {
+        Printer.applyAssignmentAlignment(statements, {
             alignAssignmentsMinGroupSize: 2,
             originalText: source
         });
@@ -198,7 +198,7 @@ void describe("applyAssignmentAlignment", () => {
             createSelfAssignment("mid")
         ];
 
-        applyAssignmentAlignment(statements, {
+        Printer.applyAssignmentAlignment(statements, {
             alignAssignmentsMinGroupSize: 2
         });
 
@@ -222,7 +222,7 @@ void describe("applyAssignmentAlignment", () => {
         ];
         const path = createFunctionBodyPath(statements);
 
-        applyAssignmentAlignment(
+        Printer.applyAssignmentAlignment(
             statements,
             {
                 alignAssignmentsMinGroupSize: 2
@@ -251,7 +251,7 @@ void describe("applyAssignmentAlignment", () => {
         ];
         const programPath = createProgramPath(statements);
 
-        applyAssignmentAlignment(
+        Printer.applyAssignmentAlignment(
             statements,
             {
                 alignAssignmentsMinGroupSize: 1
@@ -277,7 +277,7 @@ void describe("applyAssignmentAlignment", () => {
         ];
         const path = createFunctionBodyPath(statements);
 
-        applyAssignmentAlignment(
+        Printer.applyAssignmentAlignment(
             statements,
             {
                 alignAssignmentsMinGroupSize: 3,
@@ -333,7 +333,7 @@ void describe("applyAssignmentAlignment", () => {
         ];
         const path = createFunctionBodyPath(statements, params);
 
-        applyAssignmentAlignment(
+        Printer.applyAssignmentAlignment(
             statements,
             {
                 alignAssignmentsMinGroupSize: 3
@@ -394,7 +394,7 @@ void describe("applyAssignmentAlignment", () => {
         ];
         const path = createFunctionBodyPath(statements, params);
 
-        applyAssignmentAlignment(
+        Printer.applyAssignmentAlignment(
             statements,
             {
                 alignAssignmentsMinGroupSize: 3

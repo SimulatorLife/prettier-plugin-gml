@@ -1,6 +1,6 @@
-// Public facade for printer utilities used by the Prettier plugin.
-//
-// Keeping the exports centralized here allows external consumers (including
-// sibling workspaces) to rely on a stable module path instead of importing
-// files from the internal directory layout.
-export { print } from "./print.js";
+export { print, applyAssignmentAlignment } from "./print.js";
+export * as DocBuilders from "./doc-builders.js";
+export * as DocCommentWrapWidth from "./doc-comment-wrap-width.js";
+export * as LoopSizeHoisting from "./loop-size-hoisting.js";
+export * as SourceText from "./source-text.js";
+export * as StatementSpacingPolicy from "./statement-spacing-policy.js";
