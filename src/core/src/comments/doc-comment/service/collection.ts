@@ -1,9 +1,9 @@
 import {
     asArray,
     isNonEmptyArray,
-    toMutableArray,
-    toTrimmedString
-} from "../../../utils/index.js";
+    toMutableArray
+} from "../../../utils/array.js";
+import { toTrimmedString } from "../../../utils/string.js";
 import { getCommentArray } from "../../comment-utils.js";
 import { getDocCommentPrinterDependencies } from "../printer-dependencies.js";
 import type { DocCommentPrinterDependencies } from "../types.js";
