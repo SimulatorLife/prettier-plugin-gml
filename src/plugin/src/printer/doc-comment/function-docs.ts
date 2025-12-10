@@ -1,0 +1,303 @@
+import { Core, type MutableDocCommentLines } from "@gml-modules/core";
+
+import { resolveDocCommentPrinterOptions } from "./doc-comment-options.js";
+
+const STRING_TYPE = "string";
+
+function resolveProgramNode(path): any {
+    let programNode = null;
+    const parentNode =
+        typeof path.getParentNode === "function" ? path.getParentNode() : null;
+
+    if (path && typeof path.getParentNode === "function") {
+        const getParentNode = path.getParentNode;
+        try {
+            for (let depth = 0; ; depth += 1) {
+                const candidate = getParentNode.call(path, depth);
+                if (!candidate) break;
+                if (candidate.type === "Program") {
+                    programNode = candidate;
+                    break;
+                }
+            }
+        } catch {
+            programNode = parentNode;
+        }
+    } else {
+        programNode = parentNode;
+    }
+
+    return programNode;
+}
+
+/**
+ * Collect and normalize raw doc-comment lines associated with a function-like
+ * node. The helper gathers doc comments attached directly to the node, leading
+ * program-level doc-like comments, and doc-style block comments that precede
+ * the node so callers receive a consolidated list of lines ready for further
+ * processing.
+ */
+export function collectFunctionDocCommentDocs({
+    node,
+    options,
+    path,
+    nodeStartIndex,
+    originalText
+}: any) {
+    let docCommentDocs: MutableDocCommentLines = [];
+    const lineCommentOptions = {
+        ...Core.resolveLineCommentOptions(options),
+        originalText
+    };
+    let needsLeadingBlankLine = false;
+
+    if (Core.isNonEmptyArray(node.docComments)) {
+        const firstDocComment = node.docComments[0];
+        if (
+            firstDocComment &&
+            typeof firstDocComment.leadingWS === STRING_TYPE
+        ) {
+            const blankLinePattern =
+                /(?:\r\n|\r|\n|\u2028|\u2029)\s*(?:\r\n|\r|\n|\u2028|\u2029)/;
+            if (blankLinePattern.test(firstDocComment.leadingWS)) {
+                needsLeadingBlankLine = true;
+            }
+        }
+
+        docCommentDocs = node.docComments
+            .map((comment) =>
+                Core.formatLineComment(comment, lineCommentOptions)
+            )
+            .filter(
+                (text) => typeof text === STRING_TYPE && text.trim() !== ""
+            );
+    }
+
+    const plainLeadingLines: string[] = [];
+    const existingDocLines: MutableDocCommentLines = [];
+
+    const programNode = resolveProgramNode(path);
+    const programLeadingLines: string[] = [];
+    if (
+        programNode &&
+        Array.isArray(programNode.comments) &&
+        typeof nodeStartIndex === "number"
+    ) {
+        const programComments = programNode.comments;
+        let anchorIndex = nodeStartIndex;
+
+        for (let i = programComments.length - 1; i >= 0; i -= 1) {
+            const comment = programComments[i];
+            if (!comment || comment.type !== "CommentLine" || comment.printed) {
+                continue;
+            }
+
+            const commentEnd =
+                typeof comment.end === "number"
+                    ? comment.end
+                    : (comment.end?.index ?? null);
+            const commentStart =
+                typeof comment.start === "number"
+                    ? comment.start
+                    : (comment.start?.index ?? null);
+
+            if (
+                commentEnd === null ||
+                commentStart === null ||
+                commentEnd >= anchorIndex
+            ) {
+                continue;
+            }
+
+            if (typeof originalText === "string") {
+                const gapText = originalText.slice(commentEnd, anchorIndex);
+                const blankLines = (gapText.match(/\n/g) || []).length;
+                if (blankLines >= 2) {
+                    break;
+                }
+            }
+
+            const formatted = Core.formatLineComment(
+                comment,
+                lineCommentOptions
+            );
+            const trimmed = formatted ? formatted.trim() : "";
+
+            const isDocLike =
+                trimmed.startsWith("///") ||
+                /^\/\/\s*\/(\s|$)/.test(trimmed) ||
+                /^\/\/\s*@/.test(trimmed);
+
+            if (isDocLike) {
+                programLeadingLines.unshift(formatted);
+                comment.printed = true;
+                anchorIndex = commentStart;
+            } else {
+                break;
+            }
+        }
+    }
+
+    const formattedProgramLines = programLeadingLines.map((line) => {
+        const trimmed = line.trim();
+        if (trimmed.startsWith("///")) return trimmed;
+        if (trimmed.startsWith("//")) return `///${trimmed.slice(2)}`;
+        if (trimmed.startsWith("/")) return `///${trimmed.slice(1)}`;
+        return `/// ${trimmed}`;
+    });
+
+    const nodeComments = [...(node.comments || [])];
+    const nodeLeadingDocs: { start: number; text: string }[] = [];
+
+    for (const comment of nodeComments) {
+        const commentEnd =
+            typeof comment.end === "number"
+                ? comment.end
+                : (comment.end?.index ?? 0);
+
+        if (!comment.printed && commentEnd < nodeStartIndex) {
+            if (comment.type === "CommentLine") {
+                const formatted = Core.formatLineComment(
+                    comment,
+                    lineCommentOptions
+                );
+                const trimmed = formatted ? formatted.trim() : "";
+                const isDocLike =
+                    trimmed.startsWith("///") ||
+                    /^\/\/\s*\/(\s|$)/.test(trimmed) ||
+                    /^\/\/\s*@/.test(trimmed);
+
+                if (isDocLike) {
+                    nodeLeadingDocs.push({
+                        start: comment.start,
+                        text: formatted
+                    });
+                    comment.printed = true;
+                    if (node.comments) {
+                        const idx = node.comments.indexOf(comment);
+                        if (idx !== -1) node.comments.splice(idx, 1);
+                    }
+                }
+            } else if (comment.type === "CommentBlock") {
+                const value = comment.value.trim();
+                const isDocLike = value.startsWith("*") || value.includes("@");
+
+                if (isDocLike) {
+                    const lines = comment.value.split(/\r\n|\r|\n/);
+                    for (const line of lines) {
+                        let cleanLine = line.trim();
+                        if (cleanLine.startsWith("*")) {
+                            cleanLine = cleanLine.slice(1).trim();
+                        }
+                        if (cleanLine === "") continue;
+                        nodeLeadingDocs.push({
+                            start: comment.start,
+                            text: `/// ${cleanLine}`
+                        });
+                    }
+                    comment.printed = true;
+                    if (node.comments) {
+                        const idx = node.comments.indexOf(comment);
+                        if (idx !== -1) node.comments.splice(idx, 1);
+                    }
+                }
+            }
+        }
+    }
+
+    const formattedNodeDocs = nodeLeadingDocs.map((doc) => {
+        const trimmed = doc.text.trim();
+        let newText = trimmed;
+        if (trimmed.startsWith("///")) newText = trimmed;
+        else if (trimmed.startsWith("//")) newText = `///${trimmed.slice(2)}`;
+        else if (trimmed.startsWith("/")) newText = `///${trimmed.slice(1)}`;
+        else newText = `/// ${trimmed}`;
+        return { start: doc.start, text: newText };
+    });
+
+    const originalDocDocs: { start: number; text: string }[] = [];
+    if (Core.isNonEmptyArray(node.docComments)) {
+        for (const comment of node.docComments) {
+            const formatted = Core.formatLineComment(
+                comment,
+                lineCommentOptions
+            );
+            if (formatted && formatted.trim() !== "") {
+                originalDocDocs.push({
+                    start: comment.start,
+                    text: formatted
+                });
+            }
+        }
+    }
+
+    const mergedDocs = [...originalDocDocs, ...formattedNodeDocs].sort(
+        (a, b) => a.start - b.start
+    );
+
+    const newDocCommentDocs = mergedDocs.map((x) => x.text);
+
+    const uniqueProgramLines = formattedProgramLines.filter(
+        (line) => !newDocCommentDocs.includes(line)
+    );
+
+    docCommentDocs = [...uniqueProgramLines, ...newDocCommentDocs];
+
+    return {
+        docCommentDocs,
+        existingDocLines,
+        needsLeadingBlankLine,
+        plainLeadingLines
+    };
+}
+
+/**
+ * Apply doc-comment normalization and synthesis rules for function-like nodes.
+ * The helper merges synthetic documentation when requested by the core logic
+ * and ensures nested functions receive appropriate leading whitespace in the
+ * presence of generated doc comments.
+ */
+export function normalizeFunctionDocCommentDocs({
+    docCommentDocs,
+    needsLeadingBlankLine,
+    node,
+    options,
+    path
+}: any) {
+    const docCommentOptions = resolveDocCommentPrinterOptions(options);
+
+    if (
+        Core.shouldGenerateSyntheticDocForFunction(
+            path,
+            docCommentDocs,
+            docCommentOptions
+        )
+    ) {
+        docCommentDocs = Core.toMutableArray(
+            Core.mergeSyntheticDocComments(
+                node,
+                docCommentDocs,
+                docCommentOptions
+            )
+        ) as MutableDocCommentLines;
+        if (Array.isArray(docCommentDocs)) {
+            while (
+                docCommentDocs.length > 0 &&
+                typeof docCommentDocs[0] === STRING_TYPE &&
+                docCommentDocs[0].trim() === ""
+            ) {
+                docCommentDocs.shift();
+            }
+        }
+        const parentNode = path.getParentNode();
+        if (
+            parentNode &&
+            parentNode.type === "BlockStatement" &&
+            !needsLeadingBlankLine
+        ) {
+            needsLeadingBlankLine = true;
+        }
+    }
+
+    return { docCommentDocs, needsLeadingBlankLine };
+}
