@@ -1,65 +1,42 @@
 import { Core } from "@gml-modules/core";
-import { concat, hardline, join } from "./doc-builders.js";
-import { resolveDocCommentPrinterOptions } from "./doc-comment-options.js";
+import { type Doc } from "prettier";
 
-const STRING_TYPE = "string";
+import { concat, hardline, join } from "./doc-builders.js";
+
+type ComputeSyntheticDocComment = typeof Core.computeSyntheticDocComment;
+
+export type SyntheticDocComment = NonNullable<
+    ReturnType<ComputeSyntheticDocComment>
+>;
+
+export type SyntheticDocCommentDoc = SyntheticDocComment & { doc: Doc };
 
 export function buildSyntheticDocComment(
-    functionNode,
-    existingDocLines,
-    options,
-    overrides: any = {}
-) {
-    const docCommentOptions = resolveDocCommentPrinterOptions(options);
+    functionNode: unknown,
+    existingDocLines: string[],
+    options: Record<string, unknown>,
+    overrides: Record<string, unknown> = {},
+    computeSyntheticDocComment: ComputeSyntheticDocComment = Core.computeSyntheticDocComment
+): SyntheticDocCommentDoc | null {
+    const syntheticDocComment = computeSyntheticDocComment(
+        functionNode,
+        existingDocLines,
+        options,
+        overrides
+    );
 
-    const hasExistingDocLines = existingDocLines.length > 0;
+    return buildSyntheticDocCommentDoc(syntheticDocComment);
+}
 
-    const syntheticLines = hasExistingDocLines
-        ? Core.mergeSyntheticDocComments(
-              functionNode,
-              existingDocLines,
-              docCommentOptions,
-              overrides
-          )
-        : Core.reorderDescriptionLinesAfterFunction(
-              Core.computeSyntheticFunctionDocLines(
-                  functionNode,
-                  [],
-                  options,
-                  overrides
-              )
-          );
-
-    const leadingCommentLines = Array.isArray(overrides?.leadingCommentLines)
-        ? overrides.leadingCommentLines
-              .map((line) => (typeof line === STRING_TYPE ? line : null))
-              .filter((line) => Core.isNonEmptyTrimmedString(line))
-        : [];
-
-    if (syntheticLines.length === 0 && leadingCommentLines.length === 0) {
+export function buildSyntheticDocCommentDoc(
+    syntheticDocComment: SyntheticDocComment | null
+): SyntheticDocCommentDoc | null {
+    if (!syntheticDocComment) {
         return null;
     }
 
-    const potentiallyPromotableLines =
-        leadingCommentLines.length > 0 && syntheticLines.length > 0
-            ? Core.promoteLeadingDocCommentTextToDescription([
-                  ...leadingCommentLines,
-                  syntheticLines[0]
-              ]).slice(0, leadingCommentLines.length)
-            : leadingCommentLines;
-
-    const docLines =
-        leadingCommentLines.length === 0
-            ? syntheticLines
-            : [
-                  ...potentiallyPromotableLines,
-                  ...(syntheticLines.length > 0 ? ["", ...syntheticLines] : [])
-              ];
-
-    const normalizedDocLines = Core.toMutableArray(docLines) as string[];
-
     return {
-        doc: concat([hardline, join(hardline, normalizedDocLines)]),
-        hasExistingDocLines
+        ...syntheticDocComment,
+        doc: concat([hardline, join(hardline, syntheticDocComment.docLines)])
     };
 }
