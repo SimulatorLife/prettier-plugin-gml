@@ -3597,9 +3597,9 @@ function synthesizeMissingCallArgumentSeparators(
     let normalizedText = "";
     let insertedSeparator = false;
 
-    // Cache array length to avoid repeated property access in loop body.
-    // Reduces property lookups from 2× per iteration to 1× total, a small but
-    // measurable win in this frequently executed formatting path.
+    // Cache array length to avoid repeated property access in loop condition.
+    // Accessing .length on every iteration is unnecessary since the array
+    // doesn't change. Precompute both the length and the last index for clarity.
     const argumentsLength = node.arguments.length;
     const lastArgumentIndex = argumentsLength - 1;
 
