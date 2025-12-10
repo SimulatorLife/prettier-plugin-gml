@@ -1,6 +1,5 @@
 /**
- * Normalizes sequences of string concatenation (`"a" + b + "c"`) into template string literals so the printer renders more idiomatic GML.
- * The transform only runs when it can guarantee comments and spacing are preserved.
+ * Normalizes sequences of string concatenation (`"a" + b + "c"`) into template string literals (`$"{a}{b}{c}"`) so the printer renders more idiomatic GML.
  */
 import { Core } from "@gml-modules/core";
 import { FunctionalParserTransform } from "./functional-transform.js";

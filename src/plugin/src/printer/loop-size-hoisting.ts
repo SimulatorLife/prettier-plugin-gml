@@ -1,3 +1,4 @@
+// TODO: Should this be converted into a transform?
 // Helpers for detecting and naming cached loop size variables.
 // This logic analyzes the AST rather than producing Prettier docs, so it lives
 // alongside other printer optimizations instead of the main print pipeline.
