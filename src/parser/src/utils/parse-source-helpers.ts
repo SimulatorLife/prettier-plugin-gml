@@ -4,10 +4,54 @@ import { Core } from "@gml-modules/core";
 
 export function fixMalformedComments(sourceText) {
     if (!Core.isNonEmptyString(sourceText)) {
-        return sourceText;
+        return { sourceText, indexMapper: (i) => i };
     }
 
-    return sourceText.replaceAll(/^(\s*)\/\s+(@.+)$/gm, "$1// $2");
+    const pattern = /^(\s*)\/\s+(@.+)$/gm;
+    const changes: Array<{
+        newStart: number;
+        newLength: number;
+        oldLength: number;
+        diff: number;
+    }> = [];
+    let accumulatedDiff = 0;
+
+    const newText = sourceText.replace(pattern, (match, p1, p2, index) => {
+        const replacement = `${p1}// ${p2}`;
+        const diff = replacement.length - match.length;
+
+        if (diff !== 0) {
+            changes.push({
+                newStart: index + accumulatedDiff,
+                newLength: replacement.length,
+                oldLength: match.length,
+                diff
+            });
+            accumulatedDiff += diff;
+        }
+        return replacement;
+    });
+
+    const indexMapper = (index) => {
+        let currentShift = 0;
+        for (const change of changes) {
+            if (index < change.newStart) {
+                return index - currentShift;
+            }
+            if (index < change.newStart + change.newLength) {
+                const oldStart = change.newStart - currentShift;
+                const offset = index - change.newStart;
+                if (offset < change.oldLength) {
+                    return oldStart + offset;
+                }
+                return oldStart + change.oldLength;
+            }
+            currentShift += change.diff;
+        }
+        return index - currentShift;
+    };
+
+    return { sourceText: newText, indexMapper };
 }
 
 export function recoverParseSourceFromMissingBrace(sourceText, error) {

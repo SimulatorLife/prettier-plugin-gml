@@ -46,6 +46,7 @@ type ParserPreparationContext = {
     conditionalAssignmentIndexAdjustments: Array<number> | null;
     enumIndexAdjustments: Array<number> | null;
     preprocessedFixMetadata: unknown;
+    commentFixMapper?: (index: number) => number;
 };
 
 type FeatherPreprocessCandidate = {
@@ -148,9 +149,8 @@ function preprocessSource(
         options?.applyFeatherFixes
     );
 
-    const commentFixedSource = String(
-        Parser.Utils.fixMalformedComments(featherResult.parseSource)
-    );
+    const { sourceText: commentFixedSource, indexMapper: commentFixMapper } =
+        Parser.Utils.fixMalformedComments(featherResult.parseSource);
 
     const conditionalResult = Transforms.sanitizeConditionalAssignments(
         commentFixedSource
@@ -176,7 +176,8 @@ function preprocessSource(
         conditionalAssignmentIndexAdjustments:
             conditionalResult.indexAdjustments ?? null,
         enumIndexAdjustments: featherResult.enumIndexAdjustments,
-        preprocessedFixMetadata: featherResult.metadata
+        preprocessedFixMetadata: featherResult.metadata,
+        commentFixMapper
     };
 }
 
@@ -348,6 +349,10 @@ function applyIndexAdjustments(
         Transforms.applySanitizedIndexAdjustments,
         context.preprocessedFixMetadata
     );
+
+    if (context.commentFixMapper) {
+        Core.remapLocationMetadata(ast, context.commentFixMapper);
+    }
 
     Transforms.applyIndexAdjustmentsIfPresent(
         ast,
