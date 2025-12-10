@@ -1,16 +1,13 @@
 import {
     getIdentifierText,
     isUndefinedSentinel
-} from "../../../../ast/node-helpers.js";
-import {
-    getNodeEndIndex,
-    getNodeStartIndex
-} from "../../../../ast/locations.js";
+} from "../../../ast/node-helpers.js";
+import { getNodeEndIndex, getNodeStartIndex } from "../../../ast/locations.js";
 import {
     getNonEmptyString,
     isNonEmptyTrimmedString
-} from "../../../../utils/string.js";
-import { normalizeDocMetadataName } from "../params.js";
+} from "../../../utils/string.js";
+import { normalizeDocMetadataName } from "./params.js";
 
 const STRING_TYPE = "string";
 const NUMBER_TYPE = "number";

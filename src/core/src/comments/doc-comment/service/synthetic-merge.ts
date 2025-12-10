@@ -1,31 +1,31 @@
 import type {
     DocCommentLines,
     MutableDocCommentLines
-} from "../../../comment-utils.js";
-import { coercePositiveIntegerOption } from "../../../../utils/numeric-options.js";
-import { findLastIndex, toMutableArray } from "../../../../utils/array.js";
-import { isNonEmptyString, toTrimmedString } from "../../../../utils/string.js";
-import { parseDocCommentMetadata } from "../metadata.js";
+} from "../../comment-utils.js";
+import { coercePositiveIntegerOption } from "../../../utils/numeric-options.js";
+import { findLastIndex, toMutableArray } from "../../../utils/array.js";
+import { isNonEmptyString, toTrimmedString } from "../../../utils/string.js";
+import { parseDocCommentMetadata } from "./metadata.js";
 import {
     dedupeReturnDocLines,
     reorderDescriptionLinesAfterFunction,
     convertLegacyReturnsDescriptionLinesToMetadata,
     promoteLeadingDocCommentTextToDescription,
     hasLegacyReturnsDescriptionLines
-} from "../legacy.js";
+} from "./legacy.js";
 import {
     normalizeDocCommentTypeAnnotations,
     normalizeGameMakerType
-} from "../type-normalization.js";
-import { resolveDocCommentWrapWidth } from "../wrap.js";
+} from "./type-normalization.js";
+import { resolveDocCommentWrapWidth } from "./wrap.js";
 import {
     collectImplicitArgumentDocNames,
     getParameterDocInfo,
     preferredParamDocNamesByNode,
     suppressedImplicitDocCanonicalByNode
-} from "./helpers.js";
-import { getCanonicalParamNameFromText } from "../params.js";
-import { computeSyntheticFunctionDocLines } from "./generation.js";
+} from "./synthetic-helpers.js";
+import { getCanonicalParamNameFromText } from "./params.js";
+import { computeSyntheticFunctionDocLines } from "./synthetic-generation.js";
 
 const STRING_TYPE = "string";
 
