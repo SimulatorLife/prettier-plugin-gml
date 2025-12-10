@@ -1,10 +1,10 @@
-import { DEFAULT_DOC_COMMENT_MAX_WRAP_WIDTH } from "./doc-comment-wrap-width.js";
+import { Core } from "@gml-modules/core";
 
 export function resolveDocCommentPrinterOptions(options: any) {
+    Core.docCommentMaxWrapWidthConfig.applyEnvOverride(process.env);
+
     return {
         ...options,
-        docCommentMaxWrapWidth:
-            options?.docCommentMaxWrapWidth ??
-            DEFAULT_DOC_COMMENT_MAX_WRAP_WIDTH
+        docCommentMaxWrapWidth: Core.resolveDocCommentWrapWidth(options)
     };
 }
