@@ -5,11 +5,8 @@ import {
     isDocCommentLine,
     type DocCommentLines
 } from "../comment-utils.js";
-import {
-    isNonEmptyArray,
-    isNonEmptyTrimmedString,
-    toMutableArray
-} from "../../utils/index.js";
+import { isNonEmptyArray, toMutableArray } from "../../utils/array.js";
+import { isNonEmptyTrimmedString } from "../../utils/string.js";
 
 const DOC_COMMENT_MANAGERS = new WeakMap();
 const DOC_COMMENT_TRAVERSAL_SERVICES = new WeakMap();

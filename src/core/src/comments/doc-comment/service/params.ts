@@ -1,4 +1,4 @@
-import { getNonEmptyString } from "../../../utils/index.js";
+import { getNonEmptyString } from "../../../utils/string.js";
 
 const STRING_TYPE = "string";
 

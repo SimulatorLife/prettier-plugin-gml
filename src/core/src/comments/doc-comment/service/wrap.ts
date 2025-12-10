@@ -1,7 +1,5 @@
-import {
-    createEnvConfiguredValueWithFallback,
-    toFiniteNumber
-} from "../../../utils/index.js";
+import { createEnvConfiguredValueWithFallback } from "../../../utils/environment.js";
+import { toFiniteNumber } from "../../../utils/number.js";
 
 const DOC_COMMENT_MAX_WRAP_WIDTH_ENV_VAR =
     "PRETTIER_PLUGIN_GML_DOC_COMMENT_MAX_WRAP_WIDTH";

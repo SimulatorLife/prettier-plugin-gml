@@ -2,7 +2,7 @@ import {
     getNodeName,
     isUndefinedSentinel
 } from "../../../../ast/node-helpers.js";
-import { isNonEmptyTrimmedString } from "../../../../utils/index.js";
+import { isNonEmptyTrimmedString } from "../../../../utils/string.js";
 import { parseDocCommentMetadata } from "../metadata.js";
 import { normalizeDocCommentTypeAnnotations } from "../type-normalization.js";
 import {
