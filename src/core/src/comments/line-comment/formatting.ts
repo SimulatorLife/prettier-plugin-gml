@@ -114,6 +114,8 @@ function formatLineComment(
     lineCommentOptions: any = DEFAULT_LINE_COMMENT_OPTIONS
 ) {
     const normalizedOptions = normalizeLineCommentOptions(lineCommentOptions);
+    const usesDefaultLineCommentOptions =
+        normalizedOptions === DEFAULT_LINE_COMMENT_OPTIONS;
     const { boilerplateFragments, codeDetectionPatterns } = normalizedOptions;
     const original = getLineCommentRawText(comment, lineCommentOptions);
     const trimmedOriginal = original.trim();
@@ -135,7 +137,7 @@ function formatLineComment(
 
     for (const lineFragment of boilerplateFragments) {
         if (trimmedValue.includes(lineFragment)) {
-            return null;
+            return usesDefaultLineCommentOptions ? null : "";
         }
     }
 

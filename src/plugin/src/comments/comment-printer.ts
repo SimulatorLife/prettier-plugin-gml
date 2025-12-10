@@ -133,7 +133,11 @@ function shouldSuppressComment(comment, options) {
         ...lineCommentOptions,
         originalText: options.originalText
     };
-    return Core.formatLineComment(comment, formattingOptions) === null;
+    const formatted = Core.formatLineComment(
+        comment,
+        formattingOptions
+    );
+    return formatted === null || formatted === "";
 }
 
 const handleComments = {
