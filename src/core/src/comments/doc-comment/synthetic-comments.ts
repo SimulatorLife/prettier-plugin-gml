@@ -12,7 +12,8 @@ import {
     reorderDescriptionLinesAfterFunction,
     resolveDocCommentWrapWidth
 } from "./service/index.js";
-import { isNonEmptyTrimmedString, toMutableArray } from "../../utils/index.js";
+import { toMutableArray } from "../../utils/array.js";
+import { isNonEmptyTrimmedString } from "../../utils/string.js";
 
 const STRING_TYPE = "string";
 

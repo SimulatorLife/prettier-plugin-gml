@@ -9,7 +9,7 @@ import {
 import {
     getNonEmptyString,
     isNonEmptyTrimmedString
-} from "../../../../utils/index.js";
+} from "../../../../utils/string.js";
 import { normalizeDocMetadataName } from "../params.js";
 
 const STRING_TYPE = "string";

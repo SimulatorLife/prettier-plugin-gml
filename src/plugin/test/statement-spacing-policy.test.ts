@@ -3,18 +3,11 @@ import { afterEach, describe, it } from "node:test";
 
 import { Core } from "@gml-modules/core";
 
-import {
-    registerSurroundingNewlineNodeTypes,
-    resetSurroundingNewlineNodeTypes,
-    shouldAddNewlinesAroundStatement,
-    shouldForceBlankLineBetweenReturnPaths,
-    shouldForceTrailingBlankLineForNestedFunction,
-    shouldSuppressEmptyLineBetween
-} from "../src/printer/statement-spacing-policy.js";
+import * as Printer from "../src/printer/index.js";
 
 void describe("statement spacing policy", () => {
     afterEach(() => {
-        resetSurroundingNewlineNodeTypes();
+        Printer.StatementSpacingPolicy.resetSurroundingNewlineNodeTypes();
     });
 
     void it("detects macro-like statements", () => {
@@ -29,15 +22,24 @@ void describe("statement spacing policy", () => {
         assert.equal(Core.isMacroLikeStatement(defineMacro), true);
         assert.equal(Core.isMacroLikeStatement(unrelated), false);
         assert.equal(
-            shouldSuppressEmptyLineBetween(macroDeclaration, null),
+            Printer.StatementSpacingPolicy.shouldSuppressEmptyLineBetween(
+                macroDeclaration,
+                null
+            ),
             false
         );
         assert.equal(
-            shouldSuppressEmptyLineBetween(macroDeclaration, defineMacro),
+            Printer.StatementSpacingPolicy.shouldSuppressEmptyLineBetween(
+                macroDeclaration,
+                defineMacro
+            ),
             true
         );
         assert.equal(
-            shouldSuppressEmptyLineBetween(macroDeclaration, unrelated),
+            Printer.StatementSpacingPolicy.shouldSuppressEmptyLineBetween(
+                macroDeclaration,
+                unrelated
+            ),
             false
         );
     });
@@ -49,7 +51,7 @@ void describe("statement spacing policy", () => {
         const unrelatedContainer = { type: "StructDeclaration" };
 
         assert.equal(
-            shouldForceTrailingBlankLineForNestedFunction(
+            Printer.StatementSpacingPolicy.shouldForceTrailingBlankLineForNestedFunction(
                 nestedFunction,
                 block,
                 container
@@ -57,7 +59,7 @@ void describe("statement spacing policy", () => {
             true
         );
         assert.equal(
-            shouldForceTrailingBlankLineForNestedFunction(
+            Printer.StatementSpacingPolicy.shouldForceTrailingBlankLineForNestedFunction(
                 nestedFunction,
                 block,
                 unrelatedContainer
@@ -90,14 +92,14 @@ void describe("statement spacing policy", () => {
         };
 
         assert.equal(
-            shouldForceBlankLineBetweenReturnPaths(
+            Printer.StatementSpacingPolicy.shouldForceBlankLineBetweenReturnPaths(
                 guardedReturn,
                 fallbackReturn
             ),
             true
         );
         assert.equal(
-            shouldForceBlankLineBetweenReturnPaths(
+            Printer.StatementSpacingPolicy.shouldForceBlankLineBetweenReturnPaths(
                 guardedReturn,
                 matchingFallback
             ),
@@ -107,15 +109,21 @@ void describe("statement spacing policy", () => {
 
     void it("keeps default newline padding behavior", () => {
         assert.equal(
-            shouldAddNewlinesAroundStatement({ type: "FunctionDeclaration" }),
+            Printer.StatementSpacingPolicy.shouldAddNewlinesAroundStatement({
+                type: "FunctionDeclaration"
+            }),
             true
         );
         assert.equal(
-            shouldAddNewlinesAroundStatement({ type: "RegionStatement" }),
+            Printer.StatementSpacingPolicy.shouldAddNewlinesAroundStatement({
+                type: "RegionStatement"
+            }),
             true
         );
         assert.equal(
-            shouldAddNewlinesAroundStatement({ type: "ReturnStatement" }),
+            Printer.StatementSpacingPolicy.shouldAddNewlinesAroundStatement({
+                type: "ReturnStatement"
+            }),
             false
         );
     });
@@ -123,10 +131,22 @@ void describe("statement spacing policy", () => {
     void it("allows internal consumers to register extra padded statement types", () => {
         const experimentalNode = { type: "ExperimentalStatement" };
 
-        assert.equal(shouldAddNewlinesAroundStatement(experimentalNode), false);
+        assert.equal(
+            Printer.StatementSpacingPolicy.shouldAddNewlinesAroundStatement(
+                experimentalNode
+            ),
+            false
+        );
 
-        registerSurroundingNewlineNodeTypes("ExperimentalStatement");
+        Printer.StatementSpacingPolicy.registerSurroundingNewlineNodeTypes(
+            "ExperimentalStatement"
+        );
 
-        assert.equal(shouldAddNewlinesAroundStatement(experimentalNode), true);
+        assert.equal(
+            Printer.StatementSpacingPolicy.shouldAddNewlinesAroundStatement(
+                experimentalNode
+            ),
+            true
+        );
     });
 });

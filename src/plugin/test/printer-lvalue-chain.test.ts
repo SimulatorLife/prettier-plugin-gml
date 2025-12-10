@@ -1,7 +1,7 @@
 import { test } from "node:test";
 import assert from "node:assert/strict";
 
-import { print as printNode } from "../src/printer/print.js";
+import * as Printer from "../src/printer/index.js";
 
 void test("call expressions guard missing parent nodes in lvalue chain detection", () => {
     const callNode = {
@@ -22,7 +22,7 @@ void test("call expressions guard missing parent nodes in lvalue chain detection
         }
     };
 
-    const doc = printNode(stubPath, {}, (property) => {
+    const doc = Printer.print(stubPath, {}, (property) => {
         assert.equal(property, "object");
         return "demo";
     });

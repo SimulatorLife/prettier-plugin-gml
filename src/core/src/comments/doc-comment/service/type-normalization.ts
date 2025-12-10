@@ -1,9 +1,9 @@
+import { createResolverController } from "../../../utils/resolver-controller.js";
 import {
     capitalize,
-    createResolverController,
     getNonEmptyString,
     getNonEmptyTrimmedString
-} from "../../../utils/index.js";
+} from "../../../utils/string.js";
 import { normalizeOptionalParamToken } from "./params.js";
 
 const STRING_TYPE = "string" as const;
