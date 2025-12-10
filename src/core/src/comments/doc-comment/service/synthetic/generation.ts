@@ -131,13 +131,6 @@ export function computeSyntheticFunctionDocLines(
     options: SyntheticDocGenerationOptions,
     overrides: any = {}
 ) {
-    if (node && node.id && node.id.name === "string_height_scribble") {
-        console.log(
-            "[DEBUG] computeSyntheticFunctionDocLines for string_height_scribble"
-        );
-        console.log("[DEBUG] existingDocLines:", existingDocLines);
-    }
-
     if (!node) {
         return [];
     }
@@ -153,6 +146,11 @@ export function computeSyntheticFunctionDocLines(
             ? existingDocLines.map(parseDocCommentMetadata).filter(Boolean)
             : []
     ) as DocMeta[];
+
+    if (metadata.some((meta) => meta.tag === "ignore")) {
+        return [];
+    }
+
     const orderedParamMetadata = metadata.filter(
         (meta) => meta.tag === "param"
     );

@@ -132,7 +132,7 @@ function formatLineComment(
 
     for (const lineFragment of boilerplateFragments) {
         if (trimmedValue.includes(lineFragment)) {
-            return "";
+            return null;
         }
     }
 
@@ -192,7 +192,7 @@ function formatLineComment(
         // treat it as a decorative separator and suppress it.
         const contentAfterStripping = trimmedValue.replace(/^\/+\s*/, "");
         if (contentAfterStripping.length === 0 && trimmedValue.length > 0) {
-            return "";
+            return null;
         }
 
         // If normalization fails but there is content, return the comment with normalized slashes
@@ -301,7 +301,16 @@ function formatLineComment(
 
     // Preserve existing doc comments (/// @tag ...)
     if (startsWithTripleSlash && trimmedOriginal.includes("@")) {
-        return applyInlinePadding(comment, `/// ${trimmedValue}`);
+        const content = trimmedValue.replace(/^\/+\s*/, "");
+        const formatted = Core.applyJsDocReplacements(`/// ${content}`) as string;
+        
+        if (formatted.trim() === "/// @description") {
+            return "";
+        }
+
+        const result = applyInlinePadding(comment, formatted);
+        console.log(`[DEBUG] formatLineComment preserve doc: "${trimmedOriginal}" -> "${result}"`);
+        return result;
     }
 
     const docTagSource = DOC_TAG_LINE_PREFIX_PATTERN.test(trimmedValue)
@@ -314,7 +323,14 @@ function formatLineComment(
         formattedCommentLine = Core.applyJsDocReplacements(
             formattedCommentLine
         ) as string;
-        return applyInlinePadding(comment, formattedCommentLine);
+        
+        if (formattedCommentLine.trim() === "/// @description") {
+            return "";
+        }
+
+        const result = applyInlinePadding(comment, formattedCommentLine);
+        console.log(`[DEBUG] formatLineComment docTagSource: "${trimmedOriginal}" -> "${result}"`);
+        return result;
     }
 
     const leadingWhitespaceMatch = rawValue.match(/^\s*/);
@@ -330,11 +346,13 @@ function formatLineComment(
         (trimmedValue.startsWith("//") ||
             looksLikeCommentedOutCode(coreValue, codeDetectionPatterns))
     ) {
-        return applyInlinePadding(
+        const result = applyInlinePadding(
             comment,
             `//${leadingWhitespace}${coreValue}`,
             true
         );
+        console.log(`[DEBUG] formatLineComment commented code: "${trimmedOriginal}" -> "${result}"`);
+        return result;
     }
 
     const sentences = isInlineComment
@@ -346,10 +364,14 @@ function formatLineComment(
             const line = applyInlinePadding(comment, `// ${sentence}`);
             return index === 0 ? line : continuationIndent + line;
         });
-        return formattedSentences.join("\n");
+        const result = formattedSentences.join("\n");
+        console.log(`[DEBUG] formatLineComment sentences: "${trimmedOriginal}" -> "${result}"`);
+        return result;
     }
 
-    return applyInlinePadding(comment, `//${trimmedValue.startsWith("/") ? "" : " "}${trimmedValue}`);
+    const result = applyInlinePadding(comment, `//${trimmedValue.startsWith("/") ? "" : " "}${trimmedValue}`);
+    console.log(`[DEBUG] formatLineComment default: "${trimmedOriginal}" -> "${result}"`);
+    return result;
 }
 
 function applyInlinePadding(comment, formattedText, preserveTabs = false) {

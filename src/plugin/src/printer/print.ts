@@ -903,10 +903,10 @@ function _printImpl(path, options, print) {
                 // Non-fatal heuristic failures should not abort printing.
             }
 
-            // console.log(
-            //     "[DEBUG] Before shouldGenerateSyntheticDocForFunction check. docCommentDocs:",
-            //     JSON.stringify(docCommentDocs)
-            // );
+            console.log(
+                "[DEBUG] Before shouldGenerateSyntheticDocForFunction check. docCommentDocs:",
+                JSON.stringify(docCommentDocs)
+            );
             if (
                 Core.shouldGenerateSyntheticDocForFunction(
                     path,
@@ -914,12 +914,12 @@ function _printImpl(path, options, print) {
                     docCommentOptions
                 )
             ) {
-                // console.log(
-                //     "[DEBUG] Calling mergeSyntheticDocComments for node",
-                //     node.type,
-                //     "with docs:",
-                //     JSON.stringify(docCommentDocs)
-                // );
+                console.log(
+                    "[DEBUG] Calling mergeSyntheticDocComments for node",
+                    node.type,
+                    "with docs:",
+                    JSON.stringify(docCommentDocs)
+                );
                 docCommentDocs = Core.toMutableArray(
                     Core.mergeSyntheticDocComments(
                         node,
@@ -927,10 +927,10 @@ function _printImpl(path, options, print) {
                         docCommentOptions
                     )
                 ) as MutableDocCommentLines;
-                // console.log(
-                //     "[DEBUG] Result of mergeSyntheticDocComments:",
-                //     JSON.stringify(docCommentDocs)
-                // );
+                console.log(
+                    "[DEBUG] Result of mergeSyntheticDocComments:",
+                    JSON.stringify(docCommentDocs)
+                );
                 if (Array.isArray(docCommentDocs)) {
                     while (
                         docCommentDocs.length > 0 &&

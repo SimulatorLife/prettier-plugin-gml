@@ -204,6 +204,10 @@ function printComment(commentPath, options) {
 
     switch (comment.type) {
         case "CommentBlock": {
+            const trimmed = comment.value.trim();
+            if (trimmed === "" || trimmed === "*") {
+                return "";
+            }
             return `/*${comment.value}*/`;
         }
         case "CommentLine": {
@@ -715,10 +719,11 @@ function attachDocCommentToFollowingNode(comment, options) {
         return false;
     }
 
+    if (!followingNode.docComments) {
+        followingNode.docComments = [];
+    }
+    followingNode.docComments.push(comment);
     comment.printed = true;
-    const docComments =
-        followingNode.docComments ?? (followingNode.docComments = []);
-    docComments.push(comment);
     return true;
 }
 
