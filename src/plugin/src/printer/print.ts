@@ -57,7 +57,7 @@ import {
     printDanglingCommentsAsGroup
 } from "../comments/index.js";
 import { TRAILING_COMMA } from "../options/trailing-comma-option.js";
-import { buildSyntheticDocComment } from "./doc-comment/synthetic-doc-comment-builder.js";
+import { buildSyntheticDocComment } from "./synthetic-doc-comment-builder.js";
 
 import { Semantic } from "@gml-modules/semantic";
 import {
@@ -3597,7 +3597,13 @@ function synthesizeMissingCallArgumentSeparators(
     let normalizedText = "";
     let insertedSeparator = false;
 
-    for (let index = 0; index < node.arguments.length; index += 1) {
+    // Cache array length to avoid repeated property access in loop condition.
+    // Accessing .length on every iteration is unnecessary since the array
+    // doesn't change. Precompute both the length and the last index for clarity.
+    const argumentsLength = node.arguments.length;
+    const lastArgumentIndex = argumentsLength - 1;
+
+    for (let index = 0; index < argumentsLength; index += 1) {
         const argument = node.arguments[index];
         const argumentStart = Core.getNodeStartIndex(argument);
         const argumentEnd = Core.getNodeEndIndex(argument);
@@ -3615,7 +3621,7 @@ function synthesizeMissingCallArgumentSeparators(
         normalizedText += originalText.slice(argumentStart, argumentEnd);
         cursor = argumentEnd;
 
-        if (index >= node.arguments.length - 1) {
+        if (index >= lastArgumentIndex) {
             continue;
         }
 
