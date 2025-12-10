@@ -1,10 +1,7 @@
-import {
-    getNodeName,
-    isUndefinedSentinel
-} from "../../../../ast/node-helpers.js";
-import { isNonEmptyTrimmedString } from "../../../../utils/string.js";
-import { parseDocCommentMetadata } from "../metadata.js";
-import { normalizeDocCommentTypeAnnotations } from "../type-normalization.js";
+import { getNodeName, isUndefinedSentinel } from "../../../ast/node-helpers.js";
+import { isNonEmptyTrimmedString } from "../../../utils/string.js";
+import { parseDocCommentMetadata } from "./metadata.js";
+import { normalizeDocCommentTypeAnnotations } from "./type-normalization.js";
 import {
     docParamNamesLooselyEqual,
     getCanonicalParamNameFromText,
@@ -13,7 +10,7 @@ import {
     normalizeParamDocType,
     preservedUndefinedDefaultParameters,
     synthesizedUndefinedDefaultParameters
-} from "../params.js";
+} from "./params.js";
 import {
     collectImplicitArgumentDocNames,
     gatherImplicitArgumentReferences,
@@ -25,7 +22,7 @@ import {
     suppressedImplicitDocCanonicalByNode,
     preferredParamDocNamesByNode,
     SyntheticDocGenerationOptions
-} from "./helpers.js";
+} from "./synthetic-helpers.js";
 
 const STRING_TYPE = "string";
 const NUMBER_TYPE = "number";
