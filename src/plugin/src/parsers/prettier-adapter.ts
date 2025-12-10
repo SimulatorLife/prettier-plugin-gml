@@ -5,6 +5,8 @@ import {
 import type { GmlParserAdapter } from "../components/plugin-types.js";
 import type { MutableGameMakerAstNode } from "@gml-modules/core";
 
+export type PrettierGmlOptions = GmlParserAdapterOptions;
+
 /**
  * Bridges Prettier’s `parser.parse` options into the parser adapter by
  * normalizing the available GML-specific options without introducing an
