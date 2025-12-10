@@ -146,19 +146,11 @@ export function computeSyntheticDocCommentForStaticVariable(
         declarator.init.docComments && declarator.init.docComments.length > 0;
 
     const { existingDocLines, remainingComments } =
-        collectSyntheticDocCommentLines(
-            node,
-            options,
-            programNode,
-            sourceText
-        );
+        collectSyntheticDocCommentLines(node, options, programNode, sourceText);
     const {
         leadingLines: leadingCommentLines,
         remainingComments: updatedComments
-    } = extractLeadingNonDocCommentLines(
-        remainingComments,
-        options
-    );
+    } = extractLeadingNonDocCommentLines(remainingComments, options);
 
     const sourceLeadingLines =
         existingDocLines.length === 0
@@ -287,10 +279,7 @@ export function computeSyntheticDocCommentForFunctionAssignment(
     const {
         leadingLines: leadingCommentLines,
         remainingComments: updatedComments
-    } = extractLeadingNonDocCommentLines(
-        remainingComments,
-        options
-    );
+    } = extractLeadingNonDocCommentLines(remainingComments, options);
 
     const sourceLeadingLines =
         existingDocLines.length === 0

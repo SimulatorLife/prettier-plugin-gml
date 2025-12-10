@@ -215,7 +215,10 @@ function printComment(commentPath, options) {
                 ...lineCommentOptions,
                 originalText: options.originalText
             };
-            const formatted = Core.formatLineComment(comment, formattingOptions);
+            const formatted = Core.formatLineComment(
+                comment,
+                formattingOptions
+            );
             return formatted ?? "";
         }
         default: {
@@ -316,7 +319,9 @@ function collectDanglingComments(path, filter) {
     const entries = [];
     path.each((commentPath) => {
         const comment = commentPath.getValue();
-        console.log(`[DEBUG] collectDanglingComments checking comment: "${comment.value}" leading=${comment.leading} trailing=${comment.trailing}`);
+        console.log(
+            `[DEBUG] collectDanglingComments checking comment: "${comment.value}" leading=${comment.leading} trailing=${comment.trailing}`
+        );
         if (
             Core.isCommentNode(comment) &&
             !comment.leading &&

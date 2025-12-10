@@ -42,7 +42,7 @@ export function collectSyntheticDocCommentLines(
     node: any,
     options: any,
     programNode: any,
-    sourceText: string | null,
+    sourceText: string | null
 ) {
     const rawComments = getCommentArray(node);
 
@@ -203,8 +203,7 @@ export function collectSyntheticDocCommentLines(
                 }
 
                 if (docCandidates.length > 0) {
-                    const fallbackOptions =
-                        resolveLineCommentOptions(options);
+                    const fallbackOptions = resolveLineCommentOptions(options);
                     const collected = docCandidates.map((c) =>
                         formatLineComment(c, fallbackOptions)
                     );
@@ -277,8 +276,7 @@ export function collectSyntheticDocCommentLines(
                 }
 
                 if (candidates.length > 0) {
-                    const fallbackOptions =
-                        resolveLineCommentOptions(options);
+                    const fallbackOptions = resolveLineCommentOptions(options);
                     const formatted = candidates.map((c) => {
                         const matchNode = programCommentArray.find((pc) => {
                             const startIndex =
@@ -444,10 +442,7 @@ export function collectAdjacentLeadingSourceLineComments(
     return leadingLines;
 }
 
-export function extractLeadingNonDocCommentLines(
-    comments: any,
-    options: any
-) {
+export function extractLeadingNonDocCommentLines(comments: any, options: any) {
     if (!isNonEmptyArray(comments)) {
         return {
             leadingLines: [],
@@ -466,10 +461,7 @@ export function extractLeadingNonDocCommentLines(
             comment &&
             comment.type === "CommentLine"
         ) {
-            const formatted = formatLineComment(
-                comment,
-                lineCommentOptions
-            );
+            const formatted = formatLineComment(comment, lineCommentOptions);
             const trimmed = toTrimmedString(formatted);
 
             if (trimmed.length === 0) {

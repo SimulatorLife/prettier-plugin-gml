@@ -51,7 +51,7 @@ experiments without permanently widening the public option surface. Comprehensiv
 documentation for these hooks is pending; consult the source files for
 implementation details:
 
-- **Line-comment options resolver** (`src/plugin/src/options/line-comment-options.js`)
+- **Line-comment options resolver** (`@gml-modules/core`)
   — Adjust the boilerplate stripping and commented-code heuristics without
   forking the formatter. Normalization guards keep overrides safe even when hosts
   provide partial data.

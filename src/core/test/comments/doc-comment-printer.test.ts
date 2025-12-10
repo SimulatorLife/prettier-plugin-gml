@@ -17,12 +17,7 @@ void test("collectSyntheticDocCommentLines prefers node-level doc comments", () 
         comments: [createLineComment("/// @function local", 2, 10)],
         start: { index: 20 }
     };
-    const result = Core.collectSyntheticDocCommentLines(
-        node,
-        {},
-        null,
-        null
-    );
+    const result = Core.collectSyntheticDocCommentLines(node, {}, null, null);
 
     assert.deepStrictEqual(result.existingDocLines, ["/// @function local"]);
     assert.deepStrictEqual(result.remainingComments, []);

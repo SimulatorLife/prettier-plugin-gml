@@ -2737,13 +2737,10 @@ function buildStructPropertyCommentSuffix(path, options) {
 
     for (const comment of comments) {
         if ((comment as any)?._structPropertyTrailing === true) {
-            const formatted = formatLineComment(
-                comment,
-                {
-                    ...resolveLineCommentOptions(options),
-                    originalText: options.originalText
-                }
-            );
+            const formatted = formatLineComment(comment, {
+                ...resolveLineCommentOptions(options),
+                originalText: options.originalText
+            });
             if (formatted) {
                 commentDocs.push(formatted);
             }

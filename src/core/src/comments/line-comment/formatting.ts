@@ -179,9 +179,7 @@ function formatLineComment(
         const afterStripping = trimmedValue.replace(/^\/+\s*/, "").trimStart();
         if (afterStripping.startsWith("@")) {
             // Promote to /// @... style and apply replacements (e.g. @func -> @function)
-            const formatted = applyJsDocReplacements(
-                `/// ${afterStripping}`
-            );
+            const formatted = applyJsDocReplacements(`/// ${afterStripping}`);
             return applyInlinePadding(comment, formatted);
         }
 
@@ -305,9 +303,7 @@ function formatLineComment(
     // Preserve existing doc comments (/// @tag ...)
     if (startsWithTripleSlash && trimmedOriginal.includes("@")) {
         const content = trimmedValue.replace(/^\/+\s*/, "");
-        const formatted = applyJsDocReplacements(
-            `/// ${content}`
-        ) as string;
+        const formatted = applyJsDocReplacements(`/// ${content}`) as string;
 
         if (formatted.trim() === "/// @description") {
             return "";
