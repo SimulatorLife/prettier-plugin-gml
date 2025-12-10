@@ -606,15 +606,6 @@ function _printImpl(path, options, print) {
             const { startIndex: nodeStartIndex } =
                 resolveNodeIndexRangeWithSource(node, sourceMetadata);
 
-            console.log(`[DEBUG] nodeStartIndex: ${nodeStartIndex}`);
-
-            // DEBUG: Check leading comments
-            // if ((node as any).leadingComments) {
-            //     console.log("[DEBUG] FunctionDeclaration has leadingComments:", JSON.stringify((node as any).leadingComments));
-            // } else {
-            //     console.log("[DEBUG] FunctionDeclaration has NO leadingComments");
-            // }
-
             let docCommentDocs: MutableDocCommentLines = [];
             const lineCommentOptions = {
                 ...resolveLineCommentOptions(options),
