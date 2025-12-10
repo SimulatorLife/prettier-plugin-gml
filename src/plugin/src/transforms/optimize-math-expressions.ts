@@ -1,13 +1,14 @@
-import type { MutableGameMakerAstNode } from "@gml-modules/core";
+import { Core, type MutableGameMakerAstNode } from "@gml-modules/core";
 import { FunctionalParserTransform } from "./functional-transform.js";
 import { cleanupMultiplicativeIdentityParentheses } from "./math/parentheses-cleanup.js";
 import {
     applyManualMathNormalization,
     normalizeTraversalContext,
+    applyScalarCondensing,
     type ConvertManualMathTransformOptions
 } from "./math/traversal-normalization.js";
-import { applyScalarCondensing } from "./math/scalar-condensing.js";
-import { attemptConvertDivisionToMultiplication } from "./math/division-to-multiplication.js";
+
+const { BINARY_EXPRESSION, LITERAL } = Core;
 
 export class OptimizeMathExpressionsTransform extends FunctionalParserTransform<ConvertManualMathTransformOptions> {
     constructor() {
@@ -40,7 +41,7 @@ export class OptimizeMathExpressionsTransform extends FunctionalParserTransform<
         }
 
         // Apply transform
-        attemptConvertDivisionToMultiplication(node);
+        this.attemptConvertDivisionToMultiplication(node);
 
         // Recurse
         for (const key in node) {
@@ -49,11 +50,50 @@ export class OptimizeMathExpressionsTransform extends FunctionalParserTransform<
 
             const child = (node as any)[key];
             if (Array.isArray(child)) {
-                child.forEach((c) => this.applyDivisionToMultiplication(c));
-            } else if (child && typeof child === "object" && child.type) {
+                for (const item of child) {
+                    this.applyDivisionToMultiplication(item);
+                }
+            } else if (child && typeof child === "object") {
                 this.applyDivisionToMultiplication(child);
             }
         }
+    }
+
+    /**
+     * Converts division by a constant literal into multiplication by its reciprocal.
+     * Example: `x / 2` -> `x * 0.5`
+     */
+    private attemptConvertDivisionToMultiplication(
+        node: MutableGameMakerAstNode
+    ): boolean {
+        if (node.type !== BINARY_EXPRESSION || node.operator !== "/") {
+            return false;
+        }
+
+        const right = node.right;
+        // Ensure we are dividing by a numeric literal
+        if (right.type !== LITERAL || typeof right.value !== "number") {
+            return false;
+        }
+
+        const divisor = right.value;
+        if (divisor === 0) {
+            return false; // Avoid division by zero issues
+        }
+
+        // Calculate reciprocal
+        const reciprocal = 1 / divisor;
+
+        // Mutate the node
+        node.operator = "*";
+        node.right = {
+            ...right,
+            value: reciprocal,
+            // @ts-ignore - 'raw' is used by the printer but might not be in the strict type
+            raw: String(reciprocal)
+        } as any;
+
+        return true;
     }
 }
 

@@ -39,11 +39,10 @@ export function mergeSyntheticDocComments(
     options: any,
     overrides: any = {}
 ): MutableDocCommentLines {
-    const normalizedExistingLines = existingDocLines.map((line) =>
+    let normalizedExistingLines = existingDocLines.map((line) =>
         line.trim()
-    );
+    ) as MutableDocCommentLines;
     console.log("[DEBUG] normalizedExistingLines:", normalizedExistingLines);
-    let mergedLines = [...normalizedExistingLines];
     const originalExistingHasTags =
         Array.isArray(existingDocLines) &&
         existingDocLines.some((line) =>
@@ -55,7 +54,7 @@ export function mergeSyntheticDocComments(
     // such as `/// @function` when deciding whether the file-top doc-like
     // comment text should be promoted into `@description` metadata.
     const preserveDescriptionBreaks =
-        normalizedExistingLines?._preserveDescriptionBreaks === true;
+        (existingDocLines as DocCommentLines)._preserveDescriptionBreaks === true;
 
     normalizedExistingLines = toMutableArray(
         reorderDescriptionLinesAfterFunction(normalizedExistingLines)
