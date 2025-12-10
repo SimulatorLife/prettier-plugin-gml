@@ -98,6 +98,6 @@ void describe("formatLineComment", () => {
                 DEFAULT_LINE_COMMENT_OPTIONS.codeDetectionPatterns
         });
 
-        assert.equal(formatted, "");
+        assert.equal(formatted, null);
     });
 });
