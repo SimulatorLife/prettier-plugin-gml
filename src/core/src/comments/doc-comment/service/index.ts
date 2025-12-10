@@ -3,5 +3,7 @@ export * from "./legacy.js";
 export * from "./metadata.js";
 export * from "./type-normalization.js";
 export * from "./params.js";
-export * from "./synthetic.js";
+export * from "./synthetic-generation.js";
+export * from "./synthetic-helpers.js";
+export * from "./synthetic-merge.js";
 export * from "./wrap.js";
