@@ -4,7 +4,12 @@ import { Core, type MutableDocCommentLines } from "@gml-modules/core";
 import { util } from "prettier";
 
 import { isLastStatement } from "./statement-order.js";
-import { optionalSemicolon } from "./semicolons.js";
+import {
+    countTrailingBlankLines,
+    getNextNonWhitespaceCharacter,
+    isSkippableSemicolonWhitespace,
+    optionalSemicolon
+} from "./semicolons.js";
 import {
     getEnumNameAlignmentPadding,
     prepareEnumMembersForPrinting
@@ -2398,96 +2403,6 @@ function getStructPropertyNameLength(property, options) {
 
     const source = getSourceTextForNode(nameNode, options);
     return typeof source === STRING_TYPE ? source.length : 0;
-}
-
-function getNextNonWhitespaceCharacter(text, startIndex) {
-    if (typeof text !== STRING_TYPE) {
-        return null;
-    }
-
-    const { length } = text;
-    for (let index = startIndex; index < length; index += 1) {
-        const characterCode = text.charCodeAt(index);
-
-        // Skip standard ASCII whitespace characters so the caller can reason
-        // about the next syntactically meaningful token without repeatedly
-        // slicing the original source text.
-        switch (characterCode) {
-            case 9: // \t
-            case 10: // \n
-            case 11: // vertical tab
-            case 12: // form feed
-            case 13: // \r
-            case 32: {
-                // ASCII space character (0x20). Grouped with the other standard
-                // whitespace codes above so the loop transparently skips all
-                // formatting characters when hunting for the next token.
-                // Removing this case would cause the function to incorrectly
-                // return a space as the "next non-whitespace character,"
-                // breaking semicolon cleanup and other formatting logic that
-                // depends on peeking past whitespace boundaries.
-                continue;
-            }
-            default: {
-                return text.charAt(index);
-            }
-        }
-    }
-
-    return null;
-}
-
-function countTrailingBlankLines(text, startIndex) {
-    if (typeof text !== STRING_TYPE) {
-        return 0;
-    }
-
-    const { length } = text;
-    let index = startIndex;
-    let newlineCount = 0;
-
-    while (index < length) {
-        const characterCode = text.charCodeAt(index);
-
-        if (characterCode === 59) {
-            // ;
-            index += 1;
-            continue;
-        }
-
-        if (characterCode === 10) {
-            // \n
-            newlineCount += 1;
-            index += 1;
-            continue;
-        }
-
-        if (characterCode === 13) {
-            // \r
-            newlineCount += 1;
-            index +=
-                index + 1 < length && text.charCodeAt(index + 1) === 10 ? 2 : 1;
-            continue;
-        }
-
-        if (
-            characterCode === 9 || // \t
-            characterCode === 11 || // vertical tab
-            characterCode === 12 || // form feed
-            characterCode === 32 // space
-        ) {
-            index += 1;
-            continue;
-        }
-
-        break;
-    }
-
-    if (newlineCount === 0) {
-        return 0;
-    }
-
-    return Math.max(0, newlineCount - 1);
 }
 
 function printStatements(path, options, print, childrenAttribute) {
@@ -6604,32 +6519,4 @@ function isLValueExpression(nodeType) {
         nodeType === "CallExpression" ||
         nodeType === "MemberDotExpression"
     );
-}
-
-function isSkippableSemicolonWhitespace(charCode) {
-    // Mirrors the range of characters matched by /\s/ without incurring the
-    // per-iteration RegExp machinery cost.
-    switch (charCode) {
-        case 9: // tab
-        case 10: // line feed
-        case 11: // vertical tab
-        case 12: // form feed
-        case 13: // carriage return
-        case 32: // space
-        case 160:
-        case 0x20_28:
-        case 0x20_29: {
-            // GameMaker occasionally serializes or copy/pastes scripts with the
-            // U+00A0 non-breaking space and the U+2028/U+2029 line and
-            // paragraph separators—for example when creators paste snippets
-            // from the IDE or import JSON exports. Treat them as
-            // semicolon-trimmable whitespace so the cleanup logic keeps
-            // matching GameMaker's parser expectations instead of leaving stray
-            // semicolons behind.
-            return true;
-        }
-        default: {
-            return false;
-        }
-    }
 }

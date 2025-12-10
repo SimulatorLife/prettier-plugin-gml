@@ -571,6 +571,8 @@ prettier-plugin-gml/
 └─ docs/                  # Design notes and guides
 ```
 
+The Prettier plugin printer centralizes semicolon emission and cleanup logic in `src/plugin/src/printer/semicolons.ts` so formatting heuristics stay in one place.
+
 ### Set up the workspace
 
 ```bash

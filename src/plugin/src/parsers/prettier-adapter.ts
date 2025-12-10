@@ -6,38 +6,49 @@ import type { GmlParserAdapter } from "../components/plugin-types.js";
 import type { MutableGameMakerAstNode } from "@gml-modules/core";
 
 /**
- * Adapter helpers that map Prettier-facing configuration into the parser
- * adapter options consumed by the shared `gmlParserAdapter`.
+ * Bridges Prettier’s `parser.parse` options into the parser adapter by
+ * normalizing the available GML-specific options without introducing an
+ * additional shape that would duplicate the parser contract.
  */
-export type PrettierGmlOptions = GmlParserAdapterOptions & {
-    gmlStripComments?: boolean; // TODO: There are many more transforms than this, where/how are those being hooked up? Why is this one different? Need to de-dupe and consolidate the functionality and files.
-};
-
 export function mapPrettierOptionsToParserOptions(
-    prettierOptions?: PrettierGmlOptions
+    prettierOptions?: GmlParserAdapterOptions
 ): GmlParserAdapterOptions | undefined {
     if (!prettierOptions) {
         return undefined;
     }
 
-    const { gmlStripComments, ...adapterOptions } = prettierOptions;
-    if (Object.keys(adapterOptions).length === 0 && !gmlStripComments) {
+    const { stripComments, ...adapterOptions } = prettierOptions;
+    if (Object.keys(adapterOptions).length === 0 && !stripComments) {
         return undefined;
     }
 
     const normalized = { ...adapterOptions } as GmlParserAdapterOptions;
 
-    if (gmlStripComments) {
+    if (stripComments) {
+        // The parser has its own `stripComments` flag: expose it directly so the
+        // transform toggles apply uniformly from the parser adapter instead of
+        // requiring Prettier to know about a parallel set of options.
         normalized.stripComments = true;
     }
 
     return normalized;
 }
 
+/**
+ * Wraps the shared `gmlParserAdapter` so the Prettier parser entry point can
+ * pass in the same option shape the plugin exposes while staying compatible with
+ * the parser adapter interface. The wrapper simply forwards the normalized
+ * options to the runtime adapter.
+ */
 export function createPrettierParserAdapter(adapter: GmlParserAdapter) {
     return {
         ...adapter,
-        parse(source: string, options?: PrettierGmlOptions) {
+        /**
+         * Expose the same interface Prettier expects but pass normalized options
+         * through to the actual parser adapter so the shared transforms reuse a
+         * single option shape.
+         */
+        parse(source: string, options?: GmlParserAdapterOptions) {
             const parserOptions = mapPrettierOptionsToParserOptions(options);
             const runtimeParse = adapter.parse as (
                 text: string,
