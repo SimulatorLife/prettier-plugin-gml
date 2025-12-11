@@ -44,7 +44,7 @@ export function collectFunctionDocCommentDocs({
     nodeStartIndex,
     originalText
 }: any) {
-    let docCommentDocs: MutableDocCommentLines = [];
+    const docCommentDocs: MutableDocCommentLines = [];
     const lineCommentOptions = {
         ...Core.resolveLineCommentOptions(options),
         originalText
@@ -64,13 +64,16 @@ export function collectFunctionDocCommentDocs({
             }
         }
 
-        docCommentDocs = node.docComments
+        const normalizedDocComments = node.docComments
             .map((comment) =>
                 Core.formatLineComment(comment, lineCommentOptions)
             )
             .filter(
                 (text) => typeof text === STRING_TYPE && text.trim() !== ""
             );
+
+        docCommentDocs.length = 0;
+        docCommentDocs.push(...normalizedDocComments);
     }
 
     const plainLeadingLines: string[] = [];
@@ -207,11 +210,16 @@ export function collectFunctionDocCommentDocs({
 
     const formattedNodeDocs = nodeLeadingDocs.map((doc) => {
         const trimmed = doc.text.trim();
-        let newText = trimmed;
-        if (trimmed.startsWith("///")) newText = trimmed;
-        else if (trimmed.startsWith("//")) newText = `///${trimmed.slice(2)}`;
-        else if (trimmed.startsWith("/")) newText = `///${trimmed.slice(1)}`;
-        else newText = `/// ${trimmed}`;
+        let newText: string;
+        if (trimmed.startsWith("///")) {
+            newText = trimmed;
+        } else if (trimmed.startsWith("//")) {
+            newText = `///${trimmed.slice(2)}`;
+        } else if (trimmed.startsWith("/")) {
+            newText = `///${trimmed.slice(1)}`;
+        } else {
+            newText = `/// ${trimmed}`;
+        }
         return { start: doc.start, text: newText };
     });
 
@@ -241,7 +249,8 @@ export function collectFunctionDocCommentDocs({
         (line) => !newDocCommentDocs.includes(line)
     );
 
-    docCommentDocs = [...uniqueProgramLines, ...newDocCommentDocs];
+    docCommentDocs.length = 0;
+    docCommentDocs.push(...uniqueProgramLines, ...newDocCommentDocs);
 
     return {
         docCommentDocs,

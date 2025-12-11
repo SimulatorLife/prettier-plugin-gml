@@ -1,5 +1,6 @@
 import type { GmlPluginComponentBundle } from "./plugin-types.js";
 import { resolveGmlPluginComponentDependencies } from "./plugin-component-bundles.js";
+import { createPrettierParserAdapter } from "../parsers/index.js";
 import type { GameMakerAstNode } from "@gml-modules/core";
 
 export function createDefaultGmlPluginComponents(): GmlPluginComponentBundle {
@@ -12,12 +13,11 @@ export function createDefaultGmlPluginComponents(): GmlPluginComponentBundle {
         LogicalOperatorsStyle
     } = resolveGmlPluginComponentDependencies();
 
+    const prettierParser = createPrettierParserAdapter(gmlParserAdapter);
+
     return {
         parsers: {
-            "gml-parse": {
-                ...gmlParserAdapter,
-                parse: (text, options) => gmlParserAdapter.parse(text, options)
-            },
+            "gml-parse": prettierParser,
             gmlParserAdapter
         },
         printers: {

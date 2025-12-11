@@ -87,7 +87,79 @@ void test("flattens numeric multiplication groups inside addition chains", async
     );
 });
 
-void test("flattens chained multiplication operands", async () => {
+void test("flattens chained multiplication operands when optimizeMathExpressions is enabled", async () => {
+    const source = [
+        "function sample(a, b) {",
+        "    var m1, r1;",
+        "    m1 = 1 / (b.mass + a.mass);",
+        "    r1 = (b.mass * m1) / 4;",
+        "    return r1;",
+        "}",
+        ""
+    ].join("\n");
+
+    const formatted = await Plugin.format(source, {
+        parser: "gml-parse",
+        optimizeMathExpressions: true
+    });
+
+    const expectedLines = [
+        "/// @function sample",
+        "/// @param a",
+        "/// @param b",
+        "function sample(a, b) {",
+        "    var m1, r1;",
+        "    m1 = 1 / (b.mass + a.mass);",
+        "    r1 = b.mass * m1 * 0.25;",
+        "    return r1;",
+        "}",
+        ""
+    ].join("\n");
+
+    assert.strictEqual(
+        formatted.trim(),
+        expectedLines.trim(),
+        "Expected chained multiplication to omit redundant synthetic grouping parentheses after division rewrites."
+    );
+});
+
+void test("keeps division-by-constant grouping when optimizeMathExpressions is disabled", async () => {
+    const source = [
+        "function sample(a, b) {",
+        "    var m1, r1;",
+        "    m1 = 1 / (b.mass + a.mass);",
+        "    r1 = (b.mass * m1) / 4;",
+        "    return r1;",
+        "}",
+        ""
+    ].join("\n");
+
+    const formatted = await Plugin.format(source, {
+        parser: "gml-parse",
+        optimizeMathExpressions: false
+    });
+
+    const expectedLines = [
+        "/// @function sample",
+        "/// @param a",
+        "/// @param b",
+        "function sample(a, b) {",
+        "    var m1, r1;",
+        "    m1 = 1 / (b.mass + a.mass);",
+        "    r1 = (b.mass * m1) / 4;",
+        "    return r1;",
+        "}",
+        ""
+    ].join("\n");
+
+    assert.strictEqual(
+        formatted.trim(),
+        expectedLines.trim(),
+        "Expected division-by-constant groups to keep their explicit parentheses when optimizeMathExpressions is disabled."
+    );
+});
+
+void test("math optimization is not tied to Feather fixes", async () => {
     const source = [
         "function sample(a, b) {",
         "    var m1, r1;",
@@ -98,9 +170,16 @@ void test("flattens chained multiplication operands", async () => {
         ""
     ].join("\n");
 
-    const formatted = await Plugin.format(source, {
+    const formatted1 = await Plugin.format(source, {
         parser: "gml-parse",
-        applyFeatherFixes: true
+        applyFeatherFixes: false,
+        optimizeMathExpressions: true
+    });
+
+    const formatted2 = await Plugin.format(source, {
+        parser: "gml-parse",
+        applyFeatherFixes: true,
+        optimizeMathExpressions: true
     });
 
     const expectedLines = [
@@ -117,9 +196,15 @@ void test("flattens chained multiplication operands", async () => {
     ].join("\n");
 
     assert.strictEqual(
-        formatted.trim(),
+        formatted1.trim(),
         expectedLines.trim(),
-        "Expected chained multiplication to omit redundant synthetic grouping parentheses after division rewrites."
+        "Expected division to be converted to multiplication when optimizeMathExpressions is enabled, regardless of whether Feather fixes are being applied or not"
+    );
+
+    assert.strictEqual(
+        formatted2.trim(),
+        expectedLines.trim(),
+        "Expected division to be converted to multiplication when optimizeMathExpressions is enabled, regardless of Feather fixes being applied."
     );
 });
 

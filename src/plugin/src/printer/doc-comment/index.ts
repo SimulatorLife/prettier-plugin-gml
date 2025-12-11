@@ -1,3 +1,4 @@
 export * from "./doc-comment-options.js";
 export * from "./function-docs.js";
-export * from "../synthetic-doc-comment-builder.js";
+export * from "./synthetic-doc-comments.js";
+export * from "./synthetic-doc-comment-builder.js";
