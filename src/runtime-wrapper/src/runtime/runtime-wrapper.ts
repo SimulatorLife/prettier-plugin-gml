@@ -1,6 +1,8 @@
 import {
     applyPatchInternal,
+    calculateTimingMetrics,
     captureSnapshot,
+    collectPatchDurations,
     createRegistry,
     restoreSnapshot,
     testPatchInShadow,
@@ -18,6 +20,8 @@ import type {
     RuntimeWrapperState,
     TrySafeApplyResult
 } from "./types.js";
+
+const UNKNOWN_ERROR_MESSAGE = "Unknown error";
 
 export function createRuntimeWrapper(
     options: RuntimeWrapperOptions = {}
@@ -77,7 +81,7 @@ export function createRuntimeWrapper(
             const message =
                 error instanceof Error
                     ? error.message
-                    : String(error ?? "Unknown error");
+                    : String(error ?? UNKNOWN_ERROR_MESSAGE);
             throw new Error(`Failed to apply patch ${patch.id}: ${message}`);
         }
     }
@@ -135,7 +139,7 @@ export function createRuntimeWrapper(
                 const message =
                     error instanceof Error
                         ? error.message
-                        : String(error ?? "Unknown error");
+                        : String(error ?? UNKNOWN_ERROR_MESSAGE);
                 return {
                     success: false,
                     error: message,
@@ -174,7 +178,7 @@ export function createRuntimeWrapper(
             const message =
                 error instanceof Error
                     ? error.message
-                    : String(error ?? "Unknown error");
+                    : String(error ?? UNKNOWN_ERROR_MESSAGE);
 
             state.patchHistory.push({
                 patch: { kind: patch.kind, id: patch.id },
@@ -220,14 +224,10 @@ export function createRuntimeWrapper(
         };
 
         const uniqueIds = new Set<string>();
-        const durations: Array<number> = [];
 
         for (const entry of state.patchHistory) {
             if (entry.action === "apply") {
                 stats.appliedPatches++;
-                if (entry.durationMs !== undefined) {
-                    durations.push(entry.durationMs);
-                }
             } else if (entry.action === "undo") {
                 stats.undonePatches++;
             }
@@ -237,32 +237,25 @@ export function createRuntimeWrapper(
             switch (entry.patch.kind) {
                 case "script": {
                     stats.scriptPatches++;
-
                     break;
                 }
                 case "event": {
                     stats.eventPatches++;
-
                     break;
                 }
                 case "closure": {
                     stats.closurePatches++;
-
                     break;
                 }
                 // No default
             }
         }
 
-        if (durations.length > 0) {
-            const totalDurationMs = durations.reduce(
-                (sum, duration) => sum + duration,
-                0
-            );
-            stats.totalDurationMs = totalDurationMs;
-            stats.averagePatchDurationMs = totalDurationMs / durations.length;
-            stats.fastestPatchMs = Math.min(...durations);
-            stats.slowestPatchMs = Math.max(...durations);
+        const durations = collectPatchDurations(state.patchHistory);
+        const timingMetrics = calculateTimingMetrics(durations);
+
+        if (timingMetrics) {
+            return { ...stats, ...timingMetrics, uniqueIds: uniqueIds.size };
         }
 
         return { ...stats, uniqueIds: uniqueIds.size };
