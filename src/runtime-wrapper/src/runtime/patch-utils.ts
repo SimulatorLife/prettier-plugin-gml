@@ -3,6 +3,7 @@ import type {
     ClosurePatch,
     EventPatch,
     Patch,
+    PatchHistoryEntry,
     PatchSnapshot,
     RuntimeFunction,
     RuntimeRegistry,
@@ -249,4 +250,50 @@ function restoreEntry(
 
 function isSupportedPatchKind(value: string): value is Patch["kind"] {
     return value === "script" || value === "event" || value === "closure";
+}
+
+export function calculateTimingMetrics(durations: Array<number>): {
+    totalDurationMs: number;
+    averagePatchDurationMs: number;
+    fastestPatchMs: number;
+    slowestPatchMs: number;
+} | null {
+    if (durations.length === 0) {
+        return null;
+    }
+
+    let totalDurationMs = 0;
+    let fastestPatchMs = durations[0];
+    let slowestPatchMs = durations[0];
+
+    for (const duration of durations) {
+        totalDurationMs += duration;
+        if (duration < fastestPatchMs) {
+            fastestPatchMs = duration;
+        }
+        if (duration > slowestPatchMs) {
+            slowestPatchMs = duration;
+        }
+    }
+
+    return {
+        totalDurationMs,
+        averagePatchDurationMs: totalDurationMs / durations.length,
+        fastestPatchMs,
+        slowestPatchMs
+    };
+}
+
+export function collectPatchDurations(
+    history: Array<PatchHistoryEntry>
+): Array<number> {
+    const durations: Array<number> = [];
+
+    for (const entry of history) {
+        if (entry.action === "apply" && entry.durationMs !== undefined) {
+            durations.push(entry.durationMs);
+        }
+    }
+
+    return durations;
 }
