@@ -200,6 +200,8 @@ Checks if a closure with the given ID exists. Returns `true` if present, `false`
 
 Clears all patches from the registry (scripts, events, and closures) and resets the undo stack. The registry version is incremented. This is useful for resetting the runtime state during development or when switching between different code versions.
 
+**Important:** Calling `clearRegistry()` clears the undo stack, meaning you cannot undo patches applied before the clear operation. Any subsequent `undo()` call will fail until new patches are applied.
+
 **Example:**
 
 ```javascript
@@ -211,6 +213,10 @@ console.log(wrapper.hasScript("script:test")); // true
 wrapper.clearRegistry();
 console.log(wrapper.hasScript("script:test")); // false
 console.log(wrapper.getVersion()); // incremented
+
+// Undo stack is also cleared
+const undoResult = wrapper.undo();
+console.log(undoResult.success); // false - nothing to undo
 ```
 
 ### `createWebSocketClient(options)`

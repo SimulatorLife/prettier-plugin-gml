@@ -294,12 +294,6 @@ export function createRuntimeWrapper(
             version: state.registry.version + 1
         });
         state.undoStack = [];
-        state.patchHistory.push({
-            patch: { kind: "script", id: "__clear__" },
-            version: state.registry.version,
-            timestamp: Date.now(),
-            action: "apply"
-        });
     }
 
     return {

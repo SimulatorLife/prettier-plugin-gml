@@ -262,16 +262,25 @@ export function calculateTimingMetrics(durations: Array<number>): {
         return null;
     }
 
-    const totalDurationMs = durations.reduce(
-        (sum, duration) => sum + duration,
-        0
-    );
+    let totalDurationMs = 0;
+    let fastestPatchMs = durations[0];
+    let slowestPatchMs = durations[0];
+
+    for (const duration of durations) {
+        totalDurationMs += duration;
+        if (duration < fastestPatchMs) {
+            fastestPatchMs = duration;
+        }
+        if (duration > slowestPatchMs) {
+            slowestPatchMs = duration;
+        }
+    }
 
     return {
         totalDurationMs,
         averagePatchDurationMs: totalDurationMs / durations.length,
-        fastestPatchMs: Math.min(...durations),
-        slowestPatchMs: Math.max(...durations)
+        fastestPatchMs,
+        slowestPatchMs
     };
 }
 
