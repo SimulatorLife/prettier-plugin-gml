@@ -109,6 +109,7 @@ function normalizeBannerCommentText(
     return normalized.length > 0 ? normalized : null;
 }
 
+// TODO: This function is way too long and should be broken up. Define clearer, standalone, testable units. Ensure we do not duplicate existing functionality and re-use existing helpers where possible.
 function formatLineComment(
     comment,
     lineCommentOptions: any = DEFAULT_LINE_COMMENT_OPTIONS

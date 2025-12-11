@@ -1,16 +1,15 @@
 // TODO: This file is too large and should be split into multiple smaller files. General, non-printer-related Node utils should be moved into Core. This file should be more high level, and focused on coordinating the various lower-level, sub-printers that each handle printing of focused/specific concerns
 
-// TODO: ALL doc-comment/function-doc functionality here should be extracted and moved to the doc-comment manager/module. Any tests related to doc-comments should also be moved accordingly. Need to be VERY careful that no functionality is lost during the migration. Also be VERY dilligent to ensure that no duplicate functionality is created during the migration.
-
 import { Core, type MutableDocCommentLines } from "@gml-modules/core";
 import { util } from "prettier";
 
-import { isLastStatement, optionalSemicolon } from "./util.js";
 import {
-    buildCachedSizeVariableName,
-    getLoopLengthHoistInfo,
-    getSizeRetrievalFunctionSuffixes
-} from "./loop-size-hoisting.js";
+    countTrailingBlankLines,
+    getNextNonWhitespaceCharacter,
+    isLastStatement,
+    isSkippableSemicolonWhitespace,
+    optionalSemicolon
+} from "./semicolons.js";
 import {
     getEnumNameAlignmentPadding,
     prepareEnumMembersForPrinting
@@ -35,12 +34,17 @@ import {
     lineSuffixBoundary,
     softline,
     willBreak
-} from "./doc-builders.js";
+} from "./prettier-doc-builders.js";
 
 import {
     collectFunctionDocCommentDocs,
     normalizeFunctionDocCommentDocs
 } from "./doc-comment/function-docs.js";
+
+import {
+    getSyntheticDocCommentForFunctionAssignment,
+    getSyntheticDocCommentForStaticVariable
+} from "./doc-comment/synthetic-doc-comments.js";
 
 import {
     hasBlankLineBeforeLeadingComment,
@@ -57,7 +61,6 @@ import {
     printDanglingCommentsAsGroup
 } from "../comments/index.js";
 import { TRAILING_COMMA } from "../options/trailing-comma-option.js";
-import { buildSyntheticDocComment } from "./synthetic-doc-comment-builder.js";
 
 import { Semantic } from "@gml-modules/semantic";
 import {
@@ -71,7 +74,7 @@ import {
 
 const { isNextLineEmpty, isPreviousLineEmpty } = util;
 
-// Polyfill literalLine if not available in doc-builders
+// Polyfill literalLine if not available in prettier-doc-builders
 // const literalLine = { type: "line", hard: true, literal: true };
 
 // String constants to avoid duplication warnings
@@ -468,70 +471,6 @@ function _printImpl(path, options, print) {
                 : ternaryDoc;
         }
         case "ForStatement": {
-            const shouldHoistLoopLengths =
-                options?.optimizeLoopLengthHoisting ?? true;
-            const sizeFunctionSuffixes = shouldHoistLoopLengths
-                ? getSizeRetrievalFunctionSuffixes(options)
-                : undefined;
-            const hoistInfo = shouldHoistLoopLengths
-                ? getLoopLengthHoistInfo(path.getValue(), sizeFunctionSuffixes)
-                : null;
-            if (hoistInfo) {
-                const cachedLengthName = buildCachedSizeVariableName(
-                    hoistInfo.sizeIdentifierName,
-                    hoistInfo.cachedLengthSuffix
-                );
-
-                if (!loopLengthNameConflicts(path, cachedLengthName)) {
-                    const { loopSizeCallDoc, iteratorDoc } =
-                        buildLoopLengthDocs(path, print, hoistInfo);
-
-                    const initDoc = path.getValue().init ? print("init") : "";
-                    const updateDoc = path.getValue().update
-                        ? print("update")
-                        : "";
-                    const testDoc = concat([
-                        iteratorDoc,
-                        " ",
-                        path.getValue().test.operator,
-                        " ",
-                        cachedLengthName
-                    ]);
-
-                    const needsHoistedSeparator =
-                        shouldInsertHoistedLoopSeparator(path, options);
-
-                    return concat([
-                        group([
-                            "var ",
-                            cachedLengthName,
-                            " = ",
-                            loopSizeCallDoc,
-                            ";"
-                        ]),
-                        hardline,
-                        "for (",
-                        group([
-                            indent([
-                                ifBreak(line),
-                                concat([
-                                    initDoc,
-                                    ";",
-                                    line,
-                                    testDoc,
-                                    ";",
-                                    line,
-                                    updateDoc
-                                ])
-                            ])
-                        ]),
-                        ") ",
-                        printInBlock(path, options, print, "body"),
-                        needsHoistedSeparator ? hardline : ""
-                    ]);
-                }
-            }
-
             return concat([
                 "for (",
                 group([
@@ -2466,96 +2405,6 @@ function getStructPropertyNameLength(property, options) {
     return typeof source === STRING_TYPE ? source.length : 0;
 }
 
-function getNextNonWhitespaceCharacter(text, startIndex) {
-    if (typeof text !== STRING_TYPE) {
-        return null;
-    }
-
-    const { length } = text;
-    for (let index = startIndex; index < length; index += 1) {
-        const characterCode = text.charCodeAt(index);
-
-        // Skip standard ASCII whitespace characters so the caller can reason
-        // about the next syntactically meaningful token without repeatedly
-        // slicing the original source text.
-        switch (characterCode) {
-            case 9: // \t
-            case 10: // \n
-            case 11: // vertical tab
-            case 12: // form feed
-            case 13: // \r
-            case 32: {
-                // ASCII space character (0x20). Grouped with the other standard
-                // whitespace codes above so the loop transparently skips all
-                // formatting characters when hunting for the next token.
-                // Removing this case would cause the function to incorrectly
-                // return a space as the "next non-whitespace character,"
-                // breaking semicolon cleanup and other formatting logic that
-                // depends on peeking past whitespace boundaries.
-                continue;
-            }
-            default: {
-                return text.charAt(index);
-            }
-        }
-    }
-
-    return null;
-}
-
-function countTrailingBlankLines(text, startIndex) {
-    if (typeof text !== STRING_TYPE) {
-        return 0;
-    }
-
-    const { length } = text;
-    let index = startIndex;
-    let newlineCount = 0;
-
-    while (index < length) {
-        const characterCode = text.charCodeAt(index);
-
-        if (characterCode === 59) {
-            // ;
-            index += 1;
-            continue;
-        }
-
-        if (characterCode === 10) {
-            // \n
-            newlineCount += 1;
-            index += 1;
-            continue;
-        }
-
-        if (characterCode === 13) {
-            // \r
-            newlineCount += 1;
-            index +=
-                index + 1 < length && text.charCodeAt(index + 1) === 10 ? 2 : 1;
-            continue;
-        }
-
-        if (
-            characterCode === 9 || // \t
-            characterCode === 11 || // vertical tab
-            characterCode === 12 || // form feed
-            characterCode === 32 // space
-        ) {
-            index += 1;
-            continue;
-        }
-
-        break;
-    }
-
-    if (newlineCount === 0) {
-        return 0;
-    }
-
-    return Math.max(0, newlineCount - 1);
-}
-
 function printStatements(path, options, print, childrenAttribute) {
     let previousNodeHadNewlineAddedAfter = false; // tracks newline added after the previous node
 
@@ -3666,274 +3515,6 @@ function synthesizeMissingCallArgumentSeparators(
     normalizedText += originalText.slice(cursor, endIndex);
 
     return insertedSeparator ? normalizedText : null;
-}
-
-function suppressConstructorAssignmentPadding(functionNode) {
-    if (
-        !functionNode ||
-        functionNode.type !== "ConstructorDeclaration" ||
-        functionNode.body?.type !== "BlockStatement" ||
-        !Array.isArray(functionNode.body.body)
-    ) {
-        return;
-    }
-
-    for (const statement of functionNode.body.body) {
-        if (!statement) {
-            continue;
-        }
-
-        if (Core.hasComment(statement)) {
-            break;
-        }
-
-        if (statement.type === "AssignmentExpression") {
-            statement._gmlSuppressFollowingEmptyLine = true;
-            continue;
-        }
-
-        if (
-            statement.type === "VariableDeclaration" &&
-            statement.kind !== "static"
-        ) {
-            statement._gmlSuppressFollowingEmptyLine = true;
-            continue;
-        }
-
-        break;
-    }
-}
-
-function getSyntheticDocCommentForStaticVariable(
-    node,
-    options,
-    programNode,
-    sourceText
-) {
-    if (
-        !node ||
-        node.type !== "VariableDeclaration" ||
-        node.kind !== "static"
-    ) {
-        return null;
-    }
-
-    const declarator = Core.getSingleVariableDeclarator(node);
-    if (!declarator || declarator.id?.type !== "Identifier") {
-        return null;
-    }
-
-    if (declarator.init?.type !== "FunctionDeclaration") {
-        return null;
-    }
-
-    const hasFunctionDoc =
-        declarator.init.docComments && declarator.init.docComments.length > 0;
-
-    const { existingDocLines, remainingComments } =
-        Core.collectSyntheticDocCommentLines(
-            node,
-            options,
-            programNode,
-            sourceText
-        );
-    const {
-        leadingLines: leadingCommentLines,
-        remainingComments: updatedComments
-    } = Core.extractLeadingNonDocCommentLines(remainingComments, options);
-
-    const sourceLeadingLines =
-        existingDocLines.length === 0
-            ? Core.collectAdjacentLeadingSourceLineComments(
-                  node,
-                  options,
-                  sourceText
-              )
-            : [];
-    const programLeadingLines = Core.collectLeadingProgramLineComments(
-        node,
-        programNode,
-        options,
-        sourceText
-    );
-    const combinedLeadingLines = [
-        ...programLeadingLines,
-        ...sourceLeadingLines,
-        ...leadingCommentLines
-    ];
-    const docLikeLeadingLines = [];
-    const plainLeadingLines = [];
-    for (const line of combinedLeadingLines) {
-        if (Core.isDocLikeLeadingLine(line)) {
-            docLikeLeadingLines.push(line);
-        } else {
-            plainLeadingLines.push(line);
-        }
-    }
-
-    if (existingDocLines.length > 0 || combinedLeadingLines.length > 0) {
-        node.comments = updatedComments;
-    }
-
-    if (
-        hasFunctionDoc &&
-        existingDocLines.length === 0 &&
-        docLikeLeadingLines.length === 0
-    ) {
-        return null;
-    }
-
-    const name = declarator.id.name;
-    const functionNode = declarator.init;
-    const syntheticOverrides: any = { nameOverride: name };
-    if (node._overridesStaticFunction === true) {
-        syntheticOverrides.includeOverrideTag = true;
-    }
-
-    if (docLikeLeadingLines.length > 0) {
-        syntheticOverrides.leadingCommentLines = docLikeLeadingLines;
-    }
-
-    const syntheticDoc = buildSyntheticDocComment(
-        functionNode,
-        existingDocLines,
-        options,
-        syntheticOverrides
-    );
-
-    if (!syntheticDoc && plainLeadingLines.length === 0) {
-        return null;
-    }
-
-    return {
-        doc: syntheticDoc?.doc ?? null,
-        hasExistingDocLines: syntheticDoc?.hasExistingDocLines === true,
-        plainLeadingLines
-    };
-}
-
-function getSyntheticDocCommentForFunctionAssignment(
-    node,
-    options,
-    programNode,
-    sourceText
-) {
-    if (!node) {
-        return null;
-    }
-
-    let assignment;
-    const commentTarget = node;
-
-    if (node.type === "ExpressionStatement") {
-        assignment = node.expression;
-    } else if (node.type === "AssignmentExpression") {
-        assignment = node;
-    } else {
-        return null;
-    }
-
-    if (
-        !assignment ||
-        assignment.type !== "AssignmentExpression" ||
-        assignment.operator !== "=" ||
-        assignment.left?.type !== "Identifier" ||
-        typeof assignment.left.name !== STRING_TYPE
-    ) {
-        return null;
-    }
-
-    const functionNode = assignment.right;
-    if (
-        !functionNode ||
-        (functionNode.type !== "FunctionDeclaration" &&
-            functionNode.type !== "FunctionExpression" &&
-            functionNode.type !== "ConstructorDeclaration")
-    ) {
-        return null;
-    }
-
-    suppressConstructorAssignmentPadding(functionNode);
-
-    const hasFunctionDoc =
-        Array.isArray(functionNode.docComments) &&
-        functionNode.docComments.length > 0;
-
-    const { existingDocLines, remainingComments } =
-        Core.collectSyntheticDocCommentLines(
-            commentTarget,
-            options,
-            programNode,
-            sourceText
-        );
-    const {
-        leadingLines: leadingCommentLines,
-        remainingComments: updatedComments
-    } = Core.extractLeadingNonDocCommentLines(remainingComments, options);
-
-    const sourceLeadingLines =
-        existingDocLines.length === 0
-            ? Core.collectAdjacentLeadingSourceLineComments(
-                  commentTarget,
-                  options,
-                  sourceText
-              )
-            : [];
-    const programLeadingLines = Core.collectLeadingProgramLineComments(
-        commentTarget,
-        programNode,
-        options,
-        sourceText
-    );
-    const combinedLeadingLines = [
-        ...programLeadingLines,
-        ...sourceLeadingLines,
-        ...leadingCommentLines
-    ];
-    const docLikeLeadingLines = [];
-    const plainLeadingLines = [];
-    for (const line of combinedLeadingLines) {
-        if (Core.isDocLikeLeadingLine(line)) {
-            docLikeLeadingLines.push(line);
-        } else {
-            plainLeadingLines.push(line);
-        }
-    }
-
-    if (existingDocLines.length > 0 || combinedLeadingLines.length > 0) {
-        commentTarget.comments = updatedComments;
-    }
-
-    if (
-        hasFunctionDoc &&
-        existingDocLines.length === 0 &&
-        docLikeLeadingLines.length === 0
-    ) {
-        return null;
-    }
-
-    const syntheticOverrides: any = { nameOverride: assignment.left.name };
-
-    if (docLikeLeadingLines.length > 0) {
-        syntheticOverrides.leadingCommentLines = docLikeLeadingLines;
-    }
-
-    const syntheticDoc = buildSyntheticDocComment(
-        functionNode,
-        existingDocLines,
-        options,
-        syntheticOverrides
-    );
-
-    if (!syntheticDoc && plainLeadingLines.length === 0) {
-        return null;
-    }
-
-    return {
-        doc: syntheticDoc?.doc ?? null,
-        hasExistingDocLines: syntheticDoc?.hasExistingDocLines === true,
-        plainLeadingLines
-    };
 }
 
 function getPreferredFunctionParameterName(path, node, options) {
@@ -5290,146 +4871,6 @@ function shouldPrefixGlobalIdentifier(path) {
     return true;
 }
 
-function findSiblingListAndIndex(parent, targetNode) {
-    if (!parent || !targetNode) {
-        return null;
-    }
-
-    // Iterate using `for...in` to preserve the original hot-path optimization
-    // while keeping the scan readable and short-circuiting as soon as the node
-    // is located.
-    for (const key in parent) {
-        if (!Object.hasOwn(parent, key)) {
-            continue;
-        }
-
-        const value = parent[key];
-        if (!Array.isArray(value)) {
-            continue;
-        }
-
-        for (let index = 0; index < value.length; index += 1) {
-            if (value[index] === targetNode) {
-                return { list: value, index };
-            }
-        }
-    }
-
-    return null;
-}
-
-function loopLengthNameConflicts(path, cachedLengthName) {
-    if (
-        typeof cachedLengthName !== STRING_TYPE ||
-        cachedLengthName.length === 0
-    ) {
-        return false;
-    }
-
-    const siblingInfo = getParentStatementList(path);
-    if (!siblingInfo) {
-        return false;
-    }
-
-    const { siblingList, nodeIndex } = siblingInfo;
-    for (const [index, element] of siblingList.entries()) {
-        if (index === nodeIndex) {
-            continue;
-        }
-
-        if (nodeDeclaresIdentifier(element, cachedLengthName)) {
-            return true;
-        }
-    }
-
-    return false;
-}
-
-function nodeDeclaresIdentifier(node, identifierName) {
-    if (!node || typeof identifierName !== STRING_TYPE) {
-        return false;
-    }
-
-    if (node.type === "VariableDeclaration") {
-        const declarations = node.declarations;
-        if (!Array.isArray(declarations)) {
-            return false;
-        }
-
-        for (const declarator of declarations) {
-            if (!declarator || declarator.type !== "VariableDeclarator") {
-                continue;
-            }
-
-            const declaratorName = Core.getIdentifierText(declarator.id);
-            if (declaratorName === identifierName) {
-                return true;
-            }
-        }
-
-        return false;
-    }
-
-    if (node.type === "ForStatement") {
-        return nodeDeclaresIdentifier(node.init, identifierName);
-    }
-
-    const nodeIdName = Core.getIdentifierText(node.id);
-    return nodeIdName === identifierName;
-}
-
-function getParentStatementList(path) {
-    if (
-        typeof path?.getValue !== "function" ||
-        typeof path.getParentNode !== "function"
-    ) {
-        return null;
-    }
-
-    const node = path.getValue();
-    if (!node) {
-        return null;
-    }
-
-    const parent = path.getParentNode();
-    if (!parent) {
-        return null;
-    }
-
-    const siblingInfo = findSiblingListAndIndex(parent, node);
-    if (!siblingInfo) {
-        return null;
-    }
-
-    return {
-        siblingList: siblingInfo.list,
-        nodeIndex: siblingInfo.index
-    };
-}
-
-function shouldInsertHoistedLoopSeparator(path, options) {
-    if (typeof path?.getValue !== "function") {
-        return false;
-    }
-
-    const node = path.getValue();
-    if (node?.type !== "ForStatement") {
-        return false;
-    }
-
-    const siblingInfo = getParentStatementList(path);
-    if (!siblingInfo) {
-        return false;
-    }
-
-    const nextNode = siblingInfo.siblingList[siblingInfo.nodeIndex + 1];
-    if (nextNode?.type !== "ForStatement") {
-        return false;
-    }
-
-    return options?.optimizeLoopLengthHoisting ?? true;
-}
-
 function docHasTrailingComment(doc) {
     if (Core.isNonEmptyArray(doc)) {
         const lastItem = doc.at(-1);
@@ -6117,33 +5558,6 @@ function areNumericExpressionsEquivalent(left, right) {
     }
 }
 
-// TODO: Remove this function. We don't want ONLY division by two to be special-cased
-// This is already handled by the general numeric expression flattening logic
-function isDivisionByTwoConvertible(node) {
-    if (!node || node.type !== "BinaryExpression") {
-        return false;
-    }
-
-    if (node.operator !== "/") {
-        return false;
-    }
-
-    if (node.right?.type !== "Literal" || node.right.value !== "2") {
-        return false;
-    }
-
-    if (
-        Core.hasComment(node) ||
-        Core.hasComment(node.left) ||
-        Core.hasComment(node.right)
-    ) {
-        return false;
-    }
-
-    return true;
-}
-
-// TODO: This function uses 'isDivisionByTwoConvertible', but we should not special-case division by two
 function shouldFlattenMultiplicationChain(parent, expression, path) {
     if (
         !parent ||
@@ -6154,11 +5568,7 @@ function shouldFlattenMultiplicationChain(parent, expression, path) {
         return false;
     }
 
-    const parentIsMultiplication =
-        parent.type === "BinaryExpression" && parent.operator === "*";
-    const parentIsDivisionByTwo = isDivisionByTwoConvertible(parent);
-
-    if (!parentIsMultiplication && !parentIsDivisionByTwo) {
+    if (parent.type !== "BinaryExpression" || parent.operator !== "*") {
         return false;
     }
 
@@ -6447,26 +5857,6 @@ const RADIAN_TO_DEGREE_CONVERSIONS = new Map([
     ["arctan", { name: "darctan", expectedArgs: 1 }],
     ["arctan2", { name: "darctan2", expectedArgs: 2 }]
 ]);
-
-function buildLoopLengthDocs(path, print, hoistInfo) {
-    const cachedLengthName = buildCachedSizeVariableName(
-        hoistInfo.sizeIdentifierName,
-        hoistInfo.cachedLengthSuffix
-    );
-    const loopSizeCallDoc = printWithoutExtraParens(
-        path,
-        print,
-        "test",
-        "right"
-    );
-    const iteratorDoc = printWithoutExtraParens(path, print, "test", "left");
-
-    return {
-        cachedLengthName,
-        loopSizeCallDoc,
-        iteratorDoc
-    };
-}
 
 function unwrapParenthesizedExpression(childPath, print) {
     const childNode = childPath.getValue();
@@ -7135,32 +6525,4 @@ function isLValueExpression(nodeType) {
         nodeType === "CallExpression" ||
         nodeType === "MemberDotExpression"
     );
-}
-
-function isSkippableSemicolonWhitespace(charCode) {
-    // Mirrors the range of characters matched by /\s/ without incurring the
-    // per-iteration RegExp machinery cost.
-    switch (charCode) {
-        case 9: // tab
-        case 10: // line feed
-        case 11: // vertical tab
-        case 12: // form feed
-        case 13: // carriage return
-        case 32: // space
-        case 160:
-        case 0x20_28:
-        case 0x20_29: {
-            // GameMaker occasionally serializes or copy/pastes scripts with the
-            // U+00A0 non-breaking space and the U+2028/U+2029 line and
-            // paragraph separators—for example when creators paste snippets
-            // from the IDE or import JSON exports. Treat them as
-            // semicolon-trimmable whitespace so the cleanup logic keeps
-            // matching GameMaker's parser expectations instead of leaving stray
-            // semicolons behind.
-            return true;
-        }
-        default: {
-            return false;
-        }
-    }
 }
