@@ -195,10 +195,12 @@ export function collectCommentNodes(root) {
         // this hot path. The traversal visits every node in the AST, so avoiding
         // repeated enqueueObjectChildValues calls yields measurable improvement
         // (~12-14% faster in micro-benchmarks with typical AST structures).
+        //
+        // Note: The truthy check for `value` matches the original function's
+        // `!value || typeof value !== "object"` guard (inverted logic).
+        // Array items use stricter `!== null` check, matching the original.
         const values = Object.values(current);
         for (const value of values) {
-            // Match original enqueueObjectChildValues logic: use truthy check
-            // to reject null, undefined, 0, false, "" before type check
             if (value && typeof value === "object") {
                 // Fast path: non-array objects can be pushed directly
                 if (!Array.isArray(value)) {
