@@ -6,7 +6,7 @@ import { doc as prettierDoc } from "prettier";
 import {
     buildSyntheticDocComment,
     buildSyntheticDocCommentDoc
-} from "../src/printer/synthetic-doc-comment-builder.js";
+} from "../src/printer/doc-comment/synthetic-doc-comment-builder.js";
 
 void test("buildSyntheticDocComment converts core doc lines into a Prettier doc", () => {
     const syntheticResult = {
