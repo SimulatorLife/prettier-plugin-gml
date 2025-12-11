@@ -78,7 +78,10 @@ void test("flattens numeric multiplication groups inside addition chains", async
         ""
     ].join("\n");
 
-    const formatted = await Plugin.format(source, { parser: "gml-parse" });
+    const formatted = await Plugin.format(source, {
+        parser: "gml-parse",
+        optimizeMathExpressions: false
+    });
 
     assert.strictEqual(
         formatted.trim(),
@@ -198,13 +201,13 @@ void test("math optimization is not tied to Feather fixes", async () => {
     assert.strictEqual(
         formatted1.trim(),
         expectedLines.trim(),
-        "Expected division to be converted to multiplication when optimizeMathExpressions is enabled, regardless of whether Feather fixes are being applied or not"
+        "expected division to be converted to multiplication (without redundant parentheses) when optimizeMathExpressions is enabled, regardless of whether Feather fixes are being applied or not"
     );
 
     assert.strictEqual(
         formatted2.trim(),
         expectedLines.trim(),
-        "Expected division to be converted to multiplication when optimizeMathExpressions is enabled, regardless of Feather fixes being applied."
+        "Expected division to be converted to multiplication (without redundant parentheses) when optimizeMathExpressions is enabled, regardless of Feather fixes being applied."
     );
 });
 
