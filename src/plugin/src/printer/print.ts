@@ -863,8 +863,7 @@ function _printImpl(path, options, print) {
                 });
 
                 if (parts.length === 0) {
-                    // console.log("[DEBUG] GlobalVarStatement empty parts, returning empty string");
-                    return "";
+                    return null;
                 }
 
                 return join(hardline, parts);
@@ -2634,7 +2633,7 @@ function printStatements(path, options, print, childrenAttribute) {
         const isTopLevel = childPath.parent?.type === "Program";
         const printed = print();
 
-        if (printed === undefined || printed === null) {
+        if (printed === undefined || printed === null || printed === "") {
             return [];
         }
 

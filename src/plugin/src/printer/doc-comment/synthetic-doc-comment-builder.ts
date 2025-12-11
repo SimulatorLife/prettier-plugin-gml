@@ -1,7 +1,7 @@
 import { Core } from "@gml-modules/core";
 import { type Doc } from "prettier";
 
-import { concat, hardline, join } from "./doc-builders.js";
+import { concat, hardline, join } from "../doc-builders.js";
 
 type ComputeSyntheticDocComment = typeof Core.computeSyntheticDocComment;
 
