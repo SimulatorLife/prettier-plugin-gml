@@ -874,3 +874,101 @@ void test("validateBeforeApply rejects invalid closure patches", () => {
         message: /Patch validation failed/
     });
 });
+
+void test("getPatchHistory includes duration for patches", () => {
+    const wrapper = RuntimeWrapper.createRuntimeWrapper();
+
+    wrapper.applyPatch({
+        kind: "script",
+        id: "script:timed",
+        js_body: "return 42;"
+    });
+
+    const history = wrapper.getPatchHistory();
+    assert.strictEqual(history.length, 1);
+    assert.ok(history[0].durationMs !== undefined);
+    assert.ok(typeof history[0].durationMs === "number");
+    assert.ok(history[0].durationMs >= 0);
+});
+
+void test("getPatchStats includes timing metrics", () => {
+    const wrapper = RuntimeWrapper.createRuntimeWrapper();
+
+    wrapper.applyPatch({
+        kind: "script",
+        id: "script:a",
+        js_body: "return 1;"
+    });
+
+    wrapper.applyPatch({
+        kind: "script",
+        id: "script:b",
+        js_body: "return 2;"
+    });
+
+    const stats = wrapper.getPatchStats();
+    assert.ok(stats.totalDurationMs !== undefined);
+    assert.ok(stats.averagePatchDurationMs !== undefined);
+    assert.ok(stats.fastestPatchMs !== undefined);
+    assert.ok(stats.slowestPatchMs !== undefined);
+    assert.ok(stats.totalDurationMs >= 0);
+    assert.ok(stats.averagePatchDurationMs >= 0);
+    assert.ok(stats.fastestPatchMs >= 0);
+    assert.ok(stats.slowestPatchMs >= 0);
+    assert.ok(stats.fastestPatchMs <= stats.slowestPatchMs);
+});
+
+void test("clearRegistry removes all patches", () => {
+    const wrapper = RuntimeWrapper.createRuntimeWrapper();
+
+    wrapper.applyPatch({
+        kind: "script",
+        id: "script:test1",
+        js_body: "return 1;"
+    });
+
+    wrapper.applyPatch({
+        kind: "event",
+        id: "obj_test#Create",
+        js_body: "this.x = 0;"
+    });
+
+    wrapper.applyPatch({
+        kind: "closure",
+        id: "closure:test",
+        js_body: "return () => 42;"
+    });
+
+    assert.ok(wrapper.hasScript("script:test1"));
+    assert.ok(wrapper.hasEvent("obj_test#Create"));
+    assert.ok(wrapper.hasClosure("closure:test"));
+
+    const versionBeforeClear = wrapper.getVersion();
+    wrapper.clearRegistry();
+
+    assert.ok(!wrapper.hasScript("script:test1"));
+    assert.ok(!wrapper.hasEvent("obj_test#Create"));
+    assert.ok(!wrapper.hasClosure("closure:test"));
+    assert.strictEqual(wrapper.getVersion(), versionBeforeClear + 1);
+
+    const snapshot = wrapper.getRegistrySnapshot();
+    assert.strictEqual(snapshot.scriptCount, 0);
+    assert.strictEqual(snapshot.eventCount, 0);
+    assert.strictEqual(snapshot.closureCount, 0);
+});
+
+void test("clearRegistry clears undo stack", () => {
+    const wrapper = RuntimeWrapper.createRuntimeWrapper();
+
+    wrapper.applyPatch({
+        kind: "script",
+        id: "script:test",
+        js_body: "return 1;"
+    });
+
+    wrapper.clearRegistry();
+
+    const undoResult = wrapper.undo();
+    assert.strictEqual(undoResult.success, false);
+    assert.strictEqual(undoResult.message, "Nothing to undo");
+});

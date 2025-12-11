@@ -49,20 +49,23 @@ export function createRuntimeWrapper(
         }
 
         const snapshot = captureSnapshot(state.registry, patch);
-        const timestamp = Date.now();
+        const startTime = Date.now();
 
         try {
             const { registry: nextRegistry, result } = applyPatchInternal(
                 state.registry,
                 patch
             );
+            const durationMs = Date.now() - startTime;
+
             state.registry = nextRegistry;
             state.undoStack.push(snapshot);
             state.patchHistory.push({
                 patch: { kind: patch.kind, id: patch.id },
                 version: state.registry.version,
-                timestamp,
-                action: "apply"
+                timestamp: startTime,
+                action: "apply",
+                durationMs
             });
 
             if (onPatchApplied) {
@@ -217,10 +220,14 @@ export function createRuntimeWrapper(
         };
 
         const uniqueIds = new Set<string>();
+        const durations: Array<number> = [];
 
         for (const entry of state.patchHistory) {
             if (entry.action === "apply") {
                 stats.appliedPatches++;
+                if (entry.durationMs !== undefined) {
+                    durations.push(entry.durationMs);
+                }
             } else if (entry.action === "undo") {
                 stats.undonePatches++;
             }
@@ -245,6 +252,17 @@ export function createRuntimeWrapper(
                 }
                 // No default
             }
+        }
+
+        if (durations.length > 0) {
+            const totalDurationMs = durations.reduce(
+                (sum, duration) => sum + duration,
+                0
+            );
+            stats.totalDurationMs = totalDurationMs;
+            stats.averagePatchDurationMs = totalDurationMs / durations.length;
+            stats.fastestPatchMs = Math.min(...durations);
+            stats.slowestPatchMs = Math.max(...durations);
         }
 
         return { ...stats, uniqueIds: uniqueIds.size };
@@ -278,6 +296,19 @@ export function createRuntimeWrapper(
         return id in state.registry.closures;
     }
 
+    function clearRegistry(): void {
+        state.registry = createRegistry({
+            version: state.registry.version + 1
+        });
+        state.undoStack = [];
+        state.patchHistory.push({
+            patch: { kind: "script", id: "__clear__" },
+            version: state.registry.version,
+            timestamp: Date.now(),
+            action: "apply"
+        });
+    }
+
     return {
         state,
         applyPatch,
@@ -292,6 +323,7 @@ export function createRuntimeWrapper(
         hasScript,
         hasEvent,
         getClosure,
-        hasClosure
+        hasClosure,
+        clearRegistry
     };
 }

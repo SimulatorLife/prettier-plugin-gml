@@ -104,6 +104,12 @@ Returns aggregate statistics about patch operations:
 - `eventPatches`: Number of event-related operations
 - `closurePatches`: Number of closure-related operations
 - `uniqueIds`: Number of unique patch IDs
+- `averagePatchDurationMs` (optional): Average time to apply patches in milliseconds
+- `totalDurationMs` (optional): Total time spent applying patches in milliseconds
+- `fastestPatchMs` (optional): Fastest patch application time in milliseconds
+- `slowestPatchMs` (optional): Slowest patch application time in milliseconds
+
+**Note:** Timing metrics are only available when patches have been applied with duration tracking enabled (which is automatic in this implementation).
 
 ## Error Recovery and Safe Patch Application
 
@@ -190,6 +196,23 @@ Retrieves a specific closure function by ID. Returns the function or `undefined`
 
 Checks if a closure with the given ID exists. Returns `true` if present, `false` otherwise.
 
+#### `clearRegistry()`
+
+Clears all patches from the registry (scripts, events, and closures) and resets the undo stack. The registry version is incremented. This is useful for resetting the runtime state during development or when switching between different code versions.
+
+**Example:**
+
+```javascript
+const wrapper = createRuntimeWrapper();
+
+wrapper.applyPatch({ kind: "script", id: "script:test", js_body: "return 42;" });
+console.log(wrapper.hasScript("script:test")); // true
+
+wrapper.clearRegistry();
+console.log(wrapper.hasScript("script:test")); // false
+console.log(wrapper.getVersion()); // incremented
+```
+
 ### `createWebSocketClient(options)`
 
 Creates a WebSocket client for receiving live patches from a development server. The client automatically reconnects on connection loss and integrates with a runtime wrapper to apply patches.
@@ -275,6 +298,45 @@ console.log(counter()); // 2
 // client.disconnect();
 ```
 
+## Performance Monitoring
+
+The runtime wrapper automatically tracks performance metrics for patch application, providing insight into hot-reload performance:
+
+```javascript
+const wrapper = createRuntimeWrapper({
+    onPatchApplied: (patch, version) => {
+        console.log(`✅ Applied patch ${patch.id} at version ${version}`);
+    }
+});
+
+// Apply several patches
+wrapper.applyPatch({ kind: "script", id: "script:a", js_body: "return 1;" });
+wrapper.applyPatch({ kind: "script", id: "script:b", js_body: "return 2;" });
+wrapper.applyPatch({ kind: "event", id: "obj_test#Step", js_body: "this.x++;" });
+
+// Get detailed performance statistics
+const stats = wrapper.getPatchStats();
+console.log(`Total patches applied: ${stats.appliedPatches}`);
+console.log(`Average patch time: ${stats.averagePatchDurationMs?.toFixed(2)}ms`);
+console.log(`Fastest patch: ${stats.fastestPatchMs}ms`);
+console.log(`Slowest patch: ${stats.slowestPatchMs}ms`);
+console.log(`Total time: ${stats.totalDurationMs}ms`);
+
+// Get detailed history with timing for each patch
+const history = wrapper.getPatchHistory();
+history.forEach(entry => {
+    if (entry.action === "apply" && entry.durationMs !== undefined) {
+        console.log(`${entry.patch.id}: ${entry.durationMs}ms`);
+    }
+});
+```
+
+Performance metrics help identify:
+- Slow patch applications that may indicate complex transformations
+- Performance regressions when updating the transpiler or patch logic
+- Opportunities to optimize hot-reload performance
+- Baseline metrics for integration testing
+
 ## Status
 
-The module implements core patch application, diagnostic capabilities, and WebSocket integration. Advanced lifecycle hooks remain under construction.
+The module implements core patch application, diagnostic capabilities, performance instrumentation, and WebSocket integration. Advanced lifecycle hooks remain under construction.
