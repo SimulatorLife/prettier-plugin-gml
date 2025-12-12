@@ -24,6 +24,7 @@ import {
     coercePositiveInteger,
     wrapInvalidArgumentResolver
 } from "../../cli-core/command-parsing.js";
+import { isCommanderHelpDisplayedError } from "../../cli-core/commander-error-utils.js";
 import { createIntegerOptionToolkit } from "../../cli-core/integer-option-toolkit.js";
 import {
     REPO_ROOT,
@@ -1208,7 +1209,14 @@ export async function runMemoryCli({
 }: MemoryCliOptions = {}) {
     const command = createMemoryCommand({ env });
 
-    await command.parseAsync(argv, { from: "user" });
+    try {
+        await command.parseAsync(argv, { from: "user" });
+    } catch (error) {
+        if (isCommanderHelpDisplayedError(error)) {
+            return 0;
+        }
+        throw error;
+    }
 
     applyMemoryReportDirectoryEnvOverride(env);
 
