@@ -13,7 +13,7 @@ var myBar;
 try {
     myBar = new bar();
 } catch (e) {
-    show_debug_message("Caught exception: " + string(e));
+    show_debug_message($"Caught exception: {e}");
 } finally {
     myBar = undefined;
 }
@@ -191,7 +191,7 @@ var message5 = greet(undefined, "Welcome");
 /// @param {array<real>} [light_dir=[0, 0, -1]] - The direction of the light
 function handle_lighting(multiplier = undefined, light_dir = [0, 0, -1]) {
     var dir = light_dir;
-    var length = point_distance_3d(0, 0, 0, dir[0], dir[1], dir[2]);
+    var length = sqrt(dir[0] * dir[0] + dir[1] * dir[1] + dir[2] * dir[2]);
     if (!is_undefined(multiplier)) {
         length *= multiplier;
     }
@@ -212,60 +212,65 @@ function handle_lighting(multiplier = undefined, light_dir = [0, 0, -1]) {
 /// @param {bool} [pull_in=true]
 function scr_spring(a, b, dst, force, push_out = true, pull_in = true) {
 
-	if (!instance_exists(a) or !instance_exists(b)) {
-		return false;
-	}
-
-	var xoff = a.x - b.x;
-	var yoff = a.y - b.y;
-
-	var actual_dist = sqr(xoff) + sqr(yoff);
-	if (actual_dist == 0) {
+    if (!instance_exists(a) or !instance_exists(b)) {
         return false;
     }
-	if ((actual_dist < sqr(dst) and push_out) or (actual_dist > sqr(dst) and pull_in)){
-	    actual_dist = sqrt(actual_dist);
-	    var diff = actual_dist - dst; 
-	    
-		// normalize and multiply with diff and amount
-	    var norm = (force * diff) / actual_dist;
-	    xoff *= norm;
-	    yoff *= norm;
-    
-	    // calculate mass
-	    var m1, r1, r2;
-	    m1 = 1 / (b.mass + a.mass);
-	    r1 = b.mass * m1 * 0.5;
-	    r2 = a.mass * m1 * 0.5;
-    
-	    // add speeds
-	    a.velocity.x -= xoff * r1;
-	    a.velocity.y -= yoff * r1;
-	    b.velocity.x += xoff * r2;
-	    b.velocity.y += yoff * r2;
-    
-	    return true;
-	}
 
-	return false;
+    var xoff        = a.x - b.x;
+    var yoff        = a.y - b.y;
+    var actual_dist = xoff * xoff + yoff * yoff;
+
+    if (actual_dist == 0) {
+        return false;
+    }
+
+    if ((actual_dist < dst * dst and push_out) or (actual_dist > dst * dst and pull_in)) {
+        actual_dist = sqrt(actual_dist);
+        var diff = actual_dist - dst;
+        
+        // normalize and multiply with diff and amount
+        var norm = (force * diff) / actual_dist;
+        xoff *= norm;
+        yoff *= norm;
+    
+        // calculate mass
+        var m1, r1, r2;
+        m1 = 1 / (b.mass + a.mass);
+        r1 = b.mass * m1 / 2;
+        r2 = a.mass * m1 / 2;
+    
+        // add speeds
+        a.velocity.x -= xoff * r1;
+        a.velocity.y -= yoff * r1;
+        b.velocity.x += xoff * r2;
+        b.velocity.y += yoff * r2;
+    
+        return true;
+    }
+
+    return false;
 }
 
 // Synthetic docs should be added to non-local methods
 
 /// @function get_debug_text
 get_debug_text = function() {
-	var txt = "";
-	txt += $"\nPosition: {new Vector3(x, y, z).to_string(true)}";
-	txt += $"\nLand type: {global.island.get_land_string(land_type)}";
-	txt += $"\nDirection: {round(direction)}";
-	if (!is_undefined(weapon)) {
-		txt += weapon.get_debug_text();
-	}
-	txt += hp.get_debug_text();
-	txt += states.get_debug_text();
-	txt += mover.get_debug_text();
-	txt += arm_r.get_debug_text();
-	return txt;
+
+    var txt = "";
+
+    txt += $"\nPosition: {new Vector3(x, y, z).to_string(true)}";
+    txt += $"\nLand type: {global.island.get_land_string(land_type)}";
+    txt += $"\nDirection: {round(direction)}";
+    
+    if (!is_undefined(weapon)) {
+        txt += weapon.get_debug_text();
+    }
+
+    txt += hp.get_debug_text();
+    txt += states.get_debug_text();
+    txt += mover.get_debug_text();
+    txt += arm_r.get_debug_text();
+    return txt;
 }
 
 /// @function vertex_buffer_write_triangular_prism
@@ -277,7 +282,10 @@ get_debug_text = function() {
 ///              Local space: X∈[-0.5,+0.5], Y∈[-0.5,+0.5], base plane at Z=0, apex line at (Y=0,Z=1).
 /// @returns {undefined}
 function vertex_buffer_write_triangular_prism(vbuff, colour = c_white, alpha = 1, trans_mat = undefined) {
-    var hx = 0.5, hy = 0.5, h = 1;
+
+    var hx = 0.5,
+        hy = 0.5,
+        h  = 1;
 
     // Base corners (Z = 0)
     var L0 = [-hx, -hy, 0]; // x-, y-

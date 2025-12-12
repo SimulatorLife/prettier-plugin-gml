@@ -34,7 +34,7 @@ void test("flatten synthetic addition parentheses from reordered optional parame
 });
 
 void test("flattens synthetic addition parentheses by default", async () => {
-    const source = ["var value = a + b + c;", ""].join("\n");
+    const source = ["var value = (a + b + c);", ""].join("\n");
 
     const formatted = await Plugin.format(source, { parser: "gml-parse" });
 
@@ -45,21 +45,21 @@ void test("flattens synthetic addition parentheses by default", async () => {
     );
 });
 
-void test("flattens longer chains of synthetic addition", async () => {
-    const source = ["var combined = a + b + c + d;", ""].join("\n");
+void test("omits grouping in longer chains of addition", async () => {
+    const source = ["var combined = a + b + c + d + e + f;", ""].join("\n");
 
     const formatted = await Plugin.format(source, { parser: "gml-parse" });
 
     assert.strictEqual(
         formatted.trim(),
-        "var combined = a + b + c + d;",
+        "var combined = a + b + c + d + e + f;",
         "Expected longer numeric addition chains to omit redundant synthetic parentheses between operands."
     );
 });
 
 void test("flattens additive chains that include call expressions", async () => {
     const source = [
-        "var expr = x + lengthdir_x(radius, angle) - lengthdir_x(radius, aa);",
+        "var expr = ((x + lengthdir_x(radius, angle)) - lengthdir_x(radius, aa));",
         ""
     ].join("\n");
 
@@ -72,13 +72,16 @@ void test("flattens additive chains that include call expressions", async () => 
     );
 });
 
-void test("flattens numeric multiplication groups inside addition chains", async () => {
+void test("omits extraneous multiplication grouping inside sqrt function", async () => {
     const source = [
         "var length = sqrt(dir[0] * dir[0] + dir[1] * dir[1] + dir[2] * dir[2]);",
         ""
     ].join("\n");
 
-    const formatted = await Plugin.format(source, { parser: "gml-parse" });
+    const formatted = await Plugin.format(source, {
+        parser: "gml-parse",
+        optimizeMathExpressions: false
+    });
 
     assert.strictEqual(
         formatted.trim(),
@@ -87,12 +90,12 @@ void test("flattens numeric multiplication groups inside addition chains", async
     );
 });
 
-void test("flattens chained multiplication operands", async () => {
+void test("flattens chained multiplication operands when optimizeMathExpressions is enabled", async () => {
     const source = [
         "function sample(a, b) {",
         "    var m1, r1;",
         "    m1 = 1 / (b.mass + a.mass);",
-        "    r1 = (b.mass * m1) / 2;",
+        "    r1 = (b.mass * m1) / 4;",
         "    return r1;",
         "}",
         ""
@@ -100,7 +103,86 @@ void test("flattens chained multiplication operands", async () => {
 
     const formatted = await Plugin.format(source, {
         parser: "gml-parse",
-        applyFeatherFixes: true
+        optimizeMathExpressions: true
+    });
+
+    const expectedLines = [
+        "/// @function sample",
+        "/// @param a",
+        "/// @param b",
+        "function sample(a, b) {",
+        "    var m1, r1;",
+        "    m1 = 1 / (b.mass + a.mass);",
+        "    r1 = b.mass * m1 * 0.25;",
+        "    return r1;",
+        "}",
+        ""
+    ].join("\n");
+
+    assert.strictEqual(
+        formatted.trim(),
+        expectedLines.trim(),
+        "Expected chained multiplication to omit redundant synthetic grouping parentheses after division rewrites."
+    );
+});
+
+void test("keeps division-by-constant grouping when optimizeMathExpressions is disabled", async () => {
+    const source = [
+        "function sample(a, b) {",
+        "    var m1, r1;",
+        "    m1 = 1 / (b.mass + a.mass);",
+        "    r1 = (b.mass * m1) / 4;",
+        "    return r1;",
+        "}",
+        ""
+    ].join("\n");
+
+    const formatted = await Plugin.format(source, {
+        parser: "gml-parse",
+        optimizeMathExpressions: false
+    });
+
+    const expectedLines = [
+        "/// @function sample",
+        "/// @param a",
+        "/// @param b",
+        "function sample(a, b) {",
+        "    var m1, r1;",
+        "    m1 = 1 / (b.mass + a.mass);",
+        "    r1 = (b.mass * m1) / 4;",
+        "    return r1;",
+        "}",
+        ""
+    ].join("\n");
+
+    assert.strictEqual(
+        formatted.trim(),
+        expectedLines.trim(),
+        "Expected division-by-constant groups to keep their explicit parentheses when optimizeMathExpressions is disabled."
+    );
+});
+
+void test("math optimization is not tied to Feather fixes", async () => {
+    const source = [
+        "function sample(a, b) {",
+        "    var m1, r1;",
+        "    m1 = 1 / (b.mass + a.mass);",
+        "    r1 = ((b.mass * m1) / 2);",
+        "    return r1;",
+        "}",
+        ""
+    ].join("\n");
+
+    const formatted1 = await Plugin.format(source, {
+        parser: "gml-parse",
+        applyFeatherFixes: false,
+        optimizeMathExpressions: true
+    });
+
+    const formatted2 = await Plugin.format(source, {
+        parser: "gml-parse",
+        applyFeatherFixes: true,
+        optimizeMathExpressions: true
     });
 
     const expectedLines = [
@@ -117,13 +199,19 @@ void test("flattens chained multiplication operands", async () => {
     ].join("\n");
 
     assert.strictEqual(
-        formatted.trim(),
+        formatted1.trim(),
         expectedLines.trim(),
-        "Expected chained multiplication to omit redundant synthetic grouping parentheses after division rewrites."
+        "expected division to be converted to multiplication (without redundant parentheses) when optimizeMathExpressions is enabled, regardless of whether Feather fixes are being applied or not"
+    );
+
+    assert.strictEqual(
+        formatted2.trim(),
+        expectedLines.trim(),
+        "Expected division to be converted to multiplication (without redundant parentheses) when optimizeMathExpressions is enabled, regardless of Feather fixes being applied."
     );
 });
 
-void test("flattens standalone multiplication groups added together", async () => {
+void test("groups multiplication expressions added together", async () => {
     const source = [
         "function dot(ax, ay, bx, by) {",
         "    return ax * bx + ay * by;",
@@ -131,7 +219,9 @@ void test("flattens standalone multiplication groups added together", async () =
         ""
     ].join("\n");
 
-    const formatted = await Plugin.format(source, { parser: "gml-parse" });
+    const formatted = await Plugin.format(source, {
+        optimizeMathExpressions: false
+    });
 
     const expectedLines = [
         "/// @function dot",
@@ -148,36 +238,35 @@ void test("flattens standalone multiplication groups added together", async () =
     assert.strictEqual(
         formatted.trim(),
         expectedLines.trim(),
-        "Expected additive chains of multiplication groups outside numeric calls to retain synthetic parentheses."
+        "expected additive chains of multiplication groups outside numeric calls to have synthetic parentheses."
     );
 });
 
-void test("flattens squared products outside call contexts", async () => {
+void test("optimizes squared products using built-in sqr() function and omits redundant parentheses", async () => {
     const source = [
         "var xoff = a.x - b.x;",
         "var yoff = a.y - b.y;",
-        "var actual_dist = xoff * xoff + yoff * yoff;",
-        ""
+        "var actual_dist = (xoff * xoff) + (yoff * yoff);"
     ].join("\n");
 
     const formatted = await Plugin.format(source, {
-        parser: "gml-parse",
-        applyFeatherFixes: true
+        optimizeMathExpressions: true
     });
+
     const expectedLines = [
         "var xoff = a.x - b.x;",
         "var yoff = a.y - b.y;",
-        "var actual_dist = xoff * xoff + yoff * yoff;"
+        "var actual_dist = sqr(xoff) + sqr(yoff);"
     ].join("\n");
 
     assert.strictEqual(
         formatted.trim(),
-        expectedLines,
-        "Expected squared distance calculations outside call arguments to omit redundant multiplication grouping."
+        expectedLines.trim(),
+        "expected squared calculations outside call arguments to omit redundant multiplication grouping parentheses when using the sqr() built-in"
     );
 });
 
-void test("flattens forced synthetic multiplication groups outside numeric calls", async () => {
+void test("maintains multiplication groups inside a function definition but omits extraneous parentheses layer", async () => {
     const source = [
         "function spring(a, b, dst, force) {",
         "    if (argument_count > 4) {",
@@ -185,13 +274,14 @@ void test("flattens forced synthetic multiplication groups outside numeric calls
         "    } else {",
         "        push_out = true;",
         "    }",
-        "    var distance = xoff * xoff + yoff * yoff;",
+        "    var distance = ((xoff * xoff) + (yoff * yoff));",
         "    return distance;",
-        "}",
-        ""
+        "}"
     ].join("\n");
 
-    const formatted = await Plugin.format(source, { parser: "gml-parse" });
+    const formatted = await Plugin.format(source, {
+        optimizeMathExpressions: false
+    });
 
     const expectedLines = [
         "/// @function spring",
@@ -201,25 +291,24 @@ void test("flattens forced synthetic multiplication groups outside numeric calls
         "/// @param force",
         "/// @param [push_out=true]",
         "function spring(a, b, dst, force, push_out = true) {",
-        "    var distance = xoff * xoff + yoff * yoff;",
+        "    var distance = (xoff * xoff) + (yoff * yoff);",
         "    return distance;",
-        "}",
-        ""
+        "}"
     ].join("\n");
 
     assert.strictEqual(
         formatted.trim(),
         expectedLines.trim(),
-        "Expected multiplication groups to flatten when numeric paren flattening is explicitly enabled."
+        "Expected multiplication groups to flatten inside function definitions, even when optimizeMathExpressions is disabled"
     );
 });
 
 void test("preserves chains of sqr calls without additional parentheses", async () => {
-    const source = ["var ll = sqr(dx) + sqr(dy) + sqr(dz);", ""].join("\n");
+    const source = "var ll = sqr(dx) + sqr(dy) + sqr(dz);";
 
     const formatted = await Plugin.format(source, {
-        parser: "gml-parse",
-        applyFeatherFixes: true
+        applyFeatherFixes: true, // Should have no effect here
+        optimizeMathExpressions: false
     });
     assert.strictEqual(
         formatted.trim(),
@@ -228,7 +317,7 @@ void test("preserves chains of sqr calls without additional parentheses", async 
     );
 });
 
-void test("flattens synthetic addition within sqrt calls", async () => {
+void test("addition grouping is omitted within sqrt calls", async () => {
     const source = [
         "function distance(dir) {",
         "    return sqrt(dir[0] * dir[0] + dir[1] * dir[1] + dir[2] * dir[2]);",
@@ -236,7 +325,10 @@ void test("flattens synthetic addition within sqrt calls", async () => {
         ""
     ].join("\n");
 
-    const formatted = await Plugin.format(source, { parser: "gml-parse" });
+    const formatted = await Plugin.format(source, {
+        parser: "gml-parse",
+        optimizeMathExpressions: false
+    });
 
     const expectedLines = [
         "/// @function distance",
@@ -249,37 +341,32 @@ void test("flattens synthetic addition within sqrt calls", async () => {
     assert.strictEqual(
         formatted.trim(),
         expectedLines,
-        "Expected sqrt() addition chains to omit redundant synthetic parentheses."
+        "Expected sqrt() addition chains to omit synthetic parentheses."
     );
 });
 
-void test("flattens squared comparison operands within logical expressions", async () => {
-    const source = [
-        "var actual_dist = xoff * xoff + yoff * yoff;",
-        "if ((actual_dist < dst * dst and push_out) or (actual_dist > dst * dst and pull_in)) {",
+void test("includes squared comparison grouping within logical expressions", async () => {
+    const sourceAndExpected = [
+        "var actual_dist = (xoff * xoff) + (yoff * yoff);",
+        "if ((actual_dist < (dst * dst) and push_out) or (actual_dist > (dst * dst) and pull_in)) {",
         "    return actual_dist;",
         "}",
         ""
     ].join("\n");
 
-    const formatted = await Plugin.format(source, { parser: "gml-parse" });
-
-    const expectedLines = [
-        "var actual_dist = xoff * xoff + yoff * yoff;",
-        "if ((actual_dist < dst * dst and push_out) or (actual_dist > dst * dst and pull_in)) {",
-        "    return actual_dist;",
-        "}",
-        ""
-    ].join("\n");
+    const formatted = await Plugin.format(sourceAndExpected, {
+        parser: "gml-parse",
+        optimizeMathExpressions: false
+    });
 
     assert.strictEqual(
         formatted,
-        expectedLines,
-        "Expected squared distance comparisons inside logical expressions to omit redundant multiplication grouping."
+        sourceAndExpected,
+        "Expected squared distance comparisons inside logical expressions to include clarifying multiplication grouping."
     );
 });
 
-void test("retains synthetic multiplication parentheses within comparisons", async () => {
+void test("includes synthetic multiplication parentheses within comparisons", async () => {
     const source = [
         "do {",
         "    value += 1;",
@@ -289,7 +376,7 @@ void test("retains synthetic multiplication parentheses within comparisons", asy
 
     const formatted = await Plugin.format(source, {
         parser: "gml-parse",
-        applyFeatherFixes: true
+        optimizeMathExpressions: false
     });
     const expectedLines = [
         "do {",
@@ -300,7 +387,7 @@ void test("retains synthetic multiplication parentheses within comparisons", asy
     assert.strictEqual(
         formatted.trim(),
         expectedLines,
-        "Expected multiplication grouping parentheses to be preserved when comparing values."
+        "Expected multiplication grouping parentheses to be preserved when comparing values, even when functionally redundant."
     );
 });
 
@@ -313,8 +400,7 @@ void test("retains synthetic multiplication grouping when subtracting values", a
     ].join("\n");
 
     const formatted = await Plugin.format(source, {
-        parser: "gml-parse",
-        plugins: [Plugin]
+        parser: "gml-parse"
     });
 
     const expectedLines = [

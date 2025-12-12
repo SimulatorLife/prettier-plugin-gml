@@ -1,73 +1,78 @@
 import type { MutableGameMakerAstNode } from "@gml-modules/core";
-import { stripCommentsTransform } from "./strip-comments.js";
-import { consolidateStructAssignmentsTransform } from "./consolidate-struct-assignments.js";
-import { condenseLogicalExpressionsTransform } from "./condense-logical-expressions.js";
 import { applyFeatherFixesTransform } from "./apply-feather-fixes.js";
-import { preprocessFunctionArgumentDefaultsTransform } from "./preprocess-function-argument-defaults.js";
-import { enforceVariableBlockSpacingTransform } from "./enforce-variable-block-spacing.js";
-import { convertStringConcatenationsTransform } from "./convert-string-concatenations.js";
-import { optimizeMathExpressionsTransform } from "./optimize-math-expressions.js";
-import { convertUndefinedGuardAssignmentsTransform } from "./convert-undefined-guard-assignments.js";
 import { annotateStaticFunctionOverridesTransform } from "./annotate-static-overrides.js";
 import { collapseRedundantMissingCallArgumentsTransform } from "./collapse-redundant-arguments.js";
+import { condenseLogicalExpressionsTransform } from "./condense-logical-expressions.js";
+import { consolidateStructAssignmentsTransform } from "./consolidate-struct-assignments.js";
+import { convertStringConcatenationsTransform } from "./convert-string-concatenations.js";
+import { convertUndefinedGuardAssignmentsTransform } from "./convert-undefined-guard-assignments.js";
+import { enforceVariableBlockSpacingTransform } from "./enforce-variable-block-spacing.js";
 import { markCallsMissingArgumentSeparatorsTransform } from "./mark-missing-separators.js";
-
-import { ParserTransform } from "./functional-transform.js";
-
-type TransformOptions = Record<string, unknown>;
+import { optimizeMathExpressionsTransform } from "./optimize-math-expressions.js";
+import { preprocessFunctionArgumentDefaultsTransform } from "./preprocess-function-argument-defaults.js";
+import { stripCommentsTransform } from "./strip-comments.js";
+import type { ParserTransform } from "./functional-transform.js";
 
 /**
  * Central registry for parser transforms exposed by the plugin pipeline.
  * Each entry is referenced by name when `applyTransforms` runs, ensuring a single curated order.
  */
 const TRANSFORM_REGISTRY_ENTRIES = [
-    ["strip-comments", stripCommentsTransform],
-    ["consolidate-struct-assignments", consolidateStructAssignmentsTransform],
-    ["apply-feather-fixes", applyFeatherFixesTransform],
-    [
-        "preprocess-function-argument-defaults",
-        preprocessFunctionArgumentDefaultsTransform
-    ],
-    ["enforce-variable-block-spacing", enforceVariableBlockSpacingTransform],
-    ["convert-string-concatenations", convertStringConcatenationsTransform],
-    ["condense-logical-expressions", condenseLogicalExpressionsTransform],
-    ["optimize-math-expressions", optimizeMathExpressionsTransform],
-    [
-        "convert-undefined-guard-assignments",
-        convertUndefinedGuardAssignmentsTransform
-    ],
-    ["annotate-static-overrides", annotateStaticFunctionOverridesTransform],
-    [
-        "collapse-redundant-missing-call-arguments",
-        collapseRedundantMissingCallArgumentsTransform
-    ],
-    [
-        "mark-calls-missing-argument-separators",
-        markCallsMissingArgumentSeparatorsTransform
-    ]
+    stripCommentsTransform,
+    consolidateStructAssignmentsTransform,
+    applyFeatherFixesTransform,
+    preprocessFunctionArgumentDefaultsTransform,
+    enforceVariableBlockSpacingTransform,
+    convertStringConcatenationsTransform,
+    condenseLogicalExpressionsTransform,
+    optimizeMathExpressionsTransform,
+    convertUndefinedGuardAssignmentsTransform,
+    annotateStaticFunctionOverridesTransform,
+    collapseRedundantMissingCallArgumentsTransform,
+    markCallsMissingArgumentSeparatorsTransform
 ] as const;
 
-type TransformName = (typeof TRANSFORM_REGISTRY_ENTRIES)[number][0];
-type TransformValue = ParserTransform<
-    MutableGameMakerAstNode,
-    TransformOptions
->;
-
-export type ParserTransformName = TransformName;
-export type ParserTransformOptions = TransformOptions;
-
-const TRANSFORM_REGISTRY = new Map<TransformName, TransformValue>(
-    TRANSFORM_REGISTRY_ENTRIES as ReadonlyArray<
-        readonly [TransformName, TransformValue]
+type RegisteredTransform = (typeof TRANSFORM_REGISTRY_ENTRIES)[number];
+export type ParserTransformName = RegisteredTransform["name"];
+export type ParserTransformOptions = {
+    readonly [Transform in RegisteredTransform as Transform["name"]]: Transform extends ParserTransform<
+        MutableGameMakerAstNode,
+        infer Options
     >
-);
+        ? Options
+        : never;
+};
+type TransformByName = {
+    [Transform in RegisteredTransform as Transform["name"]]: Transform;
+};
+
+const TRANSFORM_REGISTRY = {} as TransformByName;
+for (const transform of TRANSFORM_REGISTRY_ENTRIES) {
+    if (Object.hasOwn(TRANSFORM_REGISTRY, transform.name)) {
+        throw new Error(
+            `Duplicate parser transform registered: ${transform.name}`
+        );
+    }
+
+    TRANSFORM_REGISTRY[transform.name] = transform;
+}
+
+export function getParserTransform<Name extends ParserTransformName>(
+    name: Name
+): TransformByName[Name] {
+    const transform = TRANSFORM_REGISTRY[name];
+    if (!transform) {
+        throw new TypeError(`Unknown parser transform: ${String(name)}`);
+    }
+
+    return transform;
+}
 
 export function isParserTransformName(
     value: unknown
 ): value is ParserTransformName {
     return (
-        typeof value === "string" &&
-        TRANSFORM_REGISTRY.has(value as TransformName)
+        typeof value === "string" && Object.hasOwn(TRANSFORM_REGISTRY, value)
     );
 }
 
@@ -76,8 +81,8 @@ export function isParserTransformName(
  */
 export function applyTransforms(
     ast: MutableGameMakerAstNode,
-    transformNames: readonly TransformName[] = [],
-    options: Readonly<Partial<Record<TransformName, TransformOptions>>> = {}
+    transformNames: readonly ParserTransformName[] = [],
+    options: Readonly<Partial<Record<string, unknown>>> = {}
 ) {
     if (transformNames.length === 0) {
         return ast;
@@ -85,21 +90,16 @@ export function applyTransforms(
 
     let current = ast;
     for (const name of transformNames) {
-        const transform = TRANSFORM_REGISTRY.get(name);
-        if (!transform) {
-            throw new TypeError(`Unknown transform: ${String(name)}`);
-        }
-
-        current = transform.transform(
-            current,
-            options[name] ?? transform.defaultOptions
-        );
+        const transform = getParserTransform(name);
+        current = transform.transform(current, options[name] as never);
     }
 
     return current;
 }
 
-export const availableTransforms = Array.from(TRANSFORM_REGISTRY.keys());
+export const availableTransforms = TRANSFORM_REGISTRY_ENTRIES.map(
+    (transform) => transform.name
+) as readonly ParserTransformName[];
 
 export {
     applyFeatherFixesTransform,
@@ -130,3 +130,4 @@ export { applyIndexAdjustmentsIfPresent } from "./index-adjustments.js";
 export { sanitizeMissingArgumentSeparators } from "./missing-argument-separator-sanitizer.js";
 export { collapseRedundantMissingCallArgumentsTransform } from "./collapse-redundant-arguments.js";
 export { markCallsMissingArgumentSeparatorsTransform } from "./mark-missing-separators.js";
+export { hoistLoopLengthBounds } from "./loop-size-hoisting/index.js";

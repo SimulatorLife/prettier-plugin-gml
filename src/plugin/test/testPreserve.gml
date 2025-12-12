@@ -130,7 +130,7 @@ global.lighting.draw(
 //     show_debug_message("Caught exception while trying to update crab foot speed: " + string(ex));
 // }
 
-// Make body wobble up and down
+// Wobbling in z-axis
 z_wobble = ((sin(current_time * 0.004) + 1) * 2) + 2; // value between 0 and 2, this is subtracted from crabs height
 
 /// @function AbstractSkyboxParent

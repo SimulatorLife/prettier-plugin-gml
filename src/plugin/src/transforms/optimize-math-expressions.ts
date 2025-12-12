@@ -8,10 +8,15 @@ import {
     applyManualMathNormalization,
     normalizeTraversalContext,
     applyScalarCondensing,
+    replaceNodeWith,
     type ConvertManualMathTransformOptions
 } from "./math/traversal-normalization.js";
 
-const { BINARY_EXPRESSION, LITERAL } = Core;
+const { BINARY_EXPRESSION, LITERAL, PARENTHESIZED_EXPRESSION } = Core;
+
+type ParenthesizedExpressionNode = MutableGameMakerAstNode & {
+    expression?: MutableGameMakerAstNode | null;
+};
 
 /**
  * Transform that composes the various manual math optimizations into the parser transform pipeline.
@@ -82,12 +87,18 @@ export class OptimizeMathExpressionsTransform extends FunctionalParserTransform<
 
         const right = node.right;
         // Ensure we are dividing by a numeric literal
-        if (right.type !== LITERAL || typeof right.value !== "number") {
+        if (right.type !== LITERAL) {
             return false;
         }
+        const rawValue = right.value;
+        const divisor =
+            typeof rawValue === "number"
+                ? rawValue
+                : typeof rawValue === "string"
+                  ? Number(rawValue)
+                  : Number.NaN;
 
-        const divisor = right.value;
-        if (divisor === 0) {
+        if (!Number.isFinite(divisor) || divisor === 0) {
             return false; // Avoid division by zero issues
         }
 
@@ -98,11 +109,62 @@ export class OptimizeMathExpressionsTransform extends FunctionalParserTransform<
         node.operator = "*";
         node.right = {
             ...right,
-            value: reciprocal,
+            value: String(reciprocal),
             raw: String(reciprocal)
         };
 
+        this.flattenMultiplicativeOperand(node);
+
         return true;
+    }
+
+    private flattenMultiplicativeOperand(node: MutableGameMakerAstNode) {
+        const leftOperand = node.left as ParenthesizedExpressionNode | null;
+        if (!leftOperand || leftOperand.type !== PARENTHESIZED_EXPRESSION) {
+            return;
+        }
+
+        const wrappers: ParenthesizedExpressionNode[] = [];
+        let cursor = leftOperand;
+
+        while (cursor && cursor.type === PARENTHESIZED_EXPRESSION) {
+            wrappers.push(cursor);
+
+            const nested = cursor.expression;
+            if (!nested || nested.type !== PARENTHESIZED_EXPRESSION) {
+                break;
+            }
+
+            cursor = nested;
+        }
+
+        if (wrappers.length === 0 || !cursor) {
+            return;
+        }
+
+        const innermost = cursor.expression;
+        if (
+            !innermost ||
+            innermost.type !== BINARY_EXPRESSION ||
+            innermost.operator !== "*"
+        ) {
+            return;
+        }
+
+        if (
+            wrappers.some((wrapper) => Core.hasComment(wrapper)) ||
+            Core.hasComment(innermost)
+        ) {
+            return;
+        }
+
+        const current = node.left as ParenthesizedExpressionNode | null;
+        while (current && current.type === PARENTHESIZED_EXPRESSION) {
+            const expression = current.expression;
+            if (!expression || !replaceNodeWith(current, expression)) {
+                break;
+            }
+        }
     }
 }
 

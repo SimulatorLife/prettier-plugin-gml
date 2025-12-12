@@ -11,7 +11,7 @@ var myBar;
 try{
 myBar = new bar();
 }catch(e){
-show_debug_message("Caught exception: " + string(e));
+show_debug_message($"Caught exception: {e}");
 }finally{myBar = undefined}
 
 
@@ -150,7 +150,7 @@ function __ChatterboxBufferBatch() constructor
 function greet() {
         var name = argument_count > 0 ? argument[0] : "friend";
         var greeting = argument_count > 1 ? argument[1] : "Hello";
-        return greeting + ", " + name;
+        return $"{greeting}, ${name}";
 }
 
 var message1 = greet();;;
@@ -187,9 +187,7 @@ function handle_lighting(multiplier = undefined, light_dir = [0, 0, -1]) {
 /// @param {bool} [pull_in=true]
 function scr_spring(a, b, dst, force) {
 
-	if(!instance_exists(a) or !instance_exists(b)){
-		return false;
-	}
+	if(!instance_exists(a) or !instance_exists(b))return false;
 
 	var push_out = true;
 	if (argument_count > 4)
@@ -233,13 +231,17 @@ function scr_spring(a, b, dst, force) {
 
 // Synthetic docs should be added to non-local methods
 get_debug_text = function() {
-	var txt = "";
+
+    var txt = "";
+
 	txt += $"\nPosition: {new Vector3(x, y, z).to_string(true)}";
 	txt += $"\nLand type: {global.island.get_land_string(land_type)}";
 	txt += $"\nDirection: {round(direction)}";
-	if (!is_undefined(weapon)) {
+	
+    if (!is_undefined(weapon)) {
 		txt += weapon.get_debug_text();
 	}
+
 	txt += hp.get_debug_text();
 	txt += states.get_debug_text();
 	txt += mover.get_debug_text();
@@ -251,6 +253,7 @@ get_debug_text = function() {
 /// @description Write a unit triangular prism into an existing vbuff.
 /// Local space: X∈[-0.5,+0.5], Y∈[-0.5,+0.5], base plane at Z=0, apex line at (Y=0,Z=1).
 function vertex_buffer_write_triangular_prism(vbuff, colour = c_white, alpha = 1, trans_mat) {
+    
     var hx = 0.5, hy = 0.5, h = 1.0;
 
     // Base corners (Z = 0)
