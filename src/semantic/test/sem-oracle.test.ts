@@ -123,8 +123,8 @@ void test("kindOfIdent returns 'local' as default for unknown classifications", 
 void test("kindOfIdent returns 'unknown' for non-object input", () => {
     assert.strictEqual(kindOfIdent(null), "unknown");
     assert.strictEqual(kindOfIdent(), "unknown");
-    assert.strictEqual(kindOfIdent("string"), "unknown");
-    assert.strictEqual(kindOfIdent(42), "unknown");
+    assert.strictEqual(kindOfIdent("string" as unknown), "unknown");
+    assert.strictEqual(kindOfIdent(42 as unknown), "unknown");
 });
 
 void test("kindOfIdent prioritizes builtin over other classifications", () => {
@@ -168,7 +168,7 @@ void test("nameOfIdent returns empty string for missing name", () => {
 void test("nameOfIdent returns empty string for non-object input", () => {
     assert.strictEqual(nameOfIdent(null), "");
     assert.strictEqual(nameOfIdent(), "");
-    assert.strictEqual(nameOfIdent("string"), "");
+    assert.strictEqual(nameOfIdent("string" as unknown), "");
 });
 
 void test("qualifiedSymbol returns qualified path for scoped symbol", () => {

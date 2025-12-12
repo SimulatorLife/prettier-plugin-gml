@@ -1,46 +1,74 @@
-import { Core } from "@gml-modules/core";
+import { Core, type GameMakerAstNode } from "@gml-modules/core";
+
+type IdentifierKind =
+    | "script"
+    | "macro"
+    | "enum"
+    | "enum-member"
+    | "global"
+    | "instance"
+    | "local"
+    | "builtin"
+    | "unknown";
+
+type CallTargetKind =
+    | "script"
+    | "method"
+    | "builtin"
+    | "constructor"
+    | "unknown";
+
+type SemanticNode = GameMakerAstNode & {
+    isBuiltIn?: boolean;
+    classifications?: ReadonlyArray<string>;
+    scopeId?: string | null;
+    declaration?: {
+        scopeId?: string | null;
+    };
+    identifier?: {
+        name?: string;
+    };
+};
+
+type CallExpressionNode = {
+    callee?: SemanticNode;
+    function?: SemanticNode;
+    target?: SemanticNode;
+};
 
 /**
  * Infer the semantic kind of an identifier from its classifications and
  * declaration metadata. This supports hot reload coordination by enabling
  * targeted invalidation based on symbol categories.
- *
- * @param {object} node - AST node with classifications and declaration metadata
- * @returns {"script"|"macro"|"enum"|"enum-member"|"global"|"instance"|"local"|"builtin"|"unknown"}
  */
-export function kindOfIdent(node) {
+export function kindOfIdent(node: unknown): IdentifierKind {
     if (!Core.isObjectLike(node)) {
         return "unknown";
     }
 
-    const classifications = Core.asArray(node.classifications);
+    const semanticNode = node as SemanticNode;
+    const classifications = Core.asArray(semanticNode.classifications);
 
-    if (node.isBuiltIn === true || classifications.includes("builtin")) {
+    if (
+        semanticNode.isBuiltIn === true ||
+        classifications.includes("builtin")
+    ) {
         return "builtin";
     }
 
-    if (classifications.includes("script")) {
-        return "script";
-    }
+    const kindMap: Array<[string, IdentifierKind]> = [
+        ["script", "script"],
+        ["macro", "macro"],
+        ["enum", "enum"],
+        ["enum-member", "enum-member"],
+        ["global", "global"],
+        ["instance", "instance"]
+    ];
 
-    if (classifications.includes("macro")) {
-        return "macro";
-    }
-
-    if (classifications.includes("enum")) {
-        return "enum";
-    }
-
-    if (classifications.includes("enum-member")) {
-        return "enum-member";
-    }
-
-    if (classifications.includes("global")) {
-        return "global";
-    }
-
-    if (classifications.includes("instance")) {
-        return "instance";
+    for (const [classification, kind] of kindMap) {
+        if (classifications.includes(classification)) {
+            return kind;
+        }
     }
 
     if (
@@ -56,24 +84,24 @@ export function kindOfIdent(node) {
 /**
  * Extract the identifier name from an AST node, supporting both direct name
  * properties and nested identifier structures.
- *
- * @param {object} node - AST node or identifier
- * @returns {string} The identifier name or empty string if unavailable
  */
-export function nameOfIdent(node) {
+export function nameOfIdent(node: unknown): string {
     if (!Core.isObjectLike(node)) {
         return "";
     }
 
-    if (typeof node.name === "string") {
-        return node.name;
+    const semanticNode = node as SemanticNode;
+
+    if (typeof semanticNode.name === "string") {
+        return semanticNode.name;
     }
 
+    const nestedIdentifier = semanticNode.identifier;
     if (
-        Core.isObjectLike(node.identifier) &&
-        typeof node.identifier.name === "string"
+        Core.isObjectLike(nestedIdentifier) &&
+        typeof nestedIdentifier.name === "string"
     ) {
-        return node.identifier.name;
+        return nestedIdentifier.name;
     }
 
     return "";
@@ -84,11 +112,8 @@ export function nameOfIdent(node) {
  * Returns a stable reference format for dependency tracking and hot reload
  * coordination: `{kind}/{scope}/{name}` for scoped symbols or `{kind}/{name}`
  * for global declarations.
- *
- * @param {object} node - AST node with semantic annotations
- * @returns {string|null} Qualified symbol path or null if unavailable
  */
-export function qualifiedSymbol(node) {
+export function qualifiedSymbol(node: unknown): string | null {
     if (!Core.isObjectLike(node)) {
         return null;
     }
@@ -103,7 +128,8 @@ export function qualifiedSymbol(node) {
         return null;
     }
 
-    const scopeId = node.scopeId ?? node.declaration?.scopeId;
+    const semanticNode = node as SemanticNode;
+    const scopeId = semanticNode.scopeId ?? semanticNode.declaration?.scopeId;
 
     if (scopeId && typeof scopeId === "string") {
         return `${kind}/${scopeId}/${name}`;
@@ -113,46 +139,66 @@ export function qualifiedSymbol(node) {
 }
 
 /**
+ * Check if an identifier name follows PascalCase convention for constructors.
+ */
+function isPascalCaseIdentifier(callee: SemanticNode): boolean {
+    if (!Core.isIdentifierNode(callee)) {
+        return false;
+    }
+
+    const calleeName = callee.name;
+    if (typeof calleeName !== "string" || calleeName.length === 0) {
+        return false;
+    }
+
+    const firstChar = calleeName[0];
+    return Boolean(
+        firstChar &&
+            firstChar === firstChar.toUpperCase() &&
+            /^[A-Z]/.test(firstChar)
+    );
+}
+
+/**
  * Determine the call target kind from a call expression node. This supports
  * hot reload invalidation by identifying whether a call targets a script,
  * method, builtin function, or other callable entity.
- *
- * @param {object} node - Call expression AST node
- * @returns {"script"|"method"|"builtin"|"constructor"|"unknown"}
  */
-export function callTargetKind(node) {
+export function callTargetKind(node: unknown): CallTargetKind {
     if (!Core.isObjectLike(node)) {
         return "unknown";
     }
 
-    const callee = node.callee ?? node.function ?? node.target;
+    const callNode = node as CallExpressionNode;
+    const callee = callNode.callee ?? callNode.function ?? callNode.target;
     if (!Core.isObjectLike(callee)) {
         return "unknown";
     }
 
-    const classifications = Core.asArray(callee.classifications);
+    const semanticCallee = callee;
+    const classifications = Core.asArray(semanticCallee.classifications);
 
-    if (callee.isBuiltIn === true || classifications.includes("builtin")) {
+    if (
+        semanticCallee.isBuiltIn === true ||
+        classifications.includes("builtin")
+    ) {
         return "builtin";
     }
 
-    if (classifications.includes("script")) {
-        return "script";
-    }
+    const kindMap: Array<[string, CallTargetKind]> = [
+        ["script", "script"],
+        ["method", "method"],
+        ["constructor", "constructor"]
+    ];
 
-    if (classifications.includes("method")) {
-        return "method";
-    }
-
-    if (classifications.includes("constructor")) {
-        return "constructor";
-    }
-
-    if (Core.isIdentifierNode(callee) && callee.name) {
-        const firstChar = callee.name[0];
-        if (firstChar === firstChar.toUpperCase() && /^[A-Z]/.test(firstChar)) {
-            return "constructor";
+    for (const [classification, kind] of kindMap) {
+        if (classifications.includes(classification)) {
+            return kind;
         }
+    }
+
+    if (isPascalCaseIdentifier(semanticCallee)) {
+        return "constructor";
     }
 
     return "unknown";
@@ -162,16 +208,14 @@ export function callTargetKind(node) {
  * Extract the qualified symbol identifier for a call target. Useful for
  * dependency tracking and hot reload coordination by providing a stable
  * reference to the callable being invoked.
- *
- * @param {object} node - Call expression AST node
- * @returns {string|null} Qualified symbol identifier or null if unavailable
  */
-export function callTargetSymbol(node) {
+export function callTargetSymbol(node: unknown): string | null {
     if (!Core.isObjectLike(node)) {
         return null;
     }
 
-    const callee = node.callee ?? node.function ?? node.target;
+    const callNode = node as CallExpressionNode;
+    const callee = callNode.callee ?? callNode.function ?? callNode.target;
     if (!Core.isObjectLike(callee)) {
         return null;
     }
