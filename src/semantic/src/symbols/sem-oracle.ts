@@ -1,6 +1,38 @@
 import type { ScopeTracker } from "../scopes/scope-tracker.js";
 
 /**
+ * Type guard to check if a value is an identifier metadata object.
+ */
+function isIdentifierMetadata(
+    value: unknown
+): value is { name: string; isGlobalIdentifier?: boolean } {
+    return (
+        typeof value === "object" &&
+        value !== null &&
+        "name" in value &&
+        typeof (value as { name: unknown }).name === "string"
+    );
+}
+
+/**
+ * Extract classifications array from a declaration object safely.
+ */
+function getClassifications(declaration: unknown): string[] | undefined {
+    if (typeof declaration !== "object" || declaration === null) {
+        return undefined;
+    }
+
+    const classifications = (declaration as Record<string, unknown>)
+        .classifications;
+
+    if (!Array.isArray(classifications)) {
+        return undefined;
+    }
+
+    return classifications as string[];
+}
+
+/**
  * Semantic kind classification for identifiers, matching the transpiler's
  * expected vocabulary for code generation.
  */
@@ -97,13 +129,8 @@ export class BasicSemanticOracle implements SemOracle {
 
         if (this.tracker) {
             const declaration = this.tracker.resolveIdentifier(node.name);
-            if (declaration && typeof declaration === "object") {
-                const classifications = Array.isArray(
-                    (declaration as Record<string, unknown>).classifications
-                )
-                    ? ((declaration as Record<string, unknown>)
-                          .classifications as string[])
-                    : undefined;
+            if (declaration) {
+                const classifications = getClassifications(declaration);
                 if (classifications?.includes("global")) {
                     return "global_field";
                 }
@@ -124,32 +151,31 @@ export class BasicSemanticOracle implements SemOracle {
 
     /**
      * Generate a qualified symbol identifier for cross-reference tracking.
-     * Returns null for now since we don't yet have project-wide symbol IDs.
      *
-     * Future enhancement: Return SCIP-style symbols (e.g., "gml/script/my_func")
-     * when connected to the project index or symbol registry.
+     * TODO: Return SCIP-style symbols (e.g., "gml/script/my_func") when
+     * connected to the project index or symbol registry. Currently returns
+     * null as project-wide symbol tracking is not yet implemented.
      */
     qualifiedSymbol(
         node: IdentifierMetadata | null | undefined
     ): string | null {
-        if (!node?.name) {
-            return null;
-        }
+        void node;
         return null;
     }
 
     /**
      * Determine the kind of a call target (script, builtin, or unknown).
-     * Uses the builtin name set to classify known functions. Scripts require
-     * project-level analysis not yet implemented.
+     * Uses the builtin name set to classify known functions.
+     *
+     * TODO: Add script classification when project-level analysis is
+     * implemented. Currently only distinguishes builtins from unknown.
      */
     callTargetKind(node: CallExpressionNode): "script" | "builtin" | "unknown" {
-        const callee = node.object as IdentifierMetadata | null | undefined;
-        if (!callee?.name) {
+        if (!isIdentifierMetadata(node.object)) {
             return "unknown";
         }
 
-        if (this.builtinNames.has(callee.name)) {
+        if (this.builtinNames.has(node.object.name)) {
             return "builtin";
         }
 
@@ -157,14 +183,13 @@ export class BasicSemanticOracle implements SemOracle {
     }
 
     /**
-     * Return a qualified symbol for the call target. Returns null for now
-     * since we don't track script symbols yet.
+     * Return a qualified symbol for the call target.
+     *
+     * TODO: Return SCIP-style symbols when script tracking is implemented.
+     * Currently returns null since we don't track script symbols yet.
      */
     callTargetSymbol(node: CallExpressionNode): string | null {
-        const callee = node.object as IdentifierMetadata | null | undefined;
-        if (!callee?.name) {
-            return null;
-        }
+        void node;
         return null;
     }
 }
