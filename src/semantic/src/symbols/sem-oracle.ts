@@ -141,22 +141,13 @@ export function qualifiedSymbol(node: unknown): string | null {
 /**
  * Check if an identifier name follows PascalCase convention for constructors.
  */
-function isPascalCaseIdentifier(callee: SemanticNode): boolean {
+function isPascalCaseIdentifier(callee: unknown): boolean {
     if (!Core.isIdentifierNode(callee)) {
         return false;
     }
 
-    const calleeName = callee.name;
-    if (typeof calleeName !== "string" || calleeName.length === 0) {
-        return false;
-    }
-
-    const firstChar = calleeName[0];
-    return Boolean(
-        firstChar &&
-            firstChar === firstChar.toUpperCase() &&
-            /^[A-Z]/.test(firstChar)
-    );
+    const firstChar = callee.name[0];
+    return Boolean(firstChar && /^[A-Z]/.test(firstChar));
 }
 
 /**
