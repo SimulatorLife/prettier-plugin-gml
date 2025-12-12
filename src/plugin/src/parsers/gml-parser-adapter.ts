@@ -23,7 +23,7 @@ const PARSER_OPTIONS = {
     }
 } as const;
 
-type GmlParserAdapterOptions = {
+export type GmlParserAdapterOptions = {
     applyFeatherFixes?: boolean;
     sanitizeMissingArgumentSeparators?: boolean;
     condenseStructAssignments?: boolean;
@@ -398,6 +398,9 @@ function applyFinalTransforms(
     Transforms.preprocessFunctionArgumentDefaultsTransform.transform(ast);
     Transforms.annotateStaticFunctionOverridesTransform.transform(ast);
     Transforms.collapseRedundantMissingCallArgumentsTransform.transform(ast);
+    if (options?.optimizeLoopLengthHoisting ?? true) {
+        Transforms.hoistLoopLengthBounds(ast, options);
+    }
     Transforms.enforceVariableBlockSpacingTransform.transform(ast);
 
     Transforms.markCallsMissingArgumentSeparatorsTransform.transform(ast, {

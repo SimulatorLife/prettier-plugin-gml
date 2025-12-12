@@ -1,3 +1,3 @@
 {
-    "allowSingleLineIfStatements": false
+    "allowSingleLineIfStatements": false, "applyFeatherFixes": false, "optimizeMathExpressions": false
 }

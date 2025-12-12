@@ -500,7 +500,7 @@ Template strings that never interpolate expressions automatically collapse back 
 | `maxParamsPerLine` | `0` | Forces argument wrapping after the specified count (set to `0` to remove the numeric limit; nested callbacks may still wrap for readability). |
 | `applyFeatherFixes` | `false` | Applies opt-in fixes backed by GameMaker Feather metadata (e.g. drop trailing semicolons from `#macro`). |
 | `useStringInterpolation` | `true` | Upgrades eligible string concatenations to template strings (`$"Hello {name}"`). |
-| `optimizeMathExpressions` | `false` | Optimize math expressions by converting bespoke patterns to built-ins, condensing scalar multipliers, and replacing divisions by constant values with multiplication by their reciprocal. |
+| `optimizeMathExpressions` | `false` | Optimize math expressions by converting bespoke patterns to built-ins, condensing scalar multipliers, and replacing divisions by constant values with multiplication by their reciprocal; this flag is responsible for normalizing `x / constant` expressions so the printer can treat them like multiplication chains without a hard-coded division-by-two branch. |
 
 Line comments automatically drop YoYo Games' generated banner message (`Script assets have changed for v2.3.0 ... for more information`) and the default IDE stubs (`/// @description Insert description here`, `// You can write your code in this editor`) so repository diffs stay focused on deliberate edits instead of generated scaffolding.
 
@@ -570,6 +570,8 @@ prettier-plugin-gml/
 ├─ vendor/                # Submodules for GameMaker runtime assets
 └─ docs/                  # Design notes and guides
 ```
+
+The Prettier plugin printer centralizes semicolon emission, cleanup, and statement-order helpers in `src/plugin/src/printer/semicolons.ts` so formatting heuristics stay in one place.
 
 ### Set up the workspace
 
