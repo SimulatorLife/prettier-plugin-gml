@@ -711,6 +711,31 @@ void test("prioritizes converting multiplicative degree ratios into degtorad ove
     );
 });
 
+void test("simplifies degree-based cos expressions into dcos", async () => {
+    const source = [
+        "function convert_cos_direction(direction) {",
+        "    return cos((direction / 180) * pi);",
+        "}",
+        ""
+    ].join("\n");
+
+    const formatted = await Plugin.format(source, {
+        optimizeMathExpressions: true
+    });
+
+    assert.strictEqual(
+        formatted,
+        [
+            "/// @function convert_cos_direction",
+            "/// @param direction",
+            "function convert_cos_direction(direction) {",
+            "    return dcos(direction);",
+            "}",
+            ""
+        ].join("\n")
+    );
+});
+
 void test("downgrades numbered triple-slash comments to standard comments", async () => {
     const source = [
         "/// 4) Distributive constant collection",
