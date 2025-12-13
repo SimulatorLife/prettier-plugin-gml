@@ -6,6 +6,7 @@ import { FunctionalParserTransform } from "./functional-transform.js";
 import { cleanupMultiplicativeIdentityParentheses } from "./math/parentheses-cleanup.js";
 import {
     applyManualMathNormalization,
+    matchDegreesToRadians,
     normalizeTraversalContext,
     applyScalarCondensing,
     replaceNodeWith,
@@ -82,6 +83,10 @@ export class OptimizeMathExpressionsTransform extends FunctionalParserTransform<
         node: MutableGameMakerAstNode
     ): boolean {
         if (node.type !== BINARY_EXPRESSION || node.operator !== "/") {
+            return false;
+        }
+
+        if (matchDegreesToRadians(node)) {
             return false;
         }
 
