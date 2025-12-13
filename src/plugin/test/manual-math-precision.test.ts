@@ -653,7 +653,7 @@ void test("converts simple division within a function", async () => {
             "/// @param room_width",
             "/// @param room_height",
             "function room_division(room_width, room_height) {",
-            "    return (room_width * 0.25) + (room_height * 0.25);",
+            "    return dot_product(room_width, room_height, 0.25, 0.25);",
             "}",
             ""
         ].join("\n")

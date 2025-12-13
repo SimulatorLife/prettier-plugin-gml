@@ -4860,6 +4860,7 @@ export {
     attemptCondenseScalarProduct,
     attemptCondenseSimpleScalarProduct,
     attemptConvertDegreesToRadians,
+    matchDegreesToRadians,
     attemptRemoveAdditiveIdentity,
     attemptRemoveMultiplicativeIdentity,
     attemptSimplifyDivisionByReciprocal,
