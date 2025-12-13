@@ -2,6 +2,45 @@
 
 This `src/semantic` subsystem is a semantic layer that annotates parse tree(s) to add *meaning* to the parsed GML code so the emitter/transpiler can make correct decisions. See the plan for this component/feature in [../../docs/semantic-scope-plan.md](../../docs/semantic-scope-plan.md).
 
+## Semantic Oracle
+
+The `BasicSemanticOracle` class bridges the scope tracker and transpiler, providing identifier classification and symbol resolution for accurate code generation.
+
+### Usage
+
+```typescript
+import { Semantic } from "@gml-modules/semantic";
+
+const tracker = new Semantic.ScopeTracker({ enabled: true });
+const builtins = new Set(["show_debug_message", "array_length"]);
+const oracle = new Semantic.BasicSemanticOracle(tracker, builtins);
+
+// Classify an identifier
+const kind = oracle.kindOfIdent({ name: "myVar" }); // "local" | "global_field" | "builtin"
+
+// Determine call target type
+const callKind = oracle.callTargetKind({
+    type: "CallExpression",
+    object: { name: "array_length" }
+}); // "builtin" | "script" | "unknown"
+```
+
+### Features
+
+- **Identifier classification**: Uses scope resolution to classify identifiers as `local`, `global_field`, or `builtin`
+- **Call target analysis**: Distinguishes builtin functions from unknown/script calls
+- **Fallback mode**: Works without a scope tracker by returning sensible defaults
+- **Type safety**: Uses type guards and helper functions for safe object validation
+
+### Classification Priority
+
+1. Global identifiers (explicit `isGlobalIdentifier` flag)
+2. Built-in functions (matched against provided builtin set)
+3. Scope-resolved declarations (using scope chain walking)
+4. Default to `local` for unresolved identifiers
+
+**Note**: The oracle currently does not distinguish `self_field`, `other_field`, or `script` kinds. These require richer context from the parser or project index and are deferred to future iterations.
+
 ## Symbol Resolution Queries
 
 The `ScopeTracker` provides query methods that enable hot reload coordination and dependency tracking:
