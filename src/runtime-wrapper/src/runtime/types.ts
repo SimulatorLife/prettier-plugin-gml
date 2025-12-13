@@ -56,6 +56,7 @@ export interface PatchHistoryEntry {
     action: PatchAction;
     error?: string;
     rolledBack?: boolean;
+    durationMs?: number;
 }
 
 export interface RuntimeWrapperOptions {
@@ -81,6 +82,10 @@ export interface PatchStats {
     eventPatches: number;
     closurePatches: number;
     uniqueIds: number;
+    averagePatchDurationMs?: number;
+    totalDurationMs?: number;
+    fastestPatchMs?: number;
+    slowestPatchMs?: number;
 }
 
 export interface RuntimeRegistrySnapshot {
@@ -128,4 +133,5 @@ export interface RuntimeWrapper {
     hasEvent(id: string): boolean;
     getClosure(id: string): RuntimeFunction | undefined;
     hasClosure(id: string): boolean;
+    clearRegistry(): void;
 }

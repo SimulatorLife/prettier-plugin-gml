@@ -1,6 +1,8 @@
 import {
     applyPatchInternal,
+    calculateTimingMetrics,
     captureSnapshot,
+    collectPatchDurations,
     createRegistry,
     restoreSnapshot,
     testPatchInShadow,
@@ -18,6 +20,8 @@ import type {
     RuntimeWrapperState,
     TrySafeApplyResult
 } from "./types.js";
+
+const UNKNOWN_ERROR_MESSAGE = "Unknown error";
 
 export function createRuntimeWrapper(
     options: RuntimeWrapperOptions = {}
@@ -49,20 +53,23 @@ export function createRuntimeWrapper(
         }
 
         const snapshot = captureSnapshot(state.registry, patch);
-        const timestamp = Date.now();
+        const startTime = Date.now();
 
         try {
             const { registry: nextRegistry, result } = applyPatchInternal(
                 state.registry,
                 patch
             );
+            const durationMs = Date.now() - startTime;
+
             state.registry = nextRegistry;
             state.undoStack.push(snapshot);
             state.patchHistory.push({
                 patch: { kind: patch.kind, id: patch.id },
                 version: state.registry.version,
-                timestamp,
-                action: "apply"
+                timestamp: startTime,
+                action: "apply",
+                durationMs
             });
 
             if (onPatchApplied) {
@@ -74,7 +81,7 @@ export function createRuntimeWrapper(
             const message =
                 error instanceof Error
                     ? error.message
-                    : String(error ?? "Unknown error");
+                    : String(error ?? UNKNOWN_ERROR_MESSAGE);
             throw new Error(`Failed to apply patch ${patch.id}: ${message}`);
         }
     }
@@ -132,7 +139,7 @@ export function createRuntimeWrapper(
                 const message =
                     error instanceof Error
                         ? error.message
-                        : String(error ?? "Unknown error");
+                        : String(error ?? UNKNOWN_ERROR_MESSAGE);
                 return {
                     success: false,
                     error: message,
@@ -171,7 +178,7 @@ export function createRuntimeWrapper(
             const message =
                 error instanceof Error
                     ? error.message
-                    : String(error ?? "Unknown error");
+                    : String(error ?? UNKNOWN_ERROR_MESSAGE);
 
             state.patchHistory.push({
                 patch: { kind: patch.kind, id: patch.id },
@@ -230,21 +237,25 @@ export function createRuntimeWrapper(
             switch (entry.patch.kind) {
                 case "script": {
                     stats.scriptPatches++;
-
                     break;
                 }
                 case "event": {
                     stats.eventPatches++;
-
                     break;
                 }
                 case "closure": {
                     stats.closurePatches++;
-
                     break;
                 }
                 // No default
             }
+        }
+
+        const durations = collectPatchDurations(state.patchHistory);
+        const timingMetrics = calculateTimingMetrics(durations);
+
+        if (timingMetrics) {
+            return { ...stats, ...timingMetrics, uniqueIds: uniqueIds.size };
         }
 
         return { ...stats, uniqueIds: uniqueIds.size };
@@ -278,6 +289,13 @@ export function createRuntimeWrapper(
         return id in state.registry.closures;
     }
 
+    function clearRegistry(): void {
+        state.registry = createRegistry({
+            version: state.registry.version + 1
+        });
+        state.undoStack = [];
+    }
+
     return {
         state,
         applyPatch,
@@ -292,6 +310,7 @@ export function createRuntimeWrapper(
         hasScript,
         hasEvent,
         getClosure,
-        hasClosure
+        hasClosure,
+        clearRegistry
     };
 }
