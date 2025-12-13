@@ -711,12 +711,10 @@ void test("prioritizes converting multiplicative degree ratios into degtorad ove
     );
 });
 
-void test("simplifies degree-based cos expressions into dcos", async () => {
+void test("simplifies degree-based cos and sin expressions into dcos and dsin", async () => {
     const source = [
-        "function convert_cos_direction(direction) {",
-        "    return cos((direction / 180) * pi);",
-        "}",
-        ""
+        "var xdir = cos((direction / 180) * pi);",
+        "var ydir = sin((direction / 180) * pi);"
     ].join("\n");
 
     const formatted = await Plugin.format(source, {
@@ -726,12 +724,8 @@ void test("simplifies degree-based cos expressions into dcos", async () => {
     assert.strictEqual(
         formatted,
         [
-            "/// @function convert_cos_direction",
-            "/// @param direction",
-            "function convert_cos_direction(direction) {",
-            "    return dcos(direction);",
-            "}",
-            ""
+            "var xdir = dcos(direction);",
+            "var ydir = dsin(direction);"
         ].join("\n")
     );
 });
