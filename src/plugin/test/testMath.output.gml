@@ -106,7 +106,7 @@ var s14 = vx * dt * 0.06;
 var s15 = score * 2;
 
 // 16) Milliseconds to minutes
-var s16 = time_ms * 0.000016666666667;
+var s16 = time_ms * 0.0000166666666667;
 
 // 17) Divide by one-half
 var s17 = pixels * 2;
