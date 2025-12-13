@@ -18,12 +18,16 @@ import { isNonEmptyTrimmedString } from "../../utils/string.js";
 const STRING_TYPE = "string";
 
 function processLeadingCommentLines(
-    targetNode,
-    functionNode,
-    options,
-    programNode,
-    sourceText
-) {
+    targetNode: any,
+    functionNode: any,
+    options: any,
+    programNode: any,
+    sourceText: string | null
+): {
+    existingDocLines: string[];
+    docLikeLeadingLines: string[];
+    plainLeadingLines: string[];
+} | null {
     const hasFunctionDoc =
         Array.isArray(functionNode.docComments) &&
         functionNode.docComments.length > 0;
