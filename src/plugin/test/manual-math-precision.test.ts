@@ -505,6 +505,32 @@ void test("condenses division by reciprocal scalar multipliers", async () => {
     );
 });
 
+void test("optimizes reciprocal assignment expression", async () => {
+    const source = [
+        "function optimize_assignment(x0, x1) {",
+        "    return (x0 - x1) / (1 / 60);",
+        "}",
+        ""
+    ].join("\n");
+
+    const formatted = await Plugin.format(source, {
+        optimizeMathExpressions: true
+    });
+
+    assert.strictEqual(
+        formatted,
+        [
+            "/// @function optimize_assignment",
+            "/// @param x0",
+            "/// @param x1",
+            "function optimize_assignment(x0, x1) {",
+            "    return (x0 - x1) * 60;",
+            "}",
+            ""
+        ].join("\n")
+    );
+});
+
 void test("condenses subtraction-only scalar factors", async () => {
     const source = [
         "function convert_subtraction(len) {",
