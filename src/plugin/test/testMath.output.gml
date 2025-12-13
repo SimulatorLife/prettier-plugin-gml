@@ -106,7 +106,7 @@ var s14 = vx * dt * 0.06;
 var s15 = score * 2;
 
 // 16) Milliseconds to minutes
-var s16 = time_ms * 0.000016666666667; (1/60000)
+var s16 = time_ms * 0.000016666666667;
 
 // 17) Divide by one-half
 var s17 = pixels * 2;
@@ -164,3 +164,13 @@ var s34 = v;
 
 // 35) Over-compounded scale
 var s35 = scale;
+
+// 36) Redundant denominator one
+var s36 = length;
+
+// 37) Redundant multiplication by one
+var s37 = width;
+var s37b = width;
+
+// 38) Redundant denominator under zero
+var s38 = 0;
