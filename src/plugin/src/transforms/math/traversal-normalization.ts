@@ -2354,6 +2354,12 @@ function attemptConvertDotProducts(node) {
         return false;
     }
 
+    for (const term of terms) {
+        if (isPotentialSquareMultiplication(term)) {
+            return false;
+        }
+    }
+
     const leftVector = [];
     const rightVector = [];
 
@@ -2383,6 +2389,40 @@ function attemptConvertDotProducts(node) {
         [...leftVector, ...rightVector],
         node
     );
+    return true;
+}
+
+function isPotentialSquareMultiplication(node) {
+    if (!node || Core.hasComment(node)) {
+        return false;
+    }
+
+    const expression = unwrapExpression(node);
+    if (!expression || !isBinaryOperator(expression, "*")) {
+        return false;
+    }
+
+    const left = unwrapExpression(expression.left);
+    const right = unwrapExpression(expression.right);
+    if (!left || !right) {
+        return false;
+    }
+
+    if (Core.hasComment(left) || Core.hasComment(right)) {
+        return false;
+    }
+
+    if (!isSafeOperand(left)) {
+        return false;
+    }
+
+    if (
+        !areNodesEquivalent(left, right) &&
+        !areNodesApproximatelyEquivalent(left, right)
+    ) {
+        return false;
+    }
+
     return true;
 }
 

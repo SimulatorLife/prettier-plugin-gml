@@ -4962,15 +4962,19 @@ function shouldOmitSyntheticParens(path) {
         return false;
     }
 
+    const parentKey = callPathMethod(path, "getName");
     const expression = node.expression;
+
+    if (
+        shouldStripStandaloneAdditiveParentheses(parent, parentKey, expression)
+    ) {
+        return true;
+    }
 
     // For ternary expressions, omit unnecessary parentheses around simple
     // identifiers or member expressions in the test position
     if (parent.type === "TernaryExpression") {
-        const parentKey = callPathMethod(path, "getName");
-        if (parentKey === "test") {
-            const expression = node.expression;
-            // Trim redundant parentheses when the ternary guard is just a bare
+        if (parentKey === "test" && // Trim redundant parentheses when the ternary guard is just a bare
             // identifier or property lookup. The parser faithfully records the
             // author-supplied parens as a `ParenthesizedExpression`, so without
             // this branch the printer would emit `(foo) ?` style guards that look
@@ -4980,14 +4984,13 @@ function shouldOmitSyntheticParens(path) {
             // the removal scoped to trivially safe shapes so we do not second-
             // guess parentheses that communicate evaluation order for compound
             // boolean logic or arithmetic.
-            if (
+            (
                 expression?.type === "Identifier" ||
                 expression?.type === "MemberDotExpression" ||
                 expression?.type === "MemberIndexExpression"
-            ) {
+            )) {
                 return true;
             }
-        }
         return false;
     }
 
@@ -5583,6 +5586,69 @@ function shouldFlattenMultiplicationChain(parent, expression, path) {
     }
 
     return true;
+}
+
+const MULTIPLICATIVE_BINARY_OPERATORS = new Set(["*", "/", "div", "%", "mod"]);
+
+function shouldStripStandaloneAdditiveParentheses(
+    parent,
+    parentKey,
+    expression
+) {
+    if (!parent || !expression) {
+        return false;
+    }
+
+    if (!isNumericComputationNode(expression)) {
+        return false;
+    }
+
+    const isBinaryExpression = expression.type === "BinaryExpression";
+    if (isBinaryExpression && binaryExpressionContainsString(expression)) {
+        return false;
+    }
+
+    const operatorText =
+        isBinaryExpression && typeof expression.operator === "string"
+            ? expression.operator.toLowerCase()
+            : null;
+    const isMultiplicativeExpression =
+        isBinaryExpression &&
+        operatorText !== null &&
+        MULTIPLICATIVE_BINARY_OPERATORS.has(operatorText);
+
+    switch (parent.type) {
+        case "VariableDeclarator": {
+            return parentKey === "init";
+        }
+        case "AssignmentExpression": {
+            return parentKey === "right";
+        }
+        case "ExpressionStatement": {
+            return parentKey === "expression";
+        }
+        case "ReturnStatement":
+        case "ThrowStatement": {
+            return parentKey === "argument";
+        }
+        case "BinaryExpression": {
+            if (isMultiplicativeExpression) {
+                return false;
+            }
+            if (parent.operator === "+") {
+                return parentKey === "left" || parentKey === "right";
+            }
+
+            if (parent.operator === "-") {
+                return parentKey === "left";
+            }
+
+            return false;
+        }
+        default: {
+            return false;
+        }
+    }
 }
 
 function getSanitizedMacroNames(path) {
