@@ -3562,9 +3562,59 @@ function matchDegreesToRadians(node) {
                 return numerator;
             }
         }
+
+        const reciprocalCandidate = matchDegreesToRadiansViaReciprocalPi(
+            expression
+        );
+        if (reciprocalCandidate) {
+            return reciprocalCandidate;
+        }
     }
 
     return null;
+}
+
+function matchDegreesToRadiansViaReciprocalPi(expression) {
+    const operands = [];
+    if (!collectProductOperands(expression, operands)) {
+        return null;
+    }
+
+    const piIndex = operands.findIndex((operand) => isPiIdentifier(operand));
+    if (piIndex < 0) {
+        return null;
+    }
+
+    operands.splice(piIndex, 1);
+
+    const reciprocalIndex = operands.findIndex((operand) =>
+        isLiteralReciprocalOf180(operand)
+    );
+    if (reciprocalIndex < 0) {
+        return null;
+    }
+
+    operands.splice(reciprocalIndex, 1);
+
+    if (operands.length !== 1) {
+        return null;
+    }
+
+    return unwrapExpression(operands[0]);
+}
+
+function isLiteralReciprocalOf180(node) {
+    const expression = unwrapExpression(node);
+    if (!expression) {
+        return false;
+    }
+
+    const value = parseNumericLiteral(expression);
+    if (value === null) {
+        return false;
+    }
+
+    return Math.abs(value - 1 / 180) <= computeNumericTolerance(1 / 180);
 }
 
 function hasCommentsInDegreesToRadiansPattern(
