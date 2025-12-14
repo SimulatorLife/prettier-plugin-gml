@@ -364,11 +364,16 @@ export function ensureMap(candidate) {
  * @param {unknown} value Candidate value to inspect.
  * @returns {boolean} `true` when the value behaves like a WorkspaceEdit.
  */
-export function isWorkspaceEditLike(value) {
+export function isWorkspaceEditLike(value: unknown): boolean {
+    if (!isObjectLike(value)) {
+        return false;
+    }
+
+    const candidate = value as Record<string, unknown>;
+
     return (
-        isObjectLike(value) &&
-        Array.isArray(value.edits) &&
-        hasFunction(value, "addEdit") &&
-        hasFunction(value, "groupByFile")
+        Array.isArray(candidate.edits) &&
+        hasFunction(candidate, "addEdit") &&
+        hasFunction(candidate, "groupByFile")
     );
 }

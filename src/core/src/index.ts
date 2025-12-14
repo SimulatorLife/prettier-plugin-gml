@@ -39,6 +39,7 @@ export const Core: CoreNamespace = Object.freeze({
     findRepoRootSync: FS.findRepoRootSync,
     ...Metrics,
     ...Utils,
+    isWorkspaceEditLike: Utils.isWorkspaceEditLike,
     ...Resources,
     ...IdentifierMetadata,
     ...DeprecatedBuiltinVariables,
