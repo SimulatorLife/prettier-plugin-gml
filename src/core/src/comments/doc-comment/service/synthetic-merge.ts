@@ -537,7 +537,7 @@ export function mergeSyntheticDocComments(
                 isDeprecatedLine
             );
             if (deprecatedIndex !== -1) {
-                let insertIndex = deprecatedIndex + 1;
+                const insertIndex = deprecatedIndex + 1;
                 while (
                     insertIndex < remainingLines.length &&
                     remainingLines[insertIndex] === ""

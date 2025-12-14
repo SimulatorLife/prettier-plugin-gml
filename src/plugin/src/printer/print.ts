@@ -780,7 +780,7 @@ function _printImpl(path, options, print) {
             const parentNode =
                 typeof path.getParentNode === "function"
                     ? path.getParentNode()
-                    : path.parent ?? null;
+                    : (path.parent ?? null);
             const parentType = parentNode?.type;
             const isStandaloneAssignment =
                 parentType === "Program" ||

@@ -242,15 +242,14 @@ export class OptimizeMathExpressionsTransform extends FunctionalParserTransform<
     ): GameMakerAstNode | null {
         let current = node;
         while (current && current.type === PARENTHESIZED_EXPRESSION) {
-            current = (current as ParenthesizedExpressionNode).expression ?? null;
+            current =
+                (current as ParenthesizedExpressionNode).expression ?? null;
         }
 
         return current ?? null;
     }
 
-    private extractLiteralNumber(
-        literal: GameMakerAstNode
-    ): number | null {
+    private extractLiteralNumber(literal: GameMakerAstNode): number | null {
         const rawValue = literal.value;
         if (typeof rawValue === "number") {
             return rawValue;

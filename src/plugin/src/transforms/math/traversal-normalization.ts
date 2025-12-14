@@ -171,11 +171,12 @@ function traverse(node, seen, context, parent = null) {
             }
         }
 
-        if (node.type === ASSIGNMENT_EXPRESSION) {
-            if (attemptRemoveMultiplicativeIdentityAssignment(node, context)) {
-                changed = true;
-                continue;
-            }
+        if (
+            node.type === ASSIGNMENT_EXPRESSION &&
+            attemptRemoveMultiplicativeIdentityAssignment(node, context)
+        ) {
+            changed = true;
+            continue;
         }
 
         if (node.type === CALL_EXPRESSION) {
@@ -3641,9 +3642,8 @@ function matchDegreesToRadians(node) {
             }
         }
 
-        const reciprocalCandidate = matchDegreesToRadiansViaReciprocalPi(
-            expression
-        );
+        const reciprocalCandidate =
+            matchDegreesToRadiansViaReciprocalPi(expression);
         if (reciprocalCandidate) {
             return reciprocalCandidate;
         }
@@ -3659,7 +3659,7 @@ function matchDegreesToRadiansViaReciprocalPi(expression) {
     }
 
     const piIndex = operands.findIndex((operand) => isPiIdentifier(operand));
-    if (piIndex < 0) {
+    if (piIndex === -1) {
         return null;
     }
 
@@ -3668,7 +3668,7 @@ function matchDegreesToRadiansViaReciprocalPi(expression) {
     const reciprocalIndex = operands.findIndex((operand) =>
         isLiteralReciprocalOf180(operand)
     );
-    if (reciprocalIndex < 0) {
+    if (reciprocalIndex === -1) {
         return null;
     }
 
@@ -4839,10 +4839,7 @@ function replaceNode(target, replacement) {
     Object.assign(target, replacement);
 }
 
-function simplifyZeroDivisionNumerators(
-    ast,
-    context = null
-) {
+function simplifyZeroDivisionNumerators(ast, context = null) {
     if (!ast || typeof ast !== "object") {
         return;
     }
@@ -4897,10 +4894,7 @@ function trySimplifyZeroDivision(node, context) {
         return false;
     }
 
-    if (
-        context &&
-        hasInlineCommentBetween(node.left, node.right, context)
-    ) {
+    if (context && hasInlineCommentBetween(node.left, node.right, context)) {
         return false;
     }
 

@@ -723,11 +723,9 @@ void test("simplifies degree-based cos and sin expressions into dcos and dsin", 
 
     assert.strictEqual(
         formatted,
-        [
-            "var xdir = dcos(direction);",
-            "var ydir = dsin(direction);",
-            ""
-        ].join("\n")
+        ["var xdir = dcos(direction);", "var ydir = dsin(direction);", ""].join(
+            "\n"
+        )
     );
 });
 
