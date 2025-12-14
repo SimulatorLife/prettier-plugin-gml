@@ -3278,11 +3278,13 @@ function getSimpleAssignmentLikeEntry(
             : "var";
     const prefixLength = keyword.length + 1;
 
+    const shouldEnableVarAlignment = keyword === "var";
+
     return {
         locationNode: statement,
         paddingTarget: declarator,
         nameLength: (id.name as string).length,
-        enablesAlignment,
+        enablesAlignment: enablesAlignment || shouldEnableVarAlignment,
         skipBreakAfter,
         prefixLength
     };
