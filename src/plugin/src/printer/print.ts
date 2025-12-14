@@ -970,6 +970,9 @@ function _printImpl(path, options, print) {
             let operator = node.operator;
             let right;
             const logicalOperatorsStyle = resolveLogicalOperatorsStyle(options);
+            const optimizeMathExpressions = Boolean(
+                options?.optimizeMathExpressions
+            );
 
             const leftIsUndefined = Core.isUndefinedSentinel(node.left);
             const rightIsUndefined = Core.isUndefinedSentinel(node.right);
@@ -996,6 +999,7 @@ function _printImpl(path, options, print) {
             }
 
             const canConvertDivisionToHalf =
+                optimizeMathExpressions &&
                 operator === "/" &&
                 node?.right?.type === "Literal" &&
                 node.right.value === "2" &&

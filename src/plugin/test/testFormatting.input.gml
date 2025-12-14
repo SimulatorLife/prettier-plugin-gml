@@ -24,7 +24,7 @@ show_debug_message( "Hello World "+string(i+1) )
 	}
 
 var myWidth = 14;
-var halfWidth = myWidth / 2;
+var halfWidth = myWidth * 0.5;
 
 	enum eStates {
 		STATE_IDLE = 0,

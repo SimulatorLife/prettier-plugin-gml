@@ -2,8 +2,8 @@
 var ready = true;
 
 // Draw Triangle
-var top = [room_width * 0.5, 0];
-var left = [0, room_height];
+var top   = [room_width / 2, 0];
+var left  = [0, room_height];
 var right = [room_width, room_height];
 
 draw_primitive_begin(pr_trianglelist);
