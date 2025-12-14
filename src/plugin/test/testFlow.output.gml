@@ -18,22 +18,18 @@ switch (cannonball_type) {
 }
 
 var matrix = scr_matrix_build(
-    x,
-    y,
-    z + zfight,
-    xrotation,
-    yrotation,
-    image_angle,
-    image_xscale,
-    image_yscale,
-    image_zscale
+    x, y, z + zfight, xrotation, yrotation, image_angle, image_xscale, image_yscale, image_zscale
+);
+
+var matrix2 = scr_matrix_build(
+    x, y, z + zfight, xrotation, yrotation, image_angle, image_xscale, image_yscale, image_zscale + 90
 );
 
 #macro  SQUARE(_value)    ((_value)*(_value))
 
 var total   = 0;
-var limit   = argument0;
-var arr     = argument1;
+var limit   = 99;
+var arr     = global.some_array;
 var value   = 0;
 var tracker = {data: arr, lastIndex: -1};
 

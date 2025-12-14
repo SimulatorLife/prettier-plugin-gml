@@ -47,6 +47,20 @@ export function mergeSyntheticDocComments(
         existingDocLines.some((line) =>
             typeof line === STRING_TYPE ? parseDocCommentMetadata(line) : false
         );
+    const originalHasDeprecatedTag =
+        Array.isArray(existingDocLines) &&
+        existingDocLines.some((line) => {
+            if (typeof line !== STRING_TYPE) {
+                return false;
+            }
+
+            const metadata = parseDocCommentMetadata(line);
+            return (
+                metadata &&
+                typeof metadata.tag === STRING_TYPE &&
+                metadata.tag.toLowerCase() === "deprecated"
+            );
+        });
 
     // Compute synthetic lines early so promotion can consider synthetic tags
     // such as `/// @function` when deciding whether the file-top doc-like
@@ -500,6 +514,46 @@ export function mergeSyntheticDocComments(
     if (functionIndex > 0) {
         const [functionLine] = result.splice(functionIndex, 1);
         result.unshift(functionLine);
+    }
+
+    if (originalHasDeprecatedTag) {
+        const functionLines: MutableDocCommentLines = [];
+        const remainingLines: MutableDocCommentLines = [];
+
+        for (const line of result) {
+            if (isFunctionLine(line)) {
+                functionLines.push(line);
+            } else {
+                remainingLines.push(line);
+            }
+        }
+
+        if (functionLines.length > 0) {
+            const isDeprecatedLine = (line: unknown) =>
+                typeof line === STRING_TYPE &&
+                /^\/\/\/\s*@deprecated\b/i.test(toTrimmedString(line));
+            const deprecatedIndex = findLastIndex(
+                remainingLines,
+                isDeprecatedLine
+            );
+            if (deprecatedIndex !== -1) {
+                let insertIndex = deprecatedIndex + 1;
+                while (
+                    insertIndex < remainingLines.length &&
+                    remainingLines[insertIndex] === ""
+                ) {
+                    remainingLines.splice(insertIndex, 1);
+                }
+
+                remainingLines.splice(insertIndex, 0, ...functionLines);
+
+                const suppressLeadingBlank = result._suppressLeadingBlank;
+                result = remainingLines;
+                if (suppressLeadingBlank) {
+                    result._suppressLeadingBlank = true;
+                }
+            }
+        }
     }
 
     const paramDocsByCanonical = new Map();
