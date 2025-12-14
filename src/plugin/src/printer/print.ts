@@ -3292,6 +3292,9 @@ function getMemberExpressionLength(expression) {
         }
 
         if (object.type === "Identifier") {
+            if (object.name === "global") {
+                return null;
+            }
             length += object.name.length;
             return length;
         }
@@ -4974,7 +4977,8 @@ function shouldOmitSyntheticParens(path) {
     // For ternary expressions, omit unnecessary parentheses around simple
     // identifiers or member expressions in the test position
     if (parent.type === "TernaryExpression") {
-        if (parentKey === "test" && // Trim redundant parentheses when the ternary guard is just a bare
+        if (
+            parentKey === "test" && // Trim redundant parentheses when the ternary guard is just a bare
             // identifier or property lookup. The parser faithfully records the
             // author-supplied parens as a `ParenthesizedExpression`, so without
             // this branch the printer would emit `(foo) ?` style guards that look
@@ -4984,13 +4988,12 @@ function shouldOmitSyntheticParens(path) {
             // the removal scoped to trivially safe shapes so we do not second-
             // guess parentheses that communicate evaluation order for compound
             // boolean logic or arithmetic.
-            (
-                expression?.type === "Identifier" ||
+            (expression?.type === "Identifier" ||
                 expression?.type === "MemberDotExpression" ||
-                expression?.type === "MemberIndexExpression"
-            )) {
-                return true;
-            }
+                expression?.type === "MemberIndexExpression")
+        ) {
+            return true;
+        }
         return false;
     }
 
