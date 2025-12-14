@@ -220,8 +220,7 @@ function printComment(commentPath, options) {
                 comment,
                 formattingOptions
             );
-            const normalized =
-                typeof formatted === "string" ? formatted : "";
+            const normalized = typeof formatted === "string" ? formatted : "";
             if (comment._featherForceLeadingBlankLine === true) {
                 return [hardline, normalized];
             }

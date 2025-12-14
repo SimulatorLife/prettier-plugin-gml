@@ -970,8 +970,9 @@ function _printImpl(path, options, print) {
             let operator = node.operator;
             let right;
             const logicalOperatorsStyle = resolveLogicalOperatorsStyle(options);
-            const optimizeMathExpressions =
-                Boolean(options?.optimizeMathExpressions);
+            const optimizeMathExpressions = Boolean(
+                options?.optimizeMathExpressions
+            );
 
             const leftIsUndefined = Core.isUndefinedSentinel(node.left);
             const rightIsUndefined = Core.isUndefinedSentinel(node.right);
