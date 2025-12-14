@@ -162,6 +162,30 @@ const ARGUMENT_IDENTIFIER_PATTERN = /^argument(\d+)$/;
 
 const forcedStructArgumentBreaks = new WeakMap();
 
+const GM1015_DIAGNOSTIC_ID = "GM1015";
+
+function hasFeatherFix(node, id) {
+    if (!node || typeof node !== OBJECT_TYPE) {
+        return false;
+    }
+
+    const metadata = Array.isArray(node._appliedFeatherDiagnostics)
+        ? node._appliedFeatherDiagnostics
+        : [];
+
+    if (metadata.length === 0) {
+        return false;
+    }
+
+    for (const entry of metadata) {
+        if (entry && entry.id === id) {
+            return true;
+        }
+    }
+
+    return false;
+}
+
 function callPathMethod(
     path: any,
     methodName: any,
@@ -736,6 +760,14 @@ function _printImpl(path, options, print) {
             );
         }
         case "ExpressionStatement": {
+            const expression = node.expression;
+            if (
+                expression?.type === "AssignmentExpression" &&
+                expression.operator === "/=" &&
+                hasFeatherFix(expression, GM1015_DIAGNOSTIC_ID)
+            ) {
+                return "";
+            }
             if (node.comments && node.comments.length > 0) {
                 console.log(
                     "[DEBUG] ExpressionStatement has comments:",
@@ -745,6 +777,24 @@ function _printImpl(path, options, print) {
             return print("expression");
         }
         case "AssignmentExpression": {
+            const parentNode =
+                typeof path.getParentNode === "function"
+                    ? path.getParentNode()
+                    : path.parent ?? null;
+            const parentType = parentNode?.type;
+            const isStandaloneAssignment =
+                parentType === "Program" ||
+                parentType === "BlockStatement" ||
+                parentType === "SwitchCase" ||
+                parentType === "ExpressionStatement";
+
+            if (
+                node.operator === "/=" &&
+                isStandaloneAssignment &&
+                hasFeatherFix(node, GM1015_DIAGNOSTIC_ID)
+            ) {
+                return "";
+            }
             if (node.comments && node.comments.length > 0) {
                 console.log(
                     "[DEBUG] AssignmentExpression has comments:",
@@ -910,6 +960,12 @@ function _printImpl(path, options, print) {
             ]);
         }
         case "BinaryExpression": {
+            if (
+                node.operator === "/" &&
+                hasFeatherFix(node, GM1015_DIAGNOSTIC_ID)
+            ) {
+                return print("left");
+            }
             const left = print("left");
             let operator = node.operator;
             let right;
