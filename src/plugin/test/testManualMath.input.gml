@@ -27,5 +27,6 @@ var lenXRadians = radius * cos(degtorad(direction));
 var lenYRadians = -radius * sin(degtorad(direction));
 var sinDegrees = sin(direction * pi / 180);
 var cosDegrees = cos((direction / 180) * pi);
+var tanDegrees = tan(direction * pi / 180);
 var unchangedCall = update() * update();
 var commented = value /* keep */ * value;

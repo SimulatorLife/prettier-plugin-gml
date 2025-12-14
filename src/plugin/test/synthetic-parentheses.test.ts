@@ -242,7 +242,7 @@ void test("groups multiplication expressions added together", async () => {
     );
 });
 
-void test("optimizes squared products using built-in sqr() function and omits redundant parentheses", async () => {
+void test("optimizes squared products by prioritizing sqr() function over dot_product() and omits redundant parentheses", async () => {
     const source = [
         "var xoff = a.x - b.x;",
         "var yoff = a.y - b.y;",
