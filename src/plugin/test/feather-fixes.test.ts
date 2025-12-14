@@ -3368,7 +3368,6 @@ void describe("Transforms.applyFeatherFixes transform", () => {
         });
 
         assert.strictEqual(formatted.trimEnd(), expected);
-
     });
 
     void it("removes dangling vertex_format_end statements before beginning a new definition", () => {
