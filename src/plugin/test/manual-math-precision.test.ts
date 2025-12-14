@@ -757,7 +757,7 @@ void test("uses tolerance-aware comparison for ratio numerator simplification", 
 
     assert.strictEqual(
         formatted,
-        ["var result = value * 0.000016666666667;", ""].join("\n")
+        ["var result = value * 0.0000166666666667;", ""].join("\n")
     );
 });
 
