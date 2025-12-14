@@ -10267,8 +10267,10 @@ function attachLeadingCommentsToWrappedPrimitive({
         }
 
         const trimmedValue = Core.getCommentValue(comment, { trim: true });
+        const isDocStyleComment = trimmedValue.startsWith("/");
+        const isBlockStartComment = previousEndIndex === null;
 
-        if (!trimmedValue.startsWith("/")) {
+        if (!isDocStyleComment && !isBlockStartComment) {
             continue;
         }
 
