@@ -3264,6 +3264,7 @@ void describe("Transforms.applyFeatherFixes transform", () => {
         const expected = [
             "// Create Event",
             "",
+            "// TODO: Incomplete vertex format definition automatically commented out (GM2015)",
             "// vertex_format_begin();",
             "// vertex_format_add_position_3d();",
             "// vertex_format_end();"
@@ -3293,6 +3294,7 @@ void describe("Transforms.applyFeatherFixes transform", () => {
         });
 
         const expected = [
+            "// TODO: Incomplete vertex format definition automatically commented out (GM2015)",
             "// vertex_format_begin();",
             "// vertex_format_add_position_3d();",
             "// vertex_format_add_colour();",
@@ -3303,7 +3305,7 @@ void describe("Transforms.applyFeatherFixes transform", () => {
         assert.strictEqual(formatted.trimEnd(), expected);
     });
 
-    void it("removes incomplete vertex format definitions before subsequent begins and records metadata", () => {
+    void it("removes incomplete vertex format definitions before subsequent begins and records metadata", async () => {
         const source = [
             "vertex_format_begin();",
             "vertex_format_add_position_3d();",
@@ -3352,6 +3354,21 @@ void describe("Transforms.applyFeatherFixes transform", () => {
             "Expected GM2012 metadata to be recorded on the AST."
         );
         assert.strictEqual(gm2012.automatic, true);
+
+        const expected = [
+            "vertex_format_begin();",
+            "vertex_format_add_texcoord();",
+            "format = vertex_format_end();",
+            ""
+        ].join("\n");
+
+        const formatted = await Plugin.format(source, {
+            parser: "gml-parse",
+            applyFeatherFixes: true
+        });
+
+        assert.strictEqual(formatted.trimEnd(), expected);
+
     });
 
     void it("removes dangling vertex_format_end statements before beginning a new definition", () => {
