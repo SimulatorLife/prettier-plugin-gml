@@ -1,4 +1,5 @@
 import { WorkspaceEdit, type GroupedTextEdits } from "./workspace-edit.js";
+import { Core } from "@gml-modules/core";
 
 type MaybePromise<T> = T | Promise<T>;
 
@@ -676,7 +677,7 @@ export class RefactorEngine {
         const errors: Array<string> = [];
         const warnings: Array<string> = [];
 
-        if (!workspace || !(workspace instanceof WorkspaceEdit)) {
+        if (!workspace || !Core.isWorkspaceEditLike(workspace)) {
             errors.push("Invalid workspace edit");
             return { valid: false, errors, warnings };
         }
@@ -755,7 +756,7 @@ export class RefactorEngine {
             options ?? ({} as ApplyWorkspaceEditOptions);
         const { dryRun = false, readFile, writeFile } = opts;
 
-        if (!workspace || !(workspace instanceof WorkspaceEdit)) {
+        if (!workspace || !Core.isWorkspaceEditLike(workspace)) {
             throw new TypeError("applyWorkspaceEdit requires a WorkspaceEdit");
         }
 
@@ -1094,7 +1095,7 @@ export class RefactorEngine {
         const errors: Array<string> = [];
         const warnings: Array<string> = [];
 
-        if (!workspace || !(workspace instanceof WorkspaceEdit)) {
+        if (!workspace || !Core.isWorkspaceEditLike(workspace)) {
             errors.push("Invalid workspace edit");
             return Promise.resolve({ valid: false, errors, warnings });
         }
