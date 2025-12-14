@@ -27,7 +27,8 @@ function child_struct(_foo, _value) : my_custom_struct(_value) constructor {
     /// @function incorrect_function_name
 	/// @description Remove all nodes outside of ellipse
 	static remove_ellipse = function(){
-		for (var i = 0; i < array_length(nodes); i++) {
+		var len = array_length(nodes);
+        for (var i = 0; i < len; i++) {
 		    if !collision_ellipse(0, 0, width, height, nodes[i], false, true) {
 				instance_destroy(nodes[i]);
 			}

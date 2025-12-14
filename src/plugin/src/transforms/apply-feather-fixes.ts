@@ -11580,7 +11580,7 @@ function attachLeadingCommentsToHoistedDeclaration({
 
         const trimmedValue = Core.getCommentValue(comment, { trim: true });
 
-        if (!trimmedValue.startsWith("/")) {
+        if (!trimmedValue) {
             continue;
         }
 

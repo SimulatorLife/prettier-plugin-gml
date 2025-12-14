@@ -95,11 +95,6 @@ function traverse(node, seen, context, parent = null) {
                 continue;
             }
 
-            if (attemptReplaceDivisionByZeroNumerator(node, context)) {
-                changed = true;
-                continue;
-            }
-
             if (attemptRemoveAdditiveIdentity(node, context)) {
                 changed = true;
                 continue;
@@ -1101,75 +1096,6 @@ function replaceMultiplicationWithZeroOperand(node, key, otherKey, context) {
     const parentLine = node?.end?.line;
     const zeroLiteral = createNumericLiteral(0, expression);
 
-    if (!zeroLiteral) {
-        return false;
-    }
-
-    replaceNode(node, zeroLiteral);
-    suppressTrailingLineComment(node, parentLine, context, "original");
-    removeSimplifiedAliasDeclaration(context, node);
-
-    return true;
-}
-
-function attemptReplaceDivisionByZeroNumerator(node, context) {
-    if (!isBinaryOperator(node, "/")) {
-        return false;
-    }
-
-    if (context && hasInlineCommentBetween(node.left, node.right, context)) {
-        return false;
-    }
-
-    return replaceDivisionByZeroNumeratorOperand(node, context);
-}
-
-function replaceDivisionByZeroNumeratorOperand(node, context) {
-    if (!node || !node.left || !node.right) {
-        return false;
-    }
-
-    console.log(
-        "div-zero comments",
-        Core.hasComment(node),
-        Core.hasComment(node.left),
-        Core.hasComment(node.right)
-    );
-
-    if (
-        Core.hasComment(node) ||
-        Core.hasComment(node.left) ||
-        Core.hasComment(node.right)
-    ) {
-        return false;
-    }
-
-    const numerator = unwrapExpression(node.left);
-    console.log(
-        "div-zero numerator unravel",
-        numerator?.type,
-        numerator?.value,
-        isNumericZeroLiteral(numerator)
-    );
-    if (!numerator || !isNumericZeroLiteral(numerator)) {
-        return false;
-    }
-
-    const denominator = unwrapExpression(node.right);
-    console.log(
-        "div-zero denominator unravel",
-        denominator?.type,
-        denominator?.value,
-        isNumericZeroLiteral(denominator)
-    );
-    if (denominator && isNumericZeroLiteral(denominator)) {
-        return false;
-    }
-
-    console.log("div-zero candidate", numerator?.value, denominator?.value);
-
-    const parentLine = node?.end?.line;
-    const zeroLiteral = createNumericLiteral(0, numerator);
     if (!zeroLiteral) {
         return false;
     }
@@ -4913,6 +4839,101 @@ function replaceNode(target, replacement) {
     Object.assign(target, replacement);
 }
 
+function simplifyZeroDivisionNumerators(
+    ast,
+    context = null
+) {
+    if (!ast || typeof ast !== "object") {
+        return;
+    }
+
+    const traversalContext = normalizeTraversalContext(ast, context);
+    traverseZeroDivisionNumerators(ast, traversalContext);
+}
+
+function traverseZeroDivisionNumerators(node, context) {
+    if (!node || typeof node !== "object") {
+        return;
+    }
+
+    if (Array.isArray(node)) {
+        for (const element of node) {
+            traverseZeroDivisionNumerators(element, context);
+        }
+        return;
+    }
+
+    if (
+        node.type === BINARY_EXPRESSION &&
+        node.operator === "/" &&
+        trySimplifyZeroDivision(node, context)
+    ) {
+        return;
+    }
+
+    for (const value of Object.values(node)) {
+        if (value && typeof value === "object") {
+            traverseZeroDivisionNumerators(value, context);
+        }
+    }
+}
+
+function trySimplifyZeroDivision(node, context) {
+    if (
+        !node ||
+        typeof node !== "object" ||
+        node.operator !== "/" ||
+        !node.left ||
+        !node.right
+    ) {
+        return false;
+    }
+
+    if (
+        Core.hasComment(node) ||
+        Core.hasComment(node.left) ||
+        Core.hasComment(node.right)
+    ) {
+        return false;
+    }
+
+    if (
+        context &&
+        hasInlineCommentBetween(node.left, node.right, context)
+    ) {
+        return false;
+    }
+
+    const numeratorValue = evaluateNumericExpression(node.left);
+    if (numeratorValue === null) {
+        return false;
+    }
+
+    if (Math.abs(numeratorValue) > computeNumericTolerance(0)) {
+        return false;
+    }
+
+    const denominatorValue = evaluateNumericExpression(node.right);
+    if (
+        denominatorValue !== null &&
+        Math.abs(denominatorValue) <= computeNumericTolerance(0)
+    ) {
+        return false;
+    }
+
+    const zeroLiteral = createNumericLiteral("0", node);
+    if (!zeroLiteral) {
+        return false;
+    }
+
+    const parentLine = node?.end?.line;
+    replaceNode(node, zeroLiteral);
+    suppressTrailingLineComment(node, parentLine, context, "original");
+    removeSimplifiedAliasDeclaration(context, node);
+
+    return true;
+}
+
 function hasInlineCommentBetween(left, right, context) {
     // TODO: This should be moved to where other comment utilities are.
     if (!context || typeof context !== "object") {
@@ -5096,6 +5117,7 @@ function traverseForScalarCondense(
 
 export {
     applyScalarCondensing,
+    simplifyZeroDivisionNumerators,
     attemptCancelReciprocalRatios,
     attemptCollectDistributedScalars,
     attemptCondenseNumericChainWithMultipleBases,

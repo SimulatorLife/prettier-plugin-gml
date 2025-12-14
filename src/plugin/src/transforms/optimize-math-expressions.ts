@@ -13,6 +13,7 @@ import {
     matchDegreesToRadians,
     normalizeTraversalContext,
     applyScalarCondensing,
+    simplifyZeroDivisionNumerators,
     replaceNodeWith,
     type ConvertManualMathTransformOptions
 } from "./math/traversal-normalization.js";
@@ -53,6 +54,7 @@ export class OptimizeMathExpressionsTransform extends FunctionalParserTransform<
 
         applyManualMathNormalization(ast, traversalContext);
         applyScalarCondensing(ast, traversalContext);
+        simplifyZeroDivisionNumerators(ast, traversalContext);
         cleanupMultiplicativeIdentityParentheses(ast, traversalContext);
 
         return ast;
