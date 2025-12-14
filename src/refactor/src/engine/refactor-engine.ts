@@ -677,7 +677,7 @@ export class RefactorEngine {
         const errors: Array<string> = [];
         const warnings: Array<string> = [];
 
-        if (!Core.isWorkspaceEditLike(workspace)) {
+        if (!workspace || !Core.isWorkspaceEditLike(workspace)) {
             errors.push("Invalid workspace edit");
             return { valid: false, errors, warnings };
         }
@@ -756,7 +756,7 @@ export class RefactorEngine {
             options ?? ({} as ApplyWorkspaceEditOptions);
         const { dryRun = false, readFile, writeFile } = opts;
 
-        if (!Core.isWorkspaceEditLike(workspace)) {
+        if (!workspace || !Core.isWorkspaceEditLike(workspace)) {
             throw new TypeError("applyWorkspaceEdit requires a WorkspaceEdit");
         }
 
@@ -1095,7 +1095,7 @@ export class RefactorEngine {
         const errors: Array<string> = [];
         const warnings: Array<string> = [];
 
-        if (!Core.isWorkspaceEditLike(workspace)) {
+        if (!workspace || !Core.isWorkspaceEditLike(workspace)) {
             errors.push("Invalid workspace edit");
             return Promise.resolve({ valid: false, errors, warnings });
         }
