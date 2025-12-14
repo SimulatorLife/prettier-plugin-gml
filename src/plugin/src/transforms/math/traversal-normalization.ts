@@ -95,6 +95,11 @@ function traverse(node, seen, context, parent = null) {
                 continue;
             }
 
+            if (attemptReplaceDivisionByZeroNumerator(node, context)) {
+                changed = true;
+                continue;
+            }
+
             if (attemptRemoveAdditiveIdentity(node, context)) {
                 changed = true;
                 continue;
@@ -166,6 +171,13 @@ function traverse(node, seen, context, parent = null) {
             }
 
             if (attemptConvertDotProducts(node)) {
+                changed = true;
+                continue;
+            }
+        }
+
+        if (node.type === ASSIGNMENT_EXPRESSION) {
+            if (attemptRemoveMultiplicativeIdentityAssignment(node, context)) {
                 changed = true;
                 continue;
             }
@@ -1100,6 +1112,75 @@ function replaceMultiplicationWithZeroOperand(node, key, otherKey, context) {
     return true;
 }
 
+function attemptReplaceDivisionByZeroNumerator(node, context) {
+    if (!isBinaryOperator(node, "/")) {
+        return false;
+    }
+
+    if (context && hasInlineCommentBetween(node.left, node.right, context)) {
+        return false;
+    }
+
+    return replaceDivisionByZeroNumeratorOperand(node, context);
+}
+
+function replaceDivisionByZeroNumeratorOperand(node, context) {
+    if (!node || !node.left || !node.right) {
+        return false;
+    }
+
+    console.log(
+        "div-zero comments",
+        Core.hasComment(node),
+        Core.hasComment(node.left),
+        Core.hasComment(node.right)
+    );
+
+    if (
+        Core.hasComment(node) ||
+        Core.hasComment(node.left) ||
+        Core.hasComment(node.right)
+    ) {
+        return false;
+    }
+
+    const numerator = unwrapExpression(node.left);
+    console.log(
+        "div-zero numerator unravel",
+        numerator?.type,
+        numerator?.value,
+        isNumericZeroLiteral(numerator)
+    );
+    if (!numerator || !isNumericZeroLiteral(numerator)) {
+        return false;
+    }
+
+    const denominator = unwrapExpression(node.right);
+    console.log(
+        "div-zero denominator unravel",
+        denominator?.type,
+        denominator?.value,
+        isNumericZeroLiteral(denominator)
+    );
+    if (denominator && isNumericZeroLiteral(denominator)) {
+        return false;
+    }
+
+    console.log("div-zero candidate", numerator?.value, denominator?.value);
+
+    const parentLine = node?.end?.line;
+    const zeroLiteral = createNumericLiteral(0, numerator);
+    if (!zeroLiteral) {
+        return false;
+    }
+
+    replaceNode(node, zeroLiteral);
+    suppressTrailingLineComment(node, parentLine, context, "original");
+    removeSimplifiedAliasDeclaration(context, node);
+
+    return true;
+}
+
 function isMultiplicationAnnihilatedByZero(node, context) {
     if (!isBinaryOperator(node, "*")) {
         return false;
@@ -1200,6 +1281,77 @@ function removeAdditiveIdentityOperand(node, key, otherKey, context) {
 
     suppressTrailingLineComment(node, parentLine, context, "original");
     removeSimplifiedAliasDeclaration(context, node);
+
+    return true;
+}
+
+function attemptRemoveMultiplicativeIdentityAssignment(node, context) {
+    if (!node || node.type !== ASSIGNMENT_EXPRESSION) {
+        return false;
+    }
+
+    if (node.operator !== "*=" && node.operator !== "/=") {
+        return false;
+    }
+
+    if (
+        Core.hasComment(node) ||
+        Core.hasComment(node.left) ||
+        Core.hasComment(node.right)
+    ) {
+        return false;
+    }
+
+    if (context && hasInlineCommentBetween(node.left, node.right, context)) {
+        return false;
+    }
+
+    const rightExpression = unwrapExpression(node.right);
+    if (!rightExpression) {
+        return false;
+    }
+
+    const numericValue = parseNumericLiteral(rightExpression);
+    if (numericValue === null || !Number.isFinite(numericValue)) {
+        return false;
+    }
+
+    if (Math.abs(numericValue - 1) > computeNumericTolerance(1)) {
+        return false;
+    }
+
+    const parentNode = node.parent;
+    if (
+        !parentNode ||
+        (parentNode.type !== EXPRESSION_STATEMENT &&
+            parentNode.type !== "Program" &&
+            parentNode.type !== "BlockStatement" &&
+            parentNode.type !== "SwitchCase")
+    ) {
+        return false;
+    }
+
+    const removalTarget =
+        parentNode.type === EXPRESSION_STATEMENT ? parentNode : node;
+
+    const root =
+        context && typeof context === "object" ? context.astRoot : null;
+    if (!root || typeof root !== "object") {
+        return false;
+    }
+
+    const paddedNode = markPreviousSiblingForBlankLine(
+        root,
+        removalTarget,
+        context
+    );
+    const removed = removeNodeFromAst(root, removalTarget);
+    if (!removed) {
+        if (paddedNode && typeof paddedNode === "object") {
+            delete paddedNode._gmlForceFollowingEmptyLine;
+        }
+        return false;
+    }
 
     return true;
 }
