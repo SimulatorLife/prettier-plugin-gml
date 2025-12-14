@@ -254,8 +254,8 @@ void test("optimizes squared products by prioritizing sqr() function over dot_pr
     });
 
     const expectedLines = [
-        "var xoff = a.x - b.x;",
-        "var yoff = a.y - b.y;",
+        "var xoff        = a.x - b.x;",
+        "var yoff        = a.y - b.y;",
         "var actual_dist = sqr(xoff) + sqr(yoff);"
     ].join("\n");
 
