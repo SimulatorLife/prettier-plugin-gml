@@ -725,7 +725,8 @@ void test("simplifies degree-based cos and sin expressions into dcos and dsin", 
         formatted,
         [
             "var xdir = dcos(direction);",
-            "var ydir = dsin(direction);"
+            "var ydir = dsin(direction);",
+            ""
         ].join("\n")
     );
 });
