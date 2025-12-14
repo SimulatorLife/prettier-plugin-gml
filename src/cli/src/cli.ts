@@ -39,11 +39,7 @@ import {
     isMissingModuleDependency,
     resolveModuleDefaultExport
 } from "./shared/module.js";
-import {
-    hasIgnoreRuleNegations,
-    markIgnoreRuleNegationsDetected,
-    resetIgnoreRuleNegations
-} from "./shared/ignore-rules-negation-tracker.js";
+import { ignoreRuleNegations } from "./shared/ignore-rules-negation-tracker.js";
 
 import {
     CliUsageError,
@@ -1033,7 +1029,7 @@ async function resetFormattingSession(onParseError) {
     encounteredFormattingError = false;
     formattingErrorCount = 0;
     resetRegisteredIgnorePaths();
-    resetIgnoreRuleNegations();
+    ignoreRuleNegations.detected = false;
     encounteredFormattableFile = false;
     resetCheckModeTracking();
     resetFormattedFileTracking();
@@ -1188,7 +1184,7 @@ async function detectNegatedIgnoreRules(ignoreFilePath) {
         const contents = await readFile(ignoreFilePath, "utf8");
 
         if (NEGATED_IGNORE_RULE_PATTERN.test(contents)) {
-            markIgnoreRuleNegationsDetected();
+            ignoreRuleNegations.detected = true;
         }
     } catch {
         // Ignore missing or unreadable files.
@@ -1208,7 +1204,7 @@ async function registerIgnoreFile(ignoreFilePath) {
 
     registerIgnorePath(ignoreFilePath);
 
-    if (hasIgnoreRuleNegations()) {
+    if (ignoreRuleNegations.detected) {
         return;
     }
 
@@ -1238,7 +1234,7 @@ function getIgnorePathOptions(additionalIgnorePaths = []) {
 }
 
 async function shouldSkipDirectory(directory, activeIgnorePaths = []) {
-    if (hasIgnoreRuleNegations()) {
+    if (ignoreRuleNegations.detected) {
         return false;
     }
 
