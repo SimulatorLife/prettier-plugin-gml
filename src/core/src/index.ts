@@ -24,6 +24,9 @@ type CoreNamespace = typeof AST &
         // so consumers can call `Core.findRepoRoot` without type errors.
         findRepoRoot(startDir: string): Promise<string>;
         findRepoRootSync(startDir: string): string;
+        // Explicitly include capability probe for WorkspaceEdit-like objects
+        // to support polymorphic refactor operations across module boundaries.
+        isWorkspaceEditLike(value: unknown): boolean;
     };
 
 // Public namespace flattening mirrors the monorepo convention: expose each
