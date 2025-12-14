@@ -7,8 +7,8 @@ function child_struct(_foo, _value) : my_custom_struct(_value) constructor {
 	self.foo = _foo;
 	value = 0;
 
-    /// @description
     /// @method print
+    /// @description Print a debug message showing foo value
     /// @returns {void}
     static print = function() {
         show_debug_message($"My foo is {self.foo}");
@@ -27,7 +27,8 @@ function child_struct(_foo, _value) : my_custom_struct(_value) constructor {
     /// @function incorrect_function_name
 	/// @description Remove all nodes outside of ellipse
 	static remove_ellipse = function(){
-		for (var i = 0; i < array_length(nodes); i++) {
+		var len = array_length(nodes);
+        for (var i = 0; i < len; i++) {
 		    if !collision_ellipse(0, 0, width, height, nodes[i], false, true) {
 				instance_destroy(nodes[i]);
 			}
@@ -121,9 +122,7 @@ return data;
 /// @param {real} button
 /// @description Input for a keyboard key
 function InputButtonKeyboard(button) : AbstractInputButton(button, eInputType.keyboard) constructor {
-
     /* Keyboard input handling goes here */
-
 }
 var kbInput = new InputButtonKeyboard(); kbInput.cleanup()
 delete kbInput    // delete the struct

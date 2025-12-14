@@ -12,6 +12,7 @@ function child_struct(_foo, _value) : my_custom_struct(_value) constructor {
     value = 0;
 
     /// @function print
+    /// @description Print a debug message showing foo value
     /// @returns {undefined}
     static print = function() {
         show_debug_message($"My foo is {self.foo}");
@@ -55,11 +56,12 @@ function child_struct(_foo, _value) : my_custom_struct(_value) constructor {
 /// @param bar
 function grandchild_struct(_foo, _value, _bar) : child_struct(_foo, _value) constructor {
     self.foo = _foo;
-    value = 0;
-    bar = _bar;
+    value    = 0;
+    bar      = _bar;
 
     /// @override
     /// @function print
+    /// @description Print a debug message showing foo value
     /// @returns {undefined}
     static print = function() {
         show_debug_message($"I'm a grandchild struct and my foo is {self.foo}");
@@ -124,9 +126,7 @@ function assign_then_extend() {
 /// @param {real} button
 /// @description Input for a keyboard key
 function InputButtonKeyboard(button) : AbstractInputButton(button, eInputType.keyboard) constructor {
-
     /* Keyboard input handling goes here */
-
 }
 
 var kbInput = new InputButtonKeyboard();

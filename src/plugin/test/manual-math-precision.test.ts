@@ -505,6 +505,32 @@ void test("condenses division by reciprocal scalar multipliers", async () => {
     );
 });
 
+void test("optimizes reciprocal assignment expression", async () => {
+    const source = [
+        "function optimize_assignment(x0, x1) {",
+        "    return (x0 - x1) / (1 / 60);",
+        "}",
+        ""
+    ].join("\n");
+
+    const formatted = await Plugin.format(source, {
+        optimizeMathExpressions: true
+    });
+
+    assert.strictEqual(
+        formatted,
+        [
+            "/// @function optimize_assignment",
+            "/// @param x0",
+            "/// @param x1",
+            "function optimize_assignment(x0, x1) {",
+            "    return (x0 - x1) * 60;",
+            "}",
+            ""
+        ].join("\n")
+    );
+});
+
 void test("condenses subtraction-only scalar factors", async () => {
     const source = [
         "function convert_subtraction(len) {",
@@ -653,7 +679,7 @@ void test("converts simple division within a function", async () => {
             "/// @param room_width",
             "/// @param room_height",
             "function room_division(room_width, room_height) {",
-            "    return (room_width * 0.25) + (room_height * 0.25);",
+            "    return dot_product(room_width, room_height, 0.25, 0.25);",
             "}",
             ""
         ].join("\n")
@@ -685,6 +711,24 @@ void test("prioritizes converting multiplicative degree ratios into degtorad ove
     );
 });
 
+void test("simplifies degree-based cos and sin expressions into dcos and dsin", async () => {
+    const source = [
+        "var xdir = cos((direction / 180) * pi);",
+        "var ydir = sin((direction / 180) * pi);"
+    ].join("\n");
+
+    const formatted = await Plugin.format(source, {
+        optimizeMathExpressions: true
+    });
+
+    assert.strictEqual(
+        formatted,
+        ["var xdir = dcos(direction);", "var ydir = dsin(direction);", ""].join(
+            "\n"
+        )
+    );
+});
+
 void test("downgrades numbered triple-slash comments to standard comments", async () => {
     const source = [
         "/// 4) Distributive constant collection",
@@ -712,7 +756,7 @@ void test("uses tolerance-aware comparison for ratio numerator simplification", 
 
     assert.strictEqual(
         formatted,
-        ["var result = value * 0.000016666666667;", ""].join("\n")
+        ["var result = value * 0.0000166666666667;", ""].join("\n")
     );
 });
 

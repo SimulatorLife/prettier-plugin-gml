@@ -171,6 +171,14 @@ function traverse(node, seen, context, parent = null) {
             }
         }
 
+        if (
+            node.type === ASSIGNMENT_EXPRESSION &&
+            attemptRemoveMultiplicativeIdentityAssignment(node, context)
+        ) {
+            changed = true;
+            continue;
+        }
+
         if (node.type === CALL_EXPRESSION) {
             if (attemptConvertPointDistanceCall(node)) {
                 changed = true;
@@ -1200,6 +1208,77 @@ function removeAdditiveIdentityOperand(node, key, otherKey, context) {
 
     suppressTrailingLineComment(node, parentLine, context, "original");
     removeSimplifiedAliasDeclaration(context, node);
+
+    return true;
+}
+
+function attemptRemoveMultiplicativeIdentityAssignment(node, context) {
+    if (!node || node.type !== ASSIGNMENT_EXPRESSION) {
+        return false;
+    }
+
+    if (node.operator !== "*=" && node.operator !== "/=") {
+        return false;
+    }
+
+    if (
+        Core.hasComment(node) ||
+        Core.hasComment(node.left) ||
+        Core.hasComment(node.right)
+    ) {
+        return false;
+    }
+
+    if (context && hasInlineCommentBetween(node.left, node.right, context)) {
+        return false;
+    }
+
+    const rightExpression = unwrapExpression(node.right);
+    if (!rightExpression) {
+        return false;
+    }
+
+    const numericValue = parseNumericLiteral(rightExpression);
+    if (numericValue === null || !Number.isFinite(numericValue)) {
+        return false;
+    }
+
+    if (Math.abs(numericValue - 1) > computeNumericTolerance(1)) {
+        return false;
+    }
+
+    const parentNode = node.parent;
+    if (
+        !parentNode ||
+        (parentNode.type !== EXPRESSION_STATEMENT &&
+            parentNode.type !== "Program" &&
+            parentNode.type !== "BlockStatement" &&
+            parentNode.type !== "SwitchCase")
+    ) {
+        return false;
+    }
+
+    const removalTarget =
+        parentNode.type === EXPRESSION_STATEMENT ? parentNode : node;
+
+    const root =
+        context && typeof context === "object" ? context.astRoot : null;
+    if (!root || typeof root !== "object") {
+        return false;
+    }
+
+    const paddedNode = markPreviousSiblingForBlankLine(
+        root,
+        removalTarget,
+        context
+    );
+    const removed = removeNodeFromAst(root, removalTarget);
+    if (!removed) {
+        if (paddedNode && typeof paddedNode === "object") {
+            delete paddedNode._gmlForceFollowingEmptyLine;
+        }
+        return false;
+    }
 
     return true;
 }
@@ -2354,6 +2433,12 @@ function attemptConvertDotProducts(node) {
         return false;
     }
 
+    for (const term of terms) {
+        if (isPotentialSquareMultiplication(term)) {
+            return false;
+        }
+    }
+
     const leftVector = [];
     const rightVector = [];
 
@@ -2383,6 +2468,40 @@ function attemptConvertDotProducts(node) {
         [...leftVector, ...rightVector],
         node
     );
+    return true;
+}
+
+function isPotentialSquareMultiplication(node) {
+    if (!node || Core.hasComment(node)) {
+        return false;
+    }
+
+    const expression = unwrapExpression(node);
+    if (!expression || !isBinaryOperator(expression, "*")) {
+        return false;
+    }
+
+    const left = unwrapExpression(expression.left);
+    const right = unwrapExpression(expression.right);
+    if (!left || !right) {
+        return false;
+    }
+
+    if (Core.hasComment(left) || Core.hasComment(right)) {
+        return false;
+    }
+
+    if (!isSafeOperand(left)) {
+        return false;
+    }
+
+    if (
+        !areNodesEquivalent(left, right) &&
+        !areNodesApproximatelyEquivalent(left, right)
+    ) {
+        return false;
+    }
+
     return true;
 }
 
@@ -3522,9 +3641,58 @@ function matchDegreesToRadians(node) {
                 return numerator;
             }
         }
+
+        const reciprocalCandidate =
+            matchDegreesToRadiansViaReciprocalPi(expression);
+        if (reciprocalCandidate) {
+            return reciprocalCandidate;
+        }
     }
 
     return null;
+}
+
+function matchDegreesToRadiansViaReciprocalPi(expression) {
+    const operands = [];
+    if (!collectProductOperands(expression, operands)) {
+        return null;
+    }
+
+    const piIndex = operands.findIndex((operand) => isPiIdentifier(operand));
+    if (piIndex === -1) {
+        return null;
+    }
+
+    operands.splice(piIndex, 1);
+
+    const reciprocalIndex = operands.findIndex((operand) =>
+        isLiteralReciprocalOf180(operand)
+    );
+    if (reciprocalIndex === -1) {
+        return null;
+    }
+
+    operands.splice(reciprocalIndex, 1);
+
+    if (operands.length !== 1) {
+        return null;
+    }
+
+    return unwrapExpression(operands[0]);
+}
+
+function isLiteralReciprocalOf180(node) {
+    const expression = unwrapExpression(node);
+    if (!expression) {
+        return false;
+    }
+
+    const value = parseNumericLiteral(expression);
+    if (value === null) {
+        return false;
+    }
+
+    return Math.abs(value - 1 / 180) <= computeNumericTolerance(1 / 180);
 }
 
 function hasCommentsInDegreesToRadiansPattern(
@@ -4671,6 +4839,95 @@ function replaceNode(target, replacement) {
     Object.assign(target, replacement);
 }
 
+function simplifyZeroDivisionNumerators(ast, context = null) {
+    if (!ast || typeof ast !== "object") {
+        return;
+    }
+
+    const traversalContext = normalizeTraversalContext(ast, context);
+    traverseZeroDivisionNumerators(ast, traversalContext);
+}
+
+function traverseZeroDivisionNumerators(node, context) {
+    if (!node || typeof node !== "object") {
+        return;
+    }
+
+    if (Array.isArray(node)) {
+        for (const element of node) {
+            traverseZeroDivisionNumerators(element, context);
+        }
+        return;
+    }
+
+    if (
+        node.type === BINARY_EXPRESSION &&
+        node.operator === "/" &&
+        trySimplifyZeroDivision(node, context)
+    ) {
+        return;
+    }
+
+    for (const value of Object.values(node)) {
+        if (value && typeof value === "object") {
+            traverseZeroDivisionNumerators(value, context);
+        }
+    }
+}
+
+function trySimplifyZeroDivision(node, context) {
+    if (
+        !node ||
+        typeof node !== "object" ||
+        node.operator !== "/" ||
+        !node.left ||
+        !node.right
+    ) {
+        return false;
+    }
+
+    if (
+        Core.hasComment(node) ||
+        Core.hasComment(node.left) ||
+        Core.hasComment(node.right)
+    ) {
+        return false;
+    }
+
+    if (context && hasInlineCommentBetween(node.left, node.right, context)) {
+        return false;
+    }
+
+    const numeratorValue = evaluateNumericExpression(node.left);
+    if (numeratorValue === null) {
+        return false;
+    }
+
+    if (Math.abs(numeratorValue) > computeNumericTolerance(0)) {
+        return false;
+    }
+
+    const denominatorValue = evaluateNumericExpression(node.right);
+    if (
+        denominatorValue !== null &&
+        Math.abs(denominatorValue) <= computeNumericTolerance(0)
+    ) {
+        return false;
+    }
+
+    const zeroLiteral = createNumericLiteral("0", node);
+    if (!zeroLiteral) {
+        return false;
+    }
+
+    const parentLine = node?.end?.line;
+    replaceNode(node, zeroLiteral);
+    suppressTrailingLineComment(node, parentLine, context, "original");
+    removeSimplifiedAliasDeclaration(context, node);
+
+    return true;
+}
+
 function hasInlineCommentBetween(left, right, context) {
     // TODO: This should be moved to where other comment utilities are.
     if (!context || typeof context !== "object") {
@@ -4854,12 +5111,14 @@ function traverseForScalarCondense(
 
 export {
     applyScalarCondensing,
+    simplifyZeroDivisionNumerators,
     attemptCancelReciprocalRatios,
     attemptCollectDistributedScalars,
     attemptCondenseNumericChainWithMultipleBases,
     attemptCondenseScalarProduct,
     attemptCondenseSimpleScalarProduct,
     attemptConvertDegreesToRadians,
+    matchDegreesToRadians,
     attemptRemoveAdditiveIdentity,
     attemptRemoveMultiplicativeIdentity,
     attemptSimplifyDivisionByReciprocal,

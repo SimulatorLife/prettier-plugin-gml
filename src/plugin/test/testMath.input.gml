@@ -150,3 +150,14 @@ var s3 = angle * pi / 180;
 
   // 35) Over-compounded scale
   var s35 = scale * (3 / 6) * (4 / 2);
+
+// 36) Redundant denominator one
+var s36 = length / 1;
+
+// 37) Redundant multiplication by one
+var s37 = width * 1;
+var s37b = 1 * width;
+s37b *= 1;
+
+// 38) Redundant denominator under zero
+var s38 = 0 / height;

@@ -17,6 +17,81 @@ import { isNonEmptyTrimmedString } from "../../utils/string.js";
 
 const STRING_TYPE = "string";
 
+function processLeadingCommentLines(
+    targetNode: any,
+    functionNode: any,
+    options: any,
+    programNode: any,
+    sourceText: string | null
+): {
+    existingDocLines: string[];
+    docLikeLeadingLines: string[];
+    plainLeadingLines: string[];
+} | null {
+    const hasFunctionDoc =
+        Array.isArray(functionNode.docComments) &&
+        functionNode.docComments.length > 0;
+
+    const { existingDocLines, remainingComments } =
+        collectSyntheticDocCommentLines(
+            targetNode,
+            options,
+            programNode,
+            sourceText
+        );
+    const {
+        leadingLines: leadingCommentLines,
+        remainingComments: updatedComments
+    } = extractLeadingNonDocCommentLines(remainingComments, options);
+
+    const sourceLeadingLines =
+        existingDocLines.length === 0
+            ? collectAdjacentLeadingSourceLineComments(
+                  targetNode,
+                  options,
+                  sourceText
+              )
+            : [];
+    const programLeadingLines = collectLeadingProgramLineComments(
+        targetNode,
+        programNode,
+        options,
+        sourceText
+    );
+    const combinedLeadingLines = [
+        ...programLeadingLines,
+        ...sourceLeadingLines,
+        ...leadingCommentLines
+    ];
+    const docLikeLeadingLines = [];
+    const plainLeadingLines = [];
+    for (const line of combinedLeadingLines) {
+        if (isDocLikeLeadingLine(line)) {
+            docLikeLeadingLines.push(line);
+        } else {
+            plainLeadingLines.push(line);
+        }
+    }
+
+    if (existingDocLines.length > 0 || combinedLeadingLines.length > 0) {
+        targetNode.comments = updatedComments;
+    }
+
+    if (
+        hasFunctionDoc &&
+        existingDocLines.length === 0 &&
+        docLikeLeadingLines.length === 0
+    ) {
+        return null;
+    }
+
+    return {
+        existingDocLines,
+        docLikeLeadingLines,
+        plainLeadingLines
+    };
+}
+
 export function suppressConstructorAssignmentPadding(functionNode) {
     if (
         !functionNode ||
@@ -143,59 +218,23 @@ export function computeSyntheticDocCommentForStaticVariable(
         return null;
     }
 
-    const hasFunctionDoc =
-        declarator.init.docComments && declarator.init.docComments.length > 0;
-
-    const { existingDocLines, remainingComments } =
-        collectSyntheticDocCommentLines(node, options, programNode, sourceText);
-    const {
-        leadingLines: leadingCommentLines,
-        remainingComments: updatedComments
-    } = extractLeadingNonDocCommentLines(remainingComments, options);
-
-    const sourceLeadingLines =
-        existingDocLines.length === 0
-            ? collectAdjacentLeadingSourceLineComments(
-                  node,
-                  options,
-                  sourceText
-              )
-            : [];
-    const programLeadingLines = collectLeadingProgramLineComments(
+    const functionNode = declarator.init;
+    const processedComments = processLeadingCommentLines(
         node,
-        programNode,
+        functionNode,
         options,
+        programNode,
         sourceText
     );
-    const combinedLeadingLines = [
-        ...programLeadingLines,
-        ...sourceLeadingLines,
-        ...leadingCommentLines
-    ];
-    const docLikeLeadingLines = [];
-    const plainLeadingLines = [];
-    for (const line of combinedLeadingLines) {
-        if (isDocLikeLeadingLine(line)) {
-            docLikeLeadingLines.push(line);
-        } else {
-            plainLeadingLines.push(line);
-        }
-    }
 
-    if (existingDocLines.length > 0 || combinedLeadingLines.length > 0) {
-        node.comments = updatedComments;
-    }
-
-    if (
-        hasFunctionDoc &&
-        existingDocLines.length === 0 &&
-        docLikeLeadingLines.length === 0
-    ) {
+    if (!processedComments) {
         return null;
     }
 
+    const { existingDocLines, docLikeLeadingLines, plainLeadingLines } =
+        processedComments;
+
     const name = declarator.id.name;
-    const functionNode = declarator.init;
     const syntheticOverrides: any = { nameOverride: name };
     if (node._overridesStaticFunction === true) {
         syntheticOverrides.includeOverrideTag = true;
@@ -266,62 +305,20 @@ export function computeSyntheticDocCommentForFunctionAssignment(
 
     suppressConstructorAssignmentPadding(functionNode);
 
-    const hasFunctionDoc =
-        Array.isArray(functionNode.docComments) &&
-        functionNode.docComments.length > 0;
-
-    const { existingDocLines, remainingComments } =
-        collectSyntheticDocCommentLines(
-            commentTarget,
-            options,
-            programNode,
-            sourceText
-        );
-    const {
-        leadingLines: leadingCommentLines,
-        remainingComments: updatedComments
-    } = extractLeadingNonDocCommentLines(remainingComments, options);
-
-    const sourceLeadingLines =
-        existingDocLines.length === 0
-            ? collectAdjacentLeadingSourceLineComments(
-                  commentTarget,
-                  options,
-                  sourceText
-              )
-            : [];
-    const programLeadingLines = collectLeadingProgramLineComments(
+    const processedComments = processLeadingCommentLines(
         commentTarget,
-        programNode,
+        functionNode,
         options,
+        programNode,
         sourceText
     );
-    const combinedLeadingLines = [
-        ...programLeadingLines,
-        ...sourceLeadingLines,
-        ...leadingCommentLines
-    ];
-    const docLikeLeadingLines = [];
-    const plainLeadingLines = [];
-    for (const line of combinedLeadingLines) {
-        if (isDocLikeLeadingLine(line)) {
-            docLikeLeadingLines.push(line);
-        } else {
-            plainLeadingLines.push(line);
-        }
-    }
 
-    if (existingDocLines.length > 0 || combinedLeadingLines.length > 0) {
-        node.comments = updatedComments;
-    }
-
-    if (
-        hasFunctionDoc &&
-        existingDocLines.length === 0 &&
-        docLikeLeadingLines.length === 0
-    ) {
+    if (!processedComments) {
         return null;
     }
+
+    const { existingDocLines, docLikeLeadingLines, plainLeadingLines } =
+        processedComments;
 
     const name = assignment.left.name;
     const syntheticOverrides: any = { nameOverride: name };

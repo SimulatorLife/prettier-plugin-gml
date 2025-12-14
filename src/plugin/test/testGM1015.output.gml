@@ -1,4 +1,4 @@
-var total = 10 / 1;
-total /= 1;
-total = total mod (1);
-total %= (-1);
+var total = 10;
+total %= -1;
+
+show_debug_message(total);

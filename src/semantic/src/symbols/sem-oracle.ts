@@ -1,217 +1,229 @@
-import { Core, type GameMakerAstNode } from "@gml-modules/core";
-
-type IdentifierKind =
-    | "script"
-    | "macro"
-    | "enum"
-    | "enum-member"
-    | "global"
-    | "instance"
-    | "local"
-    | "builtin"
-    | "unknown";
-
-type CallTargetKind =
-    | "script"
-    | "method"
-    | "builtin"
-    | "constructor"
-    | "unknown";
-
-type SemanticNode = GameMakerAstNode & {
-    isBuiltIn?: boolean;
-    classifications?: ReadonlyArray<string>;
-    scopeId?: string | null;
-    declaration?: {
-        scopeId?: string | null;
-    };
-    identifier?: {
-        name?: string;
-    };
-};
-
-type CallExpressionNode = {
-    callee?: SemanticNode;
-    function?: SemanticNode;
-    target?: SemanticNode;
-};
+import type { ScopeTracker } from "../scopes/scope-tracker.js";
 
 /**
- * Infer the semantic kind of an identifier from its classifications and
- * declaration metadata. This supports hot reload coordination by enabling
- * targeted invalidation based on symbol categories.
+ * Type guard to check if a value is an identifier metadata object.
  */
-export function kindOfIdent(node: unknown): IdentifierKind {
-    if (!Core.isObjectLike(node)) {
-        return "unknown";
+function isIdentifierMetadata(
+    value: unknown
+): value is { name: string; isGlobalIdentifier?: boolean } {
+    return (
+        typeof value === "object" &&
+        value !== null &&
+        "name" in value &&
+        typeof (value as { name: unknown }).name === "string"
+    );
+}
+
+/**
+ * Extract classifications array from a declaration object safely.
+ */
+function getClassifications(declaration: unknown): string[] | undefined {
+    if (typeof declaration !== "object" || declaration === null) {
+        return undefined;
     }
 
-    const semanticNode = node as SemanticNode;
-    const classifications = Core.asArray(semanticNode.classifications);
+    const classifications = (declaration as Record<string, unknown>)
+        .classifications;
 
-    if (
-        semanticNode.isBuiltIn === true ||
-        classifications.includes("builtin")
+    if (!Array.isArray(classifications)) {
+        return undefined;
+    }
+
+    return classifications as string[];
+}
+
+/**
+ * Semantic kind classification for identifiers, matching the transpiler's
+ * expected vocabulary for code generation.
+ */
+export type SemKind =
+    | "local"
+    | "self_field"
+    | "other_field"
+    | "global_field"
+    | "builtin"
+    | "script";
+
+/**
+ * Minimal identifier metadata required for semantic analysis.
+ */
+export interface IdentifierMetadata {
+    readonly name: string;
+    readonly isGlobalIdentifier?: boolean;
+}
+
+/**
+ * Call expression node structure expected by semantic oracle methods.
+ */
+export interface CallExpressionNode {
+    readonly type: "CallExpression";
+    readonly object: unknown;
+}
+
+/**
+ * Semantic oracle interface required by the transpiler for accurate code
+ * generation. Provides identifier classification, symbol resolution, and
+ * call target analysis.
+ */
+export interface SemOracle {
+    kindOfIdent(node: IdentifierMetadata | null | undefined): SemKind;
+    nameOfIdent(node: IdentifierMetadata | null | undefined): string;
+    qualifiedSymbol(node: IdentifierMetadata | null | undefined): string | null;
+    callTargetKind(node: CallExpressionNode): "script" | "builtin" | "unknown";
+    callTargetSymbol(node: CallExpressionNode): string | null;
+}
+
+/**
+ * Basic semantic oracle implementation that bridges the scope tracker and
+ * transpiler. Provides identifier classification and symbol resolution using
+ * scope chain lookups without requiring full project analysis.
+ *
+ * This implementation prioritizes correctness over performance—it queries the
+ * scope tracker for each identifier rather than caching results. Future
+ * optimizations can add memoization if profiling indicates bottlenecks.
+ */
+export class BasicSemanticOracle implements SemOracle {
+    private readonly tracker: ScopeTracker | null;
+    private readonly builtinNames: Set<string>;
+
+    /**
+     * @param tracker Optional scope tracker instance. If null, falls back to
+     *                sensible defaults without scope resolution.
+     * @param builtinNames Set of built-in function names for call target
+     *                     classification. Defaults to empty set.
+     */
+    constructor(
+        tracker: ScopeTracker | null = null,
+        builtinNames: Set<string> = new Set()
     ) {
-        return "builtin";
+        this.tracker = tracker;
+        this.builtinNames = builtinNames;
     }
 
-    const kindMap: Array<[string, IdentifierKind]> = [
-        ["script", "script"],
-        ["macro", "macro"],
-        ["enum", "enum"],
-        ["enum-member", "enum-member"],
-        ["global", "global"],
-        ["instance", "instance"]
-    ];
-
-    for (const [classification, kind] of kindMap) {
-        if (classifications.includes(classification)) {
-            return kind;
+    /**
+     * Classify an identifier based on its scope resolution and metadata.
+     * Returns the semantic kind that drives transpiler code generation.
+     *
+     * Classification priority:
+     * 1. Global identifiers (explicit `global.` or marked as global)
+     * 2. Built-in functions (matched against known builtin set)
+     * 3. Locally declared variables (resolved in scope chain)
+     * 4. Default to "local" for unresolved identifiers
+     *
+     * Note: This implementation does not yet distinguish "self_field",
+     * "other_field", or "script" kinds. Those require richer context from
+     * the parser or project index and are deferred to future iterations.
+     */
+    kindOfIdent(node: IdentifierMetadata | null | undefined): SemKind {
+        if (!node?.name) {
+            return "local";
         }
-    }
 
-    if (
-        classifications.includes("variable") ||
-        classifications.includes("parameter")
-    ) {
+        if (node.isGlobalIdentifier) {
+            return "global_field";
+        }
+
+        if (this.builtinNames.has(node.name)) {
+            return "builtin";
+        }
+
+        if (this.tracker) {
+            const declaration = this.tracker.resolveIdentifier(node.name);
+            if (declaration) {
+                const classifications = getClassifications(declaration);
+                if (classifications?.includes("global")) {
+                    return "global_field";
+                }
+                return "local";
+            }
+        }
+
         return "local";
     }
 
-    return "local";
-}
-
-/**
- * Extract the identifier name from an AST node, supporting both direct name
- * properties and nested identifier structures.
- */
-export function nameOfIdent(node: unknown): string {
-    if (!Core.isObjectLike(node)) {
-        return "";
+    /**
+     * Extract the identifier name from a node. Returns empty string if the
+     * node is null or lacks a name property.
+     */
+    nameOfIdent(node: IdentifierMetadata | null | undefined): string {
+        return node?.name ?? "";
     }
 
-    const semanticNode = node as SemanticNode;
-
-    if (typeof semanticNode.name === "string") {
-        return semanticNode.name;
-    }
-
-    const nestedIdentifier = semanticNode.identifier;
-    if (
-        Core.isObjectLike(nestedIdentifier) &&
-        typeof nestedIdentifier.name === "string"
-    ) {
-        return nestedIdentifier.name;
-    }
-
-    return "";
-}
-
-/**
- * Build a qualified symbol identifier from a node's scope and name information.
- * Returns a stable reference format for dependency tracking and hot reload
- * coordination: `{kind}/{scope}/{name}` for scoped symbols or `{kind}/{name}`
- * for global declarations.
- */
-export function qualifiedSymbol(node: unknown): string | null {
-    if (!Core.isObjectLike(node)) {
+    /**
+     * Generate a qualified symbol identifier for cross-reference tracking.
+     *
+     * TODO: Return SCIP-style symbols (e.g., "gml/script/my_func") when
+     * connected to the project index or symbol registry. Currently returns
+     * null as project-wide symbol tracking is not yet implemented.
+     */
+    qualifiedSymbol(
+        node: IdentifierMetadata | null | undefined
+    ): string | null {
+        void node;
         return null;
     }
 
-    const name = nameOfIdent(node);
-    if (!name) {
-        return null;
-    }
-
-    const kind = kindOfIdent(node);
-    if (kind === "unknown") {
-        return null;
-    }
-
-    const semanticNode = node as SemanticNode;
-    const scopeId = semanticNode.scopeId ?? semanticNode.declaration?.scopeId;
-
-    if (scopeId && typeof scopeId === "string") {
-        return `${kind}/${scopeId}/${name}`;
-    }
-
-    return `${kind}/${name}`;
-}
-
-/**
- * Check if an identifier name follows PascalCase convention for constructors.
- */
-function isPascalCaseIdentifier(callee: unknown): boolean {
-    if (!Core.isIdentifierNode(callee)) {
-        return false;
-    }
-
-    const firstChar = callee.name[0];
-    return Boolean(firstChar && /^[A-Z]/.test(firstChar));
-}
-
-/**
- * Determine the call target kind from a call expression node. This supports
- * hot reload invalidation by identifying whether a call targets a script,
- * method, builtin function, or other callable entity.
- */
-export function callTargetKind(node: unknown): CallTargetKind {
-    if (!Core.isObjectLike(node)) {
-        return "unknown";
-    }
-
-    const callNode = node as CallExpressionNode;
-    const callee = callNode.callee ?? callNode.function ?? callNode.target;
-    if (!Core.isObjectLike(callee)) {
-        return "unknown";
-    }
-
-    const semanticCallee = callee;
-    const classifications = Core.asArray(semanticCallee.classifications);
-
-    if (
-        semanticCallee.isBuiltIn === true ||
-        classifications.includes("builtin")
-    ) {
-        return "builtin";
-    }
-
-    const kindMap: Array<[string, CallTargetKind]> = [
-        ["script", "script"],
-        ["method", "method"],
-        ["constructor", "constructor"]
-    ];
-
-    for (const [classification, kind] of kindMap) {
-        if (classifications.includes(classification)) {
-            return kind;
+    /**
+     * Determine the kind of a call target (script, builtin, or unknown).
+     * Uses the builtin name set to classify known functions.
+     *
+     * TODO: Add script classification when project-level analysis is
+     * implemented. Currently only distinguishes builtins from unknown.
+     */
+    callTargetKind(node: CallExpressionNode): "script" | "builtin" | "unknown" {
+        if (!isIdentifierMetadata(node.object)) {
+            return "unknown";
         }
+
+        if (this.builtinNames.has(node.object.name)) {
+            return "builtin";
+        }
+
+        return "unknown";
     }
 
-    if (isPascalCaseIdentifier(semanticCallee)) {
-        return "constructor";
+    /**
+     * Return a qualified symbol for the call target.
+     *
+     * TODO: Return SCIP-style symbols when script tracking is implemented.
+     * Currently returns null since we don't track script symbols yet.
+     */
+    callTargetSymbol(node: CallExpressionNode): string | null {
+        void node;
+        return null;
     }
-
-    return "unknown";
 }
 
 /**
- * Extract the qualified symbol identifier for a call target. Useful for
- * dependency tracking and hot reload coordination by providing a stable
- * reference to the callable being invoked.
+ * Legacy standalone functions for backward compatibility. These delegate to
+ * a default oracle instance with no scope tracker or builtin knowledge.
+ *
+ * @deprecated Use `BasicSemanticOracle` directly for better control and testing.
  */
-export function callTargetSymbol(node: unknown): string | null {
-    if (!Core.isObjectLike(node)) {
-        return null;
-    }
+const defaultOracle = new BasicSemanticOracle(null, new Set());
 
-    const callNode = node as CallExpressionNode;
-    const callee = callNode.callee ?? callNode.function ?? callNode.target;
-    if (!Core.isObjectLike(callee)) {
-        return null;
-    }
+export function kindOfIdent(node?: IdentifierMetadata | null): SemKind {
+    return defaultOracle.kindOfIdent(node);
+}
 
-    return qualifiedSymbol(callee);
+export function nameOfIdent(node?: IdentifierMetadata | null): string {
+    return defaultOracle.nameOfIdent(node);
+}
+
+export function qualifiedSymbol(
+    node?: IdentifierMetadata | null
+): string | null {
+    return defaultOracle.qualifiedSymbol(node);
+}
+
+export function callTargetKind(
+    node: CallExpressionNode
+): "script" | "builtin" | "unknown" {
+    return defaultOracle.callTargetKind(node);
+}
+
+export function callTargetSymbol(node: CallExpressionNode): string | null {
+    return defaultOracle.callTargetSymbol(node);
 }
 
 export default {
@@ -219,5 +231,6 @@ export default {
     nameOfIdent,
     qualifiedSymbol,
     callTargetKind,
-    callTargetSymbol
+    callTargetSymbol,
+    BasicSemanticOracle
 };
