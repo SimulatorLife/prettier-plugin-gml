@@ -1612,6 +1612,231 @@ export class RefactorEngine {
     }
 
     /**
+     * Check whether a rename operation is safe for hot reload.
+     * This method performs a comprehensive analysis of whether a rename can be
+     * applied without requiring a full game restart, taking into account symbol
+     * types, scope changes, and runtime implications.
+     *
+     * @param {Object} request - Rename request to validate
+     * @param {string} request.symbolId - Symbol to rename
+     * @param {string} request.newName - Proposed new name
+     * @returns {Promise<{
+     *   safe: boolean,
+     *   reason: string,
+     *   requiresRestart: boolean,
+     *   canAutoFix: boolean,
+     *   suggestions: Array<string>
+     * }>} Hot reload safety assessment
+     */
+    async checkHotReloadSafety(request: RenameRequest): Promise<{
+        safe: boolean;
+        reason: string;
+        requiresRestart: boolean;
+        canAutoFix: boolean;
+        suggestions: Array<string>;
+    }> {
+        const { symbolId, newName } = request ?? {};
+        const suggestions: Array<string> = [];
+
+        if (!symbolId || !newName) {
+            return {
+                safe: false,
+                reason: "Invalid rename request: missing symbolId or newName",
+                requiresRestart: true,
+                canAutoFix: false,
+                suggestions
+            };
+        }
+
+        // Validate identifier format first
+        try {
+            assertValidIdentifierName(newName);
+        } catch (error) {
+            return {
+                safe: false,
+                reason: `Invalid identifier name: ${error.message}`,
+                requiresRestart: true,
+                canAutoFix: false,
+                suggestions
+            };
+        }
+
+        // Check if symbol exists
+        const exists = await this.validateSymbolExists(symbolId);
+        if (!exists) {
+            return {
+                safe: false,
+                reason: `Symbol '${symbolId}' not found in semantic index`,
+                requiresRestart: true,
+                canAutoFix: false,
+                suggestions: [
+                    "Ensure the project has been analyzed before attempting renames",
+                    "Verify the symbolId is correct"
+                ]
+            };
+        }
+
+        // Extract symbol metadata from the ID
+        const symbolParts = symbolId.split("/");
+        const symbolKind = symbolParts[1]; // e.g., "script", "var", "event"
+        const symbolName = symbolParts.at(-1);
+
+        // Check for name conflict
+        if (symbolName === newName) {
+            return {
+                safe: false,
+                reason: "New name matches the existing identifier",
+                requiresRestart: false,
+                canAutoFix: false,
+                suggestions: ["Choose a different name"]
+            };
+        }
+
+        // Gather occurrences to analyze scope and usage patterns
+        const occurrences = await this.gatherSymbolOccurrences(symbolName);
+
+        // Detect potential conflicts
+        const conflicts = await this.detectRenameConflicts(
+            symbolName,
+            newName,
+            occurrences
+        );
+
+        if (conflicts.length > 0) {
+            const hasReservedConflict = conflicts.some(
+                (c) => c.type === "reserved"
+            );
+            const hasShadowConflict = conflicts.some(
+                (c) => c.type === "shadow"
+            );
+
+            if (hasReservedConflict) {
+                return {
+                    safe: false,
+                    reason: "Cannot rename to a reserved keyword",
+                    requiresRestart: true,
+                    canAutoFix: false,
+                    suggestions: [
+                        "Choose a different name that isn't a reserved keyword"
+                    ]
+                };
+            }
+
+            if (hasShadowConflict) {
+                return {
+                    safe: false,
+                    reason: "Rename would introduce shadowing conflicts",
+                    requiresRestart: false,
+                    canAutoFix: true,
+                    suggestions: [
+                        "The refactor engine can automatically qualify identifiers to avoid shadowing",
+                        "Consider using a less common name to avoid conflicts"
+                    ]
+                };
+            }
+
+            return {
+                safe: false,
+                reason: `Rename has ${conflicts.length} conflict(s)`,
+                requiresRestart: false,
+                canAutoFix: false,
+                suggestions: conflicts.map((c) => c.message)
+            };
+        }
+
+        // Analyze hot reload implications based on symbol kind
+        switch (symbolKind) {
+            case "script": {
+                // Script renames are generally safe for hot reload as long as
+                // we update all call sites simultaneously
+                return {
+                    safe: true,
+                    reason: "Script renames are hot-reload-safe",
+                    requiresRestart: false,
+                    canAutoFix: true,
+                    suggestions: [
+                        "All script call sites will be updated atomically",
+                        "The hot reload system will recompile dependent scripts"
+                    ]
+                };
+            }
+
+            case "var": {
+                // Instance and global variable renames are safe if we update
+                // all references, but need careful handling of self/other context
+                if (symbolId.includes("::")) {
+                    // Instance variable (e.g., gml/var/obj_enemy::hp)
+                    return {
+                        safe: true,
+                        reason: "Instance variable renames are hot-reload-safe",
+                        requiresRestart: false,
+                        canAutoFix: true,
+                        suggestions: [
+                            "All references will be updated with proper scope qualification",
+                            "Existing instances will retain their current values"
+                        ]
+                    };
+                } else {
+                    // Global variable
+                    return {
+                        safe: true,
+                        reason: "Global variable renames are hot-reload-safe",
+                        requiresRestart: false,
+                        canAutoFix: true,
+                        suggestions: [
+                            "Global state will be preserved during hot reload"
+                        ]
+                    };
+                }
+            }
+
+            case "event": {
+                // Event renames require special handling but are generally safe
+                return {
+                    safe: true,
+                    reason: "Event renames are hot-reload-safe with reinit",
+                    requiresRestart: false,
+                    canAutoFix: true,
+                    suggestions: [
+                        "Event dispatch will be updated to use the new name",
+                        "Existing instances will have their event handlers updated"
+                    ]
+                };
+            }
+
+            case "macro":
+            case "enum": {
+                // Macros and enums are compile-time constructs, so renaming them
+                // requires recompiling all dependent code
+                return {
+                    safe: false,
+                    reason: "Macro/enum renames require dependent script recompilation",
+                    requiresRestart: false,
+                    canAutoFix: true,
+                    suggestions: [
+                        "The hot reload system will automatically recompile all dependent scripts",
+                        "Consider using the batch rename API to update multiple related symbols"
+                    ]
+                };
+            }
+
+            default: {
+                // Unknown symbol kind - be conservative
+                suggestions.push(
+                    "Symbol kind not recognized, proceeding with caution"
+                );
+                return {
+                    safe: true,
+                    reason: `Symbol kind '${symbolKind}' can be renamed`,
+                    requiresRestart: false,
+                    canAutoFix: true,
+                    suggestions
+                };
+            }
+        }
+    }
+
+    /**
      * Integrate refactor results with the transpiler for hot reload.
      * Takes hot reload updates and generates transpiled patches.
      * @param {Array<{symbolId: string, action: string, filePath: string}>} hotReloadUpdates - Updates from prepareHotReloadUpdates

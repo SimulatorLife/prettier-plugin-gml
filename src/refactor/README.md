@@ -79,6 +79,34 @@ const analysis = await engine.analyzeRenameImpact({
 // analysis.warnings contains advisory information
 ```
 
+### Hot Reload Safety Check
+
+Check if a rename is safe for hot reload before planning:
+
+```javascript
+const safety = await engine.checkHotReloadSafety({
+    symbolId: "gml/script/scr_player_attack",
+    newName: "scr_player_combat"
+});
+
+if (!safety.safe) {
+    console.error("Rename not safe:", safety.reason);
+    if (safety.canAutoFix) {
+        console.log("Auto-fix available. Suggestions:");
+        safety.suggestions.forEach(s => console.log(`  - ${s}`));
+    }
+} else {
+    console.log("✓ Rename is hot-reload-safe");
+    console.log("Requires restart:", safety.requiresRestart);
+}
+
+// Example outputs for different symbol types:
+// - Scripts: safe=true, requiresRestart=false
+// - Instance vars: safe=true, requiresRestart=false
+// - Macros/enums: safe=false (recompilation needed), requiresRestart=false, canAutoFix=true
+// - Reserved keywords: safe=false, requiresRestart=true, canAutoFix=false
+```
+
 ### Hot Reload Validation
 
 Validate that workspace edits won't break hot reload functionality:
@@ -204,9 +232,11 @@ new RefactorEngine({ parser, semantic, formatter })
 - `async analyzeRenameImpact(request)` - Analyze impact without applying changes
 - `async validateRename(workspace)` - Validate a workspace edit
 - `async validateHotReloadCompatibility(workspace, options)` - Check hot reload compatibility
+- `async checkHotReloadSafety(request)` - Check if a rename is safe for hot reload
 - `async applyWorkspaceEdit(workspace, options)` - Apply edits to files
 - `async prepareHotReloadUpdates(workspace)` - Prepare hot reload update metadata
 - `async generateTranspilerPatches(hotReloadUpdates, readFile)` - Generate transpiled patches
+- `async prepareRenamePlan(request, options)` - Prepare a comprehensive rename plan with validation
 - `async findSymbolAtLocation(filePath, offset)` - Find symbol at position
 - `async validateSymbolExists(symbolId)` - Check if symbol exists
 - `async gatherSymbolOccurrences(symbolName)` - Get all occurrences of a symbol

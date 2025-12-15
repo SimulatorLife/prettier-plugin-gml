@@ -1705,3 +1705,267 @@ void test("computeHotReloadCascade works without semantic analyzer", async () =>
     assert.equal(result.cascade[0].symbolId, "gml/script/scr_test");
     assert.equal(result.cascade[0].distance, 0);
 });
+
+// === checkHotReloadSafety tests ===
+
+void test("checkHotReloadSafety rejects missing symbolId", async () => {
+    const engine = new RefactorEngine();
+
+    const result = await engine.checkHotReloadSafety({
+        newName: "scr_new"
+    } as unknown as RenameRequest);
+
+    assert.equal(result.safe, false);
+    assert.ok(result.reason.includes("missing symbolId"));
+    assert.equal(result.requiresRestart, true);
+    assert.equal(result.canAutoFix, false);
+});
+
+void test("checkHotReloadSafety rejects missing newName", async () => {
+    const engine = new RefactorEngine();
+
+    const result = await engine.checkHotReloadSafety({
+        symbolId: "gml/script/scr_old"
+    } as unknown as RenameRequest);
+
+    assert.equal(result.safe, false);
+    assert.ok(result.reason.includes("missing"));
+    assert.equal(result.requiresRestart, true);
+});
+
+void test("checkHotReloadSafety rejects invalid identifier names", async () => {
+    const engine = new RefactorEngine();
+
+    const result = await engine.checkHotReloadSafety({
+        symbolId: "gml/script/scr_old",
+        newName: "123invalid"
+    });
+
+    assert.equal(result.safe, false);
+    assert.ok(result.reason.includes("Invalid identifier"));
+    assert.equal(result.requiresRestart, true);
+    assert.equal(result.canAutoFix, false);
+});
+
+void test("checkHotReloadSafety rejects non-existent symbols", async () => {
+    const mockSemantic = {
+        hasSymbol: () => false
+    };
+    const engine = new RefactorEngine({ semantic: mockSemantic });
+
+    const result = await engine.checkHotReloadSafety({
+        symbolId: "gml/script/scr_missing",
+        newName: "scr_new"
+    });
+
+    assert.equal(result.safe, false);
+    assert.ok(result.reason.includes("not found"));
+    assert.equal(result.requiresRestart, true);
+    assert.ok(result.suggestions.length > 0);
+});
+
+void test("checkHotReloadSafety rejects same-name renames", async () => {
+    const mockSemantic = {
+        hasSymbol: () => true,
+        getSymbolOccurrences: () => []
+    };
+    const engine = new RefactorEngine({ semantic: mockSemantic });
+
+    const result = await engine.checkHotReloadSafety({
+        symbolId: "gml/script/scr_test",
+        newName: "scr_test"
+    });
+
+    assert.equal(result.safe, false);
+    assert.ok(result.reason.includes("matches the existing identifier"));
+    assert.equal(result.requiresRestart, false);
+});
+
+void test("checkHotReloadSafety rejects reserved keywords", async () => {
+    const mockSemantic = {
+        hasSymbol: () => true,
+        getSymbolOccurrences: (name) => [
+            { path: "test.gml", start: 0, end: name.length, scopeId: "scope-1" }
+        ],
+        getReservedKeywords: () => ["if", "else", "while", "for", "function"]
+    };
+    const engine = new RefactorEngine({ semantic: mockSemantic });
+
+    const result = await engine.checkHotReloadSafety({
+        symbolId: "gml/script/scr_old",
+        newName: "function"
+    });
+
+    assert.equal(result.safe, false);
+    assert.ok(result.reason.includes("reserved keyword"));
+    assert.equal(result.requiresRestart, true);
+    assert.equal(result.canAutoFix, false);
+});
+
+void test("checkHotReloadSafety handles shadowing conflicts", async () => {
+    const mockSemantic = {
+        hasSymbol: () => true,
+        getSymbolOccurrences: (name) => [
+            { path: "test.gml", start: 0, end: name.length, scopeId: "scope-1" }
+        ],
+        lookup: (name, scopeId) => {
+            // Simulate existing binding for newName that isn't the symbol we're renaming
+            if (name === "existing" && scopeId === "scope-1") {
+                return { name: "existing" };
+            }
+            return null;
+        }
+    };
+    const engine = new RefactorEngine({ semantic: mockSemantic });
+
+    const result = await engine.checkHotReloadSafety({
+        symbolId: "gml/script/scr_old",
+        newName: "existing"
+    });
+
+    assert.equal(result.safe, false);
+    assert.ok(result.reason.includes("shadowing"));
+    assert.equal(result.requiresRestart, false);
+    assert.equal(result.canAutoFix, true);
+    assert.ok(result.suggestions.length > 0);
+});
+
+void test("checkHotReloadSafety approves script renames", async () => {
+    const mockSemantic = {
+        hasSymbol: () => true,
+        getSymbolOccurrences: () => [
+            { path: "test.gml", start: 0, end: 8, scopeId: "scope-1" }
+        ]
+    };
+    const engine = new RefactorEngine({ semantic: mockSemantic });
+
+    const result = await engine.checkHotReloadSafety({
+        symbolId: "gml/script/scr_old",
+        newName: "scr_new"
+    });
+
+    assert.equal(result.safe, true);
+    assert.ok(result.reason.includes("hot-reload-safe"));
+    assert.equal(result.requiresRestart, false);
+    assert.equal(result.canAutoFix, true);
+    assert.ok(result.suggestions.length > 0);
+});
+
+void test("checkHotReloadSafety approves instance variable renames", async () => {
+    const mockSemantic = {
+        hasSymbol: () => true,
+        getSymbolOccurrences: () => [
+            { path: "test.gml", start: 0, end: 2, scopeId: "scope-1" }
+        ]
+    };
+    const engine = new RefactorEngine({ semantic: mockSemantic });
+
+    const result = await engine.checkHotReloadSafety({
+        symbolId: "gml/var/obj_enemy::hp",
+        newName: "health"
+    });
+
+    assert.equal(result.safe, true);
+    assert.ok(result.reason.includes("Instance variable"));
+    assert.ok(result.reason.includes("hot-reload-safe"));
+    assert.equal(result.requiresRestart, false);
+    assert.ok(
+        result.suggestions.some((s) => s.includes("scope qualification"))
+    );
+});
+
+void test("checkHotReloadSafety approves global variable renames", async () => {
+    const mockSemantic = {
+        hasSymbol: () => true,
+        getSymbolOccurrences: () => [
+            { path: "test.gml", start: 0, end: 10, scopeId: "scope-1" }
+        ]
+    };
+    const engine = new RefactorEngine({ semantic: mockSemantic });
+
+    const result = await engine.checkHotReloadSafety({
+        symbolId: "gml/var/global_score",
+        newName: "global_points"
+    });
+
+    assert.equal(result.safe, true);
+    assert.ok(result.reason.includes("Global variable"));
+    assert.equal(result.requiresRestart, false);
+    assert.ok(result.suggestions.some((s) => s.includes("preserved")));
+});
+
+void test("checkHotReloadSafety approves event renames", async () => {
+    const mockSemantic = {
+        hasSymbol: () => true,
+        getSymbolOccurrences: () => []
+    };
+    const engine = new RefactorEngine({ semantic: mockSemantic });
+
+    const result = await engine.checkHotReloadSafety({
+        symbolId: "gml/event/obj_enemy#Step",
+        newName: "Step_Updated"
+    });
+
+    assert.equal(result.safe, true);
+    assert.ok(result.reason.includes("Event"));
+    assert.equal(result.requiresRestart, false);
+    assert.ok(result.suggestions.some((s) => s.includes("event handlers")));
+});
+
+void test("checkHotReloadSafety flags macro renames as requiring recompilation", async () => {
+    const mockSemantic = {
+        hasSymbol: () => true,
+        getSymbolOccurrences: () => [
+            { path: "test.gml", start: 0, end: 6, scopeId: "scope-1" }
+        ]
+    };
+    const engine = new RefactorEngine({ semantic: mockSemantic });
+
+    const result = await engine.checkHotReloadSafety({
+        symbolId: "gml/macro/MAX_HP",
+        newName: "MAX_HEALTH"
+    });
+
+    assert.equal(result.safe, false);
+    assert.ok(result.reason.includes("recompilation"));
+    assert.equal(result.requiresRestart, false);
+    assert.equal(result.canAutoFix, true);
+    assert.ok(result.suggestions.some((s) => s.includes("recompile")));
+});
+
+void test("checkHotReloadSafety flags enum renames as requiring recompilation", async () => {
+    const mockSemantic = {
+        hasSymbol: () => true,
+        getSymbolOccurrences: () => [
+            { path: "test.gml", start: 0, end: 6, scopeId: "scope-1" }
+        ]
+    };
+    const engine = new RefactorEngine({ semantic: mockSemantic });
+
+    const result = await engine.checkHotReloadSafety({
+        symbolId: "gml/enum/EnemyType",
+        newName: "EnemyKind"
+    });
+
+    assert.equal(result.safe, false);
+    assert.ok(result.reason.includes("recompilation"));
+    assert.equal(result.canAutoFix, true);
+});
+
+void test("checkHotReloadSafety handles unknown symbol kinds gracefully", async () => {
+    const mockSemantic = {
+        hasSymbol: () => true,
+        getSymbolOccurrences: () => []
+    };
+    const engine = new RefactorEngine({ semantic: mockSemantic });
+
+    const result = await engine.checkHotReloadSafety({
+        symbolId: "gml/unknown/some_symbol",
+        newName: "new_symbol"
+    });
+
+    assert.equal(result.safe, true);
+    assert.ok(result.reason.includes("can be renamed"));
+    assert.equal(result.canAutoFix, true);
+    assert.ok(result.suggestions.some((s) => s.includes("caution")));
+});
