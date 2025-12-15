@@ -14156,7 +14156,7 @@ function ensureVertexFormatDefinitionIsClosed(
             continue;
         }
 
-        break;
+        return null;
     }
 
     const vertexFormatEndCall = createVertexFormatEndCall(node);
