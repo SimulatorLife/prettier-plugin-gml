@@ -73,7 +73,7 @@ camDirZ = (-camMat[2] * c) + (camMat[10] * s);
 /// @function halve
 /// @param value
 function halve(value) {
-    return value * /* keep important comment */ 0.5;
+    return value / /* keep important comment */ 2;
 }
 
 pos = (is_undefined(pos) ? -1 : 0);
