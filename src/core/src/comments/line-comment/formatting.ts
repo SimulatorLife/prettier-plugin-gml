@@ -322,6 +322,12 @@ function formatLineComment(
         const content = trimmedValue.replace(/^\/+\s*/, "");
         const formatted = applyJsDocReplacements(`/// ${content}`) as string;
 
+        if (content.toLowerCase().startsWith("@description")) {
+            console.log(
+                `[DEBUG] doc comment content: "${content}", trimmedOriginal: "${trimmedOriginal}", formatted: "${formatted}"`
+            );
+        }
+
         if (formatted.trim() === "/// @description") {
             return "";
         }

@@ -822,10 +822,21 @@ export function mergeSyntheticDocComments(
             ...reorderedDocs.slice(descriptionEndIndex)
         ];
 
+        const descriptionBlockWithContent = descriptionBlock.filter((line) => {
+            const metadata = parseDocCommentMetadata(line);
+            const descriptionText =
+                typeof metadata?.name === STRING_TYPE
+                    ? metadata.name.trim()
+                    : "";
+            return descriptionText.length > 0;
+        });
+
         let shouldOmitDescriptionBlock = false;
-        if (descriptionBlock.length === 1) {
+        if (descriptionBlockWithContent.length === 0) {
+            shouldOmitDescriptionBlock = true;
+        } else if (descriptionBlockWithContent.length === 1) {
             const descriptionMetadata = parseDocCommentMetadata(
-                descriptionBlock[0]
+                descriptionBlockWithContent[0]
             );
             const descriptionText =
                 typeof descriptionMetadata?.name === STRING_TYPE
@@ -870,7 +881,7 @@ export function mergeSyntheticDocComments(
 
             reorderedDocs = [
                 ...docsWithoutDescription.slice(0, insertionAfterParams),
-                ...descriptionBlock,
+                ...descriptionBlockWithContent,
                 ...docsWithoutDescription.slice(insertionAfterParams)
             ];
         }
@@ -879,6 +890,24 @@ export function mergeSyntheticDocComments(
     reorderedDocs = toMutableArray(
         reorderDescriptionLinesAfterFunction(reorderedDocs)
     ) as MutableDocCommentLines;
+
+    reorderedDocs = reorderedDocs.filter((line) => {
+        if (typeof line !== STRING_TYPE) {
+            return true;
+        }
+
+        if (!isDescriptionLine(line)) {
+            return true;
+        }
+
+        const metadata = parseDocCommentMetadata(line);
+        const descriptionText =
+            typeof metadata?.name === STRING_TYPE
+                ? metadata.name.trim()
+                : "";
+
+        return descriptionText.length > 0;
+    }) as MutableDocCommentLines;
 
     if (suppressedCanonicals && suppressedCanonicals.size > 0) {
         reorderedDocs = reorderedDocs.filter((line) => {
@@ -1343,11 +1372,32 @@ export function mergeSyntheticDocComments(
     } catch {
         // Best-effort fallback; do not throw on diagnostic operations
     }
-    return toMutableArray(
-        convertLegacyReturnsDescriptionLinesToMetadata(filteredResult, {
+    const convertedResult = convertLegacyReturnsDescriptionLinesToMetadata(
+        filteredResult,
+        {
             normalizeDocCommentTypeAnnotations: normalizeGameMakerType
-        })
-    ) as MutableDocCommentLines;
+        }
+    );
+
+    const prunedConvertedResult = convertedResult.filter((line) => {
+        if (typeof line !== STRING_TYPE) {
+            return true;
+        }
+
+        if (!isDescriptionLine(line)) {
+            return true;
+        }
+
+        const metadata = parseDocCommentMetadata(line);
+        const descriptionText =
+            typeof metadata?.name === STRING_TYPE
+                ? metadata.name.trim()
+                : "";
+
+        return descriptionText.length > 0;
+    });
+
+    return toMutableArray(prunedConvertedResult) as MutableDocCommentLines;
 }
 
 /**

@@ -621,6 +621,19 @@ function _printImpl(path, options, print) {
                     docCommentDocs &&
                     docCommentDocs._suppressLeadingBlank === true;
 
+                if (
+                    docCommentDocs.some(
+                        (entry) =>
+                            typeof entry === "string" &&
+                            entry.includes("draw_points")
+                    )
+                ) {
+                    console.log(
+                        "[DEBUG] draw_points docCommentDocs at print time:",
+                        docCommentDocs
+                    );
+                }
+
                 const hasLeadingNonDocComment =
                     !Core.isNonEmptyArray(node.docComments) &&
                     originalText !== null &&
@@ -2386,11 +2399,21 @@ function buildStructPropertyCommentSuffix(path, options) {
     const node =
         path && typeof path.getValue === "function" ? path.getValue() : null;
     const comments = Core.asArray(node?._structTrailingComments);
+    const propertyName = Core.getNodeName(node);
+    if (propertyName === "draw_points") {
+        console.log(
+            "[DEBUG] draw_points _structTrailingComments:",
+            comments.map((comment) => (comment as any)?.value)
+        );
+    }
     if (comments.length === 0) {
         return "";
     }
 
     const commentDocs = [];
+    const propertyName =
+        (node?.name && typeof node.name === "object" && node.name.name) ||
+        (typeof node?.name === "string" ? node.name : null);
 
     for (const comment of comments) {
         if ((comment as any)?._structPropertyTrailing === true) {
@@ -2404,6 +2427,19 @@ function buildStructPropertyCommentSuffix(path, options) {
             (comment as any)._structPropertyHandled = true;
             (comment as any).printed = true;
         }
+    }
+
+    if (
+        propertyName === "draw_points" &&
+        commentDocs.length > 0 &&
+        commentDocs.some((doc) => doc.includes("@description"))
+    ) {
+        console.log(
+            "[DEBUG] struct draw_points commentDocs:",
+            commentDocs,
+            "raw comments:",
+            comments.map((comment) => (comment as any)?.value)
+        );
     }
 
     if (commentDocs.length === 0) {

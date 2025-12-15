@@ -194,8 +194,8 @@ function printComment(commentPath, options) {
         if (Core.isObjectLike(comment)) {
             comment.printed = true;
         }
-        return "";
-    }
+    return "";
+}
 
     applyTrailingCommentPadding(comment);
     applySingleLeadingSpacePadding(comment, options);
