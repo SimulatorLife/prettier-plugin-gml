@@ -61,7 +61,7 @@ void test("promotes leading doc comment text to description metadata", async () 
     );
 });
 
-void test("keeps a blank separator before synthetic doc tags when leading text lacks metadata", async () => {
+void test("promotes multi-line doc comments to description metadata", async () => {
     const source = [
         "/// Describes function usage",
         "/// Additional summary",
