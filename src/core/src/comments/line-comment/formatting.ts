@@ -29,6 +29,12 @@ const INNER_BANNER_DECORATION_PATTERN = new RegExp(
 
 const DOC_TAG_LINE_PREFIX_PATTERN = /^\/+\(\s*\)@/;
 
+// Pattern to detect doc-like comments (e.g., "// / text") which use a forward
+// slash after the comment prefix to indicate documentation-style content.
+// These should not be treated as banner decorations even if they contain
+// characters like "**" that would normally be considered decoration.
+const DOC_LIKE_COMMENT_PATTERN = /^\/\/\s+\/(?![\/])/;
+
 function getLineCommentRawText(comment, options: any = {}) {
     if (options.originalText && comment.start && comment.end) {
         return options.originalText.slice(
@@ -170,11 +176,11 @@ function formatLineComment(
     const slashesMatch = original.match(/^\s*(\/{2,})(.*)$/);
     const contentWithoutSlashes = trimmedValue.replace(/^\/+\s*/, "");
 
-    // Check if this is a doc-like comment (e.g., "// / text") before treating it as a banner
-    const isDocLikeComment = /^\/\/\s+\/(?![\/])/.test(trimmedOriginal);
+    // Check if this is a doc-like comment before treating it as a banner
+    const isDocLikeComment = DOC_LIKE_COMMENT_PATTERN.test(trimmedOriginal);
 
     const hasDecorations =
-        !isDocLikeComment && // Exclude doc-like comments from decoration detection
+        !isDocLikeComment &&
         (LEADING_BANNER_DECORATION_PATTERN.test(contentWithoutSlashes) ||
             TRAILING_BANNER_DECORATION_PATTERN.test(contentWithoutSlashes) ||
             (contentWithoutSlashes.match(INNER_BANNER_DECORATION_PATTERN) || [])
