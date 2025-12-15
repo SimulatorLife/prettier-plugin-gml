@@ -313,6 +313,20 @@ export function computeSyntheticDocCommentForFunctionAssignment(
         sourceText
     );
 
+    if (
+        assignment.left?.name === "print" &&
+        processedComments &&
+        process.env["DEBUG_GML"] === "true"
+    ) {
+        console.log(
+            "[DEBUG] computeSyntheticDocCommentForFunctionAssignment raw",
+            assignment.left.name,
+            assignment.start,
+            functionNode.start,
+            processedComments
+        );
+    }
+
     if (!processedComments) {
         return null;
     }

@@ -3,7 +3,6 @@ import { Core, type MutableDocCommentLines } from "@gml-modules/core";
 import { resolveDocCommentPrinterOptions } from "./doc-comment-options.js";
 
 const STRING_TYPE = "string";
-const DESCRIPTION_TAG_PATTERN = /^\/\/\/\s*@description\b/i;
 
 function resolveProgramNode(path): any {
     let programNode = null;
@@ -258,6 +257,7 @@ export function collectFunctionDocCommentDocs({
 
     docCommentDocs.length = 0;
     docCommentDocs.push(...uniqueProgramLines, ...newDocCommentDocs);
+    ensureDescriptionContinuations(docCommentDocs);
 
     return {
         docCommentDocs,
@@ -281,9 +281,6 @@ export function normalizeFunctionDocCommentDocs({
     path
 }: any) {
     const docCommentOptions = resolveDocCommentPrinterOptions(options);
-    const descriptionContinuations = collectDescriptionContinuations(
-        docCommentDocs
-    );
 
     if (
         Core.shouldGenerateSyntheticDocForFunction(
@@ -299,10 +296,6 @@ export function normalizeFunctionDocCommentDocs({
                 docCommentOptions
             )
         ) as MutableDocCommentLines;
-        docCommentDocs = applyDescriptionContinuations(
-            docCommentDocs,
-            descriptionContinuations
-        );
         if (Array.isArray(docCommentDocs)) {
             while (
                 docCommentDocs.length > 0 &&
@@ -325,24 +318,29 @@ export function normalizeFunctionDocCommentDocs({
     return { docCommentDocs, needsLeadingBlankLine };
 }
 
-function collectDescriptionContinuations(
-    docCommentDocs: MutableDocCommentLines
-): string[] {
+function ensureDescriptionContinuations(docCommentDocs: MutableDocCommentLines) {
     if (!Array.isArray(docCommentDocs)) {
-        return [];
+        return;
     }
 
     const descriptionIndex = docCommentDocs.findIndex(
         (line) =>
             typeof line === STRING_TYPE &&
-            DESCRIPTION_TAG_PATTERN.test(line.trim())
+            /^\/\/\/\s*@description\b/i.test(line.trim())
     );
 
     if (descriptionIndex === -1) {
-        return [];
+        return;
     }
 
-    const continuations: string[] = [];
+    const { indent, prefix } = resolveDescriptionIndentation(
+        docCommentDocs[descriptionIndex]
+    );
+    const continuationPrefix = `${indent}/// ${" ".repeat(
+        Math.max(prefix.length - 4, 0)
+    )}`;
+
+    let foundContinuation = false;
 
     for (
         let index = descriptionIndex + 1;
@@ -364,78 +362,27 @@ function collectDescriptionContinuations(
             break;
         }
 
-        const suffix = trimmed.slice(3).trim();
-        if (suffix.length === 0) {
-            continue;
-        }
-
-        continuations.push(line);
-    }
-
-    return continuations;
-}
-
-function applyDescriptionContinuations(
-    docCommentDocs: MutableDocCommentLines,
-    continuations: string[]
-): MutableDocCommentLines {
-    if (!Array.isArray(docCommentDocs) || continuations.length === 0) {
-        return docCommentDocs;
-    }
-
-    const descriptionIndex = docCommentDocs.findIndex(
-        (line) =>
-            typeof line === STRING_TYPE &&
-            DESCRIPTION_TAG_PATTERN.test(line.trim())
-    );
-
-    if (descriptionIndex === -1) {
-        return docCommentDocs;
-    }
-
-    const { indent, prefix } = resolveDescriptionIndentation(
-        docCommentDocs[descriptionIndex]
-    );
-    const continuationPrefix = `${indent}/// ${" ".repeat(
-        Math.max(prefix.length - 4, 0)
-    )}`;
-
-    let insertIndex = descriptionIndex + 1;
-
-    for (const continuation of continuations) {
         const formatted = formatDescriptionContinuationLine(
-            continuation,
+            line,
             continuationPrefix
         );
-
         if (!formatted) {
             continue;
         }
 
-        const normalized = formatted.trim();
-        const alreadyExists = docCommentDocs.some(
-            (line) =>
-                typeof line === STRING_TYPE &&
-                line.trim() === normalized
-        );
-
-        if (alreadyExists) {
-            continue;
-        }
-
-        docCommentDocs.splice(insertIndex, 0, formatted);
-        insertIndex += 1;
+        docCommentDocs[index] = formatted;
+        foundContinuation = true;
     }
 
-    return docCommentDocs;
+    if (foundContinuation) {
+        (docCommentDocs as any)._preserveDescriptionBreaks = true;
+    }
 }
 
 function resolveDescriptionIndentation(line: string) {
     const trimmedStart = line.trimStart();
     const indent = line.slice(0, line.length - trimmedStart.length);
-    const prefixMatch = trimmedStart.match(
-        /^(\/\/\/\s*@description\s+)/i
-    );
+    const prefixMatch = trimmedStart.match(/^(\/\/\/\s*@description\s+)/i);
     const prefix = prefixMatch ? prefixMatch[1] : "/// @description ";
     return { indent, prefix };
 }

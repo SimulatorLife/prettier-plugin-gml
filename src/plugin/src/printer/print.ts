@@ -2612,6 +2612,29 @@ function printStatements(path, options, print, childrenAttribute) {
         }
 
         const syntheticDocRecord = syntheticDocByNode.get(node);
+        if (
+            syntheticDocRecord &&
+            node.type === "VariableDeclaration" &&
+            Array.isArray(node.declarations) &&
+            node.declarations[0]?.id?.name === "print"
+        ) {
+            const blockAncestor =
+                typeof childPath.getParentNode === "function"
+                    ? childPath.getParentNode()
+                    : null;
+            const constructorAncestor =
+                typeof childPath.getParentNode === "function"
+                    ? childPath.getParentNode(1)
+                    : (blockAncestor?.parent ?? null);
+            if (constructorAncestor?.type === "ConstructorDeclaration") {
+                console.log(
+                    "[DEBUG] constructor ancestor id",
+                    constructorAncestor.id,
+                    "synthetic doc",
+                    syntheticDocRecord.doc
+                );
+            }
+        }
         const syntheticDocComment = syntheticDocRecord
             ? syntheticDocRecord.doc
             : null;
