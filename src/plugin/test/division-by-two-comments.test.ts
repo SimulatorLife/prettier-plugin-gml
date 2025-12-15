@@ -17,7 +17,7 @@ void test("converts division by two with inline comments into multiplication by 
         formatted.includes(
             "    return value * /* keep important comment */ 0.5;"
         ),
-        "Expected the formatter to preserve the inline comment when normalizing division by two."
+        "Expected the formatter to preserve the inline comment when converting division to multiplication."
     );
 
     assert.ok(

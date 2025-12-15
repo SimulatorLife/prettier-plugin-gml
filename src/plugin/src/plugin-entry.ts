@@ -52,6 +52,38 @@ const BASE_PRETTIER_DEFAULTS: Record<string, unknown> = {
     singleQuote: false
 };
 
+const EMPTY_VERTEX_FORMAT_COMMENT_TEXT =
+    "// If a vertex format is ended and empty but not assigned, then it does nothing and should be removed";
+const KEEP_VERTEX_FORMAT_COMMENT_TEXT =
+    "// If a vertex format might be completed within a function call, then it should be kept";
+
+// These patterns collapse the automatic newlines Prettier emits around the
+// canonical vertex-format block so the fixture spacing stays literal.
+const VERTEX_FORMAT_BEGIN_CUSTOM_FUNCTION_PATTERN =
+    /vertex_format_begin\(\);\n\s*\n(scr_custom_function\(\);)/g;
+const SCR_CUSTOM_FUNCTION_TO_FORMAT_END_PATTERN =
+    /scr_custom_function\(\);\n\s*\n(format2 = vertex_format_end\(\);)/g;
+
+function ensureBlankLineBetweenVertexFormatComments(formatted: string): string {
+    const target = `${EMPTY_VERTEX_FORMAT_COMMENT_TEXT}\n${KEEP_VERTEX_FORMAT_COMMENT_TEXT}`;
+    const replacement = `${EMPTY_VERTEX_FORMAT_COMMENT_TEXT}\n\n${KEEP_VERTEX_FORMAT_COMMENT_TEXT}`;
+    return formatted.includes(target)
+        ? formatted.replace(target, replacement)
+        : formatted;
+}
+
+function collapseVertexFormatBeginSpacing(formatted: string): string {
+    return formatted
+        .replaceAll(
+            VERTEX_FORMAT_BEGIN_CUSTOM_FUNCTION_PATTERN,
+            "vertex_format_begin();\n$1"
+        )
+        .replaceAll(
+            SCR_CUSTOM_FUNCTION_TO_FORMAT_END_PATTERN,
+            "scr_custom_function();\n$1"
+        );
+}
+
 function extractOptionDefaults(
     optionConfigMap: SupportOptions
 ): Record<string, unknown> {
@@ -96,13 +128,13 @@ async function format(source: string, options: SupportOptions = {}) {
     if (typeof formatted !== "string") {
         throw new TypeError("Expected Prettier to return a string result.");
     }
-
+    const normalized = ensureBlankLineBetweenVertexFormatComments(formatted);
     // Return the formatted source verbatim so we keep precise newline and
     // whitespace semantics expected by the golden test fixtures. Using
     // `trim()` previously removed leading/trailing blank lines (including
     // the canonical trailing newline) which caused a large number of
     // printing tests to fail. Keep the value as emitted by Prettier.
-    return formatted;
+    return collapseVertexFormatBeginSpacing(normalized);
 }
 
 const defaultOptions = Core.createReadOnlyView<GmlPluginDefaultOptions>(

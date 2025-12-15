@@ -220,7 +220,11 @@ function printComment(commentPath, options) {
                 comment,
                 formattingOptions
             );
-            return formatted ?? "";
+            const normalized = typeof formatted === "string" ? formatted : "";
+            if (comment._featherForceLeadingBlankLine === true) {
+                return [hardline, normalized];
+            }
+            return normalized;
         }
         default: {
             throw new Error(`Unknown comment type: ${comment.type}`);
