@@ -106,7 +106,15 @@ function normalizeBannerCommentText(
     text = text.replaceAll(/\s+/g, " ");
 
     const normalized = text.trim();
-    return normalized.length > 0 ? normalized : null;
+    if (normalized.length === 0) {
+        return null;
+    }
+
+    if (!/[A-Za-z0-9]/.test(normalized)) {
+        return null;
+    }
+
+    return normalized;
 }
 
 // TODO: This function is way too long and should be broken up. Define clearer, standalone, testable units. Ensure we do not duplicate existing functionality and re-use existing helpers where possible.
@@ -195,6 +203,14 @@ function formatLineComment(
         const contentAfterStripping = trimmedValue.replace(/^\/+\s*/, "");
         if (contentAfterStripping.length === 0 && trimmedValue.length > 0) {
             return "";
+        }
+
+        if (!/[A-Za-z0-9]/.test(contentAfterStripping)) {
+            if (isObjectLike(comment)) {
+                comment.leadingWS = "";
+                comment.trailingWS = "";
+            }
+            return "\n";
         }
 
         // If normalization fails but there is content, return the comment with normalized slashes

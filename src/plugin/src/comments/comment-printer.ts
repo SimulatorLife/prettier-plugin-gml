@@ -107,6 +107,10 @@ const REMAINING_COMMENT_HANDLERS = [
     handleMacroComments
 ];
 
+const DECORATIVE_SLASH_LINE_PATTERN = new RegExp(
+    String.raw`^\s*\*?\/{${Core.LINE_COMMENT_BANNER_DETECTION_MIN_SLASHES},}\*?\s*$`
+);
+
 function runCommentHandlers(
     handlers,
     comment,
@@ -207,6 +211,10 @@ function printComment(commentPath, options) {
             const trimmed = comment.value.trim();
             if (trimmed === "" || trimmed === "*") {
                 return "";
+            }
+            const decorated = formatDecorativeBlockComment(comment.value);
+            if (decorated !== null) {
+                return decorated;
             }
             return `/*${comment.value}*/`;
         }
@@ -774,6 +782,41 @@ function findEmptyProgramTarget(ast, enclosingNode, followingNode) {
     }
 
     return null;
+}
+
+function formatDecorativeBlockComment(value) {
+    if (typeof value !== "string") {
+        return null;
+    }
+
+    const lines = value
+        .split(/\r?\n/)
+        .map((line) => line.replaceAll('\t', "    "));
+    const significantLines = lines.filter((line) => line.trim().length > 0);
+    if (significantLines.length === 0) {
+        return null;
+    }
+
+    const hasDecoration = significantLines.some((line) =>
+        DECORATIVE_SLASH_LINE_PATTERN.test(line)
+    );
+    if (!hasDecoration) {
+        return null;
+    }
+
+    const textLines = significantLines
+        .filter((line) => !DECORATIVE_SLASH_LINE_PATTERN.test(line))
+        .map((line) => line.trim());
+
+    if (textLines.length === 0) {
+        return "";
+    }
+
+    if (textLines.length === 1) {
+        return `// ${textLines[0]}`;
+    }
+
+    return ["/* ", ...textLines.map((line) => ` * ${line}`), " */"].join("\n");
 }
 
 function whitespaceToDoc(text) {

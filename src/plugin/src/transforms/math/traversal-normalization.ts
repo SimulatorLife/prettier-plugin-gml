@@ -1201,9 +1201,18 @@ function removeAdditiveIdentityOperand(node, key, otherKey, context) {
     }
 
     const parentLine = node?.end?.line;
+    const trailingCommentValue = captureTrailingLineCommentValue(
+        parentLine,
+        "original",
+        context
+    );
 
     if (!replaceNodeWith(node, other)) {
         return false;
+    }
+
+    if (trailingCommentValue) {
+        attachTrailingCommentToStatement(node, trailingCommentValue);
     }
 
     suppressTrailingLineComment(node, parentLine, context, "original");
@@ -4408,12 +4417,6 @@ function suppressTrailingLineComment( // TODO: This should be moved to where oth
     context,
     prefix = "original"
 ) {
-    if (
-        shouldPreserveExistingLineComment(targetLine, prefix, context)
-    ) {
-        return;
-    }
-
     if (!Number.isFinite(targetLine)) {
         return;
     }
@@ -4457,56 +4460,6 @@ function suppressTrailingLineComment( // TODO: This should be moved to where oth
             }
         }
     }
-}
-
-function shouldPreserveExistingLineComment(
-    targetLine,
-    prefix,
-    context
-) {
-    if (
-        !Number.isFinite(targetLine) ||
-        targetLine <= 0 ||
-        typeof prefix !== "string" ||
-        prefix.trim().length === 0
-    ) {
-        return false;
-    }
-
-    const sourceText = getSourceTextFromContext(context);
-    if (typeof sourceText !== "string" || sourceText.length === 0) {
-        return false;
-    }
-
-    const normalizedPrefix = prefix.trim().toLowerCase();
-
-    const sanitizedText = sourceText.replace(/\r/g, "");
-    const lines = sanitizedText.split("\n");
-    const lineIndex = targetLine - 1;
-    if (lineIndex < 0 || lineIndex >= lines.length) {
-        return false;
-    }
-
-    const lineText = lines[lineIndex];
-    if (typeof lineText !== "string" || lineText.length === 0) {
-        return false;
-    }
-
-    const commentStart = lineText.indexOf("//");
-    if (commentStart === -1) {
-        return false;
-    }
-
-    const commentValue = lineText
-        .slice(commentStart + 2)
-        .trim()
-        .toLowerCase();
-
-    if (commentValue.length === 0) {
-        return false;
-    }
-
-    return commentValue.startsWith(normalizedPrefix);
 }
 
 function removeSimplifiedAliasDeclaration(context, simplifiedNode) {
@@ -4703,6 +4656,85 @@ function getSourceTextFromContext(context) {
 
     if (typeof sourceText === "string" && sourceText.length > 0) {
         return sourceText;
+    }
+
+    return null;
+}
+
+function captureTrailingLineCommentValue(targetLine, prefix, context) {
+    if (!Number.isFinite(targetLine) || targetLine <= 0) {
+        return null;
+    }
+
+    const sourceText = getSourceTextFromContext(context);
+    if (typeof sourceText !== "string" || sourceText.length === 0) {
+        return null;
+    }
+
+    const sanitizedText = sourceText.replaceAll('\r', "");
+    const lines = sanitizedText.split("\n");
+    const lineIndex = targetLine - 1;
+    if (lineIndex < 0 || lineIndex >= lines.length) {
+        return null;
+    }
+
+    const lineText = lines[lineIndex];
+    if (typeof lineText !== "string") {
+        return null;
+    }
+
+    const commentIndex = lineText.indexOf("//");
+    if (commentIndex === -1) {
+        return null;
+    }
+
+    const commentValue = lineText.slice(commentIndex + 2).trim();
+    if (commentValue.length === 0) {
+        return null;
+    }
+
+    const normalizedPrefix =
+        typeof prefix === "string" ? prefix.trim().toLowerCase() : "";
+
+    if (
+        normalizedPrefix.length > 0 &&
+        !commentValue.toLowerCase().startsWith(normalizedPrefix)
+    ) {
+        return null;
+    }
+
+    return commentValue;
+}
+
+function attachTrailingCommentToStatement(node, commentValue) {
+    if (!commentValue || typeof commentValue !== "string") {
+        return;
+    }
+
+    const statement = findStatementAncestor(node);
+    if (!statement) {
+        return;
+    }
+
+    if (
+        typeof statement._gmlManualMathOriginalComment === "string" &&
+        statement._gmlManualMathOriginalComment.length > 0
+    ) {
+        return;
+    }
+
+    statement._gmlManualMathOriginalComment = commentValue;
+}
+
+function findStatementAncestor(node) {
+    let current = node?.parent ?? null;
+    while (current && typeof current === "object") {
+        const type = typeof current.type === "string" ? current.type : null;
+        if (type && (type.endsWith("Statement") || type === "VariableDeclaration")) {
+                return current;
+            }
+
+        current = current.parent ?? null;
     }
 
     return null;

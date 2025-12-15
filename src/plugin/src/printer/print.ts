@@ -2742,7 +2742,7 @@ function printStatements(path, options, print, childrenAttribute) {
             printed.splice(-1, 0, semi);
             parts.push(printed);
             if (manualMathOriginalComment) {
-                parts.push("  // ", manualMathOriginalComment);
+                parts.push(" // ", manualMathOriginalComment);
             }
             if (manualMathRatio) {
                 parts.push(" ", manualMathRatio);
@@ -2750,7 +2750,7 @@ function printStatements(path, options, print, childrenAttribute) {
         } else {
             parts.push(printed, semi);
             if (manualMathOriginalComment) {
-                parts.push("  // ", manualMathOriginalComment);
+                parts.push(" // ", manualMathOriginalComment);
             }
             if (manualMathRatio) {
                 parts.push(" ", manualMathRatio);
@@ -3354,9 +3354,6 @@ function getMemberExpressionLength(expression) {
         }
 
         if (object.type === "Identifier") {
-            if (object.name === "global") {
-                return null;
-            }
             length += object.name.length;
             return length;
         }
