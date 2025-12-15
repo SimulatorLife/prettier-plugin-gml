@@ -3250,7 +3250,7 @@ void describe("Transforms.applyFeatherFixes transform", () => {
 
     void it("comments out incomplete vertex format definitions flagged by GM2015", async () => {
         const source = [
-            "/// Create Event",
+            "// Create Event",
             "",
             "vertex_format_begin();",
             "vertex_format_add_position_3d();"

@@ -255,21 +255,32 @@ export function computeSyntheticDocCommentForStaticVariable(
         return null;
     }
 
+    let finalDocLines =
+        syntheticDoc?.docLines !== undefined
+            ? (toMutableArray(syntheticDoc.docLines) as string[])
+            : null;
+
     if (
-        declarator.id?.type === "Identifier" &&
-        declarator.id.name === "print" &&
-        process.env["DEBUG_GML"] === "true"
+        (node as any)._overridesStaticFunction === true &&
+        (node as any)._overridesStaticFunctionNode
     ) {
-        console.log(
-            "[DEBUG] synthetic doc comment for static variable print",
-            declarator.id.name,
-            syntheticDoc?.docLines,
-            processedComments
-        );
+        const ancestorDocLines = (node as any)._overridesStaticFunctionNode
+            ? (node as any)._overridesStaticFunctionNode._syntheticDocLines
+            : null;
+
+        if (Array.isArray(ancestorDocLines) && ancestorDocLines.length > 0) {
+            finalDocLines = ["/// @override", ...ancestorDocLines];
+        }
+    }
+
+    if (finalDocLines) {
+        (node as any)._syntheticDocLines = finalDocLines;
+    } else {
+        delete (node as any)._syntheticDocLines;
     }
 
     return {
-        docLines: syntheticDoc?.docLines ?? null,
+        docLines: finalDocLines,
         hasExistingDocLines: syntheticDoc?.hasExistingDocLines === true,
         plainLeadingLines
     };
