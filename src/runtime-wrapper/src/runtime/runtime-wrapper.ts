@@ -10,7 +10,10 @@ import type {
     ApplyPatchResult,
     Patch,
     PatchHistoryEntry,
+    PatchPerformanceEntry,
     PatchStats,
+    PerformanceMetrics,
+    PerformanceStats,
     RuntimeFunction,
     RuntimeRegistrySnapshot,
     RuntimeWrapper,
@@ -28,19 +31,34 @@ export function createRuntimeWrapper(
         registry: baseRegistry,
         undoStack: [],
         patchHistory: [],
+        performanceHistory: [],
         options: {
-            validateBeforeApply: options.validateBeforeApply ?? false
+            validateBeforeApply: options.validateBeforeApply ?? false,
+            enablePerformanceTracking:
+                options.enablePerformanceTracking ?? false
         }
     };
 
     const onPatchApplied = options.onPatchApplied;
 
     function applyPatch(patchCandidate: unknown): ApplyPatchResult {
+        const startTime = state.options.enablePerformanceTracking
+            ? performance.now()
+            : 0;
+        let shadowValidationTime = 0;
+
         validatePatch(patchCandidate);
         const patch = patchCandidate;
 
         if (state.options.validateBeforeApply) {
+            const shadowStart = state.options.enablePerformanceTracking
+                ? performance.now()
+                : 0;
             const testResult = testPatchInShadow(patch);
+            if (state.options.enablePerformanceTracking) {
+                shadowValidationTime = performance.now() - shadowStart;
+            }
+
             if (!testResult.valid) {
                 throw new Error(
                     `Patch validation failed for ${patch.id}: ${testResult.error}`
@@ -65,6 +83,19 @@ export function createRuntimeWrapper(
                 action: "apply"
             });
 
+            if (state.options.enablePerformanceTracking) {
+                const totalTime = performance.now() - startTime;
+                const patchTime = totalTime - shadowValidationTime;
+                recordPerformance(patch, "apply", {
+                    patchApplicationTimeMs: patchTime,
+                    shadowValidationTimeMs:
+                        shadowValidationTime > 0
+                            ? shadowValidationTime
+                            : undefined,
+                    totalTimeMs: totalTime
+                });
+            }
+
             if (onPatchApplied) {
                 onPatchApplied(patch, state.registry.version);
             }
@@ -80,6 +111,10 @@ export function createRuntimeWrapper(
     }
 
     function undo(): { success: boolean; version?: number; message?: string } {
+        const startTime = state.options.enablePerformanceTracking
+            ? performance.now()
+            : 0;
+
         if (state.undoStack.length === 0) {
             return { success: false, message: "Nothing to undo" };
         }
@@ -99,22 +134,61 @@ export function createRuntimeWrapper(
             action: "undo"
         });
 
+        if (state.options.enablePerformanceTracking) {
+            const totalTime = performance.now() - startTime;
+            recordPerformance(
+                { kind: snapshot.kind, id: snapshot.id, js_body: "" },
+                "undo",
+                {
+                    patchApplicationTimeMs: totalTime,
+                    totalTimeMs: totalTime
+                }
+            );
+        }
+
         return { success: true, version: state.registry.version };
+    }
+
+    function recordPerformance(
+        patch: Patch | { kind: string; id: string; js_body: string },
+        action: "apply" | "undo" | "rollback",
+        metrics: PerformanceMetrics
+    ): void {
+        state.performanceHistory.push({
+            patchId: patch.id,
+            patchKind: patch.kind as "script" | "event" | "closure",
+            action,
+            timestamp: Date.now(),
+            metrics
+        });
     }
 
     function trySafeApply(
         patchCandidate: unknown,
         onValidate?: (patch: Patch) => boolean | void
     ): TrySafeApplyResult {
+        const startTime = state.options.enablePerformanceTracking
+            ? performance.now()
+            : 0;
+        let shadowValidationTime = 0;
+
         validatePatch(patchCandidate);
         const patch = patchCandidate;
 
+        const shadowStart = state.options.enablePerformanceTracking
+            ? performance.now()
+            : 0;
         const testResult = testPatchInShadow(patch);
+        if (state.options.enablePerformanceTracking) {
+            shadowValidationTime = performance.now() - shadowStart;
+        }
+
         if (!testResult.valid) {
             return {
                 success: false,
                 error: testResult.error,
-                message: `Shadow validation failed: ${testResult.error}`
+                message: `Shadow validation failed: ${testResult.error}`,
+                rolledBack: false
             };
         }
 
@@ -125,7 +199,8 @@ export function createRuntimeWrapper(
                     return {
                         success: false,
                         error: "Custom validation rejected patch",
-                        message: "Custom validation callback returned false"
+                        message: "Custom validation callback returned false",
+                        rolledBack: false
                     };
                 }
             } catch (error) {
@@ -136,7 +211,8 @@ export function createRuntimeWrapper(
                 return {
                     success: false,
                     error: message,
-                    message: `Custom validation failed: ${message}`
+                    message: `Custom validation failed: ${message}`,
+                    rolledBack: false
                 };
             }
         }
@@ -152,6 +228,10 @@ export function createRuntimeWrapper(
                 rolledBack: false
             };
         } catch (error) {
+            const rollbackStart = state.options.enablePerformanceTracking
+                ? performance.now()
+                : 0;
+
             const restoredRegistry = restoreSnapshot(state.registry, snapshot);
             state.registry = {
                 ...restoredRegistry,
@@ -180,6 +260,20 @@ export function createRuntimeWrapper(
                 action: "rollback",
                 error: message
             });
+
+            if (state.options.enablePerformanceTracking) {
+                const rollbackTime = performance.now() - rollbackStart;
+                const totalTime = performance.now() - startTime;
+                const patchTime =
+                    totalTime - shadowValidationTime - rollbackTime;
+
+                recordPerformance(patch, "rollback", {
+                    patchApplicationTimeMs: patchTime,
+                    shadowValidationTimeMs: shadowValidationTime,
+                    rollbackTimeMs: rollbackTime,
+                    totalTimeMs: totalTime
+                });
+            }
 
             return {
                 success: false,
@@ -278,6 +372,73 @@ export function createRuntimeWrapper(
         return id in state.registry.closures;
     }
 
+    function getPerformanceHistory(): Array<PatchPerformanceEntry> {
+        return [...state.performanceHistory];
+    }
+
+    function getPerformanceStats(): PerformanceStats {
+        if (state.performanceHistory.length === 0) {
+            return {
+                totalOperations: 0,
+                averagePatchTimeMs: 0,
+                maxPatchTimeMs: 0,
+                minPatchTimeMs: 0,
+                totalTimeMs: 0,
+                averageShadowValidationMs: 0,
+                rollbackCount: 0,
+                averageRollbackTimeMs: 0
+            };
+        }
+
+        let totalPatchTime = 0;
+        let maxPatchTime = 0;
+        let minPatchTime = Number.POSITIVE_INFINITY;
+        let totalTime = 0;
+        let totalShadowValidation = 0;
+        let shadowValidationCount = 0;
+        let rollbackCount = 0;
+        let totalRollbackTime = 0;
+
+        for (const entry of state.performanceHistory) {
+            const { metrics } = entry;
+            totalPatchTime += metrics.patchApplicationTimeMs;
+            totalTime += metrics.totalTimeMs;
+            maxPatchTime = Math.max(maxPatchTime, metrics.totalTimeMs);
+            minPatchTime = Math.min(minPatchTime, metrics.totalTimeMs);
+
+            if (metrics.shadowValidationTimeMs !== undefined) {
+                totalShadowValidation += metrics.shadowValidationTimeMs;
+                shadowValidationCount++;
+            }
+
+            if (metrics.rollbackTimeMs !== undefined) {
+                rollbackCount++;
+                totalRollbackTime += metrics.rollbackTimeMs;
+            }
+        }
+
+        return {
+            totalOperations: state.performanceHistory.length,
+            averagePatchTimeMs:
+                totalPatchTime / state.performanceHistory.length,
+            maxPatchTimeMs: maxPatchTime,
+            minPatchTimeMs:
+                minPatchTime === Number.POSITIVE_INFINITY ? 0 : minPatchTime,
+            totalTimeMs: totalTime,
+            averageShadowValidationMs:
+                shadowValidationCount > 0
+                    ? totalShadowValidation / shadowValidationCount
+                    : 0,
+            rollbackCount,
+            averageRollbackTimeMs:
+                rollbackCount > 0 ? totalRollbackTime / rollbackCount : 0
+        };
+    }
+
+    function clearPerformanceHistory(): void {
+        state.performanceHistory = [];
+    }
+
     return {
         state,
         applyPatch,
@@ -286,6 +447,9 @@ export function createRuntimeWrapper(
         getPatchHistory,
         getRegistrySnapshot,
         getPatchStats,
+        getPerformanceHistory,
+        getPerformanceStats,
+        clearPerformanceHistory,
         getVersion,
         getScript,
         getEvent,

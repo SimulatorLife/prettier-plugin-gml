@@ -27,6 +27,7 @@ Creates a new runtime wrapper instance with hot-reload capabilities.
 - `registry` (optional): Initial registry state with `scripts`, `events`, and `closures`.
 - `onPatchApplied` (optional): Callback invoked after each successful patch application.
 - `validateBeforeApply` (optional): When `true`, validates patches in a shadow registry before applying to the real registry. Default is `false`.
+- `enablePerformanceTracking` (optional): When `true`, records detailed performance metrics for all patch operations. Default is `false`.
 
 **Returns:** An object with the following methods:
 
@@ -189,6 +190,78 @@ Retrieves a specific closure function by ID. Returns the function or `undefined`
 #### `hasClosure(id)`
 
 Checks if a closure with the given ID exists. Returns `true` if present, `false` otherwise.
+
+#### `getPerformanceHistory()`
+
+Returns an array of performance entries for all patch operations (apply, undo, rollback). Only available when `enablePerformanceTracking` is `true`. Each entry includes:
+
+- `patchId`: The patch identifier
+- `patchKind`: Type of patch (`"script"`, `"event"`, or `"closure"`)
+- `action`: Operation type (`"apply"`, `"undo"`, or `"rollback"`)
+- `timestamp`: Time when the operation occurred (milliseconds since epoch)
+- `metrics`: Performance metrics object with:
+  - `patchApplicationTimeMs`: Time spent applying the patch (excludes validation/rollback)
+  - `shadowValidationTimeMs`: Time spent validating in shadow registry (if enabled)
+  - `rollbackTimeMs`: Time spent rolling back (only for rollback operations)
+  - `totalTimeMs`: Total time for the entire operation
+
+Returns an empty array if performance tracking is disabled or no operations have been recorded.
+
+#### `getPerformanceStats()`
+
+Returns aggregate statistics about patch operation performance:
+
+- `totalOperations`: Total number of operations recorded
+- `averagePatchTimeMs`: Average patch application time
+- `maxPatchTimeMs`: Maximum time for any operation
+- `minPatchTimeMs`: Minimum time for any operation (0 if no operations)
+- `totalTimeMs`: Sum of all operation times
+- `averageShadowValidationMs`: Average shadow validation time (0 if not used)
+- `rollbackCount`: Number of rollback operations
+- `averageRollbackTimeMs`: Average rollback time (0 if no rollbacks)
+
+Returns zero values if performance tracking is disabled or no operations have been recorded.
+
+#### `clearPerformanceHistory()`
+
+Clears all recorded performance entries. Useful for resetting metrics between test runs or application phases.
+
+### Performance Tracking
+
+The runtime wrapper includes optional performance instrumentation to help diagnose hot-reload performance issues. When enabled via `enablePerformanceTracking: true`, the wrapper records detailed timing information for all patch operations:
+
+```javascript
+const wrapper = createRuntimeWrapper({ 
+    enablePerformanceTracking: true,
+    validateBeforeApply: true 
+});
+
+// Apply some patches
+wrapper.applyPatch({
+    kind: "script",
+    id: "script:expensive_calc",
+    js_body: "return args[0] * args[1];"
+});
+
+// Get detailed performance history
+const history = wrapper.getPerformanceHistory();
+console.log(history[0].metrics);
+// {
+//     patchApplicationTimeMs: 0.12,
+//     shadowValidationTimeMs: 0.05,
+//     totalTimeMs: 0.17
+// }
+
+// Get aggregate statistics
+const stats = wrapper.getPerformanceStats();
+console.log(`Average patch time: ${stats.averagePatchTimeMs.toFixed(2)}ms`);
+console.log(`Rollback count: ${stats.rollbackCount}`);
+
+// Reset metrics
+wrapper.clearPerformanceHistory();
+```
+
+Performance tracking is disabled by default to minimize overhead in production. Enable it during development or when investigating performance issues with hot-reload operations.
 
 ### `createWebSocketClient(options)`
 
