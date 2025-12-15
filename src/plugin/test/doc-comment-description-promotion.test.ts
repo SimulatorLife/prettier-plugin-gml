@@ -72,24 +72,21 @@ void test("keeps a blank separator before synthetic doc tags when leading text l
     ].join("\n");
 
     const formatted = await Plugin.format(source);
-    const lines = formatted.split("\n");
 
-    const summaryIndex = lines.findIndex((line) =>
-        line.includes("Additional summary")
-    );
-    assert.ok(summaryIndex !== -1, "Expected summary text to remain present.");
-    assert.equal(
-        lines[summaryIndex + 1],
-        "",
-        "Expected a blank line between the summary text and synthetic metadata."
-    );
-
-    const functionIndex = lines.findIndex((line) =>
-        line.includes("@function demo")
-    );
-    assert.ok(
-        functionIndex > summaryIndex,
-        "Expected synthetic metadata to follow the summary block."
+    const expected = [
+        "/// @function demo",
+        "/// @description Describes function usage",
+        "///              Additional summary",
+        "function demo() {",
+        "    return 42;",
+        "}",
+        ""
+    ].join("\n");
+    
+    assert.strictEqual(
+        formatted,
+        expected,
+        "Expected no extra blank lines when no doc tags are present."
     );
 });
 
