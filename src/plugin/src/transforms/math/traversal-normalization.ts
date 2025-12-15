@@ -4408,6 +4408,12 @@ function suppressTrailingLineComment( // TODO: This should be moved to where oth
     context,
     prefix = "original"
 ) {
+    if (
+        shouldPreserveExistingLineComment(targetLine, prefix, context)
+    ) {
+        return;
+    }
+
     if (!Number.isFinite(targetLine)) {
         return;
     }
@@ -4451,6 +4457,56 @@ function suppressTrailingLineComment( // TODO: This should be moved to where oth
             }
         }
     }
+}
+
+function shouldPreserveExistingLineComment(
+    targetLine,
+    prefix,
+    context
+) {
+    if (
+        !Number.isFinite(targetLine) ||
+        targetLine <= 0 ||
+        typeof prefix !== "string" ||
+        prefix.trim().length === 0
+    ) {
+        return false;
+    }
+
+    const sourceText = getSourceTextFromContext(context);
+    if (typeof sourceText !== "string" || sourceText.length === 0) {
+        return false;
+    }
+
+    const normalizedPrefix = prefix.trim().toLowerCase();
+
+    const sanitizedText = sourceText.replace(/\r/g, "");
+    const lines = sanitizedText.split("\n");
+    const lineIndex = targetLine - 1;
+    if (lineIndex < 0 || lineIndex >= lines.length) {
+        return false;
+    }
+
+    const lineText = lines[lineIndex];
+    if (typeof lineText !== "string" || lineText.length === 0) {
+        return false;
+    }
+
+    const commentStart = lineText.indexOf("//");
+    if (commentStart === -1) {
+        return false;
+    }
+
+    const commentValue = lineText
+        .slice(commentStart + 2)
+        .trim()
+        .toLowerCase();
+
+    if (commentValue.length === 0) {
+        return false;
+    }
+
+    return commentValue.startsWith(normalizedPrefix);
 }
 
 function removeSimplifiedAliasDeclaration(context, simplifiedNode) {
