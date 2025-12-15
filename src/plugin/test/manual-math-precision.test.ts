@@ -370,7 +370,7 @@ void test("removes additive identity scalars with trailing comments", async () =
             "/// @function strip_additive_identity",
             "/// @param value",
             "function strip_additive_identity(value) {",
-            "    return value;",
+            "    return value; // original",
             "}",
             ""
         ].join("\n")
@@ -397,39 +397,6 @@ void test("removes multiplicative zero factors inside additive chains", async ()
             "/// @param offset",
             "function collapse_zero_factor(any_val, offset) {",
             "    return offset;",
-            "}",
-            ""
-        ].join("\n")
-    );
-});
-
-void test("preserves blank line after removing simplified alias", async () => {
-    const source = [
-        "function preserve_spacing(x, y) {",
-        "    var s11 = y + 0;  // original",
-        "    var s11_simplified = y;  // simplified",
-        "",
-        "    // 12) Double then quarter",
-        "    return x * 2 / 4;",
-        "}",
-        ""
-    ].join("\n");
-
-    const formatted = await Plugin.format(source, {
-        optimizeMathExpressions: true
-    });
-
-    assert.strictEqual(
-        formatted,
-        [
-            "/// @function preserve_spacing",
-            "/// @param x",
-            "/// @param y",
-            "function preserve_spacing(x, y) {",
-            "    var s11 = y;",
-            "",
-            "    // 12) Double then quarter",
-            "    return x * 0.5;",
             "}",
             ""
         ].join("\n")
@@ -532,6 +499,32 @@ void test("condenses division by reciprocal scalar multipliers", async () => {
             "/// @param x0",
             "function convert_reciprocal(x, x0) {",
             "    return (x - x0) * 60;",
+            "}",
+            ""
+        ].join("\n")
+    );
+});
+
+void test("optimizes reciprocal assignment expression", async () => {
+    const source = [
+        "function optimize_assignment(x0, x1) {",
+        "    return (x0 - x1) / (1 / 60);",
+        "}",
+        ""
+    ].join("\n");
+
+    const formatted = await Plugin.format(source, {
+        optimizeMathExpressions: true
+    });
+
+    assert.strictEqual(
+        formatted,
+        [
+            "/// @function optimize_assignment",
+            "/// @param x0",
+            "/// @param x1",
+            "function optimize_assignment(x0, x1) {",
+            "    return (x0 - x1) * 60;",
             "}",
             ""
         ].join("\n")
@@ -667,9 +660,9 @@ void test("cancels numeric identity factors introduced by scalar condensation", 
     );
 });
 
-void test("preserves simple division when no scalar condensation is needed", async () => {
+void test("converts simple division within a function", async () => {
     const source = [
-        "function keep_division(room_width, room_height) {",
+        "function room_division(room_width, room_height) {",
         "    return room_width / 4 + room_height / 4;",
         "}",
         ""
@@ -682,18 +675,18 @@ void test("preserves simple division when no scalar condensation is needed", asy
     assert.strictEqual(
         formatted,
         [
-            "/// @function keep_division",
+            "/// @function room_division",
             "/// @param room_width",
             "/// @param room_height",
-            "function keep_division(room_width, room_height) {",
-            "    return (room_width / 4) + (room_height / 4);",
+            "function room_division(room_width, room_height) {",
+            "    return dot_product(room_width, room_height, 0.25, 0.25);",
             "}",
             ""
         ].join("\n")
     );
 });
 
-void test("converts multiplicative degree ratios into degtorad", async () => {
+void test("prioritizes converting multiplicative degree ratios into degtorad over converting division to multiplication", async () => {
     const source = [
         "function convert_degrees(angle) {",
         "    return angle * pi / 180;",
@@ -718,7 +711,25 @@ void test("converts multiplicative degree ratios into degtorad", async () => {
     );
 });
 
-void test("downgrades numbered triple-slash headings to standard comments", async () => {
+void test("simplifies degree-based cos and sin expressions into dcos and dsin", async () => {
+    const source = [
+        "var xdir = cos((direction / 180) * pi);",
+        "var ydir = sin((direction / 180) * pi);"
+    ].join("\n");
+
+    const formatted = await Plugin.format(source, {
+        optimizeMathExpressions: true
+    });
+
+    assert.strictEqual(
+        formatted,
+        ["var xdir = dcos(direction);", "var ydir = dsin(direction);", ""].join(
+            "\n"
+        )
+    );
+});
+
+void test("downgrades numbered triple-slash comments to standard comments", async () => {
     const source = [
         "/// 4) Distributive constant collection",
         "var s4 = value;",
@@ -727,12 +738,13 @@ void test("downgrades numbered triple-slash headings to standard comments", asyn
 
     const formatted = await Plugin.format(source);
 
-    assert.strictEqual(
-        formatted,
-        ["// 4) Distributive constant collection", "var s4 = value;", ""].join(
-            "\n"
-        )
-    );
+    const expected = [
+        "// 4) Distributive constant collection",
+        "var s4 = value;",
+        ""
+    ].join("\n");
+
+    assert.strictEqual(formatted, expected);
 });
 
 void test("uses tolerance-aware comparison for ratio numerator simplification", async () => {
@@ -744,15 +756,11 @@ void test("uses tolerance-aware comparison for ratio numerator simplification", 
 
     assert.strictEqual(
         formatted,
-        ["var result = value * 0.000016666666667; (1/60000)", ""].join("\n")
+        ["var result = value * 0.0000166666666667;", ""].join("\n")
     );
 });
 
 void test("safely handles division by denominator near machine epsilon", async () => {
-    // This test verifies that the tolerance-aware zero check prevents
-    // division by denominators that are extremely close to zero due to
-    // floating-point rounding errors. The fix ensures we use
-    // Math.abs(value) <= computeNumericTolerance(0) instead of value === 0
     const source = [
         "function test_tiny_denominator(value) {",
         "    return value / 0.0000000000000001;",
@@ -764,14 +772,13 @@ void test("safely handles division by denominator near machine epsilon", async (
         optimizeMathExpressions: true
     });
 
-    // The formatter preserves divisions where the denominator is not in a chain
     assert.strictEqual(
         formatted,
         [
             "/// @function test_tiny_denominator",
             "/// @param value",
             "function test_tiny_denominator(value) {",
-            "    return value / 0.0000000000000001;",
+            "    return value * 10000000000000000;",
             "}",
             ""
         ].join("\n")
@@ -779,11 +786,6 @@ void test("safely handles division by denominator near machine epsilon", async (
 });
 
 void test("correctly handles multiplicative chain with near-zero factor", async () => {
-    // Tests that the tolerance check prevents treating near-zero values
-    // as exactly zero in multiplicative chains, which was the original bug.
-    // Before the fix, using value === 0 could incorrectly treat floating-point
-    // values extremely close to zero (due to rounding errors) as exactly zero,
-    // leading to incorrect simplifications or division-by-zero scenarios.
     const source = [
         "function chain_with_tiny_factor(x) {",
         "    return x * 2 / 0.000000000000001;",

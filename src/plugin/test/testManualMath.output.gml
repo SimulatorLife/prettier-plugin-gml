@@ -20,5 +20,6 @@ var lenXRadians = lengthdir_x(radius, direction);
 var lenYRadians = lengthdir_y(radius, direction);
 var sinDegrees = dsin(direction);
 var cosDegrees = dcos(direction);
+var tanDegrees = dtan(direction);
 var unchangedCall = update() * update();
 var commented = value /* keep */ * value;

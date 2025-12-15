@@ -10267,8 +10267,10 @@ function attachLeadingCommentsToWrappedPrimitive({
         }
 
         const trimmedValue = Core.getCommentValue(comment, { trim: true });
+        const isDocStyleComment = trimmedValue.startsWith("/");
+        const isBlockStartComment = previousEndIndex === null;
 
-        if (!trimmedValue.startsWith("/")) {
+        if (!isDocStyleComment && !isBlockStartComment) {
             continue;
         }
 
@@ -11580,7 +11582,7 @@ function attachLeadingCommentsToHoistedDeclaration({
 
         const trimmedValue = Core.getCommentValue(comment, { trim: true });
 
-        if (!trimmedValue.startsWith("/")) {
+        if (!trimmedValue) {
             continue;
         }
 
@@ -15997,10 +15999,12 @@ function sanitizeTypeAnnotationText(typeText, typeSystemInfo) {
         typeSystemInfo?.specifierBaseTypeNamesLower
     );
 
-    return fixTypeUnionSpacing(
+    const unionSanitized = fixTypeUnionSpacing(
         specifierSanitized,
         typeSystemInfo?.baseTypeNamesLower
     );
+
+    return normalizeCollectionTypeDelimiters(unionSanitized);
 }
 
 // TODO: Move this into the doc-comment service/manager in Core
@@ -16273,6 +16277,16 @@ function fixTypeUnionSpacing(typeText, baseTypesLower) {
     }
 
     return trimmedSegments.join(",");
+}
+
+// Convert legacy square-bracket collection syntax (e.g. Array[String]) into
+// Feather's preferred angle-bracket form.
+function normalizeCollectionTypeDelimiters(typeText) {
+    if (typeof typeText !== "string" || typeText.length === 0) {
+        return typeText ?? "";
+    }
+
+    return typeText.replaceAll("[", "<").replaceAll("]", ">");
 }
 
 // TODO: Move this into the doc-comment service/manager in Core

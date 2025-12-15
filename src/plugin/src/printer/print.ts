@@ -162,6 +162,30 @@ const ARGUMENT_IDENTIFIER_PATTERN = /^argument(\d+)$/;
 
 const forcedStructArgumentBreaks = new WeakMap();
 
+const GM1015_DIAGNOSTIC_ID = "GM1015";
+
+function hasFeatherFix(node, id) {
+    if (!node || typeof node !== OBJECT_TYPE) {
+        return false;
+    }
+
+    const metadata = Array.isArray(node._appliedFeatherDiagnostics)
+        ? node._appliedFeatherDiagnostics
+        : [];
+
+    if (metadata.length === 0) {
+        return false;
+    }
+
+    for (const entry of metadata) {
+        if (entry && entry.id === id) {
+            return true;
+        }
+    }
+
+    return false;
+}
+
 function callPathMethod(
     path: any,
     methodName: any,
@@ -736,6 +760,14 @@ function _printImpl(path, options, print) {
             );
         }
         case "ExpressionStatement": {
+            const expression = node.expression;
+            if (
+                expression?.type === "AssignmentExpression" &&
+                expression.operator === "/=" &&
+                hasFeatherFix(expression, GM1015_DIAGNOSTIC_ID)
+            ) {
+                return "";
+            }
             if (node.comments && node.comments.length > 0) {
                 console.log(
                     "[DEBUG] ExpressionStatement has comments:",
@@ -745,6 +777,24 @@ function _printImpl(path, options, print) {
             return print("expression");
         }
         case "AssignmentExpression": {
+            const parentNode =
+                typeof path.getParentNode === "function"
+                    ? path.getParentNode()
+                    : (path.parent ?? null);
+            const parentType = parentNode?.type;
+            const isStandaloneAssignment =
+                parentType === "Program" ||
+                parentType === "BlockStatement" ||
+                parentType === "SwitchCase" ||
+                parentType === "ExpressionStatement";
+
+            if (
+                node.operator === "/=" &&
+                isStandaloneAssignment &&
+                hasFeatherFix(node, GM1015_DIAGNOSTIC_ID)
+            ) {
+                return "";
+            }
             if (node.comments && node.comments.length > 0) {
                 console.log(
                     "[DEBUG] AssignmentExpression has comments:",
@@ -802,8 +852,7 @@ function _printImpl(path, options, print) {
                 });
 
                 if (parts.length === 0) {
-                    // console.log("[DEBUG] GlobalVarStatement empty parts, returning empty string");
-                    return "";
+                    return null;
                 }
 
                 return join(hardline, parts);
@@ -911,10 +960,19 @@ function _printImpl(path, options, print) {
             ]);
         }
         case "BinaryExpression": {
+            if (
+                node.operator === "/" &&
+                hasFeatherFix(node, GM1015_DIAGNOSTIC_ID)
+            ) {
+                return print("left");
+            }
             const left = print("left");
             let operator = node.operator;
             let right;
             const logicalOperatorsStyle = resolveLogicalOperatorsStyle(options);
+            const optimizeMathExpressions = Boolean(
+                options?.optimizeMathExpressions
+            );
 
             const leftIsUndefined = Core.isUndefinedSentinel(node.left);
             const rightIsUndefined = Core.isUndefinedSentinel(node.right);
@@ -941,6 +999,7 @@ function _printImpl(path, options, print) {
             }
 
             const canConvertDivisionToHalf =
+                optimizeMathExpressions &&
                 operator === "/" &&
                 node?.right?.type === "Literal" &&
                 node.right.value === "2" &&
@@ -2483,7 +2542,7 @@ function printStatements(path, options, print, childrenAttribute) {
         const isTopLevel = childPath.parent?.type === "Program";
         const printed = print();
 
-        if (printed === undefined || printed === null) {
+        if (printed === undefined || printed === null || printed === "") {
             return [];
         }
 
@@ -3220,11 +3279,13 @@ function getSimpleAssignmentLikeEntry(
             : "var";
     const prefixLength = keyword.length + 1;
 
+    const shouldEnableVarAlignment = keyword === "var";
+
     return {
         locationNode: statement,
         paddingTarget: declarator,
         nameLength: (id.name as string).length,
-        enablesAlignment,
+        enablesAlignment: enablesAlignment || shouldEnableVarAlignment,
         skipBreakAfter,
         prefixLength
     };
@@ -3293,6 +3354,9 @@ function getMemberExpressionLength(expression) {
         }
 
         if (object.type === "Identifier") {
+            if (object.name === "global") {
+                return null;
+            }
             length += object.name.length;
             return length;
         }
@@ -4963,15 +5027,20 @@ function shouldOmitSyntheticParens(path) {
         return false;
     }
 
+    const parentKey = callPathMethod(path, "getName");
     const expression = node.expression;
+
+    if (
+        shouldStripStandaloneAdditiveParentheses(parent, parentKey, expression)
+    ) {
+        return true;
+    }
 
     // For ternary expressions, omit unnecessary parentheses around simple
     // identifiers or member expressions in the test position
     if (parent.type === "TernaryExpression") {
-        const parentKey = callPathMethod(path, "getName");
-        if (parentKey === "test") {
-            const expression = node.expression;
-            // Trim redundant parentheses when the ternary guard is just a bare
+        if (
+            parentKey === "test" && // Trim redundant parentheses when the ternary guard is just a bare
             // identifier or property lookup. The parser faithfully records the
             // author-supplied parens as a `ParenthesizedExpression`, so without
             // this branch the printer would emit `(foo) ?` style guards that look
@@ -4981,13 +5050,11 @@ function shouldOmitSyntheticParens(path) {
             // the removal scoped to trivially safe shapes so we do not second-
             // guess parentheses that communicate evaluation order for compound
             // boolean logic or arithmetic.
-            if (
-                expression?.type === "Identifier" ||
+            (expression?.type === "Identifier" ||
                 expression?.type === "MemberDotExpression" ||
-                expression?.type === "MemberIndexExpression"
-            ) {
-                return true;
-            }
+                expression?.type === "MemberIndexExpression")
+        ) {
+            return true;
         }
         return false;
     }
@@ -5584,6 +5651,69 @@ function shouldFlattenMultiplicationChain(parent, expression, path) {
     }
 
     return true;
+}
+
+const MULTIPLICATIVE_BINARY_OPERATORS = new Set(["*", "/", "div", "%", "mod"]);
+
+function shouldStripStandaloneAdditiveParentheses(
+    parent,
+    parentKey,
+    expression
+) {
+    if (!parent || !expression) {
+        return false;
+    }
+
+    if (!isNumericComputationNode(expression)) {
+        return false;
+    }
+
+    const isBinaryExpression = expression.type === "BinaryExpression";
+    if (isBinaryExpression && binaryExpressionContainsString(expression)) {
+        return false;
+    }
+
+    const operatorText =
+        isBinaryExpression && typeof expression.operator === "string"
+            ? expression.operator.toLowerCase()
+            : null;
+    const isMultiplicativeExpression =
+        isBinaryExpression &&
+        operatorText !== null &&
+        MULTIPLICATIVE_BINARY_OPERATORS.has(operatorText);
+
+    switch (parent.type) {
+        case "VariableDeclarator": {
+            return parentKey === "init";
+        }
+        case "AssignmentExpression": {
+            return parentKey === "right";
+        }
+        case "ExpressionStatement": {
+            return parentKey === "expression";
+        }
+        case "ReturnStatement":
+        case "ThrowStatement": {
+            return parentKey === "argument";
+        }
+        case "BinaryExpression": {
+            if (isMultiplicativeExpression) {
+                return false;
+            }
+            if (parent.operator === "+") {
+                return parentKey === "left" || parentKey === "right";
+            }
+
+            if (parent.operator === "-") {
+                return parentKey === "left";
+            }
+
+            return false;
+        }
+        default: {
+            return false;
+        }
+    }
 }
 
 function getSanitizedMacroNames(path) {

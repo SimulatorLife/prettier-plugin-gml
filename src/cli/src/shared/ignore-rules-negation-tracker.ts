@@ -1,13 +1,8 @@
-let ignoreRulesContainNegations = false;
-
-export function hasIgnoreRuleNegations(): boolean {
-    return ignoreRulesContainNegations;
-}
-
-export function markIgnoreRuleNegationsDetected(): void {
-    ignoreRulesContainNegations = true;
-}
-
-export function resetIgnoreRuleNegations(): void {
-    ignoreRulesContainNegations = false;
-}
+/**
+ * Tracks whether any ignore files contain negated rules (patterns starting with !).
+ * Exported as a mutable object to allow direct property access while maintaining
+ * a clear boundary around the state.
+ */
+export const ignoreRuleNegations = {
+    detected: false
+};

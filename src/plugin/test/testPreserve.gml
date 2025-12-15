@@ -92,7 +92,7 @@ global.settings = {
 var item_txt = (item_id.name + "\n" + item_id.description + "\n$" + string(item_id.price));
 
 // The following math expressions should be preserved; parentheses make no difference to order of operations
-var calc = 3 + 4 + 5;
+var calc  = 3 + 4 + 5;
 var calc2 = 3 - 4 + 5;
 var calc3 = 3 * 7 * 4 * 5;
 

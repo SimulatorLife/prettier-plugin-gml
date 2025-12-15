@@ -6,6 +6,13 @@ vertex_format_begin();
 vertex_format_add_texcoord();
 format = vertex_format_end();
 
-// If a vertex format is ended but not assigned, then it does nothing and should be removed
+// If a vertex format is ended and empty but not assigned, then it does nothing and should be removed
 vertex_format_begin();
 vertex_format_end();
+
+// If a vertex format might be completed within a function call, then it should be kept
+vertex_format_begin();
+
+scr_custom_function();
+
+format2 = vertex_format_end();
