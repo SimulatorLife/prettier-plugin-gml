@@ -403,8 +403,14 @@ export function createRuntimeWrapper(
             const { metrics } = entry;
             totalPatchTime += metrics.patchApplicationTimeMs;
             totalTime += metrics.totalTimeMs;
-            maxPatchTime = Math.max(maxPatchTime, metrics.totalTimeMs);
-            minPatchTime = Math.min(minPatchTime, metrics.totalTimeMs);
+            maxPatchTime = Math.max(
+                maxPatchTime,
+                metrics.patchApplicationTimeMs
+            );
+            minPatchTime = Math.min(
+                minPatchTime,
+                metrics.patchApplicationTimeMs
+            );
 
             if (metrics.shadowValidationTimeMs !== undefined) {
                 totalShadowValidation += metrics.shadowValidationTimeMs;
