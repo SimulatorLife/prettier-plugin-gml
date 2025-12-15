@@ -10,6 +10,7 @@ import type {
     ApplyPatchResult,
     Patch,
     PatchHistoryEntry,
+    PatchKind,
     PatchPerformanceEntry,
     PatchStats,
     PerformanceMetrics,
@@ -137,7 +138,7 @@ export function createRuntimeWrapper(
         if (state.options.enablePerformanceTracking) {
             const totalTime = performance.now() - startTime;
             recordPerformance(
-                { kind: snapshot.kind, id: snapshot.id, js_body: "" },
+                { kind: snapshot.kind, id: snapshot.id },
                 "undo",
                 {
                     patchApplicationTimeMs: totalTime,
@@ -150,13 +151,13 @@ export function createRuntimeWrapper(
     }
 
     function recordPerformance(
-        patch: Patch | { kind: string; id: string; js_body: string },
+        patch: { kind: PatchKind; id: string },
         action: "apply" | "undo" | "rollback",
         metrics: PerformanceMetrics
     ): void {
         state.performanceHistory.push({
             patchId: patch.id,
-            patchKind: patch.kind as "script" | "event" | "closure",
+            patchKind: patch.kind,
             action,
             timestamp: Date.now(),
             metrics
