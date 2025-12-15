@@ -161,6 +161,9 @@ const FEATHER_COMMENT_OUT_SYMBOL = Symbol.for(
 const FEATHER_COMMENT_TEXT_SYMBOL = Symbol.for(
     "prettier.gml.feather.commentText"
 );
+const FEATHER_COMMENT_PREFIX_TEXT_SYMBOL = Symbol.for(
+    "prettier.gml.feather.commentPrefixText"
+);
 
 const ARGUMENT_IDENTIFIER_PATTERN = /^argument(\d+)$/;
 
@@ -1096,12 +1099,30 @@ function _printImpl(path, options, print) {
                     node[FEATHER_COMMENT_TEXT_SYMBOL].length > 0
                         ? node[FEATHER_COMMENT_TEXT_SYMBOL]
                         : commentText;
+                const prefixTextValue = node[FEATHER_COMMENT_PREFIX_TEXT_SYMBOL];
+                const prefixText =
+                    typeof prefixTextValue === STRING_TYPE &&
+                    prefixTextValue.length > 0
+                        ? prefixTextValue
+                        : null;
+                const docs = [];
 
-                if (renderedText) {
-                    return concat(["// ", renderedText]);
+                if (prefixText) {
+                    docs.push(concat(["// ", prefixText]));
                 }
 
-                return "//";
+                if (renderedText) {
+                    if (docs.length > 0) {
+                        docs.push(hardline);
+                    }
+                    docs.push(concat(["// ", renderedText]));
+                }
+
+                if (docs.length === 0) {
+                    return "//";
+                }
+
+                return concat(docs);
             }
 
             if (options && typeof options.originalText === STRING_TYPE) {

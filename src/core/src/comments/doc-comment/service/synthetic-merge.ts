@@ -189,12 +189,22 @@ export function mergeSyntheticDocComments(
         originalExistingHasDocLikePrefixes ||
         hasMultiLineSummary
     ) {
+        if (hasMultiLineSummary) {
+            console.log(
+                "[DEBUG MERGE PROMOTE] normalizedExistingLines before promotion:",
+                normalizedExistingLines
+            );
+        }
         normalizedExistingLines = toMutableArray(
             promoteLeadingDocCommentTextToDescription(
                 normalizedExistingLines,
                 _computedSynthetic
             )
         ) as MutableDocCommentLines;
+        console.log(
+            "[DEBUG MERGE PROMOTE] normalizedExistingLines after promotion:",
+            normalizedExistingLines
+        );
     }
 
     const syntheticLines =

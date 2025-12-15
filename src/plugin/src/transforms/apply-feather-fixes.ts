@@ -67,6 +67,9 @@ const FEATHER_COMMENT_OUT_SYMBOL = Symbol.for(
 const FEATHER_COMMENT_TEXT_SYMBOL = Symbol.for(
     "prettier.gml.feather.commentText"
 );
+const FEATHER_COMMENT_PREFIX_TEXT_SYMBOL = Symbol.for(
+    "prettier.gml.feather.commentPrefixText"
+);
 const VERTEX_BEGIN_TEMPLATE_CACHE = new WeakMap();
 const FILE_FIND_BLOCK_CALL_TARGETS = new Set(["file_find_next"]);
 const FILE_FIND_CLOSE_FUNCTION_NAME = "file_find_close";
@@ -14191,6 +14194,23 @@ function ensureVertexFormatDefinitionIsClosed(
     }
 
     commentTargets.push(vertexFormatEndCall);
+
+    const commentPrefixText =
+        "TODO: Incomplete vertex format definition automatically commented out (GM2015)";
+
+    if (
+        typeof commentPrefixText === "string" &&
+        commentPrefixText.length > 0 &&
+        node &&
+        typeof node === "object"
+    ) {
+        Object.defineProperty(node, FEATHER_COMMENT_PREFIX_TEXT_SYMBOL, {
+            configurable: true,
+            enumerable: false,
+            writable: true,
+            value: commentPrefixText
+        });
+    }
 
     for (const target of commentTargets) {
         markCallExpressionForFeatherComment(target);
