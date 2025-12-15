@@ -29,7 +29,7 @@ import { computeSyntheticFunctionDocLines } from "./synthetic-generation.js";
 
 const STRING_TYPE = "string";
 
-function getDocCommentSummarySuffix(trimmedLine: string): string | null {
+function getDocCommentSuffix(trimmedLine: string): string | null {
     const tripleSlashMatch = trimmedLine.match(/^\/\/\/(.*)$/);
     if (tripleSlashMatch) {
         return tripleSlashMatch[1];
@@ -50,7 +50,7 @@ function hasMultiLineDocCommentSummary(
         return false;
     }
 
-    let summaryLineCount = 0;
+    let summaryCount = 0;
 
     for (const line of docLines) {
         if (typeof line !== STRING_TYPE) {
@@ -58,8 +58,12 @@ function hasMultiLineDocCommentSummary(
         }
 
         const trimmed = line.trim();
+        if (trimmed.length === 0) {
+            continue;
+        }
+
         const isDocLikeSummary =
-            trimmed.startsWith("///") || /^\s*\/\/\s*\//.test(trimmed);
+            trimmed.startsWith("///") || /^\s*\/\/\s*\/\s*/.test(trimmed);
         if (!isDocLikeSummary) {
             break;
         }
@@ -70,14 +74,14 @@ function hasMultiLineDocCommentSummary(
             break;
         }
 
-        const suffix = getDocCommentSummarySuffix(trimmed);
+        const suffix = getDocCommentSuffix(trimmed);
         if (!suffix) {
             continue;
         }
 
         if (suffix.trim().length > 0) {
-            summaryLineCount += 1;
-            if (summaryLineCount >= 2) {
+            summaryCount += 1;
+            if (summaryCount >= 2) {
                 return true;
             }
         }
@@ -1401,7 +1405,9 @@ export function mergeSyntheticDocComments(
             existingDocLines.some((l) =>
                 typeof l === STRING_TYPE ? parseDocCommentMetadata(l) : false
             );
-        if (originalHasPlainSummary && !originalHasTags) {
+        const hasMultiLineSummary =
+            hasMultiLineDocCommentSummary(existingDocLines);
+        if (originalHasPlainSummary && !originalHasTags && !hasMultiLineSummary) {
             const summaryLines = [] as string[];
             const otherLines = [] as string[];
 

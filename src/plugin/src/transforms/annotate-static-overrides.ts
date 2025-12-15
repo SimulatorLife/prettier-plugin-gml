@@ -34,14 +34,15 @@ export class AnnotateStaticFunctionOverridesTransform extends FunctionalParserTr
             }
 
             for (const [staticName, statement] of info.staticFunctions) {
-                if (
-                    this.hasAncestorStaticFunction(
-                        constructors,
-                        info.parentName,
-                        staticName
-                    )
-                ) {
+                const ancestorStatic = this.findAncestorStaticFunction(
+                    constructors,
+                    info.parentName,
+                    staticName
+                );
+                if (ancestorStatic) {
                     statement._overridesStaticFunction = true;
+                    (statement as MutableGameMakerAstNode)._overridesStaticFunctionNode =
+                        ancestorStatic;
                 }
             }
         }
@@ -132,11 +133,11 @@ export class AnnotateStaticFunctionOverridesTransform extends FunctionalParserTr
     /**
      * Search the constructor hierarchy to see if an ancestor already defines the named static helper.
      */
-    private hasAncestorStaticFunction(
+    private findAncestorStaticFunction(
         constructors: Map<string, ConstructorInfo>,
         startName: string | null | undefined,
         targetName: string
-    ) {
+    ): MutableGameMakerAstNode | null {
         const visited = new Set<string>();
         let currentName = Core.getNonEmptyString(startName);
 
@@ -151,14 +152,15 @@ export class AnnotateStaticFunctionOverridesTransform extends FunctionalParserTr
                 break;
             }
 
-            if (info.staticFunctions.has(targetName)) {
-                return true;
+            const ancestorStatic = info.staticFunctions.get(targetName);
+            if (ancestorStatic) {
+                return ancestorStatic;
             }
 
             currentName = Core.getNonEmptyString(info.parentName);
         }
 
-        return false;
+        return null;
     }
 
     /**

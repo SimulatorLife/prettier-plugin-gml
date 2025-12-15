@@ -90,6 +90,138 @@ function collapseDuplicateBlankLines(formatted: string): string {
     return formatted.replaceAll(MULTIPLE_BLANK_LINE_PATTERN, "\n\n");
 }
 
+const DOC_COMMENT_LINE_PATTERN = /^\s*(\/\/\/|\/\/\s*\/)/;
+const DOC_COMMENT_TAG_PATTERN = /^\/\/\/\s*@/i;
+const DOC_COMMENT_ALT_TAG_PATTERN = /^\/\/\s*\/\s*@/i;
+
+function isDocCommentLine(line: string): boolean {
+    return DOC_COMMENT_LINE_PATTERN.test(line);
+}
+
+function isDocCommentTagLine(trimmedLine: string): boolean {
+    return (
+        DOC_COMMENT_TAG_PATTERN.test(trimmedLine) ||
+        DOC_COMMENT_ALT_TAG_PATTERN.test(trimmedLine)
+    );
+}
+
+function extractDocCommentText(line: string): string {
+    const trimmed = line.trim();
+    const tripleMatch = trimmed.match(/^\/\/\/(.*)$/);
+    if (tripleMatch) {
+        return tripleMatch[1];
+    }
+
+    const docLikeMatch = trimmed.match(/^\/\/\s*\/(.*)$/);
+    if (docLikeMatch) {
+        return docLikeMatch[1];
+    }
+
+    return "";
+}
+
+function promoteMultiLineDocDescriptions(formatted: string): string {
+    const lines = formatted.split("\n");
+    let index = 0;
+
+    while (index < lines.length) {
+        const trimmed = lines[index].trim();
+        if (!/^\/\/\/\s*@function\b/i.test(trimmed)) {
+            index += 1;
+            continue;
+        }
+
+        const summaryEntries: {
+            index: number;
+            line: string;
+            text: string;
+        }[] = [];
+        let scanIndex = index - 1;
+
+        while (scanIndex >= 0) {
+            const candidate = lines[scanIndex];
+            const candidateTrimmed = candidate.trim();
+
+            if (candidateTrimmed === "") {
+                scanIndex -= 1;
+                continue;
+            }
+
+            if (!isDocCommentLine(candidate)) {
+                break;
+            }
+
+            if (isDocCommentTagLine(candidateTrimmed)) {
+                break;
+            }
+
+            summaryEntries.push({
+                index: scanIndex,
+                line: candidate,
+                text: extractDocCommentText(candidate).trim()
+            });
+            scanIndex -= 1;
+        }
+
+        if (summaryEntries.length === 0) {
+            index += 1;
+            continue;
+        }
+
+        summaryEntries.reverse();
+        const summaryTexts = summaryEntries
+            .map((entry) => entry.text)
+            .filter((text) => text.length > 0);
+
+        if (summaryTexts.length < 2) {
+            index += 1;
+            continue;
+        }
+
+        const firstEntryWithText = summaryEntries.find(
+            (entry) => entry.text.length > 0
+        );
+        const indentMatch =
+            firstEntryWithText?.line.match(/^(\s*)/) ?? undefined;
+        const indent = indentMatch ? indentMatch[1] : "";
+
+        const normalizedBasePrefix = `${indent}///`;
+        const descriptionLinePrefix = `${normalizedBasePrefix} @description ${summaryTexts[0]}`;
+        const continuationPadding = Math.max(
+            descriptionLinePrefix.length - (indent.length + 4),
+            0
+        );
+        const continuationPrefix = `${indent}/// ${" ".repeat(
+            continuationPadding
+        )}`;
+        const descriptionLines = [
+            descriptionLinePrefix,
+            ...summaryTexts.slice(1).map(
+                (text) => `${continuationPrefix}${text}`
+            )
+        ];
+
+        const summaryStart = summaryEntries[0].index;
+        const summaryCount = summaryEntries.length;
+        lines.splice(summaryStart, summaryCount);
+        index -= summaryCount;
+
+        while (
+            index - 1 >= 0 &&
+            lines[index - 1].trim() === ""
+        ) {
+            lines.splice(index - 1, 1);
+            index -= 1;
+        }
+
+        const insertPosition = index + 1;
+        lines.splice(insertPosition, 0, ...descriptionLines);
+        index = insertPosition + descriptionLines.length;
+    }
+
+    return lines.join("\n");
+}
+
 function extractOptionDefaults(
     optionConfigMap: SupportOptions
 ): Record<string, unknown> {
@@ -151,7 +283,9 @@ async function format(source: string, options: SupportOptions = {}) {
     // `trim()` previously removed leading/trailing blank lines (including
     // the canonical trailing newline) which caused a large number of
     // printing tests to fail. Keep the value as emitted by Prettier.
-    return collapseVertexFormatBeginSpacing(normalizedCleaned);
+    const withPromotedDescriptions =
+        promoteMultiLineDocDescriptions(normalizedCleaned);
+    return collapseVertexFormatBeginSpacing(withPromotedDescriptions);
 }
 
 const defaultOptions = Core.createReadOnlyView<GmlPluginDefaultOptions>(

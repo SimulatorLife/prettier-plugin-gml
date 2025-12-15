@@ -3,6 +3,7 @@ import { Core, type MutableDocCommentLines } from "@gml-modules/core";
 import { resolveDocCommentPrinterOptions } from "./doc-comment-options.js";
 
 const STRING_TYPE = "string";
+const DESCRIPTION_TAG_PATTERN = /^\/\/\/\s*@description\b/i;
 
 function resolveProgramNode(path): any {
     let programNode = null;
@@ -267,55 +268,108 @@ export function collectFunctionDocCommentDocs({
     };
 }
 
-/**
- * Apply doc-comment normalization and synthesis rules for function-like nodes.
- * The helper merges synthetic documentation when requested by the core logic
- * and ensures nested functions receive appropriate leading whitespace in the
- * presence of generated doc comments.
- */
-export function normalizeFunctionDocCommentDocs({
-    docCommentDocs,
-    needsLeadingBlankLine,
-    node,
-    options,
-    path
-}: any) {
-    const docCommentOptions = resolveDocCommentPrinterOptions(options);
-
-    if (
-        Core.shouldGenerateSyntheticDocForFunction(
-            path,
-            docCommentDocs,
-            docCommentOptions
-        )
-    ) {
-        docCommentDocs = Core.toMutableArray(
-            Core.mergeSyntheticDocComments(
-                node,
-                docCommentDocs,
-                docCommentOptions
-            )
-        ) as MutableDocCommentLines;
-        if (Array.isArray(docCommentDocs)) {
-            while (
-                docCommentDocs.length > 0 &&
-                typeof docCommentDocs[0] === STRING_TYPE &&
-                docCommentDocs[0].trim() === ""
-            ) {
-                docCommentDocs.shift();
-            }
-        }
-        const parentNode = path.getParentNode();
-        if (
-            parentNode &&
-            parentNode.type === "BlockStatement" &&
-            !needsLeadingBlankLine
-        ) {
-            needsLeadingBlankLine = true;
-        }
+function collectDescriptionContinuations(
+    docCommentDocs: MutableDocCommentLines
+): string[] {
+    if (!Array.isArray(docCommentDocs)) {
+        return [];
     }
 
-    return { docCommentDocs, needsLeadingBlankLine };
+    const descriptionIndex = docCommentDocs.findIndex(
+        (line) =>
+            typeof line === STRING_TYPE &&
+            DESCRIPTION_TAG_PATTERN.test(line.trim())
+    );
+
+    if (descriptionIndex === -1) {
+        return [];
+    }
+
+    const continuations: string[] = [];
+
+    for (
+        let index = descriptionIndex + 1;
+        index < docCommentDocs.length;
+        index += 1
+    ) {
+        const line = docCommentDocs[index];
+
+        if (typeof line !== STRING_TYPE) {
+            break;
+        }
+
+        if (!line.trim().startsWith("///")) {
+            break;
+        }
+
+        if (/^\/\/\/\s*@/.test(line.trim())) {
+            break;
+        }
+
+        const suffix = line.trim().slice(3).trim();
+        if (suffix.length === 0) {
+            continue;
+        }
+
+        continuations.push(line);
+    }
+
+    return continuations;
+}
+
+function applyDescriptionContinuations(
+    docCommentDocs: MutableDocCommentLines,
+    continuations: string[]
+): MutableDocCommentLines {
+    if (!Array.isArray(docCommentDocs) || continuations.length === 0) {
+        return docCommentDocs;
+    }
+
+    const descriptionIndex = docCommentDocs.findIndex(
+        (line) =>
+            typeof line === STRING_TYPE &&
+            DESCRIPTION_TAG_PATTERN.test(line.trim())
+    );
+
+    if (descriptionIndex === -1) {
+        return docCommentDocs;
+    }
+
+    const { indent, prefix } = resolveDescriptionIndentation(
+        docCommentDocs[descriptionIndex]
+    );
+    const continuationPrefix = `${indent}/// ${" ".repeat(
+        Math.max(prefix.length - 4, 0)
+    )}`;
+
+    let insertIndex = descriptionIndex + 1;
+
+    for (const original of continuations) {
+        const formatted = formatDescriptionContinuationLine(
+            original,
+            continuationPrefix
+        );
+
+        if (!formatted) {
+            continue;
+        }
+
+        const normalized = formatted.trim();
+        const alreadyExists = docCommentDocs.some(
+            (line) =>
+                typeof line === STRING_TYPE &&
+                line.trim() === normalized
+        );
+
+        if (alreadyExists) {
+            continue;
+        }
+
+        docCommentDocs.splice(insertIndex, 0, formatted);
+        insertIndex += 1;
+    }
+
+    return docCommentDocs;
 }
 
 function ensureDescriptionContinuations(docCommentDocs: MutableDocCommentLines) {
@@ -326,7 +380,7 @@ function ensureDescriptionContinuations(docCommentDocs: MutableDocCommentLines) 
     const descriptionIndex = docCommentDocs.findIndex(
         (line) =>
             typeof line === STRING_TYPE &&
-            /^\/\/\/\s*@description\b/i.test(line.trim())
+            DESCRIPTION_TAG_PATTERN.test(line.trim())
     );
 
     if (descriptionIndex === -1) {
@@ -415,4 +469,61 @@ function formatDescriptionContinuationLine(
     }
 
     return `${continuationPrefix}${suffix}`;
+}
+/**
+ * Apply doc-comment normalization and synthesis rules for function-like nodes.
+ * The helper merges synthetic documentation when requested by the core logic
+ * and ensures nested functions receive appropriate leading whitespace in the
+ * presence of generated doc comments.
+ */
+export function normalizeFunctionDocCommentDocs({
+    docCommentDocs,
+    needsLeadingBlankLine,
+    node,
+    options,
+    path
+}: any) {
+    const docCommentOptions = resolveDocCommentPrinterOptions(options);
+    const descriptionContinuations = collectDescriptionContinuations(
+        docCommentDocs
+    );
+
+    if (
+        Core.shouldGenerateSyntheticDocForFunction(
+            path,
+            docCommentDocs,
+            docCommentOptions
+        )
+    ) {
+        docCommentDocs = Core.toMutableArray(
+            Core.mergeSyntheticDocComments(
+                node,
+                docCommentDocs,
+                docCommentOptions
+            )
+        ) as MutableDocCommentLines;
+        docCommentDocs = applyDescriptionContinuations(
+            docCommentDocs,
+            descriptionContinuations
+        );
+        if (Array.isArray(docCommentDocs)) {
+            while (
+                docCommentDocs.length > 0 &&
+                typeof docCommentDocs[0] === STRING_TYPE &&
+                docCommentDocs[0].trim() === ""
+            ) {
+                docCommentDocs.shift();
+            }
+        }
+        const parentNode = path.getParentNode();
+        if (
+            parentNode &&
+            parentNode.type === "BlockStatement" &&
+            !needsLeadingBlankLine
+        ) {
+            needsLeadingBlankLine = true;
+        }
+    }
+
+    return { docCommentDocs, needsLeadingBlankLine };
 }

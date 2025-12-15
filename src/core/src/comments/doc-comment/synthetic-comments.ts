@@ -255,6 +255,19 @@ export function computeSyntheticDocCommentForStaticVariable(
         return null;
     }
 
+    if (
+        declarator.id?.type === "Identifier" &&
+        declarator.id.name === "print" &&
+        process.env["DEBUG_GML"] === "true"
+    ) {
+        console.log(
+            "[DEBUG] synthetic doc comment for static variable print",
+            declarator.id.name,
+            syntheticDoc?.docLines,
+            processedComments
+        );
+    }
+
     return {
         docLines: syntheticDoc?.docLines ?? null,
         hasExistingDocLines: syntheticDoc?.hasExistingDocLines === true,
@@ -312,20 +325,6 @@ export function computeSyntheticDocCommentForFunctionAssignment(
         programNode,
         sourceText
     );
-
-    if (
-        assignment.left?.name === "print" &&
-        processedComments &&
-        process.env["DEBUG_GML"] === "true"
-    ) {
-        console.log(
-            "[DEBUG] computeSyntheticDocCommentForFunctionAssignment raw",
-            assignment.left.name,
-            assignment.start,
-            functionNode.start,
-            processedComments
-        );
-    }
 
     if (!processedComments) {
         return null;
