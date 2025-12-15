@@ -874,3 +874,274 @@ void test("validateBeforeApply rejects invalid closure patches", () => {
         message: /Patch validation failed/
     });
 });
+
+void test("getPerformanceHistory returns empty array by default", () => {
+    const wrapper = RuntimeWrapper.createRuntimeWrapper();
+    const history = wrapper.getPerformanceHistory();
+    assert.ok(Array.isArray(history));
+    assert.strictEqual(history.length, 0);
+});
+
+void test("performance tracking disabled by default", () => {
+    const wrapper = RuntimeWrapper.createRuntimeWrapper();
+
+    wrapper.applyPatch({
+        kind: "script",
+        id: "script:test",
+        js_body: "return 1;"
+    });
+
+    const history = wrapper.getPerformanceHistory();
+    assert.strictEqual(history.length, 0);
+});
+
+void test("performance tracking records patch operations when enabled", () => {
+    const wrapper = RuntimeWrapper.createRuntimeWrapper({
+        enablePerformanceTracking: true
+    });
+
+    wrapper.applyPatch({
+        kind: "script",
+        id: "script:test",
+        js_body: "return 42;"
+    });
+
+    const history = wrapper.getPerformanceHistory();
+    assert.strictEqual(history.length, 1);
+    assert.strictEqual(history[0].patchId, "script:test");
+    assert.strictEqual(history[0].patchKind, "script");
+    assert.strictEqual(history[0].action, "apply");
+    assert.ok(typeof history[0].timestamp === "number");
+    assert.ok(history[0].metrics.patchApplicationTimeMs >= 0);
+    assert.ok(history[0].metrics.totalTimeMs >= 0);
+    assert.strictEqual(history[0].metrics.shadowValidationTimeMs, undefined);
+});
+
+void test("performance tracking includes shadow validation time when enabled", () => {
+    const wrapper = RuntimeWrapper.createRuntimeWrapper({
+        enablePerformanceTracking: true,
+        validateBeforeApply: true
+    });
+
+    wrapper.applyPatch({
+        kind: "script",
+        id: "script:validated",
+        js_body: "return 100;"
+    });
+
+    const history = wrapper.getPerformanceHistory();
+    assert.strictEqual(history.length, 1);
+    assert.ok(
+        typeof history[0].metrics.shadowValidationTimeMs === "number" &&
+            history[0].metrics.shadowValidationTimeMs >= 0
+    );
+    assert.ok(history[0].metrics.totalTimeMs >= 0);
+});
+
+void test("performance tracking records undo operations", () => {
+    const wrapper = RuntimeWrapper.createRuntimeWrapper({
+        enablePerformanceTracking: true
+    });
+
+    wrapper.applyPatch({
+        kind: "script",
+        id: "script:undo_test",
+        js_body: "return 5;"
+    });
+
+    wrapper.undo();
+
+    const history = wrapper.getPerformanceHistory();
+    assert.strictEqual(history.length, 2);
+    assert.strictEqual(history[0].action, "apply");
+    assert.strictEqual(history[1].action, "undo");
+    assert.strictEqual(history[1].patchId, "script:undo_test");
+    assert.ok(history[1].metrics.totalTimeMs >= 0);
+});
+
+void test("performance tracking records rollback operations", () => {
+    const wrapper = RuntimeWrapper.createRuntimeWrapper({
+        enablePerformanceTracking: true
+    });
+
+    const goodPatch = {
+        kind: "script",
+        id: "script:initial",
+        js_body: "return 1;"
+    };
+
+    wrapper.applyPatch(goodPatch);
+
+    const badPatch = {
+        kind: "script",
+        id: "script:bad",
+        js_body: "throw new Error('Runtime error');"
+    };
+
+    const result = wrapper.trySafeApply(badPatch, (patch) => {
+        if (patch.js_body.includes("throw")) {
+            throw new Error("Validation detected throw statement");
+        }
+        return true;
+    });
+
+    assert.strictEqual(result.success, false);
+    assert.strictEqual(result.rolledBack, false);
+
+    const history = wrapper.getPerformanceHistory();
+    assert.strictEqual(history.length, 1);
+    assert.strictEqual(history[0].action, "apply");
+    assert.strictEqual(history[0].patchId, "script:initial");
+});
+
+void test("getPerformanceStats returns correct statistics", () => {
+    const wrapper = RuntimeWrapper.createRuntimeWrapper({
+        enablePerformanceTracking: true,
+        validateBeforeApply: true
+    });
+
+    wrapper.applyPatch({
+        kind: "script",
+        id: "script:a",
+        js_body: "return 1;"
+    });
+
+    wrapper.applyPatch({
+        kind: "event",
+        id: "obj_test#Create",
+        js_body: "this.x = 0;"
+    });
+
+    wrapper.undo();
+
+    const stats = wrapper.getPerformanceStats();
+    assert.strictEqual(stats.totalOperations, 3);
+    assert.ok(stats.averagePatchTimeMs >= 0);
+    assert.ok(stats.maxPatchTimeMs >= 0);
+    assert.ok(stats.minPatchTimeMs >= 0);
+    assert.ok(stats.totalTimeMs >= 0);
+    assert.ok(stats.averageShadowValidationMs >= 0);
+    assert.strictEqual(stats.rollbackCount, 0);
+});
+
+void test("getPerformanceStats handles empty history", () => {
+    const wrapper = RuntimeWrapper.createRuntimeWrapper({
+        enablePerformanceTracking: true
+    });
+
+    const stats = wrapper.getPerformanceStats();
+    assert.strictEqual(stats.totalOperations, 0);
+    assert.strictEqual(stats.averagePatchTimeMs, 0);
+    assert.strictEqual(stats.maxPatchTimeMs, 0);
+    assert.strictEqual(stats.minPatchTimeMs, 0);
+    assert.strictEqual(stats.totalTimeMs, 0);
+    assert.strictEqual(stats.averageShadowValidationMs, 0);
+    assert.strictEqual(stats.rollbackCount, 0);
+    assert.strictEqual(stats.averageRollbackTimeMs, 0);
+});
+
+void test("getPerformanceStats tracks rollback statistics", () => {
+    const wrapper = RuntimeWrapper.createRuntimeWrapper({
+        enablePerformanceTracking: true
+    });
+
+    wrapper.trySafeApply(
+        {
+            kind: "script",
+            id: "script:bad1",
+            js_body: "return 1;"
+        },
+        () => {
+            throw new Error("Custom validation error 1");
+        }
+    );
+
+    wrapper.trySafeApply(
+        {
+            kind: "script",
+            id: "script:bad2",
+            js_body: "return 2;"
+        },
+        () => false
+    );
+
+    const stats = wrapper.getPerformanceStats();
+    assert.strictEqual(stats.rollbackCount, 0);
+});
+
+void test("clearPerformanceHistory removes all entries", () => {
+    const wrapper = RuntimeWrapper.createRuntimeWrapper({
+        enablePerformanceTracking: true
+    });
+
+    wrapper.applyPatch({
+        kind: "script",
+        id: "script:test1",
+        js_body: "return 1;"
+    });
+
+    wrapper.applyPatch({
+        kind: "script",
+        id: "script:test2",
+        js_body: "return 2;"
+    });
+
+    assert.strictEqual(wrapper.getPerformanceHistory().length, 2);
+
+    wrapper.clearPerformanceHistory();
+
+    assert.strictEqual(wrapper.getPerformanceHistory().length, 0);
+    const stats = wrapper.getPerformanceStats();
+    assert.strictEqual(stats.totalOperations, 0);
+});
+
+void test("performance tracking records multiple patch types", () => {
+    const wrapper = RuntimeWrapper.createRuntimeWrapper({
+        enablePerformanceTracking: true
+    });
+
+    wrapper.applyPatch({
+        kind: "script",
+        id: "script:test",
+        js_body: "return 1;"
+    });
+
+    wrapper.applyPatch({
+        kind: "event",
+        id: "obj_test#Step",
+        js_body: "this.x++;"
+    });
+
+    wrapper.applyPatch({
+        kind: "closure",
+        id: "closure:counter",
+        js_body: "let n = 0; return () => ++n;"
+    });
+
+    const history = wrapper.getPerformanceHistory();
+    assert.strictEqual(history.length, 3);
+    assert.strictEqual(history[0].patchKind, "script");
+    assert.strictEqual(history[1].patchKind, "event");
+    assert.strictEqual(history[2].patchKind, "closure");
+});
+
+void test("performance history entries have proper timestamps", () => {
+    const wrapper = RuntimeWrapper.createRuntimeWrapper({
+        enablePerformanceTracking: true
+    });
+
+    const beforeTime = Date.now();
+
+    wrapper.applyPatch({
+        kind: "script",
+        id: "script:timestamp_test",
+        js_body: "return 1;"
+    });
+
+    const afterTime = Date.now();
+
+    const history = wrapper.getPerformanceHistory();
+    assert.strictEqual(history.length, 1);
+    assert.ok(history[0].timestamp >= beforeTime);
+    assert.ok(history[0].timestamp <= afterTime);
+});

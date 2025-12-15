@@ -62,14 +62,17 @@ export interface RuntimeWrapperOptions {
     registry?: RuntimeRegistryOverrides;
     onPatchApplied?: (patch: Patch, version: number) => void;
     validateBeforeApply?: boolean;
+    enablePerformanceTracking?: boolean;
 }
 
 export interface RuntimeWrapperState {
     registry: RuntimeRegistry;
     undoStack: Array<PatchSnapshot>;
     patchHistory: Array<PatchHistoryEntry>;
+    performanceHistory: Array<PatchPerformanceEntry>;
     options: {
         validateBeforeApply: boolean;
+        enablePerformanceTracking: boolean;
     };
 }
 
@@ -81,6 +84,32 @@ export interface PatchStats {
     eventPatches: number;
     closurePatches: number;
     uniqueIds: number;
+}
+
+export interface PerformanceMetrics {
+    patchApplicationTimeMs: number;
+    shadowValidationTimeMs?: number;
+    rollbackTimeMs?: number;
+    totalTimeMs: number;
+}
+
+export interface PatchPerformanceEntry {
+    patchId: string;
+    patchKind: PatchKind;
+    action: PatchAction;
+    timestamp: number;
+    metrics: PerformanceMetrics;
+}
+
+export interface PerformanceStats {
+    totalOperations: number;
+    averagePatchTimeMs: number;
+    maxPatchTimeMs: number;
+    minPatchTimeMs: number;
+    totalTimeMs: number;
+    averageShadowValidationMs: number;
+    rollbackCount: number;
+    averageRollbackTimeMs: number;
 }
 
 export interface RuntimeRegistrySnapshot {
@@ -121,6 +150,9 @@ export interface RuntimeWrapper {
     getPatchHistory(): Array<PatchHistoryEntry>;
     getRegistrySnapshot(): RuntimeRegistrySnapshot;
     getPatchStats(): PatchStats;
+    getPerformanceHistory(): Array<PatchPerformanceEntry>;
+    getPerformanceStats(): PerformanceStats;
+    clearPerformanceHistory(): void;
     getVersion(): number;
     getScript(id: string): RuntimeFunction | undefined;
     getEvent(id: string): RuntimeFunction | undefined;
