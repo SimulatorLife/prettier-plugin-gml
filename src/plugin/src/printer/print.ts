@@ -3058,14 +3058,13 @@ export function applyAssignmentAlignment(
     childrenAttribute = null
 ) {
     const minGroupSize = getAssignmentAlignmentMinimum(options);
-    /** @type {Array<{ node: any, nameLength: number, prefixLength: number, isSelfMember: boolean }>} */
+    /** @type {Array<{ node: any, nameLength: number, prefixLength: number }>} */
     const currentGroup = [];
     // Tracking the longest identifier as we build the group avoids mapping over
     // the nodes and spreading into Math.max during every flush. This helper
     // runs in tight printer loops, so staying allocation-free keeps it cheap.
     let currentGroupMaxLength = 0;
     let currentGroupHasAlias = false;
-    let currentGroupSelfMemberCount = 0;
 
     const { originalText, locStart, locEnd } =
         resolvePrinterSourceMetadata(options);
@@ -3087,7 +3086,6 @@ export function applyAssignmentAlignment(
         currentGroup.length = 0;
         currentGroupMaxLength = 0;
         currentGroupHasAlias = false;
-        currentGroupSelfMemberCount = 0;
     };
 
     const flushGroup = () => {
@@ -3099,13 +3097,9 @@ export function applyAssignmentAlignment(
         const groupEntries = [...currentGroup];
         const meetsAlignmentThreshold =
             minGroupSize > 0 && groupEntries.length >= minGroupSize;
-        const hasSelfMembers = currentGroupSelfMemberCount > 0;
-        const hasMixedSelfMembers =
-            hasSelfMembers && currentGroupSelfMemberCount < groupEntries.length;
         const canAlign =
             meetsAlignmentThreshold &&
-            currentGroupHasAlias &&
-            !hasMixedSelfMembers;
+            currentGroupHasAlias;
 
         if (!canAlign) {
             for (const { node } of groupEntries) {
@@ -3148,13 +3142,11 @@ export function applyAssignmentAlignment(
                 flushGroup();
             }
 
-            const isSelfMember = entry.isSelfMemberAssignment === true;
             const prefixLength = entry.prefixLength ?? 0;
             currentGroup.push({
                 node: entry.paddingTarget,
                 nameLength: entry.nameLength,
                 prefixLength,
-                isSelfMember
             });
             const printedWidth = entry.nameLength + prefixLength;
             if (printedWidth > currentGroupMaxLength) {
@@ -3162,9 +3154,6 @@ export function applyAssignmentAlignment(
             }
             if (entry.enablesAlignment) {
                 currentGroupHasAlias = true;
-            }
-            if (isSelfMember) {
-                currentGroupSelfMemberCount += 1;
             }
 
             previousEntry = entry;
@@ -3238,10 +3227,7 @@ function getSimpleAssignmentLikeEntry(
             paddingTarget: statement,
             nameLength: memberLength,
             enablesAlignment: true,
-            prefixLength: 0,
-            isSelfMemberAssignment:
-                statement.left?.object?.type === "Identifier" &&
-                statement.left.object.name === "self"
+            prefixLength: 0
         };
     }
 
