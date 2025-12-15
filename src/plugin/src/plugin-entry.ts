@@ -120,103 +120,144 @@ function extractDocCommentText(line: string): string {
     return "";
 }
 
-function promoteMultiLineDocDescriptions(formatted: string): string {
-    const lines = formatted.split("\n");
-    let index = 0;
+const FUNCTION_NAME_PATTERN = /^\/\/\/\s*@function\s+([^\s(]+)/i;
 
-    while (index < lines.length) {
-        const trimmed = lines[index].trim();
-        if (!/^\/\/\/\s*@function\b/i.test(trimmed)) {
-            index += 1;
-            continue;
-        }
+function collectDocCommentSummaries(source: string): Map<string, string[]> {
+    const map = new Map<string, string[]>();
+    const lines = source.split(/\r\n|\r|\n/);
+    const pendingBlock: string[] = [];
 
-        const summaryEntries: {
-            index: number;
-            line: string;
-            text: string;
-        }[] = [];
-        let scanIndex = index - 1;
-
-        while (scanIndex >= 0) {
-            const candidate = lines[scanIndex];
-            const candidateTrimmed = candidate.trim();
-
-            if (candidateTrimmed === "") {
-                scanIndex -= 1;
+    const pushSummary = (functionMatch: RegExpMatchArray) => {
+        const summaryTexts: string[] = [];
+        for (const docLine of pendingBlock) {
+            const trimmedDoc = docLine.trim();
+            if (trimmedDoc === "") {
                 continue;
             }
-
-            if (!isDocCommentLine(candidate)) {
+            if (isDocCommentTagLine(trimmedDoc)) {
                 break;
             }
-
-            if (isDocCommentTagLine(candidateTrimmed)) {
-                break;
+            const text = extractDocCommentText(docLine).trim();
+            if (text.length > 0) {
+                summaryTexts.push(text);
             }
-
-            summaryEntries.push({
-                index: scanIndex,
-                line: candidate,
-                text: extractDocCommentText(candidate).trim()
-            });
-            scanIndex -= 1;
         }
+        if (summaryTexts.length > 0) {
+            const functionName = functionMatch[1];
+            if (!map.has(functionName)) {
+                map.set(functionName, summaryTexts);
+            }
+        }
+    };
 
-        if (summaryEntries.length === 0) {
-            index += 1;
+    for (const line of lines) {
+        if (isDocCommentLine(line)) {
+            pendingBlock.push(line);
             continue;
         }
 
-        summaryEntries.reverse();
-        const summaryTexts = summaryEntries
-            .map((entry) => entry.text)
-            .filter((text) => text.length > 0);
+        const trimmed = line.trim();
+        const functionMatch = trimmed.match(
+            /^function\s+([A-Za-z_$][A-Za-z0-9_$]*)\b/
+        );
+        if (functionMatch && pendingBlock.length > 0) {
+            pushSummary(functionMatch);
+        }
 
-        if (summaryTexts.length < 2) {
-            index += 1;
+        pendingBlock.length = 0;
+    }
+
+    return map;
+}
+
+function alignContinuationPadding(descriptionLine: string) {
+    const indentMatch = descriptionLine.match(/^(\s*)/);
+    const indent = indentMatch ? indentMatch[1] : "";
+    const trimmed = descriptionLine.trim();
+    const prefixMatch = trimmed.match(/^(\/\/\/\s*@description\s+)/i);
+    const prefix = prefixMatch ? prefixMatch[1] : "/// @description ";
+    const continuationPadding = Math.max(prefix.length - (indent.length + 4), 0);
+    const continuationPrefix = `${indent}/// ${" ".repeat(continuationPadding)}`;
+    return continuationPrefix;
+}
+
+function collectDescriptionBlockSize(
+    lines: string[],
+    startIndex: number
+) {
+    let current = startIndex + 1;
+    while (
+        current < lines.length &&
+        lines[current].trim().startsWith("///") &&
+        !/^\/\/\/\s*@/.test(lines[current].trim())
+    ) {
+        current += 1;
+    }
+    return current;
+}
+
+function promoteMultiLineDocDescriptions(
+    formatted: string,
+    source: string
+): string {
+    const lines = formatted.split("\n");
+    const docSummaries = collectDocCommentSummaries(source);
+
+    for (let index = 0; index < lines.length; index += 1) {
+        const trimmed = lines[index].trim();
+        if (!trimmed) {
+            continue;
+        }
+        const functionMatch = trimmed.match(FUNCTION_NAME_PATTERN);
+        if (!functionMatch) {
             continue;
         }
 
-        const firstEntryWithText = summaryEntries.find(
-            (entry) => entry.text.length > 0
-        );
-        const indentMatch =
-            firstEntryWithText?.line.match(/^(\s*)/) ?? undefined;
-        const indent = indentMatch ? indentMatch[1] : "";
+        const functionName = functionMatch[1];
+        const summaryTexts = docSummaries.get(functionName);
+        if (!summaryTexts || summaryTexts.length === 0) {
+            continue;
+        }
 
-        const normalizedBasePrefix = `${indent}///`;
-        const descriptionLinePrefix = `${normalizedBasePrefix} @description ${summaryTexts[0]}`;
-        const continuationPadding = Math.max(
-            descriptionLinePrefix.length - (indent.length + 4),
-            0
-        );
-        const continuationPrefix = `${indent}/// ${" ".repeat(
-            continuationPadding
-        )}`;
-        const descriptionLines = [
-            descriptionLinePrefix,
+        let descriptionIndex = index + 1;
+        while (
+            descriptionIndex < lines.length &&
+            lines[descriptionIndex].trim() === ""
+        ) {
+            descriptionIndex += 1;
+        }
+
+        if (
+            descriptionIndex >= lines.length ||
+            !/^\/\/\/\s*@description\b/i.test(
+                lines[descriptionIndex].trim()
+            )
+        ) {
+            continue;
+        }
+
+        const blockEnd = collectDescriptionBlockSize(lines, descriptionIndex);
+        const descriptionLine = lines[descriptionIndex];
+        const continuationPrefix = alignContinuationPadding(descriptionLine);
+
+        // Remove existing description block so we can reinsert in correct position
+        lines.splice(descriptionIndex, blockEnd - descriptionIndex);
+
+        // Remove blank lines between @function and insertion point
+        while (descriptionIndex - 1 > index && lines[descriptionIndex - 1].trim() === "") {
+            lines.splice(descriptionIndex - 1, 1);
+            descriptionIndex -= 1;
+        }
+
+        const newBlock: string[] = [
+            descriptionLine,
             ...summaryTexts.slice(1).map(
                 (text) => `${continuationPrefix}${text}`
             )
         ];
 
-        const summaryStart = summaryEntries[0].index;
-        const summaryCount = summaryEntries.length;
-        lines.splice(summaryStart, summaryCount);
-        index -= summaryCount;
-
-        while (
-            index - 1 >= 0 &&
-            lines[index - 1].trim() === ""
-        ) {
-            lines.splice(index - 1, 1);
-            index -= 1;
-        }
-
-        const insertPosition = index + 1;
-        lines.splice(insertPosition, 0, ...descriptionLines);
-        index = insertPosition + descriptionLines.length;
+        lines.splice(index + 1, 0, ...newBlock);
+        index += newBlock.length;
     }
 
     return lines.join("\n");
@@ -284,7 +325,7 @@ async function format(source: string, options: SupportOptions = {}) {
     // the canonical trailing newline) which caused a large number of
     // printing tests to fail. Keep the value as emitted by Prettier.
     const withPromotedDescriptions =
-        promoteMultiLineDocDescriptions(normalizedCleaned);
+        promoteMultiLineDocDescriptions(normalizedCleaned, source);
     return collapseVertexFormatBeginSpacing(withPromotedDescriptions);
 }
 

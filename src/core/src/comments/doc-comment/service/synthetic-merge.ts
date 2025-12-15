@@ -126,7 +126,7 @@ export function mergeSyntheticDocComments(
     // Compute synthetic lines early so promotion can consider synthetic tags
     // such as `/// @function` when deciding whether the file-top doc-like
     // comment text should be promoted into `@description` metadata.
-    const preserveDescriptionBreaks =
+    let preserveDescriptionBreaks =
         (existingDocLines as DocCommentLines)._preserveDescriptionBreaks ===
         true;
 
@@ -189,22 +189,17 @@ export function mergeSyntheticDocComments(
         originalExistingHasDocLikePrefixes ||
         hasMultiLineSummary
     ) {
-        if (hasMultiLineSummary) {
-            console.log(
-                "[DEBUG MERGE PROMOTE] normalizedExistingLines before promotion:",
-                normalizedExistingLines
-            );
-        }
         normalizedExistingLines = toMutableArray(
             promoteLeadingDocCommentTextToDescription(
                 normalizedExistingLines,
                 _computedSynthetic
             )
         ) as MutableDocCommentLines;
-        console.log(
-            "[DEBUG MERGE PROMOTE] normalizedExistingLines after promotion:",
-            normalizedExistingLines
-        );
+        if (
+            (normalizedExistingLines as any)?._preserveDescriptionBreaks === true
+        ) {
+            preserveDescriptionBreaks = true;
+        }
     }
 
     const syntheticLines =
@@ -1106,6 +1101,10 @@ export function mergeSyntheticDocComments(
         const updatedLine = `${normalizedPrefix}${typePart}${normalizedName}${descriptionPart}`;
         return normalizeDocCommentTypeAnnotations(updatedLine);
     });
+
+    if ((result as any)?._preserveDescriptionBreaks === true) {
+        preserveDescriptionBreaks = true;
+    }
 
     if (preserveDescriptionBreaks) {
         result = reorderedDocs;
