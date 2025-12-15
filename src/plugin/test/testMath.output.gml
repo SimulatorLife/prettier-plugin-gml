@@ -91,7 +91,7 @@ var s9 = acc * dt * 0.06;
 var s10 = size;
 
 // 11) Additive identity
-var s11 = y;
+var s11 = y; // unnecessary addition
 
 // 12) Double then quarter
 var s12 = x * 0.5;
