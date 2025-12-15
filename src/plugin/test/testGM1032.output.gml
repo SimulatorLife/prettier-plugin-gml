@@ -20,8 +20,8 @@ function sample() {
 function sample2() {
     var first = argument1;
     var three = argument3;
-    var zero = argument0;
-    var two = argument2;
+    var zero  = argument0;
+    var two   = argument2;
     return three + argument4;
 }
 
