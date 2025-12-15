@@ -382,6 +382,8 @@ function parseLegacyReturnPayload(payload: string) {
     };
 }
 
+const DOC_LIKE_CONTINUATION_PREFIX = /^\s*\/\s+/;
+
 export function promoteLeadingDocCommentTextToDescription(
     docLines: DocCommentLines | string[],
     extraTaggedDocLines: DocCommentLines | string[] = []
@@ -426,7 +428,8 @@ export function promoteLeadingDocCommentTextToDescription(
         }
 
         const [, prefix = "///", suffix = ""] = match;
-        segments.push({ prefix, suffix });
+        const trimmedSuffix = suffix.replace(DOC_LIKE_CONTINUATION_PREFIX, "");
+        segments.push({ prefix, suffix: trimmedSuffix });
         leadingCount += 1;
     }
 

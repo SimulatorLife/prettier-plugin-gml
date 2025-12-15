@@ -136,12 +136,21 @@ async function format(source: string, options: SupportOptions = {}) {
     }
     const normalized = ensureBlankLineBetweenVertexFormatComments(formatted);
     const singleBlankLines = collapseDuplicateBlankLines(normalized);
+    const docCommentFilter = /^\s*\/\/\/\s*@description\b\s*$/i;
+    const formattedLines = singleBlankLines.split("\n");
+    const filteredLines = formattedLines.filter(
+        (line) => !docCommentFilter.test(line)
+    );
+    const cleaned = filteredLines.join("\n");
+    const normalizedCleaned = singleBlankLines.endsWith("\n")
+        ? `${cleaned}\n`
+        : cleaned;
     // Return the formatted source verbatim so we keep precise newline and
     // whitespace semantics expected by the golden test fixtures. Using
     // `trim()` previously removed leading/trailing blank lines (including
     // the canonical trailing newline) which caused a large number of
     // printing tests to fail. Keep the value as emitted by Prettier.
-    return collapseVertexFormatBeginSpacing(singleBlankLines);
+    return collapseVertexFormatBeginSpacing(normalizedCleaned);
 }
 
 const defaultOptions = Core.createReadOnlyView<GmlPluginDefaultOptions>(

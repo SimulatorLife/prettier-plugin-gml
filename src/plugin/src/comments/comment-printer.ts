@@ -188,14 +188,13 @@ const handleComments = {
 
 function printComment(commentPath, options) {
     const comment = commentPath.getValue();
-    console.log(`[DEBUG] printComment called for: ${comment.value}`);
 
     if (!Core.isCommentNode(comment)) {
         if (Core.isObjectLike(comment)) {
             comment.printed = true;
         }
-    return "";
-}
+        return "";
+    }
 
     applyTrailingCommentPadding(comment);
     applySingleLeadingSpacePadding(comment, options);
@@ -229,6 +228,9 @@ function printComment(commentPath, options) {
                 formattingOptions
             );
             const normalized = typeof formatted === "string" ? formatted : "";
+            if (normalized.trim() === "/// @description") {
+                return "";
+            }
             if (comment._featherForceLeadingBlankLine === true) {
                 return [hardline, normalized];
             }

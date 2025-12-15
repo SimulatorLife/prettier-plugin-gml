@@ -2400,9 +2400,10 @@ function buildStructPropertyCommentSuffix(path, options) {
         path && typeof path.getValue === "function" ? path.getValue() : null;
     const comments = Core.asArray(node?._structTrailingComments);
     const propertyName = Core.getNodeName(node);
-    if (propertyName === "draw_points") {
+    if (comments.length > 0) {
         console.log(
-            "[DEBUG] draw_points _structTrailingComments:",
+            "[DEBUG] property with trailing comments:",
+            propertyName,
             comments.map((comment) => (comment as any)?.value)
         );
     }
@@ -2411,9 +2412,6 @@ function buildStructPropertyCommentSuffix(path, options) {
     }
 
     const commentDocs = [];
-    const propertyName =
-        (node?.name && typeof node.name === "object" && node.name.name) ||
-        (typeof node?.name === "string" ? node.name : null);
 
     for (const comment of comments) {
         if ((comment as any)?._structPropertyTrailing === true) {
@@ -2429,25 +2427,22 @@ function buildStructPropertyCommentSuffix(path, options) {
         }
     }
 
-    if (
-        propertyName === "draw_points" &&
-        commentDocs.length > 0 &&
-        commentDocs.some((doc) => doc.includes("@description"))
-    ) {
-        console.log(
-            "[DEBUG] struct draw_points commentDocs:",
-            commentDocs,
-            "raw comments:",
-            comments.map((comment) => (comment as any)?.value)
-        );
+    if (propertyName === "draw_points") {
+        console.log("[DEBUG] draw_points commentDocs:", commentDocs);
     }
 
-    if (commentDocs.length === 0) {
+    const filteredCommentDocs = commentDocs.filter(
+        (doc) => typeof doc === "string" && doc.trim() !== "/// @description"
+    );
+
+    if (filteredCommentDocs.length === 0) {
         return "";
     }
 
     const commentDoc =
-        commentDocs.length === 1 ? commentDocs[0] : join(hardline, commentDocs);
+        filteredCommentDocs.length === 1
+            ? filteredCommentDocs[0]
+            : join(hardline, filteredCommentDocs);
 
     return lineSuffix([lineSuffixBoundary, " ", commentDoc]);
 }
@@ -3254,6 +3249,13 @@ function getSimpleAssignmentLikeEntry(
     if (isSimpleAssignment(statement)) {
         const identifier = statement.left;
         if (!identifier || typeof identifier.name !== STRING_TYPE) {
+            return null;
+        }
+
+        if (
+            options?.preserveGlobalVarStatements === false &&
+            identifier.isGlobalIdentifier
+        ) {
             return null;
         }
 

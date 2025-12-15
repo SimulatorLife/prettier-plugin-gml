@@ -223,6 +223,12 @@ export function collectFunctionDocCommentDocs({
         return { start: doc.start, text: newText };
     });
 
+    const filteredNodeDocs = formattedNodeDocs.filter(
+        (entry) =>
+            typeof entry.text !== "string" ||
+            entry.text.trim() !== "/// @description"
+    );
+
     const originalDocDocs: { start: number; text: string }[] = [];
     if (Core.isNonEmptyArray(node.docComments)) {
         for (const comment of node.docComments) {
@@ -239,7 +245,7 @@ export function collectFunctionDocCommentDocs({
         }
     }
 
-    const mergedDocs = [...originalDocDocs, ...formattedNodeDocs].sort(
+    const mergedDocs = [...originalDocDocs, ...filteredNodeDocs].sort(
         (a, b) => a.start - b.start
     );
 
