@@ -3,6 +3,7 @@ import { Core, type MutableDocCommentLines } from "@gml-modules/core";
 import { resolveDocCommentPrinterOptions } from "./doc-comment-options.js";
 
 const STRING_TYPE = "string";
+const DESCRIPTION_TAG_PATTERN = /^\/\/\/\s*@description\b/i;
 
 function resolveProgramNode(path): any {
     let programNode = null;
@@ -280,6 +281,9 @@ export function normalizeFunctionDocCommentDocs({
     path
 }: any) {
     const docCommentOptions = resolveDocCommentPrinterOptions(options);
+    const descriptionContinuations = collectDescriptionContinuations(
+        docCommentDocs
+    );
 
     if (
         Core.shouldGenerateSyntheticDocForFunction(
@@ -295,6 +299,10 @@ export function normalizeFunctionDocCommentDocs({
                 docCommentOptions
             )
         ) as MutableDocCommentLines;
+        docCommentDocs = applyDescriptionContinuations(
+            docCommentDocs,
+            descriptionContinuations
+        );
         if (Array.isArray(docCommentDocs)) {
             while (
                 docCommentDocs.length > 0 &&
@@ -315,4 +323,149 @@ export function normalizeFunctionDocCommentDocs({
     }
 
     return { docCommentDocs, needsLeadingBlankLine };
+}
+
+function collectDescriptionContinuations(
+    docCommentDocs: MutableDocCommentLines
+): string[] {
+    if (!Array.isArray(docCommentDocs)) {
+        return [];
+    }
+
+    const descriptionIndex = docCommentDocs.findIndex(
+        (line) =>
+            typeof line === STRING_TYPE &&
+            DESCRIPTION_TAG_PATTERN.test(line.trim())
+    );
+
+    if (descriptionIndex === -1) {
+        return [];
+    }
+
+    const continuations: string[] = [];
+
+    for (
+        let index = descriptionIndex + 1;
+        index < docCommentDocs.length;
+        index += 1
+    ) {
+        const line = docCommentDocs[index];
+
+        if (typeof line !== STRING_TYPE) {
+            break;
+        }
+
+        const trimmed = line.trim();
+        if (!trimmed.startsWith("///")) {
+            break;
+        }
+
+        if (/^\/\/\/\s*@/.test(trimmed)) {
+            break;
+        }
+
+        const suffix = trimmed.slice(3).trim();
+        if (suffix.length === 0) {
+            continue;
+        }
+
+        continuations.push(line);
+    }
+
+    return continuations;
+}
+
+function applyDescriptionContinuations(
+    docCommentDocs: MutableDocCommentLines,
+    continuations: string[]
+): MutableDocCommentLines {
+    if (!Array.isArray(docCommentDocs) || continuations.length === 0) {
+        return docCommentDocs;
+    }
+
+    const descriptionIndex = docCommentDocs.findIndex(
+        (line) =>
+            typeof line === STRING_TYPE &&
+            DESCRIPTION_TAG_PATTERN.test(line.trim())
+    );
+
+    if (descriptionIndex === -1) {
+        return docCommentDocs;
+    }
+
+    const { indent, prefix } = resolveDescriptionIndentation(
+        docCommentDocs[descriptionIndex]
+    );
+    const continuationPrefix = `${indent}/// ${" ".repeat(
+        Math.max(prefix.length - 4, 0)
+    )}`;
+
+    let insertIndex = descriptionIndex + 1;
+
+    for (const continuation of continuations) {
+        const formatted = formatDescriptionContinuationLine(
+            continuation,
+            continuationPrefix
+        );
+
+        if (!formatted) {
+            continue;
+        }
+
+        const normalized = formatted.trim();
+        const alreadyExists = docCommentDocs.some(
+            (line) =>
+                typeof line === STRING_TYPE &&
+                line.trim() === normalized
+        );
+
+        if (alreadyExists) {
+            continue;
+        }
+
+        docCommentDocs.splice(insertIndex, 0, formatted);
+        insertIndex += 1;
+    }
+
+    return docCommentDocs;
+}
+
+function resolveDescriptionIndentation(line: string) {
+    const trimmedStart = line.trimStart();
+    const indent = line.slice(0, line.length - trimmedStart.length);
+    const prefixMatch = trimmedStart.match(
+        /^(\/\/\/\s*@description\s+)/i
+    );
+    const prefix = prefixMatch ? prefixMatch[1] : "/// @description ";
+    return { indent, prefix };
+}
+
+function formatDescriptionContinuationLine(
+    line: string,
+    continuationPrefix: string
+): string | null {
+    if (typeof line !== STRING_TYPE) {
+        return null;
+    }
+
+    const trimmed = line.trim();
+    if (!trimmed.startsWith("///")) {
+        return null;
+    }
+
+    if (/^\/\/\/\s*@/.test(trimmed)) {
+        return null;
+    }
+
+    const suffix = trimmed.slice(3).replace(/^\s+/, "");
+    if (suffix.length === 0) {
+        return null;
+    }
+
+    const normalizedPrefix = continuationPrefix.trimStart();
+    if (trimmed.startsWith(normalizedPrefix)) {
+        return line;
+    }
+
+    return `${continuationPrefix}${suffix}`;
 }

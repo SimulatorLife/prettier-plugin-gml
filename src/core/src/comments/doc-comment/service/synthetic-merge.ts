@@ -29,6 +29,63 @@ import { computeSyntheticFunctionDocLines } from "./synthetic-generation.js";
 
 const STRING_TYPE = "string";
 
+function getDocCommentSummarySuffix(trimmedLine: string): string | null {
+    const tripleSlashMatch = trimmedLine.match(/^\/\/\/(.*)$/);
+    if (tripleSlashMatch) {
+        return tripleSlashMatch[1];
+    }
+
+    const docLikeMatch = trimmedLine.match(/^\/\/\s*\/(.*)$/);
+    if (docLikeMatch) {
+        return docLikeMatch[1];
+    }
+
+    return null;
+}
+
+function hasMultiLineDocCommentSummary(
+    docLines: DocCommentLines | string[]
+): boolean {
+    if (!Array.isArray(docLines)) {
+        return false;
+    }
+
+    let summaryLineCount = 0;
+
+    for (const line of docLines) {
+        if (typeof line !== STRING_TYPE) {
+            break;
+        }
+
+        const trimmed = line.trim();
+        const isDocLikeSummary =
+            trimmed.startsWith("///") || /^\s*\/\/\s*\//.test(trimmed);
+        if (!isDocLikeSummary) {
+            break;
+        }
+
+        const isTaggedLine =
+            /^\/\/\/\s*@/i.test(trimmed) || /^\/\/\s*\/\s*@/i.test(trimmed);
+        if (isTaggedLine) {
+            break;
+        }
+
+        const suffix = getDocCommentSummarySuffix(trimmed);
+        if (!suffix) {
+            continue;
+        }
+
+        if (suffix.trim().length > 0) {
+            summaryLineCount += 1;
+            if (summaryLineCount >= 2) {
+                return true;
+            }
+        }
+    }
+
+    return false;
+}
+
 export function mergeSyntheticDocComments(
     node: any,
     existingDocLines: DocCommentLines | string[],
@@ -109,17 +166,25 @@ export function mergeSyntheticDocComments(
     );
 
     // Only promote leading doc comment text to @description if the original
-    // set contained tags (e.g., `@param`) or used an alternate doc-like
-    // prefix that should normalize (e.g., `// /`). This prevents synthetic
-    // tags from causing plain leading summaries (/// text) to become
-    // promoted description metadata unexpectedly.
+    // set contained tags (e.g., `@param`), used an alternate doc-like prefix
+    // that should normalize (e.g., `// /`), or already included multi-line
+    // summary text. This guards against synthetic tags causing plain single-
+    // line summaries to be promoted unexpectedly while still supporting
+    // multi-line narratives.
     const originalExistingHasDocLikePrefixes =
         Array.isArray(existingDocLines) &&
         existingDocLines.some((line) =>
             typeof line === STRING_TYPE ? /^\s*\/\/\s*\/\s*/.test(line) : false
         );
+    const hasMultiLineSummary = hasMultiLineDocCommentSummary(
+        existingDocLines
+    );
 
-    if (originalExistingHasTags || originalExistingHasDocLikePrefixes) {
+    if (
+        originalExistingHasTags ||
+        originalExistingHasDocLikePrefixes ||
+        hasMultiLineSummary
+    ) {
         normalizedExistingLines = toMutableArray(
             promoteLeadingDocCommentTextToDescription(
                 normalizedExistingLines,
