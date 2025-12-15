@@ -11,7 +11,9 @@ void test("converts division by two with inline comments into multiplication by 
         ""
     ].join("\n");
 
-    const formatted = await Plugin.format(source, {optimizeMathExpressions: true});
+    const formatted = await Plugin.format(source, {
+        optimizeMathExpressions: true
+    });
 
     assert.ok(
         formatted.includes(

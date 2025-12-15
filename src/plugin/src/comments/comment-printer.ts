@@ -791,7 +791,7 @@ function formatDecorativeBlockComment(value) {
 
     const lines = value
         .split(/\r?\n/)
-        .map((line) => line.replaceAll('\t', "    "));
+        .map((line) => line.replaceAll("\t", "    "));
     const significantLines = lines.filter((line) => line.trim().length > 0);
     if (significantLines.length === 0) {
         return null;

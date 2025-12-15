@@ -4671,7 +4671,7 @@ function captureTrailingLineCommentValue(targetLine, prefix, context) {
         return null;
     }
 
-    const sanitizedText = sourceText.replaceAll('\r', "");
+    const sanitizedText = sourceText.replaceAll("\r", "");
     const lines = sanitizedText.split("\n");
     const lineIndex = targetLine - 1;
     if (lineIndex < 0 || lineIndex >= lines.length) {
@@ -4730,9 +4730,12 @@ function findStatementAncestor(node) {
     let current = node?.parent ?? null;
     while (current && typeof current === "object") {
         const type = typeof current.type === "string" ? current.type : null;
-        if (type && (type.endsWith("Statement") || type === "VariableDeclaration")) {
-                return current;
-            }
+        if (
+            type &&
+            (type.endsWith("Statement") || type === "VariableDeclaration")
+        ) {
+            return current;
+        }
 
         current = current.parent ?? null;
     }
