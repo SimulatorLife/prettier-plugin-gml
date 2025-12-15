@@ -3358,8 +3358,7 @@ void describe("Transforms.applyFeatherFixes transform", () => {
         const expected = [
             "vertex_format_begin();",
             "vertex_format_add_texcoord();",
-            "format = vertex_format_end();",
-            ""
+            "format = vertex_format_end();"
         ].join("\n");
 
         const formatted = await Plugin.format(source, {
