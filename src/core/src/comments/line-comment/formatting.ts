@@ -169,11 +169,16 @@ function formatLineComment(
 
     const slashesMatch = original.match(/^\s*(\/{2,})(.*)$/);
     const contentWithoutSlashes = trimmedValue.replace(/^\/+\s*/, "");
+
+    // Check if this is a doc-like comment (e.g., "// / text") before treating it as a banner
+    const isDocLikeComment = /^\/\/\s+\/(?![\/])/.test(trimmedOriginal);
+
     const hasDecorations =
-        LEADING_BANNER_DECORATION_PATTERN.test(contentWithoutSlashes) ||
-        TRAILING_BANNER_DECORATION_PATTERN.test(contentWithoutSlashes) ||
-        (contentWithoutSlashes.match(INNER_BANNER_DECORATION_PATTERN) || [])
-            .length > 0;
+        !isDocLikeComment && // Exclude doc-like comments from decoration detection
+        (LEADING_BANNER_DECORATION_PATTERN.test(contentWithoutSlashes) ||
+            TRAILING_BANNER_DECORATION_PATTERN.test(contentWithoutSlashes) ||
+            (contentWithoutSlashes.match(INNER_BANNER_DECORATION_PATTERN) || [])
+                .length > 0);
 
     if (
         slashesMatch &&
