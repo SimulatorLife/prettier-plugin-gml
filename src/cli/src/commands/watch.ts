@@ -54,6 +54,13 @@ interface TranspilationMetrics {
     linesProcessed: number;
 }
 
+interface TranspilationError {
+    timestamp: number;
+    filePath: string;
+    error: string;
+    sourceSize?: number;
+}
+
 interface WatchCommandOptions {
     extensions?: Array<string>;
     polling?: boolean;
@@ -82,6 +89,8 @@ interface RuntimeContext {
     transpiler: RuntimeTranspiler;
     patches: Array<RuntimeTranspilerPatch>;
     metrics: Array<TranspilationMetrics>;
+    errors: Array<TranspilationError>;
+    lastSuccessfulPatches: Map<string, RuntimeTranspilerPatch>;
     maxPatchHistory: number;
     websocketServer: PatchWebSocketServerController | null;
 }
@@ -259,62 +268,150 @@ function logWatchStartup(
 }
 
 /**
- * Displays transpilation statistics when the watch stops.
+ * Validates a transpiled patch before broadcasting.
  *
- * @param {Array<TranspilationMetrics>} metrics - Collected transpilation metrics
- * @param {boolean} verbose - Whether to show detailed statistics
+ * @param {object} patch - Patch object to validate
+ * @returns {boolean} True if patch is valid
+ */
+function validatePatch(patch: RuntimeTranspilerPatch): boolean {
+    if (!patch || typeof patch !== "object") {
+        return false;
+    }
+
+    if (!patch.id || typeof patch.id !== "string") {
+        return false;
+    }
+
+    if (!patch.kind || typeof patch.kind !== "string") {
+        return false;
+    }
+
+    if (!patch.js_body || typeof patch.js_body !== "string") {
+        return false;
+    }
+
+    // Patch should have non-empty JavaScript body
+    if (patch.js_body.trim().length === 0) {
+        return false;
+    }
+
+    return true;
+}
+
+/**
+ * Creates an error notification message for WebSocket clients.
+ *
+ * @param {string} filePath - Path to the file that failed
+ * @param {string} error - Error message
+ * @returns {object} Error notification object
+ */
+function createErrorNotification(
+    filePath: string,
+    error: string
+): {
+    kind: "error";
+    filePath: string;
+    error: string;
+    timestamp: number;
+} {
+    return {
+        kind: "error",
+        filePath: path.basename(filePath),
+        error,
+        timestamp: Date.now()
+    };
+}
+
+/**
+ * Displays transpilation and error statistics when watch stops.
+ *
+ * @param {object} context - Runtime context with metrics and errors
+ * @param {boolean} verbose - Enable verbose statistics
  */
 function displayWatchStatistics(
-    metrics: ReadonlyArray<TranspilationMetrics>,
+    context: {
+        metrics: ReadonlyArray<TranspilationMetrics>;
+        errors: ReadonlyArray<TranspilationError>;
+    },
     verbose: boolean
 ): void {
-    if (metrics.length === 0) {
+    const { metrics, errors } = context;
+    const hasMetrics = metrics.length > 0;
+    const hasErrors = errors.length > 0;
+
+    if (!hasMetrics && !hasErrors) {
         return;
     }
 
     console.log("\n--- Transpilation Statistics ---");
-    console.log(`Total patches generated: ${metrics.length}`);
 
-    if (verbose) {
-        const totalDuration = metrics.reduce((sum, m) => sum + m.durationMs, 0);
-        const totalSourceSize = metrics.reduce(
-            (sum, m) => sum + m.sourceSize,
-            0
-        );
-        const totalOutputSize = metrics.reduce(
-            (sum, m) => sum + m.outputSize,
-            0
-        );
-        const avgDuration = totalDuration / metrics.length;
+    if (hasMetrics) {
+        console.log(`Total patches generated: ${metrics.length}`);
 
-        console.log(`Total transpilation time: ${totalDuration.toFixed(2)}ms`);
-        console.log(`Average transpilation time: ${avgDuration.toFixed(2)}ms`);
-        console.log(
-            `Total source processed: ${(totalSourceSize / 1024).toFixed(2)} KB`
-        );
-        console.log(
-            `Total output generated: ${(totalOutputSize / 1024).toFixed(2)} KB`
-        );
+        if (verbose) {
+            const totalDuration = metrics.reduce(
+                (sum, m) => sum + m.durationMs,
+                0
+            );
+            const totalSourceSize = metrics.reduce(
+                (sum, m) => sum + m.sourceSize,
+                0
+            );
+            const totalOutputSize = metrics.reduce(
+                (sum, m) => sum + m.outputSize,
+                0
+            );
+            const avgDuration = totalDuration / metrics.length;
 
-        const compressionRatio =
-            totalSourceSize > 0
-                ? `${((totalOutputSize / totalSourceSize) * 100).toFixed(1)}%`
-                : "N/A";
-        console.log(`Output/source ratio: ${compressionRatio}`);
+            console.log(
+                `Total transpilation time: ${totalDuration.toFixed(2)}ms`
+            );
+            console.log(
+                `Average transpilation time: ${avgDuration.toFixed(2)}ms`
+            );
+            console.log(
+                `Total source processed: ${(totalSourceSize / 1024).toFixed(2)} KB`
+            );
+            console.log(
+                `Total output generated: ${(totalOutputSize / 1024).toFixed(2)} KB`
+            );
 
-        const fastestPatch = metrics.reduce((min, m) =>
-            m.durationMs < min.durationMs ? m : min
-        );
-        const slowestPatch = metrics.reduce((max, m) =>
-            m.durationMs > max.durationMs ? m : max
-        );
+            const compressionRatio =
+                totalSourceSize > 0
+                    ? `${((totalOutputSize / totalSourceSize) * 100).toFixed(1)}%`
+                    : "N/A";
+            console.log(`Output/source ratio: ${compressionRatio}`);
 
-        console.log(
-            `Fastest transpilation: ${fastestPatch.durationMs.toFixed(2)}ms (${path.basename(fastestPatch.filePath)})`
-        );
-        console.log(
-            `Slowest transpilation: ${slowestPatch.durationMs.toFixed(2)}ms (${path.basename(slowestPatch.filePath)})`
-        );
+            const fastestPatch = metrics.reduce((min, m) =>
+                m.durationMs < min.durationMs ? m : min
+            );
+            const slowestPatch = metrics.reduce((max, m) =>
+                m.durationMs > max.durationMs ? m : max
+            );
+
+            console.log(
+                `Fastest transpilation: ${fastestPatch.durationMs.toFixed(2)}ms (${path.basename(fastestPatch.filePath)})`
+            );
+            console.log(
+                `Slowest transpilation: ${slowestPatch.durationMs.toFixed(2)}ms (${path.basename(slowestPatch.filePath)})`
+            );
+        }
+    }
+
+    if (hasErrors) {
+        console.log(`\nTotal errors: ${errors.length}`);
+        if (verbose && errors.length > 0) {
+            console.log("\nRecent errors:");
+            // Show last 5 errors
+            const recentErrors = errors.slice(-5);
+            for (const error of recentErrors) {
+                const timestamp = new Date(error.timestamp).toISOString();
+                console.log(
+                    `  [${timestamp}] ${path.basename(error.filePath)}`
+                );
+                console.log(`    ${error.error}`);
+            }
+        }
     }
 
     console.log("-------------------------------\n");
@@ -377,6 +474,8 @@ export async function runWatchCommand(
         transpiler,
         patches: [],
         metrics: [],
+        errors: [],
+        lastSuccessfulPatches: new Map(),
         maxPatchHistory,
         websocketServer: null
     };
@@ -491,7 +590,7 @@ export async function runWatchCommand(
             process.off("SIGTERM", handleErrorSignal);
             removeAbortListener();
 
-            displayWatchStatistics(runtimeContext.metrics, verbose);
+            displayWatchStatistics(runtimeContext, verbose);
 
             if (runtimeServerController) {
                 try {
@@ -676,6 +775,11 @@ async function handleFileChange(
                     const endTime = performance.now();
                     const durationMs = endTime - startTime;
 
+                    // Validate the patch before broadcasting
+                    if (!validatePatch(patch)) {
+                        throw new Error("Generated patch failed validation");
+                    }
+
                     // Collect metrics
                     const metrics: TranspilationMetrics = {
                         timestamp: Date.now(),
@@ -696,6 +800,9 @@ async function handleFileChange(
                     ) {
                         runtimeContext.metrics.shift();
                     }
+
+                    // Store last successful patch for this script (for potential rollback)
+                    runtimeContext.lastSuccessfulPatches.set(symbolId, patch);
 
                     // Store the patch for future streaming
                     runtimeContext.patches.push(patch);
@@ -742,17 +849,49 @@ async function handleFileChange(
                     // 1. Run semantic analysis to understand scope and dependencies
                     // 2. Identify dependent scripts that need recompilation
                 } catch (error) {
+                    // Track error in context
+                    const errorMessage = getErrorMessage(error, {
+                        fallback: "Unknown transpilation error"
+                    });
+                    const transpilationError: TranspilationError = {
+                        timestamp: Date.now(),
+                        filePath,
+                        error: errorMessage,
+                        sourceSize: content.length
+                    };
+                    runtimeContext.errors.push(transpilationError);
+
+                    // Enforce max history limit for errors
+                    if (
+                        runtimeContext.errors.length >
+                        runtimeContext.maxPatchHistory
+                    ) {
+                        runtimeContext.errors.shift();
+                    }
+
+                    // Send error notification to clients
+                    if (runtimeContext.websocketServer) {
+                        const errorNotification = createErrorNotification(
+                            filePath,
+                            errorMessage
+                        );
+                        runtimeContext.websocketServer.broadcast(
+                            errorNotification
+                        );
+                    }
+
                     if (verbose) {
                         const formattedError = formatCliError(error);
                         console.error(
                             `  ↳ Transpilation failed:\n${formattedError}`
                         );
                     } else {
-                        const message = getErrorMessage(error, {
-                            fallback: "Unknown transpilation error"
-                        });
-                        console.error(`  ↳ Transpilation failed: ${message}`);
+                        console.error(
+                            `  ↳ Transpilation failed: ${errorMessage}`
+                        );
                     }
+
+                    // Continue watching despite error (graceful degradation)
                 }
             }
         } catch (error) {
