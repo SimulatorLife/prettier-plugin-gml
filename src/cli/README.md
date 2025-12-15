@@ -96,6 +96,17 @@ The watch command now integrates with the transpiler module (`src/transpiler`) t
 - `sourceText`: Original GML source for debugging
 - `version`: Timestamp of transpilation
 
+**Error Recovery and Resilience:**
+
+The watch command includes robust error handling to maintain stability:
+
+- **Graceful Degradation**: Transpilation errors don't stop the watcher. When a file fails to transpile, the error is logged and the watcher continues monitoring other files.
+- **Error Notifications**: Failed transpilations send error notifications to connected WebSocket clients with the format `{ kind: "error", filePath, error, timestamp }`.
+- **Patch Validation**: All patches are validated before broadcast to ensure they contain valid data (non-empty JavaScript body, proper structure).
+- **Last Successful Patch Tracking**: The system stores the last successful patch for each script, enabling potential rollback scenarios.
+- **Error Metrics**: Errors are tracked alongside successful transpilations, with statistics displayed when the watcher stops.
+- **Statistics Summary**: On exit, the watch command displays both success metrics (patches generated, transpilation time) and error metrics (total errors, recent error details in verbose mode).
+
 **Current Status:**
 
 ✅ File watching (native and polling modes)
@@ -103,12 +114,16 @@ The watch command now integrates with the transpiler module (`src/transpiler`) t
 ✅ GML → JavaScript transpilation
 ✅ Patch generation with script IDs
 ✅ Runtime context initialization
-✅ Basic error handling and logging
 ✅ WebSocket server for patch streaming
 ✅ Real-time patch broadcast to connected clients
-✅ **Transpilation metrics tracking** ✨ NEW
-✅ **Performance statistics on watch stop** ✨ NEW
-✅ **Configurable patch history limit** ✨ NEW
+✅ **Transpilation metrics tracking** ✨
+✅ **Performance statistics on watch stop** ✨
+✅ **Configurable patch history limit** ✨
+✅ **Error recovery and graceful degradation** ✨ NEW
+✅ **Patch validation before broadcast** ✨ NEW
+✅ **Error notifications to clients** ✨ NEW
+✅ **Last successful patch tracking** ✨ NEW
+✅ **Error statistics and reporting** ✨ NEW
 
 🚧 Future Enhancements:
 - Semantic analysis integration for scope-aware transpilation
