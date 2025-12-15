@@ -269,7 +269,7 @@ void describe("applyAssignmentAlignment", () => {
         );
     });
 
-    void it("does not align argument aliases when functions lack named parameters", () => {
+    void it("argument aliases are aligned when functions lack named parameters", () => {
         const statements = [
             createArgumentAliasDeclaration("first", "argument0"),
             createArgumentAliasDeclaration("second", "argument1"),
@@ -291,8 +291,8 @@ void describe("applyAssignmentAlignment", () => {
             statements.map(
                 (node) => node.declarations[0]._alignAssignmentPadding
             ),
-            [0, 0, 0],
-            "Argument aliases without named parameters should not align."
+            [1, 0, 1],
+            "Argument aliases without named parameters should align."
         );
     });
 
