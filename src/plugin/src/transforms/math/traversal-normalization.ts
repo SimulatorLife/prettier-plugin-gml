@@ -1102,7 +1102,7 @@ function replaceMultiplicationWithZeroOperand(node, key, otherKey, context) {
     }
 
     replaceNode(node, zeroLiteral);
-    suppressTrailingLineComment(node, parentLine, context, "original");
+    suppressTrailingLineComment(node, parentLine, context);
     removeSimplifiedAliasDeclaration(context, node);
 
     return true;
@@ -1203,7 +1203,6 @@ function removeAdditiveIdentityOperand(node, key, otherKey, context) {
     const parentLine = node?.end?.line;
     const trailingCommentValue = captureTrailingLineCommentValue(
         parentLine,
-        "original",
         context
     );
 
@@ -1215,7 +1214,7 @@ function removeAdditiveIdentityOperand(node, key, otherKey, context) {
         attachTrailingCommentToStatement(node, trailingCommentValue);
     }
 
-    suppressTrailingLineComment(node, parentLine, context, "original");
+    suppressTrailingLineComment(node, parentLine, context);
     removeSimplifiedAliasDeclaration(context, node);
 
     return true;
@@ -4414,8 +4413,7 @@ function recordManualMathOriginalAssignment(context, node, originalExpression) {
 function suppressTrailingLineComment( // TODO: This should be moved to where other comment utilities are.
     node,
     targetLine,
-    context,
-    prefix = "original"
+    context
 ) {
     if (!Number.isFinite(targetLine)) {
         return;
@@ -4451,13 +4449,7 @@ function suppressTrailingLineComment( // TODO: This should be moved to where oth
                 continue;
             }
 
-            const trimmed =
-                typeof comment.value === "string"
-                    ? comment.value.trim().toLowerCase()
-                    : "";
-            if (trimmed.length === 0 || trimmed.startsWith(prefix)) {
-                comments.splice(index, 1);
-            }
+            comments.splice(index, 1);
         }
     }
 }
@@ -4513,8 +4505,7 @@ function removeSimplifiedAliasDeclaration(context, simplifiedNode) {
     suppressTrailingLineComment(
         simplifiedNode,
         aliasDeclaration?.end?.line,
-        context,
-        "simplified"
+        context
     );
 }
 
@@ -4661,7 +4652,7 @@ function getSourceTextFromContext(context) {
     return null;
 }
 
-function captureTrailingLineCommentValue(targetLine, prefix, context) {
+function captureTrailingLineCommentValue(targetLine, context) {
     if (!Number.isFinite(targetLine) || targetLine <= 0) {
         return null;
     }
@@ -4690,16 +4681,6 @@ function captureTrailingLineCommentValue(targetLine, prefix, context) {
 
     const commentValue = lineText.slice(commentIndex + 2).trim();
     if (commentValue.length === 0) {
-        return null;
-    }
-
-    const normalizedPrefix =
-        typeof prefix === "string" ? prefix.trim().toLowerCase() : "";
-
-    if (
-        normalizedPrefix.length > 0 &&
-        !commentValue.toLowerCase().startsWith(normalizedPrefix)
-    ) {
         return null;
     }
 
@@ -5013,7 +4994,7 @@ function trySimplifyZeroDivision(node, context) {
 
     const parentLine = node?.end?.line;
     replaceNode(node, zeroLiteral);
-    suppressTrailingLineComment(node, parentLine, context, "original");
+    suppressTrailingLineComment(node, parentLine, context);
     removeSimplifiedAliasDeclaration(context, node);
 
     return true;

@@ -377,6 +377,56 @@ void test("removes additive identity scalars with trailing comments", async () =
     );
 });
 
+void test("preserves other trailing comments when stripping additive identity", async () => {
+    const source = [
+        "function keep_trailing_comment(value) {",
+        "    return value + 0; // keep this precise note",
+        "}",
+        ""
+    ].join("\n");
+
+    const formatted = await Plugin.format(source, {
+        optimizeMathExpressions: true
+    });
+
+    assert.strictEqual(
+        formatted,
+        [
+            "/// @function keep_trailing_comment",
+            "/// @param value",
+            "function keep_trailing_comment(value) {",
+            "    return value; // keep this precise note",
+            "}",
+            ""
+        ].join("\n")
+    );
+});
+
+void test("preserves punctuation-heavy trailing comments when stripping additive identity", async () => {
+    const source = [
+        "function keep_complex_comment(value) {",
+        "    return value + 0; // keep-this! @$&?",
+        "}",
+        ""
+    ].join("\n");
+
+    const formatted = await Plugin.format(source, {
+        optimizeMathExpressions: true
+    });
+
+    assert.strictEqual(
+        formatted,
+        [
+            "/// @function keep_complex_comment",
+            "/// @param value",
+            "function keep_complex_comment(value) {",
+            "    return value; // keep-this! @$&?",
+            "}",
+            ""
+        ].join("\n")
+    );
+});
+
 void test("removes multiplicative zero factors inside additive chains", async () => {
     const source = [
         "function collapse_zero_factor(any_val, offset) {",
