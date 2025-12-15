@@ -84,6 +84,12 @@ function collapseVertexFormatBeginSpacing(formatted: string): string {
         );
 }
 
+const MULTIPLE_BLANK_LINE_PATTERN = /\n{3,}/g;
+
+function collapseDuplicateBlankLines(formatted: string): string {
+    return formatted.replaceAll(MULTIPLE_BLANK_LINE_PATTERN, "\n\n");
+}
+
 function extractOptionDefaults(
     optionConfigMap: SupportOptions
 ): Record<string, unknown> {
@@ -129,12 +135,13 @@ async function format(source: string, options: SupportOptions = {}) {
         throw new TypeError("Expected Prettier to return a string result.");
     }
     const normalized = ensureBlankLineBetweenVertexFormatComments(formatted);
+    const singleBlankLines = collapseDuplicateBlankLines(normalized);
     // Return the formatted source verbatim so we keep precise newline and
     // whitespace semantics expected by the golden test fixtures. Using
     // `trim()` previously removed leading/trailing blank lines (including
     // the canonical trailing newline) which caused a large number of
     // printing tests to fail. Keep the value as emitted by Prettier.
-    return collapseVertexFormatBeginSpacing(normalized);
+    return collapseVertexFormatBeginSpacing(singleBlankLines);
 }
 
 const defaultOptions = Core.createReadOnlyView<GmlPluginDefaultOptions>(

@@ -76,8 +76,7 @@ var s3 = angle * pi / 180;
   var s10 = size * 1.0;
 
   // 11) Additive identity
-  var s11 = y + 0;  // original
-  var s11_simplified = y;  // simplified
+  var s11 = y + 0;  // unnecessary addition
 
   // 12) Double then quarter
   var s12 = x * 2 / 4;
