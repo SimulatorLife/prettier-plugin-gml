@@ -142,9 +142,10 @@ async function format(source: string, options: SupportOptions = {}) {
         (line) => !docCommentFilter.test(line)
     );
     const cleaned = filteredLines.join("\n");
-    const normalizedCleaned = singleBlankLines.endsWith("\n")
-        ? `${cleaned}\n`
-        : cleaned;
+    const normalizedCleaned =
+        cleaned.endsWith("\n") || !singleBlankLines.endsWith("\n")
+            ? cleaned
+            : `${cleaned}\n`;
     // Return the formatted source verbatim so we keep precise newline and
     // whitespace semantics expected by the golden test fixtures. Using
     // `trim()` previously removed leading/trailing blank lines (including

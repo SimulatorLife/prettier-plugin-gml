@@ -234,7 +234,7 @@ function isBlockWithinConstructor(path) {
     return false;
 }
 
-const BINARY_OPERATOR_INFO = new Map([
+const BINARY_OPERATOR_INFO = new Map([ // TODO: Isn't this precedence table already defined in the Parser?
     ["*", { precedence: 13, associativity: "left" }],
     ["/", { precedence: 13, associativity: "left" }],
     ["div", { precedence: 13, associativity: "left" }],
@@ -1263,11 +1263,6 @@ function _printImpl(path, options, print) {
 
                 return concat([print(OBJECT_TYPE), ".", print("property")]);
             } else {
-                // return [
-                //     print(OBJECT_TYPE),
-                //     ".",
-                //     print("property")
-                // ];
                 const objectDoc = print(OBJECT_TYPE);
                 let propertyDoc = print("property");
 
