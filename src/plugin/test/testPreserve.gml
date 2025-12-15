@@ -202,9 +202,7 @@ function AbstractSkyboxParent(sprite = noone, subimg = 0, octahedron_scale = 1, 
 
 }
 
-// ------------------------------------------------------------------------
 // Debug-only macro guard for *use_fast_sampling* edits
-// ------------------------------------------------------------------------
 #macro FAST_SAMPLE_GUARD \
     if (use_fast_sampling) {                                                   \
         show_debug_message($"Error in instance: Can't edit fast-sampling instance!");\
