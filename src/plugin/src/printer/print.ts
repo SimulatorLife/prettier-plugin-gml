@@ -488,9 +488,9 @@ function _printImpl(path, options, print) {
             return concat(parts);
         }
         case "TernaryExpression": {
-            const testDoc = print("test");
-            const consequentDoc = print("consequent");
-            const alternateDoc = print("alternate");
+            const testDoc = path.call(print, "test");
+            const consequentDoc = path.call(print, "consequent");
+            const alternateDoc = path.call(print, "alternate");
 
             const ternaryDoc = group([
                 testDoc,
@@ -1816,7 +1816,16 @@ function buildTemplateStringParts(atoms, path, print) {
         // printer's expression loop, so skipping the extra array and iterator
         // bookkeeping removes two allocations for mixed templates while keeping
         // the doc emission identical.
-        parts.push("{", path.call(print, "atoms", index), "}");
+        parts.push(
+            group(
+                concat([
+                    "{",
+                    indent(concat([softline, path.call(print, "atoms", index)])),
+                    softline,
+                    "}"
+                ])
+            )
+        );
     }
 
     parts.push('"');
@@ -5397,6 +5406,10 @@ function shouldWrapTernaryExpression(path) {
         return true;
     }
 
+    if (parent.type === "TemplateStringExpression") {
+        return true;
+    }
+
     return false;
 }
 
@@ -5444,11 +5457,7 @@ function shouldFlattenSyntheticBinary(parent, expression, path) {
         return false;
     }
 
-    if (
-        isAdditivePair &&
-        (binaryExpressionContainsString(parent) ||
-            binaryExpressionContainsString(expression))
-    ) {
+    if (isAdditivePair && (binaryExpressionContainsString(parent) || binaryExpressionContainsString(expression))) {
         return false;
     }
 

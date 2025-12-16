@@ -184,11 +184,17 @@ export class ConvertStringConcatenationsTransform extends FunctionalParserTransf
         const atoms = [];
         let pendingText = "";
         let containsStringLiteral = false;
+        let lastWasUnwrappedString = false;
 
         const flushPendingText = () => {
             if (!pendingText) {
                 return;
             }
+
+            if (lastWasUnwrappedString && pendingText.startsWith(" ")) {
+                pendingText = " " + pendingText;
+            }
+            lastWasUnwrappedString = false;
 
             const lastAtom = atoms.at(-1);
             if (lastAtom && lastAtom.type === TEMPLATE_STRING_TEXT) {
@@ -245,6 +251,7 @@ export class ConvertStringConcatenationsTransform extends FunctionalParserTransf
 
                     flushPendingText();
                     atoms.push(nestedAtom);
+                    lastWasUnwrappedString = false;
                 }
 
                 continue;
@@ -268,8 +275,10 @@ export class ConvertStringConcatenationsTransform extends FunctionalParserTransf
                         ? core.arguments[0]
                         : core;
                 atoms.push(firstArg);
+                lastWasUnwrappedString = true;
             } else {
                 atoms.push(core);
+                lastWasUnwrappedString = false;
             }
         }
 
