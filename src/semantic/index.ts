@@ -1,1 +1,1 @@
-export * as Semantic from "./src/index.js";
+export { Semantic } from "./src/index.js";
