@@ -2,8 +2,7 @@
 
 import {
     Core,
-    type MutableDocCommentLines,
-    type MutableGameMakerAstNode
+    type MutableDocCommentLines
 } from "@gml-modules/core";
 import { util } from "prettier";
 
@@ -237,7 +236,8 @@ function isBlockWithinConstructor(path) {
     return false;
 }
 
-const BINARY_OPERATOR_INFO = new Map([ // TODO: Isn't this precedence table already defined in the Parser?
+const BINARY_OPERATOR_INFO = new Map([
+    // TODO: Isn't this precedence table already defined in the Parser?
     ["*", { precedence: 13, associativity: "left" }],
     ["/", { precedence: 13, associativity: "left" }],
     ["div", { precedence: 13, associativity: "left" }],
@@ -1099,7 +1099,8 @@ function _printImpl(path, options, print) {
                     node[FEATHER_COMMENT_TEXT_SYMBOL].length > 0
                         ? node[FEATHER_COMMENT_TEXT_SYMBOL]
                         : commentText;
-                const prefixTextValue = node[FEATHER_COMMENT_PREFIX_TEXT_SYMBOL];
+                const prefixTextValue =
+                    node[FEATHER_COMMENT_PREFIX_TEXT_SYMBOL];
                 const prefixText =
                     typeof prefixTextValue === STRING_TYPE &&
                     prefixTextValue.length > 0
@@ -3118,9 +3119,7 @@ export function applyAssignmentAlignment(
         const groupEntries = [...currentGroup];
         const meetsAlignmentThreshold =
             minGroupSize > 0 && groupEntries.length >= minGroupSize;
-        const canAlign =
-            meetsAlignmentThreshold &&
-            currentGroupHasAlias;
+        const canAlign = meetsAlignmentThreshold && currentGroupHasAlias;
 
         if (!canAlign) {
             for (const { node } of groupEntries) {
@@ -3167,7 +3166,7 @@ export function applyAssignmentAlignment(
             currentGroup.push({
                 node: entry.paddingTarget,
                 nameLength: entry.nameLength,
-                prefixLength,
+                prefixLength
             });
             const printedWidth = entry.nameLength + prefixLength;
             if (printedWidth > currentGroupMaxLength) {

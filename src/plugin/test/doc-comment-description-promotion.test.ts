@@ -82,7 +82,7 @@ void test("promotes multi-line doc comments to description metadata", async () =
         "}",
         ""
     ].join("\n");
-    
+
     assert.strictEqual(
         formatted,
         expected,

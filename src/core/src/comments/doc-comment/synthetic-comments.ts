@@ -256,16 +256,16 @@ export function computeSyntheticDocCommentForStaticVariable(
     }
 
     let finalDocLines =
-        syntheticDoc?.docLines !== undefined
-            ? (toMutableArray(syntheticDoc.docLines) as string[])
-            : null;
+        syntheticDoc?.docLines === undefined
+            ? null
+            : (toMutableArray(syntheticDoc.docLines));
 
     if (
-        (node as any)._overridesStaticFunction === true &&
-        (node as any)._overridesStaticFunctionNode
+        (node)._overridesStaticFunction === true &&
+        (node)._overridesStaticFunctionNode
     ) {
-        const ancestorDocLines = (node as any)._overridesStaticFunctionNode
-            ? (node as any)._overridesStaticFunctionNode._syntheticDocLines
+        const ancestorDocLines = (node)._overridesStaticFunctionNode
+            ? (node)._overridesStaticFunctionNode._syntheticDocLines
             : null;
 
         if (Array.isArray(ancestorDocLines) && ancestorDocLines.length > 0) {
@@ -274,9 +274,9 @@ export function computeSyntheticDocCommentForStaticVariable(
     }
 
     if (finalDocLines) {
-        (node as any)._syntheticDocLines = finalDocLines;
+        (node)._syntheticDocLines = finalDocLines;
     } else {
-        delete (node as any)._syntheticDocLines;
+        delete (node)._syntheticDocLines;
     }
 
     return {

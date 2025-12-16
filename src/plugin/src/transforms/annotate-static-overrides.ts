@@ -41,8 +41,9 @@ export class AnnotateStaticFunctionOverridesTransform extends FunctionalParserTr
                 );
                 if (ancestorStatic) {
                     statement._overridesStaticFunction = true;
-                    (statement as MutableGameMakerAstNode)._overridesStaticFunctionNode =
-                        ancestorStatic;
+                    (
+                        statement
+                    )._overridesStaticFunctionNode = ancestorStatic;
                 }
             }
         }

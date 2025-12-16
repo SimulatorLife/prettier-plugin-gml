@@ -356,9 +356,7 @@ function applyDescriptionContinuations(
 
         const normalized = formatted.trim();
         const alreadyExists = docCommentDocs.some(
-            (line) =>
-                typeof line === STRING_TYPE &&
-                line.trim() === normalized
+            (line) => typeof line === STRING_TYPE && line.trim() === normalized
         );
 
         if (alreadyExists) {
@@ -372,7 +370,9 @@ function applyDescriptionContinuations(
     return docCommentDocs;
 }
 
-function ensureDescriptionContinuations(docCommentDocs: MutableDocCommentLines) {
+function ensureDescriptionContinuations(
+    docCommentDocs: MutableDocCommentLines
+) {
     if (!Array.isArray(docCommentDocs)) {
         return;
     }
@@ -484,9 +484,8 @@ export function normalizeFunctionDocCommentDocs({
     path
 }: any) {
     const docCommentOptions = resolveDocCommentPrinterOptions(options);
-    const descriptionContinuations = collectDescriptionContinuations(
-        docCommentDocs
-    );
+    const descriptionContinuations =
+        collectDescriptionContinuations(docCommentDocs);
 
     if (
         Core.shouldGenerateSyntheticDocForFunction(

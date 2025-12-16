@@ -180,9 +180,7 @@ export function mergeSyntheticDocComments(
         existingDocLines.some((line) =>
             typeof line === STRING_TYPE ? /^\s*\/\/\s*\/\s*/.test(line) : false
         );
-    const hasMultiLineSummary = hasMultiLineDocCommentSummary(
-        existingDocLines
-    );
+    const hasMultiLineSummary = hasMultiLineDocCommentSummary(existingDocLines);
 
     if (
         originalExistingHasTags ||
@@ -196,7 +194,8 @@ export function mergeSyntheticDocComments(
             )
         ) as MutableDocCommentLines;
         if (
-            (normalizedExistingLines as any)?._preserveDescriptionBreaks === true
+            (normalizedExistingLines as any)?._preserveDescriptionBreaks ===
+            true
         ) {
             preserveDescriptionBreaks = true;
         }
@@ -976,9 +975,7 @@ export function mergeSyntheticDocComments(
 
         const metadata = parseDocCommentMetadata(line);
         const descriptionText =
-            typeof metadata?.name === STRING_TYPE
-                ? metadata.name.trim()
-                : "";
+            typeof metadata?.name === STRING_TYPE ? metadata.name.trim() : "";
 
         return descriptionText.length > 0;
     }) as MutableDocCommentLines;
@@ -1416,7 +1413,11 @@ export function mergeSyntheticDocComments(
             );
         const hasMultiLineSummary =
             hasMultiLineDocCommentSummary(existingDocLines);
-        if (originalHasPlainSummary && !originalHasTags && !hasMultiLineSummary) {
+        if (
+            originalHasPlainSummary &&
+            !originalHasTags &&
+            !hasMultiLineSummary
+        ) {
             const summaryLines = [] as string[];
             const otherLines = [] as string[];
 
@@ -1470,9 +1471,7 @@ export function mergeSyntheticDocComments(
 
         const metadata = parseDocCommentMetadata(line);
         const descriptionText =
-            typeof metadata?.name === STRING_TYPE
-                ? metadata.name.trim()
-                : "";
+            typeof metadata?.name === STRING_TYPE ? metadata.name.trim() : "";
 
         return descriptionText.length > 0;
     });

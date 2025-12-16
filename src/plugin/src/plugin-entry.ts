@@ -176,15 +176,14 @@ function alignContinuationPadding(descriptionLine: string) {
     const trimmed = descriptionLine.trim();
     const prefixMatch = trimmed.match(/^(\/\/\/\s*@description\s+)/i);
     const prefix = prefixMatch ? prefixMatch[1] : "/// @description ";
-    const continuationPadding = Math.max(prefix.length - (indent.length + 4), 0);
-    const continuationPrefix = `${indent}/// ${" ".repeat(continuationPadding)}`;
-    return continuationPrefix;
+    const continuationPadding = Math.max(
+        prefix.length - (indent.length + 4),
+        0
+    );
+    return `${indent}/// ${" ".repeat(continuationPadding)}`;
 }
 
-function collectDescriptionBlockSize(
-    lines: string[],
-    startIndex: number
-) {
+function collectDescriptionBlockSize(lines: string[], startIndex: number) {
     let current = startIndex + 1;
     while (
         current < lines.length &&
@@ -229,9 +228,7 @@ function promoteMultiLineDocDescriptions(
 
         if (
             descriptionIndex >= lines.length ||
-            !/^\/\/\/\s*@description\b/i.test(
-                lines[descriptionIndex].trim()
-            )
+            !/^\/\/\/\s*@description\b/i.test(lines[descriptionIndex].trim())
         ) {
             continue;
         }
@@ -244,16 +241,19 @@ function promoteMultiLineDocDescriptions(
         lines.splice(descriptionIndex, blockEnd - descriptionIndex);
 
         // Remove blank lines between @function and insertion point
-        while (descriptionIndex - 1 > index && lines[descriptionIndex - 1].trim() === "") {
+        while (
+            descriptionIndex - 1 > index &&
+            lines[descriptionIndex - 1].trim() === ""
+        ) {
             lines.splice(descriptionIndex - 1, 1);
             descriptionIndex -= 1;
         }
 
         const newBlock: string[] = [
             descriptionLine,
-            ...summaryTexts.slice(1).map(
-                (text) => `${continuationPrefix}${text}`
-            )
+            ...summaryTexts
+                .slice(1)
+                .map((text) => `${continuationPrefix}${text}`)
         ];
 
         lines.splice(index + 1, 0, ...newBlock);
@@ -324,8 +324,10 @@ async function format(source: string, options: SupportOptions = {}) {
     // `trim()` previously removed leading/trailing blank lines (including
     // the canonical trailing newline) which caused a large number of
     // printing tests to fail. Keep the value as emitted by Prettier.
-    const withPromotedDescriptions =
-        promoteMultiLineDocDescriptions(normalizedCleaned, source);
+    const withPromotedDescriptions = promoteMultiLineDocDescriptions(
+        normalizedCleaned,
+        source
+    );
     return collapseVertexFormatBeginSpacing(withPromotedDescriptions);
 }
 
