@@ -4410,7 +4410,8 @@ function recordManualMathOriginalAssignment(context, node, originalExpression) {
     }
 }
 
-function suppressTrailingLineComment(node, targetLine, context) { // TODO: This should be moved to where other comment utilities are.
+function suppressTrailingLineComment(node, targetLine, context) {
+    // TODO: This should be moved to where other comment utilities are.
     if (!Number.isFinite(targetLine)) {
         return;
     }

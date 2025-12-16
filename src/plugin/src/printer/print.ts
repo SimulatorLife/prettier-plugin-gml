@@ -1,9 +1,6 @@
 // TODO: This file is too large and should be split into multiple smaller files. General, non-printer-related Node utils should be moved into Core. This file should be more high level, and focused on coordinating the various lower-level, sub-printers that each handle printing of focused/specific concerns
 
-import {
-    Core,
-    type MutableDocCommentLines
-} from "@gml-modules/core";
+import { Core, type MutableDocCommentLines } from "@gml-modules/core";
 import { util } from "prettier";
 
 import {
