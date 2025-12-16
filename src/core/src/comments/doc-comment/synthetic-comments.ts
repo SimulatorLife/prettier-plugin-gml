@@ -258,14 +258,14 @@ export function computeSyntheticDocCommentForStaticVariable(
     let finalDocLines =
         syntheticDoc?.docLines === undefined
             ? null
-            : (toMutableArray(syntheticDoc.docLines));
+            : toMutableArray(syntheticDoc.docLines);
 
     if (
-        (node)._overridesStaticFunction === true &&
-        (node)._overridesStaticFunctionNode
+        node._overridesStaticFunction === true &&
+        node._overridesStaticFunctionNode
     ) {
-        const ancestorDocLines = (node)._overridesStaticFunctionNode
-            ? (node)._overridesStaticFunctionNode._syntheticDocLines
+        const ancestorDocLines = node._overridesStaticFunctionNode
+            ? node._overridesStaticFunctionNode._syntheticDocLines
             : null;
 
         if (Array.isArray(ancestorDocLines) && ancestorDocLines.length > 0) {
@@ -274,9 +274,9 @@ export function computeSyntheticDocCommentForStaticVariable(
     }
 
     if (finalDocLines) {
-        (node)._syntheticDocLines = finalDocLines;
+        node._syntheticDocLines = finalDocLines;
     } else {
-        delete (node)._syntheticDocLines;
+        delete node._syntheticDocLines;
     }
 
     return {
