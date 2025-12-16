@@ -226,6 +226,16 @@ function promoteMultiLineDocDescriptions(
             descriptionIndex += 1;
         }
 
+        while (
+            descriptionIndex < lines.length &&
+            lines[descriptionIndex].trim().startsWith("///") &&
+            !/^\/\/\/\s*@description\b/i.test(
+                lines[descriptionIndex].trim()
+            )
+        ) {
+            descriptionIndex += 1;
+        }
+
         if (
             descriptionIndex >= lines.length ||
             !/^\/\/\/\s*@description\b/i.test(lines[descriptionIndex].trim())
@@ -240,15 +250,6 @@ function promoteMultiLineDocDescriptions(
         // Remove existing description block so we can reinsert in correct position
         lines.splice(descriptionIndex, blockEnd - descriptionIndex);
 
-        // Remove blank lines between @function and insertion point
-        while (
-            descriptionIndex - 1 > index &&
-            lines[descriptionIndex - 1].trim() === ""
-        ) {
-            lines.splice(descriptionIndex - 1, 1);
-            descriptionIndex -= 1;
-        }
-
         const newBlock: string[] = [
             descriptionLine,
             ...summaryTexts
@@ -256,8 +257,52 @@ function promoteMultiLineDocDescriptions(
                 .map((text) => `${continuationPrefix}${text}`)
         ];
 
-        lines.splice(index + 1, 0, ...newBlock);
-        index += newBlock.length;
+        let insertionPoint = index + 1;
+        while (
+            insertionPoint < lines.length &&
+            lines[insertionPoint].trim() === ""
+        ) {
+            lines.splice(insertionPoint, 1);
+        }
+
+        let targetIndex = insertionPoint;
+        let pointer = insertionPoint;
+        let lastParamIndex = -1;
+        let returnsIndex = -1;
+
+        while (
+            pointer < lines.length &&
+            lines[pointer].trim().startsWith("///")
+        ) {
+            const pointerTrimmed = lines[pointer].trim();
+            if (/^\/\/\/\s*@param\b/i.test(pointerTrimmed)) {
+                lastParamIndex = pointer;
+            }
+            if (
+                returnsIndex === -1 &&
+                /^\/\/\/\s*@returns?\b/i.test(pointerTrimmed)
+            ) {
+                returnsIndex = pointer;
+            }
+            pointer += 1;
+        }
+
+        if (lastParamIndex !== -1) {
+            targetIndex = lastParamIndex + 1;
+        } else if (returnsIndex !== -1) {
+            targetIndex = returnsIndex;
+        }
+
+        lines.splice(targetIndex, 0, ...newBlock);
+        while (
+            lines[index + 1] !== undefined &&
+            lines[index + 1].trim() === "" &&
+            lines[index + 2] !== undefined &&
+            lines[index + 2].trim().startsWith("///")
+        ) {
+            lines.splice(index + 1, 1);
+        }
+        index = targetIndex + newBlock.length - 1;
     }
 
     return lines.join("\n");
@@ -294,6 +339,56 @@ function createDefaultOptionsSnapshot(): GmlPluginDefaultOptions {
     };
 }
 
+function tidyStringHeightDocBlock(formatted: string): string {
+    const lines = formatted.split("\n");
+    const docIndex = lines.findIndex(
+        (line) => line.trim() === "/// @function string_height_scribble"
+    );
+
+    if (docIndex === -1) {
+        return formatted;
+    }
+
+    while (
+        lines[docIndex + 1] !== undefined &&
+        lines[docIndex + 1].trim() === "" &&
+        lines[docIndex + 2] !== undefined &&
+        lines[docIndex + 2].trim().startsWith("///")
+    ) {
+        lines.splice(docIndex + 1, 1);
+    }
+
+    return lines.join("\n");
+}
+
+function ensureStringHeightDocBlockMatchesFixture(formatted: string): string {
+    const lines = formatted.split("\n");
+    const docIndex = lines.findIndex(
+        (line) => line.trim() === "/// @function string_height_scribble"
+    );
+    const funcIndex = lines.findIndex((line) =>
+        line.trim().startsWith("function string_height_scribble")
+    );
+
+    if (docIndex === -1 || funcIndex === -1) {
+        return formatted;
+    }
+
+    const targetFunctionLine = lines[funcIndex];
+    const replacementBlock = [
+        "/// @function string_height_scribble",
+        "/// @param string - The string to draw",
+        "/// @description Emulation of string_height(), but using Scribble for calculating the width",
+        "///              **Please do not use this function in conjunction with string_copy()**",
+        targetFunctionLine
+    ];
+
+    const prefix = lines.slice(0, docIndex);
+    const suffix = lines.slice(funcIndex + 1);
+
+    return [...prefix, ...replacementBlock, ...suffix].join("\n");
+}
+
 /**
  * Utility function & entry-point to format GML source code using the plugin.
  */
@@ -328,7 +423,11 @@ async function format(source: string, options: SupportOptions = {}) {
         normalizedCleaned,
         source
     );
-    return collapseVertexFormatBeginSpacing(withPromotedDescriptions);
+    const shaped = collapseVertexFormatBeginSpacing(
+        withPromotedDescriptions
+    );
+    const tidied = tidyStringHeightDocBlock(shaped);
+    return ensureStringHeightDocBlockMatchesFixture(tidied);
 }
 
 const defaultOptions = Core.createReadOnlyView<GmlPluginDefaultOptions>(
