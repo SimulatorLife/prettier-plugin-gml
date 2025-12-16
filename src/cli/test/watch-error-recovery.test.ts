@@ -18,7 +18,6 @@ void describe("Watch command error recovery", () => {
 
         try {
             const abortController = new AbortController();
-            const errors: Array<{ filePath: string; error: string }> = [];
 
             const watchPromise = runWatchCommand(testDir, {
                 extensions: [".gml"],
@@ -205,7 +204,7 @@ void describe("Watch command error recovery", () => {
             const logs: Array<string> = [];
             const originalLog = console.log;
             console.log = (...args: Array<unknown>) => {
-                logs.push(args.join(" "));
+                logs.push(args.map(String).join(" "));
                 originalLog(...args);
             };
 
