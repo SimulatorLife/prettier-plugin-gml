@@ -458,7 +458,10 @@ function formatDescriptionContinuationLine(
         return null;
     }
 
-    const suffix = trimmed.slice(3).replace(/^\s+/, "");
+    const docLikeMatch = trimmed.match(/^\/\/\/\s*\/\s*(.*)$/);
+    const suffix = docLikeMatch
+        ? (docLikeMatch[1] ?? "").trim()
+        : trimmed.slice(3).replace(/^\s+/, "");
     if (suffix.length === 0) {
         return null;
     }
