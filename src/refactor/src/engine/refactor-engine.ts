@@ -230,6 +230,15 @@ function assertValidIdentifierName(name: unknown): string {
 }
 
 /**
+ * Escape special regex characters in an identifier name to use in regex patterns.
+ * This allows searching for identifiers as whole words without accidentally
+ * treating special characters as regex metacharacters.
+ */
+function escapeRegexIdentifier(name: string): string {
+    return name.replaceAll(/[.*+?^${}()|[\]\\]/g, String.raw`\$&`);
+}
+
+/**
  * RefactorEngine coordinates semantic-safe edits across the project.
  * It consumes parser spans and semantic bindings to plan WorkspaceEdits
  * that avoid scope capture or shadowing.
@@ -1929,7 +1938,7 @@ export class RefactorEngine {
             // Simple heuristic: check if the old name still appears as an identifier
             // This is a basic check - full validation would require re-parsing
             const identifierPattern = new RegExp(
-                String.raw`\b${oldName.replaceAll(/[.*+?^${}()|[\]\\]/g, String.raw`\$&`)}\b`,
+                String.raw`\b${escapeRegexIdentifier(oldName)}\b`,
                 "g"
             );
             const oldNameMatches = content.match(identifierPattern);
@@ -1974,7 +1983,7 @@ export class RefactorEngine {
 
             // Verify the new name appears in the file
             const newIdentifierPattern = new RegExp(
-                String.raw`\b${newName.replaceAll(/[.*+?^${}()|[\]\\]/g, String.raw`\$&`)}\b`,
+                String.raw`\b${escapeRegexIdentifier(newName)}\b`,
                 "g"
             );
             const newNameMatches = content.match(newIdentifierPattern);
