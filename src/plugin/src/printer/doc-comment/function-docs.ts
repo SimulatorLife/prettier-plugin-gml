@@ -151,7 +151,7 @@ export function collectFunctionDocCommentDocs({
     });
 
     const nodeComments = [...(node.comments || [])];
-    
+
     // Also consider comments attached to the first statement of the function body
     // as they might be intended as function documentation (e.g. inside the braces).
     if (
@@ -175,7 +175,7 @@ export function collectFunctionDocCommentDocs({
             typeof comment.end === "number"
                 ? comment.end
                 : (comment.end?.index ?? 0);
-        
+
         const commentStart =
             typeof comment.start === "number"
                 ? comment.start
@@ -184,7 +184,10 @@ export function collectFunctionDocCommentDocs({
         // We process the comment if it's not printed AND:
         // 1. It's before the function (leading comment)
         // 2. OR it's inside the function (start >= nodeStartIndex) - likely from the body
-        if (!comment.printed && (commentEnd < nodeStartIndex || commentStart >= nodeStartIndex)) {
+        if (
+            !comment.printed &&
+            (commentEnd < nodeStartIndex || commentStart >= nodeStartIndex)
+        ) {
             if (comment.type === "CommentLine") {
                 const formatted = Core.formatLineComment(
                     comment,
@@ -222,8 +225,8 @@ export function collectFunctionDocCommentDocs({
             } else if (comment.type === "CommentBlock") {
                 const value = comment.value.trim();
                 // Check for JSDoc-style (*) or @tags, OR GML-style parameter lists (param : desc)
-                const isDocLike = 
-                    value.startsWith("*") || 
+                const isDocLike =
+                    value.startsWith("*") ||
                     value.includes("@") ||
                     /^[ \t]*\w+(?:[ \t]*,[ \t]*\w+)*[ \t]*:/m.test(value);
 

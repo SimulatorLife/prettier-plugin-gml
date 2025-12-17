@@ -192,7 +192,7 @@ export class ConvertStringConcatenationsTransform extends FunctionalParserTransf
             }
 
             if (lastWasUnwrappedString && pendingText.startsWith(" ")) {
-                pendingText = " " + pendingText;
+                pendingText = ` ${pendingText}`;
             }
             lastWasUnwrappedString = false;
 

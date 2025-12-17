@@ -229,9 +229,7 @@ function promoteMultiLineDocDescriptions(
         while (
             descriptionIndex < lines.length &&
             lines[descriptionIndex].trim().startsWith("///") &&
-            !/^\/\/\/\s*@description\b/i.test(
-                lines[descriptionIndex].trim()
-            )
+            !/^\/\/\/\s*@description\b/i.test(lines[descriptionIndex].trim())
         ) {
             descriptionIndex += 1;
         }
@@ -257,7 +255,7 @@ function promoteMultiLineDocDescriptions(
                 .map((text) => `${continuationPrefix}${text}`)
         ];
 
-        let insertionPoint = index + 1;
+        const insertionPoint = index + 1;
         while (
             insertionPoint < lines.length &&
             lines[insertionPoint].trim() === ""
@@ -423,9 +421,7 @@ async function format(source: string, options: SupportOptions = {}) {
         normalizedCleaned,
         source
     );
-    const shaped = collapseVertexFormatBeginSpacing(
-        withPromotedDescriptions
-    );
+    const shaped = collapseVertexFormatBeginSpacing(withPromotedDescriptions);
     const tidied = tidyStringHeightDocBlock(shaped);
     return ensureStringHeightDocBlockMatchesFixture(tidied);
 }
