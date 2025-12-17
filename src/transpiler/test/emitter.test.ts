@@ -1316,3 +1316,36 @@ void test("Transpiler.emitJavaScript handles built-in function mapping for clamp
         "Should include correct clamp expression"
     );
 });
+
+void test("Transpiler.emitJavaScript handles power with wrong argument count gracefully", () => {
+    const source = "val = power(2)";
+    const parser = new Parser.GMLParser(source);
+    const ast = parser.parse();
+    const result = Transpiler.emitJavaScript(ast);
+    assert.ok(
+        result.includes("power(2)"),
+        "Should fall back to power function call when arg count is wrong"
+    );
+});
+
+void test("Transpiler.emitJavaScript handles arctan2 with wrong argument count gracefully", () => {
+    const source = "val = arctan2(1)";
+    const parser = new Parser.GMLParser(source);
+    const ast = parser.parse();
+    const result = Transpiler.emitJavaScript(ast);
+    assert.ok(
+        result.includes("arctan2(1)"),
+        "Should fall back to arctan2 function call when arg count is wrong"
+    );
+});
+
+void test("Transpiler.emitJavaScript handles degtorad with wrong argument count gracefully", () => {
+    const source = "val = degtorad(90, 180)";
+    const parser = new Parser.GMLParser(source);
+    const ast = parser.parse();
+    const result = Transpiler.emitJavaScript(ast);
+    assert.ok(
+        result.includes("degtorad(90, 180)"),
+        "Should fall back to degtorad function call when arg count is wrong"
+    );
+});
