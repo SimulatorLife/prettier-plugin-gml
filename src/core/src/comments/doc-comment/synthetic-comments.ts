@@ -214,7 +214,10 @@ export function computeSyntheticDocCommentForStaticVariable(
         return null;
     }
 
-    if (declarator.init?.type !== "FunctionDeclaration") {
+    if (
+        declarator.init?.type !== "FunctionDeclaration" &&
+        declarator.init?.type !== "FunctionExpression"
+    ) {
         return null;
     }
 

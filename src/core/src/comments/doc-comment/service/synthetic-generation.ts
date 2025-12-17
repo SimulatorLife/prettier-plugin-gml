@@ -195,13 +195,13 @@ export function computeSyntheticFunctionDocLines(
         lines.push("/// @override");
     }
 
-    const shouldInsertFunctionTag =
-        normalizedFunctionName &&
-        (normalizedExistingFunctionName === null ||
-            normalizedExistingFunctionName !== normalizedFunctionName);
+    const functionNameToUse =
+        (overrideName && normalizedFunctionName) ??
+        normalizedExistingFunctionName ??
+        normalizedFunctionName;
 
-    if (shouldInsertFunctionTag) {
-        lines.push(`/// @function ${functionName}`);
+    if (functionNameToUse) {
+        lines.push(`/// @function ${functionNameToUse}`);
     }
 
     try {

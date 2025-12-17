@@ -161,7 +161,7 @@ export function collectFunctionDocCommentDocs({
         node.body.body.length > 0
     ) {
         const firstStatement = node.body.body[0];
-        if (Core.isNonEmptyArray(firstStatement.comments)) {
+        if (firstStatement && Core.isNonEmptyArray(firstStatement.comments)) {
             // We append these to the list of comments to check.
             // We'll rely on the isDocLike check to avoid picking up regular comments.
             nodeComments.push(...firstStatement.comments);
@@ -586,6 +586,9 @@ export function normalizeFunctionDocCommentDocs({
     options,
     path
 }: any) {
+    if (node.id && node.id.name === "Shape") {
+        console.log("[DEBUG] normalizeFunctionDocCommentDocs input for Shape:", docCommentDocs);
+    }
     const docCommentOptions = resolveDocCommentPrinterOptions(options);
     const descriptionContinuations =
         collectDescriptionContinuations(docCommentDocs);
@@ -597,6 +600,9 @@ export function normalizeFunctionDocCommentDocs({
             docCommentOptions
         )
     ) {
+        if (node.id && node.id.name === "Shape") {
+            console.log("[DEBUG] Generating synthetic docs for Shape");
+        }
         docCommentDocs = Core.toMutableArray(
             Core.mergeSyntheticDocComments(
                 node,
@@ -604,6 +610,9 @@ export function normalizeFunctionDocCommentDocs({
                 docCommentOptions
             )
         ) as MutableDocCommentLines;
+        if (node.id && node.id.name === "Shape") {
+            console.log("[DEBUG] normalizeFunctionDocCommentDocs output for Shape:", docCommentDocs);
+        }
         docCommentDocs = applyDescriptionContinuations(
             docCommentDocs,
             descriptionContinuations

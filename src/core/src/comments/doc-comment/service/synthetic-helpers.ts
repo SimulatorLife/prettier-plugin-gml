@@ -342,7 +342,8 @@ export function collectImplicitArgumentDocNames(
     if (
         !functionNode ||
         (functionNode.type !== "FunctionDeclaration" &&
-            functionNode.type !== "StructFunctionDeclaration")
+            functionNode.type !== "StructFunctionDeclaration" &&
+            functionNode.type !== "FunctionExpression")
     ) {
         return [];
     }

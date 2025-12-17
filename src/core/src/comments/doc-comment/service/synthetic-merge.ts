@@ -206,7 +206,8 @@ export function mergeSyntheticDocComments(
 
     const implicitDocEntries =
         node?.type === "FunctionDeclaration" ||
-        node?.type === "StructFunctionDeclaration"
+        node?.type === "StructFunctionDeclaration" ||
+        node?.type === "FunctionExpression"
             ? collectImplicitArgumentDocNames(node, options)
             : [];
     const declaredParamCount = Array.isArray(node?.params)

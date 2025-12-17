@@ -3246,13 +3246,22 @@ function isPathInsideFunctionBody(path, childrenAttribute) {
     return false;
 }
 
-function getSimpleAssignmentLikeEntry(
-    statement,
-    insideFunctionBody,
-    functionParameterNames,
-    functionNode,
-    options
-) {
+export interface AssignmentLikeEntry {
+    locationNode: any;
+    paddingTarget: any;
+    nameLength: number;
+    enablesAlignment: boolean;
+    prefixLength: number;
+    skipBreakAfter?: boolean;
+}
+
+export function getSimpleAssignmentLikeEntry(
+    statement: any,
+    insideFunctionBody: any,
+    functionParameterNames: any,
+    functionNode: any,
+    options: any
+): AssignmentLikeEntry | null {
     const memberLength = getMemberAssignmentLength(statement);
     if (typeof memberLength === NUMBER_TYPE) {
         return {
