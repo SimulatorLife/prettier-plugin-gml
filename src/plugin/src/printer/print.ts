@@ -1816,12 +1816,19 @@ function buildTemplateStringParts(atoms, path, print) {
         // printer's expression loop, so skipping the extra array and iterator
         // bookkeeping removes two allocations for mixed templates while keeping
         // the doc emission identical.
+        const shouldBreak =
+            atom.type !== "Identifier" && atom.type !== "Literal";
         parts.push(
             group(
                 concat([
                     "{",
-                    indent(concat([softline, path.call(print, "atoms", index)])),
-                    softline,
+                    indent(
+                        concat([
+                            shouldBreak ? softline : "",
+                            path.call(print, "atoms", index)
+                        ])
+                    ),
+                    shouldBreak ? softline : "",
                     "}"
                 ])
             )

@@ -151,6 +151,23 @@ export function collectFunctionDocCommentDocs({
     });
 
     const nodeComments = [...(node.comments || [])];
+    
+    // Also consider comments attached to the first statement of the function body
+    // as they might be intended as function documentation (e.g. inside the braces).
+    if (
+        node.body &&
+        node.body.type === "BlockStatement" &&
+        Array.isArray(node.body.body) &&
+        node.body.body.length > 0
+    ) {
+        const firstStatement = node.body.body[0];
+        if (Core.isNonEmptyArray(firstStatement.comments)) {
+            // We append these to the list of comments to check.
+            // We'll rely on the isDocLike check to avoid picking up regular comments.
+            nodeComments.push(...firstStatement.comments);
+        }
+    }
+
     const nodeLeadingDocs: { start: number; text: string }[] = [];
 
     for (const comment of nodeComments) {
@@ -158,8 +175,16 @@ export function collectFunctionDocCommentDocs({
             typeof comment.end === "number"
                 ? comment.end
                 : (comment.end?.index ?? 0);
+        
+        const commentStart =
+            typeof comment.start === "number"
+                ? comment.start
+                : (comment.start?.index ?? 0);
 
-        if (!comment.printed && commentEnd < nodeStartIndex) {
+        // We process the comment if it's not printed AND:
+        // 1. It's before the function (leading comment)
+        // 2. OR it's inside the function (start >= nodeStartIndex) - likely from the body
+        if (!comment.printed && (commentEnd < nodeStartIndex || commentStart >= nodeStartIndex)) {
             if (comment.type === "CommentLine") {
                 const formatted = Core.formatLineComment(
                     comment,
@@ -173,7 +198,7 @@ export function collectFunctionDocCommentDocs({
 
                 if (isDocLike) {
                     nodeLeadingDocs.push({
-                        start: comment.start,
+                        start: commentStart,
                         text: formatted
                     });
                     comment.printed = true;
@@ -181,12 +206,42 @@ export function collectFunctionDocCommentDocs({
                         const idx = node.comments.indexOf(comment);
                         if (idx !== -1) node.comments.splice(idx, 1);
                     }
+                    if (
+                        node.body &&
+                        node.body.type === "BlockStatement" &&
+                        Array.isArray(node.body.body) &&
+                        node.body.body.length > 0
+                    ) {
+                        const firstStmt = node.body.body[0];
+                        if (firstStmt.comments) {
+                            const idx = firstStmt.comments.indexOf(comment);
+                            if (idx !== -1) firstStmt.comments.splice(idx, 1);
+                        }
+                    }
                 }
             } else if (comment.type === "CommentBlock") {
                 const value = comment.value.trim();
-                const isDocLike = value.startsWith("*") || value.includes("@");
+                // Check for JSDoc-style (*) or @tags, OR GML-style parameter lists (param : desc)
+                const isDocLike = 
+                    value.startsWith("*") || 
+                    value.includes("@") ||
+                    /^[ \t]*\w+(?:[ \t]*,[ \t]*\w+)*[ \t]*:/m.test(value);
 
                 if (isDocLike) {
+                    const paramNames = new Set<string>();
+                    if (Array.isArray(node.params)) {
+                        for (const param of node.params) {
+                            if (param.type === "Identifier") {
+                                paramNames.add(param.name);
+                            } else if (
+                                param.type === "AssignmentPattern" &&
+                                param.left.type === "Identifier"
+                            ) {
+                                paramNames.add(param.left.name);
+                            }
+                        }
+                    }
+
                     const lines = comment.value.split(/\r\n|\r|\n/);
                     for (const line of lines) {
                         let cleanLine = line.trim();
@@ -194,15 +249,57 @@ export function collectFunctionDocCommentDocs({
                             cleanLine = cleanLine.slice(1).trim();
                         }
                         if (cleanLine === "") continue;
-                        nodeLeadingDocs.push({
-                            start: comment.start,
-                            text: `/// ${cleanLine}`
-                        });
+
+                        // Check for param pattern: "param1, param2 : description"
+                        const paramMatch = cleanLine.match(
+                            /^([a-zA-Z0-9_]+(?:[ \t]*,[ \t]*[a-zA-Z0-9_]+)*)[ \t]*:[ \t]*(.*)$/
+                        );
+
+                        let isParamLine = false;
+                        if (paramMatch) {
+                            const params = paramMatch[1]
+                                .split(",")
+                                .map((p) => p.trim());
+                            // Only treat as param line if ALL listed names are actual parameters of the function.
+                            // This avoids false positives like "Note: this is important".
+                            if (
+                                params.length > 0 &&
+                                params.every((p) => paramNames.has(p))
+                            ) {
+                                isParamLine = true;
+                                const desc = paramMatch[2].trim();
+                                for (const param of params) {
+                                    nodeLeadingDocs.push({
+                                        start: commentStart,
+                                        text: `/// @param ${param} ${desc}`
+                                    });
+                                }
+                            }
+                        }
+
+                        if (!isParamLine) {
+                            nodeLeadingDocs.push({
+                                start: commentStart,
+                                text: `/// ${cleanLine}`
+                            });
+                        }
                     }
                     comment.printed = true;
                     if (node.comments) {
                         const idx = node.comments.indexOf(comment);
                         if (idx !== -1) node.comments.splice(idx, 1);
+                    }
+                    if (
+                        node.body &&
+                        node.body.type === "BlockStatement" &&
+                        Array.isArray(node.body.body) &&
+                        node.body.body.length > 0
+                    ) {
+                        const firstStmt = node.body.body[0];
+                        if (firstStmt.comments) {
+                            const idx = firstStmt.comments.indexOf(comment);
+                            if (idx !== -1) firstStmt.comments.splice(idx, 1);
+                        }
                     }
                 }
             }
