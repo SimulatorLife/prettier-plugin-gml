@@ -1149,3 +1149,170 @@ void test("Transpiler.emitJavaScript handles built-in function mapping for max",
         "Should include Math.max for max"
     );
 });
+
+void test("Transpiler.emitJavaScript handles built-in function mapping for sqrt", () => {
+    const source = "val = sqrt(25)";
+    const parser = new Parser.GMLParser(source);
+    const ast = parser.parse();
+    const result = Transpiler.emitJavaScript(ast);
+    assert.ok(
+        result.includes("Math.sqrt(25)"),
+        "Should include Math.sqrt for sqrt"
+    );
+});
+
+void test("Transpiler.emitJavaScript handles built-in function mapping for sqr", () => {
+    const source = "val = sqr(5)";
+    const parser = new Parser.GMLParser(source);
+    const ast = parser.parse();
+    const result = Transpiler.emitJavaScript(ast);
+    assert.ok(
+        result.includes("Math.pow(5, 2)"),
+        "Should include Math.pow for sqr"
+    );
+});
+
+void test("Transpiler.emitJavaScript handles built-in function mapping for power", () => {
+    const source = "val = power(2, 8)";
+    const parser = new Parser.GMLParser(source);
+    const ast = parser.parse();
+    const result = Transpiler.emitJavaScript(ast);
+    assert.ok(
+        result.includes("Math.pow(2, 8)"),
+        "Should include Math.pow for power"
+    );
+});
+
+void test("Transpiler.emitJavaScript handles built-in function mapping for exp", () => {
+    const source = "val = exp(2)";
+    const parser = new Parser.GMLParser(source);
+    const ast = parser.parse();
+    const result = Transpiler.emitJavaScript(ast);
+    assert.ok(
+        result.includes("Math.exp(2)"),
+        "Should include Math.exp for exp"
+    );
+});
+
+void test("Transpiler.emitJavaScript handles built-in function mapping for ln", () => {
+    const source = "val = ln(10)";
+    const parser = new Parser.GMLParser(source);
+    const ast = parser.parse();
+    const result = Transpiler.emitJavaScript(ast);
+    assert.ok(
+        result.includes("Math.log(10)"),
+        "Should include Math.log for ln"
+    );
+});
+
+void test("Transpiler.emitJavaScript handles built-in function mapping for log2", () => {
+    const source = "val = log2(8)";
+    const parser = new Parser.GMLParser(source);
+    const ast = parser.parse();
+    const result = Transpiler.emitJavaScript(ast);
+    assert.ok(
+        result.includes("Math.log2(8)"),
+        "Should include Math.log2 for log2"
+    );
+});
+
+void test("Transpiler.emitJavaScript handles built-in function mapping for log10", () => {
+    const source = "val = log10(100)";
+    const parser = new Parser.GMLParser(source);
+    const ast = parser.parse();
+    const result = Transpiler.emitJavaScript(ast);
+    assert.ok(
+        result.includes("Math.log10(100)"),
+        "Should include Math.log10 for log10"
+    );
+});
+
+void test("Transpiler.emitJavaScript handles built-in function mapping for arcsin", () => {
+    const source = "val = arcsin(0.5)";
+    const parser = new Parser.GMLParser(source);
+    const ast = parser.parse();
+    const result = Transpiler.emitJavaScript(ast);
+    assert.ok(
+        result.includes("Math.asin(0.5)"),
+        "Should include Math.asin for arcsin"
+    );
+});
+
+void test("Transpiler.emitJavaScript handles built-in function mapping for arccos", () => {
+    const source = "val = arccos(0.5)";
+    const parser = new Parser.GMLParser(source);
+    const ast = parser.parse();
+    const result = Transpiler.emitJavaScript(ast);
+    assert.ok(
+        result.includes("Math.acos(0.5)"),
+        "Should include Math.acos for arccos"
+    );
+});
+
+void test("Transpiler.emitJavaScript handles built-in function mapping for arctan", () => {
+    const source = "val = arctan(1)";
+    const parser = new Parser.GMLParser(source);
+    const ast = parser.parse();
+    const result = Transpiler.emitJavaScript(ast);
+    assert.ok(
+        result.includes("Math.atan(1)"),
+        "Should include Math.atan for arctan"
+    );
+});
+
+void test("Transpiler.emitJavaScript handles built-in function mapping for arctan2", () => {
+    const source = "val = arctan2(1, 1)";
+    const parser = new Parser.GMLParser(source);
+    const ast = parser.parse();
+    const result = Transpiler.emitJavaScript(ast);
+    assert.ok(
+        result.includes("Math.atan2(1, 1)"),
+        "Should include Math.atan2 for arctan2"
+    );
+});
+
+void test("Transpiler.emitJavaScript handles built-in function mapping for degtorad", () => {
+    const source = "val = degtorad(180)";
+    const parser = new Parser.GMLParser(source);
+    const ast = parser.parse();
+    const result = Transpiler.emitJavaScript(ast);
+    assert.ok(
+        result.includes("Math.PI"),
+        "Should include Math.PI for degtorad"
+    );
+    assert.ok(result.includes("180"), "Should include 180 in conversion");
+});
+
+void test("Transpiler.emitJavaScript handles built-in function mapping for radtodeg", () => {
+    const source = "val = radtodeg(3.14159)";
+    const parser = new Parser.GMLParser(source);
+    const ast = parser.parse();
+    const result = Transpiler.emitJavaScript(ast);
+    assert.ok(
+        result.includes("Math.PI"),
+        "Should include Math.PI for radtodeg"
+    );
+    assert.ok(result.includes("180"), "Should include 180 in conversion");
+});
+
+void test("Transpiler.emitJavaScript handles built-in function mapping for sign", () => {
+    const source = "val = sign(-5)";
+    const parser = new Parser.GMLParser(source);
+    const ast = parser.parse();
+    const result = Transpiler.emitJavaScript(ast);
+    assert.ok(
+        result.includes("Math.sign(-5)"),
+        "Should include Math.sign for sign"
+    );
+});
+
+void test("Transpiler.emitJavaScript handles built-in function mapping for clamp", () => {
+    const source = "val = clamp(15, 0, 10)";
+    const parser = new Parser.GMLParser(source);
+    const ast = parser.parse();
+    const result = Transpiler.emitJavaScript(ast);
+    assert.ok(
+        result.includes("Math.max(0, Math.min(10, 15))"),
+        "Should include correct clamp expression"
+    );
+});
