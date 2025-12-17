@@ -230,6 +230,15 @@ function assertValidIdentifierName(name: unknown): string {
 }
 
 /**
+ * Escape special regex characters in an identifier name to use in regex patterns.
+ * This allows searching for identifiers as whole words without accidentally
+ * treating special characters as regex metacharacters.
+ */
+function escapeRegexIdentifier(name: string): string {
+    return name.replaceAll(/[.*+?^${}()|[\]\\]/g, String.raw`\$&`);
+}
+
+/**
  * RefactorEngine coordinates semantic-safe edits across the project.
  * It consumes parser spans and semantic bindings to plan WorkspaceEdits
  * that avoid scope capture or shadowing.
@@ -1834,6 +1843,234 @@ export class RefactorEngine {
                 };
             }
         }
+    }
+
+    /**
+     * Verify semantic integrity after applying edits.
+     * This validates that renamed symbols still resolve correctly and no accidental
+     * shadowing or scope capture occurred. Essential for ensuring hot reload safety.
+     *
+     * Usage pattern:
+     * 1. Plan rename with planRename()
+     * 2. Apply edits with applyWorkspaceEdit()
+     * 3. Verify integrity with verifyPostEditIntegrity()
+     * 4. If validation fails, the caller can revert or report errors
+     *
+     * @param {Object} request - Verification request
+     * @param {string} request.symbolId - The symbol that was renamed
+     * @param {string} request.oldName - Original symbol name
+     * @param {string} request.newName - New symbol name
+     * @param {WorkspaceEdit} request.workspace - The applied workspace edit
+     * @param {Function} request.readFile - Function to read file contents after edits
+     * @returns {Promise<{valid: boolean, errors: Array<string>, warnings: Array<string>}>}
+     */
+    async verifyPostEditIntegrity(request: {
+        symbolId: string;
+        oldName: string;
+        newName: string;
+        workspace: WorkspaceEdit;
+        readFile: WorkspaceReadFile;
+    }): Promise<ValidationSummary> {
+        const { symbolId, oldName, newName, workspace, readFile } = request;
+        const errors: Array<string> = [];
+        const warnings: Array<string> = [];
+
+        // Validate inputs - check both existence and type
+        if (
+            symbolId === null ||
+            symbolId === undefined ||
+            typeof symbolId !== "string" ||
+            symbolId.trim() === ""
+        ) {
+            errors.push("Invalid symbolId");
+            return { valid: false, errors, warnings };
+        }
+
+        if (
+            oldName === null ||
+            oldName === undefined ||
+            typeof oldName !== "string" ||
+            oldName.trim() === ""
+        ) {
+            errors.push("Invalid oldName");
+            return { valid: false, errors, warnings };
+        }
+
+        if (
+            newName === null ||
+            newName === undefined ||
+            typeof newName !== "string" ||
+            newName.trim() === ""
+        ) {
+            errors.push("Invalid newName");
+            return { valid: false, errors, warnings };
+        }
+
+        if (!workspace || !(workspace instanceof WorkspaceEdit)) {
+            errors.push("Invalid workspace edit");
+            return { valid: false, errors, warnings };
+        }
+
+        if (!readFile || typeof readFile !== "function") {
+            errors.push("Invalid readFile function");
+            return { valid: false, errors, warnings };
+        }
+
+        // Group edits by file to process each affected file once
+        const grouped = workspace.groupByFile();
+        const affectedFiles = Array.from(grouped.keys());
+
+        // Perform basic file content checks regardless of semantic analyzer availability
+        // These catch obvious issues like lingering old names or missing new names
+
+        // Verify the old name no longer exists in edited files
+        for (const filePath of affectedFiles) {
+            let content: string;
+            try {
+                content = await readFile(filePath);
+            } catch (error) {
+                errors.push(
+                    `Failed to read ${filePath} for post-edit validation: ${error.message}`
+                );
+                continue;
+            }
+
+            // Simple heuristic: check if the old name still appears as an identifier
+            // This is a basic check - full validation would require re-parsing
+            const identifierPattern = new RegExp(
+                String.raw`\b${escapeRegexIdentifier(oldName)}\b`,
+                "g"
+            );
+            const oldNameMatches = content.match(identifierPattern);
+
+            if (oldNameMatches && oldNameMatches.length > 0) {
+                // Check if these are in comments by examining each line
+                let allInComments = true;
+                const lines = content.split("\n");
+                for (const line of lines) {
+                    if (line.includes(oldName)) {
+                        const trimmed = line.trim();
+                        // Check if line is a comment or if oldName appears after //
+                        const commentIndex = line.indexOf("//");
+                        const oldNameIndex = line.indexOf(oldName);
+                        const isInLineComment =
+                            commentIndex !== -1 && commentIndex < oldNameIndex;
+                        const isCommentLine = trimmed.startsWith("//");
+                        const isInBlockComment =
+                            line.includes("/*") || line.includes("*/");
+
+                        if (
+                            !isCommentLine &&
+                            !isInLineComment &&
+                            !isInBlockComment
+                        ) {
+                            allInComments = false;
+                            break;
+                        }
+                    }
+                }
+
+                if (allInComments) {
+                    warnings.push(
+                        `Old name '${oldName}' still appears in comments in ${filePath} - may need manual update`
+                    );
+                } else {
+                    errors.push(
+                        `Old name '${oldName}' still exists in ${filePath} after rename - edits may be incomplete`
+                    );
+                }
+            }
+
+            // Verify the new name appears in the file
+            const newIdentifierPattern = new RegExp(
+                String.raw`\b${escapeRegexIdentifier(newName)}\b`,
+                "g"
+            );
+            const newNameMatches = content.match(newIdentifierPattern);
+
+            if (!newNameMatches || newNameMatches.length === 0) {
+                warnings.push(
+                    `New name '${newName}' does not appear in ${filePath} - verify edits were applied`
+                );
+            }
+        }
+
+        // Use semantic analyzer to check for new conflicts or shadowing
+        if (
+            this.semantic &&
+            typeof this.semantic.getSymbolOccurrences === "function"
+        ) {
+            try {
+                // Query occurrences of the new name to detect any potential conflicts
+                const newOccurrences =
+                    await this.semantic.getSymbolOccurrences(newName);
+
+                // Look for occurrences outside our edited files - these could be conflicts
+                const unexpectedOccurrences = newOccurrences.filter(
+                    (occ) => !affectedFiles.includes(occ.path)
+                );
+
+                if (unexpectedOccurrences.length > 0) {
+                    const conflictPaths = Array.from(
+                        new Set(unexpectedOccurrences.map((o) => o.path))
+                    );
+                    warnings.push(
+                        `New name '${newName}' already exists in ${conflictPaths.length} other file(s): ${conflictPaths.join(", ")} - verify no shadowing occurred`
+                    );
+                }
+            } catch (error) {
+                warnings.push(
+                    `Could not verify occurrences of new name: ${error.message}`
+                );
+            }
+        }
+
+        // Use semantic analyzer to check for reserved keyword violations
+        if (
+            this.semantic &&
+            typeof this.semantic.getReservedKeywords === "function"
+        ) {
+            try {
+                const keywords = await this.semantic.getReservedKeywords();
+                if (keywords.includes(newName.toLowerCase())) {
+                    errors.push(
+                        `New name '${newName}' conflicts with reserved keyword`
+                    );
+                }
+            } catch (error) {
+                warnings.push(
+                    `Could not verify reserved keywords: ${error.message}`
+                );
+            }
+        }
+
+        // If parser is available, we could re-parse files and verify binding integrity
+        // This is more expensive but provides the strongest guarantee
+        if (this.parser && typeof this.parser.parse === "function") {
+            for (const filePath of affectedFiles) {
+                try {
+                    // Attempt to parse the file to ensure syntax is still valid
+                    await this.parser.parse(filePath);
+                } catch (parseError) {
+                    errors.push(
+                        `Parse error in ${filePath} after rename: ${parseError.message} - edits may have broken syntax`
+                    );
+                }
+            }
+        }
+
+        // Warn if no semantic analyzer for deeper validation
+        if (!this.semantic) {
+            warnings.push(
+                "No semantic analyzer available - skipping deep semantic validation"
+            );
+        }
+
+        return {
+            valid: errors.length === 0,
+            errors,
+            warnings
+        };
     }
 
     /**
