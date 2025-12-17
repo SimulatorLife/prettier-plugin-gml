@@ -45,6 +45,32 @@ const callKind = oracle.callTargetKind({
 
 The `ScopeTracker` provides query methods that enable hot reload coordination and dependency tracking:
 
+### `getAllSymbolsSummary()`
+
+Get a global summary of all symbols across all scopes. Returns aggregated metadata for each unique symbol showing which scopes declare and reference it, along with occurrence counts. This provides a bird's-eye view of the entire symbol table without iterating through individual scopes.
+
+```javascript
+const tracker = new ScopeTracker({ enabled: true });
+// ... track declarations and references across multiple scopes ...
+const summary = tracker.getAllSymbolsSummary();
+// Returns: [
+//   {
+//     name: "GameState",
+//     scopeCount: 3,
+//     declarationCount: 1,
+//     referenceCount: 5,
+//     scopes: [
+//       { scopeId: "scope-0", scopeKind: "program", hasDeclaration: true, hasReference: false },
+//       { scopeId: "scope-1", scopeKind: "function", hasDeclaration: false, hasReference: true },
+//       { scopeId: "scope-2", scopeKind: "function", hasDeclaration: false, hasReference: true }
+//     ]
+//   },
+//   { name: "localVar", scopeCount: 1, declarationCount: 1, referenceCount: 2, scopes: [...] }
+// ]
+```
+
+**Use case:** Quick assessment of symbol usage patterns for hot reload coordination. Provides a global view of which symbols are most widely used across the project, helping identify high-impact symbols that require careful invalidation when modified. The aggregated counts enable prioritization of hot reload optimizations and detection of potential bottlenecks in dependency graphs.
+
 ### `getScopeOccurrences(scopeId, options)`
 
 Export declaration and reference metadata for a single scope without scanning
