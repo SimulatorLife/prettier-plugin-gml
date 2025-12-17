@@ -666,6 +666,60 @@ export class ScopeTracker {
     }
 
     /**
+     * Get a global summary of all symbols across all scopes. Returns aggregated
+     * metadata for each unique symbol showing which scopes declare and reference
+     * it, along with occurrence counts. This provides a bird's-eye view of the
+     * entire symbol table for hot reload coordination, enabling quick assessment
+     * of symbol usage patterns without iterating through individual scopes.
+     *
+     * @returns {Array<{name: string, scopeCount: number, declarationCount: number, referenceCount: number, scopes: Array<{scopeId: string, scopeKind: string, hasDeclaration: boolean, hasReference: boolean}>}>}
+     *          Array of symbol summaries with aggregated usage metadata.
+     */
+    getAllSymbolsSummary() {
+        if (!this.enabled) {
+            return [];
+        }
+
+        const summaries = [];
+
+        for (const [name, scopeSummaryMap] of this.symbolToScopesIndex) {
+            let totalDeclarations = 0;
+            let totalReferences = 0;
+            const scopeDetails = [];
+
+            for (const [scopeId, summary] of scopeSummaryMap) {
+                const scope = this.scopesById.get(scopeId);
+                if (!scope) {
+                    continue;
+                }
+
+                const entry = scope.occurrences.get(name);
+                if (entry) {
+                    totalDeclarations += entry.declarations.length;
+                    totalReferences += entry.references.length;
+                }
+
+                scopeDetails.push({
+                    scopeId,
+                    scopeKind: scope.kind,
+                    hasDeclaration: Boolean(summary.hasDeclaration),
+                    hasReference: Boolean(summary.hasReference)
+                });
+            }
+
+            summaries.push({
+                name,
+                scopeCount: scopeSummaryMap.size,
+                declarationCount: totalDeclarations,
+                referenceCount: totalReferences,
+                scopes: scopeDetails
+            });
+        }
+
+        return summaries;
+    }
+
+    /**
      * Get all symbols (unique identifier names) declared or referenced in a
      * specific scope. This helps track dependencies and supports selective
      * recompilation strategies.
