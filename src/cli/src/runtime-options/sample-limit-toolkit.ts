@@ -1,10 +1,6 @@
 import { Core } from "@gml-modules/core";
 
-const {
-    coerceNonNegativeInteger,
-    resolveIntegerOption,
-    createEnvConfiguredValue
-} = Core;
+const { coerceNonNegativeInteger, resolveIntegerOption } = Core;
 
 interface SampleLimitOptionParams {
     defaultValue?: number;
@@ -24,101 +20,87 @@ export interface SampleLimitRuntimeOption {
     applyEnvOverride: (env?: NodeJS.ProcessEnv) => number | undefined;
 }
 
-function createSampleLimitOption({
-    defaultValue,
-    envVar,
-    subjectLabel
-}: SampleLimitOptionParams) {
-    const label = subjectLabel ?? "Sample";
-
-    const formatReceivedValue = (value: unknown): string => {
-        if (value === null) {
-            return "null";
-        }
-        if (value === undefined) {
-            return "undefined";
-        }
-
-        const firstClass =
-            typeof value === "string" ||
-            typeof value === "number" ||
-            typeof value === "boolean" ||
-            typeof value === "bigint";
-        if (firstClass) {
-            return String(value);
-        }
-
-        try {
-            return JSON.stringify(value);
-        } catch {
-            return "[unknown]";
-        }
-    };
-
-    const createErrorMessage = (received: unknown) =>
-        `${label} sample limit must be a non-negative integer (received ${formatReceivedValue(
-            received
-        )}). Provide 0 to suppress the sample list.`;
-
-    const createTypeError = (type: string) =>
-        `${label} sample limit must be provided as a number (received type '${type}').`;
-
-    const coerce = (value: unknown, context: Record<string, unknown>): number =>
-        coerceNonNegativeInteger(value, { ...context, createErrorMessage });
-
-    const state = createEnvConfiguredValue<number | undefined>({
-        defaultValue,
-        envVar,
-        normalize: (value, { defaultValue: baseline, previousValue }) => {
-            const fallback = baseline ?? previousValue;
-            return resolveIntegerOption(value, {
-                defaultValue: fallback,
-                coerce,
-                typeErrorMessage: createTypeError
-            });
-        }
-    });
-
-    function resolve(
-        rawValue?: unknown,
-        options: { defaultLimit?: number; defaultValue?: number } = {}
+function formatReceivedValue(value: unknown): string {
+    if (value === null) return "null";
+    if (value === undefined) return "undefined";
+    if (
+        typeof value === "string" ||
+        typeof value === "number" ||
+        typeof value === "boolean" ||
+        typeof value === "bigint"
     ) {
-        const defaultLimit = options.defaultLimit ?? options.defaultValue;
-        const fallback =
-            defaultLimit === undefined ? state.get() : defaultLimit;
-        return resolveIntegerOption(rawValue, {
-            defaultValue: fallback,
-            coerce,
-            typeErrorMessage: createTypeError
-        });
+        return String(value);
     }
-
-    return {
-        getDefault: state.get,
-        setDefault: (value) => state.set(value),
-        resolve,
-        applyEnvOverride: state.applyEnvOverride
-    };
+    try {
+        return JSON.stringify(value);
+    } catch {
+        return "[unknown]";
+    }
 }
 
 export function createSampleLimitRuntimeOption(
     params: SampleLimitOptionParams,
     { env }: { env?: NodeJS.ProcessEnv } = {}
 ): SampleLimitRuntimeOption {
-    const { defaultValue, envVar } = params;
-    const option = createSampleLimitOption(params);
+    const { defaultValue, envVar, subjectLabel = "Sample" } = params;
 
-    const applyEnvOverride = (overrideEnv?: NodeJS.ProcessEnv) =>
-        option.applyEnvOverride(overrideEnv ?? env);
+    let currentDefault = defaultValue;
+
+    const coerce = (val: unknown) =>
+        coerceNonNegativeInteger(val, {
+            createErrorMessage: (received: unknown) =>
+                `${subjectLabel} sample limit must be a non-negative integer (received ${formatReceivedValue(received)}). Provide 0 to suppress the sample list.`
+        });
+
+    const typeErrorMessage = (type: string) =>
+        `${subjectLabel} sample limit must be provided as a number (received type '${type}').`;
+
+    const getDefault = () => currentDefault;
+
+    const setDefault = (value?: unknown) => {
+        currentDefault =
+            value === undefined
+                ? defaultValue
+                : resolveValue(value, { defaultValue });
+        return currentDefault;
+    };
+
+    const applyEnvOverride = (overrideEnv?: NodeJS.ProcessEnv) => {
+        const targetEnv = overrideEnv ?? env;
+        if (envVar && targetEnv?.[envVar]) {
+            currentDefault = resolveValue(targetEnv[envVar], { defaultValue });
+        }
+        return currentDefault;
+    };
+
+    const resolveValue = (
+        value: unknown,
+        options: { defaultValue?: number } = {}
+    ) =>
+        resolveIntegerOption(value, {
+            defaultValue: options.defaultValue ?? currentDefault,
+            coerce,
+            typeErrorMessage
+        });
+
+    const resolve = (
+        value?: unknown,
+        options: { defaultLimit?: number; defaultValue?: number } = {}
+    ) => {
+        const fallback = options.defaultLimit ?? options.defaultValue;
+        return resolveValue(value, {
+            defaultValue: fallback ?? currentDefault
+        });
+    };
 
     applyEnvOverride();
 
     return Object.freeze({
         defaultValue,
         envVar,
-        getDefault: option.getDefault,
-        setDefault: option.setDefault,
-        resolve: option.resolve,
+        getDefault,
+        setDefault,
+        resolve,
         applyEnvOverride
     });
 }
