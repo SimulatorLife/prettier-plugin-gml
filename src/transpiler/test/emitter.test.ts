@@ -1312,7 +1312,7 @@ void test("Transpiler.emitJavaScript handles built-in function mapping for clamp
     const ast = parser.parse();
     const result = Transpiler.emitJavaScript(ast);
     assert.ok(
-        result.includes("Math.max(0, Math.min(10, 15))"),
+        result.includes("Math.max(0, Math.min(15, 10))"),
         "Should include correct clamp expression"
     );
 });

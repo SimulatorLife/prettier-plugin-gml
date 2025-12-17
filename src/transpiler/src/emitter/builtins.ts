@@ -116,7 +116,7 @@ export const builtInFunctions: Record<string, BuiltInEmitter> = Object.freeze({
         if (args.length !== 3) {
             return `clamp(${args.join(", ")})`;
         }
-        return `Math.max(${args[1]}, Math.min(${args[2]}, ${args[0]}))`;
+        return `Math.max(${args[1]}, Math.min(${args[0]}, ${args[2]}))`;
     },
     min(args) {
         return `Math.min(${args.join(", ")})`;
