@@ -758,7 +758,8 @@ function isDocCommentCandidate(comment, followingNode) {
 
     return (
         followingNode.type === "FunctionDeclaration" ||
-        followingNode.type === "ConstructorDeclaration"
+        followingNode.type === "ConstructorDeclaration" ||
+        followingNode.type === "VariableDeclaration"
     );
 }
 

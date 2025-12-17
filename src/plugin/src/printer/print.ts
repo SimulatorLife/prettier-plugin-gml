@@ -598,16 +598,28 @@ function _printImpl(path, options, print) {
                 // Non-fatal heuristic failures should not abort printing.
             }
 
+            let includeOverrideTag = false;
+            const parentNode = path.getParentNode();
+            if (parentNode && parentNode.type === "VariableDeclarator") {
+                const grandParentNode = path.getParentNode(1);
+                if (
+                    grandParentNode &&
+                    grandParentNode.type === "VariableDeclaration" &&
+                    grandParentNode._overridesStaticFunction
+                ) {
+                    includeOverrideTag = true;
+                }
+            }
+
             ({ docCommentDocs, needsLeadingBlankLine } =
                 normalizeFunctionDocCommentDocs({
                     docCommentDocs,
                     needsLeadingBlankLine,
                     node,
                     options,
-                    path
+                    path,
+                    overrides: { includeOverrideTag }
                 }));
-
-
 
             const shouldEmitPlainLeadingBeforeDoc =
                 plainLeadingLines.length > 0 &&
@@ -676,6 +688,21 @@ function _printImpl(path, options, print) {
                 node.docComments.forEach((comment: any) => {
                     comment.printed = true;
                 });
+            } else {
+                // If the function didn't have comments, we might have consumed them from the parent VariableDeclaration
+                const parentNode = path.getParentNode();
+                if (parentNode && parentNode.type === "VariableDeclarator") {
+                    const grandParentNode = path.getParentNode(1);
+                    if (
+                        grandParentNode &&
+                        grandParentNode.type === "VariableDeclaration" &&
+                        grandParentNode.docComments
+                    ) {
+                        grandParentNode.docComments.forEach((comment: any) => {
+                            comment.printed = true;
+                        });
+                    }
+                }
             }
 
             let functionNameDoc = "";
@@ -2662,7 +2689,7 @@ function printStatements(path, options, print, childrenAttribute) {
                 parts.push(hardline);
             }
         }
-        if (syntheticDocComment) {
+        if ( syntheticDocComment) {
             parts.push(syntheticDocComment, hardline);
         }
 

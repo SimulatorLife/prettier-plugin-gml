@@ -53,8 +53,10 @@ export function collectFunctionDocCommentDocs({
     };
     let needsLeadingBlankLine = false;
 
-    if (Core.isNonEmptyArray(node.docComments)) {
-        const firstDocComment = node.docComments[0];
+    let docComments = node.docComments ? [...node.docComments] : [];
+
+    if (Core.isNonEmptyArray(docComments)) {
+        const firstDocComment = docComments[0];
         if (
             firstDocComment &&
             typeof firstDocComment.leadingWS === STRING_TYPE
@@ -66,7 +68,7 @@ export function collectFunctionDocCommentDocs({
             }
         }
 
-        const normalizedDocComments = node.docComments
+        const normalizedDocComments = docComments
             .map((comment) =>
                 Core.formatLineComment(comment, lineCommentOptions)
             )
@@ -146,12 +148,38 @@ export function collectFunctionDocCommentDocs({
     const formattedProgramLines = programLeadingLines.map((line) => {
         const trimmed = line.trim();
         if (trimmed.startsWith("///")) return trimmed;
-        if (trimmed.startsWith("//")) return `///${trimmed.slice(2)}`;
-        if (trimmed.startsWith("/")) return `///${trimmed.slice(1)}`;
-        return `/// ${trimmed}`;
+        return line;
     });
 
+    // DEBUG LOG
+    if (formattedProgramLines.some(l => l.includes("draw"))) {
+        console.log("[DEBUG] collectFunctionDocCommentDocs programLeadingLines:", JSON.stringify(formattedProgramLines));
+    }
+
+    docCommentDocs.push(...formattedProgramLines);
+
     const nodeComments = [...(node.comments || [])];
+
+    // If node has no comments, check grandparent VariableDeclaration for static methods
+    if (nodeComments.length === 0) {
+        const parent = path.getParentNode();
+        if (parent && parent.type === "VariableDeclarator") {
+            const grandParent = path.getParentNode(1);
+            if (
+                grandParent &&
+                grandParent.type === "VariableDeclaration" &&
+                grandParent.kind === "static"
+            ) {
+                if (grandParent.comments && grandParent.comments.length > 0) {
+                    nodeComments.push(...grandParent.comments);
+                } else if (parent.comments && parent.comments.length > 0) {
+                    nodeComments.push(...parent.comments);
+                }
+            }
+        }
+    } else {
+        console.log("[DEBUG] nodeComments is not empty", nodeComments.map(c => c.value));
+    }
 
     // Also consider comments attached to the first statement of the function body
     // as they might be intended as function documentation (e.g. inside the braces).
@@ -334,8 +362,8 @@ export function collectFunctionDocCommentDocs({
     );
 
     const originalDocDocs: { start: number; text: string }[] = [];
-    if (Core.isNonEmptyArray(node.docComments)) {
-        for (const comment of node.docComments) {
+    if (Core.isNonEmptyArray(docComments)) {
+        for (const comment of docComments) {
             const formatted = Core.formatLineComment(
                 comment,
                 lineCommentOptions
@@ -589,7 +617,8 @@ export function normalizeFunctionDocCommentDocs({
     needsLeadingBlankLine,
     node,
     options,
-    path
+    path,
+    overrides
 }: any) {
 
     const docCommentOptions = resolveDocCommentPrinterOptions(options);
@@ -608,7 +637,8 @@ export function normalizeFunctionDocCommentDocs({
             Core.mergeSyntheticDocComments(
                 node,
                 docCommentDocs,
-                docCommentOptions
+                docCommentOptions,
+                overrides
             )
         ) as MutableDocCommentLines;
 
