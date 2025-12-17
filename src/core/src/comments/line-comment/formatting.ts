@@ -123,22 +123,25 @@ function normalizeBannerCommentText(
     return normalized;
 }
 
-// TODO: This function is way too long and should be broken up. Define clearer, standalone, testable units. Ensure we do not duplicate existing functionality and re-use existing helpers where possible.
-function formatLineComment(
-    comment,
-    lineCommentOptions: any = DEFAULT_LINE_COMMENT_OPTIONS
-) {
-    const normalizedOptions = normalizeLineCommentOptions(lineCommentOptions);
-    const { boilerplateFragments, codeDetectionPatterns } = normalizedOptions;
-    const original = getLineCommentRawText(comment, lineCommentOptions);
-    const trimmedOriginal = original.trim();
-    const rawValue = getCommentValue(comment);
-    const trimmedValue = getCommentValue(comment, { trim: true });
-
-    if (trimmedValue.length === 0) {
-        return null;
+/**
+ * Checks if a comment contains boilerplate text that should be suppressed.
+ */
+function containsBoilerplate(
+    trimmedValue: string,
+    boilerplateFragments: string[]
+): boolean {
+    for (const lineFragment of boilerplateFragments) {
+        if (trimmedValue.includes(lineFragment)) {
+            return true;
+        }
     }
+    return false;
+}
 
+/**
+ * Classifies key properties of a comment for formatting decisions.
+ */
+function analyzeCommentContext(comment, trimmedOriginal: string) {
     const startsWithTripleSlash = trimmedOriginal.startsWith("///");
     const isPlainTripleSlash =
         startsWithTripleSlash && !trimmedOriginal.includes("@");
@@ -147,12 +150,6 @@ function formatLineComment(
     const leadingSlashCount = leadingSlashMatch
         ? leadingSlashMatch[0].length
         : 0;
-
-    for (const lineFragment of boilerplateFragments) {
-        if (trimmedValue.includes(lineFragment)) {
-            return null;
-        }
-    }
 
     const hasPrecedingLineBreak =
         isObjectLike(comment) &&
@@ -173,6 +170,374 @@ function formatLineComment(
             comment.placement === "endOfLine" ||
             (!hasPrecedingLineBreak && hasInlineLeadingChar));
 
+    return {
+        startsWithTripleSlash,
+        isPlainTripleSlash,
+        leadingSlashCount,
+        isInlineComment
+    };
+}
+
+/**
+ * Attempts to format a comment as a banner or decorative comment.
+ * Returns the formatted string if successful, null otherwise.
+ */
+function tryFormatBannerComment(
+    comment,
+    trimmedOriginal: string,
+    trimmedValue: string,
+    slashesMatch: RegExpMatchArray | null,
+    hasDecorations: boolean
+): string | null {
+    if (!slashesMatch) {
+        return null;
+    }
+
+    if (
+        slashesMatch[1].length < LINE_COMMENT_BANNER_DETECTION_MIN_SLASHES &&
+        !hasDecorations
+    ) {
+        return null;
+    }
+
+    // For comments with 4+ leading slashes we usually treat them as
+    // decorative banners. However, some inputs use many slashes to
+    // indicate nested doc-like tags (for example: "//// @func ...").
+    // In those cases prefer promoting to a doc comment rather than
+    // stripping to a regular comment line.
+    const afterStripping = trimmedValue.replace(/^\/+\s*/, "").trimStart();
+    if (afterStripping.startsWith("@")) {
+        const formatted = applyJsDocReplacements(`/// ${afterStripping}`);
+        return applyInlinePadding(comment, formatted);
+    }
+
+    // Treat as a banner/decorative comment.
+    const bannerContent = normalizeBannerCommentText(trimmedValue);
+    if (bannerContent) {
+        return applyInlinePadding(comment, `// ${bannerContent}`);
+    }
+
+    // If the comment consists entirely of slashes (e.g. "////////////////"),
+    // treat it as a decorative separator and suppress it.
+    const contentAfterStripping = trimmedValue.replace(/^\/+\s*/, "");
+    if (contentAfterStripping.length === 0 && trimmedValue.length > 0) {
+        return "";
+    }
+
+    if (!/[A-Za-z0-9]/.test(contentAfterStripping)) {
+        if (isObjectLike(comment)) {
+            comment.leadingWS = "";
+            comment.trailingWS = "";
+        }
+        return "\n";
+    }
+
+    // If normalization fails but there is content, return the comment with normalized slashes
+    // (e.g. "//// comment" -> "// comment").
+    return applyInlinePadding(comment, `// ${contentAfterStripping}`);
+}
+
+/**
+ * Attempts to promote a comment to doc comment format (///) if it contains @ tags.
+ * Returns the formatted string if successful, null otherwise.
+ */
+function tryPromoteToDocComment(
+    comment,
+    trimmedOriginal: string,
+    trimmedValue: string,
+    slashesMatch: RegExpMatchArray | null,
+    isPlainTripleSlash: boolean
+): string | null {
+    // Handle "/ @tag" pattern (single slash before @ tag)
+    if (
+        slashesMatch &&
+        !isPlainTripleSlash &&
+        trimmedValue.startsWith("/") &&
+        !trimmedValue.startsWith("//")
+    ) {
+        const remainder = trimmedValue.slice(1);
+        if (remainder.trim().startsWith("@")) {
+            const shouldInsertSpace =
+                remainder.length > 0 && /\w/.test(remainder.charAt(1) || "");
+            const formatted = applyJsDocReplacements(
+                `///${shouldInsertSpace ? " " : ""}${remainder}`
+            );
+            return applyInlinePadding(comment, formatted);
+        }
+    }
+
+    // Check if comment starts with @ tag but needs to be promoted to doc comment format
+    // For example: "/ @description" or "// @description" should become "/// @description"
+    if (
+        !trimmedOriginal.startsWith("///") &&
+        trimmedOriginal.startsWith("/") &&
+        trimmedOriginal.includes("@")
+    ) {
+        const afterSlashes = trimmedOriginal.replace(/^\/+\s*/, "");
+        if (afterSlashes.startsWith("@")) {
+            const shouldInsertSpace =
+                afterSlashes.length > 0 &&
+                /\w/.test(afterSlashes.charAt(1) || "");
+            const formatted = applyJsDocReplacements(
+                `///${shouldInsertSpace ? " " : ""}${afterSlashes}`
+            );
+            return applyInlinePadding(comment, formatted);
+        }
+    }
+
+    return null;
+}
+
+/**
+ * Handles doc-like comment patterns (e.g., "// / text" should become "/// text").
+ */
+function tryFormatDocLikeComment(
+    comment,
+    trimmedOriginal: string
+): string | null {
+    const docLikeMatch = trimmedOriginal.match(/^\/\/\s+\/(?![\/])/);
+    if (!docLikeMatch) {
+        return null;
+    }
+
+    const remainder = trimmedOriginal.slice(docLikeMatch[0].length).trimStart();
+
+    // If the original comment value itself looks like a nested commented-out
+    // line (for example the AST produces a value like " // // something"),
+    // prefer preserving the nested comment visual ("//     // something")
+    // rather than promoting it to a doc comment ("/// something").
+    if (
+        remainder.startsWith("//") ||
+        (isObjectLike(comment) &&
+            typeof comment.value === "string" &&
+            /^\s*\/\//.test(comment.value))
+    ) {
+        const inner = remainder.startsWith("//")
+            ? remainder
+            : comment.value.trimStart();
+        const padded = `//     ${inner}`;
+        return applyInlinePadding(comment, padded);
+    }
+
+    // Only promote if it looks like a doc tag (starts with @)
+    if (remainder.startsWith("@")) {
+        const formatted = `///${remainder.length > 0 ? ` ${remainder}` : ""}`;
+        return applyInlinePadding(comment, formatted);
+    }
+
+    return null;
+}
+
+/**
+ * Handles existing doc comments (/// @tag).
+ */
+function tryFormatExistingDocComment(
+    comment,
+    trimmedOriginal: string,
+    trimmedValue: string,
+    startsWithTripleSlash: boolean
+): string | null {
+    if (!startsWithTripleSlash || !trimmedOriginal.includes("@")) {
+        return null;
+    }
+
+    const content = trimmedValue.replace(/^\/+\s*/, "");
+    const formatted = applyJsDocReplacements(`/// ${content}`) as string;
+
+    if (content.toLowerCase().startsWith("@description")) {
+        console.log(
+            `[DEBUG] doc comment content: "${content}", trimmedOriginal: "${trimmedOriginal}", formatted: "${formatted}"`
+        );
+    }
+
+    if (formatted.trim() === "/// @description") {
+        return "";
+    }
+
+    const result = applyInlinePadding(comment, formatted);
+    console.log(
+        `[DEBUG] formatLineComment preserve doc: "${trimmedOriginal}" -> "${result}"`
+    );
+    return result;
+}
+
+/**
+ * Handles doc tag line prefix patterns (e.g., "//() @tag").
+ */
+function tryFormatDocTagPrefix(
+    comment,
+    trimmedOriginal: string,
+    trimmedValue: string
+): string | null {
+    const docTagSource = DOC_TAG_LINE_PREFIX_PATTERN.test(trimmedValue)
+        ? trimmedValue
+        : DOC_TAG_LINE_PREFIX_PATTERN.test(trimmedOriginal)
+          ? trimmedOriginal
+          : null;
+
+    if (!docTagSource) {
+        return null;
+    }
+
+    let formattedCommentLine = `///${docTagSource.replace(DOC_TAG_LINE_PREFIX_PATTERN, " @")}`;
+    formattedCommentLine = applyJsDocReplacements(
+        formattedCommentLine
+    ) as string;
+
+    if (formattedCommentLine.trim() === "/// @description") {
+        return "";
+    }
+
+    const result = applyInlinePadding(comment, formattedCommentLine);
+    console.log(
+        `[DEBUG] formatLineComment docTagSource: "${trimmedOriginal}" -> "${result}"`
+    );
+    return result;
+}
+
+/**
+ * Handles commented-out code detection and formatting.
+ */
+function tryFormatCommentedOutCode(
+    comment,
+    trimmedOriginal: string,
+    trimmedValue: string,
+    rawValue: string,
+    codeDetectionPatterns: RegExp[]
+): string | null {
+    const leadingWhitespaceMatch = rawValue.match(/^\s*/);
+    const leadingWhitespace = leadingWhitespaceMatch
+        ? leadingWhitespaceMatch[0]
+        : "";
+    const valueWithoutTrailingWhitespace = rawValue.replace(/\s+$/, "");
+    const coreValue = valueWithoutTrailingWhitespace.slice(
+        leadingWhitespace.length
+    );
+
+    if (
+        coreValue.length === 0 ||
+        (!trimmedValue.startsWith("//") &&
+            !looksLikeCommentedOutCode(coreValue, codeDetectionPatterns))
+    ) {
+        return null;
+    }
+
+    const result = applyInlinePadding(
+        comment,
+        `//${leadingWhitespace}${coreValue}`,
+        true
+    );
+    console.log(
+        `[DEBUG] formatLineComment commented code: "${trimmedOriginal}" -> "${result}"`
+    );
+    return result;
+}
+
+/**
+ * Handles multi-sentence comments that need to be split across lines.
+ */
+function tryFormatMultiSentenceComment(
+    comment,
+    trimmedOriginal: string,
+    trimmedValue: string,
+    isInlineComment: boolean
+): string | null {
+    const sentences = isInlineComment
+        ? [trimmedValue]
+        : splitCommentIntoSentences(trimmedValue);
+
+    if (sentences.length <= 1) {
+        return null;
+    }
+
+    const continuationIndent = extractContinuationIndentation(comment);
+    const formattedSentences = sentences.map((sentence, index) => {
+        const line = applyInlinePadding(comment, `// ${sentence}`);
+        return index === 0 ? line : continuationIndent + line;
+    });
+    const result = formattedSentences.join("\n");
+    console.log(
+        `[DEBUG] formatLineComment sentences: "${trimmedOriginal}" -> "${result}"`
+    );
+    return result;
+}
+
+/**
+ * Formats plain triple-slash comments that aren't doc comments.
+ */
+function tryFormatPlainTripleSlash(
+    comment,
+    trimmedOriginal: string,
+    isPlainTripleSlash: boolean,
+    isInlineComment: boolean,
+    leadingSlashCount: number
+): string | null {
+    if (!isPlainTripleSlash) {
+        return null;
+    }
+
+    if (isInlineComment) {
+        const remainder = trimmedOriginal.slice(3).trimStart();
+        const formatted = remainder.length > 0 ? `// ${remainder}` : "//";
+        return applyInlinePadding(comment, formatted);
+    }
+
+    const remainder = trimmedOriginal.slice(3).trimStart();
+
+    if (comment?.isBottomComment === true && /^\d/.test(remainder)) {
+        const formatted = remainder.length > 0 ? `// ${remainder}` : "//";
+        return applyInlinePadding(comment, formatted);
+    }
+
+    if (!isInlineComment && /^\d+\s*[).:-]/.test(remainder)) {
+        const formatted = `// ${remainder}`;
+        return applyInlinePadding(comment, formatted);
+    }
+
+    if (
+        leadingSlashCount >= LINE_COMMENT_BANNER_DETECTION_MIN_SLASHES &&
+        !isInlineComment
+    ) {
+        return applyInlinePadding(comment, trimmedOriginal);
+    }
+
+    return null;
+}
+
+/**
+ * Formats a line comment according to the project's style conventions.
+ * Uses a series of specialized helper functions to handle different comment patterns,
+ * making the control flow easier to follow through early returns and guard clauses.
+ */
+function formatLineComment(
+    comment,
+    lineCommentOptions: any = DEFAULT_LINE_COMMENT_OPTIONS
+) {
+    const normalizedOptions = normalizeLineCommentOptions(lineCommentOptions);
+    const { boilerplateFragments, codeDetectionPatterns } = normalizedOptions;
+    const original = getLineCommentRawText(comment, lineCommentOptions);
+    const trimmedOriginal = original.trim();
+    const rawValue = getCommentValue(comment);
+    const trimmedValue = getCommentValue(comment, { trim: true });
+
+    // Guard: empty comments
+    if (trimmedValue.length === 0) {
+        return null;
+    }
+
+    // Guard: suppress boilerplate
+    if (containsBoilerplate(trimmedValue, boilerplateFragments)) {
+        return null;
+    }
+
+    const context = analyzeCommentContext(comment, trimmedOriginal);
+    const {
+        startsWithTripleSlash,
+        isPlainTripleSlash,
+        leadingSlashCount,
+        isInlineComment
+    } = context;
+
     const slashesMatch = original.match(/^\s*(\/{2,})(.*)$/);
     const contentWithoutSlashes = trimmedValue.replace(/^\/+\s*/, "");
 
@@ -186,232 +551,93 @@ function formatLineComment(
             (contentWithoutSlashes.match(INNER_BANNER_DECORATION_PATTERN) || [])
                 .length > 0);
 
-    if (
-        slashesMatch &&
-        (slashesMatch[1].length >= LINE_COMMENT_BANNER_DETECTION_MIN_SLASHES ||
-            hasDecorations)
-    ) {
-        // For comments with 4+ leading slashes we usually treat them as
-        // decorative banners. However, some inputs use many slashes to
-        // indicate nested doc-like tags (for example: "//// @func ...").
-        // In those cases prefer promoting to a doc comment rather than
-        // stripping to a regular comment line.
-        const afterStripping = trimmedValue.replace(/^\/+\s*/, "").trimStart();
-        if (afterStripping.startsWith("@")) {
-            // Promote to /// @... style and apply replacements (e.g. @func -> @function)
-            const formatted = applyJsDocReplacements(`/// ${afterStripping}`);
-            return applyInlinePadding(comment, formatted);
-        }
-
-        // Treat as a banner/decorative comment.
-        const bannerContent = normalizeBannerCommentText(trimmedValue);
-        if (bannerContent) {
-            return applyInlinePadding(comment, `// ${bannerContent}`);
-        }
-
-        // If the comment consists entirely of slashes (e.g. "////////////////"),
-        // treat it as a decorative separator and suppress it.
-        const contentAfterStripping = trimmedValue.replace(/^\/+\s*/, "");
-        if (contentAfterStripping.length === 0 && trimmedValue.length > 0) {
-            return "";
-        }
-
-        if (!/[A-Za-z0-9]/.test(contentAfterStripping)) {
-            if (isObjectLike(comment)) {
-                comment.leadingWS = "";
-                comment.trailingWS = "";
-            }
-            return "\n";
-        }
-
-        // If normalization fails but there is content, return the comment with normalized slashes
-        // (e.g. "//// comment" -> "// comment").
-        return applyInlinePadding(comment, `// ${contentAfterStripping}`);
-    }
-
-    if (
-        slashesMatch &&
-        !isPlainTripleSlash && // Check for doc-like patterns that should remain as doc comments, not banner comments
-        // Only process if it starts with exactly one slash (like "/ @tag"), not multiple slashes
-        trimmedValue.startsWith("/") &&
-        !trimmedValue.startsWith("//")
-    ) {
-        const remainder = trimmedValue.slice(1); // Remove just the first slash
-        if (remainder.trim().startsWith("@")) {
-            const shouldInsertSpace =
-                remainder.length > 0 && /\w/.test(remainder.charAt(1) || "");
-            const formatted = applyJsDocReplacements(
-                `///${shouldInsertSpace ? " " : ""}${remainder}`
-            );
-            return applyInlinePadding(comment, formatted);
-        }
-    }
-
-    if (isInlineComment && isPlainTripleSlash) {
-        const remainder = trimmedOriginal.slice(3).trimStart();
-        const formatted = remainder.length > 0 ? `// ${remainder}` : "//";
-        return applyInlinePadding(comment, formatted);
-    }
-
-    if (isPlainTripleSlash) {
-        const remainder = trimmedOriginal.slice(3).trimStart();
-
-        if (comment?.isBottomComment === true && /^\d/.test(remainder)) {
-            const formatted = remainder.length > 0 ? `// ${remainder}` : "//";
-            return applyInlinePadding(comment, formatted);
-        }
-
-        if (!isInlineComment && /^\d+\s*[).:-]/.test(remainder)) {
-            const formatted = `// ${remainder}`;
-            return applyInlinePadding(comment, formatted);
-        }
-    }
-
-    if (
-        isPlainTripleSlash &&
-        leadingSlashCount >= LINE_COMMENT_BANNER_DETECTION_MIN_SLASHES &&
-        !isInlineComment
-    ) {
-        return applyInlinePadding(comment, trimmedOriginal);
-    }
-
-    // Check if comment starts with @ tag but needs to be promoted to doc comment format
-    // For example: "/ @description" or "// @description" should become "/// @description"
-    if (
-        !trimmedOriginal.startsWith("///") &&
-        trimmedOriginal.startsWith("/") &&
-        trimmedOriginal.includes("@")
-    ) {
-        // Find where the leading slashes end and @ tag begins
-        const afterSlashes = trimmedOriginal.replace(/^\/+\s*/, "");
-        if (afterSlashes.startsWith("@")) {
-            const shouldInsertSpace =
-                afterSlashes.length > 0 &&
-                /\w/.test(afterSlashes.charAt(1) || "");
-            const formatted = applyJsDocReplacements(
-                `///${shouldInsertSpace ? " " : ""}${afterSlashes}`
-            );
-            return applyInlinePadding(comment, formatted);
-        }
-    }
-
-    // Handle doc-like comment prefix normalization: convert "// / text" to "/// text"
-    // This handles doc comments that start with "// /" (two slashes, space, slash) but don't have an @ tag yet
-    // The pattern ensures it's "//" + whitespace + "/" but NOT "//" + whitespace + "//" (which would be commented-out code)
-    const docLikeMatch = trimmedOriginal.match(/^\/\/\s+\/(?![\/])/); // Match "//" followed by whitespace and single "/" (not double "//")
-    if (docLikeMatch) {
-        const remainder = trimmedOriginal
-            .slice(docLikeMatch[0].length)
-            .trimStart();
-
-        // If the original comment value itself looks like a nested commented-out
-        // line (for example the AST produces a value like " // // something"),
-        // prefer preserving the nested comment visual ("//     // something")
-        // rather than promoting it to a doc comment ("/// something").
-        if (
-            remainder.startsWith("//") ||
-            (isObjectLike(comment) &&
-                typeof comment.value === "string" &&
-                /^\s*\/\//.test(comment.value))
-        ) {
-            const inner = remainder.startsWith("//")
-                ? remainder
-                : comment.value.trimStart(); // preserves the inner `// ...`
-            const padded = `//     ${inner}`; // match expected golden spacing for nested comments
-            return applyInlinePadding(comment, padded);
-        }
-
-        // Only promote if it looks like a doc tag (starts with @)
-        if (remainder.startsWith("@")) {
-            const formatted = `///${remainder.length > 0 ? ` ${remainder}` : ""}`;
-            return applyInlinePadding(comment, formatted);
-        }
-    }
-
-    // Preserve existing doc comments (/// @tag ...)
-    if (startsWithTripleSlash && trimmedOriginal.includes("@")) {
-        const content = trimmedValue.replace(/^\/+\s*/, "");
-        const formatted = applyJsDocReplacements(`/// ${content}`) as string;
-
-        if (content.toLowerCase().startsWith("@description")) {
-            console.log(
-                `[DEBUG] doc comment content: "${content}", trimmedOriginal: "${trimmedOriginal}", formatted: "${formatted}"`
-            );
-        }
-
-        if (formatted.trim() === "/// @description") {
-            return "";
-        }
-
-        const result = applyInlinePadding(comment, formatted);
-        console.log(
-            `[DEBUG] formatLineComment preserve doc: "${trimmedOriginal}" -> "${result}"`
-        );
-        return result;
-    }
-
-    const docTagSource = DOC_TAG_LINE_PREFIX_PATTERN.test(trimmedValue)
-        ? trimmedValue
-        : DOC_TAG_LINE_PREFIX_PATTERN.test(trimmedOriginal)
-          ? trimmedOriginal
-          : null;
-    if (docTagSource) {
-        let formattedCommentLine = `///${docTagSource.replace(DOC_TAG_LINE_PREFIX_PATTERN, " @")}`;
-        formattedCommentLine = applyJsDocReplacements(
-            formattedCommentLine
-        ) as string;
-
-        if (formattedCommentLine.trim() === "/// @description") {
-            return "";
-        }
-
-        const result = applyInlinePadding(comment, formattedCommentLine);
-        console.log(
-            `[DEBUG] formatLineComment docTagSource: "${trimmedOriginal}" -> "${result}"`
-        );
-        return result;
-    }
-
-    const leadingWhitespaceMatch = rawValue.match(/^\s*/);
-    const leadingWhitespace = leadingWhitespaceMatch
-        ? leadingWhitespaceMatch[0]
-        : "";
-    const valueWithoutTrailingWhitespace = rawValue.replace(/\s+$/, "");
-    const coreValue = valueWithoutTrailingWhitespace.slice(
-        leadingWhitespace.length
+    // Try banner comment formatting
+    const bannerResult = tryFormatBannerComment(
+        comment,
+        trimmedOriginal,
+        trimmedValue,
+        slashesMatch,
+        hasDecorations
     );
-    if (
-        coreValue.length > 0 &&
-        (trimmedValue.startsWith("//") ||
-            looksLikeCommentedOutCode(coreValue, codeDetectionPatterns))
-    ) {
-        const result = applyInlinePadding(
-            comment,
-            `//${leadingWhitespace}${coreValue}`,
-            true
-        );
-        console.log(
-            `[DEBUG] formatLineComment commented code: "${trimmedOriginal}" -> "${result}"`
-        );
-        return result;
+    if (bannerResult !== null) {
+        return bannerResult;
     }
 
-    const sentences = isInlineComment
-        ? [trimmedValue]
-        : splitCommentIntoSentences(trimmedValue);
-    if (sentences.length > 1) {
-        const continuationIndent = extractContinuationIndentation(comment);
-        const formattedSentences = sentences.map((sentence, index) => {
-            const line = applyInlinePadding(comment, `// ${sentence}`);
-            return index === 0 ? line : continuationIndent + line;
-        });
-        const result = formattedSentences.join("\n");
-        console.log(
-            `[DEBUG] formatLineComment sentences: "${trimmedOriginal}" -> "${result}"`
-        );
-        return result;
+    // Try promoting to doc comment
+    const docPromotionResult = tryPromoteToDocComment(
+        comment,
+        trimmedOriginal,
+        trimmedValue,
+        slashesMatch,
+        isPlainTripleSlash
+    );
+    if (docPromotionResult !== null) {
+        return docPromotionResult;
     }
 
+    // Try formatting plain triple-slash comments
+    const tripleSlashResult = tryFormatPlainTripleSlash(
+        comment,
+        trimmedOriginal,
+        isPlainTripleSlash,
+        isInlineComment,
+        leadingSlashCount
+    );
+    if (tripleSlashResult !== null) {
+        return tripleSlashResult;
+    }
+
+    // Try formatting doc-like comments
+    const docLikeResult = tryFormatDocLikeComment(comment, trimmedOriginal);
+    if (docLikeResult !== null) {
+        return docLikeResult;
+    }
+
+    // Try formatting existing doc comments
+    const existingDocResult = tryFormatExistingDocComment(
+        comment,
+        trimmedOriginal,
+        trimmedValue,
+        startsWithTripleSlash
+    );
+    if (existingDocResult !== null) {
+        return existingDocResult;
+    }
+
+    // Try formatting doc tag prefix patterns
+    const docTagPrefixResult = tryFormatDocTagPrefix(
+        comment,
+        trimmedOriginal,
+        trimmedValue
+    );
+    if (docTagPrefixResult !== null) {
+        return docTagPrefixResult;
+    }
+
+    // Try formatting commented-out code
+    const commentedCodeResult = tryFormatCommentedOutCode(
+        comment,
+        trimmedOriginal,
+        trimmedValue,
+        rawValue,
+        codeDetectionPatterns
+    );
+    if (commentedCodeResult !== null) {
+        return commentedCodeResult;
+    }
+
+    // Try formatting multi-sentence comments
+    const multiSentenceResult = tryFormatMultiSentenceComment(
+        comment,
+        trimmedOriginal,
+        trimmedValue,
+        isInlineComment
+    );
+    if (multiSentenceResult !== null) {
+        return multiSentenceResult;
+    }
+
+    // Default: format as a regular comment
     const result = applyInlinePadding(
         comment,
         `//${trimmedValue.startsWith("/") ? "" : " "}${trimmedValue}`
