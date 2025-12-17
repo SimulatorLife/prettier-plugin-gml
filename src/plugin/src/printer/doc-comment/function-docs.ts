@@ -45,6 +45,7 @@ export function collectFunctionDocCommentDocs({
     nodeStartIndex,
     originalText
 }: any) {
+    console.log(`[DEBUG] collectFunctionDocCommentDocs called for node type: ${node.type}, parent type: ${path.getParentNode()?.type}`);
 
     const docCommentDocs: MutableDocCommentLines = [];
     const lineCommentOptions = {
@@ -158,6 +159,7 @@ export function collectFunctionDocCommentDocs({
 
     docCommentDocs.push(...formattedProgramLines);
 
+    console.log(`[DEBUG] Reached nodeComments logic. nodeStartIndex: ${nodeStartIndex}`);
     const nodeComments = [...(node.comments || [])];
 
     // If node has no comments, check grandparent VariableDeclaration for static methods
@@ -165,15 +167,18 @@ export function collectFunctionDocCommentDocs({
         const parent = path.getParentNode();
         if (parent && parent.type === "VariableDeclarator") {
             const grandParent = path.getParentNode(1);
-            if (
-                grandParent &&
-                grandParent.type === "VariableDeclaration" &&
-                grandParent.kind === "static"
-            ) {
+            if (grandParent && grandParent.type === "VariableDeclaration") {
                 if (grandParent.comments && grandParent.comments.length > 0) {
+                    console.log("[DEBUG] Found comments on VariableDeclaration:", grandParent.comments.map(c => c.value));
                     nodeComments.push(...grandParent.comments);
                 } else if (parent.comments && parent.comments.length > 0) {
+                    console.log("[DEBUG] Found comments on VariableDeclarator:", parent.comments.map(c => c.value));
                     nodeComments.push(...parent.comments);
+                } else if (parent.id && parent.id.comments && parent.id.comments.length > 0) {
+                    console.log("[DEBUG] Found comments on VariableDeclarator.id:", parent.id.comments.map(c => c.value));
+                    nodeComments.push(...parent.id.comments);
+                } else {
+                    console.log("[DEBUG] No comments on VariableDeclaration/Declarator for", node.id?.name || "anonymous");
                 }
             }
         }

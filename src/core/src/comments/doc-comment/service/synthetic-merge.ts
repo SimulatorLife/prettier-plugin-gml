@@ -244,6 +244,15 @@ export function mergeSyntheticDocComments(
         ) as MutableDocCommentLines;
     }
 
+    if (
+        overrides &&
+        overrides.preserveDocCommentParamNames === true &&
+        Array.isArray(existingDocLines) &&
+        existingDocLines.length > 0
+    ) {
+        return toMutableArray(existingDocLines) as MutableDocCommentLines;
+    }
+
     const docTagMatches = (line, pattern) => {
         const trimmed = toTrimmedString(line);
         if (trimmed.length === 0) {
@@ -599,9 +608,14 @@ export function mergeSyntheticDocComments(
         const ignoreIndex = result.findIndex((line) =>
             docTagMatches(line, /^\/\/\/\s*@ignore\b/i)
         );
+        const overrideIndex = result.findIndex((line) =>
+            docTagMatches(line, /^\/\/\/\s*@override\b/i)
+        );
 
         if (ignoreIndex === 0) {
             result.splice(1, 0, functionLine);
+        } else if (overrideIndex !== -1) {
+            result.splice(overrideIndex + 1, 0, functionLine);
         } else {
             result.unshift(functionLine);
         }

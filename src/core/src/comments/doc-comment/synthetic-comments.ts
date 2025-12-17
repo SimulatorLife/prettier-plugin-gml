@@ -306,21 +306,30 @@ export function computeSyntheticDocCommentForFunctionAssignment(
         assignment = node.expression;
     } else if (node.type === "AssignmentExpression") {
         assignment = node;
+    } else if (node.type === "VariableDeclaration") {
+        if (!Array.isArray(node.declarations) || node.declarations.length !== 1) {
+            return null;
+        }
+        assignment = node.declarations[0];
     } else {
         return null;
     }
 
+    const isDeclarator = assignment?.type === "VariableDeclarator";
+    const operator = isDeclarator ? "=" : assignment?.operator;
+    const left = isDeclarator ? assignment.id : assignment.left;
+    const functionNode = isDeclarator ? assignment.init : assignment?.right;
+
     if (
         !assignment ||
-        assignment.type !== "AssignmentExpression" ||
-        assignment.operator !== "=" ||
-        assignment.left?.type !== "Identifier" ||
-        typeof assignment.left.name !== STRING_TYPE
+        (assignment.type !== "AssignmentExpression" &&
+            assignment.type !== "VariableDeclarator") ||
+        operator !== "=" ||
+        left?.type !== "Identifier" ||
+        typeof left.name !== STRING_TYPE
     ) {
         return null;
     }
-
-    const functionNode = assignment.right;
     if (
         !functionNode ||
         (functionNode.type !== "FunctionDeclaration" &&
@@ -347,11 +356,15 @@ export function computeSyntheticDocCommentForFunctionAssignment(
     const { existingDocLines, docLikeLeadingLines, plainLeadingLines } =
         processedComments;
 
-    const name = assignment.left.name;
+    const name = left.name;
     const syntheticOverrides: any = { nameOverride: name };
 
     if (docLikeLeadingLines.length > 0) {
         syntheticOverrides.leadingCommentLines = docLikeLeadingLines;
+    }
+
+    if (existingDocLines.length > 0) {
+        syntheticOverrides.preserveDocCommentParamNames = true;
     }
 
     const syntheticDoc = computeSyntheticDocComment(

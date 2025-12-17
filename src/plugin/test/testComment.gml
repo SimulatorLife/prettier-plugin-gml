@@ -1,0 +1,2 @@
+// foo
+var foo = function() {}
