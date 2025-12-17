@@ -1,2 +1,1 @@
-// foo
 var foo = function() {}

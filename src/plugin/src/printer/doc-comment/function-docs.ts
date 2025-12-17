@@ -45,8 +45,6 @@ export function collectFunctionDocCommentDocs({
     nodeStartIndex,
     originalText
 }: any) {
-    console.log(`[DEBUG] collectFunctionDocCommentDocs called for node type: ${node.type}, parent type: ${path.getParentNode()?.type}`);
-
     const docCommentDocs: MutableDocCommentLines = [];
     const lineCommentOptions = {
         ...Core.resolveLineCommentOptions(options),
@@ -152,14 +150,8 @@ export function collectFunctionDocCommentDocs({
         return line;
     });
 
-    // DEBUG LOG
-    if (formattedProgramLines.some(l => l.includes("draw"))) {
-        console.log("[DEBUG] collectFunctionDocCommentDocs programLeadingLines:", JSON.stringify(formattedProgramLines));
-    }
-
     docCommentDocs.push(...formattedProgramLines);
 
-    console.log(`[DEBUG] Reached nodeComments logic. nodeStartIndex: ${nodeStartIndex}`);
     const nodeComments = [...(node.comments || [])];
 
     // If node has no comments, check grandparent VariableDeclaration for static methods
@@ -169,21 +161,14 @@ export function collectFunctionDocCommentDocs({
             const grandParent = path.getParentNode(1);
             if (grandParent && grandParent.type === "VariableDeclaration") {
                 if (grandParent.comments && grandParent.comments.length > 0) {
-                    console.log("[DEBUG] Found comments on VariableDeclaration:", grandParent.comments.map(c => c.value));
                     nodeComments.push(...grandParent.comments);
                 } else if (parent.comments && parent.comments.length > 0) {
-                    console.log("[DEBUG] Found comments on VariableDeclarator:", parent.comments.map(c => c.value));
                     nodeComments.push(...parent.comments);
                 } else if (parent.id && parent.id.comments && parent.id.comments.length > 0) {
-                    console.log("[DEBUG] Found comments on VariableDeclarator.id:", parent.id.comments.map(c => c.value));
                     nodeComments.push(...parent.id.comments);
-                } else {
-                    console.log("[DEBUG] No comments on VariableDeclaration/Declarator for", node.id?.name || "anonymous");
                 }
             }
         }
-    } else {
-        console.log("[DEBUG] nodeComments is not empty", nodeComments.map(c => c.value));
     }
 
     // Also consider comments attached to the first statement of the function body
