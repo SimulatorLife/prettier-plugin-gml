@@ -80,13 +80,19 @@ const jsCode = emitJavaScript(ast);
   - ✅ try-catch blocks
   - ✅ try-finally blocks
   - ✅ try-catch-finally blocks
+- ✅ Built-in function mapping:
+  - ✅ Mathematical functions: abs, round, floor, ceil, sqrt, sqr, power, exp, ln, log2, log10
+  - ✅ Trigonometric functions: sin, cos, tan, arcsin, arccos, arctan, arctan2
+  - ✅ Angle conversion: degtorad, radtodeg
+  - ✅ Utility functions: min, max, sign, clamp, point_distance
 
 ### Planned Features
 
 - [x] `with` statement lowering
+- [x] Built-in function mapping (expanded to 27+ functions)
 - [ ] Scope-aware identifier resolution (self, other, global)
 - [ ] Script call indirection through runtime wrapper
-- [ ] Built-in function mapping
+- [ ] Additional built-in function mapping (string functions, array functions, data structure functions)
 - [ ] Compound assignment operators (already parsed, may need runtime handling)
 
 ## Operator Mapping
