@@ -45,6 +45,7 @@ export function collectFunctionDocCommentDocs({
     nodeStartIndex,
     originalText
 }: any) {
+
     const docCommentDocs: MutableDocCommentLines = [];
     const lineCommentOptions = {
         ...Core.resolveLineCommentOptions(options),
@@ -324,6 +325,8 @@ export function collectFunctionDocCommentDocs({
         return { start: doc.start, text: newText };
     });
 
+
+
     const filteredNodeDocs = formattedNodeDocs.filter(
         (entry) =>
             typeof entry.text !== "string" ||
@@ -351,6 +354,8 @@ export function collectFunctionDocCommentDocs({
     );
 
     const newDocCommentDocs = mergedDocs.map((x) => x.text);
+
+
 
     const uniqueProgramLines = formattedProgramLines.filter(
         (line) => !newDocCommentDocs.includes(line)
@@ -586,9 +591,7 @@ export function normalizeFunctionDocCommentDocs({
     options,
     path
 }: any) {
-    if (node.id && node.id.name === "Shape") {
-        console.log("[DEBUG] normalizeFunctionDocCommentDocs input for Shape:", docCommentDocs);
-    }
+
     const docCommentOptions = resolveDocCommentPrinterOptions(options);
     const descriptionContinuations =
         collectDescriptionContinuations(docCommentDocs);
@@ -600,9 +603,7 @@ export function normalizeFunctionDocCommentDocs({
             docCommentOptions
         )
     ) {
-        if (node.id && node.id.name === "Shape") {
-            console.log("[DEBUG] Generating synthetic docs for Shape");
-        }
+
         docCommentDocs = Core.toMutableArray(
             Core.mergeSyntheticDocComments(
                 node,
@@ -610,9 +611,7 @@ export function normalizeFunctionDocCommentDocs({
                 docCommentOptions
             )
         ) as MutableDocCommentLines;
-        if (node.id && node.id.name === "Shape") {
-            console.log("[DEBUG] normalizeFunctionDocCommentDocs output for Shape:", docCommentDocs);
-        }
+
         docCommentDocs = applyDescriptionContinuations(
             docCommentDocs,
             descriptionContinuations

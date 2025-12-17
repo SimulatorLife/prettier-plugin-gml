@@ -117,7 +117,8 @@ void test("retains original multi-branch descriptions when condensing", async ()
     ].join("\n");
 
     const formatted = await Plugin.format(source, {
-        condenseLogicalExpressions: true
+        condenseLogicalExpressions: true,
+        lineWidth: 300 // Prevent the description from wrapping for easier matching
     });
 
     assert.match(

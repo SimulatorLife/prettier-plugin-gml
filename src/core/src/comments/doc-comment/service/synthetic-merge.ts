@@ -96,10 +96,7 @@ export function mergeSyntheticDocComments(
     options: any,
     overrides: any = {}
 ): MutableDocCommentLines {
-    console.log(
-        "[DEBUG] mergeSyntheticDocComments existingDocLines:",
-        existingDocLines
-    );
+
     let normalizedExistingLines = existingDocLines.map((line) =>
         line.trim()
     ) as MutableDocCommentLines;
@@ -162,6 +159,8 @@ export function mergeSyntheticDocComments(
         )
     ) as MutableDocCommentLines;
 
+
+
     const _computedSynthetic = computeSyntheticFunctionDocLines(
         node,
         normalizedExistingLines,
@@ -203,6 +202,8 @@ export function mergeSyntheticDocComments(
 
     const syntheticLines =
         reorderDescriptionLinesAfterFunction(_computedSynthetic);
+
+
 
     const implicitDocEntries =
         node?.type === "FunctionDeclaration" ||
@@ -313,10 +314,7 @@ export function mergeSyntheticDocComments(
             .map((line, index) => (isFunctionLine(line) ? index : -1))
             .filter((index) => index !== -1);
 
-        console.log(
-            "[DEBUG] existingFunctionIndices:",
-            existingFunctionIndices
-        );
+
 
         if (existingFunctionIndices.length > 0) {
             const [firstIndex, ...duplicateIndices] = existingFunctionIndices;
@@ -330,7 +328,7 @@ export function mergeSyntheticDocComments(
             removedAnyLine = true;
         } else {
             const firstParamIndex = mergedLines.findIndex(isParamLine);
-            console.log("[DEBUG] firstParamIndex:", firstParamIndex);
+
 
             // If the original doc lines did not contain any metadata tags,
             // prefer to append synthetic `@function` tags after the existing
@@ -340,7 +338,7 @@ export function mergeSyntheticDocComments(
                     ? mergedLines.length
                     : firstParamIndex
                 : mergedLines.length;
-            console.log("[DEBUG] insertionIndex:", insertionIndex);
+
             const precedingLine =
                 insertionIndex > 0 ? mergedLines[insertionIndex - 1] : null;
             const trimmedPreceding = toTrimmedString(precedingLine);
@@ -377,17 +375,19 @@ export function mergeSyntheticDocComments(
             const insertAt = needsSeparatorBeforeFunction
                 ? insertionIndex + 1
                 : insertionIndex;
-            console.log("[DEBUG] insertAt:", insertAt);
+
 
             mergedLines = [
                 ...mergedLines.slice(0, insertAt),
                 ...functionLines,
                 ...mergedLines.slice(insertAt)
             ];
-            console.log("[DEBUG] mergedLines after splice:", mergedLines);
+
             removedAnyLine = true;
         }
     }
+
+
 
     if (overrideLines.length > 0) {
         const existingOverrideIndices = mergedLines
@@ -587,7 +587,16 @@ export function mergeSyntheticDocComments(
     const functionIndex = result.findIndex(isFunctionLine);
     if (functionIndex > 0) {
         const [functionLine] = result.splice(functionIndex, 1);
-        result.unshift(functionLine);
+
+        const ignoreIndex = result.findIndex((line) =>
+            docTagMatches(line, /^\/\/\/\s*@ignore\b/i)
+        );
+
+        if (ignoreIndex === 0) {
+            result.splice(1, 0, functionLine);
+        } else {
+            result.unshift(functionLine);
+        }
     }
 
     if (originalHasDeprecatedTag) {
@@ -998,7 +1007,7 @@ export function mergeSyntheticDocComments(
         }
 
         const match = line.match(
-            /^(\/\/\/\s*@param\s*)(\{[^}]*\}\s*)?(\s*\S+)(.*)$/i
+            /^(\/\/\/\s*@param\s*)((?:\{[^}]*\}|<[^>]*>)\s*)?(\s*\S+)(.*)$/i
         );
         if (!match) {
             return normalizeDocCommentTypeAnnotations(line);
@@ -1013,7 +1022,14 @@ export function mergeSyntheticDocComments(
             normalizedTypeSection.endsWith("}")
         ) {
             const innerType = normalizedTypeSection.slice(1, -1);
-            const normalizedInner = innerType.replaceAll("|", ",");
+            const normalizedInner = normalizeGameMakerType(innerType.replaceAll("|", ","));
+            normalizedTypeSection = `{${normalizedInner}}`;
+        } else if (
+            normalizedTypeSection.startsWith("<") &&
+            normalizedTypeSection.endsWith(">")
+        ) {
+            const innerType = normalizedTypeSection.slice(1, -1);
+            const normalizedInner = normalizeGameMakerType(innerType.replaceAll("|", ","));
             normalizedTypeSection = `{${normalizedInner}}`;
         }
         const typePart =
@@ -1558,6 +1574,8 @@ export function shouldGenerateSyntheticDocForFunction(
         }
     }
 
+
+
     return (
         Array.isArray(node.params) &&
         node.params.some((param) => {
@@ -1571,17 +1589,35 @@ function updateParamLineWithDocName(line: string, newDocName: string): string {
         return line;
     }
 
-    const prefixMatch = line.match(/^(\/\/\/\s*@param(?:\s+\{[^}]+\})?\s*)/i);
-    if (!prefixMatch) {
+    const match = line.match(
+        /^(\/\/\/\s*)(@param|@arg|@argument)((?:\s+(?:\{[^}]+\}|<[^>]+>))?)(\s*)/i
+    );
+
+    if (!match) {
         return `/// @param ${newDocName}`;
     }
 
-    const prefix = prefixMatch[0];
-    const remainder = line.slice(prefix.length);
-    if (remainder.length === 0) {
-        return `${prefix}${newDocName}`;
+    const [, slashPrefix, , typePart, spaceAfterType] = match;
+
+    const newTag = "@param";
+
+    let newTypePart = typePart;
+    if (typePart && typePart.trim().startsWith("<")) {
+        newTypePart = typePart.replace(/<([^>]+)>/, "{$1}");
     }
 
-    const updatedRemainder = remainder.replace(/^[^\s]+/, newDocName);
-    return `${prefix}${updatedRemainder}`;
+    let newPrefix = `${slashPrefix}${newTag}${newTypePart}${spaceAfterType}`;
+    newPrefix = normalizeDocCommentTypeAnnotations(newPrefix);
+
+    const fullPrefixLength = match[0].length;
+    const remainder = line.slice(fullPrefixLength);
+
+    let newRemainder = remainder;
+    if (remainder.trim().length === 0) {
+        newRemainder = newDocName;
+    } else {
+        newRemainder = remainder.replace(/^[^\s]+/, newDocName);
+    }
+
+    return newPrefix + newRemainder;
 }
