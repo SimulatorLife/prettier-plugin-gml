@@ -2,6 +2,12 @@ import { Semantic } from "@gml-modules/semantic";
 import { LogicalOperatorsStyle } from "../options/logical-operators-style.js";
 import type { GmlPluginComponentContract } from "./plugin-types.js";
 import { selectPluginComponentContractEntries } from "./plugin-component-contract.js";
+// Concrete adapter imports - encapsulated at this module boundary.
+// Higher-level code receives these through the factory function rather than
+// importing them directly, establishing a proper dependency inversion boundary.
+import { gmlParserAdapter } from "../parsers/index.js";
+import { print } from "../printer/index.js";
+import { handleComments, printComment } from "../comments/index.js";
 
 /**
  * Dependencies required to build the plugin component implementations.
@@ -41,33 +47,13 @@ export function createDefaultGmlPluginComponentDependencies(
     return selectPluginComponentContractEntries(implementations);
 }
 
-/**
- * Resolves the default concrete implementations by importing them.
- * This function is the single point where concrete adapter modules are loaded,
- * keeping the dependency boundary explicit. Higher-level orchestration code receives
- * these through the factory function rather than importing them directly.
- */
-async function resolveDefaultConcreteDependencies(): Promise<GmlPluginComponentDependencies> {
-    const parsersModule = await import("../parsers/index.js");
-    const printerModule = await import("../printer/index.js");
-    const commentsModule = await import("../comments/index.js");
-
-    return {
-        gmlParserAdapter: parsersModule.gmlParserAdapter,
-        print: printerModule.print,
-        handleComments: commentsModule.handleComments,
-        printComment: commentsModule.printComment
-    };
-}
-
-// Initialize with concrete dependencies loaded at module initialization.
-// The abstraction boundary is maintained through the factory pattern - consumers
-// call createDefaultGmlPluginComponentImplementations with dependencies rather than
-// importing concrete adapters directly.
-const concreteDependencies = await resolveDefaultConcreteDependencies();
-
 const gmlPluginComponentImplementations = Object.freeze(
-    createDefaultGmlPluginComponentImplementations(concreteDependencies)
+    createDefaultGmlPluginComponentImplementations({
+        gmlParserAdapter,
+        print,
+        handleComments,
+        printComment
+    })
 );
 
 const gmlPluginComponentDependencies = Object.freeze(
