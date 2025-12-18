@@ -16,6 +16,36 @@ atomically across the project.
 
 ## Features
 
+### Rename Validation (Pre-flight Check)
+
+Before planning a rename, validate the request to provide user-friendly feedback without throwing errors:
+
+```javascript
+const engine = new RefactorEngine({ semantic, parser, formatter });
+
+// Validate rename request before committing to planning
+const validation = await engine.validateRenameRequest({
+    symbolId: "gml/script/scr_player",
+    newName: "scr_hero"
+});
+
+if (!validation.valid) {
+    console.error("Cannot rename:", validation.errors);
+    // Display errors to user without stack traces
+} else {
+    console.log(`Found ${validation.occurrenceCount} occurrences to rename`);
+    if (validation.warnings.length > 0) {
+        console.warn("Warnings:", validation.warnings);
+    }
+    // Proceed with planRename()
+}
+```
+
+This is especially useful for:
+- IDE integrations that need to show inline validation errors
+- CLI tools that want to provide friendly error messages before processing
+- Dry-run scenarios where you want to check feasibility without side effects
+
 ### Rename Operations
 
 #### Single Symbol Rename
@@ -247,6 +277,56 @@ This is particularly useful for:
 - Ordering hot reload operations to prevent temporary inconsistencies
 - Providing detailed diagnostics about why each symbol needs reloading
 
+### Semantic Analyzer Integration
+
+The refactor engine provides helper methods for querying the semantic analyzer,
+making it easier to coordinate hot reload operations and dependency tracking:
+
+#### Query File Symbols
+
+Get all symbols defined in a specific file for targeted recompilation:
+
+```javascript
+// When a file changes, determine which symbols need recompilation
+const symbols = await engine.getFileSymbols("scripts/scr_player.gml");
+
+console.log(`File defines ${symbols.length} symbols:`);
+for (const symbol of symbols) {
+    console.log(`  - ${symbol.id}`);
+}
+
+// Use with hot reload cascade to find all affected symbols
+const cascade = await engine.computeHotReloadCascade(
+    symbols.map(s => s.id)
+);
+```
+
+#### Query Symbol Dependencies
+
+Find which symbols depend on changed symbols to coordinate hot reload:
+
+```javascript
+// After modifying base scripts, find all dependents
+const dependents = await engine.getSymbolDependents([
+    "gml/script/scr_base_movement",
+    "gml/script/scr_base_combat"
+]);
+
+console.log(`Found ${dependents.length} dependent symbols:`);
+for (const dep of dependents) {
+    console.log(`  - ${dep.symbolId} in ${dep.filePath}`);
+}
+
+// Recompile all dependents to maintain consistency
+for (const dep of dependents) {
+    await recompileSymbol(dep.symbolId, dep.filePath);
+}
+```
+
+These methods provide a clean interface to the semantic analyzer and handle
+cases where the analyzer is unavailable, making the refactor engine more
+robust in partial-analysis scenarios.
+
 ## Directory layout
 - `src/` – core refactoring primitives and orchestrators.
 - `test/` – Node tests that validate refactor strategies against fixture projects.
@@ -264,24 +344,38 @@ new RefactorEngine({ parser, semantic, formatter })
 
 **Methods:**
 
+#### Rename Operations
+- `async validateRenameRequest(request)` - Validate a rename request without creating edits (returns validation results instead of throwing)
 - `async planRename(request)` - Plan a single symbol rename
 - `async planBatchRename(renames)` - Plan multiple renames atomically
 - `async executeRename(request)` - Execute a rename with optional hot reload
 - `async executeBatchRename(request)` - Execute multiple renames atomically
+
+#### Analysis &amp; Validation
 - `async analyzeRenameImpact(request)` - Analyze impact without applying changes
 - `async validateRename(workspace)` - Validate a workspace edit
 - `async validateHotReloadCompatibility(workspace, options)` - Check hot reload compatibility
 - `async checkHotReloadSafety(request)` - Check if a rename is safe for hot reload
-- `async applyWorkspaceEdit(workspace, options)` - Apply edits to files
 - `async verifyPostEditIntegrity(request)` - Verify semantic integrity after applying edits
+
+#### Workspace Operations
+- `async applyWorkspaceEdit(workspace, options)` - Apply edits to files
+- `async prepareRenamePlan(request, options)` - Prepare a comprehensive rename plan with validation
+
+#### Hot Reload Integration
 - `async prepareHotReloadUpdates(workspace)` - Prepare hot reload update metadata
 - `async generateTranspilerPatches(hotReloadUpdates, readFile)` - Generate transpiled patches
-- `async prepareRenamePlan(request, options)` - Prepare a comprehensive rename plan with validation
+- `async computeHotReloadCascade(changedSymbolIds)` - Compute transitive dependency closure for hot reload
+
+#### Symbol Queries
 - `async findSymbolAtLocation(filePath, offset)` - Find symbol at position
 - `async validateSymbolExists(symbolId)` - Check if symbol exists
 - `async gatherSymbolOccurrences(symbolName)` - Get all occurrences of a symbol
+- `async getFileSymbols(filePath)` - Query symbols defined in a specific file
+- `async getSymbolDependents(symbolIds)` - Query symbols that depend on given symbols
+
+#### Conflict Detection
 - `async detectRenameConflicts(oldName, newName, occurrences)` - Check for naming conflicts
-- `async computeHotReloadCascade(changedSymbolIds)` - Compute transitive dependency closure for hot reload
 
 ### WorkspaceEdit
 
