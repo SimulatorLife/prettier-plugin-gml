@@ -54,7 +54,7 @@ function scr_bezier_4(x1, y1, x2, y2, x3, y3, x4, y4, width, steps, color) {
 /// @param {Constant.Colour} [colour=c_white]
 /// @description Create an effect
 /// @returns {Id.Instance} instance
-function scr_create_fx(sprite, fx_x, fx_y, fx_z = 0, func_fx_callback, colour = c_white) {
+function scr_create_fx(sprite, fx_x, fx_y = undefined, fx_z = 0, func_fx_callback = undefined, colour = c_white) {
     gml_pragma("forceinline");
 
     if (!RELEASE) {
@@ -93,25 +93,23 @@ function scr_struct_get(structure, key, default_value) {
 // For example String,Array<String>, Id.Instance,Asset.GMObject, etc.
 
 /// @function scr_lots_of_types
-/// @param {Buffer} buffer
-/// @param {Id.dsMap} list
-/// @param {Id.dsMap} map
-/// @param {Function/undefined} count
+/// @param {Id.Buffer} buffer
+/// @param {Id.DsMap} list
+/// @param {Id.DsMap} map
+/// @param {real,array} count
 /// @param {Asset.GMScript,Asset.GMObject} asset
-/// @param {Function/undefined} callback
-/// @param {*} [extra]
-/// @parameter {Id.DsList<array<real>>} list
-/// @args {real,array} count
+/// @param {function} callback
+/// @param {Any} [extra]
+/// @param {Id.DsList<array<real>>} list
 /// @returns {string}
 function scr_lots_of_types(buffer, list, map, count, asset, callback, extra = undefined) {
     return $"{buffer}, ${list}, ${map}, ${count}, ${asset}, ${callback}, ${extra}";
 }
 
-/**
- * @param {string} [greeting="Hello, World!"]
- * @description    An anonymous function that greets
- * @returns {string}
- */
+/// @function func_greet
+/// @param {string} [greeting="Hello, World!"]
+/// @description An anonymous function that greets
+/// @returns {string}
 var func_greet = function(greeting = "Hello, World!") {
     show_debug_message(greeting);
     return greeting;

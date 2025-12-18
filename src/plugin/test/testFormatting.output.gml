@@ -5,20 +5,25 @@ for (var i = 0; i < num; i++) {
     show_debug_message("Hello World " + string(i + 1));
 }
 
-/// @function clearSubdiv
-/// @returns {undefined}
-static clearSubdiv = function() {
-    // Clears any data structures related to the subdivision of the colmesh
-    if (spHash >= 0) {
-        var region = ds_map_find_first(spHash);
-        while (!is_undefined(region)) {
-            ds_list_destroy(spHash[? region]);
-            region = ds_map_find_next(spHash, region);
+/// @function TestStruct
+function TestStruct() constructor {
+
+    /// @function clearSubdiv
+    /// @returns {undefined}
+    static clearSubdiv = function() {
+        if (spHash >= 0) {
+            // Clears any data structures related to the subdivision of the colmesh
+            var region = ds_map_find_first(spHash);
+            while (!is_undefined(region)) {
+                ds_list_destroy(spHash[? region]);
+                region = ds_map_find_next(spHash, region);
+            }
+            ds_map_destroy(spHash);
+            spHash = -1;
         }
-        ds_map_destroy(spHash);
-        spHash = -1;
-    }
-};
+    };
+
+}
 
 var myWidth = 14;
 var halfWidth = myWidth * 0.5;

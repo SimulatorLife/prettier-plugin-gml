@@ -1,4 +1,4 @@
-// @description Test for banner comment slash-count
+// @description Top of file description comment
 
 //////// Banner comment
 var value = 1

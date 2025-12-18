@@ -267,7 +267,6 @@ export function mergeSyntheticDocComments(
     };
 
     const isFunctionLine = (line) => {
-        // console.log(`[DEBUG] isFunctionLine("${line}") = ${matches}`);
         return docTagMatches(line, /^\/\/\/\s*@function\b/i);
     };
     const isOverrideLine = (line) =>
@@ -279,13 +278,6 @@ export function mergeSyntheticDocComments(
 
     const functionLines = syntheticLines.filter(isFunctionLine);
     
-    // DEBUG LOGGING
-    if (JSON.stringify(existingDocLines).includes("draw")) {
-        console.log("[DEBUG] mergeSyntheticDocComments with draw");
-        console.log("[DEBUG] existingDocLines:", JSON.stringify(existingDocLines));
-        console.log("[DEBUG] syntheticLines:", JSON.stringify(syntheticLines));
-    }
-
     const syntheticFunctionMetadata = functionLines
         .map((line) => parseDocCommentMetadata(line))
         .find(
@@ -1528,11 +1520,6 @@ export function shouldGenerateSyntheticDocForFunction(
 ): boolean {
     const node = path.getValue();
     const parent = path.getParentNode();
-
-    // DEBUG LOG
-    if (node && (node.id?.name === "draw" || (node.type === "FunctionExpression" && parent?.id?.name === "draw"))) {
-        console.log(`[DEBUG] shouldGenerateSyntheticDocForFunction node.type=${node.type} parent.type=${parent?.type}`);
-    }
 
     if (
         !node ||
