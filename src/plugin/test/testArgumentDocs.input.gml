@@ -45,7 +45,7 @@ function scr_bezier_4(argument0, argument1, argument2, argument3, argument4, arg
 	    if (i > 0 and i < 1)
 	        draw_circle_color(xx, yy, w-(i*2), color,color,false);
 	    if (i > 0){
-			draw_set_colour(color);
+			draw_set_color(color);
 			draw_line_width(xnet, ynet, xx, yy, 2*w-(i*4));
 		}
 	    xnet = xx;
@@ -62,11 +62,11 @@ function scr_bezier_4(argument0, argument1, argument2, argument3, argument4, arg
 //// @param {real} fx_x
 ///// @param {real} fx_y*
 /// @param {int} [fx_z=0]
-/// @param {constant.Colour} [colour=c_white]
+/// @param {constant.Color} [color=c_white]
 /// @param {function} *func_fx_callback - A function to call after the animation has completed
 /* @description Create an effect */
 /// @returns {Id.Instance} instance
-function scr_create_fx(sprite, fx_x, fx_y = undefined, fx_z = 0, func_fx_callback = undefined, colour = c_white) {
+function scr_create_fx(sprite, fx_x, fx_y = undefined, fx_z = 0, func_fx_callback = undefined, color = c_white) {
     gml_pragma("forceinline");
 
     if (!RELEASE) {
@@ -80,7 +80,7 @@ function scr_create_fx(sprite, fx_x, fx_y = undefined, fx_z = 0, func_fx_callbac
         fx_y,
         $"instances",
         obj_fx,
-        {z : fx_z, sprite_index : sprite, func_callback : func_fx_callback, image_blend :  colour}
+        {z : fx_z, sprite_index : sprite, func_callback : func_fx_callback, image_blend :  color}
     );
 }
 

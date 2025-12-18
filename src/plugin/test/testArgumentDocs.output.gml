@@ -1,4 +1,3 @@
-/// @function scr_bezier_4
 /// @param x1
 /// @param y1
 /// @param x2
@@ -17,7 +16,7 @@ function scr_bezier_4(x1, y1, x2, y2, x3, y3, x4, y4, width, steps, color) {
     var xnet      = -1;
     var ynet      = -1;
 
-    for (var i = 0; i <= 1; i+= step_size) {
+    for (var i = 0; i <= 1; i += step_size) {
         var x12 = lerp(x1, x2, i);
         var y12 = lerp(y1, y2, i);
         var x23 = lerp(x2, x3, i);
@@ -37,7 +36,7 @@ function scr_bezier_4(x1, y1, x2, y2, x3, y3, x4, y4, width, steps, color) {
             draw_circle_color(xx, yy, w - (i * 2), color, color, false);
         }
         if (i > 0) {
-            draw_set_colour(color);
+            draw_set_color(color);
             draw_line_width(xnet, ynet, xx, yy, (2 * w) - (i * 4));
         }
         xnet = xx;
@@ -45,16 +44,15 @@ function scr_bezier_4(x1, y1, x2, y2, x3, y3, x4, y4, width, steps, color) {
     }
 }
 
-/// @function scr_create_fx
+/// @description Create an effect
 /// @param sprite
 /// @param {real} fx_x
 /// @param {real} [fx_y]
 /// @param {real} [fx_z=0]
-/// @param {function} [func_fx_callback] - A function to call after the animation has completed
-/// @param {Constant.Colour} [colour=c_white]
-/// @description Create an effect
+/// @param {function} [func_fx_callback] A function to call after the animation has completed
+/// @param {Constant.Color} [color=c_white]
 /// @returns {Id.Instance} instance
-function scr_create_fx(sprite, fx_x, fx_y = undefined, fx_z = 0, func_fx_callback = undefined, colour = c_white) {
+function scr_create_fx(sprite, fx_x, fx_y = undefined, fx_z = 0, func_fx_callback = undefined, color = c_white) {
     gml_pragma("forceinline");
 
     if (!RELEASE) {
@@ -72,12 +70,11 @@ function scr_create_fx(sprite, fx_x, fx_y = undefined, fx_z = 0, func_fx_callbac
             z             : fx_z,
             sprite_index  : sprite,
             func_callback : func_fx_callback,
-            image_blend   : colour
+            image_blend   : color
         }
     );
 }
 
-/// @function scr_struct_get
 /// @param {struct} structure
 /// @param key
 /// @param default_value
@@ -92,7 +89,6 @@ function scr_struct_get(structure, key, default_value) {
 // Note: Multiple data types can also be listed, separated by a comma ,
 // For example String,Array<String>, Id.Instance,Asset.GMObject, etc.
 
-/// @function scr_lots_of_types
 /// @param {Id.Buffer} buffer
 /// @param {Id.DsMap} list
 /// @param {Id.DsMap} map
@@ -106,9 +102,8 @@ function scr_lots_of_types(buffer, list, map, count, asset, callback, extra = un
     return $"{buffer}, ${list}, ${map}, ${count}, ${asset}, ${callback}, ${extra}";
 }
 
-/// @function func_greet
-/// @param {string} [greeting="Hello, World!"]
 /// @description An anonymous function that greets
+/// @param {string} [greeting="Hello, World!"]
 /// @returns {string}
 var func_greet = function(greeting = "Hello, World!") {
     show_debug_message(greeting);
