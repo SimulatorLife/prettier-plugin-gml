@@ -34,8 +34,8 @@ const projectIndexCacheSizeConfig = Core.createEnvConfiguredValueWithFallback({
         if (trimmed !== null) {
             const numeric = Core.toFiniteNumber(trimmed);
 
-            if (numeric !== null) {
-                return normalizeMaxSizeBytes(numeric);
+            if (numeric !== null && numeric >= 0) {
+                return numeric;
             }
         }
 
