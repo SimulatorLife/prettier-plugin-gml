@@ -34,6 +34,9 @@ const projectIndexCacheSizeConfig = Core.createEnvConfiguredValueWithFallback({
         if (trimmed !== null) {
             const numeric = Core.toFiniteNumber(trimmed);
 
+            // Inline the >= 0 check here rather than calling normalizeMaxSizeBytes
+            // again to avoid unnecessary recursion when the numeric value is already
+            // validated by toFiniteNumber.
             if (numeric !== null && numeric >= 0) {
                 return numeric;
             }
@@ -447,13 +450,9 @@ export async function saveProjectIndexCache(
     const byteLength = Buffer.byteLength(serialized, "utf8");
 
     const effectiveMaxSize = normalizeMaxSizeBytes(maxSizeBytes);
-    // Explicitly check for a positive limit; 0 means "no limit" and null
-    // means "unconfigured" (both allow the write to proceed).
-    if (
-        effectiveMaxSize !== null &&
-        effectiveMaxSize > 0 &&
-        byteLength > effectiveMaxSize
-    ) {
+    // Check for a positive limit: 0 and null both mean "no limit".
+    // The > 0 check implicitly handles null since (null > 0) is false.
+    if (effectiveMaxSize > 0 && byteLength > effectiveMaxSize) {
         return createCacheResult(ProjectIndexCacheStatus.SKIPPED, {
             cacheFilePath,
             reason: "payload-too-large",
