@@ -29,17 +29,16 @@ const projectIndexCacheSizeConfig = Core.createEnvConfiguredValueWithFallback({
             return normalized;
         }
 
-        if (value === 0) {
-            return 0;
-        }
-
         const trimmed = Core.getNonEmptyTrimmedString(value);
 
         if (trimmed !== null) {
             const numeric = Core.toFiniteNumber(trimmed);
 
-            if (numeric === 0) {
-                return 0;
+            // We inline the >= 0 check here instead of calling normalizeMaxSizeBytes(numeric)
+            // to avoid unnecessary function call depth, since numeric is already validated
+            // by toFiniteNumber.
+            if (numeric !== null && numeric >= 0) {
+                return numeric;
             }
         }
 
@@ -146,10 +145,13 @@ function normalizeMaxSizeBytes(maxSizeBytes) {
     }
 
     const numericLimit = Core.toFiniteNumber(maxSizeBytes);
-    if (numericLimit === null || numericLimit <= 0) {
+    if (numericLimit === null || numericLimit < 0) {
         return null;
     }
 
+    // Explicitly preserve 0 as a sentinel value meaning "no limit"
+    // rather than coercing it to null, so the caller can distinguish
+    // "explicitly disabled" from "unconfigured".
     return numericLimit;
 }
 
@@ -448,7 +450,9 @@ export async function saveProjectIndexCache(
     const byteLength = Buffer.byteLength(serialized, "utf8");
 
     const effectiveMaxSize = normalizeMaxSizeBytes(maxSizeBytes);
-    if (effectiveMaxSize !== null && byteLength > effectiveMaxSize) {
+    // Check for a positive limit: 0 and null both mean "no limit".
+    // The > 0 check implicitly handles null since (null > 0) is false.
+    if (effectiveMaxSize > 0 && byteLength > effectiveMaxSize) {
         return createCacheResult(ProjectIndexCacheStatus.SKIPPED, {
             cacheFilePath,
             reason: "payload-too-large",
