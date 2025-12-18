@@ -1717,8 +1717,7 @@ function updateParamLineWithDocName(line: string, newDocName: string): string {
     const fullPrefixLength = match[0].length;
     const remainder = line.slice(fullPrefixLength);
 
-    let newRemainder = remainder;
-    newRemainder =
+    const newRemainder =
         remainder.trim().length === 0
             ? newDocName
             : remainder.replace(/^[^\s]+/, newDocName);
