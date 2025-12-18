@@ -720,7 +720,9 @@ export class RefactorEngine {
         try {
             normalizedNewName = assertValidIdentifierName(newName);
         } catch (error) {
-            errors.push(error.message);
+            const errorMessage =
+                error instanceof Error ? error.message : String(error);
+            errors.push(errorMessage);
             return { valid: false, errors, warnings };
         }
 
@@ -739,7 +741,10 @@ export class RefactorEngine {
             );
         }
 
-        // Extract symbol name and check if it matches the new name
+        // Extract the symbol's base name from its fully-qualified ID.
+        // Symbol IDs follow the pattern "gml/{kind}/{name}" where {name} is the
+        // last path component (e.g., "gml/script/scr_foo" → "scr_foo").
+        // This name is used to search for all occurrences in the codebase.
         const symbolName = symbolId.split("/").pop() ?? symbolId;
 
         if (symbolName === normalizedNewName) {
