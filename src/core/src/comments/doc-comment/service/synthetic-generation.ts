@@ -196,9 +196,7 @@ export function computeSyntheticFunctionDocLines(
     }
 
     const shouldInsertFunctionTag =
-        normalizedFunctionName &&
-        (normalizedExistingFunctionName === null ||
-            normalizedExistingFunctionName !== normalizedFunctionName);
+        normalizedFunctionName && normalizedExistingFunctionName === null;
 
     if (shouldInsertFunctionTag) {
         lines.push(`/// @function ${functionName}`);
