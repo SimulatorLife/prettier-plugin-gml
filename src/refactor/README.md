@@ -170,6 +170,45 @@ const patches = await engine.generateTranspilerPatches(hotReloadUpdates, readFil
 // - filePath: source file path
 ```
 
+### Post-Edit Semantic Validation
+
+Verify that applied edits maintain semantic integrity and hot reload safety:
+
+```javascript
+// After applying a rename
+const workspace = await engine.planRename({
+    symbolId: "gml/script/scr_old",
+    newName: "scr_new"
+});
+
+const results = await engine.applyWorkspaceEdit(workspace, {
+    readFile: async (path) => await fs.readFile(path, 'utf8'),
+    writeFile: async (path, content) => await fs.writeFile(path, content)
+});
+
+// Verify the rename maintained semantic integrity
+const validation = await engine.verifyPostEditIntegrity({
+    symbolId: "gml/script/scr_old",
+    oldName: "scr_old",
+    newName: "scr_new",
+    workspace,
+    readFile: async (path) => await fs.readFile(path, 'utf8')
+});
+
+if (!validation.valid) {
+    console.error("Post-edit validation failed:", validation.errors);
+    // Consider reverting changes or alerting the user
+} else if (validation.warnings.length > 0) {
+    console.warn("Post-edit warnings:", validation.warnings);
+    // Review warnings but proceed with hot reload
+}
+
+// validation contains:
+// - valid: boolean indicating if edits maintained integrity
+// - errors: blocking issues that indicate the rename broke something
+// - warnings: advisory information about potential issues
+```
+
 #### Advanced: Dependency Cascade Computation
 
 Compute the full transitive closure of dependencies for hot reload operations:
@@ -234,6 +273,7 @@ new RefactorEngine({ parser, semantic, formatter })
 - `async validateHotReloadCompatibility(workspace, options)` - Check hot reload compatibility
 - `async checkHotReloadSafety(request)` - Check if a rename is safe for hot reload
 - `async applyWorkspaceEdit(workspace, options)` - Apply edits to files
+- `async verifyPostEditIntegrity(request)` - Verify semantic integrity after applying edits
 - `async prepareHotReloadUpdates(workspace)` - Prepare hot reload update metadata
 - `async generateTranspilerPatches(hotReloadUpdates, readFile)` - Generate transpiled patches
 - `async prepareRenamePlan(request, options)` - Prepare a comprehensive rename plan with validation

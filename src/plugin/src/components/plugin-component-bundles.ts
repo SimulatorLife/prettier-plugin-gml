@@ -3,7 +3,6 @@ import { LogicalOperatorsStyle } from "../options/logical-operators-style.js";
 import { gmlParserAdapter } from "../parsers/index.js";
 import { print } from "../printer/index.js";
 import type { GmlPluginComponentContract } from "./plugin-types.js";
-import { createSingletonComponentRegistry } from "./component-registry.js";
 import { selectPluginComponentContractEntries } from "./plugin-component-contract.js";
 import { handleComments, printComment } from "../comments/index.js";
 
@@ -31,27 +30,30 @@ export function createDefaultGmlPluginComponentDependencies(
     return selectPluginComponentContractEntries(implementations);
 }
 
-const implementationRegistry =
-    createSingletonComponentRegistry<GmlPluginComponentContract>({
-        description: "implementation bundle",
-        factory: createDefaultGmlPluginComponentImplementations
-    });
+const gmlPluginComponentImplementations = Object.freeze(
+    createDefaultGmlPluginComponentImplementations()
+);
 
-const dependencyRegistry =
-    createSingletonComponentRegistry<GmlPluginComponentContract>({
-        description: "dependency bundle",
-        factory: () =>
-            createDefaultGmlPluginComponentDependencies(
-                implementationRegistry.bundle
-            )
-    });
+const gmlPluginComponentDependencies = Object.freeze(
+    createDefaultGmlPluginComponentDependencies(
+        gmlPluginComponentImplementations
+    )
+);
 
-export const gmlPluginComponentImplementations = implementationRegistry.bundle;
-export const resolveGmlPluginComponentImplementations =
-    implementationRegistry.resolve;
+function resolveGmlPluginComponentImplementations(): GmlPluginComponentContract {
+    return gmlPluginComponentImplementations;
+}
 
-export const gmlPluginComponentDependencies = dependencyRegistry.bundle;
-export const resolveGmlPluginComponentDependencies = dependencyRegistry.resolve;
+function resolveGmlPluginComponentDependencies(): GmlPluginComponentContract {
+    return gmlPluginComponentDependencies;
+}
+
+export {
+    gmlPluginComponentImplementations,
+    resolveGmlPluginComponentImplementations,
+    gmlPluginComponentDependencies,
+    resolveGmlPluginComponentDependencies
+};
 
 export const defaultGmlPluginComponentImplementations =
     gmlPluginComponentImplementations;

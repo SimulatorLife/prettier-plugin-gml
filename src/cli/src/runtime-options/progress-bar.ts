@@ -94,22 +94,16 @@ class TerminalProgressBar implements ProgressBarLike {
     }
 
     #normalizeCurrent(value: unknown): number {
-        let normalizedValue: number | null = null;
+        const numeric =
+            typeof value === "number" && Number.isFinite(value)
+                ? value
+                : typeof value === "string"
+                  ? Number.parseFloat(value)
+                  : Number.NaN;
 
-        if (typeof value === "number" && Number.isFinite(value)) {
-            normalizedValue = value;
-        } else if (typeof value === "string") {
-            const parsedValue = Number.parseFloat(value);
-            if (Number.isFinite(parsedValue)) {
-                normalizedValue = parsedValue;
-            }
-        }
-
-        if (normalizedValue === null) {
-            return 0;
-        }
-
-        return Math.min(Math.max(0, normalizedValue), this.total);
+        return Number.isFinite(numeric)
+            ? Math.min(Math.max(0, numeric), this.total)
+            : 0;
     }
 
     #render(): void {
