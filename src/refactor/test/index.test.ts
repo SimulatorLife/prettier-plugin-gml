@@ -2244,3 +2244,251 @@ void test("verifyPostEditIntegrity succeeds for valid rename", async () => {
     assert.equal(result.valid, true);
     assert.equal(result.errors.length, 0);
 });
+
+void test("validateRenameRequest validates missing parameters", async () => {
+    const engine = new RefactorEngine();
+
+    const result = await engine.validateRenameRequest({
+        newName: "bar"
+    } as unknown as RenameRequest);
+
+    assert.equal(result.valid, false);
+    assert.ok(result.errors.some((e) => e.includes("required")));
+});
+
+void test("validateRenameRequest validates parameter types", async () => {
+    const engine = new RefactorEngine();
+
+    const result = await engine.validateRenameRequest({
+        symbolId: 123,
+        newName: "bar"
+    } as unknown as RenameRequest);
+
+    assert.equal(result.valid, false);
+    assert.ok(result.errors.some((e) => e.includes("must be a string")));
+});
+
+void test("validateRenameRequest validates identifier syntax", async () => {
+    const mockSemantic: SemanticAnalyzer = {
+        hasSymbol: async () => true
+    };
+    const engine = new RefactorEngine({ semantic: mockSemantic });
+
+    const result = await engine.validateRenameRequest({
+        symbolId: "gml/script/test",
+        newName: "invalid-name"
+    });
+
+    assert.equal(result.valid, false);
+    assert.ok(
+        result.errors.some((e) => e.includes("not a valid GML identifier"))
+    );
+});
+
+void test("validateRenameRequest checks symbol existence", async () => {
+    const mockSemantic: SemanticAnalyzer = {
+        hasSymbol: async (id) => id === "gml/script/exists"
+    };
+    const engine = new RefactorEngine({ semantic: mockSemantic });
+
+    const result = await engine.validateRenameRequest({
+        symbolId: "gml/script/missing",
+        newName: "bar"
+    });
+
+    assert.equal(result.valid, false);
+    assert.ok(
+        result.errors.some((e) => e.includes("not found in semantic index"))
+    );
+});
+
+void test("validateRenameRequest detects same name", async () => {
+    const mockSemantic: SemanticAnalyzer = {
+        hasSymbol: async () => true,
+        getSymbolOccurrences: async () => []
+    };
+    const engine = new RefactorEngine({ semantic: mockSemantic });
+
+    const result = await engine.validateRenameRequest({
+        symbolId: "gml/script/scr_test",
+        newName: "scr_test"
+    });
+
+    assert.equal(result.valid, false);
+    assert.ok(
+        result.errors.some((e) => e.includes("matches the existing identifier"))
+    );
+});
+
+void test("validateRenameRequest detects reserved keywords", async () => {
+    const mockSemantic: SemanticAnalyzer = {
+        hasSymbol: async () => true,
+        getSymbolOccurrences: async () => [
+            { path: "test.gml", start: 0, end: 5, scopeId: "scope-1" }
+        ],
+        getReservedKeywords: async () => ["if", "else", "for"]
+    };
+    const engine = new RefactorEngine({ semantic: mockSemantic });
+
+    const result = await engine.validateRenameRequest({
+        symbolId: "gml/script/scr_test",
+        newName: "if"
+    });
+
+    assert.equal(result.valid, false);
+    assert.ok(result.errors.some((e) => e.includes("reserved keyword")));
+});
+
+void test("validateRenameRequest warns about no occurrences", async () => {
+    const mockSemantic: SemanticAnalyzer = {
+        hasSymbol: async () => true,
+        getSymbolOccurrences: async () => []
+    };
+    const engine = new RefactorEngine({ semantic: mockSemantic });
+
+    const result = await engine.validateRenameRequest({
+        symbolId: "gml/script/scr_test",
+        newName: "scr_new"
+    });
+
+    assert.equal(result.valid, true);
+    assert.ok(result.warnings.some((w) => w.includes("No occurrences found")));
+    assert.equal(result.occurrenceCount, 0);
+});
+
+void test("validateRenameRequest succeeds for valid rename", async () => {
+    const mockSemantic: SemanticAnalyzer = {
+        hasSymbol: async () => true,
+        getSymbolOccurrences: async () => [
+            { path: "test.gml", start: 0, end: 5, scopeId: "scope-1" },
+            { path: "test2.gml", start: 10, end: 15, scopeId: "scope-2" }
+        ],
+        getReservedKeywords: async () => ["if", "else"]
+    };
+    const engine = new RefactorEngine({ semantic: mockSemantic });
+
+    const result = await engine.validateRenameRequest({
+        symbolId: "gml/script/scr_test",
+        newName: "scr_new"
+    });
+
+    assert.equal(result.valid, true);
+    assert.equal(result.errors.length, 0);
+    assert.equal(result.symbolName, "scr_test");
+    assert.equal(result.occurrenceCount, 2);
+});
+
+void test("validateRenameRequest works without semantic analyzer", async () => {
+    const engine = new RefactorEngine();
+
+    const result = await engine.validateRenameRequest({
+        symbolId: "gml/script/test",
+        newName: "scr_new"
+    });
+
+    assert.equal(result.valid, true);
+    assert.ok(result.warnings.some((w) => w.includes("No semantic analyzer")));
+});
+
+void test("getFileSymbols returns empty array without semantic analyzer", async () => {
+    const engine = new RefactorEngine();
+    const symbols = await engine.getFileSymbols("test.gml");
+    assert.deepStrictEqual(symbols, []);
+});
+
+void test("getFileSymbols queries semantic analyzer", async () => {
+    const mockSemantic: SemanticAnalyzer = {
+        getFileSymbols: async (path) => {
+            if (path === "scripts/player.gml") {
+                return [
+                    { id: "gml/script/scr_player_move" },
+                    { id: "gml/script/scr_player_attack" }
+                ];
+            }
+            return [];
+        }
+    };
+    const engine = new RefactorEngine({ semantic: mockSemantic });
+
+    const symbols = await engine.getFileSymbols("scripts/player.gml");
+    assert.equal(symbols.length, 2);
+    assert.equal(symbols[0].id, "gml/script/scr_player_move");
+    assert.equal(symbols[1].id, "gml/script/scr_player_attack");
+});
+
+void test("getFileSymbols validates file path", async () => {
+    const engine = new RefactorEngine();
+    await assert.rejects(
+        () => engine.getFileSymbols(null as unknown as string),
+        {
+            name: "TypeError",
+            message: /requires a valid file path/
+        }
+    );
+});
+
+void test("getSymbolDependents returns empty array without semantic analyzer", async () => {
+    const engine = new RefactorEngine();
+    const dependents = await engine.getSymbolDependents([
+        "gml/script/scr_test"
+    ]);
+    assert.deepStrictEqual(dependents, []);
+});
+
+void test("getSymbolDependents queries semantic analyzer", async () => {
+    const mockSemantic: SemanticAnalyzer = {
+        getDependents: async (symbolIds) => {
+            if (
+                symbolIds.includes("gml/script/scr_base") ||
+                symbolIds.includes("gml/script/scr_helper")
+            ) {
+                return [
+                    {
+                        symbolId: "gml/script/scr_dependent1",
+                        filePath: "scripts/dependent1.gml"
+                    },
+                    {
+                        symbolId: "gml/script/scr_dependent2",
+                        filePath: "scripts/dependent2.gml"
+                    }
+                ];
+            }
+            return [];
+        }
+    };
+    const engine = new RefactorEngine({ semantic: mockSemantic });
+
+    const dependents = await engine.getSymbolDependents([
+        "gml/script/scr_base",
+        "gml/script/scr_helper"
+    ]);
+    assert.equal(dependents.length, 2);
+    assert.equal(dependents[0].symbolId, "gml/script/scr_dependent1");
+    assert.equal(dependents[0].filePath, "scripts/dependent1.gml");
+});
+
+void test("getSymbolDependents validates input type", async () => {
+    const engine = new RefactorEngine();
+    await assert.rejects(
+        () =>
+            engine.getSymbolDependents(
+                "not-an-array" as unknown as Array<string>
+            ),
+        {
+            name: "TypeError",
+            message: /requires an array/
+        }
+    );
+});
+
+void test("getSymbolDependents handles empty array", async () => {
+    const mockSemantic: SemanticAnalyzer = {
+        getDependents: async () => {
+            throw new Error("Should not be called");
+        }
+    };
+    const engine = new RefactorEngine({ semantic: mockSemantic });
+
+    const dependents = await engine.getSymbolDependents([]);
+    assert.deepStrictEqual(dependents, []);
+});
