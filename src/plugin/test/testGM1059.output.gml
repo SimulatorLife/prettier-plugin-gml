@@ -1,4 +1,3 @@
-/// @function example
 /// @param value
 /// @param value2
 function example(value, value2) {

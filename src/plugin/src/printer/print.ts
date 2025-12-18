@@ -567,7 +567,6 @@ function _printImpl(path, options, print) {
         }
         case "FunctionDeclaration":
         case "ConstructorDeclaration": {
-
             const parts: any[] = [];
 
             const sourceMetadata = resolvePrinterSourceMetadata(options);
@@ -2689,7 +2688,7 @@ function printStatements(path, options, print, childrenAttribute) {
                 parts.push(hardline);
             }
         }
-        if ( syntheticDocComment) {
+        if (syntheticDocComment) {
             parts.push(syntheticDocComment, hardline);
         }
 
@@ -5500,7 +5499,11 @@ function shouldFlattenSyntheticBinary(parent, expression, path) {
         return false;
     }
 
-    if (isAdditivePair && (binaryExpressionContainsString(parent) || binaryExpressionContainsString(expression))) {
+    if (
+        isAdditivePair &&
+        (binaryExpressionContainsString(parent) ||
+            binaryExpressionContainsString(expression))
+    ) {
         return false;
     }
 

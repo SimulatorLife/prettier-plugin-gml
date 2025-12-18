@@ -47,7 +47,9 @@ function getLineCommentRawText(comment, options: any = {}) {
     }
 
     if (process.env.GML_PRINTER_DEBUG) {
-        console.log(`[DEBUG] getLineCommentRawText falling back to value for comment: ${comment.value}`);
+        console.log(
+            `[DEBUG] getLineCommentRawText falling back to value for comment: ${comment.value}`
+        );
     }
 
     if (!isObjectLike(comment)) {
@@ -344,14 +346,18 @@ function tryFormatExistingDocComment(
     trimmedValue: string,
     startsWithTripleSlash: boolean
 ): string | null {
-    console.log(`[DEBUG] tryFormatExistingDocComment: "${trimmedOriginal}" startsWithTripleSlash=${startsWithTripleSlash}`);
+    console.log(
+        `[DEBUG] tryFormatExistingDocComment: "${trimmedOriginal}" startsWithTripleSlash=${startsWithTripleSlash}`
+    );
     if (!startsWithTripleSlash || !trimmedOriginal.includes("@")) {
         return null;
     }
 
     const content = trimmedValue.replace(/^\/+\s*/, "");
     const formatted = applyJsDocReplacements(`/// ${content}`) as string;
-    console.log(`[DEBUG] tryFormatExistingDocComment formatted: "${formatted}"`);
+    console.log(
+        `[DEBUG] tryFormatExistingDocComment formatted: "${formatted}"`
+    );
 
     if (content.toLowerCase().startsWith("@description")) {
         console.log(

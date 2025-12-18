@@ -70,7 +70,6 @@ camDirZ = (-camMat[2] * c) + (camMat[10] * s);
 
 #endregion
 
-/// @function halve
 /// @param value
 function halve(value) {
     return value / /* keep important comment */ 2;

@@ -96,7 +96,6 @@ export function mergeSyntheticDocComments(
     options: any,
     overrides: any = {}
 ): MutableDocCommentLines {
-
     let normalizedExistingLines = existingDocLines.map((line) =>
         line.trim()
     ) as MutableDocCommentLines;
@@ -159,8 +158,6 @@ export function mergeSyntheticDocComments(
         )
     ) as MutableDocCommentLines;
 
-
-
     const _computedSynthetic = computeSyntheticFunctionDocLines(
         node,
         normalizedExistingLines,
@@ -202,8 +199,6 @@ export function mergeSyntheticDocComments(
 
     const syntheticLines =
         reorderDescriptionLinesAfterFunction(_computedSynthetic);
-
-
 
     const implicitDocEntries =
         node?.type === "FunctionDeclaration" ||
@@ -277,7 +272,7 @@ export function mergeSyntheticDocComments(
         docTagMatches(line, /^\/\/\/\s*@description\b/i);
 
     const functionLines = syntheticLines.filter(isFunctionLine);
-    
+
     const syntheticFunctionMetadata = functionLines
         .map((line) => parseDocCommentMetadata(line))
         .find(
@@ -323,8 +318,6 @@ export function mergeSyntheticDocComments(
             .map((line, index) => (isFunctionLine(line) ? index : -1))
             .filter((index) => index !== -1);
 
-
-
         if (existingFunctionIndices.length > 0) {
             const [firstIndex, ...duplicateIndices] = existingFunctionIndices;
             mergedLines = [...mergedLines];
@@ -337,7 +330,6 @@ export function mergeSyntheticDocComments(
             removedAnyLine = true;
         } else {
             const firstParamIndex = mergedLines.findIndex(isParamLine);
-
 
             // If the original doc lines did not contain any metadata tags,
             // prefer to append synthetic `@function` tags after the existing
@@ -385,7 +377,6 @@ export function mergeSyntheticDocComments(
                 ? insertionIndex + 1
                 : insertionIndex;
 
-
             mergedLines = [
                 ...mergedLines.slice(0, insertAt),
                 ...functionLines,
@@ -395,8 +386,6 @@ export function mergeSyntheticDocComments(
             removedAnyLine = true;
         }
     }
-
-
 
     if (overrideLines.length > 0) {
         const existingOverrideIndices = mergedLines
@@ -606,10 +595,10 @@ export function mergeSyntheticDocComments(
 
         if (ignoreIndex === 0) {
             result.splice(1, 0, functionLine);
-        } else if (overrideIndex !== -1) {
-            result.splice(overrideIndex + 1, 0, functionLine);
-        } else {
+        } else if (overrideIndex === -1) {
             result.unshift(functionLine);
+        } else {
+            result.splice(overrideIndex + 1, 0, functionLine);
         }
     }
 
@@ -1036,14 +1025,18 @@ export function mergeSyntheticDocComments(
             normalizedTypeSection.endsWith("}")
         ) {
             const innerType = normalizedTypeSection.slice(1, -1);
-            const normalizedInner = normalizeGameMakerType(innerType.replaceAll("|", ","));
+            const normalizedInner = normalizeGameMakerType(
+                innerType.replaceAll("|", ",")
+            );
             normalizedTypeSection = `{${normalizedInner}}`;
         } else if (
             normalizedTypeSection.startsWith("<") &&
             normalizedTypeSection.endsWith(">")
         ) {
             const innerType = normalizedTypeSection.slice(1, -1);
-            const normalizedInner = normalizeGameMakerType(innerType.replaceAll("|", ","));
+            const normalizedInner = normalizeGameMakerType(
+                innerType.replaceAll("|", ",")
+            );
             normalizedTypeSection = `{${normalizedInner}}`;
         }
         const typePart =
@@ -1212,7 +1205,7 @@ export function mergeSyntheticDocComments(
 
                         segments[penultimateIndex] = mergedSegment;
                         segments.pop();
-                      }
+                    }
                 }
             }
 
@@ -1340,6 +1333,105 @@ export function mergeSyntheticDocComments(
                         wrappedDocs.push(...blockLines);
                         continue;
                     }
+                }
+
+                wrappedDocs.push(`${prefix}${segments[0]}`);
+                for (
+                    let segmentIndex = 1;
+                    segmentIndex < segments.length;
+                    segmentIndex += 1
+                ) {
+                    wrappedDocs.push(
+                        `${continuationPrefix}${segments[segmentIndex]}`
+                    );
+                }
+                continue;
+            }
+
+            if (isParamLine(line)) {
+                const blockLines = [line];
+                let lookahead = index + 1;
+
+                while (lookahead < reorderedDocs.length) {
+                    const nextLine = reorderedDocs[lookahead];
+                    if (
+                        typeof nextLine === STRING_TYPE &&
+                        nextLine.startsWith("///") &&
+                        !parseDocCommentMetadata(nextLine)
+                    ) {
+                        blockLines.push(nextLine);
+                        lookahead += 1;
+                        continue;
+                    }
+                    break;
+                }
+
+                index = lookahead - 1;
+
+                const trimmedLine = line.trim();
+                const hyphenIndex = trimmedLine.indexOf(" - ");
+                if (hyphenIndex === -1) {
+                    wrappedDocs.push(...blockLines);
+                    continue;
+                }
+
+                let prefixEnd = hyphenIndex + 3;
+                while (
+                    prefixEnd < trimmedLine.length &&
+                    trimmedLine[prefixEnd] === " "
+                ) {
+                    prefixEnd += 1;
+                }
+
+                const prefix = trimmedLine.slice(0, prefixEnd);
+                const continuationPrefix = `/// ${" ".repeat(
+                    Math.max(prefix.length - 4, 0)
+                )}`;
+
+                const descriptionSegments = blockLines
+                    .map((docLine, blockIndex) => {
+                        const docTrimmed = docLine.trim();
+                        if (blockIndex === 0) {
+                            return docTrimmed.slice(prefix.length).trim();
+                        }
+
+                        if (!docTrimmed.startsWith("///")) {
+                            return docTrimmed;
+                        }
+
+                        return docTrimmed.slice(3).trim();
+                    })
+                    .filter((segment) => segment.length > 0);
+
+                const descriptionText = descriptionSegments.join(" ");
+
+                if (descriptionText.length === 0) {
+                    wrappedDocs.push(...blockLines);
+                    continue;
+                }
+
+                const available = Math.max(wrapWidth - prefix.length, 16);
+                const continuationAvailable = Math.max(
+                    Math.min(available, 62),
+                    16
+                );
+                const segments = wrapSegments(
+                    descriptionText,
+                    available,
+                    continuationAvailable
+                );
+
+                if (segments.length === 0) {
+                    wrappedDocs.push(...blockLines);
+                    continue;
+                }
+
+                if (
+                    blockLines.length > 1 &&
+                    segments.length <= blockLines.length
+                ) {
+                    wrappedDocs.push(...blockLines);
+                    continue;
                 }
 
                 wrappedDocs.push(`${prefix}${segments[0]}`);
@@ -1589,8 +1681,6 @@ export function shouldGenerateSyntheticDocForFunction(
         }
     }
 
-
-
     return (
         Array.isArray(node.params) &&
         node.params.some((param) => {
@@ -1628,11 +1718,10 @@ function updateParamLineWithDocName(line: string, newDocName: string): string {
     const remainder = line.slice(fullPrefixLength);
 
     let newRemainder = remainder;
-    if (remainder.trim().length === 0) {
-        newRemainder = newDocName;
-    } else {
-        newRemainder = remainder.replace(/^[^\s]+/, newDocName);
-    }
+    newRemainder =
+        remainder.trim().length === 0
+            ? newDocName
+            : remainder.replace(/^[^\s]+/, newDocName);
 
     return newPrefix + newRemainder;
 }

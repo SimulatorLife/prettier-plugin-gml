@@ -1,4 +1,3 @@
-/// @function example
 /// @param a
 /// @param [b=1]
 /// @param [c]

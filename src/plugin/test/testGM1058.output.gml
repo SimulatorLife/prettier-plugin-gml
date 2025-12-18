@@ -1,4 +1,3 @@
-/// @function item
 function item() constructor {
     self.value = 1;
 }

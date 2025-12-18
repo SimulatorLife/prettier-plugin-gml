@@ -302,17 +302,31 @@ export function computeSyntheticDocCommentForFunctionAssignment(
     let assignment;
     const commentTarget = node;
 
-    if (node.type === "ExpressionStatement") {
+    switch (node.type) {
+    case "ExpressionStatement": {
         assignment = node.expression;
-    } else if (node.type === "AssignmentExpression") {
+    
+    break;
+    }
+    case "AssignmentExpression": {
         assignment = node;
-    } else if (node.type === "VariableDeclaration") {
-        if (!Array.isArray(node.declarations) || node.declarations.length !== 1) {
+    
+    break;
+    }
+    case "VariableDeclaration": {
+        if (
+            !Array.isArray(node.declarations) ||
+            node.declarations.length !== 1
+        ) {
             return null;
         }
         assignment = node.declarations[0];
-    } else {
+    
+    break;
+    }
+    default: {
         return null;
+    }
     }
 
     const isDeclarator = assignment?.type === "VariableDeclarator";

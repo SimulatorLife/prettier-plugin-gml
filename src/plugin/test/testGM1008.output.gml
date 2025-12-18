@@ -1,4 +1,3 @@
-/// @function demo
 function demo() {
     var __feather_working_directory = @"PlayerData";
     var first                       = file_find_first(__feather_working_directory + @"/Screenshots/*.png", fa_archive);

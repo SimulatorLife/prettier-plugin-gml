@@ -52,7 +52,7 @@ export function collectFunctionDocCommentDocs({
     };
     let needsLeadingBlankLine = false;
 
-    let docComments = node.docComments ? [...node.docComments] : [];
+    const docComments = node.docComments ? [...node.docComments] : [];
 
     if (Core.isNonEmptyArray(docComments)) {
         const firstDocComment = docComments[0];
@@ -164,7 +164,11 @@ export function collectFunctionDocCommentDocs({
                     nodeComments.push(...grandParent.comments);
                 } else if (parent.comments && parent.comments.length > 0) {
                     nodeComments.push(...parent.comments);
-                } else if (parent.id && parent.id.comments && parent.id.comments.length > 0) {
+                } else if (
+                    parent.id &&
+                    parent.id.comments &&
+                    parent.id.comments.length > 0
+                ) {
                     nodeComments.push(...parent.id.comments);
                 }
             }
@@ -343,8 +347,6 @@ export function collectFunctionDocCommentDocs({
         return { start: doc.start, text: newText };
     });
 
-
-
     const filteredNodeDocs = formattedNodeDocs.filter(
         (entry) =>
             typeof entry.text !== "string" ||
@@ -372,8 +374,6 @@ export function collectFunctionDocCommentDocs({
     );
 
     const newDocCommentDocs = mergedDocs.map((x) => x.text);
-
-
 
     const uniqueProgramLines = formattedProgramLines.filter(
         (line) => !newDocCommentDocs.includes(line)
@@ -610,7 +610,6 @@ export function normalizeFunctionDocCommentDocs({
     path,
     overrides
 }: any) {
-
     const docCommentOptions = resolveDocCommentPrinterOptions(options);
     const descriptionContinuations =
         collectDescriptionContinuations(docCommentDocs);
@@ -622,7 +621,6 @@ export function normalizeFunctionDocCommentDocs({
             docCommentOptions
         )
     ) {
-
         docCommentDocs = Core.toMutableArray(
             Core.mergeSyntheticDocComments(
                 node,

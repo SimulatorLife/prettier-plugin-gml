@@ -1,10 +1,8 @@
-/// @function AttackController
 /// @param [attack_bonus=10]
 function AttackController(attack_bonus = 10) constructor {
     
     self.attack_bonus = attack_bonus;
 
-    /// @function perform_attack
     /// @returns {undefined}
     static perform_attack = function() {
         var base_atk = 1; // Local variable for base attack value. Can be passed into 'with' block as-is.
@@ -33,7 +31,6 @@ show_message(_func()); // Prints 99
 
 value = 40;
 
-/// @function item
 item = function() constructor {
     value = 99;
     copied_value = self.value;
