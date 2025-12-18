@@ -321,6 +321,10 @@ export function collectFunctionDocCommentDocs({
         } else {
             newText = `/// ${trimmed}`;
         }
+
+        // Normalize @func to @function
+        newText = newText.replace(/^(\/\/\/\s*)@func\b/i, "$1@function");
+
         return { start: doc.start, text: newText };
     });
 

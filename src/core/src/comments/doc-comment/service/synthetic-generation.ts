@@ -195,10 +195,13 @@ export function computeSyntheticFunctionDocLines(
         lines.push("/// @override");
     }
 
+    // Only insert a synthetic @function tag when no existing tag is present.
+    // If the user has explicitly provided a function name (even if it differs
+    // from the actual function name), we preserve their intent rather than
+    // auto-correcting it. This allows for intentional aliases or documentation
+    // of nested/internal concepts.
     const shouldInsertFunctionTag =
-        normalizedFunctionName &&
-        (normalizedExistingFunctionName === null ||
-            normalizedExistingFunctionName !== normalizedFunctionName);
+        normalizedFunctionName && normalizedExistingFunctionName === null;
 
     if (shouldInsertFunctionTag) {
         lines.push(`/// @function ${functionName}`);
