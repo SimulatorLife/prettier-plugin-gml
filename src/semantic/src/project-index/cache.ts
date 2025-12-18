@@ -34,9 +34,9 @@ const projectIndexCacheSizeConfig = Core.createEnvConfiguredValueWithFallback({
         if (trimmed !== null) {
             const numeric = Core.toFiniteNumber(trimmed);
 
-            // Inline the >= 0 check here rather than calling normalizeMaxSizeBytes
-            // again to avoid unnecessary recursion when the numeric value is already
-            // validated by toFiniteNumber.
+            // We inline the >= 0 check here instead of calling normalizeMaxSizeBytes(numeric)
+            // to avoid unnecessary function call depth, since numeric is already validated
+            // by toFiniteNumber.
             if (numeric !== null && numeric >= 0) {
                 return numeric;
             }
