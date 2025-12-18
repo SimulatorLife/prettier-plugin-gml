@@ -5,23 +5,41 @@
 
 import { Core, type MutableGameMakerAstNode } from "@gml-modules/core";
 import { util } from "prettier";
-import { Parser } from "@gml-modules/parser";
+import { Parser, type ScopeTracker } from "@gml-modules/parser";
 import * as Transforms from "../transforms/index.js";
 import { Semantic } from "@gml-modules/semantic";
 
 const { getNodeStartIndex, getNodeEndIndex } = Core;
 const { addTrailingComment } = util;
 
-const PARSER_OPTIONS = {
-    getLocations: true,
-    simplifyLocations: false,
-    getComments: true,
-    scopeTrackerOptions: {
-        enabled: true,
-        getIdentifierMetadata: true,
-        createScopeTracker: () => new Semantic.SemanticScopeCoordinator()
-    }
-} as const;
+/**
+ * Factory function type for creating scope tracker instances.
+ * Abstracts the concrete implementation from the parser adapter.
+ */
+export type ScopeTrackerFactory = () => ScopeTracker | null;
+
+/**
+ * Configuration for the GML parser adapter that supports dependency injection.
+ */
+export type GmlParserAdapterConfig = {
+    readonly scopeTrackerFactory: ScopeTrackerFactory;
+};
+
+/**
+ * Creates parser options with the injected scope tracker factory.
+ */
+function createParserOptions(config: GmlParserAdapterConfig) {
+    return {
+        getLocations: true,
+        simplifyLocations: false,
+        getComments: true,
+        scopeTrackerOptions: {
+            enabled: true,
+            getIdentifierMetadata: true,
+            createScopeTracker: config.scopeTrackerFactory
+        }
+    } as const;
+}
 
 export type GmlParserAdapterOptions = {
     applyFeatherFixes?: boolean;
@@ -68,6 +86,7 @@ function isOptionsObject(value: unknown): value is GmlParserAdapterOptions {
 
 async function parseImpl(
     text: string,
+    parserOptions: ReturnType<typeof createParserOptions>,
     options?: GmlParserAdapterOptions
 ): Promise<MutableGameMakerAstNode> {
     let environmentPrepared = false;
@@ -97,6 +116,7 @@ async function parseImpl(
         }
         const ast = parseSourceWithRecovery(
             preparation.parseSource,
+            parserOptions,
             activeOptions
         );
 
@@ -211,12 +231,13 @@ function normalizeToString(candidate: unknown, fallback: string): string {
 
 function parseSourceWithRecovery(
     sourceText: string,
+    parserOptions: ReturnType<typeof createParserOptions>,
     options?: GmlParserAdapterOptions
 ): MutableGameMakerAstNode {
     try {
         const ast = Parser.GMLParser.parse(
             sourceText,
-            PARSER_OPTIONS
+            parserOptions
         ) as MutableGameMakerAstNode;
         logParsedCommentCount(ast);
         return ast;
@@ -238,7 +259,7 @@ function parseSourceWithRecovery(
 
         const ast = Parser.GMLParser.parse(
             recoveredSource,
-            PARSER_OPTIONS
+            parserOptions
         ) as MutableGameMakerAstNode;
         logParsedCommentCount(ast);
         return ast;
@@ -408,27 +429,43 @@ function applyFinalTransforms(
     });
 }
 
-function parse(text: string, options?: GmlParserAdapterOptions) {
-    return parseImpl(text, options);
-}
+/**
+ * Creates a GML parser adapter with the provided configuration.
+ * This factory function enables dependency injection for the scope tracker factory.
+ */
+export function createGmlParserAdapter(config: GmlParserAdapterConfig) {
+    const parserOptions = createParserOptions(config);
 
-function locStart(node: MutableGameMakerAstNode) {
-    if (!node) {
-        return 0;
+    function parse(text: string, options?: GmlParserAdapterOptions) {
+        return parseImpl(text, parserOptions, options);
     }
-    if (node.type === "Program") {
-        return 0;
+
+    function locStart(node: MutableGameMakerAstNode) {
+        if (!node) {
+            return 0;
+        }
+        if (node.type === "Program") {
+            return 0;
+        }
+        return getNodeStartIndex(node) ?? 0;
     }
-    return getNodeStartIndex(node) ?? 0;
+
+    function locEnd(node: MutableGameMakerAstNode) {
+        return getNodeEndIndex(node) ?? 0;
+    }
+
+    return {
+        parse,
+        astFormat: "gml-ast" as const,
+        locStart,
+        locEnd
+    };
 }
 
-function locEnd(node: MutableGameMakerAstNode) {
-    return getNodeEndIndex(node) ?? 0;
-}
-
-export const gmlParserAdapter = {
-    parse,
-    astFormat: "gml-ast",
-    locStart,
-    locEnd
-};
+/**
+ * Default GML parser adapter instance with the standard Semantic scope tracker.
+ * Preserved for backward compatibility with existing consumers.
+ */
+export const gmlParserAdapter = createGmlParserAdapter({
+    scopeTrackerFactory: () => new Semantic.SemanticScopeCoordinator()
+});
