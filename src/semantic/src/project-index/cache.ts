@@ -29,17 +29,13 @@ const projectIndexCacheSizeConfig = Core.createEnvConfiguredValueWithFallback({
             return normalized;
         }
 
-        if (value === 0) {
-            return 0;
-        }
-
         const trimmed = Core.getNonEmptyTrimmedString(value);
 
         if (trimmed !== null) {
             const numeric = Core.toFiniteNumber(trimmed);
 
-            if (numeric === 0) {
-                return 0;
+            if (numeric !== null) {
+                return normalizeMaxSizeBytes(numeric);
             }
         }
 
@@ -146,10 +142,13 @@ function normalizeMaxSizeBytes(maxSizeBytes) {
     }
 
     const numericLimit = Core.toFiniteNumber(maxSizeBytes);
-    if (numericLimit === null || numericLimit <= 0) {
+    if (numericLimit === null || numericLimit < 0) {
         return null;
     }
 
+    // Explicitly preserve 0 as a sentinel value meaning "no limit"
+    // rather than coercing it to null, so the caller can distinguish
+    // "explicitly disabled" from "unconfigured".
     return numericLimit;
 }
 
@@ -448,7 +447,13 @@ export async function saveProjectIndexCache(
     const byteLength = Buffer.byteLength(serialized, "utf8");
 
     const effectiveMaxSize = normalizeMaxSizeBytes(maxSizeBytes);
-    if (effectiveMaxSize !== null && byteLength > effectiveMaxSize) {
+    // Explicitly check for a positive limit; 0 means "no limit" and null
+    // means "unconfigured" (both allow the write to proceed).
+    if (
+        effectiveMaxSize !== null &&
+        effectiveMaxSize > 0 &&
+        byteLength > effectiveMaxSize
+    ) {
         return createCacheResult(ProjectIndexCacheStatus.SKIPPED, {
             cacheFilePath,
             reason: "payload-too-large",
