@@ -214,7 +214,7 @@ function formatPlainObject(value: object, seen: Set<unknown>): string {
 }
 
 function formatErrorValue(value: unknown, seen: Set<unknown>): string {
-    if (value == undefined) {
+    if (value === null || value === undefined) {
         return "Unknown error";
     }
 
