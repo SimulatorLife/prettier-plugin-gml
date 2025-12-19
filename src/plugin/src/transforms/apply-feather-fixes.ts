@@ -291,9 +291,9 @@ function updateStaticFunctionDocComments(ast: any) {
                                 `$1${functionName}`
                             );
                             // Force the printer to use the new value by removing source location
-                            delete (comment).start;
-                            delete (comment).end;
-                            delete (comment).loc;
+                            delete comment.start;
+                            delete comment.end;
+                            delete comment.loc;
                         }
                         // Once we found the @function tag for this function, stop searching.
                         // We assume the first one we find (going backwards) is the correct one.

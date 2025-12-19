@@ -1,5 +1,4 @@
-import { isObjectLike } from "../../utils/object.js";
-import { createResolverController } from "../../utils/resolver-controller.js";
+import { isObjectLike, assertFunction } from "../../utils/object.js";
 import { isNonEmptyString } from "../../utils/string.js";
 import { isRegExpLike } from "../../utils/capability-probes.js";
 
@@ -28,12 +27,8 @@ const DEFAULT_LINE_COMMENT_OPTIONS = Object.freeze({
     codeDetectionPatterns: DEFAULT_COMMENTED_OUT_CODE_PATTERNS
 });
 
-const lineCommentOptionsController = createResolverController({
-    defaultFactory: () => DEFAULT_LINE_COMMENT_OPTIONS,
-    normalize: normalizeLineCommentOptions,
-    errorMessage:
-        "Line comment option resolvers must be functions that return option objects"
-});
+let customResolver: ((options?: Record<string, unknown>) => unknown) | null =
+    null;
 
 function arraysMatchDefault(normalized, defaultValue) {
     return (
@@ -110,15 +105,25 @@ function normalizeLineCommentOptions(options) {
 }
 
 function resolveLineCommentOptions(options = {}) {
-    return lineCommentOptionsController.resolve(options);
+    if (!customResolver) {
+        return DEFAULT_LINE_COMMENT_OPTIONS;
+    }
+    const result = customResolver(options);
+    return normalizeLineCommentOptions(result);
 }
 
 function setLineCommentOptionsResolver(resolver) {
-    return lineCommentOptionsController.set(resolver);
+    assertFunction(resolver, "resolver", {
+        errorMessage:
+            "Line comment option resolvers must be functions that return option objects"
+    });
+    customResolver = resolver;
+    return resolveLineCommentOptions();
 }
 
 function restoreDefaultLineCommentOptionsResolver() {
-    return lineCommentOptionsController.restore();
+    customResolver = null;
+    return DEFAULT_LINE_COMMENT_OPTIONS;
 }
 
 export {
