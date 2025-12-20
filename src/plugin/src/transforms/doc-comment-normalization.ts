@@ -1,0 +1,161 @@
+import {
+    Core,
+    type MutableDocCommentLines,
+    type MutableGameMakerAstNode
+} from "@gml-modules/core";
+import { FunctionalParserTransform } from "./functional-transform.js";
+import { walkAstNodes } from "./feather/ast-traversal.js";
+import { resolveDocCommentPrinterOptions } from "../printer/doc-comment/doc-comment-options.js";
+import {
+    applyDescriptionContinuations,
+    collectDescriptionContinuations
+} from "../shared/doc-comment-description.js";
+import { setDocCommentNormalization } from "../shared/doc-comment-normalization.js";
+
+type DocCommentNormalizationTransformOptions = {
+    enabled?: boolean;
+    pluginOptions?: Record<string, unknown>;
+    sourceText?: string | null;
+};
+
+type DocCommentPath = {
+    getValue(): MutableGameMakerAstNode | null;
+    getParentNode(): MutableGameMakerAstNode | null;
+};
+
+function createDocCommentPath(
+    node: MutableGameMakerAstNode,
+    parent?: MutableGameMakerAstNode | null
+): DocCommentPath {
+    return {
+        getValue() {
+            return node;
+        },
+        getParentNode() {
+            return parent ?? null;
+        }
+    };
+}
+
+export class DocCommentNormalizationTransform extends FunctionalParserTransform<DocCommentNormalizationTransformOptions> {
+    constructor() {
+        super("doc-comment-normalization", {
+            enabled: true,
+            pluginOptions: {},
+            sourceText: null
+        });
+    }
+
+    protected execute(
+        ast: MutableGameMakerAstNode,
+        options: DocCommentNormalizationTransformOptions
+    ): MutableGameMakerAstNode {
+        if (options.enabled === false) {
+            return ast;
+        }
+
+        const pluginOptions = options.pluginOptions ?? {};
+        const sourceText = options.sourceText ?? null;
+        const lineCommentOptions = {
+            ...Core.resolveLineCommentOptions(pluginOptions),
+            originalText: sourceText
+        };
+        const docCommentOptions =
+            resolveDocCommentPrinterOptions(pluginOptions);
+
+        const parentByNode = new WeakMap<
+            MutableGameMakerAstNode,
+            MutableGameMakerAstNode
+        >();
+        walkAstNodes(ast, (node, parent) => {
+            if (!Core.isNode(node) || !Core.isNode(parent)) {
+                return;
+            }
+            parentByNode.set(
+                node as MutableGameMakerAstNode,
+                parent as MutableGameMakerAstNode
+            );
+        });
+
+        const traversal = Core.resolveDocCommentTraversalService(ast);
+
+        traversal.forEach((node, comments = []) => {
+            const mutableNode = node as MutableGameMakerAstNode;
+            if (!Core.isFunctionLikeNode(mutableNode)) {
+                return;
+            }
+
+            const formattedLines: string[] = [];
+            for (const comment of comments ?? []) {
+                const formatted = Core.formatLineComment(
+                    comment,
+                    lineCommentOptions
+                );
+                if (
+                    typeof formatted === "string" &&
+                    formatted.trim().length > 0
+                ) {
+                    formattedLines.push(formatted);
+                }
+            }
+
+            const docPath = createDocCommentPath(
+                mutableNode,
+                parentByNode.get(mutableNode) ?? null
+            );
+
+            if (
+                !Core.shouldGenerateSyntheticDocForFunction(
+                    docPath,
+                    formattedLines,
+                    docCommentOptions
+                )
+            ) {
+                return;
+            }
+
+            const descriptionContinuations =
+                collectDescriptionContinuations(formattedLines);
+
+            let normalizedDocComments = Core.toMutableArray(
+                Core.mergeSyntheticDocComments(
+                    node,
+                    formattedLines,
+                    docCommentOptions
+                )
+            ) as MutableDocCommentLines;
+
+            normalizedDocComments = applyDescriptionContinuations(
+                normalizedDocComments,
+                descriptionContinuations
+            );
+
+            while (
+                normalizedDocComments.length > 0 &&
+                typeof normalizedDocComments[0] === "string" &&
+                normalizedDocComments[0].trim() === ""
+            ) {
+                normalizedDocComments.shift();
+            }
+
+            if (normalizedDocComments.length === 0) {
+                return;
+            }
+
+            const parentNode = parentByNode.get(node) ?? null;
+            const needsLeadingBlankLine = Boolean(
+                parentNode && parentNode.type === "BlockStatement"
+            );
+
+            setDocCommentNormalization(node, {
+                docCommentDocs: normalizedDocComments,
+                needsLeadingBlankLine
+            });
+        });
+
+        return ast;
+    }
+}
+
+export const docCommentNormalizationTransform =
+    new DocCommentNormalizationTransform();

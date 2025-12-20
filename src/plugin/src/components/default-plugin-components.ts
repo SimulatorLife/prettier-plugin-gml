@@ -131,6 +131,14 @@ export function createDefaultGmlPluginComponents(): GmlPluginComponentBundle {
                 description:
                     "Apply safe auto-fixes derived from GameMaker Feather diagnostics (e.g. remove trailing semicolons from macro declarations flagged by GM1051)."
             },
+            normalizeDocComments: {
+                since: "0.0.0",
+                type: "boolean",
+                category: "gml",
+                default: true,
+                description:
+                    "Normalize doc comments with a dedicated transform so synthetic summaries, @description text, and spacing are consistent before printing."
+            },
             useStringInterpolation: {
                 since: "0.0.0",
                 type: "boolean",

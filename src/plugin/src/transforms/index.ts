@@ -11,6 +11,7 @@ import { markCallsMissingArgumentSeparatorsTransform } from "./mark-missing-sepa
 import { optimizeMathExpressionsTransform } from "./optimize-math-expressions.js";
 import { preprocessFunctionArgumentDefaultsTransform } from "./preprocess-function-argument-defaults.js";
 import { stripCommentsTransform } from "./strip-comments.js";
+import { docCommentNormalizationTransform } from "./doc-comment-normalization.js";
 import type { ParserTransform } from "./functional-transform.js";
 
 /**
@@ -26,6 +27,7 @@ const TRANSFORM_REGISTRY_ENTRIES = [
     convertStringConcatenationsTransform,
     condenseLogicalExpressionsTransform,
     optimizeMathExpressionsTransform,
+    docCommentNormalizationTransform,
     convertUndefinedGuardAssignmentsTransform,
     annotateStaticFunctionOverridesTransform,
     collapseRedundantMissingCallArgumentsTransform,
@@ -131,3 +133,4 @@ export { sanitizeMissingArgumentSeparators } from "./missing-argument-separator-
 export { collapseRedundantMissingCallArgumentsTransform } from "./collapse-redundant-arguments.js";
 export { markCallsMissingArgumentSeparatorsTransform } from "./mark-missing-separators.js";
 export { hoistLoopLengthBounds } from "./loop-size-hoisting/index.js";
+export { docCommentNormalizationTransform } from "./doc-comment-normalization.js";

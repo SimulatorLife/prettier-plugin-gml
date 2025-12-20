@@ -51,6 +51,7 @@ export type GmlParserAdapterOptions = {
     stripComments?: boolean;
     originalText?: string; // TODO: Why is this here? Not really a parser option.
     __identifierCaseProjectIndexBootstrap?: unknown; // TODO: Why is this here? Not really a parser option.
+    normalizeDocComments?: boolean;
     [key: string]: unknown; // TODO: Why is this here? Not really a parser option.
 };
 
@@ -423,6 +424,13 @@ function applyFinalTransforms(
         Transforms.hoistLoopLengthBounds(ast, options);
     }
     Transforms.enforceVariableBlockSpacingTransform.transform(ast);
+
+    if (options?.normalizeDocComments ?? true) {
+        Transforms.docCommentNormalizationTransform.transform(ast, {
+            pluginOptions: options ?? {},
+            sourceText: context.parseSource
+        });
+    }
 
     Transforms.markCallsMissingArgumentSeparatorsTransform.transform(ast, {
         originalText: options?.originalText ?? originalSource
