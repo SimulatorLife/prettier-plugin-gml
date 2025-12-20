@@ -161,6 +161,7 @@ interface CascadeEntry {
     symbolId: string;
     distance: number;
     reason: string;
+    filePath?: string;
 }
 
 interface HotReloadCascadeMetadata {
@@ -1402,6 +1403,7 @@ export class RefactorEngine {
 
         // Group edits by file
         const grouped = workspace.groupByFile();
+        const updatesBySymbol = new Map<string, HotReloadUpdate>();
 
         for (const [filePath, edits] of grouped.entries()) {
             // Determine which symbols are defined in this file
@@ -1417,7 +1419,7 @@ export class RefactorEngine {
             // If we have specific symbol information, create targeted updates
             if (affectedSymbols.length > 0) {
                 for (const symbol of affectedSymbols) {
-                    updates.push({
+                    const update: HotReloadUpdate = {
                         symbolId: symbol.id,
                         action: "recompile",
                         filePath,
@@ -1425,11 +1427,13 @@ export class RefactorEngine {
                             start: e.start,
                             end: e.end
                         }))
-                    });
+                    };
+                    updates.push(update);
+                    updatesBySymbol.set(symbol.id, update);
                 }
             } else {
                 // Fallback: create a generic update for the file
-                updates.push({
+                const update: HotReloadUpdate = {
                     symbolId: `file://${filePath}`,
                     action: "recompile",
                     filePath,
@@ -1437,30 +1441,34 @@ export class RefactorEngine {
                         start: e.start,
                         end: e.end
                     }))
-                });
+                };
+                updates.push(update);
+                updatesBySymbol.set(update.symbolId, update);
             }
         }
 
-        // Query semantic index for dependents if available
-        if (
-            this.semantic &&
-            typeof this.semantic.getDependents === "function"
-        ) {
-            const allSymbolIds = updates.map((u) => u.symbolId);
-            const dependents =
-                (await this.semantic.getDependents(allSymbolIds)) ?? [];
-
-            // Add dependent symbols that need hot reload notification
-            for (const dependent of dependents) {
-                if (!updates.some((u) => u.symbolId === dependent.symbolId)) {
-                    updates.push({
-                        symbolId: dependent.symbolId,
-                        action: "notify",
-                        filePath: dependent.filePath,
-                        affectedRanges: []
-                    });
-                }
+        // Expand to transitive dependents using the cascade helper so hot reload
+        // consumers receive a full picture of which symbols should be refreshed.
+        const cascade = await this.computeHotReloadCascade(
+            Array.from(updatesBySymbol.keys())
+        );
+        for (const entry of cascade.cascade) {
+            if (updatesBySymbol.has(entry.symbolId)) {
+                continue;
             }
+
+            if (!entry.filePath) {
+                continue;
+            }
+
+            const dependentUpdate: HotReloadUpdate = {
+                symbolId: entry.symbolId,
+                action: "notify",
+                filePath: entry.filePath,
+                affectedRanges: []
+            };
+            updates.push(dependentUpdate);
+            updatesBySymbol.set(entry.symbolId, dependentUpdate);
         }
 
         return updates;
@@ -1717,7 +1725,8 @@ export class RefactorEngine {
                             cascade.set(depId, {
                                 symbolId: depId,
                                 distance: newDistance,
-                                reason
+                                reason,
+                                filePath: dep.filePath
                             });
                             visited.add(depId);
 
