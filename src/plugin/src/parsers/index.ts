@@ -14,3 +14,8 @@ export {
     mapPrettierOptionsToParserOptions
 } from "./prettier-adapter.js";
 export type { PrettierGmlOptions } from "./prettier-adapter.js";
+export {
+    fixMalformedComments,
+    recoverParseSourceFromMissingBrace
+} from "./source-preprocessing.js";
+export type { CommentFixResult } from "./source-preprocessing.js";
