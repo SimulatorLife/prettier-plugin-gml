@@ -4,13 +4,16 @@ import type {
     ListenerOptions,
     ParserContext
 } from "../types/index.js";
-import GameMakerLanguageParserListenerBase from "../../generated/GameMakerLanguageParserListener.js";
+import { getGameMakerLanguageParserBases } from "./parser-grammar-bases.js";
 import { VISIT_METHOD_NAMES } from "./game-maker-language-parser-visitor.js";
 import {
     definePrototypeMethods,
     deriveListenerMethodNames,
     toDelegate
 } from "./parse-tree-helpers.js";
+
+const { listener: GameMakerLanguageParserListenerBase } =
+    getGameMakerLanguageParserBases();
 
 const DEFAULT_LISTENER_DELEGATE: ListenerDelegate = ({
     fallback = Core.noop
