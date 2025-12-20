@@ -1,9 +1,9 @@
-import GameMakerLanguageParserVisitorBase from "../../generated/GameMakerLanguageParserVisitor.js";
 import type {
     ParserContext,
     VisitorOptions,
     VisitorPayload
 } from "../types/index.js";
+import { getGameMakerLanguageParserBases } from "./parser-grammar-bases.js";
 import {
     collectPrototypeMethodNames,
     collectVisitMethodNames,
@@ -11,6 +11,9 @@ import {
     definePrototypeMethods,
     ensureHasInstancePatched
 } from "./parse-tree-helpers.js";
+
+const { visitor: GameMakerLanguageParserVisitorBase } =
+    getGameMakerLanguageParserBases();
 
 const DEFAULT_VISIT_CHILDREN_DELEGATE = ({ fallback }: VisitorPayload) =>
     fallback();
