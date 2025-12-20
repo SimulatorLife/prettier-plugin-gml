@@ -12,7 +12,7 @@ import {
     reorderDescriptionLinesAfterFunction,
     resolveDocCommentWrapWidth
 } from "./service/index.js";
-import { toMutableArray } from "../../utils/array.js";
+import { isNonEmptyArray, toMutableArray } from "../../utils/array.js";
 import { isNonEmptyTrimmedString } from "../../utils/string.js";
 
 const STRING_TYPE = "string";
@@ -271,7 +271,7 @@ export function computeSyntheticDocCommentForStaticVariable(
             ? node._overridesStaticFunctionNode._syntheticDocLines
             : null;
 
-        if (Array.isArray(ancestorDocLines) && ancestorDocLines.length > 0) {
+        if (isNonEmptyArray(ancestorDocLines)) {
             finalDocLines = ["/// @override", ...ancestorDocLines];
         }
     }

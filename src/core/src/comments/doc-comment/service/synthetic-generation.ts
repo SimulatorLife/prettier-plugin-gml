@@ -1,4 +1,5 @@
 import { getNodeName, isUndefinedSentinel } from "../../../ast/node-helpers.js";
+import { isNonEmptyArray } from "../../../utils/array.js";
 import { isNonEmptyTrimmedString } from "../../../utils/string.js";
 import { parseDocCommentMetadata } from "./metadata.js";
 import { normalizeDocCommentTypeAnnotations } from "./type-normalization.js";
@@ -409,10 +410,7 @@ export function computeSyntheticFunctionDocLines(
         }
     }
 
-    if (
-        !Array.isArray(node.params) ||
-        (Array.isArray(node.params) && node.params.length === 0)
-    ) {
+    if (!isNonEmptyArray(node.params)) {
         for (const entry of implicitArgumentDocNames) {
             if (!entry) continue;
             const {
