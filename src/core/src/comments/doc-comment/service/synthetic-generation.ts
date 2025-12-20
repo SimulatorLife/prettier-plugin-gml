@@ -29,7 +29,7 @@ const NUMBER_TYPE = "number";
 
 function normalizeDocMetadataNameToString(value: unknown): string | null {
     const normalized = normalizeDocMetadataName(value);
-    return typeof normalized === STRING_TYPE ? normalized : null;
+    return typeof normalized === STRING_TYPE ? (normalized as string) : null;
 }
 
 function hasReturnStatement(node: any): boolean {
