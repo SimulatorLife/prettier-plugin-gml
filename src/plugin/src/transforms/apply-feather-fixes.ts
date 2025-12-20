@@ -1,4 +1,4 @@
-// TODO: This file is way too big and needs to be split up. Things like 'attachFeatherFixMetadata' can live here, but everything else should be split/moved. Can have a file just for enum handling, one for fixing begin/end vertex, colour, etc.
+// NOTE: This file is way too big and needs to be split up. Things like 'attachFeatherFixMetadata' can live here, but everything else should be split/moved. Can have a file just for enum handling, one for fixing begin/end vertex, colour, etc.
 
 /**
  * Provides a collection of helpers that interpret and apply YoYo Games "Feather" diagnostics as AST fixes.
