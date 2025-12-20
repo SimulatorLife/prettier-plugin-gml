@@ -3,7 +3,11 @@ import type {
     MutableDocCommentLines
 } from "../../comment-utils.js";
 import { coercePositiveIntegerOption } from "../../../utils/numeric-options.js";
-import { findLastIndex, toMutableArray } from "../../../utils/array.js";
+import {
+    findLastIndex,
+    isNonEmptyArray,
+    toMutableArray
+} from "../../../utils/array.js";
 import { isNonEmptyString, toTrimmedString } from "../../../utils/string.js";
 import { parseDocCommentMetadata } from "./metadata.js";
 import {
@@ -533,7 +537,7 @@ export function mergeSyntheticDocComments(
         ...mergedLines.slice(insertionIndex)
     ];
 
-    if (Array.isArray(returnsLines) && returnsLines.length > 0) {
+    if (isNonEmptyArray(returnsLines)) {
         const { lines: dedupedReturns } = dedupeReturnDocLines(returnsLines, {
             includeNonReturnLine: (line, trimmed) => trimmed.length > 0
         });
