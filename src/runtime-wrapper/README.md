@@ -100,6 +100,7 @@ Returns aggregate statistics about patch operations:
 - `totalPatches`: Total number of operations
 - `appliedPatches`: Number of apply operations
 - `undonePatches`: Number of undo operations
+- `rolledBackPatches`: Number of rollback operations
 - `scriptPatches`: Number of script-related operations
 - `eventPatches`: Number of event-related operations
 - `closurePatches`: Number of closure-related operations
