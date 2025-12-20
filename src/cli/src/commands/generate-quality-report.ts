@@ -240,31 +240,46 @@ function normalizeResultDirectories(candidateDirs, workspaceRoot) {
     });
 }
 
-function listFilesRecursive(root) {
+function traverseDirectoryEntries(root, options) {
     if (!fs.existsSync(root)) {
-        return [];
+        return;
     }
-    const files = [];
     const stack = [root];
     while (stack.length > 0) {
         const current = stack.pop();
+        let entries;
         try {
-            const entries = fs.readdirSync(current, { withFileTypes: true });
-            for (const entry of entries) {
-                if (entry.name === "." || entry.name === "..") {
-                    continue;
-                }
-                const fullPath = path.join(current, entry.name);
-                if (entry.isDirectory()) {
-                    stack.push(fullPath);
-                } else {
-                    files.push(fullPath);
-                }
-            }
+            entries = fs.readdirSync(current, { withFileTypes: true });
         } catch {
-            // Ignore access errors
+            continue;
+        }
+
+        for (const entry of entries) {
+            if (entry.name === "." || entry.name === "..") {
+                continue;
+            }
+            const fullPath = path.join(current, entry.name);
+            if (entry.isDirectory()) {
+                if (
+                    !options.shouldDescend ||
+                    options.shouldDescend(fullPath, entry)
+                ) {
+                    stack.push(fullPath);
+                }
+                continue;
+            }
+            options.onFile(fullPath, entry);
         }
     }
+}
+
+function listFilesRecursive(root) {
+    const files = [];
+    traverseDirectoryEntries(root, {
+        onFile: (fullPath) => {
+            files.push(fullPath);
+        }
+    });
     return files;
 }
 
@@ -1197,46 +1212,34 @@ function formatBytes(bytes) {
 }
 
 function getSourceFiles(dir, fileList = []) {
-    if (!fs.existsSync(dir)) {
-        return fileList;
-    }
-    const files = fs.readdirSync(dir);
-    for (const file of files) {
-        const filePath = path.join(dir, file);
-        const stat = fs.statSync(filePath);
-        if (stat.isDirectory()) {
-            if (
-                file !== "node_modules" &&
-                file !== "dist" &&
-                file !== "generated" &&
-                file !== "vendor" &&
-                file !== "tmp"
-            ) {
-                getSourceFiles(filePath, fileList);
+    const ignoredDirectories = new Set([
+        "node_modules",
+        "dist",
+        "generated",
+        "vendor",
+        "tmp"
+    ]);
+    traverseDirectoryEntries(dir, {
+        shouldDescend: (fullPath) =>
+            !ignoredDirectories.has(path.basename(fullPath)),
+        onFile: (filePath) => {
+            if (filePath.endsWith(".ts") && !filePath.endsWith(".d.ts")) {
+                fileList.push(filePath);
             }
-        } else if (file.endsWith(".ts") && !file.endsWith(".d.ts")) {
-            fileList.push(filePath);
         }
-    }
+    });
     return fileList;
 }
 
 function getBuildSize(dir) {
     let size = 0;
-    if (!fs.existsSync(dir)) {
-        return 0;
-    }
-
-    const files = fs.readdirSync(dir);
-    for (const file of files) {
-        const filePath = path.join(dir, file);
-        const stat = fs.statSync(filePath);
-        if (stat.isDirectory()) {
-            size += getBuildSize(filePath);
-        } else if (file.endsWith(".js")) {
-            size += stat.size;
+    traverseDirectoryEntries(dir, {
+        onFile: (filePath) => {
+            if (filePath.endsWith(".js")) {
+                size += fs.statSync(filePath).size;
+            }
         }
-    }
+    });
     return size;
 }
 
