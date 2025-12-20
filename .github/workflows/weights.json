@@ -1,8 +1,8 @@
 {
   "agents": [
-  {"weight":0.4,"name":"copilot"},
+  {"weight":0.5,"name":"copilot"},
   {"weight":0.5,"name":"codex"},
-  {"weight":1.0,"name":"gemini"}
+  {"weight":0.0,"name":"gemini"}
   ],
   "workflows": [
     {"weight":1,"name":"agent-02-resolve-merge-conflicts"},

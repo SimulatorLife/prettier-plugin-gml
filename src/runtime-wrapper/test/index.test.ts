@@ -369,6 +369,7 @@ void test("getPatchStats returns diagnostic information", () => {
     assert.strictEqual(stats.totalPatches, 0);
     assert.strictEqual(stats.appliedPatches, 0);
     assert.strictEqual(stats.undonePatches, 0);
+    assert.strictEqual(stats.rolledBackPatches, 0);
 });
 
 void test("getPatchStats calculates statistics correctly", () => {
@@ -398,6 +399,7 @@ void test("getPatchStats calculates statistics correctly", () => {
     assert.strictEqual(stats.totalPatches, 4);
     assert.strictEqual(stats.appliedPatches, 3);
     assert.strictEqual(stats.undonePatches, 1);
+    assert.strictEqual(stats.rolledBackPatches, 0);
     assert.strictEqual(stats.scriptPatches, 2);
     assert.strictEqual(stats.eventPatches, 2);
     assert.strictEqual(stats.uniqueIds, 3);
@@ -421,6 +423,33 @@ void test("getPatchStats tracks unique patch IDs correctly", () => {
     const stats = wrapper.getPatchStats();
     assert.strictEqual(stats.totalPatches, 2);
     assert.strictEqual(stats.uniqueIds, 1);
+});
+
+void test("getPatchStats counts rollback operations", () => {
+    const wrapper = RuntimeWrapper.createRuntimeWrapper({
+        onPatchApplied: () => {
+            throw new Error("post-apply failure");
+        }
+    });
+
+    const patch = {
+        kind: "script",
+        id: "script:rollback",
+        js_body: "return 1;"
+    };
+
+    const result = wrapper.trySafeApply(patch);
+    assert.strictEqual(result.success, false);
+    assert.strictEqual(result.rolledBack, true);
+    assert.ok(result.message?.includes("rolled back"));
+    assert.strictEqual(wrapper.hasScript("script:rollback"), false);
+    assert.strictEqual(wrapper.getVersion(), 0);
+
+    const stats = wrapper.getPatchStats();
+    assert.strictEqual(stats.totalPatches, 2);
+    assert.strictEqual(stats.appliedPatches, 1);
+    assert.strictEqual(stats.rolledBackPatches, 1);
+    assert.strictEqual(stats.scriptPatches, 2);
 });
 
 void test("trySafeApply validates patch in shadow registry", () => {

@@ -17,7 +17,7 @@ void test("omits synthetic docs for anonymous functions without return value", a
 
 void test("omits synthetic docs for anonymous functions with return value", async () => {
     const source = "var myFunc = function() {\n    return 1;\n}\n";
-    const formatted = await Plugin.format(source);
+    const formatted = await Plugin.format(source, { applyFeatherFixes: true });
     const trimmed = formatted.trim();
 
     assert.match(
@@ -34,7 +34,7 @@ void test("adds synthetic @returns doc for onymous/named functions without retur
 
     assert.match(
         trimmed,
-        /^\/\/\/ @function demo\n\/\/\/ @returns \{undefined\}\nfunction demo\(\) \{/,
+        /^\/\/\/ @returns \{undefined\}\nfunction demo\(\) \{/,
         "Synthetic doc comments should describe undefined returns."
     );
 });

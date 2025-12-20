@@ -1,4 +1,4 @@
-import { createResolverController } from "../../../utils/resolver-controller.js";
+import { assertFunction } from "../../../utils/object.js";
 import {
     capitalize,
     getNonEmptyString,
@@ -107,28 +107,36 @@ export const DEFAULT_DOC_COMMENT_TYPE_NORMALIZATION = Object.freeze({
     ])
 });
 
-const docCommentTypeNormalizationController = createResolverController({
-    defaultFactory: () =>
-        createDocCommentTypeNormalization(
-            DEFAULT_DOC_COMMENT_TYPE_NORMALIZATION
-        ),
-    normalize(result) {
-        return createDocCommentTypeNormalization(result);
-    },
-    errorMessage:
-        "Doc comment type normalization resolvers must be functions that return a normalization descriptor"
-});
+let customResolver: ((options?: unknown) => unknown) | null = null;
+let cachedDefault: ReturnType<typeof createDocCommentTypeNormalization> | null =
+    null;
 
 export function resolveDocCommentTypeNormalization(options: unknown = {}) {
-    return docCommentTypeNormalizationController.resolve(options);
+    if (!customResolver) {
+        if (!cachedDefault) {
+            cachedDefault = createDocCommentTypeNormalization(
+                DEFAULT_DOC_COMMENT_TYPE_NORMALIZATION
+            );
+        }
+        return cachedDefault;
+    }
+    const result = customResolver(options);
+    return createDocCommentTypeNormalization(result);
 }
 
 export function setDocCommentTypeNormalizationResolver(resolver: unknown) {
-    return docCommentTypeNormalizationController.set(resolver);
+    assertFunction(resolver, "resolver", {
+        errorMessage:
+            "Doc comment type normalization resolvers must be functions that return a normalization descriptor"
+    });
+    customResolver = resolver as (options?: unknown) => unknown;
+    return resolveDocCommentTypeNormalization();
 }
 
 export function restoreDefaultDocCommentTypeNormalizationResolver() {
-    return docCommentTypeNormalizationController.restore();
+    customResolver = null;
+    cachedDefault = null;
+    return resolveDocCommentTypeNormalization();
 }
 
 export function applyJsDocReplacements(text: unknown) {
