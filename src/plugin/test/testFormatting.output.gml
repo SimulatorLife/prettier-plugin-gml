@@ -5,20 +5,23 @@ for (var i = 0; i < num; i++) {
     show_debug_message("Hello World " + string(i + 1));
 }
 
-/// @function clearSubdiv
-/// @returns {undefined}
-static clearSubdiv = function() {
-    // Clears any data structures related to the subdivision of the colmesh
-    if (spHash >= 0) {
-        var region = ds_map_find_first(spHash);
-        while (!is_undefined(region)) {
-            ds_list_destroy(spHash[? region]);
-            region = ds_map_find_next(spHash, region);
+function TestStruct() constructor {
+
+    /// @returns {undefined}
+    static clearSubdiv = function() {
+        if (spHash >= 0) {
+            // Clears any data structures related to the subdivision of the colmesh
+            var region = ds_map_find_first(spHash);
+            while (!is_undefined(region)) {
+                ds_list_destroy(spHash[? region]);
+                region = ds_map_find_next(spHash, region);
+            }
+            ds_map_destroy(spHash);
+            spHash = -1;
         }
-        ds_map_destroy(spHash);
-        spHash = -1;
-    }
-};
+    };
+
+}
 
 var myWidth = 14;
 var halfWidth = myWidth * 0.5;
@@ -31,7 +34,6 @@ enum eStates {
 
 var currState = eStates.STATE_IDLE;
 
-/// @function changeState
 /// @param [newState=eStates.STATE_IDLE]
 /// @returns {undefined}
 function changeState(newState = eStates.STATE_IDLE) {
@@ -60,10 +62,9 @@ with (enemy) {
 
 #endregion
 
-/// @function func_add
+/// @description Add 2 numbers
 /// @param {real} n1
 /// @param {real} n2
-/// @description Add 2 numbers
 function func_add(n1, n2) {
     return n1 + n2;
 }
@@ -71,10 +72,9 @@ function func_add(n1, n2) {
 var myTemplateString = $"5 plus 7 is {func_add(5, 7)}";
 show_debug_message(myTemplateString);
 
-/// @function func_sub
+/// @description Subtract 2 numbers
 /// @param n1
 /// @param n2
-/// @description Subtract 2 numbers
 function func_sub(n1, n2) {
     return n1 - n2;
 }

@@ -6,12 +6,16 @@ for (var i = 0; i < num; i ++)
 show_debug_message( "Hello World "+string(i+1) )
 }
 
+/// @function TestStruct
+function TestStruct() constructor {
+
 	/// @func clearSubdiv()
 	static clearSubdiv = function()
 	{
-		//Clears any data structures related to the subdivision of the colmesh
+		
 		if (spHash >= 0)
 		{
+			//Clears any data structures related to the subdivision of the colmesh
 			var region = ds_map_find_first(spHash);
 			while (!is_undefined(region))
 			{
@@ -22,6 +26,8 @@ show_debug_message( "Hello World "+string(i+1) )
 			spHash = -1;
 		}
 	}
+
+	};
 
 var myWidth = 14;
 var halfWidth = myWidth * 0.5;

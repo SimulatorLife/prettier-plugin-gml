@@ -10,7 +10,6 @@ draw_sprite(sprite_index, 0, x, y);
 
 // Scenario 2
 
-/// @function scr_custom_gpu_func
 /// @returns {undefined}
 function scr_custom_gpu_func() {
     gpu_push_state();

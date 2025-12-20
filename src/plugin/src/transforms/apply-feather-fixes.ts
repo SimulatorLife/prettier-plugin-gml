@@ -227,6 +227,84 @@ export function getFeatherDiagnosticFixers() {
     return new Map(FEATHER_DIAGNOSTIC_FIXERS);
 }
 
+function updateStaticFunctionDocComments(ast: any) {
+    const allComments = ast.comments || [];
+
+    walkAstNodes(ast, (node) => {
+        if (node.type === "VariableDeclaration" && node.kind === "static") {
+            if (node.declarations.length !== 1) {
+                return;
+            }
+
+            const declarator = node.declarations[0];
+            if (
+                declarator.type !== "VariableDeclarator" ||
+                declarator.id.type !== "Identifier" ||
+                !declarator.init ||
+                (declarator.init.type !== "FunctionExpression" &&
+                    declarator.init.type !== "FunctionDeclaration" &&
+                    declarator.init.type !== "ArrowFunctionExpression")
+            ) {
+                return;
+            }
+
+            const functionName = declarator.id.name;
+
+            // Try to find comments attached to the node first
+            let commentsToSearch = [
+                ...(node.comments || []),
+                ...(declarator.comments || []),
+                ...(declarator.init.comments || [])
+            ];
+
+            // If no attached comments, search in global comments
+            if (commentsToSearch.length === 0 && allComments.length > 0) {
+                const nodeStart = getStartFromNode(node);
+                if (nodeStart !== undefined) {
+                    // Find comments that end before the node starts
+                    const precedingComments = allComments.filter(
+                        (c: any) => c.end <= nodeStart
+                    );
+                    // Sort by end descending (closest to node first)
+                    precedingComments.sort((a: any, b: any) => b.end - a.end);
+
+                    // We only care about the closest block of comments.
+                    // But simpler: just look for the first @function comment.
+                    // It is highly unlikely that we skip over another function's @function comment
+                    // because that function would be between the comment and this node.
+                    commentsToSearch = precedingComments;
+                }
+            }
+
+            if (commentsToSearch.length > 0) {
+                for (const comment of commentsToSearch) {
+                    const value = comment.value;
+                    // Match @function followed by identifier
+                    const match = /(@function\s+)([A-Za-z_][A-Za-z0-9_]*)/.exec(
+                        value
+                    );
+                    if (match) {
+                        const currentTagName = match[2];
+                        if (currentTagName !== functionName) {
+                            comment.value = value.replace(
+                                /(@function\s+)[A-Za-z_][A-Za-z0-9_]*/,
+                                `$1${functionName}`
+                            );
+                            // Force the printer to use the new value by removing source location
+                            delete comment.start;
+                            delete comment.end;
+                            delete comment.loc;
+                        }
+                        // Once we found the @function tag for this function, stop searching.
+                        // We assume the first one we find (going backwards) is the correct one.
+                        break;
+                    }
+                }
+            }
+        }
+    });
+}
+
 function applyFeatherFixesImpl(ast: any, opts: ApplyFeatherFixesOptions = {}) {
     const { sourceText, preprocessedFixMetadata, options } = opts ?? {};
     if (!ast || typeof ast !== "object") {
@@ -241,6 +319,12 @@ function applyFeatherFixesImpl(ast: any, opts: ApplyFeatherFixesOptions = {}) {
     } catch {
         // Swallow errors to avoid letting preprocessing failures stop the
         // broader fix application pipeline.
+    }
+
+    try {
+        updateStaticFunctionDocComments(ast);
+    } catch {
+        // Ignore errors
     }
 
     const appliedFixes = [];

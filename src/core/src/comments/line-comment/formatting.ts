@@ -37,9 +37,18 @@ const DOC_LIKE_COMMENT_PATTERN = /^\/\/\s+\/(?![\/])/;
 
 function getLineCommentRawText(comment, options: any = {}) {
     if (options.originalText && comment.start && comment.end) {
+        if (process.env.GML_PRINTER_DEBUG) {
+            // console.log(`[DEBUG] getLineCommentRawText using originalText for comment: ${comment.value}`);
+        }
         return options.originalText.slice(
             comment.start.index,
             comment.end.index + 1
+        );
+    }
+
+    if (process.env.GML_PRINTER_DEBUG) {
+        console.log(
+            `[DEBUG] getLineCommentRawText falling back to value for comment: ${comment.value}`
         );
     }
 
@@ -337,12 +346,18 @@ function tryFormatExistingDocComment(
     trimmedValue: string,
     startsWithTripleSlash: boolean
 ): string | null {
+    console.log(
+        `[DEBUG] tryFormatExistingDocComment: "${trimmedOriginal}" startsWithTripleSlash=${startsWithTripleSlash}`
+    );
     if (!startsWithTripleSlash || !trimmedOriginal.includes("@")) {
         return null;
     }
 
     const content = trimmedValue.replace(/^\/+\s*/, "");
     const formatted = applyJsDocReplacements(`/// ${content}`) as string;
+    console.log(
+        `[DEBUG] tryFormatExistingDocComment formatted: "${formatted}"`
+    );
 
     if (content.toLowerCase().startsWith("@description")) {
         console.log(

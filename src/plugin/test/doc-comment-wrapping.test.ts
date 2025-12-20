@@ -232,3 +232,66 @@ function collectDescriptionContinuationLines(lines, descriptionIndex) {
 
     return continuationLines;
 }
+
+void test("wraps function doc descriptions while honoring printWidth", async () => {
+    const source = [
+        "/// @function long_description_function",
+        "/// @param arg Example parameter",
+        `/// @description ${LONG_DESCRIPTION}`,
+        "function long_description_function(arg) {}",
+        ""
+    ].join("\n");
+
+    const formatted = await Plugin.format(source, { printWidth: 120 });
+    const lines = formatted.split("\n");
+    const descriptionIndex = lines.findIndex((line) =>
+        line.startsWith("/// @description")
+    );
+
+    assert.strictEqual(
+        lines[descriptionIndex],
+        "/// @description Base class for all shapes. Shapes can be solid or not solid.",
+        "Expected the description line to include the leading sentence."
+    );
+    assert.strictEqual(
+        lines[descriptionIndex + 1],
+        "///              Solid shapes will collide with other solid shapes, and",
+        "Expected the second line to wrap immediately after the first sentence."
+    );
+    assert.strictEqual(
+        lines[descriptionIndex + 2],
+        "///              non-solid shapes will not collide with anything.",
+        "Expected the final line to capture the remainder of the description."
+    );
+});
+
+void test("wraps long @param descriptions with continuation lines", async () => {
+    const source = [
+        "/// @function wrap_param_description",
+        "/// @param value This parameter's description is intentionally long so it wraps across multiple lines and respects the formatter width.",
+        "function wrap_param_description(value) {}",
+        ""
+    ].join("\n");
+
+    const formatted = await Plugin.format(source, { printWidth: 60 });
+    const lines = formatted.split("\n");
+    const paramIndex = lines.findIndex((line) =>
+        line.startsWith("/// @param value")
+    );
+
+    assert.strictEqual(
+        lines[paramIndex],
+        "/// @param value - This parameter's description is",
+        "Expected the first @param line to emit the normalized prefix."
+    );
+    assert.strictEqual(
+        lines[paramIndex + 1],
+        "///                intentionally long so it wraps across",
+        "Expected the first continuation line to carry the next words."
+    );
+    assert.strictEqual(
+        lines[paramIndex + 2],
+        "///                multiple lines and respects the formatter width.",
+        "Expected the final continuation line to capture the conclusion."
+    );
+});

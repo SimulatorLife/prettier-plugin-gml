@@ -20,7 +20,6 @@ enum eAIState {
     attack_target // close enough to enemy target & all attackcriteria met -> attack target
 }
 
-/// @function convert_trig
 /// @param angleDeg
 /// @param ratioY
 /// @param ratioX

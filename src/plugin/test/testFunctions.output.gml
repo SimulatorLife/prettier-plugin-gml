@@ -24,7 +24,6 @@ my_func2(1, undefined);
 my_func3(3, undefined, undefined, undefined, undefined, 5);
 my_func4(undefined);
 
-/// @function func_coords
 /// @param [x=0]
 /// @param [y=0]
 /// @param [z=0]
@@ -35,21 +34,18 @@ function func_coords(x = 0, y = 0, z = 0) {
 var myCoords = func_coords(10, undefined, 20);
 
 /// @ignore
-/// @function Shape
-/// @param [color]
 /// @description Base class for all shapes. Shapes can be solid or not solid.
 ///              Solid shapes will collide with other solid shapes, and
 ///              non-solid shapes will not collide with anything.
+/// @param [color]
 function Shape(color = undefined) constructor {
     self.color = color;
 
-    /// @function print
     /// @returns {undefined}
     static print = function() {
         show_debug_message("I'm a shape");
     };
 
-    /// @function freeze
     /// @returns {undefined}
     static freeze = function() {
         // This will delete any geometry info contained within the mesh itself.
@@ -59,8 +55,7 @@ function Shape(color = undefined) constructor {
         ds_list_destroy(shapeList);
     };
 
-    /// @function setSolid
-    /// @param {bool} solid - Whether the shape is solid or not
+    /// @param {bool} solid Whether the shape is solid or not
     /// @returns {undefined}
     static setSolid = function(solid) {
         if (solid) {
@@ -72,8 +67,7 @@ function Shape(color = undefined) constructor {
 
 }
 
-/// @function Circle
-/// @param {real} r -  The radius of the circle
+/// @param {real} r The radius of the circle
 function Circle(r) : Shape() constructor {
     self.r = r;
 }
@@ -83,18 +77,15 @@ var circle2 = new Circle(myCircle.r);
 
 show_debug_message(myCircle.r);
 
-/// @function Oval
-/// @param {real} [r1=1] - The horizontal radius of the oval
+/// @param {real} [r1=1] The horizontal radius of the oval
 /// @param [r2=1]
 function Oval(r1 = 1, r2 = 1) : Shape() constructor {
     self.r1 = r1;
     self.r2 = r2;
 }
 
-/// @function Line
 function Line() : Shape() constructor {
 
-    /// @function set_points
     /// @param x1
     /// @param y1
     /// @param x2
@@ -109,7 +100,6 @@ function Line() : Shape() constructor {
 
 }
 
-/// @function choose_profile
 /// @param settings
 /// @param fallback
 function choose_profile(settings, fallback) {
@@ -147,7 +137,6 @@ var best = choose_profile(undefined, {profile: "dev"});
 //
 // .__GetBuffer()
 
-/// @function __ChatterboxBufferBatch
 function __ChatterboxBufferBatch() constructor {
     __destroyed  = false;
     __inBuffer   = undefined;
@@ -155,7 +144,6 @@ function __ChatterboxBufferBatch() constructor {
     __outBuffer  = undefined;
     __commands   = [];
 
-    /// @function __Destroy
     /// @returns {undefined}
     static __Destroy = function() {
         if (__destroyed) { return; }
@@ -173,7 +161,6 @@ function __ChatterboxBufferBatch() constructor {
 
 }
 
-/// @function greet
 /// @param [name="friend"]
 /// @param [greeting="Hello"]
 function greet(name = "friend", greeting = "Hello") {
@@ -186,9 +173,8 @@ var message3 = greet("Bob", "Howdy");
 var message4 = greet("Chaz");
 var message5 = greet(undefined, "Welcome");
 
-/// @function handle_lighting
-/// @param {real} [multiplier] - The multiplier to apply to the light direction
-/// @param {array<real>} [light_dir=[0, 0, -1]] - The direction of the light
+/// @param {real} [multiplier] The multiplier to apply to the light direction
+/// @param {array<real>} [light_dir=[0, 0, -1]] The direction of the light
 function handle_lighting(multiplier = undefined, light_dir = [0, 0, -1]) {
     var dir = light_dir;
     var length = sqrt(dir[0] * dir[0] + dir[1] * dir[1] + dir[2] * dir[2]);
@@ -203,7 +189,6 @@ function handle_lighting(multiplier = undefined, light_dir = [0, 0, -1]) {
     return dir;
 }
 
-/// @function scr_spring
 /// @param {Id.Instance} a
 /// @param {Id.Instance} b
 /// @param {real} dst
@@ -253,7 +238,6 @@ function scr_spring(a, b, dst, force, push_out = true, pull_in = true) {
 
 // Synthetic docs should be added to non-local methods
 
-/// @function get_debug_text
 get_debug_text = function() {
 
     var txt = "";
@@ -273,13 +257,12 @@ get_debug_text = function() {
     return txt;
 }
 
-/// @function vertex_buffer_write_triangular_prism
+/// @description Write a unit triangular prism into an existing vbuff.
+///              Local space: X∈[-0.5,+0.5], Y∈[-0.5,+0.5], base plane at Z=0, apex line at (Y=0,Z=1).
 /// @param vbuff
 /// @param [colour=c_white]
 /// @param [alpha=1]
 /// @param [trans_mat]
-/// @description Write a unit triangular prism into an existing vbuff.
-///              Local space: X∈[-0.5,+0.5], Y∈[-0.5,+0.5], base plane at Z=0, apex line at (Y=0,Z=1).
 /// @returns {undefined}
 function vertex_buffer_write_triangular_prism(vbuff, colour = c_white, alpha = 1, trans_mat = undefined) {
 

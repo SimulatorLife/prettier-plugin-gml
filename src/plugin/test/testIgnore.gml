@@ -1,0 +1,2 @@
+/// @ignore
+var foo = function() {}

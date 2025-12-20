@@ -1,4 +1,3 @@
-/// @function read_matrix
 /// @param mat
 function read_matrix(_mat) {
     var primary  = _mat[0][1];
@@ -7,7 +6,6 @@ function read_matrix(_mat) {
     return primary + tertiary + chained;
 }
 
-/// @function read_grid
 /// @param grid
 function read_grid(_grid) {
     var primary = _grid[# 0, 1];

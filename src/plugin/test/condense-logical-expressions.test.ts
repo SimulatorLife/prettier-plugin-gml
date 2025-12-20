@@ -120,10 +120,26 @@ void test("retains original multi-branch descriptions when condensing", async ()
         condenseLogicalExpressions: true
     });
 
-    assert.match(
-        formatted,
-        /@description Original multi-branch: if \(foo and bar or baz\) return \(foo and bar\); else return \(foo or baz\)\./,
-        "Expected multi-branch doc descriptions to remain unchanged after condensing."
+    const lines = formatted.split("\n");
+    const descriptionIndex = lines.findIndex((line) =>
+        line.startsWith("/// @description")
+    );
+
+    assert.notStrictEqual(
+        descriptionIndex,
+        -1,
+        "Expected a description doc comment line to remain after condensing."
+    );
+
+    assert.strictEqual(
+        lines[descriptionIndex],
+        "/// @description Original multi-branch: if (foo and bar or baz) return (foo and bar); else return",
+        "Expected the @description line to include the simplified expression summary."
+    );
+    assert.strictEqual(
+        lines[descriptionIndex + 1],
+        "///              (foo or baz).",
+        "Expected the wrapped continuation line to retain the original clause."
     );
 });
 

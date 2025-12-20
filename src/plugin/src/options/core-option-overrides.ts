@@ -4,8 +4,6 @@ import {
     assertTrailingCommaValue
 } from "./trailing-comma-option.js";
 
-// Avoid destructuring Core; use Core.createResolverController to align with AGENTS.md
-
 // Hard overrides for GML regardless of incoming config. These knobs either map
 // to syntax that GameMaker never emits (for example JSX attributes) or would let
 // callers re-enable formatting modes the printers deliberately avoid. The
@@ -29,16 +27,8 @@ const ARROW_PARENS_VALUES = new Set(["always", "avoid"]);
 const PROSE_WRAP_VALUES = new Set(["always", "never", "preserve"]);
 const HTML_WHITESPACE_SENSITIVITY_VALUES = new Set(["css", "strict", "ignore"]);
 
-const coreOptionOverridesController = Core.createResolverController({
-    defaultFactory: () => DEFAULT_CORE_OPTION_OVERRIDES,
-    normalize(result) {
-        return normalizeCoreOptionOverrides(
-            result ?? DEFAULT_CORE_OPTION_OVERRIDES
-        );
-    },
-    errorMessage:
-        "Core option override resolvers must be functions that return override objects"
-});
+let customResolver: ((options?: Record<string, unknown>) => unknown) | null =
+    null;
 
 function normalizeBoolean(value) {
     return typeof value === "boolean" ? value : undefined;
@@ -139,15 +129,27 @@ function normalizeCoreOptionOverrides(overrides) {
  *          safe to reuse across print invocations.
  */
 function resolveCoreOptionOverrides(options = {}) {
-    return coreOptionOverridesController.resolve(options);
+    if (!customResolver) {
+        return DEFAULT_CORE_OPTION_OVERRIDES;
+    }
+    const result = customResolver(options);
+    return normalizeCoreOptionOverrides(
+        result ?? DEFAULT_CORE_OPTION_OVERRIDES
+    );
 }
 
 function setCoreOptionOverridesResolver(resolver) {
-    return coreOptionOverridesController.set(resolver);
+    Core.assertFunction(resolver, "resolver", {
+        errorMessage:
+            "Core option override resolvers must be functions that return override objects"
+    });
+    customResolver = resolver;
+    return resolveCoreOptionOverrides();
 }
 
 function restoreDefaultCoreOptionOverridesResolver() {
-    return coreOptionOverridesController.restore();
+    customResolver = null;
+    return DEFAULT_CORE_OPTION_OVERRIDES;
 }
 
 export {

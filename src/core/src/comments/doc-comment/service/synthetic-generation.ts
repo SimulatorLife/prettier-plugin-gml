@@ -27,6 +27,11 @@ import {
 const STRING_TYPE = "string";
 const NUMBER_TYPE = "number";
 
+function normalizeDocMetadataNameToString(value: unknown): string | null {
+    const normalized = normalizeDocMetadataName(value);
+    return typeof normalized === STRING_TYPE ? (normalized as string) : null;
+}
+
 function hasReturnStatement(node: any): boolean {
     if (!node) {
         return false;
@@ -160,12 +165,12 @@ export function computeSyntheticFunctionDocLines(
     const normalizedFunctionName =
         typeof functionName === STRING_TYPE &&
         isNonEmptyTrimmedString(functionName)
-            ? normalizeDocMetadataName(functionName)
+            ? normalizeDocMetadataNameToString(functionName)
             : null;
     const normalizedExistingFunctionName =
         typeof existingFunctionMetadata?.name === STRING_TYPE &&
         isNonEmptyTrimmedString(existingFunctionMetadata.name)
-            ? normalizeDocMetadataName(existingFunctionMetadata.name)
+            ? normalizeDocMetadataNameToString(existingFunctionMetadata.name)
             : null;
 
     for (const meta of metadata) {
@@ -195,13 +200,13 @@ export function computeSyntheticFunctionDocLines(
         lines.push("/// @override");
     }
 
-    const shouldInsertFunctionTag =
-        normalizedFunctionName &&
-        (normalizedExistingFunctionName === null ||
-            normalizedExistingFunctionName !== normalizedFunctionName);
+    const functionNameToUse =
+        (overrideName && normalizedFunctionName) ??
+        normalizedExistingFunctionName ??
+        normalizedFunctionName;
 
-    if (shouldInsertFunctionTag) {
-        lines.push(`/// @function ${functionName}`);
+    if (functionNameToUse) {
+        lines.push(`/// @function ${functionNameToUse}`);
     }
 
     try {

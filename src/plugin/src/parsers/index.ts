@@ -1,5 +1,13 @@
 // Public facade for parser adapters used by the Prettier plugin
-export { gmlParserAdapter } from "./gml-parser-adapter.js";
+export {
+    gmlParserAdapter,
+    createGmlParserAdapter
+} from "./gml-parser-adapter.js";
+export type {
+    ScopeTrackerFactory,
+    GmlParserAdapterConfig,
+    GmlParserAdapterOptions
+} from "./gml-parser-adapter.js";
 export {
     prettierParserAdapter,
     createPrettierParserAdapter,

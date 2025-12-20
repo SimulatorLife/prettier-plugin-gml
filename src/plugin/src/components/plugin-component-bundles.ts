@@ -1,23 +1,39 @@
 import { Semantic } from "@gml-modules/semantic";
 import { LogicalOperatorsStyle } from "../options/logical-operators-style.js";
+import type { GmlPluginComponentContract } from "./plugin-types.js";
+import { selectPluginComponentContractEntries } from "./plugin-component-contract.js";
+// Concrete adapter imports - encapsulated at this module boundary.
+// Higher-level code receives these through the factory function rather than
+// importing them directly, establishing a proper dependency inversion boundary.
 import { gmlParserAdapter } from "../parsers/index.js";
 import { print } from "../printer/index.js";
-import type { GmlPluginComponentContract } from "./plugin-types.js";
-import { createSingletonComponentRegistry } from "./component-registry.js";
-import { selectPluginComponentContractEntries } from "./plugin-component-contract.js";
 import { handleComments, printComment } from "../comments/index.js";
 
 /**
- * Builds the canonical component implementation bundle. Keeping the constructor
- * factored into a function makes it easy to produce isolated copies for tests
- * while the runtime reuses the shared frozen snapshot below.
+ * Dependencies required to build the plugin component implementations.
+ * Defining this type establishes the contract for dependency injection.
  */
-export function createDefaultGmlPluginComponentImplementations(): GmlPluginComponentContract {
+export type GmlPluginComponentDependencies = {
+    readonly gmlParserAdapter: GmlPluginComponentContract["gmlParserAdapter"];
+    readonly print: GmlPluginComponentContract["print"];
+    readonly handleComments: GmlPluginComponentContract["handleComments"];
+    readonly printComment: GmlPluginComponentContract["printComment"];
+};
+
+/**
+ * Builds the canonical component implementation bundle with injected dependencies.
+ * This factory function accepts concrete implementations as parameters, establishing
+ * a proper dependency inversion boundary where high-level orchestration code depends
+ * on abstractions (this factory) rather than concrete adapter imports.
+ */
+export function createDefaultGmlPluginComponentImplementations(
+    dependencies: GmlPluginComponentDependencies
+): GmlPluginComponentContract {
     return Object.freeze({
-        gmlParserAdapter,
-        print,
-        handleComments,
-        printComment,
+        gmlParserAdapter: dependencies.gmlParserAdapter,
+        print: dependencies.print,
+        handleComments: dependencies.handleComments,
+        printComment: dependencies.printComment,
         // Semantic provides identifier case option definitions; cast to satisfy
         // Prettier's SupportOptions type during migration.
         identifierCaseOptions: Semantic.identifierCaseOptions as any,
@@ -26,32 +42,40 @@ export function createDefaultGmlPluginComponentImplementations(): GmlPluginCompo
 }
 
 export function createDefaultGmlPluginComponentDependencies(
-    implementations = createDefaultGmlPluginComponentImplementations()
+    implementations: GmlPluginComponentContract
 ): GmlPluginComponentContract {
     return selectPluginComponentContractEntries(implementations);
 }
 
-const implementationRegistry =
-    createSingletonComponentRegistry<GmlPluginComponentContract>({
-        description: "implementation bundle",
-        factory: createDefaultGmlPluginComponentImplementations
-    });
+const gmlPluginComponentImplementations = Object.freeze(
+    createDefaultGmlPluginComponentImplementations({
+        gmlParserAdapter,
+        print,
+        handleComments,
+        printComment
+    })
+);
 
-const dependencyRegistry =
-    createSingletonComponentRegistry<GmlPluginComponentContract>({
-        description: "dependency bundle",
-        factory: () =>
-            createDefaultGmlPluginComponentDependencies(
-                implementationRegistry.bundle
-            )
-    });
+const gmlPluginComponentDependencies = Object.freeze(
+    createDefaultGmlPluginComponentDependencies(
+        gmlPluginComponentImplementations
+    )
+);
 
-export const gmlPluginComponentImplementations = implementationRegistry.bundle;
-export const resolveGmlPluginComponentImplementations =
-    implementationRegistry.resolve;
+function resolveGmlPluginComponentImplementations(): GmlPluginComponentContract {
+    return gmlPluginComponentImplementations;
+}
 
-export const gmlPluginComponentDependencies = dependencyRegistry.bundle;
-export const resolveGmlPluginComponentDependencies = dependencyRegistry.resolve;
+function resolveGmlPluginComponentDependencies(): GmlPluginComponentContract {
+    return gmlPluginComponentDependencies;
+}
+
+export {
+    gmlPluginComponentImplementations,
+    resolveGmlPluginComponentImplementations,
+    gmlPluginComponentDependencies,
+    resolveGmlPluginComponentDependencies
+};
 
 export const defaultGmlPluginComponentImplementations =
     gmlPluginComponentImplementations;

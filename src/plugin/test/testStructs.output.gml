@@ -1,24 +1,20 @@
-/// @function my_custom_struct
 /// @param value
 function my_custom_struct(_value) constructor {
     value = _value;
 }
 
-/// @function child_struct
 /// @param foo
 /// @param value
 function child_struct(_foo, _value) : my_custom_struct(_value) constructor {
     self.foo = _foo;
     value = 0;
 
-    /// @function print
     /// @description Print a debug message showing foo value
     /// @returns {undefined}
     static print = function() {
         show_debug_message($"My foo is {self.foo}");
     };
 
-    /// @function generate
     /// @description Each time this is called, create new map
     /// @returns {undefined}
     static generate = function() {
@@ -27,7 +23,6 @@ function child_struct(_foo, _value) : my_custom_struct(_value) constructor {
         remove_ellipse();
     };
 
-    /// @function remove_ellipse
     /// @description Remove all nodes outside of ellipse
     /// @returns {undefined}
     static remove_ellipse = function() {
@@ -39,7 +34,6 @@ function child_struct(_foo, _value) : my_custom_struct(_value) constructor {
         }
     };
 
-    /// @function draw_points
     /// @description Draw points in array for debugging
     /// @returns {undefined}
     static draw_points = function() {
@@ -50,7 +44,6 @@ function child_struct(_foo, _value) : my_custom_struct(_value) constructor {
     };
 }
 
-/// @function grandchild_struct
 /// @param foo
 /// @param value
 /// @param bar
@@ -60,7 +53,6 @@ function grandchild_struct(_foo, _value, _bar) : child_struct(_foo, _value) cons
     bar      = _bar;
 
     /// @override
-    /// @function print
     /// @description Print a debug message showing foo value
     /// @returns {undefined}
     static print = function() {
@@ -73,7 +65,6 @@ var print = function() {
     show_debug_message("This is a different print function");
 };
 
-/// @function keep_separate
 function keep_separate() {
     var foo = {};
     // the assignments below depend on runtime
@@ -85,7 +76,6 @@ function keep_separate() {
     return foo;
 }
 
-/// @function trailing_comment
 function trailing_comment() {
     var stats = {
         hp: 100, // base health
@@ -94,7 +84,6 @@ function trailing_comment() {
     return stats;
 }
 
-/// @function dynamic_index
 /// @param value
 function dynamic_index(value) {
     var obj = {static_key: value};
@@ -102,29 +91,25 @@ function dynamic_index(value) {
     return obj;
 }
 
-/// @function make_struct
 /// @param value
 function make_struct(value) {
     var foo = {alpha: 1, beta: value, gamma: call()};
     return foo;
 }
 
-/// @function reuse_struct
 /// @returns {undefined}
 function reuse_struct() {
     instance = {name: "example", score: 42};
     do_something(instance);
 }
 
-/// @function assign_then_extend
 function assign_then_extend() {
     data = {label: "ok", value: 123};
     return data;
 }
 
-/// @function InputButtonKeyboard
-/// @param {real} button
 /// @description Input for a keyboard key
+/// @param {real} button
 function InputButtonKeyboard(button) : AbstractInputButton(button, eInputType.keyboard) constructor {
     /* Keyboard input handling goes here */
 }

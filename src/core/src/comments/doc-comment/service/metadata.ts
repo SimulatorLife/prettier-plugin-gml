@@ -41,12 +41,18 @@ export function parseDocCommentMetadata(
     const tag = match[1].toLowerCase();
     const remainder = match[2].trim();
 
-    if (tag === "param") {
+    if (tag === "param" || tag === "arg" || tag === "argument") {
         let paramSection = remainder;
         let type = null;
 
         if (paramSection.startsWith("{")) {
             const typeMatch = paramSection.match(/^\{([^}]*)\}\s*(.*)$/);
+            if (typeMatch) {
+                type = typeMatch[1]?.trim() ?? null;
+                paramSection = typeMatch[2] ?? "";
+            }
+        } else if (paramSection.startsWith("<")) {
+            const typeMatch = paramSection.match(/^<([^>]*)>\s*(.*)$/);
             if (typeMatch) {
                 type = typeMatch[1]?.trim() ?? null;
                 paramSection = typeMatch[2] ?? "";
@@ -90,7 +96,7 @@ export function parseDocCommentMetadata(
         return {
             tag,
             name,
-            type: type ?? null,
+            type,
             description
         };
     }

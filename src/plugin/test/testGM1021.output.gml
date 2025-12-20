@@ -1,4 +1,3 @@
-/// @function make_game
 /// @param genre
 /// @returns {undefined}
 function make_game(_genre) { /* ... */ }

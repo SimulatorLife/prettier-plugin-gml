@@ -96,10 +96,6 @@ export function mergeSyntheticDocComments(
     options: any,
     overrides: any = {}
 ): MutableDocCommentLines {
-    console.log(
-        "[DEBUG] mergeSyntheticDocComments existingDocLines:",
-        existingDocLines
-    );
     let normalizedExistingLines = existingDocLines.map((line) =>
         line.trim()
     ) as MutableDocCommentLines;
@@ -206,7 +202,8 @@ export function mergeSyntheticDocComments(
 
     const implicitDocEntries =
         node?.type === "FunctionDeclaration" ||
-        node?.type === "StructFunctionDeclaration"
+        node?.type === "StructFunctionDeclaration" ||
+        node?.type === "FunctionExpression"
             ? collectImplicitArgumentDocNames(node, options)
             : [];
     const declaredParamCount = Array.isArray(node?.params)
@@ -242,6 +239,15 @@ export function mergeSyntheticDocComments(
         ) as MutableDocCommentLines;
     }
 
+    if (
+        overrides &&
+        overrides.preserveDocCommentParamNames === true &&
+        Array.isArray(existingDocLines) &&
+        existingDocLines.length > 0
+    ) {
+        return toMutableArray(existingDocLines) as MutableDocCommentLines;
+    }
+
     const docTagMatches = (line, pattern) => {
         const trimmed = toTrimmedString(line);
         if (trimmed.length === 0) {
@@ -256,7 +262,6 @@ export function mergeSyntheticDocComments(
     };
 
     const isFunctionLine = (line) => {
-        // console.log(`[DEBUG] isFunctionLine("${line}") = ${matches}`);
         return docTagMatches(line, /^\/\/\/\s*@function\b/i);
     };
     const isOverrideLine = (line) =>
@@ -267,6 +272,7 @@ export function mergeSyntheticDocComments(
         docTagMatches(line, /^\/\/\/\s*@description\b/i);
 
     const functionLines = syntheticLines.filter(isFunctionLine);
+
     const syntheticFunctionMetadata = functionLines
         .map((line) => parseDocCommentMetadata(line))
         .find(
@@ -312,11 +318,6 @@ export function mergeSyntheticDocComments(
             .map((line, index) => (isFunctionLine(line) ? index : -1))
             .filter((index) => index !== -1);
 
-        console.log(
-            "[DEBUG] existingFunctionIndices:",
-            existingFunctionIndices
-        );
-
         if (existingFunctionIndices.length > 0) {
             const [firstIndex, ...duplicateIndices] = existingFunctionIndices;
             mergedLines = [...mergedLines];
@@ -329,7 +330,6 @@ export function mergeSyntheticDocComments(
             removedAnyLine = true;
         } else {
             const firstParamIndex = mergedLines.findIndex(isParamLine);
-            console.log("[DEBUG] firstParamIndex:", firstParamIndex);
 
             // If the original doc lines did not contain any metadata tags,
             // prefer to append synthetic `@function` tags after the existing
@@ -339,7 +339,7 @@ export function mergeSyntheticDocComments(
                     ? mergedLines.length
                     : firstParamIndex
                 : mergedLines.length;
-            console.log("[DEBUG] insertionIndex:", insertionIndex);
+
             const precedingLine =
                 insertionIndex > 0 ? mergedLines[insertionIndex - 1] : null;
             const trimmedPreceding = toTrimmedString(precedingLine);
@@ -376,14 +376,13 @@ export function mergeSyntheticDocComments(
             const insertAt = needsSeparatorBeforeFunction
                 ? insertionIndex + 1
                 : insertionIndex;
-            console.log("[DEBUG] insertAt:", insertAt);
 
             mergedLines = [
                 ...mergedLines.slice(0, insertAt),
                 ...functionLines,
                 ...mergedLines.slice(insertAt)
             ];
-            console.log("[DEBUG] mergedLines after splice:", mergedLines);
+
             removedAnyLine = true;
         }
     }
@@ -586,7 +585,21 @@ export function mergeSyntheticDocComments(
     const functionIndex = result.findIndex(isFunctionLine);
     if (functionIndex > 0) {
         const [functionLine] = result.splice(functionIndex, 1);
-        result.unshift(functionLine);
+
+        const ignoreIndex = result.findIndex((line) =>
+            docTagMatches(line, /^\/\/\/\s*@ignore\b/i)
+        );
+        const overrideIndex = result.findIndex((line) =>
+            docTagMatches(line, /^\/\/\/\s*@override\b/i)
+        );
+
+        if (ignoreIndex === 0) {
+            result.splice(1, 0, functionLine);
+        } else if (overrideIndex === -1) {
+            result.unshift(functionLine);
+        } else {
+            result.splice(overrideIndex + 1, 0, functionLine);
+        }
     }
 
     if (originalHasDeprecatedTag) {
@@ -997,7 +1010,7 @@ export function mergeSyntheticDocComments(
         }
 
         const match = line.match(
-            /^(\/\/\/\s*@param\s*)(\{[^}]*\}\s*)?(\s*\S+)(.*)$/i
+            /^(\/\/\/\s*@param\s*)((?:\{[^}]*\}|<[^>]*>)\s*)?(\s*\S+)(.*)$/i
         );
         if (!match) {
             return normalizeDocCommentTypeAnnotations(line);
@@ -1012,7 +1025,18 @@ export function mergeSyntheticDocComments(
             normalizedTypeSection.endsWith("}")
         ) {
             const innerType = normalizedTypeSection.slice(1, -1);
-            const normalizedInner = innerType.replaceAll("|", ",");
+            const normalizedInner = normalizeGameMakerType(
+                innerType.replaceAll("|", ",")
+            );
+            normalizedTypeSection = `{${normalizedInner}}`;
+        } else if (
+            normalizedTypeSection.startsWith("<") &&
+            normalizedTypeSection.endsWith(">")
+        ) {
+            const innerType = normalizedTypeSection.slice(1, -1);
+            const normalizedInner = normalizeGameMakerType(
+                innerType.replaceAll("|", ",")
+            );
             normalizedTypeSection = `{${normalizedInner}}`;
         }
         const typePart =
@@ -1324,6 +1348,105 @@ export function mergeSyntheticDocComments(
                 continue;
             }
 
+            if (isParamLine(line)) {
+                const blockLines = [line];
+                let lookahead = index + 1;
+
+                while (lookahead < reorderedDocs.length) {
+                    const nextLine = reorderedDocs[lookahead];
+                    if (
+                        typeof nextLine === STRING_TYPE &&
+                        nextLine.startsWith("///") &&
+                        !parseDocCommentMetadata(nextLine)
+                    ) {
+                        blockLines.push(nextLine);
+                        lookahead += 1;
+                        continue;
+                    }
+                    break;
+                }
+
+                index = lookahead - 1;
+
+                const trimmedLine = line.trim();
+                const hyphenIndex = trimmedLine.indexOf(" - ");
+                if (hyphenIndex === -1) {
+                    wrappedDocs.push(...blockLines);
+                    continue;
+                }
+
+                let prefixEnd = hyphenIndex + 3;
+                while (
+                    prefixEnd < trimmedLine.length &&
+                    trimmedLine[prefixEnd] === " "
+                ) {
+                    prefixEnd += 1;
+                }
+
+                const prefix = trimmedLine.slice(0, prefixEnd);
+                const continuationPrefix = `/// ${" ".repeat(
+                    Math.max(prefix.length - 4, 0)
+                )}`;
+
+                const descriptionSegments = blockLines
+                    .map((docLine, blockIndex) => {
+                        const docTrimmed = docLine.trim();
+                        if (blockIndex === 0) {
+                            return docTrimmed.slice(prefix.length).trim();
+                        }
+
+                        if (!docTrimmed.startsWith("///")) {
+                            return docTrimmed;
+                        }
+
+                        return docTrimmed.slice(3).trim();
+                    })
+                    .filter((segment) => segment.length > 0);
+
+                const descriptionText = descriptionSegments.join(" ");
+
+                if (descriptionText.length === 0) {
+                    wrappedDocs.push(...blockLines);
+                    continue;
+                }
+
+                const available = Math.max(wrapWidth - prefix.length, 16);
+                const continuationAvailable = Math.max(
+                    Math.min(available, 62),
+                    16
+                );
+                const segments = wrapSegments(
+                    descriptionText,
+                    available,
+                    continuationAvailable
+                );
+
+                if (segments.length === 0) {
+                    wrappedDocs.push(...blockLines);
+                    continue;
+                }
+
+                if (
+                    blockLines.length > 1 &&
+                    segments.length <= blockLines.length
+                ) {
+                    wrappedDocs.push(...blockLines);
+                    continue;
+                }
+
+                wrappedDocs.push(`${prefix}${segments[0]}`);
+                for (
+                    let segmentIndex = 1;
+                    segmentIndex < segments.length;
+                    segmentIndex += 1
+                ) {
+                    wrappedDocs.push(
+                        `${continuationPrefix}${segments[segmentIndex]}`
+                    );
+                }
+                continue;
+            }
+
             wrappedDocs.push(line);
         }
 
@@ -1489,6 +1612,7 @@ export function shouldGenerateSyntheticDocForFunction(
 ): boolean {
     const node = path.getValue();
     const parent = path.getParentNode();
+
     if (
         !node ||
         !parent ||
@@ -1570,17 +1694,33 @@ function updateParamLineWithDocName(line: string, newDocName: string): string {
         return line;
     }
 
-    const prefixMatch = line.match(/^(\/\/\/\s*@param(?:\s+\{[^}]+\})?\s*)/i);
-    if (!prefixMatch) {
+    const match = line.match(
+        /^(\/\/\/\s*)(@param|@arg|@argument)((?:\s+(?:\{[^}]+\}|<[^>]+>))?)(\s*)/i
+    );
+
+    if (!match) {
         return `/// @param ${newDocName}`;
     }
 
-    const prefix = prefixMatch[0];
-    const remainder = line.slice(prefix.length);
-    if (remainder.length === 0) {
-        return `${prefix}${newDocName}`;
+    const [, slashPrefix, , typePart, spaceAfterType] = match;
+
+    const newTag = "@param";
+
+    let newTypePart = typePart;
+    if (typePart && typePart.trim().startsWith("<")) {
+        newTypePart = typePart.replace(/<([^>]+)>/, "{$1}");
     }
 
-    const updatedRemainder = remainder.replace(/^[^\s]+/, newDocName);
-    return `${prefix}${updatedRemainder}`;
+    let newPrefix = `${slashPrefix}${newTag}${newTypePart}${spaceAfterType}`;
+    newPrefix = normalizeDocCommentTypeAnnotations(newPrefix);
+
+    const fullPrefixLength = match[0].length;
+    const remainder = line.slice(fullPrefixLength);
+
+    const newRemainder =
+        remainder.trim().length === 0
+            ? newDocName
+            : remainder.replace(/^[^\s]+/, newDocName);
+
+    return newPrefix + newRemainder;
 }

@@ -1,4 +1,3 @@
-/// @function demo
 /// @returns {undefined}
 function demo() {
     var total = 1;

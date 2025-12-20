@@ -72,20 +72,17 @@ do {
 
 return total;
 
-/// @function bool_passthrough
 /// @param condition
 function bool_passthrough(condition) {
     return condition;
 }
 
-/// @function bool_negated
-/// @param {bool} a - The first boolean
-/// @param {bool} b - The second boolean
+/// @param {bool} a The first boolean
+/// @param {bool} b The second boolean
 function bool_negated(a, b) {
     return !(a and b);
 }
 
-/// @function bool_with_comment
 /// @param condition
 function bool_with_comment(condition) {
     if (condition) {
@@ -96,7 +93,6 @@ function bool_with_comment(condition) {
     }
 }
 
-/// @function iterate_structures
 /// @param list
 /// @param map
 /// @param grid

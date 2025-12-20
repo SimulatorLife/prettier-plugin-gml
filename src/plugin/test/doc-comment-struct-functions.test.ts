@@ -61,6 +61,7 @@ void test("struct static functions drop stray @param tags when no parameters", a
 }`;
 
     const formatted = await Plugin.format(source);
+    console.log(`FORMATTED OUTPUT:\n${formatted}`);
 
     const docBlocks = extractDocBlocks(formatted);
     const generateBlock = docBlocks.find((block) =>
@@ -87,28 +88,30 @@ void test("struct static functions keep implicit argument docs", async () => {
 }`;
 
     const formatted = await Plugin.format(source);
+    console.log(`FORMATTED OUTPUT:\n${formatted}`);
 
     const docBlocks = extractDocBlocks(formatted);
-    const dispatchBlock = docBlocks.find((block) =>
-        block.includes("/// @function dispatch")
+    const dispatchBlock = docBlocks.find(
+        (block) =>
+            block.includes("/// @function dispatch") &&
+            block.includes("/// @param {real} argument0")
     );
 
-    assert.ok(dispatchBlock, "Expected to find doc block for dispatch().");
     assert.ok(
-        dispatchBlock.includes("/// @param {real} argument0"),
-        "Expected to retain documented implicit argument entries."
+        dispatchBlock,
+        "Expected to find doc block for dispatch() with retained params."
     );
 });
 
 void test("struct static function descriptions follow the @function tag", async () => {
     const source = `function container() constructor {
-    /// @description Example description
-    /// @method print
-    /// @returns {undefined}
-    static print = function() {
-        return;
-    };
-}`;
+        /// @description Example description
+        /// @method print
+        /// @returns {undefined}
+        static print = function() {
+            return;
+        };
+        }`;
 
     const formatted = await Plugin.format(source);
 

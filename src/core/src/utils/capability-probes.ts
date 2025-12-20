@@ -353,3 +353,27 @@ export function ensureMap(candidate) {
 
     return new Map(resolveMapEntries(candidate));
 }
+
+/**
+ * Determine whether a value implements the WorkspaceEdit interface by confirming
+ * it exposes an `edits` array property and the required methods. Accepts any
+ * object that conforms to the expected contract (duck-typed interface) so
+ * refactor operations can work with substitutable implementations without relying
+ * on `instanceof` checks that break polymorphism across module boundaries.
+ *
+ * @param {unknown} [value] Candidate value to inspect.
+ * @returns {boolean} `true` when the value behaves like a WorkspaceEdit.
+ */
+export function isWorkspaceEditLike(value?: unknown): boolean {
+    if (!isObjectLike(value)) {
+        return false;
+    }
+
+    const candidate = value as Record<string, unknown>;
+
+    return (
+        Array.isArray(candidate.edits) &&
+        hasFunction(candidate, "addEdit") &&
+        hasFunction(candidate, "groupByFile")
+    );
+}

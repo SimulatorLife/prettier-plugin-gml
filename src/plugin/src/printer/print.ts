@@ -597,13 +597,27 @@ function _printImpl(path, options, print) {
                 // Non-fatal heuristic failures should not abort printing.
             }
 
+            let includeOverrideTag = false;
+            const parentNode = path.getParentNode();
+            if (parentNode && parentNode.type === "VariableDeclarator") {
+                const grandParentNode = path.getParentNode(1);
+                if (
+                    grandParentNode &&
+                    grandParentNode.type === "VariableDeclaration" &&
+                    grandParentNode._overridesStaticFunction
+                ) {
+                    includeOverrideTag = true;
+                }
+            }
+
             ({ docCommentDocs, needsLeadingBlankLine } =
                 normalizeFunctionDocCommentDocs({
                     docCommentDocs,
                     needsLeadingBlankLine,
                     node,
                     options,
-                    path
+                    path,
+                    overrides: { includeOverrideTag }
                 }));
 
             const shouldEmitPlainLeadingBeforeDoc =
@@ -673,6 +687,21 @@ function _printImpl(path, options, print) {
                 node.docComments.forEach((comment: any) => {
                     comment.printed = true;
                 });
+            } else {
+                // If the function didn't have comments, we might have consumed them from the parent VariableDeclaration
+                const parentNode = path.getParentNode();
+                if (parentNode && parentNode.type === "VariableDeclarator") {
+                    const grandParentNode = path.getParentNode(1);
+                    if (
+                        grandParentNode &&
+                        grandParentNode.type === "VariableDeclaration" &&
+                        grandParentNode.docComments
+                    ) {
+                        grandParentNode.docComments.forEach((comment: any) => {
+                            comment.printed = true;
+                        });
+                    }
+                }
             }
 
             let functionNameDoc = "";
@@ -3246,13 +3275,22 @@ function isPathInsideFunctionBody(path, childrenAttribute) {
     return false;
 }
 
-function getSimpleAssignmentLikeEntry(
-    statement,
-    insideFunctionBody,
-    functionParameterNames,
-    functionNode,
-    options
-) {
+export interface AssignmentLikeEntry {
+    locationNode: any;
+    paddingTarget: any;
+    nameLength: number;
+    enablesAlignment: boolean;
+    prefixLength: number;
+    skipBreakAfter?: boolean;
+}
+
+export function getSimpleAssignmentLikeEntry(
+    statement: any,
+    insideFunctionBody: any,
+    functionParameterNames: any,
+    functionNode: any,
+    options: any
+): AssignmentLikeEntry | null {
     const memberLength = getMemberAssignmentLength(statement);
     if (typeof memberLength === NUMBER_TYPE) {
         return {
@@ -3563,7 +3601,13 @@ function synthesizeMissingCallArgumentSeparators(
     let normalizedText = "";
     let insertedSeparator = false;
 
-    for (let index = 0; index < node.arguments.length; index += 1) {
+    // Cache array length to avoid repeated property access in loop condition.
+    // Accessing .length on every iteration is unnecessary since the array
+    // doesn't change. Precompute both the length and the last index for clarity.
+    const argumentsLength = node.arguments.length;
+    const lastArgumentIndex = argumentsLength - 1;
+
+    for (let index = 0; index < argumentsLength; index += 1) {
         const argument = node.arguments[index];
         const argumentStart = Core.getNodeStartIndex(argument);
         const argumentEnd = Core.getNodeEndIndex(argument);
@@ -3581,7 +3625,7 @@ function synthesizeMissingCallArgumentSeparators(
         normalizedText += originalText.slice(argumentStart, argumentEnd);
         cursor = argumentEnd;
 
-        if (index >= node.arguments.length - 1) {
+        if (index >= lastArgumentIndex) {
             continue;
         }
 
