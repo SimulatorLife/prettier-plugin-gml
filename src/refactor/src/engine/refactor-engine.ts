@@ -397,6 +397,80 @@ export class RefactorEngine {
     }
 
     /**
+     * Query the semantic analyzer for symbols defined in a specific file.
+     * This is useful for hot reload coordination to determine which symbols
+     * need recompilation when a file changes.
+     *
+     * @param {string} filePath - Path to the file to query
+     * @returns {Promise<Array<{id: string}>>} Array of symbol objects with IDs
+     *
+     * @example
+     * const symbols = await engine.getFileSymbols("scripts/scr_player.gml");
+     * console.log(`File defines ${symbols.length} symbols`);
+     * for (const symbol of symbols) {
+     *     console.log(`  - ${symbol.id}`);
+     * }
+     */
+    async getFileSymbols(filePath: string): Promise<Array<{ id: string }>> {
+        if (!filePath || typeof filePath !== "string") {
+            throw new TypeError(
+                "getFileSymbols requires a valid file path string"
+            );
+        }
+
+        if (!this.semantic) {
+            return [];
+        }
+
+        const semantic = this.semantic;
+        if (typeof semantic.getFileSymbols === "function") {
+            return (await semantic.getFileSymbols(filePath)) ?? [];
+        }
+
+        return [];
+    }
+
+    /**
+     * Query the semantic analyzer for symbols that depend on the given symbols.
+     * This is essential for hot reload to determine which symbols need recompilation
+     * when dependencies change.
+     *
+     * @param {Array<string>} symbolIds - Array of symbol IDs to query dependencies for
+     * @returns {Promise<Array<{symbolId: string, filePath: string}>>} Dependent symbols
+     *
+     * @example
+     * const dependents = await engine.getSymbolDependents([
+     *     "gml/script/scr_base",
+     *     "gml/script/scr_helper"
+     * ]);
+     * console.log(`Found ${dependents.length} dependent symbols`);
+     */
+    async getSymbolDependents(
+        symbolIds: Array<string>
+    ): Promise<Array<{ symbolId: string; filePath: string }>> {
+        if (!Array.isArray(symbolIds)) {
+            throw new TypeError(
+                "getSymbolDependents requires an array of symbol IDs"
+            );
+        }
+
+        if (symbolIds.length === 0) {
+            return [];
+        }
+
+        if (!this.semantic) {
+            return [];
+        }
+
+        const semantic = this.semantic;
+        if (typeof semantic.getDependents === "function") {
+            return (await semantic.getDependents(symbolIds)) ?? [];
+        }
+
+        return [];
+    }
+
+    /**
      * Check if a rename would introduce scope conflicts.
      * @param {string} oldName - Original symbol name
      * @param {string} newName - Proposed new name
@@ -589,6 +663,128 @@ export class RefactorEngine {
         }
 
         return [];
+    }
+
+    /**
+     * Validate a rename request before planning edits.
+     * Unlike planRename, this method returns validation results without throwing errors,
+     * making it suitable for providing user feedback in IDE integrations and CLI tools.
+     *
+     * @param {Object} request - Rename request to validate
+     * @param {string} request.symbolId - Symbol to rename (e.g., "gml/script/scr_foo")
+     * @param {string} request.newName - Proposed new name for the symbol
+     * @returns {Promise<{valid: boolean, errors: Array<string>, warnings: Array<string>, symbolName?: string, occurrenceCount?: number}>}
+     *
+     * @example
+     * const validation = await engine.validateRenameRequest({
+     *     symbolId: "gml/script/scr_player",
+     *     newName: "scr_hero"
+     * });
+     *
+     * if (!validation.valid) {
+     *     console.error("Rename validation failed:", validation.errors);
+     * } else if (validation.warnings.length > 0) {
+     *     console.warn("Rename warnings:", validation.warnings);
+     * }
+     */
+    async validateRenameRequest(request: RenameRequest): Promise<
+        ValidationSummary & {
+            symbolName?: string;
+            occurrenceCount?: number;
+        }
+    > {
+        const { symbolId, newName } = request ?? {};
+        const errors: Array<string> = [];
+        const warnings: Array<string> = [];
+
+        // Validate request structure
+        if (!symbolId || !newName) {
+            errors.push("Both symbolId and newName are required");
+            return { valid: false, errors, warnings };
+        }
+
+        if (typeof symbolId !== "string") {
+            errors.push(
+                `symbolId must be a string, received ${typeof symbolId}`
+            );
+            return { valid: false, errors, warnings };
+        }
+
+        if (typeof newName !== "string") {
+            errors.push(`newName must be a string, received ${typeof newName}`);
+            return { valid: false, errors, warnings };
+        }
+
+        // Validate identifier syntax
+        let normalizedNewName: string;
+        try {
+            normalizedNewName = assertValidIdentifierName(newName);
+        } catch (error) {
+            const errorMessage =
+                error instanceof Error ? error.message : String(error);
+            errors.push(errorMessage);
+            return { valid: false, errors, warnings };
+        }
+
+        // Check if symbol exists in semantic index
+        if (this.semantic) {
+            const exists = await this.validateSymbolExists(symbolId);
+            if (!exists) {
+                errors.push(
+                    `Symbol '${symbolId}' not found in semantic index. Ensure the project has been analyzed.`
+                );
+                return { valid: false, errors, warnings };
+            }
+        } else {
+            warnings.push(
+                "No semantic analyzer available - cannot verify symbol existence"
+            );
+        }
+
+        // Extract the symbol's base name from its fully-qualified ID.
+        // Symbol IDs follow the pattern "gml/{kind}/{name}" where {name} is the
+        // last path component (e.g., "gml/script/scr_foo" → "scr_foo").
+        // This name is used to search for all occurrences in the codebase.
+        const symbolName = symbolId.split("/").pop() ?? symbolId;
+
+        if (symbolName === normalizedNewName) {
+            errors.push(
+                `The new name '${normalizedNewName}' matches the existing identifier`
+            );
+            return { valid: false, errors, warnings };
+        }
+
+        // Gather occurrences to check for conflicts
+        const occurrences = await this.gatherSymbolOccurrences(symbolName);
+
+        if (occurrences.length === 0) {
+            warnings.push(
+                `No occurrences found for symbol '${symbolName}' - rename will have no effect`
+            );
+        }
+
+        // Check for conflicts
+        const conflicts = await this.detectRenameConflicts(
+            symbolName,
+            normalizedNewName,
+            occurrences
+        );
+
+        for (const conflict of conflicts) {
+            if (conflict.type === "reserved" || conflict.type === "shadow") {
+                errors.push(conflict.message);
+            } else {
+                warnings.push(conflict.message);
+            }
+        }
+
+        return {
+            valid: errors.length === 0,
+            errors,
+            warnings,
+            symbolName,
+            occurrenceCount: occurrences.length
+        };
     }
 
     /**
