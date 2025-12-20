@@ -65,8 +65,8 @@
    - Confirm `resolveDocCommentPrinterOptions` still applies indentation/continuation padding but does not trigger synthetic generation.
 
 6. **Option surface**
-  - Decide whether synthesis/normalization is always on or behind a dedicated option (e.g., `normalizeDocComments`, default true). If keeping `applyFeatherFixes` as the gate temporarily, document that the new option should replace it.
-  - Update `default-plugin-components` option map and tests to reflect the chosen gate.
+   - Decide whether synthesis/normalization is always on or behind a dedicated option (e.g., `normalizeDocComments`, default true). If keeping `applyFeatherFixes` as the gate temporarily, document that the new option should replace it.
+   - Update `default-plugin-components` option map and tests to reflect the chosen gate.
 
 ### Feather diagnostic considerations
 - Some Feather diagnostics already rely on doc-comment metadata (e.g., `captureDeprecatedFunctionManualFixes` in `apply-feather-fixes.ts` reads `@deprecated` blocks and records automated fix metadata for tests like `feather-fixes.test.ts#2273`). These behaviors should stay in the Feather transform because they are tied to specific diagnostics.
@@ -95,3 +95,14 @@ parse -> (structural transforms) -> applyFeatherFixes? -> optional transforms ->
 - Printer does not trigger synthesis.
 - Core doc-comment services host shared helpers; no duplicated lookup logic in transforms.
 - Tests cover synthetic doc behavior through the transform pipeline.
+
+### Testing coverage gaps
+- There are no dedicated tests covering the pending reflow logic currently located in `promoteMultiLineDocDescriptions`; add regression tests that assert descriptions jump past `@param`/`@returns` blocks and keep their indentation for real fixtures.
+- Documentation about implicit argument renaming (used in `doc-comment-implicit-params.test.ts`) should be mirrored with unit tests that target the new transform rather than relying on `applyFeatherFixes`.
+- The diagnostic helpers around deprecated doc comments (`collectDeprecatedFunctionNames`, `captureDeprecatedFunctionManualFixes`) lack direct unit tests verifying they ignore non-documentation cases — add focused tests that exercise the doc comment traversal and record metadata so bug regressions in the transform don’t surface.
+- Tests for blank-line separation from preceding comments (currently in `synthetic-doc-comments.test.ts`) should stay but now verify AST-level comment metadata rather than string output; add new tests that ensure the new transform does not emit synthetic docs when doc comments already exist or when functions are anonymous.
+
+### Doc-comment functions that need refactoring
+- `src/core/src/comments/doc-comment/service/synthetic-generation.ts#computeSyntheticFunctionDocLines` already spans several hundred lines and mixes metadata parsing, override detection, `@param` bookkeeping, and @returns logic; split it into dedicated helpers such as `parseFunctionMetadata`, `buildOrderedParamMetadata`, and `shouldAddSyntheticReturns` so each step reads more clearly and can be reused by the transform.
+- `src/plugin/src/transforms/apply-feather-fixes.ts#buildDocumentedParamNameLookup`/`extractDocumentedParamNames` are bulky and capture both traversal and comparison normalization; move those into smaller utility modules (e.g., `resolveDocumentedParamNames`, `normalizeDocParamKeys`) within Core, each with a single responsibility for traversal or canonicalization.
+- The `promoteMultiLineDocDescriptions` workflow (currently spread across helper functions like `collectDocCommentSummaries`, `collectDescriptionBlockSize`, and `alignContinuationPadding`) should be factored into a transform scoped helper that separately: (1) identifies descriptions needing promotion, (2) computes the reinsert position, and (3) recomputes indentation. This modularization will make testing and reuse far easier when it lives inside the new transform.
