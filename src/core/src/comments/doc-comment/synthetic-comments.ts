@@ -353,6 +353,16 @@ export function computeSyntheticDocCommentForFunctionAssignment(
         return null;
     }
 
+    if (
+        node.type === "VariableDeclaration" &&
+        node.kind !== "static" &&
+        (functionNode.type === "FunctionExpression" ||
+            functionNode.type === "FunctionDeclaration") &&
+        !functionNode.id
+    ) {
+        return null;
+    }
+
     suppressConstructorAssignmentPadding(functionNode);
 
     const processedComments = processLeadingCommentLines(
