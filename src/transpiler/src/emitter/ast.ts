@@ -103,6 +103,16 @@ export interface ParenthesizedExpressionNode extends BaseNode {
     readonly expression: GmlNode;
 }
 
+export interface TemplateStringTextNode extends BaseNode {
+    readonly type: "TemplateStringText";
+    readonly value: string;
+}
+
+export interface TemplateStringExpressionNode extends BaseNode {
+    readonly type: "TemplateStringExpression";
+    readonly atoms: ReadonlyArray<GmlNode | TemplateStringTextNode>;
+}
+
 export interface IfStatementNode extends BaseNode {
     readonly type: "IfStatement";
     readonly test: GmlNode;
@@ -286,6 +296,7 @@ export type ExpressionNode =
     | ParenthesizedExpressionNode
     | TernaryExpressionNode
     | ArrayExpressionNode
+    | TemplateStringExpressionNode
     | StructExpressionNode;
 
 export type GmlNode =
@@ -294,7 +305,8 @@ export type GmlNode =
     | ExpressionNode
     | VariableDeclaratorNode
     | CatchClauseNode
-    | FinallyClauseNode;
+    | FinallyClauseNode
+    | TemplateStringTextNode;
 
 export interface EmitOptions {
     readonly globalsIdent: string;
