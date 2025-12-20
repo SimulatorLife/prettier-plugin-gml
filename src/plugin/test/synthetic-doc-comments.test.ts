@@ -34,7 +34,7 @@ void test("adds synthetic @returns doc for onymous/named functions without retur
 
     assert.match(
         trimmed,
-        /^\/\/\/ @returns \{undefined\}\nfunction demo\(\) \{/,
+        /^\/\/\/ @function demo\n\/\/\/ @returns \{undefined\}\nfunction demo\(\) \{/,
         "Synthetic doc comments should describe undefined returns."
     );
 });
