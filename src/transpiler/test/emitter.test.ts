@@ -24,6 +24,35 @@ void test("GmlToJsEmitter handles string literals in AST", () => {
     );
 });
 
+void test("GmlToJsEmitter handles template strings with interpolation in AST", () => {
+    const source = 'var greeting = $"Hello {name}!";';
+    const parser = new Parser.GMLParser(source);
+    const ast = parser.parse();
+    const result = Transpiler.emitJavaScript(ast);
+
+    assert.match(
+        result,
+        /var greeting = `Hello \${name}!`;/,
+        "Should emit a JavaScript template literal"
+    );
+});
+
+void test("GmlToJsEmitter preserves template string text content", () => {
+    const source = String.raw`var lines = $"First line\nSecond line {count}";`;
+    const parser = new Parser.GMLParser(source);
+    const ast = parser.parse();
+    const result = Transpiler.emitJavaScript(ast);
+
+    assert.ok(
+        result.includes("`First line\\nSecond line "),
+        "Should keep escaped newlines inside template text"
+    );
+    assert.ok(
+        result.includes("${count}"),
+        "Should embed interpolated expressions with ${}"
+    );
+});
+
 void test("GmlToJsEmitter handles boolean literals in AST", () => {
     const source = "true";
     const parser = new Parser.GMLParser(source);

@@ -29,6 +29,8 @@ import type {
     StructPropertyNode,
     SwitchStatementNode,
     ThrowStatementNode,
+    TemplateStringExpressionNode,
+    TemplateStringTextNode,
     TernaryExpressionNode,
     TryStatementNode,
     VariableDeclarationNode,
@@ -176,6 +178,9 @@ export class GmlToJsEmitter {
             }
             case "StructExpression": {
                 return this.visitStructExpression(ast);
+            }
+            case "TemplateStringExpression": {
+                return this.visitTemplateStringExpression(ast);
             }
             case "EnumDeclaration": {
                 return this.visitEnumDeclaration(ast);
@@ -507,6 +512,21 @@ export class GmlToJsEmitter {
         return `[${elements}]`;
     }
 
+    private visitTemplateStringExpression(
+        ast: TemplateStringExpressionNode
+    ): string {
+        const parts = (ast.atoms ?? []).map((atom) => {
+            if (!atom) {
+                return "";
+            }
+            if (atom.type === "TemplateStringText") {
+                return this.escapeTemplateText(atom);
+            }
+            return `\${${this.visit(atom)}}`;
+        });
+        return `\`${parts.join("")}\``;
+    }
+
     private visitStructExpression(ast: StructExpressionNode): string {
         if (!ast.properties || ast.properties.length === 0) {
             return "{}";
@@ -680,6 +700,10 @@ export class GmlToJsEmitter {
             return member.name;
         }
         return this.visit(member.name);
+    }
+
+    private escapeTemplateText(atom: TemplateStringTextNode): string {
+        return atom.value.replaceAll('`', "\\`").replaceAll('${', "\\${");
     }
 }
 
