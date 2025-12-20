@@ -20,6 +20,15 @@ void test("getScopeStatistics returns null for null scopeId", () => {
     assert.strictEqual(stats, null);
 });
 
+void test("getScopeStatistics returns null for undefined scopeId", () => {
+    const tracker = new ScopeTracker({ enabled: true });
+    tracker.enterScope("program");
+
+    const stats = tracker.getScopeStatistics();
+
+    assert.strictEqual(stats, null);
+});
+
 void test("getScopeStatistics returns basic statistics for empty scope", () => {
     const tracker = new ScopeTracker({ enabled: true });
     const scope = tracker.enterScope("program");

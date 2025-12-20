@@ -947,7 +947,8 @@ export class ScopeTracker {
      *
      * Returns null if the scope doesn't exist or tracking is disabled.
      *
-     * @param {string} scopeId The scope identifier to analyze.
+     * @param {string | null | undefined} scopeId The scope identifier to analyze.
+     *        Accepts null or undefined, both return null.
      * @returns {{
      *   scopeId: string,
      *   scopeKind: string,
@@ -995,6 +996,9 @@ export class ScopeTracker {
             });
         }
 
+        // Get scope depth by counting ancestors in the scope chain.
+        // Since we've validated the scope exists above, getScopeChain will
+        // return at least one element (the scope itself), so depth >= 0.
         const chain = this.getScopeChain(scopeId);
         const depth = chain.length - 1;
 
