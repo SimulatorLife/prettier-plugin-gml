@@ -228,22 +228,22 @@ export function createRuntimeWrapper(
 
         for (const entry of state.patchHistory) {
             switch (entry.action) {
-            case "apply": {
-                stats.appliedPatches++;
-            
-            break;
-            }
-            case "undo": {
-                stats.undonePatches++;
-            
-            break;
-            }
-            case "rollback": {
-                stats.rolledBackPatches++;
-            
-            break;
-            }
-            // No default
+                case "apply": {
+                    stats.appliedPatches++;
+
+                    break;
+                }
+                case "undo": {
+                    stats.undonePatches++;
+
+                    break;
+                }
+                case "rollback": {
+                    stats.rolledBackPatches++;
+
+                    break;
+                }
+                // No default
             }
 
             uniqueIds.add(entry.patch.id);
