@@ -303,30 +303,30 @@ export function computeSyntheticDocCommentForFunctionAssignment(
     const commentTarget = node;
 
     switch (node.type) {
-    case "ExpressionStatement": {
-        assignment = node.expression;
-    
-    break;
-    }
-    case "AssignmentExpression": {
-        assignment = node;
-    
-    break;
-    }
-    case "VariableDeclaration": {
-        if (
-            !Array.isArray(node.declarations) ||
-            node.declarations.length !== 1
-        ) {
+        case "ExpressionStatement": {
+            assignment = node.expression;
+
+            break;
+        }
+        case "AssignmentExpression": {
+            assignment = node;
+
+            break;
+        }
+        case "VariableDeclaration": {
+            if (
+                !Array.isArray(node.declarations) ||
+                node.declarations.length !== 1
+            ) {
+                return null;
+            }
+            assignment = node.declarations[0];
+
+            break;
+        }
+        default: {
             return null;
         }
-        assignment = node.declarations[0];
-    
-    break;
-    }
-    default: {
-        return null;
-    }
     }
 
     const isDeclarator = assignment?.type === "VariableDeclarator";
