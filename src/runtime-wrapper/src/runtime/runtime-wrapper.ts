@@ -218,6 +218,7 @@ export function createRuntimeWrapper(
             totalPatches: state.patchHistory.length,
             appliedPatches: 0,
             undonePatches: 0,
+            rolledBackPatches: 0,
             scriptPatches: 0,
             eventPatches: 0,
             closurePatches: 0
@@ -226,10 +227,23 @@ export function createRuntimeWrapper(
         const uniqueIds = new Set<string>();
 
         for (const entry of state.patchHistory) {
-            if (entry.action === "apply") {
-                stats.appliedPatches++;
-            } else if (entry.action === "undo") {
-                stats.undonePatches++;
+            switch (entry.action) {
+                case "apply": {
+                    stats.appliedPatches++;
+
+                    break;
+                }
+                case "undo": {
+                    stats.undonePatches++;
+
+                    break;
+                }
+                case "rollback": {
+                    stats.rolledBackPatches++;
+
+                    break;
+                }
+                // No default
             }
 
             uniqueIds.add(entry.patch.id);

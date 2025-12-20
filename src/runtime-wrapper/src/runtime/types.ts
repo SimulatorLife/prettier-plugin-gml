@@ -78,6 +78,7 @@ export interface PatchStats {
     totalPatches: number;
     appliedPatches: number;
     undonePatches: number;
+    rolledBackPatches: number;
     scriptPatches: number;
     eventPatches: number;
     closurePatches: number;

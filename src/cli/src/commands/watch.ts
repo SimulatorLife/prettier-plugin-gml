@@ -11,7 +11,12 @@
  * wrapper to enable true hot-reloading without game restarts.
  */
 
-import { watch, type FSWatcher } from "node:fs";
+import {
+    watch,
+    type FSWatcher,
+    type WatchListener,
+    type WatchOptions
+} from "node:fs";
 import { readFile, stat } from "node:fs/promises";
 import path from "node:path";
 import process from "node:process";
@@ -43,6 +48,12 @@ type RuntimeTranspiler = ReturnType<typeof Transpiler.createTranspiler>;
 type RuntimeTranspilerPatch = ReturnType<RuntimeTranspiler["transpileScript"]>;
 
 type RuntimeDescriptorFormatter = (source: RuntimeSourceDescriptor) => string;
+
+type WatchFactory = (
+    path: string,
+    options?: WatchOptions | BufferEncoding | "buffer",
+    listener?: WatchListener<string>
+) => FSWatcher;
 
 interface TranspilationMetrics {
     timestamp: number;
@@ -78,6 +89,7 @@ interface WatchCommandOptions {
     runtimeDescriptor?: RuntimeDescriptorFormatter;
     runtimeServerStarter?: typeof startRuntimeStaticServer;
     abortSignal?: AbortSignal;
+    watchFactory?: WatchFactory;
 }
 
 interface RuntimeContext {
@@ -267,6 +279,9 @@ function logWatchStartup(
     }
 }
 
+const DEFAULT_WATCH_FACTORY: WatchFactory = (pathToWatch, options, listener) =>
+    watch(pathToWatch, options, listener);
+
 /**
  * Validates a transpiled patch before broadcasting.
  *
@@ -450,7 +465,8 @@ export async function runWatchCommand(
         hydrateRuntime,
         runtimeResolver = resolveRuntimeSource,
         runtimeDescriptor = describeRuntimeSource,
-        runtimeServerStarter = startRuntimeStaticServer
+        runtimeServerStarter = startRuntimeStaticServer,
+        watchFactory = DEFAULT_WATCH_FACTORY
     } = options;
 
     const normalizedPath = await validateTargetPath(targetPath);
@@ -562,12 +578,14 @@ export async function runWatchCommand(
         verbose
     );
 
-    const watchOptions: { recursive: true; persistent?: boolean } = {
+    const watchOptions: WatchOptions = {
         recursive: true,
         ...(polling && { persistent: true })
     };
     let watcher: FSWatcher | null = null;
     let resolved = false;
+
+    const watchImplementation = watchFactory ?? watch;
 
     return new Promise((resolve) => {
         let removeAbortListener = () => {};
@@ -627,6 +645,17 @@ export async function runWatchCommand(
             process.exit(exitCode);
         };
 
+        const handleWatcherError = (error: unknown) => {
+            const message = getErrorMessage(error, {
+                fallback: "Unknown watch error"
+            });
+            const formattedError = formatCliError(
+                new Error(`Watch error: ${message}`)
+            );
+            console.error(formattedError);
+            void cleanup(1);
+        };
+
         const handleErrorSignal = () => {
             cleanup(0).catch((error) => {
                 const message = getErrorMessage(error, {
@@ -664,40 +693,51 @@ export async function runWatchCommand(
             };
         }
 
-        watcher = watch(
-            normalizedPath,
-            {
-                ...watchOptions,
-                ...(abortSignal && { signal: abortSignal })
-            },
-            (eventType, filename) => {
-                if (!filename || !extensionSet.has(path.extname(filename))) {
-                    return;
-                }
+        try {
+            watcher = watchImplementation(
+                normalizedPath,
+                {
+                    ...watchOptions,
+                    ...(abortSignal && { signal: abortSignal })
+                },
+                (eventType, filename) => {
+                    if (
+                        !filename ||
+                        !extensionSet.has(path.extname(filename))
+                    ) {
+                        return;
+                    }
 
-                const fullPath = path.join(normalizedPath, filename);
+                    const fullPath = path.join(normalizedPath, filename);
 
-                if (verbose) {
-                    console.log(
-                        `[${new Date().toISOString()}] ${eventType}: ${filename}`
-                    );
-                } else {
-                    console.log(`Changed: ${filename}`);
-                }
+                    if (verbose) {
+                        console.log(
+                            `[${new Date().toISOString()}] ${eventType}: ${filename}`
+                        );
+                    } else {
+                        console.log(`Changed: ${filename}`);
+                    }
 
-                // Future: Trigger transpiler, semantic analysis, and patch streaming
-                // For now, we just detect and report changes
-                handleFileChange(fullPath, eventType, {
-                    verbose,
-                    runtimeContext
-                }).catch((error) => {
-                    const message = getErrorMessage(error, {
-                        fallback: "Unknown file processing error"
+                    // Future: Trigger transpiler, semantic analysis, and patch streaming
+                    // For now, we just detect and report changes
+                    handleFileChange(fullPath, eventType, {
+                        verbose,
+                        runtimeContext
+                    }).catch((error) => {
+                        const message = getErrorMessage(error, {
+                            fallback: "Unknown file processing error"
+                        });
+                        console.error(
+                            `Error processing ${filename}: ${message}`
+                        );
                     });
-                    console.error(`Error processing ${filename}: ${message}`);
-                });
-            }
-        );
+                }
+            );
+
+            watcher.on("error", handleWatcherError);
+        } catch (error) {
+            handleWatcherError(error);
+        }
     });
 }
 
