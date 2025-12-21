@@ -717,7 +717,7 @@ export default class GameMakerASTBuilder {
 
     // Visit a parse tree produced by GameMakerLanguageParser#caseBlock.
     visitCaseBlock(ctx: ParserContext): any[] {
-        let caseClauses: any[] = [];
+        const caseClauses: any[] = [];
         // The ANTLR grammar exposes `caseClauses` groups both before and after the
         // optional `default` clause, and each visit returns an array of case nodes.
         // Flatten the arrays as we go so downstream consumers (printers, Feather
@@ -726,7 +726,7 @@ export default class GameMakerASTBuilder {
         // lose cases during later traversals.
         if (ctx.caseClauses() !== null) {
             for (const case_ of this.ensureArray(ctx.caseClauses())) {
-                caseClauses = caseClauses.concat(this.visit(case_));
+                caseClauses.push(...this.visit(case_));
             }
         }
         if (ctx.defaultClause() !== null) {
