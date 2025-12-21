@@ -2384,6 +2384,84 @@ void test("validateRenameRequest detects reserved keywords", async () => {
     assert.ok(result.errors.some((e) => e.includes("reserved keyword")));
 });
 
+void test("validateRenameRequest can include hot reload safety summary", async () => {
+    class MockEngine extends RefactorEngine {
+        override async checkHotReloadSafety() {
+            return {
+                safe: false,
+                reason: "Mock hot reload block",
+                requiresRestart: true,
+                canAutoFix: false,
+                suggestions: []
+            };
+        }
+    }
+
+    const mockSemantic: SemanticAnalyzer = {
+        hasSymbol: async () => true,
+        getSymbolOccurrences: async () => [
+            { path: "test.gml", start: 0, end: 5, scopeId: "scope-1" }
+        ],
+        getReservedKeywords: async () => []
+    };
+
+    const engine = new MockEngine({ semantic: mockSemantic });
+
+    const result = await engine.validateRenameRequest(
+        {
+            symbolId: "gml/script/scr_test",
+            newName: "scr_new"
+        },
+        { includeHotReload: true }
+    );
+
+    assert.equal(result.valid, true);
+    assert.ok(result.hotReload);
+    assert.equal(result.hotReload?.safe, false);
+    assert.ok(
+        result.warnings.some((warning) =>
+            warning.includes("Hot reload unavailable")
+        )
+    );
+});
+
+void test("validateRenameRequest passes through safe hot reload summary", async () => {
+    class MockEngine extends RefactorEngine {
+        override async checkHotReloadSafety() {
+            return {
+                safe: true,
+                reason: "Safe to hot reload",
+                requiresRestart: false,
+                canAutoFix: true,
+                suggestions: ["none"]
+            };
+        }
+    }
+
+    const mockSemantic: SemanticAnalyzer = {
+        hasSymbol: async () => true,
+        getSymbolOccurrences: async () => [
+            { path: "test.gml", start: 0, end: 3, scopeId: "scope-1" }
+        ],
+        getReservedKeywords: async () => []
+    };
+
+    const engine = new MockEngine({ semantic: mockSemantic });
+
+    const result = await engine.validateRenameRequest(
+        {
+            symbolId: "gml/script/scr_test",
+            newName: "scr_new"
+        },
+        { includeHotReload: true }
+    );
+
+    assert.equal(result.valid, true);
+    assert.ok(result.hotReload);
+    assert.equal(result.hotReload?.safe, true);
+    assert.equal(result.warnings.length, 0);
+});
+
 void test("validateRenameRequest warns about no occurrences", async () => {
     const mockSemantic: SemanticAnalyzer = {
         hasSymbol: async () => true,
