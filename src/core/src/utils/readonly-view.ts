@@ -9,8 +9,6 @@ export function createReadOnlyView<T extends object>(
     selector: ReadOnlyViewSelector<T>,
     description = "read-only view"
 ): Readonly<T> {
-    const descriptionText = description;
-
     const getSource = (): T => {
         const source = selector();
 
@@ -18,7 +16,7 @@ export function createReadOnlyView<T extends object>(
             return source;
         }
 
-        throw new TypeError(`${descriptionText} must resolve to an object.`);
+        throw new TypeError(`${description} must resolve to an object.`);
     };
 
     const target = Object.create(null) as T;
@@ -57,17 +55,17 @@ export function createReadOnlyView<T extends object>(
         },
         set() {
             throw new TypeError(
-                `${descriptionText} cannot be modified once resolved.`
+                `${description} cannot be modified once resolved.`
             );
         },
         defineProperty() {
             throw new TypeError(
-                `${descriptionText} cannot be modified once resolved.`
+                `${description} cannot be modified once resolved.`
             );
         },
         deleteProperty() {
             throw new TypeError(
-                `${descriptionText} cannot be modified once resolved.`
+                `${description} cannot be modified once resolved.`
             );
         }
     }) as Readonly<T>;
