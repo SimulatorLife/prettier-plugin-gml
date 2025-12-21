@@ -74,22 +74,7 @@ function createOccurrence(kind, metadata, source, declarationMetadata) {
 function cloneClassifications(
     classifications: ReadonlyArray<string> | null | undefined
 ) {
-    if (!Array.isArray(classifications)) {
-        return [];
-    }
-    return classifications.slice();
-}
-
-function cloneLocationValue(value: unknown) {
-    if (value === null || value === undefined) {
-        return;
-    }
-
-    if (typeof value !== "object") {
-        return value;
-    }
-
-    return { ...(value as Record<string, unknown>) };
+    return Core.toMutableArray(classifications, { clone: true });
 }
 
 function cloneDeclarationMetadata(metadata) {
@@ -101,8 +86,8 @@ function cloneDeclarationMetadata(metadata) {
         name: metadata.name ?? null,
         scopeId: metadata.scopeId ?? null,
         classifications: cloneClassifications(metadata.classifications),
-        start: cloneLocationValue(metadata.start),
-        end: cloneLocationValue(metadata.end)
+        start: Core.cloneLocation(metadata.start),
+        end: Core.cloneLocation(metadata.end)
     };
 }
 
@@ -114,8 +99,8 @@ function cloneOccurrence(occurrence) {
     const declarationClone = occurrence.declaration
         ? {
               scopeId: occurrence.declaration.scopeId ?? null,
-              start: cloneLocationValue(occurrence.declaration.start),
-              end: cloneLocationValue(occurrence.declaration.end)
+              start: Core.cloneLocation(occurrence.declaration.start),
+              end: Core.cloneLocation(occurrence.declaration.end)
           }
         : null;
 
@@ -123,8 +108,8 @@ function cloneOccurrence(occurrence) {
         ...occurrence,
         classifications: cloneClassifications(occurrence.classifications),
         declaration: declarationClone,
-        start: cloneLocationValue(occurrence.start),
-        end: cloneLocationValue(occurrence.end)
+        start: Core.cloneLocation(occurrence.start),
+        end: Core.cloneLocation(occurrence.end)
     };
 }
 
