@@ -451,27 +451,6 @@ export function promoteLeadingDocCommentTextToDescription(
         Array.isArray(extraTaggedDocLines) &&
         extraTaggedDocLines.some(isDocCommentTagLine);
 
-    if (
-        normalizedLines.some(
-            (line) =>
-                typeof line === STRING_TYPE &&
-                line.includes("Additional summary")
-        )
-    ) {
-        console.log(
-            "[DEBUG PROMOTE] normalizedLines:",
-            normalizedLines,
-            "extraTaggedDocLines:",
-            extraTaggedDocLines
-        );
-        console.log(
-            "[DEBUG PROMOTE] remainderContainsTag:",
-            remainderContainsTag,
-            "extraContainsTag:",
-            extraContainsTag
-        );
-    }
-
     if (!remainderContainsTag && !extraContainsTag) {
         return normalizedLines as DocCommentLines;
     }
