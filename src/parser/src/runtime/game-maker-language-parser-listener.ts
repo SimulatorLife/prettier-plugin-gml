@@ -4,13 +4,16 @@ import type {
     ListenerOptions,
     ParserContext
 } from "../types/index.js";
-import GameMakerLanguageParserListenerBase from "../../generated/GameMakerLanguageParserListener.js";
 import { VISIT_METHOD_NAMES } from "./game-maker-language-parser-visitor.js";
 import {
     definePrototypeMethods,
     deriveListenerMethodNames,
     toDelegate
 } from "./parse-tree-helpers.js";
+import {
+    getParserListenerBase,
+    type ParserListenerBaseConstructor
+} from "./generated-bindings.js";
 
 const DEFAULT_LISTENER_DELEGATE: ListenerDelegate = ({
     fallback = Core.noop
@@ -19,6 +22,9 @@ const DEFAULT_LISTENER_DELEGATE: ListenerDelegate = ({
 export const LISTENER_METHOD_NAMES = Object.freeze(
     deriveListenerMethodNames(VISIT_METHOD_NAMES)
 );
+
+const GeneratedParserListenerBase: ParserListenerBaseConstructor =
+    getParserListenerBase();
 
 function createListenerDelegate(
     options: ListenerOptions = {}
@@ -58,7 +64,7 @@ function createListenerDelegate(
     };
 }
 
-export default class GameMakerLanguageParserListener extends GameMakerLanguageParserListenerBase {
+export default class GameMakerLanguageParserListener extends GeneratedParserListenerBase {
     #listenerDelegate: ListenerDelegate;
 
     constructor(options: ListenerOptions = {}) {
@@ -80,8 +86,8 @@ export default class GameMakerLanguageParserListener extends GameMakerLanguagePa
 definePrototypeMethods(
     GameMakerLanguageParserListener.prototype,
     LISTENER_METHOD_NAMES,
-    (methodName) =>
-        function (ctx) {
+    (methodName: string) =>
+        function (this: GameMakerLanguageParserListener, ctx: ParserContext) {
             return this._dispatch(methodName, ctx);
         }
 );

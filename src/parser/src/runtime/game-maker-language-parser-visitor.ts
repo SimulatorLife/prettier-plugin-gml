@@ -1,4 +1,4 @@
-import GameMakerLanguageParserVisitorBase from "../../generated/GameMakerLanguageParserVisitor.js";
+import { Core } from "@gml-modules/core";
 import type {
     ParserContext,
     VisitorOptions,
@@ -11,13 +11,20 @@ import {
     definePrototypeMethods,
     ensureHasInstancePatched
 } from "./parse-tree-helpers.js";
+import {
+    getParseTreeVisitorPrototype,
+    getParserVisitorBase,
+    type ParserVisitorBaseConstructor,
+    type ParserVisitorPrototype
+} from "./generated-bindings.js";
 
 const DEFAULT_VISIT_CHILDREN_DELEGATE = ({ fallback }: VisitorPayload) =>
     fallback();
 
-const PARSE_TREE_VISITOR_PROTOTYPE = Object.getPrototypeOf(
-    GameMakerLanguageParserVisitorBase.prototype
-);
+const GameMakerLanguageParserVisitorBase: ParserVisitorBaseConstructor =
+    getParserVisitorBase();
+const PARSE_TREE_VISITOR_PROTOTYPE: ParserVisitorPrototype =
+    getParseTreeVisitorPrototype();
 
 const {
     instance: WRAPPER_INSTANCE_MARKER,
@@ -35,8 +42,16 @@ export const VISIT_METHOD_NAMES = Object.freeze(
     collectVisitMethodNames(GameMakerLanguageParserVisitorBase)
 );
 
-function callInheritedVisitChildren(instance, ctx: ParserContext) {
-    return PARSE_TREE_VISITOR_PROTOTYPE.visitChildren.call(instance, ctx);
+function callInheritedVisitChildren(
+    instance: ParserVisitorPrototype,
+    ctx: ParserContext
+) {
+    return (
+        PARSE_TREE_VISITOR_PROTOTYPE.visitChildren as (
+            this: ParserVisitorPrototype,
+            ctx: ParserContext
+        ) => unknown
+    ).call(instance, ctx) as unknown;
 }
 
 ensureHasInstancePatched(GameMakerLanguageParserVisitorBase, {
@@ -69,10 +84,19 @@ export default class GameMakerLanguageParserVisitor extends GameMakerLanguagePar
 definePrototypeMethods(
     GameMakerLanguageParserVisitor.prototype,
     INHERITED_METHOD_NAMES,
-    (methodName) => {
-        const inherited = PARSE_TREE_VISITOR_PROTOTYPE[methodName];
-        return function (...args) {
-            return inherited.apply(this, args);
+    (methodName: string) => {
+        const inherited =
+            typeof PARSE_TREE_VISITOR_PROTOTYPE[methodName] === "function"
+                ? (PARSE_TREE_VISITOR_PROTOTYPE[methodName] as (
+                      this: ParserVisitorPrototype,
+                      ...args: unknown[]
+                  ) => unknown)
+                : Core.noop;
+        return function (
+            this: GameMakerLanguageParserVisitor,
+            ...args: unknown[]
+        ) {
+            return inherited.call(this, ...args) as unknown;
         };
     }
 );
@@ -80,8 +104,8 @@ definePrototypeMethods(
 definePrototypeMethods(
     GameMakerLanguageParserVisitor.prototype,
     VISIT_METHOD_NAMES,
-    (methodName) =>
-        function (ctx) {
+    (methodName: string) =>
+        function (this: GameMakerLanguageParserVisitor, ctx: ParserContext) {
             return this._visitUsingDelegate(methodName, ctx);
         }
 );
