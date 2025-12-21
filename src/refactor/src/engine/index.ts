@@ -11,5 +11,7 @@ export type {
     RenameRequest,
     TranspilerPatch,
     RenameImpactAnalysis,
-    ValidationSummary
+    ValidationSummary,
+    ValidateRenameRequestOptions,
+    HotReloadSafetySummary
 } from "./refactor-engine.js";

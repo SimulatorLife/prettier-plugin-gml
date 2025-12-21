@@ -177,6 +177,18 @@ interface HotReloadCascadeResult {
     metadata: HotReloadCascadeMetadata;
 }
 
+interface HotReloadSafetySummary {
+    safe: boolean;
+    reason: string;
+    requiresRestart: boolean;
+    canAutoFix: boolean;
+    suggestions: Array<string>;
+}
+
+interface ValidateRenameRequestOptions {
+    includeHotReload?: boolean;
+}
+
 interface ConflictEntry {
     type: string;
     message: string;
@@ -689,15 +701,21 @@ export class RefactorEngine {
      *     console.warn("Rename warnings:", validation.warnings);
      * }
      */
-    async validateRenameRequest(request: RenameRequest): Promise<
+    async validateRenameRequest(
+        request: RenameRequest,
+        options?: ValidateRenameRequestOptions
+    ): Promise<
         ValidationSummary & {
             symbolName?: string;
             occurrenceCount?: number;
+            hotReload?: HotReloadSafetySummary;
         }
     > {
         const { symbolId, newName } = request ?? {};
+        const opts = options ?? {};
         const errors: Array<string> = [];
         const warnings: Array<string> = [];
+        let hotReload: HotReloadSafetySummary | undefined;
 
         // Validate request structure
         if (!symbolId || !newName) {
@@ -780,12 +798,24 @@ export class RefactorEngine {
             }
         }
 
+        if (opts.includeHotReload && errors.length === 0) {
+            hotReload = await this.checkHotReloadSafety(request);
+
+            if (!hotReload.safe) {
+                const hotReloadMessage = hotReload.requiresRestart
+                    ? `Hot reload unavailable: ${hotReload.reason}`
+                    : `Hot reload limitations detected: ${hotReload.reason}`;
+                warnings.push(hotReloadMessage);
+            }
+        }
+
         return {
             valid: errors.length === 0,
             errors,
             warnings,
             symbolName,
-            occurrenceCount: occurrences.length
+            occurrenceCount: occurrences.length,
+            hotReload
         };
     }
 
@@ -1843,13 +1873,9 @@ export class RefactorEngine {
      *   suggestions: Array<string>
      * }>} Hot reload safety assessment
      */
-    async checkHotReloadSafety(request: RenameRequest): Promise<{
-        safe: boolean;
-        reason: string;
-        requiresRestart: boolean;
-        canAutoFix: boolean;
-        suggestions: Array<string>;
-    }> {
+    async checkHotReloadSafety(
+        request: RenameRequest
+    ): Promise<HotReloadSafetySummary> {
         const { symbolId, newName } = request ?? {};
         const suggestions: Array<string> = [];
 
@@ -2379,5 +2405,7 @@ export type {
     RenameRequest,
     TranspilerPatch,
     RenameImpactAnalysis,
-    ValidationSummary
+    ValidationSummary,
+    ValidateRenameRequestOptions,
+    HotReloadSafetySummary
 };

@@ -14,5 +14,7 @@ export type {
     RenameRequest,
     TranspilerPatch,
     RenameImpactAnalysis,
-    ValidationSummary
+    ValidationSummary,
+    ValidateRenameRequestOptions,
+    HotReloadSafetySummary
 } from "./engine/index.js";
