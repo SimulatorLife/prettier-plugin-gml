@@ -76,7 +76,7 @@ function convertNode(value, state) {
         return value;
     }
 
-    const isAstNode = typeof value.type === "string" && value.type.length > 0;
+    const isAstNode = Core.isNonEmptyString(value.type);
     const result: any = isAstNode ? { type: value.type } : {};
 
     const entries = Object.entries(value);

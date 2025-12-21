@@ -8,7 +8,11 @@ import {
     isNonEmptyArray,
     toMutableArray
 } from "../../../utils/array.js";
-import { isNonEmptyString, toTrimmedString } from "../../../utils/string.js";
+import {
+    isNonEmptyString,
+    isNonEmptyTrimmedString,
+    toTrimmedString
+} from "../../../utils/string.js";
 import { parseDocCommentMetadata } from "./metadata.js";
 import {
     dedupeReturnDocLines,
@@ -83,7 +87,7 @@ function hasMultiLineDocCommentSummary(
             continue;
         }
 
-        if (suffix.trim().length > 0) {
+        if (isNonEmptyTrimmedString(suffix)) {
             summaryCount += 1;
             if (summaryCount >= 2) {
                 return true;
@@ -1862,10 +1866,9 @@ function updateParamLineWithDocName(line: string, newDocName: string): string {
     const fullPrefixLength = match[0].length;
     const remainder = line.slice(fullPrefixLength);
 
-    const newRemainder =
-        remainder.trim().length === 0
-            ? newDocName
-            : remainder.replace(/^[^\s]+/, newDocName);
+    const newRemainder = isNonEmptyTrimmedString(remainder)
+        ? remainder.replace(/^[^\s]+/, newDocName)
+        : newDocName;
 
     return newPrefix + newRemainder;
 }
