@@ -313,7 +313,11 @@ export interface EmitOptions {
     readonly callScriptIdent: string;
 }
 
-export interface SemOracle {
+/**
+ * Analyzes identifiers to determine their semantic kind, name, and qualified
+ * symbol. Used by the transpiler to generate correct variable references.
+ */
+export interface IdentifierAnalyzer {
     kindOfIdent(
         node: IdentifierNode | IdentifierMetadata | null | undefined
     ): SemKind;
@@ -323,6 +327,21 @@ export interface SemOracle {
     qualifiedSymbol(
         node: IdentifierNode | IdentifierMetadata | null | undefined
     ): string | null;
+}
+
+/**
+ * Analyzes call expression targets to classify and resolve them.
+ * Used by the transpiler to handle script calls and built-in functions.
+ */
+export interface CallTargetAnalyzer {
     callTargetKind(node: CallExpressionNode): "script" | "builtin" | "unknown";
     callTargetSymbol(node: CallExpressionNode): string | null;
 }
+
+/**
+ * Complete semantic oracle combining identifier and call target analysis.
+ *
+ * @deprecated Prefer using IdentifierAnalyzer and CallTargetAnalyzer directly
+ *             to follow the Interface Segregation Principle.
+ */
+export interface SemOracle extends IdentifierAnalyzer, CallTargetAnalyzer {}
