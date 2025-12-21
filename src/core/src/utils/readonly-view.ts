@@ -1,31 +1,5 @@
 type ReadOnlyViewSelector<T extends object> = () => T;
 
-function createReadOnlyError(description: string) {
-    return new TypeError(`${description} cannot be modified once resolved.`);
-}
-
-function ensureSource<T extends object>(
-    selector: ReadOnlyViewSelector<T>,
-    description: string
-): T {
-    const source = selector();
-
-    if (source && typeof source === "object") {
-        return source;
-    }
-
-    throw new TypeError(`${description} must resolve to an object.`);
-}
-
-function withSource<T extends object, TReturn>(
-    selector: ReadOnlyViewSelector<T>,
-    description: string,
-    callback: (source: T) => TReturn
-): TReturn {
-    const source = ensureSource(selector, description);
-    return callback(source);
-}
-
 /**
  * Create a read-only proxy view over the resolved object returned by `selector`.
  * The proxy lazily evaluates `selector` to defer initialization while preventing
@@ -33,13 +7,18 @@ function withSource<T extends object, TReturn>(
  */
 export function createReadOnlyView<T extends object>(
     selector: ReadOnlyViewSelector<T>,
-    description: string
+    description = "read-only view"
 ): Readonly<T> {
-    const descriptionText = description || "read-only view";
-    const readOnlyError = createReadOnlyError(descriptionText);
+    const descriptionText = description;
 
-    const throwReadOnlyError = (): never => {
-        throw readOnlyError;
+    const getSource = (): T => {
+        const source = selector();
+
+        if (source && typeof source === "object") {
+            return source;
+        }
+
+        throw new TypeError(`${descriptionText} must resolve to an object.`);
     };
 
     const target = Object.create(null) as T;
@@ -50,50 +29,46 @@ export function createReadOnlyView<T extends object>(
                 return "Object";
             }
 
-            return withSource(selector, descriptionText, (source) =>
-                Reflect.get(source, property, receiver)
-            );
+            return Reflect.get(getSource(), property, receiver);
         },
         has(_target, property) {
-            return withSource(selector, descriptionText, (source) =>
-                Reflect.has(source, property)
-            );
+            return Reflect.has(getSource(), property);
         },
         ownKeys() {
-            return withSource(selector, descriptionText, (source) =>
-                Reflect.ownKeys(source)
-            );
+            return Reflect.ownKeys(getSource());
         },
         getOwnPropertyDescriptor(_target, property) {
-            return withSource(selector, descriptionText, (source) => {
-                const descriptor = Reflect.getOwnPropertyDescriptor(
-                    source,
-                    property
-                );
+            const descriptor = Reflect.getOwnPropertyDescriptor(
+                getSource(),
+                property
+            );
 
-                if (!descriptor) {
-                    return;
-                }
-
+            if (descriptor) {
                 return {
                     configurable: true,
                     enumerable: descriptor.enumerable ?? true,
                     value: descriptor.value,
                     writable: false
                 };
-            });
+            }
         },
         getPrototypeOf() {
             return Object.prototype;
         },
         set() {
-            return throwReadOnlyError();
+            throw new TypeError(
+                `${descriptionText} cannot be modified once resolved.`
+            );
         },
         defineProperty() {
-            return throwReadOnlyError();
+            throw new TypeError(
+                `${descriptionText} cannot be modified once resolved.`
+            );
         },
         deleteProperty() {
-            return throwReadOnlyError();
+            throw new TypeError(
+                `${descriptionText} cannot be modified once resolved.`
+            );
         }
     }) as Readonly<T>;
 }
