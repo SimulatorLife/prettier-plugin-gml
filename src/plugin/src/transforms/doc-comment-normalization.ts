@@ -91,10 +91,7 @@ export class DocCommentNormalizationTransform extends FunctionalParserTransform<
                     comment,
                     lineCommentOptions
                 );
-                if (
-                    typeof formatted === "string" &&
-                    formatted.trim().length > 0
-                ) {
+                if (Core.isNonEmptyTrimmedString(formatted)) {
                     formattedLines.push(formatted);
                 }
             }

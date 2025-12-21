@@ -1654,8 +1654,7 @@ function resolveTargetPathFromInput(
     targetPathInput,
     { rawTargetPathInput }: { rawTargetPathInput?: string } = {}
 ) {
-    const hasExplicitTarget =
-        typeof targetPathInput === "string" && targetPathInput.length > 0;
+    const hasExplicitTarget = Core.isNonEmptyString(targetPathInput);
     const normalizedTarget = hasExplicitTarget ? targetPathInput : ".";
     const resolvedNormalizedTarget = path.resolve(
         process.cwd(),

@@ -1345,7 +1345,7 @@ function _printImpl(path, options, print) {
             // received a string accessor longer than one character so we
             // preserve the historical spacing for special accessors like
             // "[?" or "[#" while leaving normal "[" unchanged.
-            if (typeof accessor === "string" && accessor.length > 1) {
+            if (Core.isNonEmptyString(accessor) && accessor.length > 1) {
                 accessor = `${accessor} `;
             }
             const property = printCommaSeparatedList(
