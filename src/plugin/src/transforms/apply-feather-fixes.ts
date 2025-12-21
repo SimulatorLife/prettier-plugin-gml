@@ -3053,7 +3053,7 @@ function renameIdentifiersInNode(root, originalName, replacementName) {
 
         if (Array.isArray(node)) {
             const arrayContext = { node, parent, property };
-            const nextAncestors = ancestors.concat(arrayContext);
+            const nextAncestors = [...ancestors, arrayContext];
 
             for (let index = node.length - 1; index >= 0; index -= 1) {
                 stack.push({
@@ -3090,7 +3090,7 @@ function renameIdentifiersInNode(root, originalName, replacementName) {
             continue;
         }
 
-        const nextAncestors = ancestors.concat({ node, parent, property });
+        const nextAncestors = [...ancestors, { node, parent, property }];
 
         Core.forEachNodeChild(node, (value, key) => {
             stack.push({
