@@ -638,7 +638,7 @@ export class RefactorEngine {
                 // We append nodeId to close the cycle for clearer visualization
                 // in error messages (e.g., "A → B → C → A" instead of "A → B → C").
                 const cycleStart = path.indexOf(nodeId);
-                return path.slice(cycleStart).concat(nodeId);
+                return [...path.slice(cycleStart), nodeId];
             }
 
             if (visited.has(nodeId)) {
