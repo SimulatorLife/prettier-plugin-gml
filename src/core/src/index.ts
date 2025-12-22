@@ -9,7 +9,6 @@ import * as Metrics from "./metrics/index.js";
 import * as Utils from "./utils/index.js";
 import * as Resources from "./resources/index.js";
 import * as IdentifierMetadata from "./resources/gml-identifier-loading.js";
-import * as DeprecatedBuiltinVariables from "./utils/deprecated-builtin-variable-replacements.js";
 
 // Define the Core namespace type from existing module types
 type CoreNamespace = typeof AST &
@@ -18,7 +17,6 @@ type CoreNamespace = typeof AST &
     typeof FS &
     typeof Resources &
     typeof IdentifierMetadata &
-    typeof DeprecatedBuiltinVariables &
     typeof Comments & {
         // Explicitly include the repo root helper for cross-package typing
         // so consumers can call `Core.findRepoRoot` without type errors.
@@ -42,7 +40,6 @@ export const Core: CoreNamespace = Object.freeze({
     isWorkspaceEditLike: Utils.isWorkspaceEditLike,
     ...Resources,
     ...IdentifierMetadata,
-    ...DeprecatedBuiltinVariables,
     ...Comments
 });
 

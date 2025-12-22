@@ -14,6 +14,5 @@ export * from "./object.js";
 export * from "./regexp.js";
 export * from "./string.js";
 export * from "./time.js";
-export * from "./deprecated-builtin-variable-replacements.js";
 export * from "./readonly-view.js";
 export * from "./resolver-controller.js";
