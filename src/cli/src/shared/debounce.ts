@@ -78,7 +78,11 @@ export function debounce<TArgs extends Array<unknown>>(
             pendingArgs = null;
 
             if (argsToUse !== null) {
-                fn(...argsToUse);
+                try {
+                    fn(...argsToUse);
+                } catch {
+                    // Silently ignore errors to prevent uncaught exceptions
+                }
             }
         }, delayMs);
     };
@@ -93,7 +97,11 @@ export function debounce<TArgs extends Array<unknown>>(
         pendingArgs = null;
 
         if (argsToUse !== null) {
-            fn(...argsToUse);
+            try {
+                fn(...argsToUse);
+            } catch {
+                // Silently ignore errors to prevent uncaught exceptions
+            }
         }
     };
 
