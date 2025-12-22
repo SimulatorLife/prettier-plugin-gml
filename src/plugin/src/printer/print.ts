@@ -5597,6 +5597,21 @@ function shouldWrapTernaryExpression(path) {
     return false;
 }
 
+function printTernaryExpressionNode(node, path, options, print) {
+    const testDoc = path.call(print, "test");
+    const consequentDoc = path.call(print, "consequent");
+    const alternateDoc = path.call(print, "alternate");
+
+    const ternaryDoc = group([
+        testDoc,
+        indent([line, "? ", consequentDoc, line, ": ", alternateDoc])
+    ]);
+
+    return shouldWrapTernaryExpression(path)
+        ? concat(["(", ternaryDoc, ")"])
+        : ternaryDoc;
+}
+
 function shouldFlattenSyntheticBinary(parent, expression, path) {
     const parentInfo = getBinaryOperatorInfo(parent.operator);
     const childInfo = getBinaryOperatorInfo(expression.operator);
