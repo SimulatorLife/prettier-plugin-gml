@@ -1,7 +1,7 @@
 import assert from "node:assert/strict";
 import { describe, it } from "node:test";
 import { performance } from "node:perf_hooks";
-import { TRAILING_MACRO_SEMICOLON_PATTERN } from "../../src/transforms/apply-feather-fixes.js";
+import { TRAILING_MACRO_SEMICOLON_PATTERN } from "../../src/transforms/feather/apply-feather-fixes.js";
 
 void describe("TRAILING_MACRO_SEMICOLON_PATTERN", () => {
     void it("removes trailing semicolons correctly", () => {

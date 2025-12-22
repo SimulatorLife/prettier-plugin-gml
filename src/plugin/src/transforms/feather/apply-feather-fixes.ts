@@ -10,14 +10,14 @@ import {
     type MutableGameMakerAstNode,
     type GameMakerAstNode
 } from "@gml-modules/core";
-import { FunctionalParserTransform } from "./functional-transform.js";
+import { FunctionalParserTransform } from "../functional-transform.js";
 import {
     getEndFromNode,
     getStartFromNode,
     hasArrayParentWithNumericIndex,
     resolveCallExpressionArrayContext,
     walkAstNodes
-} from "./feather/ast-traversal.js";
+} from "./ast-traversal.js";
 import {
     hasFeatherDiagnosticContext,
     createFeatherFixDetail,
@@ -25,21 +25,21 @@ import {
     createCallExpressionTargetFixDetail,
     hasFeatherSourceTextContext,
     NUMERIC_STRING_LITERAL_PATTERN
-} from "./feather/utils.js";
+} from "./utils.js";
 import {
     removeDuplicateSemicolons,
     findDuplicateSemicolonRanges
-} from "./feather/semicolon-fixes.js";
+} from "./semicolon-fixes.js";
 import {
     removeDuplicateEnumMembers,
     sanitizeEnumAssignments
-} from "./feather/enum-fixes.js";
-import { parseExample } from "./feather/parser-bootstrap.js";
-import { preprocessFunctionArgumentDefaultsTransform } from "./preprocess-function-argument-defaults.js";
+} from "./enum-fixes.js";
+import { parseExample } from "./parser-bootstrap.js";
+import { preprocessFunctionArgumentDefaultsTransform } from "../preprocess-function-argument-defaults.js";
 import {
     getDocCommentMetadata,
     getDeprecatedDocCommentFunctionSet
-} from "../shared/doc-comment-metadata.js";
+} from "../../shared/doc-comment-metadata.js";
 
 type RenameOptions = {
     // TODO: This may be duplicated by functionality in the 'refactor' and/or 'semantic' modules. Identifier renaming needs to live in the 'refactor' module, which is built on top of 'semantic' (which handles scope and context) so that identifiers can be renamed properly/safely without introducing conflicts

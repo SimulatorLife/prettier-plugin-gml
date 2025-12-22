@@ -1,5 +1,5 @@
 import type { MutableGameMakerAstNode } from "@gml-modules/core";
-import { applyFeatherFixesTransform } from "./apply-feather-fixes.js";
+import { applyFeatherFixesTransform } from "./feather/apply-feather-fixes.js";
 import { annotateStaticFunctionOverridesTransform } from "./annotate-static-overrides.js";
 import { collapseRedundantMissingCallArgumentsTransform } from "./collapse-redundant-arguments.js";
 import { condenseLogicalExpressionsTransform } from "./condense-logical-expressions.js";
@@ -108,7 +108,7 @@ export {
     getFeatherDiagnosticFixers,
     getRoomNavigationHelpers,
     ROOM_NAVIGATION_DIRECTION
-} from "./apply-feather-fixes.js";
+} from "./feather/apply-feather-fixes.js";
 export {
     applyRemovedIndexAdjustments,
     preprocessSourceForFeatherFixes

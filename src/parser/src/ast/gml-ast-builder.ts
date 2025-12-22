@@ -1122,7 +1122,7 @@ export default class GameMakerASTBuilder {
             // `IncDecStatement` before returning so downstream passes know the
             // increment/decrement consumed an entire statement slot. The
             // printers and Feather compatibility transforms (see
-            // `src/plugin/src/ast-transforms/apply-feather-fixes.js`) only look
+            // `src/plugin/src/transforms/feather/apply-feather-fixes.js`) only look
             // for statement-shaped nodes when deciding whether to emit
             // GameMaker-style semicolons or rewrite postfix updates; leaving
             // the expression tag in place would quietly bypass those guards and

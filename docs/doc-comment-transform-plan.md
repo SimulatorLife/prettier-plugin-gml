@@ -9,7 +9,7 @@
 
 ### Current State (scattered responsibilities)
 - **Printer merge:** `src/plugin/src/printer/doc-comment/function-docs.ts#normalizeFunctionDocCommentDocs` calls `Core.mergeSyntheticDocComments` during printing. Synthetic emission is intertwined with printing concerns and runs late.
-- **Feather-specific edits:** `src/plugin/src/transforms/apply-feather-fixes.ts` contains doc-comment utilities (`buildDocumentedParamNameLookup`, `extractDocumentedParamNames`, implicit argument doc remapping, deprecated doc detection) behind the Feather option, even though they are not diagnostic fixes.
++ **Feather-specific edits:** `src/plugin/src/transforms/feather/apply-feather-fixes.ts` contains doc-comment utilities (`buildDocumentedParamNameLookup`, `extractDocumentedParamNames`, implicit argument doc remapping, deprecated doc detection) behind the Feather option, even though they are not diagnostic fixes.
 - **String post-processing:** `src/plugin/src/plugin-entry.ts` rewrites doc comments after formatting (`promoteMultiLineDocDescriptions`, `tidyStringHeightDocBlock`, blank-line normalization). This bypasses AST guarantees and is invisible to transforms.
 - **Core generation:** `src/core/src/comments/doc-comment/service/synthetic-generation.ts` computes synthetic lines and merges metadata, but callers are split across printer and Feather transform rather than a single pipeline stage.
 
@@ -32,7 +32,7 @@
 - From **`src/plugin/src/plugin-entry.ts`**:
   - Move `collectDocCommentSummaries`, `promoteMultiLineDocDescriptions`, `alignContinuationPadding`, `collectDescriptionBlockSize`, and doc-specific blank-line handling into the new transform. Remove the string-level rewriting in `format()`.
   - Keep non-doc utilities (e.g., vertex-format spacing) in place; only the doc-comment shaping logic moves.
-- From **`src/plugin/src/transforms/apply-feather-fixes.ts`**:
++- From **`src/plugin/src/transforms/feather/apply-feather-fixes.ts`**:
   - Migrate doc-comment helpers marked with TODOs (`buildDocumentedParamNameLookup`, `extractDocumentedParamNames`, implicit argument doc update logic, deprecated doc detection) into a doc-comment utility module in Core (e.g., `src/core/src/comments/doc-comment/service/`), then consumed by the new transform.
   - Strip doc-comment side effects from the Feather transform so it only applies Feather diagnostics.
   - Ensure the doc-comment helpers around `collectDeprecatedFunctionNames` / `findDeprecatedDocComment` (near lines 6063‑6213) are either relocated to Core or invoked by the new transform instead of living in the Feather pipeline.
@@ -104,5 +104,5 @@ parse -> (structural transforms) -> applyFeatherFixes? -> optional transforms ->
 
 ### Doc-comment functions that need refactoring
 - `src/core/src/comments/doc-comment/service/synthetic-generation.ts#computeSyntheticFunctionDocLines` already spans several hundred lines and mixes metadata parsing, override detection, `@param` bookkeeping, and @returns logic; split it into dedicated helpers such as `parseFunctionMetadata`, `buildOrderedParamMetadata`, and `shouldAddSyntheticReturns` so each step reads more clearly and can be reused by the transform.
-- `src/plugin/src/transforms/apply-feather-fixes.ts#buildDocumentedParamNameLookup`/`extractDocumentedParamNames` are bulky and capture both traversal and comparison normalization; move those into smaller utility modules (e.g., `resolveDocumentedParamNames`, `normalizeDocParamKeys`) within Core, each with a single responsibility for traversal or canonicalization.
++- `src/plugin/src/transforms/feather/apply-feather-fixes.ts#buildDocumentedParamNameLookup`/`extractDocumentedParamNames` are bulky and capture both traversal and comparison normalization; move those into smaller utility modules (e.g., `resolveDocumentedParamNames`, `normalizeDocParamKeys`) within Core, each with a single responsibility for traversal or canonicalization.
 - The `promoteMultiLineDocDescriptions` workflow (currently spread across helper functions like `collectDocCommentSummaries`, `collectDescriptionBlockSize`, and `alignContinuationPadding`) should be factored into a transform scoped helper that separately: (1) identifies descriptions needing promotion, (2) computes the reinsert position, and (3) recomputes indentation. This modularization will make testing and reuse far easier when it lives inside the new transform.
