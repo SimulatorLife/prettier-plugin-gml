@@ -5863,7 +5863,7 @@ function captureDeprecatedFunctionManualFixes({ ast, sourceText, diagnostic }) {
     }
 
     const docCommentTraversal = Core.resolveDocCommentTraversalService(ast);
-    const deprecatedFunctions = collectDeprecatedFunctionNames(
+    const deprecatedFunctions = Core.collectDeprecatedFunctionNames(
         ast,
         sourceText,
         docCommentTraversal
@@ -5946,102 +5946,6 @@ function recordDeprecatedCallMetadata(node, deprecatedFunctions, diagnostic) {
         },
         automatic: false
     });
-}
-
-function collectDeprecatedFunctionNames(ast, sourceText, docCommentTraversal) {
-    const names = new Set();
-
-    if (!ast || typeof ast !== "object" || typeof sourceText !== "string") {
-        return names;
-    }
-
-    const body = Core.getBodyStatements(ast);
-
-    if (!Core.isNonEmptyArray(body)) {
-        return names;
-    }
-
-    const topLevelFunctions = new Set(
-        body.filter(
-            (node) => Core.isNode(node) && node.type === "FunctionDeclaration"
-        )
-    );
-
-    if (topLevelFunctions.size === 0) {
-        return names;
-    }
-
-    const traversal =
-        docCommentTraversal ?? Core.resolveDocCommentTraversalService(ast);
-
-    traversal.forEach((node, comments = []) => {
-        if (!topLevelFunctions.has(node)) {
-            return;
-        }
-
-        const startIndex = Core.getNodeStartIndex(node);
-
-        if (typeof startIndex !== "number") {
-            return;
-        }
-
-        const deprecatedComment = findDeprecatedDocComment(
-            comments,
-            startIndex,
-            sourceText
-        );
-
-        if (!deprecatedComment) {
-            return;
-        }
-
-        const identifier =
-            typeof node.id === "string" ? node.id : node.id?.name;
-
-        if (identifier) {
-            names.add(identifier);
-        }
-    });
-
-    return names;
-}
-
-function findDeprecatedDocComment(docComments, functionStart, sourceText) {
-    if (!Core.isNonEmptyArray(docComments)) {
-        return null;
-    }
-
-    for (let index = docComments.length - 1; index >= 0; index -= 1) {
-        const comment = docComments[index];
-
-        if (!isDeprecatedComment(comment)) {
-            continue;
-        }
-
-        const commentEnd = Core.getCommentEndIndex(comment);
-
-        if (typeof commentEnd !== "number" || commentEnd >= functionStart) {
-            continue;
-        }
-
-        if (
-            !Core.isWhitespaceBetween(commentEnd + 1, functionStart, sourceText)
-        ) {
-            continue;
-        }
-
-        return comment;
-    }
-
-    return null;
-}
-
-function isDeprecatedComment(comment) {
-    if (!comment || typeof comment.value !== "string") {
-        return false;
-    }
-
-    return /@deprecated\b/i.test(comment.value);
 }
 
 function convertNumericStringArgumentsToNumbers({ ast, diagnostic }) {

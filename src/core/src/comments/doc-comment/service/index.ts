@@ -1,4 +1,5 @@
 export * from "./collection.js";
+export * from "./deprecated.js";
 export * from "./legacy.js";
 export * from "./metadata.js";
 export * from "./type-normalization.js";
