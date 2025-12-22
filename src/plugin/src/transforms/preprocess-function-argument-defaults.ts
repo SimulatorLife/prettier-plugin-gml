@@ -10,6 +10,55 @@ import { FunctionalParserTransform } from "./functional-transform.js";
 
 type PreprocessFunctionArgumentDefaultsTransformOptions = Record<string, never>;
 
+function hasExplicitDefaultParameterToLeft(
+    node: MutableGameMakerAstNode,
+    parameter: GameMakerAstNode | null
+): boolean {
+    if (!Core.isObjectLike(node) || !Array.isArray(node.params)) {
+        return false;
+    }
+
+    try {
+        const paramsList: Array<GameMakerAstNode | null> = Core.toMutableArray(
+            node.params
+        );
+        const idx = paramsList.indexOf(parameter);
+        if (idx <= 0) {
+            return false;
+        }
+
+        for (let offset = 0; offset < idx; offset += 1) {
+            const leftParam = paramsList[offset];
+            if (!leftParam) {
+                continue;
+            }
+
+            if (
+                leftParam.type === "DefaultParameter" &&
+                leftParam.right != null
+            ) {
+                if (leftParam._featherMaterializedTrailingUndefined === true) {
+                    continue;
+                }
+
+                if (!Core.isUndefinedSentinel(leftParam.right)) {
+                    return true;
+                }
+
+                continue;
+            }
+
+            if (leftParam.type === "AssignmentPattern") {
+                return true;
+            }
+        }
+    } catch {
+        // swallow errors
+    }
+
+    return false;
+}
+
 /** Orchestrates the normalization of function parameter default values. */
 export class PreprocessFunctionArgumentDefaultsTransform extends FunctionalParserTransform<PreprocessFunctionArgumentDefaultsTransformOptions> {
     constructor() {
@@ -1126,75 +1175,12 @@ export class PreprocessFunctionArgumentDefaultsTransform extends FunctionalParse
                     // omit or emit the `= undefined` signature. Preserve any
                     // existing explicit annotations above first.
                     try {
-                        // If this parameter was materialized from an explicit
-                        // left-side default (e.g. `a, b = 1, c` -> `c = undefined`)
-                        // treat it as intentionally optional by default so that
-                        // downstream consumers preserve the historical behaviour
-                        // expected by the plugin tests. Materializations that
-                        // originate from other sources (in-body argument_count
-                        // fallbacks) remain conservative unless docs or earlier
-                        // transforms indicate optionality.
-                        if (p._featherMaterializedFromExplicitLeft === true) {
-                            // Only treat materializations as intentionally optional
-                            // when there exists a concrete, non-materialized explicit
-                            // default to the left. This prevents marking parameters
-                            // optional when the "materialized from explicit left"
-                            // flag was set due to earlier conservative passes where
-                            // the left-side default itself was synthesized.
-                            try {
-                                const paramsList = Core.toMutableArray(
-                                    node.params
-                                ) as Array<any>;
-                                const idx = paramsList.indexOf(p);
-                                let foundRealExplicitToLeft = false;
-
-                                if (idx > 0) {
-                                    for (let k = 0; k < idx; k += 1) {
-                                        const leftParam = paramsList[k];
-                                        if (!leftParam) continue;
-                                        if (
-                                            leftParam.type ===
-                                                "DefaultParameter" &&
-                                            leftParam.right != null
-                                        ) {
-                                            // If the left param was itself materialized as
-                                            // a trailing undefined, prefer not to treat it
-                                            // as a real explicit default.
-                                            if (
-                                                leftParam._featherMaterializedTrailingUndefined
-                                            ) {
-                                                continue;
-                                            }
-                                            // If the RHS is a non-undefined literal/expression
-                                            // treat this as a true explicit default.
-                                            const isUndef =
-                                                Core.isUndefinedSentinel(
-                                                    leftParam.right
-                                                );
-                                            if (!isUndef) {
-                                                foundRealExplicitToLeft = true;
-                                                break;
-                                            }
-                                        }
-                                        if (
-                                            leftParam.type ===
-                                            "AssignmentPattern"
-                                        ) {
-                                            // Assignment patterns are source-level defaults
-                                            // and count as a real explicit default.
-                                            foundRealExplicitToLeft = true;
-                                            break;
-                                        }
-                                    }
-                                }
-
-                                if (foundRealExplicitToLeft) {
-                                    p._featherOptionalParameter = true;
-                                    continue;
-                                }
-                            } catch {
-                                // swallow errors and fall through to conservative behavior
-                            }
+                        if (
+                            p._featherMaterializedFromExplicitLeft === true &&
+                            hasExplicitDefaultParameterToLeft(node, p)
+                        ) {
+                            p._featherOptionalParameter = true;
+                            continue;
                         }
 
                         if (p._featherMaterializedTrailingUndefined === true) {

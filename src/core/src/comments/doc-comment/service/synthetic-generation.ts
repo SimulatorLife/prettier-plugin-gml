@@ -33,6 +33,51 @@ function normalizeDocMetadataNameToString(value: unknown): string | null {
     return typeof normalized === STRING_TYPE ? (normalized as string) : null;
 }
 
+function applyOrdinalImplicitDocEntryOverrides(
+    node: any,
+    paramIndex: number,
+    implicitDocEntry: any,
+    canonicalOrdinal: string | null,
+    ordinalDocName: string | null
+) {
+    if (!implicitDocEntry) {
+        return;
+    }
+
+    implicitDocEntry._suppressDocLine = true;
+
+    if (implicitDocEntry.canonical && node) {
+        let suppressedCanonicals =
+            suppressedImplicitDocCanonicalByNode.get(node);
+        if (!suppressedCanonicals) {
+            suppressedCanonicals = new Set();
+            suppressedImplicitDocCanonicalByNode.set(
+                node,
+                suppressedCanonicals
+            );
+        }
+        suppressedCanonicals.add(implicitDocEntry.canonical);
+    }
+
+    if (canonicalOrdinal) {
+        implicitDocEntry.canonical = canonicalOrdinal;
+    }
+
+    if (!ordinalDocName) {
+        return;
+    }
+
+    implicitDocEntry.name = ordinalDocName;
+    if (node) {
+        let preferredDocs = preferredParamDocNamesByNode.get(node);
+        if (!preferredDocs) {
+            preferredDocs = new Map();
+            preferredParamDocNamesByNode.set(node, preferredDocs);
+        }
+        preferredDocs.set(paramIndex, ordinalDocName);
+    }
+}
+
 function hasReturnStatement(node: any): boolean {
     if (!node) {
         return false;
@@ -625,58 +670,31 @@ export function computeSyntheticFunctionDocLines(
             const fallbackCanonical =
                 implicitDocEntry?.fallbackCanonical ??
                 getCanonicalParamNameFromText(paramInfo.name);
-
-            if (
+            const shouldOverrideImplicitName = Boolean(
                 canonicalOrdinal &&
-                canonicalOrdinal !== fallbackCanonical &&
-                canonicalOrdinal !== canonicalImplicit
-            ) {
-                const ordinalLength = canonicalOrdinal.length;
-                const implicitLength =
-                    (canonicalImplicit && canonicalImplicit.length > 0) ||
-                    isNonEmptyTrimmedString(effectiveImplicitName);
+                    canonicalOrdinal !== fallbackCanonical &&
+                    canonicalOrdinal !== canonicalImplicit
+            );
 
-                if (
-                    ordinalLength >
-                    (implicitLength ? canonicalImplicit.length : 0)
-                ) {
-                    // Simplified check
+            if (shouldOverrideImplicitName) {
+                const ordinalLength = canonicalOrdinal.length;
+                const implicitCanonicalLength = canonicalImplicit?.length ?? 0;
+                const hasImplicitName =
+                    implicitCanonicalLength > 0 ||
+                    isNonEmptyTrimmedString(effectiveImplicitName);
+                const implicitComparisonLength = hasImplicitName
+                    ? implicitCanonicalLength
+                    : 0;
+
+                if (ordinalLength > implicitComparisonLength) {
                     effectiveImplicitName = null;
-                    if (implicitDocEntry) {
-                        implicitDocEntry._suppressDocLine = true;
-                        if (implicitDocEntry.canonical && node) {
-                            let suppressedCanonicals =
-                                suppressedImplicitDocCanonicalByNode.get(node);
-                            if (!suppressedCanonicals) {
-                                suppressedCanonicals = new Set();
-                                suppressedImplicitDocCanonicalByNode.set(
-                                    node,
-                                    suppressedCanonicals
-                                );
-                            }
-                            suppressedCanonicals.add(
-                                implicitDocEntry.canonical
-                            );
-                        }
-                        if (canonicalOrdinal) {
-                            implicitDocEntry.canonical = canonicalOrdinal;
-                        }
-                        if (ordinalDocName) {
-                            implicitDocEntry.name = ordinalDocName;
-                            if (node) {
-                                let preferredDocs =
-                                    preferredParamDocNamesByNode.get(node);
-                                if (!preferredDocs) {
-                                    preferredDocs = new Map();
-                                    preferredParamDocNamesByNode.set(
-                                        node,
-                                        preferredDocs
-                                    );
-                                }
-                                preferredDocs.set(paramIndex, ordinalDocName);
-                            }
-                        }
-                    }
+                    applyOrdinalImplicitDocEntryOverrides(
+                        node,
+                        paramIndex,
+                        implicitDocEntry,
+                        canonicalOrdinal,
+                        ordinalDocName
+                    );
                 }
             }
         }
