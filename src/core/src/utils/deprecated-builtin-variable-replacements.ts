@@ -31,7 +31,10 @@ const GML_KEYWORDS = new Set([
     "with"
 ]);
 
-export function buildDeprecatedBuiltinVariableReplacements() {
+export function buildDeprecatedBuiltinVariableReplacements(): Map<
+    string,
+    DeprecatedReplacementEntry
+> {
     const diagnostic = getFeatherDiagnosticById("GM1024");
     if (!diagnostic?.badExample || !diagnostic?.goodExample) {
         return new Map();
@@ -51,7 +54,7 @@ export function buildDeprecatedBuiltinVariableReplacements() {
 function deriveReplacementsFromExamples(
     badExample: unknown,
     goodExample: unknown
-) {
+): Map<string, DeprecatedReplacementEntry> {
     const badIdentifiers = extractUserIdentifiers(badExample);
     const goodIdentifiers = extractUserIdentifiers(goodExample);
 
@@ -71,7 +74,7 @@ function deriveReplacementsFromExamples(
     );
 
     // Pair deprecated identifiers with their replacements by position.
-    const pairs = new Map();
+    const pairs = new Map<string, DeprecatedReplacementEntry>();
     const count = Math.min(deprecated.length, replacements.length);
     for (let i = 0; i < count; i++) {
         const deprecatedName = deprecated[i];
@@ -118,9 +121,15 @@ type DeprecatedReplacementCacheHolder = {
     _map?: ReturnType<typeof buildDeprecatedBuiltinVariableReplacements>;
 };
 
+export type DeprecatedReplacementEntry = {
+    normalized: string;
+    deprecated: string;
+    replacement: string;
+};
+
 export function getDeprecatedBuiltinReplacementEntry(
     name: string | null | undefined
-) {
+): DeprecatedReplacementEntry | null {
     if (!name) {
         return null;
     }
