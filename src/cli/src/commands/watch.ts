@@ -42,6 +42,7 @@ import {
     type PatchWebSocketServerController
 } from "../modules/websocket/server.js";
 import { formatCliError } from "../cli-core/errors.js";
+import { debounce, type DebouncedFunction } from "../shared/debounce.js";
 
 const { getErrorMessage } = Core;
 
@@ -78,6 +79,7 @@ interface WatchCommandOptions {
     polling?: boolean;
     pollingInterval?: number;
     verbose?: boolean;
+    debounceDelay?: number;
     websocketPort?: number;
     websocketHost?: string;
     websocketServer?: boolean;
@@ -106,6 +108,10 @@ interface RuntimeContext {
     lastSuccessfulPatches: Map<string, RuntimeTranspilerPatch>;
     maxPatchHistory: number;
     websocketServer: PatchWebSocketServerController | null;
+    debouncedHandlers: Map<
+        string,
+        DebouncedFunction<[string, string, FileChangeOptions]>
+    >;
 }
 
 interface FileChangeOptions {
@@ -160,6 +166,20 @@ export function createWatchCommand(): Command {
         )
         .addOption(
             new Option("--verbose", "Enable verbose logging").default(false)
+        )
+        .addOption(
+            new Option(
+                "--debounce-delay <ms>",
+                "Delay in milliseconds before transpiling after file changes (0 to disable)"
+            )
+                .argParser((value) => {
+                    const parsed = Number.parseInt(value);
+                    if (Number.isNaN(parsed) || parsed < 0) {
+                        throw new Error("Debounce delay must be non-negative");
+                    }
+                    return parsed;
+                })
+                .default(200)
         )
         .addOption(
             new Option(
@@ -455,6 +475,7 @@ export async function runWatchCommand(
         polling = false,
         pollingInterval = 1000,
         verbose = false,
+        debounceDelay = 200,
         maxPatchHistory = 100,
         websocketPort = 17_890,
         websocketHost = "127.0.0.1",
@@ -494,7 +515,8 @@ export async function runWatchCommand(
         errors: [],
         lastSuccessfulPatches: new Map(),
         maxPatchHistory,
-        websocketServer: null
+        websocketServer: null,
+        debouncedHandlers: new Map()
     };
 
     let runtimeServerController: RuntimeServerController | null = null;
@@ -612,6 +634,11 @@ export async function runWatchCommand(
             process.off("SIGTERM", handleErrorSignal);
             removeAbortListener();
 
+            for (const debouncedHandler of runtimeContext.debouncedHandlers.values()) {
+                debouncedHandler.flush();
+            }
+            runtimeContext.debouncedHandlers.clear();
+
             displayWatchStatistics(runtimeContext, verbose);
 
             if (runtimeServerController) {
@@ -722,19 +749,57 @@ export async function runWatchCommand(
                         console.log(`Changed: ${filename}`);
                     }
 
-                    // Future: Trigger transpiler, semantic analysis, and patch streaming
-                    // For now, we just detect and report changes
-                    handleFileChange(fullPath, eventType, {
-                        verbose,
-                        runtimeContext
-                    }).catch((error) => {
-                        const message = getErrorMessage(error, {
-                            fallback: "Unknown file processing error"
+                    if (debounceDelay === 0) {
+                        handleFileChange(fullPath, eventType, {
+                            verbose,
+                            runtimeContext
+                        }).catch((error) => {
+                            const message = getErrorMessage(error, {
+                                fallback: "Unknown file processing error"
+                            });
+                            console.error(
+                                `Error processing ${filename}: ${message}`
+                            );
                         });
-                        console.error(
-                            `Error processing ${filename}: ${message}`
-                        );
-                    });
+                    } else {
+                        let debouncedHandler =
+                            runtimeContext.debouncedHandlers.get(fullPath);
+
+                        if (!debouncedHandler) {
+                            debouncedHandler = debounce(
+                                (
+                                    filePath: string,
+                                    evt: string,
+                                    opts: FileChangeOptions
+                                ) => {
+                                    handleFileChange(filePath, evt, opts).catch(
+                                        (error) => {
+                                            const message = getErrorMessage(
+                                                error,
+                                                {
+                                                    fallback:
+                                                        "Unknown file processing error"
+                                                }
+                                            );
+                                            console.error(
+                                                `Error processing ${filename}: ${message}`
+                                            );
+                                        }
+                                    );
+                                },
+                                debounceDelay
+                            );
+                            runtimeContext.debouncedHandlers.set(
+                                fullPath,
+                                debouncedHandler
+                            );
+                        }
+
+                        debouncedHandler(fullPath, eventType, {
+                            verbose,
+                            runtimeContext
+                        });
+                    }
                 }
             );
 
