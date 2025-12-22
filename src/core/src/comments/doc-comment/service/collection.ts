@@ -11,8 +11,8 @@ import {
     resolveLineCommentOptions
 } from "../../line-comment/index.js";
 
-const STRING_TYPE = "string";
-const NUMBER_TYPE = "number";
+const STRING_TYPE = "string" as const;
+const NUMBER_TYPE = "number" as const;
 
 function getNodeStartIndexForDocComments(node: any, locStart: unknown) {
     if (!node) {
@@ -161,39 +161,16 @@ export function collectSyntheticDocCommentLines(
                     }
 
                     const rawText = getLineCommentRawText(pc);
-                    const trimmedRaw =
-                        typeof rawText === STRING_TYPE ? rawText.trim() : "";
-                    const trimmedWithoutSlashes = trimmedRaw
-                        .replace(/^\/+/, "")
-                        .trim();
-                    const hasDocTagAfterSlash = /^\/+\s*@/.test(trimmedRaw);
-                    const isDocStyleSlash = /^\/\/\s+\/\s*/.test(trimmedRaw);
-                    const isBlockDocLike =
-                        trimmedRaw.startsWith("/*") &&
-                        trimmedWithoutSlashes.startsWith("@");
-                    const isRawDocLike =
-                        trimmedRaw.startsWith("///") ||
-                        hasDocTagAfterSlash ||
-                        isDocStyleSlash ||
-                        isBlockDocLike;
-                    if (!isRawDocLike) {
+                    if (!isLineCommentDocLike(rawText)) {
                         break;
                     }
-                    let allowCandidate = true;
                     if (
-                        typeof sourceText === STRING_TYPE &&
-                        Number.isInteger(pcEndIndex)
-                    ) {
-                        const gapText = sourceText.slice(
+                        hasTooManyBlankLinesBetween(
+                            sourceText,
                             pcEndIndex,
                             anchorIndex
-                        );
-                        const blankLines = (gapText.match(/\n/g) || []).length;
-                        if (blankLines >= 2) {
-                            allowCandidate = false;
-                        }
-                    }
-                    if (!allowCandidate) {
+                        )
+                    ) {
                         break;
                     }
                     docCandidates.unshift(pc);
@@ -207,14 +184,7 @@ export function collectSyntheticDocCommentLines(
                     const collected = docCandidates.map((c) =>
                         formatLineComment(c, fallbackOptions)
                     );
-                    const flattenedCollected: string[] = [];
-                    for (const entry of collected) {
-                        if (typeof entry === "string" && entry.includes("\n")) {
-                            flattenedCollected.push(...entry.split(/\r?\n/));
-                        } else if (typeof entry === "string") {
-                            flattenedCollected.push(entry);
-                        }
-                    }
+                    const flattenedCollected = flattenDocEntries(collected);
                     for (const c of docCandidates) {
                         c.printed = true;
                     }
@@ -245,15 +215,18 @@ export function collectSyntheticDocCommentLines(
                     const rawLine = sourceText.slice(lineStart, lineEnd + 1);
                     const trimmed = rawLine.trim();
                     const isBlank = trimmed.length === 0;
-                    if (isBlank) {
-                        const gapText = sourceText.slice(
+                    if (
+                        isBlank &&
+                        Number.isInteger(nodeStartIndex) &&
+                        hasTooManyBlankLinesBetween(
+                            sourceText,
                             lineStart,
                             nodeStartIndex
-                        );
-                        const blankLines = (gapText.match(/\n/g) || []).length;
-                        if (blankLines >= 2) {
-                            break;
-                        }
+                        )
+                    ) {
+                        break;
+                    }
+                    if (isBlank) {
                         anchor = lineStart - 1;
                         continue;
                     }
@@ -298,14 +271,7 @@ export function collectSyntheticDocCommentLines(
                         const inner = c.text.replace(/^\s*\/+\s*/, "").trim();
                         return inner.length > 0 ? `/// ${inner}` : "///";
                     });
-                    const flattenedFormatted: string[] = [];
-                    for (const entry of formatted) {
-                        if (typeof entry === "string" && entry.includes("\n")) {
-                            flattenedFormatted.push(...entry.split(/\r?\n/));
-                        } else if (typeof entry === "string") {
-                            flattenedFormatted.push(entry);
-                        }
-                    }
+                    const flattenedFormatted = flattenDocEntries(formatted);
                     return {
                         existingDocLines: flattenedFormatted,
                         remainingComments: toMutableArray(rawComments)
@@ -316,6 +282,61 @@ export function collectSyntheticDocCommentLines(
     }
 
     return { existingDocLines, remainingComments };
+}
+
+function isLineCommentDocLike(rawText: unknown): boolean {
+    if (typeof rawText !== STRING_TYPE) {
+        return false;
+    }
+
+    const trimmedRaw = (rawText as string).trim();
+    const trimmedWithoutSlashes = trimmedRaw.replace(/^\/+/, "").trim();
+    const hasDocTagAfterSlash = /^\/+\s*@/.test(trimmedRaw);
+    const isDocStyleSlash = /^\/\/\s+\/\s*/.test(trimmedRaw);
+    const isBlockDocLike =
+        trimmedRaw.startsWith("/*") && trimmedWithoutSlashes.startsWith("@");
+
+    return (
+        trimmedRaw.startsWith("///") ||
+        hasDocTagAfterSlash ||
+        isDocStyleSlash ||
+        isBlockDocLike
+    );
+}
+
+function hasTooManyBlankLinesBetween(
+    sourceText: string | null,
+    start: number | null,
+    end: number
+): boolean {
+    if (typeof sourceText !== STRING_TYPE || !Number.isInteger(start)) {
+        return false;
+    }
+
+    const gapText = sourceText.slice(start, end);
+    const blankLines = (gapText.match(/\n/g) || []).length;
+    return blankLines >= 2;
+}
+
+function flattenDocEntries(entries: unknown[]): string[] {
+    const flattened: string[] = [];
+    for (const entry of entries) {
+        appendFlattenedEntry(flattened, entry);
+    }
+    return flattened;
+}
+
+function appendFlattenedEntry(target: string[], entry: unknown): void {
+    if (typeof entry !== "string") {
+        return;
+    }
+
+    if (entry.includes("\n")) {
+        target.push(...entry.split(/\r?\n/));
+        return;
+    }
+
+    target.push(entry);
 }
 
 export function collectLeadingProgramLineComments(

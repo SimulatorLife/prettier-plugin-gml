@@ -522,20 +522,11 @@ export class PreprocessFunctionArgumentDefaultsTransform extends FunctionalParse
             // If we are converting a local variable to a parameter, remove the
             // variable declaration from the function body to avoid redeclaration.
             if (match.targetName) {
-                for (const stmt of statements) {
-                    if (stmt.type === "VariableDeclaration") {
-                        const declIndex = stmt.declarations.findIndex((d) => {
-                            const name = Core.getIdentifierText(d.id);
-                            return name === match.targetName;
-                        });
-                        if (declIndex !== -1) {
-                            stmt.declarations.splice(declIndex, 1);
-                            if (stmt.declarations.length === 0) {
-                                statementsToRemove.add(stmt);
-                            }
-                        }
-                    }
-                }
+                removeDeclaredVariable(
+                    statements,
+                    match.targetName,
+                    statementsToRemove
+                );
             }
 
             const identifier = paramInfo.identifier;
@@ -1772,6 +1763,32 @@ export class PreprocessFunctionArgumentDefaultsTransform extends FunctionalParse
             if (!match) return null;
             const parsed = Number.parseInt(match[1]);
             return Number.isInteger(parsed) && parsed >= 0 ? parsed : null;
+        }
+    }
+}
+
+function removeDeclaredVariable(
+    statements: GameMakerAstNode[],
+    targetName: string,
+    statementsToRemove: Set<GameMakerAstNode>
+) {
+    for (const stmt of statements) {
+        if (!stmt || stmt.type !== "VariableDeclaration") {
+            continue;
+        }
+
+        const declIndex = stmt.declarations.findIndex((declaration) => {
+            const name = Core.getIdentifierText(declaration.id);
+            return name === targetName;
+        });
+
+        if (declIndex === -1) {
+            continue;
+        }
+
+        stmt.declarations.splice(declIndex, 1);
+        if (stmt.declarations.length === 0) {
+            statementsToRemove.add(stmt);
         }
     }
 }

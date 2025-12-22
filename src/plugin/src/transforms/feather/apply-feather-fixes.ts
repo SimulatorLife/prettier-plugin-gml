@@ -450,77 +450,11 @@ function applyFeatherFixesImpl(ast: any, opts: ApplyFeatherFixesOptions = {}) {
                 // fix id has already been attached to any function to avoid
                 // duplicate attachments.
                 try {
-                    if (String(fix.id) === "GM1056") {
-                        // Skip if already attached to any FunctionDeclaration
-                        let alreadyAttached = false;
-                        walkAstNodes(ast, (node) => {
-                            if (!node || node.type !== "FunctionDeclaration") {
-                                return;
-                            }
-
-                            const existing = Array.isArray(
-                                node._appliedFeatherDiagnostics
-                            )
-                                ? node._appliedFeatherDiagnostics
-                                : [];
-
-                            if (
-                                existing.some(
-                                    (entry) => entry && entry.id === fix.id
-                                )
-                            ) {
-                                alreadyAttached = true;
-                                return false;
-                            }
-                        });
-
-                        if (!alreadyAttached) {
-                            walkAstNodes(ast, (node) => {
-                                if (
-                                    !node ||
-                                    node.type !== "FunctionDeclaration"
-                                ) {
-                                    return;
-                                }
-
-                                const params = Array.isArray(node.params)
-                                    ? node.params
-                                    : [];
-                                for (const p of params) {
-                                    if (
-                                        p &&
-                                        p.type === "DefaultParameter" &&
-                                        p.right &&
-                                        p.right.type === "Literal" &&
-                                        String(p.right.value) === "undefined"
-                                    ) {
-                                        try {
-                                            const nodeName =
-                                                getFunctionIdentifierName(node);
-                                            const toAttach =
-                                                !fix.target && nodeName
-                                                    ? [
-                                                          {
-                                                              ...fix,
-                                                              target: nodeName
-                                                          }
-                                                      ]
-                                                    : [fix];
-
-                                            attachFeatherFixMetadata(
-                                                node,
-                                                toAttach
-                                            );
-                                        } catch {
-                                            attachFeatherFixMetadata(node, [
-                                                fix
-                                            ]);
-                                        }
-                                        return false; // stop walking once attached
-                                    }
-                                }
-                            });
-                        }
+                    if (
+                        String(fix.id) === "GM1056" &&
+                        !isGM1056FixAlreadyAttached(fix, ast)
+                    ) {
+                        attachGM1056FixToUndefinedParameters(fix, ast);
                     }
                 } catch {
                     void 0;
@@ -578,6 +512,69 @@ function applyFeatherFixesImpl(ast: any, opts: ApplyFeatherFixesOptions = {}) {
     });
 
     return ast;
+}
+
+function isGM1056FixAlreadyAttached(fix: any, ast: MutableGameMakerAstNode) {
+    let alreadyAttached = false;
+    walkAstNodes(ast, (node) => {
+        if (!node || node.type !== "FunctionDeclaration") {
+            return;
+        }
+
+        const existing = Array.isArray(node._appliedFeatherDiagnostics)
+            ? node._appliedFeatherDiagnostics
+            : [];
+
+        if (existing.some((entry) => entry && entry.id === fix.id)) {
+            alreadyAttached = true;
+            return false;
+        }
+    });
+
+    return alreadyAttached;
+}
+
+function attachGM1056FixToUndefinedParameters(
+    fix: any,
+    ast: MutableGameMakerAstNode
+) {
+    walkAstNodes(ast, (node) => {
+        if (!node || node.type !== "FunctionDeclaration") {
+            return;
+        }
+
+        const params = Array.isArray(node.params) ? node.params : [];
+        for (const param of params) {
+            if (!isUndefinedDefaultParameter(param)) {
+                continue;
+            }
+
+            attachFixWithOptionalTarget(node, fix);
+            return false;
+        }
+    });
+}
+
+function isUndefinedDefaultParameter(param: any): boolean {
+    return (
+        param &&
+        param.type === "DefaultParameter" &&
+        param.right &&
+        param.right.type === "Literal" &&
+        String(param.right.value) === "undefined"
+    );
+}
+
+function attachFixWithOptionalTarget(node: MutableGameMakerAstNode, fix: any) {
+    try {
+        const nodeName = getFunctionIdentifierName(node);
+        const toAttach =
+            !fix.target && nodeName ? [{ ...fix, target: nodeName }] : [fix];
+
+        attachFeatherFixMetadata(node, toAttach);
+    } catch {
+        attachFeatherFixMetadata(node, [fix]);
+    }
 }
 
 function attachFeatherFixToNamedFunction(

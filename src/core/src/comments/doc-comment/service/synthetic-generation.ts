@@ -33,6 +33,50 @@ function normalizeDocMetadataNameToString(value: unknown): string | null {
     return typeof normalized === STRING_TYPE ? (normalized as string) : null;
 }
 
+function suppressAliasCanonicalOverrides(
+    aliasByIndex: Map<number, unknown>,
+    documentedParamNames: Set<unknown>,
+    suppressed: Set<string>
+): void {
+    for (const rawDocName of documentedParamNames) {
+        const normalizedDocName =
+            typeof rawDocName === "string"
+                ? rawDocName.replaceAll(/^\[|\]$/g, "")
+                : rawDocName;
+        const maybeIndex = getArgumentIndexFromIdentifier(normalizedDocName);
+
+        if (maybeIndex === null || !aliasByIndex.has(maybeIndex)) {
+            continue;
+        }
+
+        const fallbackCanonical =
+            getCanonicalParamNameFromText(`argument${maybeIndex}`) ||
+            `argument${maybeIndex}`;
+        suppressed.add(fallbackCanonical);
+    }
+}
+
+function suppressOrderedCanonicalFallbacks(
+    orderedParamMetadata: readonly any[],
+    suppressed: Set<string>
+): void {
+    for (const [ordIndex, ordMeta] of orderedParamMetadata.entries()) {
+        if (!ordMeta || typeof ordMeta.name !== STRING_TYPE) {
+            continue;
+        }
+
+        const canonicalOrdinal = getCanonicalParamNameFromText(ordMeta.name);
+        if (!canonicalOrdinal) {
+            continue;
+        }
+
+        const fallback =
+            getCanonicalParamNameFromText(`argument${ordIndex}`) ||
+            `argument${ordIndex}`;
+        suppressed.add(fallback);
+    }
+}
+
 function applyOrdinalImplicitDocEntryOverrides(
     node: any,
     paramIndex: number,
@@ -349,50 +393,17 @@ export function computeSyntheticFunctionDocLines(
                 refInfo.aliasByIndex &&
                 refInfo.aliasByIndex.size > 0
             ) {
-                for (const rawDocName of documentedParamNames) {
-                    try {
-                        const normalizedDocName =
-                            typeof rawDocName === "string"
-                                ? rawDocName.replaceAll(/^\[|\]$/g, "")
-                                : rawDocName;
-                        const maybeIndex =
-                            getArgumentIndexFromIdentifier(normalizedDocName);
-                        if (
-                            maybeIndex !== null &&
-                            refInfo.aliasByIndex.has(maybeIndex)
-                        ) {
-                            const fallbackCanonical =
-                                getCanonicalParamNameFromText(
-                                    `argument${maybeIndex}`
-                                ) ?? `argument${maybeIndex}`;
-                            initialSuppressed.add(fallbackCanonical);
-                        }
-                    } catch {
-                        /* ignore per-doc errors */
-                    }
+                suppressAliasCanonicalOverrides(
+                    refInfo.aliasByIndex,
+                    documentedParamNames,
+                    initialSuppressed
+                );
+                if (Array.isArray(orderedParamMetadata)) {
+                    suppressOrderedCanonicalFallbacks(
+                        orderedParamMetadata,
+                        initialSuppressed
+                    );
                 }
-
-                try {
-                    for (const [
-                        ordIndex,
-                        ordMeta
-                    ] of orderedParamMetadata.entries()) {
-                        if (!ordMeta || typeof ordMeta.name !== STRING_TYPE)
-                            continue;
-                        const canonicalOrdinal = getCanonicalParamNameFromText(
-                            ordMeta.name
-                        );
-                        if (!canonicalOrdinal) continue;
-                        const fallback =
-                            getCanonicalParamNameFromText(
-                                `argument${ordIndex}`
-                            ) || `argument${ordIndex}`;
-                        initialSuppressed.add(fallback);
-                    }
-                } catch {
-                    /* ignore */
-                }
-
                 if (initialSuppressed.size > 0) {
                     suppressedImplicitDocCanonicalByNode.set(
                         node,

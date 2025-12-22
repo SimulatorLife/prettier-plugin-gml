@@ -4168,47 +4168,21 @@ function materializeParamDefaultsFromParamDefault(functionNode) {
         // safeguard when the parser pipeline didn't materialize the node.
         if (
             param.type === "Identifier" &&
-            (param.default === null || param.default === undefined)
+            (param.default === null || param.default === undefined) &&
+            hasExplicitDefaultToLeft(functionNode, i)
         ) {
-            try {
-                // Look left for an explicit default
-                let seenExplicitDefaultToLeft = false;
-                for (let j = 0; j < i; j += 1) {
-                    const left = functionNode.params[j];
-                    if (!left) continue;
-                    if (left.type === "DefaultParameter") {
-                        const isUndef =
-                            typeof Core.isUndefinedSentinel === "function"
-                                ? Core.isUndefinedSentinel(left.right)
-                                : false;
-                        if (!isUndef) {
-                            seenExplicitDefaultToLeft = true;
-                            break;
-                        }
-                    }
-                    if (left.type === "AssignmentPattern") {
-                        seenExplicitDefaultToLeft = true;
-                        break;
-                    }
-                }
-
-                if (seenExplicitDefaultToLeft) {
-                    const defaultNode = {
-                        type: "DefaultParameter",
-                        left: { type: "Identifier", name: param.name },
-                        // Use a Literal sentinel here so the printed shape
-                        // and downstream checks observe `value: "undefined"`.
-                        right: { type: "Literal", value: "undefined" }
-                    };
-                    // Do not mark synthesized trailing `= undefined` defaults
-                    // as optional here; optionality should come from parser
-                    // transforms or explicit doc comments so downstream
-                    // heuristics remain consistent.
-                    functionNode.params[i] = defaultNode;
-                }
-            } catch {
-                // swallow
-            }
+            const defaultNode = {
+                type: "DefaultParameter",
+                left: { type: "Identifier", name: param.name },
+                // Use a Literal sentinel here so the printed shape
+                // and downstream checks observe `value: "undefined"`.
+                right: { type: "Literal", value: "undefined" }
+            };
+            // Do not mark synthesized trailing `= undefined` defaults
+            // as optional here; optionality should come from parser
+            // transforms or explicit doc comments so downstream
+            // heuristics remain consistent.
+            functionNode.params[i] = defaultNode;
         }
 
         // If the parser already created a DefaultParameter but left the `right`
@@ -4570,47 +4544,20 @@ function structLiteralHasLeadingLineBreak(node, options) {
             const lookahead = source[index + 1];
 
             if (lookahead === "/") {
-                index += 2;
-                while (index < source.length) {
-                    const commentChar = source[index];
-                    if (commentChar === "\n") {
-                        return true;
-                    }
-                    if (commentChar === "\r") {
-                        if (source[index + 1] === "\n") {
-                            return true;
-                        }
-                        return true;
-                    }
-
-                    index += 1;
+                const result = consumeSingleLineComment(source, index + 2);
+                if (result.foundLineBreak) {
+                    return true;
                 }
-
-                return false;
+                index = result.index;
+                continue;
             }
 
             if (lookahead === "*") {
-                index += 2;
-                while (index < source.length - 1) {
-                    const commentChar = source[index];
-                    if (commentChar === "\n") {
-                        return true;
-                    }
-                    if (commentChar === "\r") {
-                        if (source[index + 1] === "\n") {
-                            return true;
-                        }
-                        return true;
-                    }
-
-                    if (commentChar === "*" && source[index + 1] === "/") {
-                        index += 1;
-                        break;
-                    }
-
-                    index += 1;
+                const result = consumeBlockComment(source, index + 2);
+                if (result.foundLineBreak) {
+                    return true;
                 }
-
+                index = result.index;
                 continue;
             }
         }
@@ -4623,6 +4570,44 @@ function structLiteralHasLeadingLineBreak(node, options) {
     }
 
     return false;
+}
+
+function consumeSingleLineComment(source, startIndex) {
+    let current = startIndex;
+    while (current < source.length) {
+        const commentChar = source[current];
+        if (commentChar === "\n") {
+            return { index: current, foundLineBreak: true };
+        }
+        if (commentChar === "\r") {
+            return { index: current + 1, foundLineBreak: true };
+        }
+
+        current += 1;
+    }
+
+    return { index: current, foundLineBreak: false };
+}
+
+function consumeBlockComment(source, startIndex) {
+    let current = startIndex;
+    while (current < source.length - 1) {
+        const commentChar = source[current];
+        if (commentChar === "\n") {
+            return { index: current, foundLineBreak: true };
+        }
+        if (commentChar === "\r") {
+            return { index: current + 1, foundLineBreak: true };
+        }
+
+        if (commentChar === "*" && source[current + 1] === "/") {
+            return { index: current + 1, foundLineBreak: false };
+        }
+
+        current += 1;
+    }
+
+    return { index: current, foundLineBreak: false };
 }
 
 function getStructPropertyPrefix(node, options) {
@@ -4678,26 +4663,12 @@ function shouldOmitDefaultValueForParameter(path, options) {
                 const paramName =
                     node.left && node.left.name ? node.left.name : null;
                 if (paramName) {
-                    // search from the bottom (closest to function)
-                    for (let i = lines.length - 1; i >= 0; i -= 1) {
-                        const line = lines[i];
-                        const m = line.match(
-                            /\/\/\/\s*@param\s*(?:\{[^}]+\}\s*)?(\[[^\]]+\]|\S+)/i
-                        );
-                        if (!m) continue;
-                        const raw = m[1];
-                        let name = raw;
-                        if (name.startsWith("[")) {
-                            name = name.slice(1);
-                        }
-                        if (name.endsWith("]")) {
-                            name = name.slice(0, -1);
-                        }
-                        name = name.trim();
-                        if (name === paramName) {
-                            const isOptional = /^\[.*\]$/.test(raw);
-                            return !isOptional;
-                        }
+                    const optionalDocFlag = getDocParamOptionality(
+                        lines,
+                        paramName
+                    );
+                    if (optionalDocFlag !== null) {
+                        return !optionalDocFlag;
                     }
                 }
             }
@@ -4754,6 +4725,72 @@ function shouldOmitDefaultValueForParameter(path, options) {
         }
 
         depth += 1;
+    }
+
+    return false;
+}
+
+function getDocParamOptionality(lines, paramName) {
+    for (let i = lines.length - 1; i >= 0; i -= 1) {
+        const line = lines[i];
+        const match = line.match(
+            /\/\/\/\s*@param\s*(?:\{[^}]+\}\s*)?(\[[^\]]+\]|\S+)/i
+        );
+        if (!match) {
+            continue;
+        }
+        const raw = match[1];
+        const normalized = normalizeDocParamNameFromRaw(raw);
+        if (normalized === paramName) {
+            return /^\[.*\]$/.test(raw);
+        }
+    }
+    return null;
+}
+
+function normalizeDocParamNameFromRaw(raw) {
+    let name = raw;
+    if (name.startsWith("[")) {
+        name = name.slice(1);
+    }
+    if (name.endsWith("]")) {
+        name = name.slice(0, -1);
+    }
+    return name.trim();
+}
+
+function hasExplicitDefaultToLeft(functionNode, paramIndex) {
+    if (
+        !functionNode ||
+        !Array.isArray(functionNode.params) ||
+        !Number.isInteger(paramIndex) ||
+        paramIndex <= 0
+    ) {
+        return false;
+    }
+
+    for (let index = 0; index < paramIndex; index += 1) {
+        const candidate = functionNode.params[index];
+        if (!candidate) {
+            continue;
+        }
+
+        if (candidate.type === "DefaultParameter") {
+            const isUndefined =
+                typeof Core.isUndefinedSentinel === "function"
+                    ? Core.isUndefinedSentinel(candidate.right)
+                    : false;
+
+            if (!isUndefined) {
+                return true;
+            }
+
+            continue;
+        }
+
+        if (candidate.type === "AssignmentPattern") {
+            return true;
+        }
     }
 
     return false;
