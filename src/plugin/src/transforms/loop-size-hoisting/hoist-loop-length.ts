@@ -3,7 +3,7 @@ import {
     buildCachedSizeVariableName,
     getLoopLengthHoistInfo,
     getSizeRetrievalFunctionSuffixes
-} from "../../loop-size-hoisting/index.js";
+} from "./helpers.js";
 
 type LoopLengthHoistTransformOptions = Record<string, unknown> & {
     loopLengthHoistFunctionSuffixes?: string | string[] | null;

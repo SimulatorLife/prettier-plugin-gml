@@ -11,6 +11,10 @@ import {
     collectDescriptionContinuations
 } from "../shared/doc-comment-description.js";
 import { setDocCommentNormalization } from "../shared/doc-comment-normalization.js";
+import {
+    setDocCommentMetadata,
+    setDeprecatedDocCommentFunctionSet
+} from "../shared/doc-comment-metadata.js";
 
 type DocCommentNormalizationTransformOptions = {
     enabled?: boolean;
@@ -78,6 +82,15 @@ export class DocCommentNormalizationTransform extends FunctionalParserTransform<
         });
 
         const traversal = Core.resolveDocCommentTraversalService(ast);
+        const documentedParamNamesByFunction =
+            Core.buildDocumentedParamNameLookup(ast, sourceText, traversal);
+        const deprecatedFunctionNames = Core.collectDeprecatedFunctionNames(
+            ast,
+            sourceText,
+            traversal
+        );
+
+        setDeprecatedDocCommentFunctionSet(ast, deprecatedFunctionNames);
 
         traversal.forEach((node, comments = []) => {
             const mutableNode = node as MutableGameMakerAstNode;
@@ -143,6 +156,29 @@ export class DocCommentNormalizationTransform extends FunctionalParserTransform<
             const needsLeadingBlankLine = Boolean(
                 parentNode && parentNode.type === "BlockStatement"
             );
+
+            const metadata: {
+                documentedParamNames?: Set<string>;
+                hasDeprecatedDocComment?: boolean;
+            } = {};
+
+            const documentedParamNames =
+                documentedParamNamesByFunction.get(mutableNode);
+
+            if (documentedParamNames && documentedParamNames.size > 0) {
+                metadata.documentedParamNames = documentedParamNames;
+            }
+
+            const nodeName = Core.getNodeName(mutableNode);
+            if (nodeName && deprecatedFunctionNames.has(nodeName)) {
+                metadata.hasDeprecatedDocComment = true;
+            }
+
+            const hasMetadata =
+                metadata.documentedParamNames !== undefined ||
+                metadata.hasDeprecatedDocComment === true;
+
+            setDocCommentMetadata(node, hasMetadata ? metadata : null);
 
             setDocCommentNormalization(node, {
                 docCommentDocs: normalizedDocComments,

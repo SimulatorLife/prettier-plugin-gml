@@ -36,6 +36,10 @@ import {
 } from "./feather/enum-fixes.js";
 import { parseExample } from "./feather/parser-bootstrap.js";
 import { preprocessFunctionArgumentDefaultsTransform } from "./preprocess-function-argument-defaults.js";
+import {
+    getDocCommentMetadata,
+    getDeprecatedDocCommentFunctionSet
+} from "../shared/doc-comment-metadata.js";
 
 type RenameOptions = {
     // TODO: This may be duplicated by functionality in the 'refactor' and/or 'semantic' modules. Identifier renaming needs to live in the 'refactor' module, which is built on top of 'semantic' (which handles scope and context) so that identifiers can be renamed properly/safely without introducing conflicts
@@ -3821,18 +3825,12 @@ function isZeroLiteral(node) {
     return normalized === 0;
 }
 
-function normalizeArgumentBuiltinReferences({ ast, diagnostic, sourceText }) {
+function normalizeArgumentBuiltinReferences({ ast, diagnostic }) {
     if (!hasFeatherDiagnosticContext(ast, diagnostic)) {
         return [];
     }
 
     const fixes = [];
-    const docCommentTraversal = Core.resolveDocCommentTraversalService(ast);
-    const documentedParamNamesByFunction = Core.buildDocumentedParamNameLookup(
-        ast,
-        sourceText,
-        docCommentTraversal
-    );
 
     const visit = (node) => {
         if (!node) {
@@ -3851,8 +3849,9 @@ function normalizeArgumentBuiltinReferences({ ast, diagnostic, sourceText }) {
         }
 
         if (Core.isFunctionLikeNode(node)) {
+            const metadata = getDocCommentMetadata(node);
             const documentedParamNames =
-                documentedParamNamesByFunction.get(node) ?? new Set();
+                metadata?.documentedParamNames ?? new Set<string>();
             const functionFixes = fixArgumentReferencesWithinFunction(
                 node,
                 diagnostic,
@@ -5862,12 +5861,8 @@ function captureDeprecatedFunctionManualFixes({ ast, sourceText, diagnostic }) {
         return [];
     }
 
-    const docCommentTraversal = Core.resolveDocCommentTraversalService(ast);
-    const deprecatedFunctions = Core.collectDeprecatedFunctionNames(
-        ast,
-        sourceText,
-        docCommentTraversal
-    );
+    const deprecatedFunctions =
+        getDeprecatedDocCommentFunctionSet(ast) ?? new Set();
 
     if (!deprecatedFunctions || deprecatedFunctions.size === 0) {
         return [];
