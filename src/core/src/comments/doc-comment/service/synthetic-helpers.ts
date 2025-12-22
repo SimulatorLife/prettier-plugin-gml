@@ -334,10 +334,19 @@ export function gatherImplicitArgumentReferences(functionNode: any) {
     return { referencedIndices, aliasByIndex, directReferenceIndices };
 }
 
+export type ImplicitArgumentDocEntry = {
+    name?: string | null;
+    canonical?: string | null;
+    fallbackCanonical?: string | null;
+    index?: number;
+    hasDirectReference?: boolean;
+    _suppressDocLine?: boolean;
+};
+
 export function collectImplicitArgumentDocNames(
     functionNode: any,
     _options: SyntheticDocGenerationOptions
-) {
+): ImplicitArgumentDocEntry[] {
     void _options;
     if (
         !functionNode ||
@@ -349,7 +358,8 @@ export function collectImplicitArgumentDocNames(
     }
 
     if (Array.isArray(functionNode._featherImplicitArgumentDocEntries)) {
-        const entries = functionNode._featherImplicitArgumentDocEntries;
+        const entries =
+            functionNode._featherImplicitArgumentDocEntries as ImplicitArgumentDocEntry[];
         const suppressedCanonicals =
             suppressedImplicitDocCanonicalByNode.get(functionNode);
 
@@ -374,7 +384,7 @@ export function collectImplicitArgumentDocNames(
 
 function processImplicitArgumentEntries(
     functionNode: any,
-    entries: Array<any>
+    entries: ImplicitArgumentDocEntry[]
 ): void {
     try {
         const referenceInfo = gatherImplicitArgumentReferences(functionNode);

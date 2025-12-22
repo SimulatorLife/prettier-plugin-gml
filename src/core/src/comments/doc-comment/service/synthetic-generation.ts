@@ -22,11 +22,19 @@ import {
     shouldOmitUndefinedDefaultForFunctionNode,
     suppressedImplicitDocCanonicalByNode,
     preferredParamDocNamesByNode,
-    SyntheticDocGenerationOptions
+    SyntheticDocGenerationOptions,
+    ImplicitArgumentDocEntry
 } from "./synthetic-helpers.js";
 
 const STRING_TYPE = "string";
 const NUMBER_TYPE = "number";
+
+type DocMeta = {
+    tag: string;
+    name?: string | null;
+    type?: string | null;
+    description?: string | null;
+};
 
 function normalizeDocMetadataNameToString(value: unknown): string | null {
     const normalized = normalizeDocMetadataName(value);
@@ -227,26 +235,18 @@ export function computeSyntheticFunctionDocLines(
         return [];
     }
 
-    type DocMeta = {
-        tag: string;
-        name?: string | null;
-        type?: string | null;
-        description?: string | null;
-    };
     const metadata = (
         Array.isArray(existingDocLines)
             ? existingDocLines.map(parseDocCommentMetadata).filter(Boolean)
             : []
     ) as DocMeta[];
 
-    const orderedParamMetadata = metadata.filter(
-        (meta) => meta.tag === "param"
-    );
+    const orderedParamMetadata = metadata.filter((meta) => meta.tag === "param");
 
     const hasReturnsTag = metadata.some((meta) => meta.tag === "returns");
     const hasOverrideTag = metadata.some((meta) => meta.tag === "override");
-    const documentedParamNames = new Set();
-    const paramMetadataByCanonical = new Map();
+    const documentedParamNames = new Set<unknown>();
+    const paramMetadataByCanonical = new Map<string, DocMeta>();
     const overrideName = overrides?.nameOverride;
     const functionName = overrideName ?? getNodeName(node);
     const existingFunctionMetadata = metadata.find(
@@ -299,8 +299,78 @@ export function computeSyntheticFunctionDocLines(
         lines.push(`/// @function ${functionNameToUse}`);
     }
 
+    const initialSuppressed = computeInitialSuppressedCanonicals(
+        node,
+        orderedParamMetadata,
+        documentedParamNames,
+        options,
+        paramMetadataByCanonical
+    );
+
+    if (initialSuppressed.size > 0) {
+        suppressedImplicitDocCanonicalByNode.set(node, initialSuppressed);
+    }
+
+    const implicitArgumentDocNames = collectImplicitArgumentDocNames(
+        node,
+        options
+    );
+
+    appendImplicitFallbackDocLines(
+        implicitArgumentDocNames,
+        documentedParamNames,
+        lines
+    );
+
+    const implicitDocEntryByIndex = buildImplicitDocEntryByIndex(
+        implicitArgumentDocNames
+    );
+
+    if (!isNonEmptyArray(node.params)) {
+        appendDocLinesForNoParams(
+            lines,
+            implicitArgumentDocNames,
+            documentedParamNames,
+            node
+        );
+        return finalizeDocLines(lines, node, hasReturnsTag, overrides);
+    }
+
+    appendDocumentedParamLines(
+        lines,
+        node,
+        options,
+        documentedParamNames,
+        orderedParamMetadata,
+        paramMetadataByCanonical,
+        implicitDocEntryByIndex,
+        implicitArgumentDocNames
+    );
+
+    return finalizeDocLines(lines, node, hasReturnsTag, overrides);
+}
+
+function finalizeDocLines(
+    lines: string[],
+    node: any,
+    hasReturnsTag: boolean,
+    overrides: any
+) {
+    return maybeAppendReturnsDoc(lines, node, hasReturnsTag, overrides).map(
+        (line) => normalizeDocCommentTypeAnnotations(line)
+    );
+}
+
+function computeInitialSuppressedCanonicals(
+    node: any,
+    orderedParamMetadata: readonly DocMeta[],
+    documentedParamNames: Set<unknown>,
+    options: SyntheticDocGenerationOptions,
+    paramMetadataByCanonical: Map<string, DocMeta>
+) {
+    const suppressed = new Set<string>();
+
     try {
-        const initialSuppressed = new Set<string>();
         if (Array.isArray(node?.params)) {
             for (const [paramIndex, param] of node.params.entries()) {
                 const ordinalMetadata =
@@ -328,8 +398,7 @@ export function computeSyntheticFunctionDocLines(
 
                 const isGenericArgumentName =
                     typeof paramIdentifierName === STRING_TYPE &&
-                    getArgumentIndexFromIdentifier(paramIdentifierName) !==
-                        null;
+                    getArgumentIndexFromIdentifier(paramIdentifierName) !== null;
 
                 const canonicalOrdinalMatchesParam =
                     Boolean(canonicalOrdinal) &&
@@ -351,80 +420,72 @@ export function computeSyntheticFunctionDocLines(
                     canonicalOrdinal !== canonicalParamName &&
                     !paramMetadataByCanonical.has(canonicalParamName)
                 ) {
-                    const canonicalOrdinalMatchesDeclaredParam = Array.isArray(
-                        node?.params
-                    )
-                        ? node.params.some(
-                              (candidate: any, candidateIndex: number) => {
-                                  if (candidateIndex === paramIndex)
-                                      return false;
-                                  const candidateInfo = getParameterDocInfo(
-                                      candidate,
-                                      node,
-                                      options
-                                  );
-                                  const candidateCanonical = candidateInfo?.name
-                                      ? getCanonicalParamNameFromText(
-                                            candidateInfo.name
-                                        )
-                                      : null;
-                                  return (
-                                      candidateCanonical === canonicalOrdinal
-                                  );
-                              }
-                          )
-                        : false;
+                    const canonicalOrdinalMatchesDeclaredParam =
+                        Array.isArray(node?.params) &&
+                        node.params.some(
+                            (candidate: any, candidateIndex: number) => {
+                                if (candidateIndex === paramIndex) {
+                                    return false;
+                                }
+
+                                const candidateInfo = getParameterDocInfo(
+                                    candidate,
+                                    node,
+                                    options
+                                );
+                                const candidateCanonical =
+                                    candidateInfo?.name
+                                        ? getCanonicalParamNameFromText(
+                                              candidateInfo.name
+                                          )
+                                        : null;
+
+                                return candidateCanonical === canonicalOrdinal;
+                            }
+                        );
 
                     if (!canonicalOrdinalMatchesDeclaredParam) {
-                        initialSuppressed.add(canonicalOrdinal);
+                        suppressed.add(canonicalOrdinal);
                     }
                 }
             }
-        }
-
-        if (initialSuppressed.size > 0) {
-            suppressedImplicitDocCanonicalByNode.set(node, initialSuppressed);
-        }
-
-        try {
-            const refInfo = gatherImplicitArgumentReferences(node);
-            if (
-                refInfo &&
-                refInfo.aliasByIndex &&
-                refInfo.aliasByIndex.size > 0
-            ) {
-                suppressAliasCanonicalOverrides(
-                    refInfo.aliasByIndex,
-                    documentedParamNames,
-                    initialSuppressed
-                );
-                if (Array.isArray(orderedParamMetadata)) {
-                    suppressOrderedCanonicalFallbacks(
-                        orderedParamMetadata,
-                        initialSuppressed
-                    );
-                }
-                if (initialSuppressed.size > 0) {
-                    suppressedImplicitDocCanonicalByNode.set(
-                        node,
-                        initialSuppressed
-                    );
-                }
-            }
-        } catch {
-            /* ignore gather errors */
         }
     } catch {
         /* ignore pre-pass errors */
     }
 
-    const implicitArgumentDocNames = collectImplicitArgumentDocNames(
-        node,
-        options
-    );
-
     try {
-        const fallbacksToAdd = [];
+        const refInfo = gatherImplicitArgumentReferences(node);
+        if (
+            refInfo &&
+            refInfo.aliasByIndex &&
+            refInfo.aliasByIndex.size > 0
+        ) {
+            suppressAliasCanonicalOverrides(
+                refInfo.aliasByIndex,
+                documentedParamNames,
+                suppressed
+            );
+            if (Array.isArray(orderedParamMetadata)) {
+                suppressOrderedCanonicalFallbacks(
+                    orderedParamMetadata,
+                    suppressed
+                );
+            }
+        }
+    } catch {
+        /* ignore gather errors */
+    }
+
+    return suppressed;
+}
+
+function appendImplicitFallbackDocLines(
+    implicitArgumentDocNames: readonly ImplicitArgumentDocEntry[],
+    documentedParamNames: Set<unknown>,
+    lines: string[]
+) {
+    try {
         for (const entry of implicitArgumentDocNames) {
             if (!entry) continue;
             const { canonical, fallbackCanonical, index, hasDirectReference } =
@@ -442,14 +503,15 @@ export function computeSyntheticFunctionDocLines(
                 lines.push(`/// @param ${fallbackCanonical}`);
             }
         }
-        if (fallbacksToAdd.length > 0) {
-            implicitArgumentDocNames.push(...fallbacksToAdd);
-        }
     } catch {
         /* best-effort */
     }
+}
 
-    const implicitDocEntryByIndex = new Map();
+function buildImplicitDocEntryByIndex(
+    implicitArgumentDocNames: readonly ImplicitArgumentDocEntry[]
+) {
+    const implicitDocEntryByIndex = new Map<number, ImplicitArgumentDocEntry>();
 
     for (const entry of implicitArgumentDocNames) {
         if (!entry) {
@@ -466,80 +528,89 @@ export function computeSyntheticFunctionDocLines(
         }
     }
 
-    if (!isNonEmptyArray(node.params)) {
-        for (const entry of implicitArgumentDocNames) {
-            if (!entry) continue;
-            const {
-                name: docName,
-                index,
-                canonical,
-                fallbackCanonical
-            } = entry;
+    return implicitDocEntryByIndex;
+}
 
-            if (documentedParamNames.has(docName)) {
-                if (
-                    canonical &&
-                    fallbackCanonical &&
-                    canonical !== fallbackCanonical &&
-                    entry.hasDirectReference === true &&
-                    Number.isInteger(index) &&
-                    index >= 0 &&
-                    !documentedParamNames.has(fallbackCanonical)
-                ) {
-                    documentedParamNames.add(fallbackCanonical);
-                    lines.push(`/// @param ${fallbackCanonical}`);
-                }
-                continue;
-            }
+function appendDocLinesForNoParams(
+    lines: string[],
+    implicitArgumentDocNames: readonly ImplicitArgumentDocEntry[],
+    documentedParamNames: Set<unknown>,
+    node: any
+) {
+    for (const entry of implicitArgumentDocNames) {
+        if (!entry) continue;
+        const { name: docName, index, canonical, fallbackCanonical } = entry;
 
-            documentedParamNames.add(docName);
-            lines.push(`/// @param ${docName}`);
-
-            const shouldAddFallbackInDocumentedBranch =
-                Boolean(canonical && fallbackCanonical) &&
+        if (documentedParamNames.has(docName)) {
+            if (
+                canonical &&
+                fallbackCanonical &&
                 canonical !== fallbackCanonical &&
                 entry.hasDirectReference === true &&
                 Number.isInteger(index) &&
                 index >= 0 &&
-                !documentedParamNames.has(fallbackCanonical);
+                !documentedParamNames.has(fallbackCanonical)
+            ) {
+                documentedParamNames.add(fallbackCanonical);
+                lines.push(`/// @param ${fallbackCanonical}`);
+            }
+            continue;
+        }
 
-            if (shouldAddFallbackInDocumentedBranch) {
+        documentedParamNames.add(docName);
+        lines.push(`/// @param ${docName}`);
+
+        const shouldAddFallbackInDocumentedBranch =
+            Boolean(canonical && fallbackCanonical) &&
+            canonical !== fallbackCanonical &&
+            entry.hasDirectReference === true &&
+            Number.isInteger(index) &&
+            index >= 0 &&
+            !documentedParamNames.has(fallbackCanonical);
+
+        if (shouldAddFallbackInDocumentedBranch) {
+            documentedParamNames.add(fallbackCanonical);
+            lines.push(`/// @param ${fallbackCanonical}`);
+        }
+    }
+
+    try {
+        for (const entry of implicitArgumentDocNames) {
+            if (!entry) continue;
+            const { index, canonical, fallbackCanonical } = entry;
+            const suppressedCanonicals =
+                suppressedImplicitDocCanonicalByNode.get(node);
+
+            if (
+                entry.hasDirectReference === true &&
+                Number.isInteger(index) &&
+                index >= 0 &&
+                fallbackCanonical &&
+                fallbackCanonical !== canonical &&
+                !documentedParamNames.has(fallbackCanonical) &&
+                (!suppressedCanonicals ||
+                    !suppressedCanonicals.has(fallbackCanonical))
+            ) {
                 documentedParamNames.add(fallbackCanonical);
                 lines.push(`/// @param ${fallbackCanonical}`);
             }
         }
-
-        try {
-            for (const entry of implicitArgumentDocNames) {
-                if (!entry) continue;
-                const { index, canonical, fallbackCanonical } = entry;
-                const suppressedCanonicals =
-                    suppressedImplicitDocCanonicalByNode.get(node);
-
-                if (
-                    entry.hasDirectReference === true &&
-                    Number.isInteger(index) &&
-                    index >= 0 &&
-                    fallbackCanonical &&
-                    fallbackCanonical !== canonical &&
-                    !documentedParamNames.has(fallbackCanonical) &&
-                    (!suppressedCanonicals ||
-                        !suppressedCanonicals.has(fallbackCanonical))
-                ) {
-                    documentedParamNames.add(fallbackCanonical);
-                    lines.push(`/// @param ${fallbackCanonical}`);
-                }
-            }
-        } catch {
-            /* best-effort */
-        }
-
-        return maybeAppendReturnsDoc(lines, node, hasReturnsTag, overrides).map(
-            (line) => normalizeDocCommentTypeAnnotations(line)
-        );
+    } catch {
+        /* best-effort */
     }
+}
 
-    for (const [paramIndex, param] of node.params.entries()) {
+function appendDocumentedParamLines(
+    lines: string[],
+    node: any,
+    options: SyntheticDocGenerationOptions,
+    documentedParamNames: Set<unknown>,
+    orderedParamMetadata: readonly DocMeta[],
+    paramMetadataByCanonical: Map<string, DocMeta>,
+    implicitDocEntryByIndex: Map<number, ImplicitArgumentDocEntry>,
+    implicitArgumentDocNames: readonly ImplicitArgumentDocEntry[]
+) {
+    for (const [paramIndex, param] of (node.params ?? []).entries()) {
         const paramInfo = getParameterDocInfo(param, node, options);
         if (!paramInfo || !paramInfo.name) {
             continue;
@@ -569,7 +640,8 @@ export function computeSyntheticFunctionDocLines(
             implicitDocEntry &&
             typeof implicitDocEntry.name === STRING_TYPE &&
             implicitDocEntry.name &&
-            implicitDocEntry.canonical !== implicitDocEntry.fallbackCanonical
+            implicitDocEntry.canonical !==
+                implicitDocEntry.fallbackCanonical
                 ? implicitDocEntry.name
                 : null;
         const canonicalParamName =
@@ -582,7 +654,7 @@ export function computeSyntheticFunctionDocLines(
             null;
         const existingDocName = existingMetadata?.name;
         const hasCompleteOrdinalDocs =
-            Array.isArray(node.params) &&
+            Array.isArray(node?.params) &&
             orderedParamMetadata.length === node.params.length;
         const canonicalOrdinalMatchesParam =
             Boolean(canonicalOrdinal) &&
@@ -596,10 +668,6 @@ export function computeSyntheticFunctionDocLines(
         const shouldAdoptOrdinalName =
             Boolean(rawOrdinalName) &&
             (canonicalOrdinalMatchesParam || isGenericArgumentName);
-
-        if (paramIndex === 0) {
-            // console.log("[DEBUG] paramIndex 0 (second loop)");
-        }
 
         if (
             hasCompleteOrdinalDocs &&
@@ -634,26 +702,28 @@ export function computeSyntheticFunctionDocLines(
             node &&
             !paramMetadataByCanonical.has(canonicalParamName)
         ) {
-            const canonicalOrdinalMatchesDeclaredParam = Array.isArray(
-                node?.params
-            )
-                ? node.params.some((candidate: any, candidateIndex: number) => {
-                      if (candidateIndex === paramIndex) {
-                          return false;
-                      }
+            const canonicalOrdinalMatchesDeclaredParam =
+                Array.isArray(node?.params)
+                    ? node.params.some((candidate: any, candidateIndex: number) => {
+                          if (candidateIndex === paramIndex) {
+                              return false;
+                          }
 
-                      const candidateInfo = getParameterDocInfo(
-                          candidate,
-                          node,
-                          options
-                      );
-                      const candidateCanonical = candidateInfo?.name
-                          ? getCanonicalParamNameFromText(candidateInfo.name)
-                          : null;
+                          const candidateInfo = getParameterDocInfo(
+                              candidate,
+                              node,
+                              options
+                          );
+                          const candidateCanonical =
+                              candidateInfo?.name
+                                  ? getCanonicalParamNameFromText(
+                                        candidateInfo.name
+                                    )
+                                  : null;
 
-                      return candidateCanonical === canonicalOrdinal;
-                  })
-                : false;
+                          return candidateCanonical === canonicalOrdinal;
+                      })
+                    : false;
 
             if (!canonicalOrdinalMatchesDeclaredParam) {
                 let suppressedCanonicals =
@@ -921,10 +991,6 @@ export function computeSyntheticFunctionDocLines(
             lines.push(`/// @param ${fallbackCanonical}`);
         }
     }
-
-    return maybeAppendReturnsDoc(lines, node, hasReturnsTag, overrides).map(
-        (line) => normalizeDocCommentTypeAnnotations(line)
-    );
 }
 
 /**

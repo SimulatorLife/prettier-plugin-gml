@@ -290,134 +290,16 @@ function _printImpl(path, options, print) {
         return concat(node);
     }
 
+    return _printImplCore(node, path, options, print);
+}
+
+function _printImplCore(node, path, options, print) {
     switch (node.type) {
         case "Program": {
-            if (node && node.__identifierCasePlanSnapshot) {
-                try {
-                    if (
-                        Semantic &&
-                        typeof Semantic.applyIdentifierCasePlanSnapshot ===
-                            "function"
-                    ) {
-                        Semantic.applyIdentifierCasePlanSnapshot(
-                            node.__identifierCasePlanSnapshot,
-                            options
-                        );
-                    }
-                } catch {
-                    // Non-fatal: identifier case snapshot application is
-                    // optional for printing. If the Semantic API isn't
-                    // available, continue without it.
-                }
-            }
-
-            try {
-                try {
-                    if (
-                        Semantic &&
-                        typeof Semantic.maybeReportIdentifierCaseDryRun ===
-                            "function"
-                    ) {
-                        Semantic.maybeReportIdentifierCaseDryRun(options);
-                    }
-                } catch {
-                    /* ignore */
-                }
-
-                if (node.body.length === 0) {
-                    return concat(
-                        printDanglingCommentsAsGroup(path, options, () => true)
-                    );
-                }
-                const bodyParts = printStatements(path, options, print, "body");
-
-                // DEBUG: Check if comments are attached to Program
-                // if (node.comments && node.comments.length > 0) {
-                //     console.log(
-                //         "[DEBUG] Program has comments:",
-                //         JSON.stringify(node.comments, null, 2)
-                //     );
-                // } else {
-                //     console.log("[DEBUG] Program has NO comments");
-                // }
-
-                // Print any comments attached to the Program node itself (e.g. top-level comments)
-                const programComments = printDanglingCommentsAsGroup(
-                    path,
-                    options,
-                    () => true
-                );
-
-                return concat([programComments, concat(bodyParts)]);
-            } finally {
-                try {
-                    if (
-                        Semantic &&
-                        typeof Semantic.teardownIdentifierCaseEnvironment ===
-                            "function"
-                    ) {
-                        Semantic.teardownIdentifierCaseEnvironment(options);
-                    }
-                } catch {
-                    /* ignore */
-                }
-            }
+            return printProgramNode(node, path, options, print);
         }
         case "BlockStatement": {
-            if (node.body.length === 0) {
-                return concat(printEmptyBlock(path, options));
-            }
-
-            let leadingDocs = [hardline];
-
-            if (node._gmlForceInitialBlankLine) {
-                leadingDocs = [hardline, hardline];
-            }
-
-            const sourceMetadata = resolvePrinterSourceMetadata(options);
-            const { originalText } = sourceMetadata;
-            if (originalText !== null) {
-                const firstStatement = node.body[0];
-                const { startIndex: firstStatementStartIndex } =
-                    resolveNodeIndexRangeWithSource(
-                        firstStatement,
-                        sourceMetadata
-                    );
-
-                const preserveForConstructor =
-                    typeof firstStatementStartIndex === NUMBER_TYPE &&
-                    isBlockWithinConstructor(path) &&
-                    isPreviousLineEmpty(originalText, firstStatementStartIndex);
-
-                const preserveForLeadingComment =
-                    hasBlankLineBeforeLeadingComment(
-                        node,
-                        sourceMetadata,
-                        originalText,
-                        firstStatementStartIndex
-                    );
-
-                if (preserveForConstructor || preserveForLeadingComment) {
-                    leadingDocs.push(
-                        lineSuffixBoundary as any,
-                        hardline as any
-                    );
-                }
-            }
-
-            const stmts = printStatements(path, options, print, "body");
-
-            return concat([
-                "{",
-                printDanglingComments(
-                    path,
-                    options,
-                    (comment) => comment.attachToBrace
-                ),
-                indent([...leadingDocs, stmts]),
-                hardline,
-                "}"
-            ]);
+            return printBlockStatementNode(node, path, options, print);
         }
         case "IfStatement": {
             const simplifiedReturn = printBooleanReturnIf(path, print);
@@ -427,76 +309,13 @@ function _printImpl(path, options, print) {
             return buildIfStatementDoc(path, options, print, node);
         }
         case "SwitchStatement": {
-            const parts: any[] = [];
-            const discriminantDoc = printWithoutExtraParens(
-                path,
-                print,
-                "discriminant"
-            );
-            parts.push(["switch (", buildClauseGroup(discriminantDoc), ") "]);
-
-            const braceIntro = [
-                "{",
-                printDanglingComments(
-                    path,
-                    options,
-                    (comment) => comment.attachToBrace
-                )
-            ];
-
-            if (node.cases.length === 0) {
-                parts.push(
-                    concat([
-                        ...braceIntro,
-                        printDanglingCommentsAsGroup(
-                            path,
-                            options,
-                            (comment) => !comment.attachToBrace
-                        ),
-                        hardline,
-                        "}"
-                    ])
-                );
-            } else {
-                parts.push(
-                    concat([
-                        ...braceIntro,
-                        indent([path.map(print, "cases")]),
-                        hardline,
-                        "}"
-                    ])
-                );
-            }
-
-            return concat(parts);
+            return printSwitchStatementNode(node, path, options, print);
         }
         case "SwitchCase": {
-            const caseText = node.test === null ? "default" : "case ";
-            const parts: any[] = [[hardline, caseText, print("test"), ":"]];
-            const caseBody = node.body;
-            if (Core.isNonEmptyArray(caseBody)) {
-                parts.push([
-                    indent([
-                        hardline,
-                        printStatements(path, options, print, "body")
-                    ])
-                ]);
-            }
-            return concat(parts);
+            return printSwitchCaseNode(node, path, options, print);
         }
         case "TernaryExpression": {
-            const testDoc = path.call(print, "test");
-            const consequentDoc = path.call(print, "consequent");
-            const alternateDoc = path.call(print, "alternate");
-
-            const ternaryDoc = group([
-                testDoc,
-                indent([line, "? ", consequentDoc, line, ": ", alternateDoc])
-            ]);
-
-            return shouldWrapTernaryExpression(path)
-                ? concat(["(", ternaryDoc, ")"])
-                : ternaryDoc;
+            return printTernaryExpressionNode(node, path, options, print);
         }
         case "ForStatement": {
             return concat([
@@ -1783,6 +1602,189 @@ function _printImpl(path, options, print) {
             );
         }
     }
+}
+
+function printProgramNode(node, path, options, print) {
+    if (node && node.__identifierCasePlanSnapshot) {
+        try {
+            if (
+                Semantic &&
+                typeof Semantic.applyIdentifierCasePlanSnapshot === "function"
+            ) {
+                Semantic.applyIdentifierCasePlanSnapshot(
+                    node.__identifierCasePlanSnapshot,
+                    options
+                );
+            }
+        } catch {
+            // Non-fatal: identifier case snapshot application is optional for printing.
+            // If the Semantic API isn't available, continue without it.
+        }
+    }
+
+    try {
+        try {
+            if (
+                Semantic &&
+                typeof Semantic.maybeReportIdentifierCaseDryRun === "function"
+            ) {
+                Semantic.maybeReportIdentifierCaseDryRun(options);
+            }
+        } catch {
+            /* ignore */
+        }
+
+        if (node.body.length === 0) {
+            return concat(
+                printDanglingCommentsAsGroup(path, options, () => true)
+            );
+        }
+        const bodyParts = printStatements(path, options, print, "body");
+
+        // DEBUG: Check if comments are attached to Program
+        // if (node.comments && node.comments.length > 0) {
+        //     console.log(
+        //         "[DEBUG] Program has comments:",
+        //         JSON.stringify(node.comments, null, 2)
+        //     );
+        // } else {
+        //     console.log("[DEBUG] Program has NO comments");
+        // }
+
+        const programComments = printDanglingCommentsAsGroup(
+            path,
+            options,
+            () => true
+        );
+
+        return concat([programComments, concat(bodyParts)]);
+    } finally {
+        try {
+            if (
+                Semantic &&
+                typeof Semantic.teardownIdentifierCaseEnvironment ===
+                    "function"
+            ) {
+                Semantic.teardownIdentifierCaseEnvironment(options);
+            }
+        } catch {
+            /* ignore */
+        }
+    }
+}
+
+function printBlockStatementNode(node, path, options, print) {
+    if (node.body.length === 0) {
+        return concat(printEmptyBlock(path, options));
+    }
+
+    let leadingDocs = [hardline];
+
+    if (node._gmlForceInitialBlankLine) {
+        leadingDocs = [hardline, hardline];
+    }
+
+    const sourceMetadata = resolvePrinterSourceMetadata(options);
+    const { originalText } = sourceMetadata;
+    if (originalText !== null) {
+        const firstStatement = node.body[0];
+        const { startIndex: firstStatementStartIndex } =
+            resolveNodeIndexRangeWithSource(
+                firstStatement,
+                sourceMetadata
+            );
+
+        const preserveForConstructor =
+            typeof firstStatementStartIndex === NUMBER_TYPE &&
+            isBlockWithinConstructor(path) &&
+            isPreviousLineEmpty(originalText, firstStatementStartIndex);
+
+        const preserveForLeadingComment =
+            hasBlankLineBeforeLeadingComment(
+                node,
+                sourceMetadata,
+                originalText,
+                firstStatementStartIndex
+            );
+
+        if (preserveForConstructor || preserveForLeadingComment) {
+            leadingDocs.push(lineSuffixBoundary as any, hardline as any);
+        }
+    }
+
+    const stmts = printStatements(path, options, print, "body");
+
+    return concat([
+        "{",
+        printDanglingComments(
+            path,
+            options,
+            (comment) => comment.attachToBrace
+        ),
+        indent([...leadingDocs, stmts]),
+        hardline,
+        "}"
+    ]);
+}
+
+function printSwitchStatementNode(node, path, options, print) {
+    const parts = [];
+    const discriminantDoc = printWithoutExtraParens(
+        path,
+        print,
+        "discriminant"
+    );
+    parts.push(["switch (", buildClauseGroup(discriminantDoc), ") "]);
+
+    const braceIntro = [
+        "{",
+        printDanglingComments(
+            path,
+            options,
+            (comment) => comment.attachToBrace
+        )
+    ];
+
+    if (node.cases.length === 0) {
+        parts.push(
+            concat([
+                ...braceIntro,
+                printDanglingCommentsAsGroup(
+                    path,
+                    options,
+                    (comment) => !comment.attachToBrace
+                ),
+                hardline,
+                "}"
+            ])
+        );
+    } else {
+        parts.push(
+            concat([
+                ...braceIntro,
+                indent([path.map(print, "cases")]),
+                hardline,
+                "}"
+            ])
+        );
+    }
+
+    return concat(parts);
+}
+
+function printSwitchCaseNode(node, path, options, print) {
+    const caseText = node.test === null ? "default" : "case ";
+    const parts = [[hardline, caseText, print("test"), ":"]];
+    const caseBody = node.body;
+    if (Core.isNonEmptyArray(caseBody)) {
+        parts.push([
+            indent([
+                hardline,
+                printStatements(path, options, print, "body")
+            ])
+        ]);
+    }
+    return concat(parts);
 }
 
 // Sanitize the top-level doc returned by the inner print implementation

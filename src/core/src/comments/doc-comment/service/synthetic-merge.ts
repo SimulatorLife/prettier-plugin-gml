@@ -98,6 +98,20 @@ function hasMultiLineDocCommentSummary(
     return false;
 }
 
+function logDebugMergeStart(
+    isDebugMerge: boolean,
+    existingDocLines: DocCommentLines | string[]
+) {
+    if (!isDebugMerge) {
+        return;
+    }
+
+    console.log(
+        "[DEBUG MERGE START] mergeSyntheticDocComments called with existingDocLines:",
+        existingDocLines
+    );
+}
+
 export function mergeSyntheticDocComments(
     node: any,
     existingDocLines: DocCommentLines | string[],
@@ -109,16 +123,10 @@ export function mergeSyntheticDocComments(
             typeof line === STRING_TYPE && line.includes("Additional summary")
     );
 
-    if (isDebugMerge) {
-        console.log(
-            "[DEBUG MERGE START] mergeSyntheticDocComments called with existingDocLines:",
-            existingDocLines
-        );
-    }
+    logDebugMergeStart(isDebugMerge, existingDocLines);
 
-    let normalizedExistingLines = existingDocLines.map((line) =>
-        line.trim()
-    ) as MutableDocCommentLines;
+    let normalizedExistingLines: MutableDocCommentLines = existingDocLines
+        .map((line) => line.trim()) as MutableDocCommentLines;
     const originalExistingHasTags =
         Array.isArray(existingDocLines) &&
         existingDocLines.some((line) =>
@@ -198,50 +206,36 @@ export function mergeSyntheticDocComments(
         );
     const hasMultiLineSummary = hasMultiLineDocCommentSummary(existingDocLines);
 
-    if (
-        originalExistingHasTags ||
-        originalExistingHasDocLikePrefixes ||
+    ({
+        normalizedExistingLines,
+        preserveDescriptionBreaks
+    } = applyDocCommentPromotionIfNeeded({
+        normalizedExistingLines,
+        preserveDescriptionBreaks,
+        syntheticLines: _computedSynthetic,
+        originalExistingHasTags,
+        originalExistingHasDocLikePrefixes,
         hasMultiLineSummary
+    }));
+
+    const syntheticLinesSource = reorderDescriptionLinesAfterFunction(
+        _computedSynthetic
+    );
+    const syntheticLines = toMutableArray(
+        syntheticLinesSource
+    ) as MutableDocCommentLines;
+
+    if (
+        (syntheticLinesSource as any)?._preserveDescriptionBreaks === true
     ) {
-        const beforePromotion = [...normalizedExistingLines];
-        normalizedExistingLines = toMutableArray(
-            promoteLeadingDocCommentTextToDescription(
-                normalizedExistingLines,
-                _computedSynthetic
-            )
-        ) as MutableDocCommentLines;
-
-        const isDebugCase = normalizedExistingLines.some(
-            (line) =>
-                typeof line === STRING_TYPE &&
-                line.includes("Additional summary")
-        );
-
-        if (isDebugCase) {
-            console.log(
-                "[DEBUG MERGE PROMOTE] beforePromotion:",
-                beforePromotion
-            );
-            console.log(
-                "[DEBUG MERGE PROMOTE] afterPromotion (normalizedExistingLines):",
-                normalizedExistingLines
-            );
-            console.log(
-                "[DEBUG MERGE PROMOTE] _preserveDescriptionBreaks flag:",
-                (normalizedExistingLines as any)?._preserveDescriptionBreaks
-            );
-        }
-
-        if (
-            (normalizedExistingLines as any)?._preserveDescriptionBreaks ===
-            true
-        ) {
-            preserveDescriptionBreaks = true;
-        }
+        syntheticLines._preserveDescriptionBreaks = true;
     }
 
-    const syntheticLines =
-        reorderDescriptionLinesAfterFunction(_computedSynthetic);
+    if (
+        (syntheticLinesSource as any)?._suppressLeadingBlank === true
+    ) {
+        syntheticLines._suppressLeadingBlank = true;
+    }
 
     const implicitDocEntries =
         node?.type === "FunctionDeclaration" ||
@@ -263,318 +257,32 @@ export function mergeSyntheticDocComments(
     const shouldForceParamPrune =
         hasParamDocLines && declaredParamCount === 0 && !hasImplicitDocEntries;
 
-    if (syntheticLines.length === 0 && !shouldForceParamPrune) {
-        return toMutableArray(
-            convertLegacyReturnsDescriptionLinesToMetadata(
-                normalizedExistingLines,
-                {
-                    normalizeDocCommentTypeAnnotations: normalizeGameMakerType
-                }
-            )
-        ) as MutableDocCommentLines;
+    const earlyReturn = attemptEarlyReturnOnSynthetic({
+        syntheticLines,
+        normalizedExistingLines,
+        shouldForceParamPrune,
+        existingDocLines,
+        overrides
+    });
+    if (earlyReturn) {
+        return earlyReturn;
     }
 
-    if (normalizedExistingLines.length === 0) {
-        return toMutableArray(
-            convertLegacyReturnsDescriptionLinesToMetadata(syntheticLines, {
-                normalizeDocCommentTypeAnnotations: normalizeGameMakerType
-            })
-        ) as MutableDocCommentLines;
-    }
-
-    if (
-        overrides &&
-        overrides.preserveDocCommentParamNames === true &&
-        Array.isArray(existingDocLines) &&
-        existingDocLines.length > 0
-    ) {
-        return toMutableArray(existingDocLines) as MutableDocCommentLines;
-    }
-
-    const docTagMatches = (line, pattern) => {
-        const trimmed = toTrimmedString(line);
-        if (trimmed.length === 0) {
-            return false;
-        }
-
-        if (pattern.global || pattern.sticky) {
-            pattern.lastIndex = 0;
-        }
-
-        return pattern.test(trimmed);
-    };
-
-    const isFunctionLine = (line) => {
-        return docTagMatches(line, /^\/\/\/\s*@function\b/i);
-    };
-    const isOverrideLine = (line) =>
-        docTagMatches(line, /^\/\/\/\s*@override\b/i);
-    const isParamLine = (line) => docTagMatches(line, /^\/\/\/\s*@param\b/i);
-
-    const isDescriptionLine = (line) =>
-        docTagMatches(line, /^\/\/\/\s*@description\b/i);
-
-    const functionLines = syntheticLines.filter(isFunctionLine);
-
-    const syntheticFunctionMetadata = functionLines
-        .map((line) => parseDocCommentMetadata(line))
-        .find(
-            (meta) =>
-                meta?.tag === "function" && typeof meta.name === STRING_TYPE
-        );
-    const syntheticFunctionName =
-        typeof syntheticFunctionMetadata?.name === STRING_TYPE
-            ? syntheticFunctionMetadata.name.trim()
-            : null;
-    let otherLines = syntheticLines.filter((line) => !isFunctionLine(line));
-    const overrideLines = otherLines.filter(isOverrideLine);
-    otherLines = otherLines.filter((line) => !isOverrideLine(line));
-    let returnsLines;
-
-    // Cache canonical names so we only parse each doc comment line at most once.
-    const paramCanonicalNameCache = new Map();
-    const getParamCanonicalName = (line, metadata?) => {
-        if (typeof line !== STRING_TYPE) {
-            return null;
-        }
-
-        if (paramCanonicalNameCache.has(line)) {
-            return paramCanonicalNameCache.get(line);
-        }
-
-        const docMetadata =
-            metadata === undefined ? parseDocCommentMetadata(line) : metadata;
-        const canonical =
-            docMetadata?.tag === "param"
-                ? getCanonicalParamNameFromText(docMetadata.name)
-                : null;
-
-        paramCanonicalNameCache.set(line, canonical);
-        return canonical;
-    };
-
-    let mergedLines = [...normalizedExistingLines];
-    let removedAnyLine = removedExistingReturnDuplicates;
-
-    if (functionLines.length > 0) {
-        const existingFunctionIndices = mergedLines
-            .map((line, index) => (isFunctionLine(line) ? index : -1))
-            .filter((index) => index !== -1);
-
-        if (existingFunctionIndices.length > 0) {
-            const [firstIndex, ...duplicateIndices] = existingFunctionIndices;
-            mergedLines = [...mergedLines];
-
-            for (let i = duplicateIndices.length - 1; i >= 0; i--) {
-                mergedLines.splice(duplicateIndices[i], 1);
-            }
-
-            mergedLines.splice(firstIndex, 1, ...functionLines);
-            removedAnyLine = true;
-        } else {
-            const firstParamIndex = mergedLines.findIndex(isParamLine);
-
-            // If the original doc lines did not contain any metadata tags,
-            // prefer to append synthetic `@function` tags after the existing
-            // summary lines rather than inserting them before param tags.
-            const insertionIndex = originalExistingHasTags
-                ? firstParamIndex === -1
-                    ? mergedLines.length
-                    : firstParamIndex
-                : mergedLines.length;
-
-            const precedingLine =
-                insertionIndex > 0 ? mergedLines[insertionIndex - 1] : null;
-            const trimmedPreceding = toTrimmedString(precedingLine);
-            const isDocCommentLine =
-                typeof trimmedPreceding === STRING_TYPE &&
-                /^\/\/\//.test(trimmedPreceding);
-            const isDocTagLine =
-                isDocCommentLine && /^\/\/\/\s*@/i.test(trimmedPreceding);
-
-            let precedingDocTag = null;
-            if (isDocCommentLine && isDocTagLine) {
-                const metadata = parseDocCommentMetadata(precedingLine);
-                if (metadata && typeof metadata.tag === STRING_TYPE) {
-                    precedingDocTag = metadata.tag.toLowerCase();
-                }
-            }
-
-            const shouldSeparateDocTag = precedingDocTag === "deprecated";
-
-            const needsSeparatorBeforeFunction =
-                trimmedPreceding !== "" &&
-                typeof precedingLine === STRING_TYPE &&
-                !isFunctionLine(precedingLine) &&
-                (!isDocCommentLine || !isDocTagLine || shouldSeparateDocTag);
-
-            if (needsSeparatorBeforeFunction) {
-                mergedLines = [
-                    ...mergedLines.slice(0, insertionIndex),
-                    "",
-                    ...mergedLines.slice(insertionIndex)
-                ];
-            }
-
-            const insertAt = needsSeparatorBeforeFunction
-                ? insertionIndex + 1
-                : insertionIndex;
-
-            mergedLines = [
-                ...mergedLines.slice(0, insertAt),
-                ...functionLines,
-                ...mergedLines.slice(insertAt)
-            ];
-
-            removedAnyLine = true;
-        }
-    }
-
-    if (overrideLines.length > 0) {
-        const existingOverrideIndices = mergedLines
-            .map((line, index) => (isOverrideLine(line) ? index : -1))
-            .filter((index) => index !== -1);
-
-        if (existingOverrideIndices.length > 0) {
-            const [firstOverrideIndex, ...duplicateOverrideIndices] =
-                existingOverrideIndices;
-            mergedLines = [...mergedLines];
-
-            for (let i = duplicateOverrideIndices.length - 1; i >= 0; i -= 1) {
-                mergedLines.splice(duplicateOverrideIndices[i], 1);
-            }
-
-            mergedLines.splice(firstOverrideIndex, 1, ...overrideLines);
-            removedAnyLine = true;
-        } else {
-            const firstFunctionIndex = mergedLines.findIndex(isFunctionLine);
-            const insertionIndex =
-                firstFunctionIndex === -1 ? 0 : firstFunctionIndex;
-
-            mergedLines = [
-                ...mergedLines.slice(0, insertionIndex),
-                ...overrideLines,
-                ...mergedLines.slice(insertionIndex)
-            ];
-            removedAnyLine = true;
-        }
-    }
-
-    const paramLineIndices = new Map();
-    for (const [index, line] of mergedLines.entries()) {
-        if (!isParamLine(line)) {
-            continue;
-        }
-
-        const canonical = getParamCanonicalName(line);
-        if (canonical) {
-            paramLineIndices.set(canonical, index);
-        }
-    }
-
-    if (otherLines.length > 0) {
-        const normalizedOtherLines = [];
-
-        for (const line of otherLines) {
-            const metadata = parseDocCommentMetadata(line);
-            const canonical = getParamCanonicalName(line, metadata);
-
-            if (
-                canonical &&
-                paramLineIndices.has(canonical) &&
-                metadata?.name
-            ) {
-                const lineIndex = paramLineIndices.get(canonical);
-                const existingLine = mergedLines[lineIndex];
-
-                const updatedLine = updateParamLineWithDocName(
-                    existingLine,
-                    metadata.name
-                );
-                if (updatedLine !== existingLine) {
-                    mergedLines[lineIndex] = updatedLine;
-                    removedAnyLine = true;
-                }
-                continue;
-            }
-
-            normalizedOtherLines.push(line);
-        }
-
-        otherLines = normalizedOtherLines;
-    }
-
-    if (otherLines.length > 0) {
-        const nonReturnLines = [];
-        const extractedReturns = [];
-
-        for (const line of otherLines) {
-            const metadata = parseDocCommentMetadata(line);
-            if (metadata?.tag === "returns") {
-                extractedReturns.push(line);
-                continue;
-            }
-
-            nonReturnLines.push(line);
-        }
-
-        if (extractedReturns.length > 0) {
-            otherLines = nonReturnLines;
-            returnsLines = extractedReturns;
-        }
-    }
-
-    const syntheticParamNames = new Set(
-        otherLines
-            .map((line) => getParamCanonicalName(line))
-            .filter(isNonEmptyString)
-    );
-
-    if (syntheticParamNames.size > 0) {
-        const beforeLength = mergedLines.length;
-        mergedLines = mergedLines.filter((line) => {
-            if (!isParamLine(line)) {
-                return true;
-            }
-
-            const canonical = getParamCanonicalName(line);
-            if (!canonical) {
-                return false;
-            }
-
-            return !syntheticParamNames.has(canonical);
-        });
-        if (mergedLines.length !== beforeLength) {
-            removedAnyLine = true;
-        }
-    }
-
-    const lastFunctionIndex = findLastIndex(mergedLines, isFunctionLine);
-    let insertionIndex = lastFunctionIndex === -1 ? 0 : lastFunctionIndex + 1;
-
-    if (lastFunctionIndex === -1) {
-        while (
-            insertionIndex < mergedLines.length &&
-            typeof mergedLines[insertionIndex] === STRING_TYPE &&
-            mergedLines[insertionIndex].trim() === ""
-        ) {
-            insertionIndex += 1;
-        }
-    }
-
-    while (
-        insertionIndex < mergedLines.length &&
-        typeof mergedLines[insertionIndex] === STRING_TYPE &&
-        isParamLine(mergedLines[insertionIndex])
-    ) {
-        insertionIndex += 1;
-    }
-
-    let result: MutableDocCommentLines = [
-        ...mergedLines.slice(0, insertionIndex),
-        ...otherLines,
-        ...mergedLines.slice(insertionIndex)
-    ];
+    const docTagHelpers = createDocTagHelpers();
+    const mergeResult = mergeDocLines({
+        normalizedExistingLines,
+        syntheticLines,
+        docTagHelpers,
+        originalExistingHasTags,
+        removedExistingReturnDuplicates
+    });
+    let {
+        result,
+        otherLines,
+        returnsLines,
+        removedAnyLine,
+        syntheticFunctionName
+    } = mergeResult;
 
     // Propagate the _preserveDescriptionBreaks flag from normalizedExistingLines to result
     if ((normalizedExistingLines as any)?._preserveDescriptionBreaks === true) {
@@ -630,15 +338,15 @@ export function mergeSyntheticDocComments(
         removedAnyLine = true;
     }
 
-    const functionIndex = result.findIndex(isFunctionLine);
+    const functionIndex = result.findIndex(docTagHelpers.isFunctionLine);
     if (functionIndex > 0) {
         const [functionLine] = result.splice(functionIndex, 1);
 
         const ignoreIndex = result.findIndex((line) =>
-            docTagMatches(line, /^\/\/\/\s*@ignore\b/i)
+            docTagHelpers.docTagMatches(line, /^\/\/\/\s*@ignore\b/i)
         );
         const overrideIndex = result.findIndex((line) =>
-            docTagMatches(line, /^\/\/\/\s*@override\b/i)
+            docTagHelpers.docTagMatches(line, /^\/\/\/\s*@override\b/i)
         );
 
         if (ignoreIndex === 0) {
@@ -655,7 +363,7 @@ export function mergeSyntheticDocComments(
         const remainingLines: MutableDocCommentLines = [];
 
         for (const line of result) {
-            if (isFunctionLine(line)) {
+            if (docTagHelpers.isFunctionLine(line)) {
                 functionLines.push(line);
             } else {
                 remainingLines.push(line);
@@ -697,11 +405,11 @@ export function mergeSyntheticDocComments(
             continue;
         }
 
-        if (!isParamLine(line)) {
+        if (!docTagHelpers.isParamLine(line)) {
             continue;
         }
 
-        const canonical = getParamCanonicalName(line);
+        const canonical = docTagHelpers.getParamCanonicalName(line);
         if (canonical) {
             paramDocsByCanonical.set(canonical, line);
         }
@@ -723,7 +431,9 @@ export function mergeSyntheticDocComments(
         ) {
             const firstSyntheticIndex = result.findIndex(
                 (ln) =>
-                    isFunctionLine(ln) || isOverrideLine(ln) || isParamLine(ln)
+                    docTagHelpers.isFunctionLine(ln) ||
+                    docTagHelpers.isOverrideLine(ln) ||
+                    docTagHelpers.isParamLine(ln)
             );
             if (firstSyntheticIndex > 0) {
                 const preceding = result[firstSyntheticIndex - 1];
@@ -849,7 +559,7 @@ export function mergeSyntheticDocComments(
                 continue;
             }
 
-            const canonical = getParamCanonicalName(docLine);
+            const canonical = docTagHelpers.getParamCanonicalName(docLine);
             if (canonical) {
                 docsByCanonical.set(canonical, docLine);
             }
@@ -917,7 +627,7 @@ export function mergeSyntheticDocComments(
     let insertedParams = false;
 
     for (const line of result) {
-        if (isParamLine(line)) {
+        if (docTagHelpers.isParamLine(line)) {
             if (!insertedParams && orderedParamDocs.length > 0) {
                 finalDocs.push(...orderedParamDocs);
                 insertedParams = true;
@@ -934,7 +644,9 @@ export function mergeSyntheticDocComments(
 
     let reorderedDocs: MutableDocCommentLines = finalDocs;
 
-    const descriptionStartIndex = reorderedDocs.findIndex(isDescriptionLine);
+    const descriptionStartIndex = reorderedDocs.findIndex(
+        docTagHelpers.isDescriptionLine
+    );
     if (descriptionStartIndex !== -1) {
         let descriptionEndIndex = descriptionStartIndex + 1;
 
@@ -1003,7 +715,7 @@ export function mergeSyntheticDocComments(
         } else {
             let lastParamIndex = -1;
             for (const [index, element] of docsWithoutDescription.entries()) {
-                if (isParamLine(element)) {
+                if (docTagHelpers.isParamLine(element)) {
                     lastParamIndex = index;
                 }
             }
@@ -1030,7 +742,7 @@ export function mergeSyntheticDocComments(
             return true;
         }
 
-        if (!isDescriptionLine(line)) {
+        if (!docTagHelpers.isDescriptionLine(line)) {
             return true;
         }
 
@@ -1043,17 +755,17 @@ export function mergeSyntheticDocComments(
 
     if (suppressedCanonicals && suppressedCanonicals.size > 0) {
         reorderedDocs = reorderedDocs.filter((line) => {
-            if (!isParamLine(line)) {
+            if (!docTagHelpers.isParamLine(line)) {
                 return true;
             }
 
-            const canonical = getParamCanonicalName(line);
+            const canonical = docTagHelpers.getParamCanonicalName(line);
             return !canonical || !suppressedCanonicals.has(canonical);
         });
     }
 
     reorderedDocs = reorderedDocs.map((line) => {
-        if (!isParamLine(line)) {
+        if (!docTagHelpers.isParamLine(line)) {
             return line;
         }
 
@@ -1275,7 +987,7 @@ export function mergeSyntheticDocComments(
 
         for (let index = 0; index < reorderedDocs.length; index += 1) {
             const line = reorderedDocs[index];
-            if (isDescriptionLine(line)) {
+            if (docTagHelpers.isDescriptionLine(line)) {
                 const blockLines = [line];
                 let lookahead = index + 1;
 
@@ -1409,7 +1121,7 @@ export function mergeSyntheticDocComments(
                 continue;
             }
 
-            if (isParamLine(line)) {
+            if (docTagHelpers.isParamLine(line)) {
                 const blockLines = [line];
                 let lookahead = index + 1;
 
@@ -1699,7 +1411,7 @@ export function mergeSyntheticDocComments(
             return true;
         }
 
-        if (!isDescriptionLine(line)) {
+        if (!docTagHelpers.isDescriptionLine(line)) {
             return true;
         }
 
@@ -1836,6 +1548,456 @@ export function shouldGenerateSyntheticDocForFunction(
             return param?.type === "DefaultParameter";
         })
     );
+}
+
+type DocTagHelpers = ReturnType<typeof createDocTagHelpers>;
+
+type MergeDocLinesParams = {
+    normalizedExistingLines: MutableDocCommentLines;
+    syntheticLines: MutableDocCommentLines;
+    docTagHelpers: DocTagHelpers;
+    originalExistingHasTags: boolean;
+    removedExistingReturnDuplicates: boolean;
+};
+
+function createDocTagHelpers() {
+    const paramCanonicalNameCache = new Map<unknown, string | null>();
+
+    const docTagMatches = (line: unknown, pattern: RegExp) => {
+        if (typeof line !== STRING_TYPE) {
+            return false;
+        }
+
+        const trimmed = toTrimmedString(line);
+        if (trimmed.length === 0) {
+            return false;
+        }
+
+        if (pattern.global || pattern.sticky) {
+            pattern.lastIndex = 0;
+        }
+
+        return pattern.test(trimmed);
+    };
+
+    const isFunctionLine = (line: unknown) =>
+        docTagMatches(line, /^\/\/\/\s*@function\b/i);
+    const isOverrideLine = (line: unknown) =>
+        docTagMatches(line, /^\/\/\/\s*@override\b/i);
+    const isParamLine = (line: unknown) =>
+        docTagMatches(line, /^\/\/\/\s*@param\b/i);
+    const isDescriptionLine = (line: unknown) =>
+        docTagMatches(line, /^\/\/\/\s*@description\b/i);
+
+    const getParamCanonicalName = (
+        line: unknown,
+        metadata?: ReturnType<typeof parseDocCommentMetadata>
+    ) => {
+        if (typeof line !== STRING_TYPE) {
+            return null;
+        }
+
+        if (paramCanonicalNameCache.has(line)) {
+            return paramCanonicalNameCache.get(line);
+        }
+
+        const docMetadata =
+            metadata === undefined ? parseDocCommentMetadata(line) : metadata;
+        const canonical =
+            docMetadata?.tag === "param"
+                ? getCanonicalParamNameFromText(docMetadata.name)
+                : null;
+
+        paramCanonicalNameCache.set(line, canonical);
+        return canonical;
+    };
+
+    return {
+        docTagMatches,
+        isFunctionLine,
+        isOverrideLine,
+        isParamLine,
+        isDescriptionLine,
+        getParamCanonicalName
+    };
+}
+
+function mergeDocLines({
+    normalizedExistingLines,
+    syntheticLines,
+    docTagHelpers,
+    originalExistingHasTags,
+    removedExistingReturnDuplicates
+}: MergeDocLinesParams) {
+    const {
+        isFunctionLine,
+        isOverrideLine,
+        isParamLine,
+        getParamCanonicalName
+    } = docTagHelpers;
+
+    const functionLines = syntheticLines.filter(isFunctionLine);
+
+    const syntheticFunctionMetadata = functionLines
+        .map((line) => parseDocCommentMetadata(line))
+        .find(
+            (meta) =>
+                meta?.tag === "function" && typeof meta.name === STRING_TYPE
+        );
+    const syntheticFunctionName =
+        typeof syntheticFunctionMetadata?.name === STRING_TYPE
+            ? syntheticFunctionMetadata.name.trim()
+            : null;
+    let otherLines = syntheticLines.filter((line) => !isFunctionLine(line));
+    const overrideLines = otherLines.filter(isOverrideLine);
+    otherLines = otherLines.filter((line) => !isOverrideLine(line));
+    let returnsLines;
+
+    let mergedLines = [...normalizedExistingLines];
+    let removedAnyLine = removedExistingReturnDuplicates;
+
+    if (functionLines.length > 0) {
+        const existingFunctionIndices = mergedLines
+            .map((line, index) => (isFunctionLine(line) ? index : -1))
+            .filter((index) => index !== -1);
+
+        if (existingFunctionIndices.length > 0) {
+            const [firstIndex, ...duplicateIndices] = existingFunctionIndices;
+            mergedLines = [...mergedLines];
+
+            for (let i = duplicateIndices.length - 1; i >= 0; i--) {
+                mergedLines.splice(duplicateIndices[i], 1);
+            }
+
+            mergedLines.splice(firstIndex, 1, ...functionLines);
+            removedAnyLine = true;
+        } else {
+            const firstParamIndex = mergedLines.findIndex(isParamLine);
+
+            const insertionIndex = originalExistingHasTags
+                ? firstParamIndex === -1
+                    ? mergedLines.length
+                    : firstParamIndex
+                : mergedLines.length;
+
+            const precedingLine =
+                insertionIndex > 0 ? mergedLines[insertionIndex - 1] : null;
+            const trimmedPreceding = toTrimmedString(precedingLine);
+            const isDocCommentLine =
+                typeof trimmedPreceding === STRING_TYPE &&
+                /^\/\/\//.test(trimmedPreceding);
+            const isDocTagLine =
+                isDocCommentLine && /^\/\/\/\s*@/i.test(trimmedPreceding);
+
+            let precedingDocTag = null;
+            if (isDocCommentLine && isDocTagLine) {
+                const metadata = parseDocCommentMetadata(precedingLine);
+                if (metadata && typeof metadata.tag === STRING_TYPE) {
+                    precedingDocTag = metadata.tag.toLowerCase();
+                }
+            }
+
+            const shouldSeparateDocTag = precedingDocTag === "deprecated";
+
+            const needsSeparatorBeforeFunction =
+                trimmedPreceding !== "" &&
+                typeof precedingLine === STRING_TYPE &&
+                !isFunctionLine(precedingLine) &&
+                (!isDocCommentLine || !isDocTagLine || shouldSeparateDocTag);
+
+            if (needsSeparatorBeforeFunction) {
+                mergedLines = [
+                    ...mergedLines.slice(0, insertionIndex),
+                    "",
+                    ...mergedLines.slice(insertionIndex)
+                ];
+            }
+
+            const insertAt = needsSeparatorBeforeFunction
+                ? insertionIndex + 1
+                : insertionIndex;
+
+            mergedLines = [
+                ...mergedLines.slice(0, insertAt),
+                ...functionLines,
+                ...mergedLines.slice(insertAt)
+            ];
+
+            removedAnyLine = true;
+        }
+    }
+
+    if (overrideLines.length > 0) {
+        const existingOverrideIndices = mergedLines
+            .map((line, index) => (isOverrideLine(line) ? index : -1))
+            .filter((index) => index !== -1);
+
+        if (existingOverrideIndices.length > 0) {
+            const [firstOverrideIndex, ...duplicateOverrideIndices] =
+                existingOverrideIndices;
+            mergedLines = [...mergedLines];
+
+            for (let i = duplicateOverrideIndices.length - 1; i >= 0; i -= 1) {
+                mergedLines.splice(duplicateOverrideIndices[i], 1);
+            }
+
+            mergedLines.splice(firstOverrideIndex, 1, ...overrideLines);
+            removedAnyLine = true;
+        } else {
+            const firstFunctionIndex = mergedLines.findIndex(isFunctionLine);
+            const insertionIndex =
+                firstFunctionIndex === -1 ? 0 : firstFunctionIndex;
+
+            mergedLines = [
+                ...mergedLines.slice(0, insertionIndex),
+                ...overrideLines,
+                ...mergedLines.slice(insertionIndex)
+            ];
+            removedAnyLine = true;
+        }
+    }
+
+    const paramLineIndices = new Map<string, number>();
+    for (const [index, line] of mergedLines.entries()) {
+        if (!isParamLine(line)) {
+            continue;
+        }
+
+        const canonical = getParamCanonicalName(line);
+        if (canonical) {
+            paramLineIndices.set(canonical, index);
+        }
+    }
+
+    if (otherLines.length > 0) {
+        const normalizedOtherLines = [];
+
+        for (const line of otherLines) {
+            const metadata = parseDocCommentMetadata(line);
+            const canonical = getParamCanonicalName(line, metadata);
+
+            if (
+                canonical &&
+                paramLineIndices.has(canonical) &&
+                metadata?.name
+            ) {
+                const lineIndex = paramLineIndices.get(canonical);
+                const existingLine = mergedLines[lineIndex];
+
+                const updatedLine = updateParamLineWithDocName(
+                    existingLine,
+                    metadata.name
+                );
+                if (updatedLine !== existingLine) {
+                    mergedLines[lineIndex] = updatedLine;
+                    removedAnyLine = true;
+                }
+                continue;
+            }
+
+            normalizedOtherLines.push(line);
+        }
+
+        otherLines = normalizedOtherLines;
+    }
+
+    if (otherLines.length > 0) {
+        const nonReturnLines = [];
+        const extractedReturns = [];
+
+        for (const line of otherLines) {
+            const metadata = parseDocCommentMetadata(line);
+            if (metadata?.tag === "returns") {
+                extractedReturns.push(line);
+                continue;
+            }
+
+            nonReturnLines.push(line);
+        }
+
+        if (extractedReturns.length > 0) {
+            otherLines = nonReturnLines;
+            returnsLines = extractedReturns;
+        }
+    }
+
+    const syntheticParamNames = new Set(
+        otherLines
+            .map((line) => getParamCanonicalName(line))
+            .filter(isNonEmptyString)
+    );
+
+    if (syntheticParamNames.size > 0) {
+        const beforeLength = mergedLines.length;
+        mergedLines = mergedLines.filter((line) => {
+            if (!isParamLine(line)) {
+                return true;
+            }
+
+            const canonical = getParamCanonicalName(line);
+            if (!canonical) {
+                return false;
+            }
+
+            return !syntheticParamNames.has(canonical);
+        });
+        if (mergedLines.length !== beforeLength) {
+            removedAnyLine = true;
+        }
+    }
+
+    const lastFunctionIndex = findLastIndex(mergedLines, isFunctionLine);
+    let insertionIndex = lastFunctionIndex === -1 ? 0 : lastFunctionIndex + 1;
+
+    if (lastFunctionIndex === -1) {
+        while (
+            insertionIndex < mergedLines.length &&
+            typeof mergedLines[insertionIndex] === STRING_TYPE &&
+            mergedLines[insertionIndex].trim() === ""
+        ) {
+            insertionIndex += 1;
+        }
+    }
+
+    while (
+        insertionIndex < mergedLines.length &&
+        typeof mergedLines[insertionIndex] === STRING_TYPE &&
+        isParamLine(mergedLines[insertionIndex])
+    ) {
+        insertionIndex += 1;
+    }
+
+    const result: MutableDocCommentLines = [
+        ...mergedLines.slice(0, insertionIndex),
+        ...otherLines,
+        ...mergedLines.slice(insertionIndex)
+    ];
+
+    return {
+        result,
+        otherLines,
+        returnsLines,
+        removedAnyLine,
+        syntheticFunctionName
+    };
+}
+
+type ApplyDocCommentPromotionParams = {
+    normalizedExistingLines: MutableDocCommentLines;
+    preserveDescriptionBreaks: boolean;
+    syntheticLines: MutableDocCommentLines;
+    originalExistingHasTags: boolean;
+    originalExistingHasDocLikePrefixes: boolean;
+    hasMultiLineSummary: boolean;
+};
+
+function applyDocCommentPromotionIfNeeded(
+    params: ApplyDocCommentPromotionParams
+): {
+    normalizedExistingLines: MutableDocCommentLines;
+    preserveDescriptionBreaks: boolean;
+} {
+    let {
+        normalizedExistingLines,
+        preserveDescriptionBreaks,
+        syntheticLines,
+        originalExistingHasTags,
+        originalExistingHasDocLikePrefixes,
+        hasMultiLineSummary
+    } = params;
+
+    if (
+        originalExistingHasTags ||
+        originalExistingHasDocLikePrefixes ||
+        hasMultiLineSummary
+    ) {
+        const beforePromotion = [...normalizedExistingLines];
+        normalizedExistingLines = toMutableArray(
+            promoteLeadingDocCommentTextToDescription(
+                normalizedExistingLines,
+                syntheticLines
+            )
+        ) as MutableDocCommentLines;
+
+        const isDebugCase = normalizedExistingLines.some(
+            (line) =>
+                typeof line === STRING_TYPE &&
+                line.includes("Additional summary")
+        );
+
+        if (isDebugCase) {
+            console.log(
+                "[DEBUG MERGE PROMOTE] beforePromotion:",
+                beforePromotion
+            );
+            console.log(
+                "[DEBUG MERGE PROMOTE] afterPromotion (normalizedExistingLines):",
+                normalizedExistingLines
+            );
+            console.log(
+                "[DEBUG MERGE PROMOTE] _preserveDescriptionBreaks flag:",
+                (normalizedExistingLines as any)?._preserveDescriptionBreaks
+            );
+        }
+
+        if (
+            (normalizedExistingLines as any)?._preserveDescriptionBreaks ===
+            true
+        ) {
+            preserveDescriptionBreaks = true;
+        }
+    }
+
+    return {
+        normalizedExistingLines,
+        preserveDescriptionBreaks
+    };
+}
+
+type AttemptEarlyReturnParams = {
+    syntheticLines: MutableDocCommentLines;
+    normalizedExistingLines: MutableDocCommentLines;
+    shouldForceParamPrune: boolean;
+    existingDocLines: DocCommentLines | string[];
+    overrides: any;
+};
+
+function attemptEarlyReturnOnSynthetic({
+    syntheticLines,
+    normalizedExistingLines,
+    shouldForceParamPrune,
+    existingDocLines,
+    overrides
+}: AttemptEarlyReturnParams) {
+    if (syntheticLines.length === 0 && !shouldForceParamPrune) {
+        return toMutableArray(
+            convertLegacyReturnsDescriptionLinesToMetadata(
+                normalizedExistingLines,
+                {
+                    normalizeDocCommentTypeAnnotations: normalizeGameMakerType
+                }
+            )
+        ) as MutableDocCommentLines;
+    }
+
+    if (normalizedExistingLines.length === 0) {
+        return toMutableArray(
+            convertLegacyReturnsDescriptionLinesToMetadata(syntheticLines, {
+                normalizeDocCommentTypeAnnotations: normalizeGameMakerType
+            })
+        ) as MutableDocCommentLines;
+    }
+
+    if (
+        overrides &&
+        overrides.preserveDocCommentParamNames === true &&
+        Array.isArray(existingDocLines) &&
+        existingDocLines.length > 0
+    ) {
+        return toMutableArray(existingDocLines) as MutableDocCommentLines;
+    }
+
+    return null;
 }
 
 function updateParamLineWithDocName(line: string, newDocName: string): string {
