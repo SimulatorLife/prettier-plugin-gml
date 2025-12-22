@@ -48,7 +48,7 @@ class Scope {
         this.symbolMetadata = new Map();
         this.occurrences = new Map();
         this.stackIndex = null;
-        this.lastModifiedTimestamp = 0;
+        this.lastModifiedTimestamp = -1;
         this.modificationCount = 0;
     }
 
