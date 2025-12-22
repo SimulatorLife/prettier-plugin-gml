@@ -30,7 +30,8 @@ import {
     collectImplicitArgumentDocNames,
     getParameterDocInfo,
     preferredParamDocNamesByNode,
-    suppressedImplicitDocCanonicalByNode
+    suppressedImplicitDocCanonicalByNode,
+    ImplicitArgumentDocEntry
 } from "./synthetic-helpers.js";
 import { getCanonicalParamNameFromText } from "./params.js";
 import { computeSyntheticFunctionDocLines } from "./synthetic-generation.js";
@@ -398,251 +399,17 @@ export function mergeSyntheticDocComments(
         }
     }
 
-    const paramDocsByCanonical = new Map();
-
-    for (const line of result) {
-        if (typeof line !== STRING_TYPE) {
-            continue;
-        }
-
-        if (!docTagHelpers.isParamLine(line)) {
-            continue;
-        }
-
-        const canonical = docTagHelpers.getParamCanonicalName(line);
-        if (canonical) {
-            paramDocsByCanonical.set(canonical, line);
-        }
-    }
-
-    // Ensure that when the original existing doc lines did NOT include
-    // metadata tags, but we have inserted synthetic tags, we preserve a
-    // blank separator between the original summary and the synthetic tags.
-    try {
-        const hasOriginalTags =
-            Array.isArray(existingDocLines) &&
-            existingDocLines.some((l) =>
-                typeof l === STRING_TYPE ? parseDocCommentMetadata(l) : false
-            );
-        if (
-            !hasOriginalTags &&
-            Array.isArray(existingDocLines) &&
-            existingDocLines.length > 0
-        ) {
-            const firstSyntheticIndex = result.findIndex(
-                (ln) =>
-                    docTagHelpers.isFunctionLine(ln) ||
-                    docTagHelpers.isOverrideLine(ln) ||
-                    docTagHelpers.isParamLine(ln)
-            );
-            if (firstSyntheticIndex > 0) {
-                const preceding = result[firstSyntheticIndex - 1];
-                if (
-                    typeof preceding === STRING_TYPE &&
-                    preceding.trim() !== "" &&
-                    result[firstSyntheticIndex] &&
-                    typeof result[firstSyntheticIndex] === STRING_TYPE &&
-                    /^\/\/\//.test(result[firstSyntheticIndex].trim()) && // Insert a blank line if we don't already have one
-                    result[firstSyntheticIndex - 1] !== ""
-                ) {
-                    result = [
-                        ...result.slice(0, firstSyntheticIndex),
-                        "",
-                        ...result.slice(firstSyntheticIndex)
-                    ];
-                }
-            }
-        }
-    } catch {
-        // best-effort: don't throw if core utilities are unavailable
-    }
-
     const suppressedCanonicals = suppressedImplicitDocCanonicalByNode.get(node);
 
-    if (suppressedCanonicals && suppressedCanonicals.size > 0) {
-        // Only delete suppressed fallback doc lines if they are not
-        // explicitly referenced (direct references) in the function body.
-        // This mirrors the logic in `collectImplicitArgumentDocNames` and
-        // ensures that explicitly referenced `argumentN` lines are preserved
-        // even when a canonical was marked suppressed due to an alias.
-        for (const canonical of suppressedCanonicals) {
-            const candidate = paramDocsByCanonical.get(canonical);
-            if (!candidate) continue;
-
-            // If there is an implicit doc entry with the same canonical that
-            // indicates a direct reference, keep the doc line. Otherwise remove
-            // the fallback biased doc line so the alias doc comment can win.
-            const directReferenceExists = implicitDocEntries.some((entry) => {
-                if (!entry) return false;
-                const key =
-                    entry.canonical || entry.fallbackCanonical || entry.name;
-                if (!key) return false;
-                return key === canonical && entry.hasDirectReference === true;
-            });
-
-            if (!directReferenceExists) {
-                paramDocsByCanonical.delete(canonical);
-            }
-        }
-    }
-
-    if (implicitDocEntries.length > 0) {
-        const canonicalNames = new Set();
-        const fallbackCanonicalsToRemove = new Set();
-
-        for (const entry of implicitDocEntries) {
-            if (entry?.canonical) {
-                canonicalNames.add(entry.canonical);
-            }
-
-            if (
-                entry?.fallbackCanonical &&
-                entry.fallbackCanonical !== entry.canonical &&
-                entry.hasDirectReference !== true
-            ) {
-                fallbackCanonicalsToRemove.add(entry.fallbackCanonical);
-            }
-        }
-
-        for (const fallbackCanonical of fallbackCanonicalsToRemove) {
-            // When an implicit alias entry indicates a different canonical
-            // name for the same index (e.g. alias `two` for `argument2`),
-            // prefer the alias and remove any stale fallback `argumentN`
-            // doc line. Previously we avoided deleting the fallback when a
-            // canonical with the same name was present; that prevented
-            // alias-driven suppression from removing an explicit
-            // `argumentN` doc line. Always remove the fallback canonical
-            // here when it's marked for removal so aliases win.
-            paramDocsByCanonical.delete(fallbackCanonical);
-        }
-    }
-
-    let orderedParamDocs = [];
-    if (Array.isArray(node.params)) {
-        for (const param of node.params) {
-            const paramInfo = getParameterDocInfo(param, node, options);
-            const canonical = paramInfo?.name
-                ? getCanonicalParamNameFromText(paramInfo.name)
-                : null;
-            if (canonical && paramDocsByCanonical.has(canonical)) {
-                orderedParamDocs.push(paramDocsByCanonical.get(canonical));
-                paramDocsByCanonical.delete(canonical);
-            }
-        }
-    }
-
-    if (orderedParamDocs.length === 0) {
-        for (const entry of implicitDocEntries) {
-            const canonical = entry?.canonical;
-            if (canonical && paramDocsByCanonical.has(canonical)) {
-                orderedParamDocs.push(paramDocsByCanonical.get(canonical));
-                paramDocsByCanonical.delete(canonical);
-            }
-        }
-    }
-
-    const shouldDropRemainingParamDocs =
-        !hasImplicitDocEntries &&
-        declaredParamCount === 0 &&
-        paramDocsByCanonical.size > 0;
-
-    if (!shouldDropRemainingParamDocs) {
-        for (const doc of paramDocsByCanonical.values()) {
-            orderedParamDocs.push(doc);
-        }
-    }
-
-    if (orderedParamDocs.length > 0) {
-        const docsByCanonical = new Map();
-        for (const docLine of orderedParamDocs) {
-            if (typeof docLine !== STRING_TYPE) {
-                continue;
-            }
-
-            const canonical = docTagHelpers.getParamCanonicalName(docLine);
-            if (canonical) {
-                docsByCanonical.set(canonical, docLine);
-            }
-        }
-
-        const preferredDocs = preferredParamDocNamesByNode.get(node);
-        const implicitEntryByIndex = new Map();
-        for (const entry of implicitDocEntries) {
-            if (entry && Number.isInteger(entry.index)) {
-                implicitEntryByIndex.set(entry.index, entry);
-            }
-        }
-        const reordered = [];
-
-        if (Array.isArray(node.params)) {
-            for (const [index, param] of node.params.entries()) {
-                const implicitEntry = implicitEntryByIndex.get(index);
-                if (implicitEntry) {
-                    const implicitCanonical =
-                        implicitEntry.canonical ||
-                        getCanonicalParamNameFromText(implicitEntry.name);
-                    if (
-                        implicitCanonical &&
-                        docsByCanonical.has(implicitCanonical)
-                    ) {
-                        reordered.push(docsByCanonical.get(implicitCanonical));
-                        docsByCanonical.delete(implicitCanonical);
-                        continue;
-                    }
-                }
-
-                const preferredName = preferredDocs?.get(index);
-                if (preferredName) {
-                    const preferredCanonical =
-                        getCanonicalParamNameFromText(preferredName);
-                    if (
-                        preferredCanonical &&
-                        docsByCanonical.has(preferredCanonical)
-                    ) {
-                        reordered.push(docsByCanonical.get(preferredCanonical));
-                        docsByCanonical.delete(preferredCanonical);
-                        continue;
-                    }
-                }
-
-                const paramInfo = getParameterDocInfo(param, node, options);
-                const paramCanonical = paramInfo?.name
-                    ? getCanonicalParamNameFromText(paramInfo.name)
-                    : null;
-                if (paramCanonical && docsByCanonical.has(paramCanonical)) {
-                    reordered.push(docsByCanonical.get(paramCanonical));
-                    docsByCanonical.delete(paramCanonical);
-                }
-            }
-        }
-
-        for (const docLine of docsByCanonical.values()) {
-            reordered.push(docLine);
-        }
-
-        orderedParamDocs = reordered;
-    }
-
-    const finalDocs: MutableDocCommentLines = [];
-    let insertedParams = false;
-
-    for (const line of result) {
-        if (docTagHelpers.isParamLine(line)) {
-            if (!insertedParams && orderedParamDocs.length > 0) {
-                finalDocs.push(...orderedParamDocs);
-                insertedParams = true;
-            }
-            continue;
-        }
-
-        finalDocs.push(line);
-    }
-
-    if (!insertedParams && orderedParamDocs.length > 0) {
-        finalDocs.push(...orderedParamDocs);
-    }
-
-    let reorderedDocs: MutableDocCommentLines = finalDocs;
+    let reorderedDocs: MutableDocCommentLines = reorderParamDocLines({
+        node,
+        options,
+        result,
+        docTagHelpers,
+        implicitDocEntries,
+        declaredParamCount,
+        suppressedCanonicals
+    });
 
     const descriptionStartIndex = reorderedDocs.findIndex(
         docTagHelpers.isDescriptionLine
@@ -1463,8 +1230,249 @@ export function mergeSyntheticDocComments(
     return toMutableArray(prunedConvertedResult) as MutableDocCommentLines;
 }
 
+type ReorderParamDocLinesParams = {
+    node: any;
+    options: any;
+    result: MutableDocCommentLines;
+    docTagHelpers: DocTagHelpers;
+    implicitDocEntries: readonly ImplicitArgumentDocEntry[];
+    declaredParamCount: number;
+    suppressedCanonicals: Set<string> | undefined;
+};
+
+function reorderParamDocLines({
+    node,
+    options,
+    result,
+    docTagHelpers,
+    implicitDocEntries,
+    declaredParamCount,
+    suppressedCanonicals
+}: ReorderParamDocLinesParams): MutableDocCommentLines {
+    const paramDocsByCanonical = new Map<string, string>();
+
+    for (const line of result) {
+        if (typeof line !== STRING_TYPE) {
+            continue;
+        }
+
+        if (!docTagHelpers.isParamLine(line)) {
+            continue;
+        }
+
+        const canonical = docTagHelpers.getParamCanonicalName(line);
+        if (canonical) {
+            paramDocsByCanonical.set(canonical, line);
+        }
+    }
+
+    if (suppressedCanonicals && suppressedCanonicals.size > 0) {
+        for (const canonical of suppressedCanonicals) {
+            const candidate = paramDocsByCanonical.get(canonical);
+            if (!candidate) continue;
+
+            const directReferenceExists = implicitDocEntries.some((entry) => {
+                if (!entry) return false;
+                const key =
+                    entry.canonical || entry.fallbackCanonical || entry.name;
+                if (!key) return false;
+                return key === canonical && entry.hasDirectReference === true;
+            });
+
+            if (!directReferenceExists) {
+                paramDocsByCanonical.delete(canonical);
+            }
+        }
+    }
+
+    if (implicitDocEntries.length > 0) {
+        const fallbackCanonicalsToRemove = new Set<string>();
+
+        for (const entry of implicitDocEntries) {
+            if (
+                entry?.fallbackCanonical &&
+                entry.fallbackCanonical !== entry.canonical &&
+                entry.hasDirectReference !== true
+            ) {
+                fallbackCanonicalsToRemove.add(entry.fallbackCanonical);
+            }
+        }
+
+        for (const fallbackCanonical of fallbackCanonicalsToRemove) {
+            paramDocsByCanonical.delete(fallbackCanonical);
+        }
+    }
+
+    const hasImplicitDocEntries = implicitDocEntries.length > 0;
+    let orderedParamDocs: string[] = [];
+    if (Array.isArray(node.params)) {
+        for (const param of node.params) {
+            const paramInfo = getParameterDocInfo(param, node, options);
+            const canonical = paramInfo?.name
+                ? getCanonicalParamNameFromText(paramInfo.name)
+                : null;
+            if (canonical) {
+                const docLine = paramDocsByCanonical.get(canonical);
+                if (docLine) {
+                    orderedParamDocs.push(docLine);
+                    paramDocsByCanonical.delete(canonical);
+                }
+            }
+        }
+    }
+
+    if (orderedParamDocs.length === 0) {
+        for (const entry of implicitDocEntries) {
+            const canonical = entry?.canonical;
+            if (canonical) {
+                const docLine = paramDocsByCanonical.get(canonical);
+                if (docLine) {
+                    orderedParamDocs.push(docLine);
+                    paramDocsByCanonical.delete(canonical);
+                }
+            }
+        }
+    }
+
+    const shouldDropRemainingParamDocs =
+        !hasImplicitDocEntries &&
+        declaredParamCount === 0 &&
+        paramDocsByCanonical.size > 0;
+
+    if (!shouldDropRemainingParamDocs) {
+        for (const doc of paramDocsByCanonical.values()) {
+            orderedParamDocs.push(doc);
+        }
+    }
+
+    if (orderedParamDocs.length > 0) {
+        orderedParamDocs = reorderDocLines({
+            orderedParamDocs,
+            docTagHelpers,
+            node,
+            options,
+            implicitDocEntries
+        });
+    }
+
+    const finalDocs: MutableDocCommentLines = [];
+    let insertedParams = false;
+
+    for (const line of result) {
+        if (docTagHelpers.isParamLine(line)) {
+            if (!insertedParams && orderedParamDocs.length > 0) {
+                finalDocs.push(...orderedParamDocs);
+                insertedParams = true;
+            }
+            continue;
+        }
+
+        finalDocs.push(line);
+    }
+
+    if (!insertedParams && orderedParamDocs.length > 0) {
+        finalDocs.push(...orderedParamDocs);
+    }
+
+    return finalDocs;
+}
+
+type ReorderDocLinesParams = {
+    orderedParamDocs: string[];
+    docTagHelpers: DocTagHelpers;
+    node: any;
+    options: any;
+    implicitDocEntries: readonly ImplicitArgumentDocEntry[];
+};
+
+function reorderDocLines({
+    orderedParamDocs,
+    docTagHelpers,
+    node,
+    options,
+    implicitDocEntries
+}: ReorderDocLinesParams): string[] {
+    const docsByCanonical = new Map<string, string>();
+    for (const docLine of orderedParamDocs) {
+        if (typeof docLine !== STRING_TYPE) {
+            continue;
+        }
+
+        const canonical = docTagHelpers.getParamCanonicalName(docLine);
+        if (canonical) {
+            docsByCanonical.set(canonical, docLine);
+        }
+    }
+
+    const preferredDocs = preferredParamDocNamesByNode.get(node);
+    const implicitEntryByIndex = new Map<number, ImplicitArgumentDocEntry>();
+    for (const entry of implicitDocEntries) {
+        if (entry && Number.isInteger(entry.index)) {
+            implicitEntryByIndex.set(entry.index, entry);
+        }
+    }
+    const reordered: string[] = [];
+
+    if (Array.isArray(node.params)) {
+        for (const [index, param] of node.params.entries()) {
+            const implicitEntry = implicitEntryByIndex.get(index);
+            if (implicitEntry) {
+                const implicitCanonical =
+                    implicitEntry.canonical ||
+                    getCanonicalParamNameFromText(implicitEntry.name);
+                if (
+                    implicitCanonical &&
+                    docsByCanonical.has(implicitCanonical)
+                ) {
+                    const docLine = docsByCanonical.get(implicitCanonical);
+                    if (docLine) {
+                        reordered.push(docLine);
+                        docsByCanonical.delete(implicitCanonical);
+                        continue;
+                    }
+                }
+            }
+
+            const preferredName = preferredDocs?.get(index);
+            if (preferredName) {
+                const preferredCanonical =
+                    getCanonicalParamNameFromText(preferredName);
+                if (
+                    preferredCanonical &&
+                    docsByCanonical.has(preferredCanonical)
+                ) {
+                    const docLine = docsByCanonical.get(preferredCanonical);
+                    if (docLine) {
+                        reordered.push(docLine);
+                        docsByCanonical.delete(preferredCanonical);
+                        continue;
+                    }
+                }
+            }
+
+            const paramInfo = getParameterDocInfo(param, node, options);
+            const paramCanonical = paramInfo?.name
+                ? getCanonicalParamNameFromText(paramInfo.name)
+                : null;
+            if (paramCanonical && docsByCanonical.has(paramCanonical)) {
+                const docLine = docsByCanonical.get(paramCanonical);
+                if (docLine) {
+                    reordered.push(docLine);
+                    docsByCanonical.delete(paramCanonical);
+                }
+            }
+        }
+    }
+
+    for (const docLine of docsByCanonical.values()) {
+        reordered.push(docLine);
+    }
+
+    return reordered;
+}
+
 /**
- * Determines whether synthetic doc comments should be emitted for the given function.
+ * Merge synthetic doc comments with existing metadata while preserving order.
  */
 export function shouldGenerateSyntheticDocForFunction(
     path: any,

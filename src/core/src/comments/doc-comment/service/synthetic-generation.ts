@@ -669,75 +669,18 @@ function appendDocumentedParamLines(
             Boolean(rawOrdinalName) &&
             (canonicalOrdinalMatchesParam || isGenericArgumentName);
 
-        if (
-            hasCompleteOrdinalDocs &&
-            node &&
-            typeof paramIndex === NUMBER_TYPE &&
-            shouldAdoptOrdinalName
-        ) {
-            const documentedParamCanonical =
-                getCanonicalParamNameFromText(paramInfo.name) ?? null;
-            if (
-                documentedParamCanonical &&
-                paramMetadataByCanonical.has(documentedParamCanonical)
-            ) {
-                // The parameter already appears in the documented metadata;
-                // avoid overriding it with mismatched ordinal ordering.
-            } else {
-                let preferredDocs = preferredParamDocNamesByNode.get(node);
-                if (!preferredDocs) {
-                    preferredDocs = new Map();
-                    preferredParamDocNamesByNode.set(node, preferredDocs);
-                }
-                if (!preferredDocs.has(paramIndex)) {
-                    preferredDocs.set(paramIndex, rawOrdinalName);
-                }
-            }
-        }
-        if (
-            !shouldAdoptOrdinalName &&
-            canonicalOrdinal &&
-            canonicalParamName &&
-            canonicalOrdinal !== canonicalParamName &&
-            node &&
-            !paramMetadataByCanonical.has(canonicalParamName)
-        ) {
-            const canonicalOrdinalMatchesDeclaredParam =
-                Array.isArray(node?.params)
-                    ? node.params.some((candidate: any, candidateIndex: number) => {
-                          if (candidateIndex === paramIndex) {
-                              return false;
-                          }
-
-                          const candidateInfo = getParameterDocInfo(
-                              candidate,
-                              node,
-                              options
-                          );
-                          const candidateCanonical =
-                              candidateInfo?.name
-                                  ? getCanonicalParamNameFromText(
-                                        candidateInfo.name
-                                    )
-                                  : null;
-
-                          return candidateCanonical === canonicalOrdinal;
-                      })
-                    : false;
-
-            if (!canonicalOrdinalMatchesDeclaredParam) {
-                let suppressedCanonicals =
-                    suppressedImplicitDocCanonicalByNode.get(node);
-                if (!suppressedCanonicals) {
-                    suppressedCanonicals = new Set();
-                    suppressedImplicitDocCanonicalByNode.set(
-                        node,
-                        suppressedCanonicals
-                    );
-                }
-                suppressedCanonicals.add(canonicalOrdinal);
-            }
-        }
+        handleOrdinalDocPreferences({
+            node,
+            paramInfo,
+            paramIndex,
+            options,
+            shouldAdoptOrdinalName,
+            hasCompleteOrdinalDocs,
+            canonicalOrdinal,
+            canonicalParamName,
+            rawOrdinalName,
+            paramMetadataByCanonical
+        });
         const ordinalDocName =
             hasCompleteOrdinalDocs &&
             (!existingDocName || existingDocName.length === 0) &&
@@ -745,148 +688,35 @@ function appendDocumentedParamLines(
                 ? rawOrdinalName
                 : null;
         let effectiveImplicitName = implicitName;
-        if (effectiveImplicitName && ordinalDocName) {
-            const canonicalImplicit =
-                getCanonicalParamNameFromText(effectiveImplicitName) ?? null;
-            const fallbackCanonical =
+        effectiveImplicitName = applyImplicitNameOverride({
+            node,
+            paramIndex,
+            implicitDocEntry,
+            canonicalOrdinal,
+            ordinalDocName,
+            effectiveImplicitName,
+            fallbackCanonical:
                 implicitDocEntry?.fallbackCanonical ??
-                getCanonicalParamNameFromText(paramInfo.name);
-            const shouldOverrideImplicitName = Boolean(
-                canonicalOrdinal &&
-                    canonicalOrdinal !== fallbackCanonical &&
-                    canonicalOrdinal !== canonicalImplicit
-            );
+                getCanonicalParamNameFromText(paramInfo.name)
+        });
 
-            if (shouldOverrideImplicitName) {
-                const ordinalLength = canonicalOrdinal.length;
-                const implicitCanonicalLength = canonicalImplicit?.length ?? 0;
-                const hasImplicitName =
-                    implicitCanonicalLength > 0 ||
-                    isNonEmptyTrimmedString(effectiveImplicitName);
-                const implicitComparisonLength = hasImplicitName
-                    ? implicitCanonicalLength
-                    : 0;
-
-                if (ordinalLength > implicitComparisonLength) {
-                    effectiveImplicitName = null;
-                    applyOrdinalImplicitDocEntryOverrides(
-                        node,
-                        paramIndex,
-                        implicitDocEntry,
-                        canonicalOrdinal,
-                        ordinalDocName
-                    );
-                }
-            }
-        }
-
-        const optionalOverrideFlag = paramInfo?.optionalOverride === true;
-        const defaultIsUndefined =
-            param?.type === "DefaultParameter" &&
-            isUndefinedSentinel(param.right);
-        const shouldOmitUndefinedDefault =
-            defaultIsUndefined &&
-            shouldOmitUndefinedDefaultForFunctionNode(node);
-        const hasExistingMetadata = Boolean(existingMetadata);
-        const hasOptionalDocName =
-            param?.type === "DefaultParameter" &&
-            isOptionalParamDocName(existingDocName);
         const baseDocName =
             (effectiveImplicitName &&
                 effectiveImplicitName.length > 0 &&
                 effectiveImplicitName) ||
             (ordinalDocName && ordinalDocName.length > 0 && ordinalDocName) ||
             paramInfo.name;
-        const parameterSourceText = getSourceTextForNode(param, options);
-        const defaultCameFromSource =
-            defaultIsUndefined &&
-            typeof parameterSourceText === STRING_TYPE &&
-            parameterSourceText.includes("=");
 
-        const explicitOptionalMarker =
-            param?._featherOptionalParameter === true;
+        const shouldMarkOptional = computeOptionalDocState({
+            node,
+            param,
+            paramIndex,
+            paramInfo,
+            options,
+            existingMetadata,
+            serializedDocName: existingDocName
+        });
 
-        let shouldMarkOptional =
-            Boolean(paramInfo.optional) ||
-            hasOptionalDocName ||
-            (param?.type === "DefaultParameter" &&
-                isUndefinedSentinel(param.right) &&
-                (explicitOptionalMarker ||
-                    node?.type === "ConstructorDeclaration"));
-        const hasSiblingExplicitDefault = Array.isArray(node?.params)
-            ? node.params.some((candidate: any, candidateIndex: number) => {
-                  if (candidateIndex === paramIndex || !candidate) {
-                      return false;
-                  }
-
-                  if (candidate.type !== "DefaultParameter") {
-                      return false;
-                  }
-
-                  return (
-                      candidate.right != null &&
-                      !isUndefinedSentinel(candidate.right)
-                  );
-              })
-            : false;
-        const hasPriorExplicitDefault = Array.isArray(node?.params)
-            ? node.params.slice(0, paramIndex).some((candidate: any) => {
-                  if (!candidate || candidate.type !== "DefaultParameter") {
-                      return false;
-                  }
-
-                  return (
-                      candidate.right != null &&
-                      !isUndefinedSentinel(candidate.right)
-                  );
-              })
-            : false;
-        const shouldApplyOptionalSuppression =
-            hasExistingMetadata || !hasSiblingExplicitDefault;
-
-        const materializedFromExplicitLeft =
-            param?._featherMaterializedFromExplicitLeft === true;
-        if (
-            !shouldMarkOptional &&
-            !hasExistingMetadata &&
-            hasSiblingExplicitDefault &&
-            hasPriorExplicitDefault &&
-            !materializedFromExplicitLeft &&
-            param?._featherMaterializedTrailingUndefined !== true
-        ) {
-            shouldMarkOptional = true;
-        }
-        if (shouldApplyOptionalSuppression) {
-            if (
-                shouldMarkOptional &&
-                defaultIsUndefined &&
-                shouldOmitUndefinedDefault &&
-                paramInfo?.explicitUndefinedDefault === true &&
-                !optionalOverrideFlag &&
-                !hasOptionalDocName
-            ) {
-                shouldMarkOptional = false;
-            }
-            if (
-                shouldMarkOptional &&
-                shouldOmitUndefinedDefault &&
-                paramInfo.optional &&
-                defaultCameFromSource &&
-                !hasOptionalDocName
-            ) {
-                shouldMarkOptional = false;
-            }
-        }
-        if (
-            shouldMarkOptional &&
-            param?.type === "Identifier" &&
-            !synthesizedUndefinedDefaultParameters.has(param)
-        ) {
-            synthesizedUndefinedDefaultParameters.add(param);
-        }
-        if (shouldMarkOptional && defaultIsUndefined) {
-            preservedUndefinedDefaultParameters.add(param);
-        }
         const docName = shouldMarkOptional ? `[${baseDocName}]` : baseDocName;
 
         const normalizedExistingType = normalizeParamDocType(
@@ -991,6 +821,286 @@ function appendDocumentedParamLines(
             lines.push(`/// @param ${fallbackCanonical}`);
         }
     }
+}
+
+type OrdinalDocPreferencesParams = {
+    node: any;
+    paramInfo: ReturnType<typeof getParameterDocInfo>;
+    paramIndex: number;
+    options: SyntheticDocGenerationOptions;
+    shouldAdoptOrdinalName: boolean;
+    hasCompleteOrdinalDocs: boolean;
+    canonicalOrdinal: string | null;
+    canonicalParamName: string | null;
+    rawOrdinalName: string | null;
+    paramMetadataByCanonical: Map<string, DocMeta>;
+};
+
+function handleOrdinalDocPreferences({
+    node,
+    paramInfo,
+    paramIndex,
+    options,
+    shouldAdoptOrdinalName,
+    hasCompleteOrdinalDocs,
+    canonicalOrdinal,
+    canonicalParamName,
+    rawOrdinalName,
+    paramMetadataByCanonical
+}: OrdinalDocPreferencesParams) {
+    if (
+        hasCompleteOrdinalDocs &&
+        node &&
+        typeof paramIndex === NUMBER_TYPE &&
+        shouldAdoptOrdinalName
+    ) {
+        const documentedParamCanonical =
+            getCanonicalParamNameFromText(paramInfo.name) ?? null;
+        if (
+            documentedParamCanonical &&
+            paramMetadataByCanonical.has(documentedParamCanonical)
+        ) {
+            // The parameter already appears in the documented metadata;
+            // avoid overriding it with mismatched ordinal ordering.
+        } else {
+            let preferredDocs = preferredParamDocNamesByNode.get(node);
+            if (!preferredDocs) {
+                preferredDocs = new Map();
+                preferredParamDocNamesByNode.set(node, preferredDocs);
+            }
+            if (!preferredDocs.has(paramIndex)) {
+                preferredDocs.set(paramIndex, rawOrdinalName);
+            }
+        }
+    }
+
+    if (
+        !shouldAdoptOrdinalName &&
+        canonicalOrdinal &&
+        canonicalParamName &&
+        canonicalOrdinal !== canonicalParamName &&
+        node &&
+        !paramMetadataByCanonical.has(canonicalParamName)
+    ) {
+        const canonicalOrdinalMatchesDeclaredParam =
+            Array.isArray(node?.params)
+                ? node.params.some((candidate: any, candidateIndex: number) => {
+                      if (candidateIndex === paramIndex) {
+                          return false;
+                      }
+
+                      const candidateInfo = getParameterDocInfo(
+                          candidate,
+                          node,
+                          options
+                      );
+                      const candidateCanonical =
+                          candidateInfo?.name
+                              ? getCanonicalParamNameFromText(
+                                    candidateInfo.name
+                                )
+                              : null;
+
+                      return candidateCanonical === canonicalOrdinal;
+                  })
+                : false;
+
+        if (!canonicalOrdinalMatchesDeclaredParam) {
+            let suppressedCanonicals =
+                suppressedImplicitDocCanonicalByNode.get(node);
+            if (!suppressedCanonicals) {
+                suppressedCanonicals = new Set();
+                suppressedImplicitDocCanonicalByNode.set(
+                    node,
+                    suppressedCanonicals
+                );
+            }
+            suppressedCanonicals.add(canonicalOrdinal);
+        }
+    }
+}
+
+type ImplicitNameOverrideParams = {
+    node: any;
+    paramIndex: number;
+    implicitDocEntry: ImplicitArgumentDocEntry | undefined;
+    canonicalOrdinal: string | null;
+    ordinalDocName: string | null;
+    effectiveImplicitName: string | null;
+    fallbackCanonical: string | null;
+};
+
+function applyImplicitNameOverride({
+    node,
+    paramIndex,
+    implicitDocEntry,
+    canonicalOrdinal,
+    ordinalDocName,
+    effectiveImplicitName,
+    fallbackCanonical
+}: ImplicitNameOverrideParams) {
+    if (!effectiveImplicitName || !ordinalDocName) {
+        return effectiveImplicitName;
+    }
+
+    const canonicalImplicit =
+        getCanonicalParamNameFromText(effectiveImplicitName) ?? null;
+    const resolvedFallbackCanonical = fallbackCanonical;
+    const shouldOverrideImplicitName = Boolean(
+        canonicalOrdinal &&
+            canonicalOrdinal !== resolvedFallbackCanonical &&
+            canonicalOrdinal !== canonicalImplicit
+    );
+
+    if (!shouldOverrideImplicitName) {
+        return effectiveImplicitName;
+    }
+
+    const ordinalLength = canonicalOrdinal.length;
+    const implicitCanonicalLength = canonicalImplicit?.length ?? 0;
+    const hasImplicitName =
+        implicitCanonicalLength > 0 ||
+        isNonEmptyTrimmedString(effectiveImplicitName);
+    const implicitComparisonLength = hasImplicitName
+        ? implicitCanonicalLength
+        : 0;
+
+    if (ordinalLength > implicitComparisonLength) {
+        applyOrdinalImplicitDocEntryOverrides(
+            node,
+            paramIndex,
+            implicitDocEntry,
+            canonicalOrdinal,
+            ordinalDocName
+        );
+        return null;
+    }
+
+    return effectiveImplicitName;
+}
+
+type OptionalDocStateParams = {
+    node: any;
+    param: any;
+    paramIndex: number;
+    paramInfo: ReturnType<typeof getParameterDocInfo>;
+    options: SyntheticDocGenerationOptions;
+    existingMetadata: DocMeta | null;
+    serializedDocName: string | undefined;
+};
+
+function computeOptionalDocState({
+    node,
+    param,
+    paramIndex,
+    paramInfo,
+    options,
+    existingMetadata,
+    serializedDocName
+}: OptionalDocStateParams) {
+    const optionalOverrideFlag = paramInfo?.optionalOverride === true;
+    const defaultIsUndefined =
+        param?.type === "DefaultParameter" &&
+        isUndefinedSentinel(param.right);
+    const shouldOmitUndefinedDefault =
+        defaultIsUndefined &&
+        shouldOmitUndefinedDefaultForFunctionNode(node);
+    const hasExistingMetadata = Boolean(existingMetadata);
+    const hasOptionalDocName =
+        param?.type === "DefaultParameter" &&
+        isOptionalParamDocName(serializedDocName);
+    const parameterSourceText = getSourceTextForNode(param, options);
+    const defaultCameFromSource =
+        defaultIsUndefined &&
+        typeof parameterSourceText === STRING_TYPE &&
+        parameterSourceText.includes("=");
+
+    const explicitOptionalMarker =
+        param?._featherOptionalParameter === true;
+
+    let shouldMarkOptional =
+        Boolean(paramInfo.optional) ||
+        hasOptionalDocName ||
+        (param?.type === "DefaultParameter" &&
+            isUndefinedSentinel(param.right) &&
+            (explicitOptionalMarker ||
+                node?.type === "ConstructorDeclaration"));
+    const hasSiblingExplicitDefault = Array.isArray(node?.params)
+        ? node.params.some((candidate: any, candidateIndex: number) => {
+              if (candidateIndex === paramIndex || !candidate) {
+                  return false;
+              }
+
+              if (candidate.type !== "DefaultParameter") {
+                  return false;
+              }
+
+              return (
+                  candidate.right != null &&
+                  !isUndefinedSentinel(candidate.right)
+              );
+          })
+        : false;
+    const hasPriorExplicitDefault = Array.isArray(node?.params)
+        ? node.params.slice(0, paramIndex).some((candidate: any) => {
+              if (!candidate || candidate.type !== "DefaultParameter") {
+                  return false;
+              }
+
+              return (
+                  candidate.right != null &&
+                  !isUndefinedSentinel(candidate.right)
+              );
+          })
+        : false;
+    const shouldApplyOptionalSuppression =
+        hasExistingMetadata || !hasSiblingExplicitDefault;
+
+    const materializedFromExplicitLeft =
+        param?._featherMaterializedFromExplicitLeft === true;
+    if (
+        !shouldMarkOptional &&
+        !hasExistingMetadata &&
+        hasSiblingExplicitDefault &&
+        hasPriorExplicitDefault &&
+        !materializedFromExplicitLeft &&
+        param?._featherMaterializedTrailingUndefined !== true
+    ) {
+        shouldMarkOptional = true;
+    }
+    if (shouldApplyOptionalSuppression) {
+        if (
+            shouldMarkOptional &&
+            defaultIsUndefined &&
+            shouldOmitUndefinedDefault &&
+            paramInfo?.explicitUndefinedDefault === true &&
+            !optionalOverrideFlag &&
+            !hasOptionalDocName
+        ) {
+            shouldMarkOptional = false;
+        }
+        if (
+            shouldMarkOptional &&
+            shouldOmitUndefinedDefault &&
+            paramInfo.optional &&
+            defaultCameFromSource &&
+            !hasOptionalDocName
+        ) {
+            shouldMarkOptional = false;
+        }
+    }
+    if (
+        shouldMarkOptional &&
+        param?.type === "Identifier" &&
+        !synthesizedUndefinedDefaultParameters.has(param)
+    ) {
+        synthesizedUndefinedDefaultParameters.add(param);
+    }
+    if (shouldMarkOptional && defaultIsUndefined) {
+        preservedUndefinedDefaultParameters.add(param);
+    }
+
+    return shouldMarkOptional;
 }
 
 /**
