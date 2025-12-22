@@ -1,4 +1,4 @@
-import { getFeatherDiagnosticById } from "../resources/feather-metadata.js";
+import { getFeatherDiagnosticById } from "./feather-metadata.js";
 
 // GML keywords that should be excluded when extracting identifiers from examples.
 const GML_KEYWORDS = new Set([

@@ -22,3 +22,8 @@ export {
     resolveBundledResourceUrl
 } from "./resource-locator.js";
 export * from "./feather-type-system.js";
+export {
+    buildDeprecatedBuiltinVariableReplacements,
+    getDeprecatedBuiltinReplacementEntry,
+    type DeprecatedReplacementEntry
+} from "./deprecated-builtin-variable-replacements.js";
