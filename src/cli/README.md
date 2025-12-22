@@ -51,6 +51,7 @@ node src/cli/src/cli.js watch /path/to/project --verbose
 - `--polling` - Use polling instead of native file watching
 - `--polling-interval <ms>` - Polling interval in milliseconds (default: 1000)
 - `--verbose` - Enable verbose logging with detailed transpilation output
+- `--debounce-delay <ms>` - Delay in milliseconds before transpiling after file changes (default: 200, set to 0 to disable debouncing)
 - `--max-patch-history <count>` - Maximum number of patches to retain in memory (default: 100)
 - `--websocket-port <port>` - WebSocket server port for streaming patches (default: 17890)
 - `--websocket-host <host>` - WebSocket server host for streaming patches (default: 127.0.0.1)
@@ -86,6 +87,30 @@ Slowest transpilation: 5.67ms (complex_script.gml)
 -------------------------------
 ```
 
+**Debouncing File Changes:**
+
+The watch command includes intelligent debouncing to prevent unnecessary transpilations when files change rapidly (e.g., during IDE auto-save or when making multiple quick edits). By default, the watcher waits 200ms after the last file change before transpiling, which:
+
+- **Reduces system load** - Only transpiles once per burst of edits instead of on every keystroke
+- **Minimizes WebSocket traffic** - Sends one patch instead of many rapid updates
+- **Improves user experience** - Provides smoother hot-reload without flicker
+- **Prevents race conditions** - Avoids overlapping transpilations of the same file
+
+Configure the debounce delay with `--debounce-delay`:
+
+```bash
+# Use default 200ms debounce
+node src/cli/src/cli.js watch
+
+# Increase debounce for slower systems
+node src/cli/src/cli.js watch --debounce-delay 500
+
+# Disable debouncing (transpile immediately on every change)
+node src/cli/src/cli.js watch --debounce-delay 0
+```
+
+When the watch command stops (via Ctrl+C or abort signal), any pending debounced transpilations are flushed immediately to ensure no work is lost.
+
 **Hot-Reload Integration:**
 
 The watch command now integrates with the transpiler module (`src/transpiler`) to generate JavaScript patches on file changes. Each patch contains:
@@ -119,11 +144,12 @@ The watch command includes robust error handling to maintain stability:
 ✅ **Transpilation metrics tracking** ✨
 ✅ **Performance statistics on watch stop** ✨
 ✅ **Configurable patch history limit** ✨
-✅ **Error recovery and graceful degradation** ✨ NEW
-✅ **Patch validation before broadcast** ✨ NEW
-✅ **Error notifications to clients** ✨ NEW
-✅ **Last successful patch tracking** ✨ NEW
-✅ **Error statistics and reporting** ✨ NEW
+✅ **Error recovery and graceful degradation** ✨
+✅ **Patch validation before broadcast** ✨
+✅ **Error notifications to clients** ✨
+✅ **Last successful patch tracking** ✨
+✅ **Error statistics and reporting** ✨
+✅ **Debounced file change handling** ✨ NEW
 
 🚧 Future Enhancements:
 - Semantic analysis integration for scope-aware transpilation
