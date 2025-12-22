@@ -8,7 +8,6 @@ import { util } from "prettier";
 import { Parser, type ScopeTracker } from "@gml-modules/parser";
 import * as Transforms from "../transforms/index.js";
 import { Semantic } from "@gml-modules/semantic";
-import * as SourcePreprocessing from "./source-preprocessing.js";
 
 const { getNodeStartIndex, getNodeEndIndex } = Core;
 const { addTrailingComment } = util;
@@ -168,7 +167,7 @@ function preprocessSource(
     );
 
     const { sourceText: commentFixedSource, indexMapper: commentFixMapper } =
-        SourcePreprocessing.fixMalformedComments(featherResult.parseSource);
+        Parser.Utils.fixMalformedComments(featherResult.parseSource);
 
     if (process.env.GML_PRINTER_DEBUG) {
         console.debug("[DEBUG] commentFixedSource:", commentFixedSource);
@@ -248,11 +247,10 @@ function parseSourceWithRecovery(
             throw error;
         }
 
-        const recoveredSource =
-            SourcePreprocessing.recoverParseSourceFromMissingBrace(
-                sourceText,
-                error
-            ) as unknown;
+        const recoveredSource = Parser.Utils.recoverParseSourceFromMissingBrace(
+            sourceText,
+            error
+        ) as unknown;
         if (
             typeof recoveredSource !== "string" ||
             recoveredSource === sourceText
