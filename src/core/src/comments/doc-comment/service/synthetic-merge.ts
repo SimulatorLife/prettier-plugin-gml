@@ -1554,7 +1554,7 @@ type DocTagHelpers = ReturnType<typeof createDocTagHelpers>;
 
 type MergeDocLinesParams = {
     normalizedExistingLines: MutableDocCommentLines;
-    syntheticLines: MutableDocCommentLines;
+    syntheticLines: DocCommentLines;
     docTagHelpers: DocTagHelpers;
     originalExistingHasTags: boolean;
     removedExistingReturnDuplicates: boolean;
@@ -1955,8 +1955,8 @@ function applyDocCommentPromotionIfNeeded(
 }
 
 type AttemptEarlyReturnParams = {
-    syntheticLines: MutableDocCommentLines;
-    normalizedExistingLines: MutableDocCommentLines;
+    syntheticLines: DocCommentLines;
+    normalizedExistingLines: DocCommentLines;
     shouldForceParamPrune: boolean;
     existingDocLines: DocCommentLines | string[];
     overrides: any;

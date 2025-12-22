@@ -279,6 +279,7 @@ function applyLogicalOperatorsStyle(operator, style) {
     return operator;
 }
 
+/* eslint complexity: ["error", 400] */
 function _printImpl(path, options, print) {
     const node = path.getValue();
 
