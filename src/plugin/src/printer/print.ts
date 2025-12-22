@@ -4233,152 +4233,248 @@ function materializeParamDefaultsFromParamDefault(functionNode) {
                     continue;
                 }
 
-                for (const stmt of body.body) {
-                    if (!stmt || stmt.type !== "IfStatement") continue;
+                const fallback = locateDefaultParameterFallback(
+                    body.body,
+                    paramName
+                );
+                if (!fallback) {
+                    continue;
+                }
 
-                    // Accept either a BinaryExpression test or a ParenthesizedExpression wrapping one.
-                    const test =
-                        stmt.test &&
-                        (stmt.test.type === "BinaryExpression"
-                            ? stmt.test
-                            : stmt.test.type === "ParenthesizedExpression"
-                              ? stmt.test.expression
-                              : null);
-                    if (!test || test.type !== "BinaryExpression") continue;
-
-                    // We only handle guards of the form `argument_count > N` or
-                    // related variants where the consequent assigns from
-                    // argument[index] and the alternate assigns a fallback.
-                    const right = test.right;
-                    if (!right || right.type !== "Literal") continue;
-                    const rightNumber = Number(String(right.value));
-                    if (!Number.isInteger(rightNumber)) continue;
-
-                    // Determine the expected argument index for the guard
-                    let argIndex = null;
-                    switch (test.operator) {
-                        case ">": {
-                            argIndex = rightNumber;
-                            break;
-                        }
-                        case "<": {
-                            argIndex = rightNumber - 1;
-                            break;
-                        }
-                        case "==":
-                        case "===": {
-                            argIndex = rightNumber;
-                            // No default
-                            break;
-                        }
-                    }
-                    if (!Number.isInteger(argIndex) || argIndex < 0) continue;
-
-                    const consequentStmts = stmt.consequent
-                        ? stmt.consequent.type === "BlockStatement"
-                            ? Array.isArray(stmt.consequent.body)
-                                ? stmt.consequent.body
-                                : []
-                            : [stmt.consequent]
-                        : [];
-                    const alternateStmts = stmt.alternate
-                        ? stmt.alternate.type === "BlockStatement"
-                            ? Array.isArray(stmt.alternate.body)
-                                ? stmt.alternate.body
-                                : []
-                            : [stmt.alternate]
-                        : [];
-
-                    let matchedFromArg = false;
-                    let matchedFallback = null;
-
-                    for (const cs of consequentStmts) {
-                        if (!cs) continue;
-                        const assign =
-                            cs.type === "ExpressionStatement" &&
-                            cs.expression &&
-                            cs.expression.type === "AssignmentExpression"
-                                ? cs.expression
-                                : cs.type === "AssignmentExpression"
-                                  ? cs
-                                  : null;
-                        if (!assign) continue;
-                        const left = assign.left;
-                        const rightExpr = assign.right;
-                        if (
-                            left &&
-                            left.type === "Identifier" &&
-                            left.name === paramName &&
-                            rightExpr &&
-                            rightExpr.type === "MemberIndexExpression" &&
-                            rightExpr.object?.type === "Identifier" &&
-                            rightExpr.object.name === "argument" &&
-                            Array.isArray(rightExpr.property) &&
-                            rightExpr.property.length === 1 &&
-                            rightExpr.property[0]?.type === "Literal"
-                        ) {
-                            const literal = rightExpr.property[0];
-                            const parsed = Number.parseInt(literal.value);
-                            if (
-                                Number.isInteger(parsed) &&
-                                parsed === argIndex
-                            ) {
-                                matchedFromArg = true;
-                            }
-                        }
-                    }
-
-                    if (!matchedFromArg) continue;
-
-                    for (const as of alternateStmts) {
-                        if (!as) continue;
-                        const assign =
-                            as.type === "ExpressionStatement" &&
-                            as.expression &&
-                            as.expression.type === "AssignmentExpression"
-                                ? as.expression
-                                : as.type === "AssignmentExpression"
-                                  ? as
-                                  : null;
-                        if (!assign) continue;
-                        const left = assign.left;
-                        const rightExpr = assign.right;
-                        if (
-                            left &&
-                            left.type === "Identifier" &&
-                            left.name === paramName &&
-                            (!rightExpr ||
-                                rightExpr.type !== "MemberIndexExpression")
-                        ) {
-                            matchedFallback = rightExpr;
-                            break;
-                        }
-                    }
-
-                    if (matchedFromArg && matchedFallback) {
-                        // Fill in the missing right side of the DefaultParameter
-                        param.right = matchedFallback;
-                        if (matchedFallback && matchedFallback.end !== null) {
-                            param.end = matchedFallback.end;
-                        }
-                        // Do NOT set the _featherOptionalParameter marker here.
-                        // The parser-transform is the authoritative source for
-                        // optional parameter intent. If the parser produced
-                        // the marker it will already be present on the param
-                        // (and copied when materialized above).
-                        // Remove the matched statement from the body
-                        const idx = body.body.indexOf(stmt);
-                        if (idx !== -1) {
-                            body.body.splice(idx, 1);
-                        }
-                        break;
-                    }
+                // Fill in the missing right side of the DefaultParameter
+                param.right = fallback.fallback;
+                if (fallback.fallback && fallback.fallback.end !== null) {
+                    param.end = fallback.fallback.end;
+                }
+                // Do NOT set the _featherOptionalParameter marker here.
+                // The parser-transform is the authoritative source for
+                // optional parameter intent. If the parser produced
+                // the marker it will already be present on the param
+                // (and copied when materialized above).
+                // Remove the matched statement from the body
+                const idx = body.body.indexOf(fallback.statement);
+                if (idx !== -1) {
+                    body.body.splice(idx, 1);
                 }
             } catch {
                 // Non-fatal — leave the param as-is.
             }
         }
     }
+}
+
+function locateDefaultParameterFallback(
+    statements: Array<any>,
+    paramName: string
+): {
+    fallback: any;
+    statement: any;
+} | null {
+    for (const stmt of statements) {
+        const guard = describeArgumentGuard(stmt);
+        if (!guard) {
+            continue;
+        }
+
+        if (
+            !hasArgumentAssignment(guard.consequent, paramName, guard.argIndex)
+        ) {
+            continue;
+        }
+
+        const fallback = findFallbackAssignment(guard.alternate, paramName);
+        if (!fallback) {
+            continue;
+        }
+
+        return { fallback, statement: stmt };
+    }
+
+    return null;
+}
+
+function describeArgumentGuard(stmt: any) {
+    if (!stmt || stmt.type !== "IfStatement") {
+        return null;
+    }
+
+    const test = getGuardBinaryExpression(stmt.test);
+    if (!test) {
+        return null;
+    }
+
+    const argIndex = deriveArgumentIndex(test);
+    if (!Number.isInteger(argIndex) || argIndex < 0) {
+        return null;
+    }
+
+    return {
+        argIndex,
+        consequent: flattenStatementList(stmt.consequent),
+        alternate: flattenStatementList(stmt.alternate)
+    };
+}
+
+function getGuardBinaryExpression(test: any) {
+    if (!test) {
+        return null;
+    }
+
+    if (test.type === "BinaryExpression") {
+        return test;
+    }
+
+    if (
+        test.type === "ParenthesizedExpression" &&
+        test.expression &&
+        test.expression.type === "BinaryExpression"
+    ) {
+        return test.expression;
+    }
+
+    return null;
+}
+
+function deriveArgumentIndex(test: any) {
+    if (!test || test.type !== "BinaryExpression") {
+        return null;
+    }
+
+    const right = test.right;
+    if (!right || right.type !== "Literal") {
+        return null;
+    }
+
+    const rightNumber = Number(String(right.value));
+    if (!Number.isInteger(rightNumber)) {
+        return null;
+    }
+
+    switch (test.operator) {
+        case ">": {
+            return rightNumber;
+        }
+        case "<": {
+            return rightNumber - 1;
+        }
+        case "==":
+        case "===": {
+            return rightNumber;
+        }
+        default: {
+            return null;
+        }
+    }
+}
+
+function flattenStatementList(node: any) {
+    if (!node) {
+        return [];
+    }
+
+    if (node.type === "BlockStatement") {
+        return Array.isArray(node.body) ? node.body : [];
+    }
+
+    return [node];
+}
+
+function hasArgumentAssignment(
+    statements: Array<any>,
+    paramName: string,
+    argIndex: number
+) {
+    for (const statement of statements) {
+        const assign = getAssignmentExpression(statement);
+        if (!assign) {
+            continue;
+        }
+
+        if (isArgumentAssignment(assign, paramName, argIndex)) {
+            return true;
+        }
+    }
+
+    return false;
+}
+
+function findFallbackAssignment(statements: Array<any>, paramName: string) {
+    for (const statement of statements) {
+        const assign = getAssignmentExpression(statement);
+        if (!assign) {
+            continue;
+        }
+
+        if (
+            assign.left &&
+            assign.left.type === "Identifier" &&
+            assign.left.name === paramName &&
+            (!assign.right || assign.right.type !== "MemberIndexExpression")
+        ) {
+            return assign.right ?? null;
+        }
+    }
+
+    return null;
+}
+
+function getAssignmentExpression(node: any) {
+    if (!node) {
+        return null;
+    }
+
+    if (
+        node.type === "ExpressionStatement" &&
+        node.expression &&
+        node.expression.type === "AssignmentExpression"
+    ) {
+        return node.expression;
+    }
+
+    if (node.type === "AssignmentExpression") {
+        return node;
+    }
+
+    return null;
+}
+
+function isArgumentAssignment(
+    assign: any,
+    paramName: string,
+    argIndex: number
+) {
+    const left = assign.left;
+    if (!left || left.type !== "Identifier" || left.name !== paramName) {
+        return false;
+    }
+
+    const rightExpr = assign.right;
+    if (!rightExpr || rightExpr.type !== "MemberIndexExpression") {
+        return false;
+    }
+
+    if (
+        rightExpr.object?.type !== "Identifier" ||
+        rightExpr.object.name !== "argument"
+    ) {
+        return false;
+    }
+
+    if (!Array.isArray(rightExpr.property)) {
+        return false;
+    }
+
+    if (rightExpr.property.length !== 1) {
+        return false;
+    }
+
+    const literal = rightExpr.property[0];
+    if (!literal || literal.type !== "Literal") {
+        return false;
+    }
+
+    const parsed = Number.parseInt(literal.value);
+    return Number.isInteger(parsed) && parsed === argIndex;
 }
 
 function shouldPreserveCompactUpdateAssignmentSpacing(path, options) {

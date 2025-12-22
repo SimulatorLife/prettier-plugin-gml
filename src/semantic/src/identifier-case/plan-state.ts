@@ -290,27 +290,11 @@ export function applyIdentifierCasePlanSnapshot(snapshot, options) {
                             : 0;
                     if (isMap && size > 0 && !object[optionKey]) {
                         setIdentifierCaseOption(object, optionKey, value);
-                        try {
-                            try {
-                                // Log a small sample of map keys to help diagnose
-                                // mismatches between planner-generated keys and the
-                                // keys used by printer lookups.
-                                const samples = [];
-                                let c = 0;
-                                for (const k of value.keys()) {
-                                    samples.push(String(k));
-                                    c += 1;
-                                    if (c >= 3) break;
-                                }
-                                // console.debug(
-                                //     `[DBG] applyIdentifierCasePlanSnapshot: set ${optionKey} id=${getDebugId(value as DebuggableMap)} size=${String(size)} samples=${JSON.stringify(samples)} filepath=${object?.filepath ?? null}`
-                                // );
-                            } catch {
-                                /* ignore */
-                            }
-                        } catch {
-                            /* ignore */
-                        }
+                        logIdentifierCaseRenameMapSamples(
+                            value as Map<unknown, unknown>,
+                            optionKey,
+                            object
+                        );
                     }
                     // After writing the option, emit an identity check to confirm
                     // whether the snapshot's map instance is the same object that
@@ -364,3 +348,54 @@ export function applyIdentifierCasePlanSnapshot(snapshot, options) {
 }
 
 export { buildRenameKey };
+
+function logIdentifierCaseRenameMapSamples(
+    value: Map<unknown, unknown>,
+    optionKey: string,
+    object: any
+): void {
+    try {
+        const formatKey = (key: unknown) => {
+            if (typeof key === "string") {
+                return key;
+            }
+
+            if (key === null) {
+                return "null";
+            }
+
+            if (key === undefined) {
+                return "undefined";
+            }
+
+            if (typeof key === "number" || typeof key === "boolean") {
+                return String(key);
+            }
+
+            try {
+                return JSON.stringify(key);
+            } catch {
+                return Object.prototype.toString.call(key);
+            }
+        };
+
+        const samples: Array<string> = [];
+        let count = 0;
+        for (const key of value.keys()) {
+            samples.push(formatKey(key));
+            count += 1;
+            if (count >= 3) {
+                break;
+            }
+        }
+        const debugContext = `${optionKey}@${object?.filepath ?? null}`;
+        void debugContext;
+        // console.debug(
+        //     `[DBG] applyIdentifierCasePlanSnapshot: set ${optionKey} size=${String(
+        //         value.size
+        //     )} samples=${JSON.stringify(samples)} filepath=${object?.filepath ?? null}`
+        // );
+    } catch {
+        /* ignore */
+    }
+}

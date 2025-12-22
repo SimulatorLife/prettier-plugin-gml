@@ -38,6 +38,7 @@ import {
 } from "../modules/runtime/server.js";
 import {
     startPatchWebSocketServer,
+    type PatchBroadcastResult,
     type PatchWebSocketServerController
 } from "../modules/websocket/server.js";
 import { formatCliError } from "../cli-core/errors.js";
@@ -796,144 +797,19 @@ async function handleFileChange(
             }
 
             // Transpile the GML source to JavaScript
-            if (runtimeContext?.transpiler) {
-                const startTime = performance.now();
-                try {
-                    // Generate a script identifier from the file path
-                    const fileName = path.basename(
-                        filePath,
-                        path.extname(filePath)
-                    );
-                    const symbolId = `gml/script/${fileName}`;
-
-                    // Transpile to JavaScript patch
-                    const patch = runtimeContext.transpiler.transpileScript({
-                        sourceText: content,
-                        symbolId
-                    });
-
-                    const endTime = performance.now();
-                    const durationMs = endTime - startTime;
-
-                    // Validate the patch before broadcasting
-                    if (!validatePatch(patch)) {
-                        throw new Error("Generated patch failed validation");
-                    }
-
-                    // Collect metrics
-                    const metrics: TranspilationMetrics = {
-                        timestamp: Date.now(),
-                        filePath,
-                        patchId: patch.id,
-                        durationMs,
-                        sourceSize: content.length,
-                        outputSize: patch.js_body.length,
-                        linesProcessed: lines
-                    };
-
-                    runtimeContext.metrics.push(metrics);
-
-                    // Enforce max history limit
-                    if (
-                        runtimeContext.metrics.length >
-                        runtimeContext.maxPatchHistory
-                    ) {
-                        runtimeContext.metrics.shift();
-                    }
-
-                    // Store last successful patch for this script (for potential rollback)
-                    runtimeContext.lastSuccessfulPatches.set(symbolId, patch);
-
-                    // Store the patch for future streaming
-                    runtimeContext.patches.push(patch);
-
-                    // Enforce max history limit for patches too
-                    if (
-                        runtimeContext.patches.length >
-                        runtimeContext.maxPatchHistory
-                    ) {
-                        runtimeContext.patches.shift();
-                    }
-
-                    // Broadcast the patch to all connected WebSocket clients
-                    if (runtimeContext.websocketServer) {
-                        const broadcastResult =
-                            runtimeContext.websocketServer.broadcast(patch);
-
-                        if (verbose) {
-                            console.log(
-                                `  ↳ Broadcasted to ${broadcastResult.successCount} clients`
-                            );
-                            if (broadcastResult.failureCount > 0) {
-                                console.log(
-                                    `  ↳ Failed to send to ${broadcastResult.failureCount} clients`
-                                );
-                            }
-                        } else if (broadcastResult.successCount > 0) {
-                            console.log(
-                                `  ↳ Streamed to ${broadcastResult.successCount} client(s)`
-                            );
-                        }
-                    }
-
-                    if (verbose) {
-                        console.log(
-                            `  ↳ Transpiled to JavaScript (${patch.js_body.length} chars in ${durationMs.toFixed(2)}ms)`
-                        );
-                        console.log(`  ↳ Patch ID: ${patch.id}`);
-                    } else {
-                        console.log(`  ↳ Generated patch: ${patch.id}`);
-                    }
-
-                    // Future integration points:
-                    // 1. Run semantic analysis to understand scope and dependencies
-                    // 2. Identify dependent scripts that need recompilation
-                } catch (error) {
-                    // Track error in context
-                    const errorMessage = getErrorMessage(error, {
-                        fallback: "Unknown transpilation error"
-                    });
-                    const transpilationError: TranspilationError = {
-                        timestamp: Date.now(),
-                        filePath,
-                        error: errorMessage,
-                        sourceSize: content.length
-                    };
-                    runtimeContext.errors.push(transpilationError);
-
-                    // Enforce max history limit for errors
-                    if (
-                        runtimeContext.errors.length >
-                        runtimeContext.maxPatchHistory
-                    ) {
-                        runtimeContext.errors.shift();
-                    }
-
-                    // Send error notification to clients
-                    if (runtimeContext.websocketServer) {
-                        const errorNotification = createErrorNotification(
-                            filePath,
-                            errorMessage
-                        );
-                        runtimeContext.websocketServer.broadcast(
-                            errorNotification
-                        );
-                    }
-
-                    if (verbose) {
-                        const formattedError = formatCliError(error);
-                        console.error(
-                            `  ↳ Transpilation failed:\n${formattedError}`
-                        );
-                    } else {
-                        console.error(
-                            `  ↳ Transpilation failed: ${errorMessage}`
-                        );
-                    }
-
-                    // Continue watching despite error (graceful degradation)
-                }
+            const transpiler = runtimeContext?.transpiler;
+            if (!transpiler) {
+                return;
             }
+
+            runTranspilationForFile(
+                runtimeContext,
+                transpiler,
+                filePath,
+                content,
+                lines,
+                verbose
+            );
         } catch (error) {
             if (verbose) {
                 const message = getErrorMessage(error, {
@@ -942,5 +818,143 @@ async function handleFileChange(
                 console.log(`  ↳ Error reading file: ${message}`);
             }
         }
+    }
+}
+
+function runTranspilationForFile(
+    runtimeContext: RuntimeContext,
+    transpiler: RuntimeTranspiler,
+    filePath: string,
+    content: string,
+    lines: number,
+    verbose: boolean
+): void {
+    const startTime = performance.now();
+
+    try {
+        const fileName = path.basename(filePath, path.extname(filePath));
+        const symbolId = `gml/script/${fileName}`;
+
+        const patch = transpiler.transpileScript({
+            sourceText: content,
+            symbolId
+        });
+
+        if (!validatePatch(patch)) {
+            throw new Error("Generated patch failed validation");
+        }
+
+        const durationMs = performance.now() - startTime;
+
+        const metrics: TranspilationMetrics = {
+            timestamp: Date.now(),
+            filePath,
+            patchId: patch.id,
+            durationMs,
+            sourceSize: content.length,
+            outputSize: patch.js_body.length,
+            linesProcessed: lines
+        };
+
+        runtimeContext.metrics.push(metrics);
+        if (runtimeContext.metrics.length > runtimeContext.maxPatchHistory) {
+            runtimeContext.metrics.shift();
+        }
+
+        runtimeContext.lastSuccessfulPatches.set(symbolId, patch);
+
+        runtimeContext.patches.push(patch);
+        if (runtimeContext.patches.length > runtimeContext.maxPatchHistory) {
+            runtimeContext.patches.shift();
+        }
+
+        const broadcastResult =
+            runtimeContext.websocketServer?.broadcast(patch);
+        if (broadcastResult) {
+            logPatchBroadcastResult(broadcastResult, verbose);
+        }
+
+        logTranspilationSummary(patch, durationMs, verbose);
+    } catch (error) {
+        handleTranspilationError(
+            error,
+            runtimeContext,
+            filePath,
+            content.length,
+            verbose
+        );
+    }
+}
+
+function logPatchBroadcastResult(
+    broadcastResult: PatchBroadcastResult,
+    verbose: boolean
+): void {
+    if (verbose) {
+        console.log(
+            `  ↳ Broadcasted to ${broadcastResult.successCount} clients`
+        );
+        if (broadcastResult.failureCount > 0) {
+            console.log(
+                `  ↳ Failed to send to ${broadcastResult.failureCount} clients`
+            );
+        }
+    } else if (broadcastResult.successCount > 0) {
+        console.log(
+            `  ↳ Streamed to ${broadcastResult.successCount} client(s)`
+        );
+    }
+}
+
+function logTranspilationSummary(
+    patch: RuntimeTranspilerPatch,
+    durationMs: number,
+    verbose: boolean
+): void {
+    if (verbose) {
+        console.log(
+            `  ↳ Transpiled to JavaScript (${patch.js_body.length} chars in ${durationMs.toFixed(2)}ms)`
+        );
+        console.log(`  ↳ Patch ID: ${patch.id}`);
+    } else {
+        console.log(`  ↳ Generated patch: ${patch.id}`);
+    }
+}
+
+function handleTranspilationError(
+    error: unknown,
+    runtimeContext: RuntimeContext,
+    filePath: string,
+    sourceSize: number,
+    verbose: boolean
+): void {
+    const errorMessage = getErrorMessage(error, {
+        fallback: "Unknown transpilation error"
+    });
+    const transpilationError: TranspilationError = {
+        timestamp: Date.now(),
+        filePath,
+        error: errorMessage,
+        sourceSize
+    };
+
+    runtimeContext.errors.push(transpilationError);
+    if (runtimeContext.errors.length > runtimeContext.maxPatchHistory) {
+        runtimeContext.errors.shift();
+    }
+
+    if (runtimeContext.websocketServer) {
+        const errorNotification = createErrorNotification(
+            filePath,
+            errorMessage
+        );
+        runtimeContext.websocketServer.broadcast(errorNotification);
+    }
+
+    if (verbose) {
+        const formattedError = formatCliError(error);
+        console.error(`  ↳ Transpilation failed:\n${formattedError}`);
+    } else {
+        console.error(`  ↳ Transpilation failed: ${errorMessage}`);
     }
 }

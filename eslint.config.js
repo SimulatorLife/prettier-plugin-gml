@@ -236,7 +236,7 @@ const tsConfig = defineConfig({
 
         /* --- core "bad practice" rules --- */
         complexity: ["warn", { max: 12 }],
-        "max-depth": ["error", 7],
+        "max-depth": ["error", 6],
         "max-lines": [
             "warn",
             {

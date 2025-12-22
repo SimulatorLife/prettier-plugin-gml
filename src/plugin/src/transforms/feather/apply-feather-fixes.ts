@@ -421,65 +421,7 @@ function applyFeatherFixesImpl(ast: any, opts: ApplyFeatherFixesOptions = {}) {
                 // name-based reattachment. This is the common path for many
                 // diagnostic fixes.
                 if (typeof fix.target === "string") {
-                    try {
-                        // console.warn(
-                        //     `[feather:diagnostic] reattach-guard fix=${fix.id} target=${String(fix.target)}`
-                        // );
-                    } catch {
-                        void 0;
-                    }
-
-                    const targetName = fix.target;
-                    let targetNode = null;
-
-                    walkAstNodes(ast, (node) => {
-                        if (!node || node.type !== "FunctionDeclaration") {
-                            return;
-                        }
-
-                        if (getFunctionIdentifierName(node) === targetName) {
-                            targetNode = node;
-                            return false; // stop walking this branch
-                        }
-                    });
-
-                    if (targetNode) {
-                        // Only attach if an identical entry isn't already present
-                        const existing = Array.isArray(
-                            targetNode._appliedFeatherDiagnostics
-                        )
-                            ? targetNode._appliedFeatherDiagnostics
-                            : [];
-
-                        const already = existing.some(
-                            (entry) =>
-                                entry &&
-                                entry.id === fix.id &&
-                                entry.range &&
-                                fix.range &&
-                                entry.range.start === fix.range.start &&
-                                entry.range.end === fix.range.end
-                        );
-
-                        if (!already) {
-                            // If the fix lacked a stable target, fill it in with
-                            // the live function name so per-node metadata
-                            // records a usable target value for consumers/tests.
-                            try {
-                                const nodeName =
-                                    getFunctionIdentifierName(targetNode);
-                                const toAttach =
-                                    !fix.target && nodeName
-                                        ? [{ ...fix, target: nodeName }]
-                                        : [fix];
-
-                                attachFeatherFixMetadata(targetNode, toAttach);
-                            } catch {
-                                attachFeatherFixMetadata(targetNode, [fix]);
-                            }
-                        }
-                    }
-
+                    attachFeatherFixToNamedFunction(ast, fix);
                     continue;
                 }
 
@@ -491,79 +433,13 @@ function applyFeatherFixesImpl(ast: any, opts: ApplyFeatherFixesOptions = {}) {
                     typeof fix.range.start === "number" &&
                     typeof fix.range.end === "number"
                 ) {
-                    try {
-                        // console.warn(
-                        //     `[feather:diagnostic] reattach-guard-range fix=${fix.id} target=<range:${fix.range.start}-${fix.range.end}>`
-                        // );
-                    } catch {
-                        void 0;
-                    }
-
-                    let targetNode = null;
-
-                    walkAstNodes(ast, (node) => {
-                        if (!node || node.type !== "FunctionDeclaration") {
-                            return;
-                        }
-
-                        const start = Core.getNodeStartIndex(node);
-                        const end = Core.getNodeEndIndex(node);
-
-                        // Prefer an exact match but also accept containment matches
-                        // where the live node fully encompasses the original fix
-                        // range. This accounts for small location shifts caused by
-                        // downstream transforms (comments, minor rewrites) which
-                        // would otherwise prevent exact equality from succeeding.
-                        if (
-                            (start === fix.range.start &&
-                                end === fix.range.end) ||
-                            (typeof start === "number" &&
-                                typeof end === "number" &&
-                                start <= fix.range.start &&
-                                end >= fix.range.end)
-                        ) {
-                            targetNode = node;
-                            return false;
-                        }
-                    });
-
-                    if (targetNode) {
-                        const existing = Array.isArray(
-                            targetNode._appliedFeatherDiagnostics
-                        )
-                            ? targetNode._appliedFeatherDiagnostics
-                            : [];
-
-                        const already = existing.some(
-                            (entry) =>
-                                entry &&
-                                entry.id === fix.id &&
-                                entry.range &&
-                                fix.range &&
-                                entry.range.start === fix.range.start &&
-                                entry.range.end === fix.range.end
-                        );
-
-                        if (!already) {
-                            try {
-                                const nodeName =
-                                    getFunctionIdentifierName(targetNode);
-                                const toAttach =
-                                    !fix.target && nodeName
-                                        ? [{ ...fix, target: nodeName }]
-                                        : [fix];
-
-                                attachFeatherFixMetadata(targetNode, toAttach);
-                            } catch {
-                                attachFeatherFixMetadata(targetNode, [fix]);
-                            }
-                        }
-                    }
-                    // If we didn't attach via range matching, continue to the
-                    // next fix. A narrow GM1056-specific heuristic is executed
-                    // after the main name/range attempts below so it runs even
-                    // when the fix lacks a numeric range.
+                    attachFeatherFixToRange(ast, fix);
                 }
+
+                // If we didn't attach via range matching, continue to the
+                // next fix. A narrow GM1056-specific heuristic is executed
+                // after the main name/range attempts below so it runs even
+                // when the fix lacks a numeric range.
 
                 // GM1056-specific fallback: some GM1056 fixes may be emitted
                 // without a reliable target name or numeric range. As a
@@ -702,6 +578,126 @@ function applyFeatherFixesImpl(ast: any, opts: ApplyFeatherFixesOptions = {}) {
     });
 
     return ast;
+}
+
+function attachFeatherFixToNamedFunction(
+    ast: MutableGameMakerAstNode,
+    fix: any
+): void {
+    try {
+        // console.warn(
+        //     `[feather:diagnostic] reattach-guard fix=${fix.id} target=${String(
+        //         fix.target
+        //     )}`
+        // );
+    } catch {
+        void 0;
+    }
+
+    const targetNode = findFunctionDeclaration(
+        ast,
+        (node) => getFunctionIdentifierName(node) === String(fix.target)
+    );
+
+    if (targetNode) {
+        attachFeatherFixToFunctionNode(targetNode, fix);
+    }
+}
+
+function attachFeatherFixToRange(ast: MutableGameMakerAstNode, fix: any): void {
+    try {
+        // console.warn(
+        //     `[feather:diagnostic] reattach-guard-range fix=${fix.id} target=<range:${fix.range.start}-${fix.range.end}>`
+        // );
+    } catch {
+        void 0;
+    }
+
+    const { start, end } = fix.range;
+    const targetNode = findFunctionDeclaration(ast, (node) =>
+        rangeMatchesNode(node, start, end)
+    );
+
+    if (targetNode) {
+        attachFeatherFixToFunctionNode(targetNode, fix);
+    }
+}
+
+function findFunctionDeclaration(
+    ast: MutableGameMakerAstNode,
+    predicate: (node: MutableGameMakerAstNode) => boolean
+): MutableGameMakerAstNode | null {
+    let targetNode: MutableGameMakerAstNode | null = null;
+
+    walkAstNodes(ast, (node) => {
+        if (!node || node.type !== "FunctionDeclaration") {
+            return;
+        }
+
+        if (predicate(node)) {
+            targetNode = node;
+            return false;
+        }
+    });
+
+    return targetNode;
+}
+
+function attachFeatherFixToFunctionNode(
+    targetNode: MutableGameMakerAstNode,
+    fix: any
+): void {
+    const existing = Array.isArray(targetNode._appliedFeatherDiagnostics)
+        ? targetNode._appliedFeatherDiagnostics
+        : [];
+
+    const already = existing.some(
+        (entry) =>
+            entry &&
+            entry.id === fix.id &&
+            entry.range &&
+            fix.range &&
+            entry.range.start === fix.range.start &&
+            entry.range.end === fix.range.end
+    );
+
+    if (already) {
+        return;
+    }
+
+    try {
+        const nodeName = getFunctionIdentifierName(targetNode);
+        const toAttach =
+            !fix.target && nodeName ? [{ ...fix, target: nodeName }] : [fix];
+
+        attachFeatherFixMetadata(targetNode, toAttach);
+    } catch {
+        attachFeatherFixMetadata(targetNode, [fix]);
+    }
+}
+
+function rangeMatchesNode(
+    node: MutableGameMakerAstNode,
+    start: number,
+    end: number
+): boolean {
+    const nodeStart = Core.getNodeStartIndex(node);
+    const nodeEnd = Core.getNodeEndIndex(node);
+
+    if (nodeStart === start && nodeEnd === end) {
+        return true;
+    }
+
+    if (
+        typeof nodeStart === "number" &&
+        typeof nodeEnd === "number" &&
+        nodeStart <= start &&
+        nodeEnd >= end
+    ) {
+        return true;
+    }
+
+    return false;
 }
 
 function buildFeatherDiagnosticFixers(diagnostics, implementationRegistry) {

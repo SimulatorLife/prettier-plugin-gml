@@ -353,47 +353,7 @@ export function collectImplicitArgumentDocNames(
         const suppressedCanonicals =
             suppressedImplicitDocCanonicalByNode.get(functionNode);
 
-        try {
-            const referenceInfo =
-                gatherImplicitArgumentReferences(functionNode);
-
-            if (referenceInfo) {
-                try {
-                    const directSet = referenceInfo.directReferenceIndices;
-                    if (directSet && directSet.size > 0) {
-                        for (const entry of entries) {
-                            if (
-                                entry &&
-                                entry.index != null &&
-                                !entry.hasDirectReference &&
-                                directSet.has(entry.index)
-                            ) {
-                                entry.hasDirectReference = true;
-                            }
-                        }
-                    }
-
-                    const needsCanonicalScan = entries.some(
-                        (e: any) => e && !e.hasDirectReference
-                    );
-                    if (needsCanonicalScan) {
-                        const canonicalToEntries = new Map();
-                        for (const e of entries) {
-                            if (!e) continue;
-                            const key =
-                                e.canonical || e.fallbackCanonical || e.name;
-                            if (!canonicalToEntries.has(key))
-                                canonicalToEntries.set(key, []);
-                            canonicalToEntries.get(key).push(e);
-                        }
-                    }
-                } catch {
-                    /* ignore */
-                }
-            }
-        } catch {
-            /* ignore */
-        }
+        processImplicitArgumentEntries(functionNode, entries);
 
         return entries.filter((entry: any) => {
             if (!entry) return false;
@@ -410,4 +370,71 @@ export function collectImplicitArgumentDocNames(
     }
 
     return [];
+}
+
+function processImplicitArgumentEntries(
+    functionNode: any,
+    entries: Array<any>
+): void {
+    try {
+        const referenceInfo = gatherImplicitArgumentReferences(functionNode);
+        if (!referenceInfo) {
+            return;
+        }
+
+        markEntriesWithDirectReferences(
+            entries,
+            referenceInfo.directReferenceIndices
+        );
+
+        if (entries.some((entry) => entry && !entry.hasDirectReference)) {
+            scanEntriesForCanonicals(entries);
+        }
+    } catch {
+        /* ignore */
+    }
+}
+
+function markEntriesWithDirectReferences(
+    entries: Array<any>,
+    directReferenceIndices: Set<number> | null | undefined
+): void {
+    if (!directReferenceIndices || directReferenceIndices.size === 0) {
+        return;
+    }
+
+    for (const entry of entries) {
+        if (!entry) {
+            continue;
+        }
+
+        const index = entry.index;
+        if (index == null) {
+            continue;
+        }
+
+        if (entry.hasDirectReference) {
+            continue;
+        }
+
+        if (directReferenceIndices.has(index)) {
+            entry.hasDirectReference = true;
+        }
+    }
+}
+
+function scanEntriesForCanonicals(entries: Array<any>): void {
+    const canonicalToEntries = new Map();
+
+    for (const entry of entries) {
+        if (!entry) {
+            continue;
+        }
+
+        const key = entry.canonical || entry.fallbackCanonical || entry.name;
+        if (!canonicalToEntries.has(key)) {
+            canonicalToEntries.set(key, []);
+        }
+        canonicalToEntries.get(key).push(entry);
+    }
 }
