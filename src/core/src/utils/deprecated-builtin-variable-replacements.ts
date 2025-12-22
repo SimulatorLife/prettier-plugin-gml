@@ -1,7 +1,7 @@
 import { getFeatherDiagnosticById } from "../resources/feather-metadata.js";
 
-const IDENTIFIER_TOKEN_PATTERN = /\b[A-Za-z_][A-Za-z0-9_]*\b/g;
-const RESERVED_KEYWORD_TOKENS = new Set([
+// GML keywords that should be excluded when extracting identifiers from examples.
+const GML_KEYWORDS = new Set([
     "and",
     "break",
     "case",
@@ -32,101 +32,83 @@ const RESERVED_KEYWORD_TOKENS = new Set([
 ]);
 
 export function buildDeprecatedBuiltinVariableReplacements() {
-    const replacements = new Map();
     const diagnostic = getFeatherDiagnosticById("GM1024");
-
-    if (!diagnostic) {
-        return replacements;
+    if (!diagnostic?.badExample || !diagnostic?.goodExample) {
+        return new Map();
     }
 
-    const entries = deriveDeprecatedBuiltinVariableReplacementsFromExamples(
+    return deriveReplacementsFromExamples(
         diagnostic.badExample,
         diagnostic.goodExample
     );
-
-    for (const entry of entries) {
-        if (!replacements.has(entry.normalized)) {
-            replacements.set(entry.normalized, entry);
-        }
-    }
-
-    return replacements;
 }
 
-function deriveDeprecatedBuiltinVariableReplacementsFromExamples( // TODO: There must be a better way to derive which variables are deprecated from the manual content thn this
-    badExample,
-    goodExample
-) {
-    const entries = [];
-    const badTokens = extractIdentifierTokens(badExample);
-    const goodTokens = extractIdentifierTokens(goodExample);
+/**
+ * Extract deprecated variable replacements by comparing bad and good code examples.
+ * Finds identifiers that appear in the bad example but not the good example (deprecated),
+ * paired with identifiers that appear in the good example but not the bad (replacements).
+ */
+function deriveReplacementsFromExamples(badExample, goodExample) {
+    const badIdentifiers = extractUserIdentifiers(badExample);
+    const goodIdentifiers = extractUserIdentifiers(goodExample);
 
-    if (badTokens.length === 0 || goodTokens.length === 0) {
-        return entries;
+    if (badIdentifiers.length === 0 || goodIdentifiers.length === 0) {
+        return new Map();
     }
 
-    const goodTokenSet = new Set(goodTokens.map((token) => token.normalized));
-    const deprecatedTokens = badTokens.filter(
-        (token) => !goodTokenSet.has(token.normalized)
+    // Find identifiers unique to each example.
+    const goodSet = new Set(goodIdentifiers.map((id) => id.toLowerCase()));
+    const deprecated = badIdentifiers.filter(
+        (id) => !goodSet.has(id.toLowerCase())
     );
 
-    if (deprecatedTokens.length === 0) {
-        return entries;
-    }
-
-    const badTokenSet = new Set(badTokens.map((token) => token.normalized));
-    const replacementTokens = goodTokens.filter(
-        (token) => !badTokenSet.has(token.normalized)
+    const badSet = new Set(badIdentifiers.map((id) => id.toLowerCase()));
+    const replacements = goodIdentifiers.filter(
+        (id) => !badSet.has(id.toLowerCase())
     );
 
-    const pairCount = Math.min(
-        deprecatedTokens.length,
-        replacementTokens.length
-    );
-
-    for (let index = 0; index < pairCount; index += 1) {
-        const deprecatedToken = deprecatedTokens[index];
-        const replacementToken = replacementTokens[index];
-
-        if (!deprecatedToken || !replacementToken) {
-            continue;
-        }
-
-        entries.push({
-            normalized: deprecatedToken.normalized,
-            deprecated: deprecatedToken.token,
-            replacement: replacementToken.token
+    // Pair deprecated identifiers with their replacements by position.
+    const pairs = new Map();
+    const count = Math.min(deprecated.length, replacements.length);
+    for (let i = 0; i < count; i++) {
+        const deprecatedName = deprecated[i];
+        const replacementName = replacements[i];
+        pairs.set(deprecatedName.toLowerCase(), {
+            normalized: deprecatedName.toLowerCase(),
+            deprecated: deprecatedName,
+            replacement: replacementName
         });
     }
 
-    return entries;
+    return pairs;
 }
 
-function extractIdentifierTokens(text) {
-    if (typeof text !== "string" || text.length === 0) {
+/**
+ * Extract user-defined identifiers from code, excluding GML keywords.
+ * Preserves original casing and returns unique identifiers in order of first appearance.
+ */
+function extractUserIdentifiers(code) {
+    if (!code || typeof code !== "string") {
         return [];
     }
 
-    const matches = text.match(IDENTIFIER_TOKEN_PATTERN) ?? [];
-    const tokens = [];
-    const seen = new Set();
+    const identifierPattern = /\b[A-Za-z_][A-Za-z0-9_]*\b/g;
+    const seenLowercase = new Set();
+    const identifiers = [];
 
-    for (const match of matches) {
-        const normalized = match.toLowerCase();
+    for (const match of code.matchAll(identifierPattern)) {
+        const identifier = match[0];
+        const lowercase = identifier.toLowerCase();
 
-        if (RESERVED_KEYWORD_TOKENS.has(normalized)) {
+        if (GML_KEYWORDS.has(lowercase) || seenLowercase.has(lowercase)) {
             continue;
         }
 
-        if (seen.has(normalized)) {
-            continue;
-        }
-
-        seen.add(normalized);
-        tokens.push({ token: match, normalized });
+        seenLowercase.add(lowercase);
+        identifiers.push(identifier);
     }
 
-    return tokens;
+    return identifiers;
 }
 
 type DeprecatedReplacementCacheHolder = {
