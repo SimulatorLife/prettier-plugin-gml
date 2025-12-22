@@ -1862,7 +1862,7 @@ function transformXorPattern(expression) {
         return expression;
     }
 
-    const baseClone = cloneBooleanExpression(base);
+    const baseClone = structuredClone(base);
     const andTerm = createBooleanAnd(
         baseVarIndices.map((index) =>
             createBooleanVariable({
@@ -1914,7 +1914,7 @@ function transformMixedReductionPattern(expression) {
                 );
                 const notBase = createBooleanNot(baseAnd);
                 return createBooleanOr([
-                    cloneBooleanExpression(positiveVarTerm),
+                    structuredClone(positiveVarTerm),
                     notBase
                 ]);
             }
@@ -2122,10 +2122,6 @@ function createBooleanAnd(terms) {
 
 function createBooleanOr(terms) {
     return { type: BOOLEAN_NODE_TYPES.OR, terms: terms.filter(Boolean) };
-}
-
-function cloneBooleanExpression(expression) {
-    return structuredClone(expression);
 }
 
 function booleanExpressionKey(expression) {
