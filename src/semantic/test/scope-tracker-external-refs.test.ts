@@ -285,6 +285,7 @@ void test("getScopeExternalReferences returns cloned declaration metadata", () =
                         start: { line: 1, index: 0 },
                         end: { line: 1, index: 6 }
                     },
+                    usageContext: { isRead: true },
                     start: { line: 2, index: 0 },
                     end: { line: 2, index: 6 }
                 }
