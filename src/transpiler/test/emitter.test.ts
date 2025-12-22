@@ -800,6 +800,34 @@ void test("Transpiler.emitJavaScript handles struct literals with string keys", 
     assert.ok(result.includes("hp:"), "Should include hp property");
 });
 
+void test("Transpiler.emitJavaScript quotes struct keys that are not identifiers", () => {
+    const source = 'x = {"player-name": 1, "level 1": 2}';
+    const parser = new Parser.GMLParser(source, {});
+    const ast = parser.parse();
+    const result = Transpiler.emitJavaScript(ast);
+
+    assert.ok(
+        result.includes('"player-name": 1'),
+        "Should preserve hyphenated keys with quotes"
+    );
+    assert.ok(
+        result.includes('"level 1": 2'),
+        "Should quote keys that include whitespace"
+    );
+});
+
+void test("Transpiler.emitJavaScript escapes quotes inside struct keys", () => {
+    const source = String.raw`x = {"player\"name": 3}`;
+    const parser = new Parser.GMLParser(source, {});
+    const ast = parser.parse();
+    const result = Transpiler.emitJavaScript(ast);
+
+    assert.ok(
+        result.includes(String.raw`"player\"name": 3`),
+        "Should escape embedded quotes in key names"
+    );
+});
+
 void test("Transpiler.emitJavaScript handles struct literals with expression values", () => {
     const source = "x = {total: a + b, half: n / 2}";
     const parser = new Parser.GMLParser(source, {});
