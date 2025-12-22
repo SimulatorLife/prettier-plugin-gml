@@ -295,6 +295,26 @@ function _printImpl(path, options, print) {
 }
 
 function _printImplCore(node, path, options, print) {
+    const doc =
+        tryPrintControlStructureNode(node, path, options, print) ??
+        tryPrintFunctionNode(node, path, options, print) ??
+        tryPrintFunctionSupportNode(node, path, options, print) ??
+        tryPrintVariableNode(node, path, options, print) ??
+        tryPrintExpressionNode(node, path, options, print) ??
+        tryPrintDeclarationNode(node, path, options, print) ??
+        tryPrintLiteralNode(node, path, options, print);
+
+    if (doc !== undefined) {
+        return doc;
+    }
+
+    console.warn(
+        `Print.js:print encountered unhandled node type: ${node.type}`,
+        node
+    );
+}
+
+function tryPrintControlStructureNode(node, path, options, print) {
     switch (node.type) {
         case "Program": {
             return printProgramNode(node, path, options, print);
@@ -385,6 +405,12 @@ function _printImplCore(node, path, options, print) {
                 )
             );
         }
+    }
+    
+}
+
+function tryPrintFunctionNode(node, path, options, print) {
+    switch (node.type) {
         case "FunctionDeclaration":
         case "ConstructorDeclaration": {
             const parts: any[] = [];
@@ -592,6 +618,12 @@ function _printImplCore(node, path, options, print) {
             parts.push(printInBlock(path, options, print, "body"));
             return concat(parts);
         }
+    }
+    
+}
+
+function tryPrintFunctionSupportNode(node, path, options, print) {
+    switch (node.type) {
         case "ConstructorParentClause": {
             const hasParameters = Core.isNonEmptyArray(node.params);
             const params = hasParameters
@@ -625,6 +657,12 @@ function _printImplCore(node, path, options, print) {
                 printSimpleDeclaration(print("left"), print("right"))
             );
         }
+    }
+    
+}
+
+function tryPrintVariableNode(node, path, options, print) {
+    switch (node.type) {
         case "ExpressionStatement": {
             const expression = node.expression;
             if (
@@ -814,6 +852,12 @@ function _printImplCore(node, path, options, print) {
             }
             return concat(printSimpleDeclaration(print("id"), print("init")));
         }
+    }
+    
+}
+
+function tryPrintExpressionNode(node, path, options, print) {
+    switch (node.type) {
         case "ParenthesizedExpression": {
             if (shouldOmitSyntheticParens(path)) {
                 return printWithoutExtraParens(path, print, "expression");
@@ -1279,6 +1323,28 @@ function _printImplCore(node, path, options, print) {
                 )
             );
         }
+        case "NewExpression": {
+            const argsPrinted =
+                node.arguments.length === 0
+                    ? [printEmptyParens(path, options)]
+                    : [
+                          printCommaSeparatedList(
+                              path,
+                              print,
+                              "arguments",
+                              "(",
+                              ")",
+                              options
+                          )
+                      ];
+            return concat(["new ", print("expression"), ...argsPrinted]);
+        }
+    }
+    
+}
+
+function tryPrintDeclarationNode(node, path, options, print) {
+    switch (node.type) {
         case "EnumDeclaration": {
             prepareEnumMembersForPrinting(node, Core.getNodeName);
             return concat([
@@ -1402,6 +1468,12 @@ function _printImplCore(node, path, options, print) {
         case "EmptyStatement": {
             return concat("");
         }
+    }
+    
+}
+
+function tryPrintLiteralNode(node, path, options, print) {
+    switch (node.type) {
         case "Literal": {
             let value = node.value;
 
@@ -1511,22 +1583,6 @@ function _printImplCore(node, path, options, print) {
         case "MissingOptionalArgument": {
             return concat(UNDEFINED_TYPE);
         }
-        case "NewExpression": {
-            const argsPrinted =
-                node.arguments.length === 0
-                    ? [printEmptyParens(path, options)]
-                    : [
-                          printCommaSeparatedList(
-                              path,
-                              print,
-                              "arguments",
-                              "(",
-                              ")",
-                              options
-                          )
-                      ];
-            return concat(["new ", print("expression"), ...argsPrinted]);
-        }
         case "EnumMember": {
             const extraPadding = getEnumNameAlignmentPadding(node);
             let nameDoc = print("name");
@@ -1596,13 +1652,8 @@ function _printImplCore(node, path, options, print) {
         case "MalformedDocComment": {
             return print(node);
         }
-        default: {
-            console.warn(
-                `Print.js:print encountered unhandled node type: ${node.type}`,
-                node
-            );
-        }
     }
+    
 }
 
 function printProgramNode(node, path, options, print) {
@@ -1663,8 +1714,7 @@ function printProgramNode(node, path, options, print) {
         try {
             if (
                 Semantic &&
-                typeof Semantic.teardownIdentifierCaseEnvironment ===
-                    "function"
+                typeof Semantic.teardownIdentifierCaseEnvironment === "function"
             ) {
                 Semantic.teardownIdentifierCaseEnvironment(options);
             }
@@ -1690,23 +1740,19 @@ function printBlockStatementNode(node, path, options, print) {
     if (originalText !== null) {
         const firstStatement = node.body[0];
         const { startIndex: firstStatementStartIndex } =
-            resolveNodeIndexRangeWithSource(
-                firstStatement,
-                sourceMetadata
-            );
+            resolveNodeIndexRangeWithSource(firstStatement, sourceMetadata);
 
         const preserveForConstructor =
             typeof firstStatementStartIndex === NUMBER_TYPE &&
             isBlockWithinConstructor(path) &&
             isPreviousLineEmpty(originalText, firstStatementStartIndex);
 
-        const preserveForLeadingComment =
-            hasBlankLineBeforeLeadingComment(
-                node,
-                sourceMetadata,
-                originalText,
-                firstStatementStartIndex
-            );
+        const preserveForLeadingComment = hasBlankLineBeforeLeadingComment(
+            node,
+            sourceMetadata,
+            originalText,
+            firstStatementStartIndex
+        );
 
         if (preserveForConstructor || preserveForLeadingComment) {
             leadingDocs.push(lineSuffixBoundary as any, hardline as any);
@@ -1739,11 +1785,7 @@ function printSwitchStatementNode(node, path, options, print) {
 
     const braceIntro = [
         "{",
-        printDanglingComments(
-            path,
-            options,
-            (comment) => comment.attachToBrace
-        )
+        printDanglingComments(path, options, (comment) => comment.attachToBrace)
     ];
 
     if (node.cases.length === 0) {
@@ -1779,10 +1821,7 @@ function printSwitchCaseNode(node, path, options, print) {
     const caseBody = node.body;
     if (Core.isNonEmptyArray(caseBody)) {
         parts.push([
-            indent([
-                hardline,
-                printStatements(path, options, print, "body")
-            ])
+            indent([hardline, printStatements(path, options, print, "body")])
         ]);
     }
     return concat(parts);
