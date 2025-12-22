@@ -588,6 +588,13 @@ type ScopeSnapshot = {
                 start: SourceLocation;
                 end: SourceLocation;
             };
+            usageContext: {
+                isRead?: boolean;
+                isWrite?: boolean;
+                isAssignmentTarget?: boolean;
+                isCallTarget?: boolean;
+                parentType?: string;
+            } | null;
             start: SourceLocation;
             end: SourceLocation;
         }>;
@@ -601,6 +608,13 @@ type ScopeSnapshot = {
                 start: SourceLocation;
                 end: SourceLocation;
             };
+            usageContext: {
+                isRead?: boolean;
+                isWrite?: boolean;
+                isAssignmentTarget?: boolean;
+                isCallTarget?: boolean;
+                parentType?: string;
+            } | null;
             start: SourceLocation;
             end: SourceLocation;
         }>;
@@ -663,6 +677,7 @@ function buildDeclarationScopeSnapshot({
                             start: cloneLocation(declarationRangeClone.start),
                             end: cloneLocation(declarationRangeClone.end)
                         },
+                        usageContext: null,
                         start: cloneLocation(metadataRangeClone.start),
                         end: cloneLocation(metadataRangeClone.end)
                     }
@@ -711,6 +726,7 @@ function buildReferenceScopeSnapshot({
                             start: cloneLocation(declarationRangeClone.start),
                             end: cloneLocation(declarationRangeClone.end)
                         },
+                        usageContext: { isRead: true },
                         start: cloneLocation(referenceRangeClone.start),
                         end: cloneLocation(referenceRangeClone.end)
                     }

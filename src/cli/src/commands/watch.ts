@@ -536,13 +536,16 @@ export async function runWatchCommand(
                 host: websocketHost,
                 port: websocketPort,
                 verbose,
-                onClientConnect: (clientId) => {
+                onClientConnect: (clientId, _socket) => {
+                    void _socket;
                     if (verbose) {
                         console.log(
                             `Patch streaming client connected: ${clientId}`
                         );
                     }
                 },
+                prepareInitialMessages: () =>
+                    Array.from(runtimeContext.lastSuccessfulPatches.values()),
                 onClientDisconnect: (clientId) => {
                     if (verbose) {
                         console.log(

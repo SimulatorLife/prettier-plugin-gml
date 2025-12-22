@@ -707,9 +707,40 @@ export class GmlToJsEmitter {
 
     private resolveStructKey(prop: StructPropertyNode): string {
         if (typeof prop.name === "string") {
-            return prop.name;
+            return this.stringifyStructKey(prop.name);
         }
         return this.visit(prop.name);
+    }
+
+    private stringifyStructKey(rawKey: string): string {
+        const key = this.normalizeStructKeyText(rawKey);
+        if (this.isIdentifierLike(key) || /^[0-9]+$/.test(key)) {
+            return key;
+        }
+        return JSON.stringify(key);
+    }
+
+    private normalizeStructKeyText(value: string): string {
+        const startsWithQuote = value.startsWith('"') || value.startsWith("'");
+        const endsWithQuote = value.endsWith('"') || value.endsWith("'");
+        if (!startsWithQuote || !endsWithQuote || value.length < 2) {
+            return value;
+        }
+        const usesSameQuote =
+            (value.startsWith('"') && value.endsWith('"')) ||
+            (value.startsWith("'") && value.endsWith("'"));
+        if (!usesSameQuote) {
+            return value;
+        }
+        try {
+            return JSON.parse(value);
+        } catch {
+            return value.slice(1, -1);
+        }
+    }
+
+    private isIdentifierLike(value: string): boolean {
+        return /^[A-Za-z_$][A-Za-z0-9_$]*$/.test(value);
     }
 
     private resolveEnumMemberName(member: EnumMemberNode): string {

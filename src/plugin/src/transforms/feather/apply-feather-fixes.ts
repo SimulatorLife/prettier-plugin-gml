@@ -166,36 +166,6 @@ function getOptionalArray(obj: unknown, key: string): unknown[] {
     const value = (obj as any)[key];
     return Array.isArray(value) ? value : [];
 }
-const IDENTIFIER_TOKEN_PATTERN = /\b[A-Za-z_][A-Za-z0-9_]*\b/g;
-const RESERVED_KEYWORD_TOKENS = new Set([
-    "and",
-    "break",
-    "case",
-    "continue",
-    "constructor",
-    "create",
-    "default",
-    "delete",
-    "do",
-    "else",
-    "enum",
-    "event",
-    "for",
-    "function",
-    "globalvar",
-    "if",
-    "macro",
-    "not",
-    "or",
-    "repeat",
-    "return",
-    "step",
-    "switch",
-    "until",
-    "var",
-    "while",
-    "with"
-]);
 let RESERVED_IDENTIFIER_NAMES: Set<string> | null = null;
 function getReservedIdentifierNames() {
     if (!RESERVED_IDENTIFIER_NAMES) {
@@ -204,7 +174,7 @@ function getReservedIdentifierNames() {
     return RESERVED_IDENTIFIER_NAMES;
 }
 const DEPRECATED_BUILTIN_VARIABLE_REPLACEMENTS =
-    buildDeprecatedBuiltinVariableReplacements();
+    Core.buildDeprecatedBuiltinVariableReplacements();
 const ARGUMENT_IDENTIFIER_PATTERN = /^argument(\d+)$/;
 const GM1041_CALL_ARGUMENT_TARGETS = new Map([
     ["instance_create_depth", [3]],
@@ -4369,7 +4339,7 @@ function replaceDeprecatedIdentifier(
     }
 
     const replacementEntry =
-        getDeprecatedBuiltinReplacementEntry(normalizedName);
+        Core.getDeprecatedBuiltinReplacementEntry(normalizedName);
 
     if (!replacementEntry) {
         return null;
@@ -4455,112 +4425,6 @@ function shouldSkipDeprecatedIdentifierReplacement({
     }
 
     return false;
-}
-
-function buildDeprecatedBuiltinVariableReplacements() {
-    const replacements = new Map();
-    const diagnostic = Core.getFeatherDiagnosticById("GM1024");
-
-    if (!diagnostic) {
-        return replacements;
-    }
-
-    const entries = deriveDeprecatedBuiltinVariableReplacementsFromExamples(
-        diagnostic.badExample,
-        diagnostic.goodExample
-    );
-
-    for (const entry of entries) {
-        if (!replacements.has(entry.normalized)) {
-            replacements.set(entry.normalized, entry);
-        }
-    }
-
-    return replacements;
-}
-
-function deriveDeprecatedBuiltinVariableReplacementsFromExamples(
-    badExample,
-    goodExample
-) {
-    const entries = [];
-    const badTokens = extractIdentifierTokens(badExample);
-    const goodTokens = extractIdentifierTokens(goodExample);
-
-    if (badTokens.length === 0 || goodTokens.length === 0) {
-        return entries;
-    }
-
-    const goodTokenSet = new Set(goodTokens.map((token) => token.normalized));
-    const deprecatedTokens = badTokens.filter(
-        (token) => !goodTokenSet.has(token.normalized)
-    );
-
-    if (deprecatedTokens.length === 0) {
-        return entries;
-    }
-
-    const badTokenSet = new Set(badTokens.map((token) => token.normalized));
-    const replacementTokens = goodTokens.filter(
-        (token) => !badTokenSet.has(token.normalized)
-    );
-
-    const pairCount = Math.min(
-        deprecatedTokens.length,
-        replacementTokens.length
-    );
-
-    for (let index = 0; index < pairCount; index += 1) {
-        const deprecatedToken = deprecatedTokens[index];
-        const replacementToken = replacementTokens[index];
-
-        if (!deprecatedToken || !replacementToken) {
-            continue;
-        }
-
-        entries.push({
-            normalized: deprecatedToken.normalized,
-            deprecated: deprecatedToken.token,
-            replacement: replacementToken.token
-        });
-    }
-
-    return entries;
-}
-
-function extractIdentifierTokens(text) {
-    if (typeof text !== "string" || text.length === 0) {
-        return [];
-    }
-
-    const matches = text.match(IDENTIFIER_TOKEN_PATTERN) ?? [];
-    const tokens = [];
-    const seen = new Set();
-
-    for (const match of matches) {
-        const normalized = match.toLowerCase();
-
-        if (RESERVED_KEYWORD_TOKENS.has(normalized)) {
-            continue;
-        }
-
-        if (seen.has(normalized)) {
-            continue;
-        }
-
-        seen.add(normalized);
-        tokens.push({ token: match, normalized });
-    }
-
-    return tokens;
-}
-
-function getDeprecatedBuiltinReplacementEntry(name) {
-    if (!name) {
-        return null;
-    }
-
-    return DEPRECATED_BUILTIN_VARIABLE_REPLACEMENTS.get(name) ?? null;
 }
 
 function rewriteInvalidPostfixExpressions({ ast, diagnostic }) {

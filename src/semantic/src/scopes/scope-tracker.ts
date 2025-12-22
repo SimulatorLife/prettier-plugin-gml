@@ -38,6 +38,8 @@ class Scope {
     >;
     public occurrences: Map<string, IdentifierOccurrences>;
     public stackIndex: number | null;
+    public lastModifiedTimestamp: number;
+    public modificationCount: number;
 
     constructor(id, kind, parent: Scope | null = null) {
         this.id = id;
@@ -46,6 +48,13 @@ class Scope {
         this.symbolMetadata = new Map();
         this.occurrences = new Map();
         this.stackIndex = null;
+        this.lastModifiedTimestamp = -1;
+        this.modificationCount = 0;
+    }
+
+    markModified() {
+        this.lastModifiedTimestamp = Date.now();
+        this.modificationCount += 1;
     }
 }
 
@@ -57,6 +66,9 @@ function createOccurrence(kind, metadata, source, declarationMetadata) {
           )
         : null;
 
+    const usageContext =
+        kind === "declaration" ? null : extractUsageContext(source);
+
     return Core.assignClonedLocation(
         {
             kind,
@@ -65,10 +77,47 @@ function createOccurrence(kind, metadata, source, declarationMetadata) {
             classifications: Core.toMutableArray(metadata?.classifications, {
                 clone: true
             }) as string[],
-            declaration
+            declaration,
+            usageContext
         },
         source ?? {}
     );
+}
+
+function extractUsageContext(node: unknown) {
+    if (!Core.isObjectLike(node)) {
+        return null;
+    }
+
+    const context: {
+        isRead?: boolean;
+        isWrite?: boolean;
+        isAssignmentTarget?: boolean;
+        isCallTarget?: boolean;
+        parentType?: string;
+    } = {};
+
+    const nodeAny = node as Record<string, unknown>;
+
+    if (nodeAny.isAssignmentTarget === true) {
+        context.isAssignmentTarget = true;
+        context.isWrite = true;
+    }
+
+    if (nodeAny.isCallTarget === true) {
+        context.isCallTarget = true;
+        context.isRead = true;
+    }
+
+    if (typeof nodeAny.parentType === "string") {
+        context.parentType = nodeAny.parentType;
+    }
+
+    if (!context.isWrite && !context.isRead) {
+        context.isRead = true;
+    }
+
+    return Object.keys(context).length > 0 ? context : null;
 }
 
 function cloneClassifications(
@@ -104,10 +153,15 @@ function cloneOccurrence(occurrence) {
           }
         : null;
 
+    const usageContextClone = occurrence.usageContext
+        ? { ...occurrence.usageContext }
+        : null;
+
     return {
         ...occurrence,
         classifications: cloneClassifications(occurrence.classifications),
         declaration: declarationClone,
+        usageContext: usageContextClone,
         start: Core.cloneLocation(occurrence.start),
         end: Core.cloneLocation(occurrence.end)
     };
@@ -282,6 +336,8 @@ export class ScopeTracker {
         } else {
             entry.declarations.push(occurrence);
         }
+
+        scope.markModified();
 
         // Ensure a per-symbol index exists
         let scopeSummaryMap = this.symbolToScopesIndex.get(name);
@@ -923,6 +979,184 @@ export class ScopeTracker {
         }
 
         return externalRefs;
+    }
+
+    /**
+     * Get modification metadata for a specific scope. Returns the last
+     * modification timestamp and the total number of modifications, which
+     * supports hot reload coordination by identifying which scopes have
+     * changed and need recompilation.
+     *
+     * @param {string} scopeId The scope identifier to query.
+     * @returns {{scopeId: string, scopeKind: string, lastModified: number, modificationCount: number} | null}
+     *          Modification metadata or null if scope not found.
+     */
+    getScopeModificationMetadata(scopeId: string | null | undefined) {
+        if (!scopeId) {
+            return null;
+        }
+
+        const scope = this.scopesById.get(scopeId);
+        if (!scope) {
+            return null;
+        }
+
+        return {
+            scopeId: scope.id,
+            scopeKind: scope.kind,
+            lastModified: scope.lastModifiedTimestamp,
+            modificationCount: scope.modificationCount
+        };
+    }
+
+    /**
+     * Get all scopes modified after a specific timestamp. This enables
+     * incremental hot reload by identifying only the scopes that have changed
+     * since the last compilation, avoiding full project rebuilds.
+     *
+     * @param {number} sinceTimestamp Only return scopes modified after this timestamp.
+     * @returns {Array<{scopeId: string, scopeKind: string, lastModified: number, modificationCount: number}>}
+     *          Array of modification metadata for scopes modified after the timestamp.
+     */
+    getModifiedScopes(sinceTimestamp: number = 0) {
+        const modifiedScopes = [];
+
+        for (const scope of this.scopesById.values()) {
+            if (scope.lastModifiedTimestamp > sinceTimestamp) {
+                modifiedScopes.push({
+                    scopeId: scope.id,
+                    scopeKind: scope.kind,
+                    lastModified: scope.lastModifiedTimestamp,
+                    modificationCount: scope.modificationCount
+                });
+            }
+        }
+
+        return modifiedScopes;
+    }
+
+    /**
+     * Get the most recently modified scope across all tracked scopes. This
+     * helps identify the latest change in the symbol table for hot reload
+     * coordination and incremental invalidation.
+     *
+     * @returns {{scopeId: string, scopeKind: string, lastModified: number, modificationCount: number} | null}
+     *          Metadata for the most recently modified scope, or null if no scopes exist.
+     */
+    getMostRecentlyModifiedScope() {
+        let mostRecent: Scope | null = null;
+        let latestTimestamp = -1;
+
+        for (const scope of this.scopesById.values()) {
+            if (scope.lastModifiedTimestamp > latestTimestamp) {
+                latestTimestamp = scope.lastModifiedTimestamp;
+                mostRecent = scope;
+            }
+        }
+
+        if (!mostRecent) {
+            return null;
+        }
+
+        return {
+            scopeId: mostRecent.id,
+            scopeKind: mostRecent.kind,
+            lastModified: mostRecent.lastModifiedTimestamp,
+            modificationCount: mostRecent.modificationCount
+        };
+    }
+
+    /**
+     * Get all write operations (assignments) for a specific symbol across all
+     * scopes. This supports hot reload invalidation by identifying which scopes
+     * write to a symbol, enabling precise dependency tracking for incremental
+     * recompilation.
+     *
+     * @param {string} name The symbol name to query.
+     * @returns {Array<{scopeId: string, scopeKind: string, occurrence: object}>}
+     *          Array of write occurrence records with scope context.
+     */
+    getSymbolWrites(name: string | null | undefined) {
+        if (!name) {
+            return [];
+        }
+
+        const scopeSummaryMap = this.symbolToScopesIndex.get(name);
+        if (!scopeSummaryMap || scopeSummaryMap.size === 0) {
+            return [];
+        }
+
+        const writes = [];
+
+        for (const scopeId of scopeSummaryMap.keys()) {
+            const scope = this.scopesById.get(scopeId);
+            if (!scope) {
+                continue;
+            }
+
+            const entry = scope.occurrences.get(name);
+            if (!entry) {
+                continue;
+            }
+
+            for (const reference of entry.references) {
+                if (reference.usageContext?.isWrite) {
+                    writes.push({
+                        scopeId: scope.id,
+                        scopeKind: scope.kind,
+                        occurrence: cloneOccurrence(reference)
+                    });
+                }
+            }
+        }
+
+        return writes;
+    }
+
+    /**
+     * Get all read operations for a specific symbol across all scopes. This
+     * helps identify dependencies when a symbol's value changes, enabling
+     * targeted invalidation for hot reload.
+     *
+     * @param {string} name The symbol name to query.
+     * @returns {Array<{scopeId: string, scopeKind: string, occurrence: object}>}
+     *          Array of read occurrence records with scope context.
+     */
+    getSymbolReads(name: string | null | undefined) {
+        if (!name) {
+            return [];
+        }
+
+        const scopeSummaryMap = this.symbolToScopesIndex.get(name);
+        if (!scopeSummaryMap || scopeSummaryMap.size === 0) {
+            return [];
+        }
+
+        const reads = [];
+
+        for (const scopeId of scopeSummaryMap.keys()) {
+            const scope = this.scopesById.get(scopeId);
+            if (!scope) {
+                continue;
+            }
+
+            const entry = scope.occurrences.get(name);
+            if (!entry) {
+                continue;
+            }
+
+            for (const reference of entry.references) {
+                if (reference.usageContext?.isRead) {
+                    reads.push({
+                        scopeId: scope.id,
+                        scopeKind: scope.kind,
+                        occurrence: cloneOccurrence(reference)
+                    });
+                }
+            }
+        }
+
+        return reads;
     }
 
     // Role tracking API (previously provided by SemanticScopeCoordinator)

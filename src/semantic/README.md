@@ -195,6 +195,117 @@ const externalRefs = tracker.getScopeExternalReferences("scope-1");
 
 **Use case:** Cross-scope dependency tracking for hot reload coordination. When editing a file/scope, query its external references to understand which parent symbols it depends on. This enables precise invalidation: if a parent scope's symbol changes, you can quickly identify all child scopes that reference it and selectively recompile only the affected code paths. This is essential for efficient hot reload in large projects where rebuilding everything would be prohibitively slow.
 
+## Scope Modification Tracking
+
+The `ScopeTracker` maintains modification metadata for each scope, enabling efficient incremental hot reload by tracking when scopes change and identifying which scopes need recompilation.
+
+### `getScopeModificationMetadata(scopeId)`
+
+Get modification metadata for a specific scope, including the last modification timestamp and total modification count.
+
+```javascript
+const metadata = tracker.getScopeModificationMetadata("scope-1");
+// Returns: {
+//   scopeId: "scope-1",
+//   scopeKind: "function",
+//   lastModified: 1703123456789,
+//   modificationCount: 5
+// }
+```
+
+**Use case:** Track when specific scopes were last modified to determine if they need recompilation during hot reload.
+
+### `getModifiedScopes(sinceTimestamp)`
+
+Get all scopes modified after a specific timestamp. This enables incremental hot reload by identifying only the scopes that have changed since the last compilation.
+
+```javascript
+const lastCompileTime = Date.now();
+// ... user makes changes ...
+const modifiedScopes = tracker.getModifiedScopes(lastCompileTime);
+// Returns: [
+//   { scopeId: "scope-2", scopeKind: "block", lastModified: 1703123457000, modificationCount: 3 }
+// ]
+```
+
+**Use case:** Incremental compilation during hot reload. Instead of rebuilding the entire project, identify and recompile only the scopes that changed since the last build, dramatically reducing compilation time.
+
+### `getMostRecentlyModifiedScope()`
+
+Get the most recently modified scope across all tracked scopes.
+
+```javascript
+const mostRecent = tracker.getMostRecentlyModifiedScope();
+// Returns: {
+//   scopeId: "scope-3",
+//   scopeKind: "function",
+//   lastModified: 1703123458000,
+//   modificationCount: 2
+// }
+```
+
+**Use case:** Quick identification of the latest change in the symbol table for hot reload coordination and incremental invalidation.
+
+## Usage Context Tracking
+
+Occurrences now include `usageContext` metadata that distinguishes how identifiers are used (read vs. write, call target, etc.), enabling smarter dependency analysis and invalidation.
+
+### `getSymbolWrites(name)`
+
+Get all write operations (assignments) for a specific symbol across all scopes. This supports hot reload invalidation by identifying which scopes write to a symbol.
+
+```javascript
+const writes = tracker.getSymbolWrites("counter");
+// Returns: [
+//   {
+//     scopeId: "scope-1",
+//     scopeKind: "function",
+//     occurrence: {
+//       kind: "reference",
+//       name: "counter",
+//       usageContext: { isWrite: true, isAssignmentTarget: true },
+//       ...
+//     }
+//   }
+// ]
+```
+
+**Use case:** Precise dependency tracking. When a variable's value changes, identify exactly which scopes perform writes to enable targeted invalidation for hot reload.
+
+### `getSymbolReads(name)`
+
+Get all read operations for a specific symbol across all scopes. This helps identify dependencies when a symbol's value changes.
+
+```javascript
+const reads = tracker.getSymbolReads("gameState");
+// Returns: [
+//   {
+//     scopeId: "scope-2",
+//     scopeKind: "block",
+//     occurrence: {
+//       kind: "reference",
+//       name: "gameState",
+//       usageContext: { isRead: true },
+//       ...
+//     }
+//   }
+// ]
+```
+
+**Use case:** Identify which scopes read a symbol to enable targeted invalidation during hot reload. When a symbol's value changes, recompile only the scopes that actually read it.
+
+### Usage Context Properties
+
+Each reference occurrence includes a `usageContext` object with the following properties:
+
+- `isRead`: `true` if the identifier is read
+- `isWrite`: `true` if the identifier is written/assigned to
+- `isAssignmentTarget`: `true` if the identifier appears on the left side of an assignment
+- `isCallTarget`: `true` if the identifier is being called as a function
+- `parentType`: Optional string indicating the parent AST node type
+
+**Note:** Declarations have `usageContext: null` since they establish bindings rather than use them.
+
 ## Identifier Case Bootstrap Controls
 
 Formatter options that tune project discovery and cache behaviour now live in
