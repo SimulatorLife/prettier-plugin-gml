@@ -25,7 +25,7 @@
 - No string-based doc mutations after `prettier.format`; formatting output should already reflect the transformed AST.
 
 ### Files to Create
-- `src/plugin/src/transforms/doc-comment-normalization.ts` (new transform implementation).
+- `src/plugin/src/transforms/doc-comment/doc-comment-normalization.ts` (new transform implementation).
 - `src/plugin/src/transforms/index.ts` (export the new transform alongside others).
 
 ### Files/Functions to Move or Refactor
@@ -44,7 +44,7 @@
 
 ### Step-by-Step Plan
 1. **Introduce the transform scaffold**
-   - Add `doc-comment-normalization.ts` with a `Transform` class mirroring existing transform pattern (`transform(ast, { options, sourceText })`).
+   - Add `doc-comment/doc-comment-normalization.ts` with a `Transform` class mirroring existing transform pattern (`transform(ast, { options, sourceText })`).
    - Export it via `src/plugin/src/transforms/index.ts`.
    - Wire it into `applyFinalTransforms` in `src/plugin/src/parsers/gml-parser-adapter.ts`, gated by a doc-comment option (default true; optionally reuse `applyFeatherFixes` until a dedicated option exists).
 

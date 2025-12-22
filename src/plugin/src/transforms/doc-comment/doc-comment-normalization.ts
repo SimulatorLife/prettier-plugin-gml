@@ -3,18 +3,18 @@ import {
     type MutableDocCommentLines,
     type MutableGameMakerAstNode
 } from "@gml-modules/core";
-import { FunctionalParserTransform } from "./functional-transform.js";
-import { walkAstNodes } from "./feather/ast-traversal.js";
-import { resolveDocCommentPrinterOptions } from "../printer/doc-comment/doc-comment-options.js";
+import { FunctionalParserTransform } from "../functional-transform.js";
+import { walkAstNodes } from "../feather/ast-traversal.js";
+import { resolveDocCommentPrinterOptions } from "../../printer/doc-comment/doc-comment-options.js";
 import {
     applyDescriptionContinuations,
     collectDescriptionContinuations
-} from "../shared/doc-comment-description.js";
-import { setDocCommentNormalization } from "../shared/doc-comment-normalization.js";
+} from "../../shared/doc-comment-description.js";
+import { setDocCommentNormalization } from "../../shared/doc-comment-normalization.js";
 import {
     setDocCommentMetadata,
     setDeprecatedDocCommentFunctionSet
-} from "../shared/doc-comment-metadata.js";
+} from "./doc-comment-metadata.js";
 
 type DocCommentNormalizationTransformOptions = {
     enabled?: boolean;

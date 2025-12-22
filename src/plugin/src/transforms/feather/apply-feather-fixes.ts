@@ -39,7 +39,7 @@ import { preprocessFunctionArgumentDefaultsTransform } from "../preprocess-funct
 import {
     getDocCommentMetadata,
     getDeprecatedDocCommentFunctionSet
-} from "../../shared/doc-comment-metadata.js";
+} from "../doc-comment/doc-comment-metadata.js";
 
 type RenameOptions = {
     // TODO: This may be duplicated by functionality in the 'refactor' and/or 'semantic' modules. Identifier renaming needs to live in the 'refactor' module, which is built on top of 'semantic' (which handles scope and context) so that identifiers can be renamed properly/safely without introducing conflicts
