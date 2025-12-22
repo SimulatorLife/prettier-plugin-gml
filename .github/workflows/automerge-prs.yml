@@ -369,6 +369,13 @@ jobs:
               core.setOutput('updated','true');
               return;
             } catch (ubErr) {
+              const msg = String(ubErr?.message || '').toLowerCase();
+              if (msg.includes('already up to date')) {
+                core.info('PR branch is already up to date.');
+                await upsert('PR branch is already up to date.');
+                core.setOutput('updated','true');
+                return;
+              }
               core.warning(`pulls.updateBranch failed: ${ubErr?.message || ubErr}`);
               await upsert(`pulls.updateBranch failed: ${ubErr?.message || ubErr}. Attempting fallback server-side merge of base into PR branch.`);
             }
@@ -377,12 +384,25 @@ jobs:
               const baseRef = pr.base.ref;
               const headRef = pr.head.ref;
               core.info(`Attempting server-side merge of base '${baseRef}' into head '${headRef}' via repos.merge()`);
-              await github.rest.repos.merge({ owner, repo, base: headRef, head: baseRef, commit_message: `chore: sync ${headRef} with ${baseRef}` });
-              await upsert('Fallback server-side merge performed: base was merged into the PR branch. Waiting for refs to update...');
-              await wait(3000);
+              const { status } = await github.rest.repos.merge({ owner, repo, base: headRef, head: baseRef, commit_message: `chore: sync ${headRef} with ${baseRef}` });
+              
+              if (status === 204) {
+                core.info('PR branch is already up to date (repos.merge returned 204).');
+                await upsert('PR branch is already up to date.');
+              } else {
+                await upsert('Fallback server-side merge performed: base was merged into the PR branch. Waiting for refs to update...');
+                await wait(3000);
+              }
               core.setOutput('updated','true');
               return;
             } catch (srvErr) {
+              const msg = String(srvErr?.message || '').toLowerCase();
+              if (msg.includes('nothing to merge') || srvErr.status === 204) {
+                 core.info('PR branch is already up to date (repos.merge caught 204/nothing to merge).');
+                 await upsert('PR branch is already up to date.');
+                 core.setOutput('updated','true');
+                 return;
+              }
               core.warning(`Server-side repos.merge fallback failed: ${srvErr?.message || srvErr}`);
               await upsert(`Fallback server-side merge failed: ${srvErr?.message || srvErr}. Manual intervention required.`);
               core.setOutput('updated','false');
