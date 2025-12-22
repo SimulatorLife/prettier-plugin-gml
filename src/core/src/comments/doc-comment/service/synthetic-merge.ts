@@ -3,8 +3,16 @@ import type {
     MutableDocCommentLines
 } from "../../comment-utils.js";
 import { coercePositiveIntegerOption } from "../../../utils/numeric-options.js";
-import { findLastIndex, toMutableArray } from "../../../utils/array.js";
-import { isNonEmptyString, toTrimmedString } from "../../../utils/string.js";
+import {
+    findLastIndex,
+    isNonEmptyArray,
+    toMutableArray
+} from "../../../utils/array.js";
+import {
+    isNonEmptyString,
+    isNonEmptyTrimmedString,
+    toTrimmedString
+} from "../../../utils/string.js";
 import { parseDocCommentMetadata } from "./metadata.js";
 import {
     dedupeReturnDocLines,
@@ -79,7 +87,7 @@ function hasMultiLineDocCommentSummary(
             continue;
         }
 
-        if (suffix.trim().length > 0) {
+        if (isNonEmptyTrimmedString(suffix)) {
             summaryCount += 1;
             if (summaryCount >= 2) {
                 return true;
@@ -96,6 +104,18 @@ export function mergeSyntheticDocComments(
     options: any,
     overrides: any = {}
 ): MutableDocCommentLines {
+    const isDebugMerge = existingDocLines.some(
+        (line) =>
+            typeof line === STRING_TYPE && line.includes("Additional summary")
+    );
+
+    if (isDebugMerge) {
+        console.log(
+            "[DEBUG MERGE START] mergeSyntheticDocComments called with existingDocLines:",
+            existingDocLines
+        );
+    }
+
     let normalizedExistingLines = existingDocLines.map((line) =>
         line.trim()
     ) as MutableDocCommentLines;
@@ -183,12 +203,35 @@ export function mergeSyntheticDocComments(
         originalExistingHasDocLikePrefixes ||
         hasMultiLineSummary
     ) {
+        const beforePromotion = [...normalizedExistingLines];
         normalizedExistingLines = toMutableArray(
             promoteLeadingDocCommentTextToDescription(
                 normalizedExistingLines,
                 _computedSynthetic
             )
         ) as MutableDocCommentLines;
+
+        const isDebugCase = normalizedExistingLines.some(
+            (line) =>
+                typeof line === STRING_TYPE &&
+                line.includes("Additional summary")
+        );
+
+        if (isDebugCase) {
+            console.log(
+                "[DEBUG MERGE PROMOTE] beforePromotion:",
+                beforePromotion
+            );
+            console.log(
+                "[DEBUG MERGE PROMOTE] afterPromotion (normalizedExistingLines):",
+                normalizedExistingLines
+            );
+            console.log(
+                "[DEBUG MERGE PROMOTE] _preserveDescriptionBreaks flag:",
+                (normalizedExistingLines as any)?._preserveDescriptionBreaks
+            );
+        }
+
         if (
             (normalizedExistingLines as any)?._preserveDescriptionBreaks ===
             true
@@ -533,7 +576,12 @@ export function mergeSyntheticDocComments(
         ...mergedLines.slice(insertionIndex)
     ];
 
-    if (Array.isArray(returnsLines) && returnsLines.length > 0) {
+    // Propagate the _preserveDescriptionBreaks flag from normalizedExistingLines to result
+    if ((normalizedExistingLines as any)?._preserveDescriptionBreaks === true) {
+        (result as any)._preserveDescriptionBreaks = true;
+    }
+
+    if (isNonEmptyArray(returnsLines)) {
         const { lines: dedupedReturns } = dedupeReturnDocLines(returnsLines, {
             includeNonReturnLine: (line, trimmed) => trimmed.length > 0
         });
@@ -1128,6 +1176,19 @@ export function mergeSyntheticDocComments(
     }
 
     if (preserveDescriptionBreaks) {
+        const isDebugCase5 = reorderedDocs.some(
+            (line) =>
+                typeof line === STRING_TYPE &&
+                line.includes("Additional summary")
+        );
+
+        if (isDebugCase5) {
+            console.log(
+                "[DEBUG MERGE PRESERVE] preserveDescriptionBreaks is true"
+            );
+            console.log("[DEBUG MERGE PRESERVE] reorderedDocs:", reorderedDocs);
+        }
+
         result = reorderedDocs;
     } else {
         const wrappedDocs = [];
@@ -1459,6 +1520,15 @@ export function mergeSyntheticDocComments(
         result._suppressLeadingBlank = true;
     }
 
+    const isDebugCase4 = result.some(
+        (line) =>
+            typeof line === STRING_TYPE && line.includes("Additional summary")
+    );
+
+    if (isDebugCase4) {
+        console.log("[DEBUG MERGE RESULT] result before filtering:", result);
+    }
+
     let filteredResult: MutableDocCommentLines = toMutableArray(
         result.filter((line) => {
             if (typeof line !== STRING_TYPE) {
@@ -1475,6 +1545,13 @@ export function mergeSyntheticDocComments(
             return descriptionText.length > 0;
         })
     );
+
+    if (isDebugCase4) {
+        console.log(
+            "[DEBUG MERGE RESULT] filteredResult after filtering:",
+            filteredResult
+        );
+    }
 
     if (result._suppressLeadingBlank) {
         filteredResult._suppressLeadingBlank = true;
@@ -1568,6 +1645,28 @@ export function mergeSyntheticDocComments(
             if (summaryLines.length > 0 && otherLines.length > 0) {
                 // Ensure a blank separator between summary block and synthetic metadata
                 const combined = [...summaryLines, "", ...otherLines];
+
+                const isDebugCase3 = combined.some(
+                    (line) =>
+                        typeof line === STRING_TYPE &&
+                        line.includes("Additional summary")
+                );
+
+                if (isDebugCase3) {
+                    console.log(
+                        "[DEBUG MERGE FILTERED] combined before assignment to filteredResult:",
+                        combined
+                    );
+                    console.log(
+                        "[DEBUG MERGE FILTERED] summaryLines:",
+                        summaryLines
+                    );
+                    console.log(
+                        "[DEBUG MERGE FILTERED] otherLines:",
+                        otherLines
+                    );
+                }
+
                 filteredResult = toMutableArray(
                     combined as any
                 ) as MutableDocCommentLines;
@@ -1582,6 +1681,18 @@ export function mergeSyntheticDocComments(
             normalizeDocCommentTypeAnnotations: normalizeGameMakerType
         }
     );
+
+    const isDebugCase2 = convertedResult.some(
+        (line) =>
+            typeof line === STRING_TYPE && line.includes("Additional summary")
+    );
+
+    if (isDebugCase2) {
+        console.log(
+            "[DEBUG MERGE CONVERTED] convertedResult before pruning:",
+            convertedResult
+        );
+    }
 
     const prunedConvertedResult = convertedResult.filter((line) => {
         if (typeof line !== STRING_TYPE) {
@@ -1598,6 +1709,44 @@ export function mergeSyntheticDocComments(
 
         return descriptionText.length > 0;
     });
+
+    const isDebugCase = prunedConvertedResult.some(
+        (line) =>
+            typeof line === STRING_TYPE && line.includes("Additional summary")
+    );
+
+    if (isDebugCase) {
+        console.log(
+            "[DEBUG MERGE END] prunedConvertedResult (final return):",
+            prunedConvertedResult
+        );
+    }
+
+    // Check for missing continuation lines
+    const hasDescription = prunedConvertedResult.some(
+        (line) =>
+            typeof line === STRING_TYPE &&
+            /^\/\/\/\s*@description\b/i.test(line.trim())
+    );
+    const hasContinuationAfterDescription =
+        hasDescription &&
+        prunedConvertedResult.some((line, index) => {
+            if (typeof line !== STRING_TYPE) return false;
+            const isDescLine = /^\/\/\/\s*@description\b/i.test(line.trim());
+            if (!isDescLine) return false;
+            const next = prunedConvertedResult[index + 1];
+            return (
+                typeof next === STRING_TYPE &&
+                /^\/\/\/\s{2,}/.test(next) &&
+                !/^\/\/\/\s*@/.test(next.trim())
+            );
+        });
+
+    if (hasDescription && !hasContinuationAfterDescription) {
+        console.log(
+            "[DEBUG MERGE END] WARNING: Description found but no continuation lines!"
+        );
+    }
 
     return toMutableArray(prunedConvertedResult) as MutableDocCommentLines;
 }
@@ -1717,10 +1866,9 @@ function updateParamLineWithDocName(line: string, newDocName: string): string {
     const fullPrefixLength = match[0].length;
     const remainder = line.slice(fullPrefixLength);
 
-    const newRemainder =
-        remainder.trim().length === 0
-            ? newDocName
-            : remainder.replace(/^[^\s]+/, newDocName);
+    const newRemainder = isNonEmptyTrimmedString(remainder)
+        ? remainder.replace(/^[^\s]+/, newDocName)
+        : newDocName;
 
     return newPrefix + newRemainder;
 }

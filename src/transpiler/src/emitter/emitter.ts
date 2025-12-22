@@ -5,6 +5,7 @@ import type {
     BinaryExpressionNode,
     BlockStatementNode,
     CallExpressionNode,
+    CallTargetAnalyzer,
     DefaultParameterNode,
     DoUntilStatementNode,
     EmitOptions,
@@ -14,6 +15,7 @@ import type {
     ForStatementNode,
     GmlNode,
     GlobalVarStatementNode,
+    IdentifierAnalyzer,
     IdentifierMetadata,
     IdentifierNode,
     IfStatementNode,
@@ -29,6 +31,8 @@ import type {
     StructPropertyNode,
     SwitchStatementNode,
     ThrowStatementNode,
+    TemplateStringExpressionNode,
+    TemplateStringTextNode,
     TernaryExpressionNode,
     TryStatementNode,
     VariableDeclarationNode,
@@ -56,12 +60,27 @@ const STATEMENT_KEYWORDS = [
 ]; // heuristics for auto-semicolon insertion
 
 export class GmlToJsEmitter {
-    private readonly sem: SemOracle;
+    private readonly identifierAnalyzer: IdentifierAnalyzer;
+    private readonly callTargetAnalyzer: CallTargetAnalyzer;
     private readonly options: EmitOptions;
     private readonly globalVars: Set<string>;
 
-    constructor(sem: SemOracle, options: Partial<EmitOptions> = {}) {
-        this.sem = sem;
+    constructor(
+        semantic:
+            | SemOracle
+            | {
+                  identifier: IdentifierAnalyzer;
+                  callTarget: CallTargetAnalyzer;
+              },
+        options: Partial<EmitOptions> = {}
+    ) {
+        if ("identifier" in semantic && "callTarget" in semantic) {
+            this.identifierAnalyzer = semantic.identifier;
+            this.callTargetAnalyzer = semantic.callTarget;
+        } else {
+            this.identifierAnalyzer = semantic;
+            this.callTargetAnalyzer = semantic;
+        }
         this.options = { ...DEFAULT_OPTIONS, ...options };
         this.globalVars = new Set();
     }
@@ -177,6 +196,9 @@ export class GmlToJsEmitter {
             case "StructExpression": {
                 return this.visitStructExpression(ast);
             }
+            case "TemplateStringExpression": {
+                return this.visitTemplateStringExpression(ast);
+            }
             case "EnumDeclaration": {
                 return this.visitEnumDeclaration(ast);
             }
@@ -201,8 +223,8 @@ export class GmlToJsEmitter {
     }
 
     private visitIdentifier(ast: IdentifierNode): string {
-        const kind = this.sem.kindOfIdent(ast);
-        const name = this.sem.nameOfIdent(ast);
+        const kind = this.identifierAnalyzer.kindOfIdent(ast);
+        const name = this.identifierAnalyzer.nameOfIdent(ast);
         if (this.globalVars.has(name)) {
             return `${this.options.globalsIdent}.${name}`;
         }
@@ -268,7 +290,7 @@ export class GmlToJsEmitter {
     private visitCallExpression(ast: CallExpressionNode): string {
         const callee = this.visit(ast.object);
         const args = ast.arguments.map((arg) => this.visit(arg));
-        const kind = this.sem.callTargetKind(ast);
+        const kind = this.callTargetAnalyzer.callTargetKind(ast);
 
         if (kind === "builtin") {
             const builtinName = this.resolveIdentifierName(ast.object);
@@ -281,7 +303,7 @@ export class GmlToJsEmitter {
         }
 
         if (kind === "script") {
-            const scriptSymbol = this.sem.callTargetSymbol(ast);
+            const scriptSymbol = this.callTargetAnalyzer.callTargetSymbol(ast);
             const fallbackName =
                 this.resolveIdentifierName(ast.object) ?? callee;
             const scriptId = scriptSymbol ?? fallbackName;
@@ -507,6 +529,21 @@ export class GmlToJsEmitter {
         return `[${elements}]`;
     }
 
+    private visitTemplateStringExpression(
+        ast: TemplateStringExpressionNode
+    ): string {
+        const parts = (ast.atoms ?? []).map((atom) => {
+            if (!atom) {
+                return "";
+            }
+            if (atom.type === "TemplateStringText") {
+                return this.escapeTemplateText(atom);
+            }
+            return `\${${this.visit(atom)}}`;
+        });
+        return `\`${parts.join("")}\``;
+    }
+
     private visitStructExpression(ast: StructExpressionNode): string {
         if (!ast.properties || ast.properties.length === 0) {
             return "{}";
@@ -663,7 +700,7 @@ export class GmlToJsEmitter {
             return (node as IdentifierMetadata).name;
         }
         if ((node as GmlNode).type === "Identifier") {
-            return this.sem.nameOfIdent(node as IdentifierNode);
+            return this.identifierAnalyzer.nameOfIdent(node as IdentifierNode);
         }
         return null;
     }
@@ -680,6 +717,10 @@ export class GmlToJsEmitter {
             return member.name;
         }
         return this.visit(member.name);
+    }
+
+    private escapeTemplateText(atom: TemplateStringTextNode): string {
+        return atom.value.replaceAll("`", "\\`").replaceAll("${", "\\${");
     }
 }
 

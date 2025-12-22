@@ -1,4 +1,4 @@
-// TODO: This file is way too big and needs to be split up. Things like 'attachFeatherFixMetadata' can live here, but everything else should be split/moved. Can have a file just for enum handling, one for fixing begin/end vertex, colour, etc.
+// NOTE: This file is way too big and needs to be split up. Things like 'attachFeatherFixMetadata' can live here, but everything else should be split/moved. Can have a file just for enum handling, one for fixing begin/end vertex, colour, etc.
 
 /**
  * Provides a collection of helpers that interpret and apply YoYo Games "Feather" diagnostics as AST fixes.
@@ -3053,7 +3053,7 @@ function renameIdentifiersInNode(root, originalName, replacementName) {
 
         if (Array.isArray(node)) {
             const arrayContext = { node, parent, property };
-            const nextAncestors = ancestors.concat(arrayContext);
+            const nextAncestors = [...ancestors, arrayContext];
 
             for (let index = node.length - 1; index >= 0; index -= 1) {
                 stack.push({
@@ -3090,7 +3090,7 @@ function renameIdentifiersInNode(root, originalName, replacementName) {
             continue;
         }
 
-        const nextAncestors = ancestors.concat({ node, parent, property });
+        const nextAncestors = [...ancestors, { node, parent, property }];
 
         Core.forEachNodeChild(node, (value, key) => {
             stack.push({
@@ -3433,11 +3433,7 @@ function rewriteRoomNavigationBinaryExpression({
 }
 
 function rewriteRoomGotoCall({ node, diagnostic, sourceText }) {
-    if (!node || node.type !== "CallExpression") {
-        return null;
-    }
-
-    if (!Core.isIdentifierWithName(node.object, "room_goto")) {
+    if (!isCallExpressionWithName(node, "room_goto")) {
         return null;
     }
 
@@ -10666,8 +10662,25 @@ function findVertexEndInsertionIndex({ siblings, startIndex, bufferName }) {
     return index;
 }
 
-function isCallExpression(node) {
-    return !!node && node.type === "CallExpression";
+function isCallExpression(
+    node: unknown
+): node is { type: "CallExpression"; object?: unknown } {
+    return (
+        !!node &&
+        typeof (node as { type?: unknown }).type === "string" &&
+        (node as { type?: unknown }).type === "CallExpression"
+    );
+}
+
+function isCallExpressionWithName(
+    node: unknown,
+    name: Parameters<typeof Core.isIdentifierWithName>[1]
+) {
+    if (!isCallExpression(node)) {
+        return false;
+    }
+
+    return Core.isIdentifierWithName(node.object, name);
 }
 
 function hasOnlyWhitespaceBetweenNodes(previous, next, sourceText) {
@@ -14868,17 +14881,8 @@ function isLiteralZero(node) {
 }
 
 function isDrawSurfaceCall(node) {
-    if (!isCallExpression(node)) {
-        return false;
-    }
-
-    const name = node.object?.name;
-
-    if (typeof name !== "string") {
-        return false;
-    }
-
-    return name.startsWith("draw_surface");
+    const name = Core.getCallExpressionIdentifierName(node);
+    return typeof name === "string" && name.startsWith("draw_surface");
 }
 
 function isTerminatingStatement(node) {
@@ -14920,11 +14924,7 @@ function isLiteralFalse(node) {
 }
 
 function isShaderResetCall(node) {
-    if (!node || node.type !== "CallExpression") {
-        return false;
-    }
-
-    if (!Core.isIdentifierWithName(node.object, "shader_reset")) {
+    if (!isCallExpressionWithName(node, "shader_reset")) {
         return false;
     }
 
@@ -14934,11 +14934,7 @@ function isShaderResetCall(node) {
 }
 
 function isFogResetCall(node) {
-    if (!node || node.type !== "CallExpression") {
-        return false;
-    }
-
-    if (!Core.isIdentifierWithName(node.object, "gpu_set_fog")) {
+    if (!isCallExpressionWithName(node, "gpu_set_fog")) {
         return false;
     }
 
@@ -14957,11 +14953,7 @@ function isFogResetCall(node) {
 }
 
 function isAlphaTestEnableResetCall(node) {
-    if (!node || node.type !== "CallExpression") {
-        return false;
-    }
-
-    if (!Core.isIdentifierWithName(node.object, "gpu_set_alphatestenable")) {
+    if (!isCallExpressionWithName(node, "gpu_set_alphatestenable")) {
         return false;
     }
 
@@ -14975,11 +14967,7 @@ function isAlphaTestEnableResetCall(node) {
 }
 
 function isAlphaTestRefResetCall(node) {
-    if (!node || node.type !== "CallExpression") {
-        return false;
-    }
-
-    if (!Core.isIdentifierWithName(node.object, "gpu_set_alphatestref")) {
+    if (!isCallExpressionWithName(node, "gpu_set_alphatestref")) {
         return false;
     }
 
@@ -14993,11 +14981,7 @@ function isAlphaTestRefResetCall(node) {
 }
 
 function isHalignResetCall(node) {
-    if (!node || node.type !== "CallExpression") {
-        return false;
-    }
-
-    if (!Core.isIdentifierWithName(node.object, "draw_set_halign")) {
+    if (!isCallExpressionWithName(node, "draw_set_halign")) {
         return false;
     }
 
@@ -15011,11 +14995,7 @@ function isHalignResetCall(node) {
 }
 
 function isCullModeResetCall(node) {
-    if (!node || node.type !== "CallExpression") {
-        return false;
-    }
-
-    if (!Core.isIdentifierWithName(node.object, "gpu_set_cullmode")) {
+    if (!isCallExpressionWithName(node, "gpu_set_cullmode")) {
         return false;
     }
 
@@ -15029,11 +15009,7 @@ function isCullModeResetCall(node) {
 }
 
 function isColourWriteEnableResetCall(node) {
-    if (!node || node.type !== "CallExpression") {
-        return false;
-    }
-
-    if (!Core.isIdentifierWithName(node.object, "gpu_set_colourwriteenable")) {
+    if (!isCallExpressionWithName(node, "gpu_set_colourwriteenable")) {
         return false;
     }
 
@@ -15049,11 +15025,7 @@ function isColourWriteEnableResetCall(node) {
 }
 
 function isAlphaTestDisableCall(node) {
-    if (!node || node.type !== "CallExpression") {
-        return false;
-    }
-
-    if (!Core.isIdentifierWithName(node.object, "gpu_set_alphatestenable")) {
+    if (!isCallExpressionWithName(node, "gpu_set_alphatestenable")) {
         return false;
     }
 

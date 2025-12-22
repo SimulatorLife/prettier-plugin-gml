@@ -12,7 +12,7 @@ import {
     reorderDescriptionLinesAfterFunction,
     resolveDocCommentWrapWidth
 } from "./service/index.js";
-import { toMutableArray } from "../../utils/array.js";
+import { isNonEmptyArray, toMutableArray } from "../../utils/array.js";
 import { isNonEmptyTrimmedString } from "../../utils/string.js";
 
 const STRING_TYPE = "string";
@@ -179,13 +179,57 @@ export function computeSyntheticDocComment(
               ]).slice(0, leadingCommentLines.length) // Take only the part corresponding to leadingCommentLines
             : leadingCommentLines;
 
+    // Check if promotion created @description metadata
+    const hasPromotedDescription = potentiallyPromotableLines.some(
+        (line) =>
+            typeof line === STRING_TYPE &&
+            /^\/\/\/\s*@description\b/i.test(line.trim())
+    );
+
+    const isDebugCase = leadingCommentLines.some(
+        (line) =>
+            typeof line === STRING_TYPE && line.includes("Additional summary")
+    );
+
+    if (isDebugCase) {
+        console.log(
+            "[DEBUG SYNTHETIC] leadingCommentLines:",
+            leadingCommentLines
+        );
+        console.log("[DEBUG SYNTHETIC] syntheticLines:", syntheticLines);
+        console.log(
+            "[DEBUG SYNTHETIC] potentiallyPromotableLines:",
+            potentiallyPromotableLines
+        );
+        console.log(
+            "[DEBUG SYNTHETIC] hasPromotedDescription:",
+            hasPromotedDescription
+        );
+    }
+
     const docLines =
         leadingCommentLines.length === 0
             ? syntheticLines
-            : [
-                  ...potentiallyPromotableLines,
-                  ...(syntheticLines.length > 0 ? ["", ...syntheticLines] : [])
-              ];
+            : hasPromotedDescription
+              ? [
+                    // When description is promoted, merge without blank line
+                    // because @description should be part of the same doc block
+                    ...syntheticLines,
+                    ...potentiallyPromotableLines
+                ]
+              : [
+                    ...potentiallyPromotableLines,
+                    ...(syntheticLines.length > 0
+                        ? ["", ...syntheticLines]
+                        : [])
+                ];
+
+    if (isDebugCase) {
+        console.log(
+            "[DEBUG SYNTHETIC] docLines before normalization:",
+            docLines
+        );
+    }
 
     const normalizedDocLines = toMutableArray(docLines) as string[];
 
@@ -271,7 +315,7 @@ export function computeSyntheticDocCommentForStaticVariable(
             ? node._overridesStaticFunctionNode._syntheticDocLines
             : null;
 
-        if (Array.isArray(ancestorDocLines) && ancestorDocLines.length > 0) {
+        if (isNonEmptyArray(ancestorDocLines)) {
             finalDocLines = ["/// @override", ...ancestorDocLines];
         }
     }
@@ -349,6 +393,16 @@ export function computeSyntheticDocCommentForFunctionAssignment(
         (functionNode.type !== "FunctionDeclaration" &&
             functionNode.type !== "FunctionExpression" &&
             functionNode.type !== "ConstructorDeclaration")
+    ) {
+        return null;
+    }
+
+    if (
+        node.type === "VariableDeclaration" &&
+        node.kind !== "static" &&
+        (functionNode.type === "FunctionExpression" ||
+            functionNode.type === "FunctionDeclaration") &&
+        !functionNode.id
     ) {
         return null;
     }

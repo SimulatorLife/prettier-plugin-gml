@@ -103,6 +103,16 @@ export interface ParenthesizedExpressionNode extends BaseNode {
     readonly expression: GmlNode;
 }
 
+export interface TemplateStringTextNode extends BaseNode {
+    readonly type: "TemplateStringText";
+    readonly value: string;
+}
+
+export interface TemplateStringExpressionNode extends BaseNode {
+    readonly type: "TemplateStringExpression";
+    readonly atoms: ReadonlyArray<GmlNode | TemplateStringTextNode>;
+}
+
 export interface IfStatementNode extends BaseNode {
     readonly type: "IfStatement";
     readonly test: GmlNode;
@@ -286,6 +296,7 @@ export type ExpressionNode =
     | ParenthesizedExpressionNode
     | TernaryExpressionNode
     | ArrayExpressionNode
+    | TemplateStringExpressionNode
     | StructExpressionNode;
 
 export type GmlNode =
@@ -294,14 +305,19 @@ export type GmlNode =
     | ExpressionNode
     | VariableDeclaratorNode
     | CatchClauseNode
-    | FinallyClauseNode;
+    | FinallyClauseNode
+    | TemplateStringTextNode;
 
 export interface EmitOptions {
     readonly globalsIdent: string;
     readonly callScriptIdent: string;
 }
 
-export interface SemOracle {
+/**
+ * Analyzes identifiers to determine their semantic kind, name, and qualified
+ * symbol. Used by the transpiler to generate correct variable references.
+ */
+export interface IdentifierAnalyzer {
     kindOfIdent(
         node: IdentifierNode | IdentifierMetadata | null | undefined
     ): SemKind;
@@ -311,6 +327,21 @@ export interface SemOracle {
     qualifiedSymbol(
         node: IdentifierNode | IdentifierMetadata | null | undefined
     ): string | null;
+}
+
+/**
+ * Analyzes call expression targets to classify and resolve them.
+ * Used by the transpiler to handle script calls and built-in functions.
+ */
+export interface CallTargetAnalyzer {
     callTargetKind(node: CallExpressionNode): "script" | "builtin" | "unknown";
     callTargetSymbol(node: CallExpressionNode): string | null;
 }
+
+/**
+ * Complete semantic oracle combining identifier and call target analysis.
+ *
+ * @deprecated Prefer using IdentifierAnalyzer and CallTargetAnalyzer directly
+ *             to follow the Interface Segregation Principle.
+ */
+export interface SemOracle extends IdentifierAnalyzer, CallTargetAnalyzer {}

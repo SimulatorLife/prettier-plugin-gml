@@ -61,17 +61,35 @@ export interface CallExpressionNode {
 }
 
 /**
- * Semantic oracle interface required by the transpiler for accurate code
- * generation. Provides identifier classification, symbol resolution, and
- * call target analysis.
+ * Analyzes identifiers to determine their semantic kind, name, and qualified
+ * symbol. Used by the transpiler to generate correct variable references
+ * (local vs global vs field access).
  */
-export interface SemOracle {
+export interface IdentifierAnalyzer {
     kindOfIdent(node: IdentifierMetadata | null | undefined): SemKind;
     nameOfIdent(node: IdentifierMetadata | null | undefined): string;
     qualifiedSymbol(node: IdentifierMetadata | null | undefined): string | null;
+}
+
+/**
+ * Analyzes call expression targets to classify them as scripts, built-ins,
+ * or unknown callables. Used by the transpiler to route script calls through
+ * the runtime wrapper and handle built-in functions specially.
+ */
+export interface CallTargetAnalyzer {
     callTargetKind(node: CallExpressionNode): "script" | "builtin" | "unknown";
     callTargetSymbol(node: CallExpressionNode): string | null;
 }
+
+/**
+ * Complete semantic oracle combining identifier and call target analysis.
+ * Consumers should depend on the narrower IdentifierAnalyzer or
+ * CallTargetAnalyzer interfaces when they only need one responsibility.
+ *
+ * @deprecated Prefer using IdentifierAnalyzer and CallTargetAnalyzer directly
+ *             to follow the Interface Segregation Principle.
+ */
+export interface SemOracle extends IdentifierAnalyzer, CallTargetAnalyzer {}
 
 /**
  * Basic semantic oracle implementation that bridges the scope tracker and

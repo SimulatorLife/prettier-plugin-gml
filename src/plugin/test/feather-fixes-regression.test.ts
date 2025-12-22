@@ -37,7 +37,7 @@ void describe("Feather fix regressions", () => {
 
         assert.strictEqual(
             formatted,
-            "/// @description GM2009 - A standalone 'vertex_end' is invalid, so we'll remove it here"
+            "/// @description GM2009 - A standalone 'vertex_end' is invalid, so we'll remove it here\n"
         );
     });
 });

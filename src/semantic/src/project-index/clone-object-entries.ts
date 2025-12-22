@@ -20,6 +20,6 @@ export function cloneObjectEntries(entries?) {
     }
 
     return entries.map((entry) =>
-        entry && typeof entry === "object" ? { ...entry } : entry
+        Core.isObjectLike(entry) ? { ...entry } : entry
     );
 }

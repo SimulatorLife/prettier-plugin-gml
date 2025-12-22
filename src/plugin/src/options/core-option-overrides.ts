@@ -4,6 +4,28 @@ import {
     assertTrailingCommaValue
 } from "./trailing-comma-option.js";
 
+type TrailingCommaOption = (typeof TRAILING_COMMA)[keyof typeof TRAILING_COMMA];
+type ArrowParensOption = "always" | "avoid";
+type ProseWrapOption = "always" | "never" | "preserve";
+type HtmlWhitespaceSensitivityOption = "css" | "strict" | "ignore";
+
+type CoreOptionOverrides = Readonly<{
+    trailingComma: TrailingCommaOption;
+    arrowParens: ArrowParensOption;
+    singleAttributePerLine: boolean;
+    jsxSingleQuote: boolean;
+    proseWrap: ProseWrapOption;
+    htmlWhitespaceSensitivity: HtmlWhitespaceSensitivityOption;
+}>;
+
+type CoreOverrideKey = keyof CoreOptionOverrides;
+type CoreOverrideNormalizer = (
+    value: unknown
+) => CoreOptionOverrides[CoreOverrideKey] | undefined;
+type CoreOptionOverridesResolver = (
+    options: Record<string, unknown>
+) => CoreOptionOverrides | Record<string, unknown> | null | undefined;
+
 // Hard overrides for GML regardless of incoming config. These knobs either map
 // to syntax that GameMaker never emits (for example JSX attributes) or would let
 // callers re-enable formatting modes the printers deliberately avoid. The
@@ -21,36 +43,47 @@ const DEFAULT_CORE_OPTION_OVERRIDES = Object.freeze({
     jsxSingleQuote: false,
     proseWrap: "preserve",
     htmlWhitespaceSensitivity: "css"
-});
+} satisfies CoreOptionOverrides);
 
-const ARROW_PARENS_VALUES = new Set(["always", "avoid"]);
-const PROSE_WRAP_VALUES = new Set(["always", "never", "preserve"]);
-const HTML_WHITESPACE_SENSITIVITY_VALUES = new Set(["css", "strict", "ignore"]);
+const ARROW_PARENS_VALUES: ReadonlySet<ArrowParensOption> = new Set([
+    "always",
+    "avoid"
+]);
+const PROSE_WRAP_VALUES: ReadonlySet<ProseWrapOption> = new Set([
+    "always",
+    "never",
+    "preserve"
+]);
+const HTML_WHITESPACE_SENSITIVITY_VALUES: ReadonlySet<HtmlWhitespaceSensitivityOption> =
+    new Set(["css", "strict", "ignore"]);
 
-let customResolver: ((options?: Record<string, unknown>) => unknown) | null =
-    null;
+let customResolver: CoreOptionOverridesResolver | null = null;
 
-function normalizeBoolean(value) {
+function normalizeBoolean(value: unknown): boolean | undefined {
     return typeof value === "boolean" ? value : undefined;
 }
 
-function normalizeChoice(value, allowedValues) {
-    if (typeof value !== "string") {
-        return;
-    }
-
-    return allowedValues.has(value) ? value : undefined;
+function normalizeChoice<T extends string>(
+    value: unknown,
+    allowedValues: ReadonlySet<T>
+): T | undefined {
+    return typeof value === "string" && allowedValues.has(value as T)
+        ? (value as T)
+        : undefined;
 }
 
-function normalizeTrailingCommaOverride(value) {
-    if (typeof value !== "string") {
-        return;
-    }
-
-    return assertTrailingCommaValue(value);
+function normalizeTrailingCommaOverride(
+    value: unknown
+): TrailingCommaOption | undefined {
+    return typeof value === "string"
+        ? assertTrailingCommaValue(value)
+        : undefined;
 }
 
-const CORE_OVERRIDE_NORMALIZERS = {
+const CORE_OVERRIDE_NORMALIZERS: Record<
+    CoreOverrideKey,
+    CoreOverrideNormalizer
+> = {
     trailingComma: (value) => normalizeTrailingCommaOverride(value),
     arrowParens: (value) => normalizeChoice(value, ARROW_PARENS_VALUES),
     singleAttributePerLine: (value) => normalizeBoolean(value),
@@ -60,25 +93,26 @@ const CORE_OVERRIDE_NORMALIZERS = {
         normalizeChoice(value, HTML_WHITESPACE_SENSITIVITY_VALUES)
 };
 
-const CORE_OVERRIDE_KEYS = Object.keys(CORE_OVERRIDE_NORMALIZERS);
+const CORE_OVERRIDE_KEYS = Object.keys(
+    CORE_OVERRIDE_NORMALIZERS
+) as CoreOverrideKey[];
 
-function normalizeCoreOptionOverrides(overrides) {
-    if (overrides === DEFAULT_CORE_OPTION_OVERRIDES) {
-        return DEFAULT_CORE_OPTION_OVERRIDES;
-    }
-
-    if (!overrides || typeof overrides !== "object") {
-        return DEFAULT_CORE_OPTION_OVERRIDES;
-    }
-
+function normalizeOverrideEntries(
+    overrides: Partial<Record<CoreOverrideKey, unknown>>
+): {
+    changedFromDefault: boolean;
+    entries: Array<[CoreOverrideKey, CoreOptionOverrides[CoreOverrideKey]]>;
+} {
     let changedFromDefault = false;
-    const normalizedEntries = [];
+    const entries: Array<
+        [CoreOverrideKey, CoreOptionOverrides[CoreOverrideKey]]
+    > = [];
 
     for (const key of CORE_OVERRIDE_KEYS) {
         const defaultValue = DEFAULT_CORE_OPTION_OVERRIDES[key];
 
         if (!Object.hasOwn(overrides, key)) {
-            normalizedEntries.push([key, defaultValue]);
+            entries.push([key, defaultValue]);
             continue;
         }
 
@@ -92,7 +126,7 @@ function normalizeCoreOptionOverrides(overrides) {
         const normalizedValue = CORE_OVERRIDE_NORMALIZERS[key](candidate);
 
         if (normalizedValue === undefined) {
-            normalizedEntries.push([key, defaultValue]);
+            entries.push([key, defaultValue]);
             continue;
         }
 
@@ -100,17 +134,32 @@ function normalizeCoreOptionOverrides(overrides) {
             changedFromDefault = true;
         }
 
-        normalizedEntries.push([key, normalizedValue]);
+        entries.push([key, normalizedValue]);
     }
 
-    if (
-        !changedFromDefault &&
-        normalizedEntries.length === CORE_OVERRIDE_KEYS.length
-    ) {
+    return { changedFromDefault, entries };
+}
+
+function normalizeCoreOptionOverrides(overrides: unknown): CoreOptionOverrides {
+    if (overrides === DEFAULT_CORE_OPTION_OVERRIDES) {
         return DEFAULT_CORE_OPTION_OVERRIDES;
     }
 
-    return Object.freeze(Object.fromEntries(normalizedEntries));
+    if (!overrides || typeof overrides !== "object") {
+        return DEFAULT_CORE_OPTION_OVERRIDES;
+    }
+
+    const overrideRecord = overrides as Partial<
+        Record<CoreOverrideKey, unknown>
+    >;
+    const { changedFromDefault, entries } =
+        normalizeOverrideEntries(overrideRecord);
+
+    if (!changedFromDefault && entries.length === CORE_OVERRIDE_KEYS.length) {
+        return DEFAULT_CORE_OPTION_OVERRIDES;
+    }
+
+    return Object.freeze(Object.fromEntries(entries) as CoreOptionOverrides);
 }
 
 /**
@@ -128,7 +177,9 @@ function normalizeCoreOptionOverrides(overrides) {
  * @returns {typeof DEFAULT_CORE_OPTION_OVERRIDES} Frozen override map that is
  *          safe to reuse across print invocations.
  */
-function resolveCoreOptionOverrides(options = {}) {
+function resolveCoreOptionOverrides(
+    options: Record<string, unknown> = {}
+): CoreOptionOverrides {
     if (!customResolver) {
         return DEFAULT_CORE_OPTION_OVERRIDES;
     }
@@ -138,7 +189,9 @@ function resolveCoreOptionOverrides(options = {}) {
     );
 }
 
-function setCoreOptionOverridesResolver(resolver) {
+function setCoreOptionOverridesResolver(
+    resolver: CoreOptionOverridesResolver
+): CoreOptionOverrides {
     Core.assertFunction(resolver, "resolver", {
         errorMessage:
             "Core option override resolvers must be functions that return override objects"
@@ -147,7 +200,7 @@ function setCoreOptionOverridesResolver(resolver) {
     return resolveCoreOptionOverrides();
 }
 
-function restoreDefaultCoreOptionOverridesResolver() {
+function restoreDefaultCoreOptionOverridesResolver(): CoreOptionOverrides {
     customResolver = null;
     return DEFAULT_CORE_OPTION_OVERRIDES;
 }
