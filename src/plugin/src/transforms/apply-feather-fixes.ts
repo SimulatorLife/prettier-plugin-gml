@@ -3832,7 +3832,7 @@ function normalizeArgumentBuiltinReferences({ ast, diagnostic, sourceText }) {
 
     const fixes = [];
     const docCommentTraversal = Core.resolveDocCommentTraversalService(ast);
-    const documentedParamNamesByFunction = buildDocumentedParamNameLookup(
+    const documentedParamNamesByFunction = Core.buildDocumentedParamNameLookup(
         ast,
         sourceText,
         docCommentTraversal
@@ -4041,7 +4041,9 @@ function fixArgumentReferencesWithinFunction(
 
     if (documentedParamNames.size > 0 && aliasDeclarations.length > 0) {
         const normalizedDocNames = new Set(
-            [...documentedParamNames].map(normalizeDocParamNameForComparison)
+            [...documentedParamNames].map(
+                Core.normalizeDocParamNameForComparison
+            )
         );
 
         const aliasInfos = aliasDeclarations
@@ -4066,7 +4068,7 @@ function fixArgumentReferencesWithinFunction(
                     typeof alias.name === "string" &&
                     alias.name.length > 0 &&
                     normalizedDocNames.has(
-                        normalizeDocParamNameForComparison(alias.name)
+                        Core.normalizeDocParamNameForComparison(alias.name)
                     )
             );
 
@@ -4156,202 +4158,6 @@ function fixArgumentReferencesWithinFunction(
     }
 
     return fixes;
-}
-
-// TODO: Move this to where the other doc-comment utilities are located
-function buildDocumentedParamNameLookup(ast, sourceText, docCommentTraversal) {
-    const lookup = new WeakMap();
-
-    if (!ast || typeof ast !== "object") {
-        return lookup;
-    }
-
-    const traversal =
-        docCommentTraversal ?? Core.resolveDocCommentTraversalService(ast);
-
-    traversal.forEach((node, comments = []) => {
-        if (!Core.isFunctionLikeNode(node)) {
-            return;
-        }
-
-        const documentedNames = extractDocumentedParamNames(
-            node,
-            comments,
-            sourceText
-        );
-
-        if (documentedNames.size > 0) {
-            lookup.set(node, documentedNames);
-        }
-    });
-
-    return lookup;
-}
-
-// TODO: Move this to where the other doc-comment utilities are located
-function extractDocumentedParamNames(functionNode, docComments, sourceText) {
-    const documentedNames = new Set();
-    if (!functionNode || typeof functionNode !== "object") {
-        return documentedNames;
-    }
-
-    if (!Core.isNonEmptyArray(docComments)) {
-        return documentedNames;
-    }
-
-    const functionStart = Core.getNodeStartIndex(functionNode);
-
-    if (typeof functionStart !== "number") {
-        return documentedNames;
-    }
-
-    const paramComments = docComments
-        .filter(
-            (comment) =>
-                comment &&
-                comment.type === "CommentLine" &&
-                typeof comment.value === "string" &&
-                /@param\b/i.test(comment.value)
-        )
-        .sort((left, right) => {
-            const leftStart = getCommentStartIndex(left);
-            const rightStart = getCommentStartIndex(right);
-
-            if (leftStart === null && rightStart === null) {
-                return 0;
-            }
-
-            if (leftStart === null) {
-                return -1;
-            }
-
-            if (rightStart === null) {
-                return 1;
-            }
-
-            return leftStart - rightStart;
-        });
-
-    if (paramComments.length === 0) {
-        return documentedNames;
-    }
-
-    let lastIndex = -1;
-
-    for (let index = paramComments.length - 1; index >= 0; index -= 1) {
-        const comment = paramComments[index];
-        const commentEnd = getCommentEndIndex(comment);
-
-        if (commentEnd !== null && commentEnd < functionStart) {
-            lastIndex = index;
-            break;
-        }
-    }
-
-    if (lastIndex === -1) {
-        return documentedNames;
-    }
-
-    let boundary = functionStart;
-
-    for (let index = lastIndex; index >= 0; index -= 1) {
-        const comment = paramComments[index];
-        const commentEnd = getCommentEndIndex(comment);
-        const commentStart = getCommentStartIndex(comment);
-
-        if (commentEnd === null || commentEnd >= boundary) {
-            continue;
-        }
-
-        if (typeof commentStart === "number" && commentStart >= boundary) {
-            continue;
-        }
-
-        if (!isWhitespaceBetween(commentEnd + 1, boundary, sourceText)) {
-            break;
-        }
-
-        const paramName = extractParamNameFromComment(comment.value);
-
-        if (!paramName) {
-            break;
-        }
-
-        documentedNames.add(paramName);
-        boundary = typeof commentStart === "number" ? commentStart : commentEnd;
-    }
-
-    return documentedNames;
-}
-
-// TODO: Move this to where the other comment utilities are located
-function getCommentStartIndex(comment) {
-    if (!comment || typeof comment !== "object") {
-        return null;
-    }
-
-    const start = comment.start;
-
-    if (typeof start === "number") {
-        return start;
-    }
-
-    if (start && typeof start.index === "number") {
-        return start.index;
-    }
-
-    return null;
-}
-
-function isWhitespaceBetween(startIndex, endIndex, sourceText) {
-    if (!sourceText || typeof sourceText !== "string") {
-        return true;
-    }
-
-    if (typeof startIndex !== "number" || typeof endIndex !== "number") {
-        return true;
-    }
-
-    if (startIndex >= endIndex) {
-        return true;
-    }
-
-    const slice = sourceText.slice(startIndex, endIndex);
-    return !/\S/.test(slice);
-}
-
-function extractParamNameFromComment(value) {
-    if (typeof value !== "string") {
-        return null;
-    }
-
-    const match = value.match(/@param\s+(?:\{[^}]+\}\s*)?(\S+)/i);
-    if (!match) {
-        return null;
-    }
-
-    let name = match[1] ?? "";
-    name = name.trim();
-
-    if (name.startsWith("[") && name.endsWith("]")) {
-        name = name.slice(1, -1);
-    }
-
-    const equalsIndex = name.indexOf("=");
-    if (equalsIndex !== -1) {
-        name = name.slice(0, equalsIndex);
-    }
-
-    return name.trim();
-}
-
-// TODO: Move this to where the other doc-comment utilities are located
-function normalizeDocParamNameForComparison(name) {
-    if (typeof name !== "string") {
-        return "";
-    }
-
-    return Core.toNormalizedLowerCaseString(name);
 }
 
 function createArgumentIndexMapping(indices: unknown[]) {
@@ -6216,36 +6022,19 @@ function findDeprecatedDocComment(docComments, functionStart, sourceText) {
             continue;
         }
 
-        const commentEnd = getCommentEndIndex(comment);
+        const commentEnd = Core.getCommentEndIndex(comment);
 
         if (typeof commentEnd !== "number" || commentEnd >= functionStart) {
             continue;
         }
 
-        if (!isWhitespaceBetween(commentEnd + 1, functionStart, sourceText)) {
+        if (
+            !Core.isWhitespaceBetween(commentEnd + 1, functionStart, sourceText)
+        ) {
             continue;
         }
 
         return comment;
-    }
-
-    return null;
-}
-
-// TODO: Move this to where the other comment utilities are located
-function getCommentEndIndex(comment) {
-    if (!comment) {
-        return null;
-    }
-
-    const end = comment.end;
-
-    if (typeof end === "number") {
-        return end;
-    }
-
-    if (end && typeof end.index === "number") {
-        return end.index;
     }
 
     return null;

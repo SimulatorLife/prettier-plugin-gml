@@ -7,3 +7,4 @@ export * from "./synthetic-generation.js";
 export * from "./synthetic-helpers.js";
 export * from "./synthetic-merge.js";
 export * from "./wrap.js";
+export * from "./documented-params.js";
