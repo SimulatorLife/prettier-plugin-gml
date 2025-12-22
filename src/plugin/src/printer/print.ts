@@ -279,7 +279,6 @@ function applyLogicalOperatorsStyle(operator, style) {
     return operator;
 }
 
-/* eslint complexity: ["error", 400] */
 function _printImpl(path, options, print) {
     const node = path.getValue();
 
@@ -406,7 +405,6 @@ function tryPrintControlStructureNode(node, path, options, print) {
             );
         }
     }
-    
 }
 
 function tryPrintFunctionNode(node, path, options, print) {
@@ -619,7 +617,6 @@ function tryPrintFunctionNode(node, path, options, print) {
             return concat(parts);
         }
     }
-    
 }
 
 function tryPrintFunctionSupportNode(node, path, options, print) {
@@ -658,7 +655,6 @@ function tryPrintFunctionSupportNode(node, path, options, print) {
             );
         }
     }
-    
 }
 
 function tryPrintVariableNode(node, path, options, print) {
@@ -853,7 +849,6 @@ function tryPrintVariableNode(node, path, options, print) {
             return concat(printSimpleDeclaration(print("id"), print("init")));
         }
     }
-    
 }
 
 function tryPrintExpressionNode(node, path, options, print) {
@@ -1340,7 +1335,6 @@ function tryPrintExpressionNode(node, path, options, print) {
             return concat(["new ", print("expression"), ...argsPrinted]);
         }
     }
-    
 }
 
 function tryPrintDeclarationNode(node, path, options, print) {
@@ -1469,7 +1463,6 @@ function tryPrintDeclarationNode(node, path, options, print) {
             return concat("");
         }
     }
-    
 }
 
 function tryPrintLiteralNode(node, path, options, print) {
@@ -1653,7 +1646,6 @@ function tryPrintLiteralNode(node, path, options, print) {
             return print(node);
         }
     }
-    
 }
 
 function printProgramNode(node, path, options, print) {
