@@ -18,8 +18,9 @@ export interface PatchWebSocketServerOptions {
     host?: string;
     port?: number;
     verbose?: boolean;
-    onClientConnect?: (clientId: string) => void;
+    onClientConnect?: (clientId: string, socket: WebSocket) => void;
     onClientDisconnect?: (clientId: string) => void;
+    prepareInitialMessages?: () => Iterable<unknown>;
 }
 
 export interface PatchBroadcastResult {
@@ -46,6 +47,7 @@ export interface PatchWebSocketServerController {
  * @param {boolean} [options.verbose] - Enable verbose logging
  * @param {Function} [options.onClientConnect] - Callback when a client connects
  * @param {Function} [options.onClientDisconnect] - Callback when a client disconnects
+ * @param {Function} [options.prepareInitialMessages] - Supplier for messages sent to new clients immediately after connecting
  * @returns {Promise<object>} Server controller with broadcast and stop methods
  */
 export async function startPatchWebSocketServer({
@@ -53,9 +55,11 @@ export async function startPatchWebSocketServer({
     port = DEFAULT_PORT,
     verbose = false,
     onClientConnect,
-    onClientDisconnect
+    onClientDisconnect,
+    prepareInitialMessages
 }: PatchWebSocketServerOptions = {}): Promise<PatchWebSocketServerController> {
     const clients = new Set<WebSocket>();
+    const clientIds = new Map<WebSocket, string>();
 
     const wss = new WebSocketServer({
         host,
@@ -70,21 +74,76 @@ export async function startPatchWebSocketServer({
         });
     });
 
+    const READY_STATE_OPEN = 1;
+
+    function sendJsonMessage(
+        ws: WebSocket,
+        payload: unknown,
+        clientId: string
+    ): boolean {
+        try {
+            const message = JSON.stringify(payload);
+
+            if (ws.readyState !== READY_STATE_OPEN) {
+                return false;
+            }
+
+            ws.send(message);
+            return true;
+        } catch (error) {
+            if (verbose) {
+                const message =
+                    error instanceof Error ? error.message : String(error);
+                console.error(
+                    `[WebSocket] Failed to send to ${clientId}: ${message}`
+                );
+            }
+            return false;
+        }
+    }
+
     wss.on("connection", (ws, request) => {
         const clientId = `${request.socket.remoteAddress}:${request.socket.remotePort}`;
 
         clients.add(ws);
+        clientIds.set(ws, clientId);
 
         if (verbose) {
             console.log(`[WebSocket] Client connected: ${clientId}`);
         }
 
         if (onClientConnect) {
-            onClientConnect(clientId);
+            onClientConnect(clientId, ws);
+        }
+
+        if (prepareInitialMessages) {
+            try {
+                let replayedCount = 0;
+                for (const payload of prepareInitialMessages()) {
+                    if (sendJsonMessage(ws, payload, clientId)) {
+                        replayedCount += 1;
+                    }
+                }
+
+                if (verbose && replayedCount > 0) {
+                    console.log(
+                        `[WebSocket] Sent ${replayedCount} queued message(s) to ${clientId}`
+                    );
+                }
+            } catch (error) {
+                if (verbose) {
+                    const message =
+                        error instanceof Error ? error.message : String(error);
+                    console.error(
+                        `[WebSocket] Failed to send initial messages to ${clientId}: ${message}`
+                    );
+                }
+            }
         }
 
         ws.on("close", () => {
             clients.delete(ws);
+            clientIds.delete(ws);
 
             if (verbose) {
                 console.log(`[WebSocket] Client disconnected: ${clientId}`);
@@ -129,31 +188,14 @@ export async function startPatchWebSocketServer({
      * @param {object} patch - Patch object to broadcast
      */
     function broadcast(patch: unknown): PatchBroadcastResult {
-        const message = JSON.stringify(patch);
         let successCount = 0;
         let failureCount = 0;
 
         for (const ws of clients) {
-            try {
-                // Compare against numeric READY_STATE constant for OPEN (1).
-                // Some ws client instances do not expose the static OPEN property
-                // on the instance, so using the numeric value avoids undefined
-                // comparisons that would prevent sending messages.
-                if (ws.readyState === 1) {
-                    ws.send(message);
-                    successCount += 1;
-                } else {
-                    failureCount += 1;
-                }
-            } catch (error) {
-                failureCount += 1;
-                if (verbose) {
-                    console.error(
-                        "[WebSocket] Failed to send to client:",
-                        error.message
-                    );
-                }
-            }
+            const clientId = clientIds.get(ws) ?? "[unknown]";
+            const sent = sendJsonMessage(ws, patch, clientId);
+            successCount += sent ? 1 : 0;
+            failureCount += sent ? 0 : 1;
         }
 
         return { successCount, failureCount, totalClients: clients.size };
