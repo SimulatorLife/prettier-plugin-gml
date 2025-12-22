@@ -573,6 +573,7 @@ export default [
             "no-throw-literal": "warn",
             "require-await": "off",
             "boundaries/entry-point": "off",
+            "unicorn/no-useless-undefined": "off",
 
             // TS-specific overrides:
             "@typescript-eslint/require-await": "off",

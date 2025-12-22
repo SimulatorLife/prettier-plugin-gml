@@ -30,7 +30,7 @@ void describe("line-breaks", () => {
         });
 
         void it("normalizes non-string input to an empty array", () => {
-            // eslint-disable-next-line unicorn/no-useless-undefined -- explicit undefined mirrors optional metadata usage
+            // explicit undefined mirrors optional metadata usage
             assert.deepStrictEqual(splitLines(undefined), []);
             assert.deepStrictEqual(splitLines(null), []);
         });
