@@ -1922,11 +1922,10 @@ function createAutomaticFeatherFixHandlers() {
         ],
         [
             "GM1032",
-            ({ ast, diagnostic, sourceText }) =>
+            ({ ast, diagnostic }) =>
                 normalizeArgumentBuiltinReferences({
                     ast,
-                    diagnostic,
-                    sourceText
+                    diagnostic
                 })
         ],
         [
