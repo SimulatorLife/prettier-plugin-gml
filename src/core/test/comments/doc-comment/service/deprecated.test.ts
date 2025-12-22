@@ -7,53 +7,47 @@ type DocCommentTraversalService = ReturnType<
     typeof Core.resolveDocCommentTraversalService
 >;
 
-void test("collectDeprecatedFunctionNames identifies top-level deprecated functions", () => {
-    const functionNode = {
+function createLegacyFunctionNode() {
+    return {
         type: "FunctionDeclaration",
         id: { type: "Identifier", name: "legacyFunction" },
         start: 60,
         end: 80
     };
-    const comments = [
-        { type: "CommentLine", value: "// @deprecated", start: 10, end: 20 }
-    ];
+}
 
-    const traversal = {
+function createDeprecatedComment() {
+    return { type: "CommentLine", value: "// @deprecated", start: 10, end: 20 };
+}
+
+function createTraversal(node: unknown) {
+    const comments = [createDeprecatedComment()];
+    return {
         forEach(callback: (node: unknown, comments?: unknown[]) => void) {
-            callback(functionNode, comments);
+            callback(node, comments);
         }
     } satisfies DocCommentTraversalService;
+}
 
-    const names = Core.collectDeprecatedFunctionNames(
+function collectDeprecatedNames(whitespace: string) {
+    const functionNode = createLegacyFunctionNode();
+    const traversal = createTraversal(functionNode);
+
+    return Core.collectDeprecatedFunctionNames(
         { type: "Program", body: [functionNode], comments: [] },
-        " ".repeat(120),
+        whitespace,
         traversal
     );
+}
 
+void test("collectDeprecatedFunctionNames identifies top-level deprecated functions", () => {
+    const names = collectDeprecatedNames(" ".repeat(120));
     assert.deepStrictEqual([...names], ["legacyFunction"]);
 });
 
 void test("collectDeprecatedFunctionNames ignores functions without whitespace before start", () => {
-    const functionNode = {
-        type: "FunctionDeclaration",
-        id: { type: "Identifier", name: "legacyFunction" },
-        start: 60,
-        end: 80
-    };
-    const comments = [
-        { type: "CommentLine", value: "// @deprecated", start: 10, end: 20 }
-    ];
-
-    const traversal = {
-        forEach(callback: (node: unknown, comments?: unknown[]) => void) {
-            callback(functionNode, comments);
-        }
-    } satisfies DocCommentTraversalService;
-
-    const names = Core.collectDeprecatedFunctionNames(
-        { type: "Program", body: [functionNode], comments: [] },
-        `${" ".repeat(30)}X${" ".repeat(120)}`,
-        traversal
+    const names = collectDeprecatedNames(
+        `${" ".repeat(30)}X${" ".repeat(120)}`
     );
 
     assert.deepStrictEqual([...names], []);

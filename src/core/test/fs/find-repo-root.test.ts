@@ -11,102 +11,71 @@ async function createTemporaryDirectory() {
     return fs.mkdtemp(directoryPrefix);
 }
 
+async function withTemporaryDirectory(
+    callback: (tempDir: string) => Promise<void>
+) {
+    const tempDir = await createTemporaryDirectory();
+    try {
+        await callback(tempDir);
+    } finally {
+        await fs.rm(tempDir, { recursive: true, force: true });
+    }
+}
+
+async function createNestedDirectoryWithSentinel(root: string) {
+    const nested = path.join(root, "sub", "inner");
+    await fs.mkdir(nested, { recursive: true });
+    const pkgOuter = path.join(root, "package.json");
+    await fs.writeFile(pkgOuter, JSON.stringify({ name: "outer" }), "utf8");
+    const agents = path.join(root, "AGENTS.md");
+    await fs.writeFile(agents, "# sentinel", "utf8");
+    return nested;
+}
+
+async function createNestedDirectoryWithPackages(root: string) {
+    const nested = path.join(root, "a", "b", "c");
+    await fs.mkdir(nested, { recursive: true });
+    const pkgInner = path.join(root, "a", "b", "package.json");
+    await fs.writeFile(pkgInner, JSON.stringify({ name: "inner" }), "utf8");
+    const pkgOuter = path.join(root, "package.json");
+    await fs.writeFile(pkgOuter, JSON.stringify({ name: "outer" }), "utf8");
+    return nested;
+}
+
 void describe("findRepoRoot helper (core)", () => {
     void it("prefers repository sentinels (AGENTS.md) over package.json", async () => {
-        const tempDir = await createTemporaryDirectory();
-        try {
-            const nested = path.join(tempDir, "sub", "inner");
-            await fs.mkdir(nested, { recursive: true });
-            // Add a package.json at the outer level but a sentinel at the root
-            const pkgOuter = path.join(tempDir, "package.json");
-            await fs.writeFile(
-                pkgOuter,
-                JSON.stringify({ name: "outer" }),
-                "utf8"
-            );
-            const agents = path.join(tempDir, "AGENTS.md");
-            await fs.writeFile(agents, "# sentinel", "utf8");
-
+        await withTemporaryDirectory(async (tempDir) => {
+            const nested = await createNestedDirectoryWithSentinel(tempDir);
             const resolved = await findRepoRoot(nested);
             assert.strictEqual(resolved, tempDir);
-        } finally {
-            await fs.rm(tempDir, { recursive: true, force: true });
-        }
+        });
     });
 
     void it("falls back to the top-most package.json when no sentinel is present", async () => {
-        const tempDir = await createTemporaryDirectory();
-        try {
-            const nested = path.join(tempDir, "a", "b", "c");
-            await fs.mkdir(nested, { recursive: true });
-            const pkgInner = path.join(tempDir, "a", "b", "package.json");
-            const pkgOuter = path.join(tempDir, "package.json");
-            await fs.writeFile(
-                pkgInner,
-                JSON.stringify({ name: "inner" }),
-                "utf8"
-            );
-            await fs.writeFile(
-                pkgOuter,
-                JSON.stringify({ name: "outer" }),
-                "utf8"
-            );
-
+        await withTemporaryDirectory(async (tempDir) => {
+            const nested = await createNestedDirectoryWithPackages(tempDir);
             const resolved = await findRepoRoot(nested);
             // Top-most package.json should be returned (outermost)
             assert.strictEqual(resolved, tempDir);
-        } finally {
-            await fs.rm(tempDir, { recursive: true, force: true });
-        }
+        });
     });
 });
 
 void describe("findRepoRootSync helper (core)", () => {
     void it("prefers repository sentinels (AGENTS.md) over package.json", async () => {
-        const tempDir = await createTemporaryDirectory();
-        try {
-            const nested = path.join(tempDir, "sub", "inner");
-            await fs.mkdir(nested, { recursive: true });
-            // Add a package.json at the outer level but a sentinel at the root
-            const pkgOuter = path.join(tempDir, "package.json");
-            await fs.writeFile(
-                pkgOuter,
-                JSON.stringify({ name: "outer" }),
-                "utf8"
-            );
-            const agents = path.join(tempDir, "AGENTS.md");
-            await fs.writeFile(agents, "# sentinel", "utf8");
-
+        await withTemporaryDirectory(async (tempDir) => {
+            const nested = await createNestedDirectoryWithSentinel(tempDir);
             const resolved = findRepoRootSync(nested);
             assert.strictEqual(resolved, tempDir);
-        } finally {
-            await fs.rm(tempDir, { recursive: true, force: true });
-        }
+        });
     });
 
     void it("falls back to the top-most package.json when no sentinel is present", async () => {
-        const tempDir = await createTemporaryDirectory();
-        try {
-            const nested = path.join(tempDir, "a", "b", "c");
-            await fs.mkdir(nested, { recursive: true });
-            const pkgInner = path.join(tempDir, "a", "b", "package.json");
-            const pkgOuter = path.join(tempDir, "package.json");
-            await fs.writeFile(
-                pkgInner,
-                JSON.stringify({ name: "inner" }),
-                "utf8"
-            );
-            await fs.writeFile(
-                pkgOuter,
-                JSON.stringify({ name: "outer" }),
-                "utf8"
-            );
-
+        await withTemporaryDirectory(async (tempDir) => {
+            const nested = await createNestedDirectoryWithPackages(tempDir);
             const resolved = findRepoRootSync(nested);
             // Top-most package.json should be returned (outermost)
             assert.strictEqual(resolved, tempDir);
-        } finally {
-            await fs.rm(tempDir, { recursive: true, force: true });
-        }
+        });
     });
 });

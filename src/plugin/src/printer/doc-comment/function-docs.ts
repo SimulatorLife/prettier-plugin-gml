@@ -36,6 +36,30 @@ function resolveProgramNode(path): any {
     return programNode;
 }
 
+function detachPrintedCommentFromNode(node: any, comment: any) {
+    if (node.comments) {
+        const idx = node.comments.indexOf(comment);
+        if (idx !== -1) {
+            node.comments.splice(idx, 1);
+        }
+    }
+
+    if (
+        node.body &&
+        node.body.type === "BlockStatement" &&
+        Array.isArray(node.body.body) &&
+        node.body.body.length > 0
+    ) {
+        const firstStmt = node.body.body[0];
+        if (firstStmt.comments) {
+            const idx = firstStmt.comments.indexOf(comment);
+            if (idx !== -1) {
+                firstStmt.comments.splice(idx, 1);
+            }
+        }
+    }
+}
+
 /**
  * Collect and normalize raw doc-comment lines associated with a function-like
  * node. The helper gathers doc comments attached directly to the node, leading
@@ -233,22 +257,7 @@ export function collectFunctionDocCommentDocs({
                         text: formatted
                     });
                     comment.printed = true;
-                    if (node.comments) {
-                        const idx = node.comments.indexOf(comment);
-                        if (idx !== -1) node.comments.splice(idx, 1);
-                    }
-                    if (
-                        node.body &&
-                        node.body.type === "BlockStatement" &&
-                        Array.isArray(node.body.body) &&
-                        node.body.body.length > 0
-                    ) {
-                        const firstStmt = node.body.body[0];
-                        if (firstStmt.comments) {
-                            const idx = firstStmt.comments.indexOf(comment);
-                            if (idx !== -1) firstStmt.comments.splice(idx, 1);
-                        }
-                    }
+                    detachPrintedCommentFromNode(node, comment);
                 }
             } else if (comment.type === "CommentBlock") {
                 const value = comment.value.trim();
@@ -316,22 +325,7 @@ export function collectFunctionDocCommentDocs({
                         }
                     }
                     comment.printed = true;
-                    if (node.comments) {
-                        const idx = node.comments.indexOf(comment);
-                        if (idx !== -1) node.comments.splice(idx, 1);
-                    }
-                    if (
-                        node.body &&
-                        node.body.type === "BlockStatement" &&
-                        Array.isArray(node.body.body) &&
-                        node.body.body.length > 0
-                    ) {
-                        const firstStmt = node.body.body[0];
-                        if (firstStmt.comments) {
-                            const idx = firstStmt.comments.indexOf(comment);
-                            if (idx !== -1) firstStmt.comments.splice(idx, 1);
-                        }
-                    }
+                    detachPrintedCommentFromNode(node, comment);
                 }
             }
         }

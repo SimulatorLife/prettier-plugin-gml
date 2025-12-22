@@ -9,15 +9,16 @@ const LONG_DESCRIPTION =
     "Base class for all shapes. Shapes can be solid or not solid. Solid shapes will " +
     "collide with other solid shapes, and non-solid shapes will not collide with anything.";
 
-void test("wraps long @description doc comments at the formatter width", async () => {
+async function formatDescriptionLines(
+    options?: Parameters<typeof Plugin.format>[1]
+) {
     const source = [
         `/// @description ${LONG_DESCRIPTION}`,
         "function wrap_example() {}",
         ""
     ].join("\n");
 
-    const formatted = await Plugin.format(source);
-
+    const formatted = await Plugin.format(source, options);
     const lines = formatted.trim().split("\n");
     const descriptionIndex = lines.findIndex((line) =>
         line.startsWith("/// @description")
@@ -27,6 +28,12 @@ void test("wraps long @description doc comments at the formatter width", async (
         descriptionIndex !== -1,
         "Expected formatter to emit a @description doc comment line."
     );
+
+    return { lines, descriptionIndex };
+}
+
+void test("wraps long @description doc comments at the formatter width", async () => {
+    const { lines, descriptionIndex } = await formatDescriptionLines();
 
     const [firstLine, secondLine, thirdLine] = lines.slice(
         descriptionIndex,
@@ -46,25 +53,10 @@ void test("wraps long @description doc comments at the formatter width", async (
         "///              non-solid shapes will not collide with anything."
     );
 });
-
 void test("wraps @description doc comments when printWidth exceeds the wrapping cap", async () => {
-    const source = [
-        `/// @description ${LONG_DESCRIPTION}`,
-        "function wrap_example() {}",
-        ""
-    ].join("\n");
-
-    const formatted = await Plugin.format(source, { printWidth: 200 });
-
-    const lines = formatted.trim().split("\n");
-    const descriptionIndex = lines.findIndex((line) =>
-        line.startsWith("/// @description")
-    );
-
-    assert.ok(
-        descriptionIndex !== -1,
-        "Expected formatter to emit a @description doc comment line."
-    );
+    const { lines, descriptionIndex } = await formatDescriptionLines({
+        printWidth: 200
+    });
 
     const [firstLine, secondLine, thirdLine] = lines.slice(
         descriptionIndex,
