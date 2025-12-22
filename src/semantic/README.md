@@ -195,6 +195,30 @@ const externalRefs = tracker.getScopeExternalReferences("scope-1");
 
 **Use case:** Cross-scope dependency tracking for hot reload coordination. When editing a file/scope, query its external references to understand which parent symbols it depends on. This enables precise invalidation: if a parent scope's symbol changes, you can quickly identify all child scopes that reference it and selectively recompile only the affected code paths. This is essential for efficient hot reload in large projects where rebuilding everything would be prohibitively slow.
 
+### `getScopeStatistics(scopeId)`
+
+Get comprehensive statistics for a specific scope, providing aggregated metadata about symbol usage, declarations, and references. Returns detailed metrics useful for understanding scope complexity and optimizing hot reload strategies.
+
+```javascript
+const stats = tracker.getScopeStatistics("scope-1");
+// Returns: {
+//   scopeId: "scope-1",
+//   scopeKind: "function",
+//   depth: 2,
+//   symbolCount: 5,
+//   declarationCount: 3,
+//   referenceCount: 12,
+//   externalReferenceCount: 7,
+//   symbols: [
+//     { name: "localVar", hasDeclaration: true, hasReference: true, declarationCount: 1, referenceCount: 3 },
+//     { name: "param", hasDeclaration: true, hasReference: true, declarationCount: 1, referenceCount: 2 },
+//     { name: "globalVar", hasDeclaration: false, hasReference: true, declarationCount: 0, referenceCount: 7 }
+//   ]
+// }
+```
+
+**Use case:** Hot reload optimization and scope complexity analysis. The statistics enable targeted recompilation decisions by revealing which scopes are symbol-heavy, which rely heavily on external dependencies, and which scopes have high reference counts that may indicate bottlenecks. The `externalReferenceCount` metric is particularly valuable for invalidation strategies: scopes with many external references are more likely to require recompilation when their parent scopes change. The per-symbol breakdown helps identify which symbols drive the most cross-scope dependencies, enabling fine-grained cache invalidation and minimal rebuild sets in hot reload pipelines.
+
 ## Identifier Case Bootstrap Controls
 
 Formatter options that tune project discovery and cache behaviour now live in

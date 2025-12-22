@@ -925,6 +925,80 @@ export class ScopeTracker {
         return externalRefs;
     }
 
+    /**
+     * Get comprehensive statistics for a specific scope. This provides aggregated
+     * metadata about symbol usage, declarations, and references within the scope,
+     * useful for understanding scope complexity and optimizing hot reload strategies.
+     *
+     * Returns null if the scope doesn't exist or tracking is disabled.
+     *
+     * @param {string | null | undefined} scopeId The scope identifier to analyze.
+     *        Accepts null or undefined, both return null.
+     * @returns {{
+     *   scopeId: string,
+     *   scopeKind: string,
+     *   depth: number,
+     *   symbolCount: number,
+     *   declarationCount: number,
+     *   referenceCount: number,
+     *   externalReferenceCount: number,
+     *   symbols: Array<{name: string, hasDeclaration: boolean, hasReference: boolean, declarationCount: number, referenceCount: number}>
+     * } | null}
+     */
+    getScopeStatistics(scopeId: string | null | undefined) {
+        if (!scopeId) {
+            return null;
+        }
+
+        const scope = this.scopesById.get(scopeId);
+        if (!scope) {
+            return null;
+        }
+
+        let totalDeclarations = 0;
+        let totalReferences = 0;
+        let externalRefCount = 0;
+        const symbols = [];
+
+        for (const [name, entry] of scope.occurrences) {
+            const declarationCount = entry.declarations.length;
+            const referenceCount = entry.references.length;
+
+            totalDeclarations += declarationCount;
+            totalReferences += referenceCount;
+
+            const hasLocalDeclaration = scope.symbolMetadata.has(name);
+            if (referenceCount > 0 && !hasLocalDeclaration) {
+                externalRefCount += referenceCount;
+            }
+
+            symbols.push({
+                name,
+                hasDeclaration: declarationCount > 0,
+                hasReference: referenceCount > 0,
+                declarationCount,
+                referenceCount
+            });
+        }
+
+        // Get scope depth by counting ancestors in the scope chain.
+        // Since we've validated the scope exists above, getScopeChain will
+        // return at least one element (the scope itself), so depth >= 0.
+        const chain = this.getScopeChain(scopeId);
+        const depth = chain.length - 1;
+
+        return {
+            scopeId: scope.id,
+            scopeKind: scope.kind,
+            depth,
+            symbolCount: scope.occurrences.size,
+            declarationCount: totalDeclarations,
+            referenceCount: totalReferences,
+            externalReferenceCount: externalRefCount,
+            symbols
+        };
+    }
+
     // Role tracking API (previously provided by SemanticScopeCoordinator)
     withRole(role: ScopeRole | null, callback: () => any) {
         return this.identifierRoleTracker.withRole(role, callback);
