@@ -46,7 +46,8 @@ type StatementLike = GmlNode | undefined | null;
 
 const DEFAULT_OPTIONS: EmitOptions = Object.freeze({
     globalsIdent: "global",
-    callScriptIdent: "__call_script"
+    callScriptIdent: "__call_script",
+    resolveWithTargetsIdent: "globalThis.__resolve_with_targets"
 });
 
 const STATEMENT_KEYWORDS = [
@@ -367,6 +368,7 @@ export class GmlToJsEmitter {
     private visitWithStatement(ast: WithStatementNode): string {
         const testExpr = this.wrapConditional(ast.test, true) || "undefined";
         const rawBody = this.wrapRawBody(ast.body);
+        const resolveWithTargets = this.options.resolveWithTargetsIdent;
         const indentedBody = rawBody
             .split("\n")
             .map((line) => (line ? `        ${line}` : ""))
@@ -378,10 +380,8 @@ export class GmlToJsEmitter {
             "    const __with_prev_other = other;",
             `    const __with_value = ${testExpr};`,
             "    const __with_targets = (() => {",
-            "        if (",
-            '            typeof globalThis.__resolve_with_targets === "function"',
-            "        ) {",
-            "            return globalThis.__resolve_with_targets(",
+            `        if (typeof ${resolveWithTargets} === "function") {`,
+            `            return ${resolveWithTargets}(`,
             "                __with_value,",
             "                __with_prev_self,",
             "                __with_prev_other",
