@@ -1,8 +1,8 @@
 import { existsSync, promises as fs } from "node:fs";
-import os from "node:os";
 import path from "node:path";
 
 import { buildProjectIndex } from "../src/project-index/index.js";
+import { createTempProjectWorkspace } from "./identifier-case-asset-helpers.js";
 
 type ScriptFixtureConfig =
     | string
@@ -89,14 +89,8 @@ export async function createIdentifierCaseProject({
     eventFixture?: string | null;
     projectPrefix?: string;
 }): Promise<IdentifierCaseProject> {
-    const tempRoot = await fs.mkdtemp(path.join(os.tmpdir(), projectPrefix));
-
-    async function writeFile(relativePath: string, contents: string) {
-        const absolutePath = path.join(tempRoot, relativePath);
-        await fs.mkdir(path.dirname(absolutePath), { recursive: true });
-        await fs.writeFile(absolutePath, contents, "utf8");
-        return absolutePath;
-    }
+    const { projectRoot: tempRoot, writeFile } =
+        await createTempProjectWorkspace(projectPrefix);
 
     await writeFile(
         "MyGame.yyp",
