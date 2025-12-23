@@ -9,8 +9,8 @@ import { resolveDocCommentPrinterOptions } from "../../printer/doc-comment/doc-c
 import {
     applyDescriptionContinuations,
     collectDescriptionContinuations
-} from "../../shared/doc-comment-description.js";
-import { setDocCommentNormalization } from "../../shared/doc-comment-normalization.js";
+} from "./description-utils.js";
+import { setDocCommentNormalization } from "./normalization-utils.js";
 import {
     setDocCommentMetadata,
     setDeprecatedDocCommentFunctionSet
