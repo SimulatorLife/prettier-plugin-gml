@@ -1713,6 +1713,28 @@ export class RefactorEngine {
             visited.add(symbolId);
         }
 
+        // Track the traversal path during DFS for complete cycle reconstruction.
+        // This array is intentionally shared across all recursive calls to maintain
+        // the full call stack, enabling accurate cycle path tracing when a back edge
+        // is detected (e.g., A→B→C→A results in visitPath = [A, B, C] at the moment
+        // we discover C depends on A).
+        const visitPath: Array<string> = [];
+
+        // Helper to reconstruct a complete cycle path from the current traversal state.
+        // When we detect a symbol already in the visiting set, we know we've found a
+        // back edge. This function extracts the cycle from visitPath by finding where
+        // the cycle starts and appending the re-encountered symbol to close the loop.
+        const reconstructCyclePath = (
+            cycleStartSymbol: string
+        ): Array<string> => {
+            const cycleStartIndex = visitPath.indexOf(cycleStartSymbol);
+            if (cycleStartIndex !== -1) {
+                return [...visitPath.slice(cycleStartIndex), cycleStartSymbol];
+            }
+            // Fallback if symbol isn't in path (shouldn't happen, but be defensive)
+            return [cycleStartSymbol];
+        };
+
         // Helper to explore dependencies recursively
         const exploreDependents = async (
             symbolId: string,
@@ -1721,13 +1743,15 @@ export class RefactorEngine {
         ): Promise<{ cycleDetected: boolean; cycle?: Array<string> }> => {
             // Check if we're already exploring this symbol (cycle detection)
             if (visiting.has(symbolId)) {
-                // Found a cycle - trace it back
-                const cycle = [symbolId];
-                // We'll mark this as a circular dependency
-                return { cycleDetected: true, cycle };
+                // Found a cycle - reconstruct the full cycle path from visitPath.
+                // The cycle starts at the first occurrence of symbolId in visitPath
+                // and extends to the current position where we re-encountered it.
+                const cyclePath = reconstructCyclePath(symbolId);
+                return { cycleDetected: true, cycle: cyclePath };
             }
 
             visiting.add(symbolId);
+            visitPath.push(symbolId);
 
             try {
                 // Query semantic analyzer for symbols that depend on this one
@@ -1746,6 +1770,16 @@ export class RefactorEngine {
                             dependencyGraph.set(symbolId, []);
                         }
                         dependencyGraph.get(symbolId).push(depId);
+
+                        // Check if this creates a cycle by looking at the visiting set.
+                        // The visiting set contains symbols currently on the call stack,
+                        // so finding a dependent in that set means we've encountered a cycle.
+                        if (visiting.has(depId)) {
+                            // Reconstruct and record the complete cycle path
+                            const cyclePath = reconstructCyclePath(depId);
+                            circular.push(cyclePath);
+                            continue;
+                        }
 
                         // If we haven't visited this dependent yet, explore it
                         if (!visited.has(depId)) {
@@ -1766,7 +1800,11 @@ export class RefactorEngine {
                                 newDistance,
                                 reason
                             );
-                            if (result && result.cycleDetected) {
+                            if (
+                                result &&
+                                result.cycleDetected &&
+                                result.cycle
+                            ) {
                                 circular.push(result.cycle);
                             }
                         }
@@ -1774,6 +1812,7 @@ export class RefactorEngine {
                 }
             } finally {
                 visiting.delete(symbolId);
+                visitPath.pop();
             }
 
             return { cycleDetected: false };
