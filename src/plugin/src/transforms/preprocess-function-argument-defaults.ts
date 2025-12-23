@@ -161,79 +161,6 @@ export class PreprocessFunctionArgumentDefaultsTransform extends FunctionalParse
         // in-body fallbacks. Run this *before* we early-return so the
         // conservative materialization occurs even when no in-body matches
         // were detected.
-        /**
-         * Completes any trailing `DefaultParameter` nodes that still lack a right-hand value.
-         */
-        function finalizeTrailingUndefinedDefaults(params) {
-            let changed = false;
-            try {
-                let seenExplicitDefaultToLeft = false;
-                for (let i = 0; i < params.length; i += 1) {
-                    const param = params[i];
-                    if (!param) continue;
-
-                    if (param.type === "DefaultParameter") {
-                        if (param.right == null) {
-                            if (seenExplicitDefaultToLeft) {
-                                // Materialize the sentinel as a Literal so downstream
-                                // tests and printer logic that expect a Literal
-                                // `value: "undefined"` observe the historical
-                                // shape.
-                                param.right = {
-                                    type: "Literal",
-                                    value: "undefined"
-                                };
-                                param._featherMaterializedTrailingUndefined = true;
-                                param._featherMaterializedFromExplicitLeft = true;
-                                // Historical behaviour: when materializing a trailing
-                                // undefined because there was an explicit default to
-                                // the left, treat the parameter as optional by
-                                // default so downstream phases preserve `= undefined`.
-                                param._featherOptionalParameter = true;
-                                changed = true;
-                            }
-                        } else {
-                            const isUndef = Core.isUndefinedSentinel(
-                                param.right
-                            );
-                            if (!isUndef) {
-                                seenExplicitDefaultToLeft = true;
-                            }
-                        }
-                        continue;
-                    }
-
-                    if (param.type === "AssignmentPattern") {
-                        seenExplicitDefaultToLeft = true;
-                        continue;
-                    }
-
-                    if (param.type === "Identifier") {
-                        if (seenExplicitDefaultToLeft) {
-                            const defaultParam = {
-                                type: "DefaultParameter",
-                                left: param,
-                                // downstream passes observe the historical
-                                // `value: "undefined"` shape.
-                                right: { type: "Literal", value: "undefined" },
-                                _featherMaterializedTrailingUndefined: true,
-                                _featherMaterializedFromExplicitLeft: true
-                            };
-                            params[i] = defaultParam;
-                            changed = true;
-                        }
-                        continue;
-                    }
-
-                    break;
-                }
-            } catch {
-                // swallow
-            }
-
-            return changed;
-        }
-
         // Defer finalization until after we've attempted to convert any
         // in-body fallback patterns into DefaultParameter nodes. Running
         // the conservative trailing-undefined materialization earlier had
@@ -279,75 +206,11 @@ export class PreprocessFunctionArgumentDefaultsTransform extends FunctionalParse
             condenseMatches.push(condenseMatch);
         }
 
-        for (const condense of condenseMatches) {
-            const {
-                declarator,
-                guardExpression,
-                argumentExpression,
-                fallbackExpression,
-                ifStatement,
-                sourceStatement
-            } = condense;
-
-            declarator.init = {
-                type: "TernaryExpression",
-                test: guardExpression,
-                consequent: argumentExpression,
-                alternate: fallbackExpression
-            };
-
-            sourceStatement._skipArgumentCountDefault = true;
-            statementsToRemove.add(ifStatement);
-            extendStatementEndLocation(sourceStatement, ifStatement);
-            body._gmlForceInitialBlankLine = true;
-        }
-
-        /**
-         * Stretch the declaration's location metadata to include the removed fallback `if` statement so emitter locs remain accurate.
-         */
-        function extendStatementEndLocation(
-            targetDeclaration,
-            removedStatement
-        ) {
-            if (!targetDeclaration || !removedStatement) {
-                return;
-            }
-
-            const removalEnd = Core.getNodeEndIndex(removedStatement);
-            if (removalEnd == null) {
-                return;
-            }
-
-            const declarationEnd = Core.getNodeEndIndex(targetDeclaration);
-            if (declarationEnd != null && declarationEnd >= removalEnd) {
-                return;
-            }
-
-            Core.assignClonedLocation(targetDeclaration, {
-                end: removedStatement.end
-            });
-
-            const removedRangeEnd = Array.isArray(removedStatement.range)
-                ? removedStatement.range[1]
-                : Core.getNodeEndIndex(removedStatement);
-
-            if (typeof removedRangeEnd !== "number") {
-                return;
-            }
-
-            if (Array.isArray(targetDeclaration.range)) {
-                const [startRange] = targetDeclaration.range;
-                targetDeclaration.range = [startRange, removedRangeEnd];
-                return;
-            }
-
-            const declarationStart = Core.getNodeStartIndex(targetDeclaration);
-            if (typeof declarationStart !== "number") {
-                return;
-            }
-
-            targetDeclaration.range = [declarationStart, removedRangeEnd];
-        }
+        applyCondenseMatches({
+            condenseMatches,
+            statementsToRemove,
+            body
+        });
 
         const paramInfoByName = new Map();
         for (const [index, param] of params.entries()) {
@@ -399,197 +262,14 @@ export class PreprocessFunctionArgumentDefaultsTransform extends FunctionalParse
             return a.statementIndex - b.statementIndex;
         });
 
-        const ensureParameterInfoForMatch = (match) => {
-            if (!match) {
-                return null;
-            }
-
-            const { targetName, argumentIndex } = match;
-            if (argumentIndex == undefined || argumentIndex < 0) {
-                return null;
-            }
-
-            const existingInfo = paramInfoByName.get(targetName);
-            if (existingInfo) {
-                return existingInfo.index === argumentIndex
-                    ? existingInfo
-                    : null;
-            }
-
-            if (argumentIndex > params.length) {
-                return null;
-            }
-
-            const registerInfo = (index, identifier) => {
-                const info = { index, identifier };
-                paramInfoByName.set(targetName, info);
-                return info;
-            };
-
-            if (argumentIndex === params.length) {
-                // If the match lacks a concrete target name, avoid creating a
-                // placeholder parameter with an undefined name. This can occur
-                // when upstream matchers return incomplete match objects during
-                // heuristic detection; it's safer to skip in that case.
-                if (!targetName || typeof targetName !== "string") {
-                    return null;
-                }
-
-                const newIdentifier = {
-                    type: "Identifier",
-                    name: targetName
-                };
-                params.push(newIdentifier);
-                return registerInfo(argumentIndex, newIdentifier);
-            }
-
-            // If the matcher didn't provide a projected targetName, allow
-            // matching purely by index when a declared parameter exists at
-            // that position. This covers patterns like `if (argument_count == 0)
-            // argument0 = "...";` where the assignment targets the
-            // argumentN slot directly and the parameter at that index should
-            // be updated. When a targetName is provided, preserve the
-            // stricter name-matching behaviour.
-            const paramAtIndex = params[argumentIndex];
-            const identifier = getIdentifierFromParameter(paramAtIndex);
-            if (!identifier) {
-                return null;
-            }
-
-            const identifierName = Core.getIdentifierText(identifier);
-            if (
-                targetName &&
-                (!identifierName || identifierName !== targetName)
-            ) {
-                // If the matcher provided a projected target name that doesn't
-                // match the declared parameter name at the same index, fall
-                // back to index-based matching. This relaxes strict name
-                // equality and covers parser shapes where the function uses a
-                // different local alias for the projected argument; prefer the
-                // declared parameter at the index when available.
-                try {
-                    const paramAtIndex = params[argumentIndex];
-                    const fallBackIdentifier =
-                        getIdentifierFromParameter(paramAtIndex);
-                    if (fallBackIdentifier) {
-                        return registerInfo(argumentIndex, fallBackIdentifier);
-                    }
-                } catch {
-                    // if any helper fails, fall through to returning null
-                }
-
-                return null;
-            }
-
-            return registerInfo(argumentIndex, identifier);
-        };
-
-        for (const match of matches) {
-            if (!match) {
-                continue;
-            }
-
-            const paramInfo = ensureParameterInfoForMatch(match);
-            if (!paramInfo) {
-                continue;
-            }
-
-            if (!match.fallbackExpression) {
-                continue;
-            }
-
-            const currentParam = node.params[paramInfo.index];
-            if (!currentParam) {
-                continue;
-            }
-
-            // Accept either a bare Identifier parameter or a previously-
-            // materialized DefaultParameter node whose right-hand side is
-            // still missing (null). Some upstream parser shapes produce a
-            // DefaultParameter with a null `right` placeholder; in that
-            // case we should fill in the fallbackExpression rather than
-            // skipping conversion.
-            const paramIsBareIdentifier = currentParam.type === "Identifier";
-            const paramIsEmptyDefault =
-                currentParam.type === "DefaultParameter" &&
-                (currentParam.right == null ||
-                    currentParam.right === undefined);
-
-            if (!paramIsBareIdentifier && !paramIsEmptyDefault) {
-                continue;
-            }
-
-            // If we are converting a local variable to a parameter, remove the
-            // variable declaration from the function body to avoid redeclaration.
-            if (match.targetName) {
-                removeDeclaredVariable(
-                    statements,
-                    match.targetName,
-                    statementsToRemove
-                );
-            }
-
-            const identifier = paramInfo.identifier;
-            if (!identifier || identifier.type !== "Identifier") {
-                continue;
-            }
-
-            // If the parameter was a bare identifier, replace it with an
-            // explicit DefaultParameter node using the matched fallback.
-            // If the parameter was already a DefaultParameter with a
-            // missing right-hand side, fill in the right-hand side instead
-            // of creating a new node so we preserve any attached metadata.
-            if (paramIsBareIdentifier) {
-                const defaultParamNode = {
-                    type: "DefaultParameter",
-                    left: currentParam,
-                    right: match.fallbackExpression
-                };
-
-                // If the matched fallback is the parser's `undefined` sentinel,
-                // mark this synthesized DefaultParameter as optional so downstream
-                // phases (printer/doc synthesizer) preserve `= undefined` when
-                // the parser intended the parameter to be optional.
-                // Intentionally do not set `_featherOptionalParameter` here.
-                // Instead record that this DefaultParameter was materialized
-                // from an in-body fallback by setting
-                // `_featherMaterializedTrailingUndefined` when the fallback is
-                // the parser's `undefined` sentinel. The printer uses that
-                // signal to avoid treating materialized placeholders as an
-                // explicit optional override.
-                try {
-                    if (Core.isUndefinedSentinel(match.fallbackExpression)) {
-                        // Mark that this DefaultParameter was materialized from
-                        // an in-body fallback whose RHS is the parser's
-                        // `undefined` sentinel. Do NOT set `_featherOptionalParameter`
-                        // here so the doc-driven reconciliation step remains the
-                        // single source of truth for whether the parameter is
-                        // intentionally optional. The printer will still inspect
-                        // `_featherMaterializedTrailingUndefined` to treat
-                        // materialized placeholders differently when synthesizing
-                        // docs.
-                        (
-                            defaultParamNode as any
-                        )._featherMaterializedTrailingUndefined = true;
-                    }
-                } catch {
-                    // swallow
-                }
-
-                node.params[paramInfo.index] = defaultParamNode;
-            } else if (paramIsEmptyDefault) {
-                try {
-                    currentParam.right = match.fallbackExpression;
-
-                    // Do NOT annotate `_featherOptionalParameter` here; leave
-                    // that decision to the doc-driven reconciliation step so
-                    // plain functions omit `= undefined` unless docs or
-                    // prior parser annotations explicitly indicate optional.
-                } catch {
-                    // swallow
-                }
-            }
-        }
+        applyArgumentCountMatches({
+            matches,
+            params,
+            node,
+            statements,
+            statementsToRemove,
+            paramInfoByName
+        });
 
         // When we've converted an in-body argument_count fallback into a
         // DefaultParameter, remove the original guard statement so the
@@ -617,141 +297,14 @@ export class PreprocessFunctionArgumentDefaultsTransform extends FunctionalParse
             }
         }
 
-        // As a conservative fallback: some parser shapes may present the
-        // argument_count fallback pattern in slightly different AST forms that
-        // the stricter matchers above miss. Scan remaining top-level statements
-        // for IfStatements that clearly implement an argument_count-based
-        // fallback and convert them into DefaultParameter nodes when we can
-        // confidently map them to existing parameters.
-        for (let sidx = 0; sidx < statements.length; sidx += 1) {
-            const stmt = statements[sidx];
-            if (!stmt || (stmt as any).type !== "IfStatement") continue;
+        processFallbackIfStatements({
+            statements,
+            node,
+            params,
+            paramInfoByName
+        });
 
-            const condition = Core.unwrapParenthesizedExpression(
-                (stmt as any).test
-            );
-            const guard = matchArgumentCountGuard(condition);
-            if (!guard) continue;
-
-            const consequent = (stmt as any).consequent;
-            const alternate = (stmt as any).alternate;
-            const consequentStmt =
-                consequent && consequent.type === "BlockStatement"
-                    ? Core.getBodyStatements(consequent)[0]
-                    : consequent;
-            const alternateStmt =
-                alternate && alternate.type === "BlockStatement"
-                    ? Core.getBodyStatements(alternate)[0]
-                    : alternate;
-
-            // Look for an assignment in one branch that assigns an Identifier
-            // from argument[index], and in the other branch an assignment that
-            // assigns a fallback value into that same Identifier. This is a
-            // liberal detection to capture odd parser shapes.
-            const a = matchAssignmentToArgumentIndex(
-                consequentStmt,
-                guard.argumentIndex
-            );
-            const b = matchAssignmentToArgumentIndex(
-                alternateStmt,
-                guard.argumentIndex
-            );
-
-            let argMatch = null;
-            let fallbackMatch = null;
-            if (a && a.argumentExpression) argMatch = a;
-            if (a && a.fallbackExpression) fallbackMatch = a;
-            if (b && b.argumentExpression) argMatch = b;
-            if (b && b.fallbackExpression) fallbackMatch = b;
-
-            if (!argMatch && !fallbackMatch) continue;
-
-            // Determine the target parameter index/name
-            const targetName =
-                (fallbackMatch && fallbackMatch.targetName) ||
-                (argMatch && argMatch.targetName) ||
-                null;
-            const argumentIndex = guard.argumentIndex;
-
-            // Try to locate parameter by name first, otherwise by index.
-            let paramIndex = -1;
-            if (targetName && paramInfoByName.has(targetName)) {
-                paramIndex = paramInfoByName.get(targetName).index;
-            } else if (argumentIndex != null && argumentIndex < params.length) {
-                paramIndex = argumentIndex;
-            }
-
-            if (paramIndex < 0 || paramIndex >= params.length) continue;
-
-            const currentParam = node.params[paramIndex];
-            if (!currentParam) continue;
-
-            // If the parameter is already a DefaultParameter with RHS present,
-            // skip. Otherwise materialize or fill in the default from the
-            // fallback match if available.
-            const fallbackExpr =
-                (fallbackMatch && fallbackMatch.fallbackExpression) ||
-                (argMatch && argMatch.fallbackExpression);
-            if (!fallbackExpr) continue;
-
-            const paramIsBareIdentifier = currentParam.type === "Identifier";
-            const paramIsEmptyDefault =
-                currentParam.type === "DefaultParameter" &&
-                (currentParam.right == null ||
-                    currentParam.right === undefined);
-
-            if (paramIsBareIdentifier) {
-                const defaultParamNode = {
-                    type: "DefaultParameter",
-                    left: currentParam,
-                    right: fallbackExpr
-                };
-                try {
-                    if (Core.isUndefinedSentinel(fallbackExpr)) {
-                        // Mark that this DefaultParameter was materialized by the
-                        // parser/transform pass and that its RHS is the
-                        // `undefined` sentinel. Record that it was
-                        // materialized so printers can treat materialized
-                        // placeholders specially. Do NOT also set the
-                        // Mark that this DefaultParameter was materialized by the
-                        // parser/transform pass and that its RHS is the
-                        // `undefined` sentinel. Record that it was
-                        // materialized so printers can treat materialized
-                        // placeholders specially. Do NOT also set the
-                        // `_featherOptionalParameter` here for argument_count
-                        // guard-based materializations; those represent a
-                        // different semantic origin and should not imply an
-                        // explicit optional intent in all cases.
-                        (
-                            defaultParamNode as any
-                        )._featherMaterializedTrailingUndefined = true;
-                    }
-                } catch {
-                    // swallow
-                }
-                node.params[paramIndex] = defaultParamNode;
-                // Remove the IfStatement from the body
-                const ridx = statements.indexOf(stmt);
-                if (ridx !== -1) statements.splice(ridx, 1);
-            } else if (paramIsEmptyDefault) {
-                try {
-                    currentParam.right = fallbackExpr;
-                    if (Core.isUndefinedSentinel(fallbackExpr)) {
-                        // Mark that this DefaultParameter's RHS was filled from an
-                        // in-body fallback and that it is the `undefined`
-                        // sentinel. Only record that this node was materialized;
-                        // leave the explicit optionality decision to the later
-                        // doc-driven reconciliation so plain functions omit
-                        // redundant `= undefined` unless docs indicate optional.
-                        currentParam._featherMaterializedTrailingUndefined = true;
-                    }
-                } catch {
-                    // swallow
-                }
-                const ridx = statements.indexOf(stmt);
-                if (ridx !== -1) statements.splice(ridx, 1);
-            }
-        }
+        // After we've processed all in-body fallback matches and removals,
 
         // After we've processed all in-body fallback matches and removals,
         // run the trailing undefined finalization to materialize any
@@ -774,91 +327,8 @@ export class PreprocessFunctionArgumentDefaultsTransform extends FunctionalParse
         // reliance on traversal order while remaining safe for non-standard
         // parameter forms.
         try {
-            // Find the highest index of a concrete explicit default to the left.
-            let lastExplicitDefaultIndex = -1;
-            for (const [i, param] of params.entries()) {
-                if (!param) continue;
-
-                if (param.type === "DefaultParameter") {
-                    if (param.right != null) {
-                        const isUndef = Core.isUndefinedSentinel(param.right);
-                        if (!isUndef) {
-                            lastExplicitDefaultIndex = i;
-                        }
-                    }
-                    continue;
-                }
-
-                if (param.type === "AssignmentPattern") {
-                    lastExplicitDefaultIndex = i;
-                    continue;
-                }
-
-                // Other forms don't affect explicit defaults
-            }
-
-            // Only materialize trailing placeholders when we actually found an
-            // explicit default to the left; otherwise leave placeholders for
-            // other passes to decide.
-            if (lastExplicitDefaultIndex >= 0) {
-                for (let i = 0; i < params.length; i += 1) {
-                    const param = params[i];
-                    if (!param) continue;
-
-                    if (i <= lastExplicitDefaultIndex) {
-                        // Nothing to do for parameters up to and including the last
-                        // explicit default.
-                        continue;
-                    }
-
-                    if (param.type === "DefaultParameter") {
-                        if (param.right == null) {
-                            // Materialize placeholder RHS as `undefined` using a
-                            // Literal node so the shape matches existing tests.
-                            param.right = {
-                                type: "Literal",
-                                value: "undefined"
-                            };
-                            param._featherMaterializedTrailingUndefined = true;
-                            param._featherMaterializedFromExplicitLeft = true;
-                            // Preserve historical behaviour: when materializing a
-                            // trailing `= undefined` default due to an explicit
-                            // default to the left, mark the parameter as optional
-                            // so downstream phases observe the explicit optional
-                            // intent.
-                            param._featherOptionalParameter = true;
-                            appliedChanges = true;
-                            try {
-                                // console.error(
-                                //     `[feather:diagnostic] finalization-materialized index=${i} name=${param.left && param.left.name}`
-                                // );
-                            } catch {
-                                /* swallow */
-                            }
-                        }
-                        continue;
-                    }
-
-                    if (param.type === "Identifier") {
-                        // Materialize bare identifier to DefaultParameter with
-                        // undefined RHS. Use a Literal node for the `undefined`
-                        // sentinel to match historical printer/tests expectations.
-                        const defaultParam = {
-                            type: "DefaultParameter",
-                            left: param,
-                            right: { type: "Literal", value: "undefined" },
-                            _featherMaterializedTrailingUndefined: true,
-                            _featherMaterializedFromExplicitLeft: true,
-                            _featherOptionalParameter: true
-                        };
-                        params[i] = defaultParam;
-                        appliedChanges = true;
-                        continue;
-                    }
-
-                    // Stop on non-standard parameter forms.
-                    break;
-                }
+            if (materializeTrailingDefaults(params)) {
+                appliedChanges = true;
             }
         } catch {
             // Swallow any accidental errors in the conservative finalization
@@ -920,130 +390,9 @@ export class PreprocessFunctionArgumentDefaultsTransform extends FunctionalParse
         // so any `_featherMaterializedFromExplicitLeft` or related flags that
         // were set during finalization are respected when deciding optionality.
         try {
-            reconcileDocOptionality();
+            reconcileDocOptionality(node, ast);
         } catch {
             // swallow
-        }
-
-        // Helpers
-        function ensureTrailingOptionalParametersHaveUndefinedDefaults(params) {
-            if (!Array.isArray(params) || params.length === 0) {
-                return false;
-            }
-
-            let changed = false;
-            // Materialize identifier parameters that come after (to the right of)
-            // any explicit, non-`undefined` default. Scan left-to-right and
-            // remember when we've encountered a concrete default so subsequent
-            // identifiers can be converted into DefaultParameter nodes with an
-            // `undefined` right. Be conservative: only treat AssignmentPattern
-            // or DefaultParameter nodes with a non-`undefined` RHS as an
-            // explicit default to the left.
-            let seenExplicitDefaultToLeft = false;
-            for (let i = 0; i < params.length; i += 1) {
-                const param = params[i];
-                if (!param) {
-                    continue;
-                }
-
-                // If a prior transform already produced a DefaultParameter node
-                // but left the `right` slot null, materialize it as `undefined`
-                // and mark it as feather-optional. That counts as a default for
-                // subsequent identifiers to the right.
-                // Also treat AssignmentPattern (e.g. `x = 1`) as an explicit
-                // default to the left so that trailing identifiers are
-                // materialized as optional as expected by the plugin tests.
-                if (param.type === "DefaultParameter") {
-                    // If a prior transform already produced a DefaultParameter
-                    // but left the `right` slot null, do NOT eagerly materialize
-                    // it here. Leaving it null allows subsequent argument_count
-                    // fallback matchers (below) to fill the RHS with a concrete
-                    // fallback expression when one is present in the function
-                    // body. Only treat an existing DefaultParameter as an
-                    // explicit default to the left if its RHS exists and is not
-                    // the `undefined` sentinel. This prevents synthetic or
-                    // materialized undefined placeholders from causing trailing
-                    // parameters to be implicitly materialized as optional.
-                    try {
-                        if (param.right != null) {
-                            const isUndef = Core.isUndefinedSentinel(
-                                param.right
-                            );
-                            if (!isUndef) {
-                                seenExplicitDefaultToLeft = true;
-                            }
-                        }
-                    } catch {
-                        // ignore helper failures and err on the conservative side
-                    }
-
-                    continue;
-                }
-
-                // Treat source-level assignment patterns (e.g. `param = 1`) as an
-                // explicit default to the left so trailing bare identifiers are
-                // materialized. Do not mutate AssignmentPattern nodes themselves;
-                // just record that we've seen a default to the left.
-                if (param.type === "AssignmentPattern") {
-                    // A true assignment pattern (e.g. `x = 1`) is an explicit
-                    // default and should count as an explicit default to the
-                    // left for materialization purposes.
-                    seenExplicitDefaultToLeft = true;
-                    continue;
-                }
-
-                // If we've already encountered a DefaultParameter to the left
-                // then bare identifiers to the right should be treated as
-                // implicitly optional and materialized with an explicit
-                // `undefined` initializer.
-                if (param.type === "Identifier") {
-                    if (seenExplicitDefaultToLeft) {
-                        // Materialize trailing identifiers to a DefaultParameter
-                        // shape with an `undefined` RHS so downstream phases see
-                        // a consistent node form. These materialized parameters
-                        // are the result of an explicit source-level default to
-                        // the left, so mark them as optional by default to
-                        // preserve historical semantics and make downstream
-                        // doc/printer behavior deterministic.
-                        const defaultParam = {
-                            type: "DefaultParameter",
-                            left: param,
-                            // Materialize the undefined sentinel as a Literal so
-                            // downstream passes (and tests) observe the
-                            // historical `value: "undefined"` shape.
-                            right: { type: "Literal", value: "undefined" },
-                            // Mark materialized trailing undefined defaults so
-                            // tests and downstream passes can observe that the
-                            // node was synthesized by this transform. Record a
-                            // dedicated flag that indicates this materialization
-                            // originated from an explicit source-level default
-                            // to the left. This distinguishes explicit-left
-                            // materialization from argument_count-style
-                            // materialization performed later in this file.
-                            _featherMaterializedTrailingUndefined: true,
-                            _featherMaterializedFromExplicitLeft: true
-                        };
-
-                        // Do NOT set `_featherOptionalParameter` here. Leave the
-                        // explicit optionality decision to the later
-                        // doc-driven reconciliation so plain functions omit
-                        // redundant `= undefined` unless docs indicate optional.
-                        params[i] = defaultParam;
-                        changed = true;
-                    }
-
-                    // If we haven't yet seen an explicit default to the left,
-                    // this identifier remains required; continue scanning.
-                    continue;
-                }
-
-                // Any other parameter form stops the left-to-right scanning; it
-                // indicates a non-standard parameter (rest, pattern, etc.) that
-                // should prevent later implicit materialization.
-                break;
-            }
-
-            return changed;
         }
 
         // After we've canonicalized DefaultParameter nodes, collect implicit
@@ -1069,702 +418,1156 @@ export class PreprocessFunctionArgumentDefaultsTransform extends FunctionalParse
         // materializations that indicate explicit-left origins are created in a
         // later pass; running the reconciliation again ensures those durable
         // flags are honored.
-        function reconcileDocOptionality() {
-            try {
-                // Snapshot params before calling into doc manager (which may throw
-                // in edge cases). This helps us diagnose whether the materialized
-                // flags exist before further processing.
-
-                const docManager = Core.prepareDocCommentEnvironment(ast);
-                const comments = docManager.getComments(node);
-
-                const paramDocMap = new Map();
-                if (Array.isArray(comments) && comments.length > 0) {
-                    for (const comment of comments) {
-                        if (!comment || typeof comment.value !== "string")
-                            continue;
-                        const m = comment.value.match(
-                            /@param\s*(?:\{[^}]*\}\s*)?(\[[^\]]+\]|\S+)/i
-                        );
-                        if (!m) continue;
-                        const raw = m[1];
-                        const name = raw
-                            ? raw.replaceAll(/^\[|\]$/g, "").trim()
-                            : null;
-                        const isOptional = raw ? /^\[.*\]$/.test(raw) : false;
-                        if (name) {
-                            paramDocMap.set(name, isOptional);
-                        }
-                    }
-                }
-
-                // Walk parameters and set the flag where the RHS is an `undefined`
-                // sentinel. Constructors prefer to preserve optional syntax by
-                // default; plain functions omit unless the doc indicates optional.
-                const params = Core.toMutableArray(node.params) as Array<any>;
-                for (const p of params) {
-                    if (!p) continue;
-
-                    // Handle both DefaultParameter and AssignmentPattern shapes.
-                    let leftName = null;
-                    let rightNode = null;
-                    if (p.type === "DefaultParameter") {
-                        leftName =
-                            p.left && p.left.type === "Identifier"
-                                ? p.left.name
-                                : null;
-                        rightNode = p.right;
-                    } else if (p.type === "AssignmentPattern") {
-                        leftName =
-                            p.left && p.left.type === "Identifier"
-                                ? p.left.name
-                                : null;
-                        rightNode = p.right;
-                    } else {
-                        continue;
-                    }
-
-                    // Use the helper so we correctly detect the parser's undefined
-                    // sentinel regardless of the exact node shape (Identifier vs
-                    // Literal placeholder passed through by upstream transforms).
-                    const isUndefined = Core.isUndefinedSentinel(rightNode);
-                    if (!isUndefined) continue;
-
-                    // If doc explicitly marks optional, respect that and override any
-                    // parser-provided intent. Otherwise, prefer an existing parser
-                    // annotation (from earlier canonicalization) and only fall back to
-                    // the conservative defaults below when no parser or doc guidance
-                    // exists. This avoids accidentally discarding parser-intended
-                    // optional markers produced by earlier transforms.
-                    if (leftName && paramDocMap.has(leftName)) {
-                        try {
-                            p._featherOptionalParameter =
-                                paramDocMap.get(leftName) === true;
-                        } catch {
-                            // Swallow errors
-                        }
-                        continue;
-                    }
-
-                    // If a prior transform already annotated this parameter with a
-                    // concrete intent, preserve that intent rather than overwriting
-                    // it here. Doc comments may explicitly override above.
-                    try {
-                        if (
-                            p._featherOptionalParameter === true ||
-                            p._featherOptionalParameter === false
-                        ) {
-                            continue;
-                        }
-                    } catch {
-                        // Swallow errors
-                    }
-
-                    // If this parameter was materialized by an earlier pass as a
-                    // trailing `undefined` default, prefer to mark it explicitly as
-                    // optional so downstream printer logic can decide whether to
-                    // omit or emit the `= undefined` signature. Preserve any
-                    // existing explicit annotations above first.
-                    try {
-                        if (
-                            p._featherMaterializedFromExplicitLeft === true &&
-                            hasExplicitDefaultParameterToLeft(node, p)
-                        ) {
-                            p._featherOptionalParameter = true;
-                            continue;
-                        }
-
-                        if (p._featherMaterializedTrailingUndefined === true) {
-                            // Materialized trailing undefined defaults that did NOT
-                            // originate from an explicit left-side default are
-                            // treated conservatively (required) unless docs or the
-                            // parser explicitly mark them optional.
-                            p._featherOptionalParameter = false;
-                            continue;
-                        }
-                    } catch {
-                        // Swallow errors
-                    }
-
-                    // Constructors keep optional syntax by default when the signature
-                    // contains explicit undefined defaults.
-                    if (node.type === "ConstructorDeclaration") {
-                        try {
-                            p._featherOptionalParameter = true;
-                        } catch {
-                            // Swallow errors
-                        }
-                        continue;
-                    }
-
-                    // Otherwise plain function declarations should omit redundant
-                    // `= undefined` signatures unless parser transforms explicitly
-                    // intended them to be optional.
-                    try {
-                        p._featherOptionalParameter = false;
-                    } catch {
-                        // Swallow errors
-                    }
-                }
-            } catch {
-                // Swallow errors
-            }
-        }
-
         // Run reconciliation early to pick up explicit doc overrides that apply
         // to any materialized placeholders produced so far. We'll run it again
         // after finalization to honor flags created later in the transform.
         try {
-            reconcileDocOptionality();
+            reconcileDocOptionality(node, ast);
+        } catch {
+            // swallow
+        }
+    }
+}
+
+function finalizeTrailingUndefinedDefaults(params: Array<any>): boolean {
+    let changed = false;
+    try {
+        let seenExplicitDefaultToLeft = false;
+        for (let i = 0; i < params.length; i += 1) {
+            const param = params[i];
+            if (!param) continue;
+
+            if (param.type === "DefaultParameter") {
+                if (param.right == null) {
+                    if (seenExplicitDefaultToLeft) {
+                        param.right = {
+                            type: "Literal",
+                            value: "undefined"
+                        };
+                        param._featherMaterializedTrailingUndefined = true;
+                        param._featherMaterializedFromExplicitLeft = true;
+                        param._featherOptionalParameter = true;
+                        changed = true;
+                    }
+                } else {
+                    const isUndef = Core.isUndefinedSentinel(param.right);
+                    if (!isUndef) {
+                        seenExplicitDefaultToLeft = true;
+                    }
+                }
+                continue;
+            }
+
+            if (param.type === "AssignmentPattern") {
+                seenExplicitDefaultToLeft = true;
+                continue;
+            }
+
+            if (param.type === "Identifier") {
+                if (seenExplicitDefaultToLeft) {
+                    const defaultParam = {
+                        type: "DefaultParameter",
+                        left: param,
+                        right: { type: "Literal", value: "undefined" },
+                        _featherMaterializedTrailingUndefined: true,
+                        _featherMaterializedFromExplicitLeft: true
+                    };
+                    params[i] = defaultParam;
+                    changed = true;
+                }
+                continue;
+            }
+
+            break;
+        }
+    } catch {
+        // swallow
+    }
+
+    return changed;
+}
+
+function extendStatementEndLocation(
+    targetDeclaration: GameMakerAstNode | null | undefined,
+    removedStatement: GameMakerAstNode | null | undefined
+) {
+    if (!targetDeclaration || !removedStatement) {
+        return;
+    }
+
+    const removalEnd = Core.getNodeEndIndex(removedStatement);
+    if (removalEnd == null) {
+        return;
+    }
+
+    const declarationEnd = Core.getNodeEndIndex(targetDeclaration);
+    if (declarationEnd != null && declarationEnd >= removalEnd) {
+        return;
+    }
+
+    Core.assignClonedLocation(targetDeclaration, {
+        end: removedStatement.end
+    });
+
+    const removedRange = (removedStatement as any).range;
+    const removedRangeEnd = Array.isArray(removedRange)
+        ? removedRange[1]
+        : Core.getNodeEndIndex(removedStatement);
+
+    if (typeof removedRangeEnd !== "number") {
+        return;
+    }
+
+    const targetRange = (targetDeclaration as any).range;
+    if (Array.isArray(targetRange)) {
+        const [startRange] = targetRange;
+        (targetDeclaration as any).range = [startRange, removedRangeEnd];
+        return;
+    }
+
+    const declarationStart = Core.getNodeStartIndex(targetDeclaration);
+    if (typeof declarationStart !== "number") {
+        return;
+    }
+
+    (targetDeclaration as any).range = [declarationStart, removedRangeEnd];
+}
+
+function ensureParameterInfoForMatch(
+    match: any,
+    params: Array<any>,
+    paramInfoByName: Map<
+        string | null | undefined,
+        { index: number; identifier: GameMakerAstNode | null }
+    >
+) {
+    if (!match) {
+        return null;
+    }
+
+    const { targetName, argumentIndex } = match;
+    if (argumentIndex == undefined || argumentIndex < 0) {
+        return null;
+    }
+
+    const existingInfo = paramInfoByName.get(targetName);
+    if (existingInfo) {
+        return existingInfo.index === argumentIndex ? existingInfo : null;
+    }
+
+    if (argumentIndex > params.length) {
+        return null;
+    }
+
+    const registerInfo = (
+        index: number,
+        identifier: GameMakerAstNode | null
+    ) => {
+        const info = { index, identifier };
+        paramInfoByName.set(targetName, info);
+        return info;
+    };
+
+    if (argumentIndex === params.length) {
+        if (!targetName || typeof targetName !== "string") {
+            return null;
+        }
+
+        const newIdentifier = {
+            type: "Identifier",
+            name: targetName
+        };
+        params.push(newIdentifier);
+        return registerInfo(argumentIndex, newIdentifier);
+    }
+
+    const paramAtIndex = params[argumentIndex];
+    const identifier = getIdentifierFromParameter(paramAtIndex);
+    if (!identifier) {
+        return null;
+    }
+
+    const identifierName = Core.getIdentifierText(identifier);
+    if (targetName && (!identifierName || identifierName !== targetName)) {
+        try {
+            const fallbackParam = params[argumentIndex];
+            const fallBackIdentifier =
+                getIdentifierFromParameter(fallbackParam);
+            if (fallBackIdentifier) {
+                return registerInfo(argumentIndex, fallBackIdentifier);
+            }
         } catch {
             // swallow
         }
 
-        function matchArgumentCountFallbackVarThenIf(
-            varStatement,
-            ifStatement
-        ) {
-            if (!varStatement || varStatement.type !== "VariableDeclaration") {
-                return null;
+        return null;
+    }
+
+    return registerInfo(argumentIndex, identifier);
+}
+
+function ensureTrailingOptionalParametersHaveUndefinedDefaults(
+    params: Array<any>
+) {
+    if (!Array.isArray(params) || params.length === 0) {
+        return false;
+    }
+
+    let changed = false;
+    let seenExplicitDefaultToLeft = false;
+    for (let i = 0; i < params.length; i += 1) {
+        const param = params[i];
+        if (!param) {
+            continue;
+        }
+
+        if (param.type === "DefaultParameter") {
+            try {
+                if (param.right != null) {
+                    const isUndef = Core.isUndefinedSentinel(param.right);
+                    if (!isUndef) {
+                        seenExplicitDefaultToLeft = true;
+                    }
+                }
+            } catch {
+                // swallow
             }
 
-            if (!ifStatement || ifStatement.type !== "IfStatement") {
-                return null;
+            continue;
+        }
+
+        if (param.type === "AssignmentPattern") {
+            seenExplicitDefaultToLeft = true;
+            continue;
+        }
+
+        if (param.type === "Identifier") {
+            if (seenExplicitDefaultToLeft) {
+                const defaultParam = {
+                    type: "DefaultParameter",
+                    left: param,
+                    right: { type: "Literal", value: "undefined" },
+                    _featherMaterializedTrailingUndefined: true,
+                    _featherMaterializedFromExplicitLeft: true
+                };
+                params[i] = defaultParam;
+                changed = true;
+            }
+            continue;
+        }
+
+        break;
+    }
+
+    return changed;
+}
+
+function reconcileDocOptionality(
+    node: MutableGameMakerAstNode,
+    ast: MutableGameMakerAstNode
+) {
+    try {
+        const docManager = Core.prepareDocCommentEnvironment(ast);
+        const comments = docManager.getComments(node);
+
+        const paramDocMap = new Map<string, boolean>();
+        if (Array.isArray(comments) && comments.length > 0) {
+            for (const comment of comments) {
+                if (!comment || typeof comment.value !== "string") continue;
+                const m = comment.value.match(
+                    /@param\s*(?:\{[^}]*\}\s*)?(\[[^\]]+\]|\S+)/i
+                );
+                if (!m) continue;
+                const raw = m[1];
+                const name = raw ? raw.replaceAll(/^\[|\]$/g, "").trim() : null;
+                const isOptional = raw ? /^\[.*\]$/.test(raw) : false;
+                if (name) {
+                    paramDocMap.set(name, isOptional);
+                }
+            }
+        }
+
+        const params = Core.toMutableArray(node.params) as Array<any>;
+        for (const p of params) {
+            if (!p) continue;
+
+            let leftName: string | null = null;
+            let rightNode: GameMakerAstNode | null = null;
+            if (p.type === "DefaultParameter") {
+                leftName =
+                    p.left && p.left.type === "Identifier" ? p.left.name : null;
+                rightNode = p.right as GameMakerAstNode | null;
+            } else if (p.type === "AssignmentPattern") {
+                leftName =
+                    p.left && p.left.type === "Identifier" ? p.left.name : null;
+                rightNode = p.right as GameMakerAstNode | null;
+            } else {
+                continue;
             }
 
-            const declarator = Core.getSingleVariableDeclarator(varStatement);
-            if (!declarator) {
-                return null;
+            const isUndefined = Core.isUndefinedSentinel(rightNode);
+            if (!isUndefined) continue;
+
+            if (leftName && paramDocMap.has(leftName)) {
+                try {
+                    p._featherOptionalParameter =
+                        paramDocMap.get(leftName) === true;
+                } catch {
+                    // swallow
+                }
+                continue;
             }
 
-            const { id, init } = declarator;
-            if (!id || id.type !== "Identifier" || !init) {
-                return null;
+            try {
+                if (
+                    p._featherOptionalParameter === true ||
+                    p._featherOptionalParameter === false
+                ) {
+                    continue;
+                }
+            } catch {
+                // swallow
             }
 
-            const match = matchArgumentCountFallbackStatement(ifStatement);
-            if (!match) {
-                return null;
+            try {
+                if (
+                    p._featherMaterializedFromExplicitLeft === true &&
+                    hasExplicitDefaultParameterToLeft(node, p)
+                ) {
+                    p._featherOptionalParameter = true;
+                    continue;
+                }
+
+                if (p._featherMaterializedTrailingUndefined === true) {
+                    p._featherOptionalParameter = false;
+                    continue;
+                }
+            } catch {
+                // swallow
             }
 
-            // The matched statement may either assign *to* an argument index
-            // (pattern A) or assign *from* an argument member access into a
-            // local variable (pattern B). When the RHS is the argument access
-            // the matcher returns `argumentExpression`; otherwise fall back to
-            // using the declared identifier as the projected argument expression.
-            const resultantArgumentExpression =
-                match.argumentExpression === undefined
-                    ? id
-                    : match.argumentExpression;
+            if (node.type === "ConstructorDeclaration") {
+                try {
+                    p._featherOptionalParameter = true;
+                } catch {
+                    // swallow
+                }
+                continue;
+            }
 
-            const resultantFallbackExpression =
-                match.fallbackExpression === undefined
-                    ? init
-                    : match.fallbackExpression;
+            try {
+                p._featherOptionalParameter = false;
+            } catch {
+                // swallow
+            }
+        }
+    } catch {
+        // swallow
+    }
+}
+
+function matchArgumentCountFallbackVarThenIf(varStatement, ifStatement) {
+    if (!varStatement || varStatement.type !== "VariableDeclaration") {
+        return null;
+    }
+
+    if (!ifStatement || ifStatement.type !== "IfStatement") {
+        return null;
+    }
+
+    const declarator = Core.getSingleVariableDeclarator(varStatement);
+    if (!declarator) {
+        return null;
+    }
+
+    const { id, init } = declarator;
+    if (!id || id.type !== "Identifier" || !init) {
+        return null;
+    }
+
+    const match = matchArgumentCountFallbackStatement(ifStatement);
+    if (!match) {
+        return null;
+    }
+
+    const resultantArgumentExpression =
+        match.argumentExpression === undefined ? id : match.argumentExpression;
+    const resultantFallbackExpression =
+        match.fallbackExpression === undefined
+            ? init
+            : match.fallbackExpression;
+
+    return {
+        declarator,
+        guardExpression: match.guardExpression,
+        argumentExpression: resultantArgumentExpression,
+        fallbackExpression: resultantFallbackExpression,
+        ifStatement,
+        sourceStatement: varStatement
+    };
+}
+
+function matchArgumentCountFallbackStatement(statement) {
+    if (!statement) {
+        return null;
+    }
+
+    if (statement.type === "IfStatement") {
+        const condition = Core.unwrapParenthesizedExpression(statement.test);
+        const result = matchArgumentCountGuard(condition);
+        if (!result) {
+            return null;
+        }
+
+        const argumentIndex = result.argumentIndex;
+
+        const consequentBlock = statement.consequent;
+        const alternateBlock = statement.alternate;
+
+        const consequentStatements = consequentBlock
+            ? consequentBlock.type === "BlockStatement"
+                ? Core.getBodyStatements(consequentBlock)
+                : [consequentBlock]
+            : [];
+
+        const alternateStatements = alternateBlock
+            ? alternateBlock.type === "BlockStatement"
+                ? Core.getBodyStatements(alternateBlock)
+                : [alternateBlock]
+            : [];
+
+        let foundArgMatch = null;
+        let foundFallbackMatch = null;
+
+        for (const stmt of consequentStatements) {
+            const match = matchAssignmentToArgumentIndex(stmt, argumentIndex);
+            if (!match) continue;
+            if (match.argumentExpression && !foundArgMatch) {
+                foundArgMatch = match;
+            }
+            if (match.fallbackExpression && !foundFallbackMatch) {
+                foundFallbackMatch = match;
+            }
+        }
+
+        for (const stmt of alternateStatements) {
+            const match = matchAssignmentToArgumentIndex(stmt, argumentIndex);
+            if (!match) continue;
+            if (match.argumentExpression && !foundArgMatch) {
+                foundArgMatch = match;
+            }
+            if (match.fallbackExpression && !foundFallbackMatch) {
+                foundFallbackMatch = match;
+            }
+        }
+
+        if (foundArgMatch || foundFallbackMatch) {
+            const targetName =
+                (foundFallbackMatch && foundFallbackMatch.targetName) ||
+                (foundArgMatch && foundArgMatch.targetName);
 
             return {
-                declarator,
-                guardExpression: match.guardExpression,
-                argumentExpression: resultantArgumentExpression,
-                fallbackExpression: resultantFallbackExpression,
-                ifStatement,
-                sourceStatement: varStatement
+                argumentIndex,
+                targetName,
+                fallbackExpression: foundFallbackMatch
+                    ? foundFallbackMatch.fallbackExpression
+                    : undefined,
+                argumentExpression: foundArgMatch
+                    ? foundArgMatch.argumentExpression
+                    : undefined,
+                statementNode: statement,
+                guardExpression: condition
             };
         }
+    }
 
-        function matchArgumentCountFallbackStatement(statement) {
-            if (!statement) {
-                return null;
-            }
+    return null;
+}
 
-            // Match `if (argument_count < 2) argument2 = ...;` style guards and
-            // `if (argument_count == 0) { argument0 = ... }` forms.
-            if (statement.type === "IfStatement") {
-                const condition = Core.unwrapParenthesizedExpression(
-                    statement.test
-                );
-                const result = matchArgumentCountGuard(condition);
-                if (!result) {
-                    return null;
-                }
+function matchAssignmentToArgumentIndex(node, argumentIndex) {
+    if (!node) {
+        return null;
+    }
 
-                const argumentIndex = result.argumentIndex;
+    let assignment;
+    if (
+        node.type === "ExpressionStatement" &&
+        node.expression &&
+        node.expression.type === "AssignmentExpression"
+    ) {
+        assignment = node.expression;
+    } else if (node.type === "AssignmentExpression") {
+        assignment = node;
+    } else {
+        return null;
+    }
 
-                // Normalize both branches (consequent and alternate) into
-                // statement lists so we can detect patterns that put the
-                // argument projection in one branch and the fallback in the
-                // other. We want to accept both `if (cond) proj; else fallback;`
-                // and the inverted forms.
-                const consequentBlock = statement.consequent;
-                const alternateBlock = statement.alternate;
+    const left = assignment.left;
+    const right = assignment.right;
+    if (!right) {
+        return null;
+    }
 
-                const consequentStatements = consequentBlock
-                    ? consequentBlock.type === "BlockStatement"
-                        ? Core.getBodyStatements(consequentBlock)
-                        : [consequentBlock]
-                    : [];
-
-                const alternateStatements = alternateBlock
-                    ? alternateBlock.type === "BlockStatement"
-                        ? Core.getBodyStatements(alternateBlock)
-                        : [alternateBlock]
-                    : [];
-
-                let foundArgMatch = null;
-                let foundFallbackMatch = null;
-
-                for (const stmt of consequentStatements) {
-                    const match = matchAssignmentToArgumentIndex(
-                        stmt,
-                        argumentIndex
-                    );
-                    if (!match) continue;
-                    if (match.argumentExpression && !foundArgMatch) {
-                        foundArgMatch = match;
-                    }
-                    if (match.fallbackExpression && !foundFallbackMatch) {
-                        foundFallbackMatch = match;
-                    }
-                }
-
-                for (const stmt of alternateStatements) {
-                    const match = matchAssignmentToArgumentIndex(
-                        stmt,
-                        argumentIndex
-                    );
-                    if (!match) continue;
-                    if (match.argumentExpression && !foundArgMatch) {
-                        foundArgMatch = match;
-                    }
-                    if (match.fallbackExpression && !foundFallbackMatch) {
-                        foundFallbackMatch = match;
-                    }
-                }
-
-                if (foundArgMatch || foundFallbackMatch) {
-                    const targetName =
-                        (foundFallbackMatch && foundFallbackMatch.targetName) ||
-                        (foundArgMatch && foundArgMatch.targetName);
-
+    if (right && right.type === "MemberIndexExpression") {
+        const single = Core.getSingleMemberIndexPropertyEntry(right);
+        if (single) {
+            const indexText = Core.getIdentifierText(single);
+            const indexNumber = Number(indexText);
+            if (!Number.isNaN(indexNumber) && indexNumber === argumentIndex) {
+                if (left && left.type === "Identifier") {
+                    const leftName = Core.getIdentifierText(left);
                     return {
-                        argumentIndex,
-                        targetName,
-                        fallbackExpression: foundFallbackMatch
-                            ? foundFallbackMatch.fallbackExpression
-                            : undefined,
-                        argumentExpression: foundArgMatch
-                            ? foundArgMatch.argumentExpression
-                            : undefined,
-                        statementNode: statement,
-                        guardExpression: condition
+                        argumentExpression: right,
+                        targetName: leftName
                     };
                 }
+                return { argumentExpression: right };
             }
+        }
+    }
 
+    if (left.type === "Identifier") {
+        const name = Core.getIdentifierText(left);
+        if (name && name.toLowerCase().startsWith("argument")) {
+            const suffix = name.slice(8);
+            const idx = Number(suffix);
+            if (!Number.isNaN(idx) && idx === argumentIndex) {
+                return { fallbackExpression: right };
+            }
+        } else if (name) {
+            return { fallbackExpression: right, targetName: name };
+        }
+    }
+
+    if (left.type === "MemberIndexExpression") {
+        const single = Core.getSingleMemberIndexPropertyEntry(left);
+        if (!single) {
             return null;
         }
 
-        function matchAssignmentToArgumentIndex(node, argumentIndex) {
-            if (!node) {
-                return null;
-            }
+        const indexText = Core.getIdentifierText(single);
+        const indexNumber = Number(indexText);
+        if (!Number.isNaN(indexNumber) && indexNumber === argumentIndex) {
+            return { fallbackExpression: right };
+        }
+    }
 
-            // Accept either an ExpressionStatement wrapping an AssignmentExpression
-            // or the AssignmentExpression node itself. This covers parser shapes
-            // where single-line `if (cond) a = b;` may produce the assignment
-            // directly as the consequent.
-            let assignment;
-            if (
-                node.type === "ExpressionStatement" &&
-                node.expression &&
-                node.expression.type === "AssignmentExpression"
-            ) {
-                assignment = node.expression;
-            } else if (node.type === "AssignmentExpression") {
-                assignment = node;
-            } else {
-                return null;
-            }
+    return null;
+}
 
-            const left = assignment.left;
-            const right = assignment.right;
-            if (!right) {
-                return null;
-            }
+function matchArgumentCountGuard(node) {
+    if (!node || node.type !== "BinaryExpression") {
+        return null;
+    }
 
-            // Pattern B (prefer): assignment reads from an `argument[index]` on
-            // the RHS and assigns into a local variable (e.g.
-            // `setting = argument[1];`). Detect this first so we don't
-            // mis-classify such assignments as Pattern A (assignment into a
-            // local identifier whose RHS may also look like an argument
-            // projection).
-            if (right && right.type === "MemberIndexExpression") {
-                const single = Core.getSingleMemberIndexPropertyEntry(right);
-                if (single) {
-                    const indexText = Core.getIdentifierText(single);
-                    const indexNumber = Number(indexText);
-                    if (
-                        !Number.isNaN(indexNumber) &&
-                        indexNumber === argumentIndex
-                    ) {
-                        // If the LHS is a local identifier, expose it as the
-                        // targetName so callers can map this projection back
-                        // to a parameter with the same name.
-                        if (left && left.type === "Identifier") {
-                            const leftName = Core.getIdentifierText(left);
-                            return {
-                                argumentExpression: right,
-                                targetName: leftName
-                            };
-                        }
+    const { left, right, operator } = node;
+    if (!left || !right) {
+        return null;
+    }
 
-                        return { argumentExpression: right };
-                    }
-                }
-            }
+    const leftIsSubject = !!resolveNodeToArgumentCountSubject(left);
+    const rightIsSubject = !!resolveNodeToArgumentCountSubject(right);
 
-            // Pattern A: assignment writes into an `argumentN` target
-            // (e.g. `argument0 = foo;`) or into a local identifier
-            // (e.g. `arg = foo;`). When the left-hand side is a plain
-            // identifier that is NOT an `argumentN` target, treat that
-            // identifier as the projected parameter name (`targetName`) so
-            // downstream logic can match it against declared parameters.
-            if (left.type === "Identifier") {
-                const name = Core.getIdentifierText(left);
-                if (name && name.toLowerCase().startsWith("argument")) {
-                    const suffix = name.slice(8);
-                    const idx = Number(suffix);
-                    if (!Number.isNaN(idx) && idx === argumentIndex) {
-                        return { fallbackExpression: right };
-                    }
-                } else if (name) {
-                    // Assignment into a local identifier that projects the
-                    // argument value (or a fallback) — capture the local
-                    // identifier name so we can correlate it with a
-                    // parameter of the same name.
-                    return { fallbackExpression: right, targetName: name };
-                }
-            }
+    if (!leftIsSubject && !rightIsSubject) return null;
 
-            if (left.type === "MemberIndexExpression") {
-                const single = Core.getSingleMemberIndexPropertyEntry(left);
-                if (!single) {
-                    return null;
-                }
+    let numericNode;
+    let normalizedOperator = operator;
+    if (leftIsSubject) {
+        numericNode = right;
+    } else {
+        numericNode = left;
+        const invert: Record<string, string> = {
+            "<": ">",
+            "<=": ">=",
+            ">": "<",
+            ">=": "<=",
+            "==": "==",
+            "===": "===",
+            "!=": "!=",
+            "!==": "!=="
+        };
+        normalizedOperator = invert[operator] || operator;
+    }
 
-                const indexText = Core.getIdentifierText(single);
-                const indexNumber = Number(indexText);
-                if (
-                    !Number.isNaN(indexNumber) &&
-                    indexNumber === argumentIndex
-                ) {
-                    return { fallbackExpression: right };
-                }
-            }
+    let rightNumber;
+    try {
+        if (
+            numericNode &&
+            (numericNode.type === "Literal" ||
+                numericNode.type === "NumericLiteral") &&
+            (typeof numericNode.value === "number" ||
+                /^[0-9]+$/.test(String(numericNode.value)))
+        ) {
+            rightNumber = Number(numericNode.value);
+        } else {
+            const txt = Core.getIdentifierText(numericNode);
+            rightNumber = Number(txt);
+        }
+    } catch {
+        rightNumber = Number.NaN;
+    }
 
+    if (Number.isNaN(rightNumber)) {
+        return null;
+    }
+
+    switch (normalizedOperator) {
+        case "<": {
+            return { argumentIndex: rightNumber - 1 };
+        }
+        case "<=": {
+            return { argumentIndex: rightNumber };
+        }
+        case ">": {
+            return { argumentIndex: rightNumber };
+        }
+        case ">=": {
+            return { argumentIndex: rightNumber - 1 };
+        }
+        case "==":
+        case "===": {
+            return { argumentIndex: rightNumber };
+        }
+        case "!=":
+        case "!==": {
+            return { argumentIndex: rightNumber };
+        }
+        default: {
             return null;
         }
+    }
+}
 
-        function matchArgumentCountGuard(node) {
-            if (!node || node.type !== "BinaryExpression") {
-                return null;
-            }
+function resolveNodeToArgumentCountSubject(node: any) {
+    try {
+        const text = Core.getIdentifierText(node);
+        if (
+            typeof text === "string" &&
+            text.toLowerCase() === "argument_count"
+        ) {
+            return text;
+        }
 
-            const { left, right, operator } = node;
-            if (!left || !right) {
-                return null;
-            }
-
-            // Accept argument_count on either side of the binary expression.
-            // If it's on the right, normalize the operator so we can reuse the
-            // same mapping logic as when the subject is on the left.
-            const leftIsSubject = !!resolveNodeToArgumentCountSubject(left);
-            const rightIsSubject = !!resolveNodeToArgumentCountSubject(right);
-
-            if (!leftIsSubject && !rightIsSubject) return null;
-
-            // Determine which side contains the numeric bound and normalize the
-            // operator if necessary so we always treat the subject as the left
-            // operand for the subsequent mapping.
-            let numericNode;
-            let normalizedOperator = operator;
-            if (leftIsSubject) {
-                numericNode = right;
-            } else {
-                // argument_count is on the right; invert the operator so we can
-                // apply the same mapping as the left-subject case.
-                numericNode = left;
-                const invert = {
-                    "<": ">",
-                    "<=": ">=",
-                    ">": "<",
-                    ">=": "<=",
-                    "==": "==",
-                    "===": "===",
-                    "!=": "!=",
-                    "!==": "!=="
-                };
-                normalizedOperator = invert[operator] || operator;
-            }
-
-            // Robustly extract a numeric bound from the numericNode. Some
-            // parsers produce a Literal node for the numeric bound while
-            // others use an Identifier-like node. Try literal first then
-            // fall back to the helper extraction.
-            let rightNumber;
-            try {
+        if (node && typeof node === "object") {
+            if (node.type === "MemberExpression" && node.property) {
+                const propText = Core.getIdentifierText(node.property);
                 if (
-                    numericNode &&
-                    (numericNode.type === "Literal" ||
-                        numericNode.type === "NumericLiteral") &&
-                    (typeof numericNode.value === "number" ||
-                        /^[0-9]+$/.test(String(numericNode.value)))
+                    typeof propText === "string" &&
+                    propText.toLowerCase() === "argument_count"
                 ) {
-                    rightNumber = Number(numericNode.value);
-                } else {
-                    const txt = Core.getIdentifierText(numericNode);
-                    rightNumber = Number(txt);
+                    return propText;
                 }
-            } catch {
-                rightNumber = Number.NaN;
-            }
-
-            if (Number.isNaN(rightNumber)) {
-                return null;
-            }
-
-            switch (normalizedOperator) {
-                case "<": {
-                    return { argumentIndex: rightNumber - 1 };
-                }
-                case "<=": {
-                    return { argumentIndex: rightNumber };
-                }
-                case ">": {
-                    return { argumentIndex: rightNumber };
-                }
-                case ">=": {
-                    return { argumentIndex: rightNumber - 1 };
-                }
-                case "==":
-                case "===": {
-                    return { argumentIndex: rightNumber };
-                }
-                case "!=":
-                case "!==": {
-                    return { argumentIndex: rightNumber };
-                }
-                default: {
-                    return null;
-                }
-            }
-        }
-
-        function resolveNodeToArgumentCountSubject(node) {
-            try {
-                const text = Core.getIdentifierText(node);
-                if (
-                    typeof text === "string" &&
-                    text.toLowerCase() === "argument_count"
-                ) {
-                    return text;
-                }
-
-                // Accept member access forms like `some.object.argument_count` or
-                // index-based access `some.object["argument_count"]` where the
-                // ultimate property name is `argument_count`.
-                if (node && typeof node === "object") {
-                    if (node.type === "MemberExpression" && node.property) {
-                        const propText = Core.getIdentifierText(node.property);
-                        if (
-                            typeof propText === "string" &&
-                            propText.toLowerCase() === "argument_count"
-                        ) {
-                            return propText;
-                        }
-                    }
-
-                    if (
-                        node.type === "MemberIndexExpression" &&
-                        Array.isArray(node.property) &&
-                        node.property.length === 1
-                    ) {
-                        const prop = node.property[0];
-                        const propText = Core.getIdentifierText(prop);
-                        if (
-                            typeof propText === "string" &&
-                            propText.toLowerCase() === "argument_count"
-                        ) {
-                            return propText;
-                        }
-                    }
-                }
-            } catch {
-                // defensive: fall through to null
-            }
-
-            return null;
-        }
-
-        function getIdentifierFromParameter(param) {
-            if (!param) {
-                return null;
-            }
-
-            if (param.type === "Identifier") {
-                return param;
-            }
-
-            // Optional parameter with default: `param = <expr>`
-            if (param.type === "AssignmentPattern") {
-                return param.left;
-            }
-
-            // Parser-side synthesized defaults use DefaultParameter nodes.
-            if (param.type === "DefaultParameter") {
-                return param.left;
-            }
-
-            return null;
-        }
-
-        // --- Implicit argument doc collection (parser-side) ---
-        function collectImplicitArgumentReferences(functionNode) {
-            if (!functionNode || functionNode.type !== "FunctionDeclaration") {
-                return [];
-            }
-
-            const referencedIndices = new Set<number>();
-            const aliasByIndex = new Map<number, string>();
-            const directReferenceIndices = new Set<number>();
-
-            function visit(node, parent, property) {
-                if (!node || typeof node !== "object") return;
-
-                // Don't descend into nested functions
-                if (
-                    node !== functionNode &&
-                    (node.type === "FunctionDeclaration" ||
-                        node.type === "StructFunctionDeclaration" ||
-                        node.type === "FunctionExpression" ||
-                        node.type === "ConstructorDeclaration")
-                ) {
-                    return;
-                }
-
-                // Variable declarator alias: `var two = argument[2];`
-                if (node.type === "VariableDeclarator") {
-                    const aliasIndex = getArgumentIndexFromNode(node.init);
-                    if (
-                        aliasIndex !== null &&
-                        node.id?.type === "Identifier" &&
-                        !aliasByIndex.has(aliasIndex)
-                    ) {
-                        const aliasName =
-                            node.id.name && String(node.id.name).trim();
-                        if (aliasName && aliasName.length > 0) {
-                            aliasByIndex.set(aliasIndex, aliasName);
-                            referencedIndices.add(aliasIndex);
-                        }
-                    }
-                }
-
-                const directIndex = getArgumentIndexFromNode(node);
-                if (directIndex !== null) {
-                    referencedIndices.add(directIndex);
-                    // By default we consider direct occurrences of `argumentN`
-                    // to be explicit references. However, when the occurrence is
-                    // the initializer of a VariableDeclarator that we just
-                    // recorded as an alias (e.g. `var two = argument2;`), treat
-                    // that occurrence as an alias initializer only and do NOT
-                    // count it as a direct reference. Tests expect alias
-                    // initializers to allow the alias to supersede the
-                    // fallback `argumentN` doc line, so avoid marking those
-                    // initializers as direct references here. For all other
-                    // contexts, record the direct reference normally.
-                    const isInitializerOfAlias =
-                        parent &&
-                        parent.type === "VariableDeclarator" &&
-                        property === "init" &&
-                        aliasByIndex.has(directIndex);
-
-                    if (!isInitializerOfAlias) {
-                        directReferenceIndices.add(directIndex);
-                    }
-                }
-
-                Core.forEachNodeChild(node, (value, key) => {
-                    // If we detected an alias on this node, don't traverse its
-                    // initializer twice for direct references.
-                    if (node.type === "VariableDeclarator" && key === "init") {
-                        const aliasIndex = getArgumentIndexFromNode(node.init);
-                        if (aliasIndex !== null) return;
-                    }
-
-                    visit(value, node, key);
-                });
-            }
-
-            visit(functionNode.body, functionNode, "body");
-
-            if (!referencedIndices || referencedIndices.size === 0) return [];
-
-            const sorted = [...referencedIndices].sort((a, b) => a - b);
-            return sorted.map((index) => {
-                const fallbackName = `argument${index}`;
-                const alias = aliasByIndex.get(index);
-                const docName =
-                    alias && alias.length > 0 ? alias : fallbackName;
-                const canonical =
-                    (typeof docName === "string" && docName.toLowerCase()) ||
-                    docName;
-                const fallbackCanonical =
-                    (typeof fallbackName === "string" &&
-                        fallbackName.toLowerCase()) ||
-                    fallbackName;
-
-                return {
-                    name: docName,
-                    canonical,
-                    fallbackCanonical,
-                    index,
-                    hasDirectReference:
-                        directReferenceIndices.has(index) === true
-                };
-            });
-        }
-
-        function getArgumentIndexFromNode(node) {
-            if (!node || typeof node !== "object") return null;
-
-            if (node.type === "Identifier") {
-                return getArgumentIndexFromIdentifier(node.name);
             }
 
             if (
                 node.type === "MemberIndexExpression" &&
-                node.object?.type === "Identifier" &&
-                node.object.name === "argument" &&
                 Array.isArray(node.property) &&
-                node.property.length === 1 &&
-                node.property[0]?.type === "Literal"
+                node.property.length === 1
             ) {
-                const literal = node.property[0];
-                const parsed = Number.parseInt(literal.value, 10);
-                return Number.isInteger(parsed) && parsed >= 0 ? parsed : null;
+                const prop = node.property[0];
+                const propText = Core.getIdentifierText(prop);
+                if (
+                    typeof propText === "string" &&
+                    propText.toLowerCase() === "argument_count"
+                ) {
+                    return propText;
+                }
+            }
+        }
+    } catch {
+        // defensive: fall through to null
+    }
+
+    return null;
+}
+
+function getIdentifierFromParameter(
+    param: GameMakerAstNode | null | undefined
+) {
+    if (!param) {
+        return null;
+    }
+
+    if (param.type === "Identifier") {
+        return param;
+    }
+
+    if (param.type === "AssignmentPattern") {
+        return param.left;
+    }
+
+    if (param.type === "DefaultParameter") {
+        return param.left;
+    }
+
+    return null;
+}
+
+function collectImplicitArgumentReferences(functionNode: GameMakerAstNode) {
+    if (!functionNode || functionNode.type !== "FunctionDeclaration") {
+        return [];
+    }
+
+    const referencedIndices = new Set<number>();
+    const aliasByIndex = new Map<number, string>();
+    const directReferenceIndices = new Set<number>();
+
+    function visit(node: any, parent: any, property: string | number) {
+        if (!node || typeof node !== "object") return;
+
+        if (
+            node !== functionNode &&
+            (node.type === "FunctionDeclaration" ||
+                node.type === "StructFunctionDeclaration" ||
+                node.type === "FunctionExpression" ||
+                node.type === "ConstructorDeclaration")
+        ) {
+            return;
+        }
+
+        if (node.type === "VariableDeclarator") {
+            const aliasIndex = getArgumentIndexFromNode(node.init);
+            if (
+                aliasIndex !== null &&
+                node.id?.type === "Identifier" &&
+                !aliasByIndex.has(aliasIndex)
+            ) {
+                const aliasName = node.id.name && String(node.id.name).trim();
+                if (aliasName && aliasName.length > 0) {
+                    aliasByIndex.set(aliasIndex, aliasName);
+                    referencedIndices.add(aliasIndex);
+                }
+            }
+        }
+
+        const directIndex = getArgumentIndexFromNode(node);
+        if (directIndex !== null) {
+            referencedIndices.add(directIndex);
+            const isInitializerOfAlias =
+                parent &&
+                parent.type === "VariableDeclarator" &&
+                property === "init" &&
+                aliasByIndex.has(directIndex);
+            if (!isInitializerOfAlias) {
+                directReferenceIndices.add(directIndex);
+            }
+        }
+
+        Core.forEachNodeChild(node, (value, key) => {
+            if (node.type === "VariableDeclarator" && key === "init") {
+                const aliasIndex = getArgumentIndexFromNode(node.init);
+                if (aliasIndex !== null) return;
             }
 
-            return null;
+            visit(value, node, key);
+        });
+    }
+
+    visit(functionNode.body, functionNode, "body");
+
+    if (!referencedIndices || referencedIndices.size === 0) return [];
+
+    const sorted = [...referencedIndices].sort((a, b) => a - b);
+    return sorted.map((index) => {
+        const fallbackName = `argument${index}`;
+        const alias = aliasByIndex.get(index);
+        const docName = alias && alias.length > 0 ? alias : fallbackName;
+        const canonical =
+            (typeof docName === "string" && docName.toLowerCase()) || docName;
+        const fallbackCanonical =
+            (typeof fallbackName === "string" && fallbackName.toLowerCase()) ||
+            fallbackName;
+
+        return {
+            name: docName,
+            canonical,
+            fallbackCanonical,
+            index,
+            hasDirectReference: directReferenceIndices.has(index) === true
+        };
+    });
+}
+
+function getArgumentIndexFromNode(node: any) {
+    if (!node || typeof node !== "object") return null;
+
+    if (node.type === "Identifier") {
+        return getArgumentIndexFromIdentifier(node.name);
+    }
+
+    if (
+        node.type === "MemberIndexExpression" &&
+        node.object?.type === "Identifier" &&
+        node.object.name === "argument" &&
+        Array.isArray(node.property) &&
+        node.property.length === 1 &&
+        node.property[0]?.type === "Literal"
+    ) {
+        const literal = node.property[0];
+        const parsed = Number.parseInt(literal.value, 10);
+        return Number.isInteger(parsed) && parsed >= 0 ? parsed : null;
+    }
+
+    return null;
+}
+
+function getArgumentIndexFromIdentifier(name: unknown) {
+    if (typeof name !== "string") return null;
+    const match = name.match(/^argument(\d+)$/);
+    if (!match) return null;
+    const parsed = Number.parseInt(match[1]);
+    return Number.isInteger(parsed) && parsed >= 0 ? parsed : null;
+}
+
+function applyCondenseMatches(params: {
+    condenseMatches: Array<Record<string, any>>;
+    statementsToRemove: Set<GameMakerAstNode>;
+    body: GameMakerAstNode;
+}) {
+    const { condenseMatches, statementsToRemove, body } = params;
+
+    for (const condense of condenseMatches) {
+        const {
+            declarator,
+            guardExpression,
+            argumentExpression,
+            fallbackExpression,
+            ifStatement,
+            sourceStatement
+        } = condense;
+
+        declarator.init = {
+            type: "TernaryExpression",
+            test: guardExpression,
+            consequent: argumentExpression,
+            alternate: fallbackExpression
+        };
+
+        sourceStatement._skipArgumentCountDefault = true;
+        statementsToRemove.add(ifStatement);
+        extendStatementEndLocation(sourceStatement, ifStatement);
+        (body as any)._gmlForceInitialBlankLine = true;
+    }
+}
+
+function applyArgumentCountMatches(args: {
+    matches: Array<any>;
+    node: MutableGameMakerAstNode;
+    params: Array<any>;
+    statements: GameMakerAstNode[];
+    statementsToRemove: Set<GameMakerAstNode>;
+    paramInfoByName: Map<
+        string | null | undefined,
+        { index: number; identifier: GameMakerAstNode | null }
+    >;
+}) {
+    const {
+        matches,
+        node,
+        params,
+        statements,
+        statementsToRemove,
+        paramInfoByName
+    } = args;
+
+    for (const match of matches) {
+        if (!match) {
+            continue;
         }
 
-        function getArgumentIndexFromIdentifier(name) {
-            if (typeof name !== "string") return null;
-            const match = name.match(/^argument(\d+)$/);
-            if (!match) return null;
-            const parsed = Number.parseInt(match[1]);
-            return Number.isInteger(parsed) && parsed >= 0 ? parsed : null;
+        const paramInfo = ensureParameterInfoForMatch(
+            match,
+            params,
+            paramInfoByName
+        );
+        if (!paramInfo) {
+            continue;
+        }
+
+        if (!match.fallbackExpression) {
+            continue;
+        }
+
+        const currentParam = node.params[paramInfo.index];
+        if (!currentParam) {
+            continue;
+        }
+
+        const paramIsBareIdentifier = currentParam.type === "Identifier";
+        const paramIsEmptyDefault =
+            currentParam.type === "DefaultParameter" &&
+            (currentParam.right == null || currentParam.right === undefined);
+
+        if (!paramIsBareIdentifier && !paramIsEmptyDefault) {
+            continue;
+        }
+
+        if (match.targetName) {
+            removeDeclaredVariable(
+                statements,
+                match.targetName,
+                statementsToRemove
+            );
+        }
+
+        const identifier = paramInfo.identifier;
+        if (!identifier || identifier.type !== "Identifier") {
+            continue;
+        }
+
+        if (paramIsBareIdentifier) {
+            const defaultParamNode = {
+                type: "DefaultParameter",
+                left: currentParam,
+                right: match.fallbackExpression
+            };
+
+            try {
+                if (Core.isUndefinedSentinel(match.fallbackExpression)) {
+                    (
+                        defaultParamNode as any
+                    )._featherMaterializedTrailingUndefined = true;
+                }
+            } catch {
+                // swallow
+            }
+
+            node.params[paramInfo.index] = defaultParamNode;
+        } else if (paramIsEmptyDefault) {
+            try {
+                currentParam.right = match.fallbackExpression;
+            } catch {
+                // swallow
+            }
         }
     }
+}
+
+function processFallbackIfStatements(args: {
+    statements: GameMakerAstNode[];
+    node: MutableGameMakerAstNode;
+    params: Array<any>;
+    paramInfoByName: Map<
+        string | null | undefined,
+        { index: number; identifier: GameMakerAstNode | null }
+    >;
+}) {
+    const { statements, node, params, paramInfoByName } = args;
+
+    for (let sidx = 0; sidx < statements.length; sidx += 1) {
+        const stmt = statements[sidx];
+        if (!stmt || (stmt as any).type !== "IfStatement") continue;
+
+        const condition = Core.unwrapParenthesizedExpression(
+            (stmt as any).test
+        );
+        const guard = matchArgumentCountGuard(condition);
+        if (!guard) continue;
+
+        const consequent = (stmt as any).consequent;
+        const alternate = (stmt as any).alternate;
+        const consequentStmt =
+            consequent && consequent.type === "BlockStatement"
+                ? Core.getBodyStatements(consequent)[0]
+                : consequent;
+        const alternateStmt =
+            alternate && alternate.type === "BlockStatement"
+                ? Core.getBodyStatements(alternate)[0]
+                : alternate;
+
+        const a = matchAssignmentToArgumentIndex(
+            consequentStmt,
+            guard.argumentIndex
+        );
+        const b = matchAssignmentToArgumentIndex(
+            alternateStmt,
+            guard.argumentIndex
+        );
+
+        let argMatch = null;
+        let fallbackMatch = null;
+        if (a && a.argumentExpression) argMatch = a;
+        if (a && a.fallbackExpression) fallbackMatch = a;
+        if (b && b.argumentExpression) argMatch = b;
+        if (b && b.fallbackExpression) fallbackMatch = b;
+
+        if (!argMatch && !fallbackMatch) continue;
+
+        if (!argMatch && !fallbackMatch) continue;
+
+        applyFallbackArgumentMatch({
+            node,
+            params,
+            statements,
+            statementNode: stmt,
+            guard,
+            argMatch,
+            fallbackMatch,
+            paramInfoByName
+        });
+    }
+}
+
+function applyFallbackArgumentMatch(args: {
+    node: MutableGameMakerAstNode;
+    params: Array<any>;
+    statements: GameMakerAstNode[];
+    statementNode: GameMakerAstNode;
+    guard: any;
+    argMatch: any;
+    fallbackMatch: any;
+    paramInfoByName: Map<
+        string | null | undefined,
+        { index: number; identifier: GameMakerAstNode | null }
+    >;
+}) {
+    const {
+        node,
+        params,
+        statements,
+        statementNode,
+        guard,
+        argMatch,
+        fallbackMatch,
+        paramInfoByName
+    } = args;
+
+    const targetName =
+        (fallbackMatch && fallbackMatch.targetName) ||
+        (argMatch && argMatch.targetName) ||
+        null;
+    const argumentIndex = guard.argumentIndex;
+
+    let paramIndex = -1;
+    if (targetName && paramInfoByName.has(targetName)) {
+        paramIndex = paramInfoByName.get(targetName).index;
+    } else if (argumentIndex != null && argumentIndex < params.length) {
+        paramIndex = argumentIndex;
+    }
+
+    if (paramIndex < 0 || paramIndex >= params.length) {
+        return;
+    }
+
+    const currentParam = node.params[paramIndex];
+    if (!currentParam) {
+        return;
+    }
+
+    const fallbackExpr =
+        (fallbackMatch && fallbackMatch.fallbackExpression) ||
+        (argMatch && argMatch.fallbackExpression);
+    if (!fallbackExpr) {
+        return;
+    }
+
+    const paramIsBareIdentifier = currentParam.type === "Identifier";
+    const paramIsEmptyDefault =
+        currentParam.type === "DefaultParameter" &&
+        (currentParam.right == null || currentParam.right === undefined);
+
+    if (paramIsBareIdentifier) {
+        const defaultParamNode = {
+            type: "DefaultParameter",
+            left: currentParam,
+            right: fallbackExpr
+        };
+        try {
+            if (Core.isUndefinedSentinel(fallbackExpr)) {
+                (
+                    defaultParamNode as any
+                )._featherMaterializedTrailingUndefined = true;
+            }
+        } catch {
+            // swallow
+        }
+        node.params[paramIndex] = defaultParamNode;
+        const ridx = statements.indexOf(statementNode);
+        if (ridx !== -1) {
+            statements.splice(ridx, 1);
+        }
+    } else if (paramIsEmptyDefault) {
+        try {
+            currentParam.right = fallbackExpr;
+            if (Core.isUndefinedSentinel(fallbackExpr)) {
+                currentParam._featherMaterializedTrailingUndefined = true;
+            }
+        } catch {
+            // swallow
+        }
+        const ridx = statements.indexOf(statementNode);
+        if (ridx !== -1) {
+            statements.splice(ridx, 1);
+        }
+    }
+}
+
+function materializeTrailingDefaults(params: Array<any>): boolean {
+    let appliedChanges = false;
+    let lastExplicitDefaultIndex = -1;
+    for (const [i, param] of params.entries()) {
+        if (!param) continue;
+
+        if (param.type === "DefaultParameter") {
+            if (param.right != null) {
+                const isUndef = Core.isUndefinedSentinel(param.right);
+                if (!isUndef) {
+                    lastExplicitDefaultIndex = i;
+                }
+            }
+            continue;
+        }
+
+        if (param.type === "AssignmentPattern") {
+            lastExplicitDefaultIndex = i;
+            continue;
+        }
+    }
+
+    if (lastExplicitDefaultIndex < 0) {
+        return appliedChanges;
+    }
+
+    for (let i = 0; i < params.length; i += 1) {
+        const param = params[i];
+        if (!param) continue;
+
+        if (i <= lastExplicitDefaultIndex) {
+            continue;
+        }
+
+        if (param.type === "DefaultParameter") {
+            if (param.right == null) {
+                param.right = {
+                    type: "Literal",
+                    value: "undefined"
+                };
+                param._featherMaterializedTrailingUndefined = true;
+                param._featherMaterializedFromExplicitLeft = true;
+                param._featherOptionalParameter = true;
+                appliedChanges = true;
+            }
+            continue;
+        }
+
+        if (param.type === "Identifier") {
+            const defaultParam = {
+                type: "DefaultParameter",
+                left: param,
+                right: { type: "Literal", value: "undefined" },
+                _featherMaterializedTrailingUndefined: true,
+                _featherMaterializedFromExplicitLeft: true,
+                _featherOptionalParameter: true
+            };
+            params[i] = defaultParam;
+            appliedChanges = true;
+            continue;
+        }
+
+        break;
+    }
+
+    return appliedChanges;
 }
 
 function removeDeclaredVariable(

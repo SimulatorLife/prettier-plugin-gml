@@ -126,8 +126,9 @@ export function mergeSyntheticDocComments(
 
     logDebugMergeStart(isDebugMerge, existingDocLines);
 
-    let normalizedExistingLines: MutableDocCommentLines = existingDocLines
-        .map((line) => line.trim()) as MutableDocCommentLines;
+    let normalizedExistingLines: MutableDocCommentLines = existingDocLines.map(
+        (line) => line.trim()
+    ) as MutableDocCommentLines;
     const originalExistingHasTags =
         Array.isArray(existingDocLines) &&
         existingDocLines.some((line) =>
@@ -207,34 +208,27 @@ export function mergeSyntheticDocComments(
         );
     const hasMultiLineSummary = hasMultiLineDocCommentSummary(existingDocLines);
 
-    ({
-        normalizedExistingLines,
-        preserveDescriptionBreaks
-    } = applyDocCommentPromotionIfNeeded({
-        normalizedExistingLines,
-        preserveDescriptionBreaks,
-        syntheticLines: _computedSynthetic,
-        originalExistingHasTags,
-        originalExistingHasDocLikePrefixes,
-        hasMultiLineSummary
-    }));
+    ({ normalizedExistingLines, preserveDescriptionBreaks } =
+        applyDocCommentPromotionIfNeeded({
+            normalizedExistingLines,
+            preserveDescriptionBreaks,
+            syntheticLines: _computedSynthetic,
+            originalExistingHasTags,
+            originalExistingHasDocLikePrefixes,
+            hasMultiLineSummary
+        }));
 
-    const syntheticLinesSource = reorderDescriptionLinesAfterFunction(
-        _computedSynthetic
-    );
+    const syntheticLinesSource =
+        reorderDescriptionLinesAfterFunction(_computedSynthetic);
     const syntheticLines = toMutableArray(
         syntheticLinesSource
     ) as MutableDocCommentLines;
 
-    if (
-        (syntheticLinesSource as any)?._preserveDescriptionBreaks === true
-    ) {
+    if ((syntheticLinesSource as any)?._preserveDescriptionBreaks === true) {
         syntheticLines._preserveDescriptionBreaks = true;
     }
 
-    if (
-        (syntheticLinesSource as any)?._suppressLeadingBlank === true
-    ) {
+    if ((syntheticLinesSource as any)?._suppressLeadingBlank === true) {
         syntheticLines._suppressLeadingBlank = true;
     }
 
@@ -290,114 +284,13 @@ export function mergeSyntheticDocComments(
         (result as any)._preserveDescriptionBreaks = true;
     }
 
-    if (isNonEmptyArray(returnsLines)) {
-        const { lines: dedupedReturns } = dedupeReturnDocLines(returnsLines, {
-            includeNonReturnLine: (line, trimmed) => trimmed.length > 0
-        });
-
-        if (dedupedReturns.length > 0) {
-            const filteredResult = [];
-            let removedExistingReturns = false;
-
-            for (const line of result) {
-                if (
-                    typeof line === STRING_TYPE &&
-                    /^\/\/\/\s*@returns\b/i.test(toTrimmedString(line))
-                ) {
-                    removedExistingReturns = true;
-                    continue;
-                }
-
-                filteredResult.push(line);
-            }
-
-            let appendIndex = filteredResult.length;
-
-            while (
-                appendIndex > 0 &&
-                typeof filteredResult[appendIndex - 1] === STRING_TYPE &&
-                filteredResult[appendIndex - 1].trim() === ""
-            ) {
-                appendIndex -= 1;
-            }
-
-            result = [
-                ...filteredResult.slice(0, appendIndex),
-                ...dedupedReturns,
-                ...filteredResult.slice(appendIndex)
-            ];
-
-            if (removedExistingReturns) {
-                removedAnyLine = true;
-            }
-        }
-    }
-
-    const finalDedupedResult = dedupeReturnDocLines(result);
-    result = toMutableArray(finalDedupedResult.lines) as MutableDocCommentLines;
-    if (finalDedupedResult.removed) {
-        removedAnyLine = true;
-    }
-
-    const functionIndex = result.findIndex(docTagHelpers.isFunctionLine);
-    if (functionIndex > 0) {
-        const [functionLine] = result.splice(functionIndex, 1);
-
-        const ignoreIndex = result.findIndex((line) =>
-            docTagHelpers.docTagMatches(line, /^\/\/\/\s*@ignore\b/i)
-        );
-        const overrideIndex = result.findIndex((line) =>
-            docTagHelpers.docTagMatches(line, /^\/\/\/\s*@override\b/i)
-        );
-
-        if (ignoreIndex === 0) {
-            result.splice(1, 0, functionLine);
-        } else if (overrideIndex === -1) {
-            result.unshift(functionLine);
-        } else {
-            result.splice(overrideIndex + 1, 0, functionLine);
-        }
-    }
-
-    if (originalHasDeprecatedTag) {
-        const functionLines: MutableDocCommentLines = [];
-        const remainingLines: MutableDocCommentLines = [];
-
-        for (const line of result) {
-            if (docTagHelpers.isFunctionLine(line)) {
-                functionLines.push(line);
-            } else {
-                remainingLines.push(line);
-            }
-        }
-
-        if (functionLines.length > 0) {
-            const isDeprecatedLine = (line: unknown) =>
-                typeof line === STRING_TYPE &&
-                /^\/\/\/\s*@deprecated\b/i.test(toTrimmedString(line));
-            const deprecatedIndex = findLastIndex(
-                remainingLines,
-                isDeprecatedLine
-            );
-            if (deprecatedIndex !== -1) {
-                const insertIndex = deprecatedIndex + 1;
-                while (
-                    insertIndex < remainingLines.length &&
-                    remainingLines[insertIndex] === ""
-                ) {
-                    remainingLines.splice(insertIndex, 1);
-                }
-
-                remainingLines.splice(insertIndex, 0, ...functionLines);
-
-                const suppressLeadingBlank = result._suppressLeadingBlank;
-                result = remainingLines;
-                if (suppressLeadingBlank) {
-                    result._suppressLeadingBlank = true;
-                }
-            }
-        }
-    }
+    ({ result, removedAnyLine } = integrateReturnAndFunctionLines({
+        result,
+        returnsLines,
+        removedAnyLine,
+        docTagHelpers,
+        originalHasDeprecatedTag
+    }));
 
     const suppressedCanonicals = suppressedImplicitDocCanonicalByNode.get(node);
 
@@ -1228,6 +1121,131 @@ export function mergeSyntheticDocComments(
     }
 
     return toMutableArray(prunedConvertedResult) as MutableDocCommentLines;
+}
+
+function integrateReturnAndFunctionLines({
+    result,
+    returnsLines,
+    removedAnyLine,
+    docTagHelpers,
+    originalHasDeprecatedTag
+}: {
+    result: MutableDocCommentLines;
+    returnsLines: DocCommentLines;
+    removedAnyLine: boolean;
+    docTagHelpers: DocTagHelpers;
+    originalHasDeprecatedTag: boolean;
+}) {
+    if (isNonEmptyArray(returnsLines)) {
+        const { lines: dedupedReturns } = dedupeReturnDocLines(returnsLines, {
+            includeNonReturnLine: (line, trimmed) => trimmed.length > 0
+        });
+
+        if (dedupedReturns.length > 0) {
+            const filteredResult = [];
+            let removedExistingReturns = false;
+
+            for (const line of result) {
+                if (
+                    typeof line === STRING_TYPE &&
+                    /^\/\/\/\s*@returns\b/i.test(toTrimmedString(line))
+                ) {
+                    removedExistingReturns = true;
+                    continue;
+                }
+
+                filteredResult.push(line);
+            }
+
+            let appendIndex = filteredResult.length;
+
+            while (
+                appendIndex > 0 &&
+                typeof filteredResult[appendIndex - 1] === STRING_TYPE &&
+                filteredResult[appendIndex - 1].trim() === ""
+            ) {
+                appendIndex -= 1;
+            }
+
+            result = [
+                ...filteredResult.slice(0, appendIndex),
+                ...dedupedReturns,
+                ...filteredResult.slice(appendIndex)
+            ];
+
+            if (removedExistingReturns) {
+                removedAnyLine = true;
+            }
+        }
+    }
+
+    const finalDedupedResult = dedupeReturnDocLines(result);
+    result = toMutableArray(finalDedupedResult.lines) as MutableDocCommentLines;
+    if (finalDedupedResult.removed) {
+        removedAnyLine = true;
+    }
+
+    const functionIndex = result.findIndex(docTagHelpers.isFunctionLine);
+    if (functionIndex > 0) {
+        const [functionLine] = result.splice(functionIndex, 1);
+
+        const ignoreIndex = result.findIndex((line) =>
+            docTagHelpers.docTagMatches(line, /^\/\/\/\s*@ignore\b/i)
+        );
+        const overrideIndex = result.findIndex((line) =>
+            docTagHelpers.docTagMatches(line, /^\/\/\/\s*@override\b/i)
+        );
+
+        if (ignoreIndex === 0) {
+            result.splice(1, 0, functionLine);
+        } else if (overrideIndex === -1) {
+            result.unshift(functionLine);
+        } else {
+            result.splice(overrideIndex + 1, 0, functionLine);
+        }
+    }
+
+    if (originalHasDeprecatedTag) {
+        const functionLines: MutableDocCommentLines = [];
+        const remainingLines: MutableDocCommentLines = [];
+
+        for (const line of result) {
+            if (docTagHelpers.isFunctionLine(line)) {
+                functionLines.push(line);
+            } else {
+                remainingLines.push(line);
+            }
+        }
+
+        if (functionLines.length > 0) {
+            const isDeprecatedLine = (line: unknown) =>
+                typeof line === STRING_TYPE &&
+                /^\/\/\/\s*@deprecated\b/i.test(toTrimmedString(line));
+            const deprecatedIndex = findLastIndex(
+                remainingLines,
+                isDeprecatedLine
+            );
+            if (deprecatedIndex !== -1) {
+                const insertIndex = deprecatedIndex + 1;
+                while (
+                    insertIndex < remainingLines.length &&
+                    remainingLines[insertIndex] === ""
+                ) {
+                    remainingLines.splice(insertIndex, 1);
+                }
+
+                remainingLines.splice(insertIndex, 0, ...functionLines);
+
+                const suppressLeadingBlank = result._suppressLeadingBlank;
+                result = remainingLines;
+                if (suppressLeadingBlank) {
+                    result._suppressLeadingBlank = true;
+                }
+            }
+        }
+    }
+
+    return { result, removedAnyLine };
 }
 
 type ReorderParamDocLinesParams = {
