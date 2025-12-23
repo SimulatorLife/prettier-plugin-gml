@@ -45,16 +45,68 @@ export function collectSyntheticDocCommentLines(
     sourceText: string | null
 ) {
     const rawComments = getCommentArray(node);
+    const lineCommentOptions = resolveLineCommentOptions(options);
+    const nodeStartIndex = getNodeStartIndexForDocComments(node, options);
+
+    const { existingDocLines, remainingComments } =
+        collectNodeDocCommentLines(
+            rawComments,
+            lineCommentOptions,
+            nodeStartIndex
+        );
+
+    if (existingDocLines.length > 0) {
+        return { existingDocLines, remainingComments };
+    }
+
+    if (programNode) {
+        const programCommentArray = getCommentArray(programNode);
+        const programHasComments = isNonEmptyArray(programCommentArray);
+
+        if (programHasComments) {
+            const programDocLines = tryCollectDocLinesFromProgramComments(
+                programCommentArray,
+                nodeStartIndex,
+                sourceText,
+                options
+            );
+            if (programDocLines) {
+                return {
+                    existingDocLines: programDocLines,
+                    remainingComments: toMutableArray(rawComments)
+                };
+            }
+        } else {
+            const sourceDocLines = tryCollectDocLinesFromSourceText(
+                sourceText,
+                nodeStartIndex,
+                options,
+                programCommentArray
+            );
+            if (sourceDocLines) {
+                return {
+                    existingDocLines: sourceDocLines,
+                    remainingComments: toMutableArray(rawComments)
+                };
+            }
+        }
+    }
+
+    return { existingDocLines, remainingComments };
+}
+
+function collectNodeDocCommentLines(
+    rawComments: readonly any[],
+    lineCommentOptions: any,
+    nodeStartIndex: number | null
+) {
+    const existingDocLines: string[] = [];
+    const remainingComments: any[] = [];
 
     if (!isNonEmptyArray(rawComments)) {
         // No node-level comments exist; fallback collection happens later.
     }
 
-    const lineCommentOptions = resolveLineCommentOptions(options);
-    const existingDocLines: string[] = [];
-    const remainingComments: any[] = [];
-
-    const nodeStartIndex = getNodeStartIndexForDocComments(node, options);
     for (const comment of rawComments) {
         if (!comment || comment.type !== "CommentLine") {
             remainingComments.push(comment);
@@ -97,8 +149,8 @@ export function collectSyntheticDocCommentLines(
             comment && typeof comment.start === NUMBER_TYPE
                 ? comment.start
                 : comment &&
-                    comment.start &&
-                    typeof comment.start.index === NUMBER_TYPE
+                      comment.start &&
+                      typeof comment.start.index === NUMBER_TYPE
                   ? comment.start.index
                   : null;
 
@@ -124,164 +176,141 @@ export function collectSyntheticDocCommentLines(
         }
     }
 
-    if (existingDocLines.length === 0 && programNode) {
-        const programCommentArray = getCommentArray(programNode);
-        const programHasComments = isNonEmptyArray(programCommentArray);
-        if (programHasComments) {
-            const nodeStartIndexFinal = getNodeStartIndexForDocComments(
-                node,
-                options
-            );
-            if (Number.isInteger(nodeStartIndexFinal)) {
-                const docCandidates: any[] = [];
-                let anchorIndex = nodeStartIndexFinal;
-                for (let i = programCommentArray.length - 1; i >= 0; --i) {
-                    const pc = programCommentArray[i];
-                    if (!pc || pc.type !== "CommentLine" || pc.printed) {
-                        continue;
-                    }
-                    let pcEndIndex =
-                        typeof pc.end === NUMBER_TYPE
-                            ? pc.end
-                            : (pc?.end?.index ?? null);
-                    const pcStartIndex =
-                        typeof pc.start === NUMBER_TYPE
-                            ? pc.start
-                            : (pc?.start?.index ?? null);
-                    if (!Number.isInteger(pcEndIndex)) {
-                        pcEndIndex = Number.isInteger(pcStartIndex)
-                            ? pcStartIndex
-                            : null;
-                    }
-                    if (
-                        !Number.isInteger(pcEndIndex) ||
-                        pcEndIndex >= anchorIndex
-                    ) {
-                        continue;
-                    }
+    return { existingDocLines, remainingComments };
+}
 
-                    const rawText = getLineCommentRawText(pc);
-                    if (!isLineCommentDocLike(rawText)) {
-                        break;
-                    }
-                    if (
-                        hasTooManyBlankLinesBetween(
-                            sourceText,
-                            pcEndIndex,
-                            anchorIndex
-                        )
-                    ) {
-                        break;
-                    }
-                    docCandidates.unshift(pc);
-                    anchorIndex = Number.isInteger(pcStartIndex)
-                        ? pcStartIndex
-                        : pcEndIndex;
-                }
-
-                if (docCandidates.length > 0) {
-                    const fallbackOptions = resolveLineCommentOptions(options);
-                    const collected = docCandidates.map((c) =>
-                        formatLineComment(c, fallbackOptions)
-                    );
-                    const flattenedCollected = flattenDocEntries(collected);
-                    for (const c of docCandidates) {
-                        c.printed = true;
-                    }
-                    return {
-                        existingDocLines: flattenedCollected,
-                        remainingComments: toMutableArray(rawComments)
-                    };
-                }
-            }
-        } else {
-            if (
-                typeof sourceText === STRING_TYPE &&
-                Number.isInteger(nodeStartIndex)
-            ) {
-                const candidates: Array<{
-                    text: string;
-                    start: number;
-                    end: number;
-                }> = [];
-                let anchor = nodeStartIndex;
-                while (anchor > 0) {
-                    const prevNewline = sourceText.lastIndexOf(
-                        "\n",
-                        anchor - 1
-                    );
-                    const lineStart = prevNewline === -1 ? 0 : prevNewline + 1;
-                    const lineEnd = anchor === 0 ? 0 : anchor - 1;
-                    const rawLine = sourceText.slice(lineStart, lineEnd + 1);
-                    const trimmed = rawLine.trim();
-                    const isBlank = trimmed.length === 0;
-                    if (
-                        isBlank &&
-                        Number.isInteger(nodeStartIndex) &&
-                        hasTooManyBlankLinesBetween(
-                            sourceText,
-                            lineStart,
-                            nodeStartIndex
-                        )
-                    ) {
-                        break;
-                    }
-                    if (isBlank) {
-                        anchor = lineStart - 1;
-                        continue;
-                    }
-                    if (!/^\s*\/\//.test(trimmed)) {
-                        break;
-                    }
-                    const isDocLike =
-                        /^\/{2,}/.test(trimmed) ||
-                        /^\/\/\s*\//.test(trimmed) ||
-                        /^\/\s*@/.test(trimmed);
-                    if (!isDocLike) {
-                        break;
-                    }
-                    candidates.unshift({
-                        text: rawLine,
-                        start: lineStart,
-                        end: lineEnd
-                    });
-                    anchor = lineStart - 1;
-                }
-
-                if (candidates.length > 0) {
-                    const fallbackOptions = resolveLineCommentOptions(options);
-                    const formatted = candidates.map((c) => {
-                        const matchNode = programCommentArray.find((pc) => {
-                            const startIndex =
-                                typeof pc?.start === NUMBER_TYPE
-                                    ? pc.start
-                                    : (pc?.start?.index ?? null);
-                            return (
-                                Number.isInteger(startIndex) &&
-                                startIndex === c.start
-                            );
-                        });
-                        if (matchNode) {
-                            matchNode.printed = true;
-                            return formatLineComment(
-                                matchNode,
-                                fallbackOptions
-                            );
-                        }
-                        const inner = c.text.replace(/^\s*\/+\s*/, "").trim();
-                        return inner.length > 0 ? `/// ${inner}` : "///";
-                    });
-                    const flattenedFormatted = flattenDocEntries(formatted);
-                    return {
-                        existingDocLines: flattenedFormatted,
-                        remainingComments: toMutableArray(rawComments)
-                    };
-                }
-            }
-        }
+function tryCollectDocLinesFromProgramComments(
+    programCommentArray: readonly any[],
+    nodeStartIndex: number | null,
+    sourceText: string | null,
+    options: any
+) {
+    if (!Number.isInteger(nodeStartIndex)) {
+        return null;
     }
 
-    return { existingDocLines, remainingComments };
+    const docCandidates: any[] = [];
+    let anchorIndex = nodeStartIndex;
+
+    for (let i = programCommentArray.length - 1; i >= 0; --i) {
+        const pc = programCommentArray[i];
+        if (!pc || pc.type !== "CommentLine" || pc.printed) {
+            continue;
+        }
+        let pcEndIndex =
+            typeof pc.end === NUMBER_TYPE ? pc.end : (pc?.end?.index ?? null);
+        const pcStartIndex =
+            typeof pc.start === NUMBER_TYPE ? pc.start : (pc?.start?.index ?? null);
+        if (!Number.isInteger(pcEndIndex)) {
+            pcEndIndex = Number.isInteger(pcStartIndex) ? pcStartIndex : null;
+        }
+        if (!Number.isInteger(pcEndIndex) || pcEndIndex >= anchorIndex) {
+            continue;
+        }
+
+        const rawText = getLineCommentRawText(pc);
+        if (!isLineCommentDocLike(rawText)) {
+            break;
+        }
+        if (hasTooManyBlankLinesBetween(sourceText, pcEndIndex, anchorIndex)) {
+            break;
+        }
+        docCandidates.unshift(pc);
+        anchorIndex = Number.isInteger(pcStartIndex) ? pcStartIndex : pcEndIndex;
+    }
+
+    if (docCandidates.length === 0) {
+        return null;
+    }
+
+    const fallbackOptions = resolveLineCommentOptions(options);
+    const collected = docCandidates.map((c) =>
+        formatLineComment(c, fallbackOptions)
+    );
+    const flattenedCollected = flattenDocEntries(collected);
+    for (const c of docCandidates) {
+        c.printed = true;
+    }
+    return flattenedCollected;
+}
+
+function tryCollectDocLinesFromSourceText(
+    sourceText: string | null,
+    nodeStartIndex: number | null,
+    options: any,
+    programCommentArray: readonly any[]
+) {
+    if (
+        typeof sourceText !== STRING_TYPE ||
+        !Number.isInteger(nodeStartIndex)
+    ) {
+        return null;
+    }
+
+    const candidates: Array<{ text: string; start: number; end: number }> = [];
+    let anchor = nodeStartIndex;
+
+    while (anchor > 0) {
+        const prevNewline = sourceText.lastIndexOf("\n", anchor - 1);
+        const lineStart = prevNewline === -1 ? 0 : prevNewline + 1;
+        const lineEnd = anchor === 0 ? 0 : anchor - 1;
+        const rawLine = sourceText.slice(lineStart, lineEnd + 1);
+        const trimmed = rawLine.trim();
+        const isBlank = trimmed.length === 0;
+        if (
+            isBlank &&
+            Number.isInteger(nodeStartIndex) &&
+            hasTooManyBlankLinesBetween(
+                sourceText,
+                lineStart,
+                nodeStartIndex
+            )
+        ) {
+            break;
+        }
+        if (isBlank) {
+            anchor = lineStart - 1;
+            continue;
+        }
+        if (!/^\s*\/\//.test(trimmed)) {
+            break;
+        }
+        const isDocLike =
+            /^\/{2,}/.test(trimmed) ||
+            /^\/\/\s*\//.test(trimmed) ||
+            /^\/\s*@/.test(trimmed);
+        if (!isDocLike) {
+            break;
+        }
+        candidates.unshift({
+            text: rawLine,
+            start: lineStart,
+            end: lineEnd
+        });
+        anchor = lineStart - 1;
+    }
+
+    if (candidates.length === 0) {
+        return null;
+    }
+
+    const fallbackOptions = resolveLineCommentOptions(options);
+    const formatted = candidates.map((c) => {
+        const matchNode = programCommentArray.find((pc) => {
+            const startIndex =
+                typeof pc?.start === NUMBER_TYPE
+                    ? pc.start
+                    : (pc?.start?.index ?? null);
+            return Number.isInteger(startIndex) && startIndex === c.start;
+        });
+        if (matchNode) {
+            matchNode.printed = true;
+            return formatLineComment(matchNode, fallbackOptions);
+        }
+        const inner = c.text.replace(/^\s*\/+\s*/, "").trim();
+        return inner.length > 0 ? `/// ${inner}` : "///";
+    });
+    return flattenDocEntries(formatted);
 }
 
 function isLineCommentDocLike(rawText: unknown): boolean {
