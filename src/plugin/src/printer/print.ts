@@ -854,360 +854,357 @@ function tryPrintVariableNode(node, path, options, print) {
 function tryPrintExpressionNode(node, path, options, print) {
     switch (node.type) {
         case "ParenthesizedExpression": {
-            if (shouldOmitSyntheticParens(path)) {
-                return printWithoutExtraParens(path, print, "expression");
-            }
-
-            return concat([
-                "(",
-                printWithoutExtraParens(path, print, "expression"),
-                ")"
-            ]);
+            return printParenthesizedExpressionNode(node, path, options, print);
         }
         case "BinaryExpression": {
-            if (
-                node.operator === "/" &&
-                hasFeatherFix(node, GM1015_DIAGNOSTIC_ID)
-            ) {
-                return print("left");
-            }
-            const left = print("left");
-            let operator = node.operator;
-            let right;
-            const logicalOperatorsStyle = resolveLogicalOperatorsStyle(options);
-            const optimizeMathExpressions = Boolean(
-                options?.optimizeMathExpressions
-            );
-
-            const leftIsUndefined = Core.isUndefinedSentinel(node.left);
-            const rightIsUndefined = Core.isUndefinedSentinel(node.right);
-
-            if (
-                (operator === "==" || operator === "!=") &&
-                (leftIsUndefined || rightIsUndefined)
-            ) {
-                const expressionDoc = leftIsUndefined
-                    ? printWithoutExtraParens(path, print, "right")
-                    : printWithoutExtraParens(path, print, "left");
-                const prefix =
-                    operator === "!=" ? "!is_undefined(" : "is_undefined(";
-                return group([prefix, expressionDoc, ")"]);
-            }
-
-            const booleanSimplification = simplifyBooleanBinaryExpression(
-                path,
-                print,
-                node
-            );
-            if (booleanSimplification) {
-                return booleanSimplification;
-            }
-
-            const canConvertDivisionToHalf =
-                optimizeMathExpressions &&
-                operator === "/" &&
-                node?.right?.type === "Literal" &&
-                node.right.value === "2" &&
-                !Core.hasComment(node) &&
-                !Core.hasComment(node.left);
-
-            if (canConvertDivisionToHalf) {
-                operator = "*";
-
-                const literal = node.right;
-                const originalValue = literal.value;
-
-                literal.value = "0.5";
-                try {
-                    right = print("right");
-                } finally {
-                    literal.value = originalValue;
-                }
-            } else {
-                right = print("right");
-                const styledOperator = applyLogicalOperatorsStyle(
-                    operator,
-                    logicalOperatorsStyle
-                );
-
-                if (styledOperator === operator) {
-                    switch (operator) {
-                        case "%": {
-                            operator = "mod";
-
-                            break;
-                        }
-                        case "^^": {
-                            operator = "xor";
-
-                            break;
-                        }
-                        case "<>": {
-                            operator = "!=";
-
-                            break;
-                        }
-                        // Intentionally omit a default branch so any operator that is not
-                        // covered above preserves the exact token emitted by the parser.
-                        // Introducing a catch-all would make it easy to "fix" unfamiliar
-                        // operators into something else, which risks corrupting source that
-                        // relies on newly added or editor-specific syntax.
-                    }
-                } else {
-                    operator = styledOperator;
-                }
-            }
-
-            return group([left, " ", group([operator, line, right])]);
+            return printBinaryExpressionNode(node, path, options, print);
         }
         case "UnaryExpression":
         case "IncDecStatement":
         case "IncDecExpression": {
-            if (node.prefix) {
-                if (
-                    node.operator === "+" &&
-                    shouldOmitUnaryPlus(node.argument)
-                ) {
-                    return print("argument");
-                }
-
-                return concat([node.operator, print("argument")]);
-            }
-
-            return concat([print("argument"), node.operator]);
+            return printUnaryLikeExpressionNode(node, path, options, print);
         }
         case "CallExpression": {
-            if (node?.[FEATHER_COMMENT_OUT_SYMBOL]) {
-                const commentText = getFeatherCommentCallText(node);
-                const renderedText =
-                    typeof node[FEATHER_COMMENT_TEXT_SYMBOL] === STRING_TYPE &&
-                    node[FEATHER_COMMENT_TEXT_SYMBOL].length > 0
-                        ? node[FEATHER_COMMENT_TEXT_SYMBOL]
-                        : commentText;
-                const prefixTextValue =
-                    node[FEATHER_COMMENT_PREFIX_TEXT_SYMBOL];
-                const prefixText =
-                    typeof prefixTextValue === STRING_TYPE &&
-                    prefixTextValue.length > 0
-                        ? prefixTextValue
-                        : null;
-                const docs = [];
-
-                if (prefixText) {
-                    docs.push(concat(["// ", prefixText]));
-                }
-
-                if (renderedText) {
-                    if (docs.length > 0) {
-                        docs.push(hardline);
-                    }
-                    docs.push(concat(["// ", renderedText]));
-                }
-
-                if (docs.length === 0) {
-                    return "//";
-                }
-
-                return concat(docs);
-            }
-
-            if (options && typeof options.originalText === STRING_TYPE) {
-                const hasNestedPreservedArguments = Array.isArray(
-                    node.arguments
-                )
-                    ? node.arguments.some(
-                          (argument) =>
-                              argument?.preserveOriginalCallText === true
-                      )
-                    : false;
-                const startIndex = Core.getNodeStartIndex(node);
-                const endIndex = Core.getNodeEndIndex(node);
-
-                if (
-                    typeof startIndex === NUMBER_TYPE &&
-                    typeof endIndex === NUMBER_TYPE &&
-                    endIndex > startIndex
-                ) {
-                    const synthesizedText =
-                        synthesizeMissingCallArgumentSeparators(
-                            node,
-                            options.originalText,
-                            startIndex,
-                            endIndex
-                        );
-
-                    if (typeof synthesizedText === STRING_TYPE) {
-                        return normalizeCallTextNewlines(
-                            synthesizedText,
-                            options.endOfLine
-                        );
-                    }
-
-                    if (
-                        node.preserveOriginalCallText &&
-                        !hasNestedPreservedArguments
-                    ) {
-                        return normalizeCallTextNewlines(
-                            options.originalText.slice(startIndex, endIndex),
-                            options.endOfLine
-                        );
-                    }
-                }
-            }
-
-            applyTrigonometricFunctionSimplification(path);
-            let printedArgs;
-
-            if (node.arguments.length === 0) {
-                printedArgs = [printEmptyParens(path, options)];
-            } else {
-                const maxParamsPerLine = Number.isFinite(
-                    options?.maxParamsPerLine
-                )
-                    ? options.maxParamsPerLine
-                    : 0;
-                const elementsPerLineLimit =
-                    maxParamsPerLine > 0 ? maxParamsPerLine : Infinity;
-
-                const callbackArguments = node.arguments.filter(
-                    (argument) => argument?.type === "FunctionDeclaration"
-                );
-                const structArguments = node.arguments.filter(
-                    (argument) => argument?.type === "StructExpression"
-                );
-                const structArgumentsToBreak = structArguments.filter(
-                    (argument) => shouldForceBreakStructArgument(argument)
-                );
-
-                structArgumentsToBreak.forEach((argument) => {
-                    forcedStructArgumentBreaks.set(
-                        argument,
-                        getStructAlignmentInfo(argument, options)
-                    );
-                });
-
-                const hasSingleCallExpressionArgument =
-                    maxParamsPerLine > 0 &&
-                    node.arguments.length === 1 &&
-                    node.arguments[0]?.type === "CallExpression";
-
-                const shouldForceBreakArguments =
-                    hasSingleCallExpressionArgument ||
-                    (maxParamsPerLine > 0 &&
-                        node.arguments.length > maxParamsPerLine) ||
-                    callbackArguments.length > 1 ||
-                    structArgumentsToBreak.length > 0;
-
-                const shouldUseCallbackLayout = [
-                    node.arguments[0],
-                    node.arguments.at(-1)
-                ].some(
-                    (argumentNode) =>
-                        argumentNode?.type === "FunctionDeclaration" ||
-                        argumentNode?.type === "StructExpression"
-                );
-
-                const shouldIncludeInlineVariant =
-                    shouldUseCallbackLayout && !shouldForceBreakArguments;
-
-                const hasCallbackArguments = callbackArguments.length > 0;
-
-                const { inlineDoc, multilineDoc } = buildCallArgumentsDocs(
-                    path,
-                    print,
-                    options,
-                    {
-                        forceBreak: shouldForceBreakArguments,
-                        maxElementsPerLine: elementsPerLineLimit,
-                        includeInlineVariant: shouldIncludeInlineVariant,
-                        hasCallbackArguments
-                    }
-                );
-
-                if (shouldUseCallbackLayout) {
-                    if (shouldForceBreakArguments) {
-                        printedArgs = [concat([breakParent, multilineDoc])];
-                    } else if (inlineDoc) {
-                        printedArgs = [
-                            conditionalGroup([inlineDoc, multilineDoc])
-                        ];
-                    } else {
-                        printedArgs = [multilineDoc];
-                    }
-                } else {
-                    printedArgs = shouldForceBreakArguments
-                        ? [concat([breakParent, multilineDoc])]
-                        : [multilineDoc];
-                }
-            }
-
-            const calleeDoc = print(OBJECT_TYPE);
-
-            return isInLValueChain(path)
-                ? concat([calleeDoc, ...printedArgs])
-                : group([calleeDoc, ...printedArgs]);
+            return printCallExpressionNode(node, path, options, print);
         }
         case "MemberDotExpression": {
-            if (
-                isInLValueChain(path) &&
-                path.parent?.type === "CallExpression"
-            ) {
-                const objectNode = path.getValue()?.object;
-                const shouldAllowBreakBeforeDot =
-                    objectNode &&
-                    (objectNode.type === "CallExpression" ||
-                        objectNode.type === "MemberDotExpression" ||
-                        objectNode.type === "MemberIndexExpression");
-
-                if (shouldAllowBreakBeforeDot) {
-                    return concat([
-                        print(OBJECT_TYPE),
-                        softline,
-                        ".",
-                        print("property")
-                    ]);
-                }
-
-                return concat([print(OBJECT_TYPE), ".", print("property")]);
-            } else {
-                const objectDoc = print(OBJECT_TYPE);
-                let propertyDoc = print("property");
-
-                if (propertyDoc === undefined) {
-                    propertyDoc = printCommaSeparatedList(
-                        path,
-                        print,
-                        "property",
-                        "",
-                        "",
-                        options
-                    );
-                }
-
-                return concat([objectDoc, ".", propertyDoc]);
-                // return [
-                //     print(OBJECT_TYPE),
-                //     ".",
-                //     print("property")
-                // ];
-            }
+            return printMemberDotExpressionNode(node, path, options, print);
         }
         case "MemberIndexExpression": {
-            const memberNode = path.getValue();
-            let accessor = print("accessor");
-            if (memberNode && typeof memberNode.accessor === "string") {
-                accessor = memberNode.accessor;
+            return printMemberIndexExpressionNode(node, path, options, print);
+        }
+        case "StructExpression": {
+            return printStructExpressionNode(node, path, options, print);
+        }
+        case "Property": {
+            return printPropertyNode(node, path, options, print);
+        }
+        case "ArrayExpression": {
+            return printArrayExpressionNode(node, path, options, print);
+        }
+        case "NewExpression": {
+            return printNewExpressionNode(node, path, options, print);
+        }
+    }
+}
+
+function printParenthesizedExpressionNode(node, path, _options, print) {
+    if (shouldOmitSyntheticParens(path)) {
+        return printWithoutExtraParens(path, print, "expression");
+    }
+
+    return concat([
+        "(",
+        printWithoutExtraParens(path, print, "expression"),
+        ")"
+    ]);
+}
+
+function printBinaryExpressionNode(node, path, options, print) {
+    if (
+        node.operator === "/" &&
+        hasFeatherFix(node, GM1015_DIAGNOSTIC_ID)
+    ) {
+        return print("left");
+    }
+    const left = print("left");
+    let operator = node.operator;
+    let right;
+    const logicalOperatorsStyle = resolveLogicalOperatorsStyle(options);
+    const optimizeMathExpressions = Boolean(
+        options?.optimizeMathExpressions
+    );
+
+    const leftIsUndefined = Core.isUndefinedSentinel(node.left);
+    const rightIsUndefined = Core.isUndefinedSentinel(node.right);
+
+    if (
+        (operator === "==" || operator === "!=") &&
+        (leftIsUndefined || rightIsUndefined)
+    ) {
+        const expressionDoc = leftIsUndefined
+            ? printWithoutExtraParens(path, print, "right")
+            : printWithoutExtraParens(path, print, "left");
+        const prefix =
+            operator === "!=" ? "!is_undefined(" : "is_undefined(";
+        return group([prefix, expressionDoc, ")"]);
+    }
+
+    const booleanSimplification = simplifyBooleanBinaryExpression(
+        path,
+        print,
+        node
+    );
+    if (booleanSimplification) {
+        return booleanSimplification;
+    }
+
+    const canConvertDivisionToHalf =
+        optimizeMathExpressions &&
+        operator === "/" &&
+        node?.right?.type === "Literal" &&
+        node.right.value === "2" &&
+        !Core.hasComment(node) &&
+        !Core.hasComment(node.left);
+
+    if (canConvertDivisionToHalf) {
+        operator = "*";
+
+        const literal = node.right;
+        const originalValue = literal.value;
+
+        literal.value = "0.5";
+        try {
+            right = print("right");
+        } finally {
+            literal.value = originalValue;
+        }
+    } else {
+        right = print("right");
+        const styledOperator = applyLogicalOperatorsStyle(
+            operator,
+            logicalOperatorsStyle
+        );
+
+        if (styledOperator === operator) {
+            switch (operator) {
+                case "%": {
+                    operator = "mod";
+
+                    break;
+                }
+                case "^^": {
+                    operator = "xor";
+
+                    break;
+                }
+                case "<>": {
+                    operator = "!=";
+
+                    break;
+                }
+            }
+        } else {
+            operator = styledOperator;
+        }
+    }
+
+    return group([left, " ", group([operator, line, right])]);
+}
+
+function printUnaryLikeExpressionNode(node, path, _options, print) {
+    if (node.prefix) {
+        if (
+            node.operator === "+" &&
+            shouldOmitUnaryPlus(node.argument)
+        ) {
+            return print("argument");
+        }
+
+        return concat([node.operator, print("argument")]);
+    }
+
+    return concat([print("argument"), node.operator]);
+}
+
+function printCallExpressionNode(node, path, options, print) {
+    if (node?.[FEATHER_COMMENT_OUT_SYMBOL]) {
+        const commentText = getFeatherCommentCallText(node);
+        const renderedText =
+            typeof node[FEATHER_COMMENT_TEXT_SYMBOL] === STRING_TYPE &&
+            node[FEATHER_COMMENT_TEXT_SYMBOL].length > 0
+                ? node[FEATHER_COMMENT_TEXT_SYMBOL]
+                : commentText;
+        const prefixTextValue =
+            node[FEATHER_COMMENT_PREFIX_TEXT_SYMBOL];
+        const prefixText =
+            typeof prefixTextValue === STRING_TYPE &&
+            prefixTextValue.length > 0
+                ? prefixTextValue
+                : null;
+        const docs = [];
+
+        if (prefixText) {
+            docs.push(concat(["// ", prefixText]));
+        }
+
+        if (renderedText) {
+            if (docs.length > 0) {
+                docs.push(hardline);
+            }
+            docs.push(concat(["// ", renderedText]));
+        }
+
+        if (docs.length === 0) {
+            return "//";
+        }
+
+        return concat(docs);
+    }
+
+    if (options && typeof options.originalText === STRING_TYPE) {
+        const hasNestedPreservedArguments = Array.isArray(node.arguments)
+            ? node.arguments.some(
+                  (argument) =>
+                      argument?.preserveOriginalCallText === true
+              )
+            : false;
+        const startIndex = Core.getNodeStartIndex(node);
+        const endIndex = Core.getNodeEndIndex(node);
+
+        if (
+            typeof startIndex === NUMBER_TYPE &&
+            typeof endIndex === NUMBER_TYPE &&
+            endIndex > startIndex
+        ) {
+            const synthesizedText =
+                synthesizeMissingCallArgumentSeparators(
+                    node,
+                    options.originalText,
+                    startIndex,
+                    endIndex
+                );
+
+            if (typeof synthesizedText === STRING_TYPE) {
+                return normalizeCallTextNewlines(
+                    synthesizedText,
+                    options.endOfLine
+                );
             }
 
-            // `accessor` is usually a plain string (e.g. "[", "[?", "[#").
-            // Be defensive: only append a trailing space when we actually
-            // received a string accessor longer than one character so we
-            // preserve the historical spacing for special accessors like
-            // "[?" or "[#" while leaving normal "[" unchanged.
-            if (Core.isNonEmptyString(accessor) && accessor.length > 1) {
-                accessor = `${accessor} `;
+            if (
+                node.preserveOriginalCallText &&
+                !hasNestedPreservedArguments
+            ) {
+                return normalizeCallTextNewlines(
+                    options.originalText.slice(startIndex, endIndex),
+                    options.endOfLine
+                );
             }
-            const property = printCommaSeparatedList(
+        }
+    }
+
+    applyTrigonometricFunctionSimplification(path);
+    let printedArgs;
+
+    if (node.arguments.length === 0) {
+        printedArgs = [printEmptyParens(path, options)];
+    } else {
+        const maxParamsPerLine = Number.isFinite(
+            options?.maxParamsPerLine
+        )
+            ? options.maxParamsPerLine
+            : 0;
+        const elementsPerLineLimit =
+            maxParamsPerLine > 0 ? maxParamsPerLine : Infinity;
+
+        const callbackArguments = node.arguments.filter(
+            (argument) => argument?.type === "FunctionDeclaration"
+        );
+        const structArguments = node.arguments.filter(
+            (argument) => argument?.type === "StructExpression"
+        );
+        const structArgumentsToBreak = structArguments.filter(
+            (argument) => shouldForceBreakStructArgument(argument)
+        );
+
+        structArgumentsToBreak.forEach((argument) => {
+            forcedStructArgumentBreaks.set(
+                argument,
+                getStructAlignmentInfo(argument, options)
+            );
+        });
+
+        const hasSingleCallExpressionArgument =
+            maxParamsPerLine > 0 &&
+            node.arguments.length === 1 &&
+            node.arguments[0]?.type === "CallExpression";
+
+        const shouldForceBreakArguments =
+            hasSingleCallExpressionArgument ||
+            (maxParamsPerLine > 0 &&
+                node.arguments.length > maxParamsPerLine) ||
+            callbackArguments.length > 1 ||
+            structArgumentsToBreak.length > 0;
+
+        const shouldUseCallbackLayout = [
+            node.arguments[0],
+            node.arguments.at(-1)
+        ].some(
+            (argumentNode) =>
+                argumentNode?.type === "FunctionDeclaration" ||
+                argumentNode?.type === "StructExpression"
+        );
+
+        const shouldIncludeInlineVariant =
+            shouldUseCallbackLayout && !shouldForceBreakArguments;
+
+        const hasCallbackArguments = callbackArguments.length > 0;
+
+        const { inlineDoc, multilineDoc } = buildCallArgumentsDocs(
+            path,
+            print,
+            options,
+            {
+                forceBreak: shouldForceBreakArguments,
+                maxElementsPerLine: elementsPerLineLimit,
+                includeInlineVariant: shouldIncludeInlineVariant,
+                hasCallbackArguments
+            }
+        );
+
+        if (shouldUseCallbackLayout) {
+            if (shouldForceBreakArguments) {
+                printedArgs = [concat([breakParent, multilineDoc])];
+            } else if (inlineDoc) {
+                printedArgs = [
+                    conditionalGroup([inlineDoc, multilineDoc])
+                ];
+            } else {
+                printedArgs = [multilineDoc];
+            }
+        } else {
+            printedArgs = shouldForceBreakArguments
+                ? [concat([breakParent, multilineDoc])]
+                : [multilineDoc];
+        }
+    }
+
+    const calleeDoc = print(OBJECT_TYPE);
+
+    return isInLValueChain(path)
+        ? concat([calleeDoc, ...printedArgs])
+        : group([calleeDoc, ...printedArgs]);
+}
+
+function printMemberDotExpressionNode(node, path, options, print) {
+    if (
+        isInLValueChain(path) &&
+        path.parent?.type === "CallExpression"
+    ) {
+        const objectNode = path.getValue()?.object;
+        const shouldAllowBreakBeforeDot =
+            objectNode &&
+            (objectNode.type === "CallExpression" ||
+                objectNode.type === "MemberDotExpression" ||
+                objectNode.type === "MemberIndexExpression");
+
+        if (shouldAllowBreakBeforeDot) {
+            return concat([
+                print(OBJECT_TYPE),
+                softline,
+                ".",
+                print("property")
+            ]);
+        }
+
+        return concat([print(OBJECT_TYPE), ".", print("property")]);
+    } else {
+        const objectDoc = print(OBJECT_TYPE);
+        let propertyDoc = print("property");
+
+        if (propertyDoc === undefined) {
+            propertyDoc = printCommaSeparatedList(
                 path,
                 print,
                 "property",
@@ -1215,126 +1212,146 @@ function tryPrintExpressionNode(node, path, options, print) {
                 "",
                 options
             );
-            return concat([
-                print(OBJECT_TYPE),
-                accessor,
-                group(indent(property)),
-                "]"
-            ]);
         }
-        case "StructExpression": {
-            if (node.properties.length === 0) {
-                return concat(printEmptyBlock(path, options));
-            }
 
-            const shouldForceBreakStruct = forcedStructArgumentBreaks.has(node);
-            const objectWrapOption = resolveObjectWrapOption(options);
-            const shouldPreserveStructWrap =
-                objectWrapOption === ObjectWrapOption.PRESERVE &&
-                structLiteralHasLeadingLineBreak(node, options);
-
-            return concat(
-                printCommaSeparatedList(
-                    path,
-                    print,
-                    "properties",
-                    "{",
-                    "}",
-                    options,
-                    {
-                        forceBreak:
-                            node.hasTrailingComma ||
-                            shouldForceBreakStruct ||
-                            shouldPreserveStructWrap,
-                        // Keep struct literals flush with their braces for
-                        // now. GameMaker's runtime formatter and the examples in
-                        // the manual (https://manual.gamemaker.io/monthly/en/#t=GameMaker_Language%2FGML_Reference%2FVariable_Functions%2FStructs.htm)
-                        // render `{foo: 1}` without internal padding, and our
-                        // documentation screenshots rely on matching that
-                        // output. If we decide to adopt spaced braces we need to
-                        // coordinate fixture updates and call out the style
-                        // shift in the changelog so downstream format-on-save
-                        // hooks do not surprise teams mid-upgrade.
-                        padding: ""
-                    }
-                )
-            );
-        }
-        case "Property": {
-            const parentNode =
-                typeof path.getParentNode === "function"
-                    ? path.getParentNode()
-                    : null;
-            const alignmentInfo = forcedStructArgumentBreaks.get(parentNode);
-            const nameDoc = print("name");
-            const valueDoc = print("value");
-            const trailingCommentSuffix = buildStructPropertyCommentSuffix(
-                path,
-                options
-            );
-
-            if (alignmentInfo?.maxNameLength > 0) {
-                const nameLength = getStructPropertyNameLength(node, options);
-                const paddingWidth = Math.max(
-                    alignmentInfo.maxNameLength - nameLength + 1,
-                    1
-                );
-                const padding = " ".repeat(paddingWidth);
-
-                return concat([
-                    nameDoc,
-                    padding,
-                    ": ",
-                    valueDoc,
-                    trailingCommentSuffix
-                ]);
-            }
-
-            const originalPrefix = getStructPropertyPrefix(node, options);
-            if (originalPrefix) {
-                return concat([
-                    originalPrefix,
-                    valueDoc,
-                    trailingCommentSuffix
-                ]);
-            }
-
-            return concat([nameDoc, ": ", valueDoc, trailingCommentSuffix]);
-        }
-        case "ArrayExpression": {
-            const allowTrailingComma = shouldAllowTrailingComma(options);
-            return concat(
-                printCommaSeparatedList(
-                    path,
-                    print,
-                    "elements",
-                    "[",
-                    "]",
-                    options,
-                    {
-                        allowTrailingDelimiter: allowTrailingComma,
-                        forceBreak: allowTrailingComma && node.hasTrailingComma
-                    }
-                )
-            );
-        }
-        case "NewExpression": {
-            const argsPrinted =
-                node.arguments.length === 0
-                    ? [printEmptyParens(path, options)]
-                    : [
-                          printCommaSeparatedList(
-                              path,
-                              print,
-                              "arguments",
-                              "(",
-                              ")",
-                              options
-                          )
-                      ];
-            return concat(["new ", print("expression"), ...argsPrinted]);
-        }
+        return concat([objectDoc, ".", propertyDoc]);
     }
+}
+
+function printMemberIndexExpressionNode(node, path, options, print) {
+    const memberNode = path.getValue();
+    let accessor = print("accessor");
+    if (memberNode && typeof memberNode.accessor === "string") {
+        accessor = memberNode.accessor;
+    }
+
+    if (Core.isNonEmptyString(accessor) && accessor.length > 1) {
+        accessor = `${accessor} `;
+    }
+    const property = printCommaSeparatedList(
+        path,
+        print,
+        "property",
+        "",
+        "",
+        options
+    );
+    return concat([
+        print(OBJECT_TYPE),
+        accessor,
+        group(indent(property)),
+        "]"
+    ]);
+}
+
+function printStructExpressionNode(node, path, options, print) {
+    if (node.properties.length === 0) {
+        return concat(printEmptyBlock(path, options));
+    }
+
+    const shouldForceBreakStruct = forcedStructArgumentBreaks.has(node);
+    const objectWrapOption = resolveObjectWrapOption(options);
+    const shouldPreserveStructWrap =
+        objectWrapOption === ObjectWrapOption.PRESERVE &&
+        structLiteralHasLeadingLineBreak(node, options);
+
+    return concat(
+        printCommaSeparatedList(
+            path,
+            print,
+            "properties",
+            "{",
+            "}",
+            options,
+        {
+            forceBreak:
+                node.hasTrailingComma ||
+                shouldForceBreakStruct ||
+                shouldPreserveStructWrap,
+            // Keep struct literals flush with their braces for now; GameMaker's
+            // runtime formatter and the official documentation render `{foo: 1}`
+            // without extra internal padding, and our fixtures rely on that output.
+            padding: ""
+        }
+        )
+    );
+}
+
+function printPropertyNode(node, path, options, print) {
+    const parentNode =
+        typeof path.getParentNode === "function"
+            ? path.getParentNode()
+            : null;
+    const alignmentInfo = forcedStructArgumentBreaks.get(parentNode);
+    const nameDoc = print("name");
+    const valueDoc = print("value");
+    const trailingCommentSuffix = buildStructPropertyCommentSuffix(
+        path,
+        options
+    );
+
+    if (alignmentInfo?.maxNameLength > 0) {
+        const nameLength = getStructPropertyNameLength(node, options);
+        const paddingWidth = Math.max(
+            alignmentInfo.maxNameLength - nameLength + 1,
+            1
+        );
+        const padding = " ".repeat(paddingWidth);
+
+        return concat([
+            nameDoc,
+            padding,
+            ": ",
+            valueDoc,
+            trailingCommentSuffix
+        ]);
+    }
+
+    const originalPrefix = getStructPropertyPrefix(node, options);
+    if (originalPrefix) {
+        return concat([
+            originalPrefix,
+            valueDoc,
+            trailingCommentSuffix
+        ]);
+    }
+
+    return concat([nameDoc, ": ", valueDoc, trailingCommentSuffix]);
+}
+
+function printArrayExpressionNode(node, path, options, print) {
+    const allowTrailingComma = shouldAllowTrailingComma(options);
+    return concat(
+        printCommaSeparatedList(
+            path,
+            print,
+            "elements",
+            "[",
+            "]",
+            options,
+            {
+                allowTrailingDelimiter: allowTrailingComma,
+                forceBreak: allowTrailingComma && node.hasTrailingComma
+            }
+        )
+    );
+}
+
+function printNewExpressionNode(node, path, options, print) {
+    const argsPrinted =
+        node.arguments.length === 0
+            ? [printEmptyParens(path, options)]
+            : [
+                  printCommaSeparatedList(
+                      path,
+                      print,
+                      "arguments",
+                      "(",
+                      ")",
+                      options
+                  )
+              ];
+    return concat(["new ", print("expression"), ...argsPrinted]);
 }
 
 function tryPrintDeclarationNode(node, path, options, print) {
@@ -2935,223 +2952,275 @@ function applyTrailingSpacing({
     hasFunctionInitializer,
     containerNode
 }) {
-    let previousNodeHadNewlineAddedAfter = false;
-
     if (!isLastStatement(childPath)) {
-        const nextNode = statements ? statements[index + 1] : null;
-        const shouldSuppressExtraEmptyLine = shouldSuppressEmptyLineBetween(
+        return handleIntermediateTrailingSpacing({
+            parts,
+            statements,
+            index,
             node,
-            nextNode
-        );
-        const nextNodeIsMacro = Core.isMacroLikeStatement(nextNode);
-        const shouldSkipStandardHardline =
-            shouldSuppressExtraEmptyLine &&
-            Core.isMacroLikeStatement(node) &&
-            !nextNodeIsMacro;
+            options,
+            syntheticDocByNode,
+            hardline,
+            currentNodeRequiresNewline,
+            nodeEndIndex,
+            suppressFollowingEmptyLine
+        });
+    }
 
-        if (!shouldSkipStandardHardline) {
-            parts.push(hardline);
-        }
-
-        const nextHasSyntheticDoc = nextNode
-            ? syntheticDocByNode.has(nextNode)
-            : false;
-        const nextLineProbeIndex =
-            node?.type === "DefineStatement" ||
-            node?.type === "MacroDeclaration"
-                ? nodeEndIndex
-                : nodeEndIndex + 1;
-
-        const suppressLeadingEmptyLine =
-            nextNode?._featherSuppressLeadingEmptyLine === true;
-        const forceFollowingEmptyLine =
-            node?._featherForceFollowingEmptyLine === true ||
-            node?._gmlForceFollowingEmptyLine === true;
-
-        const nextLineEmpty =
-            suppressFollowingEmptyLine || suppressLeadingEmptyLine
-                ? false
-                : isNextLineEmpty(options.originalText, nextLineProbeIndex);
-
-        const isSanitizedMacro =
-            node?.type === "MacroDeclaration" &&
-            typeof node._featherMacroText === STRING_TYPE;
-        const sanitizedMacroHasExplicitBlankLine =
-            isSanitizedMacro &&
-            macroTextHasExplicitTrailingBlankLine(node._featherMacroText);
-
-        const isMacroLikeNode = Core.isMacroLikeStatement(node);
-        const isDefineMacroReplacement =
-            Core.getNormalizedDefineReplacementDirective(node) ===
-            Core.DefineReplacementDirective.MACRO;
-        const shouldForceMacroPadding =
-            isMacroLikeNode &&
-            !isDefineMacroReplacement &&
-            !nextNodeIsMacro &&
-            !nextLineEmpty &&
-            !shouldSuppressExtraEmptyLine &&
-            !sanitizedMacroHasExplicitBlankLine;
-        const shouldForceEarlyReturnPadding =
-            !suppressFollowingEmptyLine &&
-            shouldForceBlankLineBetweenReturnPaths(node, nextNode);
-
-        if (shouldForceMacroPadding) {
-            parts.push(hardline);
-            previousNodeHadNewlineAddedAfter = true;
-        } else if (
-            forceFollowingEmptyLine &&
-            !nextLineEmpty &&
-            !shouldSuppressExtraEmptyLine &&
-            !sanitizedMacroHasExplicitBlankLine
-        ) {
-            parts.push(hardline);
-            previousNodeHadNewlineAddedAfter = true;
-        } else if (
-            shouldForceEarlyReturnPadding &&
-            !nextLineEmpty &&
-            !shouldSuppressExtraEmptyLine &&
-            !sanitizedMacroHasExplicitBlankLine
-        ) {
-            parts.push(hardline);
-            previousNodeHadNewlineAddedAfter = true;
-        } else if (currentNodeRequiresNewline && !nextLineEmpty) {
-            parts.push(hardline);
-            previousNodeHadNewlineAddedAfter = true;
-        } else if (
-            nextLineEmpty &&
-            !nextHasSyntheticDoc &&
-            !shouldSuppressExtraEmptyLine &&
-            !sanitizedMacroHasExplicitBlankLine
-        ) {
-            parts.push(hardline);
-        }
-    } else if (isTopLevel) {
+    if (isTopLevel) {
         parts.push(hardline);
-    } else {
-        const parentNode = childPath.parent;
-        const trailingProbeIndex =
-            node?.type === "DefineStatement" ||
-            node?.type === "MacroDeclaration"
-                ? nodeEndIndex
-                : nodeEndIndex + 1;
-        const enforceTrailingPadding = shouldAddNewlinesAroundStatement(node);
-        const blockParent =
-            typeof childPath.getParentNode === "function"
-                ? childPath.getParentNode()
-                : childPath.parent;
-        const constructorAncestor =
-            typeof childPath.getParentNode === "function"
-                ? childPath.getParentNode(1)
-                : (blockParent?.parent ?? null);
-        const isConstructorBlock =
-            blockParent?.type === "BlockStatement" &&
-            constructorAncestor?.type === "ConstructorDeclaration";
-        const shouldPreserveConstructorStaticPadding =
-            isStaticDeclaration && hasFunctionInitializer && isConstructorBlock;
-        let shouldPreserveTrailingBlankLine = false;
-        const hasAttachedDocComment =
-            node?.[DOC_COMMENT_OUTPUT_FLAG] === true ||
-            (Array.isArray(node?.docComments) && node.docComments.length > 0) ||
-            Boolean(syntheticDocComment);
-        const requiresTrailingPadding =
-            enforceTrailingPadding &&
-            parentNode?.type === "BlockStatement" &&
-            !suppressFollowingEmptyLine;
+        return false;
+    }
 
-        if (
-            parentNode?.type === "BlockStatement" &&
-            !suppressFollowingEmptyLine
+    return handleTerminalTrailingSpacing({
+        childPath,
+        parts,
+        node,
+        options,
+        hardline,
+        nodeEndIndex,
+        suppressFollowingEmptyLine,
+        syntheticDocComment,
+        isStaticDeclaration,
+        hasFunctionInitializer,
+        containerNode
+    });
+}
+
+function handleIntermediateTrailingSpacing({
+    parts,
+    statements,
+    index,
+    node,
+    options,
+    syntheticDocByNode,
+    hardline,
+    currentNodeRequiresNewline,
+    nodeEndIndex,
+    suppressFollowingEmptyLine
+}) {
+    let previousNodeHadNewlineAddedAfter = false;
+    const nextNode = statements ? statements[index + 1] : null;
+    const shouldSuppressExtraEmptyLine = shouldSuppressEmptyLineBetween(
+        node,
+        nextNode
+    );
+    const nextNodeIsMacro = Core.isMacroLikeStatement(nextNode);
+    const shouldSkipStandardHardline =
+        shouldSuppressExtraEmptyLine &&
+        Core.isMacroLikeStatement(node) &&
+        !nextNodeIsMacro;
+
+    if (!shouldSkipStandardHardline) {
+        parts.push(hardline);
+    }
+
+    const nextHasSyntheticDoc = nextNode
+        ? syntheticDocByNode.has(nextNode)
+        : false;
+    const nextLineProbeIndex =
+        node?.type === "DefineStatement" ||
+        node?.type === "MacroDeclaration"
+            ? nodeEndIndex
+            : nodeEndIndex + 1;
+
+    const suppressLeadingEmptyLine =
+        nextNode?._featherSuppressLeadingEmptyLine === true;
+    const forceFollowingEmptyLine =
+        node?._featherForceFollowingEmptyLine === true ||
+        node?._gmlForceFollowingEmptyLine === true;
+
+    const nextLineEmpty =
+        suppressFollowingEmptyLine || suppressLeadingEmptyLine
+            ? false
+            : isNextLineEmpty(options.originalText, nextLineProbeIndex);
+
+    const isSanitizedMacro =
+        node?.type === "MacroDeclaration" &&
+        typeof node._featherMacroText === STRING_TYPE;
+    const sanitizedMacroHasExplicitBlankLine =
+        isSanitizedMacro &&
+        macroTextHasExplicitTrailingBlankLine(node._featherMacroText);
+
+    const isMacroLikeNode = Core.isMacroLikeStatement(node);
+    const isDefineMacroReplacement =
+        Core.getNormalizedDefineReplacementDirective(node) ===
+        Core.DefineReplacementDirective.MACRO;
+    const shouldForceMacroPadding =
+        isMacroLikeNode &&
+        !isDefineMacroReplacement &&
+        !nextNodeIsMacro &&
+        !nextLineEmpty &&
+        !shouldSuppressExtraEmptyLine &&
+        !sanitizedMacroHasExplicitBlankLine;
+    const shouldForceEarlyReturnPadding =
+        !suppressFollowingEmptyLine &&
+        shouldForceBlankLineBetweenReturnPaths(node, nextNode);
+
+    const shouldAddForcedPadding =
+        shouldForceMacroPadding ||
+        (forceFollowingEmptyLine &&
+            !nextLineEmpty &&
+            !shouldSuppressExtraEmptyLine &&
+            !sanitizedMacroHasExplicitBlankLine) ||
+        (shouldForceEarlyReturnPadding &&
+            !nextLineEmpty &&
+            !shouldSuppressExtraEmptyLine &&
+            !sanitizedMacroHasExplicitBlankLine);
+
+    const shouldAddPaddingWithNewline =
+        shouldAddForcedPadding ||
+        (currentNodeRequiresNewline && !nextLineEmpty);
+
+    if (shouldAddPaddingWithNewline) {
+        parts.push(hardline);
+        previousNodeHadNewlineAddedAfter = true;
+    } else if (
+        nextLineEmpty &&
+        !nextHasSyntheticDoc &&
+        !shouldSuppressExtraEmptyLine &&
+        !sanitizedMacroHasExplicitBlankLine
+    ) {
+        parts.push(hardline);
+    }
+
+    return previousNodeHadNewlineAddedAfter;
+}
+
+function handleTerminalTrailingSpacing({
+    childPath,
+    parts,
+    node,
+    options,
+    hardline,
+    nodeEndIndex,
+    suppressFollowingEmptyLine,
+    syntheticDocComment,
+    isStaticDeclaration,
+    hasFunctionInitializer,
+    containerNode
+}) {
+    let previousNodeHadNewlineAddedAfter = false;
+    const parentNode = childPath.parent;
+    const trailingProbeIndex =
+        node?.type === "DefineStatement" ||
+        node?.type === "MacroDeclaration"
+            ? nodeEndIndex
+            : nodeEndIndex + 1;
+    const enforceTrailingPadding = shouldAddNewlinesAroundStatement(node);
+    const blockParent =
+        typeof childPath.getParentNode === "function"
+            ? childPath.getParentNode()
+            : childPath.parent;
+    const constructorAncestor =
+        typeof childPath.getParentNode === "function"
+            ? childPath.getParentNode(1)
+            : (blockParent?.parent ?? null);
+    const isConstructorBlock =
+        blockParent?.type === "BlockStatement" &&
+        constructorAncestor?.type === "ConstructorDeclaration";
+    const shouldPreserveConstructorStaticPadding =
+        isStaticDeclaration && hasFunctionInitializer && isConstructorBlock;
+    let shouldPreserveTrailingBlankLine = false;
+    const hasAttachedDocComment =
+        node?.[DOC_COMMENT_OUTPUT_FLAG] === true ||
+        (Array.isArray(node?.docComments) && node.docComments.length > 0) ||
+        Boolean(syntheticDocComment);
+    const requiresTrailingPadding =
+        enforceTrailingPadding &&
+        parentNode?.type === "BlockStatement" &&
+        !suppressFollowingEmptyLine;
+
+    if (
+        parentNode?.type === "BlockStatement" &&
+        !suppressFollowingEmptyLine
+    ) {
+        const originalText =
+            typeof options.originalText === STRING_TYPE
+                ? options.originalText
+                : null;
+        const trailingBlankLineCount =
+            originalText === null
+                ? 0
+                : countTrailingBlankLines(originalText, trailingProbeIndex);
+        const hasExplicitTrailingBlankLine = trailingBlankLineCount > 0;
+        const shouldCollapseExcessBlankLines = trailingBlankLineCount > 1;
+
+        if (enforceTrailingPadding) {
+            shouldPreserveTrailingBlankLine =
+                node?.type === "FunctionDeclaration"
+                    ? true
+                    : hasExplicitTrailingBlankLine;
+        } else if (
+            shouldPreserveConstructorStaticPadding &&
+            hasExplicitTrailingBlankLine &&
+            !shouldCollapseExcessBlankLines
         ) {
-            const originalText =
-                typeof options.originalText === STRING_TYPE
-                    ? options.originalText
-                    : null;
-            const trailingBlankLineCount =
-                originalText === null
-                    ? 0
-                    : countTrailingBlankLines(originalText, trailingProbeIndex);
-            const hasExplicitTrailingBlankLine = trailingBlankLineCount > 0;
-            const shouldCollapseExcessBlankLines = trailingBlankLineCount > 1;
+            shouldPreserveTrailingBlankLine = true;
+        } else if (hasExplicitTrailingBlankLine && originalText !== null) {
+            const textLength = originalText.length;
+            let scanIndex = trailingProbeIndex;
+            let nextCharacter = null;
 
-            if (enforceTrailingPadding) {
-                shouldPreserveTrailingBlankLine =
-                    node?.type === "FunctionDeclaration"
-                        ? true
-                        : hasExplicitTrailingBlankLine;
-            } else if (
-                shouldPreserveConstructorStaticPadding &&
-                hasExplicitTrailingBlankLine &&
-                !shouldCollapseExcessBlankLines
-            ) {
-                shouldPreserveTrailingBlankLine = true;
-            } else if (hasExplicitTrailingBlankLine && originalText !== null) {
-                const textLength = originalText.length;
-                let scanIndex = trailingProbeIndex;
-                let nextCharacter = null;
+            while (scanIndex < textLength) {
+                nextCharacter = getNextNonWhitespaceCharacter(
+                    originalText,
+                    scanIndex
+                );
 
-                while (scanIndex < textLength) {
-                    nextCharacter = getNextNonWhitespaceCharacter(
-                        originalText,
-                        scanIndex
-                    );
-
-                    if (nextCharacter === ";") {
-                        if (hasFunctionInitializer) {
-                            break;
-                        }
-
-                        const semicolonIndex = originalText.indexOf(
-                            ";",
-                            scanIndex
-                        );
-                        if (semicolonIndex === -1) {
-                            nextCharacter = null;
-                            break;
-                        }
-
-                        scanIndex = semicolonIndex + 1;
-                        continue;
+                if (nextCharacter === ";") {
+                    if (hasFunctionInitializer) {
+                        break;
                     }
 
-                    break;
+                    const semicolonIndex = originalText.indexOf(
+                        ";",
+                        scanIndex
+                    );
+                    if (semicolonIndex === -1) {
+                        nextCharacter = null;
+                        break;
+                    }
+
+                    scanIndex = semicolonIndex + 1;
+                    continue;
                 }
 
-                const shouldPreserve =
-                    nextCharacter === null ? false : nextCharacter !== "}";
-
-                shouldPreserveTrailingBlankLine = shouldCollapseExcessBlankLines
-                    ? false
-                    : shouldPreserve;
+                break;
             }
-        }
 
-        if (!shouldPreserveTrailingBlankLine && !suppressFollowingEmptyLine) {
-            if (
-                shouldForceTrailingBlankLineForNestedFunction(
-                    node,
-                    parentNode,
-                    containerNode
-                )
-            ) {
+            const shouldPreserve =
+                nextCharacter === null ? false : nextCharacter !== "}";
+
+            shouldPreserveTrailingBlankLine = shouldCollapseExcessBlankLines
+                ? false
+                : shouldPreserve;
+        }
+    }
+
+    if (!shouldPreserveTrailingBlankLine && !suppressFollowingEmptyLine) {
+        if (
+            shouldForceTrailingBlankLineForNestedFunction(
+                node,
+                parentNode,
+                containerNode
+            )
+        ) {
+            shouldPreserveTrailingBlankLine = true;
+        } else if (
+            hasAttachedDocComment &&
+            blockParent?.type === "BlockStatement"
+        ) {
+            const isFunctionLike = Core.isFunctionLikeDeclaration(node);
+            if (isFunctionLike) {
                 shouldPreserveTrailingBlankLine = true;
-            } else if (
-                hasAttachedDocComment &&
-                blockParent?.type === "BlockStatement"
-            ) {
-                const isFunctionLike = Core.isFunctionLikeDeclaration(node);
-                if (isFunctionLike) {
-                    shouldPreserveTrailingBlankLine = true;
-                }
             }
         }
+    }
 
-        if (shouldPreserveTrailingBlankLine) {
-            parts.push(hardline);
-            previousNodeHadNewlineAddedAfter = true;
-        } else if (requiresTrailingPadding) {
-            parts.push(hardline);
-            previousNodeHadNewlineAddedAfter = true;
-        }
+    if (shouldPreserveTrailingBlankLine || requiresTrailingPadding) {
+        parts.push(hardline);
+        previousNodeHadNewlineAddedAfter = true;
     }
 
     return previousNodeHadNewlineAddedAfter;

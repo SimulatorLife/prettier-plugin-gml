@@ -608,6 +608,43 @@ function appendDocumentedParamLines(
     implicitDocEntryByIndex: Map<number, ImplicitArgumentDocEntry>,
     implicitArgumentDocNames: readonly ImplicitArgumentDocEntry[]
 ) {
+    appendExplicitParameterDocLines({
+        lines,
+        node,
+        options,
+        documentedParamNames,
+        orderedParamMetadata,
+        paramMetadataByCanonical,
+        implicitDocEntryByIndex
+    });
+    appendImplicitArgumentDocLines({
+        lines,
+        node,
+        documentedParamNames,
+        orderedParamMetadata,
+        implicitArgumentDocNames
+    });
+}
+
+type AppendExplicitParameterDocLinesParams = {
+    lines: string[];
+    node: any;
+    options: SyntheticDocGenerationOptions;
+    documentedParamNames: Set<unknown>;
+    orderedParamMetadata: readonly DocMeta[];
+    paramMetadataByCanonical: Map<string, DocMeta>;
+    implicitDocEntryByIndex: Map<number, ImplicitArgumentDocEntry>;
+};
+
+function appendExplicitParameterDocLines({
+    lines,
+    node,
+    options,
+    documentedParamNames,
+    orderedParamMetadata,
+    paramMetadataByCanonical,
+    implicitDocEntryByIndex
+}: AppendExplicitParameterDocLinesParams) {
     for (const [paramIndex, param] of (node.params ?? []).entries()) {
         const paramInfo = getParameterDocInfo(param, node, options);
         if (!paramInfo || !paramInfo.name) {
@@ -740,7 +777,23 @@ function appendDocumentedParamLines(
             lines.push(newLine);
         }
     }
+}
 
+type AppendImplicitArgumentDocLinesParams = {
+    lines: string[];
+    node: any;
+    documentedParamNames: Set<unknown>;
+    orderedParamMetadata: readonly DocMeta[];
+    implicitArgumentDocNames: readonly ImplicitArgumentDocEntry[];
+};
+
+function appendImplicitArgumentDocLines({
+    lines,
+    node,
+    documentedParamNames,
+    orderedParamMetadata,
+    implicitArgumentDocNames
+}: AppendImplicitArgumentDocLinesParams) {
     for (const entry of implicitArgumentDocNames) {
         if (!entry || entry._suppressDocLine) {
             continue;
