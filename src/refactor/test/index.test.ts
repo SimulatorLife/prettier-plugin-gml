@@ -2622,22 +2622,31 @@ void test("computeHotReloadCascade traces full circular dependency path", async 
         getDependents: async (symbolIds: Array<string>) => {
             const id = symbolIds[0];
             switch (id) {
-            case "gml/script/scr_a": {
-                return [
-                    { symbolId: "gml/script/scr_b", filePath: "scripts/b.gml" }
-                ];
-            }
-            case "gml/script/scr_b": {
-                return [
-                    { symbolId: "gml/script/scr_c", filePath: "scripts/c.gml" }
-                ];
-            }
-            case "gml/script/scr_c": {
-                return [
-                    { symbolId: "gml/script/scr_a", filePath: "scripts/a.gml" }
-                ];
-            }
-            // No default
+                case "gml/script/scr_a": {
+                    return [
+                        {
+                            symbolId: "gml/script/scr_b",
+                            filePath: "scripts/b.gml"
+                        }
+                    ];
+                }
+                case "gml/script/scr_b": {
+                    return [
+                        {
+                            symbolId: "gml/script/scr_c",
+                            filePath: "scripts/c.gml"
+                        }
+                    ];
+                }
+                case "gml/script/scr_c": {
+                    return [
+                        {
+                            symbolId: "gml/script/scr_a",
+                            filePath: "scripts/a.gml"
+                        }
+                    ];
+                }
+                // No default
             }
             return [];
         }
@@ -2672,27 +2681,39 @@ void test("computeHotReloadCascade handles multiple separate cycles", async () =
         getDependents: async (symbolIds: Array<string>) => {
             const id = symbolIds[0];
             switch (id) {
-            case "gml/script/scr_a": {
-                return [
-                    { symbolId: "gml/script/scr_b", filePath: "scripts/b.gml" }
-                ];
-            }
-            case "gml/script/scr_b": {
-                return [
-                    { symbolId: "gml/script/scr_a", filePath: "scripts/a.gml" }
-                ];
-            }
-            case "gml/script/scr_x": {
-                return [
-                    { symbolId: "gml/script/scr_y", filePath: "scripts/y.gml" }
-                ];
-            }
-            case "gml/script/scr_y": {
-                return [
-                    { symbolId: "gml/script/scr_x", filePath: "scripts/x.gml" }
-                ];
-            }
-            // No default
+                case "gml/script/scr_a": {
+                    return [
+                        {
+                            symbolId: "gml/script/scr_b",
+                            filePath: "scripts/b.gml"
+                        }
+                    ];
+                }
+                case "gml/script/scr_b": {
+                    return [
+                        {
+                            symbolId: "gml/script/scr_a",
+                            filePath: "scripts/a.gml"
+                        }
+                    ];
+                }
+                case "gml/script/scr_x": {
+                    return [
+                        {
+                            symbolId: "gml/script/scr_y",
+                            filePath: "scripts/y.gml"
+                        }
+                    ];
+                }
+                case "gml/script/scr_y": {
+                    return [
+                        {
+                            symbolId: "gml/script/scr_x",
+                            filePath: "scripts/x.gml"
+                        }
+                    ];
+                }
+                // No default
             }
             return [];
         }

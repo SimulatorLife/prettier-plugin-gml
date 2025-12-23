@@ -241,7 +241,9 @@ export function computeSyntheticFunctionDocLines(
             : []
     ) as DocMeta[];
 
-    const orderedParamMetadata = metadata.filter((meta) => meta.tag === "param");
+    const orderedParamMetadata = metadata.filter(
+        (meta) => meta.tag === "param"
+    );
 
     const hasReturnsTag = metadata.some((meta) => meta.tag === "returns");
     const hasOverrideTag = metadata.some((meta) => meta.tag === "override");
@@ -398,7 +400,8 @@ function computeInitialSuppressedCanonicals(
 
                 const isGenericArgumentName =
                     typeof paramIdentifierName === STRING_TYPE &&
-                    getArgumentIndexFromIdentifier(paramIdentifierName) !== null;
+                    getArgumentIndexFromIdentifier(paramIdentifierName) !==
+                        null;
 
                 const canonicalOrdinalMatchesParam =
                     Boolean(canonicalOrdinal) &&
@@ -433,12 +436,11 @@ function computeInitialSuppressedCanonicals(
                                     node,
                                     options
                                 );
-                                const candidateCanonical =
-                                    candidateInfo?.name
-                                        ? getCanonicalParamNameFromText(
-                                              candidateInfo.name
-                                          )
-                                        : null;
+                                const candidateCanonical = candidateInfo?.name
+                                    ? getCanonicalParamNameFromText(
+                                          candidateInfo.name
+                                      )
+                                    : null;
 
                                 return candidateCanonical === canonicalOrdinal;
                             }
@@ -456,11 +458,7 @@ function computeInitialSuppressedCanonicals(
 
     try {
         const refInfo = gatherImplicitArgumentReferences(node);
-        if (
-            refInfo &&
-            refInfo.aliasByIndex &&
-            refInfo.aliasByIndex.size > 0
-        ) {
+        if (refInfo && refInfo.aliasByIndex && refInfo.aliasByIndex.size > 0) {
             suppressAliasCanonicalOverrides(
                 refInfo.aliasByIndex,
                 documentedParamNames,
@@ -640,8 +638,7 @@ function appendDocumentedParamLines(
             implicitDocEntry &&
             typeof implicitDocEntry.name === STRING_TYPE &&
             implicitDocEntry.name &&
-            implicitDocEntry.canonical !==
-                implicitDocEntry.fallbackCanonical
+            implicitDocEntry.canonical !== implicitDocEntry.fallbackCanonical
                 ? implicitDocEntry.name
                 : null;
         const canonicalParamName =
@@ -882,28 +879,24 @@ function handleOrdinalDocPreferences({
         node &&
         !paramMetadataByCanonical.has(canonicalParamName)
     ) {
-        const canonicalOrdinalMatchesDeclaredParam =
-            Array.isArray(node?.params)
-                ? node.params.some((candidate: any, candidateIndex: number) => {
-                      if (candidateIndex === paramIndex) {
-                          return false;
-                      }
+        const canonicalOrdinalMatchesDeclaredParam = Array.isArray(node?.params)
+            ? node.params.some((candidate: any, candidateIndex: number) => {
+                  if (candidateIndex === paramIndex) {
+                      return false;
+                  }
 
-                      const candidateInfo = getParameterDocInfo(
-                          candidate,
-                          node,
-                          options
-                      );
-                      const candidateCanonical =
-                          candidateInfo?.name
-                              ? getCanonicalParamNameFromText(
-                                    candidateInfo.name
-                                )
-                              : null;
+                  const candidateInfo = getParameterDocInfo(
+                      candidate,
+                      node,
+                      options
+                  );
+                  const candidateCanonical = candidateInfo?.name
+                      ? getCanonicalParamNameFromText(candidateInfo.name)
+                      : null;
 
-                      return candidateCanonical === canonicalOrdinal;
-                  })
-                : false;
+                  return candidateCanonical === canonicalOrdinal;
+              })
+            : false;
 
         if (!canonicalOrdinalMatchesDeclaredParam) {
             let suppressedCanonicals =
@@ -1000,11 +993,9 @@ function computeOptionalDocState({
 }: OptionalDocStateParams) {
     const optionalOverrideFlag = paramInfo?.optionalOverride === true;
     const defaultIsUndefined =
-        param?.type === "DefaultParameter" &&
-        isUndefinedSentinel(param.right);
+        param?.type === "DefaultParameter" && isUndefinedSentinel(param.right);
     const shouldOmitUndefinedDefault =
-        defaultIsUndefined &&
-        shouldOmitUndefinedDefaultForFunctionNode(node);
+        defaultIsUndefined && shouldOmitUndefinedDefaultForFunctionNode(node);
     const hasExistingMetadata = Boolean(existingMetadata);
     const hasOptionalDocName =
         param?.type === "DefaultParameter" &&
@@ -1015,8 +1006,7 @@ function computeOptionalDocState({
         typeof parameterSourceText === STRING_TYPE &&
         parameterSourceText.includes("=");
 
-    const explicitOptionalMarker =
-        param?._featherOptionalParameter === true;
+    const explicitOptionalMarker = param?._featherOptionalParameter === true;
 
     let shouldMarkOptional =
         Boolean(paramInfo.optional) ||

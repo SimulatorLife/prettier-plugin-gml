@@ -3034,8 +3034,7 @@ function applyTrailingSpacing({
             node?.type === "MacroDeclaration"
                 ? nodeEndIndex
                 : nodeEndIndex + 1;
-        const enforceTrailingPadding =
-            shouldAddNewlinesAroundStatement(node);
+        const enforceTrailingPadding = shouldAddNewlinesAroundStatement(node);
         const blockParent =
             typeof childPath.getParentNode === "function"
                 ? childPath.getParentNode()
@@ -3048,14 +3047,11 @@ function applyTrailingSpacing({
             blockParent?.type === "BlockStatement" &&
             constructorAncestor?.type === "ConstructorDeclaration";
         const shouldPreserveConstructorStaticPadding =
-            isStaticDeclaration &&
-            hasFunctionInitializer &&
-            isConstructorBlock;
+            isStaticDeclaration && hasFunctionInitializer && isConstructorBlock;
         let shouldPreserveTrailingBlankLine = false;
         const hasAttachedDocComment =
             node?.[DOC_COMMENT_OUTPUT_FLAG] === true ||
-            (Array.isArray(node?.docComments) &&
-                node.docComments.length > 0) ||
+            (Array.isArray(node?.docComments) && node.docComments.length > 0) ||
             Boolean(syntheticDocComment);
         const requiresTrailingPadding =
             enforceTrailingPadding &&
@@ -3073,13 +3069,9 @@ function applyTrailingSpacing({
             const trailingBlankLineCount =
                 originalText === null
                     ? 0
-                    : countTrailingBlankLines(
-                          originalText,
-                          trailingProbeIndex
-                      );
+                    : countTrailingBlankLines(originalText, trailingProbeIndex);
             const hasExplicitTrailingBlankLine = trailingBlankLineCount > 0;
-            const shouldCollapseExcessBlankLines =
-                trailingBlankLineCount > 1;
+            const shouldCollapseExcessBlankLines = trailingBlankLineCount > 1;
 
             if (enforceTrailingPadding) {
                 shouldPreserveTrailingBlankLine =
@@ -3092,10 +3084,7 @@ function applyTrailingSpacing({
                 !shouldCollapseExcessBlankLines
             ) {
                 shouldPreserveTrailingBlankLine = true;
-            } else if (
-                hasExplicitTrailingBlankLine &&
-                originalText !== null
-            ) {
+            } else if (hasExplicitTrailingBlankLine && originalText !== null) {
                 const textLength = originalText.length;
                 let scanIndex = trailingProbeIndex;
                 let nextCharacter = null;
@@ -3130,15 +3119,13 @@ function applyTrailingSpacing({
                 const shouldPreserve =
                     nextCharacter === null ? false : nextCharacter !== "}";
 
-                shouldPreserveTrailingBlankLine =
-                    shouldCollapseExcessBlankLines ? false : shouldPreserve;
+                shouldPreserveTrailingBlankLine = shouldCollapseExcessBlankLines
+                    ? false
+                    : shouldPreserve;
             }
         }
 
-        if (
-            !shouldPreserveTrailingBlankLine &&
-            !suppressFollowingEmptyLine
-        ) {
+        if (!shouldPreserveTrailingBlankLine && !suppressFollowingEmptyLine) {
             if (
                 shouldForceTrailingBlankLineForNestedFunction(
                     node,
