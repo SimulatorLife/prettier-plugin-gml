@@ -315,12 +315,23 @@ function validatePatchCandidate(
     incoming: unknown,
     onError?: WebSocketClientOptions["onError"]
 ): PatchValidationResult {
-    if (
-        !incoming ||
-        typeof incoming !== "object" ||
-        !("kind" in incoming) ||
-        !("id" in incoming)
-    ) {
+    if (!incoming || typeof incoming !== "object") {
+        reportMalformedPatch(
+            onError,
+            "Received non-object patch payload; skipping message"
+        );
+        return { status: "skip" };
+    }
+
+    const missingFields = resolveMissingPatchFields(
+        incoming as Record<string, unknown>
+    );
+    if (missingFields.length > 0) {
+        const missingList = missingFields.join(", ");
+        reportMalformedPatch(
+            onError,
+            `Patch payload missing required field${missingFields.length > 1 ? "s" : ""}: ${missingList}`
+        );
         return { status: "skip" };
     }
 
@@ -458,4 +469,32 @@ function resolveRuntimeErrorMessage(error: unknown): string {
     }
 
     return "Unknown error";
+}
+
+function resolveMissingPatchFields(
+    candidate: Record<string, unknown>
+): Array<"kind" | "id"> {
+    const missing: Array<"kind" | "id"> = [];
+
+    if (!("kind" in candidate)) {
+        missing.push("kind");
+    }
+
+    if (!("id" in candidate)) {
+        missing.push("id");
+    }
+
+    return missing;
+}
+
+function reportMalformedPatch(
+    onError: WebSocketClientOptions["onError"] | undefined,
+    message: string
+): void {
+    if (!onError) {
+        return;
+    }
+
+    const error = createRuntimePatchError(message);
+    onError(error, "patch");
 }

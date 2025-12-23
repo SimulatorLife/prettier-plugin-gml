@@ -523,3 +523,39 @@ void test("WebSocket send works when connected", async () => {
     client.disconnect();
     delete globalWithWebSocket.WebSocket;
 });
+
+void test("WebSocket client reports malformed patch payloads", async () => {
+    const wrapper = RuntimeWrapper.createRuntimeWrapper();
+    const errors: Array<{
+        message: string;
+        context: "connection" | "patch";
+    }> = [];
+
+    globalWithWebSocket.WebSocket = MockWebSocket;
+
+    const client = RuntimeWrapper.createWebSocketClient({
+        wrapper,
+        onError: (error, context) => {
+            errors.push({ message: error.message, context });
+        },
+        autoConnect: true
+    });
+
+    await wait(50);
+
+    const ws = client.getWebSocket();
+    assert.ok(ws, "WebSocket should be available");
+    const mockSocket = ws as MockWebSocket;
+
+    mockSocket.simulateMessage(JSON.stringify({ id: "script:missing_kind" }));
+
+    await wait(10);
+
+    assert.strictEqual(errors.length, 1);
+    assert.strictEqual(errors[0]?.context, "patch");
+    assert.match(errors[0]?.message ?? "", /missing required field/i);
+    assert.strictEqual(wrapper.hasScript("script:missing_kind"), false);
+
+    client.disconnect();
+    delete globalWithWebSocket.WebSocket;
+});
