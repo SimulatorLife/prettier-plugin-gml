@@ -3,6 +3,7 @@ import type {
     MutableDocCommentLines
 } from "../../comment-utils.js";
 import { coercePositiveIntegerOption } from "../../../utils/numeric-options.js";
+import { clamp } from "../../../utils/number.js";
 import {
     findLastIndex,
     isNonEmptyArray,
@@ -1496,7 +1497,7 @@ function finalizeDescriptionBlocks({
             }
 
             const available = Math.max(wrapWidth - prefix.length, 16);
-            const continuationAvailable = Math.max(Math.min(available, 62), 16);
+            const continuationAvailable = clamp(available, 16, 62);
             const segments = wrapSegments(
                 descriptionText,
                 available,
@@ -1628,7 +1629,7 @@ function finalizeDescriptionBlocks({
             }
 
             const available = Math.max(wrapWidth - prefix.length, 16);
-            const continuationAvailable = Math.max(Math.min(available, 62), 16);
+            const continuationAvailable = clamp(available, 16, 62);
             const segments = wrapSegments(
                 descriptionText,
                 available,

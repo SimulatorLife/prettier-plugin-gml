@@ -44,6 +44,23 @@ export function toNormalizedInteger(value?: unknown) {
     return Object.is(normalized, -0) ? 0 : normalized;
 }
 
+/**
+ * Constrain a numeric value to the inclusive range `[min, max]`.
+ *
+ * When `value` is less than `min`, returns `min`. When `value` exceeds `max`,
+ * returns `max`. Otherwise returns `value` unchanged. Consolidates the
+ * `Math.min(max, Math.max(min, value))` pattern that appears across the
+ * codebase into a single, well-named function.
+ *
+ * @param {number} value Numeric value to constrain.
+ * @param {number} min Lower bound (inclusive).
+ * @param {number} max Upper bound (inclusive).
+ * @returns {number} The clamped value within `[min, max]`.
+ */
+export function clamp(value: number, min: number, max: number): number {
+    return Math.min(max, Math.max(min, value));
+}
+
 const APPROXIMATE_EQUALITY_SCALE_MULTIPLIER = 4;
 
 /**
