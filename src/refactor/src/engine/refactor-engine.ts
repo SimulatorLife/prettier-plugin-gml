@@ -1800,7 +1800,11 @@ export class RefactorEngine {
                                 newDistance,
                                 reason
                             );
-                            if (result && result.cycleDetected) {
+                            if (
+                                result &&
+                                result.cycleDetected &&
+                                result.cycle
+                            ) {
                                 circular.push(result.cycle);
                             }
                         }
