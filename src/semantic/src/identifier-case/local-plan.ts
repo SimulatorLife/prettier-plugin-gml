@@ -33,6 +33,7 @@ type IdentifierCaseDeclaration = {
     start?: number | null;
     uniqueId?: string | null;
     classifications?: string[] | null;
+    isBuiltIn?: boolean;
 };
 
 type IdentifierCaseEntry = {
@@ -44,7 +45,12 @@ type IdentifierCaseEntry = {
     declarationKinds?: Array<string> | null;
     filePath?: string | null;
     uniqueId?: string | null;
+    isBuiltIn?: boolean;
+    start?: number | null;
 };
+
+type IdentifierCaseStyleValue =
+    (typeof IdentifierCaseStyle)[keyof typeof IdentifierCaseStyle];
 
 // Diagnostic counter used during triage to tag generated rename maps so they
 // can be correlated across the prepare->capture->attach->apply lifecycle in
@@ -917,95 +923,290 @@ export async function prepareIdentifierCasePlan(options) {
     }
 
     if (!fileRecord) {
-        try {
-            if (
-                renameMap &&
-                typeof Object.defineProperty === "function" &&
-                !Object.hasOwn(renameMap, "__dbgId")
-            ) {
-                Object.defineProperty(renameMap, "__dbgId", {
-                    value: `rm-${DBG_RENAME_MAP_COUNTER++}`,
-                    enumerable: false,
-                    configurable: true,
-                    writable: false
-                });
-            }
-        } catch {
-            /* ignore */
-        }
-
-        // Only persist a rename map when it contains at least one entry.
-        // Avoid writing an empty Map in no-op planning paths (for example
-        // when project discovery is skipped) because it would overwrite a
-        // previously-captured non-empty plan and cause lookups to miss at
-        // print time. applyIdentifierCasePlanSnapshot already guards this
-        // at snapshot-apply time; keep the same invariant here to prevent
-        // transient empty maps from being observed by consumers.
-        if (
-            renameMap &&
-            typeof renameMap.size === "number" &&
-            renameMap.size > 0
-        ) {
-            setIdentifierCaseOption(
-                options,
-                "__identifierCaseRenameMap",
-                renameMap
-            );
-        }
-        if (assetRenames.length > 0) {
-            setIdentifierCaseOption(
-                options,
-                "__identifierCaseAssetRenames",
-                assetRenames
-            );
-        }
-
-        const metricsReport = finalizeMetrics({
-            resolvedFile: Boolean(fileRecord),
-            relativeFilePath
-        });
-
-        if (operations.length === 0 && conflicts.length === 0) {
-            // Leave `__identifierCaseRenamePlan` unset when there are no planned
-            // edits or conflicts. Downstream reporters treat the existence of a
-            // plan as a signal that fresh rename data is available; writing an
-            // empty object would still be truthy, causing editors and CLI dry
-            // runs to emit "empty" summaries and replace whichever snapshot was
-            // provided through the dry-run context. Keeping the option untouched
-            // preserves that snapshot while the metrics +
-            // `__identifierCasePlanGeneratedInternally` flag still communicate
-            // that planning finished. See docs/identifier-case-reference.md for
-            // how consumers stream rename plans across tooling boundaries.
-        } else {
-            setIdentifierCaseOption(options, "__identifierCaseRenamePlan", {
-                operations
-            });
-            setIdentifierCaseOption(
-                options,
-                "__identifierCaseConflicts",
-                conflicts
-            );
-        }
-
-        applyAssetRenamesIfEligible({
+        finalizePlanWithoutFileRecord({
             options,
             projectIndex,
+            relativeFilePath,
+            renameMap,
+            operations,
+            conflicts,
             assetRenames,
             assetConflicts,
-            metrics
+            metrics,
+            finalizeMetrics
         });
+        return;
+    }
+
+    const appliedCandidates = planLocalCandidatesForFileRecord({
+        fileRecord,
+        projectIndex,
+        relativeFilePath,
+        preservedSet,
+        ignoreMatchers,
+        localStyle,
+        metrics,
+        conflicts
+    });
+
+    registerLocalOperations({
+        appliedCandidates,
+        projectIndex,
+        fileRecord,
+        relativeFilePath,
+        operations,
+        renameMap,
+        metrics
+    });
+
+    // Tag the generated rename map with a debug id to help trace whether
+    // the same Map instance flows through capture/attach/apply or if new
+    // instances are created/overwritten. This metadata is non-enumerable
+    // and purely diagnostic; remove it after triage is complete.
+    try {
+        if (
+            renameMap &&
+            typeof Object.defineProperty === "function" &&
+            !Object.hasOwn(renameMap, "__dbgId")
+        ) {
+            Object.defineProperty(renameMap, "__dbgId", {
+                value: `rm-${DBG_RENAME_MAP_COUNTER++}`,
+                enumerable: false,
+                configurable: true,
+                writable: false
+            });
+        }
+    } catch {
+        /* ignore */
+    }
+
+    setIdentifierCaseOption(options, "__identifierCaseRenameMap", renameMap);
+    try {
+        // console.debug(
+        //     `[DBG] prepareIdentifierCasePlan set renameMap id=${getDebugId(renameMap)} size=${renameMap.size} operations=${operations.length} conflicts=${conflicts.length}`
+        // );
+    } catch {
+        /* ignore */
+    }
+    if (assetRenames.length > 0) {
+        setIdentifierCaseOption(
+            options,
+            "__identifierCaseAssetRenames",
+            assetRenames
+        );
+    }
+
+    if (operations.length === 0 && conflicts.length === 0) {
         setIdentifierCaseOption(
             options,
             "__identifierCasePlanGeneratedInternally",
             true
         );
-        if (options.__identifierCaseRenamePlan) {
-            options.__identifierCaseRenamePlan.metrics = metricsReport;
+        try {
+            // console.debug(
+            //     "[DBG] prepareIdentifierCasePlan set planGenerated=true"
+            // );
+        } catch {
+            /* ignore */
         }
-        return;
+    } else {
+        setIdentifierCaseOption(options, "__identifierCaseRenamePlan", {
+            operations
+        });
+        setIdentifierCaseOption(
+            options,
+            "__identifierCaseConflicts",
+            conflicts
+        );
+        setIdentifierCaseOption(
+            options,
+            "__identifierCasePlanGeneratedInternally",
+            true
+        );
     }
 
+    applyAssetRenamesIfEligible({
+        options,
+        projectIndex,
+        assetRenames,
+        assetConflicts,
+        metrics
+    });
+
+    const metricsReport = finalizeMetrics({
+        resolvedFile: Boolean(fileRecord),
+        relativeFilePath,
+        operationCount: operations.length,
+        conflictCount: conflicts.length,
+        renameEntries:
+            typeof renameMap.size === "number"
+                ? renameMap.size
+                : Core.getIterableSize(renameMap)
+    });
+
+    if (options.__identifierCaseRenamePlan) {
+        options.__identifierCaseRenamePlan.metrics = metricsReport;
+    }
+}
+
+type FinalizePlanWithoutFileRecordParams = {
+    options: any;
+    projectIndex: any;
+    relativeFilePath: string | null;
+    renameMap: Map<any, any>;
+    operations: any[];
+    conflicts: any[];
+    assetRenames: any[];
+    assetConflicts: any[];
+    metrics: any;
+    finalizeMetrics: (metadata?: Record<string, unknown>) => any;
+};
+
+function finalizePlanWithoutFileRecord({
+    options,
+    projectIndex,
+    relativeFilePath,
+    renameMap,
+    operations,
+    conflicts,
+    assetRenames,
+    assetConflicts,
+    metrics,
+    finalizeMetrics
+}: FinalizePlanWithoutFileRecordParams) {
+    try {
+        if (
+            renameMap &&
+            typeof Object.defineProperty === "function" &&
+            !Object.hasOwn(renameMap, "__dbgId")
+        ) {
+            Object.defineProperty(renameMap, "__dbgId", {
+                value: `rm-${DBG_RENAME_MAP_COUNTER++}`,
+                enumerable: false,
+                configurable: true,
+                writable: false
+            });
+        }
+    } catch {
+        /* ignore */
+    }
+
+    if (renameMap && typeof renameMap.size === "number" && renameMap.size > 0) {
+        setIdentifierCaseOption(
+            options,
+            "__identifierCaseRenameMap",
+            renameMap
+        );
+    }
+
+    if (assetRenames.length > 0) {
+        setIdentifierCaseOption(
+            options,
+            "__identifierCaseAssetRenames",
+            assetRenames
+        );
+    }
+
+    const metricsReport = finalizeMetrics({
+        resolvedFile: false,
+        relativeFilePath
+    });
+
+    if (operations.length === 0 && conflicts.length === 0) {
+        // noop
+    } else {
+        setIdentifierCaseOption(options, "__identifierCaseRenamePlan", {
+            operations
+        });
+        setIdentifierCaseOption(
+            options,
+            "__identifierCaseConflicts",
+            conflicts
+        );
+    }
+
+    applyAssetRenamesIfEligible({
+        options,
+        projectIndex,
+        assetRenames,
+        assetConflicts,
+        metrics
+    });
+    setIdentifierCaseOption(
+        options,
+        "__identifierCasePlanGeneratedInternally",
+        true
+    );
+    if (options.__identifierCaseRenamePlan) {
+        options.__identifierCaseRenamePlan.metrics = metricsReport;
+    }
+}
+
+type LocalCandidate = {
+    declaration: IdentifierCaseDeclaration;
+    convertedName: string;
+    references: Array<IdentifierCaseEntry | null>;
+    scopeGroupKey: string;
+};
+
+type PlanLocalCandidatesParams = {
+    fileRecord: IdentifierCaseEntry;
+    projectIndex: any;
+    relativeFilePath: string | null;
+    preservedSet: Set<string>;
+    ignoreMatchers: ReturnType<typeof buildPatternMatchers>;
+    localStyle: IdentifierCaseStyleValue;
+    metrics: any;
+    conflicts: any[];
+};
+
+function planLocalCandidatesForFileRecord({
+    fileRecord,
+    projectIndex,
+    relativeFilePath,
+    preservedSet,
+    ignoreMatchers,
+    localStyle,
+    metrics,
+    conflicts
+}: PlanLocalCandidatesParams): LocalCandidate[] {
+    const existingNamesByScope = collectExistingNamesByScope(
+        fileRecord,
+        projectIndex,
+        metrics
+    );
+    const referencesByScopeAndName = collectReferencesByScopeAndName(
+        fileRecord,
+        projectIndex,
+        relativeFilePath,
+        metrics
+    );
+
+    const activeCandidates = gatherActiveLocalCandidates({
+        fileRecord,
+        projectIndex,
+        relativeFilePath,
+        preservedSet,
+        ignoreMatchers,
+        localStyle,
+        existingNamesByScope,
+        referencesByScopeAndName,
+        metrics,
+        conflicts
+    });
+
+    return resolveLocalCandidateCollisions({
+        activeCandidates,
+        projectIndex,
+        fileRecord,
+        conflicts,
+        metrics
+    });
+}
+
+function collectExistingNamesByScope(fileRecord, projectIndex, metrics) {
     const existingNamesByScope = new Map();
+
     for (const declaration of fileRecord.declarations ?? []) {
         if (!declaration || !declaration.name) {
             continue;
@@ -1022,7 +1223,17 @@ export async function prepareIdentifierCasePlan(options) {
         existingNamesByScope.set(scopeKey, existing);
     }
 
+    return existingNamesByScope;
+}
+
+function collectReferencesByScopeAndName(
+    fileRecord,
+    projectIndex,
+    relativeFilePath,
+    metrics
+) {
     const referencesByScopeAndName = new Map();
+
     for (const reference of fileRecord.references ?? []) {
         if (!reference || reference.isBuiltIn) {
             continue;
@@ -1049,7 +1260,35 @@ export async function prepareIdentifierCasePlan(options) {
         referencesByScopeAndName.set(key, list);
     }
 
-    const activeCandidates = [];
+    return referencesByScopeAndName;
+}
+
+type GatherActiveLocalCandidatesParams = {
+    fileRecord: IdentifierCaseEntry;
+    projectIndex: any;
+    relativeFilePath: string | null;
+    preservedSet: Set<string>;
+    ignoreMatchers: ReturnType<typeof buildPatternMatchers>;
+    localStyle: IdentifierCaseStyleValue;
+    existingNamesByScope: Map<string, Set<string>>;
+    referencesByScopeAndName: Map<string, Array<any>>;
+    metrics: any;
+    conflicts: any[];
+};
+
+function gatherActiveLocalCandidates({
+    fileRecord,
+    projectIndex,
+    relativeFilePath,
+    preservedSet,
+    ignoreMatchers,
+    localStyle,
+    existingNamesByScope,
+    referencesByScopeAndName,
+    metrics,
+    conflicts
+}: GatherActiveLocalCandidatesParams): LocalCandidate[] {
+    const activeCandidates: LocalCandidate[] = [];
 
     for (const declaration of fileRecord.declarations ?? []) {
         if (!declaration || declaration.isBuiltIn) {
@@ -1145,6 +1384,7 @@ export async function prepareIdentifierCasePlan(options) {
             metrics.counters.increment("locals.collisionConflicts");
             continue;
         }
+
         const referenceKey = `${scopeGroupKey}|${declaration.name}`;
         const relatedReferences =
             referencesByScopeAndName.get(referenceKey) ?? [];
@@ -1158,7 +1398,26 @@ export async function prepareIdentifierCasePlan(options) {
         metrics.counters.increment("locals.candidatesAccepted");
     }
 
-    const candidatesByScope = new Map();
+    return activeCandidates;
+}
+
+type ResolveLocalCandidateCollisionsParams = {
+    activeCandidates: LocalCandidate[];
+    projectIndex: any;
+    fileRecord: IdentifierCaseEntry;
+    conflicts: any[];
+    metrics: any;
+};
+
+function resolveLocalCandidateCollisions({
+    activeCandidates,
+    projectIndex,
+    fileRecord,
+    conflicts,
+    metrics
+}: ResolveLocalCandidateCollisionsParams): LocalCandidate[] {
+    const candidatesByScope = new Map<string, Map<string, LocalCandidate[]>>();
+
     for (const candidate of activeCandidates) {
         const scopeCandidates =
             candidatesByScope.get(candidate.scopeGroupKey) ?? new Map();
@@ -1168,7 +1427,7 @@ export async function prepareIdentifierCasePlan(options) {
         candidatesByScope.set(candidate.scopeGroupKey, scopeCandidates);
     }
 
-    const appliedCandidates = [];
+    const appliedCandidates: LocalCandidate[] = [];
     for (const [, nameMap] of candidatesByScope.entries()) {
         for (const [convertedName, groupedCandidates] of nameMap.entries()) {
             if (groupedCandidates.length > 1) {
@@ -1202,6 +1461,28 @@ export async function prepareIdentifierCasePlan(options) {
         }
     }
 
+    return appliedCandidates;
+}
+
+type RegisterLocalOperationsParams = {
+    appliedCandidates: LocalCandidate[];
+    projectIndex: any;
+    fileRecord: IdentifierCaseEntry;
+    relativeFilePath: string | null;
+    operations: any[];
+    renameMap: Map<any, any>;
+    metrics: any;
+};
+
+function registerLocalOperations({
+    appliedCandidates,
+    projectIndex,
+    fileRecord,
+    relativeFilePath,
+    operations,
+    renameMap,
+    metrics
+}: RegisterLocalOperationsParams) {
     for (const candidate of appliedCandidates) {
         metrics.counters.increment("locals.operations", 1);
         const { declaration, convertedName, references } = candidate;
@@ -1247,95 +1528,6 @@ export async function prepareIdentifierCasePlan(options) {
                 metrics.counters.increment("locals.renameMapEntries");
             }
         }
-    }
-
-    // Tag the generated rename map with a debug id to help trace whether
-    // the same Map instance flows through capture/attach/apply or if new
-    // instances are created/overwritten. This metadata is non-enumerable
-    // and purely diagnostic; remove it after triage is complete.
-    try {
-        if (
-            renameMap &&
-            typeof Object.defineProperty === "function" &&
-            !Object.hasOwn(renameMap, "__dbgId")
-        ) {
-            Object.defineProperty(renameMap, "__dbgId", {
-                value: `rm-${DBG_RENAME_MAP_COUNTER++}`,
-                enumerable: false,
-                configurable: true,
-                writable: false
-            });
-        }
-    } catch {
-        /* ignore */
-    }
-
-    setIdentifierCaseOption(options, "__identifierCaseRenameMap", renameMap);
-    try {
-        // console.debug(
-        //     `[DBG] prepareIdentifierCasePlan set renameMap id=${getDebugId(renameMap)} size=${renameMap.size} operations=${operations.length} conflicts=${conflicts.length}`
-        // );
-    } catch {
-        /* ignore */
-    }
-    if (assetRenames.length > 0) {
-        setIdentifierCaseOption(
-            options,
-            "__identifierCaseAssetRenames",
-            assetRenames
-        );
-    }
-
-    if (operations.length === 0 && conflicts.length === 0) {
-        setIdentifierCaseOption(
-            options,
-            "__identifierCasePlanGeneratedInternally",
-            true
-        );
-        try {
-            // console.debug(
-            //     "[DBG] prepareIdentifierCasePlan set planGenerated=true"
-            // );
-        } catch {
-            /* ignore */
-        }
-    } else {
-        setIdentifierCaseOption(options, "__identifierCaseRenamePlan", {
-            operations
-        });
-        setIdentifierCaseOption(
-            options,
-            "__identifierCaseConflicts",
-            conflicts
-        );
-        setIdentifierCaseOption(
-            options,
-            "__identifierCasePlanGeneratedInternally",
-            true
-        );
-    }
-
-    applyAssetRenamesIfEligible({
-        options,
-        projectIndex,
-        assetRenames,
-        assetConflicts,
-        metrics
-    });
-
-    const metricsReport = finalizeMetrics({
-        resolvedFile: Boolean(fileRecord),
-        relativeFilePath,
-        operationCount: operations.length,
-        conflictCount: conflicts.length,
-        renameEntries:
-            typeof renameMap.size === "number"
-                ? renameMap.size
-                : Core.getIterableSize(renameMap)
-    });
-
-    if (options.__identifierCaseRenamePlan) {
-        options.__identifierCaseRenamePlan.metrics = metricsReport;
     }
 }
 

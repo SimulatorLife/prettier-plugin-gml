@@ -304,94 +304,11 @@ export function mergeSyntheticDocComments(
         suppressedCanonicals
     });
 
-    const descriptionStartIndex = reorderedDocs.findIndex(
-        docTagHelpers.isDescriptionLine
-    );
-    if (descriptionStartIndex !== -1) {
-        let descriptionEndIndex = descriptionStartIndex + 1;
-
-        while (
-            descriptionEndIndex < reorderedDocs.length &&
-            typeof reorderedDocs[descriptionEndIndex] === STRING_TYPE &&
-            reorderedDocs[descriptionEndIndex].startsWith("///") &&
-            !parseDocCommentMetadata(reorderedDocs[descriptionEndIndex])
-        ) {
-            descriptionEndIndex += 1;
-        }
-
-        const descriptionBlock = reorderedDocs.slice(
-            descriptionStartIndex,
-            descriptionEndIndex
-        );
-        const docsWithoutDescription = [
-            ...reorderedDocs.slice(0, descriptionStartIndex),
-            ...reorderedDocs.slice(descriptionEndIndex)
-        ];
-
-        const descriptionBlockWithContent = descriptionBlock.filter((line) => {
-            const metadata = parseDocCommentMetadata(line);
-            const descriptionText =
-                typeof metadata?.name === STRING_TYPE
-                    ? metadata.name.trim()
-                    : "";
-            return descriptionText.length > 0;
-        });
-
-        let shouldOmitDescriptionBlock = false;
-        if (descriptionBlockWithContent.length === 0) {
-            shouldOmitDescriptionBlock = true;
-        } else if (descriptionBlockWithContent.length === 1) {
-            const descriptionMetadata = parseDocCommentMetadata(
-                descriptionBlockWithContent[0]
-            );
-            const descriptionText =
-                typeof descriptionMetadata?.name === STRING_TYPE
-                    ? descriptionMetadata.name.trim()
-                    : "";
-
-            // Omit empty description blocks
-            if (descriptionText.length === 0) {
-                shouldOmitDescriptionBlock = true;
-            } else if (
-                syntheticFunctionName &&
-                descriptionText.startsWith(syntheticFunctionName)
-            ) {
-                // Omit alias-style descriptions like "functionName()"
-                const remainder = descriptionText.slice(
-                    syntheticFunctionName.length
-                );
-                const trimmedRemainder = remainder.trim();
-                if (
-                    trimmedRemainder.startsWith("(") &&
-                    trimmedRemainder.endsWith(")")
-                ) {
-                    shouldOmitDescriptionBlock = true;
-                }
-            }
-        }
-
-        if (shouldOmitDescriptionBlock) {
-            reorderedDocs = docsWithoutDescription;
-        } else {
-            let lastParamIndex = -1;
-            for (const [index, element] of docsWithoutDescription.entries()) {
-                if (docTagHelpers.isParamLine(element)) {
-                    lastParamIndex = index;
-                }
-            }
-
-            const insertionAfterParams =
-                lastParamIndex === -1
-                    ? docsWithoutDescription.length
-                    : lastParamIndex + 1;
-
-            reorderedDocs = [
-                ...docsWithoutDescription.slice(0, insertionAfterParams),
-                ...descriptionBlockWithContent,
-                ...docsWithoutDescription.slice(insertionAfterParams)
-            ];
-        }
-    }
+    reorderedDocs = reorderDescriptionBlock({
+        docs: reorderedDocs,
+        docTagHelpers,
+        syntheticFunctionName
+    });
 
     reorderedDocs = toMutableArray(
         reorderDescriptionLinesAfterFunction(reorderedDocs)
@@ -547,346 +464,12 @@ export function mergeSyntheticDocComments(
         preserveDescriptionBreaks = true;
     }
 
-    if (preserveDescriptionBreaks) {
-        const isDebugCase5 = reorderedDocs.some(
-            (line) =>
-                typeof line === STRING_TYPE &&
-                line.includes("Additional summary")
-        );
-
-        if (isDebugCase5) {
-            console.log(
-                "[DEBUG MERGE PRESERVE] preserveDescriptionBreaks is true"
-            );
-            console.log("[DEBUG MERGE PRESERVE] reorderedDocs:", reorderedDocs);
-        }
-
-        result = reorderedDocs;
-    } else {
-        const wrappedDocs = [];
-        const normalizedPrintWidth = coercePositiveIntegerOption(
-            options?.printWidth,
-            120
-        );
-        const wrapWidth = Math.min(
-            normalizedPrintWidth,
-            resolveDocCommentWrapWidth(options)
-        );
-
-        const wrapSegments = (text, firstAvailable, continuationAvailable) => {
-            if (firstAvailable <= 0) {
-                return [text];
-            }
-
-            const words = text.split(/\s+/).filter((word) => word.length > 0);
-            if (words.length === 0) {
-                return [];
-            }
-
-            const segments = [];
-            let current = words[0];
-            let currentAvailable = firstAvailable;
-
-            for (let index = 1; index < words.length; index += 1) {
-                const word = words[index];
-
-                const endsSentence = /[.!?]["')\]]?$/.test(current);
-                const startsSentence = /^[A-Z]/.test(word);
-                if (
-                    endsSentence &&
-                    startsSentence &&
-                    currentAvailable >= 60 &&
-                    current.length >=
-                        Math.max(Math.floor(currentAvailable * 0.6), 24)
-                ) {
-                    segments.push(current);
-                    current = word;
-                    currentAvailable = continuationAvailable;
-                    continue;
-                }
-
-                if (current.length + 1 + word.length > currentAvailable) {
-                    segments.push(current);
-                    current = word;
-                    currentAvailable = continuationAvailable;
-                } else {
-                    current += ` ${word}`;
-                }
-            }
-
-            segments.push(current);
-
-            const lastIndex = segments.length - 1;
-            if (lastIndex >= 2) {
-                // `Array#at` handles negative indices but introduces an extra bounds
-                // check on every call. This helper runs for every doc comment we
-                // wrap, so prefer direct index math to keep the hot path lean.
-                const lastSegment = segments[lastIndex];
-                const isSingleWord =
-                    typeof lastSegment === STRING_TYPE &&
-                    !/\s/.test(lastSegment);
-
-                if (isSingleWord) {
-                    const maxSingleWordLength = Math.max(
-                        Math.min(continuationAvailable / 2, 16),
-                        8
-                    );
-
-                    if (lastSegment.length <= maxSingleWordLength) {
-                        const penultimateIndex = lastIndex - 1;
-                        const mergedSegment = `${segments[penultimateIndex]} ${lastSegment}`;
-
-                        segments[penultimateIndex] = mergedSegment;
-                        segments.pop();
-                    }
-                }
-            }
-
-            return segments;
-        };
-
-        for (let index = 0; index < reorderedDocs.length; index += 1) {
-            const line = reorderedDocs[index];
-            if (docTagHelpers.isDescriptionLine(line)) {
-                const blockLines = [line];
-                let lookahead = index + 1;
-
-                while (lookahead < reorderedDocs.length) {
-                    const nextLine = reorderedDocs[lookahead];
-                    if (
-                        typeof nextLine === STRING_TYPE &&
-                        nextLine.startsWith("///") &&
-                        !parseDocCommentMetadata(nextLine)
-                    ) {
-                        blockLines.push(nextLine);
-                        lookahead += 1;
-                        continue;
-                    }
-                    break;
-                }
-
-                index = lookahead - 1;
-
-                const prefixMatch = line.match(/^(\/\/\/\s*@description\s+)/i);
-                if (!prefixMatch) {
-                    wrappedDocs.push(...blockLines);
-                    continue;
-                }
-
-                const prefix = prefixMatch[1];
-                const continuationPrefix = `/// ${" ".repeat(Math.max(prefix.length - 4, 0))}`;
-                const descriptionText = blockLines
-                    .map((docLine, blockIndex) => {
-                        if (blockIndex === 0) {
-                            return docLine.slice(prefix.length).trim();
-                        }
-
-                        if (docLine.startsWith(continuationPrefix)) {
-                            return docLine
-                                .slice(continuationPrefix.length)
-                                .trim();
-                        }
-
-                        if (docLine.startsWith("///")) {
-                            return docLine.slice(3).trim();
-                        }
-
-                        return docLine.trim();
-                    })
-                    .filter((segment) => segment.length > 0)
-                    .join(" ");
-
-                if (descriptionText.length === 0) {
-                    wrappedDocs.push(...blockLines);
-                    continue;
-                }
-
-                const available = Math.max(wrapWidth - prefix.length, 16);
-                const continuationAvailable = Math.max(
-                    Math.min(available, 62),
-                    16
-                );
-                const segments = wrapSegments(
-                    descriptionText,
-                    available,
-                    continuationAvailable
-                );
-
-                if (segments.length === 0) {
-                    wrappedDocs.push(...blockLines);
-                    continue;
-                }
-
-                if (blockLines.length > 1) {
-                    if (segments.length > blockLines.length) {
-                        const paddedBlockLines = blockLines.map(
-                            (docLine, blockIndex) => {
-                                if (
-                                    blockIndex === 0 ||
-                                    typeof docLine !== STRING_TYPE
-                                ) {
-                                    return docLine;
-                                }
-
-                                if (
-                                    !docLine.startsWith("///") ||
-                                    parseDocCommentMetadata(docLine)
-                                ) {
-                                    return docLine;
-                                }
-
-                                if (docLine.startsWith(continuationPrefix)) {
-                                    return docLine;
-                                }
-
-                                const trimmedContinuation = docLine
-                                    .slice(3)
-                                    .replace(/^\s+/, "");
-
-                                if (trimmedContinuation.length === 0) {
-                                    return docLine;
-                                }
-
-                                return `${continuationPrefix}${trimmedContinuation}`;
-                            }
-                        );
-
-                        wrappedDocs.push(...paddedBlockLines);
-                        continue;
-                    }
-
-                    // If the description is already expressed as multiple
-                    // block lines and the wrapping computation compresses it
-                    // into fewer segments (or same number), preserve the
-                    // original blockLines rather than collapsing them into a
-                    // single description line. Tests expect explicit
-                    // continuations to remain visible rather than being
-                    // merged into the first line.
-                    if (segments.length <= blockLines.length) {
-                        wrappedDocs.push(...blockLines);
-                        continue;
-                    }
-                }
-
-                wrappedDocs.push(`${prefix}${segments[0]}`);
-                for (
-                    let segmentIndex = 1;
-                    segmentIndex < segments.length;
-                    segmentIndex += 1
-                ) {
-                    wrappedDocs.push(
-                        `${continuationPrefix}${segments[segmentIndex]}`
-                    );
-                }
-                continue;
-            }
-
-            if (docTagHelpers.isParamLine(line)) {
-                const blockLines = [line];
-                let lookahead = index + 1;
-
-                while (lookahead < reorderedDocs.length) {
-                    const nextLine = reorderedDocs[lookahead];
-                    if (
-                        typeof nextLine === STRING_TYPE &&
-                        nextLine.startsWith("///") &&
-                        !parseDocCommentMetadata(nextLine)
-                    ) {
-                        blockLines.push(nextLine);
-                        lookahead += 1;
-                        continue;
-                    }
-                    break;
-                }
-
-                index = lookahead - 1;
-
-                const trimmedLine = line.trim();
-                const hyphenIndex = trimmedLine.indexOf(" - ");
-                if (hyphenIndex === -1) {
-                    wrappedDocs.push(...blockLines);
-                    continue;
-                }
-
-                let prefixEnd = hyphenIndex + 3;
-                while (
-                    prefixEnd < trimmedLine.length &&
-                    trimmedLine[prefixEnd] === " "
-                ) {
-                    prefixEnd += 1;
-                }
-
-                const prefix = trimmedLine.slice(0, prefixEnd);
-                const continuationPrefix = `/// ${" ".repeat(
-                    Math.max(prefix.length - 4, 0)
-                )}`;
-
-                const descriptionSegments = blockLines
-                    .map((docLine, blockIndex) => {
-                        const docTrimmed = docLine.trim();
-                        if (blockIndex === 0) {
-                            return docTrimmed.slice(prefix.length).trim();
-                        }
-
-                        if (!docTrimmed.startsWith("///")) {
-                            return docTrimmed;
-                        }
-
-                        return docTrimmed.slice(3).trim();
-                    })
-                    .filter((segment) => segment.length > 0);
-
-                const descriptionText = descriptionSegments.join(" ");
-
-                if (descriptionText.length === 0) {
-                    wrappedDocs.push(...blockLines);
-                    continue;
-                }
-
-                const available = Math.max(wrapWidth - prefix.length, 16);
-                const continuationAvailable = Math.max(
-                    Math.min(available, 62),
-                    16
-                );
-                const segments = wrapSegments(
-                    descriptionText,
-                    available,
-                    continuationAvailable
-                );
-
-                if (segments.length === 0) {
-                    wrappedDocs.push(...blockLines);
-                    continue;
-                }
-
-                if (
-                    blockLines.length > 1 &&
-                    segments.length <= blockLines.length
-                ) {
-                    wrappedDocs.push(...blockLines);
-                    continue;
-                }
-
-                wrappedDocs.push(`${prefix}${segments[0]}`);
-                for (
-                    let segmentIndex = 1;
-                    segmentIndex < segments.length;
-                    segmentIndex += 1
-                ) {
-                    wrappedDocs.push(
-                        `${continuationPrefix}${segments[segmentIndex]}`
-                    );
-                }
-                continue;
-            }
-
-            wrappedDocs.push(line);
-        }
-
-        reorderedDocs = wrappedDocs;
-
-        result = reorderedDocs;
-    }
+    result = finalizeDescriptionBlocks({
+        docs: reorderedDocs,
+        docTagHelpers,
+        preserveDescriptionBreaks,
+        options
+    });
 
     if (removedAnyLine || otherLines.length > 0) {
         result._suppressLeadingBlank = true;
@@ -1646,6 +1229,439 @@ function createDocTagHelpers() {
         isDescriptionLine,
         getParamCanonicalName
     };
+}
+
+type ReorderDescriptionBlockParams = {
+    docs: MutableDocCommentLines;
+    docTagHelpers: DocTagHelpers;
+    syntheticFunctionName: string | null;
+};
+
+function reorderDescriptionBlock({
+    docs,
+    docTagHelpers,
+    syntheticFunctionName
+}: ReorderDescriptionBlockParams): MutableDocCommentLines {
+    const descriptionStartIndex = docs.findIndex(
+        docTagHelpers.isDescriptionLine
+    );
+    if (descriptionStartIndex === -1) {
+        return docs;
+    }
+
+    let descriptionEndIndex = descriptionStartIndex + 1;
+    while (
+        descriptionEndIndex < docs.length &&
+        typeof docs[descriptionEndIndex] === STRING_TYPE &&
+        docs[descriptionEndIndex].startsWith("///") &&
+        !parseDocCommentMetadata(docs[descriptionEndIndex])
+    ) {
+        descriptionEndIndex += 1;
+    }
+
+    const descriptionBlock = docs.slice(
+        descriptionStartIndex,
+        descriptionEndIndex
+    );
+    const docsWithoutDescription = [
+        ...docs.slice(0, descriptionStartIndex),
+        ...docs.slice(descriptionEndIndex)
+    ];
+
+    const descriptionBlockWithContent = descriptionBlock.filter((line) => {
+        const metadata = parseDocCommentMetadata(line);
+        const descriptionText =
+            typeof metadata?.name === STRING_TYPE ? metadata.name.trim() : "";
+        return descriptionText.length > 0;
+    });
+
+    let shouldOmitDescriptionBlock = false;
+    if (descriptionBlockWithContent.length === 0) {
+        shouldOmitDescriptionBlock = true;
+    } else if (descriptionBlockWithContent.length === 1) {
+        const descriptionMetadata = parseDocCommentMetadata(
+            descriptionBlockWithContent[0]
+        );
+        const descriptionText =
+            typeof descriptionMetadata?.name === STRING_TYPE
+                ? descriptionMetadata.name.trim()
+                : "";
+
+        if (descriptionText.length === 0) {
+            shouldOmitDescriptionBlock = true;
+        } else if (
+            syntheticFunctionName &&
+            descriptionText.startsWith(syntheticFunctionName)
+        ) {
+            const remainder = descriptionText.slice(
+                syntheticFunctionName.length
+            );
+            const trimmedRemainder = remainder.trim();
+            if (
+                trimmedRemainder.startsWith("(") &&
+                trimmedRemainder.endsWith(")")
+            ) {
+                shouldOmitDescriptionBlock = true;
+            }
+        }
+    }
+
+    if (shouldOmitDescriptionBlock) {
+        return docsWithoutDescription;
+    }
+
+    let lastParamIndex = -1;
+    for (const [index, element] of docsWithoutDescription.entries()) {
+        if (docTagHelpers.isParamLine(element)) {
+            lastParamIndex = index;
+        }
+    }
+
+    const insertionAfterParams =
+        lastParamIndex === -1
+            ? docsWithoutDescription.length
+            : lastParamIndex + 1;
+
+    return [
+        ...docsWithoutDescription.slice(0, insertionAfterParams),
+        ...descriptionBlockWithContent,
+        ...docsWithoutDescription.slice(insertionAfterParams)
+    ];
+}
+
+type FinalizeDescriptionBlocksParams = {
+    docs: MutableDocCommentLines;
+    docTagHelpers: DocTagHelpers;
+    preserveDescriptionBreaks: boolean;
+    options: any;
+};
+
+function finalizeDescriptionBlocks({
+    docs,
+    docTagHelpers,
+    preserveDescriptionBreaks,
+    options
+}: FinalizeDescriptionBlocksParams): MutableDocCommentLines {
+    if (preserveDescriptionBreaks) {
+        const isDebugCase5 = docs.some(
+            (line) =>
+                typeof line === STRING_TYPE &&
+                line.includes("Additional summary")
+        );
+
+        if (isDebugCase5) {
+            console.log(
+                "[DEBUG MERGE PRESERVE] preserveDescriptionBreaks is true"
+            );
+            console.log("[DEBUG MERGE PRESERVE] reorderedDocs:", docs);
+        }
+
+        return docs;
+    }
+
+    const wrappedDocs = [];
+    const normalizedPrintWidth = coercePositiveIntegerOption(
+        options?.printWidth,
+        120
+    );
+    const wrapWidth = Math.min(
+        normalizedPrintWidth,
+        resolveDocCommentWrapWidth(options)
+    );
+
+    const wrapSegments = (
+        text: string,
+        firstAvailable: number,
+        continuationAvailable: number
+    ) => {
+        if (firstAvailable <= 0) {
+            return [text];
+        }
+
+        const words = text.split(/\s+/).filter((word) => word.length > 0);
+        if (words.length === 0) {
+            return [];
+        }
+
+        const segments = [];
+        let current = words[0];
+        let currentAvailable = firstAvailable;
+
+        for (let index = 1; index < words.length; index += 1) {
+            const word = words[index];
+
+            const endsSentence = /[.!?]["')\]]?$/.test(current);
+            const startsSentence = /^[A-Z]/.test(word);
+            if (
+                endsSentence &&
+                startsSentence &&
+                currentAvailable >= 60 &&
+                current.length >=
+                    Math.max(Math.floor(currentAvailable * 0.6), 24)
+            ) {
+                segments.push(current);
+                current = word;
+                currentAvailable = continuationAvailable;
+                continue;
+            }
+
+            if (current.length + 1 + word.length > currentAvailable) {
+                segments.push(current);
+                current = word;
+                currentAvailable = continuationAvailable;
+            } else {
+                current += ` ${word}`;
+            }
+        }
+
+        segments.push(current);
+
+        const lastIndex = segments.length - 1;
+        if (lastIndex >= 2) {
+            const lastSegment = segments[lastIndex];
+            const isSingleWord =
+                typeof lastSegment === STRING_TYPE && !/\s/.test(lastSegment);
+
+            if (isSingleWord) {
+                const maxSingleWordLength = Math.max(
+                    Math.min(continuationAvailable / 2, 16),
+                    8
+                );
+
+                if (lastSegment.length <= maxSingleWordLength) {
+                    const penultimateIndex = lastIndex - 1;
+                    const mergedSegment = `${segments[penultimateIndex]} ${lastSegment}`;
+
+                    segments[penultimateIndex] = mergedSegment;
+                    segments.pop();
+                }
+            }
+        }
+
+        return segments;
+    };
+
+    for (let index = 0; index < docs.length; index += 1) {
+        const line = docs[index];
+        if (docTagHelpers.isDescriptionLine(line)) {
+            const blockLines = [line];
+            let lookahead = index + 1;
+
+            while (lookahead < docs.length) {
+                const nextLine = docs[lookahead];
+                if (
+                    typeof nextLine === STRING_TYPE &&
+                    nextLine.startsWith("///") &&
+                    !parseDocCommentMetadata(nextLine)
+                ) {
+                    blockLines.push(nextLine);
+                    lookahead += 1;
+                    continue;
+                }
+                break;
+            }
+
+            index = lookahead - 1;
+
+            const prefixMatch = line.match(/^(\/\/\/\s*@description\s+)/i);
+            if (!prefixMatch) {
+                wrappedDocs.push(...blockLines);
+                continue;
+            }
+
+            const prefix = prefixMatch[1];
+            const continuationPrefix = `/// ${" ".repeat(Math.max(prefix.length - 4, 0))}`;
+            const descriptionText = blockLines
+                .map((docLine, blockIndex) => {
+                    if (blockIndex === 0) {
+                        return docLine.slice(prefix.length).trim();
+                    }
+
+                    if (docLine.startsWith(continuationPrefix)) {
+                        return docLine.slice(continuationPrefix.length).trim();
+                    }
+
+                    if (docLine.startsWith("///")) {
+                        return docLine.slice(3).trim();
+                    }
+
+                    return docLine.trim();
+                })
+                .filter((segment) => segment.length > 0)
+                .join(" ");
+
+            if (descriptionText.length === 0) {
+                wrappedDocs.push(...blockLines);
+                continue;
+            }
+
+            const available = Math.max(wrapWidth - prefix.length, 16);
+            const continuationAvailable = Math.max(Math.min(available, 62), 16);
+            const segments = wrapSegments(
+                descriptionText,
+                available,
+                continuationAvailable
+            );
+
+            if (segments.length === 0) {
+                wrappedDocs.push(...blockLines);
+                continue;
+            }
+
+            if (blockLines.length > 1) {
+                if (segments.length > blockLines.length) {
+                    const paddedBlockLines = blockLines.map(
+                        (docLine, blockIndex) => {
+                            if (
+                                blockIndex === 0 ||
+                                typeof docLine !== STRING_TYPE
+                            ) {
+                                return docLine;
+                            }
+
+                            if (
+                                !docLine.startsWith("///") ||
+                                parseDocCommentMetadata(docLine)
+                            ) {
+                                return docLine;
+                            }
+
+                            if (docLine.startsWith(continuationPrefix)) {
+                                return docLine;
+                            }
+
+                            const trimmedContinuation = docLine
+                                .slice(3)
+                                .replace(/^\s+/, "");
+
+                            if (trimmedContinuation.length === 0) {
+                                return docLine;
+                            }
+
+                            return `${continuationPrefix}${trimmedContinuation}`;
+                        }
+                    );
+
+                    wrappedDocs.push(...paddedBlockLines);
+                    continue;
+                }
+
+                if (segments.length <= blockLines.length) {
+                    wrappedDocs.push(...blockLines);
+                    continue;
+                }
+            }
+
+            wrappedDocs.push(`${prefix}${segments[0]}`);
+            for (
+                let segmentIndex = 1;
+                segmentIndex < segments.length;
+                segmentIndex += 1
+            ) {
+                wrappedDocs.push(
+                    `${continuationPrefix}${segments[segmentIndex]}`
+                );
+            }
+            continue;
+        }
+
+        if (docTagHelpers.isParamLine(line)) {
+            const blockLines = [line];
+            let lookahead = index + 1;
+
+            while (lookahead < docs.length) {
+                const nextLine = docs[lookahead];
+                if (
+                    typeof nextLine === STRING_TYPE &&
+                    nextLine.startsWith("///") &&
+                    !parseDocCommentMetadata(nextLine)
+                ) {
+                    blockLines.push(nextLine);
+                    lookahead += 1;
+                    continue;
+                }
+                break;
+            }
+
+            index = lookahead - 1;
+
+            const trimmedLine = line.trim();
+            const hyphenIndex = trimmedLine.indexOf(" - ");
+            if (hyphenIndex === -1) {
+                wrappedDocs.push(...blockLines);
+                continue;
+            }
+
+            let prefixEnd = hyphenIndex + 3;
+            while (
+                prefixEnd < trimmedLine.length &&
+                trimmedLine[prefixEnd] === " "
+            ) {
+                prefixEnd += 1;
+            }
+
+            const prefix = trimmedLine.slice(0, prefixEnd);
+            const continuationPrefix = `/// ${" ".repeat(
+                Math.max(prefix.length - 4, 0)
+            )}`;
+
+            const descriptionSegments = blockLines
+                .map((docLine, blockIndex) => {
+                    const docTrimmed = docLine.trim();
+                    if (blockIndex === 0) {
+                        return docTrimmed.slice(prefix.length).trim();
+                    }
+
+                    if (!docTrimmed.startsWith("///")) {
+                        return docTrimmed;
+                    }
+
+                    return docTrimmed.slice(3).trim();
+                })
+                .filter((segment) => segment.length > 0);
+
+            const descriptionText = descriptionSegments.join(" ");
+
+            if (descriptionText.length === 0) {
+                wrappedDocs.push(...blockLines);
+                continue;
+            }
+
+            const available = Math.max(wrapWidth - prefix.length, 16);
+            const continuationAvailable = Math.max(Math.min(available, 62), 16);
+            const segments = wrapSegments(
+                descriptionText,
+                available,
+                continuationAvailable
+            );
+
+            if (segments.length === 0) {
+                wrappedDocs.push(...blockLines);
+                continue;
+            }
+
+            if (blockLines.length > 1 && segments.length <= blockLines.length) {
+                wrappedDocs.push(...blockLines);
+                continue;
+            }
+
+            wrappedDocs.push(`${prefix}${segments[0]}`);
+            for (
+                let segmentIndex = 1;
+                segmentIndex < segments.length;
+                segmentIndex += 1
+            ) {
+                wrappedDocs.push(
+                    `${continuationPrefix}${segments[segmentIndex]}`
+                );
+            }
+            continue;
+        }
+
+        wrappedDocs.push(line);
+    }
+
+    return wrappedDocs;
 }
 
 function mergeDocLines({
