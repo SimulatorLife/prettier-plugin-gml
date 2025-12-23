@@ -346,6 +346,23 @@ export function isWordChar(character) {
 }
 
 /**
+ * Determine whether a character should be treated as a boundary between
+ * identifiers. Non-word characters, empty strings, and missing input all
+ * qualify as boundaries so callers can safely pass raw string indexing
+ * results without additional guards.
+ *
+ * @param {unknown} character Candidate character to evaluate.
+ * @returns {boolean} `true` when the value is not an identifier constituent.
+ */
+export function isIdentifierBoundaryCharacter(character: unknown) {
+    if (typeof character !== "string" || character.length === 0) {
+        return true;
+    }
+
+    return !isWordChar(character);
+}
+
+/**
  * Convert {@link value} into a trimmed string, returning an empty string when
  * a non-string input is supplied. Callers often forward raw option values or
  * AST fragments whose types are not guaranteed, so normalizing here keeps the

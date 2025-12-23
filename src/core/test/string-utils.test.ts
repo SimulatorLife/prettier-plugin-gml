@@ -20,7 +20,8 @@ import {
     createListSplitPattern,
     describeValueForError,
     formatWithIndefiniteArticle,
-    normalizeExtensionSuffix
+    normalizeExtensionSuffix,
+    isIdentifierBoundaryCharacter
 } from "../src/utils/string.js";
 
 void test("toTrimmedString returns trimmed strings", () => {
@@ -156,6 +157,16 @@ void test("isWordChar validates alphanumeric and underscore characters", () => {
     assert.strictEqual(isWordChar(""), false);
     assert.strictEqual(isWordChar("-"), false);
     assert.strictEqual(isWordChar(null), false);
+});
+
+void test("isIdentifierBoundaryCharacter treats non-word values as boundaries", () => {
+    assert.strictEqual(isIdentifierBoundaryCharacter("a"), false);
+    assert.strictEqual(isIdentifierBoundaryCharacter("Z"), false);
+    assert.strictEqual(isIdentifierBoundaryCharacter("0"), false);
+    assert.strictEqual(isIdentifierBoundaryCharacter("_"), false);
+    assert.strictEqual(isIdentifierBoundaryCharacter("-"), true);
+    assert.strictEqual(isIdentifierBoundaryCharacter(""), true);
+    assert.strictEqual(isIdentifierBoundaryCharacter(null), true);
 });
 
 void test("assertNonEmptyString returns the validated value", () => {
