@@ -311,6 +311,11 @@ export type GmlNode =
 export interface EmitOptions {
     readonly globalsIdent: string;
     readonly callScriptIdent: string;
+    /**
+     * Identifier (or property expression) that resolves `with` targets.
+     * Defaults to `globalThis.__resolve_with_targets`.
+     */
+    readonly resolveWithTargetsIdent: string;
 }
 
 /**

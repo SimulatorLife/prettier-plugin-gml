@@ -455,6 +455,34 @@ void test("Transpiler.emitJavaScript wraps with statements without braces", () =
     );
 });
 
+void test("GmlToJsEmitter allows overriding the with-target resolver helper", () => {
+    const source = "with (obj_enemy) hp -= 1";
+    const parser = new Parser.GMLParser(source, {});
+    const ast = parser.parse();
+    const emitter = new Transpiler.GmlToJsEmitter(
+        Transpiler.makeDummyOracle(),
+        {
+            resolveWithTargetsIdent: "__custom_resolve_with"
+        }
+    );
+    const result = emitter.emit(ast);
+
+    assert.ok(
+        result.includes('typeof __custom_resolve_with === "function"'),
+        "Should reference the configured resolver helper"
+    );
+
+    assert.ok(
+        result.includes("__custom_resolve_with("),
+        "Should invoke the configured resolver helper when available"
+    );
+
+    assert.ok(
+        !result.includes("globalThis.__resolve_with_targets"),
+        "Should avoid emitting the default resolver when overridden"
+    );
+});
+
 void test("Transpiler.emitJavaScript handles variable declarations", () => {
     const source = "var x = 10";
     const parser = new Parser.GMLParser(source);
