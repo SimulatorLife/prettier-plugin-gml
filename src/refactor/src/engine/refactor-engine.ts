@@ -1713,6 +1713,9 @@ export class RefactorEngine {
             visited.add(symbolId);
         }
 
+        // Track the traversal path for cycle reconstruction
+        const visitPath: Array<string> = [];
+
         // Helper to explore dependencies recursively
         const exploreDependents = async (
             symbolId: string,
@@ -1721,13 +1724,23 @@ export class RefactorEngine {
         ): Promise<{ cycleDetected: boolean; cycle?: Array<string> }> => {
             // Check if we're already exploring this symbol (cycle detection)
             if (visiting.has(symbolId)) {
-                // Found a cycle - trace it back
-                const cycle = [symbolId];
-                // We'll mark this as a circular dependency
-                return { cycleDetected: true, cycle };
+                // Found a cycle - reconstruct the full cycle path from visitPath.
+                // The cycle starts at the first occurrence of symbolId in visitPath
+                // and extends to the current position where we re-encountered it.
+                const cycleStartIndex = visitPath.indexOf(symbolId);
+                if (cycleStartIndex !== -1) {
+                    const cyclePath = [
+                        ...visitPath.slice(cycleStartIndex),
+                        symbolId
+                    ];
+                    return { cycleDetected: true, cycle: cyclePath };
+                }
+                // Fallback if symbol isn't in path (shouldn't happen, but be safe)
+                return { cycleDetected: true, cycle: [symbolId] };
             }
 
             visiting.add(symbolId);
+            visitPath.push(symbolId);
 
             try {
                 // Query semantic analyzer for symbols that depend on this one
@@ -1746,6 +1759,22 @@ export class RefactorEngine {
                             dependencyGraph.set(symbolId, []);
                         }
                         dependencyGraph.get(symbolId).push(depId);
+
+                        // Check if this creates a cycle by looking at the visiting set.
+                        // The visiting set contains symbols currently on the call stack,
+                        // so finding a dependent in that set means we've encountered a cycle.
+                        if (visiting.has(depId)) {
+                            // Reconstruct the cycle path from visitPath
+                            const cycleStartIndex = visitPath.indexOf(depId);
+                            if (cycleStartIndex !== -1) {
+                                const cyclePath = [
+                                    ...visitPath.slice(cycleStartIndex),
+                                    depId
+                                ];
+                                circular.push(cyclePath);
+                            }
+                            continue;
+                        }
 
                         // If we haven't visited this dependent yet, explore it
                         if (!visited.has(depId)) {
@@ -1774,6 +1803,7 @@ export class RefactorEngine {
                 }
             } finally {
                 visiting.delete(symbolId);
+                visitPath.pop();
             }
 
             return { cycleDetected: false };

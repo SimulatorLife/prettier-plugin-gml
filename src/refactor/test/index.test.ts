@@ -2615,3 +2615,155 @@ void test("getSymbolDependents handles empty array", async () => {
     const dependents = await engine.getSymbolDependents([]);
     assert.deepStrictEqual(dependents, []);
 });
+
+void test("computeHotReloadCascade traces full circular dependency path", async () => {
+    // Create a circular dependency: A -> B -> C -> A
+    const mockSemantic: SemanticAnalyzer = {
+        getDependents: async (symbolIds: Array<string>) => {
+            const id = symbolIds[0];
+            switch (id) {
+            case "gml/script/scr_a": {
+                return [
+                    { symbolId: "gml/script/scr_b", filePath: "scripts/b.gml" }
+                ];
+            }
+            case "gml/script/scr_b": {
+                return [
+                    { symbolId: "gml/script/scr_c", filePath: "scripts/c.gml" }
+                ];
+            }
+            case "gml/script/scr_c": {
+                return [
+                    { symbolId: "gml/script/scr_a", filePath: "scripts/a.gml" }
+                ];
+            }
+            // No default
+            }
+            return [];
+        }
+    };
+    const engine = new RefactorEngine({ semantic: mockSemantic });
+
+    const result = await engine.computeHotReloadCascade(["gml/script/scr_a"]);
+
+    // Should detect circular dependency
+    assert.ok(result.metadata.hasCircular);
+    assert.equal(result.circular.length, 1);
+
+    // The cycle path should be complete: [A, B, C, A]
+    const cycle = result.circular[0];
+    assert.ok(cycle.length >= 3, "Cycle should contain at least 3 nodes");
+    assert.equal(
+        cycle[0],
+        cycle.at(-1),
+        "Cycle should start and end with the same symbol"
+    );
+    // Verify the cycle contains the expected symbols
+    assert.ok(cycle.includes("gml/script/scr_a"));
+    assert.ok(cycle.includes("gml/script/scr_b"));
+    assert.ok(cycle.includes("gml/script/scr_c"));
+});
+
+void test("computeHotReloadCascade handles multiple separate cycles", async () => {
+    // Create two separate cycles:
+    // Cycle 1: A -> B -> A
+    // Cycle 2: X -> Y -> X
+    const mockSemantic: SemanticAnalyzer = {
+        getDependents: async (symbolIds: Array<string>) => {
+            const id = symbolIds[0];
+            switch (id) {
+            case "gml/script/scr_a": {
+                return [
+                    { symbolId: "gml/script/scr_b", filePath: "scripts/b.gml" }
+                ];
+            }
+            case "gml/script/scr_b": {
+                return [
+                    { symbolId: "gml/script/scr_a", filePath: "scripts/a.gml" }
+                ];
+            }
+            case "gml/script/scr_x": {
+                return [
+                    { symbolId: "gml/script/scr_y", filePath: "scripts/y.gml" }
+                ];
+            }
+            case "gml/script/scr_y": {
+                return [
+                    { symbolId: "gml/script/scr_x", filePath: "scripts/x.gml" }
+                ];
+            }
+            // No default
+            }
+            return [];
+        }
+    };
+    const engine = new RefactorEngine({ semantic: mockSemantic });
+
+    const result = await engine.computeHotReloadCascade([
+        "gml/script/scr_a",
+        "gml/script/scr_x"
+    ]);
+
+    // Should detect both cycles
+    assert.ok(result.metadata.hasCircular);
+    assert.ok(
+        result.circular.length >= 2,
+        "Should detect at least 2 separate cycles"
+    );
+
+    // Verify each cycle is properly traced
+    for (const cycle of result.circular) {
+        assert.ok(cycle.length >= 2, "Each cycle should have at least 2 nodes");
+        assert.equal(
+            cycle[0],
+            cycle.at(-1),
+            "Each cycle should start and end with the same symbol"
+        );
+    }
+});
+
+void test("computeHotReloadCascade handles non-circular dependencies correctly", async () => {
+    // Create a linear dependency chain: A -> B -> C (no cycle)
+    const mockSemantic: SemanticAnalyzer = {
+        getDependents: async (symbolIds: Array<string>) => {
+            const id = symbolIds[0];
+            if (id === "gml/script/scr_a") {
+                return [
+                    { symbolId: "gml/script/scr_b", filePath: "scripts/b.gml" }
+                ];
+            } else if (id === "gml/script/scr_b") {
+                return [
+                    { symbolId: "gml/script/scr_c", filePath: "scripts/c.gml" }
+                ];
+            }
+            return [];
+        }
+    };
+    const engine = new RefactorEngine({ semantic: mockSemantic });
+
+    const result = await engine.computeHotReloadCascade(["gml/script/scr_a"]);
+
+    // Should not detect any cycles
+    assert.equal(result.metadata.hasCircular, false);
+    assert.equal(result.circular.length, 0);
+
+    // Should still build proper cascade
+    assert.equal(result.cascade.length, 3);
+    assert.equal(result.order.length, 3);
+
+    // Verify distance increases along the chain
+    const aEntry = result.cascade.find(
+        (e) => e.symbolId === "gml/script/scr_a"
+    );
+    const bEntry = result.cascade.find(
+        (e) => e.symbolId === "gml/script/scr_b"
+    );
+    const cEntry = result.cascade.find(
+        (e) => e.symbolId === "gml/script/scr_c"
+    );
+
+    assert.equal(aEntry.distance, 0);
+    assert.equal(bEntry.distance, 1);
+    assert.equal(cEntry.distance, 2);
+    assert.equal(result.metadata.maxDistance, 2);
+});
