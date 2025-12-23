@@ -1713,8 +1713,27 @@ export class RefactorEngine {
             visited.add(symbolId);
         }
 
-        // Track the traversal path for cycle reconstruction
+        // Track the traversal path during DFS for complete cycle reconstruction.
+        // This array is intentionally shared across all recursive calls to maintain
+        // the full call stack, enabling accurate cycle path tracing when a back edge
+        // is detected (e.g., A→B→C→A results in visitPath = [A, B, C] at the moment
+        // we discover C depends on A).
         const visitPath: Array<string> = [];
+
+        // Helper to reconstruct a complete cycle path from the current traversal state.
+        // When we detect a symbol already in the visiting set, we know we've found a
+        // back edge. This function extracts the cycle from visitPath by finding where
+        // the cycle starts and appending the re-encountered symbol to close the loop.
+        const reconstructCyclePath = (
+            cycleStartSymbol: string
+        ): Array<string> => {
+            const cycleStartIndex = visitPath.indexOf(cycleStartSymbol);
+            if (cycleStartIndex !== -1) {
+                return [...visitPath.slice(cycleStartIndex), cycleStartSymbol];
+            }
+            // Fallback if symbol isn't in path (shouldn't happen, but be defensive)
+            return [cycleStartSymbol];
+        };
 
         // Helper to explore dependencies recursively
         const exploreDependents = async (
@@ -1727,16 +1746,8 @@ export class RefactorEngine {
                 // Found a cycle - reconstruct the full cycle path from visitPath.
                 // The cycle starts at the first occurrence of symbolId in visitPath
                 // and extends to the current position where we re-encountered it.
-                const cycleStartIndex = visitPath.indexOf(symbolId);
-                if (cycleStartIndex !== -1) {
-                    const cyclePath = [
-                        ...visitPath.slice(cycleStartIndex),
-                        symbolId
-                    ];
-                    return { cycleDetected: true, cycle: cyclePath };
-                }
-                // Fallback if symbol isn't in path (shouldn't happen, but be safe)
-                return { cycleDetected: true, cycle: [symbolId] };
+                const cyclePath = reconstructCyclePath(symbolId);
+                return { cycleDetected: true, cycle: cyclePath };
             }
 
             visiting.add(symbolId);
@@ -1764,15 +1775,9 @@ export class RefactorEngine {
                         // The visiting set contains symbols currently on the call stack,
                         // so finding a dependent in that set means we've encountered a cycle.
                         if (visiting.has(depId)) {
-                            // Reconstruct the cycle path from visitPath
-                            const cycleStartIndex = visitPath.indexOf(depId);
-                            if (cycleStartIndex !== -1) {
-                                const cyclePath = [
-                                    ...visitPath.slice(cycleStartIndex),
-                                    depId
-                                ];
-                                circular.push(cyclePath);
-                            }
+                            // Reconstruct and record the complete cycle path
+                            const cyclePath = reconstructCyclePath(depId);
+                            circular.push(cyclePath);
                             continue;
                         }
 
