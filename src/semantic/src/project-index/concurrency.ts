@@ -143,7 +143,7 @@ function normalizeConcurrencyValue(
         return onInvalid;
     }
 
-    return Math.min(max, Math.max(min, numeric));
+    return Core.clamp(numeric, min, max);
 }
 
 export {

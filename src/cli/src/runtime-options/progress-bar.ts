@@ -102,7 +102,7 @@ class TerminalProgressBar implements ProgressBarLike {
                   : Number.NaN;
 
         return Number.isFinite(numeric)
-            ? Math.min(Math.max(0, numeric), this.total)
+            ? Core.clamp(numeric, 0, this.total)
             : 0;
     }
 
