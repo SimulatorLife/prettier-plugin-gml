@@ -299,9 +299,6 @@ function buildLocationFromIndex(index, lineOffsets) {
         index
     };
 }
-function isIdentifierBoundary(character) {
-    return !Core.isWordChar(character);
-}
 function findIdentifierLocation({
     source,
     name,
@@ -324,7 +321,10 @@ function findIdentifierLocation({
             index + name.length < source.length
                 ? source[index + name.length]
                 : "";
-        if (isIdentifierBoundary(before) && isIdentifierBoundary(after)) {
+        if (
+            Core.isIdentifierBoundaryCharacter(before) &&
+            Core.isIdentifierBoundaryCharacter(after)
+        ) {
             const start = buildLocationFromIndex(index, lineOffsets);
             const end = buildLocationFromIndex(
                 index + Math.max(0, name.length - 1),

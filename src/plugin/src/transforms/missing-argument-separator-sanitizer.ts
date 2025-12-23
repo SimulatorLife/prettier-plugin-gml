@@ -172,7 +172,7 @@ export function sanitizeMissingArgumentSeparators(
 
             if (
                 depth >= 1 &&
-                isIdentifierBoundary(text, currentIndex - 1) &&
+                isIdentifierBoundaryAt(text, currentIndex - 1) &&
                 (isIdentifierStartCharacter(text[currentIndex]) ||
                     text[currentIndex] === "@")
             ) {
@@ -256,7 +256,7 @@ function matchFunctionCall(
     sourceText: string,
     startIndex: number
 ): { openParenIndex: number } | null {
-    if (!isIdentifierBoundary(sourceText, startIndex - 1)) {
+    if (!isIdentifierBoundaryAt(sourceText, startIndex - 1)) {
         return null;
     }
 
@@ -568,13 +568,8 @@ function readIdentifierBefore(
     return sourceText.slice(current + 1, end);
 }
 
-function isIdentifierBoundary(sourceText: string, index: number) {
-    if (index < 0 || index >= sourceText.length) {
-        return true;
-    }
-
-    const character = sourceText[index];
-    return !/[A-Za-z0-9_]/.test(character);
+function isIdentifierBoundaryAt(sourceText: string, index: number) {
+    return Core.isIdentifierBoundaryCharacter(sourceText?.[index]);
 }
 
 function isIdentifierStartCharacter(character: string | undefined) {
