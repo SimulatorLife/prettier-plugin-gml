@@ -61,7 +61,7 @@
     "lint:report": "eslint . --ext .ts,.yml,.yaml --format checkstyle --output-file reports/eslint-checkstyle.xml",
     "report": "bash -lc 'status=0; npm run lint:report || status=$?; npm run lint:duplicates:report || status=$?; npm run test:ci || status=$?; npm run stats:report || status=$?; npm run tree:report || status=$?; npm run cli -- generate-quality-report || status=$?; exit $status'",
     "check": "npm run format:check && npm run lint:ci && npm test",
-    "test": "npm run build:ts && timeout -t 2m -- node --test --test-timeout=120000 '**/*.test.js'",
+    "test": "npm run build:ts && bash -lc 'shopt -s globstar nullglob; tests=(src/**/dist/test/*.test.js test/*.test.js); if ((${#tests[@]} == 0)); then echo \"No compiled test files found under dist/ or test/\" >&2; exit 1; fi; node --test --test-timeout=120000 \"${tests[@]}\"'",
     "test:report": "mkdir -p reports && node --test --test-reporter=junit --test-reporter-destination=./reports/tests.xml '**/*.test.js'",
     "test:coverage": "bash -lc 'rm -f reports/lcov.info && mkdir -p reports && ./node_modules/.bin/c8 --reporter=lcovonly --report-dir=reports node --test \"**/*.test.js\"; status=$?; rm -rf .nyc_output reports/tmp reports/lcov-report; exit $status'",
     "test:ci": "bash -lc 'rm -f reports/lcov.info reports/tests.xml && mkdir -p reports && ./node_modules/.bin/c8 --reporter=lcovonly --report-dir=reports node --test --test-reporter=junit --test-reporter-destination=./reports/tests.xml \"**/*.test.js\"; status=$?; rm -rf .nyc_output reports/tmp reports/lcov-report; exit $status'",
