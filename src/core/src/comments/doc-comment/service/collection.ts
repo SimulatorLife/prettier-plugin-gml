@@ -48,12 +48,11 @@ export function collectSyntheticDocCommentLines(
     const lineCommentOptions = resolveLineCommentOptions(options);
     const nodeStartIndex = getNodeStartIndexForDocComments(node, options);
 
-    const { existingDocLines, remainingComments } =
-        collectNodeDocCommentLines(
-            rawComments,
-            lineCommentOptions,
-            nodeStartIndex
-        );
+    const { existingDocLines, remainingComments } = collectNodeDocCommentLines(
+        rawComments,
+        lineCommentOptions,
+        nodeStartIndex
+    );
 
     if (existingDocLines.length > 0) {
         return { existingDocLines, remainingComments };
@@ -149,8 +148,8 @@ function collectNodeDocCommentLines(
             comment && typeof comment.start === NUMBER_TYPE
                 ? comment.start
                 : comment &&
-                      comment.start &&
-                      typeof comment.start.index === NUMBER_TYPE
+                    comment.start &&
+                    typeof comment.start.index === NUMBER_TYPE
                   ? comment.start.index
                   : null;
 
@@ -200,7 +199,9 @@ function tryCollectDocLinesFromProgramComments(
         let pcEndIndex =
             typeof pc.end === NUMBER_TYPE ? pc.end : (pc?.end?.index ?? null);
         const pcStartIndex =
-            typeof pc.start === NUMBER_TYPE ? pc.start : (pc?.start?.index ?? null);
+            typeof pc.start === NUMBER_TYPE
+                ? pc.start
+                : (pc?.start?.index ?? null);
         if (!Number.isInteger(pcEndIndex)) {
             pcEndIndex = Number.isInteger(pcStartIndex) ? pcStartIndex : null;
         }
@@ -216,7 +217,9 @@ function tryCollectDocLinesFromProgramComments(
             break;
         }
         docCandidates.unshift(pc);
-        anchorIndex = Number.isInteger(pcStartIndex) ? pcStartIndex : pcEndIndex;
+        anchorIndex = Number.isInteger(pcStartIndex)
+            ? pcStartIndex
+            : pcEndIndex;
     }
 
     if (docCandidates.length === 0) {
@@ -260,11 +263,7 @@ function tryCollectDocLinesFromSourceText(
         if (
             isBlank &&
             Number.isInteger(nodeStartIndex) &&
-            hasTooManyBlankLinesBetween(
-                sourceText,
-                lineStart,
-                nodeStartIndex
-            )
+            hasTooManyBlankLinesBetween(sourceText, lineStart, nodeStartIndex)
         ) {
             break;
         }

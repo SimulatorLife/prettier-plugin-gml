@@ -289,7 +289,7 @@ function buildLocationFromIndex(index, lineOffsets) {
             high = mid - 1;
         }
     }
-    const resolvedLineIndex = Math.max(0, Math.min(offsets.length - 1, high));
+    const resolvedLineIndex = Core.clamp(high, 0, offsets.length - 1);
     const lineStart = offsets[resolvedLineIndex] ?? 0;
     const lineNumber = resolvedLineIndex + 1;
     const column = index - lineStart;

@@ -194,5 +194,5 @@ function clampColumnIndex(length, columnNumber) {
         return 0;
     }
 
-    return Math.min(Math.max(0, Math.trunc(columnNumber)), length);
+    return Core.clamp(Math.trunc(columnNumber), 0, length);
 }
