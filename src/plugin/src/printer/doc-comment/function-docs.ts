@@ -5,8 +5,8 @@ import {
     applyDescriptionContinuations,
     collectDescriptionContinuations,
     ensureDescriptionContinuations
-} from "../../shared/doc-comment-description.js";
-import { getDocCommentNormalization } from "../../shared/doc-comment-normalization.js";
+} from "../../transforms/doc-comment/description-utils.js";
+import { getDocCommentNormalization } from "../../transforms/doc-comment/normalization-utils.js";
 
 const STRING_TYPE = "string";
 const BLANK_LINE_PATTERN =
