@@ -25,7 +25,7 @@ import {
     createCallExpressionTargetFixDetail,
     hasFeatherSourceTextContext,
     NUMERIC_STRING_LITERAL_PATTERN
-} from "./utils.js";
+} from "./diagnostic-fix-builder.js";
 import {
     removeDuplicateSemicolons,
     findDuplicateSemicolonRanges
