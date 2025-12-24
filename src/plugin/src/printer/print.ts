@@ -3921,6 +3921,9 @@ function resolvePreferredParameterSource(
     options
 ) {
     const docPreferences = Core.preferredParamDocNamesByNode.get(functionNode);
+    if (paramIndex === 9 && currentName === "argument9") {
+        console.log(`[DEBUG] resolvePreferredParameterSource param 9: hasPreferences=${!!docPreferences} hasIndex=${docPreferences?.has(paramIndex)} val=${docPreferences?.get(paramIndex)}`);
+    }
     if (docPreferences?.has(paramIndex)) {
         return docPreferences.get(paramIndex) ?? null;
     }

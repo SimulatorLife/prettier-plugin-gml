@@ -9,7 +9,7 @@ import {
     isDocLikeLeadingLine,
     mergeSyntheticDocComments,
     promoteLeadingDocCommentTextToDescription,
-    reorderDescriptionLinesAfterFunction,
+    reorderDescriptionLinesToTop,
     resolveDocCommentWrapWidth
 } from "./service/index.js";
 import { isNonEmptyArray, toMutableArray } from "../../utils/array.js";
@@ -149,7 +149,7 @@ export function computeSyntheticDocComment(
               docCommentOptions,
               overrides
           )
-        : reorderDescriptionLinesAfterFunction(
+        : reorderDescriptionLinesToTop(
               computeSyntheticFunctionDocLines(
                   functionNode,
                   [],

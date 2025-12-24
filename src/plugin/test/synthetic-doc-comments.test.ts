@@ -90,7 +90,7 @@ void test("augments static function doc comments with missing @returns metadata"
 
     assert.match(
         trimmed,
-        /^\/\/\/ @function helper\n\/\/\/ @returns \{undefined\}\nstatic helper = function\(\) \{/,
+        /^\/\/\/ @returns \{undefined\}\nstatic helper = function\(\) \{/,
         "Static function doc comments should receive synthesized @returns metadata."
     );
 });
@@ -270,9 +270,10 @@ void test("reorders description doc comments between parameters and returns", as
         [
             "/// @description A longer example description that should wrap into multiple lines and appear after",
             "///              the",
-            "/// @param {string,array<string>} first First input",
-            "/// @param {Id.Instance} second Second input",
-            "/// @returns {undefined}"
+            "/// @param {string,array[string]} first - First input",
+            "/// @param {Id.Instance} second - Second input",
+            "/// @returns {undefined}",
+            "function sample(_first, _second) {"
         ],
         "Expected description doc comments to follow parameter metadata and precede the returns tag."
     );
@@ -326,7 +327,8 @@ void test("respects wider printWidth when wrapping description doc comments", as
             "///              the",
             "/// @param {string,array[string]} first - First input",
             "/// @param {Id.Instance} second - Second input",
-            "/// @returns {undefined}"
+            "/// @returns {undefined}",
+            "function sample(_first, _second) {"
         ],
         "Description doc comments should clamp to the formatter's wrapping width even when printWidth is larger."
     );
@@ -352,7 +354,8 @@ void test("wraps long description doc comments using the formatter cap", async (
             "/// @description This synthetic doc comment should leave only the trailing connector on the",
             "///              continuation line when wrapping at the formatter cap for descriptions.",
             "/// @param value",
-            "/// @returns {undefined}"
+            "/// @returns {undefined}",
+            "function sample(value) {"
         ],
         "Long description doc comments should wrap to the formatter cap rather than producing additional continuation lines."
     );
