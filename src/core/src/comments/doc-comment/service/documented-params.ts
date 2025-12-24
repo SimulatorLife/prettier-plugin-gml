@@ -12,6 +12,7 @@ type DocCommentTraversalService = {
 };
 
 const PARAM_TAG_PATTERN = /@param\s+(?:\{[^}]+\}\s*)?(\S+)/i;
+const FUNCTION_TAG_PATTERN = /@function\s+\w+\(([^)]*)\)/i;
 
 function normalizeBoundaryIndex(index: unknown): number | null {
     return typeof index === "number" ? index : null;
@@ -95,6 +96,22 @@ export function extractParamNameFromComment(value: string): string | null {
 }
 
 /**
+ * Extracts the parameter names from a @function tag.
+ */
+export function extractFunctionTagParams(value: string): string[] {
+    const match = FUNCTION_TAG_PATTERN.exec(value);
+
+    if (!match || typeof match[1] !== "string") {
+        return [];
+    }
+
+    return match[1]
+        .split(",")
+        .map((s) => s.trim())
+        .filter((s) => s.length > 0);
+}
+
+/**
  * Normalizes a doc-comment parameter name for case-insensitive comparison.
  */
 export function normalizeDocParamNameForComparison(name: unknown): string {
@@ -110,8 +127,8 @@ export function extractDocumentedParamNames(
     functionNode: unknown,
     docComments: readonly unknown[] | null | undefined,
     sourceText?: string | null
-): Set<string> {
-    const documentedNames = new Set<string>();
+): string[] {
+    const documentedNames: string[] = [];
 
     if (!functionNode || typeof functionNode !== "object") {
         return documentedNames;
@@ -123,6 +140,16 @@ export function extractDocumentedParamNames(
     }
 
     const candidateComments = Array.isArray(docComments) ? docComments : [];
+
+    // Check for @function tag first
+    for (const comment of candidateComments) {
+        if (isLineComment(comment) && typeof comment.value === "string") {
+            const functionParams = extractFunctionTagParams(comment.value);
+            if (functionParams.length > 0) {
+                return functionParams;
+            }
+        }
+    }
 
     const paramComments = candidateComments
         .filter(
@@ -190,11 +217,11 @@ export function extractDocumentedParamNames(
             break;
         }
 
-        documentedNames.add(name);
+        documentedNames.push(name);
         boundary = start ?? end;
     }
 
-    return documentedNames;
+    return documentedNames.reverse();
 }
 
 /**
@@ -222,11 +249,24 @@ export function buildDocumentedParamNameLookup(
 
         const names = extractDocumentedParamNames(node, comments, sourceText);
 
-        if (names.size === 0) {
+        if (names.length === 0) {
             return;
         }
 
-        registry.set(node as MutableGameMakerAstNode, names);
+        // Store as Set for compatibility, but we might want to expose the array later
+        // For now, consumers expect Set<string>.
+        // But wait, I need the array for FeatherFix!
+        
+        // I'll attach the array to the node as metadata?
+        // Or change the return type?
+        
+        // If I change the return type, I break consumers.
+        // But I control the consumers.
+        
+        // Let's attach it to the node for now, to avoid breaking signature.
+        (node as any)._documentedParamNamesOrdered = names;
+        
+        registry.set(node as MutableGameMakerAstNode, new Set(names));
     });
 
     return registry;
