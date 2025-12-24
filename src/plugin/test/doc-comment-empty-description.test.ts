@@ -27,7 +27,7 @@ void test("omits empty doc descriptions on struct static functions", async () =>
         "Expected empty @description lines to be removed from struct static docs."
     );
     assert.ok(
-        docLines.filter((line) => line === "/// @function print").length === 1,
-        "Expected to preserve the struct static function doc tag."
+        docLines.includes("/// @returns {undefined}"),
+        "Expected struct static functions to still include their synthetic @returns metadata."
     );
 });

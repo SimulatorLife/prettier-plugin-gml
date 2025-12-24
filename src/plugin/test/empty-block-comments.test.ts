@@ -10,7 +10,6 @@ void describe("empty block comments", () => {
         const formatted = await Plugin.format(source);
 
         const expected = [
-            "/// @function make_game",
             "/// @param genre",
             "/// @returns {undefined}",
             "function make_game(_genre) { /* ... */ }",

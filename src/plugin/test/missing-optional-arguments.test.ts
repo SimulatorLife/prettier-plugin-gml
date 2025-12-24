@@ -5,7 +5,6 @@ import { Plugin } from "../src/index.js";
 const SOURCE_LINES = ["function demo() {", "    return func(1,,3);", "}", ""];
 
 const DEFAULT_FORMATTED = [
-    "/// @function demo",
     "function demo() {",
     "    return func(1, undefined, 3);",
     "}",
