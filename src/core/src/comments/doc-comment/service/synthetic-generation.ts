@@ -1,4 +1,4 @@
-import { getNodeName, isUndefinedSentinel } from "../../../ast/node-helpers.js";
+import { isUndefinedSentinel } from "../../../ast/node-helpers.js";
 import { isNonEmptyArray } from "../../../utils/array.js";
 import { isNonEmptyTrimmedString } from "../../../utils/string.js";
 import { parseDocCommentMetadata } from "./metadata.js";
@@ -7,7 +7,6 @@ import {
     docParamNamesLooselyEqual,
     getCanonicalParamNameFromText,
     isOptionalParamDocName,
-    normalizeDocMetadataName,
     normalizeParamDocType,
     preservedUndefinedDefaultParameters,
     synthesizedUndefinedDefaultParameters
@@ -35,11 +34,6 @@ type DocMeta = {
     type?: string | null;
     description?: string | null;
 };
-
-function normalizeDocMetadataNameToString(value: unknown): string | null {
-    const normalized = normalizeDocMetadataName(value);
-    return typeof normalized === STRING_TYPE ? (normalized as string) : null;
-}
 
 function suppressAliasCanonicalOverrides(
     aliasByIndex: Map<number, unknown>,
@@ -249,22 +243,6 @@ export function computeSyntheticFunctionDocLines(
     const hasOverrideTag = metadata.some((meta) => meta.tag === "override");
     const documentedParamNames = new Set<unknown>();
     const paramMetadataByCanonical = new Map<string, DocMeta>();
-    const overrideName = overrides?.nameOverride;
-    const functionName = overrideName ?? getNodeName(node);
-    const existingFunctionMetadata = metadata.find(
-        (meta) => meta.tag === "function"
-    );
-    const normalizedFunctionName =
-        typeof functionName === STRING_TYPE &&
-        isNonEmptyTrimmedString(functionName)
-            ? normalizeDocMetadataNameToString(functionName)
-            : null;
-    const normalizedExistingFunctionName =
-        typeof existingFunctionMetadata?.name === STRING_TYPE &&
-        isNonEmptyTrimmedString(existingFunctionMetadata.name)
-            ? normalizeDocMetadataNameToString(existingFunctionMetadata.name)
-            : null;
-
     for (const meta of metadata) {
         if (meta.tag !== "param") {
             continue;
@@ -290,15 +268,6 @@ export function computeSyntheticFunctionDocLines(
 
     if (shouldInsertOverrideTag) {
         lines.push("/// @override");
-    }
-
-    const functionNameToUse =
-        (overrideName && normalizedFunctionName) ??
-        normalizedExistingFunctionName ??
-        normalizedFunctionName;
-
-    if (functionNameToUse) {
-        lines.push(`/// @function ${functionNameToUse}`);
     }
 
     const initialSuppressed = computeInitialSuppressedCanonicals(

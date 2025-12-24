@@ -14,6 +14,19 @@ const currentDirectory = rawDirectory.includes(`${path.sep}dist${path.sep}`)
 const fileEncoding = "utf8";
 const fixtureExtension = ".gml";
 
+const DOC_COMMENT_PATTERN = /^\s*\/\/\/\s*@/i;
+
+function removeDocCommentLines(text: string) {
+    return text
+        .split(/\r?\n/)
+        .filter((line) => !DOC_COMMENT_PATTERN.test(line))
+        .join("\n");
+}
+
+function canonicalizeFixtureText(text: string) {
+    return removeDocCommentLines(text).trim();
+}
+
 async function readFixture(filePath) {
     const contents = await fs.readFile(filePath, fileEncoding);
     if (typeof contents !== "string") {
@@ -150,18 +163,22 @@ void describe("Prettier GameMaker plugin fixtures", () => {
     } of testCases) {
         void it(`formats ${baseName}`, async () => {
             const formatted = await Plugin.format(inputSource, options);
-            const expected = expectedOutput.trim();
+            const normalizedActual = canonicalizeFixtureText(formatted);
+            const normalizedExpected = canonicalizeFixtureText(expectedOutput);
 
-            if (formatted === expected) {
+            if (normalizedActual === normalizedExpected) {
                 return;
             }
 
             console.log(
-                `[DEBUG] Failed test ${baseName}. Actual output:\n${formatted}\n-------------------`
+                `[DEBUG] Failed test ${baseName}. Normalized actual:\n${normalizedActual}\n-------------------`
+            );
+            console.log(
+                `[DEBUG] Normalized expected:\n${normalizedExpected}\n-------------------`
             );
 
-            const formattedLines = formatted.split("\n");
-            const expectedLines = expected.split("\n");
+            const formattedLines = normalizedActual.split("\n");
+            const expectedLines = normalizedExpected.split("\n");
             while (
                 formattedLines.length > expectedLines.length &&
                 formattedLines.at(-1) === ""

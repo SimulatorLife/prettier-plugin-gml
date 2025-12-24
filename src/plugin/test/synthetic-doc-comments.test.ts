@@ -34,8 +34,8 @@ void test("adds synthetic @returns doc for onymous/named functions without retur
 
     assert.match(
         trimmed,
-        /^\/\/\/ @function demo\n\/\/\/ @returns \{undefined\}\nfunction demo\(\) \{/,
-        "Synthetic doc comments should describe undefined returns."
+        /^\/\/\/ @returns \{undefined\}\nfunction demo\(\) \{/,
+        "Synthetic doc comments should describe undefined returns without deprecated tags."
     );
 });
 
@@ -52,11 +52,10 @@ void test("separates synthetic doc comments from preceding line comments", async
     const lines = formatted.trim().split("\n");
 
     assert.deepStrictEqual(
-        lines.slice(0, 5),
+        lines.slice(0, 4),
         [
             "// Scenario 2",
             "",
-            "/// @function scr_custom_gpu_func",
             "/// @returns {undefined}",
             "function scr_custom_gpu_func() {"
         ],
@@ -71,7 +70,7 @@ void test("adds synthetic @returns doc for empty onymous/named function bodies",
 
     assert.match(
         trimmed,
-        /^\/\/\/ @function noop\n\/\/\/ @returns \{undefined\}\nfunction noop\(\) \{\}/,
+        /^\/\/\/ @returns \{undefined\}\nfunction noop\(\) \{\}/,
         "Synthetic doc comments should annotate empty functions with undefined returns."
     );
 });
@@ -111,13 +110,17 @@ void test("adds synthetic @returns metadata for parameterless static functions",
 
     assert.ok(
         trimmed.includes(
-            "/// @function Example\nfunction Example() constructor {\n\n    /// @function ping\n    /// @returns {undefined}\n    static ping = function() {"
+            "\n\n    /// @returns {undefined}\n    static ping = function() {"
         ),
         "Expected synthetic doc comments to describe the parameterless static function with inserted @returns metadata."
     );
     assert.ok(
         trimmed.includes("/// @returns {undefined}"),
         "Synthetic doc comments should include @returns metadata for parameterless static functions without existing docs."
+    );
+    assert.ok(
+        !trimmed.includes("/// @function Example"),
+        "Synthetic doc comments should no longer produce deprecated @function tags."
     );
 });
 
@@ -132,10 +135,14 @@ void test("adds synthetic docs for named constructor assignments", async () => {
     const formatted = await Plugin.format(source);
     const lines = formatted.trim().split("\n");
 
-    assert.deepStrictEqual(
-        lines.slice(0, 2),
-        ["/// @function item", "item = function() constructor {"],
-        "Named constructor assignments should receive synthetic @function doc comments."
+    assert.strictEqual(
+        lines[0],
+        "item = function() constructor {",
+        "Named constructor assignments should no longer receive deprecated @function doc comments."
+    );
+    assert.ok(
+        !lines.some((line) => line.includes("/// @function item")),
+        "Named constructor assignments should not emit synthetic @function tags."
     );
 });
 
@@ -162,13 +169,8 @@ void test("synthetic constructor docs include trailing parameters", async () => 
     );
 
     assert.deepStrictEqual(
-        lines.slice(docIndex, docIndex + 4),
-        [
-            "/// @function grandchild",
-            "/// @param foo",
-            "/// @param value",
-            "/// @param bar"
-        ],
+        lines.slice(docIndex - 3, docIndex),
+        ["/// @param foo", "/// @param value", "/// @param bar"],
         "Synthetic constructor docs should include entries for trailing parameters."
     );
 });
@@ -201,8 +203,8 @@ void test("updates existing @function tags to reflect static function names", as
     );
     assert.equal(
         lines[helperIndex].trim(),
-        "/// @function helper_right",
-        "Existing @function doc comments should be rewritten to describe the static function name."
+        "/// @function helper_wrong",
+        "Existing @function doc comments should remain untouched now that synthetic tags are removed."
     );
 });
 
@@ -240,18 +242,12 @@ void test("annotates overriding static functions with @override metadata", async
     }
 
     const overrideLine = lines[docStartIndex];
-    const functionLine = lines[docStartIndex + 1];
-    const returnsLine = lines[docStartIndex + 2];
+    const returnsLine = lines[docStartIndex + 1];
 
     assert.equal(
         overrideLine,
         "    /// @override",
         "Overriding static functions should include an @override tag."
-    );
-    assert.equal(
-        functionLine,
-        "    /// @function print",
-        "Expected the synthetic doc comment to describe the static function name."
     );
     assert.equal(
         returnsLine,
@@ -281,8 +277,8 @@ void test("adds synthetic @returns metadata when defaults replace argument_count
     );
     assert.match(
         trimmed,
-        /^\/\/\/ @function example\n\/\/\/ @param \[arg="default"\]\n\/\/\/ @returns \{undefined\}\nfunction example\(arg = "default"\) \{\}/,
-        "Expected argument_count fallbacks to convert into default parameters and add @returns."
+        /^\/\/\/ @param \[arg="default"\]\n\/\/\/ @returns \{undefined\}\nfunction example\(arg = "default"\) \{\}/,
+        "Expected argument_count fallbacks to convert into default parameters and add @returns without deprecated tags."
     );
 });
 
@@ -332,14 +328,12 @@ void test("omits alias-style description doc comments when synthetic metadata is
     const lines = formatted.trim().split("\n");
 
     assert.ok(
-        lines.includes("/// @function sample_alias"),
-        "Synthetic doc comments should still describe the function name."
+        lines.includes("/// @description sample_alias(arg0, arg1)"),
+        "Alias-style description entries should be preserved when synthetic metadata is disabled."
     );
     assert.ok(
-        !lines.some((line) =>
-            line.startsWith("/// @description sample_alias(")
-        ),
-        "Alias-style @description entries should be removed once synthetic metadata provides the function name."
+        !lines.some((line) => line.startsWith("/// @function sample_alias")),
+        "Synthetic doc comments should no longer insert deprecated @function tags."
     );
 });
 

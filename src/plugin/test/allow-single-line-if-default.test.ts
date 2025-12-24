@@ -30,7 +30,6 @@ void test("preserves compact return guards inside functions when disabled", asyn
     assert.strictEqual(
         formatted,
         [
-            "/// @function guard_example",
             "function guard_example() {",
             "    if (global.debug) { return; }",
             "    return 1;",
@@ -56,7 +55,6 @@ void test("expands guarded returns with values when single-line is disabled", as
     assert.strictEqual(
         formatted,
         [
-            "/// @function guard_with_value",
             "function guard_with_value() {",
             "    if (should_stop()) {",
             "        return false;",
