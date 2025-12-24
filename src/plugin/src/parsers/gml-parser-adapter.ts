@@ -339,6 +339,13 @@ function applyStructuralTransforms(
         });
     }
 
+    if (options?.normalizeDocComments ?? true) {
+        Transforms.docCommentNormalizationTransform.transform(ast, {
+            pluginOptions: options ?? {},
+            sourceText: context.parseSource
+        });
+    }
+
     if (options?.applyFeatherFixes) {
         const featherOptions = options
             ? { ...options, removeStandaloneVertexEnd: true }
@@ -424,13 +431,6 @@ function applyFinalTransforms(
         Transforms.hoistLoopLengthBounds(ast, options);
     }
     Transforms.enforceVariableBlockSpacingTransform.transform(ast);
-
-    if (options?.normalizeDocComments ?? true) {
-        Transforms.docCommentNormalizationTransform.transform(ast, {
-            pluginOptions: options ?? {},
-            sourceText: context.parseSource
-        });
-    }
 
     Transforms.markCallsMissingArgumentSeparatorsTransform.transform(ast, {
         originalText: options?.originalText ?? originalSource

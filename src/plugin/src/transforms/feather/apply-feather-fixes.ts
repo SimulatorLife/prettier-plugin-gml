@@ -1,4 +1,4 @@
-// NOTE: This file is way too big and needs to be split up. Things like 'attachFeatherFixMetadata' can live here, but everything else should be split/moved. Can have a file just for enum handling, one for fixing begin/end vertex, colour, etc.
+// TODO: This file is way too big and needs to be split up. Things like 'attachFeatherFixMetadata' can live here, but everything else should be split/moved. Can have a file just for enum handling, one for fixing begin/end vertex, colour, one for constants, etc.
 
 /**
  * Provides a collection of helpers that interpret and apply YoYo Games "Feather" diagnostics as AST fixes.
@@ -299,6 +299,15 @@ function applyFeatherFixesImpl(ast: any, opts: ApplyFeatherFixesOptions = {}) {
         updateStaticFunctionDocComments(ast);
     } catch {
         // Ignore errors
+    }
+
+    // Populate documented param names so Feather fixes can respect JSDoc @param tags
+    // This is necessary because the Feather transform runs before the printer (which usually handles this),
+    // and we need the metadata to decide whether to rename arguments.
+    if (sourceText) {
+        // Use the core service to extract and attach documented param names
+        // This handles finding comments correctly (which might not be directly on the node)
+        Core.buildDocumentedParamNameLookup(ast, sourceText);
     }
 
     const appliedFixes = [];
@@ -3844,6 +3853,14 @@ function fixArgumentReferencesWithinFunction(
     diagnostic,
     documentedParamNames = new Set()
 ) {
+    // Merge in names found by Core.buildDocumentedParamNameLookup
+    const orderedDocNames = (functionNode as any)._documentedParamNamesOrdered as string[] | undefined;
+    if (orderedDocNames && orderedDocNames.length > 0) {
+        for (const name of orderedDocNames) {
+            documentedParamNames.add(name);
+        }
+    }
+
     const fixes = [];
     const references = [];
     const aliasDeclarations = [];
@@ -3996,7 +4013,9 @@ function fixArgumentReferencesWithinFunction(
         fixes.push(fixDetail);
     }
 
-    if (documentedParamNames.size > 0 && aliasDeclarations.length > 0) {
+    if (documentedParamNames.size > 0) {
+        const orderedDocNames = (functionNode as any)._documentedParamNamesOrdered as string[] | undefined;
+
         const normalizedDocNames = new Set(
             [...documentedParamNames].map(
                 Core.normalizeDocParamNameForComparison
@@ -4029,7 +4048,7 @@ function fixArgumentReferencesWithinFunction(
                     )
             );
 
-        if (aliasInfos.length > 0) {
+        if (aliasInfos.length > 0 || (orderedDocNames && orderedDocNames.length > 0)) {
             const aliasByIndex = new Map();
             const aliasInitNodes = new Set();
 
@@ -4046,7 +4065,19 @@ function fixArgumentReferencesWithinFunction(
                     : reference.index;
                 const alias = aliasByIndex.get(normalizedIndex);
 
-                if (!alias || aliasInitNodes.has(reference.node)) {
+                let newName = null;
+                let sourceNode = null;
+
+                if (orderedDocNames && normalizedIndex < orderedDocNames.length) {
+                    // Fallback to doc name if no alias matches
+                    newName = orderedDocNames[normalizedIndex];
+                    // No source node for doc name (or maybe the doc comment itself, but we don't have it handy)
+                } else if (alias && !aliasInitNodes.has(reference.node)) {
+                    newName = alias.name;
+                    sourceNode = alias.declarator;
+                }
+
+                if (!newName) {
                     continue;
                 }
 
@@ -4054,35 +4085,37 @@ function fixArgumentReferencesWithinFunction(
                     continue;
                 }
 
-                if (reference.node.name === alias.name) {
+                if (reference.node.name === newName) {
                     continue;
                 }
 
-                const aliasStart = Core.getNodeStartIndex(alias.declarator);
-                const referenceStart = Core.getNodeStartIndex(reference.node);
+                if (sourceNode) {
+                    const aliasStart = Core.getNodeStartIndex(sourceNode);
+                    const referenceStart = Core.getNodeStartIndex(reference.node);
 
-                if (
-                    typeof aliasStart === "number" &&
-                    typeof referenceStart === "number" &&
-                    referenceStart < aliasStart
-                ) {
-                    continue;
+                    if (
+                        typeof aliasStart === "number" &&
+                        typeof referenceStart === "number" &&
+                        referenceStart < aliasStart
+                    ) {
+                        continue;
+                    }
                 }
 
-                const aliasFixDetail = createFeatherFixDetail(diagnostic, {
-                    target: alias.name,
+                const fixDetail = createFeatherFixDetail(diagnostic, {
+                    target: newName,
                     range: {
                         start: Core.getNodeStartIndex(reference.node),
                         end: Core.getNodeEndIndex(reference.node)
                     }
                 });
 
-                if (aliasFixDetail) {
-                    attachFeatherFixMetadata(reference.node, [aliasFixDetail]);
-                    fixes.push(aliasFixDetail);
+                if (fixDetail) {
+                    attachFeatherFixMetadata(reference.node, [fixDetail]);
+                    fixes.push(fixDetail);
                 }
 
-                reference.node.name = alias.name;
+                reference.node.name = newName;
             }
 
             if (functionNode._featherImplicitArgumentDocEntries) {

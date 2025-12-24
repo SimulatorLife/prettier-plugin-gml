@@ -651,10 +651,8 @@ function appendExplicitParameterDocLines({
     paramMetadataByCanonical,
     implicitDocEntryByIndex
 }: AppendExplicitParameterDocLinesParams) {
-    console.log(`[DEBUG] appendExplicitParameterDocLines called for node with ${node.params?.length} params`);
     for (const [paramIndex, param] of (node.params ?? []).entries()) {
         const paramInfo = getParameterDocInfo(param, node, options);
-        console.log(`[DEBUG] paramIndex=${paramIndex} paramInfo=${JSON.stringify(paramInfo)}`);
         if (!paramInfo || !paramInfo.name) {
             continue;
         }
@@ -679,18 +677,6 @@ function appendExplicitParameterDocLines({
         const isGenericArgumentName =
             typeof paramIdentifierName === STRING_TYPE &&
             getArgumentIndexFromIdentifier(paramIdentifierName) !== null;
-
-        if (paramInfo.name === "argument8" || paramInfo.name === "argument9") {
-            console.log(`[DEBUG] param ${paramInfo.name}:`, {
-                rawOrdinalName,
-                canonicalOrdinal,
-                paramIdentifierName,
-                isGenericArgumentName,
-                implicitDocEntryName: implicitDocEntry?.name,
-                orderedParamMetadataLength: orderedParamMetadata.length,
-                nodeParamsLength: node.params?.length
-            });
-        }
 
         const implicitName =
             implicitDocEntry &&

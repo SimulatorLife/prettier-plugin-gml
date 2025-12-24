@@ -218,16 +218,7 @@ function collectFunctionNodes(ast) {
             return;
         }
 
-        if (node.type === "Program" && Array.isArray(node.body)) {
-            console.log("[DEBUG] Program body types:", node.body.map((n: any) => n.type));
-        }
-
         if (isFunctionLikeNode(node)) {
-            const name = typeof node.id === 'string' ? node.id : resolveNodeName(node.id as any);
-            console.log(`[DEBUG] collectFunctionNodes found: ${name || 'anonymous'} type=${node.type}`);
-            if (!name && node.id) {
-                console.log(`[DEBUG] node.id structure:`, JSON.stringify(node.id, null, 2));
-            }
             functions.push(node);
         }
 

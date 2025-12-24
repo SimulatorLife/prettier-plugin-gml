@@ -1,10 +1,12 @@
 /// @funct my_custom_struct
+/// @returns {Struct.my_custom_struct}
 function my_custom_struct(_value) constructor
 {
 	value = _value;
 }
 
 /// @desc child_struct
+/// @returns {undefined}
 function child_struct(_foo, _value) : my_custom_struct(_value) constructor {
 	self.foo = _foo;
 	value = 0;
