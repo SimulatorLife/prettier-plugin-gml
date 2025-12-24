@@ -86,7 +86,7 @@ function collapseVertexFormatBeginSpacing(formatted: string): string {
 
 const MULTIPLE_BLANK_LINE_PATTERN = /\n{3,}/g;
 const FUNCTION_TAG_CLEANUP_PATTERN =
-    /\/\/\/\s*@(?:func|function)\b[^\n]*(\r?\n)?/gi;
+    /\/\/\/\s*@(?:func|function)\b[^\n]*(\n)?/gi;
 
 function collapseDuplicateBlankLines(formatted: string): string {
     return formatted.replaceAll(MULTIPLE_BLANK_LINE_PATTERN, "\n\n");

@@ -28,17 +28,6 @@ type DocCommentPath = {
     getParentNode(): MutableGameMakerAstNode | null;
 };
 
-const FUNCTION_TAG_PATTERN = /^\/\/\/\s*@function\b/i;
-
-function isFunctionDocCommentLine(line: unknown) {
-    if (typeof line !== "string") {
-        return false;
-    }
-
-    const trimmed = line.trim();
-    return trimmed.length > 0 && FUNCTION_TAG_PATTERN.test(trimmed);
-}
-
 function createDocCommentPath(
     node: MutableGameMakerAstNode,
     parent?: MutableGameMakerAstNode | null
