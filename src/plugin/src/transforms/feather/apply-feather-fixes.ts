@@ -3916,9 +3916,6 @@ function fixArgumentReferencesWithinFunction(
         const argumentIndex = getArgumentIdentifierIndex(node);
 
         if (typeof argumentIndex === "number") {
-            console.log(
-                `[FeatherFix] Found reference to argument${argumentIndex} at ${node.start}`
-            );
             references.push({ node, index: argumentIndex });
             return;
         }
@@ -3952,13 +3949,7 @@ function fixArgumentReferencesWithinFunction(
 
     // Update the implicit argument doc entries to match the new index
     if (functionNode._featherImplicitArgumentDocEntries) {
-        console.log(
-            `[FeatherFix] Updating implicit argument doc entries for function ${functionNode.id?.name || "anonymous"}`
-        );
         for (const entry of functionNode._featherImplicitArgumentDocEntries) {
-            console.log(
-                `[FeatherFix] Entry before: index=${entry.index}, name=${entry.name}`
-            );
             if (
                 entry &&
                 typeof entry.index === "number" &&
@@ -3978,14 +3969,24 @@ function fixArgumentReferencesWithinFunction(
                     entry.fallbackCanonical = `argument${newIndex}`;
                 }
             }
-            console.log(
-                `[FeatherFix] Entry after: index=${entry.index}, name=${entry.name}`
-            );
         }
-    } else {
-        console.log(
-            `[FeatherFix] No implicit argument doc entries for function ${functionNode.id?.name || "anonymous"}`
-        );
+
+        // Apply JSDoc names to implicit entries
+        if (orderedDocNames && orderedDocNames.length > 0) {
+            for (const entry of functionNode._featherImplicitArgumentDocEntries) {
+                if (
+                    entry &&
+                    typeof entry.index === "number" &&
+                    entry.index < orderedDocNames.length
+                ) {
+                    const docName = orderedDocNames[entry.index];
+                    if (docName) {
+                        entry.name = docName;
+                        entry.canonical = docName.toLowerCase();
+                    }
+                }
+            }
+        }
     }
 
     for (const reference of references) {
