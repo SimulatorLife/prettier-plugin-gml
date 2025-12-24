@@ -216,6 +216,6 @@ var lerp_sample = function(inst_a, inst_b, amount) {
 
 var other_function = function(a, b) {
     return a + b;
-}
+};
 
 sprite_top = z + sprite_height; // find the z top of the bomb
