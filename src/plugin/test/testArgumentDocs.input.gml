@@ -1,15 +1,4 @@
-/// @description scr_bezier_4(x1, y1, x2, y2, x3, y3, x4, y4, width, steps, color)
-/// @param  x1
-/// @param  y1
-/// @param  x2
-/// @param  y2
-/// @param  x3
-/// @param  y3
-/// @param  x4
-/// @param  y4
-/// @param  width
-/// @param  steps
-/// @param  color
+/// @function scr_bezier_4(x1, y1, x2, y2, x3, y3, x4, y4, width, steps, color)
 function scr_bezier_4(argument0, argument1, argument2, argument3, argument4, argument5, argument6, argument7, argument8, argument9, argument10) {
 	var x1 = argument0;
 	var y1 = argument1;
