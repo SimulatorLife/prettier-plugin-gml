@@ -213,5 +213,4 @@ void describe("Prettier GameMaker plugin fixtures", () => {
             }
         });
     }
-
 });

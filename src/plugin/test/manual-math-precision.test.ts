@@ -42,12 +42,9 @@ void test("converts literal square with floating point noise", async () => {
 
     assert.strictEqual(
         formatted,
-        [
-            "function convert_square() {",
-            "    return sqr(0.5);",
-            "}",
-            ""
-        ].join("\n")
+        ["function convert_square() {", "    return sqr(0.5);", "}", ""].join(
+            "\n"
+        )
     );
 });
 

@@ -93,7 +93,7 @@ function collapseDuplicateBlankLines(formatted: string): string {
 }
 
 function stripFunctionTagComments(formatted: string): string {
-    return formatted.replace(
+    return formatted.replaceAll(
         FUNCTION_TAG_CLEANUP_PATTERN,
         (_match, newline) => newline ?? ""
     );
@@ -149,7 +149,8 @@ async function format(source: string, options: SupportOptions = {}) {
         ? singleBlankLines
         : `${singleBlankLines}\n`;
     const withoutFunctionTags = stripFunctionTagComments(normalizedCleaned);
-    const collapsedAfterStrip = collapseDuplicateBlankLines(withoutFunctionTags);
+    const collapsedAfterStrip =
+        collapseDuplicateBlankLines(withoutFunctionTags);
     return collapseVertexFormatBeginSpacing(collapsedAfterStrip);
 }
 

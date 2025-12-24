@@ -20,9 +20,7 @@ void test("convertLegacyReturnsDescriptionLinesToMetadata ignores non-return des
 void test("convertLegacyReturnsDescriptionLinesToMetadata converts valid legacy returns", () => {
     const input = ["/// @function my_func", "/// Returns: real, the result"];
 
-    const expected = [
-        "/// @returns {real} The result"
-    ];
+    const expected = ["/// @returns {real} The result"];
 
     const output = convertLegacyReturnsDescriptionLinesToMetadata(input);
 
@@ -32,9 +30,7 @@ void test("convertLegacyReturnsDescriptionLinesToMetadata converts valid legacy 
 void test("convertLegacyReturnsDescriptionLinesToMetadata converts hyphen style returns", () => {
     const input = ["/// @function my_func", "/// real - the result"];
 
-    const expected = [
-        "/// @returns {real} The result"
-    ];
+    const expected = ["/// @returns {real} The result"];
 
     const output = convertLegacyReturnsDescriptionLinesToMetadata(input);
 

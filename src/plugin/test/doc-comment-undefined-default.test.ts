@@ -101,7 +101,7 @@ void test("retains optional syntax when constructors keep explicit undefined def
         "function Shape(color = undefined) constructor {",
         "    self.color = color;",
         "}",
-        "",
+        ""
     ].join("\n");
 
     const formatted = await Plugin.format(source, {

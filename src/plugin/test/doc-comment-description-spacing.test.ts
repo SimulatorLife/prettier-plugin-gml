@@ -40,8 +40,7 @@ void test("normalizes extra spaces before doc parameter names", async () => {
         applyFeatherFixes: true
     });
 
-    const [firstParamLine, secondParamLine] =
-        formatted.split("\n");
+    const [firstParamLine, secondParamLine] = formatted.split("\n");
     assert.equal(firstParamLine, "/// @param x1");
     assert.equal(secondParamLine, "/// @param y1");
 });

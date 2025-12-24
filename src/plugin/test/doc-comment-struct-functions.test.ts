@@ -66,9 +66,8 @@ void test("struct static functions keep implicit argument docs", async () => {
     console.log(`FORMATTED OUTPUT:\n${formatted}`);
 
     const docBlocks = extractDocBlocks(formatted);
-    const dispatchBlock = docBlocks.find(
-        (block) =>
-            block.includes("/// @param {real} argument0")
+    const dispatchBlock = docBlocks.find((block) =>
+        block.includes("/// @param {real} argument0")
     );
 
     assert.ok(

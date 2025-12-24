@@ -58,12 +58,7 @@ void test(
 
             assert.strictEqual(
                 formatted,
-                [
-                    "function demo() {",
-                    "    return 42;",
-                    "}",
-                    ""
-                ].join("\n")
+                ["function demo() {", "    return 42;", "}", ""].join("\n")
             );
         } finally {
             restoreDefaultGmlPluginComponents();
