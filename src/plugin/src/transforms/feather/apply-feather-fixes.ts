@@ -3854,7 +3854,8 @@ function fixArgumentReferencesWithinFunction(
     documentedParamNames = new Set()
 ) {
     // Merge in names found by Core.buildDocumentedParamNameLookup
-    const orderedDocNames = (functionNode as any)._documentedParamNamesOrdered as string[] | undefined;
+    const orderedDocNames = (functionNode)
+        ._documentedParamNamesOrdered as string[] | undefined;
     if (orderedDocNames && orderedDocNames.length > 0) {
         for (const name of orderedDocNames) {
             documentedParamNames.add(name);
@@ -4015,7 +4016,8 @@ function fixArgumentReferencesWithinFunction(
     }
 
     if (documentedParamNames.size > 0) {
-        const orderedDocNames = (functionNode as any)._documentedParamNamesOrdered as string[] | undefined;
+        const orderedDocNames = (functionNode)
+            ._documentedParamNamesOrdered as string[] | undefined;
 
         const normalizedDocNames = new Set(
             [...documentedParamNames].map(
@@ -4049,7 +4051,10 @@ function fixArgumentReferencesWithinFunction(
                     )
             );
 
-        if (aliasInfos.length > 0 || (orderedDocNames && orderedDocNames.length > 0)) {
+        if (
+            aliasInfos.length > 0 ||
+            (orderedDocNames && orderedDocNames.length > 0)
+        ) {
             const aliasByIndex = new Map();
             const aliasInitNodes = new Set();
 
@@ -4069,7 +4074,10 @@ function fixArgumentReferencesWithinFunction(
                 let newName = null;
                 let sourceNode = null;
 
-                if (orderedDocNames && normalizedIndex < orderedDocNames.length) {
+                if (
+                    orderedDocNames &&
+                    normalizedIndex < orderedDocNames.length
+                ) {
                     // Fallback to doc name if no alias matches
                     newName = orderedDocNames[normalizedIndex];
                     // No source node for doc name (or maybe the doc comment itself, but we don't have it handy)
@@ -4092,7 +4100,9 @@ function fixArgumentReferencesWithinFunction(
 
                 if (sourceNode) {
                     const aliasStart = Core.getNodeStartIndex(sourceNode);
-                    const referenceStart = Core.getNodeStartIndex(reference.node);
+                    const referenceStart = Core.getNodeStartIndex(
+                        reference.node
+                    );
 
                     if (
                         typeof aliasStart === "number" &&

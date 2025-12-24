@@ -161,10 +161,7 @@ export function reorderDescriptionLinesToTop(
         (_line, idx) => !descriptionIndexSet.has(idx)
     );
 
-    const result = [
-        ...descriptionLines,
-        ...filtered
-    ];
+    const result = [...descriptionLines, ...filtered];
 
     return result as DocCommentLines;
 }

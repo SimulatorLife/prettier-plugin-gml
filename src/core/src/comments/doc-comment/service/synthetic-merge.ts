@@ -1084,10 +1084,14 @@ export function shouldGenerateSyntheticDocForFunction(
     const node = path.getValue();
     const parent = path.getParentNode();
     if (node?.type === "FunctionDeclaration") {
-        console.log(`[DEBUG] shouldGenerateSyntheticDocForFunction checking function: ${node.id?.name}`);
+        console.log(
+            `[DEBUG] shouldGenerateSyntheticDocForFunction checking function: ${node.id?.name}`
+        );
     }
     if (node?.id?.name === "scr_bezier_4") {
-        console.log(`[DEBUG] shouldGenerateSyntheticDocForFunction scr_bezier_4: parent.type=${parent?.type} node.type=${node?.type}`);
+        console.log(
+            `[DEBUG] shouldGenerateSyntheticDocForFunction scr_bezier_4: parent.type=${parent?.type} node.type=${node?.type}`
+        );
     }
 
     if (
@@ -1331,9 +1335,7 @@ function reorderDescriptionBlock({
     }
 
     const insertionIndex =
-        firstTagIndex === -1
-            ? docsWithoutDescription.length
-            : firstTagIndex;
+        firstTagIndex === -1 ? docsWithoutDescription.length : firstTagIndex;
 
     return [
         ...docsWithoutDescription.slice(0, insertionIndex),

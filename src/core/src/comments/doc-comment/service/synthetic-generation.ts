@@ -257,9 +257,7 @@ export function computeSyntheticFunctionDocLines(
             : []
     ) as DocMeta[];
 
-    let orderedParamMetadata = metadata.filter(
-        (meta) => meta.tag === "param"
-    );
+    let orderedParamMetadata = metadata.filter((meta) => meta.tag === "param");
 
     if (orderedParamMetadata.length === 0) {
         const functionTag = metadata.find(
@@ -1020,7 +1018,9 @@ function applyImplicitNameOverride({
 
     if (ordinalLength > implicitComparisonLength) {
         if (paramIndex === 8 || paramIndex === 9) {
-            console.log(`[DEBUG] applyImplicitNameOverride param ${paramIndex}: overriding implicit '${effectiveImplicitName}' with ordinal '${ordinalDocName}'`);
+            console.log(
+                `[DEBUG] applyImplicitNameOverride param ${paramIndex}: overriding implicit '${effectiveImplicitName}' with ordinal '${ordinalDocName}'`
+            );
         }
         applyOrdinalImplicitDocEntryOverrides(
             node,
@@ -1032,7 +1032,9 @@ function applyImplicitNameOverride({
         return null;
     } else {
         if (paramIndex === 8 || paramIndex === 9) {
-            console.log(`[DEBUG] applyImplicitNameOverride param ${paramIndex}: keeping implicit '${effectiveImplicitName}' (ordinal '${ordinalDocName}' not preferred)`);
+            console.log(
+                `[DEBUG] applyImplicitNameOverride param ${paramIndex}: keeping implicit '${effectiveImplicitName}' (ordinal '${ordinalDocName}' not preferred)`
+            );
         }
     }
 

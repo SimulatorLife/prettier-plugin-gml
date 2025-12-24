@@ -17,10 +17,12 @@ void test("omits empty doc descriptions on struct static functions", async () =>
     ].join("\n");
 
     const formatted = await format(source);
-    const docLines = new Set(formatted
-        .split(/\r?\n/)
-        .map((line) => line.trim())
-        .filter((line) => line.startsWith("///")));
+    const docLines = new Set(
+        formatted
+            .split(/\r?\n/)
+            .map((line) => line.trim())
+            .filter((line) => line.startsWith("///"))
+    );
 
     assert.ok(
         !docLines.has("/// @description"),

@@ -256,16 +256,16 @@ export function buildDocumentedParamNameLookup(
         // Store as Set for compatibility, but we might want to expose the array later
         // For now, consumers expect Set<string>.
         // But wait, I need the array for FeatherFix!
-        
+
         // I'll attach the array to the node as metadata?
         // Or change the return type?
-        
+
         // If I change the return type, I break consumers.
         // But I control the consumers.
-        
+
         // Let's attach it to the node for now, to avoid breaking signature.
-        (node as any)._documentedParamNamesOrdered = names;
-        
+        (node)._documentedParamNamesOrdered = names;
+
         registry.set(node as MutableGameMakerAstNode, new Set(names));
     });
 
