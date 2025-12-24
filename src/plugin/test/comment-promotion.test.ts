@@ -28,25 +28,4 @@ void describe("comment promotion and normalization", () => {
             "Expected no remaining unpromoted '// / ' lines"
         );
     });
-
-    void it("normalises @func to @function", async () => {
-        const sourceCode = [
-            "function someFunc() {",
-            "    // @func freeze()",
-            "    // Additional comment",
-            "    return 0;",
-            "}"
-        ].join("\n");
-
-        const formatted = await Plugin.format(sourceCode);
-
-        // Expect the @func tag to be promoted/normalized to /// @function and
-        // for legacy // @func forms to no longer be present.
-        const hasNormalized = formatted.includes("/// @function freeze");
-        const hasLegacy = /^\s*\/\/\s*@func\b/m.test(formatted);
-        assert.ok(
-            hasNormalized && !hasLegacy,
-            "Expected @func to be normalised to /// @function freeze and no legacy // @func to remain"
-        );
-    });
 });

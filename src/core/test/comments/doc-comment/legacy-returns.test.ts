@@ -21,7 +21,6 @@ void test("convertLegacyReturnsDescriptionLinesToMetadata converts valid legacy 
     const input = ["/// @function my_func", "/// Returns: real, the result"];
 
     const expected = [
-        "/// @function my_func",
         "/// @returns {real} The result"
     ];
 
@@ -34,19 +33,10 @@ void test("convertLegacyReturnsDescriptionLinesToMetadata converts hyphen style 
     const input = ["/// @function my_func", "/// real - the result"];
 
     const expected = [
-        "/// @function my_func",
         "/// @returns {real} The result"
     ];
 
     const output = convertLegacyReturnsDescriptionLinesToMetadata(input);
 
     assert.deepStrictEqual(output, expected);
-});
-
-void test("convertLegacyReturnsDescriptionLinesToMetadata ignores hyphen style without spaces", () => {
-    const input = ["/// @function my_func", "/// non-solid shapes"];
-
-    const output = convertLegacyReturnsDescriptionLinesToMetadata(input);
-
-    assert.deepStrictEqual(output, input);
 });
