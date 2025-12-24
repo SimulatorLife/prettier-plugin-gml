@@ -5,7 +5,6 @@ import { Plugin } from "../src/index.js";
 
 void test("preserves double spaces following doc comment hyphen", async () => {
     const source = [
-        "/// @function draw_circle",
         "/// @param {real} r -  The radius of the circle",
         "function draw_circle(r) {",
         "    return r;",
@@ -41,9 +40,7 @@ void test("normalizes extra spaces before doc parameter names", async () => {
         applyFeatherFixes: true
     });
 
-    const [functionLine, firstParamLine, secondParamLine] =
-        formatted.split("\n");
-    assert.equal(functionLine, "/// @function draw_line");
+    const [firstParamLine, secondParamLine] = formatted.split("\n");
     assert.equal(firstParamLine, "/// @param x1");
     assert.equal(secondParamLine, "/// @param y1");
 });

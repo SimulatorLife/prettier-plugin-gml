@@ -5,7 +5,6 @@ import { Plugin } from "../src/index.js";
 
 void test("retains argument aliases when no parameters are declared", async () => {
     const source = [
-        "/// @function sample",
         "/// @param first",
         "function sample() {",
         "    var first = argument0;",
@@ -19,7 +18,6 @@ void test("retains argument aliases when no parameters are declared", async () =
     assert.strictEqual(
         formatted,
         [
-            "/// @function sample",
             "/// @param first",
             "function sample() {",
             "    var first = argument0;",

@@ -2,8 +2,7 @@ import assert from "node:assert/strict";
 import { Plugin } from "../src/index.js";
 import { test } from "node:test";
 
-const SOURCE = `/// @function scr_bezier_4
-/// @param x1
+const SOURCE = `/// @param x1
 /// @param y1
 /// @param x2
 /// @param y2
@@ -28,8 +27,7 @@ void test("formats function parameters using documented argument names", async (
 
 void test("initializes argument aliases using parameter names", async () => {
     const formatted = await Plugin.format(
-        `/// @function scr_example
-/// @param width
+        `/// @param width
 /// @param height
 function scr_example(argument0, argument1) {
     var w = argument0;

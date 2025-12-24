@@ -17,10 +17,8 @@ void describe("constructor instance method semicolons", () => {
         const formatted = await Plugin.format(source);
 
         const expected = [
-            "/// @function Line",
             "function Line() : Shape() constructor {",
             "",
-            "    /// @function set_points",
             "    /// @param x1",
             "    /// @param y1",
             "    /// @returns {undefined}",

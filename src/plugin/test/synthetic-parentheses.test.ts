@@ -16,7 +16,6 @@ void test("flatten synthetic addition parentheses from reordered optional parame
     });
 
     const expectedLines = [
-        "/// @function example",
         "/// @param a",
         "/// @param [b=1]",
         "/// @param [c]",
@@ -107,7 +106,6 @@ void test("flattens chained multiplication operands when optimizeMathExpressions
     });
 
     const expectedLines = [
-        "/// @function sample",
         "/// @param a",
         "/// @param b",
         "function sample(a, b) {",
@@ -143,7 +141,6 @@ void test("keeps division-by-constant grouping when optimizeMathExpressions is d
     });
 
     const expectedLines = [
-        "/// @function sample",
         "/// @param a",
         "/// @param b",
         "function sample(a, b) {",
@@ -186,7 +183,6 @@ void test("math optimization is not tied to Feather fixes", async () => {
     });
 
     const expectedLines = [
-        "/// @function sample",
         "/// @param a",
         "/// @param b",
         "function sample(a, b) {",
@@ -224,7 +220,6 @@ void test("groups multiplication expressions added together", async () => {
     });
 
     const expectedLines = [
-        "/// @function dot",
         "/// @param ax",
         "/// @param ay",
         "/// @param bx",
@@ -284,7 +279,6 @@ void test("maintains multiplication groups inside a function definition but omit
     });
 
     const expectedLines = [
-        "/// @function spring",
         "/// @param a",
         "/// @param b",
         "/// @param dst",
@@ -331,7 +325,6 @@ void test("addition grouping is omitted within sqrt calls", async () => {
     });
 
     const expectedLines = [
-        "/// @function distance",
         "/// @param dir",
         "function distance(dir) {",
         "    return sqrt(dir[0] * dir[0] + dir[1] * dir[1] + dir[2] * dir[2]);",
@@ -404,7 +397,6 @@ void test("retains synthetic multiplication grouping when subtracting values", a
     });
 
     const expectedLines = [
-        "/// @function adjust",
         "/// @param xnet",
         "/// @param ynet",
         "/// @param xx",

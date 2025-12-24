@@ -20,7 +20,6 @@ void test("pads bare decimal literals by default", async () => {
     assert.strictEqual(
         formatted,
         [
-            "/// @function coefficients",
             "function coefficients() {",
             "    var a = 0.5;",
             "    var b = 5;",

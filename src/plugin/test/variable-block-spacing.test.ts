@@ -23,7 +23,7 @@ void test("inserts a blank line between large variable blocks and following loop
     assert.equal(
         lines[7],
         "",
-        "Expected a blank line to separate the variable declarations from the loop body."
+        "Expected a blank line to separate the variable declarations from the loop body"
     );
 });
 

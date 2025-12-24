@@ -17,17 +17,17 @@ void test("omits empty doc descriptions on struct static functions", async () =>
     ].join("\n");
 
     const formatted = await format(source);
-    const docLines = formatted
+    const docLines = new Set(formatted
         .split(/\r?\n/)
         .map((line) => line.trim())
-        .filter((line) => line.startsWith("///"));
+        .filter((line) => line.startsWith("///")));
 
     assert.ok(
-        !docLines.includes("/// @description"),
+        !docLines.has("/// @description"),
         "Expected empty @description lines to be removed from struct static docs."
     );
     assert.ok(
-        docLines.filter((line) => line === "/// @function print").length === 1,
-        "Expected to preserve the struct static function doc tag."
+        docLines.has("/// @returns {undefined}"),
+        "Expected struct static functions to still include their synthetic @returns metadata."
     );
 });

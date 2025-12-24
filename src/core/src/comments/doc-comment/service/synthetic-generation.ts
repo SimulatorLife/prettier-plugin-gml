@@ -1,4 +1,4 @@
-import { getNodeName, isUndefinedSentinel } from "../../../ast/node-helpers.js";
+import { isUndefinedSentinel } from "../../../ast/node-helpers.js";
 import { isNonEmptyArray } from "../../../utils/array.js";
 import { isNonEmptyTrimmedString } from "../../../utils/string.js";
 import { parseDocCommentMetadata } from "./metadata.js";
@@ -7,7 +7,6 @@ import {
     docParamNamesLooselyEqual,
     getCanonicalParamNameFromText,
     isOptionalParamDocName,
-    normalizeDocMetadataName,
     normalizeParamDocType,
     preservedUndefinedDefaultParameters,
     synthesizedUndefinedDefaultParameters
@@ -36,9 +35,26 @@ type DocMeta = {
     description?: string | null;
 };
 
-function normalizeDocMetadataNameToString(value: unknown): string | null {
-    const normalized = normalizeDocMetadataName(value);
-    return typeof normalized === STRING_TYPE ? (normalized as string) : null;
+function extractParamsFromFunctionTag(functionTagContent: string): string[] {
+    const openParenIndex = functionTagContent.indexOf("(");
+    const closeParenIndex = functionTagContent.lastIndexOf(")");
+
+    if (
+        openParenIndex === -1 ||
+        closeParenIndex === -1 ||
+        closeParenIndex <= openParenIndex
+    ) {
+        return [];
+    }
+
+    const paramsString = functionTagContent.slice(
+        openParenIndex + 1,
+        closeParenIndex
+    );
+    return paramsString
+        .split(",")
+        .map((p) => p.trim())
+        .filter((p) => p.length > 0);
 }
 
 function suppressAliasCanonicalOverrides(
@@ -241,30 +257,29 @@ export function computeSyntheticFunctionDocLines(
             : []
     ) as DocMeta[];
 
-    const orderedParamMetadata = metadata.filter(
+    let orderedParamMetadata = metadata.filter(
         (meta) => meta.tag === "param"
     );
+
+    if (orderedParamMetadata.length === 0) {
+        const functionTag = metadata.find(
+            (meta) => meta.tag === "function" || meta.tag === "func"
+        );
+        if (functionTag && typeof functionTag.name === STRING_TYPE) {
+            const params = extractParamsFromFunctionTag(functionTag.name);
+            orderedParamMetadata = params.map((name) => ({
+                tag: "param",
+                name,
+                type: null,
+                description: null
+            }));
+        }
+    }
 
     const hasReturnsTag = metadata.some((meta) => meta.tag === "returns");
     const hasOverrideTag = metadata.some((meta) => meta.tag === "override");
     const documentedParamNames = new Set<unknown>();
     const paramMetadataByCanonical = new Map<string, DocMeta>();
-    const overrideName = overrides?.nameOverride;
-    const functionName = overrideName ?? getNodeName(node);
-    const existingFunctionMetadata = metadata.find(
-        (meta) => meta.tag === "function"
-    );
-    const normalizedFunctionName =
-        typeof functionName === STRING_TYPE &&
-        isNonEmptyTrimmedString(functionName)
-            ? normalizeDocMetadataNameToString(functionName)
-            : null;
-    const normalizedExistingFunctionName =
-        typeof existingFunctionMetadata?.name === STRING_TYPE &&
-        isNonEmptyTrimmedString(existingFunctionMetadata.name)
-            ? normalizeDocMetadataNameToString(existingFunctionMetadata.name)
-            : null;
-
     for (const meta of metadata) {
         if (meta.tag !== "param") {
             continue;
@@ -290,15 +305,6 @@ export function computeSyntheticFunctionDocLines(
 
     if (shouldInsertOverrideTag) {
         lines.push("/// @override");
-    }
-
-    const functionNameToUse =
-        (overrideName && normalizedFunctionName) ??
-        normalizedExistingFunctionName ??
-        normalizedFunctionName;
-
-    if (functionNameToUse) {
-        lines.push(`/// @function ${functionNameToUse}`);
     }
 
     const initialSuppressed = computeInitialSuppressedCanonicals(
@@ -645,8 +651,10 @@ function appendExplicitParameterDocLines({
     paramMetadataByCanonical,
     implicitDocEntryByIndex
 }: AppendExplicitParameterDocLinesParams) {
+    console.log(`[DEBUG] appendExplicitParameterDocLines called for node with ${node.params?.length} params`);
     for (const [paramIndex, param] of (node.params ?? []).entries()) {
         const paramInfo = getParameterDocInfo(param, node, options);
+        console.log(`[DEBUG] paramIndex=${paramIndex} paramInfo=${JSON.stringify(paramInfo)}`);
         if (!paramInfo || !paramInfo.name) {
             continue;
         }
@@ -671,6 +679,19 @@ function appendExplicitParameterDocLines({
         const isGenericArgumentName =
             typeof paramIdentifierName === STRING_TYPE &&
             getArgumentIndexFromIdentifier(paramIdentifierName) !== null;
+
+        if (paramInfo.name === "argument8" || paramInfo.name === "argument9") {
+            console.log(`[DEBUG] param ${paramInfo.name}:`, {
+                rawOrdinalName,
+                canonicalOrdinal,
+                paramIdentifierName,
+                isGenericArgumentName,
+                implicitDocEntryName: implicitDocEntry?.name,
+                orderedParamMetadataLength: orderedParamMetadata.length,
+                nodeParamsLength: node.params?.length
+            });
+        }
+
         const implicitName =
             implicitDocEntry &&
             typeof implicitDocEntry.name === STRING_TYPE &&
@@ -1012,6 +1033,9 @@ function applyImplicitNameOverride({
         : 0;
 
     if (ordinalLength > implicitComparisonLength) {
+        if (paramIndex === 8 || paramIndex === 9) {
+            console.log(`[DEBUG] applyImplicitNameOverride param ${paramIndex}: overriding implicit '${effectiveImplicitName}' with ordinal '${ordinalDocName}'`);
+        }
         applyOrdinalImplicitDocEntryOverrides(
             node,
             paramIndex,
@@ -1020,6 +1044,10 @@ function applyImplicitNameOverride({
             ordinalDocName
         );
         return null;
+    } else {
+        if (paramIndex === 8 || paramIndex === 9) {
+            console.log(`[DEBUG] applyImplicitNameOverride param ${paramIndex}: keeping implicit '${effectiveImplicitName}' (ordinal '${ordinalDocName}' not preferred)`);
+        }
     }
 
     return effectiveImplicitName;

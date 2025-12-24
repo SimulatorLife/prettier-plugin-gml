@@ -17,7 +17,7 @@ import {
 import { parseDocCommentMetadata } from "./metadata.js";
 import {
     dedupeReturnDocLines,
-    reorderDescriptionLinesAfterFunction,
+    reorderDescriptionLinesToTop,
     convertLegacyReturnsDescriptionLinesToMetadata,
     promoteLeadingDocCommentTextToDescription,
     hasLegacyReturnsDescriptionLines
@@ -158,7 +158,7 @@ export function mergeSyntheticDocComments(
         true;
 
     normalizedExistingLines = toMutableArray(
-        reorderDescriptionLinesAfterFunction(normalizedExistingLines)
+        reorderDescriptionLinesToTop(normalizedExistingLines)
     ) as MutableDocCommentLines;
 
     if (preserveDescriptionBreaks) {
@@ -220,7 +220,7 @@ export function mergeSyntheticDocComments(
         }));
 
     const syntheticLinesSource =
-        reorderDescriptionLinesAfterFunction(_computedSynthetic);
+        reorderDescriptionLinesToTop(_computedSynthetic);
     const syntheticLines = toMutableArray(
         syntheticLinesSource
     ) as MutableDocCommentLines;
@@ -312,7 +312,7 @@ export function mergeSyntheticDocComments(
     });
 
     reorderedDocs = toMutableArray(
-        reorderDescriptionLinesAfterFunction(reorderedDocs)
+        reorderDescriptionLinesToTop(reorderedDocs)
     ) as MutableDocCommentLines;
 
     reorderedDocs = reorderedDocs.filter((line) => {
@@ -1083,6 +1083,12 @@ export function shouldGenerateSyntheticDocForFunction(
 ): boolean {
     const node = path.getValue();
     const parent = path.getParentNode();
+    if (node?.type === "FunctionDeclaration") {
+        console.log(`[DEBUG] shouldGenerateSyntheticDocForFunction checking function: ${node.id?.name}`);
+    }
+    if (node?.id?.name === "scr_bezier_4") {
+        console.log(`[DEBUG] shouldGenerateSyntheticDocForFunction scr_bezier_4: parent.type=${parent?.type} node.type=${node?.type}`);
+    }
 
     if (
         !node ||
@@ -1311,22 +1317,28 @@ function reorderDescriptionBlock({
         return docsWithoutDescription;
     }
 
-    let lastParamIndex = -1;
+    const isReturnLine = (line: unknown) => {
+        if (typeof line !== "string") return false;
+        return /^\/\/\/\s*@returns?\b/i.test(line.trim());
+    };
+
+    let firstTagIndex = -1;
     for (const [index, element] of docsWithoutDescription.entries()) {
-        if (docTagHelpers.isParamLine(element)) {
-            lastParamIndex = index;
+        if (docTagHelpers.isParamLine(element) || isReturnLine(element)) {
+            firstTagIndex = index;
+            break;
         }
     }
 
-    const insertionAfterParams =
-        lastParamIndex === -1
+    const insertionIndex =
+        firstTagIndex === -1
             ? docsWithoutDescription.length
-            : lastParamIndex + 1;
+            : firstTagIndex;
 
     return [
-        ...docsWithoutDescription.slice(0, insertionAfterParams),
+        ...docsWithoutDescription.slice(0, insertionIndex),
         ...descriptionBlockWithContent,
-        ...docsWithoutDescription.slice(insertionAfterParams)
+        ...docsWithoutDescription.slice(insertionIndex)
     ];
 }
 

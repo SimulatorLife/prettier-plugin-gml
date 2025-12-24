@@ -6,7 +6,6 @@ import { Plugin } from "../src/index.js";
 void test("emits a separating blank line after documented nested functions", async () => {
     const source = [
         "function Outer() constructor {",
-        "    /// @function inner",
         "    /// @returns {undefined}",
         "    function inner() {",
         "        return 1;",

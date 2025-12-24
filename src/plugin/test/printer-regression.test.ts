@@ -20,7 +20,6 @@ void test("prints statements and element lists for GML programs", async () => {
         [
             "var counter = 1 + value;",
             "",
-            "/// @function demo",
             "function demo() {",
             "    var total = add(counter, 2, 3);",
             "    return total;",
@@ -43,7 +42,6 @@ void test("prints all call arguments in order", async () => {
     assert.strictEqual(
         formatted,
         [
-            "/// @function demo",
             "function demo() {",
             '    return calculate("alpha", 2, true, other());',
             "}",

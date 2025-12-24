@@ -1,7 +1,7 @@
+/// @description States and drawing code examples to be preserved
+
 var my_val = (2 + 3) * 4;
 var b = ((x > y) ? (a + b) : (a - b));
-
-/// @description States
 
 // Define states
 states.add_state(
@@ -50,8 +50,6 @@ var y_body = y + lengthdir_y(radius, angle) - lengthdir_y(radius, aa);
 if (x_body <= 0 or y_body <= 0 or x <= 0 or y <= 0) {
     return []; // Return an empty array for invalid input
 }
-
-/// @description Draws the vertex buffer to screen
 
 matrix_set(matrix_world, matrix);
 shader_set(shd_flag);
@@ -133,12 +131,11 @@ global.lighting.draw(
 // Wobbling in z-axis
 z_wobble = ((sin(current_time * 0.004) + 1) * 2) + 2; // value between 0 and 2, this is subtracted from crabs height
 
-/// @function AbstractSkyboxParent
+/// @description Functions for skyboxes using an octahedron vertex buffer
 /// @param {Asset.GMSprite} [sprite=noone]
 /// @param {real} [subimg=0]
 /// @param {real} [octahedron_scale=1] - The scale of the skybox octahedron
 /// @param {real} [octmap_size=1024] - The size of the octmap
-/// @description Functions for skyboxes using an octahedron vertex buffer
 function AbstractSkyboxParent(sprite = noone, subimg = 0, octahedron_scale = 1, octmap_size = 1024) : ZModelBuffer(sprite, subimg, undefined, c_white, 1, pr_trianglelist) constructor {
 
     self.octahedron_scale = octahedron_scale;
@@ -148,9 +145,8 @@ function AbstractSkyboxParent(sprite = noone, subimg = 0, octahedron_scale = 1, 
     self.cullmode         = cull_clockwise;
 
     /// @override
-    /// @function draw
-    /// @param {bool} [reset_matrix=true] - Reset the world matrix after drawing?
     /// @description Draw the zmodel
+    /// @param {bool} [reset_matrix=true] - Reset the world matrix after drawing?
     /// @returns {undefined}
     static draw = function(reset_matrix = true) {
 
@@ -183,10 +179,9 @@ function AbstractSkyboxParent(sprite = noone, subimg = 0, octahedron_scale = 1, 
     };
 
     /// @ignore
-    /// @function land_buffer_get_land_type
-    /// @param {Id.Buffer} land_buffer
-    /// @returns {enum} land_type
-    var land_buffer_get_land_type = function(lbuff) {
+    /// @param {Id.Buffer} lbuff
+    /// @returns {enum}
+    static land_buffer_get_land_type = function(lbuff) {
         var lt = buffer_read(lbuff, buffer_u8);
         switch (lt) { // make sure we get a valid land type
             case eLandType.grass:
@@ -209,15 +204,18 @@ function AbstractSkyboxParent(sprite = noone, subimg = 0, octahedron_scale = 1, 
         return true;                                                       \
     }
 
-/// @function lerp_sample
+/// @description Linear blend of *inst_a* ↔ *inst_b* into *this* instance
 /// @param inst_a
 /// @param inst_b
 /// @param {real} amount
-/// @description Linear blend of *inst_a* ↔ *inst_b* into *this* instance
 /// @returns {undefined}
 var lerp_sample = function(inst_a, inst_b, amount) {
     FAST_SAMPLE_GUARD
     sample_lerp(inst_a.sample, inst_b.sample, amount, sample);
+};
+
+var other_function = function(a, b) {
+    return a + b;
 };
 
 sprite_top = z + sprite_height; // find the z top of the bomb

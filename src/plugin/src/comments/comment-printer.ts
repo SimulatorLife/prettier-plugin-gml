@@ -242,6 +242,14 @@ function printComment(commentPath, options) {
     }
 }
 
+/**
+ * Preserve a single leading space preceding a comment when that space is the
+ * first character on its line. Prettier normally normalizes whitespace before
+ * comments, but in GML files a solitary indent after a newline often indicates
+ * intent (for example, banner-like separators). This helper records the needed
+ * inline padding without altering trailing/leading classifications so the
+ * printer can respect the original layout.
+ */
 function applySingleLeadingSpacePadding(comment, options) {
     if (!Core.isObjectLike(comment) || !options) {
         return;

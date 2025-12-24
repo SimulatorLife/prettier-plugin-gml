@@ -1,4 +1,5 @@
 export {
+    clearFeatherMetadataCache,
     FEATHER_METADATA_PATH,
     FEATHER_METADATA_URL,
     getFeatherDiagnosticById,

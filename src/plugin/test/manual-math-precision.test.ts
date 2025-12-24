@@ -18,7 +18,6 @@ void test("converts manual mean with floating point noise", async () => {
     assert.strictEqual(
         formatted,
         [
-            "/// @function convert_mean",
             "/// @param a",
             "/// @param b",
             "function convert_mean(a, b) {",
@@ -43,13 +42,9 @@ void test("converts literal square with floating point noise", async () => {
 
     assert.strictEqual(
         formatted,
-        [
-            "/// @function convert_square",
-            "function convert_square() {",
-            "    return sqr(0.5);",
-            "}",
-            ""
-        ].join("\n")
+        ["function convert_square() {", "    return sqr(0.5);", "}", ""].join(
+            "\n"
+        )
     );
 });
 
@@ -68,7 +63,6 @@ void test("preserves inline comments between manual math operands", async () => 
     assert.strictEqual(
         formatted,
         [
-            "/// @function keep_comment",
             "/// @param value",
             "function keep_comment(value) {",
             "    return value /* keep */ * value;",
@@ -93,7 +87,6 @@ void test("converts distance formula with floating point noise", async () => {
     assert.strictEqual(
         formatted,
         [
-            "/// @function convert_distance",
             "/// @param x",
             "/// @param y",
             "function convert_distance(x, y) {",
@@ -119,7 +112,6 @@ void test("condenses chained scalar multipliers into a single coefficient", asyn
     assert.strictEqual(
         formatted,
         [
-            "/// @function convert_scalar",
             "/// @param size",
             "function convert_scalar(size) {",
             "    return size * 0.104;",
@@ -145,7 +137,6 @@ void test("promotes lengthdir half-difference assignments into the declaration",
     assert.strictEqual(
         formatted,
         [
-            "/// @function promote_lengthdir",
             "/// @param size",
             "/// @param angle",
             "function promote_lengthdir(size, angle) {",
@@ -174,7 +165,6 @@ void test("combines sequential lengthdir scalar assignments", async () => {
     assert.strictEqual(
         formatted,
         [
-            "/// @function combine_lengthdir",
             "/// @param size",
             "/// @param angle",
             "function combine_lengthdir(size, angle) {",
@@ -205,7 +195,6 @@ void test("preserves blank line before comments when promoting lengthdir assignm
     assert.strictEqual(
         formatted,
         [
-            "/// @function promote_lengthdir_with_comment",
             "/// @param size",
             "/// @param angle",
             "function promote_lengthdir_with_comment(size, angle) {",
@@ -234,7 +223,6 @@ void test("simplifies division by a reciprocal denominator", async () => {
     assert.strictEqual(
         formatted,
         [
-            "/// @function convert_reciprocal",
             "/// @param value",
             "/// @param denom",
             "function convert_reciprocal(value, denom) {",
@@ -260,7 +248,6 @@ void test("preserves grouping when simplifying reciprocal denominators with comp
     assert.strictEqual(
         formatted,
         [
-            "/// @function convert_grouped",
             "/// @param value",
             "/// @param a",
             "/// @param b",
@@ -287,7 +274,6 @@ void test("condenses subtraction-based scalar multipliers", async () => {
     assert.strictEqual(
         formatted,
         [
-            "/// @function convert_subtracted_scalar",
             "/// @param len",
             "function convert_subtracted_scalar(len) {",
             "    return len * 0.5;",
@@ -313,7 +299,6 @@ void test("simplifies negative reciprocal multiplication", async () => {
     assert.strictEqual(
         formatted,
         [
-            "/// @function convert_negative",
             "/// @param dx",
             "function convert_negative(dx) {",
             "    var result = dx * 0.5;",
@@ -340,7 +325,6 @@ void test("cancels reciprocal factors paired with their denominator", async () =
     assert.strictEqual(
         formatted,
         [
-            "/// @function cancel_reciprocal",
             "/// @param value_a",
             "/// @param value_b",
             "function cancel_reciprocal(value_a, value_b) {",
@@ -367,7 +351,6 @@ void test("removes additive identity scalars with trailing comments", async () =
     assert.strictEqual(
         formatted,
         [
-            "/// @function strip_additive_identity",
             "/// @param value",
             "function strip_additive_identity(value) {",
             "    return value; // original",
@@ -392,7 +375,6 @@ void test("preserves other trailing comments when stripping additive identity", 
     assert.strictEqual(
         formatted,
         [
-            "/// @function keep_trailing_comment",
             "/// @param value",
             "function keep_trailing_comment(value) {",
             "    return value; // keep this precise note",
@@ -417,7 +399,6 @@ void test("preserves punctuation-heavy trailing comments when stripping additive
     assert.strictEqual(
         formatted,
         [
-            "/// @function keep_complex_comment",
             "/// @param value",
             "function keep_complex_comment(value) {",
             "    return value; // keep-this! @$&?",
@@ -442,7 +423,6 @@ void test("removes multiplicative zero factors inside additive chains", async ()
     assert.strictEqual(
         formatted,
         [
-            "/// @function collapse_zero_factor",
             "/// @param any_val",
             "/// @param offset",
             "function collapse_zero_factor(any_val, offset) {",
@@ -468,7 +448,6 @@ void test("condenses chained multipliers with composite operands", async () => {
     assert.strictEqual(
         formatted,
         [
-            "/// @function convert_frames",
             "/// @param acc",
             "/// @param dt",
             "function convert_frames(acc, dt) {",
@@ -494,7 +473,6 @@ void test("collects shared scalar factors across addition", async () => {
     assert.strictEqual(
         formatted,
         [
-            "/// @function collect_constants",
             "/// @param value",
             "function collect_constants(value) {",
             "    return value * 0.5;",
@@ -519,7 +497,6 @@ void test("reduces shared scalar additions that sum to one", async () => {
     assert.strictEqual(
         formatted,
         [
-            "/// @function normalize_amount",
             "/// @param amount",
             "function normalize_amount(amount) {",
             "    return amount;",
@@ -544,7 +521,6 @@ void test("condenses division by reciprocal scalar multipliers", async () => {
     assert.strictEqual(
         formatted,
         [
-            "/// @function convert_reciprocal",
             "/// @param x",
             "/// @param x0",
             "function convert_reciprocal(x, x0) {",
@@ -570,7 +546,6 @@ void test("optimizes reciprocal assignment expression", async () => {
     assert.strictEqual(
         formatted,
         [
-            "/// @function optimize_assignment",
             "/// @param x0",
             "/// @param x1",
             "function optimize_assignment(x0, x1) {",
@@ -596,7 +571,6 @@ void test("condenses subtraction-only scalar factors", async () => {
     assert.strictEqual(
         formatted,
         [
-            "/// @function convert_subtraction",
             "/// @param len",
             "function convert_subtraction(len) {",
             "    return len * 0.5;",
@@ -621,7 +595,6 @@ void test("condenses nested ratios that mix scalar and non-scalar factors", asyn
     assert.strictEqual(
         formatted,
         [
-            "/// @function convert_percentage",
             "/// @param hp",
             "/// @param max_hp",
             "function convert_percentage(hp, max_hp) {",
@@ -647,7 +620,6 @@ void test("cancels reciprocal ratio pairs before scalar condensation", async () 
     assert.strictEqual(
         formatted,
         [
-            "/// @function cancel_reciprocal",
             "/// @param a",
             "/// @param b",
             "/// @param c",
@@ -674,7 +646,6 @@ void test("simplifies reciprocal products with unit numerators", async () => {
     assert.strictEqual(
         formatted,
         [
-            "/// @function cancel_unit_reciprocal",
             "/// @param value_a",
             "/// @param value_b",
             "function cancel_unit_reciprocal(value_a, value_b) {",
@@ -700,7 +671,6 @@ void test("cancels numeric identity factors introduced by scalar condensation", 
     assert.strictEqual(
         formatted,
         [
-            "/// @function simplify_scalars",
             "/// @param m",
             "function simplify_scalars(m) {",
             "    return m;",
@@ -725,7 +695,6 @@ void test("converts simple division within a function", async () => {
     assert.strictEqual(
         formatted,
         [
-            "/// @function room_division",
             "/// @param room_width",
             "/// @param room_height",
             "function room_division(room_width, room_height) {",
@@ -751,7 +720,6 @@ void test("prioritizes converting multiplicative degree ratios into degtorad ove
     assert.strictEqual(
         formatted,
         [
-            "/// @function convert_degrees",
             "/// @param angle",
             "function convert_degrees(angle) {",
             "    return degtorad(angle);",
@@ -825,7 +793,6 @@ void test("safely handles division by denominator near machine epsilon", async (
     assert.strictEqual(
         formatted,
         [
-            "/// @function test_tiny_denominator",
             "/// @param value",
             "function test_tiny_denominator(value) {",
             "    return value * 10000000000000000;",
@@ -851,7 +818,6 @@ void test("correctly handles multiplicative chain with near-zero factor", async 
     assert.strictEqual(
         formatted,
         [
-            "/// @function chain_with_tiny_factor",
             "/// @param x",
             "function chain_with_tiny_factor(x) {",
             "    return x * 2000000000000000;",

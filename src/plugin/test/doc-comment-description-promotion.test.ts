@@ -19,24 +19,13 @@ void test("promotes leading doc comment text to description metadata", async () 
     const formatted = await Plugin.format(source);
     const lines = formatted.split("\n");
 
-    const functionIndex = lines.findIndex((line) =>
-        line.includes("@function example")
-    );
     const descriptionIndex = lines.findIndex((line) =>
         line.includes("@description")
     );
 
     assert.ok(
-        functionIndex !== -1,
-        "Expected synthetic @function metadata to be present."
-    );
-    assert.ok(
         descriptionIndex !== -1,
         "Expected leading text to be promoted to @description metadata."
-    );
-    assert.ok(
-        functionIndex < descriptionIndex,
-        "Expected @description block to appear after the @function tag."
     );
 
     assert.equal(
@@ -74,7 +63,6 @@ void test("promotes multi-line doc comments to description metadata", async () =
     const formatted = await Plugin.format(source);
 
     const expected = [
-        "/// @function demo",
         "/// @description Describes function usage",
         "///              Additional summary",
         "function demo() {",

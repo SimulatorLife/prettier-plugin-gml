@@ -80,7 +80,7 @@ export function dedupeReturnDocLines(
     return { lines: deduped as DocCommentLines, removed: removedAnyReturnLine };
 }
 
-export function reorderDescriptionLinesAfterFunction(
+export function reorderDescriptionLinesToTop(
     docLines: DocCommentLines | string[]
 ): DocCommentLines {
     const normalizedDocLines: string[] = Array.isArray(docLines)
@@ -92,7 +92,6 @@ export function reorderDescriptionLinesAfterFunction(
     }
 
     const descriptionBlocks: number[][] = [];
-    let earliestDescriptionIndex = Infinity;
     for (let index = 0; index < normalizedDocLines.length; index += 1) {
         const line = normalizedDocLines[index];
         if (
@@ -119,46 +118,12 @@ export function reorderDescriptionLinesAfterFunction(
         }
 
         descriptionBlocks.push(blockIndices);
-        if (index < earliestDescriptionIndex) {
-            earliestDescriptionIndex = index;
-        }
         if (lookahead > index + 1) {
             index = lookahead - 1;
         }
     }
 
     if (descriptionBlocks.length === 0) {
-        return normalizedDocLines as DocCommentLines;
-    }
-
-    const descriptionStartIndices = descriptionBlocks.map((block) => block[0]);
-
-    const functionIndex = normalizedDocLines.findIndex(
-        (line) =>
-            typeof line === STRING_TYPE &&
-            /^\/\/\/\s*@function\b/i.test(line.trim())
-    );
-
-    if (functionIndex === -1) {
-        return normalizedDocLines as DocCommentLines;
-    }
-
-    const firstReturnsIndex = normalizedDocLines.findIndex(
-        (line, i) =>
-            i > functionIndex &&
-            typeof line === STRING_TYPE &&
-            /^\/\/\/\s*@returns\b/i.test(line.trim())
-    );
-    const allDescriptionsPrecedeReturns = descriptionStartIndices.every(
-        (idx) =>
-            idx > functionIndex &&
-            (firstReturnsIndex === -1 || idx < firstReturnsIndex)
-    );
-
-    if (
-        earliestDescriptionIndex > functionIndex &&
-        allDescriptionsPrecedeReturns
-    ) {
         return normalizedDocLines as DocCommentLines;
     }
 
@@ -196,18 +161,9 @@ export function reorderDescriptionLinesAfterFunction(
         (_line, idx) => !descriptionIndexSet.has(idx)
     );
 
-    let insertionIdx = filtered.findIndex(
-        (line, i) =>
-            i > functionIndex &&
-            typeof line === STRING_TYPE &&
-            /^\/\/\/\s*@returns\b/i.test(line.trim())
-    );
-    if (insertionIdx === -1) insertionIdx = filtered.length;
-
     const result = [
-        ...filtered.slice(0, insertionIdx),
         ...descriptionLines,
-        ...filtered.slice(insertionIdx)
+        ...filtered
     ];
 
     return result as DocCommentLines;

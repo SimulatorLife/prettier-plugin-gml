@@ -227,7 +227,6 @@ function collectDescriptionContinuationLines(lines, descriptionIndex) {
 
 void test("wraps function doc descriptions while honoring printWidth", async () => {
     const source = [
-        "/// @function long_description_function",
         "/// @param arg Example parameter",
         `/// @description ${LONG_DESCRIPTION}`,
         "function long_description_function(arg) {}",
@@ -259,7 +258,6 @@ void test("wraps function doc descriptions while honoring printWidth", async () 
 
 void test("wraps long @param descriptions with continuation lines", async () => {
     const source = [
-        "/// @function wrap_param_description",
         "/// @param value This parameter's description is intentionally long so it wraps across multiple lines and respects the formatter width.",
         "function wrap_param_description(value) {}",
         ""

@@ -5,7 +5,6 @@ import { Plugin } from "../src/index.js";
 void test("merges doc comments without duplicating returns metadata", async () => {
     const source = [
         "function drawer_factory() constructor {",
-        "    /// @function draw_points",
         "    /// @description Draw points in array for debugging",
         "    /// @returns {undefined}",
         "    /// @returns {undefined}",
@@ -52,7 +51,6 @@ void test("uses actual parameter name when documented name differs", async () =>
 
 void test("converts Returns comment lines into returns metadata", async () => {
     const source = [
-        "/// @function has_feature",
         "///              Returns: Boolean, indicating whether conversion occurs",
         "function has_feature() {",
         "    return true;",

@@ -4,7 +4,6 @@ import { Plugin } from "../src/index.js";
 
 void test("orders doc comments for implicit argument references", async () => {
     const source = [
-        "/// @function sample2",
         "/// @param first",
         "/// @param second",
         "/// @param argument2",
@@ -37,7 +36,6 @@ void test("orders doc comments for implicit argument references", async () => {
 
 void test("retains misordered optional parameter docs", async () => {
     const source = [
-        "/// @function misordered_docs",
         "/// @param required",
         "/// @param {real} [optional_b]",
         "/// @param {string} [optional_a]",
