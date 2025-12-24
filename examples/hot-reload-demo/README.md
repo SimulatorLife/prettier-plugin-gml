@@ -54,7 +54,7 @@ The hot reload system consists of three main components working together:
 From the repository root, run:
 
 ```bash
-node src/cli/dist/src/cli.js watch examples/hot-reload-demo/gml-project --verbose
+node src/cli/dist/index.js watch examples/hot-reload-demo/gml-project --verbose
 ```
 
 Or use the convenience script:
@@ -149,7 +149,7 @@ Spawns enemies at random positions. Modify spawn ranges or initial stats.
 ### Custom WebSocket Port
 
 ```bash
-node src/cli/dist/src/cli.js watch examples/hot-reload-demo/gml-project \
+node src/cli/dist/index.js watch examples/hot-reload-demo/gml-project \
   --websocket-port 8080 \
   --verbose
 ```
@@ -161,7 +161,7 @@ Then update the `WS_URL` in `index.html` to match.
 If you only want the WebSocket patch server:
 
 ```bash
-node src/cli/dist/src/cli.js watch examples/hot-reload-demo/gml-project \
+node src/cli/dist/index.js watch examples/hot-reload-demo/gml-project \
   --no-runtime-server \
   --verbose
 ```
@@ -169,7 +169,7 @@ node src/cli/dist/src/cli.js watch examples/hot-reload-demo/gml-project \
 ### Watch Multiple Extensions
 
 ```bash
-node src/cli/dist/src/cli.js watch examples/hot-reload-demo/gml-project \
+node src/cli/dist/index.js watch examples/hot-reload-demo/gml-project \
   --extensions .gml .js \
   --verbose
 ```
@@ -216,7 +216,7 @@ See `docs/live-reloading-concept.md` for complete integration details.
 
 Ensure the watch command is running:
 ```bash
-node src/cli/dist/src/cli.js watch examples/hot-reload-demo/gml-project
+node src/cli/dist/index.js watch examples/hot-reload-demo/gml-project
 ```
 
 ### "No patches received"
