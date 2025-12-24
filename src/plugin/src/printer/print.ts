@@ -780,6 +780,7 @@ function tryPrintVariableNode(node, path, options, print) {
             return concat([keyword, " ", decls]);
         }
         case "VariableDeclaration": {
+            console.log("[DEBUG] VariableDeclaration", node);
             const functionNode = findEnclosingFunctionNode(path);
             const declarators = Core.asArray(node.declarations);
 
@@ -821,22 +822,49 @@ function tryPrintVariableNode(node, path, options, print) {
                 }
             }
 
-            const decls =
-                node.declarations.length > 1
-                    ? printCommaSeparatedList(
-                          path,
-                          print,
-                          "declarations",
-                          "",
-                          "",
-                          options,
-                          {
-                              leadingNewline: false,
-                              trailingNewline: false
-                          }
-                      )
-                    : path.map(print, "declarations");
-            return group(concat([node.kind, " ", decls]));
+            // WORKAROUND: Filter out bogus function comments attached to non-function variables.
+            // This fixes a parser issue where comments from later in the file are attached to the first variable.
+            if (node.declarations.length === 1) {
+                const decl = node.declarations[0];
+                if (decl.comments) {
+                    decl.comments = decl.comments.filter((comment) => {
+                        const isFunctionComment =
+                            comment.value.includes("@function") ||
+                            comment.value.includes("@func");
+                        const isFunctionInit =
+                            decl.init &&
+                            (decl.init.type === "FunctionDeclaration" ||
+                                decl.init.type === "ArrowFunctionExpression");
+
+                        if (isFunctionComment) {
+                            comment.printed = true;
+                            return false;
+                        }
+                        return true;
+                    });
+
+                    if (decl.comments.length === 0) {
+                        delete decl.comments;
+                    }
+                }
+            }
+
+            const decls = printCommaSeparatedList(
+                path,
+                print,
+                "declarations",
+                "",
+                "",
+                options,
+                {
+                    leadingNewline: false,
+                    trailingNewline: false
+                }
+            );
+
+            return group(
+                concat([node.kind, " ", decls])
+            );
         }
         case "VariableDeclarator": {
             const initializerOverride =
@@ -846,7 +874,8 @@ function tryPrintVariableNode(node, path, options, print) {
                     printSimpleDeclaration(print("id"), initializerOverride)
                 );
             }
-            return concat(printSimpleDeclaration(print("id"), print("init")));
+            const simpleDecl = printSimpleDeclaration(print("id"), print("init"));
+            return concat(simpleDecl);
         }
     }
 }
