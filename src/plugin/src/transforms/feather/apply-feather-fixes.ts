@@ -3953,8 +3953,9 @@ function fixArgumentReferencesWithinFunction(
     documentedParamNames = new Set()
 ) {
     // Merge in names found by Core.buildDocumentedParamNameLookup
-    const orderedDocNames = (functionNode)
-        ._documentedParamNamesOrdered as string[] | undefined;
+    const orderedDocNames = functionNode._documentedParamNamesOrdered as
+        | string[]
+        | undefined;
     if (orderedDocNames && orderedDocNames.length > 0) {
         for (const name of orderedDocNames) {
             documentedParamNames.add(name);
@@ -4115,8 +4116,9 @@ function fixArgumentReferencesWithinFunction(
     }
 
     if (documentedParamNames.size > 0) {
-        const orderedDocNames = (functionNode)
-            ._documentedParamNamesOrdered as string[] | undefined;
+        const orderedDocNames = functionNode._documentedParamNamesOrdered as
+            | string[]
+            | undefined;
 
         const normalizedDocNames = new Set(
             [...documentedParamNames].map(

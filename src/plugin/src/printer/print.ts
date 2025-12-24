@@ -3478,7 +3478,13 @@ export function getSimpleAssignmentLikeEntry(
                 enablesAlignment = true;
             }
             if (init.name === "width") {
-                 console.log("[DEBUG] width check:", { insideFunctionBody, hasNamedParameters, argumentIndex, inParams: functionParameterNames?.has(init.name), enablesAlignment });
+                console.log("[DEBUG] width check:", {
+                    insideFunctionBody,
+                    hasNamedParameters,
+                    argumentIndex,
+                    inParams: functionParameterNames?.has(init.name),
+                    enablesAlignment
+                });
             }
         }
     }

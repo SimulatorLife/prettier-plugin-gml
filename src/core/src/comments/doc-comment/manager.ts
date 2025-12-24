@@ -1,7 +1,4 @@
-import {
-    isFunctionLikeNode,
-    isNode
-} from "../../ast/node-helpers.js";
+import { isFunctionLikeNode, isNode } from "../../ast/node-helpers.js";
 import { getNodeStartIndex } from "../../ast/locations.js";
 import {
     getCommentArray,

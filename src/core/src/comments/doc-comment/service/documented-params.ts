@@ -264,7 +264,7 @@ export function buildDocumentedParamNameLookup(
         // But I control the consumers.
 
         // Let's attach it to the node for now, to avoid breaking signature.
-        (node)._documentedParamNamesOrdered = names;
+        node._documentedParamNamesOrdered = names;
 
         registry.set(node as MutableGameMakerAstNode, new Set(names));
     });
