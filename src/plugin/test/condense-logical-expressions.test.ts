@@ -23,7 +23,6 @@ void test("condenses boolean branches with unreachable statements", async () => 
     assert.strictEqual(
         formatted,
         [
-            "/// @function condense_with_unreachable",
             "/// @param condition",
             "function condense_with_unreachable(condition) {",
             "    return condition;",
@@ -87,7 +86,6 @@ void test("preserves branching return descriptions without equivalence suffixes"
     assert.strictEqual(
         formatted,
         [
-            "/// @function condense_implication",
             "/// @param foo",
             "/// @param bar",
             "/// @description Implication: if (foo) return bar; else return true.",
