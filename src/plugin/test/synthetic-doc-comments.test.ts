@@ -322,11 +322,10 @@ void test("respects wider printWidth when wrapping description doc comments", as
     assert.deepStrictEqual(
         lines.slice(0, 6),
         [
-            "/// @function sample",
-            "/// @param {string,array[string]} first - First input",
-            "/// @param {Id.Instance} second - Second input",
             "/// @description A longer example description that should wrap into multiple lines and appear after",
             "///              the",
+            "/// @param {string,array[string]} first - First input",
+            "/// @param {Id.Instance} second - Second input",
             "/// @returns {undefined}"
         ],
         "Description doc comments should clamp to the formatter's wrapping width even when printWidth is larger."
@@ -350,10 +349,9 @@ void test("wraps long description doc comments using the formatter cap", async (
     assert.deepStrictEqual(
         lines.slice(0, 5),
         [
-            "/// @function sample",
-            "/// @param value",
             "/// @description This synthetic doc comment should leave only the trailing connector on the",
             "///              continuation line when wrapping at the formatter cap for descriptions.",
+            "/// @param value",
             "/// @returns {undefined}"
         ],
         "Long description doc comments should wrap to the formatter cap rather than producing additional continuation lines."
