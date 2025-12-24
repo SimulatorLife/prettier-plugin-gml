@@ -9,7 +9,7 @@ import {
     type PathOrFileDescriptor
 } from "node:fs";
 
-import { DEFAULT_WRITE_ACCESS_MODE } from "./common.js";
+import { DEFAULT_WRITE_ACCESS_MODE } from "./conflict-resolution.js";
 
 const defaultIdentifierCaseFsFacade = Object.freeze({
     readFileSync(

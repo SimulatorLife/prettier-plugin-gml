@@ -2,7 +2,7 @@ import path from "node:path";
 
 import { Core } from "@gml-modules/core";
 
-import { DEFAULT_WRITE_ACCESS_MODE } from "./common.js";
+import { DEFAULT_WRITE_ACCESS_MODE } from "./conflict-resolution.js";
 import { defaultIdentifierCaseFsFacade as defaultFsFacade } from "./fs-facade.js";
 
 type IdentifierCaseProjectIndex = {

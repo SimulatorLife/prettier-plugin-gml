@@ -6,7 +6,7 @@ import {
     hasFeatherSourceTextContext,
     createFeatherFixDetail,
     attachFeatherFixMetadata
-} from "./utils.js";
+} from "./diagnostic-fix-builder.js";
 
 /**
  * Scan the AST/source text for consecutive semicolons and produce metadata consumable by the plugin.
