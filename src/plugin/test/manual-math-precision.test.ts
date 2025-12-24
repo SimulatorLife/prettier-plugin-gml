@@ -68,7 +68,6 @@ void test("preserves inline comments between manual math operands", async () => 
     assert.strictEqual(
         formatted,
         [
-            "/// @function keep_comment",
             "/// @param value",
             "function keep_comment(value) {",
             "    return value /* keep */ * value;",
@@ -119,7 +118,6 @@ void test("condenses chained scalar multipliers into a single coefficient", asyn
     assert.strictEqual(
         formatted,
         [
-            "/// @function convert_scalar",
             "/// @param size",
             "function convert_scalar(size) {",
             "    return size * 0.104;",
@@ -205,7 +203,6 @@ void test("preserves blank line before comments when promoting lengthdir assignm
     assert.strictEqual(
         formatted,
         [
-            "/// @function promote_lengthdir_with_comment",
             "/// @param size",
             "/// @param angle",
             "function promote_lengthdir_with_comment(size, angle) {",
@@ -234,7 +231,6 @@ void test("simplifies division by a reciprocal denominator", async () => {
     assert.strictEqual(
         formatted,
         [
-            "/// @function convert_reciprocal",
             "/// @param value",
             "/// @param denom",
             "function convert_reciprocal(value, denom) {",
@@ -260,7 +256,6 @@ void test("preserves grouping when simplifying reciprocal denominators with comp
     assert.strictEqual(
         formatted,
         [
-            "/// @function convert_grouped",
             "/// @param value",
             "/// @param a",
             "/// @param b",
@@ -287,7 +282,6 @@ void test("condenses subtraction-based scalar multipliers", async () => {
     assert.strictEqual(
         formatted,
         [
-            "/// @function convert_subtracted_scalar",
             "/// @param len",
             "function convert_subtracted_scalar(len) {",
             "    return len * 0.5;",
@@ -313,7 +307,6 @@ void test("simplifies negative reciprocal multiplication", async () => {
     assert.strictEqual(
         formatted,
         [
-            "/// @function convert_negative",
             "/// @param dx",
             "function convert_negative(dx) {",
             "    var result = dx * 0.5;",
@@ -340,7 +333,6 @@ void test("cancels reciprocal factors paired with their denominator", async () =
     assert.strictEqual(
         formatted,
         [
-            "/// @function cancel_reciprocal",
             "/// @param value_a",
             "/// @param value_b",
             "function cancel_reciprocal(value_a, value_b) {",
@@ -367,7 +359,6 @@ void test("removes additive identity scalars with trailing comments", async () =
     assert.strictEqual(
         formatted,
         [
-            "/// @function strip_additive_identity",
             "/// @param value",
             "function strip_additive_identity(value) {",
             "    return value; // original",
@@ -392,7 +383,6 @@ void test("preserves other trailing comments when stripping additive identity", 
     assert.strictEqual(
         formatted,
         [
-            "/// @function keep_trailing_comment",
             "/// @param value",
             "function keep_trailing_comment(value) {",
             "    return value; // keep this precise note",
@@ -417,7 +407,6 @@ void test("preserves punctuation-heavy trailing comments when stripping additive
     assert.strictEqual(
         formatted,
         [
-            "/// @function keep_complex_comment",
             "/// @param value",
             "function keep_complex_comment(value) {",
             "    return value; // keep-this! @$&?",
@@ -442,7 +431,6 @@ void test("removes multiplicative zero factors inside additive chains", async ()
     assert.strictEqual(
         formatted,
         [
-            "/// @function collapse_zero_factor",
             "/// @param any_val",
             "/// @param offset",
             "function collapse_zero_factor(any_val, offset) {",
@@ -468,7 +456,6 @@ void test("condenses chained multipliers with composite operands", async () => {
     assert.strictEqual(
         formatted,
         [
-            "/// @function convert_frames",
             "/// @param acc",
             "/// @param dt",
             "function convert_frames(acc, dt) {",
@@ -494,7 +481,6 @@ void test("collects shared scalar factors across addition", async () => {
     assert.strictEqual(
         formatted,
         [
-            "/// @function collect_constants",
             "/// @param value",
             "function collect_constants(value) {",
             "    return value * 0.5;",
@@ -718,7 +704,6 @@ void test("converts simple division within a function", async () => {
     assert.strictEqual(
         formatted,
         [
-            "/// @function room_division",
             "/// @param room_width",
             "/// @param room_height",
             "function room_division(room_width, room_height) {",

@@ -45,7 +45,6 @@ void test("preserves blank line before constructor closing brace", async () => {
 void test("preserves blank line after documented static constructor members", async () => {
     const source = [
         "function Demo() constructor {",
-        "    /// @function helper",
         "    /// @returns {real}",
         "    static helper = function() {",
         "        return 1;",

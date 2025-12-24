@@ -34,7 +34,6 @@ void test("condenses boolean branches with unreachable statements", async () => 
 
 void test("preserves guard extraction descriptions when condensing", async () => {
     const source = [
-        "/// @function condense_guard",
         "/// @param {bool} foo",
         "/// @param {bool} bar",
         "/// @param {bool} qux",
@@ -68,7 +67,6 @@ void test("preserves guard extraction descriptions when condensing", async () =>
 
 void test("preserves branching return descriptions without equivalence suffixes", async () => {
     const source = [
-        "/// @function condense_implication",
         "/// @description Implication: if (foo) return bar; else return true.",
         "function condense_implication(foo, bar) {",
         "    if (foo) {",
@@ -100,7 +98,6 @@ void test("preserves branching return descriptions without equivalence suffixes"
 
 void test("retains original multi-branch descriptions when condensing", async () => {
     const source = [
-        "/// @function condense_multi_branch",
         "/// @param {bool} foo",
         "/// @param {bool} bar",
         "/// @param {bool} baz",
