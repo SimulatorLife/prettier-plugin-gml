@@ -121,6 +121,18 @@ export function getFeatherMetadata() {
 }
 
 /**
+ * Release the cached Feather metadata to reduce memory footprint.
+ *
+ * Formats and other operations that no longer need the metadata can call this
+ * to free ~137KB. The next call to getFeatherMetadata() will reload and
+ * re-normalize the bundled JSON. Use this after batch operations complete or
+ * when long-running processes want to shed retained metadata between tasks.
+ */
+export function clearFeatherMetadataCache(): void {
+    cachedMetadata = null;
+}
+
+/**
  * Return the list of Feather diagnostics declared in the bundled metadata.
  *
  * @returns {Array<FeatherDiagnostic>} Array of diagnostics declared in the bundled metadata.
