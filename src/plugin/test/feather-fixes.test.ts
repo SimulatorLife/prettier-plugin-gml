@@ -2522,7 +2522,6 @@ void describe("Transforms.applyFeatherFixes transform", () => {
 
     void it("replaces direct argument references with documented aliases for GM1032", () => {
         const source = [
-            "/// @function sample2",
             "/// @param zero",
             "/// @param first",
             "/// @param two",

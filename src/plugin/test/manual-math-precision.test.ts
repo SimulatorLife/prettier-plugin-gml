@@ -18,7 +18,6 @@ void test("converts manual mean with floating point noise", async () => {
     assert.strictEqual(
         formatted,
         [
-            "/// @function convert_mean",
             "/// @param a",
             "/// @param b",
             "function convert_mean(a, b) {",
@@ -44,7 +43,6 @@ void test("converts literal square with floating point noise", async () => {
     assert.strictEqual(
         formatted,
         [
-            "/// @function convert_square",
             "function convert_square() {",
             "    return sqr(0.5);",
             "}",
@@ -92,7 +90,6 @@ void test("converts distance formula with floating point noise", async () => {
     assert.strictEqual(
         formatted,
         [
-            "/// @function convert_distance",
             "/// @param x",
             "/// @param y",
             "function convert_distance(x, y) {",
@@ -143,7 +140,6 @@ void test("promotes lengthdir half-difference assignments into the declaration",
     assert.strictEqual(
         formatted,
         [
-            "/// @function promote_lengthdir",
             "/// @param size",
             "/// @param angle",
             "function promote_lengthdir(size, angle) {",
@@ -172,7 +168,6 @@ void test("combines sequential lengthdir scalar assignments", async () => {
     assert.strictEqual(
         formatted,
         [
-            "/// @function combine_lengthdir",
             "/// @param size",
             "/// @param angle",
             "function combine_lengthdir(size, angle) {",
@@ -505,7 +500,6 @@ void test("reduces shared scalar additions that sum to one", async () => {
     assert.strictEqual(
         formatted,
         [
-            "/// @function normalize_amount",
             "/// @param amount",
             "function normalize_amount(amount) {",
             "    return amount;",
@@ -729,7 +723,6 @@ void test("prioritizes converting multiplicative degree ratios into degtorad ove
     assert.strictEqual(
         formatted,
         [
-            "/// @function convert_degrees",
             "/// @param angle",
             "function convert_degrees(angle) {",
             "    return degtorad(angle);",

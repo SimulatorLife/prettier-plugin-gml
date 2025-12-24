@@ -9,7 +9,6 @@ const __dirname = import.meta.dirname;
 
 void test("treats undefined defaults as required when the signature omits the default", async () => {
     const source = [
-        "/// @function sample",
         "/// @param foo",
         "function sample(foo = undefined) {",
         "    return foo;",
@@ -38,7 +37,6 @@ void test("treats undefined defaults as required when the signature omits the de
 
 void test("preserves optional annotations when parameters are explicitly documented as optional", async () => {
     const source = [
-        "/// @function sample",
         "/// @param [foo]",
         "function sample(foo = undefined) {",
         "    return foo;",
@@ -100,12 +98,10 @@ void test("omits optional syntax for synthesized docs with undefined defaults", 
 
 void test("retains optional syntax when constructors keep explicit undefined defaults", async () => {
     const source = [
-        "/// @function Shape",
         "function Shape(color = undefined) constructor {",
         "    self.color = color;",
         "}",
         "",
-        ""
     ].join("\n");
 
     const formatted = await Plugin.format(source, {

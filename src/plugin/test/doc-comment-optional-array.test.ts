@@ -4,7 +4,6 @@ import test from "node:test";
 import { Plugin } from "../src/index.js";
 
 const SOURCE = [
-    "/// @function handle_lighting",
     "/// @param {real} [multiplier] - The multiplier to apply to the light direction",
     "/// @param {array<real>} [light_dir=[0, 0, -1]] - The direction of the light",
     "function handle_lighting(multiplier = undefined, light_dir = [0, 0, -1]) {",

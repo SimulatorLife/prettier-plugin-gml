@@ -6,7 +6,6 @@ import { Plugin } from "../src/index.js";
 void describe("function assignment semicolons", () => {
     void it("omits semicolons when assigning function declarations", async () => {
         const source = [
-            "/// @function get_debug_text",
             "get_debug_text = function() {",
             "    return true;",
             "}",
@@ -17,7 +16,6 @@ void describe("function assignment semicolons", () => {
 
         const expected = [
             "",
-            "/// @function get_debug_text",
             "get_debug_text = function() {",
             "    return true;",
             "}",

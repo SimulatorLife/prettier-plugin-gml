@@ -59,7 +59,6 @@ void test(
             assert.strictEqual(
                 formatted,
                 [
-                    "/// @function demo",
                     "function demo() {",
                     "    return 42;",
                     "}",
