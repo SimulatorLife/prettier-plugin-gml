@@ -1,4 +1,4 @@
-// NOTE: This file is way too big and needs to be split up. Things like 'attachFeatherFixMetadata' can live here, but everything else should be split/moved. Can have a file just for enum handling, one for fixing begin/end vertex, colour, etc.
+// TODO: This file is way too big and needs to be split up. Things like 'attachFeatherFixMetadata' can live here, but everything else should be split/moved. Can have a file just for enum handling, one for fixing begin/end vertex, colour, one for constants, etc.
 
 /**
  * Provides a collection of helpers that interpret and apply YoYo Games "Feather" diagnostics as AST fixes.
@@ -305,15 +305,9 @@ function applyFeatherFixesImpl(ast: any, opts: ApplyFeatherFixesOptions = {}) {
     // This is necessary because the Feather transform runs before the printer (which usually handles this),
     // and we need the metadata to decide whether to rename arguments.
     if (sourceText) {
-        walkAstNodes(ast, (node) => {
-            if (Core.isFunctionLikeNode(node)) {
-                const comments = (node as any).comments || [];
-                const names = Core.extractDocumentedParamNames(node, comments, sourceText);
-                if (names.length > 0) {
-                    (node as any)._documentedParamNamesOrdered = names;
-                }
-            }
-        });
+        // Use the core service to extract and attach documented param names
+        // This handles finding comments correctly (which might not be directly on the node)
+        Core.buildDocumentedParamNameLookup(ast, sourceText);
     }
 
     const appliedFixes = [];
@@ -3859,6 +3853,14 @@ function fixArgumentReferencesWithinFunction(
     diagnostic,
     documentedParamNames = new Set()
 ) {
+    // Merge in names found by Core.buildDocumentedParamNameLookup
+    const orderedDocNames = (functionNode as any)._documentedParamNamesOrdered as string[] | undefined;
+    if (orderedDocNames && orderedDocNames.length > 0) {
+        for (const name of orderedDocNames) {
+            documentedParamNames.add(name);
+        }
+    }
+
     const fixes = [];
     const references = [];
     const aliasDeclarations = [];

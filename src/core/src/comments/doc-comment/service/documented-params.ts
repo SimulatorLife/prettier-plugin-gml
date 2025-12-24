@@ -242,12 +242,16 @@ export function buildDocumentedParamNameLookup(
     const traversal =
         docCommentTraversal ?? resolveDocCommentTraversalService(ast);
 
+    console.log("[DEBUG] buildDocumentedParamNameLookup starting traversal");
+    let count = 0;
     traversal.forEach((node, comments = []) => {
+        count++;
         if (!isFunctionLikeNode(node)) {
             return;
         }
 
         const names = extractDocumentedParamNames(node, comments, sourceText);
+        console.log(`[DEBUG] Traversal node: ${(node as any).id?.name || 'anon'}, comments: ${comments?.length}, names: ${names.join(', ')}`);
 
         if (names.length === 0) {
             return;

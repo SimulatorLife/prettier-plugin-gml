@@ -152,7 +152,7 @@ const tsConfig = defineConfig({
     },
 
     rules: {
-        "no-unused-vars": "off",
+        "no-unused-vars": "off", // base rule off, use unused-imports plugin instead
         "unused-imports/no-unused-imports": "error",
         "unused-imports/no-unused-vars": [
             "warn",
@@ -163,7 +163,7 @@ const tsConfig = defineConfig({
                 argsIgnorePattern: "^_"
             }
         ],
-        "no-console": ["off"],
+        "no-console": ["warn"],
         "no-prototype-builtins": ["warn"],
         "no-useless-escape": ["warn"],
         "no-with": ["error"],
