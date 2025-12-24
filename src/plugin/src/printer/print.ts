@@ -3477,6 +3477,9 @@ export function getSimpleAssignmentLikeEntry(
             } else if (functionParameterNames?.has(init.name)) {
                 enablesAlignment = true;
             }
+            if (init.name === "width") {
+                 console.log("[DEBUG] width check:", { insideFunctionBody, hasNamedParameters, argumentIndex, inParams: functionParameterNames?.has(init.name), enablesAlignment });
+            }
         }
     }
 

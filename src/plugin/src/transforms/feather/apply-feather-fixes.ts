@@ -3796,6 +3796,105 @@ function isZeroLiteral(node) {
     return normalized === 0;
 }
 
+function cleanupSelfAssignments(node) {
+    const renames = new Map();
+
+    const traverse = (n) => {
+        if (!n || typeof n !== "object") {
+            return;
+        }
+
+        if (Array.isArray(n)) {
+            for (let i = n.length - 1; i >= 0; i--) {
+                traverse(n[i]);
+                const child = n[i];
+                if (
+                    child &&
+                    child.type === "VariableDeclaration" &&
+                    child.declarations.length === 0
+                ) {
+                    n.splice(i, 1);
+                }
+            }
+            return;
+        }
+
+        if (n.type === "VariableDeclaration") {
+            n.declarations = n.declarations.filter((declarator) => {
+                if (declarator.type !== "VariableDeclarator") {
+                    return true;
+                }
+                if (declarator.id.type !== "Identifier") {
+                    return true;
+                }
+                if (!declarator.init || declarator.init.type !== "Identifier") {
+                    return true;
+                }
+                if (declarator.id.name === declarator.init.name) {
+                    return false;
+                }
+                if (declarator.id.name === `_${declarator.init.name}`) {
+                    renames.set(declarator.id.name, declarator.init.name);
+                    return false;
+                }
+                return true;
+            });
+            return;
+        }
+
+        for (const key of Object.keys(n)) {
+            if (
+                key === "parent" ||
+                key === "loc" ||
+                key === "start" ||
+                key === "end" ||
+                key === "range" ||
+                key === "comments"
+            ) {
+                continue;
+            }
+            traverse(n[key]);
+        }
+    };
+
+    traverse(node);
+
+    if (renames.size > 0) {
+        const applyRenames = (n) => {
+            if (!n || typeof n !== "object") {
+                return;
+            }
+
+            if (Array.isArray(n)) {
+                for (const child of n) {
+                    applyRenames(child);
+                }
+                return;
+            }
+
+            if (n.type === "Identifier" && renames.has(n.name)) {
+                n.name = renames.get(n.name);
+            }
+
+            for (const key of Object.keys(n)) {
+                if (
+                    key === "parent" ||
+                    key === "loc" ||
+                    key === "start" ||
+                    key === "end" ||
+                    key === "range" ||
+                    key === "comments"
+                ) {
+                    continue;
+                }
+                applyRenames(n[key]);
+            }
+        };
+
+        applyRenames(node);
+    }
+}
+
 function normalizeArgumentBuiltinReferences({ ast, diagnostic }) {
     if (!hasFeatherDiagnosticContext(ast, diagnostic)) {
         return [];
@@ -4157,6 +4256,8 @@ function fixArgumentReferencesWithinFunction(
             }
         }
     }
+
+    cleanupSelfAssignments(functionNode.body);
 
     return fixes;
 }
