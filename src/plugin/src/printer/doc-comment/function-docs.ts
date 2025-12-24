@@ -1,4 +1,5 @@
 import { Core, type MutableDocCommentLines } from "@gml-modules/core";
+import { removeFunctionDocCommentLines } from "../../doc-comment/function-tag-filter.js";
 
 import { resolveDocCommentPrinterOptions } from "./doc-comment-options.js";
 import {
@@ -517,6 +518,8 @@ export function normalizeFunctionDocCommentDocs({
             needsLeadingBlankLine = true;
         }
     }
+
+    docCommentDocs = removeFunctionDocCommentLines(docCommentDocs);
 
     return { docCommentDocs, needsLeadingBlankLine };
 }

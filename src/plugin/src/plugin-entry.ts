@@ -85,9 +85,18 @@ function collapseVertexFormatBeginSpacing(formatted: string): string {
 }
 
 const MULTIPLE_BLANK_LINE_PATTERN = /\n{3,}/g;
+const FUNCTION_TAG_CLEANUP_PATTERN =
+    /\/\/\/\s*@(?:func|function)\b[^\n]*(\r?\n)?/gi;
 
 function collapseDuplicateBlankLines(formatted: string): string {
     return formatted.replaceAll(MULTIPLE_BLANK_LINE_PATTERN, "\n\n");
+}
+
+function stripFunctionTagComments(formatted: string): string {
+    return formatted.replace(
+        FUNCTION_TAG_CLEANUP_PATTERN,
+        (_match, newline) => newline ?? ""
+    );
 }
 
 function extractOptionDefaults(
@@ -139,7 +148,9 @@ async function format(source: string, options: SupportOptions = {}) {
     const normalizedCleaned = singleBlankLines.endsWith("\n")
         ? singleBlankLines
         : `${singleBlankLines}\n`;
-    return collapseVertexFormatBeginSpacing(normalizedCleaned);
+    const withoutFunctionTags = stripFunctionTagComments(normalizedCleaned);
+    const collapsedAfterStrip = collapseDuplicateBlankLines(withoutFunctionTags);
+    return collapseVertexFormatBeginSpacing(collapsedAfterStrip);
 }
 
 const defaultOptions = Core.createReadOnlyView<GmlPluginDefaultOptions>(

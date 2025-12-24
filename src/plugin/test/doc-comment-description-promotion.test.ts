@@ -74,7 +74,6 @@ void test("promotes multi-line doc comments to description metadata", async () =
     const formatted = await Plugin.format(source);
 
     const expected = [
-        "/// @function demo",
         "/// @description Describes function usage",
         "///              Additional summary",
         "function demo() {",

@@ -15,6 +15,7 @@ import {
     setDocCommentMetadata,
     setDeprecatedDocCommentFunctionSet
 } from "./doc-comment-metadata.js";
+import { removeFunctionDocCommentLines } from "../../doc-comment/function-tag-filter.js";
 
 type DocCommentNormalizationTransformOptions = {
     enabled?: boolean;
@@ -120,6 +121,9 @@ export class DocCommentNormalizationTransform extends FunctionalParserTransform<
                 }
             }
 
+            const filteredDocLines =
+                removeFunctionDocCommentLines(formattedLines);
+
             const docPath = createDocCommentPath(
                 mutableNode,
                 parentByNode.get(mutableNode) ?? null
@@ -128,7 +132,7 @@ export class DocCommentNormalizationTransform extends FunctionalParserTransform<
             if (
                 !Core.shouldGenerateSyntheticDocForFunction(
                     docPath,
-                    formattedLines,
+                    filteredDocLines,
                     docCommentOptions
                 )
             ) {
@@ -136,12 +140,12 @@ export class DocCommentNormalizationTransform extends FunctionalParserTransform<
             }
 
             const descriptionContinuations =
-                collectDescriptionContinuations(formattedLines);
+                collectDescriptionContinuations(filteredDocLines);
 
             let normalizedDocComments = Core.toMutableArray(
                 Core.mergeSyntheticDocComments(
                     node,
-                    formattedLines,
+                    filteredDocLines,
                     docCommentOptions
                 )
             ) as MutableDocCommentLines;
@@ -158,6 +162,10 @@ export class DocCommentNormalizationTransform extends FunctionalParserTransform<
             ) {
                 normalizedDocComments.shift();
             }
+
+            normalizedDocComments = removeFunctionDocCommentLines(
+                normalizedDocComments
+            );
 
             if (normalizedDocComments.length === 0) {
                 return;
