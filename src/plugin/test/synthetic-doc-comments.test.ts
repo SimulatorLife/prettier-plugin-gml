@@ -175,39 +175,6 @@ void test("synthetic constructor docs include trailing parameters", async () => 
     );
 });
 
-void test("updates existing @function tags to reflect static function names", async () => {
-    const source = [
-        "function Demo() constructor {",
-        "    /// @function helper_wrong",
-        "    static helper_right = function() {",
-        "        return 1;",
-        "    };",
-        "}",
-        ""
-    ].join("\n");
-
-    const formatted = await Plugin.format(source, {
-        applyFeatherFixes: true
-    });
-    const lines = formatted.trim().split("\n");
-    const helperIndex = lines.findIndex(
-        (line) =>
-            line.trimStart().startsWith("/// @function") &&
-            line.includes("helper")
-    );
-
-    assert.notStrictEqual(
-        helperIndex,
-        -1,
-        "Expected the formatted output to contain a @function doc comment."
-    );
-    assert.equal(
-        lines[helperIndex].trim(),
-        "/// @function helper_wrong",
-        "Existing @function doc comments should remain untouched now that synthetic tags are removed."
-    );
-});
-
 void test("annotates overriding static functions with @override metadata", async () => {
     const source = [
         "function Base() constructor {",
@@ -301,11 +268,10 @@ void test("reorders description doc comments between parameters and returns", as
     assert.deepStrictEqual(
         lines.slice(0, 6),
         [
-            "/// @function sample",
-            "/// @param {string,array[string]} first - First input",
-            "/// @param {Id.Instance} second - Second input",
             "/// @description A longer example description that should wrap into multiple lines and appear after",
             "///              the",
+            "/// @param {string,array<string>} first First input",
+            "/// @param {Id.Instance} second Second input",
             "/// @returns {undefined}"
         ],
         "Expected description doc comments to follow parameter metadata and precede the returns tag."

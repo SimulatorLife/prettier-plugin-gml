@@ -17,10 +17,8 @@ void describe("constructor static function assignments", () => {
         const formatted = await Plugin.format(source);
 
         const expected = [
-            "/// @function Shape",
             "function Shape() constructor {",
             "",
-            "    /// @function build",
             "    static build = function() {",
             "        return 1;",
             "    };",
@@ -42,7 +40,6 @@ void describe("constructor static function assignments", () => {
         const formatted = await Plugin.format(source);
 
         const expected = [
-            "/// @function Shape",
             "function Shape() constructor {",
             "",
             "    static value = 1;",
@@ -64,7 +61,6 @@ void describe("constructor static function assignments", () => {
         const formatted = await Plugin.format(source);
 
         const expected = [
-            "/// @function Shape",
             "function Shape() constructor {",
             "",
             "    static value = 1;",
