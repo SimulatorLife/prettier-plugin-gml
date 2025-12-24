@@ -249,12 +249,21 @@ export function hasBlankLineBetweenLastCommentAndClosingBrace(
         return false;
     }
 
-    const comments = Core.getCommentArray(blockNode).filter(Core.isCommentNode);
-    if (comments.length === 0) {
+    const comments = Core.getCommentArray(blockNode);
+    let lastComment: unknown = null;
+
+    for (let index = comments.length - 1; index >= 0; index -= 1) {
+        const comment = comments[index];
+        if (Core.isCommentNode(comment)) {
+            lastComment = comment;
+            break;
+        }
+    }
+
+    if (!lastComment) {
         return false;
     }
 
-    const lastComment = comments.at(-1);
     const commentEndIndex = Core.getNodeEndIndex(lastComment);
     const { endIndex: blockEndIndex } = resolveNodeIndexRangeWithSource(
         blockNode,
