@@ -223,6 +223,16 @@ export function isVariableDeclarationOfKind(
     return normalizedKind === expectedKind.toLowerCase();
 }
 
+/**
+ * Determine whether {@link node} is a `var` variable declaration.
+ *
+ * This convenience predicate simplifies checks for local variable declarations,
+ * which are the most common variable declaration kind in GML code. Transforms
+ * use this to distinguish local declarations from global or static ones.
+ *
+ * @param node Candidate variable declaration node.
+ * @returns `true` when {@link node} declares a `var` variable.
+ */
 export function isVarVariableDeclaration(
     node: GameMakerAstNode | null | undefined
 ): boolean {
@@ -277,6 +287,17 @@ const identifierResolvers: Readonly<
     }
 });
 
+/**
+ * Extract the `name` field from an identifier-like node.
+ *
+ * Callers frequently need to resolve identifiers embedded within complex node
+ * shapes (e.g., member expressions or variable declarators). This helper
+ * centralizes the defensive `name` extraction so call sites avoid duplicating
+ * the same null checks and type narrowing.
+ *
+ * @param node Potential identifier or node carrying a `name` property.
+ * @returns The `name` string when present, otherwise `null`.
+ */
 export function resolveNodeName(
     node: GameMakerAstNode | null | undefined
 ): string | null {
@@ -289,6 +310,17 @@ export function resolveNodeName(
     return null;
 }
 
+/**
+ * Determine whether {@link node} is a well-formed identifier node.
+ *
+ * The guard validates both the `type` and `name` fields so callers can safely
+ * access `node.name` without additional defensive checks. Used extensively in
+ * printer and transform modules when inspecting variable references or function
+ * names.
+ *
+ * @param node Candidate value to inspect.
+ * @returns `true` when {@link node} is an identifier with a string `name`.
+ */
 export function isIdentifierNode(node: unknown): node is IdentifierNode {
     if (!isNode(node)) return false;
     const candidate = node as { type?: unknown; name?: unknown };
@@ -297,11 +329,31 @@ export function isIdentifierNode(node: unknown): node is IdentifierNode {
     );
 }
 
+/**
+ * Determine whether {@link node} is a literal node.
+ *
+ * Literal nodes represent constant values such as numbers, strings, or boolean
+ * sentinels. The guard allows callers to safely access the `value` field
+ * without additional type checks.
+ *
+ * @param node Candidate value to inspect.
+ * @returns `true` when {@link node} is a literal.
+ */
 export function isLiteralNode(node: unknown): node is LiteralNode {
     if (!isNode(node)) return false;
     return (node as { type?: unknown }).type === "Literal";
 }
 
+/**
+ * Determine whether {@link node} is an assignment pattern node.
+ *
+ * Assignment patterns appear in parameter lists or destructuring expressions
+ * where default values are provided. The guard lets callers safely access
+ * pattern-specific fields without duplicating the type check.
+ *
+ * @param node Candidate value to inspect.
+ * @returns `true` when {@link node} is an assignment pattern.
+ */
 export function isAssignmentPatternNode(
     node: unknown
 ): node is AssignmentPatternNode {
@@ -309,6 +361,16 @@ export function isAssignmentPatternNode(
     return (node as { type?: unknown }).type === "AssignmentPattern";
 }
 
+/**
+ * Determine whether {@link node} is a call expression node.
+ *
+ * Call expressions represent function invocations. The guard permits callers to
+ * safely access the `object` (callee) and `arguments` fields without further
+ * defensive checks.
+ *
+ * @param node Candidate value to inspect.
+ * @returns `true` when {@link node} is a call expression.
+ */
 export function isCallExpressionNode(
     node: unknown
 ): node is CallExpressionNode {
@@ -316,6 +378,16 @@ export function isCallExpressionNode(
     return (node as { type?: unknown }).type === "CallExpression";
 }
 
+/**
+ * Determine whether {@link node} is a member index expression node.
+ *
+ * Member index expressions represent bracket-style property access (e.g.,
+ * `array[0]` or `obj[key]`). The guard allows callers to safely access the
+ * `object` and `property` fields without additional type validation.
+ *
+ * @param node Candidate value to inspect.
+ * @returns `true` when {@link node} is a member index expression.
+ */
 export function isMemberIndexExpressionNode(
     node: unknown
 ): node is MemberIndexExpressionNode {
@@ -323,6 +395,17 @@ export function isMemberIndexExpressionNode(
     return (node as { type?: unknown }).type === "MemberIndexExpression";
 }
 
+/**
+ * Check whether {@link node} is an identifier with the exact {@link name}.
+ *
+ * Used when transforms need to detect references to specific variables or
+ * functions. The comparison is case-sensitive to match GameMaker's identifier
+ * semantics.
+ *
+ * @param node Candidate identifier node to inspect.
+ * @param name Expected identifier name.
+ * @returns `true` when {@link node} is an identifier matching {@link name}.
+ */
 export function isIdentifierWithName(
     node: GameMakerAstNode | null | undefined,
     name: string
@@ -475,6 +558,16 @@ export function getCallExpressionArguments(
     return asArray((callExpression as CallExpressionNode).arguments);
 }
 
+/**
+ * Extract the identifier from a call expression's callee when present.
+ *
+ * Many transforms need to inspect the function being called rather than the
+ * entire callee expression. This helper extracts the identifier while handling
+ * the defensive guards, so call sites can focus on the name comparison logic.
+ *
+ * @param callExpression Potential call expression node.
+ * @returns The callee identifier when present, otherwise `null`.
+ */
 export function getCallExpressionIdentifier(
     callExpression: GameMakerAstNode | null | undefined
 ): IdentifierNode | null {
@@ -490,6 +583,16 @@ export function getCallExpressionIdentifier(
     return callee;
 }
 
+/**
+ * Extract the name of the function being called in a call expression.
+ *
+ * Transforms frequently need to compare the callee name against known built-in
+ * functions or user-defined helpers. This convenience wrapper combines the
+ * identifier extraction and name resolution into a single call.
+ *
+ * @param callExpression Potential call expression node.
+ * @returns The callee's name when present and valid, otherwise `null`.
+ */
 export function getCallExpressionIdentifierName(
     callExpression: GameMakerAstNode | null | undefined
 ): string | null {
@@ -498,6 +601,18 @@ export function getCallExpressionIdentifierName(
     return typeof id.name === "string" ? id.name : null;
 }
 
+/**
+ * Extract validated identifier metadata from {@link node}.
+ *
+ * Combines the identifier guard with name resolution to produce a compact
+ * descriptor containing both the node and its normalized name. Transforms use
+ * this when they need to inspect or clone identifier nodes while keeping the
+ * defensive checks consistent.
+ *
+ * @param node Candidate identifier node.
+ * @returns A descriptor with the identifier and its name, or `null` when the
+ *     node is not a valid identifier.
+ */
 export function getIdentifierDetails(
     node: unknown
 ): { identifier: IdentifierNode; name: string } | null {
@@ -513,6 +628,16 @@ export function getIdentifierDetails(
     return { identifier: node, name };
 }
 
+/**
+ * Extract the `name` field from an identifier node when present.
+ *
+ * This convenience wrapper simplifies identifier name extraction by handling
+ * the defensive checks internally. Callers receive either the name string or
+ * `null`, avoiding the need to validate identifier structure at each call site.
+ *
+ * @param node Potential identifier node.
+ * @returns The identifier's `name` when available, otherwise `null`.
+ */
 export function getIdentifierName(
     node: GameMakerAstNode | null | undefined
 ): string | null {
@@ -520,6 +645,20 @@ export function getIdentifierName(
     return details ? details.name : null;
 }
 
+/**
+ * Check whether a call expression invokes a function with the expected name.
+ *
+ * Transforms rely on this predicate to detect calls to specific built-in
+ * functions or user-defined helpers. The optional `caseInsensitive` mode lets
+ * callers handle GameMaker's case-insensitive function resolution when needed.
+ *
+ * @param callExpression Candidate call expression node.
+ * @param expectedName Function name to match against.
+ * @param options Optional configuration for case-sensitive matching.
+ * @param options.caseInsensitive When `true`, performs case-insensitive
+ *     comparison.
+ * @returns `true` when the call expression's callee matches {@link expectedName}.
+ */
 export function isCallExpressionIdentifierMatch(
     callExpression: GameMakerAstNode | null | undefined,
     expectedName: string,
@@ -542,6 +681,19 @@ export function isCallExpressionIdentifierMatch(
     return identifierName === expectedName;
 }
 
+/**
+ * Safely retrieve an array-valued property from an AST node.
+ *
+ * Many node types expose child lists (e.g., `statements`, `parameters`,
+ * `elements`) as array properties. This helper centralizes the defensive
+ * extraction and normalization so callers receive a consistent iterable even
+ * when the property is missing or malformed.
+ *
+ * @param node Potential AST node to inspect.
+ * @param propertyName Name of the array-valued property to retrieve.
+ * @returns Normalized array of child nodes or an empty array when the property
+ *     is missing.
+ */
 export function getArrayProperty(
     node: unknown,
     propertyName: string
@@ -560,6 +712,17 @@ export function getArrayProperty(
     );
 }
 
+/**
+ * Check whether an AST node's array-valued property contains any entries.
+ *
+ * Transforms frequently need to branch based on whether a node has child
+ * elements before attempting iteration. This predicate consolidates the
+ * defensive checks and array validation into a single call.
+ *
+ * @param node Potential AST node to inspect.
+ * @param propertyName Name of the array-valued property to check.
+ * @returns `true` when the property exists and contains at least one element.
+ */
 export function hasArrayPropertyEntries(
     node: unknown,
     propertyName: string
@@ -576,6 +739,16 @@ export function hasArrayPropertyEntries(
     return isNonEmptyArray(astNode[propertyName]);
 }
 
+/**
+ * Extract the statement list from a block statement or program node.
+ *
+ * Both `Program` and `BlockStatement` nodes expose their children via a `body`
+ * array. This helper retrieves the body while normalizing missing or malformed
+ * shapes into an empty array, so callers can iterate without additional guards.
+ *
+ * @param node Potential block statement or program node.
+ * @returns Array of body statements or an empty array when the body is missing.
+ */
 export function getBodyStatements(node: unknown): readonly GameMakerAstNode[] {
     if (!isNode(node)) {
         return [];
@@ -584,10 +757,29 @@ export function getBodyStatements(node: unknown): readonly GameMakerAstNode[] {
     return asArray((node as { body?: unknown }).body);
 }
 
+/**
+ * Check whether a node contains any body statements.
+ *
+ * Transforms use this predicate to determine whether a block is effectively
+ * empty before attempting to unwrap or simplify control flow structures.
+ *
+ * @param node Potential block statement or program node.
+ * @returns `true` when the node has at least one body statement.
+ */
 export function hasBodyStatements(node: unknown): boolean {
     return hasArrayPropertyEntries(node, "body");
 }
 
+/**
+ * Determine whether {@link node} is a program or block statement.
+ *
+ * Several traversal and transformation routines need to detect container nodes
+ * that hold statement lists. This predicate simplifies those checks by handling
+ * both top-level programs and nested block statements.
+ *
+ * @param node Candidate value to inspect.
+ * @returns `true` when {@link node} is either a `Program` or `BlockStatement`.
+ */
 export function isProgramOrBlockStatement(node: unknown): boolean {
     if (!isNode(node)) {
         return false;
@@ -601,6 +793,16 @@ export function isProgramOrBlockStatement(node: unknown): boolean {
     return type === "Program" || type === "BlockStatement";
 }
 
+/**
+ * Extract a normalized lowercase string from a literal node.
+ *
+ * GML keywords and identifiers are case-insensitive, so transforms frequently
+ * need to compare literal values in a canonical form. This helper extracts
+ * string literals and lowercases them for consistent matching.
+ *
+ * @param node Potential literal node.
+ * @returns Lowercase string value when present, otherwise `null`.
+ */
 export function getLiteralStringValue(
     node: GameMakerAstNode | null | undefined
 ): string | null {
@@ -622,6 +824,20 @@ type BooleanLiteralOptions =
           acceptBooleanPrimitives?: boolean;
       };
 
+/**
+ * Extract a normalized boolean value from a literal node.
+ *
+ * GML accepts both string-based boolean literals (`"true"` / `"false"`) and
+ * JavaScript-style boolean primitives. This helper unifies both forms into a
+ * canonical string representation for consistent downstream checks.
+ *
+ * @param node Potential literal node.
+ * @param options Configuration for accepting primitive boolean values.
+ * @param options.acceptBooleanPrimitives When `true`, also recognizes `true` and
+ *     `false` primitive values.
+ * @returns `"true"` or `"false"` when the node is a boolean literal, otherwise
+ *     `null`.
+ */
 export function getBooleanLiteralValue(
     node: GameMakerAstNode | null | undefined,
     options: BooleanLiteralOptions = {}
@@ -652,6 +868,17 @@ export function getBooleanLiteralValue(
     return value ? "true" : "false";
 }
 
+/**
+ * Check whether {@link node} represents a boolean literal.
+ *
+ * This convenience predicate wraps {@link getBooleanLiteralValue} to simplify
+ * boolean-detection checks. Transforms use this when branching based on literal
+ * boolean values without needing to inspect the resolved value itself.
+ *
+ * @param node Potential literal node.
+ * @param options Configuration for accepting primitive boolean values.
+ * @returns `true` when {@link node} is a boolean literal.
+ */
 export function isBooleanLiteral(
     node: GameMakerAstNode | null | undefined,
     options?: BooleanLiteralOptions
@@ -659,12 +886,32 @@ export function isBooleanLiteral(
     return getBooleanLiteralValue(node, options) !== null;
 }
 
+/**
+ * Check whether {@link node} is an `undefined` literal.
+ *
+ * GML represents `undefined` as a string literal in most contexts. This
+ * predicate detects those cases by matching the normalized literal value.
+ *
+ * @param node Potential literal node.
+ * @returns `true` when {@link node} is a string literal with value `"undefined"`.
+ */
 export function isUndefinedLiteral(
     node: GameMakerAstNode | null | undefined
 ): boolean {
     return getLiteralStringValue(node) === "undefined";
 }
 
+/**
+ * Check whether {@link node} represents an `undefined` value.
+ *
+ * GML accepts multiple forms of `undefined`: string literals, primitive
+ * `undefined` values, and identifiers named `"undefined"`. This predicate
+ * detects all three forms so transforms can reliably identify undefined
+ * sentinels regardless of how the source code was authored.
+ *
+ * @param node Potential undefined sentinel.
+ * @returns `true` when {@link node} represents `undefined` in any accepted form.
+ */
 export function isUndefinedSentinel(
     node: GameMakerAstNode | null | undefined
 ): boolean {
@@ -691,6 +938,18 @@ export function isUndefinedSentinel(
         : false;
 }
 
+/**
+ * Check whether {@link node} has a specific node type.
+ *
+ * This typed predicate allows callers to narrow a node to a specific type
+ * category while preserving the shape of the node object for downstream
+ * property access. Useful in hot paths where repeated `type` checks would be
+ * more verbose.
+ *
+ * @param node Candidate value to inspect.
+ * @param type Expected node type string.
+ * @returns `true` when {@link node} has the specified {@link type}.
+ */
 export function hasType(
     node: unknown,
     type: string
@@ -718,6 +977,18 @@ export function getNodeType(node?: unknown): string | null {
     return typeof type === "string" ? type : null;
 }
 
+/**
+ * Check whether {@link value} is a valid AST node.
+ *
+ * This minimal predicate serves as the foundation for all node type guards.
+ * Rather than checking for a specific `type` field, it only validates that the
+ * value is a non-null object, allowing callers to perform further structural
+ * validation as needed. The loose check improves performance in hot traversal
+ * paths by deferring property access until absolutely necessary.
+ *
+ * @param value Candidate value to inspect.
+ * @returns `true` when {@link value} is a non-null object.
+ */
 export function isNode(value: unknown): value is GameMakerAstNode {
     return value != null && typeof value === "object";
 }
@@ -734,6 +1005,20 @@ const FUNCTION_LIKE_NODE_TYPES: ReadonlyArray<string> = Object.freeze([
 
 const FUNCTION_LIKE_NODE_TYPE_SET = new Set(FUNCTION_LIKE_NODE_TYPES);
 
+/**
+ * Determine whether {@link node} represents a function-like declaration or
+ * expression.
+ *
+ * GML supports multiple function forms: top-level function declarations,
+ * anonymous function expressions, lambda expressions, constructor declarations,
+ * method declarations, struct function declarations, and struct declarations.
+ * This predicate detects all of them so transforms can apply consistent
+ * formatting and analysis logic across the entire spectrum of callable
+ * constructs.
+ *
+ * @param node Potential function-like node.
+ * @returns `true` when {@link node} is any function-like construct.
+ */
 export function isFunctionLikeNode(
     node: GameMakerAstNode | null | undefined
 ): boolean {
@@ -749,6 +1034,18 @@ export function isFunctionLikeNode(
     return FUNCTION_LIKE_NODE_TYPE_SET.has(type);
 }
 
+/**
+ * Extract the name of a node when present.
+ *
+ * Named nodes (functions, variables, methods, struct members) expose their name
+ * via different fields depending on their type: `id` for declarations, `key`
+ * for struct properties, or embedded within the node itself for identifiers.
+ * This helper centralizes the name extraction logic so callers can retrieve the
+ * canonical name without branching on node type.
+ *
+ * @param node Potential named node.
+ * @returns The node's name when available, otherwise `null`.
+ */
 export function getNodeName(
     node: GameMakerAstNode | null | undefined
 ): string | null {
@@ -787,22 +1084,76 @@ export function getNodeName(
  * @param node Candidate AST fragment to inspect.
  * @param callback Invoked for each descendant value.
  */
+/**
+ * Check whether {@link operator} is a comparison binary operator.
+ *
+ * Comparison operators (`==`, `!=`, `<>`, `<=`, `>=`, `<`, `>`) evaluate
+ * relationships between operands and yield boolean results. Transforms rely on
+ * this predicate to detect comparisons that may need special precedence or
+ * grouping rules.
+ *
+ * @param operator Candidate operator string.
+ * @returns `true` when {@link operator} is a comparison binary operator.
+ */
 export function isComparisonBinaryOperator(operator: string): boolean {
     return COMPARISON_OPERATORS.has(operator);
 }
 
+/**
+ * Check whether {@link operator} is a logical binary operator.
+ *
+ * Logical operators (`and`, `&&`, `or`, `||`) combine boolean expressions and
+ * exhibit short-circuit evaluation. Transforms use this predicate to detect
+ * logical operations that may require special precedence handling or parenthesis
+ * insertion.
+ *
+ * @param operator Candidate operator string.
+ * @returns `true` when {@link operator} is a logical binary operator.
+ */
 export function isLogicalBinaryOperator(operator: string): boolean {
     return LOGICAL_OPERATORS.has(operator);
 }
 
+/**
+ * Check whether {@link operator} is an arithmetic binary operator.
+ *
+ * Arithmetic operators perform mathematical computations on numeric operands.
+ * This predicate detects addition, subtraction, multiplication, division,
+ * modulo, exponentiation, and bitwise shift/combine operations.
+ *
+ * @param operator Candidate operator string.
+ * @returns `true` when {@link operator} is an arithmetic binary operator.
+ */
 export function isArithmeticBinaryOperator(operator: string): boolean {
     return ARITHMETIC_OPERATORS.has(operator);
 }
 
+/**
+ * Check whether {@link character} is a numeric digit.
+ *
+ * This lightweight predicate avoids regex overhead when scanning numeric
+ * literals during formatting or validation. The character-code comparison is
+ * faster than `\d` regex tests for single-character checks in tight loops.
+ *
+ * @param character Single-character string to inspect.
+ * @returns `true` when {@link character} is a digit from `"0"` to `"9"`.
+ */
 export function isNumericLiteralBoundaryCharacter(character: string): boolean {
     return character >= "0" && character <= "9";
 }
 
+/**
+ * Traverse nested child nodes and invoke {@link callback} for each descendant.
+ *
+ * This helper performs shallow traversal of direct children within {@link node},
+ * forwarding both array entries and object-valued properties to the callback.
+ * Arrays are snapshotted before iteration so mutations within the callback do
+ * not affect the traversal order. Non-object primitives are skipped to match
+ * the traversal patterns used across parser and printer modules.
+ *
+ * @param node Candidate AST fragment to inspect.
+ * @param callback Invoked for each child value that should be visited.
+ */
 export function visitChildNodes(
     node: unknown,
     callback: (child: unknown) => void
@@ -874,6 +1225,18 @@ export function enqueueObjectChildValues(
     stack.push(value);
 }
 
+/**
+ * Unwrap nested parenthesized expressions to reveal the inner expression.
+ *
+ * GML permits arbitrary levels of parenthesis nesting around expressions. This
+ * helper peels away all parenthesized wrappers to expose the underlying
+ * expression, which simplifies transforms that need to inspect the semantic
+ * content without caring about cosmetic grouping.
+ *
+ * @param node Potential parenthesized expression or inner expression.
+ * @returns The innermost non-parenthesized expression, or the original
+ *     {@link node} when no parentheses are present.
+ */
 export function unwrapParenthesizedExpression(
     node: GameMakerAstNode | null | undefined
 ): GameMakerAstNode | null | undefined {
@@ -891,7 +1254,18 @@ export function unwrapParenthesizedExpression(
     return current;
 }
 
-// Small binary-operator predicate used by multiple math transforms.
+/**
+ * Check whether {@link node} is a binary expression with the specified operator.
+ *
+ * This convenience predicate simplifies operator-specific checks in math
+ * transforms and precedence-handling logic. The operator comparison is
+ * case-insensitive to match GML's operator semantics.
+ *
+ * @param node Potential binary expression node.
+ * @param operator Expected operator string.
+ * @returns `true` when {@link node} is a binary expression using
+ *     {@link operator}.
+ */
 export function isBinaryOperator(
     node: GameMakerAstNode | null | undefined,
     operator: string
