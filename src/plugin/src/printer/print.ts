@@ -793,10 +793,15 @@ function tryPrintVariableNode(node, path, options, print) {
                 return !omit;
             });
 
-            console.log("[DEBUG] keptDeclarators length:", keptDeclarators.length);
+            console.log(
+                "[DEBUG] keptDeclarators length:",
+                keptDeclarators.length
+            );
 
             if (keptDeclarators.length === 0) {
-                console.log("[DEBUG] keptDeclarators is empty, returning undefined");
+                console.log(
+                    "[DEBUG] keptDeclarators is empty, returning undefined"
+                );
                 return;
             }
 
@@ -866,10 +871,11 @@ function tryPrintVariableNode(node, path, options, print) {
                 }
             );
 
-            console.log("[DEBUG] Returning normal declaration. Kind:", node.kind);
-            return group(
-                concat([node.kind, " ", decls])
+            console.log(
+                "[DEBUG] Returning normal declaration. Kind:",
+                node.kind
             );
+            return group(concat([node.kind, " ", decls]));
         }
         case "VariableDeclarator": {
             const initializerOverride =
@@ -879,7 +885,10 @@ function tryPrintVariableNode(node, path, options, print) {
                     printSimpleDeclaration(print("id"), initializerOverride)
                 );
             }
-            const simpleDecl = printSimpleDeclaration(print("id"), print("init"));
+            const simpleDecl = printSimpleDeclaration(
+                print("id"),
+                print("init")
+            );
             return concat(simpleDecl);
         }
     }

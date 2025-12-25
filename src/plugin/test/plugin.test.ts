@@ -152,7 +152,9 @@ async function loadTestCases() {
     );
 }
 
-const testCases = (await loadTestCases()).filter(t => t.baseName === "testFormatting");
+const testCases = (await loadTestCases()).filter(
+    (t) => t.baseName === "testFormatting"
+);
 
 void describe("Prettier GameMaker plugin fixtures", () => {
     for (const {
