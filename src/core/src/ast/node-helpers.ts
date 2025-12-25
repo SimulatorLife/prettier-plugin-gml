@@ -2,6 +2,7 @@ import { asArray, isNonEmptyArray } from "../utils/array.js";
 import { isObjectLike } from "../utils/object.js";
 import { isNonEmptyString } from "../utils/string.js";
 import { assignClonedLocation } from "./locations.js";
+import { hasComment } from "../comments/comment-utils.js";
 import type {
     AssignmentPatternNode,
     CallExpressionNode,
@@ -59,6 +60,55 @@ export function getSingleVariableDeclarator(
     }
 
     return declarator as VariableDeclaratorNode;
+}
+
+/**
+ * Extract the sole statement from a block statement node when present and
+ * optionally apply comment guards to ensure safe transformation. Centralizes
+ * the defensive pattern used across printer and transform modules when
+ * reducing or unwrapping single-statement blocks.
+ *
+ * @param node Potential block statement node to inspect.
+ * @param options Optional configuration for validation.
+ * @param options.skipBlockCommentCheck When true, allows blocks with comments.
+ * @param options.skipStatementCommentCheck When true, allows statements with
+ *   comments.
+ * @returns The single body statement when present and all guards pass,
+ *   otherwise `null`.
+ */
+export function getSingleBodyStatement(
+    node: GameMakerAstNode | null | undefined,
+    {
+        skipBlockCommentCheck = false,
+        skipStatementCommentCheck = false
+    }: {
+        skipBlockCommentCheck?: boolean;
+        skipStatementCommentCheck?: boolean;
+    } = {}
+): GameMakerAstNode | null {
+    if (!node || node.type !== "BlockStatement") {
+        return null;
+    }
+
+    if (!skipBlockCommentCheck && hasComment(node)) {
+        return null;
+    }
+
+    const statements = getBodyStatements(node);
+    if (!Array.isArray(statements) || statements.length !== 1) {
+        return null;
+    }
+
+    const [statement] = statements;
+    if (!statement) {
+        return null;
+    }
+
+    if (!skipStatementCommentCheck && hasComment(statement)) {
+        return null;
+    }
+
+    return statement as GameMakerAstNode;
 }
 
 /**

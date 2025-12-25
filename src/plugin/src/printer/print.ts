@@ -2148,21 +2148,8 @@ function maybePrintInlineDefaultParameterFunctionBody(path, print) {
     }
 
     const bodyNode = node.body;
-    if (!bodyNode || bodyNode.type !== "BlockStatement") {
-        return null;
-    }
-
-    if (Core.hasComment(bodyNode)) {
-        return null;
-    }
-
-    const statements = Core.getBodyStatements(bodyNode);
-    if (!Array.isArray(statements) || statements.length !== 1) {
-        return null;
-    }
-
-    const [onlyStatement] = statements;
-    if (!onlyStatement || Core.hasComment(onlyStatement)) {
+    const onlyStatement = Core.getSingleBodyStatement(bodyNode);
+    if (!onlyStatement) {
         return null;
     }
 
@@ -5025,23 +5012,13 @@ function printBooleanReturnIf(path, print) {
 }
 
 function getBooleanReturnBranch(branchNode) {
-    if (!branchNode || Core.hasComment(branchNode)) {
+    if (!branchNode) {
         return null;
     }
 
     if (branchNode.type === "BlockStatement") {
-        const statements = Array.isArray(branchNode.body)
-            ? branchNode.body
-            : [];
-        if (statements.length !== 1) {
-            return null;
-        }
-
-        const [onlyStatement] = statements;
-        if (
-            Core.hasComment(onlyStatement) ||
-            onlyStatement.type !== "ReturnStatement"
-        ) {
+        const onlyStatement = Core.getSingleBodyStatement(branchNode);
+        if (!onlyStatement || onlyStatement.type !== "ReturnStatement") {
             return null;
         }
 

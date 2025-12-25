@@ -147,21 +147,8 @@ export class ConvertUndefinedGuardAssignmentsTransform extends FunctionalParserT
      * Ensure a branch contains exactly one assignment expression without comments.
      */
     private extractSoleAssignment(branchNode) {
-        if (!branchNode || branchNode.type !== "BlockStatement") {
-            return null;
-        }
-
-        if (Core.hasComment(branchNode)) {
-            return null;
-        }
-
-        const statements = Core.toMutableArray(branchNode.body) as Array<any>;
-        if (statements.length !== 1) {
-            return null;
-        }
-
-        const [statement] = statements;
-        if (!statement || Core.hasComment(statement)) {
+        const statement = Core.getSingleBodyStatement(branchNode) as any;
+        if (!statement) {
             return null;
         }
 
