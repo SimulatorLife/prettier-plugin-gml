@@ -170,7 +170,7 @@ export function createWatchCommand(): Command {
         .addOption(
             new Option(
                 "--debounce-delay <ms>",
-                "Delay in milliseconds before transpiling after file changes (0 to disable)"
+                "Delay in milliseconds before transpiling after file changes (0 for immediate processing)"
             )
                 .argParser((value) => {
                     const parsed = Number.parseInt(value);
