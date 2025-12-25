@@ -86,17 +86,23 @@ function collapseVertexFormatBeginSpacing(formatted: string): string {
 
 const MULTIPLE_BLANK_LINE_PATTERN = /\n{3,}/g;
 const FUNCTION_TAG_CLEANUP_PATTERN =
-    /\/\/\/\s*@(?:func|function)\b[^\n]*(\n)?/gi;
+    /(^|\n)[ \t]*\/\/\/\s*@(?:func|function)\b[^\n]*(\n)/gi;
 
 function collapseDuplicateBlankLines(formatted: string): string {
     return formatted.replaceAll(MULTIPLE_BLANK_LINE_PATTERN, "\n\n");
 }
 
 function stripFunctionTagComments(formatted: string): string {
-    return formatted.replaceAll(
+    console.log("Stripping function tags from:\n" + formatted);
+    const result = formatted.replaceAll(
         FUNCTION_TAG_CLEANUP_PATTERN,
-        (_match, newline) => newline ?? ""
+        (_match, prefix) => {
+            console.log("Matched: " + JSON.stringify(_match));
+            return prefix ?? "";
+        }
     );
+    console.log("Result:\n" + result);
+    return result;
 }
 
 function extractOptionDefaults(

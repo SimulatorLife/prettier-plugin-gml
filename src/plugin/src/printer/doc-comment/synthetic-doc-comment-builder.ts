@@ -54,7 +54,7 @@ export function buildSyntheticDocCommentDoc(
 
     return {
         ...syntheticDocComment,
-        doc: concat([hardline, join(hardline, syntheticDocComment.docLines)])
+        doc: concat([join(hardline, syntheticDocComment.docLines)])
     };
 }
 

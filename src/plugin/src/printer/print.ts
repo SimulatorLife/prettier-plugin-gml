@@ -408,6 +408,9 @@ function tryPrintControlStructureNode(node, path, options, print) {
 }
 
 function tryPrintFunctionNode(node, path, options, print) {
+    if (node.id?.name === "TestStruct") {
+        console.log("[DEBUG] tryPrintFunctionNode TestStruct");
+    }
     switch (node.type) {
         case "FunctionDeclaration":
         case "ConstructorDeclaration": {
@@ -780,7 +783,9 @@ function tryPrintVariableNode(node, path, options, print) {
             return concat([keyword, " ", decls]);
         }
         case "VariableDeclaration": {
-            console.log("[DEBUG] VariableDeclaration", node);
+            if (node.declarations?.[0]?.id?.name === "clearSubdiv") {
+                console.log("[DEBUG] Visiting clearSubdiv");
+            }
             const functionNode = findEnclosingFunctionNode(path);
             const declarators = Core.asArray(node.declarations);
 
@@ -793,15 +798,7 @@ function tryPrintVariableNode(node, path, options, print) {
                 return !omit;
             });
 
-            console.log(
-                "[DEBUG] keptDeclarators length:",
-                keptDeclarators.length
-            );
-
             if (keptDeclarators.length === 0) {
-                console.log(
-                    "[DEBUG] keptDeclarators is empty, returning undefined"
-                );
                 return;
             }
 
@@ -824,7 +821,6 @@ function tryPrintVariableNode(node, path, options, print) {
                                   }
                               )
                             : path.map(print, "declarations");
-                    console.log("[DEBUG] Returning filtered declaration");
                     return concat([node.kind, " ", decls]);
                 } finally {
                     node.declarations = original;
@@ -871,11 +867,28 @@ function tryPrintVariableNode(node, path, options, print) {
                 }
             );
 
-            console.log(
-                "[DEBUG] Returning normal declaration. Kind:",
-                node.kind
-            );
-            return group(concat([node.kind, " ", decls]));
+            if (node.kind === "static") {
+                // WORKAROUND: printCommaSeparatedList seems to cause issues with static declarations
+                // where the output becomes empty. Since static declarations are usually single-line
+                // or simple lists, we manually map and join them here.
+                const parts = path.map(print, "declarations");
+                const joined = [];
+                for (let i = 0; i < parts.length; i++) {
+                    joined.push(parts[i]);
+                    if (i < parts.length - 1) {
+                        joined.push(", ");
+                    }
+                }
+                const result = group(concat([node.kind, " ", ...joined]));
+                if (node.declarations?.[0]?.id?.name === "clearSubdiv") {
+                    console.log("[DEBUG] Returning static result for clearSubdiv");
+                    // return "TEST_STATIC_FIX";
+                }
+                return result;
+            }
+
+            const res = group(concat([node.kind, " ", decls]));
+            return res;
         }
         case "VariableDeclarator": {
             const initializerOverride =
@@ -1727,8 +1740,24 @@ function printProgramNode(node, path, options, print) {
 }
 
 function printBlockStatementNode(node, path, options, print) {
+    const parent = path.getParentNode();
+    if (parent?.id?.name === "TestStruct") {
+        console.log("[DEBUG] printBlockStatementNode for TestStruct");
+        console.log("[DEBUG] body length:", node.body.length);
+        node.body.forEach((s, i) => console.log(`[DEBUG] stmt[${i}]:`, s.type, s.kind, s.declarations?.[0]?.id?.name));
+    }
+
     if (node.body.length === 0) {
         return concat(printEmptyBlock(path, options));
+    }
+
+    // DEBUG LOGS
+    if (node.body.some(s => s.declarations?.[0]?.id?.name === "clearSubdiv")) {
+        console.log("[DEBUG] printBlockStatementNode found clearSubdiv block");
+        node.body.forEach((stmt, idx) => {
+            const name = stmt.declarations?.[0]?.id?.name;
+            console.log(`[DEBUG] stmt[${idx}]: type=${stmt.type} kind=${stmt.kind} name=${name}`);
+        });
     }
 
     let leadingDocs = [hardline];
@@ -2192,16 +2221,19 @@ function printCommaSeparatedList(
     options,
     overrides: any = {}
 ) {
+    console.log(`[DEBUG] printCommaSeparatedList listKey=${listKey}`);
     const allowTrailingDelimiter =
         overrides.allowTrailingDelimiter === undefined
             ? shouldAllowTrailingComma(options)
             : overrides.allowTrailingDelimiter;
 
-    return printDelimitedList(path, print, listKey, startChar, endChar, {
+    const result = printDelimitedList(path, print, listKey, startChar, endChar, {
         delimiter: ",",
         ...overrides,
         allowTrailingDelimiter
     });
+    // console.log(`[DEBUG] printCommaSeparatedList result type: ${typeof result}`);
+    return result;
 }
 
 // Force statement-shaped children into explicit `{}` blocks so every call site
@@ -2710,6 +2742,10 @@ function buildStatementPartsForPrinter({
     const isTopLevel = childPath.parent?.type === "Program";
     const printed = print();
 
+    if (node.declarations?.[0]?.id?.name === "clearSubdiv") {
+        console.log("[DEBUG] buildStatementPartsForPrinter printed clearSubdiv:", JSON.stringify(printed));
+    }
+
     if (printed === undefined || printed === null || printed === "") {
         return { parts, previousNodeHadNewlineAddedAfter };
     }
@@ -2875,6 +2911,10 @@ function buildStatementPartsForPrinter({
         hasFunctionInitializer,
         containerNode
     });
+
+    if (node.declarations?.[0]?.id?.name === "clearSubdiv") {
+        console.log("[DEBUG] buildStatementPartsForPrinter returning parts:", JSON.stringify(parts));
+    }
 
     return {
         parts,
@@ -4064,6 +4104,10 @@ function findFunctionParameterContext(path) {
 }
 
 function shouldOmitParameterAlias(declarator, functionNode, options) {
+    if (declarator?.id?.name === "clearSubdiv") {
+        console.log("[DEBUG] shouldOmitParameterAlias checking clearSubdiv");
+        console.log("[DEBUG] declarator.init.type:", declarator.init?.type);
+    }
     if (
         !declarator ||
         declarator.type !== "VariableDeclarator" ||
