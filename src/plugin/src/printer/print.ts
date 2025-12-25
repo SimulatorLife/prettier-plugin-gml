@@ -793,7 +793,10 @@ function tryPrintVariableNode(node, path, options, print) {
                 return !omit;
             });
 
+            console.log("[DEBUG] keptDeclarators length:", keptDeclarators.length);
+
             if (keptDeclarators.length === 0) {
+                console.log("[DEBUG] keptDeclarators is empty, returning undefined");
                 return;
             }
 
@@ -816,6 +819,7 @@ function tryPrintVariableNode(node, path, options, print) {
                                   }
                               )
                             : path.map(print, "declarations");
+                    console.log("[DEBUG] Returning filtered declaration");
                     return concat([node.kind, " ", decls]);
                 } finally {
                     node.declarations = original;
@@ -862,6 +866,7 @@ function tryPrintVariableNode(node, path, options, print) {
                 }
             );
 
+            console.log("[DEBUG] Returning normal declaration. Kind:", node.kind);
             return group(
                 concat([node.kind, " ", decls])
             );

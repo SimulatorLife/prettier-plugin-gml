@@ -339,7 +339,8 @@ const DOC_LIKE_CONTINUATION_PREFIX = /^\s*\/\s+/;
 
 export function promoteLeadingDocCommentTextToDescription(
     docLines: DocCommentLines | string[],
-    extraTaggedDocLines: DocCommentLines | string[] = []
+    extraTaggedDocLines: DocCommentLines | string[] = [],
+    forcePromotion = false
 ) {
     const normalizedLines = Array.isArray(docLines) ? [...docLines] : [];
 
@@ -404,7 +405,7 @@ export function promoteLeadingDocCommentTextToDescription(
         Array.isArray(extraTaggedDocLines) &&
         extraTaggedDocLines.some(isDocCommentTagLine);
 
-    if (!remainderContainsTag && !extraContainsTag) {
+    if (!remainderContainsTag && !extraContainsTag && !forcePromotion) {
         return normalizedLines as DocCommentLines;
     }
 

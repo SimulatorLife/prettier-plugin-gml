@@ -1972,7 +1972,8 @@ function applyDocCommentPromotionIfNeeded(
         normalizedExistingLines = toMutableArray(
             promoteLeadingDocCommentTextToDescription(
                 normalizedExistingLines,
-                syntheticLines
+                syntheticLines,
+                originalExistingHasDocLikePrefixes || hasMultiLineSummary
             )
         ) as MutableDocCommentLines;
 
