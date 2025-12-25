@@ -3,7 +3,7 @@ import type { RuntimePatchError, RuntimeWrapper } from "../runtime/types.js";
 export type WebSocketEvent = "open" | "message" | "close" | "error";
 
 export interface MessageEventLike {
-    data: string;
+    data: unknown;
 }
 
 export interface RuntimeWebSocketInstance {

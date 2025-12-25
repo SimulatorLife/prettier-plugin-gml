@@ -78,7 +78,7 @@ class MockWebSocket implements RuntimeWebSocketInstance {
         });
     }
 
-    simulateMessage(data: string) {
+    simulateMessage(data: unknown) {
         this.dispatch("message", { data });
     }
 
@@ -210,9 +210,73 @@ void test("WebSocket client applies batch patches from messages", async () => {
     delete globalWithWebSocket.WebSocket;
 });
 
+void test("WebSocket client accepts structured payloads", async () => {
+    const wrapper = RuntimeWrapper.createRuntimeWrapper();
+
+    globalWithWebSocket.WebSocket = MockWebSocket;
+
+    const client = RuntimeWrapper.createWebSocketClient({
+        wrapper,
+        autoConnect: true
+    });
+
+    await wait(50);
+
+    const patch = {
+        kind: "event",
+        id: "obj_structured#Create",
+        js_body: "this.ready = true;"
+    } satisfies Record<string, unknown>;
+
+    const ws = client.getWebSocket();
+    assert.ok(ws, "WebSocket should be available");
+
+    (ws as MockWebSocket).simulateMessage(patch);
+
+    await wait(10);
+
+    assert.ok(wrapper.hasEvent("obj_structured#Create"));
+
+    client.disconnect();
+    delete globalWithWebSocket.WebSocket;
+});
+
+void test("WebSocket client decodes binary JSON payloads", async () => {
+    const wrapper = RuntimeWrapper.createRuntimeWrapper();
+
+    globalWithWebSocket.WebSocket = MockWebSocket;
+
+    const client = RuntimeWrapper.createWebSocketClient({
+        wrapper,
+        autoConnect: true
+    });
+
+    await wait(50);
+
+    const patch = {
+        kind: "script",
+        id: "script:binary",
+        js_body: "return 128;"
+    };
+
+    const encoded = new TextEncoder().encode(JSON.stringify(patch));
+
+    const ws = client.getWebSocket();
+    assert.ok(ws, "WebSocket should be available");
+
+    (ws as MockWebSocket).simulateMessage(encoded);
+
+    await wait(10);
+
+    assert.ok(wrapper.hasScript("script:binary"));
+
+    client.disconnect();
+    delete globalWithWebSocket.WebSocket;
+});
+
 void test("WebSocket client prefers trySafeApply when available", async () => {
     const wrapper = RuntimeWrapper.createRuntimeWrapper();
-    const originalTrySafeApply = wrapper.trySafeApply;
+    const originalTrySafeApply = wrapper.trySafeApply.bind(wrapper);
     let trySafeApplyCalls = 0;
 
     wrapper.trySafeApply = (...args) => {
@@ -403,6 +467,11 @@ void test("WebSocket client clears pending reconnect timer on manual reconnect",
     >();
     let client: ReturnType<typeof RuntimeWrapper.createWebSocketClient> | null;
 
+    const restoreTimers = () => {
+        globalThis.setTimeout = originalSetTimeout;
+        globalThis.clearTimeout = originalClearTimeout;
+    };
+
     try {
         globalThis.setTimeout = ((
             fn: (...callbackArgs: Array<unknown>) => void,
@@ -469,8 +538,7 @@ void test("WebSocket client clears pending reconnect timer on manual reconnect",
 
         client.disconnect();
     } finally {
-        globalThis.setTimeout = originalSetTimeout;
-        globalThis.clearTimeout = originalClearTimeout;
+        restoreTimers();
         delete globalWithWebSocket.WebSocket;
     }
 });
