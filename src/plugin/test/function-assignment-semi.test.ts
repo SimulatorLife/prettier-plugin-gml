@@ -4,7 +4,7 @@ import { describe, it } from "node:test";
 import { Plugin } from "../src/index.js";
 
 void describe("function assignment semicolons", () => {
-    void it("omits semicolons when assigning function declarations", async () => {
+    void it("includes semicolons when assigning function declarations", async () => {
         const source = [
             "get_debug_text = function() {",
             "    return true;",
@@ -18,7 +18,7 @@ void describe("function assignment semicolons", () => {
             "",
             "get_debug_text = function() {",
             "    return true;",
-            "}",
+            "};",
             ""
         ].join("\n");
 
