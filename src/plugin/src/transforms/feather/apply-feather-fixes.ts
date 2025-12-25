@@ -38,7 +38,8 @@ import { parseExample } from "./parser-bootstrap.js";
 import { preprocessFunctionArgumentDefaultsTransform } from "../preprocess-function-argument-defaults.js";
 import {
     getDocCommentMetadata,
-    getDeprecatedDocCommentFunctionSet
+    getDeprecatedDocCommentFunctionSet,
+    setDeprecatedDocCommentFunctionSet
 } from "../doc-comment/doc-comment-metadata.js";
 
 type RenameOptions = {
@@ -307,7 +308,15 @@ function applyFeatherFixesImpl(ast: any, opts: ApplyFeatherFixesOptions = {}) {
     if (sourceText) {
         // Use the core service to extract and attach documented param names
         // This handles finding comments correctly (which might not be directly on the node)
-        Core.buildDocumentedParamNameLookup(ast, sourceText);
+        const traversal = Core.resolveDocCommentTraversalService(ast);
+        Core.buildDocumentedParamNameLookup(ast, sourceText, traversal);
+
+        const deprecatedFunctionNames = Core.collectDeprecatedFunctionNames(
+            ast,
+            sourceText,
+            traversal
+        );
+        setDeprecatedDocCommentFunctionSet(ast, deprecatedFunctionNames);
     }
 
     const appliedFixes = [];
@@ -1884,8 +1893,12 @@ function createAutomaticFeatherFixHandlers() {
         ],
         [
             "GM1028",
-            ({ ast, diagnostic }) =>
-                correctDataStructureAccessorTokens({ ast, diagnostic })
+            ({ ast, preprocessedFixMetadata, diagnostic }) =>
+                correctDataStructureAccessorTokens({
+                    ast,
+                    diagnostic,
+                    metadata: preprocessedFixMetadata
+                })
         ],
         [
             "GM1029",
@@ -12400,8 +12413,19 @@ function hasOriginalBlankLineBetween(beforeNode, afterNode) {
     return afterStartLine > beforeEndLine + 1;
 }
 
-function correctDataStructureAccessorTokens({ ast, diagnostic }) {
+function correctDataStructureAccessorTokens({ ast, diagnostic, metadata }) {
     if (!hasFeatherDiagnosticContext(ast, diagnostic)) {
+        return [];
+    }
+
+    // Context-sensitive fixes like accessor replacement require specific diagnostic instances.
+    // Applying a global replacement based on the generic diagnostic example is unsafe.
+    if (!metadata) {
+        return [];
+    }
+
+    const entries = extractFeatherPreprocessMetadata(metadata, diagnostic.id);
+    if (!entries || entries.length === 0) {
         return [];
     }
 
@@ -12440,7 +12464,8 @@ function correctDataStructureAccessorTokens({ ast, diagnostic }) {
             const fix = updateMemberIndexAccessor(node, {
                 incorrectAccessor,
                 correctAccessor,
-                diagnostic
+                diagnostic,
+                entries
             });
 
             if (fix) {
@@ -12463,7 +12488,7 @@ function correctDataStructureAccessorTokens({ ast, diagnostic }) {
 
 function updateMemberIndexAccessor(
     node,
-    { incorrectAccessor, correctAccessor, diagnostic }
+    { incorrectAccessor, correctAccessor, diagnostic, entries }
 ) {
     if (!node || node.type !== "MemberIndexExpression") {
         return null;
@@ -12480,13 +12505,35 @@ function updateMemberIndexAccessor(
         return null;
     }
 
+    // Check if this node matches any of the diagnostic entries
+    const nodeStart = Core.getNodeStartIndex(node);
+    const nodeEnd = Core.getNodeEndIndex(node);
+
+    const match = entries.find((entry) => {
+        const range = normalizePreprocessedRange(entry);
+        if (!range) {
+            return false;
+        }
+        // Check for intersection or containment
+        // The diagnostic range usually covers the accessor or the whole expression
+        return (
+            (range.start.index >= nodeStart && range.start.index < nodeEnd) ||
+            (range.end.index > nodeStart && range.end.index <= nodeEnd) ||
+            (nodeStart >= range.start.index && nodeEnd <= range.end.index)
+        );
+    });
+
+    if (!match) {
+        return null;
+    }
+
     node.accessor = correctAccessor;
 
     const fixDetail = createFeatherFixDetail(diagnostic, {
         target: typeof node.object?.name === "string" ? node.object.name : null,
         range: {
-            start: Core.getNodeStartIndex(node),
-            end: Core.getNodeEndIndex(node)
+            start: nodeStart,
+            end: nodeEnd
         }
     });
 

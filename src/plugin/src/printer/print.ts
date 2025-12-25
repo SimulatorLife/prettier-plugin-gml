@@ -228,6 +228,14 @@ function isBlockWithinConstructor(path) {
         if (ancestor.type === "ConstructorDeclaration") {
             return true;
         }
+
+        // Stop traversing if we hit a function boundary that isn't a constructor
+        if (
+            ancestor.type === "FunctionDeclaration" ||
+            ancestor.type === "FunctionExpression"
+        ) {
+            return false;
+        }
     }
 
     return false;

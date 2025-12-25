@@ -93,16 +93,12 @@ function collapseDuplicateBlankLines(formatted: string): string {
 }
 
 function stripFunctionTagComments(formatted: string): string {
-    console.log("Stripping function tags from:\n" + formatted);
-    const result = formatted.replaceAll(
+    return formatted.replaceAll(
         FUNCTION_TAG_CLEANUP_PATTERN,
         (_match, prefix) => {
-            console.log("Matched: " + JSON.stringify(_match));
-            return prefix ?? "";
+            return prefix || "";
         }
     );
-    console.log("Result:\n" + result);
-    return result;
 }
 
 function extractOptionDefaults(

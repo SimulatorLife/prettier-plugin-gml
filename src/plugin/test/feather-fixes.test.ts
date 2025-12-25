@@ -2367,7 +2367,15 @@ void describe("Transforms.applyFeatherFixes transform", () => {
         });
 
         Transforms.applyFeatherFixesTransform.transform(ast, {
-            sourceText: source
+            sourceText: source,
+            preprocessedFixMetadata: {
+                GM1028: [
+                    {
+                        start: { line: 5, index: 128 },
+                        end: { line: 5, index: 130 }
+                    }
+                ]
+            }
         });
 
         const ifStatement = (ast.body ?? []).find(
