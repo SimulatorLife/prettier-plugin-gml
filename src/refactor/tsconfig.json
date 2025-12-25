@@ -15,6 +15,6 @@
     { "path": "../semantic" },
     { "path": "../plugin" }
   ],
-  "include": ["*.ts", "src/**/*.ts", "test/**/*.ts"],
+  "include": ["*.ts", "engine/**/*.ts", "test/**/*.ts"],
   "exclude": ["dist"]
 }

@@ -10,7 +10,7 @@ import {
     type SemanticAnalyzer,
     type WorkspaceReadFile,
     type WorkspaceWriteFile
-} from "../src/index.js";
+} from "../index.js";
 
 void test("createRefactorEngine returns a RefactorEngine", () => {
     const engine = createRefactorEngine();
