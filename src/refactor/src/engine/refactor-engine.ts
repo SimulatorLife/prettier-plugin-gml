@@ -1941,6 +1941,23 @@ export class RefactorEngine {
             };
         }
 
+        // Hot reload safety analysis relies on semantic knowledge to confirm the
+        // symbol exists and to reason about scope conflicts. When the semantic
+        // analyzer is unavailable, return a guarded failure instead of throwing so
+        // callers receive actionable feedback they can surface to users.
+        if (!this.semantic) {
+            return {
+                safe: false,
+                reason: "Hot reload safety checks require a semantic analyzer to verify the rename",
+                requiresRestart: true,
+                canAutoFix: false,
+                suggestions: [
+                    "Run the semantic analysis pass before requesting hot reload safety",
+                    "Provide a semantic analyzer implementation when constructing RefactorEngine"
+                ]
+            };
+        }
+
         // Check if symbol exists
         const exists = await this.validateSymbolExists(symbolId);
         if (!exists) {
