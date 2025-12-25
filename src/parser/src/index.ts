@@ -3,8 +3,13 @@ import * as AST from "./ast/index.js";
 import * as Runtime from "./runtime/index.js";
 import * as Utils from "./utils/index.js"; // TODO: We need a more specific/meaningful name for this module. If it is too generic to be meaningfully named, it probably needs to be broken up.
 
-export { default as GameMakerLanguageParserListenerBase } from "../generated/GameMakerLanguageParserListener.js";
-export { default as GameMakerLanguageParserVisitorBase } from "../generated/GameMakerLanguageParserVisitor.js";
+// Re-export stable facade for generated parser base classes. External consumers
+// should depend on these factory functions rather than importing from the
+// generated directory directly, keeping coupling isolated to the abstraction layer.
+export const GameMakerLanguageParserListenerBase =
+    Runtime.getParserListenerBase();
+export const GameMakerLanguageParserVisitorBase =
+    Runtime.getParserVisitorBase();
 
 // Define the Parser namespace type from existing module types
 type ParserNamespace = typeof GMLParserModule &
