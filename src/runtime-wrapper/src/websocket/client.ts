@@ -216,7 +216,7 @@ function createMessageHandler({
         }
 
         const payload = parseWebSocketPayload(event, onError);
-        if (payload === undefined) {
+        if (payload === null) {
             return;
         }
 
@@ -233,21 +233,76 @@ function parseWebSocketPayload(
     event: MessageEventLike | Error | undefined,
     onError?: WebSocketClientOptions["onError"]
 ): unknown {
-    let payload: unknown = undefined;
-
-    if (event && typeof event === "object" && "data" in event) {
-        try {
-            const message = event.data;
-            payload = JSON.parse(String(message));
-        } catch (error) {
-            if (onError) {
-                const safeError = toRuntimePatchError(error);
-                onError(safeError, "patch");
-            }
-        }
+    if (!event || typeof event !== "object" || !("data" in event)) {
+        return null;
     }
 
-    return payload;
+    const message = event.data;
+
+    if (isStructuredPayload(message)) {
+        return message;
+    }
+
+    if (isBinaryPayload(message)) {
+        return decodeBinaryPayload(message, onError);
+    }
+
+    if (typeof message !== "string") {
+        return null;
+    }
+
+    try {
+        return JSON.parse(message);
+    } catch (error) {
+        if (onError) {
+            const safeError = toRuntimePatchError(error);
+            onError(safeError, "patch");
+        }
+
+        return null;
+    }
+}
+
+function isStructuredPayload(value: unknown): value is object {
+    return (
+        Boolean(value) && typeof value === "object" && !isBinaryPayload(value)
+    );
+}
+
+function isBinaryPayload(
+    value: unknown
+): value is ArrayBuffer | ArrayBufferView {
+    return value instanceof ArrayBuffer || ArrayBuffer.isView(value);
+}
+
+function decodeBinaryPayload(
+    payload: ArrayBuffer | ArrayBufferView,
+    onError?: WebSocketClientOptions["onError"]
+): unknown {
+    try {
+        const view = toUint8Array(payload);
+        const decoded = new TextDecoder().decode(view);
+        return JSON.parse(decoded);
+    } catch (error) {
+        if (onError) {
+            const safeError = toRuntimePatchError(error);
+            onError(safeError, "patch");
+        }
+
+        return null;
+    }
+}
+
+function toUint8Array(payload: ArrayBuffer | ArrayBufferView): Uint8Array {
+    if (payload instanceof ArrayBuffer) {
+        return new Uint8Array(payload);
+    }
+
+    return new Uint8Array(
+        payload.buffer,
+        payload.byteOffset,
+        payload.byteLength
+    );
 }
 
 function createCloseHandler({
