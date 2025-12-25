@@ -11,3 +11,14 @@ export {
     installRecognitionExceptionLikeGuard,
     isRecognitionExceptionLike
 } from "./recognition-exception-patch.js";
+export {
+    getParserListenerBase,
+    getParserVisitorBase,
+    getParseTreeVisitorPrototype
+} from "./generated-bindings.js";
+export type {
+    ParserListenerBase,
+    ParserListenerBaseConstructor,
+    ParserVisitorPrototype,
+    ParserVisitorBaseConstructor
+} from "./generated-bindings.js";
