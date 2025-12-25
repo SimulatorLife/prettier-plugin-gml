@@ -840,10 +840,10 @@ function tryPrintVariableNode(node, path, options, print) {
                         const isFunctionComment =
                             comment.value.includes("@function") ||
                             comment.value.includes("@func");
-                        const isFunctionInit =
-                            decl.init &&
-                            (decl.init.type === "FunctionDeclaration" ||
-                                decl.init.type === "ArrowFunctionExpression");
+                        // const isFunctionInit = // TODO: This value is assigned but never used
+                        //     decl.init &&
+                        //     (decl.init.type === "FunctionDeclaration" ||
+                        //         decl.init.type === "ArrowFunctionExpression");
 
                         if (isFunctionComment) {
                             comment.printed = true;
