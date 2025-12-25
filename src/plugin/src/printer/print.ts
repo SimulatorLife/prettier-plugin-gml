@@ -889,14 +889,15 @@ function tryPrintVariableNode(node, path, options, print) {
                 }
                 const result = group(concat([node.kind, " ", ...joined]));
                 if (node.declarations?.[0]?.id?.name === "clearSubdiv") {
-                    console.log("[DEBUG] Returning static result for clearSubdiv");
+                    console.log(
+                        "[DEBUG] Returning static result for clearSubdiv"
+                    );
                     // return "TEST_STATIC_FIX";
                 }
                 return result;
             }
 
-            const res = group(concat([node.kind, " ", decls]));
-            return res;
+            return group(concat([node.kind, " ", decls]));
         }
         case "VariableDeclarator": {
             const initializerOverride =
@@ -1752,7 +1753,14 @@ function printBlockStatementNode(node, path, options, print) {
     if (parent?.id?.name === "TestStruct") {
         console.log("[DEBUG] printBlockStatementNode for TestStruct");
         console.log("[DEBUG] body length:", node.body.length);
-        node.body.forEach((s, i) => console.log(`[DEBUG] stmt[${i}]:`, s.type, s.kind, s.declarations?.[0]?.id?.name));
+        node.body.forEach((s, i) =>
+            console.log(
+                `[DEBUG] stmt[${i}]:`,
+                s.type,
+                s.kind,
+                s.declarations?.[0]?.id?.name
+            )
+        );
     }
 
     if (node.body.length === 0) {
@@ -1760,11 +1768,15 @@ function printBlockStatementNode(node, path, options, print) {
     }
 
     // DEBUG LOGS
-    if (node.body.some(s => s.declarations?.[0]?.id?.name === "clearSubdiv")) {
+    if (
+        node.body.some((s) => s.declarations?.[0]?.id?.name === "clearSubdiv")
+    ) {
         console.log("[DEBUG] printBlockStatementNode found clearSubdiv block");
         node.body.forEach((stmt, idx) => {
             const name = stmt.declarations?.[0]?.id?.name;
-            console.log(`[DEBUG] stmt[${idx}]: type=${stmt.type} kind=${stmt.kind} name=${name}`);
+            console.log(
+                `[DEBUG] stmt[${idx}]: type=${stmt.type} kind=${stmt.kind} name=${name}`
+            );
         });
     }
 
@@ -2222,13 +2234,19 @@ function printCommaSeparatedList(
             ? shouldAllowTrailingComma(options)
             : overrides.allowTrailingDelimiter;
 
-    const result = printDelimitedList(path, print, listKey, startChar, endChar, {
-        delimiter: ",",
-        ...overrides,
-        allowTrailingDelimiter
-    });
     // console.log(`[DEBUG] printCommaSeparatedList result type: ${typeof result}`);
-    return result;
+    return printDelimitedList(
+        path,
+        print,
+        listKey,
+        startChar,
+        endChar,
+        {
+            delimiter: ",",
+            ...overrides,
+            allowTrailingDelimiter
+        }
+    );
 }
 
 // Force statement-shaped children into explicit `{}` blocks so every call site
@@ -2737,7 +2755,10 @@ function buildStatementPartsForPrinter({
     const printed = print();
 
     if (node.declarations?.[0]?.id?.name === "clearSubdiv") {
-        console.log("[DEBUG] buildStatementPartsForPrinter printed clearSubdiv:", JSON.stringify(printed));
+        console.log(
+            "[DEBUG] buildStatementPartsForPrinter printed clearSubdiv:",
+            JSON.stringify(printed)
+        );
     }
 
     if (printed === undefined || printed === null || printed === "") {
@@ -2907,7 +2928,10 @@ function buildStatementPartsForPrinter({
     });
 
     if (node.declarations?.[0]?.id?.name === "clearSubdiv") {
-        console.log("[DEBUG] buildStatementPartsForPrinter returning parts:", JSON.stringify(parts));
+        console.log(
+            "[DEBUG] buildStatementPartsForPrinter returning parts:",
+            JSON.stringify(parts)
+        );
     }
 
     return {
