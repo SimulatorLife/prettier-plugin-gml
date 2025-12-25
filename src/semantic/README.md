@@ -13,22 +13,37 @@ import { Semantic } from "@gml-modules/semantic";
 
 const tracker = new Semantic.ScopeTracker({ enabled: true });
 const builtins = new Set(["show_debug_message", "array_length"]);
-const oracle = new Semantic.BasicSemanticOracle(tracker, builtins);
+const scripts = new Set(["scr_player_move", "scr_enemy_attack"]);
+const oracle = new Semantic.BasicSemanticOracle(tracker, builtins, scripts);
 
 // Classify an identifier
-const kind = oracle.kindOfIdent({ name: "myVar" }); // "local" | "global_field" | "builtin"
+const kind = oracle.kindOfIdent({ name: "myVar" }); 
+// Returns: "local" | "global_field" | "builtin" | "script"
+
+// Generate SCIP-style symbol for hot reload tracking
+const symbol = oracle.qualifiedSymbol({ name: "scr_player_move" });
+// Returns: "gml/script/scr_player_move"
 
 // Determine call target type
 const callKind = oracle.callTargetKind({
     type: "CallExpression",
     object: { name: "array_length" }
-}); // "builtin" | "script" | "unknown"
+}); 
+// Returns: "builtin" | "script" | "unknown"
+
+// Get SCIP symbol for call target
+const callSymbol = oracle.callTargetSymbol({
+    type: "CallExpression",
+    object: { name: "scr_player_move" }
+});
+// Returns: "gml/script/scr_player_move"
 ```
 
 ### Features
 
-- **Identifier classification**: Uses scope resolution to classify identifiers as `local`, `global_field`, or `builtin`
-- **Call target analysis**: Distinguishes builtin functions from unknown/script calls
+- **Identifier classification**: Uses scope resolution to classify identifiers as `local`, `global_field`, `builtin`, or `script`
+- **SCIP symbol generation**: Produces SCIP-style symbols for project-wide tracking and hot reload coordination
+- **Call target analysis**: Distinguishes builtin functions from script calls and unknown callables
 - **Fallback mode**: Works without a scope tracker by returning sensible defaults
 - **Type safety**: Uses type guards and helper functions for safe object validation
 
@@ -36,10 +51,22 @@ const callKind = oracle.callTargetKind({
 
 1. Global identifiers (explicit `isGlobalIdentifier` flag)
 2. Built-in functions (matched against provided builtin set)
-3. Scope-resolved declarations (using scope chain walking)
-4. Default to `local` for unresolved identifiers
+3. Script names (matched against provided script set)
+4. Scope-resolved declarations (using scope chain walking)
+5. Default to `local` for unresolved identifiers
 
-**Note**: The oracle currently does not distinguish `self_field`, `other_field`, or `script` kinds. These require richer context from the parser or project index and are deferred to future iterations.
+**Note**: The oracle currently does not distinguish `self_field` or `other_field` kinds. These require richer context from the parser or project index and are deferred to future iterations.
+
+### SCIP Symbol Format
+
+SCIP symbols follow a deterministic URI-like format for cross-reference tracking:
+
+- Scripts: `gml/script/{name}` (e.g., `gml/script/scr_player_move`)
+- Global variables: `gml/var/global::{name}` (e.g., `gml/var/global::player_hp`)
+- Built-ins: `gml/macro/{name}` (e.g., `gml/macro/array_length`)
+- Local variables: `null` (locals don't need project-wide tracking)
+
+These symbols enable hot reload pipelines to track dependencies and coordinate invalidation when symbols change.
 
 ## Symbol Resolution Queries
 
@@ -165,6 +192,35 @@ const definitions = tracker.getScopeDefinitions("scope-1");
 ```
 
 **Use case:** Identify what symbols are defined in a particular file or scope unit for hot reload coordination. When a file changes, query its scope's definitions to determine which symbols need to be recompiled and which dependent files need to be invalidated.
+
+### `getAllDeclarations()`
+
+Get all symbol declarations across all scopes in the tracker. Returns an array of declaration records with scope context, enabling project-wide symbol analysis for dependency graphs, refactoring, and hot reload coordination.
+
+```javascript
+const tracker = new ScopeTracker({ enabled: true });
+// ... track declarations across multiple scopes ...
+const allDeclarations = tracker.getAllDeclarations();
+// Returns: [
+//   { name: "GameState", scopeId: "scope-0", scopeKind: "program", metadata: {...} },
+//   { name: "globalVar", scopeId: "scope-0", scopeKind: "program", metadata: {...} },
+//   { name: "localVar", scopeId: "scope-1", scopeKind: "function", metadata: {...} },
+//   { name: "param", scopeId: "scope-1", scopeKind: "function", metadata: {...} }
+// ]
+```
+
+**Use case:** Build a complete symbol table for the project to power IDE features (go-to-definition, find-all-references), refactoring tools (rename, extract function), and hot reload dependency tracking. The method returns declarations sorted by scope ID then symbol name for consistent iteration.
+
+### `getDeclarationInScope(name, scopeId)`
+
+Get metadata for a specific symbol declaration by name and scope. Returns the declaration metadata if found, or null if the symbol is not declared in the specified scope.
+
+```javascript
+const metadata = tracker.getDeclarationInScope("localVar", "scope-1");
+// Returns: { name: "localVar", scopeId: "scope-1", classifications: [...], start: {...}, end: {...} }
+```
+
+**Use case:** Efficient single-symbol lookup when you need to check if a symbol is declared in a known scope. This is more efficient than `getAllDeclarations()` for targeted queries during incremental analysis or refactoring validation.
 
 ### `getScopesForSymbol(name)`
 

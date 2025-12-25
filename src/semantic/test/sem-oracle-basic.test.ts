@@ -246,3 +246,170 @@ void test("BasicSemanticOracle: classification priority is correct", () => {
     const builtinResult = oracle.kindOfIdent({ name: "func" });
     assert.strictEqual(builtinResult, "builtin");
 });
+
+void test("BasicSemanticOracle: kindOfIdent returns 'script' for known script", () => {
+    const scripts = new Set(["scr_player_move", "scr_enemy_attack"]);
+    const oracle = new BasicSemanticOracle(null, new Set(), scripts);
+
+    const result = oracle.kindOfIdent({ name: "scr_player_move" });
+
+    assert.strictEqual(result, "script");
+});
+
+void test("BasicSemanticOracle: kindOfIdent prioritizes scripts correctly", () => {
+    const tracker = new ScopeTracker({ enabled: true });
+    tracker.enterScope("program");
+    tracker.declare("scr_test", {
+        start: { line: 1, index: 0 },
+        end: { line: 1, index: 8 }
+    });
+
+    const scripts = new Set(["scr_test"]);
+    const oracle = new BasicSemanticOracle(tracker, new Set(), scripts);
+
+    const result = oracle.kindOfIdent({ name: "scr_test" });
+
+    assert.strictEqual(result, "script");
+});
+
+void test("BasicSemanticOracle: qualifiedSymbol returns SCIP symbol for scripts", () => {
+    const scripts = new Set(["scr_player_move"]);
+    const oracle = new BasicSemanticOracle(null, new Set(), scripts);
+
+    const result = oracle.qualifiedSymbol({ name: "scr_player_move" });
+
+    assert.strictEqual(result, "gml/script/scr_player_move");
+});
+
+void test("BasicSemanticOracle: qualifiedSymbol returns SCIP symbol for global variables", () => {
+    const oracle = new BasicSemanticOracle(null, new Set(), new Set());
+
+    const result = oracle.qualifiedSymbol({
+        name: "global_score",
+        isGlobalIdentifier: true
+    });
+
+    assert.strictEqual(result, "gml/var/global::global_score");
+});
+
+void test("BasicSemanticOracle: qualifiedSymbol returns SCIP symbol for builtins", () => {
+    const builtins = new Set(["array_length"]);
+    const oracle = new BasicSemanticOracle(null, builtins, new Set());
+
+    const result = oracle.qualifiedSymbol({ name: "array_length" });
+
+    assert.strictEqual(result, "gml/macro/array_length");
+});
+
+void test("BasicSemanticOracle: qualifiedSymbol returns null for local variables", () => {
+    const tracker = new ScopeTracker({ enabled: true });
+    tracker.enterScope("program");
+    tracker.declare("localVar", {
+        start: { line: 1, index: 0 },
+        end: { line: 1, index: 8 }
+    });
+
+    const oracle = new BasicSemanticOracle(tracker, new Set(), new Set());
+
+    const result = oracle.qualifiedSymbol({ name: "localVar" });
+
+    assert.strictEqual(result, null);
+});
+
+void test("BasicSemanticOracle: qualifiedSymbol returns null for null input", () => {
+    const oracle = new BasicSemanticOracle(null, new Set(), new Set());
+
+    const result = oracle.qualifiedSymbol(null);
+
+    assert.strictEqual(result, null);
+});
+
+void test("BasicSemanticOracle: callTargetKind returns 'script' for known scripts", () => {
+    const scripts = new Set(["scr_damage_player"]);
+    const oracle = new BasicSemanticOracle(null, new Set(), scripts);
+
+    const node = {
+        type: "CallExpression" as const,
+        object: { name: "scr_damage_player" }
+    };
+
+    const result = oracle.callTargetKind(node);
+
+    assert.strictEqual(result, "script");
+});
+
+void test("BasicSemanticOracle: callTargetSymbol returns SCIP symbol for script calls", () => {
+    const scripts = new Set(["scr_attack"]);
+    const oracle = new BasicSemanticOracle(null, new Set(), scripts);
+
+    const node = {
+        type: "CallExpression" as const,
+        object: { name: "scr_attack" }
+    };
+
+    const result = oracle.callTargetSymbol(node);
+
+    assert.strictEqual(result, "gml/script/scr_attack");
+});
+
+void test("BasicSemanticOracle: callTargetSymbol returns SCIP symbol for builtin calls", () => {
+    const builtins = new Set(["show_debug_message"]);
+    const oracle = new BasicSemanticOracle(null, builtins, new Set());
+
+    const node = {
+        type: "CallExpression" as const,
+        object: { name: "show_debug_message" }
+    };
+
+    const result = oracle.callTargetSymbol(node);
+
+    assert.strictEqual(result, "gml/macro/show_debug_message");
+});
+
+void test("BasicSemanticOracle: callTargetSymbol returns null for unknown calls", () => {
+    const oracle = new BasicSemanticOracle(null, new Set(), new Set());
+
+    const node = {
+        type: "CallExpression" as const,
+        object: { name: "unknown_function" }
+    };
+
+    const result = oracle.callTargetSymbol(node);
+
+    assert.strictEqual(result, null);
+});
+
+void test("BasicSemanticOracle: callTargetSymbol returns null for non-identifier object", () => {
+    const oracle = new BasicSemanticOracle(null, new Set(), new Set());
+
+    const node = {
+        type: "CallExpression" as const,
+        object: { type: "MemberExpression" }
+    };
+
+    const result = oracle.callTargetSymbol(node);
+
+    assert.strictEqual(result, null);
+});
+
+void test("BasicSemanticOracle: SCIP symbols enable hot reload dependency tracking", () => {
+    const scripts = new Set(["scr_init_game", "scr_update_player"]);
+    const builtins = new Set(["instance_create_depth"]);
+    const oracle = new BasicSemanticOracle(null, builtins, scripts);
+
+    const scriptSymbol = oracle.qualifiedSymbol({ name: "scr_init_game" });
+    assert.strictEqual(scriptSymbol, "gml/script/scr_init_game");
+
+    const globalSymbol = oracle.qualifiedSymbol({
+        name: "player_hp",
+        isGlobalIdentifier: true
+    });
+    assert.strictEqual(globalSymbol, "gml/var/global::player_hp");
+
+    const callNode = {
+        type: "CallExpression" as const,
+        object: { name: "instance_create_depth" }
+    };
+    const builtinSymbol = oracle.callTargetSymbol(callNode);
+    assert.strictEqual(builtinSymbol, "gml/macro/instance_create_depth");
+});
