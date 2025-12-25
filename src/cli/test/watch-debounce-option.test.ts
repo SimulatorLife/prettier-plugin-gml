@@ -30,8 +30,8 @@ void describe("watch command debounce option", () => {
             "Should have descriptive help text"
         );
         assert.ok(
-            debounceOption.description.includes("0 to disable"),
-            "Should mention zero to disable"
+            debounceOption.description.includes("0 for immediate processing"),
+            "Should mention zero for immediate processing"
         );
     });
 });
