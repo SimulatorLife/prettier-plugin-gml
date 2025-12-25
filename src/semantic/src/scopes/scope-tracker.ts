@@ -1208,6 +1208,86 @@ export class ScopeTracker {
     ) {
         this.globalIdentifierRegistry.applyToNode(node);
     }
+
+    /**
+     * Get all symbol declarations across all scopes in the tracker.
+     * Returns an array of declaration records with scope context, enabling
+     * project-wide symbol analysis for dependency graphs, refactoring,
+     * and hot reload coordination.
+     *
+     * Each record includes:
+     * - Symbol name
+     * - Scope ID where declared
+     * - Scope kind (program, function, block, etc.)
+     * - Cloned declaration metadata (location, classifications, etc.)
+     *
+     * Use case: Build a complete symbol table for the project to power
+     * IDE features (go-to-definition, find-all-references), refactoring
+     * tools (rename, extract function), and hot reload dependency tracking.
+     *
+     * @returns {Array<{name: string, scopeId: string, scopeKind: string, metadata: object}>}
+     *          Array of declaration records sorted by scope ID then symbol name.
+     */
+    getAllDeclarations() {
+        const declarations: Array<{
+            name: string;
+            scopeId: string;
+            scopeKind: string;
+            metadata: ReturnType<typeof cloneDeclarationMetadata>;
+        }> = [];
+
+        for (const scope of this.scopesById.values()) {
+            for (const [name, metadata] of scope.symbolMetadata) {
+                declarations.push({
+                    name,
+                    scopeId: scope.id,
+                    scopeKind: scope.kind,
+                    metadata: cloneDeclarationMetadata(metadata)
+                });
+            }
+        }
+
+        return declarations.sort((a, b) => {
+            const scopeCmp = a.scopeId.localeCompare(b.scopeId);
+            if (scopeCmp !== 0) {
+                return scopeCmp;
+            }
+            return a.name.localeCompare(b.name);
+        });
+    }
+
+    /**
+     * Get metadata for a specific symbol declaration by name and scope.
+     * Returns the declaration metadata if found, or null if the symbol
+     * is not declared in the specified scope.
+     *
+     * This is more efficient than `getAllDeclarations()` when you need
+     * to check a single symbol in a known scope.
+     *
+     * @param {string} name Symbol name to look up
+     * @param {string} scopeId Scope identifier where the symbol should be declared
+     * @returns {object | null} Cloned declaration metadata or null if not found
+     */
+    getDeclarationInScope(
+        name: string | null | undefined,
+        scopeId: string | null | undefined
+    ) {
+        if (!name || !scopeId) {
+            return null;
+        }
+
+        const scope = this.scopesById.get(scopeId);
+        if (!scope) {
+            return null;
+        }
+
+        const metadata = scope.symbolMetadata.get(name);
+        if (!metadata) {
+            return null;
+        }
+
+        return cloneDeclarationMetadata(metadata);
+    }
 }
 
 // Provide a default export for backwards-compatible imports that import the

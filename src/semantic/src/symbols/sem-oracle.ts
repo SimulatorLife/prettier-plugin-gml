@@ -1,4 +1,5 @@
 import type { ScopeTracker } from "../scopes/scope-tracker.js";
+import { sym } from "./scip-symbols.js";
 
 /**
  * Type guard to check if a value is an identifier metadata object.
@@ -103,19 +104,24 @@ export interface SemOracle extends IdentifierAnalyzer, CallTargetAnalyzer {}
 export class BasicSemanticOracle implements SemOracle {
     private readonly tracker: ScopeTracker | null;
     private readonly builtinNames: Set<string>;
+    private readonly scriptNames: Set<string>;
 
     /**
      * @param tracker Optional scope tracker instance. If null, falls back to
      *                sensible defaults without scope resolution.
      * @param builtinNames Set of built-in function names for call target
      *                     classification. Defaults to empty set.
+     * @param scriptNames Set of known script names for script classification
+     *                    and SCIP symbol generation. Defaults to empty set.
      */
     constructor(
         tracker: ScopeTracker | null = null,
-        builtinNames: Set<string> = new Set()
+        builtinNames: Set<string> = new Set(),
+        scriptNames: Set<string> = new Set()
     ) {
         this.tracker = tracker;
         this.builtinNames = builtinNames;
+        this.scriptNames = scriptNames;
     }
 
     /**
@@ -125,12 +131,13 @@ export class BasicSemanticOracle implements SemOracle {
      * Classification priority:
      * 1. Global identifiers (explicit `global.` or marked as global)
      * 2. Built-in functions (matched against known builtin set)
-     * 3. Locally declared variables (resolved in scope chain)
-     * 4. Default to "local" for unresolved identifiers
+     * 3. Script names (matched against provided script set)
+     * 4. Locally declared variables (resolved in scope chain)
+     * 5. Default to "local" for unresolved identifiers
      *
-     * Note: This implementation does not yet distinguish "self_field",
-     * "other_field", or "script" kinds. Those require richer context from
-     * the parser or project index and are deferred to future iterations.
+     * Note: This implementation does not yet distinguish "self_field" or
+     * "other_field" kinds. Those require richer context from the parser or
+     * project index and are deferred to future iterations.
      */
     kindOfIdent(node: IdentifierMetadata | null | undefined): SemKind {
         if (!node?.name) {
@@ -143,6 +150,10 @@ export class BasicSemanticOracle implements SemOracle {
 
         if (this.builtinNames.has(node.name)) {
             return "builtin";
+        }
+
+        if (this.scriptNames.has(node.name)) {
+            return "script";
         }
 
         if (this.tracker) {
@@ -168,25 +179,56 @@ export class BasicSemanticOracle implements SemOracle {
     }
 
     /**
-     * Generate a qualified symbol identifier for cross-reference tracking.
+     * Generate a qualified SCIP-style symbol identifier for cross-reference
+     * tracking and hot reload coordination.
      *
-     * TODO: Return SCIP-style symbols (e.g., "gml/script/my_func") when
-     * connected to the project index or symbol registry. Currently returns
-     * null as project-wide symbol tracking is not yet implemented.
+     * Returns SCIP symbols in the format:
+     * - Scripts: "gml/script/{name}"
+     * - Global variables: "gml/var/global::{name}"
+     * - Built-ins: "gml/builtin/{name}"
+     * - null for local variables (they don't need project-wide tracking)
+     *
+     * This enables hot reload pipelines to track dependencies and coordinate
+     * invalidation when symbols change.
      */
     qualifiedSymbol(
         node: IdentifierMetadata | null | undefined
     ): string | null {
-        void node;
-        return null;
+        if (!node?.name) {
+            return null;
+        }
+
+        const kind = this.kindOfIdent(node);
+
+        switch (kind) {
+            case "script": {
+                return sym("script", node.name);
+            }
+            case "global_field": {
+                return sym("var", `global::${node.name}`);
+            }
+            case "builtin": {
+                return sym("macro", node.name);
+            }
+            case "local":
+            case "self_field":
+            case "other_field": {
+                return null;
+            }
+            default: {
+                return null;
+            }
+        }
     }
 
     /**
      * Determine the kind of a call target (script, builtin, or unknown).
-     * Uses the builtin name set to classify known functions.
+     * Uses the builtin and script name sets to classify known functions.
      *
-     * TODO: Add script classification when project-level analysis is
-     * implemented. Currently only distinguishes builtins from unknown.
+     * Classification enables the transpiler to:
+     * - Route script calls through the hot reload wrapper
+     * - Handle built-in functions with native shims
+     * - Defer unknown calls to runtime resolution
      */
     callTargetKind(node: CallExpressionNode): "script" | "builtin" | "unknown" {
         if (!isIdentifierMetadata(node.object)) {
@@ -197,28 +239,54 @@ export class BasicSemanticOracle implements SemOracle {
             return "builtin";
         }
 
+        if (this.scriptNames.has(node.object.name)) {
+            return "script";
+        }
+
         return "unknown";
     }
 
     /**
-     * Return a qualified symbol for the call target.
+     * Return a qualified SCIP-style symbol for the call target to enable
+     * hot reload dependency tracking.
      *
-     * TODO: Return SCIP-style symbols when script tracking is implemented.
-     * Currently returns null since we don't track script symbols yet.
+     * Returns:
+     * - Scripts: "gml/script/{name}"
+     * - Built-ins: "gml/macro/{name}" (treated as macros for SCIP)
+     * - null for unknown call targets
      */
     callTargetSymbol(node: CallExpressionNode): string | null {
-        void node;
-        return null;
+        if (!isIdentifierMetadata(node.object)) {
+            return null;
+        }
+
+        const kind = this.callTargetKind(node);
+
+        switch (kind) {
+            case "script": {
+                return sym("script", node.object.name);
+            }
+            case "builtin": {
+                return sym("macro", node.object.name);
+            }
+            case "unknown": {
+                return null;
+            }
+            default: {
+                return null;
+            }
+        }
     }
 }
 
 /**
  * Legacy standalone functions for backward compatibility. These delegate to
- * a default oracle instance with no scope tracker or builtin knowledge.
+ * a default oracle instance with no scope tracker, builtin knowledge, or
+ * script tracking.
  *
  * @deprecated Use `BasicSemanticOracle` directly for better control and testing.
  */
-const defaultOracle = new BasicSemanticOracle(null, new Set());
+const defaultOracle = new BasicSemanticOracle(null, new Set(), new Set());
 
 export function kindOfIdent(node?: IdentifierMetadata | null): SemKind {
     return defaultOracle.kindOfIdent(node);
