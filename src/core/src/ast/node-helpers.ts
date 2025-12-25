@@ -1073,18 +1073,6 @@ export function getNodeName(
 }
 
 /**
- * Iterate over child nodes nested within {@link node}, invoking
- * {@link callback} for each descendant that should be inspected.
- *
- * Arrays forward every entry (including primitives) so traversal helpers can
- * reuse their existing guard rails without rebuilding bespoke loops. Plain
- * objects only forward nested objects to mirror the defensive checks found in
- * the transform visitors that previously duplicated this logic.
- *
- * @param node Candidate AST fragment to inspect.
- * @param callback Invoked for each descendant value.
- */
-/**
  * Check whether {@link operator} is a comparison binary operator.
  *
  * Comparison operators (`==`, `!=`, `<>`, `<=`, `>=`, `<`, `>`) evaluate
@@ -1119,7 +1107,8 @@ export function isLogicalBinaryOperator(operator: string): boolean {
  *
  * Arithmetic operators perform mathematical computations on numeric operands.
  * This predicate detects addition, subtraction, multiplication, division,
- * modulo, exponentiation, and bitwise shift/combine operations.
+ * modulo, exponentiation, bitwise shift operations (`<<`, `>>`, `>>>`), and
+ * bitwise AND/OR operations (`&`, `|`).
  *
  * @param operator Candidate operator string.
  * @returns `true` when {@link operator} is an arithmetic binary operator.
