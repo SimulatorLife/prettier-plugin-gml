@@ -270,10 +270,9 @@ export class ConvertStringConcatenationsTransform extends FunctionalParserTransf
                 this.isStringFunctionCall(core)
             ) {
                 // Use the first argument of the string function call, or the original if no args
-                const firstArg =
-                    Array.isArray(core.arguments) && core.arguments.length > 0
-                        ? core.arguments[0]
-                        : core;
+                const firstArg = Core.isNonEmptyArray(core.arguments)
+                    ? core.arguments[0]
+                    : core;
                 atoms.push(firstArg);
                 lastWasUnwrappedString = true;
             } else {

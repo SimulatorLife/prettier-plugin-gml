@@ -2230,8 +2230,7 @@ function printInBlock(path, options, print, expressionKey) {
         (comment) => comment.attachToClauseBody === true
     );
 
-    const hasInlineComments =
-        Array.isArray(inlineCommentDocs) && inlineCommentDocs.length > 0;
+    const hasInlineComments = Core.isNonEmptyArray(inlineCommentDocs);
     const introParts = ["{"];
 
     if (hasInlineComments) {
@@ -3184,7 +3183,7 @@ function handleTerminalTrailingSpacing({
     let shouldPreserveTrailingBlankLine = false;
     const hasAttachedDocComment =
         node?.[DOC_COMMENT_OUTPUT_FLAG] === true ||
-        (Array.isArray(node?.docComments) && node.docComments.length > 0) ||
+        Core.isNonEmptyArray(node?.docComments) ||
         Boolean(syntheticDocComment);
     const requiresTrailingPadding =
         enforceTrailingPadding &&
