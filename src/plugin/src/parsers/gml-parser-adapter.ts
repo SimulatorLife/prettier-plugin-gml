@@ -232,8 +232,14 @@ function normalizeToString(candidate: unknown, fallback: string): string {
 
 function findClearSubdiv(node) {
     if (!node) return;
-    if (node.type === "VariableDeclaration" && node.declarations?.[0]?.id?.name === "clearSubdiv") {
-        console.log("[DEBUG] Found clearSubdiv in AST:", JSON.stringify(node, null, 2));
+    if (
+        node.type === "VariableDeclaration" &&
+        node.declarations?.[0]?.id?.name === "clearSubdiv"
+    ) {
+        console.log(
+            "[DEBUG] Found clearSubdiv in AST:",
+            JSON.stringify(node, null, 2)
+        );
     }
     Core.forEachNodeChild(node, findClearSubdiv);
 }
@@ -248,10 +254,10 @@ function parseSourceWithRecovery(
             sourceText,
             parserOptions
         ) as MutableGameMakerAstNode;
-        
+
         if (sourceText.includes("clearSubdiv")) {
-             console.log("[DEBUG] Parsed AST for clearSubdiv");
-             findClearSubdiv(ast);
+            console.log("[DEBUG] Parsed AST for clearSubdiv");
+            findClearSubdiv(ast);
         }
 
         logParsedCommentCount(ast);
