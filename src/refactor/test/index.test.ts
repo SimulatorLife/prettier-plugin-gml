@@ -1778,6 +1778,20 @@ void test("checkHotReloadSafety rejects missing newName", async () => {
     assert.equal(result.requiresRestart, true);
 });
 
+void test("checkHotReloadSafety requires semantic analyzer for safety checks", async () => {
+    const engine = new RefactorEngine();
+
+    const result = await engine.checkHotReloadSafety({
+        symbolId: "gml/script/scr_old",
+        newName: "scr_new"
+    });
+
+    assert.equal(result.safe, false);
+    assert.ok(result.reason.includes("semantic analyzer"));
+    assert.equal(result.requiresRestart, true);
+    assert.ok(result.suggestions.length > 0);
+});
+
 void test("checkHotReloadSafety rejects invalid identifier names", async () => {
     const engine = new RefactorEngine();
 
