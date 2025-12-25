@@ -25,9 +25,6 @@ type SyntheticDocCommentCoreResult =
     | NonNullable<ReturnType<ComputeSyntheticDocCommentForStaticVariable>>
     | NonNullable<ReturnType<ComputeSyntheticDocCommentForFunctionAssignment>>;
 
-const isNonEmptyStringArray = (value: unknown): value is string[] =>
-    Array.isArray(value) && value.length > 0;
-
 export function buildSyntheticDocComment(
     functionNode: unknown,
     existingDocLines: string[],
@@ -69,7 +66,7 @@ function buildDocFromSyntheticResult(
         return null;
     }
 
-    const syntheticDocLines = isNonEmptyStringArray(result.docLines)
+    const syntheticDocLines = Core.isNonEmptyArray(result.docLines)
         ? result.docLines
         : null;
 

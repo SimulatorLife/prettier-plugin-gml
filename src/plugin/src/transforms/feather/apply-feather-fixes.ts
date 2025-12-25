@@ -7839,15 +7839,10 @@ function extractConsequentAssignment(consequent) {
     }
 
     if (consequent.type === "BlockStatement") {
-        const statements = Core.compactArray(
-            Core.getBodyStatements(consequent)
-        );
-
-        if (statements.length !== 1) {
-            return null;
-        }
-
-        const [single] = statements;
+        const single = Core.getSingleBodyStatement(consequent, {
+            skipBlockCommentCheck: true,
+            skipStatementCommentCheck: true
+        });
 
         if (single && single.type === "AssignmentExpression") {
             return single;

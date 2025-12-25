@@ -671,7 +671,7 @@ function reconcileDocOptionality(
         const comments = docManager.getComments(node);
 
         const paramDocMap = new Map<string, boolean>();
-        if (Array.isArray(comments) && comments.length > 0) {
+        if (Core.isNonEmptyArray(comments)) {
             for (const comment of comments) {
                 if (!comment || typeof comment.value !== "string") continue;
                 const m = comment.value.match(

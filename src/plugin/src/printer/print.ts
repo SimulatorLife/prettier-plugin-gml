@@ -2177,21 +2177,8 @@ function maybePrintInlineDefaultParameterFunctionBody(path, print) {
     }
 
     const bodyNode = node.body;
-    if (!bodyNode || bodyNode.type !== "BlockStatement") {
-        return null;
-    }
-
-    if (Core.hasComment(bodyNode)) {
-        return null;
-    }
-
-    const statements = Core.getBodyStatements(bodyNode);
-    if (!Array.isArray(statements) || statements.length !== 1) {
-        return null;
-    }
-
-    const [onlyStatement] = statements;
-    if (!onlyStatement || Core.hasComment(onlyStatement)) {
+    const onlyStatement = Core.getSingleBodyStatement(bodyNode);
+    if (!onlyStatement) {
         return null;
     }
 
@@ -2262,8 +2249,7 @@ function printInBlock(path, options, print, expressionKey) {
         (comment) => comment.attachToClauseBody === true
     );
 
-    const hasInlineComments =
-        Array.isArray(inlineCommentDocs) && inlineCommentDocs.length > 0;
+    const hasInlineComments = Core.isNonEmptyArray(inlineCommentDocs);
     const introParts = ["{"];
 
     if (hasInlineComments) {
@@ -3224,7 +3210,7 @@ function handleTerminalTrailingSpacing({
     let shouldPreserveTrailingBlankLine = false;
     const hasAttachedDocComment =
         node?.[DOC_COMMENT_OUTPUT_FLAG] === true ||
-        (Array.isArray(node?.docComments) && node.docComments.length > 0) ||
+        Core.isNonEmptyArray(node?.docComments) ||
         Boolean(syntheticDocComment);
     const requiresTrailingPadding =
         enforceTrailingPadding &&
@@ -5070,23 +5056,13 @@ function printBooleanReturnIf(path, print) {
 }
 
 function getBooleanReturnBranch(branchNode) {
-    if (!branchNode || Core.hasComment(branchNode)) {
+    if (!branchNode) {
         return null;
     }
 
     if (branchNode.type === "BlockStatement") {
-        const statements = Array.isArray(branchNode.body)
-            ? branchNode.body
-            : [];
-        if (statements.length !== 1) {
-            return null;
-        }
-
-        const [onlyStatement] = statements;
-        if (
-            Core.hasComment(onlyStatement) ||
-            onlyStatement.type !== "ReturnStatement"
-        ) {
+        const onlyStatement = Core.getSingleBodyStatement(branchNode);
+        if (!onlyStatement || onlyStatement.type !== "ReturnStatement") {
             return null;
         }
 

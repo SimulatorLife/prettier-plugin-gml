@@ -104,7 +104,7 @@ export function removeDuplicateEnumMembers({ ast, diagnostic, sourceText }) {
             sourceText,
             diagnostic
         });
-        if (Array.isArray(dupFixes) && dupFixes.length > 0) {
+        if (Core.isNonEmptyArray(dupFixes)) {
             fixes.push(...dupFixes);
         }
     }
