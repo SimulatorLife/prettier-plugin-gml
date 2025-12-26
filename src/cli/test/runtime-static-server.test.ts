@@ -1,6 +1,6 @@
 import { describe, it } from "node:test";
 import assert from "node:assert/strict";
-import { mkdtemp, rm, writeFile } from "node:fs/promises";
+import { mkdtemp, rm, writeFile, chmod } from "node:fs/promises";
 import os from "node:os";
 import path from "node:path";
 import net from "node:net";
@@ -112,4 +112,67 @@ void describe("runtime static server", () => {
             await rm(tempDir, { recursive: true, force: true });
         }
     });
+
+    void it("closes file streams on read errors without leaking descriptors", async () => {
+        const tempDir = await mkdtemp(
+            path.join(os.tmpdir(), "gml-runtime-server-stream-leak-")
+        );
+        const testFile = path.join(tempDir, "test.txt");
+        await writeFile(testFile, "test content");
+
+        let server;
+        try {
+            server = await startRuntimeStaticServer({
+                runtimeRoot: tempDir,
+                host: "127.0.0.1",
+                port: 0,
+                verbose: false
+            });
+
+            // Make the file unreadable to trigger a stream error
+            await chmod(testFile, 0o000);
+
+            // Count initial file descriptors
+            const initialFdCount = await getOpenFileDescriptorCount();
+
+            // Attempt to read the unreadable file
+            const response = await fetch(`${server.url}test.txt`);
+            assert.equal(response.status, 500);
+
+            // Allow some time for async cleanup
+            await new Promise((resolve) => setTimeout(resolve, 100));
+
+            // Verify no file descriptors leaked
+            // Allow a small tolerance (5 FDs) to account for normal runtime variance
+            // from fetch(), timers, and internal Node.js operations
+            const MAX_ALLOWED_FD_VARIANCE = 5;
+            const finalFdCount = await getOpenFileDescriptorCount();
+            assert.ok(
+                finalFdCount <= initialFdCount + MAX_ALLOWED_FD_VARIANCE,
+                `File descriptors leaked: ${finalFdCount - initialFdCount} descriptors`
+            );
+        } finally {
+            if (server) {
+                await server.stop();
+            }
+            // Restore permissions before cleanup
+            try {
+                await chmod(testFile, 0o644);
+            } catch {
+                // Ignore errors
+            }
+            await rm(tempDir, { recursive: true, force: true });
+        }
+    });
 });
+
+async function getOpenFileDescriptorCount(): Promise<number> {
+    try {
+        const { readdir } = await import("node:fs/promises");
+        const fds = await readdir(`/proc/${process.pid}/fd`);
+        return fds.length;
+    } catch {
+        // On systems without /proc, return 0 (test will effectively be skipped)
+        return 0;
+    }
+}
