@@ -1,7 +1,11 @@
 import { Core } from "@gml-modules/core";
-import { createIntegerOptionToolkit } from "../cli-core/integer-option-toolkit.js";
 
-const { coercePositiveInteger, createNumericTypeErrorFormatter } = Core;
+const {
+    coercePositiveInteger,
+    createEnvConfiguredValue,
+    createNumericTypeErrorFormatter,
+    resolveIntegerOption
+} = Core;
 
 const DEFAULT_PROGRESS_BAR_WIDTH = 24;
 const PROGRESS_BAR_WIDTH_ENV_VAR = "GML_PROGRESS_BAR_WIDTH";
@@ -184,21 +188,54 @@ const createWidthErrorMessage = (received: unknown) =>
 const createWidthTypeErrorMessage =
     createNumericTypeErrorFormatter("Progress bar width");
 
-const progressBarWidthToolkit = createIntegerOptionToolkit({
+const coerce = (value: unknown, context = {}) => {
+    const opts = { ...context, createErrorMessage: createWidthErrorMessage };
+    return coercePositiveInteger(value, opts);
+};
+
+const state = createEnvConfiguredValue<number | undefined>({
     defaultValue: DEFAULT_PROGRESS_BAR_WIDTH,
     envVar: PROGRESS_BAR_WIDTH_ENV_VAR,
-    baseCoerce: coercePositiveInteger,
-    createErrorMessage: createWidthErrorMessage,
-    typeErrorMessage: createWidthTypeErrorMessage,
-    optionAlias: "defaultWidth"
+    normalize: (value, { defaultValue: baseline, previousValue }) => {
+        return resolveIntegerOption(value, {
+            defaultValue: baseline ?? previousValue,
+            coerce,
+            typeErrorMessage: createWidthTypeErrorMessage,
+            blankStringReturnsDefault: true
+        });
+    }
 });
 
-const {
-    getDefault: getDefaultProgressBarWidth,
-    setDefault: setDefaultProgressBarWidth,
-    resolve: resolveProgressBarWidth,
-    applyEnvOverride: applyProgressBarWidthEnvOverride
-} = progressBarWidthToolkit;
+function getDefaultProgressBarWidth(): number | undefined {
+    return state.get();
+}
+
+function setDefaultProgressBarWidth(value?: unknown): number | undefined {
+    return state.set(value);
+}
+
+function resolveProgressBarWidth(
+    rawValue?: unknown,
+    options: Record<string, unknown> & {
+        defaultValue?: number;
+        defaultWidth?: number;
+    } = {}
+): number | null | undefined {
+    const fallback =
+        options.defaultWidth ?? options.defaultValue ?? state.get();
+    return resolveIntegerOption(rawValue, {
+        defaultValue: fallback,
+        coerce,
+        typeErrorMessage: createWidthTypeErrorMessage,
+        blankStringReturnsDefault: true
+    });
+}
+
+function applyProgressBarWidthEnvOverride(
+    env?: NodeJS.ProcessEnv
+): number | undefined {
+    return state.applyEnvOverride(env);
+}
 
 applyProgressBarWidthEnvOverride();
 

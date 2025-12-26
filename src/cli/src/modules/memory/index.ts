@@ -25,7 +25,6 @@ import {
     wrapInvalidArgumentResolver
 } from "../../cli-core/command-parsing.js";
 import { isCommanderHelpDisplayedError } from "../../cli-core/commander-error-utils.js";
-import { createIntegerOptionToolkit } from "../../cli-core/integer-option-toolkit.js";
 import {
     REPO_ROOT,
     resolveFromRepoRoot
@@ -38,6 +37,7 @@ import type { CommanderCommandLike } from "../../cli-core/commander-types.js";
 const {
     appendToCollection,
     callWithFallback,
+    coercePositiveInteger: coreCoercePositiveInteger,
     createEnvConfiguredValue,
     describeValueWithArticle,
     getErrorMessageOrFallback,
@@ -47,6 +47,7 @@ const {
     isNonEmptyString,
     normalizeStringList,
     parseJsonObjectWithContext,
+    resolveIntegerOption,
     splitLines,
     createNumericTypeErrorFormatter
 } = Core;
@@ -202,43 +203,42 @@ const createAstCommonNodeLimitErrorMessage = (received) =>
 const createAstCommonNodeLimitTypeErrorMessage =
     createNumericTypeErrorFormatter("AST common node type limit");
 
-interface MemoryIterationToolkitOptions {
-    defaultValue?: number;
-    envVar?: string;
-    optionAlias?: string;
-    defaultValueOption?: string;
-}
-
 interface MemoryIterationEnvOverrideOptions {
     envVar: string;
     error: unknown;
     fallback: number | undefined;
 }
 
-function createMemoryIterationToolkit({
-    defaultValue,
-    envVar,
-    optionAlias
-}: MemoryIterationToolkitOptions = {}) {
-    return createIntegerOptionToolkit({
-        defaultValue,
-        envVar,
-        baseCoerce: coercePositiveInteger,
-        createErrorMessage: createIterationErrorMessage,
-        typeErrorMessage: createIterationTypeErrorMessage,
-        optionAlias
-    });
-}
+// Shared coercion function for iteration counts
+const iterationCoerce = (value: unknown, context = {}) => {
+    const opts = {
+        ...context,
+        createErrorMessage: createIterationErrorMessage
+    };
+    return coercePositiveInteger(value, opts);
+};
 
-const parserIterationLimitToolkit = createMemoryIterationToolkit({
+// Parser iteration limit configuration
+const parserIterationState = createEnvConfiguredValue<number | undefined>({
     defaultValue: DEFAULT_MAX_PARSER_ITERATIONS,
-    envVar: MEMORY_PARSER_MAX_ITERATIONS_ENV_VAR
+    envVar: MEMORY_PARSER_MAX_ITERATIONS_ENV_VAR,
+    normalize: (value, { defaultValue: baseline, previousValue }) => {
+        return resolveIntegerOption(value, {
+            defaultValue: baseline ?? previousValue,
+            coerce: iterationCoerce,
+            typeErrorMessage: createIterationTypeErrorMessage,
+            blankStringReturnsDefault: true
+        });
+    }
 });
 
-const {
-    getDefault: getMaxParserIterations,
-    setDefault: setMaxParserIterations
-} = parserIterationLimitToolkit;
+function getMaxParserIterations(): number | undefined {
+    return parserIterationState.get();
+}
+
+function setMaxParserIterations(value?: unknown): number | undefined {
+    return parserIterationState.set(value);
+}
 
 function logInvalidIterationEnvOverride({
     envVar,
@@ -260,66 +260,121 @@ function logInvalidIterationEnvOverride({
 }
 
 /**
- * Apply an environment override for a memory iteration toolkit while logging
+ * Apply an environment override for a memory iteration limit while logging
  * failures.
  *
- * @param {{
- *   getDefault: () => number | undefined;
- *   applyEnvOverride: (env?: NodeJS.ProcessEnv) => number | undefined;
- * }} toolkit Numeric option toolkit being updated.
+ * @param {() => number | undefined} getDefault Function to retrieve the current default.
+ * @param {(env?: NodeJS.ProcessEnv) => number | undefined} applyEnvOverride Function to apply env override.
  * @param {string} envVar Environment variable powering the override.
  * @param {NodeJS.ProcessEnv | null | undefined} env Environment map to read.
  * @returns {number | undefined}
  */
-function applyIterationToolkitEnvOverride(toolkit, envVar, env) {
-    const fallback = toolkit.getDefault();
-    return callWithFallback(() => toolkit.applyEnvOverride(env), {
+function applyIterationEnvOverride(
+    getDefault: () => number | undefined,
+    applyEnvOverride: (env?: NodeJS.ProcessEnv) => number | undefined,
+    envVar: string,
+    env?: NodeJS.ProcessEnv
+): number | undefined {
+    const fallback = getDefault();
+    return callWithFallback(() => applyEnvOverride(env), {
         fallback,
         onError: (error) =>
             logInvalidIterationEnvOverride({ envVar, error, fallback })
     });
 }
 
-function applyParserMaxIterationsEnvOverride(env) {
-    return applyIterationToolkitEnvOverride(
-        parserIterationLimitToolkit,
+function applyParserMaxIterationsEnvOverride(
+    env?: NodeJS.ProcessEnv
+): number | undefined {
+    return applyIterationEnvOverride(
+        getMaxParserIterations,
+        parserIterationState.applyEnvOverride,
         MEMORY_PARSER_MAX_ITERATIONS_ENV_VAR,
         env
     );
 }
 
-const formatIterationLimitToolkit = createMemoryIterationToolkit({
+// Format iteration limit configuration
+const formatIterationState = createEnvConfiguredValue<number | undefined>({
     defaultValue: DEFAULT_MAX_FORMAT_ITERATIONS,
-    envVar: MEMORY_FORMAT_MAX_ITERATIONS_ENV_VAR
+    envVar: MEMORY_FORMAT_MAX_ITERATIONS_ENV_VAR,
+    normalize: (value, { defaultValue: baseline, previousValue }) => {
+        return resolveIntegerOption(value, {
+            defaultValue: baseline ?? previousValue,
+            coerce: iterationCoerce,
+            typeErrorMessage: createIterationTypeErrorMessage,
+            blankStringReturnsDefault: true
+        });
+    }
 });
 
-const {
-    getDefault: getMaxFormatIterations,
-    setDefault: setMaxFormatIterations
-} = formatIterationLimitToolkit;
+function getMaxFormatIterations(): number | undefined {
+    return formatIterationState.get();
+}
 
-function applyFormatMaxIterationsEnvOverride(env) {
-    return applyIterationToolkitEnvOverride(
-        formatIterationLimitToolkit,
+function setMaxFormatIterations(value?: unknown): number | undefined {
+    return formatIterationState.set(value);
+}
+
+function applyFormatMaxIterationsEnvOverride(
+    env?: NodeJS.ProcessEnv
+): number | undefined {
+    return applyIterationEnvOverride(
+        getMaxFormatIterations,
+        formatIterationState.applyEnvOverride,
         MEMORY_FORMAT_MAX_ITERATIONS_ENV_VAR,
         env
     );
 }
 
-const astCommonNodeLimitToolkit = createIntegerOptionToolkit({
+// AST common node limit configuration
+const astCommonNodeLimitCoerce = (value: unknown, context = {}) => {
+    const opts = {
+        ...context,
+        createErrorMessage: createAstCommonNodeLimitErrorMessage
+    };
+    return coreCoercePositiveInteger(value, opts);
+};
+
+const astCommonNodeLimitState = createEnvConfiguredValue<number | undefined>({
     defaultValue: DEFAULT_MEMORY_AST_COMMON_NODE_LIMIT,
     envVar: MEMORY_AST_COMMON_NODE_LIMIT_ENV_VAR,
-    baseCoerce: coercePositiveInteger,
-    createErrorMessage: createAstCommonNodeLimitErrorMessage,
-    typeErrorMessage: createAstCommonNodeLimitTypeErrorMessage
+    normalize: (value, { defaultValue: baseline, previousValue }) => {
+        return resolveIntegerOption(value, {
+            defaultValue: baseline ?? previousValue,
+            coerce: astCommonNodeLimitCoerce,
+            typeErrorMessage: createAstCommonNodeLimitTypeErrorMessage,
+            blankStringReturnsDefault: true
+        });
+    }
 });
 
-const {
-    getDefault: getAstCommonNodeTypeLimit,
-    setDefault: setAstCommonNodeTypeLimit,
-    applyEnvOverride: applyAstCommonNodeTypeLimitEnvOverride,
-    resolve: resolveAstCommonNodeTypeLimit
-} = astCommonNodeLimitToolkit;
+function getAstCommonNodeTypeLimit(): number | undefined {
+    return astCommonNodeLimitState.get();
+}
+
+function setAstCommonNodeTypeLimit(value?: unknown): number | undefined {
+    return astCommonNodeLimitState.set(value);
+}
+
+function applyAstCommonNodeTypeLimitEnvOverride(
+    env?: NodeJS.ProcessEnv
+): number | undefined {
+    return astCommonNodeLimitState.applyEnvOverride(env);
+}
+
+function resolveAstCommonNodeTypeLimit(
+    rawValue?: unknown,
+    options: Record<string, unknown> & { defaultValue?: number } = {}
+): number | null | undefined {
+    const fallback = options.defaultValue ?? astCommonNodeLimitState.get();
+    return resolveIntegerOption(rawValue, {
+        defaultValue: fallback,
+        coerce: astCommonNodeLimitCoerce,
+        typeErrorMessage: createAstCommonNodeLimitTypeErrorMessage,
+        blankStringReturnsDefault: true
+    });
+}
 
 const sampleCache = new Map();
 const SAMPLE_CACHE_MAX_ENTRIES = 4;
@@ -668,18 +723,52 @@ function summarizeAst(root) {
     };
 }
 
-const memoryIterationsToolkit = createMemoryIterationToolkit({
+// Memory iterations configuration
+const memoryIterationsState = createEnvConfiguredValue<number | undefined>({
     defaultValue: DEFAULT_ITERATIONS,
     envVar: MEMORY_ITERATIONS_ENV_VAR,
-    defaultValueOption: "defaultIterations"
+    normalize: (value, { defaultValue: baseline, previousValue }) => {
+        return resolveIntegerOption(value, {
+            defaultValue: baseline ?? previousValue,
+            coerce: iterationCoerce,
+            typeErrorMessage: createIterationTypeErrorMessage,
+            blankStringReturnsDefault: true
+        });
+    }
 });
 
-const {
-    getDefault: getDefaultMemoryIterations,
-    setDefault: setDefaultMemoryIterations,
-    resolve: resolveMemoryIterations,
-    applyEnvOverride: applyMemoryIterationsEnvOverride
-} = memoryIterationsToolkit;
+function getDefaultMemoryIterations(): number | undefined {
+    return memoryIterationsState.get();
+}
+
+function setDefaultMemoryIterations(value?: unknown): number | undefined {
+    return memoryIterationsState.set(value);
+}
+
+function resolveMemoryIterations(
+    rawValue?: unknown,
+    options: Record<string, unknown> & {
+        defaultValue?: number;
+        defaultIterations?: number;
+    } = {}
+): number | null | undefined {
+    const fallback =
+        options.defaultIterations ??
+        options.defaultValue ??
+        memoryIterationsState.get();
+    return resolveIntegerOption(rawValue, {
+        defaultValue: fallback,
+        coerce: iterationCoerce,
+        typeErrorMessage: createIterationTypeErrorMessage,
+        blankStringReturnsDefault: true
+    });
+}
+
+function applyMemoryIterationsEnvOverride(
+    env?: NodeJS.ProcessEnv
+): number | undefined {
+    return memoryIterationsState.applyEnvOverride(env);
+}
 
 export {
     getDefaultMemoryIterations,
