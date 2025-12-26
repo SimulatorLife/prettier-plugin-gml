@@ -70,7 +70,6 @@ export function getArgumentIndexFromIdentifier(name: unknown) {
     if (match) {
         return Number.parseInt(match[1], 10);
     }
-    // console.log("getArgumentIndexFromIdentifier failed for:", name);
     return null;
 }
 
@@ -80,7 +79,9 @@ function getArgumentIndexFromNode(node: any) {
     }
 
     if (node.type === "Identifier") {
-        return getArgumentIndexFromIdentifier(node.name);
+        const idx = getArgumentIndexFromIdentifier(node.name);
+        if (idx !== null) console.log("DEBUG: getArgumentIndexFromNode Identifier", node.name, idx);
+        return idx;
     }
 
     if (
@@ -92,6 +93,8 @@ function getArgumentIndexFromNode(node: any) {
     ) {
         return node.property.value;
     }
+    
+    // console.log("DEBUG: getArgumentIndexFromNode unknown type", node.type);
 
     return null;
 }
@@ -247,8 +250,6 @@ export function gatherImplicitArgumentReferences(functionNode: any) {
     const aliasByIndex = new Map<number, string>();
     const directReferenceIndices = new Set<number>();
 
-    console.log("Gathering implicit args for", functionNode.id?.name);
-
     const visit = (node: any, parent: any) => {
         if (!node || typeof node !== "object") {
             return;
@@ -280,17 +281,8 @@ export function gatherImplicitArgumentReferences(functionNode: any) {
 
         if (node.type === "VariableDeclarator") {
             const aliasIndex = getArgumentIndexFromNode(node.init);
-            console.log(
-                "VariableDeclarator",
-                node.id?.name,
-                "init index:",
-                aliasIndex
-            );
-            if (node.id?.name === "first" || node.id?.name === "second") {
-                 console.log("Init node for", node.id?.name, ":", JSON.stringify(node.init, null, 2));
-            }
-            if (aliasIndex === null && node.init) {
-                // console.log("Failed init node:", JSON.stringify(node.init, null, 2));
+            if (aliasIndex !== null) {
+                 console.log("DEBUG: gatherImplicitArgumentReferences found alias", node.id?.name, "index", aliasIndex);
             }
             if (
                 aliasIndex !== null &&
@@ -307,17 +299,15 @@ export function gatherImplicitArgumentReferences(functionNode: any) {
 
         const directIndex = getArgumentIndexFromNode(node);
         if (directIndex !== null) {
-            console.log("Direct ref:", directIndex, "parent:", parent?.type);
             referencedIndices.add(directIndex);
             if (
                 parent?.type === "VariableDeclarator" &&
                 parent.init === node &&
                 aliasByIndex.has(directIndex)
             ) {
-                console.log("Skipping alias init for", directIndex);
+                // Skip
             } else {
                 directReferenceIndices.add(directIndex);
-                console.log("Adding direct ref for", directIndex);
             }
         }
 
@@ -365,6 +355,7 @@ export function collectImplicitArgumentDocNames(
     }
 
     if (Array.isArray(functionNode._featherImplicitArgumentDocEntries)) {
+        console.log("DEBUG: Found _featherImplicitArgumentDocEntries for function", functionNode.id?.name, JSON.stringify(functionNode._featherImplicitArgumentDocEntries));
         const entries =
             functionNode._featherImplicitArgumentDocEntries as ImplicitArgumentDocEntry[];
         const suppressedCanonicals =
@@ -401,6 +392,21 @@ function processImplicitArgumentEntries(
         const referenceInfo = gatherImplicitArgumentReferences(functionNode);
         if (!referenceInfo) {
             return;
+        }
+
+        if (referenceInfo.aliasByIndex.size > 0) {
+            for (const entry of entries) {
+                if (
+                    entry &&
+                    entry.index !== undefined &&
+                    referenceInfo.aliasByIndex.has(entry.index)
+                ) {
+                    const alias = referenceInfo.aliasByIndex.get(entry.index);
+                    if (alias) {
+                        entry.name = alias;
+                    }
+                }
+            }
         }
 
         markEntriesWithDirectReferences(

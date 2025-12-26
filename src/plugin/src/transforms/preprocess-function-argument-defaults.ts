@@ -122,6 +122,9 @@ export class PreprocessFunctionArgumentDefaultsTransform extends FunctionalParse
 
     // Normalize the parameters and apply argument_count fallback rewrites within a single declaration.
     private preprocessFunctionDeclaration(node, ast) {
+        if (node?.id?.name) {
+            console.log("DEBUG: preprocessFunctionDeclaration visiting", node.id.name);
+        }
         if (
             !node ||
             (node.type !== "FunctionDeclaration" &&
@@ -1115,6 +1118,14 @@ function collectImplicitArgumentReferences(functionNode: GameMakerAstNode) {
     function visit(node: any, parent: any, property: string | number) {
         if (!node || typeof node !== "object") return;
 
+        if (node.type === "VariableDeclarator") {
+            const aliasIndex = getArgumentIndexFromNode(node.init);
+            if (aliasIndex === 0 && node.id?.name === "first") {
+                 console.log("DEBUG: FOUND SMOKING GUN: first = argument0");
+            }
+            console.log("DEBUG: VariableDeclarator", node.id?.name, "aliasIndex:", aliasIndex);
+        }
+
         if (
             node !== functionNode &&
             (node.type === "FunctionDeclaration" ||
@@ -1167,10 +1178,13 @@ function collectImplicitArgumentReferences(functionNode: GameMakerAstNode) {
 
     if (!referencedIndices || referencedIndices.size === 0) return [];
 
+    console.log("DEBUG: collectImplicitArgumentReferences result for", (functionNode as any).id?.name, "aliasByIndex:", JSON.stringify(Array.from(aliasByIndex.entries())), "referencedIndices:", JSON.stringify(Array.from(referencedIndices)));
+
     const sorted = [...referencedIndices].sort((a, b) => a - b);
     return sorted.map((index) => {
         const fallbackName = `argument${index}`;
         const alias = aliasByIndex.get(index);
+        console.log("DEBUG: Mapping index", index, "alias:", alias, "for function", (functionNode as any).id?.name);
         const docName = alias && alias.length > 0 ? alias : fallbackName;
         const canonical =
             (typeof docName === "string" && docName.toLowerCase()) || docName;
@@ -1216,6 +1230,7 @@ function getArgumentIndexFromIdentifier(name: unknown) {
     const match = name.match(/^argument(\d+)$/);
     if (!match) return null;
     const parsed = Number.parseInt(match[1]);
+    // console.log("DEBUG: getArgumentIndexFromIdentifier", name, parsed);
     return Number.isInteger(parsed) && parsed >= 0 ? parsed : null;
 }
 

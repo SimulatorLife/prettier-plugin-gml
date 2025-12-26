@@ -380,6 +380,18 @@ function computeInitialSuppressedCanonicals(
     try {
         const { aliasByIndex } = gatherImplicitArgumentReferences(node);
 
+        if (Array.isArray(node?._featherImplicitArgumentDocEntries)) {
+            for (const entry of node._featherImplicitArgumentDocEntries as ImplicitArgumentDocEntry[]) {
+                if (
+                    entry &&
+                    typeof entry.index === "number" &&
+                    typeof entry.name === "string"
+                ) {
+                    aliasByIndex.set(entry.index, entry.name);
+                }
+            }
+        }
+
         if (Array.isArray(node?.params)) {
             for (const [paramIndex, param] of node.params.entries()) {
                 const ordinalMetadata =
