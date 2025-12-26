@@ -122,9 +122,6 @@ export class PreprocessFunctionArgumentDefaultsTransform extends FunctionalParse
 
     // Normalize the parameters and apply argument_count fallback rewrites within a single declaration.
     private preprocessFunctionDeclaration(node, ast) {
-        if (node?.id?.name) {
-            console.log("DEBUG: preprocessFunctionDeclaration visiting", node.id.name);
-        }
         if (
             !node ||
             (node.type !== "FunctionDeclaration" &&

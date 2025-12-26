@@ -79,9 +79,7 @@ function getArgumentIndexFromNode(node: any) {
     }
 
     if (node.type === "Identifier") {
-        const idx = getArgumentIndexFromIdentifier(node.name);
-        if (idx !== null) console.log("DEBUG: getArgumentIndexFromNode Identifier", node.name, idx);
-        return idx;
+        return getArgumentIndexFromIdentifier(node.name);
     }
 
     if (
@@ -281,9 +279,6 @@ export function gatherImplicitArgumentReferences(functionNode: any) {
 
         if (node.type === "VariableDeclarator") {
             const aliasIndex = getArgumentIndexFromNode(node.init);
-            if (aliasIndex !== null) {
-                 console.log("DEBUG: gatherImplicitArgumentReferences found alias", node.id?.name, "index", aliasIndex);
-            }
             if (
                 aliasIndex !== null &&
                 node.id?.type === "Identifier" &&
@@ -342,9 +337,8 @@ export type ImplicitArgumentDocEntry = {
 
 export function collectImplicitArgumentDocNames(
     functionNode: any,
-    _options: SyntheticDocGenerationOptions
+    options: SyntheticDocGenerationOptions
 ): ImplicitArgumentDocEntry[] {
-    void _options;
     if (
         !functionNode ||
         (functionNode.type !== "FunctionDeclaration" &&
@@ -354,8 +348,10 @@ export function collectImplicitArgumentDocNames(
         return [];
     }
 
-    if (Array.isArray(functionNode._featherImplicitArgumentDocEntries)) {
-        console.log("DEBUG: Found _featherImplicitArgumentDocEntries for function", functionNode.id?.name, JSON.stringify(functionNode._featherImplicitArgumentDocEntries));
+    if (
+        options.applyFeatherFixes !== false &&
+        Array.isArray(functionNode._featherImplicitArgumentDocEntries)
+    ) {
         const entries =
             functionNode._featherImplicitArgumentDocEntries as ImplicitArgumentDocEntry[];
         const suppressedCanonicals =
@@ -371,7 +367,8 @@ export function collectImplicitArgumentDocNames(
             if (
                 suppressedCanonicals &&
                 entry.canonical &&
-                suppressedCanonicals.has(entry.canonical)
+                suppressedCanonicals.has(entry.canonical) &&
+                entry.name === entry.canonical
             ) {
                 return false;
             }
@@ -379,9 +376,45 @@ export function collectImplicitArgumentDocNames(
         });
     } else {
         // Fallback: re-scan the body if the parser transform didn't run or failed.
-    }
+        const { referencedIndices, aliasByIndex, directReferenceIndices } =
+            gatherImplicitArgumentReferences(functionNode);
 
-    return [];
+        const entries: ImplicitArgumentDocEntry[] = [];
+        const maxIndex = Math.max(
+            ...Array.from(referencedIndices),
+            ...Array.from(directReferenceIndices),
+            -1
+        );
+
+        const suppressedCanonicals =
+            suppressedImplicitDocCanonicalByNode.get(functionNode);
+
+        for (let i = 0; i <= maxIndex; i++) {
+            if (referencedIndices.has(i) || directReferenceIndices.has(i)) {
+                const alias = aliasByIndex.get(i);
+                const canonical = `argument${i}`;
+                const docName = alias || canonical;
+
+                if (
+                    suppressedCanonicals &&
+                    suppressedCanonicals.has(canonical) &&
+                    docName === canonical
+                ) {
+                    continue;
+                }
+
+                entries.push({
+                    index: i,
+                    name: docName,
+                    canonical,
+                    fallbackCanonical: canonical,
+                    hasDirectReference: directReferenceIndices.has(i)
+                });
+            }
+        }
+
+        return entries;
+    }
 }
 
 function processImplicitArgumentEntries(
