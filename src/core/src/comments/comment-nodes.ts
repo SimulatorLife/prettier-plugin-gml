@@ -62,11 +62,7 @@ function createCommentValue(type, tokenText) {
         // raw token text and the normalized `value`. Aggressively removing
         // all leading slashes broke detection/printing of banner and doc
         // comments and caused widespread fixture failures.
-        const val = tokenText.replace(/^[\\/][\\/]/, "");
-        console.log(
-            `[DEBUG] createCommentValue: tokenText="${tokenText}" -> val="${val}"`
-        );
-        return val;
+        return tokenText.replace(/^[\\/][\\/]/, "");
     }
 
     const withoutStart = tokenText.replace(/^[\\/][*]/, "");

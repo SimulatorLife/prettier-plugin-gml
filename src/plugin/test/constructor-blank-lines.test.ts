@@ -15,7 +15,7 @@ void test("preserves blank line between constructor header and first statement",
     const lines = formatted.trim().split("\n");
 
     assert.equal(
-        lines[2],
+        lines[1],
         "",
         "Expected constructors to retain a blank line when the input separates the header from the first statement."
     );

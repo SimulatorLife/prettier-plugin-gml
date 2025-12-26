@@ -1750,34 +1750,9 @@ function printProgramNode(node, path, options, print) {
 
 function printBlockStatementNode(node, path, options, print) {
     const parent = path.getParentNode();
-    if (parent?.id?.name === "TestStruct") {
-        console.log("[DEBUG] printBlockStatementNode for TestStruct");
-        console.log("[DEBUG] body length:", node.body.length);
-        node.body.forEach((s, i) =>
-            console.log(
-                `[DEBUG] stmt[${i}]:`,
-                s.type,
-                s.kind,
-                s.declarations?.[0]?.id?.name
-            )
-        );
-    }
 
     if (node.body.length === 0) {
         return concat(printEmptyBlock(path, options));
-    }
-
-    // DEBUG LOGS
-    if (
-        node.body.some((s) => s.declarations?.[0]?.id?.name === "clearSubdiv")
-    ) {
-        console.log("[DEBUG] printBlockStatementNode found clearSubdiv block");
-        node.body.forEach((stmt, idx) => {
-            const name = stmt.declarations?.[0]?.id?.name;
-            console.log(
-                `[DEBUG] stmt[${idx}]: type=${stmt.type} kind=${stmt.kind} name=${name}`
-            );
-        });
     }
 
     let leadingDocs = [hardline];
@@ -1788,12 +1763,24 @@ function printBlockStatementNode(node, path, options, print) {
 
     const sourceMetadata = resolvePrinterSourceMetadata(options);
     const { originalText } = sourceMetadata;
-    if (originalText !== null) {
-        const firstStatement = node.body[0];
+    const firstStatement = node.body[0];
+    const constructorStartLine =
+        node?.loc?.start?.line ?? node?.start?.line ?? null;
+    const firstStatementStartLine =
+        firstStatement?.loc?.start?.line ?? firstStatement?.start?.line ?? null;
+    const constructorHasLineGap = isBlockWithinConstructor(path)
+        ? typeof constructorStartLine === NUMBER_TYPE &&
+          typeof firstStatementStartLine === NUMBER_TYPE &&
+          firstStatementStartLine - constructorStartLine > 1
+        : false;
+    let shouldPreserveInitialBlankLine = constructorHasLineGap;
+
+    if (firstStatement) {
         const { startIndex: firstStatementStartIndex } =
             resolveNodeIndexRangeWithSource(firstStatement, sourceMetadata);
 
-        const preserveForConstructor =
+        const preserveForConstructorText =
+            originalText !== null &&
             typeof firstStatementStartIndex === NUMBER_TYPE &&
             isBlockWithinConstructor(path) &&
             isPreviousLineEmpty(originalText, firstStatementStartIndex);
@@ -1805,9 +1792,14 @@ function printBlockStatementNode(node, path, options, print) {
             firstStatementStartIndex
         );
 
-        if (preserveForConstructor || preserveForLeadingComment) {
-            leadingDocs.push(lineSuffixBoundary as any, hardline as any);
-        }
+        shouldPreserveInitialBlankLine =
+            shouldPreserveInitialBlankLine ||
+            preserveForConstructorText ||
+            preserveForLeadingComment;
+    }
+
+    if (shouldPreserveInitialBlankLine) {
+        leadingDocs = [hardline, hardline, hardline];
     }
 
     const stmts = printStatements(path, options, print, "body");
@@ -2235,18 +2227,11 @@ function printCommaSeparatedList(
             : overrides.allowTrailingDelimiter;
 
     // console.log(`[DEBUG] printCommaSeparatedList result type: ${typeof result}`);
-    return printDelimitedList(
-        path,
-        print,
-        listKey,
-        startChar,
-        endChar,
-        {
-            delimiter: ",",
-            ...overrides,
-            allowTrailingDelimiter
-        }
-    );
+    return printDelimitedList(path, print, listKey, startChar, endChar, {
+        delimiter: ",",
+        ...overrides,
+        allowTrailingDelimiter
+    });
 }
 
 // Force statement-shaped children into explicit `{}` blocks so every call site

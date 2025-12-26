@@ -145,3 +145,51 @@ void test("hidden node processor collects comments and whitespace", () => {
     assert.equal(last.leadingChar, "r");
     assert.equal(last.trailingWS, "");
 });
+
+void test("hidden node processor does not emit debug logs", () => {
+    const comments: Array<unknown> = [];
+    const whitespaces: Array<unknown> = [];
+    const lexerTokens = {
+        EOF: 0,
+        SingleLineComment: 1,
+        MultiLineComment: 2,
+        WhiteSpaces: 3,
+        LineTerminator: 4,
+        Identifier: 5
+    };
+    const processor = createHiddenNodeProcessor({
+        comments,
+        whitespaces,
+        lexerTokens
+    });
+
+    const originalLog = console.log;
+    const capturedLogs: Array<unknown[]> = [];
+    console.log = (...args: Array<unknown>) => {
+        capturedLogs.push(args);
+    };
+
+    try {
+        processor.processToken({
+            type: lexerTokens.SingleLineComment,
+            text: "// comment",
+            line: 1,
+            start: 0,
+            stop: 9
+        });
+
+        processor.processToken({
+            type: lexerTokens.MultiLineComment,
+            text: "/* block */",
+            line: 1,
+            start: 10,
+            stop: 20
+        });
+    } finally {
+        console.log = originalLog;
+    }
+
+    assert.equal(capturedLogs.length, 0);
+    assert.equal(comments.length, 2);
+    assert.equal(whitespaces.length, 0);
+});
