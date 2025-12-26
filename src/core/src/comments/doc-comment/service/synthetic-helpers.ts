@@ -70,6 +70,7 @@ export function getArgumentIndexFromIdentifier(name: unknown) {
     if (match) {
         return Number.parseInt(match[1], 10);
     }
+    // console.log("getArgumentIndexFromIdentifier failed for:", name);
     return null;
 }
 
@@ -285,6 +286,12 @@ export function gatherImplicitArgumentReferences(functionNode: any) {
                 "init index:",
                 aliasIndex
             );
+            if (node.id?.name === "first" || node.id?.name === "second") {
+                 console.log("Init node for", node.id?.name, ":", JSON.stringify(node.init, null, 2));
+            }
+            if (aliasIndex === null && node.init) {
+                // console.log("Failed init node:", JSON.stringify(node.init, null, 2));
+            }
             if (
                 aliasIndex !== null &&
                 node.id?.type === "Identifier" &&

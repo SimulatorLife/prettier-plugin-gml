@@ -378,6 +378,8 @@ function computeInitialSuppressedCanonicals(
     console.log(`[DEBUG] computeInitialSuppressedCanonicals for ${node?.id?.name}: params=${node?.params?.length}`);
 
     try {
+        const { aliasByIndex } = gatherImplicitArgumentReferences(node);
+
         if (Array.isArray(node?.params)) {
             for (const [paramIndex, param] of node.params.entries()) {
                 const ordinalMetadata =
@@ -451,33 +453,30 @@ function computeInitialSuppressedCanonicals(
                             }
                         );
 
-                    if (!canonicalOrdinalMatchesDeclaredParam) {
+                    const canonicalOrdinalMatchesImplicitAlias =
+                        aliasByIndex.size > 0 &&
+                        Array.from(aliasByIndex.values()).some(
+                            (alias) => alias === canonicalOrdinal
+                        );
+
+                    if (
+                        !canonicalOrdinalMatchesDeclaredParam &&
+                        !canonicalOrdinalMatchesImplicitAlias
+                    ) {
                         suppressed.add(canonicalOrdinal);
                     }
                 }
             }
         }
-    } catch {
-        /* ignore pre-pass errors */
-    }
 
-    try {
-        const refInfo = gatherImplicitArgumentReferences(node);
-        if (refInfo && refInfo.aliasByIndex && refInfo.aliasByIndex.size > 0) {
-            suppressAliasCanonicalOverrides(
-                refInfo.aliasByIndex,
-                documentedParamNames,
-                suppressed
-            );
-            if (Array.isArray(orderedParamMetadata)) {
-                suppressOrderedCanonicalFallbacks(
-                    orderedParamMetadata,
-                    suppressed
-                );
-            }
-        }
+        suppressAliasCanonicalOverrides(
+            aliasByIndex,
+            documentedParamNames,
+            suppressed
+        );
+        suppressOrderedCanonicalFallbacks(orderedParamMetadata, suppressed);
     } catch {
-        /* ignore gather errors */
+        /* ignore */
     }
 
     return suppressed;

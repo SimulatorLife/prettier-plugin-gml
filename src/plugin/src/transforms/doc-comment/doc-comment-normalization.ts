@@ -63,7 +63,8 @@ export class DocCommentNormalizationTransform extends FunctionalParserTransform<
         const sourceText = options.sourceText ?? null;
         const lineCommentOptions = {
             ...Core.resolveLineCommentOptions(pluginOptions),
-            originalText: sourceText
+            // Force using AST values to respect previous transforms (e.g. Feather fixes)
+            originalText: null
         };
         const docCommentOptions =
             resolveDocCommentPrinterOptions(pluginOptions);
@@ -83,11 +84,12 @@ export class DocCommentNormalizationTransform extends FunctionalParserTransform<
         });
 
         const traversal = Core.resolveDocCommentTraversalService(ast);
+        // Pass null for sourceText to force using AST comment values, which may have been updated
         const documentedParamNamesByFunction =
-            Core.buildDocumentedParamNameLookup(ast, sourceText, traversal);
+            Core.buildDocumentedParamNameLookup(ast, null, traversal);
         const deprecatedFunctionNames = Core.collectDeprecatedFunctionNames(
             ast,
-            sourceText,
+            null,
             traversal
         );
 

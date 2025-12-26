@@ -355,6 +355,18 @@ function applyStructuralTransforms(
 ): void {
     Transforms.preprocessFunctionArgumentDefaultsTransform.transform(ast);
 
+    if (options?.applyFeatherFixes) {
+        const featherOptions = options
+            ? { ...options, removeStandaloneVertexEnd: true }
+            : { removeStandaloneVertexEnd: true };
+
+        Transforms.applyFeatherFixesTransform.transform(ast, {
+            sourceText: context.parseSource,
+            preprocessedFixMetadata: context.preprocessedFixMetadata,
+            options: featherOptions
+        });
+    }
+
     if (options?.condenseStructAssignments ?? true) {
         Transforms.consolidateStructAssignmentsTransform.transform(ast, {
             commentTools: { addTrailingComment }
@@ -365,18 +377,6 @@ function applyStructuralTransforms(
         Transforms.docCommentNormalizationTransform.transform(ast, {
             pluginOptions: options ?? {},
             sourceText: context.parseSource
-        });
-    }
-
-    if (options?.applyFeatherFixes) {
-        const featherOptions = options
-            ? { ...options, removeStandaloneVertexEnd: true }
-            : { removeStandaloneVertexEnd: true };
-
-        Transforms.applyFeatherFixesTransform.transform(ast, {
-            sourceText: context.parseSource,
-            preprocessedFixMetadata: context.preprocessedFixMetadata,
-            options: featherOptions
         });
     }
 

@@ -305,10 +305,12 @@ function applyFeatherFixesImpl(ast: any, opts: ApplyFeatherFixesOptions = {}) {
     // Populate documented param names so Feather fixes can respect JSDoc @param tags
     // This is necessary because the Feather transform runs before the printer (which usually handles this),
     // and we need the metadata to decide whether to rename arguments.
+    let collectionService;
     if (sourceText) {
         // Use the core service to extract and attach documented param names
         // This handles finding comments correctly (which might not be directly on the node)
         const traversal = Core.resolveDocCommentTraversalService(ast);
+        collectionService = Core.resolveDocCommentCollectionService(ast);
         Core.buildDocumentedParamNameLookup(ast, sourceText, traversal);
 
         const deprecatedFunctionNames = Core.collectDeprecatedFunctionNames(
@@ -325,7 +327,8 @@ function applyFeatherFixesImpl(ast: any, opts: ApplyFeatherFixesOptions = {}) {
         const fixes = entry.applyFix(ast, {
             sourceText,
             preprocessedFixMetadata,
-            options
+            options,
+            collectionService
         });
 
         if (Core.isNonEmptyArray(fixes)) {
@@ -736,7 +739,8 @@ function createFixerForDiagnostic(diagnostic, implementationRegistry) {
             ast,
             sourceText: context?.sourceText,
             preprocessedFixMetadata: context?.preprocessedFixMetadata,
-            options: context?.options
+            options: context?.options,
+            collectionService: context?.collectionService
         });
 
         return Core.asArray(fixes);
@@ -1907,10 +1911,11 @@ function createAutomaticFeatherFixHandlers() {
         ],
         [
             "GM1032",
-            ({ ast, diagnostic }) =>
+            ({ ast, diagnostic, collectionService }) =>
                 normalizeArgumentBuiltinReferences({
                     ast,
-                    diagnostic
+                    diagnostic,
+                    collectionService
                 })
         ],
         [
@@ -3908,7 +3913,7 @@ function cleanupSelfAssignments(node) {
     }
 }
 
-function normalizeArgumentBuiltinReferences({ ast, diagnostic }) {
+function normalizeArgumentBuiltinReferences({ ast, diagnostic, collectionService }) {
     if (!hasFeatherDiagnosticContext(ast, diagnostic)) {
         return [];
     }
@@ -3938,7 +3943,8 @@ function normalizeArgumentBuiltinReferences({ ast, diagnostic }) {
             const functionFixes = fixArgumentReferencesWithinFunction(
                 node,
                 diagnostic,
-                documentedParamNames
+                documentedParamNames,
+                collectionService
             );
 
             if (Core.isNonEmptyArray(functionFixes)) {
@@ -3963,7 +3969,8 @@ function normalizeArgumentBuiltinReferences({ ast, diagnostic }) {
 function fixArgumentReferencesWithinFunction(
     functionNode,
     diagnostic,
-    documentedParamNames = new Set()
+    documentedParamNames = new Set(),
+    collectionService
 ) {
     // Merge in names found by Core.buildDocumentedParamNameLookup
     const orderedDocNames = functionNode._documentedParamNamesOrdered as
@@ -4017,7 +4024,8 @@ function fixArgumentReferencesWithinFunction(
             const nestedFixes = fixArgumentReferencesWithinFunction(
                 node,
                 diagnostic,
-                documentedParamNames
+                documentedParamNames,
+                collectionService
             );
 
             if (Core.isNonEmptyArray(nestedFixes)) {
@@ -4103,6 +4111,8 @@ function fixArgumentReferencesWithinFunction(
                         if (!docNameIsFallback || entryNameIsFallback) {
                             entry.name = docName;
                             entry.canonical = docName.toLowerCase();
+                        } else {
+                            updateJSDocParamName(functionNode, docName, entry.name, collectionService);
                         }
                     }
                 }
@@ -17445,4 +17455,33 @@ function collectGM1100Candidates(node) {
     visit(node);
 
     return index;
+}
+
+function updateJSDocParamName(node: any, oldName: string, newName: string, collectionService: any) {
+    if (!node) {
+        console.log("[DEBUG] updateJSDocParamName: node is null");
+        return;
+    }
+
+    const comments = collectionService ? collectionService.getComments(node) : node.comments;
+
+    if (!Array.isArray(comments)) {
+        console.log("[DEBUG] updateJSDocParamName: comments is not an array", node.type);
+        return;
+    }
+
+    console.log(`[DEBUG] updateJSDocParamName: replacing ${oldName} with ${newName} in ${comments.length} comments`);
+
+    const escapedOld = oldName.replace(/[.*+?^()|[\]\\]/g, '\\$&');
+    const regex = new RegExp(`\\b${escapedOld}\\b`, 'g');
+
+    for (const comment of comments) {
+        if (typeof comment.value === "string" && comment.value.includes("@param")) {
+            const original = comment.value;
+            comment.value = comment.value.replace(regex, newName);
+            if (original !== comment.value) {
+                console.log(`[DEBUG] updateJSDocParamName: updated comment '${original}' to '${comment.value}'`);
+            }
+        }
+    }
 }
