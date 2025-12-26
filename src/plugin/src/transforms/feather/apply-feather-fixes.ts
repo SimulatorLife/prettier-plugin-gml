@@ -4103,6 +4103,7 @@ function fixArgumentReferencesWithinFunction(
                 ) {
                     const docName = orderedDocNames[entry.index];
                     if (docName) {
+                        console.log(`DEBUG: applyFeatherFixes processing entry index ${entry.index}, docName='${docName}', entry.name='${entry.name}'`);
                         // Prefer the JSDoc name unless it's a generic "argumentN" placeholder
                         // and we already have a more descriptive alias from the source code.
                         const docNameIsFallback = /^argument\d+$/.test(docName);
@@ -4112,6 +4113,7 @@ function fixArgumentReferencesWithinFunction(
                             entry.name = docName;
                             entry.canonical = docName.toLowerCase();
                         } else {
+                            console.log(`DEBUG: Calling updateJSDocParamName for ${docName} -> ${entry.name}`);
                             updateJSDocParamName(functionNode, docName, entry.name, collectionService);
                         }
                     }
