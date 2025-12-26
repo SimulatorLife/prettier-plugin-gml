@@ -1,14 +1,15 @@
 import { Buffer } from "node:buffer";
 
 import { Core } from "@gml-modules/core";
-import { createIntegerOptionToolkit } from "../../cli-core/integer-option-toolkit.js";
 
 const {
     callWithFallback,
     coercePositiveInteger,
+    createEnvConfiguredValue,
     createNumericTypeErrorFormatter,
     describeValueForError,
-    isFiniteNumber
+    isFiniteNumber,
+    resolveIntegerOption
 } = Core;
 
 const BYTE_UNITS = Object.freeze(["B", "KB", "MB", "GB", "TB", "PB"]);
@@ -23,21 +24,54 @@ const createRadixErrorMessage = (received: unknown): string =>
 const createRadixTypeErrorMessage =
     createNumericTypeErrorFormatter("Byte format radix");
 
-const byteFormatToolkit = createIntegerOptionToolkit({
+const coerce = (value: unknown, context = {}) => {
+    const opts = { ...context, createErrorMessage: createRadixErrorMessage };
+    return coercePositiveInteger(value, opts);
+};
+
+const state = createEnvConfiguredValue<number | undefined>({
     defaultValue: DEFAULT_BYTE_FORMAT_RADIX,
     envVar: BYTE_FORMAT_RADIX_ENV_VAR,
-    baseCoerce: coercePositiveInteger,
-    createErrorMessage: createRadixErrorMessage,
-    typeErrorMessage: createRadixTypeErrorMessage,
-    optionAlias: "defaultRadix"
+    normalize: (value, { defaultValue: baseline, previousValue }) => {
+        return resolveIntegerOption(value, {
+            defaultValue: baseline ?? previousValue,
+            coerce,
+            typeErrorMessage: createRadixTypeErrorMessage,
+            blankStringReturnsDefault: true
+        });
+    }
 });
 
-const {
-    getDefault: getDefaultByteFormatRadix,
-    setDefault: setDefaultByteFormatRadix,
-    resolve: resolveByteFormatRadix,
-    applyEnvOverride: applyByteFormatRadixEnvOverride
-} = byteFormatToolkit;
+function getDefaultByteFormatRadix(): number | undefined {
+    return state.get();
+}
+
+function setDefaultByteFormatRadix(value?: unknown): number | undefined {
+    return state.set(value);
+}
+
+function resolveByteFormatRadix(
+    rawValue?: unknown,
+    options: Record<string, unknown> & {
+        defaultValue?: number;
+        defaultRadix?: number;
+    } = {}
+): number | null | undefined {
+    const fallback =
+        options.defaultRadix ?? options.defaultValue ?? state.get();
+    return resolveIntegerOption(rawValue, {
+        defaultValue: fallback,
+        coerce,
+        typeErrorMessage: createRadixTypeErrorMessage,
+        blankStringReturnsDefault: true
+    });
+}
+
+function applyByteFormatRadixEnvOverride(
+    env?: NodeJS.ProcessEnv
+): number | undefined {
+    return state.applyEnvOverride(env);
+}
 
 applyByteFormatRadixEnvOverride();
 
