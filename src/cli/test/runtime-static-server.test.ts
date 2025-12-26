@@ -143,9 +143,12 @@ void describe("runtime static server", () => {
             await new Promise((resolve) => setTimeout(resolve, 100));
 
             // Verify no file descriptors leaked
+            // Allow a small tolerance (5 FDs) to account for normal runtime variance
+            // from fetch(), timers, and internal Node.js operations
+            const MAX_ALLOWED_FD_VARIANCE = 5;
             const finalFdCount = await getOpenFileDescriptorCount();
             assert.ok(
-                finalFdCount <= initialFdCount + 5,
+                finalFdCount <= initialFdCount + MAX_ALLOWED_FD_VARIANCE,
                 `File descriptors leaked: ${finalFdCount - initialFdCount} descriptors`
             );
         } finally {
