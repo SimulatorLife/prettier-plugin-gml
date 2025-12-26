@@ -10,6 +10,7 @@ import {
 } from "./patch-utils.js";
 import type {
     ApplyPatchResult,
+    BatchApplyResult,
     Patch,
     PatchHistoryEntry,
     PatchStats,
@@ -83,6 +84,145 @@ export function createRuntimeWrapper(
                     ? error.message
                     : String(error ?? UNKNOWN_ERROR_MESSAGE);
             throw new Error(`Failed to apply patch ${patch.id}: ${message}`);
+        }
+    }
+
+    function validateBatchPatches(
+        patchCandidates: Array<unknown>
+    ): Array<Patch> | BatchApplyResult {
+        const validatedPatches: Array<Patch> = [];
+        for (const candidate of patchCandidates) {
+            validatePatch(candidate);
+            validatedPatches.push(candidate);
+        }
+
+        if (state.options.validateBeforeApply) {
+            for (const [index, patch] of validatedPatches.entries()) {
+                const testResult = testPatchInShadow(patch);
+                if (!testResult.valid) {
+                    return {
+                        success: false,
+                        appliedCount: 0,
+                        failedIndex: index,
+                        error: testResult.error,
+                        message: `Batch validation failed at patch ${index} (${patch.id}): ${testResult.error}`,
+                        rolledBack: false
+                    };
+                }
+            }
+        }
+
+        return validatedPatches;
+    }
+
+    function applyPatchBatch(
+        patchCandidates: Array<unknown>
+    ): BatchApplyResult {
+        if (!Array.isArray(patchCandidates)) {
+            throw new TypeError("applyPatchBatch expects an array of patches");
+        }
+
+        if (patchCandidates.length === 0) {
+            return {
+                success: true,
+                version: state.registry.version,
+                appliedCount: 0,
+                rolledBack: false
+            };
+        }
+
+        const validationResult = validateBatchPatches(patchCandidates);
+        if (!Array.isArray(validationResult)) {
+            return validationResult;
+        }
+        const validatedPatches = validationResult;
+
+        const batchSnapshot = {
+            version: state.registry.version,
+            registry: { ...state.registry },
+            undoStackSize: state.undoStack.length,
+            historySize: state.patchHistory.length
+        };
+
+        const startTime = Date.now();
+        let appliedCount = 0;
+
+        try {
+            for (const patch of validatedPatches) {
+                const snapshot = captureSnapshot(state.registry, patch);
+                const patchStartTime = Date.now();
+
+                const { registry: nextRegistry } = applyPatchInternal(
+                    state.registry,
+                    patch
+                );
+                const durationMs = Date.now() - patchStartTime;
+
+                state.registry = nextRegistry;
+                state.undoStack.push(snapshot);
+                state.patchHistory.push({
+                    patch: { kind: patch.kind, id: patch.id },
+                    version: state.registry.version,
+                    timestamp: patchStartTime,
+                    action: "apply",
+                    durationMs
+                });
+
+                appliedCount++;
+
+                if (onPatchApplied) {
+                    onPatchApplied(patch, state.registry.version);
+                }
+            }
+
+            const totalDuration = Date.now() - startTime;
+            state.patchHistory.push({
+                patch: {
+                    kind: "script",
+                    id: `batch:${appliedCount}_patches`
+                },
+                version: state.registry.version,
+                timestamp: startTime,
+                action: "apply",
+                durationMs: totalDuration
+            });
+
+            return {
+                success: true,
+                version: state.registry.version,
+                appliedCount,
+                rolledBack: false
+            };
+        } catch (error) {
+            state.registry = batchSnapshot.registry;
+            state.undoStack.length = batchSnapshot.undoStackSize;
+            state.patchHistory.length = batchSnapshot.historySize;
+
+            const message =
+                error instanceof Error
+                    ? error.message
+                    : String(error ?? UNKNOWN_ERROR_MESSAGE);
+
+            state.patchHistory.push({
+                patch: {
+                    kind: "script",
+                    id: `batch:${appliedCount}_of_${validatedPatches.length}`
+                },
+                version: state.registry.version,
+                timestamp: Date.now(),
+                action: "rollback",
+                error: message
+            });
+
+            return {
+                success: false,
+                version: state.registry.version,
+                appliedCount,
+                failedIndex: appliedCount,
+                error: message,
+                message: `Batch apply failed at patch ${appliedCount}: ${message}`,
+                rolledBack: true
+            };
         }
     }
 
@@ -313,6 +453,7 @@ export function createRuntimeWrapper(
     return {
         state,
         applyPatch,
+        applyPatchBatch,
         trySafeApply,
         undo,
         getPatchHistory,

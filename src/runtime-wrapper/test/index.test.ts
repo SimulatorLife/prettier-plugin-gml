@@ -1001,3 +1001,198 @@ void test("clearRegistry clears undo stack", () => {
     assert.strictEqual(undoResult.success, false);
     assert.strictEqual(undoResult.message, "Nothing to undo");
 });
+
+void test("applyPatchBatch applies multiple patches atomically", () => {
+    const wrapper = RuntimeWrapper.createRuntimeWrapper();
+
+    const patches = [
+        { kind: "script", id: "script:batch1", js_body: "return 1;" },
+        { kind: "script", id: "script:batch2", js_body: "return 2;" },
+        { kind: "event", id: "obj_test#Create", js_body: "this.x = 0;" }
+    ];
+
+    const result = wrapper.applyPatchBatch(patches);
+
+    assert.strictEqual(result.success, true);
+    assert.strictEqual(result.appliedCount, 3);
+    assert.strictEqual(result.rolledBack, false);
+    assert.ok(wrapper.hasScript("script:batch1"));
+    assert.ok(wrapper.hasScript("script:batch2"));
+    assert.ok(wrapper.hasEvent("obj_test#Create"));
+});
+
+void test("applyPatchBatch handles empty array", () => {
+    const wrapper = RuntimeWrapper.createRuntimeWrapper();
+    const initialVersion = wrapper.getVersion();
+
+    const result = wrapper.applyPatchBatch([]);
+
+    assert.strictEqual(result.success, true);
+    assert.strictEqual(result.appliedCount, 0);
+    assert.strictEqual(result.rolledBack, false);
+    assert.strictEqual(result.version, initialVersion);
+});
+
+void test("applyPatchBatch validates input is array", () => {
+    const wrapper = RuntimeWrapper.createRuntimeWrapper();
+
+    assert.throws(
+        () => wrapper.applyPatchBatch(null as unknown as Array<unknown>),
+        { message: /applyPatchBatch expects an array/ }
+    );
+});
+
+void test("applyPatchBatch rolls back on failure", () => {
+    const wrapper = RuntimeWrapper.createRuntimeWrapper();
+
+    const patches = [
+        { kind: "script", id: "script:good1", js_body: "return 1;" },
+        { kind: "script", id: "script:good2", js_body: "return 2;" },
+        { kind: "script", id: "script:bad", js_body: "return {{ invalid" }
+    ];
+
+    const result = wrapper.applyPatchBatch(patches);
+
+    assert.strictEqual(result.success, false);
+    assert.strictEqual(result.rolledBack, true);
+    assert.strictEqual(result.failedIndex, 2);
+    assert.ok(!wrapper.hasScript("script:good1"));
+    assert.ok(!wrapper.hasScript("script:good2"));
+    assert.ok(!wrapper.hasScript("script:bad"));
+});
+
+void test("applyPatchBatch validates all patches before applying", () => {
+    const wrapper = RuntimeWrapper.createRuntimeWrapper({
+        validateBeforeApply: true
+    });
+
+    const patches = [
+        { kind: "script", id: "script:first", js_body: "return 1;" },
+        { kind: "script", id: "script:bad", js_body: "return {{ invalid" },
+        { kind: "script", id: "script:third", js_body: "return 3;" }
+    ];
+
+    const result = wrapper.applyPatchBatch(patches);
+
+    assert.strictEqual(result.success, false);
+    assert.strictEqual(result.rolledBack, false);
+    assert.strictEqual(result.appliedCount, 0);
+    assert.strictEqual(result.failedIndex, 1);
+    assert.ok(!wrapper.hasScript("script:first"));
+    assert.ok(!wrapper.hasScript("script:third"));
+});
+
+void test("applyPatchBatch increments version correctly", () => {
+    const wrapper = RuntimeWrapper.createRuntimeWrapper();
+    const initialVersion = wrapper.getVersion();
+
+    const patches = [
+        { kind: "script", id: "script:v1", js_body: "return 1;" },
+        { kind: "script", id: "script:v2", js_body: "return 2;" }
+    ];
+
+    const result = wrapper.applyPatchBatch(patches);
+
+    assert.strictEqual(result.success, true);
+    assert.strictEqual(wrapper.getVersion(), initialVersion + 2);
+});
+
+void test("applyPatchBatch calls onPatchApplied for each patch", () => {
+    const appliedPatches: Array<{ id: string; version: number }> = [];
+
+    const wrapper = RuntimeWrapper.createRuntimeWrapper({
+        onPatchApplied: (patch, version) => {
+            appliedPatches.push({ id: patch.id, version });
+        }
+    });
+
+    const patches = [
+        { kind: "script", id: "script:cb1", js_body: "return 1;" },
+        { kind: "script", id: "script:cb2", js_body: "return 2;" }
+    ];
+
+    wrapper.applyPatchBatch(patches);
+
+    assert.strictEqual(appliedPatches.length, 2);
+    assert.strictEqual(appliedPatches[0].id, "script:cb1");
+    assert.strictEqual(appliedPatches[1].id, "script:cb2");
+});
+
+void test("applyPatchBatch records batch operation in history", () => {
+    const wrapper = RuntimeWrapper.createRuntimeWrapper();
+
+    const patches = [
+        { kind: "script", id: "script:h1", js_body: "return 1;" },
+        { kind: "script", id: "script:h2", js_body: "return 2;" }
+    ];
+
+    wrapper.applyPatchBatch(patches);
+
+    const history = wrapper.getPatchHistory();
+    assert.strictEqual(history.length, 3);
+    assert.strictEqual(history[0].patch.id, "script:h1");
+    assert.strictEqual(history[1].patch.id, "script:h2");
+    assert.strictEqual(history[2].patch.id, "batch:2_patches");
+    assert.ok(history[2].durationMs !== undefined);
+});
+
+void test("applyPatchBatch supports mixed patch types", () => {
+    const wrapper = RuntimeWrapper.createRuntimeWrapper();
+
+    const patches = [
+        { kind: "script", id: "script:mixed", js_body: "return 1;" },
+        { kind: "event", id: "obj_mixed#Step", js_body: "this.x++;" },
+        { kind: "closure", id: "closure:mixed", js_body: "return () => 42;" }
+    ];
+
+    const result = wrapper.applyPatchBatch(patches);
+
+    assert.strictEqual(result.success, true);
+    assert.strictEqual(result.appliedCount, 3);
+    assert.ok(wrapper.hasScript("script:mixed"));
+    assert.ok(wrapper.hasEvent("obj_mixed#Step"));
+    assert.ok(wrapper.hasClosure("closure:mixed"));
+});
+
+void test("applyPatchBatch maintains undo stack integrity on success", () => {
+    const wrapper = RuntimeWrapper.createRuntimeWrapper();
+
+    const patches = [
+        { kind: "script", id: "script:undo1", js_body: "return 1;" },
+        { kind: "script", id: "script:undo2", js_body: "return 2;" }
+    ];
+
+    wrapper.applyPatchBatch(patches);
+
+    assert.ok(wrapper.hasScript("script:undo1"));
+    assert.ok(wrapper.hasScript("script:undo2"));
+
+    wrapper.undo();
+    assert.ok(!wrapper.hasScript("script:undo2"));
+    assert.ok(wrapper.hasScript("script:undo1"));
+
+    wrapper.undo();
+    assert.ok(!wrapper.hasScript("script:undo1"));
+});
+
+void test("applyPatchBatch clears undo stack on rollback", () => {
+    const wrapper = RuntimeWrapper.createRuntimeWrapper();
+
+    wrapper.applyPatch({
+        kind: "script",
+        id: "script:before_batch",
+        js_body: "return 0;"
+    });
+
+    const patches = [
+        { kind: "script", id: "script:batch_fail1", js_body: "return 1;" },
+        { kind: "script", id: "script:batch_fail2", js_body: "return {{ bad" }
+    ];
+
+    const result = wrapper.applyPatchBatch(patches);
+
+    assert.strictEqual(result.success, false);
+    assert.strictEqual(result.rolledBack, true);
+    assert.ok(wrapper.hasScript("script:before_batch"));
+    assert.ok(!wrapper.hasScript("script:batch_fail1"));
+});

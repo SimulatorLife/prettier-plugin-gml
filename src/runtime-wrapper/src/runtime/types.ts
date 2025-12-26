@@ -107,6 +107,16 @@ export interface TrySafeApplyResult {
     rolledBack?: boolean;
 }
 
+export interface BatchApplyResult {
+    success: boolean;
+    version?: number;
+    appliedCount: number;
+    failedIndex?: number;
+    error?: string;
+    message?: string;
+    rolledBack: boolean;
+}
+
 export type ApplyPatchResult = { success: true; version: number };
 
 export type RuntimePatchError = Error & { patch?: Patch; rolledBack?: boolean };
@@ -119,6 +129,7 @@ export interface ShadowTestResult {
 export interface RuntimeWrapper {
     state: RuntimeWrapperState;
     applyPatch(patch: unknown): ApplyPatchResult;
+    applyPatchBatch(patches: Array<unknown>): BatchApplyResult;
     trySafeApply(
         patch: unknown,
         onValidate?: (patch: Patch) => boolean | void
