@@ -1751,8 +1751,6 @@ function printProgramNode(node, path, options, print) {
 }
 
 function printBlockStatementNode(node, path, options, print) {
-    const parent = path.getParentNode();
-
     if (node.body.length === 0) {
         return concat(printEmptyBlock(path, options));
     }
