@@ -1191,6 +1191,16 @@ export class RefactorEngine {
         // Plan the rename
         const workspace = await this.planRename({ symbolId, newName });
 
+        // Validate the planned edits before touching the filesystem. This ensures
+        // overlapping or otherwise invalid edits are caught early, preventing
+        // partial writes that could leave the workspace in an inconsistent state.
+        const validation = await this.validateRename(workspace);
+        if (!validation.valid) {
+            throw new Error(
+                `Rename validation failed: ${validation.errors.join("; ")}`
+            );
+        }
+
         // Apply the edits
         const applied = await this.applyWorkspaceEdit(workspace, {
             readFile,
