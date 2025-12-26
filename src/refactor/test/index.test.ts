@@ -569,6 +569,37 @@ void test("executeRename performs complete rename workflow", async () => {
     assert.equal(files["test.gml"], "scr_b some code scr_b");
 });
 
+void test("executeRename rejects invalid planned edits", async () => {
+    const mockSemantic: SemanticAnalyzer = {
+        hasSymbol: () => true,
+        getSymbolOccurrences: () => [
+            { path: "test.gml", start: 0, end: 5, scopeId: "scope-1" },
+            { path: "test.gml", start: 4, end: 10, scopeId: "scope-1" } // Overlaps
+        ]
+    };
+
+    const engine = new RefactorEngine({ semantic: mockSemantic });
+
+    const readFile: WorkspaceReadFile = async () => "scr_old scr_old";
+    let wrote = false;
+    const writeFile: WorkspaceWriteFile = async () => {
+        wrote = true;
+    };
+
+    await assert.rejects(
+        () =>
+            engine.executeRename({
+                symbolId: "gml/script/scr_old",
+                newName: "scr_new",
+                readFile,
+                writeFile
+            }),
+        { message: /Overlapping edits/ }
+    );
+
+    assert.equal(wrote, false);
+});
+
 void test("executeRename prepares hot reload updates when requested", async () => {
     const mockSemantic: SemanticAnalyzer = {
         hasSymbol: () => true,
