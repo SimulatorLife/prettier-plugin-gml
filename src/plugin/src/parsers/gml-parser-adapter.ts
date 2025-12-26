@@ -353,6 +353,8 @@ function applyStructuralTransforms(
     context: ParserPreparationContext,
     options: GmlParserAdapterOptions | undefined
 ): void {
+    Transforms.preprocessFunctionArgumentDefaultsTransform.transform(ast);
+
     if (options?.condenseStructAssignments ?? true) {
         Transforms.consolidateStructAssignmentsTransform.transform(ast, {
             commentTools: { addTrailingComment }
@@ -444,7 +446,6 @@ function applyFinalTransforms(
     }
 
     Transforms.convertUndefinedGuardAssignmentsTransform.transform(ast);
-    Transforms.preprocessFunctionArgumentDefaultsTransform.transform(ast);
     Transforms.annotateStaticFunctionOverridesTransform.transform(ast);
     Transforms.collapseRedundantMissingCallArgumentsTransform.transform(ast);
     if (options?.optimizeLoopLengthHoisting ?? true) {

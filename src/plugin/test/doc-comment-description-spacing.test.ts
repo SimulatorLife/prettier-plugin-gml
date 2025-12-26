@@ -17,7 +17,7 @@ void test("preserves double spaces following doc comment hyphen", async () => {
         applyFeatherFixes: true
     });
 
-    const [, paramLine] = formatted.split("\n");
+    const [paramLine] = formatted.split("\n");
     assert.equal(
         paramLine,
         "/// @param {real} r -  The radius of the circle",

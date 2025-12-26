@@ -2718,26 +2718,6 @@ function printStatements(path, options, print, childrenAttribute) {
     }, childrenAttribute);
 }
 
-function isFunctionAssignmentStatement(node: any) {
-    const assignmentExpression =
-        node?.type === "AssignmentExpression"
-            ? node
-            : node?.type === "ExpressionStatement" &&
-                node.expression?.type === "AssignmentExpression"
-              ? node.expression
-              : null;
-
-    if (!assignmentExpression || assignmentExpression.operator !== "=") {
-        return false;
-    }
-
-    const rightType = assignmentExpression.right?.type;
-    return (
-        rightType === "FunctionDeclaration" ||
-        rightType === "FunctionExpression"
-    );
-}
-
 function buildStatementPartsForPrinter({
     childPath,
     index,
@@ -2779,7 +2759,7 @@ function buildStatementPartsForPrinter({
     const currentNodeRequiresNewline =
         shouldAddNewlinesAroundStatement(node) && isTopLevel;
 
-    if (isTopLevel && index === 0 && isFunctionAssignmentStatement(node)) {
+    if (isTopLevel && index === 0 && Core.isFunctionAssignmentStatement(node)) {
         parts.push(hardline);
     }
 

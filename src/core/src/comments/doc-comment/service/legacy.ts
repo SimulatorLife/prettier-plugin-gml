@@ -145,7 +145,6 @@ export function reorderDescriptionLinesToTop(
                         ? metadata.name.trim()
                         : "";
                 if (!isNonEmptyTrimmedString(descriptionText)) {
-                    descriptionLines.push(docLine);
                     continue;
                 }
 

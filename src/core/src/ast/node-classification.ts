@@ -1,10 +1,14 @@
 import { getNodeType } from "./node-helpers.js";
 import type { DefineStatementNode, GameMakerAstNode } from "./types.js";
+import { FUNCTION_DECLARATION, FUNCTION_EXPRESSION, CONSTRUCTOR_DECLARATION, EXPRESSION_STATEMENT, ASSIGNMENT_EXPRESSION } from "./node-types.js";
 
-const FUNCTION_LIKE_DECLARATION_TYPES = new Set([
-    "FunctionDeclaration",
-    "ConstructorDeclaration",
-    "FunctionExpression"
+/**
+ * Set of AST node types that represent function-like declarations.
+ */
+export const FUNCTION_LIKE_DECLARATION_TYPES = new Set([
+    FUNCTION_DECLARATION,
+    CONSTRUCTOR_DECLARATION,
+    FUNCTION_EXPRESSION
 ]);
 
 const DEFINE_REPLACEMENT_DIRECTIVE_VALUES = new Set<string>();
@@ -45,6 +49,26 @@ export type DefineReplacementDirective =
 export function isFunctionLikeDeclaration(node?: unknown): boolean {
     const type = getNodeType(node);
     return type !== null && FUNCTION_LIKE_DECLARATION_TYPES.has(type);
+}
+
+export function isFunctionAssignmentStatement(node: any) {
+    const assignmentExpression =
+        node?.type === ASSIGNMENT_EXPRESSION
+            ? node
+            : node?.type === EXPRESSION_STATEMENT &&
+                node.expression?.type === ASSIGNMENT_EXPRESSION
+              ? node.expression
+              : null;
+
+    if (!assignmentExpression || assignmentExpression.operator !== "=") {
+        return false;
+    }
+
+    const rightType = assignmentExpression.right?.type;
+    return (
+        rightType === "FunctionDeclaration" ||
+        rightType === "FunctionExpression"
+    );
 }
 
 function normalizeDefineReplacementDirectiveValue(

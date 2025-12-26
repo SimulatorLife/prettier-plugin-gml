@@ -363,6 +363,10 @@ export function collectImplicitArgumentDocNames(
         const suppressedCanonicals =
             suppressedImplicitDocCanonicalByNode.get(functionNode);
 
+        console.log(
+            `[DEBUG] collectImplicitArgumentDocNames for ${functionNode.id?.name}: entries=${entries.length}, suppressed=${suppressedCanonicals ? [...suppressedCanonicals].join(",") : "none"}`
+        );
+
         processImplicitArgumentEntries(functionNode, entries);
 
         return entries.filter((entry: any) => {
@@ -373,10 +377,15 @@ export function collectImplicitArgumentDocNames(
                 entry.canonical &&
                 suppressedCanonicals.has(entry.canonical)
             ) {
+                console.log(`[DEBUG] Suppressing canonical ${entry.canonical}`);
                 return false;
             }
             return true;
         });
+    } else {
+        console.log(
+            `[DEBUG] collectImplicitArgumentDocNames for ${functionNode.id?.name}: _featherImplicitArgumentDocEntries is not an array`
+        );
     }
 
     return [];

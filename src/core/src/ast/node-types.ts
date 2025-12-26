@@ -12,3 +12,6 @@ export const MEMBER_INDEX_EXPRESSION = "MemberIndexExpression";
 export const PARENTHESIZED_EXPRESSION = "ParenthesizedExpression";
 export const UNARY_EXPRESSION = "UnaryExpression";
 export const VARIABLE_DECLARATION = "VariableDeclaration";
+export const FUNCTION_DECLARATION = "FunctionDeclaration";
+export const FUNCTION_EXPRESSION = "FunctionExpression";
+export const CONSTRUCTOR_DECLARATION = "ConstructorDeclaration";

@@ -157,6 +157,7 @@ export function applyJsDocReplacements(text: unknown) {
         }
 
         stringText = stripTrailingFunctionParameters(stringText);
+        stringText = normalizeDocTagSpacing(stringText);
         stringText = normalizeFeatherOptionalParamSyntax(stringText);
 
         formattedText = stringText;
@@ -167,6 +168,12 @@ export function applyJsDocReplacements(text: unknown) {
     }
 
     return normalizeDocCommentTypeAnnotations(formattedText as string);
+}
+
+function normalizeDocTagSpacing(text: string) {
+    let normalized = text.replace(/(@[a-zA-Z]+)\s{2,}/g, "$1 ");
+    normalized = normalized.replace(/(\{[^}]+\})\s{2,}/g, "$1 ");
+    return normalized;
 }
 
 function normalizeFeatherOptionalParamSyntax(text: string) {

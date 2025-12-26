@@ -1162,6 +1162,11 @@ export function shouldGenerateSyntheticDocForFunction(
         }
     }
 
+    const hasMultiLineSummary = hasMultiLineDocCommentSummary(existingDocLines);
+    if (hasMultiLineSummary) {
+        return true;
+    }
+
     return (
         Array.isArray(node.params) &&
         node.params.some((param) => {
