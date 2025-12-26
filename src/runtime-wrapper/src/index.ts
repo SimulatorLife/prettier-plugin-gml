@@ -2,6 +2,7 @@ export * as Runtime from "./runtime/index.js";
 export * as Clients from "./websocket/index.js";
 export type {
     ApplyPatchResult,
+    BatchApplyResult,
     Patch,
     PatchHistoryEntry,
     PatchKind,
