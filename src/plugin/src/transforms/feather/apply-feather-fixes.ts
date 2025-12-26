@@ -4095,8 +4095,15 @@ function fixArgumentReferencesWithinFunction(
                 ) {
                     const docName = orderedDocNames[entry.index];
                     if (docName) {
-                        entry.name = docName;
-                        entry.canonical = docName.toLowerCase();
+                        // Prefer the JSDoc name unless it's a generic "argumentN" placeholder
+                        // and we already have a more descriptive alias from the source code.
+                        const docNameIsFallback = /^argument\d+$/.test(docName);
+                        const entryNameIsFallback = /^argument\d+$/.test(entry.name);
+
+                        if (!docNameIsFallback || entryNameIsFallback) {
+                            entry.name = docName;
+                            entry.canonical = docName.toLowerCase();
+                        }
                     }
                 }
             }

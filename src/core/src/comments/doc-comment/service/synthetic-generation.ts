@@ -375,6 +375,7 @@ function computeInitialSuppressedCanonicals(
     paramMetadataByCanonical: Map<string, DocMeta>
 ) {
     const suppressed = new Set<string>();
+    console.log(`[DEBUG] computeInitialSuppressedCanonicals for ${node?.id?.name}: params=${node?.params?.length}`);
 
     try {
         if (Array.isArray(node?.params)) {

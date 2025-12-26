@@ -1,3 +1,5 @@
+// TODO: Extend this list to include all relevant AST node types as needed. Re-use these values in place of string literals throughout the codebase.
+
 /**
  * Shared AST node-type string constants used across parser transforms.
  */

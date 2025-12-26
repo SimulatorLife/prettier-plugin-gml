@@ -363,29 +363,24 @@ export function collectImplicitArgumentDocNames(
         const suppressedCanonicals =
             suppressedImplicitDocCanonicalByNode.get(functionNode);
 
-        console.log(
-            `[DEBUG] collectImplicitArgumentDocNames for ${functionNode.id?.name}: entries=${entries.length}, suppressed=${suppressedCanonicals ? [...suppressedCanonicals].join(",") : "none"}`
-        );
-
         processImplicitArgumentEntries(functionNode, entries);
 
         return entries.filter((entry: any) => {
             if (!entry) return false;
-            if (entry._suppressDocLine) return false;
+            if (entry._suppressDocLine) {
+                return false;
+            }
             if (
                 suppressedCanonicals &&
                 entry.canonical &&
                 suppressedCanonicals.has(entry.canonical)
             ) {
-                console.log(`[DEBUG] Suppressing canonical ${entry.canonical}`);
                 return false;
             }
             return true;
         });
     } else {
-        console.log(
-            `[DEBUG] collectImplicitArgumentDocNames for ${functionNode.id?.name}: _featherImplicitArgumentDocEntries is not an array`
-        );
+        // Fallback: re-scan the body if the parser transform didn't run or failed.
     }
 
     return [];
