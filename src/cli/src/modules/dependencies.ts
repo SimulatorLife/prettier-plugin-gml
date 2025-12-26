@@ -16,8 +16,6 @@ export {
 
 export { applyEnvOptionOverrides } from "../cli-core/env-overrides.js";
 
-export { createIntegerOptionToolkit } from "../cli-core/integer-option-toolkit.js";
-
 export {
     SuiteOutputFormat,
     collectSuiteResults,
