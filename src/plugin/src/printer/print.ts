@@ -825,7 +825,8 @@ function tryPrintVariableNode(node, path, options, print) {
                                   options,
                                   {
                                       leadingNewline: false,
-                                      trailingNewline: false
+                                      trailingNewline: false,
+                                      addIndent: keptDeclarators.length > 1
                                   }
                               )
                             : path.map(print, "declarations");
@@ -871,7 +872,8 @@ function tryPrintVariableNode(node, path, options, print) {
                 options,
                 {
                     leadingNewline: false,
-                    trailingNewline: false
+                    trailingNewline: false,
+                    addIndent: keptDeclarators.length > 1
                 }
             );
 
