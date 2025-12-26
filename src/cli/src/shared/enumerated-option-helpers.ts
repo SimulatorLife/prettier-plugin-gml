@@ -111,32 +111,21 @@ export function createEnumeratedOptionHelpers(
         const ErrorConstructor =
             typeof errorConstructor === "function" ? errorConstructor : Error;
         const received = describeValue(value);
+        const message =
+            typeof createErrorMessage === "function"
+                ? createErrorMessage(value, {
+                      list: listLabel,
+                      received
+                  })
+                : typeof formatErrorMessage === "function"
+                  ? formatErrorMessage({
+                        list: listLabel,
+                        value,
+                        received
+                    })
+                  : `Value must be one of: ${listLabel}. Received: ${received}.`;
 
-        if (typeof createErrorMessage === "function") {
-            const message = createErrorMessage(value, {
-                list: listLabel,
-                received
-            });
-            throw new ErrorConstructor(message);
-        }
-
-        // If a string-formatting callback is provided, prefer it next. This
-        // branch ensures callers who provide a formatErrorMessage function
-        // receive a descriptive error message. Avoid throwing raw
-        // non-function values (which produced the previous 'undefined'
-        // message).
-        if (typeof formatErrorMessage === "function") {
-            const message = formatErrorMessage({
-                list: listLabel,
-                value,
-                received
-            });
-            throw new ErrorConstructor(message);
-        }
-
-        throw new ErrorConstructor(
-            `Value must be one of: ${listLabel}. Received: ${received}.`
-        );
+        throw new ErrorConstructor(message);
     }
 
     return Object.freeze({
