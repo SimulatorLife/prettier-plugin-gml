@@ -5,7 +5,7 @@ import path from "node:path";
 
 import { Core } from "@gml-modules/core";
 
-const { isFsErrorCode } = Core;
+const { isFsErrorCode, getErrorMessage } = Core;
 
 const DEFAULT_HOST = "127.0.0.1";
 const DEFAULT_PORT = 0;
@@ -130,8 +130,35 @@ async function sendFileResponse(res, filePath, { method }) {
 
     await new Promise<void>((resolve, reject) => {
         const stream = createReadStream(servingPath);
-        stream.on("error", reject);
-        stream.on("close", () => resolve());
+        let errorHandled = false;
+
+        const cleanup = (error?: unknown) => {
+            if (errorHandled) {
+                return;
+            }
+            errorHandled = true;
+
+            if (stream.readable || !stream.destroyed) {
+                stream.destroy();
+            }
+
+            if (error) {
+                const errorToReject =
+                    error instanceof Error
+                        ? error
+                        : new Error(
+                              getErrorMessage(error, {
+                                  fallback: "Stream error"
+                              })
+                          );
+                reject(errorToReject);
+            } else {
+                resolve();
+            }
+        };
+
+        stream.on("error", cleanup);
+        stream.on("close", () => cleanup());
         stream.pipe(res);
     });
 }
