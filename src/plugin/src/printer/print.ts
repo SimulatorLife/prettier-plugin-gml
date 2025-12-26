@@ -2718,6 +2718,26 @@ function printStatements(path, options, print, childrenAttribute) {
     }, childrenAttribute);
 }
 
+function isFunctionAssignmentStatement(node: any) {
+    const assignmentExpression =
+        node?.type === "AssignmentExpression"
+            ? node
+            : node?.type === "ExpressionStatement" &&
+                node.expression?.type === "AssignmentExpression"
+              ? node.expression
+              : null;
+
+    if (!assignmentExpression || assignmentExpression.operator !== "=") {
+        return false;
+    }
+
+    const rightType = assignmentExpression.right?.type;
+    return (
+        rightType === "FunctionDeclaration" ||
+        rightType === "FunctionExpression"
+    );
+}
+
 function buildStatementPartsForPrinter({
     childPath,
     index,
@@ -2758,6 +2778,10 @@ function buildStatementPartsForPrinter({
 
     const currentNodeRequiresNewline =
         shouldAddNewlinesAroundStatement(node) && isTopLevel;
+
+    if (isTopLevel && index === 0 && isFunctionAssignmentStatement(node)) {
+        parts.push(hardline);
+    }
 
     addLeadingStatementSpacing({
         parts,
@@ -3017,14 +3041,20 @@ function normalizeStatementSemicolon({
               ? node.expression
               : null;
 
-    const shouldOmitFunctionAssignmentSemicolon =
-        !hasTerminatingSemicolon &&
+    const isFunctionAssignmentExpression =
         assignmentExpressionForSemicolonCheck?.operator === "=" &&
         assignmentExpressionForSemicolonCheck?.right?.type ===
             "FunctionDeclaration";
 
-    if (shouldOmitFunctionAssignmentSemicolon) {
-        return "";
+    if (isFunctionAssignmentExpression && !hasTerminatingSemicolon) {
+        // Preserve the explicit terminator when normalizing anonymous
+        // function assignments so the formatter emits `= function () {};`
+        // instead of silently dropping the semicolon. The semicolon is part
+        // of the statement boundary rather than the function expression
+        // itself, so we add it whenever the source omitted one and rely on the
+        // caller to elide it when the original text already contained a
+        // trailing `;`.
+        return semi;
     }
 
     const shouldOmitSemicolon =
