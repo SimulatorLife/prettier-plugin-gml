@@ -1,11 +1,12 @@
 import { Core } from "@gml-modules/core";
-import { createIntegerOptionToolkit } from "../cli-core/integer-option-toolkit.js";
 
 const {
     callWithFallback,
     coerceNonNegativeInteger,
+    createEnvConfiguredValue,
     createNumericTypeErrorFormatter,
-    describeValueForError
+    describeValueForError,
+    resolveIntegerOption
 } = Core;
 
 export const DEFAULT_VM_EVAL_TIMEOUT_MS = 5000;
@@ -20,27 +21,54 @@ const createTimeoutTypeErrorMessage = createNumericTypeErrorFormatter(
     "VM evaluation timeout"
 );
 
-const vmEvalTimeoutToolkit = createIntegerOptionToolkit({
+const coerce = (value: unknown, context = {}) => {
+    const opts = { ...context, createErrorMessage: createTimeoutErrorMessage };
+    return coerceNonNegativeInteger(value, opts);
+};
+
+const state = createEnvConfiguredValue<number | undefined>({
     defaultValue: DEFAULT_VM_EVAL_TIMEOUT_MS,
     envVar: VM_EVAL_TIMEOUT_ENV_VAR,
-    baseCoerce: coerceNonNegativeInteger,
-    createErrorMessage: createTimeoutErrorMessage,
-    typeErrorMessage: createTimeoutTypeErrorMessage,
-    transform: (value) => (value === 0 ? null : value),
-    optionAlias: "defaultTimeout"
+    normalize: (value, { defaultValue: baseline, previousValue }) => {
+        return resolveIntegerOption(value, {
+            defaultValue: baseline ?? previousValue,
+            coerce,
+            typeErrorMessage: createTimeoutTypeErrorMessage,
+            blankStringReturnsDefault: true
+        });
+    }
 });
 
-const {
-    getDefault: getDefaultVmEvalTimeoutMs,
-    setDefault: setDefaultVmEvalTimeoutMs,
-    resolve: resolveVmEvalTimeout,
-    applyEnvOverride
-} = vmEvalTimeoutToolkit;
+function getDefaultVmEvalTimeoutMs(): number | undefined {
+    return state.get();
+}
+
+function setDefaultVmEvalTimeoutMs(value?: unknown): number | undefined {
+    return state.set(value);
+}
+
+function resolveVmEvalTimeout(
+    rawValue?: unknown,
+    options: Record<string, unknown> & {
+        defaultValue?: number;
+        defaultTimeout?: number;
+    } = {}
+): number | null | undefined {
+    const fallback =
+        options.defaultTimeout ?? options.defaultValue ?? state.get();
+    const normalized = resolveIntegerOption(rawValue, {
+        defaultValue: fallback,
+        coerce,
+        typeErrorMessage: createTimeoutTypeErrorMessage,
+        blankStringReturnsDefault: true
+    });
+    return normalized === 0 ? null : normalized;
+}
 
 function applyVmEvalTimeoutEnvOverride(
     env?: NodeJS.ProcessEnv
 ): number | undefined {
-    return callWithFallback(() => applyEnvOverride(env), {
+    return callWithFallback(() => state.applyEnvOverride(env), {
         fallback: () => getDefaultVmEvalTimeoutMs()
     });
 }

@@ -11,5 +11,4 @@ export * from "./env-overrides.js";
 export * from "./errors.js";
 export * from "./extension-normalizer.js";
 export * from "./format-command-options.js";
-export * from "./integer-option-toolkit.js";
 export * from "./version.js";
