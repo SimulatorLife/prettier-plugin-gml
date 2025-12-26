@@ -1,6 +1,7 @@
 export { createRuntimeWrapper } from "./runtime-wrapper.js";
 export type {
     ApplyPatchResult,
+    BatchApplyResult,
     Patch,
     PatchHistoryEntry,
     PatchKind,

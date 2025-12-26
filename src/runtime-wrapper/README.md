@@ -42,6 +42,57 @@ When `validateBeforeApply` is enabled, patches are validated in a shadow registr
 
 Returns `{ success: true, version: <number> }` on success.
 
+#### `applyPatchBatch(patches)`
+
+Applies multiple patches atomically as a single operation. Either all patches succeed, or the entire batch is rolled back.
+
+**Parameters:**
+
+- `patches`: Array of patch objects (same format as `applyPatch`)
+
+**Behavior:**
+
+1. Validates all patches upfront (structure and shadow validation if enabled)
+2. If validation fails, returns error without applying any patches
+3. Applies patches sequentially, recording each in the undo stack
+4. If any patch fails during application, automatically rolls back all previously applied patches in the batch
+5. Records a batch operation marker in the patch history
+
+**Returns:**
+
+- On success: `{ success: true, version: <number>, appliedCount: <number>, rolledBack: false }`
+- On validation failure: `{ success: false, appliedCount: 0, failedIndex: <number>, error: <string>, message: <string>, rolledBack: false }`
+- On application failure with rollback: `{ success: false, appliedCount: <number>, failedIndex: <number>, error: <string>, message: <string>, rolledBack: true }`
+
+**Benefits:**
+
+- **Atomicity**: All-or-nothing application ensures registry consistency
+- **Performance**: Reduces overhead compared to applying patches individually
+- **Safety**: Automatic rollback on failure maintains registry integrity
+- **Debugging**: Batch markers in history make it easy to track multi-patch operations
+
+**Example:**
+
+```javascript
+const wrapper = createRuntimeWrapper();
+
+const patches = [
+    { kind: "script", id: "script:player_move", js_body: "return args[0] * 2;" },
+    { kind: "event", id: "obj_player#Step", js_body: "this.x += 1;" },
+    { kind: "closure", id: "closure:counter", js_body: "let n = 0; return () => ++n;" }
+];
+
+const result = wrapper.applyPatchBatch(patches);
+if (result.success) {
+    console.log(`Applied ${result.appliedCount} patches at version ${result.version}`);
+} else {
+    console.error(`Batch failed at patch ${result.failedIndex}: ${result.message}`);
+    if (result.rolledBack) {
+        console.log("All changes were rolled back");
+    }
+}
+```
+
 #### `trySafeApply(patch, onValidate)`
 
 Applies a patch with automatic rollback on failure. This method:
