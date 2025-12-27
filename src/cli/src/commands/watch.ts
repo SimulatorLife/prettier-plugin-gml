@@ -120,6 +120,25 @@ interface FileChangeOptions {
 }
 
 /**
+ * Adds an item to a bounded collection, removing the oldest item if the
+ * collection exceeds its maximum size.
+ *
+ * @param collection - Array to add the item to
+ * @param item - Item to add to the collection
+ * @param maxSize - Maximum allowed size of the collection
+ */
+function addToBoundedCollection<T>(
+    collection: Array<T>,
+    item: T,
+    maxSize: number
+): void {
+    collection.push(item);
+    if (collection.length > maxSize) {
+        collection.shift();
+    }
+}
+
+/**
  * Creates the watch command for monitoring GML source files.
  *
  * @returns {Command} Commander command instance
@@ -924,17 +943,19 @@ function runTranspilationForFile(
             linesProcessed: lines
         };
 
-        runtimeContext.metrics.push(metrics);
-        if (runtimeContext.metrics.length > runtimeContext.maxPatchHistory) {
-            runtimeContext.metrics.shift();
-        }
+        addToBoundedCollection(
+            runtimeContext.metrics,
+            metrics,
+            runtimeContext.maxPatchHistory
+        );
 
         runtimeContext.lastSuccessfulPatches.set(symbolId, patch);
 
-        runtimeContext.patches.push(patch);
-        if (runtimeContext.patches.length > runtimeContext.maxPatchHistory) {
-            runtimeContext.patches.shift();
-        }
+        addToBoundedCollection(
+            runtimeContext.patches,
+            patch,
+            runtimeContext.maxPatchHistory
+        );
 
         const broadcastResult =
             runtimeContext.websocketServer?.broadcast(patch);
@@ -1006,10 +1027,11 @@ function handleTranspilationError(
         sourceSize
     };
 
-    runtimeContext.errors.push(transpilationError);
-    if (runtimeContext.errors.length > runtimeContext.maxPatchHistory) {
-        runtimeContext.errors.shift();
-    }
+    addToBoundedCollection(
+        runtimeContext.errors,
+        transpilationError,
+        runtimeContext.maxPatchHistory
+    );
 
     if (runtimeContext.websocketServer) {
         const errorNotification = createErrorNotification(
