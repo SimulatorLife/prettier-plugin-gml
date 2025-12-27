@@ -1,6 +1,12 @@
 import { getNodeType } from "./node-helpers.js";
 import type { DefineStatementNode, GameMakerAstNode } from "./types.js";
-import { FUNCTION_DECLARATION, FUNCTION_EXPRESSION, CONSTRUCTOR_DECLARATION, EXPRESSION_STATEMENT, ASSIGNMENT_EXPRESSION } from "./node-types.js";
+import {
+    FUNCTION_DECLARATION,
+    FUNCTION_EXPRESSION,
+    CONSTRUCTOR_DECLARATION,
+    EXPRESSION_STATEMENT,
+    ASSIGNMENT_EXPRESSION
+} from "./node-types.js";
 
 /**
  * Set of AST node types that represent function-like declarations.

@@ -353,7 +353,9 @@ function applyStructuralTransforms(
     context: ParserPreparationContext,
     options: GmlParserAdapterOptions | undefined
 ): void {
-    console.log(`[DEBUG] applyStructuralTransforms options.applyFeatherFixes: ${options?.applyFeatherFixes}`);
+    console.log(
+        `[DEBUG] applyStructuralTransforms options.applyFeatherFixes: ${options?.applyFeatherFixes}`
+    );
     console.log("[DEBUG] Running preprocessFunctionArgumentDefaultsTransform");
     Transforms.preprocessFunctionArgumentDefaultsTransform.transform(ast);
 

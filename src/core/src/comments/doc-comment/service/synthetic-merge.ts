@@ -868,8 +868,14 @@ function reorderParamDocLines({
         }
     }
 
-    console.log("[DEBUG] reorderParamDocLines paramDocsByCanonical initial:", Array.from(paramDocsByCanonical.keys()));
-    console.log("[DEBUG] reorderParamDocLines suppressedCanonicals:", suppressedCanonicals ? Array.from(suppressedCanonicals) : "undefined");
+    console.log(
+        "[DEBUG] reorderParamDocLines paramDocsByCanonical initial:",
+        Array.from(paramDocsByCanonical.keys())
+    );
+    console.log(
+        "[DEBUG] reorderParamDocLines suppressedCanonicals:",
+        suppressedCanonicals ? Array.from(suppressedCanonicals) : "undefined"
+    );
 
     if (suppressedCanonicals && suppressedCanonicals.size > 0) {
         for (const canonical of suppressedCanonicals) {

@@ -91,7 +91,7 @@ function getArgumentIndexFromNode(node: any) {
     ) {
         return node.property.value;
     }
-    
+
     // console.log("DEBUG: getArgumentIndexFromNode unknown type", node.type);
 
     return null;
@@ -169,7 +169,9 @@ export function getParameterDocInfo(
 
     if (paramNode.type === "VariableDeclarator") {
         const name = getNormalizedParameterName(paramNode.id);
-        console.log(`[DEBUG] getParameterDocInfo for VariableDeclarator ${name}`);
+        console.log(
+            `[DEBUG] getParameterDocInfo for VariableDeclarator ${name}`
+        );
         return name
             ? {
                   name,
