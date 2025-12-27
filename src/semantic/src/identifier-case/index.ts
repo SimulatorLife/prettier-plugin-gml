@@ -13,7 +13,7 @@ export * from "./project-index-gateway.js";
 export * from "./asset-renames.js";
 export * from "./asset-rename-policy.js";
 export * from "./asset-rename-executor.js";
-export * from "./common.js";
+export * from "./conflict-resolution.js";
 export * from "./fs-facade.js";
 // plan-state exports are intentionally kept internal to avoid duplicating
 // names that the public service facade already provides. Import specific

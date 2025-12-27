@@ -23,8 +23,7 @@ export interface ParserTransform<
  */
 export abstract class FunctionalParserTransform<
     Options extends TransformOptions = EmptyTransformOptions
-> implements ParserTransform<MutableGameMakerAstNode, Options>
-{
+> implements ParserTransform<MutableGameMakerAstNode, Options> {
     public readonly name: string;
     public readonly defaultOptions: Options;
 

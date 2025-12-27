@@ -22,7 +22,7 @@ import {
     formatConfigurationConflictMessage,
     resolveIdentifierConfigurationConflict,
     summarizeReferenceFileOccurrences
-} from "./common.js";
+} from "./conflict-resolution.js";
 import { planAssetRenames, applyAssetRenames } from "./asset-renames.js";
 import { getDefaultIdentifierCaseFsFacade } from "./fs-facade.js";
 import { evaluateIdentifierCaseAssetRenamePolicy } from "./asset-rename-policy.js";

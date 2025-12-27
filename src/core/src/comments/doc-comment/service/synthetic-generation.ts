@@ -1121,8 +1121,8 @@ function applyImplicitNameOverride({
     const resolvedFallbackCanonical = fallbackCanonical;
     const shouldOverrideImplicitName = Boolean(
         canonicalOrdinal &&
-            canonicalOrdinal !== resolvedFallbackCanonical &&
-            canonicalOrdinal !== canonicalImplicit
+        canonicalOrdinal !== resolvedFallbackCanonical &&
+        canonicalOrdinal !== canonicalImplicit
     );
 
     if (!shouldOverrideImplicitName) {
