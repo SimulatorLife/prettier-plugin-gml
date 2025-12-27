@@ -523,6 +523,8 @@ export class ScopeTracker {
                 results.push({
                     scopeId: scope.id,
                     scopeKind: scope.kind,
+                    lastModified: scope.lastModifiedTimestamp,
+                    modificationCount: scope.modificationCount,
                     identifiers
                 });
             }
@@ -540,9 +542,9 @@ export class ScopeTracker {
      * @param {string} scopeId The scope identifier to export.
      * @param {{ includeReferences?: boolean }} [options]
      *        Controls whether reference occurrences should be included.
-     * @returns {{scopeId: string, scopeKind: string, identifiers: Array}} | null
-     *          Scope occurrence payload or null if the tracker is disabled or
-     *          the scope is unknown.
+     * @returns {{scopeId: string, scopeKind: string, lastModified: number, modificationCount: number, identifiers: Array}} | null
+     *          Scope occurrence payload, including modification metadata, or
+     *          null if the tracker is disabled or the scope is unknown.
      */
     getScopeOccurrences(
         scopeId: string | null | undefined,
@@ -584,6 +586,8 @@ export class ScopeTracker {
         return {
             scopeId: scope.id,
             scopeKind: scope.kind,
+            lastModified: scope.lastModifiedTimestamp,
+            modificationCount: scope.modificationCount,
             identifiers
         };
     }
