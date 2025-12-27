@@ -112,6 +112,8 @@ const result = tracker.getScopeOccurrences("scope-1", {
 // {
 //   scopeId: "scope-1",
 //   scopeKind: "block",
+//   lastModified: 1703123458000,
+//   modificationCount: 2,
 //   identifiers: [
 //     {
 //       name: "localVar",
@@ -124,7 +126,9 @@ const result = tracker.getScopeOccurrences("scope-1", {
 
 **Use case:** Emit targeted invalidation payloads for a single scope. The method
 mirrors `exportOccurrences` but avoids iterating through every scope in the
-tracker, making per-file queries cheaper during hot reload.
+tracker, making per-file queries cheaper during hot reload. The response also
+includes modification timestamps and counters so hot reload pipelines can
+detect freshness without issuing separate metadata lookups.
 
 ### `getSymbolOccurrences(name)`
 
