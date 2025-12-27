@@ -85,14 +85,23 @@ const jsCode = emitJavaScript(ast);
   - ✅ Trigonometric functions: sin, cos, tan, arcsin, arccos, arctan, arctan2
   - ✅ Angle conversion: degtorad, radtodeg
   - ✅ Utility functions: min, max, sign, clamp, point_distance
+  - ✅ String functions:
+    - ✅ Basic operations: string_length, string_char_at, string_ord_at, string_byte_at, string_byte_length
+    - ✅ Searching: string_pos, string_last_pos
+    - ✅ Manipulation: string_copy, string_delete, string_insert, string_replace, string_replace_all
+    - ✅ Case conversion: string_upper, string_lower
+    - ✅ Utility: string_repeat, string_count
+    - ✅ Filtering: string_letters, string_digits, string_lettersdigits
+    - ✅ Conversion: chr, ansi_char, ord, real, string
+    - ✅ Formatting: string_format
 
 ### Planned Features
 
 - [x] `with` statement lowering
-- [x] Built-in function mapping (expanded to 27+ functions)
+- [x] Built-in function mapping (expanded to 50+ functions including comprehensive string support)
 - [ ] Scope-aware identifier resolution (self, other, global)
 - [ ] Script call indirection through runtime wrapper
-- [ ] Additional built-in function mapping (string functions, array functions, data structure functions)
+- [ ] Additional built-in function mapping (array functions, data structure functions)
 - [ ] Compound assignment operators (already parsed, may need runtime handling)
 
 ## Operator Mapping
