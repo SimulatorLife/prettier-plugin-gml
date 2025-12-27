@@ -318,17 +318,19 @@ export class GmlToJsEmitter {
     }
 
     private visitProgram(ast: ProgramNode): string {
-        return (ast.body ?? [])
-            .map((stmt) => this.ensureStatementTermination(this.visit(stmt)))
-            .filter(Boolean)
-            .join("\n");
+        return this.joinTruthy(
+            (ast.body ?? []).map((stmt) =>
+                this.ensureStatementTermination(this.visit(stmt))
+            )
+        );
     }
 
     private visitBlockStatement(ast: BlockStatementNode): string {
-        const body = (ast.body ?? [])
-            .map((stmt) => this.ensureStatementTermination(this.visit(stmt)))
-            .filter(Boolean)
-            .join("\n");
+        const body = this.joinTruthy(
+            (ast.body ?? []).map((stmt) =>
+                this.ensureStatementTermination(this.visit(stmt))
+            )
+        );
         return `{\n${body}\n}`;
     }
 
@@ -374,7 +376,7 @@ export class GmlToJsEmitter {
             .map((line) => (line ? `        ${line}` : ""))
             .join("\n");
 
-        return [
+        return this.joinTruthy([
             "{",
             "    const __with_prev_self = self;",
             "    const __with_prev_other = other;",
@@ -408,9 +410,7 @@ export class GmlToJsEmitter {
             "    self = __with_prev_self;",
             "    other = __with_prev_other;",
             "}"
-        ]
-            .filter(Boolean)
-            .join("\n");
+        ]);
     }
 
     private visitReturnStatement(ast: ReturnStatementNode): string {
@@ -452,8 +452,8 @@ export class GmlToJsEmitter {
                     caseNode.test === null
                         ? "default:"
                         : `case ${this.visit(caseNode.test)}:`;
-                const body = (caseNode.body ?? [])
-                    .map((stmt) => {
+                const body = this.joinTruthy(
+                    (caseNode.body ?? []).map((stmt) => {
                         const code = this.visit(stmt);
                         const trimmed = code.trim();
                         if (
@@ -468,8 +468,7 @@ export class GmlToJsEmitter {
                         }
                         return `${code};`;
                     })
-                    .filter(Boolean)
-                    .join("\n");
+                );
                 return `${header}\n${body}`;
             })
             .join("\n");
@@ -480,8 +479,8 @@ export class GmlToJsEmitter {
         if (!ast.declarations || ast.declarations.length === 0) {
             return "";
         }
-        return ast.declarations
-            .map((decl) => {
+        return this.joinTruthy(
+            ast.declarations.map((decl) => {
                 const identifier = this.resolveIdentifierName(decl.id);
                 if (!identifier) {
                     return "";
@@ -489,8 +488,7 @@ export class GmlToJsEmitter {
                 this.globalVars.add(identifier);
                 return `if (!Object.prototype.hasOwnProperty.call(globalThis, "${identifier}")) { globalThis.${identifier} = undefined; }`;
             })
-            .filter(Boolean)
-            .join("\n");
+        );
     }
 
     private visitVariableDeclaration(ast: VariableDeclarationNode): string {
@@ -688,6 +686,12 @@ export class GmlToJsEmitter {
             return code;
         }
         return `${code};`;
+    }
+
+    private joinTruthy(
+        lines: Array<string | undefined | null | false>
+    ): string {
+        return lines.filter(Boolean).join("\n");
     }
 
     private resolveIdentifierName(
