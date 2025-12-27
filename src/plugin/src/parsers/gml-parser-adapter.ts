@@ -49,10 +49,36 @@ export type GmlParserAdapterOptions = {
     condenseLogicalExpressions?: boolean;
     optimizeMathExpressions?: boolean;
     stripComments?: boolean;
-    originalText?: string; // TODO: Why is this here? Not really a parser option.
-    __identifierCaseProjectIndexBootstrap?: unknown; // TODO: Why is this here? Not really a parser option.
+    
+    // DESIGN SMELL: These fields are not true parser options; they're runtime state
+    // or context passed through the options bag for convenience. This violates separation
+    // of concerns and makes the interface unclear.
+    //
+    // - originalText: Stores the unmodified source before preprocessing. Used by the
+    //   printer to recover original text for certain nodes. Should be passed via a
+    //   separate context object or stored in the AST metadata, not in parser options.
+    //
+    // - __identifierCaseProjectIndexBootstrap: Initialization data for the identifier-case
+    //   analysis subsystem. Should be managed by the Semantic module and passed through
+    //   a dedicated bootstrap context, not smuggled through parser options.
+    //
+    // - [key: string]: unknown: Catch-all index signature that allows arbitrary properties.
+    //   This defeats type safety and makes it impossible to catch typos or invalid options
+    //   at compile time. Remove this and define explicit optional fields for any legitimate
+    //   options that need to be added.
+    //
+    // LONG-TERM FIX: Refactor the option-passing architecture to separate:
+    //   1. Pure parser options (flags that control parsing behavior)
+    //   2. Preprocessing context (source transformations, index adjustments)
+    //   3. Runtime state (original text, semantic bootstrap data)
+    //   4. Printer context (formatting preferences, semantic rename maps)
+    //
+    // Each of these should have its own typed interface and be passed through the
+    // appropriate channels instead of being conflated in a single options object.
+    originalText?: string;
+    __identifierCaseProjectIndexBootstrap?: unknown;
     normalizeDocComments?: boolean;
-    [key: string]: unknown; // TODO: Why is this here? Not really a parser option.
+    [key: string]: unknown;
 };
 
 type ParserPreparationContext = {

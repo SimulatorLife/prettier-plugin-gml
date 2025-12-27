@@ -1,4 +1,27 @@
-// TODO: A lot of this is duplicated from core/parser. Can we consolidate? If reusable, this should live in Core.
+/**
+ * AST type definitions for the transpiler emitter.
+ *
+ * DUPLICATION WARNING: Many of these type definitions (SemKind, IdentifierMetadata,
+ * BaseNode, ProgramNode, etc.) are duplicated from or overlap with types defined in
+ * the Core and Parser packages.
+ *
+ * CURRENT STATE: The transpiler defines its own AST types because it evolved separately
+ * from the main parser and Core packages. This duplication creates maintenance burden:
+ *   - Changes to AST structure in the parser must be manually propagated here.
+ *   - Type mismatches between packages can cause runtime errors that TypeScript doesn't catch.
+ *   - It's unclear which definition is the "source of truth" for each node type.
+ *
+ * RECOMMENDATION: Audit the types in this file and determine:
+ *   1. Which types are identical to Core/Parser and can be imported directly.
+ *   2. Which types are transpiler-specific (e.g., have extra metadata for code generation)
+ *      and should remain here but extend Core types.
+ *   3. Which types represent shared concepts (e.g., SemKind, IdentifierMetadata) and
+ *      should be moved to Core so all packages can use the same definition.
+ *
+ * LONG-TERM GOAL: Consolidate AST types into Core, extend them in domain-specific packages
+ * (Parser, Transpiler) only when necessary, and eliminate the duplication. This will make
+ * cross-package AST manipulation safer and reduce the risk of type drift.
+ */
 
 export type SemKind =
     | "local"

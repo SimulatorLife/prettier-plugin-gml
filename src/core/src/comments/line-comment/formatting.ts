@@ -10,11 +10,27 @@ import { isObjectLike } from "../../utils/object.js";
 import { toTrimmedString } from "../../utils/string.js";
 import { isRegExpLike } from "../../utils/capability-probes.js";
 
-// Note: '=' is intentionally omitted from the decoration class to avoid
-// treating the equality operator '==' inside commented-out code as a
-// decorative banner sequence. Keeping '=' here caused valid code like
-// "if (room == rm_island)" to have its '==' collapsed during banner
-// normalization.
+// BANNER DECORATION PATTERN DESIGN:
+//
+// The character class below defines which sequences count as "banner decorations"
+// in line comments. Banner comments are visual separators like:
+//   //============
+//   //------------
+//   //**********
+//
+// CRITICAL: The '=' character is intentionally OMITTED from this character class.
+//
+// WHY: Including '=' would cause the banner-normalization logic to treat the
+// equality operator '==' inside commented-out code as a decorative sequence.
+// For example, the comment "// if (room == rm_island)" would have its '=='
+// incorrectly collapsed or removed during formatting, breaking the commented code.
+//
+// WHAT WOULD BREAK: Adding '=' here would corrupt any commented-out conditionals,
+// comparisons, or assignments that use '==' or '===', making them unreadable or
+// syntactically incorrect when un-commented.
+//
+// The current set ([-_~*#<>|:.]) safely covers common decoration characters
+// without risking damage to commented-out code.
 const BANNER_DECORATION_CLASS = "[-_~*#<>|:.]";
 const LEADING_BANNER_DECORATION_PATTERN = new RegExp(
     String.raw`^(?:${BANNER_DECORATION_CLASS}{2,}\s*)+`

@@ -1,4 +1,26 @@
-// TODO: This file is way too big and needs to be split up. Things like 'attachFeatherFixMetadata' can live here, but everything else should be split/moved. Can have a file just for enum handling, one for fixing begin/end vertex, colour, one for constants, etc.
+/**
+ * Feather diagnostic transforms and AST fix application.
+ * 
+ * ARCHITECTURE NOTE: This file has accumulated a large collection of Feather-specific
+ * fix handlers and should be split into focused, domain-specific modules:
+ * 
+ * - enum-constant-fixes.ts → handles enum member constant transformations
+ * - vertex-format-fixes.ts → handles begin/end vertex format migrations
+ * - color-constant-fixes.ts → handles color constant renaming and normalization  
+ * - identifier-renaming.ts → handles reserved identifier conflicts and safe renaming
+ * - doc-comment-fixes.ts → handles JSDoc type annotation corrections
+ * - user-event-fixes.ts → handles missing user event constant insertions
+ * 
+ * The core metadata attachment function `attachFeatherFixMetadata` can remain here as
+ * the public entry point, but delegates to focused submodules for each diagnostic category.
+ * 
+ * MAINTENANCE HAZARD: Many helper functions in this file duplicate functionality from
+ * the 'refactor' and 'semantic' modules. Identifier renaming logic in particular should
+ * be consolidated into the 'refactor' module, which is built on top of 'semantic' to
+ * provide scope-aware, conflict-free renaming. Before adding new identifier manipulation
+ * here, check if the behavior already exists in those packages and prefer importing it
+ * or extracting a shared utility into Core.
+ */
 
 /**
  * Provides a collection of helpers that interpret and apply YoYo Games "Feather" diagnostics as AST fixes.
@@ -43,7 +65,27 @@ import {
 } from "../doc-comment/doc-comment-metadata.js";
 
 type RenameOptions = {
-    // TODO: This may be duplicated by functionality in the 'refactor' and/or 'semantic' modules. Identifier renaming needs to live in the 'refactor' module, which is built on top of 'semantic' (which handles scope and context) so that identifiers can be renamed properly/safely without introducing conflicts
+    // DUPLICATION WARNING: The identifier renaming logic in this file may overlap
+    // with functionality already implemented in the 'refactor' and 'semantic' modules.
+    //
+    // ARCHITECTURE: Identifier renaming should live in the 'refactor' module, which
+    // is built on top of 'semantic'. The 'semantic' module provides scope analysis
+    // and binding resolution (determining what each identifier refers to and where
+    // it's defined), while 'refactor' uses that information to perform safe renames
+    // that avoid shadowing conflicts and preserve program semantics.
+    //
+    // CURRENT STATE: This file implements ad-hoc renaming for Feather fixes (reserved
+    // identifiers, deprecated names, etc.) without consulting scope information. This
+    // risks introducing name conflicts, shadowing variables, or breaking references
+    // in nested scopes.
+    //
+    // RECOMMENDATION: Before adding new renaming logic here, check if 'refactor'
+    // already provides the capability. If it does, import it and use the scope-aware
+    // implementation. If it doesn't, consider adding the feature to 'refactor' so it
+    // can be shared across the codebase rather than duplicating the logic here.
+    //
+    // LONG-TERM: Extract all identifier renaming from this file and consolidate it
+    // into 'refactor', then import those functions here for Feather-specific fixes.
     onRename?: (payload: {
         identifier: MutableGameMakerAstNode;
         originalName: string;
@@ -3110,7 +3152,30 @@ const IDENTIFIER_DECLARATION_CONTEXTS = new Set([
     "DefaultParameter:left"
 ]);
 
-// TODO: This may be duplicated by functionality in the 'refactor' and/or 'semantic' modules
+/**
+ * Determines whether an identifier in the AST should be skipped during renaming.
+ *
+ * DUPLICATION WARNING: This logic overlaps with scope analysis in 'semantic' and
+ * identifier categorization in 'refactor'. The decision of whether to rename an
+ * identifier should ideally be based on:
+ *   1. Scope information (is it a declaration, binding, or reference?)
+ *   2. Syntactic context (is it the target of a property access, an import, etc.?)
+ *
+ * CURRENT STATE: This function uses a hardcoded set of parent-type + property-name
+ * pairs to identify declaration contexts where renaming should be skipped. This is
+ * fragile and duplicates semantic analysis that 'semantic' already performs.
+ *
+ * RECOMMENDATION: Consolidate this with 'semantic' binding analysis or 'refactor'
+ * renaming utilities. The semantic module can mark each identifier node with metadata
+ * indicating its role (declaration, reference, import, etc.), and renaming logic can
+ * consult that metadata instead of re-deriving it from parent context.
+ *
+ * WHAT WOULD BREAK: Removing or changing this function without understanding the
+ * identifier's semantic role could cause:
+ *   - Renaming declaration sites incorrectly (e.g., turning `function foo()` into `function bar()`)
+ *   - Missing references that should be renamed
+ *   - Renaming property keys or import specifiers that should remain unchanged
+ */
 function shouldSkipIdentifierReplacement({ parent, property, ancestors }) {
     if (!parent) {
         return true;
@@ -3181,7 +3246,29 @@ function createReadOnlyReplacementName(originalName, nameRegistry) {
     return candidate;
 }
 
-// TODO: This may be duplicated by functionality in the 'refactor' and/or 'semantic' modules
+/**
+ * Collects all identifier names used in the given AST subtree.
+ *
+ * DUPLICATION WARNING: This function walks the AST to extract identifier names,
+ * which overlaps with functionality in 'refactor' and 'semantic':
+ *   - 'semantic' already performs complete binding analysis and knows every identifier
+ *     in scope, its declaration site, and all its references.
+ *   - 'refactor' provides utilities for collecting identifiers within a scope for
+ *     conflict detection during renaming.
+ *
+ * CURRENT STATE: This function performs a manual tree walk to build a Set of all
+ * identifier names. It doesn't distinguish between declarations, references, or
+ * shadowed names, and doesn't respect scope boundaries.
+ *
+ * RECOMMENDATION: Import identifier collection from 'semantic' or 'refactor' instead
+ * of reimplementing it here. If scope-aware collection is needed (e.g., "find all
+ * identifiers in this function's scope"), use the semantic binding map. If you only
+ * need a simple name registry for conflict detection, consider extracting this logic
+ * to a shared utility in Core.
+ *
+ * LONG-TERM: Consolidate all identifier-collection logic into 'semantic' and provide
+ * a public API for queries like "getAllIdentifiersInScope(node)" or "getBindingsAtNode(node)".
+ */
 function collectAllIdentifierNames(root) {
     const names = new Set();
 
@@ -7189,7 +7276,21 @@ function isRepeatCompatibleUpdate(update, indexName) {
     return false;
 }
 
-// TODO: Move this to where the other identifier utilities are located
+/**
+ * Checks whether the given AST node contains any reference to the specified identifier name.
+ *
+ * LOCATION SMELL: This utility performs identifier-reference detection, which is a general
+ * AST analysis task. It doesn't belong in the Feather-fixes file, which should focus on
+ * applying diagnostic-driven transformations.
+ *
+ * RECOMMENDATION: Move this function to a shared identifier-utility module, such as:
+ *   - src/core/src/ast/identifier-utils.ts (if it's general-purpose)
+ *   - src/semantic/src/identifier-analysis.ts (if it should use scope information)
+ *
+ * The semantic module already tracks identifier bindings and references; consider using
+ * its binding map instead of manually traversing the tree. If scope-aware detection isn't
+ * needed, extract this to Core so other packages can reuse it without depending on Feather.
+ */
 function doesNodeUseIdentifier(node, name) {
     if (!node || !name) {
         return false;
@@ -11879,7 +11980,27 @@ function findFirstCallExpression(node) {
     return null;
 }
 
-// TODO: Move this into Core
+/**
+ * Creates a deep clone of an AST node, stripping all location metadata.
+ *
+ * PURPOSE: Location information (start, end, line, column) is specific to the original
+ * source text. When creating synthetic nodes or transplanting nodes to different contexts,
+ * we need clean copies without stale location data that would point to the wrong source
+ * positions.
+ *
+ * LOCATION SMELL: This is a general-purpose AST utility that doesn't belong in the
+ * Feather-fixes file. It should live in Core alongside other node manipulation helpers
+ * like createIdentifierNode, cloneNode, and getNodeStartIndex.
+ *
+ * RECOMMENDATION: Move this function to src/core/src/ast/node-utils.ts (or similar) and
+ * export it as part of the Core API. Update all imports in this file and elsewhere to
+ * use Core.cloneNodeWithoutLocations.
+ *
+ * WHAT WOULD BREAK: Leaving general utilities scattered across domain-specific files
+ * makes them hard to discover and leads to duplication (someone else might write a
+ * similar function in another package). Centralizing AST utilities in Core ensures
+ * consistent behavior and makes the codebase easier to navigate.
+ */
 function cloneNodeWithoutLocations(node) {
     if (!node || typeof node !== "object") {
         return node;
@@ -13267,7 +13388,16 @@ function hasGpuPushStateBeforeIndex(statements, index) {
     return false;
 }
 
-// TODO: Move this to where the other identifier utility functions are
+/**
+ * Checks whether any statement after the given index references the specified variable name.
+ *
+ * LOCATION SMELL: This is a general identifier-usage check that doesn't belong in the
+ * Feather-fixes file. It should be consolidated with other identifier utilities.
+ *
+ * RECOMMENDATION: Move to src/core/src/ast/identifier-utils.ts or use the semantic
+ * module's binding analysis instead. The semantic module already knows which identifiers
+ * are used where; querying it is more reliable than manual AST scanning.
+ */
 function referencesIdentifierAfterIndex(container, variableName, startIndex) {
     if (!Array.isArray(container) || !variableName) {
         return false;
@@ -13284,7 +13414,15 @@ function referencesIdentifierAfterIndex(container, variableName, startIndex) {
     return false;
 }
 
-// TODO: Move this to where the other identifier utility functions are
+/**
+ * Recursively checks whether the given AST node contains a reference to the specified variable.
+ *
+ * LOCATION SMELL: This is a variant of doesNodeUseIdentifier and should be consolidated
+ * with other identifier-detection utilities rather than living in the Feather-fixes file.
+ *
+ * RECOMMENDATION: Extract to a shared identifier-utils module in Core, or use semantic
+ * binding analysis to query reference information instead of manually walking the tree.
+ */
 function referencesIdentifier(node, variableName) {
     if (!node || typeof node !== "object") {
         return false;
@@ -14469,8 +14607,19 @@ function findStructArgument(args) {
     return null;
 }
 
+/**
+ * Annotates struct properties in a StructExpression with Feather fix metadata.
+ *
+ * DUPLICATION WARNING: There may be an existing transform that performs similar
+ * struct property annotation or manipulation. If struct property handling is needed
+ * in multiple places, extract the logic into a shared utility in Core or the
+ * Plugin transforms directory.
+ *
+ * RECOMMENDATION: Search for other functions that iterate over struct properties
+ * and apply transformations. If found, consolidate the logic into a reusable helper
+ * that can be called from both Feather fixes and general formatting transforms.
+ */
 function annotateVariableStructProperties(structExpression, diagnostic) {
-    // TODO: We have an existing transform that does this or similar, this should be consolidated
     if (!structExpression || structExpression.type !== "StructExpression") {
         return [];
     }
@@ -14496,8 +14645,13 @@ function annotateVariableStructProperties(structExpression, diagnostic) {
     return fixes;
 }
 
+/**
+ * Annotates a single struct property with Feather fix metadata.
+ *
+ * DUPLICATION WARNING: See the comment on annotateVariableStructProperties above.
+ * This function is part of a pattern that may be duplicated elsewhere in the codebase.
+ */
 function annotateVariableStructProperty(property, diagnostic) {
-    // TODO: We have an existing transform that does this or similar, this should be consolidated
     if (!property || property.type !== "Property") {
         return null;
     }
@@ -14530,7 +14684,23 @@ function annotateVariableStructProperty(property, diagnostic) {
     return fixDetail;
 }
 
-// TODO: Make a separate file for all 'user event' functionality
+/**
+ * Annotates missing user-event constant references in the AST.
+ *
+ * ORGANIZATION SMELL: All user-event-related functionality (detection, constant
+ * insertion, validation) should be extracted into a dedicated module rather than
+ * being scattered through this large Feather-fixes file.
+ *
+ * RECOMMENDATION: Create src/plugin/src/transforms/feather/user-event-fixes.ts and
+ * move all user-event-specific logic there:
+ *   - annotateMissingUserEvents
+ *   - insertUserEventConstant
+ *   - validateUserEventConstant
+ *   - USER_EVENT_CONSTANTS (if defined)
+ *
+ * This makes the code easier to navigate and test, and reduces the size of this
+ * already-oversized file.
+ */
 function annotateMissingUserEvents({ ast, diagnostic }) {
     if (!hasFeatherDiagnosticContext(ast, diagnostic)) {
         return [];
@@ -14780,8 +14950,24 @@ function createAssignmentFromDeclarator(declarator, declarationNode) {
     return assignment;
 }
 
+/**
+ * Extracts the parameter names from a function declaration or expression.
+ *
+ * ORGANIZATION SMELL: Function parameter handling (extraction, validation, transformation)
+ * is a common task that appears in multiple contexts (Feather fixes, doc-comment generation,
+ * refactoring). This logic should be consolidated into a shared function-utility module.
+ *
+ * RECOMMENDATION: Create or move this to src/core/src/ast/function-utils.ts (or similar)
+ * alongside other function-related helpers like:
+ *   - getFunctionParameterNames (this function)
+ *   - getFunctionParameterCount
+ *   - isFunctionLikeNode
+ *   - extractFunctionSignature
+ *
+ * This makes function-handling logic reusable across the plugin, semantic analysis,
+ * and refactoring operations.
+ */
 function getFunctionParameterNames(node) {
-    // TODO: Make or move this to a standalone function-library utility for handling GML functions (built-in functions, function parameter/arguments handling, etc.)
     const params = Core.getArrayProperty(node, "params");
     const names = [];
 
@@ -14825,8 +15011,20 @@ function getVariableDeclaratorName(declarator) {
     return identifier.name ?? null;
 }
 
+/**
+ * Creates a shallow clone of a Literal node with fresh location information.
+ *
+ * LOCATION SMELL: This is a general AST node cloning utility that should live in Core
+ * alongside other cloning helpers like cloneIdentifier, cloneAstNode, etc.
+ *
+ * RECOMMENDATION: Move to src/core/src/ast/node-utils.ts and export it as Core.cloneLiteral.
+ * Update all imports in this file and add unit tests for the new Core export.
+ *
+ * WHAT WOULD BREAK: Leaving node-cloning utilities scattered across domain-specific files
+ * makes them hard to discover and leads to duplication. Centralizing them in Core ensures
+ * consistent cloning behavior and makes the API more discoverable.
+ */
 function cloneLiteral(node) {
-    // TODO: Move this into Core and update imports/exports and tests accordingly
     if (!node || node.type !== "Literal") {
         return null;
     }
@@ -14841,7 +15039,16 @@ function cloneLiteral(node) {
     return cloned;
 }
 
-// TODO: Move this to where the other comment utilities are located
+/**
+ * Copies comment-related metadata from one AST node to another.
+ *
+ * LOCATION SMELL: This is a general comment-handling utility that should live alongside
+ * other comment utilities in Core, not buried in the Feather-fixes file.
+ *
+ * RECOMMENDATION: Move to src/core/src/comments/comment-utils.ts where similar helpers
+ * like getCommentArray, attachComments, etc. already live. This makes comment utilities
+ * discoverable and ensures consistent comment handling across the codebase.
+ */
 function copyCommentMetadata(source, target) {
     if (!source || !target) {
         return;
@@ -14859,7 +15066,19 @@ function copyCommentMetadata(source, target) {
     }
 }
 
-// TODO: Move this to where the identifier functionality is located
+/**
+ * Extracts an identifier name from a string literal value.
+ *
+ * PURPOSE: Some GML patterns represent identifiers as string literals (e.g., in
+ * reflection or meta-programming contexts). This helper parses those strings to
+ * extract valid identifier names.
+ *
+ * LOCATION SMELL: This is a general identifier-parsing utility that doesn't belong
+ * in the Feather-fixes file.
+ *
+ * RECOMMENDATION: Move to src/core/src/ast/identifier-utils.ts or a dedicated string
+ * parsing module if identifier extraction from strings is a common operation.
+ */
 function extractIdentifierNameFromLiteral(value) {
     if (typeof value !== "string") {
         return null;
@@ -15611,7 +15830,19 @@ function isOptionalParameter(parameter) {
     return parameter?.type === "DefaultParameter";
 }
 
-// TODO: Move this to where the identifier functionality is located
+/**
+ * Extracts the identifier name from a function declaration or expression node.
+ *
+ * CONTEXT: Function nodes can have their name stored in different properties depending
+ * on their type (FunctionDeclaration, FunctionExpression, etc.), and this helper
+ * normalizes the extraction logic.
+ *
+ * LOCATION SMELL: This is a general AST utility for function nodes and should live
+ * with other function-related helpers, not in the Feather-fixes file.
+ *
+ * RECOMMENDATION: Move to src/core/src/ast/function-utils.ts (create if needed) or
+ * src/core/src/ast/identifier-utils.ts alongside other name-extraction helpers.
+ */
 function getFunctionIdentifierName(node) {
     if (!node) {
         return null;
@@ -15644,7 +15875,29 @@ function getFunctionIdentifierName(node) {
     return null;
 }
 
-// TODO: Move this into the doc-comment service/manager in Core
+/**
+ * Scans the AST for malformed JSDoc type annotations and attempts to fix them.
+ *
+ * LOCATION SMELL: JSDoc type parsing, validation, and normalization should live in the
+ * Core doc-comment service/manager, not in the Feather-fixes file. The doc-comment
+ * subsystem already handles JSDoc parsing, tag extraction, and type normalization for
+ * general formatting; Feather-specific fixes should import those helpers rather than
+ * reimplementing type manipulation logic here.
+ *
+ * RECOMMENDATION: Move this and related JSDoc type-handling functions to:
+ *   src/core/src/comments/doc-comment/service/type-normalization.ts
+ *
+ * The Core doc-comment service should expose functions like:
+ *   - parseTypeAnnotation(text): ParsedType
+ *   - normalizeTypeAnnotation(type, typeSystemInfo): string
+ *   - balanceTypeDelimiters(text): string
+ *
+ * Then Feather fixes can import and apply them without duplicating the logic.
+ *
+ * WHAT WOULD BREAK: Centralizing type-handling logic in Core makes it easier to maintain
+ * consistent JSDoc formatting across the codebase and prevents drift between the plugin's
+ * doc-comment formatter and Feather's type sanitization.
+ */
 function sanitizeMalformedJsDocTypes({ ast, diagnostic, typeSystemInfo }) {
     if (!hasFeatherDiagnosticContext(ast, diagnostic)) {
         return [];
@@ -15684,7 +15937,12 @@ function sanitizeMalformedJsDocTypes({ ast, diagnostic, typeSystemInfo }) {
     return fixes;
 }
 
-// TODO: Move this into the doc-comment service/manager in Core
+/**
+ * Sanitizes a single JSDoc comment's type annotation.
+ *
+ * LOCATION SMELL: This belongs in Core's doc-comment service, not in Feather fixes.
+ * See the comment on sanitizeMalformedJsDocTypes for details.
+ */
 function sanitizeDocCommentType(comment, typeSystemInfo) {
     if (!comment || comment.type !== "CommentLine") {
         return null;
@@ -15750,7 +16008,12 @@ function sanitizeDocCommentType(comment, typeSystemInfo) {
     };
 }
 
-// TODO: Move this into the doc-comment service/manager in Core
+/**
+ * Extracts the type annotation portion from a JSDoc tag value.
+ *
+ * LOCATION SMELL: This belongs in Core's doc-comment service. Type annotation parsing
+ * is a core doc-comment concern, not a Feather-specific fix.
+ */
 function extractTypeAnnotation(value) {
     if (typeof value !== "string") {
         return null;
@@ -15790,7 +16053,12 @@ function extractTypeAnnotation(value) {
     };
 }
 
-// TODO: Move this into the doc-comment service/manager in Core
+/**
+ * Splits a JSDoc tag value into its type annotation and remaining description text.
+ *
+ * LOCATION SMELL: This belongs in Core's doc-comment service. Tag parsing is a general
+ * doc-comment operation, not a Feather-specific fix.
+ */
 function splitTypeAndRemainder(text) {
     if (typeof text !== "string") {
         return { type: "", remainder: "" };
@@ -15863,7 +16131,11 @@ function splitTypeAndRemainder(text) {
 
 const WHITESPACE_PATTERN = /\s/;
 
-// TODO: Move this into the doc-comment service/manager in Core
+/**
+ * Normalizes whitespace and formatting in a type annotation string.
+ *
+ * LOCATION SMELL: This belongs in Core's doc-comment type-normalization service.
+ */
 function sanitizeTypeAnnotationText(typeText, typeSystemInfo) {
     if (typeof typeText !== "string" || typeText.length === 0) {
         return typeText ?? "";
@@ -15885,7 +16157,11 @@ function sanitizeTypeAnnotationText(typeText, typeSystemInfo) {
     return normalizeCollectionTypeDelimiters(unionSanitized);
 }
 
-// TODO: Move this into the doc-comment service/manager in Core
+/**
+ * Ensures that angle brackets, braces, and parentheses are balanced in a type annotation.
+ *
+ * LOCATION SMELL: This belongs in Core's doc-comment type-normalization service.
+ */
 function balanceTypeAnnotationDelimiters(typeText) {
     if (typeof typeText !== "string" || typeText.length === 0) {
         return typeText ?? "";
@@ -15936,7 +16212,11 @@ function balanceTypeAnnotationDelimiters(typeText) {
     return typeText + stack.reverse().join("");
 }
 
-// TODO: Move this into the doc-comment service/manager in Core
+/**
+ * Fixes spacing around type specifiers (e.g., "Array<" vs "Array <").
+ *
+ * LOCATION SMELL: This belongs in Core's doc-comment type-normalization service.
+ */
 function fixSpecifierSpacing(typeText, specifierBaseTypes) {
     if (typeof typeText !== "string" || typeText.length === 0) {
         return typeText ?? "";
@@ -15988,7 +16268,11 @@ function fixSpecifierSpacing(typeText, specifierBaseTypes) {
     return result;
 }
 
-// TODO: Move this into the doc-comment service/manager in Core
+/**
+ * Reads and parses a type specifier token from the beginning of the text.
+ *
+ * LOCATION SMELL: This belongs in Core's doc-comment type-normalization service.
+ */
 function readSpecifierToken(text) {
     if (typeof text !== "string" || text.length === 0) {
         return null;
@@ -16105,7 +16389,11 @@ function readSpecifierToken(text) {
     };
 }
 
-// TODO: Move this into the doc-comment service/manager in Core
+/**
+ * Normalizes spacing around union type separators (|).
+ *
+ * LOCATION SMELL: This belongs in Core's doc-comment type-normalization service.
+ */
 function fixTypeUnionSpacing(typeText, baseTypesLower) {
     if (typeof typeText !== "string" || typeText.length === 0) {
         return typeText ?? "";
@@ -16167,7 +16455,11 @@ function normalizeCollectionTypeDelimiters(typeText) {
     return typeText.replaceAll("[", "<").replaceAll("]", ">");
 }
 
-// TODO: Move this into the doc-comment service/manager in Core
+/**
+ * Splits a complex type annotation into logical segments for processing.
+ *
+ * LOCATION SMELL: This belongs in Core's doc-comment type-normalization service.
+ */
 function splitTypeSegments(text) {
     const segments = [];
     let current = "";
@@ -16239,7 +16531,11 @@ function splitTypeSegments(text) {
     return segments;
 }
 
-// TODO: Move this into the doc-comment service/manager in Core
+/**
+ * Checks whether a delimiter character appears outside of nested brackets/parens.
+ *
+ * LOCATION SMELL: This belongs in Core's doc-comment type-normalization service.
+ */
 function hasDelimiterOutsideNesting(text, delimiters) {
     if (typeof text !== "string" || text.length === 0) {
         return false;
@@ -16330,7 +16626,12 @@ function createTemporaryIdentifierName(argument, siblings) {
     return candidate;
 }
 
-// TODO: Move this to where the other identifier utilities are located
+/**
+ * Removes invalid characters from an identifier name.
+ *
+ * LOCATION SMELL: This is a general identifier utility that should live with other
+ * identifier helpers in Core, not in the Feather-fixes file.
+ */
 function sanitizeIdentifierName(name) {
     if (typeof name !== "string" || name.length === 0) {
         return "value";
@@ -16345,7 +16646,13 @@ function sanitizeIdentifierName(name) {
     return sanitized || "value";
 }
 
-// TODO: Move this to where the other identifier utilities are located
+/**
+ * Recursively collects all identifier names in a subtree and adds them to the registry.
+ *
+ * LOCATION SMELL: This is a general identifier collection utility that overlaps with
+ * similar functions elsewhere in this file and should be consolidated with other
+ * identifier utilities in Core or Semantic.
+ */
 function collectIdentifierNames(node, registry) {
     if (!node || !registry) {
         return;
@@ -16520,7 +16827,16 @@ function isStatementContainer(owner, ownerKey) {
     return false;
 }
 
-// TODO: This should be moved into the dedicated doc-comment/JSDoc service/manager in Core
+/**
+ * Extracts the base type name from a type segment string.
+ *
+ * PURPOSE: JSDoc type annotations can have specifiers (e.g., "Array<String>").
+ * This function extracts just the base type name ("Array") from the full segment.
+ *
+ * LOCATION SMELL: This belongs in Core's doc-comment type-normalization service.
+ * See the comments on sanitizeMalformedJsDocTypes for details on consolidating
+ * JSDoc type handling logic.
+ */
 function extractBaseTypeName(segment) {
     if (typeof segment !== "string") {
         return null;
@@ -16531,7 +16847,14 @@ function extractBaseTypeName(segment) {
     return match ? match[0] : null;
 }
 
-// TODO: This should be moved into the dedicated doc-comment/JSDoc service/manager in Core
+/**
+ * Extracts the parameter name from a JSDoc tag's remainder text.
+ *
+ * PURPOSE: After parsing the type annotation from a @param tag, this function
+ * extracts the parameter identifier from the remaining description text.
+ *
+ * LOCATION SMELL: This belongs in Core's doc-comment parsing service.
+ */
 function extractParameterNameFromDocRemainder(remainder) {
     if (typeof remainder !== "string") {
         return null;
@@ -16542,7 +16865,32 @@ function extractParameterNameFromDocRemainder(remainder) {
     return match ? match[1] : null;
 }
 
-// TODO: This may be duplicated by functionality in the 'refactor' and/or 'semantic' modules. Identifier renaming needs to live in the 'refactor' module, which is built on top of 'semantic' (which handles scope and context) so that identifiers can be renamed properly/safely without introducing conflicts
+/**
+ * Renames identifiers that conflict with reserved words or GML built-ins.
+ *
+ * DUPLICATION WARNING: This function implements identifier renaming logic that likely
+ * overlaps with functionality in the 'refactor' and 'semantic' modules.
+ *
+ * ARCHITECTURE: Identifier renaming should be a responsibility of the 'refactor' module,
+ * which is built on top of 'semantic'. The 'semantic' module provides scope analysis and
+ * binding resolution (determining what each identifier refers to and where it's defined),
+ * while 'refactor' uses that information to perform safe renames that avoid shadowing
+ * conflicts and preserve program semantics.
+ *
+ * CURRENT STATE: This function performs ad-hoc renaming for Feather-detected reserved
+ * identifier conflicts without consulting scope information. This risks:
+ *   - Introducing new name conflicts by choosing replacements that shadow other variables
+ *   - Missing some references if the scope isn't properly analyzed
+ *   - Renaming identifiers that don't actually conflict in their scope
+ *
+ * RECOMMENDATION: Before adding new renaming logic here, check if 'refactor' already
+ * provides the capability. If it does, import it and use the scope-aware implementation.
+ * If it doesn't, consider adding the feature to 'refactor' so it can be shared and
+ * properly tested with scope analysis.
+ *
+ * LONG-TERM: Extract all identifier renaming from this file and consolidate it into
+ * 'refactor', then import those functions here for Feather-specific fixes.
+ */
 function renameReservedIdentifiers({ ast, diagnostic, sourceText }) {
     if (
         !diagnostic ||
@@ -16621,7 +16969,13 @@ function isSupportedVariableDeclaration(node) {
     return kind === "var" || kind === "static";
 }
 
-// TODO: This may be duplicated by functionality in the 'refactor' and/or 'semantic' modules. Identifier renaming needs to live in the 'refactor' module, which is built on top of 'semantic' (which handles scope and context) so that identifiers can be renamed properly/safely without introducing conflicts
+/**
+ * Renames reserved identifiers within a VariableDeclaration node.
+ *
+ * DUPLICATION WARNING: See the comment on renameReservedIdentifiers above.
+ * This is part of the identifier renaming subsystem that should be consolidated
+ * with the 'refactor' and 'semantic' modules.
+ */
 function renameReservedIdentifiersInVariableDeclaration(node, diagnostic) {
     const declarations = Array.isArray(node?.declarations)
         ? node.declarations
@@ -16648,7 +17002,13 @@ function renameReservedIdentifiersInVariableDeclaration(node, diagnostic) {
     return fixes;
 }
 
-// TODO: This may be duplicated by functionality in the 'refactor' and/or 'semantic' modules. Identifier renaming needs to live in the 'refactor' module, which is built on top of 'semantic' (which handles scope and context) so that identifiers can be renamed properly/safely without introducing conflicts
+/**
+ * Renames a single identifier node if it conflicts with a reserved word.
+ *
+ * DUPLICATION WARNING: See the comment on renameReservedIdentifiers above.
+ * This is part of the identifier renaming subsystem that should be consolidated
+ * with the 'refactor' and 'semantic' modules.
+ */
 function renameReservedIdentifierNode(
     identifier,
     diagnostic,
@@ -16701,7 +17061,17 @@ function renameReservedIdentifierNode(
     return fixDetail;
 }
 
-// TODO: This may be duplicated by functionality in the 'refactor' and/or 'semantic' modules. Identifier renaming needs to live in the 'refactor' module, which is built on top of 'semantic' (which handles scope and context) so that identifiers can be renamed properly/safely without introducing conflicts
+/**
+ * Renames a reserved identifier in a macro declaration, updating the macro's text.
+ *
+ * DUPLICATION WARNING: See the comment on renameReservedIdentifiers above.
+ * This is part of the identifier renaming subsystem that should be consolidated
+ * with the 'refactor' and 'semantic' modules.
+ *
+ * SPECIAL CASE: Macros require additional handling because their body is stored as
+ * unparsed text rather than an AST. When renaming a macro identifier, we must also
+ * update the macro text to reflect the new name.
+ */
 function renameReservedIdentifierInMacro(node, diagnostic, sourceText) {
     if (!node || node.type !== "MacroDeclaration") {
         return null;
@@ -16723,7 +17093,17 @@ function renameReservedIdentifierInMacro(node, diagnostic, sourceText) {
     });
 }
 
-// TODO: This maybe be duplicated in 'refactor' or 'semantic' or should maybe be moved there
+/**
+ * Checks whether a given identifier name is a GML reserved word or built-in.
+ *
+ * DUPLICATION WARNING: This check likely exists in 'refactor' or 'semantic' as well,
+ * since reserved word detection is a fundamental part of identifier validation and
+ * scope analysis.
+ *
+ * RECOMMENDATION: Check if 'semantic' or 'refactor' already provides this functionality.
+ * If so, import it instead of maintaining a separate implementation. If not, consider
+ * moving this to Core or Semantic so all packages can use the same reserved-word list.
+ */
 function isReservedIdentifier(name) {
     if (typeof name !== "string" || name.length === 0) {
         return false;
@@ -17278,7 +17658,23 @@ function extractFunctionCallNamesFromExample(exampleText) {
 }
 
 const ARGUMENT_BUILTINS = new Set([
-    // TODO: Make or move this to a standalone function-library utility for handling GML functions (built-in functions, function parameter/arguments handling, etc.)
+    /**
+     * GML built-in argument access functions and constants.
+     *
+     * ORGANIZATION SMELL: This list of built-in function names belongs in a dedicated
+     * GML function library module, not scattered through transformation files.
+     *
+     * RECOMMENDATION: Create src/core/src/gml/builtin-functions.ts (or similar) to
+     * centralize all GML built-in function and constant information:
+     *   - ARGUMENT_BUILTINS (this set)
+     *   - DRAW_FUNCTIONS (draw_* functions)
+     *   - GPU_STATE_FUNCTIONS (gpu_* functions)
+     *   - STRING_FUNCTIONS (string_* functions)
+     *   - etc.
+     *
+     * This makes built-in function metadata discoverable, testable, and reusable across
+     * the plugin, semantic analysis, and refactoring operations.
+     */
     "argument",
     "argument_relative",
     "argument_count",

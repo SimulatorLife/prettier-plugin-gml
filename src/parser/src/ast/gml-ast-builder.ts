@@ -186,7 +186,18 @@ export default class GameMakerASTBuilder {
 
     constructor(
         options: ParserOptions,
-        whitespaces: unknown[] = [] // TODO: What type should this be? Can this be combined into ParserOptions?
+        // DESIGN QUESTION: The whitespaces parameter is an array of unknown type that
+        // stores whitespace/comment information during parsing. Its type and purpose
+        // are unclear:
+        //   - What does it contain? Token objects? Raw strings? AST comment nodes?
+        //   - Why is it passed separately instead of being part of ParserOptions?
+        //   - Is it mutated during parsing, or is it read-only context?
+        //
+        // RECOMMENDATION: Define a proper type for whitespace data (e.g., WhitespaceToken[])
+        // and either add it as a field in ParserOptions or document why it must be passed
+        // separately. If it's mutable state that accumulates during parsing, consider
+        // making it a private field initialized in the constructor rather than a parameter.
+        whitespaces: unknown[] = []
     ) {
         this.options = options;
         this.whitespaces = whitespaces || [];
