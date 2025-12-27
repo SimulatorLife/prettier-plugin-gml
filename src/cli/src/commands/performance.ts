@@ -995,14 +995,9 @@ function createSuiteFailureSummary([suite, payload]) {
  * bookkeeping around collecting defined summaries.
  */
 function createSuiteFailureSummariesFromEntries(entries) {
-    return entries.reduce((summaries, entry) => {
-        const summary = createSuiteFailureSummary(entry);
-        if (summary) {
-            summaries.push(summary);
-        }
-
-        return summaries;
-    }, []);
+    return entries
+        .map(createSuiteFailureSummary)
+        .filter((summary) => summary !== null);
 }
 
 function collectSuiteFailureSummaries(results) {
