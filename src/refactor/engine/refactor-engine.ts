@@ -889,7 +889,7 @@ export class RefactorEngine {
 
         // Build a workspace edit containing text edits for every occurrence. Each
         // edit replaces the old symbol name with the new name at its source location.
-        const workspace = new WorkspaceEdit();
+        const workspace = WorkspaceEdit();
 
         for (const occurrence of occurrences) {
             workspace.addEdit(
@@ -1132,7 +1132,7 @@ export class RefactorEngine {
         // Combine all workspace edits into a single merged edit that can be applied
         // atomically. This ensures either all renames succeed together or none are
         // applied, maintaining consistency.
-        const merged = new WorkspaceEdit();
+        const merged = WorkspaceEdit();
         for (const workspace of workspaces) {
             for (const edit of workspace.edits) {
                 merged.addEdit(edit.path, edit.start, edit.end, edit.newText);
@@ -2204,7 +2204,7 @@ export class RefactorEngine {
             return { valid: false, errors, warnings };
         }
 
-        if (!workspace || !(workspace instanceof WorkspaceEdit)) {
+        if (!workspace || !Core.isWorkspaceEditLike(workspace)) {
             errors.push("Invalid workspace edit");
             return { valid: false, errors, warnings };
         }
