@@ -1060,15 +1060,17 @@ function logTranspilationSummary(
     }
 }
 
+// eslint-disable-next-line max-params -- quiet parameter needed for future extensibility
 function handleTranspilationError(
     error: unknown,
     runtimeContext: RuntimeContext,
     filePath: string,
     sourceSize: number,
     verbose: boolean,
-    quiet: boolean
+    quiet: boolean // Errors are always displayed, even in quiet mode
 ): void {
-    void quiet; // Errors are always displayed, even in quiet mode
+    // quiet parameter intentionally unused - errors are always shown
+    void quiet;
 
     const errorMessage = getErrorMessage(error, {
         fallback: "Unknown transpilation error"
