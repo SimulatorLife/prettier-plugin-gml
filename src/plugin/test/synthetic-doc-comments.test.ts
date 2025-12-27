@@ -183,9 +183,7 @@ void test("synthetic constructor docs include trailing parameters", async () => 
         break;
     }
 
-    const paramLines = docLines.filter((line) =>
-        line.startsWith("/// @param")
-    );
+    const paramLines = docLines.filter((line) => line.startsWith("/// @param"));
 
     assert.deepStrictEqual(
         paramLines,

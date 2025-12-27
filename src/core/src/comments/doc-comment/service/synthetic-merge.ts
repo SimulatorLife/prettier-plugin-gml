@@ -860,7 +860,8 @@ function reorderParamDocLines({
                 ? getCanonicalParamNameFromText(paramInfo.name)
                 : null;
 
-            const implicitEntry = implicitEntriesByIndex.get(paramIndex) ?? null;
+            const implicitEntry =
+                implicitEntriesByIndex.get(paramIndex) ?? null;
             const docLine = resolveDocLineFromCandidates([
                 canonical,
                 getEntryNameCanonical(implicitEntry),

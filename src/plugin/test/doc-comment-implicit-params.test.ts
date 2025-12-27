@@ -152,8 +152,8 @@ void test("collectImplicitArgumentDocNames reuses documented names when alias is
     const formatted = await Plugin.format(EXISTING_DOC_SOURCE);
 
     const paramLines = new Set(
-        extractDocLinesForFunction(formatted, "sampleExisting").filter(
-            (line) => line.startsWith("/// @param")
+        extractDocLinesForFunction(formatted, "sampleExisting").filter((line) =>
+            line.startsWith("/// @param")
         )
     );
 
