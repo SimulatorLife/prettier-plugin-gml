@@ -100,33 +100,12 @@ function hasMultiLineDocCommentSummary(
     return false;
 }
 
-function logDebugMergeStart(
-    isDebugMerge: boolean,
-    existingDocLines: DocCommentLines | string[]
-) {
-    if (!isDebugMerge) {
-        return;
-    }
-
-    console.log(
-        "[DEBUG MERGE START] mergeSyntheticDocComments called with existingDocLines:",
-        existingDocLines
-    );
-}
-
 export function mergeSyntheticDocComments(
     node: any,
     existingDocLines: DocCommentLines | string[],
     options: any,
     overrides: any = {}
 ): MutableDocCommentLines {
-    const isDebugMerge = existingDocLines.some(
-        (line) =>
-            typeof line === STRING_TYPE && line.includes("Additional summary")
-    );
-
-    logDebugMergeStart(isDebugMerge, existingDocLines);
-
     let normalizedExistingLines: MutableDocCommentLines = existingDocLines.map(
         (line) => line.trim()
     ) as MutableDocCommentLines;
@@ -476,15 +455,6 @@ export function mergeSyntheticDocComments(
         result._suppressLeadingBlank = true;
     }
 
-    const isDebugCase4 = result.some(
-        (line) =>
-            typeof line === STRING_TYPE && line.includes("Additional summary")
-    );
-
-    if (isDebugCase4) {
-        console.log("[DEBUG MERGE RESULT] result before filtering:", result);
-    }
-
     let filteredResult: MutableDocCommentLines = toMutableArray(
         result.filter((line) => {
             if (typeof line !== STRING_TYPE) {
@@ -501,13 +471,6 @@ export function mergeSyntheticDocComments(
             return descriptionText.length > 0;
         })
     );
-
-    if (isDebugCase4) {
-        console.log(
-            "[DEBUG MERGE RESULT] filteredResult after filtering:",
-            filteredResult
-        );
-    }
 
     if (result._suppressLeadingBlank) {
         filteredResult._suppressLeadingBlank = true;
@@ -602,27 +565,6 @@ export function mergeSyntheticDocComments(
                 // Ensure a blank separator between summary block and synthetic metadata
                 const combined = [...summaryLines, "", ...otherLines];
 
-                const isDebugCase3 = combined.some(
-                    (line) =>
-                        typeof line === STRING_TYPE &&
-                        line.includes("Additional summary")
-                );
-
-                if (isDebugCase3) {
-                    console.log(
-                        "[DEBUG MERGE FILTERED] combined before assignment to filteredResult:",
-                        combined
-                    );
-                    console.log(
-                        "[DEBUG MERGE FILTERED] summaryLines:",
-                        summaryLines
-                    );
-                    console.log(
-                        "[DEBUG MERGE FILTERED] otherLines:",
-                        otherLines
-                    );
-                }
-
                 filteredResult = toMutableArray(
                     combined as any
                 ) as MutableDocCommentLines;
@@ -637,18 +579,6 @@ export function mergeSyntheticDocComments(
             normalizeDocCommentTypeAnnotations: normalizeGameMakerType
         }
     );
-
-    const isDebugCase2 = convertedResult.some(
-        (line) =>
-            typeof line === STRING_TYPE && line.includes("Additional summary")
-    );
-
-    if (isDebugCase2) {
-        console.log(
-            "[DEBUG MERGE CONVERTED] convertedResult before pruning:",
-            convertedResult
-        );
-    }
 
     const prunedConvertedResult = convertedResult.filter((line) => {
         if (typeof line !== STRING_TYPE) {
@@ -665,18 +595,6 @@ export function mergeSyntheticDocComments(
 
         return descriptionText.length > 0;
     });
-
-    const isDebugCase = prunedConvertedResult.some(
-        (line) =>
-            typeof line === STRING_TYPE && line.includes("Additional summary")
-    );
-
-    if (isDebugCase) {
-        console.log(
-            "[DEBUG MERGE END] prunedConvertedResult (final return):",
-            prunedConvertedResult
-        );
-    }
 
     // Check for missing continuation lines
     const hasDescription = prunedConvertedResult.some(
@@ -697,12 +615,6 @@ export function mergeSyntheticDocComments(
                 !/^\/\/\/\s*@/.test(next.trim())
             );
         });
-
-    if (hasDescription && !hasContinuationAfterDescription) {
-        console.log(
-            "[DEBUG MERGE END] WARNING: Description found but no continuation lines!"
-        );
-    }
 
     return toMutableArray(prunedConvertedResult) as MutableDocCommentLines;
 }
@@ -867,15 +779,6 @@ function reorderParamDocLines({
             paramDocsByCanonical.set(canonical, line);
         }
     }
-
-    console.log(
-        "[DEBUG] reorderParamDocLines paramDocsByCanonical initial:",
-        Array.from(paramDocsByCanonical.keys())
-    );
-    console.log(
-        "[DEBUG] reorderParamDocLines suppressedCanonicals:",
-        suppressedCanonicals ? Array.from(suppressedCanonicals) : "undefined"
-    );
 
     if (suppressedCanonicals && suppressedCanonicals.size > 0) {
         for (const canonical of suppressedCanonicals) {
@@ -1094,17 +997,6 @@ export function shouldGenerateSyntheticDocForFunction(
 ): boolean {
     const node = path.getValue();
     const parent = path.getParentNode();
-    if (node?.type === "FunctionDeclaration") {
-        console.log(
-            `[DEBUG] shouldGenerateSyntheticDocForFunction checking function: ${node.id?.name}`
-        );
-    }
-    if (node?.id?.name === "scr_bezier_4") {
-        console.log(
-            `[DEBUG] shouldGenerateSyntheticDocForFunction scr_bezier_4: parent.type=${parent?.type} node.type=${node?.type}`
-        );
-    }
-
     if (
         !node ||
         !parent ||

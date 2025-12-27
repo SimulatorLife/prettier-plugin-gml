@@ -62,7 +62,6 @@ function suppressAliasCanonicalOverrides(
     documentedParamNames: Set<unknown>,
     suppressed: Set<string>
 ): void {
-    console.log("[DEBUG] suppressAliasCanonicalOverrides start");
     for (const rawDocName of documentedParamNames) {
         const normalizedDocName =
             typeof rawDocName === "string"
@@ -77,9 +76,6 @@ function suppressAliasCanonicalOverrides(
         const fallbackCanonical =
             getCanonicalParamNameFromText(`argument${maybeIndex}`) ||
             `argument${maybeIndex}`;
-        console.log(
-            `[DEBUG] suppressAliasCanonicalOverrides adding ${fallbackCanonical}`
-        );
         suppressed.add(fallbackCanonical);
     }
 }
@@ -88,7 +84,6 @@ function suppressOrderedCanonicalFallbacks(
     orderedParamMetadata: readonly any[],
     suppressed: Set<string>
 ): void {
-    console.log("[DEBUG] suppressOrderedCanonicalFallbacks start");
     for (const [ordIndex, ordMeta] of orderedParamMetadata.entries()) {
         if (!ordMeta || typeof ordMeta.name !== STRING_TYPE) {
             continue;
@@ -102,9 +97,6 @@ function suppressOrderedCanonicalFallbacks(
         const fallback =
             getCanonicalParamNameFromText(`argument${ordIndex}`) ||
             `argument${ordIndex}`;
-        console.log(
-            `[DEBUG] suppressOrderedCanonicalFallbacks adding ${fallback} for ordIndex=${ordIndex} canonicalOrdinal=${canonicalOrdinal}`
-        );
         suppressed.add(fallback);
     }
 }
@@ -340,14 +332,7 @@ export function computeSyntheticFunctionDocLines(
         implicitArgumentDocNames
     );
 
-    console.log(
-        `DEBUG: computeSyntheticFunctionDocLines node=${node?.id?.name} params=${node?.params?.length}`
-    );
-
     if (!isNonEmptyArray(node.params)) {
-        console.log(
-            `DEBUG: Using appendDocLinesForNoParams for ${node?.id?.name}`
-        );
         appendDocLinesForNoParams(
             lines,
             implicitArgumentDocNames,
@@ -358,9 +343,6 @@ export function computeSyntheticFunctionDocLines(
         return finalizeDocLines(lines, node, hasReturnsTag, overrides);
     }
 
-    console.log(
-        `DEBUG: Using appendDocumentedParamLines for ${node?.id?.name}`
-    );
     appendDocumentedParamLines(
         lines,
         node,
@@ -394,9 +376,6 @@ function computeInitialSuppressedCanonicals(
     paramMetadataByCanonical: Map<string, DocMeta>
 ) {
     const suppressed = new Set<string>();
-    console.log(
-        `[DEBUG] computeInitialSuppressedCanonicals for ${node?.id?.name}: params=${node?.params?.length}`
-    );
 
     try {
         const { aliasByIndex } = gatherImplicitArgumentReferences(node);
@@ -512,9 +491,6 @@ function computeInitialSuppressedCanonicals(
         /* ignore */
     }
 
-    console.log(
-        `[DEBUG] computeInitialSuppressedCanonicals result for ${node?.id?.name}: ${JSON.stringify(Array.from(suppressed))}`
-    );
     return suppressed;
 }
 
@@ -778,7 +754,8 @@ function appendExplicitParameterDocLines({
             canonicalOrdinal,
             canonicalParamName,
             rawOrdinalName,
-            paramMetadataByCanonical
+            paramMetadataByCanonical,
+            implicitDocEntryByIndex
         });
         const ordinalDocName =
             hasCompleteOrdinalDocs &&
@@ -878,17 +855,12 @@ function appendExplicitParameterDocLine({
     paramIndex,
     shouldAdoptOrdinalName
 }: AppendExplicitParameterDocLineParams) {
-    console.log(
-        `DEBUG: appendExplicit param=${paramIndex} docName=${docName} shouldAdopt=${shouldAdoptOrdinalName} isOrphaned=${isOrphanedImplicit} isAdopting=${isAdoptingOrdinal} documented=${documentedParamNames.has(docName)}`
-    );
-
     if (
         documentedParamNames.has(docName) &&
         !isOrphanedImplicit &&
         !isAdoptingOrdinal
     ) {
         if (existingMetadata) {
-            console.log(`DEBUG: Outputting existing metadata for ${docName}`);
             const typePart = existingMetadata.type
                 ? `{${existingMetadata.type}} `
                 : "";
@@ -902,13 +874,8 @@ function appendExplicitParameterDocLine({
             !existingMetadata &&
             !ordinalMetadata
         ) {
-            console.log(`DEBUG: Outputting orphaned implicit for ${docName}`);
             const line = `/// @param ${docName}`;
             lines.push(line);
-        } else {
-            console.log(
-                `DEBUG: Skipping ${docName} because it is documented and not orphaned/adopting`
-            );
         }
 
         if (implicitDocEntry?.name) {
@@ -917,7 +884,6 @@ function appendExplicitParameterDocLine({
         return;
     }
 
-    console.log(`DEBUG: Outputting new doc for ${docName}`);
     documentedParamNames.add(docName);
     const typePart = docType ? `{${docType}} ` : "";
     const descriptionPart =
@@ -1032,6 +998,7 @@ type OrdinalDocPreferencesParams = {
     canonicalParamName: string | null;
     rawOrdinalName: string | null;
     paramMetadataByCanonical: Map<string, DocMeta>;
+    implicitDocEntryByIndex: Map<number, ImplicitArgumentDocEntry>;
 };
 
 function handleOrdinalDocPreferences({
@@ -1044,7 +1011,8 @@ function handleOrdinalDocPreferences({
     canonicalOrdinal,
     canonicalParamName,
     rawOrdinalName,
-    paramMetadataByCanonical
+    paramMetadataByCanonical,
+    implicitDocEntryByIndex
 }: OrdinalDocPreferencesParams) {
     if (
         hasCompleteOrdinalDocs &&
@@ -1095,22 +1063,22 @@ function handleOrdinalDocPreferences({
                       ? getCanonicalParamNameFromText(candidateInfo.name)
                       : null;
 
-                  console.log(
-                      `[DEBUG] Checking candidate ${candidateIndex}: ${candidateCanonical} vs ${canonicalOrdinal}`
-                  );
-
                   return candidateCanonical === canonicalOrdinal;
               })
             : false;
 
-        if (canonicalOrdinalMatchesDeclaredParam) {
-            console.log(
-                `[DEBUG] handleOrdinalDocPreferences NOT suppressing ${canonicalOrdinal} for paramIndex=${paramIndex} (matches declared param)`
+        const canonicalOrdinalMatchesImplicitAlias =
+            implicitDocEntryByIndex &&
+            Array.from(implicitDocEntryByIndex.values()).some(
+                (entry) => entry.name === canonicalOrdinal
             );
+
+        if (
+            canonicalOrdinalMatchesDeclaredParam ||
+            canonicalOrdinalMatchesImplicitAlias
+        ) {
+            // Do not suppress if the ordinal name matches another declared parameter or an implicit alias.
         } else {
-            console.log(
-                `[DEBUG] handleOrdinalDocPreferences suppressing ${canonicalOrdinal} for paramIndex=${paramIndex}`
-            );
             let suppressedCanonicals =
                 suppressedImplicitDocCanonicalByNode.get(node);
             if (!suppressedCanonicals) {
@@ -1170,16 +1138,7 @@ function applyImplicitNameOverride({
         ? implicitCanonicalLength
         : 0;
 
-    console.log(
-        `[DEBUG] applyImplicitNameOverride param=${paramIndex} ordinal=${ordinalDocName}(${ordinalLength}) implicit=${effectiveImplicitName}(${implicitComparisonLength})`
-    );
-
     if (ordinalLength > implicitComparisonLength) {
-        if (paramIndex === 8 || paramIndex === 9) {
-            console.log(
-                `[DEBUG] applyImplicitNameOverride param ${paramIndex}: overriding implicit '${effectiveImplicitName}' with ordinal '${ordinalDocName}'`
-            );
-        }
         applyOrdinalImplicitDocEntryOverrides(
             node,
             paramIndex,
@@ -1188,12 +1147,6 @@ function applyImplicitNameOverride({
             ordinalDocName
         );
         return null;
-    } else {
-        if (paramIndex === 8 || paramIndex === 9) {
-            console.log(
-                `[DEBUG] applyImplicitNameOverride param ${paramIndex}: keeping implicit '${effectiveImplicitName}' (ordinal '${ordinalDocName}' not preferred)`
-            );
-        }
     }
 
     return effectiveImplicitName;

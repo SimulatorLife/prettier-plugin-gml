@@ -46,11 +46,6 @@ function getLineCommentRawText(comment, options: any = {}) {
         );
     }
 
-    if (process.env.GML_PRINTER_DEBUG) {
-        console.log(
-            `[DEBUG] getLineCommentRawText falling back to value for comment: ${comment.value}`
-        );
-    }
 
     if (!isObjectLike(comment)) {
         return "";
@@ -346,23 +341,15 @@ function tryFormatExistingDocComment(
     trimmedValue: string,
     startsWithTripleSlash: boolean
 ): string | null {
-    console.log(
-        `[DEBUG] tryFormatExistingDocComment: "${trimmedOriginal}" startsWithTripleSlash=${startsWithTripleSlash}`
-    );
     if (!startsWithTripleSlash || !trimmedOriginal.includes("@")) {
         return null;
     }
 
     const content = trimmedValue.replace(/^\/+\s*/, "");
     const formatted = applyJsDocReplacements(`/// ${content}`) as string;
-    console.log(
-        `[DEBUG] tryFormatExistingDocComment formatted: "${formatted}"`
-    );
 
     if (content.toLowerCase().startsWith("@description")) {
-        console.log(
-            `[DEBUG] doc comment content: "${content}", trimmedOriginal: "${trimmedOriginal}", formatted: "${formatted}"`
-        );
+        // intentionally left blank to avoid leaking debug info
     }
 
     if (formatted.trim() === "/// @description") {
@@ -370,9 +357,6 @@ function tryFormatExistingDocComment(
     }
 
     const result = applyInlinePadding(comment, formatted);
-    console.log(
-        `[DEBUG] formatLineComment preserve doc: "${trimmedOriginal}" -> "${result}"`
-    );
     return result;
 }
 
@@ -404,9 +388,6 @@ function tryFormatDocTagPrefix(
     }
 
     const result = applyInlinePadding(comment, formattedCommentLine);
-    console.log(
-        `[DEBUG] formatLineComment docTagSource: "${trimmedOriginal}" -> "${result}"`
-    );
     return result;
 }
 
@@ -442,9 +423,6 @@ function tryFormatCommentedOutCode(
         `//${leadingWhitespace}${coreValue}`,
         true
     );
-    console.log(
-        `[DEBUG] formatLineComment commented code: "${trimmedOriginal}" -> "${result}"`
-    );
     return result;
 }
 
@@ -470,11 +448,7 @@ function tryFormatMultiSentenceComment(
         const line = applyInlinePadding(comment, `// ${sentence}`);
         return index === 0 ? line : continuationIndent + line;
     });
-    const result = formattedSentences.join("\n");
-    console.log(
-        `[DEBUG] formatLineComment sentences: "${trimmedOriginal}" -> "${result}"`
-    );
-    return result;
+    return formattedSentences.join("\n");
 }
 
 /**
@@ -653,14 +627,10 @@ function formatLineComment(
     }
 
     // Default: format as a regular comment
-    const result = applyInlinePadding(
+    return applyInlinePadding(
         comment,
         `//${trimmedValue.startsWith("/") ? "" : " "}${trimmedValue}`
     );
-    console.log(
-        `[DEBUG] formatLineComment default: "${trimmedOriginal}" -> "${result}"`
-    );
-    return result;
 }
 
 function applyInlinePadding(comment, formattedText, preserveTabs = false) {
