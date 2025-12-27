@@ -62,6 +62,7 @@ function suppressAliasCanonicalOverrides(
     documentedParamNames: Set<unknown>,
     suppressed: Set<string>
 ): void {
+    console.log("[DEBUG] suppressAliasCanonicalOverrides start");
     for (const rawDocName of documentedParamNames) {
         const normalizedDocName =
             typeof rawDocName === "string"
@@ -76,6 +77,7 @@ function suppressAliasCanonicalOverrides(
         const fallbackCanonical =
             getCanonicalParamNameFromText(`argument${maybeIndex}`) ||
             `argument${maybeIndex}`;
+        console.log(`[DEBUG] suppressAliasCanonicalOverrides adding ${fallbackCanonical}`);
         suppressed.add(fallbackCanonical);
     }
 }
@@ -84,6 +86,7 @@ function suppressOrderedCanonicalFallbacks(
     orderedParamMetadata: readonly any[],
     suppressed: Set<string>
 ): void {
+    console.log("[DEBUG] suppressOrderedCanonicalFallbacks start");
     for (const [ordIndex, ordMeta] of orderedParamMetadata.entries()) {
         if (!ordMeta || typeof ordMeta.name !== STRING_TYPE) {
             continue;
@@ -97,6 +100,7 @@ function suppressOrderedCanonicalFallbacks(
         const fallback =
             getCanonicalParamNameFromText(`argument${ordIndex}`) ||
             `argument${ordIndex}`;
+        console.log(`[DEBUG] suppressOrderedCanonicalFallbacks adding ${fallback} for ordIndex=${ordIndex} canonicalOrdinal=${canonicalOrdinal}`);
         suppressed.add(fallback);
     }
 }
@@ -496,6 +500,7 @@ function computeInitialSuppressedCanonicals(
         /* ignore */
     }
 
+    console.log(`[DEBUG] computeInitialSuppressedCanonicals result for ${node?.id?.name}: ${JSON.stringify(Array.from(suppressed))}`);
     return suppressed;
 }
 
@@ -710,9 +715,11 @@ function appendExplicitParameterDocLines({
             implicitDocEntry &&
             typeof implicitDocEntry.name === STRING_TYPE &&
             implicitDocEntry.name &&
-            implicitDocEntry.canonical !== implicitDocEntry.fallbackCanonical
+            (implicitDocEntry.canonical !== implicitDocEntry.fallbackCanonical ||
+                implicitDocEntry.name !== implicitDocEntry.canonical)
                 ? implicitDocEntry.name
                 : null;
+
         const canonicalParamName =
             (implicitDocEntry?.canonical && implicitDocEntry.canonical) ||
             getCanonicalParamNameFromText(paramInfo.name);
@@ -1026,11 +1033,14 @@ function handleOrdinalDocPreferences({
                       ? getCanonicalParamNameFromText(candidateInfo.name)
                       : null;
 
+                  console.log(`[DEBUG] Checking candidate ${candidateIndex}: ${candidateCanonical} vs ${canonicalOrdinal}`);
+
                   return candidateCanonical === canonicalOrdinal;
               })
             : false;
 
         if (!canonicalOrdinalMatchesDeclaredParam) {
+            console.log(`[DEBUG] handleOrdinalDocPreferences suppressing ${canonicalOrdinal} for paramIndex=${paramIndex}`);
             let suppressedCanonicals =
                 suppressedImplicitDocCanonicalByNode.get(node);
             if (!suppressedCanonicals) {
@@ -1041,6 +1051,8 @@ function handleOrdinalDocPreferences({
                 );
             }
             suppressedCanonicals.add(canonicalOrdinal);
+        } else {
+            console.log(`[DEBUG] handleOrdinalDocPreferences NOT suppressing ${canonicalOrdinal} for paramIndex=${paramIndex} (matches declared param)`);
         }
     }
 }
@@ -1089,6 +1101,8 @@ function applyImplicitNameOverride({
     const implicitComparisonLength = hasImplicitName
         ? implicitCanonicalLength
         : 0;
+
+    console.log(`[DEBUG] applyImplicitNameOverride param=${paramIndex} ordinal=${ordinalDocName}(${ordinalLength}) implicit=${effectiveImplicitName}(${implicitComparisonLength})`);
 
     if (ordinalLength > implicitComparisonLength) {
         if (paramIndex === 8 || paramIndex === 9) {

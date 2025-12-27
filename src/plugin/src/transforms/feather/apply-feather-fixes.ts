@@ -896,6 +896,7 @@ export class ApplyFeatherFixesTransform extends FunctionalParserTransform<ApplyF
         ast: MutableGameMakerAstNode,
         options: ApplyFeatherFixesOptions
     ) {
+        console.log("[DEBUG] ApplyFeatherFixesTransform.execute called");
         return applyFeatherFixesImpl(ast, options);
     }
 }

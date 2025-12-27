@@ -167,6 +167,19 @@ export function getParameterDocInfo(
             : null;
     }
 
+    if (paramNode.type === "VariableDeclarator") {
+        const name = getNormalizedParameterName(paramNode.id);
+        console.log(`[DEBUG] getParameterDocInfo for VariableDeclarator ${name}`);
+        return name
+            ? {
+                  name,
+                  optional: false,
+                  optionalOverride: false,
+                  explicitUndefinedDefault: false
+              }
+            : null;
+    }
+
     if (paramNode.type === "DefaultParameter") {
         if (paramNode.right == null) {
             const name = getNormalizedParameterName(paramNode.left);

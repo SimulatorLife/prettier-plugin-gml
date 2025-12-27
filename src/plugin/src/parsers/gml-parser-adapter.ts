@@ -353,9 +353,12 @@ function applyStructuralTransforms(
     context: ParserPreparationContext,
     options: GmlParserAdapterOptions | undefined
 ): void {
+    console.log(`[DEBUG] applyStructuralTransforms options.applyFeatherFixes: ${options?.applyFeatherFixes}`);
+    console.log("[DEBUG] Running preprocessFunctionArgumentDefaultsTransform");
     Transforms.preprocessFunctionArgumentDefaultsTransform.transform(ast);
 
     if (options?.applyFeatherFixes) {
+        console.log("[DEBUG] Running applyFeatherFixesTransform");
         const featherOptions = options
             ? { ...options, removeStandaloneVertexEnd: true }
             : { removeStandaloneVertexEnd: true };
@@ -368,12 +371,14 @@ function applyStructuralTransforms(
     }
 
     if (options?.condenseStructAssignments ?? true) {
+        console.log("[DEBUG] Running consolidateStructAssignmentsTransform");
         Transforms.consolidateStructAssignmentsTransform.transform(ast, {
             commentTools: { addTrailingComment }
         });
     }
 
     if (options?.normalizeDocComments ?? true) {
+        console.log("[DEBUG] Running docCommentNormalizationTransform");
         Transforms.docCommentNormalizationTransform.transform(ast, {
             pluginOptions: options ?? {},
             sourceText: context.parseSource

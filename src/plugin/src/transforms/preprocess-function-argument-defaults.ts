@@ -203,6 +203,7 @@ export class PreprocessFunctionArgumentDefaultsTransform extends FunctionalParse
                 continue;
             }
 
+            console.log("[DEBUG] Found condenseMatch in preprocessFunctionDeclaration");
             condenseMatches.push(condenseMatch);
         }
 
