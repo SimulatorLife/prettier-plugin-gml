@@ -10,36 +10,50 @@ export type GroupedTextEdits = Map<
     Array<Pick<TextEdit, "start" | "end" | "newText">>
 >;
 
-export class WorkspaceEdit {
-    public readonly edits: Array<TextEdit>;
+export interface WorkspaceEdit {
+    readonly edits: Array<TextEdit>;
+    addEdit(path: string, start: number, end: number, newText: string): void;
+    groupByFile(): GroupedTextEdits;
+}
 
-    constructor(initialEdits: Iterable<TextEdit> = []) {
-        this.edits = Array.from(initialEdits);
-    }
+/**
+ * Create a WorkspaceEdit container for managing text edits across files.
+ *
+ * @param initialEdits Optional iterable of edits to initialize with
+ * @returns WorkspaceEdit instance
+ */
+export function WorkspaceEdit(
+    initialEdits: Iterable<TextEdit> = []
+): WorkspaceEdit {
+    const edits: Array<TextEdit> = Array.from(initialEdits);
 
-    addEdit(path: string, start: number, end: number, newText: string): void {
-        this.edits.push({ path, start, end, newText });
-    }
+    return {
+        edits,
+        addEdit(path: string, start: number, end: number, newText: string) {
+            edits.push({ path, start, end, newText });
+        },
+        groupByFile() {
+            const grouped: GroupedTextEdits = new Map();
 
-    groupByFile(): GroupedTextEdits {
-        const grouped: GroupedTextEdits = new Map();
+            for (const edit of edits) {
+                let fileEdits = grouped.get(edit.path);
+                if (!fileEdits) {
+                    fileEdits = [];
+                    grouped.set(edit.path, fileEdits);
+                }
 
-        for (const edit of this.edits) {
-            if (!grouped.has(edit.path)) {
-                grouped.set(edit.path, []);
+                fileEdits.push({
+                    start: edit.start,
+                    end: edit.end,
+                    newText: edit.newText
+                });
             }
 
-            grouped.get(edit.path).push({
-                start: edit.start,
-                end: edit.end,
-                newText: edit.newText
-            });
-        }
+            for (const fileEdits of grouped.values()) {
+                fileEdits.sort((a, b) => b.start - a.start);
+            }
 
-        for (const edits of grouped.values()) {
-            edits.sort((a, b) => b.start - a.start);
+            return grouped;
         }
-
-        return grouped;
-    }
+    };
 }

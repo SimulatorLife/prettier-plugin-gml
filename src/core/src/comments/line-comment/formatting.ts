@@ -46,7 +46,6 @@ function getLineCommentRawText(comment, options: any = {}) {
         );
     }
 
-
     if (!isObjectLike(comment)) {
         return "";
     }

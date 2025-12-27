@@ -1,7 +1,7 @@
 import assert from "node:assert/strict";
 import { describe, it } from "node:test";
 
-import { applyScalarCondensing } from "../../../src/transforms/math/traversal-normalization.js";
+import { applyScalarCondensing } from "../../../src/transforms/math/index.js";
 
 void describe("applyScalarCondensing", () => {
     void it("combines numeric scalar factors", () => {

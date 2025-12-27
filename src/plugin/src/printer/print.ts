@@ -49,6 +49,7 @@ import {
 import {
     hasBlankLineBeforeLeadingComment,
     hasBlankLineBetweenLastCommentAndClosingBrace,
+    getOriginalTextFromOptions,
     macroTextHasExplicitTrailingBlankLine,
     resolveNodeIndexRangeWithSource,
     resolvePrinterSourceMetadata,
@@ -2110,7 +2111,7 @@ function shouldForceInlineFunctionParameters(path, options) {
         return false;
     }
 
-    const { originalText } = resolvePrinterSourceMetadata(options);
+    const originalText = getOriginalTextFromOptions(options);
 
     const firstParam = node.params[0];
     const lastParam = node.params.at(-1);
@@ -4656,7 +4657,7 @@ function structLiteralHasLeadingLineBreak(node, options) {
         return false;
     }
 
-    const { originalText } = resolvePrinterSourceMetadata(options);
+    const originalText = getOriginalTextFromOptions(options);
 
     if (!Core.isNonEmptyArray(node.properties)) {
         return false;
@@ -4765,7 +4766,7 @@ function getStructPropertyPrefix(node, options) {
         return null;
     }
 
-    const { originalText } = resolvePrinterSourceMetadata(options);
+    const originalText = getOriginalTextFromOptions(options);
 
     const propertyStart = Core.getNodeStartIndex(node);
     const valueStart = Core.getNodeStartIndex(node?.value);
@@ -4802,7 +4803,7 @@ function shouldOmitDefaultValueForParameter(path, options) {
     // parameter as optional (e.g. `/// @param [name]`) preserve it.
     const functionNode = findEnclosingFunctionDeclaration(path);
     if (functionNode) {
-        const { originalText } = resolvePrinterSourceMetadata(options);
+        const originalText = getOriginalTextFromOptions(options);
         if (typeof originalText === STRING_TYPE && originalText.length > 0) {
             const fnStart = Core.getNodeStartIndex(functionNode) ?? 0;
             const prefix = originalText.slice(0, fnStart);
