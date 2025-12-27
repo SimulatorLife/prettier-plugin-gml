@@ -24,6 +24,8 @@ jobs:
         Perform a conservative audit of the repository to locate **confirmed unused or legacy items**, such as:
         - Functions, variables, or classes that are never referenced or imported;
         - Files, assets, or documentation sections that are redundant or superseded;
+        - Commented-out code blocks that have been inactive for an extended period;
+        - Outdated JSDoc comments that no longer correspond to current code behavior;
         - Duplicate definitions that can be safely consolidated.
 
         Only propose removal or consolidation if there is **clear evidence** of obsolescence:

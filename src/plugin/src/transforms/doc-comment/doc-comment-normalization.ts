@@ -20,7 +20,6 @@ import { removeFunctionDocCommentLines } from "../../doc-comment/function-tag-fi
 type DocCommentNormalizationTransformOptions = {
     enabled?: boolean;
     pluginOptions?: Record<string, unknown>;
-    sourceText?: string | null;
 };
 
 type DocCommentPath = {
@@ -46,8 +45,7 @@ export class DocCommentNormalizationTransform extends FunctionalParserTransform<
     constructor() {
         super("doc-comment-normalization", {
             enabled: true,
-            pluginOptions: {},
-            sourceText: null
+            pluginOptions: {}
         });
     }
 
@@ -60,7 +58,6 @@ export class DocCommentNormalizationTransform extends FunctionalParserTransform<
         }
 
         const pluginOptions = options.pluginOptions ?? {};
-        const sourceText = options.sourceText ?? null;
         const lineCommentOptions = {
             ...Core.resolveLineCommentOptions(pluginOptions),
             // Force using AST values to respect previous transforms (e.g. Feather fixes)
@@ -154,10 +151,6 @@ export class DocCommentNormalizationTransform extends FunctionalParserTransform<
                 normalizedDocComments.shift();
             }
 
-            normalizedDocComments = removeFunctionDocCommentLines(
-                normalizedDocComments
-            );
-
             if (normalizedDocComments.length === 0) {
                 return;
             }
@@ -194,6 +187,7 @@ export class DocCommentNormalizationTransform extends FunctionalParserTransform<
                 docCommentDocs: normalizedDocComments,
                 needsLeadingBlankLine
             });
+            console.log(`[DEBUG] docCommentNormalizationTransform set normalization for ${nodeName}:`, normalizedDocComments);
         });
 
         return ast;

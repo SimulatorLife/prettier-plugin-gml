@@ -3948,8 +3948,8 @@ function normalizeArgumentBuiltinReferences({
             const functionFixes = fixArgumentReferencesWithinFunction(
                 node,
                 diagnostic,
-                documentedParamNames,
-                collectionService
+                collectionService,
+                documentedParamNames
             );
 
             if (Core.isNonEmptyArray(functionFixes)) {
@@ -3971,11 +3971,92 @@ function normalizeArgumentBuiltinReferences({
     return fixes;
 }
 
+function updateImplicitArgumentDocEntryIndices(functionNode, mapping) {
+    const entries = functionNode?._featherImplicitArgumentDocEntries;
+    if (!entries) {
+        return;
+    }
+
+    for (const entry of entries) {
+        if (!entry || typeof entry.index !== "number") {
+            continue;
+        }
+
+        if (!mapping.has(entry.index)) {
+            continue;
+        }
+
+        const oldIndex = entry.index;
+        const newIndex = mapping.get(oldIndex);
+        entry.index = newIndex;
+
+        if (entry.name === `argument${oldIndex}`) {
+            entry.name = `argument${newIndex}`;
+        }
+        if (entry.canonical === `argument${oldIndex}`) {
+            entry.canonical = `argument${newIndex}`;
+        }
+        if (entry.fallbackCanonical === `argument${oldIndex}`) {
+            entry.fallbackCanonical = `argument${newIndex}`;
+        }
+    }
+}
+
+function applyOrderedDocNamesToImplicitEntries(
+    functionNode,
+    orderedDocNames,
+    collectionService
+) {
+    const entries = functionNode?._featherImplicitArgumentDocEntries;
+    if (!entries || !orderedDocNames || orderedDocNames.length === 0) {
+        return;
+    }
+
+    for (const entry of entries) {
+        if (!entry || typeof entry.index !== "number") {
+            continue;
+        }
+
+        if (entry.index >= orderedDocNames.length) {
+            continue;
+        }
+
+        const docName = orderedDocNames[entry.index];
+        if (!docName) {
+            continue;
+        }
+
+        console.log(
+            `DEBUG: applyFeatherFixes processing entry index ${entry.index}, docName='${docName}', entry.name='${entry.name}'`
+        );
+        // Prefer the JSDoc name unless it's a generic "argumentN" placeholder
+        // and we already have a more descriptive alias from the source code.
+        const docNameIsFallback = /^argument\d+$/.test(docName);
+        const entryNameIsFallback = /^argument\d+$/.test(entry.name);
+
+        if (!docNameIsFallback || entryNameIsFallback) {
+            entry.name = docName;
+            entry.canonical = docName.toLowerCase();
+            continue;
+        }
+
+        console.log(
+            `DEBUG: Calling updateJSDocParamName for ${docName} -> ${entry.name}`
+        );
+        updateJSDocParamName(
+            functionNode,
+            docName,
+            entry.name,
+            collectionService
+        );
+    }
+}
+
 function fixArgumentReferencesWithinFunction(
     functionNode,
     diagnostic,
-    documentedParamNames = new Set(),
-    collectionService
+    collectionService,
+    documentedParamNames = new Set()
 ) {
     // Merge in names found by Core.buildDocumentedParamNameLookup
     const orderedDocNames = functionNode._documentedParamNamesOrdered as
@@ -4029,8 +4110,8 @@ function fixArgumentReferencesWithinFunction(
             const nestedFixes = fixArgumentReferencesWithinFunction(
                 node,
                 diagnostic,
-                documentedParamNames,
-                collectionService
+                collectionService,
+                documentedParamNames
             );
 
             if (Core.isNonEmptyArray(nestedFixes)) {
@@ -4076,66 +4157,12 @@ function fixArgumentReferencesWithinFunction(
 
     // Update the implicit argument doc entries to match the new index
     if (functionNode._featherImplicitArgumentDocEntries) {
-        for (const entry of functionNode._featherImplicitArgumentDocEntries) {
-            if (
-                entry &&
-                typeof entry.index === "number" &&
-                mapping.has(entry.index)
-            ) {
-                const oldIndex = entry.index;
-                const newIndex = mapping.get(oldIndex);
-                entry.index = newIndex;
-
-                if (entry.name === `argument${oldIndex}`) {
-                    entry.name = `argument${newIndex}`;
-                }
-                if (entry.canonical === `argument${oldIndex}`) {
-                    entry.canonical = `argument${newIndex}`;
-                }
-                if (entry.fallbackCanonical === `argument${oldIndex}`) {
-                    entry.fallbackCanonical = `argument${newIndex}`;
-                }
-            }
-        }
-
-        // Apply JSDoc names to implicit entries
-        if (orderedDocNames && orderedDocNames.length > 0) {
-            for (const entry of functionNode._featherImplicitArgumentDocEntries) {
-                if (
-                    entry &&
-                    typeof entry.index === "number" &&
-                    entry.index < orderedDocNames.length
-                ) {
-                    const docName = orderedDocNames[entry.index];
-                    if (docName) {
-                        console.log(
-                            `DEBUG: applyFeatherFixes processing entry index ${entry.index}, docName='${docName}', entry.name='${entry.name}'`
-                        );
-                        // Prefer the JSDoc name unless it's a generic "argumentN" placeholder
-                        // and we already have a more descriptive alias from the source code.
-                        const docNameIsFallback = /^argument\d+$/.test(docName);
-                        const entryNameIsFallback = /^argument\d+$/.test(
-                            entry.name
-                        );
-
-                        if (!docNameIsFallback || entryNameIsFallback) {
-                            entry.name = docName;
-                            entry.canonical = docName.toLowerCase();
-                        } else {
-                            console.log(
-                                `DEBUG: Calling updateJSDocParamName for ${docName} -> ${entry.name}`
-                            );
-                            updateJSDocParamName(
-                                functionNode,
-                                docName,
-                                entry.name,
-                                collectionService
-                            );
-                        }
-                    }
-                }
-            }
-        }
+        updateImplicitArgumentDocEntryIndices(functionNode, mapping);
+        applyOrderedDocNamesToImplicitEntries(
+            functionNode,
+            orderedDocNames,
+            collectionService
+        );
     }
 
     for (const reference of references) {
@@ -4311,6 +4338,7 @@ function fixArgumentReferencesWithinFunction(
 
     return fixes;
 }
+
 
 function createArgumentIndexMapping(indices: unknown[]) {
     if (!Core.isNonEmptyArray(indices)) {

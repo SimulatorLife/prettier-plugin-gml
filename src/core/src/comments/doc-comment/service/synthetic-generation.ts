@@ -832,60 +832,99 @@ function appendExplicitParameterDocLines({
             shouldAdoptOrdinalName &&
             docName === rawOrdinalName &&
             !existingMetadata;
-
-        console.log(
-            `DEBUG: appendExplicit param=${paramIndex} docName=${docName} shouldAdopt=${shouldAdoptOrdinalName} isOrphaned=${isOrphanedImplicit} isAdopting=${isAdoptingOrdinal} documented=${documentedParamNames.has(docName)}`
-        );
-
-        if (
-            documentedParamNames.has(docName) &&
-            !isOrphanedImplicit &&
-            !isAdoptingOrdinal
-        ) {
-            if (existingMetadata) {
-                console.log(
-                    `DEBUG: Outputting existing metadata for ${docName}`
-                );
-                const typePart = existingMetadata.type
-                    ? `{${existingMetadata.type}} `
-                    : "";
-                const descriptionPart = existingMetadata.description ?? "";
-                const separator = descriptionPart ? " - " : "";
-                const line = `/// @param ${typePart}${docName}${separator}${descriptionPart}`;
-                lines.push(line.trimEnd());
-            } else if (
-                implicitName &&
-                docName === implicitName &&
-                !existingMetadata &&
-                !ordinalMetadata
-            ) {
-                console.log(
-                    `DEBUG: Outputting orphaned implicit for ${docName}`
-                );
-                const line = `/// @param ${docName}`;
-                lines.push(line);
-            } else {
-                console.log(
-                    `DEBUG: Skipping ${docName} because it is documented and not orphaned/adopting`
-                );
-            }
-
-            if (implicitDocEntry?.name) {
-                documentedParamNames.add(implicitDocEntry.name);
-            }
-        } else {
-            console.log(`DEBUG: Outputting new doc for ${docName}`);
-            documentedParamNames.add(docName);
-            const typePart = docType ? `{${docType}} ` : "";
-            const descriptionPart =
-                existingMetadata?.description ??
-                ordinalMetadata?.description ??
-                "";
-            const separator = descriptionPart ? " - " : "";
-            const newLine = `/// @param ${typePart}${docName}${separator}${descriptionPart}`;
-            lines.push(newLine);
-        }
+        appendExplicitParameterDocLine({
+            lines,
+            documentedParamNames,
+            docName,
+            docType,
+            existingMetadata,
+            implicitName,
+            ordinalMetadata,
+            isOrphanedImplicit,
+            isAdoptingOrdinal,
+            implicitDocEntry,
+            paramIndex,
+            shouldAdoptOrdinalName
+        });
     }
+}
+
+type AppendExplicitParameterDocLineParams = {
+    lines: string[];
+    documentedParamNames: Set<unknown>;
+    docName: string;
+    docType: string | null;
+    existingMetadata: DocMeta | null;
+    implicitName: string | null;
+    ordinalMetadata: DocMeta | null;
+    isOrphanedImplicit: boolean;
+    isAdoptingOrdinal: boolean;
+    implicitDocEntry: ImplicitArgumentDocEntry | undefined;
+    paramIndex: number;
+    shouldAdoptOrdinalName: boolean;
+};
+
+function appendExplicitParameterDocLine({
+    lines,
+    documentedParamNames,
+    docName,
+    docType,
+    existingMetadata,
+    implicitName,
+    ordinalMetadata,
+    isOrphanedImplicit,
+    isAdoptingOrdinal,
+    implicitDocEntry,
+    paramIndex,
+    shouldAdoptOrdinalName
+}: AppendExplicitParameterDocLineParams) {
+    console.log(
+        `DEBUG: appendExplicit param=${paramIndex} docName=${docName} shouldAdopt=${shouldAdoptOrdinalName} isOrphaned=${isOrphanedImplicit} isAdopting=${isAdoptingOrdinal} documented=${documentedParamNames.has(docName)}`
+    );
+
+    if (
+        documentedParamNames.has(docName) &&
+        !isOrphanedImplicit &&
+        !isAdoptingOrdinal
+    ) {
+        if (existingMetadata) {
+            console.log(`DEBUG: Outputting existing metadata for ${docName}`);
+            const typePart = existingMetadata.type
+                ? `{${existingMetadata.type}} `
+                : "";
+            const descriptionPart = existingMetadata.description ?? "";
+            const separator = descriptionPart ? " - " : "";
+            const line = `/// @param ${typePart}${docName}${separator}${descriptionPart}`;
+            lines.push(line.trimEnd());
+        } else if (
+            implicitName &&
+            docName === implicitName &&
+            !existingMetadata &&
+            !ordinalMetadata
+        ) {
+            console.log(`DEBUG: Outputting orphaned implicit for ${docName}`);
+            const line = `/// @param ${docName}`;
+            lines.push(line);
+        } else {
+            console.log(
+                `DEBUG: Skipping ${docName} because it is documented and not orphaned/adopting`
+            );
+        }
+
+        if (implicitDocEntry?.name) {
+            documentedParamNames.add(implicitDocEntry.name);
+        }
+        return;
+    }
+
+    console.log(`DEBUG: Outputting new doc for ${docName}`);
+    documentedParamNames.add(docName);
+    const typePart = docType ? `{${docType}} ` : "";
+    const descriptionPart =
+        existingMetadata?.description ?? ordinalMetadata?.description ?? "";
+    const separator = descriptionPart ? " - " : "";
+    const newLine = `/// @param ${typePart}${docName}${separator}${descriptionPart}`;
+    lines.push(newLine);
 }
 
 type AppendImplicitArgumentDocLinesParams = {

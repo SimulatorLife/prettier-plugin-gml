@@ -382,8 +382,7 @@ function applyStructuralTransforms(
     if (options?.normalizeDocComments ?? true) {
         console.log("[DEBUG] Running docCommentNormalizationTransform");
         Transforms.docCommentNormalizationTransform.transform(ast, {
-            pluginOptions: options ?? {},
-            sourceText: context.parseSource
+            pluginOptions: options ?? {}
         });
     }
 
