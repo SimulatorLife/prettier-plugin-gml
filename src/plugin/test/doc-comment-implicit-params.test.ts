@@ -42,7 +42,7 @@ void test("collectImplicitArgumentDocNames omits superseded argument docs", asyn
     const formatted = await Plugin.format(SOURCE, {
         applyFeatherFixes: true
     });
-    console.log("DEBUG: formatted output:\n" + formatted);
+    console.log(`DEBUG: formatted output:\n${  formatted}`);
 
     const docStart = formatted.indexOf("/// @function sample2");
     let docEnd = formatted.indexOf("\nfunction sample2", docStart);
@@ -117,7 +117,7 @@ void test("collectImplicitArgumentDocNames prefers alias docs without Feather fi
     const formatted = await Plugin.format(NO_FEATHER_SOURCE, {
         applyFeatherFixes: false
     });
-    console.log("DEBUG: formatted output (NO_FEATHER):\n" + formatted);
+    console.log(`DEBUG: formatted output (NO_FEATHER):\n${  formatted}`);
 
     const docStart = formatted.indexOf("/// @function sampleAlias");
     let docEnd = formatted.indexOf("\nfunction sampleAlias", docStart);

@@ -17502,8 +17502,8 @@ function updateJSDocParamName(
         `[DEBUG] updateJSDocParamName: replacing ${oldName} with ${newName} in ${comments.length} comments`
     );
 
-    const escapedOld = oldName.replace(/[.*+?^()|[\]\\]/g, "\\$&");
-    const regex = new RegExp(`\\b${escapedOld}\\b`, "g");
+    const escapedOld = oldName.replaceAll(/[.*+?^()|[\]\\]/g, String.raw`\$&`);
+    const regex = new RegExp(String.raw`\b${escapedOld}\b`, "g");
 
     for (const comment of comments) {
         if (

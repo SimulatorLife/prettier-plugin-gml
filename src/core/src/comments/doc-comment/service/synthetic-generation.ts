@@ -488,8 +488,8 @@ function computeInitialSuppressedCanonicals(
 
                     const canonicalOrdinalMatchesImplicitAlias =
                         aliasByIndex.size > 0 &&
-                        Array.from(aliasByIndex.values()).some(
-                            (alias) => alias === canonicalOrdinal
+                        Array.from(aliasByIndex.values()).includes(
+                            canonicalOrdinal
                         );
 
                     if (
@@ -1064,7 +1064,11 @@ function handleOrdinalDocPreferences({
               })
             : false;
 
-        if (!canonicalOrdinalMatchesDeclaredParam) {
+        if (canonicalOrdinalMatchesDeclaredParam) {
+            console.log(
+                `[DEBUG] handleOrdinalDocPreferences NOT suppressing ${canonicalOrdinal} for paramIndex=${paramIndex} (matches declared param)`
+            );
+        } else {
             console.log(
                 `[DEBUG] handleOrdinalDocPreferences suppressing ${canonicalOrdinal} for paramIndex=${paramIndex}`
             );
@@ -1078,10 +1082,6 @@ function handleOrdinalDocPreferences({
                 );
             }
             suppressedCanonicals.add(canonicalOrdinal);
-        } else {
-            console.log(
-                `[DEBUG] handleOrdinalDocPreferences NOT suppressing ${canonicalOrdinal} for paramIndex=${paramIndex} (matches declared param)`
-            );
         }
     }
 }
