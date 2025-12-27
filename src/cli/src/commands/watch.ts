@@ -79,6 +79,7 @@ interface WatchCommandOptions {
     polling?: boolean;
     pollingInterval?: number;
     verbose?: boolean;
+    quiet?: boolean;
     debounceDelay?: number;
     websocketPort?: number;
     websocketHost?: string;
@@ -116,6 +117,7 @@ interface RuntimeContext {
 
 interface FileChangeOptions {
     verbose?: boolean;
+    quiet?: boolean;
     runtimeContext?: RuntimeContext;
 }
 
@@ -185,6 +187,12 @@ export function createWatchCommand(): Command {
         )
         .addOption(
             new Option("--verbose", "Enable verbose logging").default(false)
+        )
+        .addOption(
+            new Option(
+                "--quiet",
+                "Suppress non-essential output (only show errors and server URLs)"
+            ).default(false)
         )
         .addOption(
             new Option(
@@ -298,14 +306,21 @@ async function validateTargetPath(targetPath: string): Promise<string> {
  * @param {boolean} polling - Whether polling mode is enabled
  * @param {number} pollingInterval - Polling interval in ms
  * @param {boolean} verbose - Whether verbose logging is enabled
+ * @param {boolean} quiet - Whether quiet mode is enabled
  */
 function logWatchStartup(
     targetPath: string,
     extensions: ReadonlySet<string>,
     polling: boolean,
     pollingInterval: number,
-    verbose: boolean
+    verbose: boolean,
+    quiet: boolean
 ) {
+    if (quiet) {
+        // In quiet mode, don't log startup information
+        return;
+    }
+
     if (verbose) {
         console.log(`Watching: ${targetPath}`);
         console.log(`Extensions: ${[...extensions].join(", ")}`);
@@ -382,14 +397,20 @@ function createErrorNotification(
  *
  * @param {object} context - Runtime context with metrics and errors
  * @param {boolean} verbose - Enable verbose statistics
+ * @param {boolean} quiet - Suppress all statistics output
  */
 function displayWatchStatistics(
     context: {
         metrics: ReadonlyArray<TranspilationMetrics>;
         errors: ReadonlyArray<TranspilationError>;
     },
-    verbose: boolean
+    verbose: boolean,
+    quiet: boolean
 ): void {
+    if (quiet) {
+        return;
+    }
+
     const { metrics, errors } = context;
     const hasMetrics = metrics.length > 0;
     const hasErrors = errors.length > 0;
@@ -494,6 +515,7 @@ export async function runWatchCommand(
         polling = false,
         pollingInterval = 1000,
         verbose = false,
+        quiet = false,
         debounceDelay = 200,
         maxPatchHistory = 100,
         websocketPort = 17_890,
@@ -509,6 +531,12 @@ export async function runWatchCommand(
         runtimeServerStarter = startRuntimeStaticServer,
         watchFactory = DEFAULT_WATCH_FACTORY
     } = options;
+
+    // Validate that verbose and quiet are not both enabled
+    if (verbose && quiet) {
+        console.error("Error: --verbose and --quiet cannot be used together");
+        process.exit(1);
+    }
 
     const normalizedPath = await validateTargetPath(targetPath);
 
@@ -551,7 +579,7 @@ export async function runWatchCommand(
         runtimeContext.packageName = runtimeSource.packageName;
         runtimeContext.packageJson = runtimeSource.packageJson;
 
-        if (verbose) {
+        if (verbose && !quiet) {
             console.log(
                 `Using HTML5 runtime from ${runtimeDescriptor(runtimeSource)}`
             );
@@ -564,10 +592,12 @@ export async function runWatchCommand(
 
         runtimeContext.server = runtimeServerController;
 
-        console.log(
-            `Runtime static server ready at ${runtimeServerController.url}`
-        );
-    } else if (verbose) {
+        if (!quiet) {
+            console.log(
+                `Runtime static server ready at ${runtimeServerController.url}`
+            );
+        }
+    } else if (verbose && !quiet) {
         console.log("Runtime static server disabled.");
     }
 
@@ -598,9 +628,11 @@ export async function runWatchCommand(
 
             runtimeContext.websocketServer = websocketServerController;
 
-            console.log(
-                `WebSocket patch server ready at ${websocketServerController.url}`
-            );
+            if (!quiet) {
+                console.log(
+                    `WebSocket patch server ready at ${websocketServerController.url}`
+                );
+            }
         } catch (error) {
             const message = getErrorMessage(error, {
                 fallback: "Unknown WebSocket server error"
@@ -611,7 +643,7 @@ export async function runWatchCommand(
             console.error(formattedError);
             process.exit(1);
         }
-    } else if (verbose) {
+    } else if (verbose && !quiet) {
         console.log("WebSocket patch server disabled.");
     }
 
@@ -620,7 +652,8 @@ export async function runWatchCommand(
         extensionSet,
         polling,
         pollingInterval,
-        verbose
+        verbose,
+        quiet
     );
 
     const watchOptions: WatchOptions = {
@@ -641,7 +674,7 @@ export async function runWatchCommand(
             }
             resolved = true;
 
-            if (verbose) {
+            if (verbose && !quiet) {
                 console.log("\nStopping watcher...");
             }
 
@@ -658,7 +691,7 @@ export async function runWatchCommand(
             }
             runtimeContext.debouncedHandlers.clear();
 
-            displayWatchStatistics(runtimeContext, verbose);
+            displayWatchStatistics(runtimeContext, verbose, quiet);
 
             if (runtimeServerController) {
                 try {
@@ -760,17 +793,20 @@ export async function runWatchCommand(
 
                     const fullPath = path.join(normalizedPath, filename);
 
-                    if (verbose) {
-                        console.log(
-                            `[${new Date().toISOString()}] ${eventType}: ${filename}`
-                        );
-                    } else {
-                        console.log(`Changed: ${filename}`);
+                    if (!quiet) {
+                        if (verbose) {
+                            console.log(
+                                `[${new Date().toISOString()}] ${eventType}: ${filename}`
+                            );
+                        } else {
+                            console.log(`Changed: ${filename}`);
+                        }
                     }
 
                     if (debounceDelay === 0) {
                         handleFileChange(fullPath, eventType, {
                             verbose,
+                            quiet,
                             runtimeContext
                         }).catch((error) => {
                             const message = getErrorMessage(error, {
@@ -816,6 +852,7 @@ export async function runWatchCommand(
 
                         debouncedHandler(fullPath, eventType, {
                             verbose,
+                            quiet,
                             runtimeContext
                         });
                     }
@@ -844,7 +881,7 @@ export async function runWatchCommand(
 async function handleFileChange(
     filePath: string,
     eventType: string,
-    { verbose = false, runtimeContext }: FileChangeOptions = {}
+    { verbose = false, quiet = false, runtimeContext }: FileChangeOptions = {}
 ): Promise<void> {
     if (verbose && runtimeContext?.root && !runtimeContext.noticeLogged) {
         console.log(`Runtime target: ${runtimeContext.root}`);
@@ -861,11 +898,11 @@ async function handleFileChange(
         try {
             await stat(filePath);
             shouldTranspile = true;
-            if (verbose) {
+            if (verbose && !quiet) {
                 console.log(`  ↳ File exists (created or renamed)`);
             }
         } catch {
-            if (verbose) {
+            if (verbose && !quiet) {
                 console.log(`  ↳ File removed (deleted or renamed away)`);
             }
             return;
@@ -879,7 +916,7 @@ async function handleFileChange(
             const content = await readFile(filePath, "utf8");
             const lines = content.split("\n").length;
 
-            if (verbose) {
+            if (verbose && !quiet) {
                 console.log(`  ↳ Read ${lines} lines`);
             }
 
@@ -895,10 +932,11 @@ async function handleFileChange(
                 filePath,
                 content,
                 lines,
-                verbose
+                verbose,
+                quiet
             );
         } catch (error) {
-            if (verbose) {
+            if (verbose && !quiet) {
                 const message = getErrorMessage(error, {
                     fallback: "Unknown file read error"
                 });
@@ -914,7 +952,8 @@ function runTranspilationForFile(
     filePath: string,
     content: string,
     lines: number,
-    verbose: boolean
+    verbose: boolean,
+    quiet: boolean
 ): void {
     const startTime = performance.now();
 
@@ -960,25 +999,31 @@ function runTranspilationForFile(
         const broadcastResult =
             runtimeContext.websocketServer?.broadcast(patch);
         if (broadcastResult) {
-            logPatchBroadcastResult(broadcastResult, verbose);
+            logPatchBroadcastResult(broadcastResult, verbose, quiet);
         }
 
-        logTranspilationSummary(patch, durationMs, verbose);
+        logTranspilationSummary(patch, durationMs, verbose, quiet);
     } catch (error) {
         handleTranspilationError(
             error,
             runtimeContext,
             filePath,
             content.length,
-            verbose
+            verbose,
+            quiet
         );
     }
 }
 
 function logPatchBroadcastResult(
     broadcastResult: PatchBroadcastResult,
-    verbose: boolean
+    verbose: boolean,
+    quiet: boolean
 ): void {
+    if (quiet) {
+        return;
+    }
+
     if (verbose) {
         console.log(
             `  ↳ Broadcasted to ${broadcastResult.successCount} clients`
@@ -998,8 +1043,13 @@ function logPatchBroadcastResult(
 function logTranspilationSummary(
     patch: RuntimeTranspilerPatch,
     durationMs: number,
-    verbose: boolean
+    verbose: boolean,
+    quiet: boolean
 ): void {
+    if (quiet) {
+        return;
+    }
+
     if (verbose) {
         console.log(
             `  ↳ Transpiled to JavaScript (${patch.js_body.length} chars in ${durationMs.toFixed(2)}ms)`
@@ -1015,8 +1065,11 @@ function handleTranspilationError(
     runtimeContext: RuntimeContext,
     filePath: string,
     sourceSize: number,
-    verbose: boolean
+    verbose: boolean,
+    quiet: boolean
 ): void {
+    void quiet; // Errors are always displayed, even in quiet mode
+
     const errorMessage = getErrorMessage(error, {
         fallback: "Unknown transpilation error"
     });
