@@ -152,7 +152,7 @@ export const builtInFunctions: Record<string, BuiltInEmitter> = Object.freeze({
         if (args.length !== 1) {
             return `string_byte_length(${args.join(", ")})`;
         }
-        return `new Blob([${args[0]}]).size`;
+        return `new TextEncoder().encode(${args[0]}).length`;
     },
     string_pos(args) {
         if (args.length !== 2) {
@@ -200,7 +200,18 @@ export const builtInFunctions: Record<string, BuiltInEmitter> = Object.freeze({
         if (args.length !== 2) {
             return `string_count(${args.join(", ")})`;
         }
-        return `((() => { const str = ${args[1]}; const sub = ${args[0]}; if (!sub) return 0; let count = 0; let pos = 0; while ((pos = str.indexOf(sub, pos)) !== -1) { count++; pos += sub.length; } return count; })())`;
+        return `((() => {
+    const str = ${args[1]};
+    const sub = ${args[0]};
+    if (!sub) return 0;
+    let count = 0;
+    let pos = 0;
+    while ((pos = str.indexOf(sub, pos)) !== -1) {
+        count++;
+        pos += sub.length;
+    }
+    return count;
+})())`;
     },
     string_upper(args) {
         if (args.length !== 1) {
@@ -242,7 +253,16 @@ export const builtInFunctions: Record<string, BuiltInEmitter> = Object.freeze({
         if (args.length !== 3) {
             return `string_format(${args.join(", ")})`;
         }
-        return `(${args[0]}).toFixed(${args[2]}).padStart(${args[1]}, " ")`;
+        return `((() => {
+    const val = ${args[0]};
+    const totalWidth = ${args[1]};
+    const decPlaces = ${args[2]};
+    const numVal = Number(val);
+    if (isNaN(numVal)) {
+        return String(val).padStart(totalWidth, " ");
+    }
+    return numVal.toFixed(decPlaces).padStart(totalWidth, " ");
+})())`;
     },
     chr(args) {
         if (args.length !== 1) {
