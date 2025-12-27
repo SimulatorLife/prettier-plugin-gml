@@ -36,6 +36,6 @@ jobs:
         Each change should be:
         - **Tightly scoped** (one well-justified cleanup per PR);
         - **Non-breaking** (no effect on build, tests, or runtime);
-        - **Documented** in the commit description, explaining why the removal is safe.
+        - **Documented** in the commit/PR description, explaining why the removal is safe.
 
         If nothing meets the removal criteria, provide a note confirming the audit's no-op completion.

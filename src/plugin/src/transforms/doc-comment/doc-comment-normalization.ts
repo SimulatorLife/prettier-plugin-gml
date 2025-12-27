@@ -151,6 +151,10 @@ export class DocCommentNormalizationTransform extends FunctionalParserTransform<
                 normalizedDocComments.shift();
             }
 
+            normalizedDocComments = removeFunctionDocCommentLines(
+                normalizedDocComments
+            );
+
             if (normalizedDocComments.length === 0) {
                 return;
             }

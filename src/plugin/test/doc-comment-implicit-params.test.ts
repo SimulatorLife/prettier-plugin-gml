@@ -4,6 +4,27 @@ import { test } from "node:test";
 
 // Use Plugin.format to run the plugin directly during tests
 
+function extractDocsForFunction(formatted: string, functionName: string): Set<string> {
+    const functionStart = formatted.indexOf(`function ${functionName}`);
+    if (functionStart === -1) return new Set();
+
+    const before = formatted.slice(0, functionStart);
+    const lines = before.split(/\r?\n/);
+    const docLines = [];
+
+    for (let i = lines.length - 1; i >= 0; i--) {
+        const line = lines[i].trim();
+        if (line.startsWith("///")) {
+            docLines.unshift(line);
+        } else if (line === "") {
+            continue;
+        } else {
+            break;
+        }
+    }
+    return new Set(docLines);
+}
+
 const SOURCE = `/// @function sample
 /// @param first
 /// @param second
@@ -44,23 +65,7 @@ void test("collectImplicitArgumentDocNames omits superseded argument docs", asyn
     });
     console.log(`DEBUG: formatted output:\n${  formatted}`);
 
-    const docStart = formatted.indexOf("/// @function sample2");
-    let docEnd = formatted.indexOf("\nfunction sample2", docStart);
-    if (docEnd === -1) {
-        docEnd = formatted.indexOf("function sample2", docStart + 1);
-    } else {
-        docEnd += 1;
-    }
-    if (docEnd === -1) {
-        docEnd = formatted.length;
-    }
-    const sample2Doc = new Set(
-        formatted
-            .slice(docStart, docEnd)
-            .split(/\r?\n/)
-            .map((line) => line.trim())
-            .filter((line) => line.length > 0)
-    );
+    const sample2Doc = extractDocsForFunction(formatted, "sample2");
 
     assert.ok(
         sample2Doc.has("/// @param two"),
@@ -71,29 +76,7 @@ void test("collectImplicitArgumentDocNames omits superseded argument docs", asyn
         "Expected stale argument doc entry to be removed."
     );
 
-    const sample3DocStart = formatted.indexOf("/// @function sample3");
-    let sample3DocEnd = formatted.indexOf(
-        "\nfunction sample3",
-        sample3DocStart
-    );
-    if (sample3DocEnd === -1) {
-        sample3DocEnd = formatted.indexOf(
-            "function sample3",
-            sample3DocStart + 1
-        );
-    } else {
-        sample3DocEnd += 1;
-    }
-    if (sample3DocEnd === -1) {
-        sample3DocEnd = formatted.length;
-    }
-    const sample3Doc = new Set(
-        formatted
-            .slice(sample3DocStart, sample3DocEnd)
-            .split(/\r?\n/)
-            .map((line) => line.trim())
-            .filter((line) => line.length > 0)
-    );
+    const sample3Doc = extractDocsForFunction(formatted, "sample3");
 
     assert.ok(
         sample3Doc.has("/// @param two"),
