@@ -15751,6 +15751,60 @@ function sanitizeDocCommentType(comment, typeSystemInfo) {
 }
 
 // TODO: Move this into the doc-comment service/manager in Core
+type DelimiterDepthState = {
+    square: number;
+    angle: number;
+    paren: number;
+};
+
+function createDelimiterDepthState(): DelimiterDepthState {
+    return { square: 0, angle: 0, paren: 0 };
+}
+
+function updateDelimiterDepthState(depths: DelimiterDepthState, char: string) {
+    switch (char) {
+        case "[": {
+            depths.square += 1;
+
+            break;
+        }
+        case "]": {
+            depths.square = Math.max(0, depths.square - 1);
+
+            break;
+        }
+        case "<": {
+            depths.angle += 1;
+
+            break;
+        }
+        case ">": {
+            depths.angle = Math.max(0, depths.angle - 1);
+
+            break;
+        }
+        case "(": {
+            depths.paren += 1;
+
+            break;
+        }
+        case ")": {
+            depths.paren = Math.max(0, depths.paren - 1);
+
+            break;
+        }
+        // Omit a default case because this switch only manages delimiter nesting
+        // depth for brackets ([, ], <, >, (, )). All other characters are
+        // ignored by design so the calling loop can continue processing them
+        // without extra branching noise.
+    }
+}
+
+function isAtTopLevelDepth(depths: DelimiterDepthState) {
+    return depths.square === 0 && depths.angle === 0 && depths.paren === 0;
+}
+
+// TODO: Move this into the doc-comment service/manager in Core
 function extractTypeAnnotation(value) {
     if (typeof value !== "string") {
         return null;
@@ -15796,58 +15850,16 @@ function splitTypeAndRemainder(text) {
         return { type: "", remainder: "" };
     }
 
-    let depthSquare = 0;
-    let depthAngle = 0;
-    let depthParen = 0;
+    const delimiterDepth = createDelimiterDepthState();
 
     for (let index = 0; index < text.length; index += 1) {
         const char = text[index];
 
-        switch (char) {
-            case "[": {
-                depthSquare += 1;
-
-                break;
-            }
-            case "]": {
-                depthSquare = Math.max(0, depthSquare - 1);
-
-                break;
-            }
-            case "<": {
-                depthAngle += 1;
-
-                break;
-            }
-            case ">": {
-                depthAngle = Math.max(0, depthAngle - 1);
-
-                break;
-            }
-            case "(": {
-                depthParen += 1;
-
-                break;
-            }
-            case ")": {
-                depthParen = Math.max(0, depthParen - 1);
-
-                break;
-            }
-            // Omit a default case because the switch only tracks opening and
-            // closing delimiters ([, ], <, >, (, )) to maintain nesting depth
-            // for the whitespace check below. All other characters (letters,
-            // digits, punctuation) are irrelevant to depth tracking and fall
-            // through to the subsequent logic that accumulates them into the
-            // type or remainder. Adding an empty default branch would clutter
-            // the control flow without changing the behavior.
-        }
+        updateDelimiterDepthState(delimiterDepth, char);
 
         if (
             WHITESPACE_PATTERN.test(char) &&
-            depthSquare === 0 &&
-            depthAngle === 0 &&
-            depthParen === 0
+            isAtTopLevelDepth(delimiterDepth)
         ) {
             const typePart = text.slice(0, index).trimEnd();
             const remainder = text.slice(index);
@@ -16021,71 +16033,26 @@ function readSpecifierToken(text) {
 
     let consumed = offset;
     let token = "";
-    let depthSquare = 0;
-    let depthAngle = 0;
-    let depthParen = 0;
+    const delimiterDepth = createDelimiterDepthState();
 
     while (consumed < text.length) {
         const char = text[consumed];
 
         if (
             WHITESPACE_PATTERN.test(char) &&
-            depthSquare === 0 &&
-            depthAngle === 0 &&
-            depthParen === 0
+            isAtTopLevelDepth(delimiterDepth)
         ) {
             break;
         }
 
         if (
             (char === "," || char === "|" || char === "}") &&
-            depthSquare === 0 &&
-            depthAngle === 0 &&
-            depthParen === 0
+            isAtTopLevelDepth(delimiterDepth)
         ) {
             break;
         }
 
-        switch (char) {
-            case "[": {
-                depthSquare += 1;
-
-                break;
-            }
-            case "]": {
-                depthSquare = Math.max(0, depthSquare - 1);
-
-                break;
-            }
-            case "<": {
-                depthAngle += 1;
-
-                break;
-            }
-            case ">": {
-                depthAngle = Math.max(0, depthAngle - 1);
-
-                break;
-            }
-            case "(": {
-                depthParen += 1;
-
-                break;
-            }
-            case ")": {
-                depthParen = Math.max(0, depthParen - 1);
-
-                break;
-            }
-            // Omit a default case because this switch exclusively manages depth
-            // counters for nested delimiters ([, ], <, >, (, )). The function
-            // extracts a complete specifier token (e.g., "Array<Struct.Type>")
-            // by continuing the loop until it encounters a delimiter or
-            // whitespace at depth zero. All other characters (alphanumerics, dots,
-            // underscores) are appended to the token without affecting depth
-            // tracking, so a default branch would add noise without altering the
-            // parsing logic.
-        }
+        updateDelimiterDepthState(delimiterDepth, char);
 
         token += char;
         consumed += 1;
@@ -16171,56 +16138,14 @@ function normalizeCollectionTypeDelimiters(typeText) {
 function splitTypeSegments(text) {
     const segments = [];
     let current = "";
-    let depthSquare = 0;
-    let depthAngle = 0;
-    let depthParen = 0;
+    const delimiterDepth = createDelimiterDepthState();
 
     for (const char of text) {
-        switch (char) {
-            case "[": {
-                depthSquare += 1;
-
-                break;
-            }
-            case "]": {
-                depthSquare = Math.max(0, depthSquare - 1);
-
-                break;
-            }
-            case "<": {
-                depthAngle += 1;
-
-                break;
-            }
-            case ">": {
-                depthAngle = Math.max(0, depthAngle - 1);
-
-                break;
-            }
-            case "(": {
-                depthParen += 1;
-
-                break;
-            }
-            case ")": {
-                depthParen = Math.max(0, depthParen - 1);
-
-                break;
-            }
-            // Omit a default case because the switch only updates depth counters
-            // for nested delimiters ([, ], <, >, (, )) while splitting a union
-            // or intersection type string into individual segments. The function
-            // checks for separators (commas, pipes, whitespace) at depth zero to
-            // determine segment boundaries. All other characters are accumulated
-            // into the current segment without requiring special handling, so a
-            // default branch would be redundant.
-        }
+        updateDelimiterDepthState(delimiterDepth, char);
 
         if (
             (WHITESPACE_PATTERN.test(char) || char === "," || char === "|") &&
-            depthSquare === 0 &&
-            depthAngle === 0 &&
-            depthParen === 0
+            isAtTopLevelDepth(delimiterDepth)
         ) {
             if (Core.isNonEmptyTrimmedString(current)) {
                 segments.push(current.trim());
@@ -16248,57 +16173,12 @@ function hasDelimiterOutsideNesting(text, delimiters) {
     const delimiterSet = Core.hasIterableItems(delimiters)
         ? new Set(delimiters)
         : new Set();
-    let depthSquare = 0;
-    let depthAngle = 0;
-    let depthParen = 0;
+    const delimiterDepth = createDelimiterDepthState();
 
     for (const char of text) {
-        switch (char) {
-            case "[": {
-                depthSquare += 1;
+        updateDelimiterDepthState(delimiterDepth, char);
 
-                break;
-            }
-            case "]": {
-                depthSquare = Math.max(0, depthSquare - 1);
-
-                break;
-            }
-            case "<": {
-                depthAngle += 1;
-
-                break;
-            }
-            case ">": {
-                depthAngle = Math.max(0, depthAngle - 1);
-
-                break;
-            }
-            case "(": {
-                depthParen += 1;
-
-                break;
-            }
-            case ")": {
-                depthParen = Math.max(0, depthParen - 1);
-
-                break;
-            }
-            // Omit a default case because this switch is solely responsible for
-            // tracking the nesting depth of delimiters ([, ], <, >, (, )) as the
-            // function scans the text looking for a character from the delimiter
-            // set at depth zero. All other characters (alphanumerics, punctuation,
-            // operators) do not affect depth and are implicitly ignored. Adding a
-            // default branch would be superfluous and distract from the
-            // delimiter-matching logic that follows the switch.
-        }
-
-        if (
-            delimiterSet.has(char) &&
-            depthSquare === 0 &&
-            depthAngle === 0 &&
-            depthParen === 0
-        ) {
+        if (delimiterSet.has(char) && isAtTopLevelDepth(delimiterDepth)) {
             return true;
         }
     }
