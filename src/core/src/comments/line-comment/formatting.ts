@@ -46,7 +46,6 @@ function getLineCommentRawText(comment, options: any = {}) {
         );
     }
 
-
     if (!isObjectLike(comment)) {
         return "";
     }
@@ -356,8 +355,7 @@ function tryFormatExistingDocComment(
         return "";
     }
 
-    const result = applyInlinePadding(comment, formatted);
-    return result;
+    return applyInlinePadding(comment, formatted);
 }
 
 /**
@@ -387,8 +385,7 @@ function tryFormatDocTagPrefix(
         return "";
     }
 
-    const result = applyInlinePadding(comment, formattedCommentLine);
-    return result;
+    return applyInlinePadding(comment, formattedCommentLine);
 }
 
 /**
@@ -418,12 +415,11 @@ function tryFormatCommentedOutCode(
         return null;
     }
 
-    const result = applyInlinePadding(
+    return applyInlinePadding(
         comment,
         `//${leadingWhitespace}${coreValue}`,
         true
     );
-    return result;
 }
 
 /**

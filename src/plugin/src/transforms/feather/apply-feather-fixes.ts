@@ -4012,7 +4012,9 @@ function applyOrderedDocNamesToImplicitEntries(
         return;
     }
 
-    console.log(`DEBUG: applyFeatherFixes orderedDocNames: ${JSON.stringify(orderedDocNames)}`);
+    console.log(
+        `DEBUG: applyFeatherFixes orderedDocNames: ${JSON.stringify(orderedDocNames)}`
+    );
 
     for (const entry of entries) {
         if (!entry || typeof entry.index !== "number") {
@@ -4037,7 +4039,9 @@ function applyOrderedDocNamesToImplicitEntries(
         const entryNameIsFallback = /^argument\d+$/.test(entry.name);
 
         if (!docNameIsFallback || entryNameIsFallback) {
-            console.log(`DEBUG: applyFeatherFixes renaming entry ${entry.name} -> ${docName}`);
+            console.log(
+                `DEBUG: applyFeatherFixes renaming entry ${entry.name} -> ${docName}`
+            );
             entry.name = docName;
             entry.canonical = docName.toLowerCase();
             continue;

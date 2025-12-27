@@ -123,5 +123,155 @@ export const builtInFunctions: Record<string, BuiltInEmitter> = Object.freeze({
     },
     max(args) {
         return `Math.max(${args.join(", ")})`;
+    },
+    string_length(args) {
+        if (args.length !== 1) {
+            return `string_length(${args.join(", ")})`;
+        }
+        return `(${args[0]}).length`;
+    },
+    string_char_at(args) {
+        if (args.length !== 2) {
+            return `string_char_at(${args.join(", ")})`;
+        }
+        return `((${args[1]}) <= 0 ? (${args[0]})[0] ?? "" : (${args[0]})[(${args[1]}) - 1] ?? "")`;
+    },
+    string_ord_at(args) {
+        if (args.length !== 2) {
+            return `string_ord_at(${args.join(", ")})`;
+        }
+        return `(${args[0]}).charCodeAt((${args[1]}) - 1)`;
+    },
+    string_byte_at(args) {
+        if (args.length !== 2) {
+            return `string_byte_at(${args.join(", ")})`;
+        }
+        return `(${args[0]}).charCodeAt((${args[1]}) - 1)`;
+    },
+    string_byte_length(args) {
+        if (args.length !== 1) {
+            return `string_byte_length(${args.join(", ")})`;
+        }
+        return `new Blob([${args[0]}]).size`;
+    },
+    string_pos(args) {
+        if (args.length !== 2) {
+            return `string_pos(${args.join(", ")})`;
+        }
+        return `((${args[1]}).indexOf(${args[0]}) + 1)`;
+    },
+    string_last_pos(args) {
+        if (args.length !== 2) {
+            return `string_last_pos(${args.join(", ")})`;
+        }
+        return `((${args[1]}).lastIndexOf(${args[0]}) + 1)`;
+    },
+    string_copy(args) {
+        if (args.length !== 3) {
+            return `string_copy(${args.join(", ")})`;
+        }
+        return `(${args[0]}).substring((${args[1]}) - 1, (${args[1]}) - 1 + (${args[2]}))`;
+    },
+    string_delete(args) {
+        if (args.length !== 3) {
+            return `string_delete(${args.join(", ")})`;
+        }
+        return `(${args[0]}).substring(0, (${args[1]}) - 1) + (${args[0]}).substring((${args[1]}) - 1 + (${args[2]}))`;
+    },
+    string_insert(args) {
+        if (args.length !== 3) {
+            return `string_insert(${args.join(", ")})`;
+        }
+        return `(${args[1]}).substring(0, (${args[2]}) - 1) + (${args[0]}) + (${args[1]}).substring((${args[2]}) - 1)`;
+    },
+    string_replace(args) {
+        if (args.length !== 3) {
+            return `string_replace(${args.join(", ")})`;
+        }
+        return `(${args[0]}).replace(${args[1]}, ${args[2]})`;
+    },
+    string_replace_all(args) {
+        if (args.length !== 3) {
+            return `string_replace_all(${args.join(", ")})`;
+        }
+        return `(${args[0]}).replaceAll(${args[1]}, ${args[2]})`;
+    },
+    string_count(args) {
+        if (args.length !== 2) {
+            return `string_count(${args.join(", ")})`;
+        }
+        return `((() => { const str = ${args[1]}; const sub = ${args[0]}; if (!sub) return 0; let count = 0; let pos = 0; while ((pos = str.indexOf(sub, pos)) !== -1) { count++; pos += sub.length; } return count; })())`;
+    },
+    string_upper(args) {
+        if (args.length !== 1) {
+            return `string_upper(${args.join(", ")})`;
+        }
+        return `(${args[0]}).toUpperCase()`;
+    },
+    string_lower(args) {
+        if (args.length !== 1) {
+            return `string_lower(${args.join(", ")})`;
+        }
+        return `(${args[0]}).toLowerCase()`;
+    },
+    string_repeat(args) {
+        if (args.length !== 2) {
+            return `string_repeat(${args.join(", ")})`;
+        }
+        return `(${args[0]}).repeat(${args[1]})`;
+    },
+    string_letters(args) {
+        if (args.length !== 1) {
+            return `string_letters(${args.join(", ")})`;
+        }
+        return `(${args[0]}).replace(/[^A-Za-z]/g, "")`;
+    },
+    string_digits(args) {
+        if (args.length !== 1) {
+            return `string_digits(${args.join(", ")})`;
+        }
+        return `(${args[0]}).replace(/[^0-9]/g, "")`;
+    },
+    string_lettersdigits(args) {
+        if (args.length !== 1) {
+            return `string_lettersdigits(${args.join(", ")})`;
+        }
+        return `(${args[0]}).replace(/[^A-Za-z0-9]/g, "")`;
+    },
+    string_format(args) {
+        if (args.length !== 3) {
+            return `string_format(${args.join(", ")})`;
+        }
+        return `(${args[0]}).toFixed(${args[2]}).padStart(${args[1]}, " ")`;
+    },
+    chr(args) {
+        if (args.length !== 1) {
+            return `chr(${args.join(", ")})`;
+        }
+        return `String.fromCharCode(${args[0]})`;
+    },
+    ansi_char(args) {
+        if (args.length !== 1) {
+            return `ansi_char(${args.join(", ")})`;
+        }
+        return `String.fromCharCode(${args[0]})`;
+    },
+    ord(args) {
+        if (args.length !== 1) {
+            return `ord(${args.join(", ")})`;
+        }
+        return `(${args[0]}).charCodeAt(0)`;
+    },
+    real(args) {
+        if (args.length !== 1) {
+            return `real(${args.join(", ")})`;
+        }
+        return `parseFloat(${args[0]})`;
+    },
+    string(args) {
+        if (args.length !== 1) {
+            return `string(${args.join(", ")})`;
+        }
+        return `String(${args[0]})`;
     }
 });

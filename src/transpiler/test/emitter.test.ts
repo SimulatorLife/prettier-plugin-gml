@@ -1434,3 +1434,202 @@ void test("Transpiler.emitJavaScript handles degtorad with wrong argument count 
         "Should fall back to degtorad function call when arg count is wrong"
     );
 });
+
+// String function tests
+void test("Transpiler.emitJavaScript handles string_length function", () => {
+    const source = 'len = string_length("hello")';
+    const parser = new Parser.GMLParser(source);
+    const ast = parser.parse();
+    const result = Transpiler.emitJavaScript(ast);
+    assert.ok(result.includes(").length"), "Should map to .length property");
+});
+
+void test("Transpiler.emitJavaScript handles string_char_at function", () => {
+    const source = 'ch = string_char_at("abc", 2)';
+    const parser = new Parser.GMLParser(source);
+    const ast = parser.parse();
+    const result = Transpiler.emitJavaScript(ast);
+    assert.ok(
+        result.includes("[") && result.includes("- 1"),
+        "Should adjust for 1-based indexing"
+    );
+});
+
+void test("Transpiler.emitJavaScript handles string_ord_at function", () => {
+    const source = 'code = string_ord_at("A", 1)';
+    const parser = new Parser.GMLParser(source);
+    const ast = parser.parse();
+    const result = Transpiler.emitJavaScript(ast);
+    assert.ok(result.includes("charCodeAt"), "Should map to charCodeAt");
+});
+
+void test("Transpiler.emitJavaScript handles string_pos function", () => {
+    const source = 'pos = string_pos("l", "hello")';
+    const parser = new Parser.GMLParser(source);
+    const ast = parser.parse();
+    const result = Transpiler.emitJavaScript(ast);
+    assert.ok(
+        result.includes("indexOf") && result.includes("+ 1"),
+        "Should map to indexOf with 1-based indexing"
+    );
+});
+
+void test("Transpiler.emitJavaScript handles string_copy function", () => {
+    const source = 'sub = string_copy("hello", 2, 3)';
+    const parser = new Parser.GMLParser(source);
+    const ast = parser.parse();
+    const result = Transpiler.emitJavaScript(ast);
+    assert.ok(result.includes("substring"), "Should map to substring");
+});
+
+void test("Transpiler.emitJavaScript handles string_delete function", () => {
+    const source = 'result = string_delete("hello", 2, 2)';
+    const parser = new Parser.GMLParser(source);
+    const ast = parser.parse();
+    const result = Transpiler.emitJavaScript(ast);
+    assert.ok(
+        result.includes("substring"),
+        "Should use substring for deletion"
+    );
+});
+
+void test("Transpiler.emitJavaScript handles string_insert function", () => {
+    const source = 'result = string_insert("X", "hello", 3)';
+    const parser = new Parser.GMLParser(source);
+    const ast = parser.parse();
+    const result = Transpiler.emitJavaScript(ast);
+    assert.ok(
+        result.includes("substring"),
+        "Should use substring for insertion"
+    );
+});
+
+void test("Transpiler.emitJavaScript handles string_replace function", () => {
+    const source = 'result = string_replace("hello", "l", "L")';
+    const parser = new Parser.GMLParser(source);
+    const ast = parser.parse();
+    const result = Transpiler.emitJavaScript(ast);
+    assert.ok(result.includes(".replace("), "Should map to replace method");
+});
+
+void test("Transpiler.emitJavaScript handles string_replace_all function", () => {
+    const source = 'result = string_replace_all("hello", "l", "L")';
+    const parser = new Parser.GMLParser(source);
+    const ast = parser.parse();
+    const result = Transpiler.emitJavaScript(ast);
+    assert.ok(result.includes("replaceAll"), "Should map to replaceAll method");
+});
+
+void test("Transpiler.emitJavaScript handles string_count function", () => {
+    const source = 'count = string_count("l", "hello")';
+    const parser = new Parser.GMLParser(source);
+    const ast = parser.parse();
+    const result = Transpiler.emitJavaScript(ast);
+    assert.ok(
+        result.includes("indexOf"),
+        "Should use indexOf to count occurrences"
+    );
+});
+
+void test("Transpiler.emitJavaScript handles string_upper function", () => {
+    const source = 'upper = string_upper("hello")';
+    const parser = new Parser.GMLParser(source);
+    const ast = parser.parse();
+    const result = Transpiler.emitJavaScript(ast);
+    assert.ok(result.includes("toUpperCase"), "Should map to toUpperCase");
+});
+
+void test("Transpiler.emitJavaScript handles string_lower function", () => {
+    const source = 'lower = string_lower("HELLO")';
+    const parser = new Parser.GMLParser(source);
+    const ast = parser.parse();
+    const result = Transpiler.emitJavaScript(ast);
+    assert.ok(result.includes("toLowerCase"), "Should map to toLowerCase");
+});
+
+void test("Transpiler.emitJavaScript handles string_repeat function", () => {
+    const source = 'repeated = string_repeat("ab", 3)';
+    const parser = new Parser.GMLParser(source);
+    const ast = parser.parse();
+    const result = Transpiler.emitJavaScript(ast);
+    assert.ok(result.includes(".repeat("), "Should map to repeat method");
+});
+
+void test("Transpiler.emitJavaScript handles string_letters function", () => {
+    const source = 'letters = string_letters("a1b2c3")';
+    const parser = new Parser.GMLParser(source);
+    const ast = parser.parse();
+    const result = Transpiler.emitJavaScript(ast);
+    assert.ok(
+        result.includes("replace") && result.includes("[^A-Za-z]"),
+        "Should filter out non-letters"
+    );
+});
+
+void test("Transpiler.emitJavaScript handles string_digits function", () => {
+    const source = 'digits = string_digits("a1b2c3")';
+    const parser = new Parser.GMLParser(source);
+    const ast = parser.parse();
+    const result = Transpiler.emitJavaScript(ast);
+    assert.ok(
+        result.includes("replace") && result.includes("[^0-9]"),
+        "Should filter out non-digits"
+    );
+});
+
+void test("Transpiler.emitJavaScript handles string_lettersdigits function", () => {
+    const source = 'alphanumeric = string_lettersdigits("a1!b2@c3")';
+    const parser = new Parser.GMLParser(source);
+    const ast = parser.parse();
+    const result = Transpiler.emitJavaScript(ast);
+    assert.ok(
+        result.includes("replace") && result.includes("[^A-Za-z0-9]"),
+        "Should filter out non-alphanumeric characters"
+    );
+});
+
+void test("Transpiler.emitJavaScript handles chr function", () => {
+    const source = "ch = chr(65)";
+    const parser = new Parser.GMLParser(source);
+    const ast = parser.parse();
+    const result = Transpiler.emitJavaScript(ast);
+    assert.ok(
+        result.includes("String.fromCharCode"),
+        "Should map to String.fromCharCode"
+    );
+});
+
+void test("Transpiler.emitJavaScript handles ord function", () => {
+    const source = 'code = ord("A")';
+    const parser = new Parser.GMLParser(source);
+    const ast = parser.parse();
+    const result = Transpiler.emitJavaScript(ast);
+    assert.ok(result.includes("charCodeAt(0)"), "Should map to charCodeAt(0)");
+});
+
+void test("Transpiler.emitJavaScript handles real function", () => {
+    const source = 'num = real("123.45")';
+    const parser = new Parser.GMLParser(source);
+    const ast = parser.parse();
+    const result = Transpiler.emitJavaScript(ast);
+    assert.ok(result.includes("parseFloat"), "Should map to parseFloat");
+});
+
+void test("Transpiler.emitJavaScript handles string function", () => {
+    const source = "str = string(123)";
+    const parser = new Parser.GMLParser(source);
+    const ast = parser.parse();
+    const result = Transpiler.emitJavaScript(ast);
+    assert.ok(result.includes("String("), "Should map to String constructor");
+});
+
+void test("Transpiler.emitJavaScript handles string functions with wrong argument count gracefully", () => {
+    const source = 'len = string_length("a", "b")';
+    const parser = new Parser.GMLParser(source);
+    const ast = parser.parse();
+    const result = Transpiler.emitJavaScript(ast);
+    assert.ok(
+        result.includes("string_length"),
+        "Should fall back when arg count is wrong"
+    );
+});
