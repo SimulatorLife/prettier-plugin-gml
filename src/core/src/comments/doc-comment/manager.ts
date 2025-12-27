@@ -208,9 +208,29 @@ function mapDocCommentsToFunctions(ast) {
     return groups;
 }
 
+/**
+ * Collects all function-like nodes from the given AST.
+ *
+ * DUPLICATION CHECK: This function performs a manual tree traversal to find function
+ * nodes, which appears to overlap with Core.walkObjectGraph. However, there are subtle
+ * differences:
+ *   - Core.walkObjectGraph is a general-purpose walker that visits all nodes.
+ *   - This function is specialized: it only collects nodes that match isFunctionLikeNode,
+ *     and it may have doc-comment-specific filtering logic.
+ *
+ * QUESTION: Can this be replaced by Core.walkObjectGraph with a predicate callback?
+ * For example:
+ *   const functions = [];
+ *   Core.walkObjectGraph(ast, (node) => {
+ *       if (isFunctionLikeNode(node)) functions.push(node);
+ *   });
+ *
+ * RECOMMENDATION: If Core.walkObjectGraph supports filtering or callback-based collection,
+ * use it to eliminate the duplication. If this traversal has doc-comment-specific
+ * requirements (e.g., special handling of comment nodes or metadata), document why it
+ * can't use the generic walker and what makes it different.
+ */
 function collectFunctionNodes(ast) {
-    // TODO: Is this function duplicating Core.walkObjectGraph? Is this specific to doc-comments?
-
     const functions = [];
 
     function traverse(node) {

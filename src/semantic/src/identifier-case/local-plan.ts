@@ -1113,7 +1113,9 @@ function finalizePlanWithoutFileRecord({
     });
 
     if (operations.length === 0 && conflicts.length === 0) {
-        // noop
+        // No rename operations or conflicts were detected during case analysis,
+        // so we skip attaching the plan to the options object. The formatter will
+        // continue without applying any identifier-case transformations to this file.
     } else {
         setIdentifierCaseOption(options, "__identifierCaseRenamePlan", {
             operations

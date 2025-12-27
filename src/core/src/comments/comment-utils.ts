@@ -134,7 +134,28 @@ export function getCommentValue(comment, { trim = false } = {}) {
 }
 
 export type DocCommentLines = ReadonlyArray<string> & {
-    // TODO: We should use common-sense defaults instead of making these configurable
+    // DESIGN SMELL: These flags control formatting behavior for JSDoc comment blocks,
+    // but exposing them as configurable options creates unnecessary complexity and
+    // inconsistency. Users don't need to customize whether description blocks have
+    // blank lines or how leading whitespace is handled—these should follow a single,
+    // opinionated style.
+    //
+    // CURRENT STATE:
+    //   - _preserveDescriptionBreaks: When true, keeps manual line breaks in the
+    //     description text instead of reflowing it. This is sometimes needed to preserve
+    //     intentional formatting (e.g., lists, code examples) inside doc comments.
+    //   - _suppressLeadingBlank: When true, omits the blank line that normally appears
+    //     between the opening `/**` and the first tag or description line.
+    //
+    // RECOMMENDATION: Establish opinionated defaults (e.g., "always preserve breaks in
+    // descriptions" and "never suppress leading blanks") and remove these flags. If
+    // context-specific behavior is truly needed, infer it from the comment structure
+    // (e.g., "if the description contains code blocks, preserve breaks") rather than
+    // requiring explicit configuration.
+    //
+    // WHAT WOULD BREAK: Removing these flags without defining clear default behavior
+    // would cause unpredictable comment formatting. Establish the defaults first, then
+    // remove the flags in a follow-up change.
     _preserveDescriptionBreaks?: boolean;
     _suppressLeadingBlank?: boolean;
 };
@@ -191,14 +212,24 @@ export function collectCommentNodes(root) {
             continue;
         }
 
-        // Inline child value enqueueing to eliminate function call overhead on
-        // this hot path. The traversal visits every node in the AST, so avoiding
-        // repeated enqueueObjectChildValues calls yields measurable improvement
-        // (~12-14% faster in micro-benchmarks with typical AST structures).
+        // PERFORMANCE OPTIMIZATION: Inline child value enqueueing instead of calling
+        // a helper function.
         //
-        // Note: The truthy check for `value` matches the original function's
-        // `!value || typeof value !== "object"` guard (inverted logic).
-        // Array items use stricter `!== null` check, matching the original.
+        // CONTEXT: This traversal visits every node in the AST to collect comments.
+        // The original implementation called `enqueueObjectChildValues(stack, current)`
+        // on every object node, which added function call overhead on a hot path.
+        //
+        // SOLUTION: Inline the logic directly here to eliminate ~12-14% of the runtime
+        // cost in micro-benchmarks with typical AST structures. The trade-off is slightly
+        // more verbose code, but the performance gain is measurable in large codebases.
+        //
+        // WHAT WOULD BREAK: Reverting to a helper function would reduce performance for
+        // large files or projects with many comments. The current inline approach is worth
+        // the extra lines.
+        //
+        // NOTE: The truthy check `if (value && typeof value === "object")` matches the
+        // original helper's `!value || typeof value !== "object"` guard (inverted logic).
+        // Array items use the stricter `!== null` check to match the original behavior.
         const values = Object.values(current);
         for (const value of values) {
             if (value && typeof value === "object") {
