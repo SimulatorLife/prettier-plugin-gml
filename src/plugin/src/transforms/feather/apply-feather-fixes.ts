@@ -4033,13 +4033,13 @@ function applyOrderedDocNamesToImplicitEntries(
         const docNameIsFallback = /^argument\d+$/.test(docName);
         const entryNameIsFallback = /^argument\d+$/.test(entry.name);
 
-        if (!docNameIsFallback || entryNameIsFallback) {
+        if (entryNameIsFallback) {
             entry.name = docName;
             entry.canonical = docName.toLowerCase();
             continue;
         }
 
-        if (docName !== entry.name) {
+        if (docNameIsFallback && docName !== entry.name) {
             updateJSDocParamName(
                 functionNode,
                 docName,
