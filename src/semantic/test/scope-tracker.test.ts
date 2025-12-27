@@ -54,7 +54,15 @@ void test("exportOccurrences captures declarations and references by scope", () 
         programScopeId: programScope.id,
         blockScopeId: blockScope.id,
         declarationRange,
-        referenceRange
+        referenceRange,
+        programMetadata: {
+            lastModified: programScope.lastModifiedTimestamp,
+            modificationCount: programScope.modificationCount
+        },
+        blockMetadata: {
+            lastModified: blockScope.lastModifiedTimestamp,
+            modificationCount: blockScope.modificationCount
+        }
     });
 
     assert.deepStrictEqual(tracker.exportOccurrences(), expected);
@@ -70,7 +78,9 @@ void test("exportOccurrences can omit references and returns cloned metadata", (
             scopeKind: "program",
             name: "bar",
             declarationRange,
-            classifications: ["identifier", "declaration"]
+            classifications: ["identifier", "declaration"],
+            lastModified: scope.lastModifiedTimestamp,
+            modificationCount: scope.modificationCount
         })
     ];
 
@@ -106,7 +116,9 @@ void test("getScopeOccurrences exports a single scope payload", () => {
         referenceRange,
         declarationScopeId: programScope.id,
         declarationRange,
-        classifications: ["identifier", "reference", "variable", "local"]
+        classifications: ["identifier", "reference", "variable", "local"],
+        lastModified: blockScope.lastModifiedTimestamp,
+        modificationCount: blockScope.modificationCount
     });
 
     assert.deepStrictEqual(result, expected);
@@ -125,7 +137,9 @@ void test("getScopeOccurrences omits references when requested and clones metada
         scopeKind: "program",
         name: "bar",
         declarationRange,
-        classifications: ["identifier", "declaration"]
+        classifications: ["identifier", "declaration"],
+        lastModified: scope.lastModifiedTimestamp,
+        modificationCount: scope.modificationCount
     });
 
     assert.deepStrictEqual(occurrences, expected);
@@ -576,6 +590,8 @@ type SourceRange = {
 type ScopeSnapshot = {
     scopeId: string;
     scopeKind: string;
+    lastModified: number;
+    modificationCount: number;
     identifiers: Array<{
         name: string;
         declarations: Array<{
@@ -649,13 +665,17 @@ function buildDeclarationScopeSnapshot({
     scopeKind,
     name,
     declarationRange,
-    classifications
+    classifications,
+    lastModified,
+    modificationCount
 }: {
     scopeId: string;
     scopeKind: string;
     name: string;
     declarationRange: SourceRange;
     classifications: string[];
+    lastModified: number;
+    modificationCount: number;
 }): ScopeSnapshot {
     const declarationRangeClone = cloneRange(declarationRange);
     const metadataRangeClone = cloneRange(declarationRange);
@@ -663,6 +683,8 @@ function buildDeclarationScopeSnapshot({
     return {
         scopeId,
         scopeKind,
+        lastModified,
+        modificationCount,
         identifiers: [
             {
                 name,
@@ -695,7 +717,9 @@ function buildReferenceScopeSnapshot({
     referenceRange,
     declarationScopeId,
     declarationRange,
-    classifications
+    classifications,
+    lastModified,
+    modificationCount
 }: {
     scopeId: string;
     scopeKind: string;
@@ -704,6 +728,8 @@ function buildReferenceScopeSnapshot({
     declarationScopeId: string;
     declarationRange: SourceRange;
     classifications: string[];
+    lastModified: number;
+    modificationCount: number;
 }): ScopeSnapshot {
     const referenceRangeClone = cloneRange(referenceRange);
     const declarationRangeClone = cloneRange(declarationRange);
@@ -711,6 +737,8 @@ function buildReferenceScopeSnapshot({
     return {
         scopeId,
         scopeKind,
+        lastModified,
+        modificationCount,
         identifiers: [
             {
                 name,
@@ -741,13 +769,17 @@ function buildDeclarationAndReferenceSnapshot({
     programScopeId,
     blockScopeId,
     declarationRange,
-    referenceRange
+    referenceRange,
+    programMetadata,
+    blockMetadata
 }: {
     name: string;
     programScopeId: string;
     blockScopeId: string;
     declarationRange: SourceRange;
     referenceRange: SourceRange;
+    programMetadata: { lastModified: number; modificationCount: number };
+    blockMetadata: { lastModified: number; modificationCount: number };
 }): ScopeSnapshot[] {
     return [
         buildDeclarationScopeSnapshot({
@@ -755,7 +787,9 @@ function buildDeclarationAndReferenceSnapshot({
             scopeKind: "program",
             name,
             declarationRange,
-            classifications: ["identifier", "declaration", "variable", "local"]
+            classifications: ["identifier", "declaration", "variable", "local"],
+            lastModified: programMetadata.lastModified,
+            modificationCount: programMetadata.modificationCount
         }),
         buildReferenceScopeSnapshot({
             scopeId: blockScopeId,
@@ -764,7 +798,9 @@ function buildDeclarationAndReferenceSnapshot({
             referenceRange,
             declarationScopeId: programScopeId,
             declarationRange,
-            classifications: ["identifier", "reference", "variable", "local"]
+            classifications: ["identifier", "reference", "variable", "local"],
+            lastModified: blockMetadata.lastModified,
+            modificationCount: blockMetadata.modificationCount
         })
     ];
 }
