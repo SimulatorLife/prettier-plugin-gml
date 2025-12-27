@@ -31,12 +31,12 @@ void test("createRefactorEngine accepts dependencies", () => {
 });
 
 void test("WorkspaceEdit starts empty", () => {
-    const ws = new WorkspaceEdit();
+    const ws = WorkspaceEdit();
     assert.equal(ws.edits.length, 0);
 });
 
 void test("WorkspaceEdit can add edits", () => {
-    const ws = new WorkspaceEdit();
+    const ws = WorkspaceEdit();
     ws.addEdit("file.gml", 0, 10, "newText");
     assert.equal(ws.edits.length, 1);
     assert.equal(ws.edits[0].path, "file.gml");
@@ -46,7 +46,7 @@ void test("WorkspaceEdit can add edits", () => {
 });
 
 void test("WorkspaceEdit groups edits by file", () => {
-    const ws = new WorkspaceEdit();
+    const ws = WorkspaceEdit();
     ws.addEdit("file1.gml", 0, 10, "text1");
     ws.addEdit("file2.gml", 20, 30, "text2");
     ws.addEdit("file1.gml", 40, 50, "text3");
@@ -58,7 +58,7 @@ void test("WorkspaceEdit groups edits by file", () => {
 });
 
 void test("WorkspaceEdit sorts edits descending by start position", () => {
-    const ws = new WorkspaceEdit();
+    const ws = WorkspaceEdit();
     ws.addEdit("file.gml", 10, 20, "a");
     ws.addEdit("file.gml", 50, 60, "b");
     ws.addEdit("file.gml", 30, 40, "c");
@@ -241,7 +241,9 @@ void test("planRename creates workspace edit with occurrences", async () => {
         newName: "scr_new"
     });
 
-    assert.ok(workspace instanceof WorkspaceEdit);
+    assert.ok(typeof workspace.addEdit === "function");
+    assert.ok(typeof workspace.groupByFile === "function");
+    assert.ok(Array.isArray(workspace.edits));
     assert.equal(workspace.edits.length, 2);
     assert.equal(workspace.edits[0].newText, "scr_new");
     assert.equal(workspace.edits[1].newText, "scr_new");
@@ -270,7 +272,7 @@ void test("validateRename detects invalid workspace", async () => {
 
 void test("validateRename detects empty workspace", async () => {
     const engine = new RefactorEngine();
-    const ws = new WorkspaceEdit();
+    const ws = WorkspaceEdit();
     const result = await engine.validateRename(ws);
     assert.equal(result.valid, false);
     assert.ok(result.errors.some((e) => e.includes("no changes")));
@@ -278,7 +280,7 @@ void test("validateRename detects empty workspace", async () => {
 
 void test("validateRename detects overlapping edits", async () => {
     const engine = new RefactorEngine();
-    const ws = new WorkspaceEdit();
+    const ws = WorkspaceEdit();
     ws.addEdit("test.gml", 0, 10, "a");
     ws.addEdit("test.gml", 5, 15, "b"); // Overlaps with previous
     const result = await engine.validateRename(ws);
@@ -288,7 +290,7 @@ void test("validateRename detects overlapping edits", async () => {
 
 void test("validateRename warns about large refactorings", async () => {
     const engine = new RefactorEngine();
-    const ws = new WorkspaceEdit();
+    const ws = WorkspaceEdit();
     // Add many edits
     for (let i = 0; i < 60; i++) {
         ws.addEdit("test.gml", i * 100, i * 100 + 10, "x");
@@ -299,7 +301,7 @@ void test("validateRename warns about large refactorings", async () => {
 
 void test("validateRename passes with valid non-overlapping edits", async () => {
     const engine = new RefactorEngine();
-    const ws = new WorkspaceEdit();
+    const ws = WorkspaceEdit();
     ws.addEdit("test.gml", 0, 10, "a");
     ws.addEdit("test.gml", 20, 30, "b");
     ws.addEdit("test.gml", 40, 50, "c");
@@ -336,7 +338,7 @@ void test("detectRenameConflicts detects reserved keywords", async () => {
 
 void test("prepareHotReloadUpdates returns empty for empty workspace", async () => {
     const engine = new RefactorEngine();
-    const ws = new WorkspaceEdit();
+    const ws = WorkspaceEdit();
     const updates = await engine.prepareHotReloadUpdates(ws);
     assert.ok(Array.isArray(updates));
     assert.equal(updates.length, 0);
@@ -344,7 +346,7 @@ void test("prepareHotReloadUpdates returns empty for empty workspace", async () 
 
 void test("prepareHotReloadUpdates creates updates for edited files", async () => {
     const engine = new RefactorEngine();
-    const ws = new WorkspaceEdit();
+    const ws = WorkspaceEdit();
     ws.addEdit("test.gml", 0, 10, "newcode");
     const updates = await engine.prepareHotReloadUpdates(ws);
     assert.ok(updates.length > 0);
@@ -357,7 +359,7 @@ void test("prepareHotReloadUpdates uses semantic file symbols when available", a
         getFileSymbols: () => [{ id: "gml/script/scr_test" }]
     };
     const engine = new RefactorEngine({ semantic: mockSemantic });
-    const ws = new WorkspaceEdit();
+    const ws = WorkspaceEdit();
     ws.addEdit("test.gml", 0, 10, "newcode");
     const updates = await engine.prepareHotReloadUpdates(ws);
     assert.ok(updates.length > 0);
@@ -389,7 +391,7 @@ void test("prepareHotReloadUpdates includes transitive dependents from cascade",
         }
     };
     const engine = new RefactorEngine({ semantic: mockSemantic });
-    const ws = new WorkspaceEdit();
+    const ws = WorkspaceEdit();
     ws.addEdit("scripts/root.gml", 0, 10, "updated");
 
     const updates = await engine.prepareHotReloadUpdates(ws);
@@ -445,7 +447,7 @@ void test("applyWorkspaceEdit requires a WorkspaceEdit", async () => {
 
 void test("applyWorkspaceEdit requires readFile function", async () => {
     const engine = new RefactorEngine();
-    const ws = new WorkspaceEdit();
+    const ws = WorkspaceEdit();
     type ApplyWorkspaceEditParams = Parameters<
         RefactorEngine["applyWorkspaceEdit"]
     >[1];
@@ -458,7 +460,7 @@ void test("applyWorkspaceEdit requires readFile function", async () => {
 
 void test("applyWorkspaceEdit requires writeFile when not in dry-run", async () => {
     const engine = new RefactorEngine();
-    const ws = new WorkspaceEdit();
+    const ws = WorkspaceEdit();
     ws.addEdit("test.gml", 0, 5, "new");
     await assert.rejects(
         () =>
@@ -475,7 +477,7 @@ void test("applyWorkspaceEdit requires writeFile when not in dry-run", async () 
 
 void test("applyWorkspaceEdit applies edits correctly", async () => {
     const engine = new RefactorEngine();
-    const ws = new WorkspaceEdit();
+    const ws = WorkspaceEdit();
     ws.addEdit("test.gml", 0, 3, "new");
     ws.addEdit("test.gml", 9, 13, "world");
 
@@ -494,7 +496,7 @@ void test("applyWorkspaceEdit applies edits correctly", async () => {
 
 void test("applyWorkspaceEdit handles multiple files", async () => {
     const engine = new RefactorEngine();
-    const ws = new WorkspaceEdit();
+    const ws = WorkspaceEdit();
     ws.addEdit("file1.gml", 0, 3, "abc");
     ws.addEdit("file2.gml", 0, 3, "xyz");
 
@@ -516,7 +518,7 @@ void test("applyWorkspaceEdit handles multiple files", async () => {
 
 void test("applyWorkspaceEdit rejects invalid edits", async () => {
     const engine = new RefactorEngine();
-    const ws = new WorkspaceEdit();
+    const ws = WorkspaceEdit();
     ws.addEdit("test.gml", 0, 10, "new");
     ws.addEdit("test.gml", 5, 15, "conflict"); // Overlapping edit
 
@@ -563,7 +565,9 @@ void test("executeRename performs complete rename workflow", async () => {
         writeFile
     });
 
-    assert.ok(result.workspace instanceof WorkspaceEdit);
+    assert.ok(typeof result.workspace.addEdit === "function");
+    assert.ok(typeof result.workspace.groupByFile === "function");
+    assert.ok(Array.isArray(result.workspace.edits));
     assert.equal(result.applied.size, 1);
     assert.equal(result.applied.get("test.gml"), "scr_b some code scr_b");
     assert.equal(files["test.gml"], "scr_b some code scr_b");
@@ -664,7 +668,9 @@ void test("prepareRenamePlan aggregates planning, validation, and analysis", asy
         newName: "scr_player_new"
     });
 
-    assert.ok(result.workspace instanceof WorkspaceEdit);
+    assert.ok(typeof result.workspace.addEdit === "function");
+    assert.ok(typeof result.workspace.groupByFile === "function");
+    assert.ok(Array.isArray(result.workspace.edits));
     assert.equal(result.validation.valid, true);
     assert.ok(result.validation.warnings.includes("semantic warning"));
     assert.equal(result.hotReload, null);
@@ -922,7 +928,9 @@ void test("planBatchRename combines multiple renames", async () => {
         { symbolId: "gml/script/scr_b", newName: "scr_new_b" }
     ]);
 
-    assert.ok(workspace instanceof WorkspaceEdit);
+    assert.ok(typeof workspace.addEdit === "function");
+    assert.ok(typeof workspace.groupByFile === "function");
+    assert.ok(Array.isArray(workspace.edits));
     assert.equal(workspace.edits.length, 2);
     assert.equal(workspace.edits[0].newText, "scr_new_a");
     assert.equal(workspace.edits[1].newText, "scr_new_b");
@@ -1035,7 +1043,9 @@ void test("planBatchRename allows non-circular chain renames (A→B→C)", async
         { symbolId: "gml/script/scr_beta", newName: "scr_gamma" }
     ]);
 
-    assert.ok(workspace instanceof WorkspaceEdit);
+    assert.ok(typeof workspace.addEdit === "function");
+    assert.ok(typeof workspace.groupByFile === "function");
+    assert.ok(Array.isArray(workspace.edits));
     assert.ok(workspace.edits.length > 0);
 });
 
@@ -1074,7 +1084,9 @@ void test("planBatchRename allows independent renames without cycles", async () 
         { symbolId: "gml/script/scr_bar", newName: "scr_bar_renamed" }
     ]);
 
-    assert.ok(workspace instanceof WorkspaceEdit);
+    assert.ok(typeof workspace.addEdit === "function");
+    assert.ok(typeof workspace.groupByFile === "function");
+    assert.ok(Array.isArray(workspace.edits));
     assert.equal(workspace.edits.length, 2);
 });
 
@@ -1124,7 +1136,9 @@ void test("executeBatchRename performs complete batch rename workflow", async ()
         writeFile
     });
 
-    assert.ok(result.workspace instanceof WorkspaceEdit);
+    assert.ok(typeof result.workspace.addEdit === "function");
+    assert.ok(typeof result.workspace.groupByFile === "function");
+    assert.ok(Array.isArray(result.workspace.edits));
     assert.equal(result.applied.size, 1);
     assert.equal(result.applied.get("test.gml"), "scr_x some code scr_y");
     assert.equal(files["test.gml"], "scr_x some code scr_y");
@@ -1346,7 +1360,7 @@ void test("validateHotReloadCompatibility requires a WorkspaceEdit", async () =>
 
 void test("validateHotReloadCompatibility warns for empty workspace", async () => {
     const engine = new RefactorEngine();
-    const ws = new WorkspaceEdit();
+    const ws = WorkspaceEdit();
     const result = await engine.validateHotReloadCompatibility(ws);
     assert.equal(result.valid, true);
     assert.ok(result.warnings.some((w) => w.includes("no changes")));
@@ -1354,7 +1368,7 @@ void test("validateHotReloadCompatibility warns for empty workspace", async () =
 
 void test("validateHotReloadCompatibility warns about non-GML files", async () => {
     const engine = new RefactorEngine();
-    const ws = new WorkspaceEdit();
+    const ws = WorkspaceEdit();
     ws.addEdit("test.txt", 0, 5, "new");
     const result = await engine.validateHotReloadCompatibility(ws);
     assert.ok(result.warnings.some((w) => w.includes("not a GML script")));
@@ -1362,7 +1376,7 @@ void test("validateHotReloadCompatibility warns about non-GML files", async () =
 
 void test("validateHotReloadCompatibility detects globalvar changes", async () => {
     const engine = new RefactorEngine();
-    const ws = new WorkspaceEdit();
+    const ws = WorkspaceEdit();
     ws.addEdit("test.gml", 0, 5, "globalvar myvar;");
     const result = await engine.validateHotReloadCompatibility(ws);
     assert.ok(result.warnings.some((w) => w.includes("globalvar")));
@@ -1370,7 +1384,7 @@ void test("validateHotReloadCompatibility detects globalvar changes", async () =
 
 void test("validateHotReloadCompatibility detects macro changes", async () => {
     const engine = new RefactorEngine();
-    const ws = new WorkspaceEdit();
+    const ws = WorkspaceEdit();
     ws.addEdit("test.gml", 0, 5, "#macro MAX_HP 100");
     const result = await engine.validateHotReloadCompatibility(ws);
     assert.ok(result.warnings.some((w) => w.includes("#macro")));
@@ -1378,7 +1392,7 @@ void test("validateHotReloadCompatibility detects macro changes", async () => {
 
 void test("validateHotReloadCompatibility detects enum changes", async () => {
     const engine = new RefactorEngine();
-    const ws = new WorkspaceEdit();
+    const ws = WorkspaceEdit();
     ws.addEdit("test.gml", 0, 5, "enum State { Idle, Running }");
     const result = await engine.validateHotReloadCompatibility(ws);
     assert.ok(result.warnings.some((w) => w.includes("enum")));
@@ -1386,7 +1400,7 @@ void test("validateHotReloadCompatibility detects enum changes", async () => {
 
 void test("validateHotReloadCompatibility warns about large edits", async () => {
     const engine = new RefactorEngine();
-    const ws = new WorkspaceEdit();
+    const ws = WorkspaceEdit();
     const largeText = "x".repeat(6000);
     ws.addEdit("test.gml", 0, 5, largeText);
     const result = await engine.validateHotReloadCompatibility(ws);
@@ -1398,7 +1412,7 @@ void test("validateHotReloadCompatibility handles transpiler check option", asyn
         transpileScript: async () => ({ kind: "script", js_body: "ok" })
     };
     const engine = new RefactorEngine({ formatter: mockTranspiler });
-    const ws = new WorkspaceEdit();
+    const ws = WorkspaceEdit();
     ws.addEdit("test.gml", 0, 5, "new code");
 
     const result = await engine.validateHotReloadCompatibility(ws, {
@@ -1412,7 +1426,7 @@ void test("validateHotReloadCompatibility handles transpiler check option", asyn
 
 void test("validateHotReloadCompatibility passes for simple renames", async () => {
     const engine = new RefactorEngine();
-    const ws = new WorkspaceEdit();
+    const ws = WorkspaceEdit();
     ws.addEdit("test.gml", 0, 5, "newName");
     ws.addEdit("test.gml", 50, 55, "newName");
 
@@ -2069,7 +2083,7 @@ void test("verifyPostEditIntegrity validates input parameters", async () => {
         symbolId: "",
         oldName: "old",
         newName: "new",
-        workspace: new WorkspaceEdit(),
+        workspace: WorkspaceEdit(),
         readFile: async () => ""
     });
     assert.equal(result0.valid, false);
@@ -2080,7 +2094,7 @@ void test("verifyPostEditIntegrity validates input parameters", async () => {
         symbolId: "gml/script/test",
         oldName: "",
         newName: "new",
-        workspace: new WorkspaceEdit(),
+        workspace: WorkspaceEdit(),
         readFile: async () => ""
     });
     assert.equal(result1.valid, false);
@@ -2091,7 +2105,7 @@ void test("verifyPostEditIntegrity validates input parameters", async () => {
         symbolId: "gml/script/test",
         oldName: "old",
         newName: "",
-        workspace: new WorkspaceEdit(),
+        workspace: WorkspaceEdit(),
         readFile: async () => ""
     });
     assert.equal(result2.valid, false);
@@ -2113,7 +2127,7 @@ void test("verifyPostEditIntegrity validates input parameters", async () => {
         symbolId: "gml/script/test",
         oldName: "old",
         newName: "new",
-        workspace: new WorkspaceEdit(),
+        workspace: WorkspaceEdit(),
         readFile: null as unknown as WorkspaceReadFile
     });
     assert.equal(result4.valid, false);
@@ -2122,7 +2136,7 @@ void test("verifyPostEditIntegrity validates input parameters", async () => {
 
 void test("verifyPostEditIntegrity works without semantic analyzer", async () => {
     const engine = new RefactorEngine();
-    const ws = new WorkspaceEdit();
+    const ws = WorkspaceEdit();
     ws.addEdit("test.gml", 0, 3, "new");
 
     const result = await engine.verifyPostEditIntegrity({
@@ -2139,7 +2153,7 @@ void test("verifyPostEditIntegrity works without semantic analyzer", async () =>
 
 void test("verifyPostEditIntegrity detects lingering old names", async () => {
     const engine = new RefactorEngine();
-    const ws = new WorkspaceEdit();
+    const ws = WorkspaceEdit();
     ws.addEdit("test.gml", 0, 3, "new");
 
     const result = await engine.verifyPostEditIntegrity({
@@ -2160,7 +2174,7 @@ void test("verifyPostEditIntegrity detects lingering old names", async () => {
 
 void test("verifyPostEditIntegrity detects old names in comments", async () => {
     const engine = new RefactorEngine();
-    const ws = new WorkspaceEdit();
+    const ws = WorkspaceEdit();
     ws.addEdit("test.gml", 0, 3, "new");
 
     const result = await engine.verifyPostEditIntegrity({
@@ -2183,7 +2197,7 @@ void test("verifyPostEditIntegrity detects old names in comments", async () => {
 
 void test("verifyPostEditIntegrity warns if new name not found", async () => {
     const engine = new RefactorEngine();
-    const ws = new WorkspaceEdit();
+    const ws = WorkspaceEdit();
     ws.addEdit("test.gml", 0, 3, "new");
 
     const result = await engine.verifyPostEditIntegrity({
@@ -2218,7 +2232,7 @@ void test("verifyPostEditIntegrity detects conflicts with existing symbols", asy
         }
     };
     const engine = new RefactorEngine({ semantic: mockSemantic });
-    const ws = new WorkspaceEdit();
+    const ws = WorkspaceEdit();
     ws.addEdit("test.gml", 0, 3, "new");
 
     const result = await engine.verifyPostEditIntegrity({
@@ -2241,7 +2255,7 @@ void test("verifyPostEditIntegrity detects reserved keyword conflicts", async ()
         getReservedKeywords: async () => ["if", "else", "for", "while"]
     };
     const engine = new RefactorEngine({ semantic: mockSemantic });
-    const ws = new WorkspaceEdit();
+    const ws = WorkspaceEdit();
     ws.addEdit("test.gml", 0, 3, "if");
 
     const result = await engine.verifyPostEditIntegrity({
@@ -2270,7 +2284,7 @@ void test("verifyPostEditIntegrity validates parse correctness", async () => {
         }
     };
     const engine = new RefactorEngine({ parser: mockParser });
-    const ws = new WorkspaceEdit();
+    const ws = WorkspaceEdit();
     ws.addEdit("broken.gml", 0, 3, "new");
 
     const result = await engine.verifyPostEditIntegrity({
@@ -2291,7 +2305,7 @@ void test("verifyPostEditIntegrity validates parse correctness", async () => {
 
 void test("verifyPostEditIntegrity handles file read errors", async () => {
     const engine = new RefactorEngine();
-    const ws = new WorkspaceEdit();
+    const ws = WorkspaceEdit();
     ws.addEdit("test.gml", 0, 3, "new");
 
     const result = await engine.verifyPostEditIntegrity({
@@ -2320,7 +2334,7 @@ void test("verifyPostEditIntegrity succeeds for valid rename", async () => {
         semantic: mockSemantic,
         parser: mockParser
     });
-    const ws = new WorkspaceEdit();
+    const ws = WorkspaceEdit();
     ws.addEdit("test.gml", 0, 7, "newFunc");
 
     const result = await engine.verifyPostEditIntegrity({
