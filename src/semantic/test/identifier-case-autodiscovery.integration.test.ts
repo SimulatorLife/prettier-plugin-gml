@@ -1,5 +1,28 @@
-// TODO: We should NOT have integration tests at this layer (look at how conveluted the plugin import is)
-// We should move any and all integration tests to a top-level 'test/' directory
+/**
+ * Integration test for identifier-case autodiscovery.
+ *
+ * ARCHITECTURE SMELL: This integration test lives in the 'semantic' package but
+ * requires importing the full 'plugin' package (via Prettier), creating a reverse
+ * dependency from a lower layer to a higher layer. The dependency flow should be:
+ *   Core ← Parser ← Semantic ← Plugin
+ *
+ * Integration tests that exercise the full pipeline (Prettier → Plugin → Semantic → Parser)
+ * should not live inside a workspace that's supposed to be lower in the stack.
+ *
+ * CURRENT STATE: The test here imports Prettier and the plugin, formats GML source,
+ * and verifies that identifier-case analysis works end-to-end. This forces the
+ * 'semantic' package to have a dev-dependency on 'plugin', which is backwards.
+ *
+ * RECOMMENDATION: Move all integration tests to a top-level 'test/' directory at the
+ * repository root, outside any individual workspace. This directory can depend on
+ * all packages and test the full pipeline without creating circular dependencies.
+ * The 'semantic' package should only contain unit tests that test its own exports
+ * in isolation, using mocked or minimal inputs from lower layers (Core, Parser).
+ *
+ * WHAT WOULD BREAK: Leaving integration tests in lower-layer packages prevents
+ * clean layering, makes it harder to build packages independently, and forces
+ * contributors to reason about reverse dependencies during development.
+ */
 import assert from "node:assert/strict";
 import { promises as fs } from "node:fs";
 import path from "node:path";
