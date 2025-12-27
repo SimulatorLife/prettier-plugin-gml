@@ -121,6 +121,18 @@ The watch command now integrates with the transpiler module (`src/transpiler`) t
 - `sourceText`: Original GML source for debugging
 - `version`: Timestamp of transpilation
 
+**Planned: Semantic Analysis Integration**
+
+Future iterations will integrate with the semantic analyzer (`src/semantic`) to enable dependency-aware hot-reload:
+
+1. Parse changed files to extract AST
+2. Analyze files semantically to identify symbol definitions and references
+3. Track project-wide dependency graph (which scripts call which)
+4. When a file changes, automatically re-transpile dependent scripts
+5. Coordinate invalidation cascades through the dependency graph
+
+This integration requires expanding the semantic package's public API to export `ScopeTracker` or providing an alternative coordinator interface. The current design intentionally keeps `ScopeTracker` internal to enforce use of higher-level semantic coordinators.
+
 **Error Recovery and Resilience:**
 
 The watch command includes robust error handling to maintain stability:
