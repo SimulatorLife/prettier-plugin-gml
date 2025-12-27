@@ -4,7 +4,10 @@ import { test } from "node:test";
 
 // Use Plugin.format to run the plugin directly during tests
 
-function extractDocsForFunction(formatted: string, functionName: string): Set<string> {
+function extractDocsForFunction(
+    formatted: string,
+    functionName: string
+): Set<string> {
     const functionStart = formatted.indexOf(`function ${functionName}`);
     if (functionStart === -1) return new Set();
 
@@ -63,7 +66,7 @@ void test("collectImplicitArgumentDocNames omits superseded argument docs", asyn
     const formatted = await Plugin.format(SOURCE, {
         applyFeatherFixes: true
     });
-    console.log(`DEBUG: formatted output:\n${  formatted}`);
+    console.log(`DEBUG: formatted output:\n${formatted}`);
 
     const sample2Doc = extractDocsForFunction(formatted, "sample2");
 
@@ -100,7 +103,7 @@ void test("collectImplicitArgumentDocNames prefers alias docs without Feather fi
     const formatted = await Plugin.format(NO_FEATHER_SOURCE, {
         applyFeatherFixes: false
     });
-    console.log(`DEBUG: formatted output (NO_FEATHER):\n${  formatted}`);
+    console.log(`DEBUG: formatted output (NO_FEATHER):\n${formatted}`);
 
     const docStart = formatted.indexOf("/// @function sampleAlias");
     let docEnd = formatted.indexOf("\nfunction sampleAlias", docStart);

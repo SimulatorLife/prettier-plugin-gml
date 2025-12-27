@@ -4339,7 +4339,6 @@ function fixArgumentReferencesWithinFunction(
     return fixes;
 }
 
-
 function createArgumentIndexMapping(indices: unknown[]) {
     if (!Core.isNonEmptyArray(indices)) {
         return null;

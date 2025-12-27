@@ -470,7 +470,10 @@ export function normalizeFunctionDocCommentDocs({
     const normalizedMetadata = getDocCommentNormalization(node);
 
     if (normalizedMetadata) {
-        console.log("[DEBUG] normalizeFunctionDocCommentDocs found metadata:", normalizedMetadata.docCommentDocs);
+        console.log(
+            "[DEBUG] normalizeFunctionDocCommentDocs found metadata:",
+            normalizedMetadata.docCommentDocs
+        );
         return {
             docCommentDocs: normalizedMetadata.docCommentDocs,
             needsLeadingBlankLine: normalizedMetadata.needsLeadingBlankLine
