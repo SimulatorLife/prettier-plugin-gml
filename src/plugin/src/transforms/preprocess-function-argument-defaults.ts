@@ -203,6 +203,9 @@ export class PreprocessFunctionArgumentDefaultsTransform extends FunctionalParse
                 continue;
             }
 
+            console.log(
+                "[DEBUG] Found condenseMatch in preprocessFunctionDeclaration"
+            );
             condenseMatches.push(condenseMatch);
         }
 
@@ -1118,9 +1121,14 @@ function collectImplicitArgumentReferences(functionNode: GameMakerAstNode) {
         if (node.type === "VariableDeclarator") {
             const aliasIndex = getArgumentIndexFromNode(node.init);
             if (aliasIndex === 0 && node.id?.name === "first") {
-                 console.log("DEBUG: FOUND SMOKING GUN: first = argument0");
+                console.log("DEBUG: FOUND SMOKING GUN: first = argument0");
             }
-            console.log("DEBUG: VariableDeclarator", node.id?.name, "aliasIndex:", aliasIndex);
+            console.log(
+                "DEBUG: VariableDeclarator",
+                node.id?.name,
+                "aliasIndex:",
+                aliasIndex
+            );
         }
 
         if (
@@ -1175,13 +1183,27 @@ function collectImplicitArgumentReferences(functionNode: GameMakerAstNode) {
 
     if (!referencedIndices || referencedIndices.size === 0) return [];
 
-    console.log("DEBUG: collectImplicitArgumentReferences result for", (functionNode as any).id?.name, "aliasByIndex:", JSON.stringify(Array.from(aliasByIndex.entries())), "referencedIndices:", JSON.stringify(Array.from(referencedIndices)));
+    console.log(
+        "DEBUG: collectImplicitArgumentReferences result for",
+        (functionNode as any).id?.name,
+        "aliasByIndex:",
+        JSON.stringify(Array.from(aliasByIndex.entries())),
+        "referencedIndices:",
+        JSON.stringify(Array.from(referencedIndices))
+    );
 
     const sorted = [...referencedIndices].sort((a, b) => a - b);
     return sorted.map((index) => {
         const fallbackName = `argument${index}`;
         const alias = aliasByIndex.get(index);
-        console.log("DEBUG: Mapping index", index, "alias:", alias, "for function", (functionNode as any).id?.name);
+        console.log(
+            "DEBUG: Mapping index",
+            index,
+            "alias:",
+            alias,
+            "for function",
+            (functionNode as any).id?.name
+        );
         const docName = alias && alias.length > 0 ? alias : fallbackName;
         const canonical =
             (typeof docName === "string" && docName.toLowerCase()) || docName;

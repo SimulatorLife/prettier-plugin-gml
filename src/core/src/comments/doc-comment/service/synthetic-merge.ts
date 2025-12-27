@@ -868,6 +868,15 @@ function reorderParamDocLines({
         }
     }
 
+    console.log(
+        "[DEBUG] reorderParamDocLines paramDocsByCanonical initial:",
+        Array.from(paramDocsByCanonical.keys())
+    );
+    console.log(
+        "[DEBUG] reorderParamDocLines suppressedCanonicals:",
+        suppressedCanonicals ? Array.from(suppressedCanonicals) : "undefined"
+    );
+
     if (suppressedCanonicals && suppressedCanonicals.size > 0) {
         for (const canonical of suppressedCanonicals) {
             const candidate = paramDocsByCanonical.get(canonical);
@@ -975,6 +984,8 @@ function reorderParamDocLines({
     if (!insertedParams && orderedParamDocs.length > 0) {
         finalDocs.push(...orderedParamDocs);
     }
+
+    console.log("[DEBUG] reorderParamDocLines finalDocs:", finalDocs);
 
     return finalDocs;
 }
@@ -1934,6 +1945,8 @@ function mergeDocLines({
         ...otherLines,
         ...mergedLines.slice(insertionIndex)
     ];
+
+    console.log("[DEBUG] mergeDocLines result:", result);
 
     return {
         result,

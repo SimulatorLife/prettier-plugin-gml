@@ -171,8 +171,8 @@ export function applyJsDocReplacements(text: unknown) {
 }
 
 function normalizeDocTagSpacing(text: string) {
-    let normalized = text.replace(/(@[a-zA-Z]+)\s{2,}/g, "$1 ");
-    normalized = normalized.replace(/(\{[^}]+\})\s{2,}/g, "$1 ");
+    let normalized = text.replaceAll(/(@[a-zA-Z]+)\s{2,}/g, "$1 ");
+    normalized = normalized.replaceAll(/(\{[^}]+\})\s{2,}/g, "$1 ");
     return normalized;
 }
 

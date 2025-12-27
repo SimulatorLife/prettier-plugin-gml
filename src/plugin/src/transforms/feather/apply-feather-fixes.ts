@@ -896,6 +896,7 @@ export class ApplyFeatherFixesTransform extends FunctionalParserTransform<ApplyF
         ast: MutableGameMakerAstNode,
         options: ApplyFeatherFixesOptions
     ) {
+        console.log("[DEBUG] ApplyFeatherFixesTransform.execute called");
         return applyFeatherFixesImpl(ast, options);
     }
 }
@@ -3913,7 +3914,11 @@ function cleanupSelfAssignments(node) {
     }
 }
 
-function normalizeArgumentBuiltinReferences({ ast, diagnostic, collectionService }) {
+function normalizeArgumentBuiltinReferences({
+    ast,
+    diagnostic,
+    collectionService
+}) {
     if (!hasFeatherDiagnosticContext(ast, diagnostic)) {
         return [];
     }
@@ -4103,18 +4108,29 @@ function fixArgumentReferencesWithinFunction(
                 ) {
                     const docName = orderedDocNames[entry.index];
                     if (docName) {
-                        console.log(`DEBUG: applyFeatherFixes processing entry index ${entry.index}, docName='${docName}', entry.name='${entry.name}'`);
+                        console.log(
+                            `DEBUG: applyFeatherFixes processing entry index ${entry.index}, docName='${docName}', entry.name='${entry.name}'`
+                        );
                         // Prefer the JSDoc name unless it's a generic "argumentN" placeholder
                         // and we already have a more descriptive alias from the source code.
                         const docNameIsFallback = /^argument\d+$/.test(docName);
-                        const entryNameIsFallback = /^argument\d+$/.test(entry.name);
+                        const entryNameIsFallback = /^argument\d+$/.test(
+                            entry.name
+                        );
 
                         if (!docNameIsFallback || entryNameIsFallback) {
                             entry.name = docName;
                             entry.canonical = docName.toLowerCase();
                         } else {
-                            console.log(`DEBUG: Calling updateJSDocParamName for ${docName} -> ${entry.name}`);
-                            updateJSDocParamName(functionNode, docName, entry.name, collectionService);
+                            console.log(
+                                `DEBUG: Calling updateJSDocParamName for ${docName} -> ${entry.name}`
+                            );
+                            updateJSDocParamName(
+                                functionNode,
+                                docName,
+                                entry.name,
+                                collectionService
+                            );
                         }
                     }
                 }
@@ -17459,30 +17475,47 @@ function collectGM1100Candidates(node) {
     return index;
 }
 
-function updateJSDocParamName(node: any, oldName: string, newName: string, collectionService: any) {
+function updateJSDocParamName(
+    node: any,
+    oldName: string,
+    newName: string,
+    collectionService: any
+) {
     if (!node) {
         console.log("[DEBUG] updateJSDocParamName: node is null");
         return;
     }
 
-    const comments = collectionService ? collectionService.getComments(node) : node.comments;
+    const comments = collectionService
+        ? collectionService.getComments(node)
+        : node.comments;
 
     if (!Array.isArray(comments)) {
-        console.log("[DEBUG] updateJSDocParamName: comments is not an array", node.type);
+        console.log(
+            "[DEBUG] updateJSDocParamName: comments is not an array",
+            node.type
+        );
         return;
     }
 
-    console.log(`[DEBUG] updateJSDocParamName: replacing ${oldName} with ${newName} in ${comments.length} comments`);
+    console.log(
+        `[DEBUG] updateJSDocParamName: replacing ${oldName} with ${newName} in ${comments.length} comments`
+    );
 
-    const escapedOld = oldName.replace(/[.*+?^()|[\]\\]/g, '\\$&');
-    const regex = new RegExp(`\\b${escapedOld}\\b`, 'g');
+    const escapedOld = oldName.replaceAll(/[.*+?^()|[\]\\]/g, String.raw`\$&`);
+    const regex = new RegExp(String.raw`\b${escapedOld}\b`, "g");
 
     for (const comment of comments) {
-        if (typeof comment.value === "string" && comment.value.includes("@param")) {
+        if (
+            typeof comment.value === "string" &&
+            comment.value.includes("@param")
+        ) {
             const original = comment.value;
             comment.value = comment.value.replace(regex, newName);
             if (original !== comment.value) {
-                console.log(`[DEBUG] updateJSDocParamName: updated comment '${original}' to '${comment.value}'`);
+                console.log(
+                    `[DEBUG] updateJSDocParamName: updated comment '${original}' to '${comment.value}'`
+                );
             }
         }
     }
