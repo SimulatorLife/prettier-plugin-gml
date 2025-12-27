@@ -51,11 +51,17 @@ node src/cli/src/cli.js watch /path/to/project --verbose
 - `--polling` - Use polling instead of native file watching
 - `--polling-interval <ms>` - Polling interval in milliseconds (default: 1000)
 - `--verbose` - Enable verbose logging with detailed transpilation output
+- `--quiet` - Suppress non-essential output (only show errors and server URLs); useful for CI/CD or background processes
 - `--debounce-delay <ms>` - Delay in milliseconds before transpiling after file changes (default: 200, set to 0 to disable debouncing)
 - `--max-patch-history <count>` - Maximum number of patches to retain in memory (default: 100)
 - `--websocket-port <port>` - WebSocket server port for streaming patches (default: 17890)
 - `--websocket-host <host>` - WebSocket server host for streaming patches (default: 127.0.0.1)
 - `--no-websocket-server` - Disable WebSocket server for patch streaming
+- `--runtime-root <path>` - Path to the HTML5 runtime assets
+- `--runtime-package <name>` - Package name for the HTML5 runtime (default: gamemaker-html5)
+- `--no-runtime-server` - Disable starting the HTML5 runtime static server
+
+**Note:** The `--verbose` and `--quiet` flags cannot be used together.
 
 **Example Output:**
 
@@ -111,6 +117,28 @@ node src/cli/src/cli.js watch --debounce-delay 0
 
 When the watch command stops (via Ctrl+C or abort signal), any pending debounced transpilations are flushed immediately to ensure no work is lost.
 
+**Quiet Mode:**
+
+For CI/CD pipelines, automated testing, or when running the watcher in the background, use `--quiet` to suppress non-essential output:
+
+```bash
+# Quiet mode - only shows server URLs and errors
+node src/cli/src/cli.js watch --quiet
+
+# Example output in quiet mode:
+# Runtime static server ready at http://127.0.0.1:51234
+# WebSocket patch server ready at ws://127.0.0.1:17890
+# 
+# (transpilation happens silently, only errors are shown)
+# Error: Transpilation failed: Unexpected token at line 5
+```
+
+Quiet mode is particularly useful for:
+- CI/CD pipelines where verbose output clutters logs
+- Background processes where you only care about errors
+- Automated testing environments
+- Production-like monitoring setups
+
 **Hot-Reload Integration:**
 
 The watch command now integrates with the transpiler module (`src/transpiler`) to generate JavaScript patches on file changes. Each patch contains:
@@ -161,7 +189,8 @@ The watch command includes robust error handling to maintain stability:
 ✅ **Error notifications to clients** ✨
 ✅ **Last successful patch tracking** ✨
 ✅ **Error statistics and reporting** ✨
-✅ **Debounced file change handling** ✨ NEW
+✅ **Debounced file change handling** ✨
+✅ **Quiet mode for CI/CD environments** ✨ NEW
 
 🚧 Future Enhancements:
 - Semantic analysis integration for scope-aware transpilation
