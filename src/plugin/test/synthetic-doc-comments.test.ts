@@ -160,16 +160,35 @@ void test("synthetic constructor docs include trailing parameters", async () => 
 
     const formatted = await Plugin.format(source);
     const lines = formatted.trim().split("\n");
-    const docIndex = lines.indexOf("/// @function grandchild");
+    const functionIndex = lines.indexOf(
+        "function grandchild(_foo, _value, _bar) : child(_foo, _value) constructor {"
+    );
 
     assert.notStrictEqual(
-        docIndex,
+        functionIndex,
         -1,
-        "Expected the formatted output to include a synthetic doc comment for the constructor."
+        "Expected the formatted output to include the grandchild constructor."
+    );
+
+    const docLines: string[] = [];
+    for (let index = functionIndex - 1; index >= 0; index -= 1) {
+        const line = lines[index].trim();
+        if (line.startsWith("///")) {
+            docLines.unshift(line);
+            continue;
+        }
+        if (line === "") {
+            continue;
+        }
+        break;
+    }
+
+    const paramLines = docLines.filter((line) =>
+        line.startsWith("/// @param")
     );
 
     assert.deepStrictEqual(
-        lines.slice(docIndex - 3, docIndex),
+        paramLines,
         ["/// @param foo", "/// @param value", "/// @param bar"],
         "Synthetic constructor docs should include entries for trailing parameters."
     );

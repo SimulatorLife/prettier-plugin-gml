@@ -172,13 +172,6 @@ void describe("Prettier GameMaker plugin fixtures", () => {
                 return;
             }
 
-            console.log(
-                `[DEBUG] Failed test ${baseName}. Normalized actual:\n${normalizedActual}\n-------------------`
-            );
-            console.log(
-                `[DEBUG] Normalized expected:\n${normalizedExpected}\n-------------------`
-            );
-
             const formattedLines = normalizedActual.split("\n");
             const expectedLines = normalizedExpected.split("\n");
             while (

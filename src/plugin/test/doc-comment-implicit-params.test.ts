@@ -28,6 +28,30 @@ function extractDocsForFunction(
     return new Set(docLines);
 }
 
+function extractDocLinesForFunction(
+    formatted: string,
+    functionName: string
+): string[] {
+    const functionStart = formatted.indexOf(`function ${functionName}`);
+    if (functionStart === -1) return [];
+
+    const before = formatted.slice(0, functionStart);
+    const lines = before.split(/\r?\n/);
+    const docLines: string[] = [];
+
+    for (let i = lines.length - 1; i >= 0; i--) {
+        const line = lines[i].trim();
+        if (line.startsWith("///")) {
+            docLines.unshift(line);
+        } else if (line === "") {
+            continue;
+        } else {
+            break;
+        }
+    }
+    return docLines;
+}
+
 const SOURCE = `/// @function sample
 /// @param first
 /// @param second
@@ -66,8 +90,6 @@ void test("collectImplicitArgumentDocNames omits superseded argument docs", asyn
     const formatted = await Plugin.format(SOURCE, {
         applyFeatherFixes: true
     });
-    console.log(`DEBUG: formatted output:\n${formatted}`);
-
     const sample2Doc = extractDocsForFunction(formatted, "sample2");
 
     assert.ok(
@@ -103,24 +125,11 @@ void test("collectImplicitArgumentDocNames prefers alias docs without Feather fi
     const formatted = await Plugin.format(NO_FEATHER_SOURCE, {
         applyFeatherFixes: false
     });
-    console.log(`DEBUG: formatted output (NO_FEATHER):\n${formatted}`);
 
-    const docStart = formatted.indexOf("/// @function sampleAlias");
-    let docEnd = formatted.indexOf("\nfunction sampleAlias", docStart);
-    if (docEnd === -1) {
-        docEnd = formatted.indexOf("function sampleAlias", docStart + 1);
-    } else {
-        docEnd += 1;
-    }
-    if (docEnd === -1) {
-        docEnd = formatted.length;
-    }
-
-    const paramLines = formatted
-        .slice(docStart, docEnd)
-        .split(/\r?\n/)
-        .map((line) => line.trim())
-        .filter((line) => line.startsWith("/// @param"));
+    const paramLines = extractDocLinesForFunction(
+        formatted,
+        "sampleAlias"
+    ).filter((line) => line.startsWith("/// @param"));
 
     assert.deepStrictEqual(paramLines, [
         "/// @param first",
@@ -142,23 +151,10 @@ function sampleExisting() {
 void test("collectImplicitArgumentDocNames reuses documented names when alias is missing", async () => {
     const formatted = await Plugin.format(EXISTING_DOC_SOURCE);
 
-    const docStart = formatted.indexOf("/// @function sampleExisting");
-    let docEnd = formatted.indexOf("\nfunction sampleExisting", docStart);
-    if (docEnd === -1) {
-        docEnd = formatted.indexOf("function sampleExisting", docStart + 1);
-    } else {
-        docEnd += 1;
-    }
-    if (docEnd === -1) {
-        docEnd = formatted.length;
-    }
-
     const paramLines = new Set(
-        formatted
-            .slice(docStart, docEnd)
-            .split(/\r?\n/)
-            .map((line) => line.trim())
-            .filter((line) => line.startsWith("/// @param"))
+        extractDocLinesForFunction(formatted, "sampleExisting").filter(
+            (line) => line.startsWith("/// @param")
+        )
     );
 
     assert.ok(

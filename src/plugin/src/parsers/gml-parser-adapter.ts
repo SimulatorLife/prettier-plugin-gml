@@ -230,20 +230,6 @@ function normalizeToString(candidate: unknown, fallback: string): string {
     return typeof candidate === "string" ? candidate : fallback;
 }
 
-function findClearSubdiv(node) {
-    if (!node) return;
-    if (
-        node.type === "VariableDeclaration" &&
-        node.declarations?.[0]?.id?.name === "clearSubdiv"
-    ) {
-        console.log(
-            "[DEBUG] Found clearSubdiv in AST:",
-            JSON.stringify(node, null, 2)
-        );
-    }
-    Core.forEachNodeChild(node, findClearSubdiv);
-}
-
 function parseSourceWithRecovery(
     sourceText: string,
     parserOptions: ReturnType<typeof createParserOptions>,
@@ -254,11 +240,6 @@ function parseSourceWithRecovery(
             sourceText,
             parserOptions
         ) as MutableGameMakerAstNode;
-
-        if (sourceText.includes("clearSubdiv")) {
-            console.log("[DEBUG] Parsed AST for clearSubdiv");
-            findClearSubdiv(ast);
-        }
 
         logParsedCommentCount(ast);
         return ast;
@@ -353,14 +334,9 @@ function applyStructuralTransforms(
     context: ParserPreparationContext,
     options: GmlParserAdapterOptions | undefined
 ): void {
-    console.log(
-        `[DEBUG] applyStructuralTransforms options.applyFeatherFixes: ${options?.applyFeatherFixes}`
-    );
-    console.log("[DEBUG] Running preprocessFunctionArgumentDefaultsTransform");
     Transforms.preprocessFunctionArgumentDefaultsTransform.transform(ast);
 
     if (options?.applyFeatherFixes) {
-        console.log("[DEBUG] Running applyFeatherFixesTransform");
         const featherOptions = options
             ? { ...options, removeStandaloneVertexEnd: true }
             : { removeStandaloneVertexEnd: true };
@@ -373,14 +349,12 @@ function applyStructuralTransforms(
     }
 
     if (options?.condenseStructAssignments ?? true) {
-        console.log("[DEBUG] Running consolidateStructAssignmentsTransform");
         Transforms.consolidateStructAssignmentsTransform.transform(ast, {
             commentTools: { addTrailingComment }
         });
     }
 
     if (options?.normalizeDocComments ?? true) {
-        console.log("[DEBUG] Running docCommentNormalizationTransform");
         Transforms.docCommentNormalizationTransform.transform(ast, {
             pluginOptions: options ?? {}
         });

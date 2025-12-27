@@ -896,7 +896,6 @@ export class ApplyFeatherFixesTransform extends FunctionalParserTransform<ApplyF
         ast: MutableGameMakerAstNode,
         options: ApplyFeatherFixesOptions
     ) {
-        console.log("[DEBUG] ApplyFeatherFixesTransform.execute called");
         return applyFeatherFixesImpl(ast, options);
     }
 }
@@ -4012,8 +4011,6 @@ function applyOrderedDocNamesToImplicitEntries(
         return;
     }
 
-    console.log(`DEBUG: applyFeatherFixes orderedDocNames: ${JSON.stringify(orderedDocNames)}`);
-
     for (const entry of entries) {
         if (!entry || typeof entry.index !== "number") {
             continue;
@@ -4028,30 +4025,24 @@ function applyOrderedDocNamesToImplicitEntries(
             continue;
         }
 
-        console.log(
-            `DEBUG: applyFeatherFixes processing entry index ${entry.index}, docName='${docName}', entry.name='${entry.name}'`
-        );
-        // Prefer the JSDoc name unless it's a generic "argumentN" placeholder
-        // and we already have a more descriptive alias from the source code.
+        // Prefer the alias name unless the entry still uses a generic fallback.
         const docNameIsFallback = /^argument\d+$/.test(docName);
         const entryNameIsFallback = /^argument\d+$/.test(entry.name);
 
-        if (!docNameIsFallback || entryNameIsFallback) {
-            console.log(`DEBUG: applyFeatherFixes renaming entry ${entry.name} -> ${docName}`);
+        if (entryNameIsFallback && !docNameIsFallback) {
             entry.name = docName;
             entry.canonical = docName.toLowerCase();
             continue;
         }
 
-        console.log(
-            `DEBUG: Calling updateJSDocParamName for ${docName} -> ${entry.name}`
-        );
-        updateJSDocParamName(
-            functionNode,
-            docName,
-            entry.name,
-            collectionService
-        );
+        if (docName !== entry.name) {
+            updateJSDocParamName(
+                functionNode,
+                docName,
+                entry.name,
+                collectionService
+            );
+        }
     }
 }
 
@@ -17512,7 +17503,6 @@ function updateJSDocParamName(
     collectionService: any
 ) {
     if (!node) {
-        console.log("[DEBUG] updateJSDocParamName: node is null");
         return;
     }
 
@@ -17521,16 +17511,8 @@ function updateJSDocParamName(
         : node.comments;
 
     if (!Array.isArray(comments)) {
-        console.log(
-            "[DEBUG] updateJSDocParamName: comments is not an array",
-            node.type
-        );
         return;
     }
-
-    console.log(
-        `[DEBUG] updateJSDocParamName: replacing ${oldName} with ${newName} in ${comments.length} comments`
-    );
 
     const escapedOld = oldName.replaceAll(/[.*+?^()|[\]\\]/g, String.raw`\$&`);
     const regex = new RegExp(String.raw`\b${escapedOld}\b`, "g");
@@ -17540,13 +17522,7 @@ function updateJSDocParamName(
             typeof comment.value === "string" &&
             comment.value.includes("@param")
         ) {
-            const original = comment.value;
             comment.value = comment.value.replace(regex, newName);
-            if (original !== comment.value) {
-                console.log(
-                    `[DEBUG] updateJSDocParamName: updated comment '${original}' to '${comment.value}'`
-                );
-            }
         }
     }
 }

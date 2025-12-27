@@ -83,6 +83,19 @@ function getArgumentIndexFromNode(node: any) {
     }
 
     if (
+        node.type === "MemberIndexExpression" &&
+        node.object?.type === "Identifier" &&
+        node.object.name === "argument" &&
+        Array.isArray(node.property) &&
+        node.property.length === 1 &&
+        node.property[0]?.type === "Literal"
+    ) {
+        const literal = node.property[0];
+        const parsed = Number.parseInt(literal.value, 10);
+        return Number.isInteger(parsed) && parsed >= 0 ? parsed : null;
+    }
+
+    if (
         node.type === "MemberExpression" &&
         node.object?.type === "Identifier" &&
         node.object.name === "argument" &&
@@ -169,9 +182,6 @@ export function getParameterDocInfo(
 
     if (paramNode.type === "VariableDeclarator") {
         const name = getNormalizedParameterName(paramNode.id);
-        console.log(
-            `[DEBUG] getParameterDocInfo for VariableDeclarator ${name}`
-        );
         return name
             ? {
                   name,
