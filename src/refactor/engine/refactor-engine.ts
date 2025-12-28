@@ -1,256 +1,37 @@
 import { WorkspaceEdit, type GroupedTextEdits } from "./workspace-edit.js";
 import { Core } from "@gml-modules/core";
-
-type MaybePromise<T> = T | Promise<T>;
-
-type Range = { start: number; end: number };
-
-interface AstNode {
-    type?: string;
-    name?: string;
-    start: number;
-    end: number;
-    children?: Array<AstNode>;
-}
-
-interface SymbolLocation {
-    symbolId: string;
-    name: string;
-    range: Range;
-}
-
-interface SymbolOccurrence {
-    path: string;
-    start: number;
-    end: number;
-    scopeId?: string;
-    kind?: string;
-}
-
-interface SymbolLookupResult {
-    name: string;
-}
-
-interface FileSymbol {
-    id: string;
-}
-
-interface DependentSymbol {
-    symbolId: string;
-    filePath: string;
-}
-
-interface ParserBridge {
-    parse(filePath: string): MaybePromise<AstNode>;
-}
-
-interface SemanticValidationResult {
-    errors?: Array<string>;
-    warnings?: Array<string>;
-}
-
-interface SemanticAnalyzer {
-    hasSymbol?(symbolId: string): MaybePromise<boolean>;
-    getSymbolOccurrences?(
-        symbolName: string
-    ): MaybePromise<Array<SymbolOccurrence>>;
-    lookup?(
-        name: string,
-        scopeId?: string
-    ): MaybePromise<SymbolLookupResult | null | undefined>;
-    getReservedKeywords?(): MaybePromise<Array<string>>;
-    validateEdits?(
-        workspace: WorkspaceEdit
-    ): MaybePromise<SemanticValidationResult>;
-    getFileSymbols?(filePath: string): MaybePromise<Array<FileSymbol>>;
-    getDependents?(
-        symbolIds: Array<string>
-    ): MaybePromise<Array<DependentSymbol>>;
-    getSymbolAtPosition?(
-        filePath: string,
-        offset: number
-    ): MaybePromise<SymbolLocation | null | undefined>;
-}
-
-interface TranspilerBridge {
-    transpileScript(request: {
-        sourceText: string;
-        symbolId: string;
-    }): MaybePromise<Record<string, unknown>>;
-}
-
-interface RenameRequest {
-    symbolId: string;
-    newName: string;
-}
-
-interface ExecuteRenameRequest extends RenameRequest {
-    readFile: WorkspaceReadFile;
-    writeFile: WorkspaceWriteFile;
-    prepareHotReload?: boolean;
-}
-
-interface ExecuteBatchRenameRequest {
-    renames: Array<RenameRequest>;
-    readFile: WorkspaceReadFile;
-    writeFile: WorkspaceWriteFile;
-    prepareHotReload?: boolean;
-}
-
-interface PrepareRenamePlanOptions {
-    validateHotReload?: boolean;
-    hotReloadOptions?: HotReloadValidationOptions;
-}
-
-interface HotReloadValidationOptions {
-    checkTranspiler?: boolean;
-}
-
-interface ValidationSummary {
-    valid: boolean;
-    errors: Array<string>;
-    warnings: Array<string>;
-}
-
-interface RenamePlanSummary {
-    workspace: WorkspaceEdit;
-    validation: ValidationSummary;
-    hotReload: ValidationSummary | null;
-    analysis: RenameImpactAnalysis;
-}
-
-interface RenameImpactSummary {
-    symbolId: string;
-    oldName: string;
-    newName: string;
-    affectedFiles: Array<string>;
-    totalOccurrences: number;
-    definitionCount: number;
-    referenceCount: number;
-    hotReloadRequired: boolean;
-    dependentSymbols: Array<string>;
-}
-
-interface RenameImpactAnalysis {
-    valid: boolean;
-    summary: RenameImpactSummary;
-    conflicts: Array<ConflictEntry>;
-    warnings: Array<ConflictEntry>;
-}
-
-interface HotReloadUpdate {
-    symbolId: string;
-    action: "recompile" | "notify";
-    filePath: string;
-    affectedRanges: Array<Range>;
-}
-
-interface ExecuteRenameResult {
-    workspace: WorkspaceEdit;
-    applied: Map<string, string>;
-    hotReloadUpdates: Array<HotReloadUpdate>;
-}
-
-interface TranspilerPatch {
-    symbolId: string;
-    patch: Record<string, unknown>;
-    filePath: string;
-}
-
-interface CascadeEntry {
-    symbolId: string;
-    distance: number;
-    reason: string;
-    filePath?: string;
-}
-
-interface HotReloadCascadeMetadata {
-    totalSymbols: number;
-    maxDistance: number;
-    hasCircular: boolean;
-}
-
-interface HotReloadCascadeResult {
-    cascade: Array<CascadeEntry>;
-    order: Array<string>;
-    circular: Array<Array<string>>;
-    metadata: HotReloadCascadeMetadata;
-}
-
-interface HotReloadSafetySummary {
-    safe: boolean;
-    reason: string;
-    requiresRestart: boolean;
-    canAutoFix: boolean;
-    suggestions: Array<string>;
-}
-
-interface ValidateRenameRequestOptions {
-    includeHotReload?: boolean;
-}
-
-interface ConflictEntry {
-    type: string;
-    message: string;
-    severity?: string;
-    path?: string;
-}
-
-type WorkspaceReadFile = (path: string) => MaybePromise<string>;
-type WorkspaceWriteFile = (path: string, content: string) => MaybePromise<void>;
-
-interface RefactorEngineDependencies {
-    parser: ParserBridge | null;
-    semantic: SemanticAnalyzer | null;
-    formatter: TranspilerBridge | null;
-}
-
-interface ApplyWorkspaceEditOptions {
-    dryRun?: boolean;
-    readFile: WorkspaceReadFile;
-    writeFile?: WorkspaceWriteFile;
-}
-
-const IDENTIFIER_NAME_PATTERN = /^[A-Za-z_][A-Za-z0-9_]*$/;
-
-function assertValidIdentifierName(name: unknown): string {
-    if (typeof name !== "string") {
-        throw new TypeError(
-            `Identifier names must be strings. Received ${typeof name}.`
-        );
-    }
-
-    const trimmed = name.trim();
-
-    if (trimmed.length === 0) {
-        throw new Error(
-            "Identifier names must not be empty or whitespace-only"
-        );
-    }
-
-    if (trimmed !== name) {
-        throw new Error(
-            "Identifier names must not include leading or trailing whitespace"
-        );
-    }
-
-    if (!IDENTIFIER_NAME_PATTERN.test(name)) {
-        throw new Error(
-            `Identifier '${name}' is not a valid GML identifier (expected [A-Za-z_][A-Za-z0-9_]*)`
-        );
-    }
-
-    return name;
-}
-
-/**
- * Escape special regex characters in an identifier name to use in regex patterns.
- * This allows searching for identifiers as whole words without accidentally
- * treating special characters as regex metacharacters.
- */
-function escapeRegexIdentifier(name: string): string {
-    return name.replaceAll(/[.*+?^${}()|[\]\\]/g, String.raw`\$&`);
-}
+import type {
+    ApplyWorkspaceEditOptions,
+    AstNode,
+    CascadeEntry,
+    ConflictEntry,
+    ExecuteBatchRenameRequest,
+    ExecuteRenameRequest,
+    ExecuteRenameResult,
+    HotReloadCascadeResult,
+    HotReloadSafetySummary,
+    HotReloadUpdate,
+    HotReloadValidationOptions,
+    ParserBridge,
+    PrepareRenamePlanOptions,
+    RefactorEngineDependencies,
+    RenameImpactAnalysis,
+    RenamePlanSummary,
+    RenameRequest,
+    SemanticAnalyzer,
+    SymbolLocation,
+    SymbolOccurrence,
+    TranspilerBridge,
+    TranspilerPatch,
+    ValidateRenameRequestOptions,
+    ValidationSummary,
+    WorkspaceReadFile
+} from "./types.js";
+import {
+    assertValidIdentifierName,
+    escapeRegexIdentifier
+} from "./validation-utils.js";
+import { detectCircularRenames, detectRenameConflicts } from "./validation.js";
 
 /**
  * RefactorEngine coordinates semantic-safe edits across the project.
@@ -485,201 +266,6 @@ export class RefactorEngine {
     }
 
     /**
-     * Check if a rename would introduce scope conflicts.
-     * @param {string} oldName - Original symbol name
-     * @param {string} newName - Proposed new name
-     * @param {Array<{path: string, start: number, end: number, scopeId: string}>} occurrences - Symbol occurrences
-     * @returns {Promise<Array<{type: string, message: string, path?: string}>>}
-     */
-    async detectRenameConflicts(
-        oldName: string,
-        newName: string,
-        occurrences: Array<SymbolOccurrence>
-    ): Promise<Array<ConflictEntry>> {
-        const conflicts: Array<ConflictEntry> = [];
-        let normalizedNewName: string;
-
-        try {
-            normalizedNewName = assertValidIdentifierName(newName);
-        } catch (error) {
-            conflicts.push({
-                type: "invalid_identifier",
-                message: error.message
-            });
-            return conflicts;
-        }
-
-        // Test whether renaming would introduce shadowing conflicts where the new
-        // name collides with an existing symbol in the same scope. For example,
-        // renaming a local variable `x` to `y` when `y` is already defined in that
-        // scope would hide the original `y`, breaking references to it.
-        const semantic = this.semantic;
-        if (semantic && typeof semantic.lookup === "function") {
-            for (const occurrence of occurrences) {
-                // Perform a scope-aware lookup for the new name at each occurrence
-                // site. If we find an existing binding that isn't the symbol we're
-                // renaming, record a conflict so the user can resolve it manually.
-                const existing = await semantic.lookup(
-                    normalizedNewName,
-                    occurrence.scopeId
-                );
-                if (existing && existing.name !== oldName) {
-                    conflicts.push({
-                        type: "shadow",
-                        message: `Renaming '${oldName}' to '${normalizedNewName}' would shadow existing symbol in scope`,
-                        path: occurrence.path
-                    });
-                }
-            }
-        }
-
-        // Reject renames that would overwrite GML reserved keywords (like `if`,
-        // `function`) or built-in identifiers (like `self`, `global`). Allowing
-        // such renames would cause syntax errors or silently bind user symbols to
-        // language constructs, breaking both the parser and runtime semantics.
-        let reservedKeywords = new Set(
-            [
-                "if",
-                "else",
-                "while",
-                "for",
-                "do",
-                "switch",
-                "case",
-                "default",
-                "break",
-                "continue",
-                "return",
-                "function",
-                "var",
-                "globalvar",
-                "enum",
-                "with",
-                "repeat",
-                "until",
-                "exit",
-                "self",
-                "other",
-                "all",
-                "noone",
-                "global"
-            ].map((keyword) => keyword.toLowerCase())
-        );
-
-        if (semantic && typeof semantic.getReservedKeywords === "function") {
-            const semanticReserved =
-                (await semantic.getReservedKeywords()) ?? [];
-            reservedKeywords = new Set([
-                ...reservedKeywords,
-                ...semanticReserved.map((keyword) => keyword.toLowerCase())
-            ]);
-        }
-
-        if (reservedKeywords.has(normalizedNewName.toLowerCase())) {
-            conflicts.push({
-                type: "reserved",
-                message: `'${normalizedNewName}' is a reserved keyword and cannot be used as an identifier`
-            });
-        }
-
-        return conflicts;
-    }
-
-    /**
-     * Build a directed graph of rename operations for cycle detection.
-     * @private
-     */
-    private buildRenameGraph(
-        renames: Array<RenameRequest>
-    ): Map<string, string> {
-        const graph = new Map<string, string>();
-
-        for (const rename of renames) {
-            const sourceId = rename.symbolId;
-            const pathParts = sourceId.split("/");
-            pathParts[pathParts.length - 1] = rename.newName;
-            const targetId = pathParts.join("/");
-            graph.set(sourceId, targetId);
-        }
-
-        return graph;
-    }
-
-    /**
-     * Detect circular rename chains in a batch of rename operations.
-     * Returns the first detected cycle as an array of symbol IDs, or an empty array if no cycles exist.
-     *
-     * A circular chain occurs when renames form a cycle, such as:
-     * - A→B, B→A (simple 2-cycle)
-     * - A→B, B→C, C→A (3-cycle)
-     *
-     * These chains are problematic because after applying the first rename, subsequent
-     * renames in the cycle reference symbols that no longer exist by their original names.
-     *
-     * @private
-     * @param {Array<{symbolId: string, newName: string}>} renames - Rename operations to check
-     * @returns {Array<string>} First detected cycle as symbol IDs, or empty array if no cycles
-     */
-    private detectCircularRenames(
-        renames: Array<RenameRequest>
-    ): Array<string> {
-        const graph = this.buildRenameGraph(renames);
-
-        // Use depth-first search to detect cycles. We maintain a "visiting" set to
-        // track nodes currently on the recursion stack, which allows us to identify
-        // back edges that indicate cycles.
-        const visited = new Set<string>();
-        const visiting = new Set<string>();
-        const path: Array<string> = [];
-
-        const dfs = (nodeId: string): Array<string> | null => {
-            if (visiting.has(nodeId)) {
-                // Found a back edge - extract the cycle from the current path.
-                // We append nodeId to close the cycle for clearer visualization
-                // in error messages (e.g., "A → B → C → A" instead of "A → B → C").
-                const cycleStart = path.indexOf(nodeId);
-                return [...path.slice(cycleStart), nodeId];
-            }
-
-            if (visited.has(nodeId)) {
-                return null;
-            }
-
-            visiting.add(nodeId);
-            path.push(nodeId);
-
-            // Follow the rename edge to the next node (target of this rename).
-            // We only recurse if the target is itself a source of another rename,
-            // allowing us to detect chains like A→B→C where B is also being renamed.
-            const nextId = graph.get(nodeId);
-            if (nextId && graph.has(nextId)) {
-                const cycle = dfs(nextId);
-                if (cycle) {
-                    return cycle;
-                }
-            }
-
-            path.pop();
-            visiting.delete(nodeId);
-            visited.add(nodeId);
-
-            return null;
-        };
-
-        // Check each rename operation as a potential cycle starting point
-        for (const sourceId of graph.keys()) {
-            if (!visited.has(sourceId)) {
-                const cycle = dfs(sourceId);
-                if (cycle) {
-                    return cycle;
-                }
-            }
-        }
-
-        return [];
-    }
-
-    /**
      * Validate a rename request before planning edits.
      * Unlike planRename, this method returns validation results without throwing errors,
      * making it suitable for providing user feedback in IDE integrations and CLI tools.
@@ -784,10 +370,11 @@ export class RefactorEngine {
         }
 
         // Check for conflicts
-        const conflicts = await this.detectRenameConflicts(
+        const conflicts = await detectRenameConflicts(
             symbolName,
             normalizedNewName,
-            occurrences
+            occurrences,
+            this.semantic
         );
 
         for (const conflict of conflicts) {
@@ -874,10 +461,11 @@ export class RefactorEngine {
         // Detect potential conflicts (shadowing, reserved keywords, etc.) before
         // applying edits. If conflicts exist, we abort the rename to prevent
         // introducing scope errors or breaking existing code.
-        const conflicts = await this.detectRenameConflicts(
+        const conflicts = await detectRenameConflicts(
             symbolName,
             normalizedNewName,
-            occurrences
+            occurrences,
+            this.semantic
         );
 
         if (conflicts.length > 0) {
@@ -1109,7 +697,7 @@ export class RefactorEngine {
         // exists by its original name, causing the batch operation to fail or produce
         // incorrect results. We detect cycles by building a directed graph of renames
         // and checking for strongly connected components.
-        const circularChain = this.detectCircularRenames(renames);
+        const circularChain = detectCircularRenames(renames);
         if (circularChain.length > 0) {
             const chain = circularChain
                 .map((id) => id.split("/").pop())
@@ -1609,10 +1197,11 @@ export class RefactorEngine {
             // would break the code if applied. We collect all conflicts across all
             // renames in the batch so the user can see the complete picture before
             // deciding whether to proceed or adjust the new names.
-            const detectedConflicts = await this.detectRenameConflicts(
+            const detectedConflicts = await detectRenameConflicts(
                 summary.oldName,
                 normalizedNewName,
-                occurrences
+                occurrences,
+                this.semantic
             );
             conflicts.push(...detectedConflicts);
 
@@ -2003,10 +1592,11 @@ export class RefactorEngine {
         const occurrences = await this.gatherSymbolOccurrences(symbolName);
 
         // Detect potential conflicts
-        const conflicts = await this.detectRenameConflicts(
+        const conflicts = await detectRenameConflicts(
             symbolName,
             newName,
-            occurrences
+            occurrences,
+            this.semantic
         );
 
         if (conflicts.length > 0) {
@@ -2459,19 +2049,3 @@ export function createRefactorEngine(
 ): RefactorEngine {
     return new RefactorEngine(dependencies);
 }
-
-export type {
-    ParserBridge,
-    SemanticAnalyzer,
-    WorkspaceReadFile,
-    WorkspaceWriteFile,
-    HotReloadUpdate,
-    ExecuteRenameRequest,
-    ExecuteBatchRenameRequest,
-    RenameRequest,
-    TranspilerPatch,
-    RenameImpactAnalysis,
-    ValidationSummary,
-    ValidateRenameRequestOptions,
-    HotReloadSafetySummary
-};
