@@ -26,7 +26,6 @@ import type {
     ProgramNode,
     RepeatStatementNode,
     ReturnStatementNode,
-    SemOracle,
     StructExpressionNode,
     StructPropertyNode,
     SwitchStatementNode,
@@ -67,21 +66,14 @@ export class GmlToJsEmitter {
     private readonly globalVars: Set<string>;
 
     constructor(
-        semantic:
-            | SemOracle
-            | {
-                  identifier: IdentifierAnalyzer;
-                  callTarget: CallTargetAnalyzer;
-              },
+        semantic: {
+            identifier: IdentifierAnalyzer;
+            callTarget: CallTargetAnalyzer;
+        },
         options: Partial<EmitOptions> = {}
     ) {
-        if ("identifier" in semantic && "callTarget" in semantic) {
-            this.identifierAnalyzer = semantic.identifier;
-            this.callTargetAnalyzer = semantic.callTarget;
-        } else {
-            this.identifierAnalyzer = semantic;
-            this.callTargetAnalyzer = semantic;
-        }
+        this.identifierAnalyzer = semantic.identifier;
+        this.callTargetAnalyzer = semantic.callTarget;
         this.options = { ...DEFAULT_OPTIONS, ...options };
         this.globalVars = new Set();
     }
@@ -759,14 +751,23 @@ export class GmlToJsEmitter {
     }
 }
 
-export function emitJavaScript(ast: StatementLike, sem?: SemOracle): string {
+export function emitJavaScript(
+    ast: StatementLike,
+    sem?: {
+        identifier: IdentifierAnalyzer;
+        callTarget: CallTargetAnalyzer;
+    }
+): string {
     const oracle = sem ?? makeDummyOracle();
     const emitter = new GmlToJsEmitter(oracle);
     return emitter.emit(ast);
 }
 
-export function makeDummyOracle(): SemOracle {
-    return {
+export function makeDummyOracle(): {
+    identifier: IdentifierAnalyzer;
+    callTarget: CallTargetAnalyzer;
+} {
+    const identifierAnalyzer: IdentifierAnalyzer = {
         kindOfIdent(node) {
             if (!node) {
                 return "local";
@@ -781,7 +782,10 @@ export function makeDummyOracle(): SemOracle {
         },
         qualifiedSymbol() {
             return null;
-        },
+        }
+    };
+
+    const callTargetAnalyzer: CallTargetAnalyzer = {
         callTargetKind(node) {
             const calleeName =
                 node.object &&
@@ -796,5 +800,10 @@ export function makeDummyOracle(): SemOracle {
         callTargetSymbol() {
             return null;
         }
+    };
+
+    return {
+        identifier: identifierAnalyzer,
+        callTarget: callTargetAnalyzer
     };
 }
