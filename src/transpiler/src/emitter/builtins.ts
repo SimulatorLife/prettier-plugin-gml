@@ -1,3 +1,5 @@
+// TODO: The HTML5 runtime provides many built-in functions with the same names as the GML ones for one-to-one usage in JS. For example, math functions like `irandom_range` are already defined in JS, so they *should* already be available to use as-is (see `vendor/GameMaker-HTML5/scripts/functions/Function_Maths.js`). We should directly use these instead of doing custom implementations here, to ensure consistency with the runtime behavior. 
+
 export type BuiltInEmitter = (args: ReadonlyArray<string>) => string;
 
 export const builtInFunctions: Record<string, BuiltInEmitter> = Object.freeze({
