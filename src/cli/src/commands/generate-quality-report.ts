@@ -360,51 +360,12 @@ function computeTestDiff(baseResults, targetResults) {
         return null;
     }
 
-    const newCases = [];
-    for (const [key, record] of targetResults.results.entries()) {
-        if (!baseResults.results.has(key)) {
-            newCases.push(record);
-        }
-    }
+    const { newCases, removedCases } = collectCaseDifferences(
+        baseResults,
+        targetResults
+    );
 
-    const removedCases = [];
-    for (const [key, record] of baseResults.results.entries()) {
-        if (!targetResults.results.has(key)) {
-            removedCases.push(record);
-        }
-    }
-
-    const removedByLocator = new Map();
-    for (const record of removedCases) {
-        const locator = normalizeLocator(record);
-        if (!locator) {
-            continue;
-        }
-        removedByLocator.set(locator, (removedByLocator.get(locator) || 0) + 1);
-    }
-
-    let renameCount = 0;
-    for (const record of newCases) {
-        const locator = normalizeLocator(record);
-        if (!locator) {
-            continue;
-        }
-        const remaining = removedByLocator.get(locator) || 0;
-        if (remaining > 0) {
-            removeCase(locator, removedByLocator);
-            renameCount += 1;
-            continue;
-        }
-    }
-
-    function removeCase(locator, store) {
-        const next = (store.get(locator) || 0) - 1;
-        if (next > 0) {
-            store.set(locator, next);
-        } else {
-            store.delete(locator);
-        }
-    }
+    const renameCount = countRenamedCases(newCases, removedCases);
 
     const adjustedNew = Math.max(0, newCases.length - renameCount);
     const adjustedRemoved = Math.max(0, removedCases.length - renameCount);
@@ -414,6 +375,67 @@ function computeTestDiff(baseResults, targetResults) {
         removedTests: adjustedRemoved,
         renamedTests: renameCount
     };
+}
+
+function collectCaseDifferences(baseResults, targetResults) {
+    return {
+        newCases: collectMissingCases(targetResults, baseResults),
+        removedCases: collectMissingCases(baseResults, targetResults)
+    };
+}
+
+function collectMissingCases(sourceResults, comparisonResults) {
+    const missing = [];
+    for (const [key, record] of sourceResults.results.entries()) {
+        if (!comparisonResults.results.has(key)) {
+            missing.push(record);
+        }
+    }
+    return missing;
+}
+
+function countRenamedCases(newCases, removedCases) {
+    const removedByLocator = createLocatorCounts(removedCases);
+
+    let renameCount = 0;
+    for (const record of newCases) {
+        const locator = normalizeLocator(record);
+        if (!locator) {
+            continue;
+        }
+
+        const remaining = removedByLocator.get(locator);
+        if (!remaining) {
+            continue;
+        }
+
+        decrementLocatorCount(locator, removedByLocator);
+        renameCount += 1;
+    }
+
+    return renameCount;
+}
+
+function createLocatorCounts(records) {
+    const counts = new Map();
+    for (const record of records) {
+        const locator = normalizeLocator(record);
+        if (!locator) {
+            continue;
+        }
+
+        counts.set(locator, (counts.get(locator) || 0) + 1);
+    }
+    return counts;
+}
+
+function decrementLocatorCount(locator, store) {
+    const next = (store.get(locator) || 0) - 1;
+    if (next > 0) {
+        store.set(locator, next);
+    } else {
+        store.delete(locator);
+    }
 }
 
 function scanResultDirectory(directory, root) {
