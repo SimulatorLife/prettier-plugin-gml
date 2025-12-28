@@ -1,15 +1,15 @@
 /**
  * Central print dispatcher for the GML Prettier plugin.
- * 
+ *
  * ARCHITECTURE NOTE: This file has grown organically and now houses both high-level
  * print coordination logic and low-level node-handling utilities. It should be refactored
  * into multiple focused modules:
- * 
+ *
  * - A top-level coordinator that delegates to domain-specific sub-printers
  * - Separate files for each AST node category (expressions, statements, declarations, etc.)
  * - General AST utilities (node inspection, property access) should move to Core
  * - Comment handling should be extracted to a dedicated comment-printer module
- * 
+ *
  * Until this refactoring occurs, contributors should avoid adding new utility functions
  * here; instead, place domain-specific helpers in appropriately-scoped files under
  * src/plugin/src/printer/ or src/core/src/ast/ and import them as needed.
@@ -104,12 +104,12 @@ const UNDEFINED_TYPE = "undefined";
 
 /**
  * Wrapper helpers around optional Semantic identifier-case services.
- * 
+ *
  * CONTEXT: Some test and runtime environments may not expose the full Semantic facade
  * due to lazy module loading, circular dependencies during initialization, or test provider
  * swaps. These helpers provide safe fallbacks so the printer remains robust and deterministic
  * even when Semantic is partially unavailable.
- * 
+ *
  * FUTURE: Consider moving these adapters into Core or Semantic for reuse across other
  * modules that need graceful degradation when Semantic features are unavailable.
  */
@@ -890,7 +890,7 @@ function tryPrintVariableNode(node, path, options, print) {
                         const isFunctionComment =
                             comment.value.includes("@function") ||
                             comment.value.includes("@func");
-                        
+
                         // NOTE: The isFunctionInit check below was originally intended to verify
                         // whether the declarator's initializer is actually a function before
                         // filtering the comment. However, the current filtering logic is sufficient

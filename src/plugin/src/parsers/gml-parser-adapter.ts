@@ -49,7 +49,7 @@ export type GmlParserAdapterOptions = {
     condenseLogicalExpressions?: boolean;
     optimizeMathExpressions?: boolean;
     stripComments?: boolean;
-    
+
     // DESIGN SMELL: These fields are not true parser options; they're runtime state
     // or context passed through the options bag for convenience. This violates separation
     // of concerns and makes the interface unclear.

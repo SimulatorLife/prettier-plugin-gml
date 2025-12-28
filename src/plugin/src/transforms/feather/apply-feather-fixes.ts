@@ -1,19 +1,19 @@
 /**
  * Feather diagnostic transforms and AST fix application.
- * 
+ *
  * ARCHITECTURE NOTE: This file has accumulated a large collection of Feather-specific
  * fix handlers and should be split into focused, domain-specific modules:
- * 
+ *
  * - enum-constant-fixes.ts → handles enum member constant transformations
  * - vertex-format-fixes.ts → handles begin/end vertex format migrations
- * - color-constant-fixes.ts → handles color constant renaming and normalization  
+ * - color-constant-fixes.ts → handles color constant renaming and normalization
  * - identifier-renaming.ts → handles reserved identifier conflicts and safe renaming
  * - doc-comment-fixes.ts → handles JSDoc type annotation corrections
  * - user-event-fixes.ts → handles missing user event constant insertions
- * 
+ *
  * The core metadata attachment function `attachFeatherFixMetadata` can remain here as
  * the public entry point, but delegates to focused submodules for each diagnostic category.
- * 
+ *
  * MAINTENANCE HAZARD: Many helper functions in this file duplicate functionality from
  * the 'refactor' and 'semantic' modules. Identifier renaming logic in particular should
  * be consolidated into the 'refactor' module, which is built on top of 'semantic' to
