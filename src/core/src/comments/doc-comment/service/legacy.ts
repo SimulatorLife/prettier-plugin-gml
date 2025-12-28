@@ -272,7 +272,15 @@ export function convertLegacyReturnsDescriptionLinesToMetadata(
         return normalizedLines as DocCommentLines;
     }
 
-    const resultLines = [...retainedLines];
+    const resultLines =
+        convertedReturns.length > 0
+            ? retainedLines.filter(
+                  (line) =>
+                      !isLegacyFunctionTagWithoutParams(
+                          typeof line === STRING_TYPE ? line : null
+                      )
+              )
+            : [...retainedLines];
 
     let appendIndex = resultLines.length;
     while (
@@ -294,6 +302,18 @@ export function convertLegacyReturnsDescriptionLinesToMetadata(
     }
 
     return resultLines as DocCommentLines;
+}
+
+function isLegacyFunctionTagWithoutParams(line: string | null) {
+    if (typeof line !== STRING_TYPE) {
+        return false;
+    }
+
+    if (!/^\s*\/\/\/\s*@function\b/i.test(line)) {
+        return false;
+    }
+
+    return !/\(/.test(line);
 }
 
 function parseLegacyReturnPayload(payload: string) {

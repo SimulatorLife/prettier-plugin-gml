@@ -221,7 +221,7 @@ export function extractDocumentedParamNames(
         boundary = start ?? end;
     }
 
-    return documentedNames.reverse();
+    return documentedNames;
 }
 
 /**
@@ -253,18 +253,10 @@ export function buildDocumentedParamNameLookup(
             return;
         }
 
-        // Store as Set for compatibility, but we might want to expose the array later
-        // For now, consumers expect Set<string>.
-        // But wait, I need the array for FeatherFix!
+        const orderedNames = [...names].reverse();
 
-        // I'll attach the array to the node as metadata?
-        // Or change the return type?
-
-        // If I change the return type, I break consumers.
-        // But I control the consumers.
-
-        // Let's attach it to the node for now, to avoid breaking signature.
-        node._documentedParamNamesOrdered = names;
+        // Store as Set for compatibility, but keep a stable array for ordered lookups.
+        node._documentedParamNamesOrdered = orderedNames;
 
         registry.set(node as MutableGameMakerAstNode, new Set(names));
     });
