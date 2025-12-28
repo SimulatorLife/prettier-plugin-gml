@@ -116,7 +116,6 @@ The transpiler maps GML-specific operators to their JavaScript equivalents:
 | `and`        | `&&`                 |
 | `or`         | `||`                 |
 | `xor`        | `^`                  |
-| `not`        | `!`                  |
 | `==`         | `===`                |
 | `!=`         | `!==`                |
 
