@@ -59,7 +59,7 @@
     "lint:fix": "eslint . --ext .ts,.yml,.yaml --cache --fix",
     "lint:ci": "timeout -t 2m -- eslint . --ext .ts,.yml,.yaml --max-warnings=0 --report-unused-disable-directives && npm run lint:workflows && npm run lint:yaml",
     "lint:report": "eslint . --ext .ts,.yml,.yaml --format checkstyle --output-file reports/eslint-checkstyle.xml",
-    "report": "bash -lc 'status=0; npm run lint:report || status=$?; npm run lint:duplicates:report || status=$?; npm run test:ci || status=$?; npm run stats:report || status=$?; npm run tree:report || status=$?; npm run cli -- generate-quality-report || status=$?; exit $status'",
+    "report": "bash -lc 'status=0; npm run build:ts || status=$?; npm run lint:report || status=$?; npm run lint:duplicates:report || status=$?; npm run test:ci || status=$?; npm run stats:report || status=$?; npm run tree:report || status=$?; npm run cli -- generate-quality-report || status=$?; exit $status'",
     "check": "npm run format:check && npm run lint:ci && npm test",
     "test": "npm run build:ts && bash -lc 'shopt -s globstar nullglob; tests=(src/**/dist/test/*.test.js test/*.test.js); if ((${#tests[@]} == 0)); then echo \"No compiled test files found under dist/ or test/\" >&2; exit 1; fi; node --test --test-timeout=120000 \"${tests[@]}\"'",
     "test:report": "mkdir -p reports && node --test --test-reporter=junit --test-reporter-destination=./reports/tests.xml '**/*.test.js'",
