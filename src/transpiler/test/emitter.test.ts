@@ -1633,3 +1633,123 @@ void test("Transpiler.emitJavaScript handles string functions with wrong argumen
         "Should fall back when arg count is wrong"
     );
 });
+
+void test("Transpiler.emitJavaScript handles random function", () => {
+    const source = "val = random(100)";
+    const parser = new Parser.GMLParser(source);
+    const ast = parser.parse();
+    const result = Transpiler.emitJavaScript(ast);
+    assert.ok(result.includes("Math.random()"), "Should map to Math.random");
+    assert.ok(result.includes("* 100"), "Should multiply by max value");
+});
+
+void test("Transpiler.emitJavaScript handles random_range function", () => {
+    const source = "val = random_range(10, 20)";
+    const parser = new Parser.GMLParser(source);
+    const ast = parser.parse();
+    const result = Transpiler.emitJavaScript(ast);
+    assert.ok(result.includes("Math.random()"), "Should use Math.random");
+    assert.ok(result.includes("10"), "Should include min value");
+    assert.ok(result.includes("20"), "Should include max value");
+});
+
+void test("Transpiler.emitJavaScript handles irandom function", () => {
+    const source = "val = irandom(10)";
+    const parser = new Parser.GMLParser(source);
+    const ast = parser.parse();
+    const result = Transpiler.emitJavaScript(ast);
+    assert.ok(result.includes("Math.floor"), "Should use Math.floor");
+    assert.ok(result.includes("Math.random()"), "Should use Math.random");
+    assert.ok(
+        result.includes("10 + 1"),
+        "Should add 1 to max for inclusive range"
+    );
+});
+
+void test("Transpiler.emitJavaScript handles irandom_range function", () => {
+    const source = "val = irandom_range(5, 15)";
+    const parser = new Parser.GMLParser(source);
+    const ast = parser.parse();
+    const result = Transpiler.emitJavaScript(ast);
+    assert.ok(result.includes("Math.floor"), "Should use Math.floor");
+    assert.ok(result.includes("Math.random()"), "Should use Math.random");
+    assert.ok(result.includes("5"), "Should include min value");
+    assert.ok(result.includes("15"), "Should include max value");
+});
+
+void test("Transpiler.emitJavaScript handles choose function with multiple arguments", () => {
+    const source = 'choice = choose("a", "b", "c")';
+    const parser = new Parser.GMLParser(source);
+    const ast = parser.parse();
+    const result = Transpiler.emitJavaScript(ast);
+    assert.ok(result.includes("Math.floor"), "Should use Math.floor");
+    assert.ok(result.includes("Math.random()"), "Should use Math.random");
+    assert.ok(result.includes('"a"'), "Should include first option");
+    assert.ok(result.includes('"b"'), "Should include second option");
+    assert.ok(result.includes('"c"'), "Should include third option");
+});
+
+void test("Transpiler.emitJavaScript handles choose function with numeric arguments", () => {
+    const source = "choice = choose(1, 2, 3, 4, 5)";
+    const parser = new Parser.GMLParser(source);
+    const ast = parser.parse();
+    const result = Transpiler.emitJavaScript(ast);
+    assert.ok(result.includes("Math.random()"), "Should use Math.random");
+    assert.ok(result.includes("* 5"), "Should multiply by argument count");
+});
+
+void test("Transpiler.emitJavaScript handles lerp function", () => {
+    const source = "val = lerp(0, 100, 0.5)";
+    const parser = new Parser.GMLParser(source);
+    const ast = parser.parse();
+    const result = Transpiler.emitJavaScript(ast);
+    assert.ok(result.includes("0"), "Should include start value");
+    assert.ok(result.includes("100"), "Should include end value");
+    assert.ok(result.includes("0.5"), "Should include t parameter");
+});
+
+void test("Transpiler.emitJavaScript handles median function with odd count", () => {
+    const source = "val = median(3, 1, 2)";
+    const parser = new Parser.GMLParser(source);
+    const ast = parser.parse();
+    const result = Transpiler.emitJavaScript(ast);
+    assert.ok(result.includes("sort"), "Should sort values");
+    assert.ok(result.includes("1"), "Should include all values");
+    assert.ok(result.includes("2"), "Should include all values");
+    assert.ok(result.includes("3"), "Should include all values");
+});
+
+void test("Transpiler.emitJavaScript handles median function with even count", () => {
+    const source = "val = median(1, 2, 3, 4)";
+    const parser = new Parser.GMLParser(source);
+    const ast = parser.parse();
+    const result = Transpiler.emitJavaScript(ast);
+    assert.ok(result.includes("sort"), "Should sort values");
+    assert.ok(
+        result.includes("values.length % 2 === 0"),
+        "Should check for even count"
+    );
+});
+
+void test("Transpiler.emitJavaScript handles mean function", () => {
+    const source = "val = mean(10, 20, 30)";
+    const parser = new Parser.GMLParser(source);
+    const ast = parser.parse();
+    const result = Transpiler.emitJavaScript(ast);
+    assert.ok(result.includes("reduce"), "Should use reduce for sum");
+    assert.ok(result.includes("/ 3"), "Should divide by count");
+    assert.ok(result.includes("10"), "Should include all values");
+    assert.ok(result.includes("20"), "Should include all values");
+    assert.ok(result.includes("30"), "Should include all values");
+});
+
+void test("Transpiler.emitJavaScript handles random functions with wrong argument count gracefully", () => {
+    const source = "val = random(10, 20)";
+    const parser = new Parser.GMLParser(source);
+    const ast = parser.parse();
+    const result = Transpiler.emitJavaScript(ast);
+    assert.ok(
+        result.includes("random("),
+        "Should fall back when arg count is wrong"
+    );
+});

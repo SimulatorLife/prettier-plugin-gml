@@ -293,5 +293,58 @@ export const builtInFunctions: Record<string, BuiltInEmitter> = Object.freeze({
             return `string(${args.join(", ")})`;
         }
         return `String(${args[0]})`;
+    },
+    random(args) {
+        if (args.length !== 1) {
+            return `random(${args.join(", ")})`;
+        }
+        return `(Math.random() * ${args[0]})`;
+    },
+    random_range(args) {
+        if (args.length !== 2) {
+            return `random_range(${args.join(", ")})`;
+        }
+        return `(${args[0]} + Math.random() * (${args[1]} - ${args[0]}))`;
+    },
+    irandom(args) {
+        if (args.length !== 1) {
+            return `irandom(${args.join(", ")})`;
+        }
+        return `Math.floor(Math.random() * (${args[0]} + 1))`;
+    },
+    irandom_range(args) {
+        if (args.length !== 2) {
+            return `irandom_range(${args.join(", ")})`;
+        }
+        return `(${args[0]} + Math.floor(Math.random() * (${args[1]} - ${args[0]} + 1)))`;
+    },
+    choose(args) {
+        if (args.length === 0) {
+            return `choose()`;
+        }
+        const argsArray = `[${args.join(", ")}]`;
+        return `${argsArray}[Math.floor(Math.random() * ${args.length})]`;
+    },
+    lerp(args) {
+        if (args.length !== 3) {
+            return `lerp(${args.join(", ")})`;
+        }
+        return `(${args[0]} + (${args[1]} - ${args[0]}) * ${args[2]})`;
+    },
+    median(args) {
+        if (args.length === 0) {
+            return `median()`;
+        }
+        return `((() => {
+    const values = [${args.join(", ")}].sort((a, b) => a - b);
+    const mid = Math.floor(values.length / 2);
+    return values.length % 2 === 0 ? (values[mid - 1] + values[mid]) / 2 : values[mid];
+})())`;
+    },
+    mean(args) {
+        if (args.length === 0) {
+            return `mean()`;
+        }
+        return `(([${args.join(", ")}].reduce((sum, val) => sum + val, 0)) / ${args.length})`;
     }
 });
