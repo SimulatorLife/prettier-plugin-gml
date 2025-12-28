@@ -104,7 +104,7 @@ void test("GmlToJsEmitter maps GML or operator to JavaScript ||", () => {
 
 void test("GmlToJsEmitter maps GML not operator to JavaScript !", () => {
     const emitter = new Transpiler.GmlToJsEmitter(Transpiler.makeDummyOracle());
-    assert.equal(emitter.mapUnaryOperator("not"), "!");
+    assert.equal(emitter.mapUnaryOperator("not"), "!"); // GML does not support the operator 'not'; this is included to automatic fixing
 });
 
 void test("GmlToJsEmitter maps == to === for strict equality", () => {

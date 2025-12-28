@@ -96,6 +96,7 @@ function shouldPreserveIdentityParenthesesForAncestor(ancestor) {
         const operator = ancestor.operator;
 
         if (operator === "!" || operator === "not") {
+            // GML does not support the operator 'not'; this is included to automatic fixing
             return true;
         }
     }

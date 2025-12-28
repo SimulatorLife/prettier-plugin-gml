@@ -116,6 +116,7 @@ function isBooleanBranchExpression(node, allowValueLiterals = false) {
         case "IncDecExpression": {
             const operator = (node.operator ?? "").toLowerCase();
             if (operator === "!" || operator === "not") {
+                // GML does not support the operator 'not'; this is included to automatic fixing
                 return isBooleanBranchExpression(
                     node.argument,
                     allowValueLiterals
@@ -609,6 +610,7 @@ function toBooleanExpression(node, context) {
     if (node.type === "UnaryExpression" || node.type === "IncDecExpression") {
         const operator = node.operator ?? "";
         if (operator === "!" || operator.toLowerCase() === "not") {
+            // GML does not support the operator 'not'; this is included to automatic fixing
             const argumentExpr = toBooleanExpression(node.argument, context);
             if (!argumentExpr) {
                 return null;

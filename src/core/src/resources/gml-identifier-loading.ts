@@ -198,3 +198,32 @@ export function loadReservedIdentifierNames({
 
     return names;
 }
+
+/**
+ * Load manual function identifiers from the bundled metadata payload.
+ *
+ * @returns {Set<string>} A set of function names declared in the manual data.
+ */
+export function loadManualFunctionNames(): Set<string> {
+    const metadata = loadIdentifierMetadata();
+    const entries = normalizeIdentifierMetadataEntries(metadata);
+
+    if (entries.length === 0) {
+        return new Set<string>();
+    }
+
+    const names = new Set<string>();
+
+    for (const { name, type } of entries) {
+        if (type !== "function") {
+            continue;
+        }
+
+        const normalizedName = getNonEmptyString(name);
+        if (normalizedName) {
+            names.add(normalizedName);
+        }
+    }
+
+    return names;
+}
