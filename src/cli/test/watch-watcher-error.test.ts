@@ -30,6 +30,7 @@ void describe("Watch command watcher error handling", () => {
             polling: false,
             verbose: false,
             websocketServer: false,
+            statusServer: false,
             runtimeServer: false,
             abortSignal: abortController.signal,
             watchFactory

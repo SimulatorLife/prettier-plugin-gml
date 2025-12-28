@@ -41,6 +41,10 @@ import {
     type PatchBroadcastResult,
     type PatchWebSocketServerController
 } from "../modules/websocket/server.js";
+import {
+    startStatusServer,
+    type StatusServerController
+} from "../modules/status/server.js";
 import { formatCliError } from "../cli-core/errors.js";
 import { debounce, type DebouncedFunction } from "../shared/debounce.js";
 
@@ -84,6 +88,9 @@ interface WatchCommandOptions {
     websocketPort?: number;
     websocketHost?: string;
     websocketServer?: boolean;
+    statusPort?: number;
+    statusHost?: string;
+    statusServer?: boolean;
     runtimeRoot?: string;
     runtimePackage?: string;
     runtimeServer?: boolean;
@@ -109,6 +116,8 @@ interface RuntimeContext {
     lastSuccessfulPatches: Map<string, RuntimeTranspilerPatch>;
     maxPatchHistory: number;
     websocketServer: PatchWebSocketServerController | null;
+    statusServer: StatusServerController | null;
+    startTime: number;
     debouncedHandlers: Map<
         string,
         DebouncedFunction<[string, string, FileChangeOptions]>
@@ -247,6 +256,30 @@ export function createWatchCommand(): Command {
         .option(
             "--no-websocket-server",
             "Disable starting the WebSocket server for patch streaming."
+        )
+        .addOption(
+            new Option(
+                "--status-port <port>",
+                "HTTP status server port for querying watch command status"
+            )
+                .argParser((value) => {
+                    const parsed = Number.parseInt(value);
+                    if (Number.isNaN(parsed) || parsed < 1 || parsed > 65_535) {
+                        throw new Error("Port must be between 1 and 65535");
+                    }
+                    return parsed;
+                })
+                .default(17_891)
+        )
+        .addOption(
+            new Option(
+                "--status-host <host>",
+                "HTTP status server host for querying watch command status"
+            ).default("127.0.0.1")
+        )
+        .option(
+            "--no-status-server",
+            "Disable starting the HTTP status server."
         )
         .addOption(
             new Option(
@@ -521,6 +554,9 @@ export async function runWatchCommand(
         websocketPort = 17_890,
         websocketHost = "127.0.0.1",
         websocketServer: enableWebSocket = true,
+        statusPort = 17_891,
+        statusHost = "127.0.0.1",
+        statusServer: enableStatus = true,
         abortSignal,
         runtimeRoot,
         runtimePackage = DEFAULT_RUNTIME_PACKAGE,
@@ -563,11 +599,14 @@ export async function runWatchCommand(
         lastSuccessfulPatches: new Map(),
         maxPatchHistory,
         websocketServer: null,
+        statusServer: null,
+        startTime: Date.now(),
         debouncedHandlers: new Map()
     };
 
     let runtimeServerController: RuntimeServerController | null = null;
     let websocketServerController: PatchWebSocketServerController | null = null;
+    let statusServerController: StatusServerController | null = null;
 
     if (shouldServeRuntime) {
         const runtimeSource = await runtimeResolver({
@@ -647,6 +686,54 @@ export async function runWatchCommand(
         console.log("WebSocket patch server disabled.");
     }
 
+    if (enableStatus) {
+        try {
+            statusServerController = await startStatusServer({
+                host: statusHost,
+                port: statusPort,
+                getSnapshot: () => ({
+                    uptime: Date.now() - runtimeContext.startTime,
+                    patchCount: runtimeContext.metrics.length,
+                    errorCount: runtimeContext.errors.length,
+                    recentPatches: runtimeContext.metrics
+                        .slice(-10)
+                        .map((m) => ({
+                            id: m.patchId,
+                            timestamp: m.timestamp,
+                            durationMs: m.durationMs,
+                            filePath: path.basename(m.filePath)
+                        })),
+                    recentErrors: runtimeContext.errors.slice(-10).map((e) => ({
+                        timestamp: e.timestamp,
+                        filePath: path.basename(e.filePath),
+                        error: e.error
+                    })),
+                    websocketClients:
+                        runtimeContext.websocketServer?.getClientCount() ?? 0
+                })
+            });
+
+            runtimeContext.statusServer = statusServerController;
+
+            if (!quiet) {
+                console.log(
+                    `Status server ready at ${statusServerController.url}`
+                );
+            }
+        } catch (error) {
+            const message = getErrorMessage(error, {
+                fallback: "Unknown status server error"
+            });
+            const formattedError = formatCliError(
+                new Error(`Failed to start status server: ${message}`)
+            );
+            console.error(formattedError);
+            process.exit(1);
+        }
+    } else if (verbose && !quiet) {
+        console.log("Status server disabled.");
+    }
+
     logWatchStartup(
         normalizedPath,
         extensionSet,
@@ -716,6 +803,17 @@ export async function runWatchCommand(
                     console.error(
                         `Failed to stop WebSocket server: ${message}`
                     );
+                }
+            }
+
+            if (statusServerController) {
+                try {
+                    await statusServerController.stop();
+                } catch (error) {
+                    const message = getErrorMessage(error, {
+                        fallback: "Unknown server stop error"
+                    });
+                    console.error(`Failed to stop status server: ${message}`);
                 }
             }
 
