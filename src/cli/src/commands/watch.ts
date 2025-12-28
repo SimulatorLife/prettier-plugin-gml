@@ -701,11 +701,11 @@ export async function runWatchCommand(
                             id: m.patchId,
                             timestamp: m.timestamp,
                             durationMs: m.durationMs,
-                            filePath: path.basename(m.filePath)
+                            filePath: path.relative(normalizedPath, m.filePath)
                         })),
                     recentErrors: runtimeContext.errors.slice(-10).map((e) => ({
                         timestamp: e.timestamp,
-                        filePath: path.basename(e.filePath),
+                        filePath: path.relative(normalizedPath, e.filePath),
                         error: e.error
                     })),
                     websocketClients:
