@@ -602,7 +602,7 @@ function createFormatCommand({ name = "prettier-plugin-gml" } = {}) {
     });
     const skippedDirectorySamplesAliasOption = new Option(
         "--ignored-directory-samples <count>",
-        "Alias for --ignored-directory-sample-limit"
+        "Alias for --ignored-directory-sample-limit <count>"
     )
         .argParser(wrapInvalidArgumentResolver(parseSkippedDirectoryLimit))
         .hideHelp();
