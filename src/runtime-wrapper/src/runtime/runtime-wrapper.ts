@@ -39,6 +39,7 @@ export function createRuntimeWrapper(
     };
 
     const onPatchApplied = options.onPatchApplied;
+    const onChange = options.onChange;
 
     function applyPatch(patchCandidate: unknown): ApplyPatchResult {
         validatePatch(patchCandidate);
@@ -75,6 +76,14 @@ export function createRuntimeWrapper(
 
             if (onPatchApplied) {
                 onPatchApplied(patch, state.registry.version);
+            }
+
+            if (onChange) {
+                onChange({
+                    type: "patch-applied",
+                    patch,
+                    version: state.registry.version
+                });
             }
 
             return result;
@@ -173,6 +182,14 @@ export function createRuntimeWrapper(
                 if (onPatchApplied) {
                     onPatchApplied(patch, state.registry.version);
                 }
+
+                if (onChange) {
+                    onChange({
+                        type: "patch-applied",
+                        patch,
+                        version: state.registry.version
+                    });
+                }
             }
 
             const totalDuration = Date.now() - startTime;
@@ -245,6 +262,14 @@ export function createRuntimeWrapper(
             timestamp: Date.now(),
             action: "undo"
         });
+
+        if (onChange) {
+            onChange({
+                type: "patch-undone",
+                patch: { kind: snapshot.kind, id: snapshot.id },
+                version: state.registry.version
+            });
+        }
 
         return { success: true, version: state.registry.version };
     }
@@ -327,6 +352,15 @@ export function createRuntimeWrapper(
                 action: "rollback",
                 error: message
             });
+
+            if (onChange) {
+                onChange({
+                    type: "patch-rolled-back",
+                    patch,
+                    version: state.registry.version,
+                    error: message
+                });
+            }
 
             return {
                 success: false,
@@ -448,6 +482,13 @@ export function createRuntimeWrapper(
             version: state.registry.version + 1
         });
         state.undoStack = [];
+
+        if (onChange) {
+            onChange({
+                type: "registry-cleared",
+                version: state.registry.version
+            });
+        }
     }
 
     return {

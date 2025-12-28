@@ -13,16 +13,24 @@ const TRAILING_COMMA_VALUES = Object.freeze(Object.values(TRAILING_COMMA));
 const TRAILING_COMMA_SET = new Set(TRAILING_COMMA_VALUES);
 const TRAILING_COMMA_LIST = TRAILING_COMMA_VALUES.join(", ");
 
+function normalizeTrailingCommaValue(
+    value: unknown
+): TrailingCommaOption | null {
+    return Core.normalizeEnumeratedOption(value, null, TRAILING_COMMA_SET, {
+        coerce(candidate) {
+            return typeof candidate === "string" ? candidate.trim() : "";
+        }
+    });
+}
+
 function isTrailingCommaValue(value: unknown): value is TrailingCommaOption {
-    return (
-        typeof value === "string" &&
-        TRAILING_COMMA_SET.has(value as TrailingCommaOption)
-    );
+    return normalizeTrailingCommaValue(value) !== null;
 }
 
 function assertTrailingCommaValue(value: unknown): TrailingCommaOption {
-    if (isTrailingCommaValue(value)) {
-        return value;
+    const normalized = normalizeTrailingCommaValue(value);
+    if (normalized !== null) {
+        return normalized;
     }
 
     const received = Core.describeValueForError(value);

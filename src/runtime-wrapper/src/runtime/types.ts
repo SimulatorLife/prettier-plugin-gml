@@ -59,10 +59,28 @@ export interface PatchHistoryEntry {
     durationMs?: number;
 }
 
+export type RegistryChangeEvent =
+    | { type: "patch-applied"; patch: Patch; version: number }
+    | {
+          type: "patch-rolled-back";
+          patch: Patch;
+          version: number;
+          error: string;
+      }
+    | {
+          type: "patch-undone";
+          patch: Pick<BasePatch, "kind" | "id">;
+          version: number;
+      }
+    | { type: "registry-cleared"; version: number };
+
+export type RegistryChangeListener = (event: RegistryChangeEvent) => void;
+
 export interface RuntimeWrapperOptions {
     registry?: RuntimeRegistryOverrides;
     onPatchApplied?: (patch: Patch, version: number) => void;
     validateBeforeApply?: boolean;
+    onChange?: RegistryChangeListener;
 }
 
 export interface RuntimeWrapperState {
@@ -87,6 +105,9 @@ export interface PatchStats {
     totalDurationMs?: number;
     fastestPatchMs?: number;
     slowestPatchMs?: number;
+    p50DurationMs?: number;
+    p90DurationMs?: number;
+    p99DurationMs?: number;
 }
 
 export interface RuntimeRegistrySnapshot {

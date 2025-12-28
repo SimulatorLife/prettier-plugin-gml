@@ -64,6 +64,7 @@ import {
 import {
     hasBlankLineBeforeLeadingComment,
     hasBlankLineBetweenLastCommentAndClosingBrace,
+    getOriginalTextFromOptions,
     macroTextHasExplicitTrailingBlankLine,
     resolveNodeIndexRangeWithSource,
     resolvePrinterSourceMetadata,
@@ -446,9 +447,6 @@ function tryPrintControlStructureNode(node, path, options, print) {
 }
 
 function tryPrintFunctionNode(node, path, options, print) {
-    if (node.id?.name === "TestStruct") {
-        console.log("[DEBUG] tryPrintFunctionNode TestStruct");
-    }
     switch (node.type) {
         case "FunctionDeclaration":
         case "ConstructorDeclaration": {
@@ -523,19 +521,6 @@ function tryPrintFunctionNode(node, path, options, print) {
                 const suppressLeadingBlank =
                     docCommentDocs &&
                     docCommentDocs._suppressLeadingBlank === true;
-
-                if (
-                    docCommentDocs.some(
-                        (entry) =>
-                            typeof entry === "string" &&
-                            entry.includes("draw_points")
-                    )
-                ) {
-                    console.log(
-                        "[DEBUG] draw_points docCommentDocs at print time:",
-                        docCommentDocs
-                    );
-                }
 
                 const hasLeadingNonDocComment =
                     !Core.isNonEmptyArray(node.docComments) &&
@@ -709,12 +694,6 @@ function tryPrintVariableNode(node, path, options, print) {
             ) {
                 return "";
             }
-            if (node.comments && node.comments.length > 0) {
-                console.log(
-                    "[DEBUG] ExpressionStatement has comments:",
-                    node.comments.map((c: any) => c.value)
-                );
-            }
             return print("expression");
         }
         case "AssignmentExpression": {
@@ -735,12 +714,6 @@ function tryPrintVariableNode(node, path, options, print) {
                 hasFeatherFix(node, GM1015_DIAGNOSTIC_ID)
             ) {
                 return "";
-            }
-            if (node.comments && node.comments.length > 0) {
-                console.log(
-                    "[DEBUG] AssignmentExpression has comments:",
-                    node.comments.map((c: any) => c.value)
-                );
             }
             const padding =
                 node.operator === "=" &&
@@ -821,9 +794,6 @@ function tryPrintVariableNode(node, path, options, print) {
             return concat([keyword, " ", decls]);
         }
         case "VariableDeclaration": {
-            if (node.declarations?.[0]?.id?.name === "clearSubdiv") {
-                console.log("[DEBUG] Visiting clearSubdiv");
-            }
             const functionNode = findEnclosingFunctionNode(path);
             const declarators = Core.asArray(node.declarations);
 
@@ -960,14 +930,7 @@ function tryPrintVariableNode(node, path, options, print) {
                         joined.push(", ");
                     }
                 }
-                const result = group(concat([node.kind, " ", ...joined]));
-                if (node.declarations?.[0]?.id?.name === "clearSubdiv") {
-                    console.log(
-                        "[DEBUG] Returning static result for clearSubdiv"
-                    );
-                    // return "TEST_STATIC_FIX";
-                }
-                return result;
+                return group(concat([node.kind, " ", ...joined]));
             }
 
             return group(concat([node.kind, " ", decls]));
@@ -2219,7 +2182,7 @@ function shouldForceInlineFunctionParameters(path, options) {
         return false;
     }
 
-    const { originalText } = resolvePrinterSourceMetadata(options);
+    const originalText = getOriginalTextFromOptions(options);
 
     const firstParam = node.params[0];
     const lastParam = node.params.at(-1);
@@ -2291,7 +2254,6 @@ function printCommaSeparatedList(
     options,
     overrides: any = {}
 ) {
-    console.log(`[DEBUG] printCommaSeparatedList listKey=${listKey}`);
     const allowTrailingDelimiter =
         overrides.allowTrailingDelimiter === undefined
             ? shouldAllowTrailingComma(options)
@@ -2606,14 +2568,6 @@ function buildStructPropertyCommentSuffix(path, options) {
     const node =
         path && typeof path.getValue === "function" ? path.getValue() : null;
     const comments = Core.asArray(node?._structTrailingComments);
-    const propertyName = Core.getNodeName(node);
-    if (comments.length > 0) {
-        console.log(
-            "[DEBUG] property with trailing comments:",
-            propertyName,
-            comments.map((comment) => (comment as any)?.value)
-        );
-    }
     if (comments.length === 0) {
         return "";
     }
@@ -2632,10 +2586,6 @@ function buildStructPropertyCommentSuffix(path, options) {
             (comment as any)._structPropertyHandled = true;
             (comment as any).printed = true;
         }
-    }
-
-    if (propertyName === "draw_points") {
-        console.log("[DEBUG] draw_points commentDocs:", commentDocs);
     }
 
     const filteredCommentDocs = commentDocs.filter(
@@ -2810,13 +2760,6 @@ function buildStatementPartsForPrinter({
     const isTopLevel = childPath.parent?.type === "Program";
     const printed = print();
 
-    if (node.declarations?.[0]?.id?.name === "clearSubdiv") {
-        console.log(
-            "[DEBUG] buildStatementPartsForPrinter printed clearSubdiv:",
-            JSON.stringify(printed)
-        );
-    }
-
     if (printed === undefined || printed === null || printed === "") {
         return { parts, previousNodeHadNewlineAddedAfter };
     }
@@ -2986,13 +2929,6 @@ function buildStatementPartsForPrinter({
         hasFunctionInitializer,
         containerNode
     });
-
-    if (node.declarations?.[0]?.id?.name === "clearSubdiv") {
-        console.log(
-            "[DEBUG] buildStatementPartsForPrinter returning parts:",
-            JSON.stringify(parts)
-        );
-    }
 
     return {
         parts,
@@ -3644,15 +3580,6 @@ export function getSimpleAssignmentLikeEntry(
             } else if (functionParameterNames?.has(init.name)) {
                 enablesAlignment = true;
             }
-            if (init.name === "width") {
-                console.log("[DEBUG] width check:", {
-                    insideFunctionBody,
-                    hasNamedParameters,
-                    argumentIndex,
-                    inParams: functionParameterNames?.has(init.name),
-                    enablesAlignment
-                });
-            }
         }
     }
 
@@ -4097,11 +4024,6 @@ function resolvePreferredParameterSource(
     options
 ) {
     const docPreferences = Core.preferredParamDocNamesByNode.get(functionNode);
-    if (paramIndex === 9 && currentName === "argument9") {
-        console.log(
-            `[DEBUG] resolvePreferredParameterSource param 9: hasPreferences=${!!docPreferences} hasIndex=${docPreferences?.has(paramIndex)} val=${docPreferences?.get(paramIndex)}`
-        );
-    }
     if (docPreferences?.has(paramIndex)) {
         return docPreferences.get(paramIndex) ?? null;
     }
@@ -4188,10 +4110,6 @@ function findFunctionParameterContext(path) {
 }
 
 function shouldOmitParameterAlias(declarator, functionNode, options) {
-    if (declarator?.id?.name === "clearSubdiv") {
-        console.log("[DEBUG] shouldOmitParameterAlias checking clearSubdiv");
-        console.log("[DEBUG] declarator.init.type:", declarator.init?.type);
-    }
     if (
         !declarator ||
         declarator.type !== "VariableDeclarator" ||
@@ -4810,7 +4728,7 @@ function structLiteralHasLeadingLineBreak(node, options) {
         return false;
     }
 
-    const { originalText } = resolvePrinterSourceMetadata(options);
+    const originalText = getOriginalTextFromOptions(options);
 
     if (!Core.isNonEmptyArray(node.properties)) {
         return false;
@@ -4919,7 +4837,7 @@ function getStructPropertyPrefix(node, options) {
         return null;
     }
 
-    const { originalText } = resolvePrinterSourceMetadata(options);
+    const originalText = getOriginalTextFromOptions(options);
 
     const propertyStart = Core.getNodeStartIndex(node);
     const valueStart = Core.getNodeStartIndex(node?.value);
@@ -4956,7 +4874,7 @@ function shouldOmitDefaultValueForParameter(path, options) {
     // parameter as optional (e.g. `/// @param [name]`) preserve it.
     const functionNode = findEnclosingFunctionDeclaration(path);
     if (functionNode) {
-        const { originalText } = resolvePrinterSourceMetadata(options);
+        const originalText = getOriginalTextFromOptions(options);
         if (typeof originalText === STRING_TYPE && originalText.length > 0) {
             const fnStart = Core.getNodeStartIndex(functionNode) ?? 0;
             const prefix = originalText.slice(0, fnStart);

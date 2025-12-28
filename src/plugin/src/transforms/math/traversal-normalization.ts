@@ -5033,8 +5033,7 @@ function trySimplifyZeroDivision(node, context) {
  * Checks whether there is an inline comment between two AST nodes in the source text.
  *
  * PURPOSE: Math expression normalization needs to detect comments embedded between
- * operands (e.g., `a /* comment */ + b`) to avoid transformations that would break
- * or misplace those comments.
+ * operands to avoid transformations that would break or misplace those comments.
  *
  * LOCATION SMELL: This is a general comment-detection utility based on source positions.
  * It should live in Core's comment-utils module alongside other comment helpers.

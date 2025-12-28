@@ -4,6 +4,7 @@ const {
     coercePositiveInteger,
     createEnvConfiguredValue,
     createNumericTypeErrorFormatter,
+    describeValueForError,
     resolveIntegerOption
 } = Core;
 
@@ -157,31 +158,8 @@ class TerminalProgressBar implements ProgressBarLike {
     }
 }
 
-const formatReceivedValue = (value: unknown): string => {
-    if (value === null) {
-        return "null";
-    }
-    if (value === undefined) {
-        return "undefined";
-    }
-    const primitive =
-        typeof value === "string" ||
-        typeof value === "number" ||
-        typeof value === "boolean" ||
-        typeof value === "bigint";
-    if (primitive) {
-        return String(value);
-    }
-
-    try {
-        return JSON.stringify(value);
-    } catch {
-        return "[unknown]";
-    }
-};
-
 const createWidthErrorMessage = (received: unknown) =>
-    `Progress bar width must be a positive integer (received ${formatReceivedValue(
+    `Progress bar width must be a positive integer (received ${describeValueForError(
         received
     )}).`;
 
