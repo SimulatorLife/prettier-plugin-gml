@@ -68,10 +68,10 @@ function handleStatusRequest(
         const snapshot = getSnapshot();
         sendJsonResponse(res, 200, snapshot);
     } catch (error) {
-        const message = error instanceof Error ? error.message : String(error);
+        // Log detailed error information on the server, but do not expose it to the client.
+        console.error("Failed to generate status snapshot:", error);
         sendJsonResponse(res, 500, {
-            error: "Failed to generate status snapshot",
-            message
+            error: "Failed to generate status snapshot"
         });
     }
 }
