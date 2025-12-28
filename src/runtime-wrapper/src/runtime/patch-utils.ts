@@ -11,7 +11,17 @@ import type {
     ScriptPatch,
     ShadowTestResult
 } from "./types.js";
+
+// Import Core namespace to access areNumbersApproximatelyEqual
+// The function exists on the Core object at runtime but is not in the TypeScript type definition
 import { Core } from "@gml-modules/core";
+
+// Direct destructuring to access areNumbersApproximatelyEqual
+// This is cleaner than type assertion and mirrors patterns in other files like
+// src/cli/test/test-helpers/numeric-assertions.ts
+const { areNumbersApproximatelyEqual } = Core as {
+    areNumbersApproximatelyEqual: (a: number, b: number) => boolean;
+};
 
 export function createRegistry(
     overrides?: RuntimeRegistryOverrides
@@ -280,7 +290,7 @@ export function calculateTimingMetrics(durations: Array<number>): {
         }
     }
 
-    const sorted = [...durations].sort((a, b) => a - b);
+    const sorted = [...durations].toSorted((a, b) => a - b);
     const p50DurationMs = calculatePercentile(sorted, 50);
     const p90DurationMs = calculatePercentile(sorted, 90);
     const p99DurationMs = calculatePercentile(sorted, 99);
@@ -316,7 +326,7 @@ function calculatePercentile(
     // floating-point precision issues. When index is very close to an integer
     // (e.g., 2.9999999999999996 instead of 3.0), we should treat it as that
     // integer rather than attempting interpolation.
-    if ((Core as any).areNumbersApproximatelyEqual(lower, upper)) {
+    if (areNumbersApproximatelyEqual(lower, upper)) {
         return sorted[lower];
     }
 

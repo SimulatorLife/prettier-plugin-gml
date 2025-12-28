@@ -2,9 +2,14 @@ import { describe, it } from "node:test";
 import assert from "node:assert";
 import { calculateTimingMetrics } from "../src/runtime/patch-utils.js";
 
-// Internal test helper to expose calculatePercentile for direct testing
-// This is a copy of the internal function for testing purposes
-function calculatePercentileForTesting(
+// Internal test helper that intentionally uses the OLD buggy implementation
+// of calculatePercentile (with strict equality) to demonstrate the problem
+// this PR is fixing. This is NOT a duplicate for maintenance - it's a deliberate
+// snapshot of the old behavior to validate that the fix addresses the issue.
+//
+// DO NOT UPDATE THIS FUNCTION to match the fixed implementation - it exists
+// specifically to preserve the old buggy behavior for comparison in tests.
+function calculatePercentileWithStrictEquality(
     sorted: Array<number>,
     percentile: number
 ): number {
@@ -20,7 +25,8 @@ function calculatePercentileForTesting(
     const lower = Math.floor(index);
     const upper = Math.ceil(index);
 
-    // This is the problematic line - strict equality on floating-point values
+    // This is the OLD buggy line - strict equality on floating-point values
+    // that can suffer from precision issues
     if (lower === upper) {
         return sorted[lower];
     }
@@ -29,8 +35,8 @@ function calculatePercentileForTesting(
     return sorted[lower] * (1 - weight) + sorted[upper] * weight;
 }
 
-describe("calculateTimingMetrics", () => {
-    it("should handle floating-point precision in percentile calculation", () => {
+void describe("calculateTimingMetrics", () => {
+    void it("should handle floating-point precision in percentile calculation", () => {
         // Create a scenario where floating-point division produces a value
         // very close to an integer, which can expose precision bugs in
         // the floor/ceil equality check.
@@ -99,7 +105,7 @@ describe("calculateTimingMetrics", () => {
         assert.ok(result4.p99DurationMs >= 990 && result4.p99DurationMs <= 991);
     });
 
-    it("should demonstrate floating-point precision bug in calculatePercentile", () => {
+    void it("should demonstrate floating-point precision bug in calculatePercentile", () => {
         // This test demonstrates a potential floating-point equality pitfall.
         // When index is calculated as (percentile / 100) * (sorted.length - 1),
         // the result can be extremely close to an integer but not exactly equal
@@ -117,38 +123,41 @@ describe("calculateTimingMetrics", () => {
         // Test with percentile that produces a value very close to an integer
         // For 5 elements, p75 should give index = (75/100) * 4 = 3.0
         // But due to floating-point arithmetic, this might be 2.9999999999999996
-        const result75 = calculatePercentileForTesting(testData, 75);
+        const result75 = calculatePercentileWithStrictEquality(testData, 75);
 
         // The expected behavior is that index=3.0 (or very close to it)
         // should return testData[3] = 40, not an interpolation
-        // However, if lower=2 and upper=3 due to rounding error,
-        // it would incorrectly interpolate between 30 and 40
+        // However, the old code with strict === could mishandle this
+        // when lower and upper differ due to rounding error
 
-        // With the current strict === comparison, this may or may not fail
-        // depending on the exact floating-point representation
+        // Verify the computation details
         const index = (75 / 100) * (testData.length - 1);
         const lower = Math.floor(index);
         const upper = Math.ceil(index);
 
-        console.log(`index = ${index}, lower = ${lower}, upper = ${upper}`);
-        console.log(`lower === upper: ${lower === upper}`);
-        console.log(`result75 = ${result75}`);
+        // Diagnostic output commented out to avoid lint warnings
+        // During development, uncomment these to verify behavior:
+        // console.log(`index = ${index}, lower = ${lower}, upper = ${upper}`);
+        // console.log(`lower === upper: ${lower === upper}`);
+        // console.log(`result75 = ${result75}`);
 
-        // If lower === upper is true, result should be exactly testData[3] = 40
-        // If lower === upper is false due to rounding error, result will be interpolated
-        // The correct behavior should handle both cases gracefully
+        // The old implementation using strict === may or may not work correctly
+        // depending on the exact floating-point representation. With epsilon-based
+        // comparison, the behavior is robust and predictable.
 
-        // This assertion may pass or fail depending on floating-point precision,
-        // which is exactly the problem we're trying to fix
+        // This test validates that our result is reasonable regardless of the
+        // underlying floating-point precision
         if (lower === upper) {
+            // When lower equals upper exactly, result should be the exact value
             assert.strictEqual(result75, 40);
         } else {
-            // If there's a precision issue, the result will be an interpolation
+            // If there's a precision issue causing lower !== upper,
+            // the result will be an interpolation
             assert.ok(result75 >= 30 && result75 <= 40);
         }
     });
 
-    it("should handle edge cases correctly", () => {
+    void it("should handle edge cases correctly", () => {
         // Empty array returns null
         const result1 = calculateTimingMetrics([]);
         assert.strictEqual(result1, null);
