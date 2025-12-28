@@ -57,6 +57,7 @@ void describe("Hot reload integration loop", () => {
             websocketPort: 17_891,
             websocketHost: "127.0.0.1",
             runtimeServer: false,
+            statusServer: false,
             abortSignal: abortController.signal
         });
 
