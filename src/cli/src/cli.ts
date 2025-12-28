@@ -91,12 +91,9 @@ import {
     getDefaultIgnoredFileSampleLimit,
     getDefaultSkippedDirectorySampleLimit,
     getDefaultUnsupportedExtensionSampleLimit,
-    IGNORED_FILE_SAMPLE_LIMIT_ENV_VAR,
     resolveIgnoredFileSampleLimit,
     resolveSkippedDirectorySampleLimit,
-    resolveUnsupportedExtensionSampleLimit,
-    SKIPPED_DIRECTORY_SAMPLE_LIMIT_ENV_VAR,
-    UNSUPPORTED_EXTENSION_SAMPLE_LIMIT_ENV_VAR
+    resolveUnsupportedExtensionSampleLimit
 } from "./runtime-options/sample-limits.js";
 import { normalizeExtensions } from "./cli-core/extension-normalizer.js";
 
@@ -576,11 +573,7 @@ export async function runCliTestCommand({
 function createFormatCommand({ name = "prettier-plugin-gml" } = {}) {
     const extensionsOption = new Option(
         "--extensions <list>",
-        [
-            `Comma- or path-delimiter-separated list of file extensions to format (e.g., ${GML_EXTENSION},.yy or ${GML_EXTENSION};.yy on Windows).`,
-            `Defaults to ${formatExtensionListForDisplay(DEFAULT_EXTENSIONS)}.`,
-            "Respects PRETTIER_PLUGIN_GML_DEFAULT_EXTENSIONS when set."
-        ].join(" ")
+        `File extensions to format (e.g., ${GML_EXTENSION},.yy). Default: ${formatExtensionListForDisplay(DEFAULT_EXTENSIONS)}`
     )
         .argParser((value, previous) => {
             const normalized = normalizeExtensions(value, DEFAULT_EXTENSIONS);
@@ -602,18 +595,14 @@ function createFormatCommand({ name = "prettier-plugin-gml" } = {}) {
         parseLimit: parseSkippedDirectoryLimit
     } = createConfiguredSampleLimitOption({
         flag: "--ignored-directory-sample-limit <count>",
-        description: (defaultLimit) => [
-            "Maximum number of ignored directories to include in skip summaries.",
-            `Defaults to ${defaultLimit}.`,
-            "Alias: --ignored-directory-samples.",
-            `Respects ${SKIPPED_DIRECTORY_SAMPLE_LIMIT_ENV_VAR} when set. Provide 0 to suppress the sample list.`
-        ],
+        description: (defaultLimit) =>
+            `Max ignored directories shown in summary. Default: ${defaultLimit}, use 0 to hide`,
         getDefaultLimit: getDefaultSkippedDirectorySampleLimit,
         resolveLimit: resolveSkippedDirectorySampleLimit
     });
     const skippedDirectorySamplesAliasOption = new Option(
         "--ignored-directory-samples <count>",
-        "Alias for --ignored-directory-sample-limit <count>."
+        "Alias for --ignored-directory-sample-limit <count>"
     )
         .argParser(wrapInvalidArgumentResolver(parseSkippedDirectoryLimit))
         .hideHelp();
@@ -621,11 +610,8 @@ function createFormatCommand({ name = "prettier-plugin-gml" } = {}) {
     const { option: ignoredFileSampleLimitOption } =
         createConfiguredSampleLimitOption({
             flag: "--ignored-file-sample-limit <count>",
-            description: (defaultLimit) => [
-                "Maximum number of ignored files to include in skip logs.",
-                `Defaults to ${defaultLimit}.`,
-                `Respects ${IGNORED_FILE_SAMPLE_LIMIT_ENV_VAR} when set. Provide 0 to suppress the sample list.`
-            ],
+            description: (defaultLimit) =>
+                `Max ignored files shown in summary. Default: ${defaultLimit}, use 0 to hide`,
             getDefaultLimit: getDefaultIgnoredFileSampleLimit,
             resolveLimit: resolveIgnoredFileSampleLimit
         });
@@ -633,11 +619,8 @@ function createFormatCommand({ name = "prettier-plugin-gml" } = {}) {
     const { option: unsupportedExtensionSampleLimitOption } =
         createConfiguredSampleLimitOption({
             flag: "--unsupported-extension-sample-limit <count>",
-            description: (defaultLimit) => [
-                "Maximum number of unsupported files to include in skip summaries.",
-                `Defaults to ${defaultLimit}.`,
-                `Respects ${UNSUPPORTED_EXTENSION_SAMPLE_LIMIT_ENV_VAR} when set. Provide 0 to suppress the sample list.`
-            ],
+            description: (defaultLimit) =>
+                `Max unsupported files shown in summary. Default: ${defaultLimit}, use 0 to hide`,
             getDefaultLimit: getDefaultUnsupportedExtensionSampleLimit,
             resolveLimit: resolveUnsupportedExtensionSampleLimit
         });
@@ -660,10 +643,7 @@ function createFormatCommand({ name = "prettier-plugin-gml" } = {}) {
         )
         .option(
             "--check",
-            [
-                "Check whether files are already formatted without writing changes.",
-                "Exits with a non-zero status when differences are found."
-            ].join(" ")
+            "Check formatting without writing changes (dry-run mode)"
         )
         .addOption(extensionsOption)
         .addOption(skippedDirectorySampleLimitOption)
@@ -672,10 +652,7 @@ function createFormatCommand({ name = "prettier-plugin-gml" } = {}) {
         .addOption(unsupportedExtensionSampleLimitOption)
         .option(
             "--log-level <level>",
-            [
-                "Prettier log level to use (debug, info, warn, error, or silent).",
-                "Respects PRETTIER_PLUGIN_GML_LOG_LEVEL when set."
-            ].join(" "),
+            "Prettier log level: debug|info|warn|error|silent. Default: warn",
             (value) =>
                 logLevelOption.requireValue(value, {
                     fallback: DEFAULT_PRETTIER_LOG_LEVEL,
@@ -685,10 +662,7 @@ function createFormatCommand({ name = "prettier-plugin-gml" } = {}) {
         )
         .option(
             "--on-parse-error <mode>",
-            [
-                "How to handle parser failures: revert, skip, or abort.",
-                "Respects PRETTIER_PLUGIN_GML_ON_PARSE_ERROR when set."
-            ].join(" "),
+            "Parser failure handling: revert|skip|abort. Default: abort",
             (value) =>
                 parseErrorActionOption.requireValue(value, {
                     fallback: DEFAULT_PARSE_ERROR_ACTION,
