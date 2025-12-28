@@ -7,6 +7,8 @@ export type {
     PatchHistoryEntry,
     PatchKind,
     PatchStats,
+    RegistryChangeEvent,
+    RegistryChangeListener,
     RuntimeFunction,
     RuntimePatchError,
     RuntimeRegistry,

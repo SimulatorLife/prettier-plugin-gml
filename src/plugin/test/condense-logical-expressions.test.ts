@@ -127,15 +127,39 @@ void test("retains original multi-branch descriptions when condensing", async ()
     );
 
     assert.strictEqual(
-        lines[descriptionIndex],
-        "/// @description Original multi-branch: if (foo and bar or baz) return (foo and bar); else return (foo or baz).",
-        "Expected the @description line to include the simplified expression summary."
+        lines[descriptionIndex].startsWith("/// @description"),
+        true,
+        "Expected the @description line to remain after condensing."
     );
-    // assert.strictEqual(
-    //     lines[descriptionIndex + 1],
-    //     "///              (foo or baz).",
-    //     "Expected the wrapped continuation line to retain the original clause."
-    // );
+
+    const descriptionLines = [];
+    for (let index = descriptionIndex; index < lines.length; index += 1) {
+        const line = lines[index];
+        if (!line.startsWith("///")) {
+            break;
+        }
+        if (index > descriptionIndex && /^\/\/\/\s*@/.test(line)) {
+            break;
+        }
+        descriptionLines.push(
+            line
+                .replaceAll(/^\/\/\/\s*@description\s*/g, "")
+                .replaceAll(/^\/\/\/\s+/g, "")
+                .trim()
+        );
+    }
+
+    const descriptionText = descriptionLines
+        .filter((line) => line.length > 0)
+        .join(" ")
+        .replaceAll(/\s+/g, " ")
+        .trim();
+
+    assert.strictEqual(
+        descriptionText,
+        "Original multi-branch: if (foo and bar or baz) return (foo and bar); else return (foo or baz).",
+        "Expected the @description text to retain the original multi-branch summary."
+    );
 });
 
 void test("preserves distinct functions that condense to the same expression", async () => {

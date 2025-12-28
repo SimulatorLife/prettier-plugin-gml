@@ -37,6 +37,20 @@ void describe("printer source text helpers", () => {
         assert.equal(metadata.locEnd?.({}), 3);
     });
 
+    void it("extracts original text from printer options", () => {
+        assert.equal(
+            Printer.SourceText.getOriginalTextFromOptions({
+                originalText: "body"
+            }),
+            "body"
+        );
+
+        assert.equal(
+            Printer.SourceText.getOriginalTextFromOptions({ originalText: 42 }),
+            null
+        );
+    });
+
     void it("computes node ranges with metadata overrides", () => {
         const range = Printer.SourceText.resolveNodeIndexRangeWithSource(
             { start: 5, end: 8 },

@@ -1,6 +1,10 @@
 import { Core } from "@gml-modules/core";
 
-const { coerceNonNegativeInteger, resolveIntegerOption } = Core;
+const {
+    coerceNonNegativeInteger,
+    describeValueForError,
+    resolveIntegerOption
+} = Core;
 
 interface SampleLimitOptionParams {
     defaultValue?: number;
@@ -20,24 +24,6 @@ export interface SampleLimitRuntimeOption {
     applyEnvOverride: (env?: NodeJS.ProcessEnv) => number | undefined;
 }
 
-function formatReceivedValue(value: unknown): string {
-    if (value === null) return "null";
-    if (value === undefined) return "undefined";
-    if (
-        typeof value === "string" ||
-        typeof value === "number" ||
-        typeof value === "boolean" ||
-        typeof value === "bigint"
-    ) {
-        return String(value);
-    }
-    try {
-        return JSON.stringify(value);
-    } catch {
-        return "[unknown]";
-    }
-}
-
 export function createSampleLimitRuntimeOption(
     params: SampleLimitOptionParams,
     { env }: { env?: NodeJS.ProcessEnv } = {}
@@ -49,7 +35,7 @@ export function createSampleLimitRuntimeOption(
     const coerce = (val: unknown) =>
         coerceNonNegativeInteger(val, {
             createErrorMessage: (received: unknown) =>
-                `${subjectLabel} sample limit must be a non-negative integer (received ${formatReceivedValue(received)}). Provide 0 to suppress the sample list.`
+                `${subjectLabel} sample limit must be a non-negative integer (received ${describeValueForError(received)}). Provide 0 to suppress the sample list.`
         });
 
     const typeErrorMessage = (type: string) =>

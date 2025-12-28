@@ -17,6 +17,17 @@ export type PrinterSourceMetadata = {
 };
 
 /**
+ * Extract the original source text string from arbitrary printer options.
+ *
+ * Multiple printer helpers only need the raw text without inspecting location
+ * callbacks. Centralizing the normalization keeps those call sites consistent
+ * and avoids repeated destructuring boilerplate.
+ */
+export function getOriginalTextFromOptions(options: unknown): string | null {
+    return resolvePrinterSourceMetadata(options).originalText;
+}
+
+/**
  * Remove trailing CR/LF sequences from a macro or comment body without
  * allocating regular expression instances on the hot path.
  */

@@ -38,8 +38,6 @@ void test("struct static functions drop stray @param tags when no parameters", a
 }`;
 
     const formatted = await Plugin.format(source);
-    console.log(`FORMATTED OUTPUT:\n${formatted}`);
-
     const docBlocks = extractDocBlocks(formatted);
     const generateBlock = docBlocks.find((block) =>
         block.includes("/// @description Each call generates layout")
@@ -63,8 +61,6 @@ void test("struct static functions keep implicit argument docs", async () => {
 }`;
 
     const formatted = await Plugin.format(source);
-    console.log(`FORMATTED OUTPUT:\n${formatted}`);
-
     const docBlocks = extractDocBlocks(formatted);
     const dispatchBlock = docBlocks.find((block) =>
         block.includes("/// @param {real} argument0")

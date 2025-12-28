@@ -50,7 +50,7 @@ export interface ParserOptions {
     getLocations: boolean;
     simplifyLocations: boolean;
     scopeTrackerOptions?: ScopeTrackerOptions; // Also handles identifier metadata
-    
+
     // DOCUMENTATION NEEDED: The astFormat field controls how the parser formats its output,
     // but the valid values and their meanings are not documented. Known values include:
     //   - "gml" → standard GML AST format used by the plugin

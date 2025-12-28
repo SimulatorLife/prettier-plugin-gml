@@ -107,35 +107,14 @@ export class ConsolidateStructAssignmentsTransform extends FunctionalParserTrans
         if (!Core.isNode(ast)) {
             return ast;
         }
-        console.log("ConsolidateStructAssignmentsTransform executing");
-        if (ast.comments) {
-            console.log(
-                `[DEBUG] Initial comments count: ${ast.comments.length}`
-            );
-        }
-
         const normalizedCommentTools = normalizeCommentTools(
             options.commentTools
         );
         const tracker = new CommentTracker(ast);
         this.visit(ast, tracker, normalizedCommentTools);
 
-        const consumedCount = tracker.entries.filter((e) => e.consumed).length;
-        console.log(`[DEBUG] Consumed comments count: ${consumedCount}`);
-        if (consumedCount > 0) {
-            console.log(
-                "[DEBUG] Consumed comments:",
-                tracker.entries
-                    .filter((e) => e.consumed)
-                    .map((e) => Core.getCommentValue(e.comment))
-            );
-        }
-
         tracker.removeConsumedComments();
 
-        if (ast.comments) {
-            console.log(`[DEBUG] Final comments count: ${ast.comments.length}`);
-        }
         return ast;
     }
 

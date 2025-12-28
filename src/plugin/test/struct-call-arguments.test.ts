@@ -18,9 +18,12 @@ void test("keeps small struct arguments inline", async () => {
 
     const formatted = await Plugin.format(source);
     const lines = formatted.trim().split("\n");
+    const returnIndex = lines.findIndex((line) =>
+        line.includes("return instance_create_depth")
+    );
 
     assert.strictEqual(
-        lines[2],
+        lines[returnIndex],
         "    return instance_create_depth(0, 0, 0, Object2, {",
         "Struct arguments with two properties should stay inline with the call signature."
     );
@@ -40,14 +43,17 @@ void test("still breaks struct arguments with many properties", async () => {
 
     const formatted = await Plugin.format(source);
     const lines = formatted.trim().split("\n");
+    const returnIndex = lines.findIndex((line) =>
+        line.includes("return create_instance")
+    );
 
     assert.strictEqual(
-        lines[2],
+        lines[returnIndex],
         "    return create_instance(",
         "Calls with larger struct arguments should still break to preserve readability."
     );
     assert.strictEqual(
-        lines[3],
+        lines[returnIndex + 1],
         "        1,",
         "The first argument should be printed on its own line when the call breaks."
     );

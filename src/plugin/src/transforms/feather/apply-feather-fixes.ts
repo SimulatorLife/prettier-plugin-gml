@@ -1,19 +1,19 @@
 /**
  * Feather diagnostic transforms and AST fix application.
- * 
+ *
  * ARCHITECTURE NOTE: This file has accumulated a large collection of Feather-specific
  * fix handlers and should be split into focused, domain-specific modules:
- * 
+ *
  * - enum-constant-fixes.ts → handles enum member constant transformations
  * - vertex-format-fixes.ts → handles begin/end vertex format migrations
- * - color-constant-fixes.ts → handles color constant renaming and normalization  
+ * - color-constant-fixes.ts → handles color constant renaming and normalization
  * - identifier-renaming.ts → handles reserved identifier conflicts and safe renaming
  * - doc-comment-fixes.ts → handles JSDoc type annotation corrections
  * - user-event-fixes.ts → handles missing user event constant insertions
- * 
+ *
  * The core metadata attachment function `attachFeatherFixMetadata` can remain here as
  * the public entry point, but delegates to focused submodules for each diagnostic category.
- * 
+ *
  * MAINTENANCE HAZARD: Many helper functions in this file duplicate functionality from
  * the 'refactor' and 'semantic' modules. Identifier renaming logic in particular should
  * be consolidated into the 'refactor' module, which is built on top of 'semantic' to
@@ -938,7 +938,6 @@ export class ApplyFeatherFixesTransform extends FunctionalParserTransform<ApplyF
         ast: MutableGameMakerAstNode,
         options: ApplyFeatherFixesOptions
     ) {
-        console.log("[DEBUG] ApplyFeatherFixesTransform.execute called");
         return applyFeatherFixesImpl(ast, options);
     }
 }
@@ -4117,32 +4116,24 @@ function applyOrderedDocNamesToImplicitEntries(
             continue;
         }
 
-        console.log(
-            `DEBUG: applyFeatherFixes processing entry index ${entry.index}, docName='${docName}', entry.name='${entry.name}'`
-        );
-        // Prefer the JSDoc name unless it's a generic "argumentN" placeholder
-        // and we already have a more descriptive alias from the source code.
+        // Prefer the alias name unless the entry still uses a generic fallback.
         const docNameIsFallback = /^argument\d+$/.test(docName);
         const entryNameIsFallback = /^argument\d+$/.test(entry.name);
 
-        if (!docNameIsFallback || entryNameIsFallback) {
-            console.log(
-                `DEBUG: applyFeatherFixes renaming entry ${entry.name} -> ${docName}`
-            );
+        if (entryNameIsFallback) {
             entry.name = docName;
             entry.canonical = docName.toLowerCase();
             continue;
         }
 
-        console.log(
-            `DEBUG: Calling updateJSDocParamName for ${docName} -> ${entry.name}`
-        );
-        updateJSDocParamName(
-            functionNode,
-            docName,
-            entry.name,
-            collectionService
-        );
+        if (docNameIsFallback && docName !== entry.name) {
+            updateJSDocParamName(
+                functionNode,
+                docName,
+                entry.name,
+                collectionService
+            );
+        }
     }
 }
 
@@ -16009,6 +16000,64 @@ function sanitizeDocCommentType(comment, typeSystemInfo) {
 }
 
 /**
+ * LOCATION SMELL: The following delimiter depth tracking helpers belong in Core's
+ * doc-comment service. Bracket/delimiter tracking is a general doc-comment parsing
+ * concern, not a Feather-specific fix.
+ */
+type DelimiterDepthState = {
+    square: number;
+    angle: number;
+    paren: number;
+};
+
+function createDelimiterDepthState(): DelimiterDepthState {
+    return { square: 0, angle: 0, paren: 0 };
+}
+
+function updateDelimiterDepthState(depths: DelimiterDepthState, char: string) {
+    switch (char) {
+        case "[": {
+            depths.square += 1;
+
+            break;
+        }
+        case "]": {
+            depths.square = Math.max(0, depths.square - 1);
+
+            break;
+        }
+        case "<": {
+            depths.angle += 1;
+
+            break;
+        }
+        case ">": {
+            depths.angle = Math.max(0, depths.angle - 1);
+
+            break;
+        }
+        case "(": {
+            depths.paren += 1;
+
+            break;
+        }
+        case ")": {
+            depths.paren = Math.max(0, depths.paren - 1);
+
+            break;
+        }
+        // Omit a default case because this switch only manages delimiter nesting
+        // depth for brackets ([, ], <, >, (, )). All other characters are
+        // ignored by design so the calling loop can continue processing them
+        // without extra branching noise.
+    }
+}
+
+function isAtTopLevelDepth(depths: DelimiterDepthState) {
+    return depths.square === 0 && depths.angle === 0 && depths.paren === 0;
+}
+
+/**
  * Extracts the type annotation portion from a JSDoc tag value.
  *
  * LOCATION SMELL: This belongs in Core's doc-comment service. Type annotation parsing
@@ -16064,58 +16113,16 @@ function splitTypeAndRemainder(text) {
         return { type: "", remainder: "" };
     }
 
-    let depthSquare = 0;
-    let depthAngle = 0;
-    let depthParen = 0;
+    const delimiterDepth = createDelimiterDepthState();
 
     for (let index = 0; index < text.length; index += 1) {
         const char = text[index];
 
-        switch (char) {
-            case "[": {
-                depthSquare += 1;
-
-                break;
-            }
-            case "]": {
-                depthSquare = Math.max(0, depthSquare - 1);
-
-                break;
-            }
-            case "<": {
-                depthAngle += 1;
-
-                break;
-            }
-            case ">": {
-                depthAngle = Math.max(0, depthAngle - 1);
-
-                break;
-            }
-            case "(": {
-                depthParen += 1;
-
-                break;
-            }
-            case ")": {
-                depthParen = Math.max(0, depthParen - 1);
-
-                break;
-            }
-            // Omit a default case because the switch only tracks opening and
-            // closing delimiters ([, ], <, >, (, )) to maintain nesting depth
-            // for the whitespace check below. All other characters (letters,
-            // digits, punctuation) are irrelevant to depth tracking and fall
-            // through to the subsequent logic that accumulates them into the
-            // type or remainder. Adding an empty default branch would clutter
-            // the control flow without changing the behavior.
-        }
+        updateDelimiterDepthState(delimiterDepth, char);
 
         if (
             WHITESPACE_PATTERN.test(char) &&
-            depthSquare === 0 &&
-            depthAngle === 0 &&
-            depthParen === 0
+            isAtTopLevelDepth(delimiterDepth)
         ) {
             const typePart = text.slice(0, index).trimEnd();
             const remainder = text.slice(index);
@@ -16305,71 +16312,26 @@ function readSpecifierToken(text) {
 
     let consumed = offset;
     let token = "";
-    let depthSquare = 0;
-    let depthAngle = 0;
-    let depthParen = 0;
+    const delimiterDepth = createDelimiterDepthState();
 
     while (consumed < text.length) {
         const char = text[consumed];
 
         if (
             WHITESPACE_PATTERN.test(char) &&
-            depthSquare === 0 &&
-            depthAngle === 0 &&
-            depthParen === 0
+            isAtTopLevelDepth(delimiterDepth)
         ) {
             break;
         }
 
         if (
             (char === "," || char === "|" || char === "}") &&
-            depthSquare === 0 &&
-            depthAngle === 0 &&
-            depthParen === 0
+            isAtTopLevelDepth(delimiterDepth)
         ) {
             break;
         }
 
-        switch (char) {
-            case "[": {
-                depthSquare += 1;
-
-                break;
-            }
-            case "]": {
-                depthSquare = Math.max(0, depthSquare - 1);
-
-                break;
-            }
-            case "<": {
-                depthAngle += 1;
-
-                break;
-            }
-            case ">": {
-                depthAngle = Math.max(0, depthAngle - 1);
-
-                break;
-            }
-            case "(": {
-                depthParen += 1;
-
-                break;
-            }
-            case ")": {
-                depthParen = Math.max(0, depthParen - 1);
-
-                break;
-            }
-            // Omit a default case because this switch exclusively manages depth
-            // counters for nested delimiters ([, ], <, >, (, )). The function
-            // extracts a complete specifier token (e.g., "Array<Struct.Type>")
-            // by continuing the loop until it encounters a delimiter or
-            // whitespace at depth zero. All other characters (alphanumerics, dots,
-            // underscores) are appended to the token without affecting depth
-            // tracking, so a default branch would add noise without altering the
-            // parsing logic.
-        }
+        updateDelimiterDepthState(delimiterDepth, char);
 
         token += char;
         consumed += 1;
@@ -16463,56 +16425,14 @@ function normalizeCollectionTypeDelimiters(typeText) {
 function splitTypeSegments(text) {
     const segments = [];
     let current = "";
-    let depthSquare = 0;
-    let depthAngle = 0;
-    let depthParen = 0;
+    const delimiterDepth = createDelimiterDepthState();
 
     for (const char of text) {
-        switch (char) {
-            case "[": {
-                depthSquare += 1;
-
-                break;
-            }
-            case "]": {
-                depthSquare = Math.max(0, depthSquare - 1);
-
-                break;
-            }
-            case "<": {
-                depthAngle += 1;
-
-                break;
-            }
-            case ">": {
-                depthAngle = Math.max(0, depthAngle - 1);
-
-                break;
-            }
-            case "(": {
-                depthParen += 1;
-
-                break;
-            }
-            case ")": {
-                depthParen = Math.max(0, depthParen - 1);
-
-                break;
-            }
-            // Omit a default case because the switch only updates depth counters
-            // for nested delimiters ([, ], <, >, (, )) while splitting a union
-            // or intersection type string into individual segments. The function
-            // checks for separators (commas, pipes, whitespace) at depth zero to
-            // determine segment boundaries. All other characters are accumulated
-            // into the current segment without requiring special handling, so a
-            // default branch would be redundant.
-        }
+        updateDelimiterDepthState(delimiterDepth, char);
 
         if (
             (WHITESPACE_PATTERN.test(char) || char === "," || char === "|") &&
-            depthSquare === 0 &&
-            depthAngle === 0 &&
-            depthParen === 0
+            isAtTopLevelDepth(delimiterDepth)
         ) {
             if (Core.isNonEmptyTrimmedString(current)) {
                 segments.push(current.trim());
@@ -16544,57 +16464,12 @@ function hasDelimiterOutsideNesting(text, delimiters) {
     const delimiterSet = Core.hasIterableItems(delimiters)
         ? new Set(delimiters)
         : new Set();
-    let depthSquare = 0;
-    let depthAngle = 0;
-    let depthParen = 0;
+    const delimiterDepth = createDelimiterDepthState();
 
     for (const char of text) {
-        switch (char) {
-            case "[": {
-                depthSquare += 1;
+        updateDelimiterDepthState(delimiterDepth, char);
 
-                break;
-            }
-            case "]": {
-                depthSquare = Math.max(0, depthSquare - 1);
-
-                break;
-            }
-            case "<": {
-                depthAngle += 1;
-
-                break;
-            }
-            case ">": {
-                depthAngle = Math.max(0, depthAngle - 1);
-
-                break;
-            }
-            case "(": {
-                depthParen += 1;
-
-                break;
-            }
-            case ")": {
-                depthParen = Math.max(0, depthParen - 1);
-
-                break;
-            }
-            // Omit a default case because this switch is solely responsible for
-            // tracking the nesting depth of delimiters ([, ], <, >, (, )) as the
-            // function scans the text looking for a character from the delimiter
-            // set at depth zero. All other characters (alphanumerics, punctuation,
-            // operators) do not affect depth and are implicitly ignored. Adding a
-            // default branch would be superfluous and distract from the
-            // delimiter-matching logic that follows the switch.
-        }
-
-        if (
-            delimiterSet.has(char) &&
-            depthSquare === 0 &&
-            depthAngle === 0 &&
-            depthParen === 0
-        ) {
+        if (delimiterSet.has(char) && isAtTopLevelDepth(delimiterDepth)) {
             return true;
         }
     }
@@ -17912,7 +17787,6 @@ function updateJSDocParamName(
     collectionService: any
 ) {
     if (!node) {
-        console.log("[DEBUG] updateJSDocParamName: node is null");
         return;
     }
 
@@ -17921,16 +17795,8 @@ function updateJSDocParamName(
         : node.comments;
 
     if (!Array.isArray(comments)) {
-        console.log(
-            "[DEBUG] updateJSDocParamName: comments is not an array",
-            node.type
-        );
         return;
     }
-
-    console.log(
-        `[DEBUG] updateJSDocParamName: replacing ${oldName} with ${newName} in ${comments.length} comments`
-    );
 
     const escapedOld = oldName.replaceAll(/[.*+?^()|[\]\\]/g, String.raw`\$&`);
     const regex = new RegExp(String.raw`\b${escapedOld}\b`, "g");
@@ -17940,13 +17806,7 @@ function updateJSDocParamName(
             typeof comment.value === "string" &&
             comment.value.includes("@param")
         ) {
-            const original = comment.value;
             comment.value = comment.value.replace(regex, newName);
-            if (original !== comment.value) {
-                console.log(
-                    `[DEBUG] updateJSDocParamName: updated comment '${original}' to '${comment.value}'`
-                );
-            }
         }
     }
 }

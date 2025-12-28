@@ -6,23 +6,23 @@ import { formatProjectIndexSyntaxError } from "./syntax-error-formatter.js";
 
 /**
  * Parser facade adapter for the project-index subsystem.
- * 
+ *
  * ARCHITECTURE NOTE: This module exists as a temporary decoupling layer to manage
  * a circular dependency between the 'parser' and 'semantic' packages during the
  * ongoing parser rebuild. Ideally, dependencies should flow in one direction:
  *   Core ← Parser ← Semantic ← Plugin
- * 
+ *
  * However, the current implementation requires 'semantic' to invoke the parser for
  * project-wide indexing, while the parser also depends on 'semantic' for scope
  * tracking during the parse phase. This creates a cycle.
- * 
+ *
  * LONG-TERM PLAN: Once the parser is fully rebuilt and scope tracking is moved
  * entirely to the 'semantic' layer (or made optional in the parser), this facade
  * can be removed. At that point:
  *   1. 'Semantic' will import '@gml-modules/parser' directly.
  *   2. The parser will not depend on 'semantic' at all.
  *   3. Scope analysis will happen as a post-parse step in 'semantic'.
- * 
+ *
  * WHAT WOULD BREAK: Removing this facade before the parser rebuild is complete
  * would cause import cycles and build failures. Do not remove until the parser
  * no longer requires semantic imports.

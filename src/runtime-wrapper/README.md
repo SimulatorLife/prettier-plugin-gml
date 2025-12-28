@@ -27,6 +27,7 @@ Creates a new runtime wrapper instance with hot-reload capabilities.
 - `registry` (optional): Initial registry state with `scripts`, `events`, and `closures`.
 - `onPatchApplied` (optional): Callback invoked after each successful patch application.
 - `validateBeforeApply` (optional): When `true`, validates patches in a shadow registry before applying to the real registry. Default is `false`.
+- `onChange` (optional): Lifecycle listener that receives events for all registry changes (patch applied, undone, rolled back, registry cleared). See [Registry Lifecycle Hooks](#registry-lifecycle-hooks) for details.
 
 **Returns:** An object with the following methods:
 
@@ -160,8 +161,11 @@ Returns aggregate statistics about patch operations:
 - `totalDurationMs` (optional): Total time spent applying patches in milliseconds
 - `fastestPatchMs` (optional): Fastest patch application time in milliseconds
 - `slowestPatchMs` (optional): Slowest patch application time in milliseconds
+- `p50DurationMs` (optional): Median (50th percentile) patch application time in milliseconds
+- `p90DurationMs` (optional): 90th percentile patch application time in milliseconds
+- `p99DurationMs` (optional): 99th percentile patch application time in milliseconds
 
-**Note:** Timing metrics are only available when patches have been applied with duration tracking enabled (which is automatic in this implementation).
+**Note:** Timing metrics are only available when patches have been applied with duration tracking enabled (which is automatic in this implementation). Percentile metrics provide more insight into the distribution of patch application times, helping identify outliers and typical performance characteristics.
 
 ## Error Recovery and Safe Patch Application
 
@@ -376,6 +380,9 @@ wrapper.applyPatch({ kind: "event", id: "obj_test#Step", js_body: "this.x++;" })
 const stats = wrapper.getPatchStats();
 console.log(`Total patches applied: ${stats.appliedPatches}`);
 console.log(`Average patch time: ${stats.averagePatchDurationMs?.toFixed(2)}ms`);
+console.log(`Median (p50): ${stats.p50DurationMs?.toFixed(2)}ms`);
+console.log(`90th percentile: ${stats.p90DurationMs?.toFixed(2)}ms`);
+console.log(`99th percentile: ${stats.p99DurationMs?.toFixed(2)}ms`);
 console.log(`Fastest patch: ${stats.fastestPatchMs}ms`);
 console.log(`Slowest patch: ${stats.slowestPatchMs}ms`);
 console.log(`Total time: ${stats.totalDurationMs}ms`);
@@ -394,7 +401,147 @@ Performance metrics help identify:
 - Performance regressions when updating the transpiler or patch logic
 - Opportunities to optimize hot-reload performance
 - Baseline metrics for integration testing
+- Outliers through percentile analysis (p90, p99) that reveal edge cases
+
+## Registry Lifecycle Hooks
+
+The runtime wrapper provides a unified event system for tracking all registry changes through the `onChange` listener. This enables reactive patterns, debugging tools, and integration with external monitoring systems.
+
+### Event Types
+
+The `onChange` listener receives one of four event types:
+
+#### `patch-applied`
+Emitted when a patch is successfully applied to the registry.
+
+```javascript
+{
+    type: "patch-applied",
+    patch: Patch,         // The applied patch object
+    version: number       // Registry version after application
+}
+```
+
+#### `patch-undone`
+Emitted when a patch is successfully undone via `wrapper.undo()`.
+
+```javascript
+{
+    type: "patch-undone",
+    patch: { kind, id },  // Metadata about the undone patch
+    version: number       // Registry version after undo
+}
+```
+
+#### `patch-rolled-back`
+Emitted when a patch is applied but then automatically rolled back due to an error.
+
+```javascript
+{
+    type: "patch-rolled-back",
+    patch: Patch,         // The failed patch object
+    version: number,      // Registry version after rollback
+    error: string         // Error message that caused the rollback
+}
+```
+
+**Note:** This event is only emitted when an actual rollback occurs (i.e., after a patch was applied and then failed). Validation failures that occur before patch application do not emit rollback events.
+
+#### `registry-cleared`
+Emitted when the entire registry is cleared via `wrapper.clearRegistry()`.
+
+```javascript
+{
+    type: "registry-cleared",
+    version: number       // New registry version after clearing
+}
+```
+
+### Usage Example
+
+```javascript
+import { createRuntimeWrapper } from "@prettier-plugin-gml/runtime-wrapper";
+
+const auditLog: Array<unknown> = [];
+
+const wrapper = createRuntimeWrapper({
+    onChange: (event) => {
+        auditLog.push({
+            timestamp: Date.now(),
+            ...event
+        });
+
+        switch (event.type) {
+            case "patch-applied":
+                console.log(`✓ Applied ${event.patch.id} (v${event.version})`);
+                break;
+            case "patch-undone":
+                console.log(`↶ Undone ${event.patch.id} (v${event.version})`);
+                break;
+            case "patch-rolled-back":
+                console.error(`✗ Rollback ${event.patch.id}: ${event.error}`);
+                break;
+            case "registry-cleared":
+                console.log(`⌧ Registry cleared (v${event.version})`);
+                break;
+        }
+    }
+});
+
+// All registry changes trigger onChange events
+wrapper.applyPatch({ kind: "script", id: "script:a", js_body: "return 1;" });
+wrapper.applyPatch({ kind: "script", id: "script:b", js_body: "return 2;" });
+wrapper.undo();
+wrapper.clearRegistry();
+
+console.log(`Audit log contains ${auditLog.length} events`);
+```
+
+### Integration Patterns
+
+The lifecycle hooks enable several useful patterns:
+
+**State synchronization:**
+```javascript
+const wrapper = createRuntimeWrapper({
+    onChange: (event) => {
+        // Sync registry state to external store
+        if (event.type === "patch-applied") {
+            stateManager.notify("patch", event.patch.id);
+        }
+    }
+});
+```
+
+**Debugging and diagnostics:**
+```javascript
+const wrapper = createRuntimeWrapper({
+    onChange: (event) => {
+        // Log all changes for debugging
+        debugLogger.trace("Registry change", event);
+        
+        // Emit metrics
+        if (event.type === "patch-rolled-back") {
+            metrics.increment("patch.rollback");
+        }
+    }
+});
+```
+
+**UI updates:**
+```javascript
+const wrapper = createRuntimeWrapper({
+    onChange: (event) => {
+        // Update HUD overlay in browser
+        updateHUD({
+            lastEvent: event.type,
+            version: event.version,
+            timestamp: Date.now()
+        });
+    }
+});
+```
 
 ## Status
 
-The module implements core patch application, diagnostic capabilities, performance instrumentation, and WebSocket integration. Advanced lifecycle hooks remain under construction.
+The module implements core patch application, diagnostic capabilities, performance instrumentation, WebSocket integration, and registry lifecycle hooks. The change event system provides a unified way to observe all registry mutations for debugging, monitoring, and reactive integration patterns.
