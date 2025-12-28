@@ -104,6 +104,7 @@ void describe("Watch command file read errors", () => {
                 verbose: false,
                 runtimeServer: false,
                 websocketServer: false,
+                statusServer: false,
                 abortSignal: abortController.signal,
                 watchFactory
             });

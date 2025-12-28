@@ -43,6 +43,7 @@ void describe("Watch command metrics tracking", () => {
             extensions: [".gml"],
             verbose: true,
             websocketServer: false,
+            statusServer: false,
             runtimeServer: false,
             abortSignal: abortController.signal
         });
@@ -79,6 +80,7 @@ void describe("Watch command metrics tracking", () => {
             verbose: false,
             maxPatchHistory: maxHistory,
             websocketServer: false,
+            statusServer: false,
             runtimeServer: false,
             abortSignal: abortController.signal
         });

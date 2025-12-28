@@ -102,7 +102,9 @@ void describe("watch command integration", () => {
                 pollingInterval: 1000,
                 verbose: false,
                 abortSignal: abortController.signal,
-                hydrateRuntime: false
+                hydrateRuntime: false,
+                websocketPort: 18_000 + Math.floor(Math.random() * 1000),
+                statusPort: 19_000 + Math.floor(Math.random() * 1000)
             });
 
             // Give it a moment to start
@@ -150,6 +152,8 @@ void describe("watch command integration", () => {
                 verbose: false,
                 abortSignal: abortController.signal,
                 hydrateRuntime: false,
+                websocketPort: 18_000 + Math.floor(Math.random() * 1000),
+                statusPort: 19_000 + Math.floor(Math.random() * 1000),
                 runtimeServerStarter: async () => ({
                     stop: async () => {},
                     host: "localhost",

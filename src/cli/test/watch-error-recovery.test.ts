@@ -24,6 +24,7 @@ void describe("Watch command error recovery", () => {
                 polling: false,
                 verbose: false,
                 websocketServer: false,
+                statusServer: false,
                 runtimeServer: false,
                 abortSignal: abortController.signal
             });
@@ -69,6 +70,7 @@ void describe("Watch command error recovery", () => {
                 polling: false,
                 verbose: false,
                 websocketServer: false,
+                statusServer: false,
                 runtimeServer: false,
                 abortSignal: abortController.signal
             });
@@ -116,6 +118,7 @@ void describe("Watch command error recovery", () => {
                 polling: false,
                 verbose: false,
                 websocketServer: false,
+                statusServer: false,
                 runtimeServer: false,
                 abortSignal: abortController.signal
             });
@@ -166,6 +169,7 @@ void describe("Watch command error recovery", () => {
                 polling: false,
                 verbose: false,
                 websocketServer: false,
+                statusServer: false,
                 runtimeServer: false,
                 abortSignal: abortController.signal
             });
@@ -213,6 +217,7 @@ void describe("Watch command error recovery", () => {
                 polling: false,
                 verbose: true,
                 websocketServer: false,
+                statusServer: false,
                 runtimeServer: false,
                 abortSignal: abortController.signal
             });
