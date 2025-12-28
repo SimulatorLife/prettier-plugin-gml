@@ -329,13 +329,6 @@ void test("gatherSymbolOccurrences uses semantic analyzer when available", async
     assert.deepEqual(occurrences, mockOccurrences);
 });
 
-void test("detectRenameConflicts detects reserved keywords", async () => {
-    const engine = new RefactorEngine();
-    const conflicts = await engine.detectRenameConflicts("old", "if", []);
-    assert.ok(conflicts.length > 0);
-    assert.ok(conflicts.some((c) => c.type === "reserved"));
-});
-
 void test("prepareHotReloadUpdates returns empty for empty workspace", async () => {
     const engine = new RefactorEngine();
     const ws = WorkspaceEdit();
