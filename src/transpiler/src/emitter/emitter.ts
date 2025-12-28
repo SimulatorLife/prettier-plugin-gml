@@ -40,6 +40,7 @@ import type {
     WithStatementNode,
     UnaryExpressionNode
 } from "./ast.js";
+import { evaluateStatementTerminationPolicy } from "./statement-termination-policy.js";
 
 type StatementLike = GmlNode | undefined | null;
 
@@ -48,16 +49,6 @@ const DEFAULT_OPTIONS: EmitOptions = Object.freeze({
     callScriptIdent: "__call_script",
     resolveWithTargetsIdent: "globalThis.__resolve_with_targets"
 });
-
-const STATEMENT_KEYWORDS = [
-    "if",
-    "for",
-    "while",
-    "switch",
-    "try",
-    "with",
-    "do"
-]; // heuristics for auto-semicolon insertion
 
 export class GmlToJsEmitter {
     private readonly identifierAnalyzer: IdentifierAnalyzer;
@@ -667,17 +658,15 @@ export class GmlToJsEmitter {
 
     private ensureStatementTermination(code: string): string {
         if (!code) {
-            return "";
-        }
-        const trimmed = code.trimStart();
-        if (
-            code.endsWith(";") ||
-            code.endsWith("}") ||
-            STATEMENT_KEYWORDS.some((keyword) => trimmed.startsWith(keyword))
-        ) {
             return code;
         }
-        return `${code};`;
+
+        const { shouldAppendTerminator } =
+            evaluateStatementTerminationPolicy(code);
+        if (shouldAppendTerminator) {
+            return `${code};`;
+        }
+        return code;
     }
 
     private joinTruthy(
