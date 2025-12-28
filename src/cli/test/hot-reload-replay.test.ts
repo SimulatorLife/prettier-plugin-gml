@@ -94,6 +94,7 @@ void describe("Hot reload replay for late subscribers", () => {
             websocketPort: 17_892,
             websocketHost: "127.0.0.1",
             runtimeServer: false,
+            statusServer: false,
             abortSignal: abortController.signal
         });
 
