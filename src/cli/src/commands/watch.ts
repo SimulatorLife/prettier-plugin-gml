@@ -936,12 +936,16 @@ async function handleFileChange(
                 quiet
             );
         } catch (error) {
-            if (verbose && !quiet) {
-                const message = getErrorMessage(error, {
-                    fallback: "Unknown file read error"
-                });
-                console.log(`  ↳ Error reading file: ${message}`);
-            }
+            const message = getErrorMessage(error, {
+                fallback: "Unknown file read error"
+            });
+
+            const formattedMessage =
+                verbose && !quiet
+                    ? `  ↳ Error reading file: ${message}`
+                    : `Error reading ${path.basename(filePath)}: ${message}`;
+
+            console.error(formattedMessage);
         }
     }
 }
