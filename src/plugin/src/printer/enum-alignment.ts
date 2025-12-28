@@ -113,32 +113,14 @@ function extractInitializerText(initializer) {
 }
 
 function collectTrailingEnumComments(member) {
-    const comments = getCommentArray(member);
-    const { length } = comments;
-    if (length === 0) {
-        return null;
-    }
+    const trailingComments = getCommentArray(member).filter(
+        (comment) =>
+            comment &&
+            typeof comment === "object" &&
+            (comment.trailing === true || comment.placement === "endOfLine")
+    );
 
-    // Manual iteration avoids creating a new callback per invocation while the
-    // printer walks enum members, which keeps the micro-hot path allocation
-    // free.
-    let trailingComments = null;
-
-    for (let index = 0; index < length; index += 1) {
-        const comment = comments[index];
-        if (comment === null || typeof comment !== "object") {
-            continue;
-        }
-
-        if (comment.trailing === true || comment.placement === "endOfLine") {
-            if (!trailingComments) {
-                trailingComments = [];
-            }
-            trailingComments.push(comment);
-        }
-    }
-
-    return trailingComments;
+    return trailingComments.length > 0 ? trailingComments : null;
 }
 
 function collectEnumMemberStats(members, resolveName) {
