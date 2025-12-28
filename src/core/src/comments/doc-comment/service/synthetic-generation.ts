@@ -97,6 +97,9 @@ function suppressOrderedCanonicalFallbacks(
         const fallback =
             getCanonicalParamNameFromText(`argument${ordIndex}`) ||
             `argument${ordIndex}`;
+        if (canonicalOrdinal === fallback) {
+            continue;
+        }
         suppressed.add(fallback);
     }
 }
@@ -383,10 +386,20 @@ function computeInitialSuppressedCanonicals(
         if (Array.isArray(node?._featherImplicitArgumentDocEntries)) {
             for (const entry of node._featherImplicitArgumentDocEntries as ImplicitArgumentDocEntry[]) {
                 if (
-                    entry &&
-                    typeof entry.index === "number" &&
-                    typeof entry.name === "string"
+                    !entry ||
+                    typeof entry.index !== "number" ||
+                    typeof entry.name !== "string"
                 ) {
+                    continue;
+                }
+
+                const fallback =
+                    getCanonicalParamNameFromText(`argument${entry.index}`) ||
+                    `argument${entry.index}`;
+                const canonicalEntryName =
+                    getCanonicalParamNameFromText(entry.name) ?? entry.name;
+
+                if (canonicalEntryName !== fallback) {
                     aliasByIndex.set(entry.index, entry.name);
                 }
             }
@@ -819,9 +832,7 @@ function appendExplicitParameterDocLines({
             ordinalMetadata,
             isOrphanedImplicit,
             isAdoptingOrdinal,
-            implicitDocEntry,
-            paramIndex,
-            shouldAdoptOrdinalName
+            implicitDocEntry
         });
     }
 }
@@ -837,8 +848,6 @@ type AppendExplicitParameterDocLineParams = {
     isOrphanedImplicit: boolean;
     isAdoptingOrdinal: boolean;
     implicitDocEntry: ImplicitArgumentDocEntry | undefined;
-    paramIndex: number;
-    shouldAdoptOrdinalName: boolean;
 };
 
 function appendExplicitParameterDocLine({
@@ -851,9 +860,7 @@ function appendExplicitParameterDocLine({
     ordinalMetadata,
     isOrphanedImplicit,
     isAdoptingOrdinal,
-    implicitDocEntry,
-    paramIndex,
-    shouldAdoptOrdinalName
+    implicitDocEntry
 }: AppendExplicitParameterDocLineParams) {
     if (
         documentedParamNames.has(docName) &&

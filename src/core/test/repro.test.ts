@@ -16,7 +16,6 @@ describe("repro", () => {
         };
 
         const result = formatLineComment(comment, options);
-        console.log("Result:", result);
         assert.strictEqual(result, "/// @override");
     });
 });

@@ -191,10 +191,6 @@ export class DocCommentNormalizationTransform extends FunctionalParserTransform<
                 docCommentDocs: normalizedDocComments,
                 needsLeadingBlankLine
             });
-            console.log(
-                `[DEBUG] docCommentNormalizationTransform set normalization for ${nodeName}:`,
-                normalizedDocComments
-            );
         });
 
         return ast;

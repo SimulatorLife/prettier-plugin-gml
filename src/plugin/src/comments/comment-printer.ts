@@ -141,10 +141,18 @@ function shouldSuppressComment(comment, options) {
     return formatted === null || formatted === "";
 }
 
+function suppressFormattedComment(comment, options) {
+    if (!shouldSuppressComment(comment, options)) {
+        return false;
+    }
+
+    comment.printed = true;
+    return true;
+}
+
 const handleComments = {
     ownLine(comment, text, options, ast, isLastComment) {
-        if (shouldSuppressComment(comment, options)) {
-            comment.printed = true;
+        if (suppressFormattedComment(comment, options)) {
             return true;
         }
         return runCommentHandlers(
@@ -157,8 +165,7 @@ const handleComments = {
         );
     },
     endOfLine(comment, text, options, ast, isLastComment) {
-        if (shouldSuppressComment(comment, options)) {
-            comment.printed = true;
+        if (suppressFormattedComment(comment, options)) {
             return true;
         }
         return runCommentHandlers(
@@ -171,8 +178,7 @@ const handleComments = {
         );
     },
     remaining(comment, text, options, ast, isLastComment) {
-        if (shouldSuppressComment(comment, options)) {
-            comment.printed = true;
+        if (suppressFormattedComment(comment, options)) {
             return true;
         }
         return runCommentHandlers(
@@ -342,9 +348,6 @@ function collectDanglingComments(path, filter) {
     const entries = [];
     path.each((commentPath) => {
         const comment = commentPath.getValue();
-        console.log(
-            `[DEBUG] collectDanglingComments checking comment: "${comment.value}" leading=${comment.leading} trailing=${comment.trailing}`
-        );
         if (
             Core.isCommentNode(comment) &&
             !comment.leading &&
