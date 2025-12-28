@@ -54,21 +54,23 @@ async function createProjectFixture(prefix = "project-index-metrics-") {
     };
 }
 
+const noop = () => {};
+
 class TestMetricsTracker {
     startTimerCalls = 0;
 
     finalizeCalls = 0;
 
-    constructor() {
-        const startTimer = () => {
-            this.startTimerCalls += 1;
-            return () => {};
-        };
+    startTimer = () => {
+        this.startTimerCalls += 1;
+        return noop;
+    };
 
+    constructor() {
         this.recording = Object.freeze({
             category: this.category,
             timers: Object.freeze({
-                startTimer,
+                startTimer: this.startTimer,
                 timeAsync: async (_label, callback) => callback(),
                 timeSync: (_label, callback) => callback()
             }),
