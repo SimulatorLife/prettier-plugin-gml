@@ -1195,218 +1195,167 @@ void test("Transpiler.emitJavaScript handles function with many parameters", () 
     assert.ok(result.includes("return"), "Should include return statement");
 });
 
-void test("Transpiler.emitJavaScript handles built-in function mapping for point_distance", () => {
+void test("Transpiler.emitJavaScript leaves point_distance as a runtime builtin call", () => {
     const source = "dist = point_distance(0, 0, 10, 10)";
     const parser = new Parser.GMLParser(source, {});
     const ast = parser.parse();
     const result = Transpiler.emitJavaScript(ast);
     assert.ok(
-        result.includes("Math.sqrt"),
-        "Should include Math.sqrt for point_distance"
-    );
-    assert.ok(
-        result.includes("Math.pow(10 - 0, 2) + Math.pow(10 - 0, 2)"),
-        "Should include the correct distance calculation"
+        result.includes("point_distance(0, 0, 10, 10)"),
+        "Should call point_distance directly"
     );
 });
 
-void test("Transpiler.emitJavaScript handles built-in function mapping for abs", () => {
+void test("Transpiler.emitJavaScript leaves abs as a runtime builtin call", () => {
     const source = "val = abs(-10)";
     const parser = new Parser.GMLParser(source);
     const ast = parser.parse();
     const result = Transpiler.emitJavaScript(ast);
-    assert.ok(
-        result.includes("Math.abs(-10)"),
-        "Should include Math.abs for abs"
-    );
+    assert.ok(result.includes("abs(-10)"), "Should call abs directly");
 });
 
-void test("Transpiler.emitJavaScript handles built-in function mapping for min", () => {
+void test("Transpiler.emitJavaScript leaves min as a runtime builtin call", () => {
     const source = "val = min(1, 2, 3)";
     const parser = new Parser.GMLParser(source);
     const ast = parser.parse();
     const result = Transpiler.emitJavaScript(ast);
-    assert.ok(
-        result.includes("Math.min(1, 2, 3)"),
-        "Should include Math.min for min"
-    );
+    assert.ok(result.includes("min(1, 2, 3)"), "Should call min directly");
 });
 
-void test("Transpiler.emitJavaScript handles built-in function mapping for max", () => {
+void test("Transpiler.emitJavaScript leaves max as a runtime builtin call", () => {
     const source = "val = max(1, 2, 3)";
     const parser = new Parser.GMLParser(source);
     const ast = parser.parse();
     const result = Transpiler.emitJavaScript(ast);
-    assert.ok(
-        result.includes("Math.max(1, 2, 3)"),
-        "Should include Math.max for max"
-    );
+    assert.ok(result.includes("max(1, 2, 3)"), "Should call max directly");
 });
 
-void test("Transpiler.emitJavaScript handles built-in function mapping for sqrt", () => {
+void test("Transpiler.emitJavaScript leaves sqrt as a runtime builtin call", () => {
     const source = "val = sqrt(25)";
     const parser = new Parser.GMLParser(source);
     const ast = parser.parse();
     const result = Transpiler.emitJavaScript(ast);
-    assert.ok(
-        result.includes("Math.sqrt(25)"),
-        "Should include Math.sqrt for sqrt"
-    );
+    assert.ok(result.includes("sqrt(25)"), "Should call sqrt directly");
 });
 
-void test("Transpiler.emitJavaScript handles built-in function mapping for sqr", () => {
+void test("Transpiler.emitJavaScript leaves sqr as a runtime builtin call", () => {
     const source = "val = sqr(5)";
     const parser = new Parser.GMLParser(source);
     const ast = parser.parse();
     const result = Transpiler.emitJavaScript(ast);
-    assert.ok(
-        result.includes("Math.pow(5, 2)"),
-        "Should include Math.pow for sqr"
-    );
+    assert.ok(result.includes("sqr(5)"), "Should call sqr directly");
 });
 
-void test("Transpiler.emitJavaScript handles built-in function mapping for power", () => {
+void test("Transpiler.emitJavaScript leaves power as a runtime builtin call", () => {
     const source = "val = power(2, 8)";
     const parser = new Parser.GMLParser(source);
     const ast = parser.parse();
     const result = Transpiler.emitJavaScript(ast);
-    assert.ok(
-        result.includes("Math.pow(2, 8)"),
-        "Should include Math.pow for power"
-    );
+    assert.ok(result.includes("power(2, 8)"), "Should call power directly");
 });
 
-void test("Transpiler.emitJavaScript handles built-in function mapping for exp", () => {
+void test("Transpiler.emitJavaScript leaves exp as a runtime builtin call", () => {
     const source = "val = exp(2)";
     const parser = new Parser.GMLParser(source);
     const ast = parser.parse();
     const result = Transpiler.emitJavaScript(ast);
-    assert.ok(
-        result.includes("Math.exp(2)"),
-        "Should include Math.exp for exp"
-    );
+    assert.ok(result.includes("exp(2)"), "Should call exp directly");
 });
 
-void test("Transpiler.emitJavaScript handles built-in function mapping for ln", () => {
+void test("Transpiler.emitJavaScript leaves ln as a runtime builtin call", () => {
     const source = "val = ln(10)";
     const parser = new Parser.GMLParser(source);
     const ast = parser.parse();
     const result = Transpiler.emitJavaScript(ast);
-    assert.ok(
-        result.includes("Math.log(10)"),
-        "Should include Math.log for ln"
-    );
+    assert.ok(result.includes("ln(10)"), "Should call ln directly");
 });
 
-void test("Transpiler.emitJavaScript handles built-in function mapping for log2", () => {
+void test("Transpiler.emitJavaScript leaves log2 as a runtime builtin call", () => {
     const source = "val = log2(8)";
     const parser = new Parser.GMLParser(source);
     const ast = parser.parse();
     const result = Transpiler.emitJavaScript(ast);
-    assert.ok(
-        result.includes("Math.log2(8)"),
-        "Should include Math.log2 for log2"
-    );
+    assert.ok(result.includes("log2(8)"), "Should call log2 directly");
 });
 
-void test("Transpiler.emitJavaScript handles built-in function mapping for log10", () => {
+void test("Transpiler.emitJavaScript leaves log10 as a runtime builtin call", () => {
     const source = "val = log10(100)";
     const parser = new Parser.GMLParser(source);
     const ast = parser.parse();
     const result = Transpiler.emitJavaScript(ast);
-    assert.ok(
-        result.includes("Math.log10(100)"),
-        "Should include Math.log10 for log10"
-    );
+    assert.ok(result.includes("log10(100)"), "Should call log10 directly");
 });
 
-void test("Transpiler.emitJavaScript handles built-in function mapping for arcsin", () => {
+void test("Transpiler.emitJavaScript leaves arcsin as a runtime builtin call", () => {
     const source = "val = arcsin(0.5)";
     const parser = new Parser.GMLParser(source);
     const ast = parser.parse();
     const result = Transpiler.emitJavaScript(ast);
-    assert.ok(
-        result.includes("Math.asin(0.5)"),
-        "Should include Math.asin for arcsin"
-    );
+    assert.ok(result.includes("arcsin(0.5)"), "Should call arcsin directly");
 });
 
-void test("Transpiler.emitJavaScript handles built-in function mapping for arccos", () => {
+void test("Transpiler.emitJavaScript leaves arccos as a runtime builtin call", () => {
     const source = "val = arccos(0.5)";
     const parser = new Parser.GMLParser(source);
     const ast = parser.parse();
     const result = Transpiler.emitJavaScript(ast);
-    assert.ok(
-        result.includes("Math.acos(0.5)"),
-        "Should include Math.acos for arccos"
-    );
+    assert.ok(result.includes("arccos(0.5)"), "Should call arccos directly");
 });
 
-void test("Transpiler.emitJavaScript handles built-in function mapping for arctan", () => {
+void test("Transpiler.emitJavaScript leaves arctan as a runtime builtin call", () => {
     const source = "val = arctan(1)";
     const parser = new Parser.GMLParser(source);
     const ast = parser.parse();
     const result = Transpiler.emitJavaScript(ast);
-    assert.ok(
-        result.includes("Math.atan(1)"),
-        "Should include Math.atan for arctan"
-    );
+    assert.ok(result.includes("arctan(1)"), "Should call arctan directly");
 });
 
-void test("Transpiler.emitJavaScript handles built-in function mapping for arctan2", () => {
+void test("Transpiler.emitJavaScript leaves arctan2 as a runtime builtin call", () => {
     const source = "val = arctan2(1, 1)";
     const parser = new Parser.GMLParser(source);
     const ast = parser.parse();
     const result = Transpiler.emitJavaScript(ast);
-    assert.ok(
-        result.includes("Math.atan2(1, 1)"),
-        "Should include Math.atan2 for arctan2"
-    );
+    assert.ok(result.includes("arctan2(1, 1)"), "Should call arctan2 directly");
 });
 
-void test("Transpiler.emitJavaScript handles built-in function mapping for degtorad", () => {
+void test("Transpiler.emitJavaScript leaves degtorad as a runtime builtin call", () => {
     const source = "val = degtorad(180)";
     const parser = new Parser.GMLParser(source);
     const ast = parser.parse();
     const result = Transpiler.emitJavaScript(ast);
     assert.ok(
-        result.includes("Math.PI"),
-        "Should include Math.PI for degtorad"
+        result.includes("degtorad(180)"),
+        "Should call degtorad directly"
     );
-    assert.ok(result.includes("180"), "Should include 180 in conversion");
 });
 
-void test("Transpiler.emitJavaScript handles built-in function mapping for radtodeg", () => {
+void test("Transpiler.emitJavaScript leaves radtodeg as a runtime builtin call", () => {
     const source = "val = radtodeg(3.14159)";
     const parser = new Parser.GMLParser(source);
     const ast = parser.parse();
     const result = Transpiler.emitJavaScript(ast);
     assert.ok(
-        result.includes("Math.PI"),
-        "Should include Math.PI for radtodeg"
+        result.includes("radtodeg(3.14159)"),
+        "Should call radtodeg directly"
     );
-    assert.ok(result.includes("180"), "Should include 180 in conversion");
 });
 
-void test("Transpiler.emitJavaScript handles built-in function mapping for sign", () => {
+void test("Transpiler.emitJavaScript leaves sign as a runtime builtin call", () => {
     const source = "val = sign(-5)";
     const parser = new Parser.GMLParser(source);
     const ast = parser.parse();
     const result = Transpiler.emitJavaScript(ast);
-    assert.ok(
-        result.includes("Math.sign(-5)"),
-        "Should include Math.sign for sign"
-    );
+    assert.ok(result.includes("sign(-5)"), "Should call sign directly");
 });
 
-void test("Transpiler.emitJavaScript handles built-in function mapping for clamp", () => {
+void test("Transpiler.emitJavaScript leaves clamp as a runtime builtin call", () => {
     const source = "val = clamp(15, 0, 10)";
     const parser = new Parser.GMLParser(source);
     const ast = parser.parse();
     const result = Transpiler.emitJavaScript(ast);
     assert.ok(
-        result.includes("Math.max(0, Math.min(15, 10))"),
-        "Should include correct clamp expression"
+        result.includes("clamp(15, 0, 10)"),
+        "Should call clamp directly"
     );
 });
 
@@ -1444,191 +1393,212 @@ void test("Transpiler.emitJavaScript handles degtorad with wrong argument count 
 });
 
 // String function tests
-void test("Transpiler.emitJavaScript handles string_length function", () => {
+void test("Transpiler.emitJavaScript leaves string_length as a runtime builtin call", () => {
     const source = 'len = string_length("hello")';
     const parser = new Parser.GMLParser(source);
     const ast = parser.parse();
     const result = Transpiler.emitJavaScript(ast);
-    assert.ok(result.includes(").length"), "Should map to .length property");
+    assert.ok(
+        result.includes('string_length("hello")'),
+        "Should call string_length directly"
+    );
 });
 
-void test("Transpiler.emitJavaScript handles string_char_at function", () => {
+void test("Transpiler.emitJavaScript leaves string_char_at as a runtime builtin call", () => {
     const source = 'ch = string_char_at("abc", 2)';
     const parser = new Parser.GMLParser(source);
     const ast = parser.parse();
     const result = Transpiler.emitJavaScript(ast);
     assert.ok(
-        result.includes("[") && result.includes("- 1"),
-        "Should adjust for 1-based indexing"
+        result.includes('string_char_at("abc", 2)'),
+        "Should call string_char_at directly"
     );
 });
 
-void test("Transpiler.emitJavaScript handles string_ord_at function", () => {
+void test("Transpiler.emitJavaScript leaves string_ord_at as a runtime builtin call", () => {
     const source = 'code = string_ord_at("A", 1)';
     const parser = new Parser.GMLParser(source);
     const ast = parser.parse();
     const result = Transpiler.emitJavaScript(ast);
-    assert.ok(result.includes("charCodeAt"), "Should map to charCodeAt");
+    assert.ok(
+        result.includes('string_ord_at("A", 1)'),
+        "Should call string_ord_at directly"
+    );
 });
 
-void test("Transpiler.emitJavaScript handles string_pos function", () => {
+void test("Transpiler.emitJavaScript leaves string_pos as a runtime builtin call", () => {
     const source = 'pos = string_pos("l", "hello")';
     const parser = new Parser.GMLParser(source);
     const ast = parser.parse();
     const result = Transpiler.emitJavaScript(ast);
     assert.ok(
-        result.includes("indexOf") && result.includes("+ 1"),
-        "Should map to indexOf with 1-based indexing"
+        result.includes('string_pos("l", "hello")'),
+        "Should call string_pos directly"
     );
 });
 
-void test("Transpiler.emitJavaScript handles string_copy function", () => {
+void test("Transpiler.emitJavaScript leaves string_copy as a runtime builtin call", () => {
     const source = 'sub = string_copy("hello", 2, 3)';
     const parser = new Parser.GMLParser(source);
     const ast = parser.parse();
     const result = Transpiler.emitJavaScript(ast);
-    assert.ok(result.includes("substring"), "Should map to substring");
+    assert.ok(
+        result.includes('string_copy("hello", 2, 3)'),
+        "Should call string_copy directly"
+    );
 });
 
-void test("Transpiler.emitJavaScript handles string_delete function", () => {
+void test("Transpiler.emitJavaScript leaves string_delete as a runtime builtin call", () => {
     const source = 'result = string_delete("hello", 2, 2)';
     const parser = new Parser.GMLParser(source);
     const ast = parser.parse();
     const result = Transpiler.emitJavaScript(ast);
     assert.ok(
-        result.includes("substring"),
-        "Should use substring for deletion"
+        result.includes('string_delete("hello", 2, 2)'),
+        "Should call string_delete directly"
     );
 });
 
-void test("Transpiler.emitJavaScript handles string_insert function", () => {
+void test("Transpiler.emitJavaScript leaves string_insert as a runtime builtin call", () => {
     const source = 'result = string_insert("X", "hello", 3)';
     const parser = new Parser.GMLParser(source);
     const ast = parser.parse();
     const result = Transpiler.emitJavaScript(ast);
     assert.ok(
-        result.includes("substring"),
-        "Should use substring for insertion"
+        result.includes('string_insert("X", "hello", 3)'),
+        "Should call string_insert directly"
     );
 });
 
-void test("Transpiler.emitJavaScript handles string_replace function", () => {
+void test("Transpiler.emitJavaScript leaves string_replace as a runtime builtin call", () => {
     const source = 'result = string_replace("hello", "l", "L")';
     const parser = new Parser.GMLParser(source);
     const ast = parser.parse();
     const result = Transpiler.emitJavaScript(ast);
-    assert.ok(result.includes(".replace("), "Should map to replace method");
+    assert.ok(
+        result.includes('string_replace("hello", "l", "L")'),
+        "Should call string_replace directly"
+    );
 });
 
-void test("Transpiler.emitJavaScript handles string_replace_all function", () => {
+void test("Transpiler.emitJavaScript leaves string_replace_all as a runtime builtin call", () => {
     const source = 'result = string_replace_all("hello", "l", "L")';
     const parser = new Parser.GMLParser(source);
     const ast = parser.parse();
     const result = Transpiler.emitJavaScript(ast);
-    assert.ok(result.includes("replaceAll"), "Should map to replaceAll method");
+    assert.ok(
+        result.includes('string_replace_all("hello", "l", "L")'),
+        "Should call string_replace_all directly"
+    );
 });
 
-void test("Transpiler.emitJavaScript handles string_count function", () => {
+void test("Transpiler.emitJavaScript leaves string_count as a runtime builtin call", () => {
     const source = 'count = string_count("l", "hello")';
     const parser = new Parser.GMLParser(source);
     const ast = parser.parse();
     const result = Transpiler.emitJavaScript(ast);
     assert.ok(
-        result.includes("indexOf"),
-        "Should use indexOf to count occurrences"
+        result.includes('string_count("l", "hello")'),
+        "Should call string_count directly"
     );
 });
 
-void test("Transpiler.emitJavaScript handles string_upper function", () => {
+void test("Transpiler.emitJavaScript leaves string_upper as a runtime builtin call", () => {
     const source = 'upper = string_upper("hello")';
     const parser = new Parser.GMLParser(source);
     const ast = parser.parse();
     const result = Transpiler.emitJavaScript(ast);
-    assert.ok(result.includes("toUpperCase"), "Should map to toUpperCase");
+    assert.ok(
+        result.includes('string_upper("hello")'),
+        "Should call string_upper directly"
+    );
 });
 
-void test("Transpiler.emitJavaScript handles string_lower function", () => {
+void test("Transpiler.emitJavaScript leaves string_lower as a runtime builtin call", () => {
     const source = 'lower = string_lower("HELLO")';
     const parser = new Parser.GMLParser(source);
     const ast = parser.parse();
     const result = Transpiler.emitJavaScript(ast);
-    assert.ok(result.includes("toLowerCase"), "Should map to toLowerCase");
+    assert.ok(
+        result.includes('string_lower("HELLO")'),
+        "Should call string_lower directly"
+    );
 });
 
-void test("Transpiler.emitJavaScript handles string_repeat function", () => {
+void test("Transpiler.emitJavaScript leaves string_repeat as a runtime builtin call", () => {
     const source = 'repeated = string_repeat("ab", 3)';
     const parser = new Parser.GMLParser(source);
     const ast = parser.parse();
     const result = Transpiler.emitJavaScript(ast);
-    assert.ok(result.includes(".repeat("), "Should map to repeat method");
+    assert.ok(
+        result.includes('string_repeat("ab", 3)'),
+        "Should call string_repeat directly"
+    );
 });
 
-void test("Transpiler.emitJavaScript handles string_letters function", () => {
+void test("Transpiler.emitJavaScript leaves string_letters as a runtime builtin call", () => {
     const source = 'letters = string_letters("a1b2c3")';
     const parser = new Parser.GMLParser(source);
     const ast = parser.parse();
     const result = Transpiler.emitJavaScript(ast);
     assert.ok(
-        result.includes("replace") && result.includes("[^A-Za-z]"),
-        "Should filter out non-letters"
+        result.includes('string_letters("a1b2c3")'),
+        "Should call string_letters directly"
     );
 });
 
-void test("Transpiler.emitJavaScript handles string_digits function", () => {
+void test("Transpiler.emitJavaScript leaves string_digits as a runtime builtin call", () => {
     const source = 'digits = string_digits("a1b2c3")';
     const parser = new Parser.GMLParser(source);
     const ast = parser.parse();
     const result = Transpiler.emitJavaScript(ast);
     assert.ok(
-        result.includes("replace") && result.includes("[^0-9]"),
-        "Should filter out non-digits"
+        result.includes('string_digits("a1b2c3")'),
+        "Should call string_digits directly"
     );
 });
 
-void test("Transpiler.emitJavaScript handles string_lettersdigits function", () => {
+void test("Transpiler.emitJavaScript leaves string_lettersdigits as a runtime builtin call", () => {
     const source = 'alphanumeric = string_lettersdigits("a1!b2@c3")';
     const parser = new Parser.GMLParser(source);
     const ast = parser.parse();
     const result = Transpiler.emitJavaScript(ast);
     assert.ok(
-        result.includes("replace") && result.includes("[^A-Za-z0-9]"),
-        "Should filter out non-alphanumeric characters"
+        result.includes('string_lettersdigits("a1!b2@c3")'),
+        "Should call string_lettersdigits directly"
     );
 });
 
-void test("Transpiler.emitJavaScript handles chr function", () => {
+void test("Transpiler.emitJavaScript leaves chr as a runtime builtin call", () => {
     const source = "ch = chr(65)";
     const parser = new Parser.GMLParser(source);
     const ast = parser.parse();
     const result = Transpiler.emitJavaScript(ast);
-    assert.ok(
-        result.includes("String.fromCharCode"),
-        "Should map to String.fromCharCode"
-    );
+    assert.ok(result.includes("chr(65)"), "Should call chr directly");
 });
 
-void test("Transpiler.emitJavaScript handles ord function", () => {
+void test("Transpiler.emitJavaScript leaves ord as a runtime builtin call", () => {
     const source = 'code = ord("A")';
     const parser = new Parser.GMLParser(source);
     const ast = parser.parse();
     const result = Transpiler.emitJavaScript(ast);
-    assert.ok(result.includes("charCodeAt(0)"), "Should map to charCodeAt(0)");
+    assert.ok(result.includes('ord("A")'), "Should call ord directly");
 });
 
-void test("Transpiler.emitJavaScript handles real function", () => {
+void test("Transpiler.emitJavaScript leaves real as a runtime builtin call", () => {
     const source = 'num = real("123.45")';
     const parser = new Parser.GMLParser(source);
     const ast = parser.parse();
     const result = Transpiler.emitJavaScript(ast);
-    assert.ok(result.includes("parseFloat"), "Should map to parseFloat");
+    assert.ok(result.includes('real("123.45")'), "Should call real directly");
 });
 
-void test("Transpiler.emitJavaScript handles string function", () => {
+void test("Transpiler.emitJavaScript leaves string as a runtime builtin call", () => {
     const source = "str = string(123)";
     const parser = new Parser.GMLParser(source);
     const ast = parser.parse();
     const result = Transpiler.emitJavaScript(ast);
-    assert.ok(result.includes("String("), "Should map to String constructor");
+    assert.ok(result.includes("string(123)"), "Should call string directly");
 });
 
 void test("Transpiler.emitJavaScript handles string functions with wrong argument count gracefully", () => {
@@ -1642,113 +1612,105 @@ void test("Transpiler.emitJavaScript handles string functions with wrong argumen
     );
 });
 
-void test("Transpiler.emitJavaScript handles random function", () => {
+void test("Transpiler.emitJavaScript leaves random as a runtime builtin call", () => {
     const source = "val = random(100)";
     const parser = new Parser.GMLParser(source);
     const ast = parser.parse();
     const result = Transpiler.emitJavaScript(ast);
-    assert.ok(result.includes("Math.random()"), "Should map to Math.random");
-    assert.ok(result.includes("* 100"), "Should multiply by max value");
+    assert.ok(result.includes("random(100)"), "Should call random directly");
 });
 
-void test("Transpiler.emitJavaScript handles random_range function", () => {
+void test("Transpiler.emitJavaScript leaves random_range as a runtime builtin call", () => {
     const source = "val = random_range(10, 20)";
     const parser = new Parser.GMLParser(source);
     const ast = parser.parse();
     const result = Transpiler.emitJavaScript(ast);
-    assert.ok(result.includes("Math.random()"), "Should use Math.random");
-    assert.ok(result.includes("10"), "Should include min value");
-    assert.ok(result.includes("20"), "Should include max value");
+    assert.ok(
+        result.includes("random_range(10, 20)"),
+        "Should call random_range directly"
+    );
 });
 
-void test("Transpiler.emitJavaScript handles irandom function", () => {
+void test("Transpiler.emitJavaScript leaves irandom as a runtime builtin call", () => {
     const source = "val = irandom(10)";
     const parser = new Parser.GMLParser(source);
     const ast = parser.parse();
     const result = Transpiler.emitJavaScript(ast);
-    assert.ok(result.includes("Math.floor"), "Should use Math.floor");
-    assert.ok(result.includes("Math.random()"), "Should use Math.random");
-    assert.ok(
-        result.includes("10 + 1"),
-        "Should add 1 to max for inclusive range"
-    );
+    assert.ok(result.includes("irandom(10)"), "Should call irandom directly");
 });
 
-void test("Transpiler.emitJavaScript handles irandom_range function", () => {
+void test("Transpiler.emitJavaScript leaves irandom_range as a runtime builtin call", () => {
     const source = "val = irandom_range(5, 15)";
     const parser = new Parser.GMLParser(source);
     const ast = parser.parse();
     const result = Transpiler.emitJavaScript(ast);
-    assert.ok(result.includes("Math.floor"), "Should use Math.floor");
-    assert.ok(result.includes("Math.random()"), "Should use Math.random");
-    assert.ok(result.includes("5"), "Should include min value");
-    assert.ok(result.includes("15"), "Should include max value");
+    assert.ok(
+        result.includes("irandom_range(5, 15)"),
+        "Should call irandom_range directly"
+    );
 });
 
-void test("Transpiler.emitJavaScript handles choose function with multiple arguments", () => {
+void test("Transpiler.emitJavaScript leaves choose as a runtime builtin call", () => {
     const source = 'choice = choose("a", "b", "c")';
     const parser = new Parser.GMLParser(source);
     const ast = parser.parse();
     const result = Transpiler.emitJavaScript(ast);
-    assert.ok(result.includes("Math.floor"), "Should use Math.floor");
-    assert.ok(result.includes("Math.random()"), "Should use Math.random");
-    assert.ok(result.includes('"a"'), "Should include first option");
-    assert.ok(result.includes('"b"'), "Should include second option");
-    assert.ok(result.includes('"c"'), "Should include third option");
+    assert.ok(
+        result.includes('choose("a", "b", "c")'),
+        "Should call choose directly"
+    );
 });
 
-void test("Transpiler.emitJavaScript handles choose function with numeric arguments", () => {
+void test("Transpiler.emitJavaScript leaves choose with numeric arguments as a runtime builtin call", () => {
     const source = "choice = choose(1, 2, 3, 4, 5)";
     const parser = new Parser.GMLParser(source);
     const ast = parser.parse();
     const result = Transpiler.emitJavaScript(ast);
-    assert.ok(result.includes("Math.random()"), "Should use Math.random");
-    assert.ok(result.includes("* 5"), "Should multiply by argument count");
+    assert.ok(
+        result.includes("choose(1, 2, 3, 4, 5)"),
+        "Should call choose directly"
+    );
 });
 
-void test("Transpiler.emitJavaScript handles lerp function", () => {
+void test("Transpiler.emitJavaScript leaves lerp as a runtime builtin call", () => {
     const source = "val = lerp(0, 100, 0.5)";
     const parser = new Parser.GMLParser(source);
     const ast = parser.parse();
     const result = Transpiler.emitJavaScript(ast);
-    assert.ok(result.includes("0"), "Should include start value");
-    assert.ok(result.includes("100"), "Should include end value");
-    assert.ok(result.includes("0.5"), "Should include t parameter");
+    assert.ok(
+        result.includes("lerp(0, 100, 0.5)"),
+        "Should call lerp directly"
+    );
 });
 
-void test("Transpiler.emitJavaScript handles median function with odd count", () => {
+void test("Transpiler.emitJavaScript leaves median as a runtime builtin call", () => {
     const source = "val = median(3, 1, 2)";
     const parser = new Parser.GMLParser(source);
     const ast = parser.parse();
     const result = Transpiler.emitJavaScript(ast);
-    assert.ok(result.includes("sort"), "Should sort values");
-    assert.ok(result.includes("1"), "Should include all values");
-    assert.ok(result.includes("2"), "Should include all values");
-    assert.ok(result.includes("3"), "Should include all values");
+    assert.ok(
+        result.includes("median(3, 1, 2)"),
+        "Should call median directly"
+    );
 });
 
-void test("Transpiler.emitJavaScript handles median function with even count", () => {
+void test("Transpiler.emitJavaScript leaves median with even count as a runtime builtin call", () => {
     const source = "val = median(1, 2, 3, 4)";
     const parser = new Parser.GMLParser(source);
     const ast = parser.parse();
     const result = Transpiler.emitJavaScript(ast);
-    assert.ok(result.includes("sort"), "Should sort values");
     assert.ok(
-        result.includes("values.length % 2 === 0"),
-        "Should check for even count"
+        result.includes("median(1, 2, 3, 4)"),
+        "Should call median directly"
     );
 });
 
-void test("Transpiler.emitJavaScript handles mean function", () => {
+void test("Transpiler.emitJavaScript leaves mean as a runtime builtin call", () => {
     const source = "val = mean(10, 20, 30)";
     const parser = new Parser.GMLParser(source);
     const ast = parser.parse();
     const result = Transpiler.emitJavaScript(ast);
-    assert.ok(result.includes("reduce"), "Should use reduce for sum");
-    assert.ok(result.includes("/ 3"), "Should divide by count");
-    assert.ok(result.includes("10"), "Should include all values");
-    assert.ok(result.includes("20"), "Should include all values");
-    assert.ok(result.includes("30"), "Should include all values");
+    assert.ok(result.includes("mean(10, 20, 30)"), "Should call mean directly");
 });
 
 void test("Transpiler.emitJavaScript handles random functions with wrong argument count gracefully", () => {

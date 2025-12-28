@@ -23,13 +23,14 @@ void test("loadManualFunctionNames filters to function identifiers", () => {
             foo: { type: "function" },
             bar: { type: "keyword" },
             baz: { type: "FUNCTION" },
-            quux: { type: "" }
+            quux: { type: "unknown" },
+            quuz: { type: "" }
         }
     }));
 
     const names = loadManualFunctionNames();
 
-    assert.deepEqual(Array.from(names).sort(), ["baz", "foo"]);
+    assert.deepEqual(Array.from(names).sort(), ["baz", "foo", "quux"]);
 
     cleanup();
 });

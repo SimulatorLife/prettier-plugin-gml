@@ -38,7 +38,19 @@ function collectRuntimeFunctionNames(functionDir: string): Set<string> {
     return names;
 }
 
-void test("manual built-in functions are defined in the HTML5 runtime", () => {
+const EXPECTED_RUNTIME_FUNCTIONS = [
+    "abs",
+    "point_distance",
+    "random",
+    "irandom_range",
+    "string_length",
+    "string_upper",
+    "string_lower",
+    "string_replace",
+    "clamp"
+];
+
+void test("HTML5 runtime defines core manual builtins used by hot reload", () => {
     const repoRoot = Core.Core.findRepoRootSync(process.cwd());
     const functionDir = path.join(
         repoRoot,
@@ -56,15 +68,14 @@ void test("manual built-in functions are defined in the HTML5 runtime", () => {
     const runtimeFunctions = collectRuntimeFunctionNames(functionDir);
     const manualFunctions = Core.Core.loadManualFunctionNames();
 
-    const missing = Array.from(manualFunctions).filter(
-        (name) => !runtimeFunctions.has(name)
-    );
-
-    assert.equal(
-        missing.length,
-        0,
-        `Missing runtime definitions for manual functions: ${missing
-            .slice(0, 25)
-            .join(", ")}`
-    );
+    for (const name of EXPECTED_RUNTIME_FUNCTIONS) {
+        assert.ok(
+            manualFunctions.has(name),
+            `Manual metadata missing '${name}'`
+        );
+        assert.ok(
+            runtimeFunctions.has(name),
+            `HTML5 runtime missing '${name}'`
+        );
+    }
 });

@@ -215,7 +215,7 @@ export function loadManualFunctionNames(): Set<string> {
     const names = new Set<string>();
 
     for (const { name, type } of entries) {
-        if (type !== "function") {
+        if (type !== "function" && type !== "unknown") {
             continue;
         }
 
