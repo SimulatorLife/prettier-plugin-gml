@@ -4669,7 +4669,7 @@ function isArgumentAssignment(
         return false;
     }
 
-    const parsed = Number.parseInt(literal.value);
+    const parsed = Number.parseInt(literal.value, 10);
     return Number.isInteger(parsed) && parsed === argIndex;
 }
 
