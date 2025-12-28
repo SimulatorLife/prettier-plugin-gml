@@ -57,6 +57,9 @@ node src/cli/src/cli.js watch /path/to/project --verbose
 - `--websocket-port <port>` - WebSocket server port for streaming patches (default: 17890)
 - `--websocket-host <host>` - WebSocket server host for streaming patches (default: 127.0.0.1)
 - `--no-websocket-server` - Disable WebSocket server for patch streaming
+- `--status-port <port>` - HTTP status server port for querying watch command status (default: 17891)
+- `--status-host <host>` - HTTP status server host for querying watch command status (default: 127.0.0.1)
+- `--no-status-server` - Disable HTTP status server
 - `--runtime-root <path>` - Path to the HTML5 runtime assets
 - `--runtime-package <name>` - Package name for the HTML5 runtime (default: gamemaker-html5)
 - `--no-runtime-server` - Disable starting the HTML5 runtime static server
@@ -139,6 +142,65 @@ Quiet mode is particularly useful for:
 - Automated testing environments
 - Production-like monitoring setups
 
+**Status Server:**
+
+The watch command includes an HTTP status server that provides real-time metrics and monitoring without interrupting the watch process. The status server exposes a simple JSON endpoint that can be queried by monitoring tools, health checks, or developers debugging hot-reload issues.
+
+```bash
+# Start watch command (status server runs on port 17891 by default)
+node src/cli/src/cli.js watch /path/to/project
+
+# Query status in another terminal
+curl http://127.0.0.1:17891/status
+
+# Example response:
+{
+  "uptime": 125430,
+  "patchCount": 42,
+  "errorCount": 2,
+  "recentPatches": [
+    {
+      "id": "gml/script/player_move",
+      "timestamp": 1703890145123,
+      "durationMs": 2.34,
+      "filePath": "player_move.gml"
+    },
+    ...
+  ],
+  "recentErrors": [
+    {
+      "timestamp": 1703890100456,
+      "filePath": "broken_script.gml",
+      "error": "Unexpected token at line 5"
+    }
+  ],
+  "websocketClients": 1
+}
+```
+
+**Status Endpoint Fields:**
+- `uptime`: Milliseconds since the watch command started
+- `patchCount`: Total number of patches generated successfully
+- `errorCount`: Total number of transpilation errors encountered
+- `recentPatches`: Array of the last 10 successful patches with metadata
+- `recentErrors`: Array of the last 10 errors with details
+- `websocketClients`: Number of currently connected WebSocket clients
+
+**Use Cases:**
+- **Health Monitoring**: Integration with monitoring tools (Prometheus, Datadog, etc.)
+- **CI/CD Pipelines**: Automated tests can verify the watch command is processing files
+- **Debugging**: Quickly inspect recent patches and errors without restarting the watcher
+- **Dashboard Integration**: Build custom monitoring dashboards for development teams
+
+**Configuration:**
+```bash
+# Use custom port
+node src/cli/src/cli.js watch --status-port 8080
+
+# Disable status server
+node src/cli/src/cli.js watch --no-status-server
+```
+
 **Hot-Reload Integration:**
 
 The watch command now integrates with the transpiler module (`src/transpiler`) to generate JavaScript patches on file changes. Each patch contains:
@@ -190,7 +252,8 @@ The watch command includes robust error handling to maintain stability:
 ✅ **Last successful patch tracking** ✨
 ✅ **Error statistics and reporting** ✨
 ✅ **Debounced file change handling** ✨
-✅ **Quiet mode for CI/CD environments** ✨ NEW
+✅ **Quiet mode for CI/CD environments** ✨
+✅ **HTTP status server for runtime monitoring** ✨ NEW
 
 🚧 Future Enhancements:
 - Semantic analysis integration for scope-aware transpilation
