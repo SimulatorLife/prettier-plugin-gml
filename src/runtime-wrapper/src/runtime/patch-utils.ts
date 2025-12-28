@@ -11,6 +11,7 @@ import type {
     ScriptPatch,
     ShadowTestResult
 } from "./types.js";
+import { Core } from "@gml-modules/core";
 
 export function createRegistry(
     overrides?: RuntimeRegistryOverrides
@@ -311,7 +312,11 @@ function calculatePercentile(
     const lower = Math.floor(index);
     const upper = Math.ceil(index);
 
-    if (lower === upper) {
+    // Use tolerance-aware comparison instead of strict equality to avoid
+    // floating-point precision issues. When index is very close to an integer
+    // (e.g., 2.9999999999999996 instead of 3.0), we should treat it as that
+    // integer rather than attempting interpolation.
+    if ((Core as any).areNumbersApproximatelyEqual(lower, upper)) {
         return sorted[lower];
     }
 
