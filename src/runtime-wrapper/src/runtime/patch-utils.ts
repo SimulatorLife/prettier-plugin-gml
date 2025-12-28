@@ -257,6 +257,9 @@ export function calculateTimingMetrics(durations: Array<number>): {
     averagePatchDurationMs: number;
     fastestPatchMs: number;
     slowestPatchMs: number;
+    p50DurationMs: number;
+    p90DurationMs: number;
+    p99DurationMs: number;
 } | null {
     if (durations.length === 0) {
         return null;
@@ -276,12 +279,44 @@ export function calculateTimingMetrics(durations: Array<number>): {
         }
     }
 
+    const sorted = [...durations].sort((a, b) => a - b);
+    const p50DurationMs = calculatePercentile(sorted, 50);
+    const p90DurationMs = calculatePercentile(sorted, 90);
+    const p99DurationMs = calculatePercentile(sorted, 99);
+
     return {
         totalDurationMs,
         averagePatchDurationMs: totalDurationMs / durations.length,
         fastestPatchMs,
-        slowestPatchMs
+        slowestPatchMs,
+        p50DurationMs,
+        p90DurationMs,
+        p99DurationMs
     };
+}
+
+function calculatePercentile(
+    sorted: Array<number>,
+    percentile: number
+): number {
+    if (sorted.length === 0) {
+        return 0;
+    }
+
+    if (sorted.length === 1) {
+        return sorted[0];
+    }
+
+    const index = (percentile / 100) * (sorted.length - 1);
+    const lower = Math.floor(index);
+    const upper = Math.ceil(index);
+
+    if (lower === upper) {
+        return sorted[lower];
+    }
+
+    const weight = index - lower;
+    return sorted[lower] * (1 - weight) + sorted[upper] * weight;
 }
 
 export function collectPatchDurations(

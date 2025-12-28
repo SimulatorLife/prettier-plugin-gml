@@ -161,8 +161,11 @@ Returns aggregate statistics about patch operations:
 - `totalDurationMs` (optional): Total time spent applying patches in milliseconds
 - `fastestPatchMs` (optional): Fastest patch application time in milliseconds
 - `slowestPatchMs` (optional): Slowest patch application time in milliseconds
+- `p50DurationMs` (optional): Median (50th percentile) patch application time in milliseconds
+- `p90DurationMs` (optional): 90th percentile patch application time in milliseconds
+- `p99DurationMs` (optional): 99th percentile patch application time in milliseconds
 
-**Note:** Timing metrics are only available when patches have been applied with duration tracking enabled (which is automatic in this implementation).
+**Note:** Timing metrics are only available when patches have been applied with duration tracking enabled (which is automatic in this implementation). Percentile metrics provide more insight into the distribution of patch application times, helping identify outliers and typical performance characteristics.
 
 ## Error Recovery and Safe Patch Application
 
@@ -377,6 +380,9 @@ wrapper.applyPatch({ kind: "event", id: "obj_test#Step", js_body: "this.x++;" })
 const stats = wrapper.getPatchStats();
 console.log(`Total patches applied: ${stats.appliedPatches}`);
 console.log(`Average patch time: ${stats.averagePatchDurationMs?.toFixed(2)}ms`);
+console.log(`Median (p50): ${stats.p50DurationMs?.toFixed(2)}ms`);
+console.log(`90th percentile: ${stats.p90DurationMs?.toFixed(2)}ms`);
+console.log(`99th percentile: ${stats.p99DurationMs?.toFixed(2)}ms`);
 console.log(`Fastest patch: ${stats.fastestPatchMs}ms`);
 console.log(`Slowest patch: ${stats.slowestPatchMs}ms`);
 console.log(`Total time: ${stats.totalDurationMs}ms`);
@@ -395,6 +401,7 @@ Performance metrics help identify:
 - Performance regressions when updating the transpiler or patch logic
 - Opportunities to optimize hot-reload performance
 - Baseline metrics for integration testing
+- Outliers through percentile analysis (p90, p99) that reveal edge cases
 
 ## Registry Lifecycle Hooks
 

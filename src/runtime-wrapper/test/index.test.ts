@@ -1321,3 +1321,44 @@ void test("onChange listener receives events for batch patches", () => {
     assert.strictEqual(event1.version, 1);
     assert.strictEqual(event2.version, 2);
 });
+
+void test("getPatchStats includes percentile metrics", () => {
+    const wrapper = RuntimeWrapper.createRuntimeWrapper();
+
+    // Apply patches with varying durations
+    // We can't control exact duration, but we can verify percentiles are calculated
+    for (let i = 0; i < 10; i++) {
+        wrapper.applyPatch({
+            kind: "script",
+            id: `script:test${i}`,
+            js_body: "return 1;"
+        });
+    }
+
+    const stats = wrapper.getPatchStats();
+    assert.ok(stats.p50DurationMs !== undefined);
+    assert.ok(stats.p90DurationMs !== undefined);
+    assert.ok(stats.p99DurationMs !== undefined);
+    assert.ok(stats.p50DurationMs >= 0);
+    assert.ok(stats.p90DurationMs >= stats.p50DurationMs);
+    assert.ok(stats.p99DurationMs >= stats.p90DurationMs);
+});
+
+void test("percentile metrics handle single patch correctly", () => {
+    const wrapper = RuntimeWrapper.createRuntimeWrapper();
+
+    wrapper.applyPatch({
+        kind: "script",
+        id: "script:single",
+        js_body: "return 1;"
+    });
+
+    const stats = wrapper.getPatchStats();
+    assert.strictEqual(stats.appliedPatches, 1);
+    assert.ok(stats.p50DurationMs !== undefined);
+    assert.ok(stats.p90DurationMs !== undefined);
+    assert.ok(stats.p99DurationMs !== undefined);
+    assert.strictEqual(stats.p50DurationMs, stats.averagePatchDurationMs);
+    assert.strictEqual(stats.p90DurationMs, stats.averagePatchDurationMs);
+    assert.strictEqual(stats.p99DurationMs, stats.averagePatchDurationMs);
+});

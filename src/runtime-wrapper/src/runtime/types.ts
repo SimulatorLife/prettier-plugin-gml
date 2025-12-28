@@ -105,6 +105,9 @@ export interface PatchStats {
     totalDurationMs?: number;
     fastestPatchMs?: number;
     slowestPatchMs?: number;
+    p50DurationMs?: number;
+    p90DurationMs?: number;
+    p99DurationMs?: number;
 }
 
 export interface RuntimeRegistrySnapshot {
