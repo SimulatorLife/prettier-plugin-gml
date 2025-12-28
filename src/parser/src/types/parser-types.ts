@@ -50,7 +50,19 @@ export interface ParserOptions {
     getLocations: boolean;
     simplifyLocations: boolean;
     scopeTrackerOptions?: ScopeTrackerOptions; // Also handles identifier metadata
-    astFormat: string; // TODO: What are the possible values here?
+
+    // DOCUMENTATION NEEDED: The astFormat field controls how the parser formats its output,
+    // but the valid values and their meanings are not documented. Known values include:
+    //   - "gml" → standard GML AST format used by the plugin
+    //   - "json" (possibly?) → serialized JSON representation
+    //
+    // The asJSON boolean below also suggests format variants. Clarify the relationship:
+    // Does astFormat="json" imply asJSON=true, or are they independent?
+    //
+    // RECOMMENDATION: Document the valid values as a union type or enum:
+    //   astFormat: "gml" | "json" | ...
+    // and add comments explaining when each format is appropriate.
+    astFormat: string;
     asJSON: boolean;
 }
 

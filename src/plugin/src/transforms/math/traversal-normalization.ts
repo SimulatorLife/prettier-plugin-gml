@@ -746,8 +746,14 @@ function findFirstNumericLiteral(node) {
     return null;
 }
 
+/**
+ * Checks whether a node is an Identifier with the given name.
+ *
+ * LOCATION SMELL: This is a general identifier utility that should live in Core's
+ * identifier-utils module alongside other identifier predicates, not in the math
+ * normalization transform.
+ */
 function isIdentifierNamed(node, name) {
-    // TODO: Move this helper to where the other identifier functionality lives
     const identifierName = getIdentifierName(node);
     return typeof identifierName === "string" && identifierName === name;
 }
@@ -4246,8 +4252,21 @@ function unwrapExpression(node) {
     return current ?? null;
 }
 
+/**
+ * Extracts the identifier name from a node, unwrapping any ParenthesizedExpression layers.
+ *
+ * DUPLICATION WARNING: This function appears to duplicate identifier-extraction logic
+ * that exists elsewhere in the codebase (e.g., in the Feather-fixes file and possibly
+ * in Core or Semantic).
+ *
+ * LOCATION SMELL: This is a general identifier utility that should live in Core's
+ * identifier-utils module, not in the math normalization transform.
+ *
+ * RECOMMENDATION: Audit the codebase for similar functions (extractIdentifierName,
+ * getIdentifierNameFromNode, etc.) and consolidate them into a single implementation
+ * in Core. Then import that function here instead of maintaining a duplicate.
+ */
 function getIdentifierName(node) {
-    // TODO: This should be moved to where the other identifier utilities are. Also, I think this may be duplciated fucntionality.
     const expression = unwrapExpression(node);
     if (!expression || expression.type !== IDENTIFIER) {
         return null;
@@ -4410,8 +4429,21 @@ function recordManualMathOriginalAssignment(context, node, originalExpression) {
     }
 }
 
+/**
+ * Marks a trailing line comment as suppressed to prevent it from being printed.
+ *
+ * PURPOSE: During math expression normalization, some transformations move or modify
+ * code in ways that would cause trailing comments to appear in incorrect locations.
+ * This function marks those comments so the printer can skip them.
+ *
+ * LOCATION SMELL: This is a general comment manipulation utility that should live in
+ * Core's comment-utils module alongside other comment helpers like attachComments,
+ * getCommentArray, etc.
+ *
+ * RECOMMENDATION: Move to src/core/src/comments/comment-utils.ts and export it as
+ * part of the Core API. Update imports here to use Core.suppressTrailingLineComment.
+ */
 function suppressTrailingLineComment(node, targetLine, context) {
-    // TODO: This should be moved to where other comment utilities are.
     if (!Number.isFinite(targetLine)) {
         return;
     }
@@ -4997,8 +5029,20 @@ function trySimplifyZeroDivision(node, context) {
     return true;
 }
 
+/**
+ * Checks whether there is an inline comment between two AST nodes in the source text.
+ *
+ * PURPOSE: Math expression normalization needs to detect comments embedded between
+ * operands to avoid transformations that would break or misplace those comments.
+ *
+ * LOCATION SMELL: This is a general comment-detection utility based on source positions.
+ * It should live in Core's comment-utils module alongside other comment helpers.
+ *
+ * RECOMMENDATION: Move to src/core/src/comments/comment-utils.ts and export it as
+ * Core.hasInlineCommentBetween. This makes it reusable for other transforms that need
+ * to preserve comments during AST modifications.
+ */
 function hasInlineCommentBetween(left, right, context) {
-    // TODO: This should be moved to where other comment utilities are.
     if (!context || typeof context !== "object") {
         return false;
     }

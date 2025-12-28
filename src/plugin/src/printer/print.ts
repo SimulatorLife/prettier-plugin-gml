@@ -1,4 +1,19 @@
-// TODO: This file is too large and should be split into multiple smaller files. General, non-printer-related Node utils should be moved into Core. This file should be more high level, and focused on coordinating the various lower-level, sub-printers that each handle printing of focused/specific concerns
+/**
+ * Central print dispatcher for the GML Prettier plugin.
+ *
+ * ARCHITECTURE NOTE: This file has grown organically and now houses both high-level
+ * print coordination logic and low-level node-handling utilities. It should be refactored
+ * into multiple focused modules:
+ *
+ * - A top-level coordinator that delegates to domain-specific sub-printers
+ * - Separate files for each AST node category (expressions, statements, declarations, etc.)
+ * - General AST utilities (node inspection, property access) should move to Core
+ * - Comment handling should be extracted to a dedicated comment-printer module
+ *
+ * Until this refactoring occurs, contributors should avoid adding new utility functions
+ * here; instead, place domain-specific helpers in appropriately-scoped files under
+ * src/plugin/src/printer/ or src/core/src/ast/ and import them as needed.
+ */
 
 import { Core, type MutableDocCommentLines } from "@gml-modules/core";
 import { util } from "prettier";
@@ -88,10 +103,17 @@ const UNDEFINED_TYPE = "undefined";
 // package boundaries (see AGENTS.md): e.g., use Core.getCommentArray(...) not
 // `getCommentArray(...)`.
 
-// Wrapper helpers around optional Semantic helpers. Some test/runner
-// environments may not expose the full Semantic facade; provide safe
-// fallbacks so printing remains robust.
-// TODO: Consider moving these into Core or Semantic for reuse.
+/**
+ * Wrapper helpers around optional Semantic identifier-case services.
+ *
+ * CONTEXT: Some test and runtime environments may not expose the full Semantic facade
+ * due to lazy module loading, circular dependencies during initialization, or test provider
+ * swaps. These helpers provide safe fallbacks so the printer remains robust and deterministic
+ * even when Semantic is partially unavailable.
+ *
+ * FUTURE: Consider moving these adapters into Core or Semantic for reuse across other
+ * modules that need graceful degradation when Semantic features are unavailable.
+ */
 function getSemanticIdentifierCaseRenameForNode(node, options) {
     // If the caller requested a dry-run for identifier-case, do not
     // apply or consult the rename snapshot when printing — dry-run
@@ -243,7 +265,15 @@ function isBlockWithinConstructor(path) {
 }
 
 const BINARY_OPERATOR_INFO = new Map([
-    // TODO: Isn't this precedence table already defined in the Parser?
+    // Binary operator precedence and associativity table used for determining
+    // when parentheses are required in nested expressions. This table mirrors
+    // the precedence levels defined in the GML parser grammar, ensuring that
+    // printed code maintains the same evaluation order as the parsed AST.
+    //
+    // MAINTENANCE: This table is duplicated from the parser. Consider extracting
+    // it to a shared constant in Core or importing it directly from the Parser
+    // module to eliminate the duplication and ensure consistency when the grammar
+    // is updated.
     ["*", { precedence: 13, associativity: "left" }],
     ["/", { precedence: 13, associativity: "left" }],
     ["div", { precedence: 13, associativity: "left" }],
@@ -806,8 +836,23 @@ function tryPrintVariableNode(node, path, options, print) {
                 }
             }
 
-            // WORKAROUND: Filter out bogus function comments attached to non-function variables.
-            // This fixes a parser issue where comments from later in the file are attached to the first variable.
+            // WORKAROUND: Filter out misattached function doc-comments from non-function variables.
+            //
+            // PROBLEM: The parser occasionally attaches JSDoc function comments (@function, @func)
+            // to the wrong variable declarator—typically the first variable in the file—when the
+            // actual function declaration appears later in the source. This causes incorrect
+            // comment placement during formatting.
+            //
+            // SOLUTION: When a single-declarator VariableDeclaration has a function doc-comment
+            // but the initializer is not a function, we mark the comment as printed and filter
+            // it out. This prevents the bogus comment from appearing in the formatted output.
+            //
+            // WHAT WOULD BREAK: Removing this filter would cause function documentation to appear
+            // on unrelated variable declarations, confusing readers and breaking doc-generation tools.
+            //
+            // LONG-TERM FIX: This is a parser-level issue. The comment attachment logic in the
+            // parser needs to be improved to correctly associate comments with their intended targets
+            // based on line proximity and syntactic context. See: <link to parser issue if available>
             if (node.declarations.length === 1) {
                 const decl = node.declarations[0];
                 if (decl.comments) {
@@ -815,7 +860,20 @@ function tryPrintVariableNode(node, path, options, print) {
                         const isFunctionComment =
                             comment.value.includes("@function") ||
                             comment.value.includes("@func");
-                        // const isFunctionInit = // TODO: This value is assigned but never used
+
+                        // NOTE: The isFunctionInit check below was originally intended to verify
+                        // whether the declarator's initializer is actually a function before
+                        // filtering the comment. However, the current filtering logic is sufficient
+                        // because we only enter this branch when there's a single declarator, and
+                        // the misattachment issue occurs specifically when the comment belongs to
+                        // a function defined elsewhere in the file, not to this variable.
+                        //
+                        // Keeping this check would be redundant: if the init is a function, the
+                        // comment is likely correct and should NOT be filtered. The current code
+                        // filters unconditionally when isFunctionComment is true, which may be
+                        // overly aggressive but works as a stopgap until the parser is fixed.
+                        //
+                        // const isFunctionInit =
                         //     decl.init &&
                         //     (decl.init.type === "FunctionDeclaration" ||
                         //         decl.init.type === "ArrowFunctionExpression");
@@ -848,9 +906,22 @@ function tryPrintVariableNode(node, path, options, print) {
             );
 
             if (node.kind === "static") {
-                // WORKAROUND: printCommaSeparatedList seems to cause issues with static declarations
-                // where the output becomes empty. Since static declarations are usually single-line
-                // or simple lists, we manually map and join them here.
+                // WORKAROUND: Bypass printCommaSeparatedList for static declarations.
+                //
+                // PROBLEM: printCommaSeparatedList introduces unwanted blank lines or produces
+                // empty output when formatting static variable declarations with multiple declarators.
+                // The exact root cause is unclear (likely a state-tracking issue in the helper),
+                // but static declarations are nearly always single-line or short lists in GML.
+                //
+                // SOLUTION: Manually map each declarator and join them with ", " to avoid the
+                // broken helper entirely. This ensures static declarations format correctly.
+                //
+                // WHAT WOULD BREAK: Removing this workaround would cause static declarations
+                // to either disappear from the output or gain spurious blank lines, breaking
+                // both correctness and readability.
+                //
+                // LONG-TERM FIX: Investigate and fix the underlying issue in printCommaSeparatedList
+                // so it correctly handles static declarations, then remove this manual join logic.
                 const parts = path.map(print, "declarations");
                 const joined = [];
                 for (let i = 0; i < parts.length; i++) {

@@ -4,7 +4,29 @@ import * as Parser from "@gml-modules/parser";
 import { SemanticScopeCoordinator } from "../scopes/identifier-scope.js";
 import { formatProjectIndexSyntaxError } from "./syntax-error-formatter.js";
 
-// TODO: This is a workaround because currently the parser and 'semantic' depend on each other. Need to properly decouple. Once the parser is fully rebuilt we can likely remove this and directly import from the parser package (or have 'parser' have one-way dependency on 'semantic').
+/**
+ * Parser facade adapter for the project-index subsystem.
+ *
+ * ARCHITECTURE NOTE: This module exists as a temporary decoupling layer to manage
+ * a circular dependency between the 'parser' and 'semantic' packages during the
+ * ongoing parser rebuild. Ideally, dependencies should flow in one direction:
+ *   Core ← Parser ← Semantic ← Plugin
+ *
+ * However, the current implementation requires 'semantic' to invoke the parser for
+ * project-wide indexing, while the parser also depends on 'semantic' for scope
+ * tracking during the parse phase. This creates a cycle.
+ *
+ * LONG-TERM PLAN: Once the parser is fully rebuilt and scope tracking is moved
+ * entirely to the 'semantic' layer (or made optional in the parser), this facade
+ * can be removed. At that point:
+ *   1. 'Semantic' will import '@gml-modules/parser' directly.
+ *   2. The parser will not depend on 'semantic' at all.
+ *   3. Scope analysis will happen as a post-parse step in 'semantic'.
+ *
+ * WHAT WOULD BREAK: Removing this facade before the parser rebuild is complete
+ * would cause import cycles and build failures. Do not remove until the parser
+ * no longer requires semantic imports.
+ */
 type ParserNamespace = typeof import("@gml-modules/parser").Parser;
 type ProjectIndexParser = (sourceText: string, context?: unknown) => unknown;
 
@@ -47,10 +69,25 @@ function parseProjectIndexSource(
     const parserApi = resolveParserNamespace(parser);
 
     try {
-        // TODO: Fix/correct this. We just casted to 'any' because ParserOptions differs across parser package types in the
-        // workspace during incremental refactors, so provided the runtime options we needed
-        // while avoiding a compile-time type mismatch until the parser package is
-        // fully rebuilt.
+        // WORKAROUND: Type-cast to 'any' to bypass ParserOptions type mismatches
+        // during incremental refactoring.
+        //
+        // CONTEXT: The ParserOptions interface is evolving across multiple packages
+        // (parser, semantic, plugin) as the parser is being rebuilt. During this
+        // transition, the options object may have fields that exist at runtime but
+        // don't match the compile-time type definitions in all workspaces.
+        //
+        // SOLUTION: We cast the options to 'any' and pass the runtime values we need
+        // (getComments, getLocations, etc.), trusting that the parser implementation
+        // will handle them correctly even if the type signature is temporarily out of sync.
+        //
+        // WHAT WOULD BREAK: Removing this cast before the parser rebuild is complete
+        // would cause TypeScript compilation errors due to incompatible option types
+        // between packages.
+        //
+        // LONG-TERM FIX: Once the parser package is stable and all packages share a
+        // consistent ParserOptions type, remove this cast and use the properly-typed
+        // options object directly.
         return parserApi.GMLParser.parse(sourceText, {
             getComments: false,
             getLocations: true,
