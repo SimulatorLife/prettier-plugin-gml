@@ -83,16 +83,6 @@ export interface CallTargetAnalyzer {
 }
 
 /**
- * Complete semantic oracle combining identifier and call target analysis.
- * Consumers should depend on the narrower IdentifierAnalyzer or
- * CallTargetAnalyzer interfaces when they only need one responsibility.
- *
- * @deprecated Prefer using IdentifierAnalyzer and CallTargetAnalyzer directly
- *             to follow the Interface Segregation Principle.
- */
-export interface SemOracle extends IdentifierAnalyzer, CallTargetAnalyzer {}
-
-/**
  * Basic semantic oracle implementation that bridges the scope tracker and
  * transpiler. Provides identifier classification and symbol resolution using
  * scope chain lookups without requiring full project analysis.
@@ -100,8 +90,14 @@ export interface SemOracle extends IdentifierAnalyzer, CallTargetAnalyzer {}
  * This implementation prioritizes correctness over performance—it queries the
  * scope tracker for each identifier rather than caching results. Future
  * optimizations can add memoization if profiling indicates bottlenecks.
+ *
+ * Implements both IdentifierAnalyzer and CallTargetAnalyzer interfaces to
+ * support clients that need both capabilities. Clients should depend on the
+ * specific interface(s) they need rather than requiring both.
  */
-export class BasicSemanticOracle implements SemOracle {
+export class BasicSemanticOracle
+    implements IdentifierAnalyzer, CallTargetAnalyzer
+{
     private readonly tracker: ScopeTracker | null;
     private readonly builtinNames: Set<string>;
     private readonly scriptNames: Set<string>;

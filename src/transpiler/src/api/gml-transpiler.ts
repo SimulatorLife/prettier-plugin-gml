@@ -3,7 +3,8 @@ import {
     GmlToJsEmitter,
     makeDummyOracle,
     type EmitOptions,
-    type SemOracle
+    type IdentifierAnalyzer,
+    type CallTargetAnalyzer
 } from "../emitter/index.js";
 
 export interface TranspileScriptRequest {
@@ -20,12 +21,18 @@ export interface ScriptPatch {
 }
 
 export interface TranspilerDependencies {
-    readonly semantic?: SemOracle;
+    readonly semantic?: {
+        identifier: IdentifierAnalyzer;
+        callTarget: CallTargetAnalyzer;
+    };
     readonly emitterOptions?: Partial<EmitOptions>;
 }
 
 export class GmlTranspiler {
-    private readonly semantic?: SemOracle;
+    private readonly semantic?: {
+        identifier: IdentifierAnalyzer;
+        callTarget: CallTargetAnalyzer;
+    };
     private readonly emitterOptions?: Partial<EmitOptions>;
 
     constructor(dependencies: TranspilerDependencies = {}) {

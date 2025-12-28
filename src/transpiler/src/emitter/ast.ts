@@ -365,11 +365,3 @@ export interface CallTargetAnalyzer {
     callTargetKind(node: CallExpressionNode): "script" | "builtin" | "unknown";
     callTargetSymbol(node: CallExpressionNode): string | null;
 }
-
-/**
- * Complete semantic oracle combining identifier and call target analysis.
- *
- * @deprecated Prefer using IdentifierAnalyzer and CallTargetAnalyzer directly
- *             to follow the Interface Segregation Principle.
- */
-export interface SemOracle extends IdentifierAnalyzer, CallTargetAnalyzer {}
