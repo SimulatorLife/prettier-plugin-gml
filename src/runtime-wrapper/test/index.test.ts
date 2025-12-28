@@ -1196,3 +1196,128 @@ void test("applyPatchBatch clears undo stack on rollback", () => {
     assert.ok(wrapper.hasScript("script:before_batch"));
     assert.ok(!wrapper.hasScript("script:batch_fail1"));
 });
+
+void test("onChange listener receives patch-applied events", () => {
+    const events: Array<unknown> = [];
+    const wrapper = RuntimeWrapper.createRuntimeWrapper({
+        onChange: (event) => events.push(event)
+    });
+
+    wrapper.applyPatch({
+        kind: "script",
+        id: "script:test",
+        js_body: "return 42;"
+    });
+
+    assert.strictEqual(events.length, 1);
+    const event = events[0] as {
+        type: string;
+        patch: unknown;
+        version: number;
+    };
+    assert.strictEqual(event.type, "patch-applied");
+    assert.strictEqual(event.version, 1);
+    assert.ok(event.patch);
+});
+
+void test("onChange listener receives patch-undone events", () => {
+    const events: Array<unknown> = [];
+    const wrapper = RuntimeWrapper.createRuntimeWrapper({
+        onChange: (event) => events.push(event)
+    });
+
+    wrapper.applyPatch({
+        kind: "script",
+        id: "script:test",
+        js_body: "return 42;"
+    });
+    events.length = 0;
+
+    wrapper.undo();
+
+    assert.strictEqual(events.length, 1);
+    const event = events[0] as {
+        type: string;
+        patch: unknown;
+        version: number;
+    };
+    assert.strictEqual(event.type, "patch-undone");
+    assert.strictEqual(event.version, 2);
+});
+
+void test("onChange listener does not emit events for validation failures", () => {
+    const events: Array<unknown> = [];
+    const wrapper = RuntimeWrapper.createRuntimeWrapper({
+        onChange: (event) => events.push(event)
+    });
+
+    // Shadow validation failure - should not emit any event
+    wrapper.trySafeApply({
+        kind: "script",
+        id: "script:bad_syntax",
+        js_body: "return {{ invalid"
+    });
+
+    assert.strictEqual(
+        events.length,
+        0,
+        "Shadow validation failures should not emit events"
+    );
+
+    // Custom validation failure - should not emit any event
+    wrapper.trySafeApply(
+        {
+            kind: "script",
+            id: "script:rejected",
+            js_body: "return 1;"
+        },
+        () => false
+    );
+
+    assert.strictEqual(
+        events.length,
+        0,
+        "Custom validation failures should not emit events"
+    );
+});
+
+void test("onChange listener receives registry-cleared events", () => {
+    const events: Array<unknown> = [];
+    const wrapper = RuntimeWrapper.createRuntimeWrapper({
+        onChange: (event) => events.push(event)
+    });
+
+    wrapper.applyPatch({
+        kind: "script",
+        id: "script:test",
+        js_body: "return 42;"
+    });
+    events.length = 0;
+
+    wrapper.clearRegistry();
+
+    assert.strictEqual(events.length, 1);
+    const event = events[0] as { type: string; version: number };
+    assert.strictEqual(event.type, "registry-cleared");
+    assert.strictEqual(event.version, 2);
+});
+
+void test("onChange listener receives events for batch patches", () => {
+    const events: Array<unknown> = [];
+    const wrapper = RuntimeWrapper.createRuntimeWrapper({
+        onChange: (event) => events.push(event)
+    });
+
+    wrapper.applyPatchBatch([
+        { kind: "script", id: "script:a", js_body: "return 1;" },
+        { kind: "script", id: "script:b", js_body: "return 2;" }
+    ]);
+
+    assert.strictEqual(events.length, 2);
+    const event1 = events[0] as { type: string; version: number };
+    const event2 = events[1] as { type: string; version: number };
+    assert.strictEqual(event1.type, "patch-applied");
+    assert.strictEqual(event2.type, "patch-applied");
+    assert.strictEqual(event1.version, 1);
+    assert.strictEqual(event2.version, 2);
+});
