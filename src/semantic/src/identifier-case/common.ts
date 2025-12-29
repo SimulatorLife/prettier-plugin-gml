@@ -36,20 +36,12 @@ export function formatConfigurationConflictMessage({
     return `${subject} cannot be renamed due to configuration.`;
 }
 
-export function escapeForRegExp(value) {
-    if (typeof value !== "string") {
-        throw new TypeError("Value must be a string");
-    }
-
-    return Core.escapeRegExp(value);
-}
-
 export function createPatternRegExp(pattern) {
     if (!Core.isNonEmptyString(pattern)) {
         return null;
     }
 
-    const escaped = escapeForRegExp(pattern.trim());
+    const escaped = Core.escapeRegExp(pattern.trim());
     if (!escaped) {
         return null;
     }

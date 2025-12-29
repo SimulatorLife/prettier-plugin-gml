@@ -45,18 +45,6 @@ export function assertValidIdentifierName(name: unknown): string {
 }
 
 /**
- * Escape special regex characters in an identifier name to use in regex patterns.
- * This allows searching for identifiers as whole words without accidentally
- * treating special characters as regex metacharacters.
- *
- * @param name - The identifier name to escape
- * @returns The escaped name safe for use in regex patterns
- */
-export function escapeRegexIdentifier(name: string): string {
-    return name.replaceAll(/[.*+?^${}()|[\]\\]/g, String.raw`\$&`);
-}
-
-/**
  * Get the default set of GML reserved keywords.
  * These are keywords that cannot be used as identifiers.
  *
