@@ -34,7 +34,8 @@ import {
 } from "../modules/runtime/source.js";
 import {
     startRuntimeStaticServer,
-    type RuntimeServerController
+    type RuntimeStaticServerHandle,
+    type RuntimeStaticServerInstance
 } from "../modules/runtime/server.js";
 import {
     startPatchWebSocketServer,
@@ -104,7 +105,7 @@ interface RuntimeContext
     root: string | null;
     packageName: string | null;
     packageJson: Record<string, unknown> | null;
-    server: RuntimeServerController | null;
+    server: RuntimeStaticServerHandle | null;
     noticeLogged: boolean;
     transpiler: ReturnType<typeof Transpiler.createTranspiler>;
     patches: Array<RuntimeTranspilerPatch>;
@@ -426,7 +427,7 @@ export async function runWatchCommand(
         debouncedHandlers: new Map()
     };
 
-    let runtimeServerController: RuntimeServerController | null = null;
+    let runtimeServerController: RuntimeStaticServerInstance | null = null;
     let websocketServerController: PatchWebSocketServerController | null = null;
     let statusServerController: StatusServerController | null = null;
 

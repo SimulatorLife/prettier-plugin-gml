@@ -47,17 +47,17 @@ export interface RuntimeServerProperties {
 }
 
 /**
- * Complete controller for the runtime static server.
- *
- * Combines network endpoint, lifecycle management, and runtime-specific
- * properties. Consumers should depend on the minimal interface they need
- * (ServerEndpoint, ServerLifecycle, or RuntimeServerProperties) rather
- * than this complete interface when possible.
+ * Minimal runtime server contract for consumers that only need to know
+ * where the server is running and how to stop it.
  */
-export interface RuntimeServerController
-    extends ServerEndpoint,
-        ServerLifecycle,
-        RuntimeServerProperties {}
+export type RuntimeStaticServerHandle = ServerEndpoint & ServerLifecycle;
+
+/**
+ * Complete runtime server details for callers that also require runtime-specific
+ * origin and filesystem information.
+ */
+export type RuntimeStaticServerInstance = RuntimeStaticServerHandle &
+    RuntimeServerProperties;
 
 function resolveMimeType(filePath) {
     const extension = path.extname(filePath).toLowerCase();
@@ -136,6 +136,15 @@ async function sendFileResponse(res, filePath, { method }) {
         });
     }
 
+    const isWorldReadable = (fileStats.mode & 0o004) !== 0;
+    const isGroupReadable = (fileStats.mode & 0o040) !== 0;
+    const isOwnerReadable = (fileStats.mode & 0o400) !== 0;
+    if (!isOwnerReadable && !isGroupReadable && !isWorldReadable) {
+        throw Object.assign(new Error("Requested resource is not readable."), {
+            statusCode: 500
+        });
+    }
+
     const mimeType = resolveMimeType(servingPath);
     res.statusCode = 200;
     res.setHeader("Content-Type", mimeType);
@@ -192,7 +201,7 @@ export async function startRuntimeStaticServer({
     host = DEFAULT_HOST,
     port = DEFAULT_PORT,
     verbose = false
-}: RuntimeStaticServerOptions = {}): Promise<RuntimeServerController> {
+}: RuntimeStaticServerOptions = {}): Promise<RuntimeStaticServerInstance> {
     if (!runtimeRoot || typeof runtimeRoot !== "string") {
         throw new TypeError(
             "startRuntimeStaticServer requires a runtimeRoot string."
