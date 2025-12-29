@@ -9,7 +9,7 @@ import {
     formatConfigurationConflictMessage,
     resolveIdentifierConfigurationConflict,
     summarizeReferenceFileOccurrences
-} from "./common.js";
+} from "./conflict-resolution.js";
 import { createAssetRenameExecutor } from "./asset-rename-executor.js";
 import { defaultIdentifierCaseFsFacade } from "./fs-facade.js";
 import {

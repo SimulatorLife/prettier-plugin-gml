@@ -17,13 +17,13 @@ function isCompletedBenchmarkResult(value: unknown): value is {
 } {
     return Boolean(
         value &&
-            typeof value === "object" &&
-            "iterations" in value &&
-            "dataset" in value &&
-            "durations" in value &&
-            "totalDurationMs" in value &&
-            "averageDurationMs" in value &&
-            "throughput" in value
+        typeof value === "object" &&
+        "iterations" in value &&
+        "dataset" in value &&
+        "durations" in value &&
+        "totalDurationMs" in value &&
+        "averageDurationMs" in value &&
+        "throughput" in value
     );
 }
 

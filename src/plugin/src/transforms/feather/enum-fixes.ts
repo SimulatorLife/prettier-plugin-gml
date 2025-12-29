@@ -6,7 +6,7 @@ import {
     hasFeatherDiagnosticContext,
     createFeatherFixDetail,
     attachFeatherFixMetadata
-} from "./utils.js";
+} from "./diagnostic-fix-builder.js";
 import { getEndFromNode } from "./ast-traversal.js";
 import { removeDuplicateSemicolons } from "./semicolon-fixes.js";
 
