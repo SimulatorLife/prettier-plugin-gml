@@ -12,15 +12,6 @@ const CHAR_CODE_LINE_SEPARATOR = 0x20_28;
 const CHAR_CODE_PARAGRAPH_SEPARATOR = 0x20_29;
 const CHAR_CODE_NEXT_LINE = 0x00_85;
 
-function* iterateLineBreaks(text) {
-    LINE_BREAK_PATTERN.lastIndex = 0;
-
-    let match;
-    while ((match = LINE_BREAK_PATTERN.exec(text))) {
-        yield match;
-    }
-}
-
 /**
  * Describe each recognized line break sequence within {@link text}.
  *
@@ -34,7 +25,10 @@ export function getLineBreakSpans(text) {
 
     const spans = [];
 
-    for (const match of iterateLineBreaks(text)) {
+    LINE_BREAK_PATTERN.lastIndex = 0;
+
+    let match;
+    while ((match = LINE_BREAK_PATTERN.exec(text))) {
         spans.push({ index: match.index, length: match[0].length });
     }
 
@@ -55,8 +49,8 @@ export function getLineBreakCount(text) {
     let count = 0;
     const length = text.length;
 
-    // Scanning the string manually avoids the generator/regExp machinery that
-    // `iterateLineBreaks` relies on. Parser hot paths call this helper for
+    // Scanning the string manually avoids the RegExp machinery used by
+    // `getLineBreakSpans`. Parser hot paths call this helper for
     // nearly every token, so the straight-line loop trims about 25% off the
     // micro-benchmark included in the commit message while preserving the
     // original CRLF collapsing semantics.
