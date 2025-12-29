@@ -12,6 +12,10 @@ import {
     type IncomingMessage,
     type ServerResponse
 } from "node:http";
+import type {
+    ServerEndpoint,
+    ServerLifecycle
+} from "../shared-server-types.js";
 
 export interface StatusSnapshot {
     uptime: number;
@@ -37,12 +41,17 @@ export interface StatusServerOptions {
     getSnapshot: () => StatusSnapshot;
 }
 
-export interface StatusServerController {
-    url: string;
-    host: string;
-    port: number;
-    stop(): Promise<void>;
-}
+/**
+ * Complete controller for the status HTTP server.
+ *
+ * Combines network endpoint and lifecycle management.
+ * Consumers should depend on the minimal interface they need
+ * (ServerEndpoint or ServerLifecycle) rather than this complete
+ * interface when possible.
+ */
+export interface StatusServerController
+    extends ServerEndpoint,
+        ServerLifecycle {}
 
 const DEFAULT_STATUS_HOST = "127.0.0.1";
 const DEFAULT_STATUS_PORT = 17_891;
