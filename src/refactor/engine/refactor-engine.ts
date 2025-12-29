@@ -27,10 +27,7 @@ import type {
     ValidationSummary,
     WorkspaceReadFile
 } from "./types.js";
-import {
-    assertValidIdentifierName,
-    escapeRegexIdentifier
-} from "./validation-utils.js";
+import { assertValidIdentifierName } from "./validation-utils.js";
 import { detectCircularRenames, detectRenameConflicts } from "./validation.js";
 
 /**
@@ -1826,7 +1823,7 @@ export class RefactorEngine {
             // Simple heuristic: check if the old name still appears as an identifier
             // This is a basic check - full validation would require re-parsing
             const identifierPattern = new RegExp(
-                String.raw`\b${escapeRegexIdentifier(oldName)}\b`,
+                String.raw`\b${Core.escapeRegExp(oldName)}\b`,
                 "g"
             );
             const oldNameMatches = content.match(identifierPattern);
@@ -1871,7 +1868,7 @@ export class RefactorEngine {
 
             // Verify the new name appears in the file
             const newIdentifierPattern = new RegExp(
-                String.raw`\b${escapeRegexIdentifier(newName)}\b`,
+                String.raw`\b${Core.escapeRegExp(newName)}\b`,
                 "g"
             );
             const newNameMatches = content.match(newIdentifierPattern);
