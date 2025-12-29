@@ -120,10 +120,10 @@ function advanceThroughComment(
     if (state.inBlockComment) {
         if (
             character === "*" &&
-            currentIndex < length &&
-            text[currentIndex] === "/"
+            currentIndex + 1 < length &&
+            text[currentIndex + 1] === "/"
         ) {
-            nextIndex = currentIndex + 1;
+            nextIndex = currentIndex + 2;
             state.inBlockComment = false;
         }
         return nextIndex;
