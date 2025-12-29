@@ -218,18 +218,31 @@ const iterationCoerce = (value: unknown, context = {}) => {
     return coercePositiveInteger(value, opts);
 };
 
+function createIterationState({
+    defaultValue,
+    envVar
+}: {
+    defaultValue: number;
+    envVar: string;
+}) {
+    return createEnvConfiguredValue<number | undefined>({
+        defaultValue,
+        envVar,
+        normalize: (value, { defaultValue: baseline, previousValue }) => {
+            return resolveIntegerOption(value, {
+                defaultValue: baseline ?? previousValue,
+                coerce: iterationCoerce,
+                typeErrorMessage: createIterationTypeErrorMessage,
+                blankStringReturnsDefault: true
+            });
+        }
+    });
+}
+
 // Parser iteration limit configuration
-const parserIterationState = createEnvConfiguredValue<number | undefined>({
+const parserIterationState = createIterationState({
     defaultValue: DEFAULT_MAX_PARSER_ITERATIONS,
-    envVar: MEMORY_PARSER_MAX_ITERATIONS_ENV_VAR,
-    normalize: (value, { defaultValue: baseline, previousValue }) => {
-        return resolveIntegerOption(value, {
-            defaultValue: baseline ?? previousValue,
-            coerce: iterationCoerce,
-            typeErrorMessage: createIterationTypeErrorMessage,
-            blankStringReturnsDefault: true
-        });
-    }
+    envVar: MEMORY_PARSER_MAX_ITERATIONS_ENV_VAR
 });
 
 function getMaxParserIterations(): number | undefined {
@@ -295,17 +308,9 @@ function applyParserMaxIterationsEnvOverride(
 }
 
 // Format iteration limit configuration
-const formatIterationState = createEnvConfiguredValue<number | undefined>({
+const formatIterationState = createIterationState({
     defaultValue: DEFAULT_MAX_FORMAT_ITERATIONS,
-    envVar: MEMORY_FORMAT_MAX_ITERATIONS_ENV_VAR,
-    normalize: (value, { defaultValue: baseline, previousValue }) => {
-        return resolveIntegerOption(value, {
-            defaultValue: baseline ?? previousValue,
-            coerce: iterationCoerce,
-            typeErrorMessage: createIterationTypeErrorMessage,
-            blankStringReturnsDefault: true
-        });
-    }
+    envVar: MEMORY_FORMAT_MAX_ITERATIONS_ENV_VAR
 });
 
 function getMaxFormatIterations(): number | undefined {
@@ -724,17 +729,9 @@ function summarizeAst(root) {
 }
 
 // Memory iterations configuration
-const memoryIterationsState = createEnvConfiguredValue<number | undefined>({
+const memoryIterationsState = createIterationState({
     defaultValue: DEFAULT_ITERATIONS,
-    envVar: MEMORY_ITERATIONS_ENV_VAR,
-    normalize: (value, { defaultValue: baseline, previousValue }) => {
-        return resolveIntegerOption(value, {
-            defaultValue: baseline ?? previousValue,
-            coerce: iterationCoerce,
-            typeErrorMessage: createIterationTypeErrorMessage,
-            blankStringReturnsDefault: true
-        });
-    }
+    envVar: MEMORY_ITERATIONS_ENV_VAR
 });
 
 function getDefaultMemoryIterations(): number | undefined {
