@@ -304,21 +304,21 @@ The CLI package serves as the orchestration layer for the hot-reload development
 │  │                   watch command                       │  │
 │  │  • File system monitoring                             │  │
 │  │  • Change detection                                   │  │
-│  │  • Transpiler coordination ✅                         │  │
-│  │  • Patch generation ✅                                │  │
-│  │  • WebSocket streaming ✅ NEW                         │  │
 │  │  • Runtime context management                         │  │
+│  │  • Server lifecycle coordination                      │  │
 │  └───────────────────────────────────────────────────────┘  │
 │                            ↓                                │
 │  ┌───────────────────────────────────────────────────────┐  │
-│  │              Transpiler Integration                   │  │
-│  │  • GML → JavaScript conversion ✅                     │  │
-│  │  • Patch object generation ✅                         │  │
-│  │  • Error handling ✅                                  │  │
+│  │       Transpilation Coordinator ✅ NEW                │  │
+│  │  • Transpilation lifecycle management                 │  │
+│  │  • Metrics tracking and statistics                    │  │
+│  │  • Patch validation                                   │  │
+│  │  • Error handling and recovery                        │  │
+│  │  • WebSocket broadcast coordination                   │  │
 │  └───────────────────────────────────────────────────────┘  │
 │                            ↓                                │
 │  ┌───────────────────────────────────────────────────────┐  │
-│  │              WebSocket Server ✅ NEW                  │  │
+│  │              WebSocket Server ✅                      │  │
 │  │  • Real-time patch broadcasting                       │  │
 │  │  • Client connection management                       │  │
 │  │  • Automatic reconnection support                     │  │
@@ -340,6 +340,28 @@ The CLI package serves as the orchestration layer for the hot-reload development
           │  • State preservation          │
           └────────────────────────────────┘
 ```
+
+### Module Organization
+
+The CLI package is organized into focused, single-responsibility modules:
+
+**Commands** (`src/commands/`)
+- `watch.ts` - File system monitoring and hot-reload orchestration
+- `format.ts` - GML code formatting
+- `generate-gml-identifiers.ts` - Identifier metadata generation
+- `generate-feather-metadata.ts` - Feather metadata generation
+- `performance.ts` - Performance benchmarking
+- `memory.ts` - Memory profiling
+
+**Modules** (`src/modules/`)
+- `transpilation/` - Transpilation coordination and metrics tracking
+- `websocket/` - WebSocket server for patch streaming
+- `status/` - HTTP status server for runtime monitoring
+- `runtime/` - HTML5 runtime integration
+- `manual/` - GameMaker manual processing
+- `feather/` - Feather metadata handling
+- `performance/` - Performance measurement utilities
+- `memory/` - Memory profiling utilities
 
 ## Development
 
@@ -385,6 +407,42 @@ const patch = await transpiler.transpileScript({
 
 console.log(patch.js_body);
 ```
+
+### Transpilation Coordinator
+
+The transpilation coordinator module (`src/modules/transpilation/coordinator.ts`) manages the complete transpilation lifecycle within the watch command:
+
+**Key Responsibilities:**
+- **Transpilation Lifecycle**: Coordinates the end-to-end process from GML source to validated JavaScript patches
+- **Metrics Tracking**: Records transpilation duration, file sizes, line counts, and performance statistics
+- **Error Management**: Handles transpilation failures gracefully with detailed error tracking
+- **Patch Validation**: Ensures generated patches meet quality requirements before broadcasting
+- **WebSocket Integration**: Coordinates patch broadcasting to connected runtime clients
+- **Statistics Reporting**: Provides comprehensive statistics on watch command exit
+
+**API:**
+
+```typescript
+import { transpileFile, displayTranspilationStatistics } from "@gml-modules/cli/modules/transpilation";
+
+// Transpile a single file with lifecycle management
+const result = transpileFile(
+    context,      // TranspilationContext with transpiler and metrics storage
+    filePath,     // Path to the GML file
+    content,      // GML source code
+    lines,        // Number of lines in the source
+    { verbose, quiet }  // Output options
+);
+
+// Display statistics when watch stops
+displayTranspilationStatistics(
+    context,      // Context with metrics and errors
+    verbose,      // Enable detailed statistics
+    quiet         // Suppress all output
+);
+```
+
+The coordinator is designed to be a focused, single-responsibility module that handles all transpilation orchestration concerns, keeping the watch command focused on file system monitoring and server lifecycle management.
 
 ## Integration with Other Modules
 
