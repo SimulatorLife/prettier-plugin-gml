@@ -27,39 +27,31 @@ const ASSIGNMENT_GUARD_CHARACTERS = new Set([
 function createIndexMapper(
     insertPositions: Array<number | null | undefined> | null | undefined
 ) {
-    if (!Core.isNonEmptyArray(insertPositions)) {
-        return Core.identity;
-    }
-
-    const numericPositions = insertPositions.filter(
-        (position): position is number =>
-            typeof position === "number" && Number.isFinite(position)
-    );
-    const offsets = Array.from(new Set(numericPositions)).sort((a, b) => a - b);
+    const offsets = Core.isNonEmptyArray(insertPositions)
+        ? [
+              ...new Set(
+                  insertPositions.filter(
+                      (position): position is number =>
+                          typeof position === "number" &&
+                          Number.isFinite(position)
+                  )
+              )
+          ].sort((a, b) => a - b)
+        : [];
 
     if (offsets.length === 0) {
         return Core.identity;
     }
 
-    return (index) => {
+    return (index: unknown) => {
         if (typeof index !== "number") {
             return index;
         }
 
-        let left = 0;
-        let right = offsets.length;
-
-        while (left < right) {
-            const middle = (left + right) >> 1;
-            const currentOffset = offsets[middle] ?? Number.NEGATIVE_INFINITY;
-            if (index <= currentOffset) {
-                right = middle;
-            } else {
-                left = middle + 1;
-            }
-        }
-
-        return index - left;
+        const precedingInsertions = offsets.filter(
+            (offset) => index > offset
+        ).length;
+        return index - precedingInsertions;
     };
 }
 
