@@ -100,6 +100,7 @@ function advanceThroughStringLiteral(
 
 /**
  * Advances the index through comment content, updating state accordingly.
+ * This function should only be called when state.inLineComment or state.inBlockComment is true.
  */
 function advanceThroughComment(
     text: string,
@@ -108,7 +109,7 @@ function advanceThroughComment(
     state: CallProcessingState
 ): number {
     const character = text[currentIndex];
-    let nextIndex = currentIndex + 1;
+    const nextIndex = currentIndex + 1;
 
     if (state.inLineComment) {
         if (character === "\n") {
@@ -117,19 +118,16 @@ function advanceThroughComment(
         return nextIndex;
     }
 
-    if (state.inBlockComment) {
-        if (
-            character === "*" &&
-            currentIndex + 1 < length &&
-            text[currentIndex + 1] === "/"
-        ) {
-            nextIndex = currentIndex + 2;
-            state.inBlockComment = false;
-        }
-        return nextIndex;
+    if (
+        character === "*" &&
+        currentIndex + 1 < length &&
+        text[currentIndex + 1] === "/"
+    ) {
+        state.inBlockComment = false;
+        return currentIndex + 2;
     }
 
-    return currentIndex;
+    return nextIndex;
 }
 
 /**
