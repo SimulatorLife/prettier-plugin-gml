@@ -1,3 +1,4 @@
+import { Core } from "@gml-modules/core";
 import { builtInFunctions } from "./builtins.js";
 import type {
     ArrayExpressionNode,
@@ -672,7 +673,7 @@ export class GmlToJsEmitter {
     private joinTruthy(
         lines: Array<string | undefined | null | false>
     ): string {
-        return lines.filter(Boolean).join("\n");
+        return Core.compactArray(lines).join("\n");
     }
 
     private resolveIdentifierName(

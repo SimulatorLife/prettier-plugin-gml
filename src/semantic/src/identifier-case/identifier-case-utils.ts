@@ -68,9 +68,9 @@ function tokenizeCore(core) {
         return [];
     }
 
-    const rawSegments = Core.trimStringEntries(
-        core.split(CORE_SEGMENT_DELIMITER_PATTERN)
-    ).filter(Boolean);
+    const rawSegments = Core.compactArray(
+        Core.trimStringEntries(core.split(CORE_SEGMENT_DELIMITER_PATTERN))
+    );
 
     const tokens = [];
     for (const segment of rawSegments) {
