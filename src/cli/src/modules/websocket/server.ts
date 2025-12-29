@@ -8,6 +8,10 @@
 
 import { WebSocketServer, WebSocket } from "ws";
 import { Core } from "@gml-modules/core";
+import type {
+    ServerEndpoint,
+    ServerLifecycle
+} from "../shared-server-types.js";
 
 const { describeValueForError } = Core;
 
@@ -29,14 +33,29 @@ export interface PatchBroadcastResult {
     totalClients: number;
 }
 
-export interface PatchWebSocketServerController {
-    url: string;
-    host: string;
-    port: number;
+/**
+ * Patch broadcasting operations.
+ *
+ * Provides message distribution and client tracking specific to the
+ * WebSocket patch server without coupling to endpoint or lifecycle concerns.
+ */
+export interface PatchBroadcaster {
     broadcast(patch: unknown): PatchBroadcastResult;
-    stop(): Promise<void>;
     getClientCount(): number;
 }
+
+/**
+ * Complete controller for the patch WebSocket server.
+ *
+ * Combines network endpoint, lifecycle management, and patch broadcasting.
+ * Consumers should depend on the minimal interface they need
+ * (ServerEndpoint, ServerLifecycle, or PatchBroadcaster) rather
+ * than this complete interface when possible.
+ */
+export interface PatchWebSocketServerController
+    extends ServerEndpoint,
+        ServerLifecycle,
+        PatchBroadcaster {}
 
 /**
  * Creates and starts a WebSocket server for patch streaming.
