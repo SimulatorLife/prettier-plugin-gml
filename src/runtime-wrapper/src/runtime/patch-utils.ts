@@ -322,12 +322,15 @@ function calculatePercentile(
     const lower = Math.floor(index);
     const upper = Math.ceil(index);
 
-    // Use tolerance-aware comparison instead of strict equality to avoid
-    // floating-point precision issues. When index is very close to an integer
-    // (e.g., 2.9999999999999996 instead of 3.0), we should treat it as that
-    // integer rather than attempting interpolation.
-    if (areNumbersApproximatelyEqual(lower, upper)) {
-        return sorted[lower];
+    // If the fractional index is extremely close to an integer, return the
+    // nearest element instead of performing an interpolation that can produce
+    // slightly off values (especially when the neighbouring samples are far
+    // apart). Floating-point precision can produce values like
+    // 8.999999999999998 instead of an exact 9, so we compare the raw index to
+    // its rounded integer rather than comparing floor/ceil directly.
+    const nearest = Math.round(index);
+    if (areNumbersApproximatelyEqual(index, nearest)) {
+        return sorted[nearest];
     }
 
     const weight = index - lower;

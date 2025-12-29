@@ -157,6 +157,19 @@ void describe("calculateTimingMetrics", () => {
         }
     });
 
+    void it("should clamp near-integer percentile indices to the nearest sample", () => {
+        // Construct data where the percentile index is extremely close to an
+        // integer because of floating-point rounding: 0.9 * 10 =>
+        // 8.999999999999998 instead of 9. Without tolerance-aware rounding,
+        // interpolation would drag the 90th percentile down from the expected
+        // large value at index 9.
+        const durations = [1, 1, 1, 1, 1, 1, 1, 1, 1, 1000, 1000];
+
+        const result = calculateTimingMetrics(durations);
+        assert.ok(result !== null);
+        assert.strictEqual(result.p90DurationMs, 1000);
+    });
+
     void it("should handle edge cases correctly", () => {
         // Empty array returns null
         const result1 = calculateTimingMetrics([]);
