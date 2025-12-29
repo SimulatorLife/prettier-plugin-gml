@@ -44,13 +44,174 @@ interface SanitizeMissingSeparatorsResult {
     indexAdjustments: Array<number> | null;
 }
 
+interface CallProcessingState {
+    stringQuote: string | null;
+    stringEscape: boolean;
+    inLineComment: boolean;
+    inBlockComment: boolean;
+    depth: number;
+}
+
+interface CallProcessingResult {
+    index: number;
+    modified: boolean;
+}
+
+/**
+ * Creates initial state for processing a call expression.
+ */
+function createCallProcessingState(): CallProcessingState {
+    return {
+        stringQuote: null,
+        stringEscape: false,
+        inLineComment: false,
+        inBlockComment: false,
+        depth: 1
+    };
+}
+
+/**
+ * Advances the index through string literal content, updating state accordingly.
+ */
+function advanceThroughStringLiteral(
+    text: string,
+    currentIndex: number,
+    state: CallProcessingState
+): number {
+    const character = text[currentIndex];
+    const nextIndex = currentIndex + 1;
+
+    if (state.stringEscape) {
+        state.stringEscape = false;
+        return nextIndex;
+    }
+
+    if (character === "\\") {
+        state.stringEscape = true;
+        return nextIndex;
+    }
+
+    if (character === state.stringQuote) {
+        state.stringQuote = null;
+    }
+
+    return nextIndex;
+}
+
+/**
+ * Advances the index through comment content, updating state accordingly.
+ * This function should only be called when state.inLineComment or state.inBlockComment is true.
+ */
+function advanceThroughComment(
+    text: string,
+    length: number,
+    currentIndex: number,
+    state: CallProcessingState
+): number {
+    const character = text[currentIndex];
+    const nextIndex = currentIndex + 1;
+
+    if (state.inLineComment) {
+        if (character === "\n") {
+            state.inLineComment = false;
+        }
+        return nextIndex;
+    }
+
+    if (
+        character === "*" &&
+        currentIndex + 1 < length &&
+        text[currentIndex + 1] === "/"
+    ) {
+        state.inBlockComment = false;
+        return currentIndex + 2;
+    }
+
+    return nextIndex;
+}
+
+/**
+ * Attempts to start tracking a string literal or comment.
+ * Returns the new index if successful, or the original index if not applicable.
+ */
+function tryStartStringOrComment(
+    text: string,
+    length: number,
+    currentIndex: number,
+    state: CallProcessingState
+): number {
+    const character = text[currentIndex];
+
+    if (character === "'" || character === '"' || character === "`") {
+        state.stringQuote = character;
+        state.stringEscape = false;
+        return currentIndex + 1;
+    }
+
+    if (character === "/" && currentIndex + 1 < length) {
+        const nextCharacter = text[currentIndex + 1];
+
+        if (nextCharacter === "/") {
+            state.inLineComment = true;
+            return currentIndex + 2;
+        }
+
+        if (nextCharacter === "*") {
+            state.inBlockComment = true;
+            return currentIndex + 2;
+        }
+    }
+
+    return currentIndex;
+}
+
+/**
+ * Detects and processes adjacent numeric literals separated only by trivia,
+ * inserting a comma between them if necessary.
+ */
+function processAdjacentNumericLiterals(
+    text: string,
+    length: number,
+    currentIndex: number,
+    depth: number,
+    ensureCopied: (uptoIndex: number) => void,
+    parts: string[],
+    adjustmentPositions: number[],
+    insertedCount: { value: number }
+): { nextIndex: number; modified: boolean } {
+    if (depth !== 1 || !isNumericLiteralStart(text, currentIndex)) {
+        return { nextIndex: currentIndex, modified: false };
+    }
+
+    const literal = readNumericLiteral(text, currentIndex);
+    let nextIndex = literal.endIndex;
+
+    const triviaStart = nextIndex;
+    const trivia = readCallSeparatorTrivia(text, nextIndex);
+
+    nextIndex = trivia.endIndex;
+
+    if (
+        trivia.hasContent &&
+        nextIndex < length &&
+        isNumericLiteralStart(text, nextIndex)
+    ) {
+        ensureCopied(triviaStart);
+        parts.push(",");
+        adjustmentPositions.push(triviaStart + insertedCount.value);
+        insertedCount.value += 1;
+        return { nextIndex, modified: true };
+    }
+
+    return { nextIndex, modified: false };
+}
+
 /**
  * Walks source text to insert commas between numeric literal arguments when they are adjacent without separators.
  */
 export function sanitizeMissingArgumentSeparators(
     sourceText: unknown
 ): SanitizeMissingSeparatorsResult {
-    // console.log("sanitizeMissingArgumentSeparators called with:", sourceText);
     if (typeof sourceText !== "string" || sourceText.length === 0) {
         return {
             sourceText,
@@ -64,10 +225,9 @@ export function sanitizeMissingArgumentSeparators(
     const parts: string[] = [];
     let index = 0;
     let copyIndex = 0;
-    let insertedCount = 0;
+    const insertedCount = { value: 0 };
     let modified = false;
 
-    // Copy literal source segments up to a point before we insert a comma.
     function ensureCopied(uptoIndex: number) {
         if (copyIndex >= uptoIndex) {
             return;
@@ -78,100 +238,61 @@ export function sanitizeMissingArgumentSeparators(
         modified = true;
     }
 
-    // Inspect a single call expression so nested calls are handled and missing commas are detected.
-    function processCall(startIndex: number, openParenIndex: number) {
+    function processCall(
+        startIndex: number,
+        openParenIndex: number
+    ): CallProcessingResult {
         let currentIndex = openParenIndex + 1;
-        let stringQuote: string | null = null;
-        let stringEscape = false;
-        let inLineComment = false;
-        let inBlockComment = false;
-        let depth = 1;
+        const state = createCallProcessingState();
         let callModified = false;
 
-        while (currentIndex < length && depth > 0) {
+        while (currentIndex < length && state.depth > 0) {
             const character = text[currentIndex];
 
-            if (stringQuote !== null) {
-                currentIndex += 1;
-                if (stringEscape) {
-                    stringEscape = false;
-                    continue;
-                }
-
-                if (character === "\\") {
-                    stringEscape = true;
-                    continue;
-                }
-
-                if (character === stringQuote) {
-                    stringQuote = null;
-                }
-
+            if (state.stringQuote !== null) {
+                currentIndex = advanceThroughStringLiteral(
+                    text,
+                    currentIndex,
+                    state
+                );
                 continue;
             }
 
-            if (inLineComment) {
-                currentIndex += 1;
-
-                if (character === "\n") {
-                    inLineComment = false;
-                }
-
+            if (state.inLineComment || state.inBlockComment) {
+                currentIndex = advanceThroughComment(
+                    text,
+                    length,
+                    currentIndex,
+                    state
+                );
                 continue;
             }
 
-            if (inBlockComment) {
-                currentIndex += 1;
-
-                if (
-                    character === "*" &&
-                    currentIndex < length &&
-                    text[currentIndex] === "/"
-                ) {
-                    currentIndex += 1;
-                    inBlockComment = false;
-                }
-
+            const stringOrCommentIndex = tryStartStringOrComment(
+                text,
+                length,
+                currentIndex,
+                state
+            );
+            if (stringOrCommentIndex !== currentIndex) {
+                currentIndex = stringOrCommentIndex;
                 continue;
-            }
-
-            if (character === "'" || character === '"' || character === "`") {
-                stringQuote = character;
-                stringEscape = false;
-                currentIndex += 1;
-                continue;
-            }
-
-            if (character === "/" && currentIndex + 1 < length) {
-                const nextCharacter = text[currentIndex + 1];
-
-                if (nextCharacter === "/") {
-                    inLineComment = true;
-                    currentIndex += 2;
-                    continue;
-                }
-
-                if (nextCharacter === "*") {
-                    inBlockComment = true;
-                    currentIndex += 2;
-                    continue;
-                }
             }
 
             if (character === "(") {
-                depth += 1;
+                state.depth += 1;
                 currentIndex += 1;
                 continue;
             }
 
             if (character === ")") {
-                depth -= 1;
+                state.depth -= 1;
                 currentIndex += 1;
                 continue;
             }
 
             if (
-                depth >= 1 &&
+                state.depth >= 1 &&
                 isIdentifierBoundaryAt(text, currentIndex - 1) &&
                 (isIdentifierStartCharacter(text[currentIndex]) ||
                     text[currentIndex] === "@")
@@ -191,27 +312,25 @@ export function sanitizeMissingArgumentSeparators(
                 }
             }
 
-            if (depth === 1 && isNumericLiteralStart(text, currentIndex)) {
-                const literal = readNumericLiteral(text, currentIndex);
-                currentIndex = literal.endIndex;
+            const numericResult = processAdjacentNumericLiterals(
+                text,
+                length,
+                currentIndex,
+                state.depth,
+                ensureCopied,
+                parts,
+                adjustmentPositions,
+                insertedCount
+            );
 
-                const triviaStart = currentIndex;
-                const trivia = readCallSeparatorTrivia(text, currentIndex);
+            if (numericResult.modified) {
+                callModified = true;
+                currentIndex = numericResult.nextIndex;
+                continue;
+            }
 
-                currentIndex = trivia.endIndex;
-
-                if (
-                    trivia.hasContent &&
-                    currentIndex < length &&
-                    isNumericLiteralStart(text, currentIndex)
-                ) {
-                    ensureCopied(triviaStart);
-                    parts.push(",");
-                    adjustmentPositions.push(triviaStart + insertedCount);
-                    insertedCount += 1;
-                    callModified = true;
-                }
-
+            if (numericResult.nextIndex !== currentIndex) {
+                currentIndex = numericResult.nextIndex;
                 continue;
             }
 
