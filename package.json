@@ -94,7 +94,7 @@
     "build:ts": "timeout -t 2m -- tsc -b",
     "memory": "npm run build:types --workspace=@gml-modules/cli && node --expose-gc ./src/cli/dist/index.js memory --format human",
     "example:plugin": "cd src/plugin && npm run example",
-    "postinstall": "git submodule update --init --recursive && git update-index --skip-worktree vendor/* && chmod -R a-w vendor && chmod -R a+X vendor || echo \"Skipping vendor submodules\" && patch-package",
+    "postinstall": "git submodule update --init --recursive && git update-index --skip-worktree vendor/* && chmod -R a-w vendor && chmod -R a+X vendor && chmod -R u+w vendor/3DSpider || echo \"Skipping vendor submodules\" && patch-package",
     "prepare": "husky",
     "cli": "npm run build:types --workspace=@gml-modules/cli && node ./src/cli/dist/index.js",
     "demo:watch": "npm run build:types --workspace=@gml-modules/cli && node ./src/cli/dist/index.js watch vendor/3DSpider --verbose",
