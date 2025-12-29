@@ -38,20 +38,23 @@ import {
 } from "../modules/runtime/server.js";
 import {
     startPatchWebSocketServer,
-    type PatchBroadcastResult,
     type PatchWebSocketServerController
 } from "../modules/websocket/server.js";
 import {
     startStatusServer,
     type StatusServerController
 } from "../modules/status/server.js";
+import {
+    transpileFile,
+    displayTranspilationStatistics,
+    type TranspilationMetrics,
+    type TranspilationError,
+    type TranspilationContext
+} from "../modules/transpilation/coordinator.js";
 import { formatCliError } from "../cli-core/errors.js";
 import { debounce, type DebouncedFunction } from "../shared/debounce.js";
 
 const { getErrorMessage } = Core;
-
-type RuntimeTranspiler = ReturnType<typeof Transpiler.createTranspiler>;
-type RuntimeTranspilerPatch = ReturnType<RuntimeTranspiler["transpileScript"]>;
 
 type RuntimeDescriptorFormatter = (source: RuntimeSourceDescriptor) => string;
 
@@ -60,23 +63,6 @@ type WatchFactory = (
     options?: WatchOptions | BufferEncoding | "buffer",
     listener?: WatchListener<string>
 ) => FSWatcher;
-
-interface TranspilationMetrics {
-    timestamp: number;
-    filePath: string;
-    patchId: string;
-    durationMs: number;
-    sourceSize: number;
-    outputSize: number;
-    linesProcessed: number;
-}
-
-interface TranspilationError {
-    timestamp: number;
-    filePath: string;
-    error: string;
-    sourceSize?: number;
-}
 
 interface WatchCommandOptions {
     extensions?: Array<string>;
@@ -103,17 +89,36 @@ interface WatchCommandOptions {
     watchFactory?: WatchFactory;
 }
 
-interface RuntimeContext {
+interface RuntimeContext
+    extends Omit<
+        TranspilationContext,
+        | "transpiler"
+        | "patches"
+        | "metrics"
+        | "errors"
+        | "lastSuccessfulPatches"
+        | "maxPatchHistory"
+        | "websocketServer"
+    > {
     root: string | null;
     packageName: string | null;
     packageJson: Record<string, unknown> | null;
     server: RuntimeServerController | null;
     noticeLogged: boolean;
-    transpiler: RuntimeTranspiler;
-    patches: Array<RuntimeTranspilerPatch>;
+    transpiler: ReturnType<typeof Transpiler.createTranspiler>;
+    patches: Array<
+        ReturnType<
+            ReturnType<typeof Transpiler.createTranspiler>["transpileScript"]
+        >
+    >;
     metrics: Array<TranspilationMetrics>;
     errors: Array<TranspilationError>;
-    lastSuccessfulPatches: Map<string, RuntimeTranspilerPatch>;
+    lastSuccessfulPatches: Map<
+        string,
+        ReturnType<
+            ReturnType<typeof Transpiler.createTranspiler>["transpileScript"]
+        >
+    >;
     maxPatchHistory: number;
     websocketServer: PatchWebSocketServerController | null;
     statusServer: StatusServerController | null;
@@ -130,24 +135,8 @@ interface FileChangeOptions {
     runtimeContext?: RuntimeContext;
 }
 
-/**
- * Adds an item to a bounded collection, removing the oldest item if the
- * collection exceeds its maximum size.
- *
- * @param collection - Array to add the item to
- * @param item - Item to add to the collection
- * @param maxSize - Maximum allowed size of the collection
- */
-function addToBoundedCollection<T>(
-    collection: Array<T>,
-    item: T,
-    maxSize: number
-): void {
-    collection.push(item);
-    if (collection.length > maxSize) {
-        collection.shift();
-    }
-}
+const DEFAULT_WATCH_FACTORY: WatchFactory = (pathToWatch, options, listener) =>
+    watch(pathToWatch, options, listener);
 
 /**
  * Creates the watch command for monitoring GML source files.
@@ -365,165 +354,6 @@ function logWatchStartup(
     } else {
         console.log(`Watching ${targetPath} for changes...`);
     }
-}
-
-const DEFAULT_WATCH_FACTORY: WatchFactory = (pathToWatch, options, listener) =>
-    watch(pathToWatch, options, listener);
-
-/**
- * Validates a transpiled patch before broadcasting.
- *
- * @param {object} patch - Patch object to validate
- * @returns {boolean} True if patch is valid
- */
-function validatePatch(patch: RuntimeTranspilerPatch): boolean {
-    if (!patch || typeof patch !== "object") {
-        return false;
-    }
-
-    if (!patch.id || typeof patch.id !== "string") {
-        return false;
-    }
-
-    if (!patch.kind || typeof patch.kind !== "string") {
-        return false;
-    }
-
-    if (!patch.js_body || typeof patch.js_body !== "string") {
-        return false;
-    }
-
-    // Patch should have non-empty JavaScript body
-    if (patch.js_body.trim().length === 0) {
-        return false;
-    }
-
-    return true;
-}
-
-/**
- * Creates an error notification message for WebSocket clients.
- *
- * @param {string} filePath - Path to the file that failed
- * @param {string} error - Error message
- * @returns {object} Error notification object
- */
-function createErrorNotification(
-    filePath: string,
-    error: string
-): {
-    kind: "error";
-    filePath: string;
-    error: string;
-    timestamp: number;
-} {
-    return {
-        kind: "error",
-        filePath: path.basename(filePath),
-        error,
-        timestamp: Date.now()
-    };
-}
-
-/**
- * Displays transpilation and error statistics when watch stops.
- *
- * @param {object} context - Runtime context with metrics and errors
- * @param {boolean} verbose - Enable verbose statistics
- * @param {boolean} quiet - Suppress all statistics output
- */
-function displayWatchStatistics(
-    context: {
-        metrics: ReadonlyArray<TranspilationMetrics>;
-        errors: ReadonlyArray<TranspilationError>;
-    },
-    verbose: boolean,
-    quiet: boolean
-): void {
-    if (quiet) {
-        return;
-    }
-
-    const { metrics, errors } = context;
-    const hasMetrics = metrics.length > 0;
-    const hasErrors = errors.length > 0;
-
-    if (!hasMetrics && !hasErrors) {
-        return;
-    }
-
-    console.log("\n--- Transpilation Statistics ---");
-
-    if (hasMetrics) {
-        console.log(`Total patches generated: ${metrics.length}`);
-
-        if (verbose) {
-            const totalDuration = metrics.reduce(
-                (sum, m) => sum + m.durationMs,
-                0
-            );
-            const totalSourceSize = metrics.reduce(
-                (sum, m) => sum + m.sourceSize,
-                0
-            );
-            const totalOutputSize = metrics.reduce(
-                (sum, m) => sum + m.outputSize,
-                0
-            );
-            const avgDuration = totalDuration / metrics.length;
-
-            console.log(
-                `Total transpilation time: ${totalDuration.toFixed(2)}ms`
-            );
-            console.log(
-                `Average transpilation time: ${avgDuration.toFixed(2)}ms`
-            );
-            console.log(
-                `Total source processed: ${(totalSourceSize / 1024).toFixed(2)} KB`
-            );
-            console.log(
-                `Total output generated: ${(totalOutputSize / 1024).toFixed(2)} KB`
-            );
-
-            const compressionRatio =
-                totalSourceSize > 0
-                    ? `${((totalOutputSize / totalSourceSize) * 100).toFixed(1)}%`
-                    : "N/A";
-            console.log(`Output/source ratio: ${compressionRatio}`);
-
-            const fastestPatch = metrics.reduce((min, m) =>
-                m.durationMs < min.durationMs ? m : min
-            );
-            const slowestPatch = metrics.reduce((max, m) =>
-                m.durationMs > max.durationMs ? m : max
-            );
-
-            console.log(
-                `Fastest transpilation: ${fastestPatch.durationMs.toFixed(2)}ms (${path.basename(fastestPatch.filePath)})`
-            );
-            console.log(
-                `Slowest transpilation: ${slowestPatch.durationMs.toFixed(2)}ms (${path.basename(slowestPatch.filePath)})`
-            );
-        }
-    }
-
-    if (hasErrors) {
-        console.log(`\nTotal errors: ${errors.length}`);
-        if (verbose && errors.length > 0) {
-            console.log("\nRecent errors:");
-            // Show last 5 errors
-            const recentErrors = errors.slice(-5);
-            for (const error of recentErrors) {
-                const timestamp = new Date(error.timestamp).toISOString();
-                console.log(
-                    `  [${timestamp}] ${path.basename(error.filePath)}`
-                );
-                console.log(`    ${error.error}`);
-            }
-        }
-    }
-
-    console.log("-------------------------------\n");
 }
 
 /**
@@ -778,7 +608,7 @@ export async function runWatchCommand(
             }
             runtimeContext.debouncedHandlers.clear();
 
-            displayWatchStatistics(runtimeContext, verbose, quiet);
+            displayTranspilationStatistics(runtimeContext, verbose, quiet);
 
             if (runtimeServerController) {
                 try {
@@ -1018,21 +848,14 @@ async function handleFileChange(
                 console.log(`  ↳ Read ${lines} lines`);
             }
 
-            // Transpile the GML source to JavaScript
-            const transpiler = runtimeContext?.transpiler;
-            if (!transpiler) {
+            if (!runtimeContext?.transpiler) {
                 return;
             }
 
-            runTranspilationForFile(
-                runtimeContext,
-                transpiler,
-                filePath,
-                content,
-                lines,
+            transpileFile(runtimeContext, filePath, content, lines, {
                 verbose,
                 quiet
-            );
+            });
         } catch (error) {
             const message = getErrorMessage(error, {
                 fallback: "Unknown file read error"
@@ -1045,163 +868,5 @@ async function handleFileChange(
 
             console.error(formattedMessage);
         }
-    }
-}
-
-function runTranspilationForFile(
-    runtimeContext: RuntimeContext,
-    transpiler: RuntimeTranspiler,
-    filePath: string,
-    content: string,
-    lines: number,
-    verbose: boolean,
-    quiet: boolean
-): void {
-    const startTime = performance.now();
-
-    try {
-        const fileName = path.basename(filePath, path.extname(filePath));
-        const symbolId = `gml/script/${fileName}`;
-
-        const patch = transpiler.transpileScript({
-            sourceText: content,
-            symbolId
-        });
-
-        if (!validatePatch(patch)) {
-            throw new Error("Generated patch failed validation");
-        }
-
-        const durationMs = performance.now() - startTime;
-
-        const metrics: TranspilationMetrics = {
-            timestamp: Date.now(),
-            filePath,
-            patchId: patch.id,
-            durationMs,
-            sourceSize: content.length,
-            outputSize: patch.js_body.length,
-            linesProcessed: lines
-        };
-
-        addToBoundedCollection(
-            runtimeContext.metrics,
-            metrics,
-            runtimeContext.maxPatchHistory
-        );
-
-        runtimeContext.lastSuccessfulPatches.set(symbolId, patch);
-
-        addToBoundedCollection(
-            runtimeContext.patches,
-            patch,
-            runtimeContext.maxPatchHistory
-        );
-
-        const broadcastResult =
-            runtimeContext.websocketServer?.broadcast(patch);
-        if (broadcastResult) {
-            logPatchBroadcastResult(broadcastResult, verbose, quiet);
-        }
-
-        logTranspilationSummary(patch, durationMs, verbose, quiet);
-    } catch (error) {
-        handleTranspilationError(
-            error,
-            runtimeContext,
-            filePath,
-            content.length,
-            verbose,
-            quiet
-        );
-    }
-}
-
-function logPatchBroadcastResult(
-    broadcastResult: PatchBroadcastResult,
-    verbose: boolean,
-    quiet: boolean
-): void {
-    if (quiet) {
-        return;
-    }
-
-    if (verbose) {
-        console.log(
-            `  ↳ Broadcasted to ${broadcastResult.successCount} clients`
-        );
-        if (broadcastResult.failureCount > 0) {
-            console.log(
-                `  ↳ Failed to send to ${broadcastResult.failureCount} clients`
-            );
-        }
-    } else if (broadcastResult.successCount > 0) {
-        console.log(
-            `  ↳ Streamed to ${broadcastResult.successCount} client(s)`
-        );
-    }
-}
-
-function logTranspilationSummary(
-    patch: RuntimeTranspilerPatch,
-    durationMs: number,
-    verbose: boolean,
-    quiet: boolean
-): void {
-    if (quiet) {
-        return;
-    }
-
-    if (verbose) {
-        console.log(
-            `  ↳ Transpiled to JavaScript (${patch.js_body.length} chars in ${durationMs.toFixed(2)}ms)`
-        );
-        console.log(`  ↳ Patch ID: ${patch.id}`);
-    } else {
-        console.log(`  ↳ Generated patch: ${patch.id}`);
-    }
-}
-
-// eslint-disable-next-line max-params -- quiet parameter needed for future extensibility
-function handleTranspilationError(
-    error: unknown,
-    runtimeContext: RuntimeContext,
-    filePath: string,
-    sourceSize: number,
-    verbose: boolean,
-    quiet: boolean // Errors are always displayed, even in quiet mode
-): void {
-    // quiet parameter intentionally unused - errors are always shown
-    void quiet;
-
-    const errorMessage = getErrorMessage(error, {
-        fallback: "Unknown transpilation error"
-    });
-    const transpilationError: TranspilationError = {
-        timestamp: Date.now(),
-        filePath,
-        error: errorMessage,
-        sourceSize
-    };
-
-    addToBoundedCollection(
-        runtimeContext.errors,
-        transpilationError,
-        runtimeContext.maxPatchHistory
-    );
-
-    if (runtimeContext.websocketServer) {
-        const errorNotification = createErrorNotification(
-            filePath,
-            errorMessage
-        );
-        runtimeContext.websocketServer.broadcast(errorNotification);
-    }
-
-    if (verbose) {
-        const formattedError = formatCliError(error);
-        console.error(`  ↳ Transpilation failed:\n${formattedError}`);
-    } else {
-        console.error(`  ↳ Transpilation failed: ${errorMessage}`);
     }
 }
