@@ -4,6 +4,10 @@ import fs from "node:fs/promises";
 import path from "node:path";
 
 import { Core } from "@gml-modules/core";
+import type {
+    ServerEndpoint,
+    ServerLifecycle
+} from "../shared-server-types.js";
 
 const { isFsErrorCode, getErrorMessage } = Core;
 
@@ -32,14 +36,28 @@ export interface RuntimeStaticServerOptions {
     verbose?: boolean;
 }
 
-export interface RuntimeServerController {
-    url: string;
-    origin: string;
-    host: string;
-    port: number;
-    root: string;
-    stop(): Promise<void>;
+/**
+ * Runtime-specific server properties.
+ *
+ * Provides origin URL and filesystem root specific to the HTML5 runtime static server.
+ */
+export interface RuntimeServerProperties {
+    readonly origin: string;
+    readonly root: string;
 }
+
+/**
+ * Complete controller for the runtime static server.
+ *
+ * Combines network endpoint, lifecycle management, and runtime-specific
+ * properties. Consumers should depend on the minimal interface they need
+ * (ServerEndpoint, ServerLifecycle, or RuntimeServerProperties) rather
+ * than this complete interface when possible.
+ */
+export interface RuntimeServerController
+    extends ServerEndpoint,
+        ServerLifecycle,
+        RuntimeServerProperties {}
 
 function resolveMimeType(filePath) {
     const extension = path.extname(filePath).toLowerCase();
