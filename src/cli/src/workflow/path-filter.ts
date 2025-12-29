@@ -197,7 +197,42 @@ export function ensureManualWorkflowArtifactsAllowed(
         outputLabel?: string;
     } = {}
 ) {
-    const entries = [];
+    const entries = collectManualWorkflowArtifactEntries({
+        cacheRoot,
+        outputPath,
+        cacheLabel,
+        outputLabel
+    });
+
+    if (entries.length === 0) {
+        return;
+    }
+
+    ensureWorkflowPathsAllowed(pathFilter, entries);
+}
+
+interface ManualWorkflowArtifactEntry {
+    type: "directory" | "path";
+    target: string;
+    label: string;
+}
+
+/**
+ * Normalize manual workflow cache/output entries into a consistent shape so
+ * validation logic can focus solely on allow/deny checks.
+ */
+function collectManualWorkflowArtifactEntries({
+    cacheRoot,
+    outputPath,
+    cacheLabel,
+    outputLabel
+}: {
+    cacheRoot?: string | null;
+    outputPath?: string | null;
+    cacheLabel: string;
+    outputLabel: string;
+}): Array<ManualWorkflowArtifactEntry> {
+    const entries: Array<ManualWorkflowArtifactEntry> = [];
 
     if (isNonEmptyString(cacheRoot)) {
         entries.push({
@@ -215,9 +250,5 @@ export function ensureManualWorkflowArtifactsAllowed(
         });
     }
 
-    if (entries.length === 0) {
-        return;
-    }
-
-    ensureWorkflowPathsAllowed(pathFilter, entries);
+    return entries;
 }
