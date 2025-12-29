@@ -567,7 +567,7 @@ prettier-plugin-gml/
 ├─ src/cli/               # Command-line interface for all developer-facing utilities
 ├─ src/transpiler/        # Transpiles/emits JS from GML ASTs
 ├─ resources/             # Generated GML data consumed by various modules, ANTLR jar file
-├─ vendor/                # Submodules for GameMaker runtime assets
+├─ vendor/                # Submodules for GameMaker runtime assets and demo projects
 └─ docs/                  # Design notes and guides
 ```
 
@@ -576,7 +576,7 @@ The Prettier plugin printer centralizes semicolon emission, cleanup, and stateme
 ### Set up the workspace
 
 ```bash
-git submodule update --init --recursive # pulls vendor/GameMaker-* runtime assets
+git submodule update --init --recursive # pulls vendor/GameMaker-* runtime assets plus 3DSpider demo project
 nvm use # aligns your Node.js version with the workspace baseline
 npm ci # installs dependencies from package-lock.json
 ```
@@ -618,6 +618,9 @@ npm run cli -- --help
 
 # Run the benchmarking helper
 npm run cli -- performance
+
+# Run the hot-reload watcher against the 3DSpider demo
+npm run demo:watch
 ```
 
 See [package.json](package.json) for the full list of available scripts.

@@ -6,3 +6,7 @@
 	path = vendor/GameMaker-HTML5
 	url = https://github.com/YoYoGames/GameMaker-HTML5.git
 	branch = develop
+[submodule "vendor/3DSpider"]
+	path = vendor/3DSpider
+	url = https://github.com/SimulatorLife/3DSpider
+	branch = main

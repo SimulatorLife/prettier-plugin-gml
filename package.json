@@ -97,7 +97,7 @@
     "postinstall": "git submodule update --init --recursive && git update-index --skip-worktree vendor/* && chmod -R a-w vendor && chmod -R a+X vendor || echo \"Skipping vendor submodules\" && patch-package",
     "prepare": "husky",
     "cli": "npm run build:types --workspace=@gml-modules/cli && node ./src/cli/dist/index.js",
-    "demo:watch": "npm run build:types --workspace=@gml-modules/cli && node ./src/cli/dist/index.js watch examples/hot-reload-demo/gml-project --verbose",
+    "demo:watch": "npm run build:types --workspace=@gml-modules/cli && node ./src/cli/dist/index.js watch vendor/3DSpider --verbose",
     "actionlint:install": "mkdir -p node_modules/.bin && curl -sSfL https://raw.githubusercontent.com/rhysd/actionlint/main/scripts/download-actionlint.bash | bash -s -- latest ./node_modules/.bin",
     "lint:actions": "actionlint -color",
     "lint:duplicates:report": "jscpd --noSymlinks --format \"typescript\" --reporters \"json\" --output \"./reports/\" --min-lines 7 --min-tokens 100 src/",

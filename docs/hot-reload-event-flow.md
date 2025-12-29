@@ -491,4 +491,4 @@ Potential improvements to the hot reload loop:
 - [Watch Command Source](../src/cli/src/commands/watch.ts) - Implementation
 - [Transpiler Source](../src/transpiler/) - GML to JS conversion
 - [Runtime Wrapper Source](../src/runtime-wrapper/) - Client-side application
-- [Demo](../examples/hot-reload-demo/) - Working end-to-end example
+- [Demo](../vendor/3DSpider/) - Working end-to-end example

@@ -24,6 +24,16 @@ node src/cli/src/cli.js watch /path/to/gamemaker/project --verbose
 # Watching /path/to/gamemaker/project for changes...
 ```
 
+If you want a ready-made project, the vendored 3DSpider demo can be used as a hot-reload testbed:
+
+```bash
+# Ensure vendored submodules are initialized
+git submodule update --init --recursive
+
+# Watch the 3DSpider project
+node src/cli/src/cli.js watch vendor/3DSpider --verbose
+```
+
 ### Terminal 2: Connect Runtime Wrapper (Browser)
 
 ```javascript
