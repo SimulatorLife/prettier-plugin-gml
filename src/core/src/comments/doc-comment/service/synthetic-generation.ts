@@ -1,5 +1,5 @@
 import { isUndefinedSentinel } from "../../../ast/node-helpers.js";
-import { isNonEmptyArray } from "../../../utils/array.js";
+import { compactArray, isNonEmptyArray } from "../../../utils/array.js";
 import { isNonEmptyTrimmedString } from "../../../utils/string.js";
 import { parseDocCommentMetadata } from "./metadata.js";
 import { normalizeDocCommentTypeAnnotations } from "./type-normalization.js";
@@ -256,7 +256,7 @@ export function computeSyntheticFunctionDocLines(
 
     const metadata = (
         Array.isArray(existingDocLines)
-            ? existingDocLines.map(parseDocCommentMetadata).filter(Boolean)
+            ? compactArray(existingDocLines.map(parseDocCommentMetadata))
             : []
     ) as DocMeta[];
 
