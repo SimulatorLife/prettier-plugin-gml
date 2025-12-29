@@ -11993,13 +11993,18 @@ function findFirstCallExpression(node) {
  * consistent behavior and makes the codebase easier to navigate.
  */
 function cloneNodeWithoutLocations(node) {
-    if (!node || typeof node !== "object") {
-        return node;
+    const clonedNode = Core.cloneAstNode(node);
+
+    if (clonedNode === null) {
+        return node === undefined ? undefined : null;
     }
 
-    const clone = structuredClone(node);
-    Core.removeLocationMetadata(clone);
-    return clone;
+    if (typeof clonedNode !== "object") {
+        return clonedNode;
+    }
+
+    Core.removeLocationMetadata(clonedNode);
+    return clonedNode;
 }
 
 function ensureNumericOperationsUseRealLiteralCoercion({ ast, diagnostic }) {
