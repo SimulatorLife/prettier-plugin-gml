@@ -9,6 +9,7 @@ const {
     isNode,
     forEachNodeChild,
     asArray,
+    compactArray,
     getOrCreateMapEntry,
     isNonEmptyArray,
     toNormalizedLowerCaseString
@@ -2119,11 +2120,11 @@ function createBooleanNot(argument) {
 }
 
 function createBooleanAnd(terms) {
-    return { type: BOOLEAN_NODE_TYPES.AND, terms: terms.filter(Boolean) };
+    return { type: BOOLEAN_NODE_TYPES.AND, terms: compactArray(terms) };
 }
 
 function createBooleanOr(terms) {
-    return { type: BOOLEAN_NODE_TYPES.OR, terms: terms.filter(Boolean) };
+    return { type: BOOLEAN_NODE_TYPES.OR, terms: compactArray(terms) };
 }
 
 function booleanExpressionKey(expression) {
