@@ -2,7 +2,7 @@ export {
     RefactorEngine,
     WorkspaceEdit,
     createRefactorEngine
-} from "./engine/index.js";
+} from "./src/index.js";
 export type {
     ParserBridge,
     SemanticAnalyzer,
@@ -17,4 +17,4 @@ export type {
     ValidationSummary,
     ValidateRenameRequestOptions,
     HotReloadSafetySummary
-} from "./engine/index.js";
+} from "./src/index.js";
