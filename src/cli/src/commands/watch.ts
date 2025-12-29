@@ -49,7 +49,8 @@ import {
     displayTranspilationStatistics,
     type TranspilationMetrics,
     type TranspilationError,
-    type TranspilationContext
+    type TranspilationContext,
+    type RuntimeTranspilerPatch
 } from "../modules/transpilation/coordinator.js";
 import { formatCliError } from "../cli-core/errors.js";
 import { debounce, type DebouncedFunction } from "../shared/debounce.js";
@@ -106,19 +107,10 @@ interface RuntimeContext
     server: RuntimeServerController | null;
     noticeLogged: boolean;
     transpiler: ReturnType<typeof Transpiler.createTranspiler>;
-    patches: Array<
-        ReturnType<
-            ReturnType<typeof Transpiler.createTranspiler>["transpileScript"]
-        >
-    >;
+    patches: Array<RuntimeTranspilerPatch>;
     metrics: Array<TranspilationMetrics>;
     errors: Array<TranspilationError>;
-    lastSuccessfulPatches: Map<
-        string,
-        ReturnType<
-            ReturnType<typeof Transpiler.createTranspiler>["transpileScript"]
-        >
-    >;
+    lastSuccessfulPatches: Map<string, RuntimeTranspilerPatch>;
     maxPatchHistory: number;
     websocketServer: PatchWebSocketServerController | null;
     statusServer: StatusServerController | null;

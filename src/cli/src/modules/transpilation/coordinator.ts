@@ -16,7 +16,9 @@ import type { PatchWebSocketServerController } from "../websocket/server.js";
 const { getErrorMessage } = Core;
 
 type RuntimeTranspiler = ReturnType<typeof Transpiler.createTranspiler>;
-type RuntimeTranspilerPatch = ReturnType<RuntimeTranspiler["transpileScript"]>;
+export type RuntimeTranspilerPatch = ReturnType<
+    RuntimeTranspiler["transpileScript"]
+>;
 
 export interface TranspilationMetrics {
     timestamp: number;
@@ -304,19 +306,21 @@ export function displayTranspilationStatistics(
                     : "N/A";
             console.log(`Output/source ratio: ${compressionRatio}`);
 
-            const fastestPatch = metrics.reduce((min, m) =>
-                m.durationMs < min.durationMs ? m : min
-            );
-            const slowestPatch = metrics.reduce((max, m) =>
-                m.durationMs > max.durationMs ? m : max
-            );
+            if (metrics.length > 0) {
+                const fastestPatch = metrics.reduce((min, m) =>
+                    m.durationMs < min.durationMs ? m : min
+                );
+                const slowestPatch = metrics.reduce((max, m) =>
+                    m.durationMs > max.durationMs ? m : max
+                );
 
-            console.log(
-                `Fastest transpilation: ${fastestPatch.durationMs.toFixed(2)}ms (${path.basename(fastestPatch.filePath)})`
-            );
-            console.log(
-                `Slowest transpilation: ${slowestPatch.durationMs.toFixed(2)}ms (${path.basename(slowestPatch.filePath)})`
-            );
+                console.log(
+                    `Fastest transpilation: ${fastestPatch.durationMs.toFixed(2)}ms (${path.basename(fastestPatch.filePath)})`
+                );
+                console.log(
+                    `Slowest transpilation: ${slowestPatch.durationMs.toFixed(2)}ms (${path.basename(slowestPatch.filePath)})`
+                );
+            }
         }
     }
 
