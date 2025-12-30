@@ -88,6 +88,29 @@ import {
     resolveObjectWrapOption
 } from "../options/object-wrap-option.js";
 
+// Import node type constants to replace magic strings
+const {
+    ASSIGNMENT_EXPRESSION,
+    BLOCK_STATEMENT,
+    CALL_EXPRESSION,
+    CONSTRUCTOR_DECLARATION,
+    DEFINE_STATEMENT,
+    EXPRESSION_STATEMENT,
+    FUNCTION_DECLARATION,
+    FUNCTION_EXPRESSION,
+    IDENTIFIER,
+    IF_STATEMENT,
+    LITERAL,
+    MACRO_DECLARATION,
+    MEMBER_DOT_EXPRESSION,
+    MEMBER_INDEX_EXPRESSION,
+    PROGRAM,
+    STRUCT_EXPRESSION,
+    TEMPLATE_STRING_TEXT,
+    VARIABLE_DECLARATION,
+    VARIABLE_DECLARATOR
+} = Core;
+
 const { isNextLineEmpty, isPreviousLineEmpty } = util;
 
 // Polyfill literalLine if not available in prettier-doc-builders
@@ -248,14 +271,14 @@ function isBlockWithinConstructor(path) {
             break;
         }
 
-        if (ancestor.type === "ConstructorDeclaration") {
+        if (ancestor.type === CONSTRUCTOR_DECLARATION) {
             return true;
         }
 
         // Stop traversing if we hit a function boundary that isn't a constructor
         if (
-            ancestor.type === "FunctionDeclaration" ||
-            ancestor.type === "FunctionExpression"
+            ancestor.type === FUNCTION_DECLARATION ||
+            ancestor.type === FUNCTION_EXPRESSION
         ) {
             return false;
         }
@@ -482,11 +505,11 @@ function tryPrintFunctionNode(node, path, options, print) {
 
             let includeOverrideTag = false;
             const parentNode = path.getParentNode();
-            if (parentNode && parentNode.type === "VariableDeclarator") {
+            if (parentNode && parentNode.type === VARIABLE_DECLARATOR) {
                 const grandParentNode = path.getParentNode(1);
                 if (
                     grandParentNode &&
-                    grandParentNode.type === "VariableDeclaration" &&
+                    grandParentNode.type === VARIABLE_DECLARATION &&
                     grandParentNode._overridesStaticFunction
                 ) {
                     includeOverrideTag = true;
@@ -560,11 +583,11 @@ function tryPrintFunctionNode(node, path, options, print) {
             } else {
                 // If the function didn't have comments, we might have consumed them from the parent VariableDeclaration
                 const parentNode = path.getParentNode();
-                if (parentNode && parentNode.type === "VariableDeclarator") {
+                if (parentNode && parentNode.type === VARIABLE_DECLARATOR) {
                     const grandParentNode = path.getParentNode(1);
                     if (
                         grandParentNode &&
-                        grandParentNode.type === "VariableDeclaration" &&
+                        grandParentNode.type === VARIABLE_DECLARATION &&
                         grandParentNode.docComments
                     ) {
                         grandParentNode.docComments.forEach((comment: any) => {
@@ -622,7 +645,7 @@ function tryPrintFunctionNode(node, path, options, print) {
                 parts.push(printEmptyParens(path, options));
             }
 
-            if (node.type === "ConstructorDeclaration") {
+            if (node.type === CONSTRUCTOR_DECLARATION) {
                 if (node.parent) {
                     parts.push(print("parent"));
                 } else {
@@ -685,10 +708,10 @@ function tryPrintFunctionSupportNode(node, path, options, print) {
 
 function tryPrintVariableNode(node, path, options, print) {
     switch (node.type) {
-        case "ExpressionStatement": {
+        case EXPRESSION_STATEMENT: {
             const expression = node.expression;
             if (
-                expression?.type === "AssignmentExpression" &&
+                expression?.type === ASSIGNMENT_EXPRESSION &&
                 expression.operator === "/=" &&
                 hasFeatherFix(expression, GM1015_DIAGNOSTIC_ID)
             ) {
@@ -1037,7 +1060,7 @@ function printBinaryExpressionNode(node, path, options, print) {
     const canConvertDivisionToHalf =
         optimizeMathExpressions &&
         operator === "/" &&
-        node?.right?.type === "Literal" &&
+        node?.right?.type === LITERAL &&
         node.right.value === "2" &&
         !Core.hasComment(node) &&
         !Core.hasComment(node.left);
@@ -1182,10 +1205,10 @@ function printCallExpressionNode(node, path, options, print) {
             maxParamsPerLine > 0 ? maxParamsPerLine : Infinity;
 
         const callbackArguments = node.arguments.filter(
-            (argument) => argument?.type === "FunctionDeclaration"
+            (argument) => argument?.type === FUNCTION_DECLARATION
         );
         const structArguments = node.arguments.filter(
-            (argument) => argument?.type === "StructExpression"
+            (argument) => argument?.type === STRUCT_EXPRESSION
         );
         const structArgumentsToBreak = structArguments.filter((argument) =>
             shouldForceBreakStructArgument(argument)
@@ -1201,7 +1224,7 @@ function printCallExpressionNode(node, path, options, print) {
         const hasSingleCallExpressionArgument =
             maxParamsPerLine > 0 &&
             node.arguments.length === 1 &&
-            node.arguments[0]?.type === "CallExpression";
+            node.arguments[0]?.type === CALL_EXPRESSION;
 
         const shouldForceBreakArguments =
             hasSingleCallExpressionArgument ||
@@ -1215,8 +1238,8 @@ function printCallExpressionNode(node, path, options, print) {
             node.arguments.at(-1)
         ].some(
             (argumentNode) =>
-                argumentNode?.type === "FunctionDeclaration" ||
-                argumentNode?.type === "StructExpression"
+                argumentNode?.type === FUNCTION_DECLARATION ||
+                argumentNode?.type === STRUCT_EXPRESSION
         );
 
         const shouldIncludeInlineVariant =
@@ -1259,13 +1282,13 @@ function printCallExpressionNode(node, path, options, print) {
 }
 
 function printMemberDotExpressionNode(node, path, options, print) {
-    if (isInLValueChain(path) && path.parent?.type === "CallExpression") {
+    if (isInLValueChain(path) && path.parent?.type === CALL_EXPRESSION) {
         const objectNode = path.getValue()?.object;
         const shouldAllowBreakBeforeDot =
             objectNode &&
-            (objectNode.type === "CallExpression" ||
-                objectNode.type === "MemberDotExpression" ||
-                objectNode.type === "MemberIndexExpression");
+            (objectNode.type === CALL_EXPRESSION ||
+                objectNode.type === MEMBER_DOT_EXPRESSION ||
+                objectNode.type === MEMBER_INDEX_EXPRESSION);
 
         if (shouldAllowBreakBeforeDot) {
             return concat([
@@ -1616,7 +1639,7 @@ function tryPrintLiteralNode(node, path, options, print) {
             ) {
                 const parentNode = path.getParentNode();
                 if (
-                    parentNode?.type === "VariableDeclarator" &&
+                    parentNode?.type === VARIABLE_DECLARATOR &&
                     typeof parentNode._alignAssignmentPadding === NUMBER_TYPE
                 ) {
                     extraPadding = Math.max(
@@ -1949,7 +1972,7 @@ function buildTemplateStringParts(atoms, path, print) {
         const atom = atoms[index];
 
         if (
-            atom?.type === "TemplateStringText" &&
+            atom?.type === TEMPLATE_STRING_TEXT &&
             typeof atom.value === STRING_TYPE
         ) {
             parts.push(atom.value);
@@ -1961,8 +1984,7 @@ function buildTemplateStringParts(atoms, path, print) {
         // printer's expression loop, so skipping the extra array and iterator
         // bookkeeping removes two allocations for mixed templates while keeping
         // the doc emission identical.
-        const shouldBreak =
-            atom.type !== "Identifier" && atom.type !== "Literal";
+        const shouldBreak = atom.type !== IDENTIFIER && atom.type !== LITERAL;
         parts.push(
             group(
                 concat([
@@ -2283,7 +2305,7 @@ function printInBlock(path, options, print, expressionKey) {
     const parentNode = path.getValue();
     const node = parentNode[expressionKey];
 
-    if (node.type === "BlockStatement") {
+    if (node.type === BLOCK_STATEMENT) {
         return [print(expressionKey), optionalSemicolon(node.type)];
     }
 
@@ -2325,7 +2347,7 @@ function shouldPrintBlockAlternateAsElseIf(node) {
     }
 
     const [onlyStatement] = body;
-    return onlyStatement?.type === "IfStatement";
+    return onlyStatement?.type === IF_STATEMENT;
 }
 
 // print a delimited sequence of elements
@@ -2641,7 +2663,7 @@ function getStructPropertyNameLength(property, options) {
         return 0;
     }
 
-    if (nameNode.type === "Identifier") {
+    if (nameNode.type === IDENTIFIER) {
         const identifierText = Core.getIdentifierText(nameNode);
         return typeof identifierText === STRING_TYPE
             ? identifierText.length
@@ -2668,7 +2690,7 @@ function printStatements(path, options, print, childrenAttribute) {
                     ? path.getParentNode(depth)
                     : null;
             if (!p) break;
-            programNode = p.type === "Program" ? p : programNode;
+            programNode = p.type === PROGRAM ? p : programNode;
         }
     } catch {
         // If the path doesn't expose getParentNode with a depth signature
@@ -2676,7 +2698,7 @@ function printStatements(path, options, print, childrenAttribute) {
         // receive a usable object.
         programNode = parentNode;
     }
-    if (!programNode && parentNode?.type === "Program") {
+    if (!programNode && parentNode?.type === PROGRAM) {
         programNode = parentNode;
     }
     const containerNode =
@@ -2757,7 +2779,7 @@ function buildStatementPartsForPrinter({
     if (!node) {
         return { parts, previousNodeHadNewlineAddedAfter };
     }
-    const isTopLevel = childPath.parent?.type === "Program";
+    const isTopLevel = childPath.parent?.type === PROGRAM;
     const printed = print();
 
     if (printed === undefined || printed === null || printed === "") {
@@ -2812,7 +2834,7 @@ function buildStatementPartsForPrinter({
         hasTerminatingSemicolon = textForSemicolons[cursor] === ";";
     }
 
-    const isVariableDeclaration = node.type === "VariableDeclaration";
+    const isVariableDeclaration = node.type === VARIABLE_DECLARATION;
     const isStaticDeclaration = isVariableDeclaration && node.kind === "static";
     const hasFunctionInitializer =
         isVariableDeclaration &&
@@ -2820,13 +2842,13 @@ function buildStatementPartsForPrinter({
         node.declarations.some((declaration) => {
             const initType = declaration?.init?.type;
             return (
-                initType === "FunctionExpression" ||
-                initType === "FunctionDeclaration"
+                initType === FUNCTION_EXPRESSION ||
+                initType === FUNCTION_DECLARATION
             );
         });
 
     const isFirstStatementInBlock =
-        index === 0 && childPath.parent?.type !== "Program";
+        index === 0 && childPath.parent?.type !== PROGRAM;
 
     const suppressFollowingEmptyLine =
         node?._featherSuppressFollowingEmptyLine === true ||
@@ -2994,11 +3016,11 @@ function normalizeStatementSemicolon({
     }
 
     const initializerIsFunctionExpression =
-        node.type === "VariableDeclaration" &&
+        node.type === VARIABLE_DECLARATION &&
         Array.isArray(node.declarations) &&
         node.declarations.length === 1 &&
-        (node.declarations[0]?.init?.type === "FunctionExpression" ||
-            node.declarations[0]?.init?.type === "FunctionDeclaration");
+        (node.declarations[0]?.init?.type === FUNCTION_EXPRESSION ||
+            node.declarations[0]?.init?.type === FUNCTION_DECLARATION);
 
     if (initializerIsFunctionExpression && !hasTerminatingSemicolon) {
         // Normalized legacy `#define` directives used to omit trailing
@@ -3012,17 +3034,17 @@ function normalizeStatementSemicolon({
 
     if (
         !hasTerminatingSemicolon &&
-        node.type === "AssignmentExpression" &&
+        node.type === ASSIGNMENT_EXPRESSION &&
         isInsideConstructorFunction(childPath)
     ) {
         return "";
     }
 
     const assignmentExpressionForSemicolonCheck =
-        node.type === "AssignmentExpression"
+        node.type === ASSIGNMENT_EXPRESSION
             ? node
-            : node.type === "ExpressionStatement" &&
-                node.expression?.type === "AssignmentExpression"
+            : node.type === EXPRESSION_STATEMENT &&
+                node.expression?.type === ASSIGNMENT_EXPRESSION
               ? node.expression
               : null;
 
@@ -3141,7 +3163,7 @@ function handleIntermediateTrailingSpacing({
         ? syntheticDocByNode.has(nextNode)
         : false;
     const nextLineProbeIndex =
-        node?.type === "DefineStatement" || node?.type === "MacroDeclaration"
+        node?.type === DEFINE_STATEMENT || node?.type === MACRO_DECLARATION
             ? nodeEndIndex
             : nodeEndIndex + 1;
 
@@ -3157,7 +3179,7 @@ function handleIntermediateTrailingSpacing({
             : isNextLineEmpty(options.originalText, nextLineProbeIndex);
 
     const isSanitizedMacro =
-        node?.type === "MacroDeclaration" &&
+        node?.type === MACRO_DECLARATION &&
         typeof node._featherMacroText === STRING_TYPE;
     const sanitizedMacroHasExplicitBlankLine =
         isSanitizedMacro &&
@@ -3224,7 +3246,7 @@ function handleTerminalTrailingSpacing({
     let previousNodeHadNewlineAddedAfter = false;
     const parentNode = childPath.parent;
     const trailingProbeIndex =
-        node?.type === "DefineStatement" || node?.type === "MacroDeclaration"
+        node?.type === DEFINE_STATEMENT || node?.type === MACRO_DECLARATION
             ? nodeEndIndex
             : nodeEndIndex + 1;
     const enforceTrailingPadding = shouldAddNewlinesAroundStatement(node);

@@ -3,6 +3,19 @@ import { isObjectLike } from "../utils/object.js";
 import { isNonEmptyString } from "../utils/string.js";
 import { assignClonedLocation } from "./locations.js";
 import { hasComment } from "../comments/comment-utils.js";
+import {
+    VARIABLE_DECLARATION,
+    VARIABLE_DECLARATOR,
+    BLOCK_STATEMENT,
+    IDENTIFIER,
+    LITERAL,
+    ASSIGNMENT_PATTERN,
+    CALL_EXPRESSION,
+    MEMBER_INDEX_EXPRESSION,
+    PARENTHESIZED_EXPRESSION,
+    BINARY_EXPRESSION,
+    MEMBER_DOT_EXPRESSION
+} from "./node-types.js";
 import type {
     AssignmentPatternNode,
     CallExpressionNode,
@@ -45,7 +58,7 @@ const ARITHMETIC_OPERATORS = new Set([
 export function getSingleVariableDeclarator(
     node: GameMakerAstNode | null | undefined
 ): VariableDeclaratorNode | null {
-    if (node?.type !== "VariableDeclaration") {
+    if (node?.type !== VARIABLE_DECLARATION) {
         return null;
     }
 
@@ -55,7 +68,7 @@ export function getSingleVariableDeclarator(
     }
 
     const [declarator] = declarations;
-    if (declarator?.type !== "VariableDeclarator") {
+    if (declarator?.type !== VARIABLE_DECLARATOR) {
         return null;
     }
 
@@ -86,7 +99,7 @@ export function getSingleBodyStatement(
         skipStatementCommentCheck?: boolean;
     } = {}
 ): GameMakerAstNode | null {
-    if (!node || node.type !== "BlockStatement") {
+    if (!node || node.type !== BLOCK_STATEMENT) {
         return null;
     }
 
@@ -186,7 +199,7 @@ export function forEachNodeChild(
 export function getVariableDeclarationKind(
     node: GameMakerAstNode | null | undefined
 ): "var" | "global" | "static" | (string & {}) | null {
-    if (node?.type !== "VariableDeclaration") {
+    if (node?.type !== VARIABLE_DECLARATION) {
         return null;
     }
 
@@ -324,9 +337,7 @@ export function resolveNodeName(
 export function isIdentifierNode(node: unknown): node is IdentifierNode {
     if (!isNode(node)) return false;
     const candidate = node as { type?: unknown; name?: unknown };
-    return (
-        candidate.type === "Identifier" && typeof candidate.name === "string"
-    );
+    return candidate.type === IDENTIFIER && typeof candidate.name === "string";
 }
 
 /**
@@ -341,7 +352,7 @@ export function isIdentifierNode(node: unknown): node is IdentifierNode {
  */
 export function isLiteralNode(node: unknown): node is LiteralNode {
     if (!isNode(node)) return false;
-    return (node as { type?: unknown }).type === "Literal";
+    return (node as { type?: unknown }).type === LITERAL;
 }
 
 /**
@@ -358,7 +369,7 @@ export function isAssignmentPatternNode(
     node: unknown
 ): node is AssignmentPatternNode {
     if (!isNode(node)) return false;
-    return (node as { type?: unknown }).type === "AssignmentPattern";
+    return (node as { type?: unknown }).type === ASSIGNMENT_PATTERN;
 }
 
 /**
@@ -375,7 +386,7 @@ export function isCallExpressionNode(
     node: unknown
 ): node is CallExpressionNode {
     if (!isNode(node)) return false;
-    return (node as { type?: unknown }).type === "CallExpression";
+    return (node as { type?: unknown }).type === CALL_EXPRESSION;
 }
 
 /**
@@ -392,7 +403,7 @@ export function isMemberIndexExpressionNode(
     node: unknown
 ): node is MemberIndexExpressionNode {
     if (!isNode(node)) return false;
-    return (node as { type?: unknown }).type === "MemberIndexExpression";
+    return (node as { type?: unknown }).type === MEMBER_INDEX_EXPRESSION;
 }
 
 /**
@@ -456,7 +467,7 @@ export function createIdentifierNode(
     }
 
     const identifier: IdentifierNode = {
-        type: "Identifier",
+        type: IDENTIFIER,
         name
     };
 
@@ -1231,7 +1242,7 @@ export function unwrapParenthesizedExpression(
 ): GameMakerAstNode | null | undefined {
     let current = node;
 
-    while (isNode(current) && current.type === "ParenthesizedExpression") {
+    while (isNode(current) && current.type === PARENTHESIZED_EXPRESSION) {
         const expression = (current as ParenthesizedExpressionNode).expression;
         if (!isNode(expression)) {
             break;
@@ -1260,7 +1271,7 @@ export function isBinaryOperator(
     operator: string
 ): boolean {
     return (
-        node?.type === "BinaryExpression" &&
+        node?.type === BINARY_EXPRESSION &&
         (node as { operator?: string }).operator?.toLowerCase() === operator
     );
 }
@@ -1292,14 +1303,14 @@ export function getStructPropertyAccess(
         return null;
     }
 
-    if (left.type === "MemberDotExpression" && isNode(left.property)) {
+    if (left.type === MEMBER_DOT_EXPRESSION && isNode(left.property)) {
         return {
             propertyNode: left.property,
             propertyStart: left.property?.start
         };
     }
 
-    if (left.type === "MemberIndexExpression") {
+    if (left.type === MEMBER_INDEX_EXPRESSION) {
         const propertyNode = getSingleMemberIndexPropertyEntry(left);
         if (!isNode(propertyNode)) {
             return null;
