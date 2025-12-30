@@ -147,24 +147,84 @@ export interface ShadowTestResult {
     error?: string;
 }
 
-export interface RuntimeWrapper {
-    state: RuntimeWrapperState;
+/**
+ * Patch application operations.
+ *
+ * Provides the core capability to apply runtime patches without coupling
+ * to history tracking, registry queries, or statistics gathering.
+ * Consumers that only need to apply patches (e.g., WebSocket clients)
+ * should depend on this interface rather than the full RuntimeWrapper.
+ */
+export interface PatchApplicator {
     applyPatch(patch: unknown): ApplyPatchResult;
     applyPatchBatch(patches: Array<unknown>): BatchApplyResult;
     trySafeApply(
         patch: unknown,
         onValidate?: (patch: Patch) => boolean | void
     ): TrySafeApplyResult;
+}
+
+/**
+ * History and undo operations.
+ *
+ * Provides patch history tracking and the ability to undo previously
+ * applied patches without coupling to patch application or registry queries.
+ */
+export interface HistoryManager {
     undo(): { success: boolean; version?: number; message?: string };
     getPatchHistory(): Array<PatchHistoryEntry>;
-    getRegistrySnapshot(): RuntimeRegistrySnapshot;
-    getPatchStats(): PatchStats;
-    getVersion(): number;
+}
+
+/**
+ * Read-only registry access.
+ *
+ * Provides query operations for scripts, events, and closures in the
+ * runtime registry without coupling to mutation or patch application.
+ */
+export interface RegistryReader {
     getScript(id: string): RuntimeFunction | undefined;
     getEvent(id: string): RuntimeFunction | undefined;
+    getClosure(id: string): RuntimeFunction | undefined;
     hasScript(id: string): boolean;
     hasEvent(id: string): boolean;
-    getClosure(id: string): RuntimeFunction | undefined;
     hasClosure(id: string): boolean;
+}
+
+/**
+ * Registry mutation operations.
+ *
+ * Provides the ability to clear the runtime registry without coupling
+ * to patch application or query operations.
+ */
+export interface RegistryMutator {
     clearRegistry(): void;
+}
+
+/**
+ * Runtime metrics and snapshot operations.
+ *
+ * Provides statistics gathering and registry snapshot capabilities
+ * without coupling to patch application or registry mutations.
+ */
+export interface RuntimeMetrics {
+    getPatchStats(): PatchStats;
+    getRegistrySnapshot(): RuntimeRegistrySnapshot;
+    getVersion(): number;
+}
+
+/**
+ * Complete runtime wrapper interface.
+ *
+ * Combines all role-focused interfaces for consumers that need full
+ * runtime wrapper capabilities. Consumers should prefer depending on
+ * the minimal interface they need (PatchApplicator, HistoryManager, etc.)
+ * rather than this composite interface when possible.
+ */
+export interface RuntimeWrapper
+    extends PatchApplicator,
+        HistoryManager,
+        RegistryReader,
+        RegistryMutator,
+        RuntimeMetrics {
+    state: RuntimeWrapperState;
 }
