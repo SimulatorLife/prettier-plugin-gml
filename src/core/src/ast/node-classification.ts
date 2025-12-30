@@ -5,7 +5,9 @@ import {
     FUNCTION_EXPRESSION,
     CONSTRUCTOR_DECLARATION,
     EXPRESSION_STATEMENT,
-    ASSIGNMENT_EXPRESSION
+    ASSIGNMENT_EXPRESSION,
+    DEFINE_STATEMENT,
+    MACRO_DECLARATION
 } from "./node-types.js";
 
 /**
@@ -72,8 +74,7 @@ export function isFunctionAssignmentStatement(node: any) {
 
     const rightType = assignmentExpression.right?.type;
     return (
-        rightType === "FunctionDeclaration" ||
-        rightType === "FunctionExpression"
+        rightType === FUNCTION_DECLARATION || rightType === FUNCTION_EXPRESSION
     );
 }
 
@@ -125,7 +126,7 @@ export function getNormalizedDefineReplacementDirective(
 export function isDefineStatementNode(
     node?: GameMakerAstNode | null
 ): node is DefineStatementNode {
-    return node?.type === "DefineStatement";
+    return node?.type === DEFINE_STATEMENT;
 }
 
 /**
@@ -142,7 +143,7 @@ export function isMacroLikeStatement(node?: GameMakerAstNode | null): boolean {
         return false;
     }
 
-    if (nodeType === "MacroDeclaration") {
+    if (nodeType === MACRO_DECLARATION) {
         return true;
     }
 
