@@ -1,8 +1,8 @@
 import { validatePatch } from "../runtime/patch-utils.js";
 import type {
     Patch,
+    PatchApplicator,
     RuntimePatchError,
-    RuntimeWrapper,
     TrySafeApplyResult
 } from "../runtime/types.js";
 import type {
@@ -406,7 +406,7 @@ function validatePatchCandidate(
 
 function applyPatchSafely(
     patch: Patch,
-    wrapper: RuntimeWrapper,
+    wrapper: PatchApplicator,
     onError?: WebSocketClientOptions["onError"]
 ): boolean {
     try {
@@ -459,7 +459,7 @@ function handleSafeApplyException(
 
 function applyPatchDirectly(
     patch: Patch,
-    wrapper: RuntimeWrapper,
+    wrapper: PatchApplicator,
     onError?: WebSocketClientOptions["onError"]
 ): boolean {
     try {
