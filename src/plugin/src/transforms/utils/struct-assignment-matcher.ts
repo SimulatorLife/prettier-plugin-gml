@@ -44,10 +44,6 @@ export class StructAssignmentMatcher {
                 return null;
             }
 
-            if (Core.getNodeType(declarator.init) !== STRUCT_EXPRESSION) {
-                return null;
-            }
-
             if (
                 Array.isArray((declarator.init as any).properties) &&
                 (declarator.init as any).properties.length > 0
