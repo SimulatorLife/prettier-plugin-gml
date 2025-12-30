@@ -2840,3 +2840,155 @@ void test("computeHotReloadCascade handles non-circular dependencies correctly",
     assert.equal(cEntry.distance, 2);
     assert.equal(result.metadata.maxDistance, 2);
 });
+
+void test("validateBatchRenameRequest validates empty array", async () => {
+    const engine = new RefactorEngine();
+    const validation = await engine.validateBatchRenameRequest([]);
+
+    assert.equal(validation.valid, false);
+    assert.ok(
+        validation.errors.some((e) => e.includes("at least one rename request"))
+    );
+});
+
+void test("validateBatchRenameRequest validates non-array input", async () => {
+    const engine = new RefactorEngine();
+    const validation = await engine.validateBatchRenameRequest(
+        null as unknown as Array<RenameRequest>
+    );
+
+    assert.equal(validation.valid, false);
+    assert.ok(validation.errors.some((e) => e.includes("array")));
+});
+
+void test("validateBatchRenameRequest validates individual rename requests", async () => {
+    const mockSemantic: SemanticAnalyzer = {
+        hasSymbol: () => true,
+        getSymbolOccurrences: () => []
+    };
+    const engine = new RefactorEngine({ semantic: mockSemantic });
+
+    const validation = await engine.validateBatchRenameRequest([
+        { symbolId: "gml/script/scr_a", newName: "scr_x" },
+        { symbolId: "gml/script/scr_b", newName: "invalid-name" }
+    ]);
+
+    assert.equal(validation.valid, false);
+    assert.equal(validation.renameValidations.size, 2);
+
+    const validationA = validation.renameValidations.get("gml/script/scr_a");
+    const validationB = validation.renameValidations.get("gml/script/scr_b");
+
+    assert.ok(validationA);
+    assert.equal(validationA.valid, true);
+
+    assert.ok(validationB);
+    assert.equal(validationB.valid, false);
+});
+
+void test("validateBatchRenameRequest detects duplicate target names", async () => {
+    const mockSemantic: SemanticAnalyzer = {
+        hasSymbol: () => true,
+        getSymbolOccurrences: () => []
+    };
+    const engine = new RefactorEngine({ semantic: mockSemantic });
+
+    const validation = await engine.validateBatchRenameRequest([
+        { symbolId: "gml/script/scr_a", newName: "scr_same" },
+        { symbolId: "gml/script/scr_b", newName: "scr_same" }
+    ]);
+
+    assert.equal(validation.valid, false);
+    assert.ok(validation.errors.some((e) => e.includes("scr_same")));
+    assert.equal(validation.conflictingSets.length, 1);
+    assert.equal(validation.conflictingSets[0].length, 2);
+});
+
+void test("validateBatchRenameRequest detects circular rename chains", async () => {
+    const mockSemantic: SemanticAnalyzer = {
+        hasSymbol: () => true,
+        getSymbolOccurrences: () => []
+    };
+    const engine = new RefactorEngine({ semantic: mockSemantic });
+
+    const validation = await engine.validateBatchRenameRequest([
+        { symbolId: "gml/script/scr_a", newName: "scr_b" },
+        { symbolId: "gml/script/scr_b", newName: "scr_a" }
+    ]);
+
+    assert.equal(validation.valid, false);
+    assert.ok(validation.errors.some((e) => e.includes("Circular")));
+    assert.ok(validation.conflictingSets.length > 0);
+});
+
+void test("validateBatchRenameRequest warns about cross-rename confusion", async () => {
+    const mockSemantic: SemanticAnalyzer = {
+        hasSymbol: () => true,
+        getSymbolOccurrences: () => []
+    };
+    const engine = new RefactorEngine({ semantic: mockSemantic });
+
+    const validation = await engine.validateBatchRenameRequest([
+        { symbolId: "gml/script/scr_a", newName: "scr_temp" },
+        { symbolId: "gml/script/scr_b", newName: "scr_a" }
+    ]);
+
+    assert.equal(validation.valid, true);
+    assert.ok(
+        validation.warnings.some((w) => w.includes("potential confusion"))
+    );
+});
+
+void test("validateBatchRenameRequest passes for valid batch", async () => {
+    const mockSemantic: SemanticAnalyzer = {
+        hasSymbol: () => true,
+        getSymbolOccurrences: () => [
+            { path: "test.gml", start: 0, end: 5, scopeId: "scope-1" }
+        ]
+    };
+    const engine = new RefactorEngine({ semantic: mockSemantic });
+
+    const validation = await engine.validateBatchRenameRequest([
+        { symbolId: "gml/script/scr_a", newName: "scr_x" },
+        { symbolId: "gml/script/scr_b", newName: "scr_y" }
+    ]);
+
+    assert.equal(validation.valid, true);
+    assert.equal(validation.errors.length, 0);
+    assert.equal(validation.renameValidations.size, 2);
+    assert.equal(validation.conflictingSets.length, 0);
+});
+
+void test("validateBatchRenameRequest includes hot reload checks when requested", async () => {
+    const mockSemantic: SemanticAnalyzer = {
+        hasSymbol: () => true,
+        getSymbolOccurrences: () => [
+            { path: "test.gml", start: 0, end: 5, scopeId: "scope-1" }
+        ]
+    };
+    const engine = new RefactorEngine({ semantic: mockSemantic });
+
+    const validation = await engine.validateBatchRenameRequest(
+        [{ symbolId: "gml/script/scr_a", newName: "scr_x" }],
+        { includeHotReload: true }
+    );
+
+    const renameValidation =
+        validation.renameValidations.get("gml/script/scr_a");
+    assert.ok(renameValidation);
+    assert.ok(renameValidation.hotReload);
+});
+
+void test("validateBatchRenameRequest handles invalid request objects", async () => {
+    const engine = new RefactorEngine();
+
+    const validation = await engine.validateBatchRenameRequest([
+        null as unknown as RenameRequest,
+        { symbolId: "gml/script/scr_a", newName: "scr_x" }
+    ]);
+
+    assert.equal(validation.valid, false);
+    assert.ok(
+        validation.errors.some((e) => e.includes("valid request object"))
+    );
+});

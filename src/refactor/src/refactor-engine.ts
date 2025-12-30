@@ -3,6 +3,7 @@ import { Core } from "@gml-modules/core";
 import type {
     ApplyWorkspaceEditOptions,
     AstNode,
+    BatchRenameValidation,
     CascadeEntry,
     ConflictEntry,
     ExecuteBatchRenameRequest,
@@ -400,6 +401,225 @@ export class RefactorEngine {
             symbolName,
             occurrenceCount: occurrences.length,
             hotReload
+        };
+    }
+
+    /**
+     * Validate a batch of rename requests before planning edits.
+     * Provides comprehensive validation feedback for multiple rename operations,
+     * checking for conflicts between renames and ensuring batch consistency.
+     *
+     * @param {Array<{symbolId: string, newName: string}>} renames - Rename requests to validate
+     * @param {Object} [options] - Validation options
+     * @param {boolean} [options.includeHotReload=false] - Whether to check hot reload safety for each rename
+     * @returns {Promise<{
+     *   valid: boolean,
+     *   errors: Array<string>,
+     *   warnings: Array<string>,
+     *   renameValidations: Map<string, ValidationSummary>,
+     *   conflictingSets: Array<Array<string>>
+     * }>} Aggregated validation results
+     *
+     * @example
+     * const validation = await engine.validateBatchRenameRequest([
+     *     { symbolId: "gml/script/scr_a", newName: "scr_x" },
+     *     { symbolId: "gml/script/scr_b", newName: "scr_y" }
+     * ]);
+     *
+     * if (!validation.valid) {
+     *     console.error("Batch rename has errors:", validation.errors);
+     *     for (const [symbolId, result] of validation.renameValidations) {
+     *         if (!result.valid) {
+     *             console.error(`  ${symbolId}:`, result.errors);
+     *         }
+     *     }
+     * }
+     */
+    async validateBatchRenameRequest(
+        renames: Array<RenameRequest>,
+        options?: ValidateRenameRequestOptions
+    ): Promise<BatchRenameValidation> {
+        const errors: Array<string> = [];
+        const warnings: Array<string> = [];
+        const renameValidations = new Map<string, ValidationSummary>();
+        const conflictingSets: Array<Array<string>> = [];
+
+        // Validate input structure
+        if (!Array.isArray(renames)) {
+            errors.push("Batch rename requires an array of rename requests");
+            return {
+                valid: false,
+                errors,
+                warnings,
+                renameValidations,
+                conflictingSets
+            };
+        }
+
+        if (renames.length === 0) {
+            errors.push("Batch rename requires at least one rename request");
+            return {
+                valid: false,
+                errors,
+                warnings,
+                renameValidations,
+                conflictingSets
+            };
+        }
+
+        // Validate each rename request individually
+        for (const rename of renames) {
+            if (!rename || typeof rename !== "object") {
+                errors.push("Each rename must be a valid request object");
+                continue;
+            }
+
+            const { symbolId } = rename;
+            if (!symbolId || typeof symbolId !== "string") {
+                errors.push(
+                    "Each rename must have a valid symbolId string property"
+                );
+                continue;
+            }
+
+            // Validate individual rename request
+            const validation = await this.validateRenameRequest(
+                rename,
+                options
+            );
+            renameValidations.set(symbolId, validation);
+
+            if (!validation.valid) {
+                errors.push(
+                    `Rename validation failed for '${symbolId}': ${validation.errors.join(", ")}`
+                );
+            }
+
+            if (validation.warnings.length > 0) {
+                warnings.push(
+                    ...validation.warnings.map((w) => `${symbolId}: ${w}`)
+                );
+            }
+        }
+
+        // Check for duplicate target names across the batch
+        const newNameToSymbols = new Map<string, Array<string>>();
+        for (const rename of renames) {
+            if (
+                !rename ||
+                typeof rename !== "object" ||
+                !rename.newName ||
+                typeof rename.newName !== "string" ||
+                !rename.symbolId ||
+                typeof rename.symbolId !== "string"
+            ) {
+                // Skip invalid entries - they're already caught above
+                continue;
+            }
+
+            try {
+                const normalizedNewName = assertValidIdentifierName(
+                    rename.newName
+                );
+                if (!newNameToSymbols.has(normalizedNewName)) {
+                    newNameToSymbols.set(normalizedNewName, []);
+                }
+                newNameToSymbols.get(normalizedNewName).push(rename.symbolId);
+            } catch {
+                // Skip invalid identifier names - they'll be caught by individual validation
+                continue;
+            }
+        }
+
+        // Detect conflicting renames (multiple symbols renamed to the same name)
+        for (const [newName, symbolIds] of newNameToSymbols.entries()) {
+            if (symbolIds.length > 1) {
+                errors.push(
+                    `Multiple symbols cannot be renamed to '${newName}': ${symbolIds.join(", ")}`
+                );
+                conflictingSets.push(symbolIds);
+            }
+        }
+
+        // Detect circular rename chains - filter out invalid renames first
+        const validRenames = renames.filter(
+            (rename) =>
+                rename &&
+                typeof rename === "object" &&
+                rename.symbolId &&
+                typeof rename.symbolId === "string" &&
+                rename.newName &&
+                typeof rename.newName === "string"
+        );
+
+        const circularChain = detectCircularRenames(validRenames);
+        if (circularChain.length > 0) {
+            const chain = circularChain
+                .map((id) => id.split("/").pop())
+                .join(" → ");
+            errors.push(
+                `Circular rename chain detected: ${chain}. Cannot rename symbols in a cycle.`
+            );
+            conflictingSets.push(circularChain);
+        }
+
+        // Check for cross-rename conflicts where one rename's new name matches another's old name
+        // (but not in a circular way - that's already handled above)
+        const oldNames = new Set<string>();
+        const newNames = new Set<string>();
+
+        // First pass: collect all old and new names
+        for (const rename of validRenames) {
+            const oldName = rename.symbolId.split("/").pop();
+            if (oldName) {
+                oldNames.add(oldName);
+            }
+
+            try {
+                const normalizedNewName = assertValidIdentifierName(
+                    rename.newName
+                );
+                newNames.add(normalizedNewName);
+            } catch {
+                // Skip invalid names
+                continue;
+            }
+        }
+
+        // Second pass: detect confusion where new name was an old name
+        for (const rename of validRenames) {
+            const oldName = rename.symbolId.split("/").pop();
+            if (!oldName) {
+                continue;
+            }
+
+            try {
+                const normalizedNewName = assertValidIdentifierName(
+                    rename.newName
+                );
+
+                // Warn if this new name matches any old name in the batch (potential confusion)
+                // but exclude the case where it's the same symbol (already caught as same-name rename)
+                if (
+                    oldNames.has(normalizedNewName) &&
+                    oldName !== normalizedNewName
+                ) {
+                    warnings.push(
+                        `Rename introduces potential confusion: '${rename.symbolId}' renamed to '${normalizedNewName}' which was an original symbol name in this batch`
+                    );
+                }
+            } catch {
+                // Skip invalid names
+                continue;
+            }
+        }
+
+        return {
+            valid: errors.length === 0,
+            errors,
+            warnings,
+            renameValidations,
+            conflictingSets
         };
     }
 
