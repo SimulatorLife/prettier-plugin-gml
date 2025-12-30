@@ -141,15 +141,11 @@ const VALID_PRETTIER_LOG_LEVELS = new Set([
 
 const parseErrorActionOption = createEnumeratedOptionHelpers(
     VALID_PARSE_ERROR_ACTIONS,
-    {
-        formatErrorMessage: ({ list }) => `Must be one of: ${list}`
-    }
+    (list) => `Must be one of: ${list}`
 );
 const logLevelOption = createEnumeratedOptionHelpers(
     VALID_PRETTIER_LOG_LEVELS,
-    {
-        formatErrorMessage: ({ list }) => `Must be one of: ${list}`
-    }
+    (list) => `Must be one of: ${list}`
 );
 
 const FORMAT_COMMAND_CLI_EXAMPLE =
@@ -303,13 +299,14 @@ function resolveDefaultExtensions() {
 const DEFAULT_PARSE_ERROR_ACTION =
     parseErrorActionOption.normalize(
         process.env.PRETTIER_PLUGIN_GML_ON_PARSE_ERROR,
-        { fallback: ParseErrorAction.ABORT }
+        ParseErrorAction.ABORT
     ) ?? ParseErrorAction.ABORT;
 
 const DEFAULT_PRETTIER_LOG_LEVEL =
-    logLevelOption.normalize(process.env.PRETTIER_PLUGIN_GML_LOG_LEVEL, {
-        fallback: "warn"
-    }) ?? "warn";
+    logLevelOption.normalize(
+        process.env.PRETTIER_PLUGIN_GML_LOG_LEVEL,
+        "warn"
+    ) ?? "warn";
 
 // Save the original console.debug, console.error, console.warn, console.log
 // and console.info so we can
@@ -657,21 +654,17 @@ function createFormatCommand({ name = "prettier-plugin-gml" } = {}) {
         .option(
             "--log-level <level>",
             "Prettier log level: debug|info|warn|error|silent. Default: warn",
-            (value) =>
-                logLevelOption.requireValue(value, {
-                    fallback: DEFAULT_PRETTIER_LOG_LEVEL,
-                    errorConstructor: InvalidArgumentError
-                }),
+            (value) => logLevelOption.requireValue(value, InvalidArgumentError),
             DEFAULT_PRETTIER_LOG_LEVEL
         )
         .option(
             "--on-parse-error <mode>",
             "Parser failure handling: revert|skip|abort. Default: abort",
             (value) =>
-                parseErrorActionOption.requireValue(value, {
-                    fallback: DEFAULT_PARSE_ERROR_ACTION,
-                    errorConstructor: InvalidArgumentError
-                }),
+                parseErrorActionOption.requireValue(
+                    value,
+                    InvalidArgumentError
+                ),
             DEFAULT_PARSE_ERROR_ACTION
         )
         .addHelpText("after", () =>
@@ -738,9 +731,8 @@ function configurePrettierOptions({
     logLevel?: unknown;
 } = {}) {
     const normalized =
-        logLevelOption.normalize(logLevel, {
-            fallback: DEFAULT_PRETTIER_LOG_LEVEL
-        }) ?? DEFAULT_PRETTIER_LOG_LEVEL;
+        logLevelOption.normalize(logLevel, DEFAULT_PRETTIER_LOG_LEVEL) ??
+        DEFAULT_PRETTIER_LOG_LEVEL;
     options.logLevel = normalized;
     // Toggle console.debug and filter console.error based on the configured
     // Prettier log level so internal debug and diagnostic output is suppressed
@@ -1693,12 +1685,8 @@ async function prepareFormattingRun({
     configureSkippedDirectorySampleLimit(skippedDirectorySampleLimit);
     configureIgnoredFileSampleLimit(ignoredFileSampleLimit);
     configureUnsupportedExtensionSampleLimit(unsupportedExtensionSampleLimit);
-    const normalizedParseErrorAction = parseErrorActionOption.requireValue(
-        onParseError,
-        {
-            fallback: DEFAULT_PARSE_ERROR_ACTION
-        }
-    );
+    const normalizedParseErrorAction =
+        parseErrorActionOption.requireValue(onParseError);
     await resetFormattingSession(normalizedParseErrorAction);
     configureCheckMode(checkMode);
 }

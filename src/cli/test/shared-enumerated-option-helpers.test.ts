@@ -1,13 +1,10 @@
 import assert from "node:assert/strict";
 import { describe, it } from "node:test";
 
-import { Core } from "@gml-modules/core";
 import {
     createEnumeratedOptionHelpers,
     createStringEnumeratedOptionHelpers
 } from "../src/shared/enumerated-option-helpers.js";
-
-const { describeValueForError } = Core;
 
 void describe("createEnumeratedOptionHelpers", () => {
     void it("formats the sorted list of enumerated values", () => {
@@ -22,16 +19,17 @@ void describe("createEnumeratedOptionHelpers", () => {
     void it("normalizes values with fallback support", () => {
         const helpers = createEnumeratedOptionHelpers(["json", "human"]);
         assert.equal(helpers.normalize("json"), "json");
-        assert.equal(helpers.normalize(null, { fallback: "human" }), "human");
-        assert.equal(helpers.normalize("xml", { fallback: "human" }), null);
+        assert.equal(helpers.normalize(null, "human"), "human");
+        assert.equal(helpers.normalize("xml", "human"), "human");
         assert.equal(helpers.normalize("xml"), null);
     });
 
     void it("throws with a descriptive message when value is not allowed", () => {
-        const helpers = createEnumeratedOptionHelpers(["json"], {
-            formatErrorMessage: ({ list, received }) =>
+        const helpers = createEnumeratedOptionHelpers(
+            ["json"],
+            (list, received) =>
                 `Expected values: ${list}. Received: ${received}.`
-        });
+        );
 
         assert.throws(
             () => helpers.requireValue("yaml"),
@@ -41,43 +39,23 @@ void describe("createEnumeratedOptionHelpers", () => {
         );
     });
 
-    void it("supports custom coercion when validating values", () => {
-        const helpers = createEnumeratedOptionHelpers(["json"], {
-            coerce(value) {
-                if (typeof value !== "string") {
-                    throw new TypeError("value must be provided as a string");
-                }
-
-                return value.trim().toLowerCase();
-            }
-        });
-
-        assert.equal(helpers.requireValue(" JSON \n"), "json");
-        assert.throws(
-            () => helpers.requireValue(42),
-            /value must be provided as a string/
-        );
-    });
-
-    void it("allows overriding error messages per invocation", () => {
+    void it("uses default error message when no custom formatter is provided", () => {
         const helpers = createEnumeratedOptionHelpers(["json"]);
         assert.throws(
-            () =>
-                helpers.requireValue("yaml", {
-                    createErrorMessage: (value) =>
-                        `unsupported: ${describeValueForError(value)}`
-                }),
+            () => helpers.requireValue("yaml"),
             (error) =>
                 error instanceof Error &&
-                error.message === 'unsupported: "yaml"'
+                error.message ===
+                    'Value must be one of: json. Received: "yaml".'
         );
     });
 
     void it("normalizes string inputs while enforcing type guards", () => {
-        const helpers = createStringEnumeratedOptionHelpers(["json"], {
-            valueLabel: "Output format",
-            formatErrorMessage: ({ list }) => `Format must be one of: ${list}.`
-        });
+        const helpers = createStringEnumeratedOptionHelpers(
+            ["json"],
+            "Output format",
+            (list) => `Format must be one of: ${list}.`
+        );
 
         assert.equal(helpers.requireValue(" JSON \n"), "json");
         assert.throws(
