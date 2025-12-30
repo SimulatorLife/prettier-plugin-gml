@@ -164,6 +164,76 @@ void describe("runtime static server", () => {
             await rm(tempDir, { recursive: true, force: true });
         }
     });
+
+    void it("closes file streams when client aborts request mid-stream", async () => {
+        const tempDir = await mkdtemp(
+            path.join(os.tmpdir(), "gml-runtime-server-abort-leak-")
+        );
+        // Create a large file to ensure stream is still reading when we abort
+        const largeContent = "x".repeat(5 * 1024 * 1024); // 5MB to ensure stream is active
+        const testFile = path.join(tempDir, "large.txt");
+        await writeFile(testFile, largeContent);
+
+        let server;
+        try {
+            server = await startRuntimeStaticServer({
+                runtimeRoot: tempDir,
+                host: "127.0.0.1",
+                port: 0,
+                verbose: false
+            });
+
+            // Count initial file descriptors
+            const initialFdCount = await getOpenFileDescriptorCount();
+
+            // Use raw socket to abort the connection mid-stream
+            await new Promise((resolve, reject) => {
+                const socket = net.createConnection(
+                    {
+                        host: server.host,
+                        port: server.port
+                    },
+                    () => {
+                        // Send HTTP request
+                        socket.write(
+                            `GET /large.txt HTTP/1.1\r\nHost: ${server.host}:${server.port}\r\n\r\n`
+                        );
+
+                        // Wait a bit for the response to start, then destroy the socket
+                        setTimeout(() => {
+                            socket.destroy();
+                            resolve(undefined);
+                        }, 50);
+                    }
+                );
+
+                socket.on("error", (error) => {
+                    // Expected - socket destroyed
+                    if (error.message.includes("ECONNRESET")) {
+                        resolve(undefined);
+                    } else {
+                        reject(error);
+                    }
+                });
+            });
+
+            // Allow time for async cleanup
+            await new Promise((resolve) => setTimeout(resolve, 200));
+
+            // Verify no file descriptors leaked
+            const MAX_ALLOWED_FD_VARIANCE = 5;
+            const finalFdCount = await getOpenFileDescriptorCount();
+            assert.ok(
+                finalFdCount <= initialFdCount + MAX_ALLOWED_FD_VARIANCE,
+                `File descriptors leaked: ${finalFdCount - initialFdCount} descriptors`
+            );
+        } finally {
+            if (server) {
+                await server.stop();
+            }
+            await rm(tempDir, { recursive: true, force: true });
+        }
+    });
 });
 
 async function getOpenFileDescriptorCount(): Promise<number> {

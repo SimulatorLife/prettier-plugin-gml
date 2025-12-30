@@ -165,6 +165,12 @@ async function sendFileResponse(res, filePath, { method }) {
             }
             errorHandled = true;
 
+            // Remove all listeners to prevent memory leaks
+            stream.removeAllListeners();
+            res.removeListener("close", handleResponseClose);
+            res.removeListener("error", handleResponseError);
+
+            // Destroy the stream if it's still open
             if (stream.readable || !stream.destroyed) {
                 stream.destroy();
             }
@@ -184,8 +190,23 @@ async function sendFileResponse(res, filePath, { method }) {
             }
         };
 
+        const handleResponseClose = () => {
+            // Response closed by client - clean up the stream
+            cleanup();
+        };
+
+        const handleResponseError = (error: unknown) => {
+            // Response encountered an error - clean up the stream
+            cleanup(error);
+        };
+
         stream.on("error", cleanup);
         stream.on("close", () => cleanup());
+
+        // Critical: Monitor response lifecycle to prevent stream leaks when client disconnects
+        res.on("close", handleResponseClose);
+        res.on("error", handleResponseError);
+
         stream.pipe(res);
     });
 }
