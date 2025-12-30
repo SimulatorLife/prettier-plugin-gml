@@ -12,16 +12,22 @@ import type {
     ShadowTestResult
 } from "./types.js";
 
-// Import Core namespace to access areNumbersApproximatelyEqual
-// The function exists on the Core object at runtime but is not in the TypeScript type definition
-import { Core } from "@gml-modules/core";
+const APPROXIMATE_EQUALITY_SCALE_MULTIPLIER = 4;
 
-// Direct destructuring to access areNumbersApproximatelyEqual
-// This is cleaner than type assertion and mirrors patterns in other files like
-// src/cli/test/test-helpers/numeric-assertions.ts
-const { areNumbersApproximatelyEqual } = Core as {
-    areNumbersApproximatelyEqual: (a: number, b: number) => boolean;
-};
+function areNumbersApproximatelyEqual(a: number, b: number): boolean {
+    if (a === b) {
+        return true;
+    }
+
+    if (!Number.isFinite(a) || !Number.isFinite(b)) {
+        return false;
+    }
+
+    const scale = Math.max(1, Math.abs(a), Math.abs(b));
+    const tolerance =
+        Number.EPSILON * scale * APPROXIMATE_EQUALITY_SCALE_MULTIPLIER;
+    return Math.abs(a - b) <= tolerance;
+}
 
 export function createRegistry(
     overrides?: RuntimeRegistryOverrides
