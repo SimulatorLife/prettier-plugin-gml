@@ -14,6 +14,7 @@ import path from "node:path";
 import WebSocket from "ws";
 
 import { runWatchCommand } from "../src/commands/watch.js";
+import { findAvailablePort } from "./test-helpers/free-port.js";
 
 type ManagedWebSocket = {
     close(): void;
@@ -87,11 +88,12 @@ void describe("Hot reload replay for late subscribers", () => {
 
     void it("replays the latest patch to new WebSocket clients", async () => {
         const abortController = new AbortController();
+        const websocketPort = await findAvailablePort();
 
         const watchPromise = runWatchCommand(testDir, {
             extensions: [".gml"],
             verbose: false,
-            websocketPort: 17_892,
+            websocketPort,
             websocketHost: "127.0.0.1",
             runtimeServer: false,
             statusServer: false,
@@ -111,7 +113,7 @@ void describe("Hot reload replay for late subscribers", () => {
         const receivedPatches: Array<unknown> = [];
 
         const replayPromise = new Promise<void>((resolve, reject) => {
-            websocketClient = new WebSocket("ws://127.0.0.1:17892");
+            websocketClient = new WebSocket(`ws://127.0.0.1:${websocketPort}`);
             const timer = setTimeout(() => {
                 reject(new Error("Timed out waiting for replayed patch"));
             }, 4000);

@@ -619,7 +619,7 @@ npm run cli -- --help
 # Run the benchmarking helper
 npm run cli -- performance
 
-# Run the hot-reload watcher against the 3DSpider demo
+# Run the hot-reload watcher against the 3DSpider demo (injects wrapper into the latest HTML5 output)
 npm run demo:watch
 ```
 

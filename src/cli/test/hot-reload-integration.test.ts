@@ -12,6 +12,7 @@ import path from "node:path";
 import WebSocket from "ws";
 
 import { runWatchCommand } from "../src/commands/watch.js";
+import { findAvailablePort } from "./test-helpers/free-port.js";
 
 void describe("Hot reload integration loop", () => {
     let testDir;
@@ -49,12 +50,13 @@ void describe("Hot reload integration loop", () => {
     });
 
     void it("should stream patches via WebSocket when files change", async () => {
+        const websocketPort = await findAvailablePort();
         const abortController = new AbortController();
 
         const watchPromise = runWatchCommand(testDir, {
             extensions: [".gml"],
             verbose: false,
-            websocketPort: 17_891,
+            websocketPort,
             websocketHost: "127.0.0.1",
             runtimeServer: false,
             statusServer: false,
@@ -64,7 +66,7 @@ void describe("Hot reload integration loop", () => {
         await new Promise((resolve) => setTimeout(resolve, 1000));
 
         await new Promise<void>((resolve, reject) => {
-            websocketClient = new WebSocket("ws://127.0.0.1:17891");
+            websocketClient = new WebSocket(`ws://127.0.0.1:${websocketPort}`);
 
             websocketClient.on("open", () => {
                 resolve();

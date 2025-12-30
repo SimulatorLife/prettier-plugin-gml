@@ -10,6 +10,7 @@ import assert from "node:assert";
 import { writeFile, mkdir, rm } from "node:fs/promises";
 import path from "node:path";
 import { runWatchCommand } from "../src/commands/watch.js";
+import { findAvailablePort } from "./test-helpers/free-port.js";
 
 void describe("Watch command quiet mode", () => {
     let testDir: string;
@@ -33,6 +34,7 @@ void describe("Watch command quiet mode", () => {
     });
 
     void it("should start successfully with --quiet flag", async () => {
+        const websocketPort = await findAvailablePort();
         const abortController = new AbortController();
 
         const watchPromise = runWatchCommand(testDir, {
@@ -41,7 +43,8 @@ void describe("Watch command quiet mode", () => {
             verbose: false,
             runtimeServer: false,
             websocketServer: true,
-            websocketPort: 17_893,
+            websocketPort,
+            statusServer: false,
             abortSignal: abortController.signal
         });
 

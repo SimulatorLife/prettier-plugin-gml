@@ -12,15 +12,22 @@ The hot reload pipeline consists of three main components:
 
 ## Running the Complete Pipeline
 
-### Terminal 1: Start the Watch Command
+### Terminal 1: Start the GameMaker HTML5 Build
+
+Launch the project from the GameMaker IDE using the HTML5 target so it serves
+the game (for example at `http://127.0.0.1:51264/index.html`).
+
+### Terminal 2: Prepare Hot-Reload + Start the Watch Command
 
 ```bash
+# Inject the runtime wrapper into the active HTML5 output
+node src/cli/src/cli.js prepare-hot-reload
+
 # Start watching a GML project directory
 node src/cli/src/cli.js watch /path/to/gamemaker/project --verbose
 
 # Output:
 # WebSocket patch server ready at ws://127.0.0.1:17890
-# Runtime static server ready at http://127.0.0.1:xxxxx/
 # Watching /path/to/gamemaker/project for changes...
 ```
 
@@ -30,36 +37,18 @@ If you want a ready-made project, the vendored 3DSpider demo can be used as a ho
 # Ensure vendored submodules are initialized
 git submodule update --init --recursive
 
-# Watch the 3DSpider project
-node src/cli/src/cli.js watch vendor/3DSpider --verbose
+# Prepare hot reload + watch the 3DSpider project
+npm run demo:watch
 ```
 
-### Terminal 2: Connect Runtime Wrapper (Browser)
+### Terminal 3: Runtime Wrapper (Injected)
 
-```javascript
-import { createRuntimeWrapper, createWebSocketClient } from './src/runtime-wrapper/src/index.js';
+The `prepare-hot-reload` command injects the runtime wrapper snippet into the
+HTML5 output (auto-detecting the active GMWebServ root when available), so the
+page automatically connects to the WebSocket patch server and applies updates.
+No manual edits are required as long as the HTML5 output remains in place.
 
-// Create the runtime wrapper
-const wrapper = createRuntimeWrapper({
-    onPatchApplied: (patch, version) => {
-        console.log(`✅ Applied patch ${patch.id} at version ${version}`);
-    }
-});
-
-// Connect to the watch command's WebSocket server
-const client = createWebSocketClient({
-    url: "ws://127.0.0.1:17890",
-    wrapper,
-    onConnect: () => console.log("🔌 Connected to dev server"),
-    onDisconnect: () => console.log("🔌 Disconnected from dev server"),
-    onError: (error, context) => console.error(`❌ Error (${context}):`, error)
-});
-
-// Output when connected:
-// 🔌 Connected to dev server
-```
-
-### Terminal 3: Edit a GML File
+### Terminal 4: Edit a GML File
 
 ```bash
 # Edit a GML script
@@ -104,6 +93,19 @@ Options:
   --websocket-host <host>    WebSocket server host (default: 127.0.0.1)
   --no-websocket-server      Disable WebSocket server
   --verbose                  Enable verbose logging
+```
+
+### Prepare Hot-Reload Options
+
+```bash
+node src/cli/src/cli.js prepare-hot-reload [options]
+
+Options:
+  --html5-output <path>   Path to the HTML5 output directory
+  --gm-temp-root <path>   Root directory for GameMaker HTML5 temp outputs
+  --websocket-url <url>   WebSocket URL for hot-reload patches
+  --force                 Re-inject even if snippet already exists
+  --quiet                 Suppress informational output
 ```
 
 ### Runtime Wrapper Options

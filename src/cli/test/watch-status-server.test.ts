@@ -4,6 +4,7 @@ import { mkdir, rm } from "node:fs/promises";
 import path from "node:path";
 
 import { runWatchCommand } from "../src/commands/watch.js";
+import { findAvailablePort } from "./test-helpers/free-port.js";
 
 void describe("watch command status server", () => {
     void it("should start status server by default and provide status endpoint", async () => {
@@ -16,16 +17,15 @@ void describe("watch command status server", () => {
 
         try {
             const abortController = new AbortController();
-            const statusPort = 18_000 + Math.floor(Math.random() * 1000);
-            const websocketPort = 19_000 + Math.floor(Math.random() * 1000);
+            const statusPort = await findAvailablePort();
 
             const watchPromise = runWatchCommand(testDir, {
                 extensions: [".gml"],
                 polling: false,
                 verbose: false,
                 quiet: true,
-                websocketPort,
                 statusPort,
+                websocketServer: false,
                 runtimeServer: false,
                 abortSignal: abortController.signal
             });
@@ -92,17 +92,16 @@ void describe("watch command status server", () => {
 
         try {
             const abortController = new AbortController();
-            const statusPort = 18_000 + Math.floor(Math.random() * 1000);
-            const websocketPort = 19_000 + Math.floor(Math.random() * 1000);
+            const statusPort = await findAvailablePort();
 
             const watchPromise = runWatchCommand(testDir, {
                 extensions: [".gml"],
                 polling: false,
                 verbose: false,
                 quiet: true,
-                websocketPort,
                 statusPort,
                 statusServer: false,
+                websocketServer: false,
                 runtimeServer: false,
                 abortSignal: abortController.signal
             });
@@ -139,16 +138,15 @@ void describe("watch command status server", () => {
 
         try {
             const abortController = new AbortController();
-            const statusPort = 18_000 + Math.floor(Math.random() * 1000);
-            const websocketPort = 19_000 + Math.floor(Math.random() * 1000);
+            const statusPort = await findAvailablePort();
 
             const watchPromise = runWatchCommand(testDir, {
                 extensions: [".gml"],
                 polling: false,
                 verbose: false,
                 quiet: true,
-                websocketPort,
                 statusPort,
+                websocketServer: false,
                 runtimeServer: false,
                 abortSignal: abortController.signal
             });

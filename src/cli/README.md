@@ -245,6 +245,29 @@ The watch command includes robust error handling to maintain stability:
 ✅ Real-time patch broadcast to connected clients
 ✅ **Transpilation metrics tracking** ✨
 ✅ **Performance statistics on watch stop** ✨
+
+### `prepare-hot-reload` - Inject Runtime Wrapper
+
+Injects the hot-reload runtime wrapper into the most recent GameMaker HTML5 output
+so the running game connects to the patch server automatically.
+
+```bash
+# Inject into the latest HTML5 output
+node src/cli/src/cli.js prepare-hot-reload
+
+# Inject into a specific HTML5 output directory
+node src/cli/src/cli.js prepare-hot-reload --html5-output /path/to/html5/output
+```
+
+**Options:**
+- `--html5-output <path>` - Path to the HTML5 output directory
+- `--gm-temp-root <path>` - Root directory for GameMaker HTML5 temp outputs
+- `--websocket-url <url>` - WebSocket URL for hot-reload patches
+- `--force` - Re-inject even if snippet already exists
+- `--quiet` - Suppress informational output
+
+When GameMaker is running the HTML5 server, the command auto-detects the active
+`-root` folder from the GMWebServ process and targets that output first.
 ✅ **Configurable patch history limit** ✨
 ✅ **Error recovery and graceful degradation** ✨
 ✅ **Patch validation before broadcast** ✨

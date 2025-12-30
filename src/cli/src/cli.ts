@@ -82,6 +82,10 @@ import {
     createFeatherMetadataCommand,
     runGenerateFeatherMetadata
 } from "./commands/generate-feather-metadata.js";
+import {
+    createPrepareHotReloadCommand,
+    runPrepareHotReloadCommand
+} from "./commands/prepare-hot-reload.js";
 import { createWatchCommand, runWatchCommand } from "./commands/watch.js";
 import {
     isCliRunSkipped,
@@ -2309,6 +2313,16 @@ cliCommandRegistry.registerCommand({
     onError: (error) =>
         handleCliError(error, {
             prefix: "Failed to generate Feather metadata.",
+            exitCode: 1
+        })
+});
+
+cliCommandRegistry.registerCommand({
+    command: createPrepareHotReloadCommand(),
+    run: ({ command }) => runPrepareHotReloadCommand(command),
+    onError: (error) =>
+        handleCliError(error, {
+            prefix: "Failed to prepare hot-reload injection.",
             exitCode: 1
         })
 });
