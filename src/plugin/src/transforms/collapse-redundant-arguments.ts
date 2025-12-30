@@ -8,7 +8,7 @@
  * reducing noise during the printer stage.
  */
 import { Core, type MutableGameMakerAstNode } from "@gml-modules/core";
-import { FunctionalParserTransform } from "./functional-transform.js";
+import { createParserTransform } from "./functional-transform.js";
 
 type CollapseRedundantMissingCallArgumentsTransformOptions = Record<
     string,
@@ -16,73 +16,65 @@ type CollapseRedundantMissingCallArgumentsTransformOptions = Record<
 >;
 
 /**
- * Constructed once and exposed as `collapseRedundantMissingCallArgumentsTransform`
- * so it can be composed into the parser normalization pipeline.
+ * Entrypoint invoked by the transform framework; this just delegates to the
+ * private walker since there are no configurable options.
  */
-export class CollapseRedundantMissingCallArgumentsTransform extends FunctionalParserTransform<CollapseRedundantMissingCallArgumentsTransformOptions> {
-    constructor() {
-        super("collapse-redundant-missing-call-arguments", {});
+function execute(
+    ast: MutableGameMakerAstNode,
+    _options: CollapseRedundantMissingCallArgumentsTransformOptions
+): MutableGameMakerAstNode {
+    void _options;
+    collapseRedundantMissingCallArguments(ast);
+    return ast;
+}
+
+function collapseRedundantMissingCallArguments(ast: MutableGameMakerAstNode) {
+    if (!ast || typeof ast !== "object") {
+        return;
     }
+
+    const visited = new WeakSet();
 
     /**
-     * Entrypoint invoked by the transform framework; this just delegates to the
-     * private walker since there are no configurable options.
+     * Depth-first walk that only visits each AST node once.
      */
-    protected execute(
-        ast: MutableGameMakerAstNode,
-        _options: CollapseRedundantMissingCallArgumentsTransformOptions
-    ): MutableGameMakerAstNode {
-        void _options;
-        this.collapseRedundantMissingCallArguments(ast);
-        return ast;
-    }
-
-    private collapseRedundantMissingCallArguments(
-        ast: MutableGameMakerAstNode
-    ) {
-        if (!ast || typeof ast !== "object") {
+    const visit = (node: MutableGameMakerAstNode) => {
+        if (!node || typeof node !== "object" || visited.has(node)) {
             return;
         }
 
-        const visited = new WeakSet();
+        visited.add(node);
 
-        /**
-         * Depth-first walk that only visits each AST node once.
-         */
-        const visit = (node: MutableGameMakerAstNode) => {
-            if (!node || typeof node !== "object" || visited.has(node)) {
-                return;
+        if (
+            node.type === "CallExpression" &&
+            Array.isArray(node.arguments) &&
+            node.arguments.length > 1
+        ) {
+            const args = Core.toMutableArray(node.arguments) as Array<any>;
+            const hasNonMissingArgument = args.some(
+                (argument) => argument?.type !== "MissingOptionalArgument"
+            );
+
+            if (!hasNonMissingArgument) {
+                const [firstMissingArgument] = args;
+                // Keep a single placeholder so the printer can still render the
+                // missing optional argument when required.
+                node.arguments = firstMissingArgument
+                    ? [firstMissingArgument]
+                    : [];
             }
+        }
 
-            visited.add(node);
+        Core.visitChildNodes(node, visit);
+    };
 
-            if (
-                node.type === "CallExpression" &&
-                Array.isArray(node.arguments) &&
-                node.arguments.length > 1
-            ) {
-                const args = Core.toMutableArray(node.arguments) as Array<any>;
-                const hasNonMissingArgument = args.some(
-                    (argument) => argument?.type !== "MissingOptionalArgument"
-                );
-
-                if (!hasNonMissingArgument) {
-                    const [firstMissingArgument] = args;
-                    // Keep a single placeholder so the printer can still render the
-                    // missing optional argument when required.
-                    node.arguments = firstMissingArgument
-                        ? [firstMissingArgument]
-                        : [];
-                }
-            }
-
-            Core.visitChildNodes(node, visit);
-        };
-
-        visit(ast);
-    }
+    visit(ast);
 }
 
 /** Singleton instance exported for composition into the plugin pipeline. */
 export const collapseRedundantMissingCallArgumentsTransform =
-    new CollapseRedundantMissingCallArgumentsTransform();
+    createParserTransform<CollapseRedundantMissingCallArgumentsTransformOptions>(
+        "collapse-redundant-missing-call-arguments",
+        {},
+        execute
+    );

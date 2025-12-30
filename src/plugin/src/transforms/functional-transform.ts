@@ -19,35 +19,34 @@ export interface ParserTransform<
 }
 
 /**
- * Base class that handles option merging and enforces the `execute` contract for subclasses.
+ * Factory function that creates a transform object from a name, default options, and implementation.
+ * This replaces the previous abstract class approach with a simpler functional pattern that
+ * achieves the same goal without requiring inheritance.
  */
-export abstract class FunctionalParserTransform<
+export function createParserTransform<
     Options extends TransformOptions = EmptyTransformOptions
-> implements ParserTransform<MutableGameMakerAstNode, Options>
-{
-    public readonly name: string;
-    public readonly defaultOptions: Options;
-
-    constructor(name: string, defaultOptions: Options) {
-        this.name = name;
-        this.defaultOptions = Object.freeze({ ...defaultOptions }) as Options;
-    }
-
-    public transform(
-        ast: MutableGameMakerAstNode,
-        options?: Options
-    ): MutableGameMakerAstNode {
-        const resolvedOptions = options
-            ? (Object.assign({}, this.defaultOptions, options) as Options)
-            : this.defaultOptions;
-
-        return this.execute(ast, resolvedOptions);
-    }
-
-    protected abstract execute(
+>(
+    name: string,
+    defaultOptions: Options,
+    execute: (
         ast: MutableGameMakerAstNode,
         options: Options
-    ): MutableGameMakerAstNode;
-}
+    ) => MutableGameMakerAstNode
+): ParserTransform<MutableGameMakerAstNode, Options> {
+    const frozenDefaults = Object.freeze({ ...defaultOptions }) as Options;
 
-export default FunctionalParserTransform;
+    return {
+        name,
+        defaultOptions: frozenDefaults,
+        transform(
+            ast: MutableGameMakerAstNode,
+            options?: Options
+        ): MutableGameMakerAstNode {
+            const resolvedOptions = options
+                ? (Object.assign({}, frozenDefaults, options) as Options)
+                : frozenDefaults;
+
+            return execute(ast, resolvedOptions);
+        }
+    };
+}
