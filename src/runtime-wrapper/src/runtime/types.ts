@@ -200,6 +200,29 @@ export interface RegistryMutator {
     clearRegistry(): void;
 }
 
+export interface RegistryHealthCheck {
+    healthy: boolean;
+    version: number;
+    issues: Array<RegistryHealthIssue>;
+}
+
+export interface RegistryHealthIssue {
+    severity: "warning" | "error";
+    category: "function-type" | "id-format" | "collection-integrity";
+    message: string;
+    affectedId?: string;
+}
+
+/**
+ * Registry health and diagnostics.
+ *
+ * Provides validation and health checking capabilities for the runtime
+ * registry without coupling to patch application or mutation operations.
+ */
+export interface RegistryDiagnostics {
+    checkRegistryHealth(): RegistryHealthCheck;
+}
+
 /**
  * Runtime metrics and snapshot operations.
  *
@@ -225,6 +248,7 @@ export interface RuntimeWrapper
         HistoryManager,
         RegistryReader,
         RegistryMutator,
-        RuntimeMetrics {
+        RuntimeMetrics,
+        RegistryDiagnostics {
     state: RuntimeWrapperState;
 }

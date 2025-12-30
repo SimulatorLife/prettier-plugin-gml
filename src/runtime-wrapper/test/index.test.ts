@@ -1362,3 +1362,131 @@ void test("percentile metrics handle single patch correctly", () => {
     assert.strictEqual(stats.p90DurationMs, stats.averagePatchDurationMs);
     assert.strictEqual(stats.p99DurationMs, stats.averagePatchDurationMs);
 });
+
+void test("checkRegistryHealth returns healthy status for valid registry", () => {
+    const wrapper = RuntimeWrapper.createRuntimeWrapper();
+
+    wrapper.applyPatch({
+        kind: "script",
+        id: "script:test",
+        js_body: "return 42;"
+    });
+
+    wrapper.applyPatch({
+        kind: "event",
+        id: "obj_player#Step",
+        js_body: "this.x += 1;"
+    });
+
+    wrapper.applyPatch({
+        kind: "closure",
+        id: "closure:counter",
+        js_body: "let n = 0; return () => ++n;"
+    });
+
+    const health = wrapper.checkRegistryHealth();
+    assert.strictEqual(health.healthy, true);
+    assert.strictEqual(health.version, 3);
+    assert.strictEqual(health.issues.length, 0);
+});
+
+void test("checkRegistryHealth detects corrupted script entries", () => {
+    const wrapper = RuntimeWrapper.createRuntimeWrapper();
+
+    wrapper.applyPatch({
+        kind: "script",
+        id: "script:valid",
+        js_body: "return 42;"
+    });
+
+    (wrapper.state.registry.scripts as Record<string, unknown>)[
+        "script:corrupted"
+    ] = "not a function";
+
+    const health = wrapper.checkRegistryHealth();
+    assert.strictEqual(health.healthy, false);
+    assert.strictEqual(health.issues.length, 1);
+    assert.strictEqual(health.issues[0].severity, "error");
+    assert.strictEqual(health.issues[0].category, "function-type");
+    assert.strictEqual(health.issues[0].affectedId, "script:corrupted");
+    assert.match(health.issues[0].message, /not a function/i);
+});
+
+void test("checkRegistryHealth detects corrupted event entries", () => {
+    const wrapper = RuntimeWrapper.createRuntimeWrapper();
+
+    wrapper.applyPatch({
+        kind: "event",
+        id: "obj_player#Step",
+        js_body: "this.x += 1;"
+    });
+
+    (wrapper.state.registry.events as Record<string, unknown>)[
+        "obj_player#Create"
+    ] = 123;
+
+    const health = wrapper.checkRegistryHealth();
+    assert.strictEqual(health.healthy, false);
+    assert.strictEqual(health.issues.length, 1);
+    assert.strictEqual(health.issues[0].severity, "error");
+    assert.strictEqual(health.issues[0].category, "function-type");
+    assert.strictEqual(health.issues[0].affectedId, "obj_player#Create");
+});
+
+void test("checkRegistryHealth detects corrupted closure entries", () => {
+    const wrapper = RuntimeWrapper.createRuntimeWrapper();
+
+    wrapper.applyPatch({
+        kind: "closure",
+        id: "closure:valid",
+        js_body: "return () => 1;"
+    });
+
+    (wrapper.state.registry.closures as Record<string, unknown>)[
+        "closure:corrupted"
+    ] = null;
+
+    const health = wrapper.checkRegistryHealth();
+    assert.strictEqual(health.healthy, false);
+    assert.strictEqual(health.issues.length, 1);
+    assert.strictEqual(health.issues[0].severity, "error");
+    assert.strictEqual(health.issues[0].category, "function-type");
+    assert.strictEqual(health.issues[0].affectedId, "closure:corrupted");
+});
+
+void test("checkRegistryHealth detects multiple issues", () => {
+    const wrapper = RuntimeWrapper.createRuntimeWrapper();
+
+    (wrapper.state.registry.scripts as Record<string, unknown>)["script:bad1"] =
+        "string";
+    (wrapper.state.registry.events as Record<string, unknown>)["event:bad2"] =
+        42;
+    (wrapper.state.registry.closures as Record<string, unknown>)[
+        "closure:bad3"
+    ] = {};
+
+    const health = wrapper.checkRegistryHealth();
+    assert.strictEqual(health.healthy, false);
+    assert.strictEqual(health.issues.length, 3);
+});
+
+void test("checkRegistryHealth returns current version", () => {
+    const wrapper = RuntimeWrapper.createRuntimeWrapper();
+
+    let health = wrapper.checkRegistryHealth();
+    assert.strictEqual(health.version, 0);
+
+    wrapper.applyPatch({
+        kind: "script",
+        id: "script:test",
+        js_body: "return 1;"
+    });
+
+    health = wrapper.checkRegistryHealth();
+    assert.strictEqual(health.version, 1);
+
+    wrapper.undo();
+
+    health = wrapper.checkRegistryHealth();
+    assert.strictEqual(health.version, 2);
+});
