@@ -7,6 +7,20 @@ import net from "node:net";
 
 import { startRuntimeStaticServer } from "../src/modules/runtime/server.js";
 
+/**
+ * Maximum variance in file descriptor count allowed after operations.
+ * This tolerance accounts for normal runtime variance from operations like
+ * fetch(), timers, and internal Node.js event loop activities.
+ */
+const MAX_ALLOWED_FD_VARIANCE = 5;
+
+/**
+ * Time to wait for asynchronous cleanup operations to complete.
+ * This duration ensures stream.destroy() and listener cleanup have finished
+ * before we verify no resource leaks occurred.
+ */
+const CLEANUP_WAIT_TIME_MS = 200;
+
 void describe("runtime static server", () => {
     void it("serves files from the runtime root", async () => {
         const tempDir = await mkdtemp(
@@ -140,12 +154,11 @@ void describe("runtime static server", () => {
             assert.equal(response.status, 500);
 
             // Allow some time for async cleanup
-            await new Promise((resolve) => setTimeout(resolve, 100));
+            await new Promise((resolve) =>
+                setTimeout(resolve, CLEANUP_WAIT_TIME_MS)
+            );
 
             // Verify no file descriptors leaked
-            // Allow a small tolerance (5 FDs) to account for normal runtime variance
-            // from fetch(), timers, and internal Node.js operations
-            const MAX_ALLOWED_FD_VARIANCE = 5;
             const finalFdCount = await getOpenFileDescriptorCount();
             assert.ok(
                 finalFdCount <= initialFdCount + MAX_ALLOWED_FD_VARIANCE,
@@ -218,10 +231,11 @@ void describe("runtime static server", () => {
             });
 
             // Allow time for async cleanup
-            await new Promise((resolve) => setTimeout(resolve, 200));
+            await new Promise((resolve) =>
+                setTimeout(resolve, CLEANUP_WAIT_TIME_MS)
+            );
 
             // Verify no file descriptors leaked
-            const MAX_ALLOWED_FD_VARIANCE = 5;
             const finalFdCount = await getOpenFileDescriptorCount();
             assert.ok(
                 finalFdCount <= initialFdCount + MAX_ALLOWED_FD_VARIANCE,

@@ -165,8 +165,9 @@ async function sendFileResponse(res, filePath, { method }) {
             }
             errorHandled = true;
 
-            // Remove all listeners to prevent memory leaks
-            stream.removeAllListeners();
+            // Remove specific listeners to prevent memory leaks
+            stream.removeListener("error", cleanup);
+            stream.removeListener("close", handleStreamClose);
             res.removeListener("close", handleResponseClose);
             res.removeListener("error", handleResponseError);
 
@@ -190,6 +191,10 @@ async function sendFileResponse(res, filePath, { method }) {
             }
         };
 
+        const handleStreamClose = () => {
+            cleanup();
+        };
+
         const handleResponseClose = () => {
             // Response closed by client - clean up the stream
             cleanup();
@@ -201,7 +206,7 @@ async function sendFileResponse(res, filePath, { method }) {
         };
 
         stream.on("error", cleanup);
-        stream.on("close", () => cleanup());
+        stream.on("close", handleStreamClose);
 
         // Critical: Monitor response lifecycle to prevent stream leaks when client disconnects
         res.on("close", handleResponseClose);
