@@ -967,10 +967,17 @@ export default class GameMakerASTBuilder {
         const ops = this.ensureArray(ctx.lValueChainOperator?.()) || [];
         for (const op of ops) {
             const node = this.visit(op);
-            // Some visitor paths may return `null` for malformed or
-            // otherwise-absent operator nodes. Guard before assigning so we
-            // do not attempt to set properties on `null` and crash the
-            // traversal; skip null results and continue accumulating.
+            // The visitor contract allows individual rule handlers to return `null`
+            // when they encounter malformed or otherwise-absent AST fragments (e.g.,
+            // a parse error recovery path that skips a subtree). Attempting to assign
+            // properties (like `.object = object`) to a null result would crash the
+            // traversal with a TypeError. This guard filters out null nodes so the
+            // chain accumulation can continue building partial AST structures, which
+            // downstream consumers (the printer, Feather fix transforms, etc.) can
+            // inspect without encountering partially-constructed or invalid subtrees.
+            // Skipping null results here prevents cascading failures and enables the
+            // parser to produce a "best-effort" AST even when the input contains
+            // syntax errors or incomplete code fragments.
             if (node && typeof node === "object") {
                 node.object = object;
                 object = node;
