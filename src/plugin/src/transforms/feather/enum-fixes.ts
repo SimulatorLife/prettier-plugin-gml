@@ -5,7 +5,8 @@ import { Core } from "@gml-modules/core";
 import {
     hasFeatherDiagnosticContext,
     createFeatherFixDetail,
-    attachFeatherFixMetadata
+    attachFeatherFixMetadata,
+    isIntegerLiteralString
 } from "./utils.js";
 import { getEndFromNode } from "./ast-traversal.js";
 import { removeDuplicateSemicolons } from "./semicolon-fixes.js";
@@ -246,24 +247,4 @@ function hasInvalidEnumInitializer(initializer) {
     }
 
     return true;
-}
-
-function isIntegerLiteralString(candidate) {
-    if (typeof candidate !== "string" || candidate.length === 0) {
-        return false;
-    }
-
-    if (/^[+-]?\d+$/.test(candidate)) {
-        return true;
-    }
-
-    if (/^[+-]?0[xX][0-9a-fA-F]+$/.test(candidate)) {
-        return true;
-    }
-
-    if (/^[+-]?0[bB][01]+$/.test(candidate)) {
-        return true;
-    }
-
-    return false;
 }
