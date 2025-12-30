@@ -275,6 +275,49 @@ const undoResult = wrapper.undo();
 console.log(undoResult.success); // false - nothing to undo
 ```
 
+#### `checkRegistryHealth()`
+
+Validates the integrity of the runtime registry and returns a health report. This diagnostic method checks for common corruption issues such as non-function entries in the registry collections. The health check is fast and safe to call frequently during development or in automated monitoring.
+
+**Returns:** A `RegistryHealthCheck` object with:
+
+- `healthy` (boolean): `true` if no issues detected, `false` otherwise
+- `version` (number): Current registry version at the time of the check
+- `issues` (array): List of detected problems, each containing:
+  - `severity`: Either `"warning"` or `"error"`
+  - `category`: Issue type (`"function-type"`, `"id-format"`, or `"collection-integrity"`)
+  - `message`: Human-readable description
+  - `affectedId`: The registry ID that triggered the issue (if applicable)
+
+**Example:**
+
+```javascript
+const wrapper = createRuntimeWrapper();
+
+wrapper.applyPatch({ kind: "script", id: "script:test", js_body: "return 42;" });
+
+// Validate registry integrity
+const health = wrapper.checkRegistryHealth();
+if (health.healthy) {
+    console.log(`✓ Registry is healthy (version ${health.version})`);
+} else {
+    console.error(`✗ Registry has ${health.issues.length} issue(s):`);
+    for (const issue of health.issues) {
+        console.error(`  [${issue.severity}] ${issue.message}`);
+        if (issue.affectedId) {
+            console.error(`    Affected ID: ${issue.affectedId}`);
+        }
+    }
+}
+```
+
+**Use cases:**
+- Detecting accidental registry corruption during development
+- Validating registry state before critical operations
+- Building health monitoring dashboards
+- Debugging unexpected patch application failures
+- Automated testing of runtime wrapper integrity
+
 ### `createWebSocketClient(options)`
 
 Creates a WebSocket client for receiving live patches from a development server. The client automatically reconnects on connection loss and integrates with a runtime wrapper to apply patches.
