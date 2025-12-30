@@ -568,6 +568,7 @@ export class RefactorEngine {
         const oldNames = new Set<string>();
         const newNames = new Set<string>();
 
+        // First pass: collect all old and new names
         for (const rename of validRenames) {
             const oldName = rename.symbolId.split("/").pop();
             if (oldName) {
@@ -579,8 +580,26 @@ export class RefactorEngine {
                     rename.newName
                 );
                 newNames.add(normalizedNewName);
+            } catch {
+                // Skip invalid names
+                continue;
+            }
+        }
+
+        // Second pass: detect confusion where new name was an old name
+        for (const rename of validRenames) {
+            const oldName = rename.symbolId.split("/").pop();
+            if (!oldName) {
+                continue;
+            }
+
+            try {
+                const normalizedNewName = assertValidIdentifierName(
+                    rename.newName
+                );
 
                 // Warn if this new name matches any old name in the batch (potential confusion)
+                // but exclude the case where it's the same symbol (already caught as same-name rename)
                 if (
                     oldNames.has(normalizedNewName) &&
                     oldName !== normalizedNewName
