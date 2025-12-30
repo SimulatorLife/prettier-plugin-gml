@@ -83,12 +83,9 @@ export const MemorySuiteName = Object.freeze({
 
 const memorySuiteHelpers = createStringEnumeratedOptionHelpers(
     Object.values(MemorySuiteName),
-    {
-        valueLabel: "Memory suite name",
-        formatErrorMessage({ list, received }) {
-            return `Memory suite must be one of: ${list}. Received: ${received}.`;
-        }
-    }
+    "Memory suite name",
+    (list, received) =>
+        `Memory suite must be one of: ${list}. Received: ${received}.`
 );
 
 /**
@@ -126,7 +123,7 @@ export function normalizeMemorySuiteName(
     value: unknown,
     { errorConstructor }: NormalizeMemorySuiteNameOptions = {}
 ) {
-    return memorySuiteHelpers.requireValue(value, { errorConstructor });
+    return memorySuiteHelpers.requireValue(value, errorConstructor);
 }
 
 function normalizeMemoryReportDirectory(value, fallback) {

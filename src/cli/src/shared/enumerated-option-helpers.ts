@@ -1,177 +1,127 @@
 import { Core } from "@gml-modules/core";
 
-const {
-    describeValueForError,
-    normalizeEnumeratedOption,
-    toNormalizedLowerCaseString
-} = Core;
+const { describeValueForError, toNormalizedLowerCaseString } = Core;
 
 type EnumeratedValue = string;
 
-interface EnumeratedOptionFormatContext {
-    list: string;
-    value: unknown;
-    received: string;
-}
-
-interface EnumeratedOptionRequireContext {
-    list: string;
-    received: string;
-}
-
-export interface CreateEnumeratedOptionHelpersOptions {
-    coerce?: (value: unknown) => EnumeratedValue;
-    describeValue?: (value: unknown) => string;
-    formatErrorMessage?: (context: EnumeratedOptionFormatContext) => string;
-}
-
-export interface RequireEnumeratedValueOptions {
-    fallback?: EnumeratedValue | null;
-    errorConstructor?: new (message?: string) => Error;
-    createErrorMessage?: (
-        value: unknown,
-        context: EnumeratedOptionRequireContext
-    ) => string;
-}
-
 export interface EnumeratedOptionHelpers {
-    valueSet: ReadonlySet<EnumeratedValue>;
+    readonly valueSet: ReadonlySet<EnumeratedValue>;
     formatList(): string;
     normalize(
         value: unknown,
-        options?: { fallback?: EnumeratedValue | null }
+        fallback?: EnumeratedValue | null
     ): EnumeratedValue | null;
     requireValue(
         value: unknown,
-        options?: RequireEnumeratedValueOptions
+        errorConstructor?: new (message: string) => Error
     ): EnumeratedValue;
 }
 
 /**
- * Create helper functions that normalize and validate enumerated CLI options
- * while keeping error messaging consistent across commands. The returned
- * helpers expose both a lossy normalization function and an asserting variant
- * that throws with a descriptive error when the value is not accepted.
+ * Create helpers for normalizing and validating enumerated CLI options.
  *
- * @param {Iterable<string>} values Collection of valid enumerated values.
- * @param {{
- *   coerce?: (value: unknown) => string,
- *   describeValue?: (value: unknown) => string,
- *   formatErrorMessage?: (context: {
- *     list: string,
- *     value: unknown,
- *     received: string
- *   }) => string
- * }} [options]
+ * Returns helpers with a simpler, more direct API than the previous implementation.
+ * The normalize() function accepts an optional fallback value directly as a parameter,
+ * and requireValue() takes an optional error constructor.
+ *
+ * @param values - Collection of valid enumerated values.
+ * @param formatError - Optional function to format error messages (receives list and received value).
  */
 export function createEnumeratedOptionHelpers(
     values: Iterable<EnumeratedValue>,
-    {
-        coerce,
-        describeValue = describeValueForError,
-        formatErrorMessage
-    }: CreateEnumeratedOptionHelpersOptions = {}
-) {
-    const entries = Array.from(values ?? []);
-    const validValues = new Set(entries);
-    const sortedList = Object.freeze([...validValues].sort());
-    const listLabel = sortedList.join(", ");
-    const hasCustomCoerce = typeof coerce === "function";
-    const normalizationOptions = hasCustomCoerce ? { coerce } : undefined;
-
-    function formatList() {
-        return listLabel;
-    }
-
-    function normalize(
-        value: unknown,
-        { fallback = null }: { fallback?: EnumeratedValue | null } = {}
-    ): EnumeratedValue | null {
-        return normalizeEnumeratedOption(
-            value,
-            fallback,
-            validValues,
-            normalizationOptions
-        );
-    }
-
-    function requireValue(
-        value: unknown,
-        {
-            fallback = null,
-            errorConstructor,
-            createErrorMessage
-        }: RequireEnumeratedValueOptions = {}
-    ): EnumeratedValue {
-        const normalized = normalize(value, { fallback });
-        if (normalized) {
-            return normalized;
-        }
-
-        const ErrorConstructor =
-            typeof errorConstructor === "function" ? errorConstructor : Error;
-        const received = describeValue(value);
-        const message =
-            typeof createErrorMessage === "function"
-                ? createErrorMessage(value, {
-                      list: listLabel,
-                      received
-                  })
-                : typeof formatErrorMessage === "function"
-                  ? formatErrorMessage({
-                        list: listLabel,
-                        value,
-                        received
-                    })
-                  : `Value must be one of: ${listLabel}. Received: ${received}.`;
-
-        throw new ErrorConstructor(message);
-    }
+    formatError?: (list: string, received: string) => string
+): EnumeratedOptionHelpers {
+    const valueSet = new Set(Array.from(values ?? []));
+    const listLabel = [...valueSet].sort().join(", ");
 
     return Object.freeze({
-        valueSet: validValues,
-        formatList,
-        normalize,
-        requireValue
-    }) as EnumeratedOptionHelpers;
-}
-
-function normalizeValueLabel(valueLabel?: string): string {
-    if (typeof valueLabel === "string") {
-        const trimmed = valueLabel.trim();
-        if (trimmed.length > 0) {
-            return trimmed;
+        valueSet,
+        formatList: () => listLabel,
+        normalize: (
+            value: unknown,
+            fallback: EnumeratedValue | null = null
+        ) => {
+            if (value === undefined || value === null) {
+                return fallback;
+            }
+            const normalized = toNormalizedLowerCaseString(value);
+            return normalized && valueSet.has(normalized)
+                ? normalized
+                : fallback;
+        },
+        requireValue: (
+            value: unknown,
+            ErrorConstructor: new (message: string) => Error = Error
+        ) => {
+            const normalized = toNormalizedLowerCaseString(value);
+            if (normalized && valueSet.has(normalized)) {
+                return normalized;
+            }
+            const received = describeValueForError(value);
+            const message = formatError
+                ? formatError(listLabel, received)
+                : `Value must be one of: ${listLabel}. Received: ${received}.`;
+            throw new ErrorConstructor(message);
         }
-    }
-
-    return "Value";
+    });
 }
 
-function createStringEnumerationCoercer(
-    valueLabel?: string
-): (value: unknown) => EnumeratedValue {
-    const label = normalizeValueLabel(valueLabel);
-
-    return (value: unknown) => {
-        if (typeof value !== "string") {
-            throw new TypeError(
-                `${label} must be provided as a string (received type '${typeof value}').`
-            );
-        }
-
-        return toNormalizedLowerCaseString(value);
-    };
-}
-
+/**
+ * Create helpers for string enumerated options with type-safe coercion.
+ *
+ * Validates that the input value is a string before normalization. The returned
+ * helpers enforce type safety and provide clear error messages when non-string
+ * values are provided.
+ *
+ * @param values - Collection of valid enumerated values.
+ * @param valueLabel - Label for the value type (e.g., "Output format"). Defaults to "Value".
+ * @param formatError - Optional function to format validation error messages.
+ */
 export function createStringEnumeratedOptionHelpers(
     values: Iterable<EnumeratedValue>,
-    {
-        valueLabel,
-        ...options
-    }: CreateEnumeratedOptionHelpersOptions & { valueLabel?: string } = {}
+    valueLabel: string = "Value",
+    formatError?: (list: string, received: string) => string
 ): EnumeratedOptionHelpers {
-    return createEnumeratedOptionHelpers(values, {
-        ...options,
-        coerce: createStringEnumerationCoercer(valueLabel)
+    const valueSet = new Set(Array.from(values ?? []));
+    const listLabel = [...valueSet].sort().join(", ");
+    const label = valueLabel.trim() || "Value";
+
+    return Object.freeze({
+        valueSet,
+        formatList: () => listLabel,
+        normalize: (
+            value: unknown,
+            fallback: EnumeratedValue | null = null
+        ) => {
+            if (value === undefined || value === null) {
+                return fallback;
+            }
+            if (typeof value !== "string") {
+                return fallback;
+            }
+            const normalized = toNormalizedLowerCaseString(value);
+            return normalized && valueSet.has(normalized)
+                ? normalized
+                : fallback;
+        },
+        requireValue: (
+            value: unknown,
+            ErrorConstructor: new (message: string) => Error = Error
+        ) => {
+            if (typeof value !== "string") {
+                throw new TypeError(
+                    `${label} must be provided as a string (received type '${typeof value}').`
+                );
+            }
+            const normalized = toNormalizedLowerCaseString(value);
+            if (normalized && valueSet.has(normalized)) {
+                return normalized;
+            }
+            const received = describeValueForError(value);
+            const message = formatError
+                ? formatError(listLabel, received)
+                : `Value must be one of: ${listLabel}. Received: ${received}.`;
+            throw new ErrorConstructor(message);
+        }
     });
 }

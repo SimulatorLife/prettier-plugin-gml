@@ -11,11 +11,9 @@ type PerformanceSuite =
 
 const performanceSuiteHelpers = createStringEnumeratedOptionHelpers(
     Object.values(PerformanceSuiteName),
-    {
-        valueLabel: "Benchmark suite name",
-        formatErrorMessage: ({ list, received }) =>
-            `Benchmark suite must be one of: ${list}. Received: ${received}.`
-    }
+    "Benchmark suite name",
+    (list, received) =>
+        `Benchmark suite must be one of: ${list}. Received: ${received}.`
 );
 
 const PERFORMANCE_THROUGHPUT_SUITES = new Set<PerformanceSuite>([
@@ -33,9 +31,10 @@ function normalizePerformanceSuiteName(
         errorConstructor
     }: { errorConstructor?: new (message: string) => Error } = {}
 ): PerformanceSuite {
-    return performanceSuiteHelpers.requireValue(value, {
+    return performanceSuiteHelpers.requireValue(
+        value,
         errorConstructor
-    }) as PerformanceSuite;
+    ) as PerformanceSuite;
 }
 
 function isPerformanceThroughputSuite(name: PerformanceSuite) {

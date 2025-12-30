@@ -35,10 +35,8 @@ export interface SuiteResultsPayloadOptions {
 
 const suiteOutputFormatHelpers = createStringEnumeratedOptionHelpers(
     Object.values(SuiteOutputFormat),
-    {
-        valueLabel: "Suite output format",
-        formatErrorMessage: ({ list }) => `Format must be one of: ${list}.`
-    }
+    "Suite output format",
+    (list) => `Format must be one of: ${list}.`
 );
 
 const defaultSuiteErrorHandler = (error: unknown) => ({
@@ -53,28 +51,24 @@ export function normalizeSuiteOutputFormat(
     value: unknown,
     { fallback }: { fallback?: SuiteOutputFormat | null } = {}
 ): SuiteOutputFormat | null {
-    return suiteOutputFormatHelpers.normalize(value, {
+    return suiteOutputFormatHelpers.normalize(
+        value,
         fallback
-    }) as SuiteOutputFormat | null;
+    ) as SuiteOutputFormat | null;
 }
 
 export function resolveSuiteOutputFormatOrThrow(
     value: unknown,
     {
-        fallback,
-        errorConstructor,
-        createErrorMessage
+        errorConstructor
     }: {
-        fallback?: SuiteOutputFormat | null;
         errorConstructor?: new (message: string) => Error;
-        createErrorMessage?: (value: unknown) => string;
     } = {}
 ): SuiteOutputFormat {
-    return suiteOutputFormatHelpers.requireValue(value, {
-        fallback,
-        errorConstructor,
-        createErrorMessage
-    }) as SuiteOutputFormat;
+    return suiteOutputFormatHelpers.requireValue(
+        value,
+        errorConstructor
+    ) as SuiteOutputFormat;
 }
 
 /**
@@ -261,10 +255,7 @@ export function emitSuiteResults(
     extras: SuitePayloadExtras = {}
 ): boolean {
     const normalizedFormat = resolveSuiteOutputFormatOrThrow(format, {
-        fallback: SuiteOutputFormat.JSON,
-        errorConstructor: RangeError,
-        createErrorMessage: () =>
-            `Unsupported suite output format. Valid formats: ${formatSuiteOutputFormatList()}.`
+        errorConstructor: RangeError
     });
 
     if (normalizedFormat === SuiteOutputFormat.HUMAN) {
