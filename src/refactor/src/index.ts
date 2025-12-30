@@ -3,6 +3,7 @@ export { WorkspaceEdit } from "./workspace-edit.js";
 export type {
     ApplyWorkspaceEditOptions,
     AstNode,
+    BatchRenameValidation,
     CascadeEntry,
     ConflictEntry,
     DependentSymbol,
