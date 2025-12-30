@@ -309,9 +309,8 @@ export class ConsolidateStructAssignmentsTransform extends FunctionalParserTrans
                 continue;
             }
 
-            // The collected properties are assigned to the struct node; cast to
-            // `MutableGameMakerAstNode` to allow mutation in-place with correct
-            // typing for downstream transforms.
+            // The collected properties are assigned to the struct node, mutating
+            // it in-place for downstream transforms.
             structNode.properties = collected.properties;
             structNode.hasTrailingComma = collected.shouldForceBreak;
 
