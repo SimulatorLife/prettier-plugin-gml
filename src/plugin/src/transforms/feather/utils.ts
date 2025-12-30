@@ -6,6 +6,30 @@ import { Core } from "@gml-modules/core";
 export const NUMERIC_STRING_LITERAL_PATTERN =
     /^[+-]?(?:\d+(?:\.\d*)?|\.\d+)(?:[eE][+-]?\d+)?$/;
 
+/**
+ * Test whether a candidate string represents an integer literal.
+ * Supports decimal, hexadecimal (0x/0X), and binary (0b/0B) formats with optional sign.
+ */
+export function isIntegerLiteralString(candidate: unknown): boolean {
+    if (typeof candidate !== "string" || candidate.length === 0) {
+        return false;
+    }
+
+    if (/^[+-]?\d+$/.test(candidate)) {
+        return true;
+    }
+
+    if (/^[+-]?0[xX][0-9a-fA-F]+$/.test(candidate)) {
+        return true;
+    }
+
+    if (/^[+-]?0[bB][01]+$/.test(candidate)) {
+        return true;
+    }
+
+    return false;
+}
+
 /** Ensure we have enough AST and diagnostic context before creating fixes. */
 export function hasFeatherDiagnosticContext(ast, diagnostic) {
     if (!diagnostic) {
