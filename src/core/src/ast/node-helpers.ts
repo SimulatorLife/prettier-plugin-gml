@@ -351,8 +351,7 @@ export function isIdentifierNode(node: unknown): node is IdentifierNode {
  * @returns `true` when {@link node} is a literal.
  */
 export function isLiteralNode(node: unknown): node is LiteralNode {
-    if (!isNode(node)) return false;
-    return (node as { type?: unknown }).type === LITERAL;
+    return hasType(node, LITERAL);
 }
 
 /**
@@ -368,8 +367,7 @@ export function isLiteralNode(node: unknown): node is LiteralNode {
 export function isAssignmentPatternNode(
     node: unknown
 ): node is AssignmentPatternNode {
-    if (!isNode(node)) return false;
-    return (node as { type?: unknown }).type === ASSIGNMENT_PATTERN;
+    return hasType(node, ASSIGNMENT_PATTERN);
 }
 
 /**
@@ -385,8 +383,7 @@ export function isAssignmentPatternNode(
 export function isCallExpressionNode(
     node: unknown
 ): node is CallExpressionNode {
-    if (!isNode(node)) return false;
-    return (node as { type?: unknown }).type === CALL_EXPRESSION;
+    return hasType(node, CALL_EXPRESSION);
 }
 
 /**
@@ -402,8 +399,7 @@ export function isCallExpressionNode(
 export function isMemberIndexExpressionNode(
     node: unknown
 ): node is MemberIndexExpressionNode {
-    if (!isNode(node)) return false;
-    return (node as { type?: unknown }).type === MEMBER_INDEX_EXPRESSION;
+    return hasType(node, MEMBER_INDEX_EXPRESSION);
 }
 
 /**
