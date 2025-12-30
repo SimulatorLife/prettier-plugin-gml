@@ -16,6 +16,7 @@ type GlobalSnapshot = {
     g_pBuiltIn?: Record<string, unknown>;
     make_colour_rgb?: (red: number, green: number, blue: number) => number;
     vk_anykey?: number;
+    _uB2?: number;
     _cx?: { _dx?: Record<string, unknown> };
 };
 
@@ -28,6 +29,7 @@ function snapshotGlobals(): GlobalSnapshot {
         g_pBuiltIn: globals.g_pBuiltIn,
         make_colour_rgb: globals.make_colour_rgb,
         vk_anykey: globals.vk_anykey,
+        _uB2: globals._uB2,
         _cx: globals._cx
     };
 }
@@ -69,6 +71,12 @@ function restoreGlobals(snapshot: GlobalSnapshot): void {
         delete globals.vk_anykey;
     } else {
         globals.vk_anykey = snapshot.vk_anykey;
+    }
+
+    if (snapshot._uB2 === undefined) {
+        delete globals._uB2;
+    } else {
+        globals._uB2 = snapshot._uB2;
     }
 
     if (snapshot._cx === undefined) {
@@ -133,7 +141,8 @@ await test("applies object event patches to GameMaker object tables", () => {
             StepNormalEvent: gml_Object_oSpider_Step_0
         };
         const instanceEntry: Record<string, unknown> = {
-            _kx: { pName: "oSpider" }
+            _kx: { pName: "oSpider" },
+            Event: []
         };
 
         const jsonGame: JsonGameSnapshot = {
@@ -194,8 +203,9 @@ await test("object patches update entries when previous handler is anonymous", (
                 return "old";
             }
         };
-        const instanceEntry = {
-            _kx: { pName: "oSpider" }
+        const instanceEntry: Record<string, unknown> = {
+            _kx: { pName: "oSpider" },
+            Event: []
         };
 
         const jsonGame: JsonGameSnapshot = {
@@ -206,6 +216,7 @@ await test("object patches update entries when previous handler is anonymous", (
 
         const globals = globalThis as GlobalSnapshot;
         globals.JSON_game = jsonGame;
+        globals._uB2 = 12;
         globals._cx = {
             _dx: {
                 "100000": instanceEntry
@@ -230,6 +241,13 @@ await test("object patches update entries when previous handler is anonymous", (
             instanceEntry["StepNormalEvent"],
             updatedFn,
             "Instance event handler should be updated"
+        );
+        const eventArray = instanceEntry.Event as Array<boolean> | undefined;
+        assert.ok(Array.isArray(eventArray), "Instance event array should exist");
+        assert.equal(
+            eventArray?.[globals._uB2 ?? -1],
+            true,
+            "Instance event flag should be enabled"
         );
     } finally {
         restoreGlobals(snapshot);

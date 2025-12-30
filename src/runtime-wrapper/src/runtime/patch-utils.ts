@@ -71,6 +71,39 @@ function resolveRuntimeBindingNames(runtimeId: string): Array<string> {
     return [runtimeId];
 }
 
+function resolveEventIndexName(eventKey: string): string | null {
+    switch (eventKey) {
+        case "PreCreateEvent":
+            return "_qI";
+        case "CreateEvent":
+            return "_rI";
+        case "DestroyEvent":
+            return "_tI";
+        case "CleanUpEvent":
+            return "_aI";
+        case "StepBeginEvent":
+            return "_sB2";
+        case "StepNormalEvent":
+            return "_uB2";
+        case "StepEndEvent":
+            return "_wB2";
+        case "DrawEvent":
+            return "_6E2";
+        case "DrawGUI":
+            return "_2G2";
+        case "DrawEventBegin":
+            return "_4G2";
+        case "DrawEventEnd":
+            return "_5G2";
+        case "DrawGUIBegin":
+            return "_6G2";
+        case "DrawGUIEnd":
+            return "_7G2";
+        default:
+            return null;
+    }
+}
+
 function resolveNamedFunctionId(runtimeId: string): string | null {
     if (!/^[A-Za-z_$][A-Za-z0-9_$]*$/.test(runtimeId)) {
         return null;
@@ -158,7 +191,27 @@ function applyRuntimeBindings(patch: ScriptPatch, fn: RuntimeFunction): void {
         objectEventKey = resolveObjectEventKey(objectRuntime.eventName);
     }
 
-    for (const name of targetNames) {
+    const resolvedNames = new Set(targetNames);
+    const fallbackScriptMatch =
+        runtimeId.startsWith("gml/script/") && runtimeId === patch.id
+            ? runtimeId.slice("gml/script/".length)
+            : null;
+
+    if (fallbackScriptMatch && Array.isArray(gmObjects)) {
+        for (const objectEntry of gmObjects) {
+            for (const value of Object.values(objectEntry)) {
+                if (
+                    typeof value === "function" &&
+                    value.name.startsWith("gml_Object_") &&
+                    value.name.endsWith(`_${fallbackScriptMatch}`)
+                ) {
+                    resolvedNames.add(value.name);
+                }
+            }
+        }
+    }
+
+    for (const name of resolvedNames) {
         if (
             typeof globalScope[name] === "function" ||
             (Array.isArray(scriptNames) && scriptNames.includes(name))
@@ -229,6 +282,22 @@ function applyRuntimeBindings(patch: ScriptPatch, fn: RuntimeFunction): void {
 
                 for (const key of instanceKeysToUpdate) {
                     (instance as Record<string, unknown>)[key] = fn;
+                    const eventIndexName = resolveEventIndexName(key);
+                    if (eventIndexName) {
+                        const eventIndexValue = globalScope[eventIndexName];
+                        const index =
+                            typeof eventIndexValue === "number"
+                                ? eventIndexValue
+                                : null;
+                        const eventArray = (instance as Record<string, unknown>)
+                            .Event as Array<boolean> | undefined;
+                        if (
+                            typeof index === "number" &&
+                            Array.isArray(eventArray)
+                        ) {
+                            eventArray[index] = true;
+                        }
+                    }
                 }
 
                 for (const [key, value] of Object.entries(instance)) {
