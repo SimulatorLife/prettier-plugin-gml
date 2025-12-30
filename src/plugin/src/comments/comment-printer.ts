@@ -671,36 +671,27 @@ function getLocationMetadata(position) {
     return { index, line };
 }
 
-function isCommentOnNodeStartLine(comment, node) {
+function isCommentOnNodeLine(comment, node, getNodeLine) {
     const commentLine = comment.start?.line;
-    const nodeStartLine = node?.start?.line;
+    const nodeLine = getNodeLine(node);
 
     const isCommentLineMissing =
         commentLine === undefined || commentLine === null;
-    const isNodeStartLineMissing =
-        nodeStartLine === undefined || nodeStartLine === null;
+    const isNodeLineMissing = nodeLine === undefined || nodeLine === null;
 
-    if (isCommentLineMissing || isNodeStartLineMissing) {
+    if (isCommentLineMissing || isNodeLineMissing) {
         return false;
     }
 
-    return commentLine === nodeStartLine;
+    return commentLine === nodeLine;
+}
+
+function isCommentOnNodeStartLine(comment, node) {
+    return isCommentOnNodeLine(comment, node, (target) => target?.start?.line);
 }
 
 function isCommentOnNodeEndLine(comment, node) {
-    const commentLine = comment.start?.line;
-    const nodeEndLine = node?.end?.line;
-
-    const isCommentLineMissing =
-        commentLine === undefined || commentLine === null;
-    const isNodeEndLineMissing =
-        nodeEndLine === undefined || nodeEndLine === null;
-
-    if (isCommentLineMissing || isNodeEndLineMissing) {
-        return false;
-    }
-
-    return commentLine === nodeEndLine;
+    return isCommentOnNodeLine(comment, node, (target) => target?.end?.line);
 }
 
 function handleCommentInEmptyParens(
