@@ -275,6 +275,49 @@ const undoResult = wrapper.undo();
 console.log(undoResult.success); // false - nothing to undo
 ```
 
+#### `checkRegistryHealth()`
+
+Validates the integrity of the runtime registry and returns a health report. This diagnostic method checks for common corruption issues such as non-function entries in the registry collections. The health check is fast and safe to call frequently during development or in automated monitoring.
+
+**Returns:** A `RegistryHealthCheck` object with:
+
+- `healthy` (boolean): `true` if no issues detected, `false` otherwise
+- `version` (number): Current registry version at the time of the check
+- `issues` (array): List of detected problems, each containing:
+  - `severity`: Either `"warning"` or `"error"`
+  - `category`: Issue type (`"function-type"`, `"id-format"`, or `"collection-integrity"`)
+  - `message`: Human-readable description
+  - `affectedId`: The registry ID that triggered the issue (if applicable)
+
+**Example:**
+
+```javascript
+const wrapper = createRuntimeWrapper();
+
+wrapper.applyPatch({ kind: "script", id: "script:test", js_body: "return 42;" });
+
+// Validate registry integrity
+const health = wrapper.checkRegistryHealth();
+if (health.healthy) {
+    console.log(`✓ Registry is healthy (version ${health.version})`);
+} else {
+    console.error(`✗ Registry has ${health.issues.length} issue(s):`);
+    for (const issue of health.issues) {
+        console.error(`  [${issue.severity}] ${issue.message}`);
+        if (issue.affectedId) {
+            console.error(`    Affected ID: ${issue.affectedId}`);
+        }
+    }
+}
+```
+
+**Use cases:**
+- Detecting accidental registry corruption during development
+- Validating registry state before critical operations
+- Building health monitoring dashboards
+- Debugging unexpected patch application failures
+- Automated testing of runtime wrapper integrity
+
 ### `createWebSocketClient(options)`
 
 Creates a WebSocket client for receiving live patches from a development server. The client automatically reconnects on connection loss and integrates with a runtime wrapper to apply patches.
@@ -310,6 +353,48 @@ Sends data to the server. Data can be a string or an object (which will be JSON-
 #### `getWebSocket()`
 
 Returns the underlying WebSocket instance, or `null` if not connected. Useful for testing and advanced use cases.
+
+#### `getConnectionMetrics()`
+
+Returns a read-only snapshot of connection health metrics for diagnostics and monitoring. The returned object includes:
+
+- `totalConnections`: Number of successful connections
+- `totalDisconnections`: Number of disconnections
+- `totalReconnectAttempts`: Number of automatic reconnection attempts
+- `patchesReceived`: Total patches received over the connection
+- `patchesApplied`: Total patches successfully applied
+- `patchesFailed`: Total patches that failed to apply (includes validation failures and application errors)
+- `lastConnectedAt`: Timestamp of the last successful connection (milliseconds since epoch), or `null` if never connected
+- `lastDisconnectedAt`: Timestamp of the last disconnection (milliseconds since epoch), or `null` if never disconnected
+- `lastPatchReceivedAt`: Timestamp when the last patch was received (milliseconds since epoch), or `null` if no patches received
+- `lastPatchAppliedAt`: Timestamp when the last patch was successfully applied (milliseconds since epoch), or `null` if no patches applied
+- `connectionErrors`: Number of connection-level errors
+- `patchErrors`: Number of patch-level errors (validation failures, malformed payloads, and application errors)
+
+**Example:**
+
+```javascript
+const client = createWebSocketClient({ wrapper });
+
+// Later, check connection health
+const metrics = client.getConnectionMetrics();
+console.log(`Received ${metrics.patchesReceived} patches`);
+console.log(`Applied ${metrics.patchesApplied} patches`);
+console.log(`Failed ${metrics.patchesFailed} patches`);
+console.log(`Success rate: ${((metrics.patchesApplied / metrics.patchesReceived) * 100).toFixed(1)}%`);
+
+if (metrics.lastPatchReceivedAt) {
+    const timeSinceLastPatch = Date.now() - metrics.lastPatchReceivedAt;
+    console.log(`Last patch received ${timeSinceLastPatch}ms ago`);
+}
+```
+
+The metrics object is frozen to prevent accidental modification. Use these metrics for:
+- Monitoring connection quality
+- Debugging patch application failures
+- Tracking hot-reload performance
+- Building diagnostic dashboards
+- Detecting connection issues
 
 **Example Usage:**
 
