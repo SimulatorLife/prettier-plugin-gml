@@ -31,5 +31,6 @@ export type {
     RuntimeWebSocketInstance,
     WebSocketEvent,
     WebSocketClientOptions,
-    WebSocketClientState
+    WebSocketClientState,
+    WebSocketConnectionMetrics
 } from "./websocket/index.js";

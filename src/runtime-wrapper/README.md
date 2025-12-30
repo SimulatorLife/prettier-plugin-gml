@@ -311,6 +311,48 @@ Sends data to the server. Data can be a string or an object (which will be JSON-
 
 Returns the underlying WebSocket instance, or `null` if not connected. Useful for testing and advanced use cases.
 
+#### `getConnectionMetrics()`
+
+Returns a read-only snapshot of connection health metrics for diagnostics and monitoring. The returned object includes:
+
+- `totalConnections`: Number of successful connections
+- `totalDisconnections`: Number of disconnections
+- `totalReconnectAttempts`: Number of automatic reconnection attempts
+- `patchesReceived`: Total patches received over the connection
+- `patchesApplied`: Total patches successfully applied
+- `patchesFailed`: Total patches that failed to apply
+- `lastConnectedAt`: Timestamp of the last successful connection (milliseconds since epoch), or `null` if never connected
+- `lastDisconnectedAt`: Timestamp of the last disconnection (milliseconds since epoch), or `null` if never disconnected
+- `lastPatchReceivedAt`: Timestamp when the last patch was received (milliseconds since epoch), or `null` if no patches received
+- `lastPatchAppliedAt`: Timestamp when the last patch was successfully applied (milliseconds since epoch), or `null` if no patches applied
+- `connectionErrors`: Number of connection-level errors
+- `patchErrors`: Number of patch-level errors (currently tracks validation failures)
+
+**Example:**
+
+```javascript
+const client = createWebSocketClient({ wrapper });
+
+// Later, check connection health
+const metrics = client.getConnectionMetrics();
+console.log(`Received ${metrics.patchesReceived} patches`);
+console.log(`Applied ${metrics.patchesApplied} patches`);
+console.log(`Failed ${metrics.patchesFailed} patches`);
+console.log(`Success rate: ${((metrics.patchesApplied / metrics.patchesReceived) * 100).toFixed(1)}%`);
+
+if (metrics.lastPatchReceivedAt) {
+    const timeSinceLastPatch = Date.now() - metrics.lastPatchReceivedAt;
+    console.log(`Last patch received ${timeSinceLastPatch}ms ago`);
+}
+```
+
+The metrics object is frozen to prevent accidental modification. Use these metrics for:
+- Monitoring connection quality
+- Debugging patch application failures
+- Tracking hot-reload performance
+- Building diagnostic dashboards
+- Detecting connection issues
+
 **Example Usage:**
 
 ```javascript
