@@ -132,7 +132,7 @@ await test("applies object event patches to GameMaker object tables", () => {
             pName: "oSpider",
             StepNormalEvent: gml_Object_oSpider_Step_0
         };
-        const instanceEntry = {
+        const instanceEntry: Record<string, unknown> = {
             _kx: { pName: "oSpider" }
         };
 
@@ -175,7 +175,59 @@ await test("applies object event patches to GameMaker object tables", () => {
             "Instance event handler should be assigned"
         );
         assert.equal(
-            instanceEntry.StepNormalEvent,
+            instanceEntry["StepNormalEvent"],
+            updatedFn,
+            "Instance event handler should be updated"
+        );
+    } finally {
+        restoreGlobals(snapshot);
+    }
+});
+
+await test("object patches update entries when previous handler is anonymous", () => {
+    const snapshot = snapshotGlobals();
+
+    try {
+        const objectEntry = {
+            pName: "oSpider",
+            StepNormalEvent: function () {
+                return "old";
+            }
+        };
+        const instanceEntry = {
+            _kx: { pName: "oSpider" }
+        };
+
+        const jsonGame: JsonGameSnapshot = {
+            ScriptNames: [],
+            Scripts: [],
+            GMObjects: [objectEntry]
+        };
+
+        const globals = globalThis as GlobalSnapshot;
+        globals.JSON_game = jsonGame;
+        globals._cx = {
+            _dx: {
+                "100000": instanceEntry
+            }
+        };
+
+        const wrapper = RuntimeWrapper.createRuntimeWrapper();
+        wrapper.applyPatch({
+            kind: "script",
+            id: "gml/script/Step_0",
+            runtimeId: "gml_Object_oSpider_Step_0",
+            js_body: "return 123;"
+        });
+
+        const updatedFn = objectEntry.StepNormalEvent;
+        assert.equal(
+            typeof updatedFn,
+            "function",
+            "GMObjects entry should be updated"
+        );
+        assert.equal(
+            instanceEntry["StepNormalEvent"],
             updatedFn,
             "Instance event handler should be updated"
         );
@@ -209,6 +261,32 @@ await test("script patches resolve builtin constants and getters", () => {
         const result = fn(null, null, []) as number;
         const expected = 42 + 10 + 20 + 16711680 + Math.PI;
         assert.ok(Math.abs(result - expected) < 1e-9);
+    } finally {
+        restoreGlobals(snapshot);
+    }
+});
+
+await test("script patches map GML variables to instance storage", () => {
+    const snapshot = snapshotGlobals();
+
+    try {
+        const globals = globalThis as GlobalSnapshot;
+        globals.g_pBuiltIn = {};
+
+        const instance = { gmlarmNum: 5 };
+        const wrapper = RuntimeWrapper.createRuntimeWrapper();
+        wrapper.applyPatch({
+            kind: "script",
+            id: "gml/script/vars",
+            js_body: "armNum = armNum + 1; return armNum;"
+        });
+
+        const fn = wrapper.getScript("gml/script/vars");
+        assert.ok(fn);
+        const result = fn(instance, null, []) as number;
+
+        assert.equal(result, 6);
+        assert.equal(instance.gmlarmNum, 6);
     } finally {
         restoreGlobals(snapshot);
     }
