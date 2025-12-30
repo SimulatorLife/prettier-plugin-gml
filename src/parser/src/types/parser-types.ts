@@ -51,17 +51,27 @@ export interface ParserOptions {
     simplifyLocations: boolean;
     scopeTrackerOptions?: ScopeTrackerOptions; // Also handles identifier metadata
 
-    // DOCUMENTATION NEEDED: The astFormat field controls how the parser formats its output,
-    // but the valid values and their meanings are not documented. Known values include:
-    //   - "gml" → standard GML AST format used by the plugin
-    //   - "json" (possibly?) → serialized JSON representation
+    // The `astFormat` field controls the structural representation of the parsed AST
+    // and is used by Prettier's plugin dispatch logic to route documents to the
+    // correct parser/printer pair. Currently recognized values:
+    //   - "gml" → The canonical GML AST format consumed by this plugin's printer.
+    //             This is the production format used for all formatting operations.
+    //   - "json" (experimental/internal) → May trigger serialization of the AST
+    //             to a plain JSON-compatible structure for debugging or external
+    //             tooling integration, though this path is rarely exercised.
     //
-    // The asJSON boolean below also suggests format variants. Clarify the relationship:
-    // Does astFormat="json" imply asJSON=true, or are they independent?
+    // The `asJSON` boolean below controls whether the parser should strip internal
+    // properties (like parent references or non-enumerable metadata) to produce a
+    // JSON-serializable output. In principle, `astFormat: "json"` and `asJSON: true`
+    // are related but serve different layers: `astFormat` signals intent to Prettier's
+    // routing, while `asJSON` alters the AST construction itself. In practice, these
+    // fields are largely independent—`asJSON` can be set regardless of `astFormat`.
     //
-    // RECOMMENDATION: Document the valid values as a union type or enum:
-    //   astFormat: "gml" | "json" | ...
-    // and add comments explaining when each format is appropriate.
+    // GUIDANCE: Production code should always use `astFormat: "gml"` and leave
+    // `asJSON: false` (the default). Setting `asJSON: true` is primarily useful for
+    // diagnostic output or tooling that requires a JSON snapshot of the parse tree
+    // without internal metadata clutter. Changing `astFormat` to anything other than
+    // "gml" is unsupported and may cause the printer to fail or produce incorrect output.
     astFormat: string;
     asJSON: boolean;
 }

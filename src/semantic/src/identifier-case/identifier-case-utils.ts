@@ -109,10 +109,15 @@ function buildWordCase(normalized, transformToken) {
     }
 
     let base = "";
-    // Avoid using the iterator helpers that allocate an intermediate tuple for
-    // each entry (`tokens.entries()`), which shows up in identifier formatting
-    // micro-benchmarks. A simple index-based loop lets V8 reuse the existing
-    // array slots without synthesizing temporary arrays on each iteration.
+    // Avoid `tokens.entries()` or destructuring patterns like `for (const [i, token] of ...)`
+    // because they allocate an intermediate iterator and tuple for each element, which adds
+    // measurable overhead when formatting large codebases. Identifier case transformations
+    // run on every symbol in the AST, so even small per-iteration costs compound quickly.
+    // Micro-benchmarks show that a simple index-based loop (manually incrementing `index`)
+    // lets V8 stay in fast-path array access without creating ephemeral objects or triggering
+    // garbage collection pressure. This is a deliberate tradeoff: the code is slightly more
+    // verbose, but the performance gain matters because this function sits in a hot loop
+    // that executes thousands of times per file during identifier normalization passes.
     let index = 0;
     for (const token of tokens) {
         base += transformToken(token, index);

@@ -325,7 +325,13 @@ export function gatherImplicitArgumentReferences(functionNode: any) {
                 parent.init === node &&
                 aliasByIndex.has(directIndex)
             ) {
-                // Skip
+                // Skip adding to directReferenceIndices when this argument reference
+                // is on the right side of a variable declarator that defines an alias
+                // for the same argument index. This prevents the synthetic doc comment
+                // logic from treating `var alias = argument0` as a "direct" usage of
+                // the argument, since the alias definition itself was already recorded
+                // above and represents the canonical name for that parameter slot.
+                // Including both would lead to duplicate or conflicting @param entries.
             } else {
                 directReferenceIndices.add(directIndex);
             }
