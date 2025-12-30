@@ -13,6 +13,9 @@ type GlobalSnapshot = {
     JSON_game?: JsonGameSnapshot;
     gml_Script_test?: (...args: Array<unknown>) => unknown;
     gml_Object_oSpider_Step_0?: (...args: Array<unknown>) => unknown;
+    g_pBuiltIn?: Record<string, unknown>;
+    make_colour_rgb?: (red: number, green: number, blue: number) => number;
+    vk_anykey?: number;
     _cx?: { _dx?: Record<string, unknown> };
 };
 
@@ -22,6 +25,9 @@ function snapshotGlobals(): GlobalSnapshot {
         JSON_game: globals.JSON_game,
         gml_Script_test: globals.gml_Script_test,
         gml_Object_oSpider_Step_0: globals.gml_Object_oSpider_Step_0,
+        g_pBuiltIn: globals.g_pBuiltIn,
+        make_colour_rgb: globals.make_colour_rgb,
+        vk_anykey: globals.vk_anykey,
         _cx: globals._cx
     };
 }
@@ -45,6 +51,24 @@ function restoreGlobals(snapshot: GlobalSnapshot): void {
         delete globals.gml_Object_oSpider_Step_0;
     } else {
         globals.gml_Object_oSpider_Step_0 = snapshot.gml_Object_oSpider_Step_0;
+    }
+
+    if (snapshot.g_pBuiltIn === undefined) {
+        delete globals.g_pBuiltIn;
+    } else {
+        globals.g_pBuiltIn = snapshot.g_pBuiltIn;
+    }
+
+    if (snapshot.make_colour_rgb === undefined) {
+        delete globals.make_colour_rgb;
+    } else {
+        globals.make_colour_rgb = snapshot.make_colour_rgb;
+    }
+
+    if (snapshot.vk_anykey === undefined) {
+        delete globals.vk_anykey;
+    } else {
+        globals.vk_anykey = snapshot.vk_anykey;
     }
 
     if (snapshot._cx === undefined) {
@@ -105,10 +129,11 @@ await test("applies object event patches to GameMaker object tables", () => {
         }
 
         const objectEntry = {
+            pName: "oSpider",
             StepNormalEvent: gml_Object_oSpider_Step_0
         };
-        const instanceEntry = {
-            StepNormalEvent: gml_Object_oSpider_Step_0
+        const instanceEntry: Record<string, unknown> = {
+            _kx: { pName: "oSpider" }
         };
 
         const jsonGame: JsonGameSnapshot = {
@@ -145,11 +170,123 @@ await test("applies object event patches to GameMaker object tables", () => {
             updatedFn,
             "GMObjects entry should be updated"
         );
+        assert.ok(
+            "StepNormalEvent" in instanceEntry,
+            "Instance event handler should be assigned"
+        );
         assert.equal(
-            instanceEntry.StepNormalEvent,
+            instanceEntry["StepNormalEvent"],
             updatedFn,
             "Instance event handler should be updated"
         );
+    } finally {
+        restoreGlobals(snapshot);
+    }
+});
+
+await test("object patches update entries when previous handler is anonymous", () => {
+    const snapshot = snapshotGlobals();
+
+    try {
+        const objectEntry = {
+            pName: "oSpider",
+            StepNormalEvent: function () {
+                return "old";
+            }
+        };
+        const instanceEntry = {
+            _kx: { pName: "oSpider" }
+        };
+
+        const jsonGame: JsonGameSnapshot = {
+            ScriptNames: [],
+            Scripts: [],
+            GMObjects: [objectEntry]
+        };
+
+        const globals = globalThis as GlobalSnapshot;
+        globals.JSON_game = jsonGame;
+        globals._cx = {
+            _dx: {
+                "100000": instanceEntry
+            }
+        };
+
+        const wrapper = RuntimeWrapper.createRuntimeWrapper();
+        wrapper.applyPatch({
+            kind: "script",
+            id: "gml/script/Step_0",
+            runtimeId: "gml_Object_oSpider_Step_0",
+            js_body: "return 123;"
+        });
+
+        const updatedFn = objectEntry.StepNormalEvent;
+        assert.equal(
+            typeof updatedFn,
+            "function",
+            "GMObjects entry should be updated"
+        );
+        assert.equal(
+            instanceEntry["StepNormalEvent"],
+            updatedFn,
+            "Instance event handler should be updated"
+        );
+    } finally {
+        restoreGlobals(snapshot);
+    }
+});
+
+await test("script patches resolve builtin constants and getters", () => {
+    const snapshot = snapshotGlobals();
+
+    try {
+        const globals = globalThis as GlobalSnapshot;
+        globals.make_colour_rgb = (red, green, blue) =>
+            (red & 0xff) | ((green & 0xff) << 8) | ((blue & 0xff) << 16);
+        globals.g_pBuiltIn = {
+            get_mouse_x: () => 10,
+            get_current_time: () => 20
+        };
+        globals.vk_anykey = 42;
+
+        const wrapper = RuntimeWrapper.createRuntimeWrapper();
+        wrapper.applyPatch({
+            kind: "script",
+            id: "gml/script/constants",
+            js_body: "return vk_anykey + mouse_x + current_time + c_blue + pi;"
+        });
+
+        const fn = wrapper.getScript("gml/script/constants");
+        assert.ok(fn);
+        const result = fn(null, null, []) as number;
+        const expected = 42 + 10 + 20 + 16711680 + Math.PI;
+        assert.ok(Math.abs(result - expected) < 1e-9);
+    } finally {
+        restoreGlobals(snapshot);
+    }
+});
+
+await test("script patches map GML variables to instance storage", () => {
+    const snapshot = snapshotGlobals();
+
+    try {
+        const globals = globalThis as GlobalSnapshot;
+        globals.g_pBuiltIn = {};
+
+        const instance = { gmlarmNum: 5 };
+        const wrapper = RuntimeWrapper.createRuntimeWrapper();
+        wrapper.applyPatch({
+            kind: "script",
+            id: "gml/script/vars",
+            js_body: "armNum = armNum + 1; return armNum;"
+        });
+
+        const fn = wrapper.getScript("gml/script/vars");
+        assert.ok(fn);
+        const result = fn(instance, null, []) as number;
+
+        assert.equal(result, 6);
+        assert.equal(instance.gmlarmNum, 6);
     } finally {
         restoreGlobals(snapshot);
     }

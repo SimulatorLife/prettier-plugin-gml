@@ -11,6 +11,7 @@ import type {
     ScriptPatch,
     ShadowTestResult
 } from "./types.js";
+import { resolveBuiltinConstants } from "./builtin-constants.js";
 
 const APPROXIMATE_EQUALITY_SCALE_MULTIPLIER = 4;
 
@@ -35,6 +36,7 @@ type RuntimeBindingGlobals = {
         Scripts?: Array<RuntimeFunction>;
         GMObjects?: Array<Record<string, unknown>>;
     };
+    g_pBuiltIn?: Record<string, unknown>;
     _cx?: {
         _dx?: Record<string, unknown>;
     };
@@ -69,6 +71,70 @@ function resolveRuntimeBindingNames(runtimeId: string): Array<string> {
     return [runtimeId];
 }
 
+function resolveNamedFunctionId(runtimeId: string): string | null {
+    if (!/^[A-Za-z_$][A-Za-z0-9_$]*$/.test(runtimeId)) {
+        return null;
+    }
+
+    return runtimeId;
+}
+
+function resolveObjectEventKey(eventName: string): string | null {
+    if (eventName.startsWith("Create")) {
+        return "CreateEvent";
+    }
+    if (eventName.startsWith("Step")) {
+        return "StepNormalEvent";
+    }
+    if (eventName.startsWith("Draw")) {
+        return "DrawEvent";
+    }
+    if (eventName.startsWith("Destroy")) {
+        return "DestroyEvent";
+    }
+
+    return null;
+}
+
+function parseObjectRuntimeId(
+    runtimeId: string
+): { objectName: string; eventName: string } | null {
+    if (!runtimeId.startsWith("gml_Object_")) {
+        return null;
+    }
+
+    const withoutPrefix = runtimeId.slice("gml_Object_".length);
+    const parts = withoutPrefix.split("_");
+    if (parts.length < 2) {
+        return null;
+    }
+
+    const eventName = parts.slice(-2).join("_");
+    const objectName = parts.slice(0, -2).join("_");
+    if (!objectName || !eventName) {
+        return null;
+    }
+
+    return { objectName, eventName };
+}
+
+function createNamedRuntimeFunction(
+    runtimeId: string,
+    rawFn: RuntimeFunction
+): RuntimeFunction {
+    const name = resolveNamedFunctionId(runtimeId);
+    if (!name) {
+        return rawFn;
+    }
+
+    const wrapperFactory = new Function(
+        "rawFn",
+        `return function ${name}(self, other, args) { return rawFn(self, other, args); }`
+    ) as (rawFn: RuntimeFunction) => RuntimeFunction;
+
+    return wrapperFactory(rawFn);
+}
+
 function applyRuntimeBindings(patch: ScriptPatch, fn: RuntimeFunction): void {
     const runtimeId = resolveRuntimeId(patch);
     const targetNames = resolveRuntimeBindingNames(runtimeId);
@@ -83,6 +149,14 @@ function applyRuntimeBindings(patch: ScriptPatch, fn: RuntimeFunction): void {
     const scripts = jsonGame?.Scripts;
     const gmObjects = jsonGame?.GMObjects;
     const instanceStore = globalScope._cx?._dx;
+    let objectName: string | null = null;
+    const instanceKeysToUpdate = new Set<string>();
+
+    const objectRuntime = parseObjectRuntimeId(runtimeId);
+    let objectEventKey: string | null = null;
+    if (objectRuntime) {
+        objectEventKey = resolveObjectEventKey(objectRuntime.eventName);
+    }
 
     for (const name of targetNames) {
         if (
@@ -101,9 +175,30 @@ function applyRuntimeBindings(patch: ScriptPatch, fn: RuntimeFunction): void {
 
         if (Array.isArray(gmObjects)) {
             for (const objectEntry of gmObjects) {
+                if (
+                    objectRuntime &&
+                    typeof objectEntry.pName === "string" &&
+                    objectEntry.pName === objectRuntime.objectName &&
+                    objectEventKey
+                ) {
+                    objectEntry[objectEventKey] = fn;
+                    instanceKeysToUpdate.add(objectEventKey);
+                    if (!objectName) {
+                        objectName = objectRuntime.objectName;
+                    }
+                }
+
                 for (const [key, value] of Object.entries(objectEntry)) {
                     if (typeof value === "function" && value.name === name) {
                         objectEntry[key] = fn;
+                        instanceKeysToUpdate.add(key);
+
+                        if (!objectName) {
+                            objectName =
+                                typeof objectEntry.pName === "string"
+                                    ? objectEntry.pName
+                                    : null;
+                        }
                     }
                 }
             }
@@ -113,6 +208,27 @@ function applyRuntimeBindings(patch: ScriptPatch, fn: RuntimeFunction): void {
             for (const instance of Object.values(instanceStore)) {
                 if (!instance || typeof instance !== "object") {
                     continue;
+                }
+
+                if (objectName) {
+                    const instanceObject = (instance as Record<string, unknown>)
+                        ._kx as { pName?: unknown; _lx?: unknown } | undefined;
+                    const instanceObjectName =
+                        typeof instanceObject?.pName === "string"
+                            ? instanceObject.pName
+                            : typeof instanceObject?._lx === "string"
+                              ? instanceObject._lx
+                              : null;
+                    if (
+                        instanceObjectName &&
+                        instanceObjectName !== objectName
+                    ) {
+                        continue;
+                    }
+                }
+
+                for (const key of instanceKeysToUpdate) {
+                    (instance as Record<string, unknown>)[key] = fn;
                 }
 
                 for (const [key, value] of Object.entries(instance)) {
@@ -278,19 +394,102 @@ function applyScriptPatch(
         throw new TypeError("Script patch must have a 'js_body' string");
     }
 
-    const fn = new Function(
+    const rawFn = new Function(
         "self",
         "other",
         "args",
-        patch.js_body
+        "__gml_constants",
+        "__gml_builtins",
+        `const __gml_scope = self && typeof self === "object" ? self : Object.create(null);
+const __gml_proxy = new Proxy(__gml_scope, {
+    has(target, prop) {
+        if (typeof prop !== "string") {
+            return prop in target;
+        }
+        const gmlProp = \`gml\${prop}\`;
+        if (prop in target) {
+            return true;
+        }
+        if (gmlProp in target) {
+            return true;
+        }
+        if (typeof globalThis?.[prop] === "number") {
+            return true;
+        }
+        if (Object.prototype.hasOwnProperty.call(__gml_constants, prop)) {
+            return true;
+        }
+        if (
+            __gml_builtins &&
+            typeof __gml_builtins[\`get_\${prop}\`] === "function"
+        ) {
+            return true;
+        }
+        return false;
+    },
+    get(target, prop, receiver) {
+        if (typeof prop !== "string") {
+            return Reflect.get(target, prop, receiver);
+        }
+        const gmlProp = \`gml\${prop}\`;
+        if (prop in target) {
+            return Reflect.get(target, prop, receiver);
+        }
+        if (gmlProp in target) {
+            return Reflect.get(target, gmlProp, receiver);
+        }
+        if (typeof globalThis?.[prop] === "number") {
+            return globalThis[prop];
+        }
+        if (Object.prototype.hasOwnProperty.call(__gml_constants, prop)) {
+            return __gml_constants[prop];
+        }
+        if (__gml_builtins) {
+            const getter = __gml_builtins[\`get_\${prop}\`];
+            if (typeof getter === "function") {
+                return getter.call(__gml_builtins);
+            }
+        }
+        return Reflect.get(target, prop, receiver);
+    },
+    set(target, prop, value, receiver) {
+        if (typeof prop !== "string") {
+            return Reflect.set(target, prop, value, receiver);
+        }
+        const gmlProp = \`gml\${prop}\`;
+        if (prop in target) {
+            return Reflect.set(target, prop, value, receiver);
+        }
+        if (gmlProp in target) {
+            return Reflect.set(target, gmlProp, value, receiver);
+        }
+        return Reflect.set(target, prop, value, receiver);
+    }
+});
+with (__gml_proxy) {
+${patch.js_body}
+}`
     ) as RuntimeFunction;
-    applyRuntimeBindings(patch, fn);
+
+    const fn = ((self, other, args) => {
+        const globals = globalThis as RuntimeBindingGlobals &
+            Record<string, unknown>;
+        const constants = resolveBuiltinConstants(globals);
+        const builtins =
+            globals.g_pBuiltIn && typeof globals.g_pBuiltIn === "object"
+                ? globals.g_pBuiltIn
+                : undefined;
+        return rawFn.call(self, self, other, args, constants, builtins);
+    }) as RuntimeFunction;
+    const namedFn = createNamedRuntimeFunction(resolveRuntimeId(patch), fn);
+
+    applyRuntimeBindings(patch, namedFn);
 
     return {
         ...registry,
         scripts: {
             ...registry.scripts,
-            [patch.id]: fn
+            [patch.id]: namedFn
         }
     };
 }
