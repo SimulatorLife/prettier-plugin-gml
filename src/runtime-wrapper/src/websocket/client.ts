@@ -51,11 +51,13 @@ export function createWebSocketClient({
 
         const patchResult = validatePatchCandidate(incoming, onError);
         if (patchResult.status === "skip") {
+            state.connectionMetrics.patchErrors += 1;
             return true;
         }
 
         if (patchResult.status === "error") {
             state.connectionMetrics.patchesFailed += 1;
+            state.connectionMetrics.patchErrors += 1;
             return false;
         }
 
@@ -68,6 +70,7 @@ export function createWebSocketClient({
                 state.connectionMetrics.lastPatchAppliedAt = Date.now();
             } else {
                 state.connectionMetrics.patchesFailed += 1;
+                state.connectionMetrics.patchErrors += 1;
             }
             return applied;
         }
@@ -79,6 +82,7 @@ export function createWebSocketClient({
                 state.connectionMetrics.lastPatchAppliedAt = Date.now();
             } else {
                 state.connectionMetrics.patchesFailed += 1;
+                state.connectionMetrics.patchErrors += 1;
             }
             return applied;
         }

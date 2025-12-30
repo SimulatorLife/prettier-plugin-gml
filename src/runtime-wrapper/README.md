@@ -363,13 +363,13 @@ Returns a read-only snapshot of connection health metrics for diagnostics and mo
 - `totalReconnectAttempts`: Number of automatic reconnection attempts
 - `patchesReceived`: Total patches received over the connection
 - `patchesApplied`: Total patches successfully applied
-- `patchesFailed`: Total patches that failed to apply
+- `patchesFailed`: Total patches that failed to apply (includes validation failures and application errors)
 - `lastConnectedAt`: Timestamp of the last successful connection (milliseconds since epoch), or `null` if never connected
 - `lastDisconnectedAt`: Timestamp of the last disconnection (milliseconds since epoch), or `null` if never disconnected
 - `lastPatchReceivedAt`: Timestamp when the last patch was received (milliseconds since epoch), or `null` if no patches received
 - `lastPatchAppliedAt`: Timestamp when the last patch was successfully applied (milliseconds since epoch), or `null` if no patches applied
 - `connectionErrors`: Number of connection-level errors
-- `patchErrors`: Number of patch-level errors (currently tracks validation failures)
+- `patchErrors`: Number of patch-level errors (validation failures, malformed payloads, and application errors)
 
 **Example:**
 

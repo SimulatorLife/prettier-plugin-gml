@@ -715,6 +715,7 @@ void test("WebSocket client tracks failed patches in metrics", async () => {
         assert.strictEqual(metrics.patchesReceived, 1);
         assert.strictEqual(metrics.patchesApplied, 0);
         assert.strictEqual(metrics.patchesFailed, 1);
+        assert.strictEqual(metrics.patchErrors, 1);
         assert.ok(metrics.lastPatchReceivedAt);
         assert.strictEqual(metrics.lastPatchAppliedAt, null);
     } finally {
@@ -800,6 +801,40 @@ void test("WebSocket client returns frozen metrics snapshot", async () => {
         });
 
         assert.strictEqual(metrics.totalConnections, 0);
+    } finally {
+        client?.disconnect();
+        delete globalWithWebSocket.WebSocket;
+    }
+});
+
+void test("WebSocket client tracks patch errors for malformed payloads", async () => {
+    const wrapper = RuntimeWrapper.createRuntimeWrapper();
+    globalWithWebSocket.WebSocket = MockWebSocket;
+
+    let client: ReturnType<typeof RuntimeWrapper.createWebSocketClient> | null =
+        null;
+
+    try {
+        client = RuntimeWrapper.createWebSocketClient({
+            wrapper,
+            autoConnect: true,
+            onError: () => {}
+        });
+
+        await flush();
+
+        const ws = client.getWebSocket();
+        assert.ok(ws);
+        const mockSocket = ws as MockWebSocket;
+
+        mockSocket.simulateMessage({ id: "script:missing_kind" });
+
+        await wait(10);
+
+        const metrics = client.getConnectionMetrics();
+        assert.strictEqual(metrics.patchesReceived, 1);
+        assert.strictEqual(metrics.patchErrors, 1);
+        assert.strictEqual(metrics.patchesFailed, 0);
     } finally {
         client?.disconnect();
         delete globalWithWebSocket.WebSocket;
