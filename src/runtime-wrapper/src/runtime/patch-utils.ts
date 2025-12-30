@@ -35,6 +35,9 @@ type RuntimeBindingGlobals = {
         Scripts?: Array<RuntimeFunction>;
         GMObjects?: Array<Record<string, unknown>>;
     };
+    _cx?: {
+        _dx?: Record<string, unknown>;
+    };
 };
 
 function resolveRuntimeId(patch: ScriptPatch): string {
@@ -79,6 +82,7 @@ function applyRuntimeBindings(patch: ScriptPatch, fn: RuntimeFunction): void {
     const scriptNames = jsonGame?.ScriptNames;
     const scripts = jsonGame?.Scripts;
     const gmObjects = jsonGame?.GMObjects;
+    const instanceStore = globalScope._cx?._dx;
 
     for (const name of targetNames) {
         if (
@@ -100,6 +104,20 @@ function applyRuntimeBindings(patch: ScriptPatch, fn: RuntimeFunction): void {
                 for (const [key, value] of Object.entries(objectEntry)) {
                     if (typeof value === "function" && value.name === name) {
                         objectEntry[key] = fn;
+                    }
+                }
+            }
+        }
+
+        if (instanceStore && typeof instanceStore === "object") {
+            for (const instance of Object.values(instanceStore)) {
+                if (!instance || typeof instance !== "object") {
+                    continue;
+                }
+
+                for (const [key, value] of Object.entries(instance)) {
+                    if (typeof value === "function" && value.name === name) {
+                        (instance as Record<string, unknown>)[key] = fn;
                     }
                 }
             }

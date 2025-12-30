@@ -13,6 +13,7 @@ type GlobalSnapshot = {
     JSON_game?: JsonGameSnapshot;
     gml_Script_test?: (...args: Array<unknown>) => unknown;
     gml_Object_oSpider_Step_0?: (...args: Array<unknown>) => unknown;
+    _cx?: { _dx?: Record<string, unknown> };
 };
 
 function snapshotGlobals(): GlobalSnapshot {
@@ -20,7 +21,8 @@ function snapshotGlobals(): GlobalSnapshot {
     return {
         JSON_game: globals.JSON_game,
         gml_Script_test: globals.gml_Script_test,
-        gml_Object_oSpider_Step_0: globals.gml_Object_oSpider_Step_0
+        gml_Object_oSpider_Step_0: globals.gml_Object_oSpider_Step_0,
+        _cx: globals._cx
     };
 }
 
@@ -43,6 +45,12 @@ function restoreGlobals(snapshot: GlobalSnapshot): void {
         delete globals.gml_Object_oSpider_Step_0;
     } else {
         globals.gml_Object_oSpider_Step_0 = snapshot.gml_Object_oSpider_Step_0;
+    }
+
+    if (snapshot._cx === undefined) {
+        delete globals._cx;
+    } else {
+        globals._cx = snapshot._cx;
     }
 }
 
@@ -99,6 +107,9 @@ await test("applies object event patches to GameMaker object tables", () => {
         const objectEntry = {
             StepNormalEvent: gml_Object_oSpider_Step_0
         };
+        const instanceEntry = {
+            StepNormalEvent: gml_Object_oSpider_Step_0
+        };
 
         const jsonGame: JsonGameSnapshot = {
             ScriptNames: [],
@@ -109,6 +120,11 @@ await test("applies object event patches to GameMaker object tables", () => {
         const globals = globalThis as GlobalSnapshot;
         globals.JSON_game = jsonGame;
         globals.gml_Object_oSpider_Step_0 = gml_Object_oSpider_Step_0;
+        globals._cx = {
+            _dx: {
+                "100000": instanceEntry
+            }
+        };
 
         const wrapper = RuntimeWrapper.createRuntimeWrapper();
         wrapper.applyPatch({
@@ -128,6 +144,11 @@ await test("applies object event patches to GameMaker object tables", () => {
             objectEntry.StepNormalEvent,
             updatedFn,
             "GMObjects entry should be updated"
+        );
+        assert.equal(
+            instanceEntry.StepNormalEvent,
+            updatedFn,
+            "Instance event handler should be updated"
         );
     } finally {
         restoreGlobals(snapshot);
