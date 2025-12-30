@@ -37,6 +37,50 @@ export interface TranspilationError {
     sourceSize?: number;
 }
 
+function resolveRuntimeId(filePath: string): string | null {
+    const normalizedPath = path.normalize(filePath);
+    const segments = normalizedPath.split(path.sep).filter(Boolean);
+
+    for (let index = segments.length - 1; index >= 0; index -= 1) {
+        if (segments[index] !== "objects") {
+            continue;
+        }
+
+        const objectName = segments[index + 1];
+        const eventFile = segments[index + 2];
+        if (!objectName || !eventFile) {
+            continue;
+        }
+
+        const eventName = path.basename(eventFile, path.extname(eventFile));
+        if (!eventName) {
+            continue;
+        }
+
+        return `gml_Object_${objectName}_${eventName}`;
+    }
+
+    for (let index = segments.length - 1; index >= 0; index -= 1) {
+        if (segments[index] !== "scripts") {
+            continue;
+        }
+
+        const scriptFile = segments[index + 1];
+        if (!scriptFile) {
+            continue;
+        }
+
+        const scriptName = path.basename(scriptFile, path.extname(scriptFile));
+        if (!scriptName) {
+            continue;
+        }
+
+        return `gml_Script_${scriptName}`;
+    }
+
+    return null;
+}
+
 export interface TranspilationContext {
     transpiler: RuntimeTranspiler;
     patches: Array<RuntimeTranspilerPatch>;
@@ -143,8 +187,11 @@ export function transpileFile(
             sourceText: content,
             symbolId
         });
+        const runtimeId = resolveRuntimeId(filePath);
+        const patchPayload =
+            runtimeId === null ? patch : { ...patch, runtimeId };
 
-        if (!validatePatch(patch)) {
+        if (!validatePatch(patchPayload)) {
             throw new Error("Generated patch failed validation");
         }
 
@@ -153,10 +200,10 @@ export function transpileFile(
         const metrics: TranspilationMetrics = {
             timestamp: Date.now(),
             filePath,
-            patchId: patch.id,
+            patchId: patchPayload.id,
             durationMs,
             sourceSize: content.length,
-            outputSize: patch.js_body.length,
+            outputSize: patchPayload.js_body.length,
             linesProcessed: lines
         };
 
@@ -166,11 +213,16 @@ export function transpileFile(
             context.maxPatchHistory
         );
 
-        context.lastSuccessfulPatches.set(symbolId, patch);
+        context.lastSuccessfulPatches.set(symbolId, patchPayload);
 
-        addToBoundedCollection(context.patches, patch, context.maxPatchHistory);
+        addToBoundedCollection(
+            context.patches,
+            patchPayload,
+            context.maxPatchHistory
+        );
 
-        const broadcastResult = context.websocketServer?.broadcast(patch);
+        const broadcastResult =
+            context.websocketServer?.broadcast(patchPayload);
         if (broadcastResult && !quiet) {
             if (verbose) {
                 console.log(
@@ -191,17 +243,17 @@ export function transpileFile(
         if (!quiet) {
             if (verbose) {
                 console.log(
-                    `  ↳ Transpiled to JavaScript (${patch.js_body.length} chars in ${durationMs.toFixed(2)}ms)`
+                    `  ↳ Transpiled to JavaScript (${patchPayload.js_body.length} chars in ${durationMs.toFixed(2)}ms)`
                 );
-                console.log(`  ↳ Patch ID: ${patch.id}`);
+                console.log(`  ↳ Patch ID: ${patchPayload.id}`);
             } else {
-                console.log(`  ↳ Generated patch: ${patch.id}`);
+                console.log(`  ↳ Generated patch: ${patchPayload.id}`);
             }
         }
 
         return {
             success: true,
-            patch,
+            patch: patchPayload,
             metrics
         };
     } catch (error) {

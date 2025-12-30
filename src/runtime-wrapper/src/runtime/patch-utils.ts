@@ -29,6 +29,84 @@ function areNumbersApproximatelyEqual(a: number, b: number): boolean {
     return Math.abs(a - b) <= tolerance;
 }
 
+type RuntimeBindingGlobals = {
+    JSON_game?: {
+        ScriptNames?: Array<string>;
+        Scripts?: Array<RuntimeFunction>;
+        GMObjects?: Array<Record<string, unknown>>;
+    };
+};
+
+function resolveRuntimeId(patch: ScriptPatch): string {
+    const candidate = (patch as { runtimeId?: unknown }).runtimeId;
+    if (typeof candidate === "string" && candidate.length > 0) {
+        return candidate;
+    }
+
+    return patch.id;
+}
+
+function resolveRuntimeBindingNames(runtimeId: string): Array<string> {
+    if (runtimeId.startsWith("gml/script/")) {
+        const name = runtimeId.slice("gml/script/".length);
+        if (!name) {
+            return [];
+        }
+        return [`gml_Script_${name}`, `gml_GlobalScript_${name}`];
+    }
+
+    if (runtimeId.startsWith("gml/object/")) {
+        const parts = runtimeId.split("/");
+        if (parts.length >= 4) {
+            return [`gml_Object_${parts[2]}_${parts[3]}`];
+        }
+        return [];
+    }
+
+    return [runtimeId];
+}
+
+function applyRuntimeBindings(patch: ScriptPatch, fn: RuntimeFunction): void {
+    const runtimeId = resolveRuntimeId(patch);
+    const targetNames = resolveRuntimeBindingNames(runtimeId);
+    if (targetNames.length === 0) {
+        return;
+    }
+
+    const globalScope = globalThis as RuntimeBindingGlobals &
+        Record<string, unknown>;
+    const jsonGame = globalScope.JSON_game;
+    const scriptNames = jsonGame?.ScriptNames;
+    const scripts = jsonGame?.Scripts;
+    const gmObjects = jsonGame?.GMObjects;
+
+    for (const name of targetNames) {
+        if (
+            typeof globalScope[name] === "function" ||
+            (Array.isArray(scriptNames) && scriptNames.includes(name))
+        ) {
+            globalScope[name] = fn;
+        }
+
+        if (Array.isArray(scriptNames) && Array.isArray(scripts)) {
+            const scriptIndex = scriptNames.indexOf(name);
+            if (scriptIndex !== -1 && scriptIndex < scripts.length) {
+                scripts[scriptIndex] = fn;
+            }
+        }
+
+        if (Array.isArray(gmObjects)) {
+            for (const objectEntry of gmObjects) {
+                for (const [key, value] of Object.entries(objectEntry)) {
+                    if (typeof value === "function" && value.name === name) {
+                        objectEntry[key] = fn;
+                    }
+                }
+            }
+        }
+    }
+}
+
 export function createRegistry(
     overrides?: RuntimeRegistryOverrides
 ): RuntimeRegistry {
@@ -188,6 +266,7 @@ function applyScriptPatch(
         "args",
         patch.js_body
     ) as RuntimeFunction;
+    applyRuntimeBindings(patch, fn);
 
     return {
         ...registry,
