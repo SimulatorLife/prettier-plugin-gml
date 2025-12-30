@@ -191,6 +191,14 @@ export interface ValidateRenameRequestOptions {
     includeHotReload?: boolean;
 }
 
+export interface BatchRenameValidation {
+    valid: boolean;
+    errors: Array<string>;
+    warnings: Array<string>;
+    renameValidations: Map<string, ValidationSummary>;
+    conflictingSets: Array<Array<string>>;
+}
+
 export interface ConflictEntry {
     type: string;
     message: string;

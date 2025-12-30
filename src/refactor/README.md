@@ -46,6 +46,58 @@ This is especially useful for:
 - CLI tools that want to provide friendly error messages before processing
 - Dry-run scenarios where you want to check feasibility without side effects
 
+### Batch Rename Validation (Pre-flight Check for Multiple Renames)
+
+Validate multiple rename operations before planning edits, detecting conflicts between renames:
+
+```javascript
+const engine = new RefactorEngine({ semantic, parser, formatter });
+
+// Validate batch rename request
+const validation = await engine.validateBatchRenameRequest([
+    { symbolId: "gml/script/scr_enemy_old", newName: "scr_enemy_new" },
+    { symbolId: "gml/script/scr_enemy_helper_old", newName: "scr_enemy_helper_new" }
+]);
+
+if (!validation.valid) {
+    console.error("Batch rename has errors:", validation.errors);
+    
+    // Show per-rename validation results
+    for (const [symbolId, result] of validation.renameValidations) {
+        if (!result.valid) {
+            console.error(`  ${symbolId}:`, result.errors);
+        }
+    }
+    
+    // Show conflicting sets (e.g., duplicate target names, circular renames)
+    if (validation.conflictingSets.length > 0) {
+        console.error("Conflicting rename sets detected:");
+        for (const set of validation.conflictingSets) {
+            console.error(`  - ${set.join(", ")}`);
+        }
+    }
+} else {
+    console.log("Batch rename validation passed!");
+    if (validation.warnings.length > 0) {
+        console.warn("Warnings:", validation.warnings);
+    }
+    // Proceed with planBatchRename()
+}
+```
+
+The batch validation detects:
+- Invalid individual rename requests
+- Duplicate target names (multiple symbols renamed to the same name)
+- Circular rename chains (A→B, B→A or A→B→C→A)
+- Cross-rename confusion (renaming to names that were original symbols in the batch)
+- Each rename's individual validation status with hot reload checks (if requested)
+
+This is essential for:
+- Large refactoring operations affecting multiple related symbols
+- IDE batch rename features
+- Automated refactoring tools
+- Ensuring atomicity and consistency in complex rename operations
+
 ### Rename Operations
 
 #### Single Symbol Rename
@@ -345,7 +397,8 @@ new RefactorEngine({ parser, semantic, formatter })
 **Methods:**
 
 #### Rename Operations
-- `async validateRenameRequest(request)` - Validate a rename request without creating edits (returns validation results instead of throwing)
+- `async validateRenameRequest(request, options)` - Validate a single rename request without creating edits (returns validation results instead of throwing)
+- `async validateBatchRenameRequest(renames, options)` - Validate multiple rename requests before planning, detecting conflicts between renames
 - `async planRename(request)` - Plan a single symbol rename
 - `async planBatchRename(renames)` - Plan multiple renames atomically
 - `async executeRename(request)` - Execute a rename with optional hot reload
