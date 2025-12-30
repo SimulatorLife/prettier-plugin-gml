@@ -4,17 +4,17 @@ import path from "node:path";
 import { walkAncestorDirectories } from "./path.js";
 
 /**
- * Check if a path exists and satisfies a predicate (e.g., isFile, isDirectory).
+ * Check if a path exists and optionally satisfies a predicate.
  * Returns true only if the path exists and the predicate passes; returns false
  * for any error including non-existent paths or permission issues.
  */
 function pathExistsSync(
     filePath: string,
-    predicate: (stat: ReturnType<typeof fs.statSync>) => boolean
+    predicate?: (stat: ReturnType<typeof fs.statSync>) => boolean
 ): boolean {
     try {
         const stat = fs.statSync(filePath);
-        return predicate(stat);
+        return predicate ? predicate(stat) : true;
     } catch {
         return false;
     }
@@ -39,7 +39,7 @@ export function findRepoRootSync(startDir: string): string {
             return dir;
         }
 
-        if (pathExistsSync(path.join(dir, "package.json"), () => true)) {
+        if (pathExistsSync(path.join(dir, "package.json"))) {
             lastPackageJson = dir;
         }
     }
