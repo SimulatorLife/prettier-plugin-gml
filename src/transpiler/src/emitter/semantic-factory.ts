@@ -7,16 +7,6 @@ import type { CallTargetAnalyzer, IdentifierAnalyzer } from "./ast.js";
  */
 export interface SemanticOracleOptions {
     /**
-     * Scope tracker instance for local variable resolution.
-     * If not provided, the oracle will use default classification logic.
-     *
-     * Note: ScopeTracker is an internal implementation detail. For production
-     * use, prefer the SemanticScopeCoordinator from @gml-modules/semantic.
-     * This option is primarily for testing and internal integration.
-     */
-    readonly scopeTracker?: unknown;
-
-    /**
      * Set of built-in function names. If not provided, loads from GameMaker
      * manual metadata via Core.loadManualFunctionNames().
      */
@@ -56,13 +46,6 @@ export interface SemanticOracleOptions {
  * const oracle = createSemanticOracle({
  *   scriptNames: new Set(['scr_player_move', 'scr_enemy_ai'])
  * });
- *
- * // Full-featured with scope tracking (internal use)
- * // Note: ScopeTracker is not part of the public API
- * const oracle = createSemanticOracle({
- *   scopeTracker: null,  // or a ScopeTracker instance for internal testing
- *   scriptNames: projectScripts
- * });
  * ```
  */
 export function createSemanticOracle(
@@ -70,7 +53,11 @@ export function createSemanticOracle(
 ): IdentifierAnalyzer & CallTargetAnalyzer {
     const builtinNames = options.builtinNames ?? Core.loadManualFunctionNames();
     const scriptNames = options.scriptNames ?? new Set<string>();
-    const scopeTracker = (options.scopeTracker ?? null) as null;
+
+    // Scope tracker integration is not fully implemented yet.
+    // For now, we pass null to use default classification without scope resolution.
+    // Future enhancement will support passing actual ScopeTracker instances.
+    const scopeTracker = null;
 
     return new Semantic.BasicSemanticOracle(
         scopeTracker,

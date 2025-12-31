@@ -127,7 +127,7 @@ void test("makeDefaultOracle creates oracle with builtin knowledge", () => {
     assert.equal(kind, "builtin", "Should recognize sqrt as builtin");
 });
 
-void test("makeDummyOracle creates minimal oracle without builtin knowledge", () => {
+void test("makeDummyOracle creates minimal oracle", () => {
     const oracle = Transpiler.makeDummyOracle();
 
     const builtinNode = {
@@ -139,22 +139,12 @@ void test("makeDummyOracle creates minimal oracle without builtin knowledge", ()
         builtinNode as unknown as CallExpressionNode
     );
 
-    // Dummy oracle checks builtInFunctions map directly, so sqrt should be recognized
-    // This is a limitation of the dummy oracle - it's not truly "minimal"
-    assert.ok(
-        kind === "builtin" || kind === "unknown",
-        "Dummy oracle classification may vary"
+    // Dummy oracle still checks builtInFunctions map for basic recognition
+    assert.equal(
+        kind,
+        "builtin",
+        "Dummy oracle recognizes builtins via builtInFunctions map"
     );
-});
-
-void test("createSemanticOracle with scope tracker resolves locals", () => {
-    // This is a future test - scope tracker integration
-    // For now, just verify the option is accepted
-    const oracle = Transpiler.createSemanticOracle({
-        scopeTracker: null
-    });
-
-    assert.ok(oracle, "Should create oracle with null scope tracker");
 });
 
 void test("semantic oracle identifies global variables", () => {
