@@ -56,6 +56,13 @@ export interface StatusServerController
 const DEFAULT_STATUS_HOST = "127.0.0.1";
 const DEFAULT_STATUS_PORT = 17_891;
 
+/**
+ * Readiness threshold: server is considered ready if successful patches
+ * outnumber errors by at least this ratio. This ensures the watcher is
+ * operational even if occasional transpilation failures occur.
+ */
+const READINESS_SUCCESS_TO_ERROR_RATIO = 2;
+
 function sendJsonResponse(
     res: ServerResponse,
     statusCode: number,
@@ -109,6 +116,9 @@ function handleHealthRequest(
                 websocket: {
                     status: "pass",
                     clients: snapshot.websocketClients
+                    // Note: Status is always 'pass' based on current snapshot data.
+                    // Future enhancement: integrate with websocket server lifecycle
+                    // to detect server startup failures or connection issues.
                 }
             }
         };
@@ -133,10 +143,14 @@ function handleReadyRequest(
 ): void {
     try {
         const snapshot = getSnapshot();
-        // Ready if the server is operational and not experiencing excessive errors
+        // Ready if the server is operational and not experiencing excessive errors.
+        // We consider the server ready if successful patches outnumber errors by
+        // the configured ratio, allowing for occasional transpilation failures
+        // without marking the service as unavailable.
         const isReady =
             snapshot.errorCount === 0 ||
-            snapshot.patchCount > snapshot.errorCount * 2;
+            snapshot.patchCount >
+                snapshot.errorCount * READINESS_SUCCESS_TO_ERROR_RATIO;
         const statusCode = isReady ? 200 : 503;
         sendJsonResponse(res, statusCode, {
             ready: isReady,
