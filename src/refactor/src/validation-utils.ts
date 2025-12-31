@@ -3,7 +3,7 @@
  * This module provides identifier validation and reserved keyword checking.
  */
 
-const IDENTIFIER_NAME_PATTERN = /^[A-Za-z_][A-Za-z0-9_]*$/;
+import { Core } from "@gml-modules/core";
 
 /**
  * Validate and normalize an identifier name.
@@ -35,7 +35,7 @@ export function assertValidIdentifierName(name: unknown): string {
         );
     }
 
-    if (!IDENTIFIER_NAME_PATTERN.test(name)) {
+    if (!Core.GML_IDENTIFIER_NAME_PATTERN.test(name)) {
         throw new Error(
             `Identifier '${name}' is not a valid GML identifier (expected [A-Za-z_][A-Za-z0-9_]*)`
         );
