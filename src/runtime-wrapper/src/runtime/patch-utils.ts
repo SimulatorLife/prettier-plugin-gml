@@ -40,7 +40,32 @@ type RuntimeBindingGlobals = {
     _cx?: {
         _dx?: Record<string, unknown>;
     };
+    g_RunRoom?: {
+        m_Active?: {
+            pool?: Array<unknown>;
+        };
+    };
 };
+
+function resolveInstanceStore(
+    globalScope: RuntimeBindingGlobals
+): Record<string, unknown> | undefined {
+    if (globalScope._cx?._dx) {
+        return globalScope._cx._dx;
+    }
+
+    if (
+        globalScope.g_RunRoom?.m_Active?.pool &&
+        Array.isArray(globalScope.g_RunRoom.m_Active.pool)
+    ) {
+        return globalScope.g_RunRoom.m_Active.pool as unknown as Record<
+            string,
+            unknown
+        >;
+    }
+
+    return undefined;
+}
 
 function resolveRuntimeId(patch: ScriptPatch): string {
     const candidate = (patch as { runtimeId?: unknown }).runtimeId;
@@ -181,9 +206,15 @@ function applyRuntimeBindings(patch: ScriptPatch, fn: RuntimeFunction): void {
     const scriptNames = jsonGame?.ScriptNames;
     const scripts = jsonGame?.Scripts;
     const gmObjects = jsonGame?.GMObjects;
-    const instanceStore = globalScope._cx?._dx;
+    const instanceStore = resolveInstanceStore(globalScope);
     let objectName: string | null = null;
     const instanceKeysToUpdate = new Set<string>();
+
+    if (!instanceStore) {
+        console.warn(
+            `[hot-reload] Instance store not found. Active instances will not be updated for ${patch.id}`
+        );
+    }
 
     const objectRuntime = parseObjectRuntimeId(runtimeId);
     let objectEventKey: string | null = null;
@@ -476,10 +507,14 @@ const __gml_proxy = new Proxy(__gml_scope, {
             return prop in target;
         }
         const gmlProp = \`gml\${prop}\`;
+        const underscoreProp = \`__\${prop}\`;
         if (prop in target) {
             return true;
         }
         if (gmlProp in target) {
+            return true;
+        }
+        if (underscoreProp in target) {
             return true;
         }
         if (typeof globalThis?.[prop] === "number") {
@@ -501,11 +536,15 @@ const __gml_proxy = new Proxy(__gml_scope, {
             return Reflect.get(target, prop, receiver);
         }
         const gmlProp = \`gml\${prop}\`;
+        const underscoreProp = \`__\${prop}\`;
         if (prop in target) {
             return Reflect.get(target, prop, receiver);
         }
         if (gmlProp in target) {
             return Reflect.get(target, gmlProp, receiver);
+        }
+        if (underscoreProp in target) {
+            return Reflect.get(target, underscoreProp, receiver);
         }
         if (typeof globalThis?.[prop] === "number") {
             return globalThis[prop];
@@ -526,11 +565,15 @@ const __gml_proxy = new Proxy(__gml_scope, {
             return Reflect.set(target, prop, value, receiver);
         }
         const gmlProp = \`gml\${prop}\`;
+        const underscoreProp = \`__\${prop}\`;
         if (prop in target) {
             return Reflect.set(target, prop, value, receiver);
         }
         if (gmlProp in target) {
             return Reflect.set(target, gmlProp, value, receiver);
+        }
+        if (underscoreProp in target) {
+            return Reflect.set(target, underscoreProp, value, receiver);
         }
         return Reflect.set(target, prop, value, receiver);
     }
