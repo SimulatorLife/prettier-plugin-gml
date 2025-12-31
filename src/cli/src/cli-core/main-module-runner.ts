@@ -62,6 +62,17 @@ export function isMainModule(importMetaUrl: string): boolean {
 }
 
 /**
+ * Extract the exit code from an error object.
+ *
+ * @param error - An error that may contain an exitCode property.
+ * @returns The exit code from the error, or 1 if none is present.
+ */
+function getExitCode(error: unknown): number {
+    const exitCode = (error as { exitCode?: unknown } | null)?.exitCode;
+    return typeof exitCode === "number" ? exitCode : 1;
+}
+
+/**
  * Execute a CLI command when the module is run as the main entry point.
  *
  * This helper consolidates the boilerplate pattern used across CLI commands
@@ -111,10 +122,7 @@ export function runAsMainModule({
     const handleError = (error: unknown) =>
         handleCliError(error, {
             prefix: errorPrefix,
-            exitCode:
-                typeof (error as { exitCode?: number })?.exitCode === "number"
-                    ? (error as { exitCode: number }).exitCode
-                    : 1
+            exitCode: getExitCode(error)
         });
 
     const shouldPassOptions = passOptionsToCreateCommand ?? env !== undefined;
