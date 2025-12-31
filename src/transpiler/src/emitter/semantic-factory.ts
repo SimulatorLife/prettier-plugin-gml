@@ -54,9 +54,10 @@ export function createSemanticOracle(
     const builtinNames = options.builtinNames ?? Core.loadManualFunctionNames();
     const scriptNames = options.scriptNames ?? new Set<string>();
 
-    // Scope tracker integration is not fully implemented yet.
-    // For now, we pass null to use default classification without scope resolution.
-    // Future enhancement will support passing actual ScopeTracker instances.
+    // TODO: Implement scope tracker integration for local variable resolution.
+    // The BasicSemanticOracle supports a ScopeTracker parameter, but ScopeTracker
+    // is not part of the public Semantic API. For now, we pass null to use
+    // default classification without scope resolution.
     const scopeTracker = null;
 
     return new Semantic.BasicSemanticOracle(

@@ -4,6 +4,18 @@ import { Parser } from "@gml-modules/parser";
 import { Transpiler } from "../index.js";
 import type { CallExpressionNode } from "../src/emitter/ast.js";
 
+/**
+ * Helper function to create a mock CallExpressionNode for testing.
+ * Reduces duplication and improves type safety in tests.
+ */
+function createMockCallExpression(calleeName: string): CallExpressionNode {
+    return {
+        type: "CallExpression" as const,
+        object: { name: calleeName },
+        arguments: []
+    } as unknown as CallExpressionNode;
+}
+
 void test("createSemanticOracle returns an oracle with both interfaces", () => {
     const oracle = Transpiler.createSemanticOracle();
 
@@ -17,15 +29,8 @@ void test("createSemanticOracle returns an oracle with both interfaces", () => {
 void test("createSemanticOracle classifies built-in functions correctly", () => {
     const oracle = Transpiler.createSemanticOracle();
 
-    // Test a few known built-in functions
-    const builtinNode = {
-        type: "CallExpression" as const,
-        object: { name: "abs" },
-        arguments: []
-    };
-    const kind = oracle.callTargetKind(
-        builtinNode as unknown as CallExpressionNode
-    );
+    const builtinNode = createMockCallExpression("abs");
+    const kind = oracle.callTargetKind(builtinNode);
 
     assert.equal(kind, "builtin", "Should classify abs as a builtin");
 });
@@ -34,14 +39,8 @@ void test("createSemanticOracle with script names classifies scripts", () => {
     const scriptNames = new Set(["scr_player_move", "scr_enemy_ai"]);
     const oracle = Transpiler.createSemanticOracle({ scriptNames });
 
-    const scriptNode = {
-        type: "CallExpression" as const,
-        object: { name: "scr_player_move" },
-        arguments: []
-    };
-    const kind = oracle.callTargetKind(
-        scriptNode as unknown as CallExpressionNode
-    );
+    const scriptNode = createMockCallExpression("scr_player_move");
+    const kind = oracle.callTargetKind(scriptNode);
 
     assert.equal(kind, "script", "Should classify scr_player_move as a script");
 });
