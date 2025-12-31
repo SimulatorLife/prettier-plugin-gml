@@ -199,7 +199,7 @@ await test("object patches update entries when previous handler is anonymous", (
     try {
         const objectEntry = {
             pName: "oSpider",
-            StepNormalEvent () {
+            StepNormalEvent() {
                 return "old";
             }
         };
@@ -320,7 +320,7 @@ await test("updates pObject definition on active instances", () => {
         const globals = globalThis as GlobalSnapshot;
         // Function name MUST match for the patcher to find it in GMObjects
         const originalFn = function gml_Object_oSpider_Step_0(
-            ...args: Array<unknown>
+            ..._args: Array<unknown>
         ) {
             return "original";
         };

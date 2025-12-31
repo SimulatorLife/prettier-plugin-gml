@@ -227,6 +227,146 @@ function createNamedRuntimeFunction(
     return wrapperFactory(rawFn);
 }
 
+function updateGMObjects(
+    gmObjects: Array<Record<string, unknown>>,
+    objectRuntime: { objectName: string; eventName: string } | null,
+    objectEventKey: string | null,
+    fn: RuntimeFunction,
+    instanceKeysToUpdate: Set<string>,
+    name: string
+): string | null {
+    let objectName: string | null = null;
+    for (const objectEntry of gmObjects) {
+        if (
+            objectRuntime &&
+            typeof objectEntry.pName === "string" &&
+            objectEntry.pName === objectRuntime.objectName &&
+            objectEventKey
+        ) {
+            objectEntry[objectEventKey] = fn;
+            instanceKeysToUpdate.add(objectEventKey);
+            if (!objectName) {
+                objectName = objectRuntime.objectName;
+            }
+        }
+
+        for (const [key, value] of Object.entries(objectEntry)) {
+            if (typeof value === "function" && value.name === name) {
+                objectEntry[key] = fn;
+                instanceKeysToUpdate.add(key);
+
+                if (!objectName) {
+                    objectName =
+                        typeof objectEntry.pName === "string"
+                            ? objectEntry.pName
+                            : null;
+                }
+            }
+        }
+    }
+    return objectName;
+}
+
+function updateInstance(
+    instance: Record<string, unknown>,
+    instanceKeysToUpdate: Set<string>,
+    fn: RuntimeFunction,
+    globalScope: RuntimeBindingGlobals & Record<string, unknown>,
+    name: string
+) {
+    for (const key of instanceKeysToUpdate) {
+        instance[key] = fn;
+
+        // Also update the object definition (pObject) which the event loop uses
+        const pObject = (instance as any).pObject || (instance as any)._kx;
+        if (pObject && typeof pObject === "object") {
+            if (pObject[key] !== fn) {
+                pObject[key] = fn;
+            }
+
+            // Resolve event index (try minified first, then standard)
+            const eventIndexName = resolveEventIndexName(key);
+            let index: number | null = null;
+
+            if (
+                eventIndexName &&
+                typeof globalScope[eventIndexName] === "number"
+            ) {
+                index = globalScope[eventIndexName];
+            } else {
+                const standardName = EVENT_INDEX_MAP[key];
+                if (
+                    standardName &&
+                    typeof globalScope[standardName] === "number"
+                ) {
+                    index = globalScope[standardName];
+                }
+            }
+
+            if (typeof index === "number" && Array.isArray(pObject.Event)) {
+                pObject.Event[index] = true;
+            }
+        }
+
+        const eventIndexName = resolveEventIndexName(key);
+        if (eventIndexName) {
+            const eventIndexValue = globalScope[eventIndexName];
+            const index =
+                typeof eventIndexValue === "number" ? eventIndexValue : null;
+            const eventArray = instance.Event as Array<boolean> | undefined;
+            if (typeof index === "number" && Array.isArray(eventArray)) {
+                eventArray[index] = true;
+            }
+        }
+    }
+
+    for (const [key, value] of Object.entries(instance)) {
+        if (typeof value === "function" && value.name === name) {
+            instance[key] = fn;
+        }
+    }
+}
+
+function updateInstances(
+    instanceStore: Record<string, unknown>,
+    objectName: string | null,
+    instanceKeysToUpdate: Set<string>,
+    fn: RuntimeFunction,
+    globalScope: RuntimeBindingGlobals & Record<string, unknown>,
+    name: string
+) {
+    for (const instance of Object.values(instanceStore)) {
+        if (!instance || typeof instance !== "object") {
+            continue;
+        }
+
+        if (objectName) {
+            const instanceObject = (instance as Record<string, unknown>)
+                ._kx as { pName?: unknown; _lx?: unknown } | undefined;
+            const instanceObjectName =
+                typeof instanceObject?.pName === "string"
+                    ? instanceObject.pName
+                    : typeof instanceObject?._lx === "string"
+                      ? instanceObject._lx
+                      : null;
+            if (
+                instanceObjectName &&
+                instanceObjectName !== objectName
+            ) {
+                continue;
+            }
+        }
+
+        updateInstance(
+            instance as Record<string, unknown>,
+            instanceKeysToUpdate,
+            fn,
+            globalScope,
+            name
+        );
+    }
+}
+
 function applyRuntimeBindings(patch: ScriptPatch, fn: RuntimeFunction): void {
     const runtimeId = resolveRuntimeId(patch);
     const targetNames = resolveRuntimeBindingNames(runtimeId);
@@ -286,121 +426,28 @@ function applyRuntimeBindings(patch: ScriptPatch, fn: RuntimeFunction): void {
         }
 
         if (Array.isArray(gmObjects)) {
-            for (const objectEntry of gmObjects) {
-                if (
-                    objectRuntime &&
-                    typeof objectEntry.pName === "string" &&
-                    objectEntry.pName === objectRuntime.objectName &&
-                    objectEventKey
-                ) {
-                    objectEntry[objectEventKey] = fn;
-                    instanceKeysToUpdate.add(objectEventKey);
-                    if (!objectName) {
-                        objectName = objectRuntime.objectName;
-                    }
-                }
-
-                for (const [key, value] of Object.entries(objectEntry)) {
-                    if (typeof value === "function" && value.name === name) {
-                        objectEntry[key] = fn;
-                        instanceKeysToUpdate.add(key);
-
-                        if (!objectName) {
-                            objectName =
-                                typeof objectEntry.pName === "string"
-                                    ? objectEntry.pName
-                                    : null;
-                        }
-                    }
-                }
+            const foundName = updateGMObjects(
+                gmObjects,
+                objectRuntime,
+                objectEventKey,
+                fn,
+                instanceKeysToUpdate,
+                name
+            );
+            if (!objectName && foundName) {
+                objectName = foundName;
             }
         }
 
         if (instanceStore && typeof instanceStore === "object") {
-            for (const instance of Object.values(instanceStore)) {
-                if (!instance || typeof instance !== "object") {
-                    continue;
-                }
-
-                if (objectName) {
-                    const instanceObject = (instance as Record<string, unknown>)
-                        ._kx as { pName?: unknown; _lx?: unknown } | undefined;
-                    const instanceObjectName =
-                        typeof instanceObject?.pName === "string"
-                            ? instanceObject.pName
-                            : typeof instanceObject?._lx === "string"
-                              ? instanceObject._lx
-                              : null;
-                    if (
-                        instanceObjectName &&
-                        instanceObjectName !== objectName
-                    ) {
-                        continue;
-                    }
-                }
-
-                for (const key of instanceKeysToUpdate) {
-                    (instance as Record<string, unknown>)[key] = fn;
-
-                    // Also update the object definition (pObject) which the event loop uses
-                    const pObject =
-                        (instance as any).pObject || (instance as any)._kx;
-                    if (pObject && typeof pObject === "object") {
-                        if (pObject[key] !== fn) {
-                            pObject[key] = fn;
-                        }
-
-                        // Resolve event index (try minified first, then standard)
-                        const eventIndexName = resolveEventIndexName(key);
-                        let index: number | null = null;
-
-                        if (
-                            eventIndexName &&
-                            typeof globalScope[eventIndexName] === "number"
-                        ) {
-                            index = globalScope[eventIndexName];
-                        } else {
-                            const standardName = EVENT_INDEX_MAP[key];
-                            if (
-                                standardName &&
-                                typeof globalScope[standardName] === "number"
-                            ) {
-                                index = globalScope[standardName];
-                            }
-                        }
-
-                        if (
-                            typeof index === "number" &&
-                            Array.isArray(pObject.Event)
-                        ) {
-                            pObject.Event[index] = true;
-                        }
-                    }
-
-                    const eventIndexName = resolveEventIndexName(key);
-                    if (eventIndexName) {
-                        const eventIndexValue = globalScope[eventIndexName];
-                        const index =
-                            typeof eventIndexValue === "number"
-                                ? eventIndexValue
-                                : null;
-                        const eventArray = (instance as Record<string, unknown>)
-                            .Event as Array<boolean> | undefined;
-                        if (
-                            typeof index === "number" &&
-                            Array.isArray(eventArray)
-                        ) {
-                            eventArray[index] = true;
-                        }
-                    }
-                }
-
-                for (const [key, value] of Object.entries(instance)) {
-                    if (typeof value === "function" && value.name === name) {
-                        (instance as Record<string, unknown>)[key] = fn;
-                    }
-                }
-            }
+            updateInstances(
+                instanceStore,
+                objectName,
+                instanceKeysToUpdate,
+                fn,
+                globalScope,
+                name
+            );
         }
     }
 }

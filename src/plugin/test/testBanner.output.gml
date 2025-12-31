@@ -29,3 +29,5 @@ if (camUpdateTimer >= 1 or fps < 70) { // Only update the mouse movement every 1
 // eAIState
 
 // Fall state
+
+// CAMERA SETTINGS
