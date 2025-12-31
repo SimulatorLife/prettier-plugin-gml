@@ -29,6 +29,21 @@ type ScopeRole = {
     kind?: string;
 };
 
+type ScopeModificationDetails = {
+    scopeId: string;
+    scopeKind: string;
+    lastModified: number;
+    modificationCount: number;
+    declarationCount: number;
+    referenceCount: number;
+    symbolCount: number;
+    symbols: Array<{
+        name: string;
+        declarationCount: number;
+        referenceCount: number;
+    }>;
+};
+
 class Scope {
     public id: string;
     public kind: string;
@@ -1078,10 +1093,12 @@ export class ScopeTracker {
      * understand what type of changes occurred in a scope.
      *
      * @param {string} scopeId The scope identifier.
-     * @returns {{scopeId: string, scopeKind: string, lastModified: number, modificationCount: number, declarationCount: number, referenceCount: number, symbolCount: number, symbols: Array<{name: string, declarationCount: number, referenceCount: number}>} | null}
+     * @returns {ScopeModificationDetails | null}
      *          Detailed modification metadata including symbol-level counts, or null if scope not found.
      */
-    getScopeModificationDetails(scopeId: string | null | undefined) {
+    getScopeModificationDetails(
+        scopeId: string | null | undefined
+    ): ScopeModificationDetails | null {
         if (!scopeId) {
             return null;
         }
