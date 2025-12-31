@@ -225,7 +225,6 @@ const GM1041_CALL_ARGUMENT_TARGETS = new Map([
     ["instance_create_layer_depth", [4]],
     ["layer_instance_create", [3]]
 ]);
-const IDENTIFIER_NAME_PATTERN = /^[A-Za-z_][A-Za-z0-9_]*$/;
 const FEATHER_TYPE_SYSTEM_INFO = buildFeatherTypeSystemInfo();
 const AUTOMATIC_FEATHER_FIX_HANDLERS = createAutomaticFeatherFixHandlers();
 const FEATHER_DIAGNOSTICS = Core.getFeatherDiagnostics();
@@ -15100,7 +15099,7 @@ function extractIdentifierNameFromLiteral(value) {
         return null;
     }
 
-    if (!IDENTIFIER_NAME_PATTERN.test(stripped)) {
+    if (!Core.GML_IDENTIFIER_NAME_PATTERN.test(stripped)) {
         return null;
     }
 

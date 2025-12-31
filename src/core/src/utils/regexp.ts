@@ -2,6 +2,16 @@ const ESCAPE_REGEXP_PATTERN = /[.*+?^${}()|[\]\\]/g;
 const ESCAPE_REGEXP_REPLACEMENT = String.raw`\$&`;
 
 /**
+ * Pattern matching valid GML identifier names. GML identifiers must start with
+ * a letter (A-Z, a-z) or underscore, followed by zero or more letters, digits,
+ * or underscores. This pattern is used across the codebase for validation,
+ * normalization, and safety checks when generating or manipulating identifiers.
+ *
+ * @type {RegExp}
+ */
+export const GML_IDENTIFIER_NAME_PATTERN = /^[A-Za-z_][A-Za-z0-9_]*$/;
+
+/**
  * Escape characters that carry special meaning in regular expressions so the
  * resulting string can be injected into a pattern literal or constructor
  * without altering the intended match. Non-string inputs are normalized to an
