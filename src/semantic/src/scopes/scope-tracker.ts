@@ -8,6 +8,7 @@ import {
     formatKnownScopeOverrideKeywords,
     isScopeOverrideKeyword
 } from "./scope-override-keywords.js";
+import { ROLE_DEF, ROLE_REF } from "../symbols/scip-types.js";
 
 type IdentifierOccurrences = {
     declarations: Array<ReturnType<typeof createOccurrence>>;
@@ -1291,6 +1292,156 @@ export class ScopeTracker {
         }
 
         return cloneDeclarationMetadata(metadata);
+    }
+
+    /**
+     * Export occurrences in SCIP (SCIP Code Intelligence Protocol) format for
+     * hot reload coordination and cross-file dependency tracking.
+     *
+     * SCIP format represents each occurrence with:
+     * - range: [startLine, startCol, endLine, endCol] tuple
+     * - symbol: Qualified symbol identifier (e.g., "local::varName", "scope-0::param")
+     * - symbolRoles: Bit flags indicating DEF (declaration) or REF (reference)
+     *
+     * This format enables the hot reload pipeline to:
+     * - Track which symbols are defined/referenced in each file
+     * - Build cross-file dependency graphs for selective recompilation
+     * - Identify downstream code that needs invalidation when symbols change
+     * - Support IDE features like go-to-definition and find-all-references
+     *
+     * Use case: When a file changes during hot reload, export its SCIP
+     * occurrences to determine which symbols changed and which dependent
+     * files need recompilation.
+     *
+     * @param {object} [options] Configuration options
+     * @param {string} [options.scopeId] Limit export to a specific scope (omit for all scopes)
+     * @param {boolean} [options.includeReferences=true] Include reference occurrences
+     * @param {(name: string, scopeId: string) => string | null} [options.symbolGenerator]
+     *        Custom function to generate qualified symbol names. If not provided,
+     *        uses default format: "scopeId::name" for declarations, "local::name" for references.
+     * @returns {Array<{scopeId: string, scopeKind: string, occurrences: Array<{range: [number, number, number, number], symbol: string, symbolRoles: number}>}>}
+     *          Array of scope occurrence payloads in SCIP format, sorted by scope ID.
+     */
+    exportScipOccurrences(
+        options: {
+            scopeId?: string | null;
+            includeReferences?: boolean;
+            symbolGenerator?: (name: string, scopeId: string) => string | null;
+        } = {}
+    ) {
+        const {
+            scopeId = null,
+            includeReferences = true,
+            symbolGenerator = null
+        } = options;
+
+        const results: Array<{
+            scopeId: string;
+            scopeKind: string;
+            occurrences: Array<{
+                range: [number, number, number, number];
+                symbol: string;
+                symbolRoles: number;
+            }>;
+        }> = [];
+
+        // Helper to generate default symbol names
+        const defaultSymbolGenerator = (name: string, scopeId: string) => {
+            return `${scopeId}::${name}`;
+        };
+
+        const getSymbol = symbolGenerator ?? defaultSymbolGenerator;
+
+        // Helper to convert occurrence to SCIP format
+        const toScipOccurrence = (
+            occurrence: any,
+            symbolRoles: number
+        ): {
+            range: [number, number, number, number];
+            symbol: string;
+            symbolRoles: number;
+        } | null => {
+            // Extract location data
+            const start = occurrence?.start;
+            const end = occurrence?.end;
+
+            if (!start || !end) {
+                return null;
+            }
+
+            const startLine =
+                typeof start.line === "number" ? start.line : null;
+            const startCol =
+                typeof start.column === "number" ? start.column : 0;
+            const endLine = typeof end.line === "number" ? end.line : null;
+            const endCol = typeof end.column === "number" ? end.column : 0;
+
+            if (startLine === null || endLine === null) {
+                return null;
+            }
+
+            // Generate symbol identifier
+            const name = occurrence?.name;
+            const occScopeId = occurrence?.scopeId;
+
+            if (!name || !occScopeId) {
+                return null;
+            }
+
+            const symbol = getSymbol(name, occScopeId);
+            if (!symbol) {
+                return null;
+            }
+
+            return {
+                range: [startLine, startCol, endLine, endCol],
+                symbol,
+                symbolRoles
+            };
+        };
+
+        // Determine which scopes to process
+        const scopesToProcess = scopeId
+            ? [this.scopesById.get(scopeId)].filter(Boolean)
+            : Array.from(this.scopesById.values());
+
+        for (const scope of scopesToProcess) {
+            const occurrences: Array<{
+                range: [number, number, number, number];
+                symbol: string;
+                symbolRoles: number;
+            }> = [];
+
+            for (const entry of scope.occurrences.values()) {
+                // Process declarations
+                for (const declaration of entry.declarations) {
+                    const scipOcc = toScipOccurrence(declaration, ROLE_DEF);
+                    if (scipOcc) {
+                        occurrences.push(scipOcc);
+                    }
+                }
+
+                // Process references if requested
+                if (includeReferences) {
+                    for (const reference of entry.references) {
+                        const scipOcc = toScipOccurrence(reference, ROLE_REF);
+                        if (scipOcc) {
+                            occurrences.push(scipOcc);
+                        }
+                    }
+                }
+            }
+
+            if (occurrences.length > 0) {
+                results.push({
+                    scopeId: scope.id,
+                    scopeKind: scope.kind,
+                    occurrences
+                });
+            }
+        }
+
+        return results.sort((a, b) => a.scopeId.localeCompare(b.scopeId));
     }
 }
 
