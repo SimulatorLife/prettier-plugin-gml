@@ -12623,6 +12623,17 @@ function correctDataStructureAccessorTokens({ ast, diagnostic, metadata }) {
         return [];
     }
 
+    // Context-sensitive fixes like accessor replacement require specific diagnostic instances.
+    // Applying a global replacement based on the generic diagnostic example is unsafe.
+    if (!metadata) {
+        return [];
+    }
+
+    const entries = extractFeatherPreprocessMetadata(metadata, diagnostic.id);
+    if (!entries || entries.length === 0) {
+        return [];
+    }
+
     const accessorReplacement =
         getAccessorReplacementFromDiagnostic(diagnostic);
 
@@ -12635,20 +12646,6 @@ function correctDataStructureAccessorTokens({ ast, diagnostic, metadata }) {
     if (incorrectAccessor === correctAccessor) {
         return [];
     }
-
-    // When metadata is available, apply fixes only to specific diagnostic ranges.
-    // When metadata is absent (e.g., in formatter-only mode), apply fixes to all
-    // matching accessor tokens. This dual-mode approach supports both IDE-driven
-    // Feather integration (precise, range-based fixes) and standalone formatting
-    // (global accessor normalization).
-    //
-    // Example behavior difference:
-    // - With metadata: Only fix `lst[? 0]` if Feather flagged that specific line
-    // - Without metadata: Fix ALL occurrences of `[?` to `[|` if diagnostic says map→list
-    const entries = metadata
-        ? extractFeatherPreprocessMetadata(metadata, diagnostic.id)
-        : null;
-    const useMetadataRanges = entries && entries.length > 0;
 
     const fixes = [];
 
@@ -12673,8 +12670,7 @@ function correctDataStructureAccessorTokens({ ast, diagnostic, metadata }) {
                 incorrectAccessor,
                 correctAccessor,
                 diagnostic,
-                entries,
-                useMetadataRanges
+                entries
             });
 
             if (fix) {
@@ -12697,13 +12693,7 @@ function correctDataStructureAccessorTokens({ ast, diagnostic, metadata }) {
 
 function updateMemberIndexAccessor(
     node,
-    {
-        incorrectAccessor,
-        correctAccessor,
-        diagnostic,
-        entries,
-        useMetadataRanges
-    }
+    { incorrectAccessor, correctAccessor, diagnostic, entries }
 ) {
     if (!node || node.type !== "MemberIndexExpression") {
         return null;
@@ -12720,31 +12710,26 @@ function updateMemberIndexAccessor(
         return null;
     }
 
+    // Check if this node matches any of the diagnostic entries
     const nodeStart = Core.getNodeStartIndex(node);
     const nodeEnd = Core.getNodeEndIndex(node);
 
-    // When metadata ranges are available, check if this node matches any diagnostic entry.
-    // When metadata is absent, apply the fix unconditionally to all nodes where the
-    // accessor matches the incorrect token (e.g., all `[?` if the fix is `? → |`).
-    if (useMetadataRanges) {
-        const match = entries.find((entry) => {
-            const range = normalizePreprocessedRange(entry);
-            if (!range) {
-                return false;
-            }
-            // Check for intersection or containment
-            // The diagnostic range usually covers the accessor or the whole expression
-            return (
-                (range.start.index >= nodeStart &&
-                    range.start.index < nodeEnd) ||
-                (range.end.index > nodeStart && range.end.index <= nodeEnd) ||
-                (nodeStart >= range.start.index && nodeEnd <= range.end.index)
-            );
-        });
-
-        if (!match) {
-            return null;
+    const match = entries.find((entry) => {
+        const range = normalizePreprocessedRange(entry);
+        if (!range) {
+            return false;
         }
+        // Check for intersection or containment
+        // The diagnostic range usually covers the accessor or the whole expression
+        return (
+            (range.start.index >= nodeStart && range.start.index < nodeEnd) ||
+            (range.end.index > nodeStart && range.end.index <= nodeEnd) ||
+            (nodeStart >= range.start.index && nodeEnd <= range.end.index)
+        );
+    });
+
+    if (!match) {
+        return null;
     }
 
     node.accessor = correctAccessor;
