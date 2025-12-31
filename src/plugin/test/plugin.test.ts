@@ -154,15 +154,13 @@ async function loadTestCases() {
 
 const all_test_cases = await loadTestCases();
 
-const testCases = all_test_cases.filter((t) => t.baseName === "testFormatting");
-
 void describe("Prettier GameMaker plugin fixtures", () => {
     for (const {
         baseName,
         inputSource,
         expectedOutput,
         options
-    } of testCases) {
+    } of all_test_cases) {
         void it(`formats ${baseName}`, async () => {
             const formatted = await Plugin.format(inputSource, options);
             const normalizedActual = canonicalizeFixtureText(formatted);

@@ -312,3 +312,70 @@ await test("script patches map GML variables to instance storage", () => {
         restoreGlobals(snapshot);
     }
 });
+
+await test("updates pObject definition on active instances", () => {
+    const snapshot = snapshotGlobals();
+
+    try {
+        const globals = globalThis as GlobalSnapshot;
+        // Function name MUST match for the patcher to find it in GMObjects
+        const originalFn = function gml_Object_oSpider_Step_0(
+            ..._args: Array<unknown>
+        ) {
+            void _args;
+            return "original";
+        };
+        globals.gml_Object_oSpider_Step_0 = originalFn;
+        globals._uB2 = 5; // Minified index for StepNormalEvent
+
+        // Mock GMObjects so the patcher knows which keys to update
+        globals.JSON_game = {
+            ScriptNames: [],
+            Scripts: [],
+            GMObjects: [
+                {
+                    pName: "oSpider",
+                    StepNormalEvent: originalFn
+                }
+            ]
+        };
+
+        const pObject = {
+            StepNormalEvent: originalFn,
+            Event: [] as Array<boolean>
+        };
+        const instance = {
+            pObject,
+            StepNormalEvent: originalFn,
+            Event: [] as Array<boolean>
+        };
+
+        globals._cx = {
+            _dx: {
+                "100001": instance
+            }
+        };
+
+        const wrapper = RuntimeWrapper.createRuntimeWrapper();
+        wrapper.applyPatch({
+            kind: "script",
+            id: "gml/object/oSpider/Step_0",
+            js_body: "return 'patched';"
+        });
+
+        // Verify instance method was updated
+        const updatedInstanceFn = instance.StepNormalEvent;
+        assert.notEqual(updatedInstanceFn, originalFn);
+        assert.equal(updatedInstanceFn(instance, null, []), "patched");
+
+        // Verify pObject method was updated (Critical for event loop)
+        const updatedPObjectFn = pObject.StepNormalEvent;
+        assert.notEqual(updatedPObjectFn, originalFn);
+        assert.equal(updatedPObjectFn(instance, null, []), "patched");
+
+        // Verify event flag was set
+        assert.equal(pObject.Event[5], true);
+    } finally {
+        restoreGlobals(snapshot);
+    }
+});

@@ -49,11 +49,19 @@ export function getLineBreakCount(text) {
     let count = 0;
     const length = text.length;
 
-    // Scanning the string manually avoids the RegExp machinery used by
-    // `getLineBreakSpans`. Parser hot paths call this helper for
-    // nearly every token, so the straight-line loop trims about 25% off the
-    // micro-benchmark included in the commit message while preserving the
-    // original CRLF collapsing semantics.
+    // Scanning the string manually with a simple loop avoids the regex machinery
+    // used by `getLineBreakSpans`, which allocates match objects and maintains
+    // lastIndex state even when the pattern is stateless. Parser hot paths call
+    // this `countLineBreaks` helper for nearly every token and comment node during
+    // AST construction, so even small per-invocation overhead compounds quickly.
+    // Profiling shows that the straight-line loop trims roughly 25% off the total
+    // time spent in line-break counting (see micro-benchmark results in the commit
+    // message that introduced this optimization) while preserving the original CRLF
+    // collapsing semantics (where "\r\n" counts as a single line break, not two).
+    // The tradeoff is manual character-code inspection instead of declarative regex,
+    // but the performance gain is worth the added verbosity given how frequently this
+    // function runs. If you modify this logic, ensure the CRLF handling remains intact:
+    // when '\r' is followed by '\n', skip the '\n' to avoid double-counting.
     for (let index = 0; index < length; index += 1) {
         const code = text.charCodeAt(index);
 

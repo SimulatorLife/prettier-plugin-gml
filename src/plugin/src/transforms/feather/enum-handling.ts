@@ -3,6 +3,7 @@
  * The module rewrites numeric literal strings and tracks trimmed indentation so fix metadata stays aligned.
  */
 import { Core } from "@gml-modules/core";
+import { isIntegerLiteralString } from "./utils.js";
 
 function sanitizeEnumBodyInitializerStrings(
     body: string,
@@ -533,26 +534,6 @@ export function preprocessSourceForFeatherFixes(sourceText: string) {
         metadata: hasMetadata ? metadata : null,
         indexAdjustments: hasIndexAdjustments ? enumIndexAdjustments : null
     };
-}
-
-function isIntegerLiteralString(candidate: unknown) {
-    if (typeof candidate !== "string" || candidate.length === 0) {
-        return false;
-    }
-
-    if (/^[+-]?\d+$/.test(candidate)) {
-        return true;
-    }
-
-    if (/^[+-]?0[xX][0-9a-fA-F]+$/.test(candidate)) {
-        return true;
-    }
-
-    if (/^[+-]?0[bB][01]+$/.test(candidate)) {
-        return true;
-    }
-
-    return false;
 }
 
 export {

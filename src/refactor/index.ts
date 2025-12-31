@@ -1,9 +1,9 @@
-export {
-    RefactorEngine,
-    WorkspaceEdit,
-    createRefactorEngine
-} from "./src/index.js";
+export { Refactor } from "./src/index.js";
+
+export type { RefactorEngine, WorkspaceEdit } from "./src/index.js";
+
 export type {
+    ApplyWorkspaceEditOptions,
     BatchRenameValidation,
     ExecuteBatchRenameRequest,
     ExecuteRenameRequest,

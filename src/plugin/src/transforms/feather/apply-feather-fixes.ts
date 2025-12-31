@@ -32,7 +32,7 @@ import {
     type MutableGameMakerAstNode,
     type GameMakerAstNode
 } from "@gml-modules/core";
-import { FunctionalParserTransform } from "../functional-transform.js";
+import type { ParserTransform } from "../functional-transform.js";
 import {
     getEndFromNode,
     getStartFromNode,
@@ -218,14 +218,12 @@ function getReservedIdentifierNames() {
 }
 const DEPRECATED_BUILTIN_VARIABLE_REPLACEMENTS =
     Core.buildDeprecatedBuiltinVariableReplacements();
-const ARGUMENT_IDENTIFIER_PATTERN = /^argument(\d+)$/;
 const GM1041_CALL_ARGUMENT_TARGETS = new Map([
     ["instance_create_depth", [3]],
     ["instance_create_layer", [3]],
     ["instance_create_layer_depth", [4]],
     ["layer_instance_create", [3]]
 ]);
-const IDENTIFIER_NAME_PATTERN = /^[A-Za-z_][A-Za-z0-9_]*$/;
 const FEATHER_TYPE_SYSTEM_INFO = buildFeatherTypeSystemInfo();
 const AUTOMATIC_FEATHER_FIX_HANDLERS = createAutomaticFeatherFixHandlers();
 const FEATHER_DIAGNOSTICS = Core.getFeatherDiagnostics();
@@ -929,16 +927,20 @@ function isBreakableConstruct(node) {
 /**
  * Prettier transform that runs every applicable Feather fixer and returns the mutated AST.
  */
-export class ApplyFeatherFixesTransform extends FunctionalParserTransform<ApplyFeatherFixesOptions> {
-    constructor() {
-        super("apply-feather-fixes", {});
-    }
+export class ApplyFeatherFixesTransform
+    implements
+        ParserTransform<MutableGameMakerAstNode, ApplyFeatherFixesOptions>
+{
+    public readonly name = "apply-feather-fixes";
+    public readonly defaultOptions = Object.freeze(
+        {}
+    ) as ApplyFeatherFixesOptions;
 
-    protected execute(
+    public transform(
         ast: MutableGameMakerAstNode,
-        options: ApplyFeatherFixesOptions
-    ) {
-        return applyFeatherFixesImpl(ast, options);
+        options?: ApplyFeatherFixesOptions
+    ): MutableGameMakerAstNode {
+        return applyFeatherFixesImpl(ast, options ?? this.defaultOptions);
     }
 }
 
@@ -3075,7 +3077,22 @@ function replaceReadOnlyIdentifierReferences(
     }
 }
 
-// TODO: This may be duplicated by functionality in the 'refactor' and/or 'semantic' modules
+// This local identifier renaming implementation performs a direct AST walk and
+// in-place name replacement, which overlaps conceptually with the batch renaming
+// engine in the `refactor` module and the symbol-tracking facilities in `semantic`.
+// The duplication exists because:
+//   1. The `refactor` module was designed for cross-file, semantically validated
+//      renames and produces workspace edits rather than mutating the AST directly.
+//   2. The `semantic` module tracks scope and usage but doesn't expose a lightweight
+//      single-function rename helper suitable for inline Feather fix application.
+//   3. This function must run synchronously within the Feather fix transform pass
+//      without triggering heavyweight semantic analysis or file I/O.
+//
+// Future refactoring should extract a shared AST-level renaming primitive into the
+// `refactor` or `semantic` module that both this code and the batch rename engine
+// can delegate to, reducing duplication while preserving the performance constraints
+// of the Feather fix pipeline. Until then, this implementation remains local to avoid
+// introducing cross-module coupling that would complicate the plugin's data flow.
 function renameIdentifiersInNode(root, originalName, replacementName) {
     const stack = [{ node: root, parent: null, property: null, ancestors: [] }];
 
@@ -4479,7 +4496,9 @@ function getArgumentIdentifierIndex(node) {
         return null;
     }
 
-    const match = ARGUMENT_IDENTIFIER_PATTERN.exec(identifierDetails.name);
+    const match = Core.GML_ARGUMENT_IDENTIFIER_PATTERN.exec(
+        identifierDetails.name
+    );
 
     if (!match) {
         return null;
@@ -15085,7 +15104,7 @@ function extractIdentifierNameFromLiteral(value) {
         return null;
     }
 
-    if (!IDENTIFIER_NAME_PATTERN.test(stripped)) {
+    if (!Core.GML_IDENTIFIER_NAME_PATTERN.test(stripped)) {
         return null;
     }
 

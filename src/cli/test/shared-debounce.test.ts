@@ -174,7 +174,9 @@ void describe("debounce", () => {
     void describe("isPending", () => {
         void it("should return true when execution is pending", () => {
             const debouncedFn = debounce(() => {
-                /* noop */
+                // Empty function body used for testing debounce timing mechanics
+                // without side effects. The test validates isPending() state
+                // transitions, not callback behavior, so no implementation is needed.
             }, 50);
 
             assert.equal(
@@ -194,7 +196,9 @@ void describe("debounce", () => {
 
         void it("should return false after execution", async () => {
             const debouncedFn = debounce(() => {
-                /* noop */
+                // Empty function body used for testing debounce timing mechanics
+                // without side effects. The test validates isPending() state
+                // transitions, not callback behavior, so no implementation is needed.
             }, 50);
 
             debouncedFn();
@@ -216,7 +220,9 @@ void describe("debounce", () => {
 
         void it("should return false after flush", () => {
             const debouncedFn = debounce(() => {
-                /* noop */
+                // Empty function body used for testing debounce timing mechanics
+                // without side effects. The test validates isPending() state
+                // transitions, not callback behavior, so no implementation is needed.
             }, 50);
 
             debouncedFn();
@@ -231,7 +237,9 @@ void describe("debounce", () => {
 
         void it("should return false after cancel", () => {
             const debouncedFn = debounce(() => {
-                /* noop */
+                // Empty function body used for testing debounce timing mechanics
+                // without side effects. The test validates isPending() state
+                // transitions, not callback behavior, so no implementation is needed.
             }, 50);
 
             debouncedFn();

@@ -4,7 +4,7 @@ This package implements the GML → JavaScript transpiler for the prettier-plugi
 
 ## Architecture
 
-The transpiler consists of two main components:
+The transpiler consists of three main components:
 
 ### GmlTranspiler
 
@@ -42,12 +42,40 @@ const ast = parser.parse();
 const jsCode = emitJavaScript(ast);
 ```
 
+### Semantic Analysis Integration
+
+The transpiler integrates with the `@gml-modules/semantic` package to provide accurate identifier and function call classification:
+
+```javascript
+import { createSemanticOracle } from "gamemaker-language-transpiler";
+
+// Create an oracle with built-in function knowledge
+const oracle = createSemanticOracle({
+    scriptNames: new Set(['scr_player_move', 'scr_enemy_ai'])
+});
+
+// Use it with the emitter for improved code generation
+import { GmlToJsEmitter } from "gamemaker-language-transpiler";
+const emitter = new GmlToJsEmitter({
+    identifier: oracle,
+    callTarget: oracle
+});
+
+const jsCode = emitter.emit(ast);
+```
+
+The semantic oracle provides:
+- **Built-in function recognition**: Automatically recognizes all GameMaker built-in functions from manual metadata
+- **Script call classification**: Routes script calls through the runtime wrapper for hot reload support
+- **Global variable handling**: Properly prefixes global variables with `global.`
+- **SCIP symbol generation**: Generates qualified symbols for dependency tracking and cross-referencing
+
 ## Features
 
 ### Current Implementation
 
 - ✅ Number, string, and boolean literals
-- ✅ Identifiers
+- ✅ Identifiers with semantic classification
 - ✅ Binary expressions (+, -, *, /, etc.)
 - ✅ GML operator mapping (div → /, mod → %, and → &&, or → ||, etc.)
 - ✅ Strict equality conversion (== → ===, != → !==)
@@ -95,13 +123,19 @@ const jsCode = emitJavaScript(ast);
     - ✅ Filtering: string_letters, string_digits, string_lettersdigits
     - ✅ Conversion: chr, ansi_char, ord, real, string
     - ✅ Formatting: string_format
+- ✅ Semantic analysis integration:
+  - ✅ Built-in function recognition via GameMaker manual metadata
+  - ✅ Script call classification and runtime wrapper routing
+  - ✅ Global variable identification and prefixing
+  - ✅ SCIP symbol generation for dependency tracking
 
 ### Planned Features
 
 - [x] `with` statement lowering
 - [x] Built-in function mapping (expanded to 60+ functions including comprehensive string, math, and random number support)
-- [ ] Scope-aware identifier resolution (self, other, global)
-- [ ] Script call indirection through runtime wrapper
+- [x] Semantic oracle integration for identifier classification
+- [x] Script call indirection through runtime wrapper
+- [ ] Scope-aware identifier resolution with scope tracker (self, other fields)
 - [ ] Additional built-in function mapping (array functions, data structure functions, drawing functions)
 - [ ] Compound assignment operators (already parsed and working)
 

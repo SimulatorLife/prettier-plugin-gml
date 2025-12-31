@@ -147,7 +147,12 @@ void describe("Hot reload replay for late subscribers", () => {
             });
 
             websocketClient.on("open", () => {
-                // No-op; waiting for replayed patch
+                // The "open" event handler is intentionally empty because the test
+                // orchestration relies on the "message" event handler above to resolve
+                // the promise once the hot-reload server sends the replayed patch data.
+                // We register this handler to acknowledge the WebSocket handshake
+                // completion, but no explicit action is required here—the connection
+                // opening is a precondition, not the success signal for the test.
             });
 
             websocketClient.on("error", (error) => {

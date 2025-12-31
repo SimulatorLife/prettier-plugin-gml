@@ -6,7 +6,7 @@ import {
     type MutableGameMakerAstNode,
     type GameMakerAstNode
 } from "@gml-modules/core";
-import { FunctionalParserTransform } from "./functional-transform.js";
+import type { ParserTransform } from "./functional-transform.js";
 
 type PreprocessFunctionArgumentDefaultsTransformOptions = Record<string, never>;
 
@@ -60,17 +60,20 @@ function hasExplicitDefaultParameterToLeft(
 }
 
 /** Orchestrates the normalization of function parameter default values. */
-export class PreprocessFunctionArgumentDefaultsTransform extends FunctionalParserTransform<PreprocessFunctionArgumentDefaultsTransformOptions> {
-    constructor() {
-        super("preprocess-function-argument-defaults", {});
-    }
+export class PreprocessFunctionArgumentDefaultsTransform
+    implements
+        ParserTransform<
+            MutableGameMakerAstNode,
+            PreprocessFunctionArgumentDefaultsTransformOptions
+        >
+{
+    public readonly name = "preprocess-function-argument-defaults";
+    public readonly defaultOptions = Object.freeze(
+        {}
+    ) as PreprocessFunctionArgumentDefaultsTransformOptions;
 
-    protected execute(
-        ast: MutableGameMakerAstNode,
-        _options: PreprocessFunctionArgumentDefaultsTransformOptions
-    ) {
+    public transform(ast: MutableGameMakerAstNode): MutableGameMakerAstNode {
         // Visit each function/constructor once and ensure trailing undefined defaults are explicitly modeled.
-        void _options;
         if (!Core.isObjectLike(ast)) {
             return ast;
         }
