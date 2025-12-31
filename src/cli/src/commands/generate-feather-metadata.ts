@@ -1,8 +1,5 @@
 import { parseHTML } from "linkedom";
 import type { Element } from "linkedom/types/interface/element.js";
-import path from "node:path";
-import process from "node:process";
-import { fileURLToPath } from "node:url";
 
 import { Command } from "commander";
 import type { CommanderCommandLike } from "../cli-core/commander-types.js";
@@ -20,8 +17,10 @@ import {
     prepareManualWorkflow
 } from "../modules/manual/workflow.js";
 import { applyStandardCommandOptions } from "../cli-core/command-standard-options.js";
-import { createCliCommandManager } from "../cli-core/command-manager.js";
-import { handleCliError } from "../cli-core/errors.js";
+import {
+    isMainModule,
+    runAsMainModule
+} from "../cli-core/main-module-runner.js";
 
 const {
     compactArray,
@@ -1275,24 +1274,11 @@ export async function runGenerateFeatherMetadata({
     return 0;
 }
 
-const isMainModule = process.argv[1]
-    ? path.resolve(process.argv[1]) === fileURLToPath(import.meta.url)
-    : false;
-
-if (isMainModule) {
-    const program = new Command().name("generate-feather-metadata");
-    const { registry, runner } = createCliCommandManager({ program });
-    const handleError = (error) =>
-        handleCliError(error, {
-            prefix: "Failed to generate Feather metadata.",
-            exitCode: typeof error?.exitCode === "number" ? error.exitCode : 1
-        });
-
-    registry.registerDefaultCommand({
-        command: createFeatherMetadataCommand(),
+if (isMainModule(import.meta.url)) {
+    runAsMainModule({
+        programName: "generate-feather-metadata",
+        createCommand: createFeatherMetadataCommand,
         run: ({ command }) => runGenerateFeatherMetadata({ command }),
-        onError: handleError
+        errorPrefix: "Failed to generate Feather metadata."
     });
-
-    runner.run(process.argv.slice(2)).catch(handleError);
 }
