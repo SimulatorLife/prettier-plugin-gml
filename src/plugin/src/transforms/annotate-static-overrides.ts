@@ -3,7 +3,7 @@
  * The `_overridesStaticFunction` flag ensures downstream normalizers and formatters know when a collision exists.
  */
 import { Core, type MutableGameMakerAstNode } from "@gml-modules/core";
-import { FunctionalParserTransform } from "./functional-transform.js";
+import type { ParserTransform } from "./functional-transform.js";
 
 type AnnotateStaticFunctionOverridesTransformOptions = Record<string, never>;
 
@@ -13,9 +13,21 @@ type ConstructorInfo = {
     staticFunctions: Map<string, MutableGameMakerAstNode>;
 };
 
-export class AnnotateStaticFunctionOverridesTransform extends FunctionalParserTransform<AnnotateStaticFunctionOverridesTransformOptions> {
-    constructor() {
-        super("annotate-static-overrides", {});
+export class AnnotateStaticFunctionOverridesTransform
+    implements
+        ParserTransform<
+            MutableGameMakerAstNode,
+            AnnotateStaticFunctionOverridesTransformOptions
+        >
+{
+    public readonly name = "annotate-static-overrides";
+    public readonly defaultOptions = Object.freeze(
+        {}
+    ) as AnnotateStaticFunctionOverridesTransformOptions;
+
+    public transform(ast: MutableGameMakerAstNode): MutableGameMakerAstNode {
+        this.annotateStaticFunctionOverrides(ast);
+        return ast;
     }
 
     /**
@@ -118,15 +130,6 @@ export class AnnotateStaticFunctionOverridesTransform extends FunctionalParserTr
         }
 
         return constructors;
-    }
-
-    protected execute(
-        ast: MutableGameMakerAstNode,
-        _options: AnnotateStaticFunctionOverridesTransformOptions
-    ): MutableGameMakerAstNode {
-        void _options;
-        this.annotateStaticFunctionOverrides(ast);
-        return ast;
     }
 
     /**

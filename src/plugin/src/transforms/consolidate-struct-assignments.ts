@@ -3,7 +3,7 @@
  * The transform tracks moved comments and ensures no semantic data is lost while shifting property initializers.
  */
 import { Core, type MutableGameMakerAstNode } from "@gml-modules/core";
-import { FunctionalParserTransform } from "./functional-transform.js";
+import type { ParserTransform } from "./functional-transform.js";
 import { CommentTracker } from "./utils/comment-tracker.js";
 import {
     StructAssignmentMatcher,
@@ -203,25 +203,34 @@ function buildPropertyFromAssignment(
     } as unknown as MutableGameMakerAstNode;
 }
 
-export class ConsolidateStructAssignmentsTransform extends FunctionalParserTransform<ConsolidateStructAssignmentsTransformOptions> {
+export class ConsolidateStructAssignmentsTransform
+    implements
+        ParserTransform<
+            MutableGameMakerAstNode,
+            ConsolidateStructAssignmentsTransformOptions
+        >
+{
+    public readonly name = "consolidate-struct-assignments";
+    public readonly defaultOptions = Object.freeze(
+        {}
+    ) as ConsolidateStructAssignmentsTransformOptions;
     private readonly matcher: StructAssignmentMatcher;
     private readonly commentHandler: AssignmentCommentHandler;
 
     constructor() {
-        super("consolidate-struct-assignments", {});
         this.matcher = new StructAssignmentMatcher();
         this.commentHandler = new AssignmentCommentHandler();
     }
 
-    protected execute(
+    public transform(
         ast: MutableGameMakerAstNode,
-        options: ConsolidateStructAssignmentsTransformOptions
-    ) {
+        options?: ConsolidateStructAssignmentsTransformOptions
+    ): MutableGameMakerAstNode {
         if (!Core.isNode(ast)) {
             return ast;
         }
         const normalizedCommentTools = normalizeCommentTools(
-            options.commentTools
+            options?.commentTools
         );
         const tracker = new CommentTracker(ast);
         this.visit(ast, tracker, normalizedCommentTools);

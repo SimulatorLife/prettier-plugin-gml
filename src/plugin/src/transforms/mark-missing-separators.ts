@@ -2,7 +2,7 @@
  * Detects call expressions written without commas between arguments and flags them so downstream formatters preserve the raw text.
  */
 import { Core, type MutableGameMakerAstNode } from "@gml-modules/core";
-import { FunctionalParserTransform } from "./functional-transform.js";
+import type { ParserTransform } from "./functional-transform.js";
 
 type MarkCallsMissingArgumentSeparatorsTransformOptions = {
     originalText?: string;
@@ -11,17 +11,24 @@ type MarkCallsMissingArgumentSeparatorsTransformOptions = {
 /**
  * Transform that marks call nodes to be printed from the original source text when separators are missing.
  */
-export class MarkCallsMissingArgumentSeparatorsTransform extends FunctionalParserTransform<MarkCallsMissingArgumentSeparatorsTransformOptions> {
-    constructor() {
-        super("mark-calls-missing-argument-separators", {});
-    }
+export class MarkCallsMissingArgumentSeparatorsTransform
+    implements
+        ParserTransform<
+            MutableGameMakerAstNode,
+            MarkCallsMissingArgumentSeparatorsTransformOptions
+        >
+{
+    public readonly name = "mark-calls-missing-argument-separators";
+    public readonly defaultOptions = Object.freeze(
+        {}
+    ) as MarkCallsMissingArgumentSeparatorsTransformOptions;
 
-    protected execute(
+    public transform(
         ast: MutableGameMakerAstNode,
-        options: MarkCallsMissingArgumentSeparatorsTransformOptions
+        options?: MarkCallsMissingArgumentSeparatorsTransformOptions
     ): MutableGameMakerAstNode {
         // Only run when the original source is available so we can inspect the raw spacing between arguments.
-        if (typeof options.originalText === "string") {
+        if (typeof options?.originalText === "string") {
             this.markCallsMissingArgumentSeparators(ast, options.originalText);
         }
         return ast;
