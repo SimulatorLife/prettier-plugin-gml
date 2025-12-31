@@ -322,6 +322,7 @@ await test("updates pObject definition on active instances", () => {
         const originalFn = function gml_Object_oSpider_Step_0(
             ..._args: Array<unknown>
         ) {
+            void _args;
             return "original";
         };
         globals.gml_Object_oSpider_Step_0 = originalFn;
