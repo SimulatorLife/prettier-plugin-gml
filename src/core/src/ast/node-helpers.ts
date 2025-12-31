@@ -1173,11 +1173,7 @@ export function visitChildNodes(
     for (const key in node) {
         if (Object.hasOwn(node, key)) {
             const value = (node as Record<string, unknown>)[key];
-            if (
-                value !== undefined &&
-                value !== null &&
-                typeof value === "object"
-            ) {
+            if (isObjectLike(value)) {
                 callback(value);
             }
         }
@@ -1207,8 +1203,9 @@ export function enqueueObjectChildValues(
         // Manual index iteration avoids the iterator/closure overhead paid by
         // `for...of` on every call. The helper sits on tight AST traversal
         // loops, so keeping the branch predictable and allocation-free helps
-        // repeated walks stay lean.
-        for (let index = 0; index < length; index += 1) {
+        // repeated walks stay lean. Prefix increment is used for consistency
+        // with modern JavaScript style conventions.
+        for (let index = 0; index < length; ++index) {
             const item = value[index];
 
             if (item !== null && typeof item === "object") {
