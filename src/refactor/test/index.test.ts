@@ -1,20 +1,26 @@
 import assert from "node:assert/strict";
 import test from "node:test";
 import {
-    RefactorEngine,
-    WorkspaceEdit,
-    createRefactorEngine,
+    Refactor,
     type HotReloadUpdate,
     type ParserBridge,
+    type RefactorEngine,
     type RenameRequest,
     type SemanticAnalyzer,
+    type WorkspaceEdit,
     type WorkspaceReadFile,
     type WorkspaceWriteFile
 } from "../index.js";
 
+const {
+    RefactorEngine: RefactorEngineClass,
+    WorkspaceEdit: WorkspaceEditFactory,
+    createRefactorEngine
+} = Refactor;
+
 void test("createRefactorEngine returns a RefactorEngine", () => {
     const engine = createRefactorEngine();
-    assert.ok(engine instanceof RefactorEngine);
+    assert.ok(engine instanceof RefactorEngineClass);
 });
 
 void test("createRefactorEngine accepts dependencies", () => {
@@ -31,12 +37,12 @@ void test("createRefactorEngine accepts dependencies", () => {
 });
 
 void test("WorkspaceEdit starts empty", () => {
-    const ws = WorkspaceEdit();
+    const ws = WorkspaceEditFactory();
     assert.equal(ws.edits.length, 0);
 });
 
 void test("WorkspaceEdit can add edits", () => {
-    const ws = WorkspaceEdit();
+    const ws = WorkspaceEditFactory();
     ws.addEdit("file.gml", 0, 10, "newText");
     assert.equal(ws.edits.length, 1);
     assert.equal(ws.edits[0].path, "file.gml");
@@ -46,7 +52,7 @@ void test("WorkspaceEdit can add edits", () => {
 });
 
 void test("WorkspaceEdit groups edits by file", () => {
-    const ws = WorkspaceEdit();
+    const ws = WorkspaceEditFactory();
     ws.addEdit("file1.gml", 0, 10, "text1");
     ws.addEdit("file2.gml", 20, 30, "text2");
     ws.addEdit("file1.gml", 40, 50, "text3");
@@ -58,7 +64,7 @@ void test("WorkspaceEdit groups edits by file", () => {
 });
 
 void test("WorkspaceEdit sorts edits descending by start position", () => {
-    const ws = WorkspaceEdit();
+    const ws = WorkspaceEditFactory();
     ws.addEdit("file.gml", 10, 20, "a");
     ws.addEdit("file.gml", 50, 60, "b");
     ws.addEdit("file.gml", 30, 40, "c");
@@ -71,7 +77,7 @@ void test("WorkspaceEdit sorts edits descending by start position", () => {
 });
 
 void test("planRename validates missing symbolId", async () => {
-    const engine = new RefactorEngine();
+    const engine = new RefactorEngineClass();
     await assert.rejects(
         () =>
             engine.planRename({
@@ -85,7 +91,7 @@ void test("planRename validates missing symbolId", async () => {
 });
 
 void test("planRename validates missing newName", async () => {
-    const engine = new RefactorEngine();
+    const engine = new RefactorEngineClass();
     await assert.rejects(
         () =>
             engine.planRename({
@@ -99,7 +105,7 @@ void test("planRename validates missing newName", async () => {
 });
 
 void test("planRename validates symbolId type", async () => {
-    const engine = new RefactorEngine();
+    const engine = new RefactorEngineClass();
     await assert.rejects(
         () =>
             engine.planRename({
@@ -114,7 +120,7 @@ void test("planRename validates symbolId type", async () => {
 });
 
 void test("planRename validates newName type", async () => {
-    const engine = new RefactorEngine();
+    const engine = new RefactorEngineClass();
     await assert.rejects(
         () =>
             engine.planRename({
@@ -133,7 +139,7 @@ void test("planRename rejects whitespace-padded names", async () => {
         hasSymbol: () => true,
         getSymbolOccurrences: () => []
     };
-    const engine = new RefactorEngine({ semantic: mockSemantic });
+    const engine = new RefactorEngineClass({ semantic: mockSemantic });
 
     await assert.rejects(
         () =>
@@ -152,7 +158,7 @@ void test("planRename rejects invalid identifier characters", async () => {
         hasSymbol: () => true,
         getSymbolOccurrences: () => []
     };
-    const engine = new RefactorEngine({ semantic: mockSemantic });
+    const engine = new RefactorEngineClass({ semantic: mockSemantic });
 
     await assert.rejects(
         () =>
@@ -173,7 +179,7 @@ void test("planRename rejects renaming to the existing name", async () => {
             { path: "test.gml", start: 0, end: 5, scopeId: "scope-1" }
         ]
     };
-    const engine = new RefactorEngine({ semantic: mockSemantic });
+    const engine = new RefactorEngineClass({ semantic: mockSemantic });
 
     await assert.rejects(
         () =>
@@ -191,7 +197,7 @@ void test("planRename checks symbol existence with semantic analyzer", async () 
     const mockSemantic = {
         hasSymbol: (id) => id === "gml/script/exists"
     };
-    const engine = new RefactorEngine({ semantic: mockSemantic });
+    const engine = new RefactorEngineClass({ semantic: mockSemantic });
 
     await assert.rejects(
         () =>
@@ -212,7 +218,7 @@ void test("planRename detects reserved keyword conflicts", async () => {
             { path: "test.gml", start: 0, end: 10, scopeId: "scope-1" }
         ]
     };
-    const engine = new RefactorEngine({ semantic: mockSemantic });
+    const engine = new RefactorEngineClass({ semantic: mockSemantic });
 
     await assert.rejects(
         () =>
@@ -234,7 +240,7 @@ void test("planRename creates workspace edit with occurrences", async () => {
             { path: "test.gml", start: 50, end: 60, scopeId: "scope-1" }
         ]
     };
-    const engine = new RefactorEngine({ semantic: mockSemantic });
+    const engine = new RefactorEngineClass({ semantic: mockSemantic });
 
     const workspace = await engine.planRename({
         symbolId: "gml/script/scr_old",
@@ -250,7 +256,7 @@ void test("planRename creates workspace edit with occurrences", async () => {
 });
 
 void test("validateSymbolExists requires semantic analyzer", async () => {
-    const engine = new RefactorEngine();
+    const engine = new RefactorEngineClass();
     await assert.rejects(() => engine.validateSymbolExists("gml/script/foo"), {
         message: /RefactorEngine requires a semantic analyzer/
     });
@@ -258,29 +264,29 @@ void test("validateSymbolExists requires semantic analyzer", async () => {
 
 void test("validateSymbolExists returns true when semantic lacks hasSymbol", async () => {
     const mockSemantic = {}; // No hasSymbol method
-    const engine = new RefactorEngine({ semantic: mockSemantic });
+    const engine = new RefactorEngineClass({ semantic: mockSemantic });
     const result = await engine.validateSymbolExists("gml/script/foo");
     assert.equal(result, true);
 });
 
 void test("validateRename detects invalid workspace", async () => {
-    const engine = new RefactorEngine();
+    const engine = new RefactorEngineClass();
     const result = await engine.validateRename(null);
     assert.equal(result.valid, false);
     assert.ok(result.errors.length > 0);
 });
 
 void test("validateRename detects empty workspace", async () => {
-    const engine = new RefactorEngine();
-    const ws = WorkspaceEdit();
+    const engine = new RefactorEngineClass();
+    const ws = WorkspaceEditFactory();
     const result = await engine.validateRename(ws);
     assert.equal(result.valid, false);
     assert.ok(result.errors.some((e) => e.includes("no changes")));
 });
 
 void test("validateRename detects overlapping edits", async () => {
-    const engine = new RefactorEngine();
-    const ws = WorkspaceEdit();
+    const engine = new RefactorEngineClass();
+    const ws = WorkspaceEditFactory();
     ws.addEdit("test.gml", 0, 10, "a");
     ws.addEdit("test.gml", 5, 15, "b"); // Overlaps with previous
     const result = await engine.validateRename(ws);
@@ -289,8 +295,8 @@ void test("validateRename detects overlapping edits", async () => {
 });
 
 void test("validateRename warns about large refactorings", async () => {
-    const engine = new RefactorEngine();
-    const ws = WorkspaceEdit();
+    const engine = new RefactorEngineClass();
+    const ws = WorkspaceEditFactory();
     // Add many edits
     for (let i = 0; i < 60; i++) {
         ws.addEdit("test.gml", i * 100, i * 100 + 10, "x");
@@ -300,8 +306,8 @@ void test("validateRename warns about large refactorings", async () => {
 });
 
 void test("validateRename passes with valid non-overlapping edits", async () => {
-    const engine = new RefactorEngine();
-    const ws = WorkspaceEdit();
+    const engine = new RefactorEngineClass();
+    const ws = WorkspaceEditFactory();
     ws.addEdit("test.gml", 0, 10, "a");
     ws.addEdit("test.gml", 20, 30, "b");
     ws.addEdit("test.gml", 40, 50, "c");
@@ -311,7 +317,7 @@ void test("validateRename passes with valid non-overlapping edits", async () => 
 });
 
 void test("gatherSymbolOccurrences returns empty array without semantic", async () => {
-    const engine = new RefactorEngine();
+    const engine = new RefactorEngineClass();
     const occurrences = await engine.gatherSymbolOccurrences("test");
     assert.deepEqual(occurrences, []);
 });
@@ -324,22 +330,22 @@ void test("gatherSymbolOccurrences uses semantic analyzer when available", async
     const mockSemantic = {
         getSymbolOccurrences: () => mockOccurrences
     };
-    const engine = new RefactorEngine({ semantic: mockSemantic });
+    const engine = new RefactorEngineClass({ semantic: mockSemantic });
     const occurrences = await engine.gatherSymbolOccurrences("test");
     assert.deepEqual(occurrences, mockOccurrences);
 });
 
 void test("prepareHotReloadUpdates returns empty for empty workspace", async () => {
-    const engine = new RefactorEngine();
-    const ws = WorkspaceEdit();
+    const engine = new RefactorEngineClass();
+    const ws = WorkspaceEditFactory();
     const updates = await engine.prepareHotReloadUpdates(ws);
     assert.ok(Array.isArray(updates));
     assert.equal(updates.length, 0);
 });
 
 void test("prepareHotReloadUpdates creates updates for edited files", async () => {
-    const engine = new RefactorEngine();
-    const ws = WorkspaceEdit();
+    const engine = new RefactorEngineClass();
+    const ws = WorkspaceEditFactory();
     ws.addEdit("test.gml", 0, 10, "newcode");
     const updates = await engine.prepareHotReloadUpdates(ws);
     assert.ok(updates.length > 0);
@@ -351,8 +357,8 @@ void test("prepareHotReloadUpdates uses semantic file symbols when available", a
     const mockSemantic = {
         getFileSymbols: () => [{ id: "gml/script/scr_test" }]
     };
-    const engine = new RefactorEngine({ semantic: mockSemantic });
-    const ws = WorkspaceEdit();
+    const engine = new RefactorEngineClass({ semantic: mockSemantic });
+    const ws = WorkspaceEditFactory();
     ws.addEdit("test.gml", 0, 10, "newcode");
     const updates = await engine.prepareHotReloadUpdates(ws);
     assert.ok(updates.length > 0);
@@ -383,8 +389,8 @@ void test("prepareHotReloadUpdates includes transitive dependents from cascade",
             return [];
         }
     };
-    const engine = new RefactorEngine({ semantic: mockSemantic });
-    const ws = WorkspaceEdit();
+    const engine = new RefactorEngineClass({ semantic: mockSemantic });
+    const ws = WorkspaceEditFactory();
     ws.addEdit("scripts/root.gml", 0, 10, "updated");
 
     const updates = await engine.prepareHotReloadUpdates(ws);
@@ -405,7 +411,7 @@ void test("prepareHotReloadUpdates includes transitive dependents from cascade",
 });
 
 void test("findSymbolAtLocation returns null without semantic", async () => {
-    const engine = new RefactorEngine();
+    const engine = new RefactorEngineClass();
     const result = await engine.findSymbolAtLocation("test.gml", 10);
     assert.equal(result, null);
 });
@@ -419,13 +425,13 @@ void test("findSymbolAtLocation uses semantic analyzer when available", async ()
     const mockSemantic = {
         getSymbolAtPosition: () => mockSymbol
     };
-    const engine = new RefactorEngine({ semantic: mockSemantic });
+    const engine = new RefactorEngineClass({ semantic: mockSemantic });
     const result = await engine.findSymbolAtLocation("test.gml", 5);
     assert.deepEqual(result, mockSymbol);
 });
 
 void test("applyWorkspaceEdit requires a WorkspaceEdit", async () => {
-    const engine = new RefactorEngine();
+    const engine = new RefactorEngineClass();
     await assert.rejects(
         () =>
             engine.applyWorkspaceEdit(null as unknown as WorkspaceEdit, {
@@ -439,8 +445,8 @@ void test("applyWorkspaceEdit requires a WorkspaceEdit", async () => {
 });
 
 void test("applyWorkspaceEdit requires readFile function", async () => {
-    const engine = new RefactorEngine();
-    const ws = WorkspaceEdit();
+    const engine = new RefactorEngineClass();
+    const ws = WorkspaceEditFactory();
     type ApplyWorkspaceEditParams = Parameters<
         RefactorEngine["applyWorkspaceEdit"]
     >[1];
@@ -452,8 +458,8 @@ void test("applyWorkspaceEdit requires readFile function", async () => {
 });
 
 void test("applyWorkspaceEdit requires writeFile when not in dry-run", async () => {
-    const engine = new RefactorEngine();
-    const ws = WorkspaceEdit();
+    const engine = new RefactorEngineClass();
+    const ws = WorkspaceEditFactory();
     ws.addEdit("test.gml", 0, 5, "new");
     await assert.rejects(
         () =>
@@ -469,8 +475,8 @@ void test("applyWorkspaceEdit requires writeFile when not in dry-run", async () 
 });
 
 void test("applyWorkspaceEdit applies edits correctly", async () => {
-    const engine = new RefactorEngine();
-    const ws = WorkspaceEdit();
+    const engine = new RefactorEngineClass();
+    const ws = WorkspaceEditFactory();
     ws.addEdit("test.gml", 0, 3, "new");
     ws.addEdit("test.gml", 9, 13, "world");
 
@@ -488,8 +494,8 @@ void test("applyWorkspaceEdit applies edits correctly", async () => {
 });
 
 void test("applyWorkspaceEdit handles multiple files", async () => {
-    const engine = new RefactorEngine();
-    const ws = WorkspaceEdit();
+    const engine = new RefactorEngineClass();
+    const ws = WorkspaceEditFactory();
     ws.addEdit("file1.gml", 0, 3, "abc");
     ws.addEdit("file2.gml", 0, 3, "xyz");
 
@@ -510,8 +516,8 @@ void test("applyWorkspaceEdit handles multiple files", async () => {
 });
 
 void test("applyWorkspaceEdit rejects invalid edits", async () => {
-    const engine = new RefactorEngine();
-    const ws = WorkspaceEdit();
+    const engine = new RefactorEngineClass();
+    const ws = WorkspaceEditFactory();
     ws.addEdit("test.gml", 0, 10, "new");
     ws.addEdit("test.gml", 5, 15, "conflict"); // Overlapping edit
 
@@ -526,7 +532,7 @@ void test("applyWorkspaceEdit rejects invalid edits", async () => {
 });
 
 void test("executeRename validates required parameters", async () => {
-    const engine = new RefactorEngine();
+    const engine = new RefactorEngineClass();
     type ExecuteRenameArgs = Parameters<RefactorEngine["executeRename"]>[0];
     const invalidRequest = {} as ExecuteRenameArgs;
     await assert.rejects(() => engine.executeRename(invalidRequest), {
@@ -543,7 +549,7 @@ void test("executeRename performs complete rename workflow", async () => {
             { path: "test.gml", start: 16, end: 21, scopeId: "scope-1" }
         ]
     };
-    const engine = new RefactorEngine({ semantic: mockSemantic });
+    const engine = new RefactorEngineClass({ semantic: mockSemantic });
 
     const files = { "test.gml": "scr_a some code scr_a" };
     const readFile: WorkspaceReadFile = async (path) => files[path];
@@ -575,7 +581,7 @@ void test("executeRename rejects invalid planned edits", async () => {
         ]
     };
 
-    const engine = new RefactorEngine({ semantic: mockSemantic });
+    const engine = new RefactorEngineClass({ semantic: mockSemantic });
 
     const readFile: WorkspaceReadFile = async () => "scr_old scr_old";
     let wrote = false;
@@ -605,7 +611,7 @@ void test("executeRename prepares hot reload updates when requested", async () =
         ],
         getFileSymbols: () => [{ id: "gml/script/scr_test" }]
     };
-    const engine = new RefactorEngine({ semantic: mockSemantic });
+    const engine = new RefactorEngineClass({ semantic: mockSemantic });
 
     const readFile: WorkspaceReadFile = async () => "scr_a";
     const writeFile: WorkspaceWriteFile = async () => {};
@@ -654,7 +660,7 @@ void test("prepareRenamePlan aggregates planning, validation, and analysis", asy
         ]
     };
 
-    const engine = new RefactorEngine({ semantic: mockSemantic });
+    const engine = new RefactorEngineClass({ semantic: mockSemantic });
 
     const result = await engine.prepareRenamePlan({
         symbolId: "gml/script/scr_player",
@@ -694,7 +700,7 @@ void test("prepareRenamePlan optionally validates hot reload compatibility", asy
         transpileScript: async () => ({ kind: "script" })
     };
 
-    const engine = new RefactorEngine({
+    const engine = new RefactorEngineClass({
         semantic: mockSemantic,
         formatter: mockFormatter
     });
@@ -718,7 +724,7 @@ void test("prepareRenamePlan optionally validates hot reload compatibility", asy
 });
 
 void test("generateTranspilerPatches requires array parameter", async () => {
-    const engine = new RefactorEngine();
+    const engine = new RefactorEngineClass();
     await assert.rejects(
         () =>
             engine.generateTranspilerPatches(
@@ -733,7 +739,7 @@ void test("generateTranspilerPatches requires array parameter", async () => {
 });
 
 void test("generateTranspilerPatches requires readFile function", async () => {
-    const engine = new RefactorEngine();
+    const engine = new RefactorEngineClass();
     await assert.rejects(
         () => engine.generateTranspilerPatches([], null as unknown as never),
         {
@@ -744,7 +750,7 @@ void test("generateTranspilerPatches requires readFile function", async () => {
 });
 
 void test("generateTranspilerPatches creates basic patches without transpiler", async () => {
-    const engine = new RefactorEngine();
+    const engine = new RefactorEngineClass();
     const updates: Array<HotReloadUpdate> = [
         {
             symbolId: "gml/script/scr_test",
@@ -766,7 +772,7 @@ void test("generateTranspilerPatches creates basic patches without transpiler", 
 });
 
 void test("generateTranspilerPatches skips non-recompile actions", async () => {
-    const engine = new RefactorEngine();
+    const engine = new RefactorEngineClass();
     const updates: Array<HotReloadUpdate> = [
         {
             symbolId: "gml/script/scr_test",
@@ -792,7 +798,7 @@ void test("generateTranspilerPatches uses transpiler when available", async () =
             version: 123
         })
     };
-    const engine = new RefactorEngine({ formatter: mockTranspiler });
+    const engine = new RefactorEngineClass({ formatter: mockTranspiler });
 
     const updates: Array<HotReloadUpdate> = [
         {
@@ -820,7 +826,7 @@ void test("generateTranspilerPatches continues on individual errors", async () =
             return { kind: "script", id: symbolId, js_body: "ok" };
         }
     };
-    const engine = new RefactorEngine({ formatter: mockTranspiler });
+    const engine = new RefactorEngineClass({ formatter: mockTranspiler });
 
     const updates: Array<HotReloadUpdate> = [
         {
@@ -847,7 +853,7 @@ void test("generateTranspilerPatches continues on individual errors", async () =
 
 // Batch rename tests
 void test("planBatchRename requires an array", async () => {
-    const engine = new RefactorEngine();
+    const engine = new RefactorEngineClass();
     await assert.rejects(
         () => engine.planBatchRename(null as unknown as Array<RenameRequest>),
         {
@@ -858,14 +864,14 @@ void test("planBatchRename requires an array", async () => {
 });
 
 void test("planBatchRename requires at least one rename", async () => {
-    const engine = new RefactorEngine();
+    const engine = new RefactorEngineClass();
     await assert.rejects(() => engine.planBatchRename([]), {
         message: /at least one rename/
     });
 });
 
 void test("planBatchRename validates each rename request", async () => {
-    const engine = new RefactorEngine();
+    const engine = new RefactorEngineClass();
     await assert.rejects(
         () =>
             engine.planBatchRename([
@@ -883,7 +889,7 @@ void test("planBatchRename detects duplicate target names", async () => {
         hasSymbol: () => true,
         getSymbolOccurrences: () => []
     };
-    const engine = new RefactorEngine({ semantic: mockSemantic });
+    const engine = new RefactorEngineClass({ semantic: mockSemantic });
 
     await assert.rejects(
         () =>
@@ -914,7 +920,7 @@ void test("planBatchRename combines multiple renames", async () => {
             return [];
         }
     };
-    const engine = new RefactorEngine({ semantic: mockSemantic });
+    const engine = new RefactorEngineClass({ semantic: mockSemantic });
 
     const workspace = await engine.planBatchRename([
         { symbolId: "gml/script/scr_a", newName: "scr_new_a" },
@@ -947,7 +953,7 @@ void test("planBatchRename validates merged edits for overlaps", async () => {
             return [];
         }
     };
-    const engine = new RefactorEngine({ semantic: mockSemantic });
+    const engine = new RefactorEngineClass({ semantic: mockSemantic });
 
     await assert.rejects(
         () =>
@@ -966,7 +972,7 @@ void test("planBatchRename detects simple circular rename (A→B, B→A)", async
         hasSymbol: () => true,
         getSymbolOccurrences: () => []
     };
-    const engine = new RefactorEngine({ semantic: mockSemantic });
+    const engine = new RefactorEngineClass({ semantic: mockSemantic });
 
     await assert.rejects(
         () =>
@@ -985,7 +991,7 @@ void test("planBatchRename detects three-way circular rename (A→B→C→A)", a
         hasSymbol: () => true,
         getSymbolOccurrences: () => []
     };
-    const engine = new RefactorEngine({ semantic: mockSemantic });
+    const engine = new RefactorEngineClass({ semantic: mockSemantic });
 
     await assert.rejects(
         () =>
@@ -1027,7 +1033,7 @@ void test("planBatchRename allows non-circular chain renames (A→B→C)", async
             return [];
         }
     };
-    const engine = new RefactorEngine({ semantic: mockSemantic });
+    const engine = new RefactorEngineClass({ semantic: mockSemantic });
 
     // This should succeed because scr_alpha→scr_beta, scr_beta→scr_gamma forms
     // a non-circular chain (scr_gamma is not renamed back to scr_alpha)
@@ -1069,7 +1075,7 @@ void test("planBatchRename allows independent renames without cycles", async () 
             return [];
         }
     };
-    const engine = new RefactorEngine({ semantic: mockSemantic });
+    const engine = new RefactorEngineClass({ semantic: mockSemantic });
 
     // Independent renames should succeed
     const workspace = await engine.planBatchRename([
@@ -1084,7 +1090,7 @@ void test("planBatchRename allows independent renames without cycles", async () 
 });
 
 void test("executeBatchRename validates required parameters", async () => {
-    const engine = new RefactorEngine();
+    const engine = new RefactorEngineClass();
     type ExecuteBatchRenameArgs = Parameters<
         RefactorEngine["executeBatchRename"]
     >[0];
@@ -1112,7 +1118,7 @@ void test("executeBatchRename performs complete batch rename workflow", async ()
             return [];
         }
     };
-    const engine = new RefactorEngine({ semantic: mockSemantic });
+    const engine = new RefactorEngineClass({ semantic: mockSemantic });
 
     const files = { "test.gml": "scr_a some code scr_b" };
     const readFile: WorkspaceReadFile = async (path) => files[path];
@@ -1150,7 +1156,7 @@ void test("executeBatchRename prepares hot reload when requested", async () => {
         },
         getFileSymbols: () => [{ id: "gml/script/scr_test" }]
     };
-    const engine = new RefactorEngine({ semantic: mockSemantic });
+    const engine = new RefactorEngineClass({ semantic: mockSemantic });
 
     const readFile: WorkspaceReadFile = async () => "scr_a";
     const writeFile: WorkspaceWriteFile = async () => {};
@@ -1169,7 +1175,7 @@ void test("executeBatchRename prepares hot reload when requested", async () => {
 
 // Impact analysis tests
 void test("analyzeRenameImpact requires symbolId and newName", async () => {
-    const engine = new RefactorEngine();
+    const engine = new RefactorEngineClass();
     await assert.rejects(
         () =>
             engine.analyzeRenameImpact({
@@ -1186,7 +1192,7 @@ void test("analyzeRenameImpact detects missing symbol", async () => {
     const mockSemantic = {
         hasSymbol: () => false
     };
-    const engine = new RefactorEngine({ semantic: mockSemantic });
+    const engine = new RefactorEngineClass({ semantic: mockSemantic });
 
     const result = await engine.analyzeRenameImpact({
         symbolId: "gml/script/missing",
@@ -1225,7 +1231,7 @@ void test("analyzeRenameImpact provides comprehensive summary", async () => {
             }
         ]
     };
-    const engine = new RefactorEngine({ semantic: mockSemantic });
+    const engine = new RefactorEngineClass({ semantic: mockSemantic });
 
     const result = await engine.analyzeRenameImpact({
         symbolId: "gml/script/scr_test",
@@ -1251,7 +1257,7 @@ void test("analyzeRenameImpact detects reserved keyword conflicts", async () => 
             { path: "test.gml", start: 0, end: 10, scopeId: "scope-1" }
         ]
     };
-    const engine = new RefactorEngine({ semantic: mockSemantic });
+    const engine = new RefactorEngineClass({ semantic: mockSemantic });
 
     const result = await engine.analyzeRenameImpact({
         symbolId: "gml/script/scr_test",
@@ -1279,7 +1285,7 @@ void test("analyzeRenameImpact warns about large renames", async () => {
         hasSymbol: () => true,
         getSymbolOccurrences: () => occurrences
     };
-    const engine = new RefactorEngine({ semantic: mockSemantic });
+    const engine = new RefactorEngineClass({ semantic: mockSemantic });
 
     const result = await engine.analyzeRenameImpact({
         symbolId: "gml/script/scr_test",
@@ -1308,7 +1314,7 @@ void test("analyzeRenameImpact tracks dependent symbols", async () => {
             }
         ]
     };
-    const engine = new RefactorEngine({ semantic: mockSemantic });
+    const engine = new RefactorEngineClass({ semantic: mockSemantic });
 
     const result = await engine.analyzeRenameImpact({
         symbolId: "gml/script/scr_test",
@@ -1331,7 +1337,7 @@ void test("analyzeRenameImpact handles errors gracefully", async () => {
             throw new Error("Semantic analyzer error");
         }
     };
-    const engine = new RefactorEngine({ semantic: mockSemantic });
+    const engine = new RefactorEngineClass({ semantic: mockSemantic });
 
     const result = await engine.analyzeRenameImpact({
         symbolId: "gml/script/scr_test",
@@ -1345,55 +1351,55 @@ void test("analyzeRenameImpact handles errors gracefully", async () => {
 
 // Hot reload validation tests
 void test("validateHotReloadCompatibility requires a WorkspaceEdit", async () => {
-    const engine = new RefactorEngine();
+    const engine = new RefactorEngineClass();
     const result = await engine.validateHotReloadCompatibility(null);
     assert.equal(result.valid, false);
     assert.ok(result.errors.some((e) => e.includes("Invalid workspace")));
 });
 
 void test("validateHotReloadCompatibility warns for empty workspace", async () => {
-    const engine = new RefactorEngine();
-    const ws = WorkspaceEdit();
+    const engine = new RefactorEngineClass();
+    const ws = WorkspaceEditFactory();
     const result = await engine.validateHotReloadCompatibility(ws);
     assert.equal(result.valid, true);
     assert.ok(result.warnings.some((w) => w.includes("no changes")));
 });
 
 void test("validateHotReloadCompatibility warns about non-GML files", async () => {
-    const engine = new RefactorEngine();
-    const ws = WorkspaceEdit();
+    const engine = new RefactorEngineClass();
+    const ws = WorkspaceEditFactory();
     ws.addEdit("test.txt", 0, 5, "new");
     const result = await engine.validateHotReloadCompatibility(ws);
     assert.ok(result.warnings.some((w) => w.includes("not a GML script")));
 });
 
 void test("validateHotReloadCompatibility detects globalvar changes", async () => {
-    const engine = new RefactorEngine();
-    const ws = WorkspaceEdit();
+    const engine = new RefactorEngineClass();
+    const ws = WorkspaceEditFactory();
     ws.addEdit("test.gml", 0, 5, "globalvar myvar;");
     const result = await engine.validateHotReloadCompatibility(ws);
     assert.ok(result.warnings.some((w) => w.includes("globalvar")));
 });
 
 void test("validateHotReloadCompatibility detects macro changes", async () => {
-    const engine = new RefactorEngine();
-    const ws = WorkspaceEdit();
+    const engine = new RefactorEngineClass();
+    const ws = WorkspaceEditFactory();
     ws.addEdit("test.gml", 0, 5, "#macro MAX_HP 100");
     const result = await engine.validateHotReloadCompatibility(ws);
     assert.ok(result.warnings.some((w) => w.includes("#macro")));
 });
 
 void test("validateHotReloadCompatibility detects enum changes", async () => {
-    const engine = new RefactorEngine();
-    const ws = WorkspaceEdit();
+    const engine = new RefactorEngineClass();
+    const ws = WorkspaceEditFactory();
     ws.addEdit("test.gml", 0, 5, "enum State { Idle, Running }");
     const result = await engine.validateHotReloadCompatibility(ws);
     assert.ok(result.warnings.some((w) => w.includes("enum")));
 });
 
 void test("validateHotReloadCompatibility warns about large edits", async () => {
-    const engine = new RefactorEngine();
-    const ws = WorkspaceEdit();
+    const engine = new RefactorEngineClass();
+    const ws = WorkspaceEditFactory();
     const largeText = "x".repeat(6000);
     ws.addEdit("test.gml", 0, 5, largeText);
     const result = await engine.validateHotReloadCompatibility(ws);
@@ -1404,8 +1410,8 @@ void test("validateHotReloadCompatibility handles transpiler check option", asyn
     const mockTranspiler = {
         transpileScript: async () => ({ kind: "script", js_body: "ok" })
     };
-    const engine = new RefactorEngine({ formatter: mockTranspiler });
-    const ws = WorkspaceEdit();
+    const engine = new RefactorEngineClass({ formatter: mockTranspiler });
+    const ws = WorkspaceEditFactory();
     ws.addEdit("test.gml", 0, 5, "new code");
 
     const result = await engine.validateHotReloadCompatibility(ws, {
@@ -1418,8 +1424,8 @@ void test("validateHotReloadCompatibility handles transpiler check option", asyn
 });
 
 void test("validateHotReloadCompatibility passes for simple renames", async () => {
-    const engine = new RefactorEngine();
-    const ws = WorkspaceEdit();
+    const engine = new RefactorEngineClass();
+    const ws = WorkspaceEditFactory();
     ws.addEdit("test.gml", 0, 5, "newName");
     ws.addEdit("test.gml", 50, 55, "newName");
 
@@ -1430,7 +1436,7 @@ void test("validateHotReloadCompatibility passes for simple renames", async () =
 
 // Hot reload cascade tests
 void test("computeHotReloadCascade requires array parameter", async () => {
-    const engine = new RefactorEngine();
+    const engine = new RefactorEngineClass();
     await assert.rejects(() => engine.computeHotReloadCascade(null), {
         name: "TypeError",
         message: /requires an array/
@@ -1438,7 +1444,7 @@ void test("computeHotReloadCascade requires array parameter", async () => {
 });
 
 void test("computeHotReloadCascade returns empty for no changes", async () => {
-    const engine = new RefactorEngine();
+    const engine = new RefactorEngineClass();
     const result = await engine.computeHotReloadCascade([]);
 
     assert.ok(Array.isArray(result.cascade));
@@ -1454,7 +1460,7 @@ void test("computeHotReloadCascade handles single symbol with no dependents", as
     const mockSemantic = {
         getDependents: async () => [] // No dependents
     };
-    const engine = new RefactorEngine({ semantic: mockSemantic });
+    const engine = new RefactorEngineClass({ semantic: mockSemantic });
 
     const result = await engine.computeHotReloadCascade([
         "gml/script/scr_leaf"
@@ -1486,7 +1492,7 @@ void test("computeHotReloadCascade computes single-level dependencies", async ()
             return [];
         }
     };
-    const engine = new RefactorEngine({ semantic: mockSemantic });
+    const engine = new RefactorEngineClass({ semantic: mockSemantic });
 
     const result = await engine.computeHotReloadCascade([
         "gml/script/scr_base"
@@ -1530,7 +1536,7 @@ void test("computeHotReloadCascade computes multi-level transitive closure", asy
             return [];
         }
     };
-    const engine = new RefactorEngine({ semantic: mockSemantic });
+    const engine = new RefactorEngineClass({ semantic: mockSemantic });
 
     const result = await engine.computeHotReloadCascade([
         "gml/script/scr_root"
@@ -1582,7 +1588,7 @@ void test("computeHotReloadCascade orders symbols in dependency order", async ()
             return [];
         }
     };
-    const engine = new RefactorEngine({ semantic: mockSemantic });
+    const engine = new RefactorEngineClass({ semantic: mockSemantic });
 
     const result = await engine.computeHotReloadCascade(["gml/script/scr_a"]);
 
@@ -1623,7 +1629,7 @@ void test("computeHotReloadCascade handles multiple changed symbols", async () =
             return [];
         }
     };
-    const engine = new RefactorEngine({ semantic: mockSemantic });
+    const engine = new RefactorEngineClass({ semantic: mockSemantic });
 
     const result = await engine.computeHotReloadCascade([
         "gml/script/scr_a",
@@ -1677,7 +1683,7 @@ void test("computeHotReloadCascade detects circular dependencies", async () => {
             return [];
         }
     };
-    const engine = new RefactorEngine({ semantic: mockSemantic });
+    const engine = new RefactorEngineClass({ semantic: mockSemantic });
 
     const result = await engine.computeHotReloadCascade(["gml/script/scr_a"]);
 
@@ -1719,7 +1725,7 @@ void test("computeHotReloadCascade handles diamond dependencies", async () => {
             return [];
         }
     };
-    const engine = new RefactorEngine({ semantic: mockSemantic });
+    const engine = new RefactorEngineClass({ semantic: mockSemantic });
 
     const result = await engine.computeHotReloadCascade([
         "gml/script/scr_root"
@@ -1760,7 +1766,7 @@ void test("computeHotReloadCascade provides reason metadata", async () => {
             return [];
         }
     };
-    const engine = new RefactorEngine({ semantic: mockSemantic });
+    const engine = new RefactorEngineClass({ semantic: mockSemantic });
 
     const result = await engine.computeHotReloadCascade([
         "gml/script/scr_base"
@@ -1777,7 +1783,7 @@ void test("computeHotReloadCascade provides reason metadata", async () => {
 });
 
 void test("computeHotReloadCascade works without semantic analyzer", async () => {
-    const engine = new RefactorEngine(); // No semantic analyzer
+    const engine = new RefactorEngineClass(); // No semantic analyzer
 
     const result = await engine.computeHotReloadCascade([
         "gml/script/scr_test"
@@ -1792,7 +1798,7 @@ void test("computeHotReloadCascade works without semantic analyzer", async () =>
 // === checkHotReloadSafety tests ===
 
 void test("checkHotReloadSafety rejects missing symbolId", async () => {
-    const engine = new RefactorEngine();
+    const engine = new RefactorEngineClass();
 
     const result = await engine.checkHotReloadSafety({
         newName: "scr_new"
@@ -1805,7 +1811,7 @@ void test("checkHotReloadSafety rejects missing symbolId", async () => {
 });
 
 void test("checkHotReloadSafety rejects missing newName", async () => {
-    const engine = new RefactorEngine();
+    const engine = new RefactorEngineClass();
 
     const result = await engine.checkHotReloadSafety({
         symbolId: "gml/script/scr_old"
@@ -1817,7 +1823,7 @@ void test("checkHotReloadSafety rejects missing newName", async () => {
 });
 
 void test("checkHotReloadSafety requires semantic analyzer for safety checks", async () => {
-    const engine = new RefactorEngine();
+    const engine = new RefactorEngineClass();
 
     const result = await engine.checkHotReloadSafety({
         symbolId: "gml/script/scr_old",
@@ -1831,7 +1837,7 @@ void test("checkHotReloadSafety requires semantic analyzer for safety checks", a
 });
 
 void test("checkHotReloadSafety rejects invalid identifier names", async () => {
-    const engine = new RefactorEngine();
+    const engine = new RefactorEngineClass();
 
     const result = await engine.checkHotReloadSafety({
         symbolId: "gml/script/scr_old",
@@ -1848,7 +1854,7 @@ void test("checkHotReloadSafety rejects non-existent symbols", async () => {
     const mockSemantic = {
         hasSymbol: () => false
     };
-    const engine = new RefactorEngine({ semantic: mockSemantic });
+    const engine = new RefactorEngineClass({ semantic: mockSemantic });
 
     const result = await engine.checkHotReloadSafety({
         symbolId: "gml/script/scr_missing",
@@ -1866,7 +1872,7 @@ void test("checkHotReloadSafety rejects same-name renames", async () => {
         hasSymbol: () => true,
         getSymbolOccurrences: () => []
     };
-    const engine = new RefactorEngine({ semantic: mockSemantic });
+    const engine = new RefactorEngineClass({ semantic: mockSemantic });
 
     const result = await engine.checkHotReloadSafety({
         symbolId: "gml/script/scr_test",
@@ -1886,7 +1892,7 @@ void test("checkHotReloadSafety rejects reserved keywords", async () => {
         ],
         getReservedKeywords: () => ["if", "else", "while", "for", "function"]
     };
-    const engine = new RefactorEngine({ semantic: mockSemantic });
+    const engine = new RefactorEngineClass({ semantic: mockSemantic });
 
     const result = await engine.checkHotReloadSafety({
         symbolId: "gml/script/scr_old",
@@ -1913,7 +1919,7 @@ void test("checkHotReloadSafety handles shadowing conflicts", async () => {
             return null;
         }
     };
-    const engine = new RefactorEngine({ semantic: mockSemantic });
+    const engine = new RefactorEngineClass({ semantic: mockSemantic });
 
     const result = await engine.checkHotReloadSafety({
         symbolId: "gml/script/scr_old",
@@ -1934,7 +1940,7 @@ void test("checkHotReloadSafety approves script renames", async () => {
             { path: "test.gml", start: 0, end: 8, scopeId: "scope-1" }
         ]
     };
-    const engine = new RefactorEngine({ semantic: mockSemantic });
+    const engine = new RefactorEngineClass({ semantic: mockSemantic });
 
     const result = await engine.checkHotReloadSafety({
         symbolId: "gml/script/scr_old",
@@ -1955,7 +1961,7 @@ void test("checkHotReloadSafety approves instance variable renames", async () =>
             { path: "test.gml", start: 0, end: 2, scopeId: "scope-1" }
         ]
     };
-    const engine = new RefactorEngine({ semantic: mockSemantic });
+    const engine = new RefactorEngineClass({ semantic: mockSemantic });
 
     const result = await engine.checkHotReloadSafety({
         symbolId: "gml/var/obj_enemy::hp",
@@ -1978,7 +1984,7 @@ void test("checkHotReloadSafety approves global variable renames", async () => {
             { path: "test.gml", start: 0, end: 10, scopeId: "scope-1" }
         ]
     };
-    const engine = new RefactorEngine({ semantic: mockSemantic });
+    const engine = new RefactorEngineClass({ semantic: mockSemantic });
 
     const result = await engine.checkHotReloadSafety({
         symbolId: "gml/var/global_score",
@@ -1996,7 +2002,7 @@ void test("checkHotReloadSafety approves event renames", async () => {
         hasSymbol: () => true,
         getSymbolOccurrences: () => []
     };
-    const engine = new RefactorEngine({ semantic: mockSemantic });
+    const engine = new RefactorEngineClass({ semantic: mockSemantic });
 
     const result = await engine.checkHotReloadSafety({
         symbolId: "gml/event/obj_enemy#Step",
@@ -2016,7 +2022,7 @@ void test("checkHotReloadSafety flags macro renames as requiring recompilation",
             { path: "test.gml", start: 0, end: 6, scopeId: "scope-1" }
         ]
     };
-    const engine = new RefactorEngine({ semantic: mockSemantic });
+    const engine = new RefactorEngineClass({ semantic: mockSemantic });
 
     const result = await engine.checkHotReloadSafety({
         symbolId: "gml/macro/MAX_HP",
@@ -2037,7 +2043,7 @@ void test("checkHotReloadSafety flags enum renames as requiring recompilation", 
             { path: "test.gml", start: 0, end: 6, scopeId: "scope-1" }
         ]
     };
-    const engine = new RefactorEngine({ semantic: mockSemantic });
+    const engine = new RefactorEngineClass({ semantic: mockSemantic });
 
     const result = await engine.checkHotReloadSafety({
         symbolId: "gml/enum/EnemyType",
@@ -2054,7 +2060,7 @@ void test("checkHotReloadSafety handles unknown symbol kinds gracefully", async 
         hasSymbol: () => true,
         getSymbolOccurrences: () => []
     };
-    const engine = new RefactorEngine({ semantic: mockSemantic });
+    const engine = new RefactorEngineClass({ semantic: mockSemantic });
 
     const result = await engine.checkHotReloadSafety({
         symbolId: "gml/unknown/some_symbol",
@@ -2069,14 +2075,14 @@ void test("checkHotReloadSafety handles unknown symbol kinds gracefully", async 
 
 // verifyPostEditIntegrity tests
 void test("verifyPostEditIntegrity validates input parameters", async () => {
-    const engine = new RefactorEngine();
+    const engine = new RefactorEngineClass();
 
     // Missing symbolId
     const result0 = await engine.verifyPostEditIntegrity({
         symbolId: "",
         oldName: "old",
         newName: "new",
-        workspace: WorkspaceEdit(),
+        workspace: WorkspaceEditFactory(),
         readFile: async () => ""
     });
     assert.equal(result0.valid, false);
@@ -2087,7 +2093,7 @@ void test("verifyPostEditIntegrity validates input parameters", async () => {
         symbolId: "gml/script/test",
         oldName: "",
         newName: "new",
-        workspace: WorkspaceEdit(),
+        workspace: WorkspaceEditFactory(),
         readFile: async () => ""
     });
     assert.equal(result1.valid, false);
@@ -2098,7 +2104,7 @@ void test("verifyPostEditIntegrity validates input parameters", async () => {
         symbolId: "gml/script/test",
         oldName: "old",
         newName: "",
-        workspace: WorkspaceEdit(),
+        workspace: WorkspaceEditFactory(),
         readFile: async () => ""
     });
     assert.equal(result2.valid, false);
@@ -2120,7 +2126,7 @@ void test("verifyPostEditIntegrity validates input parameters", async () => {
         symbolId: "gml/script/test",
         oldName: "old",
         newName: "new",
-        workspace: WorkspaceEdit(),
+        workspace: WorkspaceEditFactory(),
         readFile: null as unknown as WorkspaceReadFile
     });
     assert.equal(result4.valid, false);
@@ -2128,8 +2134,8 @@ void test("verifyPostEditIntegrity validates input parameters", async () => {
 });
 
 void test("verifyPostEditIntegrity works without semantic analyzer", async () => {
-    const engine = new RefactorEngine();
-    const ws = WorkspaceEdit();
+    const engine = new RefactorEngineClass();
+    const ws = WorkspaceEditFactory();
     ws.addEdit("test.gml", 0, 3, "new");
 
     const result = await engine.verifyPostEditIntegrity({
@@ -2145,8 +2151,8 @@ void test("verifyPostEditIntegrity works without semantic analyzer", async () =>
 });
 
 void test("verifyPostEditIntegrity detects lingering old names", async () => {
-    const engine = new RefactorEngine();
-    const ws = WorkspaceEdit();
+    const engine = new RefactorEngineClass();
+    const ws = WorkspaceEditFactory();
     ws.addEdit("test.gml", 0, 3, "new");
 
     const result = await engine.verifyPostEditIntegrity({
@@ -2166,8 +2172,8 @@ void test("verifyPostEditIntegrity detects lingering old names", async () => {
 });
 
 void test("verifyPostEditIntegrity detects old names in comments", async () => {
-    const engine = new RefactorEngine();
-    const ws = WorkspaceEdit();
+    const engine = new RefactorEngineClass();
+    const ws = WorkspaceEditFactory();
     ws.addEdit("test.gml", 0, 3, "new");
 
     const result = await engine.verifyPostEditIntegrity({
@@ -2189,8 +2195,8 @@ void test("verifyPostEditIntegrity detects old names in comments", async () => {
 });
 
 void test("verifyPostEditIntegrity warns if new name not found", async () => {
-    const engine = new RefactorEngine();
-    const ws = WorkspaceEdit();
+    const engine = new RefactorEngineClass();
+    const ws = WorkspaceEditFactory();
     ws.addEdit("test.gml", 0, 3, "new");
 
     const result = await engine.verifyPostEditIntegrity({
@@ -2224,8 +2230,8 @@ void test("verifyPostEditIntegrity detects conflicts with existing symbols", asy
             return [];
         }
     };
-    const engine = new RefactorEngine({ semantic: mockSemantic });
-    const ws = WorkspaceEdit();
+    const engine = new RefactorEngineClass({ semantic: mockSemantic });
+    const ws = WorkspaceEditFactory();
     ws.addEdit("test.gml", 0, 3, "new");
 
     const result = await engine.verifyPostEditIntegrity({
@@ -2247,8 +2253,8 @@ void test("verifyPostEditIntegrity detects reserved keyword conflicts", async ()
     const mockSemantic: SemanticAnalyzer = {
         getReservedKeywords: async () => ["if", "else", "for", "while"]
     };
-    const engine = new RefactorEngine({ semantic: mockSemantic });
-    const ws = WorkspaceEdit();
+    const engine = new RefactorEngineClass({ semantic: mockSemantic });
+    const ws = WorkspaceEditFactory();
     ws.addEdit("test.gml", 0, 3, "if");
 
     const result = await engine.verifyPostEditIntegrity({
@@ -2276,8 +2282,8 @@ void test("verifyPostEditIntegrity validates parse correctness", async () => {
             return { start: 0, end: 10, type: "root" };
         }
     };
-    const engine = new RefactorEngine({ parser: mockParser });
-    const ws = WorkspaceEdit();
+    const engine = new RefactorEngineClass({ parser: mockParser });
+    const ws = WorkspaceEditFactory();
     ws.addEdit("broken.gml", 0, 3, "new");
 
     const result = await engine.verifyPostEditIntegrity({
@@ -2297,8 +2303,8 @@ void test("verifyPostEditIntegrity validates parse correctness", async () => {
 });
 
 void test("verifyPostEditIntegrity handles file read errors", async () => {
-    const engine = new RefactorEngine();
-    const ws = WorkspaceEdit();
+    const engine = new RefactorEngineClass();
+    const ws = WorkspaceEditFactory();
     ws.addEdit("test.gml", 0, 3, "new");
 
     const result = await engine.verifyPostEditIntegrity({
@@ -2323,11 +2329,11 @@ void test("verifyPostEditIntegrity succeeds for valid rename", async () => {
     const mockParser: ParserBridge = {
         parse: async () => ({ start: 0, end: 30, type: "root" })
     };
-    const engine = new RefactorEngine({
+    const engine = new RefactorEngineClass({
         semantic: mockSemantic,
         parser: mockParser
     });
-    const ws = WorkspaceEdit();
+    const ws = WorkspaceEditFactory();
     ws.addEdit("test.gml", 0, 7, "newFunc");
 
     const result = await engine.verifyPostEditIntegrity({
@@ -2343,7 +2349,7 @@ void test("verifyPostEditIntegrity succeeds for valid rename", async () => {
 });
 
 void test("validateRenameRequest validates missing parameters", async () => {
-    const engine = new RefactorEngine();
+    const engine = new RefactorEngineClass();
 
     const result = await engine.validateRenameRequest({
         newName: "bar"
@@ -2354,7 +2360,7 @@ void test("validateRenameRequest validates missing parameters", async () => {
 });
 
 void test("validateRenameRequest validates parameter types", async () => {
-    const engine = new RefactorEngine();
+    const engine = new RefactorEngineClass();
 
     const result = await engine.validateRenameRequest({
         symbolId: 123,
@@ -2369,7 +2375,7 @@ void test("validateRenameRequest validates identifier syntax", async () => {
     const mockSemantic: SemanticAnalyzer = {
         hasSymbol: async () => true
     };
-    const engine = new RefactorEngine({ semantic: mockSemantic });
+    const engine = new RefactorEngineClass({ semantic: mockSemantic });
 
     const result = await engine.validateRenameRequest({
         symbolId: "gml/script/test",
@@ -2386,7 +2392,7 @@ void test("validateRenameRequest checks symbol existence", async () => {
     const mockSemantic: SemanticAnalyzer = {
         hasSymbol: async (id) => id === "gml/script/exists"
     };
-    const engine = new RefactorEngine({ semantic: mockSemantic });
+    const engine = new RefactorEngineClass({ semantic: mockSemantic });
 
     const result = await engine.validateRenameRequest({
         symbolId: "gml/script/missing",
@@ -2404,7 +2410,7 @@ void test("validateRenameRequest detects same name", async () => {
         hasSymbol: async () => true,
         getSymbolOccurrences: async () => []
     };
-    const engine = new RefactorEngine({ semantic: mockSemantic });
+    const engine = new RefactorEngineClass({ semantic: mockSemantic });
 
     const result = await engine.validateRenameRequest({
         symbolId: "gml/script/scr_test",
@@ -2425,7 +2431,7 @@ void test("validateRenameRequest detects reserved keywords", async () => {
         ],
         getReservedKeywords: async () => ["if", "else", "for"]
     };
-    const engine = new RefactorEngine({ semantic: mockSemantic });
+    const engine = new RefactorEngineClass({ semantic: mockSemantic });
 
     const result = await engine.validateRenameRequest({
         symbolId: "gml/script/scr_test",
@@ -2437,7 +2443,7 @@ void test("validateRenameRequest detects reserved keywords", async () => {
 });
 
 void test("validateRenameRequest can include hot reload safety summary", async () => {
-    class MockEngine extends RefactorEngine {
+    class MockEngine extends RefactorEngineClass {
         override async checkHotReloadSafety() {
             return {
                 safe: false,
@@ -2478,7 +2484,7 @@ void test("validateRenameRequest can include hot reload safety summary", async (
 });
 
 void test("validateRenameRequest passes through safe hot reload summary", async () => {
-    class MockEngine extends RefactorEngine {
+    class MockEngine extends RefactorEngineClass {
         override async checkHotReloadSafety() {
             return {
                 safe: true,
@@ -2519,7 +2525,7 @@ void test("validateRenameRequest warns about no occurrences", async () => {
         hasSymbol: async () => true,
         getSymbolOccurrences: async () => []
     };
-    const engine = new RefactorEngine({ semantic: mockSemantic });
+    const engine = new RefactorEngineClass({ semantic: mockSemantic });
 
     const result = await engine.validateRenameRequest({
         symbolId: "gml/script/scr_test",
@@ -2540,7 +2546,7 @@ void test("validateRenameRequest succeeds for valid rename", async () => {
         ],
         getReservedKeywords: async () => ["if", "else"]
     };
-    const engine = new RefactorEngine({ semantic: mockSemantic });
+    const engine = new RefactorEngineClass({ semantic: mockSemantic });
 
     const result = await engine.validateRenameRequest({
         symbolId: "gml/script/scr_test",
@@ -2554,7 +2560,7 @@ void test("validateRenameRequest succeeds for valid rename", async () => {
 });
 
 void test("validateRenameRequest works without semantic analyzer", async () => {
-    const engine = new RefactorEngine();
+    const engine = new RefactorEngineClass();
 
     const result = await engine.validateRenameRequest({
         symbolId: "gml/script/test",
@@ -2566,7 +2572,7 @@ void test("validateRenameRequest works without semantic analyzer", async () => {
 });
 
 void test("getFileSymbols returns empty array without semantic analyzer", async () => {
-    const engine = new RefactorEngine();
+    const engine = new RefactorEngineClass();
     const symbols = await engine.getFileSymbols("test.gml");
     assert.deepStrictEqual(symbols, []);
 });
@@ -2583,7 +2589,7 @@ void test("getFileSymbols queries semantic analyzer", async () => {
             return [];
         }
     };
-    const engine = new RefactorEngine({ semantic: mockSemantic });
+    const engine = new RefactorEngineClass({ semantic: mockSemantic });
 
     const symbols = await engine.getFileSymbols("scripts/player.gml");
     assert.equal(symbols.length, 2);
@@ -2592,7 +2598,7 @@ void test("getFileSymbols queries semantic analyzer", async () => {
 });
 
 void test("getFileSymbols validates file path", async () => {
-    const engine = new RefactorEngine();
+    const engine = new RefactorEngineClass();
     await assert.rejects(
         () => engine.getFileSymbols(null as unknown as string),
         {
@@ -2603,7 +2609,7 @@ void test("getFileSymbols validates file path", async () => {
 });
 
 void test("getSymbolDependents returns empty array without semantic analyzer", async () => {
-    const engine = new RefactorEngine();
+    const engine = new RefactorEngineClass();
     const dependents = await engine.getSymbolDependents([
         "gml/script/scr_test"
     ]);
@@ -2631,7 +2637,7 @@ void test("getSymbolDependents queries semantic analyzer", async () => {
             return [];
         }
     };
-    const engine = new RefactorEngine({ semantic: mockSemantic });
+    const engine = new RefactorEngineClass({ semantic: mockSemantic });
 
     const dependents = await engine.getSymbolDependents([
         "gml/script/scr_base",
@@ -2643,7 +2649,7 @@ void test("getSymbolDependents queries semantic analyzer", async () => {
 });
 
 void test("getSymbolDependents validates input type", async () => {
-    const engine = new RefactorEngine();
+    const engine = new RefactorEngineClass();
     await assert.rejects(
         () =>
             engine.getSymbolDependents(
@@ -2662,7 +2668,7 @@ void test("getSymbolDependents handles empty array", async () => {
             throw new Error("Should not be called");
         }
     };
-    const engine = new RefactorEngine({ semantic: mockSemantic });
+    const engine = new RefactorEngineClass({ semantic: mockSemantic });
 
     const dependents = await engine.getSymbolDependents([]);
     assert.deepStrictEqual(dependents, []);
@@ -2703,7 +2709,7 @@ void test("computeHotReloadCascade traces full circular dependency path", async 
             return [];
         }
     };
-    const engine = new RefactorEngine({ semantic: mockSemantic });
+    const engine = new RefactorEngineClass({ semantic: mockSemantic });
 
     const result = await engine.computeHotReloadCascade(["gml/script/scr_a"]);
 
@@ -2770,7 +2776,7 @@ void test("computeHotReloadCascade handles multiple separate cycles", async () =
             return [];
         }
     };
-    const engine = new RefactorEngine({ semantic: mockSemantic });
+    const engine = new RefactorEngineClass({ semantic: mockSemantic });
 
     const result = await engine.computeHotReloadCascade([
         "gml/script/scr_a",
@@ -2812,7 +2818,7 @@ void test("computeHotReloadCascade handles non-circular dependencies correctly",
             return [];
         }
     };
-    const engine = new RefactorEngine({ semantic: mockSemantic });
+    const engine = new RefactorEngineClass({ semantic: mockSemantic });
 
     const result = await engine.computeHotReloadCascade(["gml/script/scr_a"]);
 
@@ -2842,7 +2848,7 @@ void test("computeHotReloadCascade handles non-circular dependencies correctly",
 });
 
 void test("validateBatchRenameRequest validates empty array", async () => {
-    const engine = new RefactorEngine();
+    const engine = new RefactorEngineClass();
     const validation = await engine.validateBatchRenameRequest([]);
 
     assert.equal(validation.valid, false);
@@ -2852,7 +2858,7 @@ void test("validateBatchRenameRequest validates empty array", async () => {
 });
 
 void test("validateBatchRenameRequest validates non-array input", async () => {
-    const engine = new RefactorEngine();
+    const engine = new RefactorEngineClass();
     const validation = await engine.validateBatchRenameRequest(
         null as unknown as Array<RenameRequest>
     );
@@ -2866,7 +2872,7 @@ void test("validateBatchRenameRequest validates individual rename requests", asy
         hasSymbol: () => true,
         getSymbolOccurrences: () => []
     };
-    const engine = new RefactorEngine({ semantic: mockSemantic });
+    const engine = new RefactorEngineClass({ semantic: mockSemantic });
 
     const validation = await engine.validateBatchRenameRequest([
         { symbolId: "gml/script/scr_a", newName: "scr_x" },
@@ -2891,7 +2897,7 @@ void test("validateBatchRenameRequest detects duplicate target names", async () 
         hasSymbol: () => true,
         getSymbolOccurrences: () => []
     };
-    const engine = new RefactorEngine({ semantic: mockSemantic });
+    const engine = new RefactorEngineClass({ semantic: mockSemantic });
 
     const validation = await engine.validateBatchRenameRequest([
         { symbolId: "gml/script/scr_a", newName: "scr_same" },
@@ -2909,7 +2915,7 @@ void test("validateBatchRenameRequest detects circular rename chains", async () 
         hasSymbol: () => true,
         getSymbolOccurrences: () => []
     };
-    const engine = new RefactorEngine({ semantic: mockSemantic });
+    const engine = new RefactorEngineClass({ semantic: mockSemantic });
 
     const validation = await engine.validateBatchRenameRequest([
         { symbolId: "gml/script/scr_a", newName: "scr_b" },
@@ -2926,7 +2932,7 @@ void test("validateBatchRenameRequest warns about cross-rename confusion", async
         hasSymbol: () => true,
         getSymbolOccurrences: () => []
     };
-    const engine = new RefactorEngine({ semantic: mockSemantic });
+    const engine = new RefactorEngineClass({ semantic: mockSemantic });
 
     const validation = await engine.validateBatchRenameRequest([
         { symbolId: "gml/script/scr_a", newName: "scr_temp" },
@@ -2946,7 +2952,7 @@ void test("validateBatchRenameRequest passes for valid batch", async () => {
             { path: "test.gml", start: 0, end: 5, scopeId: "scope-1" }
         ]
     };
-    const engine = new RefactorEngine({ semantic: mockSemantic });
+    const engine = new RefactorEngineClass({ semantic: mockSemantic });
 
     const validation = await engine.validateBatchRenameRequest([
         { symbolId: "gml/script/scr_a", newName: "scr_x" },
@@ -2966,7 +2972,7 @@ void test("validateBatchRenameRequest includes hot reload checks when requested"
             { path: "test.gml", start: 0, end: 5, scopeId: "scope-1" }
         ]
     };
-    const engine = new RefactorEngine({ semantic: mockSemantic });
+    const engine = new RefactorEngineClass({ semantic: mockSemantic });
 
     const validation = await engine.validateBatchRenameRequest(
         [{ symbolId: "gml/script/scr_a", newName: "scr_x" }],
@@ -2980,7 +2986,7 @@ void test("validateBatchRenameRequest includes hot reload checks when requested"
 });
 
 void test("validateBatchRenameRequest handles invalid request objects", async () => {
-    const engine = new RefactorEngine();
+    const engine = new RefactorEngineClass();
 
     const validation = await engine.validateBatchRenameRequest([
         null as unknown as RenameRequest,

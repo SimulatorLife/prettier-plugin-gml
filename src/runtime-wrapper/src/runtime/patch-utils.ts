@@ -341,18 +341,16 @@ function updateInstances(
         }
 
         if (objectName) {
-            const instanceObject = (instance as Record<string, unknown>)
-                ._kx as { pName?: unknown; _lx?: unknown } | undefined;
+            const instanceObject = (instance as Record<string, unknown>)._kx as
+                | { pName?: unknown; _lx?: unknown }
+                | undefined;
             const instanceObjectName =
                 typeof instanceObject?.pName === "string"
                     ? instanceObject.pName
                     : typeof instanceObject?._lx === "string"
                       ? instanceObject._lx
                       : null;
-            if (
-                instanceObjectName &&
-                instanceObjectName !== objectName
-            ) {
+            if (instanceObjectName && instanceObjectName !== objectName) {
                 continue;
             }
         }
