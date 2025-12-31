@@ -38,6 +38,22 @@ export interface WebSocketClientState {
     isConnected: boolean;
     reconnectTimer: ReturnType<typeof setTimeout> | null;
     manuallyDisconnected: boolean;
+    connectionMetrics: WebSocketConnectionMetrics;
+}
+
+export interface WebSocketConnectionMetrics {
+    totalConnections: number;
+    totalDisconnections: number;
+    totalReconnectAttempts: number;
+    patchesReceived: number;
+    patchesApplied: number;
+    patchesFailed: number;
+    lastConnectedAt: number | null;
+    lastDisconnectedAt: number | null;
+    lastPatchReceivedAt: number | null;
+    lastPatchAppliedAt: number | null;
+    connectionErrors: number;
+    patchErrors: number;
 }
 
 export interface RuntimeWebSocketClient {
@@ -49,4 +65,8 @@ export interface RuntimeWebSocketClient {
      */
     send(data: unknown): void;
     getWebSocket(): RuntimeWebSocketInstance | null;
+    /**
+     * Returns connection health metrics for diagnostics and monitoring.
+     */
+    getConnectionMetrics(): Readonly<WebSocketConnectionMetrics>;
 }

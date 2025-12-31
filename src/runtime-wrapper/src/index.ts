@@ -11,6 +11,9 @@ export type {
     PatchStats,
     RegistryChangeEvent,
     RegistryChangeListener,
+    RegistryDiagnostics,
+    RegistryHealthCheck,
+    RegistryHealthIssue,
     RegistryMutator,
     RegistryReader,
     RuntimeFunction,
@@ -31,5 +34,6 @@ export type {
     RuntimeWebSocketInstance,
     WebSocketEvent,
     WebSocketClientOptions,
-    WebSocketClientState
+    WebSocketClientState,
+    WebSocketConnectionMetrics
 } from "./websocket/index.js";

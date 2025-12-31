@@ -32,6 +32,10 @@ if (camUpdateTimer >= 1 || fps < 70) //Only update the mouse movement every 1/60
 	    circle representing all the possible placements of P2.
 	    The first step is to find the middle point of this circle, and the radius of this intersection circle
 	*/////////////////////////////////////////////////////////////////////////////////////////////////////////
+	var p1_p3sqr = p1_p3 * p1_p3;
+var p2_p3sqr  = length2 * length2;
+    var p1_p2sqr= length1 * length1; var intersectionRadius=sqrt(p2_p3sqr - (sqr(p1_p2sqr - p2_p3sqr - p1_p3sqr) / (4 * p1_p3sqr)));
+    var l       = sqrt(p1_p2sqr - (intersectionRadius * intersectionRadius)) / p1_p3;
 
 ///--------------------------------------------------------------
 /// eAIState
@@ -39,3 +43,7 @@ if (camUpdateTimer >= 1 || fps < 70) //Only update the mouse movement every 1/60
 
 ///////////////////////////////////////////////////////////////////////////////////////////////////
 ///////////////////////////////// Fall state //////////////////////////////////////////////////////
+
+//////////////////////////////////////
+//CAMERA SETTINGS/////////////////////
+//////////////////////////////////////

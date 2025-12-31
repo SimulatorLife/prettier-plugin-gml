@@ -14,6 +14,8 @@ import type {
     Patch,
     PatchHistoryEntry,
     PatchStats,
+    RegistryHealthCheck,
+    RegistryHealthIssue,
     RuntimeFunction,
     RuntimeRegistrySnapshot,
     RuntimeWrapper,
@@ -491,6 +493,49 @@ export function createRuntimeWrapper(
         }
     }
 
+    function checkRegistryHealth(): RegistryHealthCheck {
+        const issues: Array<RegistryHealthIssue> = [];
+
+        for (const [id, fn] of Object.entries(state.registry.scripts)) {
+            if (typeof fn !== "function") {
+                issues.push({
+                    severity: "error",
+                    category: "function-type",
+                    message: `Script registry entry is not a function (type: ${typeof fn})`,
+                    affectedId: id
+                });
+            }
+        }
+
+        for (const [id, fn] of Object.entries(state.registry.events)) {
+            if (typeof fn !== "function") {
+                issues.push({
+                    severity: "error",
+                    category: "function-type",
+                    message: `Event registry entry is not a function (type: ${typeof fn})`,
+                    affectedId: id
+                });
+            }
+        }
+
+        for (const [id, fn] of Object.entries(state.registry.closures)) {
+            if (typeof fn !== "function") {
+                issues.push({
+                    severity: "error",
+                    category: "function-type",
+                    message: `Closure registry entry is not a function (type: ${typeof fn})`,
+                    affectedId: id
+                });
+            }
+        }
+
+        return {
+            healthy: issues.length === 0,
+            version: state.registry.version,
+            issues
+        };
+    }
+
     return {
         state,
         applyPatch,
@@ -507,6 +552,7 @@ export function createRuntimeWrapper(
         hasEvent,
         getClosure,
         hasClosure,
-        clearRegistry
+        clearRegistry,
+        checkRegistryHealth
     };
 }

@@ -93,10 +93,18 @@ function shouldAddNewlinesAroundStatement(node) {
         return false;
     }
 
-    // Avoid allocating an array for every call by reusing a Set that is created
-    // once when the module is evaluated. This helper runs inside the printer's
-    // statement loops, so trading `Array.includes` for a simple Set membership
-    // check keeps the hot path allocation-free and branch-predictable.
+    // Reuse a module-scoped Set (created once during module evaluation) instead of
+    // allocating a fresh Array on every call, since `shouldAddNewlinesAroundStatement`
+    // runs inside the printer's core statement loop and is invoked thousands of times
+    // per file. Trading `Array.includes` for a Set membership check yields two wins:
+    //   1. No per-call allocation overhead (Array construction and population).
+    //   2. O(1) average-case lookup complexity instead of O(n) linear scan.
+    // This keeps the hot path allocation-free and branch-predictable, which matters
+    // because the formatter spends a measurable fraction of its runtime deciding
+    // whether to inject blank lines between consecutive statements. The Set is
+    // immutable after module load, so there's no risk of concurrent modification or
+    // stale data—it's purely a performance optimization that avoids penalizing the
+    // common case where most statements don't require surrounding newlines.
     if (nodeTypesWithSurroundingNewlines.has(nodeType)) {
         return true;
     }

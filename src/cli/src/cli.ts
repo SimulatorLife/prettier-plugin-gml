@@ -1118,14 +1118,24 @@ async function handleFormattingError(error, filePath) {
             (error instanceof Error && error.name === "GameMakerSyntaxError"))
     );
 
-    // If the configured action is SKIP and this is a parse error, suppress
-    // stderr noise and do not increment the failure counters. Keep the
-    // behavior for REVERT/ABORT the same as before.
+    // When the user specifies `--parse-error-action=SKIP`, they're explicitly opting
+    // into a workflow where parse errors are treated as non-fatal: the CLI should
+    // quietly skip files with syntax issues rather than halting or printing error
+    // diagnostics. Incrementing `formattingErrorCount` or emitting stderr messages
+    // would violate that contract and confuse users who expect a clean, silent run
+    // when malformed files are present. This guard ensures that SKIP mode suppresses
+    // both the failure counter and the user-facing error output, preserving backward
+    // compatibility with test suites that rely on quiet runs when parse errors are
+    // expected. Other modes (REVERT and ABORT) preserve the original behavior of
+    // logging errors and updating counters, since they signal that parse failures
+    // should be treated as actionable problems rather than ignorable noise.
     const header = `Failed to format ${filePath}`;
     if (parseErrorAction === ParseErrorAction.SKIP && isParseError) {
-        // Avoid counting parse-errors as formatting failures and do not emit
-        // a noisy, user-facing stderr message (tests expect quiet runs
-        // when SKIP is used).
+        // Suppress parse-error counting and stderr logging when SKIP mode is active.
+        // Tests expect quiet runs in this configuration, and incrementing failure
+        // counters would incorrectly signal formatting issues for files we deliberately
+        // ignored. Return early without updating `encounteredFormattingError` or
+        // `formattingErrorCount` so the CLI exit code reflects only genuine failures.
         return;
     }
 

@@ -138,20 +138,30 @@ const UNDEFINED_TYPE = "undefined";
  * modules that need graceful degradation when Semantic features are unavailable.
  */
 function getSemanticIdentifierCaseRenameForNode(node, options) {
-    // If the caller requested a dry-run for identifier-case, do not
-    // apply or consult the rename snapshot when printing — dry-run
-    // should only report planned changes, not rewrite source text.
+    // When `__identifierCaseDryRun` is set, the caller wants to preview what would be
+    // renamed without actually mutating the output. This dry-run mode is used by the
+    // CLI's `--identifier-case-dry-run` flag to generate a report of planned changes
+    // before applying them. If we allowed rename lookups during dry-run, the printer
+    // would emit the new identifiers in the formatted output, which defeats the purpose
+    // of a preview-only pass. Instead, we return `null` here to signal that no rename
+    // should be applied, ensuring that dry-run formatting produces a diff-free result
+    // while still allowing the rename engine to log or track what *would* have changed.
     if (options?.__identifierCaseDryRun === true) {
         return null;
     }
 
-    // Prefer the registered Semantic lookup service if available. Some
-    // runtime environments lazily proxy module exports which can hide
-    // properties from enumeration; attempt to call the facade helper but
-    // always fall back to a direct renameMap lookup when a snapshot is
-    // present on the options bag. This keeps printing deterministic even
-    // when the higher-level Semantic facade is not exposing the lookup
-    // function for any reason (circular-init, test-provider swaps, etc.).
+    // Prefer the registered Semantic lookup service if available, but be defensive
+    // about lazy-initialized or dynamically-proxied modules. Some runtime environments
+    // (especially test harnesses or module systems with circular dependency resolution)
+    // may lazily wrap exports in a Proxy that hides properties from enumeration until
+    // first access. Attempting to destructure or directly call the facade helper can
+    // fail silently if the export isn't fully resolved yet. To keep printing deterministic
+    // even when the higher-level Semantic facade is unavailable (due to circular init,
+    // test-provider swaps, or partial module loading), we fall back to a direct lookup
+    // in the `renameMap` snapshot attached to the options bag. This two-tier approach
+    // ensures that identifier-case corrections still apply even when the Semantic module
+    // isn't fully initialized, which can happen during incremental builds or hot-reload
+    // scenarios where the printer runs before the semantic analyzer finishes its setup.
     let finalResult = null;
     try {
         if (
@@ -206,8 +216,6 @@ const FEATHER_COMMENT_TEXT_SYMBOL = Symbol.for(
 const FEATHER_COMMENT_PREFIX_TEXT_SYMBOL = Symbol.for(
     "prettier.gml.feather.commentPrefixText"
 );
-
-const ARGUMENT_IDENTIFIER_PATTERN = /^argument(\d+)$/;
 
 const forcedStructArgumentBreaks = new WeakMap();
 
@@ -6819,7 +6827,9 @@ function resolveArgumentAliasInitializerDoc(path) {
         return null;
     }
 
-    const match = ARGUMENT_IDENTIFIER_PATTERN.exec(initializer.name ?? "");
+    const match = Core.GML_ARGUMENT_IDENTIFIER_PATTERN.exec(
+        initializer.name ?? ""
+    );
     if (!match) {
         return null;
     }

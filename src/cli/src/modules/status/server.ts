@@ -56,6 +56,13 @@ export interface StatusServerController
 const DEFAULT_STATUS_HOST = "127.0.0.1";
 const DEFAULT_STATUS_PORT = 17_891;
 
+/**
+ * Readiness threshold: server is considered ready if successful patches
+ * outnumber errors by at least this ratio. This ensures the watcher is
+ * operational even if occasional transpilation failures occur.
+ */
+const READINESS_SUCCESS_TO_ERROR_RATIO = 2;
+
 function sendJsonResponse(
     res: ServerResponse,
     statusCode: number,
@@ -85,10 +92,85 @@ function handleStatusRequest(
     }
 }
 
+function handleHealthRequest(
+    _req: IncomingMessage,
+    res: ServerResponse,
+    getSnapshot: () => StatusSnapshot
+): void {
+    try {
+        const snapshot = getSnapshot();
+        const health = {
+            status: "healthy",
+            timestamp: Date.now(),
+            uptime: snapshot.uptime,
+            checks: {
+                transpilation: {
+                    status:
+                        snapshot.errorCount === 0 ||
+                        snapshot.patchCount > snapshot.errorCount
+                            ? "pass"
+                            : "warn",
+                    patchCount: snapshot.patchCount,
+                    errorCount: snapshot.errorCount
+                },
+                websocket: {
+                    status: "pass",
+                    clients: snapshot.websocketClients
+                    // Note: Status is always 'pass' based on current snapshot data.
+                    // Future enhancement: integrate with websocket server lifecycle
+                    // to detect server startup failures or connection issues.
+                }
+            }
+        };
+        sendJsonResponse(res, 200, health);
+    } catch (error) {
+        console.error("Failed to generate health check:", error);
+        sendJsonResponse(res, 503, {
+            status: "unhealthy",
+            error: "Failed to generate health check"
+        });
+    }
+}
+
+function handlePingRequest(_req: IncomingMessage, res: ServerResponse): void {
+    sendJsonResponse(res, 200, { status: "ok", timestamp: Date.now() });
+}
+
+function handleReadyRequest(
+    _req: IncomingMessage,
+    res: ServerResponse,
+    getSnapshot: () => StatusSnapshot
+): void {
+    try {
+        const snapshot = getSnapshot();
+        // Ready if the server is operational and not experiencing excessive errors.
+        // We consider the server ready if successful patches outnumber errors by
+        // the configured ratio, allowing for occasional transpilation failures
+        // without marking the service as unavailable.
+        const isReady =
+            snapshot.errorCount === 0 ||
+            snapshot.patchCount >
+                snapshot.errorCount * READINESS_SUCCESS_TO_ERROR_RATIO;
+        const statusCode = isReady ? 200 : 503;
+        sendJsonResponse(res, statusCode, {
+            ready: isReady,
+            timestamp: Date.now(),
+            uptime: snapshot.uptime
+        });
+    } catch (error) {
+        console.error("Failed to generate readiness check:", error);
+        sendJsonResponse(res, 503, {
+            ready: false,
+            error: "Failed to generate readiness check"
+        });
+    }
+}
+
 function handleNotFound(res: ServerResponse): void {
     sendJsonResponse(res, 404, {
         error: "Not found",
-        message: "Only GET /status is supported"
+        message:
+            "Supported endpoints: GET /status, GET /health, GET /ping, GET /ready"
     });
 }
 
@@ -104,8 +186,32 @@ export async function startStatusServer({
     getSnapshot
 }: StatusServerOptions): Promise<StatusServerController> {
     const server: Server = createServer((req, res) => {
-        if (req.method === "GET" && req.url === "/status") {
-            handleStatusRequest(req, res, getSnapshot);
+        if (req.method === "GET") {
+            switch (req.url) {
+                case "/status": {
+                    handleStatusRequest(req, res, getSnapshot);
+
+                    break;
+                }
+                case "/health": {
+                    handleHealthRequest(req, res, getSnapshot);
+
+                    break;
+                }
+                case "/ping": {
+                    handlePingRequest(req, res);
+
+                    break;
+                }
+                case "/ready": {
+                    handleReadyRequest(req, res, getSnapshot);
+
+                    break;
+                }
+                default: {
+                    handleNotFound(res);
+                }
+            }
         } else {
             handleNotFound(res);
         }

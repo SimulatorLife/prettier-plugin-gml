@@ -41,6 +41,7 @@ import type {
     WithStatementNode,
     UnaryExpressionNode
 } from "./ast.js";
+import { createSemanticOracle } from "./semantic-factory.js";
 import { evaluateStatementTerminationPolicy } from "./statement-termination-policy.js";
 
 type StatementLike = GmlNode | undefined | null;
@@ -748,11 +749,38 @@ export function emitJavaScript(
         callTarget: CallTargetAnalyzer;
     }
 ): string {
-    const oracle = sem ?? makeDummyOracle();
+    const oracle = sem ?? makeDefaultOracle();
     const emitter = new GmlToJsEmitter(oracle);
     return emitter.emit(ast);
 }
 
+/**
+ * Create a default semantic oracle with full built-in function knowledge.
+ * This provides better code generation than the dummy oracle by correctly
+ * classifying built-in functions and generating proper SCIP symbols.
+ *
+ * Use this when you want semantic analysis without a scope tracker or
+ * script tracking (suitable for standalone expression/statement transpilation).
+ */
+export function makeDefaultOracle(): {
+    identifier: IdentifierAnalyzer;
+    callTarget: CallTargetAnalyzer;
+} {
+    const oracle = createSemanticOracle();
+    return {
+        identifier: oracle,
+        callTarget: oracle
+    };
+}
+
+/**
+ * Create a minimal dummy oracle for testing or scenarios where semantic
+ * analysis is not needed. This oracle has no knowledge of built-ins or
+ * scripts and classifies everything as local or unknown.
+ *
+ * @deprecated Use `makeDefaultOracle()` or `createSemanticOracle()` instead
+ * for better code generation with proper semantic analysis.
+ */
 export function makeDummyOracle(): {
     identifier: IdentifierAnalyzer;
     callTarget: CallTargetAnalyzer;

@@ -144,13 +144,18 @@ Quiet mode is particularly useful for:
 
 **Status Server:**
 
-The watch command includes an HTTP status server that provides real-time metrics and monitoring without interrupting the watch process. The status server exposes a simple JSON endpoint that can be queried by monitoring tools, health checks, or developers debugging hot-reload issues.
+The watch command includes an HTTP status server that provides real-time metrics and monitoring without interrupting the watch process. The status server exposes multiple JSON endpoints for different monitoring use cases, from lightweight connectivity checks to comprehensive health status.
 
 ```bash
 # Start watch command (status server runs on port 17891 by default)
 node src/cli/src/cli.js watch /path/to/project
+```
 
-# Query status in another terminal
+**Available Endpoints:**
+
+**`GET /status`** - Comprehensive runtime status with detailed metrics
+
+```bash
 curl http://127.0.0.1:17891/status
 
 # Example response:
@@ -178,6 +183,66 @@ curl http://127.0.0.1:17891/status
 }
 ```
 
+**`GET /health`** - Health check with component status (for monitoring systems)
+
+```bash
+curl http://127.0.0.1:17891/health
+
+# Example response:
+{
+  "status": "healthy",
+  "timestamp": 1703890200000,
+  "uptime": 125430,
+  "checks": {
+    "transpilation": {
+      "status": "pass",
+      "patchCount": 42,
+      "errorCount": 2
+    },
+    "websocket": {
+      "status": "pass",
+      "clients": 1
+    }
+  }
+}
+```
+
+**`GET /ping`** - Lightweight connectivity check (minimal overhead)
+
+```bash
+curl http://127.0.0.1:17891/ping
+
+# Example response:
+{
+  "status": "ok",
+  "timestamp": 1703890200000
+}
+```
+
+**`GET /ready`** - Readiness probe (for Kubernetes/container orchestration)
+
+```bash
+curl http://127.0.0.1:17891/ready
+
+# Example response when ready:
+{
+  "ready": true,
+  "timestamp": 1703890200000,
+  "uptime": 125430
+}
+
+# Returns HTTP 503 when not ready (excessive errors)
+```
+
+**Endpoint Comparison:**
+
+| Endpoint | Purpose | Response Size | Use Case |
+|----------|---------|---------------|----------|
+| `/status` | Full metrics | Large | Monitoring dashboards, debugging |
+| `/health` | Health checks | Medium | Monitoring systems (Prometheus, Datadog) |
+| `/ping` | Connectivity | Minimal | Load balancers, simple health checks |
+| `/ready` | Readiness | Small | Kubernetes readiness probes, orchestration |
+
 **Status Endpoint Fields:**
 - `uptime`: Milliseconds since the watch command started
 - `patchCount`: Total number of patches generated successfully
@@ -187,8 +252,10 @@ curl http://127.0.0.1:17891/status
 - `websocketClients`: Number of currently connected WebSocket clients
 
 **Use Cases:**
-- **Health Monitoring**: Integration with monitoring tools (Prometheus, Datadog, etc.)
-- **CI/CD Pipelines**: Automated tests can verify the watch command is processing files
+- **Health Monitoring**: Integration with monitoring tools (Prometheus, Datadog, etc.) via `/health`
+- **Load Balancing**: Use `/ping` for lightweight health checks in load balancer configurations
+- **Container Orchestration**: Kubernetes readiness/liveness probes using `/ready` and `/health`
+- **CI/CD Pipelines**: Automated tests can verify the watch command is processing files via `/status`
 - **Debugging**: Quickly inspect recent patches and errors without restarting the watcher
 - **Dashboard Integration**: Build custom monitoring dashboards for development teams
 

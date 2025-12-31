@@ -11,7 +11,8 @@ import type {
     RuntimeWebSocketConstructor,
     RuntimeWebSocketInstance,
     WebSocketClientOptions,
-    WebSocketClientState
+    WebSocketClientState,
+    WebSocketConnectionMetrics
 } from "./types.js";
 
 export function createWebSocketClient({
@@ -27,27 +28,63 @@ export function createWebSocketClient({
         ws: null,
         isConnected: false,
         reconnectTimer: null,
-        manuallyDisconnected: false
+        manuallyDisconnected: false,
+        connectionMetrics: {
+            totalConnections: 0,
+            totalDisconnections: 0,
+            totalReconnectAttempts: 0,
+            patchesReceived: 0,
+            patchesApplied: 0,
+            patchesFailed: 0,
+            lastConnectedAt: null,
+            lastDisconnectedAt: null,
+            lastPatchReceivedAt: null,
+            lastPatchAppliedAt: null,
+            connectionErrors: 0,
+            patchErrors: 0
+        }
     };
 
     const applyIncomingPatch = (incoming: unknown): boolean => {
+        state.connectionMetrics.patchesReceived += 1;
+        state.connectionMetrics.lastPatchReceivedAt = Date.now();
+
         const patchResult = validatePatchCandidate(incoming, onError);
         if (patchResult.status === "skip") {
+            state.connectionMetrics.patchErrors += 1;
             return true;
         }
 
         if (patchResult.status === "error") {
+            state.connectionMetrics.patchesFailed += 1;
+            state.connectionMetrics.patchErrors += 1;
             return false;
         }
 
         const patch = patchResult.patch;
 
         if (wrapper && wrapper.trySafeApply) {
-            return applyPatchSafely(patch, wrapper, onError);
+            const applied = applyPatchSafely(patch, wrapper, onError);
+            if (applied) {
+                state.connectionMetrics.patchesApplied += 1;
+                state.connectionMetrics.lastPatchAppliedAt = Date.now();
+            } else {
+                state.connectionMetrics.patchesFailed += 1;
+                state.connectionMetrics.patchErrors += 1;
+            }
+            return applied;
         }
 
         if (wrapper) {
-            return applyPatchDirectly(patch, wrapper, onError);
+            const applied = applyPatchDirectly(patch, wrapper, onError);
+            if (applied) {
+                state.connectionMetrics.patchesApplied += 1;
+                state.connectionMetrics.lastPatchAppliedAt = Date.now();
+            } else {
+                state.connectionMetrics.patchesFailed += 1;
+                state.connectionMetrics.patchErrors += 1;
+            }
+            return applied;
         }
 
         return true;
@@ -113,6 +150,10 @@ export function createWebSocketClient({
         return state.ws;
     }
 
+    function getConnectionMetrics(): Readonly<WebSocketConnectionMetrics> {
+        return Object.freeze({ ...state.connectionMetrics });
+    }
+
     if (autoConnect) {
         connect();
     }
@@ -122,7 +163,8 @@ export function createWebSocketClient({
         disconnect,
         isConnected,
         send,
-        getWebSocket
+        getWebSocket,
+        getConnectionMetrics
     };
 }
 
@@ -193,6 +235,8 @@ function createOpenHandler(
     return () => {
         const websocketState = state;
         websocketState.isConnected = true;
+        websocketState.connectionMetrics.totalConnections += 1;
+        websocketState.connectionMetrics.lastConnectedAt = Date.now();
 
         if (websocketState.reconnectTimer) {
             clearTimeout(websocketState.reconnectTimer);
@@ -315,12 +359,15 @@ function createCloseHandler({
         const websocketState = state;
         websocketState.isConnected = false;
         websocketState.ws = null;
+        websocketState.connectionMetrics.totalDisconnections += 1;
+        websocketState.connectionMetrics.lastDisconnectedAt = Date.now();
 
         if (onDisconnect) {
             onDisconnect();
         }
 
         if (!websocketState.manuallyDisconnected && reconnectDelay > 0) {
+            websocketState.connectionMetrics.totalReconnectAttempts += 1;
             websocketState.reconnectTimer = setTimeout(() => {
                 connect();
             }, reconnectDelay);
@@ -334,6 +381,8 @@ function createErrorHandler({
 }: WebSocketErrorHandlerArgs): (event?: Error) => void {
     return (event?: Error) => {
         const websocketState = state;
+        websocketState.connectionMetrics.connectionErrors += 1;
+
         if (websocketState.ws) {
             websocketState.ws.close();
         }
