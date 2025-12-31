@@ -49,7 +49,7 @@ export function createEnumeratedOptionHelpers(
         config != null &&
         typeof config === "object" &&
         "values" in config &&
-        typeof (config as any).values !== "function";
+        typeof (config as { values: unknown }).values !== "function";
 
     const {
         values,
@@ -57,7 +57,7 @@ export function createEnumeratedOptionHelpers(
         valueLabel = "Value",
         formatError
     } = isConfigObject
-        ? (config)
+        ? config
         : { values: config as Iterable<EnumeratedValue> };
 
     const valueSet = new Set(Array.from(values));
