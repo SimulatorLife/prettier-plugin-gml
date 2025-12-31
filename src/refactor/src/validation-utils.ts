@@ -45,38 +45,35 @@ export function assertValidIdentifierName(name: unknown): string {
 }
 
 /**
- * Get the default set of GML reserved keywords.
+ * Default set of GML reserved keywords.
  * These are keywords that cannot be used as identifiers.
- *
- * @returns Set of lowercase reserved keywords
+ * Frozen to prevent accidental modification and ensure immutability.
  */
-export function getDefaultReservedKeywords(): Set<string> {
-    return new Set(
-        [
-            "if",
-            "else",
-            "while",
-            "for",
-            "do",
-            "switch",
-            "case",
-            "default",
-            "break",
-            "continue",
-            "return",
-            "function",
-            "var",
-            "globalvar",
-            "enum",
-            "with",
-            "repeat",
-            "until",
-            "exit",
-            "self",
-            "other",
-            "all",
-            "noone",
-            "global"
-        ].map((keyword) => keyword.toLowerCase())
-    );
-}
+export const DEFAULT_RESERVED_KEYWORDS: ReadonlySet<string> = Object.freeze(
+    new Set([
+        "if",
+        "else",
+        "while",
+        "for",
+        "do",
+        "switch",
+        "case",
+        "default",
+        "break",
+        "continue",
+        "return",
+        "function",
+        "var",
+        "globalvar",
+        "enum",
+        "with",
+        "repeat",
+        "until",
+        "exit",
+        "self",
+        "other",
+        "all",
+        "noone",
+        "global"
+    ])
+);

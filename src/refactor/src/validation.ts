@@ -11,7 +11,7 @@ import type {
 } from "./types.js";
 import {
     assertValidIdentifierName,
-    getDefaultReservedKeywords
+    DEFAULT_RESERVED_KEYWORDS
 } from "./validation-utils.js";
 
 /**
@@ -72,7 +72,7 @@ export async function detectRenameConflicts(
     // `function`) or built-in identifiers (like `self`, `global`). Allowing
     // such renames would cause syntax errors or silently bind user symbols to
     // language constructs, breaking both the parser and runtime semantics.
-    let reservedKeywords = getDefaultReservedKeywords();
+    let reservedKeywords = DEFAULT_RESERVED_KEYWORDS;
 
     if (semantic && typeof semantic.getReservedKeywords === "function") {
         const semanticReserved = (await semantic.getReservedKeywords()) ?? [];
