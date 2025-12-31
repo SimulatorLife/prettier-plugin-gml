@@ -52,19 +52,19 @@ type RuntimeBindingGlobals = {
 };
 
 const EVENT_INDEX_MAP: Record<string, string> = {
-    "PreCreateEvent": "EVENT_PRE_CREATE",
-    "CreateEvent": "EVENT_CREATE",
-    "DestroyEvent": "EVENT_DESTROY",
-    "CleanUpEvent": "EVENT_CLEAN_UP",
-    "StepBeginEvent": "EVENT_STEP_BEGIN",
-    "StepNormalEvent": "EVENT_STEP_NORMAL",
-    "StepEndEvent": "EVENT_STEP_END",
-    "DrawEvent": "EVENT_DRAW",
-    "DrawGUI": "EVENT_DRAW_GUI",
-    "DrawEventBegin": "EVENT_DRAW_BEGIN",
-    "DrawEventEnd": "EVENT_DRAW_END",
-    "DrawGUIBegin": "EVENT_DRAW_GUI_BEGIN",
-    "DrawGUIEnd": "EVENT_DRAW_GUI_END"
+    PreCreateEvent: "EVENT_PRE_CREATE",
+    CreateEvent: "EVENT_CREATE",
+    DestroyEvent: "EVENT_DESTROY",
+    CleanUpEvent: "EVENT_CLEAN_UP",
+    StepBeginEvent: "EVENT_STEP_BEGIN",
+    StepNormalEvent: "EVENT_STEP_NORMAL",
+    StepEndEvent: "EVENT_STEP_END",
+    DrawEvent: "EVENT_DRAW",
+    DrawGUI: "EVENT_DRAW_GUI",
+    DrawEventBegin: "EVENT_DRAW_BEGIN",
+    DrawEventEnd: "EVENT_DRAW_END",
+    DrawGUIBegin: "EVENT_DRAW_GUI_BEGIN",
+    DrawGUIEnd: "EVENT_DRAW_GUI_END"
 };
 
 function resolveInstanceStore(
@@ -118,34 +118,48 @@ function resolveRuntimeBindingNames(runtimeId: string): Array<string> {
 
 function resolveEventIndexName(eventKey: string): string | null {
     switch (eventKey) {
-        case "PreCreateEvent":
+        case "PreCreateEvent": {
             return "_qI";
-        case "CreateEvent":
+        }
+        case "CreateEvent": {
             return "_rI";
-        case "DestroyEvent":
+        }
+        case "DestroyEvent": {
             return "_tI";
-        case "CleanUpEvent":
+        }
+        case "CleanUpEvent": {
             return "_aI";
-        case "StepBeginEvent":
+        }
+        case "StepBeginEvent": {
             return "_sB2";
-        case "StepNormalEvent":
+        }
+        case "StepNormalEvent": {
             return "_uB2";
-        case "StepEndEvent":
+        }
+        case "StepEndEvent": {
             return "_wB2";
-        case "DrawEvent":
+        }
+        case "DrawEvent": {
             return "_6E2";
-        case "DrawGUI":
+        }
+        case "DrawGUI": {
             return "_2G2";
-        case "DrawEventBegin":
+        }
+        case "DrawEventBegin": {
             return "_4G2";
-        case "DrawEventEnd":
+        }
+        case "DrawEventEnd": {
             return "_5G2";
-        case "DrawGUIBegin":
+        }
+        case "DrawGUIBegin": {
             return "_6G2";
-        case "DrawGUIEnd":
+        }
+        case "DrawGUIEnd": {
             return "_7G2";
-        default:
+        }
+        default: {
             return null;
+        }
     }
 }
 
@@ -215,7 +229,6 @@ function createNamedRuntimeFunction(
 
 function applyRuntimeBindings(patch: ScriptPatch, fn: RuntimeFunction): void {
     const runtimeId = resolveRuntimeId(patch);
-    console.log(`[hot-reload] Applying bindings for ${runtimeId}`);
     const targetNames = resolveRuntimeBindingNames(runtimeId);
     if (targetNames.length === 0) {
         return;
@@ -230,14 +243,6 @@ function applyRuntimeBindings(patch: ScriptPatch, fn: RuntimeFunction): void {
     const instanceStore = resolveInstanceStore(globalScope);
     let objectName: string | null = null;
     const instanceKeysToUpdate = new Set<string>();
-
-    if (!instanceStore) {
-        console.warn(
-            `[hot-reload] Instance store not found. Active instances will not be updated for ${patch.id}`
-        );
-    } else {
-        console.log(`[hot-reload] Instance store found with ${Object.keys(instanceStore).length} instances`);
-    }
 
     const objectRuntime = parseObjectRuntimeId(runtimeId);
     let objectEventKey: string | null = null;
@@ -336,32 +341,40 @@ function applyRuntimeBindings(patch: ScriptPatch, fn: RuntimeFunction): void {
 
                 for (const key of instanceKeysToUpdate) {
                     (instance as Record<string, unknown>)[key] = fn;
-                    console.log(`[hot-reload] Updated instance ${key}`);
 
                     // Also update the object definition (pObject) which the event loop uses
-                    const pObject = (instance as any).pObject || (instance as any)._kx;
-                    if (pObject && typeof pObject === 'object') {
-                         if (pObject[key] !== fn) {
-                             pObject[key] = fn;
-                             console.log(`[hot-reload] Updated pObject ${key}`);
-                         }
-                         
-                         // Resolve event index (try minified first, then standard)
-                         const eventIndexName = resolveEventIndexName(key);
-                         let index: number | null = null;
-                         
-                         if (eventIndexName && typeof globalScope[eventIndexName] === "number") {
-                             index = globalScope[eventIndexName] as number;
-                         } else {
-                             const standardName = EVENT_INDEX_MAP[key];
-                             if (standardName && typeof globalScope[standardName] === "number") {
-                                 index = globalScope[standardName] as number;
-                             }
-                         }
+                    const pObject =
+                        (instance as any).pObject || (instance as any)._kx;
+                    if (pObject && typeof pObject === "object") {
+                        if (pObject[key] !== fn) {
+                            pObject[key] = fn;
+                        }
 
-                         if (typeof index === "number" && Array.isArray(pObject.Event)) {
-                             pObject.Event[index] = true;
-                         }
+                        // Resolve event index (try minified first, then standard)
+                        const eventIndexName = resolveEventIndexName(key);
+                        let index: number | null = null;
+
+                        if (
+                            eventIndexName &&
+                            typeof globalScope[eventIndexName] === "number"
+                        ) {
+                            index = globalScope[eventIndexName];
+                        } else {
+                            const standardName = EVENT_INDEX_MAP[key];
+                            if (
+                                standardName &&
+                                typeof globalScope[standardName] === "number"
+                            ) {
+                                index = globalScope[standardName];
+                            }
+                        }
+
+                        if (
+                            typeof index === "number" &&
+                            Array.isArray(pObject.Event)
+                        ) {
+                            pObject.Event[index] = true;
+                        }
                     }
 
                     const eventIndexName = resolveEventIndexName(key);
@@ -385,7 +398,6 @@ function applyRuntimeBindings(patch: ScriptPatch, fn: RuntimeFunction): void {
                 for (const [key, value] of Object.entries(instance)) {
                     if (typeof value === "function" && value.name === name) {
                         (instance as Record<string, unknown>)[key] = fn;
-                        console.log(`[hot-reload] Updated instance method ${key}`);
                     }
                 }
             }
@@ -618,22 +630,15 @@ const __gml_proxy = new Proxy(__gml_scope, {
         }
         const gmlProp = \`gml\${prop}\`;
         const underscoreProp = \`__\${prop}\`;
-        
-        console.log(\`[hot-reload] Proxy set: \${prop} = \${value}\`);
-
         if (prop in target) {
-            console.log(\`[hot-reload] Found direct prop: \${prop}\`);
             return Reflect.set(target, prop, value, receiver);
         }
         if (gmlProp in target) {
-            console.log(\`[hot-reload] Found gml prop: \${gmlProp}\`);
             return Reflect.set(target, gmlProp, value, receiver);
         }
         if (underscoreProp in target) {
-            console.log(\`[hot-reload] Found underscore prop: \${underscoreProp}\`);
             return Reflect.set(target, underscoreProp, value, receiver);
         }
-        console.log(\`[hot-reload] No match found, setting direct: \${prop}\`);
         return Reflect.set(target, prop, value, receiver);
     }
 });
@@ -643,7 +648,6 @@ ${patch.js_body}
     ) as RuntimeFunction;
 
     const fn = ((self, other, args) => {
-        console.log(`[hot-reload] Executing patched function ${patch.id}`);
         const globals = globalThis as RuntimeBindingGlobals &
             Record<string, unknown>;
         const constants = resolveBuiltinConstants(globals);

@@ -184,7 +184,7 @@ await test("applies object event patches to GameMaker object tables", () => {
             "Instance event handler should be assigned"
         );
         assert.equal(
-            instanceEntry["StepNormalEvent"],
+            instanceEntry.StepNormalEvent,
             updatedFn,
             "Instance event handler should be updated"
         );
@@ -199,7 +199,7 @@ await test("object patches update entries when previous handler is anonymous", (
     try {
         const objectEntry = {
             pName: "oSpider",
-            StepNormalEvent: function () {
+            StepNormalEvent () {
                 return "old";
             }
         };
@@ -238,12 +238,15 @@ await test("object patches update entries when previous handler is anonymous", (
             "GMObjects entry should be updated"
         );
         assert.equal(
-            instanceEntry["StepNormalEvent"],
+            instanceEntry.StepNormalEvent,
             updatedFn,
             "Instance event handler should be updated"
         );
         const eventArray = instanceEntry.Event as Array<boolean> | undefined;
-        assert.ok(Array.isArray(eventArray), "Instance event array should exist");
+        assert.ok(
+            Array.isArray(eventArray),
+            "Instance event array should exist"
+        );
         assert.equal(
             eventArray?.[globals._uB2 ?? -1],
             true,
@@ -277,7 +280,7 @@ await test("script patches resolve builtin constants and getters", () => {
         const fn = wrapper.getScript("gml/script/constants");
         assert.ok(fn);
         const result = fn(null, null, []) as number;
-        const expected = 42 + 10 + 20 + 16711680 + Math.PI;
+        const expected = 42 + 10 + 20 + 16_711_680 + Math.PI;
         assert.ok(Math.abs(result - expected) < 1e-9);
     } finally {
         restoreGlobals(snapshot);
@@ -305,6 +308,72 @@ await test("script patches map GML variables to instance storage", () => {
 
         assert.equal(result, 6);
         assert.equal(instance.gmlarmNum, 6);
+    } finally {
+        restoreGlobals(snapshot);
+    }
+});
+
+await test("updates pObject definition on active instances", () => {
+    const snapshot = snapshotGlobals();
+
+    try {
+        const globals = globalThis as GlobalSnapshot;
+        // Function name MUST match for the patcher to find it in GMObjects
+        const originalFn = function gml_Object_oSpider_Step_0(
+            ...args: Array<unknown>
+        ) {
+            return "original";
+        };
+        globals.gml_Object_oSpider_Step_0 = originalFn;
+        globals._uB2 = 5; // Minified index for StepNormalEvent
+
+        // Mock GMObjects so the patcher knows which keys to update
+        globals.JSON_game = {
+            ScriptNames: [],
+            Scripts: [],
+            GMObjects: [
+                {
+                    pName: "oSpider",
+                    StepNormalEvent: originalFn
+                }
+            ]
+        };
+
+        const pObject = {
+            StepNormalEvent: originalFn,
+            Event: [] as Array<boolean>
+        };
+        const instance = {
+            pObject,
+            StepNormalEvent: originalFn,
+            Event: [] as Array<boolean>
+        };
+
+        globals._cx = {
+            _dx: {
+                "100001": instance
+            }
+        };
+
+        const wrapper = RuntimeWrapper.createRuntimeWrapper();
+        wrapper.applyPatch({
+            kind: "script",
+            id: "gml/object/oSpider/Step_0",
+            js_body: "return 'patched';"
+        });
+
+        // Verify instance method was updated
+        const updatedInstanceFn = instance.StepNormalEvent;
+        assert.notEqual(updatedInstanceFn, originalFn);
+        assert.equal(updatedInstanceFn(instance, null, []), "patched");
+
+        // Verify pObject method was updated (Critical for event loop)
+        const updatedPObjectFn = pObject.StepNormalEvent;
+        assert.notEqual(updatedPObjectFn, originalFn);
+        assert.equal(updatedPObjectFn(instance, null, []), "patched");
+
+        // Verify event flag was set
+        assert.equal(pObject.Event[5], true);
     } finally {
         restoreGlobals(snapshot);
     }
