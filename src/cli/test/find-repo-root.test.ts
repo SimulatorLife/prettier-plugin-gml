@@ -3,8 +3,8 @@ import fs from "node:fs/promises";
 import path from "node:path";
 import os from "node:os";
 import { describe, it } from "node:test";
-import { findRepoRoot } from "../../src/fs/find-repo-root.js";
-import { findRepoRootSync } from "../../src/fs/find-repo-root-sync.js";
+import { findRepoRoot } from "../src/shared/find-repo-root.js";
+import { findRepoRootSync } from "../src/shared/find-repo-root-sync.js";
 
 async function createTemporaryDirectory() {
     const directoryPrefix = path.join(os.tmpdir(), "gml-core-find-repo");
@@ -42,7 +42,7 @@ async function createNestedDirectoryWithPackages(root: string) {
     return nested;
 }
 
-void describe("findRepoRoot helper (core)", () => {
+void describe("findRepoRoot helper (CLI)", () => {
     void it("prefers repository sentinels (AGENTS.md) over package.json", async () => {
         await withTemporaryDirectory(async (tempDir) => {
             const nested = await createNestedDirectoryWithSentinel(tempDir);
@@ -61,7 +61,7 @@ void describe("findRepoRoot helper (core)", () => {
     });
 });
 
-void describe("findRepoRootSync helper (core)", () => {
+void describe("findRepoRootSync helper (CLI)", () => {
     void it("prefers repository sentinels (AGENTS.md) over package.json", async () => {
         await withTemporaryDirectory(async (tempDir) => {
             const nested = await createNestedDirectoryWithSentinel(tempDir);
