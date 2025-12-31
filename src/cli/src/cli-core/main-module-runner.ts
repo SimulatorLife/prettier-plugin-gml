@@ -36,8 +36,15 @@ export interface RunAsMainModuleOptions {
 
     /**
      * Optional environment variables to pass to the command factory.
+     * Only passed if the createCommand function requires it.
      */
     env?: NodeJS.ProcessEnv;
+
+    /**
+     * Whether to pass options to createCommand. When false, createCommand is called with no arguments.
+     * Defaults to true when env is provided, false otherwise.
+     */
+    passOptionsToCreateCommand?: boolean;
 }
 
 /**
@@ -68,13 +75,24 @@ export function isMainModule(importMetaUrl: string): boolean {
  *
  * @example
  * ```ts
+ * // Command that requires env
+ * if (isMainModule(import.meta.url)) {
+ *     runAsMainModule({
+ *         programName: "generate-gml-identifiers",
+ *         createCommand: createGenerateIdentifiersCommand,
+ *         run: ({ command }) => runGenerateGmlIdentifiers({ command }),
+ *         errorPrefix: "Failed to generate GML identifiers.",
+ *         env: process.env
+ *     });
+ * }
+ *
+ * // Command that doesn't need env
  * if (isMainModule(import.meta.url)) {
  *     runAsMainModule({
  *         programName: "generate-feather-metadata",
  *         createCommand: createFeatherMetadataCommand,
  *         run: ({ command }) => runGenerateFeatherMetadata({ command }),
- *         errorPrefix: "Failed to generate Feather metadata.",
- *         env: process.env
+ *         errorPrefix: "Failed to generate Feather metadata."
  *     });
  * }
  * ```
@@ -84,7 +102,8 @@ export function runAsMainModule({
     createCommand,
     run,
     errorPrefix,
-    env = process.env
+    env,
+    passOptionsToCreateCommand
 }: RunAsMainModuleOptions): void {
     const program = new Command().name(programName);
     const { registry, runner } = createCliCommandManager({ program });
@@ -98,8 +117,13 @@ export function runAsMainModule({
                     : 1
         });
 
+    const shouldPassOptions = passOptionsToCreateCommand ?? env !== undefined;
+    const command = shouldPassOptions
+        ? createCommand({ env: env ?? process.env })
+        : createCommand();
+
     registry.registerDefaultCommand({
-        command: createCommand({ env }),
+        command,
         run,
         onError: handleError
     });
