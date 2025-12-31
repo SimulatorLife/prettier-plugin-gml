@@ -12641,6 +12641,10 @@ function correctDataStructureAccessorTokens({ ast, diagnostic, metadata }) {
     // matching accessor tokens. This dual-mode approach supports both IDE-driven
     // Feather integration (precise, range-based fixes) and standalone formatting
     // (global accessor normalization).
+    //
+    // Example behavior difference:
+    // - With metadata: Only fix `lst[? 0]` if Feather flagged that specific line
+    // - Without metadata: Fix ALL occurrences of `[?` to `[|` if diagnostic says map→list
     const entries = metadata
         ? extractFeatherPreprocessMetadata(metadata, diagnostic.id)
         : null;
@@ -12720,7 +12724,8 @@ function updateMemberIndexAccessor(
     const nodeEnd = Core.getNodeEndIndex(node);
 
     // When metadata ranges are available, check if this node matches any diagnostic entry.
-    // When metadata is absent, apply the fix unconditionally to all matching accessors.
+    // When metadata is absent, apply the fix unconditionally to all nodes where the
+    // accessor matches the incorrect token (e.g., all `[?` if the fix is `? → |`).
     if (useMetadataRanges) {
         const match = entries.find((entry) => {
             const range = normalizePreprocessedRange(entry);
