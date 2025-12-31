@@ -305,7 +305,7 @@ void describe("ScopeTracker: exportScipOccurrences", () => {
             symbolGenerator: () => null
         });
 
-        // Scopes with no valid occurrences (all filtered out) should still appear but empty
+        // Scopes with no valid occurrences (all filtered out) should not be included
         assert.equal(result.length, 0);
     });
 

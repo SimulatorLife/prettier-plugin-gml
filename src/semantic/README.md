@@ -298,12 +298,6 @@ const scipData = tracker.exportScipOccurrences();
 - Supporting IDE features like go-to-definition and find-all-references
 
 The custom symbol generator allows integration with project-wide symbol naming schemes. For example, use `(name, scopeId) => "gml/script/" + name` to match the transpiler's qualified symbol format for scripts.
-//     occurrences: [{kind: "reference", name: "globalVar", scopeId: "scope-1", ...}]
-//   }
-// ]
-```
-
-**Use case:** Cross-scope dependency tracking for hot reload coordination. When editing a file/scope, query its external references to understand which parent symbols it depends on. This enables precise invalidation: if a parent scope's symbol changes, you can quickly identify all child scopes that reference it and selectively recompile only the affected code paths. This is essential for efficient hot reload in large projects where rebuilding everything would be prohibitively slow.
 
 ## Scope Modification Tracking
 
