@@ -184,7 +184,7 @@ await test("applies object event patches to GameMaker object tables", () => {
             "Instance event handler should be assigned"
         );
         assert.equal(
-            instanceEntry["StepNormalEvent"],
+            instanceEntry.StepNormalEvent,
             updatedFn,
             "Instance event handler should be updated"
         );
@@ -199,7 +199,7 @@ await test("object patches update entries when previous handler is anonymous", (
     try {
         const objectEntry = {
             pName: "oSpider",
-            StepNormalEvent: function () {
+            StepNormalEvent() {
                 return "old";
             }
         };
@@ -238,12 +238,15 @@ await test("object patches update entries when previous handler is anonymous", (
             "GMObjects entry should be updated"
         );
         assert.equal(
-            instanceEntry["StepNormalEvent"],
+            instanceEntry.StepNormalEvent,
             updatedFn,
             "Instance event handler should be updated"
         );
         const eventArray = instanceEntry.Event as Array<boolean> | undefined;
-        assert.ok(Array.isArray(eventArray), "Instance event array should exist");
+        assert.ok(
+            Array.isArray(eventArray),
+            "Instance event array should exist"
+        );
         assert.equal(
             eventArray?.[globals._uB2 ?? -1],
             true,
@@ -277,7 +280,7 @@ await test("script patches resolve builtin constants and getters", () => {
         const fn = wrapper.getScript("gml/script/constants");
         assert.ok(fn);
         const result = fn(null, null, []) as number;
-        const expected = 42 + 10 + 20 + 16711680 + Math.PI;
+        const expected = 42 + 10 + 20 + 16_711_680 + Math.PI;
         assert.ok(Math.abs(result - expected) < 1e-9);
     } finally {
         restoreGlobals(snapshot);

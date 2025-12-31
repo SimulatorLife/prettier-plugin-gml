@@ -73,34 +73,48 @@ function resolveRuntimeBindingNames(runtimeId: string): Array<string> {
 
 function resolveEventIndexName(eventKey: string): string | null {
     switch (eventKey) {
-        case "PreCreateEvent":
+        case "PreCreateEvent": {
             return "_qI";
-        case "CreateEvent":
+        }
+        case "CreateEvent": {
             return "_rI";
-        case "DestroyEvent":
+        }
+        case "DestroyEvent": {
             return "_tI";
-        case "CleanUpEvent":
+        }
+        case "CleanUpEvent": {
             return "_aI";
-        case "StepBeginEvent":
+        }
+        case "StepBeginEvent": {
             return "_sB2";
-        case "StepNormalEvent":
+        }
+        case "StepNormalEvent": {
             return "_uB2";
-        case "StepEndEvent":
+        }
+        case "StepEndEvent": {
             return "_wB2";
-        case "DrawEvent":
+        }
+        case "DrawEvent": {
             return "_6E2";
-        case "DrawGUI":
+        }
+        case "DrawGUI": {
             return "_2G2";
-        case "DrawEventBegin":
+        }
+        case "DrawEventBegin": {
             return "_4G2";
-        case "DrawEventEnd":
+        }
+        case "DrawEventEnd": {
             return "_5G2";
-        case "DrawGUIBegin":
+        }
+        case "DrawGUIBegin": {
             return "_6G2";
-        case "DrawGUIEnd":
+        }
+        case "DrawGUIEnd": {
             return "_7G2";
-        default:
+        }
+        default: {
             return null;
+        }
     }
 }
 

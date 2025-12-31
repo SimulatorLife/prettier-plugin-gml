@@ -106,7 +106,9 @@ function resolveColorFactory(
         (red & 0xff) | ((green & 0xff) << 8) | ((blue & 0xff) << 16);
 }
 
-function buildColorConstants(globalScope: Record<string, unknown>): ConstantMap {
+function buildColorConstants(
+    globalScope: Record<string, unknown>
+): ConstantMap {
     const makeColor = resolveColorFactory(globalScope);
     const colors: ConstantMap = {};
 
