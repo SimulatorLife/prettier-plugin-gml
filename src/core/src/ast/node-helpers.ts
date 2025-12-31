@@ -1203,8 +1203,8 @@ export function enqueueObjectChildValues(
         // Manual index iteration avoids the iterator/closure overhead paid by
         // `for...of` on every call. The helper sits on tight AST traversal
         // loops, so keeping the branch predictable and allocation-free helps
-        // repeated walks stay lean. Using prefix increment (`++index`) is
-        // marginally more idiomatic and may optimize better in some engines.
+        // repeated walks stay lean. Prefix increment is used for consistency
+        // with modern JavaScript style conventions.
         for (let index = 0; index < length; ++index) {
             const item = value[index];
 
