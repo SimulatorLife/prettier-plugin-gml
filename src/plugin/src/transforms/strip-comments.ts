@@ -2,7 +2,7 @@
  * Provides a configurable transform that can remove comments or JSDoc before formatting/printing.
  */
 import { Core, type MutableGameMakerAstNode } from "@gml-modules/core";
-import { FunctionalParserTransform } from "./functional-transform.js";
+import type { ParserTransform } from "./functional-transform.js";
 
 type StripCommentsTransformOptions = {
     stripComments: boolean;
@@ -13,19 +13,25 @@ type StripCommentsTransformOptions = {
 /**
  * Removes comment nodes and related metadata according to the caller's options.
  */
-export class StripCommentsTransform extends FunctionalParserTransform<StripCommentsTransformOptions> {
-    constructor() {
-        super("strip-comments", {
-            stripComments: true,
-            stripJsDoc: true,
-            dropCommentedOutCode: false
-        });
-    }
+export class StripCommentsTransform
+    implements
+        ParserTransform<MutableGameMakerAstNode, StripCommentsTransformOptions>
+{
+    public readonly name = "strip-comments";
+    public readonly defaultOptions = Object.freeze({
+        stripComments: true,
+        stripJsDoc: true,
+        dropCommentedOutCode: false
+    }) as StripCommentsTransformOptions;
 
-    protected execute(
-        ast: any,
-        options: StripCommentsTransformOptions
+    public transform(
+        ast: MutableGameMakerAstNode,
+        options?: StripCommentsTransformOptions
     ): MutableGameMakerAstNode {
+        const resolvedOptions = options
+            ? { ...this.defaultOptions, ...options }
+            : this.defaultOptions;
+
         // Walk the AST and drop comment-related properties as requested by the options.
         if (!ast || typeof ast !== "object") {
             return ast;
@@ -37,7 +43,7 @@ export class StripCommentsTransform extends FunctionalParserTransform<StripComme
                     return;
                 }
 
-                if (options.stripComments) {
+                if (resolvedOptions.stripComments) {
                     const comments = (value as any).comments;
                     if (Array.isArray(comments)) {
                         const filtered = comments.filter(
@@ -55,7 +61,7 @@ export class StripCommentsTransform extends FunctionalParserTransform<StripComme
                     }
                 }
 
-                if (options.stripJsDoc) {
+                if (resolvedOptions.stripJsDoc) {
                     if (Object.hasOwn(value, "doc")) {
                         delete value.doc;
                     }
@@ -71,7 +77,7 @@ export class StripCommentsTransform extends FunctionalParserTransform<StripComme
             }
         });
 
-        if (options.stripComments && Array.isArray(ast.comments)) {
+        if (resolvedOptions.stripComments && Array.isArray(ast.comments)) {
             ast.comments = [];
         }
 

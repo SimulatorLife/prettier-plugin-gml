@@ -3,7 +3,7 @@ import {
     type MutableDocCommentLines,
     type MutableGameMakerAstNode
 } from "@gml-modules/core";
-import { FunctionalParserTransform } from "../functional-transform.js";
+import type { ParserTransform } from "../functional-transform.js";
 import { walkAstNodes } from "../feather/ast-traversal.js";
 import { resolveDocCommentPrinterOptions } from "../../printer/doc-comment/doc-comment-options.js";
 import {
@@ -41,23 +41,32 @@ function createDocCommentPath(
     };
 }
 
-export class DocCommentNormalizationTransform extends FunctionalParserTransform<DocCommentNormalizationTransformOptions> {
-    constructor() {
-        super("doc-comment-normalization", {
-            enabled: true,
-            pluginOptions: {}
-        });
-    }
+export class DocCommentNormalizationTransform
+    implements
+        ParserTransform<
+            MutableGameMakerAstNode,
+            DocCommentNormalizationTransformOptions
+        >
+{
+    public readonly name = "doc-comment-normalization";
+    public readonly defaultOptions = Object.freeze({
+        enabled: true,
+        pluginOptions: {}
+    }) as DocCommentNormalizationTransformOptions;
 
-    protected execute(
+    public transform(
         ast: MutableGameMakerAstNode,
-        options: DocCommentNormalizationTransformOptions
+        options?: DocCommentNormalizationTransformOptions
     ): MutableGameMakerAstNode {
-        if (options.enabled === false) {
+        const resolvedOptions = options
+            ? { ...this.defaultOptions, ...options }
+            : this.defaultOptions;
+
+        if (resolvedOptions.enabled === false) {
             return ast;
         }
 
-        const pluginOptions = options.pluginOptions ?? {};
+        const pluginOptions = resolvedOptions.pluginOptions ?? {};
         const lineCommentOptions = {
             ...Core.resolveLineCommentOptions(pluginOptions),
             // Force using AST values to respect previous transforms (e.g. Feather fixes)

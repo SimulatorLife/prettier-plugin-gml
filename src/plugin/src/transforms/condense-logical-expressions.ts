@@ -2,7 +2,8 @@
  * Exposes the logical expression condensation helper from `logical-expressions/condensation.ts`
  * as a parser transform so the plugin can reduce nested chains of the same boolean operator.
  */
-import { FunctionalParserTransform } from "./functional-transform.js";
+import type { ParserTransform } from "./functional-transform.js";
+import type { MutableGameMakerAstNode } from "@gml-modules/core";
 import {
     applyLogicalExpressionCondensation,
     type CondenseLogicalExpressionsOptions
@@ -11,16 +12,23 @@ import {
 /**
  * Transform wrapper used by the plugin to run the condensation logic defined in the dedicated submodule.
  */
-export class CondenseLogicalExpressionsTransform extends FunctionalParserTransform<CondenseLogicalExpressionsOptions> {
-    constructor() {
-        super("condense-logical-expressions", {});
-    }
+export class CondenseLogicalExpressionsTransform
+    implements
+        ParserTransform<
+            MutableGameMakerAstNode,
+            CondenseLogicalExpressionsOptions
+        >
+{
+    public readonly name = "condense-logical-expressions";
+    public readonly defaultOptions = Object.freeze(
+        {}
+    ) as CondenseLogicalExpressionsOptions;
 
-    /**
-     * Delegates to the shared condensation helper, passing along any helper registry supplied by callers.
-     */
-    protected execute(ast: any, options: CondenseLogicalExpressionsOptions) {
-        return applyLogicalExpressionCondensation(ast, options.helpers);
+    public transform(
+        ast: MutableGameMakerAstNode,
+        options?: CondenseLogicalExpressionsOptions
+    ): MutableGameMakerAstNode {
+        return applyLogicalExpressionCondensation(ast, options?.helpers);
     }
 }
 
