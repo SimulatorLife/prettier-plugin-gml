@@ -48,7 +48,7 @@ type TransformByName = {
     [Transform in RegisteredTransform as Transform["name"]]: Transform;
 };
 
-const TRANSFORM_REGISTRY = {} as TransformByName;
+const TRANSFORM_REGISTRY = {} as Record<string, RegisteredTransform>;
 for (const transform of TRANSFORM_REGISTRY_ENTRIES) {
     if (Object.hasOwn(TRANSFORM_REGISTRY, transform.name)) {
         throw new Error(
@@ -62,7 +62,7 @@ for (const transform of TRANSFORM_REGISTRY_ENTRIES) {
 export function getParserTransform<Name extends ParserTransformName>(
     name: Name
 ): TransformByName[Name] {
-    const transform = TRANSFORM_REGISTRY[name];
+    const transform = TRANSFORM_REGISTRY[name] as TransformByName[Name];
     if (!transform) {
         throw new TypeError(`Unknown parser transform: ${String(name)}`);
     }
@@ -92,8 +92,13 @@ export function applyTransforms(
 
     let current = ast;
     for (const name of transformNames) {
-        const transform = getParserTransform(name);
-        current = transform.transform(current, options[name] as never);
+        const transform = getParserTransform(name) as {
+            transform: (
+                ast: MutableGameMakerAstNode,
+                options?: unknown
+            ) => MutableGameMakerAstNode;
+        };
+        current = transform.transform(current, options[name]);
     }
 
     return current;

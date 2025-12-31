@@ -6,7 +6,7 @@ import {
     type GameMakerAstNode,
     type MutableGameMakerAstNode
 } from "@gml-modules/core";
-import { FunctionalParserTransform } from "./functional-transform.js";
+import type { ParserTransform } from "./functional-transform.js";
 import { cleanupMultiplicativeIdentityParentheses } from "./math/parentheses-cleanup.js";
 import {
     applyManualMathNormalization,
@@ -33,14 +33,21 @@ type BinaryExpressionNode = GameMakerAstNode & {
 /**
  * Transform that composes the various manual math optimizations into the parser transform pipeline.
  */
-export class OptimizeMathExpressionsTransform extends FunctionalParserTransform<ConvertManualMathTransformOptions> {
-    constructor() {
-        super("optimize-math-expressions", {});
-    }
+export class OptimizeMathExpressionsTransform
+    implements
+        ParserTransform<
+            MutableGameMakerAstNode,
+            ConvertManualMathTransformOptions
+        >
+{
+    public readonly name = "optimize-math-expressions";
+    public readonly defaultOptions = Object.freeze(
+        {}
+    ) as ConvertManualMathTransformOptions;
 
-    protected execute(
+    public transform(
         ast: MutableGameMakerAstNode,
-        options: ConvertManualMathTransformOptions
+        options?: ConvertManualMathTransformOptions
     ): MutableGameMakerAstNode {
         // Drive the composed math normalization helpers in the prescribed order.
         if (!ast || typeof ast !== "object") {

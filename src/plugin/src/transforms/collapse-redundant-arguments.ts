@@ -8,7 +8,7 @@
  * reducing noise during the printer stage.
  */
 import { Core, type MutableGameMakerAstNode } from "@gml-modules/core";
-import { FunctionalParserTransform } from "./functional-transform.js";
+import type { ParserTransform } from "./functional-transform.js";
 
 type CollapseRedundantMissingCallArgumentsTransformOptions = Record<
     string,
@@ -19,20 +19,19 @@ type CollapseRedundantMissingCallArgumentsTransformOptions = Record<
  * Constructed once and exposed as `collapseRedundantMissingCallArgumentsTransform`
  * so it can be composed into the parser normalization pipeline.
  */
-export class CollapseRedundantMissingCallArgumentsTransform extends FunctionalParserTransform<CollapseRedundantMissingCallArgumentsTransformOptions> {
-    constructor() {
-        super("collapse-redundant-missing-call-arguments", {});
-    }
+export class CollapseRedundantMissingCallArgumentsTransform
+    implements
+        ParserTransform<
+            MutableGameMakerAstNode,
+            CollapseRedundantMissingCallArgumentsTransformOptions
+        >
+{
+    public readonly name = "collapse-redundant-missing-call-arguments";
+    public readonly defaultOptions = Object.freeze(
+        {}
+    ) as CollapseRedundantMissingCallArgumentsTransformOptions;
 
-    /**
-     * Entrypoint invoked by the transform framework; this just delegates to the
-     * private walker since there are no configurable options.
-     */
-    protected execute(
-        ast: MutableGameMakerAstNode,
-        _options: CollapseRedundantMissingCallArgumentsTransformOptions
-    ): MutableGameMakerAstNode {
-        void _options;
+    public transform(ast: MutableGameMakerAstNode): MutableGameMakerAstNode {
         this.collapseRedundantMissingCallArguments(ast);
         return ast;
     }

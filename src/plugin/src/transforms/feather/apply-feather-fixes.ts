@@ -32,7 +32,7 @@ import {
     type MutableGameMakerAstNode,
     type GameMakerAstNode
 } from "@gml-modules/core";
-import { FunctionalParserTransform } from "../functional-transform.js";
+import type { ParserTransform } from "../functional-transform.js";
 import {
     getEndFromNode,
     getStartFromNode,
@@ -927,16 +927,20 @@ function isBreakableConstruct(node) {
 /**
  * Prettier transform that runs every applicable Feather fixer and returns the mutated AST.
  */
-export class ApplyFeatherFixesTransform extends FunctionalParserTransform<ApplyFeatherFixesOptions> {
-    constructor() {
-        super("apply-feather-fixes", {});
-    }
+export class ApplyFeatherFixesTransform
+    implements
+        ParserTransform<MutableGameMakerAstNode, ApplyFeatherFixesOptions>
+{
+    public readonly name = "apply-feather-fixes";
+    public readonly defaultOptions = Object.freeze(
+        {}
+    ) as ApplyFeatherFixesOptions;
 
-    protected execute(
+    public transform(
         ast: MutableGameMakerAstNode,
-        options: ApplyFeatherFixesOptions
-    ) {
-        return applyFeatherFixesImpl(ast, options);
+        options?: ApplyFeatherFixesOptions
+    ): MutableGameMakerAstNode {
+        return applyFeatherFixesImpl(ast, options ?? this.defaultOptions);
     }
 }
 

@@ -3,25 +3,23 @@
  * The rule triggers after a minimum number of declarations and only inserts spacing before `for` loops.
  */
 import { Core, type MutableGameMakerAstNode } from "@gml-modules/core";
-import {
-    FunctionalParserTransform,
-    type EmptyTransformOptions
-} from "./functional-transform.js";
+import type { ParserTransform } from "./functional-transform.js";
 
 const MIN_DECLARATIONS = 4; // Keep this opinionated and not configurable for consistent formatting behavior
 
 /**
  * Transform orchestrating the spacing rule for variable declaration blocks.
  */
-export class EnforceVariableBlockSpacingTransform extends FunctionalParserTransform<EmptyTransformOptions> {
-    constructor() {
-        super("enforce-variable-block-spacing", {});
-    }
+export class EnforceVariableBlockSpacingTransform
+    implements ParserTransform<MutableGameMakerAstNode, Record<string, never>>
+{
+    public readonly name = "enforce-variable-block-spacing";
+    public readonly defaultOptions = Object.freeze({}) as Record<string, never>;
 
     /**
      * Entry point that walks the AST once to add the `_gmlForceFollowingEmptyLine` hint.
      */
-    protected execute(ast: MutableGameMakerAstNode): MutableGameMakerAstNode {
+    public transform(ast: MutableGameMakerAstNode): MutableGameMakerAstNode {
         if (!ast || typeof ast !== "object") {
             return ast;
         }
