@@ -505,24 +505,17 @@ export function coalesceOption(
  * @returns {TValue} Existing or newly created entry.
  */
 export function getOrCreateMapEntry(store, key, initializer) {
-    const mapStore = assertFunctionProperties(store, ["get", "set"], {
-        name: "store",
-        errorMessage: "store must provide get and set functions"
+    assertFunctionProperties(store, ["get", "set", "has"], {
+        name: "store"
     });
-
-    assertFunctionProperties(mapStore, ["has"], {
-        name: "store",
-        errorMessage: "store must provide a has function"
-    });
-
     assertFunction(initializer, "initializer");
 
-    if (mapStore.has(key)) {
-        return mapStore.get(key);
+    if (store.has(key)) {
+        return store.get(key);
     }
 
     const value = initializer(key);
-    mapStore.set(key, value);
+    store.set(key, value);
     return value;
 }
 
