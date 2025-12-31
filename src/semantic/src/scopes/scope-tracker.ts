@@ -29,6 +29,21 @@ type ScopeRole = {
     kind?: string;
 };
 
+type ScopeModificationDetails = {
+    scopeId: string;
+    scopeKind: string;
+    lastModified: number;
+    modificationCount: number;
+    declarationCount: number;
+    referenceCount: number;
+    symbolCount: number;
+    symbols: Array<{
+        name: string;
+        declarationCount: number;
+        referenceCount: number;
+    }>;
+};
+
 class Scope {
     public id: string;
     public kind: string;
@@ -1068,6 +1083,60 @@ export class ScopeTracker {
             scopeKind: mostRecent.kind,
             lastModified: mostRecent.lastModifiedTimestamp,
             modificationCount: mostRecent.modificationCount
+        };
+    }
+
+    /**
+     * Get detailed modification metadata for a specific scope, including counts
+     * of declarations and references tracked. This provides richer information
+     * than `getScopeModificationMetadata` for hot reload systems that need to
+     * understand what type of changes occurred in a scope.
+     *
+     * @param {string} scopeId The scope identifier.
+     * @returns {ScopeModificationDetails | null}
+     *          Detailed modification metadata including symbol-level counts, or null if scope not found.
+     */
+    getScopeModificationDetails(
+        scopeId: string | null | undefined
+    ): ScopeModificationDetails | null {
+        if (!scopeId) {
+            return null;
+        }
+
+        const scope = this.scopesById.get(scopeId);
+        if (!scope) {
+            return null;
+        }
+
+        let totalDeclarations = 0;
+        let totalReferences = 0;
+        const symbols = [];
+
+        for (const [name, entry] of scope.occurrences) {
+            const declarationCount = entry.declarations.length;
+            const referenceCount = entry.references.length;
+
+            totalDeclarations += declarationCount;
+            totalReferences += referenceCount;
+
+            symbols.push({
+                name,
+                declarationCount,
+                referenceCount
+            });
+        }
+
+        symbols.sort((a, b) => a.name.localeCompare(b.name));
+
+        return {
+            scopeId: scope.id,
+            scopeKind: scope.kind,
+            lastModified: scope.lastModifiedTimestamp,
+            modificationCount: scope.modificationCount,
+            declarationCount: totalDeclarations,
+            referenceCount: totalReferences,
+            symbolCount: symbols.length,
+            symbols
         };
     }
 
