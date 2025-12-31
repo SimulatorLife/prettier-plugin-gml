@@ -1490,3 +1490,165 @@ void test("checkRegistryHealth returns current version", () => {
     health = wrapper.checkRegistryHealth();
     assert.strictEqual(health.version, 2);
 });
+
+void test("getUndoStackSize returns current undo stack size", () => {
+    const wrapper = RuntimeWrapper.createRuntimeWrapper();
+
+    assert.strictEqual(wrapper.getUndoStackSize(), 0);
+
+    wrapper.applyPatch({
+        kind: "script",
+        id: "script:test1",
+        js_body: "return 1;"
+    });
+
+    assert.strictEqual(wrapper.getUndoStackSize(), 1);
+
+    wrapper.applyPatch({
+        kind: "script",
+        id: "script:test2",
+        js_body: "return 2;"
+    });
+
+    assert.strictEqual(wrapper.getUndoStackSize(), 2);
+
+    wrapper.undo();
+
+    assert.strictEqual(wrapper.getUndoStackSize(), 1);
+});
+
+void test("maxUndoStackSize limits undo stack growth", () => {
+    const wrapper = RuntimeWrapper.createRuntimeWrapper({
+        maxUndoStackSize: 5
+    });
+
+    for (let i = 0; i < 10; i++) {
+        wrapper.applyPatch({
+            kind: "script",
+            id: `script:test${i}`,
+            js_body: `return ${i};`
+        });
+    }
+
+    assert.strictEqual(wrapper.getUndoStackSize(), 5);
+
+    const result = wrapper.undo();
+    assert.ok(result.success);
+
+    assert.strictEqual(wrapper.getUndoStackSize(), 4);
+});
+
+void test("maxUndoStackSize preserves most recent patches", () => {
+    const wrapper = RuntimeWrapper.createRuntimeWrapper({
+        maxUndoStackSize: 3
+    });
+
+    wrapper.applyPatch({
+        kind: "script",
+        id: "script:old1",
+        js_body: "return 1;"
+    });
+
+    wrapper.applyPatch({
+        kind: "script",
+        id: "script:old2",
+        js_body: "return 2;"
+    });
+
+    wrapper.applyPatch({
+        kind: "script",
+        id: "script:recent1",
+        js_body: "return 3;"
+    });
+
+    wrapper.applyPatch({
+        kind: "script",
+        id: "script:recent2",
+        js_body: "return 4;"
+    });
+
+    wrapper.applyPatch({
+        kind: "script",
+        id: "script:recent3",
+        js_body: "return 5;"
+    });
+
+    assert.strictEqual(wrapper.getUndoStackSize(), 3);
+
+    wrapper.undo();
+    assert.ok(wrapper.hasScript("script:recent2"));
+    assert.ok(!wrapper.hasScript("script:recent3"));
+
+    wrapper.undo();
+    assert.ok(wrapper.hasScript("script:recent1"));
+    assert.ok(!wrapper.hasScript("script:recent2"));
+
+    wrapper.undo();
+    assert.ok(!wrapper.hasScript("script:recent1"));
+    assert.ok(wrapper.hasScript("script:old2"));
+});
+
+void test("maxUndoStackSize zero allows unlimited undo", () => {
+    const wrapper = RuntimeWrapper.createRuntimeWrapper({
+        maxUndoStackSize: 0
+    });
+
+    for (let i = 0; i < 100; i++) {
+        wrapper.applyPatch({
+            kind: "script",
+            id: `script:test${i}`,
+            js_body: `return ${i};`
+        });
+    }
+
+    assert.strictEqual(wrapper.getUndoStackSize(), 100);
+});
+
+void test("maxUndoStackSize default is 50", () => {
+    const wrapper = RuntimeWrapper.createRuntimeWrapper();
+
+    for (let i = 0; i < 100; i++) {
+        wrapper.applyPatch({
+            kind: "script",
+            id: `script:test${i}`,
+            js_body: `return ${i};`
+        });
+    }
+
+    assert.strictEqual(wrapper.getUndoStackSize(), 50);
+});
+
+void test("maxUndoStackSize works with applyPatchBatch", () => {
+    const wrapper = RuntimeWrapper.createRuntimeWrapper({
+        maxUndoStackSize: 3
+    });
+
+    const patches = [];
+    for (let i = 0; i < 10; i++) {
+        patches.push({
+            kind: "script",
+            id: `script:test${i}`,
+            js_body: `return ${i};`
+        });
+    }
+
+    wrapper.applyPatchBatch(patches);
+
+    assert.strictEqual(wrapper.getUndoStackSize(), 3);
+});
+
+void test("clearRegistry resets undo stack size", () => {
+    const wrapper = RuntimeWrapper.createRuntimeWrapper();
+
+    wrapper.applyPatch({
+        kind: "script",
+        id: "script:test",
+        js_body: "return 1;"
+    });
+
+    assert.strictEqual(wrapper.getUndoStackSize(), 1);
+
+    wrapper.clearRegistry();
+
+    assert.strictEqual(wrapper.getUndoStackSize(), 0);
+});

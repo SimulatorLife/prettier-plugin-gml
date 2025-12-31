@@ -81,6 +81,7 @@ export interface RuntimeWrapperOptions {
     onPatchApplied?: (patch: Patch, version: number) => void;
     validateBeforeApply?: boolean;
     onChange?: RegistryChangeListener;
+    maxUndoStackSize?: number;
 }
 
 export interface RuntimeWrapperState {
@@ -89,6 +90,7 @@ export interface RuntimeWrapperState {
     patchHistory: Array<PatchHistoryEntry>;
     options: {
         validateBeforeApply: boolean;
+        maxUndoStackSize: number;
     };
 }
 
@@ -173,6 +175,7 @@ export interface PatchApplicator {
 export interface HistoryManager {
     undo(): { success: boolean; version?: number; message?: string };
     getPatchHistory(): Array<PatchHistoryEntry>;
+    getUndoStackSize(): number;
 }
 
 /**
