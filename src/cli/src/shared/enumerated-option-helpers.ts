@@ -45,12 +45,20 @@ export interface EnumeratedOptionConfig {
 export function createEnumeratedOptionHelpers(
     config: EnumeratedOptionConfig | Iterable<EnumeratedValue>
 ): EnumeratedOptionHelpers {
+    const isConfigObject =
+        config != null &&
+        typeof config === "object" &&
+        "values" in config &&
+        typeof (config as any).values !== "function";
+
     const {
         values,
         enforceString = false,
         valueLabel = "Value",
         formatError
-    } = Symbol.iterator in config ? { values: config } : config;
+    } = isConfigObject
+        ? (config)
+        : { values: config as Iterable<EnumeratedValue> };
 
     const valueSet = new Set(Array.from(values));
     const listLabel = [...valueSet].sort().join(", ");
