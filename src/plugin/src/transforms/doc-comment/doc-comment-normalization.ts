@@ -3,7 +3,7 @@ import {
     type MutableDocCommentLines,
     type MutableGameMakerAstNode
 } from "@gml-modules/core";
-import type { ParserTransform } from "../functional-transform.js";
+import { createParserTransform } from "../functional-transform.js";
 import { walkAstNodes } from "../feather/ast-traversal.js";
 import { resolveDocCommentPrinterOptions } from "../../printer/doc-comment/doc-comment-options.js";
 import {
@@ -41,170 +41,160 @@ function createDocCommentPath(
     };
 }
 
-export class DocCommentNormalizationTransform
-    implements
-        ParserTransform<
-            MutableGameMakerAstNode,
-            DocCommentNormalizationTransformOptions
-        >
-{
-    public readonly name = "doc-comment-normalization";
-    public readonly defaultOptions = Object.freeze({
-        enabled: true,
-        pluginOptions: {}
-    }) as DocCommentNormalizationTransformOptions;
-
-    public transform(
-        ast: MutableGameMakerAstNode,
-        options?: DocCommentNormalizationTransformOptions
-    ): MutableGameMakerAstNode {
-        const resolvedOptions = options
-            ? { ...this.defaultOptions, ...options }
-            : this.defaultOptions;
-
-        if (resolvedOptions.enabled === false) {
-            return ast;
-        }
-
-        const pluginOptions = resolvedOptions.pluginOptions ?? {};
-        const lineCommentOptions = {
-            ...Core.resolveLineCommentOptions(pluginOptions),
-            // Force using AST values to respect previous transforms (e.g. Feather fixes)
-            originalText: null
-        };
-        const docCommentOptions =
-            resolveDocCommentPrinterOptions(pluginOptions);
-
-        const parentByNode = new WeakMap<
-            MutableGameMakerAstNode,
-            MutableGameMakerAstNode
-        >();
-        walkAstNodes(ast, (node, parent) => {
-            if (!Core.isNode(node) || !Core.isNode(parent)) {
-                return;
-            }
-            parentByNode.set(
-                node as MutableGameMakerAstNode,
-                parent as MutableGameMakerAstNode
-            );
-        });
-
-        const traversal = Core.resolveDocCommentTraversalService(ast);
-        // Pass null for sourceText to force using AST comment values, which may have been updated
-        const documentedParamNamesByFunction =
-            Core.buildDocumentedParamNameLookup(ast, null, traversal);
-        const deprecatedFunctionNames = Core.collectDeprecatedFunctionNames(
-            ast,
-            null,
-            traversal
-        );
-
-        setDeprecatedDocCommentFunctionSet(ast, deprecatedFunctionNames);
-
-        traversal.forEach((node, comments = []) => {
-            const mutableNode = node as MutableGameMakerAstNode;
-            if (!Core.isFunctionLikeNode(mutableNode)) {
-                return;
-            }
-
-            const formattedLines: string[] = [];
-            for (const comment of comments ?? []) {
-                const formatted = Core.formatLineComment(
-                    comment,
-                    lineCommentOptions
-                );
-                if (Core.isNonEmptyTrimmedString(formatted)) {
-                    formattedLines.push(formatted);
-                }
-            }
-
-            const filteredDocLines =
-                removeFunctionDocCommentLines(formattedLines);
-
-            const docPath = createDocCommentPath(
-                mutableNode,
-                parentByNode.get(mutableNode) ?? null
-            );
-
-            if (
-                !Core.shouldGenerateSyntheticDocForFunction(
-                    docPath,
-                    filteredDocLines,
-                    docCommentOptions
-                )
-            ) {
-                return;
-            }
-
-            const descriptionContinuations =
-                collectDescriptionContinuations(filteredDocLines);
-
-            let normalizedDocComments = Core.toMutableArray(
-                Core.mergeSyntheticDocComments(
-                    node,
-                    filteredDocLines,
-                    docCommentOptions
-                )
-            ) as MutableDocCommentLines;
-
-            normalizedDocComments = applyDescriptionContinuations(
-                normalizedDocComments,
-                descriptionContinuations
-            );
-
-            while (
-                normalizedDocComments.length > 0 &&
-                typeof normalizedDocComments[0] === "string" &&
-                normalizedDocComments[0].trim() === ""
-            ) {
-                normalizedDocComments.shift();
-            }
-
-            normalizedDocComments = removeFunctionDocCommentLines(
-                normalizedDocComments
-            );
-
-            if (normalizedDocComments.length === 0) {
-                return;
-            }
-
-            const parentNode = parentByNode.get(node) ?? null;
-            const needsLeadingBlankLine = Boolean(
-                parentNode && parentNode.type === "BlockStatement"
-            );
-
-            const metadata: {
-                documentedParamNames?: Set<string>;
-                hasDeprecatedDocComment?: boolean;
-            } = {};
-
-            const documentedParamNames =
-                documentedParamNamesByFunction.get(mutableNode);
-
-            if (documentedParamNames && documentedParamNames.size > 0) {
-                metadata.documentedParamNames = documentedParamNames;
-            }
-
-            const nodeName = Core.getNodeName(mutableNode);
-            if (nodeName && deprecatedFunctionNames.has(nodeName)) {
-                metadata.hasDeprecatedDocComment = true;
-            }
-
-            const hasMetadata =
-                metadata.documentedParamNames !== undefined ||
-                metadata.hasDeprecatedDocComment === true;
-
-            setDocCommentMetadata(node, hasMetadata ? metadata : null);
-
-            setDocCommentNormalization(node, {
-                docCommentDocs: normalizedDocComments,
-                needsLeadingBlankLine
-            });
-        });
-
+function execute(
+    ast: MutableGameMakerAstNode,
+    options: DocCommentNormalizationTransformOptions
+): MutableGameMakerAstNode {
+    if (options.enabled === false) {
         return ast;
     }
+
+    const pluginOptions = options.pluginOptions ?? {};
+    const lineCommentOptions = {
+        ...Core.resolveLineCommentOptions(pluginOptions),
+        // Force using AST values to respect previous transforms (e.g. Feather fixes)
+        originalText: null
+    };
+    const docCommentOptions = resolveDocCommentPrinterOptions(pluginOptions);
+
+    const parentByNode = new WeakMap<
+        MutableGameMakerAstNode,
+        MutableGameMakerAstNode
+    >();
+    walkAstNodes(ast, (node, parent) => {
+        if (!Core.isNode(node) || !Core.isNode(parent)) {
+            return;
+        }
+        parentByNode.set(
+            node as MutableGameMakerAstNode,
+            parent as MutableGameMakerAstNode
+        );
+    });
+
+    const traversal = Core.resolveDocCommentTraversalService(ast);
+    // Pass null for sourceText to force using AST comment values, which may have been updated
+    const documentedParamNamesByFunction = Core.buildDocumentedParamNameLookup(
+        ast,
+        null,
+        traversal
+    );
+    const deprecatedFunctionNames = Core.collectDeprecatedFunctionNames(
+        ast,
+        null,
+        traversal
+    );
+
+    setDeprecatedDocCommentFunctionSet(ast, deprecatedFunctionNames);
+
+    traversal.forEach((node, comments = []) => {
+        const mutableNode = node as MutableGameMakerAstNode;
+        if (!Core.isFunctionLikeNode(mutableNode)) {
+            return;
+        }
+
+        const formattedLines: string[] = [];
+        for (const comment of comments ?? []) {
+            const formatted = Core.formatLineComment(
+                comment,
+                lineCommentOptions
+            );
+            if (Core.isNonEmptyTrimmedString(formatted)) {
+                formattedLines.push(formatted);
+            }
+        }
+
+        const filteredDocLines = removeFunctionDocCommentLines(formattedLines);
+
+        const docPath = createDocCommentPath(
+            mutableNode,
+            parentByNode.get(mutableNode) ?? null
+        );
+
+        if (
+            !Core.shouldGenerateSyntheticDocForFunction(
+                docPath,
+                filteredDocLines,
+                docCommentOptions
+            )
+        ) {
+            return;
+        }
+
+        const descriptionContinuations =
+            collectDescriptionContinuations(filteredDocLines);
+
+        let normalizedDocComments = Core.toMutableArray(
+            Core.mergeSyntheticDocComments(
+                node,
+                filteredDocLines,
+                docCommentOptions
+            )
+        ) as MutableDocCommentLines;
+
+        normalizedDocComments = applyDescriptionContinuations(
+            normalizedDocComments,
+            descriptionContinuations
+        );
+
+        while (
+            normalizedDocComments.length > 0 &&
+            typeof normalizedDocComments[0] === "string" &&
+            normalizedDocComments[0].trim() === ""
+        ) {
+            normalizedDocComments.shift();
+        }
+
+        normalizedDocComments = removeFunctionDocCommentLines(
+            normalizedDocComments
+        );
+
+        if (normalizedDocComments.length === 0) {
+            return;
+        }
+
+        const parentNode = parentByNode.get(node) ?? null;
+        const needsLeadingBlankLine = Boolean(
+            parentNode && parentNode.type === "BlockStatement"
+        );
+
+        const metadata: {
+            documentedParamNames?: Set<string>;
+            hasDeprecatedDocComment?: boolean;
+        } = {};
+
+        const documentedParamNames =
+            documentedParamNamesByFunction.get(mutableNode);
+
+        if (documentedParamNames && documentedParamNames.size > 0) {
+            metadata.documentedParamNames = documentedParamNames;
+        }
+
+        const nodeName = Core.getNodeName(mutableNode);
+        if (nodeName && deprecatedFunctionNames.has(nodeName)) {
+            metadata.hasDeprecatedDocComment = true;
+        }
+
+        const hasMetadata =
+            metadata.documentedParamNames !== undefined ||
+            metadata.hasDeprecatedDocComment === true;
+
+        setDocCommentMetadata(node, hasMetadata ? metadata : null);
+
+        setDocCommentNormalization(node, {
+            docCommentDocs: normalizedDocComments,
+            needsLeadingBlankLine
+        });
+    });
+
+    return ast;
 }
 
 export const docCommentNormalizationTransform =
-    new DocCommentNormalizationTransform();
+    createParserTransform<DocCommentNormalizationTransformOptions>(
+        "doc-comment-normalization",
+        {
+            enabled: true,
+            pluginOptions: {}
+        },
+        execute
+    );

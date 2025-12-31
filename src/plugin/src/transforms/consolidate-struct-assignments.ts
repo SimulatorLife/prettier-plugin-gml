@@ -3,7 +3,7 @@
  * The transform tracks moved comments and ensures no semantic data is lost while shifting property initializers.
  */
 import { Core, type MutableGameMakerAstNode } from "@gml-modules/core";
-import type { ParserTransform } from "./functional-transform.js";
+import { createParserTransform } from "./functional-transform.js";
 import { CommentTracker } from "./utils/comment-tracker.js";
 import {
     StructAssignmentMatcher,
@@ -203,299 +203,296 @@ function buildPropertyFromAssignment(
     } as unknown as MutableGameMakerAstNode;
 }
 
-export class ConsolidateStructAssignmentsTransform
-    implements
-        ParserTransform<
-            MutableGameMakerAstNode,
-            ConsolidateStructAssignmentsTransformOptions
-        >
-{
-    public readonly name = "consolidate-struct-assignments";
-    public readonly defaultOptions = Object.freeze(
-        {}
-    ) as ConsolidateStructAssignmentsTransformOptions;
-    private readonly matcher: StructAssignmentMatcher;
-    private readonly commentHandler: AssignmentCommentHandler;
-
-    constructor() {
-        this.matcher = new StructAssignmentMatcher();
-        this.commentHandler = new AssignmentCommentHandler();
+/**
+ * Recursive visitor that tries to gather struct property assignments after their initializer for consolidation.
+ */
+function visit(
+    node,
+    tracker,
+    commentTools,
+    matcher: StructAssignmentMatcher,
+    commentHandler: AssignmentCommentHandler
+) {
+    if (!Core.isNode(node)) {
+        return;
     }
 
-    public transform(
-        ast: MutableGameMakerAstNode,
-        options?: ConsolidateStructAssignmentsTransformOptions
-    ): MutableGameMakerAstNode {
-        if (!Core.isNode(ast)) {
-            return ast;
+    if (Array.isArray(node)) {
+        for (const item of node) {
+            visit(item, tracker, commentTools, matcher, commentHandler);
         }
-        const normalizedCommentTools = normalizeCommentTools(
-            options?.commentTools
+        return;
+    }
+
+    if (Array.isArray(node.body)) {
+        consolidateBlock(node.body, tracker, commentTools, matcher, commentHandler);
+        for (const child of node.body) {
+            visit(child, tracker, commentTools, matcher, commentHandler);
+        }
+    } else if (Core.isNode(node.body)) {
+        visit(node.body, tracker, commentTools, matcher, commentHandler);
+    }
+
+    Core.forEachNodeChild(node, (value, key) => {
+        if (
+            key === "body" ||
+            key === "start" ||
+            key === "end" ||
+            key === "comments"
+        ) {
+            return;
+        }
+        visit(value, tracker, commentTools, matcher, commentHandler);
+    });
+}
+
+/**
+ * Scan sequential statements for a struct initializer and pull following member assignments into it.
+ */
+function consolidateBlock(
+    statements,
+    tracker,
+    commentTools,
+    matcher: StructAssignmentMatcher,
+    commentHandler: AssignmentCommentHandler
+) {
+    if (!Core.isNonEmptyArray(statements)) {
+        return;
+    }
+
+    for (let index = 0; index < statements.length; index++) {
+        const initializer = matcher.getStructInitializer(
+            statements[index]
         );
-        const tracker = new CommentTracker(ast);
-        this.visit(ast, tracker, normalizedCommentTools);
-
-        tracker.removeConsumedComments();
-
-        return ast;
-    }
-
-    /**
-     * Recursive visitor that tries to gather struct property assignments after their initializer for consolidation.
-     */
-    private visit(node, tracker, commentTools) {
-        if (!Core.isNode(node)) {
-            return;
+        if (!initializer) {
+            continue;
         }
 
-        if (Array.isArray(node)) {
-            for (const item of node) {
-                this.visit(item, tracker, commentTools);
-            }
-            return;
+        const { identifierName, structNode } = initializer;
+        const structEndIndex = Core.getNodeEndIndex(structNode);
+        if (structEndIndex === undefined) {
+            continue;
         }
 
-        if (Array.isArray(node.body)) {
-            this.consolidateBlock(node.body, tracker, commentTools);
-            for (const child of node.body) {
-                this.visit(child, tracker, commentTools);
-            }
-        } else if (Core.isNode(node.body)) {
-            this.visit(node.body, tracker, commentTools);
+        const initializerStart = Core.getNodeStartIndex(statements[index]);
+        const initializerEnd = Core.getNodeEndIndex(statements[index]);
+        if (tracker.hasBetween(initializerStart, initializerEnd)) {
+            continue;
         }
 
-        Core.forEachNodeChild(node, (value, key) => {
-            if (
-                key === "body" ||
-                key === "start" ||
-                key === "end" ||
-                key === "comments"
-            ) {
-                return;
-            }
-            this.visit(value, tracker, commentTools);
+        const collected = collectPropertyAssignments({
+            statements,
+            startIndex: index + 1,
+            identifierName,
+            previousEnd: structEndIndex,
+            tracker,
+            commentTools,
+            matcher,
+            commentHandler
         });
+
+        if (!collected) {
+            continue;
+        }
+
+        // The collected properties are assigned to the struct node, mutating
+        // it in-place for downstream transforms.
+        structNode.properties = collected.properties;
+        structNode.hasTrailingComma = collected.shouldForceBreak;
+
+        statements.splice(index + 1, collected.count);
     }
+}
 
-    /**
-     * Scan sequential statements for a struct initializer and pull following member assignments into it.
-     */
-    private consolidateBlock(statements, tracker, commentTools) {
-        if (!Core.isNonEmptyArray(statements)) {
-            return;
+function collectPropertyAssignments({
+    statements,
+    startIndex,
+    identifierName,
+    previousEnd,
+    tracker,
+    commentTools,
+    matcher,
+    commentHandler
+}) {
+    tracker.checkpoint();
+    const touchedComments = [];
+    const properties = [];
+    let cursor = startIndex;
+    let lastEnd = previousEnd;
+    let previousStatement = null;
+    let lastProperty = null;
+
+    while (cursor < statements.length) {
+        const statement = statements[cursor];
+        const assignmentDetails =
+            matcher.getStructPropertyAssignmentDetails(
+                statement,
+                identifierName
+            );
+        if (!assignmentDetails) {
+            break;
         }
 
-        for (let index = 0; index < statements.length; index++) {
-            const initializer = this.matcher.getStructInitializer(
-                statements[index]
-            );
-            if (!initializer) {
-                continue;
-            }
-
-            const { identifierName, structNode } = initializer;
-            const structEndIndex = Core.getNodeEndIndex(structNode);
-            if (structEndIndex === undefined) {
-                continue;
-            }
-
-            const initializerStart = Core.getNodeStartIndex(statements[index]);
-            const initializerEnd = Core.getNodeEndIndex(statements[index]);
-            if (tracker.hasBetween(initializerStart, initializerEnd)) {
-                continue;
-            }
-
-            const collected = this.collectPropertyAssignments({
-                statements,
-                startIndex: index + 1,
-                identifierName,
-                previousEnd: structEndIndex,
-                tracker,
-                commentTools
-            });
-
-            if (!collected) {
-                continue;
-            }
-
-            // The collected properties are assigned to the struct node, mutating
-            // it in-place for downstream transforms.
-            structNode.properties = collected.properties;
-            structNode.hasTrailingComma = collected.shouldForceBreak;
-
-            statements.splice(index + 1, collected.count);
+        const start = Core.getNodeStartIndex(statement);
+        const end = Core.getNodeEndIndex(statement);
+        if (start === undefined || end === undefined) {
+            break;
         }
-    }
-
-    private collectPropertyAssignments({
-        statements,
-        startIndex,
-        identifierName,
-        previousEnd,
-        tracker,
-        commentTools
-    }) {
-        tracker.checkpoint();
-        const touchedComments = [];
-        const properties = [];
-        let cursor = startIndex;
-        let lastEnd = previousEnd;
-        let previousStatement = null;
-        let lastProperty = null;
-
-        while (cursor < statements.length) {
-            const statement = statements[cursor];
-            const assignmentDetails =
-                this.matcher.getStructPropertyAssignmentDetails(
-                    statement,
-                    identifierName
-                );
-            if (!assignmentDetails) {
-                break;
-            }
-
-            const start = Core.getNodeStartIndex(statement);
-            const end = Core.getNodeEndIndex(statement);
-            if (start === undefined || end === undefined) {
-                break;
-            }
-
-            if (
-                !this.commentHandler.allowTrailingCommentsBetween(
-                    tracker,
-                    lastEnd,
-                    start,
-                    previousStatement,
-                    lastProperty,
-                    commentTools
-                )
-            ) {
-                break;
-            }
-
-            if (tracker.hasBetween(start, end)) {
-                break;
-            }
-
-            const property = buildPropertyFromAssignment(
-                assignmentDetails,
-                this.matcher.isIdentifierSafe.bind(this.matcher)
-            );
-            if (!property) {
-                break;
-            }
-
-            const nextStatement = statements[cursor + 1];
-            const nextStart = Core.getNodeStartIndex(nextStatement);
-            const attachableComments = tracker.takeBetween(
-                end,
-                nextStart ?? Number.POSITIVE_INFINITY,
-                (comment) =>
-                    this.commentHandler.isAttachableTrailingComment(
-                        comment,
-                        statement
-                    )
-            );
-
-            if (attachableComments.length > 0) {
-                let trailingComments = Array.isArray(
-                    property._structTrailingComments
-                )
-                    ? property._structTrailingComments
-                    : null;
-                if (!trailingComments) {
-                    trailingComments = [];
-                    Object.defineProperty(property, "_structTrailingComments", {
-                        value: trailingComments,
-                        writable: true,
-                        configurable: true,
-                        enumerable: false
-                    });
-                }
-                for (const comment of attachableComments) {
-                    touchedComments.push({
-                        comment,
-                        snapshot: snapshotComment(comment)
-                    });
-                    comment.enclosingNode = property;
-                    comment.precedingNode = property;
-                    comment.followingNode = property;
-                    comment.leading = false;
-                    comment.trailing = false;
-                    comment.placement = "endOfLine";
-                    if (comment.leadingChar === ";") {
-                        comment.leadingChar = ",";
-                    }
-                    comment._structPropertyTrailing = true;
-                    comment._structPropertyHandled = false;
-                    comment._removedByConsolidation = true;
-                    trailingComments.push(comment);
-                }
-                property._hasTrailingInlineComment = true;
-                const lastComment = attachableComments.at(-1);
-                const commentEnd = Core.getNodeEndIndex(lastComment);
-                lastEnd = commentEnd === undefined ? end : commentEnd;
-            } else {
-                lastEnd = end;
-            }
-
-            properties.push(property);
-            previousStatement = statement;
-            lastProperty = property;
-            cursor++;
-        }
-
-        if (properties.length === 0) {
-            tracker.rollback();
-            touchedComments.forEach(({ comment, snapshot }) =>
-                restoreComment(comment, snapshot)
-            );
-            return null;
-        }
-
-        const nextStatement = statements[cursor];
-        const nextBoundary = nextStatement
-            ? Core.getNodeStartIndex(nextStatement)
-            : Number.POSITIVE_INFINITY;
 
         if (
-            !this.commentHandler.allowTrailingCommentsBetween(
+            !commentHandler.allowTrailingCommentsBetween(
                 tracker,
                 lastEnd,
-                nextBoundary,
+                start,
                 previousStatement,
                 lastProperty,
                 commentTools
             )
         ) {
-            tracker.rollback();
-            touchedComments.forEach(({ comment, snapshot }) =>
-                restoreComment(comment, snapshot)
-            );
-            return null;
+            break;
         }
 
-        if (!nextStatement && tracker.hasAfter(lastEnd)) {
-            tracker.rollback();
-            touchedComments.forEach(({ comment, snapshot }) =>
-                restoreComment(comment, snapshot)
-            );
-            return null;
+        if (tracker.hasBetween(start, end)) {
+            break;
         }
 
-        tracker.commit();
+        const property = buildPropertyFromAssignment(
+            assignmentDetails,
+            matcher.isIdentifierSafe.bind(matcher)
+        );
+        if (!property) {
+            break;
+        }
 
-        const shouldForceBreak = properties.some(
-            (property) => property?._hasTrailingInlineComment
+        const nextStatement = statements[cursor + 1];
+        const nextStart = Core.getNodeStartIndex(nextStatement);
+        const attachableComments = tracker.takeBetween(
+            end,
+            nextStart ?? Number.POSITIVE_INFINITY,
+            (comment) =>
+                commentHandler.isAttachableTrailingComment(
+                    comment,
+                    statement
+                )
         );
 
-        return {
-            properties,
-            count: properties.length,
-            shouldForceBreak
-        };
+        if (attachableComments.length > 0) {
+            let trailingComments = Array.isArray(
+                property._structTrailingComments
+            )
+                ? property._structTrailingComments
+                : null;
+            if (!trailingComments) {
+                trailingComments = [];
+                Object.defineProperty(property, "_structTrailingComments", {
+                    value: trailingComments,
+                    writable: true,
+                    configurable: true,
+                    enumerable: false
+                });
+            }
+            for (const comment of attachableComments) {
+                touchedComments.push({
+                    comment,
+                    snapshot: snapshotComment(comment)
+                });
+                comment.enclosingNode = property;
+                comment.precedingNode = property;
+                comment.followingNode = property;
+                comment.leading = false;
+                comment.trailing = false;
+                comment.placement = "endOfLine";
+                if (comment.leadingChar === ";") {
+                    comment.leadingChar = ",";
+                }
+                comment._structPropertyTrailing = true;
+                comment._structPropertyHandled = false;
+                comment._removedByConsolidation = true;
+                trailingComments.push(comment);
+            }
+            property._hasTrailingInlineComment = true;
+            const lastComment = attachableComments.at(-1);
+            const commentEnd = Core.getNodeEndIndex(lastComment);
+            lastEnd = commentEnd === undefined ? end : commentEnd;
+        } else {
+            lastEnd = end;
+        }
+
+        properties.push(property);
+        previousStatement = statement;
+        lastProperty = property;
+        cursor++;
     }
+
+    if (properties.length === 0) {
+        tracker.rollback();
+        touchedComments.forEach(({ comment, snapshot }) =>
+            restoreComment(comment, snapshot)
+        );
+        return null;
+    }
+
+    const nextStatement = statements[cursor];
+    const nextBoundary = nextStatement
+        ? Core.getNodeStartIndex(nextStatement)
+        : Number.POSITIVE_INFINITY;
+
+    if (
+        !commentHandler.allowTrailingCommentsBetween(
+            tracker,
+            lastEnd,
+            nextBoundary,
+            previousStatement,
+            lastProperty,
+            commentTools
+        )
+    ) {
+        tracker.rollback();
+        touchedComments.forEach(({ comment, snapshot }) =>
+            restoreComment(comment, snapshot)
+        );
+        return null;
+    }
+
+    if (!nextStatement && tracker.hasAfter(lastEnd)) {
+        tracker.rollback();
+        touchedComments.forEach(({ comment, snapshot }) =>
+            restoreComment(comment, snapshot)
+        );
+        return null;
+    }
+
+    tracker.commit();
+
+    const shouldForceBreak = properties.some(
+        (property) => property?._hasTrailingInlineComment
+    );
+
+    return {
+        properties,
+        count: properties.length,
+        shouldForceBreak
+    };
 }
 
-export const consolidateStructAssignmentsTransform =
-    new ConsolidateStructAssignmentsTransform();
+export const consolidateStructAssignmentsTransform = createParserTransform<ConsolidateStructAssignmentsTransformOptions>(
+    "consolidate-struct-assignments",
+    {} as ConsolidateStructAssignmentsTransformOptions,
+    (ast: MutableGameMakerAstNode, options: ConsolidateStructAssignmentsTransformOptions): MutableGameMakerAstNode => {
+        if (!Core.isNode(ast)) {
+            return ast;
+        }
+        const normalizedCommentTools = normalizeCommentTools(
+            options.commentTools
+        );
+        const tracker = new CommentTracker(ast);
+        const matcher = new StructAssignmentMatcher();
+        const commentHandler = new AssignmentCommentHandler();
+        
+        visit(ast, tracker, normalizedCommentTools, matcher, commentHandler);
+
+        tracker.removeConsumedComments();
+
+        return ast;
+    }
+);
