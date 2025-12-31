@@ -28,6 +28,7 @@ Creates a new runtime wrapper instance with hot-reload capabilities.
 - `onPatchApplied` (optional): Callback invoked after each successful patch application.
 - `validateBeforeApply` (optional): When `true`, validates patches in a shadow registry before applying to the real registry. Default is `false`.
 - `onChange` (optional): Lifecycle listener that receives events for all registry changes (patch applied, undone, rolled back, registry cleared). See [Registry Lifecycle Hooks](#registry-lifecycle-hooks) for details.
+- `maxUndoStackSize` (optional): Maximum number of undo snapshots to retain. When the limit is reached, the oldest snapshots are automatically discarded. Default is `50`. Set to `0` for unlimited (not recommended for long-running sessions).
 
 **Returns:** An object with the following methods:
 
@@ -121,6 +122,30 @@ Rollback operations are recorded in the patch history with `action: "rollback"`.
 Reverts the most recently applied patch.
 
 Returns `{ success: true, version: <number> }` on success, or `{ success: false, message: <string> }` if there's nothing to undo.
+
+#### `getUndoStackSize()`
+
+Returns the current number of undo snapshots available. This is useful for monitoring memory usage in long-running development sessions and understanding how many operations can be undone.
+
+The undo stack size is automatically limited by the `maxUndoStackSize` option (default: 50). When the limit is reached, older snapshots are discarded to prevent unbounded memory growth.
+
+**Example:**
+
+```javascript
+const wrapper = createRuntimeWrapper({ maxUndoStackSize: 100 });
+
+wrapper.applyPatch({ kind: "script", id: "script:test", js_body: "return 42;" });
+console.log(wrapper.getUndoStackSize()); // 1
+
+for (let i = 0; i < 200; i++) {
+    wrapper.applyPatch({ 
+        kind: "script", 
+        id: `script:test${i}`, 
+        js_body: `return ${i};` 
+    });
+}
+console.log(wrapper.getUndoStackSize()); // 100 (capped at maxUndoStackSize)
+```
 
 #### `getPatchHistory()`
 
