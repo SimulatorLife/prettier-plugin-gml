@@ -25,11 +25,11 @@ void describe("createEnumeratedOptionHelpers", () => {
     });
 
     void it("throws with a descriptive message when value is not allowed", () => {
-        const helpers = createEnumeratedOptionHelpers(
-            ["json"],
-            (list, received) =>
+        const helpers = createEnumeratedOptionHelpers({
+            values: ["json"],
+            formatError: (list, received) =>
                 `Expected values: ${list}. Received: ${received}.`
-        );
+        });
 
         assert.throws(
             () => helpers.requireValue("yaml"),

@@ -17,22 +17,52 @@ export interface EnumeratedOptionHelpers {
     ): EnumeratedValue;
 }
 
+export interface EnumeratedOptionConfig {
+    values: Iterable<EnumeratedValue>;
+    enforceString?: boolean;
+    valueLabel?: string;
+    formatError?: (list: string, received: string) => string;
+}
+
 /**
  * Create helpers for normalizing and validating enumerated CLI options.
  *
- * Returns helpers with a simpler, more direct API than the previous implementation.
- * The normalize() function accepts an optional fallback value directly as a parameter,
- * and requireValue() takes an optional error constructor.
+ * @param config - Configuration object or iterable of valid values
+ * @returns Frozen helper object with validation and normalization methods
  *
- * @param values - Collection of valid enumerated values.
- * @param formatError - Optional function to format error messages (receives list and received value).
+ * @example
+ * // Basic usage
+ * const helpers = createEnumeratedOptionHelpers({ values: ["json", "yaml"] });
+ *
+ * @example
+ * // With string enforcement
+ * const helpers = createEnumeratedOptionHelpers({
+ *   values: ["json", "yaml"],
+ *   enforceString: true,
+ *   valueLabel: "Output format"
+ * });
  */
 export function createEnumeratedOptionHelpers(
-    values: Iterable<EnumeratedValue>,
-    formatError?: (list: string, received: string) => string
+    config: EnumeratedOptionConfig | Iterable<EnumeratedValue>
 ): EnumeratedOptionHelpers {
-    const valueSet = new Set(Array.from(values ?? []));
+    const isConfigObject =
+        config != null &&
+        typeof config === "object" &&
+        "values" in config &&
+        typeof (config as { values: unknown }).values !== "function";
+
+    const {
+        values,
+        enforceString = false,
+        valueLabel = "Value",
+        formatError
+    } = isConfigObject
+        ? config
+        : { values: config as Iterable<EnumeratedValue> };
+
+    const valueSet = new Set(Array.from(values));
     const listLabel = [...valueSet].sort().join(", ");
+    const label = valueLabel.trim() || "Value";
 
     return Object.freeze({
         valueSet,
@@ -44,6 +74,9 @@ export function createEnumeratedOptionHelpers(
             if (value === undefined || value === null) {
                 return fallback;
             }
+            if (enforceString && typeof value !== "string") {
+                return fallback;
+            }
             const normalized = toNormalizedLowerCaseString(value);
             return normalized && valueSet.has(normalized)
                 ? normalized
@@ -53,6 +86,11 @@ export function createEnumeratedOptionHelpers(
             value: unknown,
             ErrorConstructor: new (message: string) => Error = Error
         ) => {
+            if (enforceString && typeof value !== "string") {
+                throw new TypeError(
+                    `${label} must be provided as a string (received type '${typeof value}').`
+                );
+            }
             const normalized = toNormalizedLowerCaseString(value);
             if (normalized && valueSet.has(normalized)) {
                 return normalized;
@@ -69,59 +107,22 @@ export function createEnumeratedOptionHelpers(
 /**
  * Create helpers for string enumerated options with type-safe coercion.
  *
- * Validates that the input value is a string before normalization. The returned
- * helpers enforce type safety and provide clear error messages when non-string
- * values are provided.
+ * This is a convenience wrapper around createEnumeratedOptionHelpers with
+ * enforceString: true. Use when you need explicit string type checking.
  *
- * @param values - Collection of valid enumerated values.
- * @param valueLabel - Label for the value type (e.g., "Output format"). Defaults to "Value".
- * @param formatError - Optional function to format validation error messages.
+ * @param values - Collection of valid enumerated values
+ * @param valueLabel - Label for the value type (e.g., "Output format")
+ * @param formatError - Optional function to format validation error messages
  */
 export function createStringEnumeratedOptionHelpers(
     values: Iterable<EnumeratedValue>,
     valueLabel: string = "Value",
     formatError?: (list: string, received: string) => string
 ): EnumeratedOptionHelpers {
-    const valueSet = new Set(Array.from(values ?? []));
-    const listLabel = [...valueSet].sort().join(", ");
-    const label = valueLabel.trim() || "Value";
-
-    return Object.freeze({
-        valueSet,
-        formatList: () => listLabel,
-        normalize: (
-            value: unknown,
-            fallback: EnumeratedValue | null = null
-        ) => {
-            if (value === undefined || value === null) {
-                return fallback;
-            }
-            if (typeof value !== "string") {
-                return fallback;
-            }
-            const normalized = toNormalizedLowerCaseString(value);
-            return normalized && valueSet.has(normalized)
-                ? normalized
-                : fallback;
-        },
-        requireValue: (
-            value: unknown,
-            ErrorConstructor: new (message: string) => Error = Error
-        ) => {
-            if (typeof value !== "string") {
-                throw new TypeError(
-                    `${label} must be provided as a string (received type '${typeof value}').`
-                );
-            }
-            const normalized = toNormalizedLowerCaseString(value);
-            if (normalized && valueSet.has(normalized)) {
-                return normalized;
-            }
-            const received = describeValueForError(value);
-            const message = formatError
-                ? formatError(listLabel, received)
-                : `Value must be one of: ${listLabel}. Received: ${received}.`;
-            throw new ErrorConstructor(message);
-        }
+    return createEnumeratedOptionHelpers({
+        values,
+        enforceString: true,
+        valueLabel,
+        formatError
     });
 }
