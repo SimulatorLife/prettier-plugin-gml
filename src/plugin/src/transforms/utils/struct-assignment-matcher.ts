@@ -6,8 +6,6 @@ const ASSIGNMENT_EXPRESSION = "AssignmentExpression";
 const MEMBER_DOT_EXPRESSION = "MemberDotExpression";
 const MEMBER_INDEX_EXPRESSION = "MemberIndexExpression";
 
-const IDENTIFIER_SAFE_PATTERN = /^[A-Za-z_][A-Za-z0-9_]*$/;
-
 export type StructInitializer = {
     identifierName: string;
     structNode: MutableGameMakerAstNode;
@@ -154,6 +152,9 @@ export class StructAssignmentMatcher {
     }
 
     isIdentifierSafe(name: unknown): boolean {
-        return typeof name === "string" && IDENTIFIER_SAFE_PATTERN.test(name);
+        return (
+            typeof name === "string" &&
+            Core.GML_IDENTIFIER_NAME_PATTERN.test(name)
+        );
     }
 }
