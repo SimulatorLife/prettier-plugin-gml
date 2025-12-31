@@ -350,6 +350,29 @@ const mostRecent = tracker.getMostRecentlyModifiedScope();
 
 **Use case:** Quick identification of the latest change in the symbol table for hot reload coordination and incremental invalidation.
 
+### `getScopeModificationDetails(scopeId)`
+
+Get detailed modification metadata for a specific scope, including counts of declarations and references tracked. This provides richer information than `getScopeModificationMetadata` for hot reload systems that need to understand what type of changes occurred in a scope.
+
+```javascript
+const details = tracker.getScopeModificationDetails("scope-1");
+// Returns: {
+//   scopeId: "scope-1",
+//   scopeKind: "function",
+//   lastModified: 1703123456789,
+//   modificationCount: 5,
+//   declarationCount: 2,
+//   referenceCount: 3,
+//   symbolCount: 2,
+//   symbols: [
+//     { name: "localVar", declarationCount: 1, referenceCount: 2 },
+//     { name: "param", declarationCount: 1, referenceCount: 1 }
+//   ]
+// }
+```
+
+**Use case:** Smart hot reload invalidation decisions. When a scope changes, query its modification details to understand the nature of the change. For example, if only references were added (no new declarations), dependent scopes may not need full recompilation. The per-symbol breakdown enables precise tracking of which symbols drive the modification count, helping hot reload systems prioritize invalidation of high-impact symbols over low-impact ones.
+
 ## Usage Context Tracking
 
 Occurrences now include `usageContext` metadata that distinguishes how identifiers are used (read vs. write, call target, etc.), enabling smarter dependency analysis and invalidation.
