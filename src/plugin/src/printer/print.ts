@@ -217,8 +217,6 @@ const FEATHER_COMMENT_PREFIX_TEXT_SYMBOL = Symbol.for(
     "prettier.gml.feather.commentPrefixText"
 );
 
-const ARGUMENT_IDENTIFIER_PATTERN = /^argument(\d+)$/;
-
 const forcedStructArgumentBreaks = new WeakMap();
 
 const GM1015_DIAGNOSTIC_ID = "GM1015";
@@ -6829,7 +6827,9 @@ function resolveArgumentAliasInitializerDoc(path) {
         return null;
     }
 
-    const match = ARGUMENT_IDENTIFIER_PATTERN.exec(initializer.name ?? "");
+    const match = Core.GML_ARGUMENT_IDENTIFIER_PATTERN.exec(
+        initializer.name ?? ""
+    );
     if (!match) {
         return null;
     }

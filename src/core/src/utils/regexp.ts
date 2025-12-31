@@ -12,6 +12,16 @@ const ESCAPE_REGEXP_REPLACEMENT = String.raw`\$&`;
 export const GML_IDENTIFIER_NAME_PATTERN = /^[A-Za-z_][A-Za-z0-9_]*$/;
 
 /**
+ * Pattern matching GML built-in argument identifiers. GameMaker provides
+ * implicit `argument0` through `argument15` variables in legacy scripts and
+ * constructors. This pattern is used to detect and migrate these identifiers
+ * during formatting, Feather fixes, and documentation generation.
+ *
+ * @type {RegExp}
+ */
+export const GML_ARGUMENT_IDENTIFIER_PATTERN = /^argument(\d+)$/;
+
+/**
  * Escape characters that carry special meaning in regular expressions so the
  * resulting string can be injected into a pattern literal or constructor
  * without altering the intended match. Non-string inputs are normalized to an

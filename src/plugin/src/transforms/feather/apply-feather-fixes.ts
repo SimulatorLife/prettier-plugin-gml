@@ -218,7 +218,6 @@ function getReservedIdentifierNames() {
 }
 const DEPRECATED_BUILTIN_VARIABLE_REPLACEMENTS =
     Core.buildDeprecatedBuiltinVariableReplacements();
-const ARGUMENT_IDENTIFIER_PATTERN = /^argument(\d+)$/;
 const GM1041_CALL_ARGUMENT_TARGETS = new Map([
     ["instance_create_depth", [3]],
     ["instance_create_layer", [3]],
@@ -4493,7 +4492,9 @@ function getArgumentIdentifierIndex(node) {
         return null;
     }
 
-    const match = ARGUMENT_IDENTIFIER_PATTERN.exec(identifierDetails.name);
+    const match = Core.GML_ARGUMENT_IDENTIFIER_PATTERN.exec(
+        identifierDetails.name
+    );
 
     if (!match) {
         return null;
