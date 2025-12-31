@@ -5,10 +5,7 @@ import type {
     Printer,
     SupportOptions
 } from "prettier";
-import type {
-    AbortSignalLike,
-    MutableGameMakerAstNode
-} from "@gml-modules/core";
+import type { MutableGameMakerAstNode } from "@gml-modules/core";
 
 export type GmlAst = MutableGameMakerAstNode;
 
@@ -38,16 +35,6 @@ export type GmlPluginComponentBundle = Readonly<{
     printers: Readonly<Record<string, GmlPrinter>>;
     options: SupportOptions;
 }>;
-
-export type GmlPluginComponentProvider = () => GmlPluginComponentBundle;
-
-export type GmlPluginComponentObserver = (
-    components: GmlPluginComponentBundle
-) => void;
-
-export type ObserverOptions = {
-    signal?: AbortSignal | AbortSignalLike;
-};
 
 export type GmlPluginDefaultOptions = Record<string, unknown>;
 
