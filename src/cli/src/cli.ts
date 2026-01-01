@@ -139,14 +139,14 @@ const VALID_PRETTIER_LOG_LEVELS = new Set([
     "silent"
 ]);
 
-const parseErrorActionOption = createEnumeratedOptionHelpers({
-    values: VALID_PARSE_ERROR_ACTIONS,
-    formatError: (list) => `Must be one of: ${list}`
-});
-const logLevelOption = createEnumeratedOptionHelpers({
-    values: VALID_PRETTIER_LOG_LEVELS,
-    formatError: (list) => `Must be one of: ${list}`
-});
+const parseErrorActionOption = createEnumeratedOptionHelpers(
+    VALID_PARSE_ERROR_ACTIONS,
+    (list) => `Must be one of: ${list}`
+);
+const logLevelOption = createEnumeratedOptionHelpers(
+    VALID_PRETTIER_LOG_LEVELS,
+    (list) => `Must be one of: ${list}`
+);
 
 const FORMAT_COMMAND_CLI_EXAMPLE =
     "npx prettier-plugin-gml format path/to/project";
