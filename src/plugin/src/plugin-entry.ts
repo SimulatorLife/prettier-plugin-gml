@@ -69,19 +69,14 @@ function collapseVertexFormatBeginSpacing(formatted: string): string {
 
 const MULTIPLE_BLANK_LINE_PATTERN = /\n{3,}/g;
 const FUNCTION_TAG_CLEANUP_PATTERN =
-    /(^|\n)[ \t]*\/\/\/\s*@(?:func|function)\b[^\n]*(\n)/gi;
+    /\/\/\/\s*@(?:func|function)\b[^\n]*(?:\n)?/gi;
 
 function collapseDuplicateBlankLines(formatted: string): string {
     return formatted.replaceAll(MULTIPLE_BLANK_LINE_PATTERN, "\n\n");
 }
 
 function stripFunctionTagComments(formatted: string): string {
-    return formatted.replaceAll(
-        FUNCTION_TAG_CLEANUP_PATTERN,
-        (_match, prefix) => {
-            return prefix || "";
-        }
-    );
+    return formatted.replaceAll(FUNCTION_TAG_CLEANUP_PATTERN, "");
 }
 
 function extractOptionDefaults(
@@ -113,14 +108,17 @@ function createDefaultOptionsSnapshot(): GmlPluginDefaultOptions {
     };
 }
 
+const defaultOptions = Object.freeze(createDefaultOptionsSnapshot());
+
 /**
  * Utility function & entry-point to format GML source code using the plugin.
  */
 async function format(source: string, options: SupportOptions = {}) {
+    const resolvedOptions = { ...defaultOptions, ...options };
     const formatted = await prettier.format(source, {
+        ...resolvedOptions,
         parser: "gml-parse",
-        plugins: [Plugin],
-        ...options
+        plugins: [Plugin]
     });
 
     if (typeof formatted !== "string") {
@@ -136,8 +134,6 @@ async function format(source: string, options: SupportOptions = {}) {
         collapseDuplicateBlankLines(withoutFunctionTags);
     return collapseVertexFormatBeginSpacing(collapsedAfterStrip);
 }
-
-const defaultOptions = Object.freeze(createDefaultOptionsSnapshot());
 
 export { parsers, printers, pluginOptions, defaultOptions };
 export { pluginOptions as options };
