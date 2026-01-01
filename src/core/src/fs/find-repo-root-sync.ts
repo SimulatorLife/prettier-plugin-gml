@@ -1,7 +1,7 @@
 import fs from "node:fs";
 import path from "node:path";
 
-import { Core } from "@gml-modules/core";
+import { walkAncestorDirectories } from "./path.js";
 
 /**
  * Check if a path exists and optionally satisfies a predicate.
@@ -30,7 +30,7 @@ function pathExistsSync(
 export function findRepoRootSync(startDir: string): string {
     let lastPackageJson: string | null = null;
 
-    for (const dir of Core.walkAncestorDirectories(startDir)) {
+    for (const dir of walkAncestorDirectories(startDir)) {
         if (pathExistsSync(path.join(dir, "AGENTS.md"), (s) => s.isFile())) {
             return dir;
         }

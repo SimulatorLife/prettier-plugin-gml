@@ -3,7 +3,6 @@ import fs from "node:fs";
 import path from "node:path";
 import test from "node:test";
 
-import { CLI } from "@gml-modules/cli";
 import { Core } from "@gml-modules/core";
 
 const FUNCTION_DECLARATION_PATTERN =
@@ -52,7 +51,7 @@ const EXPECTED_RUNTIME_FUNCTIONS = [
 ];
 
 void test("HTML5 runtime defines core manual builtins used by hot reload", () => {
-    const repoRoot = CLI.Shared.findRepoRootSync(process.cwd());
+    const repoRoot = Core.findRepoRootSync(process.cwd());
     const functionDir = path.join(
         repoRoot,
         "vendor",

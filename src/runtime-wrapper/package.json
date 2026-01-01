@@ -12,7 +12,6 @@
     "dist"
   ],
   "dependencies": {
-    "@gml-modules/cli": "0.0.1",
     "@gml-modules/core": "0.0.1"
   },
   "scripts": {
