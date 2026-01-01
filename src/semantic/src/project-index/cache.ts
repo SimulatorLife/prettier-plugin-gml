@@ -160,17 +160,11 @@ function cloneMtimeMap(source) {
         return {};
     }
 
-    const normalized = {};
-
-    for (const [key, value] of Object.entries(source)) {
-        const numericValue = Core.toFiniteNumber(value);
-
-        if (numericValue !== null) {
-            normalized[key] = numericValue;
-        }
-    }
-
-    return normalized;
+    return Object.fromEntries(
+        Object.entries(source)
+            .map(([key, value]) => [key, Core.toFiniteNumber(value)])
+            .filter(([, numericValue]) => numericValue !== null)
+    );
 }
 
 function areMtimeMapsEqual(expected = {}, actual = {}) {
