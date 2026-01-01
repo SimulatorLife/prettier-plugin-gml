@@ -372,6 +372,7 @@ export class RefactorEngine {
             symbolName,
             normalizedNewName,
             occurrences,
+            this.semantic,
             this.semantic
         );
 
@@ -696,6 +697,7 @@ export class RefactorEngine {
             symbolName,
             normalizedNewName,
             occurrences,
+            this.semantic,
             this.semantic
         );
 
@@ -1432,6 +1434,7 @@ export class RefactorEngine {
                 summary.oldName,
                 normalizedNewName,
                 occurrences,
+                this.semantic,
                 this.semantic
             );
             conflicts.push(...detectedConflicts);
@@ -1827,6 +1830,7 @@ export class RefactorEngine {
             symbolName,
             newName,
             occurrences,
+            this.semantic,
             this.semantic
         );
 
