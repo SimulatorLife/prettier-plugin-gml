@@ -431,7 +431,7 @@ export function toNormalizedLowerCaseString(value?: unknown) {
 }
 
 export function capitalize(value?: unknown): string {
-    if (value === null || value === undefined) {
+    if (value == null) {
         return "";
     }
     const str = toSafeString(value);

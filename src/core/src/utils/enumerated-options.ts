@@ -33,7 +33,7 @@ export function normalizeEnumeratedOption(
         errorMessage: "validValues must provide a has function"
     });
 
-    if (value === undefined || value === null) {
+    if (value == null) {
         return fallbackValue;
     }
 

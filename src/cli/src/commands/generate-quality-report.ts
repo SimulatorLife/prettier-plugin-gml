@@ -1187,8 +1187,7 @@ const fmtTime = (s) =>
             ? `${Math.floor(s / 60)}m ${(s - Math.floor(s / 60) * 60).toFixed(1)}s`
             : `${s.toFixed(2)}s`;
 
-const fmtLintCount = (value) =>
-    value === null || value === undefined ? "—" : `${value}`;
+const fmtLintCount = (value) => (value == null ? "—" : `${value}`);
 
 const fmtDuplicates = (data) => {
     if (!data) {
@@ -1198,9 +1197,7 @@ const fmtDuplicates = (data) => {
 };
 
 function formatDiffValue(value) {
-    return value === null || value === undefined
-        ? "—"
-        : `${Math.max(0, value)}`;
+    return value == null ? "—" : `${Math.max(0, value)}`;
 }
 
 function generateTestRow(label, results, diffStats) {

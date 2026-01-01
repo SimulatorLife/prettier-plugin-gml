@@ -354,11 +354,7 @@ export class PreprocessFunctionArgumentDefaultsTransform
         try {
             for (let i = 0; i < (node.params || []).length; i += 1) {
                 const p = node.params[i];
-                if (
-                    p &&
-                    p.type === "DefaultParameter" &&
-                    (p.right === null || p.right === undefined)
-                ) {
+                if (p && p.type === "DefaultParameter" && p.right == null) {
                     // Preserve explicitly optional/materialized defaults.
                     if (
                         p._featherOptionalParameter === true ||
