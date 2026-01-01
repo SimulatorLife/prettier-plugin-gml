@@ -3882,8 +3882,8 @@ function isArgumentAliasGap(text) {
         return false;
     }
 
-    const withoutBlock = text.replace(/\/\*[\s\S]*?\*\//g, "");
-    const withoutLine = withoutBlock.replace(/\/\/[^\r\n]*/g, "");
+    const withoutBlock = text.replaceAll(/\/\*[\s\S]*?\*\//g, "");
+    const withoutLine = withoutBlock.replaceAll(/\/\/[^\r\n]*/g, "");
     const trimmed = withoutLine.trim();
     if (trimmed.length === 0) {
         return false;

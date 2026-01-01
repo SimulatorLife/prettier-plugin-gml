@@ -454,9 +454,9 @@ export function collectFunctionDocCommentDocs({
     const signatureDescriptionPattern =
         typeof functionName === STRING_TYPE && functionName.length > 0
             ? new RegExp(
-                  `^\\/\\/\\/\\s*@description\\s*${Core.escapeRegExp(
+                  String.raw`^\/\/\/\s*@description\s*${Core.escapeRegExp(
                       functionName
-                  )}\\s*\\([^)]*\\)\\s*$`,
+                  )}\s*\([^)]*\)\s*$`,
                   "i"
               )
             : null;

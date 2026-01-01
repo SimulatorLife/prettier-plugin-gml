@@ -118,7 +118,7 @@ async function format(source: string, options: SupportOptions = {}) {
     const hasDocCommentMaxWrapWidth =
         options !== null &&
         typeof options === "object" &&
-        Object.prototype.hasOwnProperty.call(options, "docCommentMaxWrapWidth");
+        Object.hasOwn(options, "docCommentMaxWrapWidth");
     const docCommentMaxWrapWidth = hasDocCommentMaxWrapWidth
         ? (options as { docCommentMaxWrapWidth?: unknown })
               .docCommentMaxWrapWidth

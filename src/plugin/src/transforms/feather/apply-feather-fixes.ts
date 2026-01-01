@@ -4649,8 +4649,7 @@ function maybeInsertImplicitFunctionParameters({
     }
 
     const nextParams = [];
-    for (let index = 0; index < names.length; index += 1) {
-        const name = names[index];
+    for (const [index, name] of names.entries()) {
         if (!name) {
             return;
         }
