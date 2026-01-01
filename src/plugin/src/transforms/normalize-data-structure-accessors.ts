@@ -20,14 +20,11 @@
  * - Variables containing "grid" are assumed to be ds_grid and should use [#
  */
 
-import {
-    Core,
-    type MutableGameMakerAstNode
-} from "@gml-modules/core";
+import { Core, type MutableGameMakerAstNode } from "@gml-modules/core";
 import type { ParserTransform } from "./functional-transform.js";
 
 type NormalizeDataStructureAccessorsOptions = {
-    // If true, apply normalization. Default is true.
+    // Whether to apply accessor normalization. Default is true.
     enabled?: boolean;
 };
 
@@ -43,10 +40,6 @@ type MemberIndexNode = {
  * Returns the accessor operator string (e.g., "[|", "[?") or null if no inference can be made.
  */
 function inferAccessorFromVariableName(name: string): string | null {
-    if (typeof name !== "string" || name.length === 0) {
-        return null;
-    }
-
     const lowerName = name.toLowerCase();
 
     // Check for list indicators
