@@ -143,7 +143,17 @@ function maybeHoistLoopLength(
         name: cachedLengthName
     };
 
-    const declaration = createLengthDeclaration(cachedLengthName, loopSizeCall);
+    const declaration = createLengthDeclaration(
+        cachedLengthName,
+        loopSizeCall
+    ) as MutableGameMakerAstNode;
+
+    // Copy location from the loop node to the hoisted declaration so it doesn't
+    // default to start: 0 and steal file-header comments.
+    if (node.start !== undefined) {
+        declaration.start = node.start;
+    }
+
     statements.splice(index, 0, declaration);
 }
 
