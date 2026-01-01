@@ -197,18 +197,6 @@ export function getRoomNavigationHelpers(direction: unknown) {
 function isFeatherDiagnostic(value: unknown): value is { id: string } {
     return Core.isObjectLike(value) && typeof (value as any).id === "string";
 }
-
-function getOptionalString(obj: unknown, key: string): string | null {
-    if (!Core.isObjectLike(obj)) return null;
-    const value = (obj as any)[key];
-    return typeof value === "string" ? value : null;
-}
-
-function getOptionalArray(obj: unknown, key: string): unknown[] {
-    if (!Core.isObjectLike(obj)) return [];
-    const value = (obj as any)[key];
-    return Array.isArray(value) ? value : [];
-}
 let RESERVED_IDENTIFIER_NAMES: Set<string> | null = null;
 function getReservedIdentifierNames() {
     if (!RESERVED_IDENTIFIER_NAMES) {
@@ -2435,7 +2423,9 @@ function buildFeatherTypeSystemInfo() {
     const entries = Core.asArray(typeSystem?.baseTypes);
 
     for (const entry of entries) {
-        const name = Core.toTrimmedString(getOptionalString(entry, "name"));
+        const name = Core.toTrimmedString(
+            Core.getOptionalString(entry, "name")
+        );
 
         if (!name) {
             continue;
@@ -2445,7 +2435,7 @@ function buildFeatherTypeSystemInfo() {
         baseTypesLowercase.add(name.toLowerCase());
 
         const specifierExamples = Core.asArray(
-            getOptionalArray(entry, "specifierExamples")
+            Core.getOptionalArray(entry, "specifierExamples")
         );
         const hasDotSpecifier = specifierExamples.some((example) => {
             if (typeof example !== "string") {
@@ -2456,7 +2446,9 @@ function buildFeatherTypeSystemInfo() {
         });
 
         const description =
-            Core.toTrimmedString(getOptionalString(entry, "description")) ?? "";
+            Core.toTrimmedString(
+                Core.getOptionalString(entry, "description")
+            ) ?? "";
         const requiresSpecifier =
             /requires specifiers/i.test(description) ||
             /constructor/i.test(description);
