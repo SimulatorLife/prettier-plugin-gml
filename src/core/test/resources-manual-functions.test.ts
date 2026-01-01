@@ -30,7 +30,7 @@ void test("loadManualFunctionNames filters to function identifiers", () => {
 
     const names = loadManualFunctionNames();
 
-    assert.deepEqual(Array.from(names).sort(), ["baz", "foo", "quux"]);
+    assert.deepEqual(Array.from(names).toSorted(), ["baz", "foo", "quux"]);
 
     cleanup();
 });
