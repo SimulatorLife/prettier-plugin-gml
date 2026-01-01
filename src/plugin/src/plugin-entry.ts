@@ -5,35 +5,18 @@
  * consumers can register the plugin without reaching into internal modules.
  */
 
-import { Core } from "@gml-modules/core";
 import prettier, { type SupportLanguage, type SupportOptions } from "prettier";
 
 import type {
     GmlPlugin,
-    GmlPluginComponentBundle,
     GmlPluginDefaultOptions
 } from "./components/plugin-types.js";
-import { resolveGmlPluginComponents } from "./components/plugin-components.js";
+import { gmlPluginComponents } from "./components/plugin-components.js";
 import { resolveCoreOptionOverrides } from "./options/core-option-overrides.js";
 
-function selectPluginComponents(): GmlPluginComponentBundle {
-    return resolveGmlPluginComponents();
-}
-
-const parsers = Core.createReadOnlyView<GmlPluginComponentBundle["parsers"]>(
-    () => selectPluginComponents().parsers,
-    "GML plugin parsers"
-);
-
-const printers = Core.createReadOnlyView<GmlPluginComponentBundle["printers"]>(
-    () => selectPluginComponents().printers,
-    "GML plugin printers"
-);
-
-const pluginOptions = Core.createReadOnlyView<SupportOptions>(
-    () => selectPluginComponents().options,
-    "GML plugin options"
-);
+const parsers = gmlPluginComponents.parsers;
+const printers = gmlPluginComponents.printers;
+const pluginOptions = gmlPluginComponents.options;
 
 export const languages: SupportLanguage[] = [
     {
@@ -104,20 +87,18 @@ function stripFunctionTagComments(formatted: string): string {
 function extractOptionDefaults(
     optionConfigMap: SupportOptions
 ): Record<string, unknown> {
-    const defaults: Record<string, unknown> = {};
-
-    for (const [name, config] of Object.entries(optionConfigMap)) {
-        if (config && Object.hasOwn(config, "default")) {
-            defaults[name] = (config as { default?: unknown }).default;
-        }
-    }
-
-    return defaults;
+    return Object.fromEntries(
+        Object.entries(optionConfigMap)
+            .filter(([, config]) => config && Object.hasOwn(config, "default"))
+            .map(([name, config]) => [
+                name,
+                (config as { default?: unknown }).default
+            ])
+    );
 }
 
 function computeOptionDefaults(): Record<string, unknown> {
-    const components = selectPluginComponents();
-    return extractOptionDefaults(components.options);
+    return extractOptionDefaults(pluginOptions);
 }
 
 function createDefaultOptionsSnapshot(): GmlPluginDefaultOptions {
@@ -156,10 +137,7 @@ async function format(source: string, options: SupportOptions = {}) {
     return collapseVertexFormatBeginSpacing(collapsedAfterStrip);
 }
 
-const defaultOptions = Core.createReadOnlyView<GmlPluginDefaultOptions>(
-    () => createDefaultOptionsSnapshot(),
-    "GML default options"
-);
+const defaultOptions = Object.freeze(createDefaultOptionsSnapshot());
 
 export { parsers, printers, pluginOptions, defaultOptions };
 export { pluginOptions as options };
@@ -169,7 +147,7 @@ export const Plugin: GmlPlugin = {
     parsers,
     printers,
     options: pluginOptions,
-    defaultOptions: createDefaultOptionsSnapshot(),
+    defaultOptions,
     format
 };
 export default Plugin;

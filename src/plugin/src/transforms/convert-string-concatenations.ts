@@ -1,8 +1,8 @@
 /**
  * Normalizes sequences of string concatenation (`"a" + b + "c"`) into template string literals (`$"{a}{b}{c}"`) so the printer renders more idiomatic GML.
  */
-import { Core } from "@gml-modules/core";
-import { FunctionalParserTransform } from "./functional-transform.js";
+import { Core, type MutableGameMakerAstNode } from "@gml-modules/core";
+import type { ParserTransform } from "./functional-transform.js";
 
 const BINARY_EXPRESSION = "BinaryExpression";
 const TEMPLATE_STRING_EXPRESSION = "TemplateStringExpression";
@@ -17,17 +17,16 @@ type ConvertStringConcatenationsTransformOptions = {
 /**
  * Hook that exposes the string concatenation cleanup logic to the parser transform pipeline.
  */
-export class ConvertStringConcatenationsTransform extends FunctionalParserTransform<ConvertStringConcatenationsTransformOptions> {
-    constructor() {
-        super("convert-string-concatenations", {});
-    }
+export class ConvertStringConcatenationsTransform implements ParserTransform<
+    MutableGameMakerAstNode,
+    ConvertStringConcatenationsTransformOptions
+> {
+    public readonly name = "convert-string-concatenations";
+    public readonly defaultOptions = Object.freeze(
+        {}
+    ) as ConvertStringConcatenationsTransformOptions;
 
-    protected execute(
-        ast: any,
-        options: ConvertStringConcatenationsTransformOptions
-    ) {
-        // Use a dedicated traversal state so repeated passes are safe and re-entrant.
-        void options;
+    public transform(ast: MutableGameMakerAstNode): MutableGameMakerAstNode {
         this.traverse(ast, null, null);
         return ast;
     }
@@ -395,7 +394,12 @@ export class ConvertStringConcatenationsTransform extends FunctionalParserTransf
             return raw.slice(1, -1);
         }
 
-        // Handle @"..." strings
+        // Handle verbatim string literals (e.g., @"...") where the '@' prefix
+        // indicates a raw string that may contain escape sequences or special
+        // characters. These strings are common in GML for file paths and regex
+        // patterns. Stripping both the '@' prefix and the enclosing quotes
+        // extracts the raw content so the concatenation transform can operate
+        // on the actual string value rather than the syntax wrapper.
         if (first === "@" && raw.charAt(1) === '"' && last === '"') {
             return raw.slice(2, -1);
         }

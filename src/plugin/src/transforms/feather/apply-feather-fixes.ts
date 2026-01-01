@@ -32,7 +32,7 @@ import {
     type MutableGameMakerAstNode,
     type GameMakerAstNode
 } from "@gml-modules/core";
-import { FunctionalParserTransform } from "../functional-transform.js";
+import type { ParserTransform } from "../functional-transform.js";
 import {
     getEndFromNode,
     getStartFromNode,
@@ -197,18 +197,6 @@ export function getRoomNavigationHelpers(direction: unknown) {
 function isFeatherDiagnostic(value: unknown): value is { id: string } {
     return Core.isObjectLike(value) && typeof (value as any).id === "string";
 }
-
-function getOptionalString(obj: unknown, key: string): string | null {
-    if (!Core.isObjectLike(obj)) return null;
-    const value = (obj as any)[key];
-    return typeof value === "string" ? value : null;
-}
-
-function getOptionalArray(obj: unknown, key: string): unknown[] {
-    if (!Core.isObjectLike(obj)) return [];
-    const value = (obj as any)[key];
-    return Array.isArray(value) ? value : [];
-}
 let RESERVED_IDENTIFIER_NAMES: Set<string> | null = null;
 function getReservedIdentifierNames() {
     if (!RESERVED_IDENTIFIER_NAMES) {
@@ -218,14 +206,12 @@ function getReservedIdentifierNames() {
 }
 const DEPRECATED_BUILTIN_VARIABLE_REPLACEMENTS =
     Core.buildDeprecatedBuiltinVariableReplacements();
-const ARGUMENT_IDENTIFIER_PATTERN = /^argument(\d+)$/;
 const GM1041_CALL_ARGUMENT_TARGETS = new Map([
     ["instance_create_depth", [3]],
     ["instance_create_layer", [3]],
     ["instance_create_layer_depth", [4]],
     ["layer_instance_create", [3]]
 ]);
-const IDENTIFIER_NAME_PATTERN = /^[A-Za-z_][A-Za-z0-9_]*$/;
 const FEATHER_TYPE_SYSTEM_INFO = buildFeatherTypeSystemInfo();
 const AUTOMATIC_FEATHER_FIX_HANDLERS = createAutomaticFeatherFixHandlers();
 const FEATHER_DIAGNOSTICS = Core.getFeatherDiagnostics();
@@ -341,7 +327,12 @@ function applyFeatherFixesImpl(ast: any, opts: ApplyFeatherFixesOptions = {}) {
     try {
         updateStaticFunctionDocComments(ast);
     } catch {
-        // Ignore errors
+        // Ignore errors during static function doc comment updates. If the
+        // update logic encounters malformed AST nodes, missing metadata, or
+        // incompatible node structures, the Feather fix transform continues
+        // processing with the doc comments it was able to update. This resilience
+        // ensures that a single problematic function does not prevent the entire
+        // Feather fix pipeline from completing.
     }
 
     // Populate documented param names so Feather fixes can respect JSDoc @param tags
@@ -517,7 +508,12 @@ function applyFeatherFixesImpl(ast: any, opts: ApplyFeatherFixesOptions = {}) {
             // We need to be careful not to walk into nested functions
             if (node.body) {
                 walkAstNodes(node.body, (child) => {
-                    // Don't descend into nested functions
+                    // Do not descend into nested function declarations because
+                    // argument0, argument1, etc. inside a nested function refer to
+                    // that nested function's parameters, not the outer function's.
+                    // Descending would incorrectly flag those inner references as
+                    // belonging to the outer function's parameter list, leading to
+                    // spurious or conflicting @param entries in the outer doc comment.
                     if (
                         child.type === "FunctionDeclaration" ||
                         child.type === "StructFunctionDeclaration"
@@ -929,16 +925,20 @@ function isBreakableConstruct(node) {
 /**
  * Prettier transform that runs every applicable Feather fixer and returns the mutated AST.
  */
-export class ApplyFeatherFixesTransform extends FunctionalParserTransform<ApplyFeatherFixesOptions> {
-    constructor() {
-        super("apply-feather-fixes", {});
-    }
+export class ApplyFeatherFixesTransform implements ParserTransform<
+    MutableGameMakerAstNode,
+    ApplyFeatherFixesOptions
+> {
+    public readonly name = "apply-feather-fixes";
+    public readonly defaultOptions = Object.freeze(
+        {}
+    ) as ApplyFeatherFixesOptions;
 
-    protected execute(
+    public transform(
         ast: MutableGameMakerAstNode,
-        options: ApplyFeatherFixesOptions
-    ) {
-        return applyFeatherFixesImpl(ast, options);
+        options?: ApplyFeatherFixesOptions
+    ): MutableGameMakerAstNode {
+        return applyFeatherFixesImpl(ast, options ?? this.defaultOptions);
     }
 }
 
@@ -2433,7 +2433,9 @@ function buildFeatherTypeSystemInfo() {
     const entries = Core.asArray(typeSystem?.baseTypes);
 
     for (const entry of entries) {
-        const name = Core.toTrimmedString(getOptionalString(entry, "name"));
+        const name = Core.toTrimmedString(
+            Core.getOptionalString(entry, "name")
+        );
 
         if (!name) {
             continue;
@@ -2443,7 +2445,7 @@ function buildFeatherTypeSystemInfo() {
         baseTypesLowercase.add(name.toLowerCase());
 
         const specifierExamples = Core.asArray(
-            getOptionalArray(entry, "specifierExamples")
+            Core.getOptionalArray(entry, "specifierExamples")
         );
         const hasDotSpecifier = specifierExamples.some((example) => {
             if (typeof example !== "string") {
@@ -2454,7 +2456,9 @@ function buildFeatherTypeSystemInfo() {
         });
 
         const description =
-            Core.toTrimmedString(getOptionalString(entry, "description")) ?? "";
+            Core.toTrimmedString(
+                Core.getOptionalString(entry, "description")
+            ) ?? "";
         const requiresSpecifier =
             /requires specifiers/i.test(description) ||
             /constructor/i.test(description);
@@ -4494,7 +4498,9 @@ function getArgumentIdentifierIndex(node) {
         return null;
     }
 
-    const match = ARGUMENT_IDENTIFIER_PATTERN.exec(identifierDetails.name);
+    const match = Core.GML_ARGUMENT_IDENTIFIER_PATTERN.exec(
+        identifierDetails.name
+    );
 
     if (!match) {
         return null;
@@ -15100,7 +15106,7 @@ function extractIdentifierNameFromLiteral(value) {
         return null;
     }
 
-    if (!IDENTIFIER_NAME_PATTERN.test(stripped)) {
+    if (!Core.GML_IDENTIFIER_NAME_PATTERN.test(stripped)) {
         return null;
     }
 

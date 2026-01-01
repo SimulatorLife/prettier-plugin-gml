@@ -8,7 +8,6 @@ import { promisify } from "node:util";
 import { execFile, type ExecFileOptions } from "node:child_process";
 
 import { describe, it } from "node:test";
-import { Core } from "@gml-modules/core";
 import { CLI } from "@gml-modules/cli";
 
 const { runCliTestCommand } = CLI;
@@ -116,7 +115,8 @@ void describe("Prettier wrapper CLI", () => {
         // repository root does not result in silent mutation of tracked
         // fixture files. If it ever does, the test will fail and restore
         // the original file contents to avoid leaving the workspace dirty.
-        const repoRootDirectory = await Core.findRepoRoot(currentDirectory);
+        const repoRootDirectory =
+            await CLI.Shared.findRepoRoot(currentDirectory);
         const fixturePath = path.join(
             repoRootDirectory,
             "src/plugin/test/testFormatting.input.gml"

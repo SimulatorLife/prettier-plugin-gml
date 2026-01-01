@@ -57,7 +57,12 @@ async function resolveVendorRuntimeRoot() {
             path.join(DEFAULT_VENDOR_RUNTIME_PATH, "package.json")
         );
     } catch (error) {
-        // Ignore missing or invalid package metadata in vendor checkout.
+        // Ignore missing or invalid package metadata in the vendor checkout.
+        // The runtime resolution system can operate without package.json when
+        // working with a local Git submodule checkout. If the metadata is absent
+        // or malformed, the resolver falls back to using the vendored source
+        // directly without version constraints. Debug logging below helps trace
+        // resolution issues without failing the build.
         if (process.env.DEBUG_RUNTIME_RESOLUTION === "1") {
             const message = getErrorMessageOrFallback(error);
             console.debug(`Skipped runtime package metadata: ${message}`);

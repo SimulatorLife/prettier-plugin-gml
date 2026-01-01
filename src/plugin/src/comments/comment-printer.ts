@@ -314,8 +314,8 @@ function applyTrailingCommentPadding(comment) {
 
     const isTrailingComment = Boolean(
         comment.trailing ||
-            comment.placement === "endOfLine" ||
-            comment._structPropertyTrailing
+        comment.placement === "endOfLine" ||
+        comment._structPropertyTrailing
     );
 
     if (!isTrailingComment) {

@@ -1,22 +1,36 @@
-export { RefactorEngine, createRefactorEngine } from "./refactor-engine.js";
-export { WorkspaceEdit } from "./workspace-edit.js";
+import * as RefactorAPI from "./refactor-engine.js";
+import { WorkspaceEdit } from "./workspace-edit.js";
+
+export const Refactor = Object.freeze({
+    ...RefactorAPI,
+    WorkspaceEdit
+});
+
+export { RefactorEngine } from "./refactor-engine.js";
+export type { WorkspaceEdit } from "./workspace-edit.js";
+
 export type {
     ApplyWorkspaceEditOptions,
     AstNode,
     BatchRenameValidation,
     CascadeEntry,
     ConflictEntry,
+    DependencyAnalyzer,
     DependentSymbol,
+    EditValidator,
     ExecuteBatchRenameRequest,
     ExecuteRenameRequest,
     ExecuteRenameResult,
     FileSymbol,
+    FileSymbolProvider,
     HotReloadCascadeMetadata,
     HotReloadCascadeResult,
     HotReloadSafetySummary,
     HotReloadUpdate,
     HotReloadValidationOptions,
+    KeywordProvider,
     MaybePromise,
+    OccurrenceTracker,
     ParserBridge,
     PrepareRenamePlanOptions,
     Range,
@@ -30,6 +44,7 @@ export type {
     SymbolLocation,
     SymbolLookupResult,
     SymbolOccurrence,
+    SymbolResolver,
     TranspilerBridge,
     TranspilerPatch,
     ValidateRenameRequestOptions,

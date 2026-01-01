@@ -8,6 +8,7 @@ import { convertStringConcatenationsTransform } from "./convert-string-concatena
 import { convertUndefinedGuardAssignmentsTransform } from "./convert-undefined-guard-assignments.js";
 import { enforceVariableBlockSpacingTransform } from "./enforce-variable-block-spacing.js";
 import { markCallsMissingArgumentSeparatorsTransform } from "./mark-missing-separators.js";
+import { normalizeDataStructureAccessorsTransform } from "./normalize-data-structure-accessors.js";
 import { optimizeMathExpressionsTransform } from "./optimize-math-expressions.js";
 import { preprocessFunctionArgumentDefaultsTransform } from "./preprocess-function-argument-defaults.js";
 import { stripCommentsTransform } from "./strip-comments.js";
@@ -21,6 +22,7 @@ import type { ParserTransform } from "./functional-transform.js";
 const TRANSFORM_REGISTRY_ENTRIES = [
     stripCommentsTransform,
     consolidateStructAssignmentsTransform,
+    normalizeDataStructureAccessorsTransform,
     applyFeatherFixesTransform,
     preprocessFunctionArgumentDefaultsTransform,
     enforceVariableBlockSpacingTransform,
@@ -48,7 +50,7 @@ type TransformByName = {
     [Transform in RegisteredTransform as Transform["name"]]: Transform;
 };
 
-const TRANSFORM_REGISTRY = {} as TransformByName;
+const TRANSFORM_REGISTRY = {} as Record<string, RegisteredTransform>;
 for (const transform of TRANSFORM_REGISTRY_ENTRIES) {
     if (Object.hasOwn(TRANSFORM_REGISTRY, transform.name)) {
         throw new Error(
@@ -62,7 +64,7 @@ for (const transform of TRANSFORM_REGISTRY_ENTRIES) {
 export function getParserTransform<Name extends ParserTransformName>(
     name: Name
 ): TransformByName[Name] {
-    const transform = TRANSFORM_REGISTRY[name];
+    const transform = TRANSFORM_REGISTRY[name] as TransformByName[Name];
     if (!transform) {
         throw new TypeError(`Unknown parser transform: ${String(name)}`);
     }
@@ -92,8 +94,13 @@ export function applyTransforms(
 
     let current = ast;
     for (const name of transformNames) {
-        const transform = getParserTransform(name);
-        current = transform.transform(current, options[name] as never);
+        const transform = getParserTransform(name) as {
+            transform: (
+                ast: MutableGameMakerAstNode,
+                options?: unknown
+            ) => MutableGameMakerAstNode;
+        };
+        current = transform.transform(current, options[name]);
     }
 
     return current;
@@ -132,5 +139,6 @@ export { applyIndexAdjustmentsIfPresent } from "./index-adjustments.js";
 export { sanitizeMissingArgumentSeparators } from "./missing-argument-separator-sanitizer.js";
 export { collapseRedundantMissingCallArgumentsTransform } from "./collapse-redundant-arguments.js";
 export { markCallsMissingArgumentSeparatorsTransform } from "./mark-missing-separators.js";
+export { normalizeDataStructureAccessorsTransform } from "./normalize-data-structure-accessors.js";
 export { hoistLoopLengthBounds } from "./loop-size-hoisting/index.js";
 export { docCommentNormalizationTransform } from "./doc-comment/doc-comment-normalization.js";

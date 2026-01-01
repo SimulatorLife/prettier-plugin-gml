@@ -341,18 +341,16 @@ function updateInstances(
         }
 
         if (objectName) {
-            const instanceObject = (instance as Record<string, unknown>)
-                ._kx as { pName?: unknown; _lx?: unknown } | undefined;
+            const instanceObject = (instance as Record<string, unknown>)._kx as
+                | { pName?: unknown; _lx?: unknown }
+                | undefined;
             const instanceObjectName =
                 typeof instanceObject?.pName === "string"
                     ? instanceObject.pName
                     : typeof instanceObject?._lx === "string"
                       ? instanceObject._lx
                       : null;
-            if (
-                instanceObjectName &&
-                instanceObjectName !== objectName
-            ) {
+            if (instanceObjectName && instanceObjectName !== objectName) {
                 continue;
             }
         }
@@ -612,13 +610,13 @@ function applyScriptPatch(
         "__gml_constants",
         "__gml_builtins",
         `const __gml_scope = self && typeof self === "object" ? self : Object.create(null);
+const __computeGmlPropertyNames = (prop) => [\`gml\${prop}\`, \`__\${prop}\`];
 const __gml_proxy = new Proxy(__gml_scope, {
     has(target, prop) {
         if (typeof prop !== "string") {
             return prop in target;
         }
-        const gmlProp = \`gml\${prop}\`;
-        const underscoreProp = \`__\${prop}\`;
+        const [gmlProp, underscoreProp] = __computeGmlPropertyNames(prop);
         if (prop in target) {
             return true;
         }
@@ -646,8 +644,7 @@ const __gml_proxy = new Proxy(__gml_scope, {
         if (typeof prop !== "string") {
             return Reflect.get(target, prop, receiver);
         }
-        const gmlProp = \`gml\${prop}\`;
-        const underscoreProp = \`__\${prop}\`;
+        const [gmlProp, underscoreProp] = __computeGmlPropertyNames(prop);
         if (prop in target) {
             return Reflect.get(target, prop, receiver);
         }
@@ -675,8 +672,7 @@ const __gml_proxy = new Proxy(__gml_scope, {
         if (typeof prop !== "string") {
             return Reflect.set(target, prop, value, receiver);
         }
-        const gmlProp = \`gml\${prop}\`;
-        const underscoreProp = \`__\${prop}\`;
+        const [gmlProp, underscoreProp] = __computeGmlPropertyNames(prop);
         if (prop in target) {
             return Reflect.set(target, prop, value, receiver);
         }

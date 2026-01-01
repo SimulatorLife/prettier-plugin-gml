@@ -362,3 +362,191 @@ void test("modification tracking is scope-specific", () => {
         "Reference in scope2 should not affect scope1's counter"
     );
 });
+
+void test("getScopeModificationDetails returns detailed modification info", () => {
+    const tracker = new ScopeTracker({ enabled: true });
+    const scope = tracker.enterScope("program");
+
+    tracker.declare(
+        "foo",
+        { start: { line: 1, index: 0 }, end: { line: 1, index: 3 } },
+        { kind: "variable" }
+    );
+
+    tracker.reference(
+        "foo",
+        { start: { line: 2, index: 0 }, end: { line: 2, index: 3 } },
+        { kind: "variable" }
+    );
+
+    tracker.reference(
+        "foo",
+        { start: { line: 3, index: 0 }, end: { line: 3, index: 3 } },
+        { kind: "variable" }
+    );
+
+    tracker.declare(
+        "bar",
+        { start: { line: 4, index: 0 }, end: { line: 4, index: 3 } },
+        { kind: "variable" }
+    );
+
+    const details = tracker.getScopeModificationDetails(scope.id);
+
+    assert.ok(details);
+    assert.strictEqual(details.scopeId, scope.id);
+    assert.strictEqual(details.scopeKind, "program");
+    assert.strictEqual(details.modificationCount, 4);
+    assert.strictEqual(details.declarationCount, 2);
+    assert.strictEqual(details.referenceCount, 2);
+    assert.strictEqual(details.symbolCount, 2);
+    assert.strictEqual(details.symbols.length, 2);
+
+    const barSymbol = details.symbols.find((s) => s.name === "bar");
+    const fooSymbol = details.symbols.find((s) => s.name === "foo");
+
+    assert.ok(barSymbol);
+    assert.strictEqual(barSymbol.declarationCount, 1);
+    assert.strictEqual(barSymbol.referenceCount, 0);
+
+    assert.ok(fooSymbol);
+    assert.strictEqual(fooSymbol.declarationCount, 1);
+    assert.strictEqual(fooSymbol.referenceCount, 2);
+});
+
+void test("getScopeModificationDetails symbols are sorted alphabetically", () => {
+    const tracker = new ScopeTracker({ enabled: true });
+    const scope = tracker.enterScope("program");
+
+    tracker.declare(
+        "zulu",
+        { start: { line: 1, index: 0 }, end: { line: 1, index: 4 } },
+        { kind: "variable" }
+    );
+
+    tracker.declare(
+        "alpha",
+        { start: { line: 2, index: 0 }, end: { line: 2, index: 5 } },
+        { kind: "variable" }
+    );
+
+    tracker.declare(
+        "charlie",
+        { start: { line: 3, index: 0 }, end: { line: 3, index: 7 } },
+        { kind: "variable" }
+    );
+
+    const details = tracker.getScopeModificationDetails(scope.id);
+
+    assert.ok(details);
+    assert.strictEqual(details.symbols.length, 3);
+    assert.strictEqual(details.symbols[0].name, "alpha");
+    assert.strictEqual(details.symbols[1].name, "charlie");
+    assert.strictEqual(details.symbols[2].name, "zulu");
+});
+
+void test("getScopeModificationDetails returns null for non-existent scope", () => {
+    const tracker = new ScopeTracker({ enabled: true });
+    tracker.enterScope("program");
+
+    const details = tracker.getScopeModificationDetails("non-existent");
+
+    assert.strictEqual(details, null);
+});
+
+void test("getScopeModificationDetails returns null for null scope", () => {
+    const tracker = new ScopeTracker({ enabled: true });
+    tracker.enterScope("program");
+
+    const details = tracker.getScopeModificationDetails(null);
+
+    assert.strictEqual(details, null);
+});
+
+void test("getScopeModificationDetails returns zero counts for empty scope", () => {
+    const tracker = new ScopeTracker({ enabled: true });
+    const scope = tracker.enterScope("program");
+
+    const details = tracker.getScopeModificationDetails(scope.id);
+
+    assert.ok(details);
+    assert.strictEqual(details.scopeId, scope.id);
+    assert.strictEqual(details.scopeKind, "program");
+    assert.strictEqual(details.modificationCount, 0);
+    assert.strictEqual(details.declarationCount, 0);
+    assert.strictEqual(details.referenceCount, 0);
+    assert.strictEqual(details.symbolCount, 0);
+    assert.deepStrictEqual(details.symbols, []);
+});
+
+void test("getScopeModificationDetails supports hot reload invalidation decisions", () => {
+    const tracker = new ScopeTracker({ enabled: true });
+    const programScope = tracker.enterScope("program");
+
+    tracker.declare(
+        "gameState",
+        { start: { line: 1, index: 0 }, end: { line: 1, index: 9 } },
+        { kind: "variable" }
+    );
+
+    const functionScope = tracker.enterScope("function");
+
+    tracker.reference(
+        "gameState",
+        { start: { line: 3, index: 0 }, end: { line: 3, index: 9 } },
+        { kind: "variable" }
+    );
+
+    tracker.declare(
+        "localVar",
+        { start: { line: 4, index: 0 }, end: { line: 4, index: 8 } },
+        { kind: "variable" }
+    );
+
+    tracker.exitScope();
+    tracker.exitScope();
+
+    const programDetails = tracker.getScopeModificationDetails(programScope.id);
+    const functionDetails = tracker.getScopeModificationDetails(
+        functionScope.id
+    );
+
+    assert.ok(programDetails);
+    assert.strictEqual(
+        programDetails.declarationCount,
+        1,
+        "Program scope declares gameState"
+    );
+    assert.strictEqual(
+        programDetails.referenceCount,
+        0,
+        "Program scope has no references"
+    );
+
+    assert.ok(functionDetails);
+    assert.strictEqual(
+        functionDetails.declarationCount,
+        1,
+        "Function scope declares localVar"
+    );
+    assert.strictEqual(
+        functionDetails.referenceCount,
+        1,
+        "Function scope references gameState"
+    );
+
+    const gameStateInFunction = functionDetails.symbols.find(
+        (s) => s.name === "gameState"
+    );
+    assert.ok(gameStateInFunction);
+    assert.strictEqual(
+        gameStateInFunction.declarationCount,
+        0,
+        "gameState not declared in function scope"
+    );
+    assert.strictEqual(
+        gameStateInFunction.referenceCount,
+        1,
+        "gameState referenced once in function scope"
+    );
+});

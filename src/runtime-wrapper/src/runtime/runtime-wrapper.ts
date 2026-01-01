@@ -25,6 +25,7 @@ import type {
 } from "./types.js";
 
 const UNKNOWN_ERROR_MESSAGE = "Unknown error";
+const DEFAULT_MAX_UNDO_STACK_SIZE = 50;
 
 export function createRuntimeWrapper(
     options: RuntimeWrapperOptions = {}
@@ -36,12 +37,21 @@ export function createRuntimeWrapper(
         undoStack: [],
         patchHistory: [],
         options: {
-            validateBeforeApply: options.validateBeforeApply ?? false
+            validateBeforeApply: options.validateBeforeApply ?? false,
+            maxUndoStackSize:
+                options.maxUndoStackSize ?? DEFAULT_MAX_UNDO_STACK_SIZE
         }
     };
 
     const onPatchApplied = options.onPatchApplied;
     const onChange = options.onChange;
+
+    function trimUndoStack(): void {
+        const maxSize = state.options.maxUndoStackSize;
+        if (maxSize > 0 && state.undoStack.length > maxSize) {
+            state.undoStack.splice(0, state.undoStack.length - maxSize);
+        }
+    }
 
     function applyPatch(patchCandidate: unknown): ApplyPatchResult {
         validatePatch(patchCandidate);
@@ -68,6 +78,7 @@ export function createRuntimeWrapper(
 
             state.registry = nextRegistry;
             state.undoStack.push(snapshot);
+            trimUndoStack();
             state.patchHistory.push({
                 patch: { kind: patch.kind, id: patch.id },
                 version: state.registry.version,
@@ -171,6 +182,7 @@ export function createRuntimeWrapper(
 
                 state.registry = nextRegistry;
                 state.undoStack.push(snapshot);
+                trimUndoStack();
                 state.patchHistory.push({
                     patch: { kind: patch.kind, id: patch.id },
                     version: state.registry.version,
@@ -377,6 +389,10 @@ export function createRuntimeWrapper(
         return [...state.patchHistory];
     }
 
+    function getUndoStackSize(): number {
+        return state.undoStack.length;
+    }
+
     function getRegistrySnapshot(): RuntimeRegistrySnapshot {
         return {
             version: state.registry.version,
@@ -543,6 +559,7 @@ export function createRuntimeWrapper(
         trySafeApply,
         undo,
         getPatchHistory,
+        getUndoStackSize,
         getRegistrySnapshot,
         getPatchStats,
         getVersion,

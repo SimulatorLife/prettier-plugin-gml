@@ -20,18 +20,20 @@ export interface EnumeratedOptionHelpers {
 /**
  * Create helpers for normalizing and validating enumerated CLI options.
  *
- * Returns helpers with a simpler, more direct API than the previous implementation.
- * The normalize() function accepts an optional fallback value directly as a parameter,
- * and requireValue() takes an optional error constructor.
+ * @param values - Array of valid enumerated values
+ * @param formatError - Optional function to format validation error messages
+ * @returns Frozen helper object with validation and normalization methods
  *
- * @param values - Collection of valid enumerated values.
- * @param formatError - Optional function to format error messages (receives list and received value).
+ * @example
+ * const helpers = createEnumeratedOptionHelpers(["json", "yaml"]);
+ * helpers.normalize("JSON"); // "json"
+ * helpers.requireValue("xml"); // throws Error
  */
 export function createEnumeratedOptionHelpers(
     values: Iterable<EnumeratedValue>,
     formatError?: (list: string, received: string) => string
 ): EnumeratedOptionHelpers {
-    const valueSet = new Set(Array.from(values ?? []));
+    const valueSet = new Set(Array.from(values));
     const listLabel = [...valueSet].sort().join(", ");
 
     return Object.freeze({
@@ -69,20 +71,21 @@ export function createEnumeratedOptionHelpers(
 /**
  * Create helpers for string enumerated options with type-safe coercion.
  *
- * Validates that the input value is a string before normalization. The returned
- * helpers enforce type safety and provide clear error messages when non-string
- * values are provided.
+ * @param values - Array of valid enumerated values
+ * @param valueLabel - Label for the value type in error messages
+ * @param formatError - Optional function to format validation error messages
+ * @returns Frozen helper object with validation and normalization methods
  *
- * @param values - Collection of valid enumerated values.
- * @param valueLabel - Label for the value type (e.g., "Output format"). Defaults to "Value".
- * @param formatError - Optional function to format validation error messages.
+ * @example
+ * const helpers = createStringEnumeratedOptionHelpers(["json"], "Output format");
+ * helpers.requireValue(42); // throws TypeError
  */
 export function createStringEnumeratedOptionHelpers(
     values: Iterable<EnumeratedValue>,
     valueLabel: string = "Value",
     formatError?: (list: string, received: string) => string
 ): EnumeratedOptionHelpers {
-    const valueSet = new Set(Array.from(values ?? []));
+    const valueSet = new Set(Array.from(values));
     const listLabel = [...valueSet].sort().join(", ");
     const label = valueLabel.trim() || "Value";
 

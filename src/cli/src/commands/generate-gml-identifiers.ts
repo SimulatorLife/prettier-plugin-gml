@@ -1,7 +1,5 @@
 import vm from "node:vm";
-import path from "node:path";
 import process from "node:process";
-import { fileURLToPath } from "node:url";
 
 import { Command, Option } from "commander";
 import type { CommanderCommandLike } from "../cli-core/commander-types.js";
@@ -14,8 +12,10 @@ import {
     getDefaultVmEvalTimeoutMs
 } from "../runtime-options/vm-eval-timeout.js";
 import { applyStandardCommandOptions } from "../cli-core/command-standard-options.js";
-import { createCliCommandManager } from "../cli-core/command-manager.js";
-import { handleCliError } from "../cli-core/errors.js";
+import {
+    isMainModule,
+    runAsMainModule
+} from "../cli-core/main-module-runner.js";
 import { wrapInvalidArgumentResolver } from "../cli-core/command-parsing.js";
 import {
     decodeManualKeywordsPayload,
@@ -854,24 +854,12 @@ export const __test__ = Object.freeze({
     assertManualIdentifierArray
 });
 
-const isMainModule = process.argv[1]
-    ? path.resolve(process.argv[1]) === fileURLToPath(import.meta.url)
-    : false;
-
-if (isMainModule) {
-    const program = new Command().name("generate-gml-identifiers");
-    const { registry, runner } = createCliCommandManager({ program });
-    const handleError = (error) =>
-        handleCliError(error, {
-            prefix: "Failed to generate GML identifiers.",
-            exitCode: typeof error?.exitCode === "number" ? error.exitCode : 1
-        });
-
-    registry.registerDefaultCommand({
-        command: createGenerateIdentifiersCommand({ env: process.env }),
+if (isMainModule(import.meta.url)) {
+    runAsMainModule({
+        programName: "generate-gml-identifiers",
+        createCommand: createGenerateIdentifiersCommand,
         run: ({ command }) => runGenerateGmlIdentifiers({ command }),
-        onError: handleError
+        errorPrefix: "Failed to generate GML identifiers.",
+        env: process.env
     });
-
-    runner.run(process.argv.slice(2)).catch(handleError);
 }

@@ -34,10 +34,6 @@ type CoreNamespace = typeof AST &
     typeof Resources &
     typeof IdentifierMetadata &
     typeof Comments & {
-        // Explicitly include the repo root helper for cross-package typing
-        // so consumers can call `Core.findRepoRoot` without type errors.
-        findRepoRoot(startDir: string): Promise<string>;
-        findRepoRootSync(startDir: string): string;
         // Explicitly include capability probe for WorkspaceEdit-like objects
         // to support polymorphic refactor operations across module boundaries.
         isWorkspaceEditLike(value: unknown): boolean;
@@ -49,8 +45,6 @@ type CoreNamespace = typeof AST &
 export const Core: CoreNamespace = Object.freeze({
     ...AST,
     ...FS,
-    findRepoRoot: FS.findRepoRoot,
-    findRepoRootSync: FS.findRepoRootSync,
     ...Metrics,
     ...Utils,
     isWorkspaceEditLike: Utils.isWorkspaceEditLike,

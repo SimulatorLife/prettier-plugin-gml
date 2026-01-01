@@ -1167,7 +1167,11 @@ async function detectNegatedIgnoreRules(ignoreFilePath) {
             ignoreRuleNegations.detected = true;
         }
     } catch {
-        // Ignore missing or unreadable files.
+        // Ignore missing or unreadable files. This defensive posture prevents
+        // the ignore-file scanning process from crashing the formatter if a
+        // referenced ignore file is absent or has restrictive permissions.
+        // The formatter remains resilient and continues processing with the
+        // ignore rules it was able to load successfully.
     }
 }
 
@@ -1311,7 +1315,11 @@ async function collectExistingIgnoreFiles(candidatePaths) {
                 const stats = await stat(ignoreCandidate);
                 return stats.isFile() ? ignoreCandidate : null;
             } catch {
-                // Ignore missing files.
+                // Ignore missing files. This lets the formatter scan a standard
+                // set of ignore-file candidates (e.g., .prettierignore, .gitignore)
+                // without failing when some do not exist in a given project.
+                // Only files that are present and readable will be registered,
+                // keeping the collection logic simple and resilient.
                 return null;
             }
         })
@@ -1396,7 +1404,11 @@ async function resolveDirectoryIgnoreContext(directory, inheritedIgnorePaths) {
             );
         }
     } catch {
-        // Ignore missing files.
+        // Ignore missing files. When the local ignore file does not exist,
+        // the formatter proceeds with the inherited ignore paths from parent
+        // directories. This resilience ensures that formatting workflows do
+        // not break when a subdirectory lacks its own .prettierignore, while
+        // still allowing projects to layer ignore rules hierarchically.
     }
 
     return {

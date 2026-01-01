@@ -48,28 +48,100 @@ export interface SemanticValidationResult {
     warnings?: Array<string>;
 }
 
-export interface SemanticAnalyzer {
-    hasSymbol?(symbolId: string): MaybePromise<boolean>;
-    getSymbolOccurrences?(
-        symbolName: string
-    ): MaybePromise<Array<SymbolOccurrence>>;
-    lookup?(
+/**
+ * Symbol existence and lookup operations.
+ *
+ * Provides the ability to check whether symbols exist and perform
+ * scope-aware name lookups without coupling to occurrence tracking,
+ * dependency analysis, or file-level operations.
+ */
+export interface SymbolResolver {
+    hasSymbol(symbolId: string): MaybePromise<boolean>;
+    lookup(
         name: string,
         scopeId?: string
     ): MaybePromise<SymbolLookupResult | null | undefined>;
-    getReservedKeywords?(): MaybePromise<Array<string>>;
-    validateEdits?(
-        workspace: WorkspaceEdit
-    ): MaybePromise<SemanticValidationResult>;
-    getFileSymbols?(filePath: string): MaybePromise<Array<FileSymbol>>;
-    getDependents?(
-        symbolIds: Array<string>
-    ): MaybePromise<Array<DependentSymbol>>;
-    getSymbolAtPosition?(
+    getSymbolAtPosition(
         filePath: string,
         offset: number
     ): MaybePromise<SymbolLocation | null | undefined>;
 }
+
+/**
+ * Symbol occurrence tracking.
+ *
+ * Provides the ability to find all occurrences (definitions and references)
+ * of a symbol across the project without coupling to validation, dependency
+ * analysis, or other semantic operations.
+ */
+export interface OccurrenceTracker {
+    getSymbolOccurrences(
+        symbolName: string
+    ): MaybePromise<Array<SymbolOccurrence>>;
+}
+
+/**
+ * File-level symbol operations.
+ *
+ * Provides the ability to query symbols defined in specific files
+ * without coupling to cross-file dependency analysis or validation.
+ */
+export interface FileSymbolProvider {
+    getFileSymbols(filePath: string): MaybePromise<Array<FileSymbol>>;
+}
+
+/**
+ * Symbol dependency analysis.
+ *
+ * Provides the ability to track which symbols depend on other symbols,
+ * essential for hot reload and impact analysis without coupling to
+ * occurrence tracking or validation operations.
+ */
+export interface DependencyAnalyzer {
+    getDependents(
+        symbolIds: Array<string>
+    ): MaybePromise<Array<DependentSymbol>>;
+}
+
+/**
+ * Language keyword information.
+ *
+ * Provides access to reserved keywords for the language without
+ * coupling to symbol resolution or other semantic operations.
+ */
+export interface KeywordProvider {
+    getReservedKeywords(): MaybePromise<Array<string>>;
+}
+
+/**
+ * Workspace edit validation.
+ *
+ * Provides semantic validation of workspace edits to detect conflicts
+ * and issues before applying changes, without coupling to symbol queries
+ * or dependency analysis.
+ */
+export interface EditValidator {
+    validateEdits(
+        workspace: WorkspaceEdit
+    ): MaybePromise<SemanticValidationResult>;
+}
+
+/**
+ * Complete semantic analyzer interface.
+ *
+ * Combines all role-focused interfaces for consumers that need full
+ * semantic analysis capabilities. Consumers should prefer depending on
+ * the minimal interface they need (SymbolResolver, OccurrenceTracker, etc.)
+ * rather than this composite interface when possible.
+ */
+export interface SemanticAnalyzer
+    extends
+        Partial<SymbolResolver>,
+        Partial<OccurrenceTracker>,
+        Partial<FileSymbolProvider>,
+        Partial<DependencyAnalyzer>,
+        Partial<KeywordProvider>,
+        Partial<EditValidator> {}
 
 export interface TranspilerBridge {
     transpileScript(request: {

@@ -61,10 +61,7 @@ function resolveHelpers(
               ? helpers.hasComment
               : Core.hasComment;
 
-    return {
-        ...(Core.isObjectLike(helpers) ? helpers : {}),
-        hasComment: resolvedHasComment
-    };
+    return { hasComment: resolvedHasComment };
 }
 
 /**

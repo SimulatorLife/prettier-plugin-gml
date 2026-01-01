@@ -1,3 +1,14 @@
+/**
+ * Metadata describing a binary operator's precedence and associativity.
+ *
+ * The precedence value determines the order in which operators are evaluated
+ * when multiple operators appear in an expression without explicit parentheses.
+ * Higher values bind more tightly.
+ *
+ * Associativity controls how operators of the same precedence are grouped:
+ * - "left": `a op b op c` parses as `(a op b) op c`
+ * - "right": `a op b op c` parses as `a op (b op c)`
+ */
 type BinaryOperatorMeta = {
     prec: number;
     assoc: "left" | "right";
@@ -7,6 +18,16 @@ type BinaryDelegateConfig = {
     operators: Record<string, BinaryOperatorMeta>;
 };
 
+/**
+ * Handles binary expression parsing while respecting operator precedence and
+ * associativity rules. Ensures the AST correctly represents the intended
+ * evaluation order without requiring explicit parentheses in the source.
+ *
+ * During parsing, the delegate inspects nested binary expressions and inserts
+ * synthetic ParenthesizedExpression nodes when precedence or associativity
+ * would otherwise produce incorrect grouping. This keeps the AST structurally
+ * accurate for downstream consumers like the printer and transpiler.
+ */
 export default class BinaryExpressionDelegate {
     private readonly operators: Record<string, BinaryOperatorMeta>;
 
@@ -14,6 +35,20 @@ export default class BinaryExpressionDelegate {
         this.operators = operators ?? {};
     }
 
+    /**
+     * Process a binary expression parse context, recursively visiting operands
+     * and wrapping the result in synthetic parentheses when precedence rules
+     * require explicit grouping.
+     *
+     * @param ctx ANTLR parse context representing the binary expression rule.
+     * @param visit Function to recursively visit child parse contexts.
+     * @param astNode Factory for constructing AST nodes with location metadata.
+     * @param isEmbeddedExpression Whether this expression is nested within another
+     *        binary expression. When `true`, the delegate checks precedence and may
+     *        insert synthetic parentheses to preserve evaluation order.
+     * @returns The constructed BinaryExpression AST node, optionally wrapped in a
+     *          ParenthesizedExpression if precedence rules require it.
+     */
     handle(ctx, { visit, astNode }, isEmbeddedExpression = false) {
         if (!ctx || !Object.hasOwn(ctx, "expression")) {
             return visit(ctx);
@@ -67,6 +102,27 @@ export default class BinaryExpressionDelegate {
         return node;
     }
 
+    /**
+     * Determine whether a binary expression requires explicit parentheses based
+     * on operator precedence and associativity.
+     *
+     * This check ensures the AST preserves the correct evaluation order when
+     * nested binary expressions have different precedence levels or conflicting
+     * associativity. Without synthetic parentheses, the printer would emit code
+     * that the parser might interpret differently.
+     *
+     * For left-associative operators (e.g., `+`, `-`), parentheses are needed
+     * when either operand has lower precedence than the current operator.
+     *
+     * For right-associative operators (e.g., `**`), the check is stricter:
+     * parentheses are required when operands have lower *or equal* precedence to
+     * preserve the intended grouping.
+     *
+     * @param operator The binary operator in the current expression.
+     * @param leftNode The left operand AST node.
+     * @param rightNode The right operand AST node.
+     * @returns `true` when parentheses are required to preserve evaluation order.
+     */
     needsParentheses(operator, leftNode, rightNode) {
         if (!operator || !leftNode || !rightNode) {
             return false;
@@ -86,10 +142,25 @@ export default class BinaryExpressionDelegate {
             return leftOp.prec < currOp.prec || rightOp.prec < currOp.prec;
         }
 
-        // For right-associative operators
+        // For right-associative operators, parentheses are required when
+        // operands have lower or equal precedence to preserve right-to-left
+        // evaluation order.
         return leftOp.prec <= currOp.prec || rightOp.prec <= currOp.prec;
     }
 
+    /**
+     * Wrap the provided AST node in a synthetic ParenthesizedExpression to
+     * preserve evaluation order during printing.
+     *
+     * The synthetic flag signals to downstream consumers (printer, transpiler)
+     * that these parentheses were inserted by the parser to maintain precedence
+     * correctness and are not literal parentheses from the source code.
+     *
+     * @param ctx ANTLR parse context for location metadata.
+     * @param node The AST node to wrap in parentheses.
+     * @param astNode Factory for constructing AST nodes with location metadata.
+     * @returns A ParenthesizedExpression node containing the original expression.
+     */
     wrapInParentheses(ctx, node, astNode) {
         return astNode(ctx, {
             type: "ParenthesizedExpression",

@@ -98,6 +98,47 @@ This is essential for:
 - Automated refactoring tools
 - Ensuring atomicity and consistency in complex rename operations
 
+### Direct Conflict Detection
+
+Detect conflicts for a rename operation without going through full validation, useful for inline IDE warnings:
+
+```javascript
+const engine = new RefactorEngine({ semantic, parser, formatter });
+
+// Get occurrences from semantic analyzer or parser
+const occurrences = await engine.gatherSymbolOccurrences("player_hp");
+
+// Check for conflicts directly
+const conflicts = await engine.detectRenameConflicts({
+    oldName: "player_hp",
+    newName: "playerHealth",
+    occurrences: occurrences
+});
+
+if (conflicts.length > 0) {
+    for (const conflict of conflicts) {
+        console.warn(`${conflict.type}: ${conflict.message}`);
+        if (conflict.path) {
+            console.warn(`  in file: ${conflict.path}`);
+        }
+    }
+} else {
+    console.log("No conflicts detected - rename is safe to proceed");
+}
+```
+
+This method is especially useful for:
+- IDE integrations that need real-time conflict checking as users type
+- Custom refactoring tools that want low-level conflict information
+- Building advanced rename workflows with custom conflict resolution
+- Showing inline warnings before users commit to a rename operation
+
+The method detects:
+- Invalid identifier names (syntax errors)
+- Reserved keyword conflicts
+- Shadowing conflicts (new name collides with existing symbols in scope)
+- Uses both default GML keywords and semantic analyzer's custom keyword list
+
 ### Rename Operations
 
 #### Single Symbol Rename
@@ -428,7 +469,7 @@ new RefactorEngine({ parser, semantic, formatter })
 - `async getSymbolDependents(symbolIds)` - Query symbols that depend on given symbols
 
 #### Conflict Detection
-- `async detectRenameConflicts(oldName, newName, occurrences)` - Check for naming conflicts
+- `async detectRenameConflicts(request)` - Detect conflicts for a proposed rename operation without throwing errors
 
 ### WorkspaceEdit
 

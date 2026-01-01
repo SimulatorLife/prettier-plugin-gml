@@ -255,6 +255,50 @@ const externalRefs = tracker.getScopeExternalReferences("scope-1");
 
 **Use case:** Cross-scope dependency tracking for hot reload coordination. When editing a file/scope, query its external references to understand which parent symbols it depends on. This enables precise invalidation: if a parent scope's symbol changes, you can quickly identify all child scopes that reference it and selectively recompile only the affected code paths. This is essential for efficient hot reload in large projects where rebuilding everything would be prohibitively slow.
 
+### `exportScipOccurrences(options?)`
+
+Export occurrences in SCIP (SCIP Code Intelligence Protocol) format for hot reload coordination and cross-file dependency tracking. SCIP format represents each occurrence with a range tuple `[startLine, startCol, endLine, endCol]`, a qualified symbol identifier, and role flags indicating DEF (declaration) or REF (reference).
+
+```javascript
+const tracker = new ScopeTracker({ enabled: true });
+tracker.enterScope("program");
+tracker.declare("gameState", {
+    name: "gameState",
+    start: { line: 1, column: 0, index: 0 },
+    end: { line: 1, column: 9, index: 9 }
+});
+tracker.reference("gameState", {
+    name: "gameState",
+    start: { line: 5, column: 4, index: 50 },
+    end: { line: 5, column: 13, index: 59 }
+});
+
+const scipData = tracker.exportScipOccurrences();
+// Returns: [
+//   {
+//     scopeId: "scope-0",
+//     scopeKind: "program",
+//     occurrences: [
+//       { range: [1, 0, 1, 9], symbol: "scope-0::gameState", symbolRoles: 1 },  // DEF
+//       { range: [5, 4, 5, 13], symbol: "scope-0::gameState", symbolRoles: 0 }  // REF
+//     ]
+//   }
+// ]
+```
+
+**Options:**
+- `scopeId`: Limit export to a specific scope (omit for all scopes)
+- `includeReferences`: Include reference occurrences (default: `true`)
+- `symbolGenerator`: Custom function to generate qualified symbol names. Default format is `"scopeId::name"`.
+
+**Use case:** When a file changes during hot reload, export its SCIP occurrences to determine which symbols changed and which dependent files need recompilation. The SCIP format enables:
+- Tracking which symbols are defined/referenced in each file
+- Building cross-file dependency graphs for selective recompilation
+- Identifying downstream code that needs invalidation when symbols change
+- Supporting IDE features like go-to-definition and find-all-references
+
+The custom symbol generator allows integration with project-wide symbol naming schemes. For example, use `(name, scopeId) => "gml/script/" + name` to match the transpiler's qualified symbol format for scripts.
+
 ## Scope Modification Tracking
 
 The `ScopeTracker` maintains modification metadata for each scope, enabling efficient incremental hot reload by tracking when scopes change and identifying which scopes need recompilation.
@@ -305,6 +349,29 @@ const mostRecent = tracker.getMostRecentlyModifiedScope();
 ```
 
 **Use case:** Quick identification of the latest change in the symbol table for hot reload coordination and incremental invalidation.
+
+### `getScopeModificationDetails(scopeId)`
+
+Get detailed modification metadata for a specific scope, including counts of declarations and references tracked. This provides richer information than `getScopeModificationMetadata` for hot reload systems that need to understand what type of changes occurred in a scope.
+
+```javascript
+const details = tracker.getScopeModificationDetails("scope-1");
+// Returns: {
+//   scopeId: "scope-1",
+//   scopeKind: "function",
+//   lastModified: 1703123456789,
+//   modificationCount: 5,
+//   declarationCount: 2,
+//   referenceCount: 3,
+//   symbolCount: 2,
+//   symbols: [
+//     { name: "localVar", declarationCount: 1, referenceCount: 2 },
+//     { name: "param", declarationCount: 1, referenceCount: 1 }
+//   ]
+// }
+```
+
+**Use case:** Smart hot reload invalidation decisions. When a scope changes, query its modification details to understand the nature of the change. For example, if only references were added (no new declarations), dependent scopes may not need full recompilation. The per-symbol breakdown enables precise tracking of which symbols drive the modification count, helping hot reload systems prioritize invalidation of high-impact symbols over low-impact ones.
 
 ## Usage Context Tracking
 

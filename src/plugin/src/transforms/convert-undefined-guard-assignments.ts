@@ -3,23 +3,19 @@
  * This keeps downstream printers from emitting bloated conditionals when the intent is a fallback assignment.
  */
 import { Core, type MutableGameMakerAstNode } from "@gml-modules/core";
-import { FunctionalParserTransform } from "./functional-transform.js";
+import type { ParserTransform } from "./functional-transform.js";
 
 /**
  * Functional transform orchestrating the `if`-to-`??=` conversions.
  */
-export class ConvertUndefinedGuardAssignmentsTransform extends FunctionalParserTransform<
+export class ConvertUndefinedGuardAssignmentsTransform implements ParserTransform<
+    MutableGameMakerAstNode,
     Record<string, never>
 > {
-    constructor() {
-        super("convert-undefined-guard-assignments", {});
-    }
+    public readonly name = "convert-undefined-guard-assignments";
+    public readonly defaultOptions = Object.freeze({}) as Record<string, never>;
 
-    protected execute(
-        ast: MutableGameMakerAstNode,
-        _options: Record<string, never>
-    ): MutableGameMakerAstNode {
-        void _options;
+    public transform(ast: MutableGameMakerAstNode): MutableGameMakerAstNode {
         if (!Core.isObjectLike(ast)) {
             return ast;
         }

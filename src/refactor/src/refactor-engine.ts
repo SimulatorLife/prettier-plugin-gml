@@ -372,6 +372,7 @@ export class RefactorEngine {
             symbolName,
             normalizedNewName,
             occurrences,
+            this.semantic,
             this.semantic
         );
 
@@ -513,7 +514,10 @@ export class RefactorEngine {
                 !rename.symbolId ||
                 typeof rename.symbolId !== "string"
             ) {
-                // Skip invalid entries - they're already caught above
+                // Skip structural validation failures that were already flagged in the
+                // first pass. Continuing here prevents the duplicate-name detection logic
+                // from crashing on malformed entries while still letting the overall
+                // validation summary report the original structural errors.
                 continue;
             }
 
@@ -526,7 +530,11 @@ export class RefactorEngine {
                 }
                 newNameToSymbols.get(normalizedNewName).push(rename.symbolId);
             } catch {
-                // Skip invalid identifier names - they'll be caught by individual validation
+                // Skip invalid identifier names (e.g., reserved keywords, names with
+                // illegal characters) because they will be reported by the per-rename
+                // validation pass below. Continuing here allows the batch validator
+                // to collect duplicate-name conflicts for the valid subset without
+                // cascading failures from syntactically invalid targets.
                 continue;
             }
         }
@@ -581,7 +589,10 @@ export class RefactorEngine {
                 );
                 newNames.add(normalizedNewName);
             } catch {
-                // Skip invalid names
+                // Skip invalid identifier names during the collection phase.
+                // These will be caught and reported as errors in the individual
+                // rename validation pass, so continuing here lets the confusion-
+                // detection logic operate on the well-formed subset without failing.
                 continue;
             }
         }
@@ -609,7 +620,11 @@ export class RefactorEngine {
                     );
                 }
             } catch {
-                // Skip invalid names
+                // Skip invalid identifier names during the confusion-detection pass.
+                // Errors for these names will be surfaced in the main validation
+                // results, so continuing here prevents duplicate error reporting while
+                // still allowing the logic to warn about valid renames that might shadow
+                // original symbol names.
                 continue;
             }
         }
@@ -682,6 +697,7 @@ export class RefactorEngine {
             symbolName,
             normalizedNewName,
             occurrences,
+            this.semantic,
             this.semantic
         );
 
@@ -1418,6 +1434,7 @@ export class RefactorEngine {
                 summary.oldName,
                 normalizedNewName,
                 occurrences,
+                this.semantic,
                 this.semantic
             );
             conflicts.push(...detectedConflicts);
@@ -1813,6 +1830,7 @@ export class RefactorEngine {
             symbolName,
             newName,
             occurrences,
+            this.semantic,
             this.semantic
         );
 
@@ -2258,6 +2276,70 @@ export class RefactorEngine {
         }
 
         return patches;
+    }
+
+    /**
+     * Detect conflicts for a proposed rename operation.
+     * This method provides low-level conflict detection without throwing errors,
+     * making it ideal for IDE integrations that need to show inline warnings
+     * or CLI tools that want to preview potential issues before planning edits.
+     *
+     * @param {Object} request - Conflict detection request
+     * @param {string} request.oldName - Current symbol name
+     * @param {string} request.newName - Proposed new name
+     * @param {Array<{path: string, start: number, end: number, scopeId?: string}>} request.occurrences - Symbol occurrences
+     * @returns {Promise<Array<{type: string, message: string, severity?: string, path?: string}>>} Array of detected conflicts
+     *
+     * @example
+     * const conflicts = await engine.detectRenameConflicts({
+     *     oldName: "player_hp",
+     *     newName: "playerHealth",
+     *     occurrences: [
+     *         { path: "scripts/player.gml", start: 100, end: 109, scopeId: "gml/script/scr_player" }
+     *     ]
+     * });
+     *
+     * if (conflicts.length > 0) {
+     *     for (const conflict of conflicts) {
+     *         console.warn(`${conflict.type}: ${conflict.message}`);
+     *     }
+     * }
+     */
+    async detectRenameConflicts(request: {
+        oldName: string;
+        newName: string;
+        occurrences: Array<SymbolOccurrence>;
+    }): Promise<Array<ConflictEntry>> {
+        const { oldName, newName, occurrences } = request ?? {};
+
+        if (typeof oldName !== "string" || oldName.length === 0) {
+            throw new TypeError(
+                "detectRenameConflicts requires oldName as a non-empty string"
+            );
+        }
+
+        if (typeof newName !== "string" || newName.length === 0) {
+            throw new TypeError(
+                "detectRenameConflicts requires newName as a non-empty string"
+            );
+        }
+
+        if (!Array.isArray(occurrences)) {
+            throw new TypeError(
+                "detectRenameConflicts requires occurrences as an array"
+            );
+        }
+
+        // Pass semantic analyzer twice: once as SymbolResolver for scope lookups,
+        // once as KeywordProvider for reserved keyword checks. The SemanticAnalyzer
+        // interface supports both roles through optional method implementations.
+        return detectRenameConflicts(
+            oldName,
+            newName,
+            occurrences,
+            this.semantic,
+            this.semantic
+        );
     }
 }
 

@@ -300,7 +300,11 @@ function readCoverage(lcovFiles) {
                 }
             }
         } catch {
-            // Ignore read errors
+            // Ignore read errors when parsing LCOV files. If a coverage file is
+            // malformed, missing, or unreadable, the function continues processing
+            // with the coverage data it was able to parse so far. This resilience
+            // ensures the quality report can still be generated even when some
+            // coverage files are incomplete or corrupted.
         }
     }
     if (found <= 0) {
@@ -329,7 +333,11 @@ function readCheckstyle(checkstyleFiles) {
                 }
             }
         } catch {
-            // Ignore read errors
+            // Ignore read errors when parsing Checkstyle XML files. If a lint
+            // report file is malformed, missing, or unreadable, the function
+            // continues processing with the error/warning counts it was able to
+            // parse so far. This resilience ensures the quality report can still
+            // be generated even when some lint reports are incomplete or corrupted.
         }
     }
     return { warnings, errors };

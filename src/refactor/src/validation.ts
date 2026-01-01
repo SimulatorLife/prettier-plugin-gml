@@ -5,13 +5,14 @@
 
 import type {
     ConflictEntry,
+    KeywordProvider,
     RenameRequest,
-    SemanticAnalyzer,
-    SymbolOccurrence
+    SymbolOccurrence,
+    SymbolResolver
 } from "./types.js";
 import {
     assertValidIdentifierName,
-    getDefaultReservedKeywords
+    DEFAULT_RESERVED_KEYWORDS
 } from "./validation-utils.js";
 
 /**
@@ -21,14 +22,16 @@ import {
  * @param oldName - Original symbol name
  * @param newName - Proposed new name
  * @param occurrences - All occurrences of the symbol
- * @param semantic - Semantic analyzer for scope-aware checks
+ * @param resolver - Symbol resolver for scope-aware checks (null if not available)
+ * @param keywordProvider - Keyword provider for reserved keyword checks (null if not available)
  * @returns Array of detected conflicts
  */
 export async function detectRenameConflicts(
     oldName: string,
     newName: string,
     occurrences: Array<SymbolOccurrence>,
-    semantic: SemanticAnalyzer | null
+    resolver: Partial<SymbolResolver> | null,
+    keywordProvider: Partial<KeywordProvider> | null
 ): Promise<Array<ConflictEntry>> {
     const conflicts: Array<ConflictEntry> = [];
     let normalizedNewName: string;
@@ -49,12 +52,12 @@ export async function detectRenameConflicts(
     // name collides with an existing symbol in the same scope. For example,
     // renaming a local variable `x` to `y` when `y` is already defined in that
     // scope would hide the original `y`, breaking references to it.
-    if (semantic && typeof semantic.lookup === "function") {
+    if (resolver && typeof resolver.lookup === "function") {
         for (const occurrence of occurrences) {
             // Perform a scope-aware lookup for the new name at each occurrence
             // site. If we find an existing binding that isn't the symbol we're
             // renaming, record a conflict so the user can resolve it manually.
-            const existing = await semantic.lookup(
+            const existing = await resolver.lookup(
                 normalizedNewName,
                 occurrence.scopeId
             );
@@ -72,10 +75,14 @@ export async function detectRenameConflicts(
     // `function`) or built-in identifiers (like `self`, `global`). Allowing
     // such renames would cause syntax errors or silently bind user symbols to
     // language constructs, breaking both the parser and runtime semantics.
-    let reservedKeywords = getDefaultReservedKeywords();
+    let reservedKeywords = DEFAULT_RESERVED_KEYWORDS;
 
-    if (semantic && typeof semantic.getReservedKeywords === "function") {
-        const semanticReserved = (await semantic.getReservedKeywords()) ?? [];
+    if (
+        keywordProvider &&
+        typeof keywordProvider.getReservedKeywords === "function"
+    ) {
+        const semanticReserved =
+            (await keywordProvider.getReservedKeywords()) ?? [];
         reservedKeywords = new Set([
             ...reservedKeywords,
             ...semanticReserved.map((keyword) => keyword.toLowerCase())

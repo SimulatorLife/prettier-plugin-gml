@@ -1084,7 +1084,12 @@ function handleOrdinalDocPreferences({
             canonicalOrdinalMatchesDeclaredParam ||
             canonicalOrdinalMatchesImplicitAlias
         ) {
-            // Do not suppress if the ordinal name matches another declared parameter or an implicit alias.
+            // Do not suppress the canonical ordinal name (e.g., "argument0") if it
+            // matches an explicitly declared parameter or an implicit alias in the
+            // function signature. In these cases, the ordinal name is serving a
+            // legitimate documentation role and should appear in the synthetic @param
+            // list. Suppressing it would remove valid parameter documentation and
+            // create gaps in the generated JSDoc comment.
         } else {
             let suppressedCanonicals =
                 suppressedImplicitDocCanonicalByNode.get(node);
@@ -1128,8 +1133,8 @@ function applyImplicitNameOverride({
     const resolvedFallbackCanonical = fallbackCanonical;
     const shouldOverrideImplicitName = Boolean(
         canonicalOrdinal &&
-            canonicalOrdinal !== resolvedFallbackCanonical &&
-            canonicalOrdinal !== canonicalImplicit
+        canonicalOrdinal !== resolvedFallbackCanonical &&
+        canonicalOrdinal !== canonicalImplicit
     );
 
     if (!shouldOverrideImplicitName) {
