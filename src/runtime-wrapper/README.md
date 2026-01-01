@@ -79,16 +79,28 @@ Applies multiple patches atomically as a single operation. Either all patches su
 const wrapper = createRuntimeWrapper();
 
 const patches = [
-    { kind: "script", id: "script:player_move", js_body: "return args[0] * 2;" },
+    {
+        kind: "script",
+        id: "script:player_move",
+        js_body: "return args[0] * 2;"
+    },
     { kind: "event", id: "obj_player#Step", js_body: "this.x += 1;" },
-    { kind: "closure", id: "closure:counter", js_body: "let n = 0; return () => ++n;" }
+    {
+        kind: "closure",
+        id: "closure:counter",
+        js_body: "let n = 0; return () => ++n;"
+    }
 ];
 
 const result = wrapper.applyPatchBatch(patches);
 if (result.success) {
-    console.log(`Applied ${result.appliedCount} patches at version ${result.version}`);
+    console.log(
+        `Applied ${result.appliedCount} patches at version ${result.version}`
+    );
 } else {
-    console.error(`Batch failed at patch ${result.failedIndex}: ${result.message}`);
+    console.error(
+        `Batch failed at patch ${result.failedIndex}: ${result.message}`
+    );
     if (result.rolledBack) {
         console.log("All changes were rolled back");
     }
@@ -134,14 +146,18 @@ The undo stack size is automatically limited by the `maxUndoStackSize` option (d
 ```javascript
 const wrapper = createRuntimeWrapper({ maxUndoStackSize: 100 });
 
-wrapper.applyPatch({ kind: "script", id: "script:test", js_body: "return 42;" });
+wrapper.applyPatch({
+    kind: "script",
+    id: "script:test",
+    js_body: "return 42;"
+});
 console.log(wrapper.getUndoStackSize()); // 1
 
 for (let i = 0; i < 200; i++) {
-    wrapper.applyPatch({ 
-        kind: "script", 
-        id: `script:test${i}`, 
-        js_body: `return ${i};` 
+    wrapper.applyPatch({
+        kind: "script",
+        id: `script:test${i}`,
+        js_body: `return ${i};`
     });
 }
 console.log(wrapper.getUndoStackSize()); // 100 (capped at maxUndoStackSize)
@@ -288,7 +304,11 @@ Clears all patches from the registry (scripts, events, and closures) and resets 
 ```javascript
 const wrapper = createRuntimeWrapper();
 
-wrapper.applyPatch({ kind: "script", id: "script:test", js_body: "return 42;" });
+wrapper.applyPatch({
+    kind: "script",
+    id: "script:test",
+    js_body: "return 42;"
+});
 console.log(wrapper.hasScript("script:test")); // true
 
 wrapper.clearRegistry();
@@ -309,17 +329,21 @@ Validates the integrity of the runtime registry and returns a health report. Thi
 - `healthy` (boolean): `true` if no issues detected, `false` otherwise
 - `version` (number): Current registry version at the time of the check
 - `issues` (array): List of detected problems, each containing:
-  - `severity`: Either `"warning"` or `"error"`
-  - `category`: Issue type (`"function-type"`, `"id-format"`, or `"collection-integrity"`)
-  - `message`: Human-readable description
-  - `affectedId`: The registry ID that triggered the issue (if applicable)
+    - `severity`: Either `"warning"` or `"error"`
+    - `category`: Issue type (`"function-type"`, `"id-format"`, or `"collection-integrity"`)
+    - `message`: Human-readable description
+    - `affectedId`: The registry ID that triggered the issue (if applicable)
 
 **Example:**
 
 ```javascript
 const wrapper = createRuntimeWrapper();
 
-wrapper.applyPatch({ kind: "script", id: "script:test", js_body: "return 42;" });
+wrapper.applyPatch({
+    kind: "script",
+    id: "script:test",
+    js_body: "return 42;"
+});
 
 // Validate registry integrity
 const health = wrapper.checkRegistryHealth();
@@ -337,6 +361,7 @@ if (health.healthy) {
 ```
 
 **Use cases:**
+
 - Detecting accidental registry corruption during development
 - Validating registry state before critical operations
 - Building health monitoring dashboards
@@ -406,7 +431,9 @@ const metrics = client.getConnectionMetrics();
 console.log(`Received ${metrics.patchesReceived} patches`);
 console.log(`Applied ${metrics.patchesApplied} patches`);
 console.log(`Failed ${metrics.patchesFailed} patches`);
-console.log(`Success rate: ${((metrics.patchesApplied / metrics.patchesReceived) * 100).toFixed(1)}%`);
+console.log(
+    `Success rate: ${((metrics.patchesApplied / metrics.patchesReceived) * 100).toFixed(1)}%`
+);
 
 if (metrics.lastPatchReceivedAt) {
     const timeSinceLastPatch = Date.now() - metrics.lastPatchReceivedAt;
@@ -415,16 +442,51 @@ if (metrics.lastPatchReceivedAt) {
 ```
 
 The metrics object is frozen to prevent accidental modification. Use these metrics for:
+
 - Monitoring connection quality
 - Debugging patch application failures
 - Tracking hot-reload performance
 - Building diagnostic dashboards
 - Detecting connection issues
 
+#### `resetConnectionMetrics()`
+
+Resets all connection metrics to their initial state. This is useful for starting fresh metric collection in long-running development sessions or for testing scenarios that require clean metric baselines.
+
+**Example:**
+
+```javascript
+const client = createWebSocketClient({ wrapper });
+
+// Use client and accumulate metrics...
+client.connect();
+
+// Later, start a fresh monitoring period
+client.resetConnectionMetrics();
+
+const metrics = client.getConnectionMetrics();
+console.log(metrics.patchesReceived); // 0
+console.log(metrics.patchesApplied); // 0
+console.log(metrics.lastConnectedAt); // null
+```
+
+**Use cases:**
+
+- Starting fresh metric windows in long-running development sessions
+- Resetting metrics between different development tasks
+- Testing scenarios that require clean metric baselines
+- Implementing sliding time-window metrics collection
+- Isolating metrics for specific debugging sessions
+
+**Note:** Resetting metrics does not affect the actual connection state. If the client is currently connected, it remains connected after calling `resetConnectionMetrics()`.
+
 **Example Usage:**
 
 ```javascript
-import { createRuntimeWrapper, createWebSocketClient } from "@prettier-plugin-gml/runtime-wrapper";
+import {
+    createRuntimeWrapper,
+    createWebSocketClient
+} from "@prettier-plugin-gml/runtime-wrapper";
 
 // Create wrapper
 const wrapper = createRuntimeWrapper({
@@ -484,12 +546,18 @@ const wrapper = createRuntimeWrapper({
 // Apply several patches
 wrapper.applyPatch({ kind: "script", id: "script:a", js_body: "return 1;" });
 wrapper.applyPatch({ kind: "script", id: "script:b", js_body: "return 2;" });
-wrapper.applyPatch({ kind: "event", id: "obj_test#Step", js_body: "this.x++;" });
+wrapper.applyPatch({
+    kind: "event",
+    id: "obj_test#Step",
+    js_body: "this.x++;"
+});
 
 // Get detailed performance statistics
 const stats = wrapper.getPatchStats();
 console.log(`Total patches applied: ${stats.appliedPatches}`);
-console.log(`Average patch time: ${stats.averagePatchDurationMs?.toFixed(2)}ms`);
+console.log(
+    `Average patch time: ${stats.averagePatchDurationMs?.toFixed(2)}ms`
+);
 console.log(`Median (p50): ${stats.p50DurationMs?.toFixed(2)}ms`);
 console.log(`90th percentile: ${stats.p90DurationMs?.toFixed(2)}ms`);
 console.log(`99th percentile: ${stats.p99DurationMs?.toFixed(2)}ms`);
@@ -499,7 +567,7 @@ console.log(`Total time: ${stats.totalDurationMs}ms`);
 
 // Get detailed history with timing for each patch
 const history = wrapper.getPatchHistory();
-history.forEach(entry => {
+history.forEach((entry) => {
     if (entry.action === "apply" && entry.durationMs !== undefined) {
         console.log(`${entry.patch.id}: ${entry.durationMs}ms`);
     }
@@ -507,6 +575,7 @@ history.forEach(entry => {
 ```
 
 Performance metrics help identify:
+
 - Slow patch applications that may indicate complex transformations
 - Performance regressions when updating the transpiler or patch logic
 - Opportunities to optimize hot-reload performance
@@ -522,6 +591,7 @@ The runtime wrapper provides a unified event system for tracking all registry ch
 The `onChange` listener receives one of four event types:
 
 #### `patch-applied`
+
 Emitted when a patch is successfully applied to the registry.
 
 ```javascript
@@ -533,6 +603,7 @@ Emitted when a patch is successfully applied to the registry.
 ```
 
 #### `patch-undone`
+
 Emitted when a patch is successfully undone via `wrapper.undo()`.
 
 ```javascript
@@ -544,6 +615,7 @@ Emitted when a patch is successfully undone via `wrapper.undo()`.
 ```
 
 #### `patch-rolled-back`
+
 Emitted when a patch is applied but then automatically rolled back due to an error.
 
 ```javascript
@@ -558,6 +630,7 @@ Emitted when a patch is applied but then automatically rolled back due to an err
 **Note:** This event is only emitted when an actual rollback occurs (i.e., after a patch was applied and then failed). Validation failures that occur before patch application do not emit rollback events.
 
 #### `registry-cleared`
+
 Emitted when the entire registry is cleared via `wrapper.clearRegistry()`.
 
 ```javascript
@@ -612,6 +685,7 @@ console.log(`Audit log contains ${auditLog.length} events`);
 The lifecycle hooks enable several useful patterns:
 
 **State synchronization:**
+
 ```javascript
 const wrapper = createRuntimeWrapper({
     onChange: (event) => {
@@ -624,12 +698,13 @@ const wrapper = createRuntimeWrapper({
 ```
 
 **Debugging and diagnostics:**
+
 ```javascript
 const wrapper = createRuntimeWrapper({
     onChange: (event) => {
         // Log all changes for debugging
         debugLogger.trace("Registry change", event);
-        
+
         // Emit metrics
         if (event.type === "patch-rolled-back") {
             metrics.increment("patch.rollback");
@@ -639,6 +714,7 @@ const wrapper = createRuntimeWrapper({
 ```
 
 **UI updates:**
+
 ```javascript
 const wrapper = createRuntimeWrapper({
     onChange: (event) => {
