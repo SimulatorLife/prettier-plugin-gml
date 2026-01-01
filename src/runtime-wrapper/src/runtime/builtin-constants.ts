@@ -110,13 +110,13 @@ function buildColorConstants(
     globalScope: Record<string, unknown>
 ): ConstantMap {
     const makeColor = resolveColorFactory(globalScope);
-    const colors: ConstantMap = {};
 
-    for (const [name, rgb] of Object.entries(COLOR_RGB)) {
-        colors[name] = makeColor(rgb[0], rgb[1], rgb[2]);
-    }
-
-    return colors;
+    return Object.fromEntries(
+        Object.entries(COLOR_RGB).map(([name, rgb]) => [
+            name,
+            makeColor(rgb[0], rgb[1], rgb[2])
+        ])
+    );
 }
 
 export function resolveBuiltinConstants(
