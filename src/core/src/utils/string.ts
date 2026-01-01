@@ -690,21 +690,5 @@ export function toNormalizedLowerCaseSet(
         errorMessage
     });
 
-    // Avoid allocating an intermediate array via `Array#map` when converting the
-    // normalized values to lowercase. This helper sits on the CLI option parsing hot path
-    // and is invoked repeatedly during initialization, file watching, and configuration
-    // reloads. Even though a `.map(...).forEach(...)` chain would be more concise, it
-    // creates an ephemeral array that immediately becomes garbage after the Set is populated,
-    // adding unnecessary allocation churn. The manual loop approach builds the Set directly
-    // without intermediate allocations, which keeps the overhead low for a function that
-    // runs frequently but isn't performance-critical enough to justify more complex
-    // optimizations. This is a small but deliberate tradeoff favoring allocation efficiency
-    // over code brevity, especially valuable when processing large configuration arrays or
-    // repeatedly validating user-provided string lists during watch mode.
-    const normalizedSet = new Set();
-    for (const entry of normalizedValues) {
-        normalizedSet.add(entry.toLowerCase());
-    }
-
-    return normalizedSet;
+    return new Set(normalizedValues.map((entry) => entry.toLowerCase()));
 }
