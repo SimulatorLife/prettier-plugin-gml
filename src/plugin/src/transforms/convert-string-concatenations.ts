@@ -397,7 +397,12 @@ export class ConvertStringConcatenationsTransform
             return raw.slice(1, -1);
         }
 
-        // Handle @"..." strings
+        // Handle verbatim string literals (e.g., @"...") where the '@' prefix
+        // indicates a raw string that may contain escape sequences or special
+        // characters. These strings are common in GML for file paths and regex
+        // patterns. Stripping both the '@' prefix and the enclosing quotes
+        // extracts the raw content so the concatenation transform can operate
+        // on the actual string value rather than the syntax wrapper.
         if (first === "@" && raw.charAt(1) === '"' && last === '"') {
             return raw.slice(2, -1);
         }
