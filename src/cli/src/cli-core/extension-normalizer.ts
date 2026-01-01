@@ -41,41 +41,33 @@ function coerceExtensionValue(value: unknown): string | null {
     return normalizeExtensionSuffix(cleaned);
 }
 
+function splitExtensionInput(value: unknown): Array<string> {
+    return normalizeStringList(value, {
+        splitPattern: EXTENSION_LIST_SPLIT_PATTERN,
+        allowInvalidType: true
+    }) as Array<string>;
+}
+
 export function normalizeExtensions(
     rawExtensions: ExtensionInput,
     fallbackExtensions: ReadonlyArray<string> = []
 ): Array<string> {
     const fragments: Array<string> = [];
-    const splitOptions = {
-        splitPattern: EXTENSION_LIST_SPLIT_PATTERN,
-        allowInvalidType: true
-    } as const;
 
     if (typeof rawExtensions === "string") {
-        fragments.push(
-            ...(normalizeStringList(
-                rawExtensions,
-                splitOptions
-            ) as Array<string>)
-        );
-    } else if (rawExtensions?.[Symbol.iterator]) {
+        fragments.push(...splitExtensionInput(rawExtensions));
+    } else if (
+        rawExtensions &&
+        typeof rawExtensions !== "string" &&
+        rawExtensions[Symbol.iterator]
+    ) {
         for (const candidate of rawExtensions) {
             if (typeof candidate === "string") {
-                fragments.push(
-                    ...(normalizeStringList(
-                        candidate,
-                        splitOptions
-                    ) as Array<string>)
-                );
+                fragments.push(...splitExtensionInput(candidate));
             }
         }
     } else {
-        fragments.push(
-            ...(normalizeStringList(
-                rawExtensions,
-                splitOptions
-            ) as Array<string>)
-        );
+        fragments.push(...splitExtensionInput(rawExtensions));
     }
 
     const coerced = fragments.map((fragment) => coerceExtensionValue(fragment));
