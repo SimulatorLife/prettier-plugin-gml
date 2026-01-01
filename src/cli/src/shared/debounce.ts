@@ -81,7 +81,11 @@ export function debounce<TArgs extends Array<unknown>>(
                 try {
                     fn(...argsToUse);
                 } catch {
-                    // Silently ignore errors to prevent uncaught exceptions
+                    // Silently ignore errors to prevent uncaught exceptions from
+                    // propagating out of the debounce timer callback. If the wrapped
+                    // function throws, the error is swallowed to keep the debounce
+                    // mechanism stable and avoid crashing the host process. Callers
+                    // should handle errors inside their own function if recovery is needed.
                 }
             }
         }, delayMs);
@@ -100,7 +104,11 @@ export function debounce<TArgs extends Array<unknown>>(
             try {
                 fn(...argsToUse);
             } catch {
-                // Silently ignore errors to prevent uncaught exceptions
+                // Silently ignore errors to prevent uncaught exceptions from
+                // propagating out of the flush method. If the wrapped function
+                // throws during flush, the error is swallowed to keep the debounce
+                // mechanism stable and avoid crashing the host process. Callers
+                // should handle errors inside their own function if recovery is needed.
             }
         }
     };

@@ -267,7 +267,12 @@ function tryPromoteToDocComment(
     slashesMatch: RegExpMatchArray | null,
     isPlainTripleSlash: boolean
 ): string | null {
-    // Handle "/ @tag" pattern (single slash before @ tag)
+    // Handle the "/ @tag" pattern where a single forward slash appears before
+    // a JSDoc tag (e.g., "// / @param x"). This pattern is treated as a
+    // documentation-style comment that should be normalized to the standard
+    // "/// @param x" form. Detecting and rewriting this pattern ensures that
+    // doc-like comments are consistently formatted, even when the original
+    // source uses non-standard spacing or slash counts.
     if (
         slashesMatch &&
         !isPlainTripleSlash &&
@@ -762,8 +767,12 @@ function splitCommentIntoSentences(text) {
     while ((nextIndex = text.indexOf(". ", currentIndex)) !== -1) {
         // Extract sentence including the period (but not the space)
         sentences.push(text.slice(currentIndex, nextIndex + 1).trim());
-        // Move past the ". " to start the next sentence
-        currentIndex = nextIndex + 2; // Skip ". "
+        // Move past the ". " separator to start the next sentence. Adding 2
+        // to the index skips both the period and the space, positioning the
+        // cursor at the first character of the following sentence. This ensures
+        // the sentence-splitting logic does not include trailing punctuation
+        // or leading spaces in the extracted sentence text.
+        currentIndex = nextIndex + 2;
     }
 
     // Add the remaining part if any

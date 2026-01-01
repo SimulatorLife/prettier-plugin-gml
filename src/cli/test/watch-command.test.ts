@@ -119,7 +119,11 @@ void describe("watch command integration", () => {
         } catch (error) {
             // Clean up on error
             await rm(testDir, { recursive: true, force: true }).catch(() => {
-                // Ignore cleanup errors
+                // Ignore cleanup errors during exception unwinding. The test is
+                // already failing (see `throw error` below), and a secondary cleanup
+                // failure should not mask the original test failure. This defensive
+                // approach ensures that the underlying error propagates cleanly to
+                // the test runner even if the temporary directory cannot be removed.
             });
             throw error;
         }
@@ -185,7 +189,11 @@ void describe("watch command integration", () => {
         } catch (error) {
             // Clean up on error
             await rm(testDir, { recursive: true, force: true }).catch(() => {
-                // Ignore cleanup errors
+                // Ignore cleanup errors during exception unwinding. The test is
+                // already failing (see `throw error` below), and a secondary cleanup
+                // failure should not mask the original test failure. This defensive
+                // approach ensures that the underlying error propagates cleanly to
+                // the test runner even if the temporary directory cannot be removed.
             });
             throw error;
         }

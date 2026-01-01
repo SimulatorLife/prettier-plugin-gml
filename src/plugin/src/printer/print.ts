@@ -4402,7 +4402,12 @@ function materializeParamDefaultsFromParamDefault(functionNode) {
                         (defaultNode as any)._featherOptionalParameter = true;
                     }
                 } catch {
-                    // Ignore errors when copying optional parameter marker
+                    // Ignore errors when copying the optional parameter marker.
+                    // If the marker property is absent or inaccessible, the printer
+                    // proceeds without marking the parameter as optional. This defensive
+                    // behavior prevents the optional-parameter detection logic from
+                    // crashing on AST nodes that lack the _featherOptionalParameter
+                    // metadata while still propagating the marker when it exists.
                 }
 
                 functionNode.params[i] = defaultNode;
@@ -4430,10 +4435,13 @@ function materializeParamDefaultsFromParamDefault(functionNode) {
                 // and downstream checks observe `value: "undefined"`.
                 right: { type: "Literal", value: "undefined" }
             };
-            // Do not mark synthesized trailing `= undefined` defaults
-            // as optional here; optionality should come from parser
-            // transforms or explicit doc comments so downstream
-            // heuristics remain consistent.
+            // Do not mark synthesized trailing `= undefined` defaults as optional
+            // here. Optionality markers should originate from the parser's transform
+            // pipeline or from explicit JSDoc @param annotations, not from the
+            // printer's fallback logic. Keeping the optionality decision upstream
+            // ensures that downstream heuristics (doc comment generation, Feather
+            // fixes, etc.) observe a consistent model of which parameters are truly
+            // optional versus which are merely receiving fallback defaults.
             functionNode.params[i] = defaultNode;
         }
 
