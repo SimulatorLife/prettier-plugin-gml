@@ -2277,6 +2277,67 @@ export class RefactorEngine {
 
         return patches;
     }
+
+    /**
+     * Detect conflicts for a proposed rename operation.
+     * This method provides low-level conflict detection without throwing errors,
+     * making it ideal for IDE integrations that need to show inline warnings
+     * or CLI tools that want to preview potential issues before planning edits.
+     *
+     * @param {Object} request - Conflict detection request
+     * @param {string} request.oldName - Current symbol name
+     * @param {string} request.newName - Proposed new name
+     * @param {Array<{path: string, start: number, end: number, scopeId?: string}>} request.occurrences - Symbol occurrences
+     * @returns {Promise<Array<{type: string, message: string, severity?: string, path?: string}>>} Array of detected conflicts
+     *
+     * @example
+     * const conflicts = await engine.detectRenameConflicts({
+     *     oldName: "player_hp",
+     *     newName: "playerHealth",
+     *     occurrences: [
+     *         { path: "scripts/player.gml", start: 100, end: 109, scopeId: "gml/script/scr_player" }
+     *     ]
+     * });
+     *
+     * if (conflicts.length > 0) {
+     *     for (const conflict of conflicts) {
+     *         console.warn(`${conflict.type}: ${conflict.message}`);
+     *     }
+     * }
+     */
+    async detectRenameConflicts(request: {
+        oldName: string;
+        newName: string;
+        occurrences: Array<SymbolOccurrence>;
+    }): Promise<Array<ConflictEntry>> {
+        const { oldName, newName, occurrences } = request ?? {};
+
+        if (!oldName || typeof oldName !== "string") {
+            throw new TypeError(
+                "detectRenameConflicts requires oldName as a string"
+            );
+        }
+
+        if (!newName || typeof newName !== "string") {
+            throw new TypeError(
+                "detectRenameConflicts requires newName as a string"
+            );
+        }
+
+        if (!Array.isArray(occurrences)) {
+            throw new TypeError(
+                "detectRenameConflicts requires occurrences as an array"
+            );
+        }
+
+        return detectRenameConflicts(
+            oldName,
+            newName,
+            occurrences,
+            this.semantic,
+            this.semantic
+        );
+    }
 }
 
 export function createRefactorEngine(
