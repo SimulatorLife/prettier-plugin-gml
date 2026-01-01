@@ -4269,7 +4269,7 @@ function fixArgumentReferencesWithinFunction(
     functionNode,
     diagnostic,
     collectionService,
-    documentedParamNames = new Set(),
+    documentedParamNames,
     sourceText
 ) {
     // Merge in names found by Core.buildDocumentedParamNameLookup

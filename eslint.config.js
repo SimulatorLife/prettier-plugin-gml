@@ -48,6 +48,7 @@ const baseIgnorePatterns = [
     "./resources/**",
     "**/vendor/**",
     "**/dist/**",
+    "**/generated/**",
     "**/reports/**",
     "**/*.gml",
     ".DS_Store",

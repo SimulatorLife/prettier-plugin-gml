@@ -126,7 +126,11 @@ async function format(source: string, options: SupportOptions = {}) {
     const previousDocCommentEnv =
         process.env.PRETTIER_PLUGIN_GML_DOC_COMMENT_MAX_WRAP_WIDTH;
 
-    if (docCommentMaxWrapWidth !== undefined) {
+    if (
+        docCommentMaxWrapWidth !== undefined &&
+        (typeof docCommentMaxWrapWidth === "string" ||
+            typeof docCommentMaxWrapWidth === "number")
+    ) {
         process.env.PRETTIER_PLUGIN_GML_DOC_COMMENT_MAX_WRAP_WIDTH = String(
             docCommentMaxWrapWidth
         );

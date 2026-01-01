@@ -585,22 +585,25 @@ function findFollowingNodeForComment(ast, comment) {
             if (key === "comments" || key === "docComments") {
                 continue;
             }
-
-            if (value && typeof value === "object") {
-                if (Array.isArray(value)) {
-                    for (const entry of value) {
-                        if (entry && typeof entry === "object") {
-                            stack.push(entry);
-                        }
-                    }
-                } else {
-                    stack.push(value);
-                }
-            }
+            pushChildrenToStack(stack, value);
         }
     }
 
     return candidate;
+}
+
+function pushChildrenToStack(stack, value) {
+    if (value && typeof value === "object") {
+        if (Array.isArray(value)) {
+            for (const entry of value) {
+                if (entry && typeof entry === "object") {
+                    stack.push(entry);
+                }
+            }
+        } else {
+            stack.push(value);
+        }
+    }
 }
 
 function getCommentEndIndex(comment) {
