@@ -5,7 +5,7 @@ const COLUMN_FIELDS = ["column", "col", "columnStart", "first_column"];
 const INDEX_FIELDS = ["index", "offset"];
 
 function isNullOrUndefined(value) {
-    return value === undefined || value === null;
+    return value == null;
 }
 
 function getFirstDefined(location, fields) {

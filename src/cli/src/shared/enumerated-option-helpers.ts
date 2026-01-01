@@ -43,7 +43,7 @@ export function createEnumeratedOptionHelpers(
             value: unknown,
             fallback: EnumeratedValue | null = null
         ) => {
-            if (value === undefined || value === null) {
+            if (value == null) {
                 return fallback;
             }
             const normalized = toNormalizedLowerCaseString(value);
@@ -96,7 +96,7 @@ export function createStringEnumeratedOptionHelpers(
             value: unknown,
             fallback: EnumeratedValue | null = null
         ) => {
-            if (value === undefined || value === null) {
+            if (value == null) {
                 return fallback;
             }
             if (typeof value !== "string") {

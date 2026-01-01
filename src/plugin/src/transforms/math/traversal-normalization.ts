@@ -3836,7 +3836,7 @@ function areLiteralNumbersApproximatelyEqual(left, right) {
 
 function isLiteralNumber(node, expected, tolerance?) {
     const value = parseNumericLiteral(node);
-    if (value === undefined || value === null) {
+    if (value == null) {
         return false;
     }
 

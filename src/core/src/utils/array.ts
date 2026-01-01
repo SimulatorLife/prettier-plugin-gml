@@ -314,7 +314,7 @@ export function mergeUniqueValues(
 
     for (const rawValue of toArrayFromIterable(additionalValues)) {
         const value = normalize(rawValue);
-        if (value === null || value === undefined) {
+        if (value == null) {
             continue;
         }
 

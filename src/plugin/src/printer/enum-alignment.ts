@@ -80,7 +80,7 @@ export function getEnumNameAlignmentPadding(member) {
 }
 
 function getEnumInitializerWidth(initializer) {
-    if (initializer === undefined || initializer === null) {
+    if (initializer == null) {
         return 0;
     }
 
