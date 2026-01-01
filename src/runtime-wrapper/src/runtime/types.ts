@@ -247,8 +247,7 @@ export interface RuntimeMetrics {
  * rather than this composite interface when possible.
  */
 export interface RuntimeWrapper
-    extends
-        PatchApplicator,
+    extends PatchApplicator,
         HistoryManager,
         RegistryReader,
         RegistryMutator,

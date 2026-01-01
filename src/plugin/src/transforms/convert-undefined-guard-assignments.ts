@@ -8,10 +8,9 @@ import type { ParserTransform } from "./functional-transform.js";
 /**
  * Functional transform orchestrating the `if`-to-`??=` conversions.
  */
-export class ConvertUndefinedGuardAssignmentsTransform implements ParserTransform<
-    MutableGameMakerAstNode,
-    Record<string, never>
-> {
+export class ConvertUndefinedGuardAssignmentsTransform
+    implements ParserTransform<MutableGameMakerAstNode, Record<string, never>>
+{
     public readonly name = "convert-undefined-guard-assignments";
     public readonly defaultOptions = Object.freeze({}) as Record<string, never>;
 

@@ -135,8 +135,7 @@ export interface EditValidator {
  * rather than this composite interface when possible.
  */
 export interface SemanticAnalyzer
-    extends
-        Partial<SymbolResolver>,
+    extends Partial<SymbolResolver>,
         Partial<OccurrenceTracker>,
         Partial<FileSymbolProvider>,
         Partial<DependencyAnalyzer>,

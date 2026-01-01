@@ -91,16 +91,17 @@ interface WatchCommandOptions {
     watchFactory?: WatchFactory;
 }
 
-interface RuntimeContext extends Omit<
-    TranspilationContext,
-    | "transpiler"
-    | "patches"
-    | "metrics"
-    | "errors"
-    | "lastSuccessfulPatches"
-    | "maxPatchHistory"
-    | "websocketServer"
-> {
+interface RuntimeContext
+    extends Omit<
+        TranspilationContext,
+        | "transpiler"
+        | "patches"
+        | "metrics"
+        | "errors"
+        | "lastSuccessfulPatches"
+        | "maxPatchHistory"
+        | "websocketServer"
+    > {
     root: string | null;
     packageName: string | null;
     packageJson: Record<string, unknown> | null;

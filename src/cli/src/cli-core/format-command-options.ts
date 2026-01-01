@@ -28,7 +28,8 @@ export interface CollectFormatCommandOptionsParameters {
 }
 
 export interface FormatCommandOptionsResult
-    extends FormatCommandSampleLimits, ResolvedPrettierConfiguration {
+    extends FormatCommandSampleLimits,
+        ResolvedPrettierConfiguration {
     targetPathInput: unknown;
     targetPathProvided: boolean;
     extensions: Array<string>;

@@ -17,10 +17,13 @@ type ConvertStringConcatenationsTransformOptions = {
 /**
  * Hook that exposes the string concatenation cleanup logic to the parser transform pipeline.
  */
-export class ConvertStringConcatenationsTransform implements ParserTransform<
-    MutableGameMakerAstNode,
-    ConvertStringConcatenationsTransformOptions
-> {
+export class ConvertStringConcatenationsTransform
+    implements
+        ParserTransform<
+            MutableGameMakerAstNode,
+            ConvertStringConcatenationsTransformOptions
+        >
+{
     public readonly name = "convert-string-concatenations";
     public readonly defaultOptions = Object.freeze(
         {}

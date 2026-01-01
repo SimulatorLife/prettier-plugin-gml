@@ -29,7 +29,8 @@ export interface CommanderAddCommandOptions {
 export type CommanderActionHandler = (...args: Array<unknown>) => unknown;
 
 export interface CommanderCommandHost
-    extends CommanderUsageProvider, CommanderLifecycle {
+    extends CommanderUsageProvider,
+        CommanderLifecycle {
     addCommand?: (
         command: CommanderCommandHost,
         options?: CommanderAddCommandOptions
