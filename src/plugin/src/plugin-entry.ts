@@ -87,15 +87,14 @@ function stripFunctionTagComments(formatted: string): string {
 function extractOptionDefaults(
     optionConfigMap: SupportOptions
 ): Record<string, unknown> {
-    const defaults: Record<string, unknown> = {};
-
-    for (const [name, config] of Object.entries(optionConfigMap)) {
-        if (config && Object.hasOwn(config, "default")) {
-            defaults[name] = (config as { default?: unknown }).default;
-        }
-    }
-
-    return defaults;
+    return Object.fromEntries(
+        Object.entries(optionConfigMap)
+            .filter(([, config]) => config && Object.hasOwn(config, "default"))
+            .map(([name, config]) => [
+                name,
+                (config as { default?: unknown }).default
+            ])
+    );
 }
 
 function computeOptionDefaults(): Record<string, unknown> {
