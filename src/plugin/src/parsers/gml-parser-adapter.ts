@@ -362,6 +362,9 @@ function applyStructuralTransforms(
 ): void {
     Transforms.preprocessFunctionArgumentDefaultsTransform.transform(ast);
 
+    // Normalize data structure accessor operators based on variable names
+    Transforms.normalizeDataStructureAccessorsTransform.transform(ast);
+
     if (options?.applyFeatherFixes) {
         const featherOptions = options
             ? { ...options, removeStandaloneVertexEnd: true }
