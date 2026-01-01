@@ -50,8 +50,7 @@ export interface StatusServerOptions {
  * interface when possible.
  */
 export interface StatusServerController
-    extends ServerEndpoint,
-        ServerLifecycle {}
+    extends ServerEndpoint, ServerLifecycle {}
 
 const DEFAULT_STATUS_HOST = "127.0.0.1";
 const DEFAULT_STATUS_PORT = 17_891;

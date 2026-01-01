@@ -90,9 +90,8 @@ void describe("watch command integration", () => {
         await mkdir(testDir, { recursive: true });
 
         try {
-            const { runWatchCommand } = await import(
-                "../src/commands/watch.js"
-            );
+            const { runWatchCommand } =
+                await import("../src/commands/watch.js");
 
             const abortController = new AbortController();
 
@@ -141,9 +140,8 @@ void describe("watch command integration", () => {
         const testFile = path.join(testDir, "test_script.gml");
 
         try {
-            const { runWatchCommand } = await import(
-                "../src/commands/watch.js"
-            );
+            const { runWatchCommand } =
+                await import("../src/commands/watch.js");
 
             const abortController = new AbortController();
 
