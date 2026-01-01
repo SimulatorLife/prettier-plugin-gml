@@ -69,4 +69,10 @@ export interface RuntimeWebSocketClient {
      * Returns connection health metrics for diagnostics and monitoring.
      */
     getConnectionMetrics(): Readonly<WebSocketConnectionMetrics>;
+    /**
+     * Resets all connection metrics to their initial state.
+     * Useful for starting fresh metric collection in long-running sessions
+     * or for testing scenarios that require clean metric baselines.
+     */
+    resetConnectionMetrics(): void;
 }

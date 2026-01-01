@@ -15,6 +15,23 @@ import type {
     WebSocketConnectionMetrics
 } from "./types.js";
 
+function createInitialMetrics(): WebSocketConnectionMetrics {
+    return {
+        totalConnections: 0,
+        totalDisconnections: 0,
+        totalReconnectAttempts: 0,
+        patchesReceived: 0,
+        patchesApplied: 0,
+        patchesFailed: 0,
+        lastConnectedAt: null,
+        lastDisconnectedAt: null,
+        lastPatchReceivedAt: null,
+        lastPatchAppliedAt: null,
+        connectionErrors: 0,
+        patchErrors: 0
+    };
+}
+
 export function createWebSocketClient({
     url = "ws://127.0.0.1:17890",
     wrapper = null,
@@ -29,20 +46,7 @@ export function createWebSocketClient({
         isConnected: false,
         reconnectTimer: null,
         manuallyDisconnected: false,
-        connectionMetrics: {
-            totalConnections: 0,
-            totalDisconnections: 0,
-            totalReconnectAttempts: 0,
-            patchesReceived: 0,
-            patchesApplied: 0,
-            patchesFailed: 0,
-            lastConnectedAt: null,
-            lastDisconnectedAt: null,
-            lastPatchReceivedAt: null,
-            lastPatchAppliedAt: null,
-            connectionErrors: 0,
-            patchErrors: 0
-        }
+        connectionMetrics: createInitialMetrics()
     };
 
     const applyIncomingPatch = (incoming: unknown): boolean => {
@@ -154,6 +158,10 @@ export function createWebSocketClient({
         return Object.freeze({ ...state.connectionMetrics });
     }
 
+    function resetConnectionMetrics(): void {
+        state.connectionMetrics = createInitialMetrics();
+    }
+
     if (autoConnect) {
         connect();
     }
@@ -164,7 +172,8 @@ export function createWebSocketClient({
         isConnected,
         send,
         getWebSocket,
-        getConnectionMetrics
+        getConnectionMetrics,
+        resetConnectionMetrics
     };
 }
 
