@@ -557,3 +557,47 @@ export function incrementMapValue(
     mapStore.set(key, next);
     return next;
 }
+
+/**
+ * Safely extract a string property from an object-like value, returning `null`
+ * when the object is not object-like or the property is not a string.
+ *
+ * Consolidates the repeated pattern of checking whether a value is object-like
+ * before accessing a property and verifying that the property is a string. This
+ * helper appears throughout the codebase when parsing diagnostic metadata,
+ * configuration objects, or other loosely-typed structures.
+ *
+ * @param {unknown} obj Candidate object containing the property.
+ * @param {string} key Property name to extract.
+ * @returns {string | null} The string value at {@link key}, or `null` when the
+ *          object is not object-like or the property is not a string.
+ */
+export function getOptionalString(obj: unknown, key: string): string | null {
+    if (!isObjectLike(obj)) {
+        return null;
+    }
+    const value = (obj as Record<string, unknown>)[key];
+    return typeof value === "string" ? value : null;
+}
+
+/**
+ * Safely extract an array property from an object-like value, returning an empty
+ * array when the object is not object-like or the property is not an array.
+ *
+ * Consolidates the repeated pattern of checking whether a value is object-like
+ * before accessing a property and verifying that the property is an array. This
+ * helper appears throughout the codebase when parsing diagnostic metadata,
+ * configuration objects, or other loosely-typed structures.
+ *
+ * @param {unknown} obj Candidate object containing the property.
+ * @param {string} key Property name to extract.
+ * @returns {unknown[]} The array value at {@link key}, or an empty array when the
+ *          object is not object-like or the property is not an array.
+ */
+export function getOptionalArray(obj: unknown, key: string): unknown[] {
+    if (!isObjectLike(obj)) {
+        return [];
+    }
+    const value = (obj as Record<string, unknown>)[key];
+    return Array.isArray(value) ? value : [];
+}
