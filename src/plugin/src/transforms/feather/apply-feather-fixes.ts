@@ -327,7 +327,12 @@ function applyFeatherFixesImpl(ast: any, opts: ApplyFeatherFixesOptions = {}) {
     try {
         updateStaticFunctionDocComments(ast);
     } catch {
-        // Ignore errors
+        // Ignore errors during static function doc comment updates. If the
+        // update logic encounters malformed AST nodes, missing metadata, or
+        // incompatible node structures, the Feather fix transform continues
+        // processing with the doc comments it was able to update. This resilience
+        // ensures that a single problematic function does not prevent the entire
+        // Feather fix pipeline from completing.
     }
 
     // Populate documented param names so Feather fixes can respect JSDoc @param tags
@@ -503,7 +508,12 @@ function applyFeatherFixesImpl(ast: any, opts: ApplyFeatherFixesOptions = {}) {
             // We need to be careful not to walk into nested functions
             if (node.body) {
                 walkAstNodes(node.body, (child) => {
-                    // Don't descend into nested functions
+                    // Do not descend into nested function declarations because
+                    // argument0, argument1, etc. inside a nested function refer to
+                    // that nested function's parameters, not the outer function's.
+                    // Descending would incorrectly flag those inner references as
+                    // belonging to the outer function's parameter list, leading to
+                    // spurious or conflicting @param entries in the outer doc comment.
                     if (
                         child.type === "FunctionDeclaration" ||
                         child.type === "StructFunctionDeclaration"

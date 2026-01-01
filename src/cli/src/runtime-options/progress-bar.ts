@@ -223,6 +223,10 @@ function disposeProgressBars(): void {
             bar.stop();
         } catch {
             // Ignore cleanup failures so disposal continues for remaining bars.
+            // If one progress bar fails to stop (e.g., due to terminal I/O errors),
+            // the cleanup loop must continue tearing down the other bars to avoid
+            // leaving orphaned progress indicators in the terminal. This resilience
+            // ensures all bars are given a chance to clean up, even if one fails.
         }
     }
     activeProgressBars.clear();

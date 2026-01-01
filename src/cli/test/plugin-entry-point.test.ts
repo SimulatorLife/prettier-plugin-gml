@@ -34,6 +34,10 @@ afterEach(() => {
             fs.rmSync(directory, { recursive: true, force: true });
         } catch {
             // Ignore cleanup errors so tests do not mask the underlying failure.
+            // If a test creates temporary files and then fails an assertion, the
+            // afterEach hook still attempts to clean up those files. A secondary
+            // failure during cleanup (e.g., permission denied, directory locked)
+            // should not obscure the original test failure in the test runner output.
         }
     }
 

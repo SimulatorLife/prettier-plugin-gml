@@ -513,7 +513,10 @@ export class RefactorEngine {
                 !rename.symbolId ||
                 typeof rename.symbolId !== "string"
             ) {
-                // Skip invalid entries - they're already caught above
+                // Skip structural validation failures that were already flagged in the
+                // first pass. Continuing here prevents the duplicate-name detection logic
+                // from crashing on malformed entries while still letting the overall
+                // validation summary report the original structural errors.
                 continue;
             }
 
@@ -526,7 +529,11 @@ export class RefactorEngine {
                 }
                 newNameToSymbols.get(normalizedNewName).push(rename.symbolId);
             } catch {
-                // Skip invalid identifier names - they'll be caught by individual validation
+                // Skip invalid identifier names (e.g., reserved keywords, names with
+                // illegal characters) because they will be reported by the per-rename
+                // validation pass below. Continuing here allows the batch validator
+                // to collect duplicate-name conflicts for the valid subset without
+                // cascading failures from syntactically invalid targets.
                 continue;
             }
         }
@@ -581,7 +588,10 @@ export class RefactorEngine {
                 );
                 newNames.add(normalizedNewName);
             } catch {
-                // Skip invalid names
+                // Skip invalid identifier names during the collection phase.
+                // These will be caught and reported as errors in the individual
+                // rename validation pass, so continuing here lets the confusion-
+                // detection logic operate on the well-formed subset without failing.
                 continue;
             }
         }
@@ -609,7 +619,11 @@ export class RefactorEngine {
                     );
                 }
             } catch {
-                // Skip invalid names
+                // Skip invalid identifier names during the confusion-detection pass.
+                // Errors for these names will be surfaced in the main validation
+                // results, so continuing here prevents duplicate error reporting while
+                // still allowing the logic to warn about valid renames that might shadow
+                // original symbol names.
                 continue;
             }
         }
