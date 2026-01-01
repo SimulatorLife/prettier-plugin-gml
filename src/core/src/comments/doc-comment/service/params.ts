@@ -1,4 +1,7 @@
-import { getNonEmptyString } from "../../../utils/string.js";
+import {
+    defaultDocCommentStringCoercions,
+    type DocCommentStringCoercions
+} from "./string-coercions.js";
 
 const STRING_TYPE = "string";
 
@@ -146,8 +149,11 @@ export function isOptionalParamDocName(name: unknown) {
     return trimmed.startsWith("[") && trimmed.endsWith("]");
 }
 
-export function normalizeParamDocType(typeText: string) {
-    return getNonEmptyString(typeText);
+export function normalizeParamDocType(
+    typeText: string,
+    coercions: DocCommentStringCoercions = defaultDocCommentStringCoercions
+) {
+    return coercions.coerceNonEmptyString(typeText);
 }
 
 export const preservedUndefinedDefaultParameters = new WeakSet<any>();
