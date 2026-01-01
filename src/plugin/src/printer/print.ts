@@ -3780,9 +3780,8 @@ function getMemberExpressionLength(expression) {
             return null;
         }
 
-        const propertyEntry = Core.getSingleMemberIndexPropertyEntry(
-            expression
-        );
+        const propertyEntry =
+            Core.getSingleMemberIndexPropertyEntry(expression);
         if (!propertyEntry) {
             return null;
         }
@@ -3807,7 +3806,9 @@ function getMemberExpressionLength(expression) {
                 ? expression.accessor
                 : "";
         const accessorLength =
-            accessorRaw.length > 1 ? accessorRaw.length + 1 : accessorRaw.length;
+            accessorRaw.length > 1
+                ? accessorRaw.length + 1
+                : accessorRaw.length;
 
         return objectLength + accessorLength + propertyLength + 1; // closing bracket
     }
@@ -3900,9 +3901,7 @@ function isArgumentAliasGap(text) {
         const match = statement.match(
             /^(?:var\s+)?[A-Za-z_][A-Za-z0-9_]*\s*=\s*(argument\d+)$/
         );
-        return (
-            !!match && Core.GML_ARGUMENT_IDENTIFIER_PATTERN.test(match[1])
-        );
+        return !!match && Core.GML_ARGUMENT_IDENTIFIER_PATTERN.test(match[1]);
     });
 }
 

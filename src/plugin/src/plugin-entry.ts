@@ -118,10 +118,7 @@ async function format(source: string, options: SupportOptions = {}) {
     const hasDocCommentMaxWrapWidth =
         options !== null &&
         typeof options === "object" &&
-        Object.prototype.hasOwnProperty.call(
-            options,
-            "docCommentMaxWrapWidth"
-        );
+        Object.prototype.hasOwnProperty.call(options, "docCommentMaxWrapWidth");
     const docCommentMaxWrapWidth = hasDocCommentMaxWrapWidth
         ? (options as { docCommentMaxWrapWidth?: unknown })
               .docCommentMaxWrapWidth
@@ -161,7 +158,8 @@ async function format(source: string, options: SupportOptions = {}) {
             previousDocCommentEnv !== undefined
         ) {
             if (previousDocCommentEnv === undefined) {
-                delete process.env.PRETTIER_PLUGIN_GML_DOC_COMMENT_MAX_WRAP_WIDTH;
+                delete process.env
+                    .PRETTIER_PLUGIN_GML_DOC_COMMENT_MAX_WRAP_WIDTH;
             } else {
                 process.env.PRETTIER_PLUGIN_GML_DOC_COMMENT_MAX_WRAP_WIDTH =
                     previousDocCommentEnv;

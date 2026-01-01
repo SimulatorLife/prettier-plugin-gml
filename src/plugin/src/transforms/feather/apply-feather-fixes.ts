@@ -4187,9 +4187,7 @@ function findFunctionTagParamsFromSource(functionNode, sourceText) {
             break;
         }
 
-        const commentValue = trimmed
-            .replace(/^\/\/\s*\/?/, "")
-            .trimStart();
+        const commentValue = trimmed.replace(/^\/\/\s*\/?/, "").trimStart();
         if (commentValue.length === 0) {
             continue;
         }
@@ -4630,7 +4628,10 @@ function fixArgumentReferencesWithinFunction(
     return fixes;
 }
 
-function maybeInsertImplicitFunctionParameters({ functionNode, promotionPlan }) {
+function maybeInsertImplicitFunctionParameters({
+    functionNode,
+    promotionPlan
+}) {
     if (!functionNode || !promotionPlan) {
         return;
     }
@@ -4656,10 +4657,7 @@ function maybeInsertImplicitFunctionParameters({ functionNode, promotionPlan }) 
 
         const alias = aliasByIndex.get(index);
         const templateNode =
-            alias?.declarator?.id ??
-            alias?.declarator ??
-            functionNode ??
-            null;
+            alias?.declarator?.id ?? alias?.declarator ?? functionNode ?? null;
         const identifier = Core.createIdentifierNode(name, templateNode);
         if (!identifier) {
             return;

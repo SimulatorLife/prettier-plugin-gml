@@ -246,7 +246,10 @@ function collectBlockCommentDocEntries(
             continue;
         }
 
-        if (/^it returns?\b/i.test(cleanLine) || /^returns?\b/i.test(cleanLine)) {
+        if (
+            /^it returns?\b/i.test(cleanLine) ||
+            /^returns?\b/i.test(cleanLine)
+        ) {
             returnsEntries.push({
                 start: commentStart,
                 text: `/// @returns ${cleanLine}`
@@ -263,11 +266,7 @@ function collectBlockCommentDocEntries(
         }
     }
 
-    const entries = [
-        ...descriptionEntries,
-        ...paramEntries,
-        ...returnsEntries
-    ];
+    const entries = [...descriptionEntries, ...paramEntries, ...returnsEntries];
     if (entries.length > 0) {
         comment._docCommentBlockConverted = true;
     }
@@ -470,7 +469,10 @@ export function collectFunctionDocCommentDocs({
         if (trimmed === "/// @description") {
             return false;
         }
-        if (signatureDescriptionPattern && signatureDescriptionPattern.test(trimmed)) {
+        if (
+            signatureDescriptionPattern &&
+            signatureDescriptionPattern.test(trimmed)
+        ) {
             return false;
         }
         return true;

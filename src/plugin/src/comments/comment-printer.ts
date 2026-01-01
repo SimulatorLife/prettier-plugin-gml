@@ -499,12 +499,7 @@ function handleDetachedOwnLineComment(comment /*, text, options, ast */) {
     return true;
 }
 
-function handleDecorativeBlockCommentOwnLine(
-    comment,
-    _text,
-    _options,
-    ast
-) {
+function handleDecorativeBlockCommentOwnLine(comment, _text, _options, ast) {
     void _text;
     void _options;
     if (!comment || comment.type !== "CommentBlock") {
