@@ -138,7 +138,7 @@ export function getSingleBodyStatement(
  *     easier downstream checks.
  */
 export function cloneAstNode(node?: unknown) {
-    if (node === null || node === undefined) {
+    if (node == null) {
         return null;
     }
 
@@ -424,7 +424,7 @@ export function isIdentifierWithName(
 export function getIdentifierText(
     node: GameMakerAstNode | string | null | undefined
 ): string | null {
-    if (node === undefined || node === null) {
+    if (node == null) {
         return null;
     }
 
@@ -509,7 +509,7 @@ export function getMemberIndexText(
         return indexNode;
     }
 
-    if (indexNode === undefined || indexNode === null) {
+    if (indexNode == null) {
         return null;
     }
 
@@ -1154,7 +1154,7 @@ export function visitChildNodes(
     node: unknown,
     callback: (child: unknown) => void
 ): void {
-    if (node === undefined || node === null) {
+    if (node == null) {
         return;
     }
 

@@ -2820,7 +2820,7 @@ function buildStatementPartsForPrinter({
     const isTopLevel = childPath.parent?.type === PROGRAM;
     const printed = print();
 
-    if (printed === undefined || printed === null || printed === "") {
+    if (printed == null || printed === "") {
         return { parts, previousNodeHadNewlineAddedAfter };
     }
 
@@ -4645,7 +4645,7 @@ function materializeParamDefaultsFromParamDefault(functionNode) {
         // safeguard when the parser pipeline didn't materialize the node.
         if (
             param.type === "Identifier" &&
-            (param.default === null || param.default === undefined) &&
+            param.default == null &&
             hasExplicitDefaultToLeft(functionNode, i)
         ) {
             const defaultNode = {

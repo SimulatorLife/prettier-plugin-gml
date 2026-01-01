@@ -235,7 +235,7 @@ function getPreferredLocation(
     ...candidates: Array<LocationObject | number | null | undefined>
 ): LocationObject | null {
     for (const candidate of candidates) {
-        if (candidate === null || candidate === undefined) {
+        if (candidate == null) {
             continue;
         }
 

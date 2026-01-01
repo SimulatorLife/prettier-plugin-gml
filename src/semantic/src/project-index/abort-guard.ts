@@ -26,7 +26,7 @@ export function createProjectIndexAbortGuard(
     const resolvedFallback =
         fallbackMessage ?? message ?? PROJECT_INDEX_BUILD_ABORT_MESSAGE;
 
-    const keyOption = key === undefined || key === null ? {} : { key };
+    const keyOption = key == null ? {} : { key };
 
     return Core.createAbortGuard(options, {
         fallbackMessage: resolvedFallback,

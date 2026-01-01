@@ -74,10 +74,7 @@ function getLineCommentRawText(comment, options: any = {}) {
         return comment.raw;
     }
 
-    const fallbackValue =
-        comment.value === undefined || comment.value === null
-            ? ""
-            : String(comment.value);
+    const fallbackValue = comment.value == null ? "" : String(comment.value);
 
     return `//${fallbackValue}`;
 }

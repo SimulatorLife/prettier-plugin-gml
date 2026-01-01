@@ -216,7 +216,7 @@ export function resolveIntegerOption(
         coerce: () => Number.NaN
     }
 ) {
-    if (rawValue === undefined || rawValue === null) {
+    if (rawValue == null) {
         return defaultValue;
     }
 
@@ -264,7 +264,7 @@ export function normalizeNumericOption(
     rawValue: unknown,
     { optionName, coerce, formatTypeError }: NormalizeNumericOptionOptions
 ) {
-    if (rawValue === undefined || rawValue === null) {
+    if (rawValue == null) {
         return missingOptionValue();
     }
 
