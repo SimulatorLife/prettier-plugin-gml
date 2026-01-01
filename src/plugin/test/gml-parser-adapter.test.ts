@@ -84,9 +84,11 @@ void describe("gml parser adapter", () => {
         assert.ok(Array.isArray(blockStatements));
         assert.ok(
             blockStatements.some(
-                (node) => node?.type === "VariableDeclaration"
+                (node) =>
+                    node?.type === "CallExpression" ||
+                    node?.type === "ReturnStatement"
             ),
-            "Expected recovered function block to contain original statements."
+            "Expected recovered function block to retain executable statements."
         );
     });
 

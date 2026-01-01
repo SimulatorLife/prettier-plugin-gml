@@ -1,3 +1,6 @@
 {
-    "allowSingleLineIfStatements": false, "applyFeatherFixes": false, "optimizeMathExpressions": false
+    "allowSingleLineIfStatements": false,
+    "applyFeatherFixes": false,
+    "optimizeMathExpressions": false,
+    "alignAssignmentsMinGroupSize": 0
 }

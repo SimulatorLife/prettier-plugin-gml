@@ -8,6 +8,7 @@ import {
     ensureDescriptionContinuations
 } from "../../transforms/doc-comment/description-utils.js";
 import { getDocCommentNormalization } from "../../transforms/doc-comment/normalization-utils.js";
+import { normalizeDocLikeLineComment } from "../../comments/doc-like-line-normalization.js";
 
 const STRING_TYPE = "string";
 const BLANK_LINE_PATTERN =
@@ -122,15 +123,19 @@ function collectProgramLeadingDocLines({
         }
 
         const formatted = Core.formatLineComment(comment, lineCommentOptions);
-        const trimmed = formatted ? formatted.trim() : "";
+        const normalized =
+            typeof formatted === STRING_TYPE
+                ? normalizeDocLikeLineComment(comment, formatted)
+                : formatted;
+        const trimmed = normalized ? normalized.trim() : "";
 
         const isDocLike =
             trimmed.startsWith("///") ||
             LINE_DOC_CONT_PATTERN.test(trimmed) ||
             LINE_DOC_AT_PATTERN.test(trimmed);
 
-        if (isDocLike) {
-            programLeadingLines.unshift(formatted);
+        if (isDocLike && typeof normalized === STRING_TYPE) {
+            programLeadingLines.unshift(normalized);
             comment.printed = true;
             anchorIndex = commentStart;
         } else {
@@ -151,13 +156,17 @@ function formatLineCommentDocEntry(comment: any, lineCommentOptions: any) {
     }
 
     const formatted = Core.formatLineComment(comment, lineCommentOptions);
-    const trimmed = formatted ? formatted.trim() : "";
+    const normalized =
+        typeof formatted === STRING_TYPE
+            ? normalizeDocLikeLineComment(comment, formatted)
+            : formatted;
+    const trimmed = normalized ? normalized.trim() : "";
     if (
         trimmed.startsWith("///") ||
         LINE_DOC_CONT_PATTERN.test(trimmed) ||
         LINE_DOC_AT_PATTERN.test(trimmed)
     ) {
-        return formatted;
+        return normalized ?? null;
     }
 
     return null;
@@ -168,19 +177,31 @@ function collectBlockCommentDocEntries(
     node: any,
     commentStart: number
 ) {
-    const entries: { start: number; text: string }[] = [];
+    const descriptionEntries: { start: number; text: string }[] = [];
+    const paramEntries: { start: number; text: string }[] = [];
+    const returnsEntries: { start: number; text: string }[] = [];
     const value = comment?.value?.trim();
     if (!value) {
-        return entries;
+        return [];
     }
+
+    const lines = comment.value.split(/\r\n|\r|\n/);
+    const hasDocLine = lines.some((line) => {
+        let cleanLine = line.trim();
+        if (cleanLine.startsWith("*")) {
+            cleanLine = cleanLine.slice(1).trim();
+        }
+        return cleanLine.includes("@") || PARAM_PATTERN.test(cleanLine);
+    });
 
     const isDocLike =
         value.startsWith("*") ||
         value.includes("@") ||
-        PARAM_PATTERN.test(value);
+        PARAM_PATTERN.test(value) ||
+        hasDocLine;
 
     if (!isDocLike) {
-        return entries;
+        return [];
     }
 
     const paramNames = new Set<string>();
@@ -197,7 +218,7 @@ function collectBlockCommentDocEntries(
         }
     }
 
-    const lines = comment.value.split(/\r\n|\r|\n/);
+    let seenTagLine = false;
     for (const line of lines) {
         let cleanLine = line.trim();
         if (cleanLine.startsWith("*")) {
@@ -214,21 +235,42 @@ function collectBlockCommentDocEntries(
             ) {
                 const desc = paramMatch[2].trim();
                 for (const param of params) {
-                    entries.push({
+                    paramEntries.push({
                         start: commentStart,
                         text: `/// @param ${param} ${desc}`
                     });
                 }
+                seenTagLine = true;
                 continue;
             }
+            continue;
         }
 
-        entries.push({
-            start: commentStart,
-            text: `/// ${cleanLine}`
-        });
+        if (/^it returns?\b/i.test(cleanLine) || /^returns?\b/i.test(cleanLine)) {
+            returnsEntries.push({
+                start: commentStart,
+                text: `/// @returns ${cleanLine}`
+            });
+            seenTagLine = true;
+            continue;
+        }
+
+        if (!seenTagLine) {
+            descriptionEntries.push({
+                start: commentStart,
+                text: `/// ${cleanLine}`
+            });
+        }
     }
 
+    const entries = [
+        ...descriptionEntries,
+        ...paramEntries,
+        ...returnsEntries
+    ];
+    if (entries.length > 0) {
+        comment._docCommentBlockConverted = true;
+    }
     return entries;
 }
 
@@ -409,11 +451,30 @@ export function collectFunctionDocCommentDocs({
         return { start: doc.start, text: newText };
     });
 
-    const filteredNodeDocs = formattedNodeDocs.filter(
-        (entry) =>
-            typeof entry.text !== "string" ||
-            entry.text.trim() !== "/// @description"
-    );
+    const functionName = Core.getNodeName(node);
+    const signatureDescriptionPattern =
+        typeof functionName === STRING_TYPE && functionName.length > 0
+            ? new RegExp(
+                  `^\\/\\/\\/\\s*@description\\s*${Core.escapeRegExp(
+                      functionName
+                  )}\\s*\\([^)]*\\)\\s*$`,
+                  "i"
+              )
+            : null;
+
+    const filteredNodeDocs = formattedNodeDocs.filter((entry) => {
+        if (typeof entry.text !== "string") {
+            return true;
+        }
+        const trimmed = entry.text.trim();
+        if (trimmed === "/// @description") {
+            return false;
+        }
+        if (signatureDescriptionPattern && signatureDescriptionPattern.test(trimmed)) {
+            return false;
+        }
+        return true;
+    });
 
     const originalDocDocs: { start: number; text: string }[] = [];
     if (Core.isNonEmptyArray(docComments)) {
@@ -443,6 +504,13 @@ export function collectFunctionDocCommentDocs({
 
     docCommentDocs.length = 0;
     docCommentDocs.push(...uniqueProgramLines, ...newDocCommentDocs);
+    if (
+        nodeComments.some(
+            (comment) => comment?._docCommentBlockConverted === true
+        )
+    ) {
+        (docCommentDocs as any)._blockCommentDocs = true;
+    }
     ensureDescriptionContinuations(docCommentDocs);
 
     return {
@@ -517,6 +585,31 @@ export function normalizeFunctionDocCommentDocs({
         ) {
             needsLeadingBlankLine = true;
         }
+    }
+
+    if (
+        Array.isArray(docCommentDocs) &&
+        (docCommentDocs as any)._blockCommentDocs === true
+    ) {
+        docCommentDocs = docCommentDocs.map((line) => {
+            if (typeof line !== STRING_TYPE) {
+                return line;
+            }
+
+            const match = line.match(
+                /^(\s*\/\/\/\s*@param\s+)(\S+)\s+-\s+(.*)$/
+            );
+            if (!match) {
+                return line;
+            }
+
+            const [, prefix, token, description] = match;
+            if (token.startsWith("{")) {
+                return line;
+            }
+
+            return `${prefix}${token} ${description}`;
+        }) as MutableDocCommentLines;
     }
 
     docCommentDocs = removeFunctionDocCommentLines(docCommentDocs);

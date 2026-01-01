@@ -115,24 +115,59 @@ const defaultOptions = Object.freeze(createDefaultOptionsSnapshot());
  */
 async function format(source: string, options: SupportOptions = {}) {
     const resolvedOptions = { ...defaultOptions, ...options };
-    const formatted = await prettier.format(source, {
-        ...resolvedOptions,
-        parser: "gml-parse",
-        plugins: [Plugin]
-    });
+    const hasDocCommentMaxWrapWidth =
+        options !== null &&
+        typeof options === "object" &&
+        Object.prototype.hasOwnProperty.call(
+            options,
+            "docCommentMaxWrapWidth"
+        );
+    const docCommentMaxWrapWidth = hasDocCommentMaxWrapWidth
+        ? (options as { docCommentMaxWrapWidth?: unknown })
+              .docCommentMaxWrapWidth
+        : undefined;
+    const previousDocCommentEnv =
+        process.env.PRETTIER_PLUGIN_GML_DOC_COMMENT_MAX_WRAP_WIDTH;
 
-    if (typeof formatted !== "string") {
-        throw new TypeError("Expected Prettier to return a string result.");
+    if (docCommentMaxWrapWidth !== undefined) {
+        process.env.PRETTIER_PLUGIN_GML_DOC_COMMENT_MAX_WRAP_WIDTH = String(
+            docCommentMaxWrapWidth
+        );
     }
-    const normalized = ensureBlankLineBetweenVertexFormatComments(formatted);
-    const singleBlankLines = collapseDuplicateBlankLines(normalized);
-    const normalizedCleaned = singleBlankLines.endsWith("\n")
-        ? singleBlankLines
-        : `${singleBlankLines}\n`;
-    const withoutFunctionTags = stripFunctionTagComments(normalizedCleaned);
-    const collapsedAfterStrip =
-        collapseDuplicateBlankLines(withoutFunctionTags);
-    return collapseVertexFormatBeginSpacing(collapsedAfterStrip);
+
+    try {
+        const formatted = await prettier.format(source, {
+            ...resolvedOptions,
+            parser: "gml-parse",
+            plugins: [Plugin]
+        });
+
+        if (typeof formatted !== "string") {
+            throw new TypeError("Expected Prettier to return a string result.");
+        }
+        const normalized =
+            ensureBlankLineBetweenVertexFormatComments(formatted);
+        const singleBlankLines = collapseDuplicateBlankLines(normalized);
+        const normalizedCleaned = singleBlankLines.endsWith("\n")
+            ? singleBlankLines
+            : `${singleBlankLines}\n`;
+        const withoutFunctionTags = stripFunctionTagComments(normalizedCleaned);
+        const collapsedAfterStrip =
+            collapseDuplicateBlankLines(withoutFunctionTags);
+        return collapseVertexFormatBeginSpacing(collapsedAfterStrip);
+    } finally {
+        if (
+            docCommentMaxWrapWidth !== undefined ||
+            previousDocCommentEnv !== undefined
+        ) {
+            if (previousDocCommentEnv === undefined) {
+                delete process.env.PRETTIER_PLUGIN_GML_DOC_COMMENT_MAX_WRAP_WIDTH;
+            } else {
+                process.env.PRETTIER_PLUGIN_GML_DOC_COMMENT_MAX_WRAP_WIDTH =
+                    previousDocCommentEnv;
+            }
+        }
+    }
 }
 
 export { parsers, printers, pluginOptions, defaultOptions };

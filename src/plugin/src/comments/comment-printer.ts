@@ -4,6 +4,7 @@ import { util } from "prettier";
 import { builders } from "prettier/doc";
 import { Core } from "@gml-modules/core";
 import { isFunctionDocCommentLine } from "../doc-comment/function-tag-filter.js";
+import { normalizeDocLikeLineComment } from "./doc-like-line-normalization.js";
 
 const { addDanglingComment, addLeadingComment } = util;
 const { join, hardline } = builders;
@@ -81,6 +82,7 @@ function handleHoistedDeclarationLeadingComment(comment: PrinterComment) {
 }
 
 const OWN_LINE_COMMENT_HANDLERS = [
+    handleDecorativeBlockCommentOwnLine,
     handleHoistedDeclarationLeadingComment,
     handleCommentInEmptyBody,
     handleCommentInEmptyParens,
@@ -96,12 +98,14 @@ const COMMON_COMMENT_HANDLERS = [
 ];
 
 const END_OF_LINE_COMMENT_HANDLERS = [
+    handleDecorativeBlockCommentOwnLine,
     handleDetachedOwnLineComment,
     ...COMMON_COMMENT_HANDLERS,
     handleMacroComments
 ];
 
 const REMAINING_COMMENT_HANDLERS = [
+    handleDecorativeBlockCommentOwnLine,
     handleDetachedOwnLineComment,
     ...COMMON_COMMENT_HANDLERS,
     handleCommentInEmptyLiteral,
@@ -223,7 +227,14 @@ function printComment(commentPath, options) {
             }
             const decorated = formatDecorativeBlockComment(comment.value);
             if (decorated !== null) {
-                return decorated;
+                if (decorated === "") {
+                    return "";
+                }
+                if (typeof comment.inlinePadding === "number") {
+                    comment.inlinePadding = 0;
+                }
+                comment.trailingWS = "\n";
+                return [decorated, hardline];
             }
             return `/*${comment.value}*/`;
         }
@@ -237,7 +248,10 @@ function printComment(commentPath, options) {
                 comment,
                 formattingOptions
             );
-            const normalized = typeof formatted === "string" ? formatted : "";
+            const normalized =
+                typeof formatted === "string"
+                    ? normalizeDocLikeLineComment(comment, formatted)
+                    : "";
             if (normalized.trim() === "/// @description") {
                 return "";
             }
@@ -433,6 +447,9 @@ function appendDanglingCommentGroupEntry(parts, entry, index, finalIndex) {
 }
 
 function resolveDanglingCommentSeparator(comment) {
+    if (isDecorativeBlockComment(comment)) {
+        return hardline;
+    }
     const separator = whitespaceToDoc(comment.trailingWS);
     return separator === "" ? " " : separator;
 }
@@ -473,8 +490,136 @@ function handleDetachedOwnLineComment(comment /*, text, options, ast */) {
     addLeadingComment(followingNode, comment);
     comment.leading = true;
     comment.trailing = false;
-    delete comment.placement;
+    comment.placement = "ownLine";
+    const leadingWhitespace =
+        typeof comment.leadingWS === "string" ? comment.leadingWS : "";
+    if (!/\r|\n/.test(leadingWhitespace)) {
+        comment.leadingWS = "\n";
+    }
+    comment.trailingWS = "\n";
     return true;
+}
+
+function handleDecorativeBlockCommentOwnLine(
+    comment,
+    _text,
+    _options,
+    ast
+) {
+    void _text;
+    void _options;
+    if (!comment || comment.type !== "CommentBlock") {
+        return false;
+    }
+
+    const decorated = formatDecorativeBlockComment(comment.value);
+    if (decorated === null) {
+        return false;
+    }
+
+    const followingNode =
+        comment.followingNode ?? findFollowingNodeForComment(ast, comment);
+    if (!followingNode) {
+        return false;
+    }
+
+    if (Array.isArray(followingNode.comments)) {
+        const index = followingNode.comments.indexOf(comment);
+        if (index !== -1) {
+            followingNode.comments.splice(index, 1);
+        }
+    }
+    addLeadingComment(followingNode, comment);
+    if (
+        comment.precedingNode &&
+        Array.isArray(comment.precedingNode.comments)
+    ) {
+        const index = comment.precedingNode.comments.indexOf(comment);
+        if (index !== -1) {
+            comment.precedingNode.comments.splice(index, 1);
+        }
+    }
+    comment.precedingNode = null;
+    comment.followingNode = followingNode;
+    comment.leading = true;
+    comment.trailing = false;
+    comment.placement = "ownLine";
+    const leadingWhitespace =
+        typeof comment.leadingWS === "string" ? comment.leadingWS : "";
+    if (!/\r|\n/.test(leadingWhitespace)) {
+        comment.leadingWS = "\n";
+    }
+    comment.trailingWS = "\n";
+    return true;
+}
+
+function findFollowingNodeForComment(ast, comment) {
+    const commentEndIndex = getCommentEndIndex(comment);
+    if (!Number.isFinite(commentEndIndex)) {
+        return null;
+    }
+
+    const visited = new WeakSet();
+    const stack = [ast];
+    let candidate = null;
+    let candidateStart = Infinity;
+
+    while (stack.length > 0) {
+        const node = stack.pop();
+        if (!node || typeof node !== "object") {
+            continue;
+        }
+
+        if (visited.has(node)) {
+            continue;
+        }
+        visited.add(node);
+
+        if (Core.isNode(node) && !Core.isCommentNode(node)) {
+            const startIndex = Core.getNodeStartIndex(node);
+            if (
+                typeof startIndex === "number" &&
+                startIndex > commentEndIndex &&
+                startIndex < candidateStart
+            ) {
+                candidate = node;
+                candidateStart = startIndex;
+            }
+        }
+
+        for (const [key, value] of Object.entries(node)) {
+            if (key === "comments" || key === "docComments") {
+                continue;
+            }
+
+            if (value && typeof value === "object") {
+                if (Array.isArray(value)) {
+                    for (const entry of value) {
+                        if (entry && typeof entry === "object") {
+                            stack.push(entry);
+                        }
+                    }
+                } else {
+                    stack.push(value);
+                }
+            }
+        }
+    }
+
+    return candidate;
+}
+
+function getCommentEndIndex(comment) {
+    const end = comment?.end;
+    if (typeof end === "number") {
+        return end;
+    }
+
+    if (end && typeof end.index === "number") {
+        return end.index;
+    }
+
+    return null;
 }
 
 function handleMacroComments(comment) {
@@ -483,6 +628,14 @@ function handleMacroComments(comment) {
         return true;
     }
     return false;
+}
+
+function isDecorativeBlockComment(comment) {
+    if (!comment || comment.type !== "CommentBlock") {
+        return false;
+    }
+
+    return formatDecorativeBlockComment(comment.value) !== null;
 }
 
 function handleCommentAttachedToOpenBrace(

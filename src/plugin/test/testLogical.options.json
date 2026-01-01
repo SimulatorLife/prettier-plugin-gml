@@ -2,5 +2,6 @@
   "logicalOperatorsStyle": "symbols",
   "condenseLogicalExpressions": true,
   "allowSingleLineIfStatements": true,
-  "printWidth": 120
+  "printWidth": 120,
+  "docCommentMaxWrapWidth": 120
 }

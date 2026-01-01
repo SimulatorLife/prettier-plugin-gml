@@ -13,8 +13,16 @@ export function resolveDocCommentPrinterOptions(
 ): ResolvedDocCommentPrinterOptions {
     Core.docCommentMaxWrapWidthConfig.applyEnvOverride(process.env);
 
+    const printWidth =
+        typeof options?.printWidth === "number" ? options.printWidth : null;
+    const resolvedWidth = Core.resolveDocCommentWrapWidth(options);
+    const effectiveWidth =
+        typeof printWidth === "number"
+            ? Math.min(printWidth, resolvedWidth)
+            : resolvedWidth;
+
     return {
         ...options,
-        docCommentMaxWrapWidth: Core.resolveDocCommentWrapWidth(options)
+        docCommentMaxWrapWidth: effectiveWidth
     };
 }

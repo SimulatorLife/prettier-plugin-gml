@@ -95,7 +95,9 @@ const {
     CALL_EXPRESSION,
     CONSTRUCTOR_DECLARATION,
     DEFINE_STATEMENT,
+    DO_UNTIL_STATEMENT,
     EXPRESSION_STATEMENT,
+    FOR_STATEMENT,
     FUNCTION_DECLARATION,
     FUNCTION_EXPRESSION,
     IDENTIFIER,
@@ -105,10 +107,13 @@ const {
     MEMBER_DOT_EXPRESSION,
     MEMBER_INDEX_EXPRESSION,
     PROGRAM,
+    REPEAT_STATEMENT,
     STRUCT_EXPRESSION,
     TEMPLATE_STRING_TEXT,
     VARIABLE_DECLARATION,
-    VARIABLE_DECLARATOR
+    VARIABLE_DECLARATOR,
+    WHILE_STATEMENT,
+    WITH_STATEMENT
 } = Core;
 
 const { isNextLineEmpty, isPreviousLineEmpty } = util;
@@ -1210,10 +1215,12 @@ function printCallExpressionNode(node, path, options, print) {
             ? options.maxParamsPerLine
             : 0;
         const elementsPerLineLimit =
-            maxParamsPerLine > 0 ? maxParamsPerLine : node.arguments.length;
+            maxParamsPerLine > 0 ? maxParamsPerLine : Infinity;
 
         const callbackArguments = node.arguments.filter(
-            (argument) => argument?.type === FUNCTION_DECLARATION
+            (argument) =>
+                argument?.type === FUNCTION_DECLARATION ||
+                argument?.type === CONSTRUCTOR_DECLARATION
         );
         const structArguments = node.arguments.filter(
             (argument) => argument?.type === STRUCT_EXPRESSION
@@ -1229,17 +1236,34 @@ function printCallExpressionNode(node, path, options, print) {
             );
         });
 
+        const shouldFavorInlineArguments =
+            maxParamsPerLine <= 0 &&
+            callbackArguments.length === 0 &&
+            structArguments.length === 0 &&
+            node.arguments.every(
+                (argument) => !isComplexArgumentNode(argument)
+            );
+
+        const effectiveElementsPerLineLimit = shouldFavorInlineArguments
+            ? node.arguments.length
+            : elementsPerLineLimit;
+
         const hasSingleCallExpressionArgument =
             maxParamsPerLine > 0 &&
             node.arguments.length === 1 &&
             node.arguments[0]?.type === CALL_EXPRESSION;
+
+        const simplePrefixLength = countLeadingSimpleCallArguments(node);
+        const shouldForceCallbackBreaks =
+            callbackArguments.length > 0 && simplePrefixLength <= 1;
 
         const shouldForceBreakArguments =
             hasSingleCallExpressionArgument ||
             (maxParamsPerLine > 0 &&
                 node.arguments.length > maxParamsPerLine) ||
             callbackArguments.length > 1 ||
-            structArgumentsToBreak.length > 0;
+            structArgumentsToBreak.length > 0 ||
+            shouldForceCallbackBreaks;
 
         const shouldUseCallbackLayout = [
             node.arguments[0],
@@ -1247,11 +1271,14 @@ function printCallExpressionNode(node, path, options, print) {
         ].some(
             (argumentNode) =>
                 argumentNode?.type === FUNCTION_DECLARATION ||
+                argumentNode?.type === CONSTRUCTOR_DECLARATION ||
                 argumentNode?.type === STRUCT_EXPRESSION
         );
 
         const shouldIncludeInlineVariant =
-            shouldUseCallbackLayout && !shouldForceBreakArguments;
+            shouldUseCallbackLayout &&
+            !shouldForceBreakArguments &&
+            simplePrefixLength > 1;
 
         const hasCallbackArguments = callbackArguments.length > 0;
 
@@ -1261,7 +1288,7 @@ function printCallExpressionNode(node, path, options, print) {
             options,
             {
                 forceBreak: shouldForceBreakArguments,
-                maxElementsPerLine: elementsPerLineLimit,
+                maxElementsPerLine: effectiveElementsPerLineLimit,
                 includeInlineVariant: shouldIncludeInlineVariant,
                 hasCallbackArguments
             }
@@ -2458,7 +2485,9 @@ function isComplexArgumentNode(node) {
     }
 
     return (
-        nodeType === "FunctionDeclaration" || nodeType === "StructExpression"
+        nodeType === "FunctionDeclaration" ||
+        nodeType === "ConstructorDeclaration" ||
+        nodeType === "StructExpression"
     );
 }
 
@@ -2526,6 +2555,7 @@ function buildCallbackArgumentsWithSimplePrefix(
         const argumentType = argument?.type;
         return (
             argumentType === "FunctionDeclaration" ||
+            argumentType === "ConstructorDeclaration" ||
             argumentType === "StructExpression"
         );
     };
@@ -3204,12 +3234,34 @@ function handleIntermediateTrailingSpacing({
         !nextLineEmpty &&
         !shouldSuppressExtraEmptyLine &&
         !sanitizedMacroHasExplicitBlankLine;
+    const isLoopStatement =
+        node?.type === FOR_STATEMENT ||
+        node?.type === WHILE_STATEMENT ||
+        node?.type === REPEAT_STATEMENT ||
+        node?.type === DO_UNTIL_STATEMENT ||
+        node?.type === WITH_STATEMENT;
+    const nextNodeIsLoop =
+        nextNode?.type === FOR_STATEMENT ||
+        nextNode?.type === WHILE_STATEMENT ||
+        nextNode?.type === REPEAT_STATEMENT ||
+        nextNode?.type === DO_UNTIL_STATEMENT ||
+        nextNode?.type === WITH_STATEMENT;
+    const nextNodeIsVariableDeclaration =
+        nextNode?.type === VARIABLE_DECLARATION;
+    const shouldForceLoopSectionPadding =
+        !suppressFollowingEmptyLine &&
+        isLoopStatement &&
+        (nextNodeIsVariableDeclaration || nextNodeIsLoop) &&
+        !nextLineEmpty &&
+        !shouldSuppressExtraEmptyLine &&
+        !sanitizedMacroHasExplicitBlankLine;
     const shouldForceEarlyReturnPadding =
         !suppressFollowingEmptyLine &&
         shouldForceBlankLineBetweenReturnPaths(node, nextNode);
 
     const shouldAddForcedPadding =
         shouldForceMacroPadding ||
+        shouldForceLoopSectionPadding ||
         (forceFollowingEmptyLine &&
             !nextLineEmpty &&
             !shouldSuppressExtraEmptyLine &&
@@ -3676,39 +3728,88 @@ function getMemberAssignmentLength(statement) {
 }
 
 function getMemberExpressionLength(expression) {
-    if (!expression || expression.type !== "MemberDotExpression") {
+    if (!expression) {
         return null;
     }
 
-    let length = 0;
-    let current = expression;
+    if (expression.type === "MemberDotExpression") {
+        let length = 0;
+        let current = expression;
 
-    while (current && current.type === "MemberDotExpression") {
-        const { property, object } = current;
+        while (current && current.type === "MemberDotExpression") {
+            const { property, object } = current;
+            if (
+                !property ||
+                property.type !== "Identifier" ||
+                typeof property.name !== STRING_TYPE
+            ) {
+                return null;
+            }
+
+            length += property.name.length + 1; // include the separating dot
+
+            if (!object) {
+                return null;
+            }
+
+            if (object.type === "Identifier") {
+                length += object.name.length;
+                return length;
+            }
+
+            if (object.type !== "MemberDotExpression") {
+                return null;
+            }
+
+            current = object;
+        }
+
+        return null;
+    }
+
+    if (expression.type === "MemberIndexExpression") {
+        const objectLength =
+            getMemberExpressionLength(expression.object) ??
+            (expression.object?.type === "Identifier"
+                ? typeof expression.object.name === STRING_TYPE
+                    ? expression.object.name.length
+                    : null
+                : null);
+
+        if (typeof objectLength !== NUMBER_TYPE) {
+            return null;
+        }
+
+        const propertyEntry = Core.getSingleMemberIndexPropertyEntry(
+            expression
+        );
+        if (!propertyEntry) {
+            return null;
+        }
+
+        let propertyLength = null;
         if (
-            !property ||
-            property.type !== "Identifier" ||
-            typeof property.name !== STRING_TYPE
+            propertyEntry.type === "Identifier" &&
+            typeof propertyEntry.name === STRING_TYPE
         ) {
+            const propertyName = propertyEntry.name;
+            if (typeof propertyName === "string") {
+                propertyLength = propertyName.length;
+            }
+        }
+
+        if (typeof propertyLength !== NUMBER_TYPE) {
             return null;
         }
 
-        length += property.name.length + 1; // include the separating dot
+        const accessorRaw =
+            typeof expression.accessor === STRING_TYPE
+                ? expression.accessor
+                : "";
+        const accessorLength =
+            accessorRaw.length > 1 ? accessorRaw.length + 1 : accessorRaw.length;
 
-        if (!object) {
-            return null;
-        }
-
-        if (object.type === "Identifier") {
-            length += object.name.length;
-            return length;
-        }
-
-        if (object.type !== "MemberDotExpression") {
-            return null;
-        }
-
-        current = object;
+        return objectLength + accessorLength + propertyLength + 1; // closing bracket
     }
 
     return null;
@@ -3717,7 +3818,7 @@ function getMemberExpressionLength(expression) {
 function getAssignmentAlignmentMinimum(options) {
     return Core.coercePositiveIntegerOption(
         options?.alignAssignmentsMinGroupSize,
-        0,
+        3,
         {
             zeroReplacement: 0
         }
@@ -3764,11 +3865,45 @@ function shouldBreakAssignmentAlignment(
 
     const between = originalText.slice(previousEnd + 1, nextStart);
 
+    if (isArgumentAliasGap(between)) {
+        return false;
+    }
+
     if (/\n[^\S\r\n]*\n/.test(between)) {
         return true;
     }
 
     return /(?:^|\n)\s*(?:\/\/|\/\*)/.test(between);
+}
+
+function isArgumentAliasGap(text) {
+    if (typeof text !== STRING_TYPE || text.length === 0) {
+        return false;
+    }
+
+    const withoutBlock = text.replace(/\/\*[\s\S]*?\*\//g, "");
+    const withoutLine = withoutBlock.replace(/\/\/[^\r\n]*/g, "");
+    const trimmed = withoutLine.trim();
+    if (trimmed.length === 0) {
+        return false;
+    }
+
+    const statements = trimmed
+        .split(";")
+        .map((stmt) => stmt.trim())
+        .filter((stmt) => stmt.length > 0);
+    if (statements.length === 0) {
+        return false;
+    }
+
+    return statements.every((statement) => {
+        const match = statement.match(
+            /^(?:var\s+)?[A-Za-z_][A-Za-z0-9_]*\s*=\s*(argument\d+)$/
+        );
+        return (
+            !!match && Core.GML_ARGUMENT_IDENTIFIER_PATTERN.test(match[1])
+        );
+    });
 }
 
 function getNodeStartIndexForAlignment(node, locStart) {
@@ -4024,6 +4159,11 @@ function resolvePreferredParameterName(
         return null;
     }
 
+    const functionTagName = getFunctionTagParamName(
+        functionNode,
+        paramIndex,
+        options
+    );
     const hasRenamableCurrentName =
         typeof currentName === STRING_TYPE &&
         Core.getArgumentIndexFromIdentifier(currentName) !== null;
@@ -4036,7 +4176,8 @@ function resolvePreferredParameterName(
         functionNode,
         paramIndex,
         currentName,
-        options
+        options,
+        functionTagName
     );
 
     const normalizedName = normalizePreferredParameterName(preferredSource);
@@ -4051,8 +4192,13 @@ function resolvePreferredParameterSource(
     functionNode,
     paramIndex,
     currentName,
-    options
+    options,
+    functionTagName
 ) {
+    if (Core.isNonEmptyString(functionTagName)) {
+        return functionTagName;
+    }
+
     const docPreferences = Core.preferredParamDocNamesByNode.get(functionNode);
     if (docPreferences?.has(paramIndex)) {
         return docPreferences.get(paramIndex) ?? null;
@@ -4079,6 +4225,80 @@ function resolvePreferredParameterSource(
 
     if (implicitEntry.name && implicitEntry.name !== currentName) {
         return implicitEntry.name;
+    }
+
+    return null;
+}
+
+function getFunctionTagParamName(functionNode, paramIndex, options) {
+    if (!functionNode || !Number.isInteger(paramIndex) || paramIndex < 0) {
+        return null;
+    }
+
+    const orderedParamNames = Array.isArray(
+        functionNode?._functionTagParamNames
+    )
+        ? functionNode._functionTagParamNames
+        : null;
+    if (
+        orderedParamNames &&
+        paramIndex < orderedParamNames.length &&
+        Core.isNonEmptyString(orderedParamNames[paramIndex])
+    ) {
+        return orderedParamNames[paramIndex];
+    }
+
+    const docComments = Array.isArray(functionNode.docComments)
+        ? functionNode.docComments
+        : Array.isArray(functionNode.comments)
+          ? functionNode.comments
+          : null;
+    if (!Array.isArray(docComments) || docComments.length === 0) {
+        return null;
+    }
+
+    const lineCommentOptions = Core.resolveLineCommentOptions(options);
+    const formattingOptions = {
+        ...lineCommentOptions,
+        originalText: options?.originalText
+    };
+
+    for (const comment of docComments) {
+        const formatted = Core.formatLineComment(comment, formattingOptions);
+        const rawValue =
+            formatted ??
+            (typeof comment?.value === "string" ? comment.value : null);
+        if (!Core.isNonEmptyString(rawValue)) {
+            continue;
+        }
+
+        const params = Core.extractFunctionTagParams(rawValue);
+        if (params.length === 0) {
+            continue;
+        }
+
+        return paramIndex < params.length ? params[paramIndex] : null;
+    }
+
+    const originalText = options?.originalText;
+    if (typeof originalText === STRING_TYPE) {
+        const functionStart = Core.getNodeStartIndex(functionNode);
+        if (typeof functionStart === NUMBER_TYPE) {
+            const prefix = originalText.slice(0, functionStart);
+            const lastDocIndex = prefix.lastIndexOf("///");
+            if (lastDocIndex !== -1) {
+                const docBlock = prefix.slice(lastDocIndex);
+                const lines = docBlock.split(/\r\n|\n|\r/);
+                for (const line of lines) {
+                    const params = Core.extractFunctionTagParams(line);
+                    if (params.length > 0) {
+                        return paramIndex < params.length
+                            ? params[paramIndex]
+                            : null;
+                    }
+                }
+            }
+        }
     }
 
     return null;

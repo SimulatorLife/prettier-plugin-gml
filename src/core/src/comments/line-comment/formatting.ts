@@ -348,7 +348,6 @@ function tryFormatDocLikeComment(
         const formatted = `///${remainder.length > 0 ? ` ${remainder}` : ""}`;
         return applyInlinePadding(comment, formatted);
     }
-
     return null;
 }
 

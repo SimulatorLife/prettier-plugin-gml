@@ -16,6 +16,7 @@ import {
     setDeprecatedDocCommentFunctionSet
 } from "./doc-comment-metadata.js";
 import { removeFunctionDocCommentLines } from "../../doc-comment/function-tag-filter.js";
+import { normalizeDocLikeLineComment } from "../../comments/doc-like-line-normalization.js";
 
 type DocCommentNormalizationTransformOptions = {
     enabled?: boolean;
@@ -98,8 +99,12 @@ function execute(
                 comment,
                 lineCommentOptions
             );
-            if (Core.isNonEmptyTrimmedString(formatted)) {
-                formattedLines.push(formatted);
+            const normalized =
+                typeof formatted === "string"
+                    ? normalizeDocLikeLineComment(comment, formatted)
+                    : formatted;
+            if (Core.isNonEmptyTrimmedString(normalized)) {
+                formattedLines.push(normalized);
             }
         }
 

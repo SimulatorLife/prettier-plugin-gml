@@ -290,6 +290,11 @@ function parseSourceWithRecovery(
             parserOptions
         ) as MutableGameMakerAstNode;
         logParsedCommentCount(ast);
+        try {
+            Reflect.set(ast, "_featherRecoveredSource", true);
+        } catch {
+            // Best-effort only; recovery metadata is optional.
+        }
         return ast;
     }
 }

@@ -1953,11 +1953,12 @@ function createAutomaticFeatherFixHandlers() {
         ],
         [
             "GM1032",
-            ({ ast, diagnostic, collectionService }) =>
+            ({ ast, diagnostic, collectionService, sourceText }) =>
                 normalizeArgumentBuiltinReferences({
                     ast,
                     diagnostic,
-                    collectionService
+                    collectionService,
+                    sourceText
                 })
         ],
         [
@@ -4022,7 +4023,8 @@ function cleanupSelfAssignments(node) {
 function normalizeArgumentBuiltinReferences({
     ast,
     diagnostic,
-    collectionService
+    collectionService,
+    sourceText
 }) {
     if (!hasFeatherDiagnosticContext(ast, diagnostic)) {
         return [];
@@ -4054,7 +4056,8 @@ function normalizeArgumentBuiltinReferences({
                 node,
                 diagnostic,
                 collectionService,
-                documentedParamNames
+                documentedParamNames,
+                sourceText
             );
 
             if (Core.isNonEmptyArray(functionFixes)) {
@@ -4107,30 +4110,138 @@ function updateImplicitArgumentDocEntryIndices(functionNode, mapping) {
     }
 }
 
-function applyOrderedDocNamesToImplicitEntries(
+function resolveFunctionTagParamList(
     functionNode,
-    orderedDocNames,
-    collectionService
+    collectionService,
+    sourceText
 ) {
-    const entries = functionNode?._featherImplicitArgumentDocEntries;
-    if (!entries || !orderedDocNames || orderedDocNames.length === 0) {
+    const serviceComments =
+        typeof collectionService?.getComments === "function"
+            ? collectionService.getComments(functionNode)
+            : null;
+    const docComments = Array.isArray(serviceComments)
+        ? serviceComments
+        : Array.isArray(functionNode?.docComments)
+          ? functionNode.docComments
+          : Array.isArray(functionNode?.comments)
+            ? functionNode.comments
+            : null;
+    if (!Array.isArray(docComments) || docComments.length === 0) {
+        return null;
+    }
+
+    for (const comment of docComments) {
+        if (!comment || comment.type !== "CommentLine") {
+            continue;
+        }
+
+        const value = typeof comment.value === "string" ? comment.value : null;
+        if (!Core.isNonEmptyString(value)) {
+            continue;
+        }
+
+        const params = Core.extractFunctionTagParams(value);
+        if (params.length > 0) {
+            cacheFunctionTagParams(functionNode, params);
+            return params;
+        }
+    }
+
+    const fromSource = findFunctionTagParamsFromSource(
+        functionNode,
+        sourceText
+    );
+    if (fromSource && fromSource.length > 0) {
+        cacheFunctionTagParams(functionNode, fromSource);
+        return fromSource;
+    }
+
+    return null;
+}
+
+function findFunctionTagParamsFromSource(functionNode, sourceText) {
+    if (!Core.isNonEmptyString(sourceText)) {
+        return null;
+    }
+
+    const startLine = Core.getNodeStartLine(functionNode);
+    if (!Number.isFinite(startLine)) {
+        return null;
+    }
+
+    const lines = Core.splitLines(sourceText);
+    const startIndex = Math.max(startLine - 2, 0);
+
+    for (let lineIndex = startIndex; lineIndex >= 0; lineIndex -= 1) {
+        const line = lines[lineIndex];
+        if (!Core.isNonEmptyString(line)) {
+            break;
+        }
+
+        const trimmed = line.trim();
+        if (trimmed.length === 0) {
+            break;
+        }
+
+        if (!trimmed.startsWith("//")) {
+            break;
+        }
+
+        const commentValue = trimmed
+            .replace(/^\/\/\s*\/?/, "")
+            .trimStart();
+        if (commentValue.length === 0) {
+            continue;
+        }
+
+        const params = Core.extractFunctionTagParams(commentValue);
+        if (params.length > 0) {
+            return params;
+        }
+    }
+
+    return null;
+}
+
+function cacheFunctionTagParams(functionNode, params) {
+    if (!functionNode || typeof functionNode !== "object") {
         return;
     }
 
-    console.log(
-        `DEBUG: applyFeatherFixes orderedDocNames: ${JSON.stringify(orderedDocNames)}`
+    if (Array.isArray(functionNode._functionTagParamNames)) {
+        return;
+    }
+
+    functionNode._functionTagParamNames = params;
+}
+
+function applyOrderedDocNamesToImplicitEntries(
+    functionNode,
+    orderedDocNames,
+    collectionService,
+    sourceText
+) {
+    const entries = functionNode?._featherImplicitArgumentDocEntries;
+    const functionTagParams = resolveFunctionTagParamList(
+        functionNode,
+        collectionService,
+        sourceText
     );
+    const resolvedDocNames = functionTagParams ?? orderedDocNames;
+    if (!entries || !resolvedDocNames || resolvedDocNames.length === 0) {
+        return;
+    }
 
     for (const entry of entries) {
         if (!entry || typeof entry.index !== "number") {
             continue;
         }
 
-        if (entry.index >= orderedDocNames.length) {
+        if (entry.index >= resolvedDocNames.length) {
             continue;
         }
 
-        const docName = orderedDocNames[entry.index];
+        const docName = resolvedDocNames[entry.index];
         if (!docName) {
             continue;
         }
@@ -4160,14 +4271,21 @@ function fixArgumentReferencesWithinFunction(
     functionNode,
     diagnostic,
     collectionService,
-    documentedParamNames = new Set()
+    documentedParamNames = new Set(),
+    sourceText
 ) {
     // Merge in names found by Core.buildDocumentedParamNameLookup
     const orderedDocNames = functionNode._documentedParamNamesOrdered as
         | string[]
         | undefined;
-    if (orderedDocNames && orderedDocNames.length > 0) {
-        for (const name of orderedDocNames) {
+    const functionTagParams = resolveFunctionTagParamList(
+        functionNode,
+        collectionService,
+        sourceText
+    );
+    const resolvedDocNames = functionTagParams ?? orderedDocNames;
+    if (resolvedDocNames && resolvedDocNames.length > 0) {
+        for (const name of resolvedDocNames) {
             documentedParamNames.add(name);
         }
     }
@@ -4215,7 +4333,8 @@ function fixArgumentReferencesWithinFunction(
                 node,
                 diagnostic,
                 collectionService,
-                documentedParamNames
+                documentedParamNames,
+                sourceText
             );
 
             if (Core.isNonEmptyArray(nestedFixes)) {
@@ -4264,8 +4383,9 @@ function fixArgumentReferencesWithinFunction(
         updateImplicitArgumentDocEntryIndices(functionNode, mapping);
         applyOrderedDocNamesToImplicitEntries(
             functionNode,
-            orderedDocNames,
-            collectionService
+            resolvedDocNames,
+            collectionService,
+            sourceText
         );
     }
 
@@ -4295,10 +4415,6 @@ function fixArgumentReferencesWithinFunction(
     }
 
     if (documentedParamNames.size > 0) {
-        const orderedDocNames = functionNode._documentedParamNamesOrdered as
-            | string[]
-            | undefined;
-
         const normalizedDocNames = new Set(
             [...documentedParamNames].map(
                 Core.normalizeDocParamNameForComparison
@@ -4333,7 +4449,7 @@ function fixArgumentReferencesWithinFunction(
 
         if (
             aliasInfos.length > 0 ||
-            (orderedDocNames && orderedDocNames.length > 0)
+            (resolvedDocNames && resolvedDocNames.length > 0)
         ) {
             const aliasByIndex = new Map();
             const aliasInitNodes = new Set();
@@ -4355,11 +4471,11 @@ function fixArgumentReferencesWithinFunction(
                 let sourceNode = null;
 
                 if (
-                    orderedDocNames &&
-                    normalizedIndex < orderedDocNames.length
+                    resolvedDocNames &&
+                    normalizedIndex < resolvedDocNames.length
                 ) {
                     // Fallback to doc name if no alias matches
-                    newName = orderedDocNames[normalizedIndex];
+                    newName = resolvedDocNames[normalizedIndex];
                     // No source node for doc name (or maybe the doc comment itself, but we don't have it handy)
                 } else if (alias && !aliasInitNodes.has(reference.node)) {
                     newName = alias.name;
@@ -4438,9 +4554,222 @@ function fixArgumentReferencesWithinFunction(
         }
     }
 
+    const promotionPlan = buildImplicitArgumentPromotionPlan({
+        references,
+        mapping,
+        orderedDocNames: resolvedDocNames,
+        aliasDeclarations,
+        documentedParamNames
+    });
+
+    if (promotionPlan) {
+        const { names } = promotionPlan;
+
+        for (const reference of references) {
+            const normalizedIndex = mapping.has(reference.index)
+                ? mapping.get(reference.index)
+                : reference.index;
+            if (
+                typeof normalizedIndex !== "number" ||
+                normalizedIndex < 0 ||
+                normalizedIndex >= names.length
+            ) {
+                continue;
+            }
+
+            const newName = names[normalizedIndex];
+            if (!newName) {
+                continue;
+            }
+
+            const referenceNode = reference.node;
+            if (!referenceNode || typeof referenceNode !== "object") {
+                continue;
+            }
+
+            if (referenceNode.type === "Identifier") {
+                if (referenceNode.name === newName) {
+                    continue;
+                }
+                referenceNode.name = newName;
+            } else if (
+                referenceNode.type === "MemberIndexExpression" &&
+                Core.isIdentifierWithName(referenceNode.object, "argument")
+            ) {
+                referenceNode.type = "Identifier";
+                referenceNode.name = newName;
+                delete referenceNode.object;
+                delete referenceNode.property;
+                delete referenceNode.accessor;
+            } else {
+                continue;
+            }
+
+            const fixDetail = createFeatherFixDetail(diagnostic, {
+                target: newName,
+                range: {
+                    start: Core.getNodeStartIndex(referenceNode),
+                    end: Core.getNodeEndIndex(referenceNode)
+                }
+            });
+
+            if (fixDetail) {
+                attachFeatherFixMetadata(referenceNode, [fixDetail]);
+                fixes.push(fixDetail);
+            }
+        }
+
+        maybeInsertImplicitFunctionParameters({
+            functionNode,
+            promotionPlan
+        });
+    }
+
     cleanupSelfAssignments(functionNode.body);
 
     return fixes;
+}
+
+function maybeInsertImplicitFunctionParameters({ functionNode, promotionPlan }) {
+    if (!functionNode || !promotionPlan) {
+        return;
+    }
+
+    const existingParams = Array.isArray(functionNode.params)
+        ? functionNode.params
+        : [];
+    if (existingParams.length > 0) {
+        return;
+    }
+
+    const { names, aliasByIndex } = promotionPlan;
+    if (!Array.isArray(names) || names.length === 0) {
+        return;
+    }
+
+    const nextParams = [];
+    for (let index = 0; index < names.length; index += 1) {
+        const name = names[index];
+        if (!name) {
+            return;
+        }
+
+        const alias = aliasByIndex.get(index);
+        const templateNode =
+            alias?.declarator?.id ??
+            alias?.declarator ??
+            functionNode ??
+            null;
+        const identifier = Core.createIdentifierNode(name, templateNode);
+        if (!identifier) {
+            return;
+        }
+
+        nextParams.push(identifier);
+    }
+
+    functionNode.params = nextParams;
+}
+
+function buildImplicitArgumentPromotionPlan({
+    references,
+    mapping,
+    orderedDocNames,
+    aliasDeclarations,
+    documentedParamNames
+}) {
+    if (!Array.isArray(references) || references.length === 0) {
+        return null;
+    }
+
+    if (!Core.isMapLike(mapping) || !Core.hasIterableItems(mapping)) {
+        return null;
+    }
+
+    const normalizedIndices = [];
+    for (const reference of references) {
+        if (!reference || typeof reference.index !== "number") {
+            continue;
+        }
+
+        const normalizedIndex = mapping.has(reference.index)
+            ? mapping.get(reference.index)
+            : reference.index;
+
+        if (typeof normalizedIndex === "number" && normalizedIndex >= 0) {
+            normalizedIndices.push(normalizedIndex);
+        }
+    }
+
+    if (normalizedIndices.length === 0) {
+        return null;
+    }
+
+    const maxIndex = Math.max(...normalizedIndices);
+    if (!Number.isInteger(maxIndex) || maxIndex < 0) {
+        return null;
+    }
+
+    const aliasByIndex = new Map();
+    for (const alias of aliasDeclarations ?? []) {
+        if (!alias || typeof alias.index !== "number") {
+            continue;
+        }
+
+        const normalizedIndex = mapping.has(alias.index)
+            ? mapping.get(alias.index)
+            : alias.index;
+
+        if (
+            typeof normalizedIndex !== "number" ||
+            normalizedIndex < 0 ||
+            typeof alias.name !== "string" ||
+            alias.name.length === 0
+        ) {
+            continue;
+        }
+
+        aliasByIndex.set(normalizedIndex, alias);
+    }
+
+    const hasDocumentedNames =
+        documentedParamNames && documentedParamNames.size > 0;
+    const names = [];
+
+    for (let index = 0; index <= maxIndex; index += 1) {
+        const docName =
+            hasDocumentedNames &&
+            Array.isArray(orderedDocNames) &&
+            index < orderedDocNames.length
+                ? orderedDocNames[index]
+                : null;
+        const alias = aliasByIndex.get(index);
+
+        const preferredDocName = normalizeImplicitParamName(docName);
+        const preferredAliasName = normalizeImplicitParamName(alias?.name);
+        const chosenName = preferredDocName ?? preferredAliasName;
+
+        if (!chosenName) {
+            return null;
+        }
+
+        names.push(chosenName);
+    }
+
+    return { names, aliasByIndex };
+}
+
+function normalizeImplicitParamName(name: unknown): string | null {
+    const normalized = Core.getNonEmptyTrimmedString(name);
+    if (!normalized) {
+        return null;
+    }
+
+    if (/^argument\\d+$/i.test(normalized)) {
+        return null;
+    }
+
+    return normalized;
 }
 
 function createArgumentIndexMapping(indices: unknown[]) {
@@ -4493,6 +4822,24 @@ function createArgumentIndexMapping(indices: unknown[]) {
 }
 
 function getArgumentIdentifierIndex(node) {
+    if (
+        node?.type === "MemberIndexExpression" &&
+        Core.isIdentifierWithName(node.object, "argument")
+    ) {
+        const propertyEntry = Core.getSingleMemberIndexPropertyEntry(node);
+        if (!propertyEntry) {
+            return null;
+        }
+
+        const indexText = Core.getMemberIndexText(propertyEntry);
+        if (indexText === null) {
+            return null;
+        }
+
+        const parsed = Number.parseInt(String(indexText), 10);
+        return Number.isInteger(parsed) && parsed >= 0 ? parsed : null;
+    }
+
     const identifierDetails = Core.getIdentifierDetails(node);
     if (!identifierDetails) {
         return null;
