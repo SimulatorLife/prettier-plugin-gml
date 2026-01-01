@@ -103,7 +103,7 @@ function execute(
             }
         }
 
-        const filteredDocLines = removeFunctionDocCommentLines(formattedLines);
+        const filteredDocLines = formattedLines;
 
         const docPath = createDocCommentPath(
             mutableNode,

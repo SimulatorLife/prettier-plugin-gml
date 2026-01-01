@@ -1210,7 +1210,7 @@ function printCallExpressionNode(node, path, options, print) {
             ? options.maxParamsPerLine
             : 0;
         const elementsPerLineLimit =
-            maxParamsPerLine > 0 ? maxParamsPerLine : Infinity;
+            maxParamsPerLine > 0 ? maxParamsPerLine : node.arguments.length;
 
         const callbackArguments = node.arguments.filter(
             (argument) => argument?.type === FUNCTION_DECLARATION
@@ -3717,7 +3717,7 @@ function getMemberExpressionLength(expression) {
 function getAssignmentAlignmentMinimum(options) {
     return Core.coercePositiveIntegerOption(
         options?.alignAssignmentsMinGroupSize,
-        3,
+        0,
         {
             zeroReplacement: 0
         }

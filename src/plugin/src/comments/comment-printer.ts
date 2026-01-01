@@ -3,6 +3,7 @@
 import { util } from "prettier";
 import { builders } from "prettier/doc";
 import { Core } from "@gml-modules/core";
+import { isFunctionDocCommentLine } from "../doc-comment/function-tag-filter.js";
 
 const { addDanglingComment, addLeadingComment } = util;
 const { join, hardline } = builders;
@@ -138,6 +139,9 @@ function shouldSuppressComment(comment, options) {
         originalText: options.originalText
     };
     const formatted = Core.formatLineComment(comment, formattingOptions);
+    if (isFunctionDocCommentLine(formatted)) {
+        return true;
+    }
     return formatted === null || formatted === "";
 }
 
