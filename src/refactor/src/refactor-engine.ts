@@ -2312,15 +2312,15 @@ export class RefactorEngine {
     }): Promise<Array<ConflictEntry>> {
         const { oldName, newName, occurrences } = request ?? {};
 
-        if (!oldName || typeof oldName !== "string") {
+        if (typeof oldName !== "string" || oldName.length === 0) {
             throw new TypeError(
-                "detectRenameConflicts requires oldName as a string"
+                "detectRenameConflicts requires oldName as a non-empty string"
             );
         }
 
-        if (!newName || typeof newName !== "string") {
+        if (typeof newName !== "string" || newName.length === 0) {
             throw new TypeError(
-                "detectRenameConflicts requires newName as a string"
+                "detectRenameConflicts requires newName as a non-empty string"
             );
         }
 
@@ -2330,6 +2330,9 @@ export class RefactorEngine {
             );
         }
 
+        // Pass semantic analyzer twice: once as SymbolResolver for scope lookups,
+        // once as KeywordProvider for reserved keyword checks. The SemanticAnalyzer
+        // interface supports both roles through optional method implementations.
         return detectRenameConflicts(
             oldName,
             newName,

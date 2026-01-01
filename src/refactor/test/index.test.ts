@@ -3011,7 +3011,7 @@ void test("detectRenameConflicts validates oldName parameter", async () => {
             }),
         {
             name: "TypeError",
-            message: /oldName as a string/
+            message: /oldName as a non-empty string/
         }
     );
 });
@@ -3027,7 +3027,7 @@ void test("detectRenameConflicts validates newName parameter", async () => {
             }),
         {
             name: "TypeError",
-            message: /newName as a string/
+            message: /newName as a non-empty string/
         }
     );
 });
