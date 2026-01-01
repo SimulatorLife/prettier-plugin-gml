@@ -925,10 +925,10 @@ function isBreakableConstruct(node) {
 /**
  * Prettier transform that runs every applicable Feather fixer and returns the mutated AST.
  */
-export class ApplyFeatherFixesTransform
-    implements
-        ParserTransform<MutableGameMakerAstNode, ApplyFeatherFixesOptions>
-{
+export class ApplyFeatherFixesTransform implements ParserTransform<
+    MutableGameMakerAstNode,
+    ApplyFeatherFixesOptions
+> {
     public readonly name = "apply-feather-fixes";
     public readonly defaultOptions = Object.freeze(
         {}

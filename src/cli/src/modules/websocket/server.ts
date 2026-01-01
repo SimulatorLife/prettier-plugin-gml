@@ -53,9 +53,7 @@ export interface PatchBroadcaster {
  * than this complete interface when possible.
  */
 export interface PatchWebSocketServerController
-    extends ServerEndpoint,
-        ServerLifecycle,
-        PatchBroadcaster {}
+    extends ServerEndpoint, ServerLifecycle, PatchBroadcaster {}
 
 /**
  * Creates and starts a WebSocket server for patch streaming.

@@ -225,7 +225,13 @@ function visit(
     }
 
     if (Array.isArray(node.body)) {
-        consolidateBlock(node.body, tracker, commentTools, matcher, commentHandler);
+        consolidateBlock(
+            node.body,
+            tracker,
+            commentTools,
+            matcher,
+            commentHandler
+        );
         for (const child of node.body) {
             visit(child, tracker, commentTools, matcher, commentHandler);
         }
@@ -261,9 +267,7 @@ function consolidateBlock(
     }
 
     for (let index = 0; index < statements.length; index++) {
-        const initializer = matcher.getStructInitializer(
-            statements[index]
-        );
+        const initializer = matcher.getStructInitializer(statements[index]);
         if (!initializer) {
             continue;
         }
@@ -324,11 +328,10 @@ function collectPropertyAssignments({
 
     while (cursor < statements.length) {
         const statement = statements[cursor];
-        const assignmentDetails =
-            matcher.getStructPropertyAssignmentDetails(
-                statement,
-                identifierName
-            );
+        const assignmentDetails = matcher.getStructPropertyAssignmentDetails(
+            statement,
+            identifierName
+        );
         if (!assignmentDetails) {
             break;
         }
@@ -370,10 +373,7 @@ function collectPropertyAssignments({
             end,
             nextStart ?? Number.POSITIVE_INFINITY,
             (comment) =>
-                commentHandler.isAttachableTrailingComment(
-                    comment,
-                    statement
-                )
+                commentHandler.isAttachableTrailingComment(comment, statement)
         );
 
         if (attachableComments.length > 0) {
@@ -475,24 +475,34 @@ function collectPropertyAssignments({
     };
 }
 
-export const consolidateStructAssignmentsTransform = createParserTransform<ConsolidateStructAssignmentsTransformOptions>(
-    "consolidate-struct-assignments",
-    {} as ConsolidateStructAssignmentsTransformOptions,
-    (ast: MutableGameMakerAstNode, options: ConsolidateStructAssignmentsTransformOptions): MutableGameMakerAstNode => {
-        if (!Core.isNode(ast)) {
+export const consolidateStructAssignmentsTransform =
+    createParserTransform<ConsolidateStructAssignmentsTransformOptions>(
+        "consolidate-struct-assignments",
+        {} as ConsolidateStructAssignmentsTransformOptions,
+        (
+            ast: MutableGameMakerAstNode,
+            options: ConsolidateStructAssignmentsTransformOptions
+        ): MutableGameMakerAstNode => {
+            if (!Core.isNode(ast)) {
+                return ast;
+            }
+            const normalizedCommentTools = normalizeCommentTools(
+                options.commentTools
+            );
+            const tracker = new CommentTracker(ast);
+            const matcher = new StructAssignmentMatcher();
+            const commentHandler = new AssignmentCommentHandler();
+
+            visit(
+                ast,
+                tracker,
+                normalizedCommentTools,
+                matcher,
+                commentHandler
+            );
+
+            tracker.removeConsumedComments();
+
             return ast;
         }
-        const normalizedCommentTools = normalizeCommentTools(
-            options.commentTools
-        );
-        const tracker = new CommentTracker(ast);
-        const matcher = new StructAssignmentMatcher();
-        const commentHandler = new AssignmentCommentHandler();
-        
-        visit(ast, tracker, normalizedCommentTools, matcher, commentHandler);
-
-        tracker.removeConsumedComments();
-
-        return ast;
-    }
-);
+    );
