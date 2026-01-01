@@ -8,6 +8,7 @@ import { convertStringConcatenationsTransform } from "./convert-string-concatena
 import { convertUndefinedGuardAssignmentsTransform } from "./convert-undefined-guard-assignments.js";
 import { enforceVariableBlockSpacingTransform } from "./enforce-variable-block-spacing.js";
 import { markCallsMissingArgumentSeparatorsTransform } from "./mark-missing-separators.js";
+import { normalizeDataStructureAccessorsTransform } from "./normalize-data-structure-accessors.js";
 import { optimizeMathExpressionsTransform } from "./optimize-math-expressions.js";
 import { preprocessFunctionArgumentDefaultsTransform } from "./preprocess-function-argument-defaults.js";
 import { stripCommentsTransform } from "./strip-comments.js";
@@ -21,6 +22,7 @@ import type { ParserTransform } from "./functional-transform.js";
 const TRANSFORM_REGISTRY_ENTRIES = [
     stripCommentsTransform,
     consolidateStructAssignmentsTransform,
+    normalizeDataStructureAccessorsTransform,
     applyFeatherFixesTransform,
     preprocessFunctionArgumentDefaultsTransform,
     enforceVariableBlockSpacingTransform,
@@ -137,5 +139,6 @@ export { applyIndexAdjustmentsIfPresent } from "./index-adjustments.js";
 export { sanitizeMissingArgumentSeparators } from "./missing-argument-separator-sanitizer.js";
 export { collapseRedundantMissingCallArgumentsTransform } from "./collapse-redundant-arguments.js";
 export { markCallsMissingArgumentSeparatorsTransform } from "./mark-missing-separators.js";
+export { normalizeDataStructureAccessorsTransform } from "./normalize-data-structure-accessors.js";
 export { hoistLoopLengthBounds } from "./loop-size-hoisting/index.js";
 export { docCommentNormalizationTransform } from "./doc-comment/doc-comment-normalization.js";
