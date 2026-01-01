@@ -24,15 +24,6 @@ const EXTENSION_LIST_SPLIT_PATTERN = createListSplitPattern(
     }
 );
 
-const NORMALIZE_EXTENSION_LIST_OPTIONS = Object.freeze({
-    splitPattern: EXTENSION_LIST_SPLIT_PATTERN,
-    allowInvalidType: true
-});
-
-function normalizeExtensionFragments(value: unknown): Array<string> {
-    return normalizeStringList(value, NORMALIZE_EXTENSION_LIST_OPTIONS);
-}
-
 function coerceExtensionValue(value: unknown): string | null {
     if (typeof value !== "string") {
         return null;
@@ -50,56 +41,41 @@ function coerceExtensionValue(value: unknown): string | null {
     return normalizeExtensionSuffix(cleaned);
 }
 
-function isIterable(value: unknown): value is Iterable<unknown> {
-    return (
-        typeof (value as Iterable<unknown>)?.[Symbol.iterator] === "function"
-    );
-}
-
-function collectExtensionCandidates(
-    rawExtensions: ExtensionInput
-): Array<string> {
-    if (typeof rawExtensions === "string") {
-        return normalizeExtensionFragments(rawExtensions);
-    }
-
-    if (
-        rawExtensions &&
-        typeof rawExtensions !== "string" &&
-        isIterable(rawExtensions)
-    ) {
-        const fragments: Array<string> = [];
-
-        for (const candidate of rawExtensions) {
-            if (typeof candidate === "string") {
-                fragments.push(...normalizeExtensionFragments(candidate));
-            }
-        }
-
-        return fragments;
-    }
-
-    return normalizeExtensionFragments(rawExtensions);
+function splitExtensionInput(value: unknown): Array<string> {
+    return normalizeStringList(value, {
+        splitPattern: EXTENSION_LIST_SPLIT_PATTERN,
+        allowInvalidType: true
+    }) as Array<string>;
 }
 
 export function normalizeExtensions(
     rawExtensions: ExtensionInput,
     fallbackExtensions: ReadonlyArray<string> = []
 ): Array<string> {
-    const candidates = collectExtensionCandidates(rawExtensions);
-    const coercedValues = candidates.map((candidate) =>
-        coerceExtensionValue(candidate)
-    );
-    const filteredValues = compactArray(coercedValues).filter(
-        (value): value is string => typeof value === "string"
-    );
-    const normalized = uniqueArray(filteredValues, {
+    const fragments: Array<string> = [];
+
+    if (typeof rawExtensions === "string") {
+        fragments.push(...splitExtensionInput(rawExtensions));
+    } else if (
+        rawExtensions &&
+        typeof rawExtensions !== "string" &&
+        rawExtensions[Symbol.iterator]
+    ) {
+        for (const candidate of rawExtensions) {
+            if (typeof candidate === "string") {
+                fragments.push(...splitExtensionInput(candidate));
+            }
+        }
+    } else {
+        fragments.push(...splitExtensionInput(rawExtensions));
+    }
+
+    const coerced = fragments.map((fragment) => coerceExtensionValue(fragment));
+    const normalized = uniqueArray(compactArray(coerced), {
         freeze: false
     }) as Array<string>;
 
-    return normalized.length > 0
-        ? [...normalized]
-        : fallbackExtensions.map(String);
+    return normalized.length > 0 ? normalized : fallbackExtensions.map(String);
 }
 
 export { EXTENSION_LIST_SPLIT_PATTERN };
