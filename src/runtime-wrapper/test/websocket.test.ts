@@ -840,3 +840,89 @@ void test("WebSocket client tracks patch errors for malformed payloads", async (
         delete globalWithWebSocket.WebSocket;
     }
 });
+
+void test("WebSocket client resets metrics to initial state", async () => {
+    const wrapper = RuntimeWrapper.createRuntimeWrapper();
+    globalWithWebSocket.WebSocket = MockWebSocket;
+
+    let client: ReturnType<typeof RuntimeWrapper.createWebSocketClient> | null =
+        null;
+
+    try {
+        client = RuntimeWrapper.createWebSocketClient({
+            wrapper,
+            autoConnect: true,
+            onError: () => {}
+        });
+
+        await flush();
+
+        const ws = client.getWebSocket();
+        assert.ok(ws);
+        const mockSocket = ws as MockWebSocket;
+
+        mockSocket.simulateMessage({
+            kind: "script",
+            id: "script:test",
+            js_body: "return 42;"
+        });
+
+        await wait(10);
+
+        const metricsBefore = client.getConnectionMetrics();
+        assert.strictEqual(metricsBefore.totalConnections, 1);
+        assert.strictEqual(metricsBefore.patchesReceived, 1);
+        assert.strictEqual(metricsBefore.patchesApplied, 1);
+        assert.ok(metricsBefore.lastConnectedAt);
+        assert.ok(metricsBefore.lastPatchReceivedAt);
+        assert.ok(metricsBefore.lastPatchAppliedAt);
+
+        client.resetConnectionMetrics();
+
+        const metricsAfter = client.getConnectionMetrics();
+        assert.strictEqual(metricsAfter.totalConnections, 0);
+        assert.strictEqual(metricsAfter.totalDisconnections, 0);
+        assert.strictEqual(metricsAfter.totalReconnectAttempts, 0);
+        assert.strictEqual(metricsAfter.patchesReceived, 0);
+        assert.strictEqual(metricsAfter.patchesApplied, 0);
+        assert.strictEqual(metricsAfter.patchesFailed, 0);
+        assert.strictEqual(metricsAfter.lastConnectedAt, null);
+        assert.strictEqual(metricsAfter.lastDisconnectedAt, null);
+        assert.strictEqual(metricsAfter.lastPatchReceivedAt, null);
+        assert.strictEqual(metricsAfter.lastPatchAppliedAt, null);
+        assert.strictEqual(metricsAfter.connectionErrors, 0);
+        assert.strictEqual(metricsAfter.patchErrors, 0);
+    } finally {
+        client?.disconnect();
+        delete globalWithWebSocket.WebSocket;
+    }
+});
+
+void test("WebSocket client metrics reset does not affect connection state", async () => {
+    globalWithWebSocket.WebSocket = MockWebSocket;
+
+    let client: ReturnType<typeof RuntimeWrapper.createWebSocketClient> | null =
+        null;
+
+    try {
+        client = RuntimeWrapper.createWebSocketClient({
+            autoConnect: true
+        });
+
+        await flush();
+
+        assert.strictEqual(client.isConnected(), true);
+        assert.ok(client.getWebSocket());
+
+        client.resetConnectionMetrics();
+
+        assert.strictEqual(client.isConnected(), true);
+        assert.ok(client.getWebSocket());
+
+        const metrics = client.getConnectionMetrics();
+        assert.strictEqual(metrics.totalConnections, 0);
+    } finally {
+        client?.disconnect();
+        delete globalWithWebSocket.WebSocket;
+    }
+});
