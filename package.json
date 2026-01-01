@@ -96,6 +96,7 @@
     "example:plugin": "cd src/plugin && npm run example",
     "postinstall": "git submodule update --init --recursive && git update-index --skip-worktree vendor/* && chmod -R a-w vendor && chmod -R a+X vendor && chmod -R u+w vendor/3DSpider || echo \"Skipping vendor submodules\" && patch-package",
     "prepare": "husky",
+    "submodules": "git submodule foreach --recursive 'git reset --hard && git clean -fd' && git submodule sync --recursive && git submodule update --init --recursive --remote",
     "cli": "npm run build:types --workspace=@gml-modules/cli && node ./src/cli/dist/index.js",
     "demo:watch": "npm run build:types --workspace=@gml-modules/runtime-wrapper && npm run build:types --workspace=@gml-modules/cli && node ./src/cli/dist/index.js prepare-hot-reload && node ./src/cli/dist/index.js watch vendor/3DSpider --verbose --no-runtime-server",
     "actionlint:install": "mkdir -p node_modules/.bin && curl -sSfL https://raw.githubusercontent.com/rhysd/actionlint/main/scripts/download-actionlint.bash | bash -s -- latest ./node_modules/.bin",
