@@ -55,8 +55,7 @@ function attachDanglingCommentToEmptyNode(
         const collection = node[property];
         const isEmptyArray =
             Array.isArray(collection) && collection.length === 0;
-        const isCollectionMissing =
-            collection === undefined || collection === null;
+        const isCollectionMissing = collection == null;
         if (isEmptyArray || isCollectionMissing) {
             addDanglingComment(node, comment, false);
             return true;
@@ -675,9 +674,8 @@ function isCommentOnNodeLine(comment, node, getNodeLine) {
     const commentLine = comment.start?.line;
     const nodeLine = getNodeLine(node);
 
-    const isCommentLineMissing =
-        commentLine === undefined || commentLine === null;
-    const isNodeLineMissing = nodeLine === undefined || nodeLine === null;
+    const isCommentLineMissing = commentLine == null;
+    const isNodeLineMissing = nodeLine == null;
 
     if (isCommentLineMissing || isNodeLineMissing) {
         return false;

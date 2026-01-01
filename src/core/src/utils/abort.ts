@@ -56,7 +56,7 @@ function toAbortMessage(value) {
     // Treat both `null` and `undefined` as absent reasons so callers that
     // omit a reason use the provided fallback message instead of the
     // stringified value "undefined".
-    if (value === null || value === undefined) {
+    if (value == null) {
         return null;
     }
 

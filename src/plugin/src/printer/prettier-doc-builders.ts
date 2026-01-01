@@ -30,7 +30,7 @@ function sanitizeDocChild(child: DocChild): Doc {
         return result;
     }
 
-    if (child === null || child === undefined || child === false) {
+    if (child == null || child === false) {
         return "";
     }
 

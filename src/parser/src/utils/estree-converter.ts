@@ -64,7 +64,7 @@ function buildLoc(boundaryStart, boundaryEnd) {
 }
 
 function convertNode(value, state) {
-    if (value === null || value === undefined) {
+    if (value == null) {
         return value;
     }
 

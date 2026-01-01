@@ -2201,7 +2201,7 @@ function convertLengthAccess(node, parent, property, diagnostic) {
         return null;
     }
 
-    if (!parent || property === undefined || property === null) {
+    if (!parent || property == null) {
         return null;
     }
 
@@ -4970,7 +4970,7 @@ function convertMultidimensionalMemberIndex(
         return null;
     }
 
-    if (property === undefined || property === null) {
+    if (property == null) {
         return null;
     }
 

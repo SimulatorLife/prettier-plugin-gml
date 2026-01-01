@@ -604,7 +604,7 @@ function* getEntryIterable(value: unknown) {
 }
 
 function* toIterable(value: unknown) {
-    if (value === undefined || value === null) {
+    if (value == null) {
         return;
     }
 
