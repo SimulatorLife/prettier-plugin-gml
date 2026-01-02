@@ -118,7 +118,9 @@ void describe("classifyOccurrences", () => {
 
         const result = classifyOccurrences(occurrences);
         assert.equal(result.total, 1);
-        assert.equal(result.byFile.get(""), 1);
+        assert.equal(result.references, 1);
+        // Empty paths are now skipped, so byFile should be empty
+        assert.equal(result.byFile.size, 0);
     });
 
     void it("throws on invalid input type", () => {
@@ -281,8 +283,8 @@ void describe("groupOccurrencesByFile", () => {
         ] as unknown as Array<SymbolOccurrence>;
 
         const grouped = groupOccurrencesByFile(occurrences);
-        assert.equal(grouped.size, 1);
-        assert.ok(grouped.has(""));
+        // Empty paths are now skipped
+        assert.equal(grouped.size, 0);
     });
 
     void it("handles malformed occurrences", () => {
@@ -424,13 +426,14 @@ void describe("countAffectedFiles", () => {
         assert.equal(count, 2);
     });
 
-    void it("treats empty path as unique file", () => {
+    void it("skips empty paths", () => {
         const occurrences = [
             { path: "", start: 0, end: 10, kind: "definition" },
             { path: "a.gml", start: 0, end: 10, kind: "definition" }
         ] as unknown as Array<SymbolOccurrence>;
 
         const count = countAffectedFiles(occurrences);
-        assert.equal(count, 2);
+        // Empty paths are now skipped, so count should be 1
+        assert.equal(count, 1);
     });
 });

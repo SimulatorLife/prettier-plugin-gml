@@ -63,12 +63,18 @@ export function classifyOccurrences(
             classification.references++;
         }
 
-        // Track occurrences by file
-        const filePath = occurrence.path ?? "unknown";
-        classification.byFile.set(
-            filePath,
-            (classification.byFile.get(filePath) ?? 0) + 1
-        );
+        // Track occurrences by file (skip occurrences without valid paths)
+        if (
+            occurrence.path !== null &&
+            occurrence.path !== undefined &&
+            occurrence.path !== ""
+        ) {
+            const filePath = occurrence.path;
+            classification.byFile.set(
+                filePath,
+                (classification.byFile.get(filePath) ?? 0) + 1
+            );
+        }
 
         // Track occurrences by kind
         classification.byKind.set(
@@ -146,7 +152,16 @@ export function groupOccurrencesByFile(
             continue;
         }
 
-        const filePath = occurrence.path ?? "unknown";
+        // Skip occurrences without valid file paths
+        if (
+            occurrence.path === null ||
+            occurrence.path === undefined ||
+            occurrence.path === ""
+        ) {
+            continue;
+        }
+
+        const filePath = occurrence.path;
         const existing = grouped.get(filePath) ?? [];
         existing.push(occurrence);
         grouped.set(filePath, existing);
@@ -210,11 +225,13 @@ export function countAffectedFiles(
 
     const uniqueFiles = new Set<string>();
     for (const occurrence of occurrences) {
+        // Skip occurrences without valid paths
         if (
             occurrence &&
             typeof occurrence === "object" &&
             occurrence.path !== null &&
-            occurrence.path !== undefined
+            occurrence.path !== undefined &&
+            occurrence.path !== ""
         ) {
             uniqueFiles.add(occurrence.path);
         }
