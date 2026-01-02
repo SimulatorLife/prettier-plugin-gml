@@ -45,17 +45,23 @@ export interface PatchBroadcaster {
 }
 
 /**
- * Complete controller for the patch WebSocket server.
+ * Lifecycle control and endpoint metadata for a running WebSocket server.
  *
- * Combines network endpoint, lifecycle management, and patch broadcasting.
- * Consumers should depend on the minimal interface they need
- * (ServerEndpoint, ServerLifecycle, or PatchBroadcaster) rather
- * than this complete interface when possible.
+ * Keeps lifecycle operations decoupled from broadcasting concerns so callers
+ * can depend on the minimal contract they require.
  */
-export interface PatchWebSocketServerController
-    extends ServerEndpoint,
-        ServerLifecycle,
-        PatchBroadcaster {}
+export type PatchWebSocketServerHandle = ServerEndpoint & ServerLifecycle;
+
+/**
+ * Composite type representing the running WebSocket server instance.
+ *
+ * Although the underlying object implements broadcasting, lifecycle, and
+ * endpoint metadata, consumers should accept only the portions they need
+ * (PatchBroadcaster or PatchWebSocketServerHandle) instead of this full
+ * intersection.
+ */
+export type PatchWebSocketServer = PatchWebSocketServerHandle &
+    PatchBroadcaster;
 
 /**
  * Creates and starts a WebSocket server for patch streaming.
@@ -76,7 +82,7 @@ export async function startPatchWebSocketServer({
     onClientConnect,
     onClientDisconnect,
     prepareInitialMessages
-}: PatchWebSocketServerOptions = {}): Promise<PatchWebSocketServerController> {
+}: PatchWebSocketServerOptions = {}): Promise<PatchWebSocketServer> {
     const clients = new Set<WebSocket>();
     const clientIds = new Map<WebSocket, string>();
 

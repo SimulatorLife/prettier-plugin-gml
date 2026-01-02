@@ -39,7 +39,8 @@ import {
 } from "../modules/runtime/server.js";
 import {
     startPatchWebSocketServer,
-    type PatchWebSocketServerController
+    type PatchBroadcaster,
+    type PatchWebSocketServer
 } from "../modules/websocket/server.js";
 import {
     startStatusServer,
@@ -113,7 +114,7 @@ interface RuntimeContext
     errors: Array<TranspilationError>;
     lastSuccessfulPatches: Map<string, RuntimeTranspilerPatch>;
     maxPatchHistory: number;
-    websocketServer: PatchWebSocketServerController | null;
+    websocketServer: PatchBroadcaster | null;
     statusServer: StatusServerController | null;
     startTime: number;
     debouncedHandlers: Map<
@@ -428,7 +429,7 @@ export async function runWatchCommand(
     };
 
     let runtimeServerController: RuntimeStaticServerInstance | null = null;
-    let websocketServerController: PatchWebSocketServerController | null = null;
+    let websocketServerController: PatchWebSocketServer | null = null;
     let statusServerController: StatusServerController | null = null;
 
     if (shouldServeRuntime) {
