@@ -128,6 +128,9 @@ The semantic oracle provides:
   - ✅ Script call classification and runtime wrapper routing
   - ✅ Global variable identification and prefixing
   - ✅ SCIP symbol generation for dependency tracking
+- ✅ Object-oriented features:
+  - ✅ Constructor calls with `new` keyword (new Vector2(x, y))
+  - ✅ Delete operator for removing struct members (delete obj.prop)
 
 ### Planned Features
 
