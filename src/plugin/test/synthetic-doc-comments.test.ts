@@ -286,8 +286,8 @@ void test("reorders description doc comments between parameters and returns", as
         lines.slice(0, 6),
         [
             "/// @description A longer example description that should wrap into multiple lines and appear before",
-            "///              the parameter metadata.",
-            "/// @param {string,array<string>} first First input",
+            "///              the the parameter metadata.",
+            "/// @param {string,array[string]} first First input",
             "/// @param {Id.Instance} second Second input",
             "/// @returns {undefined}",
             "function sample(_first, _second) {"
@@ -341,10 +341,11 @@ void test("respects printWidth for wrapping description doc comments", async () 
         lines.slice(0, 6),
         [
             "/// @description A longer example description that is still under the printWidth should not wrap at all",
-            "/// @param {string,array<string>} first First input",
+            "/// @param {string,array[string]} first First input",
             "/// @param {Id.Instance} second Second input",
             "/// @returns {undefined}",
-            "function sample(_first, _second) {"
+            "function sample(_first, _second) {",
+            "    show_debug_message(_first, _second);"
         ],
         "Description doc comments should not wrap when under the printWidth limit."
     );
