@@ -41,6 +41,45 @@ export function removeDuplicateEnumMembers({ ast, diagnostic, sourceText }) {
             if (members.length > 1) {
                 const seen = new Map();
 
+                const removeMember = (targetMember) => {
+                    if (!Core.isNode(targetMember)) {
+                        return -1;
+                    }
+
+                    const targetName = Core.isIdentifierNode(
+                        (targetMember as any).name
+                    )
+                        ? (targetMember as any).name.name
+                        : null;
+
+                    const removalIndex = members.indexOf(targetMember);
+                    if (removalIndex === -1) {
+                        return -1;
+                    }
+
+                    const startIndex = Core.getNodeStartIndex(targetMember);
+                    const endIndex = Core.getNodeEndIndex(targetMember);
+                    const fixDetail = createFeatherFixDetail(diagnostic, {
+                        target: targetName,
+                        range:
+                            typeof startIndex === "number" &&
+                            typeof endIndex === "number"
+                                ? {
+                                      start: startIndex,
+                                      end: endIndex
+                                  }
+                                : null
+                    });
+
+                    if (fixDetail) {
+                        fixes.push(fixDetail);
+                        attachFeatherFixMetadata(node, [fixDetail]);
+                    }
+
+                    members.splice(removalIndex, 1);
+                    return removalIndex;
+                };
+
                 for (let index = 0; index < members.length; index += 1) {
                     const member = members[index];
 
@@ -63,21 +102,24 @@ export function removeDuplicateEnumMembers({ ast, diagnostic, sourceText }) {
                         continue;
                     }
 
-                    const fixDetail = createFeatherFixDetail(diagnostic, {
-                        target: name,
-                        range: {
-                            start: Core.getNodeStartIndex(member),
-                            end: Core.getNodeEndIndex(member)
-                        }
-                    });
+                    const existingMember = seen.get(normalizedName);
+                    const existingHasInitializer =
+                        existingMember?.initializer != null;
+                    const currentHasInitializer = (member as any).initializer != null;
 
-                    if (fixDetail) {
-                        fixes.push(fixDetail);
-                        attachFeatherFixMetadata(node, [fixDetail]);
+                    if (!existingHasInitializer && currentHasInitializer) {
+                        const removalIndex = removeMember(existingMember);
+                        if (removalIndex !== -1 && removalIndex <= index) {
+                            index -= 1;
+                        }
+                        seen.set(normalizedName, member);
+                        continue;
                     }
 
-                    members.splice(index, 1);
-                    index -= 1;
+                    const removalIndex = removeMember(member);
+                    if (removalIndex !== -1) {
+                        index -= 1;
+                    }
                 }
 
                 if (members.length === 0) {

@@ -677,6 +677,8 @@ export function normalizeFunctionDocCommentDocs({
     return { docCommentDocs, needsLeadingBlankLine };
 }
 
+const DESCRIPTION_LINE_PATTERN = /^(\s*\/\/\/\s*@description\s+)(.*)$/i;
+
 function wrapDocDescriptionLines(
     docCommentDocs: MutableDocCommentLines,
     wrapWidth: number
@@ -754,7 +756,7 @@ function wrapDescriptionContent(
         const word = words[index];
         const nextLength = current.length + 1 + word.length;
         if (nextLength <= currentLimit) {
-            current += " " + word;
+            current = `${current} ${word}`;
             continue;
         }
 

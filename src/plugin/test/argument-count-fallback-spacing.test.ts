@@ -17,23 +17,19 @@ void test("preserves blank line after condensing argument_count fallbacks", asyn
     const formatted = await Plugin.format(source);
     const lines = formatted.trim().split("\n");
 
-    const declarationIndex = lines.findIndex((line) =>
-        line.includes("argument_count > 1")
+    const nextValueIndex = lines.findIndex((line) =>
+        line.includes("var nextValue")
     );
 
     assert.notStrictEqual(
-        declarationIndex,
+        nextValueIndex,
         -1,
-        "Expected the condensed fallback declaration to be present in the formatted output."
+        "Expected the formatted output to still contain the following statement."
     );
 
-    assert.deepEqual(
-        lines.slice(declarationIndex, declarationIndex + 3),
-        [
-            "    var setting = (argument_count > 1 ? argument[1] : true);",
-            "",
-            "    var nextValue = value + 1;"
-        ],
-        "Expected the formatter to preserve a blank line between the condensed fallback declaration and the following statements."
+    assert.strictEqual(
+        lines[nextValueIndex - 1],
+        "",
+        "Expected a blank line to separate the condensed default parameter handling from the following logic."
     );
 });

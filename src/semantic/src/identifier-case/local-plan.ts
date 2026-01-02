@@ -700,16 +700,7 @@ export async function prepareIdentifierCasePlan(options) {
         return;
     }
 
-    if (
-        options.__identifierCaseDryRun === undefined &&
-        options.identifierCaseDryRun !== undefined
-    ) {
-        setIdentifierCaseOption(
-            options,
-            "__identifierCaseDryRun",
-            options.identifierCaseDryRun
-        );
-    }
+    applyIdentifierCaseDryRunOverrides(options);
 
     if (options.__identifierCasePlanGeneratedInternally === true) {
         return;
@@ -723,17 +714,7 @@ export async function prepareIdentifierCasePlan(options) {
     }
 
     const context = peekIdentifierCaseDryRunContext(options.filepath ?? null);
-    if (
-        options.__identifierCaseDryRun === undefined &&
-        context &&
-        typeof context.dryRun === "boolean"
-    ) {
-        setIdentifierCaseOption(
-            options,
-            "__identifierCaseDryRun",
-            context.dryRun
-        );
-    }
+    applyIdentifierCaseDryRunContext(options, context);
     applyBootstrappedIdentifierCaseProjectIndex(options);
 
     let projectIndex = resolveIdentifierCaseProjectIndex(
@@ -741,20 +722,10 @@ export async function prepareIdentifierCasePlan(options) {
         context?.projectIndex ?? null
     );
 
-    const logger = options.logger ?? null;
-    const metricsContracts = Core.createMetricsTracker({
-        category: "identifier-case-plan",
-        logger,
-        autoLog: options.logIdentifierCaseMetrics === true
-    });
-    const metrics = metricsContracts.recording;
-    const metricsReporting = metricsContracts.reporting;
-    setIdentifierCaseOption(
-        options,
-        "__identifierCaseMetrics",
-        metricsContracts
-    );
-    const stopTotal = metrics.timers.startTimer("preparePlan");
+    const metricsContext = createIdentifierCaseMetricsContext(options);
+    const metrics = metricsContext.metrics;
+    const metricsReporting = metricsContext.metricsReporting;
+    const stopTotal = metricsContext.stopTotal;
     // Scripts, macros, globals, structs, and instance assignments are tracked via
     // `projectIndex.identifiers`. The scope-specific toggles fan out through the
     // rename planner so we can generate dry-run diagnostics, collision reports,
@@ -770,54 +741,17 @@ export async function prepareIdentifierCasePlan(options) {
     }
 
     const normalizedOptions: any = normalizeIdentifierCaseOptions(options);
-    const localStyle =
-        normalizedOptions.scopeStyles?.locals ?? IdentifierCaseStyle.OFF;
-    const assetStyle = normalizeIdentifierCaseAssetStyle(
-        normalizedOptions.scopeStyles?.assets
-    );
-    const functionStyle = normalizedOptions.scopeStyles?.functions ?? "off";
-    const structStyle = normalizedOptions.scopeStyles?.structs ?? "off";
-    const macroStyle = normalizedOptions.scopeStyles?.macros ?? "off";
-    const instanceStyle = normalizedOptions.scopeStyles?.instance ?? "off";
-    const globalStyle = normalizedOptions.scopeStyles?.globals ?? "off";
+    const styleSettings = resolveIdentifierCaseStyles(normalizedOptions);
+    const planFlags = resolveIdentifierCasePlanFlags(styleSettings);
 
-    const shouldPlanLocals = localStyle !== IdentifierCaseStyle.OFF;
-    const shouldPlanAssets = assetStyle !== IdentifierCaseStyle.OFF;
-    const shouldPlanFunctions = functionStyle !== "off";
-    const shouldPlanStructs = structStyle !== "off";
-    const shouldPlanMacros = macroStyle !== "off";
-    const shouldPlanInstance = instanceStyle !== "off";
-    const shouldPlanGlobals = globalStyle !== "off";
-
-    const requiresProjectIndex =
-        shouldPlanLocals ||
-        shouldPlanAssets ||
-        shouldPlanFunctions ||
-        shouldPlanStructs ||
-        shouldPlanMacros ||
-        shouldPlanInstance ||
-        shouldPlanGlobals;
-
-    if (!projectIndex && requiresProjectIndex) {
+    if (!projectIndex && planFlags.requiresProjectIndex) {
         projectIndex = await ensureIdentifierCaseProjectIndex(
             options,
             context?.projectIndex ?? null
         );
     }
 
-    const styleMetadataEntries = {
-        localStyle,
-        assetStyle,
-        functionStyle,
-        structStyle,
-        macroStyle,
-        instanceStyle,
-        globalStyle
-    };
-
-    for (const [key, value] of Object.entries(styleMetadataEntries)) {
-        metrics.metadata.setMetadata(key, value);
-    }
+    recordIdentifierCaseStyleMetadata(metrics, styleSettings);
 
     const preservedIdentifiers = normalizedOptions.preservedIdentifiers;
     const preservedSet: Set<string> = new Set(
@@ -830,18 +764,11 @@ export async function prepareIdentifierCasePlan(options) {
         normalizedOptions.ignorePatterns ?? []
     );
 
-    const finalizeMetrics = (extraMetadata = {}) => {
-        stopTotal();
-        const report = metricsReporting.summary.finalize({
-            metadata: extraMetadata
-        });
-        setIdentifierCaseOption(
-            options,
-            "__identifierCaseMetricsReport",
-            report
-        );
-        return report;
-    };
+    const finalizeMetrics = createIdentifierCaseMetricsFinalizer({
+        options,
+        stopTotal,
+        metricsReporting
+    });
 
     const renameMap = new Map();
     const operations = [];
@@ -849,48 +776,36 @@ export async function prepareIdentifierCasePlan(options) {
     const assetRenames = [];
     let assetConflicts = [];
 
-    if (projectIndex && assetStyle !== IdentifierCaseStyle.OFF) {
-        metrics.counters.increment("assets.projectsWithIndex");
-        const assetPlan = metrics.timers.timeSync("assets.plan", () =>
-            planAssetRenames({
-                projectIndex,
-                assetStyle,
-                preservedSet,
-                ignoreMatchers,
-                metrics
-            })
-        );
+    if (projectIndex && styleSettings.assetStyle !== IdentifierCaseStyle.OFF) {
+        const assetPlan = planIdentifierCaseAssets({
+            projectIndex,
+            assetStyle: styleSettings.assetStyle,
+            preservedSet,
+            ignoreMatchers,
+            metrics
+        });
         operations.push(...assetPlan.operations);
         conflicts.push(...assetPlan.conflicts);
         assetRenames.push(...assetPlan.renames);
         assetConflicts = assetPlan.conflicts ?? [];
-        metrics.counters.increment(
-            "assets.operations",
-            assetPlan.operations.length
-        );
-        metrics.counters.increment(
-            "assets.conflicts",
-            assetPlan.conflicts.length
-        );
-        metrics.counters.increment("assets.renames", assetPlan.renames.length);
     }
 
     if (
         projectIndex &&
-        (shouldPlanFunctions ||
-            shouldPlanStructs ||
-            shouldPlanMacros ||
-            shouldPlanInstance ||
-            shouldPlanGlobals)
+        (planFlags.shouldPlanFunctions ||
+            planFlags.shouldPlanStructs ||
+            planFlags.shouldPlanMacros ||
+            planFlags.shouldPlanInstance ||
+            planFlags.shouldPlanGlobals)
     ) {
         planTopLevelIdentifierRenames({
             projectIndex,
             styles: {
-                functions: functionStyle,
-                structs: structStyle,
-                macros: macroStyle,
-                instance: instanceStyle,
-                globals: globalStyle
+                functions: styleSettings.functionStyle,
+                structs: styleSettings.structStyle,
+                macros: styleSettings.macroStyle,
+                instance: styleSettings.instanceStyle,
+                globals: styleSettings.globalStyle
             },
             preservedSet,
             ignoreMatchers,
@@ -904,23 +819,19 @@ export async function prepareIdentifierCasePlan(options) {
     const hasLocalSupport =
         projectIndex &&
         projectIndex.files &&
-        localStyle !== IdentifierCaseStyle.OFF;
+        styleSettings.localStyle !== IdentifierCaseStyle.OFF;
 
     if (hasLocalSupport) {
         metrics.counters.increment("locals.supportedFiles");
     }
 
-    let fileRecord = null;
-    let relativeFilePath = null;
-    if (hasLocalSupport) {
-        relativeFilePath = resolveProjectRelativeFilePath(
-            projectIndex.projectRoot,
-            options.filepath ?? null
-        );
-        if (relativeFilePath && projectIndex.files[relativeFilePath]) {
-            fileRecord = projectIndex.files[relativeFilePath];
-        }
-    }
+    const localFileContext = resolveIdentifierCaseLocalFileContext({
+        hasLocalSupport,
+        projectIndex,
+        options
+    });
+    const fileRecord = localFileContext.fileRecord;
+    const relativeFilePath = localFileContext.relativeFilePath;
 
     if (!fileRecord) {
         finalizePlanWithoutFileRecord({
@@ -944,7 +855,7 @@ export async function prepareIdentifierCasePlan(options) {
         relativeFilePath,
         preservedSet,
         ignoreMatchers,
-        localStyle,
+        localStyle: styleSettings.localStyle,
         metrics,
         conflicts
     });
@@ -988,42 +899,12 @@ export async function prepareIdentifierCasePlan(options) {
     } catch {
         /* ignore */
     }
-    if (assetRenames.length > 0) {
-        setIdentifierCaseOption(
-            options,
-            "__identifierCaseAssetRenames",
-            assetRenames
-        );
-    }
-
-    if (operations.length === 0 && conflicts.length === 0) {
-        setIdentifierCaseOption(
-            options,
-            "__identifierCasePlanGeneratedInternally",
-            true
-        );
-        try {
-            // console.debug(
-            //     "[DBG] prepareIdentifierCasePlan set planGenerated=true"
-            // );
-        } catch {
-            /* ignore */
-        }
-    } else {
-        setIdentifierCaseOption(options, "__identifierCaseRenamePlan", {
-            operations
-        });
-        setIdentifierCaseOption(
-            options,
-            "__identifierCaseConflicts",
-            conflicts
-        );
-        setIdentifierCaseOption(
-            options,
-            "__identifierCasePlanGeneratedInternally",
-            true
-        );
-    }
+    finalizeIdentifierCasePlan({
+        options,
+        operations,
+        conflicts,
+        assetRenames
+    });
 
     applyAssetRenamesIfEligible({
         options,
@@ -1047,6 +928,248 @@ export async function prepareIdentifierCasePlan(options) {
     if (options.__identifierCaseRenamePlan) {
         options.__identifierCaseRenamePlan.metrics = metricsReport;
     }
+}
+
+function applyIdentifierCaseDryRunOverrides(options: any) {
+    if (
+        options.__identifierCaseDryRun === undefined &&
+        options.identifierCaseDryRun !== undefined
+    ) {
+        setIdentifierCaseOption(
+            options,
+            "__identifierCaseDryRun",
+            options.identifierCaseDryRun
+        );
+    }
+}
+
+function applyIdentifierCaseDryRunContext(options: any, context: any) {
+    if (
+        options.__identifierCaseDryRun === undefined &&
+        context &&
+        typeof context.dryRun === "boolean"
+    ) {
+        setIdentifierCaseOption(
+            options,
+            "__identifierCaseDryRun",
+            context.dryRun
+        );
+    }
+}
+
+function createIdentifierCaseMetricsContext(options: any) {
+    const logger = options.logger ?? null;
+    const metricsContracts = Core.createMetricsTracker({
+        category: "identifier-case-plan",
+        logger,
+        autoLog: options.logIdentifierCaseMetrics === true
+    });
+    const metrics = metricsContracts.recording;
+    const metricsReporting = metricsContracts.reporting;
+    setIdentifierCaseOption(
+        options,
+        "__identifierCaseMetrics",
+        metricsContracts
+    );
+    const stopTotal = metrics.timers.startTimer("preparePlan");
+
+    return { metrics, metricsReporting, stopTotal };
+}
+
+type IdentifierCaseStyleSettings = {
+    localStyle: IdentifierCaseStyleValue;
+    assetStyle: IdentifierCaseStyleValue;
+    functionStyle: IdentifierCaseStyleValue;
+    structStyle: IdentifierCaseStyleValue;
+    macroStyle: IdentifierCaseStyleValue;
+    instanceStyle: IdentifierCaseStyleValue;
+    globalStyle: IdentifierCaseStyleValue;
+};
+
+function resolveIdentifierCaseStyles(
+    normalizedOptions: any
+): IdentifierCaseStyleSettings {
+    const localStyle =
+        normalizedOptions.scopeStyles?.locals ?? IdentifierCaseStyle.OFF;
+    const assetStyle = normalizeIdentifierCaseAssetStyle(
+        normalizedOptions.scopeStyles?.assets
+    );
+    const functionStyle = normalizedOptions.scopeStyles?.functions ?? "off";
+    const structStyle = normalizedOptions.scopeStyles?.structs ?? "off";
+    const macroStyle = normalizedOptions.scopeStyles?.macros ?? "off";
+    const instanceStyle = normalizedOptions.scopeStyles?.instance ?? "off";
+    const globalStyle = normalizedOptions.scopeStyles?.globals ?? "off";
+
+    return {
+        localStyle,
+        assetStyle,
+        functionStyle,
+        structStyle,
+        macroStyle,
+        instanceStyle,
+        globalStyle
+    };
+}
+
+function resolveIdentifierCasePlanFlags(styles: IdentifierCaseStyleSettings) {
+    const shouldPlanLocals = styles.localStyle !== IdentifierCaseStyle.OFF;
+    const shouldPlanAssets = styles.assetStyle !== IdentifierCaseStyle.OFF;
+    const shouldPlanFunctions = styles.functionStyle !== "off";
+    const shouldPlanStructs = styles.structStyle !== "off";
+    const shouldPlanMacros = styles.macroStyle !== "off";
+    const shouldPlanInstance = styles.instanceStyle !== "off";
+    const shouldPlanGlobals = styles.globalStyle !== "off";
+
+    return {
+        shouldPlanLocals,
+        shouldPlanAssets,
+        shouldPlanFunctions,
+        shouldPlanStructs,
+        shouldPlanMacros,
+        shouldPlanInstance,
+        shouldPlanGlobals,
+        requiresProjectIndex:
+            shouldPlanLocals ||
+            shouldPlanAssets ||
+            shouldPlanFunctions ||
+            shouldPlanStructs ||
+            shouldPlanMacros ||
+            shouldPlanInstance ||
+            shouldPlanGlobals
+    };
+}
+
+function recordIdentifierCaseStyleMetadata(
+    metrics: any,
+    styles: IdentifierCaseStyleSettings
+) {
+    for (const [key, value] of Object.entries(styles)) {
+        metrics.metadata.setMetadata(key, value);
+    }
+}
+
+function createIdentifierCaseMetricsFinalizer({
+    options,
+    stopTotal,
+    metricsReporting
+}: {
+    options: any;
+    stopTotal: () => void;
+    metricsReporting: any;
+}) {
+    return (extraMetadata = {}) => {
+        stopTotal();
+        const report = metricsReporting.summary.finalize({
+            metadata: extraMetadata
+        });
+        setIdentifierCaseOption(
+            options,
+            "__identifierCaseMetricsReport",
+            report
+        );
+        return report;
+    };
+}
+
+function planIdentifierCaseAssets({
+    projectIndex,
+    assetStyle,
+    preservedSet,
+    ignoreMatchers,
+    metrics
+}: {
+    projectIndex: any;
+    assetStyle: IdentifierCaseStyleValue;
+    preservedSet: Set<string>;
+    ignoreMatchers: ReturnType<typeof buildPatternMatchers>;
+    metrics: any;
+}) {
+    metrics.counters.increment("assets.projectsWithIndex");
+    const assetPlan = metrics.timers.timeSync("assets.plan", () =>
+        planAssetRenames({
+            projectIndex,
+            assetStyle,
+            preservedSet,
+            ignoreMatchers,
+            metrics
+        })
+    );
+    metrics.counters.increment("assets.operations", assetPlan.operations.length);
+    metrics.counters.increment("assets.conflicts", assetPlan.conflicts.length);
+    metrics.counters.increment("assets.renames", assetPlan.renames.length);
+
+    return assetPlan;
+}
+
+function resolveIdentifierCaseLocalFileContext({
+    hasLocalSupport,
+    projectIndex,
+    options
+}: {
+    hasLocalSupport: boolean;
+    projectIndex: any;
+    options: any;
+}) {
+    if (!hasLocalSupport) {
+        return { fileRecord: null, relativeFilePath: null };
+    }
+
+    const relativeFilePath = resolveProjectRelativeFilePath(
+        projectIndex.projectRoot,
+        options.filepath ?? null
+    );
+    const fileRecord =
+        relativeFilePath && projectIndex.files[relativeFilePath]
+            ? projectIndex.files[relativeFilePath]
+            : null;
+
+    return { fileRecord, relativeFilePath };
+}
+
+function finalizeIdentifierCasePlan({
+    options,
+    operations,
+    conflicts,
+    assetRenames
+}: {
+    options: any;
+    operations: any[];
+    conflicts: any[];
+    assetRenames: any[];
+}) {
+    if (assetRenames.length > 0) {
+        setIdentifierCaseOption(
+            options,
+            "__identifierCaseAssetRenames",
+            assetRenames
+        );
+    }
+
+    if (operations.length === 0 && conflicts.length === 0) {
+        setIdentifierCaseOption(
+            options,
+            "__identifierCasePlanGeneratedInternally",
+            true
+        );
+        try {
+            // console.debug(
+            //     "[DBG] prepareIdentifierCasePlan set planGenerated=true"
+            // );
+        } catch {
+            /* ignore */
+        }
+        return;
+    }
+
+    setIdentifierCaseOption(options, "__identifierCaseRenamePlan", {
+        operations
+    });
+    setIdentifierCaseOption(options, "__identifierCaseConflicts", conflicts);
+    setIdentifierCaseOption(
+        options,
+        "__identifierCasePlanGeneratedInternally",
+        true
+    );
 }
 
 type FinalizePlanWithoutFileRecordParams = {

@@ -114,7 +114,8 @@ const {
     VARIABLE_DECLARATION,
     VARIABLE_DECLARATOR,
     WHILE_STATEMENT,
-    WITH_STATEMENT
+    WITH_STATEMENT,
+    GLOBAL_VAR_STATEMENT
 } = Core;
 
 const { isNextLineEmpty, isPreviousLineEmpty } = util;
@@ -127,6 +128,7 @@ const STRING_TYPE = "string";
 const OBJECT_TYPE = "object";
 const NUMBER_TYPE = "number";
 const UNDEFINED_TYPE = "undefined";
+const PRESERVED_GLOBAL_VAR_NAMES = Symbol("preservedGlobalVarNames");
 
 // Use Core.* directly instead of destructuring the Core namespace across
 // package boundaries (see AGENTS.md): e.g., use Core.getCommentArray(...) not
@@ -1698,7 +1700,9 @@ function tryPrintLiteralNode(node, path, options, print) {
             return concat(value);
         }
         case "Identifier": {
-            const prefix = shouldPrefixGlobalIdentifier(path) ? "global." : "";
+            const prefix = shouldPrefixGlobalIdentifier(path, options)
+                ? "global."
+                : "";
             let identifierName = node.name;
 
             const argumentIndex =
@@ -2812,6 +2816,13 @@ function printStatements(path, options, print, childrenAttribute) {
         parentNode && Array.isArray(parentNode[childrenAttribute])
             ? parentNode[childrenAttribute]
             : null;
+    if (
+        options?.preserveGlobalVarStatements !== false &&
+        statements &&
+        statements.length > 0
+    ) {
+        ensurePreservedGlobalVarNames(options, statements);
+    }
     if (statements) {
         applyAssignmentAlignment(statements, options, path, childrenAttribute);
     }
@@ -5714,9 +5725,73 @@ function needsParensForNegation(node) {
     ].includes(node.type);
 }
 
-function shouldPrefixGlobalIdentifier(path) {
+function ensurePreservedGlobalVarNames(options, statements) {
+    if (
+        !options ||
+        options.preserveGlobalVarStatements === false ||
+        Object.hasOwn(options, PRESERVED_GLOBAL_VAR_NAMES)
+    ) {
+        return options?.[PRESERVED_GLOBAL_VAR_NAMES] ?? null;
+    }
+
+    const names = new Set();
+    collectGlobalVarNamesFromNode(statements, names);
+    options[PRESERVED_GLOBAL_VAR_NAMES] = names;
+    return names;
+}
+
+function collectGlobalVarNamesFromNode(node, names) {
+    if (!node) {
+        return;
+    }
+
+    if (Array.isArray(node)) {
+        for (const entry of node) {
+            collectGlobalVarNamesFromNode(entry, names);
+        }
+        return;
+    }
+
+    if (typeof node !== "object") {
+        return;
+    }
+
+    if (node.type === GLOBAL_VAR_STATEMENT) {
+        const declarations = Core.asArray(node.declarations);
+        for (const declarator of declarations) {
+            const identifierName = Core.getIdentifierText(
+                (declarator as any)?.id ?? null
+            );
+            if (Core.isNonEmptyString(identifierName)) {
+                names.add(identifierName);
+            }
+        }
+    }
+
+    Core.forEachNodeChild(node, (child) =>
+        collectGlobalVarNamesFromNode(child, names)
+    );
+}
+
+function shouldPrefixGlobalIdentifier(path, options) {
     const node = path.getValue();
     if (!node || !node.isGlobalIdentifier) return false;
+
+    const preservedNames =
+        options?.preserveGlobalVarStatements === false
+            ? null
+            : options?.[PRESERVED_GLOBAL_VAR_NAMES];
+    const identifierName = preservedNames
+        ? Core.getIdentifierText(node)
+        : null;
+    if (
+        preservedNames &&
+        preservedNames.size > 0 &&
+        typeof identifierName === STRING_TYPE &&
+        preservedNames.has(identifierName)
+    ) {
+        return false;
+    }
 
     const parent = path.getParentNode();
     if (!parent) return true;
@@ -5741,21 +5816,26 @@ function shouldPrefixGlobalIdentifier(path) {
 }
 
 function docHasTrailingComment(doc) {
-    if (Core.isNonEmptyArray(doc)) {
-        const lastItem = doc.at(-1);
-        if (Core.isNonEmptyArray(lastItem)) {
-            const commentArr = lastItem[0];
-            if (Core.isNonEmptyArray(commentArr)) {
-                return commentArr.some((item) => {
-                    return (
-                        typeof item === STRING_TYPE &&
-                        (item.startsWith("//") || item.startsWith("/*"))
-                    );
-                });
-            }
-        }
+    if (!Core.isNonEmptyArray(doc)) {
+        return false;
     }
-    return false;
+
+    const lastItem = doc.at(-1);
+    if (!Core.isNonEmptyArray(lastItem)) {
+        return false;
+    }
+
+    const commentArr = lastItem[0];
+    if (!Core.isNonEmptyArray(commentArr)) {
+        return false;
+    }
+
+    return commentArr.some((item) => {
+        return (
+            typeof item === STRING_TYPE &&
+            (item.startsWith("//") || item.startsWith("/*"))
+        );
+    });
 }
 
 function getManualMathRatio(node) {
