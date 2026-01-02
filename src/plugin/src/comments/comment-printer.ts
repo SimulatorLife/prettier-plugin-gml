@@ -5,6 +5,7 @@ import { builders } from "prettier/doc";
 import { Core } from "@gml-modules/core";
 import { isFunctionDocCommentLine } from "../doc-comment/function-tag-filter.js";
 import { normalizeDocLikeLineComment } from "./doc-like-line-normalization.js";
+import { countTrailingBlankLines } from "../printer/semicolons.js";
 
 const { addDanglingComment, addLeadingComment } = util;
 const { join, hardline } = builders;
@@ -205,7 +206,7 @@ function printComment(commentPath, options) {
         return "";
     }
 
-    applyTrailingCommentPadding(comment);
+    applyTrailingCommentPadding(comment, options);
     applySingleLeadingSpacePadding(comment, options);
     if (comment?._structPropertyTrailing) {
         comment._structPropertyHandled = true;
@@ -229,6 +230,31 @@ function printComment(commentPath, options) {
                     comment.inlinePadding = 0;
                 }
                 comment.trailingWS = "\n";
+
+                const endIndex =
+                    comment.end && typeof comment.end.index === "number"
+                        ? comment.end.index
+                        : comment.end;
+                const blankLines = countTrailingBlankLines(
+                    options.originalText,
+                    endIndex + 1
+                );
+
+                if (comment.value.includes("Orthogonalize")) {
+                    console.log(
+                        `DEBUG: printComment Orthogonalize blankLines=${blankLines} endIndex=${endIndex}`
+                    );
+                    console.log(
+                        `DEBUG: originalText slice: "${options.originalText
+                            .slice(endIndex, endIndex + 10)
+                            .replace(/\n/g, "\\n")}"`
+                    );
+                }
+
+                if (blankLines > 0) {
+                    return [decorated, hardline, hardline];
+                }
+
                 return [decorated, hardline];
             }
             return `/*${comment.value}*/`;
@@ -316,7 +342,7 @@ function getCommentStartIndex(comment) {
     return null;
 }
 
-function applyTrailingCommentPadding(comment) {
+function applyTrailingCommentPadding(comment, options) {
     if (!Core.isObjectLike(comment)) {
         return;
     }

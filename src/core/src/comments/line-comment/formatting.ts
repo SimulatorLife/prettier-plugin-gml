@@ -565,6 +565,21 @@ function formatLineComment(
         return bannerResult;
     }
 
+    if (trimmedValue.includes(".__FromBuffer")) {
+        console.log("DEBUG: formatLineComment .__FromBuffer");
+        console.log("DEBUG: bannerResult", bannerResult);
+        console.log(
+            "DEBUG: tryFormatCommentedOutCode result",
+            tryFormatCommentedOutCode(
+                comment,
+                trimmedOriginal,
+                trimmedValue,
+                rawValue,
+                codeDetectionPatterns
+            )
+        );
+    }
+
     // Try promoting to doc comment
     const docPromotionResult = tryPromoteToDocComment(
         comment,
@@ -671,21 +686,8 @@ function resolveInlinePaddingWidth(comment) {
         return inlinePadding;
     }
 
-    if (
-        comment?.isBottomComment !== true ||
-        (comment.trailing !== true && comment.placement !== "endOfLine") ||
-        comment.leadingChar !== ";"
-    ) {
-        return 0;
-    }
+    return 0;
 
-    const leadingWhitespace =
-        typeof comment.leadingWS === "string" ? comment.leadingWS : "";
-    if (leadingWhitespace.length >= 2) {
-        return 0;
-    }
-
-    return comment.placement === "endOfLine" ? 1 : 0;
 }
 
 function extractContinuationIndentation(comment) {
