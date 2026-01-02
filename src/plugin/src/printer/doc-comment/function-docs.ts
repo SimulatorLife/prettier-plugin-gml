@@ -125,7 +125,11 @@ function collectProgramLeadingDocLines({
         const formatted = Core.formatLineComment(comment, lineCommentOptions);
         const normalized =
             typeof formatted === STRING_TYPE
-                ? normalizeDocLikeLineComment(comment, formatted)
+                ? normalizeDocLikeLineComment(
+                      comment,
+                      formatted,
+                      lineCommentOptions.originalText
+                  )
                 : formatted;
         const trimmed = normalized ? normalized.trim() : "";
 
@@ -158,7 +162,11 @@ function formatLineCommentDocEntry(comment: any, lineCommentOptions: any) {
     const formatted = Core.formatLineComment(comment, lineCommentOptions);
     const normalized =
         typeof formatted === STRING_TYPE
-            ? normalizeDocLikeLineComment(comment, formatted)
+            ? normalizeDocLikeLineComment(
+                  comment,
+                  formatted,
+                  lineCommentOptions.originalText
+              )
             : formatted;
     const trimmed = normalized ? normalized.trim() : "";
     if (

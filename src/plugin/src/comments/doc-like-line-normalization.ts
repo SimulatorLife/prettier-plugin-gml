@@ -1,13 +1,11 @@
+import { Core } from "@gml-modules/core";
+
 type LineComment = {
     value?: string;
 };
 
-function resolveRawDocLikeRemainder(comment: LineComment): string {
-    if (!comment || typeof comment.value !== "string") {
-        return "";
-    }
-
-    const trimmed = comment.value.trimStart();
+function resolveRawDocLikeRemainder(rawText: string): string {
+    const trimmed = rawText.trimStart();
     if (trimmed.startsWith("/")) {
         return trimmed.slice(1).trimStart();
     }
@@ -17,7 +15,8 @@ function resolveRawDocLikeRemainder(comment: LineComment): string {
 
 function normalizeDocLikeLineComment(
     comment: LineComment,
-    formatted: string
+    formatted: string,
+    originalText?: string | null
 ): string {
     void comment;
 
@@ -30,8 +29,10 @@ function normalizeDocLikeLineComment(
         ? leadingWhitespaceMatch[0]
         : "";
     const trimmedFormatted = formatted.trimStart();
-    const docLikeRawValue =
-        typeof comment?.value === "string" ? comment.value.trimStart() : "";
+    const rawText = Core.getLineCommentRawText(comment, {
+        originalText: originalText ?? undefined
+    });
+    const docLikeRawValue = rawText.trim();
     if (
         docLikeRawValue.startsWith("/") &&
         docLikeRawValue.slice(1).trim().length === 0
@@ -45,16 +46,16 @@ function normalizeDocLikeLineComment(
             return formatted;
         }
 
-        const rawRemainder = resolveRawDocLikeRemainder(comment);
+        const rawRemainder = resolveRawDocLikeRemainder(rawText);
         if (normalizedRemainder.length === 0) {
             return "";
         }
 
         if (!/^[A-Za-z0-9]/.test(normalizedRemainder)) {
             const fallback =
-                normalizedRemainder.length > 0
-                    ? normalizedRemainder
-                    : rawRemainder;
+                rawRemainder.length > 0
+                    ? rawRemainder
+                    : normalizedRemainder;
             if (fallback.length === 0) {
                 return "";
             }

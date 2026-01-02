@@ -37,4 +37,4 @@ item = function() constructor {
 };
 
 my_item = new item();
-show_debug_message(my_item.copied_value);  // Prints 99
+show_debug_message(my_item.copied_value); // Prints 99

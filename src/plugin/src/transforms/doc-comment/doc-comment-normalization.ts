@@ -101,7 +101,11 @@ function execute(
             );
             const normalized =
                 typeof formatted === "string"
-                    ? normalizeDocLikeLineComment(comment, formatted)
+                    ? normalizeDocLikeLineComment(
+                          comment,
+                          formatted,
+                          lineCommentOptions.originalText
+                      )
                     : formatted;
             if (!Core.isNonEmptyTrimmedString(normalized)) {
                 continue;
