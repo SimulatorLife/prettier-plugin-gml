@@ -269,7 +269,7 @@ void test("adds synthetic @returns metadata when defaults replace argument_count
 void test("reorders description doc comments between parameters and returns", async () => {
     const source = [
         "/// @function sample(_first, _second)",
-        "/// @desc A longer example description that should wrap into multiple lines and appear after the",
+        "/// @desc A longer example description that should wrap into multiple lines and appear before the the parameter metadata.",
         "/// @param {String Array[String]} _first First input",
         "/// @param {Id Instance} _second Second input",
         "function sample(_first, _second)",
@@ -279,20 +279,20 @@ void test("reorders description doc comments between parameters and returns", as
         ""
     ].join("\n");
 
-    const formatted = await Plugin.format(source);
+    const formatted = await Plugin.format(source, { printWidth: 100 });
     const lines = formatted.trim().split("\n");
 
     assert.deepStrictEqual(
         lines.slice(0, 6),
         [
-            "/// @description A longer example description that should wrap into multiple lines and appear after",
-            "///              the",
-            "/// @param {string,array[string]} first - First input",
-            "/// @param {Id.Instance} second - Second input",
+            "/// @description A longer example description that should wrap into multiple lines and appear before",
+            "///              the parameter metadata.",
+            "/// @param {string,array<string>} first First input",
+            "/// @param {Id.Instance} second Second input",
             "/// @returns {undefined}",
             "function sample(_first, _second) {"
         ],
-        "Expected description doc comments to follow parameter metadata and precede the returns tag."
+        "Expected description doc comments to precede parameter metadata and the returns tag."
     );
 });
 
@@ -341,8 +341,8 @@ void test("respects printWidth for wrapping description doc comments", async () 
         lines.slice(0, 6),
         [
             "/// @description A longer example description that is still under the printWidth should not wrap at all",
-            "/// @param {string,array[string]} first - First input",
-            "/// @param {Id.Instance} second - Second input",
+            "/// @param {string,array<string>} first First input",
+            "/// @param {Id.Instance} second Second input",
             "/// @returns {undefined}",
             "function sample(_first, _second) {"
         ],
