@@ -436,7 +436,7 @@ function tryFormatCommentedOutCode(
         return null;
     }
 
-    const normalizedWhitespace = leadingWhitespace.replaceAll('\t', "    ");
+    const normalizedWhitespace = leadingWhitespace.replaceAll("\t", "    ");
     const hasTabsOnly =
         leadingWhitespace.length > 0 &&
         leadingWhitespace.includes("\t") &&
@@ -664,7 +664,7 @@ function formatLineComment(
     const fallbackLeadingWhitespace =
         typeof rawValue === "string" ? (rawValue.match(/^\s*/)?.[0] ?? "") : "";
     const normalizedFallbackWhitespace = fallbackLeadingWhitespace.replaceAll(
-        '\t',
+        "\t",
         "    "
     );
     const fallbackHasTabsOnly =
