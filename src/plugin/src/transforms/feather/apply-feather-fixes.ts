@@ -6400,7 +6400,10 @@ function markCommentForTrailingPaddingPreservation(
 
     if (typeof inlinePadding === "number" && inlinePadding >= 0) {
         const previousPadding = comment.inlinePadding;
-        comment.inlinePadding = typeof previousPadding === "number" ? Math.max(previousPadding, inlinePadding) : inlinePadding;
+        comment.inlinePadding =
+            typeof previousPadding === "number"
+                ? Math.max(previousPadding, inlinePadding)
+                : inlinePadding;
     }
 }
 function markStatementToSuppressFollowingEmptyLine(statement) {
@@ -12510,7 +12513,11 @@ function coerceStringLiteralsInBinaryExpression(
             typeof rightIdentifier === "string" &&
             stringLiteralAssignments.has(rightIdentifier);
 
-        if (leftIsNumeric && rightTracked && canWrapOperandWithReal(node.right)) {
+        if (
+            leftIsNumeric &&
+            rightTracked &&
+            canWrapOperandWithReal(node.right)
+        ) {
             node.right = createRealCoercionCall(node.right);
             mutated = true;
         } else if (
@@ -12575,11 +12582,7 @@ function canWrapOperandWithReal(node) {
 
     if (node.type === "CallExpression") {
         const object = node.object;
-        if (
-            object &&
-            object.type === "Identifier" &&
-            object.name === "real"
-        ) {
+        if (object && object.type === "Identifier" && object.name === "real") {
             return false;
         }
     }

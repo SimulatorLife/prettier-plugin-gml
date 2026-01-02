@@ -242,7 +242,7 @@ function tryFormatBannerComment(
             comment.leadingWS = "";
             comment.trailingWS = "";
         }
-        const followingNode = (comment)?.followingNode;
+        const followingNode = comment?.followingNode;
         if (
             isObjectLike(followingNode) &&
             followingNode?._featherSuppressLeadingEmptyLine !== false

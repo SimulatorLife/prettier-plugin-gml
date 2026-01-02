@@ -1411,11 +1411,16 @@ function finalizeDescriptionBlocks({
 
         for (let index = 0; index < adjusted.length - 1; index += 1) {
             let nextSegment = adjusted[index + 1].trim();
-            const descriptionPrefixMatch = nextSegment.match(/^(The description)\b\s*/i);
+            const descriptionPrefixMatch = nextSegment.match(
+                /^(The description)\b\s*/i
+            );
             if (descriptionPrefixMatch) {
                 const prefixText = descriptionPrefixMatch[1];
-                nextSegment = nextSegment.slice(descriptionPrefixMatch[0].length).trim();
-                adjusted[index] = `${adjusted[index].trim()} ${prefixText}`.trim();
+                nextSegment = nextSegment
+                    .slice(descriptionPrefixMatch[0].length)
+                    .trim();
+                adjusted[index] =
+                    `${adjusted[index].trim()} ${prefixText}`.trim();
                 adjusted[index + 1] = nextSegment;
             }
             while (nextSegment.length > 0 && /^[a-z]/.test(nextSegment[0])) {
@@ -1497,11 +1502,7 @@ function finalizeDescriptionBlocks({
             const available = Math.max(wrapWidth - prefix.length, 16);
             const continuationAvailable = clamp(available, 16, 62);
             const segments = rebalanceDescriptionSegments(
-                wrapSegments(
-                    descriptionText,
-                    available,
-                    continuationAvailable
-                )
+                wrapSegments(descriptionText, available, continuationAvailable)
             );
 
             if (segments.length === 0) {

@@ -251,7 +251,7 @@ function printComment(commentPath, options) {
                     console.log(
                         `DEBUG: originalText slice: "${options.originalText
                             .slice(endIndex, endIndex + 10)
-                            .replaceAll('\n', String.raw`\n`)}"`
+                            .replaceAll("\n", String.raw`\n`)}"`
                     );
                     console.log(
                         `DEBUG: comment start=${JSON.stringify(comment.start)}`
@@ -287,14 +287,14 @@ function printComment(commentPath, options) {
                 comment,
                 formattingOptions
             );
-        const normalized =
-            typeof formatted === "string"
-                ? normalizeDocLikeLineComment(
-                      comment,
-                      formatted,
-                      options?.originalText
-                  )
-                : "";
+            const normalized =
+                typeof formatted === "string"
+                    ? normalizeDocLikeLineComment(
+                          comment,
+                          formatted,
+                          options?.originalText
+                      )
+                    : "";
             if (normalized.trim() === "/// @description") {
                 return "";
             }
@@ -619,7 +619,7 @@ function hasInlineContentBeforeComment(comment, options) {
     const lastLineBreak = originalText.lastIndexOf("\n", startIndex - 1);
     const lineStart = lastLineBreak === -1 ? 0 : lastLineBreak + 1;
     const precedingSegment = originalText.slice(lineStart, startIndex);
-    return /\S/.test(precedingSegment.replaceAll('\r', ""));
+    return /\S/.test(precedingSegment.replaceAll("\r", ""));
 }
 
 function getNextNonWhitespaceCharacterAfterComment(comment, originalText) {

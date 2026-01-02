@@ -5191,9 +5191,9 @@ function shouldOmitDefaultValueForParameter(path, options) {
                 if (comment.type === "CommentBlock") {
                     return value
                         .split(/\r\n|\n|\r/)
-                        .map((line) => `/// ${  line}`);
+                        .map((line) => `/// ${line}`);
                 }
-                return `/// ${  value}`;
+                return `/// ${value}`;
             });
 
             const paramName =
@@ -5227,11 +5227,11 @@ function shouldOmitDefaultValueForParameter(path, options) {
                     docLines.unshift(line);
                 } else if (line.startsWith("/*") && line.endsWith("*/")) {
                     const content = line.slice(2, -2).trim();
-                    docLines.unshift(`/// ${  content}`);
+                    docLines.unshift(`/// ${content}`);
                 } else if (line.startsWith("//")) {
                     if (line.includes("@param") || line.includes("@function")) {
                         docLines.unshift(
-                            `/// ${  line.replace(/^\/+/, "").trim()}`
+                            `/// ${line.replace(/^\/+/, "").trim()}`
                         );
                     }
                 } else {

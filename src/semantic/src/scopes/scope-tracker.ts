@@ -156,7 +156,9 @@ function cloneDeclarationMetadata(metadata) {
     };
 }
 
-type ScopeSymbolMetadata = NonNullable<ReturnType<typeof cloneDeclarationMetadata>>;
+type ScopeSymbolMetadata = NonNullable<
+    ReturnType<typeof cloneDeclarationMetadata>
+>;
 
 function cloneOccurrence(occurrence) {
     if (!occurrence) {
@@ -288,7 +290,9 @@ export class ScopeTracker {
         return this.rootScope;
     }
 
-    private clearResolveIdentifierCacheForName(name: string | null | undefined) {
+    private clearResolveIdentifierCacheForName(
+        name: string | null | undefined
+    ) {
         if (!name) {
             return;
         }
@@ -882,7 +886,9 @@ export class ScopeTracker {
         );
 
         if (cachedDeclaration !== undefined) {
-            return cachedDeclaration ? cloneDeclarationMetadata(cachedDeclaration) : null;
+            return cachedDeclaration
+                ? cloneDeclarationMetadata(cachedDeclaration)
+                : null;
         }
 
         const storedIndex = startScope.stackIndex;

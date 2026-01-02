@@ -67,5 +67,4 @@ void describe("Watch command metrics tracking", () => {
         // Test passes if no errors were thrown and statistics were displayed
         assert.ok(true, "Metrics tracking completed without errors");
     });
-
 });
