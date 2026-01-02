@@ -3422,7 +3422,7 @@ export function applyAssignmentAlignment(
     childrenAttribute = null
 ) {
     const minGroupSize = getAssignmentAlignmentMinimum(options);
-    /** @type {Array<{ node: any, nameLength: number, prefixLength: number }>} */
+    /** @type {Array<{ node: any, nameLength: number, prefixLength: number, assignmentType: string }>} */
     const currentGroup = [];
     let currentGroupMaxLength = 0;
     let currentGroupHasAlias = false;
@@ -3456,10 +3456,16 @@ export function applyAssignmentAlignment(
         }
 
         const groupEntries = [...currentGroup];
+        const groupAssignmentType =
+            groupEntries.length > 0
+                ? groupEntries[0].assignmentType
+                : "assignment";
         const meetsAlignmentThreshold =
-            minGroupSize > 0
-                ? groupEntries.length >= minGroupSize
-                : groupEntries.length >= 2;
+            groupAssignmentType === "declaration"
+                ? minGroupSize > 0 && groupEntries.length >= minGroupSize
+                : minGroupSize > 0
+                    ? groupEntries.length >= minGroupSize
+                    : groupEntries.length >= 2;
         const canAlign = meetsAlignmentThreshold && currentGroupHasAlias;
 
         if (!canAlign) {
@@ -3514,7 +3520,8 @@ export function applyAssignmentAlignment(
             currentGroup.push({
                 node: entry.paddingTarget,
                 nameLength: entry.nameLength,
-                prefixLength
+                prefixLength,
+                assignmentType: entry.assignmentType
             });
             const printedWidth = entry.nameLength + prefixLength;
             if (printedWidth > currentGroupMaxLength) {

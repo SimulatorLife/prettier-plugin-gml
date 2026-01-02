@@ -18,7 +18,7 @@ apple         = ["granny smith", "fuji", "gala"];
 
 // If renaming would cause a naming conflict, do not hoist
 for (var index = 0; index < array_length(apple); index += 1) {
-	show_debug_message(apple[index]);
+    show_debug_message(apple[index]);
 }
 
 var arr3 = [1, 2, 3];
