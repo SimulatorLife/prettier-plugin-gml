@@ -243,6 +243,13 @@ function tryFormatBannerComment(
             comment.leadingWS = "";
             comment.trailingWS = "";
         }
+        const followingNode = (comment as any)?.followingNode;
+        if (
+            isObjectLike(followingNode) &&
+            followingNode?._featherSuppressLeadingEmptyLine !== false
+        ) {
+            followingNode._featherSuppressLeadingEmptyLine = true;
+        }
         return "";
     }
 

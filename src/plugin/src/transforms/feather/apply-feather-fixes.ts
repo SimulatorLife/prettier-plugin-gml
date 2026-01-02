@@ -2888,6 +2888,12 @@ function flagInvalidAssignmentTarget(node, diagnostic, sourceText) {
         return null;
     }
 
+    preserveTrailingCommentAlignmentForVarDeclaration({
+        declaration: node,
+        ast,
+        sourceText
+    });
+
     attachFeatherFixMetadata(node, [fixDetail]);
 
     return fixDetail;

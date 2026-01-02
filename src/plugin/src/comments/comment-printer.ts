@@ -628,12 +628,41 @@ function hasInlineContentBeforeComment(comment, options) {
     return /\S/.test(precedingSegment.replace(/\r/g, ""));
 }
 
+function hasTrailingNonWhitespaceContent(comment, originalText) {
+    if (!Core.isObjectLike(comment)) {
+        return false;
+    }
+
+    const endIndex = getCommentEndIndex(comment);
+    if (!Number.isInteger(endIndex)) {
+        return false;
+    }
+
+    if (typeof originalText !== "string") {
+        return false;
+    }
+
+    for (let index = endIndex + 1; index < originalText.length; index += 1) {
+        const char = originalText[index];
+        if (char === "\n" || char === "\r" || char === " " || char === "\t") {
+            continue;
+        }
+        return true;
+    }
+
+    return false;
+}
+
 function applyBottomCommentInlinePadding(comment, options) {
     if (
         !Core.isObjectLike(comment) ||
         comment.isBottomComment !== true ||
         !hasInlineContentBeforeComment(comment, options)
     ) {
+        return;
+    }
+
+    if (hasTrailingNonWhitespaceContent(comment, options?.originalText)) {
         return;
     }
 
