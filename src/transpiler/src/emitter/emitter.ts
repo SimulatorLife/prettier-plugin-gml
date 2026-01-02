@@ -8,6 +8,7 @@ import type {
     CallExpressionNode,
     CallTargetAnalyzer,
     DefaultParameterNode,
+    DeleteStatementNode,
     DoUntilStatementNode,
     EmitOptions,
     EnumDeclarationNode,
@@ -24,6 +25,7 @@ import type {
     LiteralNode,
     MemberDotExpressionNode,
     MemberIndexExpressionNode,
+    NewExpressionNode,
     ProgramNode,
     RepeatStatementNode,
     ReturnStatementNode,
@@ -116,6 +118,9 @@ export class GmlToJsEmitter {
             case "CallExpression": {
                 return this.visitCallExpression(ast);
             }
+            case "NewExpression": {
+                return this.visitNewExpression(ast);
+            }
             case "Program": {
                 return this.visitProgram(ast);
             }
@@ -148,6 +153,9 @@ export class GmlToJsEmitter {
             }
             case "ExitStatement": {
                 return "return";
+            }
+            case "DeleteStatement": {
+                return this.visitDeleteStatement(ast);
             }
             case "ThrowStatement": {
                 return this.visitThrowStatement(ast);
@@ -302,6 +310,12 @@ export class GmlToJsEmitter {
         return `${callee}(${args.join(", ")})`;
     }
 
+    private visitNewExpression(ast: NewExpressionNode): string {
+        const expression = this.visit(ast.expression);
+        const args = (ast.arguments ?? []).map((arg) => this.visit(arg));
+        return `new ${expression}(${args.join(", ")})`;
+    }
+
     private visitProgram(ast: ProgramNode): string {
         return this.joinTruthy(
             (ast.body ?? []).map((stmt) =>
@@ -403,6 +417,11 @@ export class GmlToJsEmitter {
             return `return ${this.visit(ast.argument)}`;
         }
         return "return";
+    }
+
+    private visitDeleteStatement(ast: DeleteStatementNode): string {
+        const argument = this.visit(ast.argument);
+        return `delete ${argument}`;
     }
 
     private visitThrowStatement(ast: ThrowStatementNode): string {
