@@ -117,6 +117,10 @@ export function filterOccurrencesByKind(
 
     const kindSet = new Set(kinds);
     return occurrences.filter((occ) => {
+        // Skip malformed occurrences
+        if (!occ || typeof occ !== "object") {
+            return false;
+        }
         const kind = occ.kind ?? "unknown";
         return kindSet.has(kind);
     });
@@ -199,7 +203,9 @@ export function findOccurrencesInFile(
         );
     }
 
-    return occurrences.filter((occ) => occ.path === filePath);
+    return occurrences.filter(
+        (occ) => occ && typeof occ === "object" && occ.path === filePath
+    );
 }
 
 /**
