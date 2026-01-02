@@ -372,7 +372,7 @@ export function mergeSyntheticDocComments(
 
         if (hasDescription) {
             const hyphenMatch = remainingRemainder.match(/^(\s*-\s*)(.*)$/);
-            let normalizedDescription = "";
+            let normalizedDescription: string;
 
             if (hyphenMatch) {
                 const [, , rawDescription = ""] = hyphenMatch;
@@ -1326,16 +1326,14 @@ function finalizeDescriptionBlocks({
         const segments = [];
         let current = words[0];
         let currentAvailable = firstAvailable;
-        let sentenceBoundaryPending = /[.!?]["')\]]?$/.test(current);
 
         for (let index = 1; index < words.length; index += 1) {
             const word = words[index];
 
+            const endsSentence = /[.!?]["')\]]?$/.test(current);
             const startsSentence = /^[A-Z]/.test(word);
-            const endsSentence = /[.!?]["')\]]?$/.test(word);
-
             if (
-                sentenceBoundaryPending &&
+                endsSentence &&
                 startsSentence &&
                 currentAvailable >= 60 &&
                 current.length >=
@@ -1344,7 +1342,6 @@ function finalizeDescriptionBlocks({
                 segments.push(current);
                 current = word;
                 currentAvailable = continuationAvailable;
-                sentenceBoundaryPending = endsSentence;
                 continue;
             }
 
@@ -1352,10 +1349,8 @@ function finalizeDescriptionBlocks({
                 segments.push(current);
                 current = word;
                 currentAvailable = continuationAvailable;
-                sentenceBoundaryPending = endsSentence;
             } else {
                 current += ` ${word}`;
-                sentenceBoundaryPending = endsSentence;
             }
         }
 
@@ -1386,20 +1381,6 @@ function finalizeDescriptionBlocks({
         return segments;
     };
 
-    function splitDescriptionIntoSentences(text: string): string[] {
-        const sentencePattern = /[^.!?]+[.!?]+["')\]]*|[^.!?]+$/gu;
-        const sentences: string[] = [];
-        let match: RegExpExecArray | null;
-
-        while ((match = sentencePattern.exec(text)) !== null) {
-            const sentence = match[0].trim();
-            if (sentence.length > 0) {
-                sentences.push(sentence);
-            }
-        }
-
-        return sentences;
-    }
 
     for (let index = 0; index < docs.length; index += 1) {
         const line = docs[index];
@@ -1457,38 +1438,38 @@ function finalizeDescriptionBlocks({
 
             const available = Math.max(wrapWidth - prefix.length, 16);
             const continuationAvailable = clamp(available, 16, 62);
-            const sentences = splitDescriptionIntoSentences(descriptionText);
-            const segments: string[] = [];
-
-            if (sentences.length === 0) {
-                segments.push(
-                    ...wrapSegments(
-                        descriptionText,
-                        available,
-                        continuationAvailable
-                    )
-                );
-            } else {
-                for (const [
-                    sentenceIndex,
-                    sentenceText
-                ] of sentences.entries()) {
-                    if (!sentenceText) {
-                        continue;
-                    }
-
-                    const firstAvailableForSentence =
-                        sentenceIndex === 0 ? available : continuationAvailable;
-                    segments.push(
-                        ...wrapSegments(
-                            sentenceText,
-                            firstAvailableForSentence,
-                            continuationAvailable
-                        )
-                    );
-                }
+            if (
+                descriptionText.includes("Base class for all shapes") &&
+                process.env.NODE_ENV !== "production"
+            ) {
+                console.log("finalizeDescriptionBlocks wrap debug", {
+                    wrapWidth,
+                    normalizedPrintWidth: coercePositiveIntegerOption(
+                        options?.printWidth,
+                        120
+                    ),
+                    docCommentWrapWidth: resolveDocCommentWrapWidth(options),
+                    available,
+                    prefixLength: prefix.length
+                });
             }
-            console.log("segments debug", segments);
+            const segments = wrapSegments(
+                descriptionText,
+                available,
+                continuationAvailable
+            );
+
+            if (
+                descriptionText.includes("Base class for all shapes") &&
+                wrapWidth <= 60 &&
+                process.env.NODE_ENV !== "production"
+            ) {
+                console.log("wrapSegments narrow", {
+                    wrapWidth,
+                    available,
+                    segments
+                });
+            }
 
             if (segments.length === 0) {
                 wrappedDocs.push(...blockLines);

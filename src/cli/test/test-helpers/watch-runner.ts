@@ -14,7 +14,7 @@ export interface WatchTestContext {
 
 export async function runWatchTest(
     testName: string,
-    options: WatchCommandOptions = {},
+    options: WatchCommandOptions,
     testFn: (context: WatchTestContext) => Promise<void>
 ): Promise<void> {
     const testDir = path.join(
@@ -60,13 +60,13 @@ export async function runWatchTest(
         });
 
         abortController.abort();
-        if (watchPromise) {
+        if (watchPromise !== undefined) {
             await watchPromise;
         }
     } finally {
         if (!abortController.signal.aborted) {
             abortController.abort();
-            if (watchPromise) {
+            if (watchPromise !== undefined) {
                 try {
                     await watchPromise;
                 } catch {
