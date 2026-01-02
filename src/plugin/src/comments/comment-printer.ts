@@ -111,10 +111,6 @@ const REMAINING_COMMENT_HANDLERS = [
     handleMacroComments
 ];
 
-const DECORATIVE_SLASH_LINE_PATTERN = new RegExp(
-    String.raw`^\s*\*?\/{${Core.LINE_COMMENT_BANNER_DETECTION_MIN_SLASHES},}\*?\s*$`
-);
-
 function runCommentHandlers(
     handlers,
     comment,
@@ -353,6 +349,8 @@ function applyTrailingCommentPadding(comment) {
         );
     } else if (adjustedPadding > 0) {
         comment.inlinePadding = adjustedPadding;
+    } else {
+        comment.inlinePadding = 0;
     }
 }
 
@@ -946,6 +944,10 @@ function formatDecorativeBlockComment(value) {
     if (typeof value !== "string") {
         return null;
     }
+
+    const DECORATIVE_SLASH_LINE_PATTERN = new RegExp(
+        String.raw`^\s*\*?\/{${Core.LINE_COMMENT_BANNER_DETECTION_MIN_SLASHES},}\*?\s*$`
+    );
 
     const lines = value
         .split(/\r?\n/)

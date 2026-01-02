@@ -16,7 +16,7 @@ void test("preserves compact augmented assignment spacing in for loop updates", 
     assert.strictEqual(
         formatted,
         [
-            "for (var i = 0; i <= 1; i+= step_size) {",
+            "for (var i = 0; i <= 1; i += step_size) {",
             "    foo();",
             "}",
             ""

@@ -369,16 +369,6 @@ export function computeSyntheticDocCommentForFunctionAssignment(
         return null;
     }
 
-    if (
-        node.type === "VariableDeclaration" &&
-        node.kind !== "static" &&
-        (functionNode.type === "FunctionExpression" ||
-            functionNode.type === "FunctionDeclaration") &&
-        !functionNode.id
-    ) {
-        return null;
-    }
-
     suppressConstructorAssignmentPadding(functionNode);
 
     const processedComments = processLeadingCommentLines(
@@ -395,6 +385,17 @@ export function computeSyntheticDocCommentForFunctionAssignment(
 
     const { existingDocLines, docLikeLeadingLines, plainLeadingLines } =
         processedComments;
+
+    if (
+        node.type === "VariableDeclaration" &&
+        node.kind !== "static" &&
+        (functionNode.type === "FunctionExpression" ||
+            functionNode.type === "FunctionDeclaration") &&
+        !functionNode.id &&
+        existingDocLines.length === 0
+    ) {
+        return null;
+    }
 
     const name = left.name;
     const syntheticOverrides: any = { nameOverride: name };

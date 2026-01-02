@@ -107,7 +107,57 @@ function collectNodeDocCommentLines(
     }
 
     for (const comment of rawComments) {
-        if (!comment || comment.type !== "CommentLine") {
+        if (!comment) {
+            continue;
+        }
+
+        if (comment.type === "CommentBlock") {
+            const rawValue = typeof comment.value === STRING_TYPE ? comment.value : "";
+            const trimmed = rawValue.trim();
+            const isJSDoc =
+                trimmed.startsWith("*") ||
+                /@(?:param|return|returns|arg|argument|desc|description|function|func)/.test(
+                    trimmed
+                );
+
+            if (!isJSDoc) {
+                remainingComments.push(comment);
+                continue;
+            }
+
+            const commentStartIndex =
+                comment && typeof comment.start === NUMBER_TYPE
+                    ? comment.start
+                    : comment &&
+                        comment.start &&
+                        typeof comment.start.index === NUMBER_TYPE
+                      ? comment.start.index
+                      : null;
+
+            const isBeforeNode =
+                Number.isInteger(commentStartIndex) &&
+                Number.isInteger(nodeStartIndex) &&
+                commentStartIndex < nodeStartIndex;
+            const considerAsLeading =
+                isBeforeNode || comment?.placement === "leading";
+
+            if (!considerAsLeading) {
+                remainingComments.push(comment);
+                continue;
+            }
+
+            comment.printed = true;
+            const lines = rawValue.split(/\r?\n/);
+            for (const line of lines) {
+                const cleaned = line.replace(/^\s*\*?\s?/, "").trim();
+                if (cleaned) {
+                    existingDocLines.push(`/// ${cleaned}`);
+                }
+            }
+            continue;
+        }
+
+        if (comment.type !== "CommentLine") {
             remainingComments.push(comment);
             continue;
         }

@@ -758,13 +758,6 @@ function tryPrintVariableNode(node, path, options, print) {
                     : 0;
             let spacing = " ".repeat(padding + 1);
 
-            if (
-                spacing.length === 1 &&
-                shouldPreserveCompactUpdateAssignmentSpacing(path, options)
-            ) {
-                spacing = "";
-            }
-
             return group(
                 concat([
                     group(print("left")),
@@ -4973,7 +4966,7 @@ function shouldPreserveCompactUpdateAssignmentSpacing(path, options) {
     }
 
     const afterChar = source[operatorIndex + node.operator.length] ?? "";
-    if (!/\s/.test(afterChar)) {
+    if (/\s/.test(afterChar)) {
         return false;
     }
 
@@ -5131,19 +5124,69 @@ function shouldOmitDefaultValueForParameter(path, options) {
     // parameter as optional (e.g. `/// @param [name]`) preserve it.
     const functionNode = findEnclosingFunctionDeclaration(path);
     if (functionNode) {
+        if (
+            Array.isArray(functionNode.docComments) &&
+            functionNode.docComments.length > 0
+        ) {
+            const lines = functionNode.docComments.flatMap((comment) => {
+                const value = comment.value || "";
+                if (comment.type === "CommentBlock") {
+                    return value
+                        .split(/\r\n|\n|\r/)
+                        .map((line) => "/// " + line);
+                }
+                return "/// " + value;
+            });
+
+            const paramName =
+                node.left && node.left.name ? node.left.name : null;
+            if (paramName) {
+                const optionalDocFlag = getDocParamOptionality(
+                    lines,
+                    paramName
+                );
+                if (optionalDocFlag !== null) {
+                    return !optionalDocFlag;
+                }
+            }
+        }
+
         const originalText = getOriginalTextFromOptions(options);
         if (typeof originalText === STRING_TYPE && originalText.length > 0) {
             const fnStart = Core.getNodeStartIndex(functionNode) ?? 0;
             const prefix = originalText.slice(0, fnStart);
-            const lastDocIndex = prefix.lastIndexOf("///");
-            if (lastDocIndex !== -1) {
-                const docBlock = prefix.slice(lastDocIndex);
-                const lines = docBlock.split(/\r\n|\n|\r/);
+            // Scan backwards for doc comments, handling mixed styles and block comments
+            const lines = prefix.split(/\r\n|\n|\r/);
+            const docLines = [];
+
+            for (let i = lines.length - 1; i >= 0; i--) {
+                const line = lines[i].trim();
+                if (line === "") {
+                    continue;
+                }
+
+                if (line.startsWith("///")) {
+                    docLines.unshift(line);
+                } else if (line.startsWith("/*") && line.endsWith("*/")) {
+                    const content = line.slice(2, -2).trim();
+                    docLines.unshift("/// " + content);
+                } else if (line.startsWith("//")) {
+                    if (line.includes("@param") || line.includes("@function")) {
+                        docLines.unshift(
+                            "/// " + line.replace(/^\/+/, "").trim()
+                        );
+                    }
+                } else {
+                    break;
+                }
+            }
+
+            if (docLines.length > 0) {
                 const paramName =
                     node.left && node.left.name ? node.left.name : null;
                 if (paramName) {
                     const optionalDocFlag = getDocParamOptionality(
-                        lines,
+                        docLines,
                         paramName
                     );
                     if (optionalDocFlag !== null) {
@@ -5213,15 +5256,18 @@ function getDocParamOptionality(lines, paramName) {
     for (let i = lines.length - 1; i >= 0; i -= 1) {
         const line = lines[i];
         const match = line.match(
-            /\/\/\/\s*@param\s*(?:\{[^}]+\}\s*)?(\[[^\]]+\]|\S+)/i
+            /\/{3,}\s*@param\s*(?:\{[^}]+\}\s*)?(\[[^\]]+\]|\S+)/i
         );
         if (!match) {
             continue;
         }
         const raw = match[1];
         const normalized = normalizeDocParamNameFromRaw(raw);
+        console.log(`Checking param: ${paramName}, raw: ${raw}, normalized: ${normalized}`);
         if (normalized === paramName) {
-            return /^\[.*\]$/.test(raw);
+            return (
+                /^\[.*\]$/.test(raw) || raw.endsWith("*") || raw.startsWith("*")
+            );
         }
     }
     return null;
@@ -5234,6 +5280,12 @@ function normalizeDocParamNameFromRaw(raw) {
     }
     if (name.endsWith("]")) {
         name = name.slice(0, -1);
+    }
+    if (name.endsWith("*")) {
+        name = name.slice(0, -1);
+    }
+    if (name.startsWith("*")) {
+        name = name.slice(1);
     }
     return name.trim();
 }
