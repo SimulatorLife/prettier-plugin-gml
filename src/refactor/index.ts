@@ -4,10 +4,19 @@ export {
     SymbolKind,
     isSymbolKind,
     parseSymbolKind,
-    requireSymbolKind
+    requireSymbolKind,
+    classifyOccurrences,
+    filterOccurrencesByKind,
+    groupOccurrencesByFile,
+    findOccurrencesInFile,
+    countAffectedFiles
 } from "./src/index.js";
 
-export type { RefactorEngine, WorkspaceEdit } from "./src/index.js";
+export type {
+    RefactorEngine,
+    WorkspaceEdit,
+    OccurrenceClassification
+} from "./src/index.js";
 
 export type {
     ApplyWorkspaceEditOptions,
@@ -26,6 +35,7 @@ export type {
     RenameRequest,
     SemanticAnalyzer,
     SymbolKindValue,
+    SymbolOccurrence,
     SymbolResolver,
     TranspilerPatch,
     ValidateRenameRequestOptions,
