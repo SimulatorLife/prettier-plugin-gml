@@ -1895,7 +1895,7 @@ function extractReturnLinesFromOtherLines(otherLines: DocCommentLines) {
     }
 
     return {
-        otherLines: nonReturnLines as MutableDocCommentLines,
+        otherLines: nonReturnLines,
         returnsLines: extractedReturns as DocCommentLines
     };
 }
