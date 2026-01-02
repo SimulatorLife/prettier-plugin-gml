@@ -170,26 +170,28 @@ export async function generateRenamePreview(
     // Step 4: Perform a dry-run to show what files will look like
     // Only perform dry-run if workspace has edits to avoid validation error
     let preview = new Map<string, string>();
-    if (workspace.edits.length > 0 && // If validation already failed, don't attempt to apply edits
+    if (
+        workspace.edits.length > 0 && // If validation already failed, don't attempt to apply edits
         // (e.g., overlapping edits would corrupt the output)
-        validation.valid) {
-            preview = await engine.applyWorkspaceEdit(workspace, {
-                readFile,
-                dryRun: true
-            });
-        }
-        // If validation failed, preview remains empty - user will see validation errors
+        validation.valid
+    ) {
+        preview = await engine.applyWorkspaceEdit(workspace, {
+            readFile,
+            dryRun: true
+        });
+    }
+    // If validation failed, preview remains empty - user will see validation errors
 
     // Step 5: Verify post-edit integrity using dry-run results
-    const dryRunReadFile: WorkspaceReadFile = async (
+    const dryRunReadFile: WorkspaceReadFile = (
         path: string
     ): Promise<string> => {
         // If we have a preview for this file, return the preview content
         // Otherwise fall back to the original file
         if (preview.has(path)) {
-            return preview.get(path);
+            return Promise.resolve(preview.get(path));
         }
-        return readFile(path);
+        return Promise.resolve(readFile(path));
     };
 
     const integrity = await engine.verifyPostEditIntegrity({
@@ -270,6 +272,8 @@ export async function commitRenamePreview(
 
     // Write the preview content to disk
     // The preview already contains the final content after applying edits
+    // We write sequentially to avoid file system race conditions
+     
     for (const [path, content] of preview.preview) {
         await writeFile(path, content);
     }
