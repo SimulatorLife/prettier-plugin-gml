@@ -723,6 +723,43 @@ void test("prepareRenamePlan optionally validates hot reload compatibility", asy
     );
 });
 
+void test("prepareRenamePlan surfaces hot reload safety for macro renames", async () => {
+    const mockSemantic = {
+        hasSymbol: () => true,
+        getSymbolOccurrences: () => [
+            {
+                path: "scripts/macros.gml",
+                start: 0,
+                end: 7,
+                scopeId: "scope-1",
+                kind: "definition"
+            }
+        ]
+    };
+
+    const engine = new RefactorEngineClass({ semantic: mockSemantic });
+
+    const result = await engine.prepareRenamePlan(
+        {
+            symbolId: "gml/macro/MAX_HP",
+            newName: "MAX_HEALTH"
+        },
+        { validateHotReload: true }
+    );
+
+    assert.ok(result.hotReload);
+    assert.equal(result.hotReload.valid, false);
+    assert.ok(
+        result.hotReload.warnings.some((warning) =>
+            warning.includes(
+                "Macro/enum renames require dependent script recompilation"
+            )
+        )
+    );
+    assert.ok(result.hotReload.hotReload);
+    assert.equal(result.hotReload.hotReload.safe, false);
+});
+
 void test("generateTranspilerPatches requires array parameter", async () => {
     const engine = new RefactorEngineClass();
     await assert.rejects(
@@ -2067,10 +2104,18 @@ void test("checkHotReloadSafety handles unknown symbol kinds gracefully", async 
         newName: "new_symbol"
     });
 
-    assert.equal(result.safe, true);
-    assert.ok(result.reason.includes("can be renamed"));
-    assert.equal(result.canAutoFix, true);
-    assert.ok(result.suggestions.some((s) => s.includes("caution")));
+    // After refactoring to use typed SymbolKind enum, invalid symbol kinds
+    // are now properly rejected with a clear error message instead of being
+    // silently accepted. This is the correct behavior - fail fast.
+    assert.equal(result.safe, false);
+    assert.ok(result.reason.includes("Invalid symbol kind"));
+    assert.equal(result.requiresRestart, true);
+    assert.equal(result.canAutoFix, false);
+    assert.ok(
+        result.suggestions.some((s) =>
+            s.includes("script, var, event, macro, enum")
+        )
+    );
 });
 
 // verifyPostEditIntegrity tests
@@ -3194,4 +3239,124 @@ void test("detectRenameConflicts handles multiple occurrences with different sco
     assert.equal(conflicts.length, 1);
     assert.equal(conflicts[0].type, "shadow");
     assert.equal(conflicts[0].path, "test2.gml");
+});
+
+void test("checkHotReloadSafety rejects malformed symbolId", async () => {
+    const mockSemantic = {
+        hasSymbol: () => true,
+        getSymbolOccurrences: () => []
+    };
+    const engine = new RefactorEngineClass({ semantic: mockSemantic });
+
+    const testCases = [
+        { id: "gml", desc: "missing parts" },
+        { id: "gml/", desc: "missing kind and name" },
+        { id: "gml/script", desc: "missing name" },
+        { id: "invalid_format", desc: "wrong pattern" }
+    ];
+
+    for (const testCase of testCases) {
+        const result = await engine.checkHotReloadSafety({
+            symbolId: testCase.id,
+            newName: "new_name"
+        });
+
+        assert.equal(
+            result.safe,
+            false,
+            `Expected safe=false for ${testCase.desc} (id: ${testCase.id})`
+        );
+        assert.ok(
+            result.reason.includes("Malformed") ||
+                result.reason.includes("Invalid"),
+            `Expected error message for ${testCase.desc}`
+        );
+    }
+});
+
+void test("checkHotReloadSafety rejects invalid symbol kinds", async () => {
+    const mockSemantic = {
+        hasSymbol: () => true,
+        getSymbolOccurrences: () => []
+    };
+    const engine = new RefactorEngineClass({ semantic: mockSemantic });
+
+    const result = await engine.checkHotReloadSafety({
+        symbolId: "gml/invalid_kind/test_symbol",
+        newName: "new_symbol"
+    });
+
+    assert.equal(result.safe, false);
+    assert.ok(result.reason.includes("Invalid symbol kind"));
+    assert.ok(
+        result.suggestions.some((s) =>
+            s.includes("script, var, event, macro, enum")
+        )
+    );
+});
+
+void test("checkHotReloadSafety handles valid script symbol kind", async () => {
+    const mockSemantic = {
+        hasSymbol: () => true,
+        getSymbolOccurrences: () => []
+    };
+    const engine = new RefactorEngineClass({ semantic: mockSemantic });
+
+    const result = await engine.checkHotReloadSafety({
+        symbolId: "gml/script/test_script",
+        newName: "new_script"
+    });
+
+    assert.equal(result.safe, true);
+    assert.ok(result.reason.includes("Script renames are hot-reload-safe"));
+});
+
+void test("checkHotReloadSafety handles valid var symbol kind", async () => {
+    const mockSemantic = {
+        hasSymbol: () => true,
+        getSymbolOccurrences: () => []
+    };
+    const engine = new RefactorEngineClass({ semantic: mockSemantic });
+
+    const result = await engine.checkHotReloadSafety({
+        symbolId: "gml/var/test_var",
+        newName: "new_var"
+    });
+
+    assert.equal(result.safe, true);
+    assert.ok(
+        result.reason.includes("Global variable renames are hot-reload-safe")
+    );
+});
+
+void test("checkHotReloadSafety handles valid macro symbol kind", async () => {
+    const mockSemantic = {
+        hasSymbol: () => true,
+        getSymbolOccurrences: () => []
+    };
+    const engine = new RefactorEngineClass({ semantic: mockSemantic });
+
+    const result = await engine.checkHotReloadSafety({
+        symbolId: "gml/macro/TEST_MACRO",
+        newName: "NEW_MACRO"
+    });
+
+    assert.equal(result.safe, false);
+    assert.ok(result.reason.includes("Macro/enum renames require"));
+});
+
+void test("checkHotReloadSafety handles valid enum symbol kind", async () => {
+    const mockSemantic = {
+        hasSymbol: () => true,
+        getSymbolOccurrences: () => []
+    };
+    const engine = new RefactorEngineClass({ semantic: mockSemantic });
+
+    const result = await engine.checkHotReloadSafety({
+        symbolId: "gml/enum/TestEnum",
+        newName: "NewEnum"
+    });
+
+    assert.equal(result.safe, false);
+    assert.ok(result.reason.includes("Macro/enum renames require"));
 });

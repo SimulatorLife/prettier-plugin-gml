@@ -1723,3 +1723,157 @@ void test("Transpiler.emitJavaScript handles random functions with wrong argumen
         "Should fall back when arg count is wrong"
     );
 });
+
+void test("Transpiler.emitJavaScript handles new expression without arguments", () => {
+    const source = "var obj = new MyStruct()";
+    const parser = new Parser.GMLParser(source);
+    const ast = parser.parse();
+    const result = Transpiler.emitJavaScript(ast);
+    assert.ok(
+        result.includes("new MyStruct()"),
+        "Should emit new expression with empty arguments"
+    );
+});
+
+void test("Transpiler.emitJavaScript handles new expression with single argument", () => {
+    const source = "var vec = new Vector2(5)";
+    const parser = new Parser.GMLParser(source);
+    const ast = parser.parse();
+    const result = Transpiler.emitJavaScript(ast);
+    assert.ok(
+        result.includes("new Vector2(5)"),
+        "Should emit new expression with single argument"
+    );
+});
+
+void test("Transpiler.emitJavaScript handles new expression with multiple arguments", () => {
+    const source = "var vec = new Vector2(x, y)";
+    const parser = new Parser.GMLParser(source);
+    const ast = parser.parse();
+    const result = Transpiler.emitJavaScript(ast);
+    assert.ok(
+        result.includes("new Vector2(x, y)"),
+        "Should emit new expression with multiple arguments"
+    );
+});
+
+void test("Transpiler.emitJavaScript handles new expression with literal arguments", () => {
+    const source = 'var player = new Player("Alice", 100, 50)';
+    const parser = new Parser.GMLParser(source);
+    const ast = parser.parse();
+    const result = Transpiler.emitJavaScript(ast);
+    assert.ok(
+        result.includes('new Player("Alice", 100, 50)'),
+        "Should emit new expression with literal arguments"
+    );
+});
+
+void test("Transpiler.emitJavaScript handles new expression with expression arguments", () => {
+    const source = "var obj = new GameObject(x + 10, y * 2)";
+    const parser = new Parser.GMLParser(source);
+    const ast = parser.parse();
+    const result = Transpiler.emitJavaScript(ast);
+    assert.ok(
+        result.includes("new GameObject((x + 10), (y * 2))"),
+        "Should emit new expression with expression arguments"
+    );
+});
+
+void test("Transpiler.emitJavaScript handles nested new expressions", () => {
+    const source = "var container = new Container(new Item())";
+    const parser = new Parser.GMLParser(source);
+    const ast = parser.parse();
+    const result = Transpiler.emitJavaScript(ast);
+    assert.ok(
+        result.includes("new Container(new Item())"),
+        "Should emit nested new expressions"
+    );
+});
+
+void test("Transpiler.emitJavaScript handles new expression in assignment chain", () => {
+    const source = "obj.component = new Component(data)";
+    const parser = new Parser.GMLParser(source);
+    const ast = parser.parse();
+    const result = Transpiler.emitJavaScript(ast);
+    assert.ok(
+        result.includes("obj.component = new Component(data)"),
+        "Should emit new expression in property assignment"
+    );
+});
+
+void test("Transpiler.emitJavaScript handles delete statement with identifier", () => {
+    const source = "delete myVar";
+    const parser = new Parser.GMLParser(source);
+    const ast = parser.parse();
+    const result = Transpiler.emitJavaScript(ast);
+    assert.ok(
+        result.includes("delete myVar"),
+        "Should emit delete statement with identifier"
+    );
+});
+
+void test("Transpiler.emitJavaScript handles delete statement with property access", () => {
+    const source = "delete obj.property";
+    const parser = new Parser.GMLParser(source);
+    const ast = parser.parse();
+    const result = Transpiler.emitJavaScript(ast);
+    assert.ok(
+        result.includes("delete obj.property"),
+        "Should emit delete statement with property access"
+    );
+});
+
+void test("Transpiler.emitJavaScript handles delete statement with array index", () => {
+    const source = "delete arr[0]";
+    const parser = new Parser.GMLParser(source);
+    const ast = parser.parse();
+    const result = Transpiler.emitJavaScript(ast);
+    assert.ok(
+        result.includes("delete arr[0]"),
+        "Should emit delete statement with array index"
+    );
+});
+
+void test("Transpiler.emitJavaScript handles delete statement with nested property access", () => {
+    const source = "delete obj.nested.property";
+    const parser = new Parser.GMLParser(source);
+    const ast = parser.parse();
+    const result = Transpiler.emitJavaScript(ast);
+    assert.ok(
+        result.includes("delete obj.nested.property"),
+        "Should emit delete statement with nested property"
+    );
+});
+
+void test("Transpiler.emitJavaScript handles delete statement with computed property", () => {
+    const source = 'delete obj[$ "key"]';
+    const parser = new Parser.GMLParser(source);
+    const ast = parser.parse();
+    const result = Transpiler.emitJavaScript(ast);
+    assert.ok(
+        result.includes("delete obj"),
+        "Should emit delete statement with computed property"
+    );
+});
+
+void test("Transpiler.emitJavaScript handles multiple delete statements", () => {
+    const source = "delete obj.a; delete obj.b;";
+    const parser = new Parser.GMLParser(source);
+    const ast = parser.parse();
+    const result = Transpiler.emitJavaScript(ast);
+    assert.ok(
+        result.includes("delete obj.a") && result.includes("delete obj.b"),
+        "Should emit multiple delete statements"
+    );
+});
+
+void test("Transpiler.emitJavaScript handles delete in control flow", () => {
+    const source = "if (condition) delete obj.temp;";
+    const parser = new Parser.GMLParser(source);
+    const ast = parser.parse();
+    const result = Transpiler.emitJavaScript(ast);
+    assert.ok(
+        result.includes("delete obj.temp"),
+        "Should emit delete inside conditional"
+    );
+});

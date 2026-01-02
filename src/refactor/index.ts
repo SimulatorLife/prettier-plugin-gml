@@ -1,5 +1,12 @@
 export { Refactor } from "./src/index.js";
 
+export {
+    SymbolKind,
+    isSymbolKind,
+    parseSymbolKind,
+    requireSymbolKind
+} from "./src/index.js";
+
 export type { RefactorEngine, WorkspaceEdit } from "./src/index.js";
 
 export type {
@@ -18,6 +25,7 @@ export type {
     RenameImpactAnalysis,
     RenameRequest,
     SemanticAnalyzer,
+    SymbolKindValue,
     SymbolResolver,
     TranspilerPatch,
     ValidateRenameRequestOptions,

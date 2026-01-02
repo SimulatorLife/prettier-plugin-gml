@@ -11,7 +11,7 @@ import path from "node:path";
 import { Core } from "@gml-modules/core";
 import { Transpiler } from "@gml-modules/transpiler";
 import { formatCliError } from "../../cli-core/errors.js";
-import type { PatchWebSocketServerController } from "../websocket/server.js";
+import type { PatchBroadcaster } from "../websocket/server.js";
 
 const { getErrorMessage } = Core;
 
@@ -88,7 +88,7 @@ export interface TranspilationContext {
     errors: Array<TranspilationError>;
     lastSuccessfulPatches: Map<string, RuntimeTranspilerPatch>;
     maxPatchHistory: number;
-    websocketServer: PatchWebSocketServerController | null;
+    websocketServer: PatchBroadcaster | null;
 }
 
 export interface TranspilationOptions {
