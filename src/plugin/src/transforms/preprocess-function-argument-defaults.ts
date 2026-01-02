@@ -917,8 +917,9 @@ function matchArgumentCountFallbackVariableDeclaration(statement) {
     }
 
     const ternaryExpression = expression as TernaryExpressionNode;
-    const guardExpression =
-        Core.unwrapParenthesizedExpression(ternaryExpression.test);
+    const guardExpression = Core.unwrapParenthesizedExpression(
+        ternaryExpression.test
+    );
     const guard = matchArgumentCountGuard(guardExpression);
     if (!guard) {
         return null;
@@ -944,8 +945,8 @@ function matchArgumentCountFallbackVariableDeclaration(statement) {
     const argumentExpression = consequentIsArgument
         ? consequentExpression
         : alternateIsArgument
-        ? alternateExpression
-        : undefined;
+          ? alternateExpression
+          : undefined;
     const fallbackExpression = consequentIsArgument
         ? alternateExpression
         : consequentExpression;

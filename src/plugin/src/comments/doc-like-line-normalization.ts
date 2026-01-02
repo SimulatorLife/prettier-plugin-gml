@@ -52,6 +52,11 @@ function normalizeDocLikeLineComment(
             return "";
         }
 
+        // If the comment was just slashes (e.g. ////////), remove it
+        if (rawRemainder.length === 0 && /^\/+$/.test(normalizedRemainder)) {
+            return "";
+        }
+
         if (
             normalizedRemainder.startsWith("/") ||
             !/[A-Za-z0-9]/.test(normalizedRemainder)
@@ -67,37 +72,46 @@ function normalizeDocLikeLineComment(
     }
 
     const docLikeMatch = trimmedFormatted.match(/^\/\/\s+\/(?![\/])/);
-    if (!docLikeMatch) {
-        return formatted;
+    if (docLikeMatch) {
+        const formattedRemainder = trimmedFormatted
+            .slice(docLikeMatch[0].length)
+            .trimStart();
+        if (formattedRemainder.startsWith("@")) {
+            return formatted;
+        }
+
+        if (formattedRemainder.length === 0) {
+            return `${leadingWhitespace}///`;
+        }
+
+        if (
+            formattedRemainder.startsWith("/") ||
+            !/[A-Za-z0-9]/.test(formattedRemainder)
+        ) {
+            const rawDocLikeRemainder = resolveRawDocLikeRemainder(rawText);
+            const fallback =
+                rawDocLikeRemainder.length > 0
+                    ? rawDocLikeRemainder
+                    : formattedRemainder;
+            if (fallback.length === 0) {
+                return "";
+            }
+            return `${leadingWhitespace}/// ${fallback}`;
+        }
+
+        return `${leadingWhitespace}/// ${formattedRemainder}`;
     }
 
-    const formattedRemainder = trimmedFormatted
-        .slice(docLikeMatch[0].length)
-        .trimStart();
-    if (formattedRemainder.startsWith("@")) {
-        return formatted;
-    }
-
-    if (formattedRemainder.length === 0) {
-        return "";
-    }
-
-    if (
-        formattedRemainder.startsWith("/") ||
-        !/[A-Za-z0-9]/.test(formattedRemainder)
-    ) {
-        const rawDocLikeRemainder = resolveRawDocLikeRemainder(rawText);
-        const fallback =
-            rawDocLikeRemainder.length > 0
-                ? rawDocLikeRemainder
-                : formattedRemainder;
-        if (fallback.length === 0) {
+    // Handle banner-like comments (e.g. //////// Banner)
+    if (/^\/{4,}/.test(trimmedFormatted)) {
+        const rawRemainder = resolveRawDocLikeRemainder(rawText);
+        if (rawRemainder.length === 0) {
             return "";
         }
-        return `${leadingWhitespace}// ${fallback}`;
+        return `${leadingWhitespace}// ${rawRemainder}`;
     }
 
-    return `${leadingWhitespace}// ${formattedRemainder}`;
+    return formatted;
 }
 
 export { normalizeDocLikeLineComment };

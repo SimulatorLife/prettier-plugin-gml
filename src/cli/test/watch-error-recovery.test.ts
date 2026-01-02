@@ -110,7 +110,10 @@ void describe("Watch command error recovery", () => {
                 await sleep(200);
 
                 // Create a valid script
-                await writeFile(path.join(testDir, "script.gml"), "var x = 10;");
+                await writeFile(
+                    path.join(testDir, "script.gml"),
+                    "var x = 10;"
+                );
 
                 await sleep(300);
 
@@ -147,7 +150,10 @@ void describe("Watch command error recovery", () => {
                         "function broken {"
                     );
                     await sleep(200);
-                    await writeFile(path.join(testDir, "good.gml"), "var x = 10;");
+                    await writeFile(
+                        path.join(testDir, "good.gml"),
+                        "var x = 10;"
+                    );
                     await sleep(200);
                 }
             );
