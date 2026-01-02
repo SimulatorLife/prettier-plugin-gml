@@ -1,32 +1,34 @@
 import { WorkspaceEdit, type GroupedTextEdits } from "./workspace-edit.js";
 import { Core } from "@gml-modules/core";
-import type {
-    ApplyWorkspaceEditOptions,
-    AstNode,
-    BatchRenameValidation,
-    CascadeEntry,
-    ConflictEntry,
-    ExecuteBatchRenameRequest,
-    ExecuteRenameRequest,
-    ExecuteRenameResult,
-    HotReloadCascadeResult,
-    HotReloadSafetySummary,
-    HotReloadUpdate,
-    HotReloadValidationOptions,
-    ParserBridge,
-    PrepareRenamePlanOptions,
-    RefactorEngineDependencies,
-    RenameImpactAnalysis,
-    RenamePlanSummary,
-    RenameRequest,
-    SemanticAnalyzer,
-    SymbolLocation,
-    SymbolOccurrence,
-    TranspilerBridge,
-    TranspilerPatch,
-    ValidateRenameRequestOptions,
-    ValidationSummary,
-    WorkspaceReadFile
+import {
+    SymbolKind,
+    parseSymbolKind,
+    type ApplyWorkspaceEditOptions,
+    type AstNode,
+    type BatchRenameValidation,
+    type CascadeEntry,
+    type ConflictEntry,
+    type ExecuteBatchRenameRequest,
+    type ExecuteRenameRequest,
+    type ExecuteRenameResult,
+    type HotReloadCascadeResult,
+    type HotReloadSafetySummary,
+    type HotReloadUpdate,
+    type HotReloadValidationOptions,
+    type ParserBridge,
+    type PrepareRenamePlanOptions,
+    type RefactorEngineDependencies,
+    type RenameImpactAnalysis,
+    type RenamePlanSummary,
+    type RenameRequest,
+    type SemanticAnalyzer,
+    type SymbolLocation,
+    type SymbolOccurrence,
+    type TranspilerBridge,
+    type TranspilerPatch,
+    type ValidateRenameRequestOptions,
+    type ValidationSummary,
+    type WorkspaceReadFile
 } from "./types.js";
 import { assertValidIdentifierName } from "./validation-utils.js";
 import { detectCircularRenames, detectRenameConflicts } from "./validation.js";
@@ -1830,9 +1832,39 @@ export class RefactorEngine {
         }
 
         // Extract symbol metadata from the ID
+        // SymbolId format: gml/{kind}/{name}, e.g., "gml/script/scr_player"
         const symbolParts = symbolId.split("/");
-        const symbolKind = symbolParts[1]; // e.g., "script", "var", "event"
+        if (symbolParts.length < 3) {
+            return {
+                safe: false,
+                reason: `Malformed symbolId '${symbolId}'`,
+                requiresRestart: true,
+                canAutoFix: false,
+                suggestions: [
+                    "Ensure symbolId follows the pattern: gml/{kind}/{name}",
+                    "Example: gml/script/scr_player, gml/var/hp, gml/event/create"
+                ]
+            };
+        }
+
+        const rawSymbolKind = symbolParts[1];
+        const symbolKind = parseSymbolKind(rawSymbolKind);
         const symbolName = symbolParts.at(-1);
+
+        // Validate symbol kind
+        if (symbolKind === null) {
+            const validKinds = Object.values(SymbolKind).join(", ");
+            return {
+                safe: false,
+                reason: `Invalid symbol kind '${rawSymbolKind}' in symbolId`,
+                requiresRestart: true,
+                canAutoFix: false,
+                suggestions: [
+                    `Valid symbol kinds are: ${validKinds}`,
+                    "Ensure symbolId follows the pattern: gml/{kind}/{name}"
+                ]
+            };
+        }
 
         // Check for name conflict
         if (symbolName === newName) {
@@ -1901,7 +1933,7 @@ export class RefactorEngine {
 
         // Analyze hot reload implications based on symbol kind
         switch (symbolKind) {
-            case "script": {
+            case SymbolKind.SCRIPT: {
                 // Script renames are generally safe for hot reload as long as
                 // we update all call sites simultaneously
                 return {
@@ -1916,7 +1948,7 @@ export class RefactorEngine {
                 };
             }
 
-            case "var": {
+            case SymbolKind.VAR: {
                 // Instance and global variable renames are safe if we update
                 // all references, but need careful handling of self/other context
                 if (symbolId.includes("::")) {
@@ -1945,7 +1977,7 @@ export class RefactorEngine {
                 }
             }
 
-            case "event": {
+            case SymbolKind.EVENT: {
                 // Event renames require special handling but are generally safe
                 return {
                     safe: true,
@@ -1959,8 +1991,8 @@ export class RefactorEngine {
                 };
             }
 
-            case "macro":
-            case "enum": {
+            case SymbolKind.MACRO:
+            case SymbolKind.ENUM: {
                 // Macros and enums are compile-time constructs, so renaming them
                 // requires recompiling all dependent code
                 return {
@@ -1976,17 +2008,9 @@ export class RefactorEngine {
             }
 
             default: {
-                // Unknown symbol kind - be conservative
-                suggestions.push(
-                    "Symbol kind not recognized, proceeding with caution"
-                );
-                return {
-                    safe: true,
-                    reason: `Symbol kind '${symbolKind}' can be renamed`,
-                    requiresRestart: false,
-                    canAutoFix: true,
-                    suggestions
-                };
+                // Exhaustiveness check - TypeScript ensures all cases are handled
+                const _exhaustive: never = symbolKind;
+                return _exhaustive;
             }
         }
     }
