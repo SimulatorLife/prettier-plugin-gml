@@ -578,21 +578,6 @@ function formatLineComment(
         return bannerResult;
     }
 
-    if (trimmedValue.includes(".__FromBuffer")) {
-        console.log("DEBUG: formatLineComment .__FromBuffer");
-        console.log("DEBUG: bannerResult", bannerResult);
-        console.log(
-            "DEBUG: tryFormatCommentedOutCode result",
-            tryFormatCommentedOutCode(
-                comment,
-                trimmedOriginal,
-                trimmedValue,
-                rawValue,
-                codeDetectionPatterns
-            )
-        );
-    }
-
     // Try promoting to doc comment
     const docPromotionResult = tryPromoteToDocComment(
         comment,

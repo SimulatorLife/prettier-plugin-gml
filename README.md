@@ -29,7 +29,6 @@ function trailing_comment() {
 <td>
 
 ```gml
-/// @function trailing_comment
 function trailing_comment() {
     var stats = {
         hp: 100, // base health

@@ -1,1 +1,2 @@
-global.gameManager = new GameManager();
+globalvar gameManager;
+gameManager = new GameManager();

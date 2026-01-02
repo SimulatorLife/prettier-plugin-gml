@@ -6,10 +6,12 @@ type LineComment = {
 
 function resolveRawDocLikeRemainder(rawText: string): string {
     const trimmed = rawText.trimStart();
-    if (trimmed.startsWith("/")) {
-        return trimmed.slice(1).trimStart();
+    const docLikePrefixMatch = trimmed.match(/^\/\/\s*\/?/);
+    if (docLikePrefixMatch) {
+        return trimmed
+            .slice(docLikePrefixMatch[0].length)
+            .trimStart();
     }
-
     return trimmed;
 }
 
@@ -18,6 +20,10 @@ function normalizeDocLikeLineComment(
     formatted: string,
     originalText?: string | null
 ): string {
+    const rawText = Core.getLineCommentRawText(comment, {
+        originalText: originalText ?? undefined
+    });
+
     void comment;
 
     if (typeof formatted !== "string" || formatted.length === 0) {
@@ -29,9 +35,6 @@ function normalizeDocLikeLineComment(
         ? leadingWhitespaceMatch[0]
         : "";
     const trimmedFormatted = formatted.trimStart();
-    const rawText = Core.getLineCommentRawText(comment, {
-        originalText: originalText ?? undefined
-    });
     const docLikeRawValue = rawText.trim();
     if (
         docLikeRawValue.startsWith("/") &&
@@ -76,10 +79,23 @@ function normalizeDocLikeLineComment(
         return formatted;
     }
 
-    return (
-        leadingWhitespace +
-        (formattedRemainder.length > 0 ? `// ${formattedRemainder}` : "//")
-    );
+    if (formattedRemainder.length === 0) {
+        return `${leadingWhitespace}//`;
+    }
+
+    if (!/^[A-Za-z0-9]/.test(formattedRemainder)) {
+        const rawDocLikeRemainder = resolveRawDocLikeRemainder(rawText);
+        const fallback =
+            rawDocLikeRemainder.length > 0
+                ? rawDocLikeRemainder
+                : formattedRemainder;
+        if (fallback.length === 0) {
+            return "";
+        }
+        return `${leadingWhitespace}// ${fallback}`;
+    }
+
+    return `${leadingWhitespace}// ${formattedRemainder}`;
 }
 
 export { normalizeDocLikeLineComment };

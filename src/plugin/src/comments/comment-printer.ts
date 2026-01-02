@@ -300,14 +300,6 @@ function printComment(commentPath, options) {
                           options?.originalText
                       )
                     : "";
-            if (
-                typeof comment.value === "string" &&
-                comment.value.includes("Overwrite")
-            ) {
-                console.log("DEBUGLOG comment value", comment.value);
-                console.log("DEBUGLOG formatted", formatted);
-                console.log("DEBUGLOG normalized", normalized);
-            }
             if (normalized.trim() === "/// @description") {
                 return "";
             }
