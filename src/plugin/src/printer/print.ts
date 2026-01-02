@@ -3539,7 +3539,7 @@ export function applyAssignmentAlignment(
         console.log(
             "alignment group",
             contextFunctionName,
-            groupEntries.map(({ nameLength, node }) => {
+            groupEntries.map(({ node }) => {
                 return (
                     node?.id?.name ??
                     node?.left?.name ??
