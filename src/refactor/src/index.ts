@@ -1,13 +1,23 @@
 import * as RefactorAPI from "./refactor-engine.js";
 import { WorkspaceEdit } from "./workspace-edit.js";
+import {
+    generateRenamePreview,
+    commitRenamePreview
+} from "./preview-rename.js";
 
 export const Refactor = Object.freeze({
     ...RefactorAPI,
-    WorkspaceEdit
+    WorkspaceEdit,
+    generateRenamePreview,
+    commitRenamePreview
 });
 
 export { RefactorEngine } from "./refactor-engine.js";
 export type { WorkspaceEdit } from "./workspace-edit.js";
+export {
+    generateRenamePreview,
+    commitRenamePreview
+} from "./preview-rename.js";
 
 export {
     SymbolKind,
@@ -60,3 +70,9 @@ export type {
     WorkspaceReadFile,
     WorkspaceWriteFile
 } from "./types.js";
+
+export type {
+    RenamePreview,
+    GenerateRenamePreviewOptions,
+    CommitRenamePreviewOptions
+} from "./preview-rename.js";
