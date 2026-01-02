@@ -662,9 +662,7 @@ function formatLineComment(
 
     // Default: format as a regular comment
     const fallbackLeadingWhitespace =
-        typeof rawValue === "string"
-            ? rawValue.match(/^\s*/)?.[0] ?? ""
-            : "";
+        typeof rawValue === "string" ? (rawValue.match(/^\s*/)?.[0] ?? "") : "";
     const normalizedFallbackWhitespace = fallbackLeadingWhitespace.replace(
         /\t/g,
         "    "

@@ -5812,9 +5812,7 @@ function shouldPrefixGlobalIdentifier(path, options) {
         options?.preserveGlobalVarStatements === false
             ? null
             : options?.[PRESERVED_GLOBAL_VAR_NAMES];
-    const identifierName = preservedNames
-        ? Core.getIdentifierText(node)
-        : null;
+    const identifierName = preservedNames ? Core.getIdentifierText(node) : null;
     if (
         preservedNames &&
         preservedNames.size > 0 &&
