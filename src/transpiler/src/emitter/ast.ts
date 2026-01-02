@@ -116,6 +116,12 @@ export interface CallExpressionNode extends BaseNode {
     readonly arguments: ReadonlyArray<GmlNode>;
 }
 
+export interface NewExpressionNode extends BaseNode {
+    readonly type: "NewExpression";
+    readonly expression: GmlNode;
+    readonly arguments?: ReadonlyArray<GmlNode> | null;
+}
+
 export interface BlockStatementNode extends BaseNode {
     readonly type: "BlockStatement";
     readonly body: ReadonlyArray<GmlNode>;
@@ -283,6 +289,12 @@ export interface ExitStatementNode extends BaseNode {
     readonly type: "ExitStatement";
 }
 
+export interface DeleteStatementNode extends BaseNode {
+    readonly type: "DeleteStatement";
+    readonly operator: "delete";
+    readonly argument: GmlNode;
+}
+
 export type StatementNode =
     | IdentifierStatementNode
     | ExpressionStatementNode
@@ -303,6 +315,7 @@ export type StatementNode =
     | BreakStatementNode
     | ContinueStatementNode
     | ExitStatementNode
+    | DeleteStatementNode
     | FunctionDeclarationNode
     | EnumDeclarationNode;
 
@@ -316,6 +329,7 @@ export type ExpressionNode =
     | MemberIndexExpressionNode
     | MemberDotExpressionNode
     | CallExpressionNode
+    | NewExpressionNode
     | ParenthesizedExpressionNode
     | TernaryExpressionNode
     | ArrayExpressionNode
