@@ -287,6 +287,11 @@ function printComment(commentPath, options) {
                 comment,
                 formattingOptions
             );
+
+            if (comment.value.includes("Please do not use")) {
+                 console.log("DEBUG: comment-printer Comments", { formatted, commentValue: comment.value });
+            }
+
             const normalized =
                 typeof formatted === "string"
                     ? normalizeDocLikeLineComment(

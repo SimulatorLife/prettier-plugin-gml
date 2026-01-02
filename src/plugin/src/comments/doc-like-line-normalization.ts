@@ -34,6 +34,21 @@ function normalizeDocLikeLineComment(
         : "";
     const trimmedFormatted = formatted.trimStart();
     const docLikeRawValue = rawText.trim();
+
+    if (docLikeRawValue.includes("Please do not use")) {
+         console.log("DEBUG: testComments", { docLikeRawValue, match: /^\/\/\s+\/(?![\/])/.test(docLikeRawValue) });
+    }
+
+    if (/^\/{4,}/.test(docLikeRawValue)) {
+        return `${leadingWhitespace}${docLikeRawValue}`;
+    }
+
+    const docLikeRawMatch = docLikeRawValue.match(/^\/\/\s+\/(?![\/])/);
+    if (docLikeRawMatch) {
+        const remainder = docLikeRawValue.slice(docLikeRawMatch[0].length).trimStart();
+        return `${leadingWhitespace}/// ${remainder}`;
+    }
+
     if (
         docLikeRawValue.startsWith("/") &&
         docLikeRawValue.slice(1).trim().length === 0
