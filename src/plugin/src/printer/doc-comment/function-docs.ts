@@ -671,8 +671,6 @@ export function normalizeFunctionDocCommentDocs({
     }
 
     docCommentDocs = removeFunctionDocCommentLines(docCommentDocs);
-    const shouldPreserveDescriptionContinuations =
-        descriptionContinuations.length > 0;
 
     docCommentDocs = wrapDocDescriptionLines(
         docCommentDocs,
