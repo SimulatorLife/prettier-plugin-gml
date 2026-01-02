@@ -255,7 +255,7 @@ const tsConfig = defineConfig({
             }
         ],
         "max-params": ["warn", 5],
-        "max-statements": ["warn", 20],
+        "max-statements": ["error", 90],
         "max-statements-per-line": ["error", { max: 1 }],
         "max-nested-callbacks": ["warn", 3],
         "require-atomic-updates": "warn",
