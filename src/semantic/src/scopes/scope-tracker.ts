@@ -1543,7 +1543,7 @@ export class ScopeTracker {
 
         // Determine which scopes to process
         const scopesToProcess = scopeId
-            ? [this.scopesById.get(scopeId)].filter(Boolean)
+            ? Core.compactArray([this.scopesById.get(scopeId)])
             : Array.from(this.scopesById.values());
 
         for (const scope of scopesToProcess) {
