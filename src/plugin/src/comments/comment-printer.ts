@@ -289,7 +289,10 @@ function printComment(commentPath, options) {
             );
 
             if (comment.value.includes("Please do not use")) {
-                 console.log("DEBUG: comment-printer Comments", { formatted, commentValue: comment.value });
+                console.log("DEBUG: comment-printer Comments", {
+                    formatted,
+                    commentValue: comment.value
+                });
             }
 
             const normalized =

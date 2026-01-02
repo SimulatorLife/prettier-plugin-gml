@@ -3,7 +3,7 @@ import { toFiniteNumber } from "../../../utils/number.js";
 
 const DOC_COMMENT_MAX_WRAP_WIDTH_ENV_VAR =
     "PRETTIER_PLUGIN_GML_DOC_COMMENT_MAX_WRAP_WIDTH";
-const DOC_COMMENT_MAX_WRAP_WIDTH_BASELINE = 100;
+const DOC_COMMENT_MAX_WRAP_WIDTH_BASELINE = Infinity;
 const MIN_DOC_COMMENT_WRAP_WIDTH = 1;
 
 export const docCommentMaxWrapWidthConfig =

@@ -36,7 +36,10 @@ function normalizeDocLikeLineComment(
     const docLikeRawValue = rawText.trim();
 
     if (docLikeRawValue.includes("Please do not use")) {
-         console.log("DEBUG: testComments", { docLikeRawValue, match: /^\/\/\s+\/(?![\/])/.test(docLikeRawValue) });
+        console.log("DEBUG: testComments", {
+            docLikeRawValue,
+            match: /^\/\/\s+\/(?![\/])/.test(docLikeRawValue)
+        });
     }
 
     if (/^\/{4,}/.test(docLikeRawValue)) {
@@ -45,7 +48,9 @@ function normalizeDocLikeLineComment(
 
     const docLikeRawMatch = docLikeRawValue.match(/^\/\/\s+\/(?![\/])/);
     if (docLikeRawMatch) {
-        const remainder = docLikeRawValue.slice(docLikeRawMatch[0].length).trimStart();
+        const remainder = docLikeRawValue
+            .slice(docLikeRawMatch[0].length)
+            .trimStart();
         return `${leadingWhitespace}/// ${remainder}`;
     }
 

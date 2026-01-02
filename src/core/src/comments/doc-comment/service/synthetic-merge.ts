@@ -372,29 +372,17 @@ export function mergeSyntheticDocComments(
 
         if (hasDescription) {
             const hyphenMatch = remainingRemainder.match(/^(\s*-\s*)(.*)$/);
-            let normalizedDescription;
-            let hyphenSpacing = " - ";
+            let normalizedDescription = "";
 
             if (hyphenMatch) {
-                const [, rawHyphenSpacing = "", rawDescription = ""] =
-                    hyphenMatch;
+                const [, , rawDescription = ""] = hyphenMatch;
                 normalizedDescription = rawDescription.trim();
-
-                const trailingSpaceMatch = rawHyphenSpacing.match(/-(\s*)$/);
-                if (trailingSpaceMatch) {
-                    const originalSpaceCount = trailingSpaceMatch[1].length;
-                    const preservedSpaceCount = Math.max(
-                        1,
-                        Math.min(originalSpaceCount, 2)
-                    );
-                    hyphenSpacing = ` - ${" ".repeat(preservedSpaceCount - 1)}`;
-                }
             } else {
                 normalizedDescription = remainderText.replace(/^[-\s]+/, "");
             }
 
             if (normalizedDescription.length > 0) {
-                descriptionPart = `${hyphenSpacing}${normalizedDescription}`;
+                descriptionPart = ` ${normalizedDescription}`;
             }
         }
 
@@ -465,7 +453,16 @@ export function mergeSyntheticDocComments(
                     : false
             );
 
-        if (originalExistingHasTags || originalExistingHasDocLikePrefixes) {
+        const hasDescriptionTag = filteredResult.some(
+            (line) =>
+                typeof line === STRING_TYPE &&
+                /^\/\/\/\s*@description\b/i.test(line.trim())
+        );
+
+        if (
+            (originalExistingHasTags || originalExistingHasDocLikePrefixes) &&
+            !hasDescriptionTag
+        ) {
             filteredResult = toMutableArray(
                 promoteLeadingDocCommentTextToDescription(filteredResult)
             );
@@ -1295,28 +1292,10 @@ function finalizeDescriptionBlocks({
     preserveDescriptionBreaks,
     options
 }: FinalizeDescriptionBlocksParams): MutableDocCommentLines {
-    if (preserveDescriptionBreaks) {
-        return docs;
-    }
-
-    const hasExistingContinuation = docs.some((line, index) => {
-        if (!docTagHelpers.isDescriptionLine(line)) {
-            return false;
-        }
-
-        const next = docs[index + 1];
-        if (typeof next !== STRING_TYPE) {
-            return false;
-        }
-
-        const trimmedNext = next.trim();
-        return (
-            trimmedNext.startsWith("///") &&
-            !parseDocCommentMetadata(trimmedNext)
-        );
-    });
-
-    if (hasExistingContinuation) {
+    const shouldPreserve =
+        preserveDescriptionBreaks ||
+        (docs as any)?._preserveDescriptionBreaks === true;
+    if (shouldPreserve) {
         return docs;
     }
 
@@ -1347,14 +1326,16 @@ function finalizeDescriptionBlocks({
         const segments = [];
         let current = words[0];
         let currentAvailable = firstAvailable;
+        let sentenceBoundaryPending = /[.!?]["')\]]?$/.test(current);
 
         for (let index = 1; index < words.length; index += 1) {
             const word = words[index];
 
-            const endsSentence = /[.!?]["')\]]?$/.test(current);
             const startsSentence = /^[A-Z]/.test(word);
+            const endsSentence = /[.!?]["')\]]?$/.test(word);
+
             if (
-                endsSentence &&
+                sentenceBoundaryPending &&
                 startsSentence &&
                 currentAvailable >= 60 &&
                 current.length >=
@@ -1363,6 +1344,7 @@ function finalizeDescriptionBlocks({
                 segments.push(current);
                 current = word;
                 currentAvailable = continuationAvailable;
+                sentenceBoundaryPending = endsSentence;
                 continue;
             }
 
@@ -1370,8 +1352,10 @@ function finalizeDescriptionBlocks({
                 segments.push(current);
                 current = word;
                 currentAvailable = continuationAvailable;
+                sentenceBoundaryPending = endsSentence;
             } else {
                 current += ` ${word}`;
+                sentenceBoundaryPending = endsSentence;
             }
         }
 
@@ -1402,48 +1386,20 @@ function finalizeDescriptionBlocks({
         return segments;
     };
 
-    const rebalanceDescriptionSegments = (segments: string[]): string[] => {
-        if (segments.length <= 1) {
-            return segments;
-        }
+    function splitDescriptionIntoSentences(text: string): string[] {
+        const sentencePattern = /[^.!?]+[.!?]+["')\]]*|[^.!?]+$/gu;
+        const sentences: string[] = [];
+        let match: RegExpExecArray | null;
 
-        const adjusted = [...segments];
-
-        for (let index = 0; index < adjusted.length - 1; index += 1) {
-            let nextSegment = adjusted[index + 1].trim();
-            const descriptionPrefixMatch = nextSegment.match(
-                /^(The description)\b\s*/i
-            );
-            if (descriptionPrefixMatch) {
-                const prefixText = descriptionPrefixMatch[1];
-                nextSegment = nextSegment
-                    .slice(descriptionPrefixMatch[0].length)
-                    .trim();
-                adjusted[index] =
-                    `${adjusted[index].trim()} ${prefixText}`.trim();
-                adjusted[index + 1] = nextSegment;
-            }
-            while (nextSegment.length > 0 && /^[a-z]/.test(nextSegment[0])) {
-                const currentSegment = adjusted[index].trim();
-                const words = currentSegment
-                    .split(/\s+/)
-                    .filter((word) => word.length > 0);
-
-                if (words.length <= 1) {
-                    break;
-                }
-
-                const wordToMove = words.pop();
-                adjusted[index] = words.join(" ").trim();
-                adjusted[index + 1] = `${wordToMove} ${nextSegment}`.trim();
-                nextSegment = adjusted[index + 1];
+        while ((match = sentencePattern.exec(text)) !== null) {
+            const sentence = match[0].trim();
+            if (sentence.length > 0) {
+                sentences.push(sentence);
             }
         }
 
-        return adjusted
-            .map((segment) => segment.trim())
-            .filter((segment) => segment.length > 0);
-    };
+        return sentences;
+    }
 
     for (let index = 0; index < docs.length; index += 1) {
         const line = docs[index];
@@ -1501,57 +1457,42 @@ function finalizeDescriptionBlocks({
 
             const available = Math.max(wrapWidth - prefix.length, 16);
             const continuationAvailable = clamp(available, 16, 62);
-            const segments = rebalanceDescriptionSegments(
-                wrapSegments(descriptionText, available, continuationAvailable)
-            );
+            const sentences = splitDescriptionIntoSentences(descriptionText);
+            const segments: string[] = [];
+
+            if (sentences.length === 0) {
+                segments.push(
+                    ...wrapSegments(
+                        descriptionText,
+                        available,
+                        continuationAvailable
+                    )
+                );
+            } else {
+                for (const [
+                    sentenceIndex,
+                    sentenceText
+                ] of sentences.entries()) {
+                    if (!sentenceText) {
+                        continue;
+                    }
+
+                    const firstAvailableForSentence =
+                        sentenceIndex === 0 ? available : continuationAvailable;
+                    segments.push(
+                        ...wrapSegments(
+                            sentenceText,
+                            firstAvailableForSentence,
+                            continuationAvailable
+                        )
+                    );
+                }
+            }
+            console.log("segments debug", segments);
 
             if (segments.length === 0) {
                 wrappedDocs.push(...blockLines);
                 continue;
-            }
-
-            if (blockLines.length > 1) {
-                if (segments.length > blockLines.length) {
-                    const paddedBlockLines = blockLines.map(
-                        (docLine, blockIndex) => {
-                            if (
-                                blockIndex === 0 ||
-                                typeof docLine !== STRING_TYPE
-                            ) {
-                                return docLine;
-                            }
-
-                            if (
-                                !docLine.startsWith("///") ||
-                                parseDocCommentMetadata(docLine)
-                            ) {
-                                return docLine;
-                            }
-
-                            if (docLine.startsWith(continuationPrefix)) {
-                                return docLine;
-                            }
-
-                            const trimmedContinuation = docLine
-                                .slice(3)
-                                .replace(/^\s+/, "");
-
-                            if (trimmedContinuation.length === 0) {
-                                return docLine;
-                            }
-
-                            return `${continuationPrefix}${trimmedContinuation}`;
-                        }
-                    );
-
-                    wrappedDocs.push(...paddedBlockLines);
-                    continue;
-                }
-
-                if (segments.length <= blockLines.length) {
-                    wrappedDocs.push(...blockLines);
-                    continue;
-                }
             }
 
             wrappedDocs.push(`${prefix}${segments[0]}`);

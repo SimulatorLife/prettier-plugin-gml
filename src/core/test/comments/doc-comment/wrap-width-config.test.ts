@@ -5,7 +5,7 @@ import { Core } from "@gml-modules/core";
 
 const DOC_COMMENT_MAX_WRAP_WIDTH_ENV_VAR =
     "PRETTIER_PLUGIN_GML_DOC_COMMENT_MAX_WRAP_WIDTH";
-const DOC_COMMENT_MAX_WRAP_WIDTH_BASELINE = 100;
+const DOC_COMMENT_MAX_WRAP_WIDTH_BASELINE = Infinity;
 
 void test("doc comment wrap width exposes a configurable baseline", () => {
     assert.strictEqual(
