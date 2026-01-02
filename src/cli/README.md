@@ -35,7 +35,7 @@ Watches GML source files and coordinates the hot-reload development pipeline. Wh
 2. Reads modified GML source code
 3. **Transpiles GML to JavaScript** using the transpiler module
 4. Generates hot-reload patches with script IDs
-5. (Future) Streams patches to runtime wrapper via WebSocket
+5. Streams patches to runtime wrapper via WebSocket
 
 ```bash
 # Basic usage - watch current directory
@@ -43,6 +43,9 @@ node src/cli/src/cli.js watch
 
 # Watch specific directory with verbose output
 node src/cli/src/cli.js watch /path/to/project --verbose
+
+# Auto-inject hot-reload runtime and start watching
+node src/cli/src/cli.js watch /path/to/project --auto-inject
 ```
 
 **Options:**
@@ -63,6 +66,9 @@ node src/cli/src/cli.js watch /path/to/project --verbose
 - `--runtime-root <path>` - Path to the HTML5 runtime assets
 - `--runtime-package <name>` - Package name for the HTML5 runtime (default: gamemaker-html5)
 - `--no-runtime-server` - Disable starting the HTML5 runtime static server
+- `--auto-inject` - **NEW**: Automatically inject the hot-reload runtime wrapper into the HTML5 output directory before starting the watcher (default: false)
+- `--html5-output <path>` - Path to the HTML5 output directory for auto-injection (overrides auto-detection; used with `--auto-inject`)
+- `--gm-temp-root <path>` - Root directory for GameMaker HTML5 temporary outputs (default: `/private/tmp/GameMakerStudio2/GMS2TEMP`; used with `--auto-inject`)
 
 **Note:** The `--verbose` and `--quiet` flags cannot be used together.
 
@@ -95,6 +101,33 @@ Fastest transpilation: 1.23ms (simple_script.gml)
 Slowest transpilation: 5.67ms (complex_script.gml)
 -------------------------------
 ```
+
+**Automatic Hot-Reload Setup:**
+
+The `--auto-inject` flag streamlines the development workflow by automatically preparing the hot-reload environment before starting the watcher. This eliminates the need to manually run `prepare-hot-reload` as a separate step:
+
+```bash
+# Traditional two-step workflow (still supported):
+node src/cli/src/cli.js prepare-hot-reload --html5-output /path/to/output
+node src/cli/src/cli.js watch /path/to/project
+
+# Streamlined one-step workflow with --auto-inject:
+node src/cli/src/cli.js watch /path/to/project --auto-inject
+
+# Specify custom HTML5 output directory:
+node src/cli/src/cli.js watch /path/to/project --auto-inject --html5-output /path/to/output
+
+# Use custom WebSocket port for both injection and server:
+node src/cli/src/cli.js watch /path/to/project --auto-inject --websocket-port 18000
+```
+
+When `--auto-inject` is enabled, the watch command will:
+1. Locate the most recent GameMaker HTML5 output (or use the path specified with `--html5-output`)
+2. Copy the runtime wrapper assets into the output directory
+3. Inject the WebSocket client bootstrap snippet into `index.html`
+4. Start the file watcher and WebSocket server
+
+The WebSocket URL injected into the HTML5 output will match the `--websocket-host` and `--websocket-port` options, ensuring seamless connectivity between the game and the watcher.
 
 **Debouncing File Changes:**
 
