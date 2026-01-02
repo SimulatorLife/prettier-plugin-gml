@@ -1700,6 +1700,9 @@ function tryPrintLiteralNode(node, path, options, print) {
             return concat(value);
         }
         case "Identifier": {
+            const prefix = shouldPrefixGlobalIdentifier(path, options)
+                ? "global."
+                : "";
             let identifierName = node.name;
 
             const argumentIndex =
@@ -1733,10 +1736,6 @@ function tryPrintLiteralNode(node, path, options, print) {
             if (Core.isNonEmptyString(renamed)) {
                 identifierName = renamed;
             }
-
-            const prefix = shouldPrefixGlobalIdentifier(path, options)
-                ? "global."
-                : "";
 
             let extraPadding = 0;
             if (
