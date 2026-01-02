@@ -251,7 +251,7 @@ function printComment(commentPath, options) {
                     console.log(
                         `DEBUG: originalText slice: "${options.originalText
                             .slice(endIndex, endIndex + 10)
-                            .replace(/\n/g, "\\n")}"`
+                            .replaceAll('\n', String.raw`\n`)}"`
                     );
                     console.log(
                         `DEBUG: comment start=${JSON.stringify(comment.start)}`
@@ -405,7 +405,7 @@ function computeOriginalTrailingSpacing(comment, options) {
         return 0;
     }
 
-    if (segment.trim().length !== 0) {
+    if (segment.trim().length > 0) {
         return null;
     }
 
@@ -620,7 +620,7 @@ function hasInlineContentBeforeComment(comment, options) {
     const lastLineBreak = originalText.lastIndexOf("\n", startIndex - 1);
     const lineStart = lastLineBreak === -1 ? 0 : lastLineBreak + 1;
     const precedingSegment = originalText.slice(lineStart, startIndex);
-    return /\S/.test(precedingSegment.replace(/\r/g, ""));
+    return /\S/.test(precedingSegment.replaceAll('\r', ""));
 }
 
 function getNextNonWhitespaceCharacterAfterComment(comment, originalText) {

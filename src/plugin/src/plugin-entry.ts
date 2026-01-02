@@ -83,7 +83,7 @@ const INLINE_TRAILING_COMMENT_SPACING_PATTERN =
     /(?<=[^\s/])[ \t]{2,}(?=\/\/(?!\/))/g;
 
 function normalizeInlineTrailingCommentSpacing(formatted: string): string {
-    return formatted.replace(INLINE_TRAILING_COMMENT_SPACING_PATTERN, " ");
+    return formatted.replaceAll(INLINE_TRAILING_COMMENT_SPACING_PATTERN, " ");
 }
 
 function extractLineCommentPayload(line: string): string | null {
@@ -108,7 +108,7 @@ function removeDuplicateDocLikeLineComments(formatted: string): string {
 
         if (trimmed.startsWith("///")) {
             const docPayload = extractLineCommentPayload(line);
-            const previousLine = result[result.length - 1];
+            const previousLine = result.at(-1);
             if (docPayload !== null && typeof previousLine === "string") {
                 const previousPayload = extractLineCommentPayload(previousLine);
                 if (
@@ -138,7 +138,7 @@ function ensureBlankLineBeforeTopLevelLineComments(formatted: string): string {
             trimmedStart === line;
 
         if (isPlainLineComment && result.length > 0) {
-            const previousLine = result[result.length - 1];
+            const previousLine = result.at(-1);
             if (
                 typeof previousLine === "string" &&
                 previousLine.trim() === "}"

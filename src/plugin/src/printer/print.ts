@@ -756,7 +756,7 @@ function tryPrintVariableNode(node, path, options, print) {
                 typeof node._alignAssignmentPadding === NUMBER_TYPE
                     ? Math.max(0, node._alignAssignmentPadding)
                     : 0;
-            let spacing = " ".repeat(padding + 1);
+            const spacing = " ".repeat(padding + 1);
 
             return group(
                 concat([
@@ -5153,9 +5153,9 @@ function shouldOmitDefaultValueForParameter(path, options) {
                 if (comment.type === "CommentBlock") {
                     return value
                         .split(/\r\n|\n|\r/)
-                        .map((line) => "/// " + line);
+                        .map((line) => `/// ${  line}`);
                 }
-                return "/// " + value;
+                return `/// ${  value}`;
             });
 
             const paramName =
@@ -5189,11 +5189,11 @@ function shouldOmitDefaultValueForParameter(path, options) {
                     docLines.unshift(line);
                 } else if (line.startsWith("/*") && line.endsWith("*/")) {
                     const content = line.slice(2, -2).trim();
-                    docLines.unshift("/// " + content);
+                    docLines.unshift(`/// ${  content}`);
                 } else if (line.startsWith("//")) {
                     if (line.includes("@param") || line.includes("@function")) {
                         docLines.unshift(
-                            "/// " + line.replace(/^\/+/, "").trim()
+                            `/// ${  line.replace(/^\/+/, "").trim()}`
                         );
                     }
                 } else {

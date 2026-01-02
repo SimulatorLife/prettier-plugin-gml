@@ -6374,7 +6374,7 @@ function computeTrailingCommentInlinePadding(
     }
 
     const padding = commentStartIndex - declarationEnd;
-    return padding >= 0 ? padding : 0;
+    return Math.max(padding, 0);
 }
 
 function markCommentForTrailingPaddingPreservation(
@@ -6400,11 +6400,7 @@ function markCommentForTrailingPaddingPreservation(
 
     if (typeof inlinePadding === "number" && inlinePadding >= 0) {
         const previousPadding = comment.inlinePadding;
-        if (typeof previousPadding === "number") {
-            comment.inlinePadding = Math.max(previousPadding, inlinePadding);
-        } else {
-            comment.inlinePadding = inlinePadding;
-        }
+        comment.inlinePadding = typeof previousPadding === "number" ? Math.max(previousPadding, inlinePadding) : inlinePadding;
     }
 }
 function markStatementToSuppressFollowingEmptyLine(statement) {
