@@ -436,20 +436,7 @@ function tryFormatCommentedOutCode(
         return null;
     }
 
-    const normalizedWhitespace = leadingWhitespace.replace(/\t/g, "    ");
-    const hasTabsOnly =
-        leadingWhitespace.length > 0 &&
-        leadingWhitespace.includes("\t") &&
-        !leadingWhitespace.includes(" ");
-    const whitespaceSegment =
-        normalizedWhitespace.length > 0
-            ? `${hasTabsOnly ? " " : ""}${normalizedWhitespace}`
-            : "";
-    const formattedCommentLine = whitespaceSegment
-        ? `//${whitespaceSegment}${coreValue}`
-        : `//${coreValue}`;
-
-    return applyInlinePadding(comment, formattedCommentLine, true);
+    return applyInlinePadding(comment, `// ${coreValue}`, true);
 }
 
 /**
@@ -661,28 +648,10 @@ function formatLineComment(
     }
 
     // Default: format as a regular comment
-    const fallbackLeadingWhitespace =
-        typeof rawValue === "string"
-            ? rawValue.match(/^\s*/)?.[0] ?? ""
-            : "";
-    const normalizedFallbackWhitespace = fallbackLeadingWhitespace.replace(
-        /\t/g,
-        "    "
+    return applyInlinePadding(
+        comment,
+        `//${trimmedValue.startsWith("/") ? "" : " "}${trimmedValue}`
     );
-    const fallbackHasTabsOnly =
-        fallbackLeadingWhitespace.length > 0 &&
-        fallbackLeadingWhitespace.includes("\t") &&
-        !fallbackLeadingWhitespace.includes(" ");
-    const fallbackSpacing =
-        normalizedFallbackWhitespace.length > 0
-            ? `${fallbackHasTabsOnly ? " " : ""}${normalizedFallbackWhitespace}`
-            : "";
-    const fallbackContent = trimmedValue;
-    const fallbackCommentLine = fallbackSpacing
-        ? `//${fallbackSpacing}${fallbackContent}`
-        : `//${fallbackContent}`;
-
-    return applyInlinePadding(comment, fallbackCommentLine);
 }
 
 function applyInlinePadding(comment, formattedText, preserveTabs = false) {
