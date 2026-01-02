@@ -209,7 +209,7 @@ function printComment(commentPath, options) {
     }
 
     tryPreserveTrailingSpacingForFeatherFix(comment, options);
-    applyTrailingCommentPadding(comment, options);
+    applyTrailingCommentPadding(comment);
     applyBottomCommentInlinePadding(comment, options);
     applySingleLeadingSpacePadding(comment, options);
     if (comment?._structPropertyTrailing) {
@@ -563,7 +563,7 @@ function hasLeadingBlankLineInSource(comment, originalText) {
     return newlineCount >= 2;
 }
 
-function applyTrailingCommentPadding(comment, options) {
+function applyTrailingCommentPadding(comment) {
     if (!Core.isObjectLike(comment)) {
         return;
     }
@@ -582,7 +582,6 @@ function applyTrailingCommentPadding(comment, options) {
         return;
     }
 
-    const originalText = options.originalText;
     const enumPadding =
         typeof comment._enumTrailingPadding === "number"
             ? comment._enumTrailingPadding

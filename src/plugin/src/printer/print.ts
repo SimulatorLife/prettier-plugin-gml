@@ -4943,56 +4943,6 @@ function isArgumentAssignment(
     return Number.isInteger(parsed) && parsed === argIndex;
 }
 
-function shouldPreserveCompactUpdateAssignmentSpacing(path, options) {
-    if (
-        !path ||
-        typeof path.getValue !== "function" ||
-        typeof path.getParentNode !== "function"
-    ) {
-        return false;
-    }
-
-    const node = path.getValue();
-    if (!node || node.type !== "AssignmentExpression") {
-        return false;
-    }
-
-    if (node.operator === "=") {
-        return false;
-    }
-
-    const parent = path.getParentNode();
-    if (parent?.type !== "ForStatement") {
-        return false;
-    }
-
-    if (callPathMethod(path, "getName") !== "update") {
-        return false;
-    }
-
-    const source = getSourceTextForNode(node, options);
-    if (typeof source !== STRING_TYPE || source.length === 0) {
-        return false;
-    }
-
-    const operatorIndex = source.indexOf(node.operator);
-    if (operatorIndex <= 0) {
-        return false;
-    }
-
-    const beforeChar = source[operatorIndex - 1] ?? "";
-    if (/\s/.test(beforeChar)) {
-        return false;
-    }
-
-    const afterChar = source[operatorIndex + node.operator.length] ?? "";
-    if (/\s/.test(afterChar)) {
-        return false;
-    }
-
-    return true;
-}
-
 function structLiteralHasLeadingLineBreak(node, options) {
     if (!node) {
         return false;
