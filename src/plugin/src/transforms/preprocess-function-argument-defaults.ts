@@ -240,6 +240,11 @@ export class PreprocessFunctionArgumentDefaultsTransform
         const matches = [];
 
         for (const [statementIndex, statement] of statements.entries()) {
+            // Skip statements that were already condensed into ternaries
+            if ((statement as any)?._skipArgumentCountDefault === true) {
+                continue;
+            }
+
             const match = matchArgumentCountFallbackStatement(statement);
 
             // If this statement looks like an argument_count guard but our
