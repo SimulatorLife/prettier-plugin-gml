@@ -79,13 +79,6 @@ function stripFunctionTagComments(formatted: string): string {
     return formatted.replaceAll(FUNCTION_TAG_CLEANUP_PATTERN, "");
 }
 
-const INLINE_TRAILING_COMMENT_SPACING_PATTERN =
-    /(?<=[^\s/])[ \t]{2,}(?=\/\/(?!\/))/g;
-
-function normalizeInlineTrailingCommentSpacing(formatted: string): string {
-    return formatted.replaceAll(INLINE_TRAILING_COMMENT_SPACING_PATTERN, " ");
-}
-
 function extractLineCommentPayload(line: string): string | null {
     const trimmed = line.trim();
     if (trimmed.startsWith("///")) {
@@ -306,10 +299,8 @@ async function format(source: string, options: SupportOptions = {}) {
         const dedupedComments = removeDuplicateDocLikeLineComments(
             collapseVertexFormatBeginSpacing(collapsedAfterStrip)
         );
-        const normalizedCommentSpacing =
-            normalizeInlineTrailingCommentSpacing(dedupedComments);
         const spacedComments = ensureBlankLineBeforeTopLevelLineComments(
-            normalizedCommentSpacing
+            dedupedComments
         );
         return reapplyLineCommentTrailingWhitespace(spacedComments, source);
     } finally {

@@ -287,14 +287,14 @@ function printComment(commentPath, options) {
                 comment,
                 formattingOptions
             );
-            const normalized =
-                typeof formatted === "string"
-                    ? normalizeDocLikeLineComment(
-                          comment,
-                          formatted,
-                          options?.originalText
-                      )
-                    : "";
+        const normalized =
+            typeof formatted === "string"
+                ? normalizeDocLikeLineComment(
+                      comment,
+                      formatted,
+                      options?.originalText
+                  )
+                : "";
             if (normalized.trim() === "/// @description") {
                 return "";
             }

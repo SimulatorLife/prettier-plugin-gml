@@ -1402,6 +1402,37 @@ function finalizeDescriptionBlocks({
         return segments;
     };
 
+    const rebalanceDescriptionSegments = (segments: string[]): string[] => {
+        if (segments.length <= 1) {
+            return segments;
+        }
+
+        const adjusted = [...segments];
+
+        for (let index = 0; index < adjusted.length - 1; index += 1) {
+            let nextSegment = adjusted[index + 1].trim();
+            while (nextSegment.length > 0 && /^[a-z]/.test(nextSegment[0])) {
+                const currentSegment = adjusted[index].trim();
+                const words = currentSegment
+                    .split(/\s+/)
+                    .filter((word) => word.length > 0);
+
+                if (words.length <= 1) {
+                    break;
+                }
+
+                const wordToMove = words.pop()!;
+                adjusted[index] = words.join(" ").trim();
+                adjusted[index + 1] = `${wordToMove} ${nextSegment}`.trim();
+                nextSegment = adjusted[index + 1];
+            }
+        }
+
+        return adjusted
+            .map((segment) => segment.trim())
+            .filter((segment) => segment.length > 0);
+    };
+
     for (let index = 0; index < docs.length; index += 1) {
         const line = docs[index];
         if (docTagHelpers.isDescriptionLine(line)) {
@@ -1458,10 +1489,12 @@ function finalizeDescriptionBlocks({
 
             const available = Math.max(wrapWidth - prefix.length, 16);
             const continuationAvailable = clamp(available, 16, 62);
-            const segments = wrapSegments(
-                descriptionText,
-                available,
-                continuationAvailable
+            const segments = rebalanceDescriptionSegments(
+                wrapSegments(
+                    descriptionText,
+                    available,
+                    continuationAvailable
+                )
             );
 
             if (segments.length === 0) {

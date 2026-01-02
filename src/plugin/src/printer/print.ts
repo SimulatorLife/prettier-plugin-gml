@@ -3415,6 +3415,8 @@ function handleTerminalTrailingSpacing({
     return previousNodeHadNewlineAddedAfter;
 }
 
+const DEFAULT_ASSIGNMENT_ALIGNMENT_MIN_GROUP_SIZE = 3;
+
 export function applyAssignmentAlignment(
     statements,
     options,
@@ -3422,7 +3424,7 @@ export function applyAssignmentAlignment(
     childrenAttribute = null
 ) {
     const minGroupSize = getAssignmentAlignmentMinimum(options);
-    /** @type {Array<{ node: any, nameLength: number, prefixLength: number, assignmentType: string }>} */
+    /** @type {Array<{ node: any, nameLength: number, prefixLength: number }>} */
     const currentGroup = [];
     let currentGroupMaxLength = 0;
     let currentGroupHasAlias = false;
@@ -3456,16 +3458,12 @@ export function applyAssignmentAlignment(
         }
 
         const groupEntries = [...currentGroup];
-        const groupAssignmentType =
-            groupEntries.length > 0
-                ? groupEntries[0].assignmentType
-                : "assignment";
+        const effectiveMinGroupSize =
+            minGroupSize > 0
+                ? minGroupSize
+                : DEFAULT_ASSIGNMENT_ALIGNMENT_MIN_GROUP_SIZE;
         const meetsAlignmentThreshold =
-            groupAssignmentType === "declaration"
-                ? minGroupSize > 0 && groupEntries.length >= minGroupSize
-                : minGroupSize > 0
-                  ? groupEntries.length >= minGroupSize
-                  : groupEntries.length >= 2;
+            groupEntries.length >= effectiveMinGroupSize;
         const canAlign = meetsAlignmentThreshold && currentGroupHasAlias;
 
         if (!canAlign) {
@@ -3495,33 +3493,26 @@ export function applyAssignmentAlignment(
         );
 
         if (entry) {
-            const typeChanged =
-                Boolean(previousEntry) &&
-                entry.assignmentType !== previousEntry.assignmentType;
-
-            if (previousEntry) {
-                if (typeChanged) {
-                    flushGroup();
-                } else if (
-                    previousEntry.skipBreakAfter !== true &&
-                    shouldBreakAssignmentAlignment(
-                        previousEntry.locationNode,
-                        entry.locationNode,
-                        originalText,
-                        locStart,
-                        locEnd
-                    )
-                ) {
-                    flushGroup();
-                }
+        if (previousEntry) {
+            if (
+                previousEntry.skipBreakAfter !== true &&
+                shouldBreakAssignmentAlignment(
+                    previousEntry.locationNode,
+                    entry.locationNode,
+                    originalText,
+                    locStart,
+                    locEnd
+                )
+            ) {
+                flushGroup();
             }
+        }
 
             const prefixLength = entry.prefixLength ?? 0;
             currentGroup.push({
                 node: entry.paddingTarget,
                 nameLength: entry.nameLength,
-                prefixLength,
-                assignmentType: entry.assignmentType
+                prefixLength
             });
             const printedWidth = entry.nameLength + prefixLength;
             if (printedWidth > currentGroupMaxLength) {
@@ -3595,7 +3586,6 @@ export interface AssignmentLikeEntry {
     enablesAlignment: boolean;
     prefixLength: number;
     skipBreakAfter?: boolean;
-    assignmentType: "assignment" | "declaration";
 }
 
 export function getSimpleAssignmentLikeEntry(
@@ -3612,8 +3602,7 @@ export function getSimpleAssignmentLikeEntry(
             paddingTarget: statement,
             nameLength: memberLength,
             enablesAlignment: true,
-            prefixLength: 0,
-            assignmentType: "assignment"
+            prefixLength: 0
         };
     }
 
@@ -3635,8 +3624,7 @@ export function getSimpleAssignmentLikeEntry(
             paddingTarget: statement,
             nameLength: identifier.name.length,
             enablesAlignment: true,
-            prefixLength: 0,
-            assignmentType: "assignment"
+            prefixLength: 0
         };
     }
 
@@ -3697,8 +3685,7 @@ export function getSimpleAssignmentLikeEntry(
         nameLength: (id.name as string).length,
         enablesAlignment: enablesAlignment || shouldEnableVarAlignment,
         skipBreakAfter,
-        prefixLength,
-        assignmentType: "declaration"
+        prefixLength
     };
 }
 
@@ -3832,7 +3819,7 @@ function getMemberExpressionLength(expression) {
 function getAssignmentAlignmentMinimum(options) {
     return Core.coercePositiveIntegerOption(
         options?.alignAssignmentsMinGroupSize,
-        3,
+        DEFAULT_ASSIGNMENT_ALIGNMENT_MIN_GROUP_SIZE,
         {
             zeroReplacement: 0
         }
