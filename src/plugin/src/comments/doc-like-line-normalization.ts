@@ -30,6 +30,14 @@ function normalizeDocLikeLineComment(
         ? leadingWhitespaceMatch[0]
         : "";
     const trimmedFormatted = formatted.trimStart();
+    const docLikeRawValue =
+        typeof comment?.value === "string" ? comment.value.trimStart() : "";
+    if (
+        docLikeRawValue.startsWith("/") &&
+        docLikeRawValue.slice(1).trim().length === 0
+    ) {
+        return "";
+    }
 
     if (trimmedFormatted.startsWith("///")) {
         const normalizedRemainder = trimmedFormatted.slice(3).trimStart();
