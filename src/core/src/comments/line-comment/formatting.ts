@@ -550,10 +550,14 @@ function formatLineComment(
         !isDocLikeComment &&
         (LEADING_BANNER_DECORATION_PATTERN.test(contentWithoutSlashes) ||
             TRAILING_BANNER_DECORATION_PATTERN.test(contentWithoutSlashes) ||
-        (contentWithoutSlashes.match(INNER_BANNER_DECORATION_PATTERN) || [])
-            .length > 0);
+            (contentWithoutSlashes.match(INNER_BANNER_DECORATION_PATTERN) || [])
+                .length > 0);
 
-    if (isPlainTripleSlash && contentWithoutSlashes.length === 0) {
+    if (
+        contentWithoutSlashes.length === 0 &&
+        trimmedValue.length > 0 &&
+        leadingSlashCount < LINE_COMMENT_BANNER_DETECTION_MIN_SLASHES
+    ) {
         return applyInlinePadding(comment, "//");
     }
 

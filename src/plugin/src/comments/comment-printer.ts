@@ -207,6 +207,7 @@ function printComment(commentPath, options) {
     }
 
     applyTrailingCommentPadding(comment, options);
+    applyBottomCommentInlinePadding(comment, options);
     applySingleLeadingSpacePadding(comment, options);
     if (comment?._structPropertyTrailing) {
         comment._structPropertyHandled = true;
@@ -493,6 +494,39 @@ function applyTrailingCommentPadding(comment, options) {
     } else {
         comment.inlinePadding = 0;
     }
+}
+
+function hasInlineContentBeforeComment(comment, options) {
+    if (!Core.isObjectLike(comment) || !options) {
+        return false;
+    }
+
+    const startIndex = getCommentStartIndex(comment);
+    if (!Number.isInteger(startIndex) || startIndex <= 0) {
+        return false;
+    }
+
+    const originalText = options.originalText;
+    if (typeof originalText !== "string") {
+        return false;
+    }
+
+    const lastLineBreak = originalText.lastIndexOf("\n", startIndex - 1);
+    const lineStart = lastLineBreak === -1 ? 0 : lastLineBreak + 1;
+    const precedingSegment = originalText.slice(lineStart, startIndex);
+    return /\S/.test(precedingSegment.replace(/\r/g, ""));
+}
+
+function applyBottomCommentInlinePadding(comment, options) {
+    if (
+        !Core.isObjectLike(comment) ||
+        comment.isBottomComment !== true ||
+        !hasInlineContentBeforeComment(comment, options)
+    ) {
+        return;
+    }
+
+    comment.inlinePadding = Math.max(comment.inlinePadding || 0, 2);
 }
 
 function collectDanglingComments(path, filter) {
