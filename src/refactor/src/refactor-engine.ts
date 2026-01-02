@@ -1832,7 +1832,21 @@ export class RefactorEngine {
         }
 
         // Extract symbol metadata from the ID
+        // SymbolId format: gml/{kind}/{name}, e.g., "gml/script/scr_player"
         const symbolParts = symbolId.split("/");
+        if (symbolParts.length < 3) {
+            return {
+                safe: false,
+                reason: `Malformed symbolId '${symbolId}'`,
+                requiresRestart: true,
+                canAutoFix: false,
+                suggestions: [
+                    "Ensure symbolId follows the pattern: gml/{kind}/{name}",
+                    "Example: gml/script/scr_player, gml/var/hp, gml/event/create"
+                ]
+            };
+        }
+
         const rawSymbolKind = symbolParts[1];
         const symbolKind = parseSymbolKind(rawSymbolKind);
         const symbolName = symbolParts.at(-1);

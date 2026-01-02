@@ -3241,6 +3241,39 @@ void test("detectRenameConflicts handles multiple occurrences with different sco
     assert.equal(conflicts[0].path, "test2.gml");
 });
 
+void test("checkHotReloadSafety rejects malformed symbolId", async () => {
+    const mockSemantic = {
+        hasSymbol: () => true,
+        getSymbolOccurrences: () => []
+    };
+    const engine = new RefactorEngineClass({ semantic: mockSemantic });
+
+    const testCases = [
+        { id: "gml", desc: "missing parts" },
+        { id: "gml/", desc: "missing kind and name" },
+        { id: "gml/script", desc: "missing name" },
+        { id: "invalid_format", desc: "wrong pattern" }
+    ];
+
+    for (const testCase of testCases) {
+        const result = await engine.checkHotReloadSafety({
+            symbolId: testCase.id,
+            newName: "new_name"
+        });
+
+        assert.equal(
+            result.safe,
+            false,
+            `Expected safe=false for ${testCase.desc} (id: ${testCase.id})`
+        );
+        assert.ok(
+            result.reason.includes("Malformed") ||
+                result.reason.includes("Invalid"),
+            `Expected error message for ${testCase.desc}`
+        );
+    }
+});
+
 void test("checkHotReloadSafety rejects invalid symbol kinds", async () => {
     const mockSemantic = {
         hasSymbol: () => true,
