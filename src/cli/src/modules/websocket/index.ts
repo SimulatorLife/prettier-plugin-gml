@@ -1,6 +1,7 @@
 export {
     startPatchWebSocketServer,
-    type PatchWebSocketServerController,
+    type PatchWebSocketServer,
+    type PatchWebSocketServerHandle,
     type PatchBroadcaster,
     type PatchBroadcastResult,
     type PatchWebSocketServerOptions
