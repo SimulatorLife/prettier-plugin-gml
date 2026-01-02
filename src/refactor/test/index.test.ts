@@ -723,6 +723,43 @@ void test("prepareRenamePlan optionally validates hot reload compatibility", asy
     );
 });
 
+void test("prepareRenamePlan surfaces hot reload safety for macro renames", async () => {
+    const mockSemantic = {
+        hasSymbol: () => true,
+        getSymbolOccurrences: () => [
+            {
+                path: "scripts/macros.gml",
+                start: 0,
+                end: 7,
+                scopeId: "scope-1",
+                kind: "definition"
+            }
+        ]
+    };
+
+    const engine = new RefactorEngineClass({ semantic: mockSemantic });
+
+    const result = await engine.prepareRenamePlan(
+        {
+            symbolId: "gml/macro/MAX_HP",
+            newName: "MAX_HEALTH"
+        },
+        { validateHotReload: true }
+    );
+
+    assert.ok(result.hotReload);
+    assert.equal(result.hotReload.valid, false);
+    assert.ok(
+        result.hotReload.warnings.some((warning) =>
+            warning.includes(
+                "Macro/enum renames require dependent script recompilation"
+            )
+        )
+    );
+    assert.ok(result.hotReload.hotReload);
+    assert.equal(result.hotReload.hotReload.safe, false);
+});
+
 void test("generateTranspilerPatches requires array parameter", async () => {
     const engine = new RefactorEngineClass();
     await assert.rejects(
