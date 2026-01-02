@@ -1,9 +1,11 @@
 import * as RefactorAPI from "./refactor-engine.js";
 import { WorkspaceEdit } from "./workspace-edit.js";
+import * as OccurrenceAnalysisAPI from "./occurrence-analysis.js";
 
 export const Refactor = Object.freeze({
     ...RefactorAPI,
-    WorkspaceEdit
+    WorkspaceEdit,
+    ...OccurrenceAnalysisAPI
 });
 
 export { RefactorEngine } from "./refactor-engine.js";
@@ -15,6 +17,16 @@ export {
     parseSymbolKind,
     requireSymbolKind
 } from "./types.js";
+
+export {
+    classifyOccurrences,
+    filterOccurrencesByKind,
+    groupOccurrencesByFile,
+    findOccurrencesInFile,
+    countAffectedFiles
+} from "./occurrence-analysis.js";
+
+export type { OccurrenceClassification } from "./occurrence-analysis.js";
 
 export type {
     ApplyWorkspaceEditOptions,
