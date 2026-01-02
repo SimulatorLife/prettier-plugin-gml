@@ -773,29 +773,7 @@ function tryPrintVariableNode(node, path, options, print) {
         }
         case "GlobalVarStatement": {
             if (options.preserveGlobalVarStatements === false) {
-                // console.log("[DEBUG] GlobalVarStatement preserve=false", node);
-                const parts = [];
-                node.declarations.forEach((decl, index) => {
-                    if (decl.init) {
-                        const idDoc = path.call(
-                            print,
-                            "declarations",
-                            index,
-                            "id"
-                        );
-                        const initDoc = path.call(
-                            print,
-                            "declarations",
-                            index,
-                            "init"
-                        );
-                        parts.push(
-                            group(
-                                concat(["global.", idDoc, " = ", initDoc, ";"])
-                            )
-                        );
-                    }
-                });
+                const parts = buildGlobalVarAssignmentParts(node, path, print);
 
                 if (parts.length === 0) {
                     return null;
@@ -829,14 +807,11 @@ function tryPrintVariableNode(node, path, options, print) {
             const functionNode = findEnclosingFunctionNode(path);
             const declarators = Core.asArray(node.declarations);
 
-            const keptDeclarators = declarators.filter((declarator: any) => {
-                const omit = shouldOmitParameterAlias(
-                    declarator,
-                    functionNode,
-                    options
-                );
-                return !omit;
-            });
+            const keptDeclarators = filterKeptDeclarators(
+                declarators,
+                functionNode,
+                options
+            );
 
             if (keptDeclarators.length === 0) {
                 return;
@@ -887,40 +862,7 @@ function tryPrintVariableNode(node, path, options, print) {
             // based on line proximity and syntactic context. See: <link to parser issue if available>
             if (node.declarations.length === 1) {
                 const decl = node.declarations[0];
-                if (decl.comments) {
-                    decl.comments = decl.comments.filter((comment) => {
-                        const isFunctionComment =
-                            comment.value.includes("@function") ||
-                            comment.value.includes("@func");
-
-                        // NOTE: The isFunctionInit check below was originally intended to verify
-                        // whether the declarator's initializer is actually a function before
-                        // filtering the comment. However, the current filtering logic is sufficient
-                        // because we only enter this branch when there's a single declarator, and
-                        // the misattachment issue occurs specifically when the comment belongs to
-                        // a function defined elsewhere in the file, not to this variable.
-                        //
-                        // Keeping this check would be redundant: if the init is a function, the
-                        // comment is likely correct and should NOT be filtered. The current code
-                        // filters unconditionally when isFunctionComment is true, which may be
-                        // overly aggressive but works as a stopgap until the parser is fixed.
-                        //
-                        // const isFunctionInit =
-                        //     decl.init &&
-                        //     (decl.init.type === "FunctionDeclaration" ||
-                        //         decl.init.type === "ArrowFunctionExpression");
-
-                        if (isFunctionComment) {
-                            comment.printed = true;
-                            return false;
-                        }
-                        return true;
-                    });
-
-                    if (decl.comments.length === 0) {
-                        delete decl.comments;
-                    }
-                }
+                filterMisattachedFunctionDocComments(decl);
             }
 
             const decls = printCommaSeparatedList(
@@ -955,13 +897,8 @@ function tryPrintVariableNode(node, path, options, print) {
                 // LONG-TERM FIX: Investigate and fix the underlying issue in printCommaSeparatedList
                 // so it correctly handles static declarations, then remove this manual join logic.
                 const parts = path.map(print, "declarations");
-                const joined = [];
-                for (let i = 0; i < parts.length; i++) {
-                    joined.push(parts[i]);
-                    if (i < parts.length - 1) {
-                        joined.push(", ");
-                    }
-                }
+                const joined = joinDeclaratorPartsWithCommas(parts);
+
                 return group(concat([node.kind, " ", ...joined]));
             }
 
@@ -4569,6 +4506,117 @@ function shouldOmitParameterAlias(declarator, functionNode, options) {
     }
 
     return false;
+}
+
+/**
+ * Builds formatted global variable assignment parts from globalvar declarations.
+ *
+ * Transforms each initialized declaration into a standalone `global.name = value;` statement.
+ * Declarations without initializers are skipped.
+ *
+ * @param {any} node - The GlobalVarStatement node
+ * @param {any} path - Prettier path object for traversal
+ * @param {Function} print - Prettier print function
+ * @returns {Array<any>} Array of formatted assignment doc fragments
+ */
+function buildGlobalVarAssignmentParts(node, path, print) {
+    const parts = [];
+    const declarationCount = node.declarations.length;
+
+    for (let index = 0; index < declarationCount; index += 1) {
+        const decl = node.declarations[index];
+
+        if (!decl.init) {
+            continue;
+        }
+
+        const idDoc = path.call(print, "declarations", index, "id");
+        const initDoc = path.call(print, "declarations", index, "init");
+
+        parts.push(group(concat(["global.", idDoc, " = ", initDoc, ";"])));
+    }
+
+    return parts;
+}
+
+/**
+ * Filters variable declarators based on parameter alias omission rules.
+ *
+ * Removes declarators that are redundant parameter aliases when formatting optimization
+ * is enabled. The filtering logic delegates to `shouldOmitParameterAlias` for each declarator.
+ *
+ * @param {ReadonlyArray<any>} declarators - Array of declarator nodes to filter
+ * @param {any} functionNode - The enclosing function node (if any)
+ * @param {any} options - Prettier options
+ * @returns {Array<any>} Filtered array of declarators to keep
+ */
+function filterKeptDeclarators(declarators, functionNode, options) {
+    return declarators.filter((declarator) => {
+        const omit = shouldOmitParameterAlias(
+            declarator,
+            functionNode,
+            options
+        );
+        return !omit;
+    });
+}
+
+/**
+ * Filters out misattached function doc-comments from a declarator's comments array.
+ *
+ * Mutates the declarator in place by filtering its comments array and marking
+ * filtered comments as printed. If all comments are filtered, deletes the comments property.
+ *
+ * This workaround addresses a parser issue where JSDoc function comments (@function, @func)
+ * are incorrectly attached to variable declarators instead of their intended function targets.
+ *
+ * @param {any} declarator - The variable declarator node to process
+ */
+function filterMisattachedFunctionDocComments(declarator) {
+    if (!declarator.comments) {
+        return;
+    }
+
+    declarator.comments = declarator.comments.filter((comment) => {
+        const isFunctionComment =
+            comment.value.includes("@function") ||
+            comment.value.includes("@func");
+
+        if (isFunctionComment) {
+            comment.printed = true;
+            return false;
+        }
+
+        return true;
+    });
+
+    if (declarator.comments.length === 0) {
+        delete declarator.comments;
+    }
+}
+
+/**
+ * Joins an array of declarator doc fragments with comma separators.
+ *
+ * Inserts ", " between each pair of elements to produce a comma-separated list
+ * suitable for variable declarations.
+ *
+ * @param {ReadonlyArray<any>} parts - Array of doc fragments to join
+ * @returns {Array<any>} Flat array with commas inserted between parts
+ */
+function joinDeclaratorPartsWithCommas(parts) {
+    const joined = [];
+    const count = parts.length;
+
+    for (let i = 0; i < count; i += 1) {
+        joined.push(parts[i]);
+
+        if (i < count - 1) {
+            joined.push(", ");
+        }
+    }
+
+    return joined;
 }
 
 function isInsideConstructorFunction(path) {
