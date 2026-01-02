@@ -46,32 +46,19 @@ function normalizeDocLikeLineComment(
         }
 
         const rawRemainder = resolveRawDocLikeRemainder(comment);
-        const trimmedCommentValue =
-            typeof comment?.value === "string"
-                ? comment.value.trimStart()
-                : "";
-        const hasDocSlash =
-            trimmedCommentValue.length > 0 &&
-            trimmedCommentValue.startsWith("/");
-
         if (normalizedRemainder.length === 0) {
             return "";
         }
 
         if (!/^[A-Za-z0-9]/.test(normalizedRemainder)) {
-            if (hasDocSlash) {
-                const content = rawRemainder.length
-                    ? rawRemainder
-                    : normalizedRemainder;
-                if (content.length === 0) {
-                    return "";
-                }
-                return `${leadingWhitespace}// / ${content}`;
+            const fallback =
+                normalizedRemainder.length > 0
+                    ? normalizedRemainder
+                    : rawRemainder;
+            if (fallback.length === 0) {
+                return "";
             }
-            if (rawRemainder.length > 0) {
-                return `${leadingWhitespace}// ${rawRemainder}`;
-            }
-            return `${leadingWhitespace}// ${normalizedRemainder}`;
+            return `${leadingWhitespace}// ${fallback}`;
         }
         return formatted;
     }

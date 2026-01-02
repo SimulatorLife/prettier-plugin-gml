@@ -2721,6 +2721,7 @@ function flagInvalidAssignmentTargets({ ast, diagnostic, sourceText }) {
                 statement: node,
                 container,
                 index,
+                ast,
                 diagnostic,
                 sourceText
             });
@@ -2733,6 +2734,7 @@ function flagInvalidAssignmentTargets({ ast, diagnostic, sourceText }) {
 
         if (node.type === "AssignmentExpression") {
             const fix = flagInvalidAssignmentTarget(
+                ast,
                 node,
                 diagnostic,
                 sourceText
@@ -2783,7 +2785,8 @@ function removeInvalidAssignmentExpression({
     container,
     index,
     diagnostic,
-    sourceText
+    sourceText,
+    ast
 }) {
     if (!statement || statement.type !== "ExpressionStatement") {
         return null;
@@ -2800,6 +2803,7 @@ function removeInvalidAssignmentExpression({
     }
 
     const fixDetail = flagInvalidAssignmentTarget(
+        ast,
         expression,
         diagnostic,
         sourceText
@@ -2850,7 +2854,7 @@ function shouldRemoveInvalidAssignmentFromContainer({
     return parentType === "Program" || parentType === "BlockStatement";
 }
 
-function flagInvalidAssignmentTarget(node, diagnostic, sourceText) {
+function flagInvalidAssignmentTarget(ast, node, diagnostic, sourceText) {
     if (!node || node.type !== "AssignmentExpression") {
         return null;
     }
@@ -2887,12 +2891,6 @@ function flagInvalidAssignmentTarget(node, diagnostic, sourceText) {
     if (!fixDetail) {
         return null;
     }
-
-    preserveTrailingCommentAlignmentForVarDeclaration({
-        declaration: node,
-        ast,
-        sourceText
-    });
 
     attachFeatherFixMetadata(node, [fixDetail]);
 
@@ -6140,6 +6138,12 @@ function ensureVarDeclarationIsTerminated(node, ast, sourceText, diagnostic) {
         return null;
     }
 
+    preserveTrailingCommentAlignmentForVarDeclaration({
+        declaration: node,
+        ast,
+        sourceText
+    });
+
     attachFeatherFixMetadata(node, [fixDetail]);
 
     return fixDetail;
@@ -6246,6 +6250,169 @@ function variableDeclarationHasTerminatingSemicolon(node, sourceText) {
     return false;
 }
 
+
+function preserveTrailingCommentAlignmentForVarDeclaration({
+    declaration,
+    ast,
+    sourceText
+}) {
+    if (
+        !declaration ||
+        declaration.type !== "VariableDeclaration" ||
+        typeof sourceText !== "string" ||
+        sourceText.length === 0 ||
+        !ast ||
+        typeof ast !== "object"
+    ) {
+        return;
+    }
+
+    const commentStartIndex = findLineCommentStartIndexAfterDeclaration(
+        declaration,
+        sourceText
+    );
+
+    if (commentStartIndex == null) {
+        return;
+    }
+
+    const comment = findLineCommentStartingAt(ast, commentStartIndex);
+
+    if (!comment) {
+        return;
+    }
+
+    const inlinePadding = computeTrailingCommentInlinePadding(
+        declaration,
+        commentStartIndex,
+        sourceText
+    );
+
+    markCommentForTrailingPaddingPreservation(comment, inlinePadding);
+}
+
+function findLineCommentStartIndexAfterDeclaration(declaration, sourceText) {
+    const endIndex = Core.getNodeEndIndex(declaration);
+
+    if (typeof endIndex !== "number") {
+        return null;
+    }
+
+    const length = sourceText.length;
+
+    for (let index = endIndex; index < length; index += 1) {
+        const char = sourceText[index];
+
+        if (
+            char === " " ||
+            char === "\t" ||
+            char === "\v" ||
+            char === "\f"
+        ) {
+            continue;
+        }
+
+        if (
+            char === "\r" ||
+            char === "\n" ||
+            char === "\u2028" ||
+            char === "\u2029"
+        ) {
+            return null;
+        }
+
+        if (char === "/" && sourceText[index + 1] === "/") {
+            return index;
+        }
+
+        return null;
+    }
+
+    return null;
+}
+
+function findLineCommentStartingAt(ast, startIndex) {
+    if (typeof startIndex !== "number" || startIndex < 0) {
+        return null;
+    }
+
+    const comments = Core.collectCommentNodes(ast);
+
+    if (comments.length === 0) {
+        return null;
+    }
+
+    for (const comment of comments) {
+        if (comment?.type !== "CommentLine") {
+            continue;
+        }
+
+        const commentStartIndex = Core.getNodeStartIndex(comment);
+
+        if (typeof commentStartIndex !== "number") {
+            continue;
+        }
+
+        if (commentStartIndex === startIndex) {
+            return comment;
+        }
+    }
+
+    return null;
+}
+
+function computeTrailingCommentInlinePadding(
+    declaration,
+    commentStartIndex,
+    sourceText
+) {
+    if (
+        !declaration ||
+        typeof commentStartIndex !== "number" ||
+        typeof sourceText !== "string"
+    ) {
+        return null;
+    }
+
+    const declarationEnd = Core.getNodeEndIndex(declaration);
+    if (typeof declarationEnd !== "number") {
+        return null;
+    }
+
+    const padding = commentStartIndex - declarationEnd;
+    return padding >= 0 ? padding : 0;
+}
+
+function markCommentForTrailingPaddingPreservation(
+    comment,
+    inlinePadding = null
+) {
+    if (!comment || typeof comment !== "object") {
+        return;
+    }
+
+    const key = "_featherPreserveTrailingPadding";
+
+    if (comment[key] === true) {
+        return;
+    }
+
+    Object.defineProperty(comment, key, {
+        configurable: true,
+        enumerable: false,
+        writable: true,
+        value: true
+    });
+
+    if (typeof inlinePadding === "number" && inlinePadding >= 0) {
+        const previousPadding = comment.inlinePadding;
+        if (typeof previousPadding === "number") {
+            comment.inlinePadding = Math.max(previousPadding, inlinePadding);
+        } else {
+            comment.inlinePadding = inlinePadding;
+        }
+    }
+}
 function markStatementToSuppressFollowingEmptyLine(statement) {
     if (!statement || typeof statement !== "object") {
         return;

@@ -628,18 +628,21 @@ function hasInlineContentBeforeComment(comment, options) {
     return /\S/.test(precedingSegment.replace(/\r/g, ""));
 }
 
-function hasTrailingNonWhitespaceContent(comment, originalText) {
+function getNextNonWhitespaceCharacterAfterComment(
+    comment,
+    originalText
+) {
     if (!Core.isObjectLike(comment)) {
-        return false;
+        return null;
     }
 
     const endIndex = getCommentEndIndex(comment);
     if (!Number.isInteger(endIndex)) {
-        return false;
+        return null;
     }
 
     if (typeof originalText !== "string") {
-        return false;
+        return null;
     }
 
     for (let index = endIndex + 1; index < originalText.length; index += 1) {
@@ -647,10 +650,10 @@ function hasTrailingNonWhitespaceContent(comment, originalText) {
         if (char === "\n" || char === "\r" || char === " " || char === "\t") {
             continue;
         }
-        return true;
+        return char;
     }
 
-    return false;
+    return null;
 }
 
 function applyBottomCommentInlinePadding(comment, options) {
@@ -662,7 +665,11 @@ function applyBottomCommentInlinePadding(comment, options) {
         return;
     }
 
-    if (hasTrailingNonWhitespaceContent(comment, options?.originalText)) {
+    const nextChar = getNextNonWhitespaceCharacterAfterComment(
+        comment,
+        options?.originalText
+    );
+    if (nextChar !== null) {
         return;
     }
 

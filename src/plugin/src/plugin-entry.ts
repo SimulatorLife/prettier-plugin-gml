@@ -80,7 +80,7 @@ function stripFunctionTagComments(formatted: string): string {
 }
 
 const INLINE_TRAILING_COMMENT_SPACING_PATTERN =
-    /(?<=\S)[ \t]{2,}(?=\/\/(?!\/))/g;
+    /(?<=[^\s/])[ \t]{2,}(?=\/\/(?!\/))/g;
 
 function normalizeInlineTrailingCommentSpacing(formatted: string): string {
     return formatted.replace(
@@ -310,10 +310,8 @@ async function format(source: string, options: SupportOptions = {}) {
         const withoutFunctionTags = stripFunctionTagComments(normalizedCleaned);
         const collapsedAfterStrip =
             collapseDuplicateBlankLines(withoutFunctionTags);
-        const collapsedAfterComments =
-            removeBlankLineAfterLineComments(collapsedAfterStrip);
         const dedupedComments = removeDuplicateDocLikeLineComments(
-            collapseVertexFormatBeginSpacing(collapsedAfterComments)
+            collapseVertexFormatBeginSpacing(collapsedAfterStrip)
         );
         const normalizedCommentSpacing =
             normalizeInlineTrailingCommentSpacing(dedupedComments);
