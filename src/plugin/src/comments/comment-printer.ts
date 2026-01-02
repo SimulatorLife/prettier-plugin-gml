@@ -296,36 +296,6 @@ function printComment(commentPath, options) {
                 typeof formatted === "string"
                     ? normalizeDocLikeLineComment(comment, formatted)
                     : "";
-            if (
-                typeof comment.value === "string" &&
-                comment.value.includes("find the z top")
-            ) {
-                console.log(
-                    "DEBUG comment data",
-                    JSON.stringify({
-                        inlinePadding: comment.inlinePadding,
-                        leadingWS: comment.leadingWS,
-                        trailingWS: comment.trailingWS
-                    })
-                );
-            }
-            if (
-                typeof normalized === "string" &&
-                normalized.includes("zoom part way in")
-            ) {
-                console.log(
-                    "DEBUG COMMENT NODE",
-                    comment.enclosingNode?.type,
-                    comment.precedingNode?.type,
-                    comment.followingNode?.type
-                );
-                console.log(
-                    "DEBUG COMMENT normalized",
-                    JSON.stringify(normalized),
-                    "inlinePadding",
-                    comment.inlinePadding
-                );
-            }
             if (normalized.trim() === "/// @description") {
                 return "";
             }
@@ -376,7 +346,7 @@ function tryPreserveTrailingSpacingForFeatherFix(comment, options) {
         return;
     }
 
-    comment.inlinePadding = Math.min(Math.max(inlinePadding, 0), 1);
+    comment.inlinePadding = inlinePadding;
     comment._featherPreserveTrailingPadding = true;
 }
 

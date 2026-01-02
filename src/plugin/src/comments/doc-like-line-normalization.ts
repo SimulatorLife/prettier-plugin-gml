@@ -36,20 +36,34 @@ function normalizeDocLikeLineComment(
         if (normalizedRemainder.startsWith("@")) {
             return formatted;
         }
-        if (
-            normalizedRemainder.length === 0 ||
-            !/^[A-Za-z0-9]/.test(normalizedRemainder)
-        ) {
-            const rawRemainder = resolveRawDocLikeRemainder(comment);
+
+        const rawRemainder = resolveRawDocLikeRemainder(comment);
+        const trimmedCommentValue =
+            typeof comment?.value === "string"
+                ? comment.value.trimStart()
+                : "";
+        const hasDocSlash =
+            trimmedCommentValue.length > 0 &&
+            trimmedCommentValue.startsWith("/");
+
+        if (normalizedRemainder.length === 0) {
+            return "";
+        }
+
+        if (!/^[A-Za-z0-9]/.test(normalizedRemainder)) {
+            if (hasDocSlash) {
+                const content = rawRemainder.length
+                    ? rawRemainder
+                    : normalizedRemainder;
+                if (content.length === 0) {
+                    return "";
+                }
+                return `${leadingWhitespace}// / ${content}`;
+            }
             if (rawRemainder.length > 0) {
                 return `${leadingWhitespace}// ${rawRemainder}`;
             }
-            return (
-                leadingWhitespace +
-                (normalizedRemainder.length > 0
-                    ? `// ${normalizedRemainder}`
-                    : "//")
-            );
+            return `${leadingWhitespace}// ${normalizedRemainder}`;
         }
         return formatted;
     }

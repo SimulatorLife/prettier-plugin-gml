@@ -239,16 +239,6 @@ function tryFormatBannerComment(
     const contentAfterStripping = trimmedValue.replace(/^\/+\s*/, "");
 
     if (!/[A-Za-z0-9]/.test(contentAfterStripping)) {
-        if (process.env.GML_PRINTER_DEBUG) {
-            console.log(
-                "DEBUG-BANNER-WS",
-                trimmedValue,
-                "leadingWS:",
-                comment?.leadingWS,
-                "trailingWS:",
-                comment?.trailingWS
-            );
-        }
         if (isObjectLike(comment)) {
             comment.leadingWS = "";
             comment.trailingWS = "";

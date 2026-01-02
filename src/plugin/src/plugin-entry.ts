@@ -75,6 +75,16 @@ function collapseDuplicateBlankLines(formatted: string): string {
     return formatted.replaceAll(MULTIPLE_BLANK_LINE_PATTERN, "\n\n");
 }
 
+const LINE_COMMENT_FOLLOWED_BY_CODE_PATTERN =
+    /^([ \t]*\/\/[^\n]*\n)\n(?=(?![ \t]*\/\/)\S)/gm;
+
+function removeBlankLineAfterLineComments(formatted: string): string {
+    return formatted.replace(
+        LINE_COMMENT_FOLLOWED_BY_CODE_PATTERN,
+        "$1"
+    );
+}
+
 function stripFunctionTagComments(formatted: string): string {
     return formatted.replaceAll(FUNCTION_TAG_CLEANUP_PATTERN, "");
 }
@@ -310,16 +320,49 @@ async function format(source: string, options: SupportOptions = {}) {
         const withoutFunctionTags = stripFunctionTagComments(normalizedCleaned);
         const collapsedAfterStrip =
             collapseDuplicateBlankLines(withoutFunctionTags);
+        const collapsedAfterComments =
+            removeBlankLineAfterLineComments(collapsedAfterStrip);
         const dedupedComments = removeDuplicateDocLikeLineComments(
-            collapseVertexFormatBeginSpacing(collapsedAfterStrip)
+            collapseVertexFormatBeginSpacing(collapsedAfterComments)
         );
+        const targetLine = dedupedComments
+            .split(/\\r?\\n/)
+            .find((line) => line.includes("bomb"));
+        if (targetLine) {
+            console.log(
+                "DEBUG trailing before",
+                JSON.stringify(targetLine)
+            );
+        }
         const normalizedCommentSpacing =
             normalizeInlineTrailingCommentSpacing(dedupedComments);
+        const targetLineAfter = normalizedCommentSpacing
+            .split(/\\r?\\n/)
+            .find((line) => line.includes("bomb"));
+        if (targetLineAfter) {
+            console.log(
+                "DEBUG trailing after",
+                JSON.stringify(targetLineAfter)
+            );
+        }
         const spacedComments =
             ensureBlankLineBeforeTopLevelLineComments(
                 normalizedCommentSpacing
             );
-        return reapplyLineCommentTrailingWhitespace(spacedComments, source);
+        const reapplied = reapplyLineCommentTrailingWhitespace(
+            spacedComments,
+            source
+        );
+        const finalTargetLineAfterReapply = reapplied
+            .split(/\r?\n/)
+            .find((line) => line.includes("bomb"));
+        if (finalTargetLineAfterReapply) {
+            console.log(
+                "DEBUG trailing reapply",
+                JSON.stringify(finalTargetLineAfterReapply)
+            );
+        }
+        return reapplied;
     } finally {
         if (
             docCommentMaxWrapWidth !== undefined ||
