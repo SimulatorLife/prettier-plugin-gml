@@ -1,8 +1,8 @@
-answer = 2;
+answer  = 2;
 numFive = "5";
-five = " five ";
-four = " four ";
-result = 5 + 5;
+five    = " five ";
+four    = " four ";
+result  = 5 + 5;
 result2 = 5 + real(numFive);
-value = 10 + answer;
+value   = 10 + answer;
 altText = four + five + numFive;

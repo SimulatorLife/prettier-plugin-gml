@@ -1582,7 +1582,9 @@ function mergeDocLines({
         typeof syntheticFunctionMetadata?.name === STRING_TYPE
             ? syntheticFunctionMetadata.name.trim()
             : null;
-    let otherLines = syntheticLines.filter((line) => !isFunctionLine(line));
+    let otherLines = syntheticLines.filter(
+        (line) => !isFunctionLine(line)
+    ) as MutableDocCommentLines;
     const overrideLines = otherLines.filter(isOverrideLine);
     otherLines = otherLines.filter((line) => !isOverrideLine(line));
     let returnsLines;
@@ -1844,7 +1846,7 @@ function updateParamLinesFromOtherLines({
 }: UpdateParamLinesFromOtherLinesParams) {
     const normalizedOtherLines = [];
     let removedAnyLine = false;
-    const nextMergedLines = [...mergedLines];
+    const nextMergedLines = mergedLines;
 
     for (const line of otherLines) {
         const metadata = parseDocCommentMetadata(line);
@@ -1876,8 +1878,8 @@ function updateParamLinesFromOtherLines({
 }
 
 function extractReturnLinesFromOtherLines(otherLines: DocCommentLines) {
-    const nonReturnLines = [];
-    const extractedReturns = [];
+    const nonReturnLines: MutableDocCommentLines = [];
+    const extractedReturns: MutableDocCommentLines = [];
 
     for (const line of otherLines) {
         const metadata = parseDocCommentMetadata(line);
@@ -1890,10 +1892,16 @@ function extractReturnLinesFromOtherLines(otherLines: DocCommentLines) {
     }
 
     if (extractedReturns.length === 0) {
-        return { otherLines, returnsLines: undefined };
+        return {
+            otherLines: otherLines as MutableDocCommentLines,
+            returnsLines: undefined
+        };
     }
 
-    return { otherLines: nonReturnLines, returnsLines: extractedReturns };
+    return {
+        otherLines: nonReturnLines as MutableDocCommentLines,
+        returnsLines: extractedReturns as DocCommentLines
+    };
 }
 
 type RemoveExistingParamLinesParams = {
@@ -1966,11 +1974,11 @@ function insertOtherLinesAfterFunction({
         insertionIndex += 1;
     }
 
-    return [
+    return toMutableArray([
         ...mergedLines.slice(0, insertionIndex),
         ...otherLines,
         ...mergedLines.slice(insertionIndex)
-    ];
+    ]) as MutableDocCommentLines;
 }
 
 type ApplyDocCommentPromotionParams = {

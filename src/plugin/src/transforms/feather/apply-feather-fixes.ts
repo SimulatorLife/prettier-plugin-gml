@@ -216,20 +216,6 @@ const FEATHER_TYPE_SYSTEM_INFO = buildFeatherTypeSystemInfo();
 const AUTOMATIC_FEATHER_FIX_HANDLERS = createAutomaticFeatherFixHandlers();
 const FEATHER_DIAGNOSTICS = Core.getFeatherDiagnostics();
 
-const FEATHER_FIX_IMPLEMENTATIONS =
-    buildFeatherFixImplementations(FEATHER_DIAGNOSTICS);
-const FEATHER_DIAGNOSTIC_FIXERS = buildFeatherDiagnosticFixers(
-    FEATHER_DIAGNOSTICS,
-    FEATHER_FIX_IMPLEMENTATIONS
-);
-
-/**
- * Provide a copy of the configured feather diagnostic fixers so callers can iterate without mutating the registry.
- */
-export function getFeatherDiagnosticFixers() {
-    return new Map(FEATHER_DIAGNOSTIC_FIXERS);
-}
-
 function updateStaticFunctionDocComments(ast: any) {
     const allComments = ast.comments || [];
 
@@ -4125,6 +4111,20 @@ function updateImplicitArgumentDocEntryIndices(functionNode, mapping) {
             entry.fallbackCanonical = `argument${newIndex}`;
         }
     }
+}
+
+const FEATHER_FIX_IMPLEMENTATIONS =
+    buildFeatherFixImplementations(FEATHER_DIAGNOSTICS);
+const FEATHER_DIAGNOSTIC_FIXERS = buildFeatherDiagnosticFixers(
+    FEATHER_DIAGNOSTICS,
+    FEATHER_FIX_IMPLEMENTATIONS
+);
+
+/**
+ * Provide a copy of the configured feather diagnostic fixers so callers can iterate without mutating the registry.
+ */
+export function getFeatherDiagnosticFixers() {
+    return new Map(FEATHER_DIAGNOSTIC_FIXERS);
 }
 
 function resolveFunctionTagParamList(

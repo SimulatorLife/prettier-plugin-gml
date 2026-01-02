@@ -25,7 +25,7 @@ const parser = new XMLParser({
     attributeNamePrefix: ""
 });
 
-function hasAnyOwn(object, keys) {
+function hasAnyOwn(object: Record<string, unknown>, keys: string[]): boolean {
     return keys.some((key) => Object.hasOwn(object, key));
 }
 
