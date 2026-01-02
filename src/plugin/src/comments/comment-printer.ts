@@ -249,13 +249,32 @@ function printComment(commentPath, options) {
                             .slice(endIndex, endIndex + 10)
                             .replace(/\n/g, "\\n")}"`
                     );
+                    console.log(
+                        `DEBUG: comment start=${JSON.stringify(
+                            comment.start
+                        )}`
+                    );
                 }
 
+                const shouldPrependBlankLine =
+                    hasLeadingBlankLine(comment) ||
+                    hasLeadingBlankLineInSource(
+                        comment,
+                        options?.originalText
+                    );
+                const parts = [];
+                if (shouldPrependBlankLine) {
+                    parts.push(hardline);
+                }
+
+                parts.push(decorated);
                 if (blankLines > 0) {
-                    return [decorated, hardline, hardline];
+                    parts.push(hardline, hardline);
+                } else {
+                    parts.push(hardline);
                 }
 
-                return [decorated, hardline];
+                return parts;
             }
             return `/*${comment.value}*/`;
         }
@@ -276,7 +295,10 @@ function printComment(commentPath, options) {
             if (normalized.trim() === "/// @description") {
                 return "";
             }
-            if (comment._featherForceLeadingBlankLine === true) {
+            const shouldPrependBlankLine =
+                comment._featherForceLeadingBlankLine === true ||
+                hasLeadingBlankLine(comment);
+            if (shouldPrependBlankLine) {
                 return [hardline, normalized];
             }
             return normalized;
@@ -342,6 +364,98 @@ function getCommentStartIndex(comment) {
     return null;
 }
 
+function getCommentLine(comment) {
+    const start = comment?.start;
+    if (typeof start === "number") {
+        return Number.NaN;
+    }
+
+    if (start && typeof start.line === "number") {
+        return start.line;
+    }
+
+    return Number.NaN;
+}
+
+function getNodeEndLine(node) {
+    if (!node) {
+        return Number.NaN;
+    }
+
+    const end = node.end;
+    if (end && typeof end === "object" && typeof end.line === "number") {
+        return end.line;
+    }
+
+    return Number.NaN;
+}
+
+function hasLeadingBlankLine(comment) {
+    const leadingWhitespace =
+        typeof comment?.leadingWS === "string" ? comment.leadingWS : "";
+    if (/\n[\t ]*\n/.test(leadingWhitespace)) {
+        return true;
+    }
+
+    const commentLine = getCommentLine(comment);
+    if (!Number.isFinite(commentLine)) {
+        return false;
+    }
+
+    const precedingEndLine = getNodeEndLine(comment?.precedingNode);
+    if (!Number.isFinite(precedingEndLine)) {
+        return false;
+    }
+
+    return commentLine >= precedingEndLine + 2;
+}
+
+function hasLeadingBlankLineInSource(comment, originalText) {
+    if (!Core.isObjectLike(comment)) {
+        return false;
+    }
+
+    const startIndex = getCommentStartIndex(comment);
+    if (!Number.isInteger(startIndex)) {
+        return false;
+    }
+
+    if (typeof originalText !== "string") {
+        return false;
+    }
+
+    let newlineCount = 0;
+    let index = startIndex - 1;
+
+    while (index >= 0) {
+        const char = originalText[index];
+
+        if (char === "\n") {
+            newlineCount += 1;
+            index -= 1;
+            if (index >= 0 && originalText[index] === "\r") {
+                index -= 1;
+            }
+            continue;
+        }
+
+        if (char === "\r") {
+            newlineCount += 1;
+            index -= 1;
+            continue;
+        }
+
+        if (char === " " || char === "\t") {
+            index -= 1;
+            continue;
+        }
+
+        break;
+    }
+
+    return newlineCount >= 2;
+}
+
 function applyTrailingCommentPadding(comment, options) {
     if (!Core.isObjectLike(comment)) {
         return;
@@ -361,6 +475,7 @@ function applyTrailingCommentPadding(comment, options) {
         return;
     }
 
+    const originalText = options.originalText;
     const enumPadding =
         typeof comment._enumTrailingPadding === "number"
             ? comment._enumTrailingPadding
