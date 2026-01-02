@@ -20,14 +20,14 @@ function isIdentifierMetadata(
  */
 function getClassifications(declaration: unknown): string[] | undefined {
     if (typeof declaration !== "object" || declaration === null) {
-        return undefined;
+        return undefined as undefined;
     }
 
     const classifications = (declaration as Record<string, unknown>)
         .classifications;
 
     if (!Array.isArray(classifications)) {
-        return undefined;
+        return undefined as undefined;
     }
 
     return classifications as string[];
