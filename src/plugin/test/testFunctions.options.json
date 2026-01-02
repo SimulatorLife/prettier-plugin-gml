@@ -2,5 +2,6 @@
     "allowSingleLineIfStatements": false,
     "applyFeatherFixes": false,
     "optimizeMathExpressions": false,
-    "alignAssignmentsMinGroupSize": 0
+    "alignAssignmentsMinGroupSize": 2,
+    "condenseLogicalExpressions": false
 }
