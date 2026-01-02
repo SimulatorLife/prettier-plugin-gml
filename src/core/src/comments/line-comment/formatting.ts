@@ -443,11 +443,16 @@ function tryFormatCommentedOutCode(
     const whitespaceSegment = shouldPreserveTabs
         ? leadingWhitespace
         : leadingWhitespace.replaceAll("\t", "    ");
-    const formattedCommentLine = whitespaceSegment.length > 0
-        ? `//${whitespaceSegment}${coreValue}`
-        : `//${coreValue}`;
+    const formattedCommentLine =
+        whitespaceSegment.length > 0
+            ? `//${whitespaceSegment}${coreValue}`
+            : `//${coreValue}`;
 
-    return applyInlinePadding(comment, formattedCommentLine, shouldPreserveTabs);
+    return applyInlinePadding(
+        comment,
+        formattedCommentLine,
+        shouldPreserveTabs
+    );
 }
 
 /**
