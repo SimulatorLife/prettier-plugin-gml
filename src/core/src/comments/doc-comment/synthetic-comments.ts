@@ -9,8 +9,7 @@ import {
     isDocLikeLeadingLine,
     mergeSyntheticDocComments,
     promoteLeadingDocCommentTextToDescription,
-    reorderDescriptionLinesToTop,
-    resolveDocCommentWrapWidth
+    reorderDescriptionLinesToTop
 } from "./service/index.js";
 import { isNonEmptyArray, toMutableArray } from "../../utils/array.js";
 import { isNonEmptyTrimmedString } from "../../utils/string.js";
@@ -134,11 +133,7 @@ export function computeSyntheticDocComment(
     options,
     overrides: any = {}
 ) {
-    // Use Core's resolution logic instead of the printer's
-    const docCommentOptions = {
-        ...options,
-        docCommentMaxWrapWidth: resolveDocCommentWrapWidth(options)
-    };
+    const docCommentOptions = { ...options };
 
     const hasExistingDocLines = existingDocLines.length > 0;
 

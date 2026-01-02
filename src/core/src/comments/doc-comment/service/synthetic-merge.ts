@@ -26,7 +26,6 @@ import {
     normalizeDocCommentTypeAnnotations,
     normalizeGameMakerType
 } from "./type-normalization.js";
-import { resolveDocCommentWrapWidth } from "./wrap.js";
 import {
     collectImplicitArgumentDocNames,
     getParameterDocInfo,
@@ -1304,10 +1303,7 @@ function finalizeDescriptionBlocks({
         options?.printWidth,
         120
     );
-    const wrapWidth = Math.min(
-        normalizedPrintWidth,
-        resolveDocCommentWrapWidth(options)
-    );
+    const wrapWidth = normalizedPrintWidth;
 
     const wrapSegments = (
         text: string,

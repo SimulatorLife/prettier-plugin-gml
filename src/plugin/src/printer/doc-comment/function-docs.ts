@@ -676,7 +676,7 @@ export function normalizeFunctionDocCommentDocs({
 
     docCommentDocs = wrapDocDescriptionLines(
         docCommentDocs,
-        docCommentOptions.docCommentMaxWrapWidth
+        docCommentOptions.printWidth
     );
 
     if (preserveDescriptionBreaks && Array.isArray(docCommentDocs)) {
