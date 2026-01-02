@@ -1438,38 +1438,11 @@ function finalizeDescriptionBlocks({
 
             const available = Math.max(wrapWidth - prefix.length, 16);
             const continuationAvailable = clamp(available, 16, 62);
-            if (
-                descriptionText.includes("Base class for all shapes") &&
-                process.env.NODE_ENV !== "production"
-            ) {
-                console.log("finalizeDescriptionBlocks wrap debug", {
-                    wrapWidth,
-                    normalizedPrintWidth: coercePositiveIntegerOption(
-                        options?.printWidth,
-                        120
-                    ),
-                    docCommentWrapWidth: resolveDocCommentWrapWidth(options),
-                    available,
-                    prefixLength: prefix.length
-                });
-            }
             const segments = wrapSegments(
                 descriptionText,
                 available,
                 continuationAvailable
             );
-
-            if (
-                descriptionText.includes("Base class for all shapes") &&
-                wrapWidth <= 60 &&
-                process.env.NODE_ENV !== "production"
-            ) {
-                console.log("wrapSegments narrow", {
-                    wrapWidth,
-                    available,
-                    segments
-                });
-            }
 
             if (segments.length === 0) {
                 wrappedDocs.push(...blockLines);
@@ -1510,46 +1483,43 @@ function finalizeDescriptionBlocks({
             index = lookahead - 1;
 
             const trimmedLine = line.trim();
-            const hyphenIndex = trimmedLine.indexOf(" - ");
-            if (hyphenIndex === -1) {
+            const match = trimmedLine.match(
+                /^(\/\/\/\s*@param\s*)((?:\{[^}]*\}|<[^>]*>)\s*)?(.*)$/i
+            );
+            if (!match) {
                 wrappedDocs.push(...blockLines);
                 continue;
             }
 
-            let prefixEnd = hyphenIndex + 3;
-            while (
-                prefixEnd < trimmedLine.length &&
-                trimmedLine[prefixEnd] === " "
-            ) {
-                prefixEnd += 1;
+            const [, prefixBase, rawTypeSection = "", remainder = ""] = match;
+            const normalizedPrefix = `${prefixBase.replace(/\s*$/, "")} `;
+            const normalizedTypeSection = rawTypeSection.trim();
+            const typePart =
+                normalizedTypeSection.length > 0
+                    ? `${normalizedTypeSection} `
+                    : "";
+
+            const nameSplit = splitParamNameAndRemainder(remainder);
+            if (!nameSplit) {
+                wrappedDocs.push(...blockLines);
+                continue;
             }
 
-            const prefix = trimmedLine.slice(0, prefixEnd);
-            const continuationPrefix = `/// ${" ".repeat(
-                Math.max(prefix.length - 4, 0)
-            )}`;
-
-            const descriptionSegments = blockLines
-                .map((docLine, blockIndex) => {
-                    const docTrimmed = docLine.trim();
-                    if (blockIndex === 0) {
-                        return docTrimmed.slice(prefix.length).trim();
-                    }
-
-                    if (!docTrimmed.startsWith("///")) {
-                        return docTrimmed;
-                    }
-
-                    return docTrimmed.slice(3).trim();
-                })
-                .filter((segment) => segment.length > 0);
-
-            const descriptionText = descriptionSegments.join(" ");
+            const { name: rawName, remainder: descriptionRemainder } =
+                nameSplit;
+            const normalizedName = rawName.trim();
+            const prefixCore = `${normalizedPrefix}${typePart}${normalizedName}`;
+            const prefix = `${prefixCore} `;
+            const descriptionText = descriptionRemainder.trim();
 
             if (descriptionText.length === 0) {
                 wrappedDocs.push(...blockLines);
                 continue;
             }
+
+            const continuationPrefix = `/// ${" ".repeat(
+                Math.max(prefixCore.length - 4, 0)
+            )}`;
 
             const available = Math.max(wrapWidth - prefix.length, 16);
             const continuationAvailable = clamp(available, 16, 62);
