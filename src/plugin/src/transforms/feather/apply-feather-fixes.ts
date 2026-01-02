@@ -6267,7 +6267,7 @@ function preserveTrailingCommentAlignmentForVarDeclaration({
         sourceText
     );
 
-    if (commentStartIndex === undefined) {
+    if (commentStartIndex == null) {
         return;
     }
 
@@ -6277,7 +6277,13 @@ function preserveTrailingCommentAlignmentForVarDeclaration({
         return;
     }
 
-    markCommentForTrailingPaddingPreservation(comment);
+    const inlinePadding = computeTrailingCommentInlinePadding(
+        declaration,
+        commentStartIndex,
+        sourceText
+    );
+
+    markCommentForTrailingPaddingPreservation(comment, inlinePadding);
 }
 
 function findLineCommentStartIndexAfterDeclaration(declaration, sourceText) {
@@ -6345,7 +6351,32 @@ function findLineCommentStartingAt(ast, startIndex) {
     return null;
 }
 
-function markCommentForTrailingPaddingPreservation(comment) {
+function computeTrailingCommentInlinePadding(
+    declaration,
+    commentStartIndex,
+    sourceText
+) {
+    if (
+        !declaration ||
+        typeof commentStartIndex !== "number" ||
+        typeof sourceText !== "string"
+    ) {
+        return null;
+    }
+
+    const declarationEnd = Core.getNodeEndIndex(declaration);
+    if (typeof declarationEnd !== "number") {
+        return null;
+    }
+
+    const padding = commentStartIndex - declarationEnd;
+    return padding >= 0 ? padding : 0;
+}
+
+function markCommentForTrailingPaddingPreservation(
+    comment,
+    inlinePadding = null
+) {
     if (!comment || typeof comment !== "object") {
         return;
     }
@@ -6362,6 +6393,14 @@ function markCommentForTrailingPaddingPreservation(comment) {
         writable: true,
         value: true
     });
+    if (typeof inlinePadding === "number" && inlinePadding >= 0) {
+        const previousPadding = comment.inlinePadding;
+        if (typeof previousPadding === "number") {
+            comment.inlinePadding = Math.max(previousPadding, inlinePadding);
+        } else {
+            comment.inlinePadding = inlinePadding;
+        }
+    }
 }
 
 function markStatementToSuppressFollowingEmptyLine(statement) {

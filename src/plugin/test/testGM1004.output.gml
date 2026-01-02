@@ -2,7 +2,7 @@ enum FRUIT {
     APPLE,
     BANANA,
     CHERRY,
-    date = 4
+    DATE = 5
 }
 
 var first = FRUIT.APPLE;

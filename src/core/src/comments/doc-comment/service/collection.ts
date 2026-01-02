@@ -362,7 +362,7 @@ function tryCollectDocLinesFromSourceText(
     return flattenDocEntries(formatted);
 }
 
-function isLineCommentDocLike(rawText: unknown): boolean {
+export function isLineCommentDocLike(rawText: unknown): boolean {
     if (typeof rawText !== STRING_TYPE) {
         return false;
     }

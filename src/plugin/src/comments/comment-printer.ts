@@ -293,6 +293,12 @@ function printComment(commentPath, options) {
                 typeof formatted === "string"
                     ? normalizeDocLikeLineComment(comment, formatted)
                     : "";
+            if (
+                typeof comment.value === "string" &&
+                comment.value.includes("z top of the bomb")
+            ) {
+                console.log("DEBUG normalized bottom comment", JSON.stringify(normalized));
+            }
             if (normalized.trim() === "/// @description") {
                 return "";
             }
@@ -526,7 +532,10 @@ function applyBottomCommentInlinePadding(comment, options) {
         return;
     }
 
-    comment.inlinePadding = Math.max(comment.inlinePadding || 0, 2);
+    // Prettier already injects a single space between the preceding code and
+    // the trailing comment doc, so only request one extra padding space here to
+    // reach the two-space target that the fixtures expect.
+    comment.inlinePadding = 1;
 }
 
 function collectDanglingComments(path, filter) {

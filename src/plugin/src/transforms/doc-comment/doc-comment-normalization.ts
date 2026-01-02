@@ -103,9 +103,15 @@ function execute(
                 typeof formatted === "string"
                     ? normalizeDocLikeLineComment(comment, formatted)
                     : formatted;
-            if (Core.isNonEmptyTrimmedString(normalized)) {
-                formattedLines.push(normalized);
+            if (!Core.isNonEmptyTrimmedString(normalized)) {
+                continue;
             }
+
+            if (!Core.isLineCommentDocLike(normalized)) {
+                continue;
+            }
+
+            formattedLines.push(normalized);
         }
 
         const filteredDocLines = formattedLines;
