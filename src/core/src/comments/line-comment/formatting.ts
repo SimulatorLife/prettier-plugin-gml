@@ -438,7 +438,7 @@ function tryFormatCommentedOutCode(
 
     return applyInlinePadding(
         comment,
-        `//${leadingWhitespace}${coreValue}`,
+        `// ${leadingWhitespace}${coreValue}`,
         true
     );
 }

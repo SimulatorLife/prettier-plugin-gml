@@ -287,7 +287,8 @@ function printComment(commentPath, options) {
             }
             const shouldPrependBlankLine =
                 comment._featherForceLeadingBlankLine === true ||
-                hasLeadingBlankLine(comment);
+                hasLeadingBlankLine(comment) ||
+                hasLeadingBlankLineInSource(comment, options?.originalText);
             if (shouldPrependBlankLine) {
                 return [hardline, normalized];
             }

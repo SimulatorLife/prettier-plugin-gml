@@ -40,6 +40,60 @@ export function applyManualMathNormalization(
     return ast;
 }
 
+type SimplificationHandler = (
+    node: any,
+    context: ConvertManualMathTransformOptions | null
+) => boolean;
+
+const BINARY_SIMPLIFIERS: SimplificationHandler[] = [
+    (node, context) => attemptSimplifyOneMinusFactor(node, context),
+    (node, context) => attemptRemoveMultiplicativeIdentity(node, context),
+    (node, context) => attemptReplaceMultiplicationWithZero(node, context),
+    (node, context) => attemptRemoveAdditiveIdentity(node, context),
+    (node, context) => attemptConvertDegreesToRadians(node, context),
+    (node, context) => attemptSimplifyDivisionByReciprocal(node, context),
+    (node, context) => attemptCancelReciprocalRatios(node, context),
+    (node, context) => attemptSimplifyNegativeDivisionProduct(node, context),
+    (node, context) => attemptCondenseScalarProduct(node, context),
+    (node, context) =>
+        attemptCondenseNumericChainWithMultipleBases(node, context),
+    (node, context) => attemptCollectDistributedScalars(node, context),
+    (node, context) => attemptSimplifyLengthdirHalfDifference(node, context),
+    (node) => attemptConvertRepeatedPower(node),
+    (node, context) => attemptConvertSquare(node, context),
+    (node) => attemptConvertMean(node),
+    (node) => attemptConvertLog2(node),
+    (node) => attemptConvertLengthDir(node),
+    (node) => attemptConvertDotProducts(node)
+];
+
+const ASSIGNMENT_SIMPLIFIERS: SimplificationHandler[] = [
+    (node, context) =>
+        attemptRemoveMultiplicativeIdentityAssignment(node, context)
+];
+
+const CALL_SIMPLIFIERS: SimplificationHandler[] = [
+    (node) => attemptConvertPointDistanceCall(node),
+    (node) => attemptConvertPowerToSqrt(node),
+    (node) => attemptConvertPowerToExp(node),
+    (node) => attemptConvertPointDirection(node),
+    (node) => attemptConvertTrigDegreeArguments(node)
+];
+
+function applySimplifiers(
+    node: any,
+    context: ConvertManualMathTransformOptions | null,
+    simplifiers: SimplificationHandler[]
+) {
+    for (const simplifier of simplifiers) {
+        if (simplifier(node, context)) {
+            return true;
+        }
+    }
+
+    return false;
+}
+
 /**
  * DFS that repeatedly applies all available math simplification rules until the node stabilizes.
  */
@@ -79,131 +133,28 @@ function traverse(node, seen, context, parent = null) {
         changed = false;
         iterations++;
 
-        if (node.type === BINARY_EXPRESSION) {
-            if (attemptSimplifyOneMinusFactor(node, context)) {
-                changed = true;
-                continue;
-            }
-
-            if (attemptRemoveMultiplicativeIdentity(node, context)) {
-                changed = true;
-                continue;
-            }
-
-            if (attemptReplaceMultiplicationWithZero(node, context)) {
-                changed = true;
-                continue;
-            }
-
-            if (attemptRemoveAdditiveIdentity(node, context)) {
-                changed = true;
-                continue;
-            }
-
-            if (attemptConvertDegreesToRadians(node, context)) {
-                changed = true;
-                continue;
-            }
-
-            if (attemptSimplifyDivisionByReciprocal(node, context)) {
-                changed = true;
-                continue;
-            }
-
-            if (attemptCancelReciprocalRatios(node, context)) {
-                changed = true;
-                continue;
-            }
-
-            if (attemptSimplifyNegativeDivisionProduct(node, context)) {
-                changed = true;
-                continue;
-            }
-
-            if (attemptCondenseScalarProduct(node, context)) {
-                changed = true;
-                continue;
-            }
-
-            if (attemptCondenseNumericChainWithMultipleBases(node, context)) {
-                changed = true;
-                continue;
-            }
-
-            if (attemptCollectDistributedScalars(node, context)) {
-                changed = true;
-                continue;
-            }
-
-            if (attemptSimplifyLengthdirHalfDifference(node, context)) {
-                changed = true;
-                continue;
-            }
-
-            if (attemptConvertRepeatedPower(node)) {
-                changed = true;
-                continue;
-            }
-
-            if (attemptConvertSquare(node, context)) {
-                changed = true;
-                continue;
-            }
-
-            if (attemptConvertMean(node)) {
-                changed = true;
-                continue;
-            }
-
-            if (attemptConvertLog2(node)) {
-                changed = true;
-                continue;
-            }
-
-            if (attemptConvertLengthDir(node)) {
-                changed = true;
-                continue;
-            }
-
-            if (attemptConvertDotProducts(node)) {
-                changed = true;
-                continue;
-            }
-        }
-
         if (
-            node.type === ASSIGNMENT_EXPRESSION &&
-            attemptRemoveMultiplicativeIdentityAssignment(node, context)
+            node.type === BINARY_EXPRESSION &&
+            applySimplifiers(node, context, BINARY_SIMPLIFIERS)
         ) {
             changed = true;
             continue;
         }
 
-        if (node.type === CALL_EXPRESSION) {
-            if (attemptConvertPointDistanceCall(node)) {
-                changed = true;
-                continue;
-            }
+        if (
+            node.type === ASSIGNMENT_EXPRESSION &&
+            applySimplifiers(node, context, ASSIGNMENT_SIMPLIFIERS)
+        ) {
+            changed = true;
+            continue;
+        }
 
-            if (attemptConvertPowerToSqrt(node)) {
-                changed = true;
-                continue;
-            }
-
-            if (attemptConvertPowerToExp(node)) {
-                changed = true;
-                continue;
-            }
-
-            if (attemptConvertPointDirection(node)) {
-                changed = true;
-                continue;
-            }
-
-            if (attemptConvertTrigDegreeArguments(node)) {
-                changed = true;
-                continue;
-            }
+        if (
+            node.type === CALL_EXPRESSION &&
+            applySimplifiers(node, context, CALL_SIMPLIFIERS)
+        ) {
+            changed = true;
+            continue;
         }
 
         for (const [key, value] of Object.entries(node)) {
@@ -1394,11 +1345,64 @@ function attemptCancelReciprocalRatios(node, context) {
         return false;
     }
 
-    const ratioTerms = [];
+    const ratioTerms = collectReciprocalRatioTerms({
+        chain,
+        context
+    });
+    if (!ratioTerms || ratioTerms.length === 0) {
+        return false;
+    }
+
+    const removalPlan = buildReciprocalRatioRemovalPlan({
+        chain,
+        ratioTerms
+    });
+    if (!removalPlan) {
+        return false;
+    }
+
+    const remainingTerms = buildRemainingRatioTerms({
+        chain,
+        removalPlan
+    });
+    if (!remainingTerms) {
+        return false;
+    }
+
+    const replacement = buildReciprocalRatioReplacement({
+        remainingTerms,
+        node
+    });
+    if (!replacement) {
+        return false;
+    }
+
+    return replaceNodeWith(node, replacement);
+}
+
+type MultiplicativeChain = {
+    numerators: Array<{ raw: any; expression: any }>;
+    denominators: Array<{ raw: any; expression: any }>;
+};
+
+type ReciprocalRatioTerm = {
+    index: number;
+    numerator: any;
+    denominator: any;
+};
+
+function collectReciprocalRatioTerms({
+    chain,
+    context
+}: {
+    chain: MultiplicativeChain;
+    context: ConvertManualMathTransformOptions | null;
+}) {
+    const ratioTerms: ReciprocalRatioTerm[] = [];
 
     for (const [index, term] of chain.numerators.entries()) {
         if (Core.hasComment(term.raw) || Core.hasComment(term.expression)) {
-            return false;
+            return null;
         }
 
         const expression = unwrapExpression(term.expression);
@@ -1421,25 +1425,36 @@ function attemptCancelReciprocalRatios(node, context) {
             Core.hasComment(expression.left) ||
             Core.hasComment(expression.right)
         ) {
-            return false;
+            return null;
         }
 
         if (
             context &&
             hasInlineCommentBetween(expression.left, expression.right, context)
         ) {
-            return false;
+            return null;
         }
 
         ratioTerms.push({ index, numerator, denominator });
     }
 
-    if (ratioTerms.length === 0) {
-        return false;
-    }
+    return ratioTerms;
+}
 
-    const indicesToRemove = new Set();
-    const replacementsByIndex = new Map();
+type ReciprocalRatioRemovalPlan = {
+    indicesToRemove: Set<number>;
+    replacementsByIndex: Map<number, any[]>;
+};
+
+function buildReciprocalRatioRemovalPlan({
+    chain,
+    ratioTerms
+}: {
+    chain: MultiplicativeChain;
+    ratioTerms: ReciprocalRatioTerm[];
+}) {
+    const indicesToRemove = new Set<number>();
+    const replacementsByIndex = new Map<number, any[]>();
     const ratioIndices = new Set(ratioTerms.map(({ index }) => index));
 
     for (let outer = 0; outer < ratioTerms.length; outer += 1) {
@@ -1471,13 +1486,6 @@ function attemptCancelReciprocalRatios(node, context) {
             continue;
         }
 
-        const numerator = ratioTerm.numerator;
-        const denominator = ratioTerm.denominator;
-
-        if (!numerator || !denominator) {
-            continue;
-        }
-
         for (const [index, term] of chain.numerators.entries()) {
             if (index === ratioTerm.index) {
                 continue;
@@ -1500,17 +1508,19 @@ function attemptCancelReciprocalRatios(node, context) {
                 continue;
             }
 
-            if (!areNodesEquivalent(candidate, denominator)) {
+            if (!areNodesEquivalent(candidate, ratioTerm.denominator)) {
                 continue;
             }
 
-            const numericValue = parseNumericFactor(numerator);
+            const numericValue = parseNumericFactor(ratioTerm.numerator);
             const isMultiplicativeIdentity =
                 numericValue !== null &&
                 Math.abs(numericValue - 1) <= computeNumericTolerance(1);
 
             if (!isMultiplicativeIdentity) {
-                replacementsByIndex.set(ratioTerm.index, [numerator]);
+                replacementsByIndex.set(ratioTerm.index, [
+                    ratioTerm.numerator
+                ]);
             }
             indicesToRemove.add(ratioTerm.index);
             indicesToRemove.add(index);
@@ -1519,19 +1529,29 @@ function attemptCancelReciprocalRatios(node, context) {
     }
 
     if (indicesToRemove.size === 0 && replacementsByIndex.size === 0) {
-        return false;
+        return null;
     }
 
-    const remainingTerms = [];
+    return { indicesToRemove, replacementsByIndex };
+}
+
+function buildRemainingRatioTerms({
+    chain,
+    removalPlan
+}: {
+    chain: MultiplicativeChain;
+    removalPlan: ReciprocalRatioRemovalPlan;
+}) {
+    const remainingTerms: any[] = [];
 
     for (const [index, term] of chain.numerators.entries()) {
-        if (indicesToRemove.has(index)) {
-            const replacements = replacementsByIndex.get(index);
+        if (removalPlan.indicesToRemove.has(index)) {
+            const replacements = removalPlan.replacementsByIndex.get(index);
             if (replacements) {
                 for (const replacement of replacements) {
                     const clone = Core.cloneAstNode(replacement);
                     if (!clone) {
-                        return false;
+                        return null;
                     }
 
                     remainingTerms.push(clone);
@@ -1543,41 +1563,45 @@ function attemptCancelReciprocalRatios(node, context) {
 
         const clone = Core.cloneAstNode(term.raw);
         if (!clone) {
-            return false;
+            return null;
         }
 
         remainingTerms.push(clone);
     }
 
-    let replacement;
+    return remainingTerms;
+}
 
+function buildReciprocalRatioReplacement({
+    remainingTerms,
+    node
+}: {
+    remainingTerms: any[];
+    node: any;
+}) {
     if (remainingTerms.length === 0) {
-        replacement = createNumericLiteral(1, node);
-    } else if (remainingTerms.length === 1) {
-        [replacement] = remainingTerms;
-    } else {
-        let combined = remainingTerms[0];
-
-        for (let index = 1; index < remainingTerms.length; index += 1) {
-            const product = {
-                type: BINARY_EXPRESSION,
-                operator: "*",
-                left: combined,
-                right: remainingTerms[index]
-            };
-
-            Core.assignClonedLocation(product, node);
-            combined = product;
-        }
-
-        replacement = combined;
+        return createNumericLiteral(1, node);
     }
 
-    if (!replacement) {
-        return false;
+    if (remainingTerms.length === 1) {
+        return remainingTerms[0];
     }
 
-    return replaceNodeWith(node, replacement);
+    let combined = remainingTerms[0];
+
+    for (let index = 1; index < remainingTerms.length; index += 1) {
+        const product = {
+            type: BINARY_EXPRESSION,
+            operator: "*",
+            left: combined,
+            right: remainingTerms[index]
+        };
+
+        Core.assignClonedLocation(product, node);
+        combined = product;
+    }
+
+    return combined;
 }
 
 function attemptSimplifyNegativeDivisionProduct(node, context) {

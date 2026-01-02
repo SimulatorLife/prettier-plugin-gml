@@ -944,6 +944,339 @@ export class ApplyFeatherFixesTransform
 
 export const applyFeatherFixesTransform = new ApplyFeatherFixesTransform();
 
+type FeatherFixFactory = () => (context: any) => any;
+
+type FeatherFixBuilder = (diagnostic: any) => FeatherFixFactory;
+
+const FEATHER_FIX_BUILDERS = new Map<string, FeatherFixBuilder>([
+    [
+        "GM1000",
+        (diagnostic) => () => ({ ast }) => {
+            const fixes = removeBreakStatementsWithoutEnclosingLoops({
+                ast,
+                diagnostic
+            });
+
+            return resolveAutomaticFixes(fixes, { ast, diagnostic });
+        }
+    ],
+    [
+        "GM1002",
+        (diagnostic) => () => ({ ast }) => {
+            const fixes = splitGlobalVarInlineInitializers({
+                ast,
+                diagnostic
+            });
+
+            return resolveAutomaticFixes(fixes, { ast, diagnostic });
+        }
+    ],
+    [
+        "GM1003",
+        (diagnostic) => () => ({ ast }) => {
+            const fixes = sanitizeEnumAssignments({ ast, diagnostic });
+
+            return resolveAutomaticFixes(fixes, { ast, diagnostic });
+        }
+    ],
+    [
+        "GM1005",
+        (diagnostic) => () => {
+            const callTemplate = createFunctionCallTemplateFromDiagnostic(
+                diagnostic
+            );
+
+            return ({ ast }) => {
+                const fixes = ensureRequiredArgumentProvided({
+                    ast,
+                    diagnostic,
+                    callTemplate
+                });
+
+                return resolveAutomaticFixes(fixes, { ast, diagnostic });
+            };
+        }
+    ],
+    [
+        "GM1004",
+        (diagnostic) => () => ({ ast, sourceText }) => {
+            const fixes = removeDuplicateEnumMembers({
+                ast,
+                diagnostic,
+                sourceText
+            });
+
+            return resolveAutomaticFixes(fixes, { ast, diagnostic });
+        }
+    ],
+    [
+        "GM1007",
+        (diagnostic) => () => ({ ast, sourceText }) => {
+            const fixes = flagInvalidAssignmentTargets({
+                ast,
+                sourceText,
+                diagnostic
+            });
+
+            return resolveAutomaticFixes(fixes, { ast, diagnostic });
+        }
+    ],
+    [
+        "GM2000",
+        (diagnostic) => () => ({ ast }) => {
+            const fixes = ensureBlendModeIsReset({ ast, diagnostic });
+
+            return resolveAutomaticFixes(fixes, { ast, diagnostic });
+        }
+    ],
+    [
+        "GM2003",
+        (diagnostic) => () => ({ ast, sourceText }) => {
+            const fixes = ensureShaderResetIsCalled({
+                ast,
+                diagnostic,
+                sourceText
+            });
+
+            return resolveAutomaticFixes(fixes, { ast, diagnostic });
+        }
+    ],
+    [
+        "GM2004",
+        (diagnostic) => () => ({ ast }) => {
+            const fixes = convertUnusedIndexForLoops({ ast, diagnostic });
+
+            return resolveAutomaticFixes(fixes, { ast, diagnostic });
+        }
+    ],
+    [
+        "GM2007",
+        (diagnostic) => () => ({ ast, sourceText }) => {
+            const fixes = ensureVarDeclarationsAreTerminated({
+                ast,
+                sourceText,
+                diagnostic
+            });
+
+            return resolveAutomaticFixes(fixes, { ast, diagnostic });
+        }
+    ],
+    [
+        "GM2008",
+        (diagnostic) => () => ({ ast }) => {
+            const fixes = closeOpenVertexBatches({ ast, diagnostic });
+
+            return resolveAutomaticFixes(fixes, { ast, diagnostic });
+        }
+    ],
+    [
+        "GM1008",
+        (diagnostic) => () => ({ ast }) => {
+            const fixes = convertReadOnlyBuiltInAssignments({
+                ast,
+                diagnostic
+            });
+
+            return resolveAutomaticFixes(fixes, { ast, diagnostic });
+        }
+    ],
+    [
+        "GM1010",
+        (diagnostic) => () => ({ ast }) => {
+            const fixes = ensureNumericOperationsUseRealLiteralCoercion({
+                ast,
+                diagnostic
+            });
+
+            return resolveAutomaticFixes(fixes, { ast, diagnostic });
+        }
+    ],
+    [
+        "GM1013",
+        (diagnostic) => () => ({ ast }) => {
+            const fixes = resolveWithOtherVariableReferences({
+                ast,
+                diagnostic
+            });
+
+            return resolveAutomaticFixes(fixes, { ast, diagnostic });
+        }
+    ],
+    [
+        "GM2012",
+        (diagnostic) => () => ({ ast }) => {
+            const fixes = ensureVertexFormatsClosedBeforeStartingNewOnes({
+                ast,
+                diagnostic
+            });
+
+            return resolveAutomaticFixes(fixes, { ast, diagnostic });
+        }
+    ],
+    [
+        "GM2040",
+        (diagnostic) => () => ({ ast }) => {
+            const fixes = removeInvalidEventInheritedCalls({
+                // Once the identifier-case project index can expose event
+                // ancestry we should query it here instead of trusting the
+                // diagnostic payload alone. GM2040 only fires when
+                // `event_inherited()` is orphaned, but without project-scope
+                // metadata the fixer cannot distinguish a legitimate override
+                // from a missing parent event. Integrating with the scoping
+                // pipeline outlined in `docs/legacy-identifier-case-plan.md#archived-project-index-roadmap`
+                // will let us re-evaluate inherited events during formatting and
+                // avoid deleting valid calls when Feather diagnostics are
+                // unavailable.
+                ast,
+                diagnostic
+            });
+
+            return resolveAutomaticFixes(fixes, { ast, diagnostic });
+        }
+    ],
+    [
+        "GM2030",
+        (diagnostic) => () => ({ ast }) => {
+            const fixes = ensureDrawPrimitiveEndCallsAreBalanced({
+                ast,
+                diagnostic
+            });
+
+            return resolveAutomaticFixes(fixes, { ast, diagnostic });
+        }
+    ],
+    [
+        "GM2015",
+        (diagnostic) => () => ({ ast }) => {
+            const fixes = ensureVertexFormatDefinitionsAreClosed({
+                ast,
+                diagnostic
+            });
+
+            return resolveAutomaticFixes(fixes, { ast, diagnostic });
+        }
+    ],
+    [
+        "GM2028",
+        (diagnostic) => () => ({ ast }) => {
+            const fixes = ensurePrimitiveBeginPrecedesEnd({
+                ast,
+                diagnostic
+            });
+
+            return resolveAutomaticFixes(fixes, { ast, diagnostic });
+        }
+    ],
+    [
+        "GM2025",
+        (diagnostic) => () => ({ ast }) => {
+            const fixes = annotateMissingUserEvents({ ast, diagnostic });
+
+            return resolveAutomaticFixes(fixes, { ast, diagnostic });
+        }
+    ],
+    [
+        "GM1063",
+        (diagnostic) => () => ({ ast }) => {
+            const fixes = harmonizeTexturePointerTernaries({
+                ast,
+                diagnostic
+            });
+
+            return resolveAutomaticFixes(fixes, { ast, diagnostic });
+        }
+    ],
+    [
+        "GM2005",
+        (diagnostic) => () => ({ ast }) => {
+            const fixes = ensureSurfaceTargetResetForGM2005({
+                ast,
+                diagnostic
+            });
+
+            return resolveAutomaticFixes(fixes, { ast, diagnostic });
+        }
+    ],
+    [
+        "GM1064",
+        (diagnostic) => () => ({ ast }) => {
+            const fixes = removeRedeclaredGlobalFunctions({
+                ast,
+                diagnostic
+            });
+
+            return resolveAutomaticFixes(fixes, { ast, diagnostic });
+        }
+    ],
+    [
+        "GM2011",
+        (diagnostic) => () => ({ ast }) => {
+            const fixes = ensureVertexBuffersAreClosed({ ast, diagnostic });
+
+            return resolveAutomaticFixes(fixes, { ast, diagnostic });
+        }
+    ],
+    [
+        "GM2009",
+        (diagnostic) => () => ({ ast, options }) => {
+            const fixes = ensureVertexBeginPrecedesEnd({
+                ast,
+                diagnostic,
+                options
+            });
+
+            return resolveAutomaticFixes(fixes, { ast, diagnostic });
+        }
+    ],
+    [
+        "GM2043",
+        (diagnostic) => () => ({ ast }) => {
+            const fixes = ensureLocalVariablesAreDeclaredBeforeUse({
+                ast,
+                diagnostic
+            });
+
+            return resolveAutomaticFixes(fixes, { ast, diagnostic });
+        }
+    ],
+    [
+        "GM2033",
+        (diagnostic) => () => ({ ast }) => {
+            const fixes = removeDanglingFileFindCalls({ ast, diagnostic });
+
+            return resolveAutomaticFixes(fixes, { ast, diagnostic });
+        }
+    ],
+    [
+        "GM2050",
+        (diagnostic) => () => ({ ast }) => {
+            const fixes = ensureFogIsReset({ ast, diagnostic });
+
+            return resolveAutomaticFixes(fixes, { ast, diagnostic });
+        }
+    ],
+    [
+        "GM2035",
+        (diagnostic) => () => ({ ast }) => {
+            const fixes = ensureGpuStateIsPopped({ ast, diagnostic });
+
+            return resolveAutomaticFixes(fixes, { ast, diagnostic });
+        }
+    ]
+]);
+
+function registerFeatherFixBuilder({
+    registry,
+    diagnostic,
+    builder
+}: {
+    registry: Map<any, any>;
+    diagnostic: any;
+    builder: FeatherFixBuilder;
+}) {
+    registerFeatherFixer(registry, diagnostic.id, builder(diagnostic));
+}
+
 function buildFeatherFixImplementations(diagnostics) {
     const registry = new Map();
 
@@ -953,384 +1286,12 @@ function buildFeatherFixImplementations(diagnostics) {
         }
         const diagnosticId = diagnostic.id;
 
-        if (diagnosticId === "GM1000") {
-            registerFeatherFixer(registry, diagnosticId, () => ({ ast }) => {
-                const fixes = removeBreakStatementsWithoutEnclosingLoops({
-                    ast,
-                    diagnostic
-                });
-
-                return resolveAutomaticFixes(fixes, { ast, diagnostic });
-            });
-            continue;
-        }
-
-        if (diagnosticId === "GM1002") {
-            registerFeatherFixer(registry, diagnosticId, () => ({ ast }) => {
-                const fixes = splitGlobalVarInlineInitializers({
-                    ast,
-                    diagnostic
-                });
-
-                return resolveAutomaticFixes(fixes, { ast, diagnostic });
-            });
-            continue;
-        }
-
-        if (diagnosticId === "GM1003") {
-            registerFeatherFixer(registry, diagnosticId, () => ({ ast }) => {
-                const fixes = sanitizeEnumAssignments({ ast, diagnostic });
-
-                return resolveAutomaticFixes(fixes, { ast, diagnostic });
-            });
-            continue;
-        }
-
-        if (diagnosticId === "GM1005") {
-            registerFeatherFixer(registry, diagnosticId, () => {
-                const callTemplate =
-                    createFunctionCallTemplateFromDiagnostic(diagnostic);
-
-                return ({ ast }) => {
-                    const fixes = ensureRequiredArgumentProvided({
-                        ast,
-                        diagnostic,
-                        callTemplate
-                    });
-
-                    return resolveAutomaticFixes(fixes, { ast, diagnostic });
-                };
-            });
-            continue;
-        }
-
-        if (diagnosticId === "GM1004") {
-            registerFeatherFixer(
+        const builder = FEATHER_FIX_BUILDERS.get(diagnosticId);
+        if (builder) {
+            registerFeatherFixBuilder({
                 registry,
-                diagnosticId,
-                () =>
-                    ({ ast, sourceText }) => {
-                        const fixes = removeDuplicateEnumMembers({
-                            ast,
-                            diagnostic,
-                            sourceText
-                        });
-
-                        return resolveAutomaticFixes(fixes, {
-                            ast,
-                            diagnostic
-                        });
-                    }
-            );
-            continue;
-        }
-
-        if (diagnosticId === "GM1007") {
-            registerFeatherFixer(
-                registry,
-                diagnosticId,
-                () =>
-                    ({ ast, sourceText }) => {
-                        const fixes = flagInvalidAssignmentTargets({
-                            ast,
-                            sourceText,
-                            diagnostic
-                        });
-
-                        return resolveAutomaticFixes(fixes, {
-                            ast,
-                            diagnostic
-                        });
-                    }
-            );
-            continue;
-        }
-
-        if (diagnosticId === "GM2000") {
-            registerFeatherFixer(registry, diagnosticId, () => ({ ast }) => {
-                const fixes = ensureBlendModeIsReset({ ast, diagnostic });
-
-                return resolveAutomaticFixes(fixes, { ast, diagnostic });
-            });
-            continue;
-        }
-
-        if (diagnosticId === "GM2003") {
-            registerFeatherFixer(
-                registry,
-                diagnosticId,
-                () =>
-                    ({ ast, sourceText }) => {
-                        const fixes = ensureShaderResetIsCalled({
-                            ast,
-                            diagnostic,
-                            sourceText
-                        });
-
-                        return resolveAutomaticFixes(fixes, {
-                            ast,
-                            diagnostic
-                        });
-                    }
-            );
-            continue;
-        }
-
-        if (diagnosticId === "GM2004") {
-            registerFeatherFixer(registry, diagnosticId, () => ({ ast }) => {
-                const fixes = convertUnusedIndexForLoops({ ast, diagnostic });
-
-                return resolveAutomaticFixes(fixes, { ast, diagnostic });
-            });
-            continue;
-        }
-
-        if (diagnosticId === "GM2007") {
-            registerFeatherFixer(
-                registry,
-                diagnosticId,
-                () =>
-                    ({ ast, sourceText }) => {
-                        const fixes = ensureVarDeclarationsAreTerminated({
-                            ast,
-                            sourceText,
-                            diagnostic
-                        });
-
-                        return resolveAutomaticFixes(fixes, {
-                            ast,
-                            diagnostic
-                        });
-                    }
-            );
-            continue;
-        }
-
-        if (diagnosticId === "GM2008") {
-            registerFeatherFixer(registry, diagnosticId, () => ({ ast }) => {
-                const fixes = closeOpenVertexBatches({ ast, diagnostic });
-
-                return resolveAutomaticFixes(fixes, { ast, diagnostic });
-            });
-            continue;
-        }
-
-        if (diagnosticId === "GM1008") {
-            registerFeatherFixer(registry, diagnosticId, () => ({ ast }) => {
-                const fixes = convertReadOnlyBuiltInAssignments({
-                    ast,
-                    diagnostic
-                });
-
-                return resolveAutomaticFixes(fixes, { ast, diagnostic });
-            });
-            continue;
-        }
-
-        if (diagnosticId === "GM1010") {
-            registerFeatherFixer(registry, diagnosticId, () => ({ ast }) => {
-                const fixes = ensureNumericOperationsUseRealLiteralCoercion({
-                    ast,
-                    diagnostic
-                });
-
-                return resolveAutomaticFixes(fixes, { ast, diagnostic });
-            });
-            continue;
-        }
-
-        if (diagnosticId === "GM1013") {
-            registerFeatherFixer(registry, diagnosticId, () => ({ ast }) => {
-                const fixes = resolveWithOtherVariableReferences({
-                    ast,
-                    diagnostic
-                });
-
-                return resolveAutomaticFixes(fixes, { ast, diagnostic });
-            });
-            continue;
-        }
-
-        if (diagnosticId === "GM2012") {
-            registerFeatherFixer(registry, diagnosticId, () => ({ ast }) => {
-                const fixes = ensureVertexFormatsClosedBeforeStartingNewOnes({
-                    ast,
-                    diagnostic
-                });
-
-                return resolveAutomaticFixes(fixes, { ast, diagnostic });
-            });
-            continue;
-        }
-
-        if (diagnosticId === "GM2040") {
-            registerFeatherFixer(registry, diagnosticId, () => ({ ast }) => {
-                const fixes = removeInvalidEventInheritedCalls({
-                    // Once the identifier-case project index can expose event
-                    // ancestry we should query it here instead of trusting the
-                    // diagnostic payload alone. GM2040 only fires when
-                    // `event_inherited()` is orphaned, but without project-scope
-                    // metadata the fixer cannot distinguish a legitimate override
-                    // from a missing parent event. Integrating with the scoping
-                    // pipeline outlined in `docs/legacy-identifier-case-plan.md#archived-project-index-roadmap`
-                    // will let us re-evaluate inherited events during formatting and
-                    // avoid deleting valid calls when Feather diagnostics are
-                    // unavailable.
-                    ast,
-                    diagnostic
-                });
-
-                return resolveAutomaticFixes(fixes, { ast, diagnostic });
-            });
-            continue;
-        }
-
-        if (diagnosticId === "GM2030") {
-            registerFeatherFixer(registry, diagnosticId, () => ({ ast }) => {
-                const fixes = ensureDrawPrimitiveEndCallsAreBalanced({
-                    ast,
-                    diagnostic
-                });
-
-                return resolveAutomaticFixes(fixes, { ast, diagnostic });
-            });
-            continue;
-        }
-
-        if (diagnosticId === "GM2015") {
-            registerFeatherFixer(registry, diagnosticId, () => ({ ast }) => {
-                const fixes = ensureVertexFormatDefinitionsAreClosed({
-                    ast,
-                    diagnostic
-                });
-
-                return resolveAutomaticFixes(fixes, { ast, diagnostic });
-            });
-            continue;
-        }
-
-        if (diagnosticId === "GM2028") {
-            registerFeatherFixer(registry, diagnosticId, () => ({ ast }) => {
-                const fixes = ensurePrimitiveBeginPrecedesEnd({
-                    ast,
-                    diagnostic
-                });
-
-                return resolveAutomaticFixes(fixes, { ast, diagnostic });
-            });
-            continue;
-        }
-
-        if (diagnosticId === "GM2025") {
-            registerFeatherFixer(registry, diagnosticId, () => ({ ast }) => {
-                const fixes = annotateMissingUserEvents({ ast, diagnostic });
-
-                return resolveAutomaticFixes(fixes, { ast, diagnostic });
-            });
-            continue;
-        }
-
-        if (diagnosticId === "GM1063") {
-            registerFeatherFixer(registry, diagnosticId, () => ({ ast }) => {
-                const fixes = harmonizeTexturePointerTernaries({
-                    ast,
-                    diagnostic
-                });
-
-                return resolveAutomaticFixes(fixes, { ast, diagnostic });
-            });
-            continue;
-        }
-
-        if (diagnosticId === "GM2005") {
-            registerFeatherFixer(registry, diagnosticId, () => ({ ast }) => {
-                const fixes = ensureSurfaceTargetResetForGM2005({
-                    ast,
-                    diagnostic
-                });
-
-                return resolveAutomaticFixes(fixes, { ast, diagnostic });
-            });
-            continue;
-        }
-
-        if (diagnosticId === "GM1064") {
-            registerFeatherFixer(registry, diagnosticId, () => ({ ast }) => {
-                const fixes = removeRedeclaredGlobalFunctions({
-                    ast,
-                    diagnostic
-                });
-
-                return resolveAutomaticFixes(fixes, { ast, diagnostic });
-            });
-            continue;
-        }
-
-        if (diagnosticId === "GM2011") {
-            registerFeatherFixer(registry, diagnosticId, () => ({ ast }) => {
-                const fixes = ensureVertexBuffersAreClosed({ ast, diagnostic });
-
-                return resolveAutomaticFixes(fixes, { ast, diagnostic });
-            });
-            continue;
-        }
-
-        if (diagnosticId === "GM2009") {
-            registerFeatherFixer(
-                registry,
-                diagnosticId,
-                () =>
-                    ({ ast, options }) => {
-                        const fixes = ensureVertexBeginPrecedesEnd({
-                            ast,
-                            diagnostic,
-                            options
-                        });
-
-                        return resolveAutomaticFixes(fixes, {
-                            ast,
-                            diagnostic
-                        });
-                    }
-            );
-            continue;
-        }
-
-        if (diagnosticId === "GM2043") {
-            registerFeatherFixer(registry, diagnosticId, () => ({ ast }) => {
-                const fixes = ensureLocalVariablesAreDeclaredBeforeUse({
-                    ast,
-                    diagnostic
-                });
-
-                return resolveAutomaticFixes(fixes, { ast, diagnostic });
-            });
-            continue;
-        }
-
-        if (diagnosticId === "GM2033") {
-            registerFeatherFixer(registry, diagnosticId, () => ({ ast }) => {
-                const fixes = removeDanglingFileFindCalls({ ast, diagnostic });
-
-                return resolveAutomaticFixes(fixes, { ast, diagnostic });
-            });
-            continue;
-        }
-
-        if (diagnosticId === "GM2050") {
-            registerFeatherFixer(registry, diagnosticId, () => ({ ast }) => {
-                const fixes = ensureFogIsReset({ ast, diagnostic });
-
-                return resolveAutomaticFixes(fixes, { ast, diagnostic });
-            });
-            continue;
-        }
-
-        if (diagnosticId === "GM2035") {
-            registerFeatherFixer(registry, diagnosticId, () => ({ ast }) => {
-                const fixes = ensureGpuStateIsPopped({ ast, diagnostic });
-
-                return resolveAutomaticFixes(fixes, { ast, diagnostic });
+                diagnostic,
+                builder
             });
             continue;
         }
@@ -1347,23 +1308,20 @@ function buildFeatherFixImplementations(diagnostics) {
         }
 
         if (diagnosticId === "GM1017") {
-            registerFeatherFixer(
-                registry,
-                diagnosticId,
-                () =>
-                    ({ ast, sourceText }) => {
-                        const fixes = captureDeprecatedFunctionManualFixes({
-                            ast,
-                            sourceText,
-                            diagnostic
-                        });
+            registerFeatherFixer(registry, diagnosticId, () => {
+                return ({ ast, sourceText }) => {
+                    const fixes = captureDeprecatedFunctionManualFixes({
+                        ast,
+                        sourceText,
+                        diagnostic
+                    });
 
-                        return resolveAutomaticFixes(fixes, {
-                            ast,
-                            diagnostic
-                        });
-                    }
-            );
+                    return resolveAutomaticFixes(fixes, {
+                        ast,
+                        diagnostic
+                    });
+                };
+            });
             continue;
         }
 
@@ -4276,7 +4234,108 @@ function fixArgumentReferencesWithinFunction(
     documentedParamNames,
     sourceText
 ) {
-    // Merge in names found by Core.buildDocumentedParamNameLookup
+    const resolvedDocNames = populateDocumentedParamNames({
+        functionNode,
+        collectionService,
+        documentedParamNames,
+        sourceText
+    });
+
+    const referenceState = collectArgumentReferenceState({
+        functionNode,
+        diagnostic,
+        collectionService,
+        documentedParamNames,
+        sourceText
+    });
+
+    if (referenceState.references.length === 0) {
+        return referenceState.fixes;
+    }
+
+    const mapping = createArgumentIndexMapping(
+        referenceState.references.map((reference) => reference.index)
+    );
+
+    if (!Core.isMapLike(mapping) || !Core.hasIterableItems(mapping)) {
+        return referenceState.fixes;
+    }
+
+    if (functionNode._featherImplicitArgumentDocEntries) {
+        updateImplicitArgumentDocEntryIndices(functionNode, mapping);
+        applyOrderedDocNamesToImplicitEntries(
+            functionNode,
+            resolvedDocNames,
+            collectionService,
+            sourceText
+        );
+    }
+
+    applyArgumentIndexMappingFixes({
+        references: referenceState.references,
+        mapping,
+        diagnostic,
+        fixes: referenceState.fixes
+    });
+
+    applyArgumentAliasAndDocFixes({
+        functionNode,
+        resolvedDocNames,
+        mapping,
+        references: referenceState.references,
+        aliasDeclarations: referenceState.aliasDeclarations,
+        documentedParamNames,
+        diagnostic,
+        fixes: referenceState.fixes
+    });
+
+    const promotionPlan = buildImplicitArgumentPromotionPlan({
+        references: referenceState.references,
+        mapping,
+        orderedDocNames: resolvedDocNames,
+        aliasDeclarations: referenceState.aliasDeclarations,
+        documentedParamNames
+    });
+
+    if (promotionPlan) {
+        applyImplicitArgumentPromotions({
+            references: referenceState.references,
+            mapping,
+            promotionPlan,
+            diagnostic,
+            fixes: referenceState.fixes
+        });
+        maybeInsertImplicitFunctionParameters({
+            functionNode,
+            promotionPlan
+        });
+    }
+
+    cleanupSelfAssignments(functionNode.body);
+
+    return referenceState.fixes;
+}
+
+type ArgumentReference = { node: any; index: number };
+
+type ArgumentAliasDeclaration = {
+    index: number;
+    name: string;
+    init: any;
+    declarator: any;
+};
+
+function populateDocumentedParamNames({
+    functionNode,
+    collectionService,
+    documentedParamNames,
+    sourceText
+}: {
+    functionNode: any;
+    collectionService: any;
+    documentedParamNames: Set<string>;
+    sourceText: string | null;
+}) {
     const orderedDocNames = functionNode._documentedParamNamesOrdered as
         | string[]
         | undefined;
@@ -4286,17 +4345,34 @@ function fixArgumentReferencesWithinFunction(
         sourceText
     );
     const resolvedDocNames = functionTagParams ?? orderedDocNames;
+
     if (resolvedDocNames && resolvedDocNames.length > 0) {
         for (const name of resolvedDocNames) {
             documentedParamNames.add(name);
         }
     }
 
-    const fixes = [];
-    const references = [];
-    const aliasDeclarations = [];
+    return resolvedDocNames;
+}
 
-    const traverse = (node) => {
+function collectArgumentReferenceState({
+    functionNode,
+    diagnostic,
+    collectionService,
+    documentedParamNames,
+    sourceText
+}: {
+    functionNode: any;
+    diagnostic: any;
+    collectionService: any;
+    documentedParamNames: Set<string>;
+    sourceText: string | null;
+}) {
+    const fixes: any[] = [];
+    const references: ArgumentReference[] = [];
+    const aliasDeclarations: ArgumentAliasDeclaration[] = [];
+
+    const traverse = (node: any) => {
         if (!node) {
             return;
         }
@@ -4361,36 +4437,26 @@ function fixArgumentReferencesWithinFunction(
     };
 
     const body = functionNode?.body;
-
     if (body && typeof body === "object") {
         traverse(body);
     } else {
         traverse(functionNode);
     }
 
-    if (references.length === 0) {
-        return fixes;
-    }
+    return { fixes, references, aliasDeclarations };
+}
 
-    const mapping = createArgumentIndexMapping(
-        references.map((reference) => reference.index)
-    );
-
-    if (!Core.isMapLike(mapping) || !Core.hasIterableItems(mapping)) {
-        return fixes;
-    }
-
-    // Update the implicit argument doc entries to match the new index
-    if (functionNode._featherImplicitArgumentDocEntries) {
-        updateImplicitArgumentDocEntryIndices(functionNode, mapping);
-        applyOrderedDocNamesToImplicitEntries(
-            functionNode,
-            resolvedDocNames,
-            collectionService,
-            sourceText
-        );
-    }
-
+function applyArgumentIndexMappingFixes({
+    references,
+    mapping,
+    diagnostic,
+    fixes
+}: {
+    references: ArgumentReference[];
+    mapping: Map<any, any>;
+    diagnostic: any;
+    fixes: any[];
+}) {
     for (const reference of references) {
         const newIndex = mapping.get(reference.index);
 
@@ -4415,221 +4481,231 @@ function fixArgumentReferencesWithinFunction(
         attachFeatherFixMetadata(reference.node, [fixDetail]);
         fixes.push(fixDetail);
     }
+}
 
-    if (documentedParamNames.size > 0) {
-        const normalizedDocNames = new Set(
-            [...documentedParamNames].map(
-                Core.normalizeDocParamNameForComparison
-            )
+function applyArgumentAliasAndDocFixes({
+    functionNode,
+    resolvedDocNames,
+    mapping,
+    references,
+    aliasDeclarations,
+    documentedParamNames,
+    diagnostic,
+    fixes
+}: {
+    functionNode: any;
+    resolvedDocNames: string[] | undefined;
+    mapping: Map<any, any>;
+    references: ArgumentReference[];
+    aliasDeclarations: ArgumentAliasDeclaration[];
+    documentedParamNames: Set<string>;
+    diagnostic: any;
+    fixes: any[];
+}) {
+    if (documentedParamNames.size === 0) {
+        return;
+    }
+
+    const normalizedDocNames = new Set(
+        [...documentedParamNames].map(Core.normalizeDocParamNameForComparison)
+    );
+
+    const aliasInfos = aliasDeclarations
+        .map((alias) => {
+            const mappedIndex = mapping.get(alias.index);
+            const normalizedAliasName =
+                typeof alias.name === "string" ? alias.name : null;
+
+            return {
+                index:
+                    typeof mappedIndex === "number" ? mappedIndex : alias.index,
+                name: normalizedAliasName,
+                init: alias.init,
+                declarator: alias.declarator
+            };
+        })
+        .filter(
+            (alias) =>
+                typeof alias.index === "number" &&
+                typeof alias.name === "string" &&
+                alias.name.length > 0 &&
+                normalizedDocNames.has(
+                    Core.normalizeDocParamNameForComparison(alias.name)
+                )
         );
 
-        const aliasInfos = aliasDeclarations
-            .map((alias) => {
-                const mappedIndex = mapping.get(alias.index);
-                const normalizedAliasName =
-                    typeof alias.name === "string" ? alias.name : null;
+    if (
+        aliasInfos.length === 0 &&
+        (!resolvedDocNames || resolvedDocNames.length === 0)
+    ) {
+        return;
+    }
 
-                return {
-                    index:
-                        typeof mappedIndex === "number"
-                            ? mappedIndex
-                            : alias.index,
-                    name: normalizedAliasName,
-                    init: alias.init,
-                    declarator: alias.declarator
-                };
-            })
-            .filter(
-                (alias) =>
-                    typeof alias.index === "number" &&
-                    typeof alias.name === "string" &&
-                    alias.name.length > 0 &&
-                    normalizedDocNames.has(
-                        Core.normalizeDocParamNameForComparison(alias.name)
-                    )
-            );
+    const aliasByIndex = new Map();
+    const aliasInitNodes = new Set();
 
-        if (
-            aliasInfos.length > 0 ||
-            (resolvedDocNames && resolvedDocNames.length > 0)
-        ) {
-            const aliasByIndex = new Map();
-            const aliasInitNodes = new Set();
-
-            for (const alias of aliasInfos) {
-                aliasByIndex.set(alias.index, alias);
-                if (alias.init) {
-                    aliasInitNodes.add(alias.init);
-                }
-            }
-
-            for (const reference of references) {
-                const normalizedIndex = mapping.has(reference.index)
-                    ? mapping.get(reference.index)
-                    : reference.index;
-                const alias = aliasByIndex.get(normalizedIndex);
-
-                let newName = null;
-                let sourceNode = null;
-
-                if (
-                    resolvedDocNames &&
-                    normalizedIndex < resolvedDocNames.length
-                ) {
-                    // Fallback to doc name if no alias matches
-                    newName = resolvedDocNames[normalizedIndex];
-                    // No source node for doc name (or maybe the doc comment itself, but we don't have it handy)
-                } else if (alias && !aliasInitNodes.has(reference.node)) {
-                    newName = alias.name;
-                    sourceNode = alias.declarator;
-                }
-
-                if (!newName) {
-                    continue;
-                }
-
-                if (reference.node?.type !== "Identifier") {
-                    continue;
-                }
-
-                if (reference.node.name === newName) {
-                    continue;
-                }
-
-                if (sourceNode) {
-                    const aliasStart = Core.getNodeStartIndex(sourceNode);
-                    const referenceStart = Core.getNodeStartIndex(
-                        reference.node
-                    );
-
-                    if (
-                        typeof aliasStart === "number" &&
-                        typeof referenceStart === "number" &&
-                        referenceStart < aliasStart
-                    ) {
-                        continue;
-                    }
-                }
-
-                const fixDetail = createFeatherFixDetail(diagnostic, {
-                    target: newName,
-                    range: {
-                        start: Core.getNodeStartIndex(reference.node),
-                        end: Core.getNodeEndIndex(reference.node)
-                    }
-                });
-
-                if (fixDetail) {
-                    attachFeatherFixMetadata(reference.node, [fixDetail]);
-                    fixes.push(fixDetail);
-                }
-
-                reference.node.name = newName;
-            }
-
-            if (functionNode._featherImplicitArgumentDocEntries) {
-                const remainingDirectRefIndices = new Set();
-
-                for (const reference of references) {
-                    if (aliasInitNodes.has(reference.node)) {
-                        continue;
-                    }
-
-                    if (/^argument\d+$/.test(reference.node.name)) {
-                        const normalizedIndex = mapping.has(reference.index)
-                            ? mapping.get(reference.index)
-                            : reference.index;
-                        remainingDirectRefIndices.add(normalizedIndex);
-                    }
-                }
-
-                for (const entry of functionNode._featherImplicitArgumentDocEntries) {
-                    if (
-                        entry &&
-                        typeof entry.index === "number" &&
-                        !remainingDirectRefIndices.has(entry.index)
-                    ) {
-                        entry.hasDirectReference = false;
-                    }
-                }
-            }
+    for (const alias of aliasInfos) {
+        aliasByIndex.set(alias.index, alias);
+        if (alias.init) {
+            aliasInitNodes.add(alias.init);
         }
     }
 
-    const promotionPlan = buildImplicitArgumentPromotionPlan({
-        references,
-        mapping,
-        orderedDocNames: resolvedDocNames,
-        aliasDeclarations,
-        documentedParamNames
-    });
+    for (const reference of references) {
+        const normalizedIndex = mapping.has(reference.index)
+            ? mapping.get(reference.index)
+            : reference.index;
+        const alias = aliasByIndex.get(normalizedIndex);
 
-    if (promotionPlan) {
-        const { names } = promotionPlan;
+        let newName = null;
+        let sourceNode = null;
 
-        for (const reference of references) {
+        if (resolvedDocNames && normalizedIndex < resolvedDocNames.length) {
+            newName = resolvedDocNames[normalizedIndex];
+        } else if (alias && !aliasInitNodes.has(reference.node)) {
+            newName = alias.name;
+            sourceNode = alias.declarator;
+        }
+
+        if (!newName) {
+            continue;
+        }
+
+        if (reference.node?.type !== "Identifier") {
+            continue;
+        }
+
+        if (reference.node.name === newName) {
+            continue;
+        }
+
+        if (sourceNode) {
+            const aliasStart = Core.getNodeStartIndex(sourceNode);
+            const referenceStart = Core.getNodeStartIndex(reference.node);
+
+            if (
+                typeof aliasStart === "number" &&
+                typeof referenceStart === "number" &&
+                referenceStart < aliasStart
+            ) {
+                continue;
+            }
+        }
+
+        const fixDetail = createFeatherFixDetail(diagnostic, {
+            target: newName,
+            range: {
+                start: Core.getNodeStartIndex(reference.node),
+                end: Core.getNodeEndIndex(reference.node)
+            }
+        });
+
+        if (fixDetail) {
+            attachFeatherFixMetadata(reference.node, [fixDetail]);
+            fixes.push(fixDetail);
+        }
+
+        reference.node.name = newName;
+    }
+
+    if (!functionNode._featherImplicitArgumentDocEntries) {
+        return;
+    }
+
+    const remainingDirectRefIndices = new Set();
+
+    for (const reference of references) {
+        if (aliasInitNodes.has(reference.node)) {
+            continue;
+        }
+
+        if (/^argument\d+$/.test(reference.node.name)) {
             const normalizedIndex = mapping.has(reference.index)
                 ? mapping.get(reference.index)
                 : reference.index;
-            if (
-                typeof normalizedIndex !== "number" ||
-                normalizedIndex < 0 ||
-                normalizedIndex >= names.length
-            ) {
-                continue;
-            }
-
-            const newName = names[normalizedIndex];
-            if (!newName) {
-                continue;
-            }
-
-            const referenceNode = reference.node;
-            if (!referenceNode || typeof referenceNode !== "object") {
-                continue;
-            }
-
-            if (referenceNode.type === "Identifier") {
-                if (referenceNode.name === newName) {
-                    continue;
-                }
-                referenceNode.name = newName;
-            } else if (
-                referenceNode.type === "MemberIndexExpression" &&
-                Core.isIdentifierWithName(referenceNode.object, "argument")
-            ) {
-                referenceNode.type = "Identifier";
-                referenceNode.name = newName;
-                delete referenceNode.object;
-                delete referenceNode.property;
-                delete referenceNode.accessor;
-            } else {
-                continue;
-            }
-
-            const fixDetail = createFeatherFixDetail(diagnostic, {
-                target: newName,
-                range: {
-                    start: Core.getNodeStartIndex(referenceNode),
-                    end: Core.getNodeEndIndex(referenceNode)
-                }
-            });
-
-            if (fixDetail) {
-                attachFeatherFixMetadata(referenceNode, [fixDetail]);
-                fixes.push(fixDetail);
-            }
+            remainingDirectRefIndices.add(normalizedIndex);
         }
-
-        maybeInsertImplicitFunctionParameters({
-            functionNode,
-            promotionPlan
-        });
     }
 
-    cleanupSelfAssignments(functionNode.body);
+    for (const entry of functionNode._featherImplicitArgumentDocEntries) {
+        if (
+            entry &&
+            typeof entry.index === "number" &&
+            !remainingDirectRefIndices.has(entry.index)
+        ) {
+            entry.hasDirectReference = false;
+        }
+    }
+}
 
-    return fixes;
+function applyImplicitArgumentPromotions({
+    references,
+    mapping,
+    promotionPlan,
+    diagnostic,
+    fixes
+}: {
+    references: ArgumentReference[];
+    mapping: Map<any, any>;
+    promotionPlan: any;
+    diagnostic: any;
+    fixes: any[];
+}) {
+    const { names } = promotionPlan;
+
+    for (const reference of references) {
+        const normalizedIndex = mapping.has(reference.index)
+            ? mapping.get(reference.index)
+            : reference.index;
+        if (
+            typeof normalizedIndex !== "number" ||
+            normalizedIndex < 0 ||
+            normalizedIndex >= names.length
+        ) {
+            continue;
+        }
+
+        const newName = names[normalizedIndex];
+        if (!newName) {
+            continue;
+        }
+
+        const referenceNode = reference.node;
+        if (!referenceNode || typeof referenceNode !== "object") {
+            continue;
+        }
+
+        if (referenceNode.type === "Identifier") {
+            if (referenceNode.name === newName) {
+                continue;
+            }
+            referenceNode.name = newName;
+        } else if (
+            referenceNode.type === "MemberIndexExpression" &&
+            Core.isIdentifierWithName(referenceNode.object, "argument")
+        ) {
+            referenceNode.type = "Identifier";
+            referenceNode.name = newName;
+            delete referenceNode.object;
+            delete referenceNode.property;
+            delete referenceNode.accessor;
+        } else {
+            continue;
+        }
+
+        const fixDetail = createFeatherFixDetail(diagnostic, {
+            target: newName,
+            range: {
+                start: Core.getNodeStartIndex(referenceNode),
+                end: Core.getNodeEndIndex(referenceNode)
+            }
+        });
+
+        if (fixDetail) {
+            attachFeatherFixMetadata(referenceNode, [fixDetail]);
+            fixes.push(fixDetail);
+        }
+    }
 }
 
 function maybeInsertImplicitFunctionParameters({

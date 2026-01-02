@@ -454,7 +454,8 @@ function scanResultDirectory(directory, root) {
             cases: [],
             coverage: null,
             lint: null,
-            duplicates: null
+            duplicates: null,
+            health: null
         };
     }
 
@@ -788,7 +789,8 @@ function readTestResults(
             notes,
             coverage: scan.coverage,
             lint: scan.lint,
-            duplicates
+            duplicates,
+            health: scan.health
         };
     }
 
@@ -811,7 +813,8 @@ function readTestResults(
         notes,
         coverage: null,
         lint: null,
-        duplicates: null
+        duplicates: null,
+        health: null
     };
 }
 

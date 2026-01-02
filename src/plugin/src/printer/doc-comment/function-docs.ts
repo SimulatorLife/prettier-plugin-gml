@@ -18,6 +18,8 @@ const LINE_DOC_AT_PATTERN = /^\/\/\s*@/;
 const PARAM_PATTERN =
     /^([a-zA-Z0-9_]+(?:[ \t]*,[ \t]*[a-zA-Z0-9_]+)*)[ \t]*:[ \t]*(.*)$/;
 
+const METHOD_LIST_COMMENT_PATTERN = /^\s*\/\/\s*\./;
+
 function resolveProgramNode(path): any {
     let programNode = null;
     const parentNode =
@@ -152,6 +154,47 @@ function collectProgramLeadingDocLines({
         if (trimmed.startsWith("///")) return trimmed;
         return line;
     });
+}
+
+function collectMethodListComments(
+    originalText: string | null | undefined,
+    nodeStartIndex: number | null | undefined
+): string[] {
+    if (
+        typeof originalText !== STRING_TYPE ||
+        typeof nodeStartIndex !== "number"
+    ) {
+        return [];
+    }
+
+    const precedingText = originalText.slice(0, nodeStartIndex);
+    if (!precedingText) {
+        return [];
+    }
+
+    const lines = precedingText.split(/\r\n|\n|\r/);
+    const collected: string[] = [];
+
+    for (let index = lines.length - 1; index >= 0; index -= 1) {
+        const line = lines[index];
+        if (!line || line.trim().length === 0) {
+            if (collected.length > 0) {
+                break;
+            }
+            continue;
+        }
+
+        if (!METHOD_LIST_COMMENT_PATTERN.test(line)) {
+            if (collected.length > 0) {
+                break;
+            }
+            continue;
+        }
+
+        collected.push(line.trim());
+    }
+
+    return collected.reverse();
 }
 
 function formatLineCommentDocEntry(comment: any, lineCommentOptions: any) {
@@ -396,6 +439,9 @@ export function collectFunctionDocCommentDocs({
     });
 
     docCommentDocs.push(...formattedProgramLines);
+    plainLeadingLines.push(
+        ...collectMethodListComments(originalText, nodeStartIndex)
+    );
 
     const nodeComments = [...(node.comments || [])];
 
@@ -623,6 +669,10 @@ export function normalizeFunctionDocCommentDocs({
     }
 
     docCommentDocs = removeFunctionDocCommentLines(docCommentDocs);
+    docCommentDocs = wrapDocDescriptionLines(
+        docCommentDocs,
+        docCommentOptions.docCommentMaxWrapWidth
+    );
 
     return { docCommentDocs, needsLeadingBlankLine };
 }

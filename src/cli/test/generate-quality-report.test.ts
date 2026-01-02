@@ -23,6 +23,11 @@ function writeXml(dir, name, contents) {
     fs.writeFileSync(path.join(dir, `${name}.xml`), xmlHeader + contents);
 }
 
+function writeJson(dir, name, value) {
+    fs.mkdirSync(dir, { recursive: true });
+    fs.writeFileSync(path.join(dir, name), JSON.stringify(value, null, 2));
+}
+
 let workspace;
 
 beforeEach(() => {
@@ -450,4 +455,30 @@ void test("detectRegressions accepts heterogeneous result containers", () => {
         regressions[0].detail?.displayName,
         "suite :: test :: scenario"
     );
+});
+
+void test("readTestResults preserves project health stats when present", () => {
+    const resultsDir = path.join(workspace, "reports");
+
+    writeXml(
+        resultsDir,
+        "suite",
+        `<testsuites>
+      <testsuite name="sample">
+        <testcase name="stays green" classname="test" />
+      </testsuite>
+    </testsuites>`
+    );
+
+    const health = {
+        buildSize: "4.43 MB",
+        largeFiles: 24,
+        todos: 14
+    };
+
+    writeJson(resultsDir, "project-health.json", health);
+
+    const result = readTestResults(["reports"], { workspace });
+
+    assert.deepStrictEqual(result.health, health);
 });
