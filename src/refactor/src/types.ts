@@ -4,6 +4,93 @@ export type MaybePromise<T> = T | Promise<T>;
 
 export type Range = { start: number; end: number };
 
+/**
+ * Enumerated constants for GML symbol kinds.
+ *
+ * Symbol IDs follow the pattern `gml/{kind}/{name}`, where `kind` identifies
+ * the semantic category of the symbol. This enum centralizes valid symbol
+ * kinds to prevent stringly-typed branches and provides a single source of
+ * truth for validation.
+ *
+ * @example
+ * // Use typed constants instead of raw strings
+ * if (symbolKind === SymbolKind.SCRIPT) { ... }
+ *
+ * // Validate runtime strings
+ * const kind = parseSymbolKind(rawInput);
+ */
+export const SymbolKind = Object.freeze({
+    SCRIPT: "script",
+    VAR: "var",
+    EVENT: "event",
+    MACRO: "macro",
+    ENUM: "enum"
+} as const);
+
+export type SymbolKindValue = (typeof SymbolKind)[keyof typeof SymbolKind];
+
+const SYMBOL_KIND_VALUES = Object.freeze(
+    Object.values(SymbolKind)
+) as ReadonlyArray<SymbolKindValue>;
+
+const SYMBOL_KIND_SET: ReadonlySet<string> = new Set(SYMBOL_KIND_VALUES);
+
+/**
+ * Check whether a value is a valid symbol kind.
+ *
+ * @param value - Candidate value to test
+ * @returns True if value matches a known SymbolKind constant
+ *
+ * @example
+ * if (isSymbolKind(rawString)) {
+ *   // Safe to use as SymbolKindValue
+ * }
+ */
+export function isSymbolKind(value: unknown): value is SymbolKindValue {
+    return typeof value === "string" && SYMBOL_KIND_SET.has(value);
+}
+
+/**
+ * Parse and validate a symbol kind string.
+ *
+ * @param value - Raw string to parse
+ * @returns Valid SymbolKindValue or null if invalid
+ *
+ * @example
+ * const kind = parseSymbolKind(symbolParts[1]);
+ * if (kind === null) {
+ *   // Handle invalid kind
+ * }
+ */
+export function parseSymbolKind(value: unknown): SymbolKindValue | null {
+    return isSymbolKind(value) ? value : null;
+}
+
+/**
+ * Parse and validate a symbol kind string, throwing on invalid input.
+ *
+ * @param value - Raw string to parse
+ * @param context - Optional context for error message
+ * @returns Valid SymbolKindValue
+ * @throws {TypeError} If value is not a valid symbol kind
+ *
+ * @example
+ * const kind = requireSymbolKind(symbolParts[1], symbolId);
+ */
+export function requireSymbolKind(
+    value: unknown,
+    context?: string
+): SymbolKindValue {
+    if (!isSymbolKind(value)) {
+        const validKinds = SYMBOL_KIND_VALUES.join(", ");
+        const contextInfo = context ? ` (in ${context})` : "";
+        throw new TypeError(
+            `Invalid symbol kind: ${JSON.stringify(value)}${contextInfo}. Must be one of: ${validKinds}.`
+        );
+    }
+    return value;
+}
+
 export interface AstNode {
     type?: string;
     name?: string;

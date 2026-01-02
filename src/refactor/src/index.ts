@@ -9,6 +9,13 @@ export const Refactor = Object.freeze({
 export { RefactorEngine } from "./refactor-engine.js";
 export type { WorkspaceEdit } from "./workspace-edit.js";
 
+export {
+    SymbolKind,
+    isSymbolKind,
+    parseSymbolKind,
+    requireSymbolKind
+} from "./types.js";
+
 export type {
     ApplyWorkspaceEditOptions,
     AstNode,
@@ -41,6 +48,7 @@ export type {
     RenameRequest,
     SemanticAnalyzer,
     SemanticValidationResult,
+    SymbolKindValue,
     SymbolLocation,
     SymbolLookupResult,
     SymbolOccurrence,
