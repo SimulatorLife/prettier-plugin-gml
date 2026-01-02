@@ -107,13 +107,13 @@ void describe("classifyOccurrences", () => {
     });
 
     void it("handles occurrences without path", () => {
-        const occurrences = [
+        const occurrences: Array<SymbolOccurrence> = [
             {
                 path: "",
                 start: 0,
                 end: 10,
                 kind: "reference"
-            } as SymbolOccurrence
+            }
         ];
 
         const result = classifyOccurrences(occurrences);
@@ -336,7 +336,7 @@ void describe("findOccurrencesInFile", () => {
             }
         );
 
-        assert.throws(() => findOccurrencesInFile(occurrences, "" as string), {
+        assert.throws(() => findOccurrencesInFile(occurrences, ""), {
             name: "TypeError",
             message: /requires a non-empty file path string/
         });
