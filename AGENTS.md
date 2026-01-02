@@ -12,7 +12,7 @@
 - Do **NOT** edit the generated files in `src/parser/generated`; any and all changes will be overwritten when the file are re-generated. The generated code is tightly coupled to ANTLR’s runtime. Even a small edit could break assumptions about rule indices, token streams, or the visitor/listener APIs. These files have had manual edits already, and that custom code needs to be exracted out and refactored such that we subclass the generated code.
 - Do **NOT** add eslint-disable or `@ts-*` comments to the codebase. If lint/type errors arise, fix them properly. If you encounter any existing eslint-disable or `@ts-*` comments, remove them and fix the underlying issues.
 - The plugin/formatter should be opinionated and enforce a single opinionated strategy (for indentation, spacing, blank lines, etc.) – avoid adding overly-configurable options that give users too many choices or lead to inconsistent formatting. For instance, instead of multiple options to control line-length formatting (such as printWidth, wrapThreshold, maxLineLength, etc.), there should be a single `printWidth` option that governs line length. Excessive configurability leads to maintenance burden and unpredictable output.
-- **ONLY** the `Plugin` workspace may depend on `prettier` and related formatting packages. All other workspaces must remain free of formatting dependencies. If they require formatting-related functionality, it must be moved into and exposed by the `Plugin` package (only the project's root `package.json` should have Prettier as a `devDependency` for formatting of *this* codebase).
+- **ONLY** the `Plugin` workspace may depend on `prettier` and related formatting packages. All other workspaces must remain free of formatting dependencies. If they require formatting-related functionality, it must be moved into and exposed by the `Plugin` workspace (only the project's root `package.json` should have Prettier as a `devDependency` for formatting of *this* codebase).
 
 ----
 
@@ -22,14 +22,14 @@
 - When debugging issues/failures, **prioritize unit tests over debug logging**; create more targeted tests or updating existing unit tests as needed to identify/reproduce/catch issues. These unit tests can then become part of the codebase's testing suite. Console/debug logging, on the other hand, is hard to interpret and slow to iterate on. If a function is too large to test properly, then it likely needs to be refactored/re-organized/split up first to allow for proper testing.
 - When considering adding new dependencies, prefer dependencies that are already in use within the monorepo to minimize bloat.
 - Code must be organized by domain, not by generic utility patterns: New functionality must be placed in domain-appropriate directories (e.g., `src/semantic/src/analyze/…`, `src/transpiler/src/emit/…`, `src/runtime-wrapper/src/bridge/…`), never into catch-all filenames such as `utils.ts`, `helpers.ts`, or `common.ts`. A workspace's public exports must present a single cohesive conceptual responsibility, and unrelated helpers must be split into their own domain-specific files instead of accumulating in shared “miscellaneous” locations.
-- Use named package scopes for all inter-package imports, always referencing workspaces by their declared package name rather than relative paths, and ensure that each package re-exports its public API at the top level so consumers import only from the package root (e.g., use `@gml-modules/core` instead of deep paths like `"../../../src/core/src/ast/comments.js"`); this rule also applies in `package.json`, where dependencies must always be listed by package name rather than filesystem paths.
-- Do **NOT** create re-export wrappers (e.g. importing functionality from a workspace solely to re-export it). Each workspace should only export its own unique public API rather than acting as a pass-through for other files or packages. Don't create “pass-through” file/shims/placeholders/wrappers that simply import symbols from another package and re-export them; files should always import the specific functions or values they need directly at the point of use rather than acting as proxy exporters, ensuring each workspace exposes only its own public API and avoiding unnecessary indirection, and if you encounter an existing pass-through file, remove it and update callers to import the required symbols directly.
+- Use named scopes for all inter-workspace imports, always referencing workspaces by their declared name rather than using relative paths, and ensure that each workspace re-exports its public API at the top level so consumers import only from the workspace root (e.g., use `@gml-modules/core` instead of deep paths like `"../../../src/core/src/ast/comments.js"`); this rule also applies in `package.json`, where inter-workspace dependencies must always be listed by workspace name rather than filesystem paths.
+- Do **NOT** create re-export wrappers (e.g. importing functionality from a workspace solely to re-export it). Each workspace should only export its own unique public API rather than acting as a pass-through for other files or packages. Don't create “pass-through” file/shims/placeholders/wrappers that simply import symbols from another workspace and re-export them; files should always import the specific functions or values they need directly at the point of use rather than acting as proxy exporters, ensuring each workspace exposes only its own public API and avoiding unnecessary indirection. If you encounter an existing pass-through file, remove it and update callers to import the required symbols directly.
 - This codebase does **NOT** allow `.mjs`, `.cjs`. or `.js` as source files **except for in vendor-code directories and generated code**; all code must be authored as **typescript** (`.ts`) files, and packages should rely on `"type": "module"` to enable ESM behavior consistently throughout the monorepo. If you encounter existing `.mjs`, `.cjs`, or `.js` files, refactor them to `.ts` and adjust imports/exports accordingly. No custom file extensions (e.g., .gmlx, .gmlext, .foo) are permitted; the system recognizes `.ts` for source and `.gml` for GameMaker language files.
-- Each workspace and major internal directory **MUST** include an `index.ts` file that serves exclusively as the export surface for that directory; `index.ts` files should contain only exports, no runtime logic, and must re-export all intended public functionality so that other workspaces (a.k.a. external consumers) import solely from the package root (e.g., `@gml-modules/core`) rather than deep relative paths or subdirectories. Every package and every subdirectory within `src/` must contain an `index.ts` file that serves only as an export surface, never as a place for runtime logic, helper functions, computations, or side-effects. All `index.ts` files—whether at the package root or inside workspaces—must consist exclusively of imports and exports and must re-export the public symbols for that directory. At the package root, the top-level `index.ts` must export exactly one named namespace (e.g., `export * as Transpiler from "./src/index.ts`"; or `export const Semantic = Object.freeze({ ... });`) and must not contain default exports. Internal implementation files must never import via these `index.ts` namespace layers; internal code must use direct relative imports only. The namespace exports exist solely for workspace consumers, not for internal use, and no `index.ts` anywhere in the repo may contain executable code, initialization logic, or helper implementations—only structured exports.
-- Use a consistent directory structure across the monorepo, where each workspace contains a top-level `package.json`, a top-level `index.ts`, and separate `src/` and `test/` directories; all implementation code must reside in `src/`, all tests must reside in `test/`, and consumers must always import from the workspace root rather than deep internal paths.
+- Each workspace and major internal directory **MUST** include an `index.ts` file that serves exclusively as the export surface for that directory; `index.ts` files should contain only exports, no runtime logic, and must re-export all intended public functionality so that other external workspaces/consumers import solely from another workspace's root (e.g., `@gml-modules/core`) rather than deep relative paths or subdirectories. Every `index.ts` file must consist exclusively of imports and exports and must re-export the public symbols for its directory, never act as a place for runtime logic, helper functions, initialization logic, computations, or side-effects. For each workspace root, its top-level `index.ts` must export exactly one named namespace (e.g., `export * as Transpiler from "./src/index.ts`"; or `export const Semantic = Object.freeze({ ... });`) and must not contain default exports. However, internal implementation files *within a single workspace* must never import its own `index.ts` namespace layers; internal code must use direct relative imports only. The namespace exports exist solely for the workspace's consumers, not for internal use.
+- Use a consistent directory structure across the monorepo, where each workspace contains a top-level `package.json`, a top-level `index.ts`, a top-level `tsconfig.json` and separate `src/` and `test/` directories; all implementation code must reside in `src/` and all tests must reside in `test/`.
 - Avoid legacy-behavior support; always implement the current, forward-looking design without adding compatibility layers or transitional code.
-- When exporting a module’s public API, use named wildcard exports to provide clear namespace grouping (e.g., `export * as AST from "./ast"; export * as Parser from "./parser"; export * as Transforms from "./transforms";`).
-- When importing from another top-level package, always import the package’s **single exported namespace** which represents its **public API** (e.g., `import * as Core from "@gml-modules/core"`), and **do not destructure** that namespace into individual symbols; external consumers must always call functions or access exports via the namespace object (e.g., `Core.toMutableArray(...)`). Destructuring is allowed only for internal imports within the same package, where direct relative paths must be used instead of importing through the package’s public namespace.
+- When exporting a workspace's public API, use named wildcard exports to provide clear namespace grouping (e.g., `export * as AST from "./ast"; export * as Parser from "./parser"; export * as Transforms from "./transforms";`).
+- When importing from another top-level workspace, always import the workspace's **single exported namespace** which represents its **public API** (e.g., `import * as Core from "@gml-modules/core"`), and **do not destructure** that namespace into individual symbols; external consumers must always call functions or access exports via the namespace object (e.g., `Core.toMutableArray(...)`). Destructuring is allowed only for internal imports within the same workspace, where direct relative paths **MUST** be used instead of importing through the workspace's public namespace.
 - Avoid using optional properties (e.g. `(foo?: T)`, `T | undefined`) and utility types such as `Partial<T>` **unless the data is truly optional or incomplete by design** (e.g., API responses or incremental builders). Do not use optionality as a shortcut to silence type errors, to mask missing initialization, or to represent values that are logically required at runtime. Optionality must reflect real domain behavior, not developer convenience. If only some fields are required, define a narrower type instead of applying broad `Partial<T>` to entire objects, and never rely on non-null assertions (!) to bypass proper typing — they are a strong indicator that the value should not have been optional in the first place. Likewise, do not use type `any` or `unknown` to silence type errors or to bypass proper typing—doing so hides real bugs and defeats the purpose of TypeScript in this codebase. If a value is difficult to type, create a more precise type, narrow the definition, or explicitly model the unknown shape with `unknown` plus safe refinement logic.
 - **Use meaningful function names over brevity**. Avoid overly generic verbs like `handle`, `process`, or `doWork`. Function names should clearly reflect their domain and operation, e.g., `attachTrailingCommentsToStatement`, `normalizeLineBreaks`, `resolveImportSpecifiers`.
 - New public/exported functions and types must have TSDoc comments and corresponding tests mirrored under `test/` with matching directory structure.
@@ -50,7 +50,7 @@
 
 ----
 
-## Module Ownership Boundaries (Parser / Core / Plugin)
+## Workspace Ownership Boundaries (Parser / Core / Plugin)
 >This section defines clear ownership boundaries between the parser, core, and plugin workspaces to ensure a clean architecture with well-defined responsibilities.
 
 ### Parser Ownership
@@ -180,7 +180,7 @@ Tests and downstream consumers always run against the dist/**.js output, not the
 All internal imports in `*.ts` files use Node-valid ESM specifiers. The pattern is:
 
 - Use `.js` extensions in import specifiers, even though the actual source files are .ts.
-- Let TypeScript (with moduleResolution: "NodeNext") resolve those `.js` specifiers to the corresponding `.ts` sources at compile time.
+- Let TypeScript (with `moduleResolution: "NodeNext"`) resolve those `.js` specifiers to the corresponding `.ts` sources at compile time.
 
 Example inside a workspace:
 ````ts
@@ -197,14 +197,12 @@ src/comments/comments.ts
 
 TypeScript understands that `./parse-node.js` should bind to `parse-node.ts` during compilation, then re-emits the same import `./parse-node.js` in the compiled JS. This keeps the emitted JavaScript compatible with Node’s ESM loader.
 
-We do not:
+Do **NOT** import using `.ts` extensions (e.g. `import "./parse-node.ts"`).
+This would require `allowImportingTsExtensions`, which in turn forces `noEmit` or `emitDeclarationOnly` and would break JS emit for our build.
 
-- Import using `.ts` extensions (e.g. import "./parse-node.ts").
-That would require `allowImportingTsExtensions`, which in turn forces `noEmit` or `emitDeclarationOnly` and would break JS emit for our build.
+Do **NOT** import from `dist/` inside source files: All source-level imports stay inside `src/` and use relative paths or specifiers.
 
-- Import from `dist/` inside source files. All source-level imports stay inside src/ and use relative paths or package specifiers.
-
-### Cross-package imports
+### Cross-workspace imports
 
 Each workspace is a proper Node package with its own `package.json`, for example:
 
@@ -223,18 +221,18 @@ Each workspace is a proper Node package with its own `package.json`, for example
 }
 ````
 
-The public API of a package is exposed via a barrel file, typically `src/index.ts`, which compiles to `dist/index.js` and `dist/index.d.ts`.
+The public API of a workspace is exposed via a barrel file, typically `src/index.ts`, which compiles to `dist/index.js` and `dist/index.d.ts`.
 
-Other workspaces import from the package name, not from dist paths:
+Other workspaces import using a workspace's name, not from `dist/` paths:
 
 ````ts
-// In another package:
+// In another workspace that depends on @gml-modules/core:
 import { Core } from "@gml-modules/core";
 ````
 
 This keeps boundaries clean:
 - Source code never uses `../core/dist/...` imports.
-- Consumers and tests interact with each package through its public API.
+- Consumers and tests interact with each workspace through its public API.
 
 ### Module resolution strategy
 
@@ -283,15 +281,15 @@ When improving extensibility, keep changes narrow, purposeful, and internally fo
 
 The following are anti-patterns—examples of what **not to do** when adding project extensibility.
 
-* **Do not** add an end-user option for custom file extensions in the GML parser.
-Supporting arbitrary extensions like “.gmlx” or “.foo” creates needless surface area and confusion. The parser should only ever handle .gml. Any configurability here just bloats code and dilutes purpose. 
-* **Do not** include a fallback custom XML parser if the required XML library is missing.
+* Do **NOT** add an end-user option for custom file extensions in the GML parser.
+Supporting arbitrary extensions like `.gmlx` or `.foo` creates needless surface area and confusion. The parser should only ever handle `.gml` files. Any configurability here just bloats code and dilutes purpose. 
+* Do **NOT** include a fallback custom XML parser if the required XML library is missing.
 This doubles maintenance and behavior variance. The proper fix is to ensure dependency resolution at install or build time, not duplicate functionality inside your project.
-* **Do not** introduce a general “strategy” or “plugin” system for a single rigid branch.
+* Do **NOT** introduce a general “strategy” or “plugin” system for a single rigid branch.
 Turning one fixed if/else into a generic framework leads to abstraction creep. Add only a narrow seam where flexibility is genuinely needed.
-* **Do not** expose internal toggles as runtime configuration (env vars, CLI flags, etc.).
+* Do **NOT** expose internal toggles as runtime configuration (env vars, CLI flags, etc.).
 Developer-facing switches should stay private. End users should never see or need to set them; use internal hooks or parameters instead.
-* **Do not** implement autodetection for formats the tool already controls. For example, if the system already mandates .gml and UTF-8, there is no value in guessing encoding or line endings. Keep expectations strict and predictable.
+* Do **NOT** implement autodetection for formats the tool already controls. For example, if the system already mandates `.gml` and UTF-8, there is no value in guessing encoding or line endings. Keep expectations strict and predictable.
 
 ## Repository & Commit Conflict Resolution Strategy
 To ensure smooth collaboration and maintain a healthy commit history, follow this structured process whenever you encounter merge, rebase, or commit conflicts within this repository:
@@ -351,10 +349,7 @@ To ensure smooth collaboration and maintain a healthy commit history, follow thi
      This keeps the scope tight and highlights which files truly need attention.
 
 6. **Perform the Merge Carefully**
-   - Bring the base branch into the PR branch without committing immediately so you can sanity-check the changes:
-     ```bash
-     git merge --no-commit --no-ff origin/<base>
-     ```
+   - Bring the base branch into the PR branch without committing immediately so you can sanity-check the changes: `git merge --no-commit --no-ff origin/<base>`
      (Rebasing is acceptable if the project requires it; use `git rebase origin/<base>` with the same discipline.)
    - Resolve conflict markers surgically. Prefer editing only the hunks that differ and keep unrelated whitespace or formatting untouched.
    - After each file is reconciled, run `git diff` to confirm only the expected sections changed.

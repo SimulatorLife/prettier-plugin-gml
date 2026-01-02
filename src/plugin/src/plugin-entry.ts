@@ -278,7 +278,8 @@ async function format(source: string, options: SupportOptions = {}) {
         ? singleBlankLines
         : `${singleBlankLines}\n`;
     const withoutFunctionTags = stripFunctionTagComments(normalizedCleaned);
-    const collapsedAfterStrip = collapseDuplicateBlankLines(withoutFunctionTags);
+    const collapsedAfterStrip =
+        collapseDuplicateBlankLines(withoutFunctionTags);
     const dedupedComments = removeDuplicateDocLikeLineComments(
         collapseVertexFormatBeginSpacing(collapsedAfterStrip)
     );
