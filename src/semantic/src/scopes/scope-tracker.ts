@@ -156,6 +156,8 @@ function cloneDeclarationMetadata(metadata) {
     };
 }
 
+type ScopeSymbolMetadata = NonNullable<ReturnType<typeof cloneDeclarationMetadata>>;
+
 function cloneOccurrence(occurrence) {
     if (!occurrence) {
         return null;
@@ -226,6 +228,10 @@ export class ScopeTracker {
     private enabled: boolean;
     private identifierRoleTracker: IdentifierRoleTracker;
     private globalIdentifierRegistry: GlobalIdentifierRegistry;
+    private resolveIdentifierCache: Map<
+        string,
+        Map<string, ScopeSymbolMetadata | null>
+    >;
 
     constructor({ enabled = true } = {}) {
         this.scopeStack = [];
@@ -239,6 +245,7 @@ export class ScopeTracker {
         this.enabled = Boolean(enabled);
         this.identifierRoleTracker = new IdentifierRoleTracker();
         this.globalIdentifierRegistry = new GlobalIdentifierRegistry();
+        this.resolveIdentifierCache = new Map();
     }
 
     withScope<T>(kind: string, callback: () => T): T {
@@ -279,6 +286,40 @@ export class ScopeTracker {
 
     getRootScope() {
         return this.rootScope;
+    }
+
+    private clearResolveIdentifierCacheForName(name: string | null | undefined) {
+        if (!name) {
+            return;
+        }
+
+        this.resolveIdentifierCache.delete(name);
+    }
+
+    private readResolveIdentifierCache(
+        name: string,
+        scopeId: string
+    ): ScopeSymbolMetadata | null | undefined {
+        const cache = this.resolveIdentifierCache.get(name);
+        if (!cache) {
+            return undefined;
+        }
+
+        return cache.get(scopeId);
+    }
+
+    private writeResolveIdentifierCache(
+        name: string,
+        scopeId: string,
+        declaration: ScopeSymbolMetadata | null
+    ) {
+        let cache = this.resolveIdentifierCache.get(name);
+        if (!cache) {
+            cache = new Map();
+            this.resolveIdentifierCache.set(name, cache);
+        }
+
+        cache.set(scopeId, declaration);
     }
 
     resolveScopeOverride(scopeOverride) {
@@ -428,6 +469,7 @@ export class ScopeTracker {
         Core.assignClonedLocation(metadata, node);
 
         this.storeDeclaration(scope, name, metadata);
+        this.clearResolveIdentifierCacheForName(name);
 
         node.scopeId = scopeId;
         node.declaration = Core.assignClonedLocation({ scopeId }, metadata);
@@ -833,6 +875,16 @@ export class ScopeTracker {
             return null;
         }
 
+        const cacheScopeId = startScope.id;
+        const cachedDeclaration = this.readResolveIdentifierCache(
+            name,
+            cacheScopeId
+        );
+
+        if (cachedDeclaration !== undefined) {
+            return cachedDeclaration ? cloneDeclarationMetadata(cachedDeclaration) : null;
+        }
+
         const storedIndex = startScope.stackIndex;
         const startIndex =
             typeof storedIndex === "number" &&
@@ -846,10 +898,17 @@ export class ScopeTracker {
             while (current) {
                 const declaration = current.symbolMetadata.get(name);
                 if (declaration) {
-                    return { ...declaration };
+                    const clone = cloneDeclarationMetadata(declaration);
+                    this.writeResolveIdentifierCache(
+                        name,
+                        cacheScopeId,
+                        declaration
+                    );
+                    return clone;
                 }
                 current = current.parent;
             }
+            this.writeResolveIdentifierCache(name, cacheScopeId, null);
             return null;
         }
 
@@ -857,10 +916,17 @@ export class ScopeTracker {
             const scope = this.scopeStack[i];
             const declaration = scope.symbolMetadata.get(name);
             if (declaration) {
-                return { ...declaration };
+                const clone = cloneDeclarationMetadata(declaration);
+                this.writeResolveIdentifierCache(
+                    name,
+                    cacheScopeId,
+                    declaration
+                );
+                return clone;
             }
         }
 
+        this.writeResolveIdentifierCache(name, cacheScopeId, null);
         return null;
     }
 

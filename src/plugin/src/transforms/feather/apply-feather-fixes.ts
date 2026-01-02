@@ -12472,16 +12472,36 @@ function coerceStringLiteralsInBinaryExpression(node, diagnostic) {
         ? node.right
         : null;
 
+    let mutated = false;
+
     if (!leftLiteral && !rightLiteral) {
-        return null;
+        const leftIsNumeric = isNumericLiteralNode(node.left);
+        const rightIsNumeric = isNumericLiteralNode(node.right);
+
+        if (leftIsNumeric && canWrapOperandWithReal(node.right)) {
+            node.right = createRealCoercionCall(node.right);
+            mutated = true;
+        } else if (
+            rightIsNumeric &&
+            canWrapOperandWithReal(node.left)
+        ) {
+            node.left = createRealCoercionCall(node.left);
+            mutated = true;
+        }
     }
 
     if (leftLiteral) {
         node.left = createRealCoercionCall(leftLiteral);
+        mutated = true;
     }
 
     if (rightLiteral) {
         node.right = createRealCoercionCall(rightLiteral);
+        mutated = true;
+    }
+
+    if (!mutated) {
+        return null;
     }
 
     const fixDetail = createFeatherFixDetail(diagnostic, {
@@ -12499,6 +12519,39 @@ function coerceStringLiteralsInBinaryExpression(node, diagnostic) {
     attachFeatherFixMetadata(node, [fixDetail]);
 
     return fixDetail;
+}
+
+function isNumericLiteralNode(node) {
+    if (!node || node.type !== "Literal") {
+        return false;
+    }
+
+    const rawValue = typeof node.value === "string" ? node.value : null;
+
+    if (!rawValue) {
+        return false;
+    }
+
+    return NUMERIC_STRING_LITERAL_PATTERN.test(rawValue);
+}
+
+function canWrapOperandWithReal(node) {
+    if (!node || typeof node !== "object") {
+        return false;
+    }
+
+    if (node.type === "CallExpression") {
+        const object = node.object;
+        if (
+            object &&
+            object.type === "Identifier" &&
+            object.name === "real"
+        ) {
+            return false;
+        }
+    }
+
+    return true;
 }
 
 function isCoercibleStringLiteral(node) {

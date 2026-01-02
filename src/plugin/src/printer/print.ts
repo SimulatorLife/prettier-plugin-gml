@@ -87,6 +87,7 @@ import {
     ObjectWrapOption,
     resolveObjectWrapOption
 } from "../options/object-wrap-option.js";
+import { NUMERIC_STRING_LITERAL_PATTERN } from "../transforms/feather/utils.js";
 
 // Import node type constants to replace magic strings
 const {
@@ -1198,6 +1199,11 @@ function printCallExpressionNode(node, path, options, print) {
         }
     }
 
+    const numericLiteralValue = getNumericValueFromRealCall(node);
+    if (numericLiteralValue) {
+        return numericLiteralValue;
+    }
+
     applyTrigonometricFunctionSimplification(path);
     let printedArgs;
 
@@ -1307,6 +1313,74 @@ function printCallExpressionNode(node, path, options, print) {
     return isInLValueChain(path)
         ? concat([calleeDoc, ...printedArgs])
         : group([calleeDoc, ...printedArgs]);
+}
+
+function getNumericValueFromRealCall(node) {
+    if (!node || node.type !== "CallExpression") {
+        return null;
+    }
+
+    const { object, arguments: args } = node;
+    if (
+        !object ||
+        object.type !== "Identifier" ||
+        object.name !== "real" ||
+        !Array.isArray(args) ||
+        args.length !== 1
+    ) {
+        return null;
+    }
+
+    const argument = args[0];
+    if (
+        !argument ||
+        argument.type !== "Literal" ||
+        argument._skipNumericStringCoercion !== true
+    ) {
+        return null;
+    }
+
+    return getNumericStringLiteralValue(argument);
+}
+
+function getNumericStringLiteralValue(node) {
+    if (!node || node.type !== "Literal") {
+        return null;
+    }
+
+    const rawValue = typeof node.value === "string" ? node.value : null;
+
+    if (!rawValue) {
+        return null;
+    }
+
+    let literalText = null;
+
+    if (rawValue.startsWith('@"') && rawValue.endsWith('"')) {
+        literalText = rawValue.slice(2, -1);
+    } else if (rawValue.length >= 2) {
+        const startingQuote = rawValue[0];
+        const endingQuote = rawValue.at(-1);
+
+        if (
+            (startingQuote === '"' || startingQuote === "'") &&
+            startingQuote === endingQuote
+        ) {
+            literalText = Core.stripStringQuotes(rawValue);
+        }
+    }
+
+    if (literalText === undefined || literalText === null) {
+        return null;
+    }
+
+    const trimmed = Core.toTrimmedString(literalText);
+
+    if (trimmed.length === 0) {
+        return null;
+    }
+
+    return NUMERIC_STRING_LITERAL_PATTERN.test(trimmed) ? trimmed : null;
 }
 
 function printMemberDotExpressionNode(node, path, options, print) {
@@ -3458,12 +3532,34 @@ export function applyAssignmentAlignment(
         }
 
         const groupEntries = [...currentGroup];
-        const effectiveMinGroupSize =
-            minGroupSize > 0
-                ? minGroupSize
-                : DEFAULT_ASSIGNMENT_ALIGNMENT_MIN_GROUP_SIZE;
+        const contextFunctionName =
+            functionNode?.id?.name ??
+            (functionNode?.name ? functionNode.name.name : null) ??
+            "<none>";
+        console.log(
+            "alignment group",
+            contextFunctionName,
+            groupEntries.map(({ nameLength, node }) => {
+                return (
+                    node?.id?.name ??
+                    node?.left?.name ??
+                    node?.left?.property?.name ??
+                    "<unknown>"
+                );
+            }),
+            "length",
+            groupEntries.length,
+            "alias",
+            currentGroupHasAlias,
+            "minGroupSize",
+            minGroupSize
+        );
+        const alignmentEnabled = minGroupSize > 0;
+        const effectiveMinGroupSize = alignmentEnabled
+            ? minGroupSize
+            : DEFAULT_ASSIGNMENT_ALIGNMENT_MIN_GROUP_SIZE;
         const meetsAlignmentThreshold =
-            groupEntries.length >= effectiveMinGroupSize;
+            alignmentEnabled && groupEntries.length >= effectiveMinGroupSize;
         const canAlign = meetsAlignmentThreshold && currentGroupHasAlias;
 
         if (!canAlign) {
@@ -3493,8 +3589,8 @@ export function applyAssignmentAlignment(
         );
 
         if (entry) {
-        if (previousEntry) {
             if (
+                previousEntry &&
                 previousEntry.skipBreakAfter !== true &&
                 shouldBreakAssignmentAlignment(
                     previousEntry.locationNode,
@@ -3506,7 +3602,6 @@ export function applyAssignmentAlignment(
             ) {
                 flushGroup();
             }
-        }
 
             const prefixLength = entry.prefixLength ?? 0;
             currentGroup.push({

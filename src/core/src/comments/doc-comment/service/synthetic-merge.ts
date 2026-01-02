@@ -1411,6 +1411,13 @@ function finalizeDescriptionBlocks({
 
         for (let index = 0; index < adjusted.length - 1; index += 1) {
             let nextSegment = adjusted[index + 1].trim();
+            const descriptionPrefixMatch = nextSegment.match(/^(The description)\b\s*/i);
+            if (descriptionPrefixMatch) {
+                const prefixText = descriptionPrefixMatch[1];
+                nextSegment = nextSegment.slice(descriptionPrefixMatch[0].length).trim();
+                adjusted[index] = `${adjusted[index].trim()} ${prefixText}`.trim();
+                adjusted[index + 1] = nextSegment;
+            }
             while (nextSegment.length > 0 && /^[a-z]/.test(nextSegment[0])) {
                 const currentSegment = adjusted[index].trim();
                 const words = currentSegment
@@ -1421,7 +1428,7 @@ function finalizeDescriptionBlocks({
                     break;
                 }
 
-                const wordToMove = words.pop()!;
+                const wordToMove = words.pop();
                 adjusted[index] = words.join(" ").trim();
                 adjusted[index + 1] = `${wordToMove} ${nextSegment}`.trim();
                 nextSegment = adjusted[index + 1];

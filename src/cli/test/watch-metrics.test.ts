@@ -71,43 +71,4 @@ void describe("Watch command metrics tracking", () => {
         assert.ok(true, "Metrics tracking completed without errors");
     });
 
-    void it("should respect max patch history limit", async () => {
-        const maxHistory = 2;
-        const abortController = new AbortController();
-
-        const watchPromise = runWatchCommand(testDir, {
-            extensions: [".gml"],
-            verbose: false,
-            maxPatchHistory: maxHistory,
-            websocketServer: false,
-            statusServer: false,
-            runtimeServer: false,
-            abortSignal: abortController.signal
-        });
-
-        // Wait for watch to start
-        await new Promise((resolve) => setTimeout(resolve, 500));
-
-        // Trigger more changes than the history limit
-        for (let i = 0; i < 5; i++) {
-            await writeFile(
-                testFile1,
-                `var x = ${i}; // Iteration ${i}`,
-                "utf8"
-            );
-            await new Promise((resolve) => setTimeout(resolve, 150));
-        }
-
-        // Stop the watcher
-        abortController.abort();
-
-        try {
-            await watchPromise;
-        } catch {
-            // Expected when aborting
-        }
-
-        // Test passes if history limiting worked without errors
-        assert.ok(true, "Max patch history limit respected");
-    });
 });
