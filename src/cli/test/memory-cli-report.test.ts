@@ -12,9 +12,13 @@ import test from "node:test";
 import {
     DEFAULT_MEMORY_AST_COMMON_NODE_LIMIT,
     DEFAULT_MEMORY_REPORT_DIR,
+    DEFAULT_MEMORY_REPORT_FILENAME,
     MEMORY_REPORT_DIRECTORY_ENV_VAR,
+    MEMORY_REPORT_FILENAME_ENV_VAR,
     runMemoryCli,
     setDefaultMemoryReportDirectory,
+    setDefaultMemoryReportFileName,
+    applyMemoryReportFileNameEnvOverride,
     setAstCommonNodeTypeLimit,
     MemorySuiteName
 } from "../src/modules/memory/index.js";
@@ -27,6 +31,8 @@ void test("memory CLI writes suite results to a JSON report", async (t) => {
 
     t.after(() => {
         setDefaultMemoryReportDirectory(DEFAULT_MEMORY_REPORT_DIR);
+        setDefaultMemoryReportFileName(DEFAULT_MEMORY_REPORT_FILENAME);
+        applyMemoryReportFileNameEnvOverride({});
     });
 
     const exitCode = await runMemoryCli({
@@ -124,6 +130,8 @@ void test("memory CLI resolves report directory from the environment", async (t)
 
     t.after(() => {
         setDefaultMemoryReportDirectory(DEFAULT_MEMORY_REPORT_DIR);
+        setDefaultMemoryReportFileName(DEFAULT_MEMORY_REPORT_FILENAME);
+        applyMemoryReportFileNameEnvOverride({});
     });
 
     const env = { [MEMORY_REPORT_DIRECTORY_ENV_VAR]: "  env-reports  " };
@@ -137,6 +145,34 @@ void test("memory CLI resolves report directory from the environment", async (t)
     assert.strictEqual(exitCode, 0);
 
     const reportPath = path.join(workspace, "env-reports", "memory.json");
+    const reportRaw = await readFile(reportPath, "utf8");
+
+    assert.strictEqual(typeof reportRaw, "string");
+    assert.ok(reportRaw.length > 0);
+});
+
+void test("memory CLI resolves report file name from the environment", async (t) => {
+    const workspace = await mkdtemp(
+        path.join(os.tmpdir(), "memory-cli-report-env-file-")
+    );
+
+    t.after(() => {
+        setDefaultMemoryReportDirectory(DEFAULT_MEMORY_REPORT_DIR);
+        setDefaultMemoryReportFileName(DEFAULT_MEMORY_REPORT_FILENAME);
+        applyMemoryReportFileNameEnvOverride({});
+    });
+
+    const env = { [MEMORY_REPORT_FILENAME_ENV_VAR]: "  env-report.json  " };
+
+    const exitCode = await runMemoryCli({
+        argv: ["--iterations", "1"],
+        env,
+        cwd: workspace
+    });
+
+    assert.strictEqual(exitCode, 0);
+
+    const reportPath = path.join(workspace, "reports", "env-report.json");
     const reportRaw = await readFile(reportPath, "utf8");
 
     assert.strictEqual(typeof reportRaw, "string");

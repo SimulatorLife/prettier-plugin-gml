@@ -60,7 +60,7 @@ export const MEMORY_AST_COMMON_NODE_LIMIT_ENV_VAR =
     "GML_MEMORY_AST_COMMON_NODE_LIMIT";
 
 export const DEFAULT_MEMORY_REPORT_DIR = "reports";
-const DEFAULT_MEMORY_REPORT_FILENAME = "memory.json";
+export const DEFAULT_MEMORY_REPORT_FILENAME = "memory.json";
 const PROJECT_ROOT = REPO_ROOT;
 
 const PARSER_SAMPLE_RELATIVE_PATH = "src/parser/test/input/SnowState.gml";
@@ -74,6 +74,7 @@ export const MEMORY_FORMAT_MAX_ITERATIONS_ENV_VAR =
     "GML_MEMORY_FORMAT_MAX_ITERATIONS";
 export const DEFAULT_MAX_FORMAT_ITERATIONS = 25;
 export const MEMORY_REPORT_DIRECTORY_ENV_VAR = "GML_MEMORY_REPORT_DIR";
+export const MEMORY_REPORT_FILENAME_ENV_VAR = "GML_MEMORY_REPORT_FILENAME";
 
 export const MemorySuiteName = Object.freeze({
     NORMALIZE_STRING_LIST: "normalize-string-list",
@@ -162,6 +163,48 @@ function resolveMemoryReportDirectory(
     );
 
     return normalizeMemoryReportDirectory(value, fallback);
+}
+
+function normalizeMemoryReportFileName(value, fallback) {
+    return getNonEmptyTrimmedString(value) ?? fallback;
+}
+
+const memoryReportFileNameConfig = createEnvConfiguredValue({
+    defaultValue: DEFAULT_MEMORY_REPORT_FILENAME,
+    envVar: MEMORY_REPORT_FILENAME_ENV_VAR,
+    normalize: (value, { defaultValue: baseline, previousValue }) =>
+        normalizeMemoryReportFileName(
+            value,
+            previousValue ?? baseline ?? DEFAULT_MEMORY_REPORT_FILENAME
+        )
+});
+
+function getDefaultMemoryReportFileName() {
+    return memoryReportFileNameConfig.get();
+}
+
+function setDefaultMemoryReportFileName(value) {
+    return memoryReportFileNameConfig.set(value);
+}
+
+interface ResolveMemoryReportFileNameOptions {
+    defaultValue?: string | null | undefined;
+}
+
+function resolveMemoryReportFileName(
+    value?: string | null,
+    { defaultValue }: ResolveMemoryReportFileNameOptions = {}
+) {
+    const fallback = normalizeMemoryReportFileName(
+        defaultValue,
+        getDefaultMemoryReportFileName()
+    );
+
+    return normalizeMemoryReportFileName(value, fallback);
+}
+
+function applyMemoryReportFileNameEnvOverride(env) {
+    return memoryReportFileNameConfig.applyEnvOverride(env);
 }
 
 interface MemoryReportPathOptions {
@@ -780,10 +823,17 @@ export {
     resolveAstCommonNodeTypeLimit,
     getDefaultMemoryReportDirectory,
     setDefaultMemoryReportDirectory,
-    applyMemoryReportDirectoryEnvOverride
+    applyMemoryReportDirectoryEnvOverride,
+    getDefaultMemoryReportFileName,
+    setDefaultMemoryReportFileName,
+    applyMemoryReportFileNameEnvOverride
 };
 
-export { resolveMemoryIterations, resolveMemoryReportDirectory };
+export {
+    resolveMemoryIterations,
+    resolveMemoryReportDirectory,
+    resolveMemoryReportFileName
+};
 
 interface MemoryEnvOptionOverridesContext {
     command?: CommanderCommandLike;
@@ -819,6 +869,7 @@ export function applyMemoryEnvOptionOverrides({
 applyMemoryIterationsEnvOverride(process.env);
 applyParserMaxIterationsEnvOverride(process.env);
 applyFormatMaxIterationsEnvOverride(process.env);
+applyMemoryReportFileNameEnvOverride(process.env);
 applyMemoryReportDirectoryEnvOverride(process.env);
 applyAstCommonNodeTypeLimitEnvOverride(process.env);
 
@@ -1237,7 +1288,7 @@ function resolveMemoryReportPath({
 }: MemoryReportPathOptions) {
     const effectiveReportDir = resolveMemoryReportDirectory(reportDir);
     const resolvedReportDir = path.resolve(cwd, effectiveReportDir);
-    const resolvedReportName = reportFileName ?? DEFAULT_MEMORY_REPORT_FILENAME;
+    const resolvedReportName = resolveMemoryReportFileName(reportFileName);
 
     return path.join(resolvedReportDir, resolvedReportName);
 }
@@ -1287,7 +1338,7 @@ export async function runMemoryCli({
     env = process.env,
     cwd = process.cwd(),
     reportDir,
-    reportFileName = DEFAULT_MEMORY_REPORT_FILENAME,
+    reportFileName,
     writeFile: customWriteFile
 }: MemoryCliOptions = {}) {
     const command = createMemoryCommand({ env });
@@ -1301,6 +1352,7 @@ export async function runMemoryCli({
         throw error;
     }
 
+    applyMemoryReportFileNameEnvOverride(env);
     applyMemoryReportDirectoryEnvOverride(env);
 
     const reportPath = resolveMemoryReportPath({
