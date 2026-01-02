@@ -562,6 +562,7 @@ function tryPrintFunctionNode(node, path, options, print) {
                     docCommentDocs._suppressLeadingBlank === true;
 
                 const hasLeadingNonDocComment =
+                    docCommentDocs.length === 0 &&
                     !Core.isNonEmptyArray(node.docComments) &&
                     originalText !== null &&
                     typeof nodeStartIndex === NUMBER_TYPE &&
@@ -1154,7 +1155,7 @@ function printCallExpressionNode(node, path, options, print) {
             if (docs.length > 0) {
                 docs.push(hardline);
             }
-            docs.push(concat(["// ", renderedText]));
+            docs.push(concat(["//", renderedText]));
         }
 
         if (docs.length === 0) {

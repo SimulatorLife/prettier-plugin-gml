@@ -1068,6 +1068,10 @@ export function shouldGenerateSyntheticDocForFunction(
         return true;
     }
 
+    if (Array.isArray(existingDocLines) && existingDocLines.length > 0) {
+        return true;
+    }
+
     const hasParamDocLines = existingDocLines.some((line) => {
         if (typeof line !== STRING_TYPE) {
             return false;

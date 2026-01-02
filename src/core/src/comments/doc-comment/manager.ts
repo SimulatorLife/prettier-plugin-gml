@@ -181,7 +181,10 @@ function mapDocCommentsToFunctions(ast) {
             continue;
         }
 
-        const commentIndex = comment?.start?.index;
+        const commentIndex =
+            typeof comment?.start === "number"
+                ? comment.start
+                : (comment?.start?.index ?? null);
         if (typeof commentIndex !== "number") {
             continue;
         }

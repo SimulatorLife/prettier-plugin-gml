@@ -18,6 +18,7 @@ const DEFAULT_BOILERPLATE_COMMENT_FRAGMENTS = Object.freeze([
 const DEFAULT_COMMENTED_OUT_CODE_PATTERNS = Object.freeze([
     /^(?:if|else|for|while|switch|do|return|break|continue|repeat|with|var|global|enum|function|try|catch|finally|throw|delete|new)\b/i,
     /^[A-Za-z_$][A-Za-z0-9_$]*\s*(?:\.|\(|\[|=)/,
+    /^[A-Za-z_$][A-Za-z0-9_$]*\s{2,}:/,
     /^[{}()[\].]/,
     /^#/
 ]);

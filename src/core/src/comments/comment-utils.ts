@@ -282,5 +282,10 @@ export function isDocCommentLine(comment) {
         return false;
     }
 
+    const trimmedValue = comment.value.trimStart();
+    if (/^\/(?!\/)/.test(trimmedValue)) {
+        return true;
+    }
+
     return /^\s*(?:\/\s*)?@/.test(comment.value);
 }
