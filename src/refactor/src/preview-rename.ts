@@ -273,8 +273,8 @@ export async function commitRenamePreview(
     // Write the preview content to disk
     // The preview already contains the final content after applying edits
     // We write sequentially to avoid file system race conditions
-     
     for (const [path, content] of preview.preview) {
+        // eslint-disable-next-line no-await-in-loop -- Sequential writes prevent race conditions
         await writeFile(path, content);
     }
 
