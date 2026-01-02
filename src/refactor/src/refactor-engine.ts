@@ -1127,10 +1127,33 @@ export class RefactorEngine {
         // that only need static validation feedback.
         let hotReloadValidation: ValidationSummary | null = null;
         if (validateHotReload) {
-            hotReloadValidation = await this.validateHotReloadCompatibility(
+            const safety = await this.checkHotReloadSafety(request);
+            const compatibility = await this.validateHotReloadCompatibility(
                 workspace,
                 hotReloadOptions
             );
+
+            const errors = [...compatibility.errors];
+            const warnings = [...compatibility.warnings];
+
+            if (!safety.safe) {
+                const safetyMessage = safety.requiresRestart
+                    ? `Hot reload requires restart: ${safety.reason}`
+                    : `Hot reload limitations: ${safety.reason}`;
+
+                warnings.push(safetyMessage);
+
+                if (safety.requiresRestart) {
+                    errors.push(safetyMessage);
+                }
+            }
+
+            hotReloadValidation = {
+                valid: compatibility.valid && safety.safe,
+                errors,
+                warnings,
+                hotReload: safety
+            };
         }
 
         // Provide an impact analysis snapshot so UIs can preview how many files
