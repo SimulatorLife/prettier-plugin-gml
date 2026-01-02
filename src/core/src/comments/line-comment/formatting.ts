@@ -205,17 +205,6 @@ function tryFormatBannerComment(
     slashesMatch: RegExpMatchArray | null,
     hasDecorations: boolean
 ): string | null {
-    const shouldLogBanner =
-        trimmedValue.includes("Move camera") ||
-        /^\/{4,}/.test(trimmedOriginal);
-    if (shouldLogBanner) {
-        console.log(
-            "DEBUG-BANNER-ENTRY",
-            trimmedValue,
-            "hasDecorations:",
-            hasDecorations
-        );
-    }
 
     if (!slashesMatch) {
         return null;
@@ -242,42 +231,29 @@ function tryFormatBannerComment(
     // Treat as a banner/decorative comment.
     const bannerContent = normalizeBannerCommentText(trimmedValue);
     if (bannerContent) {
-        if (shouldLogBanner) {
-            console.log("DEBUG-BANNER-RESULT", "bannerContent", bannerContent);
-        }
         return applyInlinePadding(comment, `// ${bannerContent}`);
     }
 
     // If the comment consists entirely of slashes (e.g. "////////////////"),
     // treat it as a decorative separator and suppress it.
     const contentAfterStripping = trimmedValue.replace(/^\/+\s*/, "");
-    if (shouldLogBanner) {
-        console.log(
-            "DEBUG-BANNER-STRIPPED",
-            "contentAfterStripping:",
-            contentAfterStripping
-        );
-    }
-    if (contentAfterStripping.length === 0 && trimmedValue.length > 0) {
-        if (shouldLogBanner) {
-            console.log("DEBUG-BANNER-RETURN", "just slashes");
-        }
-        return applyInlinePadding(comment, "//");
-    }
 
     if (!/[A-Za-z0-9]/.test(contentAfterStripping)) {
-        if (shouldLogBanner) {
+        if (process.env.GML_PRINTER_DEBUG) {
             console.log(
-                "DEBUG-BANNER-RETURN",
-                "non alphanumeric:",
-                contentAfterStripping
+                "DEBUG-BANNER-WS",
+                trimmedValue,
+                "leadingWS:",
+                comment?.leadingWS,
+                "trailingWS:",
+                comment?.trailingWS
             );
         }
         if (isObjectLike(comment)) {
             comment.leadingWS = "";
             comment.trailingWS = "";
         }
-        return "\n";
+        return "";
     }
 
     // If normalization fails but there is content, return the comment with normalized slashes

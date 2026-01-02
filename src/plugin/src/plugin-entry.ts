@@ -79,6 +79,161 @@ function stripFunctionTagComments(formatted: string): string {
     return formatted.replaceAll(FUNCTION_TAG_CLEANUP_PATTERN, "");
 }
 
+const INLINE_TRAILING_COMMENT_SPACING_PATTERN =
+    /(?<=\S)[ \t]{2,}(?=\/\/(?!\/))/g;
+
+function normalizeInlineTrailingCommentSpacing(formatted: string): string {
+    return formatted.replace(
+        INLINE_TRAILING_COMMENT_SPACING_PATTERN,
+        " "
+    );
+}
+
+function extractLineCommentPayload(line: string): string | null {
+    const trimmed = line.trim();
+    if (trimmed.startsWith("///")) {
+        return trimmed.slice(3).trim();
+    }
+
+    if (trimmed.startsWith("//")) {
+        return trimmed.slice(2).trim();
+    }
+
+    return null;
+}
+
+function removeDuplicateDocLikeLineComments(formatted: string): string {
+    const lines = formatted.split(/\r?\n/);
+    const result: string[] = [];
+
+    for (const line of lines) {
+        const trimmed = line.trim();
+
+        if (trimmed.startsWith("///")) {
+            const docPayload = extractLineCommentPayload(line);
+            const previousLine = result[result.length - 1];
+            if (
+                docPayload !== null &&
+                typeof previousLine === "string"
+            ) {
+                const previousPayload = extractLineCommentPayload(
+                    previousLine
+                );
+                if (
+                    previousPayload !== null &&
+                    previousPayload === docPayload
+                ) {
+                    continue;
+                }
+            }
+        }
+
+        result.push(line);
+    }
+
+    return result.join("\n");
+}
+
+function ensureBlankLineBeforeTopLevelLineComments(
+    formatted: string
+): string {
+    const lines = formatted.split(/\r?\n/);
+    const result: string[] = [];
+
+    for (const line of lines) {
+        const trimmedStart = line.trimStart();
+        const isPlainLineComment =
+            trimmedStart.startsWith("//") &&
+            !trimmedStart.startsWith("///") &&
+            trimmedStart === line;
+
+        if (isPlainLineComment && result.length > 0) {
+            const previousLine = result[result.length - 1];
+            if (typeof previousLine === "string" && previousLine.trim() === "}") {
+                result.push("");
+            }
+        }
+
+        result.push(line);
+    }
+
+    return result.join("\n");
+}
+
+function collectLineCommentTrailingWhitespace(
+    source: string
+): Map<string, string[]> {
+    const lines = source.split(/\r?\n/);
+    const map = new Map<string, string[]>();
+
+    for (const line of lines) {
+        const trimmedStart = line.trimStart();
+        const isPlainLineComment =
+            trimmedStart.startsWith("//") &&
+            !trimmedStart.startsWith("///") &&
+            trimmedStart === line;
+
+        if (!isPlainLineComment) {
+            continue;
+        }
+
+        const withoutTrailing = line.replace(/[ \t]+$/, "");
+        const trailingWhitespace = line.slice(withoutTrailing.length);
+        if (trailingWhitespace.length === 0) {
+            continue;
+        }
+
+        const normalized = line.trim();
+        const queue = map.get(normalized) ?? [];
+        queue.push(trailingWhitespace);
+        map.set(normalized, queue);
+    }
+
+    return map;
+}
+
+function reapplyLineCommentTrailingWhitespace(
+    formatted: string,
+    source: string
+): string {
+    const whitespaceMap = collectLineCommentTrailingWhitespace(source);
+    if (whitespaceMap.size === 0) {
+        return formatted;
+    }
+
+    const lines = formatted.split(/\r?\n/);
+
+    for (let index = 0; index < lines.length; index += 1) {
+        const line = lines[index];
+        const trimmedStart = line.trimStart();
+        const isPlainLineComment =
+            trimmedStart.startsWith("//") &&
+            !trimmedStart.startsWith("///") &&
+            trimmedStart === line;
+
+        if (!isPlainLineComment) {
+            continue;
+        }
+
+        const normalized = line.trim();
+        const queue = whitespaceMap.get(normalized);
+        if (!queue || queue.length === 0) {
+            continue;
+        }
+
+        const trailing = queue.shift();
+        if (
+            typeof trailing === "string" &&
+            trailing.length > 0 &&
+            !line.endsWith(trailing)
+        ) {
+            lines[index] = `${line}${trailing}`;
+        }
+    }
+
+    return lines.join("\n");
+}
+
 function extractOptionDefaults(
     optionConfigMap: SupportOptions
 ): Record<string, unknown> {
@@ -155,7 +310,16 @@ async function format(source: string, options: SupportOptions = {}) {
         const withoutFunctionTags = stripFunctionTagComments(normalizedCleaned);
         const collapsedAfterStrip =
             collapseDuplicateBlankLines(withoutFunctionTags);
-        return collapseVertexFormatBeginSpacing(collapsedAfterStrip);
+        const dedupedComments = removeDuplicateDocLikeLineComments(
+            collapseVertexFormatBeginSpacing(collapsedAfterStrip)
+        );
+        const normalizedCommentSpacing =
+            normalizeInlineTrailingCommentSpacing(dedupedComments);
+        const spacedComments =
+            ensureBlankLineBeforeTopLevelLineComments(
+                normalizedCommentSpacing
+            );
+        return reapplyLineCommentTrailingWhitespace(spacedComments, source);
     } finally {
         if (
             docCommentMaxWrapWidth !== undefined ||
