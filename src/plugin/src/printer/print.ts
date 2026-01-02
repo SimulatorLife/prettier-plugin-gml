@@ -562,7 +562,6 @@ function tryPrintFunctionNode(node, path, options, print) {
                     docCommentDocs._suppressLeadingBlank === true;
 
                 const hasLeadingNonDocComment =
-                    docCommentDocs.length === 0 &&
                     !Core.isNonEmptyArray(node.docComments) &&
                     originalText !== null &&
                     typeof nodeStartIndex === NUMBER_TYPE &&
