@@ -41,11 +41,11 @@ function changeState(newState = eStates.STATE_IDLE) {
 }
 
 /*
-This is a multi-line comment
-It continues on this line
-Woah, still going
-Almost done!
-*/
+ * This is a multi-line comment
+ * It continues on this line
+ * Woah, still going
+ * Almost done!
+ */
 
 #macro is_debug_mode true
 

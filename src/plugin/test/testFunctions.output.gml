@@ -136,8 +136,8 @@ function __ChatterboxBufferBatch() constructor {
 
     /// @returns {undefined}
     static __Destroy = function() {
-        if (__destroyed) { 
-            return; 
+        if (__destroyed) {
+            return;
         }
         __destroyed = true;
 
@@ -203,7 +203,7 @@ function scr_spring(a, b, dst, force, push_out = true, pull_in = true) {
 
     if ((actual_dist < dst * dst and push_out) or (actual_dist > dst * dst and pull_in)) {
         actual_dist = sqrt(actual_dist);
-        var diff = actual_dist - dst;
+        var diff    = actual_dist - dst;
         
         // normalize and multiply with diff and amount
         var norm = (force * diff) / actual_dist;
@@ -250,7 +250,8 @@ get_debug_text = function() {
 }
 
 /// @description Write a unit triangular prism into an existing vbuff.
-///              Local space: X∈[-0.5,+0.5], Y∈[-0.5,+0.5], base plane at Z=0, apex line at (Y=0,Z=1).
+///              Local space: X∈[-0.5,+0.5], Y∈[-0.5,+0.5], base plane at Z=0, apex line at
+///              (Y=0,Z=1).
 /// @param vbuff
 /// @param [colour=c_white]
 /// @param [alpha=1]
