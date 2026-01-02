@@ -4009,7 +4009,15 @@ function shouldBreakAssignmentAlignment(
         return true;
     }
 
+    if (shouldBreakAlignmentBeforeStatic(between)) {
+        return true;
+    }
+
     return /(?:^|\n)\s*(?:\/\/|\/\*)/.test(between);
+}
+
+function shouldBreakAlignmentBeforeStatic(between) {
+    return /(?:^|\n)\s*static\b/.test(between);
 }
 
 function isArgumentAliasGap(text) {

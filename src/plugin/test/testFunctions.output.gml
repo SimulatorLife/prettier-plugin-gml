@@ -136,7 +136,9 @@ function __ChatterboxBufferBatch() constructor {
 
     /// @returns {undefined}
     static __Destroy = function() {
-        if (__destroyed) { return; }
+        if (__destroyed) { 
+            return; 
+        }
         __destroyed = true;
 
         if (!is_undefined(__inBuffer)) {
@@ -166,7 +168,7 @@ var message5 = greet(undefined, "Welcome");
 /// @param {real} [multiplier] The multiplier to apply to the light direction
 /// @param {array<real>} [light_dir=[0, 0, -1]] The direction of the light
 function handle_lighting(multiplier = undefined, light_dir = [0, 0, -1]) {
-    var dir = light_dir;
+    var dir    = light_dir;
     var length = sqrt(dir[0] * dir[0] + dir[1] * dir[1] + dir[2] * dir[2]);
     if (!is_undefined(multiplier)) {
         length *= multiplier;

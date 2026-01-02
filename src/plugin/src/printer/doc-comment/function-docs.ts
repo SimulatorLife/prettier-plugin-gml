@@ -603,7 +603,9 @@ export function normalizeFunctionDocCommentDocs({
     const docCommentOptions = resolveDocCommentPrinterOptions(options);
     const descriptionContinuations =
         collectDescriptionContinuations(docCommentDocs);
-
+    const preserveDescriptionBreaks =
+        Array.isArray(docCommentDocs) &&
+        (docCommentDocs as any)._preserveDescriptionBreaks === true;
     if (
         Core.shouldGenerateSyntheticDocForFunction(
             path,
@@ -674,9 +676,12 @@ export function normalizeFunctionDocCommentDocs({
 
     docCommentDocs = wrapDocDescriptionLines(
         docCommentDocs,
-        docCommentOptions.docCommentMaxWrapWidth,
-        shouldPreserveDescriptionContinuations
+        docCommentOptions.docCommentMaxWrapWidth
     );
+
+    if (preserveDescriptionBreaks && Array.isArray(docCommentDocs)) {
+        (docCommentDocs as any)._preserveDescriptionBreaks = true;
+    }
 
     return { docCommentDocs, needsLeadingBlankLine };
 }
@@ -685,10 +690,12 @@ const DESCRIPTION_LINE_PATTERN = /^(\s*\/\/\/\s*@description\s+)(.*)$/i;
 
 function wrapDocDescriptionLines(
     docCommentDocs: MutableDocCommentLines,
-    wrapWidth: number,
-    preserveContinuations: boolean = false
+    wrapWidth: number
 ) {
-    if (preserveContinuations === true) {
+    if (
+        Array.isArray(docCommentDocs) &&
+        (docCommentDocs as any)._preserveDescriptionBreaks === true
+    ) {
         return docCommentDocs;
     }
 
