@@ -1381,7 +1381,6 @@ function finalizeDescriptionBlocks({
         return segments;
     };
 
-
     for (let index = 0; index < docs.length; index += 1) {
         const line = docs[index];
         if (docTagHelpers.isDescriptionLine(line)) {

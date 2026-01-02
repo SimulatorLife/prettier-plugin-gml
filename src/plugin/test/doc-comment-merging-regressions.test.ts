@@ -38,9 +38,7 @@ void test("uses actual parameter name when documented name differs", async () =>
     const formatted = await Plugin.format(source);
 
     assert.ok(
-        formatted.includes(
-            "/// @param font_name The target font, as a string"
-        ),
+        formatted.includes("/// @param font_name The target font, as a string"),
         "Expected the formatter to update the documented alias for the parameter"
     );
     assert.ok(
