@@ -1386,29 +1386,6 @@ function getNumericStringLiteralValue(node) {
 }
 
 function printMemberDotExpressionNode(node, path, options, print) {
-    if (
-        options?.preserveGlobalVarStatements !== false &&
-        node?.object?.type === IDENTIFIER &&
-        node.object.name === "global"
-    ) {
-        const preservedNames =
-            options?.preserveGlobalVarStatements === false
-                ? null
-                : options?.[PRESERVED_GLOBAL_VAR_NAMES];
-        const propertyNode = node.property;
-        const propertyName =
-            propertyNode?.type === IDENTIFIER
-                ? Core.getIdentifierText(propertyNode)
-                : null;
-        if (
-            preservedNames &&
-            preservedNames.size > 0 &&
-            typeof propertyName === STRING_TYPE &&
-            preservedNames.has(propertyName)
-        ) {
-            return print("property");
-        }
-    }
     if (isInLValueChain(path) && path.parent?.type === CALL_EXPRESSION) {
         const objectNode = path.getValue()?.object;
         const shouldAllowBreakBeforeDot =
@@ -1723,9 +1700,6 @@ function tryPrintLiteralNode(node, path, options, print) {
             return concat(value);
         }
         case "Identifier": {
-            const prefix = shouldPrefixGlobalIdentifier(path, options)
-                ? "global."
-                : "";
             let identifierName = node.name;
 
             const argumentIndex =
@@ -1759,6 +1733,10 @@ function tryPrintLiteralNode(node, path, options, print) {
             if (Core.isNonEmptyString(renamed)) {
                 identifierName = renamed;
             }
+
+            const prefix = shouldPrefixGlobalIdentifier(path, options)
+                ? "global."
+                : "";
 
             let extraPadding = 0;
             if (
@@ -4009,15 +3987,7 @@ function shouldBreakAssignmentAlignment(
         return true;
     }
 
-    if (shouldBreakAlignmentBeforeStatic(between)) {
-        return true;
-    }
-
     return /(?:^|\n)\s*(?:\/\/|\/\*)/.test(between);
-}
-
-function shouldBreakAlignmentBeforeStatic(between) {
-    return /(?:^|\n)\s*static\b/.test(between);
 }
 
 function isArgumentAliasGap(text) {
@@ -5812,9 +5782,7 @@ function shouldPrefixGlobalIdentifier(path, options) {
         options?.preserveGlobalVarStatements === false
             ? null
             : options?.[PRESERVED_GLOBAL_VAR_NAMES];
-    const identifierName = preservedNames
-        ? Core.getIdentifierText(node)
-        : null;
+    const identifierName = preservedNames ? Core.getIdentifierText(node) : null;
     if (
         preservedNames &&
         preservedNames.size > 0 &&

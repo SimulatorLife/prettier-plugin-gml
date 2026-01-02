@@ -73,7 +73,7 @@ function Circle(r) : Shape() constructor {
 }
 
 var myCircle = new Circle(10);
-var circle2  = new Circle(myCircle.r);
+var circle2 = new Circle(myCircle.r);
 
 show_debug_message(myCircle.r);
 
@@ -103,9 +103,9 @@ function Line() : Shape() constructor {
 /// @param settings
 /// @param fallback
 function choose_profile(settings, fallback) {
-    var config         = settings ?? global.default_settings;
+    var config = settings ?? global.default_settings;
     var themeCandidate = config.theme_override ?? fallback.theme_override;
-    var finalTheme     = themeCandidate ?? global.theme_defaults;
+    var finalTheme = themeCandidate ?? global.theme_defaults;
     if (is_undefined(config ?? fallback)) {
         return "guest";
     }
@@ -136,9 +136,7 @@ function __ChatterboxBufferBatch() constructor {
 
     /// @returns {undefined}
     static __Destroy = function() {
-        if (__destroyed) { 
-            return; 
-        }
+        if (__destroyed) { return; }
         __destroyed = true;
 
         if (!is_undefined(__inBuffer)) {
@@ -168,7 +166,7 @@ var message5 = greet(undefined, "Welcome");
 /// @param {real} [multiplier] The multiplier to apply to the light direction
 /// @param {array<real>} [light_dir=[0, 0, -1]] The direction of the light
 function handle_lighting(multiplier = undefined, light_dir = [0, 0, -1]) {
-    var dir    = light_dir;
+    var dir = light_dir;
     var length = sqrt(dir[0] * dir[0] + dir[1] * dir[1] + dir[2] * dir[2]);
     if (!is_undefined(multiplier)) {
         length *= multiplier;
@@ -256,9 +254,7 @@ get_debug_text = function() {
 /// @param [alpha=1]
 /// @param [trans_mat]
 /// @returns {undefined}
-function vertex_buffer_write_triangular_prism(
-    vbuff, colour = c_white, alpha = 1, trans_mat = undefined
-) {
+function vertex_buffer_write_triangular_prism(vbuff, colour = c_white, alpha = 1, trans_mat = undefined) {
 
     var hx = 0.5,
         hy = 0.5,
@@ -281,36 +277,20 @@ function vertex_buffer_write_triangular_prism(
     static uv01 = [0, 1];
 
     // Base quad (Z=0): L0-R0-R1,  L0-R1-L1  (outside normal points to Z-; ok for debug)
-    vertex_buffer_write_triangle(
-        vbuff, L0, R0, R1, uv00, uv10, uv11, colour, alpha, trans_mat
-    );
-    vertex_buffer_write_triangle(
-        vbuff, L0, R1, L1, uv00, uv11, uv01, colour, alpha, trans_mat
-    );
+    vertex_buffer_write_triangle(vbuff, L0, R0, R1, uv00, uv10, uv11, colour, alpha, trans_mat);
+    vertex_buffer_write_triangle(vbuff, L0, R1, L1, uv00, uv11, uv01, colour, alpha, trans_mat);
 
     // Left sloped face (y=-hy -> apex): quad L0-R0-RA-LA  => (L0,R0,RA) + (L0,RA,LA)
-    vertex_buffer_write_triangle(
-        vbuff, L0, R0, RA, uv00, uv10, uv11, colour, alpha, trans_mat
-    );
-    vertex_buffer_write_triangle(
-        vbuff, L0, RA, LA, uv00, uv11, uv01, colour, alpha, trans_mat
-    );
+    vertex_buffer_write_triangle(vbuff, L0, R0, RA, uv00, uv10, uv11, colour, alpha, trans_mat);
+    vertex_buffer_write_triangle(vbuff, L0, RA, LA, uv00, uv11, uv01, colour, alpha, trans_mat);
 
     // Right sloped face (y=+hy -> apex): quad R1-L1-LA-RA  => (R1,L1,LA) + (R1,LA,RA)
-    vertex_buffer_write_triangle(
-        vbuff, R1, L1, LA, uv00, uv10, uv11, colour, alpha, trans_mat
-    );
-    vertex_buffer_write_triangle(
-        vbuff, R1, LA, RA, uv00, uv11, uv01, colour, alpha, trans_mat
-    );
+    vertex_buffer_write_triangle(vbuff, R1, L1, LA, uv00, uv10, uv11, colour, alpha, trans_mat);
+    vertex_buffer_write_triangle(vbuff, R1, LA, RA, uv00, uv11, uv01, colour, alpha, trans_mat);
 
     // End caps (triangles in X)
     // X = -hx cap: L0, L1, LA
-    vertex_buffer_write_triangle(
-        vbuff, L0, L1, LA, uv00, uv10, uv11, colour, alpha, trans_mat
-    );
+    vertex_buffer_write_triangle(vbuff, L0, L1, LA, uv00, uv10, uv11, colour, alpha, trans_mat);
     // X = +hx cap: R1, R0, RA
-    vertex_buffer_write_triangle(
-        vbuff, R1, R0, RA, uv00, uv10, uv11, colour, alpha, trans_mat
-    );
+    vertex_buffer_write_triangle(vbuff, R1, R0, RA, uv00, uv10, uv11, colour, alpha, trans_mat);
 }
