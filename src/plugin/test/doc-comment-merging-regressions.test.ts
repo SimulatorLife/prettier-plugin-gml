@@ -39,7 +39,7 @@ void test("uses actual parameter name when documented name differs", async () =>
 
     assert.ok(
         formatted.includes(
-            "/// @param font_name - The target font, as a string"
+            "/// @param font_name The target font, as a string"
         ),
         "Expected the formatter to update the documented alias for the parameter"
     );

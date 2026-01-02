@@ -244,20 +244,6 @@ function printComment(commentPath, options) {
                     endIndex + 1
                 );
 
-                if (comment.value.includes("Orthogonalize")) {
-                    console.log(
-                        `DEBUG: printComment Orthogonalize blankLines=${blankLines} endIndex=${endIndex}`
-                    );
-                    console.log(
-                        `DEBUG: originalText slice: "${options.originalText
-                            .slice(endIndex, endIndex + 10)
-                            .replaceAll("\n", String.raw`\n`)}"`
-                    );
-                    console.log(
-                        `DEBUG: comment start=${JSON.stringify(comment.start)}`
-                    );
-                }
-
                 const shouldPrependBlankLine =
                     hasLeadingBlankLine(comment) ||
                     hasLeadingBlankLineInSource(comment, options?.originalText);
@@ -287,13 +273,6 @@ function printComment(commentPath, options) {
                 comment,
                 formattingOptions
             );
-
-            if (comment.value.includes("Please do not use")) {
-                console.log("DEBUG: comment-printer Comments", {
-                    formatted,
-                    commentValue: comment.value
-                });
-            }
 
             const normalized =
                 typeof formatted === "string"

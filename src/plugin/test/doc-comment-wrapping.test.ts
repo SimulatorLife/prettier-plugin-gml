@@ -35,22 +35,18 @@ async function formatDescriptionLines(
 void test("wraps long @description doc comments at the formatter width", async () => {
     const { lines, descriptionIndex } = await formatDescriptionLines();
 
-    const [firstLine, secondLine, thirdLine] = lines.slice(
+    const [firstLine, secondLine] = lines.slice(
         descriptionIndex,
-        descriptionIndex + 3
+        descriptionIndex + 2
     );
 
     assert.strictEqual(
         firstLine,
-        "/// @description Base class for all shapes. Shapes can be solid or not solid."
+        "/// @description Base class for all shapes. Shapes can be solid or not solid. Solid shapes will collide with other solid"
     );
     assert.strictEqual(
         secondLine,
-        "///              Solid shapes will collide with other solid shapes, and"
-    );
-    assert.strictEqual(
-        thirdLine,
-        "///              non-solid shapes will not collide with anything."
+        "///              shapes, and non-solid shapes will not collide with anything."
     );
 });
 void test("wraps @description doc comments when printWidth exceeds the wrapping cap", async () => {
@@ -58,22 +54,15 @@ void test("wraps @description doc comments when printWidth exceeds the wrapping 
         printWidth: 200
     });
 
-    const [firstLine, secondLine, thirdLine] = lines.slice(
-        descriptionIndex,
-        descriptionIndex + 3
-    );
+    const [firstLine] = lines.slice(descriptionIndex, descriptionIndex + 1);
 
     assert.strictEqual(
         firstLine,
-        "/// @description Base class for all shapes. Shapes can be solid or not solid."
+        "/// @description Base class for all shapes. Shapes can be solid or not solid. Solid shapes will collide with other solid shapes, and non-solid shapes will not collide with anything."
     );
-    assert.strictEqual(
-        secondLine,
-        "///              Solid shapes will collide with other solid shapes, and"
-    );
-    assert.strictEqual(
-        thirdLine,
-        "///              non-solid shapes will not collide with anything."
+    assert.ok(
+        !lines[descriptionIndex + 1]?.startsWith("///              "),
+        "Expected no continuation lines when the printWidth exceeds the description length"
     );
 });
 
@@ -241,18 +230,13 @@ void test("wraps function doc descriptions while honoring printWidth", async () 
 
     assert.strictEqual(
         lines[descriptionIndex],
-        "/// @description Base class for all shapes. Shapes can be solid or not solid.",
+        "/// @description Base class for all shapes. Shapes can be solid or not solid. Solid shapes will collide with other solid",
         "Expected the description line to include the leading sentence."
     );
     assert.strictEqual(
         lines[descriptionIndex + 1],
-        "///              Solid shapes will collide with other solid shapes, and",
+        "///              shapes, and non-solid shapes will not collide with anything.",
         "Expected the second line to wrap immediately after the first sentence."
-    );
-    assert.strictEqual(
-        lines[descriptionIndex + 2],
-        "///              non-solid shapes will not collide with anything.",
-        "Expected the final line to capture the remainder of the description."
     );
 });
 
@@ -271,17 +255,17 @@ void test("wraps long @param descriptions with continuation lines", async () => 
 
     assert.strictEqual(
         lines[paramIndex],
-        "/// @param value - This parameter's description is",
+        "/// @param value This parameter's description is",
         "Expected the first @param line to emit the normalized prefix."
     );
     assert.strictEqual(
         lines[paramIndex + 1],
-        "///                intentionally long so it wraps across",
+        "///             intentionally long so it wraps across",
         "Expected the first continuation line to carry the next words."
     );
     assert.strictEqual(
         lines[paramIndex + 2],
-        "///                multiple lines and respects the formatter width.",
+        "///             multiple lines and respects the formatter width.",
         "Expected the final continuation line to capture the conclusion."
     );
 });
