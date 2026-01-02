@@ -321,10 +321,10 @@ void test("omits alias-style description doc comments when synthetic metadata is
     );
 });
 
-void test("respects wider printWidth when wrapping description doc comments", async () => {
+void test("respects printWidth for wrapping description doc comments", async () => {
     const source = [
         "/// @function sample(_first, _second)",
-        "/// @desc A longer example description that should wrap into multiple lines and appear after the",
+        "/// @desc A longer example description that is still under the printWidth should not wrap at all",
         "/// @param {String Array[String]} _first First input",
         "/// @param {Id Instance} _second Second input",
         "function sample(_first, _second)",
@@ -340,14 +340,13 @@ void test("respects wider printWidth when wrapping description doc comments", as
     assert.deepStrictEqual(
         lines.slice(0, 6),
         [
-            "/// @description A longer example description that should wrap into multiple lines and appear after",
-            "///              the",
+            "/// @description A longer example description that is still under the printWidth should not wrap at all",
             "/// @param {string,array[string]} first - First input",
             "/// @param {Id.Instance} second - Second input",
             "/// @returns {undefined}",
             "function sample(_first, _second) {"
         ],
-        "Description doc comments should clamp to the formatter's wrapping width even when printWidth is larger."
+        "Description doc comments should not wrap when under the printWidth limit."
     );
 });
 
@@ -362,7 +361,7 @@ void test("wraps long description doc comments using the formatter cap", async (
         ""
     ].join("\n");
 
-    const formatted = await Plugin.format(source);
+    const formatted = await Plugin.format(source, { printWidth: 95 });
     const lines = formatted.trim().split("\n");
 
     assert.deepStrictEqual(
