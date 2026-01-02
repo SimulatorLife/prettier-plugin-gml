@@ -669,9 +669,13 @@ export function normalizeFunctionDocCommentDocs({
     }
 
     docCommentDocs = removeFunctionDocCommentLines(docCommentDocs);
+    const shouldPreserveDescriptionContinuations =
+        descriptionContinuations.length > 0;
+
     docCommentDocs = wrapDocDescriptionLines(
         docCommentDocs,
-        docCommentOptions.docCommentMaxWrapWidth
+        docCommentOptions.docCommentMaxWrapWidth,
+        shouldPreserveDescriptionContinuations
     );
 
     return { docCommentDocs, needsLeadingBlankLine };
@@ -681,8 +685,13 @@ const DESCRIPTION_LINE_PATTERN = /^(\s*\/\/\/\s*@description\s+)(.*)$/i;
 
 function wrapDocDescriptionLines(
     docCommentDocs: MutableDocCommentLines,
-    wrapWidth: number
+    wrapWidth: number,
+    preserveContinuations: boolean = false
 ) {
+    if (preserveContinuations === true) {
+        return docCommentDocs;
+    }
+
     if (
         !Array.isArray(docCommentDocs) ||
         typeof wrapWidth !== "number" ||

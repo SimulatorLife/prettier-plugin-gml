@@ -3,5 +3,6 @@
     "applyFeatherFixes": false,
     "optimizeMathExpressions": false,
     "alignAssignmentsMinGroupSize": 2,
-    "condenseLogicalExpressions": false
+    "condenseLogicalExpressions": false,
+    "printWidth": 95
 }
