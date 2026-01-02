@@ -10,6 +10,13 @@ import type { ParserTransform } from "./functional-transform.js";
 
 type PreprocessFunctionArgumentDefaultsTransformOptions = Record<string, never>;
 
+type TernaryExpressionNode = GameMakerAstNode & {
+    type: "TernaryExpression";
+    test: GameMakerAstNode | null;
+    consequent: GameMakerAstNode | null;
+    alternate: GameMakerAstNode | null;
+};
+
 function hasExplicitDefaultParameterToLeft(
     node: MutableGameMakerAstNode,
     parameter: GameMakerAstNode | null
@@ -807,6 +814,12 @@ function matchArgumentCountFallbackVarThenIf(varStatement, ifStatement) {
 }
 
 function matchArgumentCountFallbackStatement(statement) {
+    const variableMatch =
+        matchArgumentCountFallbackVariableDeclaration(statement);
+    if (variableMatch) {
+        return variableMatch;
+    }
+
     if (!statement) {
         return null;
     }
@@ -881,6 +894,104 @@ function matchArgumentCountFallbackStatement(statement) {
     }
 
     return null;
+}
+
+function matchArgumentCountFallbackVariableDeclaration(statement) {
+    if (!statement || statement.type !== "VariableDeclaration") {
+        return null;
+    }
+
+    const declarator = Core.getSingleVariableDeclarator(statement);
+    if (!declarator) {
+        return null;
+    }
+
+    const { id, init } = declarator;
+    if (!id || id.type !== "Identifier" || !init) {
+        return null;
+    }
+
+    const expression = Core.unwrapParenthesizedExpression(init);
+    if (!expression || expression.type !== "TernaryExpression") {
+        return null;
+    }
+
+    const ternaryExpression = expression as TernaryExpressionNode;
+    const guardExpression =
+        Core.unwrapParenthesizedExpression(ternaryExpression.test);
+    const guard = matchArgumentCountGuard(guardExpression);
+    if (!guard) {
+        return null;
+    }
+
+    const argumentIndex = guard.argumentIndex;
+    const consequentExpression = ternaryExpression.consequent;
+    const alternateExpression = ternaryExpression.alternate;
+
+    const consequentIsArgument = isArgumentIndexAccess(
+        consequentExpression,
+        argumentIndex
+    );
+    const alternateIsArgument = isArgumentIndexAccess(
+        alternateExpression,
+        argumentIndex
+    );
+
+    if (!consequentIsArgument && !alternateIsArgument) {
+        return null;
+    }
+
+    const argumentExpression = consequentIsArgument
+        ? consequentExpression
+        : alternateIsArgument
+        ? alternateExpression
+        : undefined;
+    const fallbackExpression = consequentIsArgument
+        ? alternateExpression
+        : consequentExpression;
+
+    if (!fallbackExpression) {
+        return null;
+    }
+
+    const targetName = Core.getIdentifierText(id);
+
+    return {
+        argumentIndex,
+        guardExpression,
+        argumentExpression,
+        fallbackExpression,
+        targetName,
+        statementNode: statement
+    };
+}
+
+function isArgumentIndexAccess(node, argumentIndex) {
+    if (!node || node.type !== "MemberIndexExpression") {
+        return false;
+    }
+
+    const propertyEntry = Core.getSingleMemberIndexPropertyEntry(node);
+    if (!propertyEntry) {
+        return false;
+    }
+
+    const indexText = Core.getIdentifierText(propertyEntry);
+    const indexNumber = Number(indexText);
+    if (Number.isNaN(indexNumber) || indexNumber !== argumentIndex) {
+        return false;
+    }
+
+    const objectNode = node.object;
+    if (!objectNode || objectNode.type !== "Identifier") {
+        return false;
+    }
+
+    const objectName = Core.getIdentifierText(objectNode);
+    return (
+        typeof objectName === "string" &&
+        objectName.toLowerCase() === "argument"
+    );
 }
 
 function matchAssignmentToArgumentIndex(node, argumentIndex) {

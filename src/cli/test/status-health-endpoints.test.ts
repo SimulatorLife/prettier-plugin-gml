@@ -1,42 +1,13 @@
 import { describe, it } from "node:test";
 import assert from "node:assert/strict";
-import { mkdir, rm } from "node:fs/promises";
-import path from "node:path";
 
-import { runWatchCommand } from "../src/commands/watch.js";
-import { findAvailablePort } from "./test-helpers/free-port.js";
+import { runWatchTest } from "./test-helpers/watch-runner.js";
 
 void describe("status server health check endpoints", () => {
     void it("should provide /health endpoint with comprehensive health status", async () => {
-        const testDir = path.join(
-            "/tmp",
-            `watch-health-test-${Date.now()}-${Math.random().toString(36).slice(2, 9)}`
-        );
-
-        await mkdir(testDir, { recursive: true });
-
-        try {
-            const abortController = new AbortController();
-            const statusPort = await findAvailablePort();
-
-            const watchPromise = runWatchCommand(testDir, {
-                extensions: [".gml"],
-                polling: false,
-                verbose: false,
-                quiet: true,
-                statusPort,
-                websocketServer: false,
-                runtimeServer: false,
-                abortSignal: abortController.signal
-            });
-
-            // Give the server time to start
-            await new Promise((resolve) => setTimeout(resolve, 100));
-
+        await runWatchTest("watch-health-test", {}, async ({ baseUrl }) => {
             // Query the health endpoint
-            const response = await fetch(
-                `http://127.0.0.1:${statusPort}/health`
-            );
+            const response = await fetch(`${baseUrl}/health`);
 
             assert.equal(
                 response.status,
@@ -101,42 +72,13 @@ void describe("status server health check endpoints", () => {
                 "clients" in data.checks.websocket,
                 "WebSocket check should include clients count"
             );
-
-            abortController.abort();
-            await watchPromise;
-        } finally {
-            await rm(testDir, { recursive: true, force: true });
-        }
+        });
     });
 
     void it("should provide /ping endpoint for lightweight connectivity check", async () => {
-        const testDir = path.join(
-            "/tmp",
-            `watch-ping-test-${Date.now()}-${Math.random().toString(36).slice(2, 9)}`
-        );
-
-        await mkdir(testDir, { recursive: true });
-
-        try {
-            const abortController = new AbortController();
-            const statusPort = await findAvailablePort();
-
-            const watchPromise = runWatchCommand(testDir, {
-                extensions: [".gml"],
-                polling: false,
-                verbose: false,
-                quiet: true,
-                statusPort,
-                websocketServer: false,
-                runtimeServer: false,
-                abortSignal: abortController.signal
-            });
-
-            // Give the server time to start
-            await new Promise((resolve) => setTimeout(resolve, 100));
-
+        await runWatchTest("watch-ping-test", {}, async ({ baseUrl }) => {
             // Query the ping endpoint
-            const response = await fetch(`http://127.0.0.1:${statusPort}/ping`);
+            const response = await fetch(`${baseUrl}/ping`);
 
             assert.equal(
                 response.status,
@@ -161,44 +103,13 @@ void describe("status server health check endpoints", () => {
                 typeof data.timestamp === "number",
                 "Timestamp should be a number"
             );
-
-            abortController.abort();
-            await watchPromise;
-        } finally {
-            await rm(testDir, { recursive: true, force: true });
-        }
+        });
     });
 
     void it("should provide /ready endpoint for readiness probes", async () => {
-        const testDir = path.join(
-            "/tmp",
-            `watch-ready-test-${Date.now()}-${Math.random().toString(36).slice(2, 9)}`
-        );
-
-        await mkdir(testDir, { recursive: true });
-
-        try {
-            const abortController = new AbortController();
-            const statusPort = await findAvailablePort();
-
-            const watchPromise = runWatchCommand(testDir, {
-                extensions: [".gml"],
-                polling: false,
-                verbose: false,
-                quiet: true,
-                statusPort,
-                websocketServer: false,
-                runtimeServer: false,
-                abortSignal: abortController.signal
-            });
-
-            // Give the server time to start
-            await new Promise((resolve) => setTimeout(resolve, 100));
-
+        await runWatchTest("watch-ready-test", {}, async ({ baseUrl }) => {
             // Query the ready endpoint
-            const response = await fetch(
-                `http://127.0.0.1:${statusPort}/ready`
-            );
+            const response = await fetch(`${baseUrl}/ready`);
 
             assert.equal(
                 response.status,
@@ -227,44 +138,13 @@ void describe("status server health check endpoints", () => {
                 "Ready response should include timestamp"
             );
             assert.ok("uptime" in data, "Ready response should include uptime");
-
-            abortController.abort();
-            await watchPromise;
-        } finally {
-            await rm(testDir, { recursive: true, force: true });
-        }
+        });
     });
 
     void it("should return 404 for unsupported endpoints", async () => {
-        const testDir = path.join(
-            "/tmp",
-            `watch-404-test-${Date.now()}-${Math.random().toString(36).slice(2, 9)}`
-        );
-
-        await mkdir(testDir, { recursive: true });
-
-        try {
-            const abortController = new AbortController();
-            const statusPort = await findAvailablePort();
-
-            const watchPromise = runWatchCommand(testDir, {
-                extensions: [".gml"],
-                polling: false,
-                verbose: false,
-                quiet: true,
-                statusPort,
-                websocketServer: false,
-                runtimeServer: false,
-                abortSignal: abortController.signal
-            });
-
-            // Give the server time to start
-            await new Promise((resolve) => setTimeout(resolve, 100));
-
+        await runWatchTest("watch-404-test", {}, async ({ baseUrl }) => {
             // Query an unsupported endpoint
-            const response = await fetch(
-                `http://127.0.0.1:${statusPort}/unsupported`
-            );
+            const response = await fetch(`${baseUrl}/unsupported`);
 
             assert.equal(
                 response.status,
@@ -298,92 +178,31 @@ void describe("status server health check endpoints", () => {
                 data.message.includes("/ready"),
                 "Message should list /ready endpoint"
             );
-
-            abortController.abort();
-            await watchPromise;
-        } finally {
-            await rm(testDir, { recursive: true, force: true });
-        }
+        });
     });
 
     void it("should reject non-GET requests", async () => {
-        const testDir = path.join(
-            "/tmp",
-            `watch-post-test-${Date.now()}-${Math.random().toString(36).slice(2, 9)}`
-        );
-
-        await mkdir(testDir, { recursive: true });
-
-        try {
-            const abortController = new AbortController();
-            const statusPort = await findAvailablePort();
-
-            const watchPromise = runWatchCommand(testDir, {
-                extensions: [".gml"],
-                polling: false,
-                verbose: false,
-                quiet: true,
-                statusPort,
-                websocketServer: false,
-                runtimeServer: false,
-                abortSignal: abortController.signal
-            });
-
-            // Give the server time to start
-            await new Promise((resolve) => setTimeout(resolve, 100));
-
+        await runWatchTest("watch-post-test", {}, async ({ baseUrl }) => {
             // Try POST to /status
-            const response = await fetch(
-                `http://127.0.0.1:${statusPort}/status`,
-                { method: "POST" }
-            );
+            const response = await fetch(`${baseUrl}/status`, {
+                method: "POST"
+            });
 
             assert.equal(
                 response.status,
                 404,
                 "POST request should return 404"
             );
-
-            abortController.abort();
-            await watchPromise;
-        } finally {
-            await rm(testDir, { recursive: true, force: true });
-        }
+        });
     });
 
     void it("should include CORS headers in all responses", async () => {
-        const testDir = path.join(
-            "/tmp",
-            `watch-cors-test-${Date.now()}-${Math.random().toString(36).slice(2, 9)}`
-        );
-
-        await mkdir(testDir, { recursive: true });
-
-        try {
-            const abortController = new AbortController();
-            const statusPort = await findAvailablePort();
-
-            const watchPromise = runWatchCommand(testDir, {
-                extensions: [".gml"],
-                polling: false,
-                verbose: false,
-                quiet: true,
-                statusPort,
-                websocketServer: false,
-                runtimeServer: false,
-                abortSignal: abortController.signal
-            });
-
-            // Give the server time to start
-            await new Promise((resolve) => setTimeout(resolve, 100));
-
+        await runWatchTest("watch-cors-test", {}, async ({ baseUrl }) => {
             // Check CORS headers on all endpoints
             const endpoints = ["/status", "/health", "/ping", "/ready"];
 
             for (const endpoint of endpoints) {
-                const response = await fetch(
-                    `http://127.0.0.1:${statusPort}${endpoint}`
-                );
+                const response = await fetch(`${baseUrl}${endpoint}`);
 
                 assert.equal(
                     response.headers.get("access-control-allow-origin"),
@@ -391,11 +210,6 @@ void describe("status server health check endpoints", () => {
                     `${endpoint} should include CORS header`
                 );
             }
-
-            abortController.abort();
-            await watchPromise;
-        } finally {
-            await rm(testDir, { recursive: true, force: true });
-        }
+        });
     });
 });

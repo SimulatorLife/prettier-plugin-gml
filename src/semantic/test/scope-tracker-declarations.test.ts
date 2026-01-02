@@ -2,6 +2,7 @@ import test from "node:test";
 import assert from "node:assert/strict";
 
 import ScopeTracker from "../src/scopes/scope-tracker.js";
+import { setupNestedScopes } from "./scope-tracker-helpers.js";
 
 void test("getAllDeclarations returns empty array for empty tracker", () => {
     const tracker = new ScopeTracker({ enabled: true });
@@ -47,20 +48,7 @@ void test("getAllDeclarations returns all symbols across multiple scopes", () =>
 
 void test("getAllDeclarations includes scope context", () => {
     const tracker = new ScopeTracker({ enabled: true });
-
-    tracker.enterScope("program");
-    const programScope = tracker.currentScope();
-    tracker.declare("globalVar", {
-        start: { line: 1, index: 0 },
-        end: { line: 1, index: 9 }
-    });
-
-    tracker.enterScope("function");
-    const functionScope = tracker.currentScope();
-    tracker.declare("localVar", {
-        start: { line: 2, index: 0 },
-        end: { line: 2, index: 8 }
-    });
+    const { programScope, functionScope } = setupNestedScopes(tracker);
 
     const declarations = tracker.getAllDeclarations();
 
@@ -256,20 +244,7 @@ void test("getDeclarationInScope returns cloned metadata", () => {
 
 void test("getDeclarationInScope only returns declarations in the specified scope", () => {
     const tracker = new ScopeTracker({ enabled: true });
-
-    tracker.enterScope("program");
-    const programScope = tracker.currentScope();
-    tracker.declare("globalVar", {
-        start: { line: 1, index: 0 },
-        end: { line: 1, index: 9 }
-    });
-
-    tracker.enterScope("function");
-    const functionScope = tracker.currentScope();
-    tracker.declare("localVar", {
-        start: { line: 2, index: 0 },
-        end: { line: 2, index: 8 }
-    });
+    const { programScope, functionScope } = setupNestedScopes(tracker);
 
     const globalInProgram = tracker.getDeclarationInScope(
         "globalVar",

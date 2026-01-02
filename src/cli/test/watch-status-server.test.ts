@@ -1,42 +1,13 @@
 import { describe, it } from "node:test";
 import assert from "node:assert/strict";
-import { mkdir, rm } from "node:fs/promises";
-import path from "node:path";
 
-import { runWatchCommand } from "../src/commands/watch.js";
-import { findAvailablePort } from "./test-helpers/free-port.js";
+import { runWatchTest } from "./test-helpers/watch-runner.js";
 
 void describe("watch command status server", () => {
     void it("should start status server by default and provide status endpoint", async () => {
-        const testDir = path.join(
-            "/tmp",
-            `watch-status-test-${Date.now()}-${Math.random().toString(36).slice(2, 9)}`
-        );
-
-        await mkdir(testDir, { recursive: true });
-
-        try {
-            const abortController = new AbortController();
-            const statusPort = await findAvailablePort();
-
-            const watchPromise = runWatchCommand(testDir, {
-                extensions: [".gml"],
-                polling: false,
-                verbose: false,
-                quiet: true,
-                statusPort,
-                websocketServer: false,
-                runtimeServer: false,
-                abortSignal: abortController.signal
-            });
-
-            // Give the server time to start
-            await new Promise((resolve) => setTimeout(resolve, 100));
-
+        await runWatchTest("watch-status-test", {}, async ({ baseUrl }) => {
             // Query the status endpoint
-            const response = await fetch(
-                `http://127.0.0.1:${statusPort}/status`
-            );
+            const response = await fetch(`${baseUrl}/status`);
 
             assert.equal(
                 response.status,
@@ -74,90 +45,33 @@ void describe("watch command status server", () => {
                 0,
                 "Initial WebSocket client count should be 0"
             );
-
-            abortController.abort();
-            await watchPromise;
-        } finally {
-            await rm(testDir, { recursive: true, force: true });
-        }
+        });
     });
 
     void it("should respect --no-status-server flag", async () => {
-        const testDir = path.join(
-            "/tmp",
-            `watch-no-status-test-${Date.now()}-${Math.random().toString(36).slice(2, 9)}`
-        );
-
-        await mkdir(testDir, { recursive: true });
-
-        try {
-            const abortController = new AbortController();
-            const statusPort = await findAvailablePort();
-
-            const watchPromise = runWatchCommand(testDir, {
-                extensions: [".gml"],
-                polling: false,
-                verbose: false,
-                quiet: true,
-                statusPort,
-                statusServer: false,
-                websocketServer: false,
-                runtimeServer: false,
-                abortSignal: abortController.signal
-            });
-
-            // Give the server time to start
-            await new Promise((resolve) => setTimeout(resolve, 100));
-
-            // Try to query the status endpoint - should fail
-            try {
-                await fetch(`http://127.0.0.1:${statusPort}/status`);
-                assert.fail("Status server should not be running");
-            } catch (error) {
-                // Connection should be refused when server is disabled
-                assert.ok(
-                    error instanceof Error,
-                    "Expected an error when connecting to disabled server"
-                );
+        await runWatchTest(
+            "watch-no-status-test",
+            { statusServer: false },
+            async ({ baseUrl }) => {
+                // Try to query the status endpoint - should fail
+                try {
+                    await fetch(`${baseUrl}/status`);
+                    assert.fail("Status server should not be running");
+                } catch (error) {
+                    // Connection should be refused when server is disabled
+                    assert.ok(
+                        error instanceof Error,
+                        "Expected an error when connecting to disabled server"
+                    );
+                }
             }
-
-            abortController.abort();
-            await watchPromise;
-        } finally {
-            await rm(testDir, { recursive: true, force: true });
-        }
+        );
     });
 
     void it("should handle missing route with 404 error", async () => {
-        const testDir = path.join(
-            "/tmp",
-            `watch-status-404-test-${Date.now()}-${Math.random().toString(36).slice(2, 9)}`
-        );
-
-        await mkdir(testDir, { recursive: true });
-
-        try {
-            const abortController = new AbortController();
-            const statusPort = await findAvailablePort();
-
-            const watchPromise = runWatchCommand(testDir, {
-                extensions: [".gml"],
-                polling: false,
-                verbose: false,
-                quiet: true,
-                statusPort,
-                websocketServer: false,
-                runtimeServer: false,
-                abortSignal: abortController.signal
-            });
-
-            // Give the server time to start
-            await new Promise((resolve) => setTimeout(resolve, 100));
-
+        await runWatchTest("watch-status-404-test", {}, async ({ baseUrl }) => {
             // Query a non-existent endpoint
-            const response = await fetch(
-                `http://127.0.0.1:${statusPort}/nonexistent`
-            );
+            const response = await fetch(`${baseUrl}/nonexistent`);
 
             assert.equal(
                 response.status,
@@ -170,11 +84,6 @@ void describe("watch command status server", () => {
                 "error" in data,
                 "Error response should include error field"
             );
-
-            abortController.abort();
-            await watchPromise;
-        } finally {
-            await rm(testDir, { recursive: true, force: true });
-        }
+        });
     });
 });

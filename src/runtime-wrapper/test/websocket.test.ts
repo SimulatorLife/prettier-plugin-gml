@@ -96,6 +96,31 @@ class MockWebSocket implements RuntimeWebSocketInstance {
     }
 }
 
+async function runWebSocketTest(
+    options: Parameters<typeof RuntimeWrapper.createWebSocketClient>[0],
+    testFn: (
+        client: ReturnType<typeof RuntimeWrapper.createWebSocketClient>,
+        mockSocket: MockWebSocket
+    ) => Promise<void>
+) {
+    globalWithWebSocket.WebSocket = MockWebSocket;
+
+    let client: ReturnType<typeof RuntimeWrapper.createWebSocketClient> | null =
+        null;
+
+    try {
+        client = RuntimeWrapper.createWebSocketClient(options);
+
+        await flush();
+
+        const ws = client.getWebSocket();
+        await testFn(client, ws as MockWebSocket);
+    } finally {
+        client?.disconnect();
+        delete globalWithWebSocket.WebSocket;
+    }
+}
+
 void test("createWebSocketClient returns client interface", () => {
     const client = RuntimeWrapper.createWebSocketClient({ autoConnect: false });
     assert.strictEqual(typeof client.connect, "function");
@@ -685,43 +710,32 @@ void test("WebSocket client tracks connection metrics", async () => {
 
 void test("WebSocket client tracks failed patches in metrics", async () => {
     const wrapper = RuntimeWrapper.createRuntimeWrapper();
-    globalWithWebSocket.WebSocket = MockWebSocket;
-
-    let client: ReturnType<typeof RuntimeWrapper.createWebSocketClient> | null =
-        null;
-
-    try {
-        client = RuntimeWrapper.createWebSocketClient({
+    await runWebSocketTest(
+        {
             wrapper,
             autoConnect: true,
             onError: () => {}
-        });
+        },
+        async (client, mockSocket) => {
+            assert.ok(mockSocket);
 
-        await flush();
+            mockSocket.simulateMessage({
+                kind: "script",
+                id: "script:invalid",
+                js_body: "return {{ invalid syntax"
+            });
 
-        const ws = client.getWebSocket();
-        assert.ok(ws);
-        const mockSocket = ws as MockWebSocket;
+            await wait(10);
 
-        mockSocket.simulateMessage({
-            kind: "script",
-            id: "script:invalid",
-            js_body: "return {{ invalid syntax"
-        });
-
-        await wait(10);
-
-        const metrics = client.getConnectionMetrics();
-        assert.strictEqual(metrics.patchesReceived, 1);
-        assert.strictEqual(metrics.patchesApplied, 0);
-        assert.strictEqual(metrics.patchesFailed, 1);
-        assert.strictEqual(metrics.patchErrors, 1);
-        assert.ok(metrics.lastPatchReceivedAt);
-        assert.strictEqual(metrics.lastPatchAppliedAt, null);
-    } finally {
-        client?.disconnect();
-        delete globalWithWebSocket.WebSocket;
-    }
+            const metrics = client.getConnectionMetrics();
+            assert.strictEqual(metrics.patchesReceived, 1);
+            assert.strictEqual(metrics.patchesApplied, 0);
+            assert.strictEqual(metrics.patchesFailed, 1);
+            assert.strictEqual(metrics.patchErrors, 1);
+            assert.ok(metrics.lastPatchReceivedAt);
+            assert.strictEqual(metrics.lastPatchAppliedAt, null);
+        }
+    );
 });
 
 void test("WebSocket client tracks reconnection attempts in metrics", async () => {
@@ -809,36 +823,25 @@ void test("WebSocket client returns frozen metrics snapshot", async () => {
 
 void test("WebSocket client tracks patch errors for malformed payloads", async () => {
     const wrapper = RuntimeWrapper.createRuntimeWrapper();
-    globalWithWebSocket.WebSocket = MockWebSocket;
-
-    let client: ReturnType<typeof RuntimeWrapper.createWebSocketClient> | null =
-        null;
-
-    try {
-        client = RuntimeWrapper.createWebSocketClient({
+    await runWebSocketTest(
+        {
             wrapper,
             autoConnect: true,
             onError: () => {}
-        });
+        },
+        async (client, mockSocket) => {
+            assert.ok(mockSocket);
 
-        await flush();
+            mockSocket.simulateMessage({ id: "script:missing_kind" });
 
-        const ws = client.getWebSocket();
-        assert.ok(ws);
-        const mockSocket = ws as MockWebSocket;
+            await wait(10);
 
-        mockSocket.simulateMessage({ id: "script:missing_kind" });
-
-        await wait(10);
-
-        const metrics = client.getConnectionMetrics();
-        assert.strictEqual(metrics.patchesReceived, 1);
-        assert.strictEqual(metrics.patchErrors, 1);
-        assert.strictEqual(metrics.patchesFailed, 0);
-    } finally {
-        client?.disconnect();
-        delete globalWithWebSocket.WebSocket;
-    }
+            const metrics = client.getConnectionMetrics();
+            assert.strictEqual(metrics.patchesReceived, 1);
+            assert.strictEqual(metrics.patchErrors, 1);
+            assert.strictEqual(metrics.patchesFailed, 0);
+        }
+    );
 });
 
 void test("WebSocket client resets metrics to initial state", async () => {

@@ -1,6 +1,7 @@
 import test from "node:test";
 import assert from "node:assert/strict";
 import ScopeTracker from "../src/scopes/scope-tracker.js";
+import { createRange } from "./scope-tracker-helpers.js";
 
 void test("getScopeModificationMetadata returns modification info for a scope", () => {
     const tracker = new ScopeTracker({ enabled: true });
@@ -27,23 +28,9 @@ void test("getScopeModificationMetadata tracks multiple modifications", () => {
     const tracker = new ScopeTracker({ enabled: true });
     const scope = tracker.enterScope("program");
 
-    tracker.declare(
-        "foo",
-        { start: { line: 1, index: 0 }, end: { line: 1, index: 3 } },
-        { kind: "variable" }
-    );
-
-    tracker.reference(
-        "foo",
-        { start: { line: 2, index: 0 }, end: { line: 2, index: 3 } },
-        { kind: "variable" }
-    );
-
-    tracker.declare(
-        "bar",
-        { start: { line: 3, index: 0 }, end: { line: 3, index: 3 } },
-        { kind: "variable" }
-    );
+    tracker.declare("foo", createRange(1, 0, 3), { kind: "variable" });
+    tracker.reference("foo", createRange(2, 0, 3), { kind: "variable" });
+    tracker.declare("bar", createRange(3, 0, 3), { kind: "variable" });
 
     const metadata = tracker.getScopeModificationMetadata(scope.id);
 
@@ -367,29 +354,10 @@ void test("getScopeModificationDetails returns detailed modification info", () =
     const tracker = new ScopeTracker({ enabled: true });
     const scope = tracker.enterScope("program");
 
-    tracker.declare(
-        "foo",
-        { start: { line: 1, index: 0 }, end: { line: 1, index: 3 } },
-        { kind: "variable" }
-    );
-
-    tracker.reference(
-        "foo",
-        { start: { line: 2, index: 0 }, end: { line: 2, index: 3 } },
-        { kind: "variable" }
-    );
-
-    tracker.reference(
-        "foo",
-        { start: { line: 3, index: 0 }, end: { line: 3, index: 3 } },
-        { kind: "variable" }
-    );
-
-    tracker.declare(
-        "bar",
-        { start: { line: 4, index: 0 }, end: { line: 4, index: 3 } },
-        { kind: "variable" }
-    );
+    tracker.declare("foo", createRange(1, 0, 3), { kind: "variable" });
+    tracker.reference("foo", createRange(2, 0, 3), { kind: "variable" });
+    tracker.reference("foo", createRange(3, 0, 3), { kind: "variable" });
+    tracker.declare("bar", createRange(4, 0, 3), { kind: "variable" });
 
     const details = tracker.getScopeModificationDetails(scope.id);
 

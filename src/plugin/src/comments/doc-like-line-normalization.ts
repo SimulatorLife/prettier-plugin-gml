@@ -6,7 +6,7 @@ type LineComment = {
 
 function resolveRawDocLikeRemainder(rawText: string): string {
     const trimmed = rawText.trimStart();
-    const docLikePrefixMatch = trimmed.match(/^\/\/\s*\/?/);
+    const docLikePrefixMatch = trimmed.match(/^\/+/);
     if (docLikePrefixMatch) {
         return trimmed.slice(docLikePrefixMatch[0].length).trimStart();
     }
@@ -52,7 +52,10 @@ function normalizeDocLikeLineComment(
             return "";
         }
 
-        if (!/^[A-Za-z0-9]/.test(normalizedRemainder)) {
+        if (
+            normalizedRemainder.startsWith("/") ||
+            !/[A-Za-z0-9]/.test(normalizedRemainder)
+        ) {
             const fallback =
                 rawRemainder.length > 0 ? rawRemainder : normalizedRemainder;
             if (fallback.length === 0) {
@@ -76,10 +79,13 @@ function normalizeDocLikeLineComment(
     }
 
     if (formattedRemainder.length === 0) {
-        return `${leadingWhitespace}//`;
+        return "";
     }
 
-    if (!/^[A-Za-z0-9]/.test(formattedRemainder)) {
+    if (
+        formattedRemainder.startsWith("/") ||
+        !/[A-Za-z0-9]/.test(formattedRemainder)
+    ) {
         const rawDocLikeRemainder = resolveRawDocLikeRemainder(rawText);
         const fallback =
             rawDocLikeRemainder.length > 0
