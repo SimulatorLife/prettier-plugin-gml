@@ -52,23 +52,14 @@ export function normalizeExtensions(
     rawExtensions: ExtensionInput,
     fallbackExtensions: ReadonlyArray<string> = []
 ): Array<string> {
-    const fragments: Array<string> = [];
-
-    if (typeof rawExtensions === "string") {
-        fragments.push(...splitExtensionInput(rawExtensions));
-    } else if (
-        rawExtensions &&
-        typeof rawExtensions !== "string" &&
-        rawExtensions[Symbol.iterator]
-    ) {
-        for (const candidate of rawExtensions) {
-            if (typeof candidate === "string") {
-                fragments.push(...splitExtensionInput(candidate));
-            }
-        }
-    } else {
-        fragments.push(...splitExtensionInput(rawExtensions));
-    }
+    const fragments = (
+        typeof rawExtensions === "string"
+            ? [rawExtensions]
+            : rawExtensions &&
+                typeof rawExtensions[Symbol.iterator] === "function"
+              ? Array.from(rawExtensions)
+              : [rawExtensions]
+    ).flatMap(splitExtensionInput);
 
     const coerced = fragments.map((fragment) => coerceExtensionValue(fragment));
     const normalized = uniqueArray(compactArray(coerced), {
