@@ -3457,7 +3457,9 @@ export function applyAssignmentAlignment(
 
         const groupEntries = [...currentGroup];
         const meetsAlignmentThreshold =
-            minGroupSize > 0 && groupEntries.length >= minGroupSize;
+            minGroupSize > 0
+                ? groupEntries.length >= minGroupSize
+                : groupEntries.length >= 2;
         const canAlign = meetsAlignmentThreshold && currentGroupHasAlias;
 
         if (!canAlign) {
@@ -3487,18 +3489,25 @@ export function applyAssignmentAlignment(
         );
 
         if (entry) {
-            if (
-                previousEntry &&
-                previousEntry.skipBreakAfter !== true &&
-                shouldBreakAssignmentAlignment(
-                    previousEntry.locationNode,
-                    entry.locationNode,
-                    originalText,
-                    locStart,
-                    locEnd
-                )
-            ) {
-                flushGroup();
+            const typeChanged =
+                Boolean(previousEntry) &&
+                entry.assignmentType !== previousEntry.assignmentType;
+
+            if (previousEntry) {
+                if (typeChanged) {
+                    flushGroup();
+                } else if (
+                    previousEntry.skipBreakAfter !== true &&
+                    shouldBreakAssignmentAlignment(
+                        previousEntry.locationNode,
+                        entry.locationNode,
+                        originalText,
+                        locStart,
+                        locEnd
+                    )
+                ) {
+                    flushGroup();
+                }
             }
 
             const prefixLength = entry.prefixLength ?? 0;
@@ -3579,6 +3588,7 @@ export interface AssignmentLikeEntry {
     enablesAlignment: boolean;
     prefixLength: number;
     skipBreakAfter?: boolean;
+    assignmentType: "assignment" | "declaration";
 }
 
 export function getSimpleAssignmentLikeEntry(
@@ -3595,7 +3605,8 @@ export function getSimpleAssignmentLikeEntry(
             paddingTarget: statement,
             nameLength: memberLength,
             enablesAlignment: true,
-            prefixLength: 0
+            prefixLength: 0,
+            assignmentType: "assignment"
         };
     }
 
@@ -3617,7 +3628,8 @@ export function getSimpleAssignmentLikeEntry(
             paddingTarget: statement,
             nameLength: identifier.name.length,
             enablesAlignment: true,
-            prefixLength: 0
+            prefixLength: 0,
+            assignmentType: "assignment"
         };
     }
 
@@ -3678,7 +3690,8 @@ export function getSimpleAssignmentLikeEntry(
         nameLength: (id.name as string).length,
         enablesAlignment: enablesAlignment || shouldEnableVarAlignment,
         skipBreakAfter,
-        prefixLength
+        prefixLength,
+        assignmentType: "declaration"
     };
 }
 
