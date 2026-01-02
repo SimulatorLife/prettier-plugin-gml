@@ -1,30 +1,24 @@
 import { describe, it, before, after } from "node:test";
 import assert from "node:assert";
-import { writeFile, mkdir, rm } from "node:fs/promises";
-import path from "node:path";
-
+import { writeFile } from "node:fs/promises";
 import { runWatchCommand } from "../src/commands/watch.js";
+import {
+    createWatchTestFixture,
+    disposeWatchTestFixture,
+    type WatchTestFixture
+} from "./test-helpers/watch-fixtures.js";
 
 void describe("Watch command patch history limit", () => {
-    let testDir: string;
-    let testFile: string;
+    let fixture: WatchTestFixture | null = null;
 
     before(async () => {
-        testDir = path.join(
-            process.cwd(),
-            "tmp",
-            `test-watch-patch-history-${Date.now()}-${Math.random()
-                .toString(36)
-                .slice(2, 9)}`
-        );
-        await mkdir(testDir, { recursive: true });
-        testFile = path.join(testDir, "script1.gml");
-        await writeFile(testFile, "var x = 10;", "utf8");
+        fixture = await createWatchTestFixture();
     });
 
     after(async () => {
-        if (testDir) {
-            await rm(testDir, { recursive: true, force: true });
+        if (fixture) {
+            await disposeWatchTestFixture(fixture.dir);
+            fixture = null;
         }
     });
 
@@ -32,7 +26,11 @@ void describe("Watch command patch history limit", () => {
         const maxHistory = 2;
         const abortController = new AbortController();
 
-        const watchPromise = runWatchCommand(testDir, {
+        if (!fixture) {
+            throw new Error("Watch fixture was not initialized");
+        }
+
+        const watchPromise = runWatchCommand(fixture.dir, {
             extensions: [".gml"],
             verbose: false,
             maxPatchHistory: maxHistory,
@@ -44,8 +42,10 @@ void describe("Watch command patch history limit", () => {
 
         await new Promise((resolve) => setTimeout(resolve, 500));
 
+        const { script1 } = fixture;
+
         for (let i = 0; i < 5; i++) {
-            await writeFile(testFile, `var x = ${i}; // Iteration ${i}`, "utf8");
+            await writeFile(script1, `var x = ${i}; // Iteration ${i}`, "utf8");
             await new Promise((resolve) => setTimeout(resolve, 150));
         }
 

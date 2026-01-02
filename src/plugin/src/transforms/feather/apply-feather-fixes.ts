@@ -12417,6 +12417,7 @@ function ensureNumericOperationsUseRealLiteralCoercion({ ast, diagnostic }) {
     }
 
     const fixes = [];
+    const stringLiteralAssignments = new Set();
 
     const visit = (node) => {
         if (!node) {
@@ -12434,10 +12435,27 @@ function ensureNumericOperationsUseRealLiteralCoercion({ ast, diagnostic }) {
             return;
         }
 
+        if (node.type === "AssignmentExpression") {
+            recordIdentifierStringAssignment(
+                node.left,
+                node.right,
+                stringLiteralAssignments
+            );
+        }
+
+        if (node.type === "VariableDeclarator") {
+            recordIdentifierStringAssignment(
+                node.id,
+                node.init,
+                stringLiteralAssignments
+            );
+        }
+
         if (node.type === "BinaryExpression") {
             const fix = coerceStringLiteralsInBinaryExpression(
                 node,
-                diagnostic
+                diagnostic,
+                stringLiteralAssignments
             );
 
             if (fix) {
@@ -12458,7 +12476,11 @@ function ensureNumericOperationsUseRealLiteralCoercion({ ast, diagnostic }) {
     return fixes;
 }
 
-function coerceStringLiteralsInBinaryExpression(node, diagnostic) {
+function coerceStringLiteralsInBinaryExpression(
+    node,
+    diagnostic,
+    stringLiteralAssignments
+) {
     if (!node || node.type !== "BinaryExpression") {
         return null;
     }
@@ -12478,11 +12500,22 @@ function coerceStringLiteralsInBinaryExpression(node, diagnostic) {
         const leftIsNumeric = isNumericLiteralNode(node.left);
         const rightIsNumeric = isNumericLiteralNode(node.right);
 
-        if (leftIsNumeric && canWrapOperandWithReal(node.right)) {
+        const leftIdentifier = getIdentifierName(node.left);
+        const rightIdentifier = getIdentifierName(node.right);
+
+        const leftTracked =
+            typeof leftIdentifier === "string" &&
+            stringLiteralAssignments.has(leftIdentifier);
+        const rightTracked =
+            typeof rightIdentifier === "string" &&
+            stringLiteralAssignments.has(rightIdentifier);
+
+        if (leftIsNumeric && rightTracked && canWrapOperandWithReal(node.right)) {
             node.right = createRealCoercionCall(node.right);
             mutated = true;
         } else if (
             rightIsNumeric &&
+            leftTracked &&
             canWrapOperandWithReal(node.left)
         ) {
             node.left = createRealCoercionCall(node.left);
@@ -12554,6 +12587,14 @@ function canWrapOperandWithReal(node) {
     return true;
 }
 
+function getIdentifierName(node) {
+    if (Core.isIdentifierNode(node) && typeof node.name === "string") {
+        return node.name;
+    }
+
+    return null;
+}
+
 function isCoercibleStringLiteral(node) {
     if (!node || node.type !== "Literal") {
         return false;
@@ -12592,6 +12633,48 @@ function isCoercibleStringLiteral(node) {
     }
 
     return NUMERIC_STRING_LITERAL_PATTERN.test(trimmed);
+}
+
+function recordIdentifierStringAssignment(identifier, expression, assignments) {
+    const name = getIdentifierName(identifier);
+
+    if (!name || !assignments) {
+        return;
+    }
+
+    if (isStringLiteralNode(expression)) {
+        assignments.add(name);
+    } else {
+        assignments.delete(name);
+    }
+}
+
+function isStringLiteralNode(node) {
+    if (!node || node.type !== "Literal") {
+        return false;
+    }
+
+    const rawValue = typeof node.value === "string" ? node.value : null;
+
+    if (!rawValue) {
+        return false;
+    }
+
+    if (rawValue.startsWith('@"') && rawValue.endsWith('"')) {
+        return true;
+    }
+
+    if (rawValue.length >= 2) {
+        const startingQuote = rawValue[0];
+        const endingQuote = rawValue.at(-1);
+
+        return (
+            (startingQuote === '"' || startingQuote === "'") &&
+            startingQuote === endingQuote
+        );
+    }
+
+    return false;
 }
 
 function createRealCoercionCall(literal) {

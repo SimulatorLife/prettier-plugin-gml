@@ -7,39 +7,36 @@
 
 import { describe, it, before, after } from "node:test";
 import assert from "node:assert";
-import { writeFile, mkdir, rm } from "node:fs/promises";
-import path from "node:path";
-
+import { writeFile } from "node:fs/promises";
 import { runWatchCommand } from "../src/commands/watch.js";
+import {
+    createWatchTestFixture,
+    disposeWatchTestFixture,
+    type WatchTestFixture
+} from "./test-helpers/watch-fixtures.js";
 
 void describe("Watch command metrics tracking", () => {
-    let testDir: string;
-    let testFile1: string;
-    let testFile2: string;
+    let fixture: WatchTestFixture | null = null;
 
     before(async () => {
-        testDir = path.join(
-            process.cwd(),
-            "tmp",
-            `test-watch-metrics-${Date.now()}-${Math.random().toString(36).slice(2, 9)}`
-        );
-        await mkdir(testDir, { recursive: true });
-        testFile1 = path.join(testDir, "script1.gml");
-        testFile2 = path.join(testDir, "script2.gml");
-        await writeFile(testFile1, "var x = 10;", "utf8");
-        await writeFile(testFile2, "var y = 20;", "utf8");
+        fixture = await createWatchTestFixture();
     });
 
     after(async () => {
-        if (testDir) {
-            await rm(testDir, { recursive: true, force: true });
+        if (fixture) {
+            await disposeWatchTestFixture(fixture.dir);
+            fixture = null;
         }
     });
 
     void it("should track metrics for multiple transpilations", async () => {
         const abortController = new AbortController();
 
-        const watchPromise = runWatchCommand(testDir, {
+        if (!fixture) {
+            throw new Error("Watch fixture was not initialized");
+        }
+
+        const watchPromise = runWatchCommand(fixture.dir, {
             extensions: [".gml"],
             verbose: true,
             websocketServer: false,
@@ -52,10 +49,10 @@ void describe("Watch command metrics tracking", () => {
         await new Promise((resolve) => setTimeout(resolve, 500));
 
         // Trigger multiple file changes
-        await writeFile(testFile1, "var x = 100; // Modified", "utf8");
+        await writeFile(fixture.script1, "var x = 100; // Modified", "utf8");
         await new Promise((resolve) => setTimeout(resolve, 200));
 
-        await writeFile(testFile2, "var y = 200; // Modified", "utf8");
+        await writeFile(fixture.script2, "var y = 200; // Modified", "utf8");
         await new Promise((resolve) => setTimeout(resolve, 200));
 
         // Stop the watcher

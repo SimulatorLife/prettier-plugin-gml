@@ -1134,6 +1134,54 @@ void describe("Transforms.applyFeatherFixes transform", () => {
         );
     });
 
+    void it("wraps identifier operands flagged by GM1010 when no literal coercion occurs", () => {
+        const source = ['numFive = "5";', "result = 5 + numFive;"].join("\n");
+
+        const ast = Parser.GMLParser.parse(source, {
+            getLocations: true,
+            simplifyLocations: false
+        });
+
+        Transforms.applyFeatherFixesTransform.transform(ast, {
+            sourceText: source
+        });
+
+        const [declaration, assignment] = ast.body ?? [];
+        assert.ok(declaration);
+        assert.strictEqual(declaration.type, "AssignmentExpression");
+        assert.strictEqual(assignment?.type, "AssignmentExpression");
+
+        const binary = assignment?.right;
+        assert.ok(binary);
+        assert.strictEqual(binary.type, "BinaryExpression");
+        assert.strictEqual(binary.operator, "+");
+
+        const coerced = binary.right;
+        assert.ok(coerced);
+        assert.strictEqual(coerced.type, "CallExpression");
+        assert.strictEqual(coerced.object?.type, "Identifier");
+        assert.strictEqual(coerced.object?.name, "real");
+        assert.ok(Array.isArray(coerced.arguments));
+        assert.strictEqual(coerced.arguments.length, 1);
+        assert.strictEqual(coerced.arguments[0]?.type, "Identifier");
+        assert.strictEqual(coerced.arguments[0]?.name, "numFive");
+
+        const metadata = binary._appliedFeatherDiagnostics;
+        assert.ok(Array.isArray(metadata));
+        assert.strictEqual(metadata.length, 1);
+        assert.strictEqual(metadata[0].id, "GM1010");
+        assert.strictEqual(metadata[0].target, "+");
+
+        assert.ok(Array.isArray(ast._appliedFeatherDiagnostics));
+        assert.strictEqual(
+            ast._appliedFeatherDiagnostics.some(
+                (entry) => entry.id === "GM1010"
+            ),
+            true,
+            "Expected GM1010 metadata to be recorded on the program node."
+        );
+    });
+
     void it("leaves non-numeric string operands unchanged when coercion is unnecessary", () => {
         const source = [
             'var base = @"PlayerData";',

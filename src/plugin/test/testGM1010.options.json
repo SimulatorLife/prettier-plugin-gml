@@ -1,3 +1,4 @@
 {
-  "applyFeatherFixes": true
+  "applyFeatherFixes": true,
+  "alignAssignmentsMinGroupSize": 0
 }

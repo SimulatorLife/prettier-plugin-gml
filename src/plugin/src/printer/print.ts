@@ -3554,10 +3554,16 @@ export function applyAssignmentAlignment(
             "minGroupSize",
             minGroupSize
         );
-        const alignmentEnabled = minGroupSize > 0;
+        const isConstructorBody =
+            functionNode?.type === Core.CONSTRUCTOR_DECLARATION;
+        const normalizedMinGroupSize =
+            minGroupSize > 0
+                ? minGroupSize
+                : DEFAULT_ASSIGNMENT_ALIGNMENT_MIN_GROUP_SIZE;
+        const alignmentEnabled = minGroupSize > 0 || isConstructorBody;
         const effectiveMinGroupSize = alignmentEnabled
-            ? minGroupSize
-            : DEFAULT_ASSIGNMENT_ALIGNMENT_MIN_GROUP_SIZE;
+            ? normalizedMinGroupSize
+            : minGroupSize;
         const meetsAlignmentThreshold =
             alignmentEnabled && groupEntries.length >= effectiveMinGroupSize;
         const canAlign = meetsAlignmentThreshold && currentGroupHasAlias;
