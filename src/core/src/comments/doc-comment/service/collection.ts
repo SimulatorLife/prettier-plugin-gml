@@ -112,7 +112,8 @@ function collectNodeDocCommentLines(
         }
 
         if (comment.type === "CommentBlock") {
-            const rawValue = typeof comment.value === STRING_TYPE ? comment.value : "";
+            const rawValue =
+                typeof comment.value === STRING_TYPE ? comment.value : "";
             const trimmed = rawValue.trim();
             const isJSDoc =
                 trimmed.startsWith("*") ||

@@ -254,18 +254,13 @@ function printComment(commentPath, options) {
                             .replace(/\n/g, "\\n")}"`
                     );
                     console.log(
-                        `DEBUG: comment start=${JSON.stringify(
-                            comment.start
-                        )}`
+                        `DEBUG: comment start=${JSON.stringify(comment.start)}`
                     );
                 }
 
                 const shouldPrependBlankLine =
                     hasLeadingBlankLine(comment) ||
-                    hasLeadingBlankLineInSource(
-                        comment,
-                        options?.originalText
-                    );
+                    hasLeadingBlankLineInSource(comment, options?.originalText);
                 const parts = [];
                 if (shouldPrependBlankLine) {
                     parts.push(hardline);
@@ -368,11 +363,7 @@ function hasFeatherDiagnosticWithId(node, ids) {
     }
 
     for (const entry of metadata) {
-        if (
-            entry &&
-            typeof entry.id === "string" &&
-            ids.has(entry.id)
-        ) {
+        if (entry && typeof entry.id === "string" && ids.has(entry.id)) {
             return true;
         }
     }
@@ -632,10 +623,7 @@ function hasInlineContentBeforeComment(comment, options) {
     return /\S/.test(precedingSegment.replace(/\r/g, ""));
 }
 
-function getNextNonWhitespaceCharacterAfterComment(
-    comment,
-    originalText
-) {
+function getNextNonWhitespaceCharacterAfterComment(comment, originalText) {
     if (!Core.isObjectLike(comment)) {
         return null;
     }

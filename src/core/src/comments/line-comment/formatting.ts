@@ -205,7 +205,6 @@ function tryFormatBannerComment(
     slashesMatch: RegExpMatchArray | null,
     hasDecorations: boolean
 ): string | null {
-
     if (!slashesMatch) {
         return null;
     }
@@ -685,7 +684,6 @@ function resolveInlinePaddingWidth(comment) {
     }
 
     return 0;
-
 }
 
 function extractContinuationIndentation(comment) {

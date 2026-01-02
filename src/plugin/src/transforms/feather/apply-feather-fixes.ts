@@ -6250,7 +6250,6 @@ function variableDeclarationHasTerminatingSemicolon(node, sourceText) {
     return false;
 }
 
-
 function preserveTrailingCommentAlignmentForVarDeclaration({
     declaration,
     ast,
@@ -6303,12 +6302,7 @@ function findLineCommentStartIndexAfterDeclaration(declaration, sourceText) {
     for (let index = endIndex; index < length; index += 1) {
         const char = sourceText[index];
 
-        if (
-            char === " " ||
-            char === "\t" ||
-            char === "\v" ||
-            char === "\f"
-        ) {
+        if (char === " " || char === "\t" || char === "\v" || char === "\f") {
             continue;
         }
 

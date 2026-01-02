@@ -3464,8 +3464,8 @@ export function applyAssignmentAlignment(
             groupAssignmentType === "declaration"
                 ? minGroupSize > 0 && groupEntries.length >= minGroupSize
                 : minGroupSize > 0
-                    ? groupEntries.length >= minGroupSize
-                    : groupEntries.length >= 2;
+                  ? groupEntries.length >= minGroupSize
+                  : groupEntries.length >= 2;
         const canAlign = meetsAlignmentThreshold && currentGroupHasAlias;
 
         if (!canAlign) {
@@ -5283,7 +5283,9 @@ function getDocParamOptionality(lines, paramName) {
         }
         const raw = match[1];
         const normalized = normalizeDocParamNameFromRaw(raw);
-        console.log(`Checking param: ${paramName}, raw: ${raw}, normalized: ${normalized}`);
+        console.log(
+            `Checking param: ${paramName}, raw: ${raw}, normalized: ${normalized}`
+        );
         if (normalized === paramName) {
             return (
                 /^\[.*\]$/.test(raw) || raw.endsWith("*") || raw.startsWith("*")

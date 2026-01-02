@@ -83,10 +83,7 @@ const INLINE_TRAILING_COMMENT_SPACING_PATTERN =
     /(?<=[^\s/])[ \t]{2,}(?=\/\/(?!\/))/g;
 
 function normalizeInlineTrailingCommentSpacing(formatted: string): string {
-    return formatted.replace(
-        INLINE_TRAILING_COMMENT_SPACING_PATTERN,
-        " "
-    );
+    return formatted.replace(INLINE_TRAILING_COMMENT_SPACING_PATTERN, " ");
 }
 
 function extractLineCommentPayload(line: string): string | null {
@@ -112,13 +109,8 @@ function removeDuplicateDocLikeLineComments(formatted: string): string {
         if (trimmed.startsWith("///")) {
             const docPayload = extractLineCommentPayload(line);
             const previousLine = result[result.length - 1];
-            if (
-                docPayload !== null &&
-                typeof previousLine === "string"
-            ) {
-                const previousPayload = extractLineCommentPayload(
-                    previousLine
-                );
+            if (docPayload !== null && typeof previousLine === "string") {
+                const previousPayload = extractLineCommentPayload(previousLine);
                 if (
                     previousPayload !== null &&
                     previousPayload === docPayload
@@ -134,9 +126,7 @@ function removeDuplicateDocLikeLineComments(formatted: string): string {
     return result.join("\n");
 }
 
-function ensureBlankLineBeforeTopLevelLineComments(
-    formatted: string
-): string {
+function ensureBlankLineBeforeTopLevelLineComments(formatted: string): string {
     const lines = formatted.split(/\r?\n/);
     const result: string[] = [];
 
@@ -149,7 +139,10 @@ function ensureBlankLineBeforeTopLevelLineComments(
 
         if (isPlainLineComment && result.length > 0) {
             const previousLine = result[result.length - 1];
-            if (typeof previousLine === "string" && previousLine.trim() === "}") {
+            if (
+                typeof previousLine === "string" &&
+                previousLine.trim() === "}"
+            ) {
                 result.push("");
             }
         }
@@ -315,10 +308,9 @@ async function format(source: string, options: SupportOptions = {}) {
         );
         const normalizedCommentSpacing =
             normalizeInlineTrailingCommentSpacing(dedupedComments);
-        const spacedComments =
-            ensureBlankLineBeforeTopLevelLineComments(
-                normalizedCommentSpacing
-            );
+        const spacedComments = ensureBlankLineBeforeTopLevelLineComments(
+            normalizedCommentSpacing
+        );
         return reapplyLineCommentTrailingWhitespace(spacedComments, source);
     } finally {
         if (

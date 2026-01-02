@@ -8,9 +8,7 @@ function resolveRawDocLikeRemainder(rawText: string): string {
     const trimmed = rawText.trimStart();
     const docLikePrefixMatch = trimmed.match(/^\/\/\s*\/?/);
     if (docLikePrefixMatch) {
-        return trimmed
-            .slice(docLikePrefixMatch[0].length)
-            .trimStart();
+        return trimmed.slice(docLikePrefixMatch[0].length).trimStart();
     }
     return trimmed;
 }
@@ -56,9 +54,7 @@ function normalizeDocLikeLineComment(
 
         if (!/^[A-Za-z0-9]/.test(normalizedRemainder)) {
             const fallback =
-                rawRemainder.length > 0
-                    ? rawRemainder
-                    : normalizedRemainder;
+                rawRemainder.length > 0 ? rawRemainder : normalizedRemainder;
             if (fallback.length === 0) {
                 return "";
             }
