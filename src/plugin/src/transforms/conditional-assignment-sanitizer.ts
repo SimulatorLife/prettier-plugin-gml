@@ -73,7 +73,10 @@ type ConditionalAssignmentScanState = {
     insertionsSoFar: number;
 };
 
-function appendCharacter(state: ConditionalAssignmentScanState, character: string) {
+function appendCharacter(
+    state: ConditionalAssignmentScanState,
+    character: string
+) {
     state.parts.push(character);
 }
 

@@ -1518,9 +1518,7 @@ function buildReciprocalRatioRemovalPlan({
                 Math.abs(numericValue - 1) <= computeNumericTolerance(1);
 
             if (!isMultiplicativeIdentity) {
-                replacementsByIndex.set(ratioTerm.index, [
-                    ratioTerm.numerator
-                ]);
+                replacementsByIndex.set(ratioTerm.index, [ratioTerm.numerator]);
             }
             indicesToRemove.add(ratioTerm.index);
             indicesToRemove.add(index);

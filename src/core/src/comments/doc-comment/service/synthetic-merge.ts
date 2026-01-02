@@ -1713,8 +1713,10 @@ function mergeFunctionDocLines({
         insertionIndex > 0 ? mergedLines[insertionIndex - 1] : null;
     const trimmedPreceding = toTrimmedString(precedingLine);
     const isDocCommentLine =
-        typeof trimmedPreceding === STRING_TYPE && /^\/\/\//.test(trimmedPreceding);
-    const isDocTagLine = isDocCommentLine && /^\/\/\/\s*@/i.test(trimmedPreceding);
+        typeof trimmedPreceding === STRING_TYPE &&
+        /^\/\/\//.test(trimmedPreceding);
+    const isDocTagLine =
+        isDocCommentLine && /^\/\/\/\s*@/i.test(trimmedPreceding);
 
     let precedingDocTag = null;
     if (isDocCommentLine && isDocTagLine) {

@@ -951,40 +951,45 @@ type FeatherFixBuilder = (diagnostic: any) => FeatherFixFactory;
 const FEATHER_FIX_BUILDERS = new Map<string, FeatherFixBuilder>([
     [
         "GM1000",
-        (diagnostic) => () => ({ ast }) => {
-            const fixes = removeBreakStatementsWithoutEnclosingLoops({
-                ast,
-                diagnostic
-            });
+        (diagnostic) =>
+            () =>
+            ({ ast }) => {
+                const fixes = removeBreakStatementsWithoutEnclosingLoops({
+                    ast,
+                    diagnostic
+                });
 
-            return resolveAutomaticFixes(fixes, { ast, diagnostic });
-        }
+                return resolveAutomaticFixes(fixes, { ast, diagnostic });
+            }
     ],
     [
         "GM1002",
-        (diagnostic) => () => ({ ast }) => {
-            const fixes = splitGlobalVarInlineInitializers({
-                ast,
-                diagnostic
-            });
+        (diagnostic) =>
+            () =>
+            ({ ast }) => {
+                const fixes = splitGlobalVarInlineInitializers({
+                    ast,
+                    diagnostic
+                });
 
-            return resolveAutomaticFixes(fixes, { ast, diagnostic });
-        }
+                return resolveAutomaticFixes(fixes, { ast, diagnostic });
+            }
     ],
     [
         "GM1003",
-        (diagnostic) => () => ({ ast }) => {
-            const fixes = sanitizeEnumAssignments({ ast, diagnostic });
+        (diagnostic) =>
+            () =>
+            ({ ast }) => {
+                const fixes = sanitizeEnumAssignments({ ast, diagnostic });
 
-            return resolveAutomaticFixes(fixes, { ast, diagnostic });
-        }
+                return resolveAutomaticFixes(fixes, { ast, diagnostic });
+            }
     ],
     [
         "GM1005",
         (diagnostic) => () => {
-            const callTemplate = createFunctionCallTemplateFromDiagnostic(
-                diagnostic
-            );
+            const callTemplate =
+                createFunctionCallTemplateFromDiagnostic(diagnostic);
 
             return ({ ast }) => {
                 const fixes = ensureRequiredArgumentProvided({
@@ -999,269 +1004,319 @@ const FEATHER_FIX_BUILDERS = new Map<string, FeatherFixBuilder>([
     ],
     [
         "GM1004",
-        (diagnostic) => () => ({ ast, sourceText }) => {
-            const fixes = removeDuplicateEnumMembers({
-                ast,
-                diagnostic,
-                sourceText
-            });
+        (diagnostic) =>
+            () =>
+            ({ ast, sourceText }) => {
+                const fixes = removeDuplicateEnumMembers({
+                    ast,
+                    diagnostic,
+                    sourceText
+                });
 
-            return resolveAutomaticFixes(fixes, { ast, diagnostic });
-        }
+                return resolveAutomaticFixes(fixes, { ast, diagnostic });
+            }
     ],
     [
         "GM1007",
-        (diagnostic) => () => ({ ast, sourceText }) => {
-            const fixes = flagInvalidAssignmentTargets({
-                ast,
-                sourceText,
-                diagnostic
-            });
+        (diagnostic) =>
+            () =>
+            ({ ast, sourceText }) => {
+                const fixes = flagInvalidAssignmentTargets({
+                    ast,
+                    sourceText,
+                    diagnostic
+                });
 
-            return resolveAutomaticFixes(fixes, { ast, diagnostic });
-        }
+                return resolveAutomaticFixes(fixes, { ast, diagnostic });
+            }
     ],
     [
         "GM2000",
-        (diagnostic) => () => ({ ast }) => {
-            const fixes = ensureBlendModeIsReset({ ast, diagnostic });
+        (diagnostic) =>
+            () =>
+            ({ ast }) => {
+                const fixes = ensureBlendModeIsReset({ ast, diagnostic });
 
-            return resolveAutomaticFixes(fixes, { ast, diagnostic });
-        }
+                return resolveAutomaticFixes(fixes, { ast, diagnostic });
+            }
     ],
     [
         "GM2003",
-        (diagnostic) => () => ({ ast, sourceText }) => {
-            const fixes = ensureShaderResetIsCalled({
-                ast,
-                diagnostic,
-                sourceText
-            });
+        (diagnostic) =>
+            () =>
+            ({ ast, sourceText }) => {
+                const fixes = ensureShaderResetIsCalled({
+                    ast,
+                    diagnostic,
+                    sourceText
+                });
 
-            return resolveAutomaticFixes(fixes, { ast, diagnostic });
-        }
+                return resolveAutomaticFixes(fixes, { ast, diagnostic });
+            }
     ],
     [
         "GM2004",
-        (diagnostic) => () => ({ ast }) => {
-            const fixes = convertUnusedIndexForLoops({ ast, diagnostic });
+        (diagnostic) =>
+            () =>
+            ({ ast }) => {
+                const fixes = convertUnusedIndexForLoops({ ast, diagnostic });
 
-            return resolveAutomaticFixes(fixes, { ast, diagnostic });
-        }
+                return resolveAutomaticFixes(fixes, { ast, diagnostic });
+            }
     ],
     [
         "GM2007",
-        (diagnostic) => () => ({ ast, sourceText }) => {
-            const fixes = ensureVarDeclarationsAreTerminated({
-                ast,
-                sourceText,
-                diagnostic
-            });
+        (diagnostic) =>
+            () =>
+            ({ ast, sourceText }) => {
+                const fixes = ensureVarDeclarationsAreTerminated({
+                    ast,
+                    sourceText,
+                    diagnostic
+                });
 
-            return resolveAutomaticFixes(fixes, { ast, diagnostic });
-        }
+                return resolveAutomaticFixes(fixes, { ast, diagnostic });
+            }
     ],
     [
         "GM2008",
-        (diagnostic) => () => ({ ast }) => {
-            const fixes = closeOpenVertexBatches({ ast, diagnostic });
+        (diagnostic) =>
+            () =>
+            ({ ast }) => {
+                const fixes = closeOpenVertexBatches({ ast, diagnostic });
 
-            return resolveAutomaticFixes(fixes, { ast, diagnostic });
-        }
+                return resolveAutomaticFixes(fixes, { ast, diagnostic });
+            }
     ],
     [
         "GM1008",
-        (diagnostic) => () => ({ ast }) => {
-            const fixes = convertReadOnlyBuiltInAssignments({
-                ast,
-                diagnostic
-            });
+        (diagnostic) =>
+            () =>
+            ({ ast }) => {
+                const fixes = convertReadOnlyBuiltInAssignments({
+                    ast,
+                    diagnostic
+                });
 
-            return resolveAutomaticFixes(fixes, { ast, diagnostic });
-        }
+                return resolveAutomaticFixes(fixes, { ast, diagnostic });
+            }
     ],
     [
         "GM1010",
-        (diagnostic) => () => ({ ast }) => {
-            const fixes = ensureNumericOperationsUseRealLiteralCoercion({
-                ast,
-                diagnostic
-            });
+        (diagnostic) =>
+            () =>
+            ({ ast }) => {
+                const fixes = ensureNumericOperationsUseRealLiteralCoercion({
+                    ast,
+                    diagnostic
+                });
 
-            return resolveAutomaticFixes(fixes, { ast, diagnostic });
-        }
+                return resolveAutomaticFixes(fixes, { ast, diagnostic });
+            }
     ],
     [
         "GM1013",
-        (diagnostic) => () => ({ ast }) => {
-            const fixes = resolveWithOtherVariableReferences({
-                ast,
-                diagnostic
-            });
+        (diagnostic) =>
+            () =>
+            ({ ast }) => {
+                const fixes = resolveWithOtherVariableReferences({
+                    ast,
+                    diagnostic
+                });
 
-            return resolveAutomaticFixes(fixes, { ast, diagnostic });
-        }
+                return resolveAutomaticFixes(fixes, { ast, diagnostic });
+            }
     ],
     [
         "GM2012",
-        (diagnostic) => () => ({ ast }) => {
-            const fixes = ensureVertexFormatsClosedBeforeStartingNewOnes({
-                ast,
-                diagnostic
-            });
+        (diagnostic) =>
+            () =>
+            ({ ast }) => {
+                const fixes = ensureVertexFormatsClosedBeforeStartingNewOnes({
+                    ast,
+                    diagnostic
+                });
 
-            return resolveAutomaticFixes(fixes, { ast, diagnostic });
-        }
+                return resolveAutomaticFixes(fixes, { ast, diagnostic });
+            }
     ],
     [
         "GM2040",
-        (diagnostic) => () => ({ ast }) => {
-            const fixes = removeInvalidEventInheritedCalls({
-                // Once the identifier-case project index can expose event
-                // ancestry we should query it here instead of trusting the
-                // diagnostic payload alone. GM2040 only fires when
-                // `event_inherited()` is orphaned, but without project-scope
-                // metadata the fixer cannot distinguish a legitimate override
-                // from a missing parent event. Integrating with the scoping
-                // pipeline outlined in `docs/legacy-identifier-case-plan.md#archived-project-index-roadmap`
-                // will let us re-evaluate inherited events during formatting and
-                // avoid deleting valid calls when Feather diagnostics are
-                // unavailable.
-                ast,
-                diagnostic
-            });
+        (diagnostic) =>
+            () =>
+            ({ ast }) => {
+                const fixes = removeInvalidEventInheritedCalls({
+                    // Once the identifier-case project index can expose event
+                    // ancestry we should query it here instead of trusting the
+                    // diagnostic payload alone. GM2040 only fires when
+                    // `event_inherited()` is orphaned, but without project-scope
+                    // metadata the fixer cannot distinguish a legitimate override
+                    // from a missing parent event. Integrating with the scoping
+                    // pipeline outlined in `docs/legacy-identifier-case-plan.md#archived-project-index-roadmap`
+                    // will let us re-evaluate inherited events during formatting and
+                    // avoid deleting valid calls when Feather diagnostics are
+                    // unavailable.
+                    ast,
+                    diagnostic
+                });
 
-            return resolveAutomaticFixes(fixes, { ast, diagnostic });
-        }
+                return resolveAutomaticFixes(fixes, { ast, diagnostic });
+            }
     ],
     [
         "GM2030",
-        (diagnostic) => () => ({ ast }) => {
-            const fixes = ensureDrawPrimitiveEndCallsAreBalanced({
-                ast,
-                diagnostic
-            });
+        (diagnostic) =>
+            () =>
+            ({ ast }) => {
+                const fixes = ensureDrawPrimitiveEndCallsAreBalanced({
+                    ast,
+                    diagnostic
+                });
 
-            return resolveAutomaticFixes(fixes, { ast, diagnostic });
-        }
+                return resolveAutomaticFixes(fixes, { ast, diagnostic });
+            }
     ],
     [
         "GM2015",
-        (diagnostic) => () => ({ ast }) => {
-            const fixes = ensureVertexFormatDefinitionsAreClosed({
-                ast,
-                diagnostic
-            });
+        (diagnostic) =>
+            () =>
+            ({ ast }) => {
+                const fixes = ensureVertexFormatDefinitionsAreClosed({
+                    ast,
+                    diagnostic
+                });
 
-            return resolveAutomaticFixes(fixes, { ast, diagnostic });
-        }
+                return resolveAutomaticFixes(fixes, { ast, diagnostic });
+            }
     ],
     [
         "GM2028",
-        (diagnostic) => () => ({ ast }) => {
-            const fixes = ensurePrimitiveBeginPrecedesEnd({
-                ast,
-                diagnostic
-            });
+        (diagnostic) =>
+            () =>
+            ({ ast }) => {
+                const fixes = ensurePrimitiveBeginPrecedesEnd({
+                    ast,
+                    diagnostic
+                });
 
-            return resolveAutomaticFixes(fixes, { ast, diagnostic });
-        }
+                return resolveAutomaticFixes(fixes, { ast, diagnostic });
+            }
     ],
     [
         "GM2025",
-        (diagnostic) => () => ({ ast }) => {
-            const fixes = annotateMissingUserEvents({ ast, diagnostic });
+        (diagnostic) =>
+            () =>
+            ({ ast }) => {
+                const fixes = annotateMissingUserEvents({ ast, diagnostic });
 
-            return resolveAutomaticFixes(fixes, { ast, diagnostic });
-        }
+                return resolveAutomaticFixes(fixes, { ast, diagnostic });
+            }
     ],
     [
         "GM1063",
-        (diagnostic) => () => ({ ast }) => {
-            const fixes = harmonizeTexturePointerTernaries({
-                ast,
-                diagnostic
-            });
+        (diagnostic) =>
+            () =>
+            ({ ast }) => {
+                const fixes = harmonizeTexturePointerTernaries({
+                    ast,
+                    diagnostic
+                });
 
-            return resolveAutomaticFixes(fixes, { ast, diagnostic });
-        }
+                return resolveAutomaticFixes(fixes, { ast, diagnostic });
+            }
     ],
     [
         "GM2005",
-        (diagnostic) => () => ({ ast }) => {
-            const fixes = ensureSurfaceTargetResetForGM2005({
-                ast,
-                diagnostic
-            });
+        (diagnostic) =>
+            () =>
+            ({ ast }) => {
+                const fixes = ensureSurfaceTargetResetForGM2005({
+                    ast,
+                    diagnostic
+                });
 
-            return resolveAutomaticFixes(fixes, { ast, diagnostic });
-        }
+                return resolveAutomaticFixes(fixes, { ast, diagnostic });
+            }
     ],
     [
         "GM1064",
-        (diagnostic) => () => ({ ast }) => {
-            const fixes = removeRedeclaredGlobalFunctions({
-                ast,
-                diagnostic
-            });
+        (diagnostic) =>
+            () =>
+            ({ ast }) => {
+                const fixes = removeRedeclaredGlobalFunctions({
+                    ast,
+                    diagnostic
+                });
 
-            return resolveAutomaticFixes(fixes, { ast, diagnostic });
-        }
+                return resolveAutomaticFixes(fixes, { ast, diagnostic });
+            }
     ],
     [
         "GM2011",
-        (diagnostic) => () => ({ ast }) => {
-            const fixes = ensureVertexBuffersAreClosed({ ast, diagnostic });
+        (diagnostic) =>
+            () =>
+            ({ ast }) => {
+                const fixes = ensureVertexBuffersAreClosed({ ast, diagnostic });
 
-            return resolveAutomaticFixes(fixes, { ast, diagnostic });
-        }
+                return resolveAutomaticFixes(fixes, { ast, diagnostic });
+            }
     ],
     [
         "GM2009",
-        (diagnostic) => () => ({ ast, options }) => {
-            const fixes = ensureVertexBeginPrecedesEnd({
-                ast,
-                diagnostic,
-                options
-            });
+        (diagnostic) =>
+            () =>
+            ({ ast, options }) => {
+                const fixes = ensureVertexBeginPrecedesEnd({
+                    ast,
+                    diagnostic,
+                    options
+                });
 
-            return resolveAutomaticFixes(fixes, { ast, diagnostic });
-        }
+                return resolveAutomaticFixes(fixes, { ast, diagnostic });
+            }
     ],
     [
         "GM2043",
-        (diagnostic) => () => ({ ast }) => {
-            const fixes = ensureLocalVariablesAreDeclaredBeforeUse({
-                ast,
-                diagnostic
-            });
+        (diagnostic) =>
+            () =>
+            ({ ast }) => {
+                const fixes = ensureLocalVariablesAreDeclaredBeforeUse({
+                    ast,
+                    diagnostic
+                });
 
-            return resolveAutomaticFixes(fixes, { ast, diagnostic });
-        }
+                return resolveAutomaticFixes(fixes, { ast, diagnostic });
+            }
     ],
     [
         "GM2033",
-        (diagnostic) => () => ({ ast }) => {
-            const fixes = removeDanglingFileFindCalls({ ast, diagnostic });
+        (diagnostic) =>
+            () =>
+            ({ ast }) => {
+                const fixes = removeDanglingFileFindCalls({ ast, diagnostic });
 
-            return resolveAutomaticFixes(fixes, { ast, diagnostic });
-        }
+                return resolveAutomaticFixes(fixes, { ast, diagnostic });
+            }
     ],
     [
         "GM2050",
-        (diagnostic) => () => ({ ast }) => {
-            const fixes = ensureFogIsReset({ ast, diagnostic });
+        (diagnostic) =>
+            () =>
+            ({ ast }) => {
+                const fixes = ensureFogIsReset({ ast, diagnostic });
 
-            return resolveAutomaticFixes(fixes, { ast, diagnostic });
-        }
+                return resolveAutomaticFixes(fixes, { ast, diagnostic });
+            }
     ],
     [
         "GM2035",
-        (diagnostic) => () => ({ ast }) => {
-            const fixes = ensureGpuStateIsPopped({ ast, diagnostic });
+        (diagnostic) =>
+            () =>
+            ({ ast }) => {
+                const fixes = ensureGpuStateIsPopped({ ast, diagnostic });
 
-            return resolveAutomaticFixes(fixes, { ast, diagnostic });
-        }
+                return resolveAutomaticFixes(fixes, { ast, diagnostic });
+            }
     ]
 ]);
 
