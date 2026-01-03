@@ -4,7 +4,10 @@ import { mkdir, rm, writeFile } from "node:fs/promises";
 import path from "node:path";
 import { setTimeout as sleep } from "node:timers/promises";
 
-import { createWatchCommand } from "../src/commands/watch.js";
+import {
+    createExtensionMatcher,
+    createWatchCommand
+} from "../src/commands/watch.js";
 
 void describe("watch command", () => {
     void it("should create a command instance with correct configuration", () => {
@@ -41,6 +44,14 @@ void describe("watch command", () => {
 
         assert.ok(pollingIntervalOption);
         assert.equal(pollingIntervalOption.defaultValue, 1000);
+    });
+
+    void it("normalizes extensions case-insensitively", () => {
+        const matcher = createExtensionMatcher([".gml", "YY"]);
+
+        assert.deepEqual([...matcher.extensions].sort(), [".gml", ".yy"]);
+        assert.ok(matcher.matches("example.GML"));
+        assert.ok(matcher.matches("event.YY"));
     });
 });
 
