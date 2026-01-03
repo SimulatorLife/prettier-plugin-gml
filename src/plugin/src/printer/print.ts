@@ -129,6 +129,8 @@ const OBJECT_TYPE = "object";
 const NUMBER_TYPE = "number";
 const UNDEFINED_TYPE = "undefined";
 const PRESERVED_GLOBAL_VAR_NAMES = Symbol("preservedGlobalVarNames");
+const GLOBAL_IDENTIFIER_PREFIX = "global.";
+const GLOBAL_IDENTIFIER_PREFIX_LENGTH = GLOBAL_IDENTIFIER_PREFIX.length;
 
 // Use Core.* directly instead of destructuring the Core namespace across
 // package boundaries (see AGENTS.md): e.g., use Core.getCommentArray(...) not
@@ -3684,19 +3686,15 @@ export function getSimpleAssignmentLikeEntry(
             return null;
         }
 
-        if (
-            options?.preserveGlobalVarStatements === false &&
-            identifier.isGlobalIdentifier
-        ) {
-            return null;
-        }
-
         return {
             locationNode: statement,
             paddingTarget: statement,
             nameLength: identifier.name.length,
             enablesAlignment: true,
-            prefixLength: 0
+            prefixLength: getGlobalIdentifierAlignmentPrefixLength(
+                identifier,
+                options
+            )
         };
     }
 
@@ -3759,6 +3757,28 @@ export function getSimpleAssignmentLikeEntry(
         skipBreakAfter,
         prefixLength
     };
+}
+
+function getGlobalIdentifierAlignmentPrefixLength(identifier, options) {
+    if (!identifier || !identifier.isGlobalIdentifier) {
+        return 0;
+    }
+
+    const preservedNames =
+        options?.preserveGlobalVarStatements === false
+            ? null
+            : options?.[PRESERVED_GLOBAL_VAR_NAMES];
+    if (preservedNames && preservedNames.size > 0) {
+        const identifierName = Core.getIdentifierText(identifier);
+        if (
+            Core.isNonEmptyString(identifierName) &&
+            preservedNames.has(identifierName)
+        ) {
+            return 0;
+        }
+    }
+
+    return GLOBAL_IDENTIFIER_PREFIX_LENGTH;
 }
 
 function getFunctionParameterNameSetFromPath(path) {
