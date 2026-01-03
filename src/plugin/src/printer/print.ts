@@ -1280,15 +1280,13 @@ function tryPrintDeclarationNode(node, path, options, print) {
         case "DefineStatement": {
             const directive =
                 Core.getNormalizedDefineReplacementDirective(node) ?? Core.DefineReplacementDirective.MACRO;
-            const suffixDoc = typeof node.replacementSuffix === STRING_TYPE ? node.replacementSuffix : print("name");
+            const suffixDoc = typeof node.replacementSuffix === STRING_TYPE ? node.replacementSuffix.trim() : print("name");
 
             if (typeof suffixDoc === STRING_TYPE) {
-                const needsSeparator = suffixDoc.length > 0 && !/^\s/.test(suffixDoc);
-
-                return needsSeparator ? concat([directive, " ", suffixDoc]) : concat([directive, suffixDoc]);
+                return concat([directive, " ", suffixDoc]);
             }
 
-            return concat([directive, suffixDoc]);
+            return concat([directive, " ", suffixDoc]);
         }
         case "DeleteStatement": {
             return concat(["delete ", print("argument")]);
