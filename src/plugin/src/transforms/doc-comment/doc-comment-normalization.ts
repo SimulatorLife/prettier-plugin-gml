@@ -10,6 +10,7 @@ import {
     collectDescriptionContinuations
 } from "./description-utils.js";
 import { setDocCommentNormalization } from "./normalization-utils.js";
+import { wrapDocDescriptionLines } from "../../doc-comment/description-wrapping.js";
 import {
     setDocCommentMetadata,
     setDeprecatedDocCommentFunctionSet
@@ -180,6 +181,11 @@ function execute(
 
         normalizedDocComments = removeFunctionDocCommentLines(
             normalizedDocComments
+        );
+
+        normalizedDocComments = wrapDocDescriptionLines(
+            normalizedDocComments,
+            docCommentOptions.printWidth
         );
 
         if (normalizedDocComments.length === 0) {
