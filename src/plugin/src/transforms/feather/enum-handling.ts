@@ -368,6 +368,7 @@ export function preprocessSourceForFeatherFixes(sourceText: string) {
 
     const gm1100Metadata: Array<unknown> = [];
     const gm1016Metadata: Array<unknown> = [];
+    const gm1007Metadata: Array<Record<string, unknown>> = [];
     const sanitizedParts: string[] = [];
     const newlinePattern = /\r?\n/g;
     let lastIndex = 0;
@@ -377,13 +378,48 @@ export function preprocessSourceForFeatherFixes(sourceText: string) {
         indentation: string;
     } = null;
 
-    const processLine = (line: string) => {
+    const processLine = (line: string, lineStartIndex: number) => {
         const indentationMatch = line.match(/^\s*/);
         const indentation = indentationMatch ? indentationMatch[0] : "";
         const trimmed = Core.toTrimmedString(line);
 
         if (trimmed.length === 0) {
             return { line, context: pendingGM1100Context };
+        }
+
+        const firstChar = trimmed[0];
+        const isBareAssignment = firstChar === "=" && trimmed[1] !== "=";
+        const isNumericAssignment =
+            firstChar >= "0" &&
+            firstChar <= "9" &&
+            (() => {
+                const assignmentIndex = trimmed.indexOf("=");
+                return (
+                    assignmentIndex !== -1 && trimmed[assignmentIndex + 1] !== "="
+                );
+            })();
+
+        if (isBareAssignment || isNumericAssignment) {
+            const trimmedRightLength = line.replace(/\s+$/, "").length;
+            const sanitizedLine = line.replaceAll(/[^\s]/g, " ");
+
+            gm1007Metadata.push({
+                start: {
+                    line: lineNumber,
+                    column: indentation.length,
+                    index: lineStartIndex + indentation.length
+                },
+                end: {
+                    line: lineNumber,
+                    column: Math.max(
+                        indentation.length,
+                        trimmedRightLength - 1
+                    ),
+                    index: lineStartIndex + trimmedRightLength
+                }
+            });
+
+            return { line: sanitizedLine, context: null };
         }
 
         const booleanLiteralMatch = line.match(
@@ -483,7 +519,7 @@ export function preprocessSourceForFeatherFixes(sourceText: string) {
         const lineEnd = match.index;
         const line = sourceText.slice(lastIndex, lineEnd);
         const newline = match[0];
-        const { line: sanitizedLine, context } = processLine(line);
+        const { line: sanitizedLine, context } = processLine(line, lastIndex);
 
         sanitizedParts.push(sanitizedLine, newline);
         pendingGM1100Context = context;
@@ -497,7 +533,10 @@ export function preprocessSourceForFeatherFixes(sourceText: string) {
         sourceText.endsWith("\n") ||
         sourceText.endsWith("\r")
     ) {
-        const { line: sanitizedLine, context } = processLine(finalLine);
+        const { line: sanitizedLine, context } = processLine(
+            finalLine,
+            lastIndex
+        );
         sanitizedParts.push(sanitizedLine);
         pendingGM1100Context = context;
     }
@@ -515,6 +554,10 @@ export function preprocessSourceForFeatherFixes(sourceText: string) {
 
     if (gm1016Metadata.length > 0) {
         metadata.GM1016 = gm1016Metadata;
+    }
+
+    if (gm1007Metadata.length > 0) {
+        metadata.GM1007 = gm1007Metadata;
     }
 
     const hasMetadata = Object.keys(metadata).length > 0;
