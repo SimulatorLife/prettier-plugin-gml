@@ -545,10 +545,70 @@ function hasLeadingBlankLineInSource(comment, originalText) {
             continue;
         }
 
+        if (char === "/") {
+            const decorativeLineStart = findDecorativeLineStart(
+                originalText,
+                index
+            );
+            if (decorativeLineStart !== null) {
+                index = decorativeLineStart - 1;
+                continue;
+            }
+        }
+
         break;
     }
 
     return newlineCount >= 2;
+}
+
+const DECORATIVE_LINE_CHARACTERS = new Set([
+    "/",
+    "-",
+    "_",
+    "~",
+    "*",
+    "#",
+    "<",
+    ">",
+    "|",
+    ":",
+    "."
+]);
+
+function findDecorativeLineStart(text, endIndex) {
+    if (typeof text !== "string" || endIndex < 0) {
+        return null;
+    }
+
+    let lineStart = endIndex;
+    while (lineStart >= 0) {
+        const char = text[lineStart];
+        if (char === "\n" || char === "\r") {
+            lineStart += 1;
+            break;
+        }
+        lineStart -= 1;
+    }
+
+    if (lineStart < 0) {
+        lineStart = 0;
+    }
+
+    for (let pos = lineStart; pos <= endIndex; pos += 1) {
+        const char = text[pos];
+        if (
+            DECORATIVE_LINE_CHARACTERS.has(char) ||
+            char === " " ||
+            char === "\t" ||
+            char === "\r"
+        ) {
+            continue;
+        }
+        return null;
+    }
+
+    return lineStart;
 }
 
 function applyTrailingCommentPadding(comment) {

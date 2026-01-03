@@ -15,7 +15,8 @@ const {
     MEMBER_INDEX_EXPRESSION,
     PARENTHESIZED_EXPRESSION,
     UNARY_EXPRESSION,
-    VARIABLE_DECLARATION
+    VARIABLE_DECLARATION,
+    VARIABLE_DECLARATOR
 } = Core;
 
 export type ConvertManualMathTransformOptions = {
@@ -2258,6 +2259,23 @@ function attemptConvertSquare(node, context) {
 
     mutateToCallExpression(node, "sqr", [Core.cloneAstNode(left)], node);
     return true;
+}
+
+function isAssignmentInitializer(node) {
+    const parent = node?.parent;
+    if (!parent || typeof parent !== "object") {
+        return false;
+    }
+
+    if (parent.type === ASSIGNMENT_EXPRESSION && parent.right === node) {
+        return true;
+    }
+
+    if (parent.type === VARIABLE_DECLARATOR && parent.init === node) {
+        return true;
+    }
+
+    return false;
 }
 
 function attemptConvertRepeatedPower(node) {

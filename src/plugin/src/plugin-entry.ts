@@ -141,6 +141,12 @@ function ensureBlankLineBeforeTopLevelLineComments(formatted: string): string {
             const previousLine = result.at(-1);
             if (
                 typeof previousLine === "string" &&
+                previousLine.trim().length > 0 &&
+                previousLine.trim() !== "}"
+            ) {
+                result.push("");
+            } else if (
+                typeof previousLine === "string" &&
                 previousLine.trim() === "}"
             ) {
                 result.push("");
@@ -151,6 +157,10 @@ function ensureBlankLineBeforeTopLevelLineComments(formatted: string): string {
     }
 
     return result.join("\n");
+}
+
+function trimWhitespaceAfterBlockComments(formatted: string): string {
+    return formatted.replace(/\*\/\r?\n[ \t]+/g, "*/\n");
 }
 
 function collectLineCommentTrailingWhitespace(
@@ -288,7 +298,12 @@ async function format(source: string, options: SupportOptions = {}) {
     const spacedComments = ensureBlankLineBeforeTopLevelLineComments(
         normalizedCommentSpacing
     );
-    return reapplyLineCommentTrailingWhitespace(spacedComments, source);
+    const trimmedAfterBlockComments =
+        trimWhitespaceAfterBlockComments(spacedComments);
+    return reapplyLineCommentTrailingWhitespace(
+        trimmedAfterBlockComments,
+        source
+    );
 }
 
 export { parsers, printers, pluginOptions, defaultOptions };
