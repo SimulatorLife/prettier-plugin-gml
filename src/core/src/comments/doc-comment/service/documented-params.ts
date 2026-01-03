@@ -3,7 +3,7 @@ import { getNodeStartIndex } from "../../../ast/locations.js";
 import type { MutableGameMakerAstNode } from "../../../ast/types.js";
 import { isLineComment } from "../../comment-utils.js";
 import { resolveDocCommentTraversalService } from "../manager.js";
-import { toNormalizedLowerCaseString } from "../../../utils/string.js";
+import { toNormalizedLowerCaseString } from "../utils.js";
 
 type DocCommentTraversalService = {
     forEach(callback: (node: unknown, comments?: readonly unknown[] | null) => void): void;
