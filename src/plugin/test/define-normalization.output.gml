@@ -1,4 +1,4 @@
-#macro  LEGACY_MACRO 123456789
+#macro LEGACY_MACRO 123456789
 
 #region Utility Scripts
 
