@@ -1,7 +1,7 @@
 import { isFunctionLikeNode, isNode } from "../../ast/node-helpers.js";
 import { getNodeStartIndex } from "../../ast/locations.js";
 import { getCommentArray, isDocCommentLine, type DocCommentLines } from "../comment-utils.js";
-import { isNonEmptyArray, isNonEmptyTrimmedString, toMutableArray } from "../../utils/index.js";
+import { isNonEmptyArray, isNonEmptyTrimmedString, toMutableArray } from "./utils.js";
 
 const DOC_COMMENT_MANAGERS = new WeakMap();
 const DOC_COMMENT_TRAVERSAL_SERVICES = new WeakMap();
