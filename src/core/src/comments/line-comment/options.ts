@@ -1,6 +1,4 @@
-import { isObjectLike, assertFunction } from "../../utils/object.js";
-import { isNonEmptyString } from "../../utils/string.js";
-import { isRegExpLike } from "../../utils/capability-probes.js";
+import { assertFunction, isNonEmptyString, isObjectLike, isRegExpLike } from "./utils.js";
 
 // Any line comment that starts with at least this many consecutive `/`
 // characters is considered a "banner" comment for formatting purposes.

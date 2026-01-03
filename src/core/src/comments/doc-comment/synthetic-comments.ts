@@ -11,8 +11,7 @@ import {
     promoteLeadingDocCommentTextToDescription,
     reorderDescriptionLinesToTop
 } from "./service/index.js";
-import { isNonEmptyArray, toMutableArray } from "../../utils/array.js";
-import { isNonEmptyTrimmedString } from "../../utils/string.js";
+import { isNonEmptyArray, isNonEmptyTrimmedString, toMutableArray } from "../../utils/index.js";
 
 const STRING_TYPE = "string";
 

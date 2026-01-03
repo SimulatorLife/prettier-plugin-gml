@@ -1,8 +1,14 @@
 import type { DocCommentLines, MutableDocCommentLines } from "../../comment-utils.js";
-import { coercePositiveIntegerOption } from "../../../utils/numeric-options.js";
-import { clamp } from "../../../utils/number.js";
-import { findLastIndex, isNonEmptyArray, toMutableArray } from "../../../utils/array.js";
-import { isNonEmptyString, isNonEmptyTrimmedString, toTrimmedString } from "../../../utils/string.js";
+import {
+    clamp,
+    coercePositiveIntegerOption,
+    findLastIndex,
+    isNonEmptyArray,
+    isNonEmptyString,
+    isNonEmptyTrimmedString,
+    toMutableArray,
+    toTrimmedString
+} from "../utils.js";
 import { parseDocCommentMetadata } from "./metadata.js";
 import {
     dedupeReturnDocLines,

@@ -6,9 +6,7 @@ import {
 } from "./options.js";
 import { applyJsDocReplacements } from "../doc-comment/service/type-normalization.js";
 import { getCommentValue } from "../comment-utils.js";
-import { isObjectLike } from "../../utils/object.js";
-import { toTrimmedString } from "../../utils/string.js";
-import { isRegExpLike } from "../../utils/capability-probes.js";
+import { isObjectLike, isRegExpLike, toTrimmedString } from "./utils.js";
 
 // BANNER DECORATION PATTERN DESIGN:
 //
