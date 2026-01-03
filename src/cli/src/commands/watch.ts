@@ -71,6 +71,11 @@ type WatchFactory = (
     listener?: WatchListener<string>
 ) => FSWatcher;
 
+interface ExtensionMatcher {
+    extensions: ReadonlySet<string>;
+    matches: (fileName: string) => boolean;
+}
+
 interface WatchCommandOptions {
     extensions?: Array<string>;
     polling?: boolean;
@@ -138,6 +143,28 @@ interface FileChangeOptions {
 
 const DEFAULT_WATCH_FACTORY: WatchFactory = (pathToWatch, options, listener) =>
     watch(pathToWatch, options, listener);
+
+/**
+ * Creates a matcher for file extensions that normalizes case and ensures each
+ * entry begins with a leading dot. The matcher exposes the normalized set for
+ * logging while providing a case-insensitive predicate for incoming filenames.
+ */
+export function createExtensionMatcher(
+    extensions: ReadonlyArray<string>
+): ExtensionMatcher {
+    const normalized = extensions.map((ext) => {
+        const withDot = ext.startsWith(".") ? ext : `.${ext}`;
+        return withDot.toLowerCase();
+    });
+
+    const normalizedSet = new Set(normalized);
+
+    return {
+        extensions: normalizedSet,
+        matches: (fileName: string) =>
+            normalizedSet.has(path.extname(fileName).toLowerCase())
+    };
+}
 
 /**
  * Creates the watch command for monitoring GML source files.
@@ -428,9 +455,8 @@ export async function runWatchCommand(
 
     const normalizedPath = await validateTargetPath(targetPath);
 
-    const extensionSet = new Set(
-        extensions.map((ext) => (ext.startsWith(".") ? ext : `.${ext}`))
-    );
+    const extensionMatcher = createExtensionMatcher(extensions);
+    const extensionSet = extensionMatcher.extensions;
 
     // Auto-inject hot-reload runtime wrapper if requested
     if (autoInject) {
@@ -779,10 +805,7 @@ export async function runWatchCommand(
                     ...(abortSignal && { signal: abortSignal })
                 },
                 (eventType, filename) => {
-                    if (
-                        !filename ||
-                        !extensionSet.has(path.extname(filename))
-                    ) {
+                    if (!filename || !extensionMatcher.matches(filename)) {
                         return;
                     }
 
