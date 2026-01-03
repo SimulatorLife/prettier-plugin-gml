@@ -19,53 +19,24 @@ export class CommentTracker {
     > = [];
 
     constructor(ownerOrComments: unknown) {
-        const sourceComments = (() => {
-            // If the caller provided a raw array of comments, prefer that
-            // directly. Some consumers construct tracker instances with
-            // lightweight arrays in tests and transform helpers; using the
-            // explicit array avoids ambiguous behaviour when the generic
-            // `getCommentArray` helper is invoked with non-program shapes.
-            if (Array.isArray(ownerOrComments)) {
-                return ownerOrComments;
-            }
+        // Extract comments from either a raw array or an AST node
+        const sourceComments: readonly unknown[] = Array.isArray(
+            ownerOrComments
+        )
+            ? ownerOrComments
+            : Core.getCommentArray(ownerOrComments);
 
-            {
-                const normalized = Core.getCommentArray(ownerOrComments);
-                if (Array.isArray(normalized)) {
-                    return normalized;
-                }
-            }
-
-            if (!ownerOrComments || typeof ownerOrComments !== "object") {
-                return [];
-            }
-
-            const { comments } = ownerOrComments as any;
-            return Core.asArray(comments);
-        })();
-        this.comments = sourceComments;
+        this.comments = sourceComments as Array<unknown>;
         this.entries = sourceComments
             .map((comment) => {
-                // Prefer the canonical helper but fall back to direct shape
-                // inspection when the helper cannot resolve the index. Some
-                // test fixtures and early transform phases present bare
-                // comment-like objects that still include a `start` index
-                // but may not be recognized by the AST helper in all
-                // import/resolve contexts. Be conservative and accept both
-                // so the tracker remains resilient across consumers.
-                // Prefer direct, simple shapes first (tests commonly provide
-                // small comment-like objects). Fall back to the canonical
-                // helper when the simple shape is not present so the tracker
-                // remains tolerant across runtime import contexts.
-                let index;
-                const maybeStart = comment && comment.start;
-                if (maybeStart && typeof maybeStart.index === "number") {
-                    index = maybeStart.index;
-                } else if (typeof maybeStart === "number") {
-                    index = maybeStart;
-                } else {
-                    index = Core.getNodeStartIndex(comment);
-                }
+                // Extract index from comment.start (number or {index: number})
+                const maybeStart = (comment as any)?.start;
+                const index =
+                    typeof maybeStart === "number"
+                        ? maybeStart
+                        : maybeStart && typeof maybeStart.index === "number"
+                          ? maybeStart.index
+                          : Core.getNodeStartIndex(comment);
                 return { index, comment };
             })
             .filter((entry) => typeof entry.index === "number")
