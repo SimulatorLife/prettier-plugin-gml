@@ -174,6 +174,86 @@ Returns an array of all patch operations (apply, undo, and rollback) with metada
 - `action`: Either `"apply"`, `"undo"`, or `"rollback"`
 - `error` (rollback only): Error message that caused the rollback
 
+#### `getPatchById(id)`
+
+Returns an array of all patch history entries that match the given patch ID. This is useful for tracking the complete lifecycle of a specific patch, including initial application, any re-applications, and undo/rollback operations.
+
+**Parameters:**
+
+- `id`: The patch identifier to search for (e.g., `"script:player_move"` or `"obj_player#Step"`)
+
+**Returns:** Array of `PatchHistoryEntry` objects matching the specified ID
+
+**Example:**
+
+```javascript
+const wrapper = createRuntimeWrapper();
+
+wrapper.applyPatch({
+    kind: "script",
+    id: "script:player_move",
+    js_body: "return args[0] * 2;"
+});
+
+// Later, update the same patch
+wrapper.applyPatch({
+    kind: "script",
+    id: "script:player_move",
+    js_body: "return args[0] * 3;"
+});
+
+// Get all history for this specific patch
+const history = wrapper.getPatchById("script:player_move");
+console.log(history.length); // 2
+console.log(history[0].version); // 1
+console.log(history[1].version); // 2
+```
+
+#### `getPatchesByKind(kind)`
+
+Returns an array of all patch history entries of a specific kind (script, event, or closure). This is useful for filtering patch history by type for debugging or auditing purposes.
+
+**Parameters:**
+
+- `kind`: The patch type to filter by (`"script"`, `"event"`, or `"closure"`)
+
+**Returns:** Array of `PatchHistoryEntry` objects with the specified kind
+
+**Example:**
+
+```javascript
+const wrapper = createRuntimeWrapper();
+
+wrapper.applyPatch({
+    kind: "script",
+    id: "script:a",
+    js_body: "return 1;"
+});
+wrapper.applyPatch({
+    kind: "event",
+    id: "obj_player#Step",
+    js_body: "this.x += 1;"
+});
+wrapper.applyPatch({
+    kind: "script",
+    id: "script:b",
+    js_body: "return 2;"
+});
+
+// Get only script patches
+const scriptPatches = wrapper.getPatchesByKind("script");
+console.log(scriptPatches.length); // 2
+console.log(scriptPatches[0].patch.id); // "script:a"
+console.log(scriptPatches[1].patch.id); // "script:b"
+
+// Get only event patches
+const eventPatches = wrapper.getPatchesByKind("event");
+console.log(eventPatches.length); // 1
+console.log(eventPatches[0].patch.id); // "obj_player#Step"
+```
+
+**Note:** When using `applyPatchBatch()`, a batch marker entry (with `kind: "script"`) is also added to the history. You can identify these by checking if the patch ID starts with `"batch:"`.
+
 #### `getRegistrySnapshot()`
 
 Returns a snapshot of the current registry state:

@@ -363,6 +363,14 @@ export function createRuntimeWrapper(options: RuntimeWrapperOptions = {}): Runti
         return state.undoStack.length;
     }
 
+    function getPatchById(id: string): Array<PatchHistoryEntry> {
+        return state.patchHistory.filter((entry) => entry.patch.id === id);
+    }
+
+    function getPatchesByKind(kind: "script" | "event" | "closure"): Array<PatchHistoryEntry> {
+        return state.patchHistory.filter((entry) => entry.patch.kind === kind);
+    }
+
     function getRegistrySnapshot(): RuntimeRegistrySnapshot {
         return {
             version: state.registry.version,
@@ -530,6 +538,8 @@ export function createRuntimeWrapper(options: RuntimeWrapperOptions = {}): Runti
         undo,
         getPatchHistory,
         getUndoStackSize,
+        getPatchById,
+        getPatchesByKind,
         getRegistrySnapshot,
         getPatchStats,
         getVersion,
