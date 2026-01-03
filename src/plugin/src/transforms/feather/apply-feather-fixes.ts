@@ -10525,8 +10525,7 @@ function removeRedundantSurfaceResetCalls(statements, startIndex) {
 
         const nextSibling = statements[index + 1] ?? null;
         const shouldPreserveBlankLine =
-            nextSibling &&
-            hasOriginalBlankLineBetween(candidate, nextSibling);
+            nextSibling && hasOriginalBlankLineBetween(candidate, nextSibling);
 
         statements.splice(index, 1);
         index -= 1;

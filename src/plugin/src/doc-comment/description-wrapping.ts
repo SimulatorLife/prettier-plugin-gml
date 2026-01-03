@@ -109,10 +109,7 @@ export function wrapDocDescriptionLines(
             lookahead += 1;
         }
 
-        const combinedContent = [
-            content,
-            ...continuationFragments
-        ]
+        const combinedContent = [content, ...continuationFragments]
             .filter((segment) => segment.length > 0)
             .join(" ")
             .trim();

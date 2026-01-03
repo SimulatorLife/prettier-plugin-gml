@@ -981,10 +981,7 @@ function unwrapEnclosingParentheses(node, context) {
             break;
         }
 
-        if (
-            !isSafeOperand(parent) &&
-            expression.type !== CALL_EXPRESSION
-        ) {
+        if (!isSafeOperand(parent) && expression.type !== CALL_EXPRESSION) {
             break;
         }
 

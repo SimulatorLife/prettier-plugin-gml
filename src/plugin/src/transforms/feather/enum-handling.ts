@@ -395,7 +395,8 @@ export function preprocessSourceForFeatherFixes(sourceText: string) {
             (() => {
                 const assignmentIndex = trimmed.indexOf("=");
                 return (
-                    assignmentIndex !== -1 && trimmed[assignmentIndex + 1] !== "="
+                    assignmentIndex !== -1 &&
+                    trimmed[assignmentIndex + 1] !== "="
                 );
             })();
 
