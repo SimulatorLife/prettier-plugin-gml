@@ -20,9 +20,7 @@ const FALLBACK_FORBIDDEN_CALLEE = [
 
 const FALLBACK_FORBIDDEN_PRECEDING = ["function", "constructor"];
 
-const identifierMetadataEntries = Core.normalizeIdentifierMetadataEntries(
-    Core.getIdentifierMetadata()
-);
+const identifierMetadataEntries = Core.normalizeIdentifierMetadataEntries(Core.getIdentifierMetadata());
 
 const keywordIdentifierNames = new Set<string>();
 
@@ -73,11 +71,7 @@ function createCallProcessingState(): CallProcessingState {
 /**
  * Advances the index through string literal content, updating state accordingly.
  */
-function advanceThroughStringLiteral(
-    text: string,
-    currentIndex: number,
-    state: CallProcessingState
-): number {
+function advanceThroughStringLiteral(text: string, currentIndex: number, state: CallProcessingState): number {
     const character = text[currentIndex];
     const nextIndex = currentIndex + 1;
 
@@ -102,12 +96,7 @@ function advanceThroughStringLiteral(
  * Advances the index through comment content, updating state accordingly.
  * This function should only be called when state.inLineComment or state.inBlockComment is true.
  */
-function advanceThroughComment(
-    text: string,
-    length: number,
-    currentIndex: number,
-    state: CallProcessingState
-): number {
+function advanceThroughComment(text: string, length: number, currentIndex: number, state: CallProcessingState): number {
     const character = text[currentIndex];
     const nextIndex = currentIndex + 1;
 
@@ -118,11 +107,7 @@ function advanceThroughComment(
         return nextIndex;
     }
 
-    if (
-        character === "*" &&
-        currentIndex + 1 < length &&
-        text[currentIndex + 1] === "/"
-    ) {
+    if (character === "*" && currentIndex + 1 < length && text[currentIndex + 1] === "/") {
         state.inBlockComment = false;
         return currentIndex + 2;
     }
@@ -191,11 +176,7 @@ function processAdjacentNumericLiterals(
 
     nextIndex = trivia.endIndex;
 
-    if (
-        trivia.hasContent &&
-        nextIndex < length &&
-        isNumericLiteralStart(text, nextIndex)
-    ) {
+    if (trivia.hasContent && nextIndex < length && isNumericLiteralStart(text, nextIndex)) {
         ensureCopied(triviaStart);
         parts.push(",");
         adjustmentPositions.push(triviaStart + insertedCount.value);
@@ -209,9 +190,7 @@ function processAdjacentNumericLiterals(
 /**
  * Walks source text to insert commas between numeric literal arguments when they are adjacent without separators.
  */
-export function sanitizeMissingArgumentSeparators(
-    sourceText: unknown
-): SanitizeMissingSeparatorsResult {
+export function sanitizeMissingArgumentSeparators(sourceText: unknown): SanitizeMissingSeparatorsResult {
     if (typeof sourceText !== "string" || sourceText.length === 0) {
         return {
             sourceText,
@@ -238,10 +217,7 @@ export function sanitizeMissingArgumentSeparators(
         modified = true;
     }
 
-    function processCall(
-        startIndex: number,
-        openParenIndex: number
-    ): CallProcessingResult {
+    function processCall(startIndex: number, openParenIndex: number): CallProcessingResult {
         let currentIndex = openParenIndex + 1;
         const state = createCallProcessingState();
         let callModified = false;
@@ -250,30 +226,16 @@ export function sanitizeMissingArgumentSeparators(
             const character = text[currentIndex];
 
             if (state.stringQuote !== null) {
-                currentIndex = advanceThroughStringLiteral(
-                    text,
-                    currentIndex,
-                    state
-                );
+                currentIndex = advanceThroughStringLiteral(text, currentIndex, state);
                 continue;
             }
 
             if (state.inLineComment || state.inBlockComment) {
-                currentIndex = advanceThroughComment(
-                    text,
-                    length,
-                    currentIndex,
-                    state
-                );
+                currentIndex = advanceThroughComment(text, length, currentIndex, state);
                 continue;
             }
 
-            const stringOrCommentIndex = tryStartStringOrComment(
-                text,
-                length,
-                currentIndex,
-                state
-            );
+            const stringOrCommentIndex = tryStartStringOrComment(text, length, currentIndex, state);
             if (stringOrCommentIndex !== currentIndex) {
                 currentIndex = stringOrCommentIndex;
                 continue;
@@ -294,16 +256,12 @@ export function sanitizeMissingArgumentSeparators(
             if (
                 state.depth >= 1 &&
                 isIdentifierBoundaryAt(text, currentIndex - 1) &&
-                (isIdentifierStartCharacter(text[currentIndex]) ||
-                    text[currentIndex] === "@")
+                (isIdentifierStartCharacter(text[currentIndex]) || text[currentIndex] === "@")
             ) {
                 const nestedMatch = matchFunctionCall(text, currentIndex);
 
                 if (nestedMatch) {
-                    const nestedResult = processCall(
-                        currentIndex,
-                        nestedMatch.openParenIndex
-                    );
+                    const nestedResult = processCall(currentIndex, nestedMatch.openParenIndex);
                     currentIndex = nestedResult.index;
                     if (nestedResult.modified) {
                         callModified = true;
@@ -371,10 +329,7 @@ export function sanitizeMissingArgumentSeparators(
     };
 }
 
-function matchFunctionCall(
-    sourceText: string,
-    startIndex: number
-): { openParenIndex: number } | null {
+function matchFunctionCall(sourceText: string, startIndex: number): { openParenIndex: number } | null {
     if (!isIdentifierBoundaryAt(sourceText, startIndex - 1)) {
         return null;
     }
@@ -415,10 +370,7 @@ function matchFunctionCall(
         if (character === "." || character === "@") {
             index += 1;
 
-            if (
-                index >= length ||
-                !isIdentifierStartCharacter(sourceText[index])
-            ) {
+            if (index >= length || !isIdentifierStartCharacter(sourceText[index])) {
                 return null;
             }
 
@@ -447,10 +399,7 @@ function matchFunctionCall(
         break;
     }
 
-    const calleeIdentifier = sourceText.slice(
-        lastIdentifierStart,
-        lastIdentifierEnd
-    );
+    const calleeIdentifier = sourceText.slice(lastIdentifierStart, lastIdentifierEnd);
 
     if (FORBIDDEN_CALLEE_IDENTIFIERS.has(calleeIdentifier)) {
         return null;
@@ -458,10 +407,7 @@ function matchFunctionCall(
 
     const precedingIdentifier = readIdentifierBefore(sourceText, startIndex);
 
-    if (
-        precedingIdentifier &&
-        FORBIDDEN_PRECEDING_IDENTIFIERS.has(precedingIdentifier)
-    ) {
+    if (precedingIdentifier && FORBIDDEN_PRECEDING_IDENTIFIERS.has(precedingIdentifier)) {
         return null;
     }
 
@@ -503,11 +449,7 @@ function skipCallTrivia(sourceText: string, startIndex: number): number {
                 index += 2;
 
                 while (index < length) {
-                    if (
-                        sourceText[index] === "*" &&
-                        index + 1 < length &&
-                        sourceText[index + 1] === "/"
-                    ) {
+                    if (sourceText[index] === "*" && index + 1 < length && sourceText[index + 1] === "/") {
                         index += 2;
                         break;
                     }
@@ -525,12 +467,7 @@ function skipCallTrivia(sourceText: string, startIndex: number): number {
     return index;
 }
 
-function skipBalancedSection(
-    sourceText: string,
-    startIndex: number,
-    openChar: string,
-    closeChar: string
-): number {
+function skipBalancedSection(sourceText: string, startIndex: number, openChar: string, closeChar: string): number {
     const length = sourceText.length;
     let index = startIndex + 1;
     let depth = 1;
@@ -565,11 +502,7 @@ function skipBalancedSection(
         }
 
         if (inBlockComment) {
-            if (
-                character === "*" &&
-                index + 1 < length &&
-                sourceText[index + 1] === "/"
-            ) {
+            if (character === "*" && index + 1 < length && sourceText[index + 1] === "/") {
                 inBlockComment = false;
                 index += 2;
                 continue;
@@ -625,10 +558,7 @@ function skipBalancedSection(
     return -1;
 }
 
-function readIdentifierBefore(
-    sourceText: string,
-    index: number
-): string | null {
+function readIdentifierBefore(sourceText: string, index: number): string | null {
     let current = index - 1;
 
     while (current >= 0) {
@@ -656,10 +586,7 @@ function readIdentifierBefore(
                 current -= 2;
 
                 while (current >= 1) {
-                    if (
-                        sourceText[current - 1] === "/" &&
-                        sourceText[current] === "*"
-                    ) {
+                    if (sourceText[current - 1] === "/" && sourceText[current] === "*") {
                         current -= 2;
                         break;
                     }
@@ -700,12 +627,7 @@ function isIdentifierCharacter(character: string | undefined) {
 }
 
 function isWhitespaceCharacter(character: string | undefined) {
-    return (
-        character === " " ||
-        character === "\t" ||
-        character === "\n" ||
-        character === "\r"
-    );
+    return character === " " || character === "\t" || character === "\n" || character === "\r";
 }
 
 function isNumericLiteralStart(text: string, index: number) {
@@ -729,11 +651,7 @@ function readNumericLiteral(text: string, startIndex: number) {
         index += 1;
     }
 
-    if (
-        index + 1 < length &&
-        text[index] === "0" &&
-        (text[index + 1] === "x" || text[index + 1] === "X")
-    ) {
+    if (index + 1 < length && text[index] === "0" && (text[index + 1] === "x" || text[index + 1] === "X")) {
         index += 2;
 
         while (index < length && /[0-9a-fA-F]/.test(text[index])) {
@@ -746,11 +664,7 @@ function readNumericLiteral(text: string, startIndex: number) {
         };
     }
 
-    if (
-        index + 1 < length &&
-        text[index] === "0" &&
-        (text[index + 1] === "b" || text[index + 1] === "B")
-    ) {
+    if (index + 1 < length && text[index] === "0" && (text[index + 1] === "b" || text[index + 1] === "B")) {
         index += 2;
 
         while (index < length && /[01]/.test(text[index])) {
@@ -825,12 +739,7 @@ function readCallSeparatorTrivia(text: string, startIndex: number) {
             if (nextCharacter === "*") {
                 index += 2;
 
-                while (
-                    index < length &&
-                    (text[index] !== "*" ||
-                        index + 1 >= length ||
-                        text[index + 1] !== "/")
-                ) {
+                while (index < length && (text[index] !== "*" || index + 1 >= length || text[index + 1] !== "/")) {
                     index += 1;
                 }
 

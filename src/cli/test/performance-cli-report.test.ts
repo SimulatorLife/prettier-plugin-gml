@@ -11,17 +11,11 @@ void describe("performance CLI report output", () => {
     const disposals = [];
 
     after(async () => {
-        await Promise.all(
-            disposals
-                .splice(0)
-                .map((target) => rm(target, { recursive: true, force: true }))
-        );
+        await Promise.all(disposals.splice(0).map((target) => rm(target, { recursive: true, force: true })));
     });
 
     void it("writes the JSON report to the requested path", async () => {
-        const tempRoot = await mkdtemp(
-            path.join(os.tmpdir(), "performance-cli-report-")
-        );
+        const tempRoot = await mkdtemp(path.join(os.tmpdir(), "performance-cli-report-"));
         disposals.push(tempRoot);
 
         const reportFile = path.join(tempRoot, "report.json");
@@ -62,21 +56,15 @@ void describe("performance CLI report output", () => {
 
         const relativePath = path.relative(process.cwd(), reportFile);
         const expectedPath =
-            relativePath &&
-            !relativePath.startsWith("..") &&
-            !path.isAbsolute(relativePath)
+            relativePath && !relativePath.startsWith("..") && !path.isAbsolute(relativePath)
                 ? relativePath
                 : path.resolve(reportFile);
 
-        assert.deepEqual(logMessages, [
-            `Performance report written to ${expectedPath}.`
-        ]);
+        assert.deepEqual(logMessages, [`Performance report written to ${expectedPath}.`]);
     });
 
     void it("keeps stdout clean when piping the report", async () => {
-        const tempRoot = await mkdtemp(
-            path.join(os.tmpdir(), "performance-cli-stdout-")
-        );
+        const tempRoot = await mkdtemp(path.join(os.tmpdir(), "performance-cli-stdout-"));
         disposals.push(tempRoot);
 
         const reportFile = path.join(tempRoot, "report.json");
@@ -124,35 +112,25 @@ void describe("performance CLI report output", () => {
 
         const relativePath = path.relative(process.cwd(), reportFile);
         const expectedPath =
-            relativePath &&
-            !relativePath.startsWith("..") &&
-            !path.isAbsolute(relativePath)
+            relativePath && !relativePath.startsWith("..") && !path.isAbsolute(relativePath)
                 ? relativePath
                 : path.resolve(reportFile);
 
-        assert.deepEqual(errorMessages, [
-            `Performance report written to ${expectedPath}.`
-        ]);
+        assert.deepEqual(errorMessages, [`Performance report written to ${expectedPath}.`]);
 
         const payload = writes.join("");
         assert.doesNotThrow(() => JSON.parse(payload));
     });
 
     void it("surfaces suite failures in the stderr summary", async () => {
-        const tempRoot = await mkdtemp(
-            path.join(os.tmpdir(), "performance-cli-failure-")
-        );
+        const tempRoot = await mkdtemp(path.join(os.tmpdir(), "performance-cli-failure-"));
         disposals.push(tempRoot);
 
         const fixtureRoot = path.join(tempRoot, "fixtures");
         await mkdir(fixtureRoot);
 
         const invalidFixture = path.join(fixtureRoot, "broken.gml");
-        await writeFile(
-            invalidFixture,
-            "function broken() {\n    var value = ;\n}\n",
-            "utf8"
-        );
+        await writeFile(invalidFixture, "function broken() {\n    var value = ;\n}\n", "utf8");
 
         const reportFile = path.join(tempRoot, "report.json");
 
@@ -193,20 +171,15 @@ void describe("performance CLI report output", () => {
 
         const rawReport = await readFile(reportFile, "utf8");
         const parsedReport = JSON.parse(rawReport);
-        const failureMessage =
-            parsedReport?.suites?.parser?.error?.message ?? "";
+        const failureMessage = parsedReport?.suites?.parser?.error?.message ?? "";
 
         const relativePath = path.relative(process.cwd(), reportFile);
         const expectedPath =
-            relativePath &&
-            !relativePath.startsWith("..") &&
-            !path.isAbsolute(relativePath)
+            relativePath && !relativePath.startsWith("..") && !path.isAbsolute(relativePath)
                 ? relativePath
                 : path.resolve(reportFile);
 
-        assert.deepEqual(logMessages, [
-            `Performance report written to ${expectedPath}.`
-        ]);
+        assert.deepEqual(logMessages, [`Performance report written to ${expectedPath}.`]);
 
         assert.deepEqual(errorMessages, [
             [
@@ -218,9 +191,7 @@ void describe("performance CLI report output", () => {
     });
 
     void it("rejects report writes outside permitted workflow paths", async () => {
-        const tempRoot = await mkdtemp(
-            path.join(os.tmpdir(), "performance-cli-reject-")
-        );
+        const tempRoot = await mkdtemp(path.join(os.tmpdir(), "performance-cli-reject-"));
         disposals.push(tempRoot);
 
         const reportFile = path.join(tempRoot, "report.json");

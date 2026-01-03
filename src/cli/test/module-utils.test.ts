@@ -1,10 +1,7 @@
 import assert from "node:assert/strict";
 import test from "node:test";
 
-import {
-    isMissingModuleDependency,
-    resolveModuleDefaultExport
-} from "../src/shared/module.js";
+import { isMissingModuleDependency, resolveModuleDefaultExport } from "../src/shared/module.js";
 
 void test("resolveModuleDefaultExport returns the default export when present", () => {
     const namespace = { default: () => "value" };
@@ -23,16 +20,10 @@ void test("resolveModuleDefaultExport preserves falsy defaults", () => {
 
 void test("resolveModuleDefaultExport falls back to the module for nullish defaults", () => {
     const namespaceWithNull = { default: null, extra: true };
-    assert.strictEqual(
-        resolveModuleDefaultExport(namespaceWithNull),
-        namespaceWithNull
-    );
+    assert.strictEqual(resolveModuleDefaultExport(namespaceWithNull), namespaceWithNull);
 
     const namespaceWithUndefined = { default: undefined, value: 42 };
-    assert.strictEqual(
-        resolveModuleDefaultExport(namespaceWithUndefined),
-        namespaceWithUndefined
-    );
+    assert.strictEqual(resolveModuleDefaultExport(namespaceWithUndefined), namespaceWithUndefined);
 });
 
 void test("resolveModuleDefaultExport tolerates primitive and null modules", () => {
@@ -42,24 +33,17 @@ void test("resolveModuleDefaultExport tolerates primitive and null modules", () 
 });
 
 void test("isMissingModuleDependency detects ERR_MODULE_NOT_FOUND errors", () => {
-    const error: Error & { code?: string } = new Error(
-        "Cannot find module 'prettier'"
-    );
+    const error: Error & { code?: string } = new Error("Cannot find module 'prettier'");
     error.code = "ERR_MODULE_NOT_FOUND";
 
     assert.strictEqual(isMissingModuleDependency(error, "prettier"), true);
 });
 
 void test("isMissingModuleDependency handles double-quoted module identifiers", () => {
-    const error: Error & { code?: string } = new Error(
-        'Cannot find module "fast-xml-parser"'
-    );
+    const error: Error & { code?: string } = new Error('Cannot find module "fast-xml-parser"');
     error.code = "ERR_MODULE_NOT_FOUND";
 
-    assert.strictEqual(
-        isMissingModuleDependency(error, "fast-xml-parser"),
-        true
-    );
+    assert.strictEqual(isMissingModuleDependency(error, "fast-xml-parser"), true);
 });
 
 void test("isMissingModuleDependency returns false for unrelated errors", () => {

@@ -24,11 +24,7 @@ export function hasFunction(value, property) {
  * @returns {Function | null} Iterator method when present and callable, otherwise `null`.
  */
 function getIteratorMethod(iterable) {
-    const method =
-        iterable?.[Symbol.iterator] ??
-        iterable?.entries ??
-        iterable?.values ??
-        null;
+    const method = iterable?.[Symbol.iterator] ?? iterable?.entries ?? iterable?.values ?? null;
 
     return typeof method === "function" ? method : null;
 }
@@ -44,9 +40,7 @@ function getIteratorMethod(iterable) {
  */
 function getIterator(iterable) {
     const iterator = getIteratorMethod(iterable)?.call(iterable) ?? null;
-    return iterator && typeof iterator[Symbol.iterator] === "function"
-        ? iterator
-        : null;
+    return iterator && typeof iterator[Symbol.iterator] === "function" ? iterator : null;
 }
 
 /**
@@ -70,9 +64,7 @@ function hasIterator(iterable) {
  * @returns {number | null} Finite number when valid, otherwise `null`.
  */
 function getFiniteSize(candidate) {
-    return typeof candidate === "number" && Number.isFinite(candidate)
-        ? candidate
-        : null;
+    return typeof candidate === "number" && Number.isFinite(candidate) ? candidate : null;
 }
 
 /**
@@ -84,9 +76,7 @@ function getFiniteSize(candidate) {
  * @returns {number | null} Finite numeric hint when present, otherwise `null`.
  */
 function getLengthHint(iterable) {
-    return (
-        getFiniteSize(iterable?.size) ?? getFiniteSize(iterable?.length) ?? null
-    );
+    return getFiniteSize(iterable?.size) ?? getFiniteSize(iterable?.length) ?? null;
 }
 
 /**
@@ -127,10 +117,7 @@ export function isErrorLike(value: unknown): value is Error {
  * @returns {value is AggregateError} `true` when the value matches the AggregateError shape.
  */
 export function isAggregateErrorLike(value: unknown): value is AggregateError {
-    return (
-        isErrorLike(value) &&
-        Array.isArray((value as unknown as { errors: unknown }).errors)
-    );
+    return isErrorLike(value) && Array.isArray((value as unknown as { errors: unknown }).errors);
 }
 
 /**
@@ -143,11 +130,7 @@ export function isAggregateErrorLike(value: unknown): value is AggregateError {
  * @returns {value is RegExp} `true` when the value exposes RegExp methods.
  */
 export function isRegExpLike(value) {
-    return (
-        isObjectLike(value) &&
-        hasFunction(value, "test") &&
-        hasFunction(value, "exec")
-    );
+    return isObjectLike(value) && hasFunction(value, "test") && hasFunction(value, "exec");
 }
 
 /**
@@ -179,12 +162,7 @@ export function isMapLike(value) {
  * @returns {value is Set<unknown>} `true` when the value behaves like a Set.
  */
 export function isSetLike(value) {
-    return (
-        isObjectLike(value) &&
-        hasFunction(value, "has") &&
-        hasFunction(value, "add") &&
-        hasIterator(value)
-    );
+    return isObjectLike(value) && hasFunction(value, "has") && hasFunction(value, "add") && hasIterator(value);
 }
 
 /**
@@ -371,9 +349,5 @@ export function isWorkspaceEditLike(value?: unknown): boolean {
 
     const candidate = value as Record<string, unknown>;
 
-    return (
-        Array.isArray(candidate.edits) &&
-        hasFunction(candidate, "addEdit") &&
-        hasFunction(candidate, "groupByFile")
-    );
+    return Array.isArray(candidate.edits) && hasFunction(candidate, "addEdit") && hasFunction(candidate, "groupByFile");
 }

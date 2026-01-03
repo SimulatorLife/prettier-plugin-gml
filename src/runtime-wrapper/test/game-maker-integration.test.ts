@@ -113,16 +113,8 @@ await test("applies script patches to GameMaker script registry", () => {
         });
 
         const updatedFn = globals.gml_Script_test;
-        assert.notEqual(
-            updatedFn,
-            gml_Script_test,
-            "Global script reference should be replaced"
-        );
-        assert.equal(
-            jsonGame.Scripts[0],
-            updatedFn,
-            "JSON_game script table should be updated"
-        );
+        assert.notEqual(updatedFn, gml_Script_test, "Global script reference should be replaced");
+        assert.equal(jsonGame.Scripts[0], updatedFn, "JSON_game script table should be updated");
     } finally {
         restoreGlobals(snapshot);
     }
@@ -169,25 +161,10 @@ await test("applies object event patches to GameMaker object tables", () => {
         });
 
         const updatedFn = globals.gml_Object_oSpider_Step_0;
-        assert.notEqual(
-            updatedFn,
-            gml_Object_oSpider_Step_0,
-            "Global event reference should be replaced"
-        );
-        assert.equal(
-            objectEntry.StepNormalEvent,
-            updatedFn,
-            "GMObjects entry should be updated"
-        );
-        assert.ok(
-            "StepNormalEvent" in instanceEntry,
-            "Instance event handler should be assigned"
-        );
-        assert.equal(
-            instanceEntry.StepNormalEvent,
-            updatedFn,
-            "Instance event handler should be updated"
-        );
+        assert.notEqual(updatedFn, gml_Object_oSpider_Step_0, "Global event reference should be replaced");
+        assert.equal(objectEntry.StepNormalEvent, updatedFn, "GMObjects entry should be updated");
+        assert.ok("StepNormalEvent" in instanceEntry, "Instance event handler should be assigned");
+        assert.equal(instanceEntry.StepNormalEvent, updatedFn, "Instance event handler should be updated");
     } finally {
         restoreGlobals(snapshot);
     }
@@ -232,26 +209,11 @@ await test("object patches update entries when previous handler is anonymous", (
         });
 
         const updatedFn = objectEntry.StepNormalEvent;
-        assert.equal(
-            typeof updatedFn,
-            "function",
-            "GMObjects entry should be updated"
-        );
-        assert.equal(
-            instanceEntry.StepNormalEvent,
-            updatedFn,
-            "Instance event handler should be updated"
-        );
+        assert.equal(typeof updatedFn, "function", "GMObjects entry should be updated");
+        assert.equal(instanceEntry.StepNormalEvent, updatedFn, "Instance event handler should be updated");
         const eventArray = instanceEntry.Event as Array<boolean> | undefined;
-        assert.ok(
-            Array.isArray(eventArray),
-            "Instance event array should exist"
-        );
-        assert.equal(
-            eventArray?.[globals._uB2 ?? -1],
-            true,
-            "Instance event flag should be enabled"
-        );
+        assert.ok(Array.isArray(eventArray), "Instance event array should exist");
+        assert.equal(eventArray?.[globals._uB2 ?? -1], true, "Instance event flag should be enabled");
     } finally {
         restoreGlobals(snapshot);
     }
@@ -262,8 +224,7 @@ await test("script patches resolve builtin constants and getters", () => {
 
     try {
         const globals = globalThis as GlobalSnapshot;
-        globals.make_colour_rgb = (red, green, blue) =>
-            (red & 0xff) | ((green & 0xff) << 8) | ((blue & 0xff) << 16);
+        globals.make_colour_rgb = (red, green, blue) => (red & 0xff) | ((green & 0xff) << 8) | ((blue & 0xff) << 16);
         globals.g_pBuiltIn = {
             get_mouse_x: () => 10,
             get_current_time: () => 20
@@ -319,9 +280,7 @@ await test("updates pObject definition on active instances", () => {
     try {
         const globals = globalThis as GlobalSnapshot;
         // Function name MUST match for the patcher to find it in GMObjects
-        const originalFn = function gml_Object_oSpider_Step_0(
-            ..._args: Array<unknown>
-        ) {
+        const originalFn = function gml_Object_oSpider_Step_0(..._args: Array<unknown>) {
             void _args;
             return "original";
         };

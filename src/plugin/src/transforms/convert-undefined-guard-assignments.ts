@@ -37,10 +37,7 @@ export class ConvertUndefinedGuardAssignmentsTransform
             return;
         }
 
-        if (
-            node.type === "ParenthesizedExpression" &&
-            this.unwrapSyntheticParentheses(node, parent, property)
-        ) {
+        if (node.type === "ParenthesizedExpression" && this.unwrapSyntheticParentheses(node, parent, property)) {
             const replacement = parent?.[property];
             this.visit(replacement, parent, property);
             return;
@@ -77,9 +74,7 @@ export class ConvertUndefinedGuardAssignmentsTransform
             return false;
         }
 
-        const consequentAssignment = this.extractSoleAssignment(
-            node.consequent
-        );
+        const consequentAssignment = this.extractSoleAssignment(node.consequent);
 
         if (!consequentAssignment) {
             return false;
@@ -90,10 +85,7 @@ export class ConvertUndefinedGuardAssignmentsTransform
             return false;
         }
 
-        const guardTest = this.resolveUndefinedGuardExpression(
-            node.test,
-            targetName
-        );
+        const guardTest = this.resolveUndefinedGuardExpression(node.test, targetName);
         if (!guardTest) {
             return false;
         }
@@ -101,9 +93,7 @@ export class ConvertUndefinedGuardAssignmentsTransform
         const alternateAssignment = this.extractSoleAssignment(node.alternate);
 
         if (alternateAssignment) {
-            if (
-                targetName !== Core.getIdentifierText(alternateAssignment.left)
-            ) {
+            if (targetName !== Core.getIdentifierText(alternateAssignment.left)) {
                 return false;
             }
 
@@ -157,9 +147,7 @@ export class ConvertUndefinedGuardAssignmentsTransform
             !Core.hasComment(statement.expression) &&
             statement.expression.type === "AssignmentExpression"
         ) {
-            return statement.expression.operator === "="
-                ? statement.expression
-                : null;
+            return statement.expression.operator === "=" ? statement.expression : null;
         }
 
         return null;
@@ -177,8 +165,7 @@ export class ConvertUndefinedGuardAssignmentsTransform
             return null;
         }
 
-        const unwrapped =
-            Core.unwrapParenthesizedExpression(testNode) ?? testNode;
+        const unwrapped = Core.unwrapParenthesizedExpression(testNode) ?? testNode;
 
         if (Core.hasComment(unwrapped)) {
             return null;
@@ -224,11 +211,7 @@ export class ConvertUndefinedGuardAssignmentsTransform
         }
 
         const callee = node.object;
-        if (
-            !callee ||
-            callee.type !== "Identifier" ||
-            callee.name !== "is_undefined"
-        ) {
+        if (!callee || callee.type !== "Identifier" || callee.name !== "is_undefined") {
             return false;
         }
 
@@ -254,12 +237,7 @@ export class ConvertUndefinedGuardAssignmentsTransform
     /**
      * Replace the original `if` statement node with an `ExpressionStatement` that contains the new assignment expression.
      */
-    private replaceWithAssignmentStatement(
-        parent,
-        property,
-        assignment,
-        sourceNode
-    ) {
+    private replaceWithAssignmentStatement(parent, property, assignment, sourceNode) {
         const replacementStatement = {
             type: "ExpressionStatement",
             expression: assignment
@@ -329,5 +307,4 @@ export class ConvertUndefinedGuardAssignmentsTransform
     }
 }
 
-export const convertUndefinedGuardAssignmentsTransform =
-    new ConvertUndefinedGuardAssignmentsTransform();
+export const convertUndefinedGuardAssignmentsTransform = new ConvertUndefinedGuardAssignmentsTransform();

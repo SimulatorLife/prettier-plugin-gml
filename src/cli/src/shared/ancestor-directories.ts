@@ -28,9 +28,7 @@ export function collectUniqueAncestorDirectories(
 ): Array<string> {
     const directories = new Set<string>();
     const entries =
-        typeof startingDirectories === "string"
-            ? [startingDirectories]
-            : toArrayFromIterable(startingDirectories);
+        typeof startingDirectories === "string" ? [startingDirectories] : toArrayFromIterable(startingDirectories);
 
     for (const start of entries) {
         if (!isNonEmptyString(start)) {
@@ -58,8 +56,6 @@ export function collectUniqueAncestorDirectories(
  * @returns {Array<string>} Flat list of absolute directories, ordered from each
  *        start path toward the root.
  */
-export function collectAncestorDirectories(
-    ...startingDirectories: Array<string | undefined | null>
-): Array<string> {
+export function collectAncestorDirectories(...startingDirectories: Array<string | undefined | null>): Array<string> {
     return collectUniqueAncestorDirectories(startingDirectories);
 }

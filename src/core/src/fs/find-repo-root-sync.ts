@@ -8,10 +8,7 @@ import { walkAncestorDirectories } from "./path.js";
  * Returns true only if the path exists and the predicate passes; returns false
  * for any error including non-existent paths or permission issues.
  */
-function pathExistsSync(
-    filePath: string,
-    predicate?: (stat: ReturnType<typeof fs.statSync>) => boolean
-): boolean {
+function pathExistsSync(filePath: string, predicate?: (stat: ReturnType<typeof fs.statSync>) => boolean): boolean {
     try {
         const stat = fs.statSync(filePath);
         return predicate ? predicate(stat) : true;

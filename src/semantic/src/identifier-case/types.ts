@@ -19,9 +19,7 @@ export type IdentifierCasePlanSnapshot = {
     planGenerated?: boolean;
 };
 
-export function getDebugId(
-    map: DebuggableMap | null | undefined
-): string | null {
+export function getDebugId(map: DebuggableMap | null | undefined): string | null {
     if (!map) return null;
     return (map as DebuggableMap).__dbgId ?? null;
 }

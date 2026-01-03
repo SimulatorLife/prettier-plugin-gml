@@ -15,8 +15,7 @@ export const SuiteOutputFormat = Object.freeze({
     HUMAN: "human"
 } as const);
 
-export type SuiteOutputFormat =
-    (typeof SuiteOutputFormat)[keyof typeof SuiteOutputFormat];
+export type SuiteOutputFormat = (typeof SuiteOutputFormat)[keyof typeof SuiteOutputFormat];
 
 export type SuiteRunner = (options?: unknown) => unknown;
 
@@ -51,10 +50,7 @@ export function normalizeSuiteOutputFormat(
     value: unknown,
     { fallback }: { fallback?: SuiteOutputFormat | null } = {}
 ): SuiteOutputFormat | null {
-    return suiteOutputFormatHelpers.normalize(
-        value,
-        fallback
-    ) as SuiteOutputFormat | null;
+    return suiteOutputFormatHelpers.normalize(value, fallback) as SuiteOutputFormat | null;
 }
 
 export function resolveSuiteOutputFormatOrThrow(
@@ -65,10 +61,7 @@ export function resolveSuiteOutputFormatOrThrow(
         errorConstructor?: new (message: string) => Error;
     } = {}
 ): SuiteOutputFormat {
-    return suiteOutputFormatHelpers.requireValue(
-        value,
-        errorConstructor
-    ) as SuiteOutputFormat;
+    return suiteOutputFormatHelpers.requireValue(value, errorConstructor) as SuiteOutputFormat;
 }
 
 /**
@@ -83,13 +76,10 @@ export function resolveRequestedSuites(
     availableSuites: Map<string, SuiteRunner>
 ): Array<string> {
     const suiteInput = options?.suite;
-    const suiteCollection =
-        typeof suiteInput === "string" ? [suiteInput] : (suiteInput ?? []);
+    const suiteCollection = typeof suiteInput === "string" ? [suiteInput] : (suiteInput ?? []);
     const suiteOption = toMutableArray(suiteCollection);
     const hasExplicitSuites = suiteOption.length > 0;
-    const requested = hasExplicitSuites
-        ? suiteOption
-        : [...availableSuites.keys()];
+    const requested = hasExplicitSuites ? suiteOption : [...availableSuites.keys()];
 
     return requested.map((name) => name.toLowerCase());
 }
@@ -106,9 +96,7 @@ export function ensureSuitesAreKnown(
     availableSuites: Map<string, SuiteRunner>,
     command: CommanderCommandLike | undefined
 ): void {
-    const unknownSuites = suiteNames.filter(
-        (suite) => !availableSuites.has(suite)
-    );
+    const unknownSuites = suiteNames.filter((suite) => !availableSuites.has(suite));
 
     if (unknownSuites.length === 0) {
         return;
@@ -116,19 +104,14 @@ export function ensureSuitesAreKnown(
 
     const usage = resolveCommandUsage(command);
 
-    throw new CliUsageError(
-        `Unknown suite${unknownSuites.length === 1 ? "" : "s"}: ${unknownSuites.join(", ")}.`,
-        { usage }
-    );
+    throw new CliUsageError(`Unknown suite${unknownSuites.length === 1 ? "" : "s"}: ${unknownSuites.join(", ")}.`, {
+        usage
+    });
 }
 
-function assertSuiteRunnerLookup(
-    availableSuites: Map<string, SuiteRunner>
-): void {
+function assertSuiteRunnerLookup(availableSuites: Map<string, SuiteRunner>): void {
     if (!availableSuites || typeof availableSuites.get !== "function") {
-        throw new TypeError(
-            "availableSuites must provide a get function returning suite runners"
-        );
+        throw new TypeError("availableSuites must provide a get function returning suite runners");
     }
 }
 
@@ -156,10 +139,7 @@ async function executeSuiteRunner({
     suiteName: string;
     availableSuites: Map<string, SuiteRunner>;
     runnerOptions: unknown;
-    handleSuiteError: (
-        error: unknown,
-        context: { suiteName: string }
-    ) => unknown;
+    handleSuiteError: (error: unknown, context: { suiteName: string }) => unknown;
 }): Promise<[string, unknown] | null> {
     const runner = availableSuites.get(suiteName);
     if (typeof runner !== "function") {
@@ -204,8 +184,7 @@ export async function collectSuiteResults({
         return {};
     }
 
-    const handleSuiteError =
-        typeof onError === "function" ? onError : defaultSuiteErrorHandler;
+    const handleSuiteError = typeof onError === "function" ? onError : defaultSuiteErrorHandler;
 
     const executionResults = await Promise.all(
         suiteNames.map((suiteName) =>
@@ -218,9 +197,7 @@ export async function collectSuiteResults({
         )
     );
 
-    const entries = executionResults.filter(
-        (result): result is [string, unknown] => result !== null
-    );
+    const entries = executionResults.filter((result): result is [string, unknown] => result !== null);
 
     return Object.fromEntries(entries);
 }
@@ -263,9 +240,7 @@ export function emitSuiteResults(
     }
 
     const payload =
-        extras && typeof extras === "object" && extras.payload
-            ? extras.payload
-            : createSuiteResultsPayload(results);
+        extras && typeof extras === "object" && extras.payload ? extras.payload : createSuiteResultsPayload(results);
     const spacing = pretty ? 2 : 0;
     const serialized = stringifyJsonForFile(payload, { space: spacing });
     process.stdout.write(serialized);

@@ -17,10 +17,7 @@ void describe("memory report directory configuration", () => {
     });
 
     void it("returns the baseline default when no overrides are applied", () => {
-        assert.equal(
-            getDefaultMemoryReportDirectory(),
-            DEFAULT_MEMORY_REPORT_DIR
-        );
+        assert.equal(getDefaultMemoryReportDirectory(), DEFAULT_MEMORY_REPORT_DIR);
     });
 
     void it("allows overriding the default directory", () => {
@@ -33,10 +30,7 @@ void describe("memory report directory configuration", () => {
     void it("ignores blank overrides", () => {
         setDefaultMemoryReportDirectory("  ");
 
-        assert.equal(
-            getDefaultMemoryReportDirectory(),
-            DEFAULT_MEMORY_REPORT_DIR
-        );
+        assert.equal(getDefaultMemoryReportDirectory(), DEFAULT_MEMORY_REPORT_DIR);
     });
 
     void it("applies environment overrides to the default directory", () => {
@@ -51,10 +45,7 @@ void describe("memory report directory configuration", () => {
         setDefaultMemoryReportDirectory("results");
 
         assert.equal(resolveMemoryReportDirectory(), "results");
-        assert.equal(
-            resolveMemoryReportDirectory("  custom/output "),
-            "custom/output"
-        );
+        assert.equal(resolveMemoryReportDirectory("  custom/output "), "custom/output");
         assert.equal(resolveMemoryReportDirectory(""), "results");
     });
 });

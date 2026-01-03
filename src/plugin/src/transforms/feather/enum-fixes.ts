@@ -46,9 +46,7 @@ export function removeDuplicateEnumMembers({ ast, diagnostic, sourceText }) {
                         return -1;
                     }
 
-                    const targetName = Core.isIdentifierNode(
-                        (targetMember as any).name
-                    )
+                    const targetName = Core.isIdentifierNode((targetMember as any).name)
                         ? (targetMember as any).name.name
                         : null;
 
@@ -62,8 +60,7 @@ export function removeDuplicateEnumMembers({ ast, diagnostic, sourceText }) {
                     const fixDetail = createFeatherFixDetail(diagnostic, {
                         target: targetName,
                         range:
-                            typeof startIndex === "number" &&
-                            typeof endIndex === "number"
+                            typeof startIndex === "number" && typeof endIndex === "number"
                                 ? {
                                       start: startIndex,
                                       end: endIndex
@@ -87,9 +84,7 @@ export function removeDuplicateEnumMembers({ ast, diagnostic, sourceText }) {
                         continue;
                     }
 
-                    const name = Core.isIdentifierNode((member as any).name)
-                        ? (member as any).name.name
-                        : null;
+                    const name = Core.isIdentifierNode((member as any).name) ? (member as any).name.name : null;
 
                     if (typeof name !== "string" || name.length === 0) {
                         continue;
@@ -103,10 +98,8 @@ export function removeDuplicateEnumMembers({ ast, diagnostic, sourceText }) {
                     }
 
                     const existingMember = seen.get(normalizedName);
-                    const existingHasInitializer =
-                        existingMember?.initializer != null;
-                    const currentHasInitializer =
-                        (member as any).initializer != null;
+                    const existingHasInitializer = existingMember?.initializer != null;
+                    const currentHasInitializer = (member as any).initializer != null;
 
                     if (!existingHasInitializer && currentHasInitializer) {
                         const removalIndex = removeMember(existingMember);

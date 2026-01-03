@@ -31,22 +31,14 @@ void test("collectSyntheticDocCommentLines falls back to program-level comments"
     };
     const sourceText = "/// @function program\nfunction entry() {}";
 
-    const result = Core.collectSyntheticDocCommentLines(
-        node,
-        {},
-        programNode,
-        sourceText
-    );
+    const result = Core.collectSyntheticDocCommentLines(node, {}, programNode, sourceText);
 
     assert.deepStrictEqual(result.existingDocLines, ["/// @function program"]);
 });
 
 void test("collectLeadingProgramLineComments returns plain // comments", () => {
     const programNode = {
-        comments: [
-            createLineComment("// banner", 0, 8),
-            createLineComment("// following", 9, 18)
-        ]
+        comments: [createLineComment("// banner", 0, 8), createLineComment("// following", 9, 18)]
     };
     const node = { start: { index: 25 } };
 
@@ -61,29 +53,19 @@ void test("collectLeadingProgramLineComments returns plain // comments", () => {
 });
 
 void test("extractLeadingNonDocCommentLines keeps plain comments only", () => {
-    const comments = [
-        createLineComment("// plain", 0, 4),
-        createLineComment("/// @description", 5, 10)
-    ];
+    const comments = [createLineComment("// plain", 0, 4), createLineComment("/// @description", 5, 10)];
 
-    const { leadingLines, remainingComments } =
-        Core.extractLeadingNonDocCommentLines(comments, {});
+    const { leadingLines, remainingComments } = Core.extractLeadingNonDocCommentLines(comments, {});
 
     assert.deepStrictEqual(leadingLines, ["// plain"]);
     assert.strictEqual(remainingComments[0]?.value, "/// @description");
 });
 
 void test("collectAdjacentLeadingSourceLineComments gathers contiguous source lines", () => {
-    const sourceText = ["// first", "// second", "", "function go() {}"].join(
-        "\n"
-    );
+    const sourceText = ["// first", "// second", "", "function go() {}"].join("\n");
     const node = { start: { index: sourceText.indexOf("function") } };
 
-    const lines = Core.collectAdjacentLeadingSourceLineComments(
-        node,
-        {},
-        sourceText
-    );
+    const lines = Core.collectAdjacentLeadingSourceLineComments(node, {}, sourceText);
 
     assert.deepStrictEqual(lines, ["// first", "// second"]);
 });

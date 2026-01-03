@@ -4,11 +4,7 @@ import vm from "node:vm";
 
 import { __test__ } from "../src/commands/generate-gml-identifiers.js";
 
-const {
-    parseArrayLiteral,
-    collectManualArrayIdentifiers,
-    assertManualIdentifierArray
-} = __test__;
+const { parseArrayLiteral, collectManualArrayIdentifiers, assertManualIdentifierArray } = __test__;
 
 const SAMPLE_SOURCE = `
 const KEYWORDS = [
@@ -30,8 +26,7 @@ void describe("generate-gml-identifiers", () => {
                 (error) => {
                     return (
                         error instanceof Error &&
-                        error.message ===
-                            "Failed to evaluate array literal for KEYWORDS: Unknown error" &&
+                        error.message === "Failed to evaluate array literal for KEYWORDS: Unknown error" &&
                         error.cause === thrown
                     );
                 }

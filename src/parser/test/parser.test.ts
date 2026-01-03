@@ -7,10 +7,7 @@ import { GMLParser } from "../src/gml-parser.js";
 import GameMakerASTBuilder from "../src/ast/gml-ast-builder.js";
 import { GameMakerSyntaxError } from "../src/ast/gml-syntax-error.js";
 import { Core } from "@gml-modules/core";
-import {
-    defaultParserOptions,
-    type ParserOptions
-} from "../src/types/index.js";
+import { defaultParserOptions, type ParserOptions } from "../src/types/index.js";
 
 const currentDirectory = fileURLToPath(new URL(".", import.meta.url));
 const fixturesDirectory = path.join(currentDirectory, "../../test/input");
@@ -23,9 +20,7 @@ async function loadFixtures() {
     });
 
     return entries
-        .filter(
-            (entry) => entry.isFile() && entry.name.endsWith(fixtureExtension)
-        )
+        .filter((entry) => entry.isFile() && entry.name.endsWith(fixtureExtension))
         .map((entry) => entry.name)
         .sort();
 }
@@ -35,9 +30,7 @@ async function readFixture(fileName) {
     const source = await fs.readFile(filePath, fileEncoding);
 
     if (typeof source !== "string") {
-        throw new TypeError(
-            `Expected fixture '${fileName}' to be read as a string.`
-        );
+        throw new TypeError(`Expected fixture '${fileName}' to be read as a string.`);
     }
 
     return source;
@@ -66,10 +59,7 @@ type ParserTestHarnessOptions = {
     options?: Partial<ParserOptions>;
 };
 
-function parseFixture(
-    source: string,
-    { suppressErrors = false, options }: ParserTestHarnessOptions = {}
-) {
+function parseFixture(source: string, { suppressErrors = false, options }: ParserTestHarnessOptions = {}) {
     if (!suppressErrors) {
         return GMLParser.parse(source, options);
     }
@@ -131,9 +121,7 @@ const expectedFailures = new Set([
     "expressions.gml",
     "loungeware.gml"
 ]);
-const successfulFixture = fixtureNames.find(
-    (fixtureName) => !expectedFailures.has(fixtureName)
-);
+const successfulFixture = fixtureNames.find((fixtureName) => !expectedFailures.has(fixtureName));
 
 void describe("GameMaker parser fixtures", () => {
     for (const fixtureName of fixtureNames) {
@@ -153,15 +141,8 @@ void describe("GameMaker parser fixtures", () => {
             const ast = parseFixture(source);
 
             assert.ok(ast, `Parser returned no AST for ${fixtureName}.`);
-            assert.strictEqual(
-                ast.type,
-                "Program",
-                `Unexpected root node type for ${fixtureName}.`
-            );
-            assert.ok(
-                Array.isArray(ast.body),
-                `AST body for ${fixtureName} is not an array.`
-            );
+            assert.strictEqual(ast.type, "Program", `Unexpected root node type for ${fixtureName}.`);
+            assert.ok(Array.isArray(ast.body), `AST body for ${fixtureName} is not an array.`);
         });
     }
 
@@ -177,9 +158,7 @@ void describe("GameMaker parser fixtures", () => {
         const ast = parseFixture(source);
         const literals = collectNodesByType(ast, "Literal");
         const stringLiteral = literals.find(
-            (literal) =>
-                typeof literal.value === "string" &&
-                literal.value.startsWith('"')
+            (literal) => typeof literal.value === "string" && literal.value.startsWith('"')
         );
 
         assert.ok(stringLiteral, "Expected to find a string literal");
@@ -199,20 +178,14 @@ void describe("GameMaker parser fixtures", () => {
     void it("omits location metadata when disabled", async () => {
         const fixtureName = successfulFixture;
 
-        assert.ok(
-            fixtureName,
-            "Expected at least one parser fixture to be present."
-        );
+        assert.ok(fixtureName, "Expected at least one parser fixture to be present.");
 
         const source = await readFixture(fixtureName);
         const astWithoutLocations = parseFixture(source, {
             options: { getLocations: false }
         });
 
-        assert.ok(
-            astWithoutLocations,
-            "Parser returned no AST when locations were disabled."
-        );
+        assert.ok(astWithoutLocations, "Parser returned no AST when locations were disabled.");
         assert.strictEqual(
             hasLocationInformation(astWithoutLocations),
             false,
@@ -244,11 +217,7 @@ void describe("GameMaker parser fixtures", () => {
             prototypeSnapshot,
             "Expected prototype nodes to remain untouched when stripping locations."
         );
-        assert.deepStrictEqual(
-            ast.own,
-            {},
-            "Expected own nodes to have location metadata removed."
-        );
+        assert.deepStrictEqual(ast.own, {}, "Expected own nodes to have location metadata removed.");
     });
 
     void it("applies default parser options when none are provided", () => {
@@ -278,13 +247,7 @@ void describe("GameMaker parser fixtures", () => {
     });
 
     void it("outputs ESTree-formatted nodes when requested", () => {
-        const source = [
-            "// heading",
-            "function demo() {",
-            "    return 1;",
-            "}",
-            ""
-        ].join("\n");
+        const source = ["// heading", "function demo() {", "    return 1;", "}", ""].join("\n");
 
         const ast = GMLParser.parse(source, {
             astFormat: "estree",
@@ -295,27 +258,16 @@ void describe("GameMaker parser fixtures", () => {
         assert.strictEqual(ast.type, "Program");
         assert.ok(Array.isArray(ast.body));
         assert.ok(ast.loc, "ESTree AST should expose location metadata.");
-        assert.ok(
-            Array.isArray(ast.range),
-            "Range metadata should be present."
-        );
+        assert.ok(Array.isArray(ast.range), "Range metadata should be present.");
         const [declaration] = ast.body;
         assert.ok(declaration, "Expected at least one declaration.");
         assert.ok(
-            typeof declaration.start === "number" &&
-                typeof declaration.end === "number",
+            typeof declaration.start === "number" && typeof declaration.end === "number",
             "Declaration nodes should expose numeric start and end positions."
         );
-        assert.ok(
-            Array.isArray(ast.comments),
-            "Comments should be preserved in the ESTree output."
-        );
+        assert.ok(Array.isArray(ast.comments), "Comments should be preserved in the ESTree output.");
         const [comment] = ast.comments;
-        assert.strictEqual(
-            comment?.type,
-            "Line",
-            "Line comments should map to ESTree."
-        );
+        assert.strictEqual(comment?.type, "Line", "Line comments should map to ESTree.");
     });
 
     void it("serializes ESTree ASTs as JSON when requested", () => {
@@ -325,18 +277,11 @@ void describe("GameMaker parser fixtures", () => {
             asJSON: true
         });
 
-        assert.strictEqual(
-            typeof jsonAst,
-            "string",
-            "ESTree JSON output should be a string."
-        );
+        assert.strictEqual(typeof jsonAst, "string", "ESTree JSON output should be a string.");
 
         const parsed = JSON.parse(jsonAst);
         assert.strictEqual(parsed.type, "Program");
-        assert.ok(
-            parsed.loc,
-            "Serialized AST should retain location metadata."
-        );
+        assert.ok(parsed.loc, "Serialized AST should retain location metadata.");
     });
 
     void it("marks materialized trailing identifier defaults as parser-intended optional", () => {
@@ -348,18 +293,13 @@ void describe("GameMaker parser fixtures", () => {
         ].join("\n");
 
         const ast = parseFixture(source);
-        const decl =
-            ast.body && ast.body.find((n) => n.type === "FunctionDeclaration");
+        const decl = ast.body && ast.body.find((n) => n.type === "FunctionDeclaration");
         assert.ok(decl, "Expected a FunctionDeclaration");
         const params = Array.isArray(decl.params) ? decl.params : [];
         // third should be materialized into a DefaultParameter with undefined RHS
         const third = params[2];
         assert.ok(third, "Expected third parameter to exist");
-        assert.strictEqual(
-            third.type,
-            "DefaultParameter",
-            "Third param should be DefaultParameter"
-        );
+        assert.strictEqual(third.type, "DefaultParameter", "Third param should be DefaultParameter");
         // right should ideally be an Identifier named 'undefined'. Some
         // upstream parser shapes may leave the `right` slot null until a
         // later canonicalization pass fills it; accept either form here
@@ -409,15 +349,10 @@ void describe("GameMaker parser fixtures", () => {
             () => GMLParser.parse(source),
             (error: unknown) => {
                 if (!(error instanceof GameMakerSyntaxError)) {
-                    throw new Error(
-                        "Expected a GameMakerSyntaxError for invalid lexer input."
-                    );
+                    throw new Error("Expected a GameMakerSyntaxError for invalid lexer input.");
                 }
 
-                assert.match(
-                    error.message,
-                    /Syntax Error \(line 1, column 0\): unexpected symbol '\\'/
-                );
+                assert.match(error.message, /Syntax Error \(line 1, column 0\): unexpected symbol '\\'/);
                 assert.strictEqual(error.line, 1);
                 assert.strictEqual(error.column, 0);
                 assert.strictEqual(error.wrongSymbol, String.raw`symbol '\'`);
@@ -435,22 +370,12 @@ void describe("GameMaker parser fixtures", () => {
             simplifyLocations: false
         });
 
-        assert.ok(
-            ast,
-            "Parser returned no AST when parsing CRLF comment source."
-        );
-        assert.ok(
-            Array.isArray(ast.comments),
-            "Expected parser to return comments array."
-        );
+        assert.ok(ast, "Parser returned no AST when parsing CRLF comment source.");
+        assert.ok(Array.isArray(ast.comments), "Expected parser to return comments array.");
         const [comment] = ast.comments;
 
         assert.ok(comment, "Expected at least one comment to be returned.");
-        assert.strictEqual(
-            comment.start.line,
-            1,
-            "Comment start line should be unaffected by CRLF."
-        );
+        assert.strictEqual(comment.start.line, 1, "Comment start line should be unaffected by CRLF.");
         assert.strictEqual(
             comment.end.line,
             2,
@@ -459,27 +384,17 @@ void describe("GameMaker parser fixtures", () => {
     });
 
     void it("captures the full range of member access expressions", () => {
-        const source =
-            "function demo(arg = namespace.value) {\n  return arg;\n}\n";
+        const source = "function demo(arg = namespace.value) {\n  return arg;\n}\n";
         const ast = parseFixture(source, {
             options: { getLocations: true, simplifyLocations: false }
         });
 
-        assert.ok(
-            ast,
-            "Parser returned no AST when parsing member access source."
-        );
+        assert.ok(ast, "Parser returned no AST when parsing member access source.");
         const [fn] = ast.body;
-        assert.ok(
-            fn && fn.type === "FunctionDeclaration",
-            "Expected a function declaration."
-        );
+        assert.ok(fn && fn.type === "FunctionDeclaration", "Expected a function declaration.");
 
         const [param] = fn.params;
-        assert.ok(
-            param && param.type === "DefaultParameter",
-            "Expected a default parameter."
-        );
+        assert.ok(param && param.type === "DefaultParameter", "Expected a default parameter.");
         const memberExpression = param.right;
         assert.ok(
             memberExpression && memberExpression.type === "MemberDotExpression",
@@ -487,10 +402,7 @@ void describe("GameMaker parser fixtures", () => {
         );
 
         const expectedStart = source.indexOf("namespace");
-        assert.ok(
-            expectedStart !== -1,
-            "Unable to locate member expression start in source."
-        );
+        assert.ok(expectedStart !== -1, "Unable to locate member expression start in source.");
         assert.strictEqual(
             Core.getNodeStartIndex(memberExpression),
             expectedStart,
@@ -506,25 +418,10 @@ void describe("GameMaker parser fixtures", () => {
         const [statement] = ast.body;
 
         assert.ok(statement, "Expected a globalvar statement to be present.");
-        assert.strictEqual(
-            statement.type,
-            "GlobalVarStatement",
-            "Expected a GlobalVarStatement node in the AST."
-        );
-        assert.strictEqual(
-            statement.kind,
-            "globalvar",
-            "GlobalVarStatement should preserve the 'globalvar' keyword."
-        );
-        assert.ok(
-            Array.isArray(statement.declarations),
-            "GlobalVarStatement should expose declarations."
-        );
-        assert.strictEqual(
-            statement.declarations.length,
-            2,
-            "Expected two global declarations."
-        );
+        assert.strictEqual(statement.type, "GlobalVarStatement", "Expected a GlobalVarStatement node in the AST.");
+        assert.strictEqual(statement.kind, "globalvar", "GlobalVarStatement should preserve the 'globalvar' keyword.");
+        assert.ok(Array.isArray(statement.declarations), "GlobalVarStatement should expose declarations.");
+        assert.strictEqual(statement.declarations.length, 2, "Expected two global declarations.");
         assert.deepStrictEqual(
             statement.declarations.map((declaration) => declaration?.id?.name),
             ["foo", "bar"],
@@ -568,11 +465,7 @@ void describe("GameMaker parser fixtures", () => {
             thirdArgument && thirdArgument.type === "Identifier",
             "Expected the final argument to remain an identifier."
         );
-        assert.strictEqual(
-            thirdArgument.name,
-            "_num_hearts",
-            "Identifier argument should keep its original name."
-        );
+        assert.strictEqual(thirdArgument.name, "_num_hearts", "Identifier argument should keep its original name.");
     });
 
     void it("parses template strings with escape sequences", () => {
@@ -583,14 +476,9 @@ void describe("GameMaker parser fixtures", () => {
 
         const [template] = collectNodesByType(ast, "TemplateStringExpression");
 
-        assert.ok(
-            template,
-            "Expected a TemplateStringExpression node to be present."
-        );
+        assert.ok(template, "Expected a TemplateStringExpression node to be present.");
 
-        const textSegments = template.atoms.filter(
-            (atom) => atom && atom.type === "TemplateStringText"
-        );
+        const textSegments = template.atoms.filter((atom) => atom && atom.type === "TemplateStringText");
 
         assert.ok(
             textSegments.some((segment) => segment.value === String.raw`\n`),

@@ -10,10 +10,7 @@ import { getSingleMemberIndexPropertyEntry } from "../src/ast/node-helpers.js";
 void describe("getSingleMemberIndexPropertyEntry", () => {
     void it("returns null for non-member index expressions", () => {
         assert.strictEqual(getSingleMemberIndexPropertyEntry(null), null);
-        assert.strictEqual(
-            getSingleMemberIndexPropertyEntry({ type: "MemberDotExpression" }),
-            null
-        );
+        assert.strictEqual(getSingleMemberIndexPropertyEntry({ type: "MemberDotExpression" }), null);
     });
 
     void it("returns null when the property array is missing or has multiple entries", () => {

@@ -2,8 +2,7 @@ import { Core } from "@gml-modules/core";
 
 export const PROJECT_MANIFEST_EXTENSION = ".yyp";
 
-const PROJECT_MANIFEST_EXTENSION_LOWER =
-    PROJECT_MANIFEST_EXTENSION.toLowerCase();
+const PROJECT_MANIFEST_EXTENSION_LOWER = PROJECT_MANIFEST_EXTENSION.toLowerCase();
 
 /**
  * Canonical suffixes treated as GameMaker resource metadata. The formatter
@@ -21,14 +20,10 @@ function normalizeResourceMetadataExtension(candidate) {
 function normalizeResourceMetadataExtensions(candidate) {
     const entries = typeof candidate === "string" ? [candidate] : candidate;
 
-    const normalized = Core.mergeUniqueValues(
-        DEFAULT_RESOURCE_METADATA_EXTENSIONS,
-        entries,
-        {
-            coerce: normalizeResourceMetadataExtension,
-            freeze: false
-        }
-    );
+    const normalized = Core.mergeUniqueValues(DEFAULT_RESOURCE_METADATA_EXTENSIONS, entries, {
+        coerce: normalizeResourceMetadataExtension,
+        freeze: false
+    });
 
     if (normalized.length === DEFAULT_RESOURCE_METADATA_EXTENSIONS.length) {
         return DEFAULT_RESOURCE_METADATA_EXTENSIONS;
@@ -74,8 +69,7 @@ export function getProjectResourceMetadataExtensions() {
  * stock `.yy` entry.
  */
 export function setProjectResourceMetadataExtensions(extensions) {
-    projectResourceMetadataExtensions =
-        normalizeResourceMetadataExtensions(extensions);
+    projectResourceMetadataExtensions = normalizeResourceMetadataExtensions(extensions);
     return projectResourceMetadataExtensions;
 }
 

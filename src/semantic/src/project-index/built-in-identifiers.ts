@@ -9,16 +9,12 @@ let cachedBuiltInIdentifiers = null;
 
 function extractBuiltInIdentifierNames(payload) {
     if (!Core.isPlainObject(payload)) {
-        throw new TypeError(
-            "Built-in identifier metadata must be an object payload."
-        );
+        throw new TypeError("Built-in identifier metadata must be an object payload.");
     }
 
     const { identifiers } = payload;
     if (!Core.isPlainObject(identifiers)) {
-        throw new TypeError(
-            "Built-in identifier metadata must expose an identifiers object."
-        );
+        throw new TypeError("Built-in identifier metadata must expose an identifiers object.");
     }
 
     const entries = Core.normalizeIdentifierMetadataEntries(payload);
@@ -57,23 +53,14 @@ function areMtimesEquivalent(cachedMtime, currentMtime) {
 }
 
 export async function loadBuiltInIdentifiers(
-    fsFacade: Required<
-        Pick<ProjectIndexFsFacade, "readFile" | "stat">
-    > = defaultFsFacade,
+    fsFacade: Required<Pick<ProjectIndexFsFacade, "readFile" | "stat">> = defaultFsFacade,
     metrics = null,
     options: any = {}
 ) {
     const { fallbackMessage, ...guardOptions } = options ?? {};
-    const { signal, ensureNotAborted } = createProjectIndexAbortGuard(
-        guardOptions,
-        { fallbackMessage }
-    );
+    const { signal, ensureNotAborted } = createProjectIndexAbortGuard(guardOptions, { fallbackMessage });
 
-    const currentMtime = await Core.getFileMtime(
-        fsFacade,
-        GML_IDENTIFIER_FILE_PATH,
-        { signal }
-    );
+    const currentMtime = await Core.getFileMtime(fsFacade, GML_IDENTIFIER_FILE_PATH, { signal });
     ensureNotAborted();
     const cached = cachedBuiltInIdentifiers;
     const cachedMtime = cached?.metadata?.mtimeMs ?? null;
@@ -92,10 +79,7 @@ export async function loadBuiltInIdentifiers(
     let names = new Set();
 
     try {
-        const rawContents = await fsFacade.readFile(
-            GML_IDENTIFIER_FILE_PATH,
-            "utf8"
-        );
+        const rawContents = await fsFacade.readFile(GML_IDENTIFIER_FILE_PATH, "utf8");
         ensureNotAborted();
         names = parseBuiltInIdentifierNames(rawContents);
     } catch {

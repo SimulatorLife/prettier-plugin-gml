@@ -7,28 +7,13 @@ import type { CommanderCommandLike } from "../cli-core/commander-types.js";
 import { assertSupportedNodeVersion } from "../shared/node-version.js";
 import { Core } from "@gml-modules/core";
 import { writeJsonArtifact } from "../shared/fs-artifacts.js";
-import {
-    resolveVmEvalTimeout,
-    getDefaultVmEvalTimeoutMs
-} from "../runtime-options/vm-eval-timeout.js";
+import { resolveVmEvalTimeout, getDefaultVmEvalTimeoutMs } from "../runtime-options/vm-eval-timeout.js";
 import { applyStandardCommandOptions } from "../cli-core/command-standard-options.js";
-import {
-    isMainModule,
-    runAsMainModule
-} from "../cli-core/main-module-runner.js";
+import { isMainModule, runAsMainModule } from "../cli-core/main-module-runner.js";
 import { wrapInvalidArgumentResolver } from "../cli-core/command-parsing.js";
-import {
-    decodeManualKeywordsPayload,
-    decodeManualTagsPayload
-} from "../modules/manual/payload-validation.js";
-import {
-    describeManualSource,
-    readManualText
-} from "../modules/manual/source.js";
-import {
-    ManualWorkflowOptions,
-    prepareManualWorkflow
-} from "../modules/manual/workflow.js";
+import { decodeManualKeywordsPayload, decodeManualTagsPayload } from "../modules/manual/payload-validation.js";
+import { describeManualSource, readManualText } from "../modules/manual/source.js";
+import { ManualWorkflowOptions, prepareManualWorkflow } from "../modules/manual/workflow.js";
 import { resolveFromRepoRoot } from "../shared/workspace-paths.js";
 
 const {
@@ -43,10 +28,7 @@ const {
     compactArray
 } = Core;
 
-const DEFAULT_OUTPUT_PATH = resolveFromRepoRoot(
-    "resources",
-    "gml-identifiers.json"
-);
+const DEFAULT_OUTPUT_PATH = resolveFromRepoRoot("resources", "gml-identifiers.json");
 
 const DEFAULT_GML_SOURCE_PATH = "Manual/contents/assets/scripts/gml.js";
 const DEFAULT_KEYWORDS_PATH = "ZeusDocs_keywords.json";
@@ -95,28 +77,16 @@ export function createGenerateIdentifiersCommand({ env = process.env } = {}) {
         new Command()
             .name("generate-gml-identifiers")
             .usage("[options]")
-            .description(
-                "Generate the gml-identifiers.json artefact from the GameMaker manual."
-            )
+            .description("Generate the gml-identifiers.json artefact from the GameMaker manual.")
     );
 
     const defaultVmTimeout = getDefaultVmEvalTimeoutMs();
     const envVmTimeout = env?.[IDENTIFIER_VM_TIMEOUT_ENV_VAR];
-    const resolvedVmTimeout =
-        envVmTimeout === undefined
-            ? defaultVmTimeout
-            : resolveVmEvalTimeout(envVmTimeout);
+    const resolvedVmTimeout = envVmTimeout === undefined ? defaultVmTimeout : resolveVmEvalTimeout(envVmTimeout);
 
     command
-        .option(
-            "--output <path>",
-            "Path to write gml-identifiers.json.",
-            DEFAULT_OUTPUT_PATH
-        )
-        .option(
-            "--manual-root <path>",
-            "Override the manual asset root (defaults to vendor/GameMaker-Manual)."
-        )
+        .option("--output <path>", "Path to write gml-identifiers.json.", DEFAULT_OUTPUT_PATH)
+        .option("--manual-root <path>", "Override the manual asset root (defaults to vendor/GameMaker-Manual).")
         .option(
             "--manual-package <name>",
             "Manual npm package name used when neither --manual-root nor the vendor submodule is available."
@@ -130,28 +100,18 @@ export function createGenerateIdentifiersCommand({ env = process.env } = {}) {
                 .default(resolvedVmTimeout, String(resolvedVmTimeout))
         )
         .option("--quiet", "Suppress progress logging (useful in CI).")
-        .option(
-            "--manual-gml-path <path>",
-            "Relative path to the manual gml.js source file.",
-            DEFAULT_GML_SOURCE_PATH
-        )
+        .option("--manual-gml-path <path>", "Relative path to the manual gml.js source file.", DEFAULT_GML_SOURCE_PATH)
         .option(
             "--manual-keywords-path <path>",
             "Relative path to the manual keywords JSON file.",
             DEFAULT_KEYWORDS_PATH
         )
-        .option(
-            "--manual-tags-path <path>",
-            "Relative path to the manual tags JSON file.",
-            DEFAULT_TAGS_PATH
-        );
+        .option("--manual-tags-path <path>", "Relative path to the manual tags JSON file.", DEFAULT_TAGS_PATH);
 
     return command;
 }
 
-function resolveGenerateIdentifierOptions(
-    command?: CommanderCommandLike
-): NormalizedGenerateIdentifiersOptions {
+function resolveGenerateIdentifierOptions(command?: CommanderCommandLike): NormalizedGenerateIdentifiersOptions {
     const options: GenerateIdentifiersCommandOptions = command?.opts?.() ?? {};
 
     return {
@@ -161,10 +121,7 @@ function resolveGenerateIdentifierOptions(
         manualGmlPath: options.manualGmlPath ?? DEFAULT_GML_SOURCE_PATH,
         manualKeywordsPath: options.manualKeywordsPath ?? DEFAULT_KEYWORDS_PATH,
         manualTagsPath: options.manualTagsPath ?? DEFAULT_TAGS_PATH,
-        vmEvalTimeoutMs:
-            options.vmEvalTimeoutMs === undefined
-                ? getDefaultVmEvalTimeoutMs()
-                : options.vmEvalTimeoutMs,
+        vmEvalTimeoutMs: options.vmEvalTimeoutMs === undefined ? getDefaultVmEvalTimeoutMs() : options.vmEvalTimeoutMs,
         quiet: Boolean(options.quiet)
     };
 }
@@ -173,17 +130,11 @@ interface ParseArrayLiteralOptions {
     timeoutMs?: number;
 }
 
-function parseArrayLiteral(
-    source: string,
-    identifier: string,
-    { timeoutMs }: ParseArrayLiteralOptions = {}
-) {
+function parseArrayLiteral(source: string, identifier: string, { timeoutMs }: ParseArrayLiteralOptions = {}) {
     const declaration = `const ${identifier} = [`;
     const start = source.indexOf(declaration);
     if (start === -1) {
-        throw new Error(
-            `Could not locate declaration for ${identifier} in gml.js`
-        );
+        throw new Error(`Could not locate declaration for ${identifier} in gml.js`);
     }
     const bracketStart = source.indexOf("[", start);
     if (bracketStart === -1) {
@@ -230,10 +181,7 @@ function parseArrayLiteral(
         return vm.runInNewContext(literal, {}, vmOptions);
     } catch (error) {
         const message = getErrorMessageOrFallback(error);
-        throw new Error(
-            `Failed to evaluate array literal for ${identifier}: ${message}`,
-            { cause: error }
-        );
+        throw new Error(`Failed to evaluate array literal for ${identifier}: ${message}`, { cause: error });
     }
 }
 
@@ -279,27 +227,16 @@ function classifyFromPath(manualPath, tagList) {
     const normalizedTags = toNormalizedLowerCaseSet(tagList);
     const segments = manualPath.split("/").map((part) => part.toLowerCase());
 
-    const segmentMatches = (needle: string) =>
-        segments.some((segment) => segment.includes(needle));
+    const segmentMatches = (needle: string) => segments.some((segment) => segment.includes(needle));
     const tagMatches = (needle: string) => normalizedTags.has(needle);
 
-    const matchesAny = (
-        needles: Array<string> | undefined,
-        matcher: (value: string) => boolean = () => false
-    ) => (needles ?? []).some(matcher);
+    const matchesAny = (needles: Array<string> | undefined, matcher: (value: string) => boolean = () => false) =>
+        (needles ?? []).some(matcher);
     const matchesAllGroups = (groups: Array<Array<string>> = []) =>
-        groups.length > 0 &&
-        groups.every((needles) => matchesAny(needles, segmentMatches));
+        groups.length > 0 && groups.every((needles) => matchesAny(needles, segmentMatches));
 
-    for (const {
-        type,
-        segments: segmentNeedles = [],
-        tags: tagNeedles = []
-    } of CLASSIFICATION_RULES) {
-        if (
-            matchesAny(segmentNeedles, segmentMatches) ||
-            matchesAny(tagNeedles, tagMatches)
-        ) {
+    for (const { type, segments: segmentNeedles = [], tags: tagNeedles = [] } of CLASSIFICATION_RULES) {
+        if (matchesAny(segmentNeedles, segmentMatches) || matchesAny(tagNeedles, tagMatches)) {
             return type;
         }
     }
@@ -382,18 +319,12 @@ function describeManualIdentifierArrayValue(value) {
     });
 }
 
-function formatManualIdentifierArrayLabel({
-    identifier,
-    source
-}: ManualIdentifierArrayDescriptor) {
+function formatManualIdentifierArrayLabel({ identifier, source }: ManualIdentifierArrayDescriptor) {
     const label = source || identifier;
     return label ? `'${label}'` : "manual identifier array";
 }
 
-function assertManualIdentifierArray(
-    values: unknown,
-    { identifier, source }: ManualIdentifierArrayDescriptor
-) {
+function assertManualIdentifierArray(values: unknown, { identifier, source }: ManualIdentifierArrayDescriptor) {
     const label = formatManualIdentifierArrayLabel({ identifier, source });
 
     if (!Array.isArray(values)) {
@@ -487,21 +418,11 @@ function parseManualIdentifierArrays({ gmlSource, vmEvalTimeoutMs, verbose }) {
  * Keeping the collection logic isolated ensures the orchestrator only sequences
  * high-level steps instead of performing Set/Map bookkeeping inline.
  */
-function collectParsedManualIdentifierArrays({
-    identifierMap,
-    parsedArrays,
-    verbose
-}) {
+function collectParsedManualIdentifierArrays({ identifierMap, parsedArrays, verbose }) {
     for (const { descriptor, values } of parsedArrays) {
         timeSync(
             descriptor.collectLabel,
-            () =>
-                collectManualArrayIdentifiers(
-                    identifierMap,
-                    values,
-                    descriptor.collectOptions,
-                    descriptor
-                ),
+            () => collectManualArrayIdentifiers(identifierMap, values, descriptor.collectOptions, descriptor),
             { verbose }
         );
     }
@@ -532,17 +453,11 @@ function buildManualIdentifierMap({ gmlSource, vmEvalTimeoutMs, verbose }) {
 }
 
 function shouldIncludeManualReference(normalizedPath) {
-    return (
-        normalizedPath.startsWith("3_Scripting") &&
-        normalizedPath.includes("4_GML_Reference")
-    );
+    return normalizedPath.startsWith("3_Scripting") && normalizedPath.includes("4_GML_Reference");
 }
 
 function findManualTagEntry(manualTags, normalizedPath) {
-    const tagKeyCandidates = [
-        `${normalizedPath}.html`,
-        `${normalizedPath}/index.html`
-    ];
+    const tagKeyCandidates = [`${normalizedPath}.html`, `${normalizedPath}/index.html`];
 
     for (const key of tagKeyCandidates) {
         if (manualTags[key]) {
@@ -564,10 +479,7 @@ function resolveManualTagsForPath(manualTags, normalizedPath) {
 
 function isManualEntryDeprecated(normalizedPath, tags) {
     const lowercasePath = normalizedPath.toLowerCase();
-    return (
-        tags.some((tag) => tag.toLowerCase().includes("deprecated")) ||
-        lowercasePath.includes("deprecated")
-    );
+    return tags.some((tag) => tag.toLowerCase().includes("deprecated")) || lowercasePath.includes("deprecated");
 }
 
 function classifyManualIdentifiers(identifierMap, manualKeywords, manualTags) {
@@ -600,11 +512,7 @@ function classifyManualIdentifiers(identifierMap, manualKeywords, manualTags) {
     }
 }
 
-function buildIdentifierMapFromManualPayloads({
-    payloads,
-    vmEvalTimeoutMs,
-    verbose
-}) {
+function buildIdentifierMapFromManualPayloads({ payloads, vmEvalTimeoutMs, verbose }) {
     return buildManualIdentifierMap({
         gmlSource: payloads?.gmlSource,
         vmEvalTimeoutMs,
@@ -637,34 +545,16 @@ function decodeManualKeywordAndTagPayloads({ payloads, verbose }) {
     return { manualKeywords, manualTags };
 }
 
-function classifyManualIdentifierMetadata({
-    identifierMap,
-    manualKeywords,
-    manualTags,
-    verbose
-}) {
+function classifyManualIdentifierMetadata({ identifierMap, manualKeywords, manualTags, verbose }) {
     timeSync(
         "Classifying manual identifiers",
-        () =>
-            classifyManualIdentifiers(
-                identifierMap,
-                manualKeywords,
-                manualTags
-            ),
+        () => classifyManualIdentifiers(identifierMap, manualKeywords, manualTags),
         { verbose }
     );
 }
 
-function createIdentifierArtifactPayload({
-    identifierMap,
-    manualSource,
-    verbose
-}) {
-    const sortedIdentifiers = timeSync(
-        "Sorting identifiers",
-        () => sortIdentifierEntries(identifierMap),
-        { verbose }
-    );
+function createIdentifierArtifactPayload({ identifierMap, manualSource, verbose }) {
+    const sortedIdentifiers = timeSync("Sorting identifiers", () => sortIdentifierEntries(identifierMap), { verbose });
 
     const identifiersObject = Object.fromEntries(sortedIdentifiers);
     const normalizedEntries = normalizeIdentifierMetadataEntries({
@@ -672,14 +562,10 @@ function createIdentifierArtifactPayload({
     });
 
     if (normalizedEntries.length !== sortedIdentifiers.length) {
-        throw new Error(
-            "Generated manual identifier metadata contained invalid entries."
-        );
+        throw new Error("Generated manual identifier metadata contained invalid entries.");
     }
 
-    const identifiers = Object.fromEntries(
-        normalizedEntries.map(({ name, descriptor }) => [name, descriptor])
-    );
+    const identifiers = Object.fromEntries(normalizedEntries.map(({ name, descriptor }) => [name, descriptor]));
 
     return {
         payload: {
@@ -701,12 +587,7 @@ function createIdentifierArtifactPayload({
  * while keeping {@link runGenerateGmlIdentifiers} free from map mutations and
  * tag bookkeeping.
  */
-function buildIdentifierArtifact({
-    payloads,
-    manualSource,
-    vmEvalTimeoutMs,
-    verbose
-}) {
+function buildIdentifierArtifact({ payloads, manualSource, vmEvalTimeoutMs, verbose }) {
     const identifierMap = buildIdentifierMapFromManualPayloads({
         payloads,
         vmEvalTimeoutMs,
@@ -732,12 +613,7 @@ function buildIdentifierArtifact({
     });
 }
 
-async function writeIdentifierArtifact({
-    outputPath,
-    payload,
-    entryCount,
-    pathFilter
-}) {
+async function writeIdentifierArtifact({ outputPath, payload, entryCount, pathFilter }) {
     await writeJsonArtifact({
         outputPath,
         payload,
@@ -763,12 +639,7 @@ function sortIdentifierEntries(identifierMap) {
         .sort(([a], [b]) => a.localeCompare(b));
 }
 
-async function loadManualPayloads({
-    manualSource,
-    manualGmlPath,
-    manualKeywordsPath,
-    manualTagsPath
-}) {
+async function loadManualPayloads({ manualSource, manualGmlPath, manualKeywordsPath, manualTagsPath }) {
     const [gmlSource, keywords, tags] = await Promise.all([
         readManualText(manualSource.root, manualGmlPath),
         readManualText(manualSource.root, manualKeywordsPath),
@@ -792,10 +663,7 @@ async function loadManualPayloads({
  * }} [context]
  * @returns {Promise<number>}
  */
-export async function runGenerateGmlIdentifiers({
-    command,
-    workflow
-}: RunGenerateIdentifiersContext = {}) {
+export async function runGenerateGmlIdentifiers({ command, workflow }: RunGenerateIdentifiersContext = {}) {
     assertSupportedNodeVersion();
 
     const {

@@ -66,10 +66,7 @@ export function getLineBreakCount(text) {
         const code = text.charCodeAt(index);
 
         if (code === CHAR_CODE_CARRIAGE_RETURN) {
-            if (
-                index + 1 < length &&
-                text.charCodeAt(index + 1) === CHAR_CODE_LINE_FEED
-            ) {
+            if (index + 1 < length && text.charCodeAt(index + 1) === CHAR_CODE_LINE_FEED) {
                 index += 1;
             }
 

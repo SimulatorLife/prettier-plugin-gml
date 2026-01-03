@@ -1,27 +1,15 @@
-import {
-    getBodyStatements,
-    getNodeName,
-    isNode
-} from "../../../ast/node-helpers.js";
+import { getBodyStatements, getNodeName, isNode } from "../../../ast/node-helpers.js";
 import { getNodeStartIndex } from "../../../ast/locations.js";
 import { isLineComment } from "../../comment-utils.js";
 import { resolveDocCommentTraversalService } from "../manager.js";
-import {
-    getCommentEndIndex,
-    isWhitespaceBetween
-} from "./documented-params.js";
+import { getCommentEndIndex, isWhitespaceBetween } from "./documented-params.js";
 
 type CandidateCommentNode = {
     value?: string;
 };
 
 type DocCommentTraversalService = {
-    forEach(
-        callback: (
-            node: unknown,
-            comments?: readonly CandidateCommentNode[] | null
-        ) => void
-    ): void;
+    forEach(callback: (node: unknown, comments?: readonly CandidateCommentNode[] | null) => void): void;
 };
 
 /**
@@ -49,9 +37,7 @@ export function collectDeprecatedFunctionNames(
     }
 
     const topLevelFunctions = new Set(
-        bodyStatements.filter(
-            (node) => isNode(node) && node.type === "FunctionDeclaration"
-        )
+        bodyStatements.filter((node) => isNode(node) && node.type === "FunctionDeclaration")
     );
 
     if (topLevelFunctions.size === 0) {
@@ -59,8 +45,7 @@ export function collectDeprecatedFunctionNames(
     }
 
     const traversal: DocCommentTraversalService =
-        docCommentTraversal ??
-        (resolveDocCommentTraversalService(ast) as DocCommentTraversalService);
+        docCommentTraversal ?? (resolveDocCommentTraversalService(ast) as DocCommentTraversalService);
 
     traversal.forEach((node, comments) => {
         if (!topLevelFunctions.has(node)) {
@@ -72,11 +57,7 @@ export function collectDeprecatedFunctionNames(
             return;
         }
 
-        const deprecatedComment = findDeprecatedDocComment(
-            comments ?? [],
-            startIndex,
-            sourceText
-        );
+        const deprecatedComment = findDeprecatedDocComment(comments ?? [], startIndex, sourceText);
 
         if (!deprecatedComment) {
             return;

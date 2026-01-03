@@ -56,10 +56,7 @@ export function optionalSemicolon(nodeType?: string) {
  * @param {number} startIndex Index to begin scanning from.
  * @returns {string | null} Next non-whitespace character or `null`.
  */
-export function getNextNonWhitespaceCharacter(
-    text: string | null | undefined,
-    startIndex: number
-) {
+export function getNextNonWhitespaceCharacter(text: string | null | undefined, startIndex: number) {
     if (typeof text !== STRING_TYPE) {
         return null;
     }
@@ -94,10 +91,7 @@ export function getNextNonWhitespaceCharacter(
  * @param {number} startIndex Index to begin scanning from.
  * @returns {number} Number of blank lines found after the start index.
  */
-export function countTrailingBlankLines(
-    text: string | null | undefined,
-    startIndex: number
-) {
+export function countTrailingBlankLines(text: string | null | undefined, startIndex: number) {
     if (typeof text !== STRING_TYPE) {
         return 0;
     }
@@ -122,8 +116,7 @@ export function countTrailingBlankLines(
 
         if (characterCode === 13) {
             newlineCount += 1;
-            index +=
-                index + 1 < length && text.charCodeAt(index + 1) === 10 ? 2 : 1;
+            index += index + 1 < length && text.charCodeAt(index + 1) === 10 ? 2 : 1;
             continue;
         }
 

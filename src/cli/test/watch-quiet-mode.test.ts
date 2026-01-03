@@ -17,11 +17,7 @@ void describe("Watch command quiet mode", () => {
     let testFile: string;
 
     before(async () => {
-        testDir = path.join(
-            process.cwd(),
-            "tmp",
-            `test-watch-quiet-${Date.now()}`
-        );
+        testDir = path.join(process.cwd(), "tmp", `test-watch-quiet-${Date.now()}`);
         await mkdir(testDir, { recursive: true });
         testFile = path.join(testDir, "test_script.gml");
         await writeFile(testFile, "var x = 10;", "utf8");
@@ -56,10 +52,7 @@ void describe("Watch command quiet mode", () => {
         await watchPromise;
 
         // If we get here without errors, the test passes
-        assert.ok(
-            true,
-            "Watch command started and stopped successfully in quiet mode"
-        );
+        assert.ok(true, "Watch command started and stopped successfully in quiet mode");
     });
 
     void it("should reject both --verbose and --quiet together", async () => {
@@ -99,9 +92,7 @@ void describe("Watch command quiet mode", () => {
 
         assert.strictEqual(exitCode, 1, "Should exit with code 1");
         assert.ok(
-            capturedErrors.some((line) =>
-                line.includes("--verbose and --quiet cannot be used together")
-            ),
+            capturedErrors.some((line) => line.includes("--verbose and --quiet cannot be used together")),
             "Should show error message about conflicting flags"
         );
     });

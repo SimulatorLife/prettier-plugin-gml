@@ -20,9 +20,7 @@ function buildOptions(fileIndex, overrides = {}) {
 }
 
 test.afterEach(() => {
-    setDefaultIdentifierCaseOptionStoreMaxEntries(
-        IDENTIFIER_CASE_OPTION_STORE_MAX_ENTRIES_BASELINE
-    );
+    setDefaultIdentifierCaseOptionStoreMaxEntries(IDENTIFIER_CASE_OPTION_STORE_MAX_ENTRIES_BASELINE);
 });
 
 void test("option store evicts oldest entries when the limit is exceeded", () => {
@@ -37,24 +35,15 @@ void test("option store evicts oldest entries when the limit is exceeded", () =>
         });
     }
 
-    const evictedCount =
-        totalEntries - MAX_IDENTIFIER_CASE_OPTION_STORE_ENTRIES;
+    const evictedCount = totalEntries - MAX_IDENTIFIER_CASE_OPTION_STORE_ENTRIES;
 
     for (let index = 0; index < evictedCount; index += 1) {
-        const store = getIdentifierCaseOptionStore(
-            buildOptions(index).filepath
-        );
-        assert.equal(
-            store,
-            null,
-            `expected store for index ${index} to be evicted`
-        );
+        const store = getIdentifierCaseOptionStore(buildOptions(index).filepath);
+        assert.equal(store, null, `expected store for index ${index} to be evicted`);
     }
 
     for (let index = evictedCount; index < totalEntries; index += 1) {
-        const store = getIdentifierCaseOptionStore(
-            buildOptions(index).filepath
-        );
+        const store = getIdentifierCaseOptionStore(buildOptions(index).filepath);
         assert.ok(store, `expected store for index ${index} to remain`);
         assert.equal(store.__identifierCaseRenamePlan.id, index);
     }
@@ -88,16 +77,12 @@ void test("global option store limit can be tuned programmatically", () => {
         const evictedCount = totalEntries - customMaxEntries;
 
         for (let index = 0; index < evictedCount; index += 1) {
-            const store = getIdentifierCaseOptionStore(
-                buildOptions(index).filepath
-            );
+            const store = getIdentifierCaseOptionStore(buildOptions(index).filepath);
             assert.equal(store, null, `expected index ${index} to be evicted`);
         }
 
         for (let index = evictedCount; index < totalEntries; index += 1) {
-            const store = getIdentifierCaseOptionStore(
-                buildOptions(index).filepath
-            );
+            const store = getIdentifierCaseOptionStore(buildOptions(index).filepath);
             assert.ok(store, `expected store for index ${index} to remain`);
             assert.equal(store.__identifierCaseRenamePlan.id, index);
         }
@@ -126,16 +111,12 @@ void test("option store honours the configured max entries", () => {
     const evictedCount = totalEntries - customMaxEntries;
 
     for (let index = 0; index < evictedCount; index += 1) {
-        const store = getIdentifierCaseOptionStore(
-            buildOptions(index, override).filepath
-        );
+        const store = getIdentifierCaseOptionStore(buildOptions(index, override).filepath);
         assert.equal(store, null, `expected index ${index} to be evicted`);
     }
 
     for (let index = evictedCount; index < totalEntries; index += 1) {
-        const store = getIdentifierCaseOptionStore(
-            buildOptions(index, override).filepath
-        );
+        const store = getIdentifierCaseOptionStore(buildOptions(index, override).filepath);
         assert.ok(store, `expected store for index ${index} to remain`);
         assert.equal(store.__identifierCaseRenamePlan.id, index);
     }
@@ -159,9 +140,7 @@ void test("option store keeps all entries when eviction is disabled", () => {
     }
 
     for (let index = 0; index < totalEntries; index += 1) {
-        const store = getIdentifierCaseOptionStore(
-            buildOptions(index, override).filepath
-        );
+        const store = getIdentifierCaseOptionStore(buildOptions(index, override).filepath);
         assert.ok(store, `expected store for index ${index} to remain`);
         assert.equal(store.__identifierCaseRenamePlan.id, index);
     }
@@ -200,11 +179,7 @@ void test("option store skips blocklisted keys", () => {
     const options = buildOptions(0);
     const projectIndex = { projectRoot: "/project" };
 
-    setIdentifierCaseOption(
-        options,
-        "__identifierCaseProjectIndex",
-        projectIndex
-    );
+    setIdentifierCaseOption(options, "__identifierCaseProjectIndex", projectIndex);
     setIdentifierCaseOption(options, "__identifierCaseRenamePlan", { id: 1 });
 
     const store = getIdentifierCaseOptionStore(options.filepath);

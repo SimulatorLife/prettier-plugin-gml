@@ -30,10 +30,7 @@ void describe("normalizeFeatherMetadata", () => {
     });
 
     void it("throws when the metadata payload is not a plain object", () => {
-        assert.throws(
-            () => normalizeFeatherMetadata(null),
-            /Feather metadata must be a plain object/
-        );
+        assert.throws(() => normalizeFeatherMetadata(null), /Feather metadata must be a plain object/);
     });
 
     void it("throws when diagnostics are not provided as an array", () => {

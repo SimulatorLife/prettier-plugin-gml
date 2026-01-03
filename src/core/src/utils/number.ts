@@ -88,7 +88,6 @@ export function areNumbersApproximatelyEqual(a, b) {
     }
 
     const scale = Math.max(1, Math.abs(a), Math.abs(b));
-    const tolerance =
-        Number.EPSILON * scale * APPROXIMATE_EQUALITY_SCALE_MULTIPLIER;
+    const tolerance = Number.EPSILON * scale * APPROXIMATE_EQUALITY_SCALE_MULTIPLIER;
     return Math.abs(a - b) <= tolerance;
 }

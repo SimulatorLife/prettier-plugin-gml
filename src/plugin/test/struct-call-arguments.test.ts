@@ -18,9 +18,7 @@ void test("keeps small struct arguments inline", async () => {
 
     const formatted = await Plugin.format(source);
     const lines = formatted.trim().split("\n");
-    const returnIndex = lines.findIndex((line) =>
-        line.includes("return instance_create_depth")
-    );
+    const returnIndex = lines.findIndex((line) => line.includes("return instance_create_depth"));
 
     assert.strictEqual(
         lines[returnIndex],
@@ -43,9 +41,7 @@ void test("still breaks struct arguments with many properties", async () => {
 
     const formatted = await Plugin.format(source);
     const lines = formatted.trim().split("\n");
-    const returnIndex = lines.findIndex((line) =>
-        line.includes("return create_instance")
-    );
+    const returnIndex = lines.findIndex((line) => line.includes("return create_instance"));
 
     assert.strictEqual(
         lines[returnIndex],

@@ -22,12 +22,8 @@ export interface ParserToken extends Token {
 }
 
 export interface ScopeTracker {
-    markGlobalIdentifier(
-        node: MutableGameMakerAstNode | null | undefined
-    ): void;
-    applyGlobalIdentifiersToNode(
-        node: MutableGameMakerAstNode | null | undefined
-    ): void;
+    markGlobalIdentifier(node: MutableGameMakerAstNode | null | undefined): void;
+    applyGlobalIdentifiersToNode(node: MutableGameMakerAstNode | null | undefined): void;
     withRole?<T>(role: object | null, callback: () => T): T;
     withScope?<T>(kind: string, callback: () => T): T;
     cloneRole(role: object | null): object | null;
@@ -101,10 +97,7 @@ export type ListenerPayload = {
 
 export type ListenerDelegate = (payload: ListenerPayload) => unknown;
 
-export type ListenerHandler = (
-    ctx: ParserRuleContext,
-    payload: ListenerPayload
-) => unknown;
+export type ListenerHandler = (ctx: ParserRuleContext, payload: ListenerPayload) => unknown;
 
 export interface ListenerOptions {
     listenerDelegate?: ListenerDelegate;

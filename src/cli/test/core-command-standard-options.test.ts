@@ -44,13 +44,7 @@ void describe("applyStandardCommandOptions", () => {
         assert.equal(configured, command);
         assert.deepEqual(
             configured.calls.map(([name]) => name),
-            [
-                "exitOverride",
-                "allowExcessArguments",
-                "helpOption",
-                "showHelpAfterError",
-                "configureOutput"
-            ]
+            ["exitOverride", "allowExcessArguments", "helpOption", "showHelpAfterError", "configureOutput"]
         );
 
         const [, options] = configured.calls[4];

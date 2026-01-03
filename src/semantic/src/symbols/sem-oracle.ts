@@ -4,9 +4,7 @@ import { sym } from "./scip-symbols.js";
 /**
  * Type guard to check if a value is an identifier metadata object.
  */
-function isIdentifierMetadata(
-    value: unknown
-): value is { name: string; isGlobalIdentifier?: boolean } {
+function isIdentifierMetadata(value: unknown): value is { name: string; isGlobalIdentifier?: boolean } {
     return (
         typeof value === "object" &&
         value !== null &&
@@ -23,8 +21,7 @@ function getClassifications(declaration: unknown): string[] | undefined {
         return undefined as undefined;
     }
 
-    const classifications = (declaration as Record<string, unknown>)
-        .classifications;
+    const classifications = (declaration as Record<string, unknown>).classifications;
 
     if (!Array.isArray(classifications)) {
         return undefined as undefined;
@@ -37,13 +34,7 @@ function getClassifications(declaration: unknown): string[] | undefined {
  * Semantic kind classification for identifiers, matching the transpiler's
  * expected vocabulary for code generation.
  */
-export type SemKind =
-    | "local"
-    | "self_field"
-    | "other_field"
-    | "global_field"
-    | "builtin"
-    | "script";
+export type SemKind = "local" | "self_field" | "other_field" | "global_field" | "builtin" | "script";
 
 /**
  * Minimal identifier metadata required for semantic analysis.
@@ -95,9 +86,7 @@ export interface CallTargetAnalyzer {
  * support clients that need both capabilities. Clients should depend on the
  * specific interface(s) they need rather than requiring both.
  */
-export class BasicSemanticOracle
-    implements IdentifierAnalyzer, CallTargetAnalyzer
-{
+export class BasicSemanticOracle implements IdentifierAnalyzer, CallTargetAnalyzer {
     private readonly tracker: ScopeTracker | null;
     private readonly builtinNames: Set<string>;
     private readonly scriptNames: Set<string>;
@@ -187,9 +176,7 @@ export class BasicSemanticOracle
      * This enables hot reload pipelines to track dependencies and coordinate
      * invalidation when symbols change.
      */
-    qualifiedSymbol(
-        node: IdentifierMetadata | null | undefined
-    ): string | null {
+    qualifiedSymbol(node: IdentifierMetadata | null | undefined): string | null {
         if (!node?.name) {
             return null;
         }
@@ -292,15 +279,11 @@ export function nameOfIdent(node?: IdentifierMetadata | null): string {
     return defaultOracle.nameOfIdent(node);
 }
 
-export function qualifiedSymbol(
-    node?: IdentifierMetadata | null
-): string | null {
+export function qualifiedSymbol(node?: IdentifierMetadata | null): string | null {
     return defaultOracle.qualifiedSymbol(node);
 }
 
-export function callTargetKind(
-    node: CallExpressionNode
-): "script" | "builtin" | "unknown" {
+export function callTargetKind(node: CallExpressionNode): "script" | "builtin" | "unknown" {
     return defaultOracle.callTargetKind(node);
 }
 

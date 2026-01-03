@@ -14,14 +14,8 @@ void describe("isSyntaxErrorWithLocation", () => {
         };
 
         assert.equal(isSyntaxErrorWithLocation(syntaxErrorLike), true);
-        assert.equal(
-            isSyntaxErrorWithLocation({ message: "boom", line: "3" }),
-            true
-        );
-        assert.equal(
-            isSyntaxErrorWithLocation({ message: "boom", line: 4, rule: 5 }),
-            false
-        );
+        assert.equal(isSyntaxErrorWithLocation({ message: "boom", line: "3" }), true);
+        assert.equal(isSyntaxErrorWithLocation({ message: "boom", line: 4, rule: 5 }), false);
         assert.equal(isSyntaxErrorWithLocation({ message: "boom" }), false);
     });
 });

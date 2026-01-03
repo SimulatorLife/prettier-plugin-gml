@@ -6,45 +6,27 @@ import * as Semicolons from "../src/printer/semicolons.js";
 
 void describe("Semicolons helper utilities", () => {
     void it("flags statement nodes that require a terminator", () => {
-        assert.strictEqual(
-            Semicolons.optionalSemicolon("ExpressionStatement"),
-            ";"
-        );
+        assert.strictEqual(Semicolons.optionalSemicolon("ExpressionStatement"), ";");
         assert.strictEqual(Semicolons.optionalSemicolon("IfStatement"), "");
     });
 
     void it("counts trailing blank lines after a given index", () => {
         const text = "foo();\n\n\nbar();";
         const newlineIndex = text.indexOf("\n");
-        assert.strictEqual(
-            Semicolons.countTrailingBlankLines(text, newlineIndex),
-            2
-        );
+        assert.strictEqual(Semicolons.countTrailingBlankLines(text, newlineIndex), 2);
         assert.strictEqual(Semicolons.countTrailingBlankLines(null, 0), 0);
     });
 
     void it("finds the next non-whitespace character", () => {
         const text = "  \n  }";
-        assert.strictEqual(
-            Semicolons.getNextNonWhitespaceCharacter(text, 0),
-            "}"
-        );
-        assert.strictEqual(
-            Semicolons.getNextNonWhitespaceCharacter(null, 0),
-            null
-        );
+        assert.strictEqual(Semicolons.getNextNonWhitespaceCharacter(text, 0), "}");
+        assert.strictEqual(Semicolons.getNextNonWhitespaceCharacter(null, 0), null);
     });
 
     void it("recognizes whitespace characters the semicolon scanner skips", () => {
         assert.strictEqual(Semicolons.isSkippableSemicolonWhitespace(9), true);
-        assert.strictEqual(
-            Semicolons.isSkippableSemicolonWhitespace(0x20_28),
-            true
-        );
-        assert.strictEqual(
-            Semicolons.isSkippableSemicolonWhitespace(0x41),
-            false
-        );
+        assert.strictEqual(Semicolons.isSkippableSemicolonWhitespace(0x20_28), true);
+        assert.strictEqual(Semicolons.isSkippableSemicolonWhitespace(0x41), false);
     });
 
     void it("determines whether the path references the last statement", () => {

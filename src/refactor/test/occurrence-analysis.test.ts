@@ -124,25 +124,15 @@ void describe("classifyOccurrences", () => {
     });
 
     void it("throws on invalid input type", () => {
-        assert.throws(
-            () =>
-                classifyOccurrences(null as unknown as Array<SymbolOccurrence>),
-            {
-                name: "TypeError",
-                message: /requires an array/
-            }
-        );
+        assert.throws(() => classifyOccurrences(null as unknown as Array<SymbolOccurrence>), {
+            name: "TypeError",
+            message: /requires an array/
+        });
 
-        assert.throws(
-            () =>
-                classifyOccurrences(
-                    "not an array" as unknown as Array<SymbolOccurrence>
-                ),
-            {
-                name: "TypeError",
-                message: /requires an array/
-            }
-        );
+        assert.throws(() => classifyOccurrences("not an array" as unknown as Array<SymbolOccurrence>), {
+            name: "TypeError",
+            message: /requires an array/
+        });
     });
 
     void it("handles malformed occurrence objects", () => {
@@ -167,18 +157,13 @@ void describe("filterOccurrencesByKind", () => {
     ];
 
     void it("filters by single kind", () => {
-        const definitions = filterOccurrencesByKind(occurrences, [
-            "definition"
-        ]);
+        const definitions = filterOccurrencesByKind(occurrences, ["definition"]);
         assert.equal(definitions.length, 1);
         assert.equal(definitions[0].kind, "definition");
     });
 
     void it("filters by multiple kinds", () => {
-        const refs = filterOccurrencesByKind(occurrences, [
-            "reference",
-            "write"
-        ]);
+        const refs = filterOccurrencesByKind(occurrences, ["reference", "write"]);
         assert.equal(refs.length, 3);
     });
 
@@ -198,29 +183,15 @@ void describe("filterOccurrencesByKind", () => {
     });
 
     void it("validates input types", () => {
-        assert.throws(
-            () =>
-                filterOccurrencesByKind(
-                    null as unknown as Array<SymbolOccurrence>,
-                    ["definition"]
-                ),
-            {
-                name: "TypeError",
-                message: /requires an array of occurrences/
-            }
-        );
+        assert.throws(() => filterOccurrencesByKind(null as unknown as Array<SymbolOccurrence>, ["definition"]), {
+            name: "TypeError",
+            message: /requires an array of occurrences/
+        });
 
-        assert.throws(
-            () =>
-                filterOccurrencesByKind(
-                    occurrences,
-                    "not an array" as unknown as Array<string>
-                ),
-            {
-                name: "TypeError",
-                message: /requires an array of kinds/
-            }
-        );
+        assert.throws(() => filterOccurrencesByKind(occurrences, "not an array" as unknown as Array<string>), {
+            name: "TypeError",
+            message: /requires an array of kinds/
+        });
     });
 
     void it("handles occurrences without kind field", () => {
@@ -265,22 +236,14 @@ void describe("groupOccurrencesByFile", () => {
     });
 
     void it("validates input type", () => {
-        assert.throws(
-            () =>
-                groupOccurrencesByFile(
-                    null as unknown as Array<SymbolOccurrence>
-                ),
-            {
-                name: "TypeError",
-                message: /requires an array/
-            }
-        );
+        assert.throws(() => groupOccurrencesByFile(null as unknown as Array<SymbolOccurrence>), {
+            name: "TypeError",
+            message: /requires an array/
+        });
     });
 
     void it("handles occurrences without path", () => {
-        const occurrences = [
-            { path: "", start: 0, end: 10, kind: "definition" }
-        ] as unknown as Array<SymbolOccurrence>;
+        const occurrences = [{ path: "", start: 0, end: 10, kind: "definition" }] as unknown as Array<SymbolOccurrence>;
 
         const grouped = groupOccurrencesByFile(occurrences);
         // Empty paths are now skipped
@@ -324,30 +287,20 @@ void describe("findOccurrencesInFile", () => {
     });
 
     void it("validates input types", () => {
-        assert.throws(
-            () =>
-                findOccurrencesInFile(
-                    null as unknown as Array<SymbolOccurrence>,
-                    "test.gml"
-                ),
-            {
-                name: "TypeError",
-                message: /requires an array of occurrences/
-            }
-        );
+        assert.throws(() => findOccurrencesInFile(null as unknown as Array<SymbolOccurrence>, "test.gml"), {
+            name: "TypeError",
+            message: /requires an array of occurrences/
+        });
 
         assert.throws(() => findOccurrencesInFile(occurrences, ""), {
             name: "TypeError",
             message: /requires a non-empty file path string/
         });
 
-        assert.throws(
-            () => findOccurrencesInFile(occurrences, null as unknown as string),
-            {
-                name: "TypeError",
-                message: /requires a non-empty file path string/
-            }
-        );
+        assert.throws(() => findOccurrencesInFile(occurrences, null as unknown as string), {
+            name: "TypeError",
+            message: /requires a non-empty file path string/
+        });
     });
 
     void it("performs exact path matching", () => {
@@ -394,14 +347,10 @@ void describe("countAffectedFiles", () => {
     });
 
     void it("validates input type", () => {
-        assert.throws(
-            () =>
-                countAffectedFiles(null as unknown as Array<SymbolOccurrence>),
-            {
-                name: "TypeError",
-                message: /requires an array/
-            }
-        );
+        assert.throws(() => countAffectedFiles(null as unknown as Array<SymbolOccurrence>), {
+            name: "TypeError",
+            message: /requires an array/
+        });
     });
 
     void it("handles occurrences without path field", () => {

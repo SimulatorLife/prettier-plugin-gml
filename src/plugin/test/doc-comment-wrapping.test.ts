@@ -9,25 +9,14 @@ const LONG_DESCRIPTION =
     "Base class for all shapes. Shapes can be solid or not solid. Solid shapes will " +
     "collide with other solid shapes, and non-solid shapes will not collide with anything.";
 
-async function formatDescriptionLines(
-    options?: Parameters<typeof Plugin.format>[1]
-) {
-    const source = [
-        `/// @description ${LONG_DESCRIPTION}`,
-        "function wrap_example() {}",
-        ""
-    ].join("\n");
+async function formatDescriptionLines(options?: Parameters<typeof Plugin.format>[1]) {
+    const source = [`/// @description ${LONG_DESCRIPTION}`, "function wrap_example() {}", ""].join("\n");
 
     const formatted = await Plugin.format(source, options);
     const lines = formatted.trim().split("\n");
-    const descriptionIndex = lines.findIndex((line) =>
-        line.startsWith("/// @description")
-    );
+    const descriptionIndex = lines.findIndex((line) => line.startsWith("/// @description"));
 
-    assert.ok(
-        descriptionIndex !== -1,
-        "Expected formatter to emit a @description doc comment line."
-    );
+    assert.ok(descriptionIndex !== -1, "Expected formatter to emit a @description doc comment line.");
 
     return { lines, descriptionIndex };
 }
@@ -35,19 +24,13 @@ async function formatDescriptionLines(
 void test("wraps long @description doc comments at the formatter width", async () => {
     const { lines, descriptionIndex } = await formatDescriptionLines();
 
-    const [firstLine, secondLine] = lines.slice(
-        descriptionIndex,
-        descriptionIndex + 2
-    );
+    const [firstLine, secondLine] = lines.slice(descriptionIndex, descriptionIndex + 2);
 
     assert.strictEqual(
         firstLine,
         "/// @description Base class for all shapes. Shapes can be solid or not solid. Solid shapes will collide with other solid"
     );
-    assert.strictEqual(
-        secondLine,
-        "///              shapes, and non-solid shapes will not collide with anything."
-    );
+    assert.strictEqual(secondLine, "///              shapes, and non-solid shapes will not collide with anything.");
 });
 void test("wraps @description doc comments when printWidth exceeds the description length", async () => {
     const { lines, descriptionIndex } = await formatDescriptionLines({
@@ -67,49 +50,22 @@ void test("wraps @description doc comments when printWidth exceeds the descripti
 });
 
 void test("wraps @description doc comments when printWidth is narrow but prevents a single word from being wrapped", async () => {
-    const source = [
-        `/// @description ${LONG_DESCRIPTION}`,
-        "function wrap_example() {}",
-        ""
-    ].join("\n");
+    const source = [`/// @description ${LONG_DESCRIPTION}`, "function wrap_example() {}", ""].join("\n");
 
     const formatted = await Plugin.format(source, { printWidth: 60 });
 
     const lines = formatted.trim().split("\n");
-    const descriptionIndex = lines.findIndex((line) =>
-        line.startsWith("/// @description")
-    );
+    const descriptionIndex = lines.findIndex((line) => line.startsWith("/// @description"));
 
-    assert.ok(
-        descriptionIndex !== -1,
-        "Expected formatter to emit a @description doc comment line."
-    );
+    assert.ok(descriptionIndex !== -1, "Expected formatter to emit a @description doc comment line.");
 
-    const [firstLine, secondLine, thirdLine, fourthLine] = lines.slice(
-        descriptionIndex,
-        descriptionIndex + 4
-    );
+    const [firstLine, secondLine, thirdLine, fourthLine] = lines.slice(descriptionIndex, descriptionIndex + 4);
 
-    assert.strictEqual(
-        firstLine,
-        "/// @description Base class for all shapes. Shapes can be"
-    );
-    assert.strictEqual(
-        secondLine,
-        "///              solid or not solid. Solid shapes will"
-    );
-    assert.strictEqual(
-        thirdLine,
-        "///              collide with other solid shapes, and"
-    );
-    assert.strictEqual(
-        fourthLine,
-        "///              non-solid shapes will not collide with"
-    );
-    assert.strictEqual(
-        lines[descriptionIndex + 4],
-        "///              anything."
-    );
+    assert.strictEqual(firstLine, "/// @description Base class for all shapes. Shapes can be");
+    assert.strictEqual(secondLine, "///              solid or not solid. Solid shapes will");
+    assert.strictEqual(thirdLine, "///              collide with other solid shapes, and");
+    assert.strictEqual(fourthLine, "///              non-solid shapes will not collide with");
+    assert.strictEqual(lines[descriptionIndex + 4], "///              anything.");
 });
 
 void test("preserves doc comment continuation labels without indentation", async () => {
@@ -123,19 +79,11 @@ void test("preserves doc comment continuation labels without indentation", async
     const formatted = await Plugin.format(source);
 
     const lines = formatted.trim().split("\n");
-    const descriptionIndex = lines.findIndex((line) =>
-        line.startsWith("/// @description")
-    );
+    const descriptionIndex = lines.findIndex((line) => line.startsWith("/// @description"));
 
-    assert.ok(
-        descriptionIndex !== -1,
-        "Expected formatter to emit a @description doc comment line."
-    );
+    assert.ok(descriptionIndex !== -1, "Expected formatter to emit a @description doc comment line.");
 
-    const continuationLines = collectDescriptionContinuationLines(
-        lines,
-        descriptionIndex
-    );
+    const continuationLines = collectDescriptionContinuationLines(lines, descriptionIndex);
 
     assert.ok(
         continuationLines.some((line) => line.includes("Local space: ")),
@@ -153,9 +101,7 @@ void test("pads retained @description continuation lines when they lack indentat
 
     const formatted = await Plugin.format(source, { printWidth: 200 });
     const lines = formatted.trim().split("\n");
-    const continuationLine = lines.find((line) =>
-        line.includes("Local space: X∈[-0.5,+0.5], Y∈[-0.5,+0.5]")
-    );
+    const continuationLine = lines.find((line) => line.includes("Local space: X∈[-0.5,+0.5], Y∈[-0.5,+0.5]"));
 
     assert.strictEqual(
         continuationLine,
@@ -174,19 +120,11 @@ void test("does not expand preformatted doc comment continuations", async () => 
 
     const formatted = await Plugin.format(source, { printWidth: 60 });
     const lines = formatted.trim().split("\n");
-    const descriptionIndex = lines.findIndex((line) =>
-        line.startsWith("/// @description")
-    );
+    const descriptionIndex = lines.findIndex((line) => line.startsWith("/// @description"));
 
-    assert.ok(
-        descriptionIndex !== -1,
-        "Expected formatter to emit a @description doc comment line."
-    );
+    assert.ok(descriptionIndex !== -1, "Expected formatter to emit a @description doc comment line.");
 
-    const continuationLines = collectDescriptionContinuationLines(
-        lines,
-        descriptionIndex
-    );
+    const continuationLines = collectDescriptionContinuationLines(lines, descriptionIndex);
 
     assert.strictEqual(
         continuationLines.length,
@@ -228,9 +166,7 @@ void test("wraps function doc descriptions while honoring printWidth", async () 
 
     const formatted = await Plugin.format(source, { printWidth: 120 });
     const lines = formatted.split("\n");
-    const descriptionIndex = lines.findIndex((line) =>
-        line.startsWith("/// @description")
-    );
+    const descriptionIndex = lines.findIndex((line) => line.startsWith("/// @description"));
 
     assert.strictEqual(
         lines[descriptionIndex],
@@ -253,9 +189,7 @@ void test("wraps long @param descriptions with continuation lines", async () => 
 
     const formatted = await Plugin.format(source, { printWidth: 60 });
     const lines = formatted.split("\n");
-    const paramIndex = lines.findIndex((line) =>
-        line.startsWith("/// @param value")
-    );
+    const paramIndex = lines.findIndex((line) => line.startsWith("/// @param value"));
 
     assert.strictEqual(
         lines[paramIndex],

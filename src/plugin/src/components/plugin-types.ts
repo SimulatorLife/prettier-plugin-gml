@@ -1,10 +1,4 @@
-import type {
-    Parser,
-    ParserOptions,
-    Plugin,
-    Printer,
-    SupportOptions
-} from "prettier";
+import type { Parser, ParserOptions, Plugin, Printer, SupportOptions } from "prettier";
 import type { MutableGameMakerAstNode } from "@gml-modules/core";
 
 export type GmlAst = MutableGameMakerAstNode;
@@ -41,10 +35,7 @@ export type GmlPluginDefaultOptions = Record<string, unknown>;
 export type GmlPlugin = Omit<Plugin<GmlAst>, "defaultOptions"> & {
     defaultOptions?: GmlPluginDefaultOptions;
     pluginOptions?: SupportOptions;
-    format: (
-        source: string,
-        options?: Record<string, unknown>
-    ) => Promise<string>;
+    format: (source: string, options?: Record<string, unknown>) => Promise<string>;
 };
 
 export type GmlParserOptions = ParserOptions<GmlAst>;

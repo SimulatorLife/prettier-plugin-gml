@@ -2,10 +2,7 @@ import path from "node:path";
 
 import { Core } from "@gml-modules/core";
 
-import {
-    PROJECT_ROOT_DISCOVERY_ABORT_MESSAGE,
-    createProjectIndexAbortGuard
-} from "./abort-guard.js";
+import { PROJECT_ROOT_DISCOVERY_ABORT_MESSAGE, createProjectIndexAbortGuard } from "./abort-guard.js";
 import { isProjectManifestPath } from "./constants.js";
 import { defaultFsFacade, type ProjectIndexFsFacade } from "./fs-facade.js";
 

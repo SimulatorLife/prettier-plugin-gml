@@ -39,11 +39,7 @@ void describe("normalize-data-structure-accessors", () => {
             accessor?: string;
         } | null;
         assert.ok(memberNode, "Should find MemberIndexExpression");
-        assert.strictEqual(
-            memberNode.accessor,
-            "[|",
-            "Should normalize [? to [| for list variable"
-        );
+        assert.strictEqual(memberNode.accessor, "[|", "Should normalize [? to [| for list variable");
     });
 
     void it("normalizes [| to [? for map variables", () => {
@@ -56,11 +52,7 @@ void describe("normalize-data-structure-accessors", () => {
             accessor?: string;
         } | null;
         assert.ok(memberNode, "Should find MemberIndexExpression");
-        assert.strictEqual(
-            memberNode.accessor,
-            "[?",
-            "Should normalize [| to [? for map variable"
-        );
+        assert.strictEqual(memberNode.accessor, "[?", "Should normalize [| to [? for map variable");
     });
 
     void it("preserves correct accessor for list variables", () => {
@@ -73,11 +65,7 @@ void describe("normalize-data-structure-accessors", () => {
             accessor?: string;
         } | null;
         assert.ok(memberNode, "Should find MemberIndexExpression");
-        assert.strictEqual(
-            memberNode.accessor,
-            "[|",
-            "Should preserve [| for list variable"
-        );
+        assert.strictEqual(memberNode.accessor, "[|", "Should preserve [| for list variable");
     });
 
     void it("does not modify accessor for non-data-structure variables", () => {
@@ -90,11 +78,7 @@ void describe("normalize-data-structure-accessors", () => {
             accessor?: string;
         } | null;
         assert.ok(memberNode, "Should find MemberIndexExpression");
-        assert.strictEqual(
-            memberNode.accessor,
-            "[?",
-            "Should not modify accessor for non-data-structure variable"
-        );
+        assert.strictEqual(memberNode.accessor, "[?", "Should not modify accessor for non-data-structure variable");
     });
 
     void it("can be disabled via options", () => {
@@ -109,10 +93,6 @@ void describe("normalize-data-structure-accessors", () => {
             accessor?: string;
         } | null;
         assert.ok(memberNode, "Should find MemberIndexExpression");
-        assert.strictEqual(
-            memberNode.accessor,
-            "[?",
-            "Should not modify when disabled"
-        );
+        assert.strictEqual(memberNode.accessor, "[?", "Should not modify when disabled");
     });
 });

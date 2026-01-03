@@ -44,19 +44,13 @@ function createDeferred() {
 }
 
 void test("assertProjectIndexCacheStatus validates status strings", () => {
-    assert.equal(
-        assertProjectIndexCacheStatus(ProjectIndexCacheStatus.HIT),
-        ProjectIndexCacheStatus.HIT
-    );
+    assert.equal(assertProjectIndexCacheStatus(ProjectIndexCacheStatus.HIT), ProjectIndexCacheStatus.HIT);
 
     assert.throws(
         () => assertProjectIndexCacheStatus("invalid-status"),
         (error) => {
             assert.equal(error instanceof TypeError, true);
-            assert.match(
-                (error as any).message,
-                /Project index cache status must be one of:/
-            );
+            assert.match((error as any).message, /Project index cache status must be one of:/);
             return true;
         }
     );
@@ -215,10 +209,7 @@ void test("loadProjectIndexCache reports version mismatches", async () => {
         });
 
         assert.equal(formatterMiss.status, ProjectIndexCacheStatus.MISS);
-        assert.equal(
-            formatterMiss.reason.type,
-            ProjectIndexCacheMissReason.FORMATTER_VERSION_MISMATCH
-        );
+        assert.equal(formatterMiss.reason.type, ProjectIndexCacheMissReason.FORMATTER_VERSION_MISMATCH);
 
         const pluginMiss = await loadProjectIndexCache({
             projectRoot,
@@ -229,10 +220,7 @@ void test("loadProjectIndexCache reports version mismatches", async () => {
         });
 
         assert.equal(pluginMiss.status, ProjectIndexCacheStatus.MISS);
-        assert.equal(
-            pluginMiss.reason.type,
-            ProjectIndexCacheMissReason.PLUGIN_VERSION_MISMATCH
-        );
+        assert.equal(pluginMiss.reason.type, ProjectIndexCacheMissReason.PLUGIN_VERSION_MISMATCH);
     });
 });
 
@@ -256,10 +244,7 @@ void test("loadProjectIndexCache reports mtime invalidations", async () => {
         });
 
         assert.equal(manifestMiss.status, ProjectIndexCacheStatus.MISS);
-        assert.equal(
-            manifestMiss.reason.type,
-            ProjectIndexCacheMissReason.MANIFEST_MTIME_MISMATCH
-        );
+        assert.equal(manifestMiss.reason.type, ProjectIndexCacheMissReason.MANIFEST_MTIME_MISMATCH);
 
         const sourceMiss = await loadProjectIndexCache({
             projectRoot,
@@ -270,10 +255,7 @@ void test("loadProjectIndexCache reports mtime invalidations", async () => {
         });
 
         assert.equal(sourceMiss.status, ProjectIndexCacheStatus.MISS);
-        assert.equal(
-            sourceMiss.reason.type,
-            ProjectIndexCacheMissReason.SOURCE_MTIME_MISMATCH
-        );
+        assert.equal(sourceMiss.reason.type, ProjectIndexCacheMissReason.SOURCE_MTIME_MISMATCH);
     });
 });
 
@@ -365,16 +347,10 @@ void test("loadProjectIndexCache handles corrupted cache payloads", async () => 
         });
 
         assert.equal(result.status, ProjectIndexCacheStatus.MISS);
-        assert.equal(
-            result.reason.type,
-            ProjectIndexCacheMissReason.INVALID_JSON
-        );
+        assert.equal(result.reason.type, ProjectIndexCacheMissReason.INVALID_JSON);
         assert.ok(result.reason.error instanceof SyntaxError);
         assert.equal(result.reason.error.name, "JsonParseError");
-        assert.match(
-            result.reason.error.message,
-            /Failed to parse project index cache/
-        );
+        assert.match(result.reason.error.message, /Failed to parse project index cache/);
     });
 });
 
@@ -457,18 +433,12 @@ void test("createProjectIndexCoordinator serialises builds for the same project"
 
         releaseBuild.resolve();
 
-        const [first, second] = await Promise.all([
-            firstPromise,
-            secondPromise
-        ]);
+        const [first, second] = await Promise.all([firstPromise, secondPromise]);
 
         assert.equal(buildCount, 1);
         assert.equal(first.source, "build");
         assert.strictEqual(first.projectIndex, second.projectIndex);
-        assert.equal(
-            first.cache.saveResult.status,
-            ProjectIndexCacheStatus.WRITTEN
-        );
+        assert.equal(first.cache.saveResult.status, ProjectIndexCacheStatus.WRITTEN);
 
         const cacheHit = await coordinator.ensureReady(descriptor);
         assert.equal(cacheHit.source, "cache");
@@ -516,20 +486,14 @@ void test("createProjectIndexCoordinator aborts in-flight builds on dispose", as
                 }
 
                 if (signal.aborted) {
-                    const reason =
-                        signal.reason instanceof Error
-                            ? signal.reason
-                            : new Error("aborted");
+                    const reason = signal.reason instanceof Error ? signal.reason : new Error("aborted");
                     reject(reason);
                     return;
                 }
 
                 const onAbort = () => {
                     signal.removeEventListener("abort", onAbort);
-                    const reason =
-                        signal.reason instanceof Error
-                            ? signal.reason
-                            : new Error("aborted");
+                    const reason = signal.reason instanceof Error ? signal.reason : new Error("aborted");
                     reject(reason);
                 };
                 signal.addEventListener("abort", onAbort, { once: true });
@@ -615,102 +579,90 @@ async function assertCoordinatorMaxSizeScenario({
 // to assertions that intermittently observed a mutated baseline. Running them
 // sequentially keeps the shared state deterministic without relying on timing
 // quirks or the test scheduler's execution order.
-void test.describe(
-    "project index cache default size overrides",
-    { concurrency: false },
-    () => {
-        void test("project index cache max size can be tuned programmatically", () => {
-            const originalMax = getDefaultProjectIndexCacheMaxSize();
+void test.describe("project index cache default size overrides", { concurrency: false }, () => {
+    void test("project index cache max size can be tuned programmatically", () => {
+        const originalMax = getDefaultProjectIndexCacheMaxSize();
 
-            try {
-                const baseline = setDefaultProjectIndexCacheMaxSize(
-                    PROJECT_INDEX_CACHE_MAX_SIZE_BASELINE
-                );
-                assert.equal(baseline, PROJECT_INDEX_CACHE_MAX_SIZE_BASELINE);
+        try {
+            const baseline = setDefaultProjectIndexCacheMaxSize(PROJECT_INDEX_CACHE_MAX_SIZE_BASELINE);
+            assert.equal(baseline, PROJECT_INDEX_CACHE_MAX_SIZE_BASELINE);
 
-                const lowered = setDefaultProjectIndexCacheMaxSize(1024);
-                assert.equal(lowered, 1024);
-                assert.equal(getDefaultProjectIndexCacheMaxSize(), 1024);
+            const lowered = setDefaultProjectIndexCacheMaxSize(1024);
+            assert.equal(lowered, 1024);
+            assert.equal(getDefaultProjectIndexCacheMaxSize(), 1024);
 
-                const reset =
-                    setDefaultProjectIndexCacheMaxSize("not-a-number");
-                assert.equal(reset, PROJECT_INDEX_CACHE_MAX_SIZE_BASELINE);
-                assert.equal(
-                    getDefaultProjectIndexCacheMaxSize(),
-                    PROJECT_INDEX_CACHE_MAX_SIZE_BASELINE
-                );
+            const reset = setDefaultProjectIndexCacheMaxSize("not-a-number");
+            assert.equal(reset, PROJECT_INDEX_CACHE_MAX_SIZE_BASELINE);
+            assert.equal(getDefaultProjectIndexCacheMaxSize(), PROJECT_INDEX_CACHE_MAX_SIZE_BASELINE);
 
-                const disabled = setDefaultProjectIndexCacheMaxSize(0);
-                assert.equal(disabled, 0);
-                assert.equal(getDefaultProjectIndexCacheMaxSize(), 0);
-            } finally {
-                setDefaultProjectIndexCacheMaxSize(originalMax);
-            }
-        });
+            const disabled = setDefaultProjectIndexCacheMaxSize(0);
+            assert.equal(disabled, 0);
+            assert.equal(getDefaultProjectIndexCacheMaxSize(), 0);
+        } finally {
+            setDefaultProjectIndexCacheMaxSize(originalMax);
+        }
+    });
 
-        void test("environment overrides apply before using cache max size default", () => {
-            const originalMax = getDefaultProjectIndexCacheMaxSize();
+    void test("environment overrides apply before using cache max size default", () => {
+        const originalMax = getDefaultProjectIndexCacheMaxSize();
 
-            try {
-                applyProjectIndexCacheEnvOverride({
-                    [PROJECT_INDEX_CACHE_MAX_SIZE_ENV_VAR]: "2048"
-                });
+        try {
+            applyProjectIndexCacheEnvOverride({
+                [PROJECT_INDEX_CACHE_MAX_SIZE_ENV_VAR]: "2048"
+            });
 
-                assert.equal(getDefaultProjectIndexCacheMaxSize(), 2048);
-            } finally {
-                setDefaultProjectIndexCacheMaxSize(originalMax);
-            }
-        });
+            assert.equal(getDefaultProjectIndexCacheMaxSize(), 2048);
+        } finally {
+            setDefaultProjectIndexCacheMaxSize(originalMax);
+        }
+    });
 
-        void test("environment overrides can disable the cache max size", () => {
-            const originalMax = getDefaultProjectIndexCacheMaxSize();
+    void test("environment overrides can disable the cache max size", () => {
+        const originalMax = getDefaultProjectIndexCacheMaxSize();
 
-            try {
-                applyProjectIndexCacheEnvOverride({
-                    [PROJECT_INDEX_CACHE_MAX_SIZE_ENV_VAR]: "0"
-                });
+        try {
+            applyProjectIndexCacheEnvOverride({
+                [PROJECT_INDEX_CACHE_MAX_SIZE_ENV_VAR]: "0"
+            });
 
-                assert.equal(getDefaultProjectIndexCacheMaxSize(), 0);
-            } finally {
-                setDefaultProjectIndexCacheMaxSize(originalMax);
-            }
-        });
+            assert.equal(getDefaultProjectIndexCacheMaxSize(), 0);
+        } finally {
+            setDefaultProjectIndexCacheMaxSize(originalMax);
+        }
+    });
 
-        void test("createProjectIndexCoordinator uses configured default cache max size", async () => {
-            const originalMax = getDefaultProjectIndexCacheMaxSize();
-            let coordinator = null;
+    void test("createProjectIndexCoordinator uses configured default cache max size", async () => {
+        const originalMax = getDefaultProjectIndexCacheMaxSize();
+        let coordinator = null;
 
-            try {
-                setDefaultProjectIndexCacheMaxSize(4096);
+        try {
+            setDefaultProjectIndexCacheMaxSize(4096);
 
-                const savedDescriptors = [];
-                coordinator = createProjectIndexCoordinator({
-                    loadCache: async () => ({
-                        status: ProjectIndexCacheStatus.MISS,
-                        cacheFilePath: "virtual-cache.json",
-                        reason: { type: ProjectIndexCacheMissReason.NOT_FOUND }
-                    }),
-                    saveCache: async (descriptor) => {
-                        savedDescriptors.push(descriptor);
-                        return {
-                            status: ProjectIndexCacheStatus.WRITTEN,
-                            cacheFilePath:
-                                descriptor.cacheFilePath ??
-                                "virtual-cache.json",
-                            size: 0
-                        };
-                    },
-                    buildIndex: async () => createProjectIndex("/project")
-                });
+            const savedDescriptors = [];
+            coordinator = createProjectIndexCoordinator({
+                loadCache: async () => ({
+                    status: ProjectIndexCacheStatus.MISS,
+                    cacheFilePath: "virtual-cache.json",
+                    reason: { type: ProjectIndexCacheMissReason.NOT_FOUND }
+                }),
+                saveCache: async (descriptor) => {
+                    savedDescriptors.push(descriptor);
+                    return {
+                        status: ProjectIndexCacheStatus.WRITTEN,
+                        cacheFilePath: descriptor.cacheFilePath ?? "virtual-cache.json",
+                        size: 0
+                    };
+                },
+                buildIndex: async () => createProjectIndex("/project")
+            });
 
-                await coordinator.ensureReady({ projectRoot: "/project" });
+            await coordinator.ensureReady({ projectRoot: "/project" });
 
-                assert.equal(savedDescriptors.length, 1);
-                assert.equal(savedDescriptors[0].maxSizeBytes, 4096);
-            } finally {
-                setDefaultProjectIndexCacheMaxSize(originalMax);
-                coordinator?.dispose();
-            }
-        });
-    }
-);
+            assert.equal(savedDescriptors.length, 1);
+            assert.equal(savedDescriptors[0].maxSizeBytes, 4096);
+        } finally {
+            setDefaultProjectIndexCacheMaxSize(originalMax);
+            coordinator?.dispose();
+        }
+    });
+});

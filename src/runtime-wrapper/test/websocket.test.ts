@@ -25,10 +25,7 @@ const flush = () =>
 
 class MockWebSocket implements RuntimeWebSocketInstance {
     public readyState = 0;
-    private readonly listeners: Record<
-        WebSocketEvent,
-        Array<(event?: unknown) => void>
-    > = {
+    private readonly listeners: Record<WebSocketEvent, Array<(event?: unknown) => void>> = {
         open: [],
         message: [],
         close: [],
@@ -42,17 +39,11 @@ class MockWebSocket implements RuntimeWebSocketInstance {
         });
     }
 
-    addEventListener(
-        event: WebSocketEvent,
-        handler: (event?: Error | MessageEventLike) => void
-    ) {
+    addEventListener(event: WebSocketEvent, handler: (event?: Error | MessageEventLike) => void) {
         this.listeners[event]?.push(handler);
     }
 
-    removeEventListener(
-        event: WebSocketEvent,
-        handler: (event?: Error | MessageEventLike) => void
-    ) {
+    removeEventListener(event: WebSocketEvent, handler: (event?: Error | MessageEventLike) => void) {
         const queue = this.listeners[event];
         const index = queue?.indexOf(handler);
         if (queue && typeof index === "number" && index >= 0) {
@@ -86,10 +77,7 @@ class MockWebSocket implements RuntimeWebSocketInstance {
         this.dispatch("error", error);
     }
 
-    private dispatch(
-        event: WebSocketEvent,
-        payload?: Error | MessageEventLike
-    ) {
+    private dispatch(event: WebSocketEvent, payload?: Error | MessageEventLike) {
         for (const handler of this.listeners[event] ?? []) {
             handler(payload);
         }
@@ -105,8 +93,7 @@ async function runWebSocketTest(
 ) {
     globalWithWebSocket.WebSocket = MockWebSocket;
 
-    let client: ReturnType<typeof RuntimeWrapper.createWebSocketClient> | null =
-        null;
+    let client: ReturnType<typeof RuntimeWrapper.createWebSocketClient> | null = null;
 
     try {
         client = RuntimeWrapper.createWebSocketClient(options);
@@ -140,8 +127,7 @@ void test("WebSocket client connects and receives patches", async () => {
 
     globalWithWebSocket.WebSocket = MockWebSocket;
 
-    let client: ReturnType<typeof RuntimeWrapper.createWebSocketClient> | null =
-        null;
+    let client: ReturnType<typeof RuntimeWrapper.createWebSocketClient> | null = null;
     const connectPromise = new Promise<void>((resolve) => {
         client = RuntimeWrapper.createWebSocketClient({
             wrapper,
@@ -469,10 +455,7 @@ void test("WebSocket client reconnects after connection loss", async () => {
         await wait(10);
         await wait(40);
 
-        assert.ok(
-            reconnectCount >= 2,
-            `Expected at least 2 reconnects, got ${reconnectCount}`
-        );
+        assert.ok(reconnectCount >= 2, `Expected at least 2 reconnects, got ${reconnectCount}`);
     } finally {
         client?.disconnect();
         delete globalWithWebSocket.WebSocket;
@@ -486,10 +469,7 @@ void test("WebSocket client clears pending reconnect timer on manual reconnect",
 
     const originalSetTimeout = globalThis.setTimeout;
     const originalClearTimeout = globalThis.clearTimeout;
-    const trackedTimers = new Map<
-        ReturnType<typeof originalSetTimeout>,
-        { cleared: boolean; delay: number }
-    >();
+    const trackedTimers = new Map<ReturnType<typeof originalSetTimeout>, { cleared: boolean; delay: number }>();
     let client: ReturnType<typeof RuntimeWrapper.createWebSocketClient> | null;
 
     const restoreTimers = () => {
@@ -515,9 +495,7 @@ void test("WebSocket client clears pending reconnect timer on manual reconnect",
             return handle;
         }) as typeof setTimeout;
 
-        globalThis.clearTimeout = ((
-            handle: ReturnType<typeof originalSetTimeout>
-        ) => {
+        globalThis.clearTimeout = ((handle: ReturnType<typeof originalSetTimeout>) => {
             const meta = trackedTimers.get(handle);
             if (meta) {
                 meta.cleared = true;
@@ -551,15 +529,8 @@ void test("WebSocket client clears pending reconnect timer on manual reconnect",
         client.connect();
         await flush();
 
-        assert.strictEqual(
-            meta.cleared,
-            true,
-            "Reconnect timer should be cleared on reconnect"
-        );
-        assert.ok(
-            client.isConnected(),
-            "Client should be connected after manual reconnect"
-        );
+        assert.strictEqual(meta.cleared, true, "Reconnect timer should be cleared on reconnect");
+        assert.ok(client.isConnected(), "Client should be connected after manual reconnect");
 
         client.disconnect();
     } finally {
@@ -657,8 +628,7 @@ void test("WebSocket client tracks connection metrics", async () => {
     const wrapper = RuntimeWrapper.createRuntimeWrapper();
     globalWithWebSocket.WebSocket = MockWebSocket;
 
-    let client: ReturnType<typeof RuntimeWrapper.createWebSocketClient> | null =
-        null;
+    let client: ReturnType<typeof RuntimeWrapper.createWebSocketClient> | null = null;
 
     try {
         client = RuntimeWrapper.createWebSocketClient({
@@ -741,8 +711,7 @@ void test("WebSocket client tracks failed patches in metrics", async () => {
 void test("WebSocket client tracks reconnection attempts in metrics", async () => {
     globalWithWebSocket.WebSocket = MockWebSocket;
 
-    let client: ReturnType<typeof RuntimeWrapper.createWebSocketClient> | null =
-        null;
+    let client: ReturnType<typeof RuntimeWrapper.createWebSocketClient> | null = null;
 
     try {
         client = RuntimeWrapper.createWebSocketClient({
@@ -771,8 +740,7 @@ void test("WebSocket client tracks reconnection attempts in metrics", async () =
 void test("WebSocket client tracks connection errors in metrics", async () => {
     globalWithWebSocket.WebSocket = MockWebSocket;
 
-    let client: ReturnType<typeof RuntimeWrapper.createWebSocketClient> | null =
-        null;
+    let client: ReturnType<typeof RuntimeWrapper.createWebSocketClient> | null = null;
 
     try {
         client = RuntimeWrapper.createWebSocketClient({
@@ -801,8 +769,7 @@ void test("WebSocket client tracks connection errors in metrics", async () => {
 void test("WebSocket client returns frozen metrics snapshot", async () => {
     globalWithWebSocket.WebSocket = MockWebSocket;
 
-    let client: ReturnType<typeof RuntimeWrapper.createWebSocketClient> | null =
-        null;
+    let client: ReturnType<typeof RuntimeWrapper.createWebSocketClient> | null = null;
 
     try {
         client = RuntimeWrapper.createWebSocketClient({
@@ -848,8 +815,7 @@ void test("WebSocket client resets metrics to initial state", async () => {
     const wrapper = RuntimeWrapper.createRuntimeWrapper();
     globalWithWebSocket.WebSocket = MockWebSocket;
 
-    let client: ReturnType<typeof RuntimeWrapper.createWebSocketClient> | null =
-        null;
+    let client: ReturnType<typeof RuntimeWrapper.createWebSocketClient> | null = null;
 
     try {
         client = RuntimeWrapper.createWebSocketClient({
@@ -904,8 +870,7 @@ void test("WebSocket client resets metrics to initial state", async () => {
 void test("WebSocket client metrics reset does not affect connection state", async () => {
     globalWithWebSocket.WebSocket = MockWebSocket;
 
-    let client: ReturnType<typeof RuntimeWrapper.createWebSocketClient> | null =
-        null;
+    let client: ReturnType<typeof RuntimeWrapper.createWebSocketClient> | null = null;
 
     try {
         client = RuntimeWrapper.createWebSocketClient({

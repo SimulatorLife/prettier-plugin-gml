@@ -36,10 +36,7 @@ export function createReadOnlyView<T extends object>(
             return Reflect.ownKeys(getSource());
         },
         getOwnPropertyDescriptor(_target, property) {
-            const descriptor = Reflect.getOwnPropertyDescriptor(
-                getSource(),
-                property
-            );
+            const descriptor = Reflect.getOwnPropertyDescriptor(getSource(), property);
 
             if (descriptor) {
                 return {
@@ -54,19 +51,13 @@ export function createReadOnlyView<T extends object>(
             return Object.prototype;
         },
         set() {
-            throw new TypeError(
-                `${description} cannot be modified once resolved.`
-            );
+            throw new TypeError(`${description} cannot be modified once resolved.`);
         },
         defineProperty() {
-            throw new TypeError(
-                `${description} cannot be modified once resolved.`
-            );
+            throw new TypeError(`${description} cannot be modified once resolved.`);
         },
         deleteProperty() {
-            throw new TypeError(
-                `${description} cannot be modified once resolved.`
-            );
+            throw new TypeError(`${description} cannot be modified once resolved.`);
         }
     }) as Readonly<T>;
 }

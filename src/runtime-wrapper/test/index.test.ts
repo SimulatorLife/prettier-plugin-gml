@@ -96,8 +96,7 @@ void test("event patch receives instance context and arguments", () => {
         id: "obj_test#Async",
         this_name: "self",
         js_args: "eventData",
-        js_body:
-            "self.touched = eventData.value; return `${self.name}:${eventData.value}`;"
+        js_body: "self.touched = eventData.value; return `${self.name}:${eventData.value}`;"
     };
 
     wrapper.applyPatch(patch);
@@ -1036,10 +1035,9 @@ void test("applyPatchBatch handles empty array", () => {
 void test("applyPatchBatch validates input is array", () => {
     const wrapper = RuntimeWrapper.createRuntimeWrapper();
 
-    assert.throws(
-        () => wrapper.applyPatchBatch(null as unknown as Array<unknown>),
-        { message: /applyPatchBatch expects an array/ }
-    );
+    assert.throws(() => wrapper.applyPatchBatch(null as unknown as Array<unknown>), {
+        message: /applyPatchBatch expects an array/
+    });
 });
 
 void test("applyPatchBatch rolls back on failure", () => {
@@ -1258,11 +1256,7 @@ void test("onChange listener does not emit events for validation failures", () =
         js_body: "return {{ invalid"
     });
 
-    assert.strictEqual(
-        events.length,
-        0,
-        "Shadow validation failures should not emit events"
-    );
+    assert.strictEqual(events.length, 0, "Shadow validation failures should not emit events");
 
     // Custom validation failure - should not emit any event
     wrapper.trySafeApply(
@@ -1274,11 +1268,7 @@ void test("onChange listener does not emit events for validation failures", () =
         () => false
     );
 
-    assert.strictEqual(
-        events.length,
-        0,
-        "Custom validation failures should not emit events"
-    );
+    assert.strictEqual(events.length, 0, "Custom validation failures should not emit events");
 });
 
 void test("onChange listener receives registry-cleared events", () => {
@@ -1399,9 +1389,7 @@ void test("checkRegistryHealth detects corrupted script entries", () => {
         js_body: "return 42;"
     });
 
-    (wrapper.state.registry.scripts as Record<string, unknown>)[
-        "script:corrupted"
-    ] = "not a function";
+    (wrapper.state.registry.scripts as Record<string, unknown>)["script:corrupted"] = "not a function";
 
     const health = wrapper.checkRegistryHealth();
     assert.strictEqual(health.healthy, false);
@@ -1421,9 +1409,7 @@ void test("checkRegistryHealth detects corrupted event entries", () => {
         js_body: "this.x += 1;"
     });
 
-    (wrapper.state.registry.events as Record<string, unknown>)[
-        "obj_player#Create"
-    ] = 123;
+    (wrapper.state.registry.events as Record<string, unknown>)["obj_player#Create"] = 123;
 
     const health = wrapper.checkRegistryHealth();
     assert.strictEqual(health.healthy, false);
@@ -1442,9 +1428,7 @@ void test("checkRegistryHealth detects corrupted closure entries", () => {
         js_body: "return () => 1;"
     });
 
-    (wrapper.state.registry.closures as Record<string, unknown>)[
-        "closure:corrupted"
-    ] = null;
+    (wrapper.state.registry.closures as Record<string, unknown>)["closure:corrupted"] = null;
 
     const health = wrapper.checkRegistryHealth();
     assert.strictEqual(health.healthy, false);
@@ -1457,13 +1441,9 @@ void test("checkRegistryHealth detects corrupted closure entries", () => {
 void test("checkRegistryHealth detects multiple issues", () => {
     const wrapper = RuntimeWrapper.createRuntimeWrapper();
 
-    (wrapper.state.registry.scripts as Record<string, unknown>)["script:bad1"] =
-        "string";
-    (wrapper.state.registry.events as Record<string, unknown>)["event:bad2"] =
-        42;
-    (wrapper.state.registry.closures as Record<string, unknown>)[
-        "closure:bad3"
-    ] = {};
+    (wrapper.state.registry.scripts as Record<string, unknown>)["script:bad1"] = "string";
+    (wrapper.state.registry.events as Record<string, unknown>)["event:bad2"] = 42;
+    (wrapper.state.registry.closures as Record<string, unknown>)["closure:bad3"] = {};
 
     const health = wrapper.checkRegistryHealth();
     assert.strictEqual(health.healthy, false);

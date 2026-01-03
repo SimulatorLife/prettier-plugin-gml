@@ -51,7 +51,5 @@ export function getParserVisitorBase(): ParserVisitorBaseConstructor {
  * generated module layout.
  */
 export function getParseTreeVisitorPrototype(): ParserVisitorPrototype {
-    return Object.getPrototypeOf(
-        getParserVisitorBase().prototype
-    ) as ParserVisitorPrototype;
+    return Object.getPrototypeOf(getParserVisitorBase().prototype) as ParserVisitorPrototype;
 }

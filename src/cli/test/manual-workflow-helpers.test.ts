@@ -30,8 +30,7 @@ void describe("manual workflow helpers", () => {
             outputPath: "/tmp/output.json",
             quiet: false,
             log: (message) => messages.push(message),
-            formatManualSourceMessage: ({ manualSourceDescription }) =>
-                `Manual source: ${manualSourceDescription}`,
+            formatManualSourceMessage: ({ manualSourceDescription }) => `Manual source: ${manualSourceDescription}`,
             manualSourceResolver: async () => ({
                 ...STUB_MANUAL_SOURCE,
                 packageName: "game-maker-manual",

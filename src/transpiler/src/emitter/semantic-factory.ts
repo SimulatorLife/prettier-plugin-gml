@@ -48,9 +48,7 @@ export interface SemanticOracleOptions {
  * });
  * ```
  */
-export function createSemanticOracle(
-    options: SemanticOracleOptions = {}
-): IdentifierAnalyzer & CallTargetAnalyzer {
+export function createSemanticOracle(options: SemanticOracleOptions = {}): IdentifierAnalyzer & CallTargetAnalyzer {
     const builtinNames = options.builtinNames ?? Core.loadManualFunctionNames();
     const scriptNames = options.scriptNames ?? new Set<string>();
 
@@ -60,9 +58,5 @@ export function createSemanticOracle(
     // default classification without scope resolution.
     const scopeTracker = null;
 
-    return new Semantic.BasicSemanticOracle(
-        scopeTracker,
-        builtinNames,
-        scriptNames
-    );
+    return new Semantic.BasicSemanticOracle(scopeTracker, builtinNames, scriptNames);
 }

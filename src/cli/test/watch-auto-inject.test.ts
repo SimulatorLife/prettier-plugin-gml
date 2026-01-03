@@ -15,10 +15,7 @@ import { runWatchCommand } from "../src/commands/watch.js";
 
 describe("Watch command auto-inject flag", () => {
     it("should inject hot-reload runtime when --auto-inject is enabled", async () => {
-        const testDir = path.join(
-            "/tmp",
-            `watch-auto-inject-${Date.now()}-${Math.random().toString(36).slice(2)}`
-        );
+        const testDir = path.join("/tmp", `watch-auto-inject-${Date.now()}-${Math.random().toString(36).slice(2)}`);
         const html5OutputDir = path.join(testDir, "html5-output");
         const indexHtmlPath = path.join(html5OutputDir, "index.html");
 
@@ -54,22 +51,10 @@ describe("Watch command auto-inject flag", () => {
         await watchPromise;
 
         const indexContent = await readFile(indexHtmlPath, "utf8");
-        assert.ok(
-            indexContent.includes("gml-hot-reload:start"),
-            "Should contain hot-reload marker start"
-        );
-        assert.ok(
-            indexContent.includes("gml-hot-reload:end"),
-            "Should contain hot-reload marker end"
-        );
-        assert.ok(
-            indexContent.includes("createRuntimeWrapper"),
-            "Should contain runtime wrapper initialization"
-        );
-        assert.ok(
-            indexContent.includes("ws://127.0.0.1:17890"),
-            "Should contain default WebSocket URL"
-        );
+        assert.ok(indexContent.includes("gml-hot-reload:start"), "Should contain hot-reload marker start");
+        assert.ok(indexContent.includes("gml-hot-reload:end"), "Should contain hot-reload marker end");
+        assert.ok(indexContent.includes("createRuntimeWrapper"), "Should contain runtime wrapper initialization");
+        assert.ok(indexContent.includes("ws://127.0.0.1:17890"), "Should contain default WebSocket URL");
 
         await rm(testDir, { recursive: true, force: true });
     });
@@ -127,14 +112,10 @@ describe("Watch command auto-inject flag", () => {
     });
 
     it("should not inject when --auto-inject is not provided", async () => {
-        const testDir = path.join(
-            "/tmp",
-            `watch-no-inject-${Date.now()}-${Math.random().toString(36).slice(2)}`
-        );
+        const testDir = path.join("/tmp", `watch-no-inject-${Date.now()}-${Math.random().toString(36).slice(2)}`);
         const html5OutputDir = path.join(testDir, "html5-output");
         const indexHtmlPath = path.join(html5OutputDir, "index.html");
-        const originalContent =
-            "<html><head><title>Test</title></head><body><p>Test game</p></body></html>";
+        const originalContent = "<html><head><title>Test</title></head><body><p>Test game</p></body></html>";
 
         await mkdir(html5OutputDir, { recursive: true });
         await writeFile(indexHtmlPath, originalContent, "utf8");
@@ -163,11 +144,7 @@ describe("Watch command auto-inject flag", () => {
         await watchPromise;
 
         const indexContent = await readFile(indexHtmlPath, "utf8");
-        assert.strictEqual(
-            indexContent,
-            originalContent,
-            "Should not modify index.html when auto-inject is disabled"
-        );
+        assert.strictEqual(indexContent, originalContent, "Should not modify index.html when auto-inject is disabled");
 
         await rm(testDir, { recursive: true, force: true });
     });

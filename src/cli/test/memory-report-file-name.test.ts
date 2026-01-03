@@ -17,10 +17,7 @@ void describe("memory report file name configuration", () => {
     });
 
     void it("returns the baseline default when no overrides are applied", () => {
-        assert.equal(
-            getDefaultMemoryReportFileName(),
-            DEFAULT_MEMORY_REPORT_FILENAME
-        );
+        assert.equal(getDefaultMemoryReportFileName(), DEFAULT_MEMORY_REPORT_FILENAME);
     });
 
     void it("allows overriding the default file name", () => {
@@ -33,10 +30,7 @@ void describe("memory report file name configuration", () => {
     void it("ignores blank overrides", () => {
         setDefaultMemoryReportFileName("  ");
 
-        assert.equal(
-            getDefaultMemoryReportFileName(),
-            DEFAULT_MEMORY_REPORT_FILENAME
-        );
+        assert.equal(getDefaultMemoryReportFileName(), DEFAULT_MEMORY_REPORT_FILENAME);
     });
 
     void it("applies environment overrides to the default file name", () => {
@@ -51,10 +45,7 @@ void describe("memory report file name configuration", () => {
         setDefaultMemoryReportFileName("baseline.json");
 
         assert.equal(resolveMemoryReportFileName(), "baseline.json");
-        assert.equal(
-            resolveMemoryReportFileName(" custom-output.json  "),
-            "custom-output.json"
-        );
+        assert.equal(resolveMemoryReportFileName(" custom-output.json  "), "custom-output.json");
         assert.equal(resolveMemoryReportFileName(""), "baseline.json");
     });
 });

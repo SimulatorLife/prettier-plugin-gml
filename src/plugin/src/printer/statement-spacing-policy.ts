@@ -67,8 +67,7 @@ function defineReplacementRequiresNewlines(node) {
     const directive = Core.getNormalizedDefineReplacementDirective(node);
 
     return (
-        directive === Core.DefineReplacementDirective.REGION ||
-        directive === Core.DefineReplacementDirective.END_REGION
+        directive === Core.DefineReplacementDirective.REGION || directive === Core.DefineReplacementDirective.END_REGION
     );
 }
 
@@ -113,17 +112,10 @@ function shouldAddNewlinesAroundStatement(node) {
 }
 
 function shouldSuppressEmptyLineBetween(previousNode, nextNode) {
-    return (
-        Core.isMacroLikeStatement(previousNode) &&
-        Core.isMacroLikeStatement(nextNode)
-    );
+    return Core.isMacroLikeStatement(previousNode) && Core.isMacroLikeStatement(nextNode);
 }
 
-function shouldForceTrailingBlankLineForNestedFunction(
-    node,
-    blockNode,
-    containerNode
-) {
+function shouldForceTrailingBlankLineForNestedFunction(node, blockNode, containerNode) {
     if (!Core.isFunctionLikeDeclaration(node)) {
         return false;
     }
@@ -185,9 +177,7 @@ function shouldForceBlankLineBetweenReturnPaths(currentNode, nextNode) {
         return false;
     }
 
-    const consequentBoolean = Core.getBooleanLiteralValue(
-        lastStatement.argument
-    );
+    const consequentBoolean = Core.getBooleanLiteralValue(lastStatement.argument);
     const fallbackBoolean = Core.getBooleanLiteralValue(nextNode.argument);
 
     if (consequentBoolean === null || fallbackBoolean === null) {

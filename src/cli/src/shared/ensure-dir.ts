@@ -14,9 +14,6 @@ type RecursiveMkdirFs = Pick<typeof nodeFs, "mkdir">;
  * command modules expect.
  *
  */
-export async function ensureDir(
-    dirPath: string,
-    fsModule: RecursiveMkdirFs = nodeFs
-): Promise<void> {
+export async function ensureDir(dirPath: string, fsModule: RecursiveMkdirFs = nodeFs): Promise<void> {
     await fsModule.mkdir(dirPath, { recursive: true });
 }

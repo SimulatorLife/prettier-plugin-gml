@@ -2,11 +2,7 @@
  * Helpers for detecting and reporting duplicate semicolons so Feather diagnostics can suggest cleanup.
  */
 import { Core } from "@gml-modules/core";
-import {
-    hasFeatherSourceTextContext,
-    createFeatherFixDetail,
-    attachFeatherFixMetadata
-} from "./utils.js";
+import { hasFeatherSourceTextContext, createFeatherFixDetail, attachFeatherFixMetadata } from "./utils.js";
 
 /**
  * Scan the AST/source text for consecutive semicolons and produce metadata consumable by the plugin.
@@ -20,11 +16,7 @@ export function removeDuplicateSemicolons({ ast, sourceText, diagnostic }) {
     const recordedRanges = new Set();
 
     const recordFix = (container, range) => {
-        if (
-            !range ||
-            typeof range.start !== "number" ||
-            typeof range.end !== "number"
-        ) {
+        if (!range || typeof range.start !== "number" || typeof range.end !== "number") {
             return;
         }
 
@@ -83,17 +75,11 @@ export function removeDuplicateSemicolons({ ast, sourceText, diagnostic }) {
             const statementStart = Core.getNodeStartIndex(statement);
             const statementEnd = Core.getNodeEndIndex(statement);
 
-            if (
-                typeof previousEnd === "number" &&
-                typeof statementStart === "number"
-            ) {
+            if (typeof previousEnd === "number" && typeof statementStart === "number") {
                 processSegment(container, previousEnd, statementStart);
             }
 
-            previousEnd =
-                typeof statementEnd === "number"
-                    ? statementEnd
-                    : statementStart;
+            previousEnd = typeof statementEnd === "number" ? statementEnd : statementStart;
         }
 
         if (typeof previousEnd === "number" && typeof bounds.end === "number") {
@@ -268,12 +254,7 @@ function getStatementListBounds(node, sourceText) {
         }
         case "SwitchCase": {
             if (typeof start === "number") {
-                const colonIndex = findCharacterInRange(
-                    sourceText,
-                    ":",
-                    start,
-                    end
-                );
+                const colonIndex = findCharacterInRange(sourceText, ":", start, end);
 
                 if (colonIndex !== -1) {
                     start = colonIndex + 1;

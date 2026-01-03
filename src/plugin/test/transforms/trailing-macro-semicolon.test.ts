@@ -20,11 +20,7 @@ void describe("TRAILING_MACRO_SEMICOLON_PATTERN", () => {
 
         for (const { input, expected } of cases) {
             const actual = input.replace(TRAILING_MACRO_SEMICOLON_PATTERN, "");
-            assert.equal(
-                actual,
-                expected,
-                `Expected "${input}" to become "${expected}", got "${actual}"`
-            );
+            assert.equal(actual, expected, `Expected "${input}" to become "${expected}", got "${actual}"`);
         }
     });
 

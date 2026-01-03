@@ -23,10 +23,7 @@ export interface AbortSignalLike {
         listener: AbortSignalEventListener,
         options?: boolean | { once?: boolean }
     ) => void;
-    removeEventListener?: (
-        type: string,
-        listener: AbortSignalEventListener
-    ) => void;
+    removeEventListener?: (type: string, listener: AbortSignalEventListener) => void;
     dispatchEvent?: (event: { type?: string }) => boolean;
     throwIfAborted?: () => void;
 }
@@ -42,9 +39,8 @@ function shouldReuseAbortReason(value: unknown): value is AbortErrorLike {
 
     const candidate = value as Record<PropertyKey, unknown>;
     return (
-        ERROR_METADATA_KEYS.some(
-            (key) => candidate[key] !== null && candidate[key] !== undefined
-        ) || "cause" in candidate
+        ERROR_METADATA_KEYS.some((key) => candidate[key] !== null && candidate[key] !== undefined) ||
+        "cause" in candidate
     );
 }
 
@@ -83,12 +79,8 @@ function brandAbortError(error: AbortErrorLike, fallbackMessage: string) {
     return error;
 }
 
-function normalizeAbortError(
-    reason: unknown,
-    fallbackMessage: string
-): AbortErrorLike {
-    const fallback =
-        getNonEmptyString(fallbackMessage) ?? DEFAULT_ABORT_MESSAGE;
+function normalizeAbortError(reason: unknown, fallbackMessage: string): AbortErrorLike {
+    const fallback = getNonEmptyString(fallbackMessage) ?? DEFAULT_ABORT_MESSAGE;
     const error: AbortErrorLike = shouldReuseAbortReason(reason)
         ? reason
         : new Error(getNonEmptyString(toAbortMessage(reason)) ?? fallback);
@@ -101,8 +93,7 @@ function ensureAbortError(error: AbortErrorLike): Error {
         return error;
     }
 
-    const normalizedMessage =
-        getNonEmptyString(error.message) ?? DEFAULT_ABORT_MESSAGE;
+    const normalizedMessage = getNonEmptyString(error.message) ?? DEFAULT_ABORT_MESSAGE;
     const normalized = new Error(normalizedMessage);
 
     if (isObjectOrFunction(error)) {
@@ -152,10 +143,7 @@ export function createAbortError(
 const ABORT_ERROR_NAME = "aborterror";
 const ABORT_ERROR_STRING_CODE = "ABORT_ERR";
 const DOM_EXCEPTION_ABORT_ERR_CODE =
-    typeof DOMException === "function" &&
-    typeof DOMException.ABORT_ERR === "number"
-        ? DOMException.ABORT_ERR
-        : null;
+    typeof DOMException === "function" && typeof DOMException.ABORT_ERR === "number" ? DOMException.ABORT_ERR : null;
 
 export function isAbortError(value: unknown): boolean {
     if (value === null) {
@@ -172,9 +160,7 @@ export function isAbortError(value: unknown): boolean {
         return true;
     }
 
-    const name = getNonEmptyString(
-        /** @type {{ name?: unknown }} */ (candidate as { name?: unknown }).name
-    );
+    const name = getNonEmptyString(/** @type {{ name?: unknown }} */ (candidate as { name?: unknown }).name);
     if (name?.toLowerCase() === ABORT_ERROR_NAME) {
         return true;
     }
@@ -185,11 +171,7 @@ export function isAbortError(value: unknown): boolean {
         return code.toUpperCase() === ABORT_ERROR_STRING_CODE;
     }
 
-    if (
-        typeof code === "number" &&
-        DOM_EXCEPTION_ABORT_ERR_CODE !== null &&
-        code === DOM_EXCEPTION_ABORT_ERR_CODE
-    ) {
+    if (typeof code === "number" && DOM_EXCEPTION_ABORT_ERR_CODE !== null && code === DOM_EXCEPTION_ABORT_ERR_CODE) {
         return true;
     }
 
@@ -207,14 +189,8 @@ export function isAbortError(value: unknown): boolean {
  *        the signal omits a reason.
  * @returns {void}
  */
-export function throwIfAborted(
-    signal: AbortSignalLike | null | undefined,
-    fallbackMessage?: string | null
-) {
-    const error = createAbortError(
-        signal,
-        fallbackMessage ?? DEFAULT_ABORT_MESSAGE
-    );
+export function throwIfAborted(signal: AbortSignalLike | null | undefined, fallbackMessage?: string | null) {
+    const error = createAbortError(signal, fallbackMessage ?? DEFAULT_ABORT_MESSAGE);
     if (error) {
         throw ensureAbortError(error);
     }
@@ -303,8 +279,7 @@ export function resolveAbortSignalFromOptions(
         return null;
     }
 
-    const candidate =
-        /** @type {Record<PropertyKey, unknown>} */ options[key] ?? null;
+    const candidate = /** @type {Record<PropertyKey, unknown>} */ options[key] ?? null;
     if (!isAbortSignalLike(candidate)) {
         return null;
     }

@@ -33,14 +33,8 @@ void describe("capability probes", () => {
         assert.equal(isErrorLike(new Error("boom")), true);
         assert.equal(isErrorLike({ message: "boom", name: "Custom" }), true);
         assert.equal(isErrorLike({ message: 42 }), false);
-        assert.equal(
-            isAggregateErrorLike(new AggregateError([], "boom")),
-            true
-        );
-        assert.equal(
-            isAggregateErrorLike({ message: "boom", errors: [new Error("x")] }),
-            true
-        );
+        assert.equal(isAggregateErrorLike(new AggregateError([], "boom")), true);
+        assert.equal(isAggregateErrorLike({ message: "boom", errors: [new Error("x")] }), true);
         assert.equal(isAggregateErrorLike({ message: "boom" }), false);
     });
 
@@ -176,10 +170,7 @@ void describe("capability probes", () => {
 
         assert.equal(isWorkspaceEditLike({ edits: [] }), false);
         assert.equal(isWorkspaceEditLike({ edits: [], addEdit() {} }), false);
-        assert.equal(
-            isWorkspaceEditLike({ addEdit() {}, groupByFile() {} }),
-            false
-        );
+        assert.equal(isWorkspaceEditLike({ addEdit() {}, groupByFile() {} }), false);
         assert.equal(isWorkspaceEditLike(null), false);
         assert.equal(isWorkspaceEditLike(), false);
         assert.equal(

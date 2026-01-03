@@ -3,10 +3,7 @@ import assert from "node:assert/strict";
 import { describe, it } from "node:test";
 import { Command, InvalidArgumentError } from "commander";
 
-import {
-    parseCommandLine,
-    wrapInvalidArgumentResolver
-} from "../src/cli-core/command-parsing.js";
+import { parseCommandLine, wrapInvalidArgumentResolver } from "../src/cli-core/command-parsing.js";
 import { isCliUsageError } from "../src/cli-core/errors.js";
 import { Core } from "@gml-modules/core";
 
@@ -18,9 +15,7 @@ const createTestCommand = () => {
 
 void describe("parseCommandLine", () => {
     void it("parses arguments and exposes command state", () => {
-        const command = createTestCommand()
-            .argument("<value>")
-            .option("--flag");
+        const command = createTestCommand().argument("<value>").option("--flag");
 
         const result = parseCommandLine(command, ["--flag", "example"]);
 
@@ -48,9 +43,7 @@ void describe("parseCommandLine", () => {
         assert.throws(
             () => parseCommandLine(command, ["--unknown", "value"]),
             (error) =>
-                isCliUsageError(error) &&
-                error.message.includes("unknown option") &&
-                typeof error.usage === "string"
+                isCliUsageError(error) && error.message.includes("unknown option") && typeof error.usage === "string"
         );
     });
 
@@ -61,9 +54,7 @@ void describe("parseCommandLine", () => {
 
         const command = {
             parse() {
-                const commanderError = new Error(
-                    "bad option"
-                ) as MinimalCommanderError;
+                const commanderError = new Error("bad option") as MinimalCommanderError;
                 commanderError.name = "CommanderError";
                 commanderError.code = "commander.invalidOption";
                 Object.setPrototypeOf(commanderError, null);
@@ -77,19 +68,14 @@ void describe("parseCommandLine", () => {
 
         assert.throws(
             () => parseCommandLine(command, []),
-            (error) =>
-                isCliUsageError(error) &&
-                error.message === "bad option" &&
-                error.usage === "usage info"
+            (error) => isCliUsageError(error) && error.message === "bad option" && error.usage === "usage info"
         );
     });
 });
 
 void describe("wrapInvalidArgumentResolver", () => {
     void it("returns the resolver result when no error is thrown", () => {
-        const resolver = wrapInvalidArgumentResolver((value: string) =>
-            value.toUpperCase()
-        );
+        const resolver = wrapInvalidArgumentResolver((value: string) => value.toUpperCase());
 
         assert.strictEqual(resolver("value"), "VALUE");
     });
@@ -117,10 +103,7 @@ void describe("wrapInvalidArgumentResolver", () => {
         const resolver = wrapInvalidArgumentResolver(
             () => {
                 const reasonError = new Error("bad input");
-                const reasonObject = reasonError as unknown as Record<
-                    string,
-                    unknown
-                >;
+                const reasonObject = reasonError as unknown as Record<string, unknown>;
                 delete reasonObject.message;
                 reasonObject.reason = "bad input";
                 throw reasonError;
@@ -134,16 +117,11 @@ void describe("wrapInvalidArgumentResolver", () => {
                 if (!(error instanceof InvalidArgumentError)) {
                     return false;
                 }
-                const causeObject = isObjectLike(error.cause)
-                    ? (error.cause as Record<string, unknown>)
-                    : null;
+                const causeObject = isObjectLike(error.cause) ? (error.cause as Record<string, unknown>) : null;
                 if (!causeObject || !("reason" in causeObject)) {
                     return false;
                 }
-                return (
-                    (causeObject.reason as string) === "bad input" &&
-                    error.message === fallback
-                );
+                return (causeObject.reason as string) === "bad input" && error.message === fallback;
             }
         );
     });

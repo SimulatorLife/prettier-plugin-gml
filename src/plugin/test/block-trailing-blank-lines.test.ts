@@ -3,16 +3,7 @@ import { test } from "node:test";
 import { Plugin } from "../src/index.js";
 
 void test("omits blank lines between nested and enclosing block braces", async () => {
-    const source = [
-        "function demo() {",
-        "    while (true) {",
-        "        break;",
-        "    }",
-        "",
-        "",
-        "}",
-        ""
-    ].join("\n");
+    const source = ["function demo() {", "    while (true) {", "        break;", "    }", "", "", "}", ""].join("\n");
 
     const formatted = await Plugin.format(source);
     const lines = formatted.trim().split("\n");

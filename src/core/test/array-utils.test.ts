@@ -51,11 +51,7 @@ void test("isNonEmptyArray identifies arrays with elements", () => {
 });
 
 void test("uniqueArray removes duplicates while preserving order", () => {
-    assert.deepEqual(uniqueArray(["alpha", "beta", "alpha", "gamma", "beta"]), [
-        "alpha",
-        "beta",
-        "gamma"
-    ]);
+    assert.deepEqual(uniqueArray(["alpha", "beta", "alpha", "gamma", "beta"]), ["alpha", "beta", "gamma"]);
 });
 
 void test("toArrayFromIterable snapshots arrays before mutation", () => {
@@ -82,10 +78,7 @@ void test("uniqueArray supports iterables and optional freezing", () => {
 });
 
 void test("compactArray removes falsy entries while preserving order", () => {
-    assert.deepEqual(compactArray([0, "", "alpha", false, "beta", null]), [
-        "alpha",
-        "beta"
-    ]);
+    assert.deepEqual(compactArray([0, "", "alpha", false, "beta", null]), ["alpha", "beta"]);
 });
 
 void test("compactArray tolerates iterables and optional freezing", () => {
@@ -122,11 +115,7 @@ void test("pushUnique skips existing values", () => {
 void test("pushUnique can use a custom equality comparator", () => {
     const entries = [{ id: 1 }, { id: 2 }];
 
-    const added = pushUnique(
-        entries,
-        { id: 2 },
-        { isEqual: (existing, candidate) => existing.id === candidate.id }
-    );
+    const added = pushUnique(entries, { id: 2 }, { isEqual: (existing, candidate) => existing.id === candidate.id });
 
     assert.strictEqual(added, false);
     assert.strictEqual(entries.length, 2);

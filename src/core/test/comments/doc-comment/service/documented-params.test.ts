@@ -13,33 +13,19 @@ const {
     normalizeDocParamNameForComparison
 } = Core;
 
-type DocCommentTraversalService = ReturnType<
-    typeof Core.resolveDocCommentTraversalService
->;
+type DocCommentTraversalService = ReturnType<typeof Core.resolveDocCommentTraversalService>;
 
 void test("extractParamNameFromComment trims optional references", () => {
-    assert.strictEqual(
-        extractParamNameFromComment("/ @param foo value"),
-        "foo"
-    );
-    assert.strictEqual(
-        extractParamNameFromComment("// @param {number} [bar=1] desc"),
-        "bar"
-    );
+    assert.strictEqual(extractParamNameFromComment("/ @param foo value"), "foo");
+    assert.strictEqual(extractParamNameFromComment("// @param {number} [bar=1] desc"), "bar");
     assert.strictEqual(extractParamNameFromComment("/ @param baz=1"), "baz");
     assert.strictEqual(extractParamNameFromComment("/ @param [qux]"), "qux");
     assert.strictEqual(extractParamNameFromComment("/ @param"), null);
 });
 
 void test("normalizeDocParamNameForComparison lowercases names", () => {
-    assert.strictEqual(
-        normalizeDocParamNameForComparison("  FooBar "),
-        "foobar"
-    );
-    assert.strictEqual(
-        normalizeDocParamNameForComparison("[Baz=10]"),
-        "[baz=10]"
-    );
+    assert.strictEqual(normalizeDocParamNameForComparison("  FooBar "), "foobar");
+    assert.strictEqual(normalizeDocParamNameForComparison("[Baz=10]"), "[baz=10]");
 });
 
 void test("comment boundary helpers read numeric offsets", () => {
@@ -69,20 +55,14 @@ void test("extractDocumentedParamNames respects contiguous doc comments", () => 
         { type: "CommentLine", value: "// @param after", start: 200, end: 210 }
     ];
 
-    const names = extractDocumentedParamNames(
-        functionNode,
-        comments,
-        "".padEnd(300)
-    );
+    const names = extractDocumentedParamNames(functionNode, comments, "".padEnd(300));
 
     assert.deepStrictEqual([...names], ["second", "first"]);
 });
 
 void test("buildDocumentedParamNameLookup indexes documented parameters", () => {
     const functionNode = { type: "FunctionDeclaration", start: 80, end: 90 };
-    const comments = [
-        { type: "CommentLine", value: "// @param foo", start: 10, end: 20 }
-    ];
+    const comments = [{ type: "CommentLine", value: "// @param foo", start: 10, end: 20 }];
 
     const traversal = {
         forEach(callback: (node: unknown, comments?: unknown[]) => void) {
@@ -90,11 +70,7 @@ void test("buildDocumentedParamNameLookup indexes documented parameters", () => 
         }
     } satisfies DocCommentTraversalService;
 
-    const lookup = buildDocumentedParamNameLookup(
-        { type: "Program", comments: [] },
-        "".padEnd(200),
-        traversal
-    );
+    const lookup = buildDocumentedParamNameLookup({ type: "Program", comments: [] }, "".padEnd(200), traversal);
 
     const documented = lookup.get(functionNode);
     assert.ok(documented);

@@ -20,20 +20,11 @@ void describe("empty block comments", () => {
     });
 
     void it("removes standalone empty block comments", async () => {
-        const source = [
-            "function remove_empty_comment() {",
-            "    /** */",
-            "    return 0;",
-            "}",
-            ""
-        ].join("\n");
+        const source = ["function remove_empty_comment() {", "    /** */", "    return 0;", "}", ""].join("\n");
 
         const formatted = await Plugin.format(source);
 
-        assert.ok(
-            !formatted.includes("/** */"),
-            "Expected standalone empty block comments to be dropped."
-        );
+        assert.ok(!formatted.includes("/** */"), "Expected standalone empty block comments to be dropped.");
         assert.ok(
             formatted.includes("function remove_empty_comment() {"),
             "Expected the surrounding function to remain intact."

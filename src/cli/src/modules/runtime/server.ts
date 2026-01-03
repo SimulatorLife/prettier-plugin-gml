@@ -4,10 +4,7 @@ import fs from "node:fs/promises";
 import path from "node:path";
 
 import { Core } from "@gml-modules/core";
-import type {
-    ServerEndpoint,
-    ServerLifecycle
-} from "../shared-server-types.js";
+import type { ServerEndpoint, ServerLifecycle } from "../shared-server-types.js";
 
 const { isFsErrorCode, getErrorMessage } = Core;
 
@@ -56,8 +53,7 @@ export type RuntimeStaticServerHandle = ServerEndpoint & ServerLifecycle;
  * Complete runtime server details for callers that also require runtime-specific
  * origin and filesystem information.
  */
-export type RuntimeStaticServerInstance = RuntimeStaticServerHandle &
-    RuntimeServerProperties;
+export type RuntimeStaticServerInstance = RuntimeStaticServerHandle & RuntimeServerProperties;
 
 function resolveMimeType(filePath) {
     const extension = path.extname(filePath).toLowerCase();
@@ -88,33 +84,23 @@ function resolveRuntimeFilePath(root, requestPath) {
         });
     }
     const sanitizedPath = decoded.replaceAll("\\", "/");
-    const sanitizedSegments = sanitizedPath
-        .split("/")
-        .filter((segment) => segment && segment !== ".");
+    const sanitizedSegments = sanitizedPath.split("/").filter((segment) => segment && segment !== ".");
 
     if (sanitizedSegments.includes("..")) {
-        throw Object.assign(
-            new Error("Request path resolves outside runtime root."),
-            {
-                statusCode: 403
-            }
-        );
+        throw Object.assign(new Error("Request path resolves outside runtime root."), {
+            statusCode: 403
+        });
     }
     const normalizedPath = path.normalize(decoded).replaceAll("\\", "/");
-    const strippedPath = normalizedPath.startsWith("/")
-        ? normalizedPath.slice(1)
-        : normalizedPath;
+    const strippedPath = normalizedPath.startsWith("/") ? normalizedPath.slice(1) : normalizedPath;
     const candidate = strippedPath.length === 0 ? "." : strippedPath;
     const target = path.resolve(root, candidate);
     const relative = path.relative(root, target);
 
     if (relative.startsWith("..") || path.isAbsolute(relative)) {
-        throw Object.assign(
-            new Error("Request path resolves outside runtime root."),
-            {
-                statusCode: 403
-            }
-        );
+        throw Object.assign(new Error("Request path resolves outside runtime root."), {
+            statusCode: 403
+        });
     }
 
     return target;
@@ -229,18 +215,14 @@ export async function startRuntimeStaticServer({
     verbose = false
 }: RuntimeStaticServerOptions = {}): Promise<RuntimeStaticServerInstance> {
     if (!runtimeRoot || typeof runtimeRoot !== "string") {
-        throw new TypeError(
-            "startRuntimeStaticServer requires a runtimeRoot string."
-        );
+        throw new TypeError("startRuntimeStaticServer requires a runtimeRoot string.");
     }
 
     const resolvedRoot = path.resolve(runtimeRoot);
 
     const initialStats = await fs.stat(resolvedRoot).catch((error) => {
         if (isFsErrorCode(error, "ENOENT")) {
-            throw new Error(
-                `Runtime root '${resolvedRoot}' does not exist. Did hydration succeed?`
-            );
+            throw new Error(`Runtime root '${resolvedRoot}' does not exist. Did hydration succeed?`);
         }
         throw error;
     });
@@ -264,11 +246,7 @@ export async function startRuntimeStaticServer({
         } catch (error) {
             const statusCode = error?.statusCode ?? 500;
             const message =
-                statusCode === 403
-                    ? "Forbidden"
-                    : error instanceof Error
-                      ? error.message
-                      : "Internal Server Error";
+                statusCode === 403 ? "Forbidden" : error instanceof Error ? error.message : "Internal Server Error";
             writeError(res, statusCode, message);
             return;
         }
@@ -283,8 +261,7 @@ export async function startRuntimeStaticServer({
                 return;
             }
 
-            const message =
-                error instanceof Error ? error.message : String(error);
+            const message = error instanceof Error ? error.message : String(error);
             writeError(res, 500, `Failed to read runtime asset: ${message}`);
         });
     });

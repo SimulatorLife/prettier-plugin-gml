@@ -24,11 +24,7 @@ void describe("prepareHotReloadInjection", () => {
         const outputRoot = path.join(root, "output");
         await fs.mkdir(outputRoot, { recursive: true });
         const indexPath = path.join(outputRoot, "index.html");
-        await fs.writeFile(
-            indexPath,
-            "<html><body><h1>Demo</h1></body></html>",
-            "utf8"
-        );
+        await fs.writeFile(indexPath, "<html><body><h1>Demo</h1></body></html>", "utf8");
 
         const result = await prepareHotReloadInjection({
             html5OutputRoot: outputRoot,
@@ -39,10 +35,7 @@ void describe("prepareHotReloadInjection", () => {
         assert.match(updated, new RegExp(HOT_RELOAD_MARKER_START));
         assert.match(updated, /ws:\/\/127\.0\.0\.1:9999/);
 
-        const runtimeEntry = path.join(
-            result.runtimeWrapperTargetRoot,
-            "index.js"
-        );
+        const runtimeEntry = path.join(result.runtimeWrapperTargetRoot, "index.js");
         const runtimeStats = await fs.stat(runtimeEntry);
         assert.ok(runtimeStats.isFile());
     });
@@ -53,16 +46,8 @@ void describe("prepareHotReloadInjection", () => {
         const newer = path.join(root, "newer");
         await fs.mkdir(older, { recursive: true });
         await fs.mkdir(newer, { recursive: true });
-        await fs.writeFile(
-            path.join(older, "index.html"),
-            "<html></html>",
-            "utf8"
-        );
-        await fs.writeFile(
-            path.join(newer, "index.html"),
-            "<html></html>",
-            "utf8"
-        );
+        await fs.writeFile(path.join(older, "index.html"), "<html></html>", "utf8");
+        await fs.writeFile(path.join(newer, "index.html"), "<html></html>", "utf8");
 
         const past = new Date(Date.now() - 10_000);
         const now = new Date();
@@ -79,13 +64,9 @@ void describe("prepareHotReloadInjection", () => {
 
 void describe("GMWebServ root parsing", () => {
     void it("extracts the -root path from a GMWebServ command line", () => {
-        const sample =
-            "/path/GMWebServ -v -root /private/tmp/GameMakerStudio2/GMS2TEMP/Project_Javascript";
+        const sample = "/path/GMWebServ -v -root /private/tmp/GameMakerStudio2/GMS2TEMP/Project_Javascript";
         const root = extractGmWebServerRoot(sample);
-        assert.equal(
-            root,
-            "/private/tmp/GameMakerStudio2/GMS2TEMP/Project_Javascript"
-        );
+        assert.equal(root, "/private/tmp/GameMakerStudio2/GMS2TEMP/Project_Javascript");
     });
 
     void it("returns null when no GMWebServ root is present", () => {
@@ -97,12 +78,8 @@ void describe("prepare-hot-reload command", () => {
     void it("exposes defaults for temp root and websocket URL", () => {
         const command = createPrepareHotReloadCommand();
         const options = command.options;
-        const tempRootOption = options.find(
-            (opt) => opt.long === "--gm-temp-root"
-        );
-        const websocketOption = options.find(
-            (opt) => opt.long === "--websocket-url"
-        );
+        const tempRootOption = options.find((opt) => opt.long === "--gm-temp-root");
+        const websocketOption = options.find((opt) => opt.long === "--websocket-url");
 
         assert.ok(tempRootOption);
         assert.equal(tempRootOption.defaultValue, DEFAULT_GM_TEMP_ROOT);

@@ -16,9 +16,7 @@ type ConstructorInfo = {
 /**
  * Helper to validate that a statement declares a single static variable with a function initializer.
  */
-function getStaticFunctionDeclarator(
-    statement: MutableGameMakerAstNode | null | undefined
-) {
+function getStaticFunctionDeclarator(statement: MutableGameMakerAstNode | null | undefined) {
     if (!statement || statement.type !== "VariableDeclaration") {
         return null;
     }
@@ -48,9 +46,7 @@ function getStaticFunctionDeclarator(
 /**
  * Pull the identifier name from a static declarator.
  */
-function extractStaticFunctionName(
-    statement: MutableGameMakerAstNode | null | undefined
-) {
+function extractStaticFunctionName(statement: MutableGameMakerAstNode | null | undefined) {
     const declarator = getStaticFunctionDeclarator(statement);
 
     if (!declarator) {
@@ -67,14 +63,9 @@ function extractStaticFunctionName(
 /**
  * Identify static variable declarations that host function expressions/declarations.
  */
-function isStaticFunctionDeclaration(
-    statement: MutableGameMakerAstNode | null | undefined
-) {
+function isStaticFunctionDeclaration(statement: MutableGameMakerAstNode | null | undefined) {
     const declarator = getStaticFunctionDeclarator(statement);
-    return (
-        declarator?.init?.type === "FunctionDeclaration" ||
-        declarator?.init?.type === "FunctionExpression"
-    );
+    return declarator?.init?.type === "FunctionDeclaration" || declarator?.init?.type === "FunctionExpression";
 }
 
 /**
@@ -113,9 +104,7 @@ function findAncestorStaticFunction(
 /**
  * Build a map of constructors with their names, parents, and declared static helper functions.
  */
-function collectConstructorInfos(
-    ast: MutableGameMakerAstNode
-): Map<string, ConstructorInfo> {
+function collectConstructorInfos(ast: MutableGameMakerAstNode): Map<string, ConstructorInfo> {
     if (!ast || typeof ast !== "object") {
         return new Map();
     }
@@ -139,10 +128,7 @@ function collectConstructorInfos(
         }
 
         let parentName: string | null = null;
-        if (
-            Core.isNode(node.parent) &&
-            node.parent.type === "ConstructorParentClause"
-        ) {
+        if (Core.isNode(node.parent) && node.parent.type === "ConstructorParentClause") {
             const parentId = (node.parent as any).id;
             parentName = Core.isIdentifierNode(parentId)
                 ? Core.getNonEmptyString(parentId.name)
@@ -196,11 +182,7 @@ function annotateStaticFunctionOverrides(ast: MutableGameMakerAstNode) {
         }
 
         for (const [staticName, statement] of info.staticFunctions) {
-            const ancestorStatic = findAncestorStaticFunction(
-                constructors,
-                info.parentName,
-                staticName
-            );
+            const ancestorStatic = findAncestorStaticFunction(constructors, info.parentName, staticName);
             if (ancestorStatic) {
                 statement._overridesStaticFunction = true;
                 statement._overridesStaticFunctionNode = ancestorStatic;
@@ -219,8 +201,4 @@ function execute(
 }
 
 export const annotateStaticFunctionOverridesTransform =
-    createParserTransform<AnnotateStaticFunctionOverridesTransformOptions>(
-        "annotate-static-overrides",
-        {},
-        execute
-    );
+    createParserTransform<AnnotateStaticFunctionOverridesTransformOptions>("annotate-static-overrides", {}, execute);

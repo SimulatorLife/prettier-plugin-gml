@@ -23,13 +23,7 @@
  * cross-package AST manipulation safer and reduce the risk of type drift.
  */
 
-export type SemKind =
-    | "local"
-    | "self_field"
-    | "other_field"
-    | "global_field"
-    | "builtin"
-    | "script";
+export type SemKind = "local" | "self_field" | "other_field" | "global_field" | "builtin" | "script";
 
 export interface IdentifierMetadata {
     readonly name: string;
@@ -360,15 +354,9 @@ export interface EmitOptions {
  * symbol. Used by the transpiler to generate correct variable references.
  */
 export interface IdentifierAnalyzer {
-    kindOfIdent(
-        node: IdentifierNode | IdentifierMetadata | null | undefined
-    ): SemKind;
-    nameOfIdent(
-        node: IdentifierNode | IdentifierMetadata | null | undefined
-    ): string;
-    qualifiedSymbol(
-        node: IdentifierNode | IdentifierMetadata | null | undefined
-    ): string | null;
+    kindOfIdent(node: IdentifierNode | IdentifierMetadata | null | undefined): SemKind;
+    nameOfIdent(node: IdentifierNode | IdentifierMetadata | null | undefined): string;
+    qualifiedSymbol(node: IdentifierNode | IdentifierMetadata | null | undefined): string | null;
 }
 
 /**

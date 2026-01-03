@@ -4,12 +4,7 @@ import { test } from "node:test";
 import { Plugin } from "../src/index.js";
 
 void test("converts manual mean with floating point noise", async () => {
-    const source = [
-        "function convert_mean(a, b) {",
-        "    return (a + b) * 0.5000000000000001;",
-        "}",
-        ""
-    ].join("\n");
+    const source = ["function convert_mean(a, b) {", "    return (a + b) * 0.5000000000000001;", "}", ""].join("\n");
 
     const formatted = await Plugin.format(source, {
         optimizeMathExpressions: true
@@ -17,44 +12,22 @@ void test("converts manual mean with floating point noise", async () => {
 
     assert.strictEqual(
         formatted,
-        [
-            "/// @param a",
-            "/// @param b",
-            "function convert_mean(a, b) {",
-            "    return mean(a, b);",
-            "}",
-            ""
-        ].join("\n")
+        ["/// @param a", "/// @param b", "function convert_mean(a, b) {", "    return mean(a, b);", "}", ""].join("\n")
     );
 });
 
 void test("converts literal square with floating point noise", async () => {
-    const source = [
-        "function convert_square() {",
-        "    return 0.5 * 0.5000000000000001;",
-        "}",
-        ""
-    ].join("\n");
+    const source = ["function convert_square() {", "    return 0.5 * 0.5000000000000001;", "}", ""].join("\n");
 
     const formatted = await Plugin.format(source, {
         optimizeMathExpressions: true
     });
 
-    assert.strictEqual(
-        formatted,
-        ["function convert_square() {", "    return sqr(0.5);", "}", ""].join(
-            "\n"
-        )
-    );
+    assert.strictEqual(formatted, ["function convert_square() {", "    return sqr(0.5);", "}", ""].join("\n"));
 });
 
 void test("preserves inline comments between manual math operands", async () => {
-    const source = [
-        "function keep_comment(value) {",
-        "    return value /* keep */ * value;",
-        "}",
-        ""
-    ].join("\n");
+    const source = ["function keep_comment(value) {", "    return value /* keep */ * value;", "}", ""].join("\n");
 
     const formatted = await Plugin.format(source, {
         optimizeMathExpressions: true
@@ -62,13 +35,9 @@ void test("preserves inline comments between manual math operands", async () => 
 
     assert.strictEqual(
         formatted,
-        [
-            "/// @param value",
-            "function keep_comment(value) {",
-            "    return value /* keep */ * value;",
-            "}",
-            ""
-        ].join("\n")
+        ["/// @param value", "function keep_comment(value) {", "    return value /* keep */ * value;", "}", ""].join(
+            "\n"
+        )
     );
 });
 
@@ -98,12 +67,7 @@ void test("converts distance formula with floating point noise", async () => {
 });
 
 void test("condenses chained scalar multipliers into a single coefficient", async () => {
-    const source = [
-        "function convert_scalar(size) {",
-        "    return 1.3 * size * 0.12 / 1.5;",
-        "}",
-        ""
-    ].join("\n");
+    const source = ["function convert_scalar(size) {", "    return 1.3 * size * 0.12 / 1.5;", "}", ""].join("\n");
 
     const formatted = await Plugin.format(source, {
         optimizeMathExpressions: true
@@ -111,13 +75,7 @@ void test("condenses chained scalar multipliers into a single coefficient", asyn
 
     assert.strictEqual(
         formatted,
-        [
-            "/// @param size",
-            "function convert_scalar(size) {",
-            "    return size * 0.104;",
-            "}",
-            ""
-        ].join("\n")
+        ["/// @param size", "function convert_scalar(size) {", "    return size * 0.104;", "}", ""].join("\n")
     );
 });
 void test("promotes lengthdir half-difference assignments into the declaration", async () => {
@@ -209,12 +167,9 @@ void test("preserves blank line before comments when promoting lengthdir assignm
 });
 
 void test("simplifies division by a reciprocal denominator", async () => {
-    const source = [
-        "function convert_reciprocal(value, denom) {",
-        "    return value / (1 / denom);",
-        "}",
-        ""
-    ].join("\n");
+    const source = ["function convert_reciprocal(value, denom) {", "    return value / (1 / denom);", "}", ""].join(
+        "\n"
+    );
 
     const formatted = await Plugin.format(source, {
         optimizeMathExpressions: true
@@ -234,12 +189,7 @@ void test("simplifies division by a reciprocal denominator", async () => {
 });
 
 void test("preserves grouping when simplifying reciprocal denominators with composite factors", async () => {
-    const source = [
-        "function convert_grouped(value, a, b) {",
-        "    return value / (1 / (a + b));",
-        "}",
-        ""
-    ].join("\n");
+    const source = ["function convert_grouped(value, a, b) {", "    return value / (1 / (a + b));", "}", ""].join("\n");
 
     const formatted = await Plugin.format(source, {
         optimizeMathExpressions: true
@@ -260,12 +210,7 @@ void test("preserves grouping when simplifying reciprocal denominators with comp
 });
 
 void test("condenses subtraction-based scalar multipliers", async () => {
-    const source = [
-        "function convert_subtracted_scalar(len) {",
-        "    return len * (1 - 0.5);",
-        "}",
-        ""
-    ].join("\n");
+    const source = ["function convert_subtracted_scalar(len) {", "    return len * (1 - 0.5);", "}", ""].join("\n");
 
     const formatted = await Plugin.format(source, {
         optimizeMathExpressions: true
@@ -273,13 +218,7 @@ void test("condenses subtraction-based scalar multipliers", async () => {
 
     assert.strictEqual(
         formatted,
-        [
-            "/// @param len",
-            "function convert_subtracted_scalar(len) {",
-            "    return len * 0.5;",
-            "}",
-            ""
-        ].join("\n")
+        ["/// @param len", "function convert_subtracted_scalar(len) {", "    return len * 0.5;", "}", ""].join("\n")
     );
 });
 
@@ -337,12 +276,9 @@ void test("cancels reciprocal factors paired with their denominator", async () =
 });
 
 void test("removes additive identity scalars with trailing comments", async () => {
-    const source = [
-        "function strip_additive_identity(value) {",
-        "    return value + 0; // original",
-        "}",
-        ""
-    ].join("\n");
+    const source = ["function strip_additive_identity(value) {", "    return value + 0; // original", "}", ""].join(
+        "\n"
+    );
 
     const formatted = await Plugin.format(source, {
         optimizeMathExpressions: true
@@ -385,12 +321,9 @@ void test("preserves other trailing comments when stripping additive identity", 
 });
 
 void test("preserves punctuation-heavy trailing comments when stripping additive identity", async () => {
-    const source = [
-        "function keep_complex_comment(value) {",
-        "    return value + 0; // keep-this! @$&?",
-        "}",
-        ""
-    ].join("\n");
+    const source = ["function keep_complex_comment(value) {", "    return value + 0; // keep-this! @$&?", "}", ""].join(
+        "\n"
+    );
 
     const formatted = await Plugin.format(source, {
         optimizeMathExpressions: true
@@ -434,12 +367,7 @@ void test("removes multiplicative zero factors inside additive chains", async ()
 });
 
 void test("condenses chained multipliers with composite operands", async () => {
-    const source = [
-        "function convert_frames(acc, dt) {",
-        "    return acc * dt / 1000 * 60;",
-        "}",
-        ""
-    ].join("\n");
+    const source = ["function convert_frames(acc, dt) {", "    return acc * dt / 1000 * 60;", "}", ""].join("\n");
 
     const formatted = await Plugin.format(source, {
         optimizeMathExpressions: true
@@ -459,12 +387,7 @@ void test("condenses chained multipliers with composite operands", async () => {
 });
 
 void test("collects shared scalar factors across addition", async () => {
-    const source = [
-        "function collect_constants(value) {",
-        "    return value * 0.3 + value * 0.2;",
-        "}",
-        ""
-    ].join("\n");
+    const source = ["function collect_constants(value) {", "    return value * 0.3 + value * 0.2;", "}", ""].join("\n");
 
     const formatted = await Plugin.format(source, {
         optimizeMathExpressions: true
@@ -472,13 +395,7 @@ void test("collects shared scalar factors across addition", async () => {
 
     assert.strictEqual(
         formatted,
-        [
-            "/// @param value",
-            "function collect_constants(value) {",
-            "    return value * 0.5;",
-            "}",
-            ""
-        ].join("\n")
+        ["/// @param value", "function collect_constants(value) {", "    return value * 0.5;", "}", ""].join("\n")
     );
 });
 
@@ -496,23 +413,12 @@ void test("reduces shared scalar additions that sum to one", async () => {
 
     assert.strictEqual(
         formatted,
-        [
-            "/// @param amount",
-            "function normalize_amount(amount) {",
-            "    return amount;",
-            "}",
-            ""
-        ].join("\n")
+        ["/// @param amount", "function normalize_amount(amount) {", "    return amount;", "}", ""].join("\n")
     );
 });
 
 void test("condenses division by reciprocal scalar multipliers", async () => {
-    const source = [
-        "function convert_reciprocal(x, x0) {",
-        "    return (x - x0) / (1 / 60);",
-        "}",
-        ""
-    ].join("\n");
+    const source = ["function convert_reciprocal(x, x0) {", "    return (x - x0) / (1 / 60);", "}", ""].join("\n");
 
     const formatted = await Plugin.format(source, {
         optimizeMathExpressions: true
@@ -532,12 +438,7 @@ void test("condenses division by reciprocal scalar multipliers", async () => {
 });
 
 void test("optimizes reciprocal assignment expression", async () => {
-    const source = [
-        "function optimize_assignment(x0, x1) {",
-        "    return (x0 - x1) / (1 / 60);",
-        "}",
-        ""
-    ].join("\n");
+    const source = ["function optimize_assignment(x0, x1) {", "    return (x0 - x1) / (1 / 60);", "}", ""].join("\n");
 
     const formatted = await Plugin.format(source, {
         optimizeMathExpressions: true
@@ -557,12 +458,7 @@ void test("optimizes reciprocal assignment expression", async () => {
 });
 
 void test("condenses subtraction-only scalar factors", async () => {
-    const source = [
-        "function convert_subtraction(len) {",
-        "    return len * (1 - 0.5);",
-        "}",
-        ""
-    ].join("\n");
+    const source = ["function convert_subtraction(len) {", "    return len * (1 - 0.5);", "}", ""].join("\n");
 
     const formatted = await Plugin.format(source, {
         optimizeMathExpressions: true
@@ -570,13 +466,7 @@ void test("condenses subtraction-only scalar factors", async () => {
 
     assert.strictEqual(
         formatted,
-        [
-            "/// @param len",
-            "function convert_subtraction(len) {",
-            "    return len * 0.5;",
-            "}",
-            ""
-        ].join("\n")
+        ["/// @param len", "function convert_subtraction(len) {", "    return len * 0.5;", "}", ""].join("\n")
     );
 });
 
@@ -606,12 +496,7 @@ void test("condenses nested ratios that mix scalar and non-scalar factors", asyn
 });
 
 void test("cancels reciprocal ratio pairs before scalar condensation", async () => {
-    const source = [
-        "function cancel_reciprocal(a, b, c) {",
-        "    return a * (b / c) * (c / b);",
-        "}",
-        ""
-    ].join("\n");
+    const source = ["function cancel_reciprocal(a, b, c) {", "    return a * (b / c) * (c / b);", "}", ""].join("\n");
 
     const formatted = await Plugin.format(source, {
         optimizeMathExpressions: true
@@ -657,12 +542,7 @@ void test("simplifies reciprocal products with unit numerators", async () => {
 });
 
 void test("cancels numeric identity factors introduced by scalar condensation", async () => {
-    const source = [
-        "function simplify_scalars(m) {",
-        "    return (m / 5) * (10 * 0.5);",
-        "}",
-        ""
-    ].join("\n");
+    const source = ["function simplify_scalars(m) {", "    return (m / 5) * (10 * 0.5);", "}", ""].join("\n");
 
     const formatted = await Plugin.format(source, {
         optimizeMathExpressions: true
@@ -670,13 +550,7 @@ void test("cancels numeric identity factors introduced by scalar condensation", 
 
     assert.strictEqual(
         formatted,
-        [
-            "/// @param m",
-            "function simplify_scalars(m) {",
-            "    return m;",
-            "}",
-            ""
-        ].join("\n")
+        ["/// @param m", "function simplify_scalars(m) {", "    return m;", "}", ""].join("\n")
     );
 });
 
@@ -706,12 +580,7 @@ void test("converts simple division within a function", async () => {
 });
 
 void test("prioritizes converting multiplicative degree ratios into degtorad over converting division to multiplication", async () => {
-    const source = [
-        "function convert_degrees(angle) {",
-        "    return angle * pi / 180;",
-        "}",
-        ""
-    ].join("\n");
+    const source = ["function convert_degrees(angle) {", "    return angle * pi / 180;", "}", ""].join("\n");
 
     const formatted = await Plugin.format(source, {
         optimizeMathExpressions: true
@@ -719,48 +588,26 @@ void test("prioritizes converting multiplicative degree ratios into degtorad ove
 
     assert.strictEqual(
         formatted,
-        [
-            "/// @param angle",
-            "function convert_degrees(angle) {",
-            "    return degtorad(angle);",
-            "}",
-            ""
-        ].join("\n")
+        ["/// @param angle", "function convert_degrees(angle) {", "    return degtorad(angle);", "}", ""].join("\n")
     );
 });
 
 void test("simplifies degree-based cos and sin expressions into dcos and dsin", async () => {
-    const source = [
-        "var xdir = cos((direction / 180) * pi);",
-        "var ydir = sin((direction / 180) * pi);"
-    ].join("\n");
+    const source = ["var xdir = cos((direction / 180) * pi);", "var ydir = sin((direction / 180) * pi);"].join("\n");
 
     const formatted = await Plugin.format(source, {
         optimizeMathExpressions: true
     });
 
-    assert.strictEqual(
-        formatted,
-        ["var xdir = dcos(direction);", "var ydir = dsin(direction);", ""].join(
-            "\n"
-        )
-    );
+    assert.strictEqual(formatted, ["var xdir = dcos(direction);", "var ydir = dsin(direction);", ""].join("\n"));
 });
 
 void test("downgrades numbered triple-slash comments to standard comments", async () => {
-    const source = [
-        "/// 4) Distributive constant collection",
-        "var s4 = value;",
-        ""
-    ].join("\n");
+    const source = ["/// 4) Distributive constant collection", "var s4 = value;", ""].join("\n");
 
     const formatted = await Plugin.format(source);
 
-    const expected = [
-        "// 4) Distributive constant collection",
-        "var s4 = value;",
-        ""
-    ].join("\n");
+    const expected = ["// 4) Distributive constant collection", "var s4 = value;", ""].join("\n");
 
     assert.strictEqual(formatted, expected);
 });
@@ -772,19 +619,13 @@ void test("uses tolerance-aware comparison for ratio numerator simplification", 
         optimizeMathExpressions: true
     });
 
-    assert.strictEqual(
-        formatted,
-        ["var result = value * 0.0000166666666667;", ""].join("\n")
-    );
+    assert.strictEqual(formatted, ["var result = value * 0.0000166666666667;", ""].join("\n"));
 });
 
 void test("safely handles division by denominator near machine epsilon", async () => {
-    const source = [
-        "function test_tiny_denominator(value) {",
-        "    return value / 0.0000000000000001;",
-        "}",
-        ""
-    ].join("\n");
+    const source = ["function test_tiny_denominator(value) {", "    return value / 0.0000000000000001;", "}", ""].join(
+        "\n"
+    );
 
     const formatted = await Plugin.format(source, {
         optimizeMathExpressions: true
@@ -803,12 +644,9 @@ void test("safely handles division by denominator near machine epsilon", async (
 });
 
 void test("correctly handles multiplicative chain with near-zero factor", async () => {
-    const source = [
-        "function chain_with_tiny_factor(x) {",
-        "    return x * 2 / 0.000000000000001;",
-        "}",
-        ""
-    ].join("\n");
+    const source = ["function chain_with_tiny_factor(x) {", "    return x * 2 / 0.000000000000001;", "}", ""].join(
+        "\n"
+    );
 
     const formatted = await Plugin.format(source, {
         optimizeMathExpressions: true
@@ -817,12 +655,6 @@ void test("correctly handles multiplicative chain with near-zero factor", async 
     // The formatter correctly simplifies by converting division to multiplication
     assert.strictEqual(
         formatted,
-        [
-            "/// @param x",
-            "function chain_with_tiny_factor(x) {",
-            "    return x * 2000000000000000;",
-            "}",
-            ""
-        ].join("\n")
+        ["/// @param x", "function chain_with_tiny_factor(x) {", "    return x * 2000000000000000;", "}", ""].join("\n")
     );
 });

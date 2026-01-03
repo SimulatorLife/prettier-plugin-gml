@@ -1,12 +1,6 @@
 import assert from "node:assert/strict";
 import test from "node:test";
-import {
-    SymbolKind,
-    isSymbolKind,
-    parseSymbolKind,
-    requireSymbolKind,
-    type SymbolKindValue
-} from "../index.js";
+import { SymbolKind, isSymbolKind, parseSymbolKind, requireSymbolKind, type SymbolKindValue } from "../index.js";
 
 void test("SymbolKind enum contains expected values", () => {
     assert.equal(SymbolKind.SCRIPT, "script");
@@ -76,8 +70,7 @@ void test("requireSymbolKind returns valid symbol kind for valid input", () => {
 void test("requireSymbolKind throws TypeError for invalid symbol kind", () => {
     assert.throws(() => requireSymbolKind("invalid"), {
         name: "TypeError",
-        message:
-            /Invalid symbol kind.*Must be one of: script, var, event, macro, enum/
+        message: /Invalid symbol kind.*Must be one of: script, var, event, macro, enum/
     });
 });
 

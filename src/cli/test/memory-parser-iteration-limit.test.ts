@@ -57,10 +57,7 @@ void describe("memory parser iteration limit configuration", () => {
 
         assert.equal(getMaxParserIterations(), DEFAULT_MAX_PARSER_ITERATIONS);
         assert.equal(warnings.length, 1);
-        assert.match(
-            warnings[0],
-            new RegExp(`${MEMORY_PARSER_MAX_ITERATIONS_ENV_VAR}`)
-        );
+        assert.match(warnings[0], new RegExp(`${MEMORY_PARSER_MAX_ITERATIONS_ENV_VAR}`));
         assert.match(warnings[0], /falling back/i);
     });
 });

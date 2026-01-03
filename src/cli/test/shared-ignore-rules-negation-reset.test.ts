@@ -32,8 +32,7 @@ void describe("formatting session negation tracking", () => {
             ignoreRuleNegations.detected = true;
             assert.equal(ignoreRuleNegations.detected, true);
 
-            const resetPromise =
-                __test__.resetFormattingSessionForTests("skip");
+            const resetPromise = __test__.resetFormattingSessionForTests("skip");
 
             restoreSkipEnv();
             await resetPromise;

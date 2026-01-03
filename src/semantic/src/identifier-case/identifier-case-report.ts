@@ -110,11 +110,7 @@ function buildIdentifierCaseOptionKeys(baseName) {
 }
 
 function getIdentifierCaseOption(options, baseName, coalesceOptions?) {
-    return Core.coalesceOption(
-        options,
-        buildIdentifierCaseOptionKeys(baseName),
-        coalesceOptions
-    );
+    return Core.coalesceOption(options, buildIdentifierCaseOptionKeys(baseName), coalesceOptions);
 }
 
 function extractOperations(plan: any) {
@@ -142,21 +138,14 @@ function normalizeReference(reference) {
         return null;
     }
 
-    const filePath = Core.coalesceTrimmedString(
-        reference.filePath,
-        reference.path,
-        reference.file
-    );
+    const filePath = Core.coalesceTrimmedString(reference.filePath, reference.path, reference.file);
 
     if (!filePath) {
         return null;
     }
 
-    const occurrenceCandidate =
-        reference.occurrences ?? reference.count ?? reference.references ?? 0;
-    const occurrences = Number.isFinite(occurrenceCandidate)
-        ? Number(occurrenceCandidate)
-        : 0;
+    const occurrenceCandidate = reference.occurrences ?? reference.count ?? reference.references ?? 0;
+    const occurrences = Number.isFinite(occurrenceCandidate) ? Number(occurrenceCandidate) : 0;
 
     return {
         filePath,
@@ -169,12 +158,7 @@ function normalizeScope(scope) {
         return { id: null, displayName: null, name: null };
     }
 
-    const displayName = Core.coalesceTrimmedString(
-        scope.displayName,
-        scope.name,
-        scope.scope,
-        scope.path
-    );
+    const displayName = Core.coalesceTrimmedString(scope.displayName, scope.name, scope.scope, scope.path);
     const id = Core.coalesceTrimmedString(scope.id, scope.scopeId);
 
     return {
@@ -205,43 +189,21 @@ function normalizeOperation(rawOperation) {
                 operation.target
             );
 
-            const referenceCandidates = Core.compactArray(
-                Core.toArray(operation.references).map(normalizeReference)
-            );
+            const referenceCandidates = Core.compactArray(Core.toArray(operation.references).map(normalizeReference));
             const references = referenceCandidates.reduce((acc, item) => {
-                const insertIndex = acc.findIndex(
-                    (existing) =>
-                        existing.filePath.localeCompare(item.filePath) > 0
-                );
+                const insertIndex = acc.findIndex((existing) => existing.filePath.localeCompare(item.filePath) > 0);
                 return insertIndex === -1
                     ? [...acc, item]
-                    : [
-                          ...acc.slice(0, insertIndex),
-                          item,
-                          ...acc.slice(insertIndex)
-                      ];
+                    : [...acc.slice(0, insertIndex), item, ...acc.slice(insertIndex)];
             }, []);
 
-            const occurrenceCount = references.reduce(
-                (total, reference) => total + (reference.occurrences ?? 0),
-                0
-            );
+            const occurrenceCount = references.reduce((total, reference) => total + (reference.occurrences ?? 0), 0);
 
-            const referenceFileCount = new Set(
-                references.map((reference) => reference.filePath)
-            ).size;
+            const referenceFileCount = new Set(references.map((reference) => reference.filePath)).size;
 
             return {
-                id:
-                    Core.coalesceTrimmedString(
-                        operation.id,
-                        operation.identifier
-                    ) || null,
-                kind:
-                    Core.coalesceTrimmedString(
-                        operation.kind,
-                        operation.type
-                    ) || "identifier",
+                id: Core.coalesceTrimmedString(operation.id, operation.identifier) || null,
+                kind: Core.coalesceTrimmedString(operation.kind, operation.type) || "identifier",
                 scopeId: scope.id,
                 scopeName: scope.displayName ?? scope.name ?? null,
                 fromName: fromName || null,
@@ -260,47 +222,25 @@ function normalizeConflict(rawConflict) {
         rawConflict,
         (conflict) => {
             const scope = normalizeScope(conflict.scope ?? {});
-            const severityCandidate = Core.coalesceTrimmedString(
-                conflict.severity
-            );
-            const severity = severityCandidate
-                ? severityCandidate.toLowerCase()
-                : "error";
+            const severityCandidate = Core.coalesceTrimmedString(conflict.severity);
+            const severity = severityCandidate ? severityCandidate.toLowerCase() : "error";
 
             const suggestions = Core.compactArray(
-                Core.toArray(conflict.suggestions ?? conflict.hints).map(
-                    (entry) => Core.coalesceTrimmedString(entry)
-                )
+                Core.toArray(conflict.suggestions ?? conflict.hints).map((entry) => Core.coalesceTrimmedString(entry))
             );
 
             return {
-                code:
-                    Core.coalesceTrimmedString(
-                        conflict.code,
-                        conflict.identifier,
-                        conflict.type
-                    ) || null,
-                message:
-                    Core.coalesceTrimmedString(
-                        conflict.message,
-                        conflict.reason
-                    ) || "",
+                code: Core.coalesceTrimmedString(conflict.code, conflict.identifier, conflict.type) || null,
+                message: Core.coalesceTrimmedString(conflict.message, conflict.reason) || "",
                 severity,
                 scope: {
                     id: scope.id,
                     displayName: scope.displayName ?? scope.name ?? null
                 },
                 identifier:
-                    Core.coalesceTrimmedString(
-                        conflict.identifier,
-                        conflict.name,
-                        conflict.originalName
-                    ) || null,
+                    Core.coalesceTrimmedString(conflict.identifier, conflict.name, conflict.originalName) || null,
                 suggestions,
-                details:
-                    conflict.details && typeof conflict.details === "object"
-                        ? { ...conflict.details }
-                        : null
+                details: conflict.details && typeof conflict.details === "object" ? { ...conflict.details } : null
             };
         },
         null
@@ -310,16 +250,12 @@ function normalizeConflict(rawConflict) {
 function sortOperations(operations) {
     return operations.reduce((acc, item) => {
         const insertIndex = acc.findIndex((existing) => {
-            const scopeCompare = (existing.scopeName ?? "").localeCompare(
-                item.scopeName ?? ""
-            );
+            const scopeCompare = (existing.scopeName ?? "").localeCompare(item.scopeName ?? "");
             if (scopeCompare !== 0) {
                 return scopeCompare > 0;
             }
 
-            const fromCompare = (existing.fromName ?? "").localeCompare(
-                item.fromName ?? ""
-            );
+            const fromCompare = (existing.fromName ?? "").localeCompare(item.fromName ?? "");
             if (fromCompare !== 0) {
                 return fromCompare > 0;
             }
@@ -327,9 +263,7 @@ function sortOperations(operations) {
             return (existing.toName ?? "").localeCompare(item.toName ?? "") > 0;
         });
 
-        return insertIndex === -1
-            ? [...acc, item]
-            : [...acc.slice(0, insertIndex), item, ...acc.slice(insertIndex)];
+        return insertIndex === -1 ? [...acc, item] : [...acc.slice(0, insertIndex), item, ...acc.slice(insertIndex)];
     }, []);
 }
 
@@ -348,9 +282,7 @@ function sortConflicts(conflicts) {
                 return existingSeverity > itemSeverity;
             }
 
-            const scopeCompare = (
-                existing.scope.displayName ?? ""
-            ).localeCompare(item.scope.displayName ?? "");
+            const scopeCompare = (existing.scope.displayName ?? "").localeCompare(item.scope.displayName ?? "");
             if (scopeCompare !== 0) {
                 return scopeCompare > 0;
             }
@@ -358,9 +290,7 @@ function sortConflicts(conflicts) {
             return existing.message.localeCompare(item.message) > 0;
         });
 
-        return insertIndex === -1
-            ? [...acc, item]
-            : [...acc.slice(0, insertIndex), item, ...acc.slice(insertIndex)];
+        return insertIndex === -1 ? [...acc, item] : [...acc.slice(0, insertIndex), item, ...acc.slice(insertIndex)];
     }, []);
 }
 
@@ -368,17 +298,12 @@ function pluralize(value, suffix = "s") {
     return value === 1 ? "" : suffix;
 }
 
-export function summarizeIdentifierCasePlan({
-    renamePlan,
-    conflicts = []
-}: IdentifierCasePlanData = {}) {
+export function summarizeIdentifierCasePlan({ renamePlan, conflicts = [] }: IdentifierCasePlanData = {}) {
     const normalizedOperations = sortOperations(
         Core.compactArray(extractOperations(renamePlan).map(normalizeOperation))
     );
 
-    const normalizedConflicts = sortConflicts(
-        Core.compactArray(Core.toArray(conflicts).map(normalizeConflict))
-    );
+    const normalizedConflicts = sortConflicts(Core.compactArray(Core.toArray(conflicts).map(normalizeConflict)));
 
     const renameSummaries = normalizedOperations.map(buildRenameSummary);
 
@@ -414,9 +339,7 @@ export function summarizeIdentifierCasePlan({
     };
 }
 
-export function formatIdentifierCaseSummaryText(
-    report: IdentifierCaseReportData | null
-) {
+export function formatIdentifierCaseSummaryText(report: IdentifierCaseReportData | null) {
     if (!report) {
         return [];
     }
@@ -428,21 +351,16 @@ export function formatIdentifierCaseSummaryText(
         summary.renameCount > 0
             ? ` (${summary.totalReferenceCount} reference${pluralize(
                   summary.totalReferenceCount
-              )} across ${summary.impactedFileCount} file${pluralize(
-                  summary.impactedFileCount
-              )})`
+              )} across ${summary.impactedFileCount} file${pluralize(summary.impactedFileCount)})`
             : "";
     lines.push(`  Planned renames: ${summary.renameCount}${renameDetails}`);
 
     if (summary.conflictCount > 0) {
         const severityParts = Object.entries(summary.severityCounts)
             .filter(([, count]) => count > 0)
-            .map(
-                ([severity, count]) => `${count} ${severity}${pluralize(count)}`
-            );
+            .map(([severity, count]) => `${count} ${severity}${pluralize(count)}`);
 
-        const conflictSuffix =
-            severityParts.length > 0 ? ` (${severityParts.join(", ")})` : "";
+        const conflictSuffix = severityParts.length > 0 ? ` (${severityParts.join(", ")})` : "";
         lines.push(`  Conflicts: ${summary.conflictCount}${conflictSuffix}`);
     } else {
         lines.push("  Conflicts: none");
@@ -456,26 +374,19 @@ export function formatIdentifierCaseSummaryText(
                 operation.occurrenceCount > 0
                     ? ` (${operation.occurrenceCount} reference${pluralize(
                           operation.occurrenceCount
-                      )} across ${operation.referenceFileCount} file${pluralize(
-                          operation.referenceFileCount
-                      )})`
+                      )} across ${operation.referenceFileCount} file${pluralize(operation.referenceFileCount)})`
                     : "";
 
-            const scopeName =
-                operation.scopeName ?? operation.scopeId ?? "<unknown scope>";
+            const scopeName = operation.scopeName ?? operation.scopeId ?? "<unknown scope>";
             const fromName = operation.fromName ?? "<unknown>";
             const toName = operation.toName ?? "<unknown>";
 
-            lines.push(
-                `  - ${scopeName}: ${fromName} -> ${toName}${referenceSummary}`
-            );
+            lines.push(`  - ${scopeName}: ${fromName} -> ${toName}${referenceSummary}`);
 
             for (const reference of operation.references) {
                 const referenceSuffix =
                     reference.occurrences > 0
-                        ? ` (${reference.occurrences} reference${pluralize(
-                              reference.occurrences
-                          )})`
+                        ? ` (${reference.occurrences} reference${pluralize(reference.occurrences)})`
                         : "";
                 lines.push(`      • ${reference.filePath}${referenceSuffix}`);
             }
@@ -486,22 +397,13 @@ export function formatIdentifierCaseSummaryText(
         lines.push("", "Conflicts:");
 
         for (const conflict of conflicts) {
-            const scopeName =
-                conflict.scope.displayName ??
-                conflict.scope.id ??
-                "<unknown scope>";
-            const identifierSuffix = conflict.identifier
-                ? ` (${conflict.identifier})`
-                : "";
+            const scopeName = conflict.scope.displayName ?? conflict.scope.id ?? "<unknown scope>";
+            const identifierSuffix = conflict.identifier ? ` (${conflict.identifier})` : "";
             const codeSuffix = conflict.code ? ` [${conflict.code}]` : "";
-            lines.push(
-                `  - [${conflict.severity}]${codeSuffix} ${scopeName}${identifierSuffix}: ${conflict.message}`
-            );
+            lines.push(`  - [${conflict.severity}]${codeSuffix} ${scopeName}${identifierSuffix}: ${conflict.message}`);
 
             if (conflict.suggestions.length > 0) {
-                lines.push(
-                    `      Suggestions: ${conflict.suggestions.join(", ")}`
-                );
+                lines.push(`      Suggestions: ${conflict.suggestions.join(", ")}`);
             }
         }
     }
@@ -509,22 +411,16 @@ export function formatIdentifierCaseSummaryText(
     return lines;
 }
 
-function getNormalizedReportCollections(
-    report: IdentifierCaseReportData | null
-) {
+function getNormalizedReportCollections(report: IdentifierCaseReportData | null) {
     const operations = getNormalizedOperations(report);
     const conflicts = getNormalizedConflicts(report?.conflicts);
 
     const renamesSource = Array.isArray(report?.renames)
-        ? report.renames.filter(
-              (rename) => rename && typeof rename === "object"
-          )
+        ? report.renames.filter((rename) => rename && typeof rename === "object")
         : null;
 
     const renames =
-        renamesSource && renamesSource.length === operations.length
-            ? renamesSource
-            : buildRenameSummaries(operations);
+        renamesSource && renamesSource.length === operations.length ? renamesSource : buildRenameSummaries(operations);
 
     return { operations, renames, conflicts };
 }
@@ -648,27 +544,16 @@ export function reportIdentifierCasePlan({
 
     if (logFilePath) {
         try {
-            const payload = buildLogPayload(
-                report,
-                new Date(now()).toISOString()
-            );
+            const payload = buildLogPayload(report, new Date(now()).toISOString());
             const directory = path.dirname(logFilePath);
             if (fsFacade?.mkdirSync) {
                 fsFacade.mkdirSync(directory, { recursive: true });
             }
             if (fsFacade?.writeFileSync) {
-                fsFacade.writeFileSync(
-                    logFilePath,
-                    `${JSON.stringify(payload, null, 2)}\n`
-                );
+                fsFacade.writeFileSync(logFilePath, `${JSON.stringify(payload, null, 2)}\n`);
             }
         } catch (error) {
-            warnWithReason(
-                logger,
-                REPORT_NAMESPACE,
-                "Failed to write identifier case report",
-                error
-            );
+            warnWithReason(logger, REPORT_NAMESPACE, "Failed to write identifier case report", error);
         }
     }
 
@@ -709,10 +594,7 @@ function resolveInlineReportContext(options, renamePlan) {
         logger: options.logger ?? null,
         diagnostics: toDiagnosticsArray(options.diagnostics),
         fsFacade,
-        now: pickFunction(
-            options.__identifierCaseNow,
-            options.identifierCaseNow
-        )
+        now: pickFunction(options.__identifierCaseNow, options.identifierCaseNow)
     };
 }
 
@@ -747,11 +629,7 @@ function finalizeIdentifierCaseReport(options, result? /* optional */) {
     setIdentifierCaseOption(options, "__identifierCaseReportEmitted", true);
 
     if (result !== undefined) {
-        setIdentifierCaseOption(
-            options,
-            "__identifierCaseReportResult",
-            result
-        );
+        setIdentifierCaseOption(options, "__identifierCaseReportResult", result);
     }
 
     return result ?? null;
@@ -759,18 +637,10 @@ function finalizeIdentifierCaseReport(options, result? /* optional */) {
 
 function resolveReportIo(options, context) {
     const logger = context.logger ?? options.logger ?? console;
-    const diagnostics =
-        context.diagnostics ?? toDiagnosticsArray(options.diagnostics);
-    const logFilePath =
-        context.logFilePath ??
-        getIdentifierCaseOption(options, "ReportLogPath", { fallback: null });
-    const fsFacade =
-        context.fsFacade ??
-        getIdentifierCaseOption(options, "Fs", { fallback: defaultFsFacade });
-    const now =
-        context.now ??
-        pickFunction(options.__identifierCaseNow, options.identifierCaseNow) ??
-        defaultNow;
+    const diagnostics = context.diagnostics ?? toDiagnosticsArray(options.diagnostics);
+    const logFilePath = context.logFilePath ?? getIdentifierCaseOption(options, "ReportLogPath", { fallback: null });
+    const fsFacade = context.fsFacade ?? getIdentifierCaseOption(options, "Fs", { fallback: defaultFsFacade });
+    const now = context.now ?? pickFunction(options.__identifierCaseNow, options.identifierCaseNow) ?? defaultNow;
 
     return { logger, diagnostics, logFilePath, fsFacade, now };
 }

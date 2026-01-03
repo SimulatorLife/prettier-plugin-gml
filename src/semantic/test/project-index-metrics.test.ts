@@ -28,17 +28,9 @@ async function createProjectFixture(prefix = "project-index-metrics-") {
         name: "metricsScript"
     };
 
-    await writeProjectFile(
-        projectRoot,
-        "MetricsProject.yyp",
-        JSON.stringify(manifest)
-    );
+    await writeProjectFile(projectRoot, "MetricsProject.yyp", JSON.stringify(manifest));
 
-    await writeProjectFile(
-        projectRoot,
-        "scripts/metricsScript/metricsScript.yy",
-        JSON.stringify(scriptDescriptor)
-    );
+    await writeProjectFile(projectRoot, "scripts/metricsScript/metricsScript.yy", JSON.stringify(scriptDescriptor));
 
     await writeProjectFile(
         projectRoot,
@@ -157,10 +149,7 @@ void test("buildProjectIndex reuses a provided metrics tracker", async () => {
             metrics: tracker
         });
 
-        assert.ok(
-            tracker.startTimerCalls > 0,
-            "expected custom metrics tracker to be exercised"
-        );
+        assert.ok(tracker.startTimerCalls > 0, "expected custom metrics tracker to be exercised");
         assert.equal(tracker.finalizeCalls, 1);
         assert.equal(index.metrics.category, "custom-metrics");
         assert.deepEqual(index.metrics.metadata, { provided: true });
@@ -171,15 +160,7 @@ void test("buildProjectIndex reuses a provided metrics tracker", async () => {
 
 void test("createMetricsTracker trims and deduplicates configured cache keys", () => {
     const tracker = Core.createMetricsTracker({
-        cacheKeys: new Set([
-            " hits ",
-            "Misses",
-            "custom",
-            "custom",
-            "",
-            null,
-            " stale "
-        ])
+        cacheKeys: new Set([" hits ", "Misses", "custom", "custom", "", null, " stale "])
     });
 
     tracker.recording.caches.recordMetric("demo", "custom", 0);

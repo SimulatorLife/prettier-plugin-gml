@@ -1,8 +1,4 @@
-import {
-    Core,
-    type MutableDocCommentLines,
-    type MutableGameMakerAstNode
-} from "@gml-modules/core";
+import { Core, type MutableDocCommentLines, type MutableGameMakerAstNode } from "@gml-modules/core";
 import { createParserTransform } from "../functional-transform.js";
 import { resolveDocCommentPrinterOptions } from "../../printer/doc-comment/doc-comment-options.js";
 import {
@@ -11,10 +7,7 @@ import {
     ensureDescriptionContinuations
 } from "./description-utils.js";
 import { setDocCommentNormalization } from "./normalization-utils.js";
-import {
-    setDocCommentMetadata,
-    setDeprecatedDocCommentFunctionSet
-} from "./doc-comment-metadata.js";
+import { setDocCommentMetadata, setDeprecatedDocCommentFunctionSet } from "./doc-comment-metadata.js";
 import { removeFunctionDocCommentLines } from "../../doc-comment/function-tag-filter.js";
 import { normalizeDocLikeLineComment } from "../../comments/doc-like-line-normalization.js";
 
@@ -28,10 +21,7 @@ type DocCommentPath = {
     getParentNode(): MutableGameMakerAstNode | null;
 };
 
-function createDocCommentPath(
-    node: MutableGameMakerAstNode,
-    parent?: MutableGameMakerAstNode | null
-): DocCommentPath {
+function createDocCommentPath(node: MutableGameMakerAstNode, parent?: MutableGameMakerAstNode | null): DocCommentPath {
     return {
         getValue() {
             return node;
@@ -58,14 +48,8 @@ function execute(
     };
     const docCommentOptions = resolveDocCommentPrinterOptions(pluginOptions);
 
-    const parentByNode = new WeakMap<
-        MutableGameMakerAstNode,
-        MutableGameMakerAstNode
-    >();
-    const walkWithParents = (
-        node: unknown,
-        parent: MutableGameMakerAstNode | null
-    ) => {
+    const parentByNode = new WeakMap<MutableGameMakerAstNode, MutableGameMakerAstNode>();
+    const walkWithParents = (node: unknown, parent: MutableGameMakerAstNode | null) => {
         if (!node || typeof node !== "object") {
             return;
         }
@@ -94,16 +78,8 @@ function execute(
 
     const traversal = Core.resolveDocCommentTraversalService(ast);
     // Pass null for sourceText to force using AST comment values, which may have been updated
-    const documentedParamNamesByFunction = Core.buildDocumentedParamNameLookup(
-        ast,
-        null,
-        traversal
-    );
-    const deprecatedFunctionNames = Core.collectDeprecatedFunctionNames(
-        ast,
-        null,
-        traversal
-    );
+    const documentedParamNamesByFunction = Core.buildDocumentedParamNameLookup(ast, null, traversal);
+    const deprecatedFunctionNames = Core.collectDeprecatedFunctionNames(ast, null, traversal);
 
     setDeprecatedDocCommentFunctionSet(ast, deprecatedFunctionNames);
 
@@ -115,17 +91,10 @@ function execute(
 
         const formattedLines: string[] = [];
         for (const comment of comments ?? []) {
-            const formatted = Core.formatLineComment(
-                comment,
-                lineCommentOptions
-            );
+            const formatted = Core.formatLineComment(comment, lineCommentOptions);
             const normalized =
                 typeof formatted === "string"
-                    ? normalizeDocLikeLineComment(
-                          comment,
-                          formatted,
-                          lineCommentOptions.originalText
-                      )
+                    ? normalizeDocLikeLineComment(comment, formatted, lineCommentOptions.originalText)
                     : formatted;
             if (!Core.isNonEmptyTrimmedString(normalized)) {
                 continue;
@@ -141,33 +110,17 @@ function execute(
         const filteredDocLines = formattedLines;
         ensureDescriptionContinuations(filteredDocLines);
 
-        const docPath = createDocCommentPath(
-            mutableNode,
-            parentByNode.get(mutableNode) ?? null
-        );
+        const docPath = createDocCommentPath(mutableNode, parentByNode.get(mutableNode) ?? null);
 
-        if (
-            !Core.shouldGenerateSyntheticDocForFunction(
-                docPath,
-                filteredDocLines,
-                docCommentOptions
-            )
-        ) {
+        if (!Core.shouldGenerateSyntheticDocForFunction(docPath, filteredDocLines, docCommentOptions)) {
             return;
         }
 
-        const descriptionContinuations =
-            collectDescriptionContinuations(filteredDocLines);
+        const descriptionContinuations = collectDescriptionContinuations(filteredDocLines);
 
-        const merged = Core.mergeSyntheticDocComments(
-            node,
-            filteredDocLines,
-            docCommentOptions
-        );
+        const merged = Core.mergeSyntheticDocComments(node, filteredDocLines, docCommentOptions);
 
-        let normalizedDocComments = Core.toMutableArray(
-            merged
-        ) as MutableDocCommentLines;
+        let normalizedDocComments = Core.toMutableArray(merged) as MutableDocCommentLines;
 
         if ((merged as any)._preserveDescriptionBreaks === true) {
             (normalizedDocComments as any)._preserveDescriptionBreaks = true;
@@ -179,10 +132,7 @@ function execute(
             (normalizedDocComments as any)._blockCommentDocs = true;
         }
 
-        normalizedDocComments = applyDescriptionContinuations(
-            normalizedDocComments,
-            descriptionContinuations
-        );
+        normalizedDocComments = applyDescriptionContinuations(normalizedDocComments, descriptionContinuations);
 
         while (
             normalizedDocComments.length > 0 &&
@@ -192,26 +142,21 @@ function execute(
             normalizedDocComments.shift();
         }
 
-        normalizedDocComments = removeFunctionDocCommentLines(
-            normalizedDocComments
-        );
+        normalizedDocComments = removeFunctionDocCommentLines(normalizedDocComments);
 
         if (normalizedDocComments.length === 0) {
             return;
         }
 
         const parentNode = parentByNode.get(node) ?? null;
-        const needsLeadingBlankLine = Boolean(
-            parentNode && parentNode.type === "BlockStatement"
-        );
+        const needsLeadingBlankLine = Boolean(parentNode && parentNode.type === "BlockStatement");
 
         const metadata: {
             documentedParamNames?: Set<string>;
             hasDeprecatedDocComment?: boolean;
         } = {};
 
-        const documentedParamNames =
-            documentedParamNamesByFunction.get(mutableNode);
+        const documentedParamNames = documentedParamNamesByFunction.get(mutableNode);
 
         if (documentedParamNames && documentedParamNames.size > 0) {
             metadata.documentedParamNames = documentedParamNames;
@@ -222,32 +167,26 @@ function execute(
             metadata.hasDeprecatedDocComment = true;
         }
 
-        const hasMetadata =
-            metadata.documentedParamNames !== undefined ||
-            metadata.hasDeprecatedDocComment === true;
+        const hasMetadata = metadata.documentedParamNames !== undefined || metadata.hasDeprecatedDocComment === true;
 
         setDocCommentMetadata(node, hasMetadata ? metadata : null);
-
 
         setDocCommentNormalization(node, {
             docCommentDocs: normalizedDocComments,
             needsLeadingBlankLine,
-            _preserveDescriptionBreaks: (normalizedDocComments as any)
-                ._preserveDescriptionBreaks,
-            _suppressLeadingBlank: (normalizedDocComments as any)
-                ._suppressLeadingBlank
+            _preserveDescriptionBreaks: (normalizedDocComments as any)._preserveDescriptionBreaks,
+            _suppressLeadingBlank: (normalizedDocComments as any)._suppressLeadingBlank
         } as any);
     });
 
     return ast;
 }
 
-export const docCommentNormalizationTransform =
-    createParserTransform<DocCommentNormalizationTransformOptions>(
-        "doc-comment-normalization",
-        {
-            enabled: true,
-            pluginOptions: {}
-        },
-        execute
-    );
+export const docCommentNormalizationTransform = createParserTransform<DocCommentNormalizationTransformOptions>(
+    "doc-comment-normalization",
+    {
+        enabled: true,
+        pluginOptions: {}
+    },
+    execute
+);

@@ -1,9 +1,4 @@
-import {
-    describeManualSource,
-    ManualSourceDescriptor,
-    ManualSourceResolver,
-    resolveManualSource
-} from "./source.js";
+import { describeManualSource, ManualSourceDescriptor, ManualSourceResolver, resolveManualSource } from "./source.js";
 import {
     createWorkflowPathFilter,
     ensureManualWorkflowArtifactsAllowed,
@@ -89,11 +84,7 @@ export async function prepareManualWorkflow({
             manualSourceDescription
         });
 
-        if (
-            typeof message === "string" &&
-            message.length > 0 &&
-            typeof log === "function"
-        ) {
+        if (typeof message === "string" && message.length > 0 && typeof log === "function") {
             log(message);
         }
     }

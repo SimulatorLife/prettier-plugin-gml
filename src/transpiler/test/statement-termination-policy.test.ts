@@ -14,9 +14,7 @@ void test("respect existing statement terminators", () => {
 });
 
 void test("skip terminator for control flow prefixes", () => {
-    const evaluation = evaluateStatementTerminationPolicy(
-        "    if (ready) { doThing(); }"
-    );
+    const evaluation = evaluateStatementTerminationPolicy("    if (ready) { doThing(); }");
     assert.equal(evaluation.shouldAppendTerminator, false);
 });
 

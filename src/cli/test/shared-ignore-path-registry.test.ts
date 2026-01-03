@@ -18,10 +18,7 @@ void describe("ignore path registry", () => {
         registerIgnorePath("/tmp/extra.ignore");
 
         assert.strictEqual(getRegisteredIgnorePathCount(), 2);
-        assert.deepEqual(getRegisteredIgnorePathsSnapshot(), [
-            "/tmp/example.ignore",
-            "/tmp/extra.ignore"
-        ]);
+        assert.deepEqual(getRegisteredIgnorePathsSnapshot(), ["/tmp/example.ignore", "/tmp/extra.ignore"]);
     });
 
     void it("resets all tracked paths", () => {

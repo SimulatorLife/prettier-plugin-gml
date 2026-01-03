@@ -3,12 +3,7 @@ import { test } from "node:test";
 import { Plugin } from "../src/index.js";
 
 void test("flatten synthetic addition parentheses from reordered optional parameters", async () => {
-    const source = [
-        "function example(a, b = 1, c, d = 2) {",
-        "    return a + b + c + d;",
-        "}",
-        ""
-    ].join("\n");
+    const source = ["function example(a, b = 1, c, d = 2) {", "    return a + b + c + d;", "}", ""].join("\n");
 
     const formatted = await Plugin.format(source, {
         parser: "gml-parse",
@@ -57,10 +52,7 @@ void test("omits grouping in longer chains of addition", async () => {
 });
 
 void test("flattens additive chains that include call expressions", async () => {
-    const source = [
-        "var expr = ((x + lengthdir_x(radius, angle)) - lengthdir_x(radius, aa));",
-        ""
-    ].join("\n");
+    const source = ["var expr = ((x + lengthdir_x(radius, angle)) - lengthdir_x(radius, aa));", ""].join("\n");
 
     const formatted = await Plugin.format(source, { parser: "gml-parse" });
 
@@ -72,10 +64,7 @@ void test("flattens additive chains that include call expressions", async () => 
 });
 
 void test("omits extraneous multiplication grouping inside sqrt function", async () => {
-    const source = [
-        "var length = sqrt(dir[0] * dir[0] + dir[1] * dir[1] + dir[2] * dir[2]);",
-        ""
-    ].join("\n");
+    const source = ["var length = sqrt(dir[0] * dir[0] + dir[1] * dir[1] + dir[2] * dir[2]);", ""].join("\n");
 
     const formatted = await Plugin.format(source, {
         parser: "gml-parse",
@@ -208,12 +197,7 @@ void test("math optimization is not tied to Feather fixes", async () => {
 });
 
 void test("groups multiplication expressions added together", async () => {
-    const source = [
-        "function dot(ax, ay, bx, by) {",
-        "    return ax * bx + ay * by;",
-        "}",
-        ""
-    ].join("\n");
+    const source = ["function dot(ax, ay, bx, by) {", "    return ax * bx + ay * by;", "}", ""].join("\n");
 
     const formatted = await Plugin.format(source, {
         optimizeMathExpressions: false
@@ -360,22 +344,13 @@ void test("includes squared comparison grouping within logical expressions", asy
 });
 
 void test("includes synthetic multiplication parentheses within comparisons", async () => {
-    const source = [
-        "do {",
-        "    value += 1;",
-        "} until (value > limit * limit);",
-        ""
-    ].join("\n");
+    const source = ["do {", "    value += 1;", "} until (value > limit * limit);", ""].join("\n");
 
     const formatted = await Plugin.format(source, {
         parser: "gml-parse",
         optimizeMathExpressions: false
     });
-    const expectedLines = [
-        "do {",
-        "    value += 1;",
-        "} until (value > (limit * limit));"
-    ].join("\n");
+    const expectedLines = ["do {", "    value += 1;", "} until (value > (limit * limit));"].join("\n");
 
     assert.strictEqual(
         formatted.trim(),

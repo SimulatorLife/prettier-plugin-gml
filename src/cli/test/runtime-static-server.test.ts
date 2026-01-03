@@ -23,9 +23,7 @@ const CLEANUP_WAIT_TIME_MS = 200;
 
 void describe("runtime static server", () => {
     void it("serves files from the runtime root", async () => {
-        const tempDir = await mkdtemp(
-            path.join(os.tmpdir(), "gml-runtime-server-")
-        );
+        const tempDir = await mkdtemp(path.join(os.tmpdir(), "gml-runtime-server-"));
         const indexPath = path.join(tempDir, "index.html");
         await writeFile(indexPath, "<html><body>ok</body></html>");
 
@@ -51,9 +49,7 @@ void describe("runtime static server", () => {
     });
 
     void it("responds with 404 for missing files", async () => {
-        const tempDir = await mkdtemp(
-            path.join(os.tmpdir(), "gml-runtime-server-404-")
-        );
+        const tempDir = await mkdtemp(path.join(os.tmpdir(), "gml-runtime-server-404-"));
         const indexPath = path.join(tempDir, "index.html");
         await writeFile(indexPath, "<html></html>");
 
@@ -77,9 +73,7 @@ void describe("runtime static server", () => {
     });
 
     void it("prevents directory traversal attempts", async () => {
-        const tempDir = await mkdtemp(
-            path.join(os.tmpdir(), "gml-runtime-server-403-")
-        );
+        const tempDir = await mkdtemp(path.join(os.tmpdir(), "gml-runtime-server-403-"));
         const indexPath = path.join(tempDir, "index.html");
         await writeFile(indexPath, "<html></html>");
 
@@ -128,9 +122,7 @@ void describe("runtime static server", () => {
     });
 
     void it("closes file streams on read errors without leaking descriptors", async () => {
-        const tempDir = await mkdtemp(
-            path.join(os.tmpdir(), "gml-runtime-server-stream-leak-")
-        );
+        const tempDir = await mkdtemp(path.join(os.tmpdir(), "gml-runtime-server-stream-leak-"));
         const testFile = path.join(tempDir, "test.txt");
         await writeFile(testFile, "test content");
 
@@ -154,9 +146,7 @@ void describe("runtime static server", () => {
             assert.equal(response.status, 500);
 
             // Allow some time for async cleanup
-            await new Promise((resolve) =>
-                setTimeout(resolve, CLEANUP_WAIT_TIME_MS)
-            );
+            await new Promise((resolve) => setTimeout(resolve, CLEANUP_WAIT_TIME_MS));
 
             // Verify no file descriptors leaked
             const finalFdCount = await getOpenFileDescriptorCount();
@@ -179,9 +169,7 @@ void describe("runtime static server", () => {
     });
 
     void it("closes file streams when client aborts request mid-stream", async () => {
-        const tempDir = await mkdtemp(
-            path.join(os.tmpdir(), "gml-runtime-server-abort-leak-")
-        );
+        const tempDir = await mkdtemp(path.join(os.tmpdir(), "gml-runtime-server-abort-leak-"));
         // Create a large file to ensure stream is still reading when we abort
         const largeContent = "x".repeat(5 * 1024 * 1024); // 5MB to ensure stream is active
         const testFile = path.join(tempDir, "large.txt");
@@ -208,9 +196,7 @@ void describe("runtime static server", () => {
                     },
                     () => {
                         // Send HTTP request
-                        socket.write(
-                            `GET /large.txt HTTP/1.1\r\nHost: ${server.host}:${server.port}\r\n\r\n`
-                        );
+                        socket.write(`GET /large.txt HTTP/1.1\r\nHost: ${server.host}:${server.port}\r\n\r\n`);
 
                         // Wait a bit for the response to start, then destroy the socket
                         setTimeout(() => {
@@ -231,9 +217,7 @@ void describe("runtime static server", () => {
             });
 
             // Allow time for async cleanup
-            await new Promise((resolve) =>
-                setTimeout(resolve, CLEANUP_WAIT_TIME_MS)
-            );
+            await new Promise((resolve) => setTimeout(resolve, CLEANUP_WAIT_TIME_MS));
 
             // Verify no file descriptors leaked
             const finalFdCount = await getOpenFileDescriptorCount();

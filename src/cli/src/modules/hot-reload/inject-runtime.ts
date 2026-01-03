@@ -14,11 +14,7 @@ export const DEFAULT_GM_TEMP_ROOT = "/private/tmp/GameMakerStudio2/GMS2TEMP";
 /**
  * Default runtime wrapper distribution root in the repository.
  */
-export const DEFAULT_RUNTIME_WRAPPER_ROOT = resolveFromRepoRoot(
-    "src",
-    "runtime-wrapper",
-    "dist"
-);
+export const DEFAULT_RUNTIME_WRAPPER_ROOT = resolveFromRepoRoot("src", "runtime-wrapper", "dist");
 /**
  * Default WebSocket URL for the hot-reload patch server.
  */
@@ -58,28 +54,17 @@ export interface HotReloadInjectionResult {
     copiedAssets: boolean;
 }
 
-function normalizeHotReloadInjectionOptions(
-    options: HotReloadInjectionOptions
-): NormalizedHotReloadInjectionOptions {
-    const gmTempRootProvided =
-        typeof options.gmTempRoot === "string" && options.gmTempRoot.trim()
-            ? true
-            : false;
-    const gmTempRoot = gmTempRootProvided
-        ? String(options.gmTempRoot).trim()
-        : DEFAULT_GM_TEMP_ROOT;
+function normalizeHotReloadInjectionOptions(options: HotReloadInjectionOptions): NormalizedHotReloadInjectionOptions {
+    const gmTempRootProvided = typeof options.gmTempRoot === "string" && options.gmTempRoot.trim() ? true : false;
+    const gmTempRoot = gmTempRootProvided ? String(options.gmTempRoot).trim() : DEFAULT_GM_TEMP_ROOT;
     const html5OutputRoot =
-        typeof options.html5OutputRoot === "string" &&
-        options.html5OutputRoot.trim()
-            ? options.html5OutputRoot
-            : null;
+        typeof options.html5OutputRoot === "string" && options.html5OutputRoot.trim() ? options.html5OutputRoot : null;
     const websocketUrl =
         typeof options.websocketUrl === "string" && options.websocketUrl.trim()
             ? options.websocketUrl
             : DEFAULT_WEBSOCKET_URL;
     const runtimeWrapperRoot =
-        typeof options.runtimeWrapperRoot === "string" &&
-        options.runtimeWrapperRoot.trim()
+        typeof options.runtimeWrapperRoot === "string" && options.runtimeWrapperRoot.trim()
             ? options.runtimeWrapperRoot
             : DEFAULT_RUNTIME_WRAPPER_ROOT;
     const force = Boolean(options.force);
@@ -144,9 +129,7 @@ async function resolveHtml5Output({
     gmTempRoot,
     gmTempRootProvided
 }: NormalizedHotReloadInjectionOptions): Promise<Html5OutputResolution> {
-    const gmWebServerRoot = gmTempRootProvided
-        ? null
-        : resolveGmWebServerRoot();
+    const gmWebServerRoot = gmTempRootProvided ? null : resolveGmWebServerRoot();
     if (!html5OutputRoot && gmWebServerRoot) {
         const resolvedRoot = path.resolve(gmWebServerRoot);
         const indexPath = path.join(resolvedRoot, "index.html");
@@ -187,38 +170,23 @@ async function resolveHtml5Output({
     }
 
     if (!best) {
-        throw new Error(
-            `No HTML5 index.html found under '${tempRoot}'. Run the GameMaker HTML5 build first.`
-        );
+        throw new Error(`No HTML5 index.html found under '${tempRoot}'. Run the GameMaker HTML5 build first.`);
     }
 
     return best;
 }
 
-async function copyRuntimeWrapperAssets(
-    runtimeWrapperRoot: string,
-    outputRoot: string
-): Promise<string> {
+async function copyRuntimeWrapperAssets(runtimeWrapperRoot: string, outputRoot: string): Promise<string> {
     const resolvedSource = path.resolve(runtimeWrapperRoot);
     const sourceStats = await fs.stat(resolvedSource).catch((error) => {
-        throw new Error(
-            `Runtime wrapper assets not found at '${resolvedSource}': ${getErrorMessageOrFallback(
-                error
-            )}`
-        );
+        throw new Error(`Runtime wrapper assets not found at '${resolvedSource}': ${getErrorMessageOrFallback(error)}`);
     });
 
     if (!sourceStats.isDirectory()) {
-        throw new Error(
-            `Runtime wrapper root '${resolvedSource}' is not a directory.`
-        );
+        throw new Error(`Runtime wrapper root '${resolvedSource}' is not a directory.`);
     }
 
-    const targetRoot = path.join(
-        outputRoot,
-        HOT_RELOAD_DIR_NAME,
-        "runtime-wrapper"
-    );
+    const targetRoot = path.join(outputRoot, HOT_RELOAD_DIR_NAME, "runtime-wrapper");
     await fs.mkdir(targetRoot, { recursive: true });
     await fs.cp(resolvedSource, targetRoot, {
         recursive: true,
@@ -294,10 +262,7 @@ export async function prepareHotReloadInjection(
 ): Promise<HotReloadInjectionResult> {
     const normalized = normalizeHotReloadInjectionOptions(options);
     const { outputRoot, indexPath } = await resolveHtml5Output(normalized);
-    const runtimeWrapperTargetRoot = await copyRuntimeWrapperAssets(
-        normalized.runtimeWrapperRoot,
-        outputRoot
-    );
+    const runtimeWrapperTargetRoot = await copyRuntimeWrapperAssets(normalized.runtimeWrapperRoot, outputRoot);
     const injected = await injectSnippetIntoIndexHtml({
         indexPath,
         websocketUrl: normalized.websocketUrl,

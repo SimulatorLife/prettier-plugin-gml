@@ -44,10 +44,10 @@ void test("buildSyntheticDocComment converts core doc lines into a Prettier doc"
     assert.deepEqual(result?.docLines, syntheticResult.docLines);
 
     const docOnlyResult = buildSyntheticDocCommentDoc(syntheticResult);
-    const printedDocOnly = prettierDoc.printer.printDocToString(
-        docOnlyResult?.doc ?? "",
-        { printWidth: 80, tabWidth: 4 }
-    ).formatted;
+    const printedDocOnly = prettierDoc.printer.printDocToString(docOnlyResult?.doc ?? "", {
+        printWidth: 80,
+        tabWidth: 4
+    }).formatted;
 
     assert.equal(printedDocOnly, "\n/// summary\n/// @returns {undefined}");
 });
@@ -55,24 +55,13 @@ void test("buildSyntheticDocComment converts core doc lines into a Prettier doc"
 void test("buildSyntheticDocComment returns null when core declines to synthesize", () => {
     const recordedArgs: unknown[][] = [];
 
-    const result = buildSyntheticDocComment(
-        { type: "FunctionDeclaration" },
-        [],
-        {},
-        {},
-        (...args: unknown[]) => {
-            recordedArgs.push(args);
-            return null;
-        }
-    );
+    const result = buildSyntheticDocComment({ type: "FunctionDeclaration" }, [], {}, {}, (...args: unknown[]) => {
+        recordedArgs.push(args);
+        return null;
+    });
 
     assert.equal(result, null);
-    assert.deepEqual(recordedArgs[0], [
-        { type: "FunctionDeclaration" },
-        [],
-        {},
-        {}
-    ]);
+    assert.deepEqual(recordedArgs[0], [{ type: "FunctionDeclaration" }, [], {}, {}]);
 
     assert.equal(buildSyntheticDocCommentDoc(null), null);
 });

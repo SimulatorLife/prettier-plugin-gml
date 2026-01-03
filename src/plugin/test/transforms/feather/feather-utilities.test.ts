@@ -1,10 +1,7 @@
 import assert from "node:assert/strict";
 import { test } from "node:test";
 
-import {
-    resolveCallExpressionArrayContext,
-    walkAstNodes
-} from "../../../src/transforms/feather/ast-traversal.js";
+import { resolveCallExpressionArrayContext, walkAstNodes } from "../../../src/transforms/feather/ast-traversal.js";
 import { parseExample } from "../../../src/transforms/feather/parser-bootstrap.js";
 import {
     applyRemovedIndexAdjustments,
@@ -26,11 +23,7 @@ void test("resolveCallExpressionArrayContext reports array metadata", () => {
         object: { type: "Identifier", name: "example" },
         arguments: []
     } as const;
-    const context = resolveCallExpressionArrayContext(
-        [callExpression][0],
-        [callExpression],
-        0
-    );
+    const context = resolveCallExpressionArrayContext([callExpression][0], [callExpression], 0);
 
     assert.ok(context);
     assert.equal(context?.index, 0);
@@ -64,9 +57,7 @@ void test("walkAstNodes iterates nested nodes", () => {
 });
 
 void test("preprocessSourceForFeatherFixes sanitizes enum initializers", () => {
-    const { sourceText, indexAdjustments } = preprocessSourceForFeatherFixes(
-        'enum Example { value = "1" }'
-    );
+    const { sourceText, indexAdjustments } = preprocessSourceForFeatherFixes('enum Example { value = "1" }');
 
     assert.equal(sourceText, "enum Example { value = 1 }");
     assert.ok(indexAdjustments);

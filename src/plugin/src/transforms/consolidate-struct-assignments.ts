@@ -5,10 +5,7 @@
 import { Core, type MutableGameMakerAstNode } from "@gml-modules/core";
 import { createParserTransform } from "./functional-transform.js";
 import { CommentTracker } from "./utils/comment-tracker.js";
-import {
-    StructAssignmentMatcher,
-    type AssignmentDetails
-} from "./utils/struct-assignment-matcher.js";
+import { StructAssignmentMatcher, type AssignmentDetails } from "./utils/struct-assignment-matcher.js";
 import { AssignmentCommentHandler } from "./utils/assignment-comment-handler.js";
 
 type CommentTools = {
@@ -32,10 +29,7 @@ const FALLBACK_COMMENT_TOOLS = Object.freeze({
 });
 
 function normalizeCommentTools(commentTools) {
-    if (
-        !commentTools ||
-        typeof commentTools.addTrailingComment !== "function"
-    ) {
+    if (!commentTools || typeof commentTools.addTrailingComment !== "function") {
         return FALLBACK_COMMENT_TOOLS;
     }
 
@@ -106,10 +100,7 @@ function getPropertyKeyInfo(propertyNode: unknown): PropertyKeyInfo | null {
         };
     }
 
-    if (
-        Core.isLiteralNode(propertyNode) &&
-        typeof propertyNode.value === "string"
-    ) {
+    if (Core.isLiteralNode(propertyNode) && typeof propertyNode.value === "string") {
         const unquoted = Core.stripStringQuotes(propertyNode.value as any);
         return {
             identifierName: unquoted,
@@ -189,17 +180,8 @@ function buildPropertyFromAssignment(
         type: "Property",
         name: propertyName,
         value: assignment.right,
-        start:
-            Core.cloneLocation(
-                getPreferredLocation(
-                    propertyAccess.propertyStart,
-                    assignment.start
-                )
-            ) ?? null,
-        end:
-            Core.cloneLocation(
-                getPreferredLocation(assignment.right?.end, assignment.end)
-            ) ?? null
+        start: Core.cloneLocation(getPreferredLocation(propertyAccess.propertyStart, assignment.start)) ?? null,
+        end: Core.cloneLocation(getPreferredLocation(assignment.right?.end, assignment.end)) ?? null
     } as unknown as MutableGameMakerAstNode;
 }
 
@@ -225,13 +207,7 @@ function visit(
     }
 
     if (Array.isArray(node.body)) {
-        consolidateBlock(
-            node.body,
-            tracker,
-            commentTools,
-            matcher,
-            commentHandler
-        );
+        consolidateBlock(node.body, tracker, commentTools, matcher, commentHandler);
         for (const child of node.body) {
             visit(child, tracker, commentTools, matcher, commentHandler);
         }
@@ -240,12 +216,7 @@ function visit(
     }
 
     Core.forEachNodeChild(node, (value, key) => {
-        if (
-            key === "body" ||
-            key === "start" ||
-            key === "end" ||
-            key === "comments"
-        ) {
+        if (key === "body" || key === "start" || key === "end" || key === "comments") {
             return;
         }
         visit(value, tracker, commentTools, matcher, commentHandler);
@@ -328,10 +299,7 @@ function collectPropertyAssignments({
 
     while (cursor < statements.length) {
         const statement = statements[cursor];
-        const assignmentDetails = matcher.getStructPropertyAssignmentDetails(
-            statement,
-            identifierName
-        );
+        const assignmentDetails = matcher.getStructPropertyAssignmentDetails(statement, identifierName);
         if (!assignmentDetails) {
             break;
         }
@@ -359,27 +327,19 @@ function collectPropertyAssignments({
             break;
         }
 
-        const property = buildPropertyFromAssignment(
-            assignmentDetails,
-            matcher.isIdentifierSafe.bind(matcher)
-        );
+        const property = buildPropertyFromAssignment(assignmentDetails, matcher.isIdentifierSafe.bind(matcher));
         if (!property) {
             break;
         }
 
         const nextStatement = statements[cursor + 1];
         const nextStart = Core.getNodeStartIndex(nextStatement);
-        const attachableComments = tracker.takeBetween(
-            end,
-            nextStart ?? Number.POSITIVE_INFINITY,
-            (comment) =>
-                commentHandler.isAttachableTrailingComment(comment, statement)
+        const attachableComments = tracker.takeBetween(end, nextStart ?? Number.POSITIVE_INFINITY, (comment) =>
+            commentHandler.isAttachableTrailingComment(comment, statement)
         );
 
         if (attachableComments.length > 0) {
-            let trailingComments = Array.isArray(
-                property._structTrailingComments
-            )
+            let trailingComments = Array.isArray(property._structTrailingComments)
                 ? property._structTrailingComments
                 : null;
             if (!trailingComments) {
@@ -426,16 +386,12 @@ function collectPropertyAssignments({
 
     if (properties.length === 0) {
         tracker.rollback();
-        touchedComments.forEach(({ comment, snapshot }) =>
-            restoreComment(comment, snapshot)
-        );
+        touchedComments.forEach(({ comment, snapshot }) => restoreComment(comment, snapshot));
         return null;
     }
 
     const nextStatement = statements[cursor];
-    const nextBoundary = nextStatement
-        ? Core.getNodeStartIndex(nextStatement)
-        : Number.POSITIVE_INFINITY;
+    const nextBoundary = nextStatement ? Core.getNodeStartIndex(nextStatement) : Number.POSITIVE_INFINITY;
 
     if (
         !commentHandler.allowTrailingCommentsBetween(
@@ -448,25 +404,19 @@ function collectPropertyAssignments({
         )
     ) {
         tracker.rollback();
-        touchedComments.forEach(({ comment, snapshot }) =>
-            restoreComment(comment, snapshot)
-        );
+        touchedComments.forEach(({ comment, snapshot }) => restoreComment(comment, snapshot));
         return null;
     }
 
     if (!nextStatement && tracker.hasAfter(lastEnd)) {
         tracker.rollback();
-        touchedComments.forEach(({ comment, snapshot }) =>
-            restoreComment(comment, snapshot)
-        );
+        touchedComments.forEach(({ comment, snapshot }) => restoreComment(comment, snapshot));
         return null;
     }
 
     tracker.commit();
 
-    const shouldForceBreak = properties.some(
-        (property) => property?._hasTrailingInlineComment
-    );
+    const shouldForceBreak = properties.some((property) => property?._hasTrailingInlineComment);
 
     return {
         properties,
@@ -486,20 +436,12 @@ export const consolidateStructAssignmentsTransform =
             if (!Core.isNode(ast)) {
                 return ast;
             }
-            const normalizedCommentTools = normalizeCommentTools(
-                options.commentTools
-            );
+            const normalizedCommentTools = normalizeCommentTools(options.commentTools);
             const tracker = new CommentTracker(ast);
             const matcher = new StructAssignmentMatcher();
             const commentHandler = new AssignmentCommentHandler();
 
-            visit(
-                ast,
-                tracker,
-                normalizedCommentTools,
-                matcher,
-                commentHandler
-            );
+            visit(ast, tracker, normalizedCommentTools, matcher, commentHandler);
 
             tracker.removeConsumedComments();
 

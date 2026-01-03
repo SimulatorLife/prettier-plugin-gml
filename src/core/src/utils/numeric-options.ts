@@ -21,10 +21,7 @@ type ResolveIntegerOptionOptions = {
 
 type NormalizeNumericOptionOptions = {
     optionName: string;
-    coerce: (
-        value: number,
-        context: Record<string, unknown>
-    ) => number | undefined;
+    coerce: (value: number, context: Record<string, unknown>) => number | undefined;
     formatTypeError: (name: string, type: string) => string;
 };
 
@@ -49,12 +46,7 @@ function missingOptionValue() {
 
 function parseStringOption(
     rawValue: string,
-    {
-        defaultValue,
-        coerce,
-        parseString,
-        blankStringReturnsDefault
-    }: ParseStringOptionParams
+    { defaultValue, coerce, parseString, blankStringReturnsDefault }: ParseStringOptionParams
 ) {
     const trimmed = rawValue.trim();
     if (trimmed === "" && blankStringReturnsDefault) {
@@ -77,10 +69,7 @@ function createTypeErrorMessage(typeErrorMessage, type) {
     return `Value must be provided as a number (received type '${type}').`;
 }
 
-function coerceInteger(
-    value: unknown,
-    { min, received, createErrorMessage }: CoerceIntegerOptions
-) {
+function coerceInteger(value: unknown, { min, received, createErrorMessage }: CoerceIntegerOptions) {
     const normalized = toNormalizedInteger(value);
     if (normalized !== null && normalized >= min) {
         return normalized;
@@ -97,20 +86,14 @@ function coerceInteger(
     throw new TypeError(message);
 }
 
-export function coercePositiveInteger(
-    value: unknown,
-    options: Partial<CoerceIntegerOptions> = {}
-) {
+export function coercePositiveInteger(value: unknown, options: Partial<CoerceIntegerOptions> = {}) {
     return coerceInteger(value, {
         min: 1,
         ...options
     });
 }
 
-export function coerceNonNegativeInteger(
-    value: unknown,
-    options: Partial<CoerceIntegerOptions> = {}
-) {
+export function coerceNonNegativeInteger(value: unknown, options: Partial<CoerceIntegerOptions> = {}) {
     return coerceInteger(value, {
         min: 0,
         ...options
@@ -304,6 +287,5 @@ export function normalizeNumericOption(
  *          returns the error message.
  */
 export function createNumericTypeErrorFormatter(label) {
-    return (type) =>
-        `${label} must be provided as a number (received type '${type}').`;
+    return (type) => `${label} must be provided as a number (received type '${type}').`;
 }

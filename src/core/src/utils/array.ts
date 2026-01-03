@@ -120,18 +120,9 @@ export function asArray<T>(value: unknown = EMPTY_ARRAY): Array<T> {
  * @param {boolean} [options.clone=false]
  * @returns {Array<T>} Mutably safe array representation of {@link value}.
  */
-export function toMutableArray<T>(
-    value: ReadonlyArray<T> | null | undefined,
-    options?: { clone?: boolean }
-): Array<T>;
-export function toMutableArray(
-    value: unknown,
-    options?: { clone?: boolean }
-): Array<unknown>;
-export function toMutableArray<T = unknown>(
-    value: unknown,
-    { clone = false }: { clone?: boolean } = {}
-) {
+export function toMutableArray<T>(value: ReadonlyArray<T> | null | undefined, options?: { clone?: boolean }): Array<T>;
+export function toMutableArray(value: unknown, options?: { clone?: boolean }): Array<unknown>;
+export function toMutableArray<T = unknown>(value: unknown, { clone = false }: { clone?: boolean } = {}) {
     if (!Array.isArray(value)) {
         return [];
     }
@@ -217,9 +208,7 @@ export function findLastIndex(array, predicate) {
  */
 export function uniqueArray(values, { freeze = false } = {}) {
     const uniqueValues =
-        values !== null && typeof values?.[Symbol.iterator] === "function"
-            ? Array.from(new Set(values))
-            : [];
+        values !== null && typeof values?.[Symbol.iterator] === "function" ? Array.from(new Set(values)) : [];
 
     return freeze ? Object.freeze(uniqueValues) : uniqueValues;
 }
@@ -260,11 +249,7 @@ export function compactArray(values?, { freeze = false } = {}) {
  *        sufficient.
  * @returns {boolean} `true` when the value was appended.
  */
-export function pushUnique(
-    array,
-    value,
-    { isEqual }: PushUniqueOptions<any> = {}
-) {
+export function pushUnique(array, value, { isEqual }: PushUniqueOptions<any> = {}) {
     if (!Array.isArray(array)) {
         throw new TypeError("pushUnique requires an array to append to.");
     }
@@ -310,11 +295,7 @@ export function pushUnique(
 export function mergeUniqueValues(
     defaultValues,
     additionalValues,
-    {
-        coerce,
-        getKey = (value) => value,
-        freeze = true
-    }: MergeUniqueValueOptions<any> = {}
+    { coerce, getKey = (value) => value, freeze = true }: MergeUniqueValueOptions<any> = {}
 ) {
     const merged = Array.isArray(defaultValues) ? [...defaultValues] : [];
     const normalize = typeof coerce === "function" ? coerce : identity;

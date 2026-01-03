@@ -5,10 +5,7 @@ import path from "node:path";
 import { afterEach, describe, it } from "node:test";
 import { fileURLToPath } from "node:url";
 
-import {
-    importPluginModule,
-    resolvePluginEntryPoint
-} from "../src/plugin-runtime/entry-point.js";
+import { importPluginModule, resolvePluginEntryPoint } from "../src/plugin-runtime/entry-point.js";
 
 // Node deprecated the legacy assert.equal helper; rely on the strict
 // assertions to keep this suite locked to the modern API.
@@ -17,9 +14,7 @@ import {
 const temporaryDirectories = new Set<string>();
 
 function createTemporaryPluginFile({ baseDirectory = os.tmpdir() } = {}) {
-    const directory = fs.mkdtempSync(
-        path.join(baseDirectory, "prettier-plugin-gml-entry-")
-    );
+    const directory = fs.mkdtempSync(path.join(baseDirectory, "prettier-plugin-gml-entry-"));
     temporaryDirectories.add(directory);
 
     const pluginPath = path.join(directory, "custom-plugin.mjs");
@@ -76,9 +71,7 @@ void describe("resolvePluginEntryPoint", () => {
 
     void it("skips directory overrides when resolving the entry point", () => {
         const defaultEntryPoint = resolvePluginEntryPoint({ env: {} });
-        const directoryOverride = fs.mkdtempSync(
-            path.join(os.tmpdir(), "prettier-plugin-gml-entry-dir-")
-        );
+        const directoryOverride = fs.mkdtempSync(path.join(os.tmpdir(), "prettier-plugin-gml-entry-dir-"));
         temporaryDirectories.add(directoryOverride);
 
         const resolved = resolvePluginEntryPoint({
@@ -107,20 +100,10 @@ void describe("resolvePluginEntryPoint", () => {
     });
 
     void it("falls back to built-in candidates when overrides are not provided", () => {
-        const repoRoot = path.resolve(
-            path.dirname(fileURLToPath(import.meta.url)),
-            "..",
-            "..",
-            "..",
-            ".."
-        );
+        const repoRoot = path.resolve(path.dirname(fileURLToPath(import.meta.url)), "..", "..", "..", "..");
         const resolved = resolvePluginEntryPoint({ env: {} });
 
-        assert.strictEqual(
-            path.basename(resolved),
-            "plugin-entry.js",
-            "Should default to the plugin entry file."
-        );
+        assert.strictEqual(path.basename(resolved), "plugin-entry.js", "Should default to the plugin entry file.");
         assert.ok(
             resolved.startsWith(path.resolve(repoRoot, "src", "plugin")),
             "Expected the resolved path under the plugin workspace."
@@ -131,10 +114,7 @@ void describe("resolvePluginEntryPoint", () => {
 void describe("importPluginModule", () => {
     void it("imports the module located at the resolved entry point", async () => {
         const pluginPath = createTemporaryPluginFile();
-        const moduleContents = [
-            "export const sentinel = 1729;",
-            "export default { languages: [] };"
-        ].join("\n");
+        const moduleContents = ["export const sentinel = 1729;", "export default { languages: [] };"].join("\n");
         fs.writeFileSync(pluginPath, `${moduleContents}\n`);
 
         const module = await importPluginModule({

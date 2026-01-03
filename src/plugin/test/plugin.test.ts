@@ -30,9 +30,7 @@ function canonicalizeFixtureText(text: string) {
 async function readFixture(filePath) {
     const contents = await fs.readFile(filePath, fileEncoding);
     if (typeof contents !== "string") {
-        throw new TypeError(
-            `Expected fixture '${filePath}' to be read as a string.`
-        );
+        throw new TypeError(`Expected fixture '${filePath}' to be read as a string.`);
     }
     return contents.trim();
 }
@@ -110,9 +108,7 @@ async function loadTestCases() {
                 ]);
 
                 if (typeof rawInput !== "string") {
-                    throw new TypeError(
-                        `Expected fixture '${singlePath}' to be read as a string.`
-                    );
+                    throw new TypeError(`Expected fixture '${singlePath}' to be read as a string.`);
                 }
 
                 const options = await tryLoadOptions(baseName);
@@ -126,9 +122,7 @@ async function loadTestCases() {
             }
 
             if (!inputFile || !outputFile) {
-                throw new Error(
-                    `Fixture '${baseName}' is missing its ${inputFile ? "output" : "input"} file.`
-                );
+                throw new Error(`Fixture '${baseName}' is missing its ${inputFile ? "output" : "input"} file.`);
             }
 
             const inputPath = path.join(currentDirectory, inputFile);
@@ -140,9 +134,7 @@ async function loadTestCases() {
             ]);
 
             if (typeof rawInput !== "string") {
-                throw new TypeError(
-                    `Expected fixture '${inputPath}' to be read as a string.`
-                );
+                throw new TypeError(`Expected fixture '${inputPath}' to be read as a string.`);
             }
 
             const options = await tryLoadOptions(baseName);
@@ -155,12 +147,7 @@ async function loadTestCases() {
 const all_test_cases = await loadTestCases();
 
 void describe("Prettier GameMaker plugin fixtures", () => {
-    for (const {
-        baseName,
-        inputSource,
-        expectedOutput,
-        options
-    } of all_test_cases) {
+    for (const { baseName, inputSource, expectedOutput, options } of all_test_cases) {
         void it(`formats ${baseName}`, async () => {
             const formatted = await Plugin.format(inputSource, options);
             const normalizedActual = canonicalizeFixtureText(formatted);
@@ -172,16 +159,10 @@ void describe("Prettier GameMaker plugin fixtures", () => {
 
             const formattedLines = normalizedActual.split("\n");
             const expectedLines = normalizedExpected.split("\n");
-            while (
-                formattedLines.length > expectedLines.length &&
-                formattedLines.at(-1) === ""
-            ) {
+            while (formattedLines.length > expectedLines.length && formattedLines.at(-1) === "") {
                 formattedLines.pop();
             }
-            const maxLineCount = Math.max(
-                formattedLines.length,
-                expectedLines.length
-            );
+            const maxLineCount = Math.max(formattedLines.length, expectedLines.length);
 
             for (let index = 0; index < maxLineCount; index += 1) {
                 const lineNumber = index + 1;
@@ -197,11 +178,7 @@ void describe("Prettier GameMaker plugin fixtures", () => {
                 }
 
                 if (actualLine.trim() !== expectedLine.trim()) {
-                    assert.strictEqual(
-                        actualLine,
-                        expectedLine,
-                        `Line ${lineNumber} does not match.`
-                    );
+                    assert.strictEqual(actualLine, expectedLine, `Line ${lineNumber} does not match.`);
                 }
             }
         });

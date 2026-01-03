@@ -28,12 +28,10 @@ async function ensureCliModuleLoaded() {
             }
         };
 
-        const moduleLoad = import("../src/cli.js")
-            .finally(cleanupEnvironment)
-            .catch((error) => {
-                cliModulePromise = undefined;
-                throw error;
-            });
+        const moduleLoad = import("../src/cli.js").finally(cleanupEnvironment).catch((error) => {
+            cliModulePromise = undefined;
+            throw error;
+        });
 
         cliModulePromise = moduleLoad;
     }

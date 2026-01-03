@@ -1,24 +1,12 @@
-import {
-    getIdentifierText,
-    isUndefinedSentinel
-} from "../../../ast/node-helpers.js";
+import { getIdentifierText, isUndefinedSentinel } from "../../../ast/node-helpers.js";
 import { getNodeEndIndex, getNodeStartIndex } from "../../../ast/locations.js";
-import {
-    getNonEmptyString,
-    isNonEmptyTrimmedString
-} from "../../../utils/string.js";
+import { getNonEmptyString, isNonEmptyTrimmedString } from "../../../utils/string.js";
 import { normalizeDocMetadataName } from "./params.js";
 
 const STRING_TYPE = "string";
 const NUMBER_TYPE = "number";
-export const suppressedImplicitDocCanonicalByNode = new WeakMap<
-    any,
-    Set<string>
->();
-export const preferredParamDocNamesByNode = new WeakMap<
-    any,
-    Map<number, string>
->();
+export const suppressedImplicitDocCanonicalByNode = new WeakMap<any, Set<string>>();
+export const preferredParamDocNamesByNode = new WeakMap<any, Map<number, string>>();
 
 export interface SyntheticDocGenerationOptions {
     originalText?: string | null;
@@ -51,10 +39,7 @@ export function getIdentifierFromParameterNode(param: any) {
         return param;
     }
 
-    if (
-        param.type === "DefaultParameter" &&
-        param.left?.type === "Identifier"
-    ) {
+    if (param.type === "DefaultParameter" && param.left?.type === "Identifier") {
         return param.left;
     }
 
@@ -110,10 +95,7 @@ function getArgumentIndexFromNode(node: any) {
     return null;
 }
 
-export function getSourceTextForNode(
-    node: any,
-    options: SyntheticDocGenerationOptions
-) {
+export function getSourceTextForNode(node: any, options: SyntheticDocGenerationOptions) {
     if (!node) {
         return null;
     }
@@ -124,12 +106,8 @@ export function getSourceTextForNode(
         return null;
     }
 
-    const startIndex =
-        typeof locStart === "function"
-            ? locStart(node)
-            : getNodeStartIndex(node);
-    const endIndex =
-        typeof locEnd === "function" ? locEnd(node) : getNodeEndIndex(node);
+    const startIndex = typeof locStart === "function" ? locStart(node) : getNodeStartIndex(node);
+    const endIndex = typeof locEnd === "function" ? locEnd(node) : getNodeEndIndex(node);
 
     if (
         typeof startIndex !== NUMBER_TYPE ||
@@ -149,21 +127,14 @@ export function shouldOmitUndefinedDefaultForFunctionNode(functionNode: any) {
         return false;
     }
 
-    if (
-        functionNode.type === "ConstructorDeclaration" ||
-        functionNode.type === "ConstructorParentClause"
-    ) {
+    if (functionNode.type === "ConstructorDeclaration" || functionNode.type === "ConstructorParentClause") {
         return false;
     }
 
     return functionNode.type === "FunctionDeclaration";
 }
 
-export function getParameterDocInfo(
-    paramNode: any,
-    functionNode: any,
-    options: SyntheticDocGenerationOptions
-) {
+export function getParameterDocInfo(paramNode: any, functionNode: any, options: SyntheticDocGenerationOptions) {
     if (!paramNode) {
         return null;
     }
@@ -212,26 +183,18 @@ export function getParameterDocInfo(
 
         const defaultIsUndefined = isUndefinedSentinel(paramNode.right);
         const signatureOmitsUndefinedDefault =
-            defaultIsUndefined &&
-            shouldOmitUndefinedDefaultForFunctionNode(functionNode);
+            defaultIsUndefined && shouldOmitUndefinedDefaultForFunctionNode(functionNode);
         const isConstructorLike =
-            functionNode?.type === "ConstructorDeclaration" ||
-            functionNode?.type === "ConstructorParentClause";
+            functionNode?.type === "ConstructorDeclaration" || functionNode?.type === "ConstructorParentClause";
 
-        const shouldIncludeDefaultText =
-            !defaultIsUndefined ||
-            (!signatureOmitsUndefinedDefault && !isConstructorLike);
+        const shouldIncludeDefaultText = !defaultIsUndefined || (!signatureOmitsUndefinedDefault && !isConstructorLike);
 
-        const defaultText = shouldIncludeDefaultText
-            ? getSourceTextForNode(paramNode.right, options)
-            : null;
+        const defaultText = shouldIncludeDefaultText ? getSourceTextForNode(paramNode.right, options) : null;
 
         const docName = defaultText ? `${name}=${defaultText}` : name;
 
         const optionalOverride = paramNode?._featherOptionalParameter === true;
-        const searchName = getNormalizedParameterName(
-            paramNode.left ?? paramNode
-        );
+        const searchName = getNormalizedParameterName(paramNode.left ?? paramNode);
         const explicitUndefinedDefaultFromSource =
             defaultIsUndefined &&
             typeof searchName === STRING_TYPE &&
@@ -239,11 +202,7 @@ export function getParameterDocInfo(
             typeof options?.originalText === STRING_TYPE &&
             options.originalText.includes(`${searchName} = undefined`);
 
-        const optional = defaultIsUndefined
-            ? isConstructorLike
-                ? true
-                : optionalOverride
-            : true;
+        const optional = defaultIsUndefined ? (isConstructorLike ? true : optionalOverride) : true;
 
         return {
             name: docName,
@@ -304,11 +263,7 @@ export function gatherImplicitArgumentReferences(functionNode: any) {
 
         if (node.type === "VariableDeclarator") {
             const aliasIndex = getArgumentIndexFromNode(node.init);
-            if (
-                aliasIndex !== null &&
-                node.id?.type === "Identifier" &&
-                !aliasByIndex.has(aliasIndex)
-            ) {
+            if (aliasIndex !== null && node.id?.type === "Identifier" && !aliasByIndex.has(aliasIndex)) {
                 const aliasName = normalizeDocMetadataName(node.id.name);
                 if (isNonEmptyTrimmedString(aliasName)) {
                     aliasByIndex.set(aliasIndex, aliasName);
@@ -320,11 +275,7 @@ export function gatherImplicitArgumentReferences(functionNode: any) {
         const directIndex = getArgumentIndexFromNode(node);
         if (directIndex !== null) {
             referencedIndices.add(directIndex);
-            if (
-                parent?.type === "VariableDeclarator" &&
-                parent.init === node &&
-                aliasByIndex.has(directIndex)
-            ) {
+            if (parent?.type === "VariableDeclarator" && parent.init === node && aliasByIndex.has(directIndex)) {
                 // Skip adding to directReferenceIndices when this argument reference
                 // is on the right side of a variable declarator that defines an alias
                 // for the same argument index. This prevents the synthetic doc comment
@@ -338,12 +289,7 @@ export function gatherImplicitArgumentReferences(functionNode: any) {
         }
 
         for (const key in node) {
-            if (
-                key === "parent" ||
-                key === "enclosingNode" ||
-                key === "precedingNode" ||
-                key === "followingNode"
-            )
+            if (key === "parent" || key === "enclosingNode" || key === "precedingNode" || key === "followingNode")
                 continue;
             const child = node[key];
             if (typeof child === "object" && child !== null) {
@@ -379,14 +325,9 @@ export function collectImplicitArgumentDocNames(
         return [];
     }
 
-    if (
-        options.applyFeatherFixes !== false &&
-        Array.isArray(functionNode._featherImplicitArgumentDocEntries)
-    ) {
-        const entries =
-            functionNode._featherImplicitArgumentDocEntries as ImplicitArgumentDocEntry[];
-        const suppressedCanonicals =
-            suppressedImplicitDocCanonicalByNode.get(functionNode);
+    if (options.applyFeatherFixes !== false && Array.isArray(functionNode._featherImplicitArgumentDocEntries)) {
+        const entries = functionNode._featherImplicitArgumentDocEntries as ImplicitArgumentDocEntry[];
+        const suppressedCanonicals = suppressedImplicitDocCanonicalByNode.get(functionNode);
 
         processImplicitArgumentEntries(functionNode, entries);
 
@@ -411,14 +352,9 @@ export function collectImplicitArgumentDocNames(
             gatherImplicitArgumentReferences(functionNode);
 
         const entries: ImplicitArgumentDocEntry[] = [];
-        const maxIndex = Math.max(
-            ...Array.from(referencedIndices),
-            ...Array.from(directReferenceIndices),
-            -1
-        );
+        const maxIndex = Math.max(...Array.from(referencedIndices), ...Array.from(directReferenceIndices), -1);
 
-        const suppressedCanonicals =
-            suppressedImplicitDocCanonicalByNode.get(functionNode);
+        const suppressedCanonicals = suppressedImplicitDocCanonicalByNode.get(functionNode);
 
         for (let i = 0; i <= maxIndex; i++) {
             if (referencedIndices.has(i) || directReferenceIndices.has(i)) {
@@ -426,11 +362,7 @@ export function collectImplicitArgumentDocNames(
                 const canonical = `argument${i}`;
                 const docName = alias || canonical;
 
-                if (
-                    suppressedCanonicals &&
-                    suppressedCanonicals.has(canonical) &&
-                    docName === canonical
-                ) {
+                if (suppressedCanonicals && suppressedCanonicals.has(canonical) && docName === canonical) {
                     continue;
                 }
 
@@ -448,10 +380,7 @@ export function collectImplicitArgumentDocNames(
     }
 }
 
-function processImplicitArgumentEntries(
-    functionNode: any,
-    entries: ImplicitArgumentDocEntry[]
-): void {
+function processImplicitArgumentEntries(functionNode: any, entries: ImplicitArgumentDocEntry[]): void {
     try {
         const referenceInfo = gatherImplicitArgumentReferences(functionNode);
         if (!referenceInfo) {
@@ -460,11 +389,7 @@ function processImplicitArgumentEntries(
 
         if (referenceInfo.aliasByIndex.size > 0) {
             for (const entry of entries) {
-                if (
-                    entry &&
-                    entry.index !== undefined &&
-                    referenceInfo.aliasByIndex.has(entry.index)
-                ) {
+                if (entry && entry.index !== undefined && referenceInfo.aliasByIndex.has(entry.index)) {
                     const alias = referenceInfo.aliasByIndex.get(entry.index);
                     if (alias) {
                         entry.name = alias;
@@ -473,10 +398,7 @@ function processImplicitArgumentEntries(
             }
         }
 
-        markEntriesWithDirectReferences(
-            entries,
-            referenceInfo.directReferenceIndices
-        );
+        markEntriesWithDirectReferences(entries, referenceInfo.directReferenceIndices);
 
         if (entries.some((entry) => entry && !entry.hasDirectReference)) {
             scanEntriesForCanonicals(entries);

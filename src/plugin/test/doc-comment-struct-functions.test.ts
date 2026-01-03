@@ -39,15 +39,10 @@ void test("struct static functions drop stray @param tags when no parameters", a
 
     const formatted = await Plugin.format(source);
     const docBlocks = extractDocBlocks(formatted);
-    const generateBlock = docBlocks.find((block) =>
-        block.includes("/// @description Each call generates layout")
-    );
+    const generateBlock = docBlocks.find((block) => block.includes("/// @description Each call generates layout"));
 
     assert.ok(generateBlock, "Expected to find doc block for generate().");
-    assert.deepEqual(generateBlock, [
-        "/// @description Each call generates layout",
-        "/// @returns {undefined}"
-    ]);
+    assert.deepEqual(generateBlock, ["/// @description Each call generates layout", "/// @returns {undefined}"]);
 });
 
 void test("struct static functions keep implicit argument docs", async () => {
@@ -62,12 +57,7 @@ void test("struct static functions keep implicit argument docs", async () => {
 
     const formatted = await Plugin.format(source);
     const docBlocks = extractDocBlocks(formatted);
-    const dispatchBlock = docBlocks.find((block) =>
-        block.includes("/// @param {real} argument0")
-    );
+    const dispatchBlock = docBlocks.find((block) => block.includes("/// @param {real} argument0"));
 
-    assert.ok(
-        dispatchBlock,
-        "Expected to find doc block for dispatch() with retained params."
-    );
+    assert.ok(dispatchBlock, "Expected to find doc block for dispatch() with retained params.");
 });

@@ -7,17 +7,11 @@ void describe("normalizeEnumeratedOption", () => {
     const formats = new Set(["json", "human"]);
 
     void it("returns the fallback for undefined values", () => {
-        assert.equal(
-            normalizeEnumeratedOption(undefined, "json", formats),
-            "json"
-        );
+        assert.equal(normalizeEnumeratedOption(undefined, "json", formats), "json");
     });
 
     void it("normalizes string input using the default coercion", () => {
-        assert.equal(
-            normalizeEnumeratedOption(" HUMAN ", null, formats),
-            "human"
-        );
+        assert.equal(normalizeEnumeratedOption(" HUMAN ", null, formats), "human");
     });
 
     void it("returns null when the normalized value is invalid", () => {
@@ -49,9 +43,7 @@ void describe("normalizeEnumeratedOption", () => {
     void it("throws when the valid value collection lacks a has method", () => {
         assert.throws(
             () => normalizeEnumeratedOption("two", "one", {}),
-            (error) =>
-                error instanceof TypeError &&
-                error.message.includes("has function")
+            (error) => error instanceof TypeError && error.message.includes("has function")
         );
     });
 });

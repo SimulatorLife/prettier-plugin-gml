@@ -23,9 +23,7 @@ const ObjectWrapOption = Object.freeze({
  * @returns {ObjectWrapOptionValue}
  */
 function resolveObjectWrapOption(options?: any) {
-    return options?.objectWrap === ObjectWrapOption.COLLAPSE
-        ? ObjectWrapOption.COLLAPSE
-        : ObjectWrapOption.PRESERVE;
+    return options?.objectWrap === ObjectWrapOption.COLLAPSE ? ObjectWrapOption.COLLAPSE : ObjectWrapOption.PRESERVE;
 }
 
 export { ObjectWrapOption, resolveObjectWrapOption };

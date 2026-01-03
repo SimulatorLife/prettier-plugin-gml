@@ -25,10 +25,7 @@ const DEFAULT_SIZE_RETRIEVAL_FUNCTION_SUFFIXES = new Map([
 const SIZE_SUFFIX_CACHE = new WeakMap();
 
 function createSizeSuffixMap(options) {
-    const rawOverrides = coalesceOption(
-        options,
-        "loopLengthHoistFunctionSuffixes"
-    );
+    const rawOverrides = coalesceOption(options, "loopLengthHoistFunctionSuffixes");
     const overrides = parseSizeRetrievalFunctionSuffixOverrides(rawOverrides);
 
     const merged = new Map(DEFAULT_SIZE_RETRIEVAL_FUNCTION_SUFFIXES);
@@ -126,10 +123,7 @@ function parseSizeRetrievalFunctionSuffixOverrides(rawValue) {
  * } | null} Metadata describing the cached variable or `null` when the pattern
  *           does not match.
  */
-function getLoopLengthHoistInfo(
-    node,
-    sizeFunctionSuffixes = DEFAULT_SIZE_RETRIEVAL_FUNCTION_SUFFIXES
-) {
+function getLoopLengthHoistInfo(node, sizeFunctionSuffixes = DEFAULT_SIZE_RETRIEVAL_FUNCTION_SUFFIXES) {
     if (!node || node.type !== "ForStatement") {
         return null;
     }
@@ -239,11 +233,7 @@ function isIteratorUpdateMatching(update, iteratorName) {
 
     if (update.type === "IncDecStatement") {
         const argument = update.argument;
-        return (
-            !!argument &&
-            argument.type === "Identifier" &&
-            argument.name === iteratorName
-        );
+        return !!argument && argument.type === "Identifier" && argument.name === iteratorName;
     }
 
     if (update.type !== "AssignmentExpression") {

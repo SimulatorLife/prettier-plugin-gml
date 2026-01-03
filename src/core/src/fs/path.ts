@@ -97,10 +97,7 @@ export function resolveContainedRelativePath(childPath, parentPath) {
  *        itself.
  * @returns {Generator<string, void, void>} Iterator over ancestor directories.
  */
-export function* walkAncestorDirectories(
-    startPath,
-    { includeSelf = true } = {}
-) {
+export function* walkAncestorDirectories(startPath, { includeSelf = true } = {}) {
     if (!isNonEmptyString(startPath)) {
         return;
     }

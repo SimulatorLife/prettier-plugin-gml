@@ -10,12 +10,7 @@ import * as Transforms from "../src/transforms/index.js";
 
 // Using Plugin.format wrapper instead of pluginPath
 
-const {
-    getNodeEndIndex,
-    getNodeStartIndex,
-    getFeatherMetadata,
-    getFeatherDiagnosticById
-} = Core;
+const { getNodeEndIndex, getNodeStartIndex, getFeatherMetadata, getFeatherDiagnosticById } = Core;
 
 function isEventInheritedCall(node) {
     if (!node || node.type !== "CallExpression") {
@@ -52,9 +47,7 @@ function getCallExpressionName(node) {
 void describe("Feather diagnostic fixer registry", () => {
     void it("registers a fixer entry for every diagnostic", () => {
         const metadata = getFeatherMetadata();
-        const diagnostics = Array.isArray(metadata?.diagnostics)
-            ? metadata.diagnostics
-            : [];
+        const diagnostics = Array.isArray(metadata?.diagnostics) ? metadata.diagnostics : [];
         const registry = Transforms.getFeatherDiagnosticFixers();
 
         assert.strictEqual(
@@ -64,19 +57,14 @@ void describe("Feather diagnostic fixer registry", () => {
         );
 
         for (const diagnostic of diagnostics) {
-            assert.ok(
-                registry.has(diagnostic.id),
-                `Missing fixer entry for Feather diagnostic ${diagnostic.id}.`
-            );
+            assert.ok(registry.has(diagnostic.id), `Missing fixer entry for Feather diagnostic ${diagnostic.id}.`);
         }
     });
 });
 
 void describe("Transforms.applyFeatherFixes transform", () => {
     void it("removes trailing macro semicolons and records fix metadata", () => {
-        const source = ["#macro SAMPLE value;", "", "var data = SAMPLE;"].join(
-            "\n"
-        );
+        const source = ["#macro SAMPLE value;", "", "var data = SAMPLE;"].join("\n");
 
         const ast = Parser.GMLParser.parse(source, {
             getLocations: true,
@@ -90,9 +78,7 @@ void describe("Transforms.applyFeatherFixes transform", () => {
 
         assert.ok(Array.isArray(ast._appliedFeatherDiagnostics));
         assert.strictEqual(
-            ast._appliedFeatherDiagnostics.some(
-                (entry) => entry.id === "GM1051"
-            ),
+            ast._appliedFeatherDiagnostics.some((entry) => entry.id === "GM1051"),
             true,
             "Expected macro fixer metadata to be recorded on the program node."
         );
@@ -101,10 +87,7 @@ void describe("Transforms.applyFeatherFixes transform", () => {
         assert.ok(Array.isArray(macro.tokens));
         assert.strictEqual(macro.tokens.includes(";"), false);
         assert.strictEqual(typeof macro._featherMacroText, "string");
-        assert.strictEqual(
-            macro._featherMacroText.trimEnd(),
-            "#macro SAMPLE value"
-        );
+        assert.strictEqual(macro._featherMacroText.trimEnd(), "#macro SAMPLE value");
 
         const macroFixes = macro._appliedFeatherDiagnostics;
         assert.ok(Array.isArray(macroFixes));
@@ -113,11 +96,7 @@ void describe("Transforms.applyFeatherFixes transform", () => {
     });
 
     void it("removes trailing macro semicolons before inline comments", () => {
-        const source = [
-            "#macro SAMPLE value; // comment",
-            "",
-            "var data = SAMPLE;"
-        ].join("\n");
+        const source = ["#macro SAMPLE value; // comment", "", "var data = SAMPLE;"].join("\n");
 
         const ast = Parser.GMLParser.parse(source, {
             getLocations: true,
@@ -133,10 +112,7 @@ void describe("Transforms.applyFeatherFixes transform", () => {
         assert.ok(Array.isArray(macro.tokens));
         assert.strictEqual(macro.tokens.includes(";"), false);
         assert.strictEqual(typeof macro._featherMacroText, "string");
-        assert.strictEqual(
-            macro._featherMacroText.trimEnd(),
-            "#macro SAMPLE value // comment"
-        );
+        assert.strictEqual(macro._featherMacroText.trimEnd(), "#macro SAMPLE value // comment");
 
         const macroFixes = macro._appliedFeatherDiagnostics;
         assert.ok(Array.isArray(macroFixes));
@@ -164,16 +140,10 @@ void describe("Transforms.applyFeatherFixes transform", () => {
         );
 
         const recordedFixes = Array.isArray(ast._appliedFeatherDiagnostics)
-            ? ast._appliedFeatherDiagnostics.filter(
-                  (entry) => entry.id === "GM1000"
-              )
+            ? ast._appliedFeatherDiagnostics.filter((entry) => entry.id === "GM1000")
             : [];
 
-        assert.strictEqual(
-            recordedFixes.length,
-            1,
-            "Expected a single GM1000 automatic fix entry to be recorded."
-        );
+        assert.strictEqual(recordedFixes.length, 1, "Expected a single GM1000 automatic fix entry to be recorded.");
 
         const [gm1000Fix] = recordedFixes;
         assert.ok(gm1000Fix);
@@ -202,16 +172,10 @@ void describe("Transforms.applyFeatherFixes transform", () => {
         const initializerExpression = initializerAst.body?.[0]?.right ?? null;
 
         assert.ok(globalVar, "Expected to parse a globalvar declaration.");
-        assert.ok(
-            initializerExpression,
-            "Expected to parse the initializer expression."
-        );
+        assert.ok(initializerExpression, "Expected to parse the initializer expression.");
 
         const [declarator] = globalVar.declarations ?? [];
-        assert.ok(
-            declarator,
-            "Expected the globalvar statement to expose a declarator."
-        );
+        assert.ok(declarator, "Expected the globalvar statement to expose a declarator.");
 
         declarator.init = initializerExpression;
         declarator.end = initializerExpression?.end ?? declarator.end;
@@ -220,17 +184,9 @@ void describe("Transforms.applyFeatherFixes transform", () => {
             sourceText: `${declarationSource}\n${initializerSource}`
         });
 
-        assert.strictEqual(
-            declarator.init,
-            null,
-            "Expected the declarator initializer to be cleared."
-        );
+        assert.strictEqual(declarator.init, null, "Expected the declarator initializer to be cleared.");
         assert.ok(Array.isArray(ast.body));
-        assert.strictEqual(
-            ast.body.length,
-            2,
-            "Expected the initializer to be emitted as a separate assignment."
-        );
+        assert.strictEqual(ast.body.length, 2, "Expected the initializer to be emitted as a separate assignment.");
 
         const assignment = ast.body[1];
         assert.ok(assignment);
@@ -256,9 +212,7 @@ void describe("Transforms.applyFeatherFixes transform", () => {
 
         assert.ok(Array.isArray(ast._appliedFeatherDiagnostics));
         assert.strictEqual(
-            ast._appliedFeatherDiagnostics.some(
-                (entry) => entry.id === "GM1002"
-            ),
+            ast._appliedFeatherDiagnostics.some((entry) => entry.id === "GM1002"),
             true,
             "Expected GM1002 metadata to be recorded on the program node."
         );
@@ -330,10 +284,7 @@ void describe("Transforms.applyFeatherFixes transform", () => {
             const diagnostics = declaration._appliedFeatherDiagnostics ?? [];
             const gm2007 = diagnostics.find((entry) => entry.id === "GM2007");
 
-            assert.ok(
-                gm2007,
-                "Expected GM2007 metadata to be recorded on the declaration."
-            );
+            assert.ok(gm2007, "Expected GM2007 metadata to be recorded on the declaration.");
             assert.strictEqual(gm2007.automatic, true);
             assert.ok(gm2007.range);
             assert.strictEqual(typeof gm2007.range.start, "number");
@@ -355,14 +306,9 @@ void describe("Transforms.applyFeatherFixes transform", () => {
         }
 
         const programDiagnostics = ast._appliedFeatherDiagnostics ?? [];
-        const gm2007Diagnostics = programDiagnostics.filter(
-            (entry) => entry.id === "GM2007"
-        );
+        const gm2007Diagnostics = programDiagnostics.filter((entry) => entry.id === "GM2007");
 
-        assert.strictEqual(
-            gm2007Diagnostics.length,
-            flaggedDeclarations.length
-        );
+        assert.strictEqual(gm2007Diagnostics.length, flaggedDeclarations.length);
     });
 
     void it("rewrites counted for-loops flagged by GM2004 into repeat statements", () => {
@@ -390,15 +336,9 @@ void describe("Transforms.applyFeatherFixes transform", () => {
         });
 
         const programBody = Array.isArray(ast.body) ? ast.body : [];
-        const repeatStatements = programBody.filter(
-            (node) => node?.type === "RepeatStatement"
-        );
+        const repeatStatements = programBody.filter((node) => node?.type === "RepeatStatement");
 
-        assert.strictEqual(
-            repeatStatements.length,
-            3,
-            "Expected all loops to convert to repeat statements."
-        );
+        assert.strictEqual(repeatStatements.length, 3, "Expected all loops to convert to repeat statements.");
         assert.strictEqual(
             programBody.some((node) => node?.type === "ForStatement"),
             false,
@@ -415,19 +355,10 @@ void describe("Transforms.applyFeatherFixes transform", () => {
         assert.strictEqual(thirdRepeat?.test?.object?.name, "compute_limit");
 
         const appliedDiagnostics = ast._appliedFeatherDiagnostics ?? [];
-        const gm2004Entries = appliedDiagnostics.filter(
-            (entry) => entry.id === "GM2004"
-        );
+        const gm2004Entries = appliedDiagnostics.filter((entry) => entry.id === "GM2004");
 
-        assert.strictEqual(
-            gm2004Entries.length,
-            3,
-            "Expected metadata to be recorded for each converted loop."
-        );
-        assert.deepStrictEqual(
-            new Set(gm2004Entries.map((entry) => entry.target)),
-            new Set(["i", "count", "step"])
-        );
+        assert.strictEqual(gm2004Entries.length, 3, "Expected metadata to be recorded for each converted loop.");
+        assert.deepStrictEqual(new Set(gm2004Entries.map((entry) => entry.target)), new Set(["i", "count", "step"]));
 
         for (const entry of gm2004Entries) {
             assert.strictEqual(entry.automatic, true);
@@ -435,23 +366,17 @@ void describe("Transforms.applyFeatherFixes transform", () => {
         }
 
         assert.strictEqual(
-            firstRepeat?._appliedFeatherDiagnostics?.some(
-                (entry) => entry.id === "GM2004"
-            ),
+            firstRepeat?._appliedFeatherDiagnostics?.some((entry) => entry.id === "GM2004"),
             true,
             "Expected GM2004 metadata on the first repeat statement."
         );
         assert.strictEqual(
-            secondRepeat?._appliedFeatherDiagnostics?.some(
-                (entry) => entry.id === "GM2004"
-            ),
+            secondRepeat?._appliedFeatherDiagnostics?.some((entry) => entry.id === "GM2004"),
             true,
             "Expected GM2004 metadata on the second repeat statement."
         );
         assert.strictEqual(
-            thirdRepeat?._appliedFeatherDiagnostics?.some(
-                (entry) => entry.id === "GM2004"
-            ),
+            thirdRepeat?._appliedFeatherDiagnostics?.some((entry) => entry.id === "GM2004"),
             true,
             "Expected GM2004 metadata on the third repeat statement."
         );
@@ -471,9 +396,7 @@ void describe("Transforms.applyFeatherFixes transform", () => {
 
         const [firstStatement] = ast.body ?? [];
         const callExpression =
-            firstStatement?.type === "ExpressionStatement"
-                ? firstStatement.expression
-                : firstStatement;
+            firstStatement?.type === "ExpressionStatement" ? firstStatement.expression : firstStatement;
 
         assert.ok(callExpression);
         assert.ok(Array.isArray(callExpression.arguments));
@@ -492,9 +415,7 @@ void describe("Transforms.applyFeatherFixes transform", () => {
 
         assert.ok(Array.isArray(ast._appliedFeatherDiagnostics));
         assert.strictEqual(
-            ast._appliedFeatherDiagnostics.some(
-                (entry) => entry.id === "GM1005"
-            ),
+            ast._appliedFeatherDiagnostics.some((entry) => entry.id === "GM1005"),
             true
         );
     });
@@ -524,16 +445,10 @@ void describe("Transforms.applyFeatherFixes transform", () => {
         assert.ok(enumDeclaration);
         assert.strictEqual(enumDeclaration.type, "EnumDeclaration");
 
-        const members = Array.isArray(enumDeclaration.members)
-            ? enumDeclaration.members
-            : [];
+        const members = Array.isArray(enumDeclaration.members) ? enumDeclaration.members : [];
         const memberNames = members.map((member) => member?.name?.name);
 
-        assert.deepStrictEqual(
-            memberNames,
-            ["APPLE", "BANANA"],
-            "Expected duplicate enum members to be removed."
-        );
+        assert.deepStrictEqual(memberNames, ["APPLE", "BANANA"], "Expected duplicate enum members to be removed.");
 
         const enumFixes = enumDeclaration._appliedFeatherDiagnostics ?? [];
         assert.strictEqual(enumFixes.length, 2);
@@ -546,14 +461,8 @@ void describe("Transforms.applyFeatherFixes transform", () => {
             ["apple", "BANANA"]
         );
 
-        const recordedIds = new Set(
-            (ast._appliedFeatherDiagnostics ?? []).map((entry) => entry.id)
-        );
-        assert.strictEqual(
-            recordedIds.has("GM1004"),
-            true,
-            "Expected GM1004 fix metadata on the program node."
-        );
+        const recordedIds = new Set((ast._appliedFeatherDiagnostics ?? []).map((entry) => entry.id));
+        assert.strictEqual(recordedIds.has("GM1004"), true, "Expected GM1004 fix metadata on the program node.");
     });
 
     void it("removes non-integer enum assignments and records GM1003 metadata", () => {
@@ -612,10 +521,7 @@ void describe("Transforms.applyFeatherFixes transform", () => {
         const [, appleMember] = enumDeclaration.members ?? [];
         assert.ok(appleMember);
         assert.strictEqual(appleMember.initializer, null);
-        assert.strictEqual(
-            (appleMember as any)._featherOriginalInitializer,
-            '"apple"'
-        );
+        assert.strictEqual((appleMember as any)._featherOriginalInitializer, '"apple"');
 
         const memberFixes = (appleMember as any)._appliedFeatherDiagnostics;
         assert.ok(Array.isArray(memberFixes));
@@ -625,9 +531,7 @@ void describe("Transforms.applyFeatherFixes transform", () => {
 
         assert.ok(Array.isArray((ast as any)._appliedFeatherDiagnostics));
         assert.strictEqual(
-            (ast as any)._appliedFeatherDiagnostics.some(
-                (entry: any) => entry.id === "GM1003"
-            ),
+            (ast as any)._appliedFeatherDiagnostics.some((entry: any) => entry.id === "GM1003"),
             true,
             "Expected GM1003 metadata to be recorded on the program node."
         );
@@ -658,8 +562,7 @@ void describe("Transforms.applyFeatherFixes transform", () => {
         assert.ok(Array.isArray(blockBody));
         assert.strictEqual(blockBody.length, 3);
 
-        const [replacementDeclaration, callDeclaration, returnStatement] =
-            blockBody;
+        const [replacementDeclaration, callDeclaration, returnStatement] = blockBody;
 
         assert.ok(replacementDeclaration);
         assert.strictEqual(replacementDeclaration.type, "VariableDeclaration");
@@ -685,8 +588,7 @@ void describe("Transforms.applyFeatherFixes transform", () => {
         assert.strictEqual(returnStatement.argument?.type, "Identifier");
         assert.strictEqual(returnStatement.argument.name, replacementName);
 
-        const statementFixes =
-            replacementDeclaration._appliedFeatherDiagnostics;
+        const statementFixes = replacementDeclaration._appliedFeatherDiagnostics;
         assert.ok(Array.isArray(statementFixes));
         assert.strictEqual(statementFixes.length, 1);
         assert.strictEqual(statementFixes[0].id, "GM1008");
@@ -733,9 +635,7 @@ void describe("Transforms.applyFeatherFixes transform", () => {
         assert.strictEqual(initializer.type, "BinaryExpression");
         assert.strictEqual(initializer.operator, "|");
 
-        const appliedDiagnostics = Array.isArray(
-            initializer._appliedFeatherDiagnostics
-        )
+        const appliedDiagnostics = Array.isArray(initializer._appliedFeatherDiagnostics)
             ? initializer._appliedFeatherDiagnostics
             : [];
 
@@ -747,11 +647,9 @@ void describe("Transforms.applyFeatherFixes transform", () => {
     });
 
     void it("converts room navigation arithmetic into dedicated helpers", () => {
-        const source = [
-            "var next_room = room + 1;",
-            "var previous_room = room - 1;",
-            "room_goto(room + 1);"
-        ].join("\n");
+        const source = ["var next_room = room + 1;", "var previous_room = room - 1;", "room_goto(room + 1);"].join(
+            "\n"
+        );
 
         const ast = Parser.GMLParser.parse(source, {
             getLocations: true,
@@ -762,8 +660,7 @@ void describe("Transforms.applyFeatherFixes transform", () => {
             sourceText: source
         });
 
-        const [nextDeclaration, previousDeclaration, gotoStatement] =
-            ast.body ?? [];
+        const [nextDeclaration, previousDeclaration, gotoStatement] = ast.body ?? [];
 
         assert.ok(nextDeclaration);
         assert.strictEqual(nextDeclaration.type, "VariableDeclaration");
@@ -783,9 +680,7 @@ void describe("Transforms.applyFeatherFixes transform", () => {
         assert.strictEqual(nextArgument.type, "Identifier");
         assert.strictEqual(nextArgument.name, "room");
 
-        const nextFixes = Array.isArray(
-            nextInitializer._appliedFeatherDiagnostics
-        )
+        const nextFixes = Array.isArray(nextInitializer._appliedFeatherDiagnostics)
             ? nextInitializer._appliedFeatherDiagnostics
             : [];
 
@@ -813,9 +708,7 @@ void describe("Transforms.applyFeatherFixes transform", () => {
         assert.strictEqual(previousArgument.type, "Identifier");
         assert.strictEqual(previousArgument.name, "room");
 
-        const previousFixes = Array.isArray(
-            previousInitializer._appliedFeatherDiagnostics
-        )
+        const previousFixes = Array.isArray(previousInitializer._appliedFeatherDiagnostics)
             ? previousInitializer._appliedFeatherDiagnostics
             : [];
 
@@ -826,9 +719,7 @@ void describe("Transforms.applyFeatherFixes transform", () => {
         );
 
         const expressionStatement =
-            gotoStatement?.type === "ExpressionStatement"
-                ? gotoStatement.expression
-                : gotoStatement;
+            gotoStatement?.type === "ExpressionStatement" ? gotoStatement.expression : gotoStatement;
 
         assert.ok(expressionStatement);
         assert.strictEqual(expressionStatement.type, "CallExpression");
@@ -836,9 +727,7 @@ void describe("Transforms.applyFeatherFixes transform", () => {
         assert.ok(Array.isArray(expressionStatement.arguments));
         assert.strictEqual(expressionStatement.arguments.length, 0);
 
-        const gotoFixes = Array.isArray(
-            expressionStatement._appliedFeatherDiagnostics
-        )
+        const gotoFixes = Array.isArray(expressionStatement._appliedFeatherDiagnostics)
             ? expressionStatement._appliedFeatherDiagnostics
             : [];
 
@@ -850,18 +739,14 @@ void describe("Transforms.applyFeatherFixes transform", () => {
     });
 
     void it("maps room navigation directions to helper names", () => {
-        const nextHelpers = Transforms.getRoomNavigationHelpers(
-            Transforms.ROOM_NAVIGATION_DIRECTION.NEXT
-        );
+        const nextHelpers = Transforms.getRoomNavigationHelpers(Transforms.ROOM_NAVIGATION_DIRECTION.NEXT);
 
         assert.deepStrictEqual(nextHelpers, {
             binary: "room_next",
             goto: "room_goto_next"
         });
 
-        const previousHelpers = Transforms.getRoomNavigationHelpers(
-            Transforms.ROOM_NAVIGATION_DIRECTION.PREVIOUS
-        );
+        const previousHelpers = Transforms.getRoomNavigationHelpers(Transforms.ROOM_NAVIGATION_DIRECTION.PREVIOUS);
 
         assert.deepStrictEqual(previousHelpers, {
             binary: "room_previous",
@@ -882,11 +767,7 @@ void describe("Transforms.applyFeatherFixes transform", () => {
     });
 
     void it("annotates invalid assignment targets with GM1007 metadata", () => {
-        const source = [
-            "var origin = new Point(0, 0);",
-            "",
-            "new Point(0, 0) = 1;"
-        ].join("\n");
+        const source = ["var origin = new Point(0, 0);", "", "new Point(0, 0) = 1;"].join("\n");
 
         const ast = Parser.GMLParser.parse(source, {
             getLocations: true,
@@ -901,10 +782,7 @@ void describe("Transforms.applyFeatherFixes transform", () => {
         assert.ok(Array.isArray(programFixes));
         const gm1007Fix = programFixes.find((entry) => entry.id === "GM1007");
 
-        assert.ok(
-            gm1007Fix,
-            "Expected program-level metadata to include GM1007."
-        );
+        assert.ok(gm1007Fix, "Expected program-level metadata to include GM1007.");
         assert.strictEqual(gm1007Fix.automatic, false);
         assert.strictEqual(gm1007Fix.target, "new Point(0, 0)");
         assert.ok(gm1007Fix.range);
@@ -914,11 +792,7 @@ void describe("Transforms.applyFeatherFixes transform", () => {
     });
 
     void it("removes invalid assignment statements flagged by GM1007", () => {
-        const source = [
-            "var origin = new Point(0, 0);",
-            "",
-            "new Point(0, 0) = 1;"
-        ].join("\n");
+        const source = ["var origin = new Point(0, 0);", "", "new Point(0, 0) = 1;"].join("\n");
 
         const ast = Parser.GMLParser.parse(source, {
             getLocations: true,
@@ -934,14 +808,10 @@ void describe("Transforms.applyFeatherFixes transform", () => {
         assert.strictEqual(programBody.length, 1);
         assert.strictEqual(programBody[0]?.type, "VariableDeclaration");
 
-        const remainingExpression = programBody.find(
-            (node) => node?.type === "ExpressionStatement"
-        );
+        const remainingExpression = programBody.find((node) => node?.type === "ExpressionStatement");
         assert.strictEqual(remainingExpression, undefined);
 
-        const programFixes = Array.isArray(ast._appliedFeatherDiagnostics)
-            ? ast._appliedFeatherDiagnostics
-            : [];
+        const programFixes = Array.isArray(ast._appliedFeatherDiagnostics) ? ast._appliedFeatherDiagnostics : [];
 
         assert.strictEqual(
             programFixes.some((entry) => entry.id === "GM1007"),
@@ -1004,33 +874,22 @@ void describe("Transforms.applyFeatherFixes transform", () => {
         assert.strictEqual(secondCallArgument?.object?.name, "other");
         assert.strictEqual(secondCallArgument?.property?.name, "atk");
 
-        const assignmentFixes =
-            promotedAssignment?._appliedFeatherDiagnostics ?? [];
+        const assignmentFixes = promotedAssignment?._appliedFeatherDiagnostics ?? [];
         assert.ok(
-            assignmentFixes.some(
-                (entry) => entry.id === "GM1013" && entry.automatic === true
-            ),
+            assignmentFixes.some((entry) => entry.id === "GM1013" && entry.automatic === true),
             "Expected promoted assignment to record GM1013 metadata."
         );
 
-        const memberFixes =
-            damageExpression.right?._appliedFeatherDiagnostics ?? [];
+        const memberFixes = damageExpression.right?._appliedFeatherDiagnostics ?? [];
         assert.ok(
-            memberFixes.some(
-                (entry) => entry.id === "GM1013" && entry.automatic === true
-            ),
+            memberFixes.some((entry) => entry.id === "GM1013" && entry.automatic === true),
             "Expected member access to record GM1013 metadata."
         );
 
         const programFixes = ast._appliedFeatherDiagnostics ?? [];
-        const automaticGm1013 = programFixes.filter(
-            (entry) => entry.id === "GM1013" && entry.automatic === true
-        );
+        const automaticGm1013 = programFixes.filter((entry) => entry.id === "GM1013" && entry.automatic === true);
 
-        assert.ok(
-            automaticGm1013.length >= 3,
-            "Expected program metadata to include automatic GM1013 fixes."
-        );
+        assert.ok(automaticGm1013.length >= 3, "Expected program metadata to include automatic GM1013 fixes.");
     });
 
     void it("preserves function-scoped vars when resolving with(other) references", () => {
@@ -1059,9 +918,7 @@ void describe("Transforms.applyFeatherFixes transform", () => {
 
         const constructor = ast.body?.[0];
         assert.ok(constructor);
-        const staticDeclaration = constructor?.body?.body?.find(
-            (node) => node?.type === "VariableDeclaration"
-        );
+        const staticDeclaration = constructor?.body?.body?.find((node) => node?.type === "VariableDeclaration");
         assert.ok(staticDeclaration);
         const staticInitializer = staticDeclaration.declarations?.[0]?.init;
         assert.ok(staticInitializer);
@@ -1126,9 +983,7 @@ void describe("Transforms.applyFeatherFixes transform", () => {
 
         assert.ok(Array.isArray(ast._appliedFeatherDiagnostics));
         assert.strictEqual(
-            ast._appliedFeatherDiagnostics.some(
-                (entry) => entry.id === "GM1010"
-            ),
+            ast._appliedFeatherDiagnostics.some((entry) => entry.id === "GM1010"),
             true,
             "Expected GM1010 metadata to be recorded on the program node."
         );
@@ -1174,9 +1029,7 @@ void describe("Transforms.applyFeatherFixes transform", () => {
 
         assert.ok(Array.isArray(ast._appliedFeatherDiagnostics));
         assert.strictEqual(
-            ast._appliedFeatherDiagnostics.some(
-                (entry) => entry.id === "GM1010"
-            ),
+            ast._appliedFeatherDiagnostics.some((entry) => entry.id === "GM1010"),
             true,
             "Expected GM1010 metadata to be recorded on the program node."
         );
@@ -1272,12 +1125,8 @@ void describe("Transforms.applyFeatherFixes transform", () => {
             sourceText: source
         });
 
-        const typoCall = ast.body?.find(
-            (node) => node?.type === "CallExpression"
-        );
-        const variableDeclaration = ast.body?.find(
-            (node) => node?.type === "VariableDeclaration"
-        );
+        const typoCall = ast.body?.find((node) => node?.type === "CallExpression");
+        const variableDeclaration = ast.body?.find((node) => node?.type === "VariableDeclaration");
         const clampCall = variableDeclaration?.declarations?.[0]?.init;
 
         assert.ok(typoCall);
@@ -1309,9 +1158,7 @@ void describe("Transforms.applyFeatherFixes transform", () => {
         assert.strictEqual(clampFixes[0].automatic, true);
 
         const appliedFixes = ast._appliedFeatherDiagnostics ?? [];
-        const gm1021Entries = appliedFixes.filter(
-            (entry) => entry?.id === "GM1021"
-        );
+        const gm1021Entries = appliedFixes.filter((entry) => entry?.id === "GM1021");
 
         assert.strictEqual(gm1021Entries.length >= 2, true);
         for (const entry of gm1021Entries) {
@@ -1320,12 +1167,9 @@ void describe("Transforms.applyFeatherFixes transform", () => {
     });
 
     void it("renames deprecated built-in variables and records fix metadata", () => {
-        const source = [
-            "score = 0;",
-            "score = score + 1;",
-            "player.score = score;",
-            "var local_score = score;"
-        ].join("\n");
+        const source = ["score = 0;", "score = score + 1;", "player.score = score;", "var local_score = score;"].join(
+            "\n"
+        );
 
         const ast = Parser.GMLParser.parse(source, {
             getLocations: true,
@@ -1336,12 +1180,7 @@ void describe("Transforms.applyFeatherFixes transform", () => {
             sourceText: source
         });
 
-        const [
-            firstAssignment,
-            secondAssignment,
-            memberAssignment,
-            declaration
-        ] = ast.body ?? [];
+        const [firstAssignment, secondAssignment, memberAssignment, declaration] = ast.body ?? [];
 
         assert.ok(firstAssignment);
         assert.strictEqual(firstAssignment.type, "AssignmentExpression");
@@ -1365,8 +1204,7 @@ void describe("Transforms.applyFeatherFixes transform", () => {
         assert.strictEqual(declarator?.id?.name, "local_score");
         assert.strictEqual(declarator?.init?.name, "points");
 
-        const identifierMetadata =
-            firstAssignment.left?._appliedFeatherDiagnostics;
+        const identifierMetadata = firstAssignment.left?._appliedFeatherDiagnostics;
         assert.ok(Array.isArray(identifierMetadata));
         assert.strictEqual(identifierMetadata.length > 0, true);
         assert.strictEqual(identifierMetadata[0].id, "GM1024");
@@ -1374,21 +1212,13 @@ void describe("Transforms.applyFeatherFixes transform", () => {
 
         assert.ok(Array.isArray(ast._appliedFeatherDiagnostics));
         assert.strictEqual(
-            ast._appliedFeatherDiagnostics.some(
-                (entry) => entry.id === "GM1024"
-            ),
+            ast._appliedFeatherDiagnostics.some((entry) => entry.id === "GM1024"),
             true
         );
     });
 
     void it("replaces deprecated constants highlighted by GM1023", () => {
-        const source = [
-            "if (os_type == os_win32)",
-            "{",
-            "    return os_win32;",
-            "}",
-            ""
-        ].join("\n");
+        const source = ["if (os_type == os_win32)", "{", "    return os_win32;", "}", ""].join("\n");
 
         const ast = Parser.GMLParser.parse(source, {
             getLocations: true,
@@ -1416,13 +1246,8 @@ void describe("Transforms.applyFeatherFixes transform", () => {
         const identifierFixes = returnArgument._appliedFeatherDiagnostics ?? [];
         assert.ok(Array.isArray(identifierFixes));
 
-        const gm1023Fix = identifierFixes.find(
-            (entry) => entry.id === "GM1023"
-        );
-        assert.ok(
-            gm1023Fix,
-            "Expected GM1023 fix metadata to be attached to the identifier."
-        );
+        const gm1023Fix = identifierFixes.find((entry) => entry.id === "GM1023");
+        assert.ok(gm1023Fix, "Expected GM1023 fix metadata to be attached to the identifier.");
         assert.strictEqual(gm1023Fix.target, "os_windows");
         assert.strictEqual(gm1023Fix.automatic, true);
 
@@ -1468,8 +1293,7 @@ void describe("Transforms.applyFeatherFixes transform", () => {
         assert.strictEqual(incDecStatement.argument?.type, "Identifier");
         assert.strictEqual(incDecStatement.argument?.name, identifierName);
 
-        const declarationMetadata =
-            variableDeclaration._appliedFeatherDiagnostics;
+        const declarationMetadata = variableDeclaration._appliedFeatherDiagnostics;
         assert.ok(Array.isArray(declarationMetadata));
         assert.strictEqual(
             declarationMetadata.some((entry) => entry.id === "GM1026"),
@@ -1491,12 +1315,7 @@ void describe("Transforms.applyFeatherFixes transform", () => {
     });
 
     void it("renames reserved identifiers and records fix metadata", () => {
-        const source = [
-            "#macro image_index 1",
-            "",
-            "var image_index = 1;",
-            "static draw_text = 2;"
-        ].join("\n");
+        const source = ["#macro image_index 1", "", "var image_index = 1;", "static draw_text = 2;"].join("\n");
 
         const ast = Parser.GMLParser.parse(source, {
             getLocations: true,
@@ -1511,47 +1330,24 @@ void describe("Transforms.applyFeatherFixes transform", () => {
 
         assert.ok(macro?.name);
         assert.strictEqual(macro.name.name, "_image_index");
-        assert.strictEqual(
-            macro._featherMacroText?.trimEnd(),
-            "#macro _image_index 1"
-        );
+        assert.strictEqual(macro._featherMacroText?.trimEnd(), "#macro _image_index 1");
         assert.ok(Array.isArray(macro.name._appliedFeatherDiagnostics));
-        assert.strictEqual(
-            macro.name._appliedFeatherDiagnostics[0].id,
-            "GM1030"
-        );
-        assert.strictEqual(
-            macro.name._appliedFeatherDiagnostics[0].target,
-            "image_index"
-        );
+        assert.strictEqual(macro.name._appliedFeatherDiagnostics[0].id, "GM1030");
+        assert.strictEqual(macro.name._appliedFeatherDiagnostics[0].target, "image_index");
 
         const varDeclarator = varDeclaration?.declarations?.[0];
         assert.ok(varDeclarator?.id);
         assert.strictEqual(varDeclarator.id.name, "_image_index");
         assert.ok(Array.isArray(varDeclarator.id._appliedFeatherDiagnostics));
-        assert.strictEqual(
-            varDeclarator.id._appliedFeatherDiagnostics[0].id,
-            "GM1030"
-        );
-        assert.strictEqual(
-            varDeclarator.id._appliedFeatherDiagnostics[0].target,
-            "image_index"
-        );
+        assert.strictEqual(varDeclarator.id._appliedFeatherDiagnostics[0].id, "GM1030");
+        assert.strictEqual(varDeclarator.id._appliedFeatherDiagnostics[0].target, "image_index");
 
         const staticDeclarator = staticDeclaration?.declarations?.[0];
         assert.ok(staticDeclarator?.id);
         assert.strictEqual(staticDeclarator.id.name, "_draw_text");
-        assert.ok(
-            Array.isArray(staticDeclarator.id._appliedFeatherDiagnostics)
-        );
-        assert.strictEqual(
-            staticDeclarator.id._appliedFeatherDiagnostics[0].id,
-            "GM1030"
-        );
-        assert.strictEqual(
-            staticDeclarator.id._appliedFeatherDiagnostics[0].target,
-            "draw_text"
-        );
+        assert.ok(Array.isArray(staticDeclarator.id._appliedFeatherDiagnostics));
+        assert.strictEqual(staticDeclarator.id._appliedFeatherDiagnostics[0].id, "GM1030");
+        assert.strictEqual(staticDeclarator.id._appliedFeatherDiagnostics[0].target, "draw_text");
 
         const appliedFixes = ast._appliedFeatherDiagnostics ?? [];
         assert.strictEqual(
@@ -1562,8 +1358,7 @@ void describe("Transforms.applyFeatherFixes transform", () => {
     });
 
     void it("converts numeric string call arguments into numeric literals for GM1029", () => {
-        const source =
-            'draw_sprite(sprite_index, image_index, "1234", "5678");';
+        const source = 'draw_sprite(sprite_index, image_index, "1234", "5678");';
 
         const ast = Parser.GMLParser.parse(source, {
             getLocations: true,
@@ -1577,9 +1372,7 @@ void describe("Transforms.applyFeatherFixes transform", () => {
         const [callExpression] = ast.body ?? [];
         assert.ok(callExpression);
 
-        const args = Array.isArray(callExpression?.arguments)
-            ? callExpression.arguments
-            : [];
+        const args = Array.isArray(callExpression?.arguments) ? callExpression.arguments : [];
 
         assert.strictEqual(args.length, 4);
         assert.strictEqual(args[2]?.type, "Literal");
@@ -1597,14 +1390,8 @@ void describe("Transforms.applyFeatherFixes transform", () => {
         assert.strictEqual(metadata?.id, "GM1029");
         assert.strictEqual(metadata?.automatic, true);
         assert.strictEqual(metadata?.title, diagnostic?.title ?? null);
-        assert.strictEqual(
-            metadata?.description,
-            diagnostic?.description ?? null
-        );
-        assert.strictEqual(
-            metadata?.correction,
-            diagnostic?.correction ?? null
-        );
+        assert.strictEqual(metadata?.description, diagnostic?.description ?? null);
+        assert.strictEqual(metadata?.correction, diagnostic?.correction ?? null);
         assert.ok(metadata?.range);
         assert.strictEqual(typeof metadata.range.start, "number");
         assert.strictEqual(typeof metadata.range.end, "number");
@@ -1634,8 +1421,7 @@ void describe("Transforms.applyFeatherFixes transform", () => {
         const functionDeclaration = ast.body?.[0];
         assert.ok(functionDeclaration?.body?.body);
 
-        const [primaryDeclaration, tertiaryDeclaration, returnStatement] =
-            functionDeclaration.body.body;
+        const [primaryDeclaration, tertiaryDeclaration, returnStatement] = functionDeclaration.body.body;
 
         const primaryInit = primaryDeclaration?.declarations?.[0]?.init;
         const tertiaryInit = tertiaryDeclaration?.declarations?.[0]?.init;
@@ -1650,10 +1436,7 @@ void describe("Transforms.applyFeatherFixes transform", () => {
         assert.strictEqual(tertiaryInit?.property?.length, 1);
         assert.strictEqual(tertiaryInit?.object?.type, "MemberIndexExpression");
         assert.strictEqual(tertiaryInit.object.property?.length, 1);
-        assert.strictEqual(
-            tertiaryInit.object?.object?.type,
-            "MemberIndexExpression"
-        );
+        assert.strictEqual(tertiaryInit.object?.object?.type, "MemberIndexExpression");
         assert.ok(Array.isArray(tertiaryInit._appliedFeatherDiagnostics));
 
         const globalDeclaration = ast.body?.[1]?.declarations?.[0];
@@ -1663,20 +1446,12 @@ void describe("Transforms.applyFeatherFixes transform", () => {
         assert.strictEqual(nestedInit?.property?.length, 1);
         assert.strictEqual(nestedInit?.object?.type, "MemberIndexExpression");
         assert.strictEqual(nestedInit?.object?.property?.length, 1);
-        assert.strictEqual(
-            nestedInit?.object?.object?.type,
-            "MemberIndexExpression"
-        );
-        assert.strictEqual(
-            nestedInit?.object?.object?.object?.type,
-            "MemberIndexExpression"
-        );
+        assert.strictEqual(nestedInit?.object?.object?.type, "MemberIndexExpression");
+        assert.strictEqual(nestedInit?.object?.object?.object?.type, "MemberIndexExpression");
         assert.ok(Array.isArray(nestedInit._appliedFeatherDiagnostics));
 
         assert.ok(Array.isArray(ast._appliedFeatherDiagnostics));
-        const normalizedFixes = ast._appliedFeatherDiagnostics.filter(
-            (entry) => entry.id === "GM1036"
-        );
+        const normalizedFixes = ast._appliedFeatherDiagnostics.filter((entry) => entry.id === "GM1036");
         assert.strictEqual(normalizedFixes.length >= 3, true);
 
         for (const entry of normalizedFixes) {
@@ -1724,20 +1499,13 @@ void describe("Transforms.applyFeatherFixes transform", () => {
         assert.ok(Array.isArray(programFixes));
         assert.ok(
             programFixes.some(
-                (detail) =>
-                    detail.id === "GM1041" &&
-                    detail.automatic === true &&
-                    detail.target === "obj_player"
+                (detail) => detail.id === "GM1041" && detail.automatic === true && detail.target === "obj_player"
             )
         );
     });
 
     void it("replaces invalid delete statements and records fix metadata", () => {
-        const source = [
-            "var values = [2, 403, 202, 303, 773, 573];",
-            "",
-            "delete values;"
-        ].join("\n");
+        const source = ["var values = [2, 403, 202, 303, 773, 573];", "", "delete values;"].join("\n");
 
         const ast = Parser.GMLParser.parse(source, {
             getLocations: true,
@@ -1770,31 +1538,21 @@ void describe("Transforms.applyFeatherFixes transform", () => {
             "Expected delete fixer metadata to be recorded on the assignment node."
         );
 
-        const recordedFix = assignmentFixes.find(
-            (entry) => entry.id === "GM1052"
-        );
+        const recordedFix = assignmentFixes.find((entry) => entry.id === "GM1052");
         assert.ok(recordedFix);
         assert.strictEqual(recordedFix.target, "values");
         assert.strictEqual(recordedFix.automatic, true);
 
         assert.ok(Array.isArray(ast._appliedFeatherDiagnostics));
         assert.strictEqual(
-            ast._appliedFeatherDiagnostics.some(
-                (entry) => entry.id === "GM1052"
-            ),
+            ast._appliedFeatherDiagnostics.some((entry) => entry.id === "GM1052"),
             true,
             "Expected delete fixer metadata to be recorded on the program node."
         );
     });
 
     void it("marks constructor declarations for functions instantiated with new", () => {
-        const source = [
-            "function item() {",
-            "    return 42;",
-            "}",
-            "",
-            "var sword = new item();"
-        ].join("\n");
+        const source = ["function item() {", "    return 42;", "}", "", "var sword = new item();"].join("\n");
 
         const ast = Parser.GMLParser.parse(source, {
             getLocations: true,
@@ -1833,11 +1591,7 @@ void describe("Transforms.applyFeatherFixes transform", () => {
     });
 
     void it("removes duplicate function parameters and records metadata", () => {
-        const source = [
-            "function example(value, other, value, value) {",
-            "    return value + other;",
-            "}"
-        ].join("\n");
+        const source = ["function example(value, other, value, value) {", "    return value + other;", "}"].join("\n");
 
         const ast = Parser.GMLParser.parse(source, {
             getLocations: true,
@@ -1852,11 +1606,7 @@ void describe("Transforms.applyFeatherFixes transform", () => {
         assert.ok(fn);
         const params = Array.isArray(fn.params) ? fn.params : [];
         assert.deepStrictEqual(
-            params.map((param) =>
-                param?.type === "Identifier"
-                    ? param.name
-                    : (param?.left?.name ?? null)
-            ),
+            params.map((param) => (param?.type === "Identifier" ? param.name : (param?.left?.name ?? null))),
             ["value", "other"]
         );
 
@@ -1869,9 +1619,7 @@ void describe("Transforms.applyFeatherFixes transform", () => {
         }
 
         const rootMetadata = ast._appliedFeatherDiagnostics ?? [];
-        const gm1059Metadata = rootMetadata.filter(
-            (entry) => entry.id === "GM1059"
-        );
+        const gm1059Metadata = rootMetadata.filter((entry) => entry.id === "GM1059");
         assert.strictEqual(gm1059Metadata.length, 2);
         for (const entry of gm1059Metadata) {
             assert.strictEqual(entry.target, "value");
@@ -1880,11 +1628,9 @@ void describe("Transforms.applyFeatherFixes transform", () => {
     });
 
     void it("removes duplicate constructor parameters flagged by GM1059", () => {
-        const source = [
-            "function Example(value, other, value) constructor {",
-            "    return value + other;",
-            "}"
-        ].join("\n");
+        const source = ["function Example(value, other, value) constructor {", "    return value + other;", "}"].join(
+            "\n"
+        );
 
         const ast = Parser.GMLParser.parse(source, {
             getLocations: true,
@@ -1901,11 +1647,7 @@ void describe("Transforms.applyFeatherFixes transform", () => {
 
         const params = Array.isArray(ctor.params) ? ctor.params : [];
         assert.deepStrictEqual(
-            params.map((param) =>
-                param?.type === "Identifier"
-                    ? param.name
-                    : (param?.left?.name ?? null)
-            ),
+            params.map((param) => (param?.type === "Identifier" ? param.name : (param?.left?.name ?? null))),
             ["value", "other"]
         );
 
@@ -1918,9 +1660,7 @@ void describe("Transforms.applyFeatherFixes transform", () => {
         assert.strictEqual(metadataEntry.automatic, true);
 
         const rootMetadata = ast._appliedFeatherDiagnostics ?? [];
-        const gm1059Metadata = rootMetadata.filter(
-            (entry) => entry.id === "GM1059"
-        );
+        const gm1059Metadata = rootMetadata.filter((entry) => entry.id === "GM1059");
         assert.strictEqual(gm1059Metadata.length, 1);
         const [rootEntry] = gm1059Metadata;
         assert.ok(rootEntry);
@@ -1984,17 +1724,12 @@ void describe("Transforms.applyFeatherFixes transform", () => {
 
         gm1059Fixer.applyFix(program, { options: {} });
 
-        assert.ok(
-            injectedAdded,
-            "Expected nested parameter fixes to append the injected function."
-        );
+        assert.ok(injectedAdded, "Expected nested parameter fixes to append the injected function.");
 
         const nestedNames = nestedFunction.params.map((param) => param.name);
         assert.deepStrictEqual(nestedNames, ["x"]);
 
-        const injectedNames = injectedFunction.params.map(
-            (param) => param.name
-        );
+        const injectedNames = injectedFunction.params.map((param) => param.name);
         assert.deepStrictEqual(injectedNames, ["z"]);
     });
 
@@ -2021,21 +1756,12 @@ void describe("Transforms.applyFeatherFixes transform", () => {
         const [enumDeclaration] = ast.body ?? [];
         assert.ok(enumDeclaration);
 
-        const members = Array.isArray(enumDeclaration.members)
-            ? enumDeclaration.members
-            : [];
+        const members = Array.isArray(enumDeclaration.members) ? enumDeclaration.members : [];
         const memberNames = members.map((member) => member?.name?.name);
 
-        assert.deepStrictEqual(memberNames, [
-            "NONE",
-            "ORANGE",
-            "KIWI",
-            "SIZEOF"
-        ]);
+        assert.deepStrictEqual(memberNames, ["NONE", "ORANGE", "KIWI", "SIZEOF"]);
 
-        const kiwiMember = members.find(
-            (member) => member?.name?.name === "KIWI"
-        );
+        const kiwiMember = members.find((member) => member?.name?.name === "KIWI");
         assert.ok(kiwiMember);
 
         const memberFixes = kiwiMember._appliedFeatherDiagnostics;
@@ -2088,8 +1814,7 @@ void describe("Transforms.applyFeatherFixes transform", () => {
             ["KIWI"]
         );
 
-        const metadata =
-            enumDeclaration.members[0]?._appliedFeatherDiagnostics ?? [];
+        const metadata = enumDeclaration.members[0]?._appliedFeatherDiagnostics ?? [];
         assert.strictEqual(metadata.length, 1);
         const [entry] = metadata;
         assert.strictEqual(entry.id, "GM1014");
@@ -2110,9 +1835,7 @@ void describe("Transforms.applyFeatherFixes transform", () => {
 
         assert.ok(Array.isArray(ast._appliedFeatherDiagnostics));
 
-        const recordedIds = new Set(
-            ast._appliedFeatherDiagnostics.map((entry) => entry.id)
-        );
+        const recordedIds = new Set(ast._appliedFeatherDiagnostics.map((entry) => entry.id));
         const diagnostics = getFeatherMetadata().diagnostics ?? [];
 
         assert.strictEqual(
@@ -2122,11 +1845,7 @@ void describe("Transforms.applyFeatherFixes transform", () => {
         );
 
         for (const id of ["GM2054", "GM2020", "GM2042", "GM1042"]) {
-            assert.strictEqual(
-                recordedIds.has(id),
-                true,
-                `Expected manual Feather fix metadata for diagnostic ${id}.`
-            );
+            assert.strictEqual(recordedIds.has(id), true, `Expected manual Feather fix metadata for diagnostic ${id}.`);
         }
 
         for (const entry of ast._appliedFeatherDiagnostics) {
@@ -2156,10 +1875,7 @@ void describe("Transforms.applyFeatherFixes transform", () => {
 
         const body = ast.body ?? [];
         assert.ok(Array.isArray(body));
-        assert.ok(
-            body.length >= 3,
-            "Expected shader_reset call to be inserted after the draw call."
-        );
+        assert.ok(body.length >= 3, "Expected shader_reset call to be inserted after the draw call.");
 
         const drawCall = body[1];
         assert.strictEqual(drawCall?.type, "CallExpression");
@@ -2170,21 +1886,15 @@ void describe("Transforms.applyFeatherFixes transform", () => {
         assert.strictEqual(shaderResetCall?.object?.name, "shader_reset");
 
         const appliedDiagnostics = ast._appliedFeatherDiagnostics ?? [];
-        const gm2003 = appliedDiagnostics.find(
-            (entry) => entry.id === "GM2003"
-        );
+        const gm2003 = appliedDiagnostics.find((entry) => entry.id === "GM2003");
 
-        assert.ok(
-            gm2003,
-            "Expected GM2003 metadata to be recorded on the AST."
-        );
+        assert.ok(gm2003, "Expected GM2003 metadata to be recorded on the AST.");
         assert.strictEqual(gm2003.automatic, true);
         assert.ok(gm2003.range);
         assert.strictEqual(typeof gm2003.range.start, "number");
         assert.strictEqual(typeof gm2003.range.end, "number");
 
-        const callDiagnostics =
-            shaderResetCall._appliedFeatherDiagnostics ?? [];
+        const callDiagnostics = shaderResetCall._appliedFeatherDiagnostics ?? [];
         assert.strictEqual(
             callDiagnostics.some((entry) => entry.id === "GM2003"),
             true,
@@ -2213,32 +1923,18 @@ void describe("Transforms.applyFeatherFixes transform", () => {
 
         const body = Array.isArray(ast.body) ? ast.body : [];
         const setIndex = body.findIndex(
-            (node) =>
-                node?.type === "CallExpression" &&
-                node.object?.name === "surface_set_target"
+            (node) => node?.type === "CallExpression" && node.object?.name === "surface_set_target"
         );
         const resetIndex = body.findIndex(
-            (node) =>
-                node?.type === "CallExpression" &&
-                node.object?.name === "surface_reset_target"
+            (node) => node?.type === "CallExpression" && node.object?.name === "surface_reset_target"
         );
 
-        assert.ok(
-            setIndex !== -1,
-            "Expected surface_set_target call to be present in the AST."
-        );
-        assert.ok(
-            resetIndex > setIndex,
-            "Expected surface_reset_target to be inserted after the setter."
-        );
+        assert.ok(setIndex !== -1, "Expected surface_set_target call to be present in the AST.");
+        assert.ok(resetIndex > setIndex, "Expected surface_reset_target to be inserted after the setter.");
 
         const resetCall = body[resetIndex];
         assert.ok(Array.isArray(resetCall?.arguments));
-        assert.strictEqual(
-            resetCall.arguments.length,
-            0,
-            "Reset call should not include arguments."
-        );
+        assert.strictEqual(resetCall.arguments.length, 0, "Reset call should not include arguments.");
 
         const vertexCall = body[resetIndex + 1];
         assert.strictEqual(
@@ -2247,23 +1943,14 @@ void describe("Transforms.applyFeatherFixes transform", () => {
             "Expected reset call to appear before vertex submission."
         );
 
-        const appliedDiagnostics = Array.isArray(ast._appliedFeatherDiagnostics)
-            ? ast._appliedFeatherDiagnostics
-            : [];
-        const gm2046 = appliedDiagnostics.find(
-            (entry) => entry.id === "GM2046"
-        );
+        const appliedDiagnostics = Array.isArray(ast._appliedFeatherDiagnostics) ? ast._appliedFeatherDiagnostics : [];
+        const gm2046 = appliedDiagnostics.find((entry) => entry.id === "GM2046");
 
-        assert.ok(
-            gm2046,
-            "Expected GM2046 metadata to be recorded on the AST."
-        );
+        assert.ok(gm2046, "Expected GM2046 metadata to be recorded on the AST.");
         assert.strictEqual(gm2046.automatic, true);
         assert.strictEqual(gm2046.target, "sf");
 
-        const resetDiagnostics = Array.isArray(
-            resetCall?._appliedFeatherDiagnostics
-        )
+        const resetDiagnostics = Array.isArray(resetCall?._appliedFeatherDiagnostics)
             ? resetCall._appliedFeatherDiagnostics
             : [];
 
@@ -2293,24 +1980,14 @@ void describe("Transforms.applyFeatherFixes transform", () => {
 
         const body = Array.isArray(ast.body) ? ast.body : [];
         const submitIndex = body.findIndex(
-            (node) =>
-                node?.type === "CallExpression" &&
-                node.object?.name === "vertex_submit"
+            (node) => node?.type === "CallExpression" && node.object?.name === "vertex_submit"
         );
         const resetIndex = body.findIndex(
-            (node) =>
-                node?.type === "CallExpression" &&
-                node.object?.name === "surface_reset_target"
+            (node) => node?.type === "CallExpression" && node.object?.name === "surface_reset_target"
         );
 
-        assert.ok(
-            submitIndex !== -1,
-            "Expected vertex_submit call to be present in the AST."
-        );
-        assert.ok(
-            resetIndex !== -1,
-            "Expected surface_reset_target call to be inserted."
-        );
+        assert.ok(submitIndex !== -1, "Expected vertex_submit call to be present in the AST.");
+        assert.ok(resetIndex !== -1, "Expected surface_reset_target call to be inserted.");
         assert.strictEqual(
             resetIndex,
             submitIndex + 1,
@@ -2337,14 +2014,9 @@ void describe("Transforms.applyFeatherFixes transform", () => {
             sourceText: source
         });
 
-        const callExpression = ast.body?.find(
-            (node) => node?.type === "CallExpression"
-        );
+        const callExpression = ast.body?.find((node) => node?.type === "CallExpression");
 
-        assert.ok(
-            callExpression,
-            "Expected the sample program to include a call expression."
-        );
+        assert.ok(callExpression, "Expected the sample program to include a call expression.");
 
         const fixes = callExpression._appliedFeatherDiagnostics;
 
@@ -2361,16 +2033,12 @@ void describe("Transforms.applyFeatherFixes transform", () => {
         assert.strictEqual(fix.range.end, getNodeEndIndex(callExpression));
 
         const metadata = getFeatherMetadata();
-        const diagnostic = metadata.diagnostics?.find(
-            (entry) => entry?.id === "GM1017"
-        );
+        const diagnostic = metadata.diagnostics?.find((entry) => entry?.id === "GM1017");
 
         assert.ok(diagnostic);
         assert.strictEqual(fix.correction, diagnostic?.correction ?? null);
 
-        const programFixIds = new Set(
-            (ast._appliedFeatherDiagnostics ?? []).map((entry) => entry.id)
-        );
+        const programFixIds = new Set((ast._appliedFeatherDiagnostics ?? []).map((entry) => entry.id));
 
         assert.strictEqual(
             programFixIds.has("GM1017"),
@@ -2381,22 +2049,15 @@ void describe("Transforms.applyFeatherFixes transform", () => {
 
     void it("corrects mismatched data structure accessors using metadata", () => {
         const metadata = getFeatherMetadata();
-        const diagnostic = (metadata?.diagnostics ?? []).find(
-            (entry) => entry?.id === "GM1028"
-        );
+        const diagnostic = (metadata?.diagnostics ?? []).find((entry) => entry?.id === "GM1028");
 
+        assert.ok(diagnostic, "Expected metadata for diagnostic GM1028 to exist.");
         assert.ok(
-            diagnostic,
-            "Expected metadata for diagnostic GM1028 to exist."
-        );
-        assert.ok(
-            typeof diagnostic.badExample === "string" &&
-                diagnostic.badExample.includes("[?"),
+            typeof diagnostic.badExample === "string" && diagnostic.badExample.includes("[?"),
             "Expected GM1028 bad example to include the incorrect accessor token."
         );
         assert.ok(
-            typeof diagnostic.goodExample === "string" &&
-                diagnostic.goodExample.includes("[|"),
+            typeof diagnostic.goodExample === "string" && diagnostic.goodExample.includes("[|"),
             "Expected GM1028 good example to include the corrected accessor token."
         );
 
@@ -2426,9 +2087,7 @@ void describe("Transforms.applyFeatherFixes transform", () => {
             }
         });
 
-        const ifStatement = (ast.body ?? []).find(
-            (node) => node?.type === "IfStatement"
-        );
+        const ifStatement = (ast.body ?? []).find((node) => node?.type === "IfStatement");
         const declaration = ifStatement?.consequent?.body?.[0];
         const declarator = declaration?.declarations?.[0];
         const accessorExpression = declarator?.init;
@@ -2437,9 +2096,7 @@ void describe("Transforms.applyFeatherFixes transform", () => {
         assert.strictEqual(accessorExpression.type, "MemberIndexExpression");
         assert.strictEqual(accessorExpression.accessor, "[|");
 
-        const accessorFixes = Array.isArray(
-            accessorExpression._appliedFeatherDiagnostics
-        )
+        const accessorFixes = Array.isArray(accessorExpression._appliedFeatherDiagnostics)
             ? accessorExpression._appliedFeatherDiagnostics
             : [];
 
@@ -2449,9 +2106,7 @@ void describe("Transforms.applyFeatherFixes transform", () => {
             "Expected GM1028 fix metadata to be attached to the accessor expression."
         );
 
-        const appliedFixes = Array.isArray(ast._appliedFeatherDiagnostics)
-            ? ast._appliedFeatherDiagnostics
-            : [];
+        const appliedFixes = Array.isArray(ast._appliedFeatherDiagnostics) ? ast._appliedFeatherDiagnostics : [];
 
         assert.strictEqual(
             appliedFixes.some((entry) => entry.id === "GM1028"),
@@ -2462,14 +2117,9 @@ void describe("Transforms.applyFeatherFixes transform", () => {
 
     void it("normalizes argument built-ins flagged by GM1032", () => {
         const metadata = getFeatherMetadata();
-        const diagnostic = (metadata?.diagnostics ?? []).find(
-            (entry) => entry?.id === "GM1032"
-        );
+        const diagnostic = (metadata?.diagnostics ?? []).find((entry) => entry?.id === "GM1032");
 
-        assert.ok(
-            diagnostic,
-            "Expected GM1032 diagnostic metadata to be available."
-        );
+        assert.ok(diagnostic, "Expected GM1032 diagnostic metadata to be available.");
 
         const source = [
             "function sample() {",
@@ -2503,11 +2153,7 @@ void describe("Transforms.applyFeatherFixes transform", () => {
                 return;
             }
 
-            if (
-                node.type === "Identifier" &&
-                typeof node.name === "string" &&
-                /^argument\d+$/.test(node.name)
-            ) {
+            if (node.type === "Identifier" && typeof node.name === "string" && /^argument\d+$/.test(node.name)) {
                 trackedIdentifiers.push({
                     node,
                     originalName: node.name
@@ -2527,25 +2173,12 @@ void describe("Transforms.applyFeatherFixes transform", () => {
             sourceText: source
         });
 
-        const changedIdentifiers = trackedIdentifiers.filter(
-            (entry) => entry.node.name !== entry.originalName
-        );
+        const changedIdentifiers = trackedIdentifiers.filter((entry) => entry.node.name !== entry.originalName);
 
-        assert.strictEqual(
-            changedIdentifiers.length > 0,
-            true,
-            "Expected some argument built-ins to be renamed."
-        );
+        assert.strictEqual(changedIdentifiers.length > 0, true, "Expected some argument built-ins to be renamed.");
 
-        const changedNames = changedIdentifiers
-            .map((entry) => entry.node.name)
-            .sort();
-        const expectedNames = [
-            "argument0",
-            "argument1",
-            "argument1",
-            "argument2"
-        ].sort();
+        const changedNames = changedIdentifiers.map((entry) => entry.node.name).sort();
+        const expectedNames = ["argument0", "argument1", "argument1", "argument2"].sort();
 
         assert.deepStrictEqual(
             changedNames,
@@ -2556,10 +2189,7 @@ void describe("Transforms.applyFeatherFixes transform", () => {
         for (const entry of changedIdentifiers) {
             const metadataEntries = entry.node._appliedFeatherDiagnostics;
 
-            assert.ok(
-                Array.isArray(metadataEntries),
-                "Each rewritten argument identifier should include metadata."
-            );
+            assert.ok(Array.isArray(metadataEntries), "Each rewritten argument identifier should include metadata.");
             assert.strictEqual(metadataEntries.length > 0, true);
 
             const [fixDetail] = metadataEntries;
@@ -2604,9 +2234,7 @@ void describe("Transforms.applyFeatherFixes transform", () => {
         const [functionDeclaration] = ast.body ?? [];
         assert.strictEqual(functionDeclaration?.type, "FunctionDeclaration");
 
-        const returnStatement = functionDeclaration?.body?.body?.find(
-            (node) => node?.type === "ReturnStatement"
-        );
+        const returnStatement = functionDeclaration?.body?.body?.find((node) => node?.type === "ReturnStatement");
 
         assert.ok(returnStatement, "Expected a return statement to exist.");
 
@@ -2617,9 +2245,7 @@ void describe("Transforms.applyFeatherFixes transform", () => {
         assert.strictEqual(leftOperand?.type, "Identifier");
         assert.strictEqual(leftOperand?.name, "second");
 
-        const metadataEntries = Array.isArray(
-            leftOperand?._appliedFeatherDiagnostics
-        )
+        const metadataEntries = Array.isArray(leftOperand?._appliedFeatherDiagnostics)
             ? leftOperand._appliedFeatherDiagnostics
             : [];
 
@@ -2653,21 +2279,15 @@ void describe("Transforms.applyFeatherFixes transform", () => {
             sourceText: source
         });
 
-        const metadata = Array.isArray(ast._appliedFeatherDiagnostics)
-            ? ast._appliedFeatherDiagnostics
-            : [];
+        const metadata = Array.isArray(ast._appliedFeatherDiagnostics) ? ast._appliedFeatherDiagnostics : [];
 
         const gm1033Fixes = metadata.filter((entry) => entry.id === "GM1033");
 
-        assert.ok(
-            gm1033Fixes.length > 0,
-            "Expected duplicate semicolons to be detected."
-        );
+        assert.ok(gm1033Fixes.length > 0, "Expected duplicate semicolons to be detected.");
 
         for (const fix of gm1033Fixes) {
             assert.strictEqual(
-                typeof fix.range?.start === "number" &&
-                    typeof fix.range?.end === "number",
+                typeof fix.range?.start === "number" && typeof fix.range?.end === "number",
                 true,
                 "Expected each GM1033 fix to include a range."
             );
@@ -2689,8 +2309,7 @@ void describe("Transforms.applyFeatherFixes transform", () => {
             simplifyLocations: false
         });
 
-        const [functionDeclaration, firstStatement, secondStatement] =
-            ast.body ?? [];
+        const [functionDeclaration, firstStatement, secondStatement] = ast.body ?? [];
 
         assert.ok(functionDeclaration);
         assert.strictEqual(functionDeclaration.type, "FunctionDeclaration");
@@ -2727,9 +2346,7 @@ void describe("Transforms.applyFeatherFixes transform", () => {
         assert.strictEqual(secondFixes[0].target, "argument_count");
 
         const programFixes = ast._appliedFeatherDiagnostics ?? [];
-        const gm1034Fixes = programFixes.filter(
-            (entry) => entry.id === "GM1034"
-        );
+        const gm1034Fixes = programFixes.filter((entry) => entry.id === "GM1034");
         assert.strictEqual(gm1034Fixes.length, 2);
     });
 
@@ -2751,28 +2368,15 @@ void describe("Transforms.applyFeatherFixes transform", () => {
             sourceText: source
         });
 
-        const macros = Array.isArray(ast.body)
-            ? ast.body.filter((node) => node?.type === "MacroDeclaration")
-            : [];
+        const macros = Array.isArray(ast.body) ? ast.body.filter((node) => node?.type === "MacroDeclaration") : [];
 
-        assert.strictEqual(
-            macros.length,
-            2,
-            "Expected duplicate macro to be removed."
-        );
+        assert.strictEqual(macros.length, 2, "Expected duplicate macro to be removed.");
 
-        const recordedFixes = Array.isArray(ast._appliedFeatherDiagnostics)
-            ? ast._appliedFeatherDiagnostics
-            : [];
+        const recordedFixes = Array.isArray(ast._appliedFeatherDiagnostics) ? ast._appliedFeatherDiagnostics : [];
 
         assert.ok(recordedFixes.some((entry) => entry.id === "GM1038"));
         assert.ok(
-            recordedFixes.some(
-                (entry) =>
-                    entry.id === "GM1038" &&
-                    entry.target === "dbg" &&
-                    entry.automatic !== false
-            ),
+            recordedFixes.some((entry) => entry.id === "GM1038" && entry.target === "dbg" && entry.automatic !== false),
             "Expected GM1038 fix metadata with automatic flag and target name."
         );
     });
@@ -2797,8 +2401,7 @@ void describe("Transforms.applyFeatherFixes transform", () => {
             simplifyLocations: false
         });
 
-        const [baseFunction, childConstructor, orphanConstructor] =
-            ast.body ?? [];
+        const [baseFunction, childConstructor, orphanConstructor] = ast.body ?? [];
 
         Transforms.applyFeatherFixesTransform.transform(ast, {
             sourceText: source
@@ -2829,18 +2432,12 @@ void describe("Transforms.applyFeatherFixes transform", () => {
         assert.strictEqual(orphanFixes[0].id, "GM1054");
         assert.strictEqual(orphanFixes[0].target, "Missing");
 
-        const recordedIds = new Set(
-            ast._appliedFeatherDiagnostics?.map((entry) => entry.id)
-        );
+        const recordedIds = new Set(ast._appliedFeatherDiagnostics?.map((entry) => entry.id));
         assert.strictEqual(recordedIds.has("GM1054"), true);
     });
 
     void it("assigns undefined defaults to required parameters following optional ones", () => {
-        const source = [
-            "function example(a, b = 1, c, d = 2) {",
-            "    return a + b + c + d;",
-            "}"
-        ].join("\n");
+        const source = ["function example(a, b = 1, c, d = 2) {", "    return a + b + c + d;", "}"].join("\n");
 
         const ast = Parser.GMLParser.parse(source, {
             getLocations: true,
@@ -2880,17 +2477,12 @@ void describe("Transforms.applyFeatherFixes transform", () => {
         assert.strictEqual(params[3]?.type, "DefaultParameter");
         assert.strictEqual(params[3]?.left?.name, "d");
 
-        const defaultParameters = params.filter(
-            (param) => param?.type === "DefaultParameter"
-        );
+        const defaultParameters = params.filter((param) => param?.type === "DefaultParameter");
         assert.strictEqual(defaultParameters.length, 3);
         assert.strictEqual(defaultParameters[0].left?.name, "b");
         assert.strictEqual(defaultParameters[1].left?.name, "c");
         assert.strictEqual(defaultParameters[2].left?.name, "d");
-        assert.strictEqual(
-            defaultParameters[1]._featherOptionalParameter,
-            true
-        );
+        assert.strictEqual(defaultParameters[1]._featherOptionalParameter, true);
 
         assert.ok(Array.isArray(fn._appliedFeatherDiagnostics));
         assert.strictEqual(fn._appliedFeatherDiagnostics.length, 1);
@@ -2899,20 +2491,14 @@ void describe("Transforms.applyFeatherFixes transform", () => {
 
         assert.ok(Array.isArray(ast._appliedFeatherDiagnostics));
         assert.strictEqual(
-            ast._appliedFeatherDiagnostics.some(
-                (entry) => entry.id === "GM1056"
-            ),
+            ast._appliedFeatherDiagnostics.some((entry) => entry.id === "GM1056"),
             true,
             "Expected GM1056 metadata to be recorded on the program node."
         );
     });
 
     void it("resets texture repeat flagged by GM2056 and records metadata", () => {
-        const source = [
-            "gpu_set_texrepeat(true);",
-            "",
-            "vertex_submit(vb_world, pr_trianglelist, tex);"
-        ].join("\n");
+        const source = ["gpu_set_texrepeat(true);", "", "vertex_submit(vb_world, pr_trianglelist, tex);"].join("\n");
 
         const ast = Parser.GMLParser.parse(source, {
             getLocations: true,
@@ -2923,18 +2509,14 @@ void describe("Transforms.applyFeatherFixes transform", () => {
             sourceText: source
         });
 
-        const separatorStatements = (ast.body ?? []).filter(
-            (node) => node?.type === "EmptyStatement"
-        );
+        const separatorStatements = (ast.body ?? []).filter((node) => node?.type === "EmptyStatement");
         assert.strictEqual(
             separatorStatements.length,
             0,
             "Expected GM2056 fix to avoid inserting separator statements."
         );
 
-        const statements = (ast.body ?? []).filter(
-            (node) => node?.type !== "EmptyStatement"
-        );
+        const statements = (ast.body ?? []).filter((node) => node?.type !== "EmptyStatement");
         const [setRepeatCall, submitCall, resetCall] = statements;
 
         assert.ok(setRepeatCall);
@@ -2943,22 +2525,15 @@ void describe("Transforms.applyFeatherFixes transform", () => {
         assert.strictEqual(resetCall.type, "CallExpression");
         assert.strictEqual(resetCall.object?.name, "gpu_set_texrepeat");
 
-        const args = Array.isArray(resetCall.arguments)
-            ? resetCall.arguments
-            : [];
+        const args = Array.isArray(resetCall.arguments) ? resetCall.arguments : [];
         assert.strictEqual(args.length > 0, true);
         assert.strictEqual(args[0]?.type, "Literal");
         assert.strictEqual(args[0]?.value, "false");
 
         const appliedDiagnostics = ast._appliedFeatherDiagnostics ?? [];
-        const gm2056 = appliedDiagnostics.find(
-            (entry) => entry.id === "GM2056"
-        );
+        const gm2056 = appliedDiagnostics.find((entry) => entry.id === "GM2056");
 
-        assert.ok(
-            gm2056,
-            "Expected GM2056 metadata to be recorded on the AST."
-        );
+        assert.ok(gm2056, "Expected GM2056 metadata to be recorded on the AST.");
         assert.strictEqual(gm2056.automatic, true);
         assert.strictEqual(gm2056.target, "gpu_set_texrepeat");
         assert.ok(gm2056.range);
@@ -2972,11 +2547,7 @@ void describe("Transforms.applyFeatherFixes transform", () => {
     });
 
     void it("re-enables blending flagged by GM2048 and records metadata", () => {
-        const source = [
-            "gpu_set_blendenable(false);",
-            "",
-            'draw_text(0, 0, "Hello!");'
-        ].join("\n");
+        const source = ["gpu_set_blendenable(false);", "", 'draw_text(0, 0, "Hello!");'].join("\n");
 
         const ast = Parser.GMLParser.parse(source, {
             getLocations: true,
@@ -2987,9 +2558,7 @@ void describe("Transforms.applyFeatherFixes transform", () => {
             sourceText: source
         });
 
-        const statements = (ast.body ?? []).filter(
-            (node) => node?.type !== "EmptyStatement"
-        );
+        const statements = (ast.body ?? []).filter((node) => node?.type !== "EmptyStatement");
         const [disableCall, drawCall, resetCall] = statements;
 
         assert.ok(disableCall);
@@ -2998,22 +2567,15 @@ void describe("Transforms.applyFeatherFixes transform", () => {
         assert.strictEqual(resetCall.type, "CallExpression");
         assert.strictEqual(resetCall.object?.name, "gpu_set_blendenable");
 
-        const args = Array.isArray(resetCall.arguments)
-            ? resetCall.arguments
-            : [];
+        const args = Array.isArray(resetCall.arguments) ? resetCall.arguments : [];
         assert.strictEqual(args.length > 0, true);
         assert.strictEqual(args[0]?.type, "Literal");
         assert.strictEqual(args[0]?.value, "true");
 
         const appliedDiagnostics = ast._appliedFeatherDiagnostics ?? [];
-        const gm2048 = appliedDiagnostics.find(
-            (entry) => entry.id === "GM2048"
-        );
+        const gm2048 = appliedDiagnostics.find((entry) => entry.id === "GM2048");
 
-        assert.ok(
-            gm2048,
-            "Expected GM2048 metadata to be recorded on the AST."
-        );
+        assert.ok(gm2048, "Expected GM2048 metadata to be recorded on the AST.");
         assert.strictEqual(gm2048.automatic, true);
         assert.strictEqual(gm2048.target, "gpu_set_blendenable");
         assert.ok(gm2048.range);
@@ -3027,11 +2589,7 @@ void describe("Transforms.applyFeatherFixes transform", () => {
     });
 
     void it("suppresses blank lines when inserting GM2048 resets", () => {
-        const source = [
-            "gpu_set_blendenable(false);",
-            "",
-            'draw_text(0, 0, "Hello!");'
-        ].join("\n");
+        const source = ["gpu_set_blendenable(false);", "", 'draw_text(0, 0, "Hello!");'].join("\n");
 
         const ast = Parser.GMLParser.parse(source, {
             getLocations: true,
@@ -3054,19 +2612,12 @@ void describe("Transforms.applyFeatherFixes transform", () => {
         assert.strictEqual(disableCall.object?.name, "gpu_set_blendenable");
         assert.strictEqual(drawCall.object?.name, "draw_text");
         assert.strictEqual(resetCall.object?.name, "gpu_set_blendenable");
-        assert.strictEqual(
-            disableCall._featherSuppressFollowingEmptyLine,
-            true
-        );
+        assert.strictEqual(disableCall._featherSuppressFollowingEmptyLine, true);
         assert.strictEqual(resetCall._featherSuppressLeadingEmptyLine, true);
     });
 
     void it("resets fog flagged by GM2050 and records metadata", () => {
-        const source = [
-            "gpu_set_fog(true, c_aqua, 0, 1000);",
-            "",
-            "draw_self();"
-        ].join("\n");
+        const source = ["gpu_set_fog(true, c_aqua, 0, 1000);", "", "draw_self();"].join("\n");
 
         const ast = Parser.GMLParser.parse(source, {
             getLocations: true,
@@ -3077,9 +2628,7 @@ void describe("Transforms.applyFeatherFixes transform", () => {
             sourceText: source
         });
 
-        const statements = (ast.body ?? []).filter(
-            (node) => node?.type !== "EmptyStatement"
-        );
+        const statements = (ast.body ?? []).filter((node) => node?.type !== "EmptyStatement");
         const [setFogCall, drawCall, fogResetCall] = statements;
 
         assert.ok(setFogCall);
@@ -3090,9 +2639,7 @@ void describe("Transforms.applyFeatherFixes transform", () => {
         assert.strictEqual(drawCall.type, "CallExpression");
         assert.strictEqual(drawCall.object?.name, "draw_self");
 
-        const args = Array.isArray(fogResetCall.arguments)
-            ? fogResetCall.arguments
-            : [];
+        const args = Array.isArray(fogResetCall.arguments) ? fogResetCall.arguments : [];
         assert.strictEqual(args.length, 4);
         assert.strictEqual(args[0]?.type, "Literal");
         assert.strictEqual(args[0]?.value, "false");
@@ -3104,14 +2651,9 @@ void describe("Transforms.applyFeatherFixes transform", () => {
         assert.strictEqual(args[3]?.value, "1");
 
         const appliedDiagnostics = ast._appliedFeatherDiagnostics ?? [];
-        const gm2050 = appliedDiagnostics.find(
-            (entry) => entry.id === "GM2050"
-        );
+        const gm2050 = appliedDiagnostics.find((entry) => entry.id === "GM2050");
 
-        assert.ok(
-            gm2050,
-            "Expected GM2050 metadata to be recorded on the AST."
-        );
+        assert.ok(gm2050, "Expected GM2050 metadata to be recorded on the AST.");
         assert.strictEqual(gm2050.automatic, true);
         assert.strictEqual(gm2050.target, "gpu_set_fog");
         assert.ok(gm2050.range);
@@ -3125,13 +2667,7 @@ void describe("Transforms.applyFeatherFixes transform", () => {
     });
 
     void it("resets alpha test enable flagged by GM2053 and records metadata", () => {
-        const source = [
-            "// Draw Event",
-            "",
-            "gpu_set_alphatestenable(true);",
-            "",
-            "draw_self();"
-        ].join("\n");
+        const source = ["// Draw Event", "", "gpu_set_alphatestenable(true);", "", "draw_self();"].join("\n");
 
         const ast = Parser.GMLParser.parse(source, {
             getLocations: true,
@@ -3142,9 +2678,7 @@ void describe("Transforms.applyFeatherFixes transform", () => {
             sourceText: source
         });
 
-        const statements = (ast.body ?? []).filter(
-            (node) => node?.type !== "EmptyStatement"
-        );
+        const statements = (ast.body ?? []).filter((node) => node?.type !== "EmptyStatement");
         const [enableCall, drawCall, resetCall] = statements;
 
         assert.ok(enableCall);
@@ -3159,27 +2693,17 @@ void describe("Transforms.applyFeatherFixes transform", () => {
         assert.strictEqual(resetCall.type, "CallExpression");
         assert.strictEqual(resetCall.object?.name, "gpu_set_alphatestenable");
 
-        const args = Array.isArray(resetCall.arguments)
-            ? resetCall.arguments
-            : [];
+        const args = Array.isArray(resetCall.arguments) ? resetCall.arguments : [];
         assert.strictEqual(args.length > 0, true);
         const [firstArg] = args;
         assert.ok(firstArg);
         assert.strictEqual(firstArg.type, "Literal");
-        assert.strictEqual(
-            firstArg.value === false || firstArg.value === "false",
-            true
-        );
+        assert.strictEqual(firstArg.value === false || firstArg.value === "false", true);
 
         const appliedDiagnostics = ast._appliedFeatherDiagnostics ?? [];
-        const gm2053 = appliedDiagnostics.find(
-            (entry) => entry.id === "GM2053"
-        );
+        const gm2053 = appliedDiagnostics.find((entry) => entry.id === "GM2053");
 
-        assert.ok(
-            gm2053,
-            "Expected GM2053 metadata to be recorded on the AST."
-        );
+        assert.ok(gm2053, "Expected GM2053 metadata to be recorded on the AST.");
         assert.strictEqual(gm2053.automatic, true);
         assert.strictEqual(gm2053.target, "gpu_set_alphatestenable");
         assert.ok(gm2053.range);
@@ -3193,13 +2717,7 @@ void describe("Transforms.applyFeatherFixes transform", () => {
     });
 
     void it("suppresses blank lines when resetting alpha test enable flagged by GM2053", () => {
-        const source = [
-            "// Draw Event",
-            "",
-            "gpu_set_alphatestenable(true);",
-            "",
-            "draw_self();"
-        ].join("\n");
+        const source = ["// Draw Event", "", "gpu_set_alphatestenable(true);", "", "draw_self();"].join("\n");
 
         const ast = Parser.GMLParser.parse(source, {
             getLocations: true,
@@ -3210,9 +2728,7 @@ void describe("Transforms.applyFeatherFixes transform", () => {
             sourceText: source
         });
 
-        const statements = (ast.body ?? []).filter(
-            (node) => node?.type !== "EmptyStatement"
-        );
+        const statements = (ast.body ?? []).filter((node) => node?.type !== "EmptyStatement");
 
         const [enableCall, drawCall, resetCall] = statements;
 
@@ -3232,13 +2748,7 @@ void describe("Transforms.applyFeatherFixes transform", () => {
     });
 
     void it("formats alpha test resets without inserting extra blank lines", async () => {
-        const source = [
-            "// Draw Event",
-            "",
-            "gpu_set_alphatestenable(true);",
-            "",
-            "draw_self();"
-        ].join("\n");
+        const source = ["// Draw Event", "", "gpu_set_alphatestenable(true);", "", "draw_self();"].join("\n");
 
         const formatted = await Plugin.format(source, {
             parser: "gml-parse",
@@ -3284,14 +2794,9 @@ void describe("Transforms.applyFeatherFixes transform", () => {
         assert.strictEqual(insertedCall.object?.name, "vertex_format_end");
 
         const appliedDiagnostics = ast._appliedFeatherDiagnostics ?? [];
-        const gm2015 = appliedDiagnostics.find(
-            (entry) => entry.id === "GM2015"
-        );
+        const gm2015 = appliedDiagnostics.find((entry) => entry.id === "GM2015");
 
-        assert.ok(
-            gm2015,
-            "Expected GM2015 metadata to be recorded on the AST."
-        );
+        assert.ok(gm2015, "Expected GM2015 metadata to be recorded on the AST.");
         assert.strictEqual(gm2015.automatic, true);
         assert.ok(gm2015.range);
 
@@ -3304,12 +2809,7 @@ void describe("Transforms.applyFeatherFixes transform", () => {
     });
 
     void it("comments out incomplete vertex format definitions flagged by GM2015", async () => {
-        const source = [
-            "// Create Event",
-            "",
-            "vertex_format_begin();",
-            "vertex_format_add_position_3d();"
-        ].join("\n");
+        const source = ["// Create Event", "", "vertex_format_begin();", "vertex_format_add_position_3d();"].join("\n");
 
         const formatted = await Plugin.format(source, {
             parser: "gml-parse",
@@ -3382,32 +2882,23 @@ void describe("Transforms.applyFeatherFixes transform", () => {
         assert.strictEqual(programBody.length, 3);
         assert.strictEqual(
             programBody.filter(
-                (node) =>
-                    node?.type === "CallExpression" &&
-                    node?.object?.name === "vertex_format_begin"
+                (node) => node?.type === "CallExpression" && node?.object?.name === "vertex_format_begin"
             ).length,
             1,
             "Expected only a single vertex_format_begin call to remain."
         );
         assert.strictEqual(
             programBody.some(
-                (node) =>
-                    node?.type === "CallExpression" &&
-                    node?.object?.name === "vertex_format_add_position_3d"
+                (node) => node?.type === "CallExpression" && node?.object?.name === "vertex_format_add_position_3d"
             ),
             false,
             "Incomplete vertex format statements should be removed."
         );
 
         const appliedDiagnostics = ast._appliedFeatherDiagnostics ?? [];
-        const gm2012 = appliedDiagnostics.find(
-            (entry) => entry.id === "GM2012"
-        );
+        const gm2012 = appliedDiagnostics.find((entry) => entry.id === "GM2012");
 
-        assert.ok(
-            gm2012,
-            "Expected GM2012 metadata to be recorded on the AST."
-        );
+        assert.ok(gm2012, "Expected GM2012 metadata to be recorded on the AST.");
         assert.strictEqual(gm2012.automatic, true);
 
         const expected = [
@@ -3442,9 +2933,7 @@ void describe("Transforms.applyFeatherFixes transform", () => {
         });
 
         const programBody = Array.isArray(ast.body) ? ast.body : [];
-        const callNames = programBody
-            .map(getCallExpressionName)
-            .filter(Boolean);
+        const callNames = programBody.map(getCallExpressionName).filter(Boolean);
 
         assert.strictEqual(
             callNames.at(0),
@@ -3478,24 +2967,14 @@ void describe("Transforms.applyFeatherFixes transform", () => {
         });
 
         const programBody = Array.isArray(ast.body) ? ast.body : [];
-        const callNames = programBody
-            .map(getCallExpressionName)
-            .filter(Boolean);
+        const callNames = programBody.map(getCallExpressionName).filter(Boolean);
 
-        assert.deepStrictEqual(callNames, [
-            "vertex_format_begin",
-            "vertex_format_add_texcoord"
-        ]);
+        assert.deepStrictEqual(callNames, ["vertex_format_begin", "vertex_format_add_texcoord"]);
 
         const appliedDiagnostics = ast._appliedFeatherDiagnostics ?? [];
-        const gm2012 = appliedDiagnostics.find(
-            (entry) => entry.id === "GM2012"
-        );
+        const gm2012 = appliedDiagnostics.find((entry) => entry.id === "GM2012");
 
-        assert.ok(
-            gm2012,
-            "Expected GM2012 metadata to be recorded when removing empty vertex format definitions."
-        );
+        assert.ok(gm2012, "Expected GM2012 metadata to be recorded when removing empty vertex format definitions.");
         assert.strictEqual(gm2012.automatic, true);
     });
 
@@ -3525,20 +3004,13 @@ void describe("Transforms.applyFeatherFixes transform", () => {
         assert.strictEqual(insertedCall.type, "CallExpression");
         assert.strictEqual(insertedCall.object?.name, "vertex_end");
 
-        const args = Array.isArray(insertedCall.arguments)
-            ? insertedCall.arguments
-            : [];
+        const args = Array.isArray(insertedCall.arguments) ? insertedCall.arguments : [];
         assert.strictEqual(args[0]?.name, "vb");
 
         const appliedDiagnostics = ast._appliedFeatherDiagnostics ?? [];
-        const gm2008 = appliedDiagnostics.find(
-            (entry) => entry.id === "GM2008"
-        );
+        const gm2008 = appliedDiagnostics.find((entry) => entry.id === "GM2008");
 
-        assert.ok(
-            gm2008,
-            "Expected GM2008 metadata to be recorded on the AST."
-        );
+        assert.ok(gm2008, "Expected GM2008 metadata to be recorded on the AST.");
         assert.strictEqual(gm2008.automatic, true);
         assert.ok(gm2008.range);
 
@@ -3568,10 +3040,7 @@ void describe("Transforms.applyFeatherFixes transform", () => {
 
         const [assignment] = ast.body ?? [];
         assert.ok(assignment?.right?.type === "TernaryExpression");
-        assert.strictEqual(
-            assignment.right.alternate.type === "UnaryExpression",
-            true
-        );
+        assert.strictEqual(assignment.right.alternate.type === "UnaryExpression", true);
 
         Transforms.applyFeatherFixesTransform.transform(ast, {
             sourceText: source
@@ -3583,20 +3052,14 @@ void describe("Transforms.applyFeatherFixes transform", () => {
         assert.strictEqual(fixedTernary.alternate?.name, "pointer_null");
 
         const appliedDiagnostics = ast._appliedFeatherDiagnostics ?? [];
-        const gm1063 = appliedDiagnostics.find(
-            (entry) => entry.id === "GM1063"
-        );
+        const gm1063 = appliedDiagnostics.find((entry) => entry.id === "GM1063");
 
-        assert.ok(
-            gm1063,
-            "Expected GM1063 metadata to be recorded on the AST."
-        );
+        assert.ok(gm1063, "Expected GM1063 metadata to be recorded on the AST.");
         assert.strictEqual(gm1063.automatic, true);
         assert.strictEqual(gm1063.target, "tex");
         assert.ok(gm1063.range);
 
-        const ternaryDiagnostics =
-            fixedTernary._appliedFeatherDiagnostics ?? [];
+        const ternaryDiagnostics = fixedTernary._appliedFeatherDiagnostics ?? [];
         assert.strictEqual(
             ternaryDiagnostics.some((entry) => entry.id === "GM1063"),
             true
@@ -3627,46 +3090,20 @@ void describe("Transforms.applyFeatherFixes transform", () => {
         });
 
         const body = Array.isArray(ast.body) ? ast.body : [];
-        const vertexBeginIndex = body.findIndex(
-            (node) => node?.object?.name === "vertex_begin"
-        );
-        const vertexEndIndex = body.findIndex(
-            (node) => node?.object?.name === "vertex_end"
-        );
-        const vertexSubmitIndex = body.findIndex(
-            (node) => node?.object?.name === "vertex_submit"
-        );
+        const vertexBeginIndex = body.findIndex((node) => node?.object?.name === "vertex_begin");
+        const vertexEndIndex = body.findIndex((node) => node?.object?.name === "vertex_end");
+        const vertexSubmitIndex = body.findIndex((node) => node?.object?.name === "vertex_submit");
 
-        assert.ok(
-            vertexBeginIndex !== -1,
-            "Expected vertex_begin call in parsed AST."
-        );
-        assert.ok(
-            vertexEndIndex !== -1,
-            "Expected vertex_end call to be inserted by fixer."
-        );
-        assert.ok(
-            vertexSubmitIndex !== -1,
-            "Expected vertex_submit call in parsed AST."
-        );
-        assert.ok(
-            vertexEndIndex > vertexBeginIndex,
-            "vertex_end call should appear after vertex_begin."
-        );
-        assert.ok(
-            vertexEndIndex < vertexSubmitIndex,
-            "vertex_end call should appear before vertex_submit."
-        );
+        assert.ok(vertexBeginIndex !== -1, "Expected vertex_begin call in parsed AST.");
+        assert.ok(vertexEndIndex !== -1, "Expected vertex_end call to be inserted by fixer.");
+        assert.ok(vertexSubmitIndex !== -1, "Expected vertex_submit call in parsed AST.");
+        assert.ok(vertexEndIndex > vertexBeginIndex, "vertex_end call should appear after vertex_begin.");
+        assert.ok(vertexEndIndex < vertexSubmitIndex, "vertex_end call should appear before vertex_submit.");
 
         const appliedDiagnostics = ast._appliedFeatherDiagnostics ?? [];
-        const gm2011 = appliedDiagnostics.find(
-            (entry) => entry.id === "GM2011"
-        );
+        const gm2011 = appliedDiagnostics.find((entry) => entry.id === "GM2011");
 
-        assert.ok(
-            gm2011,
-            "Expected GM2011 metadata to be recorded on the AST."
-        );
+        assert.ok(gm2011, "Expected GM2011 metadata to be recorded on the AST.");
         assert.strictEqual(gm2011.automatic, true);
         assert.strictEqual(gm2011.target, "vb");
         assert.ok(gm2011.range);
@@ -3682,9 +3119,7 @@ void describe("Transforms.applyFeatherFixes transform", () => {
     });
 
     void it("removes stray draw_primitive_end calls when fixing GM2028 and records metadata", () => {
-        const source = ["// Draw Event", "", "draw_primitive_end();"].join(
-            "\n"
-        );
+        const source = ["// Draw Event", "", "draw_primitive_end();"].join("\n");
 
         const ast = Parser.GMLParser.parse(source, {
             getLocations: true,
@@ -3699,14 +3134,9 @@ void describe("Transforms.applyFeatherFixes transform", () => {
         assert.strictEqual(body.length, 0);
 
         const appliedDiagnostics = ast._appliedFeatherDiagnostics ?? [];
-        const gm2028 = appliedDiagnostics.find(
-            (entry) => entry.id === "GM2028"
-        );
+        const gm2028 = appliedDiagnostics.find((entry) => entry.id === "GM2028");
 
-        assert.ok(
-            gm2028,
-            "Expected GM2028 metadata to be recorded on the AST."
-        );
+        assert.ok(gm2028, "Expected GM2028 metadata to be recorded on the AST.");
         assert.strictEqual(gm2028.automatic, true);
     });
 
@@ -3749,13 +3179,8 @@ void describe("Transforms.applyFeatherFixes transform", () => {
         );
 
         const appliedDiagnostics = ast._appliedFeatherDiagnostics ?? [];
-        const gm2051 = appliedDiagnostics.find(
-            (entry) => entry.id === "GM2051"
-        );
-        assert.ok(
-            gm2051,
-            "Expected GM2051 metadata to be recorded on the AST."
-        );
+        const gm2051 = appliedDiagnostics.find((entry) => entry.id === "GM2051");
+        assert.ok(gm2051, "Expected GM2051 metadata to be recorded on the AST.");
         assert.strictEqual(gm2051.automatic, true);
         assert.ok(gm2051.range);
     });
@@ -3763,18 +3188,10 @@ void describe("Transforms.applyFeatherFixes transform", () => {
     void it("normalizes simple syntax errors flagged by GM1100 and records metadata", () => {
         const source = ["var _this * something;", "", "    = 48;"].join("\n");
 
-        const { sourceText, metadata } =
-            Transforms.preprocessSourceForFeatherFixes(source);
+        const { sourceText, metadata } = Transforms.preprocessSourceForFeatherFixes(source);
 
-        assert.notStrictEqual(
-            sourceText,
-            source,
-            "Expected GM1100 preprocessor to modify the source text."
-        );
-        assert.ok(
-            metadata?.GM1100?.length > 0,
-            "Expected GM1100 metadata to be recorded by the preprocessor."
-        );
+        assert.notStrictEqual(sourceText, source, "Expected GM1100 preprocessor to modify the source text.");
+        assert.ok(metadata?.GM1100?.length > 0, "Expected GM1100 metadata to be recorded by the preprocessor.");
 
         const ast = Parser.GMLParser.parse(sourceText, {
             getLocations: true,
@@ -3786,9 +3203,7 @@ void describe("Transforms.applyFeatherFixes transform", () => {
             preprocessedFixMetadata: metadata
         });
 
-        const statement = (ast.body ?? []).find(
-            (node) => node?.type !== "EmptyStatement"
-        );
+        const statement = (ast.body ?? []).find((node) => node?.type !== "EmptyStatement");
         const declaration = statement;
 
         assert.ok(declaration);
@@ -3802,32 +3217,19 @@ void describe("Transforms.applyFeatherFixes transform", () => {
         );
 
         const programDiagnostics = ast._appliedFeatherDiagnostics ?? [];
-        const gm1100Entries = programDiagnostics.filter(
-            (entry) => entry.id === "GM1100"
-        );
+        const gm1100Entries = programDiagnostics.filter((entry) => entry.id === "GM1100");
 
-        assert.ok(
-            gm1100Entries.length > 0,
-            "Expected GM1100 metadata to be recorded on the program node."
-        );
+        assert.ok(gm1100Entries.length > 0, "Expected GM1100 metadata to be recorded on the program node.");
 
         for (const entry of gm1100Entries) {
             assert.strictEqual(entry.automatic, true);
             assert.strictEqual(entry.title, "Syntax Error");
-            assert.strictEqual(
-                entry.description?.includes("syntax error"),
-                true
-            );
+            assert.strictEqual(entry.description?.includes("syntax error"), true);
         }
     });
 
     void it("normalizes zero denominators flagged by GM1015 and records metadata", () => {
-        const source = [
-            "var total = 10 / 0;",
-            "total /= 0;",
-            "total = total % (0);",
-            "total %= (-0);"
-        ].join("\n");
+        const source = ["var total = 10 / 0;", "total /= 0;", "total = total % (0);", "total %= (-0);"].join("\n");
 
         const ast = Parser.GMLParser.parse(source, {
             getLocations: true,
@@ -3838,8 +3240,7 @@ void describe("Transforms.applyFeatherFixes transform", () => {
             sourceText: source
         });
 
-        const [declaration, assignment, moduloAssignment, moduloCompound] =
-            ast.body ?? [];
+        const [declaration, assignment, moduloAssignment, moduloCompound] = ast.body ?? [];
 
         const binary = declaration?.declarations?.[0]?.init;
         assert.strictEqual(binary?.type, "BinaryExpression");
@@ -3852,18 +3253,12 @@ void describe("Transforms.applyFeatherFixes transform", () => {
 
         const moduloBinary = moduloAssignment?.right;
         assert.strictEqual(moduloBinary?.type, "BinaryExpression");
-        assert.strictEqual(
-            moduloBinary?.right?.type,
-            "ParenthesizedExpression"
-        );
+        assert.strictEqual(moduloBinary?.right?.type, "ParenthesizedExpression");
         assert.strictEqual(moduloBinary?.right?.expression?.type, "Literal");
         assert.strictEqual(moduloBinary?.right?.expression?.value, "1");
 
         const moduloCompoundRight = moduloCompound?.right;
-        assert.strictEqual(
-            moduloCompoundRight?.type,
-            "ParenthesizedExpression"
-        );
+        assert.strictEqual(moduloCompoundRight?.type, "ParenthesizedExpression");
         const moduloCompoundUnary = moduloCompoundRight?.expression;
         assert.strictEqual(moduloCompoundUnary?.type, "UnaryExpression");
         assert.strictEqual(moduloCompoundUnary?.argument?.type, "Literal");
@@ -3871,10 +3266,8 @@ void describe("Transforms.applyFeatherFixes transform", () => {
 
         const binaryFixes = binary?._appliedFeatherDiagnostics ?? [];
         const divideAssignFixes = assignment?._appliedFeatherDiagnostics ?? [];
-        const moduloBinaryFixes =
-            moduloBinary?._appliedFeatherDiagnostics ?? [];
-        const moduloCompoundFixes =
-            moduloCompound?._appliedFeatherDiagnostics ?? [];
+        const moduloBinaryFixes = moduloBinary?._appliedFeatherDiagnostics ?? [];
+        const moduloCompoundFixes = moduloCompound?._appliedFeatherDiagnostics ?? [];
 
         assert.strictEqual(
             binaryFixes.some((fix) => fix.id === "GM1015"),
@@ -4005,34 +3398,21 @@ void describe("Transforms.applyFeatherFixes transform", () => {
             sourceText: "true;\nif (true) { false; }"
         });
 
-        assert.strictEqual(
-            ast.body.length,
-            1,
-            "Expected stray boolean literal to be removed from the program body."
-        );
+        assert.strictEqual(ast.body.length, 1, "Expected stray boolean literal to be removed from the program body.");
 
         const [ifStatement] = ast.body;
         assert.ok(ifStatement);
         assert.strictEqual(
-            Array.isArray((ifStatement as any).consequent?.body)
-                ? (ifStatement as any).consequent.body.length
-                : -1,
+            Array.isArray((ifStatement as any).consequent?.body) ? (ifStatement as any).consequent.body.length : -1,
             0,
             "Expected stray boolean literal to be removed from block statements."
         );
 
         const rootDiagnostics = (ast as any)._appliedFeatherDiagnostics ?? [];
-        const rootGM1016 = rootDiagnostics.filter(
-            (entry) => entry.id === "GM1016"
-        );
-        assert.strictEqual(
-            rootGM1016.length,
-            2,
-            "Expected GM1016 metadata to be recorded for each removed statement."
-        );
+        const rootGM1016 = rootDiagnostics.filter((entry) => entry.id === "GM1016");
+        assert.strictEqual(rootGM1016.length, 2, "Expected GM1016 metadata to be recorded for each removed statement.");
 
-        const blockDiagnostics =
-            (ifStatement as any).consequent?._appliedFeatherDiagnostics ?? [];
+        const blockDiagnostics = (ifStatement as any).consequent?._appliedFeatherDiagnostics ?? [];
         assert.strictEqual(
             blockDiagnostics.some((entry) => entry.id === "GM1016"),
             true,
@@ -4040,15 +3420,8 @@ void describe("Transforms.applyFeatherFixes transform", () => {
         );
 
         for (const entry of rootGM1016) {
-            assert.strictEqual(
-                entry.automatic,
-                true,
-                "GM1016 fixes should be marked as automatic."
-            );
-            assert.ok(
-                entry.range,
-                "GM1016 fixes should capture the removed node's range."
-            );
+            assert.strictEqual(entry.automatic, true, "GM1016 fixes should be marked as automatic.");
+            assert.ok(entry.range, "GM1016 fixes should capture the removed node's range.");
         }
     });
 
@@ -4063,19 +3436,11 @@ void describe("Transforms.applyFeatherFixes transform", () => {
             ""
         ].join("\n");
 
-        const { sourceText, metadata } =
-            Transforms.preprocessSourceForFeatherFixes(source);
+        const { sourceText, metadata } = Transforms.preprocessSourceForFeatherFixes(source);
 
-        assert.notStrictEqual(
-            sourceText,
-            source,
-            "Expected GM1016 preprocessor to remove boolean literal statements."
-        );
+        assert.notStrictEqual(sourceText, source, "Expected GM1016 preprocessor to remove boolean literal statements.");
 
-        assert.ok(
-            metadata?.GM1016?.length === 2,
-            "Expected GM1016 metadata entries for each removed statement."
-        );
+        assert.ok(metadata?.GM1016?.length === 2, "Expected GM1016 metadata entries for each removed statement.");
 
         const ast = Parser.GMLParser.parse(sourceText, {
             getLocations: true,
@@ -4089,41 +3454,26 @@ void describe("Transforms.applyFeatherFixes transform", () => {
 
         const statements = ast.body ?? [];
 
-        assert.strictEqual(
-            statements.length,
-            1,
-            "Expected only the conditional statement to remain at the top level."
-        );
+        assert.strictEqual(statements.length, 1, "Expected only the conditional statement to remain at the top level.");
 
         const [ifStatement] = statements;
         assert.ok(ifStatement?.type === "IfStatement");
 
         const blockBody = ifStatement?.consequent?.body ?? [];
 
-        assert.strictEqual(
-            blockBody.length,
-            1,
-            "Expected nested boolean literal statements to be removed."
-        );
+        assert.strictEqual(blockBody.length, 1, "Expected nested boolean literal statements to be removed.");
 
         const rootDiagnostics = ast._appliedFeatherDiagnostics ?? [];
-        const gm1016Fixes = rootDiagnostics.filter(
-            (entry) => entry.id === "GM1016"
-        );
+        const gm1016Fixes = rootDiagnostics.filter((entry) => entry.id === "GM1016");
 
-        assert.strictEqual(
-            gm1016Fixes.length,
-            2,
-            "Expected GM1016 metadata to be recorded for each removed literal."
-        );
+        assert.strictEqual(gm1016Fixes.length, 2, "Expected GM1016 metadata to be recorded for each removed literal.");
 
         for (const fix of gm1016Fixes) {
             assert.strictEqual(fix.automatic, true);
             assert.ok(fix.range);
         }
 
-        const blockDiagnostics =
-            ifStatement.consequent?._appliedFeatherDiagnostics ?? [];
+        const blockDiagnostics = ifStatement.consequent?._appliedFeatherDiagnostics ?? [];
 
         assert.strictEqual(
             blockDiagnostics.some((entry) => entry.id === "GM1016"),
@@ -4133,16 +3483,9 @@ void describe("Transforms.applyFeatherFixes transform", () => {
     });
 
     void it("preprocesses numeric string enum initializers flagged by GM1003", () => {
-        const source = [
-            "enum Example {",
-            '    FIRST = "0",',
-            '    SECOND = "1"',
-            "}",
-            ""
-        ].join("\n");
+        const source = ["enum Example {", '    FIRST = "0",', '    SECOND = "1"', "}", ""].join("\n");
 
-        const { sourceText, metadata, indexAdjustments } =
-            Transforms.preprocessSourceForFeatherFixes(source);
+        const { sourceText, metadata, indexAdjustments } = Transforms.preprocessSourceForFeatherFixes(source);
 
         assert.notStrictEqual(
             sourceText,
@@ -4224,19 +3567,14 @@ void describe("Transforms.applyFeatherFixes transform", () => {
 
         const totalDeclaration = statements[0];
         assert.ok(totalDeclaration?.type === "VariableDeclaration");
-        assert.strictEqual(
-            totalDeclaration.declarations?.[0]?.id?.name,
-            "total"
-        );
+        assert.strictEqual(totalDeclaration.declarations?.[0]?.id?.name, "total");
 
         const totalAssignment = statements[1];
         assert.ok(totalAssignment?.type === "AssignmentExpression");
         assert.strictEqual(totalAssignment.left?.name, "total");
 
         const countDeclarations = statements.filter(
-            (node) =>
-                node?.type === "VariableDeclaration" &&
-                node.declarations?.[0]?.id?.name === "count"
+            (node) => node?.type === "VariableDeclaration" && node.declarations?.[0]?.id?.name === "count"
         );
         assert.strictEqual(countDeclarations.length, 1);
 
@@ -4251,21 +3589,15 @@ void describe("Transforms.applyFeatherFixes transform", () => {
         assert.strictEqual(innerAssignment.left?.name, "temp");
 
         const programDiagnostics = ast._appliedFeatherDiagnostics ?? [];
-        const gm2044Entries = programDiagnostics.filter(
-            (entry) => entry.id === "GM2044"
-        );
+        const gm2044Entries = programDiagnostics.filter((entry) => entry.id === "GM2044");
 
-        assert.ok(
-            gm2044Entries.length >= 2,
-            "Expected GM2044 metadata to be recorded at the program level."
-        );
+        assert.ok(gm2044Entries.length >= 2, "Expected GM2044 metadata to be recorded at the program level.");
         assert.strictEqual(
             gm2044Entries.every((entry) => entry.automatic === true),
             true
         );
 
-        const assignmentDiagnostics =
-            innerAssignment._appliedFeatherDiagnostics ?? [];
+        const assignmentDiagnostics = innerAssignment._appliedFeatherDiagnostics ?? [];
         assert.strictEqual(
             assignmentDiagnostics.some((entry) => entry.id === "GM2044"),
             true,
@@ -4303,9 +3635,7 @@ void describe("Transforms.applyFeatherFixes transform", () => {
             "Expected GM2031 metadata to be recorded on the AST."
         );
 
-        const ifStatement = ast.body?.find(
-            (node) => node?.type === "IfStatement"
-        );
+        const ifStatement = ast.body?.find((node) => node?.type === "IfStatement");
         assert.ok(ifStatement, "Expected an if statement in the parsed AST.");
 
         const consequentBody = ifStatement?.consequent?.body ?? [];
@@ -4315,8 +3645,7 @@ void describe("Transforms.applyFeatherFixes transform", () => {
         assert.strictEqual(firstStatement?.type, "CallExpression");
         assert.strictEqual(firstStatement?.object?.name, "file_find_close");
 
-        const closeDiagnostics =
-            firstStatement?._appliedFeatherDiagnostics ?? [];
+        const closeDiagnostics = firstStatement?._appliedFeatherDiagnostics ?? [];
         assert.strictEqual(
             closeDiagnostics.some((entry) => entry.id === "GM2031"),
             true,
@@ -4325,10 +3654,7 @@ void describe("Transforms.applyFeatherFixes transform", () => {
 
         assert.strictEqual(secondStatement?.type, "AssignmentExpression");
         assert.strictEqual(secondStatement?.right?.type, "CallExpression");
-        assert.strictEqual(
-            secondStatement?.right?.object?.name,
-            "file_find_first"
-        );
+        assert.strictEqual(secondStatement?.right?.object?.name, "file_find_first");
     });
 
     void it("moves gpu_pop_state calls flagged by GM2035 outside of conditionals and records metadata", () => {
@@ -4356,45 +3682,27 @@ void describe("Transforms.applyFeatherFixes transform", () => {
         const body = Array.isArray(ast.body) ? ast.body : [];
 
         const ifIndex = body.findIndex((node) => node?.type === "IfStatement");
-        assert.notStrictEqual(
-            ifIndex,
-            -1,
-            "Expected the sample to include an if statement."
-        );
+        assert.notStrictEqual(ifIndex, -1, "Expected the sample to include an if statement.");
 
         const ifStatement = body[ifIndex];
-        const consequentBody = Array.isArray(ifStatement?.consequent?.body)
-            ? ifStatement.consequent.body
-            : [];
+        const consequentBody = Array.isArray(ifStatement?.consequent?.body) ? ifStatement.consequent.body : [];
 
         assert.strictEqual(
-            consequentBody.some(
-                (node) =>
-                    node?.type === "CallExpression" &&
-                    node?.object?.name === "gpu_pop_state"
-            ),
+            consequentBody.some((node) => node?.type === "CallExpression" && node?.object?.name === "gpu_pop_state"),
             false,
             "Expected gpu_pop_state call to be removed from the conditional branch."
         );
 
         const insertedCall = body[ifIndex + 1];
 
-        assert.ok(
-            insertedCall,
-            "Expected gpu_pop_state call to be inserted after the if statement."
-        );
+        assert.ok(insertedCall, "Expected gpu_pop_state call to be inserted after the if statement.");
         assert.strictEqual(insertedCall?.type, "CallExpression");
         assert.strictEqual(insertedCall?.object?.name, "gpu_pop_state");
 
         const appliedDiagnostics = ast._appliedFeatherDiagnostics ?? [];
-        const gm2035 = appliedDiagnostics.find(
-            (entry) => entry.id === "GM2035"
-        );
+        const gm2035 = appliedDiagnostics.find((entry) => entry.id === "GM2035");
 
-        assert.ok(
-            gm2035,
-            "Expected GM2035 metadata to be recorded on the AST."
-        );
+        assert.ok(gm2035, "Expected GM2035 metadata to be recorded on the AST.");
         assert.strictEqual(gm2035.automatic, true);
 
         const callDiagnostics = insertedCall?._appliedFeatherDiagnostics ?? [];
@@ -4420,32 +3728,22 @@ void describe("Transforms.applyFeatherFixes transform", () => {
 
         const body = Array.isArray(ast.body) ? ast.body : [];
 
-        assert.strictEqual(
-            body.length >= 4,
-            true,
-            "Expected temporaries to be hoisted before the call expression."
-        );
+        assert.strictEqual(body.length >= 4, true, "Expected temporaries to be hoisted before the call expression.");
 
         for (let index = 0; index < 3; index += 1) {
             const declaration = body[index];
             assert.ok(declaration);
             assert.strictEqual(declaration.type, "VariableDeclaration");
 
-            const declarators = Array.isArray(declaration.declarations)
-                ? declaration.declarations
-                : [];
+            const declarators = Array.isArray(declaration.declarations) ? declaration.declarations : [];
             assert.strictEqual(declarators.length, 1);
 
             const [declarator] = declarators;
             assert.strictEqual(declarator?.id?.type, "Identifier");
-            assert.strictEqual(
-                declarator?.id?.name,
-                `__feather_call_arg_${index}`
-            );
+            assert.strictEqual(declarator?.id?.name, `__feather_call_arg_${index}`);
             assert.strictEqual(declarator?.init?.type, "CallExpression");
 
-            const declarationDiagnostics =
-                declaration._appliedFeatherDiagnostics ?? [];
+            const declarationDiagnostics = declaration._appliedFeatherDiagnostics ?? [];
             assert.strictEqual(
                 declarationDiagnostics.some((entry) => entry.id === "GM2023"),
                 true,
@@ -4457,9 +3755,7 @@ void describe("Transforms.applyFeatherFixes transform", () => {
         assert.ok(callStatement);
         assert.strictEqual(callStatement.type, "CallExpression");
 
-        const args = Array.isArray(callStatement.arguments)
-            ? callStatement.arguments
-            : [];
+        const args = Array.isArray(callStatement.arguments) ? callStatement.arguments : [];
         assert.strictEqual(args.length, 4);
         assert.strictEqual(args[0]?.type, "Identifier");
         assert.strictEqual(args[0]?.name, "vb");
@@ -4468,14 +3764,9 @@ void describe("Transforms.applyFeatherFixes transform", () => {
         assert.strictEqual(args[3]?.name, "__feather_call_arg_2");
 
         const appliedDiagnostics = ast._appliedFeatherDiagnostics ?? [];
-        const gm2023 = appliedDiagnostics.find(
-            (entry) => entry.id === "GM2023"
-        );
+        const gm2023 = appliedDiagnostics.find((entry) => entry.id === "GM2023");
 
-        assert.ok(
-            gm2023,
-            "Expected GM2023 metadata to be recorded on the AST."
-        );
+        assert.ok(gm2023, "Expected GM2023 metadata to be recorded on the AST.");
         assert.strictEqual(gm2023.automatic, true);
         assert.strictEqual(gm2023.target, "vertex_position_3d");
 
@@ -4501,11 +3792,7 @@ void describe("Transforms.applyFeatherFixes transform", () => {
 
         const body = Array.isArray(ast.body) ? ast.body : [];
 
-        assert.strictEqual(
-            body.length >= 7,
-            true,
-            "Expected temporaries to be hoisted before the call expression."
-        );
+        assert.strictEqual(body.length >= 7, true, "Expected temporaries to be hoisted before the call expression.");
 
         const expectedDeclarations = [
             ["__feather_call_arg_0", "baz"],
@@ -4518,25 +3805,16 @@ void describe("Transforms.applyFeatherFixes transform", () => {
 
         for (const [index, [name, callee]] of expectedDeclarations.entries()) {
             const declaration = body[index];
-            assert.ok(
-                declaration,
-                `Expected declaration for ${name} at index ${index}.`
-            );
+            assert.ok(declaration, `Expected declaration for ${name} at index ${index}.`);
             assert.strictEqual(declaration.type, "VariableDeclaration");
 
-            const declarators = Array.isArray(declaration.declarations)
-                ? declaration.declarations
-                : [];
+            const declarators = Array.isArray(declaration.declarations) ? declaration.declarations : [];
             assert.strictEqual(declarators.length, 1);
 
             const [declarator] = declarators;
 
             assert.strictEqual(declarator?.id?.type, "Identifier");
-            assert.strictEqual(
-                declarator?.id?.name,
-                name,
-                `Expected declaration name ${name}.`
-            );
+            assert.strictEqual(declarator?.id?.name, name, `Expected declaration name ${name}.`);
 
             const init = declarator?.init;
             assert.ok(init);
@@ -4549,9 +3827,7 @@ void describe("Transforms.applyFeatherFixes transform", () => {
         assert.strictEqual(callExpression.type, "CallExpression");
         assert.strictEqual(callExpression?.object?.name, "foo");
 
-        const callArgs = Array.isArray(callExpression.arguments)
-            ? callExpression.arguments
-            : [];
+        const callArgs = Array.isArray(callExpression.arguments) ? callExpression.arguments : [];
 
         assert.strictEqual(callArgs.length, 2);
         assert.strictEqual(callArgs[0]?.type, "Identifier");
@@ -4561,11 +3837,7 @@ void describe("Transforms.applyFeatherFixes transform", () => {
     });
 
     void it("coalesces undefined fallbacks flagged by GM2061", () => {
-        const source = [
-            "array = modify_array(array);",
-            "",
-            "if (array == undefined) array = [];"
-        ].join("\n");
+        const source = ["array = modify_array(array);", "", "if (array == undefined) array = [];"].join("\n");
 
         const ast = Parser.GMLParser.parse(source, {
             getLocations: true,
@@ -4590,19 +3862,13 @@ void describe("Transforms.applyFeatherFixes transform", () => {
         assert.strictEqual(coalesced.operator, "??");
 
         const appliedDiagnostics = ast._appliedFeatherDiagnostics ?? [];
-        const gm2061 = appliedDiagnostics.find(
-            (entry) => entry.id === "GM2061"
-        );
-        assert.ok(
-            gm2061,
-            "Expected GM2061 metadata to be recorded on the AST."
-        );
+        const gm2061 = appliedDiagnostics.find((entry) => entry.id === "GM2061");
+        assert.ok(gm2061, "Expected GM2061 metadata to be recorded on the AST.");
         assert.strictEqual(gm2061.automatic, true);
         assert.strictEqual(gm2061.target, "array");
         assert.ok(gm2061.range);
 
-        const assignmentDiagnostics =
-            assignment._appliedFeatherDiagnostics ?? [];
+        const assignmentDiagnostics = assignment._appliedFeatherDiagnostics ?? [];
         assert.strictEqual(
             assignmentDiagnostics.some((entry) => entry.id === "GM2061"),
             true
@@ -4630,17 +3896,11 @@ void describe("Transforms.applyFeatherFixes transform", () => {
         assert.strictEqual(assignment.operator, "??=");
 
         const appliedDiagnostics = ast._appliedFeatherDiagnostics ?? [];
-        const gm2061 = appliedDiagnostics.find(
-            (entry) => entry.id === "GM2061"
-        );
-        assert.ok(
-            gm2061,
-            "Expected GM2061 metadata to be recorded on the AST."
-        );
+        const gm2061 = appliedDiagnostics.find((entry) => entry.id === "GM2061");
+        assert.ok(gm2061, "Expected GM2061 metadata to be recorded on the AST.");
         assert.strictEqual(gm2061.target, "value");
 
-        const assignmentDiagnostics =
-            assignment._appliedFeatherDiagnostics ?? [];
+        const assignmentDiagnostics = assignment._appliedFeatherDiagnostics ?? [];
         assert.strictEqual(
             assignmentDiagnostics.some((entry) => entry.id === "GM2061"),
             true
@@ -4665,32 +3925,19 @@ void describe("Transforms.applyFeatherFixes transform", () => {
             sourceText: source
         });
 
-        const body = (ast.body ?? []).filter(
-            (node) => node?.type !== "EmptyStatement"
-        );
-        assert.ok(
-            body.length >= 3,
-            "Expected colour write enable reset to be inserted."
-        );
+        const body = (ast.body ?? []).filter((node) => node?.type !== "EmptyStatement");
+        assert.ok(body.length >= 3, "Expected colour write enable reset to be inserted.");
 
         const [disableCall, drawCall, resetCall] = body;
 
         assert.strictEqual(disableCall?.type, "CallExpression");
-        assert.strictEqual(
-            disableCall?.object?.name,
-            "gpu_set_colourwriteenable"
-        );
+        assert.strictEqual(disableCall?.object?.name, "gpu_set_colourwriteenable");
         assert.strictEqual(drawCall?.type, "CallExpression");
         assert.strictEqual(drawCall?.object?.name, "draw_sprite");
         assert.strictEqual(resetCall?.type, "CallExpression");
-        assert.strictEqual(
-            resetCall?.object?.name,
-            "gpu_set_colourwriteenable"
-        );
+        assert.strictEqual(resetCall?.object?.name, "gpu_set_colourwriteenable");
 
-        const resetArgs = Array.isArray(resetCall?.arguments)
-            ? resetCall.arguments
-            : [];
+        const resetArgs = Array.isArray(resetCall?.arguments) ? resetCall.arguments : [];
         assert.strictEqual(resetArgs.length >= 4, true);
         for (let index = 0; index < 4; index += 1) {
             const argument = resetArgs[index];
@@ -4699,14 +3946,9 @@ void describe("Transforms.applyFeatherFixes transform", () => {
         }
 
         const appliedDiagnostics = ast._appliedFeatherDiagnostics ?? [];
-        const gm2052 = appliedDiagnostics.find(
-            (entry) => entry.id === "GM2052"
-        );
+        const gm2052 = appliedDiagnostics.find((entry) => entry.id === "GM2052");
 
-        assert.ok(
-            gm2052,
-            "Expected GM2052 metadata to be recorded on the AST."
-        );
+        assert.ok(gm2052, "Expected GM2052 metadata to be recorded on the AST.");
         assert.strictEqual(gm2052.automatic, true);
         assert.ok(gm2052.range);
 
@@ -4735,9 +3977,7 @@ void describe("Transforms.applyFeatherFixes transform", () => {
             sourceText: source
         });
 
-        const statements = (ast.body ?? []).filter(
-            (node) => node?.type !== "EmptyStatement"
-        );
+        const statements = (ast.body ?? []).filter((node) => node?.type !== "EmptyStatement");
 
         const [disableCall, drawCall] = statements;
 
@@ -4792,13 +4032,8 @@ void describe("Transforms.applyFeatherFixes transform", () => {
         );
 
         const appliedDiagnostics = ast._appliedFeatherDiagnostics ?? [];
-        const gm2051 = appliedDiagnostics.find(
-            (entry) => entry.id === "GM2051"
-        );
-        assert.ok(
-            gm2051,
-            "Expected GM2051 metadata to be recorded on the AST."
-        );
+        const gm2051 = appliedDiagnostics.find((entry) => entry.id === "GM2051");
+        assert.ok(gm2051, "Expected GM2051 metadata to be recorded on the AST.");
         assert.strictEqual(gm2051.automatic, true);
         assert.ok(gm2051.range);
     });
@@ -4834,44 +4069,25 @@ void describe("Transforms.applyFeatherFixes transform", () => {
             "Expected top-level event_inherited calls to be removed."
         );
 
-        const branch = statements.find(
-            (statement) => statement?.type === "IfStatement"
-        );
+        const branch = statements.find((statement) => statement?.type === "IfStatement");
         assert.ok(branch);
 
-        const branchBody = Array.isArray(branch?.consequent?.body)
-            ? branch.consequent.body
-            : [];
+        const branchBody = Array.isArray(branch?.consequent?.body) ? branch.consequent.body : [];
         assert.strictEqual(
             branchBody.some((statement) => isEventInheritedCall(statement)),
             false,
             "Expected event_inherited calls inside blocks to be removed."
         );
 
-        const appliedDiagnostics = Array.isArray(ast._appliedFeatherDiagnostics)
-            ? ast._appliedFeatherDiagnostics
-            : [];
-        const gm2040Fixes = appliedDiagnostics.filter(
-            (entry) => entry.id === "GM2040"
-        );
+        const appliedDiagnostics = Array.isArray(ast._appliedFeatherDiagnostics) ? ast._appliedFeatherDiagnostics : [];
+        const gm2040Fixes = appliedDiagnostics.filter((entry) => entry.id === "GM2040");
 
-        assert.strictEqual(
-            gm2040Fixes.length,
-            2,
-            "Expected two GM2040 fixes to be recorded."
-        );
+        assert.strictEqual(gm2040Fixes.length, 2, "Expected two GM2040 fixes to be recorded.");
 
         for (const entry of gm2040Fixes) {
-            assert.strictEqual(
-                entry.automatic,
-                true,
-                "GM2040 fixes should be automatic."
-            );
+            assert.strictEqual(entry.automatic, true, "GM2040 fixes should be automatic.");
             assert.strictEqual(entry.target, "event_inherited");
-            assert.ok(
-                entry.range,
-                "GM2040 fixes should include range metadata."
-            );
+            assert.ok(entry.range, "GM2040 fixes should include range metadata.");
         }
     });
 
@@ -4905,9 +4121,7 @@ void describe("Transforms.applyFeatherFixes transform", () => {
         const statements = Array.isArray(ast.body) ? ast.body : [];
         assert.strictEqual(
             statements.some(
-                (statement) =>
-                    statement?.type === "CallExpression" &&
-                    statement?.object?.name === "file_find_next"
+                (statement) => statement?.type === "CallExpression" && statement?.object?.name === "file_find_next"
             ),
             false,
             "Expected trailing file_find_next() call to be removed."
@@ -4916,22 +4130,14 @@ void describe("Transforms.applyFeatherFixes transform", () => {
         const diagnostics = ast._appliedFeatherDiagnostics ?? [];
         const gm2033 = diagnostics.find((entry) => entry.id === "GM2033");
 
-        assert.ok(
-            gm2033,
-            "Expected GM2033 metadata to be recorded on the AST."
-        );
+        assert.ok(gm2033, "Expected GM2033 metadata to be recorded on the AST.");
         assert.strictEqual(gm2033.automatic, true);
         assert.strictEqual(gm2033.target, "file_find_next");
         assert.ok(gm2033.range);
     });
 
     void it("removes consecutive file_find_close calls flagged by GM2032", () => {
-        const source = [
-            "file_find_close();",
-            "file_find_close();",
-            "",
-            'show_debug_message("done");'
-        ].join("\n");
+        const source = ["file_find_close();", "file_find_close();", "", 'show_debug_message("done");'].join("\n");
 
         const ast = Parser.GMLParser.parse(source, {
             getLocations: true,
@@ -4944,26 +4150,14 @@ void describe("Transforms.applyFeatherFixes transform", () => {
 
         const statements = Array.isArray(ast.body) ? ast.body : [];
         const remainingClosers = statements.filter(
-            (statement) =>
-                statement?.type === "CallExpression" &&
-                statement?.object?.name === "file_find_close"
+            (statement) => statement?.type === "CallExpression" && statement?.object?.name === "file_find_close"
         );
 
-        assert.strictEqual(
-            remainingClosers.length,
-            0,
-            "Expected all stray file_find_close() calls to be removed."
-        );
+        assert.strictEqual(remainingClosers.length, 0, "Expected all stray file_find_close() calls to be removed.");
 
-        const gm2032 = (ast._appliedFeatherDiagnostics ?? []).filter(
-            (entry) => entry.id === "GM2032"
-        );
+        const gm2032 = (ast._appliedFeatherDiagnostics ?? []).filter((entry) => entry.id === "GM2032");
 
-        assert.strictEqual(
-            gm2032.length,
-            2,
-            "Expected GM2032 metadata to be recorded for each removal."
-        );
+        assert.strictEqual(gm2032.length, 2, "Expected GM2032 metadata to be recorded for each removal.");
 
         for (const entry of gm2032) {
             assert.strictEqual(entry.automatic, true);
@@ -5015,8 +4209,7 @@ void describe("Transforms.applyFeatherFixes transform", () => {
         assert.strictEqual(consequentBody.some(isDrawPrimitiveEndName), false);
         assert.strictEqual(alternateBody.some(isDrawPrimitiveEndName), false);
 
-        const conditionalDiagnostics =
-            trailingCall._appliedFeatherDiagnostics ?? [];
+        const conditionalDiagnostics = trailingCall._appliedFeatherDiagnostics ?? [];
         assert.strictEqual(
             conditionalDiagnostics.some((entry) => entry.id === "GM2030"),
             true,
@@ -5053,34 +4246,20 @@ void describe("Transforms.applyFeatherFixes transform", () => {
         });
 
         const statements = Array.isArray(ast.body) ? ast.body : [];
-        assert.ok(
-            statements.length >= 5,
-            "Expected the sample program to include draw calls."
-        );
+        assert.ok(statements.length >= 5, "Expected the sample program to include draw calls.");
 
         const [firstStatement] = statements;
-        assert.strictEqual(
-            firstStatement?.object?.name,
-            "draw_primitive_begin"
-        );
+        assert.strictEqual(firstStatement?.object?.name, "draw_primitive_begin");
 
         const vertexCalls = statements.filter(
-            (node) =>
-                node?.type === "CallExpression" &&
-                node.object?.name?.startsWith("draw_vertex")
+            (node) => node?.type === "CallExpression" && node.object?.name?.startsWith("draw_vertex")
         );
-        assert.strictEqual(
-            vertexCalls.length >= 3,
-            true,
-            "Expected draw_vertex calls to remain present."
-        );
+        assert.strictEqual(vertexCalls.length >= 3, true, "Expected draw_vertex calls to remain present.");
 
         for (const vertex of vertexCalls) {
             const vertexDiagnostics = vertex?._appliedFeatherDiagnostics ?? [];
             assert.strictEqual(
-                vertexDiagnostics.some(
-                    (entry) => entry.id === "GM2029" && entry.automatic === true
-                ),
+                vertexDiagnostics.some((entry) => entry.id === "GM2029" && entry.automatic === true),
                 true,
                 "Expected each draw_vertex call to record GM2029 metadata."
             );
@@ -5113,9 +4292,7 @@ void describe("Transforms.applyFeatherFixes transform", () => {
             sourceText: source
         });
 
-        const calls = Array.isArray(ast.body)
-            ? ast.body.filter((node) => node?.type === "CallExpression")
-            : [];
+        const calls = Array.isArray(ast.body) ? ast.body.filter((node) => node?.type === "CallExpression") : [];
 
         assert.strictEqual(calls.length, 3);
 
@@ -5126,14 +4303,9 @@ void describe("Transforms.applyFeatherFixes transform", () => {
         assert.strictEqual(resetCall.arguments[0]?.name, "fa_left");
 
         const appliedDiagnostics = ast._appliedFeatherDiagnostics ?? [];
-        const gm2026 = appliedDiagnostics.find(
-            (entry) => entry.id === "GM2026"
-        );
+        const gm2026 = appliedDiagnostics.find((entry) => entry.id === "GM2026");
 
-        assert.ok(
-            gm2026,
-            "Expected GM2026 metadata to be recorded on the AST."
-        );
+        assert.ok(gm2026, "Expected GM2026 metadata to be recorded on the AST.");
         assert.strictEqual(gm2026.automatic, true);
         assert.strictEqual(gm2026.target, "draw_set_halign");
         assert.ok(gm2026.range);
@@ -5169,46 +4341,20 @@ void describe("Transforms.applyFeatherFixes transform", () => {
         });
 
         const body = Array.isArray(ast.body) ? ast.body : [];
-        const vertexBeginIndex = body.findIndex(
-            (node) => node?.object?.name === "vertex_begin"
-        );
-        const vertexEndIndex = body.findIndex(
-            (node) => node?.object?.name === "vertex_end"
-        );
-        const vertexSubmitIndex = body.findIndex(
-            (node) => node?.object?.name === "vertex_submit"
-        );
+        const vertexBeginIndex = body.findIndex((node) => node?.object?.name === "vertex_begin");
+        const vertexEndIndex = body.findIndex((node) => node?.object?.name === "vertex_end");
+        const vertexSubmitIndex = body.findIndex((node) => node?.object?.name === "vertex_submit");
 
-        assert.ok(
-            vertexBeginIndex !== -1,
-            "Expected vertex_begin call in parsed AST."
-        );
-        assert.ok(
-            vertexEndIndex !== -1,
-            "Expected vertex_end call to be inserted by fixer."
-        );
-        assert.ok(
-            vertexSubmitIndex !== -1,
-            "Expected vertex_submit call in parsed AST."
-        );
-        assert.ok(
-            vertexEndIndex > vertexBeginIndex,
-            "vertex_end call should appear after vertex_begin."
-        );
-        assert.ok(
-            vertexEndIndex < vertexSubmitIndex,
-            "vertex_end call should appear before vertex_submit."
-        );
+        assert.ok(vertexBeginIndex !== -1, "Expected vertex_begin call in parsed AST.");
+        assert.ok(vertexEndIndex !== -1, "Expected vertex_end call to be inserted by fixer.");
+        assert.ok(vertexSubmitIndex !== -1, "Expected vertex_submit call in parsed AST.");
+        assert.ok(vertexEndIndex > vertexBeginIndex, "vertex_end call should appear after vertex_begin.");
+        assert.ok(vertexEndIndex < vertexSubmitIndex, "vertex_end call should appear before vertex_submit.");
 
         const appliedDiagnostics = ast._appliedFeatherDiagnostics ?? [];
-        const gm2011 = appliedDiagnostics.find(
-            (entry) => entry.id === "GM2011"
-        );
+        const gm2011 = appliedDiagnostics.find((entry) => entry.id === "GM2011");
 
-        assert.ok(
-            gm2011,
-            "Expected GM2011 metadata to be recorded on the AST."
-        );
+        assert.ok(gm2011, "Expected GM2011 metadata to be recorded on the AST.");
         assert.strictEqual(gm2011.automatic, true);
         assert.strictEqual(gm2011.target, "vb");
         assert.ok(gm2011.range);
@@ -5236,11 +4382,7 @@ void describe("Transforms.applyFeatherFixes transform", () => {
         });
 
         const body = Array.isArray(ast.body) ? ast.body : [];
-        assert.strictEqual(
-            body.length,
-            2,
-            "Expected vertex_begin to be inserted before vertex_end."
-        );
+        assert.strictEqual(body.length, 2, "Expected vertex_begin to be inserted before vertex_end.");
 
         const vertexBegin = body[0];
         const vertexEnd = body[1];
@@ -5248,9 +4390,7 @@ void describe("Transforms.applyFeatherFixes transform", () => {
         assert.ok(vertexBegin?.type === "CallExpression");
         assert.strictEqual(vertexBegin.object?.name, "vertex_begin");
 
-        const beginArgs = Array.isArray(vertexBegin.arguments)
-            ? vertexBegin.arguments
-            : [];
+        const beginArgs = Array.isArray(vertexBegin.arguments) ? vertexBegin.arguments : [];
         assert.strictEqual(beginArgs.length > 0, true);
         assert.strictEqual(beginArgs[0]?.name, "vb");
         assert.strictEqual(beginArgs[1]?.name, "format");
@@ -5258,17 +4398,10 @@ void describe("Transforms.applyFeatherFixes transform", () => {
         assert.ok(vertexEnd?.type === "CallExpression");
         assert.strictEqual(vertexEnd.object?.name, "vertex_end");
 
-        const appliedDiagnostics = Array.isArray(ast._appliedFeatherDiagnostics)
-            ? ast._appliedFeatherDiagnostics
-            : [];
-        const gm2009 = appliedDiagnostics.find(
-            (entry) => entry.id === "GM2009"
-        );
+        const appliedDiagnostics = Array.isArray(ast._appliedFeatherDiagnostics) ? ast._appliedFeatherDiagnostics : [];
+        const gm2009 = appliedDiagnostics.find((entry) => entry.id === "GM2009");
 
-        assert.ok(
-            gm2009,
-            "Expected GM2009 metadata to be recorded on the AST."
-        );
+        assert.ok(gm2009, "Expected GM2009 metadata to be recorded on the AST.");
         assert.strictEqual(gm2009.automatic, true);
         assert.strictEqual(gm2009.target, "vb");
         assert.ok(gm2009.range);
@@ -5316,13 +4449,8 @@ void describe("Transforms.applyFeatherFixes transform", () => {
         assert.strictEqual(Array.isArray(insertedCall.arguments), true);
         assert.strictEqual(insertedCall.arguments[0]?.name, "vb");
 
-        const gm2008Metadata = ast._appliedFeatherDiagnostics?.find(
-            (entry) => entry.id === "GM2008"
-        );
-        assert.ok(
-            gm2008Metadata,
-            "Expected GM2008 metadata to be recorded on the AST."
-        );
+        const gm2008Metadata = ast._appliedFeatherDiagnostics?.find((entry) => entry.id === "GM2008");
+        assert.ok(gm2008Metadata, "Expected GM2008 metadata to be recorded on the AST.");
         assert.strictEqual(gm2008Metadata.automatic, true);
         assert.strictEqual(gm2008Metadata.target, "vb");
         assert.ok(gm2008Metadata.range);
@@ -5360,10 +4488,7 @@ void describe("Transforms.applyFeatherFixes transform", () => {
         assert.strictEqual(firstBegin.object?.name, "vertex_begin");
         assert.strictEqual(secondBegin.object?.name, "vertex_begin");
         assert.strictEqual(firstBegin._featherSuppressFollowingEmptyLine, true);
-        assert.strictEqual(
-            secondBegin._featherSuppressFollowingEmptyLine,
-            true
-        );
+        assert.strictEqual(secondBegin._featherSuppressFollowingEmptyLine, true);
     });
 
     void it("inserts surface_reset_target after surface_set_target flagged by GM2005 and records metadata", () => {
@@ -5386,15 +4511,10 @@ void describe("Transforms.applyFeatherFixes transform", () => {
 
         const body = Array.isArray(ast.body) ? ast.body : [];
         const setTargetIndex = body.findIndex(
-            (node) =>
-                node?.type === "CallExpression" &&
-                node.object?.name === "surface_set_target"
+            (node) => node?.type === "CallExpression" && node.object?.name === "surface_set_target"
         );
 
-        assert.ok(
-            setTargetIndex !== -1,
-            "Expected surface_set_target call in test fixture AST."
-        );
+        assert.ok(setTargetIndex !== -1, "Expected surface_set_target call in test fixture AST.");
 
         const resetCallIndex = body.findIndex(
             (node, index) =>
@@ -5410,24 +4530,16 @@ void describe("Transforms.applyFeatherFixes transform", () => {
 
         const resetCall = body[resetCallIndex];
 
-        assert.ok(
-            resetCall,
-            "Expected surface_reset_target call to be inserted after surface_set_target."
-        );
+        assert.ok(resetCall, "Expected surface_reset_target call to be inserted after surface_set_target.");
         assert.strictEqual(resetCall.type, "CallExpression");
         assert.strictEqual(resetCall.object?.name, "surface_reset_target");
         assert.ok(Array.isArray(resetCall.arguments));
         assert.strictEqual(resetCall.arguments.length, 0);
 
         const appliedDiagnostics = ast._appliedFeatherDiagnostics ?? [];
-        const gm2005 = appliedDiagnostics.find(
-            (entry) => entry.id === "GM2005"
-        );
+        const gm2005 = appliedDiagnostics.find((entry) => entry.id === "GM2005");
 
-        assert.ok(
-            gm2005,
-            "Expected GM2005 metadata to be recorded on the AST."
-        );
+        assert.ok(gm2005, "Expected GM2005 metadata to be recorded on the AST.");
         assert.strictEqual(gm2005.automatic, true);
         assert.strictEqual(gm2005.target, "surface_set_target");
         assert.ok(gm2005.range);
@@ -5440,13 +4552,7 @@ void describe("Transforms.applyFeatherFixes transform", () => {
     });
 
     void it("resets blend modes flagged by GM2000 and records metadata", () => {
-        const source = [
-            "// Draw Event",
-            "",
-            "gpu_set_blendmode(bm_add);",
-            "",
-            "draw_self();"
-        ].join("\n");
+        const source = ["// Draw Event", "", "gpu_set_blendmode(bm_add);", "", "draw_self();"].join("\n");
 
         const ast = Parser.GMLParser.parse(source, {
             getLocations: true,
@@ -5458,9 +4564,7 @@ void describe("Transforms.applyFeatherFixes transform", () => {
         });
 
         const statements = Array.isArray(ast.body) ? ast.body : [];
-        const callExpressions = statements.filter(
-            (statement) => statement?.type === "CallExpression"
-        );
+        const callExpressions = statements.filter((statement) => statement?.type === "CallExpression");
         assert.strictEqual(
             callExpressions.length >= 3,
             true,
@@ -5476,21 +4580,12 @@ void describe("Transforms.applyFeatherFixes transform", () => {
         assert.strictEqual(resetCall.object?.name, "gpu_set_blendmode");
 
         const drawCalls = callExpressions.slice(1, -1);
-        assert.strictEqual(
-            drawCalls.length > 0,
-            true,
-            "Expected at least one draw call between blend mode changes."
-        );
+        assert.strictEqual(drawCalls.length > 0, true, "Expected at least one draw call between blend mode changes.");
         for (const drawCall of drawCalls) {
-            assert.strictEqual(
-                drawCall.object?.name?.startsWith("draw_"),
-                true
-            );
+            assert.strictEqual(drawCall.object?.name?.startsWith("draw_"), true);
         }
 
-        const [resetArgument] = Array.isArray(resetCall.arguments)
-            ? resetCall.arguments
-            : [];
+        const [resetArgument] = Array.isArray(resetCall.arguments) ? resetCall.arguments : [];
         assert.ok(resetArgument);
         assert.strictEqual(resetArgument.type, "Identifier");
         assert.strictEqual(resetArgument.name, "bm_normal");
@@ -5502,13 +4597,8 @@ void describe("Transforms.applyFeatherFixes transform", () => {
         );
 
         const appliedDiagnostics = ast._appliedFeatherDiagnostics ?? [];
-        const gm2000 = appliedDiagnostics.find(
-            (entry) => entry.id === "GM2000"
-        );
-        assert.ok(
-            gm2000,
-            "Expected GM2000 metadata to be recorded on the AST."
-        );
+        const gm2000 = appliedDiagnostics.find((entry) => entry.id === "GM2000");
+        assert.ok(gm2000, "Expected GM2000 metadata to be recorded on the AST.");
         assert.strictEqual(gm2000.automatic, true);
         assert.strictEqual(gm2000.target, "gpu_set_blendmode");
         assert.ok(gm2000.range);
@@ -5540,11 +4630,7 @@ void describe("Transforms.applyFeatherFixes transform", () => {
         });
 
         const programBody = Array.isArray(ast.body) ? ast.body : [];
-        assert.strictEqual(
-            programBody.length,
-            2,
-            "Expected duplicate declaration to be removed."
-        );
+        assert.strictEqual(programBody.length, 2, "Expected duplicate declaration to be removed.");
 
         const [remainingFunction] = programBody;
         assert.ok(remainingFunction);
@@ -5557,20 +4643,14 @@ void describe("Transforms.applyFeatherFixes transform", () => {
         );
 
         const appliedDiagnostics = ast._appliedFeatherDiagnostics ?? [];
-        const gm1064 = appliedDiagnostics.find(
-            (entry) => entry.id === "GM1064"
-        );
+        const gm1064 = appliedDiagnostics.find((entry) => entry.id === "GM1064");
 
-        assert.ok(
-            gm1064,
-            "Expected GM1064 metadata to be recorded on the AST."
-        );
+        assert.ok(gm1064, "Expected GM1064 metadata to be recorded on the AST.");
         assert.strictEqual(gm1064.automatic, true);
         assert.strictEqual(gm1064.target, "make_game");
         assert.ok(gm1064.range);
 
-        const functionDiagnostics =
-            remainingFunction._appliedFeatherDiagnostics ?? [];
+        const functionDiagnostics = remainingFunction._appliedFeatherDiagnostics ?? [];
         assert.strictEqual(
             functionDiagnostics.some((entry) => entry.id === "GM1064"),
             true
@@ -5604,10 +4684,7 @@ void describe("Transforms.applyFeatherFixes transform", () => {
             const fixes = node._appliedFeatherDiagnostics ?? [];
             const gm2025 = fixes.find((entry) => entry.id === "GM2025");
 
-            assert.ok(
-                gm2025,
-                `Expected GM2025 metadata for ${expectedTarget}.`
-            );
+            assert.ok(gm2025, `Expected GM2025 metadata for ${expectedTarget}.`);
             assert.strictEqual(gm2025.automatic, false);
             assert.strictEqual(gm2025.target, expectedTarget);
             assert.ok(gm2025.range);
@@ -5617,9 +4694,7 @@ void describe("Transforms.applyFeatherFixes transform", () => {
         assertUserEventMetadata(performCall, "User Event 7");
         assertUserEventMetadata(performObjectCall, "User Event 3");
 
-        const gm2025Entries = (ast._appliedFeatherDiagnostics ?? []).filter(
-            (entry) => entry.id === "GM2025"
-        );
+        const gm2025Entries = (ast._appliedFeatherDiagnostics ?? []).filter((entry) => entry.id === "GM2025");
 
         assert.strictEqual(gm2025Entries.length, 3);
         for (const entry of gm2025Entries) {

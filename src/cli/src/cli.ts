@@ -18,15 +18,7 @@
 
 import { randomUUID } from "node:crypto";
 import { existsSync } from "node:fs";
-import {
-    lstat,
-    mkdtemp,
-    readdir,
-    readFile,
-    rm,
-    stat,
-    writeFile
-} from "node:fs/promises";
+import { lstat, mkdtemp, readdir, readFile, rm, stat, writeFile } from "node:fs/promises";
 import os from "node:os";
 import path from "node:path";
 import process from "node:process";
@@ -35,17 +27,10 @@ import { fileURLToPath } from "node:url";
 import { Command, InvalidArgumentError, Option } from "commander";
 import { Core } from "@gml-modules/core";
 import { createEnumeratedOptionHelpers } from "./shared/enumerated-option-helpers.js";
-import {
-    isMissingModuleDependency,
-    resolveModuleDefaultExport
-} from "./shared/module.js";
+import { isMissingModuleDependency, resolveModuleDefaultExport } from "./shared/module.js";
 import { ignoreRuleNegations } from "./shared/ignore-rules-negation-tracker.js";
 
-import {
-    CliUsageError,
-    formatCliError,
-    handleCliError
-} from "./cli-core/errors.js";
+import { CliUsageError, formatCliError, handleCliError } from "./cli-core/errors.js";
 import { applyStandardCommandOptions } from "./cli-core/command-standard-options.js";
 import { resolvePluginEntryPoint as resolveCliPluginEntryPoint } from "./plugin-runtime/entry-point.js";
 import { tryAddSample } from "./cli-core/bounded-sample-collector.js";
@@ -58,39 +43,15 @@ import { createCliCommandManager } from "./cli-core/command-manager.js";
 import { resolveCliVersion } from "./cli-core/version.js";
 import { wrapInvalidArgumentResolver } from "./cli-core/command-parsing.js";
 import { collectFormatCommandOptions } from "./cli-core/format-command-options.js";
-import {
-    createPerformanceCommand,
-    runPerformanceCommand
-} from "./commands/performance.js";
-import {
-    createMemoryCommand,
-    runMemoryCommand
-} from "./modules/memory/index.js";
-import {
-    createGenerateIdentifiersCommand,
-    runGenerateGmlIdentifiers
-} from "./commands/generate-gml-identifiers.js";
-import {
-    createGenerateQualityReportCommand,
-    runGenerateQualityReport
-} from "./commands/generate-quality-report.js";
-import {
-    createCollectStatsCommand,
-    runCollectStats
-} from "./commands/collect-stats.js";
-import {
-    createFeatherMetadataCommand,
-    runGenerateFeatherMetadata
-} from "./commands/generate-feather-metadata.js";
-import {
-    createPrepareHotReloadCommand,
-    runPrepareHotReloadCommand
-} from "./commands/prepare-hot-reload.js";
+import { createPerformanceCommand, runPerformanceCommand } from "./commands/performance.js";
+import { createMemoryCommand, runMemoryCommand } from "./modules/memory/index.js";
+import { createGenerateIdentifiersCommand, runGenerateGmlIdentifiers } from "./commands/generate-gml-identifiers.js";
+import { createGenerateQualityReportCommand, runGenerateQualityReport } from "./commands/generate-quality-report.js";
+import { createCollectStatsCommand, runCollectStats } from "./commands/collect-stats.js";
+import { createFeatherMetadataCommand, runGenerateFeatherMetadata } from "./commands/generate-feather-metadata.js";
+import { createPrepareHotReloadCommand, runPrepareHotReloadCommand } from "./commands/prepare-hot-reload.js";
 import { createWatchCommand, runWatchCommand } from "./commands/watch.js";
-import {
-    isCliRunSkipped,
-    SKIP_CLI_RUN_ENV_VAR
-} from "./shared/skip-cli-run.js";
+import { isCliRunSkipped, SKIP_CLI_RUN_ENV_VAR } from "./shared/skip-cli-run.js";
 import {
     getDefaultIgnoredFileSampleLimit,
     getDefaultSkippedDirectorySampleLimit,
@@ -131,66 +92,39 @@ const ParseErrorAction = Object.freeze({
 });
 
 const VALID_PARSE_ERROR_ACTIONS = new Set(Object.values(ParseErrorAction));
-const VALID_PRETTIER_LOG_LEVELS = new Set([
-    "debug",
-    "info",
-    "warn",
-    "error",
-    "silent"
-]);
+const VALID_PRETTIER_LOG_LEVELS = new Set(["debug", "info", "warn", "error", "silent"]);
 
 const parseErrorActionOption = createEnumeratedOptionHelpers(
     VALID_PARSE_ERROR_ACTIONS,
     (list) => `Must be one of: ${list}`
 );
-const logLevelOption = createEnumeratedOptionHelpers(
-    VALID_PRETTIER_LOG_LEVELS,
-    (list) => `Must be one of: ${list}`
-);
+const logLevelOption = createEnumeratedOptionHelpers(VALID_PRETTIER_LOG_LEVELS, (list) => `Must be one of: ${list}`);
 
-const FORMAT_COMMAND_CLI_EXAMPLE =
-    "npx prettier-plugin-gml format path/to/project";
-const FORMAT_COMMAND_WORKSPACE_EXAMPLE =
-    "npm run format:gml -- path/to/project";
+const FORMAT_COMMAND_CLI_EXAMPLE = "npx prettier-plugin-gml format path/to/project";
+const FORMAT_COMMAND_WORKSPACE_EXAMPLE = "npm run format:gml -- path/to/project";
 const FORMAT_COMMAND_CHECK_EXAMPLE = `npx prettier-plugin-gml format --check path/to/script${GML_EXTENSION}`;
 
-const PRETTIER_MODULE_ID =
-    process.env.PRETTIER_PLUGIN_GML_PRETTIER_MODULE ?? "prettier";
+const PRETTIER_MODULE_ID = process.env.PRETTIER_PLUGIN_GML_PRETTIER_MODULE ?? "prettier";
 
 function formatExtensionListForDisplay(extensions) {
     return extensions.map((extension) => `"${extension}"`).join(", ");
 }
 
-function createSampleLimitOption({
-    flag,
-    description,
-    defaultLimit,
-    parseLimit
-}) {
-    const descriptionText = Array.isArray(description)
-        ? description.join(" ")
-        : description;
+function createSampleLimitOption({ flag, description, defaultLimit, parseLimit }) {
+    const descriptionText = Array.isArray(description) ? description.join(" ") : description;
 
     return new Option(flag, descriptionText)
         .argParser(wrapInvalidArgumentResolver(parseLimit))
         .default(defaultLimit, String(defaultLimit));
 }
 
-function createConfiguredSampleLimitOption({
-    flag,
-    description,
-    getDefaultLimit,
-    resolveLimit
-}) {
+function createConfiguredSampleLimitOption({ flag, description, getDefaultLimit, resolveLimit }) {
     const defaultLimit = getDefaultLimit();
     const parseLimit = (value) =>
         resolveLimit(value, {
             defaultLimit
         });
-    const descriptionText =
-        typeof description === "function"
-            ? description(defaultLimit)
-            : description;
+    const descriptionText = typeof description === "function" ? description(defaultLimit) : description;
 
     return {
         option: createSampleLimitOption({
@@ -229,11 +163,7 @@ function formatPathForDisplay(targetPath) {
         return ".";
     }
 
-    if (
-        relativePath.length > 0 &&
-        !relativePath.startsWith("..") &&
-        !path.isAbsolute(relativePath)
-    ) {
+    if (relativePath.length > 0 && !relativePath.startsWith("..") && !path.isAbsolute(relativePath)) {
         return relativePath;
     }
 
@@ -262,23 +192,21 @@ let prettierModulePromise = null;
 
 function resolvePrettier() {
     if (!prettierModulePromise) {
-        prettierModulePromise = import(PRETTIER_MODULE_ID)
-            .then(resolveModuleDefaultExport)
-            .catch((error) => {
-                if (isMissingPrettierDependency(error)) {
-                    const instructions = [
-                        "Prettier v3 must be installed alongside prettier-plugin-gml.",
-                        "Install it with:",
-                        "  npm install --save-dev prettier@^3"
-                    ].join("\n");
-                    const cliError = new CliUsageError(instructions);
-                    if (isErrorLike(error)) {
-                        cliError.cause = error;
-                    }
-                    throw cliError;
+        prettierModulePromise = import(PRETTIER_MODULE_ID).then(resolveModuleDefaultExport).catch((error) => {
+            if (isMissingPrettierDependency(error)) {
+                const instructions = [
+                    "Prettier v3 must be installed alongside prettier-plugin-gml.",
+                    "Install it with:",
+                    "  npm install --save-dev prettier@^3"
+                ].join("\n");
+                const cliError = new CliUsageError(instructions);
+                if (isErrorLike(error)) {
+                    cliError.cause = error;
                 }
-                throw error;
-            });
+                throw cliError;
+            }
+            throw error;
+        });
     }
 
     return prettierModulePromise;
@@ -287,26 +215,18 @@ function resolvePrettier() {
 const DEFAULT_EXTENSIONS = resolveDefaultExtensions();
 
 function resolveDefaultExtensions() {
-    return normalizeExtensions(
-        process.env.PRETTIER_PLUGIN_GML_DEFAULT_EXTENSIONS,
-        [GML_EXTENSION]
-    );
+    return normalizeExtensions(process.env.PRETTIER_PLUGIN_GML_DEFAULT_EXTENSIONS, [GML_EXTENSION]);
 }
 
 // Default parse error action: abort formatting on parse errors unless the
 // environment override explicitly requests otherwise. Tests and consumers may
 // override this behaviour with PRETTIER_PLUGIN_GML_ON_PARSE_ERROR.
 const DEFAULT_PARSE_ERROR_ACTION =
-    parseErrorActionOption.normalize(
-        process.env.PRETTIER_PLUGIN_GML_ON_PARSE_ERROR,
-        ParseErrorAction.ABORT
-    ) ?? ParseErrorAction.ABORT;
+    parseErrorActionOption.normalize(process.env.PRETTIER_PLUGIN_GML_ON_PARSE_ERROR, ParseErrorAction.ABORT) ??
+    ParseErrorAction.ABORT;
 
 const DEFAULT_PRETTIER_LOG_LEVEL =
-    logLevelOption.normalize(
-        process.env.PRETTIER_PLUGIN_GML_LOG_LEVEL,
-        "warn"
-    ) ?? "warn";
+    logLevelOption.normalize(process.env.PRETTIER_PLUGIN_GML_LOG_LEVEL, "warn") ?? "warn";
 
 // Save the original console.debug, console.error, console.warn, console.log
 // and console.info so we can
@@ -398,9 +318,7 @@ const FORMAT_ACTION = "format";
 const HELP_ACTION = "help";
 
 function resolveDefaultAction() {
-    return process.env.PRETTIER_PLUGIN_GML_DEFAULT_ACTION === FORMAT_ACTION
-        ? FORMAT_ACTION
-        : HELP_ACTION;
+    return process.env.PRETTIER_PLUGIN_GML_DEFAULT_ACTION === FORMAT_ACTION ? FORMAT_ACTION : HELP_ACTION;
 }
 
 const program = applyStandardCommandOptions(new Command())
@@ -415,21 +333,16 @@ const program = applyStandardCommandOptions(new Command())
                 : `Run with a command name to get started (e.g., '${FORMAT_ACTION} --help' for formatting options).`
         ].join(" \n")
     )
-    .version(
-        resolveCliVersion(),
-        "-V, --version",
-        "Show CLI version information."
-    );
+    .version(resolveCliVersion(), "-V, --version", "Show CLI version information.");
 
-export const { registry: cliCommandRegistry, runner: cliCommandRunner } =
-    createCliCommandManager({
-        program,
-        onUnhandledError: (error) =>
-            handleCliError(error, {
-                prefix: "Failed to run prettier-plugin-gml CLI.",
-                exitCode: 1
-            })
-    });
+export const { registry: cliCommandRegistry, runner: cliCommandRunner } = createCliCommandManager({
+    program,
+    onUnhandledError: (error) =>
+        handleCliError(error, {
+            prefix: "Failed to run prettier-plugin-gml CLI.",
+            exitCode: 1
+        })
+});
 
 export { normalizeCommandLineArguments };
 
@@ -448,11 +361,7 @@ export interface RunCliTestCommandOptions {
     cwd?: string | URL;
 }
 
-export async function runCliTestCommand({
-    argv = [],
-    env = {},
-    cwd
-}: RunCliTestCommandOptions = {}) {
+export async function runCliTestCommand({ argv = [], env = {}, cwd }: RunCliTestCommandOptions = {}) {
     const originalEnvValues = new Map<string, string | undefined>();
     const envOverrides = {
         ...env,
@@ -471,11 +380,7 @@ export async function runCliTestCommand({
     const originalCwd = process.cwd();
     const originalInitialWorkingDirectory = initialWorkingDirectory;
     const normalizedCwd =
-        typeof cwd === "string"
-            ? cwd
-            : typeof cwd?.toString === "function"
-              ? cwd.toString()
-              : undefined;
+        typeof cwd === "string" ? cwd : typeof cwd?.toString === "function" ? cwd.toString() : undefined;
     if (normalizedCwd) {
         process.chdir(normalizedCwd);
     }
@@ -486,31 +391,18 @@ export async function runCliTestCommand({
     const originalStdoutWrite = process.stdout.write.bind(process.stdout);
     const originalStderrWrite = process.stderr.write.bind(process.stderr);
 
-    const normalizeWriteChunk = (
-        chunk: string | Uint8Array,
-        encoding?: BufferEncoding
-    ) =>
-        typeof chunk === "string"
-            ? chunk
-            : Buffer.from(chunk).toString(encoding);
+    const normalizeWriteChunk = (chunk: string | Uint8Array, encoding?: BufferEncoding) =>
+        typeof chunk === "string" ? chunk : Buffer.from(chunk).toString(encoding);
 
     const createCaptureWrite =
         (target: Array<string>): typeof process.stdout.write =>
         (chunk, encodingOrCallback?, callback?) => {
             const encoding =
-                typeof encodingOrCallback === "string"
-                    ? (encodingOrCallback as BufferEncoding)
-                    : undefined;
-            const text = normalizeWriteChunk(
-                chunk as string | Uint8Array,
-                encoding
-            );
+                typeof encodingOrCallback === "string" ? (encodingOrCallback as BufferEncoding) : undefined;
+            const text = normalizeWriteChunk(chunk as string | Uint8Array, encoding);
             target.push(text);
 
-            const cb =
-                typeof encodingOrCallback === "function"
-                    ? encodingOrCallback
-                    : callback;
+            const cb = typeof encodingOrCallback === "function" ? encodingOrCallback : callback;
 
             if (typeof cb === "function") {
                 cb();
@@ -533,11 +425,7 @@ export async function runCliTestCommand({
     try {
         const normalizedArgs = normalizeCommandLineArguments(argv);
         await cliCommandRunner.run(normalizedArgs);
-        exitCode =
-            typeof process.exitCode === "number" &&
-            !Number.isNaN(process.exitCode)
-                ? process.exitCode
-                : 0;
+        exitCode = typeof process.exitCode === "number" && !Number.isNaN(process.exitCode) ? process.exitCode : 0;
     } catch (error) {
         if (error instanceof CliTestExit) {
             exitCode = error.exitCode;
@@ -583,24 +471,20 @@ function createFormatCommand({ name = "prettier-plugin-gml" } = {}) {
                 return normalized;
             }
 
-            const priorValues = Array.isArray(previous)
-                ? previous
-                : compactArray([previous]);
+            const priorValues = Array.isArray(previous) ? previous : compactArray([previous]);
 
             return mergeUniqueValues(priorValues, normalized);
         })
         .default(undefined, formatExtensionListForDisplay(DEFAULT_EXTENSIONS));
 
-    const {
-        option: skippedDirectorySampleLimitOption,
-        parseLimit: parseSkippedDirectoryLimit
-    } = createConfiguredSampleLimitOption({
-        flag: "--ignored-directory-sample-limit <count>",
-        description: (defaultLimit) =>
-            `Max ignored directories shown in summary. Default: ${defaultLimit}, use 0 to hide`,
-        getDefaultLimit: getDefaultSkippedDirectorySampleLimit,
-        resolveLimit: resolveSkippedDirectorySampleLimit
-    });
+    const { option: skippedDirectorySampleLimitOption, parseLimit: parseSkippedDirectoryLimit } =
+        createConfiguredSampleLimitOption({
+            flag: "--ignored-directory-sample-limit <count>",
+            description: (defaultLimit) =>
+                `Max ignored directories shown in summary. Default: ${defaultLimit}, use 0 to hide`,
+            getDefaultLimit: getDefaultSkippedDirectorySampleLimit,
+            resolveLimit: resolveSkippedDirectorySampleLimit
+        });
     const skippedDirectorySamplesAliasOption = new Option(
         "--ignored-directory-samples <count>",
         "Alias for --ignored-directory-sample-limit <count>"
@@ -608,44 +492,30 @@ function createFormatCommand({ name = "prettier-plugin-gml" } = {}) {
         .argParser(wrapInvalidArgumentResolver(parseSkippedDirectoryLimit))
         .hideHelp();
 
-    const { option: ignoredFileSampleLimitOption } =
-        createConfiguredSampleLimitOption({
-            flag: "--ignored-file-sample-limit <count>",
-            description: (defaultLimit) =>
-                `Max ignored files shown in summary. Default: ${defaultLimit}, use 0 to hide`,
-            getDefaultLimit: getDefaultIgnoredFileSampleLimit,
-            resolveLimit: resolveIgnoredFileSampleLimit
-        });
+    const { option: ignoredFileSampleLimitOption } = createConfiguredSampleLimitOption({
+        flag: "--ignored-file-sample-limit <count>",
+        description: (defaultLimit) => `Max ignored files shown in summary. Default: ${defaultLimit}, use 0 to hide`,
+        getDefaultLimit: getDefaultIgnoredFileSampleLimit,
+        resolveLimit: resolveIgnoredFileSampleLimit
+    });
 
-    const { option: unsupportedExtensionSampleLimitOption } =
-        createConfiguredSampleLimitOption({
-            flag: "--unsupported-extension-sample-limit <count>",
-            description: (defaultLimit) =>
-                `Max unsupported files shown in summary. Default: ${defaultLimit}, use 0 to hide`,
-            getDefaultLimit: getDefaultUnsupportedExtensionSampleLimit,
-            resolveLimit: resolveUnsupportedExtensionSampleLimit
-        });
+    const { option: unsupportedExtensionSampleLimitOption } = createConfiguredSampleLimitOption({
+        flag: "--unsupported-extension-sample-limit <count>",
+        description: (defaultLimit) =>
+            `Max unsupported files shown in summary. Default: ${defaultLimit}, use 0 to hide`,
+        getDefaultLimit: getDefaultUnsupportedExtensionSampleLimit,
+        resolveLimit: resolveUnsupportedExtensionSampleLimit
+    });
 
     return applyStandardCommandOptions(
         new Command()
             .name(name)
             .usage("[options] [path]")
-            .description(
-                "Format GameMaker Language files using the prettier plugin."
-            )
+            .description("Format GameMaker Language files using the prettier plugin.")
     )
-        .argument(
-            "[targetPath]",
-            "Directory or file to format. Defaults to the current working directory."
-        )
-        .option(
-            "--path <path>",
-            "Directory or file to format (alias for positional argument)."
-        )
-        .option(
-            "--check",
-            "Check formatting without writing changes (dry-run mode)"
-        )
+        .argument("[targetPath]", "Directory or file to format. Defaults to the current working directory.")
+        .option("--path <path>", "Directory or file to format (alias for positional argument).")
+        .option("--check", "Check formatting without writing changes (dry-run mode)")
         .addOption(extensionsOption)
         .addOption(skippedDirectorySampleLimitOption)
         .addOption(skippedDirectorySamplesAliasOption)
@@ -660,11 +530,7 @@ function createFormatCommand({ name = "prettier-plugin-gml" } = {}) {
         .option(
             "--on-parse-error <mode>",
             "Parser failure handling: revert|skip|abort. Default: abort",
-            (value) =>
-                parseErrorActionOption.requireValue(
-                    value,
-                    InvalidArgumentError
-                ),
+            (value) => parseErrorActionOption.requireValue(value, InvalidArgumentError),
             DEFAULT_PARSE_ERROR_ACTION
         )
         .addHelpText("after", () =>
@@ -701,10 +567,7 @@ let placeholderExtension = targetExtensions[0] ?? DEFAULT_EXTENSIONS[0];
  */
 function configureTargetExtensionState(configuredExtensions) {
     const fallbackExtensions = resolveDefaultExtensions();
-    targetExtensions =
-        configuredExtensions.length > 0
-            ? configuredExtensions
-            : fallbackExtensions;
+    targetExtensions = configuredExtensions.length > 0 ? configuredExtensions : fallbackExtensions;
     targetExtensionSet = createTargetExtensionSet(targetExtensions);
     placeholderExtension = targetExtensions[0] ?? fallbackExtensions[0];
 }
@@ -730,9 +593,7 @@ function configurePrettierOptions({
 }: {
     logLevel?: unknown;
 } = {}) {
-    const normalized =
-        logLevelOption.normalize(logLevel, DEFAULT_PRETTIER_LOG_LEVEL) ??
-        DEFAULT_PRETTIER_LOG_LEVEL;
+    const normalized = logLevelOption.normalize(logLevel, DEFAULT_PRETTIER_LOG_LEVEL) ?? DEFAULT_PRETTIER_LOG_LEVEL;
     options.logLevel = normalized;
     // Toggle console.debug and filter console.error based on the configured
     // Prettier log level so internal debug and diagnostic output is suppressed
@@ -1114,8 +975,7 @@ async function handleFormattingError(error, filePath) {
     // intentionally malformed fixtures.
     const isParseError = !!(
         error &&
-        (error.name === "GameMakerSyntaxError" ||
-            (error instanceof Error && error.name === "GameMakerSyntaxError"))
+        (error.name === "GameMakerSyntaxError" || (error instanceof Error && error.name === "GameMakerSyntaxError"))
     );
 
     // When the user specifies `--parse-error-action=SKIP`, they're explicitly opting
@@ -1202,19 +1062,13 @@ async function registerIgnorePaths(ignoreFiles) {
 }
 
 function getIgnorePathOptions(additionalIgnorePaths = []) {
-    const ignoreCandidates = compactArray([
-        IGNORE_PATH,
-        ...baseProjectIgnorePaths,
-        ...additionalIgnorePaths
-    ]);
+    const ignoreCandidates = compactArray([IGNORE_PATH, ...baseProjectIgnorePaths, ...additionalIgnorePaths]);
     if (ignoreCandidates.length === 0) {
         return null;
     }
 
     const uniqueIgnorePaths = uniqueArray(ignoreCandidates);
-    return uniqueIgnorePaths.length === 1
-        ? uniqueIgnorePaths[0]
-        : uniqueIgnorePaths;
+    return uniqueIgnorePaths.length === 1 ? uniqueIgnorePaths[0] : uniqueIgnorePaths;
 }
 
 async function shouldSkipDirectory(directory, activeIgnorePaths = []) {
@@ -1227,10 +1081,7 @@ async function shouldSkipDirectory(directory, activeIgnorePaths = []) {
         return false;
     }
 
-    const placeholderPath = path.join(
-        directory,
-        `__prettier_plugin_gml_ignore_test__${placeholderExtension}`
-    );
+    const placeholderPath = path.join(directory, `__prettier_plugin_gml_ignore_test__${placeholderExtension}`);
 
     const prettier = await resolvePrettier();
 
@@ -1247,9 +1098,7 @@ async function shouldSkipDirectory(directory, activeIgnorePaths = []) {
         }
     } catch (error) {
         const message = getErrorMessageOrFallback(error);
-        console.warn(
-            `Unable to evaluate ignore rules for ${directory}: ${message}`
-        );
+        console.warn(`Unable to evaluate ignore rules for ${directory}: ${message}`);
     }
 
     return false;
@@ -1263,16 +1112,11 @@ async function shouldSkipDirectory(directory, activeIgnorePaths = []) {
 function resolveIgnoreSearchBounds(directory) {
     const resolvedDirectory = path.resolve(directory);
     const resolvedWorkingDirectory = initialWorkingDirectory;
-    const shouldLimitToWorkingDirectory = isPathInside(
-        resolvedDirectory,
-        resolvedWorkingDirectory
-    );
+    const shouldLimitToWorkingDirectory = isPathInside(resolvedDirectory, resolvedWorkingDirectory);
 
     return {
         resolvedDirectory,
-        searchRoot: shouldLimitToWorkingDirectory
-            ? resolvedWorkingDirectory
-            : null
+        searchRoot: shouldLimitToWorkingDirectory ? resolvedWorkingDirectory : null
     };
 }
 
@@ -1282,9 +1126,7 @@ function resolveIgnoreSearchBounds(directory) {
  * @param {readonly string[]} directories
  */
 function collectIgnoreCandidatePaths(directories) {
-    return directories.map((candidateDirectory) =>
-        path.join(candidateDirectory, ".prettierignore")
-    );
+    return directories.map((candidateDirectory) => path.join(candidateDirectory, ".prettierignore"));
 }
 
 function collectIgnoreSearchDirectories(directory, searchRoot) {
@@ -1329,12 +1171,8 @@ async function collectExistingIgnoreFiles(candidatePaths) {
 }
 
 async function resolveProjectIgnorePaths(directory) {
-    const { resolvedDirectory, searchRoot } =
-        resolveIgnoreSearchBounds(directory);
-    const directoriesToInspect = collectIgnoreSearchDirectories(
-        resolvedDirectory,
-        searchRoot
-    );
+    const { resolvedDirectory, searchRoot } = resolveIgnoreSearchBounds(directory);
+    const directoriesToInspect = collectIgnoreSearchDirectories(resolvedDirectory, searchRoot);
     const candidatePaths = collectIgnoreCandidatePaths(directoriesToInspect);
     return collectExistingIgnoreFiles(candidatePaths);
 }
@@ -1373,9 +1211,7 @@ async function resolveTargetStats(target, { usage }: { usage?: string } = {}) {
 
             return null;
         })();
-        const messageParts = [
-            `Unable to access ${formattedTarget}: ${details}.`
-        ];
+        const messageParts = [`Unable to access ${formattedTarget}: ${details}.`];
 
         if (guidance) {
             messageParts.push(guidance);
@@ -1388,8 +1224,7 @@ async function resolveTargetStats(target, { usage }: { usage?: string } = {}) {
 async function resolveDirectoryIgnoreContext(directory, inheritedIgnorePaths) {
     const localIgnorePath = path.join(directory, ".prettierignore");
     let effectiveIgnorePaths = inheritedIgnorePaths;
-    let shouldRegisterLocalIgnore =
-        baseProjectIgnorePathSet.has(localIgnorePath);
+    let shouldRegisterLocalIgnore = baseProjectIgnorePathSet.has(localIgnorePath);
 
     try {
         const ignoreStats = await stat(localIgnorePath);
@@ -1397,11 +1232,7 @@ async function resolveDirectoryIgnoreContext(directory, inheritedIgnorePaths) {
         if (ignoreStats.isFile()) {
             shouldRegisterLocalIgnore = true;
 
-            effectiveIgnorePaths = mergeUniqueValues(
-                inheritedIgnorePaths,
-                [localIgnorePath],
-                { freeze: false }
-            );
+            effectiveIgnorePaths = mergeUniqueValues(inheritedIgnorePaths, [localIgnorePath], { freeze: false });
         }
     } catch {
         // Ignore missing files. When the local ignore file does not exist,
@@ -1463,8 +1294,10 @@ async function processDirectory(directory, inheritedIgnorePaths = []) {
         return;
     }
 
-    const { effectiveIgnorePaths, localIgnorePath, shouldRegisterLocalIgnore } =
-        await resolveDirectoryIgnoreContext(directory, inheritedIgnorePaths);
+    const { effectiveIgnorePaths, localIgnorePath, shouldRegisterLocalIgnore } = await resolveDirectoryIgnoreContext(
+        directory,
+        inheritedIgnorePaths
+    );
 
     if (shouldRegisterLocalIgnore) {
         await registerIgnorePaths([localIgnorePath]);
@@ -1484,9 +1317,7 @@ async function resolveFormattingOptions(filePath) {
         });
     } catch (error) {
         const message = getErrorMessageOrFallback(error);
-        console.warn(
-            `Unable to resolve Prettier config for ${filePath}: ${message}`
-        );
+        console.warn(`Unable to resolve Prettier config for ${filePath}: ${message}`);
     }
 
     const mergedOptions = {
@@ -1523,11 +1354,8 @@ async function processFile(filePath, activeIgnorePaths = []) {
         });
 
         if (fileInfo.ignored) {
-            const ignoreSourceDescription =
-                describeIgnoreSource(activeIgnorePaths);
-            const formattedIgnoreSource = ignoreSourceDescription
-                ? `ignored by ${ignoreSourceDescription}`
-                : "ignored";
+            const ignoreSourceDescription = describeIgnoreSource(activeIgnorePaths);
+            const formattedIgnoreSource = ignoreSourceDescription ? `ignored by ${ignoreSourceDescription}` : "ignored";
 
             recordIgnoredFile({
                 filePath,
@@ -1607,11 +1435,7 @@ function describeTargetPathInput(value) {
     return `${article} ${tagName} object`;
 }
 
-function validateTargetPathInput({
-    targetPathProvided,
-    targetPathInput,
-    usage
-}) {
+function validateTargetPathInput({ targetPathProvided, targetPathInput, usage }) {
     if (!targetPathProvided) {
         return;
     }
@@ -1628,10 +1452,7 @@ function validateTargetPathInput({
 
     if (typeof targetPathInput !== "string") {
         const description = describeTargetPathInput(targetPathInput);
-        throw new CliUsageError(
-            `Target path must be provided as a string. Received ${description}.`,
-            { usage }
-        );
+        throw new CliUsageError(`Target path must be provided as a string. Received ${description}.`, { usage });
     }
 }
 
@@ -1642,22 +1463,13 @@ function validateTargetPathInput({
  * @param {string} [options.rawTargetPathInput]
  * @returns {string}
  */
-function resolveTargetPathFromInput(
-    targetPathInput,
-    { rawTargetPathInput }: { rawTargetPathInput?: string } = {}
-) {
+function resolveTargetPathFromInput(targetPathInput, { rawTargetPathInput }: { rawTargetPathInput?: string } = {}) {
     const hasExplicitTarget = Core.isNonEmptyString(targetPathInput);
     const normalizedTarget = hasExplicitTarget ? targetPathInput : ".";
-    const resolvedNormalizedTarget = path.resolve(
-        process.cwd(),
-        normalizedTarget
-    );
+    const resolvedNormalizedTarget = path.resolve(process.cwd(), normalizedTarget);
 
     if (hasExplicitTarget && typeof rawTargetPathInput === "string") {
-        const resolvedRawTarget = path.resolve(
-            process.cwd(),
-            rawTargetPathInput
-        );
+        const resolvedRawTarget = path.resolve(process.cwd(), rawTargetPathInput);
 
         if (resolvedRawTarget !== resolvedNormalizedTarget) {
             if (safeExistsSync(resolvedRawTarget)) {
@@ -1707,8 +1519,7 @@ async function prepareFormattingRun({
     configureSkippedDirectorySampleLimit(skippedDirectorySampleLimit);
     configureIgnoredFileSampleLimit(ignoredFileSampleLimit);
     configureUnsupportedExtensionSampleLimit(unsupportedExtensionSampleLimit);
-    const normalizedParseErrorAction =
-        parseErrorActionOption.requireValue(onParseError);
+    const normalizedParseErrorAction = parseErrorActionOption.requireValue(onParseError);
     await resetFormattingSession(normalizedParseErrorAction);
     configureCheckMode(checkMode);
 }
@@ -1725,15 +1536,10 @@ async function resolveTargetContext(targetPath, usage) {
     const targetIsDirectory = targetStats.isDirectory();
 
     if (!targetIsDirectory && !targetStats.isFile()) {
-        throw new CliUsageError(
-            `${targetPath} is not a file or directory that can be formatted`,
-            { usage }
-        );
+        throw new CliUsageError(`${targetPath} is not a file or directory that can be formatted`, { usage });
     }
 
-    const projectRoot = targetIsDirectory
-        ? targetPath
-        : path.dirname(targetPath);
+    const projectRoot = targetIsDirectory ? targetPath : path.dirname(targetPath);
 
     return { targetIsDirectory, projectRoot };
 }
@@ -1757,11 +1563,7 @@ async function processNonDirectoryTarget(targetPath) {
  *
  * @param {{ targetPath: string, targetIsDirectory: boolean, projectRoot: string }} params
  */
-async function processResolvedTarget({
-    targetPath,
-    targetIsDirectory,
-    projectRoot
-}) {
+async function processResolvedTarget({ targetPath, targetIsDirectory, projectRoot }) {
     await initializeProjectIgnorePaths(projectRoot);
 
     if (targetIsDirectory) {
@@ -1777,11 +1579,7 @@ async function processResolvedTarget({
  *
  * @param {{ targetPath: string, targetIsDirectory: boolean }} params
  */
-function finalizeFormattingRun({
-    targetPath,
-    targetIsDirectory,
-    targetPathProvided
-}) {
+function finalizeFormattingRun({ targetPath, targetIsDirectory, targetPathProvided }) {
     if (encounteredFormattableFile) {
         if (checkModeEnabled) {
             logCheckModeSummary();
@@ -1816,15 +1614,8 @@ function finalizeFormattingRun({
  *
  * @param {{ targetPath: string, usage: string }} params
  */
-async function runFormattingWorkflow({
-    targetPath,
-    usage,
-    targetPathProvided
-}) {
-    const { targetIsDirectory, projectRoot } = await resolveTargetContext(
-        targetPath,
-        usage
-    );
+async function runFormattingWorkflow({ targetPath, usage, targetPathProvided }) {
+    const { targetIsDirectory, projectRoot } = await resolveTargetContext(targetPath, usage);
 
     await processResolvedTarget({
         targetPath,
@@ -1881,12 +1672,7 @@ async function executeFormatCommand(command) {
     }
 }
 
-function logNoMatchingFiles({
-    targetPath,
-    targetIsDirectory,
-    targetPathProvided,
-    extensions
-}) {
+function logNoMatchingFiles({ targetPath, targetIsDirectory, targetPathProvided, extensions }) {
     const formattedExtensions = formatExtensionListForDisplay(extensions);
     const formattedTarget = formatPathForDisplay(targetPath);
     const locationDescription = targetIsDirectory
@@ -1907,8 +1693,7 @@ function logNoMatchingFiles({
               exampleGuidance
           ].join(" ");
     const ignoredFilesSkipped = skippedFileSummary.ignored > 0;
-    const ignoredMessageSuffix =
-        "Adjust your .prettierignore files or refine the target path if this is unexpected.";
+    const ignoredMessageSuffix = "Adjust your .prettierignore files or refine the target path if this is unexpected.";
 
     if (targetIsDirectory) {
         if (ignoredFilesSkipped) {
@@ -1951,10 +1736,7 @@ function logNoMatchingFiles({
     logSkippedFileSummary();
 }
 
-function describeDirectoryWithoutMatches({
-    formattedTargetPath,
-    targetPathProvided
-}) {
+function describeDirectoryWithoutMatches({ formattedTargetPath, targetPathProvided }) {
     if (!targetPathProvided) {
         return "in the current working directory (.)";
     }
@@ -1973,9 +1755,7 @@ function logCheckModeSummary() {
     }
 
     const label = pendingFormatCount === 1 ? "file requires" : "files require";
-    console.log(
-        `${pendingFormatCount} ${label} formatting. Re-run without --check to write changes.`
-    );
+    console.log(`${pendingFormatCount} ${label} formatting. Re-run without --check to write changes.`);
 }
 
 function logWriteModeSummary({
@@ -2101,9 +1881,7 @@ function formatIgnoredDetail({ ignored, ignoredSamples }) {
         return null;
     }
 
-    const formattedSamples = compactArray(
-        (ignoredSamples ?? []).map((sample) => formatIgnoredFileSample(sample))
-    );
+    const formattedSamples = compactArray((ignoredSamples ?? []).map((sample) => formatIgnoredFileSample(sample)));
     const suffix = formatSampleSuffix(formattedSamples, ignored);
 
     return `ignored by .prettierignore (${ignored})${suffix}`;
@@ -2117,18 +1895,13 @@ function formatUnsupportedExtensionSample(sample) {
     return formatPathForDisplay(sample);
 }
 
-function formatUnsupportedExtensionDetail({
-    unsupportedExtension,
-    unsupportedExtensionSamples
-}) {
+function formatUnsupportedExtensionDetail({ unsupportedExtension, unsupportedExtensionSamples }) {
     if (unsupportedExtension <= 0) {
         return null;
     }
 
     const formattedSamples = compactArray(
-        (unsupportedExtensionSamples ?? []).map((sample) =>
-            formatUnsupportedExtensionSample(sample)
-        )
+        (unsupportedExtensionSamples ?? []).map((sample) => formatUnsupportedExtensionSample(sample))
     );
     const suffix = formatSampleSuffix(formattedSamples, unsupportedExtension);
 
@@ -2184,9 +1957,7 @@ function logSkippedFileSummary() {
     }
 
     const skippedFileCount =
-        skippedFileSummary.ignored +
-        skippedFileSummary.unsupportedExtension +
-        skippedFileSummary.symbolicLink;
+        skippedFileSummary.ignored + skippedFileSummary.unsupportedExtension + skippedFileSummary.symbolicLink;
     const skipLabel = skippedFileCount === 1 ? "file" : "files";
     const summary = `Skipped ${skippedFileCount} ${skipLabel}.`;
 
@@ -2213,9 +1984,7 @@ function buildSkippedDirectorySummaryMessage() {
     }
 
     const label = ignored === 1 ? "directory" : "directories";
-    const formattedSamples = ignoredSamples.map((directory) =>
-        formatPathForDisplay(directory)
-    );
+    const formattedSamples = ignoredSamples.map((directory) => formatPathForDisplay(directory));
 
     if (formattedSamples.length === 0) {
         return `Skipped ${ignored} ${label} ignored by .prettierignore.`;
@@ -2348,9 +2117,7 @@ cliCommandRegistry.registerCommand({
 });
 
 if (!isCliRunSkipped()) {
-    const normalizedArguments = normalizeCommandLineArguments(
-        process.argv.slice(2)
-    );
+    const normalizedArguments = normalizeCommandLineArguments(process.argv.slice(2));
 
     cliCommandRunner.run(normalizedArguments).catch((error) => {
         handleCliError(error, {
@@ -2367,10 +2134,7 @@ if (!isCliRunSkipped()) {
  * @returns {boolean} True if samples are equal
  */
 function areIgnoredFileSamplesEqual(existing, candidate) {
-    return (
-        existing?.filePath === candidate?.filePath &&
-        existing?.sourceDescription === candidate?.sourceDescription
-    );
+    return existing?.filePath === candidate?.filePath && existing?.sourceDescription === candidate?.sourceDescription;
 }
 
 function recordIgnoredFile({ filePath, sourceDescription }) {
@@ -2379,23 +2143,12 @@ function recordIgnoredFile({ filePath, sourceDescription }) {
     const limit = getIgnoredFileSampleLimit();
     const sample = { filePath, sourceDescription };
 
-    if (
-        tryAddSample(
-            skippedFileSummary.ignoredSamples,
-            sample,
-            limit,
-            areIgnoredFileSamplesEqual
-        )
-    ) {
+    if (tryAddSample(skippedFileSummary.ignoredSamples, sample, limit, areIgnoredFileSamplesEqual)) {
         console.log(`Skipping ${filePath} (${sourceDescription})`);
     }
 }
 function recordUnsupportedExtension(filePath) {
     skippedFileSummary.unsupportedExtension += 1;
     const limit = getUnsupportedExtensionSampleLimit();
-    tryAddSample(
-        skippedFileSummary.unsupportedExtensionSamples,
-        filePath,
-        limit
-    );
+    tryAddSample(skippedFileSummary.unsupportedExtensionSamples, filePath, limit);
 }

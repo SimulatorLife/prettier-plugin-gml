@@ -8,13 +8,8 @@ type ResolvedDocCommentPrinterOptions = DocCommentPrinterOptions & {
     printWidth: number;
 };
 
-export function resolveDocCommentPrinterOptions(
-    options?: DocCommentPrinterOptions
-): ResolvedDocCommentPrinterOptions {
-    const printWidth = Core.coercePositiveIntegerOption(
-        options?.printWidth,
-        120
-    );
+export function resolveDocCommentPrinterOptions(options?: DocCommentPrinterOptions): ResolvedDocCommentPrinterOptions {
+    const printWidth = Core.coercePositiveIntegerOption(options?.printWidth, 120);
 
     return {
         ...options,

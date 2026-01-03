@@ -8,11 +8,7 @@ import { Core } from "@gml-modules/core";
 const { assertNonEmptyString, getErrorMessageOrFallback } = Core;
 
 const require = createRequire(import.meta.url);
-const DEFAULT_VENDOR_RUNTIME_PATH = path.resolve(
-    process.cwd(),
-    "vendor",
-    "GameMaker-HTML5"
-);
+const DEFAULT_VENDOR_RUNTIME_PATH = path.resolve(process.cwd(), "vendor", "GameMaker-HTML5");
 
 export const DEFAULT_RUNTIME_PACKAGE = "gamemaker-html5";
 
@@ -53,9 +49,7 @@ async function resolveVendorRuntimeRoot() {
 
     let packageJson = null;
     try {
-        packageJson = await readPackageJson(
-            path.join(DEFAULT_VENDOR_RUNTIME_PATH, "package.json")
-        );
+        packageJson = await readPackageJson(path.join(DEFAULT_VENDOR_RUNTIME_PATH, "package.json"));
     } catch (error) {
         // Ignore missing or invalid package metadata in the vendor checkout.
         // The runtime resolution system can operate without package.json when
@@ -87,9 +81,7 @@ export interface RuntimeSourceResolverOptions {
     runtimePackage?: string | undefined;
 }
 
-export type RuntimeSourceResolver = (
-    options?: RuntimeSourceResolverOptions
-) => Promise<RuntimeSourceDescriptor>;
+export type RuntimeSourceResolver = (options?: RuntimeSourceResolverOptions) => Promise<RuntimeSourceDescriptor>;
 
 export async function resolveRuntimeSource({
     runtimeRoot,
@@ -99,15 +91,11 @@ export async function resolveRuntimeSource({
     if (candidate) {
         const stats = await fs.stat(candidate.root).catch((error) => {
             const message = getErrorMessageOrFallback(error);
-            throw new Error(
-                `Runtime root '${candidate.root}' is unavailable. (${message})`
-            );
+            throw new Error(`Runtime root '${candidate.root}' is unavailable. (${message})`);
         });
 
         if (!stats.isDirectory()) {
-            throw new Error(
-                `Runtime root '${candidate.root}' must point to a directory.`
-            );
+            throw new Error(`Runtime root '${candidate.root}' must point to a directory.`);
         }
 
         return candidate;

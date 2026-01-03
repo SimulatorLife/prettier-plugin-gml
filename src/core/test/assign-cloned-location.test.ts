@@ -45,14 +45,8 @@ void test("assignClonedLocation gracefully handles invalid inputs", () => {
     assert.strictEqual(assignClonedLocation(undefined, template), undefined);
 
     const targetWithoutTemplate: MutableGameMakerAstNode = {};
-    assert.strictEqual(
-        assignClonedLocation(targetWithoutTemplate, null),
-        targetWithoutTemplate
-    );
+    assert.strictEqual(assignClonedLocation(targetWithoutTemplate, null), targetWithoutTemplate);
 
     const targetWithPrimitiveTemplate: MutableGameMakerAstNode = {};
-    assert.strictEqual(
-        assignClonedLocation(targetWithPrimitiveTemplate, 42),
-        targetWithPrimitiveTemplate
-    );
+    assert.strictEqual(assignClonedLocation(targetWithPrimitiveTemplate, 42), targetWithPrimitiveTemplate);
 });

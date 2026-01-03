@@ -12,9 +12,7 @@ export interface CommanderErrorLike extends Error {
     command?: CommanderCommandLike;
 }
 
-export function isCommanderErrorLike(
-    value: unknown
-): value is CommanderErrorLike {
+export function isCommanderErrorLike(value: unknown): value is CommanderErrorLike {
     if (!isErrorLike(value)) {
         return false;
     }
@@ -32,11 +30,6 @@ export function isCommanderErrorLike(
     return true;
 }
 
-export function isCommanderHelpDisplayedError(
-    value: unknown
-): value is CommanderErrorLike {
-    return (
-        isCommanderErrorLike(value) &&
-        value.code === COMMANDER_HELP_DISPLAYED_CODE
-    );
+export function isCommanderHelpDisplayedError(value: unknown): value is CommanderErrorLike {
+    return isCommanderErrorLike(value) && value.code === COMMANDER_HELP_DISPLAYED_CODE;
 }

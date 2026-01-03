@@ -11,10 +11,7 @@ import { asErrorLike } from "../src/shared/error-guards.js";
 void test("collectSuiteResults executes suite runners with shared options", async () => {
     const calls = [];
     const runnerOptions = { iterations: 5 };
-    const availableSuites: Map<string, SuiteRunner> = new Map<
-        string,
-        SuiteRunner
-    >([
+    const availableSuites: Map<string, SuiteRunner> = new Map<string, SuiteRunner>([
         [
             "alpha",
             async (options) => {
@@ -48,10 +45,7 @@ void test("collectSuiteResults executes suite runners with shared options", asyn
 });
 
 void test("collectSuiteResults maps thrown errors using onError callback", async () => {
-    const availableSuites: Map<string, SuiteRunner> = new Map<
-        string,
-        SuiteRunner
-    >([
+    const availableSuites: Map<string, SuiteRunner> = new Map<string, SuiteRunner>([
         [
             "alpha",
             () => {
@@ -84,10 +78,7 @@ void test("collectSuiteResults maps thrown errors using onError callback", async
 });
 
 void test("collectSuiteResults normalizes errors when onError is not provided", async () => {
-    const availableSuites: Map<string, SuiteRunner> = new Map<
-        string,
-        SuiteRunner
-    >([
+    const availableSuites: Map<string, SuiteRunner> = new Map<string, SuiteRunner>([
         [
             "alpha",
             () => {
@@ -114,9 +105,7 @@ void test("collectSuiteResults normalizes errors when onError is not provided", 
 });
 
 void test("collectSuiteResults skips suites without registered runners", async () => {
-    const availableSuites: Map<string, SuiteRunner> = new Map([
-        ["alpha", () => ({ status: "ok" })]
-    ]);
+    const availableSuites: Map<string, SuiteRunner> = new Map([["alpha", () => ({ status: "ok" })]]);
 
     const results = await collectSuiteResults({
         suiteNames: ["alpha", "missing"],

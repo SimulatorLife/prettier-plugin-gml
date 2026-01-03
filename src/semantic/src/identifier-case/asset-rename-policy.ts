@@ -20,27 +20,13 @@ const IdentifierCaseAssetRenamePolicyReason = Object.freeze({
     APPLY: "apply"
 });
 
-export function evaluateIdentifierCaseAssetRenamePolicy(
-    context: AssetRenamePolicyContext = {}
-) {
-    const {
-        options = {},
-        projectIndex = null,
-        assetRenames = [],
-        assetConflicts = []
-    } = context;
+export function evaluateIdentifierCaseAssetRenamePolicy(context: AssetRenamePolicyContext = {}) {
+    const { options = {}, projectIndex = null, assetRenames = [], assetConflicts = [] } = context;
 
     const renames = Core.asArray(assetRenames);
     const conflicts = Core.asArray(assetConflicts);
 
-    const createResult = (
-        reason,
-        {
-            shouldApply = false,
-            includeRenames = false,
-            includeConflicts = false
-        } = {}
-    ) => ({
+    const createResult = (reason, { shouldApply = false, includeRenames = false, includeConflicts = false } = {}) => ({
         shouldApply,
         reason,
         renames: includeRenames ? renames : [],
@@ -48,9 +34,7 @@ export function evaluateIdentifierCaseAssetRenamePolicy(
     });
 
     if (options?.__identifierCaseDryRun !== false) {
-        return createResult(
-            IdentifierCaseAssetRenamePolicyReason.DRY_RUN_ENABLED
-        );
+        return createResult(IdentifierCaseAssetRenamePolicyReason.DRY_RUN_ENABLED);
     }
 
     if (!Core.isNonEmptyArray(renames)) {
@@ -58,24 +42,15 @@ export function evaluateIdentifierCaseAssetRenamePolicy(
     }
 
     if (Core.isNonEmptyArray(conflicts)) {
-        return createResult(
-            IdentifierCaseAssetRenamePolicyReason.HAS_CONFLICTS,
-            { includeConflicts: true }
-        );
+        return createResult(IdentifierCaseAssetRenamePolicyReason.HAS_CONFLICTS, { includeConflicts: true });
     }
 
     if (!projectIndex) {
-        return createResult(
-            IdentifierCaseAssetRenamePolicyReason.MISSING_PROJECT_INDEX,
-            { includeRenames: true }
-        );
+        return createResult(IdentifierCaseAssetRenamePolicyReason.MISSING_PROJECT_INDEX, { includeRenames: true });
     }
 
     if (options?.__identifierCaseAssetRenamesApplied === true) {
-        return createResult(
-            IdentifierCaseAssetRenamePolicyReason.ALREADY_APPLIED,
-            { includeRenames: true }
-        );
+        return createResult(IdentifierCaseAssetRenamePolicyReason.ALREADY_APPLIED, { includeRenames: true });
     }
 
     return createResult(IdentifierCaseAssetRenamePolicyReason.APPLY, {

@@ -45,11 +45,7 @@ function scr_example(argument0, argument1) {
         /var w = width;/,
         "Expected aliases to reference the named parameter instead of argument indices."
     );
-    assert.match(
-        formatted,
-        /var h = height;/,
-        "Expected all aliases to use their corresponding parameter names."
-    );
+    assert.match(formatted, /var h = height;/, "Expected all aliases to use their corresponding parameter names.");
 });
 
 void test("replaces argument index references inside function bodies", async () => {
@@ -97,21 +93,11 @@ void test("omits redundant argument aliases after parameter renaming", async () 
         applyFeatherFixes: true
     });
 
-    assert.match(
-        formatted,
-        /function example\(value\)/,
-        "Expected parameter name to reflect documented alias."
-    );
+    assert.match(formatted, /function example\(value\)/, "Expected parameter name to reflect documented alias.");
 
-    assert.ok(
-        !formatted.includes("var value = value;"),
-        "Expected redundant argument alias to be removed."
-    );
+    assert.ok(!formatted.includes("var value = value;"), "Expected redundant argument alias to be removed.");
 
-    assert.ok(
-        !formatted.includes("argument0"),
-        "Expected argument indices to be replaced throughout the body."
-    );
+    assert.ok(!formatted.includes("argument0"), "Expected argument indices to be replaced throughout the body.");
 });
 
 const SOURCE_WITH_NAMED_PARAMS = `/// @param {bool} b - Second
@@ -174,10 +160,7 @@ void test("normalizes doc comments that reference renamed parameters", async () 
         /function create_fx\(sprite\)/,
         "Expected parameter declaration to retain the documented identifier."
     );
-    assert.ok(
-        !formatted.includes("sprite_index"),
-        "Expected stale doc comment names to be replaced."
-    );
+    assert.ok(!formatted.includes("sprite_index"), "Expected stale doc comment names to be replaced.");
 });
 
 void test("preserves doc comment types when renaming parameters", async () => {

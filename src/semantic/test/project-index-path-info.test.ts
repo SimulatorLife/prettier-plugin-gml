@@ -22,11 +22,7 @@ void describe("project-index/path-info", () => {
     });
 
     void it("computes relative paths and containment when a root is provided", () => {
-        const projectRoot = path.join(
-            process.cwd(),
-            "tmp",
-            "project-index-path-info"
-        );
+        const projectRoot = path.join(process.cwd(), "tmp", "project-index-path-info");
         const nested = path.join(projectRoot, "src", "index.gml");
 
         const info = resolveProjectPathInfo(nested, projectRoot);
@@ -38,11 +34,7 @@ void describe("project-index/path-info", () => {
     });
 
     void it("tracks when a file escapes the project root", () => {
-        const projectRoot = path.join(
-            process.cwd(),
-            "tmp",
-            "project-index-path-info"
-        );
+        const projectRoot = path.join(process.cwd(), "tmp", "project-index-path-info");
         const sibling = path.join(projectRoot, "..", "other", "file.gml");
 
         const info = resolveProjectPathInfo(sibling, projectRoot);
@@ -50,9 +42,6 @@ void describe("project-index/path-info", () => {
         assert.ok(info);
         assert.strictEqual(info.hasProjectRoot, true);
         assert.strictEqual(info.isInsideProjectRoot, false);
-        assert.strictEqual(
-            info.relativePath,
-            path.relative(path.resolve(projectRoot), path.resolve(sibling))
-        );
+        assert.strictEqual(info.relativePath, path.relative(path.resolve(projectRoot), path.resolve(sibling)));
     });
 });

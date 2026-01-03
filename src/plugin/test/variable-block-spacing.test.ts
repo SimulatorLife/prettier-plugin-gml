@@ -19,9 +19,7 @@ void test("inserts a blank line between large variable blocks and following loop
 
     const formatted = await Plugin.format(source);
     const lines = formatted.trim().split("\n");
-    const forIndex = lines.findIndex((line) =>
-        line.includes("for (var index = 0")
-    );
+    const forIndex = lines.findIndex((line) => line.includes("for (var index = 0"));
 
     assert.equal(
         lines[forIndex - 1],

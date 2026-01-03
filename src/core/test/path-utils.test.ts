@@ -4,43 +4,26 @@ import path from "node:path";
 
 // Node.js deprecated the legacy assert.equal-style helpers; use the strict
 // variants to ensure consistent comparisons across runtimes.
-import {
-    isPathInside,
-    resolveContainedRelativePath,
-    walkAncestorDirectories
-} from "../src/fs/path.js";
+import { isPathInside, resolveContainedRelativePath, walkAncestorDirectories } from "../src/fs/path.js";
 
 void describe("path-utils", () => {
     void describe("resolveContainedRelativePath", () => {
-        const projectRoot = path.join(
-            process.cwd(),
-            "tmp",
-            "shared-path-utils"
-        );
+        const projectRoot = path.join(process.cwd(), "tmp", "shared-path-utils");
         const childFile = path.join(projectRoot, "src", "index.gml");
 
         void it("returns a relative path when the child is inside the parent", () => {
-            const relative = resolveContainedRelativePath(
-                childFile,
-                projectRoot
-            );
+            const relative = resolveContainedRelativePath(childFile, projectRoot);
             assert.strictEqual(relative, path.join("src", "index.gml"));
         });
 
         void it("allows child segments that begin with double dots", () => {
             const dottedChild = path.join(projectRoot, "..filename");
-            const relative = resolveContainedRelativePath(
-                dottedChild,
-                projectRoot
-            );
+            const relative = resolveContainedRelativePath(dottedChild, projectRoot);
             assert.strictEqual(relative, "..filename");
         });
 
         void it("returns an empty string when both paths are identical", () => {
-            const relative = resolveContainedRelativePath(
-                projectRoot,
-                projectRoot
-            );
+            const relative = resolveContainedRelativePath(projectRoot, projectRoot);
             assert.strictEqual(relative, "");
         });
 
@@ -51,24 +34,13 @@ void describe("path-utils", () => {
         });
 
         void it("returns null for empty inputs", () => {
-            assert.strictEqual(
-                resolveContainedRelativePath(null, projectRoot),
-                null
-            );
-            assert.strictEqual(
-                resolveContainedRelativePath(childFile, null),
-                null
-            );
+            assert.strictEqual(resolveContainedRelativePath(null, projectRoot), null);
+            assert.strictEqual(resolveContainedRelativePath(childFile, null), null);
         });
     });
 
     void describe("walkAncestorDirectories", () => {
-        const projectRoot = path.join(
-            process.cwd(),
-            "tmp",
-            "shared-path-utils",
-            "ancestors"
-        );
+        const projectRoot = path.join(process.cwd(), "tmp", "shared-path-utils", "ancestors");
         const nested = path.join(projectRoot, "src", "features", "module");
 
         void it("yields each ancestor from the starting directory to the root", () => {
@@ -87,9 +59,7 @@ void describe("path-utils", () => {
 
         void it("supports omitting the starting directory", () => {
             const resolved = path.resolve(nested);
-            const ancestors = [
-                ...walkAncestorDirectories(resolved, { includeSelf: false })
-            ];
+            const ancestors = [...walkAncestorDirectories(resolved, { includeSelf: false })];
 
             assert.strictEqual(ancestors.at(0), path.dirname(resolved));
         });

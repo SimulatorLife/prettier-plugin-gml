@@ -13,10 +13,7 @@ import { resolveProjectDisplayPath } from "./path-normalization.js";
  *          that can be enriched with formatted context.
  */
 function normalizeSyntaxErrorLike(error) {
-    if (
-        error !== null &&
-        (typeof error === "object" || typeof error === "function")
-    ) {
+    if (error !== null && (typeof error === "object" || typeof error === "function")) {
         return error;
     }
 
@@ -51,18 +48,11 @@ export function formatProjectIndexSyntaxError(
     const displayPath = resolveProjectDisplayPath(filePath, projectRoot);
 
     const baseDescription = extractBaseDescription(normalizedError.message);
-    const locationSuffix = buildLocationSuffix(
-        displayPath,
-        lineNumber,
-        columnNumber
-    );
+    const locationSuffix = buildLocationSuffix(displayPath, lineNumber, columnNumber);
     const excerpt = formatSourceExcerpt(sourceText, lineNumber, columnNumber);
 
-    const originalMessage =
-        Core.getNonEmptyString(normalizedError.message) ?? "";
-    const formattedMessage = `Syntax Error${locationSuffix}: ${baseDescription}${
-        excerpt ? `\n\n${excerpt}` : ""
-    }`;
+    const originalMessage = Core.getNonEmptyString(normalizedError.message) ?? "";
+    const formattedMessage = `Syntax Error${locationSuffix}: ${baseDescription}${excerpt ? `\n\n${excerpt}` : ""}`;
 
     normalizedError.message = formattedMessage;
     normalizedError.originalMessage = originalMessage;
@@ -101,9 +91,7 @@ function buildLocationSuffix(displayPath, lineNumber, columnNumber) {
 
     if (lineNumber !== undefined && lineNumber !== null) {
         const location =
-            columnNumber === undefined
-                ? `line ${lineNumber}`
-                : `line ${lineNumber}, column ${columnNumber}`;
+            columnNumber === undefined ? `line ${lineNumber}` : `line ${lineNumber}, column ${columnNumber}`;
 
         parts.push(location);
     }
@@ -116,11 +104,7 @@ function buildLocationSuffix(displayPath, lineNumber, columnNumber) {
 }
 
 function formatSourceExcerpt(sourceText, lineNumber, columnNumber) {
-    if (
-        lineNumber === undefined ||
-        lineNumber < 1 ||
-        typeof sourceText !== "string"
-    ) {
+    if (lineNumber === undefined || lineNumber < 1 || typeof sourceText !== "string") {
         return "";
     }
 
@@ -134,10 +118,7 @@ function formatSourceExcerpt(sourceText, lineNumber, columnNumber) {
     const rawLineText = lines[lineIndex];
     const lineNumberWidth = String(lineNumber).length;
     const gutter = `${String(lineNumber).padStart(lineNumberWidth)} | `;
-    const { lineText, pointerOffset } = expandTabsForDisplay(
-        rawLineText,
-        columnNumber
-    );
+    const { lineText, pointerOffset } = expandTabsForDisplay(rawLineText, columnNumber);
     const contentLine = `${gutter}${lineText}`;
 
     if (columnNumber == null || columnNumber < 0) {
@@ -170,8 +151,7 @@ function expandTabsForDisplay(lineText, columnNumber, tabSize = 4) {
         }
 
         if (char === "\t") {
-            const spacesToAdd =
-                tabSize - (expanded.length % tabSize) || tabSize;
+            const spacesToAdd = tabSize - (expanded.length % tabSize) || tabSize;
             expanded += " ".repeat(spacesToAdd);
         } else {
             expanded += char;

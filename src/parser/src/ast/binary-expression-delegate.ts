@@ -67,20 +67,12 @@ export default class BinaryExpressionDelegate {
             leftNode = visit(childExpressions[0]);
         } else {
             const [leftCtx, rightCtx] = childExpressions;
-            const leftIsBinary =
-                Object.hasOwn(leftCtx, "expression") &&
-                typeof leftCtx.expression === "function";
-            const rightIsBinary =
-                Object.hasOwn(rightCtx, "expression") &&
-                typeof rightCtx.expression === "function";
+            const leftIsBinary = Object.hasOwn(leftCtx, "expression") && typeof leftCtx.expression === "function";
+            const rightIsBinary = Object.hasOwn(rightCtx, "expression") && typeof rightCtx.expression === "function";
 
-            leftNode = leftIsBinary
-                ? this.handle(leftCtx, { visit, astNode }, true)
-                : visit(leftCtx);
+            leftNode = leftIsBinary ? this.handle(leftCtx, { visit, astNode }, true) : visit(leftCtx);
 
-            rightNode = rightIsBinary
-                ? this.handle(rightCtx, { visit, astNode }, true)
-                : visit(rightCtx);
+            rightNode = rightIsBinary ? this.handle(rightCtx, { visit, astNode }, true) : visit(rightCtx);
         }
 
         const operator = ctx.children[1].getText();
@@ -92,10 +84,7 @@ export default class BinaryExpressionDelegate {
             right: rightNode
         });
 
-        if (
-            isEmbeddedExpression &&
-            this.needsParentheses(operator, leftNode, rightNode)
-        ) {
+        if (isEmbeddedExpression && this.needsParentheses(operator, leftNode, rightNode)) {
             node = this.wrapInParentheses(ctx, node, astNode);
         }
 
@@ -129,13 +118,9 @@ export default class BinaryExpressionDelegate {
         }
 
         const leftOp =
-            leftNode.type === "BinaryExpression"
-                ? this.operators[leftNode.operator]
-                : { prec: 0, assoc: "left" };
+            leftNode.type === "BinaryExpression" ? this.operators[leftNode.operator] : { prec: 0, assoc: "left" };
         const rightOp =
-            rightNode.type === "BinaryExpression"
-                ? this.operators[rightNode.operator]
-                : { prec: 0, assoc: "left" };
+            rightNode.type === "BinaryExpression" ? this.operators[rightNode.operator] : { prec: 0, assoc: "left" };
         const currOp = this.operators[operator];
 
         if (currOp.assoc === "left") {

@@ -27,9 +27,7 @@ export interface CollectFormatCommandOptionsParameters {
     defaultPrettierLogLevel?: string;
 }
 
-export interface FormatCommandOptionsResult
-    extends FormatCommandSampleLimits,
-        ResolvedPrettierConfiguration {
+export interface FormatCommandOptionsResult extends FormatCommandSampleLimits, ResolvedPrettierConfiguration {
     targetPathInput: unknown;
     targetPathProvided: boolean;
     extensions: Array<string>;
@@ -50,43 +48,27 @@ function resolveFormatCommandExtensions(
         return fallback;
     }
 
-    return normalizeExtensions(
-        raw as string | Iterable<string> | null | undefined,
-        fallback
-    );
+    return normalizeExtensions(raw as string | Iterable<string> | null | undefined, fallback);
 }
 
-function resolveFormatCommandSampleLimits(
-    options: CommandOptionsRecord
-): FormatCommandSampleLimits {
+function resolveFormatCommandSampleLimits(options: CommandOptionsRecord): FormatCommandSampleLimits {
     const source = options ?? {};
-    const skipped =
-        source.ignoredDirectorySamples ??
-        source.ignoredDirectorySampleLimit ??
-        undefined;
+    const skipped = source.ignoredDirectorySamples ?? source.ignoredDirectorySampleLimit ?? undefined;
     return {
         skippedDirectorySampleLimit: skipped as number | undefined,
-        ignoredFileSampleLimit:
-            (source.ignoredFileSampleLimit as number | undefined) ?? undefined,
-        unsupportedExtensionSampleLimit:
-            (source.unsupportedExtensionSampleLimit as number | undefined) ??
-            undefined
+        ignoredFileSampleLimit: (source.ignoredFileSampleLimit as number | undefined) ?? undefined,
+        unsupportedExtensionSampleLimit: (source.unsupportedExtensionSampleLimit as number | undefined) ?? undefined
     };
 }
 
 function resolvePrettierConfiguration(
     options: CommandOptionsRecord,
-    {
-        defaultParseErrorAction,
-        defaultPrettierLogLevel
-    }: PrettierConfigurationOptions
+    { defaultParseErrorAction, defaultPrettierLogLevel }: PrettierConfigurationOptions
 ): ResolvedPrettierConfiguration {
     const source = options ?? {};
     return {
-        prettierLogLevel:
-            (source.logLevel as string) ?? defaultPrettierLogLevel,
-        onParseError:
-            (source.onParseError as string) ?? defaultParseErrorAction,
+        prettierLogLevel: (source.logLevel as string) ?? defaultPrettierLogLevel,
+        onParseError: (source.onParseError as string) ?? defaultParseErrorAction,
         checkMode: Boolean(source.check)
     };
 }
@@ -121,31 +103,21 @@ export function collectFormatCommandOptions(
         targetPathProvided = true;
     }
 
-    const {
-        skippedDirectorySampleLimit,
-        ignoredFileSampleLimit,
-        unsupportedExtensionSampleLimit
-    } = resolveFormatCommandSampleLimits(options);
-    const { prettierLogLevel, onParseError, checkMode } =
-        resolvePrettierConfiguration(options, {
-            defaultParseErrorAction,
-            defaultPrettierLogLevel
-        });
+    const { skippedDirectorySampleLimit, ignoredFileSampleLimit, unsupportedExtensionSampleLimit } =
+        resolveFormatCommandSampleLimits(options);
+    const { prettierLogLevel, onParseError, checkMode } = resolvePrettierConfiguration(options, {
+        defaultParseErrorAction,
+        defaultPrettierLogLevel
+    });
 
-    const usage =
-        typeof command?.helpInformation === "function"
-            ? command.helpInformation()
-            : "";
+    const usage = typeof command?.helpInformation === "function" ? command.helpInformation() : "";
 
     const defaultExtensionList = Array.from(defaultExtensions);
 
     return {
         targetPathInput,
         targetPathProvided,
-        extensions: resolveFormatCommandExtensions(
-            options,
-            defaultExtensionList
-        ),
+        extensions: resolveFormatCommandExtensions(options, defaultExtensionList),
         prettierLogLevel,
         onParseError,
         checkMode,

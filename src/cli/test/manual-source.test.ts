@@ -4,11 +4,7 @@ import os from "node:os";
 import path from "node:path";
 import test from "node:test";
 
-import {
-    describeManualSource,
-    readManualText,
-    resolveManualSource
-} from "../src/modules/manual/source.js";
+import { describeManualSource, readManualText, resolveManualSource } from "../src/modules/manual/source.js";
 import { resolveFromRepoRoot } from "../src/shared/workspace-paths.js";
 
 void test("resolveManualSource returns explicit manual root", async (t) => {
@@ -34,10 +30,7 @@ void test("resolveManualSource defaults to vendor submodule", async () => {
 void test("resolveManualSource rejects missing manual root", async () => {
     const missingRoot = path.join(os.tmpdir(), `missing-manual-${Date.now()}`);
 
-    await assert.rejects(
-        () => resolveManualSource({ manualRoot: missingRoot }),
-        /Manual root '.*' is unavailable/
-    );
+    await assert.rejects(() => resolveManualSource({ manualRoot: missingRoot }), /Manual root '.*' is unavailable/);
 });
 
 void test("readManualText returns manual asset contents", async (t) => {
@@ -52,10 +45,7 @@ void test("readManualText returns manual asset contents", async (t) => {
         await fs.rm(tempDir, { recursive: true, force: true });
     });
 
-    const contents = await readManualText(
-        tempDir,
-        path.join("Manual", "contents", "sample.txt")
-    );
+    const contents = await readManualText(tempDir, path.join("Manual", "contents", "sample.txt"));
     assert.equal(contents, "hello world");
 });
 

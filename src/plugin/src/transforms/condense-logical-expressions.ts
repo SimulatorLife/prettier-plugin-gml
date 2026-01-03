@@ -16,9 +16,8 @@ function execute(ast: any, options: CondenseLogicalExpressionsOptions) {
 }
 
 /** Pre-instantiated transform exposed for parser-normalization pipelines. */
-export const condenseLogicalExpressionsTransform =
-    createParserTransform<CondenseLogicalExpressionsOptions>(
-        "condense-logical-expressions",
-        {},
-        execute
-    );
+export const condenseLogicalExpressionsTransform = createParserTransform<CondenseLogicalExpressionsOptions>(
+    "condense-logical-expressions",
+    {},
+    execute
+);

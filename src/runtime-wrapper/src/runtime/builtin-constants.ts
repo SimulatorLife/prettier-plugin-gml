@@ -89,9 +89,7 @@ const MATH_CONSTANTS: ConstantMap = {
 
 type RuntimeColorFactory = (red: number, green: number, blue: number) => number;
 
-function resolveColorFactory(
-    globalScope: Record<string, unknown>
-): RuntimeColorFactory {
+function resolveColorFactory(globalScope: Record<string, unknown>): RuntimeColorFactory {
     const makeColour = globalScope.make_colour_rgb;
     if (typeof makeColour === "function") {
         return makeColour as RuntimeColorFactory;
@@ -102,26 +100,18 @@ function resolveColorFactory(
         return makeColor as RuntimeColorFactory;
     }
 
-    return (red, green, blue) =>
-        (red & 0xff) | ((green & 0xff) << 8) | ((blue & 0xff) << 16);
+    return (red, green, blue) => (red & 0xff) | ((green & 0xff) << 8) | ((blue & 0xff) << 16);
 }
 
-function buildColorConstants(
-    globalScope: Record<string, unknown>
-): ConstantMap {
+function buildColorConstants(globalScope: Record<string, unknown>): ConstantMap {
     const makeColor = resolveColorFactory(globalScope);
 
     return Object.fromEntries(
-        Object.entries(COLOR_RGB).map(([name, rgb]) => [
-            name,
-            makeColor(rgb[0], rgb[1], rgb[2])
-        ])
+        Object.entries(COLOR_RGB).map(([name, rgb]) => [name, makeColor(rgb[0], rgb[1], rgb[2])])
     );
 }
 
-export function resolveBuiltinConstants(
-    globalScope: Record<string, unknown>
-): ConstantMap {
+export function resolveBuiltinConstants(globalScope: Record<string, unknown>): ConstantMap {
     return {
         ...KEYBOARD_CONSTANTS,
         ...buildColorConstants(globalScope),

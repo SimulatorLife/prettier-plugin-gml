@@ -17,9 +17,7 @@ void test("preserves blank line after condensing argument_count fallbacks", asyn
     const formatted = await Plugin.format(source);
     const lines = formatted.trim().split("\n");
 
-    const nextValueIndex = lines.findIndex((line) =>
-        line.includes("var nextValue")
-    );
+    const nextValueIndex = lines.findIndex((line) => line.includes("var nextValue"));
 
     assert.notStrictEqual(
         nextValueIndex,

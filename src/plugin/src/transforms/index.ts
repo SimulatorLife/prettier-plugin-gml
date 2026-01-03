@@ -53,17 +53,13 @@ type TransformByName = {
 const TRANSFORM_REGISTRY = {} as Record<string, RegisteredTransform>;
 for (const transform of TRANSFORM_REGISTRY_ENTRIES) {
     if (Object.hasOwn(TRANSFORM_REGISTRY, transform.name)) {
-        throw new Error(
-            `Duplicate parser transform registered: ${transform.name}`
-        );
+        throw new Error(`Duplicate parser transform registered: ${transform.name}`);
     }
 
     TRANSFORM_REGISTRY[transform.name] = transform;
 }
 
-export function getParserTransform<Name extends ParserTransformName>(
-    name: Name
-): TransformByName[Name] {
+export function getParserTransform<Name extends ParserTransformName>(name: Name): TransformByName[Name] {
     const transform = TRANSFORM_REGISTRY[name] as TransformByName[Name];
     if (!transform) {
         throw new TypeError(`Unknown parser transform: ${String(name)}`);
@@ -72,12 +68,8 @@ export function getParserTransform<Name extends ParserTransformName>(
     return transform;
 }
 
-export function isParserTransformName(
-    value: unknown
-): value is ParserTransformName {
-    return (
-        typeof value === "string" && Object.hasOwn(TRANSFORM_REGISTRY, value)
-    );
+export function isParserTransformName(value: unknown): value is ParserTransformName {
+    return typeof value === "string" && Object.hasOwn(TRANSFORM_REGISTRY, value);
 }
 
 /**
@@ -95,10 +87,7 @@ export function applyTransforms(
     let current = ast;
     for (const name of transformNames) {
         const transform = getParserTransform(name) as {
-            transform: (
-                ast: MutableGameMakerAstNode,
-                options?: unknown
-            ) => MutableGameMakerAstNode;
+            transform: (ast: MutableGameMakerAstNode, options?: unknown) => MutableGameMakerAstNode;
         };
         current = transform.transform(current, options[name]);
     }
@@ -116,10 +105,7 @@ export {
     getRoomNavigationHelpers,
     ROOM_NAVIGATION_DIRECTION
 } from "./feather/apply-feather-fixes.js";
-export {
-    applyRemovedIndexAdjustments,
-    preprocessSourceForFeatherFixes
-} from "./feather/enum-handling.js";
+export { applyRemovedIndexAdjustments, preprocessSourceForFeatherFixes } from "./feather/enum-handling.js";
 export { condenseLogicalExpressionsTransform } from "./condense-logical-expressions.js";
 export { consolidateStructAssignmentsTransform } from "./consolidate-struct-assignments.js";
 export { CommentTracker } from "./utils/comment-tracker.js";

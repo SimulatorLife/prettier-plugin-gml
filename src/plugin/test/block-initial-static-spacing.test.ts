@@ -4,27 +4,14 @@ import { Plugin } from "../src/index.js";
 
 void describe("block initial static spacing", () => {
     void it("keeps the first static declaration adjacent to the opening brace", async () => {
-        const source = [
-            "function example() {",
-            "    static foo = 1;",
-            "",
-            "    var bar = 2;",
-            "}",
-            ""
-        ].join("\n");
+        const source = ["function example() {", "    static foo = 1;", "", "    var bar = 2;", "}", ""].join("\n");
 
         const formatted = await Plugin.format(source);
 
         const lines = formatted.split("\n");
-        const functionIndex = lines.findIndex((line) =>
-            line.startsWith("function example() {")
-        );
+        const functionIndex = lines.findIndex((line) => line.startsWith("function example() {"));
 
-        assert.notStrictEqual(
-            functionIndex,
-            -1,
-            "The formatted output should include the function declaration."
-        );
+        assert.notStrictEqual(functionIndex, -1, "The formatted output should include the function declaration.");
         assert.strictEqual(
             lines[functionIndex + 1],
             "    static foo = 1;",

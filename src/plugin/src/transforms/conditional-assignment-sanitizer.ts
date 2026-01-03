@@ -5,35 +5,17 @@
  */
 import { Core } from "@gml-modules/core";
 
-const ASSIGNMENT_GUARD_CHARACTERS = new Set([
-    "*",
-    "+",
-    "-",
-    "/",
-    "%",
-    "|",
-    "&",
-    "^",
-    "<",
-    ">",
-    "!",
-    "=",
-    ":"
-]);
+const ASSIGNMENT_GUARD_CHARACTERS = new Set(["*", "+", "-", "/", "%", "|", "&", "^", "<", ">", "!", "=", ":"]);
 
 /**
  * Returns a helper to translate character positions after insertions happen during sanitization.
  */
-function createIndexMapper(
-    insertPositions: Array<number | null | undefined> | null | undefined
-) {
+function createIndexMapper(insertPositions: Array<number | null | undefined> | null | undefined) {
     const offsets = Core.isNonEmptyArray(insertPositions)
         ? [
               ...new Set(
                   insertPositions.filter(
-                      (position): position is number =>
-                          typeof position === "number" &&
-                          Number.isFinite(position)
+                      (position): position is number => typeof position === "number" && Number.isFinite(position)
                   )
               )
           ].sort((a, b) => a - b)
@@ -48,9 +30,7 @@ function createIndexMapper(
             return index;
         }
 
-        const precedingInsertions = offsets.filter(
-            (offset) => index > offset
-        ).length;
+        const precedingInsertions = offsets.filter((offset) => index > offset).length;
         return index - precedingInsertions;
     };
 }
@@ -73,17 +53,11 @@ type ConditionalAssignmentScanState = {
     insertionsSoFar: number;
 };
 
-function appendCharacter(
-    state: ConditionalAssignmentScanState,
-    character: string
-) {
+function appendCharacter(state: ConditionalAssignmentScanState, character: string) {
     state.parts.push(character);
 }
 
-function handleLineComment(
-    state: ConditionalAssignmentScanState,
-    character: string
-) {
+function handleLineComment(state: ConditionalAssignmentScanState, character: string) {
     if (!state.inLineComment) {
         return false;
     }
@@ -96,11 +70,7 @@ function handleLineComment(
     return true;
 }
 
-function handleBlockComment(
-    state: ConditionalAssignmentScanState,
-    character: string,
-    nextCharacter: string
-) {
+function handleBlockComment(state: ConditionalAssignmentScanState, character: string, nextCharacter: string) {
     if (!state.inBlockComment) {
         return false;
     }
@@ -116,10 +86,7 @@ function handleBlockComment(
     return true;
 }
 
-function handleStringLiteral(
-    state: ConditionalAssignmentScanState,
-    character: string
-) {
+function handleStringLiteral(state: ConditionalAssignmentScanState, character: string) {
     if (!state.stringQuote) {
         return false;
     }
@@ -136,11 +103,7 @@ function handleStringLiteral(
     return true;
 }
 
-function handleCommentStart(
-    state: ConditionalAssignmentScanState,
-    character: string,
-    nextCharacter: string
-) {
+function handleCommentStart(state: ConditionalAssignmentScanState, character: string, nextCharacter: string) {
     if (character === "/" && nextCharacter === "/") {
         appendCharacter(state, character);
         appendCharacter(state, nextCharacter);
@@ -160,10 +123,7 @@ function handleCommentStart(
     return false;
 }
 
-function handleQuoteStart(
-    state: ConditionalAssignmentScanState,
-    character: string
-) {
+function handleQuoteStart(state: ConditionalAssignmentScanState, character: string) {
     if (!isQuoteCharacter(character)) {
         return false;
     }
@@ -200,10 +160,7 @@ function handleIfKeyword(
     return true;
 }
 
-function handleIfConditionStart(
-    state: ConditionalAssignmentScanState,
-    character: string
-) {
+function handleIfConditionStart(state: ConditionalAssignmentScanState, character: string) {
     if (!state.justSawIfKeyword) {
         return false;
     }
@@ -226,10 +183,7 @@ function handleIfConditionStart(
     return false;
 }
 
-function handleConditionalDepth(
-    state: ConditionalAssignmentScanState,
-    character: string
-) {
+function handleConditionalDepth(state: ConditionalAssignmentScanState, character: string) {
     if (state.ifConditionDepth <= 0) {
         return false;
     }
@@ -261,8 +215,7 @@ function handleConditionalAssignment(
         return false;
     }
 
-    const shouldSkip =
-        nextCharacter === "=" || ASSIGNMENT_GUARD_CHARACTERS.has(prevCharacter);
+    const shouldSkip = nextCharacter === "=" || ASSIGNMENT_GUARD_CHARACTERS.has(prevCharacter);
 
     if (shouldSkip) {
         return false;
@@ -296,10 +249,8 @@ function scanConditionalAssignments(text: string) {
 
     while (state.index < length) {
         const character = text[state.index];
-        const nextCharacter =
-            state.index + 1 < length ? text[state.index + 1] : "";
-        const followingCharacter =
-            state.index + 2 < length ? text[state.index + 2] : "";
+        const nextCharacter = state.index + 1 < length ? text[state.index + 1] : "";
+        const followingCharacter = state.index + 2 < length ? text[state.index + 2] : "";
         const prevCharacter = state.index > 0 ? text[state.index - 1] : "";
 
         if (handleLineComment(state, character)) {
@@ -322,15 +273,7 @@ function scanConditionalAssignments(text: string) {
             continue;
         }
 
-        if (
-            handleIfKeyword(
-                state,
-                character,
-                nextCharacter,
-                followingCharacter,
-                prevCharacter
-            )
-        ) {
+        if (handleIfKeyword(state, character, nextCharacter, followingCharacter, prevCharacter)) {
             continue;
         }
 
@@ -342,14 +285,7 @@ function scanConditionalAssignments(text: string) {
             continue;
         }
 
-        if (
-            handleConditionalAssignment(
-                state,
-                character,
-                nextCharacter,
-                prevCharacter
-            )
-        ) {
+        if (handleConditionalAssignment(state, character, nextCharacter, prevCharacter)) {
             continue;
         }
 
@@ -393,10 +329,7 @@ export function sanitizeConditionalAssignments(sourceText: unknown) {
 /**
  * Rewrites location metadata for nodes to account for the inserted guard characters.
  */
-export function applySanitizedIndexAdjustments(
-    target: unknown,
-    insertPositions: Array<number> | null | undefined
-) {
+export function applySanitizedIndexAdjustments(target: unknown, insertPositions: Array<number> | null | undefined) {
     const mapIndex = createIndexMapper(insertPositions);
     Core.remapLocationMetadata(target, mapIndex);
 }

@@ -47,9 +47,7 @@ void test("retains misordered optional parameter docs", async () => {
 
     const formatted = await Plugin.format(source);
 
-    const docLines = formatted
-        .split("\n")
-        .filter((line) => line.startsWith("/// @param"));
+    const docLines = formatted.split("\n").filter((line) => line.startsWith("/// @param"));
 
     assert.deepStrictEqual(docLines, [
         "/// @param required",

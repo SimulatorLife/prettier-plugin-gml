@@ -8,19 +8,10 @@ import { Core } from "@gml-modules/core";
 import { resolveFromRepoRoot } from "../shared/workspace-paths.js";
 import { assertSupportedNodeVersion } from "../shared/node-version.js";
 import { writeJsonArtifact } from "../shared/fs-artifacts.js";
-import {
-    describeManualSource,
-    readManualText
-} from "../modules/manual/source.js";
-import {
-    ManualWorkflowOptions,
-    prepareManualWorkflow
-} from "../modules/manual/workflow.js";
+import { describeManualSource, readManualText } from "../modules/manual/source.js";
+import { ManualWorkflowOptions, prepareManualWorkflow } from "../modules/manual/workflow.js";
 import { applyStandardCommandOptions } from "../cli-core/command-standard-options.js";
-import {
-    isMainModule,
-    runAsMainModule
-} from "../cli-core/main-module-runner.js";
+import { isMainModule, runAsMainModule } from "../cli-core/main-module-runner.js";
 
 const {
     compactArray,
@@ -33,19 +24,13 @@ const {
     toNormalizedLowerCaseSet
 } = Core;
 
-const DEFAULT_OUTPUT_PATH = resolveFromRepoRoot(
-    "resources",
-    "feather-metadata.json"
-);
+const DEFAULT_OUTPUT_PATH = resolveFromRepoRoot("resources", "feather-metadata.json");
 
 const FEATHER_PAGES = {
-    diagnostics:
-        "Manual/contents/The_Asset_Editors/Code_Editor_Properties/Feather_Messages.htm",
-    directives:
-        "Manual/contents/The_Asset_Editors/Code_Editor_Properties/Feather_Directives.htm",
+    diagnostics: "Manual/contents/The_Asset_Editors/Code_Editor_Properties/Feather_Messages.htm",
+    directives: "Manual/contents/The_Asset_Editors/Code_Editor_Properties/Feather_Directives.htm",
     naming: "Manual/contents/Setting_Up_And_Version_Information/IDE_Preferences/Feather_Settings.htm",
-    typeSystem:
-        "Manual/contents/The_Asset_Editors/Code_Editor_Properties/Feather_Data_Types.htm"
+    typeSystem: "Manual/contents/The_Asset_Editors/Code_Editor_Properties/Feather_Data_Types.htm"
 };
 
 interface FeatherMetadataCommandOptions {
@@ -78,21 +63,12 @@ export function createFeatherMetadataCommand() {
         new Command()
             .name("generate-feather-metadata")
             .usage("[options]")
-            .description(
-                "Generate feather-metadata.json from the GameMaker manual."
-            )
+            .description("Generate feather-metadata.json from the GameMaker manual.")
     );
 
     command
-        .option(
-            "--output <path>",
-            "Path to write feather-metadata.json.",
-            DEFAULT_OUTPUT_PATH
-        )
-        .option(
-            "--manual-root <path>",
-            "Override the manual asset root (defaults to vendor/GameMaker-Manual)."
-        )
+        .option("--output <path>", "Path to write feather-metadata.json.", DEFAULT_OUTPUT_PATH)
+        .option("--manual-root <path>", "Override the manual asset root (defaults to vendor/GameMaker-Manual).")
         .option(
             "--manual-package <name>",
             "Manual npm package name used when neither --manual-root nor the vendor submodule is available."
@@ -108,9 +84,7 @@ export function createFeatherMetadataCommand() {
  * @param {CommanderCommandLike | undefined} command
  * @returns {ManualCommandOptions}
  */
-function resolveFeatherMetadataOptions(
-    command?: CommanderCommandLike
-): NormalizedFeatherMetadataOptions {
+function resolveFeatherMetadataOptions(command?: CommanderCommandLike): NormalizedFeatherMetadataOptions {
     const options: FeatherMetadataCommandOptions = command?.opts?.() ?? {};
 
     return {
@@ -162,10 +136,7 @@ function sanitizeManualString(value) {
     return normalizeMultilineText(value);
 }
 
-function normalizeMultilineTextCollection(
-    values,
-    { preserveEmptyEntries = false, emptyEntryValue = null } = {}
-) {
+function normalizeMultilineTextCollection(values, { preserveEmptyEntries = false, emptyEntryValue = null } = {}) {
     if (!Array.isArray(values)) {
         return [];
     }
@@ -215,13 +186,8 @@ function getTagName(element) {
     return element?.tagName?.toLowerCase() ?? "";
 }
 
-function getDirectChildren(
-    element: Element | null | undefined,
-    selector?: string
-) {
-    const predicate = selector
-        ? (child: Element) => child.matches?.(selector) === true
-        : () => true;
+function getDirectChildren(element: Element | null | undefined, selector?: string) {
+    const predicate = selector ? (child: Element) => child.matches?.(selector) === true : () => true;
 
     return Array.from(element?.children ?? []).filter(predicate);
 }
@@ -383,15 +349,11 @@ function resolveBlockType(tagName, hasClass) {
 }
 
 function getHeadingLevel(tagName) {
-    return tagName === "h4" || tagName === "h5"
-        ? Number(tagName.slice(1))
-        : null;
+    return tagName === "h4" || tagName === "h5" ? Number(tagName.slice(1)) : null;
 }
 
 function extractListItems(element) {
-    const items = getDirectChildren(element, "li").map((item) =>
-        extractText(item, { preserveLineBreaks: false })
-    );
+    const items = getDirectChildren(element, "li").map((item) => extractText(item, { preserveLineBreaks: false }));
 
     return compactArray(items);
 }
@@ -493,11 +455,7 @@ function normalizeTextBlock(block) {
     if (!block) {
         return null;
     }
-    if (
-        block.type === "list" &&
-        Array.isArray(block.items) &&
-        block.items.length > 0
-    ) {
+    if (block.type === "list" && Array.isArray(block.items) && block.items.length > 0) {
         return getNonEmptyTrimmedString(block.items.join("\n"));
     }
     return getNonEmptyTrimmedString(block.text);
@@ -521,9 +479,7 @@ function collectNamingRuleSectionOptions(listItem) {
     }
 
     const options = getDirectChildren(nestedList, "li").map((option) =>
-        normalizeMultilineText(
-            extractText(option, { preserveLineBreaks: false })
-        )
+        normalizeMultilineText(extractText(option, { preserveLineBreaks: false }))
     );
 
     return compactArray(options);
@@ -536,13 +492,8 @@ function createNamingRuleSection(listItem) {
     let normalizedDescription = normalizeMultilineText(description);
 
     if (title && normalizedDescription) {
-        const prefixPattern = new RegExp(
-            String.raw`^${escapeRegExp(title)}\s*:?\s*`,
-            "i"
-        );
-        normalizedDescription = normalizedDescription
-            .replace(prefixPattern, "")
-            .trim();
+        const prefixPattern = new RegExp(String.raw`^${escapeRegExp(title)}\s*:?\s*`, "i");
+        normalizedDescription = normalizedDescription.replace(prefixPattern, "").trim();
     }
 
     return {
@@ -564,11 +515,10 @@ function updateNamingListMetadataFromStrongElement(strongEl, metadata) {
     }
 
     if (strongText === "Naming Style") {
-        const styles = Array.from(listItem.querySelectorAll("ul li")).map(
-            (styleEl) =>
-                extractSanitizedText(styleEl, {
-                    preserveLineBreaks: false
-                })
+        const styles = Array.from(listItem.querySelectorAll("ul li")).map((styleEl) =>
+            extractSanitizedText(styleEl, {
+                preserveLineBreaks: false
+            })
         );
         metadata.namingStyleOptions = compactArray(styles);
     } else if (strongText === "Identifier Blocklist") {
@@ -607,9 +557,7 @@ function collectNamingListMetadata(mainList) {
         updateNamingListMetadataFromStrongElement(strongEl, metadata);
     }
 
-    metadata.ruleSections = getDirectChildren(mainList, "li").map((item) =>
-        createNamingRuleSection(item)
-    );
+    metadata.ruleSections = getDirectChildren(mainList, "li").map((item) => createNamingRuleSection(item));
 
     return metadata;
 }
@@ -657,8 +605,7 @@ function normalizeContent(blocks) {
             continue;
         }
 
-        const normalizeBlock =
-            BLOCK_NORMALIZERS[block.type] ?? BLOCK_NORMALIZERS.default;
+        const normalizeBlock = BLOCK_NORMALIZERS[block.type] ?? BLOCK_NORMALIZERS.default;
         normalizeBlock(content, block);
     }
 
@@ -670,9 +617,7 @@ function joinSections(parts) {
         return null;
     }
 
-    const normalizedParts = compactArray(
-        parts.map((part) => getNonEmptyTrimmedString(part))
-    );
+    const normalizedParts = compactArray(parts.map((part) => getNonEmptyTrimmedString(part)));
 
     if (!isNonEmptyArray(normalizedParts)) {
         return null;
@@ -742,9 +687,7 @@ function collectDiagnosticTrailingContent(blocks) {
         }
 
         if (block.type !== "code") {
-            const targetParts = badExample
-                ? correctionParts
-                : additionalDescriptionParts;
+            const targetParts = badExample ? correctionParts : additionalDescriptionParts;
             targetParts.push(text);
             continue;
         }
@@ -770,14 +713,9 @@ function collectDiagnosticTrailingContent(blocks) {
 // Convert the raw manual blocks into structured diagnostic metadata.
 function summariseDiagnosticBlocks(blocks) {
     const { descriptionBlocks, trailingBlocks } = splitDiagnosticBlocks(blocks);
-    const descriptionParts =
-        collectDiagnosticDescriptionParts(descriptionBlocks);
-    const {
-        additionalDescriptionParts,
-        correctionParts,
-        badExample,
-        goodExample
-    } = collectDiagnosticTrailingContent(trailingBlocks);
+    const descriptionParts = collectDiagnosticDescriptionParts(descriptionBlocks);
+    const { additionalDescriptionParts, correctionParts, badExample, goodExample } =
+        collectDiagnosticTrailingContent(trailingBlocks);
 
     if (additionalDescriptionParts.length > 0) {
         descriptionParts.push(...additionalDescriptionParts);
@@ -820,8 +758,7 @@ function createDiagnosticMetadataFromHeading(element) {
         stopTags: ["h3", "h2"]
     });
 
-    const { descriptionParts, correctionParts, badExample, goodExample } =
-        summariseDiagnosticBlocks(blocks);
+    const { descriptionParts, correctionParts, badExample, goodExample } = summariseDiagnosticBlocks(blocks);
 
     return {
         id,
@@ -874,10 +811,7 @@ function parseNamingRules(html) {
     const overview = joinSections(content.paragraphs);
     const notes = content.notes;
     const requiresMessage =
-        (overview && overview.includes("GM2017")) ||
-        notes.find((note) => note.includes("GM2017"))
-            ? "GM2017"
-            : null;
+        (overview && overview.includes("GM2017")) || notes.find((note) => note.includes("GM2017")) ? "GM2017" : null;
 
     let sibling = heading.nextElementSibling;
     let mainList = null;
@@ -943,9 +877,7 @@ function parseDirectiveSections(html) {
 
 function parseBaseTypeTable(table: Element) {
     const baseTypes = [];
-    const rowElements = Array.from(
-        table.querySelectorAll("tbody > tr, thead + tr")
-    );
+    const rowElements = Array.from(table.querySelectorAll("tbody > tr, thead + tr"));
 
     rowElements.forEach((row, index) => {
         if (index === 0) {
@@ -981,13 +913,7 @@ function parseTypeValidationTable(table: Element | null) {
 
     const headerCells = getDirectChildren(headerRow, "th, td");
     const columns = compactArray(
-        headerCells
-            .slice(1)
-            .map((cell) =>
-                getNonEmptyTrimmedString(
-                    extractText(cell, { preserveLineBreaks: false })
-                )
-            )
+        headerCells.slice(1).map((cell) => getNonEmptyTrimmedString(extractText(cell, { preserveLineBreaks: false })))
     );
 
     const rows = [];
@@ -997,24 +923,16 @@ function parseTypeValidationTable(table: Element | null) {
         if (cells.length === 0) {
             continue;
         }
-        const from = getNonEmptyTrimmedString(
-            extractText(cells[0], { preserveLineBreaks: false })
-        );
+        const from = getNonEmptyTrimmedString(extractText(cells[0], { preserveLineBreaks: false }));
         if (!from) {
             continue;
         }
         const results = {};
         columns.forEach((column, columnIndex) => {
             const cell = cells[columnIndex + 1];
-            const outcome = cell
-                ? getNonEmptyTrimmedString(
-                      extractText(cell, { preserveLineBreaks: false })
-                  )
-                : null;
+            const outcome = cell ? getNonEmptyTrimmedString(extractText(cell, { preserveLineBreaks: false })) : null;
             const rawStyle = cell?.getAttribute?.("style");
-            const style = getNonEmptyTrimmedString(
-                rawStyle?.replaceAll(/\s+/g, " ")
-            );
+            const style = getNonEmptyTrimmedString(rawStyle?.replaceAll(/\s+/g, " "));
             results[column] = {
                 outcome,
                 style
@@ -1052,13 +970,9 @@ function parseTypeSystem(html) {
     const baseTypes = baseTypeTable ? parseBaseTypeTable(baseTypeTable) : [];
 
     const noteBlocks = compactArray(
-        Array.from(document.querySelectorAll("p.note")).map((element) =>
-            createBlock(element)
-        )
+        Array.from(document.querySelectorAll("p.note")).map((element) => createBlock(element))
     );
-    const notes = normalizeMultilineTextCollection(
-        noteBlocks.map((block) => block.text)
-    );
+    const notes = normalizeMultilineTextCollection(noteBlocks.map((block) => block.text));
 
     const specifierSections = [];
     for (const element of document.querySelectorAll("h3")) {
@@ -1080,9 +994,9 @@ function parseTypeSystem(html) {
         });
     }
 
-    const typeValidationHeading = Array.from(
-        document.querySelectorAll("h2")
-    ).find((element) => element.textContent?.includes("Type Validation"));
+    const typeValidationHeading = Array.from(document.querySelectorAll("h2")).find((element) =>
+        element.textContent?.includes("Type Validation")
+    );
 
     let typeValidation = null;
     let typeValidationBlocks = [];
@@ -1102,9 +1016,7 @@ function parseTypeSystem(html) {
             }
             sibling = sibling.nextElementSibling;
         }
-        typeValidation = validationTable
-            ? parseTypeValidationTable(validationTable)
-            : null;
+        typeValidation = validationTable ? parseTypeValidationTable(validationTable) : null;
     }
 
     const typeValidationContent = normalizeContent(typeValidationBlocks);
@@ -1114,18 +1026,14 @@ function parseTypeSystem(html) {
         overviewNotes: introContent.notes,
         baseTypes: baseTypes.map((type) => ({
             name: type.name,
-            specifierExamples: normalizeMultilineTextCollection(
-                type.specifierExamples
-            ),
+            specifierExamples: normalizeMultilineTextCollection(type.specifierExamples),
             description: normalizeMultilineText(type.description)
         })),
         notes,
         specifierSections,
         typeValidation: typeValidation
             ? {
-                  description:
-                      joinSections(typeValidationContent.paragraphs) ||
-                      undefined,
+                  description: joinSections(typeValidationContent.paragraphs) || undefined,
                   notes: typeValidationContent.notes,
                   codeExamples: typeValidationContent.codeExamples,
                   lists: typeValidationContent.lists,
@@ -1175,26 +1083,10 @@ function parseFeatherManualPayloads(htmlPayloads, { verbose }) {
     }
 
     return {
-        diagnostics: timeSync(
-            "Diagnostics",
-            () => parseDiagnostics(htmlPayloads.diagnostics),
-            { verbose }
-        ),
-        directives: timeSync(
-            "Directives",
-            () => parseDirectiveSections(htmlPayloads.directives),
-            { verbose }
-        ),
-        namingRules: timeSync(
-            "Naming rules",
-            () => parseNamingRules(htmlPayloads.naming),
-            { verbose }
-        ),
-        typeSystem: timeSync(
-            "Type system",
-            () => parseTypeSystem(htmlPayloads.typeSystem),
-            { verbose }
-        )
+        diagnostics: timeSync("Diagnostics", () => parseDiagnostics(htmlPayloads.diagnostics), { verbose }),
+        directives: timeSync("Directives", () => parseDirectiveSections(htmlPayloads.directives), { verbose }),
+        namingRules: timeSync("Naming rules", () => parseNamingRules(htmlPayloads.naming), { verbose }),
+        typeSystem: timeSync("Type system", () => parseTypeSystem(htmlPayloads.typeSystem), { verbose })
     };
 }
 
@@ -1231,14 +1123,10 @@ async function buildFeatherMetadataPayload({ manualSource, verbose, onRead }) {
  * }} [context]
  * @returns {Promise<number>}
  */
-export async function runGenerateFeatherMetadata({
-    command,
-    workflow
-}: FeatherMetadataCommandContext = {}) {
+export async function runGenerateFeatherMetadata({ command, workflow }: FeatherMetadataCommandContext = {}) {
     assertSupportedNodeVersion();
 
-    const { outputPath, manualRoot, manualPackage, quiet } =
-        resolveFeatherMetadataOptions(command);
+    const { outputPath, manualRoot, manualPackage, quiet } = resolveFeatherMetadataOptions(command);
     const verbose = createVerboseState({ quiet });
     const { workflowPathFilter, manualSource } = await prepareManualWorkflow({
         workflow,

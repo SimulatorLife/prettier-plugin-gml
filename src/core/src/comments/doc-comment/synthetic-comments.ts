@@ -27,41 +27,23 @@ function processLeadingCommentLines(
     docLikeLeadingLines: string[];
     plainLeadingLines: string[];
 } | null {
-    const hasFunctionDoc =
-        Array.isArray(functionNode.docComments) &&
-        functionNode.docComments.length > 0;
+    const hasFunctionDoc = Array.isArray(functionNode.docComments) && functionNode.docComments.length > 0;
 
-    const { existingDocLines, remainingComments } =
-        collectSyntheticDocCommentLines(
-            targetNode,
-            options,
-            programNode,
-            sourceText
-        );
-    const {
-        leadingLines: leadingCommentLines,
-        remainingComments: updatedComments
-    } = extractLeadingNonDocCommentLines(remainingComments, options);
-
-    const sourceLeadingLines =
-        existingDocLines.length === 0
-            ? collectAdjacentLeadingSourceLineComments(
-                  targetNode,
-                  options,
-                  sourceText
-              )
-            : [];
-    const programLeadingLines = collectLeadingProgramLineComments(
+    const { existingDocLines, remainingComments } = collectSyntheticDocCommentLines(
         targetNode,
-        programNode,
         options,
+        programNode,
         sourceText
     );
-    const combinedLeadingLines = [
-        ...programLeadingLines,
-        ...sourceLeadingLines,
-        ...leadingCommentLines
-    ];
+    const { leadingLines: leadingCommentLines, remainingComments: updatedComments } = extractLeadingNonDocCommentLines(
+        remainingComments,
+        options
+    );
+
+    const sourceLeadingLines =
+        existingDocLines.length === 0 ? collectAdjacentLeadingSourceLineComments(targetNode, options, sourceText) : [];
+    const programLeadingLines = collectLeadingProgramLineComments(targetNode, programNode, options, sourceText);
+    const combinedLeadingLines = [...programLeadingLines, ...sourceLeadingLines, ...leadingCommentLines];
     const docLikeLeadingLines = [];
     const plainLeadingLines = [];
     for (const line of combinedLeadingLines) {
@@ -76,11 +58,7 @@ function processLeadingCommentLines(
         targetNode.comments = updatedComments;
     }
 
-    if (
-        hasFunctionDoc &&
-        existingDocLines.length === 0 &&
-        docLikeLeadingLines.length === 0
-    ) {
+    if (hasFunctionDoc && existingDocLines.length === 0 && docLikeLeadingLines.length === 0) {
         return null;
     }
 
@@ -115,10 +93,7 @@ export function suppressConstructorAssignmentPadding(functionNode) {
             continue;
         }
 
-        if (
-            statement.type === "VariableDeclaration" &&
-            statement.kind !== "static"
-        ) {
+        if (statement.type === "VariableDeclaration" && statement.kind !== "static") {
             statement._gmlSuppressFollowingEmptyLine = true;
             continue;
         }
@@ -127,31 +102,14 @@ export function suppressConstructorAssignmentPadding(functionNode) {
     }
 }
 
-export function computeSyntheticDocComment(
-    functionNode,
-    existingDocLines,
-    options,
-    overrides: any = {}
-) {
+export function computeSyntheticDocComment(functionNode, existingDocLines, options, overrides: any = {}) {
     const docCommentOptions = { ...options };
 
     const hasExistingDocLines = existingDocLines.length > 0;
 
     const syntheticLines = hasExistingDocLines
-        ? mergeSyntheticDocComments(
-              functionNode,
-              existingDocLines,
-              docCommentOptions,
-              overrides
-          )
-        : reorderDescriptionLinesToTop(
-              computeSyntheticFunctionDocLines(
-                  functionNode,
-                  [],
-                  options,
-                  overrides
-              )
-          );
+        ? mergeSyntheticDocComments(functionNode, existingDocLines, docCommentOptions, overrides)
+        : reorderDescriptionLinesToTop(computeSyntheticFunctionDocLines(functionNode, [], options, overrides));
 
     const leadingCommentLines = Array.isArray(overrides?.leadingCommentLines)
         ? overrides.leadingCommentLines
@@ -168,17 +126,15 @@ export function computeSyntheticDocComment(
     // Cases where with `// /` need to be evaluated carefully as they may represent malformed doc-comments OR malformed normal comments
     const potentiallyPromotableLines =
         leadingCommentLines.length > 0 && syntheticLines.length > 0
-            ? promoteLeadingDocCommentTextToDescription([
-                  ...leadingCommentLines,
-                  syntheticLines[0]
-              ]).slice(0, leadingCommentLines.length) // Take only the part corresponding to leadingCommentLines
+            ? promoteLeadingDocCommentTextToDescription([...leadingCommentLines, syntheticLines[0]]).slice(
+                  0,
+                  leadingCommentLines.length
+              ) // Take only the part corresponding to leadingCommentLines
             : leadingCommentLines;
 
     // Check if promotion created @description metadata
     const hasPromotedDescription = potentiallyPromotableLines.some(
-        (line) =>
-            typeof line === STRING_TYPE &&
-            /^\/\/\/\s*@description\b/i.test(line.trim())
+        (line) => typeof line === STRING_TYPE && /^\/\/\/\s*@description\b/i.test(line.trim())
     );
 
     const docLines =
@@ -191,12 +147,7 @@ export function computeSyntheticDocComment(
                     ...syntheticLines,
                     ...potentiallyPromotableLines
                 ]
-              : [
-                    ...potentiallyPromotableLines,
-                    ...(syntheticLines.length > 0
-                        ? ["", ...syntheticLines]
-                        : [])
-                ];
+              : [...potentiallyPromotableLines, ...(syntheticLines.length > 0 ? ["", ...syntheticLines] : [])];
 
     const normalizedDocLines = toMutableArray(docLines) as string[];
 
@@ -206,17 +157,8 @@ export function computeSyntheticDocComment(
     };
 }
 
-export function computeSyntheticDocCommentForStaticVariable(
-    node,
-    options,
-    programNode,
-    sourceText
-) {
-    if (
-        !node ||
-        node.type !== "VariableDeclaration" ||
-        node.kind !== "static"
-    ) {
+export function computeSyntheticDocCommentForStaticVariable(node, options, programNode, sourceText) {
+    if (!node || node.type !== "VariableDeclaration" || node.kind !== "static") {
         return null;
     }
 
@@ -225,28 +167,18 @@ export function computeSyntheticDocCommentForStaticVariable(
         return null;
     }
 
-    if (
-        declarator.init?.type !== "FunctionDeclaration" &&
-        declarator.init?.type !== "FunctionExpression"
-    ) {
+    if (declarator.init?.type !== "FunctionDeclaration" && declarator.init?.type !== "FunctionExpression") {
         return null;
     }
 
     const functionNode = declarator.init;
-    const processedComments = processLeadingCommentLines(
-        node,
-        functionNode,
-        options,
-        programNode,
-        sourceText
-    );
+    const processedComments = processLeadingCommentLines(node, functionNode, options, programNode, sourceText);
 
     if (!processedComments) {
         return null;
     }
 
-    const { existingDocLines, docLikeLeadingLines, plainLeadingLines } =
-        processedComments;
+    const { existingDocLines, docLikeLeadingLines, plainLeadingLines } = processedComments;
 
     const name = declarator.id.name;
     const syntheticOverrides: any = { nameOverride: name };
@@ -258,26 +190,15 @@ export function computeSyntheticDocCommentForStaticVariable(
         syntheticOverrides.leadingCommentLines = docLikeLeadingLines;
     }
 
-    const syntheticDoc = computeSyntheticDocComment(
-        functionNode,
-        existingDocLines,
-        options,
-        syntheticOverrides
-    );
+    const syntheticDoc = computeSyntheticDocComment(functionNode, existingDocLines, options, syntheticOverrides);
 
     if (!syntheticDoc && plainLeadingLines.length === 0) {
         return null;
     }
 
-    let finalDocLines =
-        syntheticDoc?.docLines === undefined
-            ? null
-            : toMutableArray(syntheticDoc.docLines);
+    let finalDocLines = syntheticDoc?.docLines === undefined ? null : toMutableArray(syntheticDoc.docLines);
 
-    if (
-        node._overridesStaticFunction === true &&
-        node._overridesStaticFunctionNode
-    ) {
+    if (node._overridesStaticFunction === true && node._overridesStaticFunctionNode) {
         const ancestorDocLines = node._overridesStaticFunctionNode
             ? node._overridesStaticFunctionNode._syntheticDocLines
             : null;
@@ -300,12 +221,7 @@ export function computeSyntheticDocCommentForStaticVariable(
     };
 }
 
-export function computeSyntheticDocCommentForFunctionAssignment(
-    node,
-    options,
-    programNode,
-    sourceText
-) {
+export function computeSyntheticDocCommentForFunctionAssignment(node, options, programNode, sourceText) {
     if (!node) {
         return null;
     }
@@ -325,10 +241,7 @@ export function computeSyntheticDocCommentForFunctionAssignment(
             break;
         }
         case "VariableDeclaration": {
-            if (
-                !Array.isArray(node.declarations) ||
-                node.declarations.length !== 1
-            ) {
+            if (!Array.isArray(node.declarations) || node.declarations.length !== 1) {
                 return null;
             }
             assignment = node.declarations[0];
@@ -347,8 +260,7 @@ export function computeSyntheticDocCommentForFunctionAssignment(
 
     if (
         !assignment ||
-        (assignment.type !== "AssignmentExpression" &&
-            assignment.type !== "VariableDeclarator") ||
+        (assignment.type !== "AssignmentExpression" && assignment.type !== "VariableDeclarator") ||
         operator !== "=" ||
         left?.type !== "Identifier" ||
         typeof left.name !== STRING_TYPE
@@ -366,26 +278,18 @@ export function computeSyntheticDocCommentForFunctionAssignment(
 
     suppressConstructorAssignmentPadding(functionNode);
 
-    const processedComments = processLeadingCommentLines(
-        commentTarget,
-        functionNode,
-        options,
-        programNode,
-        sourceText
-    );
+    const processedComments = processLeadingCommentLines(commentTarget, functionNode, options, programNode, sourceText);
 
     if (!processedComments) {
         return null;
     }
 
-    const { existingDocLines, docLikeLeadingLines, plainLeadingLines } =
-        processedComments;
+    const { existingDocLines, docLikeLeadingLines, plainLeadingLines } = processedComments;
 
     if (
         node.type === "VariableDeclaration" &&
         node.kind !== "static" &&
-        (functionNode.type === "FunctionExpression" ||
-            functionNode.type === "FunctionDeclaration") &&
+        (functionNode.type === "FunctionExpression" || functionNode.type === "FunctionDeclaration") &&
         !functionNode.id &&
         existingDocLines.length === 0
     ) {
@@ -403,12 +307,7 @@ export function computeSyntheticDocCommentForFunctionAssignment(
         syntheticOverrides.preserveDocCommentParamNames = true;
     }
 
-    const syntheticDoc = computeSyntheticDocComment(
-        functionNode,
-        existingDocLines,
-        options,
-        syntheticOverrides
-    );
+    const syntheticDoc = computeSyntheticDocComment(functionNode, existingDocLines, options, syntheticOverrides);
 
     if (!syntheticDoc && plainLeadingLines.length === 0) {
         return null;

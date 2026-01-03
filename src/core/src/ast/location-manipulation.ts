@@ -12,11 +12,7 @@ type LocationValue =
 
 type LocationNode = Record<string, LocationValue>;
 
-function adjustLocationProperty(
-    node: LocationNode,
-    propertyName: LocationKey,
-    mapIndex: (index: number) => number
-) {
+function adjustLocationProperty(node: LocationNode, propertyName: LocationKey, mapIndex: (index: number) => number) {
     if (!Object.hasOwn(node, propertyName)) {
         return;
     }
@@ -72,10 +68,7 @@ export function simplifyLocationMetadata(target: unknown) {
     });
 }
 
-export function remapLocationMetadata(
-    target: unknown,
-    mapIndex?: (index: number) => number
-) {
+export function remapLocationMetadata(target: unknown, mapIndex?: (index: number) => number) {
     if (typeof mapIndex !== "function") {
         return;
     }

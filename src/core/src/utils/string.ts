@@ -148,14 +148,9 @@ export function getNonEmptyString(value?: unknown) {
  */
 export function assertNonEmptyString(
     value,
-    {
-        name = "value",
-        trim = false,
-        errorMessage
-    }: AssertNonEmptyStringOptions = {}
+    { name = "value", trim = false, errorMessage }: AssertNonEmptyStringOptions = {}
 ) {
-    const message =
-        errorMessage ?? `${name} must be provided as a non-empty string.`;
+    const message = errorMessage ?? `${name} must be provided as a non-empty string.`;
 
     if (typeof value !== "string") {
         throw new TypeError(message);
@@ -206,10 +201,7 @@ function toSafeString(value: unknown) {
     if (typeof value === "object") {
         const candidate = value as { toString?: unknown };
         const toString = candidate.toString;
-        if (
-            typeof toString !== "function" ||
-            toString === Object.prototype.toString
-        ) {
+        if (typeof toString !== "function" || toString === Object.prototype.toString) {
             return OBJECT_TO_STRING(value);
         }
 
@@ -249,10 +241,7 @@ function toSafeString(value: unknown) {
  *        `String(value)`.
  * @returns {string} Human-readable description of {@link value}.
  */
-export function describeValueForError(
-    value?: unknown,
-    { stringifyUnknown = true } = {}
-): string {
+export function describeValueForError(value?: unknown, { stringifyUnknown = true } = {}): string {
     if (value === null) {
         return "null";
     }
@@ -265,11 +254,7 @@ export function describeValueForError(
         return JSON.stringify(value);
     }
 
-    if (
-        typeof value === "number" ||
-        typeof value === "bigint" ||
-        typeof value === "boolean"
-    ) {
+    if (typeof value === "number" || typeof value === "bigint" || typeof value === "boolean") {
         return String(value);
     }
 
@@ -459,10 +444,7 @@ export function capitalize(value?: unknown): string {
  * @returns {RegExp} A character-class-based regular expression suitable for
  *          use with `String#split`.
  */
-export function createListSplitPattern(
-    separators,
-    { includeWhitespace = false } = {}
-) {
+export function createListSplitPattern(separators, { includeWhitespace = false } = {}) {
     /** @type {Array<{ pattern: string, length: number, order: number }>} */
     const entries = [];
     const seenPatterns = new Set();
@@ -505,9 +487,7 @@ export function createListSplitPattern(
     }
 
     if (entries.length === 0) {
-        throw new TypeError(
-            "createListSplitPattern requires at least one separator or includeWhitespace=true."
-        );
+        throw new TypeError("createListSplitPattern requires at least one separator or includeWhitespace=true.");
     }
 
     entries.sort((a, b) => {
@@ -566,10 +546,7 @@ export function stripStringQuotes(value) {
     }
 
     const firstChar = value[0];
-    if (
-        firstChar !== DOUBLE_QUOTE_CHARACTER &&
-        firstChar !== SINGLE_QUOTE_CHARACTER
-    ) {
+    if (firstChar !== DOUBLE_QUOTE_CHARACTER && firstChar !== SINGLE_QUOTE_CHARACTER) {
         return null;
     }
 
@@ -624,10 +601,7 @@ export function normalizeStringList(
     }
 
     if (typeof value === "string") {
-        const pattern =
-            splitPattern === undefined
-                ? DEFAULT_STRING_LIST_SPLIT_PATTERN
-                : splitPattern;
+        const pattern = splitPattern === undefined ? DEFAULT_STRING_LIST_SPLIT_PATTERN : splitPattern;
         const entries = pattern ? value.split(pattern) : [value];
         return collectUniqueTrimmedStrings(entries);
     }
@@ -678,11 +652,7 @@ function collectUniqueTrimmedStrings(entries) {
  */
 export function toNormalizedLowerCaseSet(
     value?: unknown,
-    {
-        splitPattern = null,
-        allowInvalidType = true,
-        errorMessage
-    }: NormalizeStringListOptions = {}
+    { splitPattern = null, allowInvalidType = true, errorMessage }: NormalizeStringListOptions = {}
 ) {
     const normalizedValues = normalizeStringList(value, {
         splitPattern,

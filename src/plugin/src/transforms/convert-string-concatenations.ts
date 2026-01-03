@@ -18,16 +18,10 @@ type ConvertStringConcatenationsTransformOptions = {
  * Hook that exposes the string concatenation cleanup logic to the parser transform pipeline.
  */
 export class ConvertStringConcatenationsTransform
-    implements
-        ParserTransform<
-            MutableGameMakerAstNode,
-            ConvertStringConcatenationsTransformOptions
-        >
+    implements ParserTransform<MutableGameMakerAstNode, ConvertStringConcatenationsTransformOptions>
 {
     public readonly name = "convert-string-concatenations";
-    public readonly defaultOptions = Object.freeze(
-        {}
-    ) as ConvertStringConcatenationsTransformOptions;
+    public readonly defaultOptions = Object.freeze({}) as ConvertStringConcatenationsTransformOptions;
 
     public transform(ast: MutableGameMakerAstNode): MutableGameMakerAstNode {
         this.traverse(ast, null, null);
@@ -144,11 +138,7 @@ export class ConvertStringConcatenationsTransform
             }
 
             const expression = node.expression;
-            if (
-                Core.isObjectLike(expression) &&
-                expression.type === BINARY_EXPRESSION &&
-                expression.operator === "+"
-            ) {
+            if (Core.isObjectLike(expression) && expression.type === BINARY_EXPRESSION && expression.operator === "+") {
                 return this.collectConcatenationParts(expression, output);
             }
         }
@@ -267,14 +257,9 @@ export class ConvertStringConcatenationsTransform
 
             // Check if this is a string conversion call like string(fps) and unwrap it
             // You never need to use string() inside an interpolated string in GML – it is fully redundant
-            if (
-                core.type === "CallExpression" &&
-                this.isStringFunctionCall(core)
-            ) {
+            if (core.type === "CallExpression" && this.isStringFunctionCall(core)) {
                 // Use the first argument of the string function call, or the original if no args
-                const firstArg = Core.isNonEmptyArray(core.arguments)
-                    ? core.arguments[0]
-                    : core;
+                const firstArg = Core.isNonEmptyArray(core.arguments) ? core.arguments[0] : core;
                 atoms.push(firstArg);
                 lastWasUnwrappedString = true;
             } else {
@@ -348,9 +333,7 @@ export class ConvertStringConcatenationsTransform
                 return true;
             }
             case PARENTHESIZED_EXPRESSION: {
-                return this.isSafeInterpolatedExpression(
-                    Core.unwrapParenthesizedExpression(node)
-                );
+                return this.isSafeInterpolatedExpression(Core.unwrapParenthesizedExpression(node));
             }
             default: {
                 return false;
@@ -390,10 +373,7 @@ export class ConvertStringConcatenationsTransform
         const first = raw.charAt(0);
         const last = raw.charAt(raw.length - 1);
 
-        if (
-            (first === '"' && last === '"') ||
-            (first === "'" && last === "'")
-        ) {
+        if ((first === '"' && last === '"') || (first === "'" && last === "'")) {
             return raw.slice(1, -1);
         }
 
@@ -411,5 +391,4 @@ export class ConvertStringConcatenationsTransform
     }
 }
 
-export const convertStringConcatenationsTransform =
-    new ConvertStringConcatenationsTransform();
+export const convertStringConcatenationsTransform = new ConvertStringConcatenationsTransform();

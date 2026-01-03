@@ -21,10 +21,7 @@ type WalkFrame = {
     key: string | number | null;
 };
 
-export function walkObjectGraph(
-    root: unknown,
-    options: WalkObjectGraphOptions = {}
-) {
+export function walkObjectGraph(root: unknown, options: WalkObjectGraphOptions = {}) {
     if (!isObjectLike(root) && !Array.isArray(root)) {
         return;
     }

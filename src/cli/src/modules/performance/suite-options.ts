@@ -6,14 +6,12 @@ const PerformanceSuiteName = Object.freeze({
     IDENTIFIER_TEXT: "identifier-text"
 });
 
-type PerformanceSuite =
-    (typeof PerformanceSuiteName)[keyof typeof PerformanceSuiteName];
+type PerformanceSuite = (typeof PerformanceSuiteName)[keyof typeof PerformanceSuiteName];
 
 const performanceSuiteHelpers = createStringEnumeratedOptionHelpers(
     Object.values(PerformanceSuiteName),
     "Benchmark suite name",
-    (list, received) =>
-        `Benchmark suite must be one of: ${list}. Received: ${received}.`
+    (list, received) => `Benchmark suite must be one of: ${list}. Received: ${received}.`
 );
 
 const PERFORMANCE_THROUGHPUT_SUITES = new Set<PerformanceSuite>([
@@ -27,14 +25,9 @@ function formatPerformanceSuiteList() {
 
 function normalizePerformanceSuiteName(
     value: unknown,
-    {
-        errorConstructor
-    }: { errorConstructor?: new (message: string) => Error } = {}
+    { errorConstructor }: { errorConstructor?: new (message: string) => Error } = {}
 ): PerformanceSuite {
-    return performanceSuiteHelpers.requireValue(
-        value,
-        errorConstructor
-    ) as PerformanceSuite;
+    return performanceSuiteHelpers.requireValue(value, errorConstructor) as PerformanceSuite;
 }
 
 function isPerformanceThroughputSuite(name: PerformanceSuite) {

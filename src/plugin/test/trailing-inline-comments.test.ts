@@ -18,9 +18,7 @@ void test("keeps multi-sentence inline comments on the same line", async () => {
     const assignmentLine = lines.find((line) => line.includes("base_atk = 1"));
 
     assert.ok(
-        assignmentLine?.includes(
-            "// Local variable for base attack value. Can be passed into 'with' block as-is."
-        ),
+        assignmentLine?.includes("// Local variable for base attack value. Can be passed into 'with' block as-is."),
         "Trailing inline comments should remain intact without sentence splitting."
     );
 

@@ -73,9 +73,7 @@ function createOverrideError({
         : "Invalid environment variable value provided.";
     const errorLike = asErrorLike(error);
     const message =
-        errorLike &&
-        isNonEmptyString(errorLike.message) &&
-        !/^error\b/i.test(errorLike.message.trim())
+        errorLike && isNonEmptyString(errorLike.message) && !/^error\b/i.test(errorLike.message.trim())
             ? errorLike.message
             : fallbackMessage;
 
@@ -130,8 +128,7 @@ export function applyEnvOptionOverride({
         return;
     }
 
-    const resolver =
-        typeof resolveValue === "function" ? resolveValue : (value) => value;
+    const resolver = typeof resolveValue === "function" ? resolveValue : (value) => value;
 
     try {
         const resolved = resolver(rawValue);
@@ -160,12 +157,7 @@ export function applyEnvOptionOverride({
  *                                                             override fails
  *                                                             without its own.
  */
-export function applyEnvOptionOverrides({
-    command,
-    env,
-    overrides,
-    getUsage
-}: ApplyEnvOverridesOptions): void {
+export function applyEnvOptionOverrides({ command, env, overrides, getUsage }: ApplyEnvOverridesOptions): void {
     const overrideEntries = assertArray(overrides, {
         name: "overrides",
         errorMessage: "overrides must be provided as an array"

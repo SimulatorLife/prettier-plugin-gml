@@ -15,11 +15,7 @@ void test("getScopesForSymbol returns scopes containing a symbol", () => {
 
     const childScope1 = tracker.enterScope("function");
 
-    tracker.reference(
-        "shared",
-        { start: { line: 3, index: 0 }, end: { line: 3, index: 6 } },
-        { kind: "variable" }
-    );
+    tracker.reference("shared", { start: { line: 3, index: 0 }, end: { line: 3, index: 6 } }, { kind: "variable" });
 
     tracker.declare(
         "local",
@@ -31,11 +27,7 @@ void test("getScopesForSymbol returns scopes containing a symbol", () => {
 
     const childScope2 = tracker.enterScope("block");
 
-    tracker.reference(
-        "shared",
-        { start: { line: 6, index: 0 }, end: { line: 6, index: 6 } },
-        { kind: "variable" }
-    );
+    tracker.reference("shared", { start: { line: 6, index: 0 }, end: { line: 6, index: 6 } }, { kind: "variable" });
 
     tracker.exitScope();
     tracker.exitScope();
@@ -124,21 +116,14 @@ void test("getScopesForSymbol provides O(1) lookup for hot reload invalidation",
     assert.strictEqual(result.length, 10);
 
     const lookupTime = endTime - startTime;
-    assert.ok(
-        lookupTime < 10,
-        `Lookup took ${lookupTime}ms, expected < 10ms for O(1) performance`
-    );
+    assert.ok(lookupTime < 10, `Lookup took ${lookupTime}ms, expected < 10ms for O(1) performance`);
 });
 
 void test("getScopesForSymbol handles symbols with both declarations and references", () => {
     const tracker = new ScopeTracker({ enabled: true });
     const scope1 = tracker.enterScope("program");
 
-    tracker.declare(
-        "var1",
-        { start: { line: 1, index: 0 }, end: { line: 1, index: 4 } },
-        { kind: "variable" }
-    );
+    tracker.declare("var1", { start: { line: 1, index: 0 }, end: { line: 1, index: 4 } }, { kind: "variable" });
 
     const scope2 = tracker.enterScope("block");
 
@@ -147,11 +132,7 @@ void test("getScopesForSymbol handles symbols with both declarations and referen
         end: { line: 2, index: 4 }
     });
 
-    tracker.declare(
-        "var1",
-        { start: { line: 3, index: 0 }, end: { line: 3, index: 4 } },
-        { kind: "variable" }
-    );
+    tracker.declare("var1", { start: { line: 3, index: 0 }, end: { line: 3, index: 4 } }, { kind: "variable" });
 
     tracker.exitScope();
     tracker.exitScope();
@@ -175,11 +156,7 @@ void test("getSymbolScopeSummary distinguishes declarations and references", () 
 
     const functionScope = tracker.enterScope("function");
 
-    tracker.reference(
-        "alpha",
-        { start: { line: 3, index: 0 }, end: { line: 3, index: 5 } },
-        { kind: "variable" }
-    );
+    tracker.reference("alpha", { start: { line: 3, index: 0 }, end: { line: 3, index: 5 } }, { kind: "variable" });
 
     tracker.declare(
         "alpha",
@@ -191,20 +168,14 @@ void test("getSymbolScopeSummary distinguishes declarations and references", () 
 
     const blockScope = tracker.enterScope("block");
 
-    tracker.reference(
-        "alpha",
-        { start: { line: 6, index: 0 }, end: { line: 6, index: 5 } },
-        { kind: "variable" }
-    );
+    tracker.reference("alpha", { start: { line: 6, index: 0 }, end: { line: 6, index: 5 } }, { kind: "variable" });
 
     tracker.exitScope();
     tracker.exitScope();
 
     const summary = tracker.getSymbolScopeSummary("alpha");
 
-    const programSummary = summary.find(
-        (entry) => entry.scopeId === programScope.id
-    );
+    const programSummary = summary.find((entry) => entry.scopeId === programScope.id);
     assert.deepStrictEqual(programSummary, {
         scopeId: programScope.id,
         scopeKind: "program",
@@ -212,9 +183,7 @@ void test("getSymbolScopeSummary distinguishes declarations and references", () 
         hasReference: false
     });
 
-    const functionSummary = summary.find(
-        (entry) => entry.scopeId === functionScope.id
-    );
+    const functionSummary = summary.find((entry) => entry.scopeId === functionScope.id);
     assert.deepStrictEqual(functionSummary, {
         scopeId: functionScope.id,
         scopeKind: "function",
@@ -222,9 +191,7 @@ void test("getSymbolScopeSummary distinguishes declarations and references", () 
         hasReference: true
     });
 
-    const blockSummary = summary.find(
-        (entry) => entry.scopeId === blockScope.id
-    );
+    const blockSummary = summary.find((entry) => entry.scopeId === blockScope.id);
     assert.deepStrictEqual(blockSummary, {
         scopeId: blockScope.id,
         scopeKind: "block",

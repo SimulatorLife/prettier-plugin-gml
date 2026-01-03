@@ -22,14 +22,8 @@ const pluginPath = (() => {
         path.resolve(currentDirectory, "../../plugin/src/plugin-entry.js"),
         path.resolve(currentDirectory, "../../plugin/src/index.js"),
         path.resolve(currentDirectory, "../../plugin/src/plugin-entry.ts"),
-        path.resolve(
-            currentDirectory,
-            "../../../plugin/dist/src/plugin-entry.js"
-        ),
-        path.resolve(
-            currentDirectory,
-            "../../../plugin/dist/src/plugin-entry.js"
-        ),
+        path.resolve(currentDirectory, "../../../plugin/dist/src/plugin-entry.js"),
+        path.resolve(currentDirectory, "../../../plugin/dist/src/plugin-entry.js"),
         path.resolve(currentDirectory, "../../../plugin/dist/index.js"),
         path.resolve(currentDirectory, "../../../plugin/src/plugin-entry.js"),
         path.resolve(currentDirectory, "../../../plugin/src/index.js"),
@@ -112,16 +106,7 @@ function createSampleConflicts() {
     ];
 }
 
-async function formatWithReporter({
-    source,
-    renamePlan,
-    conflicts,
-    dryRun,
-    diagnostics,
-    logPath,
-    logger,
-    filepath
-}) {
+async function formatWithReporter({ source, renamePlan, conflicts, dryRun, diagnostics, logPath, logger, filepath }) {
     setIdentifierCaseDryRunContext({
         filepath,
         renamePlan,
@@ -156,9 +141,7 @@ void describe("identifier case reporting", () => {
             }
         };
 
-        const tempRoot = await fs.mkdtemp(
-            path.join(os.tmpdir(), "gml-identifier-report-")
-        );
+        const tempRoot = await fs.mkdtemp(path.join(os.tmpdir(), "gml-identifier-report-"));
         const logPath = path.join(tempRoot, "logs", "identifier-case.json");
         const filePath = path.join(tempRoot, "scripts", "attack", "attack.gml");
 
@@ -175,38 +158,19 @@ void describe("identifier case reporting", () => {
             });
 
             assert.match(formatted, /function attack\(target\)/);
-            assert.ok(
-                messages.length > 0,
-                "expected dry-run reporter to emit console output"
-            );
+            assert.ok(messages.length > 0, "expected dry-run reporter to emit console output");
 
             const joinedMessages = messages.join("\n");
             assert.match(joinedMessages, /Identifier case dry-run summary/);
-            assert.match(
-                joinedMessages,
-                /Planned renames: 2 \(4 references across 2 files\)/i
-            );
-            assert.match(
-                joinedMessages,
-                /Conflicts: 2 \(1 error, 1 warning\)/i
-            );
-            assert.match(
-                joinedMessages,
-                /script\.attack: calc_damage -> calcDamage/
-            );
-            assert.match(
-                joinedMessages,
-                /macro\.damage_cap: damage_cap -> DAMAGE_CAP/
-            );
+            assert.match(joinedMessages, /Planned renames: 2 \(4 references across 2 files\)/i);
+            assert.match(joinedMessages, /Conflicts: 2 \(1 error, 1 warning\)/i);
+            assert.match(joinedMessages, /script\.attack: calc_damage -> calcDamage/);
+            assert.match(joinedMessages, /macro\.damage_cap: damage_cap -> DAMAGE_CAP/);
             assert.match(joinedMessages, /\[error\]\s*\[collision\]/i);
 
             assert.equal(diagnostics.length, 1);
             const diagnostic = diagnostics[0];
-            assert.equal(
-                diagnostic.code,
-                "gml-identifier-case-summary",
-                "expected diagnostic code to be namespaced"
-            );
+            assert.equal(diagnostic.code, "gml-identifier-case-summary", "expected diagnostic code to be namespaced");
             assert.equal(diagnostic.summary.renameCount, 2);
             assert.equal(diagnostic.summary.conflictCount, 2);
             assert.equal(diagnostic.renames.length, 2);
@@ -220,10 +184,7 @@ void describe("identifier case reporting", () => {
             assert.equal(parsedLog.summary.conflictCount, 2);
             assert.equal(parsedLog.renames.length, 2);
             assert.equal(parsedLog.conflicts.length, 2);
-            assert.ok(
-                Array.isArray(parsedLog.renames[0].references),
-                "expected log to include reference metadata"
-            );
+            assert.ok(Array.isArray(parsedLog.renames[0].references), "expected log to include reference metadata");
         } finally {
             clearIdentifierCaseDryRunContexts();
             await fs.rm(tempRoot, { recursive: true, force: true });
@@ -256,9 +217,7 @@ void describe("identifier case reporting", () => {
             }
         };
 
-        const tempRoot = await fs.mkdtemp(
-            path.join(os.tmpdir(), "gml-identifier-report-options-")
-        );
+        const tempRoot = await fs.mkdtemp(path.join(os.tmpdir(), "gml-identifier-report-options-"));
         const logPath = path.join(tempRoot, "logs", "identifier-case.json");
 
         try {
@@ -292,10 +251,7 @@ void describe("identifier case reporting", () => {
             const parsedLog = JSON.parse(writeEntry.contents);
             assert.equal(parsedLog.summary.renameCount, 2);
             assert.equal(parsedLog.summary.conflictCount, 2);
-            assert.equal(
-                parsedLog.generatedAt,
-                new Date(timestamp).toISOString()
-            );
+            assert.equal(parsedLog.generatedAt, new Date(timestamp).toISOString());
         } finally {
             await fs.rm(tempRoot, { recursive: true, force: true });
         }
@@ -321,11 +277,7 @@ void describe("identifier case reporting", () => {
                 diagnostics,
                 logPath: null,
                 logger,
-                filepath: path.join(
-                    os.tmpdir(),
-                    "dry-run-write-mode",
-                    "attack.gml"
-                )
+                filepath: path.join(os.tmpdir(), "dry-run-write-mode", "attack.gml")
             });
 
             assert.match(formatted, /function attack\(target\)/);

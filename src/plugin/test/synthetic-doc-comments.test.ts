@@ -40,25 +40,14 @@ void test("adds synthetic @returns doc for onymous/named functions without retur
 });
 
 void test("separates synthetic doc comments from preceding line comments", async () => {
-    const source = [
-        "// Scenario 2",
-        "function scr_custom_gpu_func() {",
-        "    gpu_push_state();",
-        "}",
-        ""
-    ].join("\n");
+    const source = ["// Scenario 2", "function scr_custom_gpu_func() {", "    gpu_push_state();", "}", ""].join("\n");
 
     const formatted = await Plugin.format(source);
     const lines = formatted.trim().split("\n");
 
     assert.deepStrictEqual(
         lines.slice(0, 4),
-        [
-            "// Scenario 2",
-            "",
-            "/// @returns {undefined}",
-            "function scr_custom_gpu_func() {"
-        ],
+        ["// Scenario 2", "", "/// @returns {undefined}", "function scr_custom_gpu_func() {"],
         "Synthetic doc comments should be separated from preceding line comments by a blank line."
     );
 });
@@ -109,9 +98,7 @@ void test("adds synthetic @returns metadata for parameterless static functions",
     const trimmed = formatted.trim();
 
     assert.ok(
-        trimmed.includes(
-            "\n\n    /// @returns {undefined}\n    static ping = function() {"
-        ),
+        trimmed.includes("\n\n    /// @returns {undefined}\n    static ping = function() {"),
         "Expected synthetic doc comments to describe the parameterless static function with inserted @returns metadata."
     );
     assert.ok(
@@ -125,12 +112,7 @@ void test("adds synthetic @returns metadata for parameterless static functions",
 });
 
 void test("adds synthetic docs for named constructor assignments", async () => {
-    const source = [
-        "item = function() constructor {",
-        "    value = 1;",
-        "}",
-        ""
-    ].join("\n");
+    const source = ["item = function() constructor {", "    value = 1;", "}", ""].join("\n");
 
     const formatted = await Plugin.format(source);
     const lines = formatted.trim().split("\n");
@@ -160,15 +142,9 @@ void test("synthetic constructor docs include trailing parameters", async () => 
 
     const formatted = await Plugin.format(source);
     const lines = formatted.trim().split("\n");
-    const functionIndex = lines.indexOf(
-        "function grandchild(_foo, _value, _bar) : child(_foo, _value) constructor {"
-    );
+    const functionIndex = lines.indexOf("function grandchild(_foo, _value, _bar) : child(_foo, _value) constructor {");
 
-    assert.notStrictEqual(
-        functionIndex,
-        -1,
-        "Expected the formatted output to include the grandchild constructor."
-    );
+    assert.notStrictEqual(functionIndex, -1, "Expected the formatted output to include the grandchild constructor.");
 
     const docLines: string[] = [];
     for (let index = functionIndex - 1; index >= 0; index -= 1) {
@@ -210,15 +186,9 @@ void test("annotates overriding static functions with @override metadata", async
 
     const formatted = await Plugin.format(source);
     const lines = formatted.trim().split("\n");
-    const derivedIndex = lines.indexOf(
-        "function Derived() : Base() constructor {"
-    );
+    const derivedIndex = lines.indexOf("function Derived() : Base() constructor {");
 
-    assert.notStrictEqual(
-        derivedIndex,
-        -1,
-        "Expected the derived constructor to be present in the formatted output."
-    );
+    assert.notStrictEqual(derivedIndex, -1, "Expected the derived constructor to be present in the formatted output.");
 
     let docStartIndex = derivedIndex + 1;
     while (docStartIndex < lines.length && lines[docStartIndex].trim() === "") {
@@ -228,11 +198,7 @@ void test("annotates overriding static functions with @override metadata", async
     const overrideLine = lines[docStartIndex];
     const returnsLine = lines[docStartIndex + 1];
 
-    assert.equal(
-        overrideLine,
-        "    /// @override",
-        "Overriding static functions should include an @override tag."
-    );
+    assert.equal(overrideLine, "    /// @override", "Overriding static functions should include an @override tag.");
     assert.equal(
         returnsLine,
         "    /// @returns {undefined}",

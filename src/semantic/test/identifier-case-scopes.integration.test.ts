@@ -48,9 +48,7 @@ function resolveFixturesDirectory(baseDirectory: string) {
 }
 
 async function createScopeFixtureProject() {
-    const tempRoot = await fs.mkdtemp(
-        path.join(os.tmpdir(), "gml-scope-tests-")
-    );
+    const tempRoot = await fs.mkdtemp(path.join(os.tmpdir(), "gml-scope-tests-"));
     const writeFile = async (relativePath: string, contents: string) => {
         const absolutePath = path.join(tempRoot, relativePath);
         await fs.mkdir(path.dirname(absolutePath), { recursive: true });
@@ -58,10 +56,7 @@ async function createScopeFixtureProject() {
         return absolutePath;
     };
 
-    await writeFile(
-        "MyGame.yyp",
-        JSON.stringify({ name: "MyGame", resourceType: "GMProject" })
-    );
+    await writeFile("MyGame.yyp", JSON.stringify({ name: "MyGame", resourceType: "GMProject" }));
 
     await writeFile(
         "scripts/scopeTester/scopeTester.yy",
@@ -79,60 +74,29 @@ void describe("project index scope tracking", () => {
         const { projectRoot } = await createScopeFixtureProject();
 
         try {
-            const index = (await buildProjectIndex(
-                projectRoot
-            )) as ProjectIndexSnapshot;
+            const index = (await buildProjectIndex(projectRoot)) as ProjectIndexSnapshot;
 
             const macros = index.identifiers.macros;
-            assert.ok(
-                macros.MAX_COUNT,
-                "expected MAX_COUNT macro to be indexed"
-            );
-            assert.ok(
-                macros.max_count,
-                "expected max_count macro to be indexed"
-            );
+            assert.ok(macros.MAX_COUNT, "expected MAX_COUNT macro to be indexed");
+            assert.ok(macros.max_count, "expected max_count macro to be indexed");
             assert.equal(macros.MAX_COUNT.declarations.length, 1);
             assert.equal(macros.max_count.declarations.length, 1);
 
             const globalVars = index.identifiers.globalVariables;
-            assert.ok(
-                globalVars.global_score,
-                "expected global_score declaration to be tracked"
-            );
-            assert.ok(
-                globalVars.GLOBAL_SCORE,
-                "expected GLOBAL_SCORE declaration to be tracked"
-            );
+            assert.ok(globalVars.global_score, "expected global_score declaration to be tracked");
+            assert.ok(globalVars.GLOBAL_SCORE, "expected GLOBAL_SCORE declaration to be tracked");
 
-            const enumEntries = valuesAs<IdentifierIndexEntry>(
-                index.identifiers.enums
-            );
-            const difficultyEnum = enumEntries.find(
-                (entry) => entry.name === "Difficulty"
-            );
-            const difficultyCopyEnum = enumEntries.find(
-                (entry) => entry.name === "DifficultyCopy"
-            );
+            const enumEntries = valuesAs<IdentifierIndexEntry>(index.identifiers.enums);
+            const difficultyEnum = enumEntries.find((entry) => entry.name === "Difficulty");
+            const difficultyCopyEnum = enumEntries.find((entry) => entry.name === "DifficultyCopy");
             assert.ok(difficultyEnum, "expected Difficulty enum to be present");
-            assert.ok(
-                difficultyCopyEnum,
-                "expected DifficultyCopy enum to be present"
-            );
+            assert.ok(difficultyCopyEnum, "expected DifficultyCopy enum to be present");
 
-            const enumMembers = valuesAs<IdentifierIndexEntry>(
-                index.identifiers.enumMembers
-            );
-            const hasEasyMember = enumMembers.filter(
-                (entry) => entry.name === "Easy"
-            );
-            assert.ok(
-                hasEasyMember.length >= 2,
-                "expected both Easy members to be tracked"
-            );
+            const enumMembers = valuesAs<IdentifierIndexEntry>(index.identifiers.enumMembers);
+            const hasEasyMember = enumMembers.filter((entry) => entry.name === "Easy");
+            assert.ok(hasEasyMember.length >= 2, "expected both Easy members to be tracked");
 
-            const scriptEntry =
-                index.identifiers.scripts["scope:script:scopeTester"];
+            const scriptEntry = index.identifiers.scripts["scope:script:scopeTester"];
             assert.ok(scriptEntry, "expected script entry for scopeTester");
             assert.equal(scriptEntry.declarations.length > 0, true);
         } finally {

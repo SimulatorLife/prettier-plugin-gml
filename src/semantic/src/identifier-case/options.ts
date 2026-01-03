@@ -13,8 +13,7 @@ import { DEFAULT_IDENTIFIER_CASE_OPTION_STORE_MAX_ENTRIES } from "./option-store
 
 export { DEFAULT_IDENTIFIER_CASE_OPTION_STORE_MAX_ENTRIES } from "./option-store-defaults.js";
 
-const IDENTIFIER_CASE_DESCRIPTION =
-    "Sets the preferred casing style to apply when renaming identifiers.";
+const IDENTIFIER_CASE_DESCRIPTION = "Sets the preferred casing style to apply when renaming identifiers.";
 
 export const IdentifierCaseStyle = Object.freeze({
     OFF: "off",
@@ -26,14 +25,9 @@ export const IdentifierCaseStyle = Object.freeze({
 
 const IDENTIFIER_CASE_STYLE_SET = new Set(Object.values(IdentifierCaseStyle));
 
-export const IDENTIFIER_CASE_STYLES = Object.freeze(
-    Object.values(IdentifierCaseStyle)
-);
+export const IDENTIFIER_CASE_STYLES = Object.freeze(Object.values(IdentifierCaseStyle));
 
-const IDENTIFIER_CASE_LIST_SPLIT_PATTERN = Core.createListSplitPattern([
-    "\n",
-    ","
-]);
+const IDENTIFIER_CASE_LIST_SPLIT_PATTERN = Core.createListSplitPattern(["\n", ","]);
 
 export const IDENTIFIER_CASE_INHERIT_VALUE = "inherit";
 
@@ -44,9 +38,7 @@ export function isIdentifierCaseStyle(style) {
 function createUnknownIdentifierCaseStyleError(style, optionName) {
     const validStyles = Array.from(IDENTIFIER_CASE_STYLE_SET).join(", ");
 
-    return new RangeError(
-        `Invalid identifier case style '${style}' for ${optionName}. Valid styles: ${validStyles}.`
-    );
+    return new RangeError(`Invalid identifier case style '${style}' for ${optionName}. Valid styles: ${validStyles}.`);
 }
 
 export function assertIdentifierCaseStyle(style, optionName) {
@@ -57,10 +49,7 @@ export function assertIdentifierCaseStyle(style, optionName) {
     return style;
 }
 
-function normalizeIdentifierCaseStyleOption(
-    style,
-    { optionName, defaultValue }
-) {
+function normalizeIdentifierCaseStyleOption(style, { optionName, defaultValue }) {
     if (style === undefined) {
         return defaultValue;
     }
@@ -83,18 +72,12 @@ export const IDENTIFIER_CASE_SCOPE_NAMES = Object.freeze([
 export const IDENTIFIER_CASE_BASE_OPTION_NAME = "gmlIdentifierCase";
 export const IDENTIFIER_CASE_IGNORE_OPTION_NAME = "gmlIdentifierCaseIgnore";
 export const IDENTIFIER_CASE_PRESERVE_OPTION_NAME = "gmlIdentifierCasePreserve";
-export const IDENTIFIER_CASE_ACKNOWLEDGE_ASSETS_OPTION_NAME =
-    "gmlIdentifierCaseAcknowledgeAssetRenames";
-export const IDENTIFIER_CASE_DISCOVER_PROJECT_OPTION_NAME =
-    "gmlIdentifierCaseDiscoverProject";
-export const IDENTIFIER_CASE_PROJECT_ROOT_OPTION_NAME =
-    "gmlIdentifierCaseProjectRoot";
-export const IDENTIFIER_CASE_PROJECT_INDEX_CACHE_MAX_BYTES_OPTION_NAME =
-    "gmlIdentifierCaseProjectIndexCacheMaxBytes";
-export const IDENTIFIER_CASE_OPTION_STORE_MAX_ENTRIES_OPTION_NAME =
-    "gmlIdentifierCaseOptionStoreMaxEntries";
-export const IDENTIFIER_CASE_PROJECT_INDEX_CONCURRENCY_OPTION_NAME =
-    "gmlIdentifierCaseProjectIndexConcurrency";
+export const IDENTIFIER_CASE_ACKNOWLEDGE_ASSETS_OPTION_NAME = "gmlIdentifierCaseAcknowledgeAssetRenames";
+export const IDENTIFIER_CASE_DISCOVER_PROJECT_OPTION_NAME = "gmlIdentifierCaseDiscoverProject";
+export const IDENTIFIER_CASE_PROJECT_ROOT_OPTION_NAME = "gmlIdentifierCaseProjectRoot";
+export const IDENTIFIER_CASE_PROJECT_INDEX_CACHE_MAX_BYTES_OPTION_NAME = "gmlIdentifierCaseProjectIndexCacheMaxBytes";
+export const IDENTIFIER_CASE_OPTION_STORE_MAX_ENTRIES_OPTION_NAME = "gmlIdentifierCaseOptionStoreMaxEntries";
+export const IDENTIFIER_CASE_PROJECT_INDEX_CONCURRENCY_OPTION_NAME = "gmlIdentifierCaseProjectIndexConcurrency";
 
 const IDENTIFIER_CASE_SCOPE_OPTION_PREFIX = "gmlIdentifierCase";
 
@@ -122,30 +105,21 @@ type IdentifierCaseOptionConfig = {
     choices?: IdentifierCaseOptionChoice[];
 };
 
-function createChoice(
-    value: string,
-    description: string
-): IdentifierCaseOptionChoice {
+function createChoice(value: string, description: string): IdentifierCaseOptionChoice {
     return { value, description };
 }
 
-export const IDENTIFIER_CASE_STYLE_CHOICES = IDENTIFIER_CASE_STYLES.map(
-    (style) => {
-        const { description = IDENTIFIER_CASE_DESCRIPTION } =
-            getIdentifierCaseStyleMetadata(style);
-        return createChoice(style, description);
-    }
-);
+export const IDENTIFIER_CASE_STYLE_CHOICES = IDENTIFIER_CASE_STYLES.map((style) => {
+    const { description = IDENTIFIER_CASE_DESCRIPTION } = getIdentifierCaseStyleMetadata(style);
+    return createChoice(style, description);
+});
 
 function getScopeOptionName(scope) {
     return `${IDENTIFIER_CASE_SCOPE_OPTION_PREFIX}${Core.capitalize(scope)}`;
 }
 
 function createScopeChoiceEntries() {
-    const inheritChoice = createChoice(
-        IDENTIFIER_CASE_INHERIT_VALUE,
-        "Inherit the default gmlIdentifierCase value."
-    );
+    const inheritChoice = createChoice(IDENTIFIER_CASE_INHERIT_VALUE, "Inherit the default gmlIdentifierCase value.");
 
     return [inheritChoice, ...IDENTIFIER_CASE_STYLE_CHOICES];
 }
@@ -167,8 +141,7 @@ const baseIdentifierCaseOptions: Record<string, IdentifierCaseOptionConfig> = {
         type: "choice",
         category: "gml",
         default: "off",
-        description:
-            "Configures the default identifier case conversion style applied to eligible declarations.",
+        description: "Configures the default identifier case conversion style applied to eligible declarations.",
         choices: IDENTIFIER_CASE_STYLE_CHOICES
     },
     [IDENTIFIER_CASE_IGNORE_OPTION_NAME]: {
@@ -176,24 +149,21 @@ const baseIdentifierCaseOptions: Record<string, IdentifierCaseOptionConfig> = {
         type: "string",
         category: "gml",
         default: "",
-        description:
-            "Comma- or newline-separated patterns describing identifiers or files to ignore while renaming."
+        description: "Comma- or newline-separated patterns describing identifiers or files to ignore while renaming."
     },
     [IDENTIFIER_CASE_PRESERVE_OPTION_NAME]: {
         since: BASE_IDENTIFIER_CASE_SINCE,
         type: "string",
         category: "gml",
         default: "",
-        description:
-            "Comma- or newline-separated list of identifier names that must be preserved without renaming."
+        description: "Comma- or newline-separated list of identifier names that must be preserved without renaming."
     },
     [IDENTIFIER_CASE_ACKNOWLEDGE_ASSETS_OPTION_NAME]: {
         since: BASE_IDENTIFIER_CASE_SINCE,
         type: "boolean",
         category: "gml",
         default: false,
-        description:
-            "Acknowledges that enabling asset renames may rename files on disk and updates related metadata."
+        description: "Acknowledges that enabling asset renames may rename files on disk and updates related metadata."
     },
     [IDENTIFIER_CASE_DISCOVER_PROJECT_OPTION_NAME]: {
         since: BASE_IDENTIFIER_CASE_SINCE,
@@ -222,20 +192,12 @@ const baseIdentifierCaseOptions: Record<string, IdentifierCaseOptionConfig> = {
     }
 };
 
-function createIdentifierCaseOptions(): Record<
-    string,
-    IdentifierCaseOptionConfig
-> {
-    const options = Object.create(null) as Record<
-        string,
-        IdentifierCaseOptionConfig
-    >;
+function createIdentifierCaseOptions(): Record<string, IdentifierCaseOptionConfig> {
+    const options = Object.create(null) as Record<string, IdentifierCaseOptionConfig>;
     Object.assign(options, baseIdentifierCaseOptions);
 
-    options[IDENTIFIER_CASE_OPTION_STORE_MAX_ENTRIES_OPTION_NAME] =
-        createStoreCapacityOptionConfig();
-    options[IDENTIFIER_CASE_PROJECT_INDEX_CONCURRENCY_OPTION_NAME] =
-        createConcurrencyOptionConfig();
+    options[IDENTIFIER_CASE_OPTION_STORE_MAX_ENTRIES_OPTION_NAME] = createStoreCapacityOptionConfig();
+    options[IDENTIFIER_CASE_PROJECT_INDEX_CONCURRENCY_OPTION_NAME] = createConcurrencyOptionConfig();
 
     for (const scope of IDENTIFIER_CASE_SCOPE_NAMES) {
         const optionName = getScopeOptionName(scope);
@@ -292,24 +254,15 @@ function resolveScopeSettings(
         const optionName = getScopeOptionName(scope);
         const configuredValue = options?.[optionName];
 
-        const normalizedValue =
-            configuredValue === undefined
-                ? IDENTIFIER_CASE_INHERIT_VALUE
-                : configuredValue;
+        const normalizedValue = configuredValue === undefined ? IDENTIFIER_CASE_INHERIT_VALUE : configuredValue;
 
-        if (
-            scope === "locals" &&
-            normalizedValue !== IDENTIFIER_CASE_INHERIT_VALUE
-        ) {
+        if (scope === "locals" && normalizedValue !== IDENTIFIER_CASE_INHERIT_VALUE) {
             assertIdentifierCaseStyle(normalizedValue, optionName);
         }
 
         scopeSettings[scope] = normalizedValue;
 
-        scopeStyles[scope] =
-            normalizedValue === IDENTIFIER_CASE_INHERIT_VALUE
-                ? baseStyle
-                : normalizedValue;
+        scopeStyles[scope] = normalizedValue === IDENTIFIER_CASE_INHERIT_VALUE ? baseStyle : normalizedValue;
     }
 
     return { scopeSettings, scopeStyles };
@@ -338,18 +291,12 @@ function resolveScopeSettings(
  * @throws {Error} When asset renames are enabled without acknowledgement.
  */
 export function normalizeIdentifierCaseOptions(options = {}) {
-    const baseStyle = normalizeIdentifierCaseStyleOption(
-        options?.[IDENTIFIER_CASE_BASE_OPTION_NAME],
-        {
-            optionName: IDENTIFIER_CASE_BASE_OPTION_NAME,
-            defaultValue: IdentifierCaseStyle.OFF
-        }
-    );
+    const baseStyle = normalizeIdentifierCaseStyleOption(options?.[IDENTIFIER_CASE_BASE_OPTION_NAME], {
+        optionName: IDENTIFIER_CASE_BASE_OPTION_NAME,
+        defaultValue: IdentifierCaseStyle.OFF
+    });
 
-    const { scopeSettings, scopeStyles } = resolveScopeSettings(
-        options,
-        baseStyle
-    );
+    const { scopeSettings, scopeStyles } = resolveScopeSettings(options, baseStyle);
 
     const ignorePatterns = normalizeList(
         IDENTIFIER_CASE_IGNORE_OPTION_NAME,
@@ -360,13 +307,9 @@ export function normalizeIdentifierCaseOptions(options = {}) {
         options?.[IDENTIFIER_CASE_PRESERVE_OPTION_NAME]
     );
 
-    const assetRenamesAcknowledged = Boolean(
-        options?.[IDENTIFIER_CASE_ACKNOWLEDGE_ASSETS_OPTION_NAME]
-    );
+    const assetRenamesAcknowledged = Boolean(options?.[IDENTIFIER_CASE_ACKNOWLEDGE_ASSETS_OPTION_NAME]);
 
-    const effectiveAssetStyle = normalizeIdentifierCaseAssetStyle(
-        scopeStyles.assets
-    );
+    const effectiveAssetStyle = normalizeIdentifierCaseAssetStyle(scopeStyles.assets);
     scopeStyles.assets = effectiveAssetStyle;
     const assetRenamesEnabled = effectiveAssetStyle !== IdentifierCaseStyle.OFF;
 

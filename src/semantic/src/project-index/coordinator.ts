@@ -24,11 +24,7 @@ function normalizeEnsureReadyDescriptor(descriptor) {
     };
 }
 
-function resolveEnsureReadyContext({
-    descriptor,
-    abortController,
-    disposedMessage
-}) {
+function resolveEnsureReadyContext({ descriptor, abortController, disposedMessage }) {
     const { resolvedRoot } = normalizeEnsureReadyDescriptor(descriptor);
     const signal = abortController.signal;
     Core.throwIfAborted(signal, disposedMessage);
@@ -70,11 +66,7 @@ async function executeEnsureReadyOperation({
     disposedMessage
 }) {
     const descriptorOptions = descriptor ?? {};
-    const loadResult = await loadCache(
-        { ...descriptorOptions, projectRoot: resolvedRoot },
-        fsFacade,
-        { signal }
-    );
+    const loadResult = await loadCache({ ...descriptorOptions, projectRoot: resolvedRoot }, fsFacade, { signal });
     Core.throwIfAborted(signal, disposedMessage);
 
     if (loadResult.status === ProjectIndexCacheStatus.HIT) {
@@ -93,9 +85,7 @@ async function executeEnsureReadyOperation({
     Core.throwIfAborted(signal, disposedMessage);
 
     const descriptorMaxSizeBytes =
-        descriptorOptions?.maxSizeBytes === undefined
-            ? cacheMaxSizeBytes
-            : descriptorOptions.maxSizeBytes;
+        descriptorOptions?.maxSizeBytes === undefined ? cacheMaxSizeBytes : descriptorOptions.maxSizeBytes;
 
     const saveResult = await saveCache(
         {
@@ -134,27 +124,16 @@ export function createProjectIndexCoordinator({
     cacheMaxSizeBytes: rawCacheMaxSizeBytes,
     getDefaultCacheMaxSize
 }: any = {}) {
-    const normalizedLoadCache = assertCoordinatorFunction(
-        loadCache,
-        "loadCache"
-    );
-    const normalizedSaveCache = assertCoordinatorFunction(
-        saveCache,
-        "saveCache"
-    );
-    const normalizedBuildIndex = assertCoordinatorFunction(
-        buildIndex,
-        "buildIndex"
-    );
+    const normalizedLoadCache = assertCoordinatorFunction(loadCache, "loadCache");
+    const normalizedSaveCache = assertCoordinatorFunction(saveCache, "saveCache");
+    const normalizedBuildIndex = assertCoordinatorFunction(buildIndex, "buildIndex");
     const normalizedGetDefaultCacheMaxSize = assertCoordinatorFunction(
         getDefaultCacheMaxSize,
         "getDefaultCacheMaxSize"
     );
 
     const cacheMaxSizeBytes =
-        rawCacheMaxSizeBytes === undefined
-            ? normalizedGetDefaultCacheMaxSize()
-            : rawCacheMaxSizeBytes;
+        rawCacheMaxSizeBytes === undefined ? normalizedGetDefaultCacheMaxSize() : rawCacheMaxSizeBytes;
 
     const inFlight = new Map();
     let disposed = false;

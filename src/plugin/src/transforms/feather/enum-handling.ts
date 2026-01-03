@@ -5,11 +5,7 @@
 import { Core } from "@gml-modules/core";
 import { isIntegerLiteralString } from "./utils.js";
 
-function sanitizeEnumBodyInitializerStrings(
-    body: string,
-    bodyStartIndex: number,
-    totalRemoved: number
-) {
+function sanitizeEnumBodyInitializerStrings(body: string, bodyStartIndex: number, totalRemoved: number) {
     if (!Core.isNonEmptyString(body)) {
         return { sanitizedBody: body, adjustments: [], removedCount: 0 };
     }
@@ -29,11 +25,7 @@ function sanitizeEnumBodyInitializerStrings(
             const removedCount = fullMatch.length - replacement.length;
 
             if (removedCount > 0) {
-                const sanitizedIndex =
-                    bodyStartIndex +
-                    offset +
-                    replacement.length -
-                    (totalRemoved + bodyRemoved);
+                const sanitizedIndex = bodyStartIndex + offset + replacement.length - (totalRemoved + bodyRemoved);
 
                 adjustments.push({
                     index: sanitizedIndex,
@@ -103,11 +95,7 @@ function skipToken(sourceText: string, index: number, length: number) {
         return skipStringLiteral(sourceText, index);
     }
 
-    if (
-        char === "@" &&
-        index + 1 < length &&
-        (sourceText[index + 1] === '"' || sourceText[index + 1] === "'")
-    ) {
+    if (char === "@" && index + 1 < length && (sourceText[index + 1] === '"' || sourceText[index + 1] === "'")) {
         return skipStringLiteral(sourceText, index + 1);
     }
 
@@ -182,18 +170,12 @@ function sanitizeEnumInitializerStrings(sourceText: string) {
     let totalRemoved = 0;
 
     while (enumPattern.exec(sourceText) !== null) {
-        const openBraceIndex = findNextOpenBrace(
-            sourceText,
-            enumPattern.lastIndex
-        );
+        const openBraceIndex = findNextOpenBrace(sourceText, enumPattern.lastIndex);
         if (openBraceIndex === -1) {
             break;
         }
 
-        const closeBraceIndex = findMatchingClosingBrace(
-            sourceText,
-            openBraceIndex
-        );
+        const closeBraceIndex = findMatchingClosingBrace(sourceText, openBraceIndex);
 
         if (closeBraceIndex === -1) {
             break;
@@ -207,11 +189,7 @@ function sanitizeEnumInitializerStrings(sourceText: string) {
             sanitizedBody,
             adjustments: bodyAdjustments,
             removedCount: bodyRemoved
-        } = sanitizeEnumBodyInitializerStrings(
-            body,
-            bodyStartIndex,
-            totalRemoved
-        );
+        } = sanitizeEnumBodyInitializerStrings(body, bodyStartIndex, totalRemoved);
 
         if (bodyAdjustments.length > 0) {
             adjustments.push(...bodyAdjustments);
@@ -250,12 +228,7 @@ function normalizeRemovalAdjustments(adjustments: unknown) {
                 index?: number;
                 delta?: number;
             };
-            return (
-                Number.isFinite(index) &&
-                Number.isFinite(delta) &&
-                typeof delta === "number" &&
-                delta > 0
-            );
+            return Number.isFinite(index) && Number.isFinite(delta) && typeof delta === "number" && delta > 0;
         })
         .sort((a, b) => a.index - b.index);
 }
@@ -263,10 +236,7 @@ function normalizeRemovalAdjustments(adjustments: unknown) {
 /**
  * Shift node start/end indices forward as characters are removed from the source.
  */
-function mapIndexForRemoval(
-    index: number,
-    adjustments: Array<{ index: number; delta: number }>
-) {
+function mapIndexForRemoval(index: number, adjustments: Array<{ index: number; delta: number }>) {
     if (!Number.isFinite(index)) {
         return index;
     }
@@ -301,19 +271,12 @@ function adjustLocationForRemoval(
         return;
     }
 
-    if (
-        location &&
-        typeof location === "object" &&
-        typeof location.index === "number"
-    ) {
+    if (location && typeof location === "object" && typeof location.index === "number") {
         location.index = mapIndexForRemoval(location.index, adjustments);
     }
 }
 
-export function applyRemovedIndexAdjustments(
-    target: unknown,
-    adjustments: unknown
-) {
+export function applyRemovedIndexAdjustments(target: unknown, adjustments: unknown) {
     const normalized = normalizeRemovalAdjustments(adjustments);
     if (normalized.length === 0) {
         return;
@@ -338,16 +301,8 @@ export function applyRemovedIndexAdjustments(
             continue;
         }
 
-        adjustLocationForRemoval(
-            current as Record<string, unknown>,
-            "start",
-            normalized
-        );
-        adjustLocationForRemoval(
-            current as Record<string, unknown>,
-            "end",
-            normalized
-        );
+        adjustLocationForRemoval(current as Record<string, unknown>, "start", normalized);
+        adjustLocationForRemoval(current as Record<string, unknown>, "end", normalized);
 
         for (const value of Object.values(current)) {
             stack.push(value);
@@ -394,10 +349,7 @@ export function preprocessSourceForFeatherFixes(sourceText: string) {
             firstChar <= "9" &&
             (() => {
                 const assignmentIndex = trimmed.indexOf("=");
-                return (
-                    assignmentIndex !== -1 &&
-                    trimmed[assignmentIndex + 1] !== "="
-                );
+                return assignmentIndex !== -1 && trimmed[assignmentIndex + 1] !== "=";
             })();
 
         if (isBareAssignment || isNumericAssignment) {
@@ -412,10 +364,7 @@ export function preprocessSourceForFeatherFixes(sourceText: string) {
                 },
                 end: {
                     line: lineNumber,
-                    column: Math.max(
-                        indentation.length,
-                        trimmedRightLength - 1
-                    ),
+                    column: Math.max(indentation.length, trimmedRightLength - 1),
                     index: lineStartIndex + trimmedRightLength
                 }
             });
@@ -423,15 +372,11 @@ export function preprocessSourceForFeatherFixes(sourceText: string) {
             return { line: sanitizedLine, context: null };
         }
 
-        const booleanLiteralMatch = line.match(
-            /^(\s*)(true|false)\s*(?:;\s*)?$/
-        );
+        const booleanLiteralMatch = line.match(/^(\s*)(true|false)\s*(?:;\s*)?$/);
 
         if (booleanLiteralMatch) {
             const leadingWhitespace = booleanLiteralMatch[1] ?? "";
-            const sanitizedRemainder = " ".repeat(
-                Math.max(0, line.length - leadingWhitespace.length)
-            );
+            const sanitizedRemainder = " ".repeat(Math.max(0, line.length - leadingWhitespace.length));
             const sanitizedLine = `${leadingWhitespace}${sanitizedRemainder}`;
             const trimmedRightLength = line.replace(/\s+$/, "").length;
             const startColumn = leadingWhitespace.length;
@@ -461,12 +406,9 @@ export function preprocessSourceForFeatherFixes(sourceText: string) {
             const trimmedRemainder = remainder.replace(/^\s*/, "");
 
             if (trimmedRemainder.startsWith("*")) {
-                const leadingWhitespaceLength =
-                    remainder.length - trimmedRemainder.length;
+                const leadingWhitespaceLength = remainder.length - trimmedRemainder.length;
                 const leadingWhitespace =
-                    leadingWhitespaceLength > 0
-                        ? remainder.slice(0, leadingWhitespaceLength)
-                        : "";
+                    leadingWhitespaceLength > 0 ? remainder.slice(0, leadingWhitespaceLength) : "";
                 const sanitizedLine = [
                     line.slice(0, varMatch[0].length),
                     leadingWhitespace,
@@ -500,9 +442,7 @@ export function preprocessSourceForFeatherFixes(sourceText: string) {
                 identifier
             });
 
-            const sanitizedLine = `${indentation}${" ".repeat(
-                Math.max(0, rawRemainder.length)
-            )}`;
+            const sanitizedLine = `${indentation}${" ".repeat(Math.max(0, rawRemainder.length))}`;
 
             return { line: sanitizedLine, context: null };
         }
@@ -529,22 +469,14 @@ export function preprocessSourceForFeatherFixes(sourceText: string) {
     }
 
     const finalLine = sourceText.slice(lastIndex);
-    if (
-        finalLine.length > 0 ||
-        sourceText.endsWith("\n") ||
-        sourceText.endsWith("\r")
-    ) {
-        const { line: sanitizedLine, context } = processLine(
-            finalLine,
-            lastIndex
-        );
+    if (finalLine.length > 0 || sourceText.endsWith("\n") || sourceText.endsWith("\r")) {
+        const { line: sanitizedLine, context } = processLine(finalLine, lastIndex);
         sanitizedParts.push(sanitizedLine);
         pendingGM1100Context = context;
     }
 
     const sanitizedSourceText = sanitizedParts.join("");
-    const enumSanitizedResult =
-        sanitizeEnumInitializerStrings(sanitizedSourceText);
+    const enumSanitizedResult = sanitizeEnumInitializerStrings(sanitizedSourceText);
     const enumSanitizedSourceText = enumSanitizedResult.sourceText;
     const enumIndexAdjustments = enumSanitizedResult.adjustments;
     const metadata: Record<string, unknown> = {};

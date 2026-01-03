@@ -28,18 +28,11 @@ export class AssignmentCommentHandler {
             return false;
         }
 
-        if (
-            commentEntries.some(
-                ({ comment }) =>
-                    !this.isTrailingLineCommentOnLine(comment, expectedLine)
-            )
-        ) {
+        if (commentEntries.some(({ comment }) => !this.isTrailingLineCommentOnLine(comment, expectedLine))) {
             return false;
         }
 
-        const commentTarget = precedingProperty
-            ? (precedingProperty.value ?? precedingProperty)
-            : null;
+        const commentTarget = precedingProperty ? (precedingProperty.value ?? precedingProperty) : null;
         for (const { comment } of commentEntries) {
             if (comment.leadingChar === ";") {
                 comment.leadingChar = ",";
@@ -59,10 +52,7 @@ export class AssignmentCommentHandler {
         return true;
     }
 
-    isTrailingLineCommentOnLine(
-        comment: unknown,
-        expectedLine: number
-    ): boolean {
+    isTrailingLineCommentOnLine(comment: unknown, expectedLine: number): boolean {
         if (!Core.isLineComment(comment)) {
             return false;
         }
@@ -70,19 +60,13 @@ export class AssignmentCommentHandler {
         return Core.getNodeStartLine(comment) === expectedLine;
     }
 
-    isAttachableTrailingComment(
-        comment: unknown,
-        statement: MutableGameMakerAstNode
-    ): boolean {
+    isAttachableTrailingComment(comment: unknown, statement: MutableGameMakerAstNode): boolean {
         if (!Core.isLineComment(comment)) {
             return false;
         }
 
         const commentStart = (comment as any).start;
-        if (
-            !Core.isObjectLike(commentStart) ||
-            typeof commentStart.line !== "number"
-        ) {
+        if (!Core.isObjectLike(commentStart) || typeof commentStart.line !== "number") {
             return false;
         }
 

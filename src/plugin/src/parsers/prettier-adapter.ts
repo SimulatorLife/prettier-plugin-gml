@@ -1,7 +1,4 @@
-import {
-    gmlParserAdapter,
-    type GmlParserAdapterOptions
-} from "./gml-parser-adapter.js";
+import { gmlParserAdapter, type GmlParserAdapterOptions } from "./gml-parser-adapter.js";
 import type { GmlParserAdapter } from "../components/plugin-types.js";
 import type { MutableGameMakerAstNode } from "@gml-modules/core";
 
@@ -50,5 +47,4 @@ export function createPrettierParserAdapter(adapter: GmlParserAdapter) {
     };
 }
 
-export const prettierParserAdapter =
-    createPrettierParserAdapter(gmlParserAdapter);
+export const prettierParserAdapter = createPrettierParserAdapter(gmlParserAdapter);

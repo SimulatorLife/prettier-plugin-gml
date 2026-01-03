@@ -8,13 +8,7 @@ import { Plugin } from "../src/index.js";
 const __dirname = import.meta.dirname;
 
 void test("treats undefined defaults as required when the signature omits the default", async () => {
-    const source = [
-        "/// @param foo",
-        "function sample(foo = undefined) {",
-        "    return foo;",
-        "}",
-        ""
-    ].join("\n");
+    const source = ["/// @param foo", "function sample(foo = undefined) {", "    return foo;", "}", ""].join("\n");
 
     const formatted = await Plugin.format(source, {
         parser: "gml-parse",
@@ -36,13 +30,7 @@ void test("treats undefined defaults as required when the signature omits the de
 });
 
 void test("preserves optional annotations when parameters are explicitly documented as optional", async () => {
-    const source = [
-        "/// @param [foo]",
-        "function sample(foo = undefined) {",
-        "    return foo;",
-        "}",
-        ""
-    ].join("\n");
+    const source = ["/// @param [foo]", "function sample(foo = undefined) {", "    return foo;", "}", ""].join("\n");
 
     const formatted = await Plugin.format(source, {
         parser: "gml-parse",
@@ -51,11 +39,7 @@ void test("preserves optional annotations when parameters are explicitly documen
 
     const lines = formatted.split("\n");
     const paramLine = lines.find((line) => line.startsWith("/// @param"));
-    assert.equal(
-        paramLine,
-        "/// @param [foo]",
-        "Expected explicit optional annotations to be preserved"
-    );
+    assert.equal(paramLine, "/// @param [foo]", "Expected explicit optional annotations to be preserved");
     assert.match(
         formatted,
         /function sample\(foo = undefined\)/,
@@ -82,9 +66,7 @@ void test("omits optional syntax for synthesized docs with undefined defaults", 
     });
 
     const lines = formatted.split("\n");
-    const fallbackDocLine = lines.find(
-        (line) => line.startsWith("/// @param") && line.includes("fallback")
-    );
+    const fallbackDocLine = lines.find((line) => line.startsWith("/// @param") && line.includes("fallback"));
     assert.equal(
         fallbackDocLine,
         "/// @param fallback",
@@ -97,12 +79,7 @@ void test("omits optional syntax for synthesized docs with undefined defaults", 
 });
 
 void test("retains optional syntax when constructors keep explicit undefined defaults", async () => {
-    const source = [
-        "function Shape(color = undefined) constructor {",
-        "    self.color = color;",
-        "}",
-        ""
-    ].join("\n");
+    const source = ["function Shape(color = undefined) constructor {", "    self.color = color;", "}", ""].join("\n");
 
     const formatted = await Plugin.format(source, {
         parser: "gml-parse"
@@ -132,13 +109,7 @@ void test("synthesized docs mark retained undefined defaults as optional", async
             // two levels and into the test directory reliably locates the
             // source fixtures regardless of whether the test runner executes
             // the compiled or source files.
-            const fallbackCandidate = path.resolve(
-                __dirname,
-                "..",
-                "..",
-                "test",
-                name
-            );
+            const fallbackCandidate = path.resolve(__dirname, "..", "..", "test", name);
             try {
                 const stat2 = await fs.stat(fallbackCandidate);
                 if (stat2 && stat2.isFile()) return fallbackCandidate;
@@ -163,12 +134,7 @@ void test("synthesized docs mark retained undefined defaults as optional", async
         ...options
     });
 
-    const paramLine = formatted
-        .split("\n")
-        .find(
-            (line) =>
-                line.startsWith("/// @param") && line.includes("trans_mat")
-        );
+    const paramLine = formatted.split("\n").find((line) => line.startsWith("/// @param") && line.includes("trans_mat"));
 
     assert.equal(
         paramLine,

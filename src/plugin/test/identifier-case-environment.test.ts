@@ -5,11 +5,8 @@ import test from "node:test";
 import { Semantic } from "@gml-modules/semantic";
 import { Plugin } from "../index.js";
 
-const {
-    prepareIdentifierCaseEnvironment,
-    teardownIdentifierCaseEnvironment,
-    clearIdentifierCaseOptionStore
-} = Semantic;
+const { prepareIdentifierCaseEnvironment, teardownIdentifierCaseEnvironment, clearIdentifierCaseOptionStore } =
+    Semantic;
 
 function createBootstrap(dispose: any) {
     return {
@@ -68,14 +65,9 @@ void test("identifier case bootstrap is disposed when parsing fails", async () =
     };
 
     await assert.rejects(
-        Plugin.parsers.gmlParserAdapter.parse(
-            "if (",
-            options
-        ) as Promise<unknown>,
+        Plugin.parsers.gmlParserAdapter.parse("if (", options) as Promise<unknown>,
         (error) =>
-            typeof error === "object" &&
-            error !== null &&
-            (error as { name?: string }).name === "GameMakerSyntaxError"
+            typeof error === "object" && error !== null && (error as { name?: string }).name === "GameMakerSyntaxError"
     );
 
     assert.equal(disposeCalls, 1);

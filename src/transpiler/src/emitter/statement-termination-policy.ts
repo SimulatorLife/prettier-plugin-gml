@@ -5,15 +5,7 @@ export type StatementTerminationPolicyEvaluation = {
     shouldAppendTerminator: boolean;
 };
 
-const STATEMENT_TERMINATION_KEYWORDS = Object.freeze([
-    "if",
-    "for",
-    "while",
-    "switch",
-    "try",
-    "with",
-    "do"
-]);
+const STATEMENT_TERMINATION_KEYWORDS = Object.freeze(["if", "for", "while", "switch", "try", "with", "do"]);
 
 function isStatementTerminated(code: string): boolean {
     const trimmed = code.trimStart();
@@ -21,9 +13,7 @@ function isStatementTerminated(code: string): boolean {
     return (
         code.endsWith(";") ||
         code.endsWith("}") ||
-        STATEMENT_TERMINATION_KEYWORDS.some((keyword) =>
-            trimmed.startsWith(keyword)
-        )
+        STATEMENT_TERMINATION_KEYWORDS.some((keyword) => trimmed.startsWith(keyword))
     );
 }
 
@@ -34,9 +24,7 @@ function isStatementTerminated(code: string): boolean {
  * the heuristics testable in isolation and avoids coupling formatting rules to
  * the mechanics that mutate the output buffer.
  */
-export function evaluateStatementTerminationPolicy(
-    code: string
-): StatementTerminationPolicyEvaluation {
+export function evaluateStatementTerminationPolicy(code: string): StatementTerminationPolicyEvaluation {
     if (!code) {
         return { shouldAppendTerminator: false };
     }

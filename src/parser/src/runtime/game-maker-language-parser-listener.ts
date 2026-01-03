@@ -1,39 +1,18 @@
 import { Core } from "@gml-modules/core";
-import type {
-    ListenerDelegate,
-    ListenerOptions,
-    ParserContext
-} from "../types/index.js";
+import type { ListenerDelegate, ListenerOptions, ParserContext } from "../types/index.js";
 import { VISIT_METHOD_NAMES } from "./game-maker-language-parser-visitor.js";
-import {
-    definePrototypeMethods,
-    deriveListenerMethodNames,
-    toDelegate
-} from "./parse-tree-helpers.js";
-import {
-    getParserListenerBase,
-    type ParserListenerBaseConstructor
-} from "./generated-bindings.js";
+import { definePrototypeMethods, deriveListenerMethodNames, toDelegate } from "./parse-tree-helpers.js";
+import { getParserListenerBase, type ParserListenerBaseConstructor } from "./generated-bindings.js";
 
-const DEFAULT_LISTENER_DELEGATE: ListenerDelegate = ({
-    fallback = Core.noop
-}) => fallback();
+const DEFAULT_LISTENER_DELEGATE: ListenerDelegate = ({ fallback = Core.noop }) => fallback();
 
-export const LISTENER_METHOD_NAMES = Object.freeze(
-    deriveListenerMethodNames(VISIT_METHOD_NAMES)
-);
+export const LISTENER_METHOD_NAMES = Object.freeze(deriveListenerMethodNames(VISIT_METHOD_NAMES));
 
-const GeneratedParserListenerBase: ParserListenerBaseConstructor =
-    getParserListenerBase();
+const GeneratedParserListenerBase: ParserListenerBaseConstructor = getParserListenerBase();
 
-function createListenerDelegate(
-    options: ListenerOptions = {}
-): ListenerDelegate {
+function createListenerDelegate(options: ListenerOptions = {}): ListenerDelegate {
     const { listenerDelegate, listenerHandlers } = options;
-    const baseDelegate = toDelegate(
-        listenerDelegate,
-        DEFAULT_LISTENER_DELEGATE
-    );
+    const baseDelegate = toDelegate(listenerDelegate, DEFAULT_LISTENER_DELEGATE);
 
     if (!listenerHandlers || typeof listenerHandlers !== "object") {
         return baseDelegate;

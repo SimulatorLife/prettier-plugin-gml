@@ -2,27 +2,13 @@ import path from "node:path";
 
 import { Core } from "@gml-modules/core";
 
-const {
-    compactArray,
-    createListSplitPattern,
-    normalizeExtensionSuffix,
-    normalizeStringList,
-    uniqueArray
-} = Core;
+const { compactArray, createListSplitPattern, normalizeExtensionSuffix, normalizeStringList, uniqueArray } = Core;
 
-type ExtensionInput =
-    | string
-    | Iterable<string>
-    | Array<string>
-    | null
-    | undefined;
+type ExtensionInput = string | Iterable<string> | Array<string> | null | undefined;
 
-const EXTENSION_LIST_SPLIT_PATTERN = createListSplitPattern(
-    compactArray([",", path.delimiter]),
-    {
-        includeWhitespace: true
-    }
-);
+const EXTENSION_LIST_SPLIT_PATTERN = createListSplitPattern(compactArray([",", path.delimiter]), {
+    includeWhitespace: true
+});
 
 function coerceExtensionValue(value: unknown): string | null {
     if (typeof value !== "string") {
@@ -55,8 +41,7 @@ export function normalizeExtensions(
     const fragments = (
         typeof rawExtensions === "string"
             ? [rawExtensions]
-            : rawExtensions &&
-                typeof rawExtensions[Symbol.iterator] === "function"
+            : rawExtensions && typeof rawExtensions[Symbol.iterator] === "function"
               ? Array.from(rawExtensions)
               : [rawExtensions]
     ).flatMap(splitExtensionInput);

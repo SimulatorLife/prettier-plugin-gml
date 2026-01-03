@@ -4,13 +4,9 @@ export type DocCommentMetadata = {
 };
 
 const DOC_COMMENT_METADATA_KEY = Symbol("gmlDocCommentMetadata");
-const DOC_COMMENT_DEPRECATED_SET_KEY = Symbol(
-    "gmlDocCommentDeprecatedFunctionNames"
-);
+const DOC_COMMENT_DEPRECATED_SET_KEY = Symbol("gmlDocCommentDeprecatedFunctionNames");
 
-export function getDocCommentMetadata(
-    node: unknown
-): DocCommentMetadata | null {
+export function getDocCommentMetadata(node: unknown): DocCommentMetadata | null {
     if (!node || typeof node !== "object") {
         return null;
     }
@@ -39,10 +35,7 @@ export function getDocCommentMetadata(
     return Object.keys(metadata).length === 0 ? null : metadata;
 }
 
-export function setDocCommentMetadata(
-    node: unknown,
-    payload: DocCommentMetadata | null
-) {
+export function setDocCommentMetadata(node: unknown, payload: DocCommentMetadata | null) {
     if (!node || typeof node !== "object") {
         return;
     }
@@ -55,10 +48,7 @@ export function setDocCommentMetadata(
     Reflect.set(node, DOC_COMMENT_METADATA_KEY, payload);
 }
 
-export function setDeprecatedDocCommentFunctionSet(
-    ast: unknown,
-    functions: Set<string> | null
-) {
+export function setDeprecatedDocCommentFunctionSet(ast: unknown, functions: Set<string> | null) {
     if (!ast || typeof ast !== "object") {
         return;
     }
@@ -71,9 +61,7 @@ export function setDeprecatedDocCommentFunctionSet(
     Reflect.set(ast, DOC_COMMENT_DEPRECATED_SET_KEY, functions);
 }
 
-export function getDeprecatedDocCommentFunctionSet(
-    ast: unknown
-): Set<string> | null {
+export function getDeprecatedDocCommentFunctionSet(ast: unknown): Set<string> | null {
     if (!ast || typeof ast !== "object") {
         return null;
     }

@@ -1,11 +1,6 @@
 import { Core } from "@gml-modules/core";
 
-const {
-    assertNonEmptyString,
-    getErrorMessage,
-    isErrorWithCode,
-    isObjectOrFunction
-} = Core;
+const { assertNonEmptyString, getErrorMessage, isErrorWithCode, isObjectOrFunction } = Core;
 
 type ModuleWithDefault<TValue> = TValue & {
     default?: unknown;
@@ -29,9 +24,7 @@ type ModuleDefaultExport<TValue> = TValue extends {
  * @returns The module's default export when populated, otherwise the original
  *          module reference.
  */
-export function resolveModuleDefaultExport<TModule>(
-    module?: TModule
-): ModuleDefaultExport<TModule> {
+export function resolveModuleDefaultExport<TModule>(module?: TModule): ModuleDefaultExport<TModule> {
     if (module == null || !isObjectOrFunction(module)) {
         return module as ModuleDefaultExport<TModule>;
     }
@@ -49,10 +42,7 @@ export function resolveModuleDefaultExport<TModule>(
  * @param moduleId Module identifier expected in the error message.
  * @returns `true` when the error matches the missing module.
  */
-export function isMissingModuleDependency(
-    error: unknown,
-    moduleId: string
-): boolean {
+export function isMissingModuleDependency(error: unknown, moduleId: string): boolean {
     if (!isErrorWithCode(error, "ERR_MODULE_NOT_FOUND")) {
         return false;
     }
@@ -67,10 +57,7 @@ export function isMissingModuleDependency(
         return false;
     }
 
-    const quotedIdentifiers = [
-        `'${normalizedModuleId}'`,
-        `"${normalizedModuleId}"`
-    ];
+    const quotedIdentifiers = [`'${normalizedModuleId}'`, `"${normalizedModuleId}"`];
 
     return quotedIdentifiers.some((identifier) => message.includes(identifier));
 }

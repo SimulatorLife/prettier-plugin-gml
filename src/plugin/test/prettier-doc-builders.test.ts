@@ -10,26 +10,12 @@ void describe("doc builder sanitization", () => {
     });
 
     void it("sanitizes join fragments", () => {
-        const result = Printer.DocBuilders.join(Printer.DocBuilders.line, [
-            "alpha",
-            undefined,
-            "bravo"
-        ]);
-        assert.deepEqual(result, [
-            "alpha",
-            Printer.DocBuilders.line,
-            "",
-            Printer.DocBuilders.line,
-            "bravo"
-        ]);
+        const result = Printer.DocBuilders.join(Printer.DocBuilders.line, ["alpha", undefined, "bravo"]);
+        assert.deepEqual(result, ["alpha", Printer.DocBuilders.line, "", Printer.DocBuilders.line, "bravo"]);
     });
 
     void it("wraps sanitized content in groups", () => {
-        const result = Printer.DocBuilders.group([
-            Printer.DocBuilders.hardline,
-            false,
-            "tail"
-        ]);
+        const result = Printer.DocBuilders.group([Printer.DocBuilders.hardline, false, "tail"]);
         assert.equal((result as any).type, "group");
         assert.deepEqual((result as any).contents, [
             [{ type: "line", hard: true }, { type: "break-parent" }],

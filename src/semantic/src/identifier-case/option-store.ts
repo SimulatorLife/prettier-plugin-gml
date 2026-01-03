@@ -17,9 +17,7 @@ const STORE_BLOCKLIST = new Set([
     "__identifierCasePlanSnapshot"
 ]);
 
-function trimOptionStoreMap(
-    maxEntries = getDefaultIdentifierCaseOptionStoreMaxEntries()
-) {
+function trimOptionStoreMap(maxEntries = getDefaultIdentifierCaseOptionStoreMaxEntries()) {
     if (!Number.isFinite(maxEntries)) {
         return;
     }
@@ -57,8 +55,7 @@ function resolveMaxOptionStoreEntries(options) {
         return getDefaultIdentifierCaseOptionStoreMaxEntries();
     }
 
-    const configured =
-        options[IDENTIFIER_CASE_OPTION_STORE_MAX_ENTRIES_OPTION_NAME];
+    const configured = options[IDENTIFIER_CASE_OPTION_STORE_MAX_ENTRIES_OPTION_NAME];
 
     if (configured === Infinity) {
         return configured;
@@ -93,11 +90,7 @@ function getStoreKey(options) {
 
 function getOrCreateStoreEntry(storeKey) {
     const existed = optionStoreMap.has(storeKey);
-    const entry = Core.getOrCreateMapEntry(
-        optionStoreMap,
-        storeKey,
-        () => ({})
-    );
+    const entry = Core.getOrCreateMapEntry(optionStoreMap, storeKey, () => ({}));
 
     if (existed) {
         optionStoreMap.delete(storeKey);

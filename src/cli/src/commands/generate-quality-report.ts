@@ -107,8 +107,7 @@ function describeTestCase(testNode, suitePath) {
 }
 
 function computeStatus(testNode) {
-    const hasFailure =
-        Object.hasOwn(testNode, "failure") || Object.hasOwn(testNode, "error");
+    const hasFailure = Object.hasOwn(testNode, "failure") || Object.hasOwn(testNode, "error");
     if (hasFailure) {
         return "failed";
     }
@@ -151,8 +150,7 @@ function enqueueObjectLikeChildren(queue, node, suitePath) {
 
 function resolveNextSuitePath(node, suitePath, { hasTestcase, hasTestsuite }) {
     const normalizedSuiteName = normalizeSuiteName(node?.name);
-    const shouldExtendSuitePath =
-        normalizedSuiteName && (hasTestcase || hasTestsuite);
+    const shouldExtendSuitePath = normalizedSuiteName && (hasTestcase || hasTestsuite);
 
     if (!shouldExtendSuitePath) {
         return suitePath;
@@ -215,11 +213,7 @@ function collectTestCases(root) {
         }
 
         if (hasTestsuite) {
-            enqueueTraversalNodes(
-                queue,
-                toArray(node.testsuite),
-                nextSuitePath
-            );
+            enqueueTraversalNodes(queue, toArray(node.testsuite), nextSuitePath);
         }
 
         enqueueObjectLikeChildren(queue, node, nextSuitePath);
@@ -230,9 +224,7 @@ function collectTestCases(root) {
 
 function normalizeResultDirectories(candidateDirs, workspaceRoot) {
     return compactArray(toArray(candidateDirs)).map((candidate) => {
-        const resolved = path.isAbsolute(candidate)
-            ? candidate
-            : path.join(workspaceRoot, candidate);
+        const resolved = path.isAbsolute(candidate) ? candidate : path.join(workspaceRoot, candidate);
         return {
             resolved,
             display: path.relative(workspaceRoot, resolved) || resolved
@@ -260,10 +252,7 @@ function traverseDirectoryEntries(root, options) {
             }
             const fullPath = path.join(current, entry.name);
             if (entry.isDirectory()) {
-                if (
-                    !options.shouldDescend ||
-                    options.shouldDescend(fullPath, entry)
-                ) {
+                if (!options.shouldDescend || options.shouldDescend(fullPath, entry)) {
                     stack.push(fullPath);
                 }
                 continue;
@@ -322,9 +311,7 @@ function readCheckstyle(checkstyleFiles) {
     for (const file of checkstyleFiles) {
         try {
             const xml = fs.readFileSync(file, "utf8");
-            for (const match of xml.matchAll(
-                /<error\b[^>]*severity="([^"]*)"/gi
-            )) {
+            for (const match of xml.matchAll(/<error\b[^>]*severity="([^"]*)"/gi)) {
                 const severity = (match[1] || "").toLowerCase();
                 if (severity === "warning") {
                     warnings += 1;
@@ -347,13 +334,9 @@ function normalizeLocator(testCase) {
     const node = testCase?.node || {};
     const rawFile = typeof node.file === "string" ? node.file.trim() : "";
     if (rawFile) {
-        return `file:${path
-            .normalize(rawFile)
-            .replaceAll("\\", "/")
-            .toLowerCase()}`;
+        return `file:${path.normalize(rawFile).replaceAll("\\", "/").toLowerCase()}`;
     }
-    const className =
-        typeof node.classname === "string" ? node.classname.trim() : "";
+    const className = typeof node.classname === "string" ? node.classname.trim() : "";
     if (className) {
         return `class:${className}`.toLowerCase();
     }
@@ -368,10 +351,7 @@ function computeTestDiff(baseResults, targetResults) {
         return null;
     }
 
-    const { newCases, removedCases } = collectCaseDifferences(
-        baseResults,
-        targetResults
-    );
+    const { newCases, removedCases } = collectCaseDifferences(baseResults, targetResults);
 
     const renameCount = countRenamedCases(newCases, removedCases);
 
@@ -461,18 +441,10 @@ function scanResultDirectory(directory, root) {
 
     const allFiles = listFilesRecursive(directory.resolved);
     const xmlFiles = allFiles.filter((file) => file.endsWith(".xml"));
-    const lcovFiles = allFiles.filter(
-        (file) => path.basename(file) === "lcov.info"
-    );
-    const checkstyleFiles = allFiles.filter((file) =>
-        /checkstyle/i.test(path.basename(file))
-    );
-    const jscpdFiles = allFiles.filter(
-        (file) => path.basename(file) === "jscpd-report.json"
-    );
-    const healthFiles = allFiles.filter(
-        (file) => path.basename(file) === "project-health.json"
-    );
+    const lcovFiles = allFiles.filter((file) => path.basename(file) === "lcov.info");
+    const checkstyleFiles = allFiles.filter((file) => /checkstyle/i.test(path.basename(file)));
+    const jscpdFiles = allFiles.filter((file) => path.basename(file) === "jscpd-report.json");
+    const healthFiles = allFiles.filter((file) => path.basename(file) === "project-health.json");
 
     if (xmlFiles.length === 0) {
         return {
@@ -543,9 +515,7 @@ function readProjectHealth(files) {
 }
 
 function isExistingDirectory(resolvedPath) {
-    return (
-        fs.existsSync(resolvedPath) && fs.statSync(resolvedPath).isDirectory()
-    );
+    return fs.existsSync(resolvedPath) && fs.statSync(resolvedPath).isDirectory();
 }
 
 function collectDirectoryTestCases(xmlFiles, root) {
@@ -671,9 +641,7 @@ function isCheckstyleDocument(document) {
         return true;
     }
 
-    return files.every(
-        (file) => isObjectLike(file) && isNonEmptyTrimmedString(file.name)
-    );
+    return files.every((file) => isObjectLike(file) && isNonEmptyTrimmedString(file.name));
 }
 
 function documentContainsTestElements(document) {
@@ -736,16 +704,9 @@ interface DetectTestResultsOptions {
     workspace?: string;
 }
 
-function readTestResults(
-    candidateDirs,
-    { workspace }: DetectTestResultsOptions = {}
-) {
-    const workspaceRoot =
-        workspace || process.env.GITHUB_WORKSPACE || process.cwd();
-    const directories = normalizeResultDirectories(
-        candidateDirs,
-        workspaceRoot
-    );
+function readTestResults(candidateDirs, { workspace }: DetectTestResultsOptions = {}) {
+    const workspaceRoot = workspace || process.env.GITHUB_WORKSPACE || process.cwd();
+    const directories = normalizeResultDirectories(candidateDirs, workspaceRoot);
     const aggregates = createResultAggregates();
     const notes = [];
     const missingDirs = [];
@@ -772,11 +733,7 @@ function readTestResults(
 
         let duplicates = scan.duplicates;
         if (!duplicates) {
-            const parentFile = path.join(
-                directory.resolved,
-                "..",
-                "jscpd-report.json"
-            );
+            const parentFile = path.join(directory.resolved, "..", "jscpd-report.json");
             if (fs.existsSync(parentFile)) {
                 duplicates = readDuplicates([parentFile]);
             }
@@ -819,12 +776,7 @@ function readTestResults(
 }
 
 function shouldSkipRegressionDetection(baseStats, targetStats) {
-    return (
-        baseStats &&
-        targetStats &&
-        baseStats.total === targetStats.total &&
-        targetStats.failed <= baseStats.failed
-    );
+    return baseStats && targetStats && baseStats.total === targetStats.total && targetStats.failed <= baseStats.failed;
 }
 
 /**
@@ -917,9 +869,7 @@ function collectResolvedFailures({ baseResults, targetResults }) {
 }
 
 function detectRegressions(baseResults, targetResults) {
-    if (
-        shouldSkipRegressionDetection(baseResults?.stats, targetResults?.stats)
-    ) {
+    if (shouldSkipRegressionDetection(baseResults?.stats, targetResults?.stats)) {
         return [];
     }
 
@@ -938,8 +888,7 @@ function detectResolvedFailures(baseResults, targetResults) {
 
 function formatRegression(regression) {
     const descriptor = regression.detail?.displayName || regression.key;
-    const fromLabel =
-        regression.from === "missing" ? "missing" : regression.from;
+    const fromLabel = regression.from === "missing" ? "missing" : regression.from;
     return `- ${descriptor} (${fromLabel} -> ${regression.to})`;
 }
 
@@ -955,15 +904,11 @@ function chooseTargetResultSet({ merged, head }) {
 
 function ensureResultsAvailability(base, target) {
     if (!base.usedDir) {
-        throw new CliUsageError(
-            "Unable to locate base test results; regression detection cannot proceed."
-        );
+        throw new CliUsageError("Unable to locate base test results; regression detection cannot proceed.");
     }
 
     if (!target.usedDir) {
-        throw new CliUsageError(
-            "Unable to locate target test results; regression detection cannot proceed."
-        );
+        throw new CliUsageError("Unable to locate target test results; regression detection cannot proceed.");
     }
 }
 
@@ -980,11 +925,7 @@ function appendRegressionContext(lines, resolvedFailures) {
     return [...lines, `Note: ${hint}`];
 }
 
-function reportRegressionSummary(
-    regressions,
-    targetLabel,
-    { resolvedFailures = [] } = {}
-) {
+function reportRegressionSummary(regressions, targetLabel, { resolvedFailures = [] } = {}) {
     if (regressions.length > 0) {
         const lines = [
             `New failing tests detected (compared to base using ${targetLabel}):`,
@@ -1007,16 +948,11 @@ export function createGenerateQualityReportCommand() {
     return applyStandardCommandOptions(
         new Command()
             .name("generate-quality-report")
-            .description(
-                "Generate a quality report (tests, lint, coverage, duplicates) and detect regressions."
-            )
+            .description("Generate a quality report (tests, lint, coverage, duplicates) and detect regressions.")
             .option("--base <path>", "Path to base reports")
             .option("--head <path>", "Path to head reports")
             .option("--merge <path>", "Path to merge reports")
-            .option(
-                "--report-file <path>",
-                "Path to write the report markdown file"
-            )
+            .option("--report-file <path>", "Path to write the report markdown file")
     );
 }
 
@@ -1036,16 +972,11 @@ export function runGenerateQualityReport({ command }: any = {}) {
 
 function runCli(options: any = {}) {
     const workspaceRoot = process.env.GITHUB_WORKSPACE || process.cwd();
-    const reportFile =
-        options.reportFile || path.join("reports", "summary-report.md");
+    const reportFile = options.reportFile || path.join("reports", "summary-report.md");
 
-    const baseDir = options.base
-        ? [options.base]
-        : [path.join("base", "reports"), "base-reports"];
+    const baseDir = options.base ? [options.base] : [path.join("base", "reports"), "base-reports"];
     const headDir = options.head ? [options.head] : ["reports"];
-    const mergeDir = options.merge
-        ? [options.merge]
-        : [path.join("merge", "reports"), "merge-reports"];
+    const mergeDir = options.merge ? [options.merge] : [path.join("merge", "reports"), "merge-reports"];
 
     const base = readTestResults(baseDir, { workspace: workspaceRoot });
     const head = readTestResults(headDir, { workspace: workspaceRoot });
@@ -1057,9 +988,7 @@ function runCli(options: any = {}) {
     });
 
     const diffStats = {
-        base: base.usedDir
-            ? { newTests: 0, removedTests: 0, renamedTests: 0 }
-            : null,
+        base: base.usedDir ? { newTests: 0, removedTests: 0, renamedTests: 0 } : null,
         head: computeTestDiff(base, head),
         merge: computeTestDiff(base, merged)
     };
@@ -1117,10 +1046,7 @@ function runCli(options: any = {}) {
         const regressions = detectRegressions(base, target);
         if (regressions.length > 0) {
             exitCode = 10;
-            const cause = describeRegressionCause(
-                regressions,
-                diffStats[usingMerged ? "merge" : "head"]
-            );
+            const cause = describeRegressionCause(regressions, diffStats[usingMerged ? "merge" : "head"]);
             const summary = summarizeRegressedTests(regressions);
             statusLine = `❌ Test regressions detected. ${summary}. Cause: ${cause}`;
         } else {
@@ -1147,9 +1073,7 @@ function runCli(options: any = {}) {
     return exitCode;
 }
 
-const isMainModule = process.argv[1]
-    ? path.resolve(process.argv[1]) === fileURLToPath(import.meta.url)
-    : false;
+const isMainModule = process.argv[1] ? path.resolve(process.argv[1]) === fileURLToPath(import.meta.url) : false;
 
 if (isMainModule) {
     try {
@@ -1242,16 +1166,9 @@ function formatBytes(bytes) {
 }
 
 function getSourceFiles(dir, fileList = []) {
-    const ignoredDirectories = new Set([
-        "node_modules",
-        "dist",
-        "generated",
-        "vendor",
-        "tmp"
-    ]);
+    const ignoredDirectories = new Set(["node_modules", "dist", "generated", "vendor", "tmp"]);
     traverseDirectoryEntries(dir, {
-        shouldDescend: (fullPath) =>
-            !ignoredDirectories.has(path.basename(fullPath)),
+        shouldDescend: (fullPath) => !ignoredDirectories.has(path.basename(fullPath)),
         onFile: (filePath) => {
             if (filePath.endsWith(".ts") && !filePath.endsWith(".d.ts")) {
                 fileList.push(filePath);
@@ -1349,11 +1266,7 @@ function describeRegressionCause(regressions, diff) {
     );
 
     for (const [fromKey, count] of buckets.entries()) {
-        if (
-            fromKey === "missing" ||
-            fromKey === "passed" ||
-            fromKey === "skipped"
-        ) {
+        if (fromKey === "missing" || fromKey === "passed" || fromKey === "skipped") {
             continue;
         }
         addFragment(
@@ -1381,11 +1294,7 @@ function summarizeRegressedTests(regressions, limit = 5) {
 
     const descriptors = [];
     for (const item of regressions) {
-        const descriptor = (
-            item?.detail?.displayName ||
-            item?.key ||
-            ""
-        ).trim();
+        const descriptor = (item?.detail?.displayName || item?.key || "").trim();
         if (descriptor) {
             descriptors.push(descriptor);
         }
@@ -1395,8 +1304,7 @@ function summarizeRegressedTests(regressions, limit = 5) {
         return "";
     }
 
-    const normalizedLimit =
-        Number.isFinite(limit) && limit > 0 ? Math.floor(limit) : 5;
+    const normalizedLimit = Number.isFinite(limit) && limit > 0 ? Math.floor(limit) : 5;
     const maxItems = Math.max(1, normalizedLimit);
     const visible = descriptors.slice(0, maxItems);
     const remaining = descriptors.length - visible.length;

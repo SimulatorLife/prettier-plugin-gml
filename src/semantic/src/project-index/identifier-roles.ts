@@ -21,9 +21,7 @@ export function assertValidIdentifierRole(role, context = "identifier role") {
     if (!VALID_IDENTIFIER_ROLES.has(role)) {
         throw new TypeError(
             `Invalid ${context}: ${formatRoleForMessage(role)}. ` +
-                `Expected one of: ${[...VALID_IDENTIFIER_ROLES]
-                    .map((value) => JSON.stringify(value))
-                    .join(", ")}`
+                `Expected one of: ${[...VALID_IDENTIFIER_ROLES].map((value) => JSON.stringify(value)).join(", ")}`
         );
     }
 

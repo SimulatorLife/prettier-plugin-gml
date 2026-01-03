@@ -13,10 +13,7 @@ function isNumericBoundaryCharacter(character: string | undefined) {
     return /[0-9.-]/.test(character ?? "");
 }
 
-function shouldPreserveCallWithMissingSeparators(
-    node: MutableGameMakerAstNode,
-    originalText: string
-) {
+function shouldPreserveCallWithMissingSeparators(node: MutableGameMakerAstNode, originalText: string) {
     // Determine whether the spacing between arguments lacks commas and must be preserved.
     if (!node || node.type !== "CallExpression") {
         return false;
@@ -27,9 +24,7 @@ function shouldPreserveCallWithMissingSeparators(
     if (
         args.some(
             (argument) =>
-                argument &&
-                typeof argument === "object" &&
-                (argument as any).preserveOriginalCallText === true
+                argument && typeof argument === "object" && (argument as any).preserveOriginalCallText === true
         )
     ) {
         return true;
@@ -45,11 +40,7 @@ function shouldPreserveCallWithMissingSeparators(
         const currentEnd = Core.getNodeEndIndex(current);
         const nextStart = Core.getNodeStartIndex(next);
 
-        if (
-            currentEnd == null ||
-            nextStart == null ||
-            nextStart <= currentEnd
-        ) {
+        if (currentEnd == null || nextStart == null || nextStart <= currentEnd) {
             continue;
         }
 
@@ -59,8 +50,7 @@ function shouldPreserveCallWithMissingSeparators(
         }
 
         const previousChar = currentEnd > 0 ? originalText[currentEnd - 1] : "";
-        const nextChar =
-            nextStart < originalText.length ? originalText[nextStart] : "";
+        const nextChar = nextStart < originalText.length ? originalText[nextStart] : "";
 
         if (
             !Core.isNonEmptyTrimmedString(between) &&
@@ -74,10 +64,7 @@ function shouldPreserveCallWithMissingSeparators(
     return false;
 }
 
-function markCallsMissingArgumentSeparators(
-    ast: MutableGameMakerAstNode,
-    originalText: string
-) {
+function markCallsMissingArgumentSeparators(ast: MutableGameMakerAstNode, originalText: string) {
     // Walk the AST and tag call expressions whose separator information can only be derived from the original source.
     if (!ast || typeof ast !== "object") {
         return;

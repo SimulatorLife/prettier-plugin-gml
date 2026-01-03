@@ -20,16 +20,12 @@ function createMockFs(entries) {
             const normalizedPath = path.resolve(targetPath);
             const node = normalizedEntries.get(normalizedPath);
             if (!node) {
-                const error: any = new Error(
-                    `No such directory: ${normalizedPath}`
-                );
+                const error: any = new Error(`No such directory: ${normalizedPath}`);
                 error.code = "ENOENT";
                 throw error;
             }
             if (node.type !== "dir") {
-                const error: any = new Error(
-                    `Not a directory: ${normalizedPath}`
-                );
+                const error: any = new Error(`Not a directory: ${normalizedPath}`);
                 error.code = "ENOTDIR";
                 throw error;
             }
@@ -141,10 +137,7 @@ void test("findProjectRoot surfaces abort message before filesystem access", asy
             stubFs
         ),
         (error) => {
-            assert.equal(
-                (error as any)?.message,
-                "Project root discovery was aborted."
-            );
+            assert.equal((error as any)?.message, "Project root discovery was aborted.");
             return true;
         }
     );
@@ -177,14 +170,8 @@ void test("deriveCacheKey changes when manifest mtime changes", async () => {
         [filePath]: { type: "file", mtimeMs: 200 }
     });
 
-    const firstKey = await deriveCacheKey(
-        { filepath: filePath, projectRoot, formatterVersion: "1.0.0" },
-        initialFs
-    );
-    const secondKey = await deriveCacheKey(
-        { filepath: filePath, projectRoot, formatterVersion: "1.0.0" },
-        updatedFs
-    );
+    const firstKey = await deriveCacheKey({ filepath: filePath, projectRoot, formatterVersion: "1.0.0" }, initialFs);
+    const secondKey = await deriveCacheKey({ filepath: filePath, projectRoot, formatterVersion: "1.0.0" }, updatedFs);
 
     assert.notEqual(firstKey, secondKey);
 });
@@ -223,14 +210,8 @@ void test("deriveCacheKey is stable across manifest ordering", async () => {
         [filePath]: { type: "file", mtimeMs: 300 }
     });
 
-    const firstKey = await deriveCacheKey(
-        { filepath: filePath, projectRoot, formatterVersion: "1.0.0" },
-        fsVariantA
-    );
-    const secondKey = await deriveCacheKey(
-        { filepath: filePath, projectRoot, formatterVersion: "1.0.0" },
-        fsVariantB
-    );
+    const firstKey = await deriveCacheKey({ filepath: filePath, projectRoot, formatterVersion: "1.0.0" }, fsVariantA);
+    const secondKey = await deriveCacheKey({ filepath: filePath, projectRoot, formatterVersion: "1.0.0" }, fsVariantB);
 
     assert.equal(firstKey, secondKey);
 });
@@ -257,10 +238,7 @@ void test("loadBuiltInIdentifiers respects abort guard", async () => {
             signal: controller.signal
         }),
         (error) => {
-            assert.equal(
-                (error as any)?.message,
-                "Project index build was aborted."
-            );
+            assert.equal((error as any)?.message, "Project index build was aborted.");
             return true;
         }
     );

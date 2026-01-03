@@ -31,23 +31,15 @@ void test("resolveScopeOverride throws when given an unknown string keyword", ()
         () => tracker.resolveScopeOverride("GLOBAL"),
         (error) => {
             assert.ok(error instanceof RangeError);
-            assert.match(
-                error.message,
-                /Unknown scope override string 'GLOBAL'.*scope identifier\./
-            );
+            assert.match(error.message, /Unknown scope override string 'GLOBAL'.*scope identifier\./);
             return true;
         }
     );
 });
 
 void test("exportOccurrences captures declarations and references by scope", () => {
-    const {
-        tracker,
-        programScope,
-        blockScope,
-        declarationRange,
-        referenceRange
-    } = createTrackerWithDeclarationAndReference();
+    const { tracker, programScope, blockScope, declarationRange, referenceRange } =
+        createTrackerWithDeclarationAndReference();
 
     const expected = buildDeclarationAndReferenceSnapshot({
         name: "foo",
@@ -69,8 +61,7 @@ void test("exportOccurrences captures declarations and references by scope", () 
 });
 
 void test("exportOccurrences can omit references and returns cloned metadata", () => {
-    const { tracker, scope, declarationRange } =
-        createSingleScopeTracker("bar");
+    const { tracker, scope, declarationRange } = createSingleScopeTracker("bar");
 
     const expected = [
         buildDeclarationScopeSnapshot({
@@ -88,24 +79,14 @@ void test("exportOccurrences can omit references and returns cloned metadata", (
 
     assert.deepStrictEqual(occurrences, expected);
 
-    occurrences[0].identifiers[0].declarations[0].classifications.push(
-        "mutated"
-    );
+    occurrences[0].identifiers[0].declarations[0].classifications.push("mutated");
 
-    assert.deepStrictEqual(
-        tracker.exportOccurrences({ includeReferences: false }),
-        expected
-    );
+    assert.deepStrictEqual(tracker.exportOccurrences({ includeReferences: false }), expected);
 });
 
 void test("getScopeOccurrences exports a single scope payload", () => {
-    const {
-        tracker,
-        programScope,
-        blockScope,
-        declarationRange,
-        referenceRange
-    } = createTrackerWithDeclarationAndReference();
+    const { tracker, programScope, blockScope, declarationRange, referenceRange } =
+        createTrackerWithDeclarationAndReference();
 
     const result = tracker.getScopeOccurrences(blockScope.id);
 
@@ -125,8 +106,7 @@ void test("getScopeOccurrences exports a single scope payload", () => {
 });
 
 void test("getScopeOccurrences omits references when requested and clones metadata", () => {
-    const { tracker, scope, declarationRange } =
-        createSingleScopeTracker("bar");
+    const { tracker, scope, declarationRange } = createSingleScopeTracker("bar");
 
     const occurrences = tracker.getScopeOccurrences(scope.id, {
         includeReferences: false
@@ -146,10 +126,7 @@ void test("getScopeOccurrences omits references when requested and clones metada
 
     occurrences.identifiers[0].declarations[0].classifications.push("mutated");
 
-    assert.deepStrictEqual(
-        tracker.getScopeOccurrences(scope.id, { includeReferences: false }),
-        expected
-    );
+    assert.deepStrictEqual(tracker.getScopeOccurrences(scope.id, { includeReferences: false }), expected);
 });
 
 void test("getScopeOccurrences returns null for disabled or unknown scopes", () => {
@@ -175,11 +152,7 @@ void test("getSymbolOccurrences finds all occurrences of a symbol across scopes"
 
     const childScope = tracker.enterScope("child");
 
-    tracker.reference(
-        "shared",
-        { start: { line: 3, index: 0 }, end: { line: 3, index: 6 } },
-        { kind: "variable" }
-    );
+    tracker.reference("shared", { start: { line: 3, index: 0 }, end: { line: 3, index: 6 } }, { kind: "variable" });
 
     tracker.declare(
         "local",
@@ -194,14 +167,8 @@ void test("getSymbolOccurrences finds all occurrences of a symbol across scopes"
     const localOccurrences = tracker.getSymbolOccurrences("local");
 
     assert.strictEqual(sharedOccurrences.length, 2);
-    assert.strictEqual(
-        sharedOccurrences.filter((o) => o.kind === "declaration").length,
-        1
-    );
-    assert.strictEqual(
-        sharedOccurrences.filter((o) => o.kind === "reference").length,
-        1
-    );
+    assert.strictEqual(sharedOccurrences.filter((o) => o.kind === "declaration").length, 1);
+    assert.strictEqual(sharedOccurrences.filter((o) => o.kind === "reference").length, 1);
 
     assert.strictEqual(localOccurrences.length, 1);
     assert.strictEqual(localOccurrences[0].kind, "declaration");
@@ -240,11 +207,7 @@ void test("getSymbolOccurrences returns cloned occurrence metadata", () => {
         { kind: "variable", tags: ["global"] }
     );
 
-    tracker.reference(
-        "shared",
-        { start: { line: 2, index: 0 }, end: { line: 2, index: 6 } },
-        { kind: "variable" }
-    );
+    tracker.reference("shared", { start: { line: 2, index: 0 }, end: { line: 2, index: 6 } }, { kind: "variable" });
 
     tracker.exitScope();
 
@@ -280,9 +243,7 @@ void test("getScopeSymbols returns all unique symbol names in a scope", () => {
 
     const sortedSymbols = [...symbols].reduce((acc, item) => {
         const insertIndex = acc.findIndex((existing) => existing > item);
-        return insertIndex === -1
-            ? [...acc, item]
-            : [...acc.slice(0, insertIndex), item, ...acc.slice(insertIndex)];
+        return insertIndex === -1 ? [...acc, item] : [...acc.slice(0, insertIndex), item, ...acc.slice(insertIndex)];
     }, []);
     assert.deepStrictEqual(sortedSymbols, ["param1", "param2"]);
 });
@@ -322,8 +283,7 @@ void test("resolveIdentifier finds declaration in current scope", () => {
 });
 
 void test("resolveIdentifier walks up scope chain to find declaration", () => {
-    const { tracker, outerScope, innerScope } =
-        createNestedFunctionAndBlockScopes();
+    const { tracker, outerScope, innerScope } = createNestedFunctionAndBlockScopes();
 
     const outerResult = tracker.resolveIdentifier("outerVar", innerScope.id);
     const innerResult = tracker.resolveIdentifier("innerVar", innerScope.id);
@@ -468,8 +428,7 @@ void test("getScopeChain works after exiting scopes", () => {
 });
 
 void test("getScopeDefinitions returns declarations defined in specific scope", () => {
-    const { tracker, outerScope, innerScope } =
-        createNestedFunctionAndBlockScopes();
+    const { tracker, outerScope, innerScope } = createNestedFunctionAndBlockScopes();
 
     tracker.declare("anotherInner", {
         start: { line: 4, index: 0 },
@@ -490,11 +449,7 @@ void test("getScopeDefinitions returns declarations defined in specific scope", 
             const insertIndex = acc.findIndex((existing) => existing > item);
             return insertIndex === -1
                 ? [...acc, item]
-                : [
-                      ...acc.slice(0, insertIndex),
-                      item,
-                      ...acc.slice(insertIndex)
-                  ];
+                : [...acc.slice(0, insertIndex), item, ...acc.slice(insertIndex)];
         }, []);
     assert.deepStrictEqual(innerNames, ["anotherInner", "innerVar"]);
 });
@@ -561,10 +516,7 @@ void test("resolveIdentifier uses cached scope indices for efficient lookups", (
         const result = tracker.resolveIdentifier("rootVar", deepestScope.id);
         assert.strictEqual(result.name, "rootVar");
 
-        const localResult = tracker.resolveIdentifier(
-            "localVar",
-            deepestScope.id
-        );
+        const localResult = tracker.resolveIdentifier("localVar", deepestScope.id);
         assert.strictEqual(localResult.name, "localVar");
     }
 
@@ -637,12 +589,7 @@ type ScopeSnapshot = {
     }>;
 };
 
-function createRange(
-    startLine: number,
-    startIndex: number,
-    endLine: number,
-    endIndex: number
-): SourceRange {
+function createRange(startLine: number, startIndex: number, endLine: number, endIndex: number): SourceRange {
     return {
         start: { line: startLine, index: startIndex },
         end: { line: endLine, index: endIndex }

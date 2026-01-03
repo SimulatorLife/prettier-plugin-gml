@@ -1,27 +1,14 @@
 import assert from "node:assert/strict";
 import { describe, it } from "node:test";
 
-import {
-    getLineBreakCount,
-    getLineBreakSpans,
-    splitLines
-} from "../src/utils/line-breaks.js";
+import { getLineBreakCount, getLineBreakSpans, splitLines } from "../src/utils/line-breaks.js";
 
 void describe("line-breaks", () => {
     void describe("splitLines", () => {
         void it("splits common newline sequences", () => {
-            const text =
-                "alpha\r\nbeta\ngamma\rdelta\u2028epsilon\u2029theta\u0085iota";
+            const text = "alpha\r\nbeta\ngamma\rdelta\u2028epsilon\u2029theta\u0085iota";
 
-            assert.deepStrictEqual(splitLines(text), [
-                "alpha",
-                "beta",
-                "gamma",
-                "delta",
-                "epsilon",
-                "theta",
-                "iota"
-            ]);
+            assert.deepStrictEqual(splitLines(text), ["alpha", "beta", "gamma", "delta", "epsilon", "theta", "iota"]);
         });
 
         void it("returns a single entry for text without newlines", () => {

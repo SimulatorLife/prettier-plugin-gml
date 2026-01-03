@@ -1,18 +1,12 @@
 import { CliUsageError } from "./errors.js";
-import {
-    isCommanderErrorLike,
-    isCommanderHelpDisplayedError
-} from "./commander-error-utils.js";
+import { isCommanderErrorLike, isCommanderHelpDisplayedError } from "./commander-error-utils.js";
 import { InvalidArgumentError } from "commander";
 import { Core } from "@gml-modules/core";
 import type { CommanderCommandLike } from "./commander-types.js";
 
 const { assertFunction, getErrorMessage } = Core;
 
-type InvalidArgumentResolver = (
-    value: unknown,
-    ...rest: Array<unknown>
-) => unknown;
+type InvalidArgumentResolver = (value: unknown, ...rest: Array<unknown>) => unknown;
 
 interface WrapInvalidArgumentResolverOptions {
     errorConstructor?: new (message: string) => Error;
@@ -24,12 +18,9 @@ export interface ParseCommandLineResult {
     usage: string;
 }
 
-export const coercePositiveInteger: typeof Core.coercePositiveInteger =
-    Core.coercePositiveInteger;
-export const coerceNonNegativeInteger: typeof Core.coerceNonNegativeInteger =
-    Core.coerceNonNegativeInteger;
-export const resolveIntegerOption: typeof Core.resolveIntegerOption =
-    Core.resolveIntegerOption;
+export const coercePositiveInteger: typeof Core.coercePositiveInteger = Core.coercePositiveInteger;
+export const coerceNonNegativeInteger: typeof Core.coerceNonNegativeInteger = Core.coerceNonNegativeInteger;
+export const resolveIntegerOption: typeof Core.resolveIntegerOption = Core.resolveIntegerOption;
 
 /**
  * Wrap a Commander option resolver so thrown errors are converted into
@@ -51,24 +42,17 @@ export function wrapInvalidArgumentResolver(
 ): InvalidArgumentResolver {
     assertFunction(resolver, "resolver");
 
-    const { errorConstructor, fallbackMessage = "Invalid option value." } =
-        options;
+    const { errorConstructor, fallbackMessage = "Invalid option value." } = options;
 
     const InvalidArgumentErrorConstructor =
-        typeof errorConstructor === "function"
-            ? errorConstructor
-            : InvalidArgumentError;
+        typeof errorConstructor === "function" ? errorConstructor : InvalidArgumentError;
 
     return (...args: Parameters<InvalidArgumentResolver>) => {
         try {
             return resolver(...args);
         } catch (error: unknown) {
-            const message =
-                getErrorMessage(error, { fallback: fallbackMessage }) ||
-                fallbackMessage;
-            const invalidArgumentError = new InvalidArgumentErrorConstructor(
-                message
-            );
+            const message = getErrorMessage(error, { fallback: fallbackMessage }) || fallbackMessage;
+            const invalidArgumentError = new InvalidArgumentErrorConstructor(message);
 
             if (error && typeof error === "object") {
                 invalidArgumentError.cause = error;
@@ -87,10 +71,7 @@ export function wrapInvalidArgumentResolver(
  * @param {Array<string>} args
  * @returns {{ helpRequested: boolean, usage: string }}
  */
-export function parseCommandLine(
-    command: CommanderCommandLike,
-    args: Array<string>
-): ParseCommandLineResult {
+export function parseCommandLine(command: CommanderCommandLike, args: Array<string>): ParseCommandLineResult {
     if (typeof command.parse !== "function") {
         throw new TypeError("Command must provide parse().");
     }

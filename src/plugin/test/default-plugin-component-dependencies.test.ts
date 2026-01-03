@@ -20,26 +20,17 @@ const REQUIRED_KEYS = [
 void test("default dependency bundle exposes canonical components", () => {
     const resolved = defaultGmlPluginComponentDependencies;
 
-    assert.ok(
-        Object.isFrozen(resolved),
-        "default dependency bundle should be frozen"
-    );
+    assert.ok(Object.isFrozen(resolved), "default dependency bundle should be frozen");
 
     assert.strictEqual(resolved.gmlParserAdapter, gmlParserAdapter);
     assert.strictEqual(resolved.print, print);
     assert.strictEqual(resolved.printComment, printComment);
     assert.strictEqual(resolved.handleComments, handleComments);
-    assert.strictEqual(
-        resolved.identifierCaseOptions,
-        Semantic.identifierCaseOptions
-    );
+    assert.strictEqual(resolved.identifierCaseOptions, Semantic.identifierCaseOptions);
     assert.strictEqual(resolved.LogicalOperatorsStyle, LogicalOperatorsStyle);
 
     for (const key of REQUIRED_KEYS) {
-        assert.ok(
-            Object.hasOwn(resolved, key),
-            `dependency bundle should expose ${key}`
-        );
+        assert.ok(Object.hasOwn(resolved, key), `dependency bundle should expose ${key}`);
     }
 });
 
@@ -47,9 +38,5 @@ void test("default dependency bundle maintains a stable reference", () => {
     const first = defaultGmlPluginComponentDependencies;
     const second = defaultGmlPluginComponentDependencies;
 
-    assert.strictEqual(
-        first,
-        second,
-        "default dependency bundle should be a shared singleton"
-    );
+    assert.strictEqual(first, second, "default dependency bundle should be a shared singleton");
 });

@@ -8,8 +8,7 @@ import { defaultFsFacade, type ProjectIndexFsFacade } from "./fs-facade.js";
 export const PROJECT_INDEX_CACHE_SCHEMA_VERSION = 1;
 export const PROJECT_INDEX_CACHE_DIRECTORY = ".prettier-plugin-gml";
 export const PROJECT_INDEX_CACHE_FILENAME = "project-index-cache.json";
-export const PROJECT_INDEX_CACHE_MAX_SIZE_ENV_VAR =
-    "GML_PROJECT_INDEX_CACHE_MAX_SIZE";
+export const PROJECT_INDEX_CACHE_MAX_SIZE_ENV_VAR = "GML_PROJECT_INDEX_CACHE_MAX_SIZE";
 // The identifier-case rollout docs promise an 8 MiB default cache ceiling so
 // teams can size disk allowances ahead of enabling the project index.
 // `docs/legacy-identifier-case-plan.md#project-index-cache-design` explains how
@@ -47,8 +46,7 @@ const projectIndexCacheSizeConfig = Core.createEnvConfiguredValueWithFallback({
     computeFallback: ({ defaultValue }) => defaultValue
 });
 
-export const DEFAULT_MAX_PROJECT_INDEX_CACHE_SIZE =
-    PROJECT_INDEX_CACHE_MAX_SIZE_BASELINE;
+export const DEFAULT_MAX_PROJECT_INDEX_CACHE_SIZE = PROJECT_INDEX_CACHE_MAX_SIZE_BASELINE;
 
 export const ProjectIndexCacheMissReason = Object.freeze({
     NOT_FOUND: "not-found",
@@ -68,9 +66,7 @@ export const ProjectIndexCacheStatus = Object.freeze({
     WRITTEN: "written"
 });
 
-const PROJECT_INDEX_CACHE_STATUS_VALUES = new Set(
-    Object.values(ProjectIndexCacheStatus)
-);
+const PROJECT_INDEX_CACHE_STATUS_VALUES = new Set(Object.values(ProjectIndexCacheStatus));
 
 const PROJECT_INDEX_CACHE_STATUS_LIST = [...PROJECT_INDEX_CACHE_STATUS_VALUES]
     .map((status) => `'${status}'`)
@@ -107,11 +103,7 @@ function createCacheMiss(cacheFilePath, type, details = {}) {
 }
 
 function hasEntries(record) {
-    return (
-        typeof record === "object" &&
-        record !== null &&
-        Object.keys(record).length > 0
-    );
+    return typeof record === "object" && record !== null && Object.keys(record).length > 0;
 }
 
 function getDefaultProjectIndexCacheMaxSize() {
@@ -132,11 +124,7 @@ function resolveCacheFilePath(projectRoot, cacheFilePath) {
     if (cacheFilePath) {
         return path.resolve(cacheFilePath);
     }
-    return path.join(
-        projectRoot,
-        PROJECT_INDEX_CACHE_DIRECTORY,
-        PROJECT_INDEX_CACHE_FILENAME
-    );
+    return path.join(projectRoot, PROJECT_INDEX_CACHE_DIRECTORY, PROJECT_INDEX_CACHE_FILENAME);
 }
 
 function normalizeMaxSizeBytes(maxSizeBytes) {
@@ -207,10 +195,7 @@ function validateCachePayload(payload) {
         return false;
     }
 
-    if (
-        typeof payload.projectRoot !== "string" ||
-        payload.projectRoot.length === 0
-    ) {
+    if (typeof payload.projectRoot !== "string" || payload.projectRoot.length === 0) {
         return false;
     }
 
@@ -233,10 +218,7 @@ function validateCachePayload(payload) {
     // Allow `metricsSummary` to be omitted, to be an object, or explicitly
     // `null` (null indicates no metrics were collected). Treat any other
     // non-object value as invalid.
-    if (
-        payload.metricsSummary != null &&
-        !Core.isObjectLike(payload.metricsSummary)
-    ) {
+    if (payload.metricsSummary != null && !Core.isObjectLike(payload.metricsSummary)) {
         return false;
     }
 
@@ -247,17 +229,11 @@ function validateCachePayload(payload) {
     return true;
 }
 
-export {
-    getDefaultProjectIndexCacheMaxSize,
-    setDefaultProjectIndexCacheMaxSize,
-    applyProjectIndexCacheEnvOverride
-};
+export { getDefaultProjectIndexCacheMaxSize, setDefaultProjectIndexCacheMaxSize, applyProjectIndexCacheEnvOverride };
 
 export async function loadProjectIndexCache(
     descriptor,
-    fsFacade: Required<
-        Pick<ProjectIndexFsFacade, "readFile">
-    > = defaultFsFacade,
+    fsFacade: Required<Pick<ProjectIndexFsFacade, "readFile">> = defaultFsFacade,
     options = {}
 ) {
     const {
@@ -270,9 +246,7 @@ export async function loadProjectIndexCache(
     } = descriptor ?? {};
 
     if (!projectRoot) {
-        throw new Error(
-            "projectRoot must be provided to loadProjectIndexCache"
-        );
+        throw new Error("projectRoot must be provided to loadProjectIndexCache");
     }
 
     const abortMessage = "Project index cache load was aborted.";
@@ -288,10 +262,7 @@ export async function loadProjectIndexCache(
         rawContents = await fsFacade.readFile(cacheFilePath, "utf8");
     } catch (error) {
         if (Core.isFsErrorCode(error, "ENOENT")) {
-            return createCacheMiss(
-                cacheFilePath,
-                ProjectIndexCacheMissReason.NOT_FOUND
-            );
+            return createCacheMiss(cacheFilePath, ProjectIndexCacheMissReason.NOT_FOUND);
         }
         throw error;
     }
@@ -305,66 +276,35 @@ export async function loadProjectIndexCache(
             description: "project index cache"
         });
     } catch (error) {
-        return createCacheMiss(
-            cacheFilePath,
-            ProjectIndexCacheMissReason.INVALID_JSON,
-            { error }
-        );
+        return createCacheMiss(cacheFilePath, ProjectIndexCacheMissReason.INVALID_JSON, { error });
     }
 
     ensureNotAborted();
 
     if (!validateCachePayload(parsed)) {
-        return createCacheMiss(
-            cacheFilePath,
-            ProjectIndexCacheMissReason.INVALID_SCHEMA
-        );
+        return createCacheMiss(cacheFilePath, ProjectIndexCacheMissReason.INVALID_SCHEMA);
     }
 
     if (path.resolve(parsed.projectRoot) !== resolvedRoot) {
-        return createCacheMiss(
-            cacheFilePath,
-            ProjectIndexCacheMissReason.PROJECT_ROOT_MISMATCH
-        );
+        return createCacheMiss(cacheFilePath, ProjectIndexCacheMissReason.PROJECT_ROOT_MISMATCH);
     }
 
-    if (
-        formatterVersion &&
-        parsed.formatterVersion !== String(formatterVersion)
-    ) {
-        return createCacheMiss(
-            cacheFilePath,
-            ProjectIndexCacheMissReason.FORMATTER_VERSION_MISMATCH
-        );
+    if (formatterVersion && parsed.formatterVersion !== String(formatterVersion)) {
+        return createCacheMiss(cacheFilePath, ProjectIndexCacheMissReason.FORMATTER_VERSION_MISMATCH);
     }
 
     if (pluginVersion && parsed.pluginVersion !== String(pluginVersion)) {
-        return createCacheMiss(
-            cacheFilePath,
-            ProjectIndexCacheMissReason.PLUGIN_VERSION_MISMATCH
-        );
+        return createCacheMiss(cacheFilePath, ProjectIndexCacheMissReason.PLUGIN_VERSION_MISMATCH);
     }
 
     const hasManifestExpectations = hasEntries(manifestMtimes);
-    if (
-        hasManifestExpectations &&
-        !areMtimeMapsEqual(manifestMtimes, parsed.manifestMtimes)
-    ) {
-        return createCacheMiss(
-            cacheFilePath,
-            ProjectIndexCacheMissReason.MANIFEST_MTIME_MISMATCH
-        );
+    if (hasManifestExpectations && !areMtimeMapsEqual(manifestMtimes, parsed.manifestMtimes)) {
+        return createCacheMiss(cacheFilePath, ProjectIndexCacheMissReason.MANIFEST_MTIME_MISMATCH);
     }
 
     const hasSourceExpectations = hasEntries(sourceMtimes);
-    if (
-        hasSourceExpectations &&
-        !areMtimeMapsEqual(sourceMtimes, parsed.sourceMtimes)
-    ) {
-        return createCacheMiss(
-            cacheFilePath,
-            ProjectIndexCacheMissReason.SOURCE_MTIME_MISMATCH
-        );
+    if (hasSourceExpectations && !areMtimeMapsEqual(sourceMtimes, parsed.sourceMtimes)) {
+        return createCacheMiss(cacheFilePath, ProjectIndexCacheMissReason.SOURCE_MTIME_MISMATCH);
     }
 
     const projectIndex = {
@@ -383,9 +323,7 @@ export async function loadProjectIndexCache(
 
 export async function saveProjectIndexCache(
     descriptor,
-    fsFacade: Required<
-        Pick<ProjectIndexFsFacade, "mkdir" | "writeFile" | "rename" | "unlink">
-    > = defaultFsFacade,
+    fsFacade: Required<Pick<ProjectIndexFsFacade, "mkdir" | "writeFile" | "rename" | "unlink">> = defaultFsFacade,
     options = {}
 ) {
     const {
@@ -401,14 +339,10 @@ export async function saveProjectIndexCache(
     } = descriptor ?? {};
 
     if (!projectRoot) {
-        throw new Error(
-            "projectRoot must be provided to saveProjectIndexCache"
-        );
+        throw new Error("projectRoot must be provided to saveProjectIndexCache");
     }
     if (!Core.isObjectLike(projectIndex)) {
-        throw new TypeError(
-            "projectIndex must be provided to saveProjectIndexCache"
-        );
+        throw new TypeError("projectIndex must be provided to saveProjectIndexCache");
     }
 
     const abortMessage = "Project index cache save was aborted.";
@@ -493,9 +427,7 @@ export async function deriveCacheKey(
         projectRoot?: string | null;
         formatterVersion?: string;
     } = {},
-    fsFacade: Required<
-        Pick<ProjectIndexFsFacade, "readDir" | "stat">
-    > = defaultFsFacade
+    fsFacade: Required<Pick<ProjectIndexFsFacade, "readDir" | "stat">> = defaultFsFacade
 ) {
     const hash = createHash("sha256");
     hash.update(String(formatterVersion));
@@ -507,20 +439,12 @@ export async function deriveCacheKey(
 
     if (resolvedRoot) {
         const entries = await Core.listDirectory(fsFacade, resolvedRoot);
-        const manifestNames = entries
-            .filter(isProjectManifestPath)
-            .reduce((acc, item) => {
-                const insertIndex = acc.findIndex(
-                    (existing) => existing.localeCompare(item) > 0
-                );
-                return insertIndex === -1
-                    ? [...acc, item]
-                    : [
-                          ...acc.slice(0, insertIndex),
-                          item,
-                          ...acc.slice(insertIndex)
-                      ];
-            }, []);
+        const manifestNames = entries.filter(isProjectManifestPath).reduce((acc, item) => {
+            const insertIndex = acc.findIndex((existing) => existing.localeCompare(item) > 0);
+            return insertIndex === -1
+                ? [...acc, item]
+                : [...acc.slice(0, insertIndex), item, ...acc.slice(insertIndex)];
+        }, []);
 
         for (const manifestName of manifestNames) {
             const manifestPath = path.join(resolvedRoot, manifestName);
@@ -538,12 +462,7 @@ export async function deriveCacheKey(
         const resolvedFile = path.resolve(filepath);
         const mtime = await Core.getFileMtime(fsFacade, resolvedFile);
         if (mtime !== null) {
-            hash.update(
-                path.relative(
-                    resolvedRoot || path.parse(resolvedFile).root,
-                    resolvedFile
-                )
-            );
+            hash.update(path.relative(resolvedRoot || path.parse(resolvedFile).root, resolvedFile));
             hash.update("\0");
             hash.update(String(mtime));
             hash.update("\0");

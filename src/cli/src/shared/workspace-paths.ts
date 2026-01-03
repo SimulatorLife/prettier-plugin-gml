@@ -17,10 +17,7 @@ const SHARED_DIRECTORY = path.dirname(fileURLToPath(import.meta.url));
 
 function readPackageName(candidateDirectory: string): string | null {
     try {
-        const packageJsonPath = path.resolve(
-            candidateDirectory,
-            "package.json"
-        );
+        const packageJsonPath = path.resolve(candidateDirectory, "package.json");
         const contents = fs.readFileSync(packageJsonPath, "utf8");
         const parsed = JSON.parse(contents) as { name?: string };
         return typeof parsed.name === "string" ? parsed.name : null;
@@ -53,12 +50,7 @@ const CLI_SRC_DIRECTORY = path.resolve(CLI_PACKAGE_DIRECTORY, "src");
 const WORKSPACE_SOURCE_DIRECTORY = path.resolve(CLI_PACKAGE_DIRECTORY, "..");
 const REPO_ROOT = Core.findRepoRootSync(SHARED_DIRECTORY);
 
-export {
-    CLI_SRC_DIRECTORY,
-    CLI_PACKAGE_DIRECTORY,
-    WORKSPACE_SOURCE_DIRECTORY,
-    REPO_ROOT
-};
+export { CLI_SRC_DIRECTORY, CLI_PACKAGE_DIRECTORY, WORKSPACE_SOURCE_DIRECTORY, REPO_ROOT };
 
 /**
  * Resolve a path relative to the repository root using the shared directory

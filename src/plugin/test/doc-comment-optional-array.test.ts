@@ -29,9 +29,7 @@ void test("doc comment normalization keeps nested optional defaults intact", asy
         parser: "gml-parse"
     });
 
-    const docLine = formatted
-        .split("\n")
-        .find((line) => line.includes("@param {array<real>}"));
+    const docLine = formatted.split("\n").find((line) => line.includes("@param {array<real>}"));
 
     assert.equal(
         docLine,

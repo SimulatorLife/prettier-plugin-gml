@@ -2,10 +2,7 @@ import assert from "node:assert/strict";
 import path from "node:path";
 import { describe, it } from "node:test";
 
-import {
-    DEFAULT_FIXTURE_DIRECTORIES,
-    normalizeFixtureRoots
-} from "../src/workflow/fixture-roots.js";
+import { DEFAULT_FIXTURE_DIRECTORIES, normalizeFixtureRoots } from "../src/workflow/fixture-roots.js";
 
 void describe("normalizeFixtureRoots", () => {
     void it("includes default fixture directories by default", () => {
@@ -15,10 +12,7 @@ void describe("normalizeFixtureRoots", () => {
     });
 
     void it("deduplicates and resolves additional fixture roots", () => {
-        const duplicateRelative = path.relative(
-            process.cwd(),
-            DEFAULT_FIXTURE_DIRECTORIES[0]
-        );
+        const duplicateRelative = path.relative(process.cwd(), DEFAULT_FIXTURE_DIRECTORIES[0]);
         const customRelative = "./custom-fixtures";
 
         const roots = normalizeFixtureRoots([
@@ -31,19 +25,13 @@ void describe("normalizeFixtureRoots", () => {
             123
         ]);
 
-        const expected = [
-            ...DEFAULT_FIXTURE_DIRECTORIES,
-            path.resolve(customRelative)
-        ];
+        const expected = [...DEFAULT_FIXTURE_DIRECTORIES, path.resolve(customRelative)];
 
         assert.deepEqual(roots, expected);
     });
 
     void it("filters fixture roots using workflow allow paths", () => {
-        const allowedRelative = path.relative(
-            process.cwd(),
-            DEFAULT_FIXTURE_DIRECTORIES[1]
-        );
+        const allowedRelative = path.relative(process.cwd(), DEFAULT_FIXTURE_DIRECTORIES[1]);
 
         const roots = normalizeFixtureRoots([], {
             allowPaths: [allowedRelative]

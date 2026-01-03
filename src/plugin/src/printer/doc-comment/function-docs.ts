@@ -11,19 +11,16 @@ import { getDocCommentNormalization } from "../../transforms/doc-comment/normali
 import { normalizeDocLikeLineComment } from "../../comments/doc-like-line-normalization.js";
 
 const STRING_TYPE = "string";
-const BLANK_LINE_PATTERN =
-    /(?:\r\n|\r|\n|\u2028|\u2029)\s*(?:\r\n|\r|\n|\u2028|\u2029)/;
+const BLANK_LINE_PATTERN = /(?:\r\n|\r|\n|\u2028|\u2029)\s*(?:\r\n|\r|\n|\u2028|\u2029)/;
 const LINE_DOC_CONT_PATTERN = /^\/\/\s*\/(\s|$)/;
 const LINE_DOC_AT_PATTERN = /^\/\/\s*@/;
-const PARAM_PATTERN =
-    /^([a-zA-Z0-9_]+(?:[ \t]*,[ \t]*[a-zA-Z0-9_]+)*)[ \t]*:[ \t]*(.*)$/;
+const PARAM_PATTERN = /^([a-zA-Z0-9_]+(?:[ \t]*,[ \t]*[a-zA-Z0-9_]+)*)[ \t]*:[ \t]*(.*)$/;
 
 const METHOD_LIST_COMMENT_PATTERN = /^\s*\/\/\s*\./;
 
 function resolveProgramNode(path): any {
     let programNode = null;
-    const parentNode =
-        typeof path.getParentNode === "function" ? path.getParentNode() : null;
+    const parentNode = typeof path.getParentNode === "function" ? path.getParentNode() : null;
 
     if (path && typeof path.getParentNode === "function") {
         const getParentNode = path.getParentNode;
@@ -82,11 +79,7 @@ function collectProgramLeadingDocLines({
     lineCommentOptions: any;
 }) {
     const programLeadingLines: string[] = [];
-    if (
-        !programNode ||
-        !Array.isArray(programNode.comments) ||
-        typeof nodeStartIndex !== "number"
-    ) {
+    if (!programNode || !Array.isArray(programNode.comments) || typeof nodeStartIndex !== "number") {
         return programLeadingLines;
     }
 
@@ -99,20 +92,10 @@ function collectProgramLeadingDocLines({
             continue;
         }
 
-        const commentEnd =
-            typeof comment.end === "number"
-                ? comment.end
-                : (comment.end?.index ?? null);
-        const commentStart =
-            typeof comment.start === "number"
-                ? comment.start
-                : (comment.start?.index ?? null);
+        const commentEnd = typeof comment.end === "number" ? comment.end : (comment.end?.index ?? null);
+        const commentStart = typeof comment.start === "number" ? comment.start : (comment.start?.index ?? null);
 
-        if (
-            commentEnd === null ||
-            commentStart === null ||
-            commentEnd >= anchorIndex
-        ) {
+        if (commentEnd === null || commentStart === null || commentEnd >= anchorIndex) {
             continue;
         }
 
@@ -127,18 +110,12 @@ function collectProgramLeadingDocLines({
         const formatted = Core.formatLineComment(comment, lineCommentOptions);
         const normalized =
             typeof formatted === STRING_TYPE
-                ? normalizeDocLikeLineComment(
-                      comment,
-                      formatted,
-                      lineCommentOptions.originalText
-                  )
+                ? normalizeDocLikeLineComment(comment, formatted, lineCommentOptions.originalText)
                 : formatted;
         const trimmed = normalized ? normalized.trim() : "";
 
         const isDocLike =
-            trimmed.startsWith("///") ||
-            LINE_DOC_CONT_PATTERN.test(trimmed) ||
-            LINE_DOC_AT_PATTERN.test(trimmed);
+            trimmed.startsWith("///") || LINE_DOC_CONT_PATTERN.test(trimmed) || LINE_DOC_AT_PATTERN.test(trimmed);
 
         if (isDocLike && typeof normalized === STRING_TYPE) {
             programLeadingLines.unshift(normalized);
@@ -160,10 +137,7 @@ function collectMethodListComments(
     originalText: string | null | undefined,
     nodeStartIndex: number | null | undefined
 ): string[] {
-    if (
-        typeof originalText !== STRING_TYPE ||
-        typeof nodeStartIndex !== "number"
-    ) {
+    if (typeof originalText !== STRING_TYPE || typeof nodeStartIndex !== "number") {
         return [];
     }
 
@@ -205,29 +179,17 @@ function formatLineCommentDocEntry(comment: any, lineCommentOptions: any) {
     const formatted = Core.formatLineComment(comment, lineCommentOptions);
     const normalized =
         typeof formatted === STRING_TYPE
-            ? normalizeDocLikeLineComment(
-                  comment,
-                  formatted,
-                  lineCommentOptions.originalText
-              )
+            ? normalizeDocLikeLineComment(comment, formatted, lineCommentOptions.originalText)
             : formatted;
     const trimmed = normalized ? normalized.trim() : "";
-    if (
-        trimmed.startsWith("///") ||
-        LINE_DOC_CONT_PATTERN.test(trimmed) ||
-        LINE_DOC_AT_PATTERN.test(trimmed)
-    ) {
+    if (trimmed.startsWith("///") || LINE_DOC_CONT_PATTERN.test(trimmed) || LINE_DOC_AT_PATTERN.test(trimmed)) {
         return normalized ?? null;
     }
 
     return null;
 }
 
-function collectBlockCommentDocEntries(
-    comment: any,
-    node: any,
-    commentStart: number
-) {
+function collectBlockCommentDocEntries(comment: any, node: any, commentStart: number) {
     const descriptionEntries: { start: number; text: string }[] = [];
     const paramEntries: { start: number; text: string }[] = [];
     const returnsEntries: { start: number; text: string }[] = [];
@@ -245,11 +207,7 @@ function collectBlockCommentDocEntries(
         return cleanLine.includes("@") || PARAM_PATTERN.test(cleanLine);
     });
 
-    const isDocLike =
-        value.startsWith("*") ||
-        value.includes("@") ||
-        PARAM_PATTERN.test(value) ||
-        hasDocLine;
+    const isDocLike = value.startsWith("*") || value.includes("@") || PARAM_PATTERN.test(value) || hasDocLine;
 
     if (!isDocLike) {
         return [];
@@ -260,10 +218,7 @@ function collectBlockCommentDocEntries(
         for (const param of node.params) {
             if (param.type === "Identifier") {
                 paramNames.add(param.name);
-            } else if (
-                param.type === "AssignmentPattern" &&
-                param.left.type === "Identifier"
-            ) {
+            } else if (param.type === "AssignmentPattern" && param.left.type === "Identifier") {
                 paramNames.add(param.left.name);
             }
         }
@@ -280,10 +235,7 @@ function collectBlockCommentDocEntries(
         const paramMatch = cleanLine.match(PARAM_PATTERN);
         if (paramMatch) {
             const params = paramMatch[1].split(",").map((p) => p.trim());
-            if (
-                params.length > 0 &&
-                params.every((param) => paramNames.has(param))
-            ) {
+            if (params.length > 0 && params.every((param) => paramNames.has(param))) {
                 const desc = paramMatch[2].trim();
                 for (const param of params) {
                     paramEntries.push({
@@ -297,10 +249,7 @@ function collectBlockCommentDocEntries(
             continue;
         }
 
-        if (
-            /^it returns?\b/i.test(cleanLine) ||
-            /^returns?\b/i.test(cleanLine)
-        ) {
+        if (/^it returns?\b/i.test(cleanLine) || /^returns?\b/i.test(cleanLine)) {
             returnsEntries.push({
                 start: commentStart,
                 text: `/// @returns ${cleanLine}`
@@ -338,19 +287,12 @@ function collectNodeLeadingDocs({
     const nodeLeadingDocs: { start: number; text: string }[] = [];
 
     for (const comment of nodeComments) {
-        const commentEnd =
-            typeof comment.end === "number"
-                ? comment.end
-                : (comment.end?.index ?? 0);
+        const commentEnd = typeof comment.end === "number" ? comment.end : (comment.end?.index ?? 0);
 
-        const commentStart =
-            typeof comment.start === "number"
-                ? comment.start
-                : (comment.start?.index ?? 0);
+        const commentStart = typeof comment.start === "number" ? comment.start : (comment.start?.index ?? 0);
 
         const isOutOfRange =
-            typeof nodeStartIndex !== "number" ||
-            (commentEnd >= nodeStartIndex && commentStart < nodeStartIndex);
+            typeof nodeStartIndex !== "number" || (commentEnd >= nodeStartIndex && commentStart < nodeStartIndex);
 
         if (comment.printed || isOutOfRange) {
             continue;
@@ -367,11 +309,7 @@ function collectNodeLeadingDocs({
             continue;
         }
 
-        const blockEntries = collectBlockCommentDocEntries(
-            comment,
-            node,
-            commentStart
-        );
+        const blockEntries = collectBlockCommentDocEntries(comment, node, commentStart);
         if (blockEntries.length > 0) {
             nodeLeadingDocs.push(...blockEntries);
             comment.printed = true;
@@ -389,13 +327,7 @@ function collectNodeLeadingDocs({
  * the node so callers receive a consolidated list of lines ready for further
  * processing.
  */
-export function collectFunctionDocCommentDocs({
-    node,
-    options,
-    path,
-    nodeStartIndex,
-    originalText
-}: any) {
+export function collectFunctionDocCommentDocs({ node, options, path, nodeStartIndex, originalText }: any) {
     const docCommentDocs: MutableDocCommentLines = [];
     const lineCommentOptions = {
         ...Core.resolveLineCommentOptions(options),
@@ -416,12 +348,8 @@ export function collectFunctionDocCommentDocs({
         }
 
         const normalizedDocComments = docComments
-            .map((comment) =>
-                Core.formatLineComment(comment, lineCommentOptions)
-            )
-            .filter(
-                (text) => typeof text === STRING_TYPE && text.trim() !== ""
-            );
+            .map((comment) => Core.formatLineComment(comment, lineCommentOptions))
+            .filter((text) => typeof text === STRING_TYPE && text.trim() !== "");
 
         docCommentDocs.length = 0;
         docCommentDocs.push(...normalizedDocComments);
@@ -439,9 +367,7 @@ export function collectFunctionDocCommentDocs({
     });
 
     docCommentDocs.push(...formattedProgramLines);
-    plainLeadingLines.push(
-        ...collectMethodListComments(originalText, nodeStartIndex)
-    );
+    plainLeadingLines.push(...collectMethodListComments(originalText, nodeStartIndex));
 
     const nodeComments = [...(node.comments || [])];
 
@@ -455,11 +381,7 @@ export function collectFunctionDocCommentDocs({
                     nodeComments.push(...grandParent.comments);
                 } else if (parent.comments && parent.comments.length > 0) {
                     nodeComments.push(...parent.comments);
-                } else if (
-                    parent.id &&
-                    parent.id.comments &&
-                    parent.id.comments.length > 0
-                ) {
+                } else if (parent.id && parent.id.comments && parent.id.comments.length > 0) {
                     nodeComments.push(...parent.id.comments);
                 }
             }
@@ -507,12 +429,7 @@ export function collectFunctionDocCommentDocs({
     const functionName = Core.getNodeName(node);
     const signatureDescriptionPattern =
         typeof functionName === STRING_TYPE && functionName.length > 0
-            ? new RegExp(
-                  String.raw`^\/\/\/\s*@description\s*${Core.escapeRegExp(
-                      functionName
-                  )}\s*\([^)]*\)\s*$`,
-                  "i"
-              )
+            ? new RegExp(String.raw`^\/\/\/\s*@description\s*${Core.escapeRegExp(functionName)}\s*\([^)]*\)\s*$`, "i")
             : null;
 
     const filteredNodeDocs = formattedNodeDocs.filter((entry) => {
@@ -523,10 +440,7 @@ export function collectFunctionDocCommentDocs({
         if (trimmed === "/// @description") {
             return false;
         }
-        if (
-            signatureDescriptionPattern &&
-            signatureDescriptionPattern.test(trimmed)
-        ) {
+        if (signatureDescriptionPattern && signatureDescriptionPattern.test(trimmed)) {
             return false;
         }
         return true;
@@ -535,10 +449,7 @@ export function collectFunctionDocCommentDocs({
     const originalDocDocs: { start: number; text: string }[] = [];
     if (Core.isNonEmptyArray(docComments)) {
         for (const comment of docComments) {
-            const formatted = Core.formatLineComment(
-                comment,
-                lineCommentOptions
-            );
+            const formatted = Core.formatLineComment(comment, lineCommentOptions);
             if (formatted && formatted.trim() !== "") {
                 originalDocDocs.push({
                     start: comment.start,
@@ -548,23 +459,15 @@ export function collectFunctionDocCommentDocs({
         }
     }
 
-    const mergedDocs = [...originalDocDocs, ...filteredNodeDocs].sort(
-        (a, b) => a.start - b.start
-    );
+    const mergedDocs = [...originalDocDocs, ...filteredNodeDocs].sort((a, b) => a.start - b.start);
 
     const newDocCommentDocs = mergedDocs.map((x) => x.text);
 
-    const uniqueProgramLines = formattedProgramLines.filter(
-        (line) => !newDocCommentDocs.includes(line)
-    );
+    const uniqueProgramLines = formattedProgramLines.filter((line) => !newDocCommentDocs.includes(line));
 
     docCommentDocs.length = 0;
     docCommentDocs.push(...uniqueProgramLines, ...newDocCommentDocs);
-    if (
-        nodeComments.some(
-            (comment) => comment?._docCommentBlockConverted === true
-        )
-    ) {
+    if (nodeComments.some((comment) => comment?._docCommentBlockConverted === true)) {
         (docCommentDocs as any)._blockCommentDocs = true;
     }
     ensureDescriptionContinuations(docCommentDocs);
@@ -615,31 +518,15 @@ export function normalizeFunctionDocCommentDocs({
     }
 
     const docCommentOptions = resolveDocCommentPrinterOptions(options);
-    const descriptionContinuations =
-        collectDescriptionContinuations(docCommentDocs);
+    const descriptionContinuations = collectDescriptionContinuations(docCommentDocs);
     const preserveDescriptionBreaks =
-        Array.isArray(docCommentDocs) &&
-        (docCommentDocs as any)._preserveDescriptionBreaks === true;
-    if (
-        Core.shouldGenerateSyntheticDocForFunction(
-            path,
-            docCommentDocs,
-            docCommentOptions
-        )
-    ) {
+        Array.isArray(docCommentDocs) && (docCommentDocs as any)._preserveDescriptionBreaks === true;
+    if (Core.shouldGenerateSyntheticDocForFunction(path, docCommentDocs, docCommentOptions)) {
         docCommentDocs = Core.toMutableArray(
-            Core.mergeSyntheticDocComments(
-                node,
-                docCommentDocs,
-                docCommentOptions,
-                overrides
-            )
+            Core.mergeSyntheticDocComments(node, docCommentDocs, docCommentOptions, overrides)
         ) as MutableDocCommentLines;
 
-        docCommentDocs = applyDescriptionContinuations(
-            docCommentDocs,
-            descriptionContinuations
-        );
+        docCommentDocs = applyDescriptionContinuations(docCommentDocs, descriptionContinuations);
         if (Array.isArray(docCommentDocs)) {
             while (
                 docCommentDocs.length > 0 &&
@@ -650,27 +537,18 @@ export function normalizeFunctionDocCommentDocs({
             }
         }
         const parentNode = path.getParentNode();
-        if (
-            parentNode &&
-            parentNode.type === "BlockStatement" &&
-            !needsLeadingBlankLine
-        ) {
+        if (parentNode && parentNode.type === "BlockStatement" && !needsLeadingBlankLine) {
             needsLeadingBlankLine = true;
         }
     }
 
-    if (
-        Array.isArray(docCommentDocs) &&
-        (docCommentDocs as any)._blockCommentDocs === true
-    ) {
+    if (Array.isArray(docCommentDocs) && (docCommentDocs as any)._blockCommentDocs === true) {
         docCommentDocs = docCommentDocs.map((line) => {
             if (typeof line !== STRING_TYPE) {
                 return line;
             }
 
-            const match = line.match(
-                /^(\s*\/\/\/\s*@param\s+)(\S+)\s+-\s+(.*)$/
-            );
+            const match = line.match(/^(\s*\/\/\/\s*@param\s+)(\S+)\s+-\s+(.*)$/);
             if (!match) {
                 return line;
             }

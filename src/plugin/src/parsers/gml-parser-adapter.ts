@@ -120,10 +120,7 @@ async function parseImpl(
     const activeOptions = isOptionsObject(options) ? options : undefined;
 
     if (process.env.GML_PRINTER_DEBUG) {
-        console.debug(
-            "[DEBUG] parseImpl options:",
-            JSON.stringify(activeOptions, null, 2)
-        );
+        console.debug("[DEBUG] parseImpl options:", JSON.stringify(activeOptions, null, 2));
     }
 
     if (activeOptions) {
@@ -131,21 +128,13 @@ async function parseImpl(
     }
 
     try {
-        environmentPrepared =
-            await prepareIdentifierCaseEnvironment(activeOptions);
+        environmentPrepared = await prepareIdentifierCaseEnvironment(activeOptions);
 
         const preparation = preprocessSource(text, activeOptions);
         if (process.env.GML_PRINTER_DEBUG) {
-            console.debug(
-                "[DEBUG] Preprocessed source:",
-                preparation.parseSource
-            );
+            console.debug("[DEBUG] Preprocessed source:", preparation.parseSource);
         }
-        const ast = parseSourceWithRecovery(
-            preparation.parseSource,
-            parserOptions,
-            activeOptions
-        );
+        const ast = parseSourceWithRecovery(preparation.parseSource, parserOptions, activeOptions);
 
         Semantic.attachIdentifierCasePlanSnapshot(ast, activeOptions);
         filterParserComments(ast, activeOptions);
@@ -153,18 +142,13 @@ async function parseImpl(
         // console.log("AST comments length:", ast.comments?.length);
 
         if (!ast || typeof ast !== "object") {
-            throw new Error(
-                "GameMaker parser returned no AST for the provided source."
-            );
+            throw new Error("GameMaker parser returned no AST for the provided source.");
         }
 
         applyParserTransforms(ast, preparation, activeOptions, text);
         return ast;
     } catch (error) {
-        if (
-            environmentPrepared ||
-            activeOptions?.__identifierCaseProjectIndexBootstrap
-        ) {
+        if (environmentPrepared || activeOptions?.__identifierCaseProjectIndexBootstrap) {
             Semantic.teardownIdentifierCaseEnvironment(activeOptions);
         }
 
@@ -172,9 +156,7 @@ async function parseImpl(
     }
 }
 
-async function prepareIdentifierCaseEnvironment(
-    options?: GmlParserAdapterOptions
-): Promise<boolean> {
+async function prepareIdentifierCaseEnvironment(options?: GmlParserAdapterOptions): Promise<boolean> {
     if (!options) {
         return false;
     }
@@ -183,35 +165,23 @@ async function prepareIdentifierCaseEnvironment(
     return true;
 }
 
-function preprocessSource(
-    text: string,
-    options?: GmlParserAdapterOptions
-): ParserPreparationContext {
-    const featherResult = preprocessFeatherFixes(
-        text,
-        options?.applyFeatherFixes
-    );
+function preprocessSource(text: string, options?: GmlParserAdapterOptions): ParserPreparationContext {
+    const featherResult = preprocessFeatherFixes(text, options?.applyFeatherFixes);
 
-    const { sourceText: commentFixedSource, indexMapper: commentFixMapper } =
-        Parser.Utils.fixMalformedComments(featherResult.parseSource);
+    const { sourceText: commentFixedSource, indexMapper: commentFixMapper } = Parser.Utils.fixMalformedComments(
+        featherResult.parseSource
+    );
 
     if (process.env.GML_PRINTER_DEBUG) {
         console.debug("[DEBUG] commentFixedSource:", commentFixedSource);
     }
 
-    const conditionalResult = Transforms.sanitizeConditionalAssignments(
-        commentFixedSource
-    ) as SanitizerResult;
-    const conditionalSource = normalizeToString(
-        conditionalResult.sourceText,
-        commentFixedSource
-    );
+    const conditionalResult = Transforms.sanitizeConditionalAssignments(commentFixedSource) as SanitizerResult;
+    const conditionalSource = normalizeToString(conditionalResult.sourceText, commentFixedSource);
 
     const callSanitizedResult =
         (options?.sanitizeMissingArgumentSeparators ?? true)
-            ? (Transforms.sanitizeMissingArgumentSeparators(
-                  conditionalSource
-              ) as SanitizerResult)
+            ? (Transforms.sanitizeMissingArgumentSeparators(conditionalSource) as SanitizerResult)
             : null;
     const callSanitizedSource = callSanitizedResult
         ? normalizeToString(callSanitizedResult.sourceText, conditionalSource)
@@ -220,18 +190,14 @@ function preprocessSource(
     return {
         parseSource: callSanitizedSource,
         callIndexAdjustments: callSanitizedResult?.indexAdjustments ?? null,
-        conditionalAssignmentIndexAdjustments:
-            conditionalResult.indexAdjustments ?? null,
+        conditionalAssignmentIndexAdjustments: conditionalResult.indexAdjustments ?? null,
         enumIndexAdjustments: featherResult.enumIndexAdjustments,
         preprocessedFixMetadata: featherResult.metadata,
         commentFixMapper
     };
 }
 
-function preprocessFeatherFixes(
-    sourceText: string,
-    applyFeatherFixes?: boolean
-): FeatherPreprocessResult {
+function preprocessFeatherFixes(sourceText: string, applyFeatherFixes?: boolean): FeatherPreprocessResult {
     if (!applyFeatherFixes) {
         return {
             parseSource: sourceText,
@@ -262,10 +228,7 @@ function parseSourceWithRecovery(
     options?: GmlParserAdapterOptions
 ): MutableGameMakerAstNode {
     try {
-        const ast = Parser.GMLParser.parse(
-            sourceText,
-            parserOptions
-        ) as MutableGameMakerAstNode;
+        const ast = Parser.GMLParser.parse(sourceText, parserOptions) as MutableGameMakerAstNode;
 
         logParsedCommentCount(ast);
         return ast;
@@ -274,21 +237,12 @@ function parseSourceWithRecovery(
             throw error;
         }
 
-        const recoveredSource = Parser.Utils.recoverParseSourceFromMissingBrace(
-            sourceText,
-            error
-        ) as unknown;
-        if (
-            typeof recoveredSource !== "string" ||
-            recoveredSource === sourceText
-        ) {
+        const recoveredSource = Parser.Utils.recoverParseSourceFromMissingBrace(sourceText, error) as unknown;
+        if (typeof recoveredSource !== "string" || recoveredSource === sourceText) {
             throw error;
         }
 
-        const ast = Parser.GMLParser.parse(
-            recoveredSource,
-            parserOptions
-        ) as MutableGameMakerAstNode;
+        const ast = Parser.GMLParser.parse(recoveredSource, parserOptions) as MutableGameMakerAstNode;
         logParsedCommentCount(ast);
         try {
             Reflect.set(ast, "_featherRecoveredSource", true);
@@ -306,27 +260,20 @@ function logParsedCommentCount(ast: MutableGameMakerAstNode | null): void {
 
     try {
         const length = Array.isArray(ast?.comments) ? ast.comments.length : 0;
-        console.debug(
-            `[DBG] gml-parser-adapter: parse called with getComments=true; ast.comments=${length}`
-        );
+        console.debug(`[DBG] gml-parser-adapter: parse called with getComments=true; ast.comments=${length}`);
     } catch {
         // ignore
     }
 }
 
-function filterParserComments(
-    ast: MutableGameMakerAstNode,
-    options?: GmlParserAdapterOptions
-): void {
+function filterParserComments(ast: MutableGameMakerAstNode, options?: GmlParserAdapterOptions): void {
     const comments = ast.comments;
     if (!Array.isArray(comments)) {
         return;
     }
 
     const lineCommentOptions = Core.resolveLineCommentOptions(options);
-    const normalizedOptions = Core.normalizeLineCommentOptions(
-        lineCommentOptions
-    ) as {
+    const normalizedOptions = Core.normalizeLineCommentOptions(lineCommentOptions) as {
         boilerplateFragments: Array<string>;
     };
     const { boilerplateFragments } = normalizedOptions;
@@ -397,10 +344,7 @@ function applyStructuralTransforms(
     applyIndexAdjustments(ast, context);
 }
 
-function applyIndexAdjustments(
-    ast: MutableGameMakerAstNode,
-    context: ParserPreparationContext
-): void {
+function applyIndexAdjustments(ast: MutableGameMakerAstNode, context: ParserPreparationContext): void {
     Transforms.applyIndexAdjustmentsIfPresent(
         ast,
         context.callIndexAdjustments,

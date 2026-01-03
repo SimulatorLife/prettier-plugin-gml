@@ -8,11 +8,7 @@ export interface WatchTestFixture {
 }
 
 export async function createWatchTestFixture(): Promise<WatchTestFixture> {
-    const dir = path.join(
-        process.cwd(),
-        "tmp",
-        `watch-test-${Date.now()}-${Math.random().toString(36).slice(2, 9)}`
-    );
+    const dir = path.join(process.cwd(), "tmp", `watch-test-${Date.now()}-${Math.random().toString(36).slice(2, 9)}`);
 
     await mkdir(dir, { recursive: true });
 

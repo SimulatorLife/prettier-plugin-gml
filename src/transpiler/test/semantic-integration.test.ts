@@ -54,9 +54,7 @@ void test("createSemanticOracle generates SCIP symbols for scripts", () => {
         object: { name: "scr_test" },
         arguments: []
     };
-    const symbol = oracle.callTargetSymbol(
-        scriptNode as unknown as CallExpressionNode
-    );
+    const symbol = oracle.callTargetSymbol(scriptNode as unknown as CallExpressionNode);
 
     assert.ok(symbol, "Should generate a symbol");
     assert.ok(symbol.includes("script"), "Symbol should include 'script'");
@@ -71,15 +69,9 @@ void test("createSemanticOracle handles unknown call targets", () => {
         object: { name: "unknown_function" },
         arguments: []
     };
-    const kind = oracle.callTargetKind(
-        unknownNode as unknown as CallExpressionNode
-    );
+    const kind = oracle.callTargetKind(unknownNode as unknown as CallExpressionNode);
 
-    assert.equal(
-        kind,
-        "unknown",
-        "Should classify unknown functions as unknown"
-    );
+    assert.equal(kind, "unknown", "Should classify unknown functions as unknown");
 });
 
 void test("emitJavaScript uses semantic oracle for built-in classification", () => {
@@ -119,9 +111,7 @@ void test("makeDefaultOracle creates oracle with builtin knowledge", () => {
         object: { name: "sqrt" },
         arguments: []
     };
-    const kind = oracle.callTarget.callTargetKind(
-        builtinNode as unknown as CallExpressionNode
-    );
+    const kind = oracle.callTarget.callTargetKind(builtinNode as unknown as CallExpressionNode);
 
     assert.equal(kind, "builtin", "Should recognize sqrt as builtin");
 });
@@ -134,16 +124,10 @@ void test("makeDummyOracle creates minimal oracle", () => {
         object: { name: "sqrt" },
         arguments: []
     };
-    const kind = oracle.callTarget.callTargetKind(
-        builtinNode as unknown as CallExpressionNode
-    );
+    const kind = oracle.callTarget.callTargetKind(builtinNode as unknown as CallExpressionNode);
 
     // Dummy oracle still checks builtInFunctions map for basic recognition
-    assert.equal(
-        kind,
-        "builtin",
-        "Dummy oracle recognizes builtins via builtInFunctions map"
-    );
+    assert.equal(kind, "builtin", "Dummy oracle recognizes builtins via builtInFunctions map");
 });
 
 void test("semantic oracle identifies global variables", () => {
@@ -152,11 +136,7 @@ void test("semantic oracle identifies global variables", () => {
     const globalNode = { name: "test_var", isGlobalIdentifier: true };
     const kind = oracle.kindOfIdent(globalNode);
 
-    assert.equal(
-        kind,
-        "global_field",
-        "Should classify marked globals as global_field"
-    );
+    assert.equal(kind, "global_field", "Should classify marked globals as global_field");
 });
 
 void test("semantic oracle generates SCIP symbols for globals", () => {
@@ -177,10 +157,7 @@ void test("emitJavaScript with semantic oracle handles global variables", () => 
     const result = Transpiler.emitJavaScript(ast);
 
     // Global variables should be prefixed with global.
-    assert.ok(
-        result.includes("global.player_score"),
-        "Should prefix global variables"
-    );
+    assert.ok(result.includes("global.player_score"), "Should prefix global variables");
 });
 
 void test("semantic oracle handles identifiers with no name", () => {

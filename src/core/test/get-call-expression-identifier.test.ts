@@ -2,10 +2,7 @@ import assert from "node:assert/strict";
 
 import { describe, it } from "node:test";
 
-import {
-    getCallExpressionIdentifier,
-    getCallExpressionIdentifierName
-} from "../src/ast/node-helpers.js";
+import { getCallExpressionIdentifier, getCallExpressionIdentifierName } from "../src/ast/node-helpers.js";
 
 void describe("getCallExpressionIdentifier", () => {
     void it("returns the identifier node when the callee is a named identifier", () => {
@@ -48,17 +45,11 @@ void describe("getCallExpressionIdentifierName", () => {
             arguments: []
         };
 
-        assert.equal(
-            getCallExpressionIdentifierName(callExpression),
-            "do_work"
-        );
+        assert.equal(getCallExpressionIdentifierName(callExpression), "do_work");
     });
 
     void it("returns null for non-call expressions", () => {
-        assert.equal(
-            getCallExpressionIdentifierName({ type: "Identifier" }),
-            null
-        );
+        assert.equal(getCallExpressionIdentifierName({ type: "Identifier" }), null);
     });
 
     void it("returns null when the callee lacks a string name", () => {

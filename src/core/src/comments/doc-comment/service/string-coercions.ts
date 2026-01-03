@@ -4,7 +4,6 @@ export interface DocCommentStringCoercions {
     coerceNonEmptyString(value: string): string | null;
 }
 
-export const defaultDocCommentStringCoercions: DocCommentStringCoercions =
-    Object.freeze({
-        coerceNonEmptyString: getNonEmptyString
-    });
+export const defaultDocCommentStringCoercions: DocCommentStringCoercions = Object.freeze({
+    coerceNonEmptyString: getNonEmptyString
+});

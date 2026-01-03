@@ -1,10 +1,5 @@
 import { validatePatch } from "../runtime/patch-utils.js";
-import type {
-    Patch,
-    PatchApplicator,
-    RuntimePatchError,
-    TrySafeApplyResult
-} from "../runtime/types.js";
+import type { Patch, PatchApplicator, RuntimePatchError, TrySafeApplyResult } from "../runtime/types.js";
 import type {
     MessageEventLike,
     RuntimeWebSocketClient,
@@ -206,10 +201,7 @@ type WebSocketErrorHandlerArgs = {
     onError?: WebSocketClientOptions["onError"];
 };
 
-function attachWebSocketEventListeners(
-    ws: RuntimeWebSocketInstance,
-    args: WebSocketEventListenerArgs
-): void {
+function attachWebSocketEventListeners(ws: RuntimeWebSocketInstance, args: WebSocketEventListenerArgs): void {
     ws.addEventListener("open", createOpenHandler(args.state, args.onConnect));
     ws.addEventListener(
         "message",
@@ -237,10 +229,7 @@ function attachWebSocketEventListeners(
     );
 }
 
-function createOpenHandler(
-    state: WebSocketClientState,
-    onConnect?: WebSocketClientOptions["onConnect"]
-): () => void {
+function createOpenHandler(state: WebSocketClientState, onConnect?: WebSocketClientOptions["onConnect"]): () => void {
     return () => {
         const websocketState = state;
         websocketState.isConnected = true;
@@ -317,14 +306,10 @@ function parseWebSocketPayload(
 }
 
 function isStructuredPayload(value: unknown): value is object {
-    return (
-        Boolean(value) && typeof value === "object" && !isBinaryPayload(value)
-    );
+    return Boolean(value) && typeof value === "object" && !isBinaryPayload(value);
 }
 
-function isBinaryPayload(
-    value: unknown
-): value is ArrayBuffer | ArrayBufferView {
+function isBinaryPayload(value: unknown): value is ArrayBuffer | ArrayBufferView {
     return value instanceof ArrayBuffer || ArrayBuffer.isView(value);
 }
 
@@ -351,19 +336,10 @@ function toUint8Array(payload: ArrayBuffer | ArrayBufferView): Uint8Array {
         return new Uint8Array(payload);
     }
 
-    return new Uint8Array(
-        payload.buffer,
-        payload.byteOffset,
-        payload.byteLength
-    );
+    return new Uint8Array(payload.buffer, payload.byteOffset, payload.byteLength);
 }
 
-function createCloseHandler({
-    state,
-    onDisconnect,
-    reconnectDelay,
-    connect
-}: WebSocketCloseHandlerArgs): () => void {
+function createCloseHandler({ state, onDisconnect, reconnectDelay, connect }: WebSocketCloseHandlerArgs): () => void {
     return () => {
         const websocketState = state;
         websocketState.isConnected = false;
@@ -384,10 +360,7 @@ function createCloseHandler({
     };
 }
 
-function createErrorHandler({
-    state,
-    onError
-}: WebSocketErrorHandlerArgs): (event?: Error) => void {
+function createErrorHandler({ state, onError }: WebSocketErrorHandlerArgs): (event?: Error) => void {
     return (event?: Error) => {
         const websocketState = state;
         websocketState.connectionMetrics.connectionErrors += 1;
@@ -398,19 +371,14 @@ function createErrorHandler({
 
         if (onError) {
             const safeError = createRuntimePatchError(
-                event instanceof Error
-                    ? event.message
-                    : "Unknown WebSocket error"
+                event instanceof Error ? event.message : "Unknown WebSocket error"
             );
             onError(safeError, "connection");
         }
     };
 }
 
-function handleConnectionError(
-    error: unknown,
-    onError?: WebSocketClientOptions["onError"]
-): void {
+function handleConnectionError(error: unknown, onError?: WebSocketClientOptions["onError"]): void {
     if (!onError) {
         return;
     }
@@ -419,26 +387,15 @@ function handleConnectionError(
     onError(safeError, "connection");
 }
 
-type PatchValidationResult =
-    | { status: "skip" }
-    | { status: "error" }
-    | { status: "ok"; patch: Patch };
+type PatchValidationResult = { status: "skip" } | { status: "error" } | { status: "ok"; patch: Patch };
 
-function validatePatchCandidate(
-    incoming: unknown,
-    onError?: WebSocketClientOptions["onError"]
-): PatchValidationResult {
+function validatePatchCandidate(incoming: unknown, onError?: WebSocketClientOptions["onError"]): PatchValidationResult {
     if (!incoming || typeof incoming !== "object") {
-        reportMalformedPatch(
-            onError,
-            "Received non-object patch payload; skipping message"
-        );
+        reportMalformedPatch(onError, "Received non-object patch payload; skipping message");
         return { status: "skip" };
     }
 
-    const missingFields = resolveMissingPatchFields(
-        incoming as Record<string, unknown>
-    );
+    const missingFields = resolveMissingPatchFields(incoming as Record<string, unknown>);
     if (missingFields.length > 0) {
         const missingList = missingFields.join(", ");
         reportMalformedPatch(
@@ -497,11 +454,7 @@ function handleSafeApplyResult(
     return false;
 }
 
-function handleSafeApplyException(
-    error: unknown,
-    patch: Patch,
-    onError?: WebSocketClientOptions["onError"]
-): boolean {
+function handleSafeApplyException(error: unknown, patch: Patch, onError?: WebSocketClientOptions["onError"]): boolean {
     const safeError = toRuntimePatchError(error, patch);
     safeError.rolledBack =
         error && typeof error === "object" && "rolledBack" in error
@@ -533,8 +486,7 @@ function applyPatchDirectly(
 }
 
 function resolveWebSocketConstructor(): RuntimeWebSocketConstructor {
-    const ctor = (globalThis as { WebSocket?: RuntimeWebSocketConstructor })
-        .WebSocket;
+    const ctor = (globalThis as { WebSocket?: RuntimeWebSocketConstructor }).WebSocket;
     if (!ctor) {
         throw new Error("WebSocket global is not available");
     }
@@ -547,10 +499,7 @@ function toRuntimePatchError(error: unknown, patch?: Patch): RuntimePatchError {
     return createRuntimePatchError(message, patch);
 }
 
-function createRuntimePatchError(
-    message: string,
-    patch?: Patch
-): RuntimePatchError {
+function createRuntimePatchError(message: string, patch?: Patch): RuntimePatchError {
     const runtimeError = new Error(message) as RuntimePatchError;
     runtimeError.patch = patch;
     return runtimeError;
@@ -584,9 +533,7 @@ function resolveRuntimeErrorMessage(error: unknown): string {
     return "Unknown error";
 }
 
-function resolveMissingPatchFields(
-    candidate: Record<string, unknown>
-): Array<"kind" | "id"> {
+function resolveMissingPatchFields(candidate: Record<string, unknown>): Array<"kind" | "id"> {
     const missing: Array<"kind" | "id"> = [];
 
     if (!("kind" in candidate)) {
@@ -600,10 +547,7 @@ function resolveMissingPatchFields(
     return missing;
 }
 
-function reportMalformedPatch(
-    onError: WebSocketClientOptions["onError"] | undefined,
-    message: string
-): void {
+function reportMalformedPatch(onError: WebSocketClientOptions["onError"] | undefined, message: string): void {
     if (!onError) {
         return;
     }

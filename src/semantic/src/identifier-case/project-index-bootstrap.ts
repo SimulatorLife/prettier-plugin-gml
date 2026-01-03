@@ -11,22 +11,17 @@ import {
     getProjectIndexParserOverride
 } from "../project-index/index.js";
 
-const PROJECT_INDEX_CACHE_MAX_BYTES_INTERNAL_OPTION_NAME =
-    "__identifierCaseProjectIndexCacheMaxBytes";
-const PROJECT_INDEX_CACHE_MAX_BYTES_OPTION_NAME =
-    "gmlIdentifierCaseProjectIndexCacheMaxBytes";
-const PROJECT_INDEX_CONCURRENCY_INTERNAL_OPTION_NAME =
-    "__identifierCaseProjectIndexConcurrency";
-const PROJECT_INDEX_CONCURRENCY_OPTION_NAME =
-    "gmlIdentifierCaseProjectIndexConcurrency";
+const PROJECT_INDEX_CACHE_MAX_BYTES_INTERNAL_OPTION_NAME = "__identifierCaseProjectIndexCacheMaxBytes";
+const PROJECT_INDEX_CACHE_MAX_BYTES_OPTION_NAME = "gmlIdentifierCaseProjectIndexCacheMaxBytes";
+const PROJECT_INDEX_CONCURRENCY_INTERNAL_OPTION_NAME = "__identifierCaseProjectIndexConcurrency";
+const PROJECT_INDEX_CONCURRENCY_OPTION_NAME = "gmlIdentifierCaseProjectIndexConcurrency";
 
 function resolveOptionWithOverride(options, config: any = {}) {
     const { onValue, onMissing, internalKey, externalKey } = config;
 
     Core.assertFunction(onValue, "onValue");
 
-    const getMissingValue = () =>
-        typeof onMissing === "function" ? onMissing() : onMissing;
+    const getMissingValue = () => (typeof onMissing === "function" ? onMissing() : onMissing);
 
     if (!Core.isObjectLike(options)) {
         return getMissingValue();
@@ -44,24 +39,15 @@ function resolveOptionWithOverride(options, config: any = {}) {
 }
 
 function getFsFacade(options) {
-    return Core.coalesceOption(
-        options,
-        ["__identifierCaseFs", "identifierCaseFs"],
-        {
-            fallback: null
-        }
-    );
+    return Core.coalesceOption(options, ["__identifierCaseFs", "identifierCaseFs"], {
+        fallback: null
+    });
 }
 
 function getFormatterVersion(options) {
     return Core.coalesceOption(
         options,
-        [
-            "identifierCaseFormatterVersion",
-            "__identifierCaseFormatterVersion",
-            "prettierVersion",
-            "__prettierVersion"
-        ],
+        ["identifierCaseFormatterVersion", "__identifierCaseFormatterVersion", "prettierVersion", "__prettierVersion"],
         { fallback: null }
     );
 }
@@ -69,11 +55,7 @@ function getFormatterVersion(options) {
 function getPluginVersion(options) {
     return Core.coalesceOption(
         options,
-        [
-            "identifierCasePluginVersion",
-            "__identifierCasePluginVersion",
-            "pluginVersion"
-        ],
+        ["identifierCasePluginVersion", "__identifierCasePluginVersion", "pluginVersion"],
         { fallback: null }
     );
 }
@@ -90,13 +72,7 @@ function createSkipResult(reason) {
     };
 }
 
-function createFailureResult({
-    reason,
-    projectRoot,
-    coordinator = null,
-    dispose = Core.noop,
-    error = null
-}) {
+function createFailureResult({ reason, projectRoot, coordinator = null, dispose = Core.noop, error = null }) {
     const result: any = {
         status: "failed",
         reason,
@@ -122,16 +98,10 @@ const DEFAULT_OPTION_WRITER = (options, key, value) => {
 };
 
 function getOptionWriter(storeOption) {
-    return typeof storeOption === "function"
-        ? storeOption
-        : DEFAULT_OPTION_WRITER;
+    return typeof storeOption === "function" ? storeOption : DEFAULT_OPTION_WRITER;
 }
 
-function storeBootstrapResult(
-    options,
-    result,
-    writeOption = DEFAULT_OPTION_WRITER
-) {
+function storeBootstrapResult(options, result, writeOption = DEFAULT_OPTION_WRITER) {
     try {
         // console.debug(
         //     `[DBG] storeBootstrapResult: filepath=${options?.filepath ?? null} resultStatus=${result?.status ?? null} reason=${result?.reason ?? null} source=${result?.source ?? null}`
@@ -176,8 +146,7 @@ function coerceCacheMaxSize(numericValue: any, context: any) {
 
     const normalized = Core.coerceNonNegativeInteger(numericValue, {
         received,
-        createErrorMessage: (value) =>
-            formatCacheMaxSizeValueError(optionName, value)
+        createErrorMessage: (value) => formatCacheMaxSizeValueError(optionName, value)
     });
 
     return normalized === 0 ? null : normalized;
@@ -187,8 +156,7 @@ function coerceProjectIndexConcurrency(numericValue: any, context: any) {
     const { optionName, received } = context || {};
     const positiveInteger = Core.coercePositiveInteger(numericValue, {
         received,
-        createErrorMessage: (value) =>
-            formatConcurrencyValueError(optionName, value)
+        createErrorMessage: (value) => formatConcurrencyValueError(optionName, value)
     });
 
     return clampConcurrency(positiveInteger);
@@ -248,8 +216,7 @@ function resolveProjectRoot(options) {
                 return null;
             }
 
-            const projectRoot =
-                entry.source === "external" ? entry.value.trim() : entry.value;
+            const projectRoot = entry.source === "external" ? entry.value.trim() : entry.value;
 
             return path.resolve(projectRoot);
         }
@@ -294,11 +261,7 @@ function resolveCoordinatorInputs(options, writeOption: any) {
     Core.withDefinedValue(
         cacheMaxSizeBytes,
         (value) => {
-            writeOption(
-                options,
-                PROJECT_INDEX_CACHE_MAX_BYTES_INTERNAL_OPTION_NAME,
-                value
-            );
+            writeOption(options, PROJECT_INDEX_CACHE_MAX_BYTES_INTERNAL_OPTION_NAME, value);
         },
         () => {}
     );
@@ -307,11 +270,7 @@ function resolveCoordinatorInputs(options, writeOption: any) {
     Core.withDefinedValue(
         projectIndexConcurrency,
         (value) => {
-            writeOption(
-                options,
-                PROJECT_INDEX_CONCURRENCY_INTERNAL_OPTION_NAME,
-                value
-            );
+            writeOption(options, PROJECT_INDEX_CONCURRENCY_INTERNAL_OPTION_NAME, value);
         },
         () => {}
     );
@@ -319,10 +278,7 @@ function resolveCoordinatorInputs(options, writeOption: any) {
     return { fsFacade, cacheMaxSizeBytes, projectIndexConcurrency };
 }
 
-async function resolveProjectRootContext(
-    options,
-    { fsFacade, initialProjectRoot }
-) {
+async function resolveProjectRootContext(options, { fsFacade, initialProjectRoot }) {
     if (initialProjectRoot) {
         return {
             projectRoot: initialProjectRoot,
@@ -340,10 +296,7 @@ async function resolveProjectRootContext(
         };
     }
 
-    const projectRoot = await findProjectRoot(
-        { filepath },
-        fsFacade ?? undefined
-    );
+    const projectRoot = await findProjectRoot({ filepath }, fsFacade ?? undefined);
 
     if (!projectRoot) {
         return {
@@ -360,12 +313,8 @@ async function resolveProjectRootContext(
     };
 }
 
-function resolveProjectIndexCoordinator(
-    options,
-    { fsFacade, cacheMaxSizeBytes }
-) {
-    const coordinatorOverride =
-        options.__identifierCaseProjectIndexCoordinator ?? null;
+function resolveProjectIndexCoordinator(options, { fsFacade, cacheMaxSizeBytes }) {
+    const coordinatorOverride = options.__identifierCaseProjectIndexCoordinator ?? null;
 
     const coordinatorOptions: any = { fsFacade: fsFacade ?? undefined };
     Core.withDefinedValue(
@@ -376,9 +325,7 @@ function resolveProjectIndexCoordinator(
         () => {}
     );
 
-    const coordinator =
-        coordinatorOverride ??
-        createProjectIndexCoordinator(coordinatorOptions);
+    const coordinator = coordinatorOverride ?? createProjectIndexCoordinator(coordinatorOptions);
 
     const dispose = coordinatorOverride
         ? () => {}
@@ -389,12 +336,7 @@ function resolveProjectIndexCoordinator(
     return { coordinator, dispose };
 }
 
-function finalizeBootstrapSuccess(
-    options,
-    ready,
-    { projectRoot, rootResolution, coordinator, dispose },
-    writeOption
-) {
+function finalizeBootstrapSuccess(options, ready, { projectRoot, rootResolution, coordinator, dispose }, writeOption) {
     const result = storeBootstrapResult(
         options,
         {
@@ -411,11 +353,7 @@ function finalizeBootstrapSuccess(
     );
 
     if (result.projectIndex) {
-        writeOption(
-            options,
-            "__identifierCaseProjectIndex",
-            result.projectIndex
-        );
+        writeOption(options, "__identifierCaseProjectIndex", result.projectIndex);
         writeOption(options, "__identifierCaseProjectRoot", projectRoot);
     }
 
@@ -448,21 +386,15 @@ export async function bootstrapProjectIndex(options, storeOption) {
     }
 
     if (shouldSkipProjectDiscovery(options)) {
-        return storeBootstrapResult(
-            options,
-            createSkipResult("discovery-disabled"),
-            writeOption
-        );
+        return storeBootstrapResult(options, createSkipResult("discovery-disabled"), writeOption);
     }
 
-    const { fsFacade, cacheMaxSizeBytes, projectIndexConcurrency } =
-        resolveCoordinatorInputs(options, writeOption);
+    const { fsFacade, cacheMaxSizeBytes, projectIndexConcurrency } = resolveCoordinatorInputs(options, writeOption);
 
-    const { projectRoot, rootResolution, skipResult } =
-        await resolveProjectRootContext(options, {
-            fsFacade,
-            initialProjectRoot
-        });
+    const { projectRoot, rootResolution, skipResult } = await resolveProjectRootContext(options, {
+        fsFacade,
+        initialProjectRoot
+    });
 
     if (skipResult) {
         try {
@@ -541,24 +473,10 @@ export function applyBootstrappedProjectIndex(options, storeOption) {
     const writeOption = getOptionWriter(storeOption);
 
     const bootstrapResult = options.__identifierCaseProjectIndexBootstrap;
-    if (
-        bootstrapResult?.projectIndex &&
-        !options.__identifierCaseProjectIndex
-    ) {
-        writeOption(
-            options,
-            "__identifierCaseProjectIndex",
-            bootstrapResult.projectIndex
-        );
-        if (
-            bootstrapResult.projectRoot &&
-            !options.__identifierCaseProjectRoot
-        ) {
-            writeOption(
-                options,
-                "__identifierCaseProjectRoot",
-                bootstrapResult.projectRoot
-            );
+    if (bootstrapResult?.projectIndex && !options.__identifierCaseProjectIndex) {
+        writeOption(options, "__identifierCaseProjectIndex", bootstrapResult.projectIndex);
+        if (bootstrapResult.projectRoot && !options.__identifierCaseProjectRoot) {
+            writeOption(options, "__identifierCaseProjectRoot", bootstrapResult.projectRoot);
         }
     }
 

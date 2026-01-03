@@ -28,11 +28,7 @@ function normalizeTokenText(tokenText) {
     return typeof tokenText === "string" ? tokenText : "";
 }
 
-function buildBoundary(
-    token: CommentToken | null | undefined,
-    key: string,
-    lineOffset = 0
-): CommentBoundary {
+function buildBoundary(token: CommentToken | null | undefined, key: string, lineOffset = 0): CommentBoundary {
     const rawLine = token?.line;
     const boundary: CommentBoundary = {
         line: typeof rawLine === "number" ? rawLine + lineOffset : rawLine,

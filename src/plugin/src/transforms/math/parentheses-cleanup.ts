@@ -57,21 +57,14 @@ export function cleanupMultiplicativeIdentityParentheses(
 
         if (Array.isArray(value)) {
             for (const element of value) {
-                cleanupMultiplicativeIdentityParentheses(
-                    element,
-                    context,
-                    node
-                );
+                cleanupMultiplicativeIdentityParentheses(element, context, node);
             }
         } else {
             cleanupMultiplicativeIdentityParentheses(value, context, node);
         }
     }
 
-    if (
-        node.type === BINARY_EXPRESSION &&
-        !attemptCondenseScalarProduct(node, context)
-    ) {
+    if (node.type === BINARY_EXPRESSION && !attemptCondenseScalarProduct(node, context)) {
         attemptCondenseSimpleScalarProduct(node, context);
     }
 }

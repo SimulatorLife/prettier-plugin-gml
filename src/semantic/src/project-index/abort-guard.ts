@@ -1,9 +1,7 @@
 import { Core } from "@gml-modules/core";
 
-export const PROJECT_ROOT_DISCOVERY_ABORT_MESSAGE =
-    "Project root discovery was aborted.";
-export const PROJECT_INDEX_BUILD_ABORT_MESSAGE =
-    "Project index build was aborted.";
+export const PROJECT_ROOT_DISCOVERY_ABORT_MESSAGE = "Project root discovery was aborted.";
+export const PROJECT_INDEX_BUILD_ABORT_MESSAGE = "Project index build was aborted.";
 
 type ProjectIndexAbortGuardConfig = {
     key?: string | number | symbol;
@@ -23,8 +21,7 @@ export function createProjectIndexAbortGuard(
     config: ProjectIndexAbortGuardConfig = {}
 ): ProjectIndexAbortGuard {
     const { message, fallbackMessage, key } = config;
-    const resolvedFallback =
-        fallbackMessage ?? message ?? PROJECT_INDEX_BUILD_ABORT_MESSAGE;
+    const resolvedFallback = fallbackMessage ?? message ?? PROJECT_INDEX_BUILD_ABORT_MESSAGE;
 
     const keyOption = key == null ? {} : { key };
 

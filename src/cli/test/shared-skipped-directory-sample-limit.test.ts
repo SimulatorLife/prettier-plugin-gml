@@ -17,22 +17,15 @@ void describe("skipped directory sample limit", () => {
     });
 
     void it("exposes the baseline default", () => {
-        assert.strictEqual(
-            getDefaultSkippedDirectorySampleLimit(),
-            DEFAULT_SKIPPED_DIRECTORY_SAMPLE_LIMIT
-        );
+        assert.strictEqual(getDefaultSkippedDirectorySampleLimit(), DEFAULT_SKIPPED_DIRECTORY_SAMPLE_LIMIT);
     });
 
     void it("returns the default when no value is provided", () => {
-        assert.strictEqual(
-            resolveSkippedDirectorySampleLimit(),
-            DEFAULT_SKIPPED_DIRECTORY_SAMPLE_LIMIT
-        );
+        assert.strictEqual(resolveSkippedDirectorySampleLimit(), DEFAULT_SKIPPED_DIRECTORY_SAMPLE_LIMIT);
     });
 
     void it("normalizes numeric inputs", () => {
-        const normalizedFromString =
-            resolveSkippedDirectorySampleLimit("  8  ");
+        const normalizedFromString = resolveSkippedDirectorySampleLimit("  8  ");
         assert.strictEqual(typeof normalizedFromString, "number");
         assert.strictEqual(normalizedFromString, 8);
 
@@ -58,10 +51,7 @@ void describe("skipped directory sample limit", () => {
         setDefaultSkippedDirectorySampleLimit(7);
         setDefaultSkippedDirectorySampleLimit(undefined);
 
-        assert.strictEqual(
-            getDefaultSkippedDirectorySampleLimit(),
-            DEFAULT_SKIPPED_DIRECTORY_SAMPLE_LIMIT
-        );
+        assert.strictEqual(getDefaultSkippedDirectorySampleLimit(), DEFAULT_SKIPPED_DIRECTORY_SAMPLE_LIMIT);
     });
 
     void it("applies the environment override for the default", () => {

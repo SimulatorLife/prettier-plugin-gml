@@ -26,25 +26,14 @@ void describe("numeric-assertions", () => {
         });
 
         void it("fails when values differ significantly", () => {
-            assert.throws(
-                () => assertApproximatelyEqual(1, 1.1),
-                /Expected 1 to be approximately equal to 1\.1/
-            );
+            assert.throws(() => assertApproximatelyEqual(1, 1.1), /Expected 1 to be approximately equal to 1\.1/);
 
-            assert.throws(
-                () => assertApproximatelyEqual(5, 6),
-                /Expected 5 to be approximately equal to 6/
-            );
+            assert.throws(() => assertApproximatelyEqual(5, 6), /Expected 5 to be approximately equal to 6/);
         });
 
         void it("supports custom error messages", () => {
             assert.throws(
-                () =>
-                    assertApproximatelyEqual(
-                        1,
-                        2,
-                        "Custom error: values should match"
-                    ),
+                () => assertApproximatelyEqual(1, 2, "Custom error: values should match"),
                 /Custom error: values should match/
             );
         });

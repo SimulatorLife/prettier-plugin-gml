@@ -9,11 +9,7 @@ void describe("status server health check endpoints", () => {
             // Query the health endpoint
             const response = await fetch(`${baseUrl}/health`);
 
-            assert.equal(
-                response.status,
-                200,
-                "Health endpoint should return 200"
-            );
+            assert.equal(response.status, 200, "Health endpoint should return 200");
             assert.equal(
                 response.headers.get("content-type"),
                 "application/json",
@@ -24,54 +20,22 @@ void describe("status server health check endpoints", () => {
 
             assert.ok("status" in data, "Health should include status field");
             assert.equal(data.status, "healthy", "Status should be 'healthy'");
-            assert.ok(
-                "timestamp" in data,
-                "Health should include timestamp field"
-            );
+            assert.ok("timestamp" in data, "Health should include timestamp field");
             assert.ok("uptime" in data, "Health should include uptime field");
             assert.ok("checks" in data, "Health should include checks field");
-            assert.ok(
-                "transpilation" in data.checks,
-                "Checks should include transpilation"
-            );
-            assert.ok(
-                "websocket" in data.checks,
-                "Checks should include websocket"
-            );
+            assert.ok("transpilation" in data.checks, "Checks should include transpilation");
+            assert.ok("websocket" in data.checks, "Checks should include websocket");
 
             // Verify transpilation check structure
-            assert.ok(
-                "status" in data.checks.transpilation,
-                "Transpilation check should include status"
-            );
-            assert.equal(
-                data.checks.transpilation.status,
-                "pass",
-                "Initial transpilation status should be 'pass'"
-            );
-            assert.ok(
-                "patchCount" in data.checks.transpilation,
-                "Transpilation check should include patchCount"
-            );
-            assert.ok(
-                "errorCount" in data.checks.transpilation,
-                "Transpilation check should include errorCount"
-            );
+            assert.ok("status" in data.checks.transpilation, "Transpilation check should include status");
+            assert.equal(data.checks.transpilation.status, "pass", "Initial transpilation status should be 'pass'");
+            assert.ok("patchCount" in data.checks.transpilation, "Transpilation check should include patchCount");
+            assert.ok("errorCount" in data.checks.transpilation, "Transpilation check should include errorCount");
 
             // Verify websocket check structure
-            assert.ok(
-                "status" in data.checks.websocket,
-                "WebSocket check should include status"
-            );
-            assert.equal(
-                data.checks.websocket.status,
-                "pass",
-                "WebSocket status should be 'pass'"
-            );
-            assert.ok(
-                "clients" in data.checks.websocket,
-                "WebSocket check should include clients count"
-            );
+            assert.ok("status" in data.checks.websocket, "WebSocket check should include status");
+            assert.equal(data.checks.websocket.status, "pass", "WebSocket status should be 'pass'");
+            assert.ok("clients" in data.checks.websocket, "WebSocket check should include clients count");
         });
     });
 
@@ -80,11 +44,7 @@ void describe("status server health check endpoints", () => {
             // Query the ping endpoint
             const response = await fetch(`${baseUrl}/ping`);
 
-            assert.equal(
-                response.status,
-                200,
-                "Ping endpoint should return 200"
-            );
+            assert.equal(response.status, 200, "Ping endpoint should return 200");
             assert.equal(
                 response.headers.get("content-type"),
                 "application/json",
@@ -95,14 +55,8 @@ void describe("status server health check endpoints", () => {
 
             assert.ok("status" in data, "Ping should include status field");
             assert.equal(data.status, "ok", "Ping status should be 'ok'");
-            assert.ok(
-                "timestamp" in data,
-                "Ping should include timestamp field"
-            );
-            assert.ok(
-                typeof data.timestamp === "number",
-                "Timestamp should be a number"
-            );
+            assert.ok("timestamp" in data, "Ping should include timestamp field");
+            assert.ok(typeof data.timestamp === "number", "Timestamp should be a number");
         });
     });
 
@@ -111,11 +65,7 @@ void describe("status server health check endpoints", () => {
             // Query the ready endpoint
             const response = await fetch(`${baseUrl}/ready`);
 
-            assert.equal(
-                response.status,
-                200,
-                "Ready endpoint should return 200 when ready"
-            );
+            assert.equal(response.status, 200, "Ready endpoint should return 200 when ready");
             assert.equal(
                 response.headers.get("content-type"),
                 "application/json",
@@ -124,19 +74,9 @@ void describe("status server health check endpoints", () => {
 
             const data = await response.json();
 
-            assert.ok(
-                "ready" in data,
-                "Ready response should include ready field"
-            );
-            assert.equal(
-                data.ready,
-                true,
-                "Server should be ready with no errors"
-            );
-            assert.ok(
-                "timestamp" in data,
-                "Ready response should include timestamp"
-            );
+            assert.ok("ready" in data, "Ready response should include ready field");
+            assert.equal(data.ready, true, "Server should be ready with no errors");
+            assert.ok("timestamp" in data, "Ready response should include timestamp");
             assert.ok("uptime" in data, "Ready response should include uptime");
         });
     });
@@ -146,38 +86,16 @@ void describe("status server health check endpoints", () => {
             // Query an unsupported endpoint
             const response = await fetch(`${baseUrl}/unsupported`);
 
-            assert.equal(
-                response.status,
-                404,
-                "Unsupported endpoint should return 404"
-            );
+            assert.equal(response.status, 404, "Unsupported endpoint should return 404");
 
             const data = await response.json();
 
-            assert.ok(
-                "error" in data,
-                "404 response should include error field"
-            );
-            assert.ok(
-                "message" in data,
-                "404 response should include message field"
-            );
-            assert.ok(
-                data.message.includes("/status"),
-                "Message should list /status endpoint"
-            );
-            assert.ok(
-                data.message.includes("/health"),
-                "Message should list /health endpoint"
-            );
-            assert.ok(
-                data.message.includes("/ping"),
-                "Message should list /ping endpoint"
-            );
-            assert.ok(
-                data.message.includes("/ready"),
-                "Message should list /ready endpoint"
-            );
+            assert.ok("error" in data, "404 response should include error field");
+            assert.ok("message" in data, "404 response should include message field");
+            assert.ok(data.message.includes("/status"), "Message should list /status endpoint");
+            assert.ok(data.message.includes("/health"), "Message should list /health endpoint");
+            assert.ok(data.message.includes("/ping"), "Message should list /ping endpoint");
+            assert.ok(data.message.includes("/ready"), "Message should list /ready endpoint");
         });
     });
 
@@ -188,11 +106,7 @@ void describe("status server health check endpoints", () => {
                 method: "POST"
             });
 
-            assert.equal(
-                response.status,
-                404,
-                "POST request should return 404"
-            );
+            assert.equal(response.status, 404, "POST request should return 404");
         });
     });
 

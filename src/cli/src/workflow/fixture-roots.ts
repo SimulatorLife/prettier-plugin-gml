@@ -22,9 +22,7 @@ export function normalizeFixtureRoots(
     const pathFilter = createPathFilter(filterOptions);
     const candidates = [
         ...DEFAULT_FIXTURE_DIRECTORIES,
-        ...(Array.isArray(additionalRoots)
-            ? additionalRoots
-            : toArray(additionalRoots))
+        ...(Array.isArray(additionalRoots) ? additionalRoots : toArray(additionalRoots))
     ];
 
     const resolved = [];

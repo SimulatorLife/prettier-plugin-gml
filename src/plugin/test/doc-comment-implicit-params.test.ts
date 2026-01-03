@@ -4,10 +4,7 @@ import { test } from "node:test";
 
 // Use Plugin.format to run the plugin directly during tests
 
-function extractDocsForFunction(
-    formatted: string,
-    functionName: string
-): Set<string> {
+function extractDocsForFunction(formatted: string, functionName: string): Set<string> {
     const functionStart = formatted.indexOf(`function ${functionName}`);
     if (functionStart === -1) return new Set();
 
@@ -28,10 +25,7 @@ function extractDocsForFunction(
     return new Set(docLines);
 }
 
-function extractDocLinesForFunction(
-    formatted: string,
-    functionName: string
-): string[] {
+function extractDocLinesForFunction(formatted: string, functionName: string): string[] {
     const functionStart = formatted.indexOf(`function ${functionName}`);
     if (functionStart === -1) return [];
 
@@ -92,21 +86,12 @@ void test("collectImplicitArgumentDocNames omits superseded argument docs", asyn
     });
     const sample2Doc = extractDocsForFunction(formatted, "sample2");
 
-    assert.ok(
-        sample2Doc.has("/// @param two"),
-        "Expected synthetic doc comments to include alias doc line."
-    );
-    assert.ok(
-        !sample2Doc.has("/// @param argument2"),
-        "Expected stale argument doc entry to be removed."
-    );
+    assert.ok(sample2Doc.has("/// @param two"), "Expected synthetic doc comments to include alias doc line.");
+    assert.ok(!sample2Doc.has("/// @param argument2"), "Expected stale argument doc entry to be removed.");
 
     const sample3Doc = extractDocsForFunction(formatted, "sample3");
 
-    assert.ok(
-        sample3Doc.has("/// @param two"),
-        "Expected alias doc line to remain when implicit references coexist."
-    );
+    assert.ok(sample3Doc.has("/// @param two"), "Expected alias doc line to remain when implicit references coexist.");
     assert.ok(
         sample3Doc.has("/// @param argument3"),
         "Expected direct argument doc entry to be preserved when referenced."
@@ -126,15 +111,11 @@ void test("collectImplicitArgumentDocNames prefers alias docs without Feather fi
         applyFeatherFixes: false
     });
 
-    const paramLines = extractDocLinesForFunction(
-        formatted,
-        "sampleAlias"
-    ).filter((line) => line.startsWith("/// @param"));
+    const paramLines = extractDocLinesForFunction(formatted, "sampleAlias").filter((line) =>
+        line.startsWith("/// @param")
+    );
 
-    assert.deepStrictEqual(paramLines, [
-        "/// @param first",
-        "/// @param second"
-    ]);
+    assert.deepStrictEqual(paramLines, ["/// @param first", "/// @param second"]);
 });
 
 const EXISTING_DOC_SOURCE = `/// @function sampleExisting
@@ -152,15 +133,10 @@ void test("collectImplicitArgumentDocNames reuses documented names when alias is
     const formatted = await Plugin.format(EXISTING_DOC_SOURCE);
 
     const paramLines = new Set(
-        extractDocLinesForFunction(formatted, "sampleExisting").filter((line) =>
-            line.startsWith("/// @param")
-        )
+        extractDocLinesForFunction(formatted, "sampleExisting").filter((line) => line.startsWith("/// @param"))
     );
 
-    assert.ok(
-        paramLines.has("/// @param third"),
-        "Expected existing doc metadata to be preserved."
-    );
+    assert.ok(paramLines.has("/// @param third"), "Expected existing doc metadata to be preserved.");
     assert.ok(
         !paramLines.has("/// @param argument2"),
         "Expected fallback doc line to be skipped when already documented."

@@ -7,14 +7,8 @@ import { pathToFileURL } from "node:url";
 import { Core } from "@gml-modules/core";
 import { resolveFromRepoRoot } from "../shared/workspace-paths.js";
 
-const {
-    compactArray,
-    createListSplitPattern,
-    getNonEmptyTrimmedString,
-    normalizeStringList,
-    toArray,
-    uniqueArray
-} = Core;
+const { compactArray, createListSplitPattern, getNonEmptyTrimmedString, normalizeStringList, toArray, uniqueArray } =
+    Core;
 
 // Default plugin entry points shipped within the workspace. Additional
 // candidates can be provided via environment variables or call-site overrides.
@@ -27,9 +21,7 @@ const DEFAULT_CANDIDATE_PLUGIN_PATHS = Object.freeze([
     ["src", "plugin", "index.js"]
 ]);
 
-const LIST_SPLIT_PATTERN = createListSplitPattern(
-    compactArray([",", path.delimiter])
-);
+const LIST_SPLIT_PATTERN = createListSplitPattern(compactArray([",", path.delimiter]));
 
 // Normalize caller-provided options so destructuring guards against
 // `null`/primitive inputs instead of throwing TypeError when accessing
@@ -44,10 +36,7 @@ function expandLeadingTilde(candidate) {
     }
 
     const nextCharacter = candidate[1];
-    const hasExplicitHomeReference =
-        nextCharacter === undefined ||
-        nextCharacter === "/" ||
-        nextCharacter === "\\";
+    const hasExplicitHomeReference = nextCharacter === undefined || nextCharacter === "/" || nextCharacter === "\\";
 
     if (!hasExplicitHomeReference) {
         return candidate;
@@ -73,9 +62,7 @@ function expandLeadingTilde(candidate) {
 }
 
 function getEnvironmentCandidates(env) {
-    const rawValue =
-        env?.PRETTIER_PLUGIN_GML_PLUGIN_PATHS ??
-        env?.PRETTIER_PLUGIN_GML_PLUGIN_PATH;
+    const rawValue = env?.PRETTIER_PLUGIN_GML_PLUGIN_PATHS ?? env?.PRETTIER_PLUGIN_GML_PLUGIN_PATH;
 
     const trimmed = getNonEmptyTrimmedString(rawValue);
     if (!trimmed) {
@@ -123,11 +110,7 @@ function resolveCandidatePath(candidate) {
  */
 function collectCandidateInputs(options = {}) {
     const { env, candidates } = normalizeOptionsBag(options);
-    return [
-        ...toArray(candidates),
-        ...getEnvironmentCandidates(env),
-        ...DEFAULT_CANDIDATE_PLUGIN_PATHS
-    ];
+    return [...toArray(candidates), ...getEnvironmentCandidates(env), ...DEFAULT_CANDIDATE_PLUGIN_PATHS];
 }
 
 /**
@@ -137,9 +120,7 @@ function collectCandidateInputs(options = {}) {
  * abstraction level.
  */
 function normalizeCandidatePaths(candidateInputs) {
-    const resolvedCandidates = compactArray(
-        candidateInputs.map((candidate) => resolveCandidatePath(candidate))
-    );
+    const resolvedCandidates = compactArray(candidateInputs.map((candidate) => resolveCandidatePath(candidate)));
 
     return uniqueArray(resolvedCandidates);
 }
@@ -170,9 +151,7 @@ function findFirstExistingPath(candidates) {
 
 function createMissingEntryPointError(resolvedCandidates) {
     return new Error(
-        `Unable to locate the Prettier plugin entry point. Expected one of: ${resolvedCandidates.join(
-            ", "
-        )}`
+        `Unable to locate the Prettier plugin entry point. Expected one of: ${resolvedCandidates.join(", ")}`
     );
 }
 

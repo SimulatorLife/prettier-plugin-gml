@@ -160,10 +160,7 @@ export interface ShadowTestResult {
 export interface PatchApplicator {
     applyPatch(patch: unknown): ApplyPatchResult;
     applyPatchBatch(patches: Array<unknown>): BatchApplyResult;
-    trySafeApply(
-        patch: unknown,
-        onValidate?: (patch: Patch) => boolean | void
-    ): TrySafeApplyResult;
+    trySafeApply(patch: unknown, onValidate?: (patch: Patch) => boolean | void): TrySafeApplyResult;
 }
 
 /**

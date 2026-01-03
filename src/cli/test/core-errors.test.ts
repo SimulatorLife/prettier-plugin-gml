@@ -43,9 +43,7 @@ void describe("cli error formatting", () => {
             handleCliError(error, { prefix: "Failed." });
         });
 
-        assert.deepEqual(logged, [
-            "Missing project path\n\nUsage: prettier-wrapper [options] <path>"
-        ]);
+        assert.deepEqual(logged, ["Missing project path\n\nUsage: prettier-wrapper [options] <path>"]);
         assert.deepEqual(exitCodes, [1]);
     });
 

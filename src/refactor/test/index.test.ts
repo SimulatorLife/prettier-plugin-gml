@@ -12,11 +12,7 @@ import {
     type WorkspaceWriteFile
 } from "../index.js";
 
-const {
-    RefactorEngine: RefactorEngineClass,
-    WorkspaceEdit: WorkspaceEditFactory,
-    createRefactorEngine
-} = Refactor;
+const { RefactorEngine: RefactorEngineClass, WorkspaceEdit: WorkspaceEditFactory, createRefactorEngine } = Refactor;
 
 void test("createRefactorEngine returns a RefactorEngine", () => {
     const engine = createRefactorEngine();
@@ -175,9 +171,7 @@ void test("planRename rejects invalid identifier characters", async () => {
 void test("planRename rejects renaming to the existing name", async () => {
     const mockSemantic = {
         hasSymbol: () => true,
-        getSymbolOccurrences: () => [
-            { path: "test.gml", start: 0, end: 5, scopeId: "scope-1" }
-        ]
+        getSymbolOccurrences: () => [{ path: "test.gml", start: 0, end: 5, scopeId: "scope-1" }]
     };
     const engine = new RefactorEngineClass({ semantic: mockSemantic });
 
@@ -214,9 +208,7 @@ void test("planRename checks symbol existence with semantic analyzer", async () 
 void test("planRename detects reserved keyword conflicts", async () => {
     const mockSemantic = {
         hasSymbol: () => true,
-        getSymbolOccurrences: () => [
-            { path: "test.gml", start: 0, end: 10, scopeId: "scope-1" }
-        ]
+        getSymbolOccurrences: () => [{ path: "test.gml", start: 0, end: 10, scopeId: "scope-1" }]
     };
     const engine = new RefactorEngineClass({ semantic: mockSemantic });
 
@@ -395,12 +387,8 @@ void test("prepareHotReloadUpdates includes transitive dependents from cascade",
 
     const updates = await engine.prepareHotReloadUpdates(ws);
 
-    const childUpdate = updates.find(
-        (update) => update.symbolId === "gml/script/scr_child"
-    );
-    const grandchildUpdate = updates.find(
-        (update) => update.symbolId === "gml/script/scr_grandchild"
-    );
+    const childUpdate = updates.find((update) => update.symbolId === "gml/script/scr_child");
+    const grandchildUpdate = updates.find((update) => update.symbolId === "gml/script/scr_grandchild");
 
     assert.ok(childUpdate);
     assert.equal(childUpdate?.action, "notify");
@@ -447,9 +435,7 @@ void test("applyWorkspaceEdit requires a WorkspaceEdit", async () => {
 void test("applyWorkspaceEdit requires readFile function", async () => {
     const engine = new RefactorEngineClass();
     const ws = WorkspaceEditFactory();
-    type ApplyWorkspaceEditParams = Parameters<
-        RefactorEngine["applyWorkspaceEdit"]
-    >[1];
+    type ApplyWorkspaceEditParams = Parameters<RefactorEngine["applyWorkspaceEdit"]>[1];
     const invalidOptions = {} as ApplyWorkspaceEditParams;
     await assert.rejects(() => engine.applyWorkspaceEdit(ws, invalidOptions), {
         name: "TypeError",
@@ -523,12 +509,9 @@ void test("applyWorkspaceEdit rejects invalid edits", async () => {
 
     const readFile: WorkspaceReadFile = async () => "some text here";
 
-    await assert.rejects(
-        () => engine.applyWorkspaceEdit(ws, { readFile, dryRun: true }),
-        {
-            message: /Overlapping edits/
-        }
-    );
+    await assert.rejects(() => engine.applyWorkspaceEdit(ws, { readFile, dryRun: true }), {
+        message: /Overlapping edits/
+    });
 });
 
 void test("executeRename validates required parameters", async () => {
@@ -606,9 +589,7 @@ void test("executeRename rejects invalid planned edits", async () => {
 void test("executeRename prepares hot reload updates when requested", async () => {
     const mockSemantic: SemanticAnalyzer = {
         hasSymbol: () => true,
-        getSymbolOccurrences: () => [
-            { path: "test.gml", start: 0, end: 5, scopeId: "scope-1" }
-        ],
+        getSymbolOccurrences: () => [{ path: "test.gml", start: 0, end: 5, scopeId: "scope-1" }],
         getFileSymbols: () => [{ id: "gml/script/scr_test" }]
     };
     const engine = new RefactorEngineClass({ semantic: mockSemantic });
@@ -675,11 +656,7 @@ void test("prepareRenamePlan aggregates planning, validation, and analysis", asy
     assert.equal(result.hotReload, null);
     assert.equal(result.analysis.valid, true);
     assert.equal(result.analysis.summary.newName, "scr_player_new");
-    assert.ok(
-        result.analysis.summary.dependentSymbols.includes(
-            "gml/script/scr_helper"
-        )
-    );
+    assert.ok(result.analysis.summary.dependentSymbols.includes("gml/script/scr_helper"));
 });
 
 void test("prepareRenamePlan optionally validates hot reload compatibility", async () => {
@@ -717,9 +694,7 @@ void test("prepareRenamePlan optionally validates hot reload compatibility", asy
     assert.ok(result.hotReload);
     assert.equal(result.hotReload.valid, true);
     assert.ok(
-        result.hotReload.warnings.some((warning) =>
-            warning.includes("Transpiler compatibility check requested")
-        )
+        result.hotReload.warnings.some((warning) => warning.includes("Transpiler compatibility check requested"))
     );
 });
 
@@ -751,9 +726,7 @@ void test("prepareRenamePlan surfaces hot reload safety for macro renames", asyn
     assert.equal(result.hotReload.valid, false);
     assert.ok(
         result.hotReload.warnings.some((warning) =>
-            warning.includes(
-                "Macro/enum renames require dependent script recompilation"
-            )
+            warning.includes("Macro/enum renames require dependent script recompilation")
         )
     );
     assert.ok(result.hotReload.hotReload);
@@ -763,11 +736,7 @@ void test("prepareRenamePlan surfaces hot reload safety for macro renames", asyn
 void test("generateTranspilerPatches requires array parameter", async () => {
     const engine = new RefactorEngineClass();
     await assert.rejects(
-        () =>
-            engine.generateTranspilerPatches(
-                null as unknown as Array<HotReloadUpdate>,
-                async () => ""
-            ),
+        () => engine.generateTranspilerPatches(null as unknown as Array<HotReloadUpdate>, async () => ""),
         {
             name: "TypeError",
             message: /requires an array/
@@ -777,13 +746,10 @@ void test("generateTranspilerPatches requires array parameter", async () => {
 
 void test("generateTranspilerPatches requires readFile function", async () => {
     const engine = new RefactorEngineClass();
-    await assert.rejects(
-        () => engine.generateTranspilerPatches([], null as unknown as never),
-        {
-            name: "TypeError",
-            message: /requires a readFile function/
-        }
-    );
+    await assert.rejects(() => engine.generateTranspilerPatches([], null as unknown as never), {
+        name: "TypeError",
+        message: /requires a readFile function/
+    });
 });
 
 void test("generateTranspilerPatches creates basic patches without transpiler", async () => {
@@ -797,8 +763,7 @@ void test("generateTranspilerPatches creates basic patches without transpiler", 
         }
     ];
 
-    const readFile: WorkspaceReadFile = async () =>
-        "function void test() { return 42; }";
+    const readFile: WorkspaceReadFile = async () => "function void test() { return 42; }";
     const patches = await engine.generateTranspilerPatches(updates, readFile);
 
     assert.equal(patches.length, 1);
@@ -846,8 +811,7 @@ void test("generateTranspilerPatches uses transpiler when available", async () =
         }
     ];
 
-    const readFile: WorkspaceReadFile = async () =>
-        "function void test() { return 42; }";
+    const readFile: WorkspaceReadFile = async () => "function void test() { return 42; }";
     const patches = await engine.generateTranspilerPatches(updates, readFile);
 
     assert.equal(patches.length, 1);
@@ -891,13 +855,10 @@ void test("generateTranspilerPatches continues on individual errors", async () =
 // Batch rename tests
 void test("planBatchRename requires an array", async () => {
     const engine = new RefactorEngineClass();
-    await assert.rejects(
-        () => engine.planBatchRename(null as unknown as Array<RenameRequest>),
-        {
-            name: "TypeError",
-            message: /requires an array/
-        }
-    );
+    await assert.rejects(() => engine.planBatchRename(null as unknown as Array<RenameRequest>), {
+        name: "TypeError",
+        message: /requires an array/
+    });
 });
 
 void test("planBatchRename requires at least one rename", async () => {
@@ -910,10 +871,7 @@ void test("planBatchRename requires at least one rename", async () => {
 void test("planBatchRename validates each rename request", async () => {
     const engine = new RefactorEngineClass();
     await assert.rejects(
-        () =>
-            engine.planBatchRename([
-                { symbolId: "gml/script/foo" }
-            ] as unknown as Array<RenameRequest>),
+        () => engine.planBatchRename([{ symbolId: "gml/script/foo" }] as unknown as Array<RenameRequest>),
         {
             name: "TypeError",
             message: /requires symbolId and newName/
@@ -945,14 +903,10 @@ void test("planBatchRename combines multiple renames", async () => {
         hasSymbol: () => true,
         getSymbolOccurrences: (name) => {
             if (name === "scr_a") {
-                return [
-                    { path: "test.gml", start: 0, end: 5, scopeId: "scope-1" }
-                ];
+                return [{ path: "test.gml", start: 0, end: 5, scopeId: "scope-1" }];
             }
             if (name === "scr_b") {
-                return [
-                    { path: "test.gml", start: 20, end: 25, scopeId: "scope-1" }
-                ];
+                return [{ path: "test.gml", start: 20, end: 25, scopeId: "scope-1" }];
             }
             return [];
         }
@@ -978,14 +932,10 @@ void test("planBatchRename validates merged edits for overlaps", async () => {
         getSymbolOccurrences: (name) => {
             // Create overlapping ranges
             if (name === "scr_a") {
-                return [
-                    { path: "test.gml", start: 0, end: 10, scopeId: "scope-1" }
-                ];
+                return [{ path: "test.gml", start: 0, end: 10, scopeId: "scope-1" }];
             }
             if (name === "scr_b") {
-                return [
-                    { path: "test.gml", start: 5, end: 15, scopeId: "scope-1" }
-                ];
+                return [{ path: "test.gml", start: 5, end: 15, scopeId: "scope-1" }];
             }
             return [];
         }
@@ -1128,9 +1078,7 @@ void test("planBatchRename allows independent renames without cycles", async () 
 
 void test("executeBatchRename validates required parameters", async () => {
     const engine = new RefactorEngineClass();
-    type ExecuteBatchRenameArgs = Parameters<
-        RefactorEngine["executeBatchRename"]
-    >[0];
+    type ExecuteBatchRenameArgs = Parameters<RefactorEngine["executeBatchRename"]>[0];
     const invalidRequest = {} as ExecuteBatchRenameArgs;
     await assert.rejects(() => engine.executeBatchRename(invalidRequest), {
         name: "TypeError",
@@ -1143,14 +1091,10 @@ void test("executeBatchRename performs complete batch rename workflow", async ()
         hasSymbol: () => true,
         getSymbolOccurrences: (name) => {
             if (name === "scr_a") {
-                return [
-                    { path: "test.gml", start: 0, end: 5, scopeId: "scope-1" }
-                ];
+                return [{ path: "test.gml", start: 0, end: 5, scopeId: "scope-1" }];
             }
             if (name === "scr_b") {
-                return [
-                    { path: "test.gml", start: 16, end: 21, scopeId: "scope-1" }
-                ];
+                return [{ path: "test.gml", start: 16, end: 21, scopeId: "scope-1" }];
             }
             return [];
         }
@@ -1185,9 +1129,7 @@ void test("executeBatchRename prepares hot reload when requested", async () => {
         hasSymbol: () => true,
         getSymbolOccurrences: (name) => {
             if (name === "scr_a") {
-                return [
-                    { path: "test.gml", start: 0, end: 5, scopeId: "scope-1" }
-                ];
+                return [{ path: "test.gml", start: 0, end: 5, scopeId: "scope-1" }];
             }
             return [];
         },
@@ -1290,9 +1232,7 @@ void test("analyzeRenameImpact provides comprehensive summary", async () => {
 void test("analyzeRenameImpact detects reserved keyword conflicts", async () => {
     const mockSemantic = {
         hasSymbol: () => true,
-        getSymbolOccurrences: () => [
-            { path: "test.gml", start: 0, end: 10, scopeId: "scope-1" }
-        ]
+        getSymbolOccurrences: () => [{ path: "test.gml", start: 0, end: 10, scopeId: "scope-1" }]
     };
     const engine = new RefactorEngineClass({ semantic: mockSemantic });
 
@@ -1337,9 +1277,7 @@ void test("analyzeRenameImpact warns about large renames", async () => {
 void test("analyzeRenameImpact tracks dependent symbols", async () => {
     const mockSemantic = {
         hasSymbol: () => true,
-        getSymbolOccurrences: () => [
-            { path: "test.gml", start: 0, end: 10, scopeId: "scope-1" }
-        ],
+        getSymbolOccurrences: () => [{ path: "test.gml", start: 0, end: 10, scopeId: "scope-1" }],
         getDependents: async () => [
             {
                 symbolId: "gml/script/scr_dependent1",
@@ -1360,12 +1298,8 @@ void test("analyzeRenameImpact tracks dependent symbols", async () => {
 
     assert.equal(result.valid, true);
     assert.equal(result.summary.dependentSymbols.length, 2);
-    assert.ok(
-        result.summary.dependentSymbols.includes("gml/script/scr_dependent1")
-    );
-    assert.ok(
-        result.summary.dependentSymbols.includes("gml/script/scr_dependent2")
-    );
+    assert.ok(result.summary.dependentSymbols.includes("gml/script/scr_dependent1"));
+    assert.ok(result.summary.dependentSymbols.includes("gml/script/scr_dependent2"));
 });
 
 void test("analyzeRenameImpact handles errors gracefully", async () => {
@@ -1455,9 +1389,7 @@ void test("validateHotReloadCompatibility handles transpiler check option", asyn
         checkTranspiler: true
     });
     assert.equal(result.valid, true);
-    assert.ok(
-        result.warnings.some((w) => w.includes("Transpiler compatibility"))
-    );
+    assert.ok(result.warnings.some((w) => w.includes("Transpiler compatibility")));
 });
 
 void test("validateHotReloadCompatibility passes for simple renames", async () => {
@@ -1499,9 +1431,7 @@ void test("computeHotReloadCascade handles single symbol with no dependents", as
     };
     const engine = new RefactorEngineClass({ semantic: mockSemantic });
 
-    const result = await engine.computeHotReloadCascade([
-        "gml/script/scr_leaf"
-    ]);
+    const result = await engine.computeHotReloadCascade(["gml/script/scr_leaf"]);
 
     assert.equal(result.cascade.length, 1);
     assert.equal(result.cascade[0].symbolId, "gml/script/scr_leaf");
@@ -1531,9 +1461,7 @@ void test("computeHotReloadCascade computes single-level dependencies", async ()
     };
     const engine = new RefactorEngineClass({ semantic: mockSemantic });
 
-    const result = await engine.computeHotReloadCascade([
-        "gml/script/scr_base"
-    ]);
+    const result = await engine.computeHotReloadCascade(["gml/script/scr_base"]);
 
     assert.equal(result.cascade.length, 3);
     assert.equal(result.metadata.totalSymbols, 3);
@@ -1575,26 +1503,16 @@ void test("computeHotReloadCascade computes multi-level transitive closure", asy
     };
     const engine = new RefactorEngineClass({ semantic: mockSemantic });
 
-    const result = await engine.computeHotReloadCascade([
-        "gml/script/scr_root"
-    ]);
+    const result = await engine.computeHotReloadCascade(["gml/script/scr_root"]);
 
     assert.equal(result.cascade.length, 4); // root + middle + 2 leaves
     assert.equal(result.metadata.maxDistance, 2);
 
     // Verify distances
-    const root = result.cascade.find(
-        (c) => c.symbolId === "gml/script/scr_root"
-    );
-    const middle = result.cascade.find(
-        (c) => c.symbolId === "gml/script/scr_middle"
-    );
-    const leaf1 = result.cascade.find(
-        (c) => c.symbolId === "gml/script/scr_leaf1"
-    );
-    const leaf2 = result.cascade.find(
-        (c) => c.symbolId === "gml/script/scr_leaf2"
-    );
+    const root = result.cascade.find((c) => c.symbolId === "gml/script/scr_root");
+    const middle = result.cascade.find((c) => c.symbolId === "gml/script/scr_middle");
+    const leaf1 = result.cascade.find((c) => c.symbolId === "gml/script/scr_leaf1");
+    const leaf2 = result.cascade.find((c) => c.symbolId === "gml/script/scr_leaf2");
 
     assert.equal(root.distance, 0);
     assert.equal(middle.distance, 1);
@@ -1668,23 +1586,16 @@ void test("computeHotReloadCascade handles multiple changed symbols", async () =
     };
     const engine = new RefactorEngineClass({ semantic: mockSemantic });
 
-    const result = await engine.computeHotReloadCascade([
-        "gml/script/scr_a",
-        "gml/script/scr_b"
-    ]);
+    const result = await engine.computeHotReloadCascade(["gml/script/scr_a", "gml/script/scr_b"]);
 
     // Should include both roots and the shared dependent (only once)
     assert.equal(result.cascade.length, 3);
     assert.ok(result.cascade.some((c) => c.symbolId === "gml/script/scr_a"));
     assert.ok(result.cascade.some((c) => c.symbolId === "gml/script/scr_b"));
-    assert.ok(
-        result.cascade.some((c) => c.symbolId === "gml/script/scr_shared")
-    );
+    assert.ok(result.cascade.some((c) => c.symbolId === "gml/script/scr_shared"));
 
     // Shared dependent should be at distance 1
-    const shared = result.cascade.find(
-        (c) => c.symbolId === "gml/script/scr_shared"
-    );
+    const shared = result.cascade.find((c) => c.symbolId === "gml/script/scr_shared");
     assert.equal(shared.distance, 1);
 });
 
@@ -1764,17 +1675,13 @@ void test("computeHotReloadCascade handles diamond dependencies", async () => {
     };
     const engine = new RefactorEngineClass({ semantic: mockSemantic });
 
-    const result = await engine.computeHotReloadCascade([
-        "gml/script/scr_root"
-    ]);
+    const result = await engine.computeHotReloadCascade(["gml/script/scr_root"]);
 
     // Should include all 4 symbols
     assert.equal(result.cascade.length, 4);
 
     // Bottom should appear only once despite multiple paths
-    const bottomOccurrences = result.cascade.filter(
-        (c) => c.symbolId === "gml/script/scr_bottom"
-    );
+    const bottomOccurrences = result.cascade.filter((c) => c.symbolId === "gml/script/scr_bottom");
     assert.equal(bottomOccurrences.length, 1);
 
     // Root should come before left and right
@@ -1805,13 +1712,9 @@ void test("computeHotReloadCascade provides reason metadata", async () => {
     };
     const engine = new RefactorEngineClass({ semantic: mockSemantic });
 
-    const result = await engine.computeHotReloadCascade([
-        "gml/script/scr_base"
-    ]);
+    const result = await engine.computeHotReloadCascade(["gml/script/scr_base"]);
 
-    const base = result.cascade.find(
-        (c) => c.symbolId === "gml/script/scr_base"
-    );
+    const base = result.cascade.find((c) => c.symbolId === "gml/script/scr_base");
     const dep = result.cascade.find((c) => c.symbolId === "gml/script/scr_dep");
 
     assert.equal(base.reason, "direct change");
@@ -1822,9 +1725,7 @@ void test("computeHotReloadCascade provides reason metadata", async () => {
 void test("computeHotReloadCascade works without semantic analyzer", async () => {
     const engine = new RefactorEngineClass(); // No semantic analyzer
 
-    const result = await engine.computeHotReloadCascade([
-        "gml/script/scr_test"
-    ]);
+    const result = await engine.computeHotReloadCascade(["gml/script/scr_test"]);
 
     // Should only include the changed symbol, no dependents
     assert.equal(result.cascade.length, 1);
@@ -1924,9 +1825,7 @@ void test("checkHotReloadSafety rejects same-name renames", async () => {
 void test("checkHotReloadSafety rejects reserved keywords", async () => {
     const mockSemantic = {
         hasSymbol: () => true,
-        getSymbolOccurrences: (name) => [
-            { path: "test.gml", start: 0, end: name.length, scopeId: "scope-1" }
-        ],
+        getSymbolOccurrences: (name) => [{ path: "test.gml", start: 0, end: name.length, scopeId: "scope-1" }],
         getReservedKeywords: () => ["if", "else", "while", "for", "function"]
     };
     const engine = new RefactorEngineClass({ semantic: mockSemantic });
@@ -1945,9 +1844,7 @@ void test("checkHotReloadSafety rejects reserved keywords", async () => {
 void test("checkHotReloadSafety handles shadowing conflicts", async () => {
     const mockSemantic = {
         hasSymbol: () => true,
-        getSymbolOccurrences: (name) => [
-            { path: "test.gml", start: 0, end: name.length, scopeId: "scope-1" }
-        ],
+        getSymbolOccurrences: (name) => [{ path: "test.gml", start: 0, end: name.length, scopeId: "scope-1" }],
         lookup: (name, scopeId) => {
             // Simulate existing binding for newName that isn't the symbol we're renaming
             if (name === "existing" && scopeId === "scope-1") {
@@ -1973,9 +1870,7 @@ void test("checkHotReloadSafety handles shadowing conflicts", async () => {
 void test("checkHotReloadSafety approves script renames", async () => {
     const mockSemantic = {
         hasSymbol: () => true,
-        getSymbolOccurrences: () => [
-            { path: "test.gml", start: 0, end: 8, scopeId: "scope-1" }
-        ]
+        getSymbolOccurrences: () => [{ path: "test.gml", start: 0, end: 8, scopeId: "scope-1" }]
     };
     const engine = new RefactorEngineClass({ semantic: mockSemantic });
 
@@ -1994,9 +1889,7 @@ void test("checkHotReloadSafety approves script renames", async () => {
 void test("checkHotReloadSafety approves instance variable renames", async () => {
     const mockSemantic = {
         hasSymbol: () => true,
-        getSymbolOccurrences: () => [
-            { path: "test.gml", start: 0, end: 2, scopeId: "scope-1" }
-        ]
+        getSymbolOccurrences: () => [{ path: "test.gml", start: 0, end: 2, scopeId: "scope-1" }]
     };
     const engine = new RefactorEngineClass({ semantic: mockSemantic });
 
@@ -2009,17 +1902,13 @@ void test("checkHotReloadSafety approves instance variable renames", async () =>
     assert.ok(result.reason.includes("Instance variable"));
     assert.ok(result.reason.includes("hot-reload-safe"));
     assert.equal(result.requiresRestart, false);
-    assert.ok(
-        result.suggestions.some((s) => s.includes("scope qualification"))
-    );
+    assert.ok(result.suggestions.some((s) => s.includes("scope qualification")));
 });
 
 void test("checkHotReloadSafety approves global variable renames", async () => {
     const mockSemantic = {
         hasSymbol: () => true,
-        getSymbolOccurrences: () => [
-            { path: "test.gml", start: 0, end: 10, scopeId: "scope-1" }
-        ]
+        getSymbolOccurrences: () => [{ path: "test.gml", start: 0, end: 10, scopeId: "scope-1" }]
     };
     const engine = new RefactorEngineClass({ semantic: mockSemantic });
 
@@ -2055,9 +1944,7 @@ void test("checkHotReloadSafety approves event renames", async () => {
 void test("checkHotReloadSafety flags macro renames as requiring recompilation", async () => {
     const mockSemantic = {
         hasSymbol: () => true,
-        getSymbolOccurrences: () => [
-            { path: "test.gml", start: 0, end: 6, scopeId: "scope-1" }
-        ]
+        getSymbolOccurrences: () => [{ path: "test.gml", start: 0, end: 6, scopeId: "scope-1" }]
     };
     const engine = new RefactorEngineClass({ semantic: mockSemantic });
 
@@ -2076,9 +1963,7 @@ void test("checkHotReloadSafety flags macro renames as requiring recompilation",
 void test("checkHotReloadSafety flags enum renames as requiring recompilation", async () => {
     const mockSemantic = {
         hasSymbol: () => true,
-        getSymbolOccurrences: () => [
-            { path: "test.gml", start: 0, end: 6, scopeId: "scope-1" }
-        ]
+        getSymbolOccurrences: () => [{ path: "test.gml", start: 0, end: 6, scopeId: "scope-1" }]
     };
     const engine = new RefactorEngineClass({ semantic: mockSemantic });
 
@@ -2111,11 +1996,7 @@ void test("checkHotReloadSafety handles unknown symbol kinds gracefully", async 
     assert.ok(result.reason.includes("Invalid symbol kind"));
     assert.equal(result.requiresRestart, true);
     assert.equal(result.canAutoFix, false);
-    assert.ok(
-        result.suggestions.some((s) =>
-            s.includes("script, var, event, macro, enum")
-        )
-    );
+    assert.ok(result.suggestions.some((s) => s.includes("script, var, event, macro, enum")));
 });
 
 // verifyPostEditIntegrity tests
@@ -2209,11 +2090,7 @@ void test("verifyPostEditIntegrity detects lingering old names", async () => {
     });
 
     assert.equal(result.valid, false);
-    assert.ok(
-        result.errors.some(
-            (e) => e.includes("Old name") && e.includes("still exists")
-        )
-    );
+    assert.ok(result.errors.some((e) => e.includes("Old name") && e.includes("still exists")));
 });
 
 void test("verifyPostEditIntegrity detects old names in comments", async () => {
@@ -2226,17 +2103,12 @@ void test("verifyPostEditIntegrity detects old names in comments", async () => {
         oldName: "old",
         newName: "new",
         workspace: ws,
-        readFile: async () =>
-            "function new() { // TODO: update old references\n return 42; }"
+        readFile: async () => "function new() { // TODO: update old references\n return 42; }"
     });
 
     // Comments should generate warnings, not errors
     assert.equal(result.valid, true);
-    assert.ok(
-        result.warnings.some(
-            (w) => w.includes("Old name") && w.includes("comments")
-        )
-    );
+    assert.ok(result.warnings.some((w) => w.includes("Old name") && w.includes("comments")));
 });
 
 void test("verifyPostEditIntegrity warns if new name not found", async () => {
@@ -2252,11 +2124,7 @@ void test("verifyPostEditIntegrity warns if new name not found", async () => {
         readFile: async () => "function foo() { return 42; }"
     });
 
-    assert.ok(
-        result.warnings.some(
-            (w) => w.includes("New name") && w.includes("does not appear")
-        )
-    );
+    assert.ok(result.warnings.some((w) => w.includes("New name") && w.includes("does not appear")));
 });
 
 void test("verifyPostEditIntegrity detects conflicts with existing symbols", async () => {
@@ -2287,11 +2155,7 @@ void test("verifyPostEditIntegrity detects conflicts with existing symbols", asy
         readFile: async () => "function new() { return 42; }"
     });
 
-    assert.ok(
-        result.warnings.some(
-            (w) => w.includes("already exists") && w.includes("other.gml")
-        )
-    );
+    assert.ok(result.warnings.some((w) => w.includes("already exists") && w.includes("other.gml")));
 });
 
 void test("verifyPostEditIntegrity detects reserved keyword conflicts", async () => {
@@ -2311,11 +2175,7 @@ void test("verifyPostEditIntegrity detects reserved keyword conflicts", async ()
     });
 
     assert.equal(result.valid, false);
-    assert.ok(
-        result.errors.some(
-            (e) => e.includes("reserved keyword") && e.includes("if")
-        )
-    );
+    assert.ok(result.errors.some((e) => e.includes("reserved keyword") && e.includes("if")));
 });
 
 void test("verifyPostEditIntegrity validates parse correctness", async () => {
@@ -2340,11 +2200,7 @@ void test("verifyPostEditIntegrity validates parse correctness", async () => {
     });
 
     assert.equal(result.valid, false);
-    assert.ok(
-        result.errors.some(
-            (e) => e.includes("Parse error") && e.includes("broken.gml")
-        )
-    );
+    assert.ok(result.errors.some((e) => e.includes("Parse error") && e.includes("broken.gml")));
 });
 
 void test("verifyPostEditIntegrity handles file read errors", async () => {
@@ -2428,9 +2284,7 @@ void test("validateRenameRequest validates identifier syntax", async () => {
     });
 
     assert.equal(result.valid, false);
-    assert.ok(
-        result.errors.some((e) => e.includes("not a valid GML identifier"))
-    );
+    assert.ok(result.errors.some((e) => e.includes("not a valid GML identifier")));
 });
 
 void test("validateRenameRequest checks symbol existence", async () => {
@@ -2445,9 +2299,7 @@ void test("validateRenameRequest checks symbol existence", async () => {
     });
 
     assert.equal(result.valid, false);
-    assert.ok(
-        result.errors.some((e) => e.includes("not found in semantic index"))
-    );
+    assert.ok(result.errors.some((e) => e.includes("not found in semantic index")));
 });
 
 void test("validateRenameRequest detects same name", async () => {
@@ -2463,17 +2315,13 @@ void test("validateRenameRequest detects same name", async () => {
     });
 
     assert.equal(result.valid, false);
-    assert.ok(
-        result.errors.some((e) => e.includes("matches the existing identifier"))
-    );
+    assert.ok(result.errors.some((e) => e.includes("matches the existing identifier")));
 });
 
 void test("validateRenameRequest detects reserved keywords", async () => {
     const mockSemantic: SemanticAnalyzer = {
         hasSymbol: async () => true,
-        getSymbolOccurrences: async () => [
-            { path: "test.gml", start: 0, end: 5, scopeId: "scope-1" }
-        ],
+        getSymbolOccurrences: async () => [{ path: "test.gml", start: 0, end: 5, scopeId: "scope-1" }],
         getReservedKeywords: async () => ["if", "else", "for"]
     };
     const engine = new RefactorEngineClass({ semantic: mockSemantic });
@@ -2502,9 +2350,7 @@ void test("validateRenameRequest can include hot reload safety summary", async (
 
     const mockSemantic: SemanticAnalyzer = {
         hasSymbol: async () => true,
-        getSymbolOccurrences: async () => [
-            { path: "test.gml", start: 0, end: 5, scopeId: "scope-1" }
-        ],
+        getSymbolOccurrences: async () => [{ path: "test.gml", start: 0, end: 5, scopeId: "scope-1" }],
         getReservedKeywords: async () => []
     };
 
@@ -2521,11 +2367,7 @@ void test("validateRenameRequest can include hot reload safety summary", async (
     assert.equal(result.valid, true);
     assert.ok(result.hotReload);
     assert.equal(result.hotReload?.safe, false);
-    assert.ok(
-        result.warnings.some((warning) =>
-            warning.includes("Hot reload unavailable")
-        )
-    );
+    assert.ok(result.warnings.some((warning) => warning.includes("Hot reload unavailable")));
 });
 
 void test("validateRenameRequest passes through safe hot reload summary", async () => {
@@ -2543,9 +2385,7 @@ void test("validateRenameRequest passes through safe hot reload summary", async 
 
     const mockSemantic: SemanticAnalyzer = {
         hasSymbol: async () => true,
-        getSymbolOccurrences: async () => [
-            { path: "test.gml", start: 0, end: 3, scopeId: "scope-1" }
-        ],
+        getSymbolOccurrences: async () => [{ path: "test.gml", start: 0, end: 3, scopeId: "scope-1" }],
         getReservedKeywords: async () => []
     };
 
@@ -2626,10 +2466,7 @@ void test("getFileSymbols queries semantic analyzer", async () => {
     const mockSemantic: SemanticAnalyzer = {
         getFileSymbols: async (path) => {
             if (path === "scripts/player.gml") {
-                return [
-                    { id: "gml/script/scr_player_move" },
-                    { id: "gml/script/scr_player_attack" }
-                ];
+                return [{ id: "gml/script/scr_player_move" }, { id: "gml/script/scr_player_attack" }];
             }
             return [];
         }
@@ -2644,30 +2481,22 @@ void test("getFileSymbols queries semantic analyzer", async () => {
 
 void test("getFileSymbols validates file path", async () => {
     const engine = new RefactorEngineClass();
-    await assert.rejects(
-        () => engine.getFileSymbols(null as unknown as string),
-        {
-            name: "TypeError",
-            message: /requires a valid file path/
-        }
-    );
+    await assert.rejects(() => engine.getFileSymbols(null as unknown as string), {
+        name: "TypeError",
+        message: /requires a valid file path/
+    });
 });
 
 void test("getSymbolDependents returns empty array without semantic analyzer", async () => {
     const engine = new RefactorEngineClass();
-    const dependents = await engine.getSymbolDependents([
-        "gml/script/scr_test"
-    ]);
+    const dependents = await engine.getSymbolDependents(["gml/script/scr_test"]);
     assert.deepStrictEqual(dependents, []);
 });
 
 void test("getSymbolDependents queries semantic analyzer", async () => {
     const mockSemantic: SemanticAnalyzer = {
         getDependents: async (symbolIds) => {
-            if (
-                symbolIds.includes("gml/script/scr_base") ||
-                symbolIds.includes("gml/script/scr_helper")
-            ) {
+            if (symbolIds.includes("gml/script/scr_base") || symbolIds.includes("gml/script/scr_helper")) {
                 return [
                     {
                         symbolId: "gml/script/scr_dependent1",
@@ -2684,10 +2513,7 @@ void test("getSymbolDependents queries semantic analyzer", async () => {
     };
     const engine = new RefactorEngineClass({ semantic: mockSemantic });
 
-    const dependents = await engine.getSymbolDependents([
-        "gml/script/scr_base",
-        "gml/script/scr_helper"
-    ]);
+    const dependents = await engine.getSymbolDependents(["gml/script/scr_base", "gml/script/scr_helper"]);
     assert.equal(dependents.length, 2);
     assert.equal(dependents[0].symbolId, "gml/script/scr_dependent1");
     assert.equal(dependents[0].filePath, "scripts/dependent1.gml");
@@ -2695,16 +2521,10 @@ void test("getSymbolDependents queries semantic analyzer", async () => {
 
 void test("getSymbolDependents validates input type", async () => {
     const engine = new RefactorEngineClass();
-    await assert.rejects(
-        () =>
-            engine.getSymbolDependents(
-                "not-an-array" as unknown as Array<string>
-            ),
-        {
-            name: "TypeError",
-            message: /requires an array/
-        }
-    );
+    await assert.rejects(() => engine.getSymbolDependents("not-an-array" as unknown as Array<string>), {
+        name: "TypeError",
+        message: /requires an array/
+    });
 });
 
 void test("getSymbolDependents handles empty array", async () => {
@@ -2765,11 +2585,7 @@ void test("computeHotReloadCascade traces full circular dependency path", async 
     // The cycle path should be complete: [A, B, C, A]
     const cycle = result.circular[0];
     assert.ok(cycle.length >= 3, "Cycle should contain at least 3 nodes");
-    assert.equal(
-        cycle[0],
-        cycle.at(-1),
-        "Cycle should start and end with the same symbol"
-    );
+    assert.equal(cycle[0], cycle.at(-1), "Cycle should start and end with the same symbol");
     // Verify the cycle contains the expected symbols
     assert.ok(cycle.includes("gml/script/scr_a"));
     assert.ok(cycle.includes("gml/script/scr_b"));
@@ -2823,26 +2639,16 @@ void test("computeHotReloadCascade handles multiple separate cycles", async () =
     };
     const engine = new RefactorEngineClass({ semantic: mockSemantic });
 
-    const result = await engine.computeHotReloadCascade([
-        "gml/script/scr_a",
-        "gml/script/scr_x"
-    ]);
+    const result = await engine.computeHotReloadCascade(["gml/script/scr_a", "gml/script/scr_x"]);
 
     // Should detect both cycles
     assert.ok(result.metadata.hasCircular);
-    assert.ok(
-        result.circular.length >= 2,
-        "Should detect at least 2 separate cycles"
-    );
+    assert.ok(result.circular.length >= 2, "Should detect at least 2 separate cycles");
 
     // Verify each cycle is properly traced
     for (const cycle of result.circular) {
         assert.ok(cycle.length >= 2, "Each cycle should have at least 2 nodes");
-        assert.equal(
-            cycle[0],
-            cycle.at(-1),
-            "Each cycle should start and end with the same symbol"
-        );
+        assert.equal(cycle[0], cycle.at(-1), "Each cycle should start and end with the same symbol");
     }
 });
 
@@ -2852,13 +2658,9 @@ void test("computeHotReloadCascade handles non-circular dependencies correctly",
         getDependents: async (symbolIds: Array<string>) => {
             const id = symbolIds[0];
             if (id === "gml/script/scr_a") {
-                return [
-                    { symbolId: "gml/script/scr_b", filePath: "scripts/b.gml" }
-                ];
+                return [{ symbolId: "gml/script/scr_b", filePath: "scripts/b.gml" }];
             } else if (id === "gml/script/scr_b") {
-                return [
-                    { symbolId: "gml/script/scr_c", filePath: "scripts/c.gml" }
-                ];
+                return [{ symbolId: "gml/script/scr_c", filePath: "scripts/c.gml" }];
             }
             return [];
         }
@@ -2876,15 +2678,9 @@ void test("computeHotReloadCascade handles non-circular dependencies correctly",
     assert.equal(result.order.length, 3);
 
     // Verify distance increases along the chain
-    const aEntry = result.cascade.find(
-        (e) => e.symbolId === "gml/script/scr_a"
-    );
-    const bEntry = result.cascade.find(
-        (e) => e.symbolId === "gml/script/scr_b"
-    );
-    const cEntry = result.cascade.find(
-        (e) => e.symbolId === "gml/script/scr_c"
-    );
+    const aEntry = result.cascade.find((e) => e.symbolId === "gml/script/scr_a");
+    const bEntry = result.cascade.find((e) => e.symbolId === "gml/script/scr_b");
+    const cEntry = result.cascade.find((e) => e.symbolId === "gml/script/scr_c");
 
     assert.equal(aEntry.distance, 0);
     assert.equal(bEntry.distance, 1);
@@ -2897,16 +2693,12 @@ void test("validateBatchRenameRequest validates empty array", async () => {
     const validation = await engine.validateBatchRenameRequest([]);
 
     assert.equal(validation.valid, false);
-    assert.ok(
-        validation.errors.some((e) => e.includes("at least one rename request"))
-    );
+    assert.ok(validation.errors.some((e) => e.includes("at least one rename request")));
 });
 
 void test("validateBatchRenameRequest validates non-array input", async () => {
     const engine = new RefactorEngineClass();
-    const validation = await engine.validateBatchRenameRequest(
-        null as unknown as Array<RenameRequest>
-    );
+    const validation = await engine.validateBatchRenameRequest(null as unknown as Array<RenameRequest>);
 
     assert.equal(validation.valid, false);
     assert.ok(validation.errors.some((e) => e.includes("array")));
@@ -2985,17 +2777,13 @@ void test("validateBatchRenameRequest warns about cross-rename confusion", async
     ]);
 
     assert.equal(validation.valid, true);
-    assert.ok(
-        validation.warnings.some((w) => w.includes("potential confusion"))
-    );
+    assert.ok(validation.warnings.some((w) => w.includes("potential confusion")));
 });
 
 void test("validateBatchRenameRequest passes for valid batch", async () => {
     const mockSemantic: SemanticAnalyzer = {
         hasSymbol: () => true,
-        getSymbolOccurrences: () => [
-            { path: "test.gml", start: 0, end: 5, scopeId: "scope-1" }
-        ]
+        getSymbolOccurrences: () => [{ path: "test.gml", start: 0, end: 5, scopeId: "scope-1" }]
     };
     const engine = new RefactorEngineClass({ semantic: mockSemantic });
 
@@ -3013,19 +2801,15 @@ void test("validateBatchRenameRequest passes for valid batch", async () => {
 void test("validateBatchRenameRequest includes hot reload checks when requested", async () => {
     const mockSemantic: SemanticAnalyzer = {
         hasSymbol: () => true,
-        getSymbolOccurrences: () => [
-            { path: "test.gml", start: 0, end: 5, scopeId: "scope-1" }
-        ]
+        getSymbolOccurrences: () => [{ path: "test.gml", start: 0, end: 5, scopeId: "scope-1" }]
     };
     const engine = new RefactorEngineClass({ semantic: mockSemantic });
 
-    const validation = await engine.validateBatchRenameRequest(
-        [{ symbolId: "gml/script/scr_a", newName: "scr_x" }],
-        { includeHotReload: true }
-    );
+    const validation = await engine.validateBatchRenameRequest([{ symbolId: "gml/script/scr_a", newName: "scr_x" }], {
+        includeHotReload: true
+    });
 
-    const renameValidation =
-        validation.renameValidations.get("gml/script/scr_a");
+    const renameValidation = validation.renameValidations.get("gml/script/scr_a");
     assert.ok(renameValidation);
     assert.ok(renameValidation.hotReload);
 });
@@ -3039,9 +2823,7 @@ void test("validateBatchRenameRequest handles invalid request objects", async ()
     ]);
 
     assert.equal(validation.valid, false);
-    assert.ok(
-        validation.errors.some((e) => e.includes("valid request object"))
-    );
+    assert.ok(validation.errors.some((e) => e.includes("valid request object")));
 });
 
 // detectRenameConflicts tests
@@ -3152,9 +2934,7 @@ void test("detectRenameConflicts detects shadowing with semantic analyzer", asyn
     const conflicts = await engine.detectRenameConflicts({
         oldName: "myVar",
         newName: "existingVar",
-        occurrences: [
-            { path: "test.gml", start: 10, end: 15, scopeId: "scope1" }
-        ]
+        occurrences: [{ path: "test.gml", start: 10, end: 15, scopeId: "scope1" }]
     });
 
     assert.equal(conflicts.length, 1);
@@ -3261,14 +3041,9 @@ void test("checkHotReloadSafety rejects malformed symbolId", async () => {
             newName: "new_name"
         });
 
-        assert.equal(
-            result.safe,
-            false,
-            `Expected safe=false for ${testCase.desc} (id: ${testCase.id})`
-        );
+        assert.equal(result.safe, false, `Expected safe=false for ${testCase.desc} (id: ${testCase.id})`);
         assert.ok(
-            result.reason.includes("Malformed") ||
-                result.reason.includes("Invalid"),
+            result.reason.includes("Malformed") || result.reason.includes("Invalid"),
             `Expected error message for ${testCase.desc}`
         );
     }
@@ -3288,11 +3063,7 @@ void test("checkHotReloadSafety rejects invalid symbol kinds", async () => {
 
     assert.equal(result.safe, false);
     assert.ok(result.reason.includes("Invalid symbol kind"));
-    assert.ok(
-        result.suggestions.some((s) =>
-            s.includes("script, var, event, macro, enum")
-        )
-    );
+    assert.ok(result.suggestions.some((s) => s.includes("script, var, event, macro, enum")));
 });
 
 void test("checkHotReloadSafety handles valid script symbol kind", async () => {
@@ -3324,9 +3095,7 @@ void test("checkHotReloadSafety handles valid var symbol kind", async () => {
     });
 
     assert.equal(result.safe, true);
-    assert.ok(
-        result.reason.includes("Global variable renames are hot-reload-safe")
-    );
+    assert.ok(result.reason.includes("Global variable renames are hot-reload-safe"));
 });
 
 void test("checkHotReloadSafety handles valid macro symbol kind", async () => {

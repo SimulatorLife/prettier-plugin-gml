@@ -7,21 +7,13 @@ export interface MessageEventLike {
 }
 
 export interface RuntimeWebSocketInstance {
-    addEventListener(
-        event: WebSocketEvent,
-        handler: (event?: MessageEventLike | Error) => void
-    ): void;
-    removeEventListener(
-        event: WebSocketEvent,
-        handler: (event?: MessageEventLike | Error) => void
-    ): void;
+    addEventListener(event: WebSocketEvent, handler: (event?: MessageEventLike | Error) => void): void;
+    removeEventListener(event: WebSocketEvent, handler: (event?: MessageEventLike | Error) => void): void;
     send(data: string): void;
     close(): void;
 }
 
-export type RuntimeWebSocketConstructor = new (
-    url: string
-) => RuntimeWebSocketInstance;
+export type RuntimeWebSocketConstructor = new (url: string) => RuntimeWebSocketInstance;
 
 export interface WebSocketClientOptions {
     url?: string;

@@ -25,10 +25,7 @@ import {
     isSkippableSemicolonWhitespace,
     optionalSemicolon
 } from "./semicolons.js";
-import {
-    getEnumNameAlignmentPadding,
-    prepareEnumMembersForPrinting
-} from "./enum-alignment.js";
+import { getEnumNameAlignmentPadding, prepareEnumMembersForPrinting } from "./enum-alignment.js";
 import {
     shouldForceBlankLineBetweenReturnPaths,
     shouldForceTrailingBlankLineForNestedFunction,
@@ -51,10 +48,7 @@ import {
     willBreak
 } from "./prettier-doc-builders.js";
 
-import {
-    collectFunctionDocCommentDocs,
-    normalizeFunctionDocCommentDocs
-} from "./doc-comment/function-docs.js";
+import { collectFunctionDocCommentDocs, normalizeFunctionDocCommentDocs } from "./doc-comment/function-docs.js";
 import { resolveDocCommentPrinterOptions } from "./doc-comment/doc-comment-options.js";
 import { buildPrintableDocCommentLines } from "./doc-comment/description-doc.js";
 
@@ -73,22 +67,12 @@ import {
     sliceOriginalText,
     stripTrailingLineTerminators
 } from "./source-text.js";
-import {
-    printComment,
-    printDanglingComments,
-    printDanglingCommentsAsGroup
-} from "../comments/index.js";
+import { printComment, printDanglingComments, printDanglingCommentsAsGroup } from "../comments/index.js";
 import { TRAILING_COMMA } from "../options/trailing-comma-option.js";
 
 import { Semantic } from "@gml-modules/semantic";
-import {
-    LogicalOperatorsStyle,
-    normalizeLogicalOperatorsStyle
-} from "../options/logical-operators-style.js";
-import {
-    ObjectWrapOption,
-    resolveObjectWrapOption
-} from "../options/object-wrap-option.js";
+import { LogicalOperatorsStyle, normalizeLogicalOperatorsStyle } from "../options/logical-operators-style.js";
+import { ObjectWrapOption, resolveObjectWrapOption } from "../options/object-wrap-option.js";
 import { NUMERIC_STRING_LITERAL_PATTERN } from "../transforms/feather/utils.js";
 
 // Import node type constants to replace magic strings
@@ -176,14 +160,8 @@ function getSemanticIdentifierCaseRenameForNode(node, options) {
     // scenarios where the printer runs before the semantic analyzer finishes its setup.
     let finalResult = null;
     try {
-        if (
-            Semantic &&
-            typeof Semantic.getIdentifierCaseRenameForNode === "function"
-        ) {
-            finalResult = Semantic.getIdentifierCaseRenameForNode(
-                node,
-                options
-            );
+        if (Semantic && typeof Semantic.getIdentifierCaseRenameForNode === "function") {
+            finalResult = Semantic.getIdentifierCaseRenameForNode(node, options);
         }
     } catch {
         /* ignore */
@@ -196,16 +174,8 @@ function getSemanticIdentifierCaseRenameForNode(node, options) {
     try {
         if (!finalResult) {
             const renameMap = options?.__identifierCaseRenameMap ?? null;
-            if (
-                renameMap &&
-                typeof renameMap.get === "function" &&
-                node &&
-                node.start
-            ) {
-                const loc =
-                    typeof node.start === "number"
-                        ? { index: node.start }
-                        : node.start;
+            if (renameMap && typeof renameMap.get === "function" && node && node.start) {
+                const loc = typeof node.start === "number" ? { index: node.start } : node.start;
                 const key = Core.buildLocationKey(loc);
                 if (key) {
                     finalResult = renameMap.get(key) ?? finalResult;
@@ -219,15 +189,9 @@ function getSemanticIdentifierCaseRenameForNode(node, options) {
     return finalResult;
 }
 
-const FEATHER_COMMENT_OUT_SYMBOL = Symbol.for(
-    "prettier.gml.feather.commentOut"
-);
-const FEATHER_COMMENT_TEXT_SYMBOL = Symbol.for(
-    "prettier.gml.feather.commentText"
-);
-const FEATHER_COMMENT_PREFIX_TEXT_SYMBOL = Symbol.for(
-    "prettier.gml.feather.commentPrefixText"
-);
+const FEATHER_COMMENT_OUT_SYMBOL = Symbol.for("prettier.gml.feather.commentOut");
+const FEATHER_COMMENT_TEXT_SYMBOL = Symbol.for("prettier.gml.feather.commentText");
+const FEATHER_COMMENT_PREFIX_TEXT_SYMBOL = Symbol.for("prettier.gml.feather.commentPrefixText");
 
 const forcedStructArgumentBreaks = new WeakMap();
 
@@ -238,9 +202,7 @@ function hasFeatherFix(node, id) {
         return false;
     }
 
-    const metadata = Array.isArray(node._appliedFeatherDiagnostics)
-        ? node._appliedFeatherDiagnostics
-        : [];
+    const metadata = Array.isArray(node._appliedFeatherDiagnostics) ? node._appliedFeatherDiagnostics : [];
 
     if (metadata.length === 0) {
         return false;
@@ -255,11 +217,7 @@ function hasFeatherFix(node, id) {
     return false;
 }
 
-function callPathMethod(
-    path: any,
-    methodName: any,
-    { args, defaultValue }: { args?: any[]; defaultValue?: any } = {}
-) {
+function callPathMethod(path: any, methodName: any, { args, defaultValue }: { args?: any[]; defaultValue?: any } = {}) {
     if (!path) {
         return defaultValue;
     }
@@ -269,8 +227,7 @@ function callPathMethod(
         return defaultValue;
     }
 
-    const normalizedArgs =
-        args === undefined ? [] : Array.isArray(args) ? args : [args];
+    const normalizedArgs = args === undefined ? [] : Array.isArray(args) ? args : [args];
 
     return method.apply(path, normalizedArgs);
 }
@@ -296,10 +253,7 @@ function isBlockWithinConstructor(path) {
         }
 
         // Stop traversing if we hit a function boundary that isn't a constructor
-        if (
-            ancestor.type === FUNCTION_DECLARATION ||
-            ancestor.type === FUNCTION_EXPRESSION
-        ) {
+        if (ancestor.type === FUNCTION_DECLARATION || ancestor.type === FUNCTION_EXPRESSION) {
             return false;
         }
     }
@@ -389,10 +343,7 @@ function _printImplCore(node, path, options, print) {
         return doc;
     }
 
-    console.warn(
-        `Print.js:print encountered unhandled node type: ${node.type}`,
-        node
-    );
+    console.warn(`Print.js:print encountered unhandled node type: ${node.type}`, node);
 }
 
 function tryPrintControlStructureNode(node, path, options, print) {
@@ -425,15 +376,7 @@ function tryPrintControlStructureNode(node, path, options, print) {
                 group([
                     indent([
                         ifBreak(line),
-                        concat([
-                            print("init"),
-                            ";",
-                            line,
-                            print("test"),
-                            ";",
-                            line,
-                            print("update")
-                        ])
+                        concat([print("init"), ";", line, print("test"), ";", line, print("update")])
                     ])
                 ]),
                 ") ",
@@ -451,40 +394,13 @@ function tryPrintControlStructureNode(node, path, options, print) {
             ]);
         }
         case "WhileStatement": {
-            return concat(
-                printSingleClauseStatement(
-                    path,
-                    options,
-                    print,
-                    "while",
-                    "test",
-                    "body"
-                )
-            );
+            return concat(printSingleClauseStatement(path, options, print, "while", "test", "body"));
         }
         case "RepeatStatement": {
-            return concat(
-                printSingleClauseStatement(
-                    path,
-                    options,
-                    print,
-                    "repeat",
-                    "test",
-                    "body"
-                )
-            );
+            return concat(printSingleClauseStatement(path, options, print, "repeat", "test", "body"));
         }
         case "WithStatement": {
-            return concat(
-                printSingleClauseStatement(
-                    path,
-                    options,
-                    print,
-                    "with",
-                    "test",
-                    "body"
-                )
-            );
+            return concat(printSingleClauseStatement(path, options, print, "with", "test", "body"));
         }
     }
 }
@@ -497,8 +413,7 @@ function tryPrintFunctionNode(node, path, options, print) {
 
             const sourceMetadata = resolvePrinterSourceMetadata(options);
             const { originalText } = sourceMetadata;
-            const { startIndex: nodeStartIndex } =
-                resolveNodeIndexRangeWithSource(node, sourceMetadata);
+            const { startIndex: nodeStartIndex } = resolveNodeIndexRangeWithSource(node, sourceMetadata);
 
             const {
                 docCommentDocs: collectedDocCommentDocs,
@@ -513,8 +428,7 @@ function tryPrintFunctionNode(node, path, options, print) {
                 originalText
             });
 
-            let docCommentDocs: MutableDocCommentLines =
-                collectedDocCommentDocs;
+            let docCommentDocs: MutableDocCommentLines = collectedDocCommentDocs;
             let needsLeadingBlankLine = collectedNeedsLeadingBlankLine;
 
             try {
@@ -537,47 +451,32 @@ function tryPrintFunctionNode(node, path, options, print) {
             }
 
             const docCommentOptions = resolveDocCommentPrinterOptions(options);
-            ({ docCommentDocs, needsLeadingBlankLine } =
-                normalizeFunctionDocCommentDocs({
-                    docCommentDocs,
-                    needsLeadingBlankLine,
-                    node,
-                    options,
-                    path,
-                    overrides: { includeOverrideTag }
-                }));
-            const printableDocComments = buildPrintableDocCommentLines(
+            ({ docCommentDocs, needsLeadingBlankLine } = normalizeFunctionDocCommentDocs({
                 docCommentDocs,
-                docCommentOptions.printWidth
-            );
+                needsLeadingBlankLine,
+                node,
+                options,
+                path,
+                overrides: { includeOverrideTag }
+            }));
+            const printableDocComments = buildPrintableDocCommentLines(docCommentDocs, docCommentOptions.printWidth);
 
             const shouldEmitPlainLeadingBeforeDoc =
-                plainLeadingLines.length > 0 &&
-                docCommentDocs.length > 0 &&
-                existingDocLines.length === 0;
+                plainLeadingLines.length > 0 && docCommentDocs.length > 0 && existingDocLines.length === 0;
 
             if (shouldEmitPlainLeadingBeforeDoc) {
-                parts.push(
-                    join(hardline, plainLeadingLines),
-                    hardline,
-                    hardline
-                );
+                parts.push(join(hardline, plainLeadingLines), hardline, hardline);
             }
 
             if (docCommentDocs.length > 0) {
                 node[DOC_COMMENT_OUTPUT_FLAG] = true;
-                const suppressLeadingBlank =
-                    docCommentDocs &&
-                    docCommentDocs._suppressLeadingBlank === true;
+                const suppressLeadingBlank = docCommentDocs && docCommentDocs._suppressLeadingBlank === true;
 
                 const hasLeadingNonDocComment =
                     !Core.isNonEmptyArray(node.docComments) &&
                     originalText !== null &&
                     typeof nodeStartIndex === NUMBER_TYPE &&
-                    Core.hasCommentImmediatelyBefore(
-                        originalText,
-                        nodeStartIndex
-                    );
+                    Core.hasCommentImmediatelyBefore(originalText, nodeStartIndex);
 
                 const hasExistingBlankLine =
                     originalText !== null &&
@@ -586,8 +485,7 @@ function tryPrintFunctionNode(node, path, options, print) {
 
                 if (
                     !suppressLeadingBlank &&
-                    (needsLeadingBlankLine ||
-                        (hasLeadingNonDocComment && !hasExistingBlankLine))
+                    (needsLeadingBlankLine || (hasLeadingNonDocComment && !hasExistingBlankLine))
                 ) {
                     parts.push(hardline);
                 }
@@ -644,28 +542,21 @@ function tryPrintFunctionNode(node, path, options, print) {
                     ? Core.isNonEmptyString(functionNameDoc)
                     : Boolean(functionNameDoc);
 
-            parts.push([
-                "function",
-                hasFunctionName ? " " : "",
-                functionNameDoc
-            ]);
+            parts.push(["function", hasFunctionName ? " " : "", functionNameDoc]);
 
             const hasParameters = Core.isNonEmptyArray(node.params);
 
             if (hasParameters) {
-                const {
-                    inlineDoc: inlineParamDoc,
-                    multilineDoc: multilineParamDoc
-                } = buildFunctionParameterDocs(path, print, options, {
-                    forceInline: shouldForceInlineFunctionParameters(
-                        path,
-                        options
-                    )
-                });
-
-                parts.push(
-                    conditionalGroup([inlineParamDoc, multilineParamDoc])
+                const { inlineDoc: inlineParamDoc, multilineDoc: multilineParamDoc } = buildFunctionParameterDocs(
+                    path,
+                    print,
+                    options,
+                    {
+                        forceInline: shouldForceInlineFunctionParameters(path, options)
+                    }
                 );
+
+                parts.push(conditionalGroup([inlineParamDoc, multilineParamDoc]));
             } else {
                 parts.push(printEmptyParens(path, options));
             }
@@ -678,8 +569,7 @@ function tryPrintFunctionNode(node, path, options, print) {
                 }
             }
 
-            const inlineDefaultParameterDoc =
-                maybePrintInlineDefaultParameterFunctionBody(path, print);
+            const inlineDefaultParameterDoc = maybePrintInlineDefaultParameterFunctionBody(path, print);
 
             if (inlineDefaultParameterDoc) {
                 parts.push(" ", inlineDefaultParameterDoc);
@@ -698,25 +588,17 @@ function tryPrintFunctionSupportNode(node, path, options, print) {
         case "ConstructorParentClause": {
             const hasParameters = Core.isNonEmptyArray(node.params);
             const params = hasParameters
-                ? printCommaSeparatedList(
-                      path,
-                      print,
-                      "params",
-                      "(",
-                      ")",
-                      options,
-                      {
-                          // Constructor parent clauses participate in the
-                          // surrounding function signature. Breaking the
-                          // argument list across multiple lines changes
-                          // the shape of the signature and regresses
-                          // existing fixtures that rely on the entire
-                          // clause remaining inline.
-                          leadingNewline: false,
-                          trailingNewline: false,
-                          forceInline: true
-                      }
-                  )
+                ? printCommaSeparatedList(path, print, "params", "(", ")", options, {
+                      // Constructor parent clauses participate in the
+                      // surrounding function signature. Breaking the
+                      // argument list across multiple lines changes
+                      // the shape of the signature and regresses
+                      // existing fixtures that rely on the entire
+                      // clause remaining inline.
+                      leadingNewline: false,
+                      trailingNewline: false,
+                      forceInline: true
+                  })
                 : printEmptyParens(path, options);
             return concat([" : ", print("id"), params, " constructor"]);
         }
@@ -724,9 +606,7 @@ function tryPrintFunctionSupportNode(node, path, options, print) {
             if (shouldOmitDefaultValueForParameter(path, options)) {
                 return concat(print("left"));
             }
-            return concat(
-                printSimpleDeclaration(print("left"), print("right"))
-            );
+            return concat(printSimpleDeclaration(print("left"), print("right")));
         }
     }
 }
@@ -745,10 +625,7 @@ function tryPrintVariableNode(node, path, options, print) {
             return print("expression");
         }
         case "AssignmentExpression": {
-            const parentNode =
-                typeof path.getParentNode === "function"
-                    ? path.getParentNode()
-                    : (path.parent ?? null);
+            const parentNode = typeof path.getParentNode === "function" ? path.getParentNode() : (path.parent ?? null);
             const parentType = parentNode?.type;
             const isStandaloneAssignment =
                 parentType === "Program" ||
@@ -756,29 +633,16 @@ function tryPrintVariableNode(node, path, options, print) {
                 parentType === "SwitchCase" ||
                 parentType === "ExpressionStatement";
 
-            if (
-                node.operator === "/=" &&
-                isStandaloneAssignment &&
-                hasFeatherFix(node, GM1015_DIAGNOSTIC_ID)
-            ) {
+            if (node.operator === "/=" && isStandaloneAssignment && hasFeatherFix(node, GM1015_DIAGNOSTIC_ID)) {
                 return "";
             }
             const padding =
-                node.operator === "=" &&
-                typeof node._alignAssignmentPadding === NUMBER_TYPE
+                node.operator === "=" && typeof node._alignAssignmentPadding === NUMBER_TYPE
                     ? Math.max(0, node._alignAssignmentPadding)
                     : 0;
             const spacing = " ".repeat(padding + 1);
 
-            return group(
-                concat([
-                    group(print("left")),
-                    spacing,
-                    node.operator,
-                    " ",
-                    group(print("right"))
-                ])
-            );
+            return group(concat([group(print("left")), spacing, node.operator, " ", group(print("right"))]));
         }
         case "GlobalVarStatement": {
             if (options.preserveGlobalVarStatements === false) {
@@ -793,22 +657,13 @@ function tryPrintVariableNode(node, path, options, print) {
 
             const decls =
                 node.declarations.length > 1
-                    ? printCommaSeparatedList(
-                          path,
-                          print,
-                          "declarations",
-                          "",
-                          "",
-                          options,
-                          {
-                              leadingNewline: false,
-                              trailingNewline: false
-                          }
-                      )
+                    ? printCommaSeparatedList(path, print, "declarations", "", "", options, {
+                          leadingNewline: false,
+                          trailingNewline: false
+                      })
                     : path.map(print, "declarations");
 
-            const keyword =
-                typeof node.kind === STRING_TYPE ? node.kind : "globalvar";
+            const keyword = typeof node.kind === STRING_TYPE ? node.kind : "globalvar";
 
             return concat([keyword, " ", decls]);
         }
@@ -816,11 +671,7 @@ function tryPrintVariableNode(node, path, options, print) {
             const functionNode = findEnclosingFunctionNode(path);
             const declarators = Core.asArray(node.declarations);
 
-            const keptDeclarators = filterKeptDeclarators(
-                declarators,
-                functionNode,
-                options
-            );
+            const keptDeclarators = filterKeptDeclarators(declarators, functionNode, options);
 
             if (keptDeclarators.length === 0) {
                 return "";
@@ -832,19 +683,11 @@ function tryPrintVariableNode(node, path, options, print) {
                 try {
                     const decls =
                         keptDeclarators.length > 1
-                            ? printCommaSeparatedList(
-                                  path,
-                                  print,
-                                  "declarations",
-                                  "",
-                                  "",
-                                  options,
-                                  {
-                                      leadingNewline: false,
-                                      trailingNewline: false,
-                                      addIndent: keptDeclarators.length > 1
-                                  }
-                              )
+                            ? printCommaSeparatedList(path, print, "declarations", "", "", options, {
+                                  leadingNewline: false,
+                                  trailingNewline: false,
+                                  addIndent: keptDeclarators.length > 1
+                              })
                             : path.map(print, "declarations");
                     return concat([node.kind, " ", decls]);
                 } finally {
@@ -874,19 +717,11 @@ function tryPrintVariableNode(node, path, options, print) {
                 filterMisattachedFunctionDocComments(decl);
             }
 
-            const decls = printCommaSeparatedList(
-                path,
-                print,
-                "declarations",
-                "",
-                "",
-                options,
-                {
-                    leadingNewline: false,
-                    trailingNewline: false,
-                    addIndent: keptDeclarators.length > 1
-                }
-            );
+            const decls = printCommaSeparatedList(path, print, "declarations", "", "", options, {
+                leadingNewline: false,
+                trailingNewline: false,
+                addIndent: keptDeclarators.length > 1
+            });
 
             if (node.kind === "static") {
                 // WORKAROUND: Bypass printCommaSeparatedList for static declarations.
@@ -914,17 +749,11 @@ function tryPrintVariableNode(node, path, options, print) {
             return group(concat([node.kind, " ", decls]));
         }
         case "VariableDeclarator": {
-            const initializerOverride =
-                resolveArgumentAliasInitializerDoc(path);
+            const initializerOverride = resolveArgumentAliasInitializerDoc(path);
             if (initializerOverride) {
-                return concat(
-                    printSimpleDeclaration(print("id"), initializerOverride)
-                );
+                return concat(printSimpleDeclaration(print("id"), initializerOverride));
             }
-            const simpleDecl = printSimpleDeclaration(
-                print("id"),
-                print("init")
-            );
+            const simpleDecl = printSimpleDeclaration(print("id"), print("init"));
             return concat(simpleDecl);
         }
     }
@@ -972,11 +801,7 @@ function printParenthesizedExpressionNode(node, path, _options, print) {
         return printWithoutExtraParens(path, print, "expression");
     }
 
-    return concat([
-        "(",
-        printWithoutExtraParens(path, print, "expression"),
-        ")"
-    ]);
+    return concat(["(", printWithoutExtraParens(path, print, "expression"), ")"]);
 }
 
 function printBinaryExpressionNode(node, path, options, print) {
@@ -992,10 +817,7 @@ function printBinaryExpressionNode(node, path, options, print) {
     const leftIsUndefined = Core.isUndefinedSentinel(node.left);
     const rightIsUndefined = Core.isUndefinedSentinel(node.right);
 
-    if (
-        (operator === "==" || operator === "!=") &&
-        (leftIsUndefined || rightIsUndefined)
-    ) {
+    if ((operator === "==" || operator === "!=") && (leftIsUndefined || rightIsUndefined)) {
         const expressionDoc = leftIsUndefined
             ? printWithoutExtraParens(path, print, "right")
             : printWithoutExtraParens(path, print, "left");
@@ -1003,11 +825,7 @@ function printBinaryExpressionNode(node, path, options, print) {
         return group([prefix, expressionDoc, ")"]);
     }
 
-    const booleanSimplification = simplifyBooleanBinaryExpression(
-        path,
-        print,
-        node
-    );
+    const booleanSimplification = simplifyBooleanBinaryExpression(path, print, node);
     if (booleanSimplification) {
         return booleanSimplification;
     }
@@ -1034,10 +852,7 @@ function printBinaryExpressionNode(node, path, options, print) {
         }
     } else {
         right = print("right");
-        const styledOperator = applyLogicalOperatorsStyle(
-            operator,
-            logicalOperatorsStyle
-        );
+        const styledOperator = applyLogicalOperatorsStyle(operator, logicalOperatorsStyle);
 
         if (styledOperator === operator) {
             switch (operator) {
@@ -1081,15 +896,12 @@ function printCallExpressionNode(node, path, options, print) {
     if (node?.[FEATHER_COMMENT_OUT_SYMBOL]) {
         const commentText = getFeatherCommentCallText(node);
         const renderedText =
-            typeof node[FEATHER_COMMENT_TEXT_SYMBOL] === STRING_TYPE &&
-            node[FEATHER_COMMENT_TEXT_SYMBOL].length > 0
+            typeof node[FEATHER_COMMENT_TEXT_SYMBOL] === STRING_TYPE && node[FEATHER_COMMENT_TEXT_SYMBOL].length > 0
                 ? node[FEATHER_COMMENT_TEXT_SYMBOL]
                 : commentText;
         const prefixTextValue = node[FEATHER_COMMENT_PREFIX_TEXT_SYMBOL];
         const prefixText =
-            typeof prefixTextValue === STRING_TYPE && prefixTextValue.length > 0
-                ? prefixTextValue
-                : null;
+            typeof prefixTextValue === STRING_TYPE && prefixTextValue.length > 0 ? prefixTextValue : null;
         const docs = [];
 
         if (prefixText) {
@@ -1112,18 +924,12 @@ function printCallExpressionNode(node, path, options, print) {
 
     if (options && typeof options.originalText === STRING_TYPE) {
         const hasNestedPreservedArguments = Array.isArray(node.arguments)
-            ? node.arguments.some(
-                  (argument) => argument?.preserveOriginalCallText === true
-              )
+            ? node.arguments.some((argument) => argument?.preserveOriginalCallText === true)
             : false;
         const startIndex = Core.getNodeStartIndex(node);
         const endIndex = Core.getNodeEndIndex(node);
 
-        if (
-            typeof startIndex === NUMBER_TYPE &&
-            typeof endIndex === NUMBER_TYPE &&
-            endIndex > startIndex
-        ) {
+        if (typeof startIndex === NUMBER_TYPE && typeof endIndex === NUMBER_TYPE && endIndex > startIndex) {
             const synthesizedText = synthesizeMissingCallArgumentSeparators(
                 node,
                 options.originalText,
@@ -1132,17 +938,11 @@ function printCallExpressionNode(node, path, options, print) {
             );
 
             if (typeof synthesizedText === STRING_TYPE) {
-                return normalizeCallTextNewlines(
-                    synthesizedText,
-                    options.endOfLine
-                );
+                return normalizeCallTextNewlines(synthesizedText, options.endOfLine);
             }
 
             if (node.preserveOriginalCallText && !hasNestedPreservedArguments) {
-                return normalizeCallTextNewlines(
-                    options.originalText.slice(startIndex, endIndex),
-                    options.endOfLine
-                );
+                return normalizeCallTextNewlines(options.originalText.slice(startIndex, endIndex), options.endOfLine);
             }
         }
     }
@@ -1158,64 +958,41 @@ function printCallExpressionNode(node, path, options, print) {
     if (node.arguments.length === 0) {
         printedArgs = [printEmptyParens(path, options)];
     } else {
-        const maxParamsPerLine = Number.isFinite(options?.maxParamsPerLine)
-            ? options.maxParamsPerLine
-            : 0;
-        const elementsPerLineLimit =
-            maxParamsPerLine > 0 ? maxParamsPerLine : Infinity;
+        const maxParamsPerLine = Number.isFinite(options?.maxParamsPerLine) ? options.maxParamsPerLine : 0;
+        const elementsPerLineLimit = maxParamsPerLine > 0 ? maxParamsPerLine : Infinity;
 
         const callbackArguments = node.arguments.filter(
-            (argument) =>
-                argument?.type === FUNCTION_DECLARATION ||
-                argument?.type === CONSTRUCTOR_DECLARATION
+            (argument) => argument?.type === FUNCTION_DECLARATION || argument?.type === CONSTRUCTOR_DECLARATION
         );
-        const structArguments = node.arguments.filter(
-            (argument) => argument?.type === STRUCT_EXPRESSION
-        );
-        const structArgumentsToBreak = structArguments.filter((argument) =>
-            shouldForceBreakStructArgument(argument)
-        );
+        const structArguments = node.arguments.filter((argument) => argument?.type === STRUCT_EXPRESSION);
+        const structArgumentsToBreak = structArguments.filter((argument) => shouldForceBreakStructArgument(argument));
 
         structArgumentsToBreak.forEach((argument) => {
-            forcedStructArgumentBreaks.set(
-                argument,
-                getStructAlignmentInfo(argument, options)
-            );
+            forcedStructArgumentBreaks.set(argument, getStructAlignmentInfo(argument, options));
         });
 
         const shouldFavorInlineArguments =
             maxParamsPerLine <= 0 &&
             callbackArguments.length === 0 &&
             structArguments.length === 0 &&
-            node.arguments.every(
-                (argument) => !isComplexArgumentNode(argument)
-            );
+            node.arguments.every((argument) => !isComplexArgumentNode(argument));
 
-        const effectiveElementsPerLineLimit = shouldFavorInlineArguments
-            ? node.arguments.length
-            : elementsPerLineLimit;
+        const effectiveElementsPerLineLimit = shouldFavorInlineArguments ? node.arguments.length : elementsPerLineLimit;
 
         const hasSingleCallExpressionArgument =
-            maxParamsPerLine > 0 &&
-            node.arguments.length === 1 &&
-            node.arguments[0]?.type === CALL_EXPRESSION;
+            maxParamsPerLine > 0 && node.arguments.length === 1 && node.arguments[0]?.type === CALL_EXPRESSION;
 
         const simplePrefixLength = countLeadingSimpleCallArguments(node);
-        const shouldForceCallbackBreaks =
-            callbackArguments.length > 0 && simplePrefixLength <= 1;
+        const shouldForceCallbackBreaks = callbackArguments.length > 0 && simplePrefixLength <= 1;
 
         const shouldForceBreakArguments =
             hasSingleCallExpressionArgument ||
-            (maxParamsPerLine > 0 &&
-                node.arguments.length > maxParamsPerLine) ||
+            (maxParamsPerLine > 0 && node.arguments.length > maxParamsPerLine) ||
             callbackArguments.length > 1 ||
             structArgumentsToBreak.length > 0 ||
             shouldForceCallbackBreaks;
 
-        const shouldUseCallbackLayout = [
-            node.arguments[0],
-            node.arguments.at(-1)
-        ].some(
+        const shouldUseCallbackLayout = [node.arguments[0], node.arguments.at(-1)].some(
             (argumentNode) =>
                 argumentNode?.type === FUNCTION_DECLARATION ||
                 argumentNode?.type === CONSTRUCTOR_DECLARATION ||
@@ -1223,23 +1000,16 @@ function printCallExpressionNode(node, path, options, print) {
         );
 
         const shouldIncludeInlineVariant =
-            shouldUseCallbackLayout &&
-            !shouldForceBreakArguments &&
-            simplePrefixLength > 1;
+            shouldUseCallbackLayout && !shouldForceBreakArguments && simplePrefixLength > 1;
 
         const hasCallbackArguments = callbackArguments.length > 0;
 
-        const { inlineDoc, multilineDoc } = buildCallArgumentsDocs(
-            path,
-            print,
-            options,
-            {
-                forceBreak: shouldForceBreakArguments,
-                maxElementsPerLine: effectiveElementsPerLineLimit,
-                includeInlineVariant: shouldIncludeInlineVariant,
-                hasCallbackArguments
-            }
-        );
+        const { inlineDoc, multilineDoc } = buildCallArgumentsDocs(path, print, options, {
+            forceBreak: shouldForceBreakArguments,
+            maxElementsPerLine: effectiveElementsPerLineLimit,
+            includeInlineVariant: shouldIncludeInlineVariant,
+            hasCallbackArguments
+        });
 
         if (shouldUseCallbackLayout) {
             if (shouldForceBreakArguments) {
@@ -1250,17 +1020,13 @@ function printCallExpressionNode(node, path, options, print) {
                 printedArgs = [multilineDoc];
             }
         } else {
-            printedArgs = shouldForceBreakArguments
-                ? [concat([breakParent, multilineDoc])]
-                : [multilineDoc];
+            printedArgs = shouldForceBreakArguments ? [concat([breakParent, multilineDoc])] : [multilineDoc];
         }
     }
 
     const calleeDoc = print(OBJECT_TYPE);
 
-    return isInLValueChain(path)
-        ? concat([calleeDoc, ...printedArgs])
-        : group([calleeDoc, ...printedArgs]);
+    return isInLValueChain(path) ? concat([calleeDoc, ...printedArgs]) : group([calleeDoc, ...printedArgs]);
 }
 
 function getNumericValueFromRealCall(node) {
@@ -1280,11 +1046,7 @@ function getNumericValueFromRealCall(node) {
     }
 
     const argument = args[0];
-    if (
-        !argument ||
-        argument.type !== "Literal" ||
-        argument._skipNumericStringCoercion !== true
-    ) {
+    if (!argument || argument.type !== "Literal" || argument._skipNumericStringCoercion !== true) {
         return null;
     }
 
@@ -1310,10 +1072,7 @@ function getNumericStringLiteralValue(node) {
         const startingQuote = rawValue[0];
         const endingQuote = rawValue.at(-1);
 
-        if (
-            (startingQuote === '"' || startingQuote === "'") &&
-            startingQuote === endingQuote
-        ) {
+        if ((startingQuote === '"' || startingQuote === "'") && startingQuote === endingQuote) {
             literalText = Core.stripStringQuotes(rawValue);
         }
     }
@@ -1338,14 +1097,9 @@ function printMemberDotExpressionNode(node, path, options, print) {
         node.object.name === "global"
     ) {
         const preservedNames =
-            options?.preserveGlobalVarStatements === false
-                ? null
-                : options?.[PRESERVED_GLOBAL_VAR_NAMES];
+            options?.preserveGlobalVarStatements === false ? null : options?.[PRESERVED_GLOBAL_VAR_NAMES];
         const propertyNode = node.property;
-        const propertyName =
-            propertyNode?.type === IDENTIFIER
-                ? Core.getIdentifierText(propertyNode)
-                : null;
+        const propertyName = propertyNode?.type === IDENTIFIER ? Core.getIdentifierText(propertyNode) : null;
         if (
             preservedNames &&
             preservedNames.size > 0 &&
@@ -1364,12 +1118,7 @@ function printMemberDotExpressionNode(node, path, options, print) {
                 objectNode.type === MEMBER_INDEX_EXPRESSION);
 
         if (shouldAllowBreakBeforeDot) {
-            return concat([
-                print(OBJECT_TYPE),
-                softline,
-                ".",
-                print("property")
-            ]);
+            return concat([print(OBJECT_TYPE), softline, ".", print("property")]);
         }
 
         return concat([print(OBJECT_TYPE), ".", print("property")]);
@@ -1378,14 +1127,7 @@ function printMemberDotExpressionNode(node, path, options, print) {
         let propertyDoc = print("property");
 
         if (propertyDoc === undefined) {
-            propertyDoc = printCommaSeparatedList(
-                path,
-                print,
-                "property",
-                "",
-                "",
-                options
-            );
+            propertyDoc = printCommaSeparatedList(path, print, "property", "", "", options);
         }
 
         return concat([objectDoc, ".", propertyDoc]);
@@ -1402,14 +1144,7 @@ function printMemberIndexExpressionNode(node, path, options, print) {
     if (Core.isNonEmptyString(accessor) && accessor.length > 1) {
         accessor = `${accessor} `;
     }
-    const property = printCommaSeparatedList(
-        path,
-        print,
-        "property",
-        "",
-        "",
-        options
-    );
+    const property = printCommaSeparatedList(path, print, "property", "", "", options);
     return concat([print(OBJECT_TYPE), accessor, group(indent(property)), "]"]);
 }
 
@@ -1421,15 +1156,11 @@ function printStructExpressionNode(node, path, options, print) {
     const shouldForceBreakStruct = forcedStructArgumentBreaks.has(node);
     const objectWrapOption = resolveObjectWrapOption(options);
     const shouldPreserveStructWrap =
-        objectWrapOption === ObjectWrapOption.PRESERVE &&
-        structLiteralHasLeadingLineBreak(node, options);
+        objectWrapOption === ObjectWrapOption.PRESERVE && structLiteralHasLeadingLineBreak(node, options);
 
     return concat(
         printCommaSeparatedList(path, print, "properties", "{", "}", options, {
-            forceBreak:
-                node.hasTrailingComma ||
-                shouldForceBreakStruct ||
-                shouldPreserveStructWrap,
+            forceBreak: node.hasTrailingComma || shouldForceBreakStruct || shouldPreserveStructWrap,
             // Keep struct literals flush with their braces for now; GameMaker's
             // runtime formatter and the official documentation render `{foo: 1}`
             // without extra internal padding, and our fixtures rely on that output.
@@ -1439,31 +1170,18 @@ function printStructExpressionNode(node, path, options, print) {
 }
 
 function printPropertyNode(node, path, options, print) {
-    const parentNode =
-        typeof path.getParentNode === "function" ? path.getParentNode() : null;
+    const parentNode = typeof path.getParentNode === "function" ? path.getParentNode() : null;
     const alignmentInfo = forcedStructArgumentBreaks.get(parentNode);
     const nameDoc = print("name");
     const valueDoc = print("value");
-    const trailingCommentSuffix = buildStructPropertyCommentSuffix(
-        path,
-        options
-    );
+    const trailingCommentSuffix = buildStructPropertyCommentSuffix(path, options);
 
     if (alignmentInfo?.maxNameLength > 0) {
         const nameLength = getStructPropertyNameLength(node, options);
-        const paddingWidth = Math.max(
-            alignmentInfo.maxNameLength - nameLength + 1,
-            1
-        );
+        const paddingWidth = Math.max(alignmentInfo.maxNameLength - nameLength + 1, 1);
         const padding = " ".repeat(paddingWidth);
 
-        return concat([
-            nameDoc,
-            padding,
-            ": ",
-            valueDoc,
-            trailingCommentSuffix
-        ]);
+        return concat([nameDoc, padding, ": ", valueDoc, trailingCommentSuffix]);
     }
 
     const originalPrefix = getStructPropertyPrefix(node, options);
@@ -1488,16 +1206,7 @@ function printNewExpressionNode(node, path, options, print) {
     const argsPrinted =
         node.arguments.length === 0
             ? [printEmptyParens(path, options)]
-            : [
-                  printCommaSeparatedList(
-                      path,
-                      print,
-                      "arguments",
-                      "(",
-                      ")",
-                      options
-                  )
-              ];
+            : [printCommaSeparatedList(path, print, "arguments", "(", ")", options)];
     return concat(["new ", print("expression"), ...argsPrinted]);
 }
 
@@ -1509,28 +1218,16 @@ function tryPrintDeclarationNode(node, path, options, print) {
                 "enum ",
                 print("name"),
                 " ",
-                printCommaSeparatedList(
-                    path,
-                    print,
-                    "members",
-                    "{",
-                    "}",
-                    options,
-                    {
-                        forceBreak: node.hasTrailingComma
-                    }
-                )
+                printCommaSeparatedList(path, print, "members", "{", "}", options, {
+                    forceBreak: node.hasTrailingComma
+                })
             ]);
         }
         case "ReturnStatement": {
-            return node.argument
-                ? concat(["return ", print("argument")])
-                : concat("return");
+            return node.argument ? concat(["return ", print("argument")]) : concat("return");
         }
         case "ThrowStatement": {
-            return node.argument
-                ? concat(["throw ", print("argument")])
-                : "throw";
+            return node.argument ? concat(["throw ", print("argument")]) : "throw";
         }
         case "IdentifierStatement": {
             return print("name");
@@ -1540,16 +1237,9 @@ function tryPrintDeclarationNode(node, path, options, print) {
                 typeof node._featherMacroText === STRING_TYPE
                     ? node._featherMacroText
                     : (() => {
-                          const { start: startIndex, end: endIndex } =
-                              Core.getNodeRangeIndices(node);
-                          if (
-                              typeof startIndex === NUMBER_TYPE &&
-                              typeof endIndex === NUMBER_TYPE
-                          ) {
-                              return options.originalText.slice(
-                                  startIndex,
-                                  endIndex
-                              );
+                          const { start: startIndex, end: endIndex } = Core.getNodeRangeIndices(node);
+                          if (typeof startIndex === NUMBER_TYPE && typeof endIndex === NUMBER_TYPE) {
+                              return options.originalText.slice(startIndex, endIndex);
                           }
                           return "";
                       })();
@@ -1561,8 +1251,7 @@ function tryPrintDeclarationNode(node, path, options, print) {
             let textToPrint = macroText;
 
             const macroStartIndex = Core.getNodeStartIndex(node);
-            const { start: nameStartIndex, end: nameEndIndex } =
-                Core.getNodeRangeIndices(node.name);
+            const { start: nameStartIndex, end: nameEndIndex } = Core.getNodeRangeIndices(node.name);
             if (
                 typeof macroStartIndex === NUMBER_TYPE &&
                 typeof nameStartIndex === NUMBER_TYPE &&
@@ -1570,10 +1259,7 @@ function tryPrintDeclarationNode(node, path, options, print) {
                 nameStartIndex >= macroStartIndex &&
                 nameEndIndex >= nameStartIndex
             ) {
-                const renamed = getSemanticIdentifierCaseRenameForNode(
-                    node.name,
-                    options
-                );
+                const renamed = getSemanticIdentifierCaseRenameForNode(node.name, options);
                 if (Core.isNonEmptyString(renamed)) {
                     const relativeStart = nameStartIndex - macroStartIndex;
                     const relativeEnd = nameEndIndex - macroStartIndex;
@@ -1593,20 +1279,13 @@ function tryPrintDeclarationNode(node, path, options, print) {
         }
         case "DefineStatement": {
             const directive =
-                Core.getNormalizedDefineReplacementDirective(node) ??
-                Core.DefineReplacementDirective.MACRO;
-            const suffixDoc =
-                typeof node.replacementSuffix === STRING_TYPE
-                    ? node.replacementSuffix
-                    : print("name");
+                Core.getNormalizedDefineReplacementDirective(node) ?? Core.DefineReplacementDirective.MACRO;
+            const suffixDoc = typeof node.replacementSuffix === STRING_TYPE ? node.replacementSuffix : print("name");
 
             if (typeof suffixDoc === STRING_TYPE) {
-                const needsSeparator =
-                    suffixDoc.length > 0 && !/^\s/.test(suffixDoc);
+                const needsSeparator = suffixDoc.length > 0 && !/^\s/.test(suffixDoc);
 
-                return needsSeparator
-                    ? concat([directive, " ", suffixDoc])
-                    : concat([directive, suffixDoc]);
+                return needsSeparator ? concat([directive, " ", suffixDoc]) : concat([directive, suffixDoc]);
             }
 
             return concat([directive, suffixDoc]);
@@ -1651,10 +1330,7 @@ function tryPrintLiteralNode(node, path, options, print) {
                 const decimalMatch = value.match(/^([-+]?\d+)\.(\d*)$/);
                 if (decimalMatch) {
                     const [, integerPart, fractionalPart] = decimalMatch;
-                    if (
-                        fractionalPart.length === 0 ||
-                        /^0+$/.test(fractionalPart)
-                    ) {
+                    if (fractionalPart.length === 0 || /^0+$/.test(fractionalPart)) {
                         // Collapse literals such as `1.` and `1.000` to `1` to keep the
                         // formatter stable with GameMaker's canonical output (see the
                         // numbers reference linked above). Leaving the dangling decimal
@@ -1669,13 +1345,10 @@ function tryPrintLiteralNode(node, path, options, print) {
             return concat(value);
         }
         case "Identifier": {
-            const prefix = shouldPrefixGlobalIdentifier(path, options)
-                ? "global."
-                : "";
+            const prefix = shouldPrefixGlobalIdentifier(path, options) ? "global." : "";
             let identifierName = node.name;
 
-            const argumentIndex =
-                Core.getArgumentIndexFromIdentifier(identifierName);
+            const argumentIndex = Core.getArgumentIndexFromIdentifier(identifierName);
             if (argumentIndex !== null) {
                 const functionNode = findEnclosingFunctionDeclaration(path);
                 const preferredArgumentName = resolvePreferredParameterName(
@@ -1689,19 +1362,12 @@ function tryPrintLiteralNode(node, path, options, print) {
                 }
             }
 
-            const preferredParamName = getPreferredFunctionParameterName(
-                path,
-                node,
-                options
-            );
+            const preferredParamName = getPreferredFunctionParameterName(path, node, options);
             if (Core.isNonEmptyString(preferredParamName)) {
                 identifierName = preferredParamName;
             }
 
-            const renamed = getSemanticIdentifierCaseRenameForNode(
-                node,
-                options
-            );
+            const renamed = getSemanticIdentifierCaseRenameForNode(node, options);
             if (Core.isNonEmptyString(renamed)) {
                 identifierName = renamed;
             }
@@ -1717,10 +1383,7 @@ function tryPrintLiteralNode(node, path, options, print) {
                     parentNode?.type === VARIABLE_DECLARATOR &&
                     typeof parentNode._alignAssignmentPadding === NUMBER_TYPE
                 ) {
-                    extraPadding = Math.max(
-                        0,
-                        parentNode._alignAssignmentPadding
-                    );
+                    extraPadding = Math.max(0, parentNode._alignAssignmentPadding);
                 }
             }
 
@@ -1748,9 +1411,7 @@ function tryPrintLiteralNode(node, path, options, print) {
             if (extraPadding > 0) {
                 nameDoc = concat([nameDoc, " ".repeat(extraPadding)]);
             }
-            return concat(
-                printSimpleDeclaration(nameDoc, print("initializer"))
-            );
+            return concat(printSimpleDeclaration(nameDoc, print("initializer")));
         }
         case "CatchClause": {
             const parts: any[] = [" catch "];
@@ -1770,12 +1431,7 @@ function tryPrintLiteralNode(node, path, options, print) {
             return concat(parts);
         }
         case "TryStatement": {
-            return concat([
-                "try ",
-                printInBlock(path, options, print, "block"),
-                print("handler"),
-                print("finalizer")
-            ]);
+            return concat(["try ", printInBlock(path, options, print, "block"), print("handler"), print("finalizer")]);
         }
         case "TemplateStringExpression": {
             const hasAtomArray = Array.isArray(node.atoms);
@@ -1797,10 +1453,7 @@ function tryPrintLiteralNode(node, path, options, print) {
                 literalTextParts.push(atom.value);
             }
 
-            if (
-                shouldCollapseToLiteral &&
-                literalTextParts.length === atoms.length
-            ) {
+            if (shouldCollapseToLiteral && literalTextParts.length === atoms.length) {
                 const literalText = literalTextParts.join("");
                 const stringLiteral = JSON.stringify(literalText);
                 return concat(stringLiteral);
@@ -1817,14 +1470,8 @@ function tryPrintLiteralNode(node, path, options, print) {
 function printProgramNode(node, path, options, print) {
     if (node && node.__identifierCasePlanSnapshot) {
         try {
-            if (
-                Semantic &&
-                typeof Semantic.applyIdentifierCasePlanSnapshot === "function"
-            ) {
-                Semantic.applyIdentifierCasePlanSnapshot(
-                    node.__identifierCasePlanSnapshot,
-                    options
-                );
+            if (Semantic && typeof Semantic.applyIdentifierCasePlanSnapshot === "function") {
+                Semantic.applyIdentifierCasePlanSnapshot(node.__identifierCasePlanSnapshot, options);
             }
         } catch {
             // Non-fatal: identifier case snapshot application is optional for printing.
@@ -1834,10 +1481,7 @@ function printProgramNode(node, path, options, print) {
 
     try {
         try {
-            if (
-                Semantic &&
-                typeof Semantic.maybeReportIdentifierCaseDryRun === "function"
-            ) {
+            if (Semantic && typeof Semantic.maybeReportIdentifierCaseDryRun === "function") {
                 Semantic.maybeReportIdentifierCaseDryRun(options);
             }
         } catch {
@@ -1845,9 +1489,7 @@ function printProgramNode(node, path, options, print) {
         }
 
         if (node.body.length === 0) {
-            return concat(
-                printDanglingCommentsAsGroup(path, options, () => true)
-            );
+            return concat(printDanglingCommentsAsGroup(path, options, () => true));
         }
         const bodyParts = printStatements(path, options, print, "body");
 
@@ -1861,19 +1503,12 @@ function printProgramNode(node, path, options, print) {
         //     console.log("[DEBUG] Program has NO comments");
         // }
 
-        const programComments = printDanglingCommentsAsGroup(
-            path,
-            options,
-            () => true
-        );
+        const programComments = printDanglingCommentsAsGroup(path, options, () => true);
 
         return concat([programComments, concat(bodyParts)]);
     } finally {
         try {
-            if (
-                Semantic &&
-                typeof Semantic.teardownIdentifierCaseEnvironment === "function"
-            ) {
+            if (Semantic && typeof Semantic.teardownIdentifierCaseEnvironment === "function") {
                 Semantic.teardownIdentifierCaseEnvironment(options);
             }
         } catch {
@@ -1896,10 +1531,8 @@ function printBlockStatementNode(node, path, options, print) {
     const sourceMetadata = resolvePrinterSourceMetadata(options);
     const { originalText } = sourceMetadata;
     const firstStatement = node.body[0];
-    const constructorStartLine =
-        node?.loc?.start?.line ?? node?.start?.line ?? null;
-    const firstStatementStartLine =
-        firstStatement?.loc?.start?.line ?? firstStatement?.start?.line ?? null;
+    const constructorStartLine = node?.loc?.start?.line ?? node?.start?.line ?? null;
+    const firstStatementStartLine = firstStatement?.loc?.start?.line ?? firstStatement?.start?.line ?? null;
     const constructorHasLineGap = isBlockWithinConstructor(path)
         ? typeof constructorStartLine === NUMBER_TYPE &&
           typeof firstStatementStartLine === NUMBER_TYPE &&
@@ -1908,8 +1541,10 @@ function printBlockStatementNode(node, path, options, print) {
     let shouldPreserveInitialBlankLine = constructorHasLineGap;
 
     if (firstStatement) {
-        const { startIndex: firstStatementStartIndex } =
-            resolveNodeIndexRangeWithSource(firstStatement, sourceMetadata);
+        const { startIndex: firstStatementStartIndex } = resolveNodeIndexRangeWithSource(
+            firstStatement,
+            sourceMetadata
+        );
 
         const preserveForConstructorText =
             originalText !== null &&
@@ -1925,9 +1560,7 @@ function printBlockStatementNode(node, path, options, print) {
         );
 
         shouldPreserveInitialBlankLine =
-            shouldPreserveInitialBlankLine ||
-            preserveForConstructorText ||
-            preserveForLeadingComment;
+            shouldPreserveInitialBlankLine || preserveForConstructorText || preserveForLeadingComment;
     }
 
     if (shouldPreserveInitialBlankLine) {
@@ -1938,11 +1571,7 @@ function printBlockStatementNode(node, path, options, print) {
 
     return concat([
         "{",
-        printDanglingComments(
-            path,
-            options,
-            (comment) => comment.attachToBrace
-        ),
+        printDanglingComments(path, options, (comment) => comment.attachToBrace),
         indent([...leadingDocs, stmts]),
         hardline,
         "}"
@@ -1951,40 +1580,22 @@ function printBlockStatementNode(node, path, options, print) {
 
 function printSwitchStatementNode(node, path, options, print) {
     const parts = [];
-    const discriminantDoc = printWithoutExtraParens(
-        path,
-        print,
-        "discriminant"
-    );
+    const discriminantDoc = printWithoutExtraParens(path, print, "discriminant");
     parts.push(["switch (", buildClauseGroup(discriminantDoc), ") "]);
 
-    const braceIntro = [
-        "{",
-        printDanglingComments(path, options, (comment) => comment.attachToBrace)
-    ];
+    const braceIntro = ["{", printDanglingComments(path, options, (comment) => comment.attachToBrace)];
 
     if (node.cases.length === 0) {
         parts.push(
             concat([
                 ...braceIntro,
-                printDanglingCommentsAsGroup(
-                    path,
-                    options,
-                    (comment) => !comment.attachToBrace
-                ),
+                printDanglingCommentsAsGroup(path, options, (comment) => !comment.attachToBrace),
                 hardline,
                 "}"
             ])
         );
     } else {
-        parts.push(
-            concat([
-                ...braceIntro,
-                indent([path.map(print, "cases")]),
-                hardline,
-                "}"
-            ])
-        );
+        parts.push(concat([...braceIntro, indent([path.map(print, "cases")]), hardline, "}"]));
     }
 
     return concat(parts);
@@ -1995,9 +1606,7 @@ function printSwitchCaseNode(node, path, options, print) {
     const parts = [[hardline, caseText, print("test"), ":"]];
     const caseBody = node.body;
     if (Core.isNonEmptyArray(caseBody)) {
-        parts.push([
-            indent([hardline, printStatements(path, options, print, "body")])
-        ]);
+        parts.push([indent([hardline, printStatements(path, options, print, "body")])]);
     }
     return concat(parts);
 }
@@ -2046,10 +1655,7 @@ function buildTemplateStringParts(atoms, path, print) {
     for (let index = 0; index < length; index += 1) {
         const atom = atoms[index];
 
-        if (
-            atom?.type === TEMPLATE_STRING_TEXT &&
-            typeof atom.value === STRING_TYPE
-        ) {
+        if (atom?.type === TEMPLATE_STRING_TEXT && typeof atom.value === STRING_TYPE) {
             parts.push(atom.value);
             continue;
         }
@@ -2064,12 +1670,7 @@ function buildTemplateStringParts(atoms, path, print) {
             group(
                 concat([
                     "{",
-                    indent(
-                        concat([
-                            shouldBreak ? softline : "",
-                            path.call(print, "atoms", index)
-                        ])
-                    ),
+                    indent(concat([shouldBreak ? softline : "", path.call(print, "atoms", index)])),
                     shouldBreak ? softline : "",
                     "}"
                 ])
@@ -2081,14 +1682,7 @@ function buildTemplateStringParts(atoms, path, print) {
     return parts;
 }
 
-function printDelimitedList(
-    path,
-    print,
-    listKey,
-    startChar,
-    endChar,
-    overrides: any = {}
-) {
+function printDelimitedList(path, print, listKey, startChar, endChar, overrides: any = {}) {
     const {
         delimiter = ",",
         allowTrailingDelimiter = false,
@@ -2106,14 +1700,7 @@ function printDelimitedList(
 
     const innerDoc = [
         ifBreak(leadingNewline ? lineBreak : "", padding),
-        printElements(
-            path,
-            print,
-            listKey,
-            delimiter,
-            lineBreak,
-            maxElementsPerLine
-        )
+        printElements(path, print, listKey, delimiter, lineBreak, maxElementsPerLine)
     ];
 
     const groupElements = [
@@ -2132,9 +1719,7 @@ function printDelimitedList(
         endChar
     ];
 
-    return forceInline
-        ? groupElementsNoBreak
-        : group(groupElements, { id: groupId });
+    return forceInline ? groupElementsNoBreak : group(groupElements, { id: groupId });
 }
 
 function normalizeCallTextNewlines(text, endOfLineOption) {
@@ -2168,55 +1753,28 @@ function buildCallArgumentsDocs(
 ) {
     const node = path.getValue();
     const simplePrefixLength = countLeadingSimpleCallArguments(node);
-    const hasTrailingArguments =
-        Array.isArray(node?.arguments) &&
-        node.arguments.length > simplePrefixLength;
+    const hasTrailingArguments = Array.isArray(node?.arguments) && node.arguments.length > simplePrefixLength;
 
-    if (
-        simplePrefixLength > 1 &&
-        hasTrailingArguments &&
-        hasCallbackArguments &&
-        maxElementsPerLine === Infinity
-    ) {
+    if (simplePrefixLength > 1 && hasTrailingArguments && hasCallbackArguments && maxElementsPerLine === Infinity) {
         const inlineDoc = includeInlineVariant
-            ? printCommaSeparatedList(
-                  path,
-                  print,
-                  "arguments",
-                  "(",
-                  ")",
-                  options,
-                  {
-                      addIndent: false,
-                      forceInline: true,
-                      leadingNewline: false,
-                      trailingNewline: false,
-                      maxElementsPerLine
-                  }
-              )
+            ? printCommaSeparatedList(path, print, "arguments", "(", ")", options, {
+                  addIndent: false,
+                  forceInline: true,
+                  leadingNewline: false,
+                  trailingNewline: false,
+                  maxElementsPerLine
+              })
             : null;
 
-        const multilineDoc = buildCallbackArgumentsWithSimplePrefix(
-            path,
-            print,
-            simplePrefixLength
-        );
+        const multilineDoc = buildCallbackArgumentsWithSimplePrefix(path, print, simplePrefixLength);
 
         return { inlineDoc, multilineDoc };
     }
 
-    const multilineDoc = printCommaSeparatedList(
-        path,
-        print,
-        "arguments",
-        "(",
-        ")",
-        options,
-        {
-            forceBreak,
-            maxElementsPerLine
-        }
-    );
+    const multilineDoc = printCommaSeparatedList(path, print, "arguments", "(", ")", options, {
+        forceBreak,
+        maxElementsPerLine
+    });
 
     const inlineDoc = includeInlineVariant
         ? printCommaSeparatedList(path, print, "arguments", "(", ")", options, {
@@ -2234,21 +1792,13 @@ function buildCallArgumentsDocs(
 function buildFunctionParameterDocs(path, print, options, overrides: any = {}) {
     const forceInline = overrides.forceInline === true;
 
-    const inlineDoc = printCommaSeparatedList(
-        path,
-        print,
-        "params",
-        "(",
-        ")",
-        options,
-        {
-            addIndent: false,
-            allowTrailingDelimiter: false,
-            forceInline: true,
-            leadingNewline: false,
-            trailingNewline: false
-        }
-    );
+    const inlineDoc = printCommaSeparatedList(path, print, "params", "(", ")", options, {
+        addIndent: false,
+        allowTrailingDelimiter: false,
+        forceInline: true,
+        leadingNewline: false,
+        trailingNewline: false
+    });
 
     const multilineDoc = forceInline
         ? inlineDoc
@@ -2286,11 +1836,7 @@ function shouldForceInlineFunctionParameters(path, options) {
     const startIndex = Core.getNodeStartIndex(firstParam);
     const endIndex = Core.getNodeEndIndex(lastParam);
 
-    const parameterSource = sliceOriginalText(
-        originalText,
-        startIndex,
-        endIndex
-    );
+    const parameterSource = sliceOriginalText(originalText, startIndex, endIndex);
 
     if (parameterSource === null) {
         return false;
@@ -2329,10 +1875,7 @@ function maybePrintInlineDefaultParameterFunctionBody(path, print) {
         return null;
     }
 
-    const statementDoc = path.call(
-        (bodyPath) => bodyPath.call(print, "body", 0),
-        "body"
-    );
+    const statementDoc = path.call((bodyPath) => bodyPath.call(print, "body", 0), "body");
 
     if (!statementDoc || willBreak(statementDoc)) {
         return null;
@@ -2342,15 +1885,7 @@ function maybePrintInlineDefaultParameterFunctionBody(path, print) {
     return group(["{ ", statementDoc, semicolon, " }"]);
 }
 
-function printCommaSeparatedList(
-    path,
-    print,
-    listKey,
-    startChar,
-    endChar,
-    options,
-    overrides: any = {}
-) {
+function printCommaSeparatedList(path, print, listKey, startChar, endChar, options, overrides: any = {}) {
     const allowTrailingDelimiter =
         overrides.allowTrailingDelimiter === undefined
             ? shouldAllowTrailingComma(options)
@@ -2399,12 +1934,7 @@ function printInBlock(path, options, print, expressionKey) {
         introParts.push(" ");
     }
 
-    return [
-        ...introParts,
-        indent([hardline, print(expressionKey), optionalSemicolon(node.type)]),
-        hardline,
-        "}"
-    ];
+    return [...introParts, indent([hardline, print(expressionKey), optionalSemicolon(node.type)]), hardline, "}"];
 }
 
 function shouldPrintBlockAlternateAsElseIf(node) {
@@ -2427,14 +1957,7 @@ function shouldPrintBlockAlternateAsElseIf(node) {
 
 // print a delimited sequence of elements
 // handles the case where a trailing comment follows a delimiter
-function printElements(
-    path,
-    print,
-    listKey,
-    delimiter,
-    lineBreak,
-    maxElementsPerLine = Infinity
-) {
+function printElements(path, print, listKey, delimiter, lineBreak, maxElementsPerLine = Infinity) {
     const node = path.getValue();
     const finalIndex = node[listKey].length - 1;
     let itemsSinceLastBreak = 0;
@@ -2451,13 +1974,11 @@ function printElements(
         }
 
         if (index !== finalIndex) {
-            const hasLimit =
-                Number.isFinite(maxElementsPerLine) && maxElementsPerLine > 0;
+            const hasLimit = Number.isFinite(maxElementsPerLine) && maxElementsPerLine > 0;
             itemsSinceLastBreak += 1;
             if (hasLimit) {
                 const childNode = childPath.getValue();
-                const nextNode =
-                    index < finalIndex ? node[listKey][index + 1] : null;
+                const nextNode = index < finalIndex ? node[listKey][index + 1] : null;
                 const shouldBreakAfter =
                     isComplexArgumentNode(childNode) ||
                     isComplexArgumentNode(nextNode) ||
@@ -2525,9 +2046,7 @@ function isComplexArgumentNode(node) {
     }
 
     return (
-        nodeType === "FunctionDeclaration" ||
-        nodeType === "ConstructorDeclaration" ||
-        nodeType === "StructExpression"
+        nodeType === "FunctionDeclaration" || nodeType === "ConstructorDeclaration" || nodeType === "StructExpression"
     );
 }
 
@@ -2582,11 +2101,7 @@ function countLeadingSimpleCallArguments(node) {
     return count;
 }
 
-function buildCallbackArgumentsWithSimplePrefix(
-    path,
-    print,
-    simplePrefixLength
-) {
+function buildCallbackArgumentsWithSimplePrefix(path, print, simplePrefixLength) {
     const node = path.getValue();
     const args = Core.asArray(node?.arguments);
     const parts: any[] = [];
@@ -2602,11 +2117,8 @@ function buildCallbackArgumentsWithSimplePrefix(
     const firstCallbackIndex = trailingArguments.findIndex(isCallbackArgument);
     const hasTrailingNonCallbackArgument =
         firstCallbackIndex !== -1 &&
-        trailingArguments
-            .slice(firstCallbackIndex + 1)
-            .some((argument) => !isCallbackArgument(argument));
-    const shouldForcePrefixBreaks =
-        simplePrefixLength > 1 && hasTrailingNonCallbackArgument;
+        trailingArguments.slice(firstCallbackIndex + 1).some((argument) => !isCallbackArgument(argument));
+    const shouldForcePrefixBreaks = simplePrefixLength > 1 && hasTrailingNonCallbackArgument;
 
     for (let index = 0; index < args.length; index++) {
         parts.push(path.call(print, "arguments", index));
@@ -2625,16 +2137,9 @@ function buildCallbackArgumentsWithSimplePrefix(
         parts.push(line);
     }
 
-    const argumentGroup = group([
-        "(",
-        indent([softline, ...parts]),
-        softline,
-        ")"
-    ]);
+    const argumentGroup = group(["(", indent([softline, ...parts]), softline, ")"]);
 
-    return shouldForcePrefixBreaks
-        ? concat([breakParent, argumentGroup])
-        : argumentGroup;
+    return shouldForcePrefixBreaks ? concat([breakParent, argumentGroup]) : argumentGroup;
 }
 
 function shouldForceBreakStructArgument(argument) {
@@ -2651,13 +2156,7 @@ function shouldForceBreakStructArgument(argument) {
         return false;
     }
 
-    if (
-        properties.some(
-            (property) =>
-                Core.hasComment(property) ||
-                (property as any)?._hasTrailingInlineComment
-        )
-    ) {
+    if (properties.some((property) => Core.hasComment(property) || (property as any)?._hasTrailingInlineComment)) {
         return true;
     }
 
@@ -2665,8 +2164,7 @@ function shouldForceBreakStructArgument(argument) {
 }
 
 function buildStructPropertyCommentSuffix(path, options) {
-    const node =
-        path && typeof path.getValue === "function" ? path.getValue() : null;
+    const node = path && typeof path.getValue === "function" ? path.getValue() : null;
     const comments = Core.asArray(node?._structTrailingComments);
     if (comments.length === 0) {
         return "";
@@ -2696,10 +2194,7 @@ function buildStructPropertyCommentSuffix(path, options) {
         return "";
     }
 
-    const commentDoc =
-        filteredCommentDocs.length === 1
-            ? filteredCommentDocs[0]
-            : join(hardline, filteredCommentDocs);
+    const commentDoc = filteredCommentDocs.length === 1 ? filteredCommentDocs[0] : join(hardline, filteredCommentDocs);
 
     return lineSuffix([lineSuffixBoundary, " ", commentDoc]);
 }
@@ -2743,9 +2238,7 @@ function getStructPropertyNameLength(property, options) {
 
     if (nameNode.type === IDENTIFIER) {
         const identifierText = Core.getIdentifierText(nameNode);
-        return typeof identifierText === STRING_TYPE
-            ? identifierText.length
-            : 0;
+        return typeof identifierText === STRING_TYPE ? identifierText.length : 0;
     }
 
     const source = getSourceTextForNode(nameNode, options);
@@ -2763,10 +2256,7 @@ function printStatements(path, options, print, childrenAttribute) {
     let programNode = null;
     try {
         for (let depth = 0; ; depth += 1) {
-            const p =
-                typeof path.getParentNode === "function"
-                    ? path.getParentNode(depth)
-                    : null;
+            const p = typeof path.getParentNode === "function" ? path.getParentNode(depth) : null;
             if (!p) break;
             programNode = p.type === PROGRAM ? p : programNode;
         }
@@ -2779,17 +2269,10 @@ function printStatements(path, options, print, childrenAttribute) {
     if (!programNode && parentNode?.type === PROGRAM) {
         programNode = parentNode;
     }
-    const containerNode =
-        typeof path.getParentNode === "function" ? path.getParentNode() : null;
+    const containerNode = typeof path.getParentNode === "function" ? path.getParentNode() : null;
     const statements =
-        parentNode && Array.isArray(parentNode[childrenAttribute])
-            ? parentNode[childrenAttribute]
-            : null;
-    if (
-        options?.preserveGlobalVarStatements !== false &&
-        statements &&
-        statements.length > 0
-    ) {
+        parentNode && Array.isArray(parentNode[childrenAttribute]) ? parentNode[childrenAttribute] : null;
+    if (options?.preserveGlobalVarStatements !== false && statements && statements.length > 0) {
         ensurePreservedGlobalVarNames(options, statements);
     }
     if (statements) {
@@ -2798,8 +2281,7 @@ function printStatements(path, options, print, childrenAttribute) {
 
     // Cache frequently used option lookups to avoid re-evaluating them in the tight map loop.
     const sourceMetadata = resolvePrinterSourceMetadata(options);
-    const originalTextCache =
-        sourceMetadata.originalText ?? options?.originalText ?? null;
+    const originalTextCache = sourceMetadata.originalText ?? options?.originalText ?? null;
 
     let syntheticDocByNode = new Map();
 
@@ -2807,18 +2289,8 @@ function printStatements(path, options, print, childrenAttribute) {
     if (statements) {
         for (const statement of statements) {
             const docComment =
-                getSyntheticDocCommentForStaticVariable(
-                    statement,
-                    options,
-                    programNode,
-                    originalTextCache
-                ) ??
-                getSyntheticDocCommentForFunctionAssignment(
-                    statement,
-                    options,
-                    programNode,
-                    originalTextCache
-                );
+                getSyntheticDocCommentForStaticVariable(statement, options, programNode, originalTextCache) ??
+                getSyntheticDocCommentForFunctionAssignment(statement, options, programNode, originalTextCache);
             if (docComment) {
                 syntheticDocByNode.set(statement, docComment);
             }
@@ -2838,8 +2310,7 @@ function printStatements(path, options, print, childrenAttribute) {
             containerNode,
             previousNodeHadNewlineAddedAfter
         });
-        previousNodeHadNewlineAddedAfter =
-            result.previousNodeHadNewlineAddedAfter;
+        previousNodeHadNewlineAddedAfter = result.previousNodeHadNewlineAddedAfter;
         return result.parts;
     }, childrenAttribute);
 }
@@ -2872,11 +2343,12 @@ function buildStatementPartsForPrinter({
     }
 
     let semi = optionalSemicolon(node.type);
-    const { startIndex: nodeStartIndex, endIndex: nodeEndIndex } =
-        resolveNodeIndexRangeWithSource(node, sourceMetadata);
+    const { startIndex: nodeStartIndex, endIndex: nodeEndIndex } = resolveNodeIndexRangeWithSource(
+        node,
+        sourceMetadata
+    );
 
-    const currentNodeRequiresNewline =
-        shouldAddNewlinesAroundStatement(node) && isTopLevel;
+    const currentNodeRequiresNewline = shouldAddNewlinesAroundStatement(node) && isTopLevel;
 
     if (isTopLevel && index === 0 && Core.isFunctionAssignmentStatement(node)) {
         parts.push(hardline);
@@ -2894,12 +2366,8 @@ function buildStatementPartsForPrinter({
     });
 
     const syntheticDocRecord = syntheticDocByNode.get(node);
-    const syntheticDocComment = syntheticDocRecord
-        ? syntheticDocRecord.doc
-        : null;
-    const syntheticPlainLeadingLines = syntheticDocRecord
-        ? syntheticDocRecord.plainLeadingLines
-        : [];
+    const syntheticDocComment = syntheticDocRecord ? syntheticDocRecord.doc : null;
+    const syntheticPlainLeadingLines = syntheticDocRecord ? syntheticDocRecord.plainLeadingLines : [];
     appendSyntheticDocCommentParts({
         parts,
         syntheticDocComment,
@@ -2926,39 +2394,27 @@ function buildStatementPartsForPrinter({
         Array.isArray(node.declarations) &&
         node.declarations.some((declaration) => {
             const initType = declaration?.init?.type;
-            return (
-                initType === FUNCTION_EXPRESSION ||
-                initType === FUNCTION_DECLARATION
-            );
+            return initType === FUNCTION_EXPRESSION || initType === FUNCTION_DECLARATION;
         });
 
-    const isFirstStatementInBlock =
-        index === 0 && childPath.parent?.type !== PROGRAM;
+    const isFirstStatementInBlock = index === 0 && childPath.parent?.type !== PROGRAM;
 
     const suppressFollowingEmptyLine =
-        node?._featherSuppressFollowingEmptyLine === true ||
-        node?._gmlSuppressFollowingEmptyLine === true;
+        node?._featherSuppressFollowingEmptyLine === true || node?._gmlSuppressFollowingEmptyLine === true;
 
-    if (
-        isFirstStatementInBlock &&
-        isStaticDeclaration &&
-        !syntheticDocComment
-    ) {
+    if (isFirstStatementInBlock && isStaticDeclaration && !syntheticDocComment) {
         const hasExplicitBlankLineBeforeStatic =
             typeof originalTextCache === STRING_TYPE &&
             typeof nodeStartIndex === NUMBER_TYPE &&
             isPreviousLineEmpty(originalTextCache, nodeStartIndex);
         const blockAncestor =
-            typeof childPath.getParentNode === "function"
-                ? childPath.getParentNode()
-                : (childPath.parent ?? null);
+            typeof childPath.getParentNode === "function" ? childPath.getParentNode() : (childPath.parent ?? null);
         const constructorAncestor =
             typeof childPath.getParentNode === "function"
                 ? childPath.getParentNode(1)
                 : (blockAncestor?.parent ?? null);
         const shouldForceConstructorPadding =
-            blockAncestor?.type === "BlockStatement" &&
-            constructorAncestor?.type === "ConstructorDeclaration";
+            blockAncestor?.type === "BlockStatement" && constructorAncestor?.type === "ConstructorDeclaration";
 
         if (hasExplicitBlankLineBeforeStatic || shouldForceConstructorPadding) {
             parts.push(hardline);
@@ -2986,9 +2442,7 @@ function buildStatementPartsForPrinter({
     // assignments.
     const manualMathRatio = getManualMathRatio(node);
     const manualMathOriginalComment =
-        typeof node._gmlManualMathOriginalComment === STRING_TYPE
-            ? node._gmlManualMathOriginalComment
-            : null;
+        typeof node._gmlManualMathOriginalComment === STRING_TYPE ? node._gmlManualMathOriginalComment : null;
 
     if (docHasTrailingComment(printed)) {
         printed.splice(-1, 0, semi);
@@ -3057,25 +2511,14 @@ function addLeadingStatementSpacing({
         return;
     }
 
-    const hasLeadingComment = isTopLevel
-        ? Core.hasCommentImmediatelyBefore(originalTextCache, nodeStartIndex)
-        : false;
+    const hasLeadingComment = isTopLevel ? Core.hasCommentImmediatelyBefore(originalTextCache, nodeStartIndex) : false;
 
-    if (
-        isTopLevel &&
-        index > 0 &&
-        !isPreviousLineEmpty(options.originalText, nodeStartIndex) &&
-        !hasLeadingComment
-    ) {
+    if (isTopLevel && index > 0 && !isPreviousLineEmpty(options.originalText, nodeStartIndex) && !hasLeadingComment) {
         parts.push(hardline);
     }
 }
 
-function appendSyntheticDocCommentParts({
-    parts,
-    syntheticDocComment,
-    syntheticPlainLeadingLines
-}) {
+function appendSyntheticDocCommentParts({ parts, syntheticDocComment, syntheticPlainLeadingLines }) {
     if (syntheticPlainLeadingLines.length > 0) {
         parts.push(join(hardline, syntheticPlainLeadingLines));
         if (!syntheticDocComment) {
@@ -3117,26 +2560,20 @@ function normalizeStatementSemicolon({
         return ";";
     }
 
-    if (
-        !hasTerminatingSemicolon &&
-        node.type === ASSIGNMENT_EXPRESSION &&
-        isInsideConstructorFunction(childPath)
-    ) {
+    if (!hasTerminatingSemicolon && node.type === ASSIGNMENT_EXPRESSION && isInsideConstructorFunction(childPath)) {
         return "";
     }
 
     const assignmentExpressionForSemicolonCheck =
         node.type === ASSIGNMENT_EXPRESSION
             ? node
-            : node.type === EXPRESSION_STATEMENT &&
-                node.expression?.type === ASSIGNMENT_EXPRESSION
+            : node.type === EXPRESSION_STATEMENT && node.expression?.type === ASSIGNMENT_EXPRESSION
               ? node.expression
               : null;
 
     const isFunctionAssignmentExpression =
         assignmentExpressionForSemicolonCheck?.operator === "=" &&
-        assignmentExpressionForSemicolonCheck?.right?.type ===
-            "FunctionDeclaration";
+        assignmentExpressionForSemicolonCheck?.right?.type === "FunctionDeclaration";
 
     if (isFunctionAssignmentExpression && !hasTerminatingSemicolon) {
         // Preserve the explicit terminator when normalizing anonymous
@@ -3230,50 +2667,35 @@ function handleIntermediateTrailingSpacing({
 }) {
     let previousNodeHadNewlineAddedAfter = false;
     const nextNode = statements ? statements[index + 1] : null;
-    const shouldSuppressExtraEmptyLine = shouldSuppressEmptyLineBetween(
-        node,
-        nextNode
-    );
+    const shouldSuppressExtraEmptyLine = shouldSuppressEmptyLineBetween(node, nextNode);
     const nextNodeIsMacro = Core.isMacroLikeStatement(nextNode);
     const shouldSkipStandardHardline =
-        shouldSuppressExtraEmptyLine &&
-        Core.isMacroLikeStatement(node) &&
-        !nextNodeIsMacro;
+        shouldSuppressExtraEmptyLine && Core.isMacroLikeStatement(node) && !nextNodeIsMacro;
 
     if (!shouldSkipStandardHardline) {
         parts.push(hardline);
     }
 
-    const nextHasSyntheticDoc = nextNode
-        ? syntheticDocByNode.has(nextNode)
-        : false;
+    const nextHasSyntheticDoc = nextNode ? syntheticDocByNode.has(nextNode) : false;
     const nextLineProbeIndex =
-        node?.type === DEFINE_STATEMENT || node?.type === MACRO_DECLARATION
-            ? nodeEndIndex
-            : nodeEndIndex + 1;
+        node?.type === DEFINE_STATEMENT || node?.type === MACRO_DECLARATION ? nodeEndIndex : nodeEndIndex + 1;
 
-    const suppressLeadingEmptyLine =
-        nextNode?._featherSuppressLeadingEmptyLine === true;
+    const suppressLeadingEmptyLine = nextNode?._featherSuppressLeadingEmptyLine === true;
     const forceFollowingEmptyLine =
-        node?._featherForceFollowingEmptyLine === true ||
-        node?._gmlForceFollowingEmptyLine === true;
+        node?._featherForceFollowingEmptyLine === true || node?._gmlForceFollowingEmptyLine === true;
 
     const nextLineEmpty =
         suppressFollowingEmptyLine || suppressLeadingEmptyLine
             ? false
             : isNextLineEmpty(options.originalText, nextLineProbeIndex);
 
-    const isSanitizedMacro =
-        node?.type === MACRO_DECLARATION &&
-        typeof node._featherMacroText === STRING_TYPE;
+    const isSanitizedMacro = node?.type === MACRO_DECLARATION && typeof node._featherMacroText === STRING_TYPE;
     const sanitizedMacroHasExplicitBlankLine =
-        isSanitizedMacro &&
-        macroTextHasExplicitTrailingBlankLine(node._featherMacroText);
+        isSanitizedMacro && macroTextHasExplicitTrailingBlankLine(node._featherMacroText);
 
     const isMacroLikeNode = Core.isMacroLikeStatement(node);
     const isDefineMacroReplacement =
-        Core.getNormalizedDefineReplacementDirective(node) ===
-        Core.DefineReplacementDirective.MACRO;
+        Core.getNormalizedDefineReplacementDirective(node) === Core.DefineReplacementDirective.MACRO;
     const shouldForceMacroPadding =
         isMacroLikeNode &&
         !isDefineMacroReplacement &&
@@ -3293,8 +2715,7 @@ function handleIntermediateTrailingSpacing({
         nextNode?.type === REPEAT_STATEMENT ||
         nextNode?.type === DO_UNTIL_STATEMENT ||
         nextNode?.type === WITH_STATEMENT;
-    const nextNodeIsVariableDeclaration =
-        nextNode?.type === VARIABLE_DECLARATION;
+    const nextNodeIsVariableDeclaration = nextNode?.type === VARIABLE_DECLARATION;
     const shouldForceLoopSectionPadding =
         !suppressFollowingEmptyLine &&
         isLoopStatement &&
@@ -3303,8 +2724,7 @@ function handleIntermediateTrailingSpacing({
         !shouldSuppressExtraEmptyLine &&
         !sanitizedMacroHasExplicitBlankLine;
     const shouldForceEarlyReturnPadding =
-        !suppressFollowingEmptyLine &&
-        shouldForceBlankLineBetweenReturnPaths(node, nextNode);
+        !suppressFollowingEmptyLine && shouldForceBlankLineBetweenReturnPaths(node, nextNode);
 
     const shouldAddForcedPadding =
         shouldForceMacroPadding ||
@@ -3318,9 +2738,7 @@ function handleIntermediateTrailingSpacing({
             !shouldSuppressExtraEmptyLine &&
             !sanitizedMacroHasExplicitBlankLine);
 
-    const shouldAddPaddingWithNewline =
-        shouldAddForcedPadding ||
-        (currentNodeRequiresNewline && !nextLineEmpty);
+    const shouldAddPaddingWithNewline = shouldAddForcedPadding || (currentNodeRequiresNewline && !nextLineEmpty);
 
     if (shouldAddPaddingWithNewline) {
         parts.push(hardline);
@@ -3353,50 +2771,32 @@ function handleTerminalTrailingSpacing({
     let previousNodeHadNewlineAddedAfter = false;
     const parentNode = childPath.parent;
     const trailingProbeIndex =
-        node?.type === DEFINE_STATEMENT || node?.type === MACRO_DECLARATION
-            ? nodeEndIndex
-            : nodeEndIndex + 1;
+        node?.type === DEFINE_STATEMENT || node?.type === MACRO_DECLARATION ? nodeEndIndex : nodeEndIndex + 1;
     const enforceTrailingPadding = shouldAddNewlinesAroundStatement(node);
-    const blockParent =
-        typeof childPath.getParentNode === "function"
-            ? childPath.getParentNode()
-            : childPath.parent;
+    const blockParent = typeof childPath.getParentNode === "function" ? childPath.getParentNode() : childPath.parent;
     const constructorAncestor =
-        typeof childPath.getParentNode === "function"
-            ? childPath.getParentNode(1)
-            : (blockParent?.parent ?? null);
+        typeof childPath.getParentNode === "function" ? childPath.getParentNode(1) : (blockParent?.parent ?? null);
     const isConstructorBlock =
-        blockParent?.type === "BlockStatement" &&
-        constructorAncestor?.type === "ConstructorDeclaration";
-    const shouldPreserveConstructorStaticPadding =
-        isStaticDeclaration && hasFunctionInitializer && isConstructorBlock;
+        blockParent?.type === "BlockStatement" && constructorAncestor?.type === "ConstructorDeclaration";
+    const shouldPreserveConstructorStaticPadding = isStaticDeclaration && hasFunctionInitializer && isConstructorBlock;
     let shouldPreserveTrailingBlankLine = false;
     const hasAttachedDocComment =
         node?.[DOC_COMMENT_OUTPUT_FLAG] === true ||
         Core.isNonEmptyArray(node?.docComments) ||
         Boolean(syntheticDocComment);
     const requiresTrailingPadding =
-        enforceTrailingPadding &&
-        parentNode?.type === "BlockStatement" &&
-        !suppressFollowingEmptyLine;
+        enforceTrailingPadding && parentNode?.type === "BlockStatement" && !suppressFollowingEmptyLine;
 
     if (parentNode?.type === "BlockStatement" && !suppressFollowingEmptyLine) {
-        const originalText =
-            typeof options.originalText === STRING_TYPE
-                ? options.originalText
-                : null;
+        const originalText = typeof options.originalText === STRING_TYPE ? options.originalText : null;
         const trailingBlankLineCount =
-            originalText === null
-                ? 0
-                : countTrailingBlankLines(originalText, trailingProbeIndex);
+            originalText === null ? 0 : countTrailingBlankLines(originalText, trailingProbeIndex);
         const hasExplicitTrailingBlankLine = trailingBlankLineCount > 0;
         const shouldCollapseExcessBlankLines = trailingBlankLineCount > 1;
 
         if (enforceTrailingPadding) {
             shouldPreserveTrailingBlankLine =
-                node?.type === "FunctionDeclaration"
-                    ? true
-                    : hasExplicitTrailingBlankLine;
+                node?.type === "FunctionDeclaration" ? true : hasExplicitTrailingBlankLine;
         } else if (
             shouldPreserveConstructorStaticPadding &&
             hasExplicitTrailingBlankLine &&
@@ -3409,10 +2809,7 @@ function handleTerminalTrailingSpacing({
             let nextCharacter = null;
 
             while (scanIndex < textLength) {
-                nextCharacter = getNextNonWhitespaceCharacter(
-                    originalText,
-                    scanIndex
-                );
+                nextCharacter = getNextNonWhitespaceCharacter(originalText, scanIndex);
 
                 if (nextCharacter === ";") {
                     if (hasFunctionInitializer) {
@@ -3432,28 +2829,16 @@ function handleTerminalTrailingSpacing({
                 break;
             }
 
-            const shouldPreserve =
-                nextCharacter === null ? false : nextCharacter !== "}";
+            const shouldPreserve = nextCharacter === null ? false : nextCharacter !== "}";
 
-            shouldPreserveTrailingBlankLine = shouldCollapseExcessBlankLines
-                ? false
-                : shouldPreserve;
+            shouldPreserveTrailingBlankLine = shouldCollapseExcessBlankLines ? false : shouldPreserve;
         }
     }
 
     if (!shouldPreserveTrailingBlankLine && !suppressFollowingEmptyLine) {
-        if (
-            shouldForceTrailingBlankLineForNestedFunction(
-                node,
-                parentNode,
-                containerNode
-            )
-        ) {
+        if (shouldForceTrailingBlankLineForNestedFunction(node, parentNode, containerNode)) {
             shouldPreserveTrailingBlankLine = true;
-        } else if (
-            hasAttachedDocComment &&
-            blockParent?.type === "BlockStatement"
-        ) {
+        } else if (hasAttachedDocComment && blockParent?.type === "BlockStatement") {
             const isFunctionLike = Core.isFunctionLikeDeclaration(node);
             if (isFunctionLike) {
                 shouldPreserveTrailingBlankLine = true;
@@ -3471,31 +2856,18 @@ function handleTerminalTrailingSpacing({
 
 const DEFAULT_ASSIGNMENT_ALIGNMENT_MIN_GROUP_SIZE = 3;
 
-export function applyAssignmentAlignment(
-    statements,
-    options,
-    path = null,
-    childrenAttribute = null
-) {
+export function applyAssignmentAlignment(statements, options, path = null, childrenAttribute = null) {
     const minGroupSize = getAssignmentAlignmentMinimum(options);
     /** @type {Array<{ node: any, nameLength: number, prefixLength: number }>} */
     const currentGroup = [];
     let currentGroupMaxLength = 0;
     let currentGroupHasAlias = false;
 
-    const { originalText, locStart, locEnd } =
-        resolvePrinterSourceMetadata(options);
+    const { originalText, locStart, locEnd } = resolvePrinterSourceMetadata(options);
 
-    const insideFunctionBody = isPathInsideFunctionBody(
-        path,
-        childrenAttribute
-    );
-    const functionNode = insideFunctionBody
-        ? findEnclosingFunctionNode(path)
-        : null;
-    const functionParameterNames = insideFunctionBody
-        ? getFunctionParameterNameSetFromPath(path)
-        : null;
+    const insideFunctionBody = isPathInsideFunctionBody(path, childrenAttribute);
+    const functionNode = insideFunctionBody ? findEnclosingFunctionNode(path) : null;
+    const functionParameterNames = insideFunctionBody ? getFunctionParameterNameSetFromPath(path) : null;
 
     let previousEntry = null;
 
@@ -3513,19 +2885,12 @@ export function applyAssignmentAlignment(
 
         const groupEntries = [...currentGroup];
         const contextFunctionName =
-            functionNode?.id?.name ??
-            (functionNode?.name ? functionNode.name.name : null) ??
-            "<none>";
+            functionNode?.id?.name ?? (functionNode?.name ? functionNode.name.name : null) ?? "<none>";
         console.log(
             "alignment group",
             contextFunctionName,
             groupEntries.map(({ node }) => {
-                return (
-                    node?.id?.name ??
-                    node?.left?.name ??
-                    node?.left?.property?.name ??
-                    "<unknown>"
-                );
+                return node?.id?.name ?? node?.left?.name ?? node?.left?.property?.name ?? "<unknown>";
             }),
             "length",
             groupEntries.length,
@@ -3534,16 +2899,10 @@ export function applyAssignmentAlignment(
             "minGroupSize",
             minGroupSize
         );
-        const normalizedMinGroupSize =
-            minGroupSize > 0
-                ? minGroupSize
-                : DEFAULT_ASSIGNMENT_ALIGNMENT_MIN_GROUP_SIZE;
+        const normalizedMinGroupSize = minGroupSize > 0 ? minGroupSize : DEFAULT_ASSIGNMENT_ALIGNMENT_MIN_GROUP_SIZE;
         const alignmentEnabled = minGroupSize > 0;
-        const effectiveMinGroupSize = alignmentEnabled
-            ? normalizedMinGroupSize
-            : minGroupSize;
-        const meetsAlignmentThreshold =
-            alignmentEnabled && groupEntries.length >= effectiveMinGroupSize;
+        const effectiveMinGroupSize = alignmentEnabled ? normalizedMinGroupSize : minGroupSize;
+        const meetsAlignmentThreshold = alignmentEnabled && groupEntries.length >= effectiveMinGroupSize;
         const canAlign = meetsAlignmentThreshold && currentGroupHasAlias;
 
         if (!canAlign) {
@@ -3556,8 +2915,7 @@ export function applyAssignmentAlignment(
 
         const targetLength = currentGroupMaxLength;
         for (const { node, nameLength, prefixLength } of groupEntries) {
-            node._alignAssignmentPadding =
-                targetLength - (nameLength + prefixLength);
+            node._alignAssignmentPadding = targetLength - (nameLength + prefixLength);
         }
 
         resetGroup();
@@ -3638,10 +2996,7 @@ function isPathInsideFunctionBody(path, childrenAttribute) {
     }
 
     for (let depth = 0; ; depth += 1) {
-        const ancestor =
-            depth === 0
-                ? getParentNode.call(path)
-                : getParentNode.call(path, depth);
+        const ancestor = depth === 0 ? getParentNode.call(path) : getParentNode.call(path, depth);
         if (!ancestor) {
             break;
         }
@@ -3696,10 +3051,7 @@ export function getSimpleAssignmentLikeEntry(
             paddingTarget: statement,
             nameLength: identifier.name.length,
             enablesAlignment: true,
-            prefixLength: getGlobalIdentifierAlignmentPrefixLength(
-                identifier,
-                options
-            )
+            prefixLength: getGlobalIdentifierAlignmentPrefixLength(identifier, options)
         };
     }
 
@@ -3727,8 +3079,7 @@ export function getSimpleAssignmentLikeEntry(
         }
 
         if (insideFunctionBody) {
-            const hasNamedParameters =
-                functionParameterNames && functionParameterNames.size > 0;
+            const hasNamedParameters = functionParameterNames && functionParameterNames.size > 0;
 
             if (argumentIndex !== null) {
                 if (!options?.applyFeatherFixes || hasNamedParameters) {
@@ -3740,16 +3091,9 @@ export function getSimpleAssignmentLikeEntry(
         }
     }
 
-    const skipBreakAfter = shouldOmitParameterAlias(
-        declarator,
-        functionNode,
-        options
-    );
+    const skipBreakAfter = shouldOmitParameterAlias(declarator, functionNode, options);
 
-    const keyword =
-        typeof statement.kind === STRING_TYPE && statement.kind.length > 0
-            ? statement.kind
-            : "var";
+    const keyword = typeof statement.kind === STRING_TYPE && statement.kind.length > 0 ? statement.kind : "var";
     const prefixLength = keyword.length + 1;
 
     const shouldEnableVarAlignment = keyword === "var";
@@ -3770,15 +3114,10 @@ function getGlobalIdentifierAlignmentPrefixLength(identifier, options) {
     }
 
     const preservedNames =
-        options?.preserveGlobalVarStatements === false
-            ? null
-            : options?.[PRESERVED_GLOBAL_VAR_NAMES];
+        options?.preserveGlobalVarStatements === false ? null : options?.[PRESERVED_GLOBAL_VAR_NAMES];
     if (preservedNames && preservedNames.size > 0) {
         const identifierName = Core.getIdentifierText(identifier);
-        if (
-            Core.isNonEmptyString(identifierName) &&
-            preservedNames.has(identifierName)
-        ) {
+        if (Core.isNonEmptyString(identifierName) && preservedNames.has(identifierName)) {
             return 0;
         }
     }
@@ -3800,11 +3139,7 @@ function getFunctionParameterNameSetFromPath(path) {
     const names = new Set();
     for (const param of params) {
         const identifier = Core.getIdentifierFromParameterNode(param);
-        if (
-            identifier &&
-            typeof identifier.name === STRING_TYPE &&
-            identifier.name.length > 0
-        ) {
+        if (identifier && typeof identifier.name === STRING_TYPE && identifier.name.length > 0) {
             names.add(identifier.name);
         }
     }
@@ -3813,11 +3148,7 @@ function getFunctionParameterNameSetFromPath(path) {
 }
 
 function getMemberAssignmentLength(statement) {
-    if (
-        !statement ||
-        statement.type !== "AssignmentExpression" ||
-        statement.operator !== "="
-    ) {
+    if (!statement || statement.type !== "AssignmentExpression" || statement.operator !== "=") {
         return null;
     }
 
@@ -3835,11 +3166,7 @@ function getMemberExpressionLength(expression) {
 
         while (current && current.type === "MemberDotExpression") {
             const { property, object } = current;
-            if (
-                !property ||
-                property.type !== "Identifier" ||
-                typeof property.name !== STRING_TYPE
-            ) {
+            if (!property || property.type !== "Identifier" || typeof property.name !== STRING_TYPE) {
                 return null;
             }
 
@@ -3877,17 +3204,13 @@ function getMemberExpressionLength(expression) {
             return null;
         }
 
-        const propertyEntry =
-            Core.getSingleMemberIndexPropertyEntry(expression);
+        const propertyEntry = Core.getSingleMemberIndexPropertyEntry(expression);
         if (!propertyEntry) {
             return null;
         }
 
         let propertyLength = null;
-        if (
-            propertyEntry.type === "Identifier" &&
-            typeof propertyEntry.name === STRING_TYPE
-        ) {
+        if (propertyEntry.type === "Identifier" && typeof propertyEntry.name === STRING_TYPE) {
             const propertyName = propertyEntry.name;
             if (typeof propertyName === "string") {
                 propertyLength = propertyName.length;
@@ -3898,14 +3221,8 @@ function getMemberExpressionLength(expression) {
             return null;
         }
 
-        const accessorRaw =
-            typeof expression.accessor === STRING_TYPE
-                ? expression.accessor
-                : "";
-        const accessorLength =
-            accessorRaw.length > 1
-                ? accessorRaw.length + 1
-                : accessorRaw.length;
+        const accessorRaw = typeof expression.accessor === STRING_TYPE ? expression.accessor : "";
+        const accessorLength = accessorRaw.length > 1 ? accessorRaw.length + 1 : accessorRaw.length;
 
         return objectLength + accessorLength + propertyLength + 1; // closing bracket
     }
@@ -3934,30 +3251,15 @@ function isSimpleAssignment(node) {
     );
 }
 
-function shouldBreakAssignmentAlignment(
-    previousNode,
-    nextNode,
-    originalText,
-    locStart,
-    locEnd
-) {
-    if (
-        !originalText ||
-        typeof originalText !== STRING_TYPE ||
-        !previousNode ||
-        !nextNode
-    ) {
+function shouldBreakAssignmentAlignment(previousNode, nextNode, originalText, locStart, locEnd) {
+    if (!originalText || typeof originalText !== STRING_TYPE || !previousNode || !nextNode) {
         return false;
     }
 
     const previousEnd = getNodeEndIndexForAlignment(previousNode, locEnd);
     const nextStart = getNodeStartIndexForAlignment(nextNode, locStart);
 
-    if (
-        !Number.isInteger(previousEnd) ||
-        !Number.isInteger(nextStart) ||
-        previousEnd >= nextStart
-    ) {
+    if (!Number.isInteger(previousEnd) || !Number.isInteger(nextStart) || previousEnd >= nextStart) {
         return false;
     }
 
@@ -4003,9 +3305,7 @@ function isArgumentAliasGap(text) {
     }
 
     return statements.every((statement) => {
-        const match = statement.match(
-            /^(?:var\s+)?[A-Za-z_][A-Za-z0-9_]*\s*=\s*(argument\d+)$/
-        );
+        const match = statement.match(/^(?:var\s+)?[A-Za-z_][A-Za-z0-9_]*\s*=\s*(argument\d+)$/);
         return !!match && Core.GML_ARGUMENT_IDENTIFIER_PATTERN.test(match[1]);
     });
 }
@@ -4070,12 +3370,7 @@ function getNodeEndIndexForAlignment(node, locEnd) {
  * @param endIndex Exclusive end index of {@link node} within {@link originalText}.
  * @returns {string | null} The restored call text with injected separators when a numeric gap was detected, or `null` if nothing needed to change.
  */
-function synthesizeMissingCallArgumentSeparators(
-    node,
-    originalText,
-    startIndex,
-    endIndex
-) {
+function synthesizeMissingCallArgumentSeparators(node, originalText, startIndex, endIndex) {
     if (
         !node ||
         node.type !== "CallExpression" ||
@@ -4138,10 +3433,8 @@ function synthesizeMissingCallArgumentSeparators(
         const trimmedBetween = between.trim();
 
         if (trimmedBetween.length === 0) {
-            const previousChar =
-                cursor > startIndex ? originalText[cursor - 1] : "";
-            const nextChar =
-                nextStart < originalText.length ? originalText[nextStart] : "";
+            const previousChar = cursor > startIndex ? originalText[cursor - 1] : "";
+            const nextChar = nextStart < originalText.length ? originalText[nextStart] : "";
 
             if (
                 Core.isNumericLiteralBoundaryCharacter(previousChar) &&
@@ -4178,17 +3471,10 @@ function getPreferredFunctionParameterName(path, node, options) {
 
         const identifier = Core.getIdentifierFromParameterNode(paramIndex);
         const currentName =
-            (identifier && typeof identifier.name === STRING_TYPE
-                ? identifier.name
-                : null) ??
+            (identifier && typeof identifier.name === STRING_TYPE ? identifier.name : null) ??
             (node && typeof node.name === STRING_TYPE ? node.name : null);
 
-        const preferredName = resolvePreferredParameterName(
-            functionNode,
-            paramIndex,
-            currentName,
-            options
-        );
+        const preferredName = resolvePreferredParameterName(functionNode, paramIndex, currentName, options);
 
         if (Core.isNonEmptyString(preferredName)) {
             return preferredName;
@@ -4211,12 +3497,7 @@ function getPreferredFunctionParameterName(path, node, options) {
         return null;
     }
 
-    const preferredName = resolvePreferredParameterName(
-        functionNode,
-        argumentIndex,
-        node.name,
-        options
-    );
+    const preferredName = resolvePreferredParameterName(functionNode, argumentIndex, node.name, options);
 
     if (Core.isNonEmptyString(preferredName)) {
         return preferredName;
@@ -4227,33 +3508,20 @@ function getPreferredFunctionParameterName(path, node, options) {
         return null;
     }
 
-    const identifier = Core.getIdentifierFromParameterNode(
-        params[argumentIndex]
-    );
+    const identifier = Core.getIdentifierFromParameterNode(params[argumentIndex]);
     if (!identifier || typeof identifier.name !== STRING_TYPE) {
         return null;
     }
 
-    const normalizedIdentifier = normalizePreferredParameterName(
-        identifier.name
-    );
-    if (
-        normalizedIdentifier &&
-        normalizedIdentifier !== node.name &&
-        isValidIdentifierName(normalizedIdentifier)
-    ) {
+    const normalizedIdentifier = normalizePreferredParameterName(identifier.name);
+    if (normalizedIdentifier && normalizedIdentifier !== node.name && isValidIdentifierName(normalizedIdentifier)) {
         return normalizedIdentifier;
     }
 
     return null;
 }
 
-function resolvePreferredParameterName(
-    functionNode,
-    paramIndex,
-    currentName,
-    options
-) {
+function resolvePreferredParameterName(functionNode, paramIndex, currentName, options) {
     if (!functionNode || !Number.isInteger(paramIndex) || paramIndex < 0) {
         return null;
     }
@@ -4263,14 +3531,9 @@ function resolvePreferredParameterName(
         return null;
     }
 
-    const functionTagName = getFunctionTagParamName(
-        functionNode,
-        paramIndex,
-        options
-    );
+    const functionTagName = getFunctionTagParamName(functionNode, paramIndex, options);
     const hasRenamableCurrentName =
-        typeof currentName === STRING_TYPE &&
-        Core.getArgumentIndexFromIdentifier(currentName) !== null;
+        typeof currentName === STRING_TYPE && Core.getArgumentIndexFromIdentifier(currentName) !== null;
 
     if (!hasRenamableCurrentName) {
         return null;
@@ -4292,13 +3555,7 @@ function resolvePreferredParameterName(
     return isValidIdentifierName(normalizedName) ? normalizedName : null;
 }
 
-function resolvePreferredParameterSource(
-    functionNode,
-    paramIndex,
-    currentName,
-    options,
-    functionTagName
-) {
+function resolvePreferredParameterSource(functionNode, paramIndex, currentName, options, functionTagName) {
     if (Core.isNonEmptyString(functionTagName)) {
         return functionTagName;
     }
@@ -4308,17 +3565,12 @@ function resolvePreferredParameterSource(
         return docPreferences.get(paramIndex) ?? null;
     }
 
-    const implicitEntries = Core.collectImplicitArgumentDocNames(
-        functionNode,
-        options
-    );
+    const implicitEntries = Core.collectImplicitArgumentDocNames(functionNode, options);
     if (!Array.isArray(implicitEntries)) {
         return null;
     }
 
-    const implicitEntry = implicitEntries.find(
-        (entry) => entry && entry.index === paramIndex
-    );
+    const implicitEntry = implicitEntries.find((entry) => entry && entry.index === paramIndex);
     if (!implicitEntry) {
         return null;
     }
@@ -4339,9 +3591,7 @@ function getFunctionTagParamName(functionNode, paramIndex, options) {
         return null;
     }
 
-    const orderedParamNames = Array.isArray(
-        functionNode?._functionTagParamNames
-    )
+    const orderedParamNames = Array.isArray(functionNode?._functionTagParamNames)
         ? functionNode._functionTagParamNames
         : null;
     if (
@@ -4369,9 +3619,7 @@ function getFunctionTagParamName(functionNode, paramIndex, options) {
 
     for (const comment of docComments) {
         const formatted = Core.formatLineComment(comment, formattingOptions);
-        const rawValue =
-            formatted ??
-            (typeof comment?.value === "string" ? comment.value : null);
+        const rawValue = formatted ?? (typeof comment?.value === "string" ? comment.value : null);
         if (!Core.isNonEmptyString(rawValue)) {
             continue;
         }
@@ -4396,9 +3644,7 @@ function getFunctionTagParamName(functionNode, paramIndex, options) {
                 for (const line of lines) {
                     const params = Core.extractFunctionTagParams(line);
                     if (params.length > 0) {
-                        return paramIndex < params.length
-                            ? params[paramIndex]
-                            : null;
+                        return paramIndex < params.length ? params[paramIndex] : null;
                     }
                 }
             }
@@ -4414,8 +3660,7 @@ function findEnclosingFunctionNode(path) {
     }
 
     for (let depth = 0; ; depth += 1) {
-        const parent =
-            depth === 0 ? path.getParentNode() : path.getParentNode(depth);
+        const parent = depth === 0 ? path.getParentNode() : path.getParentNode(depth);
         if (!parent) {
             break;
         }
@@ -4435,8 +3680,7 @@ function findFunctionParameterContext(path) {
 
     let candidate = path.getValue();
     for (let depth = 0; ; depth += 1) {
-        const parent =
-            depth === 0 ? path.getParentNode() : path.getParentNode(depth);
+        const parent = depth === 0 ? path.getParentNode() : path.getParentNode(depth);
         if (!parent) {
             break;
         }
@@ -4446,10 +3690,7 @@ function findFunctionParameterContext(path) {
             continue;
         }
 
-        if (
-            parent.type === "FunctionDeclaration" ||
-            parent.type === "ConstructorDeclaration"
-        ) {
+        if (parent.type === "FunctionDeclaration" || parent.type === "ConstructorDeclaration") {
             const params = Core.toMutableArray(parent.params);
             const index = params.indexOf(candidate);
             if (index !== -1) {
@@ -4475,19 +3716,12 @@ function shouldOmitParameterAlias(declarator, functionNode, options) {
         return false;
     }
 
-    const argumentIndex = Core.getArgumentIndexFromIdentifier(
-        declarator.init.name
-    );
+    const argumentIndex = Core.getArgumentIndexFromIdentifier(declarator.init.name);
     if (argumentIndex === null) {
         return false;
     }
 
-    const preferredName = resolvePreferredParameterName(
-        functionNode,
-        argumentIndex,
-        declarator.init.name,
-        options
-    );
+    const preferredName = resolvePreferredParameterName(functionNode, argumentIndex, declarator.init.name, options);
 
     const normalizedAlias = normalizePreferredParameterName(declarator.id.name);
     if (!normalizedAlias) {
@@ -4503,16 +3737,12 @@ function shouldOmitParameterAlias(declarator, functionNode, options) {
         return false;
     }
 
-    const identifier = Core.getIdentifierFromParameterNode(
-        params[argumentIndex]
-    );
+    const identifier = Core.getIdentifierFromParameterNode(params[argumentIndex]);
     if (!identifier || typeof identifier.name !== STRING_TYPE) {
         return false;
     }
 
-    const normalizedParamName = normalizePreferredParameterName(
-        identifier.name
-    );
+    const normalizedParamName = normalizePreferredParameterName(identifier.name);
 
     if (
         typeof normalizedParamName === STRING_TYPE &&
@@ -4522,9 +3752,7 @@ function shouldOmitParameterAlias(declarator, functionNode, options) {
         return true;
     }
 
-    const normalizedPreferred = preferredName
-        ? normalizePreferredParameterName(preferredName)
-        : null;
+    const normalizedPreferred = preferredName ? normalizePreferredParameterName(preferredName) : null;
 
     if (normalizedPreferred && normalizedPreferred === normalizedAlias) {
         return true;
@@ -4577,11 +3805,7 @@ function buildGlobalVarAssignmentParts(node, path, print) {
  */
 function filterKeptDeclarators(declarators, functionNode, options) {
     return declarators.filter((declarator) => {
-        const omit = shouldOmitParameterAlias(
-            declarator,
-            functionNode,
-            options
-        );
+        const omit = shouldOmitParameterAlias(declarator, functionNode, options);
         return !omit;
     });
 }
@@ -4603,9 +3827,7 @@ function filterMisattachedFunctionDocComments(declarator) {
     }
 
     declarator.comments = declarator.comments.filter((comment) => {
-        const isFunctionComment =
-            comment.value.includes("@function") ||
-            comment.value.includes("@func");
+        const isFunctionComment = comment.value.includes("@function") || comment.value.includes("@func");
 
         if (isFunctionComment) {
             comment.printed = true;
@@ -4652,16 +3874,12 @@ function isInsideConstructorFunction(path) {
     let functionAncestorDepth = null;
 
     for (let depth = 0; ; depth += 1) {
-        const ancestor =
-            depth === 0 ? path.getParentNode() : path.getParentNode(depth);
+        const ancestor = depth === 0 ? path.getParentNode() : path.getParentNode(depth);
         if (!ancestor) {
             break;
         }
 
-        if (
-            functionAncestorDepth === null &&
-            ancestor.type === "FunctionDeclaration"
-        ) {
+        if (functionAncestorDepth === null && ancestor.type === "FunctionDeclaration") {
             const functionParent = path.getParentNode(depth + 1);
             if (!functionParent || functionParent.type !== "BlockStatement") {
                 return false;
@@ -4685,8 +3903,7 @@ function findEnclosingFunctionDeclaration(path) {
     }
 
     for (let depth = 0; ; depth += 1) {
-        const parent =
-            depth === 0 ? path.getParentNode() : path.getParentNode(depth);
+        const parent = depth === 0 ? path.getParentNode() : path.getParentNode(depth);
         if (!parent) {
             break;
         }
@@ -4737,9 +3954,7 @@ function normalizePreferredParameterName(name) {
 }
 
 function isValidIdentifierName(name) {
-    return (
-        typeof name === STRING_TYPE && /^[A-Za-z_$][A-Za-z0-9_$]*$/.test(name)
-    );
+    return typeof name === STRING_TYPE && /^[A-Za-z_$][A-Za-z0-9_$]*$/.test(name);
 }
 
 // Collects index/reference bookkeeping for implicit `arguments[index]` usages
@@ -4752,21 +3967,14 @@ function getSourceTextForNode(node, options) {
         return null;
     }
 
-    const { originalText, locStart, locEnd } =
-        resolvePrinterSourceMetadata(options);
+    const { originalText, locStart, locEnd } = resolvePrinterSourceMetadata(options);
 
     if (originalText === null) {
         return null;
     }
 
-    const startIndex =
-        typeof locStart === "function"
-            ? locStart(node)
-            : Core.getNodeStartIndex(node);
-    const endIndex =
-        typeof locEnd === "function"
-            ? locEnd(node)
-            : Core.getNodeEndIndex(node);
+    const startIndex = typeof locStart === "function" ? locStart(node) : Core.getNodeStartIndex(node);
+    const endIndex = typeof locEnd === "function" ? locEnd(node) : Core.getNodeEndIndex(node);
 
     if (typeof startIndex !== NUMBER_TYPE || typeof endIndex !== NUMBER_TYPE) {
         return null;
@@ -4788,10 +3996,7 @@ function materializeParamDefaultsFromParamDefault(functionNode) {
         return;
     }
 
-    if (
-        !Array.isArray(functionNode.params) ||
-        functionNode.params.length === 0
-    ) {
+    if (!Array.isArray(functionNode.params) || functionNode.params.length === 0) {
         return;
     }
 
@@ -4813,12 +4018,10 @@ function materializeParamDefaultsFromParamDefault(functionNode) {
                     right: defaultExpr
                 };
                 if (param.leadingComments) {
-                    (defaultNode as any).leadingComments =
-                        param.leadingComments;
+                    (defaultNode as any).leadingComments = param.leadingComments;
                 }
                 if (param.trailingComments) {
-                    (defaultNode as any).trailingComments =
-                        param.trailingComments;
+                    (defaultNode as any).trailingComments = param.trailingComments;
                 }
 
                 // Preserve parser/transforms-provided marker if present. Also
@@ -4858,11 +4061,7 @@ function materializeParamDefaultsFromParamDefault(functionNode) {
         // explicit `= undefined` DefaultParameter node. This mirrors the
         // conservative parser transform behaviour but acts as a local
         // safeguard when the parser pipeline didn't materialize the node.
-        if (
-            param.type === "Identifier" &&
-            param.default == null &&
-            hasExplicitDefaultToLeft(functionNode, i)
-        ) {
+        if (param.type === "Identifier" && param.default == null && hasExplicitDefaultToLeft(functionNode, i)) {
             const defaultNode = {
                 type: "DefaultParameter",
                 left: { type: "Identifier", name: param.name },
@@ -4887,25 +4086,15 @@ function materializeParamDefaultsFromParamDefault(functionNode) {
         // printer and doc synthesizer can observe the default value.
         if (param.type === "DefaultParameter" && param.right == null) {
             try {
-                const paramName =
-                    param.left && param.left.type === "Identifier"
-                        ? param.left.name
-                        : null;
+                const paramName = param.left && param.left.type === "Identifier" ? param.left.name : null;
                 if (!paramName) continue;
 
                 const body = functionNode.body;
-                if (
-                    !body ||
-                    body.type !== "BlockStatement" ||
-                    !Array.isArray(body.body)
-                ) {
+                if (!body || body.type !== "BlockStatement" || !Array.isArray(body.body)) {
                     continue;
                 }
 
-                const fallback = locateDefaultParameterFallback(
-                    body.body,
-                    paramName
-                );
+                const fallback = locateDefaultParameterFallback(body.body, paramName);
                 if (!fallback) {
                     continue;
                 }
@@ -4945,9 +4134,7 @@ function locateDefaultParameterFallback(
             continue;
         }
 
-        if (
-            !hasArgumentAssignment(guard.consequent, paramName, guard.argIndex)
-        ) {
+        if (!hasArgumentAssignment(guard.consequent, paramName, guard.argIndex)) {
             continue;
         }
 
@@ -4993,11 +4180,7 @@ function getGuardBinaryExpression(test: any) {
         return test;
     }
 
-    if (
-        test.type === "ParenthesizedExpression" &&
-        test.expression &&
-        test.expression.type === "BinaryExpression"
-    ) {
+    if (test.type === "ParenthesizedExpression" && test.expression && test.expression.type === "BinaryExpression") {
         return test.expression;
     }
 
@@ -5048,11 +4231,7 @@ function flattenStatementList(node: any) {
     return [node];
 }
 
-function hasArgumentAssignment(
-    statements: Array<any>,
-    paramName: string,
-    argIndex: number
-) {
+function hasArgumentAssignment(statements: Array<any>, paramName: string, argIndex: number) {
     for (const statement of statements) {
         const assign = getAssignmentExpression(statement);
         if (!assign) {
@@ -5092,11 +4271,7 @@ function getAssignmentExpression(node: any) {
         return null;
     }
 
-    if (
-        node.type === "ExpressionStatement" &&
-        node.expression &&
-        node.expression.type === "AssignmentExpression"
-    ) {
+    if (node.type === "ExpressionStatement" && node.expression && node.expression.type === "AssignmentExpression") {
         return node.expression;
     }
 
@@ -5107,11 +4282,7 @@ function getAssignmentExpression(node: any) {
     return null;
 }
 
-function isArgumentAssignment(
-    assign: any,
-    paramName: string,
-    argIndex: number
-) {
+function isArgumentAssignment(assign: any, paramName: string, argIndex: number) {
     const left = assign.left;
     if (!left || left.type !== "Identifier" || left.name !== paramName) {
         return false;
@@ -5122,10 +4293,7 @@ function isArgumentAssignment(
         return false;
     }
 
-    if (
-        rightExpr.object?.type !== "Identifier" ||
-        rightExpr.object.name !== "argument"
-    ) {
+    if (rightExpr.object?.type !== "Identifier" || rightExpr.object.name !== "argument") {
         return false;
     }
 
@@ -5297,10 +4465,7 @@ function shouldOmitDefaultValueForParameter(path, options) {
     // parameter as optional (e.g. `/// @param [name]`) preserve it.
     const functionNode = findEnclosingFunctionDeclaration(path);
     if (functionNode) {
-        if (
-            Array.isArray(functionNode.docComments) &&
-            functionNode.docComments.length > 0
-        ) {
+        if (Array.isArray(functionNode.docComments) && functionNode.docComments.length > 0) {
             const lines = functionNode.docComments.flatMap((comment) => {
                 const value = comment.value || "";
                 if (comment.type === "CommentBlock") {
@@ -5309,13 +4474,9 @@ function shouldOmitDefaultValueForParameter(path, options) {
                 return `/// ${value}`;
             });
 
-            const paramName =
-                node.left && node.left.name ? node.left.name : null;
+            const paramName = node.left && node.left.name ? node.left.name : null;
             if (paramName) {
-                const optionalDocFlag = getDocParamOptionality(
-                    lines,
-                    paramName
-                );
+                const optionalDocFlag = getDocParamOptionality(lines, paramName);
                 if (optionalDocFlag !== null) {
                     return !optionalDocFlag;
                 }
@@ -5343,9 +4504,7 @@ function shouldOmitDefaultValueForParameter(path, options) {
                     docLines.unshift(`/// ${content}`);
                 } else if (line.startsWith("//")) {
                     if (line.includes("@param") || line.includes("@function")) {
-                        docLines.unshift(
-                            `/// ${line.replace(/^\/+/, "").trim()}`
-                        );
+                        docLines.unshift(`/// ${line.replace(/^\/+/, "").trim()}`);
                     }
                 } else {
                     break;
@@ -5353,13 +4512,9 @@ function shouldOmitDefaultValueForParameter(path, options) {
             }
 
             if (docLines.length > 0) {
-                const paramName =
-                    node.left && node.left.name ? node.left.name : null;
+                const paramName = node.left && node.left.name ? node.left.name : null;
                 if (paramName) {
-                    const optionalDocFlag = getDocParamOptionality(
-                        docLines,
-                        paramName
-                    );
+                    const optionalDocFlag = getDocParamOptionality(docLines, paramName);
                     if (optionalDocFlag !== null) {
                         return !optionalDocFlag;
                     }
@@ -5388,10 +4543,7 @@ function shouldOmitDefaultValueForParameter(path, options) {
         // swallow
     }
 
-    if (
-        !Core.isUndefinedSentinel(node.right) ||
-        typeof path.getParentNode !== "function"
-    ) {
+    if (!Core.isUndefinedSentinel(node.right) || typeof path.getParentNode !== "function") {
         return false;
     }
 
@@ -5404,8 +4556,7 @@ function shouldOmitDefaultValueForParameter(path, options) {
 
     let depth = 0;
     while (true) {
-        const ancestor =
-            depth === 0 ? path.getParentNode() : path.getParentNode(depth);
+        const ancestor = depth === 0 ? path.getParentNode() : path.getParentNode(depth);
         if (!ancestor) {
             break;
         }
@@ -5426,21 +4577,15 @@ function shouldOmitDefaultValueForParameter(path, options) {
 function getDocParamOptionality(lines, paramName) {
     for (let i = lines.length - 1; i >= 0; i -= 1) {
         const line = lines[i];
-        const match = line.match(
-            /\/{3,}\s*@param\s*(?:\{[^}]+\}\s*)?(\[[^\]]+\]|\S+)/i
-        );
+        const match = line.match(/\/{3,}\s*@param\s*(?:\{[^}]+\}\s*)?(\[[^\]]+\]|\S+)/i);
         if (!match) {
             continue;
         }
         const raw = match[1];
         const normalized = normalizeDocParamNameFromRaw(raw);
-        console.log(
-            `Checking param: ${paramName}, raw: ${raw}, normalized: ${normalized}`
-        );
+        console.log(`Checking param: ${paramName}, raw: ${raw}, normalized: ${normalized}`);
         if (normalized === paramName) {
-            return (
-                /^\[.*\]$/.test(raw) || raw.endsWith("*") || raw.startsWith("*")
-            );
+            return /^\[.*\]$/.test(raw) || raw.endsWith("*") || raw.startsWith("*");
         }
     }
     return null;
@@ -5464,12 +4609,7 @@ function normalizeDocParamNameFromRaw(raw) {
 }
 
 function hasExplicitDefaultToLeft(functionNode, paramIndex) {
-    if (
-        !functionNode ||
-        !Array.isArray(functionNode.params) ||
-        !Number.isInteger(paramIndex) ||
-        paramIndex <= 0
-    ) {
+    if (!functionNode || !Array.isArray(functionNode.params) || !Number.isInteger(paramIndex) || paramIndex <= 0) {
         return false;
     }
 
@@ -5481,9 +4621,7 @@ function hasExplicitDefaultToLeft(functionNode, paramIndex) {
 
         if (candidate.type === "DefaultParameter") {
             const isUndefined =
-                typeof Core.isUndefinedSentinel === "function"
-                    ? Core.isUndefinedSentinel(candidate.right)
-                    : false;
+                typeof Core.isUndefinedSentinel === "function" ? Core.isUndefinedSentinel(candidate.right) : false;
 
             if (!isUndefined) {
                 return true;
@@ -5505,10 +4643,7 @@ function shouldOmitUndefinedDefaultForFunctionNode(functionNode) {
         return false;
     }
 
-    if (
-        functionNode.type === "ConstructorDeclaration" ||
-        functionNode.type === "ConstructorParentClause"
-    ) {
+    if (functionNode.type === "ConstructorDeclaration" || functionNode.type === "ConstructorParentClause") {
         return false;
     }
 
@@ -5517,13 +4652,7 @@ function shouldOmitUndefinedDefaultForFunctionNode(functionNode) {
 
 function printBooleanReturnIf(path, print) {
     const node = path.getValue();
-    if (
-        !node ||
-        node.type !== "IfStatement" ||
-        !node.consequent ||
-        !node.alternate ||
-        Core.hasComment(node)
-    ) {
+    if (!node || node.type !== "IfStatement" || !node.consequent || !node.alternate || Core.hasComment(node)) {
         return null;
     }
 
@@ -5542,15 +4671,9 @@ function printBooleanReturnIf(path, print) {
     const conditionNode = node.test;
 
     const argumentDoc =
-        consequentReturn.value === "true"
-            ? conditionDoc
-            : negateExpressionDoc(conditionDoc, conditionNode);
+        consequentReturn.value === "true" ? conditionDoc : negateExpressionDoc(conditionDoc, conditionNode);
 
-    return concat([
-        "return ",
-        argumentDoc,
-        optionalSemicolon("ReturnStatement")
-    ]);
+    return concat(["return ", argumentDoc, optionalSemicolon("ReturnStatement")]);
 }
 
 function getBooleanReturnBranch(branchNode) {
@@ -5580,16 +4703,7 @@ function getBooleanReturnBranch(branchNode) {
  * alternate handling to a single abstraction layer.
  */
 function buildIfStatementDoc(path, options, print, node) {
-    const parts: any[] = [
-        printSingleClauseStatement(
-            path,
-            options,
-            print,
-            "if",
-            "test",
-            "consequent"
-        )
-    ];
+    const parts: any[] = [printSingleClauseStatement(path, options, print, "if", "test", "consequent")];
 
     const elseDoc = buildIfAlternateDoc(path, options, print, node);
     if (elseDoc) {
@@ -5619,10 +4733,7 @@ function buildIfAlternateDoc(path, options, print, node) {
     }
 
     if (shouldPrintBlockAlternateAsElseIf(alternateNode)) {
-        return path.call(
-            (alternatePath) => alternatePath.call(print, "body", 0),
-            "alternate"
-        );
+        return path.call((alternatePath) => alternatePath.call(print, "body", 0), "alternate");
     }
 
     return printInBlock(path, options, print, "alternate");
@@ -5634,11 +4745,7 @@ function getBooleanReturnStatementInfo(returnNode) {
     }
 
     const argument = returnNode.argument;
-    if (
-        !argument ||
-        Core.hasComment(argument) ||
-        !Core.isBooleanLiteral(argument)
-    ) {
+    if (!argument || Core.hasComment(argument) || !Core.isBooleanLiteral(argument)) {
         return null;
     }
 
@@ -5669,14 +4776,10 @@ function simplifyBooleanBinaryExpression(path, print, node) {
     const isTrue = booleanNode.value.toLowerCase() === "true";
 
     if (isTrue) {
-        return isEquality
-            ? expressionDoc
-            : negateExpressionDoc(expressionDoc, expressionNode);
+        return isEquality ? expressionDoc : negateExpressionDoc(expressionDoc, expressionNode);
     }
 
-    return isEquality
-        ? negateExpressionDoc(expressionDoc, expressionNode)
-        : expressionDoc;
+    return isEquality ? negateExpressionDoc(expressionDoc, expressionNode) : expressionDoc;
 }
 
 function applyTrigonometricFunctionSimplification(path) {
@@ -5778,10 +4881,7 @@ function applyOuterTrigConversion(node, conversionMap) {
     }
 
     const innerArgs = Core.getCallExpressionArguments(firstArg);
-    if (
-        typeof mapping.expectedArgs === NUMBER_TYPE &&
-        innerArgs.length !== mapping.expectedArgs
-    ) {
+    if (typeof mapping.expectedArgs === NUMBER_TYPE && innerArgs.length !== mapping.expectedArgs) {
         return false;
     }
 
@@ -5819,12 +4919,7 @@ function needsParensForNegation(node) {
         return needsParensForNegation(node.expression);
     }
 
-    return [
-        "BinaryExpression",
-        "AssignmentExpression",
-        "TernaryExpression",
-        "LogicalExpression"
-    ].includes(node.type);
+    return ["BinaryExpression", "AssignmentExpression", "TernaryExpression", "LogicalExpression"].includes(node.type);
 }
 
 function ensurePreservedGlobalVarNames(options, statements) {
@@ -5861,18 +4956,14 @@ function collectGlobalVarNamesFromNode(node, names) {
     if (node.type === GLOBAL_VAR_STATEMENT) {
         const declarations = Core.asArray(node.declarations);
         for (const declarator of declarations) {
-            const identifierName = Core.getIdentifierText(
-                (declarator as any)?.id ?? null
-            );
+            const identifierName = Core.getIdentifierText((declarator as any)?.id ?? null);
             if (Core.isNonEmptyString(identifierName)) {
                 names.add(identifierName);
             }
         }
     }
 
-    Core.forEachNodeChild(node, (child) =>
-        collectGlobalVarNamesFromNode(child, names)
-    );
+    Core.forEachNodeChild(node, (child) => collectGlobalVarNamesFromNode(child, names));
 }
 
 function shouldPrefixGlobalIdentifier(path, options) {
@@ -5880,9 +4971,7 @@ function shouldPrefixGlobalIdentifier(path, options) {
     if (!node || !node.isGlobalIdentifier) return false;
 
     const preservedNames =
-        options?.preserveGlobalVarStatements === false
-            ? null
-            : options?.[PRESERVED_GLOBAL_VAR_NAMES];
+        options?.preserveGlobalVarStatements === false ? null : options?.[PRESERVED_GLOBAL_VAR_NAMES];
     const identifierName = preservedNames ? Core.getIdentifierText(node) : null;
     if (
         preservedNames &&
@@ -5898,10 +4987,8 @@ function shouldPrefixGlobalIdentifier(path, options) {
 
     const type = parent.type;
 
-    if (type === "MemberDotExpression" && parent.property === node)
-        return false;
-    if ((type === "Property" || type === "EnumMember") && parent.name === node)
-        return false;
+    if (type === "MemberDotExpression" && parent.property === node) return false;
+    if ((type === "Property" || type === "EnumMember") && parent.name === node) return false;
     if (
         (type === "VariableDeclarator" ||
             type === "FunctionDeclaration" ||
@@ -5931,10 +5018,7 @@ function docHasTrailingComment(doc) {
     }
 
     return commentArr.some((item) => {
-        return (
-            typeof item === STRING_TYPE &&
-            (item.startsWith("//") || item.startsWith("/*"))
-        );
+        return typeof item === STRING_TYPE && (item.startsWith("//") || item.startsWith("/*"));
     });
 }
 
@@ -5950,9 +5034,7 @@ function getManualMathRatio(node) {
 
     switch (node.type) {
         case "VariableDeclaration": {
-            const declarations = Array.isArray(node.declarations)
-                ? node.declarations
-                : [];
+            const declarations = Array.isArray(node.declarations) ? node.declarations : [];
 
             for (const declarator of declarations) {
                 const ratio = getManualMathRatio(declarator);
@@ -5986,16 +5068,11 @@ function getManualMathRatio(node) {
 }
 
 function printWithoutExtraParens(path, print, ...keys) {
-    return path.call(
-        (childPath) => unwrapParenthesizedExpression(childPath, print),
-        ...keys
-    );
+    return path.call((childPath) => unwrapParenthesizedExpression(childPath, print), ...keys);
 }
 
 function getBinaryOperatorInfo(operator) {
-    return operator === undefined
-        ? undefined
-        : BINARY_OPERATOR_INFO.get(operator);
+    return operator === undefined ? undefined : BINARY_OPERATOR_INFO.get(operator);
 }
 
 function shouldOmitSyntheticParens(path) {
@@ -6021,9 +5098,7 @@ function shouldOmitSyntheticParens(path) {
     const parentKey = callPathMethod(path, "getName");
     const expression = node.expression;
 
-    if (
-        shouldStripStandaloneAdditiveParentheses(parent, parentKey, expression)
-    ) {
+    if (shouldStripStandaloneAdditiveParentheses(parent, parentKey, expression)) {
         return true;
     }
 
@@ -6056,10 +5131,7 @@ function shouldOmitSyntheticParens(path) {
     }
 
     if (parent.type === "CallExpression") {
-        if (
-            !isSyntheticParenFlatteningEnabled(path) ||
-            !isNumericCallExpression(parent)
-        ) {
+        if (!isSyntheticParenFlatteningEnabled(path) || !isNumericCallExpression(parent)) {
             return false;
         }
 
@@ -6076,10 +5148,7 @@ function shouldOmitSyntheticParens(path) {
         }
 
         const sanitizedMacroNames = getSanitizedMacroNames(path);
-        if (
-            sanitizedMacroNames &&
-            expressionReferencesSanitizedMacro(expression, sanitizedMacroNames)
-        ) {
+        if (sanitizedMacroNames && expressionReferencesSanitizedMacro(expression, sanitizedMacroNames)) {
             return false;
         }
 
@@ -6095,20 +5164,14 @@ function shouldOmitSyntheticParens(path) {
     }
 
     const parentInfo = getBinaryOperatorInfo(parent.operator);
-    if (
-        expression?.type === "BinaryExpression" &&
-        shouldFlattenSyntheticBinary(parent, expression, path)
-    ) {
+    if (expression?.type === "BinaryExpression" && shouldFlattenSyntheticBinary(parent, expression, path)) {
         return true;
     }
 
     if (expression?.type === "BinaryExpression" && parentInfo !== undefined) {
         const childInfo = getBinaryOperatorInfo(expression.operator);
 
-        if (
-            childInfo !== undefined &&
-            childInfo.precedence > parentInfo.precedence
-        ) {
+        if (childInfo !== undefined && childInfo.precedence > parentInfo.precedence) {
             if (
                 (parent.operator === "&&" ||
                     parent.operator === "and" ||
@@ -6123,10 +5186,7 @@ function shouldOmitSyntheticParens(path) {
             if (isNumericComputationNode(expression)) {
                 if (parent.operator === "+" || parent.operator === "-") {
                     const childOperator = expression.operator;
-                    const flatteningForced =
-                        childOperator === "*"
-                            ? isSyntheticParenFlatteningForced(path)
-                            : false;
+                    const flatteningForced = childOperator === "*" ? isSyntheticParenFlatteningForced(path) : false;
 
                     if (
                         childOperator === "/" ||
@@ -6141,11 +5201,7 @@ function shouldOmitSyntheticParens(path) {
                         return false;
                     }
 
-                    if (
-                        parent.operator === "-" &&
-                        childOperator === "*" &&
-                        !flatteningForced
-                    ) {
+                    if (parent.operator === "-" && childOperator === "*" && !flatteningForced) {
                         return false;
                     }
 
@@ -6153,14 +5209,8 @@ function shouldOmitSyntheticParens(path) {
 
                     if (
                         sanitizedMacroNames &&
-                        (expressionReferencesSanitizedMacro(
-                            parent,
-                            sanitizedMacroNames
-                        ) ||
-                            expressionReferencesSanitizedMacro(
-                                expression,
-                                sanitizedMacroNames
-                            ))
+                        (expressionReferencesSanitizedMacro(parent, sanitizedMacroNames) ||
+                            expressionReferencesSanitizedMacro(expression, sanitizedMacroNames))
                     ) {
                         return false;
                     }
@@ -6197,16 +5247,12 @@ function shouldOmitSyntheticParens(path) {
 
     let depth = 1;
     while (true) {
-        const ancestor =
-            depth === 1 ? path.getParentNode() : path.getParentNode(depth - 1);
+        const ancestor = depth === 1 ? path.getParentNode() : path.getParentNode(depth - 1);
         if (!ancestor) {
             return false;
         }
 
-        if (
-            ancestor.type === "ParenthesizedExpression" &&
-            ancestor.synthetic !== true
-        ) {
+        if (ancestor.type === "ParenthesizedExpression" && ancestor.synthetic !== true) {
             return true;
         }
 
@@ -6223,17 +5269,13 @@ function isControlFlowLogicalTest(path) {
     let currentNode = path.getValue();
 
     while (true) {
-        const ancestor =
-            depth === 1 ? path.getParentNode() : path.getParentNode(depth - 1);
+        const ancestor = depth === 1 ? path.getParentNode() : path.getParentNode(depth - 1);
 
         if (!ancestor) {
             return false;
         }
 
-        if (
-            ancestor.type === "ParenthesizedExpression" ||
-            ancestor.type === "BinaryExpression"
-        ) {
+        if (ancestor.type === "ParenthesizedExpression" || ancestor.type === "BinaryExpression") {
             currentNode = ancestor;
             depth += 1;
             continue;
@@ -6243,31 +5285,19 @@ function isControlFlowLogicalTest(path) {
             return true;
         }
 
-        if (
-            ancestor.type === "WhileStatement" &&
-            ancestor.test === currentNode
-        ) {
+        if (ancestor.type === "WhileStatement" && ancestor.test === currentNode) {
             return true;
         }
 
-        if (
-            ancestor.type === "DoUntilStatement" &&
-            ancestor.test === currentNode
-        ) {
+        if (ancestor.type === "DoUntilStatement" && ancestor.test === currentNode) {
             return true;
         }
 
-        if (
-            ancestor.type === "RepeatStatement" &&
-            ancestor.test === currentNode
-        ) {
+        if (ancestor.type === "RepeatStatement" && ancestor.test === currentNode) {
             return true;
         }
 
-        if (
-            ancestor.type === "WithStatement" &&
-            ancestor.test === currentNode
-        ) {
+        if (ancestor.type === "WithStatement" && ancestor.test === currentNode) {
             return true;
         }
 
@@ -6288,8 +5318,7 @@ function isComparisonWithinLogicalChain(path) {
     let currentNode = path.getValue();
 
     while (true) {
-        const ancestor =
-            depth === 1 ? path.getParentNode() : path.getParentNode(depth - 1);
+        const ancestor = depth === 1 ? path.getParentNode() : path.getParentNode(depth - 1);
 
         if (!ancestor) {
             return false;
@@ -6301,10 +5330,7 @@ function isComparisonWithinLogicalChain(path) {
             continue;
         }
 
-        if (
-            ancestor.type === "BinaryExpression" &&
-            Core.isComparisonBinaryOperator(ancestor.operator)
-        ) {
+        if (ancestor.type === "BinaryExpression" && Core.isComparisonBinaryOperator(ancestor.operator)) {
             currentNode = ancestor;
             depth += 1;
             continue;
@@ -6317,9 +5343,7 @@ function isComparisonWithinLogicalChain(path) {
                 ancestor.operator === "||" ||
                 ancestor.operator === "or")
         ) {
-            return (
-                ancestor.left === currentNode || ancestor.right === currentNode
-            );
+            return ancestor.left === currentNode || ancestor.right === currentNode;
         }
 
         return false;
@@ -6360,14 +5384,9 @@ function printTernaryExpressionNode(node, path, options, print) {
     const consequentDoc = path.call(print, "consequent");
     const alternateDoc = path.call(print, "alternate");
 
-    const ternaryDoc = group([
-        testDoc,
-        indent([line, "? ", consequentDoc, line, ": ", alternateDoc])
-    ]);
+    const ternaryDoc = group([testDoc, indent([line, "? ", consequentDoc, line, ": ", alternateDoc])]);
 
-    return shouldWrapTernaryExpression(path)
-        ? concat(["(", ternaryDoc, ")"])
-        : ternaryDoc;
+    return shouldWrapTernaryExpression(path) ? concat(["(", ternaryDoc, ")"]) : ternaryDoc;
 }
 
 function shouldFlattenSyntheticBinary(parent, expression, path) {
@@ -6385,40 +5404,26 @@ function shouldFlattenSyntheticBinary(parent, expression, path) {
     const parentOperator = parent.operator;
     const childOperator = expression.operator;
     const isAdditivePair =
-        (parentOperator === "+" || parentOperator === "-") &&
-        (childOperator === "+" || childOperator === "-");
-    const isMultiplicativePair =
-        parentOperator === "*" && childOperator === "*";
+        (parentOperator === "+" || parentOperator === "-") && (childOperator === "+" || childOperator === "-");
+    const isMultiplicativePair = parentOperator === "*" && childOperator === "*";
     const isLogicalAndPair =
-        (parentOperator === "&&" || parentOperator === "and") &&
-        (childOperator === "&&" || childOperator === "and");
+        (parentOperator === "&&" || parentOperator === "and") && (childOperator === "&&" || childOperator === "and");
     const isLogicalOrPair =
-        (parentOperator === "||" || parentOperator === "or") &&
-        (childOperator === "||" || childOperator === "or");
+        (parentOperator === "||" || parentOperator === "or") && (childOperator === "||" || childOperator === "or");
 
-    if (
-        !isAdditivePair &&
-        !isMultiplicativePair &&
-        !isLogicalAndPair &&
-        !isLogicalOrPair
-    ) {
+    if (!isAdditivePair && !isMultiplicativePair && !isLogicalAndPair && !isLogicalOrPair) {
         return false;
     }
 
     if (
         !isLogicalAndPair &&
         !isLogicalOrPair &&
-        (!isNumericComputationNode(parent) ||
-            !isNumericComputationNode(expression))
+        (!isNumericComputationNode(parent) || !isNumericComputationNode(expression))
     ) {
         return false;
     }
 
-    if (
-        isAdditivePair &&
-        (binaryExpressionContainsString(parent) ||
-            binaryExpressionContainsString(expression))
-    ) {
+    if (isAdditivePair && (binaryExpressionContainsString(parent) || binaryExpressionContainsString(expression))) {
         return false;
     }
 
@@ -6427,10 +5432,7 @@ function shouldFlattenSyntheticBinary(parent, expression, path) {
         if (
             sanitizedMacroNames &&
             (expressionReferencesSanitizedMacro(parent, sanitizedMacroNames) ||
-                expressionReferencesSanitizedMacro(
-                    expression,
-                    sanitizedMacroNames
-                ))
+                expressionReferencesSanitizedMacro(expression, sanitizedMacroNames))
         ) {
             return false;
         }
@@ -6452,10 +5454,7 @@ function shouldFlattenSyntheticBinary(parent, expression, path) {
         return true;
     }
 
-    if (
-        parentOperator === "+" &&
-        (childOperator === "+" || childOperator === "-")
-    ) {
+    if (parentOperator === "+" && (childOperator === "+" || childOperator === "-")) {
         return true;
     }
 
@@ -6463,17 +5462,11 @@ function shouldFlattenSyntheticBinary(parent, expression, path) {
         return true;
     }
 
-    if (
-        (parentOperator === "&&" || parentOperator === "and") &&
-        (childOperator === "&&" || childOperator === "and")
-    ) {
+    if ((parentOperator === "&&" || parentOperator === "and") && (childOperator === "&&" || childOperator === "and")) {
         return true;
     }
 
-    if (
-        (parentOperator === "||" || parentOperator === "or") &&
-        (childOperator === "||" || childOperator === "or")
-    ) {
+    if ((parentOperator === "||" || parentOperator === "or") && (childOperator === "||" || childOperator === "or")) {
         return true;
     }
 
@@ -6507,10 +5500,7 @@ function checkSyntheticParenFlattening(path, requireExplicit = false) {
             return false;
         }
 
-        if (
-            ancestor.type === "FunctionDeclaration" ||
-            ancestor.type === "ConstructorDeclaration"
-        ) {
+        if (ancestor.type === "FunctionDeclaration" || ancestor.type === "ConstructorDeclaration") {
             if (ancestor._flattenSyntheticNumericParens === true) {
                 return true;
             }
@@ -6547,10 +5537,7 @@ function isWithinNumericCallArgument(path) {
         }
 
         if (ancestor.type === "CallExpression") {
-            if (
-                Array.isArray(ancestor.arguments) &&
-                ancestor.arguments.includes(currentNode)
-            ) {
+            if (Array.isArray(ancestor.arguments) && ancestor.arguments.includes(currentNode)) {
                 return isNumericCallExpression(ancestor);
             }
 
@@ -6563,11 +5550,7 @@ function isWithinNumericCallArgument(path) {
 }
 
 function isSelfMultiplicationExpression(expression) {
-    if (
-        !expression ||
-        expression.type !== "BinaryExpression" ||
-        expression.operator !== "*"
-    ) {
+    if (!expression || expression.type !== "BinaryExpression" || expression.operator !== "*") {
         return false;
     }
 
@@ -6587,10 +5570,7 @@ function areNumericExpressionsEquivalent(left, right) {
             return left.value === right.value;
         }
         case "ParenthesizedExpression": {
-            return areNumericExpressionsEquivalent(
-                left.expression,
-                right.expression
-            );
+            return areNumericExpressionsEquivalent(left.expression, right.expression);
         }
         case "MemberDotExpression": {
             return (
@@ -6611,12 +5591,7 @@ function areNumericExpressionsEquivalent(left, right) {
             }
 
             for (const [index, leftProp] of leftProps.entries()) {
-                if (
-                    !areNumericExpressionsEquivalent(
-                        leftProp,
-                        rightProps[index]
-                    )
-                ) {
+                if (!areNumericExpressionsEquivalent(leftProp, rightProps[index])) {
                     return false;
                 }
             }
@@ -6630,12 +5605,7 @@ function areNumericExpressionsEquivalent(left, right) {
 }
 
 function shouldFlattenMultiplicationChain(parent, expression, path) {
-    if (
-        !parent ||
-        !expression ||
-        expression.type !== "BinaryExpression" ||
-        expression.operator !== "*"
-    ) {
+    if (!parent || !expression || expression.type !== "BinaryExpression" || expression.operator !== "*") {
         return false;
     }
 
@@ -6643,10 +5613,7 @@ function shouldFlattenMultiplicationChain(parent, expression, path) {
         return false;
     }
 
-    if (
-        !isNumericComputationNode(expression) ||
-        isSelfMultiplicationExpression(expression)
-    ) {
+    if (!isNumericComputationNode(expression) || isSelfMultiplicationExpression(expression)) {
         return false;
     }
 
@@ -6665,11 +5632,7 @@ function shouldFlattenMultiplicationChain(parent, expression, path) {
 
 const MULTIPLICATIVE_BINARY_OPERATORS = new Set(["*", "/", "div", "%", "mod"]);
 
-function shouldStripStandaloneAdditiveParentheses(
-    parent,
-    parentKey,
-    expression
-) {
+function shouldStripStandaloneAdditiveParentheses(parent, parentKey, expression) {
     if (!parent || !expression) {
         return false;
     }
@@ -6684,13 +5647,9 @@ function shouldStripStandaloneAdditiveParentheses(
     }
 
     const operatorText =
-        isBinaryExpression && typeof expression.operator === "string"
-            ? expression.operator.toLowerCase()
-            : null;
+        isBinaryExpression && typeof expression.operator === "string" ? expression.operator.toLowerCase() : null;
     const isMultiplicativeExpression =
-        isBinaryExpression &&
-        operatorText !== null &&
-        MULTIPLICATIVE_BINARY_OPERATORS.has(operatorText);
+        isBinaryExpression && operatorText !== null && MULTIPLICATIVE_BINARY_OPERATORS.has(operatorText);
 
     switch (parent.type) {
         case "VariableDeclarator": {
@@ -6782,10 +5741,7 @@ function expressionReferencesSanitizedMacro(node, sanitizedMacroNames) {
 
         if (current.type === "CallExpression") {
             const calleeName = Core.getIdentifierText(current.object);
-            if (
-                typeof calleeName === STRING_TYPE &&
-                sanitizedMacroNames.has(calleeName)
-            ) {
+            if (typeof calleeName === STRING_TYPE && sanitizedMacroNames.has(calleeName)) {
                 return true;
             }
         }
@@ -6876,10 +5832,7 @@ function isNumericComputationNode(node) {
                 return false;
             }
 
-            return (
-                isNumericComputationNode(node.left) &&
-                isNumericComputationNode(node.right)
-            );
+            return isNumericComputationNode(node.left) && isNumericComputationNode(node.right);
         }
         case "MemberIndexExpression": {
             return true;
@@ -6909,9 +5862,7 @@ function binaryExpressionContainsString(node) {
         return false;
     }
 
-    return (
-        expressionIsStringLike(node.left) || expressionIsStringLike(node.right)
-    );
+    return expressionIsStringLike(node.left) || expressionIsStringLike(node.right);
 }
 
 function expressionIsStringLike(node) {
@@ -6932,20 +5883,14 @@ function expressionIsStringLike(node) {
     }
 
     if (node.type === "BinaryExpression" && node.operator === "+") {
-        return (
-            expressionIsStringLike(node.left) ||
-            expressionIsStringLike(node.right)
-        );
+        return expressionIsStringLike(node.left) || expressionIsStringLike(node.right);
     }
 
     if (node.type === "CallExpression") {
         const calleeName = Core.getIdentifierText(node.object);
         if (typeof calleeName === STRING_TYPE) {
             const normalized = calleeName.toLowerCase();
-            if (
-                normalized === STRING_TYPE ||
-                normalized.startsWith("string_")
-            ) {
+            if (normalized === STRING_TYPE || normalized.startsWith("string_")) {
                 return true;
             }
         }
@@ -7005,10 +5950,7 @@ const RADIAN_TO_DEGREE_CONVERSIONS = new Map([
 function unwrapParenthesizedExpression(childPath, print) {
     const childNode = childPath.getValue();
     if (childNode?.type === "ParenthesizedExpression") {
-        return childPath.call(
-            (innerPath) => unwrapParenthesizedExpression(innerPath, print),
-            "expression"
-        );
+        return childPath.call((innerPath) => unwrapParenthesizedExpression(innerPath, print), "expression");
     }
 
     return print();
@@ -7036,11 +5978,7 @@ const INLINEABLE_SINGLE_STATEMENT_TYPES = new Set([
 ]);
 
 function shouldInlineGuardWhenDisabled(path, options, bodyNode) {
-    if (
-        !path ||
-        typeof path.getValue !== "function" ||
-        typeof path.getParentNode !== "function"
-    ) {
+    if (!path || typeof path.getValue !== "function" || typeof path.getParentNode !== "function") {
         return false;
     }
 
@@ -7056,10 +5994,7 @@ function shouldInlineGuardWhenDisabled(path, options, bodyNode) {
     let inlineCandidate = bodyNode ?? null;
 
     if (inlineCandidate?.type === "BlockStatement") {
-        if (
-            !Array.isArray(inlineCandidate.body) ||
-            inlineCandidate.body.length !== 1
-        ) {
+        if (!Array.isArray(inlineCandidate.body) || inlineCandidate.body.length !== 1) {
             return false;
         }
 
@@ -7074,11 +6009,7 @@ function shouldInlineGuardWhenDisabled(path, options, bodyNode) {
 
         const blockStartLine = inlineCandidate.start?.line;
         const blockEndLine = inlineCandidate.end?.line;
-        if (
-            blockStartLine === null ||
-            blockEndLine === null ||
-            blockStartLine !== blockEndLine
-        ) {
+        if (blockStartLine === null || blockEndLine === null || blockStartLine !== blockEndLine) {
             return false;
         }
 
@@ -7116,10 +6047,7 @@ function shouldInlineGuardWhenDisabled(path, options, bodyNode) {
     }
 
     const statementSource = getSourceTextForNode(node, options);
-    if (
-        typeof statementSource === STRING_TYPE &&
-        (statementSource.includes("\n") || statementSource.includes("\r"))
-    ) {
+    if (typeof statementSource === STRING_TYPE && (statementSource.includes("\n") || statementSource.includes("\r"))) {
         return false;
     }
 
@@ -7132,10 +6060,7 @@ function wrapInClauseParens(path, print, clauseKey) {
 
     const clauseExpressionNode = getInnermostClauseExpression(clauseNode);
 
-    if (
-        clauseExpressionNode?.type === "CallExpression" &&
-        clauseExpressionNode.preserveOriginalCallText
-    ) {
+    if (clauseExpressionNode?.type === "CallExpression" && clauseExpressionNode.preserveOriginalCallText) {
         return concat(["(", clauseDoc, ")"]);
     }
 
@@ -7143,39 +6068,26 @@ function wrapInClauseParens(path, print, clauseKey) {
 }
 
 // prints any statement that matches the structure [keyword, clause, statement]
-function printSingleClauseStatement(
-    path,
-    options,
-    print,
-    keyword,
-    clauseKey,
-    bodyKey
-) {
+function printSingleClauseStatement(path, options, print, keyword, clauseKey, bodyKey) {
     const node = path.getValue();
     const clauseNode = node?.[clauseKey];
     const clauseExpressionNode = getInnermostClauseExpression(clauseNode);
     const clauseDoc = wrapInClauseParens(path, print, clauseKey);
     const bodyNode = node?.[bodyKey];
-    const allowSingleLineIfStatements =
-        options?.allowSingleLineIfStatements ?? false;
+    const allowSingleLineIfStatements = options?.allowSingleLineIfStatements ?? false;
     const clauseIsPreservedCall =
-        clauseExpressionNode?.type === "CallExpression" &&
-        clauseExpressionNode.preserveOriginalCallText === true;
+        clauseExpressionNode?.type === "CallExpression" && clauseExpressionNode.preserveOriginalCallText === true;
 
     const allowCollapsedGuard =
         bodyNode &&
         !clauseIsPreservedCall &&
-        (allowSingleLineIfStatements ||
-            shouldInlineGuardWhenDisabled(path, options, bodyNode));
+        (allowSingleLineIfStatements || shouldInlineGuardWhenDisabled(path, options, bodyNode));
 
     if (allowCollapsedGuard) {
         let inlineReturnDoc = null;
         let inlineStatementType = null;
 
-        if (
-            INLINEABLE_SINGLE_STATEMENT_TYPES.has(bodyNode.type) &&
-            !Core.hasComment(bodyNode)
-        ) {
+        if (INLINEABLE_SINGLE_STATEMENT_TYPES.has(bodyNode.type) && !Core.hasComment(bodyNode)) {
             inlineReturnDoc = print(bodyKey);
             inlineStatementType = bodyNode.type;
         } else if (
@@ -7193,20 +6105,13 @@ function printSingleClauseStatement(
                 const startLine = bodyNode.start?.line;
                 const endLine = bodyNode.end?.line;
                 const blockSource = getSourceTextForNode(bodyNode, options);
-                const blockContainsSemicolon =
-                    typeof blockSource === STRING_TYPE &&
-                    blockSource.includes(";");
+                const blockContainsSemicolon = typeof blockSource === STRING_TYPE && blockSource.includes(";");
                 const canInlineBlock =
                     onlyStatement.type === "ExitStatement" ||
-                    (startLine !== undefined &&
-                        endLine !== undefined &&
-                        startLine === endLine);
+                    (startLine !== undefined && endLine !== undefined && startLine === endLine);
 
                 if (blockContainsSemicolon && canInlineBlock) {
-                    inlineReturnDoc = path.call(
-                        (childPath) => childPath.call(print, "body", 0),
-                        bodyKey
-                    );
+                    inlineReturnDoc = path.call((childPath) => childPath.call(print, "body", 0), bodyKey);
                     inlineStatementType = onlyStatement.type;
                 }
             }
@@ -7225,11 +6130,7 @@ function printSingleClauseStatement(
         }
     }
 
-    const preserveBraceAdjacency = shouldPreserveClauseBlockAdjacency(
-        options,
-        clauseNode,
-        bodyNode
-    );
+    const preserveBraceAdjacency = shouldPreserveClauseBlockAdjacency(options, clauseNode, bodyNode);
 
     return concat([
         keyword,
@@ -7273,10 +6174,7 @@ function isLogicalComparisonClause(node) {
         return false;
     }
 
-    return (
-        isComparisonAndConjunction(clauseExpression.left) &&
-        isComparisonAndConjunction(clauseExpression.right)
-    );
+    return isComparisonAndConjunction(clauseExpression.left) && isComparisonAndConjunction(clauseExpression.right);
 }
 
 function isComparisonAndConjunction(node) {
@@ -7298,10 +6196,7 @@ function isComparisonAndConjunction(node) {
 
 function isComparisonExpression(node) {
     const expression = unwrapLogicalClause(node);
-    return (
-        expression?.type === "BinaryExpression" &&
-        Core.isComparisonBinaryOperator(expression.operator)
-    );
+    return expression?.type === "BinaryExpression" && Core.isComparisonBinaryOperator(expression.operator);
 }
 
 function isSimpleLogicalOperand(node) {
@@ -7356,9 +6251,7 @@ function resolveArgumentAliasInitializerDoc(path) {
         return null;
     }
 
-    const match = Core.GML_ARGUMENT_IDENTIFIER_PATTERN.exec(
-        initializer.name ?? ""
-    );
+    const match = Core.GML_ARGUMENT_IDENTIFIER_PATTERN.exec(initializer.name ?? "");
     if (!match) {
         return null;
     }
@@ -7394,17 +6287,10 @@ function resolveArgumentAliasInitializerDoc(path) {
     }
 
     if (!parameterName) {
-        parameterName = getFunctionParameterNameByIndex(
-            functionNode,
-            argumentIndex
-        );
+        parameterName = getFunctionParameterNameByIndex(functionNode, argumentIndex);
     }
 
-    if (
-        !parameterName ||
-        parameterName === aliasName ||
-        parameterName === initializer.name
-    ) {
+    if (!parameterName || parameterName === aliasName || parameterName === initializer.name) {
         return null;
     }
 
@@ -7417,8 +6303,7 @@ function findEnclosingFunctionForPath(path) {
     }
 
     for (let depth = 0; ; depth += 1) {
-        const parent =
-            depth === 0 ? path.getParentNode() : path.getParentNode(depth);
+        const parent = depth === 0 ? path.getParentNode() : path.getParentNode(depth);
         if (!parent) {
             break;
         }
@@ -7480,13 +6365,7 @@ function printEmptyParens(path, options) {
     return group(
         [
             "(",
-            indent([
-                printDanglingCommentsAsGroup(
-                    path,
-                    options,
-                    (comment) => !comment.attachToBrace
-                )
-            ]),
+            indent([printDanglingCommentsAsGroup(path, options, (comment) => !comment.attachToBrace)]),
             ifBreak(line, "", { groupId: Symbol.for("emptyparen") }),
             ")"
         ],
@@ -7510,11 +6389,7 @@ function printEmptyBlock(path, options) {
         const sourceMetadata = resolvePrinterSourceMetadata(options);
         const shouldAddTrailingBlankLine =
             sourceMetadata.originalText !== null &&
-            hasBlankLineBetweenLastCommentAndClosingBrace(
-                node,
-                sourceMetadata,
-                sourceMetadata.originalText
-            );
+            hasBlankLineBetweenLastCommentAndClosingBrace(node, sourceMetadata, sourceMetadata.originalText);
 
         const trailingDocs = [hardline, "}"];
         if (shouldAddTrailingBlankLine) {
@@ -7524,16 +6399,8 @@ function printEmptyBlock(path, options) {
         // an empty block with comments
         return [
             "{",
-            printDanglingComments(
-                path,
-                options,
-                (comment) => comment.attachToBrace
-            ),
-            printDanglingCommentsAsGroup(
-                path,
-                options,
-                (comment) => !comment.attachToBrace
-            ),
+            printDanglingComments(path, options, (comment) => comment.attachToBrace),
+            printDanglingCommentsAsGroup(path, options, (comment) => !comment.attachToBrace),
             ...trailingDocs
         ];
     } else {
@@ -7560,19 +6427,12 @@ function maybePrintInlineEmptyBlockComment(path, options) {
 
     const comment = comments[inlineIndex];
     const leadingSpacing = getInlineBlockCommentSpacing(comment.leadingWS, " ");
-    const trailingSpacing = getInlineBlockCommentSpacing(
-        comment.trailingWS,
-        " "
-    );
+    const trailingSpacing = getInlineBlockCommentSpacing(comment.trailingWS, " ");
 
     return [
         "{",
         leadingSpacing,
-        path.call(
-            (commentPath) => printComment(commentPath, options),
-            "comments",
-            inlineIndex
-        ),
+        path.call((commentPath) => printComment(commentPath, options), "comments", inlineIndex),
         trailingSpacing,
         "}"
     ];
@@ -7644,11 +6504,7 @@ function isInLValueChain(path) {
         return false;
     }
 
-    if (
-        parent.type === "CallExpression" &&
-        Array.isArray(parent.arguments) &&
-        parent.arguments.includes(node)
-    ) {
+    if (parent.type === "CallExpression" && Array.isArray(parent.arguments) && parent.arguments.includes(node)) {
         return false;
     }
 
@@ -7666,9 +6522,5 @@ function isInLValueChain(path) {
 }
 
 function isLValueExpression(nodeType) {
-    return (
-        nodeType === "MemberIndexExpression" ||
-        nodeType === "CallExpression" ||
-        nodeType === "MemberDotExpression"
-    );
+    return nodeType === "MemberIndexExpression" || nodeType === "CallExpression" || nodeType === "MemberDotExpression";
 }

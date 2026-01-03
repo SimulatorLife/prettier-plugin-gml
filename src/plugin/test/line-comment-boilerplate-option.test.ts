@@ -17,10 +17,7 @@ void describe("line comment boilerplate defaults", () => {
             " Script assets have changed for v2.3.0; visit https://help.yoyogames.com/hc/en-us/articles/360005277377 for more information"
         );
 
-        const formatted = Core.formatLineComment(
-            comment,
-            Core.DEFAULT_LINE_COMMENT_OPTIONS
-        );
+        const formatted = Core.formatLineComment(comment, Core.DEFAULT_LINE_COMMENT_OPTIONS);
 
         assert.strictEqual(formatted, null);
     });
@@ -31,10 +28,7 @@ void describe("line comment boilerplate defaults", () => {
             "/// @description Insert description here"
         );
 
-        const formatted = Core.formatLineComment(
-            comment,
-            Core.DEFAULT_LINE_COMMENT_OPTIONS
-        );
+        const formatted = Core.formatLineComment(comment, Core.DEFAULT_LINE_COMMENT_OPTIONS);
 
         assert.strictEqual(formatted, null);
     });
@@ -45,10 +39,7 @@ void describe("line comment boilerplate defaults", () => {
             "// You can write your code in this editor"
         );
 
-        const formatted = Core.formatLineComment(
-            comment,
-            Core.DEFAULT_LINE_COMMENT_OPTIONS
-        );
+        const formatted = Core.formatLineComment(comment, Core.DEFAULT_LINE_COMMENT_OPTIONS);
 
         assert.strictEqual(formatted, null);
     });
@@ -56,10 +47,7 @@ void describe("line comment boilerplate defaults", () => {
     void it("preserves unrelated comments", () => {
         const comment = createLineComment(" Remember to sync the controller.");
 
-        const formatted = Core.formatLineComment(
-            comment,
-            Core.DEFAULT_LINE_COMMENT_OPTIONS
-        );
+        const formatted = Core.formatLineComment(comment, Core.DEFAULT_LINE_COMMENT_OPTIONS);
 
         assert.strictEqual(formatted, "// Remember to sync the controller.");
     });

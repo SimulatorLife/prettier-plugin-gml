@@ -4,10 +4,7 @@ import os from "node:os";
 import path from "node:path";
 import { beforeEach, describe, it } from "node:test";
 
-import {
-    writeFileArtifact,
-    writeJsonArtifact
-} from "../src/shared/fs-artifacts.js";
+import { writeFileArtifact, writeJsonArtifact } from "../src/shared/fs-artifacts.js";
 import { createWorkflowPathFilter } from "../src/workflow/path-filter.js";
 
 function createTempDirFactory() {

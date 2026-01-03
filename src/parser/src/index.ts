@@ -22,10 +22,8 @@ import * as Utils from "./utils/index.js";
 // Re-export stable facade for generated parser base classes. External consumers
 // should depend on these factory functions rather than importing from the
 // generated directory directly, keeping coupling isolated to the abstraction layer.
-export const GameMakerLanguageParserListenerBase =
-    Runtime.getParserListenerBase();
-export const GameMakerLanguageParserVisitorBase =
-    Runtime.getParserVisitorBase();
+export const GameMakerLanguageParserListenerBase = Runtime.getParserListenerBase();
+export const GameMakerLanguageParserVisitorBase = Runtime.getParserVisitorBase();
 
 // Define the Parser namespace type from existing module types
 type ParserNamespace = typeof GMLParserModule &

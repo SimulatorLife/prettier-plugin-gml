@@ -16,11 +16,7 @@ with {interpolation} in between.";`;
         assert.strictEqual(ast.body.length, 1, "Should have one statement");
 
         const [statement] = ast.body;
-        assert.strictEqual(
-            statement.type,
-            "VariableDeclaration",
-            "Should be a variable declaration"
-        );
+        assert.strictEqual(statement.type, "VariableDeclaration", "Should be a variable declaration");
     });
 
     void it("preserves newlines in template string text when parsing", () => {
@@ -31,10 +27,7 @@ Line three";`;
         const ast = GMLParser.parse(source);
 
         // Should not throw
-        assert.ok(
-            ast,
-            "Parser should successfully parse multi-line template strings"
-        );
+        assert.ok(ast, "Parser should successfully parse multi-line template strings");
         assert.ok(ast.body, "AST should have a body");
     });
 
@@ -45,10 +38,7 @@ Welcome!";`;
 
         const ast = GMLParser.parse(source);
 
-        assert.ok(
-            ast,
-            "Parser should handle interpolation in multi-line template strings"
-        );
+        assert.ok(ast, "Parser should handle interpolation in multi-line template strings");
         assert.ok(ast.body, "AST should have a body");
         assert.strictEqual(ast.body.length, 1, "Should have one statement");
     });

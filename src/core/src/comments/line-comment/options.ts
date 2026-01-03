@@ -28,8 +28,7 @@ const DEFAULT_LINE_COMMENT_OPTIONS = Object.freeze({
     codeDetectionPatterns: DEFAULT_COMMENTED_OUT_CODE_PATTERNS
 });
 
-let customResolver: ((options?: Record<string, unknown>) => unknown) | null =
-    null;
+let customResolver: ((options?: Record<string, unknown>) => unknown) | null = null;
 
 function arraysMatchDefault(normalized, defaultValue) {
     return (
@@ -39,20 +38,14 @@ function arraysMatchDefault(normalized, defaultValue) {
     );
 }
 
-function normalizeArrayOption(
-    candidate,
-    { defaultValue, filter, map = (value) => value }
-) {
+function normalizeArrayOption(candidate, { defaultValue, filter, map = (value) => value }) {
     if (!Array.isArray(candidate)) {
         return defaultValue;
     }
 
     const normalized = candidate.filter(filter).map(map);
 
-    if (
-        normalized.length === 0 ||
-        arraysMatchDefault(normalized, defaultValue)
-    ) {
+    if (normalized.length === 0 || arraysMatchDefault(normalized, defaultValue)) {
         return defaultValue;
     }
 
@@ -83,18 +76,12 @@ function normalizeLineCommentOptions(options) {
         return DEFAULT_LINE_COMMENT_OPTIONS;
     }
 
-    const boilerplateFragments = normalizeBoilerplateFragments(
-        options.boilerplateFragments
-    );
-    const codeDetectionPatterns = normalizeCodeDetectionPatterns(
-        options.codeDetectionPatterns
-    );
+    const boilerplateFragments = normalizeBoilerplateFragments(options.boilerplateFragments);
+    const codeDetectionPatterns = normalizeCodeDetectionPatterns(options.codeDetectionPatterns);
 
     if (
-        boilerplateFragments ===
-            DEFAULT_LINE_COMMENT_OPTIONS.boilerplateFragments &&
-        codeDetectionPatterns ===
-            DEFAULT_LINE_COMMENT_OPTIONS.codeDetectionPatterns
+        boilerplateFragments === DEFAULT_LINE_COMMENT_OPTIONS.boilerplateFragments &&
+        codeDetectionPatterns === DEFAULT_LINE_COMMENT_OPTIONS.codeDetectionPatterns
     ) {
         return DEFAULT_LINE_COMMENT_OPTIONS;
     }
@@ -115,8 +102,7 @@ function resolveLineCommentOptions(options = {}) {
 
 function setLineCommentOptionsResolver(resolver) {
     assertFunction(resolver, "resolver", {
-        errorMessage:
-            "Line comment option resolvers must be functions that return option objects"
+        errorMessage: "Line comment option resolvers must be functions that return option objects"
     });
     customResolver = resolver;
     return resolveLineCommentOptions();

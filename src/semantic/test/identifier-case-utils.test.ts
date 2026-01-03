@@ -41,10 +41,7 @@ void test("leading and trailing underscores are stable across conversions", () =
     assert.strictEqual(pascal.startsWith(normalized.leadingUnderscores), true);
     assert.strictEqual(pascal.endsWith(normalized.trailingUnderscores), true);
     assert.strictEqual(
-        pascal.slice(
-            normalized.leadingUnderscores.length,
-            pascal.length - normalized.trailingUnderscores.length
-        ),
+        pascal.slice(normalized.leadingUnderscores.length, pascal.length - normalized.trailingUnderscores.length),
         "HpMax"
     );
 });
@@ -54,14 +51,8 @@ void test("mixed alphanumeric identifiers join digits intelligently in snake cas
 
     assert.strictEqual(formatIdentifierCase(normalized, "camel"), "hp2DMax");
     assert.strictEqual(formatIdentifierCase(normalized, "pascal"), "Hp2DMax");
-    assert.strictEqual(
-        formatIdentifierCase(normalized, "snake-lower"),
-        "hp2d_max"
-    );
-    assert.strictEqual(
-        formatIdentifierCase(normalized, "snake-upper"),
-        "HP2D_MAX"
-    );
+    assert.strictEqual(formatIdentifierCase(normalized, "snake-lower"), "hp2d_max");
+    assert.strictEqual(formatIdentifierCase(normalized, "snake-upper"), "HP2D_MAX");
 });
 
 void test("idempotence checks report already compliant identifiers", () => {
@@ -91,16 +82,7 @@ void test("numeric suffixes remain attached regardless of case", () => {
     const normalized = normalizeIdentifierCase("self.hp_value99");
 
     assert.strictEqual(normalized.prefix, "self.");
-    assert.strictEqual(
-        formatIdentifierCase(normalized, "camel"),
-        "self.hpValue99"
-    );
-    assert.strictEqual(
-        formatIdentifierCase(normalized, "pascal"),
-        "self.HpValue99"
-    );
-    assert.strictEqual(
-        formatIdentifierCase(normalized, "snake-lower"),
-        "self.hp_value99"
-    );
+    assert.strictEqual(formatIdentifierCase(normalized, "camel"), "self.hpValue99");
+    assert.strictEqual(formatIdentifierCase(normalized, "pascal"), "self.HpValue99");
+    assert.strictEqual(formatIdentifierCase(normalized, "snake-lower"), "self.hp_value99");
 });

@@ -1,8 +1,4 @@
-import {
-    Core,
-    type GameMakerAstNode,
-    type MutableGameMakerAstNode
-} from "@gml-modules/core";
+import { Core, type GameMakerAstNode, type MutableGameMakerAstNode } from "@gml-modules/core";
 import {
     ScopeOverrideKeyword,
     formatKnownScopeOverrideKeywords,
@@ -48,10 +44,7 @@ class Scope {
     public id: string;
     public kind: string;
     public parent: Scope | null;
-    public symbolMetadata: Map<
-        string,
-        ReturnType<typeof cloneDeclarationMetadata>
-    >;
+    public symbolMetadata: Map<string, ReturnType<typeof cloneDeclarationMetadata>>;
     public occurrences: Map<string, IdentifierOccurrences>;
     public stackIndex: number | null;
     public lastModifiedTimestamp: number;
@@ -76,14 +69,10 @@ class Scope {
 
 function createOccurrence(kind, metadata, source, declarationMetadata) {
     const declaration = declarationMetadata
-        ? Core.assignClonedLocation(
-              { scopeId: declarationMetadata.scopeId ?? null },
-              declarationMetadata
-          )
+        ? Core.assignClonedLocation({ scopeId: declarationMetadata.scopeId ?? null }, declarationMetadata)
         : null;
 
-    const usageContext =
-        kind === "declaration" ? null : extractUsageContext(source);
+    const usageContext = kind === "declaration" ? null : extractUsageContext(source);
 
     return Core.assignClonedLocation(
         {
@@ -136,9 +125,7 @@ function extractUsageContext(node: unknown) {
     return Object.keys(context).length > 0 ? context : null;
 }
 
-function cloneClassifications(
-    classifications: ReadonlyArray<string> | null | undefined
-) {
+function cloneClassifications(classifications: ReadonlyArray<string> | null | undefined) {
     return Core.toMutableArray(classifications, { clone: true });
 }
 
@@ -156,9 +143,7 @@ function cloneDeclarationMetadata(metadata) {
     };
 }
 
-type ScopeSymbolMetadata = NonNullable<
-    ReturnType<typeof cloneDeclarationMetadata>
->;
+type ScopeSymbolMetadata = NonNullable<ReturnType<typeof cloneDeclarationMetadata>>;
 
 function cloneOccurrence(occurrence) {
     if (!occurrence) {
@@ -173,9 +158,7 @@ function cloneOccurrence(occurrence) {
           }
         : null;
 
-    const usageContextClone = occurrence.usageContext
-        ? { ...occurrence.usageContext }
-        : null;
+    const usageContextClone = occurrence.usageContext ? { ...occurrence.usageContext } : null;
 
     return {
         ...occurrence,
@@ -202,14 +185,10 @@ function ensureIdentifierOccurrences(scope, name) {
 
 function resolveStringScopeOverride(tracker, scopeOverride, currentScope) {
     if (isScopeOverrideKeyword(scopeOverride)) {
-        return scopeOverride === ScopeOverrideKeyword.GLOBAL
-            ? (tracker.rootScope ?? currentScope)
-            : currentScope;
+        return scopeOverride === ScopeOverrideKeyword.GLOBAL ? (tracker.rootScope ?? currentScope) : currentScope;
     }
 
-    const found = tracker.scopeStack.find(
-        (scope) => scope.id === scopeOverride
-    );
+    const found = tracker.scopeStack.find((scope) => scope.id === scopeOverride);
 
     if (found) {
         return found;
@@ -230,20 +209,14 @@ export class ScopeTracker {
     private enabled: boolean;
     private identifierRoleTracker: IdentifierRoleTracker;
     private globalIdentifierRegistry: GlobalIdentifierRegistry;
-    private resolveIdentifierCache: Map<
-        string,
-        Map<string, ScopeSymbolMetadata | null>
-    >;
+    private resolveIdentifierCache: Map<string, Map<string, ScopeSymbolMetadata | null>>;
 
     constructor({ enabled = true } = {}) {
         this.scopeStack = [];
         this.rootScope = null;
         this.scopesById = new Map();
         // Map: symbol -> Map<scopeId, { hasDeclaration: boolean, hasReference: boolean }>
-        this.symbolToScopesIndex = new Map<
-            string,
-            Map<string, { hasDeclaration: boolean; hasReference: boolean }>
-        >();
+        this.symbolToScopesIndex = new Map<string, Map<string, { hasDeclaration: boolean; hasReference: boolean }>>();
         this.enabled = Boolean(enabled);
         this.identifierRoleTracker = new IdentifierRoleTracker();
         this.globalIdentifierRegistry = new GlobalIdentifierRegistry();
@@ -261,11 +234,7 @@ export class ScopeTracker {
 
     enterScope(kind) {
         const parent = this.scopeStack.at(-1) ?? null;
-        const scope = new Scope(
-            `scope-${this.scopeCounter++}`,
-            kind ?? "unknown",
-            parent
-        );
+        const scope = new Scope(`scope-${this.scopeCounter++}`, kind ?? "unknown", parent);
         this.scopeStack.push(scope);
         this.scopesById.set(scope.id, scope);
         scope.stackIndex = this.scopeStack.length - 1;
@@ -290,9 +259,7 @@ export class ScopeTracker {
         return this.rootScope;
     }
 
-    private clearResolveIdentifierCacheForName(
-        name: string | null | undefined
-    ) {
+    private clearResolveIdentifierCacheForName(name: string | null | undefined) {
         if (!name) {
             return;
         }
@@ -300,10 +267,7 @@ export class ScopeTracker {
         this.resolveIdentifierCache.delete(name);
     }
 
-    private readResolveIdentifierCache(
-        name: string,
-        scopeId: string
-    ): ScopeSymbolMetadata | null | undefined {
+    private readResolveIdentifierCache(name: string, scopeId: string): ScopeSymbolMetadata | null | undefined {
         const cache = this.resolveIdentifierCache.get(name);
         if (!cache) {
             return undefined;
@@ -312,11 +276,7 @@ export class ScopeTracker {
         return cache.get(scopeId);
     }
 
-    private writeResolveIdentifierCache(
-        name: string,
-        scopeId: string,
-        declaration: ScopeSymbolMetadata | null
-    ) {
+    private writeResolveIdentifierCache(name: string, scopeId: string, declaration: ScopeSymbolMetadata | null) {
         let cache = this.resolveIdentifierCache.get(name);
         if (!cache) {
             cache = new Map();
@@ -333,32 +293,19 @@ export class ScopeTracker {
             return currentScope;
         }
 
-        if (
-            Core.isObjectLike(scopeOverride) &&
-            typeof scopeOverride.id === "string"
-        ) {
+        if (Core.isObjectLike(scopeOverride) && typeof scopeOverride.id === "string") {
             return scopeOverride;
         }
 
         if (typeof scopeOverride === "string") {
-            return resolveStringScopeOverride(
-                this,
-                scopeOverride,
-                currentScope
-            );
+            return resolveStringScopeOverride(this, scopeOverride, currentScope);
         }
 
         return currentScope;
     }
 
-    buildClassifications(
-        role?: ScopeRole | null,
-        isDeclaration: boolean = false
-    ) {
-        const tags = new Set([
-            "identifier",
-            isDeclaration ? "declaration" : "reference"
-        ]);
+    buildClassifications(role?: ScopeRole | null, isDeclaration: boolean = false) {
+        const tags = new Set(["identifier", isDeclaration ? "declaration" : "reference"]);
 
         const roleKind = role?.kind;
         if (typeof roleKind === "string") {
@@ -381,11 +328,7 @@ export class ScopeTracker {
         scope.symbolMetadata.set(name, metadata);
     }
 
-    recordScopeOccurrence(
-        scope: Scope | null | undefined,
-        name: string | null | undefined,
-        occurrence: Occurrence
-    ) {
+    recordScopeOccurrence(scope: Scope | null | undefined, name: string | null | undefined, occurrence: Occurrence) {
         if (!scope || !name || !occurrence) {
             return;
         }
@@ -479,17 +422,8 @@ export class ScopeTracker {
         node.declaration = Core.assignClonedLocation({ scopeId }, metadata);
         node.classifications = classifications as any;
 
-        const occurrence = createOccurrence(
-            "declaration",
-            metadata,
-            metadata,
-            metadata
-        );
-        this.recordScopeOccurrence(
-            scope,
-            name,
-            occurrence as unknown as Occurrence
-        );
+        const occurrence = createOccurrence("declaration", metadata, metadata, metadata);
+        this.recordScopeOccurrence(scope, name, occurrence as unknown as Occurrence);
     }
 
     reference(
@@ -507,9 +441,7 @@ export class ScopeTracker {
 
         let derivedTags = [];
         if (declaration?.classifications) {
-            derivedTags = declaration.classifications.filter(
-                (tag) => tag !== "identifier" && tag !== "declaration"
-            );
+            derivedTags = declaration.classifications.filter((tag) => tag !== "identifier" && tag !== "declaration");
         }
 
         const combinedRole = {
@@ -523,10 +455,7 @@ export class ScopeTracker {
         node.classifications = classifications as any;
 
         node.declaration = declaration
-            ? Core.assignClonedLocation(
-                  { scopeId: declaration.scopeId },
-                  declaration
-              )
+            ? Core.assignClonedLocation({ scopeId: declaration.scopeId }, declaration)
             : null;
 
         const occurrenceMetadata = {
@@ -535,40 +464,21 @@ export class ScopeTracker {
             classifications
         };
 
-        const occurrence = createOccurrence(
-            "reference",
-            occurrenceMetadata,
-            node,
-            declaration ?? null
-        );
-        this.recordScopeOccurrence(
-            scope,
-            name,
-            occurrence as unknown as Occurrence
-        );
+        const occurrence = createOccurrence("reference", occurrenceMetadata, node, declaration ?? null);
+        this.recordScopeOccurrence(scope, name, occurrence as unknown as Occurrence);
     }
 
-    exportOccurrences(
-        includeReferences: boolean | { includeReferences?: boolean } = true
-    ) {
+    exportOccurrences(includeReferences: boolean | { includeReferences?: boolean } = true) {
         const includeRefs =
-            typeof includeReferences === "boolean"
-                ? includeReferences
-                : Boolean(includeReferences?.includeReferences);
+            typeof includeReferences === "boolean" ? includeReferences : Boolean(includeReferences?.includeReferences);
         const results = [];
 
         for (const scope of this.scopesById.values()) {
             const identifiers = [];
 
             for (const [name, entry] of scope.occurrences) {
-                const declarations = entry.declarations.map((occurrence) =>
-                    cloneOccurrence(occurrence)
-                );
-                const references = includeRefs
-                    ? entry.references.map((occurrence) =>
-                          cloneOccurrence(occurrence)
-                      )
-                    : [];
+                const declarations = entry.declarations.map((occurrence) => cloneOccurrence(occurrence));
+                const references = includeRefs ? entry.references.map((occurrence) => cloneOccurrence(occurrence)) : [];
 
                 if (declarations.length === 0 && references.length === 0) {
                     continue;
@@ -608,10 +518,7 @@ export class ScopeTracker {
      *          Scope occurrence payload, including modification metadata, or
      *          null if the tracker is disabled or the scope is unknown.
      */
-    getScopeOccurrences(
-        scopeId: string | null | undefined,
-        { includeReferences = true } = {}
-    ) {
+    getScopeOccurrences(scopeId: string | null | undefined, { includeReferences = true } = {}) {
         if (!scopeId) {
             return null;
         }
@@ -625,14 +532,8 @@ export class ScopeTracker {
         const identifiers = [];
 
         for (const [name, entry] of scope.occurrences) {
-            const declarations = entry.declarations.map((occurrence) =>
-                cloneOccurrence(occurrence)
-            );
-            const references = includeRefs
-                ? entry.references.map((occurrence) =>
-                      cloneOccurrence(occurrence)
-                  )
-                : [];
+            const declarations = entry.declarations.map((occurrence) => cloneOccurrence(occurrence));
+            const references = includeRefs ? entry.references.map((occurrence) => cloneOccurrence(occurrence)) : [];
 
             if (declarations.length === 0 && references.length === 0) {
                 continue;
@@ -857,10 +758,7 @@ export class ScopeTracker {
      *        uses the current scope.
      * @returns {object | null} The declaration metadata if found, or null.
      */
-    resolveIdentifier(
-        name: string | null | undefined,
-        scopeId?: string | null
-    ) {
+    resolveIdentifier(name: string | null | undefined, scopeId?: string | null) {
         if (!name) {
             return null;
         }
@@ -880,15 +778,10 @@ export class ScopeTracker {
         }
 
         const cacheScopeId = startScope.id;
-        const cachedDeclaration = this.readResolveIdentifierCache(
-            name,
-            cacheScopeId
-        );
+        const cachedDeclaration = this.readResolveIdentifierCache(name, cacheScopeId);
 
         if (cachedDeclaration !== undefined) {
-            return cachedDeclaration
-                ? cloneDeclarationMetadata(cachedDeclaration)
-                : null;
+            return cachedDeclaration ? cloneDeclarationMetadata(cachedDeclaration) : null;
         }
 
         const storedIndex = startScope.stackIndex;
@@ -905,11 +798,7 @@ export class ScopeTracker {
                 const declaration = current.symbolMetadata.get(name);
                 if (declaration) {
                     const clone = cloneDeclarationMetadata(declaration);
-                    this.writeResolveIdentifierCache(
-                        name,
-                        cacheScopeId,
-                        declaration
-                    );
+                    this.writeResolveIdentifierCache(name, cacheScopeId, declaration);
                     return clone;
                 }
                 current = current.parent;
@@ -923,11 +812,7 @@ export class ScopeTracker {
             const declaration = scope.symbolMetadata.get(name);
             if (declaration) {
                 const clone = cloneDeclarationMetadata(declaration);
-                this.writeResolveIdentifierCache(
-                    name,
-                    cacheScopeId,
-                    declaration
-                );
+                this.writeResolveIdentifierCache(name, cacheScopeId, declaration);
                 return clone;
             }
         }
@@ -1047,17 +932,14 @@ export class ScopeTracker {
             }
 
             const resolvedDeclaration = this.resolveIdentifier(name, scopeId);
-            const resolvedDeclarationClone =
-                cloneDeclarationMetadata(resolvedDeclaration);
+            const resolvedDeclarationClone = cloneDeclarationMetadata(resolvedDeclaration);
             const declaringScopeId = resolvedDeclarationClone?.scopeId ?? null;
 
             if (declaringScopeId === scopeId) {
                 continue;
             }
 
-            const occurrences = entry.references.map((occurrence) =>
-                cloneOccurrence(occurrence)
-            );
+            const occurrences = entry.references.map((occurrence) => cloneOccurrence(occurrence));
 
             externalRefs.push({
                 name,
@@ -1168,9 +1050,7 @@ export class ScopeTracker {
      * @returns {ScopeModificationDetails | null}
      *          Detailed modification metadata including symbol-level counts, or null if scope not found.
      */
-    getScopeModificationDetails(
-        scopeId: string | null | undefined
-    ): ScopeModificationDetails | null {
+    getScopeModificationDetails(scopeId: string | null | undefined): ScopeModificationDetails | null {
         if (!scopeId) {
             return null;
         }
@@ -1319,19 +1199,13 @@ export class ScopeTracker {
     }
 
     // Public helper to apply the current role to an identifier node
-    applyCurrentRoleToIdentifier(
-        name: string | null | undefined,
-        node: GameMakerAstNode | null | undefined
-    ) {
+    applyCurrentRoleToIdentifier(name: string | null | undefined, node: GameMakerAstNode | null | undefined) {
         if (!name || !Core.isIdentifierNode(node)) {
             return;
         }
 
-        const role = this.identifierRoleTracker.cloneRole(
-            this.identifierRoleTracker.getCurrentRole()
-        );
-        const roleType =
-            role?.type === "declaration" ? "declaration" : "reference";
+        const role = this.identifierRoleTracker.cloneRole(this.identifierRoleTracker.getCurrentRole());
+        const roleType = role?.type === "declaration" ? "declaration" : "reference";
 
         if (roleType === "declaration") {
             this.declare(name, node as MutableGameMakerAstNode, role);
@@ -1349,9 +1223,7 @@ export class ScopeTracker {
         this.globalIdentifierRegistry.markIdentifier(node);
     }
 
-    applyGlobalIdentifiersToNode(
-        node: MutableGameMakerAstNode | null | undefined
-    ) {
+    applyGlobalIdentifiersToNode(node: MutableGameMakerAstNode | null | undefined) {
         this.globalIdentifierRegistry.applyToNode(node);
     }
 
@@ -1414,10 +1286,7 @@ export class ScopeTracker {
      * @param {string} scopeId Scope identifier where the symbol should be declared
      * @returns {object | null} Cloned declaration metadata or null if not found
      */
-    getDeclarationInScope(
-        name: string | null | undefined,
-        scopeId: string | null | undefined
-    ) {
+    getDeclarationInScope(name: string | null | undefined, scopeId: string | null | undefined) {
         if (!name || !scopeId) {
             return null;
         }
@@ -1470,11 +1339,7 @@ export class ScopeTracker {
             symbolGenerator?: (name: string, scopeId: string) => string | null;
         } = {}
     ) {
-        const {
-            scopeId = null,
-            includeReferences = true,
-            symbolGenerator = null
-        } = options;
+        const { scopeId = null, includeReferences = true, symbolGenerator = null } = options;
 
         const results: Array<{
             scopeId: string;
@@ -1510,10 +1375,8 @@ export class ScopeTracker {
                 return null;
             }
 
-            const startLine =
-                typeof start.line === "number" ? start.line : null;
-            const startCol =
-                typeof start.column === "number" ? start.column : 0;
+            const startLine = typeof start.line === "number" ? start.line : null;
+            const startCol = typeof start.column === "number" ? start.column : 0;
             const endLine = typeof end.line === "number" ? end.line : null;
             const endCol = typeof end.column === "number" ? end.column : 0;
 
@@ -1687,9 +1550,7 @@ export function createIdentifierLocation(token: any) {
     const stopIndex = token.stop ?? token.stopIndex ?? startIndex;
     const startColumn = token.column;
     const identifierLength =
-        Number.isInteger(startIndex) && Number.isInteger(stopIndex)
-            ? stopIndex - startIndex + 1
-            : undefined;
+        Number.isInteger(startIndex) && Number.isInteger(stopIndex) ? stopIndex - startIndex + 1 : undefined;
 
     const buildPoint = (
         index: number | undefined,
@@ -1710,9 +1571,7 @@ export function createIdentifierLocation(token: any) {
         start: buildPoint(startIndex, startColumn),
         end: buildPoint(
             stopIndex === undefined ? undefined : stopIndex + 1,
-            startColumn !== undefined && identifierLength !== undefined
-                ? startColumn + identifierLength
-                : undefined
+            startColumn !== undefined && identifierLength !== undefined ? startColumn + identifierLength : undefined
         )
     } as any;
 }

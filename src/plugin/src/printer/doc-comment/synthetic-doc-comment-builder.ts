@@ -4,14 +4,10 @@ import { type Doc } from "prettier";
 import { concat, hardline, join } from "../prettier-doc-builders.js";
 
 type ComputeSyntheticDocComment = typeof Core.computeSyntheticDocComment;
-type ComputeSyntheticDocCommentForStaticVariable =
-    typeof Core.computeSyntheticDocCommentForStaticVariable;
-type ComputeSyntheticDocCommentForFunctionAssignment =
-    typeof Core.computeSyntheticDocCommentForFunctionAssignment;
+type ComputeSyntheticDocCommentForStaticVariable = typeof Core.computeSyntheticDocCommentForStaticVariable;
+type ComputeSyntheticDocCommentForFunctionAssignment = typeof Core.computeSyntheticDocCommentForFunctionAssignment;
 
-export type SyntheticDocComment = NonNullable<
-    ReturnType<ComputeSyntheticDocComment>
->;
+export type SyntheticDocComment = NonNullable<ReturnType<ComputeSyntheticDocComment>>;
 
 export type SyntheticDocCommentDoc = SyntheticDocComment & { doc: Doc };
 
@@ -32,12 +28,7 @@ export function buildSyntheticDocComment(
     overrides: Record<string, unknown> = {},
     computeSyntheticDocComment: ComputeSyntheticDocComment = Core.computeSyntheticDocComment
 ): SyntheticDocCommentDoc | null {
-    const syntheticDocComment = computeSyntheticDocComment(
-        functionNode,
-        existingDocLines,
-        options,
-        overrides
-    );
+    const syntheticDocComment = computeSyntheticDocComment(functionNode, existingDocLines, options, overrides);
 
     return buildSyntheticDocCommentDoc(syntheticDocComment);
 }
@@ -59,16 +50,12 @@ function normalizePlainLeadingLines(lines: unknown): Doc[] {
     return Array.isArray(lines) ? (lines as Doc[]) : [];
 }
 
-function buildDocFromSyntheticResult(
-    result: SyntheticDocCommentCoreResult | null
-): SyntheticDocCommentDoc | null {
+function buildDocFromSyntheticResult(result: SyntheticDocCommentCoreResult | null): SyntheticDocCommentDoc | null {
     if (!result?.docLines) {
         return null;
     }
 
-    const syntheticDocLines = Core.isNonEmptyArray(result.docLines)
-        ? result.docLines
-        : null;
+    const syntheticDocLines = Core.isNonEmptyArray(result.docLines) ? result.docLines : null;
 
     if (!syntheticDocLines) {
         return null;
@@ -80,17 +67,13 @@ function buildDocFromSyntheticResult(
     });
 }
 
-function resolveDocCommentPayload(
-    result: SyntheticDocCommentCoreResult | null
-): SyntheticDocCommentPayload | null {
+function resolveDocCommentPayload(result: SyntheticDocCommentCoreResult | null): SyntheticDocCommentPayload | null {
     if (!result) {
         return null;
     }
 
     const doc = buildDocFromSyntheticResult(result);
-    const plainLeadingLines = normalizePlainLeadingLines(
-        result.plainLeadingLines
-    );
+    const plainLeadingLines = normalizePlainLeadingLines(result.plainLeadingLines);
 
     if (!doc && plainLeadingLines.length === 0) {
         return null;
@@ -109,12 +92,7 @@ export function getSyntheticDocCommentForStaticVariable(
     programNode: unknown,
     sourceText: string | null | undefined
 ): SyntheticDocCommentPayload | null {
-    const result = Core.computeSyntheticDocCommentForStaticVariable(
-        node,
-        options,
-        programNode,
-        sourceText
-    );
+    const result = Core.computeSyntheticDocCommentForStaticVariable(node, options, programNode, sourceText);
 
     return resolveDocCommentPayload(result);
 }
@@ -125,12 +103,7 @@ export function getSyntheticDocCommentForFunctionAssignment(
     programNode: unknown,
     sourceText: string | null | undefined
 ): SyntheticDocCommentPayload | null {
-    const result = Core.computeSyntheticDocCommentForFunctionAssignment(
-        node,
-        options,
-        programNode,
-        sourceText
-    );
+    const result = Core.computeSyntheticDocCommentForFunctionAssignment(node, options, programNode, sourceText);
 
     return resolveDocCommentPayload(result);
 }

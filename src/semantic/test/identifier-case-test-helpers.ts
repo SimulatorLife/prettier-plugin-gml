@@ -30,9 +30,7 @@ type IdentifierCaseProject = {
     projectIndex: Awaited<ReturnType<typeof buildProjectIndex>>;
 };
 
-export function resolveIdentifierCasePluginPath(
-    currentDirectory: string
-): string {
+export function resolveIdentifierCasePluginPath(currentDirectory: string): string {
     const candidates = [
         path.resolve(currentDirectory, "../../plugin/dist/src/plugin-entry.js"),
         path.resolve(currentDirectory, "../../plugin/dist/index.js"),
@@ -40,10 +38,7 @@ export function resolveIdentifierCasePluginPath(
         path.resolve(currentDirectory, "../../plugin/src/plugin-entry.js"),
         path.resolve(currentDirectory, "../../plugin/src/index.js"),
         path.resolve(currentDirectory, "../../plugin/src/plugin-entry.ts"),
-        path.resolve(
-            currentDirectory,
-            "../../../plugin/dist/src/plugin-entry.js"
-        ),
+        path.resolve(currentDirectory, "../../../plugin/dist/src/plugin-entry.js"),
         path.resolve(currentDirectory, "../../../plugin/dist/index.js"),
         path.resolve(currentDirectory, "../../../plugin/dist/src/index.js"),
         path.resolve(currentDirectory, "../../../plugin/src/plugin-entry.js"),
@@ -60,10 +55,7 @@ export function resolveIdentifierCasePluginPath(
     return candidates[0];
 }
 
-export function resolveIdentifierCaseFixturesDirectory(
-    baseDirectory: string,
-    sampleFixture = "locals.gml"
-): string {
+export function resolveIdentifierCaseFixturesDirectory(baseDirectory: string, sampleFixture = "locals.gml"): string {
     const candidates = [
         path.join(baseDirectory, "identifier-case-fixtures"),
         path.resolve(baseDirectory, "../../test/identifier-case-fixtures")
@@ -89,40 +81,26 @@ export async function createIdentifierCaseProject({
     eventFixture?: string | null;
     projectPrefix?: string;
 }): Promise<IdentifierCaseProject> {
-    const { projectRoot: tempRoot, writeFile } =
-        await createTempProjectWorkspace(projectPrefix);
+    const { projectRoot: tempRoot, writeFile } = await createTempProjectWorkspace(projectPrefix);
 
-    await writeFile(
-        "MyGame.yyp",
-        JSON.stringify({ name: "MyGame", resourceType: "GMProject" })
-    );
+    await writeFile("MyGame.yyp", JSON.stringify({ name: "MyGame", resourceType: "GMProject" }));
 
     const scripts: IdentifierCaseProject["scripts"] = [];
     const scriptPaths: string[] = [];
     const scriptSources: string[] = [];
 
     for (const [index, config] of scriptFixtures.entries()) {
-        const scriptName =
-            typeof config === "string"
-                ? `script_${index}`
-                : (config.name ?? `script_${index}`);
-        const fixtureName =
-            typeof config === "string" ? config : config.fixture;
+        const scriptName = typeof config === "string" ? `script_${index}` : (config.name ?? `script_${index}`);
+        const fixtureName = typeof config === "string" ? config : config.fixture;
 
         await writeFile(
             `scripts/${scriptName}/${scriptName}.yy`,
             JSON.stringify({ resourceType: "GMScript", name: scriptName })
         );
 
-        const scriptFixturePath = path.join(
-            fixturesDirectory,
-            String(fixtureName)
-        );
+        const scriptFixturePath = path.join(fixturesDirectory, String(fixtureName));
         const scriptSource = await fs.readFile(scriptFixturePath, "utf8");
-        const scriptPath = await writeFile(
-            `scripts/${scriptName}/${scriptName}.gml`,
-            scriptSource
-        );
+        const scriptPath = await writeFile(`scripts/${scriptName}/${scriptName}.gml`, scriptSource);
 
         const scriptRecord = {
             name: scriptName,
@@ -157,10 +135,7 @@ export async function createIdentifierCaseProject({
             })
         );
 
-        eventPath = await writeFile(
-            "objects/obj_scope/obj_scope_Create.gml",
-            eventSource
-        );
+        eventPath = await writeFile("objects/obj_scope/obj_scope_Create.gml", eventSource);
     }
 
     const projectIndex = await buildProjectIndex(tempRoot);

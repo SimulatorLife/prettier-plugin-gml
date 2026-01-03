@@ -57,10 +57,7 @@ void describe("memory format iteration limit configuration", () => {
 
         assert.equal(getMaxFormatIterations(), DEFAULT_MAX_FORMAT_ITERATIONS);
         assert.equal(warnings.length, 1);
-        assert.match(
-            warnings[0],
-            new RegExp(`${MEMORY_FORMAT_MAX_ITERATIONS_ENV_VAR}`)
-        );
+        assert.match(warnings[0], new RegExp(`${MEMORY_FORMAT_MAX_ITERATIONS_ENV_VAR}`));
         assert.match(warnings[0], /falling back/i);
     });
 });

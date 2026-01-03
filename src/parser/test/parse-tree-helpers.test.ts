@@ -36,10 +36,7 @@ createBaseCtor.prototype = {
 };
 
 void test("collectVisitMethodNames filters generated visitor helpers", () => {
-    assert.deepEqual(collectVisitMethodNames(SampleVisitor), [
-        "visitProgram",
-        "visitExpression"
-    ]);
+    assert.deepEqual(collectVisitMethodNames(SampleVisitor), ["visitProgram", "visitExpression"]);
 });
 
 void test("collectPrototypeMethodNames omits constructors", () => {
@@ -48,10 +45,12 @@ void test("collectPrototypeMethodNames omits constructors", () => {
 });
 
 void test("deriveListenerMethodNames transforms visit names", () => {
-    assert.deepEqual(
-        deriveListenerMethodNames(["visitProgram", "visitExpression"]),
-        ["enterProgram", "exitProgram", "enterExpression", "exitExpression"]
-    );
+    assert.deepEqual(deriveListenerMethodNames(["visitProgram", "visitExpression"]), [
+        "enterProgram",
+        "exitProgram",
+        "enterExpression",
+        "exitExpression"
+    ]);
 });
 
 void test("definePrototypeMethods attaches generated methods", () => {
@@ -86,8 +85,5 @@ void test("ensureHasInstancePatched recognises marker decorated instances", () =
 
 void test("toDelegate returns fallback when the candidate is not callable", () => {
     assert.equal(toDelegate(null, fallbackDelegate), fallbackDelegate);
-    assert.equal(
-        toDelegate(fallbackDelegate, alternateDelegate),
-        fallbackDelegate
-    );
+    assert.equal(toDelegate(fallbackDelegate, alternateDelegate), fallbackDelegate);
 });

@@ -5,8 +5,7 @@ import { describe, it } from "node:test";
 import { DEFAULT_WRITE_ACCESS_MODE } from "../src/identifier-case/common.js";
 import { __private__ } from "../src/identifier-case/asset-rename-executor.js";
 
-const { ensureWritableDirectory, ensureWritableFile, readJsonFile } =
-    __private__;
+const { ensureWritableDirectory, ensureWritableFile, readJsonFile } = __private__;
 
 void describe("asset rename executor filesystem utilities", () => {
     void it("skips directory creation when accessSync allows writing", () => {
@@ -16,9 +15,7 @@ void describe("asset rename executor filesystem utilities", () => {
                 calls.push({ targetPath, mode });
             },
             mkdirSync() {
-                assert.fail(
-                    "mkdirSync should not be invoked when directory is accessible"
-                );
+                assert.fail("mkdirSync should not be invoked when directory is accessible");
             }
         };
 

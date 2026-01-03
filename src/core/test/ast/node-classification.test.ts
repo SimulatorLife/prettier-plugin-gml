@@ -19,14 +19,8 @@ void describe("AST node classification helpers", () => {
             replacementDirective: "  #MACRO  "
         };
 
-        assert.equal(
-            getNormalizedDefineReplacementDirective(regionNode),
-            DefineReplacementDirective.REGION
-        );
-        assert.equal(
-            getNormalizedDefineReplacementDirective(macroNode),
-            DefineReplacementDirective.MACRO
-        );
+        assert.equal(getNormalizedDefineReplacementDirective(regionNode), DefineReplacementDirective.REGION);
+        assert.equal(getNormalizedDefineReplacementDirective(macroNode), DefineReplacementDirective.MACRO);
     });
 
     void it("returns null when define statements lack directives", () => {
@@ -53,8 +47,7 @@ void describe("AST node classification helpers", () => {
                     type: "DefineStatement",
                     replacementDirective: "#unknown"
                 }),
-            (error) =>
-                error instanceof RangeError && /#unknown/.test(error.message)
+            (error) => error instanceof RangeError && /#unknown/.test(error.message)
         );
     });
 
@@ -72,21 +65,9 @@ void describe("AST node classification helpers", () => {
     });
 
     void it("recognizes function-like declarations", () => {
-        assert.equal(
-            isFunctionLikeDeclaration({ type: "FunctionDeclaration" }),
-            true
-        );
-        assert.equal(
-            isFunctionLikeDeclaration({ type: "ConstructorDeclaration" }),
-            true
-        );
-        assert.equal(
-            isFunctionLikeDeclaration({ type: "FunctionExpression" }),
-            true
-        );
-        assert.equal(
-            isFunctionLikeDeclaration({ type: "StructDeclaration" }),
-            false
-        );
+        assert.equal(isFunctionLikeDeclaration({ type: "FunctionDeclaration" }), true);
+        assert.equal(isFunctionLikeDeclaration({ type: "ConstructorDeclaration" }), true);
+        assert.equal(isFunctionLikeDeclaration({ type: "FunctionExpression" }), true);
+        assert.equal(isFunctionLikeDeclaration({ type: "StructDeclaration" }), false);
     });
 });

@@ -4,20 +4,12 @@ import { describe, it } from "node:test";
 // Node deprecates the legacy assert.equal helper; keep these tests on the
 // strict variants to mirror runtime behaviour in production code.
 
-import {
-    createAbortError,
-    createAbortGuard,
-    isAbortError,
-    throwIfAborted
-} from "../src/utils/abort.js";
+import { createAbortError, createAbortGuard, isAbortError, throwIfAborted } from "../src/utils/abort.js";
 
 void describe("createAbortError", () => {
     void it("returns null for non-aborted signals", () => {
         assert.strictEqual(createAbortError(null, "fallback"), null);
-        assert.strictEqual(
-            createAbortError({ aborted: false }, "fallback"),
-            null
-        );
+        assert.strictEqual(createAbortError({ aborted: false }, "fallback"), null);
     });
 
     void it("returns the original error reason when provided", () => {
@@ -131,10 +123,7 @@ void describe("createAbortGuard", () => {
 
     void it("reuses the fallback message when the abort reason is missing", () => {
         const signal = { aborted: false, reason: undefined };
-        const guard = createAbortGuard(
-            { signal },
-            { fallbackMessage: "Cancelled." }
-        );
+        const guard = createAbortGuard({ signal }, { fallbackMessage: "Cancelled." });
 
         signal.aborted = true;
 

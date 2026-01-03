@@ -32,16 +32,9 @@ import { isRegExpLike } from "../../utils/capability-probes.js";
 // The current set ([-_~*#<>|:.]) safely covers common decoration characters
 // without risking damage to commented-out code.
 const BANNER_DECORATION_CLASS = "[-_~*#<>|:.]";
-const LEADING_BANNER_DECORATION_PATTERN = new RegExp(
-    String.raw`^(?:${BANNER_DECORATION_CLASS}{2,}\s*)+`
-);
-const TRAILING_BANNER_DECORATION_PATTERN = new RegExp(
-    String.raw`(?:\s*${BANNER_DECORATION_CLASS}{2,})+$`
-);
-const INNER_BANNER_DECORATION_PATTERN = new RegExp(
-    `${BANNER_DECORATION_CLASS}{2,}`,
-    "g"
-);
+const LEADING_BANNER_DECORATION_PATTERN = new RegExp(String.raw`^(?:${BANNER_DECORATION_CLASS}{2,}\s*)+`);
+const TRAILING_BANNER_DECORATION_PATTERN = new RegExp(String.raw`(?:\s*${BANNER_DECORATION_CLASS}{2,})+$`);
+const INNER_BANNER_DECORATION_PATTERN = new RegExp(`${BANNER_DECORATION_CLASS}{2,}`, "g");
 const TRAILING_SLASH_DECORATION_PATTERN = /\/{2,}\s*$/;
 
 const DOC_TAG_LINE_PREFIX_PATTERN = /^\/+\(\s*\)@/;
@@ -57,10 +50,7 @@ function getLineCommentRawText(comment, options: any = {}) {
         if (process.env.GML_PRINTER_DEBUG) {
             // console.log(`[DEBUG] getLineCommentRawText using originalText for comment: ${comment.value}`);
         }
-        return options.originalText.slice(
-            comment.start.index,
-            comment.end.index + 1
-        );
+        return options.originalText.slice(comment.start.index, comment.end.index + 1);
     }
 
     if (!isObjectLike(comment)) {
@@ -84,10 +74,7 @@ type BannerNormalizationOptions = {
     assumeDecorated?: boolean;
 };
 
-function normalizeBannerCommentText(
-    candidate,
-    options: BannerNormalizationOptions = {}
-) {
+function normalizeBannerCommentText(candidate, options: BannerNormalizationOptions = {}) {
     if (typeof candidate !== "string") {
         return null;
     }
@@ -143,10 +130,7 @@ function normalizeBannerCommentText(
 /**
  * Checks if a comment contains boilerplate text that should be suppressed.
  */
-function containsBoilerplate(
-    trimmedValue: string,
-    boilerplateFragments: string[]
-): boolean {
+function containsBoilerplate(trimmedValue: string, boilerplateFragments: string[]): boolean {
     for (const lineFragment of boilerplateFragments) {
         if (trimmedValue.includes(lineFragment)) {
             return true;
@@ -160,18 +144,13 @@ function containsBoilerplate(
  */
 function analyzeCommentContext(comment, trimmedOriginal: string) {
     const startsWithTripleSlash = trimmedOriginal.startsWith("///");
-    const isPlainTripleSlash =
-        startsWithTripleSlash && !trimmedOriginal.includes("@");
+    const isPlainTripleSlash = startsWithTripleSlash && !trimmedOriginal.includes("@");
 
     const leadingSlashMatch = trimmedOriginal.match(/^\/+/);
-    const leadingSlashCount = leadingSlashMatch
-        ? leadingSlashMatch[0].length
-        : 0;
+    const leadingSlashCount = leadingSlashMatch ? leadingSlashMatch[0].length : 0;
 
     const hasPrecedingLineBreak =
-        isObjectLike(comment) &&
-        typeof comment.leadingWS === "string" &&
-        /\r|\n/.test(comment.leadingWS);
+        isObjectLike(comment) && typeof comment.leadingWS === "string" && /\r|\n/.test(comment.leadingWS);
 
     const hasInlineLeadingChar =
         isObjectLike(comment) &&
@@ -210,10 +189,7 @@ function tryFormatBannerComment(
         return null;
     }
 
-    if (
-        slashesMatch[1].length < LINE_COMMENT_BANNER_DETECTION_MIN_SLASHES &&
-        !hasDecorations
-    ) {
+    if (slashesMatch[1].length < LINE_COMMENT_BANNER_DETECTION_MIN_SLASHES && !hasDecorations) {
         return null;
     }
 
@@ -244,10 +220,7 @@ function tryFormatBannerComment(
             comment.trailingWS = "";
         }
         const followingNode = comment?.followingNode;
-        if (
-            isObjectLike(followingNode) &&
-            followingNode?._featherSuppressLeadingEmptyLine !== false
-        ) {
+        if (isObjectLike(followingNode) && followingNode?._featherSuppressLeadingEmptyLine !== false) {
             followingNode._featherSuppressLeadingEmptyLine = true;
         }
         return "";
@@ -275,38 +248,22 @@ function tryPromoteToDocComment(
     // "/// @param x" form. Detecting and rewriting this pattern ensures that
     // doc-like comments are consistently formatted, even when the original
     // source uses non-standard spacing or slash counts.
-    if (
-        slashesMatch &&
-        !isPlainTripleSlash &&
-        trimmedValue.startsWith("/") &&
-        !trimmedValue.startsWith("//")
-    ) {
+    if (slashesMatch && !isPlainTripleSlash && trimmedValue.startsWith("/") && !trimmedValue.startsWith("//")) {
         const remainder = trimmedValue.slice(1);
         if (remainder.trim().startsWith("@")) {
-            const shouldInsertSpace =
-                remainder.length > 0 && /\w/.test(remainder.charAt(1) || "");
-            const formatted = applyJsDocReplacements(
-                `///${shouldInsertSpace ? " " : ""}${remainder}`
-            );
+            const shouldInsertSpace = remainder.length > 0 && /\w/.test(remainder.charAt(1) || "");
+            const formatted = applyJsDocReplacements(`///${shouldInsertSpace ? " " : ""}${remainder}`);
             return applyInlinePadding(comment, formatted);
         }
     }
 
     // Check if comment starts with @ tag but needs to be promoted to doc comment format
     // For example: "/ @description" or "// @description" should become "/// @description"
-    if (
-        !trimmedOriginal.startsWith("///") &&
-        trimmedOriginal.startsWith("/") &&
-        trimmedOriginal.includes("@")
-    ) {
+    if (!trimmedOriginal.startsWith("///") && trimmedOriginal.startsWith("/") && trimmedOriginal.includes("@")) {
         const afterSlashes = trimmedOriginal.replace(/^\/+\s*/, "");
         if (afterSlashes.startsWith("@")) {
-            const shouldInsertSpace =
-                afterSlashes.length > 0 &&
-                /\w/.test(afterSlashes.charAt(1) || "");
-            const formatted = applyJsDocReplacements(
-                `///${shouldInsertSpace ? " " : ""}${afterSlashes}`
-            );
+            const shouldInsertSpace = afterSlashes.length > 0 && /\w/.test(afterSlashes.charAt(1) || "");
+            const formatted = applyJsDocReplacements(`///${shouldInsertSpace ? " " : ""}${afterSlashes}`);
             return applyInlinePadding(comment, formatted);
         }
     }
@@ -317,10 +274,7 @@ function tryPromoteToDocComment(
 /**
  * Handles doc-like comment patterns (e.g., "// / text" should become "/// text").
  */
-function tryFormatDocLikeComment(
-    comment,
-    trimmedOriginal: string
-): string | null {
+function tryFormatDocLikeComment(comment, trimmedOriginal: string): string | null {
     const docLikeMatch = trimmedOriginal.match(/^\/\/\s+\/(?![\/])/);
     if (!docLikeMatch) {
         return null;
@@ -334,13 +288,9 @@ function tryFormatDocLikeComment(
     // rather than promoting it to a doc comment ("/// something").
     if (
         remainder.startsWith("//") ||
-        (isObjectLike(comment) &&
-            typeof comment.value === "string" &&
-            /^\s*\/\//.test(comment.value))
+        (isObjectLike(comment) && typeof comment.value === "string" && /^\s*\/\//.test(comment.value))
     ) {
-        const inner = remainder.startsWith("//")
-            ? remainder
-            : comment.value.trimStart();
+        const inner = remainder.startsWith("//") ? remainder : comment.value.trimStart();
         const padded = `//     ${inner}`;
         return applyInlinePadding(comment, padded);
     }
@@ -383,11 +333,7 @@ function tryFormatExistingDocComment(
 /**
  * Handles doc tag line prefix patterns (e.g., "//() @tag").
  */
-function tryFormatDocTagPrefix(
-    comment,
-    trimmedOriginal: string,
-    trimmedValue: string
-): string | null {
+function tryFormatDocTagPrefix(comment, trimmedOriginal: string, trimmedValue: string): string | null {
     const docTagSource = DOC_TAG_LINE_PREFIX_PATTERN.test(trimmedValue)
         ? trimmedValue
         : DOC_TAG_LINE_PREFIX_PATTERN.test(trimmedOriginal)
@@ -399,9 +345,7 @@ function tryFormatDocTagPrefix(
     }
 
     let formattedCommentLine = `///${docTagSource.replace(DOC_TAG_LINE_PREFIX_PATTERN, " @")}`;
-    formattedCommentLine = applyJsDocReplacements(
-        formattedCommentLine
-    ) as string;
+    formattedCommentLine = applyJsDocReplacements(formattedCommentLine) as string;
 
     if (formattedCommentLine.trim() === "/// @description") {
         return "";
@@ -421,39 +365,23 @@ function tryFormatCommentedOutCode(
     codeDetectionPatterns: RegExp[]
 ): string | null {
     const leadingWhitespaceMatch = rawValue.match(/^\s*/);
-    const leadingWhitespace = leadingWhitespaceMatch
-        ? leadingWhitespaceMatch[0]
-        : "";
+    const leadingWhitespace = leadingWhitespaceMatch ? leadingWhitespaceMatch[0] : "";
     const valueWithoutTrailingWhitespace = rawValue.replace(/\s+$/, "");
-    const coreValue = valueWithoutTrailingWhitespace.slice(
-        leadingWhitespace.length
-    );
+    const coreValue = valueWithoutTrailingWhitespace.slice(leadingWhitespace.length);
 
     if (
         coreValue.length === 0 ||
-        (!trimmedValue.startsWith("//") &&
-            !looksLikeCommentedOutCode(coreValue, codeDetectionPatterns))
+        (!trimmedValue.startsWith("//") && !looksLikeCommentedOutCode(coreValue, codeDetectionPatterns))
     ) {
         return null;
     }
 
     const shouldPreserveTabs =
-        isObjectLike(comment) &&
-        typeof comment.leadingChar === "string" &&
-        comment.leadingChar.length > 0;
-    const whitespaceSegment = shouldPreserveTabs
-        ? leadingWhitespace
-        : leadingWhitespace.replaceAll("\t", "    ");
-    const formattedCommentLine =
-        whitespaceSegment.length > 0
-            ? `//${whitespaceSegment}${coreValue}`
-            : `//${coreValue}`;
+        isObjectLike(comment) && typeof comment.leadingChar === "string" && comment.leadingChar.length > 0;
+    const whitespaceSegment = shouldPreserveTabs ? leadingWhitespace : leadingWhitespace.replaceAll("\t", "    ");
+    const formattedCommentLine = whitespaceSegment.length > 0 ? `//${whitespaceSegment}${coreValue}` : `//${coreValue}`;
 
-    return applyInlinePadding(
-        comment,
-        formattedCommentLine,
-        shouldPreserveTabs
-    );
+    return applyInlinePadding(comment, formattedCommentLine, shouldPreserveTabs);
 }
 
 /**
@@ -465,9 +393,7 @@ function tryFormatMultiSentenceComment(
     trimmedValue: string,
     isInlineComment: boolean
 ): string | null {
-    const sentences = isInlineComment
-        ? [trimmedValue]
-        : splitCommentIntoSentences(trimmedValue);
+    const sentences = isInlineComment ? [trimmedValue] : splitCommentIntoSentences(trimmedValue);
 
     if (sentences.length <= 1) {
         return null;
@@ -513,10 +439,7 @@ function tryFormatPlainTripleSlash(
         return applyInlinePadding(comment, formatted);
     }
 
-    if (
-        leadingSlashCount >= LINE_COMMENT_BANNER_DETECTION_MIN_SLASHES &&
-        !isInlineComment
-    ) {
+    if (leadingSlashCount >= LINE_COMMENT_BANNER_DETECTION_MIN_SLASHES && !isInlineComment) {
         return applyInlinePadding(comment, trimmedOriginal);
     }
 
@@ -528,10 +451,7 @@ function tryFormatPlainTripleSlash(
  * Uses a series of specialized helper functions to handle different comment patterns,
  * making the control flow easier to follow through early returns and guard clauses.
  */
-function formatLineComment(
-    comment,
-    lineCommentOptions: any = DEFAULT_LINE_COMMENT_OPTIONS
-) {
+function formatLineComment(comment, lineCommentOptions: any = DEFAULT_LINE_COMMENT_OPTIONS) {
     const normalizedOptions = normalizeLineCommentOptions(lineCommentOptions);
     const { boilerplateFragments, codeDetectionPatterns } = normalizedOptions;
     const original = getLineCommentRawText(comment, lineCommentOptions);
@@ -550,12 +470,7 @@ function formatLineComment(
     }
 
     const context = analyzeCommentContext(comment, trimmedOriginal);
-    const {
-        startsWithTripleSlash,
-        isPlainTripleSlash,
-        leadingSlashCount,
-        isInlineComment
-    } = context;
+    const { startsWithTripleSlash, isPlainTripleSlash, leadingSlashCount, isInlineComment } = context;
 
     const slashesMatch = original.match(/^\s*(\/{2,})(.*)$/);
     const contentWithoutSlashes = trimmedValue.replace(/^\/+\s*/, "");
@@ -567,8 +482,7 @@ function formatLineComment(
         !isDocLikeComment &&
         (LEADING_BANNER_DECORATION_PATTERN.test(contentWithoutSlashes) ||
             TRAILING_BANNER_DECORATION_PATTERN.test(contentWithoutSlashes) ||
-            (contentWithoutSlashes.match(INNER_BANNER_DECORATION_PATTERN) || [])
-                .length > 0 ||
+            (contentWithoutSlashes.match(INNER_BANNER_DECORATION_PATTERN) || []).length > 0 ||
             TRAILING_SLASH_DECORATION_PATTERN.test(contentWithoutSlashes));
 
     if (
@@ -580,13 +494,7 @@ function formatLineComment(
     }
 
     // Try banner comment formatting
-    const bannerResult = tryFormatBannerComment(
-        comment,
-        trimmedOriginal,
-        trimmedValue,
-        slashesMatch,
-        hasDecorations
-    );
+    const bannerResult = tryFormatBannerComment(comment, trimmedOriginal, trimmedValue, slashesMatch, hasDecorations);
     if (bannerResult !== null) {
         return bannerResult;
     }
@@ -633,11 +541,7 @@ function formatLineComment(
     }
 
     // Try formatting doc tag prefix patterns
-    const docTagPrefixResult = tryFormatDocTagPrefix(
-        comment,
-        trimmedOriginal,
-        trimmedValue
-    );
+    const docTagPrefixResult = tryFormatDocTagPrefix(comment, trimmedOriginal, trimmedValue);
     if (docTagPrefixResult !== null) {
         return docTagPrefixResult;
     }
@@ -655,42 +559,25 @@ function formatLineComment(
     }
 
     // Try formatting multi-sentence comments
-    const multiSentenceResult = tryFormatMultiSentenceComment(
-        comment,
-        trimmedOriginal,
-        trimmedValue,
-        isInlineComment
-    );
+    const multiSentenceResult = tryFormatMultiSentenceComment(comment, trimmedOriginal, trimmedValue, isInlineComment);
     if (multiSentenceResult !== null) {
         return multiSentenceResult;
     }
 
     // Default: format as a regular comment
-    const fallbackLeadingWhitespace =
-        typeof rawValue === "string" ? (rawValue.match(/^\s*/)?.[0] ?? "") : "";
-    const normalizedFallbackWhitespace = fallbackLeadingWhitespace.replaceAll(
-        "\t",
-        "    "
-    );
+    const fallbackLeadingWhitespace = typeof rawValue === "string" ? (rawValue.match(/^\s*/)?.[0] ?? "") : "";
+    const normalizedFallbackWhitespace = fallbackLeadingWhitespace.replaceAll("\t", "    ");
     const fallbackSpacing =
-        normalizedFallbackWhitespace.length > 0
-            ? normalizedFallbackWhitespace
-            : trimmedValue.length > 0
-              ? " "
-              : "";
+        normalizedFallbackWhitespace.length > 0 ? normalizedFallbackWhitespace : trimmedValue.length > 0 ? " " : "";
     const fallbackContent = trimmedValue;
-    const fallbackCommentLine = fallbackSpacing
-        ? `//${fallbackSpacing}${fallbackContent}`
-        : `//${fallbackContent}`;
+    const fallbackCommentLine = fallbackSpacing ? `//${fallbackSpacing}${fallbackContent}` : `//${fallbackContent}`;
 
     return applyInlinePadding(comment, fallbackCommentLine);
 }
 
 function applyInlinePadding(comment, formattedText, preserveTabs = false) {
     const normalizedText =
-        !preserveTabs && formattedText.includes("\t")
-            ? formattedText.replaceAll("\t", "    ")
-            : formattedText;
+        !preserveTabs && formattedText.includes("\t") ? formattedText.replaceAll("\t", "    ") : formattedText;
 
     const paddingWidth = resolveInlinePaddingWidth(comment);
 
@@ -719,8 +606,7 @@ function extractContinuationIndentation(comment) {
         return "";
     }
 
-    const leadingWhitespace =
-        typeof comment.leadingWS === "string" ? comment.leadingWS : "";
+    const leadingWhitespace = typeof comment.leadingWS === "string" ? comment.leadingWS : "";
 
     if (leadingWhitespace.length === 0) {
         return "";
@@ -743,9 +629,7 @@ function looksLikeCommentedOutCode(text, codeDetectionPatterns) {
     // This allows the patterns to match the actual code content
     const contentWithoutCommentPrefix = trimmed.replace(/^\/+\s*/, "");
 
-    const patterns = Array.isArray(codeDetectionPatterns)
-        ? codeDetectionPatterns
-        : DEFAULT_COMMENTED_OUT_CODE_PATTERNS;
+    const patterns = Array.isArray(codeDetectionPatterns) ? codeDetectionPatterns : DEFAULT_COMMENTED_OUT_CODE_PATTERNS;
 
     for (const pattern of patterns) {
         if (!isRegExpLike(pattern)) {
@@ -808,9 +692,4 @@ function splitCommentIntoSentences(text) {
     return sentences;
 }
 
-export {
-    applyInlinePadding,
-    formatLineComment,
-    getLineCommentRawText,
-    normalizeBannerCommentText
-};
+export { applyInlinePadding, formatLineComment, getLineCommentRawText, normalizeBannerCommentText };

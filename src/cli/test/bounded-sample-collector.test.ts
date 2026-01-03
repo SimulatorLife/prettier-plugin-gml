@@ -1,9 +1,6 @@
 import { describe, it } from "node:test";
 import assert from "node:assert/strict";
-import {
-    tryAddSample,
-    hasSample
-} from "../src/cli-core/bounded-sample-collector.js";
+import { tryAddSample, hasSample } from "../src/cli-core/bounded-sample-collector.js";
 
 /**
  * Check object equality by comparing id property.
@@ -59,12 +56,7 @@ void describe("bounded-sample-collector", () => {
                 { id: 1, name: "Alice" },
                 { id: 2, name: "Bob" }
             ];
-            const result = tryAddSample(
-                samples,
-                { id: 1, name: "Alice Updated" },
-                5,
-                areObjectsEqualById
-            );
+            const result = tryAddSample(samples, { id: 1, name: "Alice Updated" }, 5, areObjectsEqualById);
 
             assert.strictEqual(result, false);
             assert.strictEqual(samples.length, 2);
@@ -76,12 +68,7 @@ void describe("bounded-sample-collector", () => {
                 { id: 1, name: "Alice" },
                 { id: 2, name: "Bob" }
             ];
-            const result = tryAddSample(
-                samples,
-                { id: 3, name: "Charlie" },
-                5,
-                areObjectsEqualById
-            );
+            const result = tryAddSample(samples, { id: 3, name: "Charlie" }, 5, areObjectsEqualById);
 
             assert.strictEqual(result, true);
             assert.strictEqual(samples.length, 3);
@@ -109,11 +96,7 @@ void describe("bounded-sample-collector", () => {
                 { id: 1, name: "Alice" },
                 { id: 2, name: "Bob" }
             ];
-            const result = hasSample(
-                samples,
-                { id: 2, name: "Different" },
-                areObjectsEqualById
-            );
+            const result = hasSample(samples, { id: 2, name: "Different" }, areObjectsEqualById);
 
             assert.strictEqual(result, true);
         });
@@ -123,11 +106,7 @@ void describe("bounded-sample-collector", () => {
                 { id: 1, name: "Alice" },
                 { id: 2, name: "Bob" }
             ];
-            const result = hasSample(
-                samples,
-                { id: 3, name: "Charlie" },
-                areObjectsEqualById
-            );
+            const result = hasSample(samples, { id: 3, name: "Charlie" }, areObjectsEqualById);
 
             assert.strictEqual(result, false);
         });

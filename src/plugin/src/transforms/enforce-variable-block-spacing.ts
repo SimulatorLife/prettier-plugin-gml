@@ -3,10 +3,7 @@
  * The rule triggers after a minimum number of declarations and only inserts spacing before `for` loops.
  */
 import { Core, type MutableGameMakerAstNode } from "@gml-modules/core";
-import {
-    createParserTransform,
-    type EmptyTransformOptions
-} from "./functional-transform.js";
+import { createParserTransform, type EmptyTransformOptions } from "./functional-transform.js";
 
 const MIN_DECLARATIONS = 4; // Keep this opinionated and not configurable for consistent formatting behavior
 
@@ -70,10 +67,7 @@ function enforceSpacingInBlock(statements, minDeclarationRunLength) {
             continue;
         }
 
-        if (
-            runLength >= minDeclarationRunLength &&
-            shouldForceBlankLineAfter(statement)
-        ) {
+        if (runLength >= minDeclarationRunLength && shouldForceBlankLineAfter(statement)) {
             const lastDeclaration = statements[index - 1];
             if (
                 lastDeclaration &&
@@ -108,9 +102,8 @@ function shouldForceBlankLineAfter(nextNode) {
     return Core.getNodeType(nextNode) === "ForStatement";
 }
 
-export const enforceVariableBlockSpacingTransform =
-    createParserTransform<EmptyTransformOptions>(
-        "enforce-variable-block-spacing",
-        {},
-        execute
-    );
+export const enforceVariableBlockSpacingTransform = createParserTransform<EmptyTransformOptions>(
+    "enforce-variable-block-spacing",
+    {},
+    execute
+);

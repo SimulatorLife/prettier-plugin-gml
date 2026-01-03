@@ -37,10 +37,7 @@ void describe("parseJsonWithContext", () => {
         assert.equal(jsonError.name, "JsonParseError");
         assert.equal(jsonError.source, "demo.json");
         assert.equal(jsonError.description, "project metadata");
-        assert.match(
-            jsonError.message,
-            /Failed to parse project metadata from demo\.json: .+/
-        );
+        assert.match(jsonError.message, /Failed to parse project metadata from demo\.json: .+/);
         const cause = jsonError.cause;
         if (!isErrorLike(cause)) {
             throw new Error("Expected parse error cause to be an Error");
@@ -48,10 +45,7 @@ void describe("parseJsonWithContext", () => {
 
         assert.equal(cause.name, "SyntaxError");
         assert.equal(isJsonParseError(new Error("nope")), false);
-        assert.equal(
-            isJsonParseError({ message: "fail", name: "JsonParseError" }),
-            false
-        );
+        assert.equal(isJsonParseError({ message: "fail", name: "JsonParseError" }), false);
     });
 
     void it("detects structural JsonParseError facades without relying on names", () => {
@@ -99,10 +93,7 @@ void describe("parseJsonWithContext", () => {
         const jsonError = error as JsonParseError;
         assert.equal(jsonError.description, "custom");
         assert.equal(jsonError.source, "demo.json");
-        assert.match(
-            jsonError.message,
-            /Failed to parse custom from demo\.json: spaced message/
-        );
+        assert.match(jsonError.message, /Failed to parse custom from demo\.json: spaced message/);
     });
 });
 
@@ -154,10 +145,7 @@ void describe("stringifyJsonForFile", () => {
             () => stringifyJsonForFile(),
             (error: TypeError) => {
                 assert.equal(error instanceof TypeError, true);
-                assert.match(
-                    error.message,
-                    /Unable to serialize .* JSON\. JSON\.stringify returned undefined\./
-                );
+                assert.match(error.message, /Unable to serialize .* JSON\. JSON\.stringify returned undefined\./);
                 return true;
             }
         );

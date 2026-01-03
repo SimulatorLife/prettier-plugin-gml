@@ -1,17 +1,11 @@
 import assert from "node:assert/strict";
 import { describe, it } from "node:test";
 
-import {
-    CommentTracker,
-    consolidateStructAssignmentsTransform
-} from "../src/transforms/index.js";
+import { CommentTracker, consolidateStructAssignmentsTransform } from "../src/transforms/index.js";
 
 void describe("CommentTracker", () => {
     void it("ignores consumed comments when checking for later comments", () => {
-        const tracker = new CommentTracker([
-            { start: { index: 10 } },
-            { start: { index: 20 } }
-        ]);
+        const tracker = new CommentTracker([{ start: { index: 10 } }, { start: { index: 20 } }]);
 
         tracker.consumeEntries([tracker.entries[0]]);
 

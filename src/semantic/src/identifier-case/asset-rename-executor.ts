@@ -19,8 +19,7 @@ type AssetRenameExecutorOptions = {
     logger?: AssetRenameExecutorLogger | null;
 };
 
-const DEFAULT_WRITE_ACCESS_ARGS =
-    DEFAULT_WRITE_ACCESS_MODE === undefined ? [] : [DEFAULT_WRITE_ACCESS_MODE];
+const DEFAULT_WRITE_ACCESS_ARGS = DEFAULT_WRITE_ACCESS_MODE === undefined ? [] : [DEFAULT_WRITE_ACCESS_MODE];
 
 function tryAccess(fsFacade, method, targetPath, ...args) {
     if (!targetPath || !fsFacade) {
@@ -79,19 +78,13 @@ function getObjectAtPath(json, propertyPath) {
         return json;
     }
 
-    const segments = Core.trimStringEntries(propertyPath.split(".")).filter(
-        (segment) => segment.length > 0
-    );
+    const segments = Core.trimStringEntries(propertyPath.split(".")).filter((segment) => segment.length > 0);
 
     let current = json;
     for (const segment of segments) {
         if (Array.isArray(current)) {
             const index = Number(segment);
-            if (
-                !Number.isInteger(index) ||
-                index < 0 ||
-                index >= current.length
-            ) {
+            if (!Number.isInteger(index) || index < 0 || index >= current.length) {
                 return null;
             }
             current = current[index];
@@ -124,10 +117,7 @@ function updateReferenceObject(json, propertyPath, newResourcePath, newName) {
 
     let changed = false;
 
-    if (
-        Core.isNonEmptyString(newResourcePath) &&
-        target.path !== newResourcePath
-    ) {
+    if (Core.isNonEmptyString(newResourcePath) && target.path !== newResourcePath) {
         target.path = newResourcePath;
         changed = true;
     }
@@ -141,14 +131,7 @@ function updateReferenceObject(json, propertyPath, newResourcePath, newName) {
 }
 
 function hasWriteAccess(fsFacade, targetPath, probeMethod) {
-    if (
-        tryAccess(
-            fsFacade,
-            "accessSync",
-            targetPath,
-            ...DEFAULT_WRITE_ACCESS_ARGS
-        )
-    ) {
+    if (tryAccess(fsFacade, "accessSync", targetPath, ...DEFAULT_WRITE_ACCESS_ARGS)) {
         return true;
     }
 
@@ -181,10 +164,7 @@ export function createAssetRenameExecutor({
     fsFacade = null,
     logger = null
 }: AssetRenameExecutorOptions = {}) {
-    if (
-        !Core.isObjectLike(projectIndex) ||
-        typeof projectIndex.projectRoot !== "string"
-    ) {
+    if (!Core.isObjectLike(projectIndex) || typeof projectIndex.projectRoot !== "string") {
         return {
             queueRename() {
                 return false;
@@ -195,9 +175,7 @@ export function createAssetRenameExecutor({
         };
     }
 
-    const effectiveFs = fsFacade
-        ? { ...defaultFsFacade, ...fsFacade }
-        : defaultFsFacade;
+    const effectiveFs = fsFacade ? { ...defaultFsFacade, ...fsFacade } : defaultFsFacade;
     const projectRoot = projectIndex.projectRoot;
     const jsonCache = new Map();
     const pendingWrites = new Map();
@@ -213,20 +191,11 @@ export function createAssetRenameExecutor({
                 return false;
             }
 
-            const resourceAbsolute = resolveAbsolutePath(
-                projectRoot,
-                rename.resourcePath
-            );
-            const resourceJson = readJsonFile(
-                effectiveFs,
-                resourceAbsolute,
-                jsonCache
-            );
+            const resourceAbsolute = resolveAbsolutePath(projectRoot, rename.resourcePath);
+            const resourceJson = readJsonFile(effectiveFs, resourceAbsolute, jsonCache);
 
             if (!Core.isObjectLike(resourceJson)) {
-                throw new TypeError(
-                    `Unable to parse resource metadata at '${rename.resourcePath}'.`
-                );
+                throw new TypeError(`Unable to parse resource metadata at '${rename.resourcePath}'.`);
             }
 
             let resourceChanged = false;
@@ -235,10 +204,7 @@ export function createAssetRenameExecutor({
                 resourceChanged = true;
             }
 
-            if (
-                Core.isNonEmptyString(rename.newResourcePath) &&
-                resourceJson.resourcePath !== rename.newResourcePath
-            ) {
+            if (Core.isNonEmptyString(rename.newResourcePath) && resourceJson.resourcePath !== rename.newResourcePath) {
                 resourceJson.resourcePath = rename.newResourcePath;
                 resourceChanged = true;
             }
@@ -249,17 +215,10 @@ export function createAssetRenameExecutor({
 
             const groupedReferences = new Map();
             for (const mutation of rename.referenceMutations ?? []) {
-                if (
-                    !Core.isObjectLike(mutation) ||
-                    !Core.isNonEmptyString(mutation.filePath)
-                ) {
+                if (!Core.isObjectLike(mutation) || !Core.isNonEmptyString(mutation.filePath)) {
                     continue;
                 }
-                const entries = Core.getOrCreateMapEntry(
-                    groupedReferences,
-                    mutation.filePath,
-                    () => []
-                );
+                const entries = Core.getOrCreateMapEntry(groupedReferences, mutation.filePath, () => []);
                 entries.push(mutation);
             }
 
@@ -267,17 +226,11 @@ export function createAssetRenameExecutor({
                 const absolutePath = resolveAbsolutePath(projectRoot, filePath);
                 let targetJson;
                 try {
-                    targetJson = readJsonFile(
-                        effectiveFs,
-                        absolutePath,
-                        jsonCache
-                    );
+                    targetJson = readJsonFile(effectiveFs, absolutePath, jsonCache);
                 } catch (error) {
                     if (logger && typeof logger.warn === "function") {
                         const message = Core.getErrorMessageOrFallback(error);
-                        logger.warn(
-                            `Skipping asset reference update for '${filePath}': ${message}`
-                        );
+                        logger.warn(`Skipping asset reference update for '${filePath}': ${message}`);
                     }
                     continue;
                 }
@@ -304,10 +257,7 @@ export function createAssetRenameExecutor({
                 }
             }
 
-            const newResourceAbsolute = resolveAbsolutePath(
-                projectRoot,
-                rename.newResourcePath
-            );
+            const newResourceAbsolute = resolveAbsolutePath(projectRoot, rename.newResourcePath);
 
             if (newResourceAbsolute !== resourceAbsolute) {
                 renameActions.push({
@@ -325,14 +275,8 @@ export function createAssetRenameExecutor({
                     continue;
                 }
 
-                const fromAbsolute = resolveAbsolutePath(
-                    projectRoot,
-                    gmlRename.from
-                );
-                const toAbsolute = resolveAbsolutePath(
-                    projectRoot,
-                    gmlRename.to
-                );
+                const fromAbsolute = resolveAbsolutePath(projectRoot, gmlRename.from);
+                const toAbsolute = resolveAbsolutePath(projectRoot, gmlRename.to);
 
                 if (fromAbsolute === toAbsolute) {
                     continue;
@@ -345,14 +289,12 @@ export function createAssetRenameExecutor({
         },
 
         commit() {
-            const writeActions = [...pendingWrites.entries()].map(
-                ([filePath, jsonData]) => ({
-                    filePath,
-                    contents: Core.stringifyJsonForFile(jsonData, {
-                        space: 4
-                    })
+            const writeActions = [...pendingWrites.entries()].map(([filePath, jsonData]) => ({
+                filePath,
+                contents: Core.stringifyJsonForFile(jsonData, {
+                    space: 4
                 })
-            );
+            }));
 
             if (writeActions.length === 0 && renameActions.length === 0) {
                 return { writes: [], renames: [] };
@@ -365,21 +307,13 @@ export function createAssetRenameExecutor({
             for (const action of renameActions) {
                 ensureWritableFile(effectiveFs, action.from);
                 ensureWritableDirectory(effectiveFs, path.dirname(action.to));
-                if (
-                    typeof effectiveFs.existsSync === "function" &&
-                    effectiveFs.existsSync(action.to)
-                ) {
-                    throw new Error(
-                        `Cannot rename '${action.from}' to existing path '${action.to}'.`
-                    );
+                if (typeof effectiveFs.existsSync === "function" && effectiveFs.existsSync(action.to)) {
+                    throw new Error(`Cannot rename '${action.from}' to existing path '${action.to}'.`);
                 }
             }
 
             for (const action of writeActions) {
-                ensureWritableDirectory(
-                    effectiveFs,
-                    path.dirname(action.filePath)
-                );
+                ensureWritableDirectory(effectiveFs, path.dirname(action.filePath));
                 effectiveFs.writeFileSync(action.filePath, action.contents);
             }
 

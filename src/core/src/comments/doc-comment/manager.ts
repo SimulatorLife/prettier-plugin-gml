@@ -1,10 +1,6 @@
 import { isFunctionLikeNode, isNode } from "../../ast/node-helpers.js";
 import { getNodeStartIndex } from "../../ast/locations.js";
-import {
-    getCommentArray,
-    isDocCommentLine,
-    type DocCommentLines
-} from "../comment-utils.js";
+import { getCommentArray, isDocCommentLine, type DocCommentLines } from "../comment-utils.js";
 import { isNonEmptyArray, toMutableArray } from "../../utils/array.js";
 import { isNonEmptyTrimmedString } from "../../utils/string.js";
 
@@ -65,9 +61,7 @@ function createBoundDocCommentServiceResolver(cache, methodName) {
             if (typeof method !== "function") {
                 const fallback = (NOOP_DOC_COMMENT_MANAGER as any)[methodName];
 
-                return typeof fallback === "function"
-                    ? { [methodName]: fallback }
-                    : {};
+                return typeof fallback === "function" ? { [methodName]: fallback } : {};
             }
 
             return { [methodName]: method.bind(manager) };
@@ -75,35 +69,30 @@ function createBoundDocCommentServiceResolver(cache, methodName) {
     };
 }
 
-export const resolveDocCommentTraversalService =
-    createBoundDocCommentServiceResolver(
-        DOC_COMMENT_TRAVERSAL_SERVICES,
-        "forEach"
-    );
+export const resolveDocCommentTraversalService = createBoundDocCommentServiceResolver(
+    DOC_COMMENT_TRAVERSAL_SERVICES,
+    "forEach"
+);
 
-export const resolveDocCommentCollectionService =
-    createBoundDocCommentServiceResolver(
-        DOC_COMMENT_COLLECTION_SERVICES,
-        "getComments"
-    );
+export const resolveDocCommentCollectionService = createBoundDocCommentServiceResolver(
+    DOC_COMMENT_COLLECTION_SERVICES,
+    "getComments"
+);
 
-export const resolveDocCommentPresenceService =
-    createBoundDocCommentServiceResolver(
-        DOC_COMMENT_PRESENCE_SERVICES,
-        "hasDocComment"
-    );
+export const resolveDocCommentPresenceService = createBoundDocCommentServiceResolver(
+    DOC_COMMENT_PRESENCE_SERVICES,
+    "hasDocComment"
+);
 
-export const resolveDocCommentDescriptionService =
-    createBoundDocCommentServiceResolver(
-        DOC_COMMENT_DESCRIPTION_SERVICES,
-        "extractDescription"
-    );
+export const resolveDocCommentDescriptionService = createBoundDocCommentServiceResolver(
+    DOC_COMMENT_DESCRIPTION_SERVICES,
+    "extractDescription"
+);
 
-export const resolveDocCommentUpdateService =
-    createBoundDocCommentServiceResolver(
-        DOC_COMMENT_UPDATE_SERVICES,
-        "applyUpdates"
-    );
+export const resolveDocCommentUpdateService = createBoundDocCommentServiceResolver(
+    DOC_COMMENT_UPDATE_SERVICES,
+    "applyUpdates"
+);
 
 function createDocCommentManager(ast) {
     normalizeDocCommentWhitespace(ast);
@@ -148,9 +137,7 @@ function normalizeDocCommentWhitespace(ast) {
         if (
             comment?.type === "CommentLine" &&
             typeof comment.leadingWS === "string" &&
-            /(?:\r\n|\r|\n|\u2028|\u2029)\s*(?:\r\n|\r|\n|\u2028|\u2029)/.test(
-                comment.leadingWS
-            )
+            /(?:\r\n|\r|\n|\u2028|\u2029)\s*(?:\r\n|\r|\n|\u2028|\u2029)/.test(comment.leadingWS)
         ) {
             comment.leadingWS = "\n";
         }
@@ -181,10 +168,7 @@ function mapDocCommentsToFunctions(ast) {
             continue;
         }
 
-        const commentIndex =
-            typeof comment?.start === "number"
-                ? comment.start
-                : (comment?.start?.index ?? null);
+        const commentIndex = typeof comment?.start === "number" ? comment.start : (comment?.start?.index ?? null);
         if (typeof commentIndex !== "number") {
             continue;
         }
@@ -298,11 +282,7 @@ function applyDocCommentUpdates(commentGroups, docUpdates) {
 }
 
 function isDocCommentUpdateEligible(update) {
-    return (
-        !!update &&
-        !update.hasDocComment &&
-        isNonEmptyTrimmedString(update.expression)
-    );
+    return !!update && !update.hasDocComment && isNonEmptyTrimmedString(update.expression);
 }
 
 function resolveDocCommentCollection(commentGroups, fn) {
@@ -316,37 +296,24 @@ function resolveDocCommentCollection(commentGroups, fn) {
 
 function findDescriptionComment(comments) {
     return (
-        comments.find(
-            (comment) =>
-                typeof comment?.value === "string" &&
-                /@description\b/i.test(comment.value)
-        ) ?? null
+        comments.find((comment) => typeof comment?.value === "string" && /@description\b/i.test(comment.value)) ?? null
     );
 }
 
 function applyDescriptionCommentUpdate(descriptionComment, update) {
-    let updatedDescription = buildUpdatedDescription(
-        update.description,
-        update.expression
-    );
+    let updatedDescription = buildUpdatedDescription(update.description, update.expression);
 
     if (!isNonEmptyTrimmedString(updatedDescription)) {
         return;
     }
 
-    const originalDescription =
-        typeof update.description === "string" ? update.description.trim() : "";
+    const originalDescription = typeof update.description === "string" ? update.description.trim() : "";
 
-    if (
-        originalDescription.endsWith(".") &&
-        !/[.!?]$/.test(updatedDescription)
-    ) {
+    if (originalDescription.endsWith(".") && !/[.!?]$/.test(updatedDescription)) {
         updatedDescription = `${updatedDescription}.`;
     }
 
-    const prefixMatch = descriptionComment.value.match(
-        /^(\s*\/\s*@description\s*)/i
-    );
+    const prefixMatch = descriptionComment.value.match(/^(\s*\/\s*@description\s*)/i);
     const prefix = prefixMatch ? prefixMatch[1] : "/ @description ";
 
     descriptionComment.value = `${prefix}${updatedDescription}`;
@@ -359,10 +326,7 @@ function extractFunctionDescription(commentGroups, functionNode) {
     }
 
     for (const comment of comments) {
-        if (
-            typeof comment.value === "string" &&
-            comment.value.includes("@description")
-        ) {
+        if (typeof comment.value === "string" && comment.value.includes("@description")) {
             return extractDescriptionContent(comment.value);
         }
     }

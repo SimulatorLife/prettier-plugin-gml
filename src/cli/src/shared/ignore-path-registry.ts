@@ -13,9 +13,7 @@ const registeredIgnorePaths = new Set<string>();
  * @param {string | null | undefined} ignorePath Candidate ignore path value.
  * @returns {boolean} `true` when the path has been seen before.
  */
-export function hasRegisteredIgnorePath(
-    ignorePath: string | null | undefined
-): boolean {
+export function hasRegisteredIgnorePath(ignorePath: string | null | undefined): boolean {
     if (!isNonEmptyString(ignorePath)) {
         return false;
     }
@@ -30,9 +28,7 @@ export function hasRegisteredIgnorePath(
  * @param {string | null | undefined} ignorePath Path to record as an active
  *        ignore entry.
  */
-export function registerIgnorePath(
-    ignorePath: string | null | undefined
-): void {
+export function registerIgnorePath(ignorePath: string | null | undefined): void {
     if (!isNonEmptyString(ignorePath)) {
         return;
     }

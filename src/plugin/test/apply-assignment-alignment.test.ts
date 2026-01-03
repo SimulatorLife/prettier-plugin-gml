@@ -93,11 +93,7 @@ void describe("applyAssignmentAlignment", () => {
             } as any;
         }
 
-        statements.push(
-            createAssignment("alpha", true),
-            createAssignment("beta"),
-            createAssignment("gamma")
-        );
+        statements.push(createAssignment("alpha", true), createAssignment("beta"), createAssignment("gamma"));
 
         const originalPush = Array.prototype.push;
         try {
@@ -126,10 +122,7 @@ void describe("applyAssignmentAlignment", () => {
             Array.prototype.push = originalPush;
         }
 
-        assert.ok(
-            capturedGroupObserved,
-            "Expected to observe the alignment group array."
-        );
+        assert.ok(capturedGroupObserved, "Expected to observe the alignment group array.");
 
         assert.deepStrictEqual(
             statements.map((node) => node._alignAssignmentPadding),
@@ -139,21 +132,11 @@ void describe("applyAssignmentAlignment", () => {
     });
 
     void it("resets alignment groups across blank lines and leading comments", () => {
-        const source = [
-            "short = 1;",
-            "",
-            "// keep these separate",
-            "longIdentifier = 2;",
-            "third = 3;"
-        ].join("\n");
+        const source = ["short = 1;", "", "// keep these separate", "longIdentifier = 2;", "third = 3;"].join("\n");
 
         function createAssignment(name) {
             const statementText =
-                name === "short"
-                    ? "short = 1;"
-                    : name === "longIdentifier"
-                      ? "longIdentifier = 2;"
-                      : "third = 3;";
+                name === "short" ? "short = 1;" : name === "longIdentifier" ? "longIdentifier = 2;" : "third = 3;";
             const start = source.indexOf(statementText);
             const end = start + statementText.length - 1;
             let padding = -1;
@@ -173,11 +156,7 @@ void describe("applyAssignmentAlignment", () => {
             };
         }
 
-        const statements = [
-            createAssignment("short"),
-            createAssignment("longIdentifier"),
-            createAssignment("third")
-        ];
+        const statements = [createAssignment("short"), createAssignment("longIdentifier"), createAssignment("third")];
 
         Printer.applyAssignmentAlignment(statements, {
             alignAssignmentsMinGroupSize: 2,
@@ -205,11 +184,7 @@ void describe("applyAssignmentAlignment", () => {
         const longestLength = "self.longProperty".length;
         assert.deepStrictEqual(
             statements.map((node) => node._alignAssignmentPadding),
-            [
-                longestLength - "self.short".length,
-                0,
-                longestLength - "self.mid".length
-            ],
+            [longestLength - "self.short".length, 0, longestLength - "self.mid".length],
             "Self member assignments should align using their fully-qualified identifier length."
         );
     });
@@ -232,14 +207,8 @@ void describe("applyAssignmentAlignment", () => {
         );
 
         assert.deepStrictEqual(
-            statements.map(
-                (node) => node.declarations[0]._alignAssignmentPadding
-            ),
-            [
-                "widthAlias".length - "w".length,
-                0,
-                "widthAlias".length - "height".length
-            ],
+            statements.map((node) => node.declarations[0]._alignAssignmentPadding),
+            ["widthAlias".length - "w".length, 0, "widthAlias".length - "height".length],
             "Aliases declared inside function bodies should align using declarator padding."
         );
     });
@@ -261,9 +230,7 @@ void describe("applyAssignmentAlignment", () => {
         );
 
         assert.deepStrictEqual(
-            statements.map(
-                (node) => node.declarations[0]._alignAssignmentPadding
-            ),
+            statements.map((node) => node.declarations[0]._alignAssignmentPadding),
             [undefined, undefined],
             "Aliases outside of function bodies should not receive alignment padding."
         );
@@ -288,9 +255,7 @@ void describe("applyAssignmentAlignment", () => {
         );
 
         assert.deepStrictEqual(
-            statements.map(
-                (node) => node.declarations[0]._alignAssignmentPadding
-            ),
+            statements.map((node) => node.declarations[0]._alignAssignmentPadding),
             [1, 0, 1],
             "Argument aliases without named parameters should align."
         );
@@ -343,14 +308,8 @@ void describe("applyAssignmentAlignment", () => {
         );
 
         assert.deepStrictEqual(
-            statements.map(
-                (node) => node.declarations[0]._alignAssignmentPadding
-            ),
-            [
-                "step_size".length - "w".length,
-                0,
-                "step_size".length - "xnet".length
-            ],
+            statements.map((node) => node.declarations[0]._alignAssignmentPadding),
+            ["step_size".length - "w".length, 0, "step_size".length - "xnet".length],
             "Expected alias groups tied to named parameters to align all contiguous declarations."
         );
     });

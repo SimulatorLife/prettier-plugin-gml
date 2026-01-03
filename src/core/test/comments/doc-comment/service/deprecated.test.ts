@@ -3,9 +3,7 @@ import test from "node:test";
 
 import { Core } from "@gml-modules/core";
 
-type DocCommentTraversalService = ReturnType<
-    typeof Core.resolveDocCommentTraversalService
->;
+type DocCommentTraversalService = ReturnType<typeof Core.resolveDocCommentTraversalService>;
 
 function createLegacyFunctionNode() {
     return {
@@ -46,9 +44,7 @@ void test("collectDeprecatedFunctionNames identifies top-level deprecated functi
 });
 
 void test("collectDeprecatedFunctionNames ignores functions without whitespace before start", () => {
-    const names = collectDeprecatedNames(
-        `${" ".repeat(30)}X${" ".repeat(120)}`
-    );
+    const names = collectDeprecatedNames(`${" ".repeat(30)}X${" ".repeat(120)}`);
 
     assert.deepStrictEqual([...names], []);
 });
@@ -74,11 +70,7 @@ void test("findDeprecatedDocComment ignores comments separated by non-whitespace
         end: 20
     };
 
-    const found = Core.findDeprecatedDocComment(
-        [comment],
-        30,
-        `${" ".repeat(25)}X${" ".repeat(120)}`
-    );
+    const found = Core.findDeprecatedDocComment([comment], 30, `${" ".repeat(25)}X${" ".repeat(120)}`);
 
     assert.strictEqual(found, null);
 });

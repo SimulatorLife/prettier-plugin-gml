@@ -35,11 +35,7 @@ interface ProgressBarOptions {
     stream?: ProgressBarStream;
 }
 
-type ProgressBarFactory = (
-    label: string,
-    width: number,
-    options: ProgressBarOptions
-) => ProgressBarLike;
+type ProgressBarFactory = (label: string, width: number, options: ProgressBarOptions) => ProgressBarLike;
 
 class TerminalProgressBar implements ProgressBarLike {
     private readonly label: string;
@@ -50,15 +46,10 @@ class TerminalProgressBar implements ProgressBarLike {
     private active: boolean;
     private cursorHidden: boolean;
 
-    constructor(
-        label: string,
-        width: number,
-        { stream }: ProgressBarOptions = {}
-    ) {
+    constructor(label: string, width: number, { stream }: ProgressBarOptions = {}) {
         this.label = label;
         this.width = Math.max(0, width);
-        this.stream =
-            typeof stream?.write === "function" ? stream : process.stdout;
+        this.stream = typeof stream?.write === "function" ? stream : process.stdout;
         this.total = 1;
         this.current = 0;
         this.active = false;
@@ -106,18 +97,14 @@ class TerminalProgressBar implements ProgressBarLike {
                   ? Number.parseFloat(value)
                   : Number.NaN;
 
-        return Number.isFinite(numeric)
-            ? Core.clamp(numeric, 0, this.total)
-            : 0;
+        return Number.isFinite(numeric) ? Core.clamp(numeric, 0, this.total) : 0;
     }
 
     #render(): void {
         const ratio = this.total > 0 ? this.current / this.total : 0;
         const filled = Math.round(ratio * this.width);
         const complete = COMPLETE_CHAR.repeat(Math.min(filled, this.width));
-        const incomplete = INCOMPLETE_CHAR.repeat(
-            Math.max(this.width - filled, 0)
-        );
+        const incomplete = INCOMPLETE_CHAR.repeat(Math.max(this.width - filled, 0));
         const bar = `${complete}${incomplete}`;
         const output = `${this.label} [${bar}] ${this.current}/${this.total}`;
 
@@ -159,12 +146,9 @@ class TerminalProgressBar implements ProgressBarLike {
 }
 
 const createWidthErrorMessage = (received: unknown) =>
-    `Progress bar width must be a positive integer (received ${describeValueForError(
-        received
-    )}).`;
+    `Progress bar width must be a positive integer (received ${describeValueForError(received)}).`;
 
-const createWidthTypeErrorMessage =
-    createNumericTypeErrorFormatter("Progress bar width");
+const createWidthTypeErrorMessage = createNumericTypeErrorFormatter("Progress bar width");
 
 const coerce = (value: unknown, context = {}) => {
     const opts = { ...context, createErrorMessage: createWidthErrorMessage };
@@ -199,8 +183,7 @@ function resolveProgressBarWidth(
         defaultWidth?: number;
     } = {}
 ): number | null | undefined {
-    const fallback =
-        options.defaultWidth ?? options.defaultValue ?? state.get();
+    const fallback = options.defaultWidth ?? options.defaultValue ?? state.get();
     return resolveIntegerOption(rawValue, {
         defaultValue: fallback,
         coerce,
@@ -209,9 +192,7 @@ function resolveProgressBarWidth(
     });
 }
 
-function applyProgressBarWidthEnvOverride(
-    env?: NodeJS.ProcessEnv
-): number | undefined {
+function applyProgressBarWidthEnvOverride(env?: NodeJS.ProcessEnv): number | undefined {
     return state.applyEnvOverride(env);
 }
 
@@ -236,17 +217,11 @@ function resetProgressBarRegistryForTesting(): void {
     disposeProgressBars();
 }
 
-function shouldRenderProgressBar(
-    stdout: ProgressBarStream | undefined,
-    width: number
-): boolean {
+function shouldRenderProgressBar(stdout: ProgressBarStream | undefined, width: number): boolean {
     return Boolean(stdout?.isTTY) && width > 0;
 }
 
-function stopAndRemoveProgressBar(
-    label: string,
-    { suppressErrors = false }: { suppressErrors?: boolean } = {}
-): void {
+function stopAndRemoveProgressBar(label: string, { suppressErrors = false }: { suppressErrors?: boolean } = {}): void {
     const bar = activeProgressBars.get(label);
 
     if (!bar) {
@@ -300,8 +275,7 @@ function renderProgressBar(
         bar.setTotal(normalizedTotal);
         bar.update(normalizedCurrent);
     } else {
-        const stream =
-            stdout && typeof stdout.write === "function" ? stdout : undefined;
+        const stream = stdout && typeof stdout.write === "function" ? stdout : undefined;
         const isFactoryProvided = typeof createBar === "function";
 
         if (createBar !== undefined && !isFactoryProvided) {
@@ -311,11 +285,7 @@ function renderProgressBar(
         const barFactory: ProgressBarFactory = isFactoryProvided
             ? createBar
             : (factoryLabel, factoryWidth, factoryOptions) =>
-                  new TerminalProgressBar(
-                      factoryLabel,
-                      factoryWidth,
-                      factoryOptions
-                  );
+                  new TerminalProgressBar(factoryLabel, factoryWidth, factoryOptions);
 
         bar = barFactory(label, width, { stream });
         activeProgressBars.set(label, bar);
@@ -327,13 +297,9 @@ function renderProgressBar(
     }
 }
 
-async function withProgressBarCleanup<TResult>(
-    callback: () => Promise<TResult> | TResult
-): Promise<TResult> {
+async function withProgressBarCleanup<TResult>(callback: () => Promise<TResult> | TResult): Promise<TResult> {
     if (typeof callback !== "function") {
-        throw new TypeError(
-            "withProgressBarCleanup requires a callback function."
-        );
+        throw new TypeError("withProgressBarCleanup requires a callback function.");
     }
 
     try {

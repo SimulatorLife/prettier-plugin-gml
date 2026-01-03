@@ -13,11 +13,7 @@ const { areNumbersApproximatelyEqual } = Core;
  * @param {number} expected - The expected target value.
  * @param {string} [message] - Optional error message if assertion fails.
  */
-export function assertApproximatelyEqual(
-    actual: number,
-    expected: number,
-    message?: string
-): void {
+export function assertApproximatelyEqual(actual: number, expected: number, message?: string): void {
     if (!areNumbersApproximatelyEqual(actual, expected)) {
         const defaultMessage = `Expected ${actual} to be approximately equal to ${expected}`;
         assert.fail(message ?? defaultMessage);

@@ -10,10 +10,7 @@ import {
 } from "../src/runtime-options/progress-bar.js";
 
 const ESCAPE_PREFIX = String.fromCharCode(0x1b);
-const ANSI_ESCAPE_SEQUENCE_PATTERN = new RegExp(
-    String.raw`${ESCAPE_PREFIX}\[[0-9;?]*[A-Za-z]`,
-    "g"
-);
+const ANSI_ESCAPE_SEQUENCE_PATTERN = new RegExp(String.raw`${ESCAPE_PREFIX}\[[0-9;?]*[A-Za-z]`, "g");
 
 function createMockStdout() {
     const noopListener = () => {};
@@ -60,10 +57,7 @@ void describe("manual CLI helpers", () => {
             stdout: stdout as ProgressBarStream
         });
 
-        const sanitized = writes
-            .join("")
-            .replaceAll(ANSI_ESCAPE_SEQUENCE_PATTERN, "")
-            .replaceAll("\r", "\n");
+        const sanitized = writes.join("").replaceAll(ANSI_ESCAPE_SEQUENCE_PATTERN, "").replaceAll("\r", "\n");
 
         assert.match(sanitized, /Task \[[^\]]*\] 0\/3/);
         assert.match(sanitized, /Task \[[^\]]*\] 1\/3/);

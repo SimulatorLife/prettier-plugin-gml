@@ -22,14 +22,10 @@ export interface TimeSyncOptions {
     logger?: VerboseLogger;
 }
 
-export function formatDuration(
-    startTime: number,
-    now: () => number = Date.now
-): string {
+export function formatDuration(startTime: number, now: () => number = Date.now): string {
     const deltaMs = now() - startTime;
     const isEffectivelySubSecond =
-        deltaMs < MILLISECOND_PER_SECOND &&
-        deltaMs < MILLISECOND_PER_SECOND - SUB_SECOND_THRESHOLD_TOLERANCE_MS;
+        deltaMs < MILLISECOND_PER_SECOND && deltaMs < MILLISECOND_PER_SECOND - SUB_SECOND_THRESHOLD_TOLERANCE_MS;
 
     if (isEffectivelySubSecond) {
         return `${deltaMs}ms`;

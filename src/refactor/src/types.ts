@@ -29,9 +29,7 @@ export const SymbolKind = Object.freeze({
 
 export type SymbolKindValue = (typeof SymbolKind)[keyof typeof SymbolKind];
 
-const SYMBOL_KIND_VALUES = Object.freeze(
-    Object.values(SymbolKind)
-) as ReadonlyArray<SymbolKindValue>;
+const SYMBOL_KIND_VALUES = Object.freeze(Object.values(SymbolKind)) as ReadonlyArray<SymbolKindValue>;
 
 const SYMBOL_KIND_SET: ReadonlySet<string> = new Set(SYMBOL_KIND_VALUES);
 
@@ -77,10 +75,7 @@ export function parseSymbolKind(value: unknown): SymbolKindValue | null {
  * @example
  * const kind = requireSymbolKind(symbolParts[1], symbolId);
  */
-export function requireSymbolKind(
-    value: unknown,
-    context?: string
-): SymbolKindValue {
+export function requireSymbolKind(value: unknown, context?: string): SymbolKindValue {
     if (!isSymbolKind(value)) {
         const validKinds = SYMBOL_KIND_VALUES.join(", ");
         const contextInfo = context ? ` (in ${context})` : "";
@@ -144,14 +139,8 @@ export interface SemanticValidationResult {
  */
 export interface SymbolResolver {
     hasSymbol(symbolId: string): MaybePromise<boolean>;
-    lookup(
-        name: string,
-        scopeId?: string
-    ): MaybePromise<SymbolLookupResult | null | undefined>;
-    getSymbolAtPosition(
-        filePath: string,
-        offset: number
-    ): MaybePromise<SymbolLocation | null | undefined>;
+    lookup(name: string, scopeId?: string): MaybePromise<SymbolLookupResult | null | undefined>;
+    getSymbolAtPosition(filePath: string, offset: number): MaybePromise<SymbolLocation | null | undefined>;
 }
 
 /**
@@ -162,9 +151,7 @@ export interface SymbolResolver {
  * analysis, or other semantic operations.
  */
 export interface OccurrenceTracker {
-    getSymbolOccurrences(
-        symbolName: string
-    ): MaybePromise<Array<SymbolOccurrence>>;
+    getSymbolOccurrences(symbolName: string): MaybePromise<Array<SymbolOccurrence>>;
 }
 
 /**
@@ -185,9 +172,7 @@ export interface FileSymbolProvider {
  * occurrence tracking or validation operations.
  */
 export interface DependencyAnalyzer {
-    getDependents(
-        symbolIds: Array<string>
-    ): MaybePromise<Array<DependentSymbol>>;
+    getDependents(symbolIds: Array<string>): MaybePromise<Array<DependentSymbol>>;
 }
 
 /**
@@ -208,9 +193,7 @@ export interface KeywordProvider {
  * or dependency analysis.
  */
 export interface EditValidator {
-    validateEdits(
-        workspace: WorkspaceEdit
-    ): MaybePromise<SemanticValidationResult>;
+    validateEdits(workspace: WorkspaceEdit): MaybePromise<SemanticValidationResult>;
 }
 
 /**
@@ -230,10 +213,7 @@ export interface SemanticAnalyzer
         Partial<EditValidator> {}
 
 export interface TranspilerBridge {
-    transpileScript(request: {
-        sourceText: string;
-        symbolId: string;
-    }): MaybePromise<Record<string, unknown>>;
+    transpileScript(request: { sourceText: string; symbolId: string }): MaybePromise<Record<string, unknown>>;
 }
 
 export interface RenameRequest {
@@ -365,10 +345,7 @@ export interface ConflictEntry {
 }
 
 export type WorkspaceReadFile = (path: string) => MaybePromise<string>;
-export type WorkspaceWriteFile = (
-    path: string,
-    content: string
-) => MaybePromise<void>;
+export type WorkspaceWriteFile = (path: string, content: string) => MaybePromise<void>;
 
 export interface RefactorEngineDependencies {
     parser: ParserBridge | null;

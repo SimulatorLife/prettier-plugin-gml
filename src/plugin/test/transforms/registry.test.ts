@@ -2,10 +2,7 @@ import assert from "node:assert/strict";
 import { describe, it } from "node:test";
 
 import type { ParserTransform } from "../../src/transforms/functional-transform.js";
-import {
-    availableTransforms,
-    getParserTransform
-} from "../../src/transforms/index.js";
+import { availableTransforms, getParserTransform } from "../../src/transforms/index.js";
 
 function isParserTransform(value: unknown): value is ParserTransform {
     return (
@@ -25,10 +22,7 @@ void describe("Transform registry", () => {
         for (const name of availableTransforms) {
             const transform = getParserTransform(name);
             assert.strictEqual(transform.name, name);
-            assert.ok(
-                isParserTransform(transform),
-                `Transform "${name}" must implement ParserTransform interface`
-            );
+            assert.ok(isParserTransform(transform), `Transform "${name}" must implement ParserTransform interface`);
         }
     });
 });

@@ -3,17 +3,8 @@
  * Handles conflict detection, circular rename detection, and batch rename validation.
  */
 
-import type {
-    ConflictEntry,
-    KeywordProvider,
-    RenameRequest,
-    SymbolOccurrence,
-    SymbolResolver
-} from "./types.js";
-import {
-    assertValidIdentifierName,
-    DEFAULT_RESERVED_KEYWORDS
-} from "./validation-utils.js";
+import type { ConflictEntry, KeywordProvider, RenameRequest, SymbolOccurrence, SymbolResolver } from "./types.js";
+import { assertValidIdentifierName, DEFAULT_RESERVED_KEYWORDS } from "./validation-utils.js";
 
 /**
  * Detect conflicts that would arise from renaming a symbol.
@@ -39,8 +30,7 @@ export async function detectRenameConflicts(
     try {
         normalizedNewName = assertValidIdentifierName(newName);
     } catch (error) {
-        const errorMessage =
-            error instanceof Error ? error.message : String(error);
+        const errorMessage = error instanceof Error ? error.message : String(error);
         conflicts.push({
             type: "invalid_identifier",
             message: errorMessage
@@ -57,10 +47,7 @@ export async function detectRenameConflicts(
             // Perform a scope-aware lookup for the new name at each occurrence
             // site. If we find an existing binding that isn't the symbol we're
             // renaming, record a conflict so the user can resolve it manually.
-            const existing = await resolver.lookup(
-                normalizedNewName,
-                occurrence.scopeId
-            );
+            const existing = await resolver.lookup(normalizedNewName, occurrence.scopeId);
             if (existing && existing.name !== oldName) {
                 conflicts.push({
                     type: "shadow",
@@ -77,16 +64,9 @@ export async function detectRenameConflicts(
     // language constructs, breaking both the parser and runtime semantics.
     let reservedKeywords = DEFAULT_RESERVED_KEYWORDS;
 
-    if (
-        keywordProvider &&
-        typeof keywordProvider.getReservedKeywords === "function"
-    ) {
-        const semanticReserved =
-            (await keywordProvider.getReservedKeywords()) ?? [];
-        reservedKeywords = new Set([
-            ...reservedKeywords,
-            ...semanticReserved.map((keyword) => keyword.toLowerCase())
-        ]);
+    if (keywordProvider && typeof keywordProvider.getReservedKeywords === "function") {
+        const semanticReserved = (await keywordProvider.getReservedKeywords()) ?? [];
+        reservedKeywords = new Set([...reservedKeywords, ...semanticReserved.map((keyword) => keyword.toLowerCase())]);
     }
 
     if (reservedKeywords.has(normalizedNewName.toLowerCase())) {
@@ -106,9 +86,7 @@ export async function detectRenameConflicts(
  * @param renames - Array of rename operations
  * @returns Map from source symbol ID to target symbol ID
  */
-export function buildRenameGraph(
-    renames: Array<RenameRequest>
-): Map<string, string> {
+export function buildRenameGraph(renames: Array<RenameRequest>): Map<string, string> {
     const graph = new Map<string, string>();
 
     for (const rename of renames) {
@@ -136,9 +114,7 @@ export function buildRenameGraph(
  * @param renames - Rename operations to check
  * @returns First detected cycle as symbol IDs, or empty array if no cycles
  */
-export function detectCircularRenames(
-    renames: Array<RenameRequest>
-): Array<string> {
+export function detectCircularRenames(renames: Array<RenameRequest>): Array<string> {
     const graph = buildRenameGraph(renames);
 
     // Use depth-first search to detect cycles. We maintain a "visiting" set to

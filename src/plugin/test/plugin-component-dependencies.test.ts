@@ -10,10 +10,7 @@ import { createDefaultGmlPluginComponents } from "../src/components/default-plug
 const SAMPLE_SOURCE = "function example() { return 1; }";
 
 void test("dependency bundle is frozen and exposes expected contract keys", () => {
-    assert.ok(
-        Object.isFrozen(gmlPluginComponentDependencies),
-        "dependency bundle should be frozen"
-    );
+    assert.ok(Object.isFrozen(gmlPluginComponentDependencies), "dependency bundle should be frozen");
 
     assert.deepStrictEqual(
         Object.keys(gmlPluginComponentDependencies).sort(),
@@ -49,10 +46,9 @@ void test("default component factory wires the dependency bundle", async () => {
     const parserResult = await parser.parse(SAMPLE_SOURCE, {
         originalText: SAMPLE_SOURCE
     } as any);
-    const dependencyResult = await dependencyBundle.gmlParserAdapter.parse(
-        SAMPLE_SOURCE,
-        { originalText: SAMPLE_SOURCE } as any
-    );
+    const dependencyResult = await dependencyBundle.gmlParserAdapter.parse(SAMPLE_SOURCE, {
+        originalText: SAMPLE_SOURCE
+    } as any);
 
     assert.deepStrictEqual(
         parserResult,

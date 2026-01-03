@@ -17,11 +17,7 @@ void test("analyseResourceFiles normalizes invalid resource metadata", async () 
 
     const fsFacade = {
         async readFile(path) {
-            assert.equal(
-                path,
-                absolutePath,
-                "expected resource document to be read"
-            );
+            assert.equal(path, absolutePath, "expected resource document to be read");
 
             return JSON.stringify({
                 name: { text: "calc_damage" },
@@ -38,16 +34,8 @@ void test("analyseResourceFiles normalizes invalid resource metadata", async () 
 
     const resourceRecord = context.resourcesMap.get(relativePath);
     assert.ok(resourceRecord, "expected resource record to be captured");
-    assert.equal(
-        resourceRecord.name,
-        "calc_damage",
-        "expected invalid resource name to fall back to the file stem"
-    );
-    assert.equal(
-        resourceRecord.resourceType,
-        "GMScript",
-        "expected resource type to remain intact"
-    );
+    assert.equal(resourceRecord.name, "calc_damage", "expected invalid resource name to fall back to the file stem");
+    assert.equal(resourceRecord.resourceType, "GMScript", "expected resource type to remain intact");
 
     const scopeId = context.scriptNameToScopeId.get("calc_damage");
     assert.ok(
@@ -56,9 +44,5 @@ void test("analyseResourceFiles normalizes invalid resource metadata", async () 
     );
 
     const resourcePath = context.scriptNameToResourcePath.get("calc_damage");
-    assert.equal(
-        resourcePath,
-        resourceRecord.path,
-        "expected script path lookup to reuse normalized resource name"
-    );
+    assert.equal(resourcePath, resourceRecord.path, "expected script path lookup to reuse normalized resource name");
 });

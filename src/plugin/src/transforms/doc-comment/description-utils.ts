@@ -11,10 +11,7 @@ export function resolveDescriptionIndentation(line: string) {
     return { indent, prefix };
 }
 
-function formatDescriptionContinuationLine(
-    line: string,
-    continuationPrefix: string
-): string | null {
+function formatDescriptionContinuationLine(line: string, continuationPrefix: string): string | null {
     if (typeof line !== STRING_TYPE) {
         return null;
     }
@@ -29,9 +26,7 @@ function formatDescriptionContinuationLine(
     }
 
     const docLikeMatch = trimmed.match(/^\/\/\/\s*\/\s*(.*)$/);
-    const suffix = docLikeMatch
-        ? (docLikeMatch[1] ?? "").trim()
-        : trimmed.slice(3).replace(/^\s+/, "");
+    const suffix = docLikeMatch ? (docLikeMatch[1] ?? "").trim() : trimmed.slice(3).replace(/^\s+/, "");
     if (suffix.length === 0) {
         return null;
     }
@@ -44,17 +39,13 @@ function formatDescriptionContinuationLine(
     return `${continuationPrefix}${suffix}`;
 }
 
-export function collectDescriptionContinuations(
-    docCommentDocs: MutableDocCommentLines | readonly unknown[]
-): string[] {
+export function collectDescriptionContinuations(docCommentDocs: MutableDocCommentLines | readonly unknown[]): string[] {
     if (!Array.isArray(docCommentDocs)) {
         return [];
     }
 
     const descriptionIndex = docCommentDocs.findIndex(
-        (line) =>
-            typeof line === STRING_TYPE &&
-            DESCRIPTION_TAG_PATTERN.test(line.trim())
+        (line) => typeof line === STRING_TYPE && DESCRIPTION_TAG_PATTERN.test(line.trim())
     );
 
     if (descriptionIndex === -1) {
@@ -63,11 +54,7 @@ export function collectDescriptionContinuations(
 
     const continuations: string[] = [];
 
-    for (
-        let index = descriptionIndex + 1;
-        index < docCommentDocs.length;
-        index += 1
-    ) {
+    for (let index = descriptionIndex + 1; index < docCommentDocs.length; index += 1) {
         const line = docCommentDocs[index];
 
         if (typeof line !== STRING_TYPE) {
@@ -102,9 +89,7 @@ export function applyDescriptionContinuations(
     }
 
     const descriptionIndex = docCommentDocs.findIndex(
-        (line) =>
-            typeof line === STRING_TYPE &&
-            DESCRIPTION_TAG_PATTERN.test(line.trim())
+        (line) => typeof line === STRING_TYPE && DESCRIPTION_TAG_PATTERN.test(line.trim())
     );
 
     if (descriptionIndex === -1) {
@@ -121,19 +106,14 @@ export function applyDescriptionContinuations(
     let insertIndex = descriptionIndex + 1;
 
     for (const original of continuations) {
-        const formatted = formatDescriptionContinuationLine(
-            original,
-            continuationPrefix
-        );
+        const formatted = formatDescriptionContinuationLine(original, continuationPrefix);
 
         if (!formatted) {
             continue;
         }
 
         const normalized = formatted.trim();
-        const alreadyExists = docCommentDocs.some(
-            (line) => typeof line === STRING_TYPE && line.trim() === normalized
-        );
+        const alreadyExists = docCommentDocs.some((line) => typeof line === STRING_TYPE && line.trim() === normalized);
 
         if (alreadyExists) {
             continue;
@@ -150,17 +130,13 @@ export function applyDescriptionContinuations(
     return docCommentDocs;
 }
 
-export function ensureDescriptionContinuations(
-    docCommentDocs: MutableDocCommentLines
-) {
+export function ensureDescriptionContinuations(docCommentDocs: MutableDocCommentLines) {
     if (!Array.isArray(docCommentDocs)) {
         return;
     }
 
     const descriptionIndex = docCommentDocs.findIndex(
-        (line) =>
-            typeof line === STRING_TYPE &&
-            DESCRIPTION_TAG_PATTERN.test(line.trim())
+        (line) => typeof line === STRING_TYPE && DESCRIPTION_TAG_PATTERN.test(line.trim())
     );
 
     if (descriptionIndex === -1) {
@@ -176,11 +152,7 @@ export function ensureDescriptionContinuations(
 
     let foundContinuation = false;
 
-    for (
-        let index = descriptionIndex + 1;
-        index < docCommentDocs.length;
-        index += 1
-    ) {
+    for (let index = descriptionIndex + 1; index < docCommentDocs.length; index += 1) {
         const line = docCommentDocs[index];
 
         if (typeof line !== STRING_TYPE) {
@@ -196,10 +168,7 @@ export function ensureDescriptionContinuations(
             break;
         }
 
-        const formatted = formatDescriptionContinuationLine(
-            line,
-            continuationPrefix
-        );
+        const formatted = formatDescriptionContinuationLine(line, continuationPrefix);
         if (!formatted) {
             continue;
         }

@@ -24,11 +24,7 @@ void test("BasicSemanticOracle: integrates with transpiler interface", () => {
         end: { line: 3, index: 8 }
     });
 
-    const builtins = new Set([
-        "show_debug_message",
-        "array_length",
-        "string_upper"
-    ]);
+    const builtins = new Set(["show_debug_message", "array_length", "string_upper"]);
     const oracle = new BasicSemanticOracle(tracker, builtins);
 
     const globalResult = oracle.kindOfIdent({ name: "myGlobal" });
@@ -109,36 +105,21 @@ void test("BasicSemanticOracle: respects lexical scoping with shadowing", () => 
     const oracle = new BasicSemanticOracle(tracker);
 
     const result = oracle.kindOfIdent({ name: "value" });
-    assert.strictEqual(
-        result,
-        "local",
-        "Should resolve to shadowing local, not outer global"
-    );
+    assert.strictEqual(result, "local", "Should resolve to shadowing local, not outer global");
 });
 
 void test("BasicSemanticOracle: supports multiple builtin sets", () => {
     const tracker = new ScopeTracker({ enabled: true });
     tracker.enterScope("program");
 
-    const gmlBuiltins = new Set([
-        "show_debug_message",
-        "draw_text",
-        "array_length",
-        "ds_list_create"
-    ]);
+    const gmlBuiltins = new Set(["show_debug_message", "draw_text", "array_length", "ds_list_create"]);
 
     const oracle = new BasicSemanticOracle(tracker, gmlBuiltins);
 
-    assert.strictEqual(
-        oracle.kindOfIdent({ name: "show_debug_message" }),
-        "builtin"
-    );
+    assert.strictEqual(oracle.kindOfIdent({ name: "show_debug_message" }), "builtin");
     assert.strictEqual(oracle.kindOfIdent({ name: "draw_text" }), "builtin");
     assert.strictEqual(oracle.kindOfIdent({ name: "array_length" }), "builtin");
-    assert.strictEqual(
-        oracle.kindOfIdent({ name: "ds_list_create" }),
-        "builtin"
-    );
+    assert.strictEqual(oracle.kindOfIdent({ name: "ds_list_create" }), "builtin");
 
     assert.strictEqual(oracle.kindOfIdent({ name: "my_custom_func" }), "local");
 });
@@ -152,11 +133,7 @@ void test("BasicSemanticOracle: handles empty tracker gracefully", () => {
 });
 
 void test("BasicSemanticOracle: call target analysis with multiple builtins", () => {
-    const builtins = new Set([
-        "show_debug_message",
-        "instance_create_depth",
-        "audio_play_sound"
-    ]);
+    const builtins = new Set(["show_debug_message", "instance_create_depth", "audio_play_sound"]);
     const oracle = new BasicSemanticOracle(null, builtins);
 
     const debugCall = oracle.callTargetKind({

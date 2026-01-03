@@ -20,20 +20,12 @@ void test("breaks simple prefix arguments when callbacks follow", async () => {
     const formatted = await Plugin.format(source);
     const callStart = formatted.indexOf("call_later(");
 
-    assert.notEqual(
-        callStart,
-        -1,
-        "Expected formatted output to contain the call expression."
-    );
+    assert.notEqual(callStart, -1, "Expected formatted output to contain the call expression.");
 
     const callBody = formatted.slice(callStart).split(");")[0];
     const lines = callBody.split("\n");
 
-    assert.equal(
-        lines[1].trim(),
-        "1800,",
-        "Expected the first numeric argument to be on its own line."
-    );
+    assert.equal(lines[1].trim(), "1800,", "Expected the first numeric argument to be on its own line.");
     assert.equal(
         lines[2].trim(),
         "time_source_units_frames,",

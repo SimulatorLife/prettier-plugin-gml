@@ -33,19 +33,14 @@ function getLocationIndex(node: unknown, key: LocationKey): number | null {
     );
 }
 
-function isMemberExpressionNode(
-    node: unknown
-): node is { type?: string; object?: unknown } {
+function isMemberExpressionNode(node: unknown): node is { type?: string; object?: unknown } {
     if (!isObjectLike(node)) {
         return false;
     }
 
     const nodeObject = node as { type?: unknown };
     const type = nodeObject.type;
-    return (
-        typeof type === "string" &&
-        (type === "MemberDotExpression" || type === "MemberIndexExpression")
-    );
+    return typeof type === "string" && (type === "MemberDotExpression" || type === "MemberIndexExpression");
 }
 
 function getStartIndex(node: unknown): number | null {
@@ -54,8 +49,7 @@ function getStartIndex(node: unknown): number | null {
     }
 
     const nodeWithType = node as { type?: string; object?: unknown };
-    const isMemberAccess =
-        isMemberExpressionNode(nodeWithType) && nodeWithType.object;
+    const isMemberAccess = isMemberExpressionNode(nodeWithType) && nodeWithType.object;
 
     if (isMemberAccess) {
         const objectStart = getStartIndex(nodeWithType.object);
@@ -104,9 +98,7 @@ function getNodeEndIndex(node: unknown): number | null {
     return typeof fallbackStart === "number" ? fallbackStart : null;
 }
 
-function cloneLocation<TLocation = unknown>(
-    location?: TLocation
-): TLocation | undefined {
+function cloneLocation<TLocation = unknown>(location?: TLocation): TLocation | undefined {
     if (isObjectLike(location)) {
         return structuredClone(location);
     }
@@ -144,13 +136,10 @@ function assignClonedLocation<TTarget extends AstNode>(
                 template,
                 (templateNode) => {
                     let shouldAssign = false;
-                    const clonedLocations: { start?: unknown; end?: unknown } =
-                        {};
+                    const clonedLocations: { start?: unknown; end?: unknown } = {};
 
                     if (Object.hasOwn(templateNode, "start")) {
-                        clonedLocations.start = cloneLocation(
-                            templateNode.start
-                        );
+                        clonedLocations.start = cloneLocation(templateNode.start);
                         shouldAssign = true;
                     }
 
@@ -231,9 +220,7 @@ function getNodeRangeIndices(node: unknown): NodeRange {
  * @returns {object | null} The chosen location object or `null` when none
  *                         were provided.
  */
-function getPreferredLocation(
-    ...candidates: Array<LocationObject | number | null | undefined>
-): LocationObject | null {
+function getPreferredLocation(...candidates: Array<LocationObject | number | null | undefined>): LocationObject | null {
     for (const candidate of candidates) {
         if (candidate == null) {
             continue;
@@ -292,9 +279,7 @@ function getNodeStartLine(node) {
  * @returns {number | null} Line index or `null` when unavailable.
  */
 function getNodeEndLine(node) {
-    return (
-        getNodeLocationLine(node, "end") ?? getNodeLocationLine(node, "start")
-    );
+    return getNodeLocationLine(node, "end") ?? getNodeLocationLine(node, "start");
 }
 
 export {

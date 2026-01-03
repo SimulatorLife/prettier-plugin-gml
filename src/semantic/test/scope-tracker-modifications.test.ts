@@ -9,11 +9,7 @@ void test("getScopeModificationMetadata returns modification info for a scope", 
 
     const beforeModification = Date.now();
 
-    tracker.declare(
-        "foo",
-        { start: { line: 1, index: 0 }, end: { line: 1, index: 3 } },
-        { kind: "variable" }
-    );
+    tracker.declare("foo", { start: { line: 1, index: 0 }, end: { line: 1, index: 3 } }, { kind: "variable" });
 
     const metadata = tracker.getScopeModificationMetadata(scope.id);
 
@@ -57,19 +53,11 @@ void test("getModifiedScopes returns all scopes modified after timestamp", async
 
     await new Promise((resolve) => setTimeout(resolve, 10));
 
-    tracker.declare(
-        "foo",
-        { start: { line: 1, index: 0 }, end: { line: 1, index: 3 } },
-        { kind: "variable" }
-    );
+    tracker.declare("foo", { start: { line: 1, index: 0 }, end: { line: 1, index: 3 } }, { kind: "variable" });
 
     tracker.exitScope();
 
-    tracker.declare(
-        "bar",
-        { start: { line: 2, index: 0 }, end: { line: 2, index: 3 } },
-        { kind: "variable" }
-    );
+    tracker.declare("bar", { start: { line: 2, index: 0 }, end: { line: 2, index: 3 } }, { kind: "variable" });
 
     tracker.exitScope();
 
@@ -95,21 +83,13 @@ void test("getModifiedScopes filters scopes by timestamp", async () => {
     tracker.enterScope("program");
     const scope2 = tracker.enterScope("function");
 
-    tracker.declare(
-        "foo",
-        { start: { line: 1, index: 0 }, end: { line: 1, index: 3 } },
-        { kind: "variable" }
-    );
+    tracker.declare("foo", { start: { line: 1, index: 0 }, end: { line: 1, index: 3 } }, { kind: "variable" });
 
     await new Promise((resolve) => setTimeout(resolve, 10));
     const cutoffTimestamp = Date.now();
     await new Promise((resolve) => setTimeout(resolve, 10));
 
-    tracker.declare(
-        "bar",
-        { start: { line: 2, index: 0 }, end: { line: 2, index: 3 } },
-        { kind: "variable" }
-    );
+    tracker.declare("bar", { start: { line: 2, index: 0 }, end: { line: 2, index: 3 } }, { kind: "variable" });
 
     tracker.exitScope();
     tracker.exitScope();
@@ -124,22 +104,14 @@ void test("getMostRecentlyModifiedScope returns the latest modified scope", () =
     const tracker = new ScopeTracker({ enabled: true });
 
     const scope1 = tracker.enterScope("program");
-    tracker.declare(
-        "foo",
-        { start: { line: 1, index: 0 }, end: { line: 1, index: 3 } },
-        { kind: "variable" }
-    );
+    tracker.declare("foo", { start: { line: 1, index: 0 }, end: { line: 1, index: 3 } }, { kind: "variable" });
 
     tracker.enterScope("function");
 
     tracker.exitScope();
     tracker.exitScope();
 
-    tracker.declare(
-        "bar",
-        { start: { line: 2, index: 0 }, end: { line: 2, index: 3 } },
-        { kind: "variable" }
-    );
+    tracker.declare("bar", { start: { line: 2, index: 0 }, end: { line: 2, index: 3 } }, { kind: "variable" });
 
     const mostRecent = tracker.getMostRecentlyModifiedScope();
 
@@ -160,11 +132,7 @@ void test("getSymbolWrites returns only write operations", () => {
     const tracker = new ScopeTracker({ enabled: true });
     const scope = tracker.enterScope("program");
 
-    tracker.declare(
-        "counter",
-        { start: { line: 1, index: 0 }, end: { line: 1, index: 7 } },
-        { kind: "variable" }
-    );
+    tracker.declare("counter", { start: { line: 1, index: 0 }, end: { line: 1, index: 7 } }, { kind: "variable" });
 
     tracker.reference(
         "counter",
@@ -176,11 +144,7 @@ void test("getSymbolWrites returns only write operations", () => {
         { kind: "variable" }
     );
 
-    tracker.reference(
-        "counter",
-        { start: { line: 3, index: 0 }, end: { line: 3, index: 7 } },
-        { kind: "variable" }
-    );
+    tracker.reference("counter", { start: { line: 3, index: 0 }, end: { line: 3, index: 7 } }, { kind: "variable" });
 
     tracker.exitScope();
 
@@ -189,22 +153,14 @@ void test("getSymbolWrites returns only write operations", () => {
     assert.strictEqual(writes.length, 1);
     assert.strictEqual(writes[0].scopeId, scope.id);
     assert.ok(writes[0].occurrence.usageContext?.isWrite);
-    assert.strictEqual(
-        writes[0].occurrence.start.line,
-        2,
-        "Write occurrence should be from line 2"
-    );
+    assert.strictEqual(writes[0].occurrence.start.line, 2, "Write occurrence should be from line 2");
 });
 
 void test("getSymbolReads returns only read operations", () => {
     const tracker = new ScopeTracker({ enabled: true });
     tracker.enterScope("program");
 
-    tracker.declare(
-        "value",
-        { start: { line: 1, index: 0 }, end: { line: 1, index: 5 } },
-        { kind: "variable" }
-    );
+    tracker.declare("value", { start: { line: 1, index: 0 }, end: { line: 1, index: 5 } }, { kind: "variable" });
 
     tracker.reference(
         "value",
@@ -216,27 +172,15 @@ void test("getSymbolReads returns only read operations", () => {
         { kind: "variable" }
     );
 
-    tracker.reference(
-        "value",
-        { start: { line: 3, index: 0 }, end: { line: 3, index: 5 } },
-        { kind: "variable" }
-    );
+    tracker.reference("value", { start: { line: 3, index: 0 }, end: { line: 3, index: 5 } }, { kind: "variable" });
 
-    tracker.reference(
-        "value",
-        { start: { line: 4, index: 0 }, end: { line: 4, index: 5 } },
-        { kind: "variable" }
-    );
+    tracker.reference("value", { start: { line: 4, index: 0 }, end: { line: 4, index: 5 } }, { kind: "variable" });
 
     tracker.exitScope();
 
     const reads = tracker.getSymbolReads("value");
 
-    assert.strictEqual(
-        reads.length,
-        2,
-        "Should return only the two read operations"
-    );
+    assert.strictEqual(reads.length, 2, "Should return only the two read operations");
     assert.ok(reads[0].occurrence.usageContext?.isRead);
     assert.ok(reads[1].occurrence.usageContext?.isRead);
 });
@@ -263,11 +207,7 @@ void test("usageContext distinguishes call targets from regular reads", () => {
     const tracker = new ScopeTracker({ enabled: true });
     tracker.enterScope("program");
 
-    tracker.declare(
-        "myFunc",
-        { start: { line: 1, index: 0 }, end: { line: 1, index: 6 } },
-        { kind: "function" }
-    );
+    tracker.declare("myFunc", { start: { line: 1, index: 0 }, end: { line: 1, index: 6 } }, { kind: "function" });
 
     tracker.reference(
         "myFunc",
@@ -279,18 +219,12 @@ void test("usageContext distinguishes call targets from regular reads", () => {
         { kind: "function" }
     );
 
-    tracker.reference(
-        "myFunc",
-        { start: { line: 3, index: 0 }, end: { line: 3, index: 6 } },
-        { kind: "function" }
-    );
+    tracker.reference("myFunc", { start: { line: 3, index: 0 }, end: { line: 3, index: 6 } }, { kind: "function" });
 
     tracker.exitScope();
 
     const occurrences = tracker.exportOccurrences();
-    const funcOccurrences = occurrences[0].identifiers.find(
-        (id) => id.name === "myFunc"
-    );
+    const funcOccurrences = occurrences[0].identifiers.find((id) => id.name === "myFunc");
 
     assert.ok(funcOccurrences);
     assert.strictEqual(funcOccurrences.references.length, 2);
@@ -310,18 +244,10 @@ void test("modification tracking is scope-specific", () => {
     const tracker = new ScopeTracker({ enabled: true });
 
     const scope1 = tracker.enterScope("program");
-    tracker.declare(
-        "global",
-        { start: { line: 1, index: 0 }, end: { line: 1, index: 6 } },
-        { kind: "variable" }
-    );
+    tracker.declare("global", { start: { line: 1, index: 0 }, end: { line: 1, index: 6 } }, { kind: "variable" });
 
     const scope2 = tracker.enterScope("function");
-    tracker.declare(
-        "local",
-        { start: { line: 2, index: 0 }, end: { line: 2, index: 5 } },
-        { kind: "variable" }
-    );
+    tracker.declare("local", { start: { line: 2, index: 0 }, end: { line: 2, index: 5 } }, { kind: "variable" });
 
     const scope1Metadata = tracker.getScopeModificationMetadata(scope1.id);
     const scope2Metadata = tracker.getScopeModificationMetadata(scope2.id);
@@ -329,18 +255,10 @@ void test("modification tracking is scope-specific", () => {
     assert.strictEqual(scope1Metadata?.modificationCount, 1);
     assert.strictEqual(scope2Metadata?.modificationCount, 1);
 
-    tracker.reference(
-        "global",
-        { start: { line: 3, index: 0 }, end: { line: 3, index: 6 } },
-        { kind: "variable" }
-    );
+    tracker.reference("global", { start: { line: 3, index: 0 }, end: { line: 3, index: 6 } }, { kind: "variable" });
 
     const scope2MetadataAfter = tracker.getScopeModificationMetadata(scope2.id);
-    assert.strictEqual(
-        scope2MetadataAfter?.modificationCount,
-        2,
-        "Reference in scope2 should increment its counter"
-    );
+    assert.strictEqual(scope2MetadataAfter?.modificationCount, 2, "Reference in scope2 should increment its counter");
 
     const scope1MetadataAfter = tracker.getScopeModificationMetadata(scope1.id);
     assert.strictEqual(
@@ -386,23 +304,11 @@ void test("getScopeModificationDetails symbols are sorted alphabetically", () =>
     const tracker = new ScopeTracker({ enabled: true });
     const scope = tracker.enterScope("program");
 
-    tracker.declare(
-        "zulu",
-        { start: { line: 1, index: 0 }, end: { line: 1, index: 4 } },
-        { kind: "variable" }
-    );
+    tracker.declare("zulu", { start: { line: 1, index: 0 }, end: { line: 1, index: 4 } }, { kind: "variable" });
 
-    tracker.declare(
-        "alpha",
-        { start: { line: 2, index: 0 }, end: { line: 2, index: 5 } },
-        { kind: "variable" }
-    );
+    tracker.declare("alpha", { start: { line: 2, index: 0 }, end: { line: 2, index: 5 } }, { kind: "variable" });
 
-    tracker.declare(
-        "charlie",
-        { start: { line: 3, index: 0 }, end: { line: 3, index: 7 } },
-        { kind: "variable" }
-    );
+    tracker.declare("charlie", { start: { line: 3, index: 0 }, end: { line: 3, index: 7 } }, { kind: "variable" });
 
     const details = tracker.getScopeModificationDetails(scope.id);
 
@@ -451,70 +357,30 @@ void test("getScopeModificationDetails supports hot reload invalidation decision
     const tracker = new ScopeTracker({ enabled: true });
     const programScope = tracker.enterScope("program");
 
-    tracker.declare(
-        "gameState",
-        { start: { line: 1, index: 0 }, end: { line: 1, index: 9 } },
-        { kind: "variable" }
-    );
+    tracker.declare("gameState", { start: { line: 1, index: 0 }, end: { line: 1, index: 9 } }, { kind: "variable" });
 
     const functionScope = tracker.enterScope("function");
 
-    tracker.reference(
-        "gameState",
-        { start: { line: 3, index: 0 }, end: { line: 3, index: 9 } },
-        { kind: "variable" }
-    );
+    tracker.reference("gameState", { start: { line: 3, index: 0 }, end: { line: 3, index: 9 } }, { kind: "variable" });
 
-    tracker.declare(
-        "localVar",
-        { start: { line: 4, index: 0 }, end: { line: 4, index: 8 } },
-        { kind: "variable" }
-    );
+    tracker.declare("localVar", { start: { line: 4, index: 0 }, end: { line: 4, index: 8 } }, { kind: "variable" });
 
     tracker.exitScope();
     tracker.exitScope();
 
     const programDetails = tracker.getScopeModificationDetails(programScope.id);
-    const functionDetails = tracker.getScopeModificationDetails(
-        functionScope.id
-    );
+    const functionDetails = tracker.getScopeModificationDetails(functionScope.id);
 
     assert.ok(programDetails);
-    assert.strictEqual(
-        programDetails.declarationCount,
-        1,
-        "Program scope declares gameState"
-    );
-    assert.strictEqual(
-        programDetails.referenceCount,
-        0,
-        "Program scope has no references"
-    );
+    assert.strictEqual(programDetails.declarationCount, 1, "Program scope declares gameState");
+    assert.strictEqual(programDetails.referenceCount, 0, "Program scope has no references");
 
     assert.ok(functionDetails);
-    assert.strictEqual(
-        functionDetails.declarationCount,
-        1,
-        "Function scope declares localVar"
-    );
-    assert.strictEqual(
-        functionDetails.referenceCount,
-        1,
-        "Function scope references gameState"
-    );
+    assert.strictEqual(functionDetails.declarationCount, 1, "Function scope declares localVar");
+    assert.strictEqual(functionDetails.referenceCount, 1, "Function scope references gameState");
 
-    const gameStateInFunction = functionDetails.symbols.find(
-        (s) => s.name === "gameState"
-    );
+    const gameStateInFunction = functionDetails.symbols.find((s) => s.name === "gameState");
     assert.ok(gameStateInFunction);
-    assert.strictEqual(
-        gameStateInFunction.declarationCount,
-        0,
-        "gameState not declared in function scope"
-    );
-    assert.strictEqual(
-        gameStateInFunction.referenceCount,
-        1,
-        "gameState referenced once in function scope"
-    );
+    assert.strictEqual(gameStateInFunction.declarationCount, 0, "gameState not declared in function scope");
+    assert.strictEqual(gameStateInFunction.referenceCount, 1, "gameState referenced once in function scope");
 });

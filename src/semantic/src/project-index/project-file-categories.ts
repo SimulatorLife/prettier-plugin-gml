@@ -1,9 +1,6 @@
 import { Core } from "@gml-modules/core";
 
-import {
-    isProjectManifestPath,
-    isProjectResourceMetadataPath
-} from "./constants.js";
+import { isProjectManifestPath, isProjectResourceMetadataPath } from "./constants.js";
 
 const DEFAULT_PROJECT_SOURCE_EXTENSIONS = Object.freeze([".gml"]);
 let projectSourceExtensions = DEFAULT_PROJECT_SOURCE_EXTENSIONS;
@@ -21,11 +18,7 @@ const PROJECT_FILE_CATEGORY_CHOICES = Object.freeze(
             const insertIndex = acc.findIndex((existing) => existing > item);
             return insertIndex === -1
                 ? [...acc, item]
-                : [
-                      ...acc.slice(0, insertIndex),
-                      item,
-                      ...acc.slice(insertIndex)
-                  ];
+                : [...acc.slice(0, insertIndex), item, ...acc.slice(insertIndex)];
         }, [])
         .join(", ")
 );
@@ -64,24 +57,19 @@ export function resetProjectIndexSourceExtensions() {
  */
 function normalizeProjectSourceExtensions(extensions) {
     const normalizedExtensions = Core.assertArray(extensions, {
-        errorMessage:
-            "Project source extensions must be provided as an array of strings."
+        errorMessage: "Project source extensions must be provided as an array of strings."
     });
 
     const normalized = new Set(DEFAULT_PROJECT_SOURCE_EXTENSIONS);
 
     for (const extension of normalizedExtensions) {
         if (typeof extension !== "string") {
-            throw new TypeError(
-                "Project source extensions must be strings (for example '.gml')."
-            );
+            throw new TypeError("Project source extensions must be strings (for example '.gml').");
         }
 
         const normalizedExtension = Core.normalizeExtensionSuffix(extension);
         if (!normalizedExtension) {
-            throw new TypeError(
-                "Project source extensions cannot be empty strings."
-            );
+            throw new TypeError("Project source extensions cannot be empty strings.");
         }
 
         normalized.add(normalizedExtension);
@@ -133,10 +121,7 @@ export function normalizeProjectFileCategory(value) {
  *          path does not fall into a known bucket.
  */
 export function resolveProjectFileCategory(relativePosix) {
-    if (
-        isProjectResourceMetadataPath(relativePosix) ||
-        isProjectManifestPath(relativePosix)
-    ) {
+    if (isProjectResourceMetadataPath(relativePosix) || isProjectManifestPath(relativePosix)) {
         return ProjectFileCategory.RESOURCE_METADATA;
     }
     const lowerPath = relativePosix.toLowerCase();

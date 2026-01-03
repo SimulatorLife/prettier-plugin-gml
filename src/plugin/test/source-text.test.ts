@@ -5,25 +5,16 @@ import * as Printer from "../src/printer/index.js";
 
 void describe("printer source text helpers", () => {
     void it("trims trailing line terminators without regex allocation", () => {
-        assert.equal(
-            Printer.SourceText.stripTrailingLineTerminators("macro\n\r\n"),
-            "macro"
-        );
-        assert.equal(
-            Printer.SourceText.stripTrailingLineTerminators("macro"),
-            "macro"
-        );
+        assert.equal(Printer.SourceText.stripTrailingLineTerminators("macro\n\r\n"), "macro");
+        assert.equal(Printer.SourceText.stripTrailingLineTerminators("macro"), "macro");
     });
 
     void it("normalizes printer metadata inputs", () => {
-        assert.deepEqual(
-            Printer.SourceText.resolvePrinterSourceMetadata(null),
-            {
-                originalText: null,
-                locStart: null,
-                locEnd: null
-            }
-        );
+        assert.deepEqual(Printer.SourceText.resolvePrinterSourceMetadata(null), {
+            originalText: null,
+            locStart: null,
+            locEnd: null
+        });
 
         const locStart = () => 1;
         const metadata = Printer.SourceText.resolvePrinterSourceMetadata({
@@ -45,10 +36,7 @@ void describe("printer source text helpers", () => {
             "body"
         );
 
-        assert.equal(
-            Printer.SourceText.getOriginalTextFromOptions({ originalText: 42 }),
-            null
-        );
+        assert.equal(Printer.SourceText.getOriginalTextFromOptions({ originalText: 42 }), null);
     });
 
     void it("computes node ranges with metadata overrides", () => {
@@ -61,36 +49,20 @@ void describe("printer source text helpers", () => {
     });
 
     void it("slices text only when bounds are valid", () => {
-        assert.equal(
-            Printer.SourceText.sliceOriginalText("abcdef", 1, 4),
-            "bcd"
-        );
-        assert.equal(
-            Printer.SourceText.sliceOriginalText("abcdef", 4, 1),
-            null
-        );
+        assert.equal(Printer.SourceText.sliceOriginalText("abcdef", 1, 4), "bcd");
+        assert.equal(Printer.SourceText.sliceOriginalText("abcdef", 4, 1), null);
     });
 
     void it("detects explicit trailing blank lines in macro text", () => {
-        assert.equal(
-            Printer.SourceText.macroTextHasExplicitTrailingBlankLine(
-                "macro\n\n"
-            ),
-            true
-        );
-        assert.equal(
-            Printer.SourceText.macroTextHasExplicitTrailingBlankLine("macro\n"),
-            false
-        );
+        assert.equal(Printer.SourceText.macroTextHasExplicitTrailingBlankLine("macro\n\n"), true);
+        assert.equal(Printer.SourceText.macroTextHasExplicitTrailingBlankLine("macro\n"), false);
     });
 
     void it("reports absence of surrounding blank lines for compact blocks", () => {
         const blockNode = {
             start: 0,
             end: 10,
-            comments: [
-                { type: "CommentLine", value: "first", start: 2, end: 8 }
-            ]
+            comments: [{ type: "CommentLine", value: "first", start: 2, end: 8 }]
         };
 
         const originalText = "{\n//first\n}";
@@ -98,22 +70,10 @@ void describe("printer source text helpers", () => {
             originalText
         });
 
-        assert.equal(
-            Printer.SourceText.hasBlankLineBeforeLeadingComment(
-                blockNode,
-                metadata,
-                originalText,
-                8
-            ),
-            false
-        );
+        assert.equal(Printer.SourceText.hasBlankLineBeforeLeadingComment(blockNode, metadata, originalText, 8), false);
 
         assert.equal(
-            Printer.SourceText.hasBlankLineBetweenLastCommentAndClosingBrace(
-                blockNode,
-                metadata,
-                originalText
-            ),
+            Printer.SourceText.hasBlankLineBetweenLastCommentAndClosingBrace(blockNode, metadata, originalText),
             false
         );
     });

@@ -35,19 +35,7 @@ import type {
 
 const LOGICAL_OPERATORS = new Set(["and", "&&", "or", "||"]);
 const COMPARISON_OPERATORS = new Set(["==", "!=", "<>", "<=", ">=", "<", ">"]);
-const ARITHMETIC_OPERATORS = new Set([
-    "+",
-    "-",
-    "*",
-    "/",
-    "%",
-    "^",
-    "<<",
-    ">>",
-    ">>>",
-    "|",
-    "&"
-]);
+const ARITHMETIC_OPERATORS = new Set(["+", "-", "*", "/", "%", "^", "<<", ">>", ">>>", "|", "&"]);
 
 /**
  * Retrieve the sole declarator from a variable declaration node.
@@ -55,9 +43,7 @@ const ARITHMETIC_OPERATORS = new Set([
  * @param node Potential variable declaration node to inspect.
  * @returns The single declarator when present, otherwise `null`.
  */
-export function getSingleVariableDeclarator(
-    node: GameMakerAstNode | null | undefined
-): VariableDeclaratorNode | null {
+export function getSingleVariableDeclarator(node: GameMakerAstNode | null | undefined): VariableDeclaratorNode | null {
     if (node?.type !== VARIABLE_DECLARATION) {
         return null;
     }
@@ -156,17 +142,9 @@ export function cloneAstNode(node?: unknown) {
  * @param callback Invoked for each enumerable own property whose value is
  *     object-like.
  */
-const IGNORED_NODE_CHILD_KEYS = new Set([
-    "parent",
-    "enclosingNode",
-    "precedingNode",
-    "followingNode"
-]);
+const IGNORED_NODE_CHILD_KEYS = new Set(["parent", "enclosingNode", "precedingNode", "followingNode"]);
 
-export function forEachNodeChild(
-    node: unknown,
-    callback: (child: GameMakerAstNode, key: string) => void
-) {
+export function forEachNodeChild(node: unknown, callback: (child: GameMakerAstNode, key: string) => void) {
     if (!isObjectLike(node)) {
         return;
     }
@@ -177,9 +155,7 @@ export function forEachNodeChild(
         }
 
         if (Object.hasOwn(node as object, key)) {
-            const value = (node as GameMakerAstNode)[
-                key as keyof GameMakerAstNode
-            ];
+            const value = (node as GameMakerAstNode)[key as keyof GameMakerAstNode];
             if (isObjectLike(value)) {
                 callback(value, key);
             }
@@ -246,9 +222,7 @@ export function isVariableDeclarationOfKind(
  * @param node Candidate variable declaration node.
  * @returns `true` when {@link node} declares a `var` variable.
  */
-export function isVarVariableDeclaration(
-    node: GameMakerAstNode | null | undefined
-): boolean {
+export function isVarVariableDeclaration(node: GameMakerAstNode | null | undefined): boolean {
     return isVariableDeclarationOfKind(node, "var");
 }
 
@@ -263,14 +237,10 @@ export function isVarVariableDeclaration(
  *     defensively, which allows callers inside hot printer paths to skip type
  *     checks without risking runtime failures.
  */
-const identifierResolvers: Readonly<
-    Record<string, (node: GameMakerAstNode) => string | null>
-> = Object.freeze({
+const identifierResolvers: Readonly<Record<string, (node: GameMakerAstNode) => string | null>> = Object.freeze({
     Identifier: resolveNodeName,
     Literal: (literal) =>
-        typeof (literal as LiteralNode).value === "string"
-            ? ((literal as LiteralNode).value as string)
-            : null,
+        typeof (literal as LiteralNode).value === "string" ? ((literal as LiteralNode).value as string) : null,
     MemberDotExpression: (expression) => {
         const { object, property } = expression as {
             object: unknown;
@@ -311,9 +281,7 @@ const identifierResolvers: Readonly<
  * @param node Potential identifier or node carrying a `name` property.
  * @returns The `name` string when present, otherwise `null`.
  */
-export function resolveNodeName(
-    node: GameMakerAstNode | null | undefined
-): string | null {
+export function resolveNodeName(node: GameMakerAstNode | null | undefined): string | null {
     if (isIdentifierNode(node)) {
         return node.name;
     }
@@ -364,9 +332,7 @@ export function isLiteralNode(node: unknown): node is LiteralNode {
  * @param node Candidate value to inspect.
  * @returns `true` when {@link node} is an assignment pattern.
  */
-export function isAssignmentPatternNode(
-    node: unknown
-): node is AssignmentPatternNode {
+export function isAssignmentPatternNode(node: unknown): node is AssignmentPatternNode {
     return hasType(node, ASSIGNMENT_PATTERN);
 }
 
@@ -380,9 +346,7 @@ export function isAssignmentPatternNode(
  * @param node Candidate value to inspect.
  * @returns `true` when {@link node} is a call expression.
  */
-export function isCallExpressionNode(
-    node: unknown
-): node is CallExpressionNode {
+export function isCallExpressionNode(node: unknown): node is CallExpressionNode {
     return hasType(node, CALL_EXPRESSION);
 }
 
@@ -396,9 +360,7 @@ export function isCallExpressionNode(
  * @param node Candidate value to inspect.
  * @returns `true` when {@link node} is a member index expression.
  */
-export function isMemberIndexExpressionNode(
-    node: unknown
-): node is MemberIndexExpressionNode {
+export function isMemberIndexExpressionNode(node: unknown): node is MemberIndexExpressionNode {
     return hasType(node, MEMBER_INDEX_EXPRESSION);
 }
 
@@ -413,17 +375,12 @@ export function isMemberIndexExpressionNode(
  * @param name Expected identifier name.
  * @returns `true` when {@link node} is an identifier matching {@link name}.
  */
-export function isIdentifierWithName(
-    node: GameMakerAstNode | null | undefined,
-    name: string
-) {
+export function isIdentifierWithName(node: GameMakerAstNode | null | undefined, name: string) {
     const identifierDetails = getIdentifierDetails(node);
     return identifierDetails?.name === name;
 }
 
-export function getIdentifierText(
-    node: GameMakerAstNode | string | null | undefined
-): string | null {
+export function getIdentifierText(node: GameMakerAstNode | string | null | undefined): string | null {
     if (node == null) {
         return null;
     }
@@ -485,10 +442,7 @@ export function cloneIdentifier(node?: unknown): IdentifierNode | null {
         return null;
     }
 
-    return createIdentifierNode(
-        identifierDetails.name,
-        identifierDetails.identifier
-    );
+    return createIdentifierNode(identifierDetails.name, identifierDetails.identifier);
 }
 
 /**
@@ -502,9 +456,7 @@ export function cloneIdentifier(node?: unknown): IdentifierNode | null {
  *     callers gracefully skip edge cases without introducing conditional
  *     branches at the call site.
  */
-export function getMemberIndexText(
-    indexNode: GameMakerAstNode | string | null | undefined
-): string | null {
+export function getMemberIndexText(indexNode: GameMakerAstNode | string | null | undefined): string | null {
     if (typeof indexNode === "string") {
         return indexNode;
     }
@@ -530,9 +482,7 @@ export function getMemberIndexText(
  * @param node Candidate member index expression.
  * @returns The single property entry or `null` when missing.
  */
-export function getSingleMemberIndexPropertyEntry(
-    node: unknown
-): GameMakerAstNode | null {
+export function getSingleMemberIndexPropertyEntry(node: unknown): GameMakerAstNode | null {
     if (!isNode(node) || node.type !== "MemberIndexExpression") {
         return null;
     }
@@ -600,9 +550,7 @@ export function getCallExpressionIdentifier(
  * @param callExpression Potential call expression node.
  * @returns The callee's name when present and valid, otherwise `null`.
  */
-export function getCallExpressionIdentifierName(
-    callExpression: GameMakerAstNode | null | undefined
-): string | null {
+export function getCallExpressionIdentifierName(callExpression: GameMakerAstNode | null | undefined): string | null {
     const id = getCallExpressionIdentifier(callExpression);
     if (!id) return null;
     return typeof id.name === "string" ? id.name : null;
@@ -620,9 +568,7 @@ export function getCallExpressionIdentifierName(
  * @returns A descriptor with the identifier and its name, or `null` when the
  *     node is not a valid identifier.
  */
-export function getIdentifierDetails(
-    node: unknown
-): { identifier: IdentifierNode; name: string } | null {
+export function getIdentifierDetails(node: unknown): { identifier: IdentifierNode; name: string } | null {
     if (!isIdentifierNode(node)) {
         return null;
     }
@@ -645,9 +591,7 @@ export function getIdentifierDetails(
  * @param node Potential identifier node.
  * @returns The identifier's `name` when available, otherwise `null`.
  */
-export function getIdentifierName(
-    node: GameMakerAstNode | null | undefined
-): string | null {
+export function getIdentifierName(node: GameMakerAstNode | null | undefined): string | null {
     const details = getIdentifierDetails(node);
     return details ? details.name : null;
 }
@@ -701,10 +645,7 @@ export function isCallExpressionIdentifierMatch(
  * @returns Normalized array of child nodes or an empty array when the property
  *     is missing.
  */
-export function getArrayProperty(
-    node: unknown,
-    propertyName: string
-): readonly GameMakerAstNode[] {
+export function getArrayProperty(node: unknown, propertyName: string): readonly GameMakerAstNode[] {
     if (!isNode(node)) {
         return [];
     }
@@ -714,9 +655,7 @@ export function getArrayProperty(
     }
 
     const astNode = node as Record<PropertyKey, unknown>;
-    return asArray(
-        astNode[propertyName] as GameMakerAstNode[] | null | undefined
-    );
+    return asArray(astNode[propertyName] as GameMakerAstNode[] | null | undefined);
 }
 
 /**
@@ -730,10 +669,7 @@ export function getArrayProperty(
  * @param propertyName Name of the array-valued property to check.
  * @returns `true` when the property exists and contains at least one element.
  */
-export function hasArrayPropertyEntries(
-    node: unknown,
-    propertyName: string
-): boolean {
+export function hasArrayPropertyEntries(node: unknown, propertyName: string): boolean {
     if (!isNode(node)) {
         return false;
     }
@@ -810,9 +746,7 @@ export function isProgramOrBlockStatement(node: unknown): boolean {
  * @param node Potential literal node.
  * @returns Lowercase string value when present, otherwise `null`.
  */
-export function getLiteralStringValue(
-    node: GameMakerAstNode | null | undefined
-): string | null {
+export function getLiteralStringValue(node: GameMakerAstNode | null | undefined): string | null {
     if (!isLiteralNode(node)) {
         return null;
     }
@@ -853,19 +787,14 @@ export function getBooleanLiteralValue(
         return null;
     }
 
-    const acceptBooleanPrimitives =
-        typeof options === "boolean"
-            ? options
-            : !!options?.acceptBooleanPrimitives;
+    const acceptBooleanPrimitives = typeof options === "boolean" ? options : !!options?.acceptBooleanPrimitives;
 
     const { value } = node;
     const isBooleanPrimitive = value === true || value === false;
 
     if (!isBooleanPrimitive) {
         const normalized = getLiteralStringValue(node);
-        return normalized === "true" || normalized === "false"
-            ? normalized
-            : null;
+        return normalized === "true" || normalized === "false" ? normalized : null;
     }
 
     if (!acceptBooleanPrimitives) {
@@ -886,10 +815,7 @@ export function getBooleanLiteralValue(
  * @param options Configuration for accepting primitive boolean values.
  * @returns `true` when {@link node} is a boolean literal.
  */
-export function isBooleanLiteral(
-    node: GameMakerAstNode | null | undefined,
-    options?: BooleanLiteralOptions
-): boolean {
+export function isBooleanLiteral(node: GameMakerAstNode | null | undefined, options?: BooleanLiteralOptions): boolean {
     return getBooleanLiteralValue(node, options) !== null;
 }
 
@@ -902,9 +828,7 @@ export function isBooleanLiteral(
  * @param node Potential literal node.
  * @returns `true` when {@link node} is a string literal with value `"undefined"`.
  */
-export function isUndefinedLiteral(
-    node: GameMakerAstNode | null | undefined
-): boolean {
+export function isUndefinedLiteral(node: GameMakerAstNode | null | undefined): boolean {
     return getLiteralStringValue(node) === "undefined";
 }
 
@@ -919,9 +843,7 @@ export function isUndefinedLiteral(
  * @param node Potential undefined sentinel.
  * @returns `true` when {@link node} represents `undefined` in any accepted form.
  */
-export function isUndefinedSentinel(
-    node: GameMakerAstNode | null | undefined
-): boolean {
+export function isUndefinedSentinel(node: GameMakerAstNode | null | undefined): boolean {
     if (isUndefinedLiteral(node)) {
         return true;
     }
@@ -940,9 +862,7 @@ export function isUndefinedSentinel(
     }
 
     const identifierText = getIdentifierText(node);
-    return typeof identifierText === "string"
-        ? identifierText.toLowerCase() === "undefined"
-        : false;
+    return typeof identifierText === "string" ? identifierText.toLowerCase() === "undefined" : false;
 }
 
 /**
@@ -957,10 +877,7 @@ export function isUndefinedSentinel(
  * @param type Expected node type string.
  * @returns `true` when {@link node} has the specified {@link type}.
  */
-export function hasType(
-    node: unknown,
-    type: string
-): node is Record<string, unknown> & { type: string } {
+export function hasType(node: unknown, type: string): node is Record<string, unknown> & { type: string } {
     return isNode(node) && (node as { type?: string }).type === type;
 }
 
@@ -1026,9 +943,7 @@ const FUNCTION_LIKE_NODE_TYPE_SET = new Set(FUNCTION_LIKE_NODE_TYPES);
  * @param node Potential function-like node.
  * @returns `true` when {@link node} is any function-like construct.
  */
-export function isFunctionLikeNode(
-    node: GameMakerAstNode | null | undefined
-): boolean {
+export function isFunctionLikeNode(node: GameMakerAstNode | null | undefined): boolean {
     if (!isNode(node)) {
         return false;
     }
@@ -1053,9 +968,7 @@ export function isFunctionLikeNode(
  * @param node Potential named node.
  * @returns The node's name when available, otherwise `null`.
  */
-export function getNodeName(
-    node: GameMakerAstNode | null | undefined
-): string | null {
+export function getNodeName(node: GameMakerAstNode | null | undefined): string | null {
     if (!node) {
         return null;
     }
@@ -1068,9 +981,7 @@ export function getNodeName(
     }
 
     if ((node as { key?: unknown }).key !== undefined) {
-        const keyName = getIdentifierText(
-            (node as { key: GameMakerAstNode }).key
-        );
+        const keyName = getIdentifierText((node as { key: GameMakerAstNode }).key);
         if (keyName) {
             return keyName;
         }
@@ -1150,10 +1061,7 @@ export function isNumericLiteralBoundaryCharacter(character: string): boolean {
  * @param node Candidate AST fragment to inspect.
  * @param callback Invoked for each child value that should be visited.
  */
-export function visitChildNodes(
-    node: unknown,
-    callback: (child: unknown) => void
-): void {
+export function visitChildNodes(node: unknown, callback: (child: unknown) => void): void {
     if (node == null) {
         return;
     }
@@ -1189,10 +1097,7 @@ export function visitChildNodes(
  * @param stack
  * @param value
  */
-export function enqueueObjectChildValues(
-    stack: unknown[],
-    value: unknown
-): void {
+export function enqueueObjectChildValues(stack: unknown[], value: unknown): void {
     if (!value || typeof value !== "object") {
         return;
     }
@@ -1259,14 +1164,8 @@ export function unwrapParenthesizedExpression(
  * @returns `true` when {@link node} is a binary expression using
  *     {@link operator}.
  */
-export function isBinaryOperator(
-    node: GameMakerAstNode | null | undefined,
-    operator: string
-): boolean {
-    return (
-        node?.type === BINARY_EXPRESSION &&
-        (node as { operator?: string }).operator?.toLowerCase() === operator
-    );
+export function isBinaryOperator(node: GameMakerAstNode | null | undefined, operator: string): boolean {
+    return node?.type === BINARY_EXPRESSION && (node as { operator?: string }).operator?.toLowerCase() === operator;
 }
 
 /**

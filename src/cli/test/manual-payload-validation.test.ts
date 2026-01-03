@@ -1,10 +1,7 @@
 import assert from "node:assert/strict";
 import test from "node:test";
 
-import {
-    decodeManualKeywordsPayload,
-    decodeManualTagsPayload
-} from "../src/modules/manual/payload-validation.js";
+import { decodeManualKeywordsPayload, decodeManualTagsPayload } from "../src/modules/manual/payload-validation.js";
 import { Core } from "@gml-modules/core";
 
 const { getErrorMessageOrFallback, isJsonParseError } = Core;
@@ -41,10 +38,7 @@ void test("decodeManualTagsPayload validates tag mappings", () => {
 });
 
 void test("decodeManualTagsPayload enforces object shape", () => {
-    assert.throws(
-        () => decodeManualTagsPayload("[]"),
-        /Manual tags payload must be a JSON object\./
-    );
+    assert.throws(() => decodeManualTagsPayload("[]"), /Manual tags payload must be a JSON object\./);
 });
 
 void test("decodeManualTagsPayload rejects non-string entries", () => {

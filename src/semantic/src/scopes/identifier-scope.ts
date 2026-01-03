@@ -42,24 +42,13 @@ export class SemanticScopeCoordinator {
             return;
         }
 
-        const role = this.identifierRoleTracker?.cloneRole(
-            this.identifierRoleTracker?.getCurrentRole()
-        );
-        const roleType =
-            role?.type === "declaration" ? "declaration" : "reference";
+        const role = this.identifierRoleTracker?.cloneRole(this.identifierRoleTracker?.getCurrentRole());
+        const roleType = role?.type === "declaration" ? "declaration" : "reference";
 
         if (roleType === "declaration") {
-            this.scopeTracker.declare(
-                name,
-                node as MutableGameMakerAstNode,
-                role
-            );
+            this.scopeTracker.declare(name, node as MutableGameMakerAstNode, role);
         } else {
-            this.scopeTracker.reference(
-                name,
-                node as MutableGameMakerAstNode,
-                role
-            );
+            this.scopeTracker.reference(name, node as MutableGameMakerAstNode, role);
         }
     }
 
@@ -168,14 +157,9 @@ export function createIdentifierLocation(token) {
     // be omitted when not available from the token metadata.
     const startColumn = token.column;
     const identifierLength =
-        Number.isInteger(startIndex) && Number.isInteger(stopIndex)
-            ? stopIndex - startIndex + 1
-            : undefined;
+        Number.isInteger(startIndex) && Number.isInteger(stopIndex) ? stopIndex - startIndex + 1 : undefined;
 
-    const buildPoint = (
-        index,
-        column
-    ): { line: any; index: any; column?: number } => {
+    const buildPoint = (index, column): { line: any; index: any; column?: number } => {
         const point: { line: any; index: any; column?: number } = {
             line,
             index
@@ -191,9 +175,7 @@ export function createIdentifierLocation(token) {
         start: buildPoint(startIndex, startColumn),
         end: buildPoint(
             stopIndex === undefined ? undefined : stopIndex + 1,
-            startColumn !== undefined && identifierLength !== undefined
-                ? startColumn + identifierLength
-                : undefined
+            startColumn !== undefined && identifierLength !== undefined ? startColumn + identifierLength : undefined
         )
     };
 }

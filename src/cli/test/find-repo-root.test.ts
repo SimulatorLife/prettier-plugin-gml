@@ -11,9 +11,7 @@ async function createTemporaryDirectory() {
     return fs.mkdtemp(directoryPrefix);
 }
 
-async function withTemporaryDirectory(
-    callback: (tempDir: string) => Promise<void>
-) {
+async function withTemporaryDirectory(callback: (tempDir: string) => Promise<void>) {
     const tempDir = await createTemporaryDirectory();
     try {
         await callback(tempDir);

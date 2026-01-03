@@ -51,10 +51,7 @@ export function getErrorCode(error: unknown): string | null {
  * @param {...string} codes Allow-listed error codes to test against.
  * @returns {boolean} `true` when {@link error} carries one of {@link codes}.
  */
-export function isErrorWithCode(
-    error: unknown,
-    ...codes: Array<string>
-): boolean {
+export function isErrorWithCode(error: unknown, ...codes: Array<string>): boolean {
     if (codes.length === 0) {
         return false;
     }
@@ -85,10 +82,7 @@ export function isErrorWithCode(
  *        Optional fallback handling when the error lacks a usable message.
  * @returns {string} Normalized message string (possibly empty).
  */
-export function getErrorMessage(
-    error: unknown,
-    { fallback }: GetErrorMessageOptions = {}
-): string {
+export function getErrorMessage(error: unknown, { fallback }: GetErrorMessageOptions = {}): string {
     if (isErrorLike(error)) {
         return error.message;
     }
@@ -128,10 +122,7 @@ export function getErrorMessage(
  * @param {{ fallback?: unknown }} [options]
  * @returns {string} Guaranteed non-empty error message string.
  */
-export function getErrorMessageOrFallback(
-    error: unknown,
-    { fallback }: GetErrorMessageOrFallbackOptions = {}
-): string {
+export function getErrorMessageOrFallback(error: unknown, { fallback }: GetErrorMessageOrFallbackOptions = {}): string {
     const message = getErrorMessage(error, { fallback: "" });
 
     if (isNonEmptyString(message)) {

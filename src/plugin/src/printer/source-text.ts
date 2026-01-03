@@ -51,27 +51,17 @@ export function stripTrailingLineTerminators(value: unknown): string | null {
 /**
  * Normalize printer metadata options while validating types.
  */
-export function resolvePrinterSourceMetadata(
-    options: unknown
-): PrinterSourceMetadata {
+export function resolvePrinterSourceMetadata(options: unknown): PrinterSourceMetadata {
     if (!Core.isObjectOrFunction(options)) {
         return { originalText: null, locStart: null, locEnd: null };
     }
 
     const metadata = options as PrinterSourceMetadataOptions;
 
-    const originalText =
-        typeof metadata.originalText === STRING_TYPE
-            ? (metadata.originalText as string)
-            : null;
+    const originalText = typeof metadata.originalText === STRING_TYPE ? (metadata.originalText as string) : null;
     const locStart =
-        typeof metadata.locStart === FUNCTION_TYPE
-            ? (metadata.locStart as (node: unknown) => number)
-            : null;
-    const locEnd =
-        typeof metadata.locEnd === FUNCTION_TYPE
-            ? (metadata.locEnd as (node: unknown) => number)
-            : null;
+        typeof metadata.locStart === FUNCTION_TYPE ? (metadata.locStart as (node: unknown) => number) : null;
+    const locEnd = typeof metadata.locEnd === FUNCTION_TYPE ? (metadata.locEnd as (node: unknown) => number) : null;
 
     return { originalText, locStart, locEnd };
 }
@@ -99,14 +89,11 @@ export function resolveNodeIndexRangeWithSource(
         fallbackEnd = Math.max(inclusiveEnd, fallbackStart);
     }
 
-    const resolvedStart =
-        typeof locStart === "function" ? locStart(node) : null;
-    const startIndex =
-        typeof resolvedStart === NUMBER_TYPE ? resolvedStart : fallbackStart;
+    const resolvedStart = typeof locStart === "function" ? locStart(node) : null;
+    const startIndex = typeof resolvedStart === NUMBER_TYPE ? resolvedStart : fallbackStart;
 
     const resolvedEnd = typeof locEnd === "function" ? locEnd(node) : null;
-    const computedEnd =
-        typeof resolvedEnd === NUMBER_TYPE ? resolvedEnd - 1 : fallbackEnd;
+    const computedEnd = typeof resolvedEnd === NUMBER_TYPE ? resolvedEnd - 1 : fallbackEnd;
     const endIndex = Math.max(computedEnd, startIndex);
 
     return { startIndex, endIndex };
@@ -139,9 +126,7 @@ export function sliceOriginalText(
 /**
  * Determine whether a macro body explicitly contains a trailing blank line.
  */
-export function macroTextHasExplicitTrailingBlankLine(
-    text: string | null
-): boolean {
+export function macroTextHasExplicitTrailingBlankLine(text: string | null): boolean {
     if (typeof text !== STRING_TYPE) {
         return false;
     }
@@ -199,23 +184,13 @@ export function hasBlankLineBeforeLeadingComment(
     originalText: string | null,
     firstStatementStartIndex: number | null
 ): boolean {
-    if (
-        !blockNode ||
-        typeof originalText !== STRING_TYPE ||
-        typeof firstStatementStartIndex !== NUMBER_TYPE
-    ) {
+    if (!blockNode || typeof originalText !== STRING_TYPE || typeof firstStatementStartIndex !== NUMBER_TYPE) {
         return false;
     }
 
-    const { startIndex: blockStartIndex } = resolveNodeIndexRangeWithSource(
-        blockNode,
-        sourceMetadata
-    );
+    const { startIndex: blockStartIndex } = resolveNodeIndexRangeWithSource(blockNode, sourceMetadata);
 
-    if (
-        typeof blockStartIndex !== NUMBER_TYPE ||
-        blockStartIndex >= firstStatementStartIndex
-    ) {
+    if (typeof blockStartIndex !== NUMBER_TYPE || blockStartIndex >= firstStatementStartIndex) {
         return false;
     }
 
@@ -224,11 +199,7 @@ export function hasBlankLineBeforeLeadingComment(
         return false;
     }
 
-    const interiorSlice = sliceOriginalText(
-        originalText,
-        openBraceIndex + 1,
-        firstStatementStartIndex
-    );
+    const interiorSlice = sliceOriginalText(originalText, openBraceIndex + 1, firstStatementStartIndex);
 
     if (!interiorSlice) {
         return false;
@@ -276,15 +247,9 @@ export function hasBlankLineBetweenLastCommentAndClosingBrace(
     }
 
     const commentEndIndex = Core.getNodeEndIndex(lastComment);
-    const { endIndex: blockEndIndex } = resolveNodeIndexRangeWithSource(
-        blockNode,
-        sourceMetadata
-    );
+    const { endIndex: blockEndIndex } = resolveNodeIndexRangeWithSource(blockNode, sourceMetadata);
 
-    if (
-        typeof commentEndIndex !== NUMBER_TYPE ||
-        typeof blockEndIndex !== NUMBER_TYPE
-    ) {
+    if (typeof commentEndIndex !== NUMBER_TYPE || typeof blockEndIndex !== NUMBER_TYPE) {
         return false;
     }
 
@@ -293,11 +258,7 @@ export function hasBlankLineBetweenLastCommentAndClosingBrace(
         return false;
     }
 
-    const betweenText = sliceOriginalText(
-        originalText,
-        commentEndIndex,
-        closingBraceIndex
-    );
+    const betweenText = sliceOriginalText(originalText, commentEndIndex, closingBraceIndex);
 
     if (betweenText === null) {
         return false;

@@ -1,14 +1,7 @@
 import { Core } from "@gml-modules/core";
 import { asErrorLike } from "../shared/error-guards.js";
 
-const {
-    compactArray,
-    toTrimmedString,
-    getErrorCode,
-    getErrorMessage,
-    getObjectTagName,
-    isAggregateErrorLike
-} = Core;
+const { compactArray, toTrimmedString, getErrorCode, getErrorMessage, getObjectTagName, isAggregateErrorLike } = Core;
 
 const DEFAULT_INDENT = "  ";
 
@@ -57,10 +50,7 @@ function brandCliUsageError(error: ErrorWithMetadata): void {
     });
 }
 
-export function markAsCliUsageError(
-    error: unknown,
-    { usage }: CliUsageErrorOptions = {}
-): ErrorWithMetadata | null {
+export function markAsCliUsageError(error: unknown, { usage }: CliUsageErrorOptions = {}): ErrorWithMetadata | null {
     const errorLike = asErrorLike(error);
     if (!errorLike) {
         return null;
@@ -109,18 +99,15 @@ function extractStackBody(stack: string | null): string | null {
     return stackBody || null;
 }
 
-function formatAggregateErrors(
-    error: unknown,
-    seen: Set<unknown>
-): string | null {
+function formatAggregateErrors(error: unknown, seen: Set<unknown>): string | null {
     if (!isAggregateErrorLike(error)) {
         return null;
     }
 
     const aggregate = error as { errors: Array<unknown> };
-    const formatted = compactArray(
-        aggregate.errors.map((entry) => formatErrorValue(entry, seen))
-    ).map((text) => indentBlock(`- ${text.replaceAll("\n", "\n  ")}`));
+    const formatted = compactArray(aggregate.errors.map((entry) => formatErrorValue(entry, seen))).map((text) =>
+        indentBlock(`- ${text.replaceAll("\n", "\n  ")}`)
+    );
 
     if (formatted.length === 0) {
         return null;
@@ -147,9 +134,7 @@ function formatErrorHeader(error: ErrorWithMetadata): string {
     }
 
     if (name && message) {
-        return message.toLowerCase().startsWith(name.toLowerCase())
-            ? message
-            : `${name}: ${message}`;
+        return message.toLowerCase().startsWith(name.toLowerCase()) ? message : `${name}: ${message}`;
     }
 
     if (message) {
@@ -168,10 +153,7 @@ function formatErrorHeader(error: ErrorWithMetadata): string {
     return "";
 }
 
-function formatErrorObject(
-    error: ErrorWithMetadata,
-    seen: Set<unknown>
-): string {
+function formatErrorObject(error: ErrorWithMetadata, seen: Set<unknown>): string {
     if (seen.has(error)) {
         return "[Circular error reference]";
     }
@@ -180,10 +162,7 @@ function formatErrorObject(
 
     const errored = error;
     const isUsageError = isCliUsageError(error);
-    const stack =
-        !isUsageError && typeof errored.stack === "string"
-            ? errored.stack
-            : null;
+    const stack = !isUsageError && typeof errored.stack === "string" ? errored.stack : null;
     const sections = compactArray([
         formatErrorHeader(error),
         extractStackBody(stack),
@@ -222,11 +201,7 @@ function formatErrorValue(value: unknown, seen: Set<unknown>): string {
         return value;
     }
 
-    if (
-        typeof value === "number" ||
-        typeof value === "boolean" ||
-        typeof value === "bigint"
-    ) {
+    if (typeof value === "number" || typeof value === "boolean" || typeof value === "bigint") {
         return String(value);
     }
 
@@ -347,11 +322,7 @@ function appendUsageSection(lines: Array<string>, usage: string | null): void {
     lines.push(usage);
 }
 
-function buildCliErrorLines({
-    prefix,
-    formattedError,
-    usage
-}: CliErrorLinesOptions): Array<string> {
+function buildCliErrorLines({ prefix, formattedError, usage }: CliErrorLinesOptions): Array<string> {
     const lines: Array<string> = [];
 
     appendLineIfPresent(lines, prefix);
@@ -361,10 +332,7 @@ function buildCliErrorLines({
     return lines;
 }
 
-export function handleCliError(
-    error: unknown,
-    { exitCode = 1, prefix }: HandleCliErrorOptions = {}
-): never {
+export function handleCliError(error: unknown, { exitCode = 1, prefix }: HandleCliErrorOptions = {}): never {
     const normalizedPrefix = isCliUsageError(error) ? undefined : prefix;
     const formatted = formatCliError(error);
     const usage = resolveCliErrorUsage(error);

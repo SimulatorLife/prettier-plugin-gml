@@ -7,10 +7,7 @@ describe("Metadata cache clearing", () => {
         // Load metadata to populate cache
         const metadata1 = Core.getFeatherMetadata();
         assert.ok(metadata1, "Should load feather metadata");
-        assert.ok(
-            Array.isArray(metadata1.diagnostics),
-            "Should have diagnostics array"
-        );
+        assert.ok(Array.isArray(metadata1.diagnostics), "Should have diagnostics array");
 
         // Clear cache
         Core.clearFeatherMetadataCache();
@@ -18,11 +15,7 @@ describe("Metadata cache clearing", () => {
         // Reload metadata - should work even after clearing
         const metadata2 = Core.getFeatherMetadata();
         assert.ok(metadata2, "Should reload feather metadata after clearing");
-        assert.deepStrictEqual(
-            metadata1.diagnostics,
-            metadata2.diagnostics,
-            "Reloaded metadata should match original"
-        );
+        assert.deepStrictEqual(metadata1.diagnostics, metadata2.diagnostics, "Reloaded metadata should match original");
     });
 
     it("should clear identifier metadata cache and allow reload", () => {
@@ -35,15 +28,8 @@ describe("Metadata cache clearing", () => {
 
         // Reload metadata - should work even after clearing
         const metadata2 = Core.getIdentifierMetadata();
-        assert.ok(
-            metadata2,
-            "Should reload identifier metadata after clearing"
-        );
-        assert.deepStrictEqual(
-            metadata1,
-            metadata2,
-            "Reloaded metadata should match original"
-        );
+        assert.ok(metadata2, "Should reload identifier metadata after clearing");
+        assert.deepStrictEqual(metadata1, metadata2, "Reloaded metadata should match original");
     });
 
     it("should demonstrate memory footprint reduction", () => {
@@ -88,10 +74,7 @@ describe("Metadata cache clearing", () => {
         const clearedHeap = afterClear.heapUsed - before.heapUsed;
 
         // Memory should be reduced after clearing
-        assert.ok(
-            loadedHeap > 0,
-            `Should have allocated heap memory for metadata (${loadedHeap} bytes)`
-        );
+        assert.ok(loadedHeap > 0, `Should have allocated heap memory for metadata (${loadedHeap} bytes)`);
 
         // After clearing and GC, heap should have decreased or at minimum not
         // increased significantly. GC timing is non-deterministic, so we accept

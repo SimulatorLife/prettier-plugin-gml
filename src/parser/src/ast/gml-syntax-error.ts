@@ -31,14 +31,7 @@ export class GameMakerSyntaxError extends Error {
     public offendingText?: string;
     public rule?: string;
 
-    constructor({
-        message,
-        line,
-        column,
-        wrongSymbol,
-        rule,
-        offendingText
-    }: GameMakerSyntaxErrorOptions) {
+    constructor({ message, line, column, wrongSymbol, rule, offendingText }: GameMakerSyntaxErrorOptions) {
         super(message);
         this.name = "GameMakerSyntaxError";
         if (Number.isFinite(line ?? Number.NaN)) {
@@ -103,11 +96,7 @@ class SyntaxErrorFormatter {
             return null;
         }
 
-        if (
-            rawText.startsWith("'") &&
-            rawText.endsWith("'") &&
-            rawText.length >= 2
-        ) {
+        if (rawText.startsWith("'") && rawText.endsWith("'") && rawText.length >= 2) {
             return this.unescapeLexerToken(rawText.slice(1, -1));
         }
 
@@ -135,9 +124,7 @@ class SyntaxErrorFormatter {
     }
 
     formatRuleName(ruleName) {
-        return ruleName
-            .replaceAll(/([A-Z]*)([A-Z][a-z])/g, "$1 $2")
-            .toLowerCase();
+        return ruleName.replaceAll(/([A-Z]*)([A-Z][a-z])/g, "$1 $2").toLowerCase();
     }
 }
 
@@ -166,14 +153,7 @@ class ParserContextAnalyzer {
         return openBlockContext?.start ?? null;
     }
 
-    getSpecificErrorMessage({
-        parser,
-        stack,
-        currentRule,
-        line,
-        column,
-        wrongSymbol
-    }) {
+    getSpecificErrorMessage({ parser, stack, currentRule, line, column, wrongSymbol }) {
         switch (currentRule) {
             case "closeBlock": {
                 if (stack[1] !== "block") {
@@ -198,17 +178,11 @@ class ParserContextAnalyzer {
                 );
             }
             case "expression": {
-                return (
-                    `Syntax Error (line ${line}, column ${column}): ` +
-                    `unexpected ${wrongSymbol} in expression`
-                );
+                return `Syntax Error (line ${line}, column ${column}): ` + `unexpected ${wrongSymbol} in expression`;
             }
             case "statement":
             case "program": {
-                return (
-                    `Syntax Error (line ${line}, column ${column}): ` +
-                    `unexpected ${wrongSymbol}`
-                );
+                return `Syntax Error (line ${line}, column ${column}): ` + `unexpected ${wrongSymbol}`;
             }
             case "parameterList": {
                 return (
@@ -249,8 +223,7 @@ export default class GameMakerParseErrorListener extends ErrorListener {
         const parser = recognizer;
         void _message;
         void _error;
-        const offendingText =
-            this.formatter.resolveOffendingSymbolText(offendingSymbol);
+        const offendingText = this.formatter.resolveOffendingSymbolText(offendingSymbol);
         const wrongSymbol = this.formatter.formatWrongSymbol(offendingText);
 
         const stack = parser.getRuleInvocationStack();
@@ -292,9 +265,7 @@ export default class GameMakerParseErrorListener extends ErrorListener {
 export class GameMakerLexerErrorListener extends ErrorListener {
     public formatter: SyntaxErrorFormatter;
 
-    constructor({
-        formatter = new SyntaxErrorFormatter()
-    }: GameMakerLexerErrorListenerOptions = {}) {
+    constructor({ formatter = new SyntaxErrorFormatter() }: GameMakerLexerErrorListenerOptions = {}) {
         super();
         this.formatter = formatter;
     }
@@ -307,9 +278,7 @@ export class GameMakerLexerErrorListener extends ErrorListener {
         const wrongSymbol = this.formatter.formatWrongSymbol(offendingText);
 
         throw new GameMakerSyntaxError({
-            message:
-                `Syntax Error (line ${line}, column ${column}): ` +
-                `unexpected ${wrongSymbol}`,
+            message: `Syntax Error (line ${line}, column ${column}): ` + `unexpected ${wrongSymbol}`,
             line,
             column,
             wrongSymbol,

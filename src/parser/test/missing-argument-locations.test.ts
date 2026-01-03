@@ -12,19 +12,9 @@ void describe("Missing argument location information", () => {
         });
 
         const callExpression = ast.body[0];
-        assert.ok(
-            callExpression && callExpression.type === "CallExpression",
-            "Expected to find a call expression."
-        );
-        assert.ok(
-            Array.isArray(callExpression.arguments),
-            "Call expression should have an arguments array."
-        );
-        assert.strictEqual(
-            callExpression.arguments.length,
-            2,
-            "Should have two arguments including the missing one."
-        );
+        assert.ok(callExpression && callExpression.type === "CallExpression", "Expected to find a call expression.");
+        assert.ok(Array.isArray(callExpression.arguments), "Call expression should have an arguments array.");
+        assert.strictEqual(callExpression.arguments.length, 2, "Should have two arguments including the missing one.");
 
         const firstArgument = callExpression.arguments[0];
         assert.strictEqual(
@@ -35,10 +25,7 @@ void describe("Missing argument location information", () => {
 
         // The key fix: Ensure the missing argument has correct location
         // that spans just the comma, not more
-        assert.ok(
-            firstArgument.start && firstArgument.end,
-            "Missing argument should have location metadata."
-        );
+        assert.ok(firstArgument.start && firstArgument.end, "Missing argument should have location metadata.");
         assert.strictEqual(
             firstArgument.start.index,
             5, // Position of the comma in "func(, arg2)" - at index 5
@@ -51,26 +38,15 @@ void describe("Missing argument location information", () => {
         );
 
         // Check that the text extracted from the location is just the comma
-        const extractedText = source.slice(
-            firstArgument.start.index,
-            firstArgument.end.index + 1
-        );
-        assert.strictEqual(
-            extractedText,
-            ",",
-            "The text extracted from the location should be just the comma."
-        );
+        const extractedText = source.slice(firstArgument.start.index, firstArgument.end.index + 1);
+        assert.strictEqual(extractedText, ",", "The text extracted from the location should be just the comma.");
 
         const secondArgument = callExpression.arguments[1];
         assert.ok(
             secondArgument && secondArgument.type === "Identifier",
             "Second argument should be a normal identifier."
         );
-        assert.strictEqual(
-            secondArgument.name,
-            "arg2",
-            "Second argument should have the correct name."
-        );
+        assert.strictEqual(secondArgument.name, "arg2", "Second argument should have the correct name.");
     });
 
     void it("assigns correct locations to the first of multiple leading omitted call arguments", () => {
@@ -81,14 +57,8 @@ void describe("Missing argument location information", () => {
         });
 
         const callExpression = ast.body[0];
-        assert.ok(
-            callExpression && callExpression.type === "CallExpression",
-            "Expected to find a call expression."
-        );
-        assert.ok(
-            Array.isArray(callExpression.arguments),
-            "Call expression should have an arguments array."
-        );
+        assert.ok(callExpression && callExpression.type === "CallExpression", "Expected to find a call expression.");
+        assert.ok(Array.isArray(callExpression.arguments), "Call expression should have an arguments array.");
         assert.strictEqual(
             callExpression.arguments.length,
             3,
@@ -102,10 +72,7 @@ void describe("Missing argument location information", () => {
             "MissingOptionalArgument",
             "First argument should be a missing optional argument."
         );
-        assert.ok(
-            firstArgument.start && firstArgument.end,
-            "First missing argument should have location metadata."
-        );
+        assert.ok(firstArgument.start && firstArgument.end, "First missing argument should have location metadata.");
         assert.strictEqual(
             firstArgument.start.index,
             5, // Position of first comma

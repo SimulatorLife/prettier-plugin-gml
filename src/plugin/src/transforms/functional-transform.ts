@@ -23,28 +23,18 @@ export interface ParserTransform<
  * This replaces the previous abstract class approach with a simpler functional pattern that
  * achieves the same goal without requiring inheritance.
  */
-export function createParserTransform<
-    Options extends TransformOptions = EmptyTransformOptions
->(
+export function createParserTransform<Options extends TransformOptions = EmptyTransformOptions>(
     name: string,
     defaultOptions: Options,
-    execute: (
-        ast: MutableGameMakerAstNode,
-        options: Options
-    ) => MutableGameMakerAstNode
+    execute: (ast: MutableGameMakerAstNode, options: Options) => MutableGameMakerAstNode
 ): ParserTransform<MutableGameMakerAstNode, Options> {
     const frozenDefaults = Object.freeze({ ...defaultOptions }) as Options;
 
     return {
         name,
         defaultOptions: frozenDefaults,
-        transform(
-            ast: MutableGameMakerAstNode,
-            options?: Options
-        ): MutableGameMakerAstNode {
-            const resolvedOptions = options
-                ? (Object.assign({}, frozenDefaults, options) as Options)
-                : frozenDefaults;
+        transform(ast: MutableGameMakerAstNode, options?: Options): MutableGameMakerAstNode {
+            const resolvedOptions = options ? (Object.assign({}, frozenDefaults, options) as Options) : frozenDefaults;
 
             return execute(ast, resolvedOptions);
         }

@@ -1,15 +1,7 @@
-import {
-    asArray,
-    isNonEmptyArray,
-    toMutableArray
-} from "../../../utils/array.js";
+import { asArray, isNonEmptyArray, toMutableArray } from "../../../utils/array.js";
 import { toTrimmedString } from "../../../utils/string.js";
 import { getCommentArray } from "../../comment-utils.js";
-import {
-    formatLineComment,
-    getLineCommentRawText,
-    resolveLineCommentOptions
-} from "../../line-comment/index.js";
+import { formatLineComment, getLineCommentRawText, resolveLineCommentOptions } from "../../line-comment/index.js";
 
 const STRING_TYPE = "string" as const;
 const NUMBER_TYPE = "number" as const;
@@ -38,12 +30,7 @@ function getNodeStartIndexForDocComments(node: any, locStart: unknown) {
     return null;
 }
 
-export function collectSyntheticDocCommentLines(
-    node: any,
-    options: any,
-    programNode: any,
-    sourceText: string | null
-) {
+export function collectSyntheticDocCommentLines(node: any, options: any, programNode: any, sourceText: string | null) {
     const rawComments = getCommentArray(node);
     const lineCommentOptions = resolveLineCommentOptions(options);
     const nodeStartIndex = getNodeStartIndexForDocComments(node, options);
@@ -112,14 +99,11 @@ function collectNodeDocCommentLines(
         }
 
         if (comment.type === "CommentBlock") {
-            const rawValue =
-                typeof comment.value === STRING_TYPE ? comment.value : "";
+            const rawValue = typeof comment.value === STRING_TYPE ? comment.value : "";
             const trimmed = rawValue.trim();
             const isJSDoc =
                 trimmed.startsWith("*") ||
-                /@(?:param|return|returns|arg|argument|desc|description|function|func)/.test(
-                    trimmed
-                );
+                /@(?:param|return|returns|arg|argument|desc|description|function|func)/.test(trimmed);
 
             if (!isJSDoc) {
                 remainingComments.push(comment);
@@ -129,9 +113,7 @@ function collectNodeDocCommentLines(
             const commentStartIndex =
                 comment && typeof comment.start === NUMBER_TYPE
                     ? comment.start
-                    : comment &&
-                        comment.start &&
-                        typeof comment.start.index === NUMBER_TYPE
+                    : comment && comment.start && typeof comment.start.index === NUMBER_TYPE
                       ? comment.start.index
                       : null;
 
@@ -139,8 +121,7 @@ function collectNodeDocCommentLines(
                 Number.isInteger(commentStartIndex) &&
                 Number.isInteger(nodeStartIndex) &&
                 commentStartIndex < nodeStartIndex;
-            const considerAsLeading =
-                isBeforeNode || comment?.placement === "leading";
+            const considerAsLeading = isBeforeNode || comment?.placement === "leading";
 
             if (!considerAsLeading) {
                 remainingComments.push(comment);
@@ -166,20 +147,12 @@ function collectNodeDocCommentLines(
         let formatted = formatLineComment(comment, lineCommentOptions);
         const rawText = getLineCommentRawText(comment);
         const trimmedRaw = typeof rawText === STRING_TYPE ? rawText.trim() : "";
-        const isFormattedDocStyle =
-            typeof formatted === STRING_TYPE &&
-            formatted.trim().startsWith("///");
+        const isFormattedDocStyle = typeof formatted === STRING_TYPE && formatted.trim().startsWith("///");
         const trimmedWithoutSlashes = trimmedRaw.replace(/^\/+/, "").trim();
         const hasDocTagAfterSlash = /^\/+\s*@/.test(trimmedRaw);
         const isDocStyleSlash = /^\/\/\s+\/\s*/.test(trimmedRaw);
-        const isBlockDocLike =
-            trimmedRaw.startsWith("/*") &&
-            trimmedWithoutSlashes.startsWith("@");
-        const isRawDocLike =
-            trimmedRaw.startsWith("///") ||
-            hasDocTagAfterSlash ||
-            isDocStyleSlash ||
-            isBlockDocLike;
+        const isBlockDocLike = trimmedRaw.startsWith("/*") && trimmedWithoutSlashes.startsWith("@");
+        const isRawDocLike = trimmedRaw.startsWith("///") || hasDocTagAfterSlash || isDocStyleSlash || isBlockDocLike;
         if (!isFormattedDocStyle && !isRawDocLike) {
             remainingComments.push(comment);
             continue;
@@ -198,9 +171,7 @@ function collectNodeDocCommentLines(
         const commentStartIndex =
             comment && typeof comment.start === NUMBER_TYPE
                 ? comment.start
-                : comment &&
-                    comment.start &&
-                    typeof comment.start.index === NUMBER_TYPE
+                : comment && comment.start && typeof comment.start.index === NUMBER_TYPE
                   ? comment.start.index
                   : null;
 
@@ -208,8 +179,7 @@ function collectNodeDocCommentLines(
             Number.isInteger(commentStartIndex) &&
             Number.isInteger(nodeStartIndex) &&
             commentStartIndex < nodeStartIndex;
-        const considerAsLeading =
-            isBeforeNode || comment?.placement === "leading";
+        const considerAsLeading = isBeforeNode || comment?.placement === "leading";
         if (!considerAsLeading) {
             remainingComments.push(comment);
             continue;
@@ -247,12 +217,8 @@ function tryCollectDocLinesFromProgramComments(
         if (!pc || pc.type !== "CommentLine" || pc.printed) {
             continue;
         }
-        let pcEndIndex =
-            typeof pc.end === NUMBER_TYPE ? pc.end : (pc?.end?.index ?? null);
-        const pcStartIndex =
-            typeof pc.start === NUMBER_TYPE
-                ? pc.start
-                : (pc?.start?.index ?? null);
+        let pcEndIndex = typeof pc.end === NUMBER_TYPE ? pc.end : (pc?.end?.index ?? null);
+        const pcStartIndex = typeof pc.start === NUMBER_TYPE ? pc.start : (pc?.start?.index ?? null);
         if (!Number.isInteger(pcEndIndex)) {
             pcEndIndex = Number.isInteger(pcStartIndex) ? pcStartIndex : null;
         }
@@ -268,9 +234,7 @@ function tryCollectDocLinesFromProgramComments(
             break;
         }
         docCandidates.unshift(pc);
-        anchorIndex = Number.isInteger(pcStartIndex)
-            ? pcStartIndex
-            : pcEndIndex;
+        anchorIndex = Number.isInteger(pcStartIndex) ? pcStartIndex : pcEndIndex;
     }
 
     if (docCandidates.length === 0) {
@@ -278,9 +242,7 @@ function tryCollectDocLinesFromProgramComments(
     }
 
     const fallbackOptions = resolveLineCommentOptions(options);
-    const collected = docCandidates.map((c) =>
-        formatLineComment(c, fallbackOptions)
-    );
+    const collected = docCandidates.map((c) => formatLineComment(c, fallbackOptions));
     const flattenedCollected = flattenDocEntries(collected);
     for (const c of docCandidates) {
         c.printed = true;
@@ -294,10 +256,7 @@ function tryCollectDocLinesFromSourceText(
     options: any,
     programCommentArray: readonly any[]
 ) {
-    if (
-        typeof sourceText !== STRING_TYPE ||
-        !Number.isInteger(nodeStartIndex)
-    ) {
+    if (typeof sourceText !== STRING_TYPE || !Number.isInteger(nodeStartIndex)) {
         return null;
     }
 
@@ -325,10 +284,7 @@ function tryCollectDocLinesFromSourceText(
         if (!/^\s*\/\//.test(trimmed)) {
             break;
         }
-        const isDocLike =
-            /^\/{2,}/.test(trimmed) ||
-            /^\/\/\s*\//.test(trimmed) ||
-            /^\/\s*@/.test(trimmed);
+        const isDocLike = /^\/{2,}/.test(trimmed) || /^\/\/\s*\//.test(trimmed) || /^\/\s*@/.test(trimmed);
         if (!isDocLike) {
             break;
         }
@@ -347,10 +303,7 @@ function tryCollectDocLinesFromSourceText(
     const fallbackOptions = resolveLineCommentOptions(options);
     const formatted = candidates.map((c) => {
         const matchNode = programCommentArray.find((pc) => {
-            const startIndex =
-                typeof pc?.start === NUMBER_TYPE
-                    ? pc.start
-                    : (pc?.start?.index ?? null);
+            const startIndex = typeof pc?.start === NUMBER_TYPE ? pc.start : (pc?.start?.index ?? null);
             return Number.isInteger(startIndex) && startIndex === c.start;
         });
         if (matchNode) {
@@ -372,22 +325,12 @@ export function isLineCommentDocLike(rawText: unknown): boolean {
     const trimmedWithoutSlashes = trimmedRaw.replace(/^\/+/, "").trim();
     const hasDocTagAfterSlash = /^\/+\s*@/.test(trimmedRaw);
     const isDocStyleSlash = /^\/\/\s+\/\s*/.test(trimmedRaw);
-    const isBlockDocLike =
-        trimmedRaw.startsWith("/*") && trimmedWithoutSlashes.startsWith("@");
+    const isBlockDocLike = trimmedRaw.startsWith("/*") && trimmedWithoutSlashes.startsWith("@");
 
-    return (
-        trimmedRaw.startsWith("///") ||
-        hasDocTagAfterSlash ||
-        isDocStyleSlash ||
-        isBlockDocLike
-    );
+    return trimmedRaw.startsWith("///") || hasDocTagAfterSlash || isDocStyleSlash || isBlockDocLike;
 }
 
-function hasTooManyBlankLinesBetween(
-    sourceText: string | null,
-    start: number | null,
-    end: number
-): boolean {
+function hasTooManyBlankLinesBetween(sourceText: string | null, start: number | null, end: number): boolean {
     if (typeof sourceText !== STRING_TYPE || !Number.isInteger(start)) {
         return false;
     }
@@ -448,14 +391,8 @@ export function collectLeadingProgramLineComments(
             continue;
         }
 
-        const commentEnd =
-            typeof comment.end === NUMBER_TYPE
-                ? comment.end
-                : (comment?.end?.index ?? null);
-        const commentStart =
-            typeof comment.start === NUMBER_TYPE
-                ? comment.start
-                : (comment?.start?.index ?? null);
+        const commentEnd = typeof comment.end === NUMBER_TYPE ? comment.end : (comment?.end?.index ?? null);
+        const commentStart = typeof comment.start === NUMBER_TYPE ? comment.start : (comment?.start?.index ?? null);
 
         if (!Number.isInteger(commentEnd) || commentEnd >= anchorIndex) {
             continue;
@@ -483,19 +420,13 @@ export function collectLeadingProgramLineComments(
 
         comment.printed = true;
         leadingLines.unshift(typeof formatted === STRING_TYPE ? formatted : "");
-        anchorIndex = Number.isInteger(commentStart)
-            ? commentStart
-            : commentEnd;
+        anchorIndex = Number.isInteger(commentStart) ? commentStart : commentEnd;
     }
 
     return leadingLines;
 }
 
-export function collectAdjacentLeadingSourceLineComments(
-    node: any,
-    options: any,
-    sourceText: string | null
-) {
+export function collectAdjacentLeadingSourceLineComments(node: any, options: any, sourceText: string | null) {
     if (!node || typeof sourceText !== STRING_TYPE) {
         return [];
     }
@@ -527,11 +458,7 @@ export function collectAdjacentLeadingSourceLineComments(
             break;
         }
 
-        if (
-            trimmed.startsWith("///") ||
-            /^\/\/\s*\//.test(trimmed) ||
-            /^\s*@/.test(trimmed)
-        ) {
+        if (trimmed.startsWith("///") || /^\/\/\s*\//.test(trimmed) || /^\s*@/.test(trimmed)) {
             break;
         }
 
@@ -556,11 +483,7 @@ export function extractLeadingNonDocCommentLines(comments: any, options: any) {
     let scanningLeadingComments = true;
 
     for (const comment of comments) {
-        if (
-            scanningLeadingComments &&
-            comment &&
-            comment.type === "CommentLine"
-        ) {
+        if (scanningLeadingComments && comment && comment.type === "CommentLine") {
             const formatted = formatLineComment(comment, lineCommentOptions);
             const trimmed = toTrimmedString(formatted);
 
@@ -569,15 +492,9 @@ export function extractLeadingNonDocCommentLines(comments: any, options: any) {
                 continue;
             }
 
-            if (
-                trimmed.startsWith("//") &&
-                !trimmed.startsWith("///") &&
-                !/^\/\/\s*\//.test(trimmed)
-            ) {
+            if (trimmed.startsWith("//") && !trimmed.startsWith("///") && !/^\/\/\s*\//.test(trimmed)) {
                 comment.printed = true;
-                leadingLines.push(
-                    typeof formatted === STRING_TYPE ? formatted : ""
-                );
+                leadingLines.push(typeof formatted === STRING_TYPE ? formatted : "");
                 continue;
             }
         }

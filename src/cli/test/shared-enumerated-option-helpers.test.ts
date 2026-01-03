@@ -8,11 +8,7 @@ import {
 
 void describe("createEnumeratedOptionHelpers", () => {
     void it("formats the sorted list of enumerated values", () => {
-        const helpers = createEnumeratedOptionHelpers([
-            "json",
-            "human",
-            "yaml"
-        ]);
+        const helpers = createEnumeratedOptionHelpers(["json", "human", "yaml"]);
         assert.equal(helpers.formatList(), "human, json, yaml");
     });
 
@@ -27,15 +23,12 @@ void describe("createEnumeratedOptionHelpers", () => {
     void it("throws with a descriptive message when value is not allowed", () => {
         const helpers = createEnumeratedOptionHelpers(
             ["json"],
-            (list, received) =>
-                `Expected values: ${list}. Received: ${received}.`
+            (list, received) => `Expected values: ${list}. Received: ${received}.`
         );
 
         assert.throws(
             () => helpers.requireValue("yaml"),
-            (error) =>
-                error instanceof Error &&
-                error.message === 'Expected values: json. Received: "yaml".'
+            (error) => error instanceof Error && error.message === 'Expected values: json. Received: "yaml".'
         );
     });
 
@@ -43,10 +36,7 @@ void describe("createEnumeratedOptionHelpers", () => {
         const helpers = createEnumeratedOptionHelpers(["json"]);
         assert.throws(
             () => helpers.requireValue("yaml"),
-            (error) =>
-                error instanceof Error &&
-                error.message ===
-                    'Value must be one of: json. Received: "yaml".'
+            (error) => error instanceof Error && error.message === 'Value must be one of: json. Received: "yaml".'
         );
     });
 
@@ -62,8 +52,7 @@ void describe("createEnumeratedOptionHelpers", () => {
             () => helpers.requireValue(42),
             (error) =>
                 error instanceof TypeError &&
-                error.message ===
-                    "Output format must be provided as a string (received type 'number')."
+                error.message === "Output format must be provided as a string (received type 'number')."
         );
     });
 });

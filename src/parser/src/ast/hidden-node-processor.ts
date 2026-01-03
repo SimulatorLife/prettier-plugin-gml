@@ -85,11 +85,7 @@ function handleEOF(state) {
     }
 }
 
-export function createHiddenNodeProcessor({
-    comments,
-    whitespaces,
-    lexerTokens
-}) {
+export function createHiddenNodeProcessor({ comments, whitespaces, lexerTokens }) {
     const state = createState();
     const tokens = lexerTokens;
 
@@ -117,16 +113,8 @@ export function createHiddenNodeProcessor({
                 return;
             }
 
-            if (
-                tokenType === tokens.WhiteSpaces ||
-                tokenType === tokens.LineTerminator
-            ) {
-                handleWhitespace(
-                    token,
-                    tokenText,
-                    tokenType === tokens.LineTerminator,
-                    { state, whitespaces }
-                );
+            if (tokenType === tokens.WhiteSpaces || tokenType === tokens.LineTerminator) {
+                handleWhitespace(token, tokenText, tokenType === tokens.LineTerminator, { state, whitespaces });
                 return;
             }
 

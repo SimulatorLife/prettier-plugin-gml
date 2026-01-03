@@ -21,11 +21,7 @@ void test("formats struct call arguments across multiple lines with aligned colo
     const lines = formatted.split("\n");
     const structStart = lines.indexOf("        {");
 
-    assert.notEqual(
-        structStart,
-        -1,
-        "Expected the formatted output to include a struct literal argument."
-    );
+    assert.notEqual(structStart, -1, "Expected the formatted output to include a struct literal argument.");
 
     const structLines = lines.slice(structStart, structStart + 6);
 

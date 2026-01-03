@@ -121,10 +121,7 @@ void test("getAllDeclarations is sorted by scope ID then name", () => {
 
         const scopeCmp = prev.scopeId.localeCompare(curr.scopeId);
         if (scopeCmp === 0) {
-            assert.ok(
-                prev.name.localeCompare(curr.name) <= 0,
-                `Expected ${prev.name} <= ${curr.name}`
-            );
+            assert.ok(prev.name.localeCompare(curr.name) <= 0, `Expected ${prev.name} <= ${curr.name}`);
         }
     }
 });
@@ -193,10 +190,7 @@ void test("getDeclarationInScope returns null for undeclared symbol", () => {
     tracker.enterScope("program");
     const programScope = tracker.currentScope();
 
-    const metadata = tracker.getDeclarationInScope(
-        "unknownVar",
-        programScope?.id
-    );
+    const metadata = tracker.getDeclarationInScope("unknownVar", programScope?.id);
 
     assert.strictEqual(metadata, null);
 });
@@ -227,17 +221,11 @@ void test("getDeclarationInScope returns cloned metadata", () => {
         end: { line: 1, index: 7 }
     });
 
-    const metadata1 = tracker.getDeclarationInScope(
-        "testVar",
-        programScope?.id
-    );
+    const metadata1 = tracker.getDeclarationInScope("testVar", programScope?.id);
     assert.ok(metadata1?.start);
     metadata1.start.line = 999;
 
-    const metadata2 = tracker.getDeclarationInScope(
-        "testVar",
-        programScope?.id
-    );
+    const metadata2 = tracker.getDeclarationInScope("testVar", programScope?.id);
 
     assert.strictEqual(metadata2?.start?.line, 1);
 });
@@ -246,28 +234,16 @@ void test("getDeclarationInScope only returns declarations in the specified scop
     const tracker = new ScopeTracker({ enabled: true });
     const { programScope, functionScope } = setupNestedScopes(tracker);
 
-    const globalInProgram = tracker.getDeclarationInScope(
-        "globalVar",
-        programScope?.id
-    );
+    const globalInProgram = tracker.getDeclarationInScope("globalVar", programScope?.id);
     assert.ok(globalInProgram);
 
-    const globalInFunction = tracker.getDeclarationInScope(
-        "globalVar",
-        functionScope?.id
-    );
+    const globalInFunction = tracker.getDeclarationInScope("globalVar", functionScope?.id);
     assert.strictEqual(globalInFunction, null);
 
-    const localInFunction = tracker.getDeclarationInScope(
-        "localVar",
-        functionScope?.id
-    );
+    const localInFunction = tracker.getDeclarationInScope("localVar", functionScope?.id);
     assert.ok(localInFunction);
 
-    const localInProgram = tracker.getDeclarationInScope(
-        "localVar",
-        programScope?.id
-    );
+    const localInProgram = tracker.getDeclarationInScope("localVar", programScope?.id);
     assert.strictEqual(localInProgram, null);
 });
 

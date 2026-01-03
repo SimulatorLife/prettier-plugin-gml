@@ -1,8 +1,4 @@
-import {
-    capitalize,
-    isNonEmptyTrimmedString,
-    toTrimmedString
-} from "../../../utils/string.js";
+import { capitalize, isNonEmptyTrimmedString, toTrimmedString } from "../../../utils/string.js";
 import type { DocCommentLines } from "../../comment-utils.js";
 import { parseDocCommentMetadata, isDocCommentTagLine } from "./metadata.js";
 
@@ -28,9 +24,7 @@ const KNOWN_TYPE_IDENTIFIERS = Object.freeze([
     "constant"
 ]);
 
-const KNOWN_TYPES = new Set(
-    KNOWN_TYPE_IDENTIFIERS.map((identifier) => identifier.toLowerCase())
-);
+const KNOWN_TYPES = new Set(KNOWN_TYPE_IDENTIFIERS.map((identifier) => identifier.toLowerCase()));
 
 export function dedupeReturnDocLines(
     lines: DocCommentLines | string[],
@@ -40,10 +34,7 @@ export function dedupeReturnDocLines(
         includeNonReturnLine?: (line: string, trimmed: string) => boolean;
     } = {}
 ) {
-    const shouldIncludeNonReturn =
-        typeof includeNonReturnLine === "function"
-            ? includeNonReturnLine
-            : () => true;
+    const shouldIncludeNonReturn = typeof includeNonReturnLine === "function" ? includeNonReturnLine : () => true;
 
     const deduped: string[] = [];
     const seenReturnLines = new Set<string>();
@@ -91,12 +82,8 @@ export function dedupeReturnDocLines(
     return { lines: resultLines as DocCommentLines, removed: removedAnyReturnLine };
 }
 
-export function reorderDescriptionLinesToTop(
-    docLines: DocCommentLines | string[]
-): DocCommentLines {
-    const normalizedDocLines: string[] = Array.isArray(docLines)
-        ? [...docLines]
-        : [];
+export function reorderDescriptionLinesToTop(docLines: DocCommentLines | string[]): DocCommentLines {
+    const normalizedDocLines: string[] = Array.isArray(docLines) ? [...docLines] : [];
 
     if (normalizedDocLines.length === 0) {
         return normalizedDocLines as DocCommentLines;
@@ -105,10 +92,7 @@ export function reorderDescriptionLinesToTop(
     const descriptionBlocks: number[][] = [];
     for (let index = 0; index < normalizedDocLines.length; index += 1) {
         const line = normalizedDocLines[index];
-        if (
-            typeof line !== STRING_TYPE ||
-            !/^\/\/\/\s*@description\b/i.test(line.trim())
-        ) {
+        if (typeof line !== STRING_TYPE || !/^\/\/\/\s*@description\b/i.test(line.trim())) {
             continue;
         }
 
@@ -116,11 +100,7 @@ export function reorderDescriptionLinesToTop(
         let lookahead = index + 1;
         while (lookahead < normalizedDocLines.length) {
             const nextLine = normalizedDocLines[lookahead];
-            if (
-                typeof nextLine === STRING_TYPE &&
-                nextLine.startsWith("///") &&
-                !parseDocCommentMetadata(nextLine)
-            ) {
+            if (typeof nextLine === STRING_TYPE && nextLine.startsWith("///") && !parseDocCommentMetadata(nextLine)) {
                 blockIndices.push(lookahead);
                 lookahead += 1;
                 continue;
@@ -151,10 +131,7 @@ export function reorderDescriptionLinesToTop(
 
             if (/^\/\/\/\s*@description\b/i.test(docLine.trim())) {
                 const metadata = parseDocCommentMetadata(docLine);
-                const descriptionText =
-                    typeof metadata?.name === STRING_TYPE
-                        ? metadata.name.trim()
-                        : "";
+                const descriptionText = typeof metadata?.name === STRING_TYPE ? metadata.name.trim() : "";
                 if (!isNonEmptyTrimmedString(descriptionText)) {
                     continue;
                 }
@@ -167,9 +144,7 @@ export function reorderDescriptionLinesToTop(
         }
     }
 
-    const filtered = normalizedDocLines.filter(
-        (_line, idx) => !descriptionIndexSet.has(idx)
-    );
+    const filtered = normalizedDocLines.filter((_line, idx) => !descriptionIndexSet.has(idx));
 
     const result = [...descriptionLines, ...filtered] as any;
     if ((docLines as any)._preserveDescriptionBreaks === true) {
@@ -189,18 +164,14 @@ export function convertLegacyReturnsDescriptionLinesToMetadata(
     docLines: DocCommentLines | string[],
     opts: { normalizeDocCommentTypeAnnotations?: (line: string) => string } = {}
 ) {
-    const normalizedLines: string[] = Array.isArray(docLines)
-        ? [...docLines]
-        : [];
+    const normalizedLines: string[] = Array.isArray(docLines) ? [...docLines] : [];
 
     if (normalizedLines.length === 0) {
         return normalizedLines as DocCommentLines;
     }
 
-    const preserveLeadingBlank =
-        (docLines as any)._suppressLeadingBlank === true;
-    const preserveDescriptionBreaks =
-        (docLines as any)._preserveDescriptionBreaks === true;
+    const preserveLeadingBlank = (docLines as any)._suppressLeadingBlank === true;
+    const preserveDescriptionBreaks = (docLines as any)._preserveDescriptionBreaks === true;
 
     const convertedReturns: string[] = [];
     const retainedLines: string[] = [];
@@ -234,9 +205,7 @@ export function convertLegacyReturnsDescriptionLinesToMetadata(
             continue;
         }
 
-        const returnsMatch = trimmedSuffix.match(
-            LEGACY_RETURNS_DESCRIPTION_PATTERN
-        );
+        const returnsMatch = trimmedSuffix.match(LEGACY_RETURNS_DESCRIPTION_PATTERN);
         let payload: string;
 
         const returnsColonMatch = trimmedSuffix.match(/^returns\s*:\s*(.*)$/i);
@@ -295,10 +264,7 @@ export function convertLegacyReturnsDescriptionLinesToMetadata(
     const resultLines =
         convertedReturns.length > 0
             ? retainedLines.filter(
-                  (line) =>
-                      !isLegacyFunctionTagWithoutParams(
-                          typeof line === STRING_TYPE ? line : null
-                      )
+                  (line) => !isLegacyFunctionTagWithoutParams(typeof line === STRING_TYPE ? line : null)
               )
             : [...retainedLines];
 
@@ -342,9 +308,7 @@ function parseLegacyReturnPayload(payload: string) {
         return null;
     }
 
-    const typeAndDescriptionMatch = trimmedPayload.match(
-        /^([^,–—-]+)[,–—-]\s*(.+)$/
-    );
+    const typeAndDescriptionMatch = trimmedPayload.match(/^([^,–—-]+)[,–—-]\s*(.+)$/);
 
     if (typeAndDescriptionMatch) {
         return {
@@ -397,14 +361,12 @@ export function promoteLeadingDocCommentTextToDescription(
         }
 
         const trimmed = line.trim();
-        const isDocLikeSummary =
-            trimmed.startsWith("///") || /^\/\/\s*\//.test(trimmed);
+        const isDocLikeSummary = trimmed.startsWith("///") || /^\/\/\s*\//.test(trimmed);
         if (!isDocLikeSummary) {
             break;
         }
 
-        const isTaggedLine =
-            /^\/\/\/\s*@/i.test(trimmed) || /^\/\/\s*\/\s*@/i.test(trimmed);
+        const isTaggedLine = /^\/\/\/\s*@/i.test(trimmed) || /^\/\/\s*\/\s*@/i.test(trimmed);
         if (isTaggedLine) {
             break;
         }
@@ -430,9 +392,7 @@ export function promoteLeadingDocCommentTextToDescription(
         return normalizedLines as DocCommentLines;
     }
 
-    const firstContentIndex = segments.findIndex(({ suffix }) =>
-        isNonEmptyTrimmedString(suffix)
-    );
+    const firstContentIndex = segments.findIndex(({ suffix }) => isNonEmptyTrimmedString(suffix));
 
     if (firstContentIndex === -1) {
         return normalizedLines as DocCommentLines;
@@ -440,9 +400,7 @@ export function promoteLeadingDocCommentTextToDescription(
 
     const remainder = normalizedLines.slice(leadingCount);
     const remainderContainsTag = remainder.some(isDocCommentTagLine);
-    const extraContainsTag =
-        Array.isArray(extraTaggedDocLines) &&
-        extraTaggedDocLines.some(isDocCommentTagLine);
+    const extraContainsTag = Array.isArray(extraTaggedDocLines) && extraTaggedDocLines.some(isDocCommentTagLine);
 
     if (!remainderContainsTag && !extraContainsTag && !forcePromotion) {
         return normalizedLines as DocCommentLines;
@@ -450,16 +408,10 @@ export function promoteLeadingDocCommentTextToDescription(
 
     const promotedLines: string[] = [];
     const firstSegment = segments[firstContentIndex];
-    const indent = firstSegment.prefix.slice(
-        0,
-        Math.max(firstSegment.prefix.length - 3, 0)
-    );
+    const indent = firstSegment.prefix.slice(0, Math.max(firstSegment.prefix.length - 3, 0));
     const normalizedBasePrefix = `${indent}///`;
     const descriptionLinePrefix = `${normalizedBasePrefix} @description `;
-    const continuationPadding = Math.max(
-        descriptionLinePrefix.length - (indent.length + 4),
-        0
-    );
+    const continuationPadding = Math.max(descriptionLinePrefix.length - (indent.length + 4), 0);
     const continuationPrefix = `${indent}/// ${" ".repeat(continuationPadding)}`;
 
     for (const [index, { prefix, suffix }] of segments.entries()) {
@@ -467,18 +419,14 @@ export function promoteLeadingDocCommentTextToDescription(
         const hasLeadingWhitespace = suffix.length === 0 || /^\s/.test(suffix);
 
         if (index < firstContentIndex) {
-            const normalizedSuffix = hasLeadingWhitespace
-                ? suffix
-                : ` ${suffix}`;
+            const normalizedSuffix = hasLeadingWhitespace ? suffix : ` ${suffix}`;
             promotedLines.push(`${prefix}${normalizedSuffix}`);
             continue;
         }
 
         if (index === firstContentIndex) {
             promotedLines.push(
-                trimmedSuffix.length > 0
-                    ? `${prefix} @description ${trimmedSuffix}`
-                    : `${prefix} @description`
+                trimmedSuffix.length > 0 ? `${prefix} @description ${trimmedSuffix}` : `${prefix} @description`
             );
             continue;
         }
@@ -496,14 +444,10 @@ export function promoteLeadingDocCommentTextToDescription(
         promotedLines.push(resolvedContinuation);
     }
 
-    const result: DocCommentLines = [
-        ...promotedLines,
-        ...remainder
-    ] as DocCommentLines;
+    const result: DocCommentLines = [...promotedLines, ...remainder] as DocCommentLines;
 
     const hasContinuationSegments = segments.some(
-        ({ suffix }, index) =>
-            index > firstContentIndex && isNonEmptyTrimmedString(suffix)
+        ({ suffix }, index) => index > firstContentIndex && isNonEmptyTrimmedString(suffix)
     );
 
     if (hasContinuationSegments) {
@@ -517,12 +461,8 @@ export function promoteLeadingDocCommentTextToDescription(
     return result;
 }
 
-export function hasLegacyReturnsDescriptionLines(
-    docLines: DocCommentLines | string[]
-) {
-    const normalizedLines: string[] = Array.isArray(docLines)
-        ? [...docLines]
-        : [];
+export function hasLegacyReturnsDescriptionLines(docLines: DocCommentLines | string[]) {
+    const normalizedLines: string[] = Array.isArray(docLines) ? [...docLines] : [];
     if (normalizedLines.length === 0) {
         return false;
     }

@@ -43,11 +43,7 @@ export function tryAddSample<T>(
  * @param {(existing: T, candidate: T) => boolean} [isEqual] - Optional equality check
  * @returns {boolean} True if the sample exists, false otherwise
  */
-export function hasSample<T>(
-    samples: Array<T>,
-    sample: T,
-    isEqual?: (existing: T, candidate: T) => boolean
-): boolean {
+export function hasSample<T>(samples: Array<T>, sample: T, isEqual?: (existing: T, candidate: T) => boolean): boolean {
     if (isEqual) {
         return samples.some((existing) => isEqual(existing, sample));
     }

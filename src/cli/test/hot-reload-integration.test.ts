@@ -76,13 +76,7 @@ void describe("Hot reload integration loop", () => {
                 reject(
                     error instanceof Error
                         ? error
-                        : new Error(
-                              `WebSocket error: ${
-                                  error === undefined
-                                      ? "unknown"
-                                      : String(error)
-                              }`
-                          )
+                        : new Error(`WebSocket error: ${error === undefined ? "unknown" : String(error)}`)
                 );
             });
 
@@ -108,18 +102,12 @@ void describe("Hot reload integration loop", () => {
             // Expected when aborting
         }
 
-        assert.ok(
-            receivedPatches.length > 0,
-            `Should receive at least one patch (received ${receivedPatches.length})`
-        );
+        assert.ok(receivedPatches.length > 0, `Should receive at least one patch (received ${receivedPatches.length})`);
 
         const patch = receivedPatches.at(-1);
         assert.strictEqual(patch.kind, "script", "Patch should be a script");
         assert.ok(patch.id, "Patch should have an ID");
         assert.ok(patch.js_body, "Patch should have JavaScript body");
-        assert.ok(
-            patch.id.includes("test_script"),
-            "Patch ID should reference the script name"
-        );
+        assert.ok(patch.id.includes("test_script"), "Patch ID should reference the script name");
     });
 });

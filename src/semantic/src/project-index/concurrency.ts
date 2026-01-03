@@ -2,51 +2,44 @@ import { Core } from "@gml-modules/core";
 
 const PROJECT_INDEX_GML_CONCURRENCY_ENV_VAR = "GML_PROJECT_INDEX_CONCURRENCY";
 const PROJECT_INDEX_GML_CONCURRENCY_BASELINE = 4;
-const PROJECT_INDEX_GML_MAX_CONCURRENCY_ENV_VAR =
-    "GML_PROJECT_INDEX_MAX_CONCURRENCY";
+const PROJECT_INDEX_GML_MAX_CONCURRENCY_ENV_VAR = "GML_PROJECT_INDEX_MAX_CONCURRENCY";
 const PROJECT_INDEX_GML_MAX_CONCURRENCY_BASELINE = 16;
 const MIN_CONCURRENCY = 1;
 
-const projectIndexConcurrencyLimitConfig =
-    Core.createEnvConfiguredValueWithFallback({
-        defaultValue: PROJECT_INDEX_GML_MAX_CONCURRENCY_BASELINE,
-        envVar: PROJECT_INDEX_GML_MAX_CONCURRENCY_ENV_VAR,
-        resolve: (value, { fallback }) =>
-            normalizeConcurrencyValue(value, {
-                min: MIN_CONCURRENCY,
-                max: Number.MAX_SAFE_INTEGER,
-                fallback,
-                onInvalid: fallback
-            }),
-        computeFallback: ({ defaultValue }) => defaultValue
-    });
+const projectIndexConcurrencyLimitConfig = Core.createEnvConfiguredValueWithFallback({
+    defaultValue: PROJECT_INDEX_GML_MAX_CONCURRENCY_BASELINE,
+    envVar: PROJECT_INDEX_GML_MAX_CONCURRENCY_ENV_VAR,
+    resolve: (value, { fallback }) =>
+        normalizeConcurrencyValue(value, {
+            min: MIN_CONCURRENCY,
+            max: Number.MAX_SAFE_INTEGER,
+            fallback,
+            onInvalid: fallback
+        }),
+    computeFallback: ({ defaultValue }) => defaultValue
+});
 
-const projectIndexConcurrencyConfig = Core.createEnvConfiguredValueWithFallback(
-    {
-        defaultValue: PROJECT_INDEX_GML_CONCURRENCY_BASELINE,
-        envVar: PROJECT_INDEX_GML_CONCURRENCY_ENV_VAR,
-        resolve: (value, { fallback }) => {
-            const limit = Math.max(
-                MIN_CONCURRENCY,
-                getDefaultProjectIndexGmlConcurrencyLimit()
-            );
-            const normalizedFallback = normalizeConcurrencyValue(fallback, {
-                min: MIN_CONCURRENCY,
-                max: limit,
-                fallback: limit,
-                onInvalid: limit
-            });
+const projectIndexConcurrencyConfig = Core.createEnvConfiguredValueWithFallback({
+    defaultValue: PROJECT_INDEX_GML_CONCURRENCY_BASELINE,
+    envVar: PROJECT_INDEX_GML_CONCURRENCY_ENV_VAR,
+    resolve: (value, { fallback }) => {
+        const limit = Math.max(MIN_CONCURRENCY, getDefaultProjectIndexGmlConcurrencyLimit());
+        const normalizedFallback = normalizeConcurrencyValue(fallback, {
+            min: MIN_CONCURRENCY,
+            max: limit,
+            fallback: limit,
+            onInvalid: limit
+        });
 
-            return normalizeConcurrencyValue(value, {
-                min: MIN_CONCURRENCY,
-                max: limit,
-                fallback: normalizedFallback,
-                onInvalid: normalizedFallback
-            });
-        },
-        computeFallback: ({ defaultValue }) => defaultValue
-    }
-);
+        return normalizeConcurrencyValue(value, {
+            min: MIN_CONCURRENCY,
+            max: limit,
+            fallback: normalizedFallback,
+            onInvalid: normalizedFallback
+        });
+    },
+    computeFallback: ({ defaultValue }) => defaultValue
+});
 
 function getDefaultProjectIndexGmlConcurrency(): number {
     return projectIndexConcurrencyConfig.get();
@@ -88,29 +81,20 @@ function setDefaultProjectIndexGmlConcurrencyLimit(limit: unknown) {
     return projectIndexConcurrencyLimitConfig.set(limit);
 }
 
-function applyProjectIndexConcurrencyEnvOverride(
-    env?: Record<string, string> | null
-) {
+function applyProjectIndexConcurrencyEnvOverride(env?: Record<string, string> | null) {
     Core.applyConfiguredValueEnvOverride(projectIndexConcurrencyConfig, env);
 }
 
-function applyProjectIndexConcurrencyLimitEnvOverride(
-    env?: Record<string, string> | null
-) {
-    Core.applyConfiguredValueEnvOverride(
-        projectIndexConcurrencyLimitConfig,
-        env
-    );
+function applyProjectIndexConcurrencyLimitEnvOverride(env?: Record<string, string> | null) {
+    Core.applyConfiguredValueEnvOverride(projectIndexConcurrencyLimitConfig, env);
 }
 
 applyProjectIndexConcurrencyLimitEnvOverride();
-const DEFAULT_PROJECT_INDEX_GML_CONCURRENCY_LIMIT =
-    getDefaultProjectIndexGmlConcurrencyLimit();
+const DEFAULT_PROJECT_INDEX_GML_CONCURRENCY_LIMIT = getDefaultProjectIndexGmlConcurrencyLimit();
 
 applyProjectIndexConcurrencyEnvOverride();
 
-const DEFAULT_PROJECT_INDEX_GML_CONCURRENCY =
-    getDefaultProjectIndexGmlConcurrency();
+const DEFAULT_PROJECT_INDEX_GML_CONCURRENCY = getDefaultProjectIndexGmlConcurrency();
 
 function normalizeConcurrencyValue(
     value: unknown,

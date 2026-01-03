@@ -30,10 +30,7 @@ void describe("resolveVmEvalTimeout", () => {
     });
 
     void it("returns the default when value is null", () => {
-        assert.strictEqual(
-            resolveVmEvalTimeout(null),
-            DEFAULT_VM_EVAL_TIMEOUT_MS
-        );
+        assert.strictEqual(resolveVmEvalTimeout(null), DEFAULT_VM_EVAL_TIMEOUT_MS);
     });
 
     void it("coerces numeric input to an integer", () => {
@@ -50,10 +47,7 @@ void describe("resolveVmEvalTimeout", () => {
     });
 
     void it("ignores empty string overrides", () => {
-        assert.strictEqual(
-            resolveVmEvalTimeout("   "),
-            DEFAULT_VM_EVAL_TIMEOUT_MS
-        );
+        assert.strictEqual(resolveVmEvalTimeout("   "), DEFAULT_VM_EVAL_TIMEOUT_MS);
     });
 
     void it("rejects negative values", () => {
@@ -71,10 +65,7 @@ void describe("resolveVmEvalTimeout", () => {
 
 void describe("VM evaluation timeout defaults", () => {
     void it("exposes the configured default timeout", () => {
-        assert.strictEqual(
-            getDefaultVmEvalTimeoutMs(),
-            DEFAULT_VM_EVAL_TIMEOUT_MS
-        );
+        assert.strictEqual(getDefaultVmEvalTimeoutMs(), DEFAULT_VM_EVAL_TIMEOUT_MS);
     });
 
     void it("allows overriding the default timeout", () => {

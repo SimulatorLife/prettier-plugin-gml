@@ -18,8 +18,7 @@ export async function createTempProjectWorkspace(prefix: string) {
 }
 
 export async function createAssetRenameProject() {
-    const { projectRoot, writeFile } =
-        await createTempProjectWorkspace("gml-asset-rename-");
+    const { projectRoot, writeFile } = await createTempProjectWorkspace("gml-asset-rename-");
 
     await writeFile(
         "MyGame.yyp",
@@ -55,10 +54,7 @@ export async function createAssetRenameProject() {
     );
 
     const source = "function demo_script() {\n    return 42;\n}\n";
-    const scriptPath = await writeFile(
-        "scripts/demo_script/demo_script.gml",
-        source
-    );
+    const scriptPath = await writeFile("scripts/demo_script/demo_script.gml", source);
 
     await writeFile(
         "objects/obj_controller/obj_controller.yy",
@@ -87,9 +83,7 @@ export async function createAssetRenameProject() {
 }
 
 export async function createAssetCollisionProject() {
-    const { projectRoot, writeFile } = await createTempProjectWorkspace(
-        "gml-asset-collision-"
-    );
+    const { projectRoot, writeFile } = await createTempProjectWorkspace("gml-asset-collision-");
 
     await writeFile(
         "MyGame.yyp",
@@ -145,14 +139,8 @@ export async function createAssetCollisionProject() {
 
     const primarySource = "function demo_script() {\n    return 1;\n}\n";
     const secondarySource = "function DemoScript() {\n    return 2;\n}\n";
-    const primaryPath = await writeFile(
-        "scripts/demo_script/demo_script.gml",
-        primarySource
-    );
-    await writeFile(
-        "scripts/demo_script/DemoScriptExisting.gml",
-        secondarySource
-    );
+    const primaryPath = await writeFile("scripts/demo_script/demo_script.gml", primarySource);
+    await writeFile("scripts/demo_script/DemoScriptExisting.gml", secondarySource);
 
     const projectIndex = await buildProjectIndex(projectRoot);
 

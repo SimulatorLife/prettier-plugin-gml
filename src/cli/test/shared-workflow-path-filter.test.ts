@@ -2,18 +2,11 @@ import assert from "node:assert/strict";
 import path from "node:path";
 import { describe, it } from "node:test";
 
-import {
-    createWorkflowPathFilter,
-    ensureManualWorkflowArtifactsAllowed
-} from "../src/workflow/path-filter.js";
+import { createWorkflowPathFilter, ensureManualWorkflowArtifactsAllowed } from "../src/workflow/path-filter.js";
 
 void describe("workflow path filter helpers", () => {
     void it("allows paths that satisfy the workflow filters", () => {
-        const workspace = path.resolve(
-            "/tmp",
-            "workflow-path-filter",
-            "allowed"
-        );
+        const workspace = path.resolve("/tmp", "workflow-path-filter", "allowed");
         const outputPath = path.join(workspace, "artefacts", "manual.json");
         const filter = createWorkflowPathFilter({ allowPaths: [workspace] });
 
@@ -51,18 +44,12 @@ void describe("workflow path filter helpers", () => {
                 });
             },
             (error) =>
-                error instanceof Error &&
-                /Manual cache root/.test(error.message) &&
-                error.message.includes(denied)
+                error instanceof Error && /Manual cache root/.test(error.message) && error.message.includes(denied)
         );
     });
 
     void it("rejects files outside the workflow filters", () => {
-        const restricted = path.resolve(
-            "/tmp",
-            "workflow-path-filter",
-            "restricted"
-        );
+        const restricted = path.resolve("/tmp", "workflow-path-filter", "restricted");
         const filter = createWorkflowPathFilter({ denyPaths: [restricted] });
 
         assert.throws(
@@ -72,9 +59,7 @@ void describe("workflow path filter helpers", () => {
                 });
             },
             (error) =>
-                error instanceof Error &&
-                /Manual output path/.test(error.message) &&
-                error.message.includes(restricted)
+                error instanceof Error && /Manual output path/.test(error.message) && error.message.includes(restricted)
         );
     });
 });

@@ -4,9 +4,7 @@ const VERSION_REQUIREMENTS = new Map<number, { minor: number; label: string }>([
 ]);
 
 const LOWEST_SUPPORTED_MAJOR = Math.min(...VERSION_REQUIREMENTS.keys());
-const LOWEST_SUPPORTED_REQUIREMENT = VERSION_REQUIREMENTS.get(
-    LOWEST_SUPPORTED_MAJOR
-) ?? {
+const LOWEST_SUPPORTED_REQUIREMENT = VERSION_REQUIREMENTS.get(LOWEST_SUPPORTED_MAJOR) ?? {
     minor: 0,
     label: `${LOWEST_SUPPORTED_MAJOR}.0.0`
 };
@@ -24,9 +22,7 @@ function parseVersionPart(part: string): number {
 
 function buildUnsupportedVersionError(label?: string): Error {
     const requiredLabel = label ?? LOWEST_SUPPORTED_REQUIREMENT.label;
-    return new Error(
-        `Node.js ${requiredLabel} or newer is required. Detected ${process.version}.`
-    );
+    return new Error(`Node.js ${requiredLabel} or newer is required. Detected ${process.version}.`);
 }
 
 function normalizeVersionString(rawVersion: string): string {
@@ -49,9 +45,7 @@ function readNodeVersionParts(environment: NodeEnvironment = process): {
     minorPart: string;
 } {
     const { version, versions } = environment;
-    const normalized = normalizeVersionString(
-        typeof version === "string" ? version : (versions?.node ?? "")
-    );
+    const normalized = normalizeVersionString(typeof version === "string" ? version : (versions?.node ?? ""));
 
     const [majorPart = "", minorPart = "0"] = normalized.split(".");
     return { majorPart, minorPart };
@@ -63,9 +57,7 @@ export function assertSupportedNodeVersion(): void {
     const minor = parseVersionPart(minorPart);
 
     if (Number.isNaN(major) || Number.isNaN(minor)) {
-        throw new TypeError(
-            `Unable to determine Node.js version from ${process.version}.`
-        );
+        throw new TypeError(`Unable to determine Node.js version from ${process.version}.`);
     }
 
     if (major < LOWEST_SUPPORTED_MAJOR) {

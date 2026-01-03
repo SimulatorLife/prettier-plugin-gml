@@ -5,10 +5,8 @@ import test from "node:test";
 
 import { Core } from "@gml-modules/core";
 
-const FUNCTION_DECLARATION_PATTERN =
-    /\bfunction\s+([A-Za-z_$][A-Za-z0-9_$]*)\s*\(/g;
-const FUNCTION_ASSIGNMENT_PATTERN =
-    /\b([A-Za-z_$][A-Za-z0-9_$]*)\s*=\s*function\b/g;
+const FUNCTION_DECLARATION_PATTERN = /\bfunction\s+([A-Za-z_$][A-Za-z0-9_$]*)\s*\(/g;
+const FUNCTION_ASSIGNMENT_PATTERN = /\b([A-Za-z_$][A-Za-z0-9_$]*)\s*=\s*function\b/g;
 
 function collectRuntimeFunctionNames(functionDir: string): Set<string> {
     const names = new Set<string>();
@@ -22,10 +20,7 @@ function collectRuntimeFunctionNames(functionDir: string): Set<string> {
         const filePath = path.join(functionDir, entry.name);
         const contents = fs.readFileSync(filePath, "utf8");
 
-        for (const pattern of [
-            FUNCTION_DECLARATION_PATTERN,
-            FUNCTION_ASSIGNMENT_PATTERN
-        ]) {
+        for (const pattern of [FUNCTION_DECLARATION_PATTERN, FUNCTION_ASSIGNMENT_PATTERN]) {
             for (const match of contents.matchAll(pattern)) {
                 const name = match[1];
                 if (name) {
@@ -52,13 +47,7 @@ const EXPECTED_RUNTIME_FUNCTIONS = [
 
 void test("HTML5 runtime defines core manual builtins used by hot reload", () => {
     const repoRoot = Core.findRepoRootSync(process.cwd());
-    const functionDir = path.join(
-        repoRoot,
-        "vendor",
-        "GameMaker-HTML5",
-        "scripts",
-        "functions"
-    );
+    const functionDir = path.join(repoRoot, "vendor", "GameMaker-HTML5", "scripts", "functions");
 
     assert.ok(
         fs.existsSync(functionDir),
@@ -69,13 +58,7 @@ void test("HTML5 runtime defines core manual builtins used by hot reload", () =>
     const manualFunctions = Core.loadManualFunctionNames();
 
     for (const name of EXPECTED_RUNTIME_FUNCTIONS) {
-        assert.ok(
-            manualFunctions.has(name),
-            `Manual metadata missing '${name}'`
-        );
-        assert.ok(
-            runtimeFunctions.has(name),
-            `HTML5 runtime missing '${name}'`
-        );
+        assert.ok(manualFunctions.has(name), `Manual metadata missing '${name}'`);
+        assert.ok(runtimeFunctions.has(name), `HTML5 runtime missing '${name}'`);
     }
 });

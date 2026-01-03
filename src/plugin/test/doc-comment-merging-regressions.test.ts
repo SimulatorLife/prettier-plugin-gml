@@ -59,9 +59,7 @@ void test("converts Returns comment lines into returns metadata", async () => {
     const formatted = await Plugin.format(source);
 
     assert.ok(
-        formatted.includes(
-            "/// @returns {bool} Indicating whether conversion occurs"
-        ),
+        formatted.includes("/// @returns {bool} Indicating whether conversion occurs"),
         "Expected un-annotated return comment line to be converted into @returns metadata"
     );
     assert.ok(

@@ -7,8 +7,7 @@ const originalSkipFlag = process.env[SKIP_CLI_RUN_ENV_VAR];
 process.env[SKIP_CLI_RUN_ENV_VAR] = "1";
 
 const cliModule = await import("../src/cli.js");
-const { configurePrettierOptionsForTests, getPrettierOptionsForTests } =
-    cliModule.__test__;
+const { configurePrettierOptionsForTests, getPrettierOptionsForTests } = cliModule.__test__;
 
 void test("configurePrettierOptions applies the log level Prettier expects", (t) => {
     const originalLogLevel = getPrettierOptionsForTests().logLevel;

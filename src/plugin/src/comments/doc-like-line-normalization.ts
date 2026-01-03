@@ -13,11 +13,7 @@ function resolveRawDocLikeRemainder(rawText: string): string {
     return trimmed;
 }
 
-function normalizeDocLikeLineComment(
-    comment: LineComment,
-    formatted: string,
-    originalText?: string | null
-): string {
+function normalizeDocLikeLineComment(comment: LineComment, formatted: string, originalText?: string | null): string {
     const rawText = Core.getLineCommentRawText(comment, {
         originalText: originalText ?? undefined
     });
@@ -29,9 +25,7 @@ function normalizeDocLikeLineComment(
     }
 
     const leadingWhitespaceMatch = formatted.match(/^\s*/);
-    const leadingWhitespace = leadingWhitespaceMatch
-        ? leadingWhitespaceMatch[0]
-        : "";
+    const leadingWhitespace = leadingWhitespaceMatch ? leadingWhitespaceMatch[0] : "";
     const trimmedFormatted = formatted.trimStart();
     const docLikeRawValue = rawText.trim();
 
@@ -46,16 +40,11 @@ function normalizeDocLikeLineComment(
 
     const docLikeRawMatch = docLikeRawValue.match(/^\/\/\s+\/(?![\/])/);
     if (docLikeRawMatch) {
-        const remainder = docLikeRawValue
-            .slice(docLikeRawMatch[0].length)
-            .trimStart();
+        const remainder = docLikeRawValue.slice(docLikeRawMatch[0].length).trimStart();
         return `${leadingWhitespace}/// ${remainder}`;
     }
 
-    if (
-        docLikeRawValue.startsWith("/") &&
-        docLikeRawValue.slice(1).trim().length === 0
-    ) {
+    if (docLikeRawValue.startsWith("/") && docLikeRawValue.slice(1).trim().length === 0) {
         return "";
     }
 
@@ -75,12 +64,8 @@ function normalizeDocLikeLineComment(
             return "";
         }
 
-        if (
-            normalizedRemainder.startsWith("/") ||
-            !/[A-Za-z0-9]/.test(normalizedRemainder)
-        ) {
-            const fallback =
-                rawRemainder.length > 0 ? rawRemainder : normalizedRemainder;
+        if (normalizedRemainder.startsWith("/") || !/[A-Za-z0-9]/.test(normalizedRemainder)) {
+            const fallback = rawRemainder.length > 0 ? rawRemainder : normalizedRemainder;
             if (fallback.length === 0) {
                 return "";
             }
@@ -91,9 +76,7 @@ function normalizeDocLikeLineComment(
 
     const docLikeMatch = trimmedFormatted.match(/^\/\/\s+\/(?![\/])/);
     if (docLikeMatch) {
-        const formattedRemainder = trimmedFormatted
-            .slice(docLikeMatch[0].length)
-            .trimStart();
+        const formattedRemainder = trimmedFormatted.slice(docLikeMatch[0].length).trimStart();
         if (formattedRemainder.startsWith("@")) {
             return formatted;
         }
@@ -102,15 +85,9 @@ function normalizeDocLikeLineComment(
             return `${leadingWhitespace}///`;
         }
 
-        if (
-            formattedRemainder.startsWith("/") ||
-            !/[A-Za-z0-9]/.test(formattedRemainder)
-        ) {
+        if (formattedRemainder.startsWith("/") || !/[A-Za-z0-9]/.test(formattedRemainder)) {
             const rawDocLikeRemainder = resolveRawDocLikeRemainder(rawText);
-            const fallback =
-                rawDocLikeRemainder.length > 0
-                    ? rawDocLikeRemainder
-                    : formattedRemainder;
+            const fallback = rawDocLikeRemainder.length > 0 ? rawDocLikeRemainder : formattedRemainder;
             if (fallback.length === 0) {
                 return "";
             }

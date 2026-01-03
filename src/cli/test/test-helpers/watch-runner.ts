@@ -17,10 +17,7 @@ export async function runWatchTest(
     options: WatchCommandOptions,
     testFn: (context: WatchTestContext) => Promise<void>
 ): Promise<void> {
-    const testDir = path.join(
-        "/tmp",
-        `${testName}-${Date.now()}-${Math.random().toString(36).slice(2, 9)}`
-    );
+    const testDir = path.join("/tmp", `${testName}-${Date.now()}-${Math.random().toString(36).slice(2, 9)}`);
 
     await mkdir(testDir, { recursive: true });
 

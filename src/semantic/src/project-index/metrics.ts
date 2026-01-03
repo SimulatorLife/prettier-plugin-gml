@@ -51,10 +51,7 @@ export type ProjectIndexMetricsReporting = {
     };
     caches: {
         cachesSnapshot(extra?: Record<string, unknown>): unknown;
-        cacheSnapshot(
-            cacheName: string,
-            extra?: Record<string, unknown>
-        ): unknown;
+        cacheSnapshot(cacheName: string, extra?: Record<string, unknown>): unknown;
     };
     logger: {
         logSummary(message?: string, extra?: Record<string, unknown>): void;
@@ -68,15 +65,10 @@ export type ProjectIndexMetricsContracts = {
 
 function hasMetricGroup(candidate, groupName, methodNames) {
     const group = candidate?.[groupName];
-    return (
-        Core.isObjectLike(group) &&
-        methodNames.every((method) => typeof group[method] === "function")
-    );
+    return Core.isObjectLike(group) && methodNames.every((method) => typeof group[method] === "function");
 }
 
-function isMetricsRecordingSuite(
-    candidate: unknown
-): candidate is ProjectIndexMetricsRecording {
+function isMetricsRecordingSuite(candidate: unknown): candidate is ProjectIndexMetricsRecording {
     if (!Core.isObjectLike(candidate)) {
         return false;
     }
@@ -86,45 +78,34 @@ function isMetricsRecordingSuite(
         return false;
     }
 
-    return Object.entries(REQUIRED_RECORDING_GROUPS).every(
-        ([groupName, methods]) =>
-            hasMetricGroup(candidateObject, groupName, methods)
+    return Object.entries(REQUIRED_RECORDING_GROUPS).every(([groupName, methods]) =>
+        hasMetricGroup(candidateObject, groupName, methods)
     );
 }
 
-function isMetricsReportingSuite(
-    candidate: unknown
-): candidate is ProjectIndexMetricsReporting {
+function isMetricsReportingSuite(candidate: unknown): candidate is ProjectIndexMetricsReporting {
     if (!Core.isObjectLike(candidate)) {
         return false;
     }
 
     const candidateObject = candidate as Record<string, unknown>;
 
-    return Object.entries(REQUIRED_REPORTING_GROUPS).every(
-        ([groupName, methods]) =>
-            hasMetricGroup(candidateObject, groupName, methods)
+    return Object.entries(REQUIRED_REPORTING_GROUPS).every(([groupName, methods]) =>
+        hasMetricGroup(candidateObject, groupName, methods)
     );
 }
 
-function isMetricsContracts(
-    candidate: unknown
-): candidate is ProjectIndexMetricsContracts {
+function isMetricsContracts(candidate: unknown): candidate is ProjectIndexMetricsContracts {
     if (!Core.isObjectLike(candidate)) {
         return false;
     }
 
     const candidateObject = candidate as Record<string, unknown>;
 
-    return (
-        isMetricsRecordingSuite(candidateObject.recording) &&
-        isMetricsReportingSuite(candidateObject.reporting)
-    );
+    return isMetricsRecordingSuite(candidateObject.recording) && isMetricsReportingSuite(candidateObject.reporting);
 }
 
-function createMetricsSnapshot(
-    extra: Record<string, unknown> | undefined = {}
-): MetricsSnapshot {
+function createMetricsSnapshot(extra: Record<string, unknown> | undefined = {}): MetricsSnapshot {
     return {
         category: PROJECT_INDEX_METRICS_CATEGORY,
         totalTimeMs: 0,

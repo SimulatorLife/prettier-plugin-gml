@@ -1,11 +1,7 @@
 import assert from "node:assert/strict";
 import { describe, it } from "node:test";
 
-import {
-    areNumbersApproximatelyEqual,
-    isFiniteNumber,
-    toNormalizedInteger
-} from "../src/utils/number.js";
+import { areNumbersApproximatelyEqual, isFiniteNumber, toNormalizedInteger } from "../src/utils/number.js";
 
 void describe("number-utils", () => {
     void describe("isFiniteNumber", () => {
@@ -60,10 +56,7 @@ void describe("number-utils", () => {
         void it("never matches non-finite numbers", () => {
             assert.equal(areNumbersApproximatelyEqual(Number.NaN, 1), false);
             assert.equal(areNumbersApproximatelyEqual(1, Infinity), false);
-            assert.equal(
-                areNumbersApproximatelyEqual(-Infinity, Infinity),
-                false
-            );
+            assert.equal(areNumbersApproximatelyEqual(-Infinity, Infinity), false);
         });
     });
 });

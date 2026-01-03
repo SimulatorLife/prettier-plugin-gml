@@ -39,20 +39,13 @@ export function isPlainObject(value, { allowNullPrototype = true } = {}) {
  * @param {string} name Descriptive name used when constructing the error.
  * @returns {TFunction} The validated function reference.
  */
-export function assertFunction(
-    value,
-    name,
-    { errorMessage }: AssertFunctionOptions = {}
-) {
+export function assertFunction(value, name, { errorMessage }: AssertFunctionOptions = {}) {
     if (typeof value === "function") {
         return /** @type {TFunction} */ value;
     }
 
     const message =
-        errorMessage ??
-        (isNonEmptyString(name)
-            ? `${name} must be a function.`
-            : "Value must be a function.");
+        errorMessage ?? (isNonEmptyString(name) ? `${name} must be a function.` : "Value must be a function.");
 
     throw new TypeError(message);
 }
@@ -89,15 +82,13 @@ export function resolveHelperOverride(helpers, key, fallback) {
         isNonEmptyString(key) ? `${key.toString()} helper` : "helper override"
     );
 
-    const hasHelperOverrides =
-        helpers && (typeof helpers === "function" || isObjectLike(helpers));
+    const hasHelperOverrides = helpers && (typeof helpers === "function" || isObjectLike(helpers));
 
     if (!hasHelperOverrides) {
         return normalizedFallback;
     }
 
-    const candidate =
-        /** @type {Record<string | number | symbol, unknown>} */ helpers[key];
+    const candidate = /** @type {Record<string | number | symbol, unknown>} */ helpers[key];
 
     if (typeof candidate !== "function") {
         return normalizedFallback;
@@ -106,8 +97,7 @@ export function resolveHelperOverride(helpers, key, fallback) {
     return /** @type {THelper} */ candidate;
 }
 
-const getObjectPrototypeToString = (value: unknown) =>
-    Object.prototype.toString.call(value);
+const getObjectPrototypeToString = (value: unknown) => Object.prototype.toString.call(value);
 const MISSING_METHOD_LIST_FORMATTER = new Intl.ListFormat("en", {
     style: "long",
     type: "conjunction"
@@ -137,8 +127,7 @@ export function describeValueWithArticle(
         emptyStringLabel = null,
         arrayLabel = "an array",
         objectLabel = "an object",
-        formatTaggedObjectLabel = (tagName) =>
-            `${formatWithIndefiniteArticle(tagName)} object`
+        formatTaggedObjectLabel = (tagName) => `${formatWithIndefiniteArticle(tagName)} object`
     } = {}
 ) {
     if (value === null) {
@@ -248,23 +237,15 @@ export function assertFunctionProperties(
     methodNames,
     { name = "value", errorMessage }: AssertFunctionPropertiesOptions = {}
 ) {
-    const requiredMethods =
-        methodNames === null
-            ? []
-            : Array.isArray(methodNames)
-              ? methodNames
-              : [methodNames];
+    const requiredMethods = methodNames === null ? [] : Array.isArray(methodNames) ? methodNames : [methodNames];
 
     if (requiredMethods.length === 0) {
         return /** @type {TObject} */ value;
     }
 
-    const target =
-        /** @type {Record<PropertyKey, unknown> | undefined} */ isObjectOrFunction(
-            value
-        )
-            ? value
-            : undefined;
+    const target = /** @type {Record<PropertyKey, unknown> | undefined} */ isObjectOrFunction(value)
+        ? value
+        : undefined;
 
     const missingMethods = requiredMethods
         .filter((methodName) => typeof target?.[methodName] !== "function")
@@ -347,11 +328,7 @@ type AssertPlainObjectOptions = {
 
 export function assertPlainObject(
     value,
-    {
-        name = "value",
-        errorMessage,
-        allowNullPrototype = true
-    }: AssertPlainObjectOptions = {}
+    { name = "value", errorMessage, allowNullPrototype = true }: AssertPlainObjectOptions = {}
 ) {
     const defaultMessage = `${name} must be a plain object`;
 
@@ -385,17 +362,13 @@ export function withObjectLike(value, onObjectLike, onNotObjectLike) {
     assertFunction(onObjectLike, "onObjectLike");
 
     if (!isObjectLike(value)) {
-        return typeof onNotObjectLike === "function"
-            ? onNotObjectLike()
-            : onNotObjectLike;
+        return typeof onNotObjectLike === "function" ? onNotObjectLike() : onNotObjectLike;
     }
 
     return onObjectLike(value);
 }
 
-function isFallbackThunk<TResult>(
-    value: (() => TResult) | TResult | undefined
-): value is () => TResult {
+function isFallbackThunk<TResult>(value: (() => TResult) | TResult | undefined): value is () => TResult {
     return typeof value === "function";
 }
 
@@ -453,20 +426,12 @@ export function withDefinedValue<TValue, TResult>(
  * @param {boolean} [options.acceptNull=false]
  * @returns {unknown} The first matching property value or the fallback.
  */
-export function coalesceOption(
-    object,
-    keys,
-    { fallback, acceptNull = false }: CoalesceOptionOptions = {}
-) {
+export function coalesceOption(object, keys, { fallback, acceptNull = false }: CoalesceOptionOptions = {}) {
     if (!isObjectLike(object)) {
         return fallback;
     }
 
-    const normalizedKeys = Array.isArray(keys)
-        ? keys
-        : keys === null
-          ? []
-          : [keys];
+    const normalizedKeys = Array.isArray(keys) ? keys : keys === null ? [] : [keys];
 
     for (const key of normalizedKeys) {
         const value = object[key];
@@ -538,20 +503,14 @@ export function getOrCreateMapEntry(store, key, initializer) {
  *        when the current entry is missing or not a finite number.
  * @returns {number} The incremented numeric value stored in the map.
  */
-export function incrementMapValue(
-    store,
-    key,
-    amount = 1,
-    { fallback = 0 } = {}
-) {
+export function incrementMapValue(store, key, amount = 1, { fallback = 0 } = {}) {
     const mapStore = assertFunctionProperties(store, ["get", "set"], {
         name: "store",
         errorMessage: "store must provide get and set functions"
     });
 
     const delta = toFiniteNumber(amount) ?? 0;
-    const base =
-        toFiniteNumber(mapStore.get(key)) ?? toFiniteNumber(fallback) ?? 0;
+    const base = toFiniteNumber(mapStore.get(key)) ?? toFiniteNumber(fallback) ?? 0;
 
     const next = base + delta;
     mapStore.set(key, next);

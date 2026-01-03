@@ -57,41 +57,23 @@ void test("normalizeExtensionSuffix returns null for invalid inputs", () => {
 });
 
 void test("normalizeStringList preserves entire strings when splitting is disabled", () => {
-    assert.deepStrictEqual(
-        normalizeStringList("alpha,beta", { splitPattern: null }),
-        ["alpha,beta"]
-    );
-    assert.deepStrictEqual(
-        normalizeStringList("alpha,beta", { splitPattern: false }),
-        ["alpha,beta"]
-    );
+    assert.deepStrictEqual(normalizeStringList("alpha,beta", { splitPattern: null }), ["alpha,beta"]);
+    assert.deepStrictEqual(normalizeStringList("alpha,beta", { splitPattern: false }), ["alpha,beta"]);
 });
 
 void test("createListSplitPattern deduplicates separators and preserves order", () => {
     const pattern = createListSplitPattern([",", ":", ","]);
-    assert.deepStrictEqual("alpha,beta:gamma".split(pattern), [
-        "alpha",
-        "beta",
-        "gamma"
-    ]);
+    assert.deepStrictEqual("alpha,beta:gamma".split(pattern), ["alpha", "beta", "gamma"]);
 });
 
 void test("createListSplitPattern supports multi-character separators", () => {
     const pattern = createListSplitPattern(["::", "ab"]);
-    assert.deepStrictEqual("one::twoabthree".split(pattern), [
-        "one",
-        "two",
-        "three"
-    ]);
+    assert.deepStrictEqual("one::twoabthree".split(pattern), ["one", "two", "three"]);
 });
 
 void test("createListSplitPattern optionally includes whitespace separators", () => {
     const pattern = createListSplitPattern([","], { includeWhitespace: true });
-    assert.deepStrictEqual("one, two  three".split(pattern), [
-        "one",
-        "two",
-        "three"
-    ]);
+    assert.deepStrictEqual("one, two  three".split(pattern), ["one", "two", "three"]);
 });
 
 void test("createListSplitPattern requires a separator when whitespace is disabled", () => {
@@ -113,9 +95,7 @@ void test("toNormalizedLowerCaseString tolerates nullish inputs", () => {
 void test("string utility helpers interoperate with trimmed strings", () => {
     const values = ["  one  ", "", "  two", "three  ", null];
 
-    const normalized = values
-        .map((value) => toTrimmedString(value))
-        .filter((value) => isNonEmptyString(value));
+    const normalized = values.map((value) => toTrimmedString(value)).filter((value) => isNonEmptyString(value));
     assert.deepStrictEqual(normalized, ["one", "two", "three"]);
 
     assert.strictEqual(isNonEmptyTrimmedString("  spaced  "), true);
@@ -171,10 +151,7 @@ void test("isIdentifierBoundaryCharacter treats non-word values as boundaries", 
 
 void test("assertNonEmptyString returns the validated value", () => {
     assert.strictEqual(assertNonEmptyString("value"), "value");
-    assert.strictEqual(
-        assertNonEmptyString("  padded  ", { trim: true }),
-        "padded"
-    );
+    assert.strictEqual(assertNonEmptyString("  padded  ", { trim: true }), "padded");
 });
 
 void test("assertNonEmptyString throws when value is not a non-empty string", () => {
@@ -191,10 +168,7 @@ void test("describeValueForError formats primitives and structured values", () =
     assert.strictEqual(describeValueForError(123), "123");
     assert.strictEqual(describeValueForError(123n), "123");
     assert.strictEqual(describeValueForError(false), "false");
-    assert.strictEqual(
-        describeValueForError({ key: "value" }),
-        '{"key":"value"}'
-    );
+    assert.strictEqual(describeValueForError({ key: "value" }), '{"key":"value"}');
 
     const circular: Record<string, unknown> = {};
     circular.self = circular;
@@ -208,10 +182,7 @@ void test("formatWithIndefiniteArticle selects the correct article", () => {
 });
 
 void test("describeValueForError can skip JSON serialization for complex values", () => {
-    assert.strictEqual(
-        describeValueForError({ example: true }, { stringifyUnknown: false }),
-        "[object Object]"
-    );
+    assert.strictEqual(describeValueForError({ example: true }, { stringifyUnknown: false }), "[object Object]");
 });
 
 void test("stripStringQuotes removes matching single and double quotes", () => {

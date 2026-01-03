@@ -15,12 +15,8 @@ import {
 void test("project index concurrency default can be tuned programmatically", () => {
     const originalDefault = getDefaultProjectIndexGmlConcurrency();
     const originalLimit = getDefaultProjectIndexGmlConcurrencyLimit();
-    const baselineLimit = setDefaultProjectIndexGmlConcurrencyLimit(
-        PROJECT_INDEX_GML_MAX_CONCURRENCY_BASELINE
-    );
-    const baseline = setDefaultProjectIndexGmlConcurrency(
-        PROJECT_INDEX_GML_CONCURRENCY_BASELINE
-    );
+    const baselineLimit = setDefaultProjectIndexGmlConcurrencyLimit(PROJECT_INDEX_GML_MAX_CONCURRENCY_BASELINE);
+    const baseline = setDefaultProjectIndexGmlConcurrency(PROJECT_INDEX_GML_CONCURRENCY_BASELINE);
 
     try {
         assert.equal(baseline, PROJECT_INDEX_GML_CONCURRENCY_BASELINE);
@@ -44,14 +40,11 @@ void test("project index concurrency default can be tuned programmatically", () 
         assert.equal(flooredLimit, 1);
         assert.equal(getDefaultProjectIndexGmlConcurrencyLimit(), 1);
 
-        const invalidWithTightLimit =
-            setDefaultProjectIndexGmlConcurrency("not-a-number");
+        const invalidWithTightLimit = setDefaultProjectIndexGmlConcurrency("not-a-number");
         assert.equal(invalidWithTightLimit, 1);
         assert.equal(getDefaultProjectIndexGmlConcurrency(), 1);
 
-        const restoredLimit = setDefaultProjectIndexGmlConcurrencyLimit(
-            PROJECT_INDEX_GML_MAX_CONCURRENCY_BASELINE
-        );
+        const restoredLimit = setDefaultProjectIndexGmlConcurrencyLimit(PROJECT_INDEX_GML_MAX_CONCURRENCY_BASELINE);
         assert.equal(restoredLimit, PROJECT_INDEX_GML_MAX_CONCURRENCY_BASELINE);
 
         const reset = setDefaultProjectIndexGmlConcurrency("not-a-number");
@@ -66,9 +59,7 @@ void test("project index concurrency default can be tuned programmatically", () 
 void test("invalid environment overrides fall back to the baseline", () => {
     const originalDefault = getDefaultProjectIndexGmlConcurrency();
     const originalLimit = getDefaultProjectIndexGmlConcurrencyLimit();
-    setDefaultProjectIndexGmlConcurrencyLimit(
-        PROJECT_INDEX_GML_MAX_CONCURRENCY_BASELINE
-    );
+    setDefaultProjectIndexGmlConcurrencyLimit(PROJECT_INDEX_GML_MAX_CONCURRENCY_BASELINE);
 
     try {
         // Simulate the environment override hook by calling the setter directly
@@ -77,16 +68,10 @@ void test("invalid environment overrides fall back to the baseline", () => {
         assert.equal(getDefaultProjectIndexGmlConcurrency(), 12);
 
         setDefaultProjectIndexGmlConcurrency("");
-        assert.equal(
-            getDefaultProjectIndexGmlConcurrency(),
-            PROJECT_INDEX_GML_CONCURRENCY_BASELINE
-        );
+        assert.equal(getDefaultProjectIndexGmlConcurrency(), PROJECT_INDEX_GML_CONCURRENCY_BASELINE);
 
         setDefaultProjectIndexGmlConcurrency(null);
-        assert.equal(
-            getDefaultProjectIndexGmlConcurrency(),
-            PROJECT_INDEX_GML_CONCURRENCY_BASELINE
-        );
+        assert.equal(getDefaultProjectIndexGmlConcurrency(), PROJECT_INDEX_GML_CONCURRENCY_BASELINE);
     } finally {
         setDefaultProjectIndexGmlConcurrencyLimit(originalLimit);
         setDefaultProjectIndexGmlConcurrency(originalDefault);
@@ -95,12 +80,6 @@ void test("invalid environment overrides fall back to the baseline", () => {
 
 // Ensure the exported environment variable aligns with the documented name.
 void test("project index concurrency env var name is stable", () => {
-    assert.equal(
-        PROJECT_INDEX_GML_CONCURRENCY_ENV_VAR,
-        "GML_PROJECT_INDEX_CONCURRENCY"
-    );
-    assert.equal(
-        PROJECT_INDEX_GML_MAX_CONCURRENCY_ENV_VAR,
-        "GML_PROJECT_INDEX_MAX_CONCURRENCY"
-    );
+    assert.equal(PROJECT_INDEX_GML_CONCURRENCY_ENV_VAR, "GML_PROJECT_INDEX_CONCURRENCY");
+    assert.equal(PROJECT_INDEX_GML_MAX_CONCURRENCY_ENV_VAR, "GML_PROJECT_INDEX_MAX_CONCURRENCY");
 });

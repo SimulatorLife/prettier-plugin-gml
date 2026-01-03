@@ -10,10 +10,7 @@ void test("reformats logical comparisons without introducing synthetic parenthes
     const source = "if (i > 0 and i < 1) {\n    do_thing();\n}\n";
     const formatted = await format(source);
 
-    assert.strictEqual(
-        formatted,
-        "if (i > 0 and i < 1) {\n    do_thing();\n}\n"
-    );
+    assert.strictEqual(formatted, "if (i > 0 and i < 1) {\n    do_thing();\n}\n");
 });
 
 void test("preserves explicit comparator grouping inside logical expressions", async () => {

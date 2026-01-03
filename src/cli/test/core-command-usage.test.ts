@@ -14,13 +14,7 @@ void test("resolveCommandUsage reads usage() when helpInformation is absent", ()
 });
 
 void test("resolveCommandUsage falls back when no usage metadata is present", () => {
-    assert.equal(
-        resolveCommandUsage({}, { fallback: "manual fallback" }),
-        "manual fallback"
-    );
+    assert.equal(resolveCommandUsage({}, { fallback: "manual fallback" }), "manual fallback");
 
-    assert.equal(
-        resolveCommandUsage(null, { fallback: () => "lazy fallback" }),
-        "lazy fallback"
-    );
+    assert.equal(resolveCommandUsage(null, { fallback: () => "lazy fallback" }), "lazy fallback");
 });

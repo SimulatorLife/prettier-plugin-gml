@@ -42,10 +42,7 @@ void test("collectFormatCommandOptions tolerates commands without option state",
     assert.deepStrictEqual(result.targetPathInput, null);
     assert.strictEqual(result.targetPathProvided, false);
     assert.deepStrictEqual(result.extensions, DEFAULTS.defaultExtensions);
-    assert.strictEqual(
-        result.prettierLogLevel,
-        DEFAULTS.defaultPrettierLogLevel
-    );
+    assert.strictEqual(result.prettierLogLevel, DEFAULTS.defaultPrettierLogLevel);
     assert.strictEqual(result.onParseError, DEFAULTS.defaultParseErrorAction);
     assert.strictEqual(result.checkMode, false);
     assert.strictEqual(result.skippedDirectorySampleLimit, undefined);

@@ -12,10 +12,7 @@ function createStubProgram() {
     const registeredCommands = [];
     return {
         parseCalls: [],
-        addCommand(
-            command,
-            options: { isDefault?: boolean } = {}
-        ): typeof this {
+        addCommand(command, options: { isDefault?: boolean } = {}): typeof this {
             registeredCommands.push({ command, options });
             if (options.isDefault) {
                 this.defaultCommand = command;
@@ -28,11 +25,8 @@ function createStubProgram() {
         },
         parse(argv, options) {
             this.parseCalls.push({ argv, options });
-            const nonDefault = registeredCommands.find(
-                (entry) => entry.options?.isDefault !== true
-            );
-            const targetCommand =
-                nonDefault?.command ?? this.defaultCommand ?? null;
+            const nonDefault = registeredCommands.find((entry) => entry.options?.isDefault !== true);
+            const targetCommand = nonDefault?.command ?? this.defaultCommand ?? null;
             const action = targetCommand?._actionHandler;
             if (!action) {
                 return;
@@ -114,9 +108,7 @@ void test("subcommand usage is reported when Commander omits command reference",
     registry.registerDefaultCommand({ command: defaultCommand });
 
     const capturedErrors = [];
-    const performanceCommand = applyStandardCommandOptions(
-        new Command("performance")
-    );
+    const performanceCommand = applyStandardCommandOptions(new Command("performance"));
     performanceCommand.option("--stdout");
 
     registry.registerCommand({
@@ -156,8 +148,6 @@ void test("command manager adapts programs that only expose parse()", async () =
 
     await runner.run(["adapter", "--flag"]);
 
-    assert.deepStrictEqual(program.parseCalls, [
-        { argv: ["adapter", "--flag"], options: { from: "user" } }
-    ]);
+    assert.deepStrictEqual(program.parseCalls, [{ argv: ["adapter", "--flag"], options: { from: "user" } }]);
     assert.deepStrictEqual(executed, ["run"]);
 });

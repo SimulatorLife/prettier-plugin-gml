@@ -1,10 +1,6 @@
 import { Core } from "@gml-modules/core";
 
-const {
-    coerceNonNegativeInteger,
-    describeValueForError,
-    resolveIntegerOption
-} = Core;
+const { coerceNonNegativeInteger, describeValueForError, resolveIntegerOption } = Core;
 
 interface SampleLimitOptionParams {
     defaultValue?: number;
@@ -17,10 +13,7 @@ export interface SampleLimitRuntimeOption {
     envVar?: string;
     getDefault: () => number | undefined;
     setDefault: (value?: unknown) => number | undefined;
-    resolve: (
-        value?: unknown,
-        options?: { defaultLimit?: number; defaultValue?: number }
-    ) => number | null | undefined;
+    resolve: (value?: unknown, options?: { defaultLimit?: number; defaultValue?: number }) => number | null | undefined;
     applyEnvOverride: (env?: NodeJS.ProcessEnv) => number | undefined;
 }
 
@@ -44,10 +37,7 @@ export function createSampleLimitRuntimeOption(
     const getDefault = () => currentDefault;
 
     const setDefault = (value?: unknown) => {
-        currentDefault =
-            value === undefined
-                ? defaultValue
-                : resolveValue(value, { defaultValue });
+        currentDefault = value === undefined ? defaultValue : resolveValue(value, { defaultValue });
         return currentDefault;
     };
 
@@ -59,20 +49,14 @@ export function createSampleLimitRuntimeOption(
         return currentDefault;
     };
 
-    const resolveValue = (
-        value: unknown,
-        options: { defaultValue?: number } = {}
-    ) =>
+    const resolveValue = (value: unknown, options: { defaultValue?: number } = {}) =>
         resolveIntegerOption(value, {
             defaultValue: options.defaultValue ?? currentDefault,
             coerce,
             typeErrorMessage
         });
 
-    const resolve = (
-        value?: unknown,
-        options: { defaultLimit?: number; defaultValue?: number } = {}
-    ) => {
+    const resolve = (value?: unknown, options: { defaultLimit?: number; defaultValue?: number } = {}) => {
         const fallback = options.defaultLimit ?? options.defaultValue;
         return resolveValue(value, {
             defaultValue: fallback ?? currentDefault

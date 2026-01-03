@@ -30,23 +30,13 @@ void test("prints statements and element lists for GML programs", async () => {
 });
 
 void test("prints all call arguments in order", async () => {
-    const source = [
-        "function demo() {",
-        '    return calculate("alpha", 2, true, other());',
-        "}",
-        ""
-    ].join("\n");
+    const source = ["function demo() {", '    return calculate("alpha", 2, true, other());', "}", ""].join("\n");
 
     const formatted = await Plugin.format(source);
 
     assert.strictEqual(
         formatted,
-        [
-            "function demo() {",
-            '    return calculate("alpha", 2, true, other());',
-            "}",
-            ""
-        ].join("\n")
+        ["function demo() {", '    return calculate("alpha", 2, true, other());', "}", ""].join("\n")
     );
 });
 

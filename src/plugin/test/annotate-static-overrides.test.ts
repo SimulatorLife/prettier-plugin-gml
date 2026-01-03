@@ -76,10 +76,7 @@ void describe("annotateStaticFunctionOverrides", () => {
                     id: { type: "Identifier", name: "Parent" },
                     body: {
                         type: "BlockStatement",
-                        body: [
-                            createStaticFunctionStatement("build"),
-                            invalidStatic
-                        ]
+                        body: [createStaticFunctionStatement("build"), invalidStatic]
                     }
                 }
             ]

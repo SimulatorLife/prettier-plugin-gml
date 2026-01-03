@@ -3,9 +3,7 @@ import { getErrorMessageOrFallback } from "./error.js";
 import { assertPlainObject } from "./object.js";
 import { isNonEmptyString, toTrimmedString } from "./string.js";
 
-const JSON_PARSE_ERROR_CAPABILITY = Symbol.for(
-    "prettier-plugin-gml.json-parse-error"
-);
+const JSON_PARSE_ERROR_CAPABILITY = Symbol.for("prettier-plugin-gml.json-parse-error");
 
 function hasJsonParseErrorContract(value: unknown) {
     if (!isErrorLike(value)) {
@@ -41,8 +39,7 @@ function toError(value) {
     }
 
     const message = getErrorMessageOrFallback(value);
-    const normalizedMessage =
-        message === "[object Object]" ? "Unknown error" : message;
+    const normalizedMessage = message === "[object Object]" ? "Unknown error" : message;
 
     const fallback = new Error(normalizedMessage);
     fallback.name = "NonErrorThrown";
@@ -65,9 +62,7 @@ type ParseJsonOptions = {
 
 type ParseJsonObjectOptions = ParseJsonOptions & {
     assertOptions?: Parameters<typeof assertPlainObject>[1];
-    createAssertOptions?: (
-        payload: unknown
-    ) => Parameters<typeof assertPlainObject>[1];
+    createAssertOptions?: (payload: unknown) => Parameters<typeof assertPlainObject>[1];
 };
 
 type StringifyJsonForFileOptions = {
@@ -88,10 +83,7 @@ export class JsonParseError extends SyntaxError {
     description?: string;
     override cause?: Error;
 
-    constructor(
-        message,
-        { cause, source, description }: JsonParseErrorOptions = {}
-    ) {
+    constructor(message, { cause, source, description }: JsonParseErrorOptions = {}) {
         super(message, cause ? { cause } : undefined);
         this.name = "JsonParseError";
         if (cause !== undefined) {
@@ -218,9 +210,7 @@ export function parseJsonWithContext(text, options: ParseJsonOptions = {}) {
         const normalizedDescription = normalizeDescription(description);
         const normalizedSource = normalizeSource(source);
         const details = extractErrorDetails(cause);
-        const locationSuffix = normalizedSource
-            ? ` from ${normalizedSource}`
-            : "";
+        const locationSuffix = normalizedSource ? ` from ${normalizedSource}` : "";
         const message = `Failed to parse ${normalizedDescription}${locationSuffix}: ${details}`;
         throw new JsonParseError(message, {
             cause,
@@ -251,12 +241,8 @@ export function parseJsonWithContext(text, options: ParseJsonOptions = {}) {
  * }} [options]
  * @returns {Record<string, unknown>} Parsed JSON object.
  */
-export function parseJsonObjectWithContext(
-    text,
-    options: ParseJsonObjectOptions = {}
-) {
-    const { source, description, reviver, assertOptions, createAssertOptions } =
-        options;
+export function parseJsonObjectWithContext(text, options: ParseJsonObjectOptions = {}) {
+    const { source, description, reviver, assertOptions, createAssertOptions } = options;
 
     const payload = parseJsonWithContext(text, {
         source,
@@ -266,15 +252,10 @@ export function parseJsonObjectWithContext(
 
     const baseOptions = toObjectOrUndefined(assertOptions);
     const dynamicOptions = toObjectOrUndefined(
-        typeof createAssertOptions === "function"
-            ? createAssertOptions(payload)
-            : undefined
+        typeof createAssertOptions === "function" ? createAssertOptions(payload) : undefined
     );
 
-    const mergedOptions =
-        baseOptions || dynamicOptions
-            ? { ...baseOptions, ...dynamicOptions }
-            : undefined;
+    const mergedOptions = baseOptions || dynamicOptions ? { ...baseOptions, ...dynamicOptions } : undefined;
 
     return assertPlainObject(payload, mergedOptions);
 }
@@ -295,34 +276,22 @@ export function parseJsonObjectWithContext(
  * }} [options]
  * @returns {string} Stringified JSON with optional trailing newline.
  */
-export function stringifyJsonForFile(
-    payload?: unknown,
-    options?: StringifyJsonForFileOptions
-) {
-    const {
-        replacer = null,
-        space = 0,
-        includeTrailingNewline = true,
-        newline = "\n"
-    } = options ?? {};
+export function stringifyJsonForFile(payload?: unknown, options?: StringifyJsonForFileOptions) {
+    const { replacer = null, space = 0, includeTrailingNewline = true, newline = "\n" } = options ?? {};
 
     const serialized = JSON.stringify(payload, replacer, space);
 
     if (typeof serialized !== "string") {
-        const payloadDescription =
-            describePayloadForSerializationError(payload);
+        const payloadDescription = describePayloadForSerializationError(payload);
 
-        throw new TypeError(
-            `Unable to serialize ${payloadDescription} to JSON. JSON.stringify returned undefined.`
-        );
+        throw new TypeError(`Unable to serialize ${payloadDescription} to JSON. JSON.stringify returned undefined.`);
     }
 
     if (!includeTrailingNewline) {
         return serialized;
     }
 
-    const terminator =
-        typeof newline === "string" && newline.length > 0 ? newline : "\n";
+    const terminator = typeof newline === "string" && newline.length > 0 ? newline : "\n";
 
     if (serialized.endsWith(terminator)) {
         return serialized;

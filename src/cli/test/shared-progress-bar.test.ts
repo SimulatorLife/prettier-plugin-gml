@@ -18,17 +18,11 @@ void describe("progress bar utilities", () => {
     // Use strict equality helpers; Node deprecated the legacy assert.equal API.
 
     void it("exposes the canonical default width", () => {
-        assert.strictEqual(
-            getDefaultProgressBarWidth(),
-            DEFAULT_PROGRESS_BAR_WIDTH
-        );
+        assert.strictEqual(getDefaultProgressBarWidth(), DEFAULT_PROGRESS_BAR_WIDTH);
     });
 
     void it("returns the default width when no value is provided", () => {
-        assert.strictEqual(
-            resolveProgressBarWidth(),
-            DEFAULT_PROGRESS_BAR_WIDTH
-        );
+        assert.strictEqual(resolveProgressBarWidth(), DEFAULT_PROGRESS_BAR_WIDTH);
     });
 
     void it("normalizes numeric inputs", () => {
@@ -57,10 +51,7 @@ void describe("progress bar utilities", () => {
         setDefaultProgressBarWidth(31);
         setDefaultProgressBarWidth(undefined);
 
-        assert.strictEqual(
-            getDefaultProgressBarWidth(),
-            DEFAULT_PROGRESS_BAR_WIDTH
-        );
+        assert.strictEqual(getDefaultProgressBarWidth(), DEFAULT_PROGRESS_BAR_WIDTH);
     });
 
     void it("applies the environment override for the default width", () => {

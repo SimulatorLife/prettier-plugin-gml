@@ -97,22 +97,15 @@ export function createCollectStatsCommand() {
     return applyStandardCommandOptions(
         new Command()
             .name("collect-stats")
-            .description(
-                "Collect project health statistics (build size, TODOs, etc.)"
-            )
-            .option(
-                "--output <path>",
-                "Path to write the JSON report",
-                "reports/project-health.json"
-            )
+            .description("Collect project health statistics (build size, TODOs, etc.)")
+            .option("--output <path>", "Path to write the JSON report", "reports/project-health.json")
     );
 }
 
 export function runCollectStats({ command }: any = {}) {
     const options = command?.opts() || {};
     const workspaceRoot = process.env.GITHUB_WORKSPACE || process.cwd();
-    const outputPath =
-        options.output || path.join("reports", "project-health.json");
+    const outputPath = options.output || path.join("reports", "project-health.json");
 
     const stats = scanProjectHealth(workspaceRoot);
 

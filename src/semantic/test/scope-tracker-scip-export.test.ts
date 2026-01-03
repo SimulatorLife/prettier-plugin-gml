@@ -278,9 +278,7 @@ void describe("ScopeTracker: exportScipOccurrences", () => {
         assert.equal(funcScope.scopeKind, "function");
         assert.equal(funcScope.occurrences.length, 2);
 
-        const selfDecl = funcScope.occurrences.find(
-            (o) => o.symbol.includes("self") && o.symbolRoles === ROLE_DEF
-        );
+        const selfDecl = funcScope.occurrences.find((o) => o.symbol.includes("self") && o.symbolRoles === ROLE_DEF);
         const gameStateRef = funcScope.occurrences.find(
             (o) => o.symbol.includes("gameState") && o.symbolRoles === ROLE_REF
         );

@@ -26,10 +26,7 @@ import { fileURLToPath } from "node:url";
  * resource loading to fail in some build configurations. Implement one of the alternatives
  * above before removing this fallback array.
  */
-const RESOURCE_BASE_PATHS = Object.freeze([
-    "../../../../resources/",
-    "../../../../../resources/"
-]);
+const RESOURCE_BASE_PATHS = Object.freeze(["../../../../resources/", "../../../../../resources/"]);
 
 function resolveResourceUrlForExistingBase(resourceName: string): URL {
     for (const basePath of RESOURCE_BASE_PATHS) {
@@ -42,10 +39,7 @@ function resolveResourceUrlForExistingBase(resourceName: string): URL {
         }
     }
 
-    return new URL(
-        resourceName,
-        new URL(RESOURCE_BASE_PATHS[0], import.meta.url)
-    );
+    return new URL(resourceName, new URL(RESOURCE_BASE_PATHS[0], import.meta.url));
 }
 
 /**

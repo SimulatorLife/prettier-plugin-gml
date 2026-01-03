@@ -6,16 +6,8 @@
  * WebSocket client count.
  */
 
-import {
-    createServer,
-    type Server,
-    type IncomingMessage,
-    type ServerResponse
-} from "node:http";
-import type {
-    ServerEndpoint,
-    ServerLifecycle
-} from "../shared-server-types.js";
+import { createServer, type Server, type IncomingMessage, type ServerResponse } from "node:http";
+import type { ServerEndpoint, ServerLifecycle } from "../shared-server-types.js";
 
 export interface StatusSnapshot {
     uptime: number;
@@ -49,9 +41,7 @@ export interface StatusServerOptions {
  * (ServerEndpoint or ServerLifecycle) rather than this complete
  * interface when possible.
  */
-export interface StatusServerController
-    extends ServerEndpoint,
-        ServerLifecycle {}
+export interface StatusServerController extends ServerEndpoint, ServerLifecycle {}
 
 const DEFAULT_STATUS_HOST = "127.0.0.1";
 const DEFAULT_STATUS_PORT = 17_891;
@@ -63,11 +53,7 @@ const DEFAULT_STATUS_PORT = 17_891;
  */
 const READINESS_SUCCESS_TO_ERROR_RATIO = 2;
 
-function sendJsonResponse(
-    res: ServerResponse,
-    statusCode: number,
-    data: unknown
-): void {
+function sendJsonResponse(res: ServerResponse, statusCode: number, data: unknown): void {
     res.writeHead(statusCode, {
         "Content-Type": "application/json",
         "Access-Control-Allow-Origin": "*"
@@ -75,11 +61,7 @@ function sendJsonResponse(
     res.end(JSON.stringify(data, null, 2));
 }
 
-function handleStatusRequest(
-    _req: IncomingMessage,
-    res: ServerResponse,
-    getSnapshot: () => StatusSnapshot
-): void {
+function handleStatusRequest(_req: IncomingMessage, res: ServerResponse, getSnapshot: () => StatusSnapshot): void {
     try {
         const snapshot = getSnapshot();
         sendJsonResponse(res, 200, snapshot);
@@ -92,11 +74,7 @@ function handleStatusRequest(
     }
 }
 
-function handleHealthRequest(
-    _req: IncomingMessage,
-    res: ServerResponse,
-    getSnapshot: () => StatusSnapshot
-): void {
+function handleHealthRequest(_req: IncomingMessage, res: ServerResponse, getSnapshot: () => StatusSnapshot): void {
     try {
         const snapshot = getSnapshot();
         const health = {
@@ -105,11 +83,7 @@ function handleHealthRequest(
             uptime: snapshot.uptime,
             checks: {
                 transpilation: {
-                    status:
-                        snapshot.errorCount === 0 ||
-                        snapshot.patchCount > snapshot.errorCount
-                            ? "pass"
-                            : "warn",
+                    status: snapshot.errorCount === 0 || snapshot.patchCount > snapshot.errorCount ? "pass" : "warn",
                     patchCount: snapshot.patchCount,
                     errorCount: snapshot.errorCount
                 },
@@ -136,11 +110,7 @@ function handlePingRequest(_req: IncomingMessage, res: ServerResponse): void {
     sendJsonResponse(res, 200, { status: "ok", timestamp: Date.now() });
 }
 
-function handleReadyRequest(
-    _req: IncomingMessage,
-    res: ServerResponse,
-    getSnapshot: () => StatusSnapshot
-): void {
+function handleReadyRequest(_req: IncomingMessage, res: ServerResponse, getSnapshot: () => StatusSnapshot): void {
     try {
         const snapshot = getSnapshot();
         // Ready if the server is operational and not experiencing excessive errors.
@@ -148,9 +118,7 @@ function handleReadyRequest(
         // the configured ratio, allowing for occasional transpilation failures
         // without marking the service as unavailable.
         const isReady =
-            snapshot.errorCount === 0 ||
-            snapshot.patchCount >
-                snapshot.errorCount * READINESS_SUCCESS_TO_ERROR_RATIO;
+            snapshot.errorCount === 0 || snapshot.patchCount > snapshot.errorCount * READINESS_SUCCESS_TO_ERROR_RATIO;
         const statusCode = isReady ? 200 : 503;
         sendJsonResponse(res, statusCode, {
             ready: isReady,
@@ -169,8 +137,7 @@ function handleReadyRequest(
 function handleNotFound(res: ServerResponse): void {
     sendJsonResponse(res, 404, {
         error: "Not found",
-        message:
-            "Supported endpoints: GET /status, GET /health, GET /ping, GET /ready"
+        message: "Supported endpoints: GET /status, GET /health, GET /ping, GET /ready"
     });
 }
 
@@ -226,14 +193,8 @@ export async function startStatusServer({
     });
 
     const actualAddress = server.address();
-    const actualHost =
-        actualAddress && typeof actualAddress === "object"
-            ? actualAddress.address
-            : host;
-    const actualPort =
-        actualAddress && typeof actualAddress === "object"
-            ? actualAddress.port
-            : port;
+    const actualHost = actualAddress && typeof actualAddress === "object" ? actualAddress.address : host;
+    const actualPort = actualAddress && typeof actualAddress === "object" ? actualAddress.port : port;
 
     return {
         url: `http://${actualHost}:${actualPort}/status`,

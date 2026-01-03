@@ -8,10 +8,7 @@
 
 import { WebSocketServer, WebSocket } from "ws";
 import { Core } from "@gml-modules/core";
-import type {
-    ServerEndpoint,
-    ServerLifecycle
-} from "../shared-server-types.js";
+import type { ServerEndpoint, ServerLifecycle } from "../shared-server-types.js";
 
 const { describeValueForError } = Core;
 
@@ -60,8 +57,7 @@ export type PatchWebSocketServerHandle = ServerEndpoint & ServerLifecycle;
  * (PatchBroadcaster or PatchWebSocketServerHandle) instead of this full
  * intersection.
  */
-export type PatchWebSocketServer = PatchWebSocketServerHandle &
-    PatchBroadcaster;
+export type PatchWebSocketServer = PatchWebSocketServerHandle & PatchBroadcaster;
 
 /**
  * Creates and starts a WebSocket server for patch streaming.
@@ -101,11 +97,7 @@ export async function startPatchWebSocketServer({
 
     const READY_STATE_OPEN = 1;
 
-    function sendJsonMessage(
-        ws: WebSocket,
-        payload: unknown,
-        clientId: string
-    ): boolean {
+    function sendJsonMessage(ws: WebSocket, payload: unknown, clientId: string): boolean {
         try {
             const message = JSON.stringify(payload);
 
@@ -117,11 +109,8 @@ export async function startPatchWebSocketServer({
             return true;
         } catch (error) {
             if (verbose) {
-                const message =
-                    error instanceof Error ? error.message : String(error);
-                console.error(
-                    `[WebSocket] Failed to send to ${clientId}: ${message}`
-                );
+                const message = error instanceof Error ? error.message : String(error);
+                console.error(`[WebSocket] Failed to send to ${clientId}: ${message}`);
             }
             return false;
         }
@@ -151,17 +140,12 @@ export async function startPatchWebSocketServer({
                 }
 
                 if (verbose && replayedCount > 0) {
-                    console.log(
-                        `[WebSocket] Sent ${replayedCount} queued message(s) to ${clientId}`
-                    );
+                    console.log(`[WebSocket] Sent ${replayedCount} queued message(s) to ${clientId}`);
                 }
             } catch (error) {
                 if (verbose) {
-                    const message =
-                        error instanceof Error ? error.message : String(error);
-                    console.error(
-                        `[WebSocket] Failed to send initial messages to ${clientId}: ${message}`
-                    );
+                    const message = error instanceof Error ? error.message : String(error);
+                    console.error(`[WebSocket] Failed to send initial messages to ${clientId}: ${message}`);
                 }
             }
         }
@@ -181,10 +165,7 @@ export async function startPatchWebSocketServer({
 
         ws.on("error", (error) => {
             if (verbose) {
-                console.error(
-                    `[WebSocket] Client error (${clientId}):`,
-                    error.message
-                );
+                console.error(`[WebSocket] Client error (${clientId}):`, error.message);
             }
         });
     });
@@ -197,8 +178,7 @@ export async function startPatchWebSocketServer({
 
     const address = wss.address();
     const resolvedHost = host ?? DEFAULT_HOST;
-    const resolvedPort =
-        typeof address === "object" ? address.port : DEFAULT_PORT;
+    const resolvedPort = typeof address === "object" ? address.port : DEFAULT_PORT;
     const url = `ws://${resolvedHost}:${resolvedPort}`;
 
     if (verbose) {
@@ -252,9 +232,7 @@ export async function startPatchWebSocketServer({
                     return;
                 }
 
-                const description = describeValueForError(
-                    reason ?? "[WebSocket] Unknown server shutdown failure"
-                );
+                const description = describeValueForError(reason ?? "[WebSocket] Unknown server shutdown failure");
 
                 reject(new Error(description));
             };

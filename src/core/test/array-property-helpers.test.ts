@@ -33,18 +33,12 @@ void describe("array property helpers", () => {
         assert.equal(hasArrayPropertyEntries({}, "items"), false);
 
         assert.equal(hasBodyStatements({ body: [] }), false);
-        assert.equal(
-            hasBodyStatements({ body: [{ type: "ExpressionStatement" }] }),
-            true
-        );
+        assert.equal(hasBodyStatements({ body: [{ type: "ExpressionStatement" }] }), true);
     });
 
     void it("identifies program and block statement nodes", () => {
         assert.equal(isProgramOrBlockStatement({ type: "Program" }), true);
-        assert.equal(
-            isProgramOrBlockStatement({ type: "BlockStatement" }),
-            true
-        );
+        assert.equal(isProgramOrBlockStatement({ type: "BlockStatement" }), true);
         assert.equal(isProgramOrBlockStatement({ type: "SwitchCase" }), false);
         assert.equal(isProgramOrBlockStatement(null), false);
         assert.equal(isProgramOrBlockStatement({}), false);

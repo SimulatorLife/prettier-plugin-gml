@@ -132,11 +132,7 @@ function normalizeAccessors(ast: MutableGameMakerAstNode): void {
  * Transform that normalizes data structure accessor operators based on variable names.
  */
 export class NormalizeDataStructureAccessorsTransform
-    implements
-        ParserTransform<
-            MutableGameMakerAstNode,
-            NormalizeDataStructureAccessorsOptions
-        >
+    implements ParserTransform<MutableGameMakerAstNode, NormalizeDataStructureAccessorsOptions>
 {
     public readonly name = "normalize-data-structure-accessors";
     public readonly defaultOptions = Object.freeze({
@@ -158,5 +154,4 @@ export class NormalizeDataStructureAccessorsTransform
     }
 }
 
-export const normalizeDataStructureAccessorsTransform =
-    new NormalizeDataStructureAccessorsTransform();
+export const normalizeDataStructureAccessorsTransform = new NormalizeDataStructureAccessorsTransform();

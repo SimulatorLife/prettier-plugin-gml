@@ -33,13 +33,9 @@ export interface OccurrenceClassification {
  * console.log(`Found ${classification.definitions} definitions and ${classification.references} references`);
  * console.log(`Affects ${classification.byFile.size} files`);
  */
-export function classifyOccurrences(
-    occurrences: Array<SymbolOccurrence>
-): OccurrenceClassification {
+export function classifyOccurrences(occurrences: Array<SymbolOccurrence>): OccurrenceClassification {
     if (!Array.isArray(occurrences)) {
-        throw new TypeError(
-            "classifyOccurrences requires an array of occurrences"
-        );
+        throw new TypeError("classifyOccurrences requires an array of occurrences");
     }
 
     const classification: OccurrenceClassification = {
@@ -64,23 +60,13 @@ export function classifyOccurrences(
         }
 
         // Track occurrences by file (skip occurrences without valid paths)
-        if (
-            occurrence.path !== null &&
-            occurrence.path !== undefined &&
-            occurrence.path !== ""
-        ) {
+        if (occurrence.path !== null && occurrence.path !== undefined && occurrence.path !== "") {
             const filePath = occurrence.path;
-            classification.byFile.set(
-                filePath,
-                (classification.byFile.get(filePath) ?? 0) + 1
-            );
+            classification.byFile.set(filePath, (classification.byFile.get(filePath) ?? 0) + 1);
         }
 
         // Track occurrences by kind
-        classification.byKind.set(
-            kind,
-            (classification.byKind.get(kind) ?? 0) + 1
-        );
+        classification.byKind.set(kind, (classification.byKind.get(kind) ?? 0) + 1);
     }
 
     return classification;
@@ -104,15 +90,11 @@ export function filterOccurrencesByKind(
     kinds: Array<string>
 ): Array<SymbolOccurrence> {
     if (!Array.isArray(occurrences)) {
-        throw new TypeError(
-            "filterOccurrencesByKind requires an array of occurrences"
-        );
+        throw new TypeError("filterOccurrencesByKind requires an array of occurrences");
     }
 
     if (!Array.isArray(kinds)) {
-        throw new TypeError(
-            "filterOccurrencesByKind requires an array of kinds"
-        );
+        throw new TypeError("filterOccurrencesByKind requires an array of kinds");
     }
 
     const kindSet = new Set(kinds);
@@ -140,13 +122,9 @@ export function filterOccurrencesByKind(
  *     console.log(`${filePath}: ${fileOccurrences.length} occurrences`);
  * }
  */
-export function groupOccurrencesByFile(
-    occurrences: Array<SymbolOccurrence>
-): Map<string, Array<SymbolOccurrence>> {
+export function groupOccurrencesByFile(occurrences: Array<SymbolOccurrence>): Map<string, Array<SymbolOccurrence>> {
     if (!Array.isArray(occurrences)) {
-        throw new TypeError(
-            "groupOccurrencesByFile requires an array of occurrences"
-        );
+        throw new TypeError("groupOccurrencesByFile requires an array of occurrences");
     }
 
     const grouped = new Map<string, Array<SymbolOccurrence>>();
@@ -157,11 +135,7 @@ export function groupOccurrencesByFile(
         }
 
         // Skip occurrences without valid file paths
-        if (
-            occurrence.path === null ||
-            occurrence.path === undefined ||
-            occurrence.path === ""
-        ) {
+        if (occurrence.path === null || occurrence.path === undefined || occurrence.path === "") {
             continue;
         }
 
@@ -187,25 +161,16 @@ export function groupOccurrencesByFile(
  * const playerOccurrences = findOccurrencesInFile(occurrences, "scripts/scr_player.gml");
  * console.log(`${playerOccurrences.length} occurrences in player script`);
  */
-export function findOccurrencesInFile(
-    occurrences: Array<SymbolOccurrence>,
-    filePath: string
-): Array<SymbolOccurrence> {
+export function findOccurrencesInFile(occurrences: Array<SymbolOccurrence>, filePath: string): Array<SymbolOccurrence> {
     if (!Array.isArray(occurrences)) {
-        throw new TypeError(
-            "findOccurrencesInFile requires an array of occurrences"
-        );
+        throw new TypeError("findOccurrencesInFile requires an array of occurrences");
     }
 
     if (typeof filePath !== "string" || filePath.length === 0) {
-        throw new TypeError(
-            "findOccurrencesInFile requires a non-empty file path string"
-        );
+        throw new TypeError("findOccurrencesInFile requires a non-empty file path string");
     }
 
-    return occurrences.filter(
-        (occ) => occ && typeof occ === "object" && occ.path === filePath
-    );
+    return occurrences.filter((occ) => occ && typeof occ === "object" && occ.path === filePath);
 }
 
 /**
@@ -220,13 +185,9 @@ export function findOccurrencesInFile(
  * const fileCount = countAffectedFiles(occurrences);
  * console.log(`Rename will affect ${fileCount} files`);
  */
-export function countAffectedFiles(
-    occurrences: Array<SymbolOccurrence>
-): number {
+export function countAffectedFiles(occurrences: Array<SymbolOccurrence>): number {
     if (!Array.isArray(occurrences)) {
-        throw new TypeError(
-            "countAffectedFiles requires an array of occurrences"
-        );
+        throw new TypeError("countAffectedFiles requires an array of occurrences");
     }
 
     const uniqueFiles = new Set<string>();

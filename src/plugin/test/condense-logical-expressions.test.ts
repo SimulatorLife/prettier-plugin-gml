@@ -53,16 +53,11 @@ void test("preserves guard extraction descriptions when condensing", async () =>
     });
 
     assert.ok(
-        formatted.includes(
-            "/// @description Guard extraction: (foo and qux) or (bar and qux)."
-        ),
+        formatted.includes("/// @description Guard extraction: (foo and qux) or (bar and qux)."),
         "Expected guard extraction description to remain unchanged."
     );
 
-    assert.ok(
-        !formatted.includes(" == "),
-        "Expected guard extraction description to omit simplified equality."
-    );
+    assert.ok(!formatted.includes(" == "), "Expected guard extraction description to omit simplified equality.");
 });
 
 void test("preserves branching return descriptions without equivalence suffixes", async () => {
@@ -116,15 +111,9 @@ void test("retains original multi-branch descriptions when condensing", async ()
     });
 
     const lines = formatted.split("\n");
-    const descriptionIndex = lines.findIndex((line) =>
-        line.startsWith("/// @description")
-    );
+    const descriptionIndex = lines.findIndex((line) => line.startsWith("/// @description"));
 
-    assert.notStrictEqual(
-        descriptionIndex,
-        -1,
-        "Expected a description doc comment line to remain after condensing."
-    );
+    assert.notStrictEqual(descriptionIndex, -1, "Expected a description doc comment line to remain after condensing.");
 
     assert.strictEqual(
         lines[descriptionIndex].startsWith("/// @description"),

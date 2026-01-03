@@ -47,11 +47,7 @@ void test("all visit methods are exposed on the visitor instance", () => {
     const visitor = new GameMakerLanguageParserVisitor();
 
     for (const methodName of VISIT_METHOD_NAMES) {
-        assert.equal(
-            typeof visitor[methodName],
-            "function",
-            `${methodName} should be a function`
-        );
+        assert.equal(typeof visitor[methodName], "function", `${methodName} should be a function`);
     }
 });
 

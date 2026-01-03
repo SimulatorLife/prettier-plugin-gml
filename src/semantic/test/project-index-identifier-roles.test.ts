@@ -1,20 +1,11 @@
 import assert from "node:assert/strict";
 import test from "node:test";
 
-import {
-    IdentifierRole,
-    assertValidIdentifierRole
-} from "../src/project-index/identifier-roles.js";
+import { IdentifierRole, assertValidIdentifierRole } from "../src/project-index/identifier-roles.js";
 
 void test("assertValidIdentifierRole accepts declared roles", () => {
-    assert.equal(
-        assertValidIdentifierRole(IdentifierRole.DECLARATION),
-        IdentifierRole.DECLARATION
-    );
-    assert.equal(
-        assertValidIdentifierRole(IdentifierRole.REFERENCE),
-        IdentifierRole.REFERENCE
-    );
+    assert.equal(assertValidIdentifierRole(IdentifierRole.DECLARATION), IdentifierRole.DECLARATION);
+    assert.equal(assertValidIdentifierRole(IdentifierRole.REFERENCE), IdentifierRole.REFERENCE);
 });
 
 void test("assertValidIdentifierRole rejects unknown values", () => {

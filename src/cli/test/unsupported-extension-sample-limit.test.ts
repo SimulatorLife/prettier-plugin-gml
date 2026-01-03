@@ -17,22 +17,15 @@ void describe("unsupported extension sample limit", () => {
     });
 
     void it("exposes the baseline default", () => {
-        assert.strictEqual(
-            getDefaultUnsupportedExtensionSampleLimit(),
-            DEFAULT_UNSUPPORTED_EXTENSION_SAMPLE_LIMIT
-        );
+        assert.strictEqual(getDefaultUnsupportedExtensionSampleLimit(), DEFAULT_UNSUPPORTED_EXTENSION_SAMPLE_LIMIT);
     });
 
     void it("returns the default when no value is provided", () => {
-        assert.strictEqual(
-            resolveUnsupportedExtensionSampleLimit(),
-            DEFAULT_UNSUPPORTED_EXTENSION_SAMPLE_LIMIT
-        );
+        assert.strictEqual(resolveUnsupportedExtensionSampleLimit(), DEFAULT_UNSUPPORTED_EXTENSION_SAMPLE_LIMIT);
     });
 
     void it("normalizes numeric inputs", () => {
-        const normalizedFromString =
-            resolveUnsupportedExtensionSampleLimit("  6  ");
+        const normalizedFromString = resolveUnsupportedExtensionSampleLimit("  6  ");
         assert.strictEqual(typeof normalizedFromString, "number");
         assert.strictEqual(normalizedFromString, 6);
 
@@ -58,10 +51,7 @@ void describe("unsupported extension sample limit", () => {
         setDefaultUnsupportedExtensionSampleLimit(9);
         setDefaultUnsupportedExtensionSampleLimit(undefined);
 
-        assert.strictEqual(
-            getDefaultUnsupportedExtensionSampleLimit(),
-            DEFAULT_UNSUPPORTED_EXTENSION_SAMPLE_LIMIT
-        );
+        assert.strictEqual(getDefaultUnsupportedExtensionSampleLimit(), DEFAULT_UNSUPPORTED_EXTENSION_SAMPLE_LIMIT);
     });
 
     void it("applies the environment override for the default", () => {

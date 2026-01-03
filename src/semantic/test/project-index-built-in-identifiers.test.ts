@@ -7,9 +7,7 @@ function createMockFsFacade({ contents, mtimeMs }) {
     return {
         async readFile(filePath, encoding) {
             assert.equal(encoding, "utf8");
-            return typeof contents === "function"
-                ? contents(filePath)
-                : contents;
+            return typeof contents === "function" ? contents(filePath) : contents;
         },
         async stat() {
             return { mtimeMs };
@@ -18,116 +16,94 @@ function createMockFsFacade({ contents, mtimeMs }) {
 }
 
 void describe("loadBuiltInIdentifiers", () => {
-    void it(
-        "extracts identifier names when metadata is valid",
-        { concurrency: false },
-        async () => {
-            const facade = createMockFsFacade({
-                contents: JSON.stringify(
-                    {
-                        identifiers: {
-                            demo: { type: "function" },
-                            other: { type: "variable" }
-                        }
-                    },
-                    null,
-                    4
-                ),
-                mtimeMs: 1
-            });
-
-            const result = await loadBuiltInIdentifiers(facade);
-
-            const sortedNames = [...result.names].reduce((acc, item) => {
-                const insertIndex = acc.findIndex(
-                    (existing) => existing > item
-                );
-                return insertIndex === -1
-                    ? [...acc, item]
-                    : [
-                          ...acc.slice(0, insertIndex),
-                          item,
-                          ...acc.slice(insertIndex)
-                      ];
-            }, []);
-            assert.deepStrictEqual(sortedNames, ["demo", "other"]);
-        }
-    );
-
-    void it(
-        "ignores malformed identifier payloads",
-        { concurrency: false },
-        async () => {
-            const facade = createMockFsFacade({
-                contents: JSON.stringify({ identifiers: "intruder" }),
-                mtimeMs: 2
-            });
-
-            const result = await loadBuiltInIdentifiers(facade);
-
-            assert.deepStrictEqual([...result.names], []);
-        }
-    );
-
-    void it(
-        "skips entries with invalid descriptor shapes",
-        { concurrency: false },
-        async () => {
-            const facade = createMockFsFacade({
-                contents: JSON.stringify(
-                    {
-                        identifiers: {
-                            good: { type: "function" },
-                            bad: null,
-                            emptyType: { type: "" }
-                        }
-                    },
-                    null,
-                    4
-                ),
-                mtimeMs: 3
-            });
-
-            const result = await loadBuiltInIdentifiers(facade);
-
-            assert.deepStrictEqual([...result.names], ["good"]);
-        }
-    );
-
-    void it(
-        "treats mtimes within tolerance as cache hits",
-        { concurrency: false },
-        async () => {
-            const baseMtime = 1_700_000_000_000.5;
-            const jitter = 0.0004;
-            const statValues = [baseMtime, baseMtime + jitter];
-            let readFileCalls = 0;
-
-            const facade = {
-                async readFile(filePath, encoding) {
-                    assert.equal(encoding, "utf8");
-                    readFileCalls += 1;
-                    return JSON.stringify(
-                        {
-                            identifiers: {
-                                cached: { type: "function" }
-                            }
-                        },
-                        null,
-                        4
-                    );
+    void it("extracts identifier names when metadata is valid", { concurrency: false }, async () => {
+        const facade = createMockFsFacade({
+            contents: JSON.stringify(
+                {
+                    identifiers: {
+                        demo: { type: "function" },
+                        other: { type: "variable" }
+                    }
                 },
-                async stat() {
-                    const next = statValues.shift() ?? baseMtime + jitter;
-                    return { mtimeMs: next };
-                }
-            };
+                null,
+                4
+            ),
+            mtimeMs: 1
+        });
 
-            const firstLoad = await loadBuiltInIdentifiers(facade);
-            const secondLoad = await loadBuiltInIdentifiers(facade);
+        const result = await loadBuiltInIdentifiers(facade);
 
-            assert.equal(readFileCalls, 1);
-            assert.strictEqual(secondLoad, firstLoad);
-        }
-    );
+        const sortedNames = [...result.names].reduce((acc, item) => {
+            const insertIndex = acc.findIndex((existing) => existing > item);
+            return insertIndex === -1
+                ? [...acc, item]
+                : [...acc.slice(0, insertIndex), item, ...acc.slice(insertIndex)];
+        }, []);
+        assert.deepStrictEqual(sortedNames, ["demo", "other"]);
+    });
+
+    void it("ignores malformed identifier payloads", { concurrency: false }, async () => {
+        const facade = createMockFsFacade({
+            contents: JSON.stringify({ identifiers: "intruder" }),
+            mtimeMs: 2
+        });
+
+        const result = await loadBuiltInIdentifiers(facade);
+
+        assert.deepStrictEqual([...result.names], []);
+    });
+
+    void it("skips entries with invalid descriptor shapes", { concurrency: false }, async () => {
+        const facade = createMockFsFacade({
+            contents: JSON.stringify(
+                {
+                    identifiers: {
+                        good: { type: "function" },
+                        bad: null,
+                        emptyType: { type: "" }
+                    }
+                },
+                null,
+                4
+            ),
+            mtimeMs: 3
+        });
+
+        const result = await loadBuiltInIdentifiers(facade);
+
+        assert.deepStrictEqual([...result.names], ["good"]);
+    });
+
+    void it("treats mtimes within tolerance as cache hits", { concurrency: false }, async () => {
+        const baseMtime = 1_700_000_000_000.5;
+        const jitter = 0.0004;
+        const statValues = [baseMtime, baseMtime + jitter];
+        let readFileCalls = 0;
+
+        const facade = {
+            async readFile(filePath, encoding) {
+                assert.equal(encoding, "utf8");
+                readFileCalls += 1;
+                return JSON.stringify(
+                    {
+                        identifiers: {
+                            cached: { type: "function" }
+                        }
+                    },
+                    null,
+                    4
+                );
+            },
+            async stat() {
+                const next = statValues.shift() ?? baseMtime + jitter;
+                return { mtimeMs: next };
+            }
+        };
+
+        const firstLoad = await loadBuiltInIdentifiers(facade);
+        const secondLoad = await loadBuiltInIdentifiers(facade);
+
+        assert.equal(readFileCalls, 1);
+        assert.strictEqual(secondLoad, firstLoad);
+    });
 });

@@ -1,11 +1,7 @@
 /**
  * Ensures optional function parameters with implicit `undefined` defaults are materialized before downstream transforms run.
  */
-import {
-    Core,
-    type MutableGameMakerAstNode,
-    type GameMakerAstNode
-} from "@gml-modules/core";
+import { Core, type MutableGameMakerAstNode, type GameMakerAstNode } from "@gml-modules/core";
 import type { ParserTransform } from "./functional-transform.js";
 
 type PreprocessFunctionArgumentDefaultsTransformOptions = Record<string, never>;
@@ -17,18 +13,13 @@ type TernaryExpressionNode = GameMakerAstNode & {
     alternate: GameMakerAstNode | null;
 };
 
-function hasExplicitDefaultParameterToLeft(
-    node: MutableGameMakerAstNode,
-    parameter: GameMakerAstNode | null
-): boolean {
+function hasExplicitDefaultParameterToLeft(node: MutableGameMakerAstNode, parameter: GameMakerAstNode | null): boolean {
     if (!Core.isObjectLike(node) || !Array.isArray(node.params)) {
         return false;
     }
 
     try {
-        const paramsList: Array<GameMakerAstNode | null> = Core.toMutableArray(
-            node.params
-        );
+        const paramsList: Array<GameMakerAstNode | null> = Core.toMutableArray(node.params);
         const idx = paramsList.indexOf(parameter);
         if (idx <= 0) {
             return false;
@@ -40,10 +31,7 @@ function hasExplicitDefaultParameterToLeft(
                 continue;
             }
 
-            if (
-                leftParam.type === "DefaultParameter" &&
-                leftParam.right != null
-            ) {
+            if (leftParam.type === "DefaultParameter" && leftParam.right != null) {
                 if (leftParam._featherMaterializedTrailingUndefined === true) {
                     continue;
                 }
@@ -68,16 +56,10 @@ function hasExplicitDefaultParameterToLeft(
 
 /** Orchestrates the normalization of function parameter default values. */
 export class PreprocessFunctionArgumentDefaultsTransform
-    implements
-        ParserTransform<
-            MutableGameMakerAstNode,
-            PreprocessFunctionArgumentDefaultsTransformOptions
-        >
+    implements ParserTransform<MutableGameMakerAstNode, PreprocessFunctionArgumentDefaultsTransformOptions>
 {
     public readonly name = "preprocess-function-argument-defaults";
-    public readonly defaultOptions = Object.freeze(
-        {}
-    ) as PreprocessFunctionArgumentDefaultsTransformOptions;
+    public readonly defaultOptions = Object.freeze({}) as PreprocessFunctionArgumentDefaultsTransformOptions;
 
     public transform(ast: MutableGameMakerAstNode): MutableGameMakerAstNode {
         // Visit each function/constructor once and ensure trailing undefined defaults are explicitly modeled.
@@ -86,11 +68,7 @@ export class PreprocessFunctionArgumentDefaultsTransform
         }
 
         this.traverse(ast, (node) => {
-            if (
-                !node ||
-                (node.type !== "FunctionDeclaration" &&
-                    node.type !== "ConstructorDeclaration")
-            ) {
+            if (!node || (node.type !== "FunctionDeclaration" && node.type !== "ConstructorDeclaration")) {
                 return;
             }
 
@@ -132,11 +110,7 @@ export class PreprocessFunctionArgumentDefaultsTransform
 
     // Normalize the parameters and apply argument_count fallback rewrites within a single declaration.
     private preprocessFunctionDeclaration(node, ast) {
-        if (
-            !node ||
-            (node.type !== "FunctionDeclaration" &&
-                node.type !== "ConstructorDeclaration")
-        ) {
+        if (!node || (node.type !== "FunctionDeclaration" && node.type !== "ConstructorDeclaration")) {
             return;
         }
 
@@ -156,9 +130,7 @@ export class PreprocessFunctionArgumentDefaultsTransform
             node.params = params;
         }
 
-        const statements = Core.getBodyStatements(
-            body as Record<string, unknown>
-        ) as GameMakerAstNode[];
+        const statements = Core.getBodyStatements(body as Record<string, unknown>) as GameMakerAstNode[];
         const statementsToRemove = new Set();
         let appliedChanges = false;
 
@@ -184,11 +156,7 @@ export class PreprocessFunctionArgumentDefaultsTransform
         // conservative behavior while avoiding premature finalization in
         // more complex match paths.
         try {
-            if (
-                statements.length === 0 &&
-                !appliedChanges &&
-                finalizeTrailingUndefinedDefaults(params)
-            ) {
+            if (statements.length === 0 && !appliedChanges && finalizeTrailingUndefinedDefaults(params)) {
                 appliedChanges = true;
             }
         } catch {
@@ -204,10 +172,7 @@ export class PreprocessFunctionArgumentDefaultsTransform
         for (let index = 0; index < statements.length - 1; index += 1) {
             const varStatement = statements[index];
             const ifStatement = statements[index + 1];
-            const condenseMatch = matchArgumentCountFallbackVarThenIf(
-                varStatement,
-                ifStatement
-            );
+            const condenseMatch = matchArgumentCountFallbackVarThenIf(varStatement, ifStatement);
 
             if (!condenseMatch) {
                 continue;
@@ -301,9 +266,7 @@ export class PreprocessFunctionArgumentDefaultsTransform
 
         // Remove matched fallback statements in reverse order to keep indices stable.
         const orderedRemovals = Array.from(statementsToRemove);
-        orderedRemovals.sort(
-            (a, b) => Core.getNodeStartIndex(b) - Core.getNodeStartIndex(a)
-        );
+        orderedRemovals.sort((a, b) => Core.getNodeStartIndex(b) - Core.getNodeStartIndex(a));
 
         for (const removal of orderedRemovals) {
             const index = statements.indexOf(removal);
@@ -521,9 +484,7 @@ function extendStatementEndLocation(
     });
 
     const removedRange = (removedStatement as any).range;
-    const removedRangeEnd = Array.isArray(removedRange)
-        ? removedRange[1]
-        : Core.getNodeEndIndex(removedStatement);
+    const removedRangeEnd = Array.isArray(removedRange) ? removedRange[1] : Core.getNodeEndIndex(removedStatement);
 
     if (typeof removedRangeEnd !== "number") {
         return;
@@ -547,10 +508,7 @@ function extendStatementEndLocation(
 function ensureParameterInfoForMatch(
     match: any,
     params: Array<any>,
-    paramInfoByName: Map<
-        string | null | undefined,
-        { index: number; identifier: GameMakerAstNode | null }
-    >
+    paramInfoByName: Map<string | null | undefined, { index: number; identifier: GameMakerAstNode | null }>
 ) {
     if (!match) {
         return null;
@@ -570,10 +528,7 @@ function ensureParameterInfoForMatch(
         return null;
     }
 
-    const registerInfo = (
-        index: number,
-        identifier: GameMakerAstNode | null
-    ) => {
+    const registerInfo = (index: number, identifier: GameMakerAstNode | null) => {
         const info = { index, identifier };
         paramInfoByName.set(targetName, info);
         return info;
@@ -602,8 +557,7 @@ function ensureParameterInfoForMatch(
     if (targetName && (!identifierName || identifierName !== targetName)) {
         try {
             const fallbackParam = params[argumentIndex];
-            const fallBackIdentifier =
-                getIdentifierFromParameter(fallbackParam);
+            const fallBackIdentifier = getIdentifierFromParameter(fallbackParam);
             if (fallBackIdentifier) {
                 return registerInfo(argumentIndex, fallBackIdentifier);
             }
@@ -617,9 +571,7 @@ function ensureParameterInfoForMatch(
     return registerInfo(argumentIndex, identifier);
 }
 
-function ensureTrailingOptionalParametersHaveUndefinedDefaults(
-    params: Array<any>
-) {
+function ensureTrailingOptionalParametersHaveUndefinedDefaults(params: Array<any>) {
     if (!Array.isArray(params) || params.length === 0) {
         return false;
     }
@@ -673,10 +625,7 @@ function ensureTrailingOptionalParametersHaveUndefinedDefaults(
     return changed;
 }
 
-function reconcileDocOptionality(
-    node: MutableGameMakerAstNode,
-    ast: MutableGameMakerAstNode
-) {
+function reconcileDocOptionality(node: MutableGameMakerAstNode, ast: MutableGameMakerAstNode) {
     try {
         const docManager = Core.prepareDocCommentEnvironment(ast);
         const comments = docManager.getComments(node);
@@ -685,9 +634,7 @@ function reconcileDocOptionality(
         if (Core.isNonEmptyArray(comments)) {
             for (const comment of comments) {
                 if (!comment || typeof comment.value !== "string") continue;
-                const m = comment.value.match(
-                    /@param\s*(?:\{[^}]*\}\s*)?(\[[^\]]+\]|\S+)/i
-                );
+                const m = comment.value.match(/@param\s*(?:\{[^}]*\}\s*)?(\[[^\]]+\]|\S+)/i);
                 if (!m) continue;
                 const raw = m[1];
                 const name = raw ? raw.replaceAll(/^\[|\]$/g, "").trim() : null;
@@ -705,12 +652,10 @@ function reconcileDocOptionality(
             let leftName: string | null = null;
             let rightNode: GameMakerAstNode | null = null;
             if (p.type === "DefaultParameter") {
-                leftName =
-                    p.left && p.left.type === "Identifier" ? p.left.name : null;
+                leftName = p.left && p.left.type === "Identifier" ? p.left.name : null;
                 rightNode = p.right as GameMakerAstNode | null;
             } else if (p.type === "AssignmentPattern") {
-                leftName =
-                    p.left && p.left.type === "Identifier" ? p.left.name : null;
+                leftName = p.left && p.left.type === "Identifier" ? p.left.name : null;
                 rightNode = p.right as GameMakerAstNode | null;
             } else {
                 continue;
@@ -721,8 +666,7 @@ function reconcileDocOptionality(
 
             if (leftName && paramDocMap.has(leftName)) {
                 try {
-                    p._featherOptionalParameter =
-                        paramDocMap.get(leftName) === true;
+                    p._featherOptionalParameter = paramDocMap.get(leftName) === true;
                 } catch {
                     // swallow
                 }
@@ -730,10 +674,7 @@ function reconcileDocOptionality(
             }
 
             try {
-                if (
-                    p._featherOptionalParameter === true ||
-                    p._featherOptionalParameter === false
-                ) {
+                if (p._featherOptionalParameter === true || p._featherOptionalParameter === false) {
                     continue;
                 }
             } catch {
@@ -741,10 +682,7 @@ function reconcileDocOptionality(
             }
 
             try {
-                if (
-                    p._featherMaterializedFromExplicitLeft === true &&
-                    hasExplicitDefaultParameterToLeft(node, p)
-                ) {
+                if (p._featherMaterializedFromExplicitLeft === true && hasExplicitDefaultParameterToLeft(node, p)) {
                     p._featherOptionalParameter = true;
                     continue;
                 }
@@ -801,12 +739,8 @@ function matchArgumentCountFallbackVarThenIf(varStatement, ifStatement) {
         return null;
     }
 
-    const resultantArgumentExpression =
-        match.argumentExpression === undefined ? id : match.argumentExpression;
-    const resultantFallbackExpression =
-        match.fallbackExpression === undefined
-            ? init
-            : match.fallbackExpression;
+    const resultantArgumentExpression = match.argumentExpression === undefined ? id : match.argumentExpression;
+    const resultantFallbackExpression = match.fallbackExpression === undefined ? init : match.fallbackExpression;
 
     return {
         declarator,
@@ -819,8 +753,7 @@ function matchArgumentCountFallbackVarThenIf(varStatement, ifStatement) {
 }
 
 function matchArgumentCountFallbackStatement(statement) {
-    const variableMatch =
-        matchArgumentCountFallbackVariableDeclaration(statement);
+    const variableMatch = matchArgumentCountFallbackVariableDeclaration(statement);
     if (variableMatch) {
         return variableMatch;
     }
@@ -880,18 +813,13 @@ function matchArgumentCountFallbackStatement(statement) {
 
         if (foundArgMatch || foundFallbackMatch) {
             const targetName =
-                (foundFallbackMatch && foundFallbackMatch.targetName) ||
-                (foundArgMatch && foundArgMatch.targetName);
+                (foundFallbackMatch && foundFallbackMatch.targetName) || (foundArgMatch && foundArgMatch.targetName);
 
             return {
                 argumentIndex,
                 targetName,
-                fallbackExpression: foundFallbackMatch
-                    ? foundFallbackMatch.fallbackExpression
-                    : undefined,
-                argumentExpression: foundArgMatch
-                    ? foundArgMatch.argumentExpression
-                    : undefined,
+                fallbackExpression: foundFallbackMatch ? foundFallbackMatch.fallbackExpression : undefined,
+                argumentExpression: foundArgMatch ? foundArgMatch.argumentExpression : undefined,
                 statementNode: statement,
                 guardExpression: condition
             };
@@ -922,9 +850,7 @@ function matchArgumentCountFallbackVariableDeclaration(statement) {
     }
 
     const ternaryExpression = expression as TernaryExpressionNode;
-    const guardExpression = Core.unwrapParenthesizedExpression(
-        ternaryExpression.test
-    );
+    const guardExpression = Core.unwrapParenthesizedExpression(ternaryExpression.test);
     const guard = matchArgumentCountGuard(guardExpression);
     if (!guard) {
         return null;
@@ -934,14 +860,8 @@ function matchArgumentCountFallbackVariableDeclaration(statement) {
     const consequentExpression = ternaryExpression.consequent;
     const alternateExpression = ternaryExpression.alternate;
 
-    const consequentIsArgument = isArgumentIndexAccess(
-        consequentExpression,
-        argumentIndex
-    );
-    const alternateIsArgument = isArgumentIndexAccess(
-        alternateExpression,
-        argumentIndex
-    );
+    const consequentIsArgument = isArgumentIndexAccess(consequentExpression, argumentIndex);
+    const alternateIsArgument = isArgumentIndexAccess(alternateExpression, argumentIndex);
 
     if (!consequentIsArgument && !alternateIsArgument) {
         return null;
@@ -952,9 +872,7 @@ function matchArgumentCountFallbackVariableDeclaration(statement) {
         : alternateIsArgument
           ? alternateExpression
           : undefined;
-    const fallbackExpression = consequentIsArgument
-        ? alternateExpression
-        : consequentExpression;
+    const fallbackExpression = consequentIsArgument ? alternateExpression : consequentExpression;
 
     if (!fallbackExpression) {
         return null;
@@ -994,10 +912,7 @@ function isArgumentIndexAccess(node, argumentIndex) {
     }
 
     const objectName = Core.getIdentifierText(objectNode);
-    return (
-        typeof objectName === "string" &&
-        objectName.toLowerCase() === "argument"
-    );
+    return typeof objectName === "string" && objectName.toLowerCase() === "argument";
 }
 
 function matchAssignmentToArgumentIndex(node, argumentIndex) {
@@ -1006,11 +921,7 @@ function matchAssignmentToArgumentIndex(node, argumentIndex) {
     }
 
     let assignment;
-    if (
-        node.type === "ExpressionStatement" &&
-        node.expression &&
-        node.expression.type === "AssignmentExpression"
-    ) {
+    if (node.type === "ExpressionStatement" && node.expression && node.expression.type === "AssignmentExpression") {
         assignment = node.expression;
     } else if (node.type === "AssignmentExpression") {
         assignment = node;
@@ -1109,10 +1020,8 @@ function matchArgumentCountGuard(node) {
     try {
         if (
             numericNode &&
-            (numericNode.type === "Literal" ||
-                numericNode.type === "NumericLiteral") &&
-            (typeof numericNode.value === "number" ||
-                /^[0-9]+$/.test(String(numericNode.value)))
+            (numericNode.type === "Literal" || numericNode.type === "NumericLiteral") &&
+            (typeof numericNode.value === "number" || /^[0-9]+$/.test(String(numericNode.value)))
         ) {
             rightNumber = Number(numericNode.value);
         } else {
@@ -1157,35 +1066,22 @@ function matchArgumentCountGuard(node) {
 function resolveNodeToArgumentCountSubject(node: any) {
     try {
         const text = Core.getIdentifierText(node);
-        if (
-            typeof text === "string" &&
-            text.toLowerCase() === "argument_count"
-        ) {
+        if (typeof text === "string" && text.toLowerCase() === "argument_count") {
             return text;
         }
 
         if (node && typeof node === "object") {
             if (node.type === "MemberExpression" && node.property) {
                 const propText = Core.getIdentifierText(node.property);
-                if (
-                    typeof propText === "string" &&
-                    propText.toLowerCase() === "argument_count"
-                ) {
+                if (typeof propText === "string" && propText.toLowerCase() === "argument_count") {
                     return propText;
                 }
             }
 
-            if (
-                node.type === "MemberIndexExpression" &&
-                Array.isArray(node.property) &&
-                node.property.length === 1
-            ) {
+            if (node.type === "MemberIndexExpression" && Array.isArray(node.property) && node.property.length === 1) {
                 const prop = node.property[0];
                 const propText = Core.getIdentifierText(prop);
-                if (
-                    typeof propText === "string" &&
-                    propText.toLowerCase() === "argument_count"
-                ) {
+                if (typeof propText === "string" && propText.toLowerCase() === "argument_count") {
                     return propText;
                 }
             }
@@ -1197,9 +1093,7 @@ function resolveNodeToArgumentCountSubject(node: any) {
     return null;
 }
 
-function getIdentifierFromParameter(
-    param: GameMakerAstNode | null | undefined
-) {
+function getIdentifierFromParameter(param: GameMakerAstNode | null | undefined) {
     if (!param) {
         return null;
     }
@@ -1243,11 +1137,7 @@ function collectImplicitArgumentReferences(functionNode: GameMakerAstNode) {
 
         if (node.type === "VariableDeclarator") {
             const aliasIndex = getArgumentIndexFromNode(node.init);
-            if (
-                aliasIndex !== null &&
-                node.id?.type === "Identifier" &&
-                !aliasByIndex.has(aliasIndex)
-            ) {
+            if (aliasIndex !== null && node.id?.type === "Identifier" && !aliasByIndex.has(aliasIndex)) {
                 const aliasName = node.id.name && String(node.id.name).trim();
                 if (aliasName && aliasName.length > 0) {
                     aliasByIndex.set(aliasIndex, aliasName);
@@ -1260,10 +1150,7 @@ function collectImplicitArgumentReferences(functionNode: GameMakerAstNode) {
         if (directIndex !== null) {
             referencedIndices.add(directIndex);
             const isInitializerOfAlias =
-                parent &&
-                parent.type === "VariableDeclarator" &&
-                property === "init" &&
-                aliasByIndex.has(directIndex);
+                parent && parent.type === "VariableDeclarator" && property === "init" && aliasByIndex.has(directIndex);
             if (!isInitializerOfAlias) {
                 directReferenceIndices.add(directIndex);
             }
@@ -1288,11 +1175,8 @@ function collectImplicitArgumentReferences(functionNode: GameMakerAstNode) {
         const fallbackName = `argument${index}`;
         const alias = aliasByIndex.get(index);
         const docName = alias && alias.length > 0 ? alias : fallbackName;
-        const canonical =
-            (typeof docName === "string" && docName.toLowerCase()) || docName;
-        const fallbackCanonical =
-            (typeof fallbackName === "string" && fallbackName.toLowerCase()) ||
-            fallbackName;
+        const canonical = (typeof docName === "string" && docName.toLowerCase()) || docName;
+        const fallbackCanonical = (typeof fallbackName === "string" && fallbackName.toLowerCase()) || fallbackName;
 
         return {
             name: docName,
@@ -1344,14 +1228,8 @@ function applyCondenseMatches(params: {
     const { condenseMatches, statementsToRemove, body } = params;
 
     for (const condense of condenseMatches) {
-        const {
-            declarator,
-            guardExpression,
-            argumentExpression,
-            fallbackExpression,
-            ifStatement,
-            sourceStatement
-        } = condense;
+        const { declarator, guardExpression, argumentExpression, fallbackExpression, ifStatement, sourceStatement } =
+            condense;
 
         declarator.init = {
             type: "TernaryExpression",
@@ -1373,30 +1251,16 @@ function applyArgumentCountMatches(args: {
     params: Array<any>;
     statements: GameMakerAstNode[];
     statementsToRemove: Set<GameMakerAstNode>;
-    paramInfoByName: Map<
-        string | null | undefined,
-        { index: number; identifier: GameMakerAstNode | null }
-    >;
+    paramInfoByName: Map<string | null | undefined, { index: number; identifier: GameMakerAstNode | null }>;
 }) {
-    const {
-        matches,
-        node,
-        params,
-        statements,
-        statementsToRemove,
-        paramInfoByName
-    } = args;
+    const { matches, node, params, statements, statementsToRemove, paramInfoByName } = args;
 
     for (const match of matches) {
         if (!match) {
             continue;
         }
 
-        const paramInfo = ensureParameterInfoForMatch(
-            match,
-            params,
-            paramInfoByName
-        );
+        const paramInfo = ensureParameterInfoForMatch(match, params, paramInfoByName);
         if (!paramInfo) {
             continue;
         }
@@ -1420,11 +1284,7 @@ function applyArgumentCountMatches(args: {
         }
 
         if (match.targetName) {
-            removeDeclaredVariable(
-                statements,
-                match.targetName,
-                statementsToRemove
-            );
+            removeDeclaredVariable(statements, match.targetName, statementsToRemove);
         }
 
         const identifier = paramInfo.identifier;
@@ -1441,9 +1301,7 @@ function applyArgumentCountMatches(args: {
 
             try {
                 if (Core.isUndefinedSentinel(match.fallbackExpression)) {
-                    (
-                        defaultParamNode as any
-                    )._featherMaterializedTrailingUndefined = true;
+                    (defaultParamNode as any)._featherMaterializedTrailingUndefined = true;
                 }
             } catch {
                 // swallow
@@ -1464,10 +1322,7 @@ function processFallbackIfStatements(args: {
     statements: GameMakerAstNode[];
     node: MutableGameMakerAstNode;
     params: Array<any>;
-    paramInfoByName: Map<
-        string | null | undefined,
-        { index: number; identifier: GameMakerAstNode | null }
-    >;
+    paramInfoByName: Map<string | null | undefined, { index: number; identifier: GameMakerAstNode | null }>;
 }) {
     const { statements, node, params, paramInfoByName } = args;
 
@@ -1475,31 +1330,19 @@ function processFallbackIfStatements(args: {
         const stmt = statements[sidx];
         if (!stmt || (stmt as any).type !== "IfStatement") continue;
 
-        const condition = Core.unwrapParenthesizedExpression(
-            (stmt as any).test
-        );
+        const condition = Core.unwrapParenthesizedExpression((stmt as any).test);
         const guard = matchArgumentCountGuard(condition);
         if (!guard) continue;
 
         const consequent = (stmt as any).consequent;
         const alternate = (stmt as any).alternate;
         const consequentStmt =
-            consequent && consequent.type === "BlockStatement"
-                ? Core.getBodyStatements(consequent)[0]
-                : consequent;
+            consequent && consequent.type === "BlockStatement" ? Core.getBodyStatements(consequent)[0] : consequent;
         const alternateStmt =
-            alternate && alternate.type === "BlockStatement"
-                ? Core.getBodyStatements(alternate)[0]
-                : alternate;
+            alternate && alternate.type === "BlockStatement" ? Core.getBodyStatements(alternate)[0] : alternate;
 
-        const a = matchAssignmentToArgumentIndex(
-            consequentStmt,
-            guard.argumentIndex
-        );
-        const b = matchAssignmentToArgumentIndex(
-            alternateStmt,
-            guard.argumentIndex
-        );
+        const a = matchAssignmentToArgumentIndex(consequentStmt, guard.argumentIndex);
+        const b = matchAssignmentToArgumentIndex(alternateStmt, guard.argumentIndex);
 
         let argMatch = null;
         let fallbackMatch = null;
@@ -1533,26 +1376,11 @@ function applyFallbackArgumentMatch(args: {
     guard: any;
     argMatch: any;
     fallbackMatch: any;
-    paramInfoByName: Map<
-        string | null | undefined,
-        { index: number; identifier: GameMakerAstNode | null }
-    >;
+    paramInfoByName: Map<string | null | undefined, { index: number; identifier: GameMakerAstNode | null }>;
 }) {
-    const {
-        node,
-        params,
-        statements,
-        statementNode,
-        guard,
-        argMatch,
-        fallbackMatch,
-        paramInfoByName
-    } = args;
+    const { node, params, statements, statementNode, guard, argMatch, fallbackMatch, paramInfoByName } = args;
 
-    const targetName =
-        (fallbackMatch && fallbackMatch.targetName) ||
-        (argMatch && argMatch.targetName) ||
-        null;
+    const targetName = (fallbackMatch && fallbackMatch.targetName) || (argMatch && argMatch.targetName) || null;
     const argumentIndex = guard.argumentIndex;
 
     let paramIndex = -1;
@@ -1572,16 +1400,14 @@ function applyFallbackArgumentMatch(args: {
     }
 
     const fallbackExpr =
-        (fallbackMatch && fallbackMatch.fallbackExpression) ||
-        (argMatch && argMatch.fallbackExpression);
+        (fallbackMatch && fallbackMatch.fallbackExpression) || (argMatch && argMatch.fallbackExpression);
     if (!fallbackExpr) {
         return;
     }
 
     const paramIsBareIdentifier = currentParam.type === "Identifier";
     const paramIsEmptyDefault =
-        currentParam.type === "DefaultParameter" &&
-        (currentParam.right == null || currentParam.right === undefined);
+        currentParam.type === "DefaultParameter" && (currentParam.right == null || currentParam.right === undefined);
 
     if (paramIsBareIdentifier) {
         const defaultParamNode = {
@@ -1591,9 +1417,7 @@ function applyFallbackArgumentMatch(args: {
         };
         try {
             if (Core.isUndefinedSentinel(fallbackExpr)) {
-                (
-                    defaultParamNode as any
-                )._featherMaterializedTrailingUndefined = true;
+                (defaultParamNode as any)._featherMaterializedTrailingUndefined = true;
             }
         } catch {
             // swallow
@@ -1713,5 +1537,4 @@ function removeDeclaredVariable(
     }
 }
 
-export const preprocessFunctionArgumentDefaultsTransform =
-    new PreprocessFunctionArgumentDefaultsTransform();
+export const preprocessFunctionArgumentDefaultsTransform = new PreprocessFunctionArgumentDefaultsTransform();

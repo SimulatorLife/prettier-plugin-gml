@@ -9,9 +9,7 @@ export type DocCommentNormalizationPayload = {
 
 const DOC_COMMENT_NORMALIZATION_KEY = Symbol("gmlDocCommentNormalization");
 
-export function getDocCommentNormalization(
-    node: unknown
-): DocCommentNormalizationPayload | null {
+export function getDocCommentNormalization(node: unknown): DocCommentNormalizationPayload | null {
     if (!node || typeof node !== "object") {
         return null;
     }
@@ -22,17 +20,13 @@ export function getDocCommentNormalization(
         return null;
     }
 
-    const {
-        docCommentDocs,
-        needsLeadingBlankLine,
-        _preserveDescriptionBreaks,
-        _suppressLeadingBlank
-    } = maybePayload as {
-        docCommentDocs?: MutableDocCommentLines;
-        needsLeadingBlankLine?: boolean;
-        _preserveDescriptionBreaks?: boolean;
-        _suppressLeadingBlank?: boolean;
-    };
+    const { docCommentDocs, needsLeadingBlankLine, _preserveDescriptionBreaks, _suppressLeadingBlank } =
+        maybePayload as {
+            docCommentDocs?: MutableDocCommentLines;
+            needsLeadingBlankLine?: boolean;
+            _preserveDescriptionBreaks?: boolean;
+            _suppressLeadingBlank?: boolean;
+        };
 
     if (!Array.isArray(docCommentDocs)) {
         return null;
@@ -46,10 +40,7 @@ export function getDocCommentNormalization(
     };
 }
 
-export function setDocCommentNormalization(
-    node: unknown,
-    payload: DocCommentNormalizationPayload | null
-) {
+export function setDocCommentNormalization(node: unknown, payload: DocCommentNormalizationPayload | null) {
     if (!node || typeof node !== "object") {
         return;
     }

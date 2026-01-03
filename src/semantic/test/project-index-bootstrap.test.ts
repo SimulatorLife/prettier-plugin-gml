@@ -15,9 +15,7 @@ async function withTempDir(run) {
     }
 }
 
-async function withBootstrapProject(
-    run: (context: { projectRoot: string; scriptPath: string }) => Promise<void>
-) {
+async function withBootstrapProject(run: (context: { projectRoot: string; scriptPath: string }) => Promise<void>) {
     return withTempDir(async (projectRoot) => {
         const manifestPath = path.join(projectRoot, "project.yyp");
         await writeFile(manifestPath, "{}");
@@ -30,10 +28,7 @@ async function withBootstrapProject(
     });
 }
 
-function createBootstrapRunCase(
-    scriptPath: string,
-    assignRawValue: (options: any, rawValue: unknown) => void
-) {
+function createBootstrapRunCase(scriptPath: string, assignRawValue: (options: any, rawValue: unknown) => void) {
     return async (rawValue: unknown) => {
         const descriptors = [];
         const coordinator = {
@@ -59,15 +54,11 @@ function createBootstrapRunCase(
 
 void test("Semantic.bootstrapProjectIndex normalizes cache max size overrides", async () => {
     await withBootstrapProject(async ({ scriptPath }) => {
-        const runCase = createBootstrapRunCase(
-            scriptPath,
-            (options, rawValue) => {
-                if (rawValue !== undefined) {
-                    options.gmlIdentifierCaseProjectIndexCacheMaxBytes =
-                        rawValue;
-                }
+        const runCase = createBootstrapRunCase(scriptPath, (options, rawValue) => {
+            if (rawValue !== undefined) {
+                options.gmlIdentifierCaseProjectIndexCacheMaxBytes = rawValue;
             }
-        );
+        });
 
         {
             const { options, descriptor } = await runCase("16");
@@ -77,22 +68,13 @@ void test("Semantic.bootstrapProjectIndex normalizes cache max size overrides", 
 
         {
             const { options, descriptor } = await runCase("0");
-            assert.strictEqual(
-                options.__identifierCaseProjectIndexCacheMaxBytes,
-                null
-            );
+            assert.strictEqual(options.__identifierCaseProjectIndexCacheMaxBytes, null);
             assert.strictEqual(descriptor.maxSizeBytes, null);
         }
 
         {
             const { options, descriptor } = await runCase(" ");
-            assert.equal(
-                Object.hasOwn(
-                    options,
-                    "__identifierCaseProjectIndexCacheMaxBytes"
-                ),
-                false
-            );
+            assert.equal(Object.hasOwn(options, "__identifierCaseProjectIndexCacheMaxBytes"), false);
             assert.equal("maxSizeBytes" in descriptor, false);
         }
     });
@@ -100,14 +82,11 @@ void test("Semantic.bootstrapProjectIndex normalizes cache max size overrides", 
 
 void test("Semantic.bootstrapProjectIndex normalizes concurrency overrides", async () => {
     await withBootstrapProject(async ({ scriptPath }) => {
-        const runCase = createBootstrapRunCase(
-            scriptPath,
-            (options, rawValue) => {
-                if (rawValue !== undefined) {
-                    options.gmlIdentifierCaseProjectIndexConcurrency = rawValue;
-                }
+        const runCase = createBootstrapRunCase(scriptPath, (options, rawValue) => {
+            if (rawValue !== undefined) {
+                options.gmlIdentifierCaseProjectIndexConcurrency = rawValue;
             }
-        );
+        });
 
         {
             const { options, descriptor } = await runCase("8");
@@ -125,13 +104,7 @@ void test("Semantic.bootstrapProjectIndex normalizes concurrency overrides", asy
 
         {
             const { options, descriptor } = await runCase("   ");
-            assert.equal(
-                Object.hasOwn(
-                    options,
-                    "__identifierCaseProjectIndexConcurrency"
-                ),
-                false
-            );
+            assert.equal(Object.hasOwn(options, "__identifierCaseProjectIndexConcurrency"), false);
             assert.equal(descriptor.buildOptions?.concurrency, undefined);
         }
 

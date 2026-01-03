@@ -1,7 +1,6 @@
 import { Core } from "@gml-modules/core";
 
-const IDENTIFIER_CASE_OPTION_STORE_MAX_ENTRIES_ENV_VAR =
-    "GML_IDENTIFIER_CASE_OPTION_STORE_MAX_ENTRIES";
+const IDENTIFIER_CASE_OPTION_STORE_MAX_ENTRIES_ENV_VAR = "GML_IDENTIFIER_CASE_OPTION_STORE_MAX_ENTRIES";
 const IDENTIFIER_CASE_OPTION_STORE_MAX_ENTRIES_BASELINE = 128;
 
 function normalizeMaxEntries(value, { fallback }) {
@@ -53,14 +52,12 @@ function normalizeFiniteMaxEntries(value) {
     return Math.floor(value);
 }
 
-const identifierCaseOptionStoreMaxEntriesConfig =
-    Core.createEnvConfiguredValueWithFallback({
-        defaultValue: IDENTIFIER_CASE_OPTION_STORE_MAX_ENTRIES_BASELINE,
-        envVar: IDENTIFIER_CASE_OPTION_STORE_MAX_ENTRIES_ENV_VAR,
-        resolve: (raw, context) =>
-            normalizeMaxEntries(raw, { fallback: context.fallback }),
-        computeFallback: ({ defaultValue }) => defaultValue
-    });
+const identifierCaseOptionStoreMaxEntriesConfig = Core.createEnvConfiguredValueWithFallback({
+    defaultValue: IDENTIFIER_CASE_OPTION_STORE_MAX_ENTRIES_BASELINE,
+    envVar: IDENTIFIER_CASE_OPTION_STORE_MAX_ENTRIES_ENV_VAR,
+    resolve: (raw, context) => normalizeMaxEntries(raw, { fallback: context.fallback }),
+    computeFallback: ({ defaultValue }) => defaultValue
+});
 
 function getDefaultIdentifierCaseOptionStoreMaxEntries() {
     return identifierCaseOptionStoreMaxEntriesConfig.get();
@@ -70,19 +67,13 @@ function setDefaultIdentifierCaseOptionStoreMaxEntries(maxEntries) {
     return identifierCaseOptionStoreMaxEntriesConfig.set(maxEntries);
 }
 
-function applyIdentifierCaseOptionStoreEnvOverride(
-    env?: Record<string, string> | null
-) {
-    Core.applyConfiguredValueEnvOverride(
-        identifierCaseOptionStoreMaxEntriesConfig,
-        env
-    );
+function applyIdentifierCaseOptionStoreEnvOverride(env?: Record<string, string> | null) {
+    Core.applyConfiguredValueEnvOverride(identifierCaseOptionStoreMaxEntriesConfig, env);
 }
 
 applyIdentifierCaseOptionStoreEnvOverride();
 
-const DEFAULT_IDENTIFIER_CASE_OPTION_STORE_MAX_ENTRIES =
-    getDefaultIdentifierCaseOptionStoreMaxEntries();
+const DEFAULT_IDENTIFIER_CASE_OPTION_STORE_MAX_ENTRIES = getDefaultIdentifierCaseOptionStoreMaxEntries();
 
 export {
     DEFAULT_IDENTIFIER_CASE_OPTION_STORE_MAX_ENTRIES,

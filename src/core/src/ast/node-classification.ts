@@ -33,8 +33,7 @@ for (const value of Object.values(DEFINE_REPLACEMENT_DIRECTIVE_MAP)) {
     DEFINE_REPLACEMENT_DIRECTIVE_LIST.push(`'${value}'`);
 }
 
-const DEFINE_REPLACEMENT_DIRECTIVE_LIST_STRING =
-    DEFINE_REPLACEMENT_DIRECTIVE_LIST.join(", ");
+const DEFINE_REPLACEMENT_DIRECTIVE_LIST_STRING = DEFINE_REPLACEMENT_DIRECTIVE_LIST.join(", ");
 
 /**
  * Directive tokens used by `DefineStatement` nodes to mimic structured
@@ -45,8 +44,7 @@ export const DefineReplacementDirective = DEFINE_REPLACEMENT_DIRECTIVE_MAP;
 /**
  * Type-level union of supported define replacement directive tokens.
  */
-export type DefineReplacementDirective =
-    (typeof DefineReplacementDirective)[keyof typeof DefineReplacementDirective];
+export type DefineReplacementDirective = (typeof DefineReplacementDirective)[keyof typeof DefineReplacementDirective];
 
 /**
  * Detects nodes that behave like functions for spacing and traversal purposes.
@@ -63,8 +61,7 @@ export function isFunctionAssignmentStatement(node: any) {
     const assignmentExpression =
         node?.type === ASSIGNMENT_EXPRESSION
             ? node
-            : node?.type === EXPRESSION_STATEMENT &&
-                node.expression?.type === ASSIGNMENT_EXPRESSION
+            : node?.type === EXPRESSION_STATEMENT && node.expression?.type === ASSIGNMENT_EXPRESSION
               ? node.expression
               : null;
 
@@ -73,14 +70,10 @@ export function isFunctionAssignmentStatement(node: any) {
     }
 
     const rightType = assignmentExpression.right?.type;
-    return (
-        rightType === FUNCTION_DECLARATION || rightType === FUNCTION_EXPRESSION
-    );
+    return rightType === FUNCTION_DECLARATION || rightType === FUNCTION_EXPRESSION;
 }
 
-function normalizeDefineReplacementDirectiveValue(
-    rawDirective: unknown
-): DefineReplacementDirective | null {
+function normalizeDefineReplacementDirectiveValue(rawDirective: unknown): DefineReplacementDirective | null {
     if (typeof rawDirective !== "string") {
         return null;
     }
@@ -123,9 +116,7 @@ export function getNormalizedDefineReplacementDirective(
  * Type guard for `{#define}`-style nodes so callers can access the optional
  * `replacementDirective` metadata without needing to expand the base AST type.
  */
-export function isDefineStatementNode(
-    node?: GameMakerAstNode | null
-): node is DefineStatementNode {
+export function isDefineStatementNode(node?: GameMakerAstNode | null): node is DefineStatementNode {
     return node?.type === DEFINE_STATEMENT;
 }
 
@@ -148,10 +139,7 @@ export function isMacroLikeStatement(node?: GameMakerAstNode | null): boolean {
     }
 
     if (isDefineStatementNode(node)) {
-        return (
-            getNormalizedDefineReplacementDirective(node) ===
-            DefineReplacementDirective.MACRO
-        );
+        return getNormalizedDefineReplacementDirective(node) === DefineReplacementDirective.MACRO;
     }
 
     return false;

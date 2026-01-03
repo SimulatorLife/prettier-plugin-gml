@@ -20,10 +20,7 @@ void describe("constructor nested function spacing", () => {
         const lines = formatted.split("\n");
         const closingBraceIndex = lines.lastIndexOf("}");
 
-        assert.ok(
-            closingBraceIndex > 0,
-            "Formatted constructor should include a closing brace."
-        );
+        assert.ok(closingBraceIndex > 0, "Formatted constructor should include a closing brace.");
 
         assert.strictEqual(
             lines[closingBraceIndex - 1],

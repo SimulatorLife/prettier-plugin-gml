@@ -1,10 +1,7 @@
 import assert from "node:assert/strict";
 import { describe, it } from "node:test";
 
-import {
-    runFormatterBenchmark,
-    runParserBenchmark
-} from "../src/commands/performance.js";
+import { runFormatterBenchmark, runParserBenchmark } from "../src/commands/performance.js";
 import { assertApproximatelyEqual } from "./test-helpers/numeric-assertions.js";
 
 function isCompletedBenchmarkResult(value: unknown): value is {
@@ -27,9 +24,7 @@ function isCompletedBenchmarkResult(value: unknown): value is {
     );
 }
 
-function isSkippedBenchmarkResult(
-    value: unknown
-): value is { skipped: boolean; reason?: unknown } {
+function isSkippedBenchmarkResult(value: unknown): value is { skipped: boolean; reason?: unknown } {
     return Boolean(value && typeof value === "object" && "skipped" in value);
 }
 
@@ -64,12 +59,7 @@ void describe("performance CLI benchmarks", () => {
             assert.fail("Benchmark result unexpectedly skipped");
         }
 
-        assert.deepEqual(visited, [
-            "/tmp/a.gml",
-            "/tmp/b.gml",
-            "/tmp/a.gml",
-            "/tmp/b.gml"
-        ]);
+        assert.deepEqual(visited, ["/tmp/a.gml", "/tmp/b.gml", "/tmp/a.gml", "/tmp/b.gml"]);
         assert.equal(result.iterations, 2);
         assert.equal(result.dataset.files, 2);
         assert.equal(result.durations.length, 2);
@@ -103,11 +93,7 @@ void describe("performance CLI benchmarks", () => {
             assert.fail("Benchmark result unexpectedly skipped");
         }
 
-        assert.deepEqual(formatted, [
-            "/tmp/sample.gml",
-            "/tmp/sample.gml",
-            "/tmp/sample.gml"
-        ]);
+        assert.deepEqual(formatted, ["/tmp/sample.gml", "/tmp/sample.gml", "/tmp/sample.gml"]);
         assert.equal(result.iterations, 3);
         assert.equal(result.dataset.files, 1);
         assert.equal(result.durations.length, 3);

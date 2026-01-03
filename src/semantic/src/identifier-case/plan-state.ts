@@ -7,8 +7,7 @@ function buildRenameKey(_scopeId, location) {
     // planner uses full location objects; normalize numeric inputs so the
     // resulting location key encoding is consistent between planning and
     // printing.
-    const normalizedLocation =
-        typeof location === "number" ? { index: location } : location;
+    const normalizedLocation = typeof location === "number" ? { index: location } : location;
 
     const locationKey = Core.buildLocationKey(normalizedLocation);
     if (!locationKey) {
@@ -31,10 +30,7 @@ function buildRenameKey(_scopeId, location) {
  * @param options Active plugin options possibly containing rename plan state.
  * @returns The planned identifier rename when available.
  */
-export function getIdentifierCaseRenameForNode(
-    node: MutableGameMakerAstNode | null,
-    options: any
-) {
+export function getIdentifierCaseRenameForNode(node: MutableGameMakerAstNode | null, options: any) {
     if (!node || !options) {
         return null;
     }
@@ -89,19 +85,9 @@ export function getIdentifierCaseRenameForNode(
                 // file-qualified location key before emitting the diagnostic
                 // sample so we can detect which encoding is present.
                 try {
-                    const loc =
-                        typeof node.start === "number"
-                            ? { index: node.start }
-                            : node.start;
-                    const fileKey = Core.buildFileLocationKey(
-                        options?.filepath ?? null,
-                        loc
-                    );
-                    if (
-                        fileKey &&
-                        typeof renameMap.has === "function" &&
-                        renameMap.has(fileKey)
-                    ) {
+                    const loc = typeof node.start === "number" ? { index: node.start } : node.start;
+                    const fileKey = Core.buildFileLocationKey(options?.filepath ?? null, loc);
+                    if (fileKey && typeof renameMap.has === "function" && renameMap.has(fileKey)) {
                         // console.debug(
                         //     `[DBG] getIdentifierCaseRenameForNode: fallback-fileKey-hit fileKey=${String(fileKey)} renameMapId=${getDebugId(renameMap)}`
                         // );
@@ -171,16 +157,10 @@ export function captureIdentifierCasePlanSnapshot(options) {
                 metricsReport: object.__identifierCaseMetricsReport ?? null,
                 metrics: object.__identifierCaseMetrics ?? null,
                 assetRenames: object.__identifierCaseAssetRenames ?? null,
-                assetRenameResult:
-                    object.__identifierCaseAssetRenameResult ?? null,
-                assetRenamesApplied:
-                    object.__identifierCaseAssetRenamesApplied ?? null,
-                dryRun:
-                    object.__identifierCaseDryRun === undefined
-                        ? null
-                        : object.__identifierCaseDryRun,
-                planGenerated:
-                    object.__identifierCasePlanGeneratedInternally === true
+                assetRenameResult: object.__identifierCaseAssetRenameResult ?? null,
+                assetRenamesApplied: object.__identifierCaseAssetRenamesApplied ?? null,
+                dryRun: object.__identifierCaseDryRun === undefined ? null : object.__identifierCaseDryRun,
+                planGenerated: object.__identifierCasePlanGeneratedInternally === true
             };
 
             try {
@@ -284,17 +264,10 @@ export function applyIdentifierCasePlanSnapshot(snapshot, options) {
                 // entry. Other snapshot entries follow the existing semantics.
                 if (snapshotKey === "renameMap") {
                     const isMap = Core.isMapLike(value);
-                    const size =
-                        isMap && typeof value.size === "number"
-                            ? value.size
-                            : 0;
+                    const size = isMap && typeof value.size === "number" ? value.size : 0;
                     if (isMap && size > 0 && !object[optionKey]) {
                         setIdentifierCaseOption(object, optionKey, value);
-                        logIdentifierCaseRenameMapSamples(
-                            value as Map<unknown, unknown>,
-                            optionKey,
-                            object
-                        );
+                        logIdentifierCaseRenameMapSamples(value as Map<unknown, unknown>, optionKey, object);
                     }
                     // After writing the option, emit an identity check to confirm
                     // whether the snapshot's map instance is the same object that
@@ -310,37 +283,21 @@ export function applyIdentifierCasePlanSnapshot(snapshot, options) {
                 }
             }
 
-            defineHiddenOption(
-                object,
-                "__identifierCasePlanSnapshot",
-                snapshot
-            );
+            defineHiddenOption(object, "__identifierCasePlanSnapshot", snapshot);
 
             if (
                 snapshot.assetRenamesApplied !== undefined &&
                 object.__identifierCaseAssetRenamesApplied === undefined
             ) {
-                setIdentifierCaseOption(
-                    object,
-                    "__identifierCaseAssetRenamesApplied",
-                    snapshot.assetRenamesApplied
-                );
+                setIdentifierCaseOption(object, "__identifierCaseAssetRenamesApplied", snapshot.assetRenamesApplied);
             }
 
             if (snapshot.dryRun !== null) {
-                defineHiddenOption(
-                    object,
-                    "__identifierCaseDryRun",
-                    snapshot.dryRun
-                );
+                defineHiddenOption(object, "__identifierCaseDryRun", snapshot.dryRun);
             }
 
             if (snapshot.planGenerated) {
-                setIdentifierCaseOption(
-                    object,
-                    "__identifierCasePlanGeneratedInternally",
-                    true
-                );
+                setIdentifierCaseOption(object, "__identifierCasePlanGeneratedInternally", true);
             }
         },
         null
@@ -349,11 +306,7 @@ export function applyIdentifierCasePlanSnapshot(snapshot, options) {
 
 export { buildRenameKey };
 
-function logIdentifierCaseRenameMapSamples(
-    value: Map<unknown, unknown>,
-    optionKey: string,
-    object: any
-): void {
+function logIdentifierCaseRenameMapSamples(value: Map<unknown, unknown>, optionKey: string, object: any): void {
     try {
         const formatKey = (key: unknown) => {
             if (typeof key === "string") {

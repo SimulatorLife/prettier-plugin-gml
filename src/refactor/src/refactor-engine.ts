@@ -43,11 +43,7 @@ export class RefactorEngine {
     public readonly semantic: SemanticAnalyzer | null;
     public readonly formatter: TranspilerBridge | null;
 
-    constructor({
-        parser = null,
-        semantic = null,
-        formatter = null
-    }: Partial<RefactorEngineDependencies> = {}) {
+    constructor({ parser = null, semantic = null, formatter = null }: Partial<RefactorEngineDependencies> = {}) {
         this.parser = parser ?? null;
         this.semantic = semantic ?? null;
         this.formatter = formatter ?? null;
@@ -60,10 +56,7 @@ export class RefactorEngine {
      * @param {number} offset - Character offset in the file
      * @returns {Promise<{symbolId: string, name: string, range: {start: number, end: number}} | null>}
      */
-    async findSymbolAtLocation(
-        filePath: string,
-        offset: number
-    ): Promise<SymbolLocation | null> {
+    async findSymbolAtLocation(filePath: string, offset: number): Promise<SymbolLocation | null> {
         if (!this.semantic) {
             return null;
         }
@@ -97,10 +90,7 @@ export class RefactorEngine {
      * Helper to find AST node at a specific offset.
      * @private
      */
-    private findNodeAtOffset(
-        node: AstNode | null,
-        offset: number
-    ): SymbolLocation | null {
+    private findNodeAtOffset(node: AstNode | null, offset: number): SymbolLocation | null {
         if (!node || typeof node !== "object") {
             return null;
         }
@@ -144,9 +134,7 @@ export class RefactorEngine {
      */
     async validateSymbolExists(symbolId: string): Promise<boolean> {
         if (!this.semantic) {
-            throw new Error(
-                "RefactorEngine requires a semantic analyzer to validate symbols"
-            );
+            throw new Error("RefactorEngine requires a semantic analyzer to validate symbols");
         }
 
         // Query the semantic analyzer's symbol table to determine whether the given
@@ -169,9 +157,7 @@ export class RefactorEngine {
      * @param {string} symbolName - Symbol name to find
      * @returns {Promise<Array<{path: string, start: number, end: number, kind: string}>>}
      */
-    async gatherSymbolOccurrences(
-        symbolName: string
-    ): Promise<Array<SymbolOccurrence>> {
+    async gatherSymbolOccurrences(symbolName: string): Promise<Array<SymbolOccurrence>> {
         if (!this.semantic) {
             return [];
         }
@@ -208,9 +194,7 @@ export class RefactorEngine {
      */
     async getFileSymbols(filePath: string): Promise<Array<{ id: string }>> {
         if (!filePath || typeof filePath !== "string") {
-            throw new TypeError(
-                "getFileSymbols requires a valid file path string"
-            );
+            throw new TypeError("getFileSymbols requires a valid file path string");
         }
 
         if (!this.semantic) {
@@ -240,13 +224,9 @@ export class RefactorEngine {
      * ]);
      * console.log(`Found ${dependents.length} dependent symbols`);
      */
-    async getSymbolDependents(
-        symbolIds: Array<string>
-    ): Promise<Array<{ symbolId: string; filePath: string }>> {
+    async getSymbolDependents(symbolIds: Array<string>): Promise<Array<{ symbolId: string; filePath: string }>> {
         if (!Array.isArray(symbolIds)) {
-            throw new TypeError(
-                "getSymbolDependents requires an array of symbol IDs"
-            );
+            throw new TypeError("getSymbolDependents requires an array of symbol IDs");
         }
 
         if (symbolIds.length === 0) {
@@ -310,9 +290,7 @@ export class RefactorEngine {
         }
 
         if (typeof symbolId !== "string") {
-            errors.push(
-                `symbolId must be a string, received ${typeof symbolId}`
-            );
+            errors.push(`symbolId must be a string, received ${typeof symbolId}`);
             return { valid: false, errors, warnings };
         }
 
@@ -326,8 +304,7 @@ export class RefactorEngine {
         try {
             normalizedNewName = assertValidIdentifierName(newName);
         } catch (error) {
-            const errorMessage =
-                error instanceof Error ? error.message : String(error);
+            const errorMessage = error instanceof Error ? error.message : String(error);
             errors.push(errorMessage);
             return { valid: false, errors, warnings };
         }
@@ -336,15 +313,11 @@ export class RefactorEngine {
         if (this.semantic) {
             const exists = await this.validateSymbolExists(symbolId);
             if (!exists) {
-                errors.push(
-                    `Symbol '${symbolId}' not found in semantic index. Ensure the project has been analyzed.`
-                );
+                errors.push(`Symbol '${symbolId}' not found in semantic index. Ensure the project has been analyzed.`);
                 return { valid: false, errors, warnings };
             }
         } else {
-            warnings.push(
-                "No semantic analyzer available - cannot verify symbol existence"
-            );
+            warnings.push("No semantic analyzer available - cannot verify symbol existence");
         }
 
         // Extract the symbol's base name from its fully-qualified ID.
@@ -354,9 +327,7 @@ export class RefactorEngine {
         const symbolName = symbolId.split("/").pop() ?? symbolId;
 
         if (symbolName === normalizedNewName) {
-            errors.push(
-                `The new name '${normalizedNewName}' matches the existing identifier`
-            );
+            errors.push(`The new name '${normalizedNewName}' matches the existing identifier`);
             return { valid: false, errors, warnings };
         }
 
@@ -364,9 +335,7 @@ export class RefactorEngine {
         const occurrences = await this.gatherSymbolOccurrences(symbolName);
 
         if (occurrences.length === 0) {
-            warnings.push(
-                `No occurrences found for symbol '${symbolName}' - rename will have no effect`
-            );
+            warnings.push(`No occurrences found for symbol '${symbolName}' - rename will have no effect`);
         }
 
         // Check for conflicts
@@ -479,29 +448,20 @@ export class RefactorEngine {
 
             const { symbolId } = rename;
             if (!symbolId || typeof symbolId !== "string") {
-                errors.push(
-                    "Each rename must have a valid symbolId string property"
-                );
+                errors.push("Each rename must have a valid symbolId string property");
                 continue;
             }
 
             // Validate individual rename request
-            const validation = await this.validateRenameRequest(
-                rename,
-                options
-            );
+            const validation = await this.validateRenameRequest(rename, options);
             renameValidations.set(symbolId, validation);
 
             if (!validation.valid) {
-                errors.push(
-                    `Rename validation failed for '${symbolId}': ${validation.errors.join(", ")}`
-                );
+                errors.push(`Rename validation failed for '${symbolId}': ${validation.errors.join(", ")}`);
             }
 
             if (validation.warnings.length > 0) {
-                warnings.push(
-                    ...validation.warnings.map((w) => `${symbolId}: ${w}`)
-                );
+                warnings.push(...validation.warnings.map((w) => `${symbolId}: ${w}`));
             }
         }
 
@@ -524,9 +484,7 @@ export class RefactorEngine {
             }
 
             try {
-                const normalizedNewName = assertValidIdentifierName(
-                    rename.newName
-                );
+                const normalizedNewName = assertValidIdentifierName(rename.newName);
                 if (!newNameToSymbols.has(normalizedNewName)) {
                     newNameToSymbols.set(normalizedNewName, []);
                 }
@@ -544,9 +502,7 @@ export class RefactorEngine {
         // Detect conflicting renames (multiple symbols renamed to the same name)
         for (const [newName, symbolIds] of newNameToSymbols.entries()) {
             if (symbolIds.length > 1) {
-                errors.push(
-                    `Multiple symbols cannot be renamed to '${newName}': ${symbolIds.join(", ")}`
-                );
+                errors.push(`Multiple symbols cannot be renamed to '${newName}': ${symbolIds.join(", ")}`);
                 conflictingSets.push(symbolIds);
             }
         }
@@ -564,12 +520,8 @@ export class RefactorEngine {
 
         const circularChain = detectCircularRenames(validRenames);
         if (circularChain.length > 0) {
-            const chain = circularChain
-                .map((id) => id.split("/").pop())
-                .join(" → ");
-            errors.push(
-                `Circular rename chain detected: ${chain}. Cannot rename symbols in a cycle.`
-            );
+            const chain = circularChain.map((id) => id.split("/").pop()).join(" → ");
+            errors.push(`Circular rename chain detected: ${chain}. Cannot rename symbols in a cycle.`);
             conflictingSets.push(circularChain);
         }
 
@@ -586,9 +538,7 @@ export class RefactorEngine {
             }
 
             try {
-                const normalizedNewName = assertValidIdentifierName(
-                    rename.newName
-                );
+                const normalizedNewName = assertValidIdentifierName(rename.newName);
                 newNames.add(normalizedNewName);
             } catch {
                 // Skip invalid identifier names during the collection phase.
@@ -607,16 +557,11 @@ export class RefactorEngine {
             }
 
             try {
-                const normalizedNewName = assertValidIdentifierName(
-                    rename.newName
-                );
+                const normalizedNewName = assertValidIdentifierName(rename.newName);
 
                 // Warn if this new name matches any old name in the batch (potential confusion)
                 // but exclude the case where it's the same symbol (already caught as same-name rename)
-                if (
-                    oldNames.has(normalizedNewName) &&
-                    oldName !== normalizedNewName
-                ) {
+                if (oldNames.has(normalizedNewName) && oldName !== normalizedNewName) {
                     warnings.push(
                         `Rename introduces potential confusion: '${rename.symbolId}' renamed to '${normalizedNewName}' which was an original symbol name in this batch`
                     );
@@ -658,9 +603,7 @@ export class RefactorEngine {
         }
 
         if (typeof symbolId !== "string") {
-            throw new TypeError(
-                `symbolId must be a string, got ${typeof symbolId}`
-            );
+            throw new TypeError(`symbolId must be a string, got ${typeof symbolId}`);
         }
 
         const normalizedNewName = assertValidIdentifierName(newName);
@@ -682,9 +625,7 @@ export class RefactorEngine {
         const symbolName = symbolId.split("/").pop() ?? symbolId;
 
         if (symbolName === normalizedNewName) {
-            throw new Error(
-                `The new name '${normalizedNewName}' matches the existing identifier`
-            );
+            throw new Error(`The new name '${normalizedNewName}' matches the existing identifier`);
         }
 
         // Collect all occurrences (definitions and references) of the symbol across
@@ -705,9 +646,7 @@ export class RefactorEngine {
 
         if (conflicts.length > 0) {
             const messages = conflicts.map((c) => c.message).join("; ");
-            throw new Error(
-                `Cannot rename '${symbolName}' to '${normalizedNewName}': ${messages}`
-            );
+            throw new Error(`Cannot rename '${symbolName}' to '${normalizedNewName}': ${messages}`);
         }
 
         // Build a workspace edit containing text edits for every occurrence. Each
@@ -715,12 +654,7 @@ export class RefactorEngine {
         const workspace = WorkspaceEdit();
 
         for (const occurrence of occurrences) {
-            workspace.addEdit(
-                occurrence.path,
-                occurrence.start,
-                occurrence.end,
-                normalizedNewName
-            );
+            workspace.addEdit(occurrence.path, occurrence.start, occurrence.end, normalizedNewName);
         }
 
         return workspace;
@@ -762,9 +696,7 @@ export class RefactorEngine {
                 const next = edits[i + 1];
 
                 if (next.end > current.start) {
-                    errors.push(
-                        `Overlapping edits detected in ${filePath} at positions ${current.start}-${next.end}`
-                    );
+                    errors.push(`Overlapping edits detected in ${filePath} at positions ${current.start}-${next.end}`);
                 }
             }
 
@@ -783,14 +715,11 @@ export class RefactorEngine {
         const semantic = this.semantic;
         if (semantic && typeof semantic.validateEdits === "function") {
             try {
-                const semanticValidation =
-                    (await semantic.validateEdits(workspace)) ?? {};
+                const semanticValidation = (await semantic.validateEdits(workspace)) ?? {};
                 errors.push(...(semanticValidation.errors || []));
                 warnings.push(...(semanticValidation.warnings || []));
             } catch (error) {
-                warnings.push(
-                    `Semantic validation failed: ${error.message}. Proceeding with basic validation only.`
-                );
+                warnings.push(`Semantic validation failed: ${error.message}. Proceeding with basic validation only.`);
             }
         }
 
@@ -811,8 +740,7 @@ export class RefactorEngine {
         workspace: WorkspaceEdit,
         options?: ApplyWorkspaceEditOptions
     ): Promise<Map<string, string>> {
-        const opts: ApplyWorkspaceEditOptions =
-            options ?? ({} as ApplyWorkspaceEditOptions);
+        const opts: ApplyWorkspaceEditOptions = options ?? ({} as ApplyWorkspaceEditOptions);
         const { dryRun = false, readFile, writeFile } = opts;
 
         if (!workspace || !Core.isWorkspaceEditLike(workspace)) {
@@ -820,15 +748,11 @@ export class RefactorEngine {
         }
 
         if (!readFile || typeof readFile !== "function") {
-            throw new TypeError(
-                "applyWorkspaceEdit requires a readFile function"
-            );
+            throw new TypeError("applyWorkspaceEdit requires a readFile function");
         }
 
         if (!dryRun && (!writeFile || typeof writeFile !== "function")) {
-            throw new TypeError(
-                "applyWorkspaceEdit requires a writeFile function when not in dry-run mode"
-            );
+            throw new TypeError("applyWorkspaceEdit requires a writeFile function when not in dry-run mode");
         }
 
         // Verify the workspace edit is structurally sound and free of conflicts
@@ -836,9 +760,7 @@ export class RefactorEngine {
         // edits that could leave the codebase in an inconsistent state.
         const validation = await this.validateRename(workspace);
         if (!validation.valid) {
-            throw new Error(
-                `Cannot apply workspace edit: ${validation.errors.join("; ")}`
-            );
+            throw new Error(`Cannot apply workspace edit: ${validation.errors.join("; ")}`);
         }
 
         // Organize edits by file so we can process each file independently. This
@@ -858,10 +780,7 @@ export class RefactorEngine {
             // at the beginning stable, eliminating the need to recalculate offsets.
             let newContent = originalContent;
             for (const edit of edits) {
-                newContent =
-                    newContent.slice(0, edit.start) +
-                    edit.newText +
-                    newContent.slice(edit.end);
+                newContent = newContent.slice(0, edit.start) + edit.newText + newContent.slice(edit.end);
             }
 
             results.set(filePath, newContent);
@@ -882,9 +801,7 @@ export class RefactorEngine {
      * @param {Array<{symbolId: string, newName: string}>} renames - Array of rename operations
      * @returns {Promise<WorkspaceEdit>} Combined workspace edit for all renames
      */
-    async planBatchRename(
-        renames: Array<RenameRequest>
-    ): Promise<WorkspaceEdit> {
+    async planBatchRename(renames: Array<RenameRequest>): Promise<WorkspaceEdit> {
         if (!Array.isArray(renames)) {
             throw new TypeError("planBatchRename requires an array of renames");
         }
@@ -896,15 +813,11 @@ export class RefactorEngine {
         // Validate all rename requests first
         for (const rename of renames) {
             if (!rename.symbolId || !rename.newName) {
-                throw new TypeError(
-                    "Each rename requires symbolId and newName"
-                );
+                throw new TypeError("Each rename requires symbolId and newName");
             }
 
             if (typeof rename.symbolId !== "string") {
-                throw new TypeError(
-                    `symbolId must be a string, got ${typeof rename.symbolId}`
-                );
+                throw new TypeError(`symbolId must be a string, got ${typeof rename.symbolId}`);
             }
 
             assertValidIdentifierName(rename.newName);
@@ -919,9 +832,7 @@ export class RefactorEngine {
         for (const rename of renames) {
             const normalizedNewName = assertValidIdentifierName(rename.newName);
             if (newNames.has(normalizedNewName)) {
-                throw new Error(
-                    `Cannot rename multiple symbols to '${normalizedNewName}'`
-                );
+                throw new Error(`Cannot rename multiple symbols to '${normalizedNewName}'`);
             }
             newNames.add(normalizedNewName);
         }
@@ -934,9 +845,7 @@ export class RefactorEngine {
         // and checking for strongly connected components.
         const circularChain = detectCircularRenames(renames);
         if (circularChain.length > 0) {
-            const chain = circularChain
-                .map((id) => id.split("/").pop())
-                .join(" → ");
+            const chain = circularChain.map((id) => id.split("/").pop()).join(" → ");
             throw new Error(
                 `Circular rename chain detected: ${chain}. ` +
                     `Cannot rename symbols in a cycle as it would create conflicts.`
@@ -965,9 +874,7 @@ export class RefactorEngine {
         // Validate the merged result for overlapping edits
         const validation = await this.validateRename(merged);
         if (!validation.valid) {
-            throw new Error(
-                `Batch rename validation failed: ${validation.errors.join("; ")}`
-            );
+            throw new Error(`Batch rename validation failed: ${validation.errors.join("; ")}`);
         }
 
         return merged;
@@ -984,9 +891,7 @@ export class RefactorEngine {
      * @param {boolean} request.prepareHotReload - Whether to prepare hot reload updates
      * @returns {Promise<{workspace: WorkspaceEdit, applied: Map<string, string>, hotReloadUpdates: Array}>}
      */
-    async executeRename(
-        request: ExecuteRenameRequest
-    ): Promise<ExecuteRenameResult> {
+    async executeRename(request: ExecuteRenameRequest): Promise<ExecuteRenameResult> {
         const {
             symbolId,
             newName,
@@ -1000,15 +905,11 @@ export class RefactorEngine {
         }
 
         if (!readFile || typeof readFile !== "function") {
-            throw new TypeError(
-                "executeRename requires a readFile function to load files"
-            );
+            throw new TypeError("executeRename requires a readFile function to load files");
         }
 
         if (!writeFile || typeof writeFile !== "function") {
-            throw new TypeError(
-                "executeRename requires a writeFile function to save files"
-            );
+            throw new TypeError("executeRename requires a writeFile function to save files");
         }
 
         // Plan the rename
@@ -1019,9 +920,7 @@ export class RefactorEngine {
         // partial writes that could leave the workspace in an inconsistent state.
         const validation = await this.validateRename(workspace);
         if (!validation.valid) {
-            throw new Error(
-                `Rename validation failed: ${validation.errors.join("; ")}`
-            );
+            throw new Error(`Rename validation failed: ${validation.errors.join("; ")}`);
         }
 
         // Apply the edits
@@ -1049,30 +948,19 @@ export class RefactorEngine {
      * @param {boolean} request.prepareHotReload - Whether to prepare hot reload updates
      * @returns {Promise<{workspace: WorkspaceEdit, applied: Map<string, string>, hotReloadUpdates: Array}>}
      */
-    async executeBatchRename(
-        request: ExecuteBatchRenameRequest
-    ): Promise<ExecuteRenameResult> {
-        const {
-            renames,
-            readFile,
-            writeFile,
-            prepareHotReload = false
-        } = request ?? ({} as ExecuteBatchRenameRequest);
+    async executeBatchRename(request: ExecuteBatchRenameRequest): Promise<ExecuteRenameResult> {
+        const { renames, readFile, writeFile, prepareHotReload = false } = request ?? ({} as ExecuteBatchRenameRequest);
 
         if (!renames) {
             throw new TypeError("executeBatchRename requires renames array");
         }
 
         if (!readFile || typeof readFile !== "function") {
-            throw new TypeError(
-                "executeBatchRename requires a readFile function"
-            );
+            throw new TypeError("executeBatchRename requires a readFile function");
         }
 
         if (!writeFile || typeof writeFile !== "function") {
-            throw new TypeError(
-                "executeBatchRename requires a writeFile function"
-            );
+            throw new TypeError("executeBatchRename requires a writeFile function");
         }
 
         // Plan the batch rename
@@ -1107,15 +995,10 @@ export class RefactorEngine {
      * @param {Object} [options.hotReloadOptions] - Options forwarded to {@link validateHotReloadCompatibility}.
      * @returns {Promise<{workspace: WorkspaceEdit, validation: {valid: boolean, errors: Array<string>, warnings: Array<string>}, hotReload: {valid: boolean, errors: Array<string>, warnings: Array<string>} | null, analysis: {valid: boolean, summary: Object, conflicts: Array, warnings: Array}}>} Aggregated rename plan data.
      */
-    async prepareRenamePlan(
-        request: RenameRequest,
-        options?: PrepareRenamePlanOptions
-    ): Promise<RenamePlanSummary> {
+    async prepareRenamePlan(request: RenameRequest, options?: PrepareRenamePlanOptions): Promise<RenamePlanSummary> {
         const opts = options ?? {};
-        const { validateHotReload = false, hotReloadOptions: rawHotOptions } =
-            opts;
-        const hotReloadOptions: HotReloadValidationOptions =
-            rawHotOptions ?? {};
+        const { validateHotReload = false, hotReloadOptions: rawHotOptions } = opts;
+        const hotReloadOptions: HotReloadValidationOptions = rawHotOptions ?? {};
 
         // Plan the rename to capture all edits up front.
         const workspace = await this.planRename(request);
@@ -1130,10 +1013,7 @@ export class RefactorEngine {
         let hotReloadValidation: ValidationSummary | null = null;
         if (validateHotReload) {
             const safety = await this.checkHotReloadSafety(request);
-            const compatibility = await this.validateHotReloadCompatibility(
-                workspace,
-                hotReloadOptions
-            );
+            const compatibility = await this.validateHotReloadCompatibility(workspace, hotReloadOptions);
 
             const errors = [...compatibility.errors];
             const warnings = [...compatibility.warnings];
@@ -1193,9 +1073,7 @@ export class RefactorEngine {
         }
 
         if (workspace.edits.length === 0) {
-            warnings.push(
-                "Workspace edit contains no changes - hot reload not needed"
-            );
+            warnings.push("Workspace edit contains no changes - hot reload not needed");
             return Promise.resolve({ valid: true, errors, warnings });
         }
 
@@ -1206,9 +1084,7 @@ export class RefactorEngine {
         for (const [filePath, edits] of grouped.entries()) {
             // Validate file is a GML script (hot reloadable)
             if (!filePath.endsWith(".gml")) {
-                warnings.push(
-                    `File ${filePath} is not a GML script - hot reload may not apply`
-                );
+                warnings.push(`File ${filePath} is not a GML script - hot reload may not apply`);
             }
 
             // Examine each edit to detect whether it introduces language constructs
@@ -1218,21 +1094,15 @@ export class RefactorEngine {
             // runtime re-initializes these declarations with updated values.
             for (const edit of edits) {
                 if (edit.newText.includes("globalvar")) {
-                    warnings.push(
-                        `Edit in ${filePath} introduces 'globalvar' - may require full reload`
-                    );
+                    warnings.push(`Edit in ${filePath} introduces 'globalvar' - may require full reload`);
                 }
 
                 if (edit.newText.includes("#macro")) {
-                    warnings.push(
-                        `Edit in ${filePath} introduces '#macro' - may require full reload`
-                    );
+                    warnings.push(`Edit in ${filePath} introduces '#macro' - may require full reload`);
                 }
 
                 if (edit.newText.includes("enum ")) {
-                    warnings.push(
-                        `Edit in ${filePath} introduces 'enum' - may require full reload`
-                    );
+                    warnings.push(`Edit in ${filePath} introduces 'enum' - may require full reload`);
                 }
             }
 
@@ -1241,28 +1111,17 @@ export class RefactorEngine {
             // characters likely represent substantial rewrites (e.g., refactoring an
             // entire function body), which may confuse GameMaker's hot-reload engine
             // and benefit from a full restart to ensure clean initialization.
-            const totalCharsChanged = edits.reduce(
-                (sum, e) => sum + e.newText.length,
-                0
-            );
+            const totalCharsChanged = edits.reduce((sum, e) => sum + e.newText.length, 0);
             if (totalCharsChanged > 5000) {
-                warnings.push(
-                    `Large edit in ${filePath} (${totalCharsChanged} characters) - consider full reload`
-                );
+                warnings.push(`Large edit in ${filePath} (${totalCharsChanged} characters) - consider full reload`);
             }
         }
 
         // If transpiler check is requested, validate transpilation will work
-        if (
-            checkTranspiler &&
-            this.formatter &&
-            typeof this.formatter.transpileScript === "function"
-        ) {
+        if (checkTranspiler && this.formatter && typeof this.formatter.transpileScript === "function") {
             // We'll check if any symbols being edited can be transpiled
             // This is a placeholder for more sophisticated checks
-            warnings.push(
-                "Transpiler compatibility check requested - ensure changed symbols can be transpiled"
-            );
+            warnings.push("Transpiler compatibility check requested - ensure changed symbols can be transpiled");
         }
 
         return Promise.resolve({
@@ -1278,9 +1137,7 @@ export class RefactorEngine {
      * @param {WorkspaceEdit} workspace - Applied edits
      * @returns {Promise<Array<{symbolId: string, action: string, filePath: string, affectedRanges: Array<{start: number, end: number}>}>>}
      */
-    async prepareHotReloadUpdates(
-        workspace: WorkspaceEdit
-    ): Promise<Array<HotReloadUpdate>> {
+    async prepareHotReloadUpdates(workspace: WorkspaceEdit): Promise<Array<HotReloadUpdate>> {
         const updates: Array<HotReloadUpdate> = [];
 
         if (!workspace || workspace.edits.length === 0) {
@@ -1295,10 +1152,7 @@ export class RefactorEngine {
             // Determine which symbols are defined in this file
             let affectedSymbols = [];
 
-            if (
-                this.semantic &&
-                typeof this.semantic.getFileSymbols === "function"
-            ) {
+            if (this.semantic && typeof this.semantic.getFileSymbols === "function") {
                 affectedSymbols = await this.semantic.getFileSymbols(filePath);
             }
 
@@ -1335,9 +1189,7 @@ export class RefactorEngine {
 
         // Expand to transitive dependents using the cascade helper so hot reload
         // consumers receive a full picture of which symbols should be refreshed.
-        const cascade = await this.computeHotReloadCascade(
-            Array.from(updatesBySymbol.keys())
-        );
+        const cascade = await this.computeHotReloadCascade(Array.from(updatesBySymbol.keys()));
         for (const entry of cascade.cascade) {
             if (updatesBySymbol.has(entry.symbolId)) {
                 continue;
@@ -1368,21 +1220,15 @@ export class RefactorEngine {
      * @param {string} request.newName - Proposed new name
      * @returns {Promise<{valid: boolean, summary: Object, conflicts: Array, warnings: Array}>}
      */
-    async analyzeRenameImpact(
-        request: RenameRequest
-    ): Promise<RenameImpactAnalysis> {
+    async analyzeRenameImpact(request: RenameRequest): Promise<RenameImpactAnalysis> {
         const { symbolId, newName } = request ?? {};
 
         if (!symbolId || !newName) {
-            throw new TypeError(
-                "analyzeRenameImpact requires symbolId and newName"
-            );
+            throw new TypeError("analyzeRenameImpact requires symbolId and newName");
         }
 
         if (typeof symbolId !== "string") {
-            throw new TypeError(
-                `symbolId must be a string, got ${typeof symbolId}`
-            );
+            throw new TypeError(`symbolId must be a string, got ${typeof symbolId}`);
         }
 
         const normalizedNewName = assertValidIdentifierName(newName);
@@ -1433,9 +1279,7 @@ export class RefactorEngine {
             }
 
             // Gather occurrences
-            const occurrences = await this.gatherSymbolOccurrences(
-                summary.oldName
-            );
+            const occurrences = await this.gatherSymbolOccurrences(summary.oldName);
             summary.totalOccurrences = occurrences.length;
 
             // Record which files will be modified by this rename so the user can
@@ -1471,12 +1315,8 @@ export class RefactorEngine {
             if (summary.totalOccurrences > 0) {
                 summary.hotReloadRequired = true;
 
-                if (
-                    this.semantic &&
-                    typeof this.semantic.getDependents === "function"
-                ) {
-                    const dependents =
-                        (await this.semantic.getDependents([symbolId])) ?? [];
+                if (this.semantic && typeof this.semantic.getDependents === "function") {
+                    const dependents = (await this.semantic.getDependents([symbolId])) ?? [];
                     for (const dep of dependents) {
                         summary.dependentSymbols.add(dep.symbolId);
                     }
@@ -1532,13 +1372,9 @@ export class RefactorEngine {
      *   metadata: {totalSymbols: number, maxDistance: number, hasCircular: boolean}
      * }>}
      */
-    async computeHotReloadCascade(
-        changedSymbolIds: Array<string>
-    ): Promise<HotReloadCascadeResult> {
+    async computeHotReloadCascade(changedSymbolIds: Array<string>): Promise<HotReloadCascadeResult> {
         if (!Array.isArray(changedSymbolIds)) {
-            throw new TypeError(
-                "computeHotReloadCascade requires an array of symbol IDs"
-            );
+            throw new TypeError("computeHotReloadCascade requires an array of symbol IDs");
         }
 
         if (changedSymbolIds.length === 0) {
@@ -1582,9 +1418,7 @@ export class RefactorEngine {
         // When we detect a symbol already in the visiting set, we know we've found a
         // back edge. This function extracts the cycle from visitPath by finding where
         // the cycle starts and appending the re-encountered symbol to close the loop.
-        const reconstructCyclePath = (
-            cycleStartSymbol: string
-        ): Array<string> => {
+        const reconstructCyclePath = (cycleStartSymbol: string): Array<string> => {
             const cycleStartIndex = visitPath.indexOf(cycleStartSymbol);
             if (cycleStartIndex !== -1) {
                 return [...visitPath.slice(cycleStartIndex), cycleStartSymbol];
@@ -1613,12 +1447,8 @@ export class RefactorEngine {
 
             try {
                 // Query semantic analyzer for symbols that depend on this one
-                if (
-                    this.semantic &&
-                    typeof this.semantic.getDependents === "function"
-                ) {
-                    const dependents =
-                        (await this.semantic.getDependents([symbolId])) ?? [];
+                if (this.semantic && typeof this.semantic.getDependents === "function") {
+                    const dependents = (await this.semantic.getDependents([symbolId])) ?? [];
 
                     for (const dep of dependents) {
                         const depId = dep.symbolId;
@@ -1653,16 +1483,8 @@ export class RefactorEngine {
                             visited.add(depId);
 
                             // Recursively explore this dependent's dependents
-                            const result = await exploreDependents(
-                                depId,
-                                newDistance,
-                                reason
-                            );
-                            if (
-                                result &&
-                                result.cycleDetected &&
-                                result.cycle
-                            ) {
+                            const result = await exploreDependents(depId, newDistance, reason);
+                            if (result && result.cycleDetected && result.cycle) {
                                 circular.push(result.cycle);
                             }
                         }
@@ -1736,10 +1558,7 @@ export class RefactorEngine {
         }
 
         // Compute metadata
-        const maxDistance = cascadeArray.reduce(
-            (max, item) => Math.max(max, item.distance),
-            0
-        );
+        const maxDistance = cascadeArray.reduce((max, item) => Math.max(max, item.distance), 0);
 
         return {
             cascade: cascadeArray,
@@ -1770,9 +1589,7 @@ export class RefactorEngine {
      *   suggestions: Array<string>
      * }>} Hot reload safety assessment
      */
-    async checkHotReloadSafety(
-        request: RenameRequest
-    ): Promise<HotReloadSafetySummary> {
+    async checkHotReloadSafety(request: RenameRequest): Promise<HotReloadSafetySummary> {
         const { symbolId, newName } = request ?? {};
         const suggestions: Array<string> = [];
 
@@ -1881,21 +1698,11 @@ export class RefactorEngine {
         const occurrences = await this.gatherSymbolOccurrences(symbolName);
 
         // Detect potential conflicts
-        const conflicts = await detectRenameConflicts(
-            symbolName,
-            newName,
-            occurrences,
-            this.semantic,
-            this.semantic
-        );
+        const conflicts = await detectRenameConflicts(symbolName, newName, occurrences, this.semantic, this.semantic);
 
         if (conflicts.length > 0) {
-            const hasReservedConflict = conflicts.some(
-                (c) => c.type === "reserved"
-            );
-            const hasShadowConflict = conflicts.some(
-                (c) => c.type === "shadow"
-            );
+            const hasReservedConflict = conflicts.some((c) => c.type === "reserved");
+            const hasShadowConflict = conflicts.some((c) => c.type === "shadow");
 
             if (hasReservedConflict) {
                 return {
@@ -1903,9 +1710,7 @@ export class RefactorEngine {
                     reason: "Cannot rename to a reserved keyword",
                     requiresRestart: true,
                     canAutoFix: false,
-                    suggestions: [
-                        "Choose a different name that isn't a reserved keyword"
-                    ]
+                    suggestions: ["Choose a different name that isn't a reserved keyword"]
                 };
             }
 
@@ -1970,9 +1775,7 @@ export class RefactorEngine {
                         reason: "Global variable renames are hot-reload-safe",
                         requiresRestart: false,
                         canAutoFix: true,
-                        suggestions: [
-                            "Global state will be preserved during hot reload"
-                        ]
+                        suggestions: ["Global state will be preserved during hot reload"]
                     };
                 }
             }
@@ -2046,32 +1849,17 @@ export class RefactorEngine {
         const warnings: Array<string> = [];
 
         // Validate inputs - check both existence and type
-        if (
-            symbolId === null ||
-            symbolId === undefined ||
-            typeof symbolId !== "string" ||
-            symbolId.trim() === ""
-        ) {
+        if (symbolId === null || symbolId === undefined || typeof symbolId !== "string" || symbolId.trim() === "") {
             errors.push("Invalid symbolId");
             return { valid: false, errors, warnings };
         }
 
-        if (
-            oldName === null ||
-            oldName === undefined ||
-            typeof oldName !== "string" ||
-            oldName.trim() === ""
-        ) {
+        if (oldName === null || oldName === undefined || typeof oldName !== "string" || oldName.trim() === "") {
             errors.push("Invalid oldName");
             return { valid: false, errors, warnings };
         }
 
-        if (
-            newName === null ||
-            newName === undefined ||
-            typeof newName !== "string" ||
-            newName.trim() === ""
-        ) {
+        if (newName === null || newName === undefined || typeof newName !== "string" || newName.trim() === "") {
             errors.push("Invalid newName");
             return { valid: false, errors, warnings };
         }
@@ -2099,18 +1887,13 @@ export class RefactorEngine {
             try {
                 content = await readFile(filePath);
             } catch (error) {
-                errors.push(
-                    `Failed to read ${filePath} for post-edit validation: ${error.message}`
-                );
+                errors.push(`Failed to read ${filePath} for post-edit validation: ${error.message}`);
                 continue;
             }
 
             // Simple heuristic: check if the old name still appears as an identifier
             // This is a basic check - full validation would require re-parsing
-            const identifierPattern = new RegExp(
-                String.raw`\b${Core.escapeRegExp(oldName)}\b`,
-                "g"
-            );
+            const identifierPattern = new RegExp(String.raw`\b${Core.escapeRegExp(oldName)}\b`, "g");
             const oldNameMatches = content.match(identifierPattern);
 
             if (oldNameMatches && oldNameMatches.length > 0) {
@@ -2123,17 +1906,11 @@ export class RefactorEngine {
                         // Check if line is a comment or if oldName appears after //
                         const commentIndex = line.indexOf("//");
                         const oldNameIndex = line.indexOf(oldName);
-                        const isInLineComment =
-                            commentIndex !== -1 && commentIndex < oldNameIndex;
+                        const isInLineComment = commentIndex !== -1 && commentIndex < oldNameIndex;
                         const isCommentLine = trimmed.startsWith("//");
-                        const isInBlockComment =
-                            line.includes("/*") || line.includes("*/");
+                        const isInBlockComment = line.includes("/*") || line.includes("*/");
 
-                        if (
-                            !isCommentLine &&
-                            !isInLineComment &&
-                            !isInBlockComment
-                        ) {
+                        if (!isCommentLine && !isInLineComment && !isInBlockComment) {
                             allInComments = false;
                             break;
                         }
@@ -2152,65 +1929,43 @@ export class RefactorEngine {
             }
 
             // Verify the new name appears in the file
-            const newIdentifierPattern = new RegExp(
-                String.raw`\b${Core.escapeRegExp(newName)}\b`,
-                "g"
-            );
+            const newIdentifierPattern = new RegExp(String.raw`\b${Core.escapeRegExp(newName)}\b`, "g");
             const newNameMatches = content.match(newIdentifierPattern);
 
             if (!newNameMatches || newNameMatches.length === 0) {
-                warnings.push(
-                    `New name '${newName}' does not appear in ${filePath} - verify edits were applied`
-                );
+                warnings.push(`New name '${newName}' does not appear in ${filePath} - verify edits were applied`);
             }
         }
 
         // Use semantic analyzer to check for new conflicts or shadowing
-        if (
-            this.semantic &&
-            typeof this.semantic.getSymbolOccurrences === "function"
-        ) {
+        if (this.semantic && typeof this.semantic.getSymbolOccurrences === "function") {
             try {
                 // Query occurrences of the new name to detect any potential conflicts
-                const newOccurrences =
-                    await this.semantic.getSymbolOccurrences(newName);
+                const newOccurrences = await this.semantic.getSymbolOccurrences(newName);
 
                 // Look for occurrences outside our edited files - these could be conflicts
-                const unexpectedOccurrences = newOccurrences.filter(
-                    (occ) => !affectedFiles.includes(occ.path)
-                );
+                const unexpectedOccurrences = newOccurrences.filter((occ) => !affectedFiles.includes(occ.path));
 
                 if (unexpectedOccurrences.length > 0) {
-                    const conflictPaths = Array.from(
-                        new Set(unexpectedOccurrences.map((o) => o.path))
-                    );
+                    const conflictPaths = Array.from(new Set(unexpectedOccurrences.map((o) => o.path)));
                     warnings.push(
                         `New name '${newName}' already exists in ${conflictPaths.length} other file(s): ${conflictPaths.join(", ")} - verify no shadowing occurred`
                     );
                 }
             } catch (error) {
-                warnings.push(
-                    `Could not verify occurrences of new name: ${error.message}`
-                );
+                warnings.push(`Could not verify occurrences of new name: ${error.message}`);
             }
         }
 
         // Use semantic analyzer to check for reserved keyword violations
-        if (
-            this.semantic &&
-            typeof this.semantic.getReservedKeywords === "function"
-        ) {
+        if (this.semantic && typeof this.semantic.getReservedKeywords === "function") {
             try {
                 const keywords = await this.semantic.getReservedKeywords();
                 if (keywords.includes(newName.toLowerCase())) {
-                    errors.push(
-                        `New name '${newName}' conflicts with reserved keyword`
-                    );
+                    errors.push(`New name '${newName}' conflicts with reserved keyword`);
                 }
             } catch (error) {
-                warnings.push(
-                    `Could not verify reserved keywords: ${error.message}`
-                );
+                warnings.push(`Could not verify reserved keywords: ${error.message}`);
             }
         }
 
@@ -2231,9 +1986,7 @@ export class RefactorEngine {
 
         // Warn if no semantic analyzer for deeper validation
         if (!this.semantic) {
-            warnings.push(
-                "No semantic analyzer available - skipping deep semantic validation"
-            );
+            warnings.push("No semantic analyzer available - skipping deep semantic validation");
         }
 
         return {
@@ -2255,15 +2008,11 @@ export class RefactorEngine {
         readFile: WorkspaceReadFile
     ): Promise<Array<TranspilerPatch>> {
         if (!Array.isArray(hotReloadUpdates)) {
-            throw new TypeError(
-                "generateTranspilerPatches requires an array of hot reload updates"
-            );
+            throw new TypeError("generateTranspilerPatches requires an array of hot reload updates");
         }
 
         if (!readFile || typeof readFile !== "function") {
-            throw new TypeError(
-                "generateTranspilerPatches requires a readFile function"
-            );
+            throw new TypeError("generateTranspilerPatches requires a readFile function");
         }
 
         const patches: Array<TranspilerPatch> = [];
@@ -2282,10 +2031,7 @@ export class RefactorEngine {
                 // Transpile the updated script into a hot-reload patch if a transpiler
                 // is available. The patch contains executable JavaScript code that the
                 // GameMaker runtime can inject without restarting the game.
-                if (
-                    this.formatter &&
-                    typeof this.formatter.transpileScript === "function"
-                ) {
+                if (this.formatter && typeof this.formatter.transpileScript === "function") {
                     const patch = await this.formatter.transpileScript({
                         sourceText,
                         symbolId: update.symbolId
@@ -2315,9 +2061,7 @@ export class RefactorEngine {
             } catch (error) {
                 // Log error but continue processing other updates
                 if (typeof console !== "undefined" && console.warn) {
-                    console.warn(
-                        `Failed to generate patch for ${update.symbolId}: ${error.message}`
-                    );
+                    console.warn(`Failed to generate patch for ${update.symbolId}: ${error.message}`);
                 }
             }
         }
@@ -2360,38 +2104,24 @@ export class RefactorEngine {
         const { oldName, newName, occurrences } = request ?? {};
 
         if (typeof oldName !== "string" || oldName.length === 0) {
-            throw new TypeError(
-                "detectRenameConflicts requires oldName as a non-empty string"
-            );
+            throw new TypeError("detectRenameConflicts requires oldName as a non-empty string");
         }
 
         if (typeof newName !== "string" || newName.length === 0) {
-            throw new TypeError(
-                "detectRenameConflicts requires newName as a non-empty string"
-            );
+            throw new TypeError("detectRenameConflicts requires newName as a non-empty string");
         }
 
         if (!Array.isArray(occurrences)) {
-            throw new TypeError(
-                "detectRenameConflicts requires occurrences as an array"
-            );
+            throw new TypeError("detectRenameConflicts requires occurrences as an array");
         }
 
         // Pass semantic analyzer twice: once as SymbolResolver for scope lookups,
         // once as KeywordProvider for reserved keyword checks. The SemanticAnalyzer
         // interface supports both roles through optional method implementations.
-        return detectRenameConflicts(
-            oldName,
-            newName,
-            occurrences,
-            this.semantic,
-            this.semantic
-        );
+        return detectRenameConflicts(oldName, newName, occurrences, this.semantic, this.semantic);
     }
 }
 
-export function createRefactorEngine(
-    dependencies: Partial<RefactorEngineDependencies> = {}
-): RefactorEngine {
+export function createRefactorEngine(dependencies: Partial<RefactorEngineDependencies> = {}): RefactorEngine {
     return new RefactorEngine(dependencies);
 }

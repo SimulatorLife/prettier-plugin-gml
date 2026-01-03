@@ -1,9 +1,5 @@
 import { assertFunction } from "../../../utils/object.js";
-import {
-    capitalize,
-    getNonEmptyString,
-    getNonEmptyTrimmedString
-} from "../../../utils/string.js";
+import { capitalize, getNonEmptyString, getNonEmptyTrimmedString } from "../../../utils/string.js";
 import { normalizeOptionalParamToken } from "./params.js";
 
 const STRING_TYPE = "string" as const;
@@ -30,17 +26,14 @@ const JSDOC_REPLACEMENTS = {
     "@hide": "@ignore"
 };
 
-const JSDOC_REPLACEMENT_RULES = Object.entries(JSDOC_REPLACEMENTS).map(
-    ([oldWord, newWord]) => ({
-        regex: new RegExp(String.raw`(\/\/\/\s*)${oldWord}\b`, "gi"),
-        replacement: newWord
-    })
-);
+const JSDOC_REPLACEMENT_RULES = Object.entries(JSDOC_REPLACEMENTS).map(([oldWord, newWord]) => ({
+    regex: new RegExp(String.raw`(\/\/\/\s*)${oldWord}\b`, "gi"),
+    replacement: newWord
+}));
 
 const FUNCTION_LIKE_DOC_TAG_PATTERN = /@(func(?:tion)?|method)\b/i;
 
-const FUNCTION_SIGNATURE_PATTERN =
-    /(^|\n)(\s*\/\/\/\s*@function\b[^\r\n]*?)(\s*\([^\)]*\))(\s*(?=\n|$))/gi;
+const FUNCTION_SIGNATURE_PATTERN = /(^|\n)(\s*\/\/\/\s*@function\b[^\r\n]*?)(\s*\([^\)]*\))(\s*(?=\n|$))/gi;
 
 const DOC_COMMENT_TYPE_PATTERN = /\{([^}]+)\}/g;
 
@@ -108,15 +101,12 @@ export const DEFAULT_DOC_COMMENT_TYPE_NORMALIZATION = Object.freeze({
 });
 
 let customResolver: ((options?: unknown) => unknown) | null = null;
-let cachedDefault: ReturnType<typeof createDocCommentTypeNormalization> | null =
-    null;
+let cachedDefault: ReturnType<typeof createDocCommentTypeNormalization> | null = null;
 
 export function resolveDocCommentTypeNormalization(options: unknown = {}) {
     if (!customResolver) {
         if (!cachedDefault) {
-            cachedDefault = createDocCommentTypeNormalization(
-                DEFAULT_DOC_COMMENT_TYPE_NORMALIZATION
-            );
+            cachedDefault = createDocCommentTypeNormalization(DEFAULT_DOC_COMMENT_TYPE_NORMALIZATION);
         }
         return cachedDefault;
     }
@@ -141,15 +131,12 @@ export function restoreDefaultDocCommentTypeNormalizationResolver() {
 
 export function applyJsDocReplacements(text: unknown) {
     const isStringText = typeof text === STRING_TYPE;
-    const shouldStripEmptyParams =
-        isStringText && FUNCTION_LIKE_DOC_TAG_PATTERN.test(text as string);
+    const shouldStripEmptyParams = isStringText && FUNCTION_LIKE_DOC_TAG_PATTERN.test(text as string);
 
     let formattedText: unknown = text;
 
     if (isStringText) {
-        let stringText: string = shouldStripEmptyParams
-            ? (text as string).replace(/\(\)\s*$/, "")
-            : (text as string);
+        let stringText: string = shouldStripEmptyParams ? (text as string).replace(/\(\)\s*$/, "") : (text as string);
 
         for (const { regex, replacement } of JSDOC_REPLACEMENT_RULES) {
             regex.lastIndex = 0;
@@ -185,10 +172,7 @@ function normalizeFeatherOptionalParamSyntax(text: string) {
         /(\s*\/\/\/\s*@param(?:\s+\{[^}]+\})?\s*)(\S+)/i,
         (match: string, prefix: string, token: string) => {
             const normalizedToken = normalizeOptionalParamToken(token);
-            const normalizedTokenText = getDocCommentTokenText(
-                normalizedToken,
-                token
-            );
+            const normalizedTokenText = getDocCommentTokenText(normalizedToken, token);
             return `${prefix}${normalizedTokenText}`;
         }
     );
@@ -201,8 +185,7 @@ function stripTrailingFunctionParameters(text: string) {
 
     return text.replaceAll(
         FUNCTION_SIGNATURE_PATTERN,
-        (match, linePrefix, functionPrefix) =>
-            `${linePrefix}${functionPrefix.replace(/\s+$/, "")}`
+        (match, linePrefix, functionPrefix) => `${linePrefix}${functionPrefix.replace(/\s+$/, "")}`
     );
 }
 
@@ -228,17 +211,14 @@ export function normalizeGameMakerType(typeText: string) {
     }
 
     const docCommentTypeNormalization = resolveDocCommentTypeNormalization();
-    const segments: Array<{ type: "identifier" | "separator"; value: string }> =
-        [];
+    const segments: Array<{ type: "identifier" | "separator"; value: string }> = [];
     const tokenPattern = /([A-Za-z_][A-Za-z0-9_]*)|([^A-Za-z_]+)/g;
     let match;
 
     while ((match = tokenPattern.exec(typeText)) !== null) {
         if (match[1]) {
             const identifier = match[1];
-            const normalizedIdentifier =
-                docCommentTypeNormalization.lookupTypeIdentifier(identifier) ??
-                identifier;
+            const normalizedIdentifier = docCommentTypeNormalization.lookupTypeIdentifier(identifier) ?? identifier;
             segments.push({
                 type: "identifier",
                 value: normalizedIdentifier
@@ -254,11 +234,7 @@ export function normalizeGameMakerType(typeText: string) {
     const findNextNonWhitespaceSegment = (startIndex: number) => {
         for (let index = startIndex; index < segments.length; index += 1) {
             const segment = segments[index];
-            if (
-                segment &&
-                segment.type === "separator" &&
-                /^\s+$/.test(segment.value)
-            ) {
+            if (segment && segment.type === "separator" && /^\s+$/.test(segment.value)) {
                 continue;
             }
 
@@ -314,15 +290,11 @@ export function normalizeGameMakerType(typeText: string) {
             let normalizedValue: unknown = segment.value;
 
             if (typeof normalizedValue === STRING_TYPE) {
-                const canonicalPrefix =
-                    docCommentTypeNormalization.getCanonicalSpecifierName(
-                        normalizedValue
-                    ) as string | null;
+                const canonicalPrefix = docCommentTypeNormalization.getCanonicalSpecifierName(normalizedValue) as
+                    | string
+                    | null;
 
-                if (
-                    typeof canonicalPrefix === "string" &&
-                    isDotSeparatedTypeSpecifierPrefix(index)
-                ) {
+                if (typeof canonicalPrefix === "string" && isDotSeparatedTypeSpecifierPrefix(index)) {
                     normalizedValue = canonicalPrefix;
                 }
             }
@@ -341,37 +313,21 @@ export function normalizeGameMakerType(typeText: string) {
             const next = segments[index + 1];
             const nextToken = findNextNonWhitespaceSegment(index + 1);
 
-            if (
-                nextToken &&
-                nextToken.type === "separator" &&
-                /^[\[\(<>{})]/.test(nextToken.value.trim())
-            ) {
+            if (nextToken && nextToken.type === "separator" && /^[\[\(<>{})]/.test(nextToken.value.trim())) {
                 continue;
             }
 
-            const previousIdentifier =
-                previous && previous.type === "identifier"
-                    ? previous.value
-                    : null;
-            const nextIdentifier =
-                next && next.type === "identifier" ? next.value : null;
+            const previousIdentifier = previous && previous.type === "identifier" ? previous.value : null;
+            const nextIdentifier = next && next.type === "identifier" ? next.value : null;
 
             if (!previousIdentifier || !nextIdentifier) {
                 continue;
             }
 
-            if (
-                docCommentTypeNormalization.hasSpecifierPrefix(
-                    previousIdentifier
-                )
-            ) {
-                const canonicalPrefix =
-                    docCommentTypeNormalization.getCanonicalSpecifierName(
-                        previousIdentifier
-                    );
+            if (docCommentTypeNormalization.hasSpecifierPrefix(previousIdentifier)) {
+                const canonicalPrefix = docCommentTypeNormalization.getCanonicalSpecifierName(previousIdentifier);
                 if (canonicalPrefix && outputSegments.length > 0) {
-                    outputSegments[outputSegments.length - 1] =
-                        canonicalPrefix as string;
+                    outputSegments[outputSegments.length - 1] = canonicalPrefix as string;
                 }
                 outputSegments.push(".");
             } else {
@@ -431,21 +387,14 @@ function normalizeDocCommentLookupKey(identifier: unknown) {
 
 function createDocCommentTypeNormalization(candidate: unknown) {
     const synonyms = new Map<string, string>();
-    for (const [
-        key,
-        value
-    ] of DEFAULT_DOC_COMMENT_TYPE_NORMALIZATION.synonyms) {
+    for (const [key, value] of DEFAULT_DOC_COMMENT_TYPE_NORMALIZATION.synonyms) {
         synonyms.set(key.toLowerCase(), value);
     }
 
-    const nativeTypes = new Set(
-        DEFAULT_DOC_COMMENT_TYPE_NORMALIZATION.nativeTypes
-    );
+    const nativeTypes = new Set(DEFAULT_DOC_COMMENT_TYPE_NORMALIZATION.nativeTypes);
 
     const specifierPrefixes = new Set(
-        DEFAULT_DOC_COMMENT_TYPE_NORMALIZATION.specifierPrefixes.map((value) =>
-            value.toLowerCase()
-        )
+        DEFAULT_DOC_COMMENT_TYPE_NORMALIZATION.specifierPrefixes.map((value) => value.toLowerCase())
     );
 
     if (candidate && typeof candidate === "object") {
@@ -486,11 +435,7 @@ function createDocCommentTypeNormalization(candidate: unknown) {
             );
         },
         hasSpecifierPrefix(identifier: unknown) {
-            return withNormalizedDocCommentLookup(
-                identifier,
-                (normalized) => specifierPrefixes.has(normalized),
-                false
-            );
+            return withNormalizedDocCommentLookup(identifier, (normalized) => specifierPrefixes.has(normalized), false);
         }
     });
 }
@@ -501,9 +446,7 @@ function withNormalizedDocCommentLookup(
     fallbackValue: unknown
 ) {
     if (typeof handler !== "function") {
-        throw new TypeError(
-            "Doc comment lookup handler must be provided as a function."
-        );
+        throw new TypeError("Doc comment lookup handler must be provided as a function.");
     }
 
     const normalized = normalizeDocCommentLookupKey(identifier);
@@ -514,10 +457,7 @@ function withNormalizedDocCommentLookup(
     return handler(normalized);
 }
 
-function mergeNormalizationEntries(
-    target: Map<string, string>,
-    entries: unknown
-) {
+function mergeNormalizationEntries(target: Map<string, string>, entries: unknown) {
     if (!entries) {
         return;
     }
@@ -547,11 +487,7 @@ function mergeSpecifierPrefixes(target: Set<string>, candidates: unknown) {
 }
 
 function tryGetEntriesIterator(candidate: unknown) {
-    if (
-        !candidate ||
-        Array.isArray(candidate) ||
-        (typeof candidate !== "object" && typeof candidate !== "function")
-    ) {
+    if (!candidate || Array.isArray(candidate) || (typeof candidate !== "object" && typeof candidate !== "function")) {
         return null;
     }
 

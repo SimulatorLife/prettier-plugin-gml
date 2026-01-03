@@ -28,22 +28,14 @@ export interface CommanderAddCommandOptions {
 
 export type CommanderActionHandler = (...args: Array<unknown>) => unknown;
 
-export interface CommanderCommandHost
-    extends CommanderUsageProvider,
-        CommanderLifecycle {
-    addCommand?: (
-        command: CommanderCommandHost,
-        options?: CommanderAddCommandOptions
-    ) => unknown;
+export interface CommanderCommandHost extends CommanderUsageProvider, CommanderLifecycle {
+    addCommand?: (command: CommanderCommandHost, options?: CommanderAddCommandOptions) => unknown;
     action?: (handler: CommanderActionHandler) => unknown;
 }
 
 export interface CommanderProgramLike extends CommanderCommandHost {
     parse?: (argv?: Array<string>, options?: CommanderParseOptions) => unknown;
-    parseAsync?: (
-        argv?: Array<string>,
-        options?: CommanderParseOptions
-    ) => Promise<unknown>;
+    parseAsync?: (argv?: Array<string>, options?: CommanderParseOptions) => Promise<unknown>;
     args?: Array<string>;
     processedArgs?: Array<string>;
     opts?: () => Record<string, unknown>;
@@ -55,9 +47,5 @@ export interface CommanderCommandLike extends CommanderProgramLike {
     helpOption?: (flags?: string, description?: string) => unknown;
     showHelpAfterError?: (message?: string | boolean) => unknown;
     configureOutput?: (options: CommanderConfigureOutputOptions) => unknown;
-    setOptionValueWithSource?: (
-        optionName: string,
-        value: unknown,
-        source?: string
-    ) => unknown;
+    setOptionValueWithSource?: (optionName: string, value: unknown, source?: string) => unknown;
 }

@@ -3,8 +3,7 @@
  */
 import { Core } from "@gml-modules/core";
 
-export const NUMERIC_STRING_LITERAL_PATTERN =
-    /^[+-]?(?:\d+(?:\.\d*)?|\.\d+)(?:[eE][+-]?\d+)?$/;
+export const NUMERIC_STRING_LITERAL_PATTERN = /^[+-]?(?:\d+(?:\.\d*)?|\.\d+)(?:[eE][+-]?\d+)?$/;
 
 /**
  * Test whether a candidate string represents an integer literal.
@@ -48,10 +47,7 @@ export function hasFeatherDiagnosticContext(ast, diagnostic) {
 }
 
 /** Build a standardized fix payload for Feather diagnostics consumed by formatters. */
-export function createFeatherFixDetail(
-    diagnostic,
-    { target = null, range = null, automatic = true } = {}
-) {
+export function createFeatherFixDetail(diagnostic, { target = null, range = null, automatic = true } = {}) {
     if (!diagnostic) {
         return null;
     }
@@ -85,12 +81,7 @@ export function createCallExpressionTargetFixDetail(diagnostic, node) {
 
 /** Store applied fix payloads on the AST node for later tracing. */
 export function attachFeatherFixMetadata(target, fixes) {
-    if (
-        !target ||
-        typeof target !== "object" ||
-        !Array.isArray(fixes) ||
-        fixes.length === 0
-    ) {
+    if (!target || typeof target !== "object" || !Array.isArray(fixes) || fixes.length === 0) {
         return;
     }
 
@@ -109,12 +100,7 @@ export function attachFeatherFixMetadata(target, fixes) {
 }
 
 /** Validate that the source text needed for diagnostic fixes is available and non-empty when required. */
-export function hasFeatherSourceTextContext(
-    ast,
-    diagnostic,
-    sourceText,
-    { allowEmpty = false } = {}
-) {
+export function hasFeatherSourceTextContext(ast, diagnostic, sourceText, { allowEmpty = false } = {}) {
     if (!hasFeatherDiagnosticContext(ast, diagnostic)) {
         return false;
     }

@@ -44,10 +44,7 @@ export function resolveProjectPathInfo(filePath, projectRoot?: string | null) {
     }
 
     const absoluteProjectRoot = path.resolve(projectRoot);
-    const containedRelative = Core.resolveContainedRelativePath(
-        absolutePath,
-        absoluteProjectRoot
-    );
+    const containedRelative = Core.resolveContainedRelativePath(absolutePath, absoluteProjectRoot);
     const isInsideProjectRoot = containedRelative !== null;
 
     return {
@@ -56,8 +53,6 @@ export function resolveProjectPathInfo(filePath, projectRoot?: string | null) {
         inputWasAbsolute,
         isInsideProjectRoot,
         projectRoot: absoluteProjectRoot,
-        relativePath: isInsideProjectRoot
-            ? containedRelative
-            : path.relative(absoluteProjectRoot, absolutePath)
+        relativePath: isInsideProjectRoot ? containedRelative : path.relative(absoluteProjectRoot, absolutePath)
     };
 }

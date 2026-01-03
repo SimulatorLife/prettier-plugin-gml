@@ -4,14 +4,8 @@ import { createPrettierParserAdapter } from "../parsers/index.js";
 import type { GameMakerAstNode } from "@gml-modules/core";
 
 export function createDefaultGmlPluginComponents(): GmlPluginComponentBundle {
-    const {
-        gmlParserAdapter,
-        print,
-        handleComments,
-        printComment,
-        identifierCaseOptions,
-        LogicalOperatorsStyle
-    } = resolveGmlPluginComponentDependencies();
+    const { gmlParserAdapter, print, handleComments, printComment, identifierCaseOptions, LogicalOperatorsStyle } =
+        resolveGmlPluginComponentDependencies();
 
     const prettierParser = createPrettierParserAdapter(gmlParserAdapter);
 
@@ -25,12 +19,9 @@ export function createDefaultGmlPluginComponents(): GmlPluginComponentBundle {
                 print,
                 // Accept any for the runtime types coming from the AST and comment
                 // helpers, satisfying TypeScript without adding deep imports.
-                isBlockComment: (comment: GameMakerAstNode) =>
-                    comment?.type === "CommentBlock",
+                isBlockComment: (comment: GameMakerAstNode) => comment?.type === "CommentBlock",
                 canAttachComment: (node: GameMakerAstNode) =>
-                    node?.type &&
-                    !node.type.includes("Comment") &&
-                    node?.type !== "EmptyStatement",
+                    node?.type && !node.type.includes("Comment") && node?.type !== "EmptyStatement",
                 printComment,
                 handleComments
             }
@@ -79,13 +70,11 @@ export function createDefaultGmlPluginComponents(): GmlPluginComponentBundle {
                 choices: [
                     {
                         value: LogicalOperatorsStyle.KEYWORDS,
-                        description:
-                            "Replace '&&' and '||' with the GameMaker keywords 'and' and 'or'."
+                        description: "Replace '&&' and '||' with the GameMaker keywords 'and' and 'or'."
                     },
                     {
                         value: LogicalOperatorsStyle.SYMBOLS,
-                        description:
-                            "Preserve the symbolic logical operators exactly as written in the source."
+                        description: "Preserve the symbolic logical operators exactly as written in the source."
                     }
                 ]
             },
@@ -102,8 +91,7 @@ export function createDefaultGmlPluginComponents(): GmlPluginComponentBundle {
                 type: "boolean",
                 category: "gml",
                 default: true,
-                description:
-                    "Preserve 'globalvar' declarations instead of eliding them during formatting."
+                description: "Preserve 'globalvar' declarations instead of eliding them during formatting."
             },
             alignAssignmentsMinGroupSize: {
                 since: "0.0.0",

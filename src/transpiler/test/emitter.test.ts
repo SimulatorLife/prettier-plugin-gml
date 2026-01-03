@@ -3,9 +3,7 @@ import test from "node:test";
 import { Parser } from "@gml-modules/parser";
 import { Transpiler } from "../index.js";
 
-type SemanticAnalyzers = ConstructorParameters<
-    typeof Transpiler.GmlToJsEmitter
->[0];
+type SemanticAnalyzers = ConstructorParameters<typeof Transpiler.GmlToJsEmitter>[0];
 
 void test("GmlToJsEmitter handles number literals in AST", () => {
     const source = "42";
@@ -20,10 +18,7 @@ void test("GmlToJsEmitter handles string literals in AST", () => {
     const parser = new Parser.GMLParser(source);
     const ast = parser.parse();
     const result = Transpiler.emitJavaScript(ast);
-    assert.ok(
-        result.includes("hello world"),
-        "Should include the string content"
-    );
+    assert.ok(result.includes("hello world"), "Should include the string content");
 });
 
 void test("GmlToJsEmitter handles template strings with interpolation in AST", () => {
@@ -32,11 +27,7 @@ void test("GmlToJsEmitter handles template strings with interpolation in AST", (
     const ast = parser.parse();
     const result = Transpiler.emitJavaScript(ast);
 
-    assert.match(
-        result,
-        /var greeting = `Hello \${name}!`;/,
-        "Should emit a JavaScript template literal"
-    );
+    assert.match(result, /var greeting = `Hello \${name}!`;/, "Should emit a JavaScript template literal");
 });
 
 void test("GmlToJsEmitter preserves template string text content", () => {
@@ -45,14 +36,8 @@ void test("GmlToJsEmitter preserves template string text content", () => {
     const ast = parser.parse();
     const result = Transpiler.emitJavaScript(ast);
 
-    assert.ok(
-        result.includes("`First line\\nSecond line "),
-        "Should keep escaped newlines inside template text"
-    );
-    assert.ok(
-        result.includes("${count}"),
-        "Should embed interpolated expressions with ${}"
-    );
+    assert.ok(result.includes("`First line\\nSecond line "), "Should keep escaped newlines inside template text");
+    assert.ok(result.includes("${count}"), "Should embed interpolated expressions with ${}");
 });
 
 void test("GmlToJsEmitter handles boolean literals in AST", () => {
@@ -76,10 +61,7 @@ void test("GmlToJsEmitter handles simple binary expressions in AST", () => {
     const parser = new Parser.GMLParser(source, {});
     const ast = parser.parse();
     const result = Transpiler.emitJavaScript(ast);
-    assert.ok(
-        result.includes("x = (1 + 2)"),
-        "Should include the full expression"
-    );
+    assert.ok(result.includes("x = (1 + 2)"), "Should include the full expression");
 });
 
 void test("GmlToJsEmitter maps GML div operator to JavaScript division", () => {
@@ -181,10 +163,7 @@ void test("Transpiler.emitJavaScript handles multi-dimensional array access", ()
     const parser = new Parser.GMLParser(source, {});
     const ast = parser.parse();
     const result = Transpiler.emitJavaScript(ast);
-    assert.ok(
-        result.includes("matrix[i][j]"),
-        "Should emit nested array access"
-    );
+    assert.ok(result.includes("matrix[i][j]"), "Should emit nested array access");
 });
 
 void test("Transpiler.emitJavaScript handles property access (MemberDotExpression)", () => {
@@ -192,10 +171,7 @@ void test("Transpiler.emitJavaScript handles property access (MemberDotExpressio
     const parser = new Parser.GMLParser(source, {});
     const ast = parser.parse();
     const result = Transpiler.emitJavaScript(ast);
-    assert.ok(
-        result.includes("obj.prop"),
-        "Should emit property access syntax"
-    );
+    assert.ok(result.includes("obj.prop"), "Should emit property access syntax");
 });
 
 void test("Transpiler.emitJavaScript handles function calls (CallExpression)", () => {
@@ -212,9 +188,7 @@ void test("Transpiler.emitJavaScript handles function calls with arguments", () 
     const ast = parser.parse();
     const result = Transpiler.emitJavaScript(ast);
     assert.ok(
-        result.includes("func(") &&
-            result.includes("1") &&
-            result.includes("2"),
+        result.includes("func(") && result.includes("1") && result.includes("2"),
         "Should emit function call with arguments"
     );
 });
@@ -228,19 +202,13 @@ void test("GmlToJsEmitter routes script calls through the wrapper helper", () =>
         identifier: dummyOracle.identifier,
         callTarget: {
             callTargetKind(node) {
-                if (
-                    node.object?.type === "Identifier" &&
-                    node.object.name === "scr_attack"
-                ) {
+                if (node.object?.type === "Identifier" && node.object.name === "scr_attack") {
                     return "script";
                 }
                 return "unknown";
             },
             callTargetSymbol(node) {
-                if (
-                    node.object?.type === "Identifier" &&
-                    node.object.name === "scr_attack"
-                ) {
+                if (node.object?.type === "Identifier" && node.object.name === "scr_attack") {
                     return "gml/script/scr_attack";
                 }
                 return null;
@@ -251,9 +219,7 @@ void test("GmlToJsEmitter routes script calls through the wrapper helper", () =>
     const result = emitter.emit(ast);
 
     assert.ok(
-        result.includes(
-            '__call_script("gml/script/scr_attack", self, other, [target])'
-        ),
+        result.includes('__call_script("gml/script/scr_attack", self, other, [target])'),
         "Should call scripts through __call_script helper"
     );
 });
@@ -293,40 +259,26 @@ void test("Transpiler.emitJavaScript qualifies global identifiers using the glob
     const result = Transpiler.emitJavaScript(ast);
 
     assert.ok(
-        result.includes(
-            'if (!Object.prototype.hasOwnProperty.call(globalThis, "foo"))'
-        ),
+        result.includes('if (!Object.prototype.hasOwnProperty.call(globalThis, "foo"))'),
         "Should guard access on the global object"
     );
 
-    assert.ok(
-        result.includes("globalThis.foo = undefined;"),
-        "Should register global variables on globalThis"
-    );
+    assert.ok(result.includes("globalThis.foo = undefined;"), "Should register global variables on globalThis");
 
-    assert.ok(
-        result.includes("global.foo = 1"),
-        "Should qualify global identifier references"
-    );
+    assert.ok(result.includes("global.foo = 1"), "Should qualify global identifier references");
 });
 
 void test("GmlToJsEmitter allows overriding the globals identifier", () => {
     const source = "globalvar foo; foo = 1;";
     const parser = new Parser.GMLParser(source, {});
     const ast = parser.parse();
-    const emitter = new Transpiler.GmlToJsEmitter(
-        Transpiler.makeDummyOracle(),
-        {
-            globalsIdent: "__globals"
-        }
-    );
+    const emitter = new Transpiler.GmlToJsEmitter(Transpiler.makeDummyOracle(), {
+        globalsIdent: "__globals"
+    });
 
     const result = emitter.emit(ast);
 
-    assert.ok(
-        result.includes("__globals.foo = 1"),
-        "Should respect the configured globals identifier"
-    );
+    assert.ok(result.includes("__globals.foo = 1"), "Should respect the configured globals identifier");
 });
 
 // Control flow tests
@@ -352,8 +304,7 @@ void test("Transpiler.emitJavaScript handles if-else statements", () => {
 });
 
 void test("Transpiler.emitJavaScript handles else-if chains", () => {
-    const source =
-        "if (x > 10) { y = 1; } else if (x > 5) { y = 2; } else { y = 3; }";
+    const source = "if (x > 10) { y = 1; } else if (x > 5) { y = 2; } else { y = 3; }";
     const parser = new Parser.GMLParser(source, {});
     const ast = parser.parse();
     const result = Transpiler.emitJavaScript(ast);
@@ -371,10 +322,7 @@ void test("Transpiler.emitJavaScript handles if without braces", () => {
     const result = Transpiler.emitJavaScript(ast);
     assert.ok(result.includes("if"), "Should include if keyword");
     assert.ok(result.includes("y = 5"), "Should include statement");
-    assert.ok(
-        result.includes("{") && result.includes("}"),
-        "Should add braces"
-    );
+    assert.ok(result.includes("{") && result.includes("}"), "Should add braces");
 });
 
 void test("Transpiler.emitJavaScript handles for loops", () => {
@@ -416,10 +364,7 @@ void test("Transpiler.emitJavaScript handles while loop without braces", () => {
     const result = Transpiler.emitJavaScript(ast);
     assert.ok(result.includes("while"), "Should include while keyword");
     assert.ok(result.includes("x -= 1"), "Should include statement");
-    assert.ok(
-        result.includes("{") && result.includes("}"),
-        "Should add braces"
-    );
+    assert.ok(result.includes("{") && result.includes("}"), "Should add braces");
 });
 
 void test("Transpiler.emitJavaScript handles with statements with block bodies", () => {
@@ -428,22 +373,10 @@ void test("Transpiler.emitJavaScript handles with statements with block bodies",
     const ast = parser.parse();
     const result = Transpiler.emitJavaScript(ast);
 
-    assert.ok(
-        result.includes("__resolve_with_targets"),
-        "Should resolve with targets through helper"
-    );
-    assert.ok(
-        result.includes("const __with_prev_self = self"),
-        "Should capture previous self binding"
-    );
-    assert.ok(
-        result.includes("self = __with_self"),
-        "Should assign new self value for each target"
-    );
-    assert.ok(
-        result.includes("other = __with_prev_self"),
-        "Should expose previous self as other"
-    );
+    assert.ok(result.includes("__resolve_with_targets"), "Should resolve with targets through helper");
+    assert.ok(result.includes("const __with_prev_self = self"), "Should capture previous self binding");
+    assert.ok(result.includes("self = __with_self"), "Should assign new self value for each target");
+    assert.ok(result.includes("other = __with_prev_self"), "Should expose previous self as other");
     assert.ok(result.includes("hp -= 1"), "Should emit loop body");
 });
 
@@ -453,26 +386,17 @@ void test("Transpiler.emitJavaScript wraps with statements without braces", () =
     const ast = parser.parse();
     const result = Transpiler.emitJavaScript(ast);
 
-    assert.ok(
-        result.includes("with_prev_self"),
-        "Should manage scope bindings"
-    );
-    assert.ok(
-        result.includes("        {\n        hp -= 1;\n        }"),
-        "Should wrap single statements in a block"
-    );
+    assert.ok(result.includes("with_prev_self"), "Should manage scope bindings");
+    assert.ok(result.includes("        {\n        hp -= 1;\n        }"), "Should wrap single statements in a block");
 });
 
 void test("GmlToJsEmitter allows overriding the with-target resolver helper", () => {
     const source = "with (obj_enemy) hp -= 1";
     const parser = new Parser.GMLParser(source, {});
     const ast = parser.parse();
-    const emitter = new Transpiler.GmlToJsEmitter(
-        Transpiler.makeDummyOracle(),
-        {
-            resolveWithTargetsIdent: "__custom_resolve_with"
-        }
-    );
+    const emitter = new Transpiler.GmlToJsEmitter(Transpiler.makeDummyOracle(), {
+        resolveWithTargetsIdent: "__custom_resolve_with"
+    });
     const result = emitter.emit(ast);
 
     assert.ok(
@@ -480,10 +404,7 @@ void test("GmlToJsEmitter allows overriding the with-target resolver helper", ()
         "Should reference the configured resolver helper"
     );
 
-    assert.ok(
-        result.includes("__custom_resolve_with("),
-        "Should invoke the configured resolver helper when available"
-    );
+    assert.ok(result.includes("__custom_resolve_with("), "Should invoke the configured resolver helper when available");
 
     assert.ok(
         !result.includes("globalThis.__resolve_with_targets"),
@@ -529,21 +450,13 @@ void test("Transpiler.emitJavaScript lowers globalvar declarations into guarded 
         /Object\.prototype\.hasOwnProperty\.call\(globalThis, "foo"\)/,
         "Should guard against reinitialising foo"
     );
-    assert.match(
-        result,
-        /globalThis\.foo = undefined;/,
-        "Should initialise foo on the global object"
-    );
+    assert.match(result, /globalThis\.foo = undefined;/, "Should initialise foo on the global object");
     assert.match(
         result,
         /Object\.prototype\.hasOwnProperty\.call\(globalThis, "bar"\)/,
         "Should guard against reinitialising bar"
     );
-    assert.match(
-        result,
-        /globalThis\.bar = undefined;/,
-        "Should initialise bar on the global object"
-    );
+    assert.match(result, /globalThis\.bar = undefined;/, "Should initialise bar on the global object");
 });
 
 void test("Transpiler.emitJavaScript preserves subsequent statements after globalvar", () => {
@@ -552,10 +465,7 @@ void test("Transpiler.emitJavaScript preserves subsequent statements after globa
     const ast = parser.parse();
     const result = Transpiler.emitJavaScript(ast);
 
-    assert.ok(
-        result.includes("foo = 5"),
-        "Should keep assignments following the globalvar declaration"
-    );
+    assert.ok(result.includes("foo = 5"), "Should keep assignments following the globalvar declaration");
 });
 
 void test("Transpiler.emitJavaScript handles nested control flow", () => {
@@ -700,10 +610,7 @@ void test("Transpiler.emitJavaScript handles repeat statements", () => {
     const ast = parser.parse();
     const result = Transpiler.emitJavaScript(ast);
     assert.ok(result.includes("for"), "Should convert to for loop");
-    assert.ok(
-        result.includes("__repeat_count"),
-        "Should use __repeat_count variable"
-    );
+    assert.ok(result.includes("__repeat_count"), "Should use __repeat_count variable");
     assert.ok(result.includes("5"), "Should include repeat count");
     assert.ok(result.includes("x += 1"), "Should include body");
 });
@@ -724,10 +631,7 @@ void test("Transpiler.emitJavaScript handles repeat with expression count", () =
     const ast = parser.parse();
     const result = Transpiler.emitJavaScript(ast);
     assert.ok(result.includes("for"), "Should convert to for loop");
-    assert.ok(
-        result.includes("x") && result.includes("y"),
-        "Should include expression"
-    );
+    assert.ok(result.includes("x") && result.includes("y"), "Should include expression");
 });
 
 void test("Transpiler.emitJavaScript handles repeat without braces", () => {
@@ -736,10 +640,7 @@ void test("Transpiler.emitJavaScript handles repeat without braces", () => {
     const ast = parser.parse();
     const result = Transpiler.emitJavaScript(ast);
     assert.ok(result.includes("for"), "Should convert to for loop");
-    assert.ok(
-        result.includes("{") && result.includes("}"),
-        "Should add braces"
-    );
+    assert.ok(result.includes("{") && result.includes("}"), "Should add braces");
 });
 
 void test("Transpiler.emitJavaScript handles nested repeat statements", () => {
@@ -792,10 +693,7 @@ void test("Transpiler.emitJavaScript handles array literals with expressions", (
     const parser = new Parser.GMLParser(source, {});
     const ast = parser.parse();
     const result = Transpiler.emitJavaScript(ast);
-    assert.ok(
-        result.includes("[") && result.includes("]"),
-        "Should emit array literal"
-    );
+    assert.ok(result.includes("[") && result.includes("]"), "Should emit array literal");
     assert.ok(result.includes("a"), "Should include expression");
 });
 
@@ -804,10 +702,7 @@ void test("Transpiler.emitJavaScript handles nested array literals", () => {
     const parser = new Parser.GMLParser(source, {});
     const ast = parser.parse();
     const result = Transpiler.emitJavaScript(ast);
-    assert.ok(
-        result.includes("[[") && result.includes("]]"),
-        "Should emit nested arrays"
-    );
+    assert.ok(result.includes("[[") && result.includes("]]"), "Should emit nested arrays");
 });
 
 void test("Transpiler.emitJavaScript handles empty struct literals", () => {
@@ -842,14 +737,8 @@ void test("Transpiler.emitJavaScript quotes struct keys that are not identifiers
     const ast = parser.parse();
     const result = Transpiler.emitJavaScript(ast);
 
-    assert.ok(
-        result.includes('"player-name": 1'),
-        "Should preserve hyphenated keys with quotes"
-    );
-    assert.ok(
-        result.includes('"level 1": 2'),
-        "Should quote keys that include whitespace"
-    );
+    assert.ok(result.includes('"player-name": 1'), "Should preserve hyphenated keys with quotes");
+    assert.ok(result.includes('"level 1": 2'), "Should quote keys that include whitespace");
 });
 
 void test("Transpiler.emitJavaScript escapes quotes inside struct keys", () => {
@@ -858,10 +747,7 @@ void test("Transpiler.emitJavaScript escapes quotes inside struct keys", () => {
     const ast = parser.parse();
     const result = Transpiler.emitJavaScript(ast);
 
-    assert.ok(
-        result.includes(String.raw`"player\"name": 3`),
-        "Should escape embedded quotes in key names"
-    );
+    assert.ok(result.includes(String.raw`"player\"name": 3`), "Should escape embedded quotes in key names");
 });
 
 void test("Transpiler.emitJavaScript handles struct literals with expression values", () => {
@@ -878,10 +764,7 @@ void test("Transpiler.emitJavaScript handles nested struct literals", () => {
     const parser = new Parser.GMLParser(source, {});
     const ast = parser.parse();
     const result = Transpiler.emitJavaScript(ast);
-    assert.ok(
-        result.includes("outer:") && result.includes("inner:"),
-        "Should emit nested structs"
-    );
+    assert.ok(result.includes("outer:") && result.includes("inner:"), "Should emit nested structs");
 });
 
 void test("Transpiler.emitJavaScript handles structs with array properties", () => {
@@ -932,18 +815,9 @@ void test("Transpiler.emitJavaScript handles enum declarations with expressions"
     const ast = parser.parse();
     const result = Transpiler.emitJavaScript(ast);
 
-    assert.ok(
-        result.includes("__value = (1 + 2);"),
-        "Should emit initializer expression"
-    );
-    assert.ok(
-        result.includes("__value += 1;\n    __enum.baz = __value;"),
-        "Should increment implicit enum value"
-    );
-    assert.ok(
-        result.includes('__value = "hi";'),
-        "Should emit string initializer verbatim"
-    );
+    assert.ok(result.includes("__value = (1 + 2);"), "Should emit initializer expression");
+    assert.ok(result.includes("__value += 1;\n    __enum.baz = __value;"), "Should increment implicit enum value");
+    assert.ok(result.includes('__value = "hi";'), "Should emit string initializer verbatim");
 });
 
 // Ternary expression tests
@@ -992,14 +866,8 @@ void test("Transpiler.emitJavaScript handles ternary with function calls", () =>
     const ast = parser.parse();
     const result = Transpiler.emitJavaScript(ast);
     assert.ok(result.includes("check()"), "Should include test function");
-    assert.ok(
-        result.includes("getValue()"),
-        "Should include consequent function"
-    );
-    assert.ok(
-        result.includes("getDefault()"),
-        "Should include alternate function"
-    );
+    assert.ok(result.includes("getValue()"), "Should include consequent function");
+    assert.ok(result.includes("getDefault()"), "Should include alternate function");
 });
 
 // Error handling tests
@@ -1039,10 +907,7 @@ void test("Transpiler.emitJavaScript handles try-catch without parameter", () =>
     const result = Transpiler.emitJavaScript(ast);
     assert.ok(result.includes("try"), "Should include try keyword");
     assert.ok(result.includes("catch"), "Should include catch keyword");
-    assert.ok(
-        result.includes("err") || result.includes("("),
-        "Should provide default parameter"
-    );
+    assert.ok(result.includes("err") || result.includes("("), "Should provide default parameter");
 });
 
 void test("Transpiler.emitJavaScript handles try-finally statements", () => {
@@ -1056,8 +921,7 @@ void test("Transpiler.emitJavaScript handles try-finally statements", () => {
 });
 
 void test("Transpiler.emitJavaScript handles try-catch-finally statements", () => {
-    const source =
-        "try { risky(); } catch (e) { handle(e); } finally { cleanup(); }";
+    const source = "try { risky(); } catch (e) { handle(e); } finally { cleanup(); }";
     const parser = new Parser.GMLParser(source, {});
     const ast = parser.parse();
     const result = Transpiler.emitJavaScript(ast);
@@ -1070,8 +934,7 @@ void test("Transpiler.emitJavaScript handles try-catch-finally statements", () =
 });
 
 void test("Transpiler.emitJavaScript handles nested try-catch blocks", () => {
-    const source =
-        "try { try { inner(); } catch (e) { log(e); } } catch (e) { outer(e); }";
+    const source = "try { try { inner(); } catch (e) { log(e); } } catch (e) { outer(e); }";
     const parser = new Parser.GMLParser(source, {});
     const ast = parser.parse();
     const result = Transpiler.emitJavaScript(ast);
@@ -1085,10 +948,7 @@ void test("Transpiler.emitJavaScript handles function declarations without param
     const parser = new Parser.GMLParser(source, {});
     const ast = parser.parse();
     const result = Transpiler.emitJavaScript(ast);
-    assert.ok(
-        result.includes("function myFunction"),
-        "Should include function keyword and name"
-    );
+    assert.ok(result.includes("function myFunction"), "Should include function keyword and name");
     assert.ok(result.includes("()"), "Should include empty parameter list");
     assert.ok(result.includes("return 42"), "Should include function body");
 });
@@ -1098,16 +958,10 @@ void test("Transpiler.emitJavaScript handles function declarations with paramete
     const parser = new Parser.GMLParser(source, {});
     const ast = parser.parse();
     const result = Transpiler.emitJavaScript(ast);
-    assert.ok(
-        result.includes("function add"),
-        "Should include function keyword and name"
-    );
+    assert.ok(result.includes("function add"), "Should include function keyword and name");
     assert.ok(result.includes("(a, b)"), "Should include parameters");
     assert.ok(result.includes("return"), "Should include return statement");
-    assert.ok(
-        result.includes("a + b") || result.includes("(a + b)"),
-        "Should include addition operation"
-    );
+    assert.ok(result.includes("a + b") || result.includes("(a + b)"), "Should include addition operation");
 });
 
 void test("Transpiler.emitJavaScript handles function declarations with multiple statements", () => {
@@ -1115,10 +969,7 @@ void test("Transpiler.emitJavaScript handles function declarations with multiple
     const parser = new Parser.GMLParser(source, {});
     const ast = parser.parse();
     const result = Transpiler.emitJavaScript(ast);
-    assert.ok(
-        result.includes("function process"),
-        "Should include function name"
-    );
+    assert.ok(result.includes("function process"), "Should include function name");
     assert.ok(result.includes("(x)"), "Should include parameter");
     assert.ok(result.includes("var y"), "Should include variable declaration");
     assert.ok(result.includes("return y"), "Should include return statement");
@@ -1129,69 +980,39 @@ void test("Transpiler.emitJavaScript handles function declarations with empty bo
     const parser = new Parser.GMLParser(source, {});
     const ast = parser.parse();
     const result = Transpiler.emitJavaScript(ast);
-    assert.ok(
-        result.includes("function emptyFunc"),
-        "Should include function name"
-    );
+    assert.ok(result.includes("function emptyFunc"), "Should include function name");
     assert.ok(result.includes("()"), "Should include empty parameter list");
-    assert.ok(
-        result.includes("{") && result.includes("}"),
-        "Should include braces for body"
-    );
+    assert.ok(result.includes("{") && result.includes("}"), "Should include braces for body");
 });
 
 void test("Transpiler.emitJavaScript handles function declarations with control flow", () => {
-    const source =
-        "function checkValue(val) { if (val > 0) { return true; } return false; }";
+    const source = "function checkValue(val) { if (val > 0) { return true; } return false; }";
     const parser = new Parser.GMLParser(source, {});
     const ast = parser.parse();
     const result = Transpiler.emitJavaScript(ast);
-    assert.ok(
-        result.includes("function checkValue"),
-        "Should include function name"
-    );
+    assert.ok(result.includes("function checkValue"), "Should include function name");
     assert.ok(result.includes("if"), "Should include if statement");
-    assert.ok(
-        result.includes("return true"),
-        "Should include conditional return"
-    );
+    assert.ok(result.includes("return true"), "Should include conditional return");
     assert.ok(result.includes("return false"), "Should include default return");
 });
 
 void test("Transpiler.emitJavaScript handles nested function declarations", () => {
-    const source =
-        "function outer() { function inner() { return 1; } return inner(); }";
+    const source = "function outer() { function inner() { return 1; } return inner(); }";
     const parser = new Parser.GMLParser(source, {});
     const ast = parser.parse();
     const result = Transpiler.emitJavaScript(ast);
-    assert.ok(
-        result.includes("function outer"),
-        "Should include outer function"
-    );
-    assert.ok(
-        result.includes("function inner"),
-        "Should include inner function"
-    );
-    assert.ok(
-        result.includes("return inner()"),
-        "Should include inner function call"
-    );
+    assert.ok(result.includes("function outer"), "Should include outer function");
+    assert.ok(result.includes("function inner"), "Should include inner function");
+    assert.ok(result.includes("return inner()"), "Should include inner function call");
 });
 
 void test("Transpiler.emitJavaScript handles function with many parameters", () => {
-    const source =
-        "function multiParam(a, b, c, d, e) { return a + b + c + d + e; }";
+    const source = "function multiParam(a, b, c, d, e) { return a + b + c + d + e; }";
     const parser = new Parser.GMLParser(source, {});
     const ast = parser.parse();
     const result = Transpiler.emitJavaScript(ast);
-    assert.ok(
-        result.includes("function multiParam"),
-        "Should include function name"
-    );
-    assert.ok(
-        result.includes("a, b, c, d, e"),
-        "Should include all parameters"
-    );
+    assert.ok(result.includes("function multiParam"), "Should include function name");
+    assert.ok(result.includes("a, b, c, d, e"), "Should include all parameters");
     assert.ok(result.includes("return"), "Should include return statement");
 });
 
@@ -1200,10 +1021,7 @@ void test("Transpiler.emitJavaScript leaves point_distance as a runtime builtin 
     const parser = new Parser.GMLParser(source, {});
     const ast = parser.parse();
     const result = Transpiler.emitJavaScript(ast);
-    assert.ok(
-        result.includes("point_distance(0, 0, 10, 10)"),
-        "Should call point_distance directly"
-    );
+    assert.ok(result.includes("point_distance(0, 0, 10, 10)"), "Should call point_distance directly");
 });
 
 void test("Transpiler.emitJavaScript leaves abs as a runtime builtin call", () => {
@@ -1323,10 +1141,7 @@ void test("Transpiler.emitJavaScript leaves degtorad as a runtime builtin call",
     const parser = new Parser.GMLParser(source);
     const ast = parser.parse();
     const result = Transpiler.emitJavaScript(ast);
-    assert.ok(
-        result.includes("degtorad(180)"),
-        "Should call degtorad directly"
-    );
+    assert.ok(result.includes("degtorad(180)"), "Should call degtorad directly");
 });
 
 void test("Transpiler.emitJavaScript leaves radtodeg as a runtime builtin call", () => {
@@ -1334,10 +1149,7 @@ void test("Transpiler.emitJavaScript leaves radtodeg as a runtime builtin call",
     const parser = new Parser.GMLParser(source);
     const ast = parser.parse();
     const result = Transpiler.emitJavaScript(ast);
-    assert.ok(
-        result.includes("radtodeg(3.14159)"),
-        "Should call radtodeg directly"
-    );
+    assert.ok(result.includes("radtodeg(3.14159)"), "Should call radtodeg directly");
 });
 
 void test("Transpiler.emitJavaScript leaves sign as a runtime builtin call", () => {
@@ -1353,10 +1165,7 @@ void test("Transpiler.emitJavaScript leaves clamp as a runtime builtin call", ()
     const parser = new Parser.GMLParser(source);
     const ast = parser.parse();
     const result = Transpiler.emitJavaScript(ast);
-    assert.ok(
-        result.includes("clamp(15, 0, 10)"),
-        "Should call clamp directly"
-    );
+    assert.ok(result.includes("clamp(15, 0, 10)"), "Should call clamp directly");
 });
 
 void test("Transpiler.emitJavaScript handles power with wrong argument count gracefully", () => {
@@ -1364,10 +1173,7 @@ void test("Transpiler.emitJavaScript handles power with wrong argument count gra
     const parser = new Parser.GMLParser(source);
     const ast = parser.parse();
     const result = Transpiler.emitJavaScript(ast);
-    assert.ok(
-        result.includes("power(2)"),
-        "Should fall back to power function call when arg count is wrong"
-    );
+    assert.ok(result.includes("power(2)"), "Should fall back to power function call when arg count is wrong");
 });
 
 void test("Transpiler.emitJavaScript handles arctan2 with wrong argument count gracefully", () => {
@@ -1375,10 +1181,7 @@ void test("Transpiler.emitJavaScript handles arctan2 with wrong argument count g
     const parser = new Parser.GMLParser(source);
     const ast = parser.parse();
     const result = Transpiler.emitJavaScript(ast);
-    assert.ok(
-        result.includes("arctan2(1)"),
-        "Should fall back to arctan2 function call when arg count is wrong"
-    );
+    assert.ok(result.includes("arctan2(1)"), "Should fall back to arctan2 function call when arg count is wrong");
 });
 
 void test("Transpiler.emitJavaScript handles degtorad with wrong argument count gracefully", () => {
@@ -1398,10 +1201,7 @@ void test("Transpiler.emitJavaScript leaves string_length as a runtime builtin c
     const parser = new Parser.GMLParser(source);
     const ast = parser.parse();
     const result = Transpiler.emitJavaScript(ast);
-    assert.ok(
-        result.includes('string_length("hello")'),
-        "Should call string_length directly"
-    );
+    assert.ok(result.includes('string_length("hello")'), "Should call string_length directly");
 });
 
 void test("Transpiler.emitJavaScript leaves string_char_at as a runtime builtin call", () => {
@@ -1409,10 +1209,7 @@ void test("Transpiler.emitJavaScript leaves string_char_at as a runtime builtin 
     const parser = new Parser.GMLParser(source);
     const ast = parser.parse();
     const result = Transpiler.emitJavaScript(ast);
-    assert.ok(
-        result.includes('string_char_at("abc", 2)'),
-        "Should call string_char_at directly"
-    );
+    assert.ok(result.includes('string_char_at("abc", 2)'), "Should call string_char_at directly");
 });
 
 void test("Transpiler.emitJavaScript leaves string_ord_at as a runtime builtin call", () => {
@@ -1420,10 +1217,7 @@ void test("Transpiler.emitJavaScript leaves string_ord_at as a runtime builtin c
     const parser = new Parser.GMLParser(source);
     const ast = parser.parse();
     const result = Transpiler.emitJavaScript(ast);
-    assert.ok(
-        result.includes('string_ord_at("A", 1)'),
-        "Should call string_ord_at directly"
-    );
+    assert.ok(result.includes('string_ord_at("A", 1)'), "Should call string_ord_at directly");
 });
 
 void test("Transpiler.emitJavaScript leaves string_pos as a runtime builtin call", () => {
@@ -1431,10 +1225,7 @@ void test("Transpiler.emitJavaScript leaves string_pos as a runtime builtin call
     const parser = new Parser.GMLParser(source);
     const ast = parser.parse();
     const result = Transpiler.emitJavaScript(ast);
-    assert.ok(
-        result.includes('string_pos("l", "hello")'),
-        "Should call string_pos directly"
-    );
+    assert.ok(result.includes('string_pos("l", "hello")'), "Should call string_pos directly");
 });
 
 void test("Transpiler.emitJavaScript leaves string_copy as a runtime builtin call", () => {
@@ -1442,10 +1233,7 @@ void test("Transpiler.emitJavaScript leaves string_copy as a runtime builtin cal
     const parser = new Parser.GMLParser(source);
     const ast = parser.parse();
     const result = Transpiler.emitJavaScript(ast);
-    assert.ok(
-        result.includes('string_copy("hello", 2, 3)'),
-        "Should call string_copy directly"
-    );
+    assert.ok(result.includes('string_copy("hello", 2, 3)'), "Should call string_copy directly");
 });
 
 void test("Transpiler.emitJavaScript leaves string_delete as a runtime builtin call", () => {
@@ -1453,10 +1241,7 @@ void test("Transpiler.emitJavaScript leaves string_delete as a runtime builtin c
     const parser = new Parser.GMLParser(source);
     const ast = parser.parse();
     const result = Transpiler.emitJavaScript(ast);
-    assert.ok(
-        result.includes('string_delete("hello", 2, 2)'),
-        "Should call string_delete directly"
-    );
+    assert.ok(result.includes('string_delete("hello", 2, 2)'), "Should call string_delete directly");
 });
 
 void test("Transpiler.emitJavaScript leaves string_insert as a runtime builtin call", () => {
@@ -1464,10 +1249,7 @@ void test("Transpiler.emitJavaScript leaves string_insert as a runtime builtin c
     const parser = new Parser.GMLParser(source);
     const ast = parser.parse();
     const result = Transpiler.emitJavaScript(ast);
-    assert.ok(
-        result.includes('string_insert("X", "hello", 3)'),
-        "Should call string_insert directly"
-    );
+    assert.ok(result.includes('string_insert("X", "hello", 3)'), "Should call string_insert directly");
 });
 
 void test("Transpiler.emitJavaScript leaves string_replace as a runtime builtin call", () => {
@@ -1475,10 +1257,7 @@ void test("Transpiler.emitJavaScript leaves string_replace as a runtime builtin 
     const parser = new Parser.GMLParser(source);
     const ast = parser.parse();
     const result = Transpiler.emitJavaScript(ast);
-    assert.ok(
-        result.includes('string_replace("hello", "l", "L")'),
-        "Should call string_replace directly"
-    );
+    assert.ok(result.includes('string_replace("hello", "l", "L")'), "Should call string_replace directly");
 });
 
 void test("Transpiler.emitJavaScript leaves string_replace_all as a runtime builtin call", () => {
@@ -1486,10 +1265,7 @@ void test("Transpiler.emitJavaScript leaves string_replace_all as a runtime buil
     const parser = new Parser.GMLParser(source);
     const ast = parser.parse();
     const result = Transpiler.emitJavaScript(ast);
-    assert.ok(
-        result.includes('string_replace_all("hello", "l", "L")'),
-        "Should call string_replace_all directly"
-    );
+    assert.ok(result.includes('string_replace_all("hello", "l", "L")'), "Should call string_replace_all directly");
 });
 
 void test("Transpiler.emitJavaScript leaves string_count as a runtime builtin call", () => {
@@ -1497,10 +1273,7 @@ void test("Transpiler.emitJavaScript leaves string_count as a runtime builtin ca
     const parser = new Parser.GMLParser(source);
     const ast = parser.parse();
     const result = Transpiler.emitJavaScript(ast);
-    assert.ok(
-        result.includes('string_count("l", "hello")'),
-        "Should call string_count directly"
-    );
+    assert.ok(result.includes('string_count("l", "hello")'), "Should call string_count directly");
 });
 
 void test("Transpiler.emitJavaScript leaves string_upper as a runtime builtin call", () => {
@@ -1508,10 +1281,7 @@ void test("Transpiler.emitJavaScript leaves string_upper as a runtime builtin ca
     const parser = new Parser.GMLParser(source);
     const ast = parser.parse();
     const result = Transpiler.emitJavaScript(ast);
-    assert.ok(
-        result.includes('string_upper("hello")'),
-        "Should call string_upper directly"
-    );
+    assert.ok(result.includes('string_upper("hello")'), "Should call string_upper directly");
 });
 
 void test("Transpiler.emitJavaScript leaves string_lower as a runtime builtin call", () => {
@@ -1519,10 +1289,7 @@ void test("Transpiler.emitJavaScript leaves string_lower as a runtime builtin ca
     const parser = new Parser.GMLParser(source);
     const ast = parser.parse();
     const result = Transpiler.emitJavaScript(ast);
-    assert.ok(
-        result.includes('string_lower("HELLO")'),
-        "Should call string_lower directly"
-    );
+    assert.ok(result.includes('string_lower("HELLO")'), "Should call string_lower directly");
 });
 
 void test("Transpiler.emitJavaScript leaves string_repeat as a runtime builtin call", () => {
@@ -1530,10 +1297,7 @@ void test("Transpiler.emitJavaScript leaves string_repeat as a runtime builtin c
     const parser = new Parser.GMLParser(source);
     const ast = parser.parse();
     const result = Transpiler.emitJavaScript(ast);
-    assert.ok(
-        result.includes('string_repeat("ab", 3)'),
-        "Should call string_repeat directly"
-    );
+    assert.ok(result.includes('string_repeat("ab", 3)'), "Should call string_repeat directly");
 });
 
 void test("Transpiler.emitJavaScript leaves string_letters as a runtime builtin call", () => {
@@ -1541,10 +1305,7 @@ void test("Transpiler.emitJavaScript leaves string_letters as a runtime builtin 
     const parser = new Parser.GMLParser(source);
     const ast = parser.parse();
     const result = Transpiler.emitJavaScript(ast);
-    assert.ok(
-        result.includes('string_letters("a1b2c3")'),
-        "Should call string_letters directly"
-    );
+    assert.ok(result.includes('string_letters("a1b2c3")'), "Should call string_letters directly");
 });
 
 void test("Transpiler.emitJavaScript leaves string_digits as a runtime builtin call", () => {
@@ -1552,10 +1313,7 @@ void test("Transpiler.emitJavaScript leaves string_digits as a runtime builtin c
     const parser = new Parser.GMLParser(source);
     const ast = parser.parse();
     const result = Transpiler.emitJavaScript(ast);
-    assert.ok(
-        result.includes('string_digits("a1b2c3")'),
-        "Should call string_digits directly"
-    );
+    assert.ok(result.includes('string_digits("a1b2c3")'), "Should call string_digits directly");
 });
 
 void test("Transpiler.emitJavaScript leaves string_lettersdigits as a runtime builtin call", () => {
@@ -1563,10 +1321,7 @@ void test("Transpiler.emitJavaScript leaves string_lettersdigits as a runtime bu
     const parser = new Parser.GMLParser(source);
     const ast = parser.parse();
     const result = Transpiler.emitJavaScript(ast);
-    assert.ok(
-        result.includes('string_lettersdigits("a1!b2@c3")'),
-        "Should call string_lettersdigits directly"
-    );
+    assert.ok(result.includes('string_lettersdigits("a1!b2@c3")'), "Should call string_lettersdigits directly");
 });
 
 void test("Transpiler.emitJavaScript leaves chr as a runtime builtin call", () => {
@@ -1606,10 +1361,7 @@ void test("Transpiler.emitJavaScript handles string functions with wrong argumen
     const parser = new Parser.GMLParser(source);
     const ast = parser.parse();
     const result = Transpiler.emitJavaScript(ast);
-    assert.ok(
-        result.includes("string_length"),
-        "Should fall back when arg count is wrong"
-    );
+    assert.ok(result.includes("string_length"), "Should fall back when arg count is wrong");
 });
 
 void test("Transpiler.emitJavaScript leaves random as a runtime builtin call", () => {
@@ -1625,10 +1377,7 @@ void test("Transpiler.emitJavaScript leaves random_range as a runtime builtin ca
     const parser = new Parser.GMLParser(source);
     const ast = parser.parse();
     const result = Transpiler.emitJavaScript(ast);
-    assert.ok(
-        result.includes("random_range(10, 20)"),
-        "Should call random_range directly"
-    );
+    assert.ok(result.includes("random_range(10, 20)"), "Should call random_range directly");
 });
 
 void test("Transpiler.emitJavaScript leaves irandom as a runtime builtin call", () => {
@@ -1644,10 +1393,7 @@ void test("Transpiler.emitJavaScript leaves irandom_range as a runtime builtin c
     const parser = new Parser.GMLParser(source);
     const ast = parser.parse();
     const result = Transpiler.emitJavaScript(ast);
-    assert.ok(
-        result.includes("irandom_range(5, 15)"),
-        "Should call irandom_range directly"
-    );
+    assert.ok(result.includes("irandom_range(5, 15)"), "Should call irandom_range directly");
 });
 
 void test("Transpiler.emitJavaScript leaves choose as a runtime builtin call", () => {
@@ -1655,10 +1401,7 @@ void test("Transpiler.emitJavaScript leaves choose as a runtime builtin call", (
     const parser = new Parser.GMLParser(source);
     const ast = parser.parse();
     const result = Transpiler.emitJavaScript(ast);
-    assert.ok(
-        result.includes('choose("a", "b", "c")'),
-        "Should call choose directly"
-    );
+    assert.ok(result.includes('choose("a", "b", "c")'), "Should call choose directly");
 });
 
 void test("Transpiler.emitJavaScript leaves choose with numeric arguments as a runtime builtin call", () => {
@@ -1666,10 +1409,7 @@ void test("Transpiler.emitJavaScript leaves choose with numeric arguments as a r
     const parser = new Parser.GMLParser(source);
     const ast = parser.parse();
     const result = Transpiler.emitJavaScript(ast);
-    assert.ok(
-        result.includes("choose(1, 2, 3, 4, 5)"),
-        "Should call choose directly"
-    );
+    assert.ok(result.includes("choose(1, 2, 3, 4, 5)"), "Should call choose directly");
 });
 
 void test("Transpiler.emitJavaScript leaves lerp as a runtime builtin call", () => {
@@ -1677,10 +1417,7 @@ void test("Transpiler.emitJavaScript leaves lerp as a runtime builtin call", () 
     const parser = new Parser.GMLParser(source);
     const ast = parser.parse();
     const result = Transpiler.emitJavaScript(ast);
-    assert.ok(
-        result.includes("lerp(0, 100, 0.5)"),
-        "Should call lerp directly"
-    );
+    assert.ok(result.includes("lerp(0, 100, 0.5)"), "Should call lerp directly");
 });
 
 void test("Transpiler.emitJavaScript leaves median as a runtime builtin call", () => {
@@ -1688,10 +1425,7 @@ void test("Transpiler.emitJavaScript leaves median as a runtime builtin call", (
     const parser = new Parser.GMLParser(source);
     const ast = parser.parse();
     const result = Transpiler.emitJavaScript(ast);
-    assert.ok(
-        result.includes("median(3, 1, 2)"),
-        "Should call median directly"
-    );
+    assert.ok(result.includes("median(3, 1, 2)"), "Should call median directly");
 });
 
 void test("Transpiler.emitJavaScript leaves median with even count as a runtime builtin call", () => {
@@ -1699,10 +1433,7 @@ void test("Transpiler.emitJavaScript leaves median with even count as a runtime 
     const parser = new Parser.GMLParser(source);
     const ast = parser.parse();
     const result = Transpiler.emitJavaScript(ast);
-    assert.ok(
-        result.includes("median(1, 2, 3, 4)"),
-        "Should call median directly"
-    );
+    assert.ok(result.includes("median(1, 2, 3, 4)"), "Should call median directly");
 });
 
 void test("Transpiler.emitJavaScript leaves mean as a runtime builtin call", () => {
@@ -1718,10 +1449,7 @@ void test("Transpiler.emitJavaScript handles random functions with wrong argumen
     const parser = new Parser.GMLParser(source);
     const ast = parser.parse();
     const result = Transpiler.emitJavaScript(ast);
-    assert.ok(
-        result.includes("random("),
-        "Should fall back when arg count is wrong"
-    );
+    assert.ok(result.includes("random("), "Should fall back when arg count is wrong");
 });
 
 void test("Transpiler.emitJavaScript handles new expression without arguments", () => {
@@ -1729,10 +1457,7 @@ void test("Transpiler.emitJavaScript handles new expression without arguments", 
     const parser = new Parser.GMLParser(source);
     const ast = parser.parse();
     const result = Transpiler.emitJavaScript(ast);
-    assert.ok(
-        result.includes("new MyStruct()"),
-        "Should emit new expression with empty arguments"
-    );
+    assert.ok(result.includes("new MyStruct()"), "Should emit new expression with empty arguments");
 });
 
 void test("Transpiler.emitJavaScript handles new expression with single argument", () => {
@@ -1740,10 +1465,7 @@ void test("Transpiler.emitJavaScript handles new expression with single argument
     const parser = new Parser.GMLParser(source);
     const ast = parser.parse();
     const result = Transpiler.emitJavaScript(ast);
-    assert.ok(
-        result.includes("new Vector2(5)"),
-        "Should emit new expression with single argument"
-    );
+    assert.ok(result.includes("new Vector2(5)"), "Should emit new expression with single argument");
 });
 
 void test("Transpiler.emitJavaScript handles new expression with multiple arguments", () => {
@@ -1751,10 +1473,7 @@ void test("Transpiler.emitJavaScript handles new expression with multiple argume
     const parser = new Parser.GMLParser(source);
     const ast = parser.parse();
     const result = Transpiler.emitJavaScript(ast);
-    assert.ok(
-        result.includes("new Vector2(x, y)"),
-        "Should emit new expression with multiple arguments"
-    );
+    assert.ok(result.includes("new Vector2(x, y)"), "Should emit new expression with multiple arguments");
 });
 
 void test("Transpiler.emitJavaScript handles new expression with literal arguments", () => {
@@ -1762,10 +1481,7 @@ void test("Transpiler.emitJavaScript handles new expression with literal argumen
     const parser = new Parser.GMLParser(source);
     const ast = parser.parse();
     const result = Transpiler.emitJavaScript(ast);
-    assert.ok(
-        result.includes('new Player("Alice", 100, 50)'),
-        "Should emit new expression with literal arguments"
-    );
+    assert.ok(result.includes('new Player("Alice", 100, 50)'), "Should emit new expression with literal arguments");
 });
 
 void test("Transpiler.emitJavaScript handles new expression with expression arguments", () => {
@@ -1784,10 +1500,7 @@ void test("Transpiler.emitJavaScript handles nested new expressions", () => {
     const parser = new Parser.GMLParser(source);
     const ast = parser.parse();
     const result = Transpiler.emitJavaScript(ast);
-    assert.ok(
-        result.includes("new Container(new Item())"),
-        "Should emit nested new expressions"
-    );
+    assert.ok(result.includes("new Container(new Item())"), "Should emit nested new expressions");
 });
 
 void test("Transpiler.emitJavaScript handles new expression in assignment chain", () => {
@@ -1806,10 +1519,7 @@ void test("Transpiler.emitJavaScript handles delete statement with identifier", 
     const parser = new Parser.GMLParser(source);
     const ast = parser.parse();
     const result = Transpiler.emitJavaScript(ast);
-    assert.ok(
-        result.includes("delete myVar"),
-        "Should emit delete statement with identifier"
-    );
+    assert.ok(result.includes("delete myVar"), "Should emit delete statement with identifier");
 });
 
 void test("Transpiler.emitJavaScript handles delete statement with property access", () => {
@@ -1817,10 +1527,7 @@ void test("Transpiler.emitJavaScript handles delete statement with property acce
     const parser = new Parser.GMLParser(source);
     const ast = parser.parse();
     const result = Transpiler.emitJavaScript(ast);
-    assert.ok(
-        result.includes("delete obj.property"),
-        "Should emit delete statement with property access"
-    );
+    assert.ok(result.includes("delete obj.property"), "Should emit delete statement with property access");
 });
 
 void test("Transpiler.emitJavaScript handles delete statement with array index", () => {
@@ -1828,10 +1535,7 @@ void test("Transpiler.emitJavaScript handles delete statement with array index",
     const parser = new Parser.GMLParser(source);
     const ast = parser.parse();
     const result = Transpiler.emitJavaScript(ast);
-    assert.ok(
-        result.includes("delete arr[0]"),
-        "Should emit delete statement with array index"
-    );
+    assert.ok(result.includes("delete arr[0]"), "Should emit delete statement with array index");
 });
 
 void test("Transpiler.emitJavaScript handles delete statement with nested property access", () => {
@@ -1839,10 +1543,7 @@ void test("Transpiler.emitJavaScript handles delete statement with nested proper
     const parser = new Parser.GMLParser(source);
     const ast = parser.parse();
     const result = Transpiler.emitJavaScript(ast);
-    assert.ok(
-        result.includes("delete obj.nested.property"),
-        "Should emit delete statement with nested property"
-    );
+    assert.ok(result.includes("delete obj.nested.property"), "Should emit delete statement with nested property");
 });
 
 void test("Transpiler.emitJavaScript handles delete statement with computed property", () => {
@@ -1850,10 +1551,7 @@ void test("Transpiler.emitJavaScript handles delete statement with computed prop
     const parser = new Parser.GMLParser(source);
     const ast = parser.parse();
     const result = Transpiler.emitJavaScript(ast);
-    assert.ok(
-        result.includes("delete obj"),
-        "Should emit delete statement with computed property"
-    );
+    assert.ok(result.includes("delete obj"), "Should emit delete statement with computed property");
 });
 
 void test("Transpiler.emitJavaScript handles multiple delete statements", () => {
@@ -1872,8 +1570,5 @@ void test("Transpiler.emitJavaScript handles delete in control flow", () => {
     const parser = new Parser.GMLParser(source);
     const ast = parser.parse();
     const result = Transpiler.emitJavaScript(ast);
-    assert.ok(
-        result.includes("delete obj.temp"),
-        "Should emit delete inside conditional"
-    );
+    assert.ok(result.includes("delete obj.temp"), "Should emit delete inside conditional");
 });

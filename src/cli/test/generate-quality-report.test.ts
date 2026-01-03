@@ -109,10 +109,7 @@ void test("treats failing tests without a base counterpart as regressions", () =
 
     assert.strictEqual(regressions.length, 1);
     assert.strictEqual(regressions[0].from, "missing");
-    assert.strictEqual(
-        regressions[0].detail?.displayName.includes("new scenario fails"),
-        true
-    );
+    assert.strictEqual(regressions[0].detail?.displayName.includes("new scenario fails"), true);
 });
 
 void test("does not treat renamed failures as regressions when totals are stable", () => {
@@ -179,10 +176,7 @@ void test("parses top-level test cases that are not nested in a suite", () => {
     const regressions = detectRegressions(base, merged);
 
     assert.strictEqual(regressions.length, 1);
-    assert.strictEqual(
-        regressions[0].detail?.displayName.includes("top level"),
-        true
-    );
+    assert.strictEqual(regressions[0].detail?.displayName.includes("top level"), true);
 });
 
 void test("ignores checkstyle reports when scanning result directories", () => {
@@ -214,16 +208,9 @@ void test("ignores checkstyle reports when scanning result directories", () => {
 
     assert.strictEqual(head.stats.total, 1);
     assert.strictEqual(head.stats.failed, 1);
-    assert.strictEqual(
-        [...head.results.keys()][0],
-        "sample :: suite :: real failure"
-    );
+    assert.strictEqual([...head.results.keys()][0], "sample :: suite :: real failure");
     assert.equal(
-        head.notes.some((note) =>
-            note.includes(
-                "Ignoring checkstyle report reports/eslint-checkstyle.xml"
-            )
-        ),
+        head.notes.some((note) => note.includes("Ignoring checkstyle report reports/eslint-checkstyle.xml")),
         true
     );
 });
@@ -242,11 +229,7 @@ void test("records a note when XML lacks test suites or cases", () => {
     const result = readTestResults(["reports"], { workspace });
 
     assert.strictEqual(result.stats.total, 0);
-    assert.ok(
-        result.notes.some((note) =>
-            note.includes("does not contain any test suites or cases")
-        )
-    );
+    assert.ok(result.notes.some((note) => note.includes("does not contain any test suites or cases")));
 });
 
 void test("normalizes whitespace when describing regression candidates", () => {
@@ -272,14 +255,8 @@ void test("normalizes whitespace when describing regression candidates", () => {
     assert.strictEqual(records.length, 1);
     const record = records[0];
 
-    assert.strictEqual(
-        record.key,
-        "outer :: inner :: spaced class :: spaced name"
-    );
-    assert.strictEqual(
-        record.displayName,
-        "outer :: inner :: spaced name [/tmp/example]"
-    );
+    assert.strictEqual(record.key, "outer :: inner :: spaced class :: spaced name");
+    assert.strictEqual(record.displayName, "outer :: inner :: spaced name [/tmp/example]");
 });
 
 void test("ensureResultsAvailability throws when base results are unavailable", () => {
@@ -323,9 +300,7 @@ void test("reportRegressionSummary returns success details when no regressions e
     const summary = reportRegressionSummary([], "PR head");
 
     assert.strictEqual(summary.exitCode, 0);
-    assert.deepEqual(summary.lines, [
-        "No new failing tests compared to base using PR head."
-    ]);
+    assert.deepEqual(summary.lines, ["No new failing tests compared to base using PR head."]);
 });
 
 void test("reportRegressionSummary clarifies when regressions offset resolved failures", () => {
@@ -395,10 +370,7 @@ void test("detectResolvedFailures returns failures that now pass or are missing"
     const regressions = detectRegressions(base, merged);
 
     assert.strictEqual(resolvedFailures.length, 1);
-    assert.strictEqual(
-        resolvedFailures[0].key,
-        "sample :: test :: existing failure"
-    );
+    assert.strictEqual(resolvedFailures[0].key, "sample :: test :: existing failure");
     assert.strictEqual(resolvedFailures[0].to, "passed");
 
     assert.strictEqual(regressions.length, 1);
@@ -451,10 +423,7 @@ void test("detectRegressions accepts heterogeneous result containers", () => {
     assert.equal(regressions.length, 1);
     assert.equal(regressions[0].from, "passed");
     assert.equal(regressions[0].to, "failed");
-    assert.equal(
-        regressions[0].detail?.displayName,
-        "suite :: test :: scenario"
-    );
+    assert.equal(regressions[0].detail?.displayName, "suite :: test :: scenario");
 });
 
 void test("readTestResults preserves project health stats when present", () => {

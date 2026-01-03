@@ -2,10 +2,7 @@ import fs from "node:fs/promises";
 import path from "node:path";
 import { performance } from "node:perf_hooks";
 import process from "node:process";
-import {
-    normalizeFixtureRoots,
-    createPathFilter
-} from "../workflow/fixture-roots.js";
+import { normalizeFixtureRoots, createPathFilter } from "../workflow/fixture-roots.js";
 import { Command, Option, InvalidArgumentError } from "commander";
 import { Core } from "@gml-modules/core";
 import { applyStandardCommandOptions } from "../cli-core/command-standard-options.js";
@@ -24,10 +21,7 @@ import {
     type SuiteRunner
 } from "../cli-core/command-suite-helpers.js";
 import { createCliErrorDetails } from "../cli-core/errors.js";
-import {
-    createCliRunSkippedError,
-    isCliRunSkipped
-} from "../shared/skip-cli-run.js";
+import { createCliRunSkippedError, isCliRunSkipped } from "../shared/skip-cli-run.js";
 import { formatByteSize } from "../shared/reporting/byte-format.js";
 import { REPO_ROOT } from "../shared/workspace-paths.js";
 import { resolveModuleDefaultExport } from "../shared/module.js";
@@ -61,14 +55,10 @@ const shouldSkipPerformanceDependencies = isCliRunSkipped();
 const AVAILABLE_SUITES = new Map<string, SuiteRunner>();
 
 const TEST_RESULTS_DIRECTORY = path.resolve(REPO_ROOT, "reports");
-const DEFAULT_REPORT_FILE = path.join(
-    TEST_RESULTS_DIRECTORY,
-    "performance-report.json"
-);
+const DEFAULT_REPORT_FILE = path.join(TEST_RESULTS_DIRECTORY, "performance-report.json");
 const DATASET_CACHE_KEY = "gml-fixtures";
 const SUPPORTS_WEAK_REF = typeof WeakRef === "function";
-const SKIP_PERFORMANCE_RESOLUTION_MESSAGE =
-    "Clear the environment variable to enable CLI performance suites.";
+const SKIP_PERFORMANCE_RESOLUTION_MESSAGE = "Clear the environment variable to enable CLI performance suites.";
 
 interface PerformanceCommandOptions {
     suite?: Array<string> | string;
@@ -144,13 +134,9 @@ function storeDatasetInCache(cache, dataset) {
 }
 
 function createDatasetSummary({ fileCount, totalBytes }) {
-    const normalizedFileCount = Math.max(
-        0,
-        toNormalizedInteger(fileCount) ?? 0
-    );
+    const normalizedFileCount = Math.max(0, toNormalizedInteger(fileCount) ?? 0);
 
-    const normalizedTotalBytes =
-        isFiniteNumber(totalBytes) && totalBytes >= 0 ? totalBytes : 0;
+    const normalizedTotalBytes = isFiniteNumber(totalBytes) && totalBytes >= 0 ? totalBytes : 0;
 
     return {
         files: normalizedFileCount,
@@ -174,10 +160,7 @@ interface FormatErrorDetailsOptions {
     fallbackMessage?: string;
 }
 
-function formatErrorDetails(
-    error: unknown,
-    { fallbackMessage }: FormatErrorDetailsOptions = {}
-) {
+function formatErrorDetails(error: unknown, { fallbackMessage }: FormatErrorDetailsOptions = {}) {
     return createCliErrorDetails(error, {
         fallbackMessage: fallbackMessage ?? "Unknown error"
     });
@@ -239,18 +222,9 @@ interface LoadFixtureDatasetOptions {
     pathFilter?: ReturnType<typeof createPathFilter>;
 }
 
-async function loadFixtureDataset({
-    directories,
-    pathFilter
-}: LoadFixtureDatasetOptions = {}) {
-    const fixtureDirectories = normalizeFixtureRoots(
-        directories ?? [],
-        pathFilter
-    );
-    const fixturePaths = await collectFixtureFilePaths(
-        fixtureDirectories,
-        pathFilter
-    );
+async function loadFixtureDataset({ directories, pathFilter }: LoadFixtureDatasetOptions = {}) {
+    const fixtureDirectories = normalizeFixtureRoots(directories ?? [], pathFilter);
+    const fixturePaths = await collectFixtureFilePaths(fixtureDirectories, pathFilter);
     const files = await loadFixtureFiles(fixturePaths);
 
     return createDatasetFromFiles(files);
@@ -262,9 +236,7 @@ function normalizeCustomDataset(dataset) {
         errorMessage: "Custom datasets must be provided as an array."
     });
 
-    const files = entries.map((entry, index) =>
-        normalizeCustomDatasetEntry(entry, index)
-    );
+    const files = entries.map((entry, index) => normalizeCustomDatasetEntry(entry, index));
 
     return createDatasetFromFiles(files);
 }
@@ -323,19 +295,10 @@ interface FixtureRecordInput {
  * Normalize fixture metadata while enforcing consistent size and relative path
  * semantics regardless of where the record originated.
  */
-function createFixtureRecord({
-    absolutePath,
-    source,
-    size,
-    relativePath
-}: FixtureRecordInput) {
-    const resolvedSize = isFiniteNumber(size)
-        ? size
-        : Buffer.byteLength(source);
+function createFixtureRecord({ absolutePath, source, size, relativePath }: FixtureRecordInput) {
+    const resolvedSize = isFiniteNumber(size) ? size : Buffer.byteLength(source);
     const resolvedRelativePath =
-        typeof relativePath === "string"
-            ? relativePath
-            : path.relative(REPO_ROOT, absolutePath);
+        typeof relativePath === "string" ? relativePath : path.relative(REPO_ROOT, absolutePath);
 
     return {
         path: absolutePath,
@@ -347,21 +310,15 @@ function createFixtureRecord({
 
 function normalizeCustomDatasetEntry(entry, index) {
     const normalizedEntry = assertPlainObject(entry, {
-        errorMessage:
-            "Each dataset entry must be an object with a source string."
+        errorMessage: "Each dataset entry must be an object with a source string."
     });
 
     const source = normalizedEntry.source;
     if (typeof source !== "string") {
-        throw new TypeError(
-            "Dataset entries must include a string `source` property."
-        );
+        throw new TypeError("Dataset entries must include a string `source` property.");
     }
 
-    const providedPath =
-        typeof normalizedEntry.path === "string"
-            ? normalizedEntry.path
-            : `<fixture-${index}>`;
+    const providedPath = typeof normalizedEntry.path === "string" ? normalizedEntry.path : `<fixture-${index}>`;
     const resolvedRelativePath =
         typeof normalizedEntry.relativePath === "string"
             ? normalizedEntry.relativePath
@@ -377,9 +334,7 @@ function normalizeCustomDatasetEntry(entry, index) {
     });
 }
 
-async function resolveDatasetFromOptions(
-    options: PerformanceSuiteExecutionOptions = {}
-) {
+async function resolveDatasetFromOptions(options: PerformanceSuiteExecutionOptions = {}) {
     if (options.dataset) {
         return normalizeCustomDataset(options.dataset);
     }
@@ -399,8 +354,7 @@ async function resolveDatasetFromOptions(
     return dataset;
 }
 
-const formatIterationErrorMessage = (received) =>
-    `Iterations must be a positive integer (received ${received}).`;
+const formatIterationErrorMessage = (received) => `Iterations must be a positive integer (received ${received}).`;
 
 function resolveIterationCount(value) {
     const normalized = resolveIntegerOption(value, {
@@ -433,19 +387,14 @@ let gmlParserPromise = null;
 
 function resolveGmlParser() {
     if (shouldSkipPerformanceDependencies) {
-        return Promise.reject(
-            createSkippedPerformanceDependencyError("load the GML parser")
-        );
+        return Promise.reject(createSkippedPerformanceDependencyError("load the GML parser"));
     }
 
     if (!gmlParserPromise) {
         gmlParserPromise = import("@gml-modules/parser").then((module) => {
             const parserModule = resolveModuleDefaultExport(module);
             if (parserModule && typeof parserModule === "object") {
-                const parserNamespace =
-                    "Parser" in parserModule
-                        ? parserModule.Parser
-                        : parserModule;
+                const parserNamespace = "Parser" in parserModule ? parserModule.Parser : parserModule;
                 if (parserNamespace && typeof parserNamespace === "object") {
                     return parserNamespace.GMLParser ?? parserNamespace;
                 }
@@ -459,10 +408,7 @@ function resolveGmlParser() {
 
 function createDefaultParser() {
     if (shouldSkipPerformanceDependencies) {
-        return () =>
-            Promise.reject(
-                createSkippedPerformanceDependencyError("run parser benchmarks")
-            );
+        return () => Promise.reject(createSkippedPerformanceDependencyError("run parser benchmarks"));
     }
 
     return async (file) => {
@@ -480,9 +426,7 @@ let prettierModulePromise = null;
 
 function resolvePrettier() {
     if (!prettierModulePromise) {
-        prettierModulePromise = import("prettier").then(
-            resolveModuleDefaultExport
-        );
+        prettierModulePromise = import("prettier").then(resolveModuleDefaultExport);
     }
 
     return prettierModulePromise;
@@ -507,10 +451,7 @@ function resolveNow(now) {
 }
 
 function createBenchmarkResult({ dataset, durations, iterations }) {
-    const totalDuration = durations.reduce(
-        (sum, duration) => sum + duration,
-        0
-    );
+    const totalDuration = durations.reduce((sum, duration) => sum + duration, 0);
     const datasetSummary = createDatasetSummary({
         fileCount: dataset.summary.files,
         totalBytes: dataset.summary.totalBytes
@@ -525,10 +466,8 @@ function createBenchmarkResult({ dataset, durations, iterations }) {
         averageDurationMs: iterations > 0 ? totalDuration / iterations : 0,
         dataset: datasetSummary,
         throughput: {
-            filesPerMs:
-                totalDuration > 0 ? totalFilesProcessed / totalDuration : null,
-            bytesPerMs:
-                totalDuration > 0 ? totalBytesProcessed / totalDuration : null
+            filesPerMs: totalDuration > 0 ? totalFilesProcessed / totalDuration : null,
+            bytesPerMs: totalDuration > 0 ? totalBytesProcessed / totalDuration : null
         }
     };
 }
@@ -567,10 +506,7 @@ async function measureBenchmarkDurations({ dataset, iterations, worker, now }) {
     return durations;
 }
 
-async function runFixtureDatasetBenchmark(
-    options,
-    { skipReason, resolveWorker }
-) {
+async function runFixtureDatasetBenchmark(options, { skipReason, resolveWorker }) {
     const dataset = await resolveDatasetFromOptions(options);
 
     if (!dataset || dataset.summary.files === 0) {
@@ -594,9 +530,7 @@ export function runParserBenchmark(options = {}) {
     return runFixtureDatasetBenchmark(options, {
         skipReason: "No GameMaker fixtures were available to parse.",
         resolveWorker: (benchmarkOptions) =>
-            typeof benchmarkOptions.parser === "function"
-                ? benchmarkOptions.parser
-                : createDefaultParser()
+            typeof benchmarkOptions.parser === "function" ? benchmarkOptions.parser : createDefaultParser()
     });
 }
 
@@ -608,10 +542,8 @@ export function runFormatterBenchmark(options = {}) {
                 return benchmarkOptions.formatter;
             }
 
-            const prettierInstance =
-                benchmarkOptions.prettier ?? (await resolvePrettier());
-            const pluginPath =
-                benchmarkOptions.pluginPath ?? resolveCliPluginEntryPoint();
+            const prettierInstance = benchmarkOptions.prettier ?? (await resolvePrettier());
+            const pluginPath = benchmarkOptions.pluginPath ?? resolveCliPluginEntryPoint();
 
             return createDefaultFormatter({
                 prettier: prettierInstance,
@@ -683,17 +615,11 @@ function runIdentifierTextBenchmark() {
 
 AVAILABLE_SUITES.set(PerformanceSuiteName.PARSER, runParserBenchmark);
 AVAILABLE_SUITES.set(PerformanceSuiteName.FORMATTER, runFormatterBenchmark);
-AVAILABLE_SUITES.set(PerformanceSuiteName.IDENTIFIER_TEXT, () =>
-    runIdentifierTextBenchmark()
-);
+AVAILABLE_SUITES.set(PerformanceSuiteName.IDENTIFIER_TEXT, () => runIdentifierTextBenchmark());
 
 export function createPerformanceCommand() {
-    const defaultReportFileDescription =
-        formatReportFilePath(DEFAULT_REPORT_FILE);
-    const reportFileOption = new Option(
-        "--report-file <path>",
-        "File path for the JSON performance report."
-    )
+    const defaultReportFileDescription = formatReportFilePath(DEFAULT_REPORT_FILE);
+    const reportFileOption = new Option("--report-file <path>", "File path for the JSON performance report.")
         .argParser((value) => path.resolve(value))
         .default(DEFAULT_REPORT_FILE, defaultReportFileDescription);
 
@@ -711,17 +637,13 @@ export function createPerformanceCommand() {
         new Command()
             .name("performance")
             .usage("[options]")
-            .description(
-                "Run parser and formatter performance benchmarks for the CLI."
-            )
+            .description("Run parser and formatter performance benchmarks for the CLI.")
     )
         .addOption(suiteOption)
         .option(
             "-i, --iterations <count>",
             "Repeat each suite this many times.",
-            wrapInvalidArgumentResolver((value) =>
-                resolveIterationCount(value)
-            ),
+            wrapInvalidArgumentResolver((value) => resolveIterationCount(value)),
             1
         )
         .option(
@@ -731,10 +653,7 @@ export function createPerformanceCommand() {
             []
         )
         .addOption(reportFileOption)
-        .option(
-            "--skip-report",
-            "Disable writing the JSON performance report to disk."
-        )
+        .option("--skip-report", "Disable writing the JSON performance report to disk.")
         .option("--stdout", "Emit the performance report to stdout.")
         .option(
             "--format <format>",
@@ -756,10 +675,7 @@ function createSuiteExecutionOptions(
 
     return {
         iterations: resolveIterationCount(options.iterations),
-        fixtureRoots: normalizeFixtureRoots(
-            toArray(options.fixtureRoot ?? []),
-            pathFilter
-        ),
+        fixtureRoots: normalizeFixtureRoots(toArray(options.fixtureRoot ?? []), pathFilter),
         datasetCache: new Map(),
         pathFilter
     };
@@ -814,10 +730,7 @@ function formatReportFilePath(targetFile) {
 }
 
 function createHumanReadableReportHeader(report) {
-    return [
-        "Performance benchmark results:",
-        `Generated at: ${report.generatedAt}`
-    ];
+    return ["Performance benchmark results:", `Generated at: ${report.generatedAt}`];
 }
 
 function createHumanReadableSuiteLines({ suite, payload }) {
@@ -836,22 +749,16 @@ function createHumanReadableSuiteLines({ suite, payload }) {
 
     if (isPerformanceThroughputSuite(suite)) {
         const datasetBytes = payload?.dataset?.totalBytes ?? 0;
-        lines.push(
-            `  - iterations: ${payload?.iterations}`,
-            `  - files: ${payload?.dataset?.files ?? 0}`
-        );
+        lines.push(`  - iterations: ${payload?.iterations}`, `  - files: ${payload?.dataset?.files ?? 0}`);
         lines.push(
             `  - total duration: ${formatMetricValue(payload?.totalDurationMs, {
                 unit: "ms"
             })}`
         );
         lines.push(
-            `  - average duration: ${formatMetricValue(
-                payload?.averageDurationMs,
-                {
-                    unit: "ms"
-                }
-            )}`
+            `  - average duration: ${formatMetricValue(payload?.averageDurationMs, {
+                unit: "ms"
+            })}`
         );
         lines.push(
             `  - dataset size: ${formatByteSize(datasetBytes, {
@@ -861,16 +768,10 @@ function createHumanReadableSuiteLines({ suite, payload }) {
             })}`
         );
         lines.push(
-            `  - throughput (files/ms): ${formatMetricValue(
-                payload?.throughput?.filesPerMs,
-                { unit: "files/ms" }
-            )}`
+            `  - throughput (files/ms): ${formatMetricValue(payload?.throughput?.filesPerMs, { unit: "files/ms" })}`
         );
         lines.push(
-            `  - throughput (bytes/ms): ${formatMetricValue(
-                payload?.throughput?.bytesPerMs,
-                { unit: "bytes/ms" }
-            )}`
+            `  - throughput (bytes/ms): ${formatMetricValue(payload?.throughput?.bytesPerMs, { unit: "bytes/ms" })}`
         );
         return lines;
     }
@@ -895,10 +796,7 @@ function createHumanReadableSuiteSections(suites) {
 }
 
 function createHumanReadableReportLines(report) {
-    return [
-        ...createHumanReadableReportHeader(report),
-        ...createHumanReadableSuiteSections(report.suites)
-    ];
+    return [...createHumanReadableReportHeader(report), ...createHumanReadableSuiteSections(report.suites)];
 }
 
 function printHumanReadable(report) {
@@ -939,10 +837,7 @@ async function executeWithDatasetCleanup(
     }
 }
 
-function collectPerformanceSuiteResults({
-    requestedSuites,
-    runnerOptions
-}: CollectPerformanceSuiteResultsOptions) {
+function collectPerformanceSuiteResults({ requestedSuites, runnerOptions }: CollectPerformanceSuiteResultsOptions) {
     return executeWithDatasetCleanup(runnerOptions, () =>
         collectSuiteResults({
             suiteNames: requestedSuites,
@@ -995,9 +890,7 @@ function createSuiteFailureSummary([suite, payload]) {
  * bookkeeping around collecting defined summaries.
  */
 function createSuiteFailureSummariesFromEntries(entries) {
-    return entries
-        .map(createSuiteFailureSummary)
-        .filter((summary) => summary !== null);
+    return entries.map(createSuiteFailureSummary).filter((summary) => summary !== null);
 }
 
 function collectSuiteFailureSummaries(results) {
@@ -1021,9 +914,7 @@ function formatFailureFollowUp({
     if (stdout) {
         if (format === SuiteOutputFormat.HUMAN) {
             const base = "Review the human-readable report above for details.";
-            return displayPath
-                ? `${base} The JSON report was also written to ${displayPath}.`
-                : base;
+            return displayPath ? `${base} The JSON report was also written to ${displayPath}.` : base;
         }
 
         if (displayPath) {
@@ -1051,16 +942,10 @@ function logSuiteFailureSummary(
     }
 
     const heading =
-        failures.length === 1
-            ? "Performance suite failure detected:"
-            : "Performance suite failures detected:";
-    const failureLines = failures.map(
-        ({ suite, message }) => `- ${suite}: ${message}`
-    );
+        failures.length === 1 ? "Performance suite failure detected:" : "Performance suite failures detected:";
+    const failureLines = failures.map(({ suite, message }) => `- ${suite}: ${message}`);
 
-    const displayPath = reportResult?.path
-        ? formatReportFilePath(reportResult.path)
-        : "";
+    const displayPath = reportResult?.path ? formatReportFilePath(reportResult.path) : "";
     const followUp = formatFailureFollowUp({
         stdout: Boolean(options.stdout),
         format: options.format,
@@ -1081,10 +966,7 @@ function emitReportIfRequested(report, options: EmitReportOptions) {
     emitReport(report, options);
 }
 
-export async function runPerformanceCommand({
-    command,
-    workflow
-}: RunPerformanceCommandContext = {}) {
+export async function runPerformanceCommand({ command, workflow }: RunPerformanceCommandContext = {}) {
     const options: PerformanceCommandOptions = command?.opts?.() ?? {};
 
     const requestedSuites = resolveRequestedSuites(options, AVAILABLE_SUITES);
@@ -1103,11 +985,7 @@ export async function runPerformanceCommand({
 
     logReportDestination(reportResult, options);
     emitReportIfRequested(report, options);
-    const hasSuiteFailures = logSuiteFailureSummary(
-        suiteResults,
-        options,
-        reportResult
-    );
+    const hasSuiteFailures = logSuiteFailureSummary(suiteResults, options, reportResult);
 
     return hasSuiteFailures ? 1 : 0;
 }

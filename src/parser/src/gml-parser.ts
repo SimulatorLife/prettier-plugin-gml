@@ -3,9 +3,7 @@ import antlr4 from "antlr4";
 import GameMakerLanguageLexer from "../generated/GameMakerLanguageLexer.js";
 import GameMakerLanguageParser from "../generated/GameMakerLanguageParser.js";
 import GameMakerASTBuilder from "./ast/gml-ast-builder.js";
-import GameMakerParseErrorListener, {
-    GameMakerLexerErrorListener
-} from "./ast/gml-syntax-error.js";
+import GameMakerParseErrorListener, { GameMakerLexerErrorListener } from "./ast/gml-syntax-error.js";
 import { createHiddenNodeProcessor } from "./ast/hidden-node-processor.js";
 import { Core } from "@gml-modules/core";
 import { installRecognitionExceptionLikeGuard } from "./runtime/index.js";
@@ -13,17 +11,13 @@ import convertToESTree from "./utils/estree-converter.js";
 import { defaultParserOptions, type ParserOptions } from "./types/index.js";
 
 const PredictionMode =
-    (antlr4 as unknown as { atn?: { PredictionMode: unknown } }).atn
-        ?.PredictionMode ??
+    (antlr4 as unknown as { atn?: { PredictionMode: unknown } }).atn?.PredictionMode ??
     (antlr4 as any).PredictionMode ??
     (antlr4 as any).atn?.PredictionMode;
 
 installRecognitionExceptionLikeGuard();
 
-function mergeParserOptions(
-    baseOptions: ParserOptions,
-    overrides: Partial<ParserOptions> | undefined
-): ParserOptions {
+function mergeParserOptions(baseOptions: ParserOptions, overrides: Partial<ParserOptions> | undefined): ParserOptions {
     const overrideObject = Core.isObjectLike(overrides) ? overrides : {};
     return Object.assign({}, baseOptions, overrideObject) as ParserOptions;
 }
@@ -40,12 +34,8 @@ export class GMLParser {
         this.text = Core.normalizeSimpleEscapeCase(text);
         this.whitespaces = [];
         this.comments = [];
-        const parserConstructor =
-            (this.constructor as typeof GMLParser | undefined) ?? GMLParser;
-        this.options = mergeParserOptions(
-            parserConstructor.optionDefaults,
-            options
-        );
+        const parserConstructor = (this.constructor as typeof GMLParser | undefined) ?? GMLParser;
+        this.options = mergeParserOptions(parserConstructor.optionDefaults, options);
     }
 
     static optionDefaults: ParserOptions = defaultParserOptions;
@@ -72,9 +62,7 @@ export class GMLParser {
             tree = parser.program();
         } catch (error) {
             if (!error) {
-                throw new Error(
-                    "Unknown syntax error while parsing GML source."
-                );
+                throw new Error("Unknown syntax error while parsing GML source.");
             }
 
             if (Core.isErrorLike(error)) {
@@ -103,8 +91,7 @@ export class GMLParser {
         }
 
         const shouldConvertToESTree =
-            typeof this.options.astFormat === "string" &&
-            this.options.astFormat.toLowerCase() === "estree";
+            typeof this.options.astFormat === "string" && this.options.astFormat.toLowerCase() === "estree";
 
         if (!this.options.getLocations) {
             this.removeLocationInfo(astTree);
@@ -119,8 +106,7 @@ export class GMLParser {
         if (shouldConvertToESTree) {
             astTree = convertToESTree(astTree, {
                 includeLocations: this.options.getLocations,
-                includeRange:
-                    this.options.getLocations && this.options.simplifyLocations,
+                includeRange: this.options.getLocations && this.options.simplifyLocations,
                 includeComments: this.options.getComments
             });
         }
@@ -137,10 +123,7 @@ export class GMLParser {
             return;
         }
 
-        const getIndex = (
-            node: Record<string, unknown>,
-            prop: "start" | "end"
-        ) => {
+        const getIndex = (node: Record<string, unknown>, prop: "start" | "end") => {
             const value = node[prop];
             if (typeof value === "number") return value;
             if (value && typeof (value as any).index === "number") {
@@ -153,19 +136,9 @@ export class GMLParser {
                 const startIndex = getIndex(node, "start");
                 const endIndex = getIndex(node, "end");
 
-                if (
-                    node.type === "Literal" &&
-                    Core.isQuotedString(node.value)
-                ) {
-                    if (
-                        Number.isInteger(startIndex) &&
-                        Number.isInteger(endIndex) &&
-                        endIndex >= startIndex
-                    ) {
-                        node.value = this.originalText.slice(
-                            startIndex,
-                            endIndex + 1
-                        );
+                if (node.type === "Literal" && Core.isQuotedString(node.value)) {
+                    if (Number.isInteger(startIndex) && Number.isInteger(endIndex) && endIndex >= startIndex) {
+                        node.value = this.originalText.slice(startIndex, endIndex + 1);
                     }
                     return;
                 }
@@ -176,10 +149,7 @@ export class GMLParser {
                     Number.isInteger(endIndex) &&
                     endIndex >= startIndex
                 ) {
-                    node.value = this.originalText.slice(
-                        startIndex,
-                        endIndex + 1
-                    );
+                    node.value = this.originalText.slice(startIndex, endIndex + 1);
                 }
             }
         });
@@ -188,13 +158,7 @@ export class GMLParser {
     // Populates the comments array and whitespaces array.
     // Comments are annotated with surrounding whitespace and characters.
     getHiddenNodes(lexer) {
-        const {
-            EOF,
-            SingleLineComment,
-            MultiLineComment,
-            WhiteSpaces,
-            LineTerminator
-        } = GameMakerLanguageLexer;
+        const { EOF, SingleLineComment, MultiLineComment, WhiteSpaces, LineTerminator } = GameMakerLanguageLexer;
         const processor = createHiddenNodeProcessor({
             comments: this.comments,
             whitespaces: this.whitespaces,
@@ -221,5 +185,4 @@ export class GMLParser {
     }
 }
 
-export const getLineBreakCount: typeof Core.getLineBreakCount =
-    Core.getLineBreakCount;
+export const getLineBreakCount: typeof Core.getLineBreakCount = Core.getLineBreakCount;

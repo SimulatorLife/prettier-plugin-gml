@@ -10,22 +10,15 @@ import {
 } from "../src/utils/numeric-options.js";
 
 void test("coercePositiveInteger enforces a minimum of 1", () => {
-    assert.strictEqual(
-        coercePositiveInteger(5, { createErrorMessage: () => "" }),
-        5
-    );
+    assert.strictEqual(coercePositiveInteger(5, { createErrorMessage: () => "" }), 5);
     assert.throws(
-        () =>
-            coercePositiveInteger(0, { createErrorMessage: () => "too small" }),
+        () => coercePositiveInteger(0, { createErrorMessage: () => "too small" }),
         new TypeError("too small")
     );
 });
 
 void test("coerceNonNegativeInteger enforces a minimum of 0", () => {
-    assert.strictEqual(
-        coerceNonNegativeInteger(2, { createErrorMessage: () => "" }),
-        2
-    );
+    assert.strictEqual(coerceNonNegativeInteger(2, { createErrorMessage: () => "" }), 2);
     assert.throws(
         () =>
             coerceNonNegativeInteger(-1, {
@@ -43,23 +36,14 @@ void test("coercePositiveIntegerOption falls back to defaults", () => {
 });
 
 void test("coercePositiveIntegerOption respects zero replacement", () => {
-    assert.strictEqual(
-        coercePositiveIntegerOption(0, 3, { zeroReplacement: 10 }),
-        10
-    );
-    assert.strictEqual(
-        coercePositiveIntegerOption("bad", 4, { zeroReplacement: 8 }),
-        4
-    );
+    assert.strictEqual(coercePositiveIntegerOption(0, 3, { zeroReplacement: 10 }), 10);
+    assert.strictEqual(coercePositiveIntegerOption("bad", 4, { zeroReplacement: 8 }), 4);
 });
 
 void test("coercePositiveIntegerOption normalizes numeric strings", () => {
     assert.strictEqual(coercePositiveIntegerOption("12", 5), 12);
     assert.strictEqual(coercePositiveIntegerOption(" 9 ", 1), 9);
-    assert.strictEqual(
-        coercePositiveIntegerOption("0", 7, { zeroReplacement: 0 }),
-        0
-    );
+    assert.strictEqual(coercePositiveIntegerOption("0", 7, { zeroReplacement: 0 }), 0);
     assert.strictEqual(coercePositiveIntegerOption("", 6), 6);
 });
 

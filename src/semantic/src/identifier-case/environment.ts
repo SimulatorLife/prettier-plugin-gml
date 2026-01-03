@@ -1,15 +1,9 @@
 import { Core } from "@gml-modules/core";
 import { bootstrapIdentifierCaseProjectIndex } from "./project-index-gateway.js";
-import {
-    prepareIdentifierCasePlan,
-    captureIdentifierCasePlanSnapshot
-} from "./plan-service.js";
+import { prepareIdentifierCasePlan, captureIdentifierCasePlanSnapshot } from "./plan-service.js";
 import { type IdentifierCasePlanSnapshot } from "./types.js";
 
-import {
-    setIdentifierCaseOption,
-    deleteIdentifierCaseOption
-} from "./option-store.js";
+import { setIdentifierCaseOption, deleteIdentifierCaseOption } from "./option-store.js";
 import { warnWithReason } from "./logger.js";
 
 // Use the canonical Core namespace for helpers per AGENTS.md
@@ -34,8 +28,7 @@ function clearOwnProperty(_target, propertyName, { value = null } = {}) {
         return;
     }
 
-    const nextValue =
-        typeof value === "function" ? value(_target[propertyName]) : value;
+    const nextValue = typeof value === "function" ? value(_target[propertyName]) : value;
     _target[propertyName] = nextValue;
 }
 
@@ -89,12 +82,7 @@ function disposeBootstrap(bootstrapResult, logger = null) {
     try {
         bootstrapResult.dispose();
     } catch (error) {
-        warnWithReason(
-            logger,
-            IDENTIFIER_CASE_LOGGER_NAMESPACE,
-            "Failed to dispose identifier case resources",
-            error
-        );
+        warnWithReason(logger, IDENTIFIER_CASE_LOGGER_NAMESPACE, "Failed to dispose identifier case resources", error);
     }
 }
 
@@ -109,8 +97,7 @@ export function prepareIdentifierCaseEnvironment(options) {
     return Core.withObjectLike(
         options,
         async (object) => {
-            const bootstrapResult =
-                await bootstrapIdentifierCaseProjectIndex(object);
+            const bootstrapResult = await bootstrapIdentifierCaseProjectIndex(object);
             registerBootstrapCleanup(bootstrapResult);
 
             if (bootstrapResult?.status === "failed") {
@@ -123,11 +110,7 @@ export function prepareIdentifierCaseEnvironment(options) {
                         bootstrapResult.error,
                         bootstrapResult.reason
                     );
-                    setIdentifierCaseOption(
-                        object,
-                        "__identifierCaseProjectIndexFailureLogged",
-                        true
-                    );
+                    setIdentifierCaseOption(object, "__identifierCaseProjectIndexFailureLogged", true);
                 }
                 return;
             }
@@ -147,18 +130,13 @@ export function attachIdentifierCasePlanSnapshot(ast, options) {
     Core.withObjectLike(
         ast,
         (objectAst) => {
-            const snapshot: IdentifierCasePlanSnapshot | null =
-                captureIdentifierCasePlanSnapshot(options);
+            const snapshot: IdentifierCasePlanSnapshot | null = captureIdentifierCasePlanSnapshot(options);
             // Only attach snapshots that carry meaningful planning state.
             // Empty snapshots (no renameMap and no planGenerated) are common
             // when callers omit a filepath and would otherwise overwrite a
             // previously-captured plan. Guarding here prevents attachment of
             // inert snapshots which strip rename data from downstream printers.
-            if (
-                !snapshot ||
-                (snapshot.planGenerated !== true &&
-                    !Core.isMapLike(snapshot.renameMap))
-            ) {
+            if (!snapshot || (snapshot.planGenerated !== true && !Core.isMapLike(snapshot.renameMap))) {
                 return;
             }
 

@@ -113,10 +113,7 @@ void describe("Watch command file read errors", () => {
 
             capturedListener?.("change", path.basename(problematicDir));
 
-            await Promise.race([
-                errorLogged,
-                new Promise((resolve) => setTimeout(resolve, 500))
-            ]);
+            await Promise.race([errorLogged, new Promise((resolve) => setTimeout(resolve, 500))]);
 
             abortController.abort();
             await watchPromise;
@@ -126,9 +123,7 @@ void describe("Watch command file read errors", () => {
         }
 
         assert.ok(
-            capturedErrors.some((line) =>
-                line.includes("Error reading dir-as-file.gml")
-            ),
+            capturedErrors.some((line) => line.includes("Error reading dir-as-file.gml")),
             "should log file read errors even when quiet"
         );
     });

@@ -14,15 +14,11 @@ export class CommentTracker {
         consumed?: boolean;
     }>;
 
-    private checkpoints: Array<
-        Array<{ index: number; comment: unknown; consumed?: boolean }>
-    > = [];
+    private checkpoints: Array<Array<{ index: number; comment: unknown; consumed?: boolean }>> = [];
 
     constructor(ownerOrComments: unknown) {
         // Extract comments from either a raw array or an AST node
-        const sourceComments: readonly unknown[] = Array.isArray(
-            ownerOrComments
-        )
+        const sourceComments: readonly unknown[] = Array.isArray(ownerOrComments)
             ? ownerOrComments
             : Core.getCommentArray(ownerOrComments);
 
@@ -62,12 +58,7 @@ export class CommentTracker {
     }
 
     hasBetween(left: number, right: number) {
-        if (
-            this.entries.length === 0 ||
-            left === undefined ||
-            right === undefined ||
-            left >= right
-        ) {
+        if (this.entries.length === 0 || left === undefined || right === undefined || left >= right) {
             return false;
         }
         let index = this.firstGreaterThan(left);
@@ -99,17 +90,12 @@ export class CommentTracker {
     }
 
     // Retrieve and remove entries between the provided indices for relocation.
-    takeBetween(
-        left: number,
-        right: number,
-        predicate?: (comment: unknown) => boolean
-    ) {
+    takeBetween(left: number, right: number, predicate?: (comment: unknown) => boolean) {
         if (this.entries.length === 0 || left === undefined) {
             return [];
         }
 
-        const upperBound =
-            right === undefined ? Number.POSITIVE_INFINITY : right;
+        const upperBound = right === undefined ? Number.POSITIVE_INFINITY : right;
         if (left >= upperBound) {
             return [];
         }
@@ -156,12 +142,7 @@ export class CommentTracker {
 
     // Peek at entries between two offsets without mutating the tracker state.
     getEntriesBetween(left: number, right: number) {
-        if (
-            this.entries.length === 0 ||
-            left === undefined ||
-            right === undefined ||
-            left >= right
-        ) {
+        if (this.entries.length === 0 || left === undefined || right === undefined || left >= right) {
             return [];
         }
 

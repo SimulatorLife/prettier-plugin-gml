@@ -5,12 +5,7 @@ import { getNonEmptyString, normalizeStringList } from "../utils/string.js";
 const hasHrtime = typeof process?.hrtime?.bigint === "function";
 
 const DEFAULT_CACHE_KEYS = Object.freeze(["hits", "misses", "stale"]);
-const SUMMARY_SECTIONS = Object.freeze([
-    "timings",
-    "counters",
-    "caches",
-    "metadata"
-]);
+const SUMMARY_SECTIONS = Object.freeze(["timings", "counters", "caches", "metadata"]);
 
 function nowMs() {
     if (hasHrtime) {
@@ -164,11 +159,7 @@ function createMapIncrementer(store) {
 
 function ensureCacheStats(caches, cacheKeys, cacheName) {
     const normalized = normalizeLabel(cacheName);
-    return getOrCreateMapEntry(
-        caches,
-        normalized,
-        () => new Map(cacheKeys.map((key) => [key, 0]))
-    );
+    return getOrCreateMapEntry(caches, normalized, () => new Map(cacheKeys.map((key) => [key, 0])));
 }
 
 function incrementCacheMetric(caches, cacheKeys, cacheName, key, amount = 1) {
@@ -177,10 +168,7 @@ function incrementCacheMetric(caches, cacheKeys, cacheName, key, amount = 1) {
 
     getOrCreateMapEntry(stats, normalizedKey, () => 0);
 
-    const increment = normalizeIncrementAmount(
-        amount,
-        amount === undefined ? 1 : 0
-    );
+    const increment = normalizeIncrementAmount(amount, amount === undefined ? 1 : 0);
 
     if (increment === 0) {
         return;
@@ -208,16 +196,7 @@ function createSummaryLogger({ logger, category, snapshot }) {
     };
 }
 
-function createFinalizer({
-    autoLog,
-    logger,
-    category,
-    snapshot,
-    timings,
-    counters,
-    caches,
-    metadata
-}) {
+function createFinalizer({ autoLog, logger, category, snapshot, timings, counters, caches, metadata }) {
     const hasDebug = typeof logger?.debug === "function";
     let hasLoggedSummary = false;
 
@@ -284,24 +263,12 @@ export function createMetricsTracker({
     const incrementTiming = createMapIncrementer(timings);
     const incrementCounterBy = createMapIncrementer(counters);
     const snapshot = (extra = {}) => {
-        const timingsSnapshot = Object.fromEntries(timings) as Record<
-            string,
-            number
-        >;
-        const countersSnapshot = Object.fromEntries(counters) as Record<
-            string,
-            number
-        >;
+        const timingsSnapshot = Object.fromEntries(timings) as Record<string, number>;
+        const countersSnapshot = Object.fromEntries(counters) as Record<string, number>;
         const cachesSnapshot = Object.fromEntries(
-            Array.from(caches, ([name, stats]) => [
-                name,
-                Object.fromEntries(stats)
-            ])
+            Array.from(caches, ([name, stats]) => [name, Object.fromEntries(stats)])
         );
-        const totalTimeMs = Object.values(timingsSnapshot).reduce(
-            (total, value) => total + value,
-            0
-        );
+        const totalTimeMs = Object.values(timingsSnapshot).reduce((total, value) => total + value, 0);
         const summary = {
             category,
             totalTimeMs,

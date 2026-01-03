@@ -20,15 +20,9 @@ import {
 } from "../../cli-core/command-suite-helpers.js";
 import { applyEnvOptionOverrides } from "../../cli-core/env-overrides.js";
 import { applyStandardCommandOptions } from "../../cli-core/command-standard-options.js";
-import {
-    coercePositiveInteger,
-    wrapInvalidArgumentResolver
-} from "../../cli-core/command-parsing.js";
+import { coercePositiveInteger, wrapInvalidArgumentResolver } from "../../cli-core/command-parsing.js";
 import { isCommanderHelpDisplayedError } from "../../cli-core/commander-error-utils.js";
-import {
-    REPO_ROOT,
-    resolveFromRepoRoot
-} from "../../shared/workspace-paths.js";
+import { REPO_ROOT, resolveFromRepoRoot } from "../../shared/workspace-paths.js";
 import { writeJsonArtifact } from "../../shared/fs-artifacts.js";
 import { Parser } from "@gml-modules/parser";
 import { importPluginModule } from "../plugin-runtime-dependencies.js";
@@ -56,8 +50,7 @@ export const DEFAULT_ITERATIONS = 500_000;
 export const MEMORY_ITERATIONS_ENV_VAR = "GML_MEMORY_ITERATIONS";
 
 export const DEFAULT_MEMORY_AST_COMMON_NODE_LIMIT = 5;
-export const MEMORY_AST_COMMON_NODE_LIMIT_ENV_VAR =
-    "GML_MEMORY_AST_COMMON_NODE_LIMIT";
+export const MEMORY_AST_COMMON_NODE_LIMIT_ENV_VAR = "GML_MEMORY_AST_COMMON_NODE_LIMIT";
 
 export const DEFAULT_MEMORY_REPORT_DIR = "reports";
 export const DEFAULT_MEMORY_REPORT_FILENAME = "memory.json";
@@ -65,13 +58,10 @@ const PROJECT_ROOT = REPO_ROOT;
 
 const PARSER_SAMPLE_RELATIVE_PATH = "src/parser/test/input/SnowState.gml";
 const FORMAT_SAMPLE_RELATIVE_PATH = "src/plugin/test/testFormatting.input.gml";
-const FORMAT_OPTIONS_RELATIVE_PATH =
-    "src/plugin/test/testFormatting.options.json";
-export const MEMORY_PARSER_MAX_ITERATIONS_ENV_VAR =
-    "GML_MEMORY_PARSER_MAX_ITERATIONS";
+const FORMAT_OPTIONS_RELATIVE_PATH = "src/plugin/test/testFormatting.options.json";
+export const MEMORY_PARSER_MAX_ITERATIONS_ENV_VAR = "GML_MEMORY_PARSER_MAX_ITERATIONS";
 export const DEFAULT_MAX_PARSER_ITERATIONS = 25;
-export const MEMORY_FORMAT_MAX_ITERATIONS_ENV_VAR =
-    "GML_MEMORY_FORMAT_MAX_ITERATIONS";
+export const MEMORY_FORMAT_MAX_ITERATIONS_ENV_VAR = "GML_MEMORY_FORMAT_MAX_ITERATIONS";
 export const DEFAULT_MAX_FORMAT_ITERATIONS = 25;
 export const MEMORY_REPORT_DIRECTORY_ENV_VAR = "GML_MEMORY_REPORT_DIR";
 export const MEMORY_REPORT_FILENAME_ENV_VAR = "GML_MEMORY_REPORT_FILENAME";
@@ -85,8 +75,7 @@ export const MemorySuiteName = Object.freeze({
 const memorySuiteHelpers = createStringEnumeratedOptionHelpers(
     Object.values(MemorySuiteName),
     "Memory suite name",
-    (list, received) =>
-        `Memory suite must be one of: ${list}. Received: ${received}.`
+    (list, received) => `Memory suite must be one of: ${list}. Received: ${received}.`
 );
 
 /**
@@ -120,10 +109,7 @@ interface NormalizeMemorySuiteNameOptions {
     errorConstructor?: new (...args: Array<any>) => Error;
 }
 
-export function normalizeMemorySuiteName(
-    value: unknown,
-    { errorConstructor }: NormalizeMemorySuiteNameOptions = {}
-) {
+export function normalizeMemorySuiteName(value: unknown, { errorConstructor }: NormalizeMemorySuiteNameOptions = {}) {
     return memorySuiteHelpers.requireValue(value, errorConstructor);
 }
 
@@ -135,10 +121,7 @@ const memoryReportDirectoryConfig = createEnvConfiguredValue({
     defaultValue: DEFAULT_MEMORY_REPORT_DIR,
     envVar: MEMORY_REPORT_DIRECTORY_ENV_VAR,
     normalize: (value, { defaultValue: baseline, previousValue }) =>
-        normalizeMemoryReportDirectory(
-            value,
-            previousValue ?? baseline ?? DEFAULT_MEMORY_REPORT_DIR
-        )
+        normalizeMemoryReportDirectory(value, previousValue ?? baseline ?? DEFAULT_MEMORY_REPORT_DIR)
 });
 
 function getDefaultMemoryReportDirectory() {
@@ -157,10 +140,7 @@ function resolveMemoryReportDirectory(
     value?: string | null,
     { defaultValue }: ResolveMemoryReportDirectoryOptions = {}
 ) {
-    const fallback = normalizeMemoryReportDirectory(
-        defaultValue,
-        getDefaultMemoryReportDirectory()
-    );
+    const fallback = normalizeMemoryReportDirectory(defaultValue, getDefaultMemoryReportDirectory());
 
     return normalizeMemoryReportDirectory(value, fallback);
 }
@@ -173,10 +153,7 @@ const memoryReportFileNameConfig = createEnvConfiguredValue({
     defaultValue: DEFAULT_MEMORY_REPORT_FILENAME,
     envVar: MEMORY_REPORT_FILENAME_ENV_VAR,
     normalize: (value, { defaultValue: baseline, previousValue }) =>
-        normalizeMemoryReportFileName(
-            value,
-            previousValue ?? baseline ?? DEFAULT_MEMORY_REPORT_FILENAME
-        )
+        normalizeMemoryReportFileName(value, previousValue ?? baseline ?? DEFAULT_MEMORY_REPORT_FILENAME)
 });
 
 function getDefaultMemoryReportFileName() {
@@ -191,14 +168,8 @@ interface ResolveMemoryReportFileNameOptions {
     defaultValue?: string | null | undefined;
 }
 
-function resolveMemoryReportFileName(
-    value?: string | null,
-    { defaultValue }: ResolveMemoryReportFileNameOptions = {}
-) {
-    const fallback = normalizeMemoryReportFileName(
-        defaultValue,
-        getDefaultMemoryReportFileName()
-    );
+function resolveMemoryReportFileName(value?: string | null, { defaultValue }: ResolveMemoryReportFileNameOptions = {}) {
+    const fallback = normalizeMemoryReportFileName(defaultValue, getDefaultMemoryReportFileName());
 
     return normalizeMemoryReportFileName(value, fallback);
 }
@@ -231,17 +202,14 @@ function applyMemoryReportDirectoryEnvOverride(env) {
     return memoryReportDirectoryConfig.applyEnvOverride(env);
 }
 
-const createIterationErrorMessage = (received) =>
-    `Iteration count must be a positive integer (received ${received}).`;
+const createIterationErrorMessage = (received) => `Iteration count must be a positive integer (received ${received}).`;
 
-const createIterationTypeErrorMessage =
-    createNumericTypeErrorFormatter("Iteration count");
+const createIterationTypeErrorMessage = createNumericTypeErrorFormatter("Iteration count");
 
 const createAstCommonNodeLimitErrorMessage = (received) =>
     `AST common node type limit must be a positive integer (received ${received}).`;
 
-const createAstCommonNodeLimitTypeErrorMessage =
-    createNumericTypeErrorFormatter("AST common node type limit");
+const createAstCommonNodeLimitTypeErrorMessage = createNumericTypeErrorFormatter("AST common node type limit");
 
 interface MemoryIterationEnvOverrideOptions {
     envVar: string;
@@ -258,13 +226,7 @@ const iterationCoerce = (value: unknown, context = {}) => {
     return coercePositiveInteger(value, opts);
 };
 
-function createIterationState({
-    defaultValue,
-    envVar
-}: {
-    defaultValue: number;
-    envVar: string;
-}) {
+function createIterationState({ defaultValue, envVar }: { defaultValue: number; envVar: string }) {
     return createEnvConfiguredValue<number | undefined>({
         defaultValue,
         envVar,
@@ -293,23 +255,15 @@ function setMaxParserIterations(value?: unknown): number | undefined {
     return parserIterationState.set(value);
 }
 
-function logInvalidIterationEnvOverride({
-    envVar,
-    error,
-    fallback
-}: MemoryIterationEnvOverrideOptions) {
+function logInvalidIterationEnvOverride({ envVar, error, fallback }: MemoryIterationEnvOverrideOptions) {
     const reason = getErrorMessageOrFallback(error, {
         fallback: `Invalid value provided for ${envVar}.`
     }).trim();
     const suffix = reason.endsWith(".") ? "" : ".";
     const fallbackDetails =
-        fallback === undefined
-            ? "Falling back to the previous value."
-            : `Falling back to ${fallback}.`;
+        fallback === undefined ? "Falling back to the previous value." : `Falling back to ${fallback}.`;
 
-    console.warn(
-        `${envVar} override ignored: ${reason}${suffix} ${fallbackDetails}`
-    );
+    console.warn(`${envVar} override ignored: ${reason}${suffix} ${fallbackDetails}`);
 }
 
 /**
@@ -331,14 +285,11 @@ function applyIterationEnvOverride(
     const fallback = getDefault();
     return callWithFallback(() => applyEnvOverride(env), {
         fallback,
-        onError: (error) =>
-            logInvalidIterationEnvOverride({ envVar, error, fallback })
+        onError: (error) => logInvalidIterationEnvOverride({ envVar, error, fallback })
     });
 }
 
-function applyParserMaxIterationsEnvOverride(
-    env?: NodeJS.ProcessEnv
-): number | undefined {
+function applyParserMaxIterationsEnvOverride(env?: NodeJS.ProcessEnv): number | undefined {
     return applyIterationEnvOverride(
         getMaxParserIterations,
         parserIterationState.applyEnvOverride,
@@ -361,9 +312,7 @@ function setMaxFormatIterations(value?: unknown): number | undefined {
     return formatIterationState.set(value);
 }
 
-function applyFormatMaxIterationsEnvOverride(
-    env?: NodeJS.ProcessEnv
-): number | undefined {
+function applyFormatMaxIterationsEnvOverride(env?: NodeJS.ProcessEnv): number | undefined {
     return applyIterationEnvOverride(
         getMaxFormatIterations,
         formatIterationState.applyEnvOverride,
@@ -402,9 +351,7 @@ function setAstCommonNodeTypeLimit(value?: unknown): number | undefined {
     return astCommonNodeLimitState.set(value);
 }
 
-function applyAstCommonNodeTypeLimitEnvOverride(
-    env?: NodeJS.ProcessEnv
-): number | undefined {
+function applyAstCommonNodeTypeLimitEnvOverride(env?: NodeJS.ProcessEnv): number | undefined {
     return astCommonNodeLimitState.applyEnvOverride(env);
 }
 
@@ -512,10 +459,7 @@ interface FormatterOptionsFixtureContext {
     source?: string;
 }
 
-export function parseFormatterOptionsFixture(
-    optionsRaw: string,
-    { source }: FormatterOptionsFixtureContext = {}
-) {
+export function parseFormatterOptionsFixture(optionsRaw: string, { source }: FormatterOptionsFixtureContext = {}) {
     return parseJsonObjectWithContext(optionsRaw, {
         source,
         description: "formatter options fixture",
@@ -526,13 +470,7 @@ export function parseFormatterOptionsFixture(
 }
 
 function captureProcessMemory() {
-    const {
-        rss = 0,
-        heapTotal = 0,
-        heapUsed = 0,
-        external = 0,
-        arrayBuffers = 0
-    } = process.memoryUsage();
+    const { rss = 0, heapTotal = 0, heapUsed = 0, external = 0, arrayBuffers = 0 } = process.memoryUsage();
     return { rss, heapTotal, heapUsed, external, arrayBuffers };
 }
 
@@ -547,9 +485,7 @@ function computeMemoryDelta(current, baseline) {
         }
 
         const afterValue = current[key];
-        return typeof afterValue === "number"
-            ? [[key, afterValue - beforeValue]]
-            : [];
+        return typeof afterValue === "number" ? [[key, afterValue - beforeValue]] : [];
     });
 
     return Object.fromEntries(entries);
@@ -572,9 +508,7 @@ function createMemoryTracker({ requirePreciseGc = false } = {}) {
     const warnings = [];
 
     if (!gc && requirePreciseGc) {
-        warnings.push(
-            "Precise heap measurements require Node to be launched with --expose-gc."
-        );
+        warnings.push("Precise heap measurements require Node to be launched with --expose-gc.");
     }
 
     const runGc = () => {
@@ -602,10 +536,7 @@ function createMemoryTracker({ requirePreciseGc = false } = {}) {
                 after,
                 afterGc,
                 delta: computeMemoryDelta(after, before),
-                deltaAfterGc:
-                    afterGc === null
-                        ? null
-                        : computeMemoryDelta(afterGc, before),
+                deltaAfterGc: afterGc === null ? null : computeMemoryDelta(afterGc, before),
                 durationMs,
                 warnings: [...warnings],
                 result
@@ -615,20 +546,8 @@ function createMemoryTracker({ requirePreciseGc = false } = {}) {
 }
 
 function buildSuiteResult({ measurement, extraWarnings = [] }) {
-    const {
-        before,
-        after,
-        afterGc,
-        delta,
-        deltaAfterGc,
-        durationMs,
-        warnings,
-        result
-    } = measurement;
-    const iterations =
-        typeof result?.iterations === "number" && result.iterations > 0
-            ? result.iterations
-            : null;
+    const { before, after, afterGc, delta, deltaAfterGc, durationMs, warnings, result } = measurement;
+    const iterations = typeof result?.iterations === "number" && result.iterations > 0 ? result.iterations : null;
 
     const memory = {
         unit: "bytes",
@@ -657,9 +576,7 @@ function buildSuiteResult({ measurement, extraWarnings = [] }) {
         memory
     };
 
-    const mergedWarnings = [...(warnings ?? []), ...extraWarnings].filter(
-        (warning) => isNonEmptyString(warning)
-    );
+    const mergedWarnings = [...(warnings ?? []), ...extraWarnings].filter((warning) => isNonEmptyString(warning));
 
     if (mergedWarnings.length > 0) {
         response.warnings = [...new Set(mergedWarnings)];
@@ -678,9 +595,7 @@ function countLines(text) {
 
 function collectCommonNodeTypes(typeCounts) {
     const configuredLimit = getAstCommonNodeTypeLimit();
-    const limit = Number.isFinite(configuredLimit)
-        ? configuredLimit
-        : DEFAULT_MEMORY_AST_COMMON_NODE_LIMIT;
+    const limit = Number.isFinite(configuredLimit) ? configuredLimit : DEFAULT_MEMORY_AST_COMMON_NODE_LIMIT;
 
     if (limit <= 0) {
         return [];
@@ -753,9 +668,7 @@ function summarizeAst(root) {
         }
     }
 
-    const commentCount = Array.isArray(root.comments)
-        ? root.comments.length
-        : 0;
+    const commentCount = Array.isArray(root.comments) ? root.comments.length : 0;
 
     const commonNodeTypes = collectCommonNodeTypes(typeCounts);
 
@@ -789,10 +702,7 @@ function resolveMemoryIterations(
         defaultIterations?: number;
     } = {}
 ): number | null | undefined {
-    const fallback =
-        options.defaultIterations ??
-        options.defaultValue ??
-        memoryIterationsState.get();
+    const fallback = options.defaultIterations ?? options.defaultValue ?? memoryIterationsState.get();
     return resolveIntegerOption(rawValue, {
         defaultValue: fallback,
         coerce: iterationCoerce,
@@ -801,9 +711,7 @@ function resolveMemoryIterations(
     });
 }
 
-function applyMemoryIterationsEnvOverride(
-    env?: NodeJS.ProcessEnv
-): number | undefined {
+function applyMemoryIterationsEnvOverride(env?: NodeJS.ProcessEnv): number | undefined {
     return memoryIterationsState.applyEnvOverride(env);
 }
 
@@ -829,21 +737,14 @@ export {
     applyMemoryReportFileNameEnvOverride
 };
 
-export {
-    resolveMemoryIterations,
-    resolveMemoryReportDirectory,
-    resolveMemoryReportFileName
-};
+export { resolveMemoryIterations, resolveMemoryReportDirectory, resolveMemoryReportFileName };
 
 interface MemoryEnvOptionOverridesContext {
     command?: CommanderCommandLike;
     env?: NodeJS.ProcessEnv;
 }
 
-export function applyMemoryEnvOptionOverrides({
-    command,
-    env
-}: MemoryEnvOptionOverridesContext = {}) {
+export function applyMemoryEnvOptionOverrides({ command, env }: MemoryEnvOptionOverridesContext = {}) {
     if (!command || typeof command.setOptionValueWithSource !== "function") {
         return;
     }
@@ -897,10 +798,7 @@ export function createMemoryCommand({ env = process.env } = {}) {
         .default([], "all available suites");
 
     const command = applyStandardCommandOptions(
-        new Command()
-            .name("memory")
-            .usage("[options]")
-            .description("Run memory usage diagnostics for CLI utilities.")
+        new Command().name("memory").usage("[options]").description("Run memory usage diagnostics for CLI utilities.")
     )
         .addOption(suiteOption)
         .option(
@@ -954,10 +852,7 @@ function collectSuiteOptions(options: MemoryCommandOptions) {
     };
 }
 
-function createCountingSet(
-    originalSet: SetConstructor,
-    allocationCounter: { count: number }
-) {
+function createCountingSet(originalSet: SetConstructor, allocationCounter: { count: number }) {
     return class CountingSet<T = unknown> extends originalSet<T> {
         static get [Symbol.species]() {
             return originalSet;
@@ -980,10 +875,7 @@ async function runNormalizeStringListSuite({ iterations }) {
         globalThis.Set = CountingSet;
 
         try {
-            const sampleValues = Array.from(
-                { length: 64 },
-                (_, index) => `value_${index % 16}`
-            );
+            const sampleValues = Array.from({ length: 64 }, (_, index) => `value_${index % 16}`);
             const uniqueValueCount = new Set(sampleValues).size;
             const sampleString = sampleValues.join(", ");
 
@@ -993,12 +885,10 @@ async function runNormalizeStringListSuite({ iterations }) {
                 totalLength += result.length;
             }
 
-            const averageLength =
-                iterations > 0 ? totalLength / iterations : totalLength;
+            const averageLength = iterations > 0 ? totalLength / iterations : totalLength;
 
             return {
-                description:
-                    "Normalizes comma-delimited CLI string options using Set-based deduplication.",
+                description: "Normalizes comma-delimited CLI string options using Set-based deduplication.",
                 iterations,
                 requestedIterations: iterations,
                 sample: {
@@ -1021,23 +911,14 @@ async function runNormalizeStringListSuite({ iterations }) {
     return buildSuiteResult({ measurement });
 }
 
-AVAILABLE_SUITES.set(
-    MemorySuiteName.NORMALIZE_STRING_LIST,
-    runNormalizeStringListSuite
-);
+AVAILABLE_SUITES.set(MemorySuiteName.NORMALIZE_STRING_LIST, runNormalizeStringListSuite);
 
 async function runParserAstSuite({ iterations }) {
     const tracker = createMemoryTracker({ requirePreciseGc: true });
     const requestedIterations = typeof iterations === "number" ? iterations : 1;
-    const effectiveIterations = Math.max(
-        1,
-        Math.min(requestedIterations, getMaxParserIterations())
-    );
+    const effectiveIterations = Math.max(1, Math.min(requestedIterations, getMaxParserIterations()));
 
-    const { contents: source, path: samplePath } = await loadSampleText(
-        "parser:sample",
-        PARSER_SAMPLE_RELATIVE_PATH
-    );
+    const { contents: source, path: samplePath } = await loadSampleText("parser:sample", PARSER_SAMPLE_RELATIVE_PATH);
 
     const GMLParser = Parser.GMLParser;
 
@@ -1055,16 +936,13 @@ async function runParserAstSuite({ iterations }) {
         const sampleBytes = Buffer.byteLength(source, "utf8");
 
         return {
-            description:
-                "Parses a representative GameMaker script into the internal AST.",
+            description: "Parses a representative GameMaker script into the internal AST.",
             iterations: effectiveIterations,
             requestedIterations,
             notes:
                 effectiveIterations === requestedIterations
                     ? undefined
-                    : [
-                          `Iterations clamped to ${effectiveIterations} (requested ${requestedIterations}).`
-                      ],
+                    : [`Iterations clamped to ${effectiveIterations} (requested ${requestedIterations}).`],
             sample: {
                 path: path.relative(PROJECT_ROOT, samplePath),
                 bytes: sampleBytes,
@@ -1083,16 +961,11 @@ async function runPluginFormatSuite({ iterations }) {
     const tracker = createMemoryTracker({ requirePreciseGc: true });
     const requestedIterations = typeof iterations === "number" ? iterations : 1;
     const maxIterations = getMaxFormatIterations();
-    const effectiveIterations = Math.max(
-        1,
-        Math.min(requestedIterations, maxIterations)
-    );
+    const effectiveIterations = Math.max(1, Math.min(requestedIterations, maxIterations));
 
     const notes = [];
     if (effectiveIterations !== requestedIterations) {
-        notes.push(
-            `Iterations clamped to ${effectiveIterations} (requested ${requestedIterations}).`
-        );
+        notes.push(`Iterations clamped to ${effectiveIterations} (requested ${requestedIterations}).`);
     }
 
     const { contents: source, path: sampleAbsolutePath } = await loadSampleText(
@@ -1100,9 +973,7 @@ async function runPluginFormatSuite({ iterations }) {
         FORMAT_SAMPLE_RELATIVE_PATH
     );
 
-    const optionsAbsolutePath = resolveProjectPath(
-        FORMAT_OPTIONS_RELATIVE_PATH
-    );
+    const optionsAbsolutePath = resolveProjectPath(FORMAT_OPTIONS_RELATIVE_PATH);
     let optionOverrides = {};
     try {
         const optionsRaw = await readFile(optionsAbsolutePath, "utf8");
@@ -1111,9 +982,7 @@ async function runPluginFormatSuite({ iterations }) {
         });
     } catch (error) {
         if (isFsErrorCode(error, "ENOENT")) {
-            notes.push(
-                "Formatter options fixture not found; using plugin defaults."
-            );
+            notes.push("Formatter options fixture not found; using plugin defaults.");
         } else {
             throw error;
         }
@@ -1140,8 +1009,7 @@ async function runPluginFormatSuite({ iterations }) {
         const outputBytes = Buffer.byteLength(lastOutput, "utf8");
 
         return {
-            description:
-                "Formats a complex GameMaker script using the Prettier plugin printers.",
+            description: "Formats a complex GameMaker script using the Prettier plugin printers.",
             iterations: effectiveIterations,
             requestedIterations,
             notes: notes.length > 0 ? [...notes] : undefined,
@@ -1189,10 +1057,7 @@ function formatSuiteError(error: unknown) {
               ? errorLike.constructor.name
               : "Error";
     const message = getErrorMessageOrFallback(error);
-    const stackLines =
-        typeof errorLike?.stack === "string"
-            ? errorLike.stack.split("\n")
-            : undefined;
+    const stackLines = typeof errorLike?.stack === "string" ? errorLike.stack.split("\n") : undefined;
 
     return {
         name,
@@ -1211,9 +1076,7 @@ interface MemorySuitePayload {
  * output is disabled. Keeps the formatting logic centralized without the
  * layering of the previous mini-pipeline helpers.
  */
-function createHumanReadableMemoryLines(
-    results: Record<string, MemorySuitePayload> | null | undefined
-) {
+function createHumanReadableMemoryLines(results: Record<string, MemorySuitePayload> | null | undefined) {
     const lines = ["Memory benchmark results:"];
 
     for (const [suite, payload] of Object.entries(results ?? {})) {
@@ -1236,10 +1099,7 @@ function printHumanReadable(results) {
     console.log(lines.join("\n"));
 }
 
-export async function runMemoryCommand({
-    command,
-    onResults
-}: RunMemoryCommandContext = {}) {
+export async function runMemoryCommand({ command, onResults }: RunMemoryCommandContext = {}) {
     const options: MemoryCommandOptions = command?.opts?.() ?? {};
 
     if (Number.isFinite(options.commonNodeLimit)) {
@@ -1281,11 +1141,7 @@ export async function runMemoryCommand({
  * report. Keeps the path arithmetic separate from the high-level orchestration
  * in {@link runMemoryCli} so that entry point focuses on coordinating steps.
  */
-function resolveMemoryReportPath({
-    cwd,
-    reportDir,
-    reportFileName
-}: MemoryReportPathOptions) {
+function resolveMemoryReportPath({ cwd, reportDir, reportFileName }: MemoryReportPathOptions) {
     const effectiveReportDir = resolveMemoryReportDirectory(reportDir);
     const resolvedReportDir = path.resolve(cwd, effectiveReportDir);
     const resolvedReportName = resolveMemoryReportFileName(reportFileName);
@@ -1298,12 +1154,8 @@ function resolveMemoryReportPath({
  * isolates the conditional writeFile selection, ensuring {@link runMemoryCli}
  * reads as a sequence of delegated operations.
  */
-function createMemoryReportWriter({
-    reportPath,
-    customWriteFile
-}: MemoryReportWriterOptions) {
-    const writeFile =
-        typeof customWriteFile === "function" ? customWriteFile : undefined;
+function createMemoryReportWriter({ reportPath, customWriteFile }: MemoryReportWriterOptions) {
+    const writeFile = typeof customWriteFile === "function" ? customWriteFile : undefined;
 
     return async function writeMemoryReport({ payload }) {
         await writeJsonArtifact({

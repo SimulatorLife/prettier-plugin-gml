@@ -30,43 +30,21 @@ void describe("constructor static function assignments", () => {
     });
 
     void it("adds semicolons for static non-function members", async () => {
-        const source = [
-            "function Shape() constructor {",
-            "    static value = 1",
-            "}",
-            ""
-        ].join("\n");
+        const source = ["function Shape() constructor {", "    static value = 1", "}", ""].join("\n");
 
         const formatted = await Plugin.format(source);
 
-        const expected = [
-            "function Shape() constructor {",
-            "",
-            "    static value = 1;",
-            "}",
-            ""
-        ].join("\n");
+        const expected = ["function Shape() constructor {", "", "    static value = 1;", "}", ""].join("\n");
 
         assert.strictEqual(formatted, expected);
     });
 
     void it("omits semicolons for constructor functions", async () => {
-        const source = [
-            "function Shape() constructor {",
-            "    static value = 1;",
-            "};",
-            ""
-        ].join("\n");
+        const source = ["function Shape() constructor {", "    static value = 1;", "};", ""].join("\n");
 
         const formatted = await Plugin.format(source);
 
-        const expected = [
-            "function Shape() constructor {",
-            "",
-            "    static value = 1;",
-            "}",
-            ""
-        ].join("\n");
+        const expected = ["function Shape() constructor {", "", "    static value = 1;", "}", ""].join("\n");
 
         assert.strictEqual(formatted, expected);
     });

@@ -31,19 +31,13 @@ const GML_KEYWORDS = new Set([
     "with"
 ]);
 
-export function buildDeprecatedBuiltinVariableReplacements(): Map<
-    string,
-    DeprecatedReplacementEntry
-> {
+export function buildDeprecatedBuiltinVariableReplacements(): Map<string, DeprecatedReplacementEntry> {
     const diagnostic = getFeatherDiagnosticById("GM1024");
     if (!diagnostic?.badExample || !diagnostic?.goodExample) {
         return new Map();
     }
 
-    return deriveReplacementsFromExamples(
-        diagnostic.badExample,
-        diagnostic.goodExample
-    );
+    return deriveReplacementsFromExamples(diagnostic.badExample, diagnostic.goodExample);
 }
 
 /**
@@ -64,14 +58,10 @@ function deriveReplacementsFromExamples(
 
     // Find identifiers unique to each example.
     const goodSet = new Set(goodIdentifiers.map((id) => id.toLowerCase()));
-    const deprecated = badIdentifiers.filter(
-        (id) => !goodSet.has(id.toLowerCase())
-    );
+    const deprecated = badIdentifiers.filter((id) => !goodSet.has(id.toLowerCase()));
 
     const badSet = new Set(badIdentifiers.map((id) => id.toLowerCase()));
-    const replacements = goodIdentifiers.filter(
-        (id) => !badSet.has(id.toLowerCase())
-    );
+    const replacements = goodIdentifiers.filter((id) => !badSet.has(id.toLowerCase()));
 
     // Pair deprecated identifiers with their replacements by position.
     const pairs = new Map<string, DeprecatedReplacementEntry>();
@@ -134,9 +124,8 @@ export function getDeprecatedBuiltinReplacementEntry(
         return null;
     }
 
-    const cache =
-        getDeprecatedBuiltinReplacementEntry as typeof getDeprecatedBuiltinReplacementEntry &
-            DeprecatedReplacementCacheHolder;
+    const cache = getDeprecatedBuiltinReplacementEntry as typeof getDeprecatedBuiltinReplacementEntry &
+        DeprecatedReplacementCacheHolder;
 
     if (!cache._map) {
         cache._map = buildDeprecatedBuiltinVariableReplacements();

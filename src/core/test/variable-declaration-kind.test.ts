@@ -12,10 +12,7 @@ void describe("variable declaration helpers", () => {
     void describe("getVariableDeclarationKind", () => {
         void it("returns null for non-variable declaration nodes", () => {
             assert.equal(getVariableDeclarationKind(null), null);
-            assert.equal(
-                getVariableDeclarationKind({ type: "FunctionDeclaration" }),
-                null
-            );
+            assert.equal(getVariableDeclarationKind({ type: "FunctionDeclaration" }), null);
         });
 
         void it("normalizes variable declaration kinds to lowercase", () => {

@@ -25,8 +25,7 @@ function areNumbersApproximatelyEqual(a: number, b: number): boolean {
     }
 
     const scale = Math.max(1, Math.abs(a), Math.abs(b));
-    const tolerance =
-        Number.EPSILON * scale * APPROXIMATE_EQUALITY_SCALE_MULTIPLIER;
+    const tolerance = Number.EPSILON * scale * APPROXIMATE_EQUALITY_SCALE_MULTIPLIER;
     return Math.abs(a - b) <= tolerance;
 }
 
@@ -67,21 +66,13 @@ const EVENT_INDEX_MAP: Record<string, string> = {
     DrawGUIEnd: "EVENT_DRAW_GUI_END"
 };
 
-function resolveInstanceStore(
-    globalScope: RuntimeBindingGlobals
-): Record<string, unknown> | undefined {
+function resolveInstanceStore(globalScope: RuntimeBindingGlobals): Record<string, unknown> | undefined {
     if (globalScope._cx?._dx) {
         return globalScope._cx._dx;
     }
 
-    if (
-        globalScope.g_RunRoom?.m_Active?.pool &&
-        Array.isArray(globalScope.g_RunRoom.m_Active.pool)
-    ) {
-        return globalScope.g_RunRoom.m_Active.pool as unknown as Record<
-            string,
-            unknown
-        >;
+    if (globalScope.g_RunRoom?.m_Active?.pool && Array.isArray(globalScope.g_RunRoom.m_Active.pool)) {
+        return globalScope.g_RunRoom.m_Active.pool as unknown as Record<string, unknown>;
     }
 
     return undefined;
@@ -188,9 +179,7 @@ function resolveObjectEventKey(eventName: string): string | null {
     return null;
 }
 
-function parseObjectRuntimeId(
-    runtimeId: string
-): { objectName: string; eventName: string } | null {
+function parseObjectRuntimeId(runtimeId: string): { objectName: string; eventName: string } | null {
     if (!runtimeId.startsWith("gml_Object_")) {
         return null;
     }
@@ -210,10 +199,7 @@ function parseObjectRuntimeId(
     return { objectName, eventName };
 }
 
-function createNamedRuntimeFunction(
-    runtimeId: string,
-    rawFn: RuntimeFunction
-): RuntimeFunction {
+function createNamedRuntimeFunction(runtimeId: string, rawFn: RuntimeFunction): RuntimeFunction {
     const name = resolveNamedFunctionId(runtimeId);
     if (!name) {
         return rawFn;
@@ -256,10 +242,7 @@ function updateGMObjects(
                 instanceKeysToUpdate.add(key);
 
                 if (!objectName) {
-                    objectName =
-                        typeof objectEntry.pName === "string"
-                            ? objectEntry.pName
-                            : null;
+                    objectName = typeof objectEntry.pName === "string" ? objectEntry.pName : null;
                 }
             }
         }
@@ -288,17 +271,11 @@ function updateInstance(
             const eventIndexName = resolveEventIndexName(key);
             let index: number | null = null;
 
-            if (
-                eventIndexName &&
-                typeof globalScope[eventIndexName] === "number"
-            ) {
+            if (eventIndexName && typeof globalScope[eventIndexName] === "number") {
                 index = globalScope[eventIndexName];
             } else {
                 const standardName = EVENT_INDEX_MAP[key];
-                if (
-                    standardName &&
-                    typeof globalScope[standardName] === "number"
-                ) {
+                if (standardName && typeof globalScope[standardName] === "number") {
                     index = globalScope[standardName];
                 }
             }
@@ -311,8 +288,7 @@ function updateInstance(
         const eventIndexName = resolveEventIndexName(key);
         if (eventIndexName) {
             const eventIndexValue = globalScope[eventIndexName];
-            const index =
-                typeof eventIndexValue === "number" ? eventIndexValue : null;
+            const index = typeof eventIndexValue === "number" ? eventIndexValue : null;
             const eventArray = instance.Event as Array<boolean> | undefined;
             if (typeof index === "number" && Array.isArray(eventArray)) {
                 eventArray[index] = true;
@@ -355,13 +331,7 @@ function updateInstances(
             }
         }
 
-        updateInstance(
-            instance as Record<string, unknown>,
-            instanceKeysToUpdate,
-            fn,
-            globalScope,
-            name
-        );
+        updateInstance(instance as Record<string, unknown>, instanceKeysToUpdate, fn, globalScope, name);
     }
 }
 
@@ -372,8 +342,7 @@ function applyRuntimeBindings(patch: ScriptPatch, fn: RuntimeFunction): void {
         return;
     }
 
-    const globalScope = globalThis as RuntimeBindingGlobals &
-        Record<string, unknown>;
+    const globalScope = globalThis as RuntimeBindingGlobals & Record<string, unknown>;
     const jsonGame = globalScope.JSON_game;
     const scriptNames = jsonGame?.ScriptNames;
     const scripts = jsonGame?.Scripts;
@@ -390,9 +359,7 @@ function applyRuntimeBindings(patch: ScriptPatch, fn: RuntimeFunction): void {
 
     const resolvedNames = new Set(targetNames);
     const fallbackScriptMatch =
-        runtimeId.startsWith("gml/script/") && runtimeId === patch.id
-            ? runtimeId.slice("gml/script/".length)
-            : null;
+        runtimeId.startsWith("gml/script/") && runtimeId === patch.id ? runtimeId.slice("gml/script/".length) : null;
 
     if (fallbackScriptMatch && Array.isArray(gmObjects)) {
         for (const objectEntry of gmObjects) {
@@ -409,10 +376,7 @@ function applyRuntimeBindings(patch: ScriptPatch, fn: RuntimeFunction): void {
     }
 
     for (const name of resolvedNames) {
-        if (
-            typeof globalScope[name] === "function" ||
-            (Array.isArray(scriptNames) && scriptNames.includes(name))
-        ) {
+        if (typeof globalScope[name] === "function" || (Array.isArray(scriptNames) && scriptNames.includes(name))) {
             globalScope[name] = fn;
         }
 
@@ -424,35 +388,19 @@ function applyRuntimeBindings(patch: ScriptPatch, fn: RuntimeFunction): void {
         }
 
         if (Array.isArray(gmObjects)) {
-            const foundName = updateGMObjects(
-                gmObjects,
-                objectRuntime,
-                objectEventKey,
-                fn,
-                instanceKeysToUpdate,
-                name
-            );
+            const foundName = updateGMObjects(gmObjects, objectRuntime, objectEventKey, fn, instanceKeysToUpdate, name);
             if (!objectName && foundName) {
                 objectName = foundName;
             }
         }
 
         if (instanceStore && typeof instanceStore === "object") {
-            updateInstances(
-                instanceStore,
-                objectName,
-                instanceKeysToUpdate,
-                fn,
-                globalScope,
-                name
-            );
+            updateInstances(instanceStore, objectName, instanceKeysToUpdate, fn, globalScope, name);
         }
     }
 }
 
-export function createRegistry(
-    overrides?: RuntimeRegistryOverrides
-): RuntimeRegistry {
+export function createRegistry(overrides?: RuntimeRegistryOverrides): RuntimeRegistry {
     return {
         version: overrides?.version ?? 0,
         scripts: overrides?.scripts ?? Object.create(null),
@@ -491,10 +439,7 @@ export function validatePatch(patch: unknown): asserts patch is Patch {
     }
 }
 
-export function applyPatchToRegistry(
-    registry: RuntimeRegistry,
-    patch: Patch
-): RuntimeRegistry {
+export function applyPatchToRegistry(registry: RuntimeRegistry, patch: Patch): RuntimeRegistry {
     switch (patch.kind) {
         case "script": {
             return applyScriptPatch(registry, patch);
@@ -511,10 +456,7 @@ export function applyPatchToRegistry(
     }
 }
 
-export function captureSnapshot(
-    registry: RuntimeRegistry,
-    patch: Patch
-): PatchSnapshot {
+export function captureSnapshot(registry: RuntimeRegistry, patch: Patch): PatchSnapshot {
     const snapshot: PatchSnapshot = {
         id: patch.id,
         kind: patch.kind,
@@ -541,10 +483,7 @@ export function captureSnapshot(
     return snapshot;
 }
 
-export function restoreSnapshot(
-    registry: RuntimeRegistry,
-    snapshot: PatchSnapshot
-): RuntimeRegistry {
+export function restoreSnapshot(registry: RuntimeRegistry, snapshot: PatchSnapshot): RuntimeRegistry {
     switch (snapshot.kind) {
         case "script": {
             return restoreEntry(registry, snapshot, "scripts");
@@ -570,10 +509,7 @@ export function testPatchInShadow(patch: Patch): ShadowTestResult {
     } catch (error) {
         return {
             valid: false,
-            error:
-                error instanceof Error
-                    ? error.message
-                    : String(error ?? "Unknown error")
+            error: error instanceof Error ? error.message : String(error ?? "Unknown error")
         };
     }
 }
@@ -595,10 +531,7 @@ export function applyPatchInternal(
     };
 }
 
-function applyScriptPatch(
-    registry: RuntimeRegistry,
-    patch: ScriptPatch
-): RuntimeRegistry {
+function applyScriptPatch(registry: RuntimeRegistry, patch: ScriptPatch): RuntimeRegistry {
     if (!patch.js_body || typeof patch.js_body !== "string") {
         throw new TypeError("Script patch must have a 'js_body' string");
     }
@@ -691,13 +624,9 @@ ${patch.js_body}
     ) as RuntimeFunction;
 
     const fn = ((self, other, args) => {
-        const globals = globalThis as RuntimeBindingGlobals &
-            Record<string, unknown>;
+        const globals = globalThis as RuntimeBindingGlobals & Record<string, unknown>;
         const constants = resolveBuiltinConstants(globals);
-        const builtins =
-            globals.g_pBuiltIn && typeof globals.g_pBuiltIn === "object"
-                ? globals.g_pBuiltIn
-                : undefined;
+        const builtins = globals.g_pBuiltIn && typeof globals.g_pBuiltIn === "object" ? globals.g_pBuiltIn : undefined;
         return rawFn.call(self, self, other, args, constants, builtins);
     }) as RuntimeFunction;
     const namedFn = createNamedRuntimeFunction(resolveRuntimeId(patch), fn);
@@ -713,21 +642,14 @@ ${patch.js_body}
     };
 }
 
-function applyEventPatch(
-    registry: RuntimeRegistry,
-    patch: EventPatch
-): RuntimeRegistry {
+function applyEventPatch(registry: RuntimeRegistry, patch: EventPatch): RuntimeRegistry {
     if (!patch.js_body || typeof patch.js_body !== "string") {
         throw new TypeError("Event patch must have a 'js_body' string");
     }
 
     const thisName = patch.this_name || "self";
     const argsDecl = patch.js_args || "";
-    const fn = new Function(
-        thisName,
-        argsDecl,
-        patch.js_body
-    ) as RuntimeFunction;
+    const fn = new Function(thisName, argsDecl, patch.js_body) as RuntimeFunction;
 
     const eventWrapper = function (...incomingArgs: Array<unknown>) {
         return fn.call(this, this, ...incomingArgs);
@@ -742,10 +664,7 @@ function applyEventPatch(
     };
 }
 
-function applyClosurePatch(
-    registry: RuntimeRegistry,
-    patch: ClosurePatch
-): RuntimeRegistry {
+function applyClosurePatch(registry: RuntimeRegistry, patch: ClosurePatch): RuntimeRegistry {
     if (!patch.js_body || typeof patch.js_body !== "string") {
         throw new TypeError("Closure patch must have a 'js_body' string");
     }
@@ -827,10 +746,7 @@ export function calculateTimingMetrics(durations: Array<number>): {
     };
 }
 
-function calculatePercentile(
-    sorted: Array<number>,
-    percentile: number
-): number {
+function calculatePercentile(sorted: Array<number>, percentile: number): number {
     if (sorted.length === 0) {
         return 0;
     }
@@ -858,9 +774,7 @@ function calculatePercentile(
     return sorted[lower] * (1 - weight) + sorted[upper] * weight;
 }
 
-export function collectPatchDurations(
-    history: Array<PatchHistoryEntry>
-): Array<number> {
+export function collectPatchDurations(history: Array<PatchHistoryEntry>): Array<number> {
     const durations: Array<number> = [];
 
     for (const entry of history) {

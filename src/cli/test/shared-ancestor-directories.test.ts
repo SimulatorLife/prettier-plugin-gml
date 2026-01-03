@@ -2,10 +2,7 @@ import assert from "node:assert/strict";
 import path from "node:path";
 import test from "node:test";
 
-import {
-    collectAncestorDirectories,
-    collectUniqueAncestorDirectories
-} from "../src/shared/ancestor-directories.js";
+import { collectAncestorDirectories, collectUniqueAncestorDirectories } from "../src/shared/ancestor-directories.js";
 
 void test("collectUniqueAncestorDirectories deduplicates ancestors across inputs", () => {
     const base = path.join(process.cwd(), "tmp", "cli-path-utils", "unique");
@@ -65,9 +62,7 @@ void test("collectAncestorDirectories orders and deduplicates ancestors", () => 
         current = parent;
     }
 
-    const expected = firstChain.concat(
-        secondChain.filter((directory) => !firstChain.includes(directory))
-    );
+    const expected = firstChain.concat(secondChain.filter((directory) => !firstChain.includes(directory)));
 
     assert.deepStrictEqual(result, expected);
     assert.strictEqual(new Set(result).size, result.length);

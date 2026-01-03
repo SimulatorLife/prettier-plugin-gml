@@ -6,9 +6,7 @@ async function formatWithPlugin(source, options: any = {}) {
     const formatted = await Plugin.format(source, options);
 
     if (typeof formatted !== "string") {
-        throw new TypeError(
-            "Expected Plugin.format to return a string result."
-        );
+        throw new TypeError("Expected Plugin.format to return a string result.");
     }
 
     return formatted.trim();
@@ -23,14 +21,9 @@ void test("keeps constructor parent clauses inline", async () => {
     ].join("\n");
 
     const formatted = await formatWithPlugin(source);
-    const signatureLine = formatted
-        .split("\n")
-        .find((line) => line.startsWith("function Derived"));
+    const signatureLine = formatted.split("\n").find((line) => line.startsWith("function Derived"));
 
-    assert.strictEqual(
-        signatureLine,
-        "function Derived(value) : Base(value, undefined) constructor {"
-    );
+    assert.strictEqual(signatureLine, "function Derived(value) : Base(value, undefined) constructor {");
 });
 
 void test("preserves inline constructor parameters when parent clause is present", async () => {
@@ -42,9 +35,7 @@ void test("preserves inline constructor parameters when parent clause is present
     ].join("\n");
 
     const formatted = await formatWithPlugin(source);
-    const signatureLine = formatted
-        .split("\n")
-        .find((line) => line.startsWith("function AbstractSkyboxParent"));
+    const signatureLine = formatted.split("\n").find((line) => line.startsWith("function AbstractSkyboxParent"));
 
     assert.strictEqual(
         signatureLine,

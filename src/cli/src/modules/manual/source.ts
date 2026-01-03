@@ -18,9 +18,7 @@ export interface ManualSourceResolverOptions {
     manualPackage?: string | null | undefined;
 }
 
-export type ManualSourceResolver = (
-    options?: ManualSourceResolverOptions
-) => Promise<ManualSourceDescriptor>;
+export type ManualSourceResolver = (options?: ManualSourceResolverOptions) => Promise<ManualSourceDescriptor>;
 
 const require = createRequire(import.meta.url);
 
@@ -68,10 +66,7 @@ async function ensureDirectoryExists(root, { required, label }) {
     }
 }
 
-export async function resolveManualSource({
-    manualRoot,
-    manualPackage
-}: ManualSourceResolverOptions = {}) {
+export async function resolveManualSource({ manualRoot, manualPackage }: ManualSourceResolverOptions = {}) {
     const candidate = resolveCandidateRoot(manualRoot);
     if (candidate) {
         await ensureDirectoryExists(candidate.root, {
@@ -94,9 +89,7 @@ export async function resolveManualSource({
     }
 
     if (!manualPackage) {
-        throw new Error(
-            "Manual assets were not found. Provide --manual-root or initialize vendor/GameMaker-Manual."
-        );
+        throw new Error("Manual assets were not found. Provide --manual-root or initialize vendor/GameMaker-Manual.");
     }
 
     const normalizedPackageName = assertNonEmptyString(manualPackage, {
@@ -122,9 +115,7 @@ export async function readManualText(root, relativePath) {
         return await fs.readFile(absolutePath, "utf8");
     } catch (error) {
         const message = getErrorMessageOrFallback(error);
-        throw new Error(
-            `Failed to read manual asset '${relativePath}' from '${root}'. (${message})`
-        );
+        throw new Error(`Failed to read manual asset '${relativePath}' from '${root}'. (${message})`);
     }
 }
 
@@ -135,9 +126,7 @@ export async function readManualJson(root, relativePath) {
         return JSON.parse(contents);
     } catch (error) {
         const message = getErrorMessageOrFallback(error);
-        throw new Error(
-            `Manual asset '${relativePath}' did not contain valid JSON. (${message})`
-        );
+        throw new Error(`Manual asset '${relativePath}' did not contain valid JSON. (${message})`);
     }
 }
 
@@ -145,10 +134,7 @@ export function describeManualSource(source: ManualSourceDescriptor) {
     const { root, packageName, packageJson } = source;
 
     if (packageName) {
-        const version =
-            typeof packageJson?.version === "string"
-                ? packageJson.version
-                : undefined;
+        const version = typeof packageJson?.version === "string" ? packageJson.version : undefined;
         return version ? `${packageName}@${version}` : packageName;
     }
 

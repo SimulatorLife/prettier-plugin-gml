@@ -13,10 +13,7 @@ type StripCommentsTransformOptions = {
 /**
  * Removes comment nodes and related metadata according to the caller's options.
  */
-function execute(
-    ast: any,
-    options: StripCommentsTransformOptions
-): MutableGameMakerAstNode {
+function execute(ast: any, options: StripCommentsTransformOptions): MutableGameMakerAstNode {
     // Walk the AST and drop comment-related properties as requested by the options.
     if (!ast || typeof ast !== "object") {
         return ast;
@@ -31,9 +28,7 @@ function execute(
             if (options.stripComments) {
                 const comments = (value as any).comments;
                 if (Array.isArray(comments)) {
-                    const filtered = comments.filter(
-                        (c) => !Core.isCommentNode(c)
-                    );
+                    const filtered = comments.filter((c) => !Core.isCommentNode(c));
                     if (filtered.length === 0) {
                         delete (value as any).comments;
                     } else {
@@ -69,15 +64,14 @@ function execute(
     return ast;
 }
 
-export const stripCommentsTransform =
-    createParserTransform<StripCommentsTransformOptions>(
-        "strip-comments",
-        {
-            stripComments: true,
-            stripJsDoc: true,
-            dropCommentedOutCode: false
-        },
-        execute
-    );
+export const stripCommentsTransform = createParserTransform<StripCommentsTransformOptions>(
+    "strip-comments",
+    {
+        stripComments: true,
+        stripJsDoc: true,
+        dropCommentedOutCode: false
+    },
+    execute
+);
 
 export default { stripCommentsTransform };

@@ -111,8 +111,7 @@ export interface GameMakerAstNode {
     raw?: string | null;
 }
 
-export type MutableGameMakerAstNode = GameMakerAstNode &
-    Record<string, unknown>;
+export type MutableGameMakerAstNode = GameMakerAstNode & Record<string, unknown>;
 
 // Minimal, discriminated node subtypes used by type guards in core helpers.
 export interface IdentifierNode extends GameMakerAstNode {

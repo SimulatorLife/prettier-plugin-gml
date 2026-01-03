@@ -51,11 +51,7 @@ void describe("debounce", () => {
 
             await sleep(60);
 
-            assert.deepEqual(
-                calls,
-                ["third"],
-                "Should use only the last arguments"
-            );
+            assert.deepEqual(calls, ["third"], "Should use only the last arguments");
         });
 
         void it("should handle multiple argument types", async () => {
@@ -69,11 +65,7 @@ void describe("debounce", () => {
 
             await sleep(60);
 
-            assert.deepEqual(
-                calls,
-                [["world", 99, false]],
-                "Should preserve all argument types"
-            );
+            assert.deepEqual(calls, [["world", 99, false]], "Should preserve all argument types");
         });
     });
 
@@ -118,11 +110,7 @@ void describe("debounce", () => {
             debouncedFn("second");
             debouncedFn.flush();
 
-            assert.deepEqual(
-                calls,
-                ["second"],
-                "Should use last arguments on flush"
-            );
+            assert.deepEqual(calls, ["second"], "Should use last arguments on flush");
         });
     });
 
@@ -179,19 +167,11 @@ void describe("debounce", () => {
                 // transitions, not callback behavior, so no implementation is needed.
             }, 50);
 
-            assert.equal(
-                debouncedFn.isPending(),
-                false,
-                "Should be false initially"
-            );
+            assert.equal(debouncedFn.isPending(), false, "Should be false initially");
 
             debouncedFn();
 
-            assert.equal(
-                debouncedFn.isPending(),
-                true,
-                "Should be true after call"
-            );
+            assert.equal(debouncedFn.isPending(), true, "Should be true after call");
         });
 
         void it("should return false after execution", async () => {
@@ -203,19 +183,11 @@ void describe("debounce", () => {
 
             debouncedFn();
 
-            assert.equal(
-                debouncedFn.isPending(),
-                true,
-                "Should be true before execution"
-            );
+            assert.equal(debouncedFn.isPending(), true, "Should be true before execution");
 
             await sleep(60);
 
-            assert.equal(
-                debouncedFn.isPending(),
-                false,
-                "Should be false after execution"
-            );
+            assert.equal(debouncedFn.isPending(), false, "Should be false after execution");
         });
 
         void it("should return false after flush", () => {
@@ -228,11 +200,7 @@ void describe("debounce", () => {
             debouncedFn();
             debouncedFn.flush();
 
-            assert.equal(
-                debouncedFn.isPending(),
-                false,
-                "Should be false after flush"
-            );
+            assert.equal(debouncedFn.isPending(), false, "Should be false after flush");
         });
 
         void it("should return false after cancel", () => {
@@ -245,11 +213,7 @@ void describe("debounce", () => {
             debouncedFn();
             debouncedFn.cancel();
 
-            assert.equal(
-                debouncedFn.isPending(),
-                false,
-                "Should be false after cancel"
-            );
+            assert.equal(debouncedFn.isPending(), false, "Should be false after cancel");
         });
     });
 
@@ -262,11 +226,7 @@ void describe("debounce", () => {
 
             debouncedFn();
 
-            assert.equal(
-                callCount,
-                0,
-                "Should not execute immediately even with zero delay"
-            );
+            assert.equal(callCount, 0, "Should not execute immediately even with zero delay");
 
             await sleep(10);
 
@@ -308,11 +268,7 @@ void describe("debounce", () => {
 
             await sleep(60);
 
-            assert.equal(
-                callCount,
-                1,
-                "Should execute only once for interleaved calls"
-            );
+            assert.equal(callCount, 1, "Should execute only once for interleaved calls");
         });
 
         void it("should handle function that throws", async () => {
@@ -329,11 +285,7 @@ void describe("debounce", () => {
                 errorThrown = true;
             }
 
-            assert.equal(
-                errorThrown,
-                false,
-                "Should not propagate error outside debounce"
-            );
+            assert.equal(errorThrown, false, "Should not propagate error outside debounce");
         });
     });
 
@@ -352,11 +304,7 @@ void describe("debounce", () => {
 
             await sleep(210);
 
-            assert.deepEqual(
-                savedFiles,
-                ["/path/file.gml"],
-                "Should save file only once"
-            );
+            assert.deepEqual(savedFiles, ["/path/file.gml"], "Should save file only once");
         });
 
         void it("should handle shutdown with flush", () => {
@@ -370,11 +318,7 @@ void describe("debounce", () => {
 
             debouncedProcess.flush();
 
-            assert.deepEqual(
-                processedFiles,
-                ["/path/file2.gml"],
-                "Should process pending work on shutdown"
-            );
+            assert.deepEqual(processedFiles, ["/path/file2.gml"], "Should process pending work on shutdown");
         });
     });
 });

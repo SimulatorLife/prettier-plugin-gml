@@ -7,8 +7,7 @@ import { createAssetCollisionProject } from "./identifier-case-asset-helpers.js"
 
 void describe("identifier case asset conflict planning", () => {
     void it("records collisions when only asset renames are configured", async () => {
-        const { projectRoot, projectIndex, scriptPath } =
-            await createAssetCollisionProject();
+        const { projectRoot, projectIndex, scriptPath } = await createAssetCollisionProject();
 
         try {
             const options: any = {
@@ -24,10 +23,7 @@ void describe("identifier case asset conflict planning", () => {
             await prepareIdentifierCasePlan(options);
 
             const conflicts = options.__identifierCaseConflicts ?? [];
-            assert.ok(
-                conflicts.length > 0,
-                "expected conflicts to be recorded"
-            );
+            assert.ok(conflicts.length > 0, "expected conflicts to be recorded");
             assert.ok(
                 conflicts.some((conflict) => conflict.code === "collision"),
                 "expected a collision conflict"

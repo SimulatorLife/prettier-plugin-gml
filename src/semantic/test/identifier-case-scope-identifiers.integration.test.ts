@@ -26,14 +26,8 @@ function valuesAs<T>(record: Record<string, T>): T[] {
 
 const currentDirectory = fileURLToPath(new URL(".", import.meta.url));
 const fixturesDirectory = resolveFixturesDirectory(currentDirectory);
-const scriptFixturePath = path.join(
-    fixturesDirectory,
-    "scope-identifier-collisions.gml"
-);
-const objectFixturePath = path.join(
-    fixturesDirectory,
-    "object-instance-collisions.gml"
-);
+const scriptFixturePath = path.join(fixturesDirectory, "scope-identifier-collisions.gml");
+const objectFixturePath = path.join(fixturesDirectory, "object-instance-collisions.gml");
 
 function resolveFixturesDirectory(baseDirectory: string) {
     const candidates = [
@@ -52,9 +46,7 @@ function resolveFixturesDirectory(baseDirectory: string) {
 }
 
 async function createIdentifierFixtureProject() {
-    const tempRoot = await fs.mkdtemp(
-        path.join(os.tmpdir(), "gml-scope-identifiers-")
-    );
+    const tempRoot = await fs.mkdtemp(path.join(os.tmpdir(), "gml-scope-identifiers-"));
 
     const writeFile = async (relativePath: string, contents: string) => {
         const absolutePath = path.join(tempRoot, relativePath);
@@ -63,10 +55,7 @@ async function createIdentifierFixtureProject() {
         return absolutePath;
     };
 
-    await writeFile(
-        "MyGame.yyp",
-        JSON.stringify({ name: "MyGame", resourceType: "GMProject" })
-    );
+    await writeFile("MyGame.yyp", JSON.stringify({ name: "MyGame", resourceType: "GMProject" }));
 
     await writeFile(
         "scripts/scopeCollision/scopeCollision.yy",
@@ -106,17 +95,11 @@ void describe("project index identifier tracking", () => {
         const { projectRoot } = await createIdentifierFixtureProject();
 
         try {
-            const index = (await buildProjectIndex(
-                projectRoot
-            )) as ProjectIndexSnapshot;
+            const index = (await buildProjectIndex(projectRoot)) as ProjectIndexSnapshot;
 
-            const scriptEntry =
-                index.identifiers.scripts["scope:script:scopeCollision"];
+            const scriptEntry = index.identifiers.scripts["scope:script:scopeCollision"];
             assert.ok(scriptEntry, "expected scopeCollision script entry");
-            assert.equal(
-                scriptEntry.identifierId,
-                "script:scope:script:scopeCollision"
-            );
+            assert.equal(scriptEntry.identifierId, "script:scope:script:scopeCollision");
 
             const macros = index.identifiers.macros;
             assert.ok(macros.MACRO_VALUE);
@@ -127,52 +110,29 @@ void describe("project index identifier tracking", () => {
             assert.equal(macros.MacroValue.identifierId, "macro:MacroValue");
 
             const globalVars = index.identifiers.globalVariables;
-            assert.equal(
-                globalVars.global_rate.identifierId,
-                "global:global_rate"
-            );
-            assert.equal(
-                globalVars.GLOBAL_RATE.identifierId,
-                "global:GLOBAL_RATE"
-            );
+            assert.equal(globalVars.global_rate.identifierId, "global:global_rate");
+            assert.equal(globalVars.GLOBAL_RATE.identifierId, "global:GLOBAL_RATE");
 
-            const enumEntries = valuesAs<IdentifierIndexEntry>(
-                index.identifiers.enums
-            );
+            const enumEntries = valuesAs<IdentifierIndexEntry>(index.identifiers.enums);
             assert.ok(enumEntries.length >= 2, "expected enum entries");
             for (const entry of enumEntries) {
-                assert.ok(
-                    entry.identifierId?.startsWith("enum:"),
-                    "expected enum identifier prefix"
-                );
+                assert.ok(entry.identifierId?.startsWith("enum:"), "expected enum identifier prefix");
             }
 
-            const enumMembers = valuesAs<IdentifierIndexEntry>(
-                index.identifiers.enumMembers
-            );
-            const sharedMembers = enumMembers.filter(
-                (entry) => entry.name === "Bronze"
-            );
+            const enumMembers = valuesAs<IdentifierIndexEntry>(index.identifiers.enumMembers);
+            const sharedMembers = enumMembers.filter((entry) => entry.name === "Bronze");
             assert.ok(sharedMembers.length >= 2);
             for (const member of sharedMembers) {
-                assert.ok(
-                    member.identifierId?.startsWith("enum-member:"),
-                    "expected enum member identifier prefix"
-                );
+                assert.ok(member.identifierId?.startsWith("enum-member:"), "expected enum member identifier prefix");
             }
 
-            const instanceEntries = valuesAs<IdentifierIndexEntry>(
-                index.identifiers.instanceVariables
-            );
+            const instanceEntries = valuesAs<IdentifierIndexEntry>(index.identifiers.instanceVariables);
             const speedBonusNames = instanceEntries.filter((entry) =>
                 ["speed_bonus", "SpeedBonus", "speedBonus"].includes(entry.name)
             );
             assert.equal(speedBonusNames.length, 3);
             for (const instance of speedBonusNames) {
-                assert.ok(
-                    instance.identifierId?.startsWith("instance:"),
-                    "expected instance identifier prefix"
-                );
+                assert.ok(instance.identifierId?.startsWith("instance:"), "expected instance identifier prefix");
             }
         } finally {
             await fs.rm(projectRoot, { recursive: true, force: true });

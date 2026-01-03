@@ -9,21 +9,12 @@ void describe("GameMakerParseErrorListener", () => {
             const listener = new GameMakerParseErrorListener();
             const formatter = listener.formatter;
 
-            assert.equal(
-                formatter.formatRuleName("SimpleRule"),
-                " simple rule"
-            );
+            assert.equal(formatter.formatRuleName("SimpleRule"), " simple rule");
             assert.equal(formatter.formatRuleName("XMLParser"), "xml parser");
-            assert.equal(
-                formatter.formatRuleName("MyXMLParser"),
-                " myxml parser"
-            );
+            assert.equal(formatter.formatRuleName("MyXMLParser"), " myxml parser");
             assert.equal(formatter.formatRuleName("ruleName"), "rule name");
             assert.equal(formatter.formatRuleName("HTML"), "html");
-            assert.equal(
-                formatter.formatRuleName("XMLHttpRequest"),
-                "xml http request"
-            );
+            assert.equal(formatter.formatRuleName("XMLHttpRequest"), "xml http request");
 
             // ReDoS check (should be fast)
             const start = performance.now();

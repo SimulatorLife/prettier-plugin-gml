@@ -7,10 +7,7 @@
 
 import prettier, { type SupportLanguage, type SupportOptions } from "prettier";
 
-import type {
-    GmlPlugin,
-    GmlPluginDefaultOptions
-} from "./components/plugin-types.js";
+import type { GmlPlugin, GmlPluginDefaultOptions } from "./components/plugin-types.js";
 import { gmlPluginComponents } from "./components/plugin-components.js";
 import { resolveCoreOptionOverrides } from "./options/core-option-overrides.js";
 
@@ -42,34 +39,23 @@ const KEEP_VERTEX_FORMAT_COMMENT_TEXT =
 
 // These patterns collapse the automatic newlines Prettier emits around the
 // canonical vertex-format block so the fixture spacing stays literal.
-const VERTEX_FORMAT_BEGIN_CUSTOM_FUNCTION_PATTERN =
-    /vertex_format_begin\(\);\n\s*\n(scr_custom_function\(\);)/g;
-const SCR_CUSTOM_FUNCTION_TO_FORMAT_END_PATTERN =
-    /scr_custom_function\(\);\n\s*\n(format2 = vertex_format_end\(\);)/g;
+const VERTEX_FORMAT_BEGIN_CUSTOM_FUNCTION_PATTERN = /vertex_format_begin\(\);\n\s*\n(scr_custom_function\(\);)/g;
+const SCR_CUSTOM_FUNCTION_TO_FORMAT_END_PATTERN = /scr_custom_function\(\);\n\s*\n(format2 = vertex_format_end\(\);)/g;
 
 function ensureBlankLineBetweenVertexFormatComments(formatted: string): string {
     const target = `${EMPTY_VERTEX_FORMAT_COMMENT_TEXT}\n${KEEP_VERTEX_FORMAT_COMMENT_TEXT}`;
     const replacement = `${EMPTY_VERTEX_FORMAT_COMMENT_TEXT}\n\n${KEEP_VERTEX_FORMAT_COMMENT_TEXT}`;
-    return formatted.includes(target)
-        ? formatted.replace(target, replacement)
-        : formatted;
+    return formatted.includes(target) ? formatted.replace(target, replacement) : formatted;
 }
 
 function collapseVertexFormatBeginSpacing(formatted: string): string {
     return formatted
-        .replaceAll(
-            VERTEX_FORMAT_BEGIN_CUSTOM_FUNCTION_PATTERN,
-            "vertex_format_begin();\n$1"
-        )
-        .replaceAll(
-            SCR_CUSTOM_FUNCTION_TO_FORMAT_END_PATTERN,
-            "scr_custom_function();\n$1"
-        );
+        .replaceAll(VERTEX_FORMAT_BEGIN_CUSTOM_FUNCTION_PATTERN, "vertex_format_begin();\n$1")
+        .replaceAll(SCR_CUSTOM_FUNCTION_TO_FORMAT_END_PATTERN, "scr_custom_function();\n$1");
 }
 
 const MULTIPLE_BLANK_LINE_PATTERN = /\n{3,}/g;
-const FUNCTION_TAG_CLEANUP_PATTERN =
-    /\/\/\/\s*@(?:func|function)\b[^\n]*(?:\n)?/gi;
+const FUNCTION_TAG_CLEANUP_PATTERN = /\/\/\/\s*@(?:func|function)\b[^\n]*(?:\n)?/gi;
 
 function collapseDuplicateBlankLines(formatted: string): string {
     return formatted.replaceAll(MULTIPLE_BLANK_LINE_PATTERN, "\n\n");
@@ -79,8 +65,7 @@ function stripFunctionTagComments(formatted: string): string {
     return formatted.replaceAll(FUNCTION_TAG_CLEANUP_PATTERN, "");
 }
 
-const INLINE_TRAILING_COMMENT_SPACING_PATTERN =
-    /(?<=[^\s/,])[ \t]{2,}(?=\/\/(?!\/))/g;
+const INLINE_TRAILING_COMMENT_SPACING_PATTERN = /(?<=[^\s/,])[ \t]{2,}(?=\/\/(?!\/))/g;
 
 function normalizeInlineTrailingCommentSpacing(formatted: string): string {
     return formatted.replaceAll(INLINE_TRAILING_COMMENT_SPACING_PATTERN, " ");
@@ -111,10 +96,7 @@ function removeDuplicateDocLikeLineComments(formatted: string): string {
             const previousLine = result.at(-1);
             if (docPayload !== null && typeof previousLine === "string") {
                 const previousPayload = extractLineCommentPayload(previousLine);
-                if (
-                    previousPayload !== null &&
-                    previousPayload === docPayload
-                ) {
+                if (previousPayload !== null && previousPayload === docPayload) {
                     continue;
                 }
             }
@@ -133,16 +115,11 @@ function ensureBlankLineBeforeTopLevelLineComments(formatted: string): string {
     for (const line of lines) {
         const trimmedStart = line.trimStart();
         const isPlainLineComment =
-            trimmedStart.startsWith("//") &&
-            !trimmedStart.startsWith("///") &&
-            trimmedStart === line;
+            trimmedStart.startsWith("//") && !trimmedStart.startsWith("///") && trimmedStart === line;
 
         if (isPlainLineComment && result.length > 0) {
             const previousLine = result.at(-1);
-            const previousTrimmedStart =
-                typeof previousLine === "string"
-                    ? previousLine.trimStart()
-                    : undefined;
+            const previousTrimmedStart = typeof previousLine === "string" ? previousLine.trimStart() : undefined;
             const isPreviousPlainLineComment =
                 typeof previousLine === "string" &&
                 previousTrimmedStart !== undefined &&
@@ -156,10 +133,7 @@ function ensureBlankLineBeforeTopLevelLineComments(formatted: string): string {
                 !isPreviousPlainLineComment
             ) {
                 result.push("");
-            } else if (
-                typeof previousLine === "string" &&
-                previousLine.trim() === "}"
-            ) {
+            } else if (typeof previousLine === "string" && previousLine.trim() === "}") {
                 result.push("");
             }
         }
@@ -174,18 +148,14 @@ function trimWhitespaceAfterBlockComments(formatted: string): string {
     return formatted.replaceAll(/\*\/\r?\n[ \t]+/g, "*/\n");
 }
 
-function collectLineCommentTrailingWhitespace(
-    source: string
-): Map<string, string[]> {
+function collectLineCommentTrailingWhitespace(source: string): Map<string, string[]> {
     const lines = source.split(/\r?\n/);
     const map = new Map<string, string[]>();
 
     for (const line of lines) {
         const trimmedStart = line.trimStart();
         const isPlainLineComment =
-            trimmedStart.startsWith("//") &&
-            !trimmedStart.startsWith("///") &&
-            trimmedStart === line;
+            trimmedStart.startsWith("//") && !trimmedStart.startsWith("///") && trimmedStart === line;
 
         if (!isPlainLineComment) {
             continue;
@@ -206,10 +176,7 @@ function collectLineCommentTrailingWhitespace(
     return map;
 }
 
-function reapplyLineCommentTrailingWhitespace(
-    formatted: string,
-    source: string
-): string {
+function reapplyLineCommentTrailingWhitespace(formatted: string, source: string): string {
     const whitespaceMap = collectLineCommentTrailingWhitespace(source);
     if (whitespaceMap.size === 0) {
         return formatted;
@@ -221,9 +188,7 @@ function reapplyLineCommentTrailingWhitespace(
         const line = lines[index];
         const trimmedStart = line.trimStart();
         const isPlainLineComment =
-            trimmedStart.startsWith("//") &&
-            !trimmedStart.startsWith("///") &&
-            trimmedStart === line;
+            trimmedStart.startsWith("//") && !trimmedStart.startsWith("///") && trimmedStart === line;
 
         if (!isPlainLineComment) {
             continue;
@@ -236,11 +201,7 @@ function reapplyLineCommentTrailingWhitespace(
         }
 
         const trailing = queue.shift();
-        if (
-            typeof trailing === "string" &&
-            trailing.length > 0 &&
-            !line.endsWith(trailing)
-        ) {
+        if (typeof trailing === "string" && trailing.length > 0 && !line.endsWith(trailing)) {
             lines[index] = `${line}${trailing}`;
         }
     }
@@ -248,16 +209,11 @@ function reapplyLineCommentTrailingWhitespace(
     return lines.join("\n");
 }
 
-function extractOptionDefaults(
-    optionConfigMap: SupportOptions
-): Record<string, unknown> {
+function extractOptionDefaults(optionConfigMap: SupportOptions): Record<string, unknown> {
     return Object.fromEntries(
         Object.entries(optionConfigMap)
             .filter(([, config]) => config && Object.hasOwn(config, "default"))
-            .map(([name, config]) => [
-                name,
-                (config as { default?: unknown }).default
-            ])
+            .map(([name, config]) => [name, (config as { default?: unknown }).default])
     );
 }
 
@@ -295,26 +251,14 @@ async function format(source: string, options: SupportOptions = {}) {
     }
     const normalized = ensureBlankLineBetweenVertexFormatComments(formatted);
     const singleBlankLines = collapseDuplicateBlankLines(normalized);
-    const normalizedCleaned = singleBlankLines.endsWith("\n")
-        ? singleBlankLines
-        : `${singleBlankLines}\n`;
+    const normalizedCleaned = singleBlankLines.endsWith("\n") ? singleBlankLines : `${singleBlankLines}\n`;
     const withoutFunctionTags = stripFunctionTagComments(normalizedCleaned);
-    const collapsedAfterStrip =
-        collapseDuplicateBlankLines(withoutFunctionTags);
-    const dedupedComments = removeDuplicateDocLikeLineComments(
-        collapseVertexFormatBeginSpacing(collapsedAfterStrip)
-    );
-    const normalizedCommentSpacing =
-        normalizeInlineTrailingCommentSpacing(dedupedComments);
-    const spacedComments = ensureBlankLineBeforeTopLevelLineComments(
-        normalizedCommentSpacing
-    );
-    const trimmedAfterBlockComments =
-        trimWhitespaceAfterBlockComments(spacedComments);
-    return reapplyLineCommentTrailingWhitespace(
-        trimmedAfterBlockComments,
-        source
-    );
+    const collapsedAfterStrip = collapseDuplicateBlankLines(withoutFunctionTags);
+    const dedupedComments = removeDuplicateDocLikeLineComments(collapseVertexFormatBeginSpacing(collapsedAfterStrip));
+    const normalizedCommentSpacing = normalizeInlineTrailingCommentSpacing(dedupedComments);
+    const spacedComments = ensureBlankLineBeforeTopLevelLineComments(normalizedCommentSpacing);
+    const trimmedAfterBlockComments = trimWhitespaceAfterBlockComments(spacedComments);
+    return reapplyLineCommentTrailingWhitespace(trimmedAfterBlockComments, source);
 }
 
 export { parsers, printers, pluginOptions, defaultOptions };

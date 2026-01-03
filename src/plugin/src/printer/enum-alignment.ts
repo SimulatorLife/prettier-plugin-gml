@@ -35,13 +35,13 @@ export function prepareEnumMembersForPrinting(enumNode, getNodeName) {
         return;
     }
 
-    const resolveName =
-        typeof getNodeName === "function" ? getNodeName : undefined;
-    const { memberStats, maxInitializerNameLength, allMembersHaveInitializer } =
-        collectEnumMemberStats(members, resolveName);
+    const resolveName = typeof getNodeName === "function" ? getNodeName : undefined;
+    const { memberStats, maxInitializerNameLength, allMembersHaveInitializer } = collectEnumMemberStats(
+        members,
+        resolveName
+    );
 
-    const shouldAlignInitializers =
-        allMembersHaveInitializer && maxInitializerNameLength > 0;
+    const shouldAlignInitializers = allMembersHaveInitializer && maxInitializerNameLength > 0;
 
     const maxMemberWidth = applyEnumMemberAlignment({
         memberStats,
@@ -88,10 +88,7 @@ function getEnumInitializerWidth(initializer) {
         return String(initializer).length;
     }
 
-    const normalized =
-        typeof initializer === "object"
-            ? extractInitializerText(initializer)
-            : initializer;
+    const normalized = typeof initializer === "object" ? extractInitializerText(initializer) : initializer;
 
     if (typeof normalized === "number") {
         return String(normalized).trim().length;
@@ -115,9 +112,7 @@ function extractInitializerText(initializer) {
 function collectTrailingEnumComments(member) {
     const trailingComments = getCommentArray(member).filter(
         (comment) =>
-            comment &&
-            typeof comment === "object" &&
-            (comment.trailing === true || comment.placement === "endOfLine")
+            comment && typeof comment === "object" && (comment.trailing === true || comment.placement === "endOfLine")
     );
 
     return trailingComments.length > 0 ? trailingComments : null;
@@ -165,27 +160,18 @@ function collectEnumMemberStats(members, resolveName) {
     return { memberStats, maxInitializerNameLength, allMembersHaveInitializer };
 }
 
-function applyEnumMemberAlignment({
-    memberStats,
-    shouldAlignInitializers,
-    maxInitializerNameLength
-}) {
+function applyEnumMemberAlignment({ memberStats, shouldAlignInitializers, maxInitializerNameLength }) {
     let maxMemberWidth = 0;
 
     for (const entry of memberStats) {
         const alignmentPadding =
-            shouldAlignInitializers && entry.hasInitializer
-                ? maxInitializerNameLength - entry.nameLength
-                : 0;
+            shouldAlignInitializers && entry.hasInitializer ? maxInitializerNameLength - entry.nameLength : 0;
 
         entry.member._enumNameAlignmentPadding = alignmentPadding;
 
-        const initializerSpan = entry.hasInitializer
-            ? ENUM_INITIALIZER_OPERATOR_WIDTH + entry.initializerWidth
-            : 0;
+        const initializerSpan = entry.hasInitializer ? ENUM_INITIALIZER_OPERATOR_WIDTH + entry.initializerWidth : 0;
 
-        const memberWidth =
-            entry.nameLength + alignmentPadding + initializerSpan;
+        const memberWidth = entry.nameLength + alignmentPadding + initializerSpan;
 
         entry.memberWidth = memberWidth;
         if (memberWidth > maxMemberWidth) {
@@ -196,12 +182,7 @@ function applyEnumMemberAlignment({
     return maxMemberWidth;
 }
 
-function applyTrailingCommentPadding({
-    memberStats,
-    maxMemberWidth,
-    hasTrailingComma,
-    shouldAlignInitializers
-}) {
+function applyTrailingCommentPadding({ memberStats, maxMemberWidth, hasTrailingComma, shouldAlignInitializers }) {
     if (shouldAlignInitializers) {
         return;
     }
@@ -231,11 +212,7 @@ function applyTrailingCommentPadding({
             continue;
         }
 
-        for (
-            let commentIndex = 0;
-            commentIndex < trailingCount;
-            commentIndex += 1
-        ) {
+        for (let commentIndex = 0; commentIndex < trailingCount; commentIndex += 1) {
             const comment = trailingComments[commentIndex];
             const previous = comment._enumTrailingPadding;
 

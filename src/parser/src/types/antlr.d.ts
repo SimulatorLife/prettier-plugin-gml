@@ -91,10 +91,7 @@ declare module "antlr4" {
     }
 
     export class DefaultErrorStrategy {
-        reportNoViableAlternative(
-            recognizer: Recognizer,
-            exception: RecognitionException | null
-        ): void;
+        reportNoViableAlternative(recognizer: Recognizer, exception: RecognitionException | null): void;
     }
 
     export namespace tree {

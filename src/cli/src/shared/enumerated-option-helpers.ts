@@ -7,14 +7,8 @@ type EnumeratedValue = string;
 export interface EnumeratedOptionHelpers {
     readonly valueSet: ReadonlySet<EnumeratedValue>;
     formatList(): string;
-    normalize(
-        value: unknown,
-        fallback?: EnumeratedValue | null
-    ): EnumeratedValue | null;
-    requireValue(
-        value: unknown,
-        errorConstructor?: new (message: string) => Error
-    ): EnumeratedValue;
+    normalize(value: unknown, fallback?: EnumeratedValue | null): EnumeratedValue | null;
+    requireValue(value: unknown, errorConstructor?: new (message: string) => Error): EnumeratedValue;
 }
 
 /**
@@ -51,16 +45,9 @@ export function createEnumeratedOptionHelpers(
               valueLabel?: string;
           }
 ): EnumeratedOptionHelpers {
-    const formatError =
-        typeof options === "function" ? options : options?.formatError;
-    const enforceStringType =
-        typeof options === "object"
-            ? (options.enforceStringType ?? false)
-            : false;
-    const valueLabel =
-        typeof options === "object"
-            ? options.valueLabel?.trim() || "Value"
-            : "Value";
+    const formatError = typeof options === "function" ? options : options?.formatError;
+    const enforceStringType = typeof options === "object" ? (options.enforceStringType ?? false) : false;
+    const valueLabel = typeof options === "object" ? options.valueLabel?.trim() || "Value" : "Value";
 
     const valueSet = new Set(Array.from(values));
     const listLabel = [...valueSet].sort().join(", ");
@@ -68,10 +55,7 @@ export function createEnumeratedOptionHelpers(
     return Object.freeze({
         valueSet,
         formatList: () => listLabel,
-        normalize: (
-            value: unknown,
-            fallback: EnumeratedValue | null = null
-        ) => {
+        normalize: (value: unknown, fallback: EnumeratedValue | null = null) => {
             if (value == null) {
                 return fallback;
             }
@@ -79,18 +63,11 @@ export function createEnumeratedOptionHelpers(
                 return fallback;
             }
             const normalized = toNormalizedLowerCaseString(value);
-            return normalized && valueSet.has(normalized)
-                ? normalized
-                : fallback;
+            return normalized && valueSet.has(normalized) ? normalized : fallback;
         },
-        requireValue: (
-            value: unknown,
-            ErrorConstructor: new (message: string) => Error = Error
-        ) => {
+        requireValue: (value: unknown, ErrorConstructor: new (message: string) => Error = Error) => {
             if (enforceStringType && typeof value !== "string") {
-                throw new TypeError(
-                    `${valueLabel} must be provided as a string (received type '${typeof value}').`
-                );
+                throw new TypeError(`${valueLabel} must be provided as a string (received type '${typeof value}').`);
             }
             const normalized = toNormalizedLowerCaseString(value);
             if (normalized && valueSet.has(normalized)) {

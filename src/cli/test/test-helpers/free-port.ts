@@ -11,9 +11,7 @@ export async function findAvailablePort(host = "127.0.0.1"): Promise<number> {
         server.listen(0, host, () => {
             const address = server.address();
             if (!address || typeof address === "string") {
-                server.close(() =>
-                    reject(new Error("Failed to resolve test port."))
-                );
+                server.close(() => reject(new Error("Failed to resolve test port.")));
                 return;
             }
 

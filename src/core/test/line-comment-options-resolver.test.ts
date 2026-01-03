@@ -43,16 +43,11 @@ void describe("line comment options resolver", () => {
         }));
 
         const customResult = resolveLineCommentOptions();
-        assert.ok(
-            customResult.boilerplateFragments.includes("custom fragment")
-        );
+        assert.ok(customResult.boilerplateFragments.includes("custom fragment"));
 
         const restored = restoreDefaultLineCommentOptionsResolver();
         assert.deepEqual(restored, DEFAULT_LINE_COMMENT_OPTIONS);
-        assert.deepEqual(
-            resolveLineCommentOptions(),
-            DEFAULT_LINE_COMMENT_OPTIONS
-        );
+        assert.deepEqual(resolveLineCommentOptions(), DEFAULT_LINE_COMMENT_OPTIONS);
     });
 
     void it("throws when set is called with a non-function", () => {

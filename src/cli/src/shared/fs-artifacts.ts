@@ -51,9 +51,7 @@ export async function writeFileArtifact({
     pathFilter
 }: FileArtifactOptions): Promise<void> {
     if (!isNonEmptyString(outputPath)) {
-        throw new TypeError(
-            "outputPath must be provided to writeFileArtifact."
-        );
+        throw new TypeError("outputPath must be provided to writeFileArtifact.");
     }
 
     const directory = path.dirname(outputPath);

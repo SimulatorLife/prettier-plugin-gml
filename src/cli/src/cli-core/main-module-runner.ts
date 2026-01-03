@@ -18,16 +18,12 @@ export interface RunAsMainModuleOptions {
     /**
      * Factory function that creates the CLI command.
      */
-    createCommand: (options?: {
-        env?: NodeJS.ProcessEnv;
-    }) => CommanderCommandLike;
+    createCommand: (options?: { env?: NodeJS.ProcessEnv }) => CommanderCommandLike;
 
     /**
      * Function that executes the command logic.
      */
-    run: (context: {
-        command: CommanderCommandLike;
-    }) => number | void | Promise<number | void>;
+    run: (context: { command: CommanderCommandLike }) => number | void | Promise<number | void>;
 
     /**
      * Error message prefix for the command (e.g., "Failed to generate Feather metadata.").
@@ -54,9 +50,7 @@ export interface RunAsMainModuleOptions {
  * @returns `true` if the current module is the main module being executed.
  */
 export function isMainModule(importMetaUrl: string): boolean {
-    const resolvedMainPath = process.argv[1]
-        ? path.resolve(process.argv[1])
-        : null;
+    const resolvedMainPath = process.argv[1] ? path.resolve(process.argv[1]) : null;
     const resolvedModulePath = fileURLToPath(importMetaUrl);
     return resolvedMainPath === resolvedModulePath;
 }
@@ -126,9 +120,7 @@ export function runAsMainModule({
         });
 
     const shouldPassOptions = passOptionsToCreateCommand ?? env !== undefined;
-    const command = shouldPassOptions
-        ? createCommand({ env: env ?? process.env })
-        : createCommand();
+    const command = shouldPassOptions ? createCommand({ env: env ?? process.env }) : createCommand();
 
     registry.registerDefaultCommand({
         command,

@@ -57,9 +57,7 @@ const gmlPluginComponentImplementations = Object.freeze(
 );
 
 const gmlPluginComponentDependencies = Object.freeze(
-    createDefaultGmlPluginComponentDependencies(
-        gmlPluginComponentImplementations
-    )
+    createDefaultGmlPluginComponentDependencies(gmlPluginComponentImplementations)
 );
 
 function resolveGmlPluginComponentImplementations(): GmlPluginComponentContract {
@@ -77,7 +75,5 @@ export {
     resolveGmlPluginComponentDependencies
 };
 
-export const defaultGmlPluginComponentImplementations =
-    gmlPluginComponentImplementations;
-export const defaultGmlPluginComponentDependencies =
-    gmlPluginComponentDependencies;
+export const defaultGmlPluginComponentImplementations = gmlPluginComponentImplementations;
+export const defaultGmlPluginComponentDependencies = gmlPluginComponentDependencies;

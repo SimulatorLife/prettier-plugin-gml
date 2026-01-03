@@ -45,10 +45,7 @@ void describe("define normalization spacing", () => {
         const lines = formatted.split("\n");
 
         const utilLineIndex = lines.indexOf("var util = function() {");
-        assert.ok(
-            utilLineIndex !== -1,
-            "Expected the utility assignment to be printed."
-        );
+        assert.ok(utilLineIndex !== -1, "Expected the utility assignment to be printed.");
 
         assert.strictEqual(
             lines[utilLineIndex + 2],

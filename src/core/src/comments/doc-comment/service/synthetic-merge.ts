@@ -1,19 +1,8 @@
-import type {
-    DocCommentLines,
-    MutableDocCommentLines
-} from "../../comment-utils.js";
+import type { DocCommentLines, MutableDocCommentLines } from "../../comment-utils.js";
 import { coercePositiveIntegerOption } from "../../../utils/numeric-options.js";
 import { clamp } from "../../../utils/number.js";
-import {
-    findLastIndex,
-    isNonEmptyArray,
-    toMutableArray
-} from "../../../utils/array.js";
-import {
-    isNonEmptyString,
-    isNonEmptyTrimmedString,
-    toTrimmedString
-} from "../../../utils/string.js";
+import { findLastIndex, isNonEmptyArray, toMutableArray } from "../../../utils/array.js";
+import { isNonEmptyString, isNonEmptyTrimmedString, toTrimmedString } from "../../../utils/string.js";
 import { parseDocCommentMetadata } from "./metadata.js";
 import {
     dedupeReturnDocLines,
@@ -22,10 +11,7 @@ import {
     promoteLeadingDocCommentTextToDescription,
     hasLegacyReturnsDescriptionLines
 } from "./legacy.js";
-import {
-    normalizeDocCommentTypeAnnotations,
-    normalizeGameMakerType
-} from "./type-normalization.js";
+import { normalizeDocCommentTypeAnnotations, normalizeGameMakerType } from "./type-normalization.js";
 import {
     collectImplicitArgumentDocNames,
     getParameterDocInfo,
@@ -52,9 +38,7 @@ function getDocCommentSuffix(trimmedLine: string): string | null {
     return null;
 }
 
-function hasMultiLineDocCommentSummary(
-    docLines: DocCommentLines | string[]
-): boolean {
+function hasMultiLineDocCommentSummary(docLines: DocCommentLines | string[]): boolean {
     if (!Array.isArray(docLines)) {
         return false;
     }
@@ -71,14 +55,12 @@ function hasMultiLineDocCommentSummary(
             continue;
         }
 
-        const isDocLikeSummary =
-            trimmed.startsWith("///") || /^\s*\/\/\s*\/\s*/.test(trimmed);
+        const isDocLikeSummary = trimmed.startsWith("///") || /^\s*\/\/\s*\/\s*/.test(trimmed);
         if (!isDocLikeSummary) {
             break;
         }
 
-        const isTaggedLine =
-            /^\/\/\/\s*@/i.test(trimmed) || /^\/\/\s*\/\s*@/i.test(trimmed);
+        const isTaggedLine = /^\/\/\/\s*@/i.test(trimmed) || /^\/\/\s*\/\s*@/i.test(trimmed);
         if (isTaggedLine) {
             break;
         }
@@ -120,9 +102,7 @@ export function mergeSyntheticDocComments(
     }
     const originalExistingHasTags =
         Array.isArray(existingDocLines) &&
-        existingDocLines.some((line) =>
-            typeof line === STRING_TYPE ? parseDocCommentMetadata(line) : false
-        );
+        existingDocLines.some((line) => (typeof line === STRING_TYPE ? parseDocCommentMetadata(line) : false));
     const originalHasDeprecatedTag =
         Array.isArray(existingDocLines) &&
         existingDocLines.some((line) => {
@@ -131,19 +111,13 @@ export function mergeSyntheticDocComments(
             }
 
             const metadata = parseDocCommentMetadata(line);
-            return (
-                metadata &&
-                typeof metadata.tag === STRING_TYPE &&
-                metadata.tag.toLowerCase() === "deprecated"
-            );
+            return metadata && typeof metadata.tag === STRING_TYPE && metadata.tag.toLowerCase() === "deprecated";
         });
 
     // Compute synthetic lines early so promotion can consider synthetic tags
     // such as `/// @function` when deciding whether the file-top doc-like
     // comment text should be promoted into `@description` metadata.
-    let preserveDescriptionBreaks =
-        (existingDocLines as DocCommentLines)._preserveDescriptionBreaks ===
-        true;
+    let preserveDescriptionBreaks = (existingDocLines as DocCommentLines)._preserveDescriptionBreaks === true;
 
     normalizedExistingLines = toMutableArray(
         reorderDescriptionLinesToTop(normalizedExistingLines)
@@ -153,9 +127,7 @@ export function mergeSyntheticDocComments(
         normalizedExistingLines._preserveDescriptionBreaks = true;
     }
     const dedupedResult = dedupeReturnDocLines(normalizedExistingLines);
-    normalizedExistingLines = toMutableArray(
-        dedupedResult.lines
-    ) as MutableDocCommentLines;
+    normalizedExistingLines = toMutableArray(dedupedResult.lines) as MutableDocCommentLines;
     const removedExistingReturnDuplicates = dedupedResult.removed;
 
     if (preserveDescriptionBreaks) {
@@ -169,20 +141,12 @@ export function mergeSyntheticDocComments(
     // overwritten or duplicated by a synthetic `@returns` later in the
     // merging process.
     normalizedExistingLines = toMutableArray(
-        convertLegacyReturnsDescriptionLinesToMetadata(
-            normalizedExistingLines,
-            {
-                normalizeDocCommentTypeAnnotations: normalizeGameMakerType
-            }
-        )
+        convertLegacyReturnsDescriptionLinesToMetadata(normalizedExistingLines, {
+            normalizeDocCommentTypeAnnotations: normalizeGameMakerType
+        })
     ) as MutableDocCommentLines;
 
-    const _computedSynthetic = computeSyntheticFunctionDocLines(
-        node,
-        normalizedExistingLines,
-        options,
-        overrides
-    );
+    const _computedSynthetic = computeSyntheticFunctionDocLines(node, normalizedExistingLines, options, overrides);
 
     // Only promote leading doc comment text to @description if the original
     // set contained tags (e.g., `@param`), used an alternate doc-like prefix
@@ -192,26 +156,20 @@ export function mergeSyntheticDocComments(
     // multi-line narratives.
     const originalExistingHasDocLikePrefixes =
         Array.isArray(existingDocLines) &&
-        existingDocLines.some((line) =>
-            typeof line === STRING_TYPE ? /^\s*\/\/\s*\/\s*/.test(line) : false
-        );
+        existingDocLines.some((line) => (typeof line === STRING_TYPE ? /^\s*\/\/\s*\/\s*/.test(line) : false));
     const hasMultiLineSummary = hasMultiLineDocCommentSummary(existingDocLines);
 
-    ({ normalizedExistingLines, preserveDescriptionBreaks } =
-        applyDocCommentPromotionIfNeeded({
-            normalizedExistingLines,
-            preserveDescriptionBreaks,
-            syntheticLines: _computedSynthetic,
-            originalExistingHasTags,
-            originalExistingHasDocLikePrefixes,
-            hasMultiLineSummary
-        }));
+    ({ normalizedExistingLines, preserveDescriptionBreaks } = applyDocCommentPromotionIfNeeded({
+        normalizedExistingLines,
+        preserveDescriptionBreaks,
+        syntheticLines: _computedSynthetic,
+        originalExistingHasTags,
+        originalExistingHasDocLikePrefixes,
+        hasMultiLineSummary
+    }));
 
-    const syntheticLinesSource =
-        reorderDescriptionLinesToTop(_computedSynthetic);
-    const syntheticLines = toMutableArray(
-        syntheticLinesSource
-    ) as MutableDocCommentLines;
+    const syntheticLinesSource = reorderDescriptionLinesToTop(_computedSynthetic);
+    const syntheticLines = toMutableArray(syntheticLinesSource) as MutableDocCommentLines;
 
     if ((syntheticLinesSource as any)?._preserveDescriptionBreaks === true) {
         syntheticLines._preserveDescriptionBreaks = true;
@@ -227,9 +185,7 @@ export function mergeSyntheticDocComments(
         node?.type === "FunctionExpression"
             ? collectImplicitArgumentDocNames(node, options)
             : [];
-    const declaredParamCount = Array.isArray(node?.params)
-        ? node.params.length
-        : 0;
+    const declaredParamCount = Array.isArray(node?.params) ? node.params.length : 0;
     const hasImplicitDocEntries = implicitDocEntries.length > 0;
     const hasParamDocLines = normalizedExistingLines.some((line) => {
         if (typeof line !== STRING_TYPE) {
@@ -238,8 +194,7 @@ export function mergeSyntheticDocComments(
 
         return /^\/\/\/\s*@param\b/i.test(toTrimmedString(line));
     });
-    const shouldForceParamPrune =
-        hasParamDocLines && declaredParamCount === 0 && !hasImplicitDocEntries;
+    const shouldForceParamPrune = hasParamDocLines && declaredParamCount === 0 && !hasImplicitDocEntries;
 
     const earlyReturn = attemptEarlyReturnOnSynthetic({
         syntheticLines,
@@ -260,13 +215,7 @@ export function mergeSyntheticDocComments(
         originalExistingHasTags,
         removedExistingReturnDuplicates
     });
-    let {
-        result,
-        otherLines,
-        returnsLines,
-        removedAnyLine,
-        syntheticFunctionName
-    } = mergeResult;
+    let { result, otherLines, returnsLines, removedAnyLine, syntheticFunctionName } = mergeResult;
 
     // Propagate the _preserveDescriptionBreaks flag from normalizedExistingLines to result
     if ((normalizedExistingLines as any)?._preserveDescriptionBreaks === true) {
@@ -299,9 +248,7 @@ export function mergeSyntheticDocComments(
         syntheticFunctionName
     });
 
-    reorderedDocs = toMutableArray(
-        reorderDescriptionLinesToTop(reorderedDocs)
-    ) as MutableDocCommentLines;
+    reorderedDocs = toMutableArray(reorderDescriptionLinesToTop(reorderedDocs)) as MutableDocCommentLines;
 
     reorderedDocs = reorderedDocs.filter((line) => {
         if (typeof line !== STRING_TYPE) {
@@ -313,8 +260,7 @@ export function mergeSyntheticDocComments(
         }
 
         const metadata = parseDocCommentMetadata(line);
-        const descriptionText =
-            typeof metadata?.name === STRING_TYPE ? metadata.name.trim() : "";
+        const descriptionText = typeof metadata?.name === STRING_TYPE ? metadata.name.trim() : "";
 
         return descriptionText.length > 0;
     }) as MutableDocCommentLines;
@@ -335,9 +281,7 @@ export function mergeSyntheticDocComments(
             return line;
         }
 
-        const match = line.match(
-            /^(\/\/\/\s*@param\s*)((?:\{[^}]*\}|<[^>]*>)\s*)?(.*)$/i
-        );
+        const match = line.match(/^(\/\/\/\s*@param\s*)((?:\{[^}]*\}|<[^>]*>)\s*)?(.*)$/i);
         if (!match) {
             return normalizeDocCommentTypeAnnotations(line);
         }
@@ -351,27 +295,16 @@ export function mergeSyntheticDocComments(
         const { name: rawName, remainder } = nameSplit;
         const normalizedPrefix = `${prefix.replace(/\s*$/, "")} `;
         let normalizedTypeSection = rawTypeSection.trim();
-        if (
-            normalizedTypeSection.startsWith("{") &&
-            normalizedTypeSection.endsWith("}")
-        ) {
+        if (normalizedTypeSection.startsWith("{") && normalizedTypeSection.endsWith("}")) {
             const innerType = normalizedTypeSection.slice(1, -1);
-            const normalizedInner = normalizeGameMakerType(
-                innerType.replaceAll("|", ",")
-            );
+            const normalizedInner = normalizeGameMakerType(innerType.replaceAll("|", ","));
             normalizedTypeSection = `{${normalizedInner}}`;
-        } else if (
-            normalizedTypeSection.startsWith("<") &&
-            normalizedTypeSection.endsWith(">")
-        ) {
+        } else if (normalizedTypeSection.startsWith("<") && normalizedTypeSection.endsWith(">")) {
             const innerType = normalizedTypeSection.slice(1, -1);
-            const normalizedInner = normalizeGameMakerType(
-                innerType.replaceAll("|", ",")
-            );
+            const normalizedInner = normalizeGameMakerType(innerType.replaceAll("|", ","));
             normalizedTypeSection = `{${normalizedInner}}`;
         }
-        const typePart =
-            normalizedTypeSection.length > 0 ? `${normalizedTypeSection} ` : "";
+        const typePart = normalizedTypeSection.length > 0 ? `${normalizedTypeSection} ` : "";
         const normalizedName = rawName.trim();
         const remainingRemainder = remainder;
 
@@ -449,32 +382,17 @@ export function mergeSyntheticDocComments(
         // so synthetic tags do not cause unwanted `@description` promotions.
         const originalExistingHasTags =
             Array.isArray(existingDocLines) &&
-            existingDocLines.some((line) =>
-                typeof line === STRING_TYPE
-                    ? parseDocCommentMetadata(line)
-                    : false
-            );
+            existingDocLines.some((line) => (typeof line === STRING_TYPE ? parseDocCommentMetadata(line) : false));
         const originalExistingHasDocLikePrefixes =
             Array.isArray(existingDocLines) &&
-            existingDocLines.some((line) =>
-                typeof line === STRING_TYPE
-                    ? /^\s*\/\/\s*\/\s*/.test(line)
-                    : false
-            );
+            existingDocLines.some((line) => (typeof line === STRING_TYPE ? /^\s*\/\/\s*\/\s*/.test(line) : false));
 
         const hasDescriptionTag = filteredResult.some(
-            (line) =>
-                typeof line === STRING_TYPE &&
-                /^\/\/\/\s*@description\b/i.test(line.trim())
+            (line) => typeof line === STRING_TYPE && /^\/\/\/\s*@description\b/i.test(line.trim())
         );
 
-        if (
-            (originalExistingHasTags || originalExistingHasDocLikePrefixes) &&
-            !hasDescriptionTag
-        ) {
-            filteredResult = toMutableArray(
-                promoteLeadingDocCommentTextToDescription(filteredResult)
-            );
+        if ((originalExistingHasTags || originalExistingHasDocLikePrefixes) && !hasDescriptionTag) {
+            filteredResult = toMutableArray(promoteLeadingDocCommentTextToDescription(filteredResult));
         }
     } catch {
         // If the Core service is unavailable (testing contexts), fall back to
@@ -488,23 +406,12 @@ export function mergeSyntheticDocComments(
     try {
         const originalHasPlainSummary =
             Array.isArray(existingDocLines) &&
-            existingDocLines.some((l) =>
-                typeof l === STRING_TYPE
-                    ? /^\/\/\/\s*(?!@).+/.test(l.trim())
-                    : false
-            );
+            existingDocLines.some((l) => (typeof l === STRING_TYPE ? /^\/\/\/\s*(?!@).+/.test(l.trim()) : false));
         const originalHasTags =
             Array.isArray(existingDocLines) &&
-            existingDocLines.some((l) =>
-                typeof l === STRING_TYPE ? parseDocCommentMetadata(l) : false
-            );
-        const hasMultiLineSummary =
-            hasMultiLineDocCommentSummary(existingDocLines);
-        if (
-            originalHasPlainSummary &&
-            !originalHasTags &&
-            !hasMultiLineSummary
-        ) {
+            existingDocLines.some((l) => (typeof l === STRING_TYPE ? parseDocCommentMetadata(l) : false));
+        const hasMultiLineSummary = hasMultiLineDocCommentSummary(existingDocLines);
+        if (originalHasPlainSummary && !originalHasTags && !hasMultiLineSummary) {
             const summaryLines = [] as string[];
             const otherLines = [] as string[];
 
@@ -512,8 +419,7 @@ export function mergeSyntheticDocComments(
                 if (typeof ln !== STRING_TYPE) continue;
                 if (/^\/\/\/\s*@description\b/i.test(ln.trim())) {
                     const meta = parseDocCommentMetadata(ln);
-                    const descriptionText =
-                        typeof meta?.name === STRING_TYPE ? meta.name : "";
+                    const descriptionText = typeof meta?.name === STRING_TYPE ? meta.name : "";
                     summaryLines.push(`/// ${descriptionText}`);
                     continue;
                 }
@@ -533,20 +439,15 @@ export function mergeSyntheticDocComments(
                 // Ensure a blank separator between summary block and synthetic metadata
                 const combined = [...summaryLines, "", ...otherLines];
 
-                filteredResult = toMutableArray(
-                    combined as any
-                ) as MutableDocCommentLines;
+                filteredResult = toMutableArray(combined as any) as MutableDocCommentLines;
             }
         }
     } catch {
         // Best-effort fallback; do not throw on diagnostic operations
     }
-    const convertedResult = convertLegacyReturnsDescriptionLinesToMetadata(
-        filteredResult,
-        {
-            normalizeDocCommentTypeAnnotations: normalizeGameMakerType
-        }
-    );
+    const convertedResult = convertLegacyReturnsDescriptionLinesToMetadata(filteredResult, {
+        normalizeDocCommentTypeAnnotations: normalizeGameMakerType
+    });
 
     const prunedConvertedResult = convertedResult.filter((line) => {
         if (typeof line !== STRING_TYPE) {
@@ -558,16 +459,13 @@ export function mergeSyntheticDocComments(
         }
 
         const metadata = parseDocCommentMetadata(line);
-        const descriptionText =
-            typeof metadata?.name === STRING_TYPE ? metadata.name.trim() : "";
+        const descriptionText = typeof metadata?.name === STRING_TYPE ? metadata.name.trim() : "";
 
         return descriptionText.length > 0;
     });
 
     // Check for missing continuation lines
-    const finalResult = toMutableArray(
-        prunedConvertedResult
-    ) as MutableDocCommentLines;
+    const finalResult = toMutableArray(prunedConvertedResult) as MutableDocCommentLines;
     if (preserveDescriptionBreaks) {
         (finalResult as any)._preserveDescriptionBreaks = true;
     }
@@ -597,10 +495,7 @@ function integrateReturnAndFunctionLines({
             let removedExistingReturns = false;
 
             for (const line of result) {
-                if (
-                    typeof line === STRING_TYPE &&
-                    /^\/\/\/\s*@returns\b/i.test(toTrimmedString(line))
-                ) {
+                if (typeof line === STRING_TYPE && /^\/\/\/\s*@returns\b/i.test(toTrimmedString(line))) {
                     removedExistingReturns = true;
                     continue;
                 }
@@ -646,12 +541,8 @@ function integrateReturnAndFunctionLines({
     if (functionIndex > 0) {
         const [functionLine] = result.splice(functionIndex, 1);
 
-        const ignoreIndex = result.findIndex((line) =>
-            docTagHelpers.docTagMatches(line, /^\/\/\/\s*@ignore\b/i)
-        );
-        const overrideIndex = result.findIndex((line) =>
-            docTagHelpers.docTagMatches(line, /^\/\/\/\s*@override\b/i)
-        );
+        const ignoreIndex = result.findIndex((line) => docTagHelpers.docTagMatches(line, /^\/\/\/\s*@ignore\b/i));
+        const overrideIndex = result.findIndex((line) => docTagHelpers.docTagMatches(line, /^\/\/\/\s*@override\b/i));
 
         if (ignoreIndex === 0) {
             result.splice(1, 0, functionLine);
@@ -676,18 +567,11 @@ function integrateReturnAndFunctionLines({
 
         if (functionLines.length > 0) {
             const isDeprecatedLine = (line: unknown) =>
-                typeof line === STRING_TYPE &&
-                /^\/\/\/\s*@deprecated\b/i.test(toTrimmedString(line));
-            const deprecatedIndex = findLastIndex(
-                remainingLines,
-                isDeprecatedLine
-            );
+                typeof line === STRING_TYPE && /^\/\/\/\s*@deprecated\b/i.test(toTrimmedString(line));
+            const deprecatedIndex = findLastIndex(remainingLines, isDeprecatedLine);
             if (deprecatedIndex !== -1) {
                 const insertIndex = deprecatedIndex + 1;
-                while (
-                    insertIndex < remainingLines.length &&
-                    remainingLines[insertIndex] === ""
-                ) {
+                while (insertIndex < remainingLines.length && remainingLines[insertIndex] === "") {
                     remainingLines.splice(insertIndex, 1);
                 }
 
@@ -793,9 +677,7 @@ function reorderParamDocLines({
         }
     }
 
-    const resolveDocLineFromCandidates = (
-        candidates: Array<string | null>
-    ): string | null => {
+    const resolveDocLineFromCandidates = (candidates: Array<string | null>): string | null => {
         for (const candidate of candidates) {
             if (!candidate) {
                 continue;
@@ -812,8 +694,7 @@ function reorderParamDocLines({
     };
 
     const getEntryNameCanonical = (entry: ImplicitArgumentDocEntry | null) => {
-        const entryName =
-            entry && typeof entry.name === STRING_TYPE ? entry.name : null;
+        const entryName = entry && typeof entry.name === STRING_TYPE ? entry.name : null;
         return entryName ? getCanonicalParamNameFromText(entryName) : null;
     };
 
@@ -839,8 +720,7 @@ function reorderParamDocLines({
 
             const directReferenceExists = implicitDocEntries.some((entry) => {
                 if (!entry) return false;
-                const key =
-                    entry.canonical || entry.fallbackCanonical || entry.name;
+                const key = entry.canonical || entry.fallbackCanonical || entry.name;
                 if (!key) return false;
                 return key === canonical && entry.hasDirectReference === true;
             });
@@ -874,12 +754,9 @@ function reorderParamDocLines({
     if (Array.isArray(node.params)) {
         for (const [paramIndex, param] of node.params.entries()) {
             const paramInfo = getParameterDocInfo(param, node, options);
-            const canonical = paramInfo?.name
-                ? getCanonicalParamNameFromText(paramInfo.name)
-                : null;
+            const canonical = paramInfo?.name ? getCanonicalParamNameFromText(paramInfo.name) : null;
 
-            const implicitEntry =
-                implicitEntriesByIndex.get(paramIndex) ?? null;
+            const implicitEntry = implicitEntriesByIndex.get(paramIndex) ?? null;
             const docLine = resolveDocLineFromCandidates([
                 canonical,
                 getEntryNameCanonical(implicitEntry),
@@ -907,9 +784,7 @@ function reorderParamDocLines({
     }
 
     const shouldDropRemainingParamDocs =
-        !hasImplicitDocEntries &&
-        declaredParamCount === 0 &&
-        paramDocsByCanonical.size > 0;
+        !hasImplicitDocEntries && declaredParamCount === 0 && paramDocsByCanonical.size > 0;
 
     if (!shouldDropRemainingParamDocs) {
         for (const doc of paramDocsByCanonical.values()) {
@@ -989,13 +864,8 @@ function reorderDocLines({
         for (const [index, param] of node.params.entries()) {
             const implicitEntry = implicitEntryByIndex.get(index);
             if (implicitEntry) {
-                const implicitCanonical =
-                    implicitEntry.canonical ||
-                    getCanonicalParamNameFromText(implicitEntry.name);
-                if (
-                    implicitCanonical &&
-                    docsByCanonical.has(implicitCanonical)
-                ) {
+                const implicitCanonical = implicitEntry.canonical || getCanonicalParamNameFromText(implicitEntry.name);
+                if (implicitCanonical && docsByCanonical.has(implicitCanonical)) {
                     const docLine = docsByCanonical.get(implicitCanonical);
                     if (docLine) {
                         reordered.push(docLine);
@@ -1007,12 +877,8 @@ function reorderDocLines({
 
             const preferredName = preferredDocs?.get(index);
             if (preferredName) {
-                const preferredCanonical =
-                    getCanonicalParamNameFromText(preferredName);
-                if (
-                    preferredCanonical &&
-                    docsByCanonical.has(preferredCanonical)
-                ) {
+                const preferredCanonical = getCanonicalParamNameFromText(preferredName);
+                if (preferredCanonical && docsByCanonical.has(preferredCanonical)) {
                     const docLine = docsByCanonical.get(preferredCanonical);
                     if (docLine) {
                         reordered.push(docLine);
@@ -1023,9 +889,7 @@ function reorderDocLines({
             }
 
             const paramInfo = getParameterDocInfo(param, node, options);
-            const paramCanonical = paramInfo?.name
-                ? getCanonicalParamNameFromText(paramInfo.name)
-                : null;
+            const paramCanonical = paramInfo?.name ? getCanonicalParamNameFromText(paramInfo.name) : null;
             if (paramCanonical && docsByCanonical.has(paramCanonical)) {
                 const docLine = docsByCanonical.get(paramCanonical);
                 if (docLine) {
@@ -1053,11 +917,7 @@ export function shouldGenerateSyntheticDocForFunction(
 ): boolean {
     const node = path.getValue();
     const parent = path.getParentNode();
-    if (
-        !node ||
-        !parent ||
-        (parent.type !== "Program" && parent.type !== "BlockStatement")
-    ) {
+    if (!node || !parent || (parent.type !== "Program" && parent.type !== "BlockStatement")) {
         return false;
     }
 
@@ -1065,22 +925,14 @@ export function shouldGenerateSyntheticDocForFunction(
         return true;
     }
 
-    if (
-        node.type !== "FunctionDeclaration" &&
-        node.type !== "StructFunctionDeclaration"
-    ) {
+    if (node.type !== "FunctionDeclaration" && node.type !== "StructFunctionDeclaration") {
         return false;
     }
 
-    const convertedExistingForSynthetic =
-        convertLegacyReturnsDescriptionLinesToMetadata(existingDocLines, {
-            normalizeDocCommentTypeAnnotations: normalizeGameMakerType
-        });
-    const syntheticLines = computeSyntheticFunctionDocLines(
-        node,
-        convertedExistingForSynthetic,
-        options
-    );
+    const convertedExistingForSynthetic = convertLegacyReturnsDescriptionLinesToMetadata(existingDocLines, {
+        normalizeDocCommentTypeAnnotations: normalizeGameMakerType
+    });
+    const syntheticLines = computeSyntheticFunctionDocLines(node, convertedExistingForSynthetic, options);
 
     if (syntheticLines.length > 0) {
         return true;
@@ -1104,19 +956,11 @@ export function shouldGenerateSyntheticDocForFunction(
     });
 
     if (hasParamDocLines) {
-        const declaredParamCount = Array.isArray(node.params)
-            ? node.params.length
-            : 0;
+        const declaredParamCount = Array.isArray(node.params) ? node.params.length : 0;
         let hasImplicitDocEntries = false;
 
-        if (
-            node.type === "FunctionDeclaration" ||
-            node.type === "StructFunctionDeclaration"
-        ) {
-            const implicitEntries = collectImplicitArgumentDocNames(
-                node,
-                options
-            );
+        if (node.type === "FunctionDeclaration" || node.type === "StructFunctionDeclaration") {
+            const implicitEntries = collectImplicitArgumentDocNames(node, options);
             hasImplicitDocEntries = implicitEntries.length > 0;
         }
 
@@ -1168,19 +1012,12 @@ function createDocTagHelpers() {
         return pattern.test(trimmed);
     };
 
-    const isFunctionLine = (line: unknown) =>
-        docTagMatches(line, /^\/\/\/\s*@function\b/i);
-    const isOverrideLine = (line: unknown) =>
-        docTagMatches(line, /^\/\/\/\s*@override\b/i);
-    const isParamLine = (line: unknown) =>
-        docTagMatches(line, /^\/\/\/\s*@param\b/i);
-    const isDescriptionLine = (line: unknown) =>
-        docTagMatches(line, /^\/\/\/\s*@description\b/i);
+    const isFunctionLine = (line: unknown) => docTagMatches(line, /^\/\/\/\s*@function\b/i);
+    const isOverrideLine = (line: unknown) => docTagMatches(line, /^\/\/\/\s*@override\b/i);
+    const isParamLine = (line: unknown) => docTagMatches(line, /^\/\/\/\s*@param\b/i);
+    const isDescriptionLine = (line: unknown) => docTagMatches(line, /^\/\/\/\s*@description\b/i);
 
-    const getParamCanonicalName = (
-        line: unknown,
-        metadata?: ReturnType<typeof parseDocCommentMetadata>
-    ) => {
+    const getParamCanonicalName = (line: unknown, metadata?: ReturnType<typeof parseDocCommentMetadata>) => {
         if (typeof line !== STRING_TYPE) {
             return null;
         }
@@ -1189,12 +1026,8 @@ function createDocTagHelpers() {
             return paramCanonicalNameCache.get(line);
         }
 
-        const docMetadata =
-            metadata === undefined ? parseDocCommentMetadata(line) : metadata;
-        const canonical =
-            docMetadata?.tag === "param"
-                ? getCanonicalParamNameFromText(docMetadata.name)
-                : null;
+        const docMetadata = metadata === undefined ? parseDocCommentMetadata(line) : metadata;
+        const canonical = docMetadata?.tag === "param" ? getCanonicalParamNameFromText(docMetadata.name) : null;
 
         paramCanonicalNameCache.set(line, canonical);
         return canonical;
@@ -1221,9 +1054,7 @@ function reorderDescriptionBlock({
     docTagHelpers,
     syntheticFunctionName
 }: ReorderDescriptionBlockParams): MutableDocCommentLines {
-    const descriptionStartIndex = docs.findIndex(
-        docTagHelpers.isDescriptionLine
-    );
+    const descriptionStartIndex = docs.findIndex(docTagHelpers.isDescriptionLine);
     if (descriptionStartIndex === -1) {
         return docs;
     }
@@ -1238,41 +1069,24 @@ function reorderDescriptionBlock({
         descriptionEndIndex += 1;
     }
 
-    const descriptionBlock = docs.slice(
-        descriptionStartIndex,
-        descriptionEndIndex
-    );
-    const docsWithoutDescription = [
-        ...docs.slice(0, descriptionStartIndex),
-        ...docs.slice(descriptionEndIndex)
-    ];
+    const descriptionBlock = docs.slice(descriptionStartIndex, descriptionEndIndex);
+    const docsWithoutDescription = [...docs.slice(0, descriptionStartIndex), ...docs.slice(descriptionEndIndex)];
 
-    const descriptionLine = descriptionBlock.find(
-        docTagHelpers.isDescriptionLine
-    );
+    const descriptionLine = descriptionBlock.find(docTagHelpers.isDescriptionLine);
     if (!descriptionLine) {
         return docs;
     }
 
     const descriptionMetadata = parseDocCommentMetadata(descriptionLine);
-    const descriptionText =
-        typeof descriptionMetadata?.name === STRING_TYPE
-            ? descriptionMetadata.name.trim()
-            : "";
+    const descriptionText = typeof descriptionMetadata?.name === STRING_TYPE ? descriptionMetadata.name.trim() : "";
 
     let shouldOmitDescriptionBlock = false;
     if (descriptionText.length === 0) {
         shouldOmitDescriptionBlock = true;
-    } else if (
-        syntheticFunctionName &&
-        descriptionText.startsWith(syntheticFunctionName)
-    ) {
+    } else if (syntheticFunctionName && descriptionText.startsWith(syntheticFunctionName)) {
         const remainder = descriptionText.slice(syntheticFunctionName.length);
         const trimmedRemainder = remainder.trim();
-        if (
-            trimmedRemainder.startsWith("(") &&
-            trimmedRemainder.endsWith(")")
-        ) {
+        if (trimmedRemainder.startsWith("(") && trimmedRemainder.endsWith(")")) {
             shouldOmitDescriptionBlock = true;
         }
     }
@@ -1294,8 +1108,7 @@ function reorderDescriptionBlock({
         }
     }
 
-    const insertionIndex =
-        firstTagIndex === -1 ? docsWithoutDescription.length : firstTagIndex;
+    const insertionIndex = firstTagIndex === -1 ? docsWithoutDescription.length : firstTagIndex;
 
     const result = [
         ...docsWithoutDescription.slice(0, insertionIndex),
@@ -1323,25 +1136,16 @@ function finalizeDescriptionBlocks({
     preserveDescriptionBreaks,
     options
 }: FinalizeDescriptionBlocksParams): MutableDocCommentLines {
-    const shouldPreserve =
-        preserveDescriptionBreaks ||
-        (docs as any)?._preserveDescriptionBreaks === true;
+    const shouldPreserve = preserveDescriptionBreaks || (docs as any)?._preserveDescriptionBreaks === true;
     if (shouldPreserve) {
         return docs;
     }
 
     const wrappedDocs = [];
-    const normalizedPrintWidth = coercePositiveIntegerOption(
-        options?.printWidth,
-        120
-    );
+    const normalizedPrintWidth = coercePositiveIntegerOption(options?.printWidth, 120);
     const wrapWidth = normalizedPrintWidth;
 
-    const wrapSegments = (
-        text: string,
-        firstAvailable: number,
-        continuationAvailable: number
-    ) => {
+    const wrapSegments = (text: string, firstAvailable: number, continuationAvailable: number) => {
         if (firstAvailable <= 0) {
             return [text];
         }
@@ -1364,8 +1168,7 @@ function finalizeDescriptionBlocks({
                 endsSentence &&
                 startsSentence &&
                 currentAvailable >= 60 &&
-                current.length >=
-                    Math.max(Math.floor(currentAvailable * 0.6), 24)
+                current.length >= Math.max(Math.floor(currentAvailable * 0.6), 24)
             ) {
                 segments.push(current);
                 current = word;
@@ -1387,14 +1190,10 @@ function finalizeDescriptionBlocks({
         const lastIndex = segments.length - 1;
         if (lastIndex >= 2) {
             const lastSegment = segments[lastIndex];
-            const isSingleWord =
-                typeof lastSegment === STRING_TYPE && !/\s/.test(lastSegment);
+            const isSingleWord = typeof lastSegment === STRING_TYPE && !/\s/.test(lastSegment);
 
             if (isSingleWord) {
-                const maxSingleWordLength = Math.max(
-                    Math.min(continuationAvailable / 2, 16),
-                    8
-                );
+                const maxSingleWordLength = Math.max(Math.min(continuationAvailable / 2, 16), 8);
 
                 if (lastSegment.length <= maxSingleWordLength) {
                     const penultimateIndex = lastIndex - 1;
@@ -1465,11 +1264,7 @@ function finalizeDescriptionBlocks({
 
             const available = Math.max(wrapWidth - prefix.length, 16);
             const continuationAvailable = clamp(available, 16, 62);
-            const segments = wrapSegments(
-                descriptionText,
-                available,
-                continuationAvailable
-            );
+            const segments = wrapSegments(descriptionText, available, continuationAvailable);
 
             if (segments.length === 0) {
                 wrappedDocs.push(...blockLines);
@@ -1477,14 +1272,8 @@ function finalizeDescriptionBlocks({
             }
 
             wrappedDocs.push(`${prefix}${segments[0]}`);
-            for (
-                let segmentIndex = 1;
-                segmentIndex < segments.length;
-                segmentIndex += 1
-            ) {
-                wrappedDocs.push(
-                    `${continuationPrefix}${segments[segmentIndex]}`
-                );
+            for (let segmentIndex = 1; segmentIndex < segments.length; segmentIndex += 1) {
+                wrappedDocs.push(`${continuationPrefix}${segments[segmentIndex]}`);
             }
             continue;
         }
@@ -1510,9 +1299,7 @@ function finalizeDescriptionBlocks({
             index = lookahead - 1;
 
             const trimmedLine = line.trim();
-            const match = trimmedLine.match(
-                /^(\/\/\/\s*@param\s*)((?:\{[^}]*\}|<[^>]*>)\s*)?(.*)$/i
-            );
+            const match = trimmedLine.match(/^(\/\/\/\s*@param\s*)((?:\{[^}]*\}|<[^>]*>)\s*)?(.*)$/i);
             if (!match) {
                 wrappedDocs.push(...blockLines);
                 continue;
@@ -1521,10 +1308,7 @@ function finalizeDescriptionBlocks({
             const [, prefixBase, rawTypeSection = "", remainder = ""] = match;
             const normalizedPrefix = `${prefixBase.replace(/\s*$/, "")} `;
             const normalizedTypeSection = rawTypeSection.trim();
-            const typePart =
-                normalizedTypeSection.length > 0
-                    ? `${normalizedTypeSection} `
-                    : "";
+            const typePart = normalizedTypeSection.length > 0 ? `${normalizedTypeSection} ` : "";
 
             const nameSplit = splitParamNameAndRemainder(remainder);
             if (!nameSplit) {
@@ -1532,8 +1316,7 @@ function finalizeDescriptionBlocks({
                 continue;
             }
 
-            const { name: rawName, remainder: descriptionRemainder } =
-                nameSplit;
+            const { name: rawName, remainder: descriptionRemainder } = nameSplit;
             const normalizedName = rawName.trim();
             const prefixCore = `${normalizedPrefix}${typePart}${normalizedName}`;
             const prefix = `${prefixCore} `;
@@ -1544,17 +1327,11 @@ function finalizeDescriptionBlocks({
                 continue;
             }
 
-            const continuationPrefix = `/// ${" ".repeat(
-                Math.max(prefixCore.length - 4, 0)
-            )}`;
+            const continuationPrefix = `/// ${" ".repeat(Math.max(prefixCore.length - 4, 0))}`;
 
             const available = Math.max(wrapWidth - prefix.length, 16);
             const continuationAvailable = clamp(available, 16, 62);
-            const segments = wrapSegments(
-                descriptionText,
-                available,
-                continuationAvailable
-            );
+            const segments = wrapSegments(descriptionText, available, continuationAvailable);
 
             if (segments.length === 0) {
                 wrappedDocs.push(...blockLines);
@@ -1567,14 +1344,8 @@ function finalizeDescriptionBlocks({
             }
 
             wrappedDocs.push(`${prefix}${segments[0]}`);
-            for (
-                let segmentIndex = 1;
-                segmentIndex < segments.length;
-                segmentIndex += 1
-            ) {
-                wrappedDocs.push(
-                    `${continuationPrefix}${segments[segmentIndex]}`
-                );
+            for (let segmentIndex = 1; segmentIndex < segments.length; segmentIndex += 1) {
+                wrappedDocs.push(`${continuationPrefix}${segments[segmentIndex]}`);
             }
             continue;
         }
@@ -1592,27 +1363,15 @@ function mergeDocLines({
     originalExistingHasTags,
     removedExistingReturnDuplicates
 }: MergeDocLinesParams) {
-    const {
-        isFunctionLine,
-        isOverrideLine,
-        isParamLine,
-        getParamCanonicalName
-    } = docTagHelpers;
+    const { isFunctionLine, isOverrideLine, isParamLine, getParamCanonicalName } = docTagHelpers;
 
     const functionLines = syntheticLines.filter(isFunctionLine);
     const syntheticFunctionMetadata = functionLines
         .map((line) => parseDocCommentMetadata(line))
-        .find(
-            (meta) =>
-                meta?.tag === "function" && typeof meta.name === STRING_TYPE
-        );
+        .find((meta) => meta?.tag === "function" && typeof meta.name === STRING_TYPE);
     const syntheticFunctionName =
-        typeof syntheticFunctionMetadata?.name === STRING_TYPE
-            ? syntheticFunctionMetadata.name.trim()
-            : null;
-    let otherLines = syntheticLines.filter(
-        (line) => !isFunctionLine(line)
-    ) as MutableDocCommentLines;
+        typeof syntheticFunctionMetadata?.name === STRING_TYPE ? syntheticFunctionMetadata.name.trim() : null;
+    let otherLines = syntheticLines.filter((line) => !isFunctionLine(line)) as MutableDocCommentLines;
     const overrideLines = otherLines.filter(isOverrideLine);
     otherLines = otherLines.filter((line) => !isOverrideLine(line));
     let returnsLines;
@@ -1667,11 +1426,7 @@ function mergeDocLines({
         returnsLines = returnExtraction.returnsLines;
     }
 
-    const syntheticParamNames = new Set(
-        otherLines
-            .map((line) => getParamCanonicalName(line))
-            .filter(isNonEmptyString)
-    );
+    const syntheticParamNames = new Set(otherLines.map((line) => getParamCanonicalName(line)).filter(isNonEmptyString));
 
     if (syntheticParamNames.size > 0) {
         const filtered = removeExistingParamLinesWithSyntheticNames({
@@ -1739,14 +1494,10 @@ function mergeFunctionDocLines({
             : firstParamIndex
         : mergedLines.length;
 
-    const precedingLine =
-        insertionIndex > 0 ? mergedLines[insertionIndex - 1] : null;
+    const precedingLine = insertionIndex > 0 ? mergedLines[insertionIndex - 1] : null;
     const trimmedPreceding = toTrimmedString(precedingLine);
-    const isDocCommentLine =
-        typeof trimmedPreceding === STRING_TYPE &&
-        /^\/\/\//.test(trimmedPreceding);
-    const isDocTagLine =
-        isDocCommentLine && /^\/\/\/\s*@/i.test(trimmedPreceding);
+    const isDocCommentLine = typeof trimmedPreceding === STRING_TYPE && /^\/\/\//.test(trimmedPreceding);
+    const isDocTagLine = isDocCommentLine && /^\/\/\/\s*@/i.test(trimmedPreceding);
 
     let precedingDocTag = null;
     if (isDocCommentLine && isDocTagLine) {
@@ -1767,19 +1518,11 @@ function mergeFunctionDocLines({
     let insertAt = insertionIndex;
 
     if (needsSeparatorBeforeFunction) {
-        nextLines = [
-            ...mergedLines.slice(0, insertionIndex),
-            "",
-            ...mergedLines.slice(insertionIndex)
-        ];
+        nextLines = [...mergedLines.slice(0, insertionIndex), "", ...mergedLines.slice(insertionIndex)];
         insertAt = insertionIndex + 1;
     }
 
-    nextLines = [
-        ...nextLines.slice(0, insertAt),
-        ...functionLines,
-        ...nextLines.slice(insertAt)
-    ];
+    nextLines = [...nextLines.slice(0, insertAt), ...functionLines, ...nextLines.slice(insertAt)];
 
     return { mergedLines: nextLines, removedAnyLine: true };
 }
@@ -1802,8 +1545,7 @@ function mergeOverrideDocLines({
         .filter((index) => index !== -1);
 
     if (existingOverrideIndices.length > 0) {
-        const [firstOverrideIndex, ...duplicateOverrideIndices] =
-            existingOverrideIndices;
+        const [firstOverrideIndex, ...duplicateOverrideIndices] = existingOverrideIndices;
         const nextLines = [...mergedLines];
 
         for (let i = duplicateOverrideIndices.length - 1; i >= 0; i -= 1) {
@@ -1818,11 +1560,7 @@ function mergeOverrideDocLines({
     const insertionIndex = firstFunctionIndex === -1 ? 0 : firstFunctionIndex;
 
     return {
-        mergedLines: [
-            ...mergedLines.slice(0, insertionIndex),
-            ...overrideLines,
-            ...mergedLines.slice(insertionIndex)
-        ],
+        mergedLines: [...mergedLines.slice(0, insertionIndex), ...overrideLines, ...mergedLines.slice(insertionIndex)],
         removedAnyLine: true
     };
 }
@@ -1830,17 +1568,10 @@ function mergeOverrideDocLines({
 type CollectParamLineIndicesParams = {
     mergedLines: MutableDocCommentLines;
     isParamLine: (line: unknown) => boolean;
-    getParamCanonicalName: (
-        line: unknown,
-        metadata?: ReturnType<typeof parseDocCommentMetadata>
-    ) => string | null;
+    getParamCanonicalName: (line: unknown, metadata?: ReturnType<typeof parseDocCommentMetadata>) => string | null;
 };
 
-function collectParamLineIndices({
-    mergedLines,
-    isParamLine,
-    getParamCanonicalName
-}: CollectParamLineIndicesParams) {
+function collectParamLineIndices({ mergedLines, isParamLine, getParamCanonicalName }: CollectParamLineIndicesParams) {
     const paramLineIndices = new Map<string, number>();
     for (const [index, line] of mergedLines.entries()) {
         if (!isParamLine(line)) {
@@ -1860,10 +1591,7 @@ type UpdateParamLinesFromOtherLinesParams = {
     otherLines: DocCommentLines;
     mergedLines: MutableDocCommentLines;
     paramLineIndices: Map<string, number>;
-    getParamCanonicalName: (
-        line: unknown,
-        metadata?: ReturnType<typeof parseDocCommentMetadata>
-    ) => string | null;
+    getParamCanonicalName: (line: unknown, metadata?: ReturnType<typeof parseDocCommentMetadata>) => string | null;
 };
 
 function updateParamLinesFromOtherLines({
@@ -1884,10 +1612,7 @@ function updateParamLinesFromOtherLines({
             const lineIndex = paramLineIndices.get(canonical);
             const existingLine = nextMergedLines[lineIndex];
 
-            const updatedLine = updateParamLineWithDocName(
-                existingLine,
-                metadata.name
-            );
+            const updatedLine = updateParamLineWithDocName(existingLine, metadata.name);
             if (updatedLine !== existingLine) {
                 nextMergedLines[lineIndex] = updatedLine;
                 removedAnyLine = true;
@@ -1936,10 +1661,7 @@ type RemoveExistingParamLinesParams = {
     mergedLines: MutableDocCommentLines;
     syntheticParamNames: Set<string>;
     isParamLine: (line: unknown) => boolean;
-    getParamCanonicalName: (
-        line: unknown,
-        metadata?: ReturnType<typeof parseDocCommentMetadata>
-    ) => string | null;
+    getParamCanonicalName: (line: unknown, metadata?: ReturnType<typeof parseDocCommentMetadata>) => string | null;
 };
 
 function removeExistingParamLinesWithSyntheticNames({
@@ -2018,9 +1740,7 @@ type ApplyDocCommentPromotionParams = {
     hasMultiLineSummary: boolean;
 };
 
-function applyDocCommentPromotionIfNeeded(
-    params: ApplyDocCommentPromotionParams
-): {
+function applyDocCommentPromotionIfNeeded(params: ApplyDocCommentPromotionParams): {
     normalizedExistingLines: MutableDocCommentLines;
     preserveDescriptionBreaks: boolean;
 } {
@@ -2033,19 +1753,13 @@ function applyDocCommentPromotionIfNeeded(
         hasMultiLineSummary
     } = params;
 
-    if (
-        originalExistingHasTags ||
-        originalExistingHasDocLikePrefixes ||
-        hasMultiLineSummary
-    ) {
+    if (originalExistingHasTags || originalExistingHasDocLikePrefixes || hasMultiLineSummary) {
         const promoted = promoteLeadingDocCommentTextToDescription(
             normalizedExistingLines,
             syntheticLines,
             originalExistingHasDocLikePrefixes || hasMultiLineSummary
         );
-        normalizedExistingLines = toMutableArray(
-            promoted
-        ) as MutableDocCommentLines;
+        normalizedExistingLines = toMutableArray(promoted) as MutableDocCommentLines;
 
         if (
             (promoted as any)._preserveDescriptionBreaks === true ||
@@ -2083,12 +1797,9 @@ function attemptEarlyReturnOnSynthetic({
 }: AttemptEarlyReturnParams) {
     if (syntheticLines.length === 0 && !shouldForceParamPrune) {
         const result = toMutableArray(
-            convertLegacyReturnsDescriptionLinesToMetadata(
-                normalizedExistingLines,
-                {
-                    normalizeDocCommentTypeAnnotations: normalizeGameMakerType
-                }
-            )
+            convertLegacyReturnsDescriptionLinesToMetadata(normalizedExistingLines, {
+                normalizeDocCommentTypeAnnotations: normalizeGameMakerType
+            })
         ) as MutableDocCommentLines;
         return result;
     }
@@ -2118,9 +1829,7 @@ function updateParamLineWithDocName(line: string, newDocName: string): string {
         return line;
     }
 
-    const match = line.match(
-        /^(\/\/\/\s*)(@param|@arg|@argument)((?:\s+(?:\{[^}]+\}|<[^>]+>))?)(\s*)/i
-    );
+    const match = line.match(/^(\/\/\/\s*)(@param|@arg|@argument)((?:\s+(?:\{[^}]+\}|<[^>]+>))?)(\s*)/i);
 
     if (!match) {
         return `/// @param ${newDocName}`;

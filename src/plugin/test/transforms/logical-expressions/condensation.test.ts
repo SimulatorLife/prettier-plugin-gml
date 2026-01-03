@@ -23,13 +23,8 @@ type ReturnStatementNode = {
 type IfStatementNode = {
     type: "IfStatement";
     test: IdentifierNode;
-    consequent:
-        | ReturnStatementNode
-        | { type: "BlockStatement"; body: ReturnStatementNode[] };
-    alternate:
-        | ReturnStatementNode
-        | { type: "BlockStatement"; body: ReturnStatementNode[] }
-        | null;
+    consequent: ReturnStatementNode | { type: "BlockStatement"; body: ReturnStatementNode[] };
+    alternate: ReturnStatementNode | { type: "BlockStatement"; body: ReturnStatementNode[] } | null;
     start?: { index: number };
     end?: { index: number };
 };
@@ -51,10 +46,7 @@ type ProgramNode = {
     comments?: CommentNode[];
 };
 
-function buildBooleanReturn(
-    testName: string,
-    startIndex: number
-): IfStatementNode {
+function buildBooleanReturn(testName: string, startIndex: number): IfStatementNode {
     return {
         type: "IfStatement",
         test: { type: "Identifier", name: testName },
@@ -142,8 +134,7 @@ void test("functions with matching condensed bodies are retained", () => {
 
     assert.equal(ast.body.length, 2);
     for (const fn of ast.body) {
-        const [condensedReturn] = fn.body
-            .body as unknown as ReturnStatementNode[];
+        const [condensedReturn] = fn.body.body as unknown as ReturnStatementNode[];
         assert.equal(condensedReturn.argument?.type, "Identifier");
         assert.equal(condensedReturn.argument.name, "collide");
     }
@@ -163,10 +154,7 @@ void test("condensation tolerates parent references", () => {
 
     const childIf = buildBooleanReturn("cycleFlag", 50);
 
-    const blockAsRecord = functionNode.body as unknown as Record<
-        string,
-        unknown
-    >;
+    const blockAsRecord = functionNode.body as unknown as Record<string, unknown>;
     blockAsRecord.parent = functionNode;
     const childIfRecord = childIf as unknown as Record<string, unknown>;
     childIfRecord.parent = blockAsRecord;
@@ -186,8 +174,7 @@ void test("condensation tolerates parent references", () => {
 
     condenseLogicalExpressionsTransform.transform(ast);
 
-    const [condensedReturn] = functionNode.body
-        .body as unknown as ReturnStatementNode[];
+    const [condensedReturn] = functionNode.body.body as unknown as ReturnStatementNode[];
     assert.equal(condensedReturn.type, "ReturnStatement");
     assert.equal(condensedReturn.argument?.type, "Identifier");
     assert.equal(condensedReturn.argument?.name, "cycleFlag");

@@ -3,10 +3,7 @@ import { randomUUID } from "node:crypto";
 import process from "node:process";
 import test from "node:test";
 
-import {
-    applyEnvironmentOverride,
-    createEnvConfiguredValue
-} from "../src/utils/environment.js";
+import { applyEnvironmentOverride, createEnvConfiguredValue } from "../src/utils/environment.js";
 
 void test("applyEnvironmentOverride forwards values from provided env", () => {
     let received = null;

@@ -14,14 +14,8 @@ void test("printer tolerates function declarations missing params arrays", async
     });
 
     // Verify formatting produces valid output
-    assert.ok(
-        formatted.includes("function demo()"),
-        "formatter should preserve function declaration"
-    );
-    assert.ok(
-        formatted.includes("return 42"),
-        "formatter should preserve function body"
-    );
+    assert.ok(formatted.includes("function demo()"), "formatter should preserve function declaration");
+    assert.ok(formatted.includes("return 42"), "formatter should preserve function body");
     assert.strictEqual(
         formatted,
         ["function demo() {", "    return 42;", "}", ""].join("\n"),

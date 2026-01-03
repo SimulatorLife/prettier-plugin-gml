@@ -27,9 +27,7 @@ import type {
 const UNKNOWN_ERROR_MESSAGE = "Unknown error";
 const DEFAULT_MAX_UNDO_STACK_SIZE = 50;
 
-export function createRuntimeWrapper(
-    options: RuntimeWrapperOptions = {}
-): RuntimeWrapper {
+export function createRuntimeWrapper(options: RuntimeWrapperOptions = {}): RuntimeWrapper {
     const baseRegistry = createRegistry(options.registry);
 
     const state: RuntimeWrapperState = {
@@ -38,8 +36,7 @@ export function createRuntimeWrapper(
         patchHistory: [],
         options: {
             validateBeforeApply: options.validateBeforeApply ?? false,
-            maxUndoStackSize:
-                options.maxUndoStackSize ?? DEFAULT_MAX_UNDO_STACK_SIZE
+            maxUndoStackSize: options.maxUndoStackSize ?? DEFAULT_MAX_UNDO_STACK_SIZE
         }
     };
 
@@ -60,9 +57,7 @@ export function createRuntimeWrapper(
         if (state.options.validateBeforeApply) {
             const testResult = testPatchInShadow(patch);
             if (!testResult.valid) {
-                throw new Error(
-                    `Patch validation failed for ${patch.id}: ${testResult.error}`
-                );
+                throw new Error(`Patch validation failed for ${patch.id}: ${testResult.error}`);
             }
         }
 
@@ -70,10 +65,7 @@ export function createRuntimeWrapper(
         const startTime = Date.now();
 
         try {
-            const { registry: nextRegistry, result } = applyPatchInternal(
-                state.registry,
-                patch
-            );
+            const { registry: nextRegistry, result } = applyPatchInternal(state.registry, patch);
             const durationMs = Date.now() - startTime;
 
             state.registry = nextRegistry;
@@ -101,17 +93,12 @@ export function createRuntimeWrapper(
 
             return result;
         } catch (error) {
-            const message =
-                error instanceof Error
-                    ? error.message
-                    : String(error ?? UNKNOWN_ERROR_MESSAGE);
+            const message = error instanceof Error ? error.message : String(error ?? UNKNOWN_ERROR_MESSAGE);
             throw new Error(`Failed to apply patch ${patch.id}: ${message}`);
         }
     }
 
-    function validateBatchPatches(
-        patchCandidates: Array<unknown>
-    ): Array<Patch> | BatchApplyResult {
+    function validateBatchPatches(patchCandidates: Array<unknown>): Array<Patch> | BatchApplyResult {
         const validatedPatches: Array<Patch> = [];
         for (const candidate of patchCandidates) {
             validatePatch(candidate);
@@ -137,9 +124,7 @@ export function createRuntimeWrapper(
         return validatedPatches;
     }
 
-    function applyPatchBatch(
-        patchCandidates: Array<unknown>
-    ): BatchApplyResult {
+    function applyPatchBatch(patchCandidates: Array<unknown>): BatchApplyResult {
         if (!Array.isArray(patchCandidates)) {
             throw new TypeError("applyPatchBatch expects an array of patches");
         }
@@ -174,10 +159,7 @@ export function createRuntimeWrapper(
                 const snapshot = captureSnapshot(state.registry, patch);
                 const patchStartTime = Date.now();
 
-                const { registry: nextRegistry } = applyPatchInternal(
-                    state.registry,
-                    patch
-                );
+                const { registry: nextRegistry } = applyPatchInternal(state.registry, patch);
                 const durationMs = Date.now() - patchStartTime;
 
                 state.registry = nextRegistry;
@@ -229,10 +211,7 @@ export function createRuntimeWrapper(
             state.undoStack.length = batchSnapshot.undoStackSize;
             state.patchHistory.length = batchSnapshot.historySize;
 
-            const message =
-                error instanceof Error
-                    ? error.message
-                    : String(error ?? UNKNOWN_ERROR_MESSAGE);
+            const message = error instanceof Error ? error.message : String(error ?? UNKNOWN_ERROR_MESSAGE);
 
             state.patchHistory.push({
                 patch: {
@@ -288,10 +267,7 @@ export function createRuntimeWrapper(
         return { success: true, version: state.registry.version };
     }
 
-    function trySafeApply(
-        patchCandidate: unknown,
-        onValidate?: (patch: Patch) => boolean | void
-    ): TrySafeApplyResult {
+    function trySafeApply(patchCandidate: unknown, onValidate?: (patch: Patch) => boolean | void): TrySafeApplyResult {
         validatePatch(patchCandidate);
         const patch = patchCandidate;
 
@@ -315,10 +291,7 @@ export function createRuntimeWrapper(
                     };
                 }
             } catch (error) {
-                const message =
-                    error instanceof Error
-                        ? error.message
-                        : String(error ?? UNKNOWN_ERROR_MESSAGE);
+                const message = error instanceof Error ? error.message : String(error ?? UNKNOWN_ERROR_MESSAGE);
                 return {
                     success: false,
                     error: message,
@@ -354,10 +327,7 @@ export function createRuntimeWrapper(
                 state.undoStack.pop();
             }
 
-            const message =
-                error instanceof Error
-                    ? error.message
-                    : String(error ?? UNKNOWN_ERROR_MESSAGE);
+            const message = error instanceof Error ? error.message : String(error ?? UNKNOWN_ERROR_MESSAGE);
 
             state.patchHistory.push({
                 patch: { kind: patch.kind, id: patch.id },

@@ -19,15 +19,10 @@ export function isDocCommentTagLine(line: unknown) {
     }
 
     const trimmed = toTrimmedString(line);
-    return (
-        DOC_COMMENT_TAG_PATTERN.test(trimmed) ||
-        DOC_COMMENT_ALT_TAG_PATTERN.test(trimmed)
-    );
+    return DOC_COMMENT_TAG_PATTERN.test(trimmed) || DOC_COMMENT_ALT_TAG_PATTERN.test(trimmed);
 }
 
-export function parseDocCommentMetadata(
-    line: unknown
-): DocCommentMetadata | null {
+export function parseDocCommentMetadata(line: unknown): DocCommentMetadata | null {
     if (typeof line !== STRING_TYPE) {
         return null;
     }
@@ -119,11 +114,7 @@ export function isDocLikeLeadingLine(value: unknown) {
     }
 
     const trimmed = (value as string).trim();
-    return (
-        trimmed.startsWith("///") ||
-        /^\/\/\s*\/\s*/.test(trimmed) ||
-        /^\/+\s*@/.test(trimmed)
-    );
+    return trimmed.startsWith("///") || /^\/\/\s*\/\s*/.test(trimmed) || /^\/+\s*@/.test(trimmed);
 }
 
 export function hasCommentImmediatelyBefore(text: unknown, index: unknown) {
@@ -135,10 +126,7 @@ export function hasCommentImmediatelyBefore(text: unknown, index: unknown) {
     const normalizedIndex = index as number;
 
     let cursor = normalizedIndex - 1;
-    while (
-        cursor >= 0 &&
-        isInlineWhitespace(normalizedText.charCodeAt(cursor))
-    ) {
+    while (cursor >= 0 && isInlineWhitespace(normalizedText.charCodeAt(cursor))) {
         cursor -= 1;
     }
 
@@ -156,10 +144,7 @@ export function hasCommentImmediatelyBefore(text: unknown, index: unknown) {
     }
 
     let lineStart = cursor + 1;
-    while (
-        lineStart < lineEndExclusive &&
-        isInlineWhitespace(normalizedText.charCodeAt(lineStart))
-    ) {
+    while (lineStart < lineEndExclusive && isInlineWhitespace(normalizedText.charCodeAt(lineStart))) {
         lineStart += 1;
     }
 
@@ -168,10 +153,7 @@ export function hasCommentImmediatelyBefore(text: unknown, index: unknown) {
     }
 
     let lineEnd = lineEndExclusive - 1;
-    while (
-        lineEnd >= lineStart &&
-        isInlineWhitespace(normalizedText.charCodeAt(lineEnd))
-    ) {
+    while (lineEnd >= lineStart && isInlineWhitespace(normalizedText.charCodeAt(lineEnd))) {
         lineEnd -= 1;
     }
 
@@ -180,10 +162,7 @@ export function hasCommentImmediatelyBefore(text: unknown, index: unknown) {
     }
 
     const first = normalizedText.charCodeAt(lineStart);
-    const second =
-        lineStart + 1 <= lineEnd
-            ? normalizedText.charCodeAt(lineStart + 1)
-            : -1;
+    const second = lineStart + 1 <= lineEnd ? normalizedText.charCodeAt(lineStart + 1) : -1;
 
     if (first === 47) {
         if (second === 47 || second === 42) {

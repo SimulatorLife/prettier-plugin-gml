@@ -8,10 +8,7 @@ void describe("getSingleBodyStatement", () => {
         assert.equal(getSingleBodyStatement(null), null);
         assert.equal(getSingleBodyStatement(undefined), null);
         assert.equal(getSingleBodyStatement({ type: "Identifier" }), null);
-        assert.equal(
-            getSingleBodyStatement({ type: "ExpressionStatement" }),
-            null
-        );
+        assert.equal(getSingleBodyStatement({ type: "ExpressionStatement" }), null);
     });
 
     void it("returns null when block has no statements", () => {

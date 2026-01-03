@@ -17,9 +17,7 @@ const createTimeoutErrorMessage = (received: unknown) =>
         received
     )}). Provide 0 to disable the timeout.`;
 
-const createTimeoutTypeErrorMessage = createNumericTypeErrorFormatter(
-    "VM evaluation timeout"
-);
+const createTimeoutTypeErrorMessage = createNumericTypeErrorFormatter("VM evaluation timeout");
 
 const coerce = (value: unknown, context = {}) => {
     const opts = { ...context, createErrorMessage: createTimeoutErrorMessage };
@@ -54,8 +52,7 @@ function resolveVmEvalTimeout(
         defaultTimeout?: number;
     } = {}
 ): number | null | undefined {
-    const fallback =
-        options.defaultTimeout ?? options.defaultValue ?? state.get();
+    const fallback = options.defaultTimeout ?? options.defaultValue ?? state.get();
     const normalized = resolveIntegerOption(rawValue, {
         defaultValue: fallback,
         coerce,
@@ -65,9 +62,7 @@ function resolveVmEvalTimeout(
     return normalized === 0 ? null : normalized;
 }
 
-function applyVmEvalTimeoutEnvOverride(
-    env?: NodeJS.ProcessEnv
-): number | undefined {
+function applyVmEvalTimeoutEnvOverride(env?: NodeJS.ProcessEnv): number | undefined {
     return callWithFallback(() => state.applyEnvOverride(env), {
         fallback: () => getDefaultVmEvalTimeoutMs()
     });
@@ -75,9 +70,4 @@ function applyVmEvalTimeoutEnvOverride(
 
 applyVmEvalTimeoutEnvOverride();
 
-export {
-    getDefaultVmEvalTimeoutMs,
-    setDefaultVmEvalTimeoutMs,
-    resolveVmEvalTimeout,
-    applyVmEvalTimeoutEnvOverride
-};
+export { getDefaultVmEvalTimeoutMs, setDefaultVmEvalTimeoutMs, resolveVmEvalTimeout, applyVmEvalTimeoutEnvOverride };

@@ -17,10 +17,7 @@ const {
 void test("isCommentNode differentiates comment nodes", () => {
     assert.equal(isCommentNode(null), false);
     assert.equal(isCommentNode({ type: "Program" }), false);
-    assert.equal(
-        isCommentNode({ type: "CommentLine", value: "example" }),
-        true
-    );
+    assert.equal(isCommentNode({ type: "CommentLine", value: "example" }), true);
     assert.equal(isCommentNode({ type: "CommentBlock" }), true);
 });
 
@@ -99,20 +96,8 @@ void test("collectCommentNodes finds nested comment nodes", () => {
 });
 
 void test("isDocCommentLine recognises doc-style comments", () => {
-    assert.equal(
-        isDocCommentLine({ type: "CommentLine", value: "/ @description" }),
-        true
-    );
-    assert.equal(
-        isDocCommentLine({ type: "CommentLine", value: "/@param foo" }),
-        true
-    );
-    assert.equal(
-        isDocCommentLine({ type: "CommentLine", value: "// regular" }),
-        false
-    );
-    assert.equal(
-        isDocCommentLine({ type: "CommentBlock", value: "/* */" }),
-        false
-    );
+    assert.equal(isDocCommentLine({ type: "CommentLine", value: "/ @description" }), true);
+    assert.equal(isDocCommentLine({ type: "CommentLine", value: "/@param foo" }), true);
+    assert.equal(isDocCommentLine({ type: "CommentLine", value: "// regular" }), false);
+    assert.equal(isDocCommentLine({ type: "CommentBlock", value: "/* */" }), false);
 });

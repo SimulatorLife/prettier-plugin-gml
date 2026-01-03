@@ -27,20 +27,10 @@ class ExecFileAsyncError extends Error {
 
 const execFileBase = promisify(execFile);
 
-const normalizeExecOutput = (value: string | Buffer) =>
-    typeof value === "string" ? value : value.toString();
+const normalizeExecOutput = (value: string | Buffer) => (typeof value === "string" ? value : value.toString());
 
-async function execFileAsync(
-    command: string,
-    args: Array<string>,
-    options?: ExecFileOptions
-) {
-    if (
-        command === "node" &&
-        Array.isArray(args) &&
-        args.length > 0 &&
-        args[0] === wrapperPath
-    ) {
+async function execFileAsync(command: string, args: Array<string>, options?: ExecFileOptions) {
+    if (command === "node" && Array.isArray(args) && args.length > 0 && args[0] === wrapperPath) {
         const [, ...cliArgs] = args;
         const result = await runCliTestCommand({
             argv: cliArgs,
@@ -49,11 +39,7 @@ async function execFileAsync(
         });
 
         if (result.exitCode !== 0) {
-            throw new ExecFileAsyncError(
-                result.exitCode,
-                result.stdout,
-                result.stderr
-            );
+            throw new ExecFileAsyncError(result.exitCode, result.stdout, result.stderr);
         }
 
         return result;
@@ -71,9 +57,7 @@ const currentDirectory = fileURLToPath(new URL(".", import.meta.url));
 // (dist/index.js) and fallback to the source-relative path when running
 // tests directly against TypeScript sources.
 const candidateDist = path.resolve(currentDirectory, "../dist/index.js");
-const wrapperPath = fsSync.existsSync(candidateDist)
-    ? candidateDist
-    : path.resolve(currentDirectory, "../src/cli.js");
+const wrapperPath = fsSync.existsSync(candidateDist) ? candidateDist : path.resolve(currentDirectory, "../src/cli.js");
 // Note: when running compiled tests (dist/*) the test file directory may
 // be nested differently than the TypeScript sources. Resolve the VCS/root
 // directory by walking upward until we find project metadata (package.json)
@@ -115,12 +99,8 @@ void describe("Prettier wrapper CLI", () => {
         // repository root does not result in silent mutation of tracked
         // fixture files. If it ever does, the test will fail and restore
         // the original file contents to avoid leaving the workspace dirty.
-        const repoRootDirectory =
-            await CLI.Shared.findRepoRoot(currentDirectory);
-        const fixturePath = path.join(
-            repoRootDirectory,
-            "src/plugin/test/testFormatting.input.gml"
-        );
+        const repoRootDirectory = await CLI.Shared.findRepoRoot(currentDirectory);
+        const fixturePath = path.join(repoRootDirectory, "src/plugin/test/testFormatting.input.gml");
 
         // Read the baseline content for the tracked fixture and ensure we
         // restore it after the assertion so test runs remain side-effect
@@ -249,11 +229,7 @@ void describe("Prettier wrapper CLI", () => {
             const targetFile = path.join(tempDirectory, "script.gml");
             await fs.writeFile(targetFile, "var    a=1;\n", "utf8");
 
-            await execFileAsync("node", [
-                wrapperPath,
-                "--log-level=debug",
-                tempDirectory
-            ]);
+            await execFileAsync("node", [wrapperPath, "--log-level=debug", tempDirectory]);
 
             const formatted = await fs.readFile(targetFile, "utf8");
             assert.strictEqual(formatted, "var a = 1;\n");
@@ -291,21 +267,12 @@ void describe("Prettier wrapper CLI", () => {
             await fs.writeFile(targetFile, "var    a=1;\n", "utf8");
 
             try {
-                await execFileAsync("node", [
-                    wrapperPath,
-                    "--log-level=verbose",
-                    tempDirectory
-                ]);
-                assert.fail(
-                    "Expected the wrapper to exit with a non-zero status code"
-                );
+                await execFileAsync("node", [wrapperPath, "--log-level=verbose", tempDirectory]);
+                assert.fail("Expected the wrapper to exit with a non-zero status code");
             } catch (error) {
                 assert.ok(error, "Expected an error to be thrown");
                 assert.strictEqual(error.code, 1);
-                assert.match(
-                    error.stderr,
-                    /option '--log-level <level>' argument 'verbose' is invalid/i
-                );
+                assert.match(error.stderr, /option '--log-level <level>' argument 'verbose' is invalid/i);
                 assert.ok(
                     error.stderr.includes("Must be one of:"),
                     "Expected the error to include valid log level guidance"
@@ -323,11 +290,7 @@ void describe("Prettier wrapper CLI", () => {
             const targetFile = path.join(tempDirectory, "script.txt");
             await fs.writeFile(targetFile, "var    a=1;\n", "utf8");
 
-            await execFileAsync("node", [
-                wrapperPath,
-                "--extensions=.txt",
-                tempDirectory
-            ]);
+            await execFileAsync("node", [wrapperPath, "--extensions=.txt", tempDirectory]);
 
             const formatted = await fs.readFile(targetFile, "utf8");
             assert.strictEqual(formatted, "var a = 1;\n");
@@ -345,12 +308,7 @@ void describe("Prettier wrapper CLI", () => {
             await fs.writeFile(firstFile, "var    a=1;\n", "utf8");
             await fs.writeFile(secondFile, "var    b=2;\n", "utf8");
 
-            await execFileAsync("node", [
-                wrapperPath,
-                "--extensions=.txt",
-                "--extensions=.scr",
-                tempDirectory
-            ]);
+            await execFileAsync("node", [wrapperPath, "--extensions=.txt", "--extensions=.scr", tempDirectory]);
 
             const formattedFirst = await fs.readFile(firstFile, "utf8");
             const formattedSecond = await fs.readFile(secondFile, "utf8");
@@ -366,26 +324,15 @@ void describe("Prettier wrapper CLI", () => {
 
         try {
             const targetFile = path.join(tempDirectory, "script.gml");
-            await fs.writeFile(
-                targetFile,
-                ["if (true) {", "    a = 1;", "}", ""].join("\n"),
-                "utf8"
-            );
+            await fs.writeFile(targetFile, ["if (true) {", "    a = 1;", "}", ""].join("\n"), "utf8");
 
             const configPath = path.join(tempDirectory, ".prettierrc");
-            await fs.writeFile(
-                configPath,
-                JSON.stringify({ tabWidth: 2 }, null, 2),
-                "utf8"
-            );
+            await fs.writeFile(configPath, JSON.stringify({ tabWidth: 2 }, null, 2), "utf8");
 
             await execFileAsync("node", [wrapperPath, tempDirectory]);
 
             const formatted = await fs.readFile(targetFile, "utf8");
-            assert.strictEqual(
-                formatted,
-                ["if (true) {", "  a = 1;", "}", ""].join("\n")
-            );
+            assert.strictEqual(formatted, ["if (true) {", "  a = 1;", "}", ""].join("\n"));
         } finally {
             await fs.rm(tempDirectory, { recursive: true, force: true });
         }
@@ -398,10 +345,7 @@ void describe("Prettier wrapper CLI", () => {
             const targetFile = path.join(tempDirectory, "script.gml");
             await fs.writeFile(targetFile, "var    a=1;\n", "utf8");
 
-            const pluginPath = path.join(
-                tempDirectory,
-                "side-effect-plugin.cjs"
-            );
+            const pluginPath = path.join(tempDirectory, "side-effect-plugin.cjs");
             await fs.writeFile(
                 pluginPath,
                 [
@@ -416,18 +360,11 @@ void describe("Prettier wrapper CLI", () => {
             );
 
             const configPath = path.join(tempDirectory, ".prettierrc");
-            await fs.writeFile(
-                configPath,
-                JSON.stringify({ plugins: pluginPath }),
-                "utf8"
-            );
+            await fs.writeFile(configPath, JSON.stringify({ plugins: pluginPath }), "utf8");
 
             await execFileAsync("node", [wrapperPath, tempDirectory]);
 
-            const pluginOutputPath = path.join(
-                tempDirectory,
-                "plugin-loaded.txt"
-            );
+            const pluginOutputPath = path.join(tempDirectory, "plugin-loaded.txt");
             const pluginOutput = await fs.readFile(pluginOutputPath, "utf8");
             assert.strictEqual(pluginOutput, "loaded");
         } finally {
@@ -443,11 +380,7 @@ void describe("Prettier wrapper CLI", () => {
             await fs.writeFile(targetFile, "enum   MyEnum{value}\n", "utf8");
 
             const configPath = path.join(tempDirectory, ".prettierrc");
-            await fs.writeFile(
-                configPath,
-                JSON.stringify({ parser: "babel" }),
-                "utf8"
-            );
+            await fs.writeFile(configPath, JSON.stringify({ parser: "babel" }), "utf8");
 
             await execFileAsync("node", [wrapperPath, tempDirectory]);
 
@@ -457,14 +390,9 @@ void describe("Prettier wrapper CLI", () => {
             // style under certain conditions; the purpose of this test is to
             // ensure we used the plugin (not the babel parser), so both are
             // acceptable.
-            const multiLine = ["enum MyEnum {", "    value", "}", ""].join(
-                "\n"
-            );
+            const multiLine = ["enum MyEnum {", "    value", "}", ""].join("\n");
             const singleLine = "enum MyEnum {value}\n";
-            assert.ok(
-                formatted === multiLine || formatted === singleLine,
-                `Unexpected output:\n${formatted}`
-            );
+            assert.ok(formatted === multiLine || formatted === singleLine, `Unexpected output:\n${formatted}`);
         } finally {
             await fs.rm(tempDirectory, { recursive: true, force: true });
         }
@@ -519,11 +447,7 @@ void describe("Prettier wrapper CLI", () => {
             await fs.writeFile(targetFile, "var    a=1;\n", "utf8");
 
             const ignorePath = path.join(tempDirectory, ".prettierignore");
-            await fs.writeFile(
-                ignorePath,
-                "ignored/*\n!ignored/script.gml\n",
-                "utf8"
-            );
+            await fs.writeFile(ignorePath, "ignored/*\n!ignored/script.gml\n", "utf8");
 
             await execFileAsync("node", [wrapperPath, tempDirectory]);
 
@@ -550,10 +474,7 @@ void describe("Prettier wrapper CLI", () => {
             const ignorePath = path.join(tempDirectory, ".prettierignore");
             await fs.writeFile(ignorePath, "ignored/\n", "utf8");
 
-            const { stdout } = await execFileAsync("node", [
-                wrapperPath,
-                tempDirectory
-            ]);
+            const { stdout } = await execFileAsync("node", [wrapperPath, tempDirectory]);
 
             assert.match(
                 stdout,
@@ -562,10 +483,7 @@ void describe("Prettier wrapper CLI", () => {
             );
 
             const skippedMatch = stdout.match(/Skipped (\d+) file(?:s)?/);
-            assert.ok(
-                skippedMatch,
-                "Expected wrapper output to report skipped files"
-            );
+            assert.ok(skippedMatch, "Expected wrapper output to report skipped files");
             assert.strictEqual(Number(skippedMatch[1]), 1);
             assert.match(
                 stdout,
@@ -599,10 +517,7 @@ void describe("Prettier wrapper CLI", () => {
                 .map((line) => line.trim())
                 .find((line) => line.includes("unsupported extensions (1)"));
 
-            assert.ok(
-                unsupportedSummaryLine,
-                "Expected summary to mention unsupported extensions"
-            );
+            assert.ok(unsupportedSummaryLine, "Expected summary to mention unsupported extensions");
             assert.doesNotMatch(
                 unsupportedSummaryLine,
                 /\(e\.g\.,/,
@@ -623,10 +538,7 @@ void describe("Prettier wrapper CLI", () => {
             const ignorePath = path.join(tempDirectory, ".prettierignore");
             await fs.writeFile(ignorePath, "script.gml\n", "utf8");
 
-            const { stdout } = await execFileAsync("node", [
-                wrapperPath,
-                tempDirectory
-            ]);
+            const { stdout } = await execFileAsync("node", [wrapperPath, tempDirectory]);
 
             assert.ok(
                 stdout.includes('All files matching ".gml" were skipped'),
@@ -638,11 +550,7 @@ void describe("Prettier wrapper CLI", () => {
             );
             assert.match(stdout, /ignored by \.prettierignore \(1\)/);
 
-            assert.match(
-                stdout,
-                /Breakdown:/,
-                "Expected stdout to summarize the skip reasons"
-            );
+            assert.match(stdout, /Breakdown:/, "Expected stdout to summarize the skip reasons");
 
             const formatted = await fs.readFile(targetFile, "utf8");
             assert.strictEqual(formatted, "var    a=1;\n");
@@ -661,10 +569,7 @@ void describe("Prettier wrapper CLI", () => {
             const ignorePath = path.join(tempDirectory, ".prettierignore");
             await fs.writeFile(ignorePath, "script.gml\n", "utf8");
 
-            const { stdout } = await execFileAsync("node", [
-                wrapperPath,
-                targetFile
-            ]);
+            const { stdout } = await execFileAsync("node", [wrapperPath, targetFile]);
 
             assert.match(
                 stdout,
@@ -676,17 +581,11 @@ void describe("Prettier wrapper CLI", () => {
             );
 
             const expectedPattern = new RegExp(
-                String.raw`Skipping ${escapeForRegex(targetFile)} \(ignored by ${escapeForRegex(
-                    ignorePath
-                )}\)`,
+                String.raw`Skipping ${escapeForRegex(targetFile)} \(ignored by ${escapeForRegex(ignorePath)}\)`,
                 "m"
             );
 
-            assert.match(
-                stdout,
-                expectedPattern,
-                "Expected skip log to reference the matching .prettierignore"
-            );
+            assert.match(stdout, expectedPattern, "Expected skip log to reference the matching .prettierignore");
         } finally {
             await fs.rm(tempDirectory, { recursive: true, force: true });
         }
@@ -702,17 +601,11 @@ void describe("Prettier wrapper CLI", () => {
             const ignorePath = path.join(tempDirectory, ".prettierignore");
             await fs.writeFile(
                 ignorePath,
-                `${["ignored-one/", "ignored-two/", "ignored-three/"].join(
-                    "\n"
-                )}\n`,
+                `${["ignored-one/", "ignored-two/", "ignored-three/"].join("\n")}\n`,
                 "utf8"
             );
 
-            for (const directoryName of [
-                "ignored-one",
-                "ignored-two",
-                "ignored-three"
-            ]) {
+            for (const directoryName of ["ignored-one", "ignored-two", "ignored-three"]) {
                 const directory = path.join(tempDirectory, directoryName);
                 await fs.mkdir(directory);
             }
@@ -724,19 +617,12 @@ void describe("Prettier wrapper CLI", () => {
                 tempDirectory
             ]);
 
-            const summaryLines = stdout
-                .split("\n")
-                .filter((line) => line.length > 0);
+            const summaryLines = stdout.split("\n").filter((line) => line.length > 0);
             const directorySummaryLine = summaryLines.find((line) =>
-                line.startsWith(
-                    "Skipped 3 directories ignored by .prettierignore"
-                )
+                line.startsWith("Skipped 3 directories ignored by .prettierignore")
             );
 
-            assert.ok(
-                directorySummaryLine,
-                "Expected to find the ignored-directory summary line"
-            );
+            assert.ok(directorySummaryLine, "Expected to find the ignored-directory summary line");
             assert.strictEqual(
                 directorySummaryLine,
                 "Skipped 3 directories ignored by .prettierignore.",
@@ -760,10 +646,7 @@ void describe("Prettier wrapper CLI", () => {
             await fs.writeFile(ignorePath, "*.gml\n", "utf8");
 
             for (const index of [1, 2, 3]) {
-                const filePath = path.join(
-                    tempDirectory,
-                    `script-${index}.gml`
-                );
+                const filePath = path.join(tempDirectory, `script-${index}.gml`);
                 await fs.writeFile(filePath, "var    a=1;\n", "utf8");
             }
 
@@ -774,25 +657,15 @@ void describe("Prettier wrapper CLI", () => {
                 tempDirectory
             ]);
 
-            const skipMatches =
-                stdout.match(/Skipping .* \(ignored by .*\)/g) ?? [];
-            assert.strictEqual(
-                skipMatches.length,
-                1,
-                "Expected skip logging to honour the ignored file sample limit"
-            );
+            const skipMatches = stdout.match(/Skipping .* \(ignored by .*\)/g) ?? [];
+            assert.strictEqual(skipMatches.length, 1, "Expected skip logging to honour the ignored file sample limit");
 
             const summaryLine = stdout
                 .split("\n")
                 .map((line) => line.trim())
-                .find((line) =>
-                    line.includes("ignored by .prettierignore (3)")
-                );
+                .find((line) => line.includes("ignored by .prettierignore (3)"));
 
-            assert.ok(
-                summaryLine,
-                "Expected summary to report the total number of ignored files"
-            );
+            assert.ok(summaryLine, "Expected summary to report the total number of ignored files");
 
             assert.match(
                 summaryLine,
@@ -836,10 +709,7 @@ void describe("Prettier wrapper CLI", () => {
             const targetFile = path.join(nestedDirectory, "script.gml");
             await fs.writeFile(targetFile, "var    a=1;\n", "utf8");
 
-            const nestedIgnorePath = path.join(
-                nestedDirectory,
-                ".prettierignore"
-            );
+            const nestedIgnorePath = path.join(nestedDirectory, ".prettierignore");
             await fs.writeFile(nestedIgnorePath, "*.gml\n", "utf8");
 
             await execFileAsync("node", [wrapperPath, tempDirectory]);
@@ -912,21 +782,12 @@ void describe("Prettier wrapper CLI", () => {
             await execFileAsync("node", [wrapperPath, tempDirectory]);
             const { mtimeMs: initialMtime } = await fs.stat(targetFile);
 
-            const { stdout } = await execFileAsync("node", [
-                wrapperPath,
-                tempDirectory
-            ]);
+            const { stdout } = await execFileAsync("node", [wrapperPath, tempDirectory]);
             const { mtimeMs: finalMtime } = await fs.stat(targetFile);
 
             assert.strictEqual(finalMtime, initialMtime);
-            const formattedMessages = stdout
-                .split(/\r?\n/)
-                .filter((line) => line.startsWith("Formatted "));
-            assert.deepStrictEqual(
-                formattedMessages,
-                [],
-                "Expected the second run not to report formatted files"
-            );
+            const formattedMessages = stdout.split(/\r?\n/).filter((line) => line.startsWith("Formatted "));
+            assert.deepStrictEqual(formattedMessages, [], "Expected the second run not to report formatted files");
         } finally {
             await fs.rm(tempDirectory, { recursive: true, force: true });
         }
@@ -940,24 +801,11 @@ void describe("Prettier wrapper CLI", () => {
             await fs.writeFile(targetFile, "var    a=1;\n", "utf8");
 
             try {
-                await execFileAsync("node", [
-                    wrapperPath,
-                    "--check",
-                    tempDirectory
-                ]);
-                assert.fail(
-                    "Expected the wrapper to exit with a non-zero status code"
-                );
+                await execFileAsync("node", [wrapperPath, "--check", tempDirectory]);
+                assert.fail("Expected the wrapper to exit with a non-zero status code");
             } catch (error) {
-                assert.ok(
-                    error,
-                    "Expected the wrapper to throw when changes are needed"
-                );
-                assert.strictEqual(
-                    error.code,
-                    1,
-                    "Expected a non-zero exit code"
-                );
+                assert.ok(error, "Expected the wrapper to throw when changes are needed");
+                assert.strictEqual(error.code, 1, "Expected a non-zero exit code");
 
                 const escapedPath = escapeForRegex(targetFile);
                 assert.match(
@@ -970,18 +818,10 @@ void describe("Prettier wrapper CLI", () => {
                     /1 file requires formatting\. Re-run without --check to write changes\./,
                     "Expected stdout to summarize the pending change count"
                 );
-                assert.match(
-                    error.stdout,
-                    /Skipped 0 files\./,
-                    "Expected stdout to retain the skip summary"
-                );
+                assert.match(error.stdout, /Skipped 0 files\./, "Expected stdout to retain the skip summary");
 
                 const contents = await fs.readFile(targetFile, "utf8");
-                assert.strictEqual(
-                    contents,
-                    "var    a=1;\n",
-                    "Expected --check not to modify file contents"
-                );
+                assert.strictEqual(contents, "var    a=1;\n", "Expected --check not to modify file contents");
             }
         } finally {
             await fs.rm(tempDirectory, { recursive: true, force: true });
@@ -997,11 +837,7 @@ void describe("Prettier wrapper CLI", () => {
 
             await execFileAsync("node", [wrapperPath, tempDirectory]);
 
-            const { stdout } = await execFileAsync("node", [
-                wrapperPath,
-                "--check",
-                tempDirectory
-            ]);
+            const { stdout } = await execFileAsync("node", [wrapperPath, "--check", tempDirectory]);
 
             assert.ok(
                 stdout.includes("All matched files are already formatted."),
@@ -1026,11 +862,7 @@ void describe("Prettier wrapper CLI", () => {
             const ignorePath = path.join(tempDirectory, ".prettierignore");
             await fs.writeFile(ignorePath, "*.gml\n", "utf8");
 
-            const { stdout } = await execFileAsync("node", [
-                wrapperPath,
-                "--check",
-                tempDirectory
-            ]);
+            const { stdout } = await execFileAsync("node", [wrapperPath, "--check", tempDirectory]);
 
             assert.ok(
                 stdout.includes('All files matching ".gml" were skipped'),
@@ -1061,10 +893,7 @@ void describe("Prettier wrapper CLI", () => {
             try {
                 await fs.symlink(tempDirectory, symlinkPath, "dir");
             } catch (error) {
-                if (
-                    error &&
-                    (error.code === "EPERM" || error.code === "ENOSYS")
-                ) {
+                if (error && (error.code === "EPERM" || error.code === "ENOSYS")) {
                     shouldSkip = true;
                 } else {
                     throw error;
@@ -1075,10 +904,7 @@ void describe("Prettier wrapper CLI", () => {
                 t.skip();
             }
 
-            const { stdout } = await execFileAsync("node", [
-                wrapperPath,
-                tempDirectory
-            ]);
+            const { stdout } = await execFileAsync("node", [wrapperPath, tempDirectory]);
 
             assert.ok(
                 stdout.includes(`Skipping ${symlinkPath} (symbolic link)`),
@@ -1096,52 +922,30 @@ void describe("Prettier wrapper CLI", () => {
         const tempDirectory = await createTemporaryDirectory();
 
         try {
-            const formattedBeforeFailure = path.join(
-                tempDirectory,
-                "aaa_formatted.gml"
-            );
+            const formattedBeforeFailure = path.join(tempDirectory, "aaa_formatted.gml");
             const parseFailure = path.join(tempDirectory, "zzz_failure.gml");
 
             await fs.writeFile(formattedBeforeFailure, "var    a=1;\n", "utf8");
             await fs.writeFile(parseFailure, "if (\n", "utf8");
 
             try {
-                await execFileAsync("node", [
-                    wrapperPath,
-                    "--on-parse-error=revert",
-                    tempDirectory
-                ]);
-                assert.fail(
-                    "Expected the wrapper to exit with a non-zero status code"
-                );
+                await execFileAsync("node", [wrapperPath, "--on-parse-error=revert", tempDirectory]);
+                assert.fail("Expected the wrapper to exit with a non-zero status code");
             } catch (error) {
                 assert.ok(error, "Expected an error to be thrown");
-                assert.strictEqual(
-                    error.code,
-                    1,
-                    "Expected a non-zero exit code"
-                );
+                assert.strictEqual(error.code, 1, "Expected a non-zero exit code");
                 assert.ok(
-                    error.stdout.includes(
-                        `Formatted ${formattedBeforeFailure}`
-                    ),
+                    error.stdout.includes(`Formatted ${formattedBeforeFailure}`),
                     "Expected the formatted file to be processed before the failure"
                 );
-                const formattedContents = await fs.readFile(
-                    formattedBeforeFailure,
-                    "utf8"
-                );
+                const formattedContents = await fs.readFile(formattedBeforeFailure, "utf8");
                 assert.strictEqual(
                     formattedContents,
                     "var    a=1;\n",
                     "Expected reverted file contents to match the original"
                 );
                 const failureContents = await fs.readFile(parseFailure, "utf8");
-                assert.strictEqual(
-                    failureContents,
-                    "if (\n",
-                    "Expected the failing file to remain untouched"
-                );
+                assert.strictEqual(failureContents, "if (\n", "Expected the failing file to remain untouched");
                 assert.ok(
                     /Reverting 1 formatted file/.test(error.stderr),
                     "Expected stderr to mention that files were reverted"
@@ -1163,36 +967,19 @@ void describe("Prettier wrapper CLI", () => {
             await fs.writeFile(pendingFormat, "var    b=2;\n", "utf8");
 
             try {
-                await execFileAsync("node", [
-                    wrapperPath,
-                    "--on-parse-error=abort",
-                    tempDirectory
-                ]);
-                assert.fail(
-                    "Expected the wrapper to exit with a non-zero status code"
-                );
+                await execFileAsync("node", [wrapperPath, "--on-parse-error=abort", tempDirectory]);
+                assert.fail("Expected the wrapper to exit with a non-zero status code");
             } catch (error) {
                 assert.ok(error, "Expected an error to be thrown");
-                assert.strictEqual(
-                    error.code,
-                    1,
-                    "Expected a non-zero exit code"
-                );
-                const pendingContents = await fs.readFile(
-                    pendingFormat,
-                    "utf8"
-                );
+                assert.strictEqual(error.code, 1, "Expected a non-zero exit code");
+                const pendingContents = await fs.readFile(pendingFormat, "utf8");
                 assert.strictEqual(
                     pendingContents,
                     "var    b=2;\n",
                     "Expected formatting to abort before touching later files"
                 );
                 const failureContents = await fs.readFile(parseFailure, "utf8");
-                assert.strictEqual(
-                    failureContents,
-                    "if (\n",
-                    "Expected the failing file to remain untouched"
-                );
+                assert.strictEqual(failureContents, "if (\n", "Expected the failing file to remain untouched");
             }
         } finally {
             await fs.rm(tempDirectory, { recursive: true, force: true });
@@ -1208,23 +995,11 @@ void describe("Prettier wrapper CLI", () => {
 
             try {
                 await execFileAsync("node", [wrapperPath, tempDirectory]);
-                assert.fail(
-                    "Expected the wrapper to exit with a non-zero status code"
-                );
+                assert.fail("Expected the wrapper to exit with a non-zero status code");
             } catch (error) {
-                assert.ok(
-                    error,
-                    "Expected an error to be thrown for a failing format"
-                );
-                assert.strictEqual(
-                    error.code,
-                    1,
-                    "Expected a non-zero exit code when formatting fails"
-                );
-                assert.ok(
-                    /Syntax Error/.test(error.stderr),
-                    "Expected stderr to include the formatting error message"
-                );
+                assert.ok(error, "Expected an error to be thrown for a failing format");
+                assert.strictEqual(error.code, 1, "Expected a non-zero exit code when formatting fails");
+                assert.ok(/Syntax Error/.test(error.stderr), "Expected stderr to include the formatting error message");
                 assert.match(
                     error.stderr,
                     /Formatting failed for 1 file\./,
@@ -1250,16 +1025,10 @@ void describe("Prettier wrapper CLI", () => {
 
             try {
                 await execFileAsync("node", [wrapperPath, missingPath]);
-                assert.fail(
-                    "Expected the wrapper to exit with a non-zero status code"
-                );
+                assert.fail("Expected the wrapper to exit with a non-zero status code");
             } catch (error) {
                 assert.ok(error, "Expected an error to be thrown");
-                assert.strictEqual(
-                    error.code,
-                    1,
-                    "Expected a non-zero exit code for inaccessible targets"
-                );
+                assert.strictEqual(error.code, 1, "Expected a non-zero exit code for inaccessible targets");
                 assert.ok(
                     error.stderr.includes(`Unable to access ${missingPath}`),
                     "Expected stderr to mention the inaccessible target"
@@ -1291,29 +1060,17 @@ void describe("Prettier wrapper CLI", () => {
             const targetFile = path.join(tempDirectory, "script.gml");
             await fs.writeFile(targetFile, "var    a=1;\n", "utf8");
 
-            const { stdout, stderr } = await execFileAsync(
-                "node",
-                [wrapperPath],
-                {
-                    cwd: tempDirectory,
-                    env: {
-                        ...process.env,
-                        PRETTIER_PLUGIN_GML_DEFAULT_ACTION: "format"
-                    }
+            const { stdout, stderr } = await execFileAsync("node", [wrapperPath], {
+                cwd: tempDirectory,
+                env: {
+                    ...process.env,
+                    PRETTIER_PLUGIN_GML_DEFAULT_ACTION: "format"
                 }
-            );
+            });
 
             assert.strictEqual(stderr, "", "Expected stderr to be empty");
-            assert.match(
-                stdout,
-                /Formatted .*script\.gml/,
-                "Expected stdout to mention the formatted file"
-            );
-            assert.match(
-                stdout,
-                /Skipped 0 files\./,
-                "Expected stdout to summarize skipped files"
-            );
+            assert.match(stdout, /Formatted .*script\.gml/, "Expected stdout to mention the formatted file");
+            assert.match(stdout, /Skipped 0 files\./, "Expected stdout to summarize skipped files");
 
             const formatted = await fs.readFile(targetFile, "utf8");
             assert.strictEqual(formatted, "var a = 1;\n");
@@ -1329,10 +1086,7 @@ void describe("Prettier wrapper CLI", () => {
             const ignoredFile = path.join(tempDirectory, "notes.txt");
             await fs.writeFile(ignoredFile, "hello", "utf8");
 
-            const { stdout, stderr } = await execFileAsync("node", [
-                wrapperPath,
-                tempDirectory
-            ]);
+            const { stdout, stderr } = await execFileAsync("node", [wrapperPath, tempDirectory]);
 
             assert.strictEqual(stderr, "", "Expected stderr to be empty");
             assert.match(
@@ -1360,17 +1114,13 @@ void describe("Prettier wrapper CLI", () => {
         const tempDirectory = await createTemporaryDirectory();
 
         try {
-            const { stdout, stderr } = await execFileAsync(
-                "node",
-                [wrapperPath],
-                {
-                    cwd: tempDirectory,
-                    env: {
-                        ...process.env,
-                        PRETTIER_PLUGIN_GML_DEFAULT_ACTION: "format"
-                    }
+            const { stdout, stderr } = await execFileAsync("node", [wrapperPath], {
+                cwd: tempDirectory,
+                env: {
+                    ...process.env,
+                    PRETTIER_PLUGIN_GML_DEFAULT_ACTION: "format"
                 }
-            );
+            });
 
             assert.strictEqual(stderr, "", "Expected stderr to be empty");
             assert.match(
@@ -1424,29 +1174,25 @@ void describe("Prettier wrapper CLI", () => {
                 PRETTIER_PLUGIN_GML_LOG_LEVEL: "silent"
             };
 
-            const { stdout, stderr } = await execFileAsync(
-                "node",
-                [wrapperPath],
-                {
-                    cwd: tempDirectory,
-                    // 8MB max buffer is sufficient in CI for reduced logging; keep it
-                    // modest to avoid masking legitimate issues while still preventing
-                    // intermittent RangeError failures on macOS/Node.
-                    // Increase to 64MB to safely capture expanded output when running
-                    // the wrapper from the repository root. We also explicitly unset
-                    // the DEBUG environment variable below to avoid contaminating
-                    // stdout with other library-level debug streams.
-                    maxBuffer: 1024 * 1024 * 64,
-                    env: {
-                        ...env,
-                        DEBUG: "",
-                        // Some internal tooling or dependencies also respect NODE_DEBUG,
-                        // ensure it is unset for the test run to avoid excessive log
-                        // output in CI.
-                        NODE_DEBUG: ""
-                    }
+            const { stdout, stderr } = await execFileAsync("node", [wrapperPath], {
+                cwd: tempDirectory,
+                // 8MB max buffer is sufficient in CI for reduced logging; keep it
+                // modest to avoid masking legitimate issues while still preventing
+                // intermittent RangeError failures on macOS/Node.
+                // Increase to 64MB to safely capture expanded output when running
+                // the wrapper from the repository root. We also explicitly unset
+                // the DEBUG environment variable below to avoid contaminating
+                // stdout with other library-level debug streams.
+                maxBuffer: 1024 * 1024 * 64,
+                env: {
+                    ...env,
+                    DEBUG: "",
+                    // Some internal tooling or dependencies also respect NODE_DEBUG,
+                    // ensure it is unset for the test run to avoid excessive log
+                    // output in CI.
+                    NODE_DEBUG: ""
                 }
-            );
+            });
 
             assert.strictEqual(stderr, "", "Expected stderr to be empty");
             assert.match(
@@ -1477,13 +1223,9 @@ void describe("Prettier wrapper CLI", () => {
         const tempDirectory = await createTemporaryDirectory();
 
         try {
-            const { stdout, stderr } = await execFileAsync(
-                "node",
-                [wrapperPath],
-                {
-                    cwd: tempDirectory
-                }
-            );
+            const { stdout, stderr } = await execFileAsync("node", [wrapperPath], {
+                cwd: tempDirectory
+            });
 
             assert.strictEqual(stderr, "", "Expected stderr to be empty");
             assert.match(
@@ -1491,20 +1233,10 @@ void describe("Prettier wrapper CLI", () => {
                 /Usage: prettier-plugin-gml \[command\] \[options\]/,
                 "Expected stdout to show help usage"
             );
-            assert.match(
-                stdout,
-                /Commands:/,
-                "Expected stdout to list available commands"
-            );
-            assert.match(
-                stdout,
-                /format \[options\] \[targetPath\]/,
-                "Expected stdout to include format command"
-            );
+            assert.match(stdout, /Commands:/, "Expected stdout to list available commands");
+            assert.match(stdout, /format \[options\] \[targetPath\]/, "Expected stdout to include format command");
             assert.ok(
-                stdout.includes(
-                    "Run with a command name to get started (e.g., 'format --help' for formatting"
-                ),
+                stdout.includes("Run with a command name to get started (e.g., 'format --help' for formatting"),
                 "Expected stdout to guide users on how to get started"
             );
         } finally {
@@ -1513,18 +1245,10 @@ void describe("Prettier wrapper CLI", () => {
     });
 
     void it("surfaces common format examples in the help output", async () => {
-        const { stdout, stderr } = await execFileAsync("node", [
-            wrapperPath,
-            "format",
-            "--help"
-        ]);
+        const { stdout, stderr } = await execFileAsync("node", [wrapperPath, "format", "--help"]);
 
         assert.strictEqual(stderr, "", "Expected stderr to be empty");
-        assert.match(
-            stdout,
-            /Examples:/,
-            "Expected help to include an examples section"
-        );
+        assert.match(stdout, /Examples:/, "Expected help to include an examples section");
         assert.ok(
             stdout.includes("  npx prettier-plugin-gml format path/to/project"),
             "Expected help output to include the npx usage example"
@@ -1534,23 +1258,15 @@ void describe("Prettier wrapper CLI", () => {
             "Expected help output to include the workspace wrapper example"
         );
         assert.ok(
-            stdout.includes(
-                "  npx prettier-plugin-gml format --check path/to/script.gml"
-            ),
+            stdout.includes("  npx prettier-plugin-gml format --check path/to/script.gml"),
             "Expected help output to include the --check example"
         );
     });
 
     void it("prints CLI version information without triggering error handling", async () => {
-        const { stdout, stderr } = await execFileAsync("node", [
-            wrapperPath,
-            "--version"
-        ]);
+        const { stdout, stderr } = await execFileAsync("node", [wrapperPath, "--version"]);
 
         assert.strictEqual(stderr, "", "Expected stderr to be empty");
-        assert.ok(
-            stdout.trim().length > 0,
-            "Expected stdout to include a version label"
-        );
+        assert.ok(stdout.trim().length > 0, "Expected stdout to include a version label");
     });
 });

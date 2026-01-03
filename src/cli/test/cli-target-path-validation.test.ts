@@ -11,8 +11,7 @@ const originalSkipFlag = process.env[SKIP_CLI_RUN_ENV_VAR];
 process.env[SKIP_CLI_RUN_ENV_VAR] = "1";
 
 const cliModule = await import("../src/cli.js");
-const { validateTargetPathInputForTests, resolveTargetPathFromInputForTests } =
-    cliModule.__test__;
+const { validateTargetPathInputForTests, resolveTargetPathFromInputForTests } = cliModule.__test__;
 
 if (originalSkipFlag === undefined) {
     delete process.env[SKIP_CLI_RUN_ENV_VAR];
@@ -32,10 +31,7 @@ void test("validateTargetPathInput rejects non-string values", () => {
             }),
         (error) => {
             assert.ok(error instanceof CliUsageError);
-            assert.strictEqual(
-                error.message,
-                "Target path must be provided as a string. Received a plain object."
-            );
+            assert.strictEqual(error.message, "Target path must be provided as a string. Received a plain object.");
             assert.strictEqual(error.usage, usage);
             return true;
         }
@@ -64,12 +60,9 @@ void test("resolveTargetPathFromInput falls back to the raw value when sanitized
     });
 
     try {
-        const resolved = resolveTargetPathFromInputForTests(
-            targetPaths.sanitizedName,
-            {
-                rawTargetPathInput: targetPaths.rawName
-            }
-        );
+        const resolved = resolveTargetPathFromInputForTests(targetPaths.sanitizedName, {
+            rawTargetPathInput: targetPaths.rawName
+        });
         assert.strictEqual(resolved, targetPaths.rawPath);
     } finally {
         await targetPaths.cleanup();
@@ -83,12 +76,9 @@ void test("resolveTargetPathFromInput prefers the raw value when both paths exis
     });
 
     try {
-        const resolved = resolveTargetPathFromInputForTests(
-            targetPaths.sanitizedName,
-            {
-                rawTargetPathInput: targetPaths.rawName
-            }
-        );
+        const resolved = resolveTargetPathFromInputForTests(targetPaths.sanitizedName, {
+            rawTargetPathInput: targetPaths.rawName
+        });
         assert.strictEqual(resolved, targetPaths.rawPath);
     } finally {
         await targetPaths.cleanup();

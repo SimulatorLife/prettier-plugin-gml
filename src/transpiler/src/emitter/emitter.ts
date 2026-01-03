@@ -262,16 +262,12 @@ export class GmlToJsEmitter {
 
     private visitIncDecStatement(ast: IncDecStatementNode): string {
         const argument = this.visit(ast.argument);
-        return ast.prefix
-            ? `${ast.operator}${argument}`
-            : `${argument}${ast.operator}`;
+        return ast.prefix ? `${ast.operator}${argument}` : `${argument}${ast.operator}`;
     }
 
     private visitMemberIndexExpression(ast: MemberIndexExpressionNode): string {
         const object = this.visit(ast.object);
-        const indices = (ast.property ?? [])
-            .map((prop) => `[${this.visit(prop)}]`)
-            .join("");
+        const indices = (ast.property ?? []).map((prop) => `[${this.visit(prop)}]`).join("");
         return `${object}${indices}`;
     }
 
@@ -298,13 +294,10 @@ export class GmlToJsEmitter {
 
         if (kind === "script") {
             const scriptSymbol = this.callTargetAnalyzer.callTargetSymbol(ast);
-            const fallbackName =
-                this.resolveIdentifierName(ast.object) ?? callee;
+            const fallbackName = this.resolveIdentifierName(ast.object) ?? callee;
             const scriptId = scriptSymbol ?? fallbackName;
             const argsList = args.join(", ");
-            return `${this.options.callScriptIdent}(${JSON.stringify(
-                scriptId
-            )}, self, other, [${argsList}])`;
+            return `${this.options.callScriptIdent}(${JSON.stringify(scriptId)}, self, other, [${argsList}])`;
         }
 
         return `${callee}(${args.join(", ")})`;
@@ -317,19 +310,11 @@ export class GmlToJsEmitter {
     }
 
     private visitProgram(ast: ProgramNode): string {
-        return this.joinTruthy(
-            (ast.body ?? []).map((stmt) =>
-                this.ensureStatementTermination(this.visit(stmt))
-            )
-        );
+        return this.joinTruthy((ast.body ?? []).map((stmt) => this.ensureStatementTermination(this.visit(stmt))));
     }
 
     private visitBlockStatement(ast: BlockStatementNode): string {
-        const body = this.joinTruthy(
-            (ast.body ?? []).map((stmt) =>
-                this.ensureStatementTermination(this.visit(stmt))
-            )
-        );
+        const body = this.joinTruthy((ast.body ?? []).map((stmt) => this.ensureStatementTermination(this.visit(stmt))));
         return `{\n${body}\n}`;
     }
 
@@ -436,9 +421,7 @@ export class GmlToJsEmitter {
         const handler = ast.handler
             ? ` catch (${ast.handler.param ? this.visit(ast.handler.param) : "err"})${this.wrapConditionalBody(ast.handler.body)}`
             : "";
-        const finalizer = ast.finalizer
-            ? ` finally${this.wrapConditionalBody(ast.finalizer.body)}`
-            : "";
+        const finalizer = ast.finalizer ? ` finally${this.wrapConditionalBody(ast.finalizer.body)}` : "";
         return `try${block}${handler}${finalizer}`;
     }
 
@@ -452,10 +435,7 @@ export class GmlToJsEmitter {
         const discriminant = this.wrapConditional(ast.discriminant);
         const cases = (ast.cases ?? [])
             .map((caseNode) => {
-                const header =
-                    caseNode.test === null
-                        ? "default:"
-                        : `case ${this.visit(caseNode.test)}:`;
+                const header = caseNode.test === null ? "default:" : `case ${this.visit(caseNode.test)}:`;
                 const body = this.joinTruthy(
                     (caseNode.body ?? []).map((stmt) => {
                         const code = this.visit(stmt);
@@ -531,9 +511,7 @@ export class GmlToJsEmitter {
         return `[${elements}]`;
     }
 
-    private visitTemplateStringExpression(
-        ast: TemplateStringExpressionNode
-    ): string {
+    private visitTemplateStringExpression(ast: TemplateStringExpressionNode): string {
         const parts = (ast.atoms ?? []).map((atom) => {
             if (!atom) {
                 return "";
@@ -562,20 +540,12 @@ export class GmlToJsEmitter {
 
     private visitEnumDeclaration(ast: EnumDeclarationNode): string {
         const name = this.visit(ast.name);
-        const lines = [
-            `const ${name} = (() => {`,
-            "    const __enum = {};",
-            "    let __value = -1;"
-        ];
+        const lines = [`const ${name} = (() => {`, "    const __enum = {};", "    let __value = -1;"];
         for (const member of ast.members ?? []) {
             const memberName = this.resolveEnumMemberName(member);
-            if (
-                member.initializer !== undefined &&
-                member.initializer !== null
-            ) {
+            if (member.initializer !== undefined && member.initializer !== null) {
                 const initializer =
-                    typeof member.initializer === "string" ||
-                    typeof member.initializer === "number"
+                    typeof member.initializer === "string" || typeof member.initializer === "number"
                         ? String(member.initializer)
                         : this.visit(member.initializer);
                 lines.push(`    __value = ${initializer};`);
@@ -596,9 +566,7 @@ export class GmlToJsEmitter {
         result += "(";
         if (ast.params && ast.params.length > 0) {
             const params = ast.params
-                .map((param) =>
-                    typeof param === "string" ? param : this.visit(param)
-                )
+                .map((param) => (typeof param === "string" ? param : this.visit(param)))
                 .join(", ");
             result += params;
         }
@@ -635,17 +603,11 @@ export class GmlToJsEmitter {
         return mapping[op] ?? op;
     }
 
-    private wrapConditional(
-        node: GmlNode | null | undefined,
-        raw = false
-    ): string {
+    private wrapConditional(node: GmlNode | null | undefined, raw = false): string {
         if (!node) {
             return raw ? "" : "(undefined)";
         }
-        const expression =
-            node.type === "ParenthesizedExpression"
-                ? this.visit(node.expression)
-                : this.visit(node);
+        const expression = node.type === "ParenthesizedExpression" ? this.visit(node.expression) : this.visit(node);
         return raw ? expression : `(${expression})`;
     }
 
@@ -682,23 +644,18 @@ export class GmlToJsEmitter {
             return code;
         }
 
-        const { shouldAppendTerminator } =
-            evaluateStatementTerminationPolicy(code);
+        const { shouldAppendTerminator } = evaluateStatementTerminationPolicy(code);
         if (shouldAppendTerminator) {
             return `${code};`;
         }
         return code;
     }
 
-    private joinTruthy(
-        lines: Array<string | undefined | null | false>
-    ): string {
+    private joinTruthy(lines: Array<string | undefined | null | false>): string {
         return Core.compactArray(lines).join("\n");
     }
 
-    private resolveIdentifierName(
-        node: GmlNode | IdentifierMetadata | null | undefined
-    ): string | null {
+    private resolveIdentifierName(node: GmlNode | IdentifierMetadata | null | undefined): string | null {
         if (!node) {
             return null;
         }
@@ -733,8 +690,7 @@ export class GmlToJsEmitter {
             return value;
         }
         const usesSameQuote =
-            (value.startsWith('"') && value.endsWith('"')) ||
-            (value.startsWith("'") && value.endsWith("'"));
+            (value.startsWith('"') && value.endsWith('"')) || (value.startsWith("'") && value.endsWith("'"));
         if (!usesSameQuote) {
             return value;
         }
@@ -825,8 +781,7 @@ export function makeDummyOracle(): {
     const callTargetAnalyzer: CallTargetAnalyzer = {
         callTargetKind(node) {
             const calleeName =
-                node.object &&
-                typeof (node.object as IdentifierMetadata).name === "string"
+                node.object && typeof (node.object as IdentifierMetadata).name === "string"
                     ? (node.object as IdentifierMetadata).name
                     : null;
             if (calleeName && builtInFunctions[calleeName]) {

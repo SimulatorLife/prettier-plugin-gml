@@ -33,11 +33,7 @@ type ProjectIndexParser = (sourceText: string, context?: unknown) => unknown;
 let parserNamespace: ParserNamespace | null = null;
 let defaultProjectIndexParser: ProjectIndexParser | null = null;
 
-const PARSER_FACADE_OPTION_KEYS = [
-    "identifierCaseProjectIndexParserFacade",
-    "gmlParserFacade",
-    "parserFacade"
-];
+const PARSER_FACADE_OPTION_KEYS = ["identifierCaseProjectIndexParserFacade", "gmlParserFacade", "parserFacade"];
 
 export function setProjectIndexParserNamespace(parser: ParserNamespace): void {
     parserNamespace = parser;
@@ -56,16 +52,10 @@ function resolveParserNamespace(parser?: ParserNamespace): ParserNamespace {
         return parserNamespace;
     }
 
-    throw new Error(
-        "Parser namespace is not initialized; call setProjectIndexParserNamespace first."
-    );
+    throw new Error("Parser namespace is not initialized; call setProjectIndexParserNamespace first.");
 }
 
-function parseProjectIndexSource(
-    sourceText: string,
-    context = {},
-    parser: ParserNamespace | null = null
-) {
+function parseProjectIndexSource(sourceText: string, context = {}, parser: ParserNamespace | null = null) {
     const parserApi = resolveParserNamespace(parser);
 
     try {
@@ -117,11 +107,8 @@ function resolveDefaultProjectIndexParser(): ProjectIndexParser {
     return defaultProjectIndexParser;
 }
 
-export function getDefaultProjectIndexParser(
-    parser: ParserNamespace | null = null
-) {
-    return (sourceText: string, context = {}) =>
-        parseProjectIndexSource(sourceText, context, parser);
+export function getDefaultProjectIndexParser(parser: ParserNamespace | null = null) {
+    return (sourceText: string, context = {}) => parseProjectIndexSource(sourceText, context, parser);
 }
 
 export function getProjectIndexParserOverride(options) {
@@ -144,8 +131,5 @@ export function getProjectIndexParserOverride(options) {
 }
 
 export function resolveProjectIndexParser(options) {
-    return (
-        getProjectIndexParserOverride(options)?.parse ??
-        resolveDefaultProjectIndexParser()
-    );
+    return getProjectIndexParserOverride(options)?.parse ?? resolveDefaultProjectIndexParser();
 }

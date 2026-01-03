@@ -14,10 +14,7 @@ void describe("function expressions", () => {
 
         const ast = GMLParser.parse(source);
 
-        assert.ok(
-            ast,
-            "Expected parser to return an AST for function expression input."
-        );
+        assert.ok(ast, "Expected parser to return an AST for function expression input.");
         const [statement] = ast.body;
         assert.ok(
             statement && statement.type === "VariableDeclaration",
@@ -25,15 +22,10 @@ void describe("function expressions", () => {
         );
 
         const [declarator] = statement.declarations;
-        assert.ok(
-            declarator && declarator.init,
-            "Variable declarator should include an initializer."
-        );
+        assert.ok(declarator && declarator.init, "Variable declarator should include an initializer.");
 
         const initializer =
-            declarator.init?.type === "ParenthesizedExpression"
-                ? declarator.init.expression
-                : declarator.init;
+            declarator.init?.type === "ParenthesizedExpression" ? declarator.init.expression : declarator.init;
         assert.ok(
             initializer && initializer.type === "TernaryExpression",
             "Initializer should parse as a ternary expression."
@@ -44,20 +36,12 @@ void describe("function expressions", () => {
             consequent && consequent.type === "FunctionDeclaration",
             "Expected ternary consequent to be parsed as a function declaration."
         );
-        assert.strictEqual(
-            consequent.id,
-            null,
-            "Anonymous function expression should not expose an identifier."
-        );
+        assert.strictEqual(consequent.id, null, "Anonymous function expression should not expose an identifier.");
 
         assert.ok(
             alternate && alternate.type === "FunctionDeclaration",
             "Expected ternary alternate to be parsed as a function declaration."
         );
-        assert.strictEqual(
-            alternate.id,
-            "named",
-            "Named function expression should retain its identifier."
-        );
+        assert.strictEqual(alternate.id, "named", "Named function expression should retain its identifier.");
     });
 });

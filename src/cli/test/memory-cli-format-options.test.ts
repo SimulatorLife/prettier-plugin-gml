@@ -25,10 +25,7 @@ void describe("parseFormatterOptionsFixture", () => {
         }
 
         assert.ok(error instanceof Core.JsonParseError);
-        assert.match(
-            error.message,
-            /Failed to parse formatter options fixture from \/tmp\/formatter\/options\.json/i
-        );
+        assert.match(error.message, /Failed to parse formatter options fixture from \/tmp\/formatter\/options\.json/i);
     });
 
     void it("rejects non-object formatter options fixtures", () => {

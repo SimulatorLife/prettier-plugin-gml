@@ -6,12 +6,8 @@ import { afterEach, beforeEach, describe, it } from "node:test";
 
 import { __test__ } from "../src/modules/memory/index.js";
 
-const {
-    SAMPLE_CACHE_MAX_ENTRIES,
-    loadSampleTextForTests,
-    clearSampleCacheForTests,
-    getSampleCacheLabelsForTests
-} = __test__;
+const { SAMPLE_CACHE_MAX_ENTRIES, loadSampleTextForTests, clearSampleCacheForTests, getSampleCacheLabelsForTests } =
+    __test__;
 
 async function createSampleFile(directory, label, size = 256 * 1024) {
     const filePath = path.join(directory, `${label}.txt`);
@@ -24,9 +20,7 @@ void describe("memory module sample cache", () => {
     let tempDir;
 
     beforeEach(async () => {
-        tempDir = await fs.mkdtemp(
-            path.join(os.tmpdir(), "prettier-plugin-gml-memory-cache-")
-        );
+        tempDir = await fs.mkdtemp(path.join(os.tmpdir(), "prettier-plugin-gml-memory-cache-"));
         clearSampleCacheForTests();
     });
 
@@ -51,10 +45,7 @@ void describe("memory module sample cache", () => {
             assert.equal(record.path, path.resolve(relativePath));
             const labels = getSampleCacheLabelsForTests();
 
-            assert.ok(
-                labels.length <= limit,
-                `cache should not exceed ${limit} entries (saw ${labels.length})`
-            );
+            assert.ok(labels.length <= limit, `cache should not exceed ${limit} entries (saw ${labels.length})`);
 
             if (index >= limit) {
                 const evictedLabel = `sample-${index - limit}`;
@@ -82,10 +73,7 @@ void describe("memory module sample cache", () => {
         await loadSampleTextForTests(firstEntry.label, firstEntry.relativePath);
 
         const extraPath = await createSampleFile(tempDir, "extra-1");
-        await loadSampleTextForTests(
-            "extra-1",
-            path.relative(process.cwd(), extraPath)
-        );
+        await loadSampleTextForTests("extra-1", path.relative(process.cwd(), extraPath));
 
         const cacheLabels = getSampleCacheLabelsForTests();
         assert.ok(cacheLabels.includes(firstEntry.label));

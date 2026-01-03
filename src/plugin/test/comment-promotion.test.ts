@@ -16,16 +16,9 @@ void describe("comment promotion and normalization", () => {
         const formatted = await Plugin.format(sourceCode);
 
         const hasDesc = formatted.includes("@description");
-        assert.ok(
-            hasDesc,
-            "Expected formatted output to include an @description promotion"
-        );
+        assert.ok(hasDesc, "Expected formatted output to include an @description promotion");
 
         const unpromoted = formatted.includes("// / ");
-        assert.strictEqual(
-            unpromoted,
-            false,
-            "Expected no remaining unpromoted '// / ' lines"
-        );
+        assert.strictEqual(unpromoted, false, "Expected no remaining unpromoted '// / ' lines");
     });
 });

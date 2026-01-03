@@ -19,7 +19,5 @@ export function cloneObjectEntries(entries?) {
         return [];
     }
 
-    return entries.map((entry) =>
-        Core.isObjectLike(entry) ? { ...entry } : entry
-    );
+    return entries.map((entry) => (Core.isObjectLike(entry) ? { ...entry } : entry));
 }

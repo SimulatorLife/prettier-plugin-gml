@@ -10,10 +10,7 @@ import {
     clearIdentifierCaseDryRunContexts
 } from "../src/identifier-case/identifier-case-context.js";
 import { COLLISION_CONFLICT_CODE } from "../src/identifier-case/common.js";
-import {
-    getIdentifierCaseOptionStore,
-    clearIdentifierCaseOptionStore
-} from "../src/identifier-case/option-store.js";
+import { getIdentifierCaseOptionStore, clearIdentifierCaseOptionStore } from "../src/identifier-case/option-store.js";
 import {
     createIdentifierCaseProject,
     resolveIdentifierCaseFixturesDirectory,
@@ -22,8 +19,7 @@ import {
 
 const currentDirectory = fileURLToPath(new URL(".", import.meta.url));
 const pluginPath = resolveIdentifierCasePluginPath(currentDirectory);
-const fixturesDirectory =
-    resolveIdentifierCaseFixturesDirectory(currentDirectory);
+const fixturesDirectory = resolveIdentifierCaseFixturesDirectory(currentDirectory);
 
 async function createTempProject({
     scriptFixtures = [
@@ -42,8 +38,7 @@ async function createTempProject({
 
 void describe("identifier case top-level renaming", () => {
     void it("plans renames for top-level scopes without modifying sources during dry-run", async () => {
-        const { projectRoot, scripts, event, projectIndex } =
-            await createTempProject();
+        const { projectRoot, scripts, event, projectIndex } = await createTempProject();
 
         try {
             clearIdentifierCaseDryRunContexts();
@@ -83,10 +78,7 @@ void describe("identifier case top-level renaming", () => {
                 const formatted = await prettier.format(script.source, options);
 
                 if (script.fixture === "top-level-scopes.gml") {
-                    assert.ok(
-                        formatted.includes("sample_function"),
-                        "Dry-run should keep the original function name"
-                    );
+                    assert.ok(formatted.includes("sample_function"), "Dry-run should keep the original function name");
                     assert.ok(!formatted.includes("sampleFunction"));
                     assert.ok(formatted.includes("new sample_struct"));
                     assert.ok(!formatted.includes("new sampleStruct"));
@@ -95,10 +87,7 @@ void describe("identifier case top-level renaming", () => {
                     assert.ok(formatted.includes("global_value"));
                     assert.ok(!formatted.includes("globalValue"));
                 } else if (script.fixture === "top-level-struct.gml") {
-                    assert.ok(
-                        formatted.includes("sample_struct"),
-                        "Dry-run should keep constructor names"
-                    );
+                    assert.ok(formatted.includes("sample_struct"), "Dry-run should keep constructor names");
                     assert.ok(!formatted.includes("sampleStruct"));
                 }
 
@@ -122,14 +111,8 @@ void describe("identifier case top-level renaming", () => {
                     diagnostics
                 };
 
-                const formattedEvent = await prettier.format(
-                    event.source,
-                    eventOptions
-                );
-                assert.ok(
-                    formattedEvent.includes("instance_counter"),
-                    "Dry-run should keep instance variables"
-                );
+                const formattedEvent = await prettier.format(event.source, eventOptions);
+                assert.ok(formattedEvent.includes("instance_counter"), "Dry-run should keep instance variables");
                 assert.ok(!formattedEvent.includes("instanceCounter"));
 
                 const store = getIdentifierCaseOptionStore(event.path);
@@ -142,15 +125,8 @@ void describe("identifier case top-level renaming", () => {
                 Array.isArray(plan?.operations) ? plan.operations : []
             );
 
-            assert.ok(
-                aggregatedOperations.length > 0,
-                "Expected rename plan to be generated"
-            );
-            const operationScopes = new Set(
-                aggregatedOperations.map(
-                    (operation) => operation.id?.split(":")[0]
-                )
-            );
+            assert.ok(aggregatedOperations.length > 0, "Expected rename plan to be generated");
+            const operationScopes = new Set(aggregatedOperations.map((operation) => operation.id?.split(":")[0]));
             assert.ok(operationScopes.has("functions"));
             assert.ok(operationScopes.has("structs"));
             assert.ok(operationScopes.has("macros"));
@@ -164,8 +140,7 @@ void describe("identifier case top-level renaming", () => {
     });
 
     void it("applies top-level renames when write mode is enabled", async () => {
-        const { projectRoot, scripts, event, projectIndex } =
-            await createTempProject();
+        const { projectRoot, scripts, event, projectIndex } = await createTempProject();
 
         try {
             clearIdentifierCaseDryRunContexts();
@@ -201,10 +176,7 @@ void describe("identifier case top-level renaming", () => {
                 const rewritten = await prettier.format(script.source, options);
 
                 if (script.fixture === "top-level-scopes.gml") {
-                    assert.ok(
-                        rewritten.includes("sampleFunction"),
-                        "Function call should be rewritten"
-                    );
+                    assert.ok(rewritten.includes("sampleFunction"), "Function call should be rewritten");
                     assert.ok(!rewritten.includes("sample_function("));
                     assert.ok(
                         rewritten.includes("function sampleFunction"),
@@ -248,14 +220,8 @@ void describe("identifier case top-level renaming", () => {
                     filepath: event.path,
                     diagnostics
                 };
-                const rewrittenEvent = await prettier.format(
-                    event.source,
-                    eventOptions
-                );
-                assert.ok(
-                    rewrittenEvent.includes("instanceCounter"),
-                    "Instance variable should be rewritten"
-                );
+                const rewrittenEvent = await prettier.format(event.source, eventOptions);
+                assert.ok(rewrittenEvent.includes("instanceCounter"), "Instance variable should be rewritten");
                 assert.ok(!rewrittenEvent.includes("instance_counter"));
             }
         } finally {
@@ -301,23 +267,15 @@ void describe("identifier case top-level renaming", () => {
                 diagnostics
             };
 
-            const formatted = await prettier.format(
-                script.source,
-                formatOptions
-            );
-            assert.ok(
-                formatted.includes("function global_value"),
-                "Collisions should prevent rewriting"
-            );
+            const formatted = await prettier.format(script.source, formatOptions);
+            assert.ok(formatted.includes("function global_value"), "Collisions should prevent rewriting");
             assert.ok(formatted.includes("globalValue"));
             assert.ok(!formatted.includes("function globalValue"));
 
             const store = getIdentifierCaseOptionStore(script.path);
             const conflicts = store?.__identifierCaseConflicts ?? [];
             assert.ok(conflicts.length > 0, "Expected collision conflict");
-            const collision = conflicts.find(
-                (entry) => entry.code === COLLISION_CONFLICT_CODE
-            );
+            const collision = conflicts.find((entry) => entry.code === COLLISION_CONFLICT_CODE);
             assert.ok(collision, "Expected collision conflict to be reported");
             assert.match(collision.message, /global variable/i);
         } finally {

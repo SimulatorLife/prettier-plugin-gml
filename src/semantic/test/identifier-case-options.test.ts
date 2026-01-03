@@ -19,14 +19,8 @@ void describe("gml identifier case option normalization", () => {
 
         assert.strictEqual(normalized.baseStyle, IdentifierCaseStyle.OFF);
         for (const scope of IDENTIFIER_CASE_SCOPE_NAMES) {
-            assert.strictEqual(
-                normalized.scopeSettings[scope],
-                IDENTIFIER_CASE_INHERIT_VALUE
-            );
-            assert.strictEqual(
-                normalized.scopeStyles[scope],
-                IdentifierCaseStyle.OFF
-            );
+            assert.strictEqual(normalized.scopeSettings[scope], IDENTIFIER_CASE_INHERIT_VALUE);
+            assert.strictEqual(normalized.scopeStyles[scope], IdentifierCaseStyle.OFF);
         }
         assert.deepStrictEqual(normalized.ignorePatterns, []);
         assert.deepStrictEqual(normalized.preservedIdentifiers, []);
@@ -37,8 +31,7 @@ void describe("gml identifier case option normalization", () => {
         const normalized = normalizeIdentifierCaseOptions({
             [IDENTIFIER_CASE_BASE_OPTION_NAME]: "pascal",
             [getIdentifierCaseScopeOptionName("globals")]: "snake-upper",
-            [getIdentifierCaseScopeOptionName("locals")]:
-                IDENTIFIER_CASE_INHERIT_VALUE,
+            [getIdentifierCaseScopeOptionName("locals")]: IDENTIFIER_CASE_INHERIT_VALUE,
             [getIdentifierCaseScopeOptionName("functions")]: "camel",
             [IDENTIFIER_CASE_IGNORE_OPTION_NAME]: "temp_, debug",
             [IDENTIFIER_CASE_PRESERVE_OPTION_NAME]: ["hp", "PlayerScore"],
@@ -52,10 +45,7 @@ void describe("gml identifier case option normalization", () => {
         assert.strictEqual(normalized.scopeStyles.locals, "pascal");
         assert.ok(normalized.ignorePatterns.includes("temp_"));
         assert.ok(normalized.ignorePatterns.includes("debug"));
-        assert.deepStrictEqual(normalized.preservedIdentifiers, [
-            "hp",
-            "PlayerScore"
-        ]);
+        assert.deepStrictEqual(normalized.preservedIdentifiers, ["hp", "PlayerScore"]);
         assert.strictEqual(normalized.assetRenamesAcknowledged, true);
     });
 
@@ -71,14 +61,10 @@ void describe("gml identifier case option normalization", () => {
 
     void it("accepts valid locals identifier case style values", () => {
         const normalized = normalizeIdentifierCaseOptions({
-            [getIdentifierCaseScopeOptionName("locals")]:
-                IdentifierCaseStyle.SNAKE_UPPER
+            [getIdentifierCaseScopeOptionName("locals")]: IdentifierCaseStyle.SNAKE_UPPER
         });
 
-        assert.strictEqual(
-            normalized.scopeStyles.locals,
-            IdentifierCaseStyle.SNAKE_UPPER
-        );
+        assert.strictEqual(normalized.scopeStyles.locals, IdentifierCaseStyle.SNAKE_UPPER);
     });
 
     void it("rejects enabling asset renames without acknowledgment", () => {
@@ -86,8 +72,7 @@ void describe("gml identifier case option normalization", () => {
             () =>
                 normalizeIdentifierCaseOptions({
                     [IDENTIFIER_CASE_BASE_OPTION_NAME]: "camel",
-                    [getIdentifierCaseScopeOptionName("assets")]:
-                        IDENTIFIER_CASE_INHERIT_VALUE
+                    [getIdentifierCaseScopeOptionName("assets")]: IDENTIFIER_CASE_INHERIT_VALUE
                 }),
             /acknowledging asset renames/i
         );

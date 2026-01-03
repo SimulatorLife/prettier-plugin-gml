@@ -43,10 +43,7 @@ void describe("byte-format", () => {
 
         void it("accepts per-call radix overrides", () => {
             assert.strictEqual(formatByteSize(1000, { radix: 1000 }), "1.0KB");
-            assert.strictEqual(
-                formatByteSize(1000, { radix: "invalid" }),
-                "1000B"
-            );
+            assert.strictEqual(formatByteSize(1000, { radix: "invalid" }), "1000B");
         });
 
         void it("allows adjusting the default radix", () => {

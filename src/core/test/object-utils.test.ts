@@ -15,10 +15,7 @@ import {
 
 void test("isPlainObject accepts non-null object literals", () => {
     assert.strictEqual(isPlainObject({}), true);
-    assert.strictEqual(
-        isPlainObject(Object.create(null), { allowNullPrototype: true }),
-        true
-    );
+    assert.strictEqual(isPlainObject(Object.create(null), { allowNullPrototype: true }), true);
 });
 
 void test("isPlainObject rejects arrays, null, and primitives", () => {
@@ -40,9 +37,7 @@ void test("assertPlainObject throws with descriptive error messages", () => {
             assertPlainObject([], {
                 errorMessage: "Custom plain object error"
             }),
-        (error) =>
-            error instanceof TypeError &&
-            /Custom plain object error/.test(error.message)
+        (error) => error instanceof TypeError && /Custom plain object error/.test(error.message)
     );
 });
 
@@ -207,10 +202,7 @@ void test("describeValueWithArticle formats common value types", () => {
 });
 
 void test("describeValueWithArticle accepts custom empty string labels", () => {
-    assert.strictEqual(
-        describeValueWithArticle("", { emptyStringLabel: "an empty string" }),
-        "an empty string"
-    );
+    assert.strictEqual(describeValueWithArticle("", { emptyStringLabel: "an empty string" }), "an empty string");
 });
 
 void test("incrementMapValue initializes missing entries with fallback", () => {
@@ -238,8 +230,5 @@ void test("incrementMapValue coerces existing values before incrementing", () =>
 });
 
 void test("incrementMapValue throws when store lacks map methods", () => {
-    assert.throws(
-        () => incrementMapValue(null, "key"),
-        /store must provide get and set functions/
-    );
+    assert.throws(() => incrementMapValue(null, "key"), /store must provide get and set functions/);
 });

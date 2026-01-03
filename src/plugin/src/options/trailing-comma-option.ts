@@ -13,9 +13,7 @@ const TRAILING_COMMA_VALUES = Object.freeze(Object.values(TRAILING_COMMA));
 const TRAILING_COMMA_SET = new Set(TRAILING_COMMA_VALUES);
 const TRAILING_COMMA_LIST = TRAILING_COMMA_VALUES.join(", ");
 
-function normalizeTrailingCommaValue(
-    value: unknown
-): TrailingCommaOption | null {
+function normalizeTrailingCommaValue(value: unknown): TrailingCommaOption | null {
     return Core.normalizeEnumeratedOption(value, null, TRAILING_COMMA_SET, {
         coerce(candidate) {
             return typeof candidate === "string" ? candidate.trim() : "";
@@ -34,9 +32,7 @@ function assertTrailingCommaValue(value: unknown): TrailingCommaOption {
     }
 
     const received = Core.describeValueForError(value);
-    throw new TypeError(
-        `Trailing comma override must be one of: ${TRAILING_COMMA_LIST}. Received: ${received}.`
-    );
+    throw new TypeError(`Trailing comma override must be one of: ${TRAILING_COMMA_LIST}. Received: ${received}.`);
 }
 
 export { TRAILING_COMMA, assertTrailingCommaValue, isTrailingCommaValue };

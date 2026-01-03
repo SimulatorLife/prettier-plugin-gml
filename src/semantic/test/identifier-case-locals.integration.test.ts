@@ -22,8 +22,7 @@ import {
 
 const currentDirectory = fileURLToPath(new URL(".", import.meta.url));
 const pluginPath = resolveIdentifierCasePluginPath(currentDirectory);
-const fixturesDirectory =
-    resolveIdentifierCaseFixturesDirectory(currentDirectory);
+const fixturesDirectory = resolveIdentifierCaseFixturesDirectory(currentDirectory);
 
 async function createTempProject(fixtureFileName = "locals.gml") {
     const project = await createIdentifierCaseProject({
@@ -42,8 +41,7 @@ async function createTempProject(fixtureFileName = "locals.gml") {
 
 void describe("identifier case local renaming", { concurrency: false }, () => {
     void it("reports planned renames and conflicts during dry-run", async () => {
-        const { projectRoot, fixtureSource, gmlPath, projectIndex } =
-            await createTempProject();
+        const { projectRoot, fixtureSource, gmlPath, projectIndex } = await createTempProject();
 
         const consoleMessages = [];
         const restoreConsole = mock.method(console, "log", (...args) => {
@@ -88,26 +86,13 @@ void describe("identifier case local renaming", { concurrency: false }, () => {
                 logger
             };
 
-            const formatted = await prettier.format(
-                fixtureSource,
-                formatOptions
-            );
+            const formatted = await prettier.format(fixtureSource, formatOptions);
 
-            assert.ok(
-                formatted.includes("counter_value"),
-                "Dry-run should not rewrite identifiers in the source"
-            );
-            assert.ok(
-                !formatted.includes("counterValue"),
-                "Dry-run should not apply rename targets"
-            );
+            assert.ok(formatted.includes("counter_value"), "Dry-run should not rewrite identifiers in the source");
+            assert.ok(!formatted.includes("counterValue"), "Dry-run should not apply rename targets");
 
-            const combinedMessages =
-                messages.length > 0 ? messages : consoleMessages;
-            assert.ok(
-                combinedMessages.length > 0,
-                "Expected reporting output to be logged"
-            );
+            const combinedMessages = messages.length > 0 ? messages : consoleMessages;
+            assert.ok(combinedMessages.length > 0, "Expected reporting output to be logged");
             const summaryText = combinedMessages.join("\n");
             assert.match(summaryText, /Planned renames: 1/);
             assert.match(summaryText, /Conflicts: 3/);
@@ -115,18 +100,10 @@ void describe("identifier case local renaming", { concurrency: false }, () => {
 
             const codes = new Set();
             if (Core.isNonEmptyArray(diagnostics)) {
-                const summaryDiagnostic = diagnostics.find(
-                    (entry) => entry?.code === "gml-identifier-case-summary"
-                );
+                const summaryDiagnostic = diagnostics.find((entry) => entry?.code === "gml-identifier-case-summary");
                 if (summaryDiagnostic) {
-                    assert.strictEqual(
-                        summaryDiagnostic.summary.renameCount,
-                        1
-                    );
-                    assert.strictEqual(
-                        summaryDiagnostic.summary.conflictCount,
-                        3
-                    );
+                    assert.strictEqual(summaryDiagnostic.summary.renameCount, 1);
+                    assert.strictEqual(summaryDiagnostic.summary.conflictCount, 3);
 
                     const renamePlan = summaryDiagnostic.renames ?? [];
                     assert.strictEqual(renamePlan.length, 1);
@@ -168,8 +145,7 @@ void describe("identifier case local renaming", { concurrency: false }, () => {
     });
 
     void it("applies local identifier renames when write mode is enabled", async () => {
-        const { projectRoot, fixtureSource, gmlPath, projectIndex } =
-            await createTempProject();
+        const { projectRoot, fixtureSource, gmlPath, projectIndex } = await createTempProject();
 
         try {
             clearIdentifierCaseDryRunContexts();
@@ -197,10 +173,7 @@ void describe("identifier case local renaming", { concurrency: false }, () => {
                 diagnostics
             };
 
-            const formatted = await prettier.format(
-                fixtureSource,
-                formatOptions
-            );
+            const formatted = await prettier.format(fixtureSource, formatOptions);
 
             assert.match(formatted, /counterValue/);
             assert.match(formatted, /preserve_me/);
@@ -208,10 +181,7 @@ void describe("identifier case local renaming", { concurrency: false }, () => {
             assert.match(formatted, /foo_bar/);
             assert.match(formatted, /fooBar/);
 
-            assert.ok(
-                !formatted.includes("counter_value"),
-                "Write mode should update declaration references"
-            );
+            assert.ok(!formatted.includes("counter_value"), "Write mode should update declaration references");
             assert.strictEqual(diagnostics.length, 0);
         } finally {
             clearIdentifierCaseDryRunContexts();
@@ -220,8 +190,7 @@ void describe("identifier case local renaming", { concurrency: false }, () => {
     });
 
     void it("differentiates dry-run versus write output for eligible locals", async () => {
-        const { projectRoot, fixtureSource, gmlPath, projectIndex } =
-            await createTempProject("locals-write.gml");
+        const { projectRoot, fixtureSource, gmlPath, projectIndex } = await createTempProject("locals-write.gml");
 
         const baseOptions = {
             plugins: [pluginPath],
@@ -252,16 +221,10 @@ void describe("identifier case local renaming", { concurrency: false }, () => {
                 logger: { log() {} }
             };
 
-            const dryRunOutput = await prettier.format(
-                fixtureSource,
-                dryRunOptions
-            );
+            const dryRunOutput = await prettier.format(fixtureSource, dryRunOptions);
 
             assert.match(dryRunOutput, /should_rename/);
-            assert.ok(
-                !dryRunOutput.includes("shouldRename"),
-                "Dry-run should preserve original identifier spelling"
-            );
+            assert.ok(!dryRunOutput.includes("shouldRename"), "Dry-run should preserve original identifier spelling");
 
             clearIdentifierCaseDryRunContexts();
             setIdentifierCaseDryRunContext({
@@ -276,24 +239,17 @@ void describe("identifier case local renaming", { concurrency: false }, () => {
                 diagnostics: []
             };
 
-            const writeOutput = await prettier.format(
-                fixtureSource,
-                writeOptions
-            );
+            const writeOutput = await prettier.format(fixtureSource, writeOptions);
 
             assert.match(writeOutput, /shouldRename/);
-            assert.ok(
-                !writeOutput.includes("should_rename"),
-                "Write mode should apply the converted identifier"
-            );
+            assert.ok(!writeOutput.includes("should_rename"), "Write mode should apply the converted identifier");
 
             const writeReportOptions = {
                 ...baseOptions,
                 __identifierCaseDryRun: false
             };
             await prepareIdentifierCasePlan(writeReportOptions);
-            const writeReport =
-                maybeReportIdentifierCaseDryRun(writeReportOptions);
+            const writeReport = maybeReportIdentifierCaseDryRun(writeReportOptions);
             assert.ok(writeReport, "Expected write mode report to be recorded");
             assert.strictEqual(writeReport.summary.renameCount, 1);
             assert.strictEqual(writeReport.summary.conflictCount, 0);

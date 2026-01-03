@@ -8,20 +8,11 @@ void test("expands single-line if statements by default", async () => {
 
     const formatted = await Plugin.format(source);
 
-    assert.strictEqual(
-        formatted,
-        ["if (global.debug) {", "    exit;", "}", ""].join("\n")
-    );
+    assert.strictEqual(formatted, ["if (global.debug) {", "    exit;", "}", ""].join("\n"));
 });
 
 void test("preserves compact return guards inside functions when disabled", async () => {
-    const source = [
-        "function guard_example() {",
-        "    if (global.debug) return;",
-        "    return 1;",
-        "}",
-        ""
-    ].join("\n");
+    const source = ["function guard_example() {", "    if (global.debug) return;", "    return 1;", "}", ""].join("\n");
 
     const formatted = await Plugin.format(source, {
         allowSingleLineIfStatements: false
@@ -29,13 +20,7 @@ void test("preserves compact return guards inside functions when disabled", asyn
 
     assert.strictEqual(
         formatted,
-        [
-            "function guard_example() {",
-            "    if (global.debug) { return; }",
-            "    return 1;",
-            "}",
-            ""
-        ].join("\n")
+        ["function guard_example() {", "    if (global.debug) { return; }", "    return 1;", "}", ""].join("\n")
     );
 });
 

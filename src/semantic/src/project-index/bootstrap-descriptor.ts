@@ -68,9 +68,7 @@ export function createProjectIndexBuildOptions({
         buildOptions.gmlParserFacade = facade;
     }
 
-    buildOptions.parseGml = parse as
-        | ((text: string, filePath?: string) => unknown)
-        | null;
+    buildOptions.parseGml = parse as ((text: string, filePath?: string) => unknown) | null;
 
     return buildOptions;
 }

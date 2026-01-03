@@ -6,9 +6,7 @@ import { resolveDocCommentTraversalService } from "../manager.js";
 import { toNormalizedLowerCaseString } from "../../../utils/string.js";
 
 type DocCommentTraversalService = {
-    forEach(
-        callback: (node: unknown, comments?: readonly unknown[] | null) => void
-    ): void;
+    forEach(callback: (node: unknown, comments?: readonly unknown[] | null) => void): void;
 };
 
 const PARAM_TAG_PATTERN = /@param\s+(?:\{[^}]+\}\s*)?(\S+)/i;
@@ -26,9 +24,7 @@ function getCommentPositions(comment: unknown) {
     const { start, end } = comment as { start?: unknown; end?: unknown };
 
     return {
-        start: normalizeBoundaryIndex(
-            (start as { index?: unknown })?.index ?? start
-        ),
+        start: normalizeBoundaryIndex((start as { index?: unknown })?.index ?? start),
         end: normalizeBoundaryIndex((end as { index?: unknown })?.index ?? end)
     };
 }
@@ -50,11 +46,7 @@ export function getCommentEndIndex(comment: unknown): number | null {
 /**
  * Determines whether the provided range contains only whitespace characters.
  */
-export function isWhitespaceBetween(
-    startIndex: number,
-    endIndex: number,
-    sourceText?: string | null
-): boolean {
+export function isWhitespaceBetween(startIndex: number, endIndex: number, sourceText?: string | null): boolean {
     if (!sourceText || typeof sourceText !== "string") {
         return true;
     }
@@ -154,9 +146,7 @@ export function extractDocumentedParamNames(
     const paramComments = candidateComments
         .filter(
             (comment): comment is { value: string } =>
-                isLineComment(comment) &&
-                typeof comment.value === "string" &&
-                /@param\b/i.test(comment.value)
+                isLineComment(comment) && typeof comment.value === "string" && /@param\b/i.test(comment.value)
         )
         .sort((left, right) => {
             const leftPos = getCommentStartIndex(left);
@@ -239,8 +229,7 @@ export function buildDocumentedParamNameLookup(
         return registry;
     }
 
-    const traversal =
-        docCommentTraversal ?? resolveDocCommentTraversalService(ast);
+    const traversal = docCommentTraversal ?? resolveDocCommentTraversalService(ast);
 
     traversal.forEach((node, comments = []) => {
         if (!isFunctionLikeNode(node)) {

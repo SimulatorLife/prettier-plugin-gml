@@ -37,10 +37,7 @@ void test("getFileMtime resolves to numeric mtimes when available", async () => 
         stat: async () => ({ mtimeMs: 123 })
     };
 
-    assert.strictEqual(
-        await getFileMtime(facade, "/project/manifest.json"),
-        123
-    );
+    assert.strictEqual(await getFileMtime(facade, "/project/manifest.json"), 123);
 });
 
 void test("getFileMtime returns null when file is missing", async () => {
@@ -52,8 +49,5 @@ void test("getFileMtime returns null when file is missing", async () => {
         }
     };
 
-    assert.strictEqual(
-        await getFileMtime(facade, "/project/missing.json"),
-        null
-    );
+    assert.strictEqual(await getFileMtime(facade, "/project/missing.json"), null);
 });

@@ -56,11 +56,7 @@ function valuesAs<T>(record: Record<string, T>): T[] {
     return Object.values(record);
 }
 
-async function writeFile(
-    rootDir: string,
-    relativePath: string,
-    contents: string
-) {
+async function writeFile(rootDir: string, relativePath: string, contents: string) {
     const absolutePath = path.join(rootDir, relativePath);
     await fs.mkdir(path.dirname(absolutePath), { recursive: true });
     await fs.writeFile(absolutePath, contents, "utf8");
@@ -70,11 +66,7 @@ void test("buildProjectIndex collects symbols and relationships across project f
     const tempRoot = await fs.mkdtemp(path.join(os.tmpdir(), "gml-project-"));
 
     try {
-        await writeFile(
-            tempRoot,
-            "MyGame.yyp",
-            JSON.stringify({ name: "MyGame", resourceType: "GMProject" })
-        );
+        await writeFile(tempRoot, "MyGame.yyp", JSON.stringify({ name: "MyGame", resourceType: "GMProject" }));
 
         await writeFile(
             tempRoot,
@@ -136,13 +128,9 @@ void test("buildProjectIndex collects symbols and relationships across project f
         await writeFile(
             tempRoot,
             "scripts/attack/attack.gml",
-            [
-                "function attack(target) {",
-                "    var damage = calc_damage(target);",
-                "    return damage;",
-                "}",
-                ""
-            ].join("\n")
+            ["function attack(target) {", "    var damage = calc_damage(target);", "    return damage;", "}", ""].join(
+                "\n"
+            )
         );
 
         await writeFile(
@@ -181,12 +169,7 @@ void test("buildProjectIndex collects symbols and relationships across project f
         await writeFile(
             tempRoot,
             "objects/obj_enemy/obj_enemy_Create_0.gml",
-            [
-                "hp = 100;",
-                "attack(other);",
-                "sprite_index = spr_enemy;",
-                "enemy_limit = enemy_limit + 1;"
-            ].join("\n")
+            ["hp = 100;", "attack(other);", "sprite_index = spr_enemy;", "enemy_limit = enemy_limit + 1;"].join("\n")
         );
 
         await writeFile(
@@ -195,18 +178,10 @@ void test("buildProjectIndex collects symbols and relationships across project f
             ["if (hp <= 0) {", "    instance_destroy();", "}"].join("\n")
         );
 
-        const index = (await buildProjectIndex(
-            tempRoot
-        )) as ProjectIndexSnapshot;
+        const index = (await buildProjectIndex(tempRoot)) as ProjectIndexSnapshot;
 
-        assert.ok(
-            index.resources["scripts/attack/attack.yy"],
-            "expected attack resource to be indexed"
-        );
-        assert.ok(
-            index.resources["objects/obj_enemy/obj_enemy.yy"],
-            "expected object resource to be indexed"
-        );
+        assert.ok(index.resources["scripts/attack/attack.yy"], "expected attack resource to be indexed");
+        assert.ok(index.resources["objects/obj_enemy/obj_enemy.yy"], "expected object resource to be indexed");
 
         const attackScope = index.scopes["scope:script:attack"];
         assert.ok(attackScope, "expected attack scope to be present");
@@ -215,75 +190,49 @@ void test("buildProjectIndex collects symbols and relationships across project f
             "expected attack declaration to be captured"
         );
 
-        const attackCalls = attackScope.scriptCalls.map(
-            (call) => call.target.name
-        );
-        assert.ok(
-            attackCalls.includes("calc_damage"),
-            "expected attack scope to record calc_damage call"
-        );
+        const attackCalls = attackScope.scriptCalls.map((call) => call.target.name);
+        assert.ok(attackCalls.includes("calc_damage"), "expected attack scope to record calc_damage call");
 
         const attackScript = index.identifiers.scripts["scope:script:attack"];
         assert.ok(attackScript, "expected script identifiers to be collected");
         assert.ok(attackScript.declarations.length > 0);
 
-        const calcScript =
-            index.identifiers.scripts["scope:script:calc_damage"];
+        const calcScript = index.identifiers.scripts["scope:script:calc_damage"];
         assert.ok(calcScript, "expected calc_damage script entry to exist");
         assert.ok(
-            calcScript.references.some(
-                (reference) =>
-                    reference.filePath === "scripts/attack/attack.gml"
-            ),
+            calcScript.references.some((reference) => reference.filePath === "scripts/attack/attack.gml"),
             "expected calc_damage to record references from attack"
         );
 
         const macroIdentifiers = index.identifiers.macros.MAX_ENEMIES;
-        assert.ok(
-            macroIdentifiers,
-            "expected macro identifiers to be collected"
-        );
+        assert.ok(macroIdentifiers, "expected macro identifiers to be collected");
         assert.equal(macroIdentifiers.declarations.length, 1);
         assert.ok(macroIdentifiers.references.length > 0);
 
         const globalIdentifiers = index.identifiers.globalVariables.enemy_limit;
-        assert.ok(
-            globalIdentifiers,
-            "expected global variable identifiers to be collected"
-        );
+        assert.ok(globalIdentifiers, "expected global variable identifiers to be collected");
         assert.equal(globalIdentifiers.declarations.length, 1);
         assert.ok(globalIdentifiers.references.length > 0);
 
-        const enumEntries = valuesAs<IdentifierIndexEntry>(
-            index.identifiers.enums
-        );
-        const difficultyEnum = enumEntries.find(
-            (entry) => entry.name === "Difficulty"
-        );
+        const enumEntries = valuesAs<IdentifierIndexEntry>(index.identifiers.enums);
+        const difficultyEnum = enumEntries.find((entry) => entry.name === "Difficulty");
         assert.ok(difficultyEnum, "expected Difficulty enum to be indexed");
         assert.equal(difficultyEnum.declarations.length, 1);
         assert.ok(difficultyEnum.references.length > 0);
 
-        const enumMemberEntries = valuesAs<IdentifierIndexEntry>(
-            index.identifiers.enumMembers
-        );
-        const hardMember = enumMemberEntries.find(
-            (entry) => entry.name === "Hard"
-        );
+        const enumMemberEntries = valuesAs<IdentifierIndexEntry>(index.identifiers.enumMembers);
+        const hardMember = enumMemberEntries.find((entry) => entry.name === "Hard");
         assert.ok(hardMember, "expected enum member Hard to be indexed");
         assert.equal(hardMember.declarations.length, 1);
         assert.ok(hardMember.references.length > 0);
 
-        const createFile =
-            index.files["objects/obj_enemy/obj_enemy_Create_0.gml"];
+        const createFile = index.files["objects/obj_enemy/obj_enemy_Create_0.gml"];
         assert.ok(createFile, "expected create event file to be indexed");
         assert.equal(createFile.scriptCalls.length, 1);
         assert.equal(createFile.scriptCalls[0].target.name, "attack");
         assert.equal(createFile.scriptCalls[0].isResolved, true);
 
-        const instanceEntries = valuesAs<IdentifierIndexEntry>(
-            index.identifiers.instanceVariables
-        );
+        const instanceEntries = valuesAs<IdentifierIndexEntry>(index.identifiers.instanceVariables);
         const hpInstance = instanceEntries.find((entry) => entry.name === "hp");
         assert.ok(hpInstance, "expected hp instance assignment to be tracked");
         assert.ok(hpInstance.declarations.length > 0);
@@ -299,44 +248,24 @@ void test("buildProjectIndex collects symbols and relationships across project f
         const calcFile = index.files["scripts/calc_damage/calc_damage.gml"];
         assert.ok(calcFile, "expected calc_damage file to be indexed");
         assert.ok(
-            calcFile.ignoredIdentifiers.some(
-                (entry) => entry.name === "max" && entry.reason === "built-in"
-            ),
+            calcFile.ignoredIdentifiers.some((entry) => entry.name === "max" && entry.reason === "built-in"),
             "expected built-in max to be ignored"
         );
 
-        const scriptCallTargets = index.relationships.scriptCalls.map(
-            (call) => call.target.name
-        );
-        const sortedScriptCallTargets = [...scriptCallTargets].reduce(
-            (acc, item) => {
-                const insertIndex = acc.findIndex(
-                    (existing) => existing > item
-                );
-                return insertIndex === -1
-                    ? [...acc, item]
-                    : [
-                          ...acc.slice(0, insertIndex),
-                          item,
-                          ...acc.slice(insertIndex)
-                      ];
-            },
-            []
-        );
+        const scriptCallTargets = index.relationships.scriptCalls.map((call) => call.target.name);
+        const sortedScriptCallTargets = [...scriptCallTargets].reduce((acc, item) => {
+            const insertIndex = acc.findIndex((existing) => existing > item);
+            return insertIndex === -1
+                ? [...acc, item]
+                : [...acc.slice(0, insertIndex), item, ...acc.slice(insertIndex)];
+        }, []);
         assert.deepEqual(sortedScriptCallTargets, ["attack", "calc_damage"]);
 
         const spriteReference = index.relationships.assetReferences.find(
-            (reference) =>
-                reference.targetPath === "sprites/spr_enemy/spr_enemy.yy"
+            (reference) => reference.targetPath === "sprites/spr_enemy/spr_enemy.yy"
         );
-        assert.ok(
-            spriteReference,
-            "expected sprite asset reference to be recorded"
-        );
-        assert.equal(
-            spriteReference.fromResourcePath,
-            "objects/obj_enemy/obj_enemy.yy"
-        );
+        assert.ok(spriteReference, "expected sprite asset reference to be recorded");
+        assert.equal(spriteReference.fromResourcePath, "objects/obj_enemy/obj_enemy.yy");
     } finally {
         await fs.rm(tempRoot, { recursive: true, force: true });
     }

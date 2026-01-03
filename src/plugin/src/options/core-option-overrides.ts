@@ -1,8 +1,5 @@
 import { Core } from "@gml-modules/core";
-import {
-    TRAILING_COMMA,
-    assertTrailingCommaValue
-} from "./trailing-comma-option.js";
+import { TRAILING_COMMA, assertTrailingCommaValue } from "./trailing-comma-option.js";
 
 type TrailingCommaOption = (typeof TRAILING_COMMA)[keyof typeof TRAILING_COMMA];
 type ArrowParensOption = "always" | "avoid";
@@ -19,9 +16,7 @@ type CoreOptionOverrides = Readonly<{
 }>;
 
 type CoreOverrideKey = keyof CoreOptionOverrides;
-type CoreOverrideNormalizer = (
-    value: unknown
-) => CoreOptionOverrides[CoreOverrideKey] | undefined;
+type CoreOverrideNormalizer = (value: unknown) => CoreOptionOverrides[CoreOverrideKey] | undefined;
 type CoreOptionOverridesResolver = (
     options: Record<string, unknown>
 ) => CoreOptionOverrides | Record<string, unknown> | null | undefined;
@@ -45,17 +40,13 @@ const DEFAULT_CORE_OPTION_OVERRIDES = Object.freeze({
     htmlWhitespaceSensitivity: "css"
 } satisfies CoreOptionOverrides);
 
-const ARROW_PARENS_VALUES: ReadonlySet<ArrowParensOption> = new Set([
-    "always",
-    "avoid"
+const ARROW_PARENS_VALUES: ReadonlySet<ArrowParensOption> = new Set(["always", "avoid"]);
+const PROSE_WRAP_VALUES: ReadonlySet<ProseWrapOption> = new Set(["always", "never", "preserve"]);
+const HTML_WHITESPACE_SENSITIVITY_VALUES: ReadonlySet<HtmlWhitespaceSensitivityOption> = new Set([
+    "css",
+    "strict",
+    "ignore"
 ]);
-const PROSE_WRAP_VALUES: ReadonlySet<ProseWrapOption> = new Set([
-    "always",
-    "never",
-    "preserve"
-]);
-const HTML_WHITESPACE_SENSITIVITY_VALUES: ReadonlySet<HtmlWhitespaceSensitivityOption> =
-    new Set(["css", "strict", "ignore"]);
 
 let customResolver: CoreOptionOverridesResolver | null = null;
 
@@ -63,50 +54,31 @@ function normalizeBoolean(value: unknown): boolean | undefined {
     return typeof value === "boolean" ? value : undefined;
 }
 
-function normalizeChoice<T extends string>(
-    value: unknown,
-    allowedValues: ReadonlySet<T>
-): T | undefined {
-    return typeof value === "string" && allowedValues.has(value as T)
-        ? (value as T)
-        : undefined;
+function normalizeChoice<T extends string>(value: unknown, allowedValues: ReadonlySet<T>): T | undefined {
+    return typeof value === "string" && allowedValues.has(value as T) ? (value as T) : undefined;
 }
 
-function normalizeTrailingCommaOverride(
-    value: unknown
-): TrailingCommaOption | undefined {
-    return typeof value === "string"
-        ? assertTrailingCommaValue(value)
-        : undefined;
+function normalizeTrailingCommaOverride(value: unknown): TrailingCommaOption | undefined {
+    return typeof value === "string" ? assertTrailingCommaValue(value) : undefined;
 }
 
-const CORE_OVERRIDE_NORMALIZERS: Record<
-    CoreOverrideKey,
-    CoreOverrideNormalizer
-> = {
+const CORE_OVERRIDE_NORMALIZERS: Record<CoreOverrideKey, CoreOverrideNormalizer> = {
     trailingComma: (value) => normalizeTrailingCommaOverride(value),
     arrowParens: (value) => normalizeChoice(value, ARROW_PARENS_VALUES),
     singleAttributePerLine: (value) => normalizeBoolean(value),
     jsxSingleQuote: (value) => normalizeBoolean(value),
     proseWrap: (value) => normalizeChoice(value, PROSE_WRAP_VALUES),
-    htmlWhitespaceSensitivity: (value) =>
-        normalizeChoice(value, HTML_WHITESPACE_SENSITIVITY_VALUES)
+    htmlWhitespaceSensitivity: (value) => normalizeChoice(value, HTML_WHITESPACE_SENSITIVITY_VALUES)
 };
 
-const CORE_OVERRIDE_KEYS = Object.keys(
-    CORE_OVERRIDE_NORMALIZERS
-) as CoreOverrideKey[];
+const CORE_OVERRIDE_KEYS = Object.keys(CORE_OVERRIDE_NORMALIZERS) as CoreOverrideKey[];
 
-function normalizeOverrideEntries(
-    overrides: Partial<Record<CoreOverrideKey, unknown>>
-): {
+function normalizeOverrideEntries(overrides: Partial<Record<CoreOverrideKey, unknown>>): {
     changedFromDefault: boolean;
     entries: Array<[CoreOverrideKey, CoreOptionOverrides[CoreOverrideKey]]>;
 } {
     let changedFromDefault = false;
-    const entries: Array<
-        [CoreOverrideKey, CoreOptionOverrides[CoreOverrideKey]]
-    > = [];
+    const entries: Array<[CoreOverrideKey, CoreOptionOverrides[CoreOverrideKey]]> = [];
 
     for (const key of CORE_OVERRIDE_KEYS) {
         const defaultValue = DEFAULT_CORE_OPTION_OVERRIDES[key];
@@ -149,11 +121,8 @@ function normalizeCoreOptionOverrides(overrides: unknown): CoreOptionOverrides {
         return DEFAULT_CORE_OPTION_OVERRIDES;
     }
 
-    const overrideRecord = overrides as Partial<
-        Record<CoreOverrideKey, unknown>
-    >;
-    const { changedFromDefault, entries } =
-        normalizeOverrideEntries(overrideRecord);
+    const overrideRecord = overrides as Partial<Record<CoreOverrideKey, unknown>>;
+    const { changedFromDefault, entries } = normalizeOverrideEntries(overrideRecord);
 
     if (!changedFromDefault && entries.length === CORE_OVERRIDE_KEYS.length) {
         return DEFAULT_CORE_OPTION_OVERRIDES;
@@ -177,24 +146,17 @@ function normalizeCoreOptionOverrides(overrides: unknown): CoreOptionOverrides {
  * @returns {typeof DEFAULT_CORE_OPTION_OVERRIDES} Frozen override map that is
  *          safe to reuse across print invocations.
  */
-function resolveCoreOptionOverrides(
-    options: Record<string, unknown> = {}
-): CoreOptionOverrides {
+function resolveCoreOptionOverrides(options: Record<string, unknown> = {}): CoreOptionOverrides {
     if (!customResolver) {
         return DEFAULT_CORE_OPTION_OVERRIDES;
     }
     const result = customResolver(options);
-    return normalizeCoreOptionOverrides(
-        result ?? DEFAULT_CORE_OPTION_OVERRIDES
-    );
+    return normalizeCoreOptionOverrides(result ?? DEFAULT_CORE_OPTION_OVERRIDES);
 }
 
-function setCoreOptionOverridesResolver(
-    resolver: CoreOptionOverridesResolver
-): CoreOptionOverrides {
+function setCoreOptionOverridesResolver(resolver: CoreOptionOverridesResolver): CoreOptionOverrides {
     Core.assertFunction(resolver, "resolver", {
-        errorMessage:
-            "Core option override resolvers must be functions that return override objects"
+        errorMessage: "Core option override resolvers must be functions that return override objects"
     });
     customResolver = resolver;
     return resolveCoreOptionOverrides();

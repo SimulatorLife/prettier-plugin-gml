@@ -3,15 +3,7 @@ import { doc, type Doc } from "prettier";
 const { builders, utils } = doc;
 const rawJoin = builders.join;
 const { willBreak } = utils;
-const {
-    breakParent,
-    line,
-    hardline,
-    softline,
-    lineSuffixBoundary,
-    fill: fillBuilder,
-    align: alignBuilder
-} = builders;
+const { breakParent, line, hardline, softline, lineSuffixBoundary, fill: fillBuilder, align: alignBuilder } = builders;
 
 /**
  * Normalized child shape accepted by the Prettier doc builder helpers.
@@ -116,10 +108,7 @@ export function group(parts: DocChild, opts?: Record<string, unknown>): Doc {
 /**
  * Construct a conditional group while sanitizing each branch.
  */
-export function conditionalGroup(
-    parts: DocChild[],
-    opts?: Record<string, unknown>
-): Doc {
+export function conditionalGroup(parts: DocChild[], opts?: Record<string, unknown>): Doc {
     // Pre-size the sanitized parts array and use a for-loop to avoid
     // reallocation during iteration. This mirrors the optimization in
     // sanitizeDocChild and concat, maintaining consistent performance
@@ -142,16 +131,8 @@ export function indent(parts: DocChild): Doc {
 /**
  * Render alternate docs depending on whether a line break occurs.
  */
-export function ifBreak(
-    breakContents: DocChild,
-    flatContents?: DocChild,
-    opts?: Record<string, unknown>
-): Doc {
-    return builders.ifBreak(
-        sanitizeDocChild(breakContents),
-        sanitizeDocChild(flatContents ?? ""),
-        opts
-    );
+export function ifBreak(breakContents: DocChild, flatContents?: DocChild, opts?: Record<string, unknown>): Doc {
+    return builders.ifBreak(sanitizeDocChild(breakContents), sanitizeDocChild(flatContents ?? ""), opts);
 }
 
 /**

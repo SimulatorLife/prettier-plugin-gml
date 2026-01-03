@@ -19,14 +19,9 @@ void test("promotes leading doc comment text to description metadata", async () 
     const formatted = await Plugin.format(source);
     const lines = formatted.split("\n");
 
-    const descriptionIndex = lines.findIndex((line) =>
-        line.includes("@description")
-    );
+    const descriptionIndex = lines.findIndex((line) => line.includes("@description"));
 
-    assert.ok(
-        descriptionIndex !== -1,
-        "Expected leading text to be promoted to @description metadata."
-    );
+    assert.ok(descriptionIndex !== -1, "Expected leading text to be promoted to @description metadata.");
 
     assert.equal(
         lines[descriptionIndex],
@@ -35,9 +30,7 @@ void test("promotes leading doc comment text to description metadata", async () 
     );
 
     const continuationIndex = lines.findIndex(
-        (line, index) =>
-            index > descriptionIndex &&
-            line.includes("Additional context lines")
+        (line, index) => index > descriptionIndex && line.includes("Additional context lines")
     );
     assert.ok(
         continuationIndex > descriptionIndex,
@@ -71,11 +64,7 @@ void test("promotes multi-line doc comments to description metadata", async () =
         ""
     ].join("\n");
 
-    assert.strictEqual(
-        formatted,
-        expected,
-        "Expected no extra blank lines when no doc tags are present."
-    );
+    assert.strictEqual(formatted, expected, "Expected no extra blank lines when no doc tags are present.");
 });
 
 void test("normalizes doc-like comment prefixes before promoting description metadata", async () => {
@@ -92,13 +81,8 @@ void test("normalizes doc-like comment prefixes before promoting description met
     const formatted = await Plugin.format(source);
     const lines = formatted.split("\n");
 
-    const descriptionIndex = lines.findIndex((line) =>
-        line.includes("@description")
-    );
-    assert.ok(
-        descriptionIndex !== -1,
-        "Expected doc-like prefixes to promote into @description metadata."
-    );
+    const descriptionIndex = lines.findIndex((line) => line.includes("@description"));
+    assert.ok(descriptionIndex !== -1, "Expected doc-like prefixes to promote into @description metadata.");
     assert.equal(
         lines[descriptionIndex],
         "/// @description Leading summary",
@@ -106,8 +90,7 @@ void test("normalizes doc-like comment prefixes before promoting description met
     );
 
     const continuationIndex = lines.findIndex(
-        (line, index) =>
-            index > descriptionIndex && line.includes("Additional note")
+        (line, index) => index > descriptionIndex && line.includes("Additional note")
     );
     assert.ok(
         continuationIndex > descriptionIndex,

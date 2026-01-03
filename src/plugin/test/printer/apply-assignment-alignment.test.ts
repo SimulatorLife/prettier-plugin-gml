@@ -21,10 +21,7 @@ function createAssignment(name, isGlobal = false) {
 
 void describe("applyAssignmentAlignment", () => {
     void it("aligns local identifiers once grouping is enabled", () => {
-        const statements = [
-            createAssignment("short"),
-            createAssignment("muchLonger")
-        ];
+        const statements = [createAssignment("short"), createAssignment("muchLonger")];
 
         applyAssignmentAlignment(statements, {
             alignAssignmentsMinGroupSize: 2
@@ -45,18 +42,11 @@ void describe("applyAssignmentAlignment", () => {
             "Short identifier should be padded to match the longest name"
         );
 
-        assert.strictEqual(
-            long._alignAssignmentPadding,
-            0,
-            "Longer identifier should not receive extra padding"
-        );
+        assert.strictEqual(long._alignAssignmentPadding, 0, "Longer identifier should not receive extra padding");
     });
 
     void it("aligns global identifiers even when declarations are elided", () => {
-        const statements = [
-            createAssignment("globalShort", true),
-            createAssignment("globalLonger", true)
-        ];
+        const statements = [createAssignment("globalShort", true), createAssignment("globalLonger", true)];
 
         applyAssignmentAlignment(statements, {
             alignAssignmentsMinGroupSize: 2,
@@ -84,10 +74,7 @@ void describe("applyAssignmentAlignment", () => {
     });
 
     void it("aligns global identifiers when declarations are preserved", () => {
-        const statements = [
-            createAssignment("globalShort", true),
-            createAssignment("globalLonger", true)
-        ];
+        const statements = [createAssignment("globalShort", true), createAssignment("globalLonger", true)];
 
         applyAssignmentAlignment(statements, {
             alignAssignmentsMinGroupSize: 2,

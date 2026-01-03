@@ -10,9 +10,7 @@ import {
 function toSortedArray(set: Set<any>) {
     return Array.from(set).reduce((acc: any[], item: any) => {
         const insertIndex = acc.findIndex((existing) => existing > item);
-        return insertIndex === -1
-            ? [...acc, item]
-            : [...acc.slice(0, insertIndex), item, ...acc.slice(insertIndex)];
+        return insertIndex === -1 ? [...acc, item] : [...acc.slice(0, insertIndex), item, ...acc.slice(insertIndex)];
     }, [] as any[]);
 }
 

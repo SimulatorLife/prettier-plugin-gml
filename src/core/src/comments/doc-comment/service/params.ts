@@ -1,7 +1,4 @@
-import {
-    defaultDocCommentStringCoercions,
-    type DocCommentStringCoercions
-} from "./string-coercions.js";
+import { defaultDocCommentStringCoercions, type DocCommentStringCoercions } from "./string-coercions.js";
 
 const STRING_TYPE = "string";
 
@@ -124,11 +121,7 @@ export function docParamNamesLooselyEqual(left: unknown, right: unknown) {
             return null;
         }
 
-        if (
-            trimmed.startsWith("[") &&
-            trimmed.endsWith("]") &&
-            trimmed.length > 2
-        ) {
+        if (trimmed.startsWith("[") && trimmed.endsWith("]") && trimmed.length > 2) {
             trimmed = trimmed.slice(1, -1).trim();
         }
 

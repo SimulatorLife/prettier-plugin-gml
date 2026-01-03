@@ -28,9 +28,7 @@ export class StructAssignmentMatcher {
         }
 
         if (statement.type === VARIABLE_DECLARATION) {
-            const declarator = Core.getSingleVariableDeclarator(
-                statement
-            ) as MutableGameMakerAstNode | null;
+            const declarator = Core.getSingleVariableDeclarator(statement) as MutableGameMakerAstNode | null;
             if (!Core.isNode(declarator)) {
                 return null;
             }
@@ -42,10 +40,7 @@ export class StructAssignmentMatcher {
                 return null;
             }
 
-            if (
-                Array.isArray((declarator.init as any).properties) &&
-                (declarator.init as any).properties.length > 0
-            ) {
+            if (Array.isArray((declarator.init as any).properties) && (declarator.init as any).properties.length > 0) {
                 return null;
             }
 
@@ -68,10 +63,7 @@ export class StructAssignmentMatcher {
                 return null;
             }
 
-            if (
-                Array.isArray((statement.right as any).properties) &&
-                (statement.right as any).properties.length > 0
-            ) {
+            if (Array.isArray((statement.right as any).properties) && (statement.right as any).properties.length > 0) {
                 return null;
             }
 
@@ -84,14 +76,8 @@ export class StructAssignmentMatcher {
         return null;
     }
 
-    getStructPropertyAssignmentDetails(
-        statement: unknown,
-        identifierName: string
-    ): AssignmentDetails | null {
-        if (
-            !Core.isNode(statement) ||
-            statement.type !== ASSIGNMENT_EXPRESSION
-        ) {
+    getStructPropertyAssignmentDetails(statement: unknown, identifierName: string): AssignmentDetails | null {
+        if (!Core.isNode(statement) || statement.type !== ASSIGNMENT_EXPRESSION) {
             return null;
         }
 
@@ -99,10 +85,7 @@ export class StructAssignmentMatcher {
             return null;
         }
 
-        const propertyAccess = this.getStructPropertyAccess(
-            statement.left,
-            identifierName
-        );
+        const propertyAccess = this.getStructPropertyAccess(statement.left, identifierName);
         if (!propertyAccess) {
             return null;
         }
@@ -113,10 +96,7 @@ export class StructAssignmentMatcher {
         };
     }
 
-    getStructPropertyAccess(
-        left: unknown,
-        identifierName: string
-    ): PropertyAccess | null {
+    getStructPropertyAccess(left: unknown, identifierName: string): PropertyAccess | null {
         if (!Core.isNode(left)) {
             return null;
         }
@@ -152,9 +132,6 @@ export class StructAssignmentMatcher {
     }
 
     isIdentifierSafe(name: unknown): boolean {
-        return (
-            typeof name === "string" &&
-            Core.GML_IDENTIFIER_NAME_PATTERN.test(name)
-        );
+        return typeof name === "string" && Core.GML_IDENTIFIER_NAME_PATTERN.test(name);
     }
 }

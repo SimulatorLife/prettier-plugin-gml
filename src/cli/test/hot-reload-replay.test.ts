@@ -63,11 +63,7 @@ void describe("Hot reload replay for late subscribers", () => {
     let websocketClient: ManagedWebSocket | null = null;
 
     before(async () => {
-        testDir = path.join(
-            process.cwd(),
-            "tmp",
-            `hot-reload-replay-${Date.now()}`
-        );
+        testDir = path.join(process.cwd(), "tmp", `hot-reload-replay-${Date.now()}`);
         await mkdir(testDir, { recursive: true });
         testFile = path.join(testDir, "late_join_patch.gml");
     });
@@ -102,11 +98,7 @@ void describe("Hot reload replay for late subscribers", () => {
 
         await new Promise((resolve) => setTimeout(resolve, 600));
 
-        await writeFile(
-            testFile,
-            "// first version\nvar late_join_value = 1;",
-            "utf8"
-        );
+        await writeFile(testFile, "// first version\nvar late_join_value = 1;", "utf8");
 
         await new Promise((resolve) => setTimeout(resolve, 800));
 
@@ -137,11 +129,7 @@ void describe("Hot reload replay for late subscribers", () => {
                 } catch (error) {
                     const description = describeUnknown(error);
                     reject(
-                        error instanceof Error
-                            ? error
-                            : new Error(
-                                  `Unexpected message parsing failure: ${description}`
-                              )
+                        error instanceof Error ? error : new Error(`Unexpected message parsing failure: ${description}`)
                     );
                 }
             });
@@ -158,11 +146,7 @@ void describe("Hot reload replay for late subscribers", () => {
             websocketClient.on("error", (error) => {
                 clearTimeout(timer);
                 const description = describeUnknown(error);
-                reject(
-                    error instanceof Error
-                        ? error
-                        : new Error(`WebSocket error: ${description}`)
-                );
+                reject(error instanceof Error ? error : new Error(`WebSocket error: ${description}`));
             });
         });
 
@@ -178,18 +162,11 @@ void describe("Hot reload replay for late subscribers", () => {
 
         const latestPatch = receivedPatches.at(-1);
 
-        assert.ok(
-            latestPatch && typeof latestPatch === "object",
-            "Should receive a replayed patch object"
-        );
+        assert.ok(latestPatch && typeof latestPatch === "object", "Should receive a replayed patch object");
         assert.ok(
             (latestPatch as { id?: string }).id?.includes("late_join_patch"),
             "Patch ID should include the script name"
         );
-        assert.equal(
-            (latestPatch as { kind?: string }).kind,
-            "script",
-            "Patch kind should be script"
-        );
+        assert.equal((latestPatch as { kind?: string }).kind, "script", "Patch kind should be script");
     });
 });

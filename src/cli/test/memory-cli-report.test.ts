@@ -24,9 +24,7 @@ import {
 } from "../src/modules/memory/index.js";
 
 void test("memory CLI writes suite results to a JSON report", async (t) => {
-    const workspace = await mkdtemp(
-        path.join(os.tmpdir(), "memory-cli-report-")
-    );
+    const workspace = await mkdtemp(path.join(os.tmpdir(), "memory-cli-report-"));
     const reportDir = path.join(workspace, "reports");
 
     t.after(() => {
@@ -55,8 +53,7 @@ void test("memory CLI writes suite results to a JSON report", async (t) => {
     assert.ok(payload.generatedAt.length > 0);
     assert.strictEqual(typeof payload.suites, "object");
 
-    const normalizeSuite =
-        payload.suites[MemorySuiteName.NORMALIZE_STRING_LIST];
+    const normalizeSuite = payload.suites[MemorySuiteName.NORMALIZE_STRING_LIST];
     assert.ok(normalizeSuite && typeof normalizeSuite === "object");
     assert.strictEqual(normalizeSuite.iterations, 1);
     assert.strictEqual(typeof normalizeSuite.description, "string");
@@ -64,23 +61,14 @@ void test("memory CLI writes suite results to a JSON report", async (t) => {
     assert.strictEqual(typeof normalizeSuite.totalLength, "number");
     assert.strictEqual(typeof normalizeSuite.heapUsedBefore, "number");
     assert.strictEqual(typeof normalizeSuite.heapUsedAfter, "number");
-    assert.ok(
-        normalizeSuite.memory && typeof normalizeSuite.memory === "object"
-    );
+    assert.ok(normalizeSuite.memory && typeof normalizeSuite.memory === "object");
     assert.strictEqual(normalizeSuite.memory.unit, "bytes");
     assert.strictEqual(typeof normalizeSuite.memory.before.heapUsed, "number");
     assert.strictEqual(typeof normalizeSuite.memory.delta.heapUsed, "number");
-    assert.strictEqual(
-        typeof normalizeSuite.memory.deltaPerIteration,
-        "object"
-    );
+    assert.strictEqual(typeof normalizeSuite.memory.deltaPerIteration, "object");
     if (normalizeSuite.heapUsedAfterGc == null) {
         assert.ok(Array.isArray(normalizeSuite.warnings));
-        assert.ok(
-            normalizeSuite.warnings.some((warning) =>
-                warning.includes("--expose-gc")
-            )
-        );
+        assert.ok(normalizeSuite.warnings.some((warning) => warning.includes("--expose-gc")));
     } else {
         assert.strictEqual(typeof normalizeSuite.heapUsedAfterGc, "number");
     }
@@ -117,16 +105,12 @@ void test("memory CLI writes suite results to a JSON report", async (t) => {
     assert.ok(formatterSuite.sample.path.endsWith("testFormatting.input.gml"));
     assert.strictEqual(typeof formatterSuite.output.bytes, "number");
     assert.strictEqual(typeof formatterSuite.options.printWidth, "number");
-    assert.ok(
-        formatterSuite.memory && typeof formatterSuite.memory === "object"
-    );
+    assert.ok(formatterSuite.memory && typeof formatterSuite.memory === "object");
     assert.strictEqual(typeof formatterSuite.memory.delta.heapUsed, "number");
 });
 
 void test("memory CLI resolves report directory from the environment", async (t) => {
-    const workspace = await mkdtemp(
-        path.join(os.tmpdir(), "memory-cli-report-env-")
-    );
+    const workspace = await mkdtemp(path.join(os.tmpdir(), "memory-cli-report-env-"));
 
     t.after(() => {
         setDefaultMemoryReportDirectory(DEFAULT_MEMORY_REPORT_DIR);
@@ -152,9 +136,7 @@ void test("memory CLI resolves report directory from the environment", async (t)
 });
 
 void test("memory CLI resolves report file name from the environment", async (t) => {
-    const workspace = await mkdtemp(
-        path.join(os.tmpdir(), "memory-cli-report-env-file-")
-    );
+    const workspace = await mkdtemp(path.join(os.tmpdir(), "memory-cli-report-env-file-"));
 
     t.after(() => {
         setDefaultMemoryReportDirectory(DEFAULT_MEMORY_REPORT_DIR);
@@ -180,9 +162,7 @@ void test("memory CLI resolves report file name from the environment", async (t)
 });
 
 void test("memory CLI respects the common node limit option", async (t) => {
-    const workspace = await mkdtemp(
-        path.join(os.tmpdir(), "memory-cli-report-limit-")
-    );
+    const workspace = await mkdtemp(path.join(os.tmpdir(), "memory-cli-report-limit-"));
     const reportDir = path.join(workspace, "reports-limit");
 
     t.after(() => {
@@ -194,14 +174,7 @@ void test("memory CLI respects the common node limit option", async (t) => {
     setAstCommonNodeTypeLimit(DEFAULT_MEMORY_AST_COMMON_NODE_LIMIT);
 
     const exitCode = await runMemoryCli({
-        argv: [
-            "--suite",
-            MemorySuiteName.PARSER_AST,
-            "--iterations",
-            "1",
-            "--common-node-limit",
-            "1"
-        ],
+        argv: ["--suite", MemorySuiteName.PARSER_AST, "--iterations", "1", "--common-node-limit", "1"],
         env: {},
         cwd: workspace,
         reportDir

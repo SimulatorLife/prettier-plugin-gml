@@ -9,10 +9,7 @@ import { calculateTimingMetrics } from "../src/runtime/patch-utils.js";
 //
 // DO NOT UPDATE THIS FUNCTION to match the fixed implementation - it exists
 // specifically to preserve the old buggy behavior for comparison in tests.
-function calculatePercentileWithStrictEquality(
-    sorted: Array<number>,
-    percentile: number
-): number {
+function calculatePercentileWithStrictEquality(sorted: Array<number>, percentile: number): number {
     if (sorted.length === 0) {
         return 0;
     }

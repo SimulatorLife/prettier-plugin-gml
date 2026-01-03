@@ -5,15 +5,11 @@ const LogicalOperatorsStyle = Object.freeze({
     SYMBOLS: "symbols"
 });
 
-const LOGICAL_OPERATORS_STYLE_VALUES = Object.freeze(
-    Object.values(LogicalOperatorsStyle)
-);
+const LOGICAL_OPERATORS_STYLE_VALUES = Object.freeze(Object.values(LogicalOperatorsStyle));
 
 const LOGICAL_OPERATORS_STYLE_SET = new Set(LOGICAL_OPERATORS_STYLE_VALUES);
 
-const VALID_STYLES_MESSAGE = LOGICAL_OPERATORS_STYLE_VALUES.map(
-    (value) => `'${value}'`
-).join(", ");
+const VALID_STYLES_MESSAGE = LOGICAL_OPERATORS_STYLE_VALUES.map((value) => `'${value}'`).join(", ");
 
 export const DEFAULT_LOGICAL_OPERATORS_STYLE = LogicalOperatorsStyle.KEYWORDS;
 
@@ -54,22 +50,15 @@ export function normalizeLogicalOperatorsStyle(rawStyle?: unknown) {
         return DEFAULT_LOGICAL_OPERATORS_STYLE;
     }
 
-    const normalized = Core.normalizeEnumeratedOption(
-        rawStyle,
-        null,
-        LOGICAL_OPERATORS_STYLE_SET,
-        {
-            coerce(value) {
-                if (typeof value !== "string") {
-                    throw new TypeError(
-                        `logicalOperatorsStyle must be provided as a string. Received: ${typeof value}.`
-                    );
-                }
-
-                return value.trim();
+    const normalized = Core.normalizeEnumeratedOption(rawStyle, null, LOGICAL_OPERATORS_STYLE_SET, {
+        coerce(value) {
+            if (typeof value !== "string") {
+                throw new TypeError(`logicalOperatorsStyle must be provided as a string. Received: ${typeof value}.`);
             }
+
+            return value.trim();
         }
-    );
+    });
 
     if (normalized === null) {
         throw new RangeError(

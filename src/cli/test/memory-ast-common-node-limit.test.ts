@@ -21,10 +21,7 @@ void describe("memory AST common node type limit configuration", () => {
     void it("returns the baseline default when no overrides are applied", () => {
         setAstCommonNodeTypeLimit(DEFAULT_MEMORY_AST_COMMON_NODE_LIMIT);
 
-        assert.equal(
-            getAstCommonNodeTypeLimit(),
-            DEFAULT_MEMORY_AST_COMMON_NODE_LIMIT
-        );
+        assert.equal(getAstCommonNodeTypeLimit(), DEFAULT_MEMORY_AST_COMMON_NODE_LIMIT);
     });
 
     void it("allows overriding the default limit", () => {

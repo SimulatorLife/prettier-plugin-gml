@@ -27,27 +27,17 @@ function valuesAs<T>(record: Record<string, T>): T[] {
     return Object.values(record);
 }
 
-async function writeFile(
-    rootDir: string,
-    relativePath: string,
-    contents: string
-) {
+async function writeFile(rootDir: string, relativePath: string, contents: string) {
     const absolutePath = path.join(rootDir, relativePath);
     await fs.mkdir(path.dirname(absolutePath), { recursive: true });
     await fs.writeFile(absolutePath, contents, "utf8");
 }
 
 void test("buildProjectIndex assigns identifier ids for each scope", async () => {
-    const tempRoot = await fs.mkdtemp(
-        path.join(os.tmpdir(), "gml-index-scope-")
-    );
+    const tempRoot = await fs.mkdtemp(path.join(os.tmpdir(), "gml-index-scope-"));
 
     try {
-        await writeFile(
-            tempRoot,
-            "MyGame.yyp",
-            JSON.stringify({ name: "MyGame", resourceType: "GMProject" })
-        );
+        await writeFile(tempRoot, "MyGame.yyp", JSON.stringify({ name: "MyGame", resourceType: "GMProject" }));
 
         await writeFile(
             tempRoot,
@@ -104,25 +94,14 @@ void test("buildProjectIndex assigns identifier ids for each scope", async () =>
         await writeFile(
             tempRoot,
             "objects/obj_tracker/obj_tracker_Create_0.gml",
-            [
-                "speed_bonus = 1;",
-                "SpeedBonus = speed_bonus + 1;",
-                "speedBonus = SpeedBonus + 1;",
-                ""
-            ].join("\n")
+            ["speed_bonus = 1;", "SpeedBonus = speed_bonus + 1;", "speedBonus = SpeedBonus + 1;", ""].join("\n")
         );
 
-        const index = (await buildProjectIndex(
-            tempRoot
-        )) as ProjectIndexSnapshot;
+        const index = (await buildProjectIndex(tempRoot)) as ProjectIndexSnapshot;
 
-        const scriptEntry =
-            index.identifiers.scripts["scope:script:scopeCollision"];
+        const scriptEntry = index.identifiers.scripts["scope:script:scopeCollision"];
         assert.ok(scriptEntry);
-        assert.equal(
-            scriptEntry.identifierId,
-            "script:scope:script:scopeCollision"
-        );
+        assert.equal(scriptEntry.identifierId, "script:scope:script:scopeCollision");
 
         const macroUpper = index.identifiers.macros.MACRO_VALUE;
         assert.equal(macroUpper.identifierId, "macro:MACRO_VALUE");
@@ -134,17 +113,13 @@ void test("buildProjectIndex assigns identifier ids for each scope", async () =>
         const globalUpper = index.identifiers.globalVariables.GLOBAL_RATE;
         assert.equal(globalUpper.identifierId, "global:GLOBAL_RATE");
 
-        const enumEntries = valuesAs<IdentifierIndexEntry>(
-            index.identifiers.enums
-        );
+        const enumEntries = valuesAs<IdentifierIndexEntry>(index.identifiers.enums);
         assert.ok(enumEntries.length > 0);
         for (const entry of enumEntries) {
             assert.ok(entry.identifierId?.startsWith("enum:"));
         }
 
-        const instanceEntries = valuesAs<IdentifierIndexEntry>(
-            index.identifiers.instanceVariables
-        );
+        const instanceEntries = valuesAs<IdentifierIndexEntry>(index.identifiers.instanceVariables);
         const instanceIds = instanceEntries.map((entry) => entry.identifierId);
         assert.ok(instanceIds.every((id) => id?.startsWith("instance:")));
         const uniqueInstanceIds = new Set(instanceIds);

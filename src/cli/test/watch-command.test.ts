@@ -4,20 +4,14 @@ import { mkdir, rm, writeFile } from "node:fs/promises";
 import path from "node:path";
 import { setTimeout as sleep } from "node:timers/promises";
 
-import {
-    createExtensionMatcher,
-    createWatchCommand
-} from "../src/commands/watch.js";
+import { createExtensionMatcher, createWatchCommand } from "../src/commands/watch.js";
 
 void describe("watch command", () => {
     void it("should create a command instance with correct configuration", () => {
         const command = createWatchCommand();
 
         assert.equal(command.name(), "watch");
-        assert.equal(
-            command.description(),
-            "Watch GML source files and coordinate hot-reload pipeline actions"
-        );
+        assert.equal(command.description(), "Watch GML source files and coordinate hot-reload pipeline actions");
 
         const options = command.options;
         assert.ok(options.some((opt) => opt.long === "--extensions"));
@@ -28,9 +22,7 @@ void describe("watch command", () => {
 
     void it("should have default extension set to .gml", () => {
         const command = createWatchCommand();
-        const extensionsOption = command.options.find(
-            (opt) => opt.long === "--extensions"
-        );
+        const extensionsOption = command.options.find((opt) => opt.long === "--extensions");
 
         assert.ok(extensionsOption);
         assert.deepEqual(extensionsOption.defaultValue, [".gml"]);
@@ -38,9 +30,7 @@ void describe("watch command", () => {
 
     void it("should have default polling interval of 1000ms", () => {
         const command = createWatchCommand();
-        const pollingIntervalOption = command.options.find(
-            (opt) => opt.long === "--polling-interval"
-        );
+        const pollingIntervalOption = command.options.find((opt) => opt.long === "--polling-interval");
 
         assert.ok(pollingIntervalOption);
         assert.equal(pollingIntervalOption.defaultValue, 1000);
@@ -80,10 +70,7 @@ void describe("watch command integration", () => {
                 verbose: false
             });
         } catch (error) {
-            assert.ok(
-                error.message.includes("process.exit called"),
-                "Should call process.exit"
-            );
+            assert.ok(error.message.includes("process.exit called"), "Should call process.exit");
         } finally {
             process.exit = originalExit;
         }
@@ -93,17 +80,12 @@ void describe("watch command integration", () => {
 
     void it("should normalize file extensions", async () => {
         // Create a temporary directory for testing
-        const testDir = path.join(
-            "/tmp",
-            `watch-test-${Date.now()}-${Math.random().toString(36).slice(2, 9)}`
-        );
+        const testDir = path.join("/tmp", `watch-test-${Date.now()}-${Math.random().toString(36).slice(2, 9)}`);
 
         await mkdir(testDir, { recursive: true });
 
         try {
-            const { runWatchCommand } = await import(
-                "../src/commands/watch.js"
-            );
+            const { runWatchCommand } = await import("../src/commands/watch.js");
 
             const abortController = new AbortController();
 
@@ -152,9 +134,7 @@ void describe("watch command integration", () => {
         const testFile = path.join(testDir, "test_script.gml");
 
         try {
-            const { runWatchCommand } = await import(
-                "../src/commands/watch.js"
-            );
+            const { runWatchCommand } = await import("../src/commands/watch.js");
 
             const abortController = new AbortController();
 

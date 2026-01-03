@@ -6,20 +6,13 @@ export const PRESERVE_CONFLICT_CODE = "preserve";
 export const IGNORE_CONFLICT_CODE = "ignored";
 export const RESERVED_CONFLICT_CODE = "reserved";
 
-export function formatConfigurationConflictMessage({
-    configConflict,
-    identifierName,
-    noun = "Identifier"
-}) {
+export function formatConfigurationConflictMessage({ configConflict, identifierName, noun = "Identifier" }) {
     if (!configConflict) {
         return null;
     }
 
     const labelNoun = Core.isNonEmptyString(noun) ? noun : "Identifier";
-    const labelName =
-        typeof identifierName === "string"
-            ? identifierName
-            : String(identifierName ?? "");
+    const labelName = typeof identifierName === "string" ? identifierName : String(identifierName ?? "");
     const subject = `${labelNoun} '${labelName}'`;
 
     if (configConflict.code === PRESERVE_CONFLICT_CODE) {
@@ -46,9 +39,7 @@ export function createPatternRegExp(pattern) {
         return null;
     }
 
-    const wildcardExpanded = escaped
-        .replaceAll(String.raw`\*`, ".*")
-        .replaceAll(String.raw`\?`, ".");
+    const wildcardExpanded = escaped.replaceAll(String.raw`\*`, ".*").replaceAll(String.raw`\?`, ".");
 
     return new RegExp(`^${wildcardExpanded}$`, "i");
 }
@@ -85,28 +76,15 @@ export function matchesIgnorePattern(matchers, identifierName, filePath) {
     return null;
 }
 
-export function resolveIdentifierConfigurationConflict({
-    preservedSet,
-    identifierName,
-    ignoreMatchers,
-    filePath
-}) {
-    if (
-        identifierName !== undefined &&
-        typeof preservedSet?.has === "function" &&
-        preservedSet.has(identifierName)
-    ) {
+export function resolveIdentifierConfigurationConflict({ preservedSet, identifierName, ignoreMatchers, filePath }) {
+    if (identifierName !== undefined && typeof preservedSet?.has === "function" && preservedSet.has(identifierName)) {
         return {
             code: PRESERVE_CONFLICT_CODE,
             reason: "preserve"
         };
     }
 
-    const ignoreMatch = matchesIgnorePattern(
-        ignoreMatchers,
-        identifierName,
-        filePath
-    );
+    const ignoreMatch = matchesIgnorePattern(ignoreMatchers, identifierName, filePath);
 
     if (ignoreMatch) {
         return {
@@ -119,15 +97,7 @@ export function resolveIdentifierConfigurationConflict({
     return null;
 }
 
-export function createConflict({
-    code,
-    severity,
-    message,
-    scope,
-    identifier,
-    suggestions = [],
-    details = null
-}) {
+export function createConflict({ code, severity, message, scope, identifier, suggestions = [], details = null }) {
     return {
         code,
         severity,
@@ -165,10 +135,7 @@ export function incrementFileOccurrence(counts, filePath, fallbackPath = null) {
     return true;
 }
 
-export function summarizeReferenceFileOccurrences(
-    references,
-    { fallbackPath = null, includeFilePaths = [] } = {}
-) {
+export function summarizeReferenceFileOccurrences(references, { fallbackPath = null, includeFilePaths = [] } = {}) {
     const counts = new Map();
 
     for (const extraPath of includeFilePaths ?? []) {
@@ -194,5 +161,4 @@ export function summarizeFileOccurrences(counts) {
     }));
 }
 
-export const DEFAULT_WRITE_ACCESS_MODE =
-    typeof fsConstants?.W_OK === "number" ? fsConstants.W_OK : undefined;
+export const DEFAULT_WRITE_ACCESS_MODE = typeof fsConstants?.W_OK === "number" ? fsConstants.W_OK : undefined;

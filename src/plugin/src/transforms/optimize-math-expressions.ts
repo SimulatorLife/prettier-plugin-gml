@@ -1,11 +1,7 @@
 /**
  * Encourages canonical math expressions so the printer outputs briefly simplified operations via normalization utilities.
  */
-import {
-    Core,
-    type GameMakerAstNode,
-    type MutableGameMakerAstNode
-} from "@gml-modules/core";
+import { Core, type GameMakerAstNode, type MutableGameMakerAstNode } from "@gml-modules/core";
 import { createParserTransform } from "./functional-transform.js";
 import { cleanupMultiplicativeIdentityParentheses } from "./math/parentheses-cleanup.js";
 import {
@@ -44,9 +40,7 @@ function extractLiteralNumber(literal: GameMakerAstNode): number | null {
     return null;
 }
 
-function unwrapExpression(
-    node: GameMakerAstNode | null | undefined
-): GameMakerAstNode | null {
+function unwrapExpression(node: GameMakerAstNode | null | undefined): GameMakerAstNode | null {
     let current = node;
     while (current && current.type === PARENTHESIZED_EXPRESSION) {
         current = (current as ParenthesizedExpressionNode).expression ?? null;
@@ -55,15 +49,9 @@ function unwrapExpression(
     return current ?? null;
 }
 
-function extractReciprocalScalar(
-    node: GameMakerAstNode | null | undefined
-): number | null {
+function extractReciprocalScalar(node: GameMakerAstNode | null | undefined): number | null {
     const expression = unwrapExpression(node);
-    if (
-        !expression ||
-        expression.type !== BINARY_EXPRESSION ||
-        expression.operator !== "/"
-    ) {
+    if (!expression || expression.type !== BINARY_EXPRESSION || expression.operator !== "/") {
         return null;
     }
 
@@ -94,9 +82,7 @@ function extractReciprocalScalar(
     return denominatorValue;
 }
 
-function getMultiplicationFactor(
-    node: GameMakerAstNode | null | undefined
-): number | null {
+function getMultiplicationFactor(node: GameMakerAstNode | null | undefined): number | null {
     if (!node || typeof node !== "object") {
         return null;
     }
@@ -145,18 +131,11 @@ function flattenMultiplicativeOperand(node: MutableGameMakerAstNode) {
     }
 
     const innermost = cursor.expression;
-    if (
-        !innermost ||
-        innermost.type !== BINARY_EXPRESSION ||
-        innermost.operator !== "*"
-    ) {
+    if (!innermost || innermost.type !== BINARY_EXPRESSION || innermost.operator !== "*") {
         return;
     }
 
-    if (
-        wrappers.some((wrapper) => Core.hasComment(wrapper)) ||
-        Core.hasComment(innermost)
-    ) {
+    if (wrappers.some((wrapper) => Core.hasComment(wrapper)) || Core.hasComment(innermost)) {
         return;
     }
 
@@ -173,9 +152,7 @@ function flattenMultiplicativeOperand(node: MutableGameMakerAstNode) {
  * Converts division by a constant literal into multiplication by its reciprocal.
  * Example: `x / 2` -> `x * 0.5`
  */
-function attemptConvertDivisionToMultiplication(
-    node: MutableGameMakerAstNode
-): boolean {
+function attemptConvertDivisionToMultiplication(node: MutableGameMakerAstNode): boolean {
     if (node.type !== BINARY_EXPRESSION || node.operator !== "/") {
         return false;
     }
@@ -235,10 +212,7 @@ function applyDivisionToMultiplication(node: MutableGameMakerAstNode) {
     }
 }
 
-function execute(
-    ast: MutableGameMakerAstNode,
-    options: ConvertManualMathTransformOptions
-): MutableGameMakerAstNode {
+function execute(ast: MutableGameMakerAstNode, options: ConvertManualMathTransformOptions): MutableGameMakerAstNode {
     // Drive the composed math normalization helpers in the prescribed order.
     if (!ast || typeof ast !== "object") {
         return ast;
@@ -257,9 +231,8 @@ function execute(
     return ast;
 }
 
-export const optimizeMathExpressionsTransform =
-    createParserTransform<ConvertManualMathTransformOptions>(
-        "optimize-math-expressions",
-        {},
-        execute
-    );
+export const optimizeMathExpressionsTransform = createParserTransform<ConvertManualMathTransformOptions>(
+    "optimize-math-expressions",
+    {},
+    execute
+);

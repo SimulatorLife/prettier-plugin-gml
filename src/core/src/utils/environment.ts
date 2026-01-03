@@ -11,10 +11,7 @@ type ApplyEnvironmentOverrideParams = {
 type EnvConfiguredValueParams<TValue> = {
     defaultValue: TValue;
     envVar?: string | null;
-    normalize?: (
-        raw: unknown,
-        context: { defaultValue: TValue; previousValue: TValue }
-    ) => TValue;
+    normalize?: (raw: unknown, context: { defaultValue: TValue; previousValue: TValue }) => TValue;
     applyOverride?: (params: ApplyEnvironmentOverrideParams) => void;
 };
 
@@ -29,10 +26,7 @@ type EnvConfiguredValueWithFallbackParams<TValue> = {
             fallback: TValue;
         }
     ) => TValue | null | undefined;
-    computeFallback?: (context: {
-        defaultValue: TValue;
-        previousValue: TValue;
-    }) => TValue;
+    computeFallback?: (context: { defaultValue: TValue; previousValue: TValue }) => TValue;
 };
 
 /**
@@ -124,10 +118,7 @@ export function resolveEnvironmentMap(candidate) {
  *          `config.applyEnvOverride` with the normalized environment map.
  */
 export function applyConfiguredValueEnvOverride(config, env) {
-    const applyOverride = assertFunction(
-        config?.applyEnvOverride,
-        "config.applyEnvOverride"
-    );
+    const applyOverride = assertFunction(config?.applyEnvOverride, "config.applyEnvOverride");
 
     const sourceEnv = resolveEnvironmentMap(env);
     if (!sourceEnv) {
@@ -251,8 +242,7 @@ export function createEnvConfiguredValueWithFallback<TValue>(
     const fallbackFactory =
         typeof computeFallback === "function"
             ? computeFallback
-            : ({ defaultValue, previousValue }) =>
-                  previousValue ?? defaultValue;
+            : ({ defaultValue, previousValue }) => previousValue ?? defaultValue;
 
     return createEnvConfiguredValue({
         defaultValue,

@@ -1,10 +1,7 @@
 import assert from "node:assert/strict";
 import { describe, it } from "node:test";
 
-import {
-    ObjectWrapOption,
-    resolveObjectWrapOption
-} from "../src/options/object-wrap-option.js";
+import { ObjectWrapOption, resolveObjectWrapOption } from "../src/options/object-wrap-option.js";
 
 void describe("resolveObjectWrapOption", () => {
     void it("preserves object wrapping by default", () => {

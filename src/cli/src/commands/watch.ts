@@ -11,12 +11,7 @@
  * wrapper to enable true hot-reloading without game restarts.
  */
 
-import {
-    watch,
-    type FSWatcher,
-    type WatchListener,
-    type WatchOptions
-} from "node:fs";
+import { watch, type FSWatcher, type WatchListener, type WatchOptions } from "node:fs";
 import { readFile, stat } from "node:fs/promises";
 import path from "node:path";
 import process from "node:process";
@@ -42,10 +37,7 @@ import {
     type PatchBroadcaster,
     type PatchWebSocketServer
 } from "../modules/websocket/server.js";
-import {
-    startStatusServer,
-    type StatusServerController
-} from "../modules/status/server.js";
+import { startStatusServer, type StatusServerController } from "../modules/status/server.js";
 import {
     transpileFile,
     displayTranspilationStatistics,
@@ -54,10 +46,7 @@ import {
     type TranspilationContext,
     type RuntimeTranspilerPatch
 } from "../modules/transpilation/coordinator.js";
-import {
-    prepareHotReloadInjection,
-    DEFAULT_GM_TEMP_ROOT
-} from "../modules/hot-reload/inject-runtime.js";
+import { prepareHotReloadInjection, DEFAULT_GM_TEMP_ROOT } from "../modules/hot-reload/inject-runtime.js";
 import { formatCliError } from "../cli-core/errors.js";
 import { debounce, type DebouncedFunction } from "../shared/debounce.js";
 
@@ -129,10 +118,7 @@ interface RuntimeContext
     websocketServer: PatchBroadcaster | null;
     statusServer: StatusServerController | null;
     startTime: number;
-    debouncedHandlers: Map<
-        string,
-        DebouncedFunction<[string, string, FileChangeOptions]>
-    >;
+    debouncedHandlers: Map<string, DebouncedFunction<[string, string, FileChangeOptions]>>;
 }
 
 interface FileChangeOptions {
@@ -141,17 +127,14 @@ interface FileChangeOptions {
     runtimeContext?: RuntimeContext;
 }
 
-const DEFAULT_WATCH_FACTORY: WatchFactory = (pathToWatch, options, listener) =>
-    watch(pathToWatch, options, listener);
+const DEFAULT_WATCH_FACTORY: WatchFactory = (pathToWatch, options, listener) => watch(pathToWatch, options, listener);
 
 /**
  * Creates a matcher for file extensions that normalizes case and ensures each
  * entry begins with a leading dot. The matcher exposes the normalized set for
  * logging while providing a case-insensitive predicate for incoming filenames.
  */
-export function createExtensionMatcher(
-    extensions: ReadonlyArray<string>
-): ExtensionMatcher {
+export function createExtensionMatcher(extensions: ReadonlyArray<string>): ExtensionMatcher {
     const normalized = extensions.map((ext) => {
         const withDot = ext.startsWith(".") ? ext : `.${ext}`;
         return withDot.toLowerCase();
@@ -161,8 +144,7 @@ export function createExtensionMatcher(
 
     return {
         extensions: normalizedSet,
-        matches: (fileName: string) =>
-            normalizedSet.has(path.extname(fileName).toLowerCase())
+        matches: (fileName: string) => normalizedSet.has(path.extname(fileName).toLowerCase())
     };
 }
 
@@ -175,50 +157,26 @@ export function createWatchCommand(): Command {
     const command = new Command("watch");
 
     command
-        .description(
-            "Watch GML source files and coordinate hot-reload pipeline actions"
-        )
-        .argument(
-            "[targetPath]",
-            "Directory to watch for changes",
-            process.cwd()
-        )
+        .description("Watch GML source files and coordinate hot-reload pipeline actions")
+        .argument("[targetPath]", "Directory to watch for changes", process.cwd())
         .addOption(
-            new Option(
-                "--extensions <extensions...>",
-                "File extensions to watch"
-            ).default([".gml"], "Only .gml files")
+            new Option("--extensions <extensions...>", "File extensions to watch").default([".gml"], "Only .gml files")
         )
+        .addOption(new Option("--polling", "Use polling instead of native file watching").default(false))
         .addOption(
-            new Option(
-                "--polling",
-                "Use polling instead of native file watching"
-            ).default(false)
-        )
-        .addOption(
-            new Option(
-                "--polling-interval <ms>",
-                "Polling interval in milliseconds"
-            )
+            new Option("--polling-interval <ms>", "Polling interval in milliseconds")
                 .argParser((value) => {
                     const parsed = Number.parseInt(value);
                     if (Number.isNaN(parsed) || parsed < 100) {
-                        throw new Error(
-                            "Polling interval must be at least 100ms"
-                        );
+                        throw new Error("Polling interval must be at least 100ms");
                     }
                     return parsed;
                 })
                 .default(1000)
         )
+        .addOption(new Option("--verbose", "Enable verbose logging").default(false))
         .addOption(
-            new Option("--verbose", "Enable verbose logging").default(false)
-        )
-        .addOption(
-            new Option(
-                "--quiet",
-                "Suppress non-essential output (only show errors and server URLs)"
-            ).default(false)
+            new Option("--quiet", "Suppress non-essential output (only show errors and server URLs)").default(false)
         )
         .addOption(
             new Option(
@@ -235,26 +193,18 @@ export function createWatchCommand(): Command {
                 .default(200)
         )
         .addOption(
-            new Option(
-                "--max-patch-history <count>",
-                "Maximum number of patches to retain in memory"
-            )
+            new Option("--max-patch-history <count>", "Maximum number of patches to retain in memory")
                 .argParser((value) => {
                     const parsed = Number.parseInt(value);
                     if (Number.isNaN(parsed) || parsed < 1) {
-                        throw new Error(
-                            "Max patch history must be a positive integer"
-                        );
+                        throw new Error("Max patch history must be a positive integer");
                     }
                     return parsed;
                 })
                 .default(100)
         )
         .addOption(
-            new Option(
-                "--websocket-port <port>",
-                "WebSocket server port for streaming patches"
-            )
+            new Option("--websocket-port <port>", "WebSocket server port for streaming patches")
                 .argParser((value) => {
                     const parsed = Number.parseInt(value);
                     if (Number.isNaN(parsed) || parsed < 1 || parsed > 65_535) {
@@ -265,20 +215,11 @@ export function createWatchCommand(): Command {
                 .default(17_890)
         )
         .addOption(
-            new Option(
-                "--websocket-host <host>",
-                "WebSocket server host for streaming patches"
-            ).default("127.0.0.1")
+            new Option("--websocket-host <host>", "WebSocket server host for streaming patches").default("127.0.0.1")
         )
-        .option(
-            "--no-websocket-server",
-            "Disable starting the WebSocket server for patch streaming."
-        )
+        .option("--no-websocket-server", "Disable starting the WebSocket server for patch streaming.")
         .addOption(
-            new Option(
-                "--status-port <port>",
-                "HTTP status server port for querying watch command status"
-            )
+            new Option("--status-port <port>", "HTTP status server port for querying watch command status")
                 .argParser((value) => {
                     const parsed = Number.parseInt(value);
                     if (Number.isNaN(parsed) || parsed < 1 || parsed > 65_535) {
@@ -289,15 +230,11 @@ export function createWatchCommand(): Command {
                 .default(17_891)
         )
         .addOption(
-            new Option(
-                "--status-host <host>",
-                "HTTP status server host for querying watch command status"
-            ).default("127.0.0.1")
+            new Option("--status-host <host>", "HTTP status server host for querying watch command status").default(
+                "127.0.0.1"
+            )
         )
-        .option(
-            "--no-status-server",
-            "Disable starting the HTTP status server."
-        )
+        .option("--no-status-server", "Disable starting the HTTP status server.")
         .addOption(
             new Option(
                 "--runtime-root <path>",
@@ -305,15 +242,11 @@ export function createWatchCommand(): Command {
             )
         )
         .addOption(
-            new Option(
-                "--runtime-package <name>",
-                "Package name used to resolve the HTML5 runtime."
-            ).default(DEFAULT_RUNTIME_PACKAGE)
+            new Option("--runtime-package <name>", "Package name used to resolve the HTML5 runtime.").default(
+                DEFAULT_RUNTIME_PACKAGE
+            )
         )
-        .option(
-            "--no-runtime-server",
-            "Disable starting the HTML5 runtime static server."
-        )
+        .option("--no-runtime-server", "Disable starting the HTML5 runtime static server.")
         .addOption(
             new Option(
                 "--auto-inject",
@@ -356,9 +289,7 @@ async function validateTargetPath(targetPath: string): Promise<string> {
         const message = getErrorMessage(error, {
             fallback: "Cannot access path"
         });
-        const formattedError = formatCliError(
-            new Error(`Cannot access ${normalizedPath}: ${message}`)
-        );
+        const formattedError = formatCliError(new Error(`Cannot access ${normalizedPath}: ${message}`));
         console.error(formattedError);
         process.exit(1);
     }
@@ -415,10 +346,7 @@ function logWatchStartup(
  * @param {string} options.websocketHost - WebSocket server host
  * @param {boolean} options.websocketServer - Enable WebSocket server
  */
-export async function runWatchCommand(
-    targetPath: string,
-    options: WatchCommandOptions = {}
-): Promise<void> {
+export async function runWatchCommand(targetPath: string, options: WatchCommandOptions = {}): Promise<void> {
     const {
         extensions = [".gml"],
         polling = false,
@@ -479,34 +407,23 @@ export async function runWatchCommand(
                     : "Hot-reload snippet already present in HTML5 output.";
                 console.log(injectedMessage);
                 if (verbose) {
-                    console.log(
-                        `  HTML5 output: ${injectionResult.outputRoot}`
-                    );
+                    console.log(`  HTML5 output: ${injectionResult.outputRoot}`);
                     console.log(`  Index file: ${injectionResult.indexPath}`);
-                    console.log(
-                        `  Runtime wrapper: ${injectionResult.runtimeWrapperTargetRoot}`
-                    );
-                    console.log(
-                        `  WebSocket URL: ${injectionResult.websocketUrl}`
-                    );
+                    console.log(`  Runtime wrapper: ${injectionResult.runtimeWrapperTargetRoot}`);
+                    console.log(`  WebSocket URL: ${injectionResult.websocketUrl}`);
                 }
             }
         } catch (error) {
             const message = getErrorMessage(error, {
                 fallback: "Unknown hot-reload injection error"
             });
-            const formattedError = formatCliError(
-                new Error(`Failed to prepare hot-reload injection: ${message}`)
-            );
+            const formattedError = formatCliError(new Error(`Failed to prepare hot-reload injection: ${message}`));
             console.error(formattedError);
             process.exit(1);
         }
     }
 
-    const shouldServeRuntime =
-        hydrateRuntime === undefined
-            ? runtimeServer !== false
-            : Boolean(hydrateRuntime);
+    const shouldServeRuntime = hydrateRuntime === undefined ? runtimeServer !== false : Boolean(hydrateRuntime);
 
     const transpiler = new Transpiler.GmlTranspiler();
     const runtimeContext: RuntimeContext = {
@@ -542,9 +459,7 @@ export async function runWatchCommand(
         runtimeContext.packageJson = runtimeSource.packageJson;
 
         if (verbose && !quiet) {
-            console.log(
-                `Using HTML5 runtime from ${runtimeDescriptor(runtimeSource)}`
-            );
+            console.log(`Using HTML5 runtime from ${runtimeDescriptor(runtimeSource)}`);
         }
 
         runtimeServerController = await runtimeServerStarter({
@@ -555,9 +470,7 @@ export async function runWatchCommand(
         runtimeContext.server = runtimeServerController;
 
         if (!quiet) {
-            console.log(
-                `Runtime static server ready at ${runtimeServerController.url}`
-            );
+            console.log(`Runtime static server ready at ${runtimeServerController.url}`);
         }
     } else if (verbose && !quiet) {
         console.log("Runtime static server disabled.");
@@ -572,18 +485,13 @@ export async function runWatchCommand(
                 onClientConnect: (clientId, _socket) => {
                     void _socket;
                     if (verbose) {
-                        console.log(
-                            `Patch streaming client connected: ${clientId}`
-                        );
+                        console.log(`Patch streaming client connected: ${clientId}`);
                     }
                 },
-                prepareInitialMessages: () =>
-                    Array.from(runtimeContext.lastSuccessfulPatches.values()),
+                prepareInitialMessages: () => Array.from(runtimeContext.lastSuccessfulPatches.values()),
                 onClientDisconnect: (clientId) => {
                     if (verbose) {
-                        console.log(
-                            `Patch streaming client disconnected: ${clientId}`
-                        );
+                        console.log(`Patch streaming client disconnected: ${clientId}`);
                     }
                 }
             });
@@ -591,17 +499,13 @@ export async function runWatchCommand(
             runtimeContext.websocketServer = websocketServerController;
 
             if (!quiet) {
-                console.log(
-                    `WebSocket patch server ready at ${websocketServerController.url}`
-                );
+                console.log(`WebSocket patch server ready at ${websocketServerController.url}`);
             }
         } catch (error) {
             const message = getErrorMessage(error, {
                 fallback: "Unknown WebSocket server error"
             });
-            const formattedError = formatCliError(
-                new Error(`Failed to start WebSocket server: ${message}`)
-            );
+            const formattedError = formatCliError(new Error(`Failed to start WebSocket server: ${message}`));
             console.error(formattedError);
             process.exit(1);
         }
@@ -618,38 +522,31 @@ export async function runWatchCommand(
                     uptime: Date.now() - runtimeContext.startTime,
                     patchCount: runtimeContext.metrics.length,
                     errorCount: runtimeContext.errors.length,
-                    recentPatches: runtimeContext.metrics
-                        .slice(-10)
-                        .map((m) => ({
-                            id: m.patchId,
-                            timestamp: m.timestamp,
-                            durationMs: m.durationMs,
-                            filePath: path.relative(normalizedPath, m.filePath)
-                        })),
+                    recentPatches: runtimeContext.metrics.slice(-10).map((m) => ({
+                        id: m.patchId,
+                        timestamp: m.timestamp,
+                        durationMs: m.durationMs,
+                        filePath: path.relative(normalizedPath, m.filePath)
+                    })),
                     recentErrors: runtimeContext.errors.slice(-10).map((e) => ({
                         timestamp: e.timestamp,
                         filePath: path.relative(normalizedPath, e.filePath),
                         error: e.error
                     })),
-                    websocketClients:
-                        runtimeContext.websocketServer?.getClientCount() ?? 0
+                    websocketClients: runtimeContext.websocketServer?.getClientCount() ?? 0
                 })
             });
 
             runtimeContext.statusServer = statusServerController;
 
             if (!quiet) {
-                console.log(
-                    `Status server ready at ${statusServerController.url}`
-                );
+                console.log(`Status server ready at ${statusServerController.url}`);
             }
         } catch (error) {
             const message = getErrorMessage(error, {
                 fallback: "Unknown status server error"
             });
-            const formattedError = formatCliError(
-                new Error(`Failed to start status server: ${message}`)
-            );
+            const formattedError = formatCliError(new Error(`Failed to start status server: ${message}`));
             console.error(formattedError);
             process.exit(1);
         }
@@ -657,14 +554,7 @@ export async function runWatchCommand(
         console.log("Status server disabled.");
     }
 
-    logWatchStartup(
-        normalizedPath,
-        extensionSet,
-        polling,
-        pollingInterval,
-        verbose,
-        quiet
-    );
+    logWatchStartup(normalizedPath, extensionSet, polling, pollingInterval, verbose, quiet);
 
     const watchOptions: WatchOptions = {
         recursive: true,
@@ -710,9 +600,7 @@ export async function runWatchCommand(
                     const message = getErrorMessage(error, {
                         fallback: "Unknown server stop error"
                     });
-                    console.error(
-                        `Failed to stop runtime static server: ${message}`
-                    );
+                    console.error(`Failed to stop runtime static server: ${message}`);
                 }
             }
 
@@ -723,9 +611,7 @@ export async function runWatchCommand(
                     const message = getErrorMessage(error, {
                         fallback: "Unknown server stop error"
                     });
-                    console.error(
-                        `Failed to stop WebSocket server: ${message}`
-                    );
+                    console.error(`Failed to stop WebSocket server: ${message}`);
                 }
             }
 
@@ -753,9 +639,7 @@ export async function runWatchCommand(
             const message = getErrorMessage(error, {
                 fallback: "Unknown watch error"
             });
-            const formattedError = formatCliError(
-                new Error(`Watch error: ${message}`)
-            );
+            const formattedError = formatCliError(new Error(`Watch error: ${message}`));
             console.error(formattedError);
             void cleanup(1);
         };
@@ -813,9 +697,7 @@ export async function runWatchCommand(
 
                     if (!quiet) {
                         if (verbose) {
-                            console.log(
-                                `[${new Date().toISOString()}] ${eventType}: ${filename}`
-                            );
+                            console.log(`[${new Date().toISOString()}] ${eventType}: ${filename}`);
                         } else {
                             console.log(`Changed: ${filename}`);
                         }
@@ -830,42 +712,21 @@ export async function runWatchCommand(
                             const message = getErrorMessage(error, {
                                 fallback: "Unknown file processing error"
                             });
-                            console.error(
-                                `Error processing ${filename}: ${message}`
-                            );
+                            console.error(`Error processing ${filename}: ${message}`);
                         });
                     } else {
-                        let debouncedHandler =
-                            runtimeContext.debouncedHandlers.get(fullPath);
+                        let debouncedHandler = runtimeContext.debouncedHandlers.get(fullPath);
 
                         if (!debouncedHandler) {
-                            debouncedHandler = debounce(
-                                (
-                                    filePath: string,
-                                    evt: string,
-                                    opts: FileChangeOptions
-                                ) => {
-                                    handleFileChange(filePath, evt, opts).catch(
-                                        (error) => {
-                                            const message = getErrorMessage(
-                                                error,
-                                                {
-                                                    fallback:
-                                                        "Unknown file processing error"
-                                                }
-                                            );
-                                            console.error(
-                                                `Error processing ${filename}: ${message}`
-                                            );
-                                        }
-                                    );
-                                },
-                                debounceDelay
-                            );
-                            runtimeContext.debouncedHandlers.set(
-                                fullPath,
-                                debouncedHandler
-                            );
+                            debouncedHandler = debounce((filePath: string, evt: string, opts: FileChangeOptions) => {
+                                handleFileChange(filePath, evt, opts).catch((error) => {
+                                    const message = getErrorMessage(error, {
+                                        fallback: "Unknown file processing error"
+                                    });
+                                    console.error(`Error processing ${filename}: ${message}`);
+                                });
+                            }, debounceDelay);
+                            runtimeContext.debouncedHandlers.set(fullPath, debouncedHandler);
                         }
 
                         debouncedHandler(fullPath, eventType, {

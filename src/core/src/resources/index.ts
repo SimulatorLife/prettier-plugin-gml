@@ -19,10 +19,7 @@ export {
     resetReservedIdentifierMetadataLoader,
     setReservedIdentifierMetadataLoader
 } from "./gml-identifier-loading.js";
-export {
-    resolveBundledResourcePath,
-    resolveBundledResourceUrl
-} from "./resource-locator.js";
+export { resolveBundledResourcePath, resolveBundledResourceUrl } from "./resource-locator.js";
 export * from "./feather-type-system.js";
 export {
     buildDeprecatedBuiltinVariableReplacements,

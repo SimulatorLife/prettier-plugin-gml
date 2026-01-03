@@ -11,9 +11,7 @@ export function isFunctionDocCommentLine(value: unknown): value is string {
     return trimmed.length > 0 && FUNCTION_TAG_PATTERN.test(trimmed);
 }
 
-export function removeFunctionDocCommentLines(
-    lines: readonly unknown[]
-): MutableDocCommentLines {
+export function removeFunctionDocCommentLines(lines: readonly unknown[]): MutableDocCommentLines {
     const filtered: MutableDocCommentLines = [];
 
     for (const line of lines) {

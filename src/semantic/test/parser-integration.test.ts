@@ -84,23 +84,15 @@ function demo(param) {
 `;
 
         const ast = parseWithMetadata(source);
-        assert.ok(
-            ast,
-            "Parser returned no AST when gathering identifier metadata."
-        );
+        assert.ok(ast, "Parser returned no AST when gathering identifier metadata.");
 
         const identifiers = collectIdentifiers(ast);
         const byName = groupIdentifiersByName(identifiers);
 
         const counterNodes = byName.get("counter");
         assert.ok(counterNodes, "Expected counter identifiers to be present.");
-        const counterDeclaration = counterNodes.find((node: any) =>
-            node.classifications.includes("declaration")
-        );
-        assert.ok(
-            counterDeclaration,
-            "Expected a declaration node for counter."
-        );
+        const counterDeclaration = counterNodes.find((node: any) => node.classifications.includes("declaration"));
+        assert.ok(counterDeclaration, "Expected a declaration node for counter.");
         assert.ok(
             counterDeclaration.classifications.includes("variable"),
             "Counter declaration should be classified as a variable."
@@ -113,24 +105,15 @@ function demo(param) {
             "Declaration metadata should record the scope of the declaration itself."
         );
 
-        const counterReferences = counterNodes.filter((node: any) =>
-            node.classifications.includes("reference")
-        );
-        assert.strictEqual(
-            counterReferences.length,
-            2,
-            "Expected two references to the counter variable."
-        );
+        const counterReferences = counterNodes.filter((node: any) => node.classifications.includes("reference"));
+        assert.strictEqual(counterReferences.length, 2, "Expected two references to the counter variable.");
         for (const reference of counterReferences) {
             assert.strictEqual(
                 reference.scopeId,
                 counterDeclaration.scopeId,
                 "Counter references should share the function scope."
             );
-            assert.ok(
-                reference.declaration,
-                "References should record declaration metadata."
-            );
+            assert.ok(reference.declaration, "References should record declaration metadata.");
             assert.deepStrictEqual(
                 reference.declaration.start,
                 counterDeclaration.start,
@@ -149,13 +132,8 @@ function demo(param) {
 
         const iNodes = byName.get("i");
         assert.ok(iNodes, "Expected loop identifiers to be present.");
-        const iDeclaration = iNodes.find((node: any) =>
-            node.classifications.includes("declaration")
-        );
-        assert.ok(
-            iDeclaration,
-            "Expected a declaration node for the loop variable."
-        );
+        const iDeclaration = iNodes.find((node: any) => node.classifications.includes("declaration"));
+        assert.ok(iDeclaration, "Expected a declaration node for the loop variable.");
         assert.ok(
             iDeclaration.classifications.includes("variable"),
             "Loop variable should be classified as a variable."
@@ -166,13 +144,8 @@ function demo(param) {
             "Loop initializer should share the surrounding function scope."
         );
 
-        const iReferences = iNodes.filter((node: any) =>
-            node.classifications.includes("reference")
-        );
-        assert.ok(
-            iReferences.length > 0,
-            "Expected references to the loop variable."
-        );
+        const iReferences = iNodes.filter((node: any) => node.classifications.includes("reference"));
+        assert.ok(iReferences.length > 0, "Expected references to the loop variable.");
         for (const reference of iReferences) {
             assert.ok(reference.declaration);
             assert.strictEqual(
@@ -197,47 +170,28 @@ with (target) {
 `;
 
         const ast = parseWithMetadata(source);
-        assert.ok(
-            ast,
-            "Parser returned no AST when parsing with statement source."
-        );
+        assert.ok(ast, "Parser returned no AST when parsing with statement source.");
 
         const identifiers = collectIdentifiers(ast);
         const byName = groupIdentifiersByName(identifiers);
 
         const valueNodes = byName.get("value");
         assert.ok(valueNodes, "Expected value identifiers to be present.");
-        const valueDeclaration = valueNodes.find((node: any) =>
-            node.classifications.includes("declaration")
-        );
+        const valueDeclaration = valueNodes.find((node: any) => node.classifications.includes("declaration"));
         assert.ok(valueDeclaration, "Expected a declaration node for value.");
 
         const localNodes = byName.get("local");
-        assert.ok(
-            localNodes,
-            "Expected local identifiers to be present inside with scope."
-        );
-        const localDeclaration = localNodes.find((node: any) =>
-            node.classifications.includes("declaration")
-        );
-        assert.ok(
-            localDeclaration,
-            "Expected a declaration for the with-scoped variable."
-        );
+        assert.ok(localNodes, "Expected local identifiers to be present inside with scope.");
+        const localDeclaration = localNodes.find((node: any) => node.classifications.includes("declaration"));
+        assert.ok(localDeclaration, "Expected a declaration for the with-scoped variable.");
         assert.notStrictEqual(
             localDeclaration.scopeId,
             valueDeclaration.scopeId,
             "With-scoped declarations should not share the global scope."
         );
 
-        const localReferences = localNodes.filter((node: any) =>
-            node.classifications.includes("reference")
-        );
-        assert.strictEqual(
-            localReferences.length,
-            2,
-            "Expected two references to the with-scoped variable."
-        );
+        const localReferences = localNodes.filter((node: any) => node.classifications.includes("reference"));
+        assert.strictEqual(localReferences.length, 2, "Expected two references to the with-scoped variable.");
         for (const reference of localReferences) {
             assert.strictEqual(
                 reference.scopeId,
@@ -253,14 +207,9 @@ with (target) {
         }
 
         const valueReferenceInWith = valueNodes.find(
-            (node: any) =>
-                node.classifications.includes("reference") &&
-                node.scopeId === localDeclaration.scopeId
+            (node: any) => node.classifications.includes("reference") && node.scopeId === localDeclaration.scopeId
         );
-        assert.ok(
-            valueReferenceInWith,
-            "Expected the with block to reference the outer scoped variable."
-        );
+        assert.ok(valueReferenceInWith, "Expected the with block to reference the outer scoped variable.");
         assert.ok(valueReferenceInWith.declaration);
         assert.strictEqual(
             valueReferenceInWith.declaration.scopeId,
@@ -276,25 +225,15 @@ with (target) {
         assert.ok(ast, "Parser returned no AST when parsing macro source.");
 
         const identifiers = collectIdentifiers(ast);
-        assert.strictEqual(
-            identifiers.length,
-            1,
-            "Expected a single identifier representing the macro name."
-        );
+        assert.strictEqual(identifiers.length, 1, "Expected a single identifier representing the macro name.");
         const [macro] = identifiers;
 
         assert.strictEqual(macro.name, "MAX_ENEMIES");
         assert.ok(macro.classifications.includes("macro"));
         assert.ok(macro.classifications.includes("global"));
         assert.ok(macro.classifications.includes("declaration"));
-        assert.ok(
-            macro.scopeId,
-            "Macro declarations should record a scope identifier."
-        );
-        assert.ok(
-            macro.scopeId.startsWith("scope-"),
-            "Macro declarations should be assigned to the global scope."
-        );
+        assert.ok(macro.scopeId, "Macro declarations should record a scope identifier.");
+        assert.ok(macro.scopeId.startsWith("scope-"), "Macro declarations should be assigned to the global scope.");
     });
 
     void it("associates enum members with their declarations", () => {
@@ -314,18 +253,11 @@ var shade = Colors.Green;
 
         const colorsNodes = byName.get("Colors");
         assert.ok(colorsNodes, "Expected enum identifiers to be present.");
-        const colorsDeclaration = colorsNodes.find((node: any) =>
-            node.classifications.includes("declaration")
-        );
-        assert.ok(
-            colorsDeclaration,
-            "Expected a declaration for the enum name."
-        );
+        const colorsDeclaration = colorsNodes.find((node: any) => node.classifications.includes("declaration"));
+        assert.ok(colorsDeclaration, "Expected a declaration for the enum name.");
         assert.ok(colorsDeclaration.classifications.includes("enum"));
 
-        const colorsReference = colorsNodes.find((node: any) =>
-            node.classifications.includes("reference")
-        );
+        const colorsReference = colorsNodes.find((node: any) => node.classifications.includes("reference"));
         assert.ok(colorsReference, "Expected a reference to the enum name.");
         assert.ok(colorsReference.declaration);
         assert.deepStrictEqual(
@@ -336,22 +268,12 @@ var shade = Colors.Green;
         assert.ok(colorsReference.classifications.includes("enum"));
 
         const greenNodes = byName.get("Green");
-        assert.ok(
-            greenNodes,
-            "Expected enum member identifiers to be present."
-        );
-        const greenDeclaration = greenNodes.find((node: any) =>
-            node.classifications.includes("declaration")
-        );
-        assert.ok(
-            greenDeclaration,
-            "Expected a declaration for the enum member."
-        );
+        assert.ok(greenNodes, "Expected enum member identifiers to be present.");
+        const greenDeclaration = greenNodes.find((node: any) => node.classifications.includes("declaration"));
+        assert.ok(greenDeclaration, "Expected a declaration for the enum member.");
         assert.ok(greenDeclaration.classifications.includes("enum-member"));
 
-        const greenReference = greenNodes.find((node: any) =>
-            node.classifications.includes("reference")
-        );
+        const greenReference = greenNodes.find((node: any) => node.classifications.includes("reference"));
         assert.ok(greenReference, "Expected a reference to the enum member.");
         assert.ok(greenReference.declaration);
         assert.strictEqual(
@@ -384,30 +306,16 @@ enum eTransitionType {
         assert.ok(ast, "Parser returned no AST when parsing enum source.");
 
         const transitionEnum = ast.body.find((node: any) => {
-            return (
-                node &&
-                node.type === "EnumDeclaration" &&
-                node.name?.name === "eTransitionType"
-            );
+            return node && node.type === "EnumDeclaration" && node.name?.name === "eTransitionType";
         });
-        assert.ok(
-            transitionEnum,
-            "Expected to locate the eTransitionType enum declaration."
-        );
+        assert.ok(transitionEnum, "Expected to locate the eTransitionType enum declaration.");
 
         const members = transitionEnum.members;
         assert.ok(Array.isArray(members), "Enum members should be an array.");
-        assert.strictEqual(
-            members.length,
-            2,
-            "Expected the transition enum to define two members."
-        );
+        assert.strictEqual(members.length, 2, "Expected the transition enum to define two members.");
 
         const [startMember, finishMember] = members;
-        assert.ok(
-            startMember?.initializer,
-            "Expected the start member to include an initializer."
-        );
+        assert.ok(startMember?.initializer, "Expected the start member to include an initializer.");
         assert.strictEqual(
             startMember.initializer.type,
             "MemberDotExpression",
@@ -429,10 +337,7 @@ enum eTransitionType {
             "Initializer text should capture the referenced enum member."
         );
 
-        assert.ok(
-            finishMember?.initializer,
-            "Expected the finish member to include an initializer."
-        );
+        assert.ok(finishMember?.initializer, "Expected the finish member to include an initializer.");
         assert.strictEqual(
             finishMember.initializer.type,
             "MemberDotExpression",
@@ -456,52 +361,28 @@ function Player() constructor {
 `;
 
         const ast = parseWithMetadata(source);
-        assert.ok(
-            ast,
-            "Parser returned no AST when parsing struct constructor source."
-        );
+        assert.ok(ast, "Parser returned no AST when parsing struct constructor source.");
 
         const identifiers = collectIdentifiers(ast);
         const byName = groupIdentifiersByName(identifiers);
 
         const healthNodes = byName.get("health");
-        assert.ok(
-            healthNodes,
-            "Expected struct member identifiers to be present."
-        );
-        const healthDeclaration = healthNodes.find((node: any) =>
-            node.classifications.includes("declaration")
-        );
-        assert.ok(
-            healthDeclaration,
-            "Expected a declaration for the struct member."
-        );
+        assert.ok(healthNodes, "Expected struct member identifiers to be present.");
+        const healthDeclaration = healthNodes.find((node: any) => node.classifications.includes("declaration"));
+        assert.ok(healthDeclaration, "Expected a declaration for the struct member.");
 
         const amountNodes = byName.get("amount");
-        assert.ok(
-            amountNodes,
-            "Expected function parameter identifiers to be present."
-        );
-        const amountDeclaration = amountNodes.find((node: any) =>
-            node.classifications.includes("declaration")
-        );
-        assert.ok(
-            amountDeclaration,
-            "Expected a declaration for the method parameter."
-        );
+        assert.ok(amountNodes, "Expected function parameter identifiers to be present.");
+        const amountDeclaration = amountNodes.find((node: any) => node.classifications.includes("declaration"));
+        assert.ok(amountDeclaration, "Expected a declaration for the method parameter.");
         assert.notStrictEqual(
             healthDeclaration.scopeId,
             amountDeclaration.scopeId,
             "Struct members should reside outside the method scope."
         );
 
-        const healthReferences = healthNodes.filter((node: any) =>
-            node.classifications.includes("reference")
-        );
-        assert.ok(
-            healthReferences.length > 0,
-            "Expected references to the struct member."
-        );
+        const healthReferences = healthNodes.filter((node: any) => node.classifications.includes("reference"));
+        assert.ok(healthReferences.length > 0, "Expected references to the struct member.");
         for (const reference of healthReferences) {
             assert.ok(reference.declaration);
             assert.strictEqual(
@@ -517,13 +398,8 @@ function Player() constructor {
             assert.ok(reference.classifications.includes("variable"));
         }
 
-        const amountReferences = amountNodes.filter((node: any) =>
-            node.classifications.includes("reference")
-        );
-        assert.ok(
-            amountReferences.length > 0,
-            "Expected references to the parameter."
-        );
+        const amountReferences = amountNodes.filter((node: any) => node.classifications.includes("reference"));
+        assert.ok(amountReferences.length > 0, "Expected references to the parameter.");
         for (const reference of amountReferences) {
             assert.ok(reference.declaration);
             assert.strictEqual(

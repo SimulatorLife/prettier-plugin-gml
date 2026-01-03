@@ -15,17 +15,9 @@ void test("getScopeExternalReferences returns references to symbols declared out
 
     const funcScope = tracker.enterScope("function");
 
-    tracker.declare(
-        "localParam",
-        { start: { line: 3, index: 0 }, end: { line: 3, index: 10 } },
-        { kind: "parameter" }
-    );
+    tracker.declare("localParam", { start: { line: 3, index: 0 }, end: { line: 3, index: 10 } }, { kind: "parameter" });
 
-    tracker.reference(
-        "globalVar",
-        { start: { line: 4, index: 0 }, end: { line: 4, index: 9 } },
-        { kind: "variable" }
-    );
+    tracker.reference("globalVar", { start: { line: 4, index: 0 }, end: { line: 4, index: 9 } }, { kind: "variable" });
 
     tracker.reference(
         "localParam",
@@ -56,33 +48,17 @@ void test("getScopeExternalReferences handles nested scopes correctly", () => {
     const tracker = new ScopeTracker({ enabled: true });
     const rootScope = tracker.enterScope("program");
 
-    tracker.declare(
-        "topLevel",
-        { start: { line: 1, index: 0 }, end: { line: 1, index: 8 } },
-        { kind: "variable" }
-    );
+    tracker.declare("topLevel", { start: { line: 1, index: 0 }, end: { line: 1, index: 8 } }, { kind: "variable" });
 
     const outerScope = tracker.enterScope("function");
 
-    tracker.declare(
-        "outerVar",
-        { start: { line: 3, index: 0 }, end: { line: 3, index: 8 } },
-        { kind: "variable" }
-    );
+    tracker.declare("outerVar", { start: { line: 3, index: 0 }, end: { line: 3, index: 8 } }, { kind: "variable" });
 
     const innerScope = tracker.enterScope("block");
 
-    tracker.reference(
-        "topLevel",
-        { start: { line: 5, index: 0 }, end: { line: 5, index: 8 } },
-        { kind: "variable" }
-    );
+    tracker.reference("topLevel", { start: { line: 5, index: 0 }, end: { line: 5, index: 8 } }, { kind: "variable" });
 
-    tracker.reference(
-        "outerVar",
-        { start: { line: 6, index: 0 }, end: { line: 6, index: 8 } },
-        { kind: "variable" }
-    );
+    tracker.reference("outerVar", { start: { line: 6, index: 0 }, end: { line: 6, index: 8 } }, { kind: "variable" });
 
     tracker.exitScope();
     tracker.exitScope();
@@ -92,12 +68,8 @@ void test("getScopeExternalReferences handles nested scopes correctly", () => {
 
     assert.strictEqual(innerExternalRefs.length, 2);
 
-    const topLevelRef = innerExternalRefs.find(
-        (ref) => ref.name === "topLevel"
-    );
-    const outerVarRef = innerExternalRefs.find(
-        (ref) => ref.name === "outerVar"
-    );
+    const topLevelRef = innerExternalRefs.find((ref) => ref.name === "topLevel");
+    const outerVarRef = innerExternalRefs.find((ref) => ref.name === "outerVar");
 
     assert.ok(topLevelRef);
     assert.strictEqual(topLevelRef.declaringScopeId, rootScope.id);
@@ -125,17 +97,9 @@ void test("getScopeExternalReferences returns empty array when all references ar
     tracker.enterScope("program");
     const funcScope = tracker.enterScope("function");
 
-    tracker.declare(
-        "localVar",
-        { start: { line: 1, index: 0 }, end: { line: 1, index: 8 } },
-        { kind: "variable" }
-    );
+    tracker.declare("localVar", { start: { line: 1, index: 0 }, end: { line: 1, index: 8 } }, { kind: "variable" });
 
-    tracker.reference(
-        "localVar",
-        { start: { line: 2, index: 0 }, end: { line: 2, index: 8 } },
-        { kind: "variable" }
-    );
+    tracker.reference("localVar", { start: { line: 2, index: 0 }, end: { line: 2, index: 8 } }, { kind: "variable" });
 
     tracker.exitScope();
     tracker.exitScope();
@@ -150,8 +114,7 @@ void test("getScopeExternalReferences returns empty array for non-existent scope
     tracker.enterScope("program");
     tracker.exitScope();
 
-    const externalRefs =
-        tracker.getScopeExternalReferences("non-existent-scope");
+    const externalRefs = tracker.getScopeExternalReferences("non-existent-scope");
 
     assert.deepStrictEqual(externalRefs, []);
 });
@@ -168,31 +131,15 @@ void test("getScopeExternalReferences groups multiple references to same externa
     const tracker = new ScopeTracker({ enabled: true });
     const rootScope = tracker.enterScope("program");
 
-    tracker.declare(
-        "shared",
-        { start: { line: 1, index: 0 }, end: { line: 1, index: 6 } },
-        { kind: "variable" }
-    );
+    tracker.declare("shared", { start: { line: 1, index: 0 }, end: { line: 1, index: 6 } }, { kind: "variable" });
 
     const funcScope = tracker.enterScope("function");
 
-    tracker.reference(
-        "shared",
-        { start: { line: 3, index: 0 }, end: { line: 3, index: 6 } },
-        { kind: "variable" }
-    );
+    tracker.reference("shared", { start: { line: 3, index: 0 }, end: { line: 3, index: 6 } }, { kind: "variable" });
 
-    tracker.reference(
-        "shared",
-        { start: { line: 4, index: 0 }, end: { line: 4, index: 6 } },
-        { kind: "variable" }
-    );
+    tracker.reference("shared", { start: { line: 4, index: 0 }, end: { line: 4, index: 6 } }, { kind: "variable" });
 
-    tracker.reference(
-        "shared",
-        { start: { line: 5, index: 0 }, end: { line: 5, index: 6 } },
-        { kind: "variable" }
-    );
+    tracker.reference("shared", { start: { line: 5, index: 0 }, end: { line: 5, index: 6 } }, { kind: "variable" });
 
     tracker.exitScope();
     tracker.exitScope();
@@ -237,19 +184,11 @@ void test("getScopeExternalReferences returns cloned declaration metadata", () =
     const tracker = new ScopeTracker({ enabled: true });
     const rootScope = tracker.enterScope("program");
 
-    tracker.declare(
-        "shared",
-        { start: { line: 1, index: 0 }, end: { line: 1, index: 6 } },
-        { kind: "variable" }
-    );
+    tracker.declare("shared", { start: { line: 1, index: 0 }, end: { line: 1, index: 6 } }, { kind: "variable" });
 
     const funcScope = tracker.enterScope("function");
 
-    tracker.reference(
-        "shared",
-        { start: { line: 2, index: 0 }, end: { line: 2, index: 6 } },
-        { kind: "variable" }
-    );
+    tracker.reference("shared", { start: { line: 2, index: 0 }, end: { line: 2, index: 6 } }, { kind: "variable" });
 
     tracker.exitScope();
     tracker.exitScope();
@@ -293,14 +232,8 @@ void test("getScopeExternalReferences returns cloned declaration metadata", () =
         }
     ]);
 
-    assert.notStrictEqual(
-        secondResult[0].occurrences,
-        firstResult[0].occurrences
-    );
-    assert.notStrictEqual(
-        secondResult[0].occurrences[0],
-        firstResult[0].occurrences[0]
-    );
+    assert.notStrictEqual(secondResult[0].occurrences, firstResult[0].occurrences);
+    assert.notStrictEqual(secondResult[0].occurrences[0], firstResult[0].occurrences[0]);
 });
 
 void test("getScopeExternalReferences performance is efficient for many references", () => {
@@ -352,8 +285,5 @@ void test("getScopeExternalReferences performance is efficient for many referenc
     });
 
     const lookupTime = endTime - startTime;
-    assert.ok(
-        lookupTime < 50,
-        `Lookup took ${lookupTime}ms, expected < 50ms for efficient performance`
-    );
+    assert.ok(lookupTime < 50, `Lookup took ${lookupTime}ms, expected < 50ms for efficient performance`);
 });

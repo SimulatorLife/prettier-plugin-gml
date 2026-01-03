@@ -2,14 +2,7 @@ import path from "node:path";
 
 import { Core } from "@gml-modules/core";
 
-const {
-    getNonEmptyTrimmedString,
-    isNonEmptyString,
-    isPathInside,
-    toArray,
-    uniqueArray,
-    compactArray
-} = Core;
+const { getNonEmptyTrimmedString, isNonEmptyString, isPathInside, toArray, uniqueArray, compactArray } = Core;
 
 export interface WorkflowPathFilterOptions {
     allowPaths?: Iterable<unknown>;
@@ -31,12 +24,10 @@ export interface WorkflowPathFilter {
  * @param {Iterable<unknown> | null | undefined} paths
  * @returns {Array<string>}
  */
-export function normalizeWorkflowPathList(
-    paths: Iterable<unknown> | null | undefined
-): Array<string> {
-    const trimmed = compactArray(
-        toArray(paths).map(getNonEmptyTrimmedString)
-    ).filter((value): value is string => typeof value === "string");
+export function normalizeWorkflowPathList(paths: Iterable<unknown> | null | undefined): Array<string> {
+    const trimmed = compactArray(toArray(paths).map(getNonEmptyTrimmedString)).filter(
+        (value): value is string => typeof value === "string"
+    );
     const resolved = trimmed.map((candidate) => path.resolve(candidate));
     return [...(uniqueArray(resolved, { freeze: false }) as Array<string>)];
 }
@@ -93,15 +84,12 @@ export function createWorkflowPathFilter(
         }
 
         return allowList.some(
-            (allow) =>
-                isPathInside(normalized, allow) ||
-                (treatAsDirectory && isPathInside(allow, normalized))
+            (allow) => isPathInside(normalized, allow) || (treatAsDirectory && isPathInside(allow, normalized))
         );
     };
 
     const allowsPath = (candidate) => allows(candidate);
-    const allowsDirectory = (candidate) =>
-        allows(candidate, { treatAsDirectory: true });
+    const allowsDirectory = (candidate) => allows(candidate, { treatAsDirectory: true });
 
     return {
         allowList,
@@ -144,27 +132,14 @@ export function ensureWorkflowPathsAllowed(pathFilter, entries = []) {
             continue;
         }
 
-        const description =
-            label ?? (type === "directory" ? "Directory" : "Path");
+        const description = label ?? (type === "directory" ? "Directory" : "Path");
 
-        if (
-            type === "directory" &&
-            typeof allowsDirectory === "function" &&
-            !allowsDirectory(target)
-        ) {
-            throw new Error(
-                `${description} '${target}' is not permitted by workflow path filters.`
-            );
+        if (type === "directory" && typeof allowsDirectory === "function" && !allowsDirectory(target)) {
+            throw new Error(`${description} '${target}' is not permitted by workflow path filters.`);
         }
 
-        if (
-            type === "path" &&
-            typeof allowsPath === "function" &&
-            !allowsPath(target)
-        ) {
-            throw new Error(
-                `${description} '${target}' is not permitted by workflow path filters.`
-            );
+        if (type === "path" && typeof allowsPath === "function" && !allowsPath(target)) {
+            throw new Error(`${description} '${target}' is not permitted by workflow path filters.`);
         }
     }
 }

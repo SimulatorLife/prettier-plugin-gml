@@ -17,12 +17,9 @@ const DEFAULT_BYTE_FORMAT_RADIX = 1024;
 const BYTE_FORMAT_RADIX_ENV_VAR = "PRETTIER_PLUGIN_GML_BYTE_FORMAT_RADIX";
 
 const createRadixErrorMessage = (received: unknown): string =>
-    `Byte format radix must be a positive integer (received ${describeValueForError(
-        received
-    )}).`;
+    `Byte format radix must be a positive integer (received ${describeValueForError(received)}).`;
 
-const createRadixTypeErrorMessage =
-    createNumericTypeErrorFormatter("Byte format radix");
+const createRadixTypeErrorMessage = createNumericTypeErrorFormatter("Byte format radix");
 
 const coerce = (value: unknown, context = {}) => {
     const opts = { ...context, createErrorMessage: createRadixErrorMessage };
@@ -57,8 +54,7 @@ function resolveByteFormatRadix(
         defaultRadix?: number;
     } = {}
 ): number | null | undefined {
-    const fallback =
-        options.defaultRadix ?? options.defaultValue ?? state.get();
+    const fallback = options.defaultRadix ?? options.defaultValue ?? state.get();
     return resolveIntegerOption(rawValue, {
         defaultValue: fallback,
         coerce,
@@ -67,9 +63,7 @@ function resolveByteFormatRadix(
     });
 }
 
-function applyByteFormatRadixEnvOverride(
-    env?: NodeJS.ProcessEnv
-): number | undefined {
+function applyByteFormatRadixEnvOverride(env?: NodeJS.ProcessEnv): number | undefined {
     return state.applyEnvOverride(env);
 }
 
@@ -92,16 +86,12 @@ function normalizeByteCount(value: NumericLike): number {
         return 0;
     }
 
-    const normalizedValue =
-        typeof numericValue === "number" ? numericValue : Number(numericValue);
+    const normalizedValue = typeof numericValue === "number" ? numericValue : Number(numericValue);
 
     return Math.max(normalizedValue, 0);
 }
 
-function resolveRadixOverride(
-    radix: number | string | undefined,
-    defaultRadix: number
-): number {
+function resolveRadixOverride(radix: number | string | undefined, defaultRadix: number): number {
     if (radix === undefined) {
         return defaultRadix;
     }
@@ -117,17 +107,10 @@ function resolveRadixOverride(
 
 function formatByteSize(
     bytes: NumericLike,
-    {
-        decimals = 1,
-        decimalsForBytes = 0,
-        separator = "",
-        trimTrailingZeros = false,
-        radix
-    }: FormatByteSizeOptions = {}
+    { decimals = 1, decimalsForBytes = 0, separator = "", trimTrailingZeros = false, radix }: FormatByteSizeOptions = {}
 ): string {
     let value = normalizeByteCount(bytes);
-    const defaultRadix =
-        getDefaultByteFormatRadix() ?? DEFAULT_BYTE_FORMAT_RADIX;
+    const defaultRadix = getDefaultByteFormatRadix() ?? DEFAULT_BYTE_FORMAT_RADIX;
     const resolvedRadix = resolveRadixOverride(radix, defaultRadix);
     const maxUnitIndex = BYTE_UNITS.length - 1;
     let unitIndex = 0;
@@ -136,18 +119,12 @@ function formatByteSize(
         value /= resolvedRadix;
     }
 
-    const decimalPlaces = Math.max(
-        0,
-        unitIndex === 0 ? decimalsForBytes : decimals
-    );
+    const decimalPlaces = Math.max(0, unitIndex === 0 ? decimalsForBytes : decimals);
 
     let formattedValue = value.toFixed(decimalPlaces);
 
     if (trimTrailingZeros && decimalPlaces > 0) {
-        formattedValue = formattedValue.replace(
-            /(?:\.0+|(\.\d*?[1-9])0+)$/,
-            "$1"
-        );
+        formattedValue = formattedValue.replace(/(?:\.0+|(\.\d*?[1-9])0+)$/, "$1");
     }
 
     const unitSeparator = typeof separator === "string" ? separator : "";

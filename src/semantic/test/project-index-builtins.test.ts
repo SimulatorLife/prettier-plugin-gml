@@ -21,11 +21,7 @@ void test("buildProjectIndex excludes built-in script calls", async () => {
         const fileRecord = index.files["objects/obj_demo/obj_demo_Step_0.gml"];
 
         assert.ok(fileRecord, "expected step event file to be indexed");
-        assert.equal(
-            fileRecord.scriptCalls.length,
-            0,
-            "expected built-in calls to be excluded from script references"
-        );
+        assert.equal(fileRecord.scriptCalls.length, 0, "expected built-in calls to be excluded from script references");
     } finally {
         await rm(tempRoot, { recursive: true, force: true });
     }

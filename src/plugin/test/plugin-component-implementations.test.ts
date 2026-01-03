@@ -12,32 +12,14 @@ import { LogicalOperatorsStyle } from "../src/options/logical-operators-style.js
 import { handleComments, printComment } from "../src/comments/index.js";
 
 void test("default implementation bundle is frozen and reuses canonical references", () => {
-    assert.ok(
-        Object.isFrozen(gmlPluginComponentImplementations),
-        "implementation bundle should be frozen"
-    );
+    assert.ok(Object.isFrozen(gmlPluginComponentImplementations), "implementation bundle should be frozen");
 
-    assert.strictEqual(
-        gmlPluginComponentImplementations.gmlParserAdapter,
-        gmlParserAdapter
-    );
+    assert.strictEqual(gmlPluginComponentImplementations.gmlParserAdapter, gmlParserAdapter);
     assert.strictEqual(gmlPluginComponentImplementations.print, print);
-    assert.strictEqual(
-        gmlPluginComponentImplementations.printComment,
-        printComment
-    );
-    assert.strictEqual(
-        gmlPluginComponentImplementations.handleComments,
-        handleComments
-    );
-    assert.strictEqual(
-        gmlPluginComponentImplementations.identifierCaseOptions,
-        Semantic.identifierCaseOptions
-    );
-    assert.strictEqual(
-        gmlPluginComponentImplementations.LogicalOperatorsStyle,
-        LogicalOperatorsStyle
-    );
+    assert.strictEqual(gmlPluginComponentImplementations.printComment, printComment);
+    assert.strictEqual(gmlPluginComponentImplementations.handleComments, handleComments);
+    assert.strictEqual(gmlPluginComponentImplementations.identifierCaseOptions, Semantic.identifierCaseOptions);
+    assert.strictEqual(gmlPluginComponentImplementations.LogicalOperatorsStyle, LogicalOperatorsStyle);
 });
 
 void test("resolver returns the canonical implementation bundle", () => {

@@ -20,11 +20,7 @@ void describe("gml parser adapter", () => {
             return null;
         }
 
-        if (
-            root.type === "CallExpression" &&
-            root.object?.type === "Identifier" &&
-            root.object.name === calleeName
-        ) {
+        if (root.type === "CallExpression" && root.object?.type === "Identifier" && root.object.name === calleeName) {
             return root;
         }
 
@@ -51,9 +47,7 @@ void describe("gml parser adapter", () => {
         return null;
     }
 
-    function normalizeNodeBody(
-        node?: MutableGameMakerAstNode | null
-    ): Array<MutableGameMakerAstNode> {
+    function normalizeNodeBody(node?: MutableGameMakerAstNode | null): Array<MutableGameMakerAstNode> {
         if (!node || typeof node !== "object") {
             return [];
         }
@@ -78,16 +72,10 @@ void describe("gml parser adapter", () => {
         const [declaration] = normalizeNodeBody(ast);
         assert.strictEqual(declaration?.type, "FunctionDeclaration");
 
-        const blockStatements = normalizeNodeBody(
-            declaration?.body as unknown as MutableGameMakerAstNode | undefined
-        );
+        const blockStatements = normalizeNodeBody(declaration?.body as unknown as MutableGameMakerAstNode | undefined);
         assert.ok(Array.isArray(blockStatements));
         assert.ok(
-            blockStatements.some(
-                (node) =>
-                    node?.type === "CallExpression" ||
-                    node?.type === "ReturnStatement"
-            ),
+            blockStatements.some((node) => node?.type === "CallExpression" || node?.type === "ReturnStatement"),
             "Expected recovered function block to retain executable statements."
         );
     });
@@ -97,19 +85,13 @@ void describe("gml parser adapter", () => {
             () => gmlParserAdapter.parse(sourceWithMissingBrace, {}),
             (error) =>
                 typeof (error as any)?.message === "string" &&
-                (error as any).message
-                    .toLowerCase()
-                    .includes("missing associated closing brace"),
+                (error as any).message.toLowerCase().includes("missing associated closing brace"),
             "Expected parser to report missing closing brace without Feather recovery."
         );
     });
 
     void it("parses scr_matrix_build calls that omit separators between numeric literals", async () => {
-        const source = [
-            "if (scr_matrix_build(1, 2 3, 4)) {",
-            "    return 0;",
-            "}"
-        ].join("\n");
+        const source = ["if (scr_matrix_build(1, 2 3, 4)) {", "    return 0;", "}"].join("\n");
 
         const ast = await gmlParserAdapter.parse(source, {});
         assert.ok(ast);
@@ -123,11 +105,7 @@ void describe("gml parser adapter", () => {
     });
 
     void it("parses scr_matrix_build calls with inline comments between numeric literals", async () => {
-        const source = [
-            "if (scr_matrix_build(1, 2 /* note */ 3, 4)) {",
-            "    return 1;",
-            "}"
-        ].join("\n");
+        const source = ["if (scr_matrix_build(1, 2 /* note */ 3, 4)) {", "    return 1;", "}"].join("\n");
 
         const ast = await gmlParserAdapter.parse(source, {});
         assert.ok(ast);
@@ -140,11 +118,7 @@ void describe("gml parser adapter", () => {
     });
 
     void it("parses generic calls that omit separators between numeric literals", async () => {
-        const source = [
-            "if (do_generic(0, 1 2, 3)) {",
-            "    return 2;",
-            "}"
-        ].join("\n");
+        const source = ["if (do_generic(0, 1 2, 3)) {", "    return 2;", "}"].join("\n");
 
         const ast = await gmlParserAdapter.parse(source, {});
         assert.ok(ast);

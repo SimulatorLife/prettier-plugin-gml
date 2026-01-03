@@ -14,25 +14,13 @@ void test("getAllSymbolsSummary aggregates single symbol across multiple scopes"
     const tracker = new ScopeTracker({ enabled: true });
 
     tracker.enterScope("program");
-    tracker.declare(
-        "myVar",
-        { start: { line: 1, index: 0 }, end: { line: 1, index: 5 } },
-        { kind: "variable" }
-    );
+    tracker.declare("myVar", { start: { line: 1, index: 0 }, end: { line: 1, index: 5 } }, { kind: "variable" });
 
     tracker.enterScope("function");
-    tracker.reference(
-        "myVar",
-        { start: { line: 3, index: 0 }, end: { line: 3, index: 5 } },
-        { kind: "variable" }
-    );
+    tracker.reference("myVar", { start: { line: 3, index: 0 }, end: { line: 3, index: 5 } }, { kind: "variable" });
 
     tracker.enterScope("block");
-    tracker.reference(
-        "myVar",
-        { start: { line: 5, index: 0 }, end: { line: 5, index: 5 } },
-        { kind: "variable" }
-    );
+    tracker.reference("myVar", { start: { line: 5, index: 0 }, end: { line: 5, index: 5 } }, { kind: "variable" });
     tracker.exitScope();
     tracker.exitScope();
     tracker.exitScope();
@@ -63,11 +51,7 @@ void test("getAllSymbolsSummary handles multiple symbols with different patterns
         { start: { line: 3, index: 0 }, end: { line: 3, index: 8 } },
         { kind: "variable", tags: ["local"] }
     );
-    tracker.reference(
-        "globalVar",
-        { start: { line: 4, index: 0 }, end: { line: 4, index: 9 } },
-        { kind: "variable" }
-    );
+    tracker.reference("globalVar", { start: { line: 4, index: 0 }, end: { line: 4, index: 9 } }, { kind: "variable" });
     tracker.exitScope();
 
     tracker.enterScope("function");
@@ -76,11 +60,7 @@ void test("getAllSymbolsSummary handles multiple symbols with different patterns
         { start: { line: 7, index: 0 }, end: { line: 7, index: 12 } },
         { kind: "variable" }
     );
-    tracker.reference(
-        "globalVar",
-        { start: { line: 8, index: 0 }, end: { line: 8, index: 9 } },
-        { kind: "variable" }
-    );
+    tracker.reference("globalVar", { start: { line: 8, index: 0 }, end: { line: 8, index: 9 } }, { kind: "variable" });
     tracker.exitScope();
 
     tracker.exitScope();
@@ -112,31 +92,15 @@ void test("getAllSymbolsSummary correctly reports hasDeclaration and hasReferenc
     const tracker = new ScopeTracker({ enabled: true });
 
     const programScope = tracker.enterScope("program");
-    tracker.declare(
-        "shared",
-        { start: { line: 1, index: 0 }, end: { line: 1, index: 6 } },
-        { kind: "variable" }
-    );
+    tracker.declare("shared", { start: { line: 1, index: 0 }, end: { line: 1, index: 6 } }, { kind: "variable" });
 
     const func1Scope = tracker.enterScope("function");
-    tracker.reference(
-        "shared",
-        { start: { line: 3, index: 0 }, end: { line: 3, index: 6 } },
-        { kind: "variable" }
-    );
+    tracker.reference("shared", { start: { line: 3, index: 0 }, end: { line: 3, index: 6 } }, { kind: "variable" });
     tracker.exitScope();
 
     const func2Scope = tracker.enterScope("function");
-    tracker.declare(
-        "shared",
-        { start: { line: 6, index: 0 }, end: { line: 6, index: 6 } },
-        { kind: "variable" }
-    );
-    tracker.reference(
-        "shared",
-        { start: { line: 7, index: 0 }, end: { line: 7, index: 6 } },
-        { kind: "variable" }
-    );
+    tracker.declare("shared", { start: { line: 6, index: 0 }, end: { line: 6, index: 6 } }, { kind: "variable" });
+    tracker.reference("shared", { start: { line: 7, index: 0 }, end: { line: 7, index: 6 } }, { kind: "variable" });
     tracker.exitScope();
 
     tracker.exitScope();
@@ -151,23 +115,17 @@ void test("getAllSymbolsSummary correctly reports hasDeclaration and hasReferenc
     assert.strictEqual(sharedSummary.declarationCount, 2);
     assert.strictEqual(sharedSummary.referenceCount, 2);
 
-    const programScopeSummary = sharedSummary.scopes.find(
-        (s) => s.scopeId === programScope.id
-    );
+    const programScopeSummary = sharedSummary.scopes.find((s) => s.scopeId === programScope.id);
     assert.ok(programScopeSummary);
     assert.strictEqual(programScopeSummary.hasDeclaration, true);
     assert.strictEqual(programScopeSummary.hasReference, false);
 
-    const func1ScopeSummary = sharedSummary.scopes.find(
-        (s) => s.scopeId === func1Scope.id
-    );
+    const func1ScopeSummary = sharedSummary.scopes.find((s) => s.scopeId === func1Scope.id);
     assert.ok(func1ScopeSummary);
     assert.strictEqual(func1ScopeSummary.hasDeclaration, false);
     assert.strictEqual(func1ScopeSummary.hasReference, true);
 
-    const func2ScopeSummary = sharedSummary.scopes.find(
-        (s) => s.scopeId === func2Scope.id
-    );
+    const func2ScopeSummary = sharedSummary.scopes.find((s) => s.scopeId === func2Scope.id);
     assert.ok(func2ScopeSummary);
     assert.strictEqual(func2ScopeSummary.hasDeclaration, true);
     assert.strictEqual(func2ScopeSummary.hasReference, true);
@@ -177,25 +135,13 @@ void test("getAllSymbolsSummary includes scopeKind in scope details", () => {
     const tracker = new ScopeTracker({ enabled: true });
 
     tracker.enterScope("program");
-    tracker.declare(
-        "test",
-        { start: { line: 1, index: 0 }, end: { line: 1, index: 4 } },
-        { kind: "variable" }
-    );
+    tracker.declare("test", { start: { line: 1, index: 0 }, end: { line: 1, index: 4 } }, { kind: "variable" });
 
     tracker.enterScope("function");
-    tracker.reference(
-        "test",
-        { start: { line: 3, index: 0 }, end: { line: 3, index: 4 } },
-        { kind: "variable" }
-    );
+    tracker.reference("test", { start: { line: 3, index: 0 }, end: { line: 3, index: 4 } }, { kind: "variable" });
 
     tracker.enterScope("block");
-    tracker.reference(
-        "test",
-        { start: { line: 5, index: 0 }, end: { line: 5, index: 4 } },
-        { kind: "variable" }
-    );
+    tracker.reference("test", { start: { line: 5, index: 0 }, end: { line: 5, index: 4 } }, { kind: "variable" });
     tracker.exitScope();
     tracker.exitScope();
     tracker.exitScope();
@@ -215,11 +161,7 @@ void test("getAllSymbolsSummary handles symbols with only declarations", () => {
     const tracker = new ScopeTracker({ enabled: true });
 
     tracker.enterScope("program");
-    tracker.declare(
-        "unused",
-        { start: { line: 1, index: 0 }, end: { line: 1, index: 6 } },
-        { kind: "variable" }
-    );
+    tracker.declare("unused", { start: { line: 1, index: 0 }, end: { line: 1, index: 6 } }, { kind: "variable" });
     tracker.exitScope();
 
     const summary = tracker.getAllSymbolsSummary();
@@ -291,29 +233,13 @@ void test("getAllSymbolsSummary supports hot reload coordination use case", () =
         { start: { line: 3, index: 0 }, end: { line: 3, index: 6 } },
         { kind: "variable", tags: ["parameter"] }
     );
-    tracker.reference(
-        "GameState",
-        { start: { line: 4, index: 0 }, end: { line: 4, index: 9 } },
-        { kind: "variable" }
-    );
+    tracker.reference("GameState", { start: { line: 4, index: 0 }, end: { line: 4, index: 9 } }, { kind: "variable" });
     tracker.exitScope();
 
     tracker.enterScope("function");
-    tracker.declare(
-        "enemy",
-        { start: { line: 7, index: 0 }, end: { line: 7, index: 5 } },
-        { kind: "variable" }
-    );
-    tracker.reference(
-        "GameState",
-        { start: { line: 8, index: 0 }, end: { line: 8, index: 9 } },
-        { kind: "variable" }
-    );
-    tracker.reference(
-        "player",
-        { start: { line: 9, index: 0 }, end: { line: 9, index: 6 } },
-        { kind: "variable" }
-    );
+    tracker.declare("enemy", { start: { line: 7, index: 0 }, end: { line: 7, index: 5 } }, { kind: "variable" });
+    tracker.reference("GameState", { start: { line: 8, index: 0 }, end: { line: 8, index: 9 } }, { kind: "variable" });
+    tracker.reference("player", { start: { line: 9, index: 0 }, end: { line: 9, index: 6 } }, { kind: "variable" });
     tracker.exitScope();
 
     tracker.exitScope();
@@ -325,14 +251,8 @@ void test("getAllSymbolsSummary supports hot reload coordination use case", () =
     const gameStateSummary = summary.find((s) => s.name === "GameState");
     assert.ok(gameStateSummary);
     assert.strictEqual(gameStateSummary.scopeCount, 3);
-    assert.ok(
-        gameStateSummary.declarationCount >= 1,
-        "GameState should have at least 1 declaration"
-    );
-    assert.ok(
-        gameStateSummary.referenceCount >= 2,
-        "GameState should have at least 2 references"
-    );
+    assert.ok(gameStateSummary.declarationCount >= 1, "GameState should have at least 1 declaration");
+    assert.ok(gameStateSummary.referenceCount >= 2, "GameState should have at least 2 references");
 
     const playerSummary = summary.find((s) => s.name === "player");
     assert.ok(playerSummary);

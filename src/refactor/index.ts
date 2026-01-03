@@ -12,11 +12,7 @@ export {
     countAffectedFiles
 } from "./src/index.js";
 
-export type {
-    RefactorEngine,
-    WorkspaceEdit,
-    OccurrenceClassification
-} from "./src/index.js";
+export type { RefactorEngine, WorkspaceEdit, OccurrenceClassification } from "./src/index.js";
 
 export type {
     ApplyWorkspaceEditOptions,

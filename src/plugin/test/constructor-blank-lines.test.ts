@@ -3,13 +3,7 @@ import { test } from "node:test";
 import { Plugin } from "../src/index.js";
 
 void test("preserves blank line between constructor header and first statement", async () => {
-    const source = [
-        "function Demo() constructor {",
-        "",
-        "    self.value = 1;",
-        "}",
-        ""
-    ].join("\n");
+    const source = ["function Demo() constructor {", "", "    self.value = 1;", "}", ""].join("\n");
 
     const formatted = await Plugin.format(source);
     const lines = formatted.trim().split("\n");

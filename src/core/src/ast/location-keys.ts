@@ -40,11 +40,7 @@ export function buildLocationKey(location) {
     const column = getFirstDefined(location, COLUMN_FIELDS);
     const index = getFirstDefined(location, INDEX_FIELDS);
 
-    if (
-        isNullOrUndefined(line) &&
-        isNullOrUndefined(column) &&
-        isNullOrUndefined(index)
-    ) {
+    if (isNullOrUndefined(line) && isNullOrUndefined(column) && isNullOrUndefined(index)) {
         return null;
     }
 

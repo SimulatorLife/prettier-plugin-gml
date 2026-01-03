@@ -2,10 +2,7 @@ import assert from "node:assert/strict";
 import { describe, it } from "node:test";
 
 import { isCliUsageError } from "../src/cli-core/errors.js";
-import {
-    applyEnvOptionOverride,
-    applyEnvOptionOverrides
-} from "../src/cli-core/env-overrides.js";
+import { applyEnvOptionOverride, applyEnvOptionOverrides } from "../src/cli-core/env-overrides.js";
 
 void describe("applyEnvOptionOverride", () => {
     void it("sets the option when the environment variable is defined", () => {
@@ -110,10 +107,7 @@ void describe("applyEnvOptionOverride", () => {
                 }),
             (error) => {
                 assert.ok(isCliUsageError(error));
-                assert.equal(
-                    error.message,
-                    "Invalid value provided for TEST_VALUE."
-                );
+                assert.equal(error.message, "Invalid value provided for TEST_VALUE.");
                 return true;
             }
         );

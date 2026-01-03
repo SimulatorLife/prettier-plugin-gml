@@ -91,10 +91,7 @@ export function fixMalformedComments(sourceText: string): CommentFixResult {
  * @param error - The error object from the failed parse attempt
  * @returns The source text with appended braces, or null if recovery is not applicable
  */
-export function recoverParseSourceFromMissingBrace(
-    sourceText: string,
-    error: unknown
-): string | null {
+export function recoverParseSourceFromMissingBrace(sourceText: string, error: unknown): string | null {
     if (!isMissingClosingBraceError(error)) {
         return null;
     }
@@ -112,9 +109,7 @@ function isMissingClosingBraceError(error: unknown): boolean {
         return false;
     }
 
-    const message = Core.isNonEmptyString(
-        (error as { message?: unknown }).message
-    )
+    const message = Core.isNonEmptyString((error as { message?: unknown }).message)
         ? (error as { message: string }).message
         : Core.isNonEmptyString(error)
           ? String(error)

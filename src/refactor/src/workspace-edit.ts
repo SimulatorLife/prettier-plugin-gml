@@ -5,10 +5,7 @@ export interface TextEdit {
     newText: string;
 }
 
-export type GroupedTextEdits = Map<
-    string,
-    Array<Pick<TextEdit, "start" | "end" | "newText">>
->;
+export type GroupedTextEdits = Map<string, Array<Pick<TextEdit, "start" | "end" | "newText">>>;
 
 export interface WorkspaceEdit {
     readonly edits: Array<TextEdit>;
@@ -22,9 +19,7 @@ export interface WorkspaceEdit {
  * @param initialEdits Optional iterable of edits to initialize with
  * @returns WorkspaceEdit instance
  */
-export function WorkspaceEdit(
-    initialEdits: Iterable<TextEdit> = []
-): WorkspaceEdit {
+export function WorkspaceEdit(initialEdits: Iterable<TextEdit> = []): WorkspaceEdit {
     const edits: Array<TextEdit> = Array.from(initialEdits);
 
     return {

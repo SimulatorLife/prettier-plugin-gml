@@ -6,10 +6,7 @@ import { getSingleVariableDeclarator } from "../src/ast/node-helpers.js";
 void describe("getSingleVariableDeclarator", () => {
     void it("returns null for non-variable declarations", () => {
         assert.equal(getSingleVariableDeclarator(null), null);
-        assert.equal(
-            getSingleVariableDeclarator({ type: "FunctionDeclaration" }),
-            null
-        );
+        assert.equal(getSingleVariableDeclarator({ type: "FunctionDeclaration" }), null);
     });
 
     void it("returns null when the declaration list is not a single variable declarator", () => {
@@ -24,10 +21,7 @@ void describe("getSingleVariableDeclarator", () => {
         assert.equal(
             getSingleVariableDeclarator({
                 type: "VariableDeclaration",
-                declarations: [
-                    { type: "VariableDeclarator" },
-                    { type: "VariableDeclarator" }
-                ]
+                declarations: [{ type: "VariableDeclarator" }, { type: "VariableDeclarator" }]
             }),
             null
         );

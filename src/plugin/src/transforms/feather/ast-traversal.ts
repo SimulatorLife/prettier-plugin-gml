@@ -8,17 +8,9 @@ import { Core } from "@gml-modules/core";
  */
 export function walkAstNodes(
     root: unknown,
-    visitor: (
-        node: any,
-        parent: unknown,
-        key: string | number | null
-    ) => void | boolean
+    visitor: (node: any, parent: unknown, key: string | number | null) => void | boolean
 ) {
-    const visit = (
-        node: unknown,
-        parent: unknown,
-        key: string | number | null
-    ): void => {
+    const visit = (node: unknown, parent: unknown, key: string | number | null): void => {
         if (!node) {
             return;
         }
@@ -51,10 +43,7 @@ export function walkAstNodes(
     visit(root, null, null);
 }
 
-export function hasArrayParentWithNumericIndex(
-    parent: unknown,
-    property: unknown
-) {
+export function hasArrayParentWithNumericIndex(parent: unknown, property: unknown) {
     if (!Array.isArray(parent)) {
         return false;
     }
@@ -67,11 +56,7 @@ export function hasArrayParentWithNumericIndex(
 }
 
 /** Return context surrounding a call expression held inside an array so fixers can mutate siblings safely. */
-export function resolveCallExpressionArrayContext(
-    node: unknown,
-    parent: unknown,
-    property: unknown
-) {
+export function resolveCallExpressionArrayContext(node: unknown, parent: unknown, property: unknown) {
     if (!hasArrayParentWithNumericIndex(parent, property)) {
         return null;
     }

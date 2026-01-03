@@ -21,13 +21,9 @@ const DEFAULT_HELP_AFTER_ERROR = "(add --help for usage information)";
  *        help semantics.
  * @returns {TCommand} The original command for fluent chaining.
  */
-export function applyStandardCommandOptions<
-    TCommand extends CommanderCommandLike
->(command: TCommand): TCommand {
+export function applyStandardCommandOptions<TCommand extends CommanderCommandLike>(command: TCommand): TCommand {
     if (!command || typeof command.exitOverride !== "function") {
-        throw new TypeError(
-            "applyStandardCommandOptions expects a Commander Command instance."
-        );
+        throw new TypeError("applyStandardCommandOptions expects a Commander Command instance.");
     }
 
     command.exitOverride();
@@ -55,8 +51,4 @@ export function applyStandardCommandOptions<
     return command;
 }
 
-export {
-    DEFAULT_HELP_FLAG,
-    DEFAULT_HELP_DESCRIPTION,
-    DEFAULT_HELP_AFTER_ERROR
-};
+export { DEFAULT_HELP_FLAG, DEFAULT_HELP_DESCRIPTION, DEFAULT_HELP_AFTER_ERROR };

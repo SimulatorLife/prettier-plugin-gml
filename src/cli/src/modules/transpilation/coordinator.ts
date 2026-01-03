@@ -16,9 +16,7 @@ import type { PatchBroadcaster } from "../websocket/server.js";
 const { getErrorMessage } = Core;
 
 type RuntimeTranspiler = InstanceType<typeof Transpiler.GmlTranspiler>;
-export type RuntimeTranspilerPatch = ReturnType<
-    RuntimeTranspiler["transpileScript"]
->;
+export type RuntimeTranspilerPatch = ReturnType<RuntimeTranspiler["transpileScript"]>;
 
 export interface TranspilationMetrics {
     timestamp: number;
@@ -107,11 +105,7 @@ export interface TranspilationResult {
  * Adds an item to a bounded collection, removing the oldest item if the
  * collection exceeds its maximum size.
  */
-function addToBoundedCollection<T>(
-    collection: Array<T>,
-    item: T,
-    maxSize: number
-): void {
+function addToBoundedCollection<T>(collection: Array<T>, item: T, maxSize: number): void {
     collection.push(item);
     if (collection.length > maxSize) {
         collection.shift();
@@ -188,8 +182,7 @@ export function transpileFile(
             symbolId
         });
         const runtimeId = resolveRuntimeId(filePath);
-        const patchPayload =
-            runtimeId === null ? patch : { ...patch, runtimeId };
+        const patchPayload = runtimeId === null ? patch : { ...patch, runtimeId };
 
         if (!validatePatch(patchPayload)) {
             throw new Error("Generated patch failed validation");
@@ -207,36 +200,21 @@ export function transpileFile(
             linesProcessed: lines
         };
 
-        addToBoundedCollection(
-            context.metrics,
-            metrics,
-            context.maxPatchHistory
-        );
+        addToBoundedCollection(context.metrics, metrics, context.maxPatchHistory);
 
         context.lastSuccessfulPatches.set(symbolId, patchPayload);
 
-        addToBoundedCollection(
-            context.patches,
-            patchPayload,
-            context.maxPatchHistory
-        );
+        addToBoundedCollection(context.patches, patchPayload, context.maxPatchHistory);
 
-        const broadcastResult =
-            context.websocketServer?.broadcast(patchPayload);
+        const broadcastResult = context.websocketServer?.broadcast(patchPayload);
         if (broadcastResult && !quiet) {
             if (verbose) {
-                console.log(
-                    `  ↳ Broadcasted to ${broadcastResult.successCount} clients`
-                );
+                console.log(`  ↳ Broadcasted to ${broadcastResult.successCount} clients`);
                 if (broadcastResult.failureCount > 0) {
-                    console.log(
-                        `  ↳ Failed to send to ${broadcastResult.failureCount} clients`
-                    );
+                    console.log(`  ↳ Failed to send to ${broadcastResult.failureCount} clients`);
                 }
             } else if (broadcastResult.successCount > 0) {
-                console.log(
-                    `  ↳ Streamed to ${broadcastResult.successCount} client(s)`
-                );
+                console.log(`  ↳ Streamed to ${broadcastResult.successCount} client(s)`);
             }
         }
 
@@ -268,17 +246,10 @@ export function transpileFile(
             sourceSize: content.length
         };
 
-        addToBoundedCollection(
-            context.errors,
-            transpilationError,
-            context.maxPatchHistory
-        );
+        addToBoundedCollection(context.errors, transpilationError, context.maxPatchHistory);
 
         if (context.websocketServer) {
-            const errorNotification = createErrorNotification(
-                filePath,
-                errorMessage
-            );
+            const errorNotification = createErrorNotification(filePath, errorMessage);
             context.websocketServer.broadcast(errorNotification);
         }
 
@@ -325,46 +296,23 @@ export function displayTranspilationStatistics(
         console.log(`Total patches generated: ${metrics.length}`);
 
         if (verbose) {
-            const totalDuration = metrics.reduce(
-                (sum, m) => sum + m.durationMs,
-                0
-            );
-            const totalSourceSize = metrics.reduce(
-                (sum, m) => sum + m.sourceSize,
-                0
-            );
-            const totalOutputSize = metrics.reduce(
-                (sum, m) => sum + m.outputSize,
-                0
-            );
+            const totalDuration = metrics.reduce((sum, m) => sum + m.durationMs, 0);
+            const totalSourceSize = metrics.reduce((sum, m) => sum + m.sourceSize, 0);
+            const totalOutputSize = metrics.reduce((sum, m) => sum + m.outputSize, 0);
             const avgDuration = totalDuration / metrics.length;
 
-            console.log(
-                `Total transpilation time: ${totalDuration.toFixed(2)}ms`
-            );
-            console.log(
-                `Average transpilation time: ${avgDuration.toFixed(2)}ms`
-            );
-            console.log(
-                `Total source processed: ${(totalSourceSize / 1024).toFixed(2)} KB`
-            );
-            console.log(
-                `Total output generated: ${(totalOutputSize / 1024).toFixed(2)} KB`
-            );
+            console.log(`Total transpilation time: ${totalDuration.toFixed(2)}ms`);
+            console.log(`Average transpilation time: ${avgDuration.toFixed(2)}ms`);
+            console.log(`Total source processed: ${(totalSourceSize / 1024).toFixed(2)} KB`);
+            console.log(`Total output generated: ${(totalOutputSize / 1024).toFixed(2)} KB`);
 
             const compressionRatio =
-                totalSourceSize > 0
-                    ? `${((totalOutputSize / totalSourceSize) * 100).toFixed(1)}%`
-                    : "N/A";
+                totalSourceSize > 0 ? `${((totalOutputSize / totalSourceSize) * 100).toFixed(1)}%` : "N/A";
             console.log(`Output/source ratio: ${compressionRatio}`);
 
             if (metrics.length > 0) {
-                const fastestPatch = metrics.reduce((min, m) =>
-                    m.durationMs < min.durationMs ? m : min
-                );
-                const slowestPatch = metrics.reduce((max, m) =>
-                    m.durationMs > max.durationMs ? m : max
-                );
+                const fastestPatch = metrics.reduce((min, m) => (m.durationMs < min.durationMs ? m : min));
+                const slowestPatch = metrics.reduce((max, m) => (m.durationMs > max.durationMs ? m : max));
 
                 console.log(
                     `Fastest transpilation: ${fastestPatch.durationMs.toFixed(2)}ms (${path.basename(fastestPatch.filePath)})`
@@ -383,9 +331,7 @@ export function displayTranspilationStatistics(
             const recentErrors = errors.slice(-5);
             for (const error of recentErrors) {
                 const timestamp = new Date(error.timestamp).toISOString();
-                console.log(
-                    `  [${timestamp}] ${path.basename(error.filePath)}`
-                );
+                console.log(`  [${timestamp}] ${path.basename(error.filePath)}`);
                 console.log(`    ${error.error}`);
             }
         }

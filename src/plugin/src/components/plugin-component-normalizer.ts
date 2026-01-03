@@ -2,9 +2,7 @@ import { Core } from "@gml-modules/core";
 
 import type { GmlPluginComponentBundle } from "./plugin-types.js";
 
-export function normalizeGmlPluginComponents(
-    components: unknown
-): GmlPluginComponentBundle {
+export function normalizeGmlPluginComponents(components: unknown): GmlPluginComponentBundle {
     const normalized = Core.assertPlainObject(components, {
         errorMessage: "GML plugin components must be an object."
     }) as Partial<GmlPluginComponentBundle> & Record<string, unknown>;

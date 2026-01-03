@@ -43,10 +43,7 @@ function withProjectPathInfo(filePath, projectRoot, projector) {
  * @returns {string | null} Normalized resource path or `null` when the input is
  *          empty or outside the project tree.
  */
-export function normalizeProjectResourcePath(
-    rawPath,
-    { projectRoot }: any = {}
-) {
+export function normalizeProjectResourcePath(rawPath, { projectRoot }: any = {}) {
     if (!Core.isNonEmptyString(rawPath)) {
         return null;
     }
@@ -56,13 +53,9 @@ export function normalizeProjectResourcePath(
         return normalized;
     }
 
-    const absoluteCandidate = path.isAbsolute(normalized)
-        ? normalized
-        : path.join(projectRoot, normalized);
+    const absoluteCandidate = path.isAbsolute(normalized) ? normalized : path.join(projectRoot, normalized);
 
-    return withProjectPathInfo(absoluteCandidate, projectRoot, (info) =>
-        Core.toPosixPath(info.relativePath)
-    );
+    return withProjectPathInfo(absoluteCandidate, projectRoot, (info) => Core.toPosixPath(info.relativePath));
 }
 
 /**
@@ -77,9 +70,7 @@ export function normalizeProjectResourcePath(
  */
 export function resolveProjectRelativeFilePath(projectRoot, absoluteFilePath) {
     return withProjectPathInfo(absoluteFilePath, projectRoot, (info) =>
-        Core.toPosixPath(
-            info.hasProjectRoot ? info.relativePath : info.absolutePath
-        )
+        Core.toPosixPath(info.hasProjectRoot ? info.relativePath : info.absolutePath)
     );
 }
 
@@ -101,11 +92,7 @@ export function resolveProjectDisplayPath(filePath, projectRoot) {
     }
 
     return withProjectPathInfo(normalizedFilePath, projectRoot, (info) => {
-        if (
-            !info.inputWasAbsolute ||
-            !info.hasProjectRoot ||
-            !info.isInsideProjectRoot
-        ) {
+        if (!info.inputWasAbsolute || !info.hasProjectRoot || !info.isInsideProjectRoot) {
             return normalizedFilePath;
         }
 

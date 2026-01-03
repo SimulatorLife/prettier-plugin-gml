@@ -26,9 +26,7 @@ const currentDirectory = fileURLToPath(new URL(".", import.meta.url));
 const pluginPath = resolveIdentifierCasePluginPath(currentDirectory);
 
 async function createAssetReservedProject() {
-    const { projectRoot, writeFile } = await createTempProjectWorkspace(
-        "gml-asset-reserved-"
-    );
+    const { projectRoot, writeFile } = await createTempProjectWorkspace("gml-asset-reserved-");
 
     await writeFile(
         "MyGame.yyp",
@@ -64,10 +62,7 @@ async function createAssetReservedProject() {
     );
 
     const source = "function MoveContactSolid() {\n    return 3;\n}\n";
-    const scriptPath = await writeFile(
-        "scripts/move_contact/MoveContactSolid.gml",
-        source
-    );
+    const scriptPath = await writeFile("scripts/move_contact/MoveContactSolid.gml", source);
 
     const projectIndex = await buildProjectIndex(projectRoot);
 
@@ -80,8 +75,7 @@ async function createAssetReservedProject() {
 
 void describe("asset rename execution", () => {
     void it("renames script assets and updates referencing metadata", async () => {
-        const { projectRoot, projectIndex, scriptSource, scriptPath } =
-            await createAssetRenameProject();
+        const { projectRoot, projectIndex, scriptSource, scriptPath } = await createAssetRenameProject();
 
         try {
             clearIdentifierCaseDryRunContexts();
@@ -110,21 +104,11 @@ void describe("asset rename execution", () => {
 
             const newYyRelative = "scripts/demo_script/DemoScript.yy";
             const newGmlRelative = "scripts/demo_script/DemoScript.gml";
-            const newYyPath = path.join(
-                projectRoot,
-                Core.fromPosixPath(newYyRelative)
-            );
-            const newGmlPath = path.join(
-                projectRoot,
-                Core.fromPosixPath(newGmlRelative)
-            );
+            const newYyPath = path.join(projectRoot, Core.fromPosixPath(newYyRelative));
+            const newGmlPath = path.join(projectRoot, Core.fromPosixPath(newGmlRelative));
 
-            await assertPathMissing(
-                path.join(projectRoot, "scripts/demo_script/demo_script.yy")
-            );
-            await assertPathMissing(
-                path.join(projectRoot, "scripts/demo_script/demo_script.gml")
-            );
+            await assertPathMissing(path.join(projectRoot, "scripts/demo_script/demo_script.yy"));
+            await assertPathMissing(path.join(projectRoot, "scripts/demo_script/demo_script.gml"));
 
             const renamedYy = JSON.parse(await fs.readFile(newYyPath, "utf8"));
             assert.strictEqual(renamedYy.name, "DemoScript");
@@ -132,12 +116,7 @@ void describe("asset rename execution", () => {
 
             const objectData = JSON.parse(
                 await fs.readFile(
-                    path.join(
-                        projectRoot,
-                        Core.fromPosixPath(
-                            "objects/obj_controller/obj_controller.yy"
-                        )
-                    ),
+                    path.join(projectRoot, Core.fromPosixPath("objects/obj_controller/obj_controller.yy")),
                     "utf8"
                 )
             );
@@ -146,9 +125,7 @@ void describe("asset rename execution", () => {
                 name: "DemoScript"
             });
 
-            const projectData = JSON.parse(
-                await fs.readFile(path.join(projectRoot, "MyGame.yyp"), "utf8")
-            );
+            const projectData = JSON.parse(await fs.readFile(path.join(projectRoot, "MyGame.yyp"), "utf8"));
             assert.strictEqual(projectData.resources[0].id.path, newYyRelative);
             assert.strictEqual(projectData.resources[0].id.name, "DemoScript");
 
@@ -163,8 +140,7 @@ void describe("asset rename execution", () => {
 
 void describe("asset rename conflict detection", () => {
     void it("aborts renames when converted names collide with existing assets", async () => {
-        const { projectRoot, projectIndex, scriptPath } =
-            await createAssetCollisionProject();
+        const { projectRoot, projectIndex, scriptPath } = await createAssetCollisionProject();
 
         try {
             const options: any = {
@@ -176,9 +152,7 @@ void describe("asset rename conflict detection", () => {
                 __identifierCaseDryRun: false,
                 identifierCaseFs: {
                     renameSync() {
-                        assert.fail(
-                            "renameSync should not be called when conflicts are present"
-                        );
+                        assert.fail("renameSync should not be called when conflicts are present");
                     }
                 },
                 diagnostics: []
@@ -187,33 +161,24 @@ void describe("asset rename conflict detection", () => {
             await prepareIdentifierCasePlan(options);
 
             const conflicts = options.__identifierCaseConflicts ?? [];
-            assert.ok(
-                conflicts.length > 0,
-                "Expected collisions to be reported"
-            );
+            assert.ok(conflicts.length > 0, "Expected collisions to be reported");
             assert.ok(
                 conflicts.some((conflict) => conflict.code === "collision"),
                 "Expected collision conflict code"
             );
             assert.ok(
-                conflicts.some((conflict) =>
-                    conflict.message.includes("collides with existing asset")
-                ),
+                conflicts.some((conflict) => conflict.message.includes("collides with existing asset")),
                 "Expected conflict message to reference existing assets"
             );
             assert.ok(
                 conflicts.some((conflict) =>
-                    conflict.suggestions.some((suggestion) =>
-                        suggestion.includes("gmlIdentifierCaseIgnore")
-                    )
+                    conflict.suggestions.some((suggestion) => suggestion.includes("gmlIdentifierCaseIgnore"))
                 ),
                 "Expected suggestion to reference ignore patterns"
             );
             assert.ok(
                 conflicts.some((conflict) =>
-                    conflict.suggestions.some((suggestion) =>
-                        suggestion.includes("gmlIdentifierCaseAssets")
-                    )
+                    conflict.suggestions.some((suggestion) => suggestion.includes("gmlIdentifierCaseAssets"))
                 ),
                 "Expected suggestion to mention scope toggle"
             );
@@ -233,8 +198,7 @@ void describe("asset rename conflict detection", () => {
     });
 
     void it("detects reserved-word conflicts before renaming assets", async () => {
-        const { projectRoot, projectIndex, scriptPath } =
-            await createAssetReservedProject();
+        const { projectRoot, projectIndex, scriptPath } = await createAssetReservedProject();
 
         try {
             const options: any = {
@@ -250,35 +214,24 @@ void describe("asset rename conflict detection", () => {
             await prepareIdentifierCasePlan(options);
 
             const conflicts = options.__identifierCaseConflicts ?? [];
-            assert.ok(
-                conflicts.length > 0,
-                "Expected reserved conflict to be reported"
-            );
+            assert.ok(conflicts.length > 0, "Expected reserved conflict to be reported");
             assert.ok(
                 conflicts.some((conflict) => conflict.code === "reserved"),
                 "Expected reserved conflict code"
             );
             assert.ok(
-                conflicts.some((conflict) =>
-                    conflict.message.includes(
-                        "conflicts with reserved identifier"
-                    )
-                ),
+                conflicts.some((conflict) => conflict.message.includes("conflicts with reserved identifier")),
                 "Expected reserved-word guidance"
             );
             assert.ok(
                 conflicts.some((conflict) =>
-                    conflict.suggestions.some((suggestion) =>
-                        suggestion.includes("gmlIdentifierCaseIgnore")
-                    )
+                    conflict.suggestions.some((suggestion) => suggestion.includes("gmlIdentifierCaseIgnore"))
                 ),
                 "Expected ignore suggestion"
             );
             assert.ok(
                 conflicts.some((conflict) =>
-                    conflict.suggestions.some((suggestion) =>
-                        suggestion.includes("gmlIdentifierCaseAssets")
-                    )
+                    conflict.suggestions.some((suggestion) => suggestion.includes("gmlIdentifierCaseAssets"))
                 ),
                 "Expected scope toggle suggestion"
             );

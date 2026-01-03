@@ -49,9 +49,7 @@ void describe("sanitizeConditionalAssignments", () => {
     });
 
     void it("rewrites bare assignments inside if conditions and records positions", () => {
-        const result = sanitizeConditionalAssignments(
-            "if (foo = bar) { baz(); }"
-        );
+        const result = sanitizeConditionalAssignments("if (foo = bar) { baz(); }");
 
         assert.strictEqual(result.sourceText, "if (foo == bar) { baz(); }");
         assert.deepStrictEqual(result.indexAdjustments, [9]);

@@ -95,21 +95,11 @@ function createDirectoryEntryDescriptor(directoryContext, entry, projectRoot) {
     };
 }
 
-async function resolveDirectoryListing({
-    directoryContext,
-    fsFacade,
-    metrics,
-    ensureNotAborted,
-    signal
-}) {
+async function resolveDirectoryListing({ directoryContext, fsFacade, metrics, ensureNotAborted, signal }) {
     ensureNotAborted();
-    const entries = await Core.listDirectory(
-        fsFacade,
-        directoryContext.absolutePath,
-        {
-            signal
-        }
-    );
+    const entries = await Core.listDirectory(fsFacade, directoryContext.absolutePath, {
+        signal
+    });
     ensureNotAborted();
     metrics?.counters?.increment("io.directoriesScanned");
     return entries;
@@ -119,12 +109,7 @@ function isDirectoryStat(stats) {
     return typeof stats?.isDirectory === "function" && stats.isDirectory();
 }
 
-async function resolveEntryStats({
-    absolutePath,
-    fsFacade,
-    ensureNotAborted,
-    metrics
-}) {
+async function resolveEntryStats({ absolutePath, fsFacade, ensureNotAborted, metrics }) {
     try {
         const stats = await fsFacade.stat(absolutePath);
         ensureNotAborted();
@@ -152,11 +137,7 @@ async function processDirectoryEntries({
     void signal;
     for (const entry of entries) {
         ensureNotAborted();
-        const descriptor = createDirectoryEntryDescriptor(
-            directoryContext,
-            entry,
-            projectRoot
-        );
+        const descriptor = createDirectoryEntryDescriptor(directoryContext, entry, projectRoot);
         const stats = await resolveEntryStats({
             absolutePath: descriptor.absolutePath,
             fsFacade,
@@ -177,12 +158,7 @@ async function processDirectoryEntries({
     }
 }
 
-export async function scanProjectTree(
-    projectRoot,
-    fsFacade: ProjectIndexFsFacade = fs,
-    metrics = null,
-    options = {}
-) {
+export async function scanProjectTree(projectRoot, fsFacade: ProjectIndexFsFacade = fs, metrics = null, options = {}) {
     const { signal, ensureNotAborted } = createProjectIndexAbortGuard(options);
     const traversal = createDirectoryTraversal(projectRoot);
     const collector = createProjectTreeCollector(metrics);

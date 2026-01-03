@@ -1,10 +1,7 @@
 import assert from "node:assert/strict";
 import { describe, it } from "node:test";
 import { createPerformanceCommand } from "../src/commands/performance.js";
-import {
-    PerformanceSuiteName,
-    formatPerformanceSuiteList
-} from "../src/modules/performance/suite-options.js";
+import { PerformanceSuiteName, formatPerformanceSuiteList } from "../src/modules/performance/suite-options.js";
 import type { ParseOptions } from "commander";
 
 const USER_PARSE_OPTIONS: ParseOptions = { from: "user" };
@@ -14,19 +11,11 @@ void describe("performance CLI suite option", () => {
         const command = createPerformanceCommand();
 
         command.parse(
-            [
-                "--suite",
-                PerformanceSuiteName.PARSER,
-                "--suite",
-                PerformanceSuiteName.FORMATTER
-            ],
+            ["--suite", PerformanceSuiteName.PARSER, "--suite", PerformanceSuiteName.FORMATTER],
             USER_PARSE_OPTIONS
         );
 
-        assert.deepStrictEqual(command.opts().suite, [
-            PerformanceSuiteName.PARSER,
-            PerformanceSuiteName.FORMATTER
-        ]);
+        assert.deepStrictEqual(command.opts().suite, [PerformanceSuiteName.PARSER, PerformanceSuiteName.FORMATTER]);
     });
 
     void it("rejects unknown suite names", () => {
@@ -56,12 +45,7 @@ void describe("performance CLI suite option", () => {
             new RegExp(
                 String.raw`Available suites:\s*${suiteList
                     .split(", ")
-                    .map((entry) =>
-                        entry.replaceAll(
-                            /[-/\\^$*+?.()|[\]{}]/g,
-                            String.raw`\$&`
-                        )
-                    )
+                    .map((entry) => entry.replaceAll(/[-/\\^$*+?.()|[\]{}]/g, String.raw`\$&`))
                     .join(String.raw`\s*,\s*`)}`
             ),
             "Expected performance help to list available suites"

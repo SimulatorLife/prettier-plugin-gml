@@ -4,37 +4,19 @@ import { test } from "node:test";
 import { Plugin } from "../src/index.js";
 
 void test("struct literals stay multi-line when objectWrap preserves the leading break", async () => {
-    const source = [
-        "var enemy = {",
-        '    name: "Slime",',
-        "    hp: 5",
-        "};"
-    ].join("\n");
+    const source = ["var enemy = {", '    name: "Slime",', "    hp: 5", "};"].join("\n");
 
     const formatted = await Plugin.format(source, { objectWrap: "preserve" });
 
-    assert.strictEqual(
-        formatted,
-        ["var enemy = {", '    name: "Slime",', "    hp: 5", "};", ""].join(
-            "\n"
-        )
-    );
+    assert.strictEqual(formatted, ["var enemy = {", '    name: "Slime",', "    hp: 5", "};", ""].join("\n"));
 });
 
 void test("struct literals collapse to a single line when objectWrap is set to collapse", async () => {
-    const source = [
-        "var enemy = {",
-        '    name: "Slime",',
-        "    hp: 5",
-        "};"
-    ].join("\n");
+    const source = ["var enemy = {", '    name: "Slime",', "    hp: 5", "};"].join("\n");
 
     const formatted = await Plugin.format(source, { objectWrap: "collapse" });
 
-    assert.strictEqual(
-        formatted,
-        ['var enemy = {name: "Slime", hp: 5};', ""].join("\n")
-    );
+    assert.strictEqual(formatted, ['var enemy = {name: "Slime", hp: 5};', ""].join("\n"));
 });
 
 void test("collapsed structs still wrap when the literal exceeds the print width", async () => {

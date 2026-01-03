@@ -48,15 +48,9 @@ void describe("Watch command error recovery", () => {
                 await sleep(200);
 
                 // Create multiple files with potential issues
-                await writeFile(
-                    path.join(testDir, "script1.gml"),
-                    "function bad {"
-                );
+                await writeFile(path.join(testDir, "script1.gml"), "function bad {");
                 await sleep(200);
-                await writeFile(
-                    path.join(testDir, "script2.gml"),
-                    "function also_bad {"
-                );
+                await writeFile(path.join(testDir, "script2.gml"), "function also_bad {");
                 await sleep(200);
 
                 // If we got here without throwing, the watch continued despite errors
@@ -110,10 +104,7 @@ void describe("Watch command error recovery", () => {
                 await sleep(200);
 
                 // Create a valid script
-                await writeFile(
-                    path.join(testDir, "script.gml"),
-                    "var x = 10;"
-                );
+                await writeFile(path.join(testDir, "script.gml"), "var x = 10;");
 
                 await sleep(300);
 
@@ -145,15 +136,9 @@ void describe("Watch command error recovery", () => {
                     await sleep(200);
 
                     // Create some files that might error
-                    await writeFile(
-                        path.join(testDir, "bad1.gml"),
-                        "function broken {"
-                    );
+                    await writeFile(path.join(testDir, "bad1.gml"), "function broken {");
                     await sleep(200);
-                    await writeFile(
-                        path.join(testDir, "good.gml"),
-                        "var x = 10;"
-                    );
+                    await writeFile(path.join(testDir, "good.gml"), "var x = 10;");
                     await sleep(200);
                 }
             );
@@ -164,8 +149,7 @@ void describe("Watch command error recovery", () => {
         // Verify statistics were displayed
         const statsOutput = logs.join("\n");
         assert.ok(
-            statsOutput.includes("Transpilation Statistics") ||
-                statsOutput.includes("Total patches"),
+            statsOutput.includes("Transpilation Statistics") || statsOutput.includes("Total patches"),
             "Statistics should be displayed"
         );
     });
