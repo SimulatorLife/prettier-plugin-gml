@@ -3527,13 +3527,11 @@ export function applyAssignmentAlignment(
             "minGroupSize",
             minGroupSize
         );
-        const isConstructorBody =
-            functionNode?.type === Core.CONSTRUCTOR_DECLARATION;
         const normalizedMinGroupSize =
             minGroupSize > 0
                 ? minGroupSize
                 : DEFAULT_ASSIGNMENT_ALIGNMENT_MIN_GROUP_SIZE;
-        const alignmentEnabled = minGroupSize > 0 || isConstructorBody;
+        const alignmentEnabled = minGroupSize > 0;
         const effectiveMinGroupSize = alignmentEnabled
             ? normalizedMinGroupSize
             : minGroupSize;
