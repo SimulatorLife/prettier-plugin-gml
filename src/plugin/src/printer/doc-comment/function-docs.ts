@@ -1,6 +1,5 @@
 import { Core, type MutableDocCommentLines } from "@gml-modules/core";
 import { removeFunctionDocCommentLines } from "../../doc-comment/function-tag-filter.js";
-import { wrapDocDescriptionLines } from "../../doc-comment/description-wrapping.js";
 
 import { resolveDocCommentPrinterOptions } from "./doc-comment-options.js";
 import {
@@ -672,11 +671,6 @@ export function normalizeFunctionDocCommentDocs({
     }
 
     docCommentDocs = removeFunctionDocCommentLines(docCommentDocs);
-
-    docCommentDocs = wrapDocDescriptionLines(
-        docCommentDocs,
-        docCommentOptions.printWidth
-    );
 
     if (preserveDescriptionBreaks && Array.isArray(docCommentDocs)) {
         (docCommentDocs as any)._preserveDescriptionBreaks = true;

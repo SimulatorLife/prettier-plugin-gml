@@ -3,7 +3,14 @@ import { doc, type Doc } from "prettier";
 const { builders, utils } = doc;
 const rawJoin = builders.join;
 const { willBreak } = utils;
-const { breakParent, line, hardline, softline, lineSuffixBoundary } = builders;
+const {
+    breakParent,
+    line,
+    hardline,
+    softline,
+    lineSuffixBoundary,
+    fill: fillBuilder
+} = builders;
 
 /**
  * Normalized child shape accepted by the Prettier doc builder helpers.
@@ -79,6 +86,22 @@ export function join(separator: Doc, parts: DocChild | DocChild[]): Doc {
         sanitizedParts[i] = sanitizeDocChild(parts[i]);
     }
     return rawJoin(separator, sanitizedParts);
+}
+
+/**
+ * Align a list of docs using Prettier's fill algorithm.
+ */
+export function fill(parts: DocChild | DocChild[]): Doc {
+    if (!Array.isArray(parts)) {
+        return sanitizeDocChild(parts);
+    }
+
+    const length = parts.length;
+    const sanitizedParts: Doc[] = new Array(length);
+    for (let i = 0; i < length; i += 1) {
+        sanitizedParts[i] = sanitizeDocChild(parts[i]);
+    }
+    return fillBuilder(sanitizedParts);
 }
 
 /**

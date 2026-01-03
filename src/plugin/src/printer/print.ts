@@ -55,6 +55,8 @@ import {
     collectFunctionDocCommentDocs,
     normalizeFunctionDocCommentDocs
 } from "./doc-comment/function-docs.js";
+import { resolveDocCommentPrinterOptions } from "./doc-comment/doc-comment-options.js";
+import { buildPrintableDocCommentLines } from "./doc-comment/description-doc.js";
 
 import {
     getSyntheticDocCommentForFunctionAssignment,
@@ -534,6 +536,7 @@ function tryPrintFunctionNode(node, path, options, print) {
                 }
             }
 
+            const docCommentOptions = resolveDocCommentPrinterOptions(options);
             ({ docCommentDocs, needsLeadingBlankLine } =
                 normalizeFunctionDocCommentDocs({
                     docCommentDocs,
@@ -543,6 +546,10 @@ function tryPrintFunctionNode(node, path, options, print) {
                     path,
                     overrides: { includeOverrideTag }
                 }));
+            const printableDocComments = buildPrintableDocCommentLines(
+                docCommentDocs,
+                docCommentOptions.printWidth
+            );
 
             const shouldEmitPlainLeadingBeforeDoc =
                 plainLeadingLines.length > 0 &&
@@ -586,7 +593,7 @@ function tryPrintFunctionNode(node, path, options, print) {
                 }
 
                 // Push doc comments individually with hardline to ensure they appear on separate lines
-                parts.push(join(hardline, docCommentDocs), hardline);
+                parts.push(join(hardline, printableDocComments), hardline);
             } else if (Object.hasOwn(node, DOC_COMMENT_OUTPUT_FLAG)) {
                 delete node[DOC_COMMENT_OUTPUT_FLAG];
             }

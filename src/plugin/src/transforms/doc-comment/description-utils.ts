@@ -3,7 +3,7 @@ import type { MutableDocCommentLines } from "@gml-modules/core";
 const STRING_TYPE = "string";
 export const DESCRIPTION_TAG_PATTERN = /^\/\/\/\s*@description\b/i;
 
-function resolveDescriptionIndentation(line: string) {
+export function resolveDescriptionIndentation(line: string) {
     const trimmedStart = line.trimStart();
     const indent = line.slice(0, line.length - trimmedStart.length);
     const prefixMatch = trimmedStart.match(/^(\/\/\/\s*@description\s+)/i);

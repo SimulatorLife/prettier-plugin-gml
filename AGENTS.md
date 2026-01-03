@@ -268,6 +268,7 @@ The project does not support arbitrary custom GML file extensions (e.g. `.gmlx`,
   - Build with tsc → run ``node --test`` on `dist/**.test.js`.
 - Type-aware linting, duplicate-code detection, and other static tools operate on the `*.ts` sources.
 - Source maps (`.js.map`) make it possible to debug and interpret runtime stack traces in terms of the original TypeScript files.
+- The target state for testing is that *all* tests pass in **under one minute** on a developer machine, and the test coverage is **above 90%**.
 
 This keeps a clear separation:
 - TS and tools work in `src/`.
