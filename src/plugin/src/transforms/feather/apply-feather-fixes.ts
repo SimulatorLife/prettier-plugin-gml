@@ -10523,18 +10523,26 @@ function removeRedundantSurfaceResetCalls(statements, startIndex) {
             continue;
         }
 
-        const metadata = Core.asArray(candidate?._appliedFeatherDiagnostics);
-
-        const hasGM2005Metadata = metadata.some(
-            (entry) => isFeatherDiagnostic(entry) && entry.id === "GM2005"
-        );
-
-        if (!hasGM2005Metadata) {
-            continue;
-        }
+        const nextSibling = statements[index + 1] ?? null;
+        const shouldPreserveBlankLine =
+            nextSibling &&
+            hasOriginalBlankLineBetween(candidate, nextSibling);
 
         statements.splice(index, 1);
         index -= 1;
+
+        if (shouldPreserveBlankLine && nextSibling) {
+            const insertionIndex = index + 1;
+            const followingNode = statements[insertionIndex];
+
+            if (followingNode?.type !== "EmptyStatement") {
+                insertSeparatorStatementBeforeIndex(
+                    statements,
+                    insertionIndex,
+                    nextSibling
+                );
+            }
+        }
     }
 }
 
