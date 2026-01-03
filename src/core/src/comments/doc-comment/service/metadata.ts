@@ -1,4 +1,4 @@
-import { toTrimmedString } from "../../../utils/string.js";
+import { toTrimmedString } from "../utils.js";
 
 const STRING_TYPE = "string";
 const NUMBER_TYPE = "number";

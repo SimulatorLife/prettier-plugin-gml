@@ -1,4 +1,4 @@
-import { getNonEmptyString } from "../../../utils/string.js";
+import { getNonEmptyString } from "../utils.js";
 
 export interface DocCommentStringCoercions {
     coerceNonEmptyString(value: string): string | null;
