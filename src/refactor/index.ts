@@ -1,19 +1,5 @@
 export { Refactor } from "./src/index.js";
 
-export {
-    SymbolKind,
-    isSymbolKind,
-    parseSymbolKind,
-    requireSymbolKind,
-    classifyOccurrences,
-    filterOccurrencesByKind,
-    groupOccurrencesByFile,
-    findOccurrencesInFile,
-    countAffectedFiles
-} from "./src/index.js";
-
-export type { RefactorEngine, WorkspaceEdit, OccurrenceClassification } from "./src/index.js";
-
 export type {
     ApplyWorkspaceEditOptions,
     BatchRenameValidation,
@@ -25,8 +11,10 @@ export type {
     HotReloadSafetySummary,
     HotReloadUpdate,
     KeywordProvider,
+    OccurrenceClassification,
     OccurrenceTracker,
     ParserBridge,
+    RefactorEngine,
     RenameImpactAnalysis,
     RenameRequest,
     SemanticAnalyzer,
@@ -36,6 +24,7 @@ export type {
     TranspilerPatch,
     ValidateRenameRequestOptions,
     ValidationSummary,
+    WorkspaceEdit,
     WorkspaceReadFile,
     WorkspaceWriteFile
 } from "./src/index.js";

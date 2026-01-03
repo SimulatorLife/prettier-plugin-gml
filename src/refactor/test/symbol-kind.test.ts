@@ -1,6 +1,6 @@
 import assert from "node:assert/strict";
 import test from "node:test";
-import { SymbolKind, isSymbolKind, parseSymbolKind, requireSymbolKind, type SymbolKindValue } from "../index.js";
+import { SymbolKind, isSymbolKind, parseSymbolKind, requireSymbolKind, type SymbolKindValue } from "../src/types.js";
 
 void test("SymbolKind enum contains expected values", () => {
     assert.equal(SymbolKind.SCRIPT, "script");
