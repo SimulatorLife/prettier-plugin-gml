@@ -42,6 +42,7 @@ const INNER_BANNER_DECORATION_PATTERN = new RegExp(
     `${BANNER_DECORATION_CLASS}{2,}`,
     "g"
 );
+const TRAILING_SLASH_DECORATION_PATTERN = /\/{2,}\s*$/;
 
 const DOC_TAG_LINE_PREFIX_PATTERN = /^\/+\(\s*\)@/;
 
@@ -101,14 +102,14 @@ function normalizeBannerCommentText(
     const sawDecoration =
         assumeDecorated ||
         INNER_BANNER_DECORATION_PATTERN.test(raw) ||
-        /\/{2,}\s*$/.test(raw) ||
+        TRAILING_SLASH_DECORATION_PATTERN.test(raw) ||
         /\/{4,}/.test(raw);
 
     if (!sawDecoration) {
         return null;
     }
 
-    text = text.replace(/\/{2,}\s*$/, "").trim();
+    text = text.replace(TRAILING_SLASH_DECORATION_PATTERN, "").trim();
     if (text.length === 0) {
         return null;
     }
@@ -567,7 +568,8 @@ function formatLineComment(
         (LEADING_BANNER_DECORATION_PATTERN.test(contentWithoutSlashes) ||
             TRAILING_BANNER_DECORATION_PATTERN.test(contentWithoutSlashes) ||
             (contentWithoutSlashes.match(INNER_BANNER_DECORATION_PATTERN) || [])
-                .length > 0);
+                .length > 0 ||
+            TRAILING_SLASH_DECORATION_PATTERN.test(contentWithoutSlashes));
 
     if (
         contentWithoutSlashes.length === 0 &&
