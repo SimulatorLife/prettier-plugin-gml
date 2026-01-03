@@ -116,10 +116,7 @@ export function applyDescriptionContinuations(
         return docCommentDocs;
     }
 
-    const { indent, prefix } = resolveDescriptionIndentation(descriptionLine);
-    const continuationPrefix = `${indent}/// ${" ".repeat(
-        Math.max(prefix.length - 4, 0)
-    )}`;
+    const continuationPrefix = "/// ";
 
     let insertIndex = descriptionIndex + 1;
 
@@ -144,6 +141,10 @@ export function applyDescriptionContinuations(
 
         docCommentDocs.splice(insertIndex, 0, formatted);
         insertIndex += 1;
+    }
+
+    if (continuations.length > 0) {
+        (docCommentDocs as any)._preserveDescriptionBreaks = true;
     }
 
     return docCommentDocs;
@@ -171,10 +172,7 @@ export function ensureDescriptionContinuations(
         return;
     }
 
-    const { indent, prefix } = resolveDescriptionIndentation(descriptionLine);
-    const continuationPrefix = `${indent}/// ${" ".repeat(
-        Math.max(prefix.length - 4, 0)
-    )}`;
+    const continuationPrefix = "/// ";
 
     let foundContinuation = false;
 

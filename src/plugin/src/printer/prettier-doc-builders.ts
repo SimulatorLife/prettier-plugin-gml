@@ -9,7 +9,8 @@ const {
     hardline,
     softline,
     lineSuffixBoundary,
-    fill: fillBuilder
+    fill: fillBuilder,
+    align: alignBuilder
 } = builders;
 
 /**
@@ -158,6 +159,13 @@ export function ifBreak(
  */
 export function lineSuffix(parts: DocChild): Doc {
     return builders.lineSuffix(sanitizeDocChild(parts));
+}
+
+/**
+ * Align a doc fragment using a specific indentation or string.
+ */
+export function align(widthOrString: number | string, parts: DocChild): Doc {
+    return alignBuilder(widthOrString, sanitizeDocChild(parts));
 }
 
 export { breakParent, line, hardline, softline, lineSuffixBoundary, willBreak };

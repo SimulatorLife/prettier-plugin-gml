@@ -1,11 +1,17 @@
-import { doc, type Doc } from "prettier";
-import { concat, fill, group, line } from "../prettier-doc-builders.js";
+import { type Doc } from "prettier";
+import {
+    align,
+    concat,
+    fill,
+    group,
+    hardline,
+    join,
+    line
+} from "../prettier-doc-builders.js";
 import { resolveDescriptionIndentation } from "../../transforms/doc-comment/description-utils.js";
 
 import type { MutableDocCommentLines } from "@gml-modules/core";
 
-const { printer } = doc;
-const { printDocToString } = printer;
 const DESCRIPTION_TAG_PATTERN = /^\/\/\/\s*@description\b/i;
 
 function collectDescriptionContinuations(
@@ -37,53 +43,14 @@ function collectDescriptionContinuations(
     return { continuations, linesConsumed: lookahead - startIndex };
 }
 
-function wrapDescriptionWithPrettier(
-    indent: string,
-    prefix: string,
-    continuationPrefix: string,
-    contentWords: string[],
-    printWidth: number
-) {
-    const prefixText = `${indent}${prefix}`;
-    const formattedWidth = Math.max(
-        1,
-        printWidth - prefixText.length
-    );
-
-    const segments = contentWords.map((word) => concat([word, line]));
-    const textDoc: Doc = group(fill(segments));
-    const printed = printDocToString(textDoc, {
-        printWidth: formattedWidth,
-        tabWidth: 4,
-        useTabs: false
-    });
-    const formatted = printed.formatted.trim();
-
-    if (formatted.length === 0) {
-        return [prefixText.trim()];
-    }
-
-    return formatted.split("\n").map((lineText, index) => {
-        const trimmed = lineText.trim();
-        if (index === 0) {
-            return `${prefixText}${trimmed}`;
-        }
-        return `${continuationPrefix}${trimmed}`;
-    });
-}
-
-function buildDescriptionLines(
-    line: string,
-    continuations: string[],
-    printWidth: number
-) {
-    const trimmedLine = line.trim();
+function buildDescriptionDoc(lineText: string, continuations: string[]): Doc {
+    const trimmedLine = lineText.trim();
     const descriptionText = trimmedLine
         .replace(DESCRIPTION_TAG_PATTERN, "")
         .trim();
 
-    const { indent, prefix } = resolveDescriptionIndentation(line);
-    const continuationPrefix = `${indent}/// ${" ".repeat(
+    const { prefix } = resolveDescriptionIndentation(lineText);
+    const continuationPrefix = `/// ${" ".repeat(
         Math.max(prefix.length - 4, 0)
     )}`;
 
@@ -96,49 +63,83 @@ function buildDescriptionLines(
         .filter((word) => word.length > 0);
 
     if (contentWords.length === 0) {
-        return [line];
+        return lineText.trim();
     }
 
-    return wrapDescriptionWithPrettier(
-        indent,
-        prefix,
-        continuationPrefix,
-        contentWords,
-        printWidth
-    );
+    const segments: Doc[] = [];
+    for (let i = 0; i < contentWords.length; i++) {
+        segments.push(contentWords[i]);
+        if (i < contentWords.length - 1) {
+            segments.push(line);
+        }
+    }
+
+    return group(concat([prefix, align(continuationPrefix, fill(segments))]));
 }
 
+/**
+ * Convert doc comment lines into Prettier {@link Doc} nodes, ensuring that
+ * `@description` blocks are wrapped using Prettier's built-in algorithms.
+ */
 export function buildPrintableDocCommentLines(
     docCommentDocs: MutableDocCommentLines,
-    printWidth: number
-): string[] {
-    const result: string[] = [];
+    _printWidth: number
+): Doc[] {
+    const result: Doc[] = [];
     let index = 0;
+
+    const preserveBreaks =
+        (docCommentDocs as any)._preserveDescriptionBreaks === true;
+
+    if (docCommentDocs.length > 1 && !preserveBreaks) {
+        console.log(
+            "DEBUG: preserveBreaks is false for docCommentDocs with length",
+            docCommentDocs.length
+        );
+    }
 
     while (index < docCommentDocs.length) {
         const entry = docCommentDocs[index];
         if (typeof entry !== "string") {
-            result.push(entry);
+            result.push(entry as Doc);
             index += 1;
             continue;
         }
 
         const trimmed = entry.trim();
         if (!DESCRIPTION_TAG_PATTERN.test(trimmed)) {
-            result.push(entry);
+            result.push(trimmed);
             index += 1;
             continue;
         }
 
         const { continuations, linesConsumed } =
             collectDescriptionContinuations(docCommentDocs, index);
-        const wrappedLines = buildDescriptionLines(
-            entry,
-            continuations,
-            printWidth
-        );
 
-        result.push(...wrappedLines);
+        if (preserveBreaks) {
+            const { prefix } = resolveDescriptionIndentation(entry);
+            const continuationPrefix = `/// ${" ".repeat(
+                Math.max(prefix.length - 4, 0)
+            )}`;
+
+            const descriptionText = entry
+                .trim()
+                .replace(DESCRIPTION_TAG_PATTERN, "")
+                .trim();
+
+            const lines = [descriptionText, ...continuations];
+
+            result.push(
+                group(
+                    concat([
+                        prefix,
+                        align(continuationPrefix, join(hardline, lines))
+                    ])
+                )
+            );
+        } else {
+            result.push(buildDescriptionDoc(entry, continuations));
+        }
         index += linesConsumed;
     }
 

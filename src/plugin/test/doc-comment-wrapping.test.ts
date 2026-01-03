@@ -104,7 +104,11 @@ void test("wraps @description doc comments when printWidth is narrow but prevent
     );
     assert.strictEqual(
         fourthLine,
-        "///              non-solid shapes will not collide with anything."
+        "///              non-solid shapes will not collide with"
+    );
+    assert.strictEqual(
+        lines[descriptionIndex + 4],
+        "///              anything."
     );
 });
 
