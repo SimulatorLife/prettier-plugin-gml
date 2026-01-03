@@ -160,7 +160,7 @@ function ensureBlankLineBeforeTopLevelLineComments(formatted: string): string {
 }
 
 function trimWhitespaceAfterBlockComments(formatted: string): string {
-    return formatted.replace(/\*\/\r?\n[ \t]+/g, "*/\n");
+    return formatted.replaceAll(/\*\/\r?\n[ \t]+/g, "*/\n");
 }
 
 function collectLineCommentTrailingWhitespace(
