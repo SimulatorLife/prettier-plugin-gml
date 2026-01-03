@@ -1,4 +1,4 @@
-// subMesh.addShape(new colmesh_block(matrix_build(0, 0, 0, 0, 0, 0, 300, 300, 40)));
+//subMesh.addShape(new colmesh_block(matrix_build(0, 0, 0, 0, 0, 0, 300, 300, 40)));
 subMesh.addShape(new colmesh_disk(0, 0, 0, 0, 0, 1, 300, 50));
 
 if (headerText != "ColMesh v4") {
@@ -25,7 +25,7 @@ var matrix2 = scr_matrix_build(
     x, y, z + zfight, xrotation, yrotation, image_angle, image_xscale, image_yscale, image_zscale + 90
 );
 
-#macro  SQUARE(_value)    ((_value)*(_value))
+#macro SQUARE(_value)    ((_value)*(_value))
 
 var total   = 0;
 var limit   = 99;

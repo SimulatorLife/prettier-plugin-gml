@@ -6,6 +6,7 @@ if (show_name) {
 }
 
 gpu_pop_state();
+
 draw_sprite(sprite_index, 0, x, y);
 
 // Scenario 2

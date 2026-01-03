@@ -1,6 +1,5 @@
 /// @param [attack_bonus=10]
 function AttackController(attack_bonus = 10) constructor {
-    
     self.attack_bonus = attack_bonus;
 
     /// @returns {undefined}
@@ -13,7 +12,6 @@ function AttackController(attack_bonus = 10) constructor {
             hp.subtract(total_atk); // Assumes 'hp' is a variable in the target/calling instance
         }
     };
-
 }
 
 value = 40;

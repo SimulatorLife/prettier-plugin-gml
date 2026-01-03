@@ -49,7 +49,7 @@ void test("wraps long @description doc comments at the formatter width", async (
         "///              shapes, and non-solid shapes will not collide with anything."
     );
 });
-void test("wraps @description doc comments when printWidth exceeds the wrapping cap", async () => {
+void test("wraps @description doc comments when printWidth exceeds the description length", async () => {
     const { lines, descriptionIndex } = await formatDescriptionLines({
         printWidth: 200
     });

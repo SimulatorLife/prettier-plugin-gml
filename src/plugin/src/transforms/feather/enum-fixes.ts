@@ -105,7 +105,8 @@ export function removeDuplicateEnumMembers({ ast, diagnostic, sourceText }) {
                     const existingMember = seen.get(normalizedName);
                     const existingHasInitializer =
                         existingMember?.initializer != null;
-                    const currentHasInitializer = (member as any).initializer != null;
+                    const currentHasInitializer =
+                        (member as any).initializer != null;
 
                     if (!existingHasInitializer && currentHasInitializer) {
                         const removalIndex = removeMember(existingMember);

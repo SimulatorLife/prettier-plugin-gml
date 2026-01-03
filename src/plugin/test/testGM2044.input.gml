@@ -1,9 +1,10 @@
 function demo() {
     var total = 1;
     var total = total + 1;
+    var totalAlt++;
     var count;
     var count;
-    if (true) {
+    if (scr_custom_condition()) {
         var temp = 0;
         var temp = temp + 1;
     }

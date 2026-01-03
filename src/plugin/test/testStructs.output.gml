@@ -111,7 +111,7 @@ function assign_then_extend() {
 /// @description Input for a keyboard key
 /// @param {real} button
 function InputButtonKeyboard(button) : AbstractInputButton(button, eInputType.keyboard) constructor {
-    /* Keyboard input handling goes here */
+    // Keyboard input handling goes here
 }
 
 var kbInput = new InputButtonKeyboard();

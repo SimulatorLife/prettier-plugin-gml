@@ -4,12 +4,14 @@ import {
     generateRenamePreview,
     commitRenamePreview
 } from "./preview-rename.js";
+import * as OccurrenceAnalysisAPI from "./occurrence-analysis.js";
 
 export const Refactor = Object.freeze({
     ...RefactorAPI,
     WorkspaceEdit,
     generateRenamePreview,
-    commitRenamePreview
+    commitRenamePreview,
+    ...OccurrenceAnalysisAPI
 });
 
 export { RefactorEngine } from "./refactor-engine.js";
@@ -25,6 +27,16 @@ export {
     parseSymbolKind,
     requireSymbolKind
 } from "./types.js";
+
+export {
+    classifyOccurrences,
+    filterOccurrencesByKind,
+    groupOccurrencesByFile,
+    findOccurrencesInFile,
+    countAffectedFiles
+} from "./occurrence-analysis.js";
+
+export type { OccurrenceClassification } from "./occurrence-analysis.js";
 
 export type {
     ApplyWorkspaceEditOptions,

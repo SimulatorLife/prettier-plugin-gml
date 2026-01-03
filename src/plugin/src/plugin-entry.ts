@@ -141,6 +141,12 @@ function ensureBlankLineBeforeTopLevelLineComments(formatted: string): string {
             const previousLine = result.at(-1);
             if (
                 typeof previousLine === "string" &&
+                previousLine.trim().length > 0 &&
+                previousLine.trim() !== "}"
+            ) {
+                result.push("");
+            } else if (
+                typeof previousLine === "string" &&
                 previousLine.trim() === "}"
             ) {
                 result.push("");
@@ -151,6 +157,10 @@ function ensureBlankLineBeforeTopLevelLineComments(formatted: string): string {
     }
 
     return result.join("\n");
+}
+
+function trimWhitespaceAfterBlockComments(formatted: string): string {
+    return formatted.replaceAll(/\*\/\r?\n[ \t]+/g, "*/\n");
 }
 
 function collectLineCommentTrailingWhitespace(
@@ -263,69 +273,37 @@ const defaultOptions = Object.freeze(createDefaultOptionsSnapshot());
  */
 async function format(source: string, options: SupportOptions = {}) {
     const resolvedOptions = { ...defaultOptions, ...options };
-    const hasDocCommentMaxWrapWidth =
-        options !== null &&
-        typeof options === "object" &&
-        Object.hasOwn(options, "docCommentMaxWrapWidth");
-    const docCommentMaxWrapWidth = hasDocCommentMaxWrapWidth
-        ? (options as { docCommentMaxWrapWidth?: unknown })
-              .docCommentMaxWrapWidth
-        : undefined;
-    const previousDocCommentEnv =
-        process.env.PRETTIER_PLUGIN_GML_DOC_COMMENT_MAX_WRAP_WIDTH;
+    const formatted = await prettier.format(source, {
+        ...resolvedOptions,
+        parser: "gml-parse",
+        plugins: [Plugin]
+    });
 
-    if (
-        docCommentMaxWrapWidth !== undefined &&
-        (typeof docCommentMaxWrapWidth === "string" ||
-            typeof docCommentMaxWrapWidth === "number")
-    ) {
-        process.env.PRETTIER_PLUGIN_GML_DOC_COMMENT_MAX_WRAP_WIDTH = String(
-            docCommentMaxWrapWidth
-        );
+    if (typeof formatted !== "string") {
+        throw new TypeError("Expected Prettier to return a string result.");
     }
-
-    try {
-        const formatted = await prettier.format(source, {
-            ...resolvedOptions,
-            parser: "gml-parse",
-            plugins: [Plugin]
-        });
-
-        if (typeof formatted !== "string") {
-            throw new TypeError("Expected Prettier to return a string result.");
-        }
-        const normalized =
-            ensureBlankLineBetweenVertexFormatComments(formatted);
-        const singleBlankLines = collapseDuplicateBlankLines(normalized);
-        const normalizedCleaned = singleBlankLines.endsWith("\n")
-            ? singleBlankLines
-            : `${singleBlankLines}\n`;
-        const withoutFunctionTags = stripFunctionTagComments(normalizedCleaned);
-        const collapsedAfterStrip =
-            collapseDuplicateBlankLines(withoutFunctionTags);
-        const dedupedComments = removeDuplicateDocLikeLineComments(
-            collapseVertexFormatBeginSpacing(collapsedAfterStrip)
-        );
-        const normalizedCommentSpacing =
-            normalizeInlineTrailingCommentSpacing(dedupedComments);
-        const spacedComments = ensureBlankLineBeforeTopLevelLineComments(
-            normalizedCommentSpacing
-        );
-        return reapplyLineCommentTrailingWhitespace(spacedComments, source);
-    } finally {
-        if (
-            docCommentMaxWrapWidth !== undefined ||
-            previousDocCommentEnv !== undefined
-        ) {
-            if (previousDocCommentEnv === undefined) {
-                delete process.env
-                    .PRETTIER_PLUGIN_GML_DOC_COMMENT_MAX_WRAP_WIDTH;
-            } else {
-                process.env.PRETTIER_PLUGIN_GML_DOC_COMMENT_MAX_WRAP_WIDTH =
-                    previousDocCommentEnv;
-            }
-        }
-    }
+    const normalized = ensureBlankLineBetweenVertexFormatComments(formatted);
+    const singleBlankLines = collapseDuplicateBlankLines(normalized);
+    const normalizedCleaned = singleBlankLines.endsWith("\n")
+        ? singleBlankLines
+        : `${singleBlankLines}\n`;
+    const withoutFunctionTags = stripFunctionTagComments(normalizedCleaned);
+    const collapsedAfterStrip =
+        collapseDuplicateBlankLines(withoutFunctionTags);
+    const dedupedComments = removeDuplicateDocLikeLineComments(
+        collapseVertexFormatBeginSpacing(collapsedAfterStrip)
+    );
+    const normalizedCommentSpacing =
+        normalizeInlineTrailingCommentSpacing(dedupedComments);
+    const spacedComments = ensureBlankLineBeforeTopLevelLineComments(
+        normalizedCommentSpacing
+    );
+    const trimmedAfterBlockComments =
+        trimWhitespaceAfterBlockComments(spacedComments);
+    return reapplyLineCommentTrailingWhitespace(
+        trimmedAfterBlockComments,
+        source
+    );
 }
 
 export { parsers, printers, pluginOptions, defaultOptions };

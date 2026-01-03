@@ -420,6 +420,73 @@ These methods provide a clean interface to the semantic analyzer and handle
 cases where the analyzer is unavailable, making the refactor engine more
 robust in partial-analysis scenarios.
 
+### Occurrence Analysis Utilities
+
+The refactor package provides utility functions to classify and analyze symbol
+occurrences for rename planning and hot reload coordination:
+
+#### Classify Occurrences
+
+Break down occurrences into categories:
+
+```javascript
+const occurrences = await engine.gatherSymbolOccurrences("player_hp");
+const classification = classifyOccurrences(occurrences);
+
+console.log(`Total: ${classification.total}`);
+console.log(`Definitions: ${classification.definitions}`);
+console.log(`References: ${classification.references}`);
+console.log(`Affected files: ${classification.byFile.size}`);
+
+// Examine per-file breakdown
+for (const [filePath, count] of classification.byFile) {
+    console.log(`  ${filePath}: ${count} occurrences`);
+}
+
+// Examine by kind
+for (const [kind, count] of classification.byKind) {
+    console.log(`  ${kind}: ${count}`);
+}
+```
+
+#### Filter and Group Occurrences
+
+Focus on specific categories or files:
+
+```javascript
+import {
+    filterOccurrencesByKind,
+    groupOccurrencesByFile,
+    findOccurrencesInFile,
+    countAffectedFiles
+} from "@gml-modules/refactor";
+
+// Get only definition sites
+const definitions = filterOccurrencesByKind(occurrences, ["definition"]);
+
+// Group by file for file-level analysis
+const grouped = groupOccurrencesByFile(occurrences);
+for (const [filePath, fileOccurrences] of grouped) {
+    console.log(`${filePath}: ${fileOccurrences.length} occurrences`);
+}
+
+// Find occurrences in a specific file
+const playerOccurrences = findOccurrencesInFile(
+    occurrences,
+    "scripts/scr_player.gml"
+);
+
+// Quick count of affected files
+const fileCount = countAffectedFiles(occurrences);
+console.log(`Rename will affect ${fileCount} files`);
+```
+
+These utilities are particularly useful for:
+- Building rename preview UIs that show occurrence breakdowns
+- Determining hot reload safety based on occurrence types
+- Providing detailed impact summaries in CLI tools
+- Filtering occurrences for targeted analysis
+
 ## Directory layout
 - `src/` – core refactoring primitives and orchestrators.
 - `test/` – Node tests that validate refactor strategies against fixture projects.
@@ -471,6 +538,16 @@ new RefactorEngine({ parser, semantic, formatter })
 #### Conflict Detection
 - `async detectRenameConflicts(request)` - Detect conflicts for a proposed rename operation without throwing errors
 
+### Occurrence Analysis Functions
+
+Standalone utilities for analyzing symbol occurrences:
+
+- `classifyOccurrences(occurrences)` - Classify occurrences into categories (definitions, references, by file, by kind)
+- `filterOccurrencesByKind(occurrences, kinds)` - Filter occurrences by kind (e.g., ["definition"], ["reference"])
+- `groupOccurrencesByFile(occurrences)` - Group occurrences by file path
+- `findOccurrencesInFile(occurrences, filePath)` - Find occurrences within a specific file
+- `countAffectedFiles(occurrences)` - Count unique files affected by occurrences
+
 ### WorkspaceEdit
 
 Container for text edits across multiple files.
@@ -482,6 +559,6 @@ Container for text edits across multiple files.
 
 ## Status
 The refactor engine now includes comprehensive rename planning, batch operations, impact analysis,
-hot reload validation, and advanced dependency cascade computation. It integrates with the semantic
-analyzer to provide safe, scope-aware refactoring operations with full transitive dependency tracking
-for hot reload scenarios.
+hot reload validation, occurrence analysis utilities, and advanced dependency cascade computation.
+It integrates with the semantic analyzer to provide safe, scope-aware refactoring operations with
+full transitive dependency tracking for hot reload scenarios.

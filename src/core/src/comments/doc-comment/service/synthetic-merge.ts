@@ -26,7 +26,6 @@ import {
     normalizeDocCommentTypeAnnotations,
     normalizeGameMakerType
 } from "./type-normalization.js";
-import { resolveDocCommentWrapWidth } from "./wrap.js";
 import {
     collectImplicitArgumentDocNames,
     getParameterDocInfo,
@@ -1069,6 +1068,10 @@ export function shouldGenerateSyntheticDocForFunction(
         return true;
     }
 
+    if (Array.isArray(existingDocLines) && existingDocLines.length > 0) {
+        return true;
+    }
+
     const hasParamDocLines = existingDocLines.some((line) => {
         if (typeof line !== STRING_TYPE) {
             return false;
@@ -1304,10 +1307,7 @@ function finalizeDescriptionBlocks({
         options?.printWidth,
         120
     );
-    const wrapWidth = Math.min(
-        normalizedPrintWidth,
-        resolveDocCommentWrapWidth(options)
-    );
+    const wrapWidth = normalizedPrintWidth;
 
     const wrapSegments = (
         text: string,
@@ -1899,7 +1899,7 @@ function extractReturnLinesFromOtherLines(otherLines: DocCommentLines) {
     }
 
     return {
-        otherLines: nonReturnLines as MutableDocCommentLines,
+        otherLines: nonReturnLines,
         returnsLines: extractedReturns as DocCommentLines
     };
 }

@@ -1094,7 +1094,10 @@ function planIdentifierCaseAssets({
             metrics
         })
     );
-    metrics.counters.increment("assets.operations", assetPlan.operations.length);
+    metrics.counters.increment(
+        "assets.operations",
+        assetPlan.operations.length
+    );
     metrics.counters.increment("assets.conflicts", assetPlan.conflicts.length);
     metrics.counters.increment("assets.renames", assetPlan.renames.length);
 

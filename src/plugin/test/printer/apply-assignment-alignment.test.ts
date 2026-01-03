@@ -52,7 +52,7 @@ void describe("applyAssignmentAlignment", () => {
         );
     });
 
-    void it("does not align global identifiers when declarations are elided", () => {
+    void it("aligns global identifiers even when declarations are elided", () => {
         const statements = [
             createAssignment("globalShort", true),
             createAssignment("globalLonger", true)
@@ -67,14 +67,19 @@ void describe("applyAssignmentAlignment", () => {
         const secondGlobal = statements[1] as any;
 
         assert.strictEqual(
-            firstGlobal._alignAssignmentPadding,
-            undefined,
-            "Global assignments should be skipped when declarations are removed"
+            typeof firstGlobal._alignAssignmentPadding,
+            "number",
+            "Global assignments should receive padding even when declarations are elided"
         );
         assert.strictEqual(
-            secondGlobal._alignAssignmentPadding,
-            undefined,
-            "Global assignments should be skipped when declarations are removed"
+            firstGlobal._alignAssignmentPadding > 0,
+            true,
+            "Global identifier should be padded to match the longest name"
+        );
+        assert.strictEqual(
+            typeof secondGlobal._alignAssignmentPadding,
+            "number",
+            "Every entry in the group should receive a padding value"
         );
     });
 

@@ -40,7 +40,7 @@ states.add_state(
 
 //global.rain_controller.draw();
 //if (room == rm_island) {
-//    //global.spart_controller.draw();
+//	global.spart_controller.draw();
 //}
 //global.part_controller.draw();
 
@@ -71,20 +71,19 @@ global.settings = {
     nice_graphics : scr_ini_read_real("settings", "nice_graphics", 1, 0, 1),
     wavy_menu     : scr_ini_read_real("settings", "wavy_menu", 1, 0, 1),
     screen_shake  : scr_ini_read_real("settings", "screen_shake", 1, 0, 1),
-    // gui_scale     : ini_read_real("settings", "gui_scale", 1),
+    //gui_scale     : ini_read_real("settings", "gui_scale", 1),
     fullscreen    : scr_ini_read_real("settings", "fullscreen", window_get_fullscreen(), 0, 1)
 };
 
- // Particle system
- //if (!variable_instance_exists(id, "pt_colour")) {
- //    pt_colour = choose(
- //        eParticleType.fire_red,
- //        eParticleType.fire_blue,
- //        eParticleType.fire_green,
- //        eParticleType.fire_orange,
- //        eParticleType.fire_gold
- //    ); // choose fire colour
- //}
+//if (!variable_instance_exists(id, "pt_colour")) {
+//	pt_colour = choose(
+//	    eParticleType.fire_red,
+//	    eParticleType.fire_blue,
+//	    eParticleType.fire_green,
+//	    eParticleType.fire_orange,
+//	    eParticleType.fire_gold
+//	); // choose fire colour
+//}
 
 // The following line should be preserved; math-expression parentheses should not be applied to string concatenation
 var item_txt = (item_id.name + "\n" + item_id.description + "\n$" + string(item_id.price));
@@ -122,11 +121,11 @@ global.lighting.draw(
 );
 
 // Set foot movement speed according to character rotation and movement speeds (this is so the legs don't end up trailing when the character is moving too fast)
-// try { // TODO this sometimes throws NaN error, try catch is band-aid
-//     // foot_spd = min(0.5 * sqrt(sqr(x - xprevious) + sqr(y - yprevious)) + abs(last_crab_dir) * 0.1 + 0.2, 1);
-// } catch(ex) {
-//     show_debug_message("Caught exception while trying to update crab foot speed: " + string(ex));
-// }
+//try { // TODO this sometimes throws NaN error, try catch is band-aid
+//	// foot_spd = min(0.5 * sqrt(sqr(x - xprevious) + sqr(y - yprevious)) + abs(last_crab_dir) * 0.1 + 0.2, 1);
+//} catch(ex) {
+//	show_debug_message("Caught exception while trying to update crab foot speed: " + string(ex));
+//}
 
 // Wobbling in z-axis
 z_wobble = ((sin(current_time * 0.004) + 1) * 2) + 2; // value between 0 and 2, this is subtracted from crabs height
@@ -134,8 +133,8 @@ z_wobble = ((sin(current_time * 0.004) + 1) * 2) + 2; // value between 0 and 2, 
 /// @description Functions for skyboxes using an octahedron vertex buffer
 /// @param {Asset.GMSprite} [sprite=noone]
 /// @param {real} [subimg=0]
-/// @param {real} [octahedron_scale=1] - The scale of the skybox octahedron
-/// @param {real} [octmap_size=1024] - The size of the octmap
+/// @param {real} [octahedron_scale=1] The scale of the skybox octahedron
+/// @param {real} [octmap_size=1024] The size of the octmap
 function AbstractSkyboxParent(sprite = noone, subimg = 0, octahedron_scale = 1, octmap_size = 1024) : ZModelBuffer(sprite, subimg, undefined, c_white, 1, pr_trianglelist) constructor {
 
     self.octahedron_scale = octahedron_scale;
@@ -146,7 +145,7 @@ function AbstractSkyboxParent(sprite = noone, subimg = 0, octahedron_scale = 1, 
 
     /// @override
     /// @description Draw the zmodel
-    /// @param {bool} [reset_matrix=true] - Reset the world matrix after drawing?
+    /// @param {bool} [reset_matrix=true] Reset the world matrix after drawing?
     /// @returns {undefined}
     static draw = function(reset_matrix = true) {
 
