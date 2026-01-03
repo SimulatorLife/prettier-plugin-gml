@@ -981,7 +981,10 @@ function unwrapEnclosingParentheses(node, context) {
             break;
         }
 
-        if (!isSafeOperand(parent)) {
+        if (
+            !isSafeOperand(parent) &&
+            expression.type !== CALL_EXPRESSION
+        ) {
             break;
         }
 
@@ -2258,6 +2261,7 @@ function attemptConvertSquare(node, context) {
     }
 
     mutateToCallExpression(node, "sqr", [Core.cloneAstNode(left)], node);
+    unwrapEnclosingParentheses(node, context);
     return true;
 }
 
