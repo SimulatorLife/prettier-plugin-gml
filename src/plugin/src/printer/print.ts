@@ -6790,6 +6790,11 @@ function expressionReferencesSanitizedMacro(node, sanitizedMacroNames) {
         // allocations in the hot AST traversal path (~40% faster based on
         // micro-benchmarks with typical AST node structures).
         for (const key in current) {
+            // eslint-disable-next-line no-prototype-builtins
+            if (!current.hasOwnProperty(key)) {
+                continue;
+            }
+
             const value = current[key];
             if (!value || typeof value !== OBJECT_TYPE) {
                 continue;
@@ -6804,7 +6809,7 @@ function expressionReferencesSanitizedMacro(node, sanitizedMacroNames) {
                 continue;
             }
 
-            if ((value).type) {
+            if (value.type) {
                 stack.push(value);
             }
         }
