@@ -9,9 +9,9 @@ import {
     filterOccurrencesByKind,
     groupOccurrencesByFile,
     findOccurrencesInFile,
-    countAffectedFiles,
-    type SymbolOccurrence
-} from "../index.js";
+    countAffectedFiles
+} from "../src/occurrence-analysis.js";
+import type { SymbolOccurrence } from "../src/types.js";
 
 void describe("classifyOccurrences", () => {
     void it("classifies empty array", () => {
