@@ -4,6 +4,7 @@ surface_set_target(sf);
 draw_clear_alpha(c_blue, 1);
 draw_circle(50, 50, 20, false);
 vertex_submit(vb, pr_trianglelist, surface_get_texture(sf));
+surface_reset_target();
 
 surface_set_target(sf2);
 draw_clear_alpha(c_black, 1);

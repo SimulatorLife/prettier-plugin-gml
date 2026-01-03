@@ -216,7 +216,8 @@ void describe("identifier case top-level renaming", () => {
                     );
                     assert.ok(rewritten.includes("macroValue"));
                     assert.ok(!rewritten.includes("MACRO_VALUE"));
-                    assert.ok(rewritten.includes("global.globalValue"));
+                    assert.ok(!rewritten.includes("global.globalValue"));
+                    assert.ok(rewritten.includes("globalvar globalValue"));
                     assert.ok(!rewritten.includes("global_value ="));
                     assert.ok(rewritten.includes("functionResult"));
                     assert.ok(!rewritten.includes("function_result"));

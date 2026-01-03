@@ -14,5 +14,5 @@
     { "path": "../parser" }
   ],
   "include": ["*.ts", "src/**/*.ts", "test/**/*.ts"],
-  "exclude": ["dist"]
+  "exclude": ["dist", "tmp", "node_modules"]
 }

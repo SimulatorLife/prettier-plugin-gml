@@ -669,9 +669,10 @@ export function normalizeFunctionDocCommentDocs({
     }
 
     docCommentDocs = removeFunctionDocCommentLines(docCommentDocs);
+
     docCommentDocs = wrapDocDescriptionLines(
         docCommentDocs,
-        docCommentOptions.docCommentMaxWrapWidth
+        docCommentOptions.printWidth
     );
 
     return { docCommentDocs, needsLeadingBlankLine };

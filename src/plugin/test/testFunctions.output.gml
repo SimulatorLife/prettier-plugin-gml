@@ -34,9 +34,9 @@ function func_coords(x = 0, y = 0, z = 0) {
 var myCoords = func_coords(10, undefined, 20);
 
 /// @ignore
-/// @description Base class for all shapes. Shapes can be solid or not solid.
-///              Solid shapes will collide with other solid shapes, and
-///              non-solid shapes will not collide with anything.
+/// @description Base class for all shapes. Shapes can be solid or not solid. Solid shapes
+///              will collide with other solid shapes, and non-solid shapes will not collide
+///              with anything.
 /// @param [color]
 function Shape(color = undefined) constructor {
     self.color = color;
@@ -64,7 +64,6 @@ function Shape(color = undefined) constructor {
             group &= ~cmGroupSolid; // Remove solid flag
         }
     };
-
 }
 
 /// @param {real} r The radius of the circle
@@ -97,7 +96,6 @@ function Line() : Shape() constructor {
         self.x2 = x2
         self.y2 = y2
     }
-
 }
 
 /// @param settings
@@ -136,7 +134,9 @@ function __ChatterboxBufferBatch() constructor {
 
     /// @returns {undefined}
     static __Destroy = function() {
-        if (__destroyed) { return; }
+        if (__destroyed) {
+            return;
+        }
         __destroyed = true;
 
         if (!is_undefined(__inBuffer)) {
@@ -148,7 +148,6 @@ function __ChatterboxBufferBatch() constructor {
             __destroyed = true;
         }
     };
-
 }
 
 /// @param [name="friend"]
@@ -201,7 +200,7 @@ function scr_spring(a, b, dst, force, push_out = true, pull_in = true) {
 
     if ((actual_dist < dst * dst and push_out) or (actual_dist > dst * dst and pull_in)) {
         actual_dist = sqrt(actual_dist);
-        var diff = actual_dist - dst;
+        var diff    = actual_dist - dst;
         
         // normalize and multiply with diff and amount
         var norm = (force * diff) / actual_dist;
@@ -229,7 +228,6 @@ function scr_spring(a, b, dst, force, push_out = true, pull_in = true) {
 // Synthetic docs should be added to non-local methods
 
 get_debug_text = function() {
-
     var txt = "";
 
     txt += $"\nPosition: {new Vector3(x, y, z).to_string(true)}";
@@ -245,10 +243,10 @@ get_debug_text = function() {
     txt += mover.get_debug_text();
     txt += arm_r.get_debug_text();
     return txt;
-}
+};
 
-/// @description Write a unit triangular prism into an existing vbuff.
-///              Local space: X∈[-0.5,+0.5], Y∈[-0.5,+0.5], base plane at Z=0, apex line at (Y=0,Z=1).
+/// @description Write a unit triangular prism into an existing vbuff. Local space:
+///              X∈[-0.5,+0.5], Y∈[-0.5,+0.5], base plane at Z=0, apex line at (Y=0,Z=1).
 /// @param vbuff
 /// @param [colour=c_white]
 /// @param [alpha=1]
@@ -276,17 +274,29 @@ function vertex_buffer_write_triangular_prism(vbuff, colour = c_white, alpha = 1
     static uv11 = [1, 1];
     static uv01 = [0, 1];
 
-    // Base quad (Z=0): L0-R0-R1,  L0-R1-L1  (outside normal points to Z-; ok for debug)
-    vertex_buffer_write_triangle(vbuff, L0, R0, R1, uv00, uv10, uv11, colour, alpha, trans_mat);
-    vertex_buffer_write_triangle(vbuff, L0, R1, L1, uv00, uv11, uv01, colour, alpha, trans_mat);
+    // Base quad (Z=0): L0-R0-R1, L0-R1-L1 (outside normal points to Z-; ok for debug)
+    vertex_buffer_write_triangle(
+        vbuff, L0, R0, R1, uv00, uv10, uv11, colour, alpha, trans_mat
+    );
+    vertex_buffer_write_triangle(
+        vbuff, L0, R1, L1, uv00, uv11, uv01, colour, alpha, trans_mat
+    );
 
-    // Left sloped face (y=-hy -> apex): quad L0-R0-RA-LA  => (L0,R0,RA) + (L0,RA,LA)
-    vertex_buffer_write_triangle(vbuff, L0, R0, RA, uv00, uv10, uv11, colour, alpha, trans_mat);
-    vertex_buffer_write_triangle(vbuff, L0, RA, LA, uv00, uv11, uv01, colour, alpha, trans_mat);
+    // Left sloped face (y=-hy -> apex): quad L0-R0-RA-LA => (L0,R0,RA) + (L0,RA,LA)
+    vertex_buffer_write_triangle(
+        vbuff, L0, R0, RA, uv00, uv10, uv11, colour, alpha, trans_mat
+    );
+    vertex_buffer_write_triangle(
+        vbuff, L0, RA, LA, uv00, uv11, uv01, colour, alpha, trans_mat
+    );
 
-    // Right sloped face (y=+hy -> apex): quad R1-L1-LA-RA  => (R1,L1,LA) + (R1,LA,RA)
-    vertex_buffer_write_triangle(vbuff, R1, L1, LA, uv00, uv10, uv11, colour, alpha, trans_mat);
-    vertex_buffer_write_triangle(vbuff, R1, LA, RA, uv00, uv11, uv01, colour, alpha, trans_mat);
+    // Right sloped face (y=+hy -> apex): quad R1-L1-LA-RA => (R1,L1,LA) + (R1,LA,RA)
+    vertex_buffer_write_triangle(
+        vbuff, R1, L1, LA, uv00, uv10, uv11, colour, alpha, trans_mat
+    );
+    vertex_buffer_write_triangle(
+        vbuff, R1, LA, RA, uv00, uv11, uv01, colour, alpha, trans_mat
+    );
 
     // End caps (triangles in X)
     // X = -hx cap: L0, L1, LA

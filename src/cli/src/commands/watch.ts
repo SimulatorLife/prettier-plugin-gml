@@ -54,6 +54,10 @@ import {
     type TranspilationContext,
     type RuntimeTranspilerPatch
 } from "../modules/transpilation/coordinator.js";
+import {
+    prepareHotReloadInjection,
+    DEFAULT_GM_TEMP_ROOT
+} from "../modules/hot-reload/inject-runtime.js";
 import { formatCliError } from "../cli-core/errors.js";
 import { debounce, type DebouncedFunction } from "../shared/debounce.js";
 
@@ -85,6 +89,9 @@ interface WatchCommandOptions {
     runtimeServer?: boolean;
     hydrateRuntime?: boolean;
     maxPatchHistory?: number;
+    autoInject?: boolean;
+    html5Output?: string;
+    gmTempRoot?: string;
     runtimeResolver?: RuntimeSourceResolver;
     runtimeDescriptor?: RuntimeDescriptorFormatter;
     runtimeServerStarter?: typeof startRuntimeStaticServer;
@@ -280,6 +287,24 @@ export function createWatchCommand(): Command {
             "--no-runtime-server",
             "Disable starting the HTML5 runtime static server."
         )
+        .addOption(
+            new Option(
+                "--auto-inject",
+                "Automatically inject the hot-reload runtime wrapper into the HTML5 output directory before starting the watcher"
+            ).default(false)
+        )
+        .addOption(
+            new Option(
+                "--html5-output <path>",
+                "Path to the HTML5 output directory for auto-injection (overrides auto-detection)"
+            )
+        )
+        .addOption(
+            new Option(
+                "--gm-temp-root <path>",
+                "Root directory for GameMaker HTML5 temporary outputs (used with --auto-inject)"
+            ).default(DEFAULT_GM_TEMP_ROOT)
+        )
         .action(runWatchCommand);
 
     return command;
@@ -386,6 +411,9 @@ export async function runWatchCommand(
         runtimePackage = DEFAULT_RUNTIME_PACKAGE,
         runtimeServer,
         hydrateRuntime,
+        autoInject = false,
+        html5Output,
+        gmTempRoot = DEFAULT_GM_TEMP_ROOT,
         runtimeResolver = resolveRuntimeSource,
         runtimeDescriptor = describeRuntimeSource,
         runtimeServerStarter = startRuntimeStaticServer,
@@ -403,6 +431,51 @@ export async function runWatchCommand(
     const extensionSet = new Set(
         extensions.map((ext) => (ext.startsWith(".") ? ext : `.${ext}`))
     );
+
+    // Auto-inject hot-reload runtime wrapper if requested
+    if (autoInject) {
+        if (!quiet) {
+            console.log("Preparing hot-reload injection...");
+        }
+
+        try {
+            const websocketUrl = `ws://${websocketHost}:${websocketPort}`;
+            const injectionResult = await prepareHotReloadInjection({
+                html5OutputRoot: html5Output,
+                gmTempRoot,
+                websocketUrl,
+                force: false
+            });
+
+            if (!quiet) {
+                const injectedMessage = injectionResult.injected
+                    ? "Injected hot-reload snippet into HTML5 output."
+                    : "Hot-reload snippet already present in HTML5 output.";
+                console.log(injectedMessage);
+                if (verbose) {
+                    console.log(
+                        `  HTML5 output: ${injectionResult.outputRoot}`
+                    );
+                    console.log(`  Index file: ${injectionResult.indexPath}`);
+                    console.log(
+                        `  Runtime wrapper: ${injectionResult.runtimeWrapperTargetRoot}`
+                    );
+                    console.log(
+                        `  WebSocket URL: ${injectionResult.websocketUrl}`
+                    );
+                }
+            }
+        } catch (error) {
+            const message = getErrorMessage(error, {
+                fallback: "Unknown hot-reload injection error"
+            });
+            const formattedError = formatCliError(
+                new Error(`Failed to prepare hot-reload injection: ${message}`)
+            );
+            console.error(formattedError);
+            process.exit(1);
+        }
+    }
 
     const shouldServeRuntime =
         hydrateRuntime === undefined

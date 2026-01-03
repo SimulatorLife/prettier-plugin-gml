@@ -351,10 +351,10 @@ void test("respects printWidth for wrapping description doc comments", async () 
     );
 });
 
-void test("wraps long description doc comments using the formatter cap", async () => {
+void test("wraps long description doc comments using printWidth", async () => {
     const source = [
         "/// @function sample(value)",
-        "/// @description This synthetic doc comment should leave only the trailing connector on the continuation line when wrapping at the formatter cap for descriptions.",
+        "/// @description This synthetic doc comment should leave only the trailing connector on the continuation line when wrapping at the printWidth for descriptions.",
         "function sample(value)",
         "{",
         "    show_debug_message(value);",
@@ -369,11 +369,11 @@ void test("wraps long description doc comments using the formatter cap", async (
         lines.slice(0, 5),
         [
             "/// @description This synthetic doc comment should leave only the trailing connector on the",
-            "///              continuation line when wrapping at the formatter cap for descriptions.",
+            "///              continuation line when wrapping at the printWidth for descriptions.",
             "/// @param value",
             "/// @returns {undefined}",
             "function sample(value) {"
         ],
-        "Long description doc comments should wrap to the formatter cap rather than producing additional continuation lines."
+        "Long description doc comments should wrap to the printWidth rather than producing additional continuation lines."
     );
 });

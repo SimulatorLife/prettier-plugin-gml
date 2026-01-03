@@ -1,7 +1,7 @@
 // Step Event
-points = 0;
-points = points + 1;
+__featherFix_score = 0;
+__featherFix_score++;
 
-if (points > 10) {
-    show_debug_message(points);
+if (__featherFix_score > 10) {
+    show_debug_message(__featherFix_score);
 }

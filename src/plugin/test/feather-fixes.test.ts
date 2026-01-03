@@ -3320,9 +3320,9 @@ void describe("Transforms.applyFeatherFixes transform", () => {
             "// Create Event",
             "",
             "// TODO: Incomplete vertex format definition automatically commented out (GM2015)",
-            "// vertex_format_begin();",
-            "// vertex_format_add_position_3d();",
-            "// vertex_format_end();"
+            "//vertex_format_begin();",
+            "//vertex_format_add_position_3d();",
+            "//vertex_format_end();"
         ].join("\n");
 
         assert.strictEqual(formatted.trimEnd(), expected);
@@ -3350,11 +3350,11 @@ void describe("Transforms.applyFeatherFixes transform", () => {
 
         const expected = [
             "// TODO: Incomplete vertex format definition automatically commented out (GM2015)",
-            "// vertex_format_begin();",
-            "// vertex_format_add_position_3d();",
-            "// vertex_format_add_colour();",
-            "// vertex_format_add_texcoord();",
-            "// vertex_format_end();"
+            "//vertex_format_begin();",
+            "//vertex_format_add_position_3d();",
+            "//vertex_format_add_colour();",
+            "//vertex_format_add_texcoord();",
+            "//vertex_format_end();"
         ].join("\n");
 
         assert.strictEqual(formatted.trimEnd(), expected);

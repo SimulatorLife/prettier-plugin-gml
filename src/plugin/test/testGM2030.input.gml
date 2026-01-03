@@ -1,5 +1,4 @@
 draw_primitive_begin(pr_linelist);
-
 if (should_draw)
 {
     draw_vertex(0, 0);

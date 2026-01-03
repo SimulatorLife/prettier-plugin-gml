@@ -4,7 +4,6 @@ import {
     type MutableGameMakerAstNode
 } from "@gml-modules/core";
 import { createParserTransform } from "../functional-transform.js";
-import { walkAstNodes } from "../feather/ast-traversal.js";
 import { resolveDocCommentPrinterOptions } from "../../printer/doc-comment/doc-comment-options.js";
 import {
     applyDescriptionContinuations,
@@ -62,15 +61,35 @@ function execute(
         MutableGameMakerAstNode,
         MutableGameMakerAstNode
     >();
-    walkAstNodes(ast, (node, parent) => {
-        if (!Core.isNode(node) || !Core.isNode(parent)) {
+    const walkWithParents = (
+        node: unknown,
+        parent: MutableGameMakerAstNode | null
+    ) => {
+        if (!node || typeof node !== "object") {
             return;
         }
-        parentByNode.set(
-            node as MutableGameMakerAstNode,
-            parent as MutableGameMakerAstNode
-        );
-    });
+
+        if (Array.isArray(node)) {
+            for (const entry of node) {
+                walkWithParents(entry, parent);
+            }
+            return;
+        }
+
+        const candidate = node as MutableGameMakerAstNode;
+        if (parent) {
+            parentByNode.set(candidate, parent);
+        }
+
+        for (const value of Object.values(candidate)) {
+            if (!value || typeof value !== "object") {
+                continue;
+            }
+            walkWithParents(value, candidate);
+        }
+    };
+
+    walkWithParents(ast, null);
 
     const traversal = Core.resolveDocCommentTraversalService(ast);
     // Pass null for sourceText to force using AST comment values, which may have been updated
