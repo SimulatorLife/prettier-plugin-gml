@@ -918,12 +918,16 @@ function handleOrdinalDocPreferences({
             Array.from(implicitDocEntryByIndex.values()).some((entry) => entry.name === canonicalOrdinal);
 
         if (canonicalOrdinalMatchesDeclaredParam || canonicalOrdinalMatchesImplicitAlias) {
-            // Do not suppress the canonical ordinal name (e.g., "argument0") if it
-            // matches an explicitly declared parameter or an implicit alias in the
-            // function signature. In these cases, the ordinal name is serving a
-            // legitimate documentation role and should appear in the synthetic @param
-            // list. Suppressing it would remove valid parameter documentation and
-            // create gaps in the generated JSDoc comment.
+            // Preserve canonical ordinal names when they match declared parameters or aliases.
+            // If the canonical ordinal name (e.g., "argument0") matches an explicitly
+            // declared parameter name or an implicit alias assigned by the function signature,
+            // we keep it in the synthetic @param list. Suppressing it would remove valid
+            // parameter documentation that the author explicitly chose to preserve, creating
+            // gaps in the generated JSDoc comment. This branch ensures that functions using
+            // canonical names intentionally (e.g., `function foo(argument0, argument1)`) or
+            // aliasing them (e.g., via implicit doc entries) retain their documentation,
+            // while still suppressing generic ordinal fallbacks for unnamed parameters that
+            // were never referenced by name in the source.
         } else {
             let suppressedCanonicals = suppressedImplicitDocCanonicalByNode.get(node);
             if (!suppressedCanonicals) {

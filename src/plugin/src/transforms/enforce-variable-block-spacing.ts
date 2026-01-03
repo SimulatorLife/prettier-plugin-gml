@@ -5,7 +5,19 @@
 import { Core, type MutableGameMakerAstNode } from "@gml-modules/core";
 import { createParserTransform, type EmptyTransformOptions } from "./functional-transform.js";
 
-const MIN_DECLARATIONS = 4; // Keep this opinionated and not configurable for consistent formatting behavior
+// Enforce consistent spacing after variable blocks without exposing user
+// configuration. GameMaker projects commonly group multiple variable declarations
+// together (e.g., initializing loop counters, caching references, or setting up
+// state). After four or more consecutive declarations, the formatter inserts a
+// blank line before the next statement (currently limited to `for` loops) to
+// visually separate the initialization block from control flow. Making this
+// threshold configurable would fragment formatting conventions across projects
+// and increase maintenance burden—teams would need to negotiate and document
+// the "right" threshold, and diffs would become harder to review when
+// contributors use different settings. By hardcoding the value, we ensure all
+// GML code formatted by this plugin follows the same spacing discipline,
+// aligning with the opinionated formatter philosophy.
+const MIN_DECLARATIONS = 4;
 
 /**
  * Entry point that walks the AST once to add the `_gmlForceFollowingEmptyLine` hint.

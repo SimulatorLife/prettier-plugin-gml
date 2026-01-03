@@ -376,10 +376,14 @@ export function mergeSyntheticDocComments(
     // the presence of synthetic tags enables the promotion and avoids leaving
     // the summary as a plain inline/trailing comment.
     try {
-        // Only re-run promotion if the original existing doc lines contained
-        // metadata tags or were doc-like (`// /` style). Avoid promoting plain
-        // triple slash summaries that had no metadata in the original source
-        // so synthetic tags do not cause unwanted `@description` promotions.
+        // Prevent unwanted @description promotions for plain triple-slash summaries.
+        // The promotion logic triggers when existing doc lines contain metadata tags
+        // or use the doc-like `// /` prefix style. Without this guard, synthetic
+        // tags (e.g., @param entries auto-generated during the merge) would cause
+        // plain summary comments to be promoted to @description tags, changing the
+        // comment's presentation. We only run promotion when the original source
+        // already had structured metadata, ensuring synthetic additions don't alter
+        // the author's intended comment style.
         const originalExistingHasTags =
             Array.isArray(existingDocLines) &&
             existingDocLines.some((line) => (typeof line === STRING_TYPE ? parseDocCommentMetadata(line) : false));
@@ -395,8 +399,12 @@ export function mergeSyntheticDocComments(
             filteredResult = toMutableArray(promoteLeadingDocCommentTextToDescription(filteredResult));
         }
     } catch {
-        // If the Core service is unavailable (testing contexts), fall back to
-        // the original behavior without promotion so we don't throw.
+        // Tolerate missing Core service during test scenarios or when the doc
+        // comment service is unavailable. The promotion step is a formatting
+        // enhancement, not a critical requirement, so we fall back to the
+        // unpromoted result rather than throwing. This defensive posture keeps
+        // the merge operation resilient across different runtime contexts without
+        // sacrificing correctness.
     }
 
     // If the original existing doc lines contained plain triple-slash
@@ -443,7 +451,13 @@ export function mergeSyntheticDocComments(
             }
         }
     } catch {
-        // Best-effort fallback; do not throw on diagnostic operations
+        // Suppress errors during blank-line insertion for plain summaries.
+        // Separating summary lines from synthetic metadata is a formatting
+        // nicety, not a correctness requirement. If the operation fails (e.g.,
+        // due to unexpected comment structure or runtime constraints), we
+        // continue with the unseparated result rather than aborting the entire
+        // merge. This keeps diagnostic operations resilient without masking
+        // critical failures elsewhere in the pipeline.
     }
     const convertedResult = convertLegacyReturnsDescriptionLinesToMetadata(filteredResult, {
         normalizeDocCommentTypeAnnotations: normalizeGameMakerType
@@ -1796,12 +1810,11 @@ function attemptEarlyReturnOnSynthetic({
     overrides
 }: AttemptEarlyReturnParams) {
     if (syntheticLines.length === 0 && !shouldForceParamPrune) {
-        const result = toMutableArray(
+        return toMutableArray(
             convertLegacyReturnsDescriptionLinesToMetadata(normalizedExistingLines, {
                 normalizeDocCommentTypeAnnotations: normalizeGameMakerType
             })
         ) as MutableDocCommentLines;
-        return result;
     }
 
     if (normalizedExistingLines.length === 0) {
