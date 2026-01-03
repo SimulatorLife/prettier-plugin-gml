@@ -603,9 +603,7 @@ export function normalizeFunctionDocCommentDocs({
     const docCommentOptions = resolveDocCommentPrinterOptions(options);
     const descriptionContinuations =
         collectDescriptionContinuations(docCommentDocs);
-    const preserveDescriptionBreaks =
-        Array.isArray(docCommentDocs) &&
-        (docCommentDocs as any)._preserveDescriptionBreaks === true;
+
     if (
         Core.shouldGenerateSyntheticDocForFunction(
             path,
@@ -677,10 +675,6 @@ export function normalizeFunctionDocCommentDocs({
         docCommentOptions.printWidth
     );
 
-    if (preserveDescriptionBreaks && Array.isArray(docCommentDocs)) {
-        (docCommentDocs as any)._preserveDescriptionBreaks = true;
-    }
-
     return { docCommentDocs, needsLeadingBlankLine };
 }
 
@@ -690,13 +684,6 @@ function wrapDocDescriptionLines(
     docCommentDocs: MutableDocCommentLines,
     wrapWidth: number
 ) {
-    if (
-        Array.isArray(docCommentDocs) &&
-        (docCommentDocs as any)._preserveDescriptionBreaks === true
-    ) {
-        return docCommentDocs;
-    }
-
     if (
         !Array.isArray(docCommentDocs) ||
         typeof wrapWidth !== "number" ||
