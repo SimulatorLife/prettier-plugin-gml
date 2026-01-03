@@ -45,11 +45,16 @@ const BINARY_OPERATORS: Record<string, BinaryOperatorInfo> = {
     // so once the builder exposes the mode we should emit richer AST nodes
     // instead of treating them as interchangeable unary operators.
     "++": { prec: 15, assoc: "right", type: "unary" },
-    // Mirror the prefix/suffix tracking described above for the
-    // decrement operator so optimizations do not assume `value--` is
-    // side-effect free. GameMaker emits different bytecode for the two forms,
-    // and losing that distinction risks mis-scheduling hoists or duplicate
-    // writes when formatters rewrite identifier usages.
+    // Track the decrement operator with the same prefix/suffix semantics as
+    // the increment operator (see the comment above for `++`). GameMaker's
+    // runtime distinguishes between `--value` (prefix) and `value--` (postfix),
+    // emitting different bytecode for each form. Prefix decrements modify the
+    // variable before its value is read, while postfix decrements return the
+    // original value and modify afterward. Treating these as interchangeable
+    // unary operators would allow downstream optimizations (such as the Feather
+    // fixer or identifier role tracker) to incorrectly assume `value--` has no
+    // side effects, leading to mis-scheduled hoists or duplicate writes when
+    // the formatter rewrites identifier usages.
     "--": { prec: 15, assoc: "right", type: "unary" },
     "~": { prec: 14, assoc: "right", type: "unary" },
     "!": { prec: 14, assoc: "right", type: "unary" },
@@ -222,10 +227,14 @@ export default class GameMakerASTBuilder {
     }
 
     withScope<T>(kind: string, callback: () => T): T {
-        // When a scope tracker has not been initialised (it may be disabled via
-        // options), treat the call as a no-op and execute the callback
-        // directly. This mirrors earlier behaviour in which consumers could
-        // call withScope without requiring scope tracking to be active.
+        // Allow AST building to proceed even when the scope tracker is disabled
+        // or uninitialized. Some callers enable scope tracking via configuration
+        // (e.g., for refactoring or semantic analysis), while others (e.g., the
+        // formatter in parse-only mode) do not need it. Rather than requiring
+        // every caller to guard withScope invocations, we execute the callback
+        // directly when no tracker is available. This maintains backward
+        // compatibility with workflows that call withScope without initializing
+        // scope tracking infrastructure.
         if (!this.scopeTracker) {
             return callback();
         }
@@ -236,10 +245,13 @@ export default class GameMakerASTBuilder {
     }
 
     withIdentifierRole<T>(role: IdentifierRole, callback: () => T): T {
-        // Support a disabled/no-op scope tracker by falling back to
-        // executing the callback directly when tracking is disabled — this
-        // mirrors the behaviour we already apply in `withScope` for
-        // non-tracking builds.
+        // Execute the callback without tracking identifier roles when the scope
+        // tracker is disabled or missing. This mirrors the withScope fallback
+        // logic: workflows that do not need semantic analysis (e.g., basic
+        // formatting) can still build AST nodes without initializing role
+        // tracking infrastructure. The callback proceeds unconditionally,
+        // allowing the builder to remain usable across different operational
+        // modes without requiring every caller to check tracker availability.
         if (!this.scopeTracker) {
             return callback();
         }

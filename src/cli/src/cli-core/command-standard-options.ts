@@ -32,16 +32,18 @@ export function applyStandardCommandOptions<TCommand extends CommanderCommandLik
     command.showHelpAfterError(DEFAULT_HELP_AFTER_ERROR);
     if (typeof command.configureOutput === "function") {
         // The CLI funnels usage and execution failures through
-        // `CliCommandManager`'s `handleCliError` integration so diagnostics are
-        // formatted exactly once with the formatter's structured renderer (see
-        // `src/cli/src/cli-core/errors.js`). Commander would otherwise emit its own
-        // error preface before our handler runs, leading to duplicated stderr
-        // output and mismatched help text whenever `exitOverride()` surfaces a
-        // usage problem. Returning shared noop callbacks keeps Commander quiet
-        // while preserving the "always call the provided writers" contract its
-        // internals expect; swapping these for conditionals or letting the
-        // defaults leak would regress the single-source-of-truth messaging the
-        // CLI design calls out in README.md#cli-wrapper-environment-knobs.
+        // Silence Commander's default error/help output to avoid duplication.
+        // The CLI's `CliCommandManager.handleCliError` integration formats all
+        // diagnostics with a structured renderer (see src/cli/src/cli-core/errors.js),
+        // ensuring errors appear exactly once with consistent styling. If we left
+        // Commander's default `writeErr` and `outputError` callbacks in place,
+        // it would emit its own error preface before our handler runs, leading to
+        // duplicated stderr messages and mismatched help text whenever `exitOverride()`
+        // surfaces a usage problem. Replacing these callbacks with no-ops keeps
+        // Commander quiet while honoring its internal contract (it expects these
+        // writers to exist). Conditionals or missing callbacks would break the
+        // single-source-of-truth messaging design documented in
+        // README.md#cli-wrapper-environment-knobs.
         command.configureOutput({
             writeErr: noop,
             outputError: noop

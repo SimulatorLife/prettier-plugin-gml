@@ -792,8 +792,16 @@ async function releaseSnapshot(snapshot) {
             try {
                 await rm(snapshotPath, { force: true });
             } catch {
-                // Ignore individual file cleanup failures to avoid masking the
-                // original error that triggered the revert.
+                // Suppress cleanup errors to ensure the original error is not masked.
+                // When a snapshot revert fails (e.g., temporary directory cleanup
+                // after a formatting error), we catch and ignore the failure rather
+                // than propagating it. The revert is a best-effort rollback triggered
+                // by an earlier error (parsing failure, write error, etc.), and
+                // throwing a new error here would hide the root cause in the output.
+                // By ignoring cleanup failures, we allow the original error to surface
+                // in diagnostics, making it easier for users to identify and fix the
+                // underlying issue. The temporary files may remain on disk, but this
+                // is preferable to obscuring the real problem.
             } finally {
                 if (revertSnapshotFileCount > 0) {
                     revertSnapshotFileCount -= 1;
@@ -1027,11 +1035,15 @@ async function detectNegatedIgnoreRules(ignoreFilePath) {
             ignoreRuleNegations.detected = true;
         }
     } catch {
-        // Ignore missing or unreadable files. This defensive posture prevents
-        // the ignore-file scanning process from crashing the formatter if a
-        // referenced ignore file is absent or has restrictive permissions.
-        // The formatter remains resilient and continues processing with the
-        // ignore rules it was able to load successfully.
+        // Tolerate missing or inaccessible ignore files during negation detection.
+        // The ignore-file scanning process attempts to detect negated rules
+        // (e.g., `!foo.gml`) across all referenced ignore files. If a file is
+        // missing, unreadable, or has restrictive permissions, we catch the error
+        // and continue without crashing the formatter. The defensive posture here
+        // ensures that the formatter remains operational even when the ignore-file
+        // infrastructure is incomplete or misconfigured. Missing negation detection
+        // for one file is acceptable—the formatter falls back to its default
+        // ignore behavior, which is safer than aborting the entire run.
     }
 }
 
@@ -1157,11 +1169,17 @@ async function collectExistingIgnoreFiles(candidatePaths) {
                 const stats = await stat(ignoreCandidate);
                 return stats.isFile() ? ignoreCandidate : null;
             } catch {
-                // Ignore missing files. This lets the formatter scan a standard
-                // set of ignore-file candidates (e.g., .prettierignore, .gitignore)
-                // without failing when some do not exist in a given project.
-                // Only files that are present and readable will be registered,
-                // keeping the collection logic simple and resilient.
+                // Tolerate missing or unreadable ignore files during discovery.
+                // The formatter scans a standard set of ignore-file candidates
+                // (e.g., .prettierignore, .gitignore) without requiring all of them
+                // to exist. Projects may provide only a subset of these files, and
+                // attempting to stat a missing file throws ENOENT. By catching and
+                // suppressing these errors, we register only the files that are
+                // present and readable, keeping the collection logic simple and
+                // resilient. Failures to read files that do exist (e.g., permission
+                // errors) are also silently ignored here, which is acceptable because
+                // the formatter falls back to default ignore rules when custom files
+                // are unavailable.
                 return null;
             }
         })
@@ -1235,11 +1253,15 @@ async function resolveDirectoryIgnoreContext(directory, inheritedIgnorePaths) {
             effectiveIgnorePaths = mergeUniqueValues(inheritedIgnorePaths, [localIgnorePath], { freeze: false });
         }
     } catch {
-        // Ignore missing files. When the local ignore file does not exist,
-        // the formatter proceeds with the inherited ignore paths from parent
-        // directories. This resilience ensures that formatting workflows do
-        // not break when a subdirectory lacks its own .prettierignore, while
-        // still allowing projects to layer ignore rules hierarchically.
+        // Tolerate missing local ignore files and inherit parent directory rules.
+        // When a subdirectory lacks its own .prettierignore file, we catch the
+        // stat error and proceed with the inherited ignore paths from parent
+        // directories. This resilience allows projects to layer ignore rules
+        // hierarchically (e.g., a repo-wide .prettierignore at the root with
+        // subdirectory overrides) without requiring every directory to have its
+        // own ignore file. Missing files are normal and expected in this workflow,
+        // so we suppress the error rather than propagating it and breaking the
+        // formatting run.
     }
 
     return {
