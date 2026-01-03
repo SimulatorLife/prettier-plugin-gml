@@ -4385,7 +4385,7 @@ function getFunctionTagParamName(functionNode, paramIndex, options) {
             const lastDocIndex = prefix.lastIndexOf("///");
             if (lastDocIndex !== -1) {
                 const docBlock = prefix.slice(lastDocIndex);
-                const lines = docBlock.split(/\r\n|\n|\r/);
+                const lines = Core.splitLines(docBlock);
                 for (const line of lines) {
                     const params = Core.extractFunctionTagParams(line);
                     if (params.length > 0) {
@@ -5297,9 +5297,7 @@ function shouldOmitDefaultValueForParameter(path, options) {
             const lines = functionNode.docComments.flatMap((comment) => {
                 const value = comment.value || "";
                 if (comment.type === "CommentBlock") {
-                    return value
-                        .split(/\r\n|\n|\r/)
-                        .map((line) => `/// ${line}`);
+                    return Core.splitLines(value).map((line) => `/// ${line}`);
                 }
                 return `/// ${value}`;
             });
@@ -5322,7 +5320,7 @@ function shouldOmitDefaultValueForParameter(path, options) {
             const fnStart = Core.getNodeStartIndex(functionNode) ?? 0;
             const prefix = originalText.slice(0, fnStart);
             // Scan backwards for doc comments, handling mixed styles and block comments
-            const lines = prefix.split(/\r\n|\n|\r/);
+            const lines = Core.splitLines(prefix);
             const docLines = [];
 
             for (let i = lines.length - 1; i >= 0; i--) {
@@ -6809,7 +6807,7 @@ function expressionReferencesSanitizedMacro(node, sanitizedMacroNames) {
                 continue;
             }
 
-            if ((value).type) {
+            if (value.type) {
                 stack.push(value);
             }
         }
