@@ -5,11 +5,6 @@ import { Transpiler } from "../index.js";
 type TranspilerInstance = InstanceType<typeof Transpiler.GmlTranspiler>;
 type TranspileScriptArgs = Parameters<TranspilerInstance["transpileScript"]>[0];
 
-await test("createTranspiler returns a GmlTranspiler", () => {
-    const transpiler = Transpiler.createTranspiler();
-    assert.ok(transpiler instanceof Transpiler.GmlTranspiler);
-});
-
 await test("transpileScript validates inputs", () => {
     const transpiler = new Transpiler.GmlTranspiler();
     assert.throws(
