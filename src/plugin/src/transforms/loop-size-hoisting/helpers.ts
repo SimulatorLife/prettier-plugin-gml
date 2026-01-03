@@ -22,45 +22,7 @@ const DEFAULT_SIZE_RETRIEVAL_FUNCTION_SUFFIXES = new Map([
     ["ds_map_size", "size"]
 ]);
 
-const LOOP_SIZE_SUFFIX_CACHE = Symbol.for(
-    "prettier-plugin-gml.loopLengthHoistFunctionSuffixes"
-);
-
 const SIZE_SUFFIX_CACHE = new WeakMap();
-
-function readCachedSuffixes(options) {
-    if (!isObjectLike(options)) {
-        return null;
-    }
-
-    if (Object.hasOwn(options, LOOP_SIZE_SUFFIX_CACHE)) {
-        return options[LOOP_SIZE_SUFFIX_CACHE];
-    }
-
-    return SIZE_SUFFIX_CACHE.get(options) ?? null;
-}
-
-function cacheSuffixes(options, suffixes) {
-    if (!isObjectLike(options)) {
-        return;
-    }
-
-    if (Object.isExtensible(options)) {
-        try {
-            Object.defineProperty(options, LOOP_SIZE_SUFFIX_CACHE, {
-                configurable: false,
-                enumerable: false,
-                writable: false,
-                value: suffixes
-            });
-        } catch {
-            // Non-extensible option bags (for example frozen objects or exotic
-            // proxies) should still memoize results via the fallback WeakMap.
-        }
-    }
-
-    SIZE_SUFFIX_CACHE.set(options, suffixes);
-}
 
 function createSizeSuffixMap(options) {
     const rawOverrides = coalesceOption(
@@ -95,13 +57,19 @@ function createSizeSuffixMap(options) {
  * @returns {Map<string, string>} Lower-cased function names mapped to suffixes.
  */
 function getSizeRetrievalFunctionSuffixes(options?: any) {
-    const cached = readCachedSuffixes(options);
-    if (cached) {
-        return cached;
+    if (isObjectLike(options)) {
+        const cached = SIZE_SUFFIX_CACHE.get(options);
+        if (cached) {
+            return cached;
+        }
     }
 
     const suffixes = createSizeSuffixMap(options);
-    cacheSuffixes(options, suffixes);
+
+    if (isObjectLike(options)) {
+        SIZE_SUFFIX_CACHE.set(options, suffixes);
+    }
+
     return suffixes;
 }
 
