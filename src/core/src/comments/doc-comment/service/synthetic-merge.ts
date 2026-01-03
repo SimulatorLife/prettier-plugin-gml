@@ -105,9 +105,19 @@ export function mergeSyntheticDocComments(
     options: any,
     overrides: any = {}
 ): MutableDocCommentLines {
-    let normalizedExistingLines: MutableDocCommentLines = existingDocLines.map(
-        (line) => line.trim()
+    let normalizedExistingLines: MutableDocCommentLines = toMutableArray(
+        existingDocLines.map((line) => line.trim())
     ) as MutableDocCommentLines;
+
+    if ((existingDocLines as any)._preserveDescriptionBreaks === true) {
+        (normalizedExistingLines as any)._preserveDescriptionBreaks = true;
+    }
+    if ((existingDocLines as any)._suppressLeadingBlank === true) {
+        (normalizedExistingLines as any)._suppressLeadingBlank = true;
+    }
+    if ((existingDocLines as any)._blockCommentDocs === true) {
+        (normalizedExistingLines as any)._blockCommentDocs = true;
+    }
     const originalExistingHasTags =
         Array.isArray(existingDocLines) &&
         existingDocLines.some((line) =>
@@ -555,7 +565,13 @@ export function mergeSyntheticDocComments(
     });
 
     // Check for missing continuation lines
-    return toMutableArray(prunedConvertedResult) as MutableDocCommentLines;
+    const finalResult = toMutableArray(
+        prunedConvertedResult
+    ) as MutableDocCommentLines;
+    if (preserveDescriptionBreaks) {
+        (finalResult as any)._preserveDescriptionBreaks = true;
+    }
+    return finalResult;
 }
 
 function integrateReturnAndFunctionLines({
@@ -602,11 +618,17 @@ function integrateReturnAndFunctionLines({
                 appendIndex -= 1;
             }
 
-            result = [
+            const finalResultArray = [
                 ...filteredResult.slice(0, appendIndex),
                 ...dedupedReturns,
                 ...filteredResult.slice(appendIndex)
-            ];
+            ] as any;
+
+            if ((result as any)._preserveDescriptionBreaks === true) {
+                finalResultArray._preserveDescriptionBreaks = true;
+            }
+
+            result = finalResultArray;
 
             if (removedExistingReturns) {
                 removedAnyLine = true;
@@ -1275,11 +1297,17 @@ function reorderDescriptionBlock({
     const insertionIndex =
         firstTagIndex === -1 ? docsWithoutDescription.length : firstTagIndex;
 
-    return [
+    const result = [
         ...docsWithoutDescription.slice(0, insertionIndex),
         ...descriptionBlock,
         ...docsWithoutDescription.slice(insertionIndex)
-    ];
+    ] as any;
+
+    if ((docs as any)._preserveDescriptionBreaks === true) {
+        result._preserveDescriptionBreaks = true;
+    }
+
+    return result;
 }
 
 type FinalizeDescriptionBlocksParams = {
@@ -2010,19 +2038,25 @@ function applyDocCommentPromotionIfNeeded(
         originalExistingHasDocLikePrefixes ||
         hasMultiLineSummary
     ) {
+        const promoted = promoteLeadingDocCommentTextToDescription(
+            normalizedExistingLines,
+            syntheticLines,
+            originalExistingHasDocLikePrefixes || hasMultiLineSummary
+        );
         normalizedExistingLines = toMutableArray(
-            promoteLeadingDocCommentTextToDescription(
-                normalizedExistingLines,
-                syntheticLines,
-                originalExistingHasDocLikePrefixes || hasMultiLineSummary
-            )
+            promoted
         ) as MutableDocCommentLines;
 
         if (
-            (normalizedExistingLines as any)?._preserveDescriptionBreaks ===
-            true
+            (promoted as any)._preserveDescriptionBreaks === true ||
+            (normalizedExistingLines as any)._preserveDescriptionBreaks === true
         ) {
             preserveDescriptionBreaks = true;
+            (normalizedExistingLines as any)._preserveDescriptionBreaks = true;
+        }
+
+        if (!originalExistingHasTags) {
+            (normalizedExistingLines as any)._suppressLeadingBlank = true;
         }
     }
 
@@ -2048,7 +2082,7 @@ function attemptEarlyReturnOnSynthetic({
     overrides
 }: AttemptEarlyReturnParams) {
     if (syntheticLines.length === 0 && !shouldForceParamPrune) {
-        return toMutableArray(
+        const result = toMutableArray(
             convertLegacyReturnsDescriptionLinesToMetadata(
                 normalizedExistingLines,
                 {
@@ -2056,6 +2090,7 @@ function attemptEarlyReturnOnSynthetic({
                 }
             )
         ) as MutableDocCommentLines;
+        return result;
     }
 
     if (normalizedExistingLines.length === 0) {

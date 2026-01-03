@@ -137,7 +137,19 @@ export function toMutableArray<T = unknown>(
     }
 
     const arrayValue = value as Array<T>;
-    return clone ? [...arrayValue] : arrayValue;
+    const result = clone ? [...arrayValue] : arrayValue;
+
+    if ((value as any)._preserveDescriptionBreaks === true) {
+        (result as any)._preserveDescriptionBreaks = true;
+    }
+    if ((value as any)._suppressLeadingBlank === true) {
+        (result as any)._suppressLeadingBlank = true;
+    }
+    if ((value as any)._blockCommentDocs === true) {
+        (result as any)._blockCommentDocs = true;
+    }
+
+    return result;
 }
 
 /**

@@ -26,5 +26,20 @@ export function removeFunctionDocCommentLines(
         }
     }
 
+    // Propagate metadata properties from the original array to the filtered one.
+    // This ensures that flags like _preserveDescriptionBreaks or _blockCommentDocs
+    // are not lost during the filtering process.
+    const original = lines as any;
+    const target = filtered as any;
+    if (original._preserveDescriptionBreaks === true) {
+        target._preserveDescriptionBreaks = true;
+    }
+    if (original._suppressLeadingBlank === true) {
+        target._suppressLeadingBlank = true;
+    }
+    if (original._blockCommentDocs === true) {
+        target._blockCommentDocs = true;
+    }
+
     return filtered;
 }

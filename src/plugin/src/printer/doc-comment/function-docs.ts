@@ -594,8 +594,22 @@ export function normalizeFunctionDocCommentDocs({
     const normalizedMetadata = getDocCommentNormalization(node);
 
     if (normalizedMetadata) {
+        const docs = normalizedMetadata.docCommentDocs;
+
+        if (
+            (normalizedMetadata as any)._preserveDescriptionBreaks === true ||
+            (docs as any)._preserveDescriptionBreaks === true
+        ) {
+            (docs as any)._preserveDescriptionBreaks = true;
+        }
+        if (
+            (normalizedMetadata as any)._suppressLeadingBlank === true ||
+            (docs as any)._suppressLeadingBlank === true
+        ) {
+            (docs as any)._suppressLeadingBlank = true;
+        }
         return {
-            docCommentDocs: normalizedMetadata.docCommentDocs,
+            docCommentDocs: docs,
             needsLeadingBlankLine: normalizedMetadata.needsLeadingBlankLine
         };
     }

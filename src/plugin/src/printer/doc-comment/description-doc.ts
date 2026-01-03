@@ -91,13 +91,6 @@ export function buildPrintableDocCommentLines(
     const preserveBreaks =
         (docCommentDocs as any)._preserveDescriptionBreaks === true;
 
-    if (docCommentDocs.length > 1 && !preserveBreaks) {
-        console.log(
-            "DEBUG: preserveBreaks is false for docCommentDocs with length",
-            docCommentDocs.length
-        );
-    }
-
     while (index < docCommentDocs.length) {
         const entry = docCommentDocs[index];
         if (typeof entry !== "string") {
@@ -133,7 +126,10 @@ export function buildPrintableDocCommentLines(
                 group(
                     concat([
                         prefix,
-                        align(continuationPrefix, join(hardline, lines))
+                        align(
+                            continuationPrefix,
+                            join(hardline, lines)
+                        )
                     ])
                 )
             );

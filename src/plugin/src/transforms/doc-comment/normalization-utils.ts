@@ -3,6 +3,8 @@ import type { MutableDocCommentLines } from "@gml-modules/core";
 export type DocCommentNormalizationPayload = {
     docCommentDocs: MutableDocCommentLines;
     needsLeadingBlankLine: boolean;
+    _preserveDescriptionBreaks?: boolean;
+    _suppressLeadingBlank?: boolean;
 };
 
 const DOC_COMMENT_NORMALIZATION_KEY = Symbol("gmlDocCommentNormalization");
@@ -20,9 +22,16 @@ export function getDocCommentNormalization(
         return null;
     }
 
-    const { docCommentDocs, needsLeadingBlankLine } = maybePayload as {
+    const {
+        docCommentDocs,
+        needsLeadingBlankLine,
+        _preserveDescriptionBreaks,
+        _suppressLeadingBlank
+    } = maybePayload as {
         docCommentDocs?: MutableDocCommentLines;
         needsLeadingBlankLine?: boolean;
+        _preserveDescriptionBreaks?: boolean;
+        _suppressLeadingBlank?: boolean;
     };
 
     if (!Array.isArray(docCommentDocs)) {
@@ -31,7 +40,9 @@ export function getDocCommentNormalization(
 
     return {
         docCommentDocs,
-        needsLeadingBlankLine: Boolean(needsLeadingBlankLine)
+        needsLeadingBlankLine: Boolean(needsLeadingBlankLine),
+        _preserveDescriptionBreaks,
+        _suppressLeadingBlank
     };
 }
 

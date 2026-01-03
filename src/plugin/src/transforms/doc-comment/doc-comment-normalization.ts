@@ -7,7 +7,8 @@ import { createParserTransform } from "../functional-transform.js";
 import { resolveDocCommentPrinterOptions } from "../../printer/doc-comment/doc-comment-options.js";
 import {
     applyDescriptionContinuations,
-    collectDescriptionContinuations
+    collectDescriptionContinuations,
+    ensureDescriptionContinuations
 } from "./description-utils.js";
 import { setDocCommentNormalization } from "./normalization-utils.js";
 import {
@@ -138,6 +139,7 @@ function execute(
         }
 
         const filteredDocLines = formattedLines;
+        ensureDescriptionContinuations(filteredDocLines);
 
         const docPath = createDocCommentPath(
             mutableNode,
@@ -157,13 +159,25 @@ function execute(
         const descriptionContinuations =
             collectDescriptionContinuations(filteredDocLines);
 
+        const merged = Core.mergeSyntheticDocComments(
+            node,
+            filteredDocLines,
+            docCommentOptions
+        );
+
         let normalizedDocComments = Core.toMutableArray(
-            Core.mergeSyntheticDocComments(
-                node,
-                filteredDocLines,
-                docCommentOptions
-            )
+            merged
         ) as MutableDocCommentLines;
+
+        if ((merged as any)._preserveDescriptionBreaks === true) {
+            (normalizedDocComments as any)._preserveDescriptionBreaks = true;
+        }
+        if ((merged as any)._suppressLeadingBlank === true) {
+            (normalizedDocComments as any)._suppressLeadingBlank = true;
+        }
+        if ((merged as any)._blockCommentDocs === true) {
+            (normalizedDocComments as any)._blockCommentDocs = true;
+        }
 
         normalizedDocComments = applyDescriptionContinuations(
             normalizedDocComments,
@@ -214,10 +228,15 @@ function execute(
 
         setDocCommentMetadata(node, hasMetadata ? metadata : null);
 
+
         setDocCommentNormalization(node, {
             docCommentDocs: normalizedDocComments,
-            needsLeadingBlankLine
-        });
+            needsLeadingBlankLine,
+            _preserveDescriptionBreaks: (normalizedDocComments as any)
+                ._preserveDescriptionBreaks,
+            _suppressLeadingBlank: (normalizedDocComments as any)
+                ._suppressLeadingBlank
+        } as any);
     });
 
     return ast;

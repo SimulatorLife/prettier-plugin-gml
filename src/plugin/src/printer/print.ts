@@ -785,7 +785,7 @@ function tryPrintVariableNode(node, path, options, print) {
                 const parts = buildGlobalVarAssignmentParts(node, path, print);
 
                 if (parts.length === 0) {
-                    return null;
+                    return "";
                 }
 
                 return join(hardline, parts);
@@ -823,7 +823,7 @@ function tryPrintVariableNode(node, path, options, print) {
             );
 
             if (keptDeclarators.length === 0) {
-                return;
+                return "";
             }
 
             if (keptDeclarators.length !== declarators.length) {

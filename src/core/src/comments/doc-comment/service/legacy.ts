@@ -77,7 +77,18 @@ export function dedupeReturnDocLines(
         deduped.push(line);
     }
 
-    return { lines: deduped as DocCommentLines, removed: removedAnyReturnLine };
+    const resultLines = deduped as any;
+    if ((lines as any)._preserveDescriptionBreaks === true) {
+        resultLines._preserveDescriptionBreaks = true;
+    }
+    if ((lines as any)._suppressLeadingBlank === true) {
+        resultLines._suppressLeadingBlank = true;
+    }
+    if ((lines as any)._blockCommentDocs === true) {
+        resultLines._blockCommentDocs = true;
+    }
+
+    return { lines: resultLines as DocCommentLines, removed: removedAnyReturnLine };
 }
 
 export function reorderDescriptionLinesToTop(
@@ -160,7 +171,16 @@ export function reorderDescriptionLinesToTop(
         (_line, idx) => !descriptionIndexSet.has(idx)
     );
 
-    const result = [...descriptionLines, ...filtered];
+    const result = [...descriptionLines, ...filtered] as any;
+    if ((docLines as any)._preserveDescriptionBreaks === true) {
+        result._preserveDescriptionBreaks = true;
+    }
+    if ((docLines as any)._suppressLeadingBlank === true) {
+        result._suppressLeadingBlank = true;
+    }
+    if ((docLines as any)._blockCommentDocs === true) {
+        result._blockCommentDocs = true;
+    }
 
     return result as DocCommentLines;
 }
@@ -178,9 +198,9 @@ export function convertLegacyReturnsDescriptionLinesToMetadata(
     }
 
     const preserveLeadingBlank =
-        (normalizedLines as any)._suppressLeadingBlank === true;
+        (docLines as any)._suppressLeadingBlank === true;
     const preserveDescriptionBreaks =
-        (normalizedLines as any)._preserveDescriptionBreaks === true;
+        (docLines as any)._preserveDescriptionBreaks === true;
 
     const convertedReturns: string[] = [];
     const retainedLines: string[] = [];
