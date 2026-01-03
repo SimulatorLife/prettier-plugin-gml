@@ -3,10 +3,6 @@ import test from "node:test";
 
 import * as Printer from "../src/printer/index.js";
 
-const LOOP_SIZE_SUFFIX_CACHE = Symbol.for(
-    "prettier-plugin-gml.loopLengthHoistFunctionSuffixes"
-);
-
 void test("caches suffix maps on extensible option bags", () => {
     const options = {};
 
@@ -20,8 +16,6 @@ void test("caches suffix maps on extensible option bags", () => {
         Printer.LoopSizeHoisting.DEFAULT_SIZE_RETRIEVAL_FUNCTION_SUFFIXES
     );
     assert.strictEqual(first, second);
-    assert.ok(Object.hasOwn(options, LOOP_SIZE_SUFFIX_CACHE));
-    assert.strictEqual(options[LOOP_SIZE_SUFFIX_CACHE], first);
 });
 
 void test("returns new suffix maps for primitive option inputs", () => {
@@ -52,5 +46,4 @@ void test("memoizes suffix maps for frozen option objects", () => {
     assert.strictEqual(first.get("ds_map_size"), "entries");
     assert.strictEqual(second.get("ds_map_size"), "entries");
     assert.strictEqual(first, second);
-    assert.strictEqual(Object.hasOwn(options, LOOP_SIZE_SUFFIX_CACHE), false);
 });

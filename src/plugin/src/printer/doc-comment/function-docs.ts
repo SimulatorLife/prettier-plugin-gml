@@ -173,7 +173,7 @@ function collectMethodListComments(
         return [];
     }
 
-    const lines = precedingText.split(/\r\n|\n|\r/);
+    const lines = Core.splitLines(precedingText);
     const collected: string[] = [];
 
     for (let index = lines.length - 1; index >= 0; index -= 1) {
