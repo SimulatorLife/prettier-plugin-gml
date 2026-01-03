@@ -44,15 +44,7 @@ export function walkAstNodes(
 }
 
 export function hasArrayParentWithNumericIndex(parent: unknown, property: unknown) {
-    if (!Array.isArray(parent)) {
-        return false;
-    }
-
-    if (typeof property !== "number") {
-        return false;
-    }
-
-    return true;
+    return Array.isArray(parent) && typeof property === "number";
 }
 
 /** Return context surrounding a call expression held inside an array so fixers can mutate siblings safely. */
