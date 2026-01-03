@@ -48,7 +48,14 @@ function hasExplicitDefaultParameterToLeft(node: MutableGameMakerAstNode, parame
             }
         }
     } catch {
-        // swallow errors
+        // Tolerate parameter access errors when checking for prior defaults.
+        // This function walks leftward through the parameter list to determine
+        // if any earlier parameter has an explicit default value. If accessing
+        // a parameter's type property throws (e.g., due to frozen nodes, exotic
+        // proxies, or unexpected AST structure), we suppress the error and
+        // return false, indicating no prior default was detected. This defensive
+        // posture keeps the transform operational even when the AST contains
+        // malformed or unexpected node shapes.
     }
 
     return false;
@@ -160,7 +167,14 @@ export class PreprocessFunctionArgumentDefaultsTransform
                 appliedChanges = true;
             }
         } catch {
-            // swallow
+            // Tolerate finalization errors when attempting conservative defaults.
+            // The finalizeTrailingUndefinedDefaults step materializes `= undefined`
+            // defaults for trailing parameters when no body rewriting is needed.
+            // If this operation fails (e.g., due to frozen parameter nodes or
+            // unexpected AST structure), we suppress the error and proceed with
+            // the empty statements check. Finalization is an enhancement, not a
+            // correctness requirement, so we allow the transform to continue
+            // even if this step cannot complete.
         }
 
         if (statements.length === 0 && !appliedChanges) {
@@ -290,7 +304,15 @@ export class PreprocessFunctionArgumentDefaultsTransform
         try {
             finalizeTrailingUndefinedDefaults(params);
         } catch {
-            // swallow
+            // Suppress finalization errors after applying in-body fallbacks.
+            // Once we've rewritten the function body to remove argument_count
+            // guards, we run finalizeTrailingUndefinedDefaults again to
+            // materialize any remaining placeholder parameters into explicit
+            // `= undefined` defaults. If this step fails (e.g., parameter node
+            // is frozen or lacks expected properties), we catch the error and
+            // continue. The function already has its body rewritten correctly;
+            // failing to finalize trailing defaults is acceptable rather than
+            // aborting the entire transform.
         }
 
         // Final pass: materialize any trailing DefaultParameter or Identifier
@@ -352,13 +374,18 @@ export class PreprocessFunctionArgumentDefaultsTransform
 
         // Post-finalization sweep: ensure materializations that originated from
         // an explicit left-side default are marked optional by default. This
-        // preserves the historical printing behaviour expected by plugin tests
-        // where trailing parameters following an explicit default are treated
-        // as optional (i.e. printed as `= undefined`) unless docs or parser
-        // annotations explicitly override that intent.
-        // Post-finalization: do not force `_featherOptionalParameter` here. Leave
-        // optionality decisions to the doc-driven reconciliation pass which runs
-        // immediately after finalization and has authoritative doc-comment data.
+        // Defer optionality decisions to the doc-driven reconciliation pass.
+        // After finalization writes back the mutated params array, we immediately
+        // run reconciliation again so any `_featherMaterializedFromExplicitLeft`
+        // or related flags set during finalization are respected when determining
+        // which parameters should be marked optional. Forcing `_featherOptionalParameter`
+        // here would conflict with authoritative doc-comment data that the
+        // reconciliation pass consults, leading to inconsistent optionality markers
+        // in the printed output. By leaving this decision to the reconciliation
+        // step, we preserve the historical printing behavior expected by plugin
+        // tests: trailing parameters following an explicit default are treated as
+        // optional (printed as `= undefined`) unless docs or parser annotations
+        // explicitly override that intent.
 
         // After finalization and writing back params, run reconciliation again
         // so any `_featherMaterializedFromExplicitLeft` or related flags that

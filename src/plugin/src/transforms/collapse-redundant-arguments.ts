@@ -48,8 +48,17 @@ function collapseRedundantMissingCallArguments(ast: MutableGameMakerAstNode) {
 
             if (!hasNonMissingArgument) {
                 const [firstMissingArgument] = args;
-                // Keep a single placeholder so the printer can still render the
-                // missing optional argument when required.
+                // Retain a single placeholder to preserve call-expression structure.
+                // When all arguments in a call are `MissingOptionalArgument` placeholders,
+                // we collapse them to a single representative placeholder rather than
+                // removing them entirely. GameMaker's runtime allows calling functions
+                // with fewer arguments than declared (missing arguments default to
+                // `undefined`), so keeping one placeholder signals "this call has optional
+                // arguments" to the printer, allowing it to render the correct parenthesis
+                // shape (e.g., `func()` vs. `func`). Removing all placeholders would make
+                // it ambiguous whether the author intended an empty argument list or a
+                // zero-argument invocation, and downstream transformations or printers
+                // might incorrectly elide the parentheses altogether.
                 node.arguments = firstMissingArgument ? [firstMissingArgument] : [];
             }
         }
