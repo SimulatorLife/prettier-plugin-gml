@@ -1,7 +1,6 @@
 function demo() {
     var total = 1;
     var total = total + 1;
-    var totalAlt++;
     var count;
     var count;
     if (scr_custom_condition()) {
