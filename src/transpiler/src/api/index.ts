@@ -3,4 +3,4 @@ export type {
     TranspileScriptRequest,
     TranspilerDependencies
 } from "./gml-transpiler.js";
-export { GmlTranspiler, createTranspiler } from "./gml-transpiler.js";
+export { GmlTranspiler } from "./gml-transpiler.js";

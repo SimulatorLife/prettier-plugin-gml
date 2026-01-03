@@ -120,7 +120,7 @@ interface RuntimeContext
     packageJson: Record<string, unknown> | null;
     server: RuntimeStaticServerHandle | null;
     noticeLogged: boolean;
-    transpiler: ReturnType<typeof Transpiler.createTranspiler>;
+    transpiler: InstanceType<typeof Transpiler.GmlTranspiler>;
     patches: Array<RuntimeTranspilerPatch>;
     metrics: Array<TranspilationMetrics>;
     errors: Array<TranspilationError>;
@@ -508,7 +508,7 @@ export async function runWatchCommand(
             ? runtimeServer !== false
             : Boolean(hydrateRuntime);
 
-    const transpiler = Transpiler.createTranspiler();
+    const transpiler = new Transpiler.GmlTranspiler();
     const runtimeContext: RuntimeContext = {
         root: null,
         packageName: null,
