@@ -139,10 +139,21 @@ function ensureBlankLineBeforeTopLevelLineComments(formatted: string): string {
 
         if (isPlainLineComment && result.length > 0) {
             const previousLine = result.at(-1);
+            const previousTrimmedStart =
+                typeof previousLine === "string"
+                    ? previousLine.trimStart()
+                    : undefined;
+            const isPreviousPlainLineComment =
+                typeof previousLine === "string" &&
+                previousTrimmedStart !== undefined &&
+                previousTrimmedStart.startsWith("//") &&
+                !previousTrimmedStart.startsWith("///") &&
+                previousTrimmedStart === previousLine;
             if (
                 typeof previousLine === "string" &&
                 previousLine.trim().length > 0 &&
-                previousLine.trim() !== "}"
+                previousLine.trim() !== "}" &&
+                !isPreviousPlainLineComment
             ) {
                 result.push("");
             } else if (
