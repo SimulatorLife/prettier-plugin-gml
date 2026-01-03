@@ -91,9 +91,3 @@ export class GmlTranspiler {
         return emitter.emit(ast);
     }
 }
-
-export function createTranspiler(
-    dependencies: TranspilerDependencies = {}
-): GmlTranspiler {
-    return new GmlTranspiler(dependencies);
-}

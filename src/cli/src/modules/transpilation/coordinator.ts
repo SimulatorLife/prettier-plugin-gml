@@ -15,7 +15,7 @@ import type { PatchBroadcaster } from "../websocket/server.js";
 
 const { getErrorMessage } = Core;
 
-type RuntimeTranspiler = ReturnType<typeof Transpiler.createTranspiler>;
+type RuntimeTranspiler = InstanceType<typeof Transpiler.GmlTranspiler>;
 export type RuntimeTranspilerPatch = ReturnType<
     RuntimeTranspiler["transpileScript"]
 >;
