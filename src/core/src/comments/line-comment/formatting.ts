@@ -567,8 +567,15 @@ function formatLineComment(comment, lineCommentOptions: any = DEFAULT_LINE_COMME
     // Default: format as a regular comment
     const fallbackLeadingWhitespace = typeof rawValue === "string" ? (rawValue.match(/^\s*/)?.[0] ?? "") : "";
     const normalizedFallbackWhitespace = fallbackLeadingWhitespace.replaceAll("\t", "    ");
-    const fallbackSpacing =
-        normalizedFallbackWhitespace.length > 0 ? normalizedFallbackWhitespace : trimmedValue.length > 0 ? " " : "";
+    const fallbackSpacing = isInlineComment
+        ? trimmedValue.length > 0
+            ? " "
+            : ""
+        : normalizedFallbackWhitespace.length > 0
+          ? normalizedFallbackWhitespace
+          : trimmedValue.length > 0
+            ? " "
+            : "";
     const fallbackContent = trimmedValue;
     const fallbackCommentLine = fallbackSpacing ? `//${fallbackSpacing}${fallbackContent}` : `//${fallbackContent}`;
 
