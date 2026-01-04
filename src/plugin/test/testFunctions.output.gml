@@ -33,10 +33,10 @@ function func_coords(x = 0, y = 0, z = 0) {
 
 var myCoords = func_coords(10, undefined, 20);
 
+/// @ignore
 /// @description Base class for all shapes. Shapes can be solid or not solid.
 ///              Solid shapes will collide with other solid shapes, and
 ///              non-solid shapes will not collide with anything.
-/// @ignore
 /// @param [color]
 function Shape(color = undefined) constructor {
     self.color = color;
@@ -46,7 +46,6 @@ function Shape(color = undefined) constructor {
         show_debug_message("I'm a shape");
     };
 
-        /// @return {void}
     /// @returns {undefined}
     static freeze = function() {
         // This will delete any geometry info contained within the mesh itself.
@@ -56,8 +55,7 @@ function Shape(color = undefined) constructor {
         ds_list_destroy(shapeList);
     };
 
-    /// @param solid
-    /// @argument <boolean> solid Whether the shape is solid or not
+    /// @param {bool} solid Whether the shape is solid or not
     /// @returns {undefined}
     static setSolid = function(solid) {
         if (solid) {
@@ -75,7 +73,7 @@ function Circle(r) : Shape() constructor {
 }
 
 var myCircle = new Circle(10);
-var circle2 = new Circle(myCircle.r);
+var circle2  = new Circle(myCircle.r);
 
 show_debug_message(myCircle.r);
 
