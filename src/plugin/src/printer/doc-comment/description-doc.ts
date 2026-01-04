@@ -62,7 +62,7 @@ function buildDescriptionDoc(lineText: string, continuations: string[]): Doc {
  * Convert doc comment lines into Prettier {@link Doc} nodes, ensuring that
  * `@description` blocks are wrapped using Prettier's built-in algorithms.
  */
-export function buildPrintableDocCommentLines(docCommentDocs: MutableDocCommentLines, _printWidth: number): Doc[] {
+export function buildPrintableDocCommentLines(docCommentDocs: MutableDocCommentLines): Doc[] {
     const result: Doc[] = [];
     let index = 0;
 
