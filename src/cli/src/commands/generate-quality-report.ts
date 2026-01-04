@@ -1235,7 +1235,7 @@ function describeRegressionCause(regressions, diff) {
 
     const buckets = new Map();
     for (const item of regressions) {
-        const fromKey = String(item?.from ?? ScanStatus.MISSING).toLowerCase();
+        const fromKey = String(item?.from ?? ScanStatus.MISSING);
         buckets.set(fromKey, (buckets.get(fromKey) || 0) + 1);
     }
 
