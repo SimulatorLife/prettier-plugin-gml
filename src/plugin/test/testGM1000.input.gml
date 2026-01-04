@@ -1,3 +1,3 @@
 break;
 
-var value = 42;
+value = 42;
