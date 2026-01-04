@@ -3,7 +3,14 @@
  * Handles conflict detection, circular rename detection, and batch rename validation.
  */
 
-import type { ConflictEntry, KeywordProvider, RenameRequest, SymbolOccurrence, SymbolResolver } from "./types.js";
+import {
+    ConflictType,
+    type ConflictEntry,
+    type KeywordProvider,
+    type RenameRequest,
+    type SymbolOccurrence,
+    type SymbolResolver
+} from "./types.js";
 import { assertValidIdentifierName, DEFAULT_RESERVED_KEYWORDS } from "./validation-utils.js";
 
 /**
@@ -32,7 +39,7 @@ export async function detectRenameConflicts(
     } catch (error) {
         const errorMessage = error instanceof Error ? error.message : String(error);
         conflicts.push({
-            type: "invalid_identifier",
+            type: ConflictType.INVALID_IDENTIFIER,
             message: errorMessage
         });
         return conflicts;
@@ -50,7 +57,7 @@ export async function detectRenameConflicts(
             const existing = await resolver.lookup(normalizedNewName, occurrence.scopeId);
             if (existing && existing.name !== oldName) {
                 conflicts.push({
-                    type: "shadow",
+                    type: ConflictType.SHADOW,
                     message: `Renaming '${oldName}' to '${normalizedNewName}' would shadow existing symbol in scope`,
                     path: occurrence.path
                 });
@@ -71,7 +78,7 @@ export async function detectRenameConflicts(
 
     if (reservedKeywords.has(normalizedNewName.toLowerCase())) {
         conflicts.push({
-            type: "reserved",
+            type: ConflictType.RESERVED,
             message: `'${normalizedNewName}' is a reserved keyword and cannot be used as an identifier`
         });
     }
