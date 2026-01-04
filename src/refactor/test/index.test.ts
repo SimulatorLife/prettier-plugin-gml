@@ -33,12 +33,12 @@ void test("createRefactorEngine accepts dependencies", () => {
 });
 
 void test("WorkspaceEdit starts empty", () => {
-    const ws = WorkspaceEditFactory();
+    const ws = new WorkspaceEditFactory();
     assert.equal(ws.edits.length, 0);
 });
 
 void test("WorkspaceEdit can add edits", () => {
-    const ws = WorkspaceEditFactory();
+    const ws = new WorkspaceEditFactory();
     ws.addEdit("file.gml", 0, 10, "newText");
     assert.equal(ws.edits.length, 1);
     assert.equal(ws.edits[0].path, "file.gml");
@@ -48,7 +48,7 @@ void test("WorkspaceEdit can add edits", () => {
 });
 
 void test("WorkspaceEdit groups edits by file", () => {
-    const ws = WorkspaceEditFactory();
+    const ws = new WorkspaceEditFactory();
     ws.addEdit("file1.gml", 0, 10, "text1");
     ws.addEdit("file2.gml", 20, 30, "text2");
     ws.addEdit("file1.gml", 40, 50, "text3");
@@ -60,7 +60,7 @@ void test("WorkspaceEdit groups edits by file", () => {
 });
 
 void test("WorkspaceEdit sorts edits descending by start position", () => {
-    const ws = WorkspaceEditFactory();
+    const ws = new WorkspaceEditFactory();
     ws.addEdit("file.gml", 10, 20, "a");
     ws.addEdit("file.gml", 50, 60, "b");
     ws.addEdit("file.gml", 30, 40, "c");
@@ -270,7 +270,7 @@ void test("validateRename detects invalid workspace", async () => {
 
 void test("validateRename detects empty workspace", async () => {
     const engine = new RefactorEngineClass();
-    const ws = WorkspaceEditFactory();
+    const ws = new WorkspaceEditFactory();
     const result = await engine.validateRename(ws);
     assert.equal(result.valid, false);
     assert.ok(result.errors.some((e) => e.includes("no changes")));
@@ -278,7 +278,7 @@ void test("validateRename detects empty workspace", async () => {
 
 void test("validateRename detects overlapping edits", async () => {
     const engine = new RefactorEngineClass();
-    const ws = WorkspaceEditFactory();
+    const ws = new WorkspaceEditFactory();
     ws.addEdit("test.gml", 0, 10, "a");
     ws.addEdit("test.gml", 5, 15, "b"); // Overlaps with previous
     const result = await engine.validateRename(ws);
@@ -288,7 +288,7 @@ void test("validateRename detects overlapping edits", async () => {
 
 void test("validateRename warns about large refactorings", async () => {
     const engine = new RefactorEngineClass();
-    const ws = WorkspaceEditFactory();
+    const ws = new WorkspaceEditFactory();
     // Add many edits
     for (let i = 0; i < 60; i++) {
         ws.addEdit("test.gml", i * 100, i * 100 + 10, "x");
@@ -299,7 +299,7 @@ void test("validateRename warns about large refactorings", async () => {
 
 void test("validateRename passes with valid non-overlapping edits", async () => {
     const engine = new RefactorEngineClass();
-    const ws = WorkspaceEditFactory();
+    const ws = new WorkspaceEditFactory();
     ws.addEdit("test.gml", 0, 10, "a");
     ws.addEdit("test.gml", 20, 30, "b");
     ws.addEdit("test.gml", 40, 50, "c");
@@ -329,7 +329,7 @@ void test("gatherSymbolOccurrences uses semantic analyzer when available", async
 
 void test("prepareHotReloadUpdates returns empty for empty workspace", async () => {
     const engine = new RefactorEngineClass();
-    const ws = WorkspaceEditFactory();
+    const ws = new WorkspaceEditFactory();
     const updates = await engine.prepareHotReloadUpdates(ws);
     assert.ok(Array.isArray(updates));
     assert.equal(updates.length, 0);
@@ -337,7 +337,7 @@ void test("prepareHotReloadUpdates returns empty for empty workspace", async () 
 
 void test("prepareHotReloadUpdates creates updates for edited files", async () => {
     const engine = new RefactorEngineClass();
-    const ws = WorkspaceEditFactory();
+    const ws = new WorkspaceEditFactory();
     ws.addEdit("test.gml", 0, 10, "newcode");
     const updates = await engine.prepareHotReloadUpdates(ws);
     assert.ok(updates.length > 0);
@@ -350,7 +350,7 @@ void test("prepareHotReloadUpdates uses semantic file symbols when available", a
         getFileSymbols: () => [{ id: "gml/script/scr_test" }]
     };
     const engine = new RefactorEngineClass({ semantic: mockSemantic });
-    const ws = WorkspaceEditFactory();
+    const ws = new WorkspaceEditFactory();
     ws.addEdit("test.gml", 0, 10, "newcode");
     const updates = await engine.prepareHotReloadUpdates(ws);
     assert.ok(updates.length > 0);
@@ -382,7 +382,7 @@ void test("prepareHotReloadUpdates includes transitive dependents from cascade",
         }
     };
     const engine = new RefactorEngineClass({ semantic: mockSemantic });
-    const ws = WorkspaceEditFactory();
+    const ws = new WorkspaceEditFactory();
     ws.addEdit("scripts/root.gml", 0, 10, "updated");
 
     const updates = await engine.prepareHotReloadUpdates(ws);
@@ -434,7 +434,7 @@ void test("applyWorkspaceEdit requires a WorkspaceEdit", async () => {
 
 void test("applyWorkspaceEdit requires readFile function", async () => {
     const engine = new RefactorEngineClass();
-    const ws = WorkspaceEditFactory();
+    const ws = new WorkspaceEditFactory();
     type ApplyWorkspaceEditParams = Parameters<RefactorEngine["applyWorkspaceEdit"]>[1];
     const invalidOptions = {} as ApplyWorkspaceEditParams;
     await assert.rejects(() => engine.applyWorkspaceEdit(ws, invalidOptions), {
@@ -445,7 +445,7 @@ void test("applyWorkspaceEdit requires readFile function", async () => {
 
 void test("applyWorkspaceEdit requires writeFile when not in dry-run", async () => {
     const engine = new RefactorEngineClass();
-    const ws = WorkspaceEditFactory();
+    const ws = new WorkspaceEditFactory();
     ws.addEdit("test.gml", 0, 5, "new");
     await assert.rejects(
         () =>
@@ -462,7 +462,7 @@ void test("applyWorkspaceEdit requires writeFile when not in dry-run", async () 
 
 void test("applyWorkspaceEdit applies edits correctly", async () => {
     const engine = new RefactorEngineClass();
-    const ws = WorkspaceEditFactory();
+    const ws = new WorkspaceEditFactory();
     ws.addEdit("test.gml", 0, 3, "new");
     ws.addEdit("test.gml", 9, 13, "world");
 
@@ -481,7 +481,7 @@ void test("applyWorkspaceEdit applies edits correctly", async () => {
 
 void test("applyWorkspaceEdit handles multiple files", async () => {
     const engine = new RefactorEngineClass();
-    const ws = WorkspaceEditFactory();
+    const ws = new WorkspaceEditFactory();
     ws.addEdit("file1.gml", 0, 3, "abc");
     ws.addEdit("file2.gml", 0, 3, "xyz");
 
@@ -503,7 +503,7 @@ void test("applyWorkspaceEdit handles multiple files", async () => {
 
 void test("applyWorkspaceEdit rejects invalid edits", async () => {
     const engine = new RefactorEngineClass();
-    const ws = WorkspaceEditFactory();
+    const ws = new WorkspaceEditFactory();
     ws.addEdit("test.gml", 0, 10, "new");
     ws.addEdit("test.gml", 5, 15, "conflict"); // Overlapping edit
 
@@ -1330,7 +1330,7 @@ void test("validateHotReloadCompatibility requires a WorkspaceEdit", async () =>
 
 void test("validateHotReloadCompatibility warns for empty workspace", async () => {
     const engine = new RefactorEngineClass();
-    const ws = WorkspaceEditFactory();
+    const ws = new WorkspaceEditFactory();
     const result = await engine.validateHotReloadCompatibility(ws);
     assert.equal(result.valid, true);
     assert.ok(result.warnings.some((w) => w.includes("no changes")));
@@ -1338,7 +1338,7 @@ void test("validateHotReloadCompatibility warns for empty workspace", async () =
 
 void test("validateHotReloadCompatibility warns about non-GML files", async () => {
     const engine = new RefactorEngineClass();
-    const ws = WorkspaceEditFactory();
+    const ws = new WorkspaceEditFactory();
     ws.addEdit("test.txt", 0, 5, "new");
     const result = await engine.validateHotReloadCompatibility(ws);
     assert.ok(result.warnings.some((w) => w.includes("not a GML script")));
@@ -1346,7 +1346,7 @@ void test("validateHotReloadCompatibility warns about non-GML files", async () =
 
 void test("validateHotReloadCompatibility detects globalvar changes", async () => {
     const engine = new RefactorEngineClass();
-    const ws = WorkspaceEditFactory();
+    const ws = new WorkspaceEditFactory();
     ws.addEdit("test.gml", 0, 5, "globalvar myvar;");
     const result = await engine.validateHotReloadCompatibility(ws);
     assert.ok(result.warnings.some((w) => w.includes("globalvar")));
@@ -1354,7 +1354,7 @@ void test("validateHotReloadCompatibility detects globalvar changes", async () =
 
 void test("validateHotReloadCompatibility detects macro changes", async () => {
     const engine = new RefactorEngineClass();
-    const ws = WorkspaceEditFactory();
+    const ws = new WorkspaceEditFactory();
     ws.addEdit("test.gml", 0, 5, "#macro MAX_HP 100");
     const result = await engine.validateHotReloadCompatibility(ws);
     assert.ok(result.warnings.some((w) => w.includes("#macro")));
@@ -1362,7 +1362,7 @@ void test("validateHotReloadCompatibility detects macro changes", async () => {
 
 void test("validateHotReloadCompatibility detects enum changes", async () => {
     const engine = new RefactorEngineClass();
-    const ws = WorkspaceEditFactory();
+    const ws = new WorkspaceEditFactory();
     ws.addEdit("test.gml", 0, 5, "enum State { Idle, Running }");
     const result = await engine.validateHotReloadCompatibility(ws);
     assert.ok(result.warnings.some((w) => w.includes("enum")));
@@ -1370,7 +1370,7 @@ void test("validateHotReloadCompatibility detects enum changes", async () => {
 
 void test("validateHotReloadCompatibility warns about large edits", async () => {
     const engine = new RefactorEngineClass();
-    const ws = WorkspaceEditFactory();
+    const ws = new WorkspaceEditFactory();
     const largeText = "x".repeat(6000);
     ws.addEdit("test.gml", 0, 5, largeText);
     const result = await engine.validateHotReloadCompatibility(ws);
@@ -1382,7 +1382,7 @@ void test("validateHotReloadCompatibility handles transpiler check option", asyn
         transpileScript: async () => ({ kind: "script", js_body: "ok" })
     };
     const engine = new RefactorEngineClass({ formatter: mockTranspiler });
-    const ws = WorkspaceEditFactory();
+    const ws = new WorkspaceEditFactory();
     ws.addEdit("test.gml", 0, 5, "new code");
 
     const result = await engine.validateHotReloadCompatibility(ws, {
@@ -1394,7 +1394,7 @@ void test("validateHotReloadCompatibility handles transpiler check option", asyn
 
 void test("validateHotReloadCompatibility passes for simple renames", async () => {
     const engine = new RefactorEngineClass();
-    const ws = WorkspaceEditFactory();
+    const ws = new WorkspaceEditFactory();
     ws.addEdit("test.gml", 0, 5, "newName");
     ws.addEdit("test.gml", 50, 55, "newName");
 
@@ -2008,7 +2008,7 @@ void test("verifyPostEditIntegrity validates input parameters", async () => {
         symbolId: "",
         oldName: "old",
         newName: "new",
-        workspace: WorkspaceEditFactory(),
+        workspace: new WorkspaceEditFactory(),
         readFile: async () => ""
     });
     assert.equal(result0.valid, false);
@@ -2019,7 +2019,7 @@ void test("verifyPostEditIntegrity validates input parameters", async () => {
         symbolId: "gml/script/test",
         oldName: "",
         newName: "new",
-        workspace: WorkspaceEditFactory(),
+        workspace: new WorkspaceEditFactory(),
         readFile: async () => ""
     });
     assert.equal(result1.valid, false);
@@ -2030,7 +2030,7 @@ void test("verifyPostEditIntegrity validates input parameters", async () => {
         symbolId: "gml/script/test",
         oldName: "old",
         newName: "",
-        workspace: WorkspaceEditFactory(),
+        workspace: new WorkspaceEditFactory(),
         readFile: async () => ""
     });
     assert.equal(result2.valid, false);
@@ -2052,7 +2052,7 @@ void test("verifyPostEditIntegrity validates input parameters", async () => {
         symbolId: "gml/script/test",
         oldName: "old",
         newName: "new",
-        workspace: WorkspaceEditFactory(),
+        workspace: new WorkspaceEditFactory(),
         readFile: null as unknown as WorkspaceReadFile
     });
     assert.equal(result4.valid, false);
@@ -2061,7 +2061,7 @@ void test("verifyPostEditIntegrity validates input parameters", async () => {
 
 void test("verifyPostEditIntegrity works without semantic analyzer", async () => {
     const engine = new RefactorEngineClass();
-    const ws = WorkspaceEditFactory();
+    const ws = new WorkspaceEditFactory();
     ws.addEdit("test.gml", 0, 3, "new");
 
     const result = await engine.verifyPostEditIntegrity({
@@ -2078,7 +2078,7 @@ void test("verifyPostEditIntegrity works without semantic analyzer", async () =>
 
 void test("verifyPostEditIntegrity detects lingering old names", async () => {
     const engine = new RefactorEngineClass();
-    const ws = WorkspaceEditFactory();
+    const ws = new WorkspaceEditFactory();
     ws.addEdit("test.gml", 0, 3, "new");
 
     const result = await engine.verifyPostEditIntegrity({
@@ -2095,7 +2095,7 @@ void test("verifyPostEditIntegrity detects lingering old names", async () => {
 
 void test("verifyPostEditIntegrity detects old names in comments", async () => {
     const engine = new RefactorEngineClass();
-    const ws = WorkspaceEditFactory();
+    const ws = new WorkspaceEditFactory();
     ws.addEdit("test.gml", 0, 3, "new");
 
     const result = await engine.verifyPostEditIntegrity({
@@ -2113,7 +2113,7 @@ void test("verifyPostEditIntegrity detects old names in comments", async () => {
 
 void test("verifyPostEditIntegrity warns if new name not found", async () => {
     const engine = new RefactorEngineClass();
-    const ws = WorkspaceEditFactory();
+    const ws = new WorkspaceEditFactory();
     ws.addEdit("test.gml", 0, 3, "new");
 
     const result = await engine.verifyPostEditIntegrity({
@@ -2144,7 +2144,7 @@ void test("verifyPostEditIntegrity detects conflicts with existing symbols", asy
         }
     };
     const engine = new RefactorEngineClass({ semantic: mockSemantic });
-    const ws = WorkspaceEditFactory();
+    const ws = new WorkspaceEditFactory();
     ws.addEdit("test.gml", 0, 3, "new");
 
     const result = await engine.verifyPostEditIntegrity({
@@ -2163,7 +2163,7 @@ void test("verifyPostEditIntegrity detects reserved keyword conflicts", async ()
         getReservedKeywords: async () => ["if", "else", "for", "while"]
     };
     const engine = new RefactorEngineClass({ semantic: mockSemantic });
-    const ws = WorkspaceEditFactory();
+    const ws = new WorkspaceEditFactory();
     ws.addEdit("test.gml", 0, 3, "if");
 
     const result = await engine.verifyPostEditIntegrity({
@@ -2188,7 +2188,7 @@ void test("verifyPostEditIntegrity validates parse correctness", async () => {
         }
     };
     const engine = new RefactorEngineClass({ parser: mockParser });
-    const ws = WorkspaceEditFactory();
+    const ws = new WorkspaceEditFactory();
     ws.addEdit("broken.gml", 0, 3, "new");
 
     const result = await engine.verifyPostEditIntegrity({
@@ -2205,7 +2205,7 @@ void test("verifyPostEditIntegrity validates parse correctness", async () => {
 
 void test("verifyPostEditIntegrity handles file read errors", async () => {
     const engine = new RefactorEngineClass();
-    const ws = WorkspaceEditFactory();
+    const ws = new WorkspaceEditFactory();
     ws.addEdit("test.gml", 0, 3, "new");
 
     const result = await engine.verifyPostEditIntegrity({
@@ -2234,7 +2234,7 @@ void test("verifyPostEditIntegrity succeeds for valid rename", async () => {
         semantic: mockSemantic,
         parser: mockParser
     });
-    const ws = WorkspaceEditFactory();
+    const ws = new WorkspaceEditFactory();
     ws.addEdit("test.gml", 0, 7, "newFunc");
 
     const result = await engine.verifyPostEditIntegrity({
