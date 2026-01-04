@@ -1228,6 +1228,10 @@ function looksLikeCommandName(target: string): boolean {
         "help"
     ]);
 
+    // Thresholds for similarity detection
+    const MAX_LENGTH_DIFFERENCE = 2;
+    const MAX_CHARACTER_DIFFERENCES = 2;
+
     // Not a command if it contains path separators
     if (target.includes("/") || target.includes("\\")) {
         return false;
@@ -1246,23 +1250,30 @@ function looksLikeCommandName(target: string): boolean {
     // Starts with a letter and contains only alphanumeric, hyphens, or underscores
     // (typical command pattern)
     if (/^[a-z][a-z0-9_-]*$/i.test(target)) {
-        // Check for common typos or similar command names
+        // Check for common typos or similar command names using simple similarity heuristic
         const lowerTarget = target.toLowerCase();
         for (const command of KNOWN_COMMANDS) {
-            // Simple similarity check: if the strings are very similar in length and content
-            if (Math.abs(command.length - lowerTarget.length) <= 2) {
-                // Likely a typo if only a few characters differ
-                let differences = 0;
-                const minLength = Math.min(command.length, lowerTarget.length);
-                for (let i = 0; i < minLength; i++) {
-                    if (command[i] !== lowerTarget[i]) {
-                        differences++;
+            // Quick length check first (early termination optimization)
+            if (Math.abs(command.length - lowerTarget.length) > MAX_LENGTH_DIFFERENCE) {
+                continue;
+            }
+
+            // Count character differences at matching positions
+            let differences = 0;
+            const minLength = Math.min(command.length, lowerTarget.length);
+            for (let i = 0; i < minLength; i++) {
+                if (command[i] !== lowerTarget[i]) {
+                    differences++;
+                    // Early termination if too many differences
+                    if (differences > MAX_CHARACTER_DIFFERENCES) {
+                        break;
                     }
                 }
-                // If 2 or fewer character differences, it's likely a typo
-                if (differences <= 2 && differences < command.length / 2) {
-                    return true;
-                }
+            }
+
+            // If 2 or fewer character differences and not more than half the string differs
+            if (differences <= MAX_CHARACTER_DIFFERENCES && differences < command.length / 2) {
+                return true;
             }
         }
     }
