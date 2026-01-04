@@ -26,7 +26,7 @@ function processLeadingCommentLines(
     docLikeLeadingLines: string[];
     plainLeadingLines: string[];
 } | null {
-    const hasFunctionDoc = Array.isArray(functionNode.docComments) && functionNode.docComments.length > 0;
+    const hasFunctionDoc = isNonEmptyArray(functionNode.docComments);
 
     const { existingDocLines, remainingComments } = collectSyntheticDocCommentLines(
         targetNode,
