@@ -57,7 +57,7 @@ Almost done!
 
 #region Enemy damage
 
-var enemy = argument0; var damage = argument1
+var enemy = player.target; var damage = player.damage;
 with((enemy))
 {
 
@@ -99,7 +99,7 @@ if is_debug_mode//this is an inline comment
 show_debug_message("Test console message");
 }
 
-while true
+while scr_custom_condition()
 {show_debug_message("Print statement within while loop");
     
 }

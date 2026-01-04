@@ -338,15 +338,39 @@ function _printImpl(path, options, print) {
 }
 
 function _printImplCore(node, path, options, print) {
-    const doc =
-        tryPrintControlStructureNode(node, path, options, print) ??
-        tryPrintFunctionNode(node, path, options, print) ??
-        tryPrintFunctionSupportNode(node, path, options, print) ??
-        tryPrintVariableNode(node, path, options, print) ??
-        tryPrintExpressionNode(node, path, options, print) ??
-        tryPrintDeclarationNode(node, path, options, print) ??
-        tryPrintLiteralNode(node, path, options, print);
+    let doc;
 
+    doc = tryPrintControlStructureNode(node, path, options, print);
+    if (doc !== undefined) {
+        return doc;
+    }
+
+    doc = tryPrintFunctionNode(node, path, options, print);
+    if (doc !== undefined) {
+        return doc;
+    }
+
+    doc = tryPrintFunctionSupportNode(node, path, options, print);
+    if (doc !== undefined) {
+        return doc;
+    }
+
+    doc = tryPrintVariableNode(node, path, options, print);
+    if (doc !== undefined) {
+        return doc;
+    }
+
+    doc = tryPrintExpressionNode(node, path, options, print);
+    if (doc !== undefined) {
+        return doc;
+    }
+
+    doc = tryPrintDeclarationNode(node, path, options, print);
+    if (doc !== undefined) {
+        return doc;
+    }
+
+    doc = tryPrintLiteralNode(node, path, options, print);
     if (doc !== undefined) {
         return doc;
     }
@@ -1313,6 +1337,13 @@ function tryPrintDeclarationNode(node, path, options, print) {
                 const trimmedSuffix = suffixDoc.trimStart();
                 const needsSeparator = trimmedSuffix.length > 0;
 
+                if (needsSeparator && directive === "#macro") {
+                    const match = trimmedSuffix.match(/^(\S+)\s+(.*)$/);
+                    if (match) {
+                        return concat([directive, " ", match[1], " ", match[2]]);
+                    }
+                }
+
                 return needsSeparator ? concat([directive, " ", trimmedSuffix]) : concat(directive);
             }
 
@@ -1561,11 +1592,7 @@ function printBlockStatementNode(node, path, options, print) {
     const firstStatement = node.body[0];
     const constructorStartLine = node?.loc?.start?.line ?? node?.start?.line ?? null;
     const firstStatementStartLine = firstStatement?.loc?.start?.line ?? firstStatement?.start?.line ?? null;
-    const constructorHasLineGap = isBlockWithinConstructor(path)
-        ? typeof constructorStartLine === NUMBER_TYPE &&
-          typeof firstStatementStartLine === NUMBER_TYPE &&
-          firstStatementStartLine - constructorStartLine > 1
-        : false;
+    const constructorHasLineGap = false;
     let shouldPreserveInitialBlankLine = constructorHasLineGap;
 
     if (firstStatement) {
@@ -1574,11 +1601,7 @@ function printBlockStatementNode(node, path, options, print) {
             sourceMetadata
         );
 
-        const preserveForConstructorText =
-            originalText !== null &&
-            typeof firstStatementStartIndex === NUMBER_TYPE &&
-            isBlockWithinConstructor(path) &&
-            isPreviousLineEmpty(originalText, firstStatementStartIndex);
+        const preserveForConstructorText = false;
 
         const preserveForLeadingComment = hasBlankLineBeforeLeadingComment(
             node,
@@ -1592,7 +1615,7 @@ function printBlockStatementNode(node, path, options, print) {
     }
 
     if (shouldPreserveInitialBlankLine) {
-        leadingDocs = [hardline, hardline, hardline];
+        leadingDocs = [hardline, hardline];
     }
 
     const stmts = printStatements(path, options, print, "body");
