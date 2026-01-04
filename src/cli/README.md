@@ -451,6 +451,56 @@ This command is particularly useful when:
 - You need to debug why a script isn't updating in the game
 - You're monitoring performance during development
 
+### `refactor` - Safe Code Transformations
+
+Performs safe, project-wide code transformations such as renaming symbols while preserving scope and semantics.
+
+```bash
+# Rename a script by symbol ID
+node src/cli/src/cli.js refactor --symbol-id gml/script/scr_old_name --new-name scr_new_name
+
+# Rename by current name
+node src/cli/src/cli.js refactor --old-name player_hp --new-name playerHealth
+
+# Dry run to preview changes
+node src/cli/src/cli.js refactor --old-name player_hp --new-name playerHealth --dry-run
+
+# Validate hot reload compatibility
+node src/cli/src/cli.js refactor --old-name player_hp --new-name playerHealth --check-hot-reload
+
+# Verbose output with diagnostics
+node src/cli/src/cli.js refactor --old-name player_hp --new-name playerHealth --verbose
+```
+
+**Options:**
+- `--symbol-id <id>` - SCIP-style symbol identifier to rename (e.g., gml/script/scr_player)
+- `--old-name <name>` - Current name of the symbol to rename
+- `--new-name <name>` - New name for the symbol (required)
+- `--project-root <path>` - Root directory of the GameMaker project (default: current directory)
+- `--dry-run` - Show what would be changed without modifying files
+- `--verbose` - Enable verbose output with detailed diagnostics
+- `--check-hot-reload` - Validate that the refactored code is compatible with hot reload
+
+**Note:** Currently a placeholder for planned integration with the refactor engine (`@gml-modules/refactor`). The full implementation will:
+- Use semantic analysis to build the project's scope graph
+- Detect scope conflicts and shadowing issues
+- Plan safe edits across all affected files
+- Optionally validate hot reload compatibility
+- Apply transformations or show dry-run previews
+
+**Use Cases:**
+- **Safe Renaming**: Rename variables, scripts, or other symbols project-wide without breaking scope
+- **Refactoring Preparation**: Preview changes before applying them with `--dry-run`
+- **Hot Reload Validation**: Ensure refactored code remains compatible with live updates using `--check-hot-reload`
+- **Development Workflow Integration**: Coordinate with watch mode for real-time refactoring feedback
+
+**Future Enhancements:**
+- Full refactor engine integration with semantic analysis
+- Support for batch renames across multiple symbols
+- Automatic formatting of modified files
+- Integration with watch command for live refactor triggers
+- Refactor history and undo capabilities
+
 ### `generate-gml-identifiers` - Generate Identifier Metadata
 
 Generates GML identifier metadata from the GameMaker manual repository.
@@ -537,6 +587,7 @@ The CLI package is organized into focused, single-responsibility modules:
 
 **Commands** (`src/commands/`)
 - `watch.ts` - File system monitoring and hot-reload orchestration
+- `refactor.ts` - Safe, project-wide code transformations
 - `format.ts` - GML code formatting
 - `generate-gml-identifiers.ts` - Identifier metadata generation
 - `generate-feather-metadata.ts` - Feather metadata generation
