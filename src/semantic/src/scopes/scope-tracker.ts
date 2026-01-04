@@ -293,7 +293,7 @@ export class ScopeTracker {
             return currentScope;
         }
 
-        if (Core.isObjectLike(scopeOverride) && typeof scopeOverride.id === "string") {
+        if (Core.getOptionalString(scopeOverride, "id") !== null) {
             return scopeOverride;
         }
 

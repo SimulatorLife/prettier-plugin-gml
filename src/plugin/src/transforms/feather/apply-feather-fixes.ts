@@ -159,7 +159,7 @@ export function getRoomNavigationHelpers(direction: unknown) {
 }
 
 function isFeatherDiagnostic(value: unknown): value is { id: string } {
-    return Core.isObjectLike(value) && typeof (value as any).id === "string";
+    return Core.getOptionalString(value, "id") !== null;
 }
 let RESERVED_IDENTIFIER_NAMES: Set<string> | null = null;
 function getReservedIdentifierNames() {
