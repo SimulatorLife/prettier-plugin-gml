@@ -33,10 +33,10 @@ function func_coords(x = 0, y = 0, z = 0) {
 
 var myCoords = func_coords(10, undefined, 20);
 
+/// @description Base class for all shapes. Shapes can be solid or not solid.
+///              Solid shapes will collide with other solid shapes, and
+///              non-solid shapes will not collide with anything.
 /// @ignore
-/// @description Base class for all shapes. Shapes can be solid or not solid. Solid shapes
-///              will collide with other solid shapes, and non-solid shapes will not collide
-///              with anything.
 /// @param [color]
 function Shape(color = undefined) constructor {
     self.color = color;
@@ -46,6 +46,7 @@ function Shape(color = undefined) constructor {
         show_debug_message("I'm a shape");
     };
 
+        /// @return {void}
     /// @returns {undefined}
     static freeze = function() {
         // This will delete any geometry info contained within the mesh itself.
@@ -55,7 +56,8 @@ function Shape(color = undefined) constructor {
         ds_list_destroy(shapeList);
     };
 
-    /// @param {bool} solid Whether the shape is solid or not
+    /// @param solid
+    /// @argument <boolean> solid Whether the shape is solid or not
     /// @returns {undefined}
     static setSolid = function(solid) {
         if (solid) {
@@ -64,6 +66,7 @@ function Shape(color = undefined) constructor {
             group &= ~cmGroupSolid; // Remove solid flag
         }
     };
+
 }
 
 /// @param {real} r The radius of the circle
@@ -72,7 +75,7 @@ function Circle(r) : Shape() constructor {
 }
 
 var myCircle = new Circle(10);
-var circle2  = new Circle(myCircle.r);
+var circle2 = new Circle(myCircle.r);
 
 show_debug_message(myCircle.r);
 
@@ -96,6 +99,7 @@ function Line() : Shape() constructor {
         self.x2 = x2
         self.y2 = y2
     }
+
 }
 
 /// @param settings
@@ -113,18 +117,26 @@ function choose_profile(settings, fallback) {
 var best = choose_profile(undefined, {profile: "dev"});
 
 // Feather disable all
-// .__Destroy()
-// .__FromBuffer(buffer)
-// .__CopyFromBuffer(buffer)
-// .__FromString(string, ...)
-// .__Delete(position, count)
-// .__Insert(position, string, ...)
-// .__Overwrite(position, string, ...)
-// .__Prefix(string, ...)
-// .__Suffix(string, ...)
-// .__GetString()
-// .__GetBuffer()
-
+//
+//
+//
+//
+//
+//
+//
+//
+//
+/// @description .__Destroy()
+///              .__FromBuffer(buffer)
+///              .__CopyFromBuffer(buffer)
+///              .__FromString(string, ...)
+///              .__Delete(position, count)
+///              .__Insert(position, string, ...)
+///              .__Overwrite(position, string, )
+///              .__Prefix(string, )
+///              .__Suffix(string, )
+///              .__GetString()
+///              .__GetBuffer()
 function __ChatterboxBufferBatch() constructor {
     __destroyed  = false;
     __inBuffer   = undefined;
@@ -132,11 +144,8 @@ function __ChatterboxBufferBatch() constructor {
     __outBuffer  = undefined;
     __commands   = [];
 
-    /// @returns {undefined}
     static __Destroy = function() {
-        if (__destroyed) {
-            return;
-        }
+        if (__destroyed) { return; }
         __destroyed = true;
 
         if (!is_undefined(__inBuffer)) {
@@ -148,6 +157,7 @@ function __ChatterboxBufferBatch() constructor {
             __destroyed = true;
         }
     };
+
 }
 
 /// @param [name="friend"]
@@ -165,7 +175,7 @@ var message5 = greet(undefined, "Welcome");
 /// @param {real} [multiplier] The multiplier to apply to the light direction
 /// @param {array<real>} [light_dir=[0, 0, -1]] The direction of the light
 function handle_lighting(multiplier = undefined, light_dir = [0, 0, -1]) {
-    var dir    = light_dir;
+    var dir = light_dir;
     var length = sqrt(dir[0] * dir[0] + dir[1] * dir[1] + dir[2] * dir[2]);
     if (!is_undefined(multiplier)) {
         length *= multiplier;
@@ -182,50 +192,50 @@ function handle_lighting(multiplier = undefined, light_dir = [0, 0, -1]) {
 /// @param {Id.Instance} b
 /// @param {real} dst
 /// @param {real} force
-/// @param {bool} [push_out=true]
-/// @param {bool} [pull_in=true]
-function scr_spring(a, b, dst, force, push_out = true, pull_in = true) {
+/// @param {bool} push_out
+/// @param {bool} pull_in
+function scr_spring(a, b, dst, force, push_out, pull_in) {
 
     if (!instance_exists(a) or !instance_exists(b)) {
         return false;
     }
 
-    var xoff        = a.x - b.x;
-    var yoff        = a.y - b.y;
-    var actual_dist = xoff * xoff + yoff * yoff;
+    var push_out = (argument_count > 4 ? argument[4] : true);
+    var pull_in = (argument_count > 5 ? argument[5] : true);
 
+    var xoff = a.x - b.x;
+    var yoff = a.y - b.y;
+
+    var actual_dist = xoff * xoff + yoff * yoff;
     if (actual_dist == 0) {
         return false;
     }
-
     if ((actual_dist < dst * dst and push_out) or (actual_dist > dst * dst and pull_in)) {
         actual_dist = sqrt(actual_dist);
-        var diff    = actual_dist - dst;
-        
+        var diff = actual_dist - dst;
+
         // normalize and multiply with diff and amount
         var norm = (force * diff) / actual_dist;
         xoff *= norm;
         yoff *= norm;
-    
+
         // calculate mass
         var m1, r1, r2;
         m1 = 1 / (b.mass + a.mass);
-        r1 = b.mass * m1 / 2;
-        r2 = a.mass * m1 / 2;
-    
+        r1 = (b.mass * m1) / 2;
+        r2 = (a.mass * m1) / 2;
+
         // add speeds
         a.velocity.x -= xoff * r1;
         a.velocity.y -= yoff * r1;
         b.velocity.x += xoff * r2;
         b.velocity.y += yoff * r2;
-    
+
         return true;
     }
 
     return false;
 }
-
-// Synthetic docs should be added to non-local methods
 
 get_debug_text = function() {
     var txt = "";
@@ -233,7 +243,7 @@ get_debug_text = function() {
     txt += $"\nPosition: {new Vector3(x, y, z).to_string(true)}";
     txt += $"\nLand type: {global.island.get_land_string(land_type)}";
     txt += $"\nDirection: {round(direction)}";
-    
+
     if (!is_undefined(weapon)) {
         txt += weapon.get_debug_text();
     }
@@ -245,20 +255,15 @@ get_debug_text = function() {
     return txt;
 };
 
-/// @description Write a unit triangular prism into an existing vbuff. Local space:
-///              X∈[-0.5,+0.5], Y∈[-0.5,+0.5], base plane at Z=0, apex line at (Y=0,Z=1).
+/// @description Write a unit triangular prism into an existing vbuff.
+///              Local space: X∈[-0.5,+0.5], Y∈[-0.5,+0.5], base plane at Z=0, apex line at (Y=0,Z=1).
 /// @param vbuff
 /// @param [colour=c_white]
 /// @param [alpha=1]
 /// @param [trans_mat]
 /// @returns {undefined}
-function vertex_buffer_write_triangular_prism(
-    vbuff, colour = c_white, alpha = 1, trans_mat = undefined
-) {
-
-    var hx = 0.5,
-        hy = 0.5,
-        h  = 1;
+function vertex_buffer_write_triangular_prism(vbuff, colour = c_white, alpha = 1, trans_mat = undefined) {
+    var hx = 0.5, hy = 0.5, h = 1;
 
     // Base corners (Z = 0)
     var L0 = [-hx, -hy, 0]; // x-, y-
@@ -277,36 +282,20 @@ function vertex_buffer_write_triangular_prism(
     static uv01 = [0, 1];
 
     // Base quad (Z=0): L0-R0-R1, L0-R1-L1 (outside normal points to Z-; ok for debug)
-    vertex_buffer_write_triangle(
-        vbuff, L0, R0, R1, uv00, uv10, uv11, colour, alpha, trans_mat
-    );
-    vertex_buffer_write_triangle(
-        vbuff, L0, R1, L1, uv00, uv11, uv01, colour, alpha, trans_mat
-    );
+    vertex_buffer_write_triangle(vbuff, L0, R0, R1, uv00, uv10, uv11, colour, alpha, trans_mat);
+    vertex_buffer_write_triangle(vbuff, L0, R1, L1, uv00, uv11, uv01, colour, alpha, trans_mat);
 
     // Left sloped face (y=-hy -> apex): quad L0-R0-RA-LA => (L0,R0,RA) + (L0,RA,LA)
-    vertex_buffer_write_triangle(
-        vbuff, L0, R0, RA, uv00, uv10, uv11, colour, alpha, trans_mat
-    );
-    vertex_buffer_write_triangle(
-        vbuff, L0, RA, LA, uv00, uv11, uv01, colour, alpha, trans_mat
-    );
+    vertex_buffer_write_triangle(vbuff, L0, R0, RA, uv00, uv10, uv11, colour, alpha, trans_mat);
+    vertex_buffer_write_triangle(vbuff, L0, RA, LA, uv00, uv11, uv01, colour, alpha, trans_mat);
 
     // Right sloped face (y=+hy -> apex): quad R1-L1-LA-RA => (R1,L1,LA) + (R1,LA,RA)
-    vertex_buffer_write_triangle(
-        vbuff, R1, L1, LA, uv00, uv10, uv11, colour, alpha, trans_mat
-    );
-    vertex_buffer_write_triangle(
-        vbuff, R1, LA, RA, uv00, uv11, uv01, colour, alpha, trans_mat
-    );
+    vertex_buffer_write_triangle(vbuff, R1, L1, LA, uv00, uv10, uv11, colour, alpha, trans_mat);
+    vertex_buffer_write_triangle(vbuff, R1, LA, RA, uv00, uv11, uv01, colour, alpha, trans_mat);
 
     // End caps (triangles in X)
     // X = -hx cap: L0, L1, LA
-    vertex_buffer_write_triangle(
-        vbuff, L0, L1, LA, uv00, uv10, uv11, colour, alpha, trans_mat
-    );
+    vertex_buffer_write_triangle(vbuff, L0, L1, LA, uv00, uv10, uv11, colour, alpha, trans_mat);
     // X = +hx cap: R1, R0, RA
-    vertex_buffer_write_triangle(
-        vbuff, R1, R0, RA, uv00, uv10, uv11, colour, alpha, trans_mat
-    );
+    vertex_buffer_write_triangle(vbuff, R1, R0, RA, uv00, uv10, uv11, colour, alpha, trans_mat);
 }

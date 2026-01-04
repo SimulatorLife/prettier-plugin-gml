@@ -18,3 +18,22 @@ Replace the ad‑hoc `wrapDocDescriptionLines` string reflow code with a Prettie
 * Prettier’s `fill`/`group` output may cause line breaks at different words than the former custom wrapper, so every fixture asserting continuation text must be updated carefully to avoid regressions.
 * The `_preserveDescriptionBreaks` flag must still be honored; failing to do so would alter existing behavior for docs that intentionally keep their own line breaks.
 * Once doc-comment wrapping is fully delegated to Prettier, the legacy rewrap helpers can be removed, but any fallback logic must be migrated into `description-doc.ts` (e.g., for manual continuations).
+* For handling `printWidth` for actual lines of code, we should ONLY suppor the following two styles of function call formatting, and disallow any others (e.g., inconsistent indentation, mixed styles, etc.):
+```js
+// 1) Flat
+vertex_buffer_write_triangle(vbuff, L0, R0, R1, uv00, uv10, uv11, colour, alpha, trans_mat);
+
+// 2) Broken
+vertex_buffer_write_triangle(
+  vbuff,
+  L0,
+  R0,
+  R1,
+  uv00,
+  uv10,
+  uv11,
+  colour,
+  alpha,
+  trans_mat
+);
+```

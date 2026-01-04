@@ -229,7 +229,6 @@ function scr_spring(a, b, dst, force) {
 
 }
 
-// Synthetic docs should be added to non-local methods
 get_debug_text = function() {
 
     var txt = "";
