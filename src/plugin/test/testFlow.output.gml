@@ -18,11 +18,27 @@ switch (cannonball_type) {
 }
 
 var matrix = scr_matrix_build(
-    x, y, z + zfight, xrotation, yrotation, image_angle, image_xscale, image_yscale, image_zscale
+    x,
+    y,
+    z + zfight,
+    xrotation,
+    yrotation,
+    image_angle,
+    image_xscale,
+    image_yscale,
+    image_zscale
 );
 
 var matrix2 = scr_matrix_build(
-    x, y, z + zfight, xrotation, yrotation, image_angle, image_xscale, image_yscale, image_zscale + 90
+    x,
+    y,
+    z + zfight,
+    xrotation,
+    yrotation,
+    image_angle,
+    image_xscale,
+    image_yscale,
+    image_zscale + 90
 );
 
 #macro SQUARE(_value) ((_value)*(_value))
