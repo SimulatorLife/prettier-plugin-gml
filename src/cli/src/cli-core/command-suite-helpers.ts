@@ -4,7 +4,7 @@ import { CliUsageError, createCliErrorDetails } from "./errors.js";
 // Pull shared helpers from the barrel so new call sites avoid the legacy
 // `array-utils` shim slated for removal.
 import { Core } from "@gml-modules/core";
-import { createStringEnumeratedOptionHelpers } from "../shared/enumerated-option-helpers.js";
+import { createEnumeratedOptionHelpers } from "../shared/enumerated-option-helpers.js";
 import { resolveCommandUsage } from "./command-usage.js";
 import type { CommanderCommandLike } from "./commander-types.js";
 
@@ -32,11 +32,11 @@ export interface SuiteResultsPayloadOptions {
     generatedAt?: string;
 }
 
-const suiteOutputFormatHelpers = createStringEnumeratedOptionHelpers(
-    Object.values(SuiteOutputFormat),
-    "Suite output format",
-    (list) => `Format must be one of: ${list}.`
-);
+const suiteOutputFormatHelpers = createEnumeratedOptionHelpers(Object.values(SuiteOutputFormat), {
+    formatError: (list) => `Format must be one of: ${list}.`,
+    enforceStringType: true,
+    valueLabel: "Suite output format"
+});
 
 const defaultSuiteErrorHandler = (error: unknown) => ({
     error: createCliErrorDetails(error)
