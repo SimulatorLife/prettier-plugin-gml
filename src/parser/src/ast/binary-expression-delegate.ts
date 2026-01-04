@@ -75,7 +75,16 @@ export default class BinaryExpressionDelegate {
             rightNode = rightIsBinary ? this.handle(rightCtx, { visit, astNode }, true) : visit(rightCtx);
         }
 
-        const operator = ctx.children[1].getText();
+        if (!ctx.children || ctx.children.length < 2 || !ctx.children[1]) {
+            return visit(ctx);
+        }
+
+        const operatorToken = ctx.children[1];
+        if (typeof operatorToken.getText !== "function") {
+            return visit(ctx);
+        }
+
+        const operator = operatorToken.getText();
 
         let node = astNode(ctx, {
             type: "BinaryExpression",
