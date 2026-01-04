@@ -123,7 +123,9 @@ export function detectCircularRenames(renames: Array<RenameRequest>): Array<stri
             path.push(current);
             pathSet.add(current);
             visited.add(current);
-            current = graph.get(current)!;
+            const next = graph.get(current);
+            if (!next) break;
+            current = next;
         }
     }
 
