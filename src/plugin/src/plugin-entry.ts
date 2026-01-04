@@ -10,6 +10,7 @@ import prettier, { type SupportLanguage, type SupportOptions } from "prettier";
 import type { GmlPlugin, GmlPluginDefaultOptions } from "./components/plugin-types.js";
 import { gmlPluginComponents } from "./components/plugin-components.js";
 import { resolveCoreOptionOverrides } from "./options/core-option-overrides.js";
+import { Core } from "@gml-modules/core";
 
 const parsers = gmlPluginComponents.parsers;
 const printers = gmlPluginComponents.printers;
@@ -201,7 +202,7 @@ function reapplyLineCommentTrailingWhitespace(formatted: string, source: string)
         }
 
         const trailing = queue.shift();
-        if (typeof trailing === "string" && trailing.length > 0 && !line.endsWith(trailing)) {
+        if (Core.isNonEmptyString(trailing) && !line.endsWith(trailing)) {
             lines[index] = `${line}${trailing}`;
         }
     }

@@ -291,7 +291,7 @@ export function stringifyJsonForFile(payload?: unknown, options?: StringifyJsonF
         return serialized;
     }
 
-    const terminator = typeof newline === "string" && newline.length > 0 ? newline : "\n";
+    const terminator = isNonEmptyString(newline) ? newline : "\n";
 
     if (serialized.endsWith(terminator)) {
         return serialized;
