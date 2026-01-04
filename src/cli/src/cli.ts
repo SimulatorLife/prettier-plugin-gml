@@ -51,6 +51,7 @@ import { createCollectStatsCommand, runCollectStats } from "./commands/collect-s
 import { createFeatherMetadataCommand, runGenerateFeatherMetadata } from "./commands/generate-feather-metadata.js";
 import { createPrepareHotReloadCommand, runPrepareHotReloadCommand } from "./commands/prepare-hot-reload.js";
 import { createWatchCommand, runWatchCommand } from "./commands/watch.js";
+import { createWatchStatusCommand, runWatchStatusCommand } from "./commands/watch-status.js";
 import { isCliRunSkipped, SKIP_CLI_RUN_ENV_VAR } from "./shared/skip-cli-run.js";
 import {
     getDefaultIgnoredFileSampleLimit,
@@ -1225,6 +1226,7 @@ function looksLikeCommandName(target: string): boolean {
         "generate-feather-metadata",
         "prepare-hot-reload",
         "watch",
+        "watch-status",
         "help"
     ]);
 
@@ -2230,6 +2232,16 @@ cliCommandRegistry.registerCommand({
     onError: (error) =>
         handleCliError(error, {
             prefix: "Failed to start watch mode.",
+            exitCode: 1
+        })
+});
+
+cliCommandRegistry.registerCommand({
+    command: createWatchStatusCommand(),
+    run: ({ command }) => runWatchStatusCommand(command.opts()),
+    onError: (error) =>
+        handleCliError(error, {
+            prefix: "Failed to query watch status.",
             exitCode: 1
         })
 });

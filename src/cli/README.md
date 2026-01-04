@@ -384,6 +384,73 @@ When GameMaker is running the HTML5 server, the command auto-detects the active
 - Event transpilation (not just scripts)
 - Shader and asset hot-reloading
 
+### `watch-status` - Query Watch Command Status
+
+Queries the running watch command's status server for real-time metrics and diagnostics without interrupting the watcher. This provides a convenient human-friendly interface to the watch command's HTTP status server.
+
+```bash
+# Query full status with metrics and recent patches
+node src/cli/src/cli.js watch-status
+
+# Get health check information
+node src/cli/src/cli.js watch-status --endpoint health
+
+# Check if watch command is running (lightweight ping)
+node src/cli/src/cli.js watch-status --endpoint ping
+
+# Query readiness status (for Kubernetes/orchestration)
+node src/cli/src/cli.js watch-status --endpoint ready
+
+# Get JSON output for scripting/automation
+node src/cli/src/cli.js watch-status --format json
+
+# Query custom host/port
+node src/cli/src/cli.js watch-status --host 127.0.0.1 --port 18000
+```
+
+**Options:**
+- `--host <host>` - Status server host (default: 127.0.0.1, env: WATCH_STATUS_HOST)
+- `--port <port>` - Status server port (default: 17891, env: WATCH_STATUS_PORT)
+- `--format <format>` - Output format: `pretty` (default) or `json`
+- `--endpoint <endpoint>` - Endpoint to query: `status` (default), `health`, `ping`, or `ready`
+
+**Example Output:**
+
+```
+$ node src/cli/src/cli.js watch-status
+=== Watch Command Status ===
+
+Uptime: 2h 15m 43s
+Total patches: 42
+Total errors: 2
+WebSocket clients: 1
+
+Recent patches:
+  15s ago - scripts/player_move.gml
+    ID: gml_Script_player_move
+    Duration: 2.34ms
+  2m ago - scripts/enemy_ai.gml
+    ID: gml_Script_enemy_ai
+    Duration: 3.12ms
+
+Recent errors:
+  1h ago - scripts/broken_script.gml
+    Error: Unexpected token at line 5
+```
+
+**Use Cases:**
+- **Development Monitoring**: Quickly check if the watch command is still processing files correctly
+- **Debugging**: Inspect recent transpilation errors and their timing
+- **Performance Analysis**: Review transpilation duration for optimization
+- **CI/CD Integration**: Use `--format json` to programmatically check watch command health
+- **Container Health Checks**: Query `/health` or `/ready` endpoints for orchestration systems
+
+This command is particularly useful when:
+- The watch command is running in a background terminal or tmux session
+- You want to verify hot-reload is working without checking logs
+- You need to debug why a script isn't updating in the game
+- You're monitoring performance during development
+
 ### `generate-gml-identifiers` - Generate Identifier Metadata
 
 Generates GML identifier metadata from the GameMaker manual repository.
