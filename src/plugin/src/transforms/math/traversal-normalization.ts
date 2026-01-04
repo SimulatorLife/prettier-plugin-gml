@@ -4288,11 +4288,11 @@ function getSourceTextFromContext(context) {
 
     const { originalText, sourceText } = context;
 
-    if (typeof originalText === "string" && originalText.length > 0) {
+    if (Core.isNonEmptyString(originalText)) {
         return originalText;
     }
 
-    if (typeof sourceText === "string" && sourceText.length > 0) {
+    if (Core.isNonEmptyString(sourceText)) {
         return sourceText;
     }
 

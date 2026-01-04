@@ -6,7 +6,7 @@ import {
 } from "./options.js";
 import { applyJsDocReplacements } from "../doc-comment/service/type-normalization.js";
 import { getCommentValue } from "../comment-utils.js";
-import { isObjectLike, isRegExpLike, toTrimmedString } from "./utils.js";
+import { isNonEmptyString, isObjectLike, isRegExpLike, toTrimmedString } from "./utils.js";
 
 // BANNER DECORATION PATTERN DESIGN:
 //
@@ -374,8 +374,7 @@ function tryFormatCommentedOutCode(
         return null;
     }
 
-    const shouldPreserveTabs =
-        isObjectLike(comment) && typeof comment.leadingChar === "string" && comment.leadingChar.length > 0;
+    const shouldPreserveTabs = isObjectLike(comment) && isNonEmptyString(comment.leadingChar);
     const whitespaceSegment = shouldPreserveTabs ? leadingWhitespace : leadingWhitespace.replaceAll("\t", "    ");
     const formattedCommentLine = whitespaceSegment.length > 0 ? `//${whitespaceSegment}${coreValue}` : `//${coreValue}`;
 
