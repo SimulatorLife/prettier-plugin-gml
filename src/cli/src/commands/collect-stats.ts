@@ -3,6 +3,7 @@ import path from "node:path";
 import process from "node:process";
 import { Command } from "commander";
 import { applyStandardCommandOptions } from "../cli-core/command-standard-options.js";
+import { ensureDirSync } from "../shared/ensure-dir.js";
 
 function formatBytes(bytes: number) {
     if (bytes === 0) return "0 B";
@@ -110,9 +111,7 @@ export function runCollectStats({ command }: any = {}) {
     const stats = scanProjectHealth(workspaceRoot);
 
     const outputDir = path.dirname(outputPath);
-    if (!fs.existsSync(outputDir)) {
-        fs.mkdirSync(outputDir, { recursive: true });
-    }
+    ensureDirSync(outputDir);
 
     fs.writeFileSync(outputPath, JSON.stringify(stats, null, 2));
     console.log(`Project health stats written to ${outputPath}`);
