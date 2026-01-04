@@ -1,4 +1,4 @@
-import { createStringEnumeratedOptionHelpers } from "../../shared/enumerated-option-helpers.js";
+import { createEnumeratedOptionHelpers } from "../../shared/enumerated-option-helpers.js";
 
 const PerformanceSuiteName = Object.freeze({
     PARSER: "parser",
@@ -8,11 +8,11 @@ const PerformanceSuiteName = Object.freeze({
 
 type PerformanceSuite = (typeof PerformanceSuiteName)[keyof typeof PerformanceSuiteName];
 
-const performanceSuiteHelpers = createStringEnumeratedOptionHelpers(
-    Object.values(PerformanceSuiteName),
-    "Benchmark suite name",
-    (list, received) => `Benchmark suite must be one of: ${list}. Received: ${received}.`
-);
+const performanceSuiteHelpers = createEnumeratedOptionHelpers(Object.values(PerformanceSuiteName), {
+    formatError: (list, received) => `Benchmark suite must be one of: ${list}. Received: ${received}.`,
+    enforceStringType: true,
+    valueLabel: "Benchmark suite name"
+});
 
 const PERFORMANCE_THROUGHPUT_SUITES = new Set<PerformanceSuite>([
     PerformanceSuiteName.PARSER,
