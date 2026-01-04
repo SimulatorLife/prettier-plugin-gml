@@ -1280,7 +1280,8 @@ function tryPrintDeclarationNode(node, path, options, print) {
         case "DefineStatement": {
             const directive =
                 Core.getNormalizedDefineReplacementDirective(node) ?? Core.DefineReplacementDirective.MACRO;
-            const suffixDoc = typeof node.replacementSuffix === STRING_TYPE ? node.replacementSuffix.trim() : print("name");
+            const suffixDoc =
+                typeof node.replacementSuffix === STRING_TYPE ? node.replacementSuffix.trim() : print("name");
 
             if (typeof suffixDoc === STRING_TYPE) {
                 return concat([directive, " ", suffixDoc]);

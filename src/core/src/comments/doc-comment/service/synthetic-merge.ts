@@ -1796,12 +1796,11 @@ function attemptEarlyReturnOnSynthetic({
     overrides
 }: AttemptEarlyReturnParams) {
     if (syntheticLines.length === 0 && !shouldForceParamPrune) {
-        const result = toMutableArray(
+        return toMutableArray(
             convertLegacyReturnsDescriptionLinesToMetadata(normalizedExistingLines, {
                 normalizeDocCommentTypeAnnotations: normalizeGameMakerType
             })
         ) as MutableDocCommentLines;
-        return result;
     }
 
     if (normalizedExistingLines.length === 0) {
