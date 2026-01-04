@@ -24,7 +24,7 @@ export async function ensureDir(dirPath: string, fsModule: RecursiveMkdirFs = no
  * Synchronous variant of {@link ensureDir} for contexts that require blocking
  * directory creation (e.g., synchronous CLI commands or initialization logic).
  *
- * Centralises the recursive `mkdirSync` guard used by synchronous code paths
+ * Centralizes the recursive `mkdirSync` guard used by synchronous code paths
  * while preserving the same testability and error-handling guarantees as the
  * async variant. Defaults to Node's synchronous `fs` facade but accepts any
  * compatible implementation.
