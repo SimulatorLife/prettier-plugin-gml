@@ -7,13 +7,16 @@ type RecursiveMkdirFsSync = Pick<typeof nodeFsSync, "mkdirSync">;
 /**
  * Ensure that a directory exists, creating it when absent.
  *
- * Centralises the recursive `mkdir` guard the CLI relies on when staging
- * artefacts and writing performance reports. The helper defaults to Node's
+ * Centralizes the recursive `mkdir` guard the CLI relies on when staging
+ * artifacts and writing performance reports. The helper defaults to Node's
  * promise-based `fs` facade but accepts any compatible implementation so call
  * sites can provide mocks during testing or substitute custom filesystem
  * layers. Co-locating the utility under the CLI keeps the shared package
  * focused on cross-environment primitives while preserving the ergonomics the
  * command modules expect.
+ *
+ * When the directory already exists, this function completes successfully
+ * without error, making it safe to call unconditionally.
  *
  * @param {string} dirPath Path to the directory that should exist.
  * @param {RecursiveMkdirFs} [fsModule=nodeFs] Filesystem implementation
@@ -32,6 +35,9 @@ export async function ensureDir(dirPath: string, fsModule: RecursiveMkdirFs = no
  * while preserving the same testability and error-handling guarantees as the
  * async variant. Defaults to Node's synchronous `fs` facade but accepts any
  * compatible implementation.
+ *
+ * When the directory already exists, this function completes successfully
+ * without error, making it safe to call unconditionally.
  *
  * @param {string} dirPath Path to the directory that should exist.
  * @param {RecursiveMkdirFsSync} [fsModule=nodeFsSync] Filesystem implementation
