@@ -127,7 +127,7 @@ export function describeRuntimeSource(source: RuntimeSourceDescriptor) {
 
     if (packageName) {
         const version = packageJson?.version;
-        if (typeof version === "string" && version.length > 0) {
+        if (Core.isNonEmptyString(version)) {
             return `${packageName}@${version}`;
         }
 
