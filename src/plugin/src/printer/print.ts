@@ -4511,7 +4511,7 @@ function shouldOmitDefaultValueForParameter(path, options) {
     // parameter as optional (e.g. `/// @param [name]`) preserve it.
     const functionNode = findEnclosingFunctionDeclaration(path);
     if (functionNode) {
-        if (Array.isArray(functionNode.docComments) && functionNode.docComments.length > 0) {
+        if (Core.isNonEmptyArray(functionNode.docComments)) {
             const lines = functionNode.docComments.flatMap((comment) => {
                 const value = comment.value || "";
                 if (comment.type === "CommentBlock") {

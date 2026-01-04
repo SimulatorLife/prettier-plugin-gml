@@ -6462,7 +6462,7 @@ function renameDuplicateParametersInFunction(functionNode, diagnostic) {
         const param = params[index];
         const identifier = getFunctionParameterIdentifier(param);
 
-        const hasIdentifier = identifier && typeof identifier.name === "string" && identifier.name.length > 0;
+        const hasIdentifier = identifier && Core.isNonEmptyString(identifier.name);
 
         if (!hasIdentifier) {
             continue;
@@ -13523,7 +13523,7 @@ function ensureVertexFormatDefinitionIsClosed(node, parent, property, diagnostic
 
     const commentPrefixText = "TODO: Incomplete vertex format definition automatically commented out (GM2015)";
 
-    if (typeof commentPrefixText === "string" && commentPrefixText.length > 0 && node && typeof node === "object") {
+    if (Core.isNonEmptyString(commentPrefixText) && node && typeof node === "object") {
         Object.defineProperty(node, FEATHER_COMMENT_PREFIX_TEXT_SYMBOL, {
             configurable: true,
             enumerable: false,
