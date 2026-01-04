@@ -1,7 +1,6 @@
-#macro image_index 1
-#macro UNRELATED_MACRO true
+#macro UNRELATED_MACRO 12345
 
-var image_index     = 1;
+var sprite_index    = 1;
 var unique_variable = 3;
 
-draw_sprite(sprite_index, image_index, unique_variable, 5678);
+draw_sprite(sprite_index, image_index, unique_variable, UNRELATED_MACRO);
