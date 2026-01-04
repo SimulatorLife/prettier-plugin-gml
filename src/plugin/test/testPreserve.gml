@@ -136,7 +136,6 @@ z_wobble = ((sin(current_time * 0.004) + 1) * 2) + 2; // value between 0 and 2, 
 /// @param {real} [octahedron_scale=1] The scale of the skybox octahedron
 /// @param {real} [octmap_size=1024] The size of the octmap
 function AbstractSkyboxParent(sprite = noone, subimg = 0, octahedron_scale = 1, octmap_size = 1024) : ZModelBuffer(sprite, subimg, undefined, c_white, 1, pr_trianglelist) constructor {
-
     self.octahedron_scale = octahedron_scale;
     self.octmap_size      = octmap_size;
     self.octmap_texel     = 1 / octmap_size;
