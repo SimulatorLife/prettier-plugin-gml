@@ -1,10 +1,7 @@
 import assert from "node:assert/strict";
 import { describe, it } from "node:test";
 
-import {
-    createEnumeratedOptionHelpers,
-    createStringEnumeratedOptionHelpers
-} from "../src/shared/enumerated-option-helpers.js";
+import { createEnumeratedOptionHelpers } from "../src/shared/enumerated-option-helpers.js";
 
 void describe("createEnumeratedOptionHelpers", () => {
     void it("formats the sorted list of enumerated values", () => {
@@ -41,11 +38,11 @@ void describe("createEnumeratedOptionHelpers", () => {
     });
 
     void it("normalizes string inputs while enforcing type guards", () => {
-        const helpers = createStringEnumeratedOptionHelpers(
-            ["json"],
-            "Output format",
-            (list) => `Format must be one of: ${list}.`
-        );
+        const helpers = createEnumeratedOptionHelpers(["json"], {
+            formatError: (list) => `Format must be one of: ${list}.`,
+            enforceStringType: true,
+            valueLabel: "Output format"
+        });
 
         assert.equal(helpers.requireValue(" JSON \n"), "json");
         assert.throws(

@@ -81,29 +81,3 @@ export function createEnumeratedOptionHelpers(
         }
     });
 }
-
-/**
- * Create helpers for string enumerated options with type-safe coercion.
- *
- * @param values - Array of valid enumerated values
- * @param valueLabel - Label for the value type in error messages
- * @param formatError - Optional function to format validation error messages
- * @returns Frozen helper object with validation and normalization methods
- *
- * @example
- * const helpers = createStringEnumeratedOptionHelpers(["json"], "Output format");
- * helpers.requireValue(42); // throws TypeError
- *
- * @deprecated Use createEnumeratedOptionHelpers with enforceStringType option instead
- */
-export function createStringEnumeratedOptionHelpers(
-    values: Iterable<EnumeratedValue>,
-    valueLabel: string = "Value",
-    formatError?: (list: string, received: string) => string
-): EnumeratedOptionHelpers {
-    return createEnumeratedOptionHelpers(values, {
-        formatError,
-        enforceStringType: true,
-        valueLabel
-    });
-}
