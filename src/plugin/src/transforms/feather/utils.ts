@@ -10,40 +10,18 @@ export const NUMERIC_STRING_LITERAL_PATTERN = /^[+-]?(?:\d+(?:\.\d*)?|\.\d+)(?:[
  * Supports decimal, hexadecimal (0x/0X), and binary (0b/0B) formats with optional sign.
  */
 export function isIntegerLiteralString(candidate: unknown): boolean {
-    if (typeof candidate !== "string" || candidate.length === 0) {
-        return false;
-    }
-
-    if (/^[+-]?\d+$/.test(candidate)) {
-        return true;
-    }
-
-    if (/^[+-]?0[xX][0-9a-fA-F]+$/.test(candidate)) {
-        return true;
-    }
-
-    if (/^[+-]?0[bB][01]+$/.test(candidate)) {
-        return true;
-    }
-
-    return false;
+    return (
+        typeof candidate === "string" &&
+        candidate.length > 0 &&
+        (/^[+-]?\d+$/.test(candidate) ||
+            /^[+-]?0[xX][0-9a-fA-F]+$/.test(candidate) ||
+            /^[+-]?0[bB][01]+$/.test(candidate))
+    );
 }
 
 /** Ensure we have enough AST and diagnostic context before creating fixes. */
 export function hasFeatherDiagnosticContext(ast, diagnostic) {
-    if (!diagnostic) {
-        return false;
-    }
-
-    if (!ast) {
-        return false;
-    }
-
-    if (typeof ast !== "object") {
-        return false;
-    }
-
-    return true;
+    return !!diagnostic && !!ast && typeof ast === "object";
 }
 
 /** Build a standardized fix payload for Feather diagnostics consumed by formatters. */
@@ -101,17 +79,9 @@ export function attachFeatherFixMetadata(target, fixes) {
 
 /** Validate that the source text needed for diagnostic fixes is available and non-empty when required. */
 export function hasFeatherSourceTextContext(ast, diagnostic, sourceText, { allowEmpty = false } = {}) {
-    if (!hasFeatherDiagnosticContext(ast, diagnostic)) {
-        return false;
-    }
-
-    if (typeof sourceText !== "string") {
-        return false;
-    }
-
-    if (!allowEmpty && sourceText.length === 0) {
-        return false;
-    }
-
-    return true;
+    return (
+        hasFeatherDiagnosticContext(ast, diagnostic) &&
+        typeof sourceText === "string" &&
+        (allowEmpty || sourceText.length > 0)
+    );
 }

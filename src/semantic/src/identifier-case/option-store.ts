@@ -129,7 +129,11 @@ function updateStore(options, key, value) {
 }
 
 function deleteFromStore(storeKey, key) {
-    // treat null/undefined as "no-op" for deletions
+    // Tolerate null or undefined store keys during deletion to simplify caller
+    // logic. When the store key is absent, the deletion cannot proceed (there
+    // is no entry to remove), so we return early without throwing. This defensive
+    // posture allows cleanup paths to call deleteFromStore unconditionally without
+    // needing to check whether the key exists first.
     if (storeKey == null) {
         return;
     }

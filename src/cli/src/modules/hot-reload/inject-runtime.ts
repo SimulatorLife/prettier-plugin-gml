@@ -4,6 +4,7 @@ import path from "node:path";
 
 import { Core } from "@gml-modules/core";
 import { resolveFromRepoRoot } from "../../shared/workspace-paths.js";
+import { ensureDir } from "../../shared/ensure-dir.js";
 
 const { getErrorMessageOrFallback } = Core;
 
@@ -187,7 +188,7 @@ async function copyRuntimeWrapperAssets(runtimeWrapperRoot: string, outputRoot: 
     }
 
     const targetRoot = path.join(outputRoot, HOT_RELOAD_DIR_NAME, "runtime-wrapper");
-    await fs.mkdir(targetRoot, { recursive: true });
+    await ensureDir(targetRoot);
     await fs.cp(resolvedSource, targetRoot, {
         recursive: true,
         force: true,

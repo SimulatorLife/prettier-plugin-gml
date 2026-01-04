@@ -1,5 +1,4 @@
-import { asArray, isNonEmptyArray, toMutableArray } from "../../../utils/array.js";
-import { toTrimmedString } from "../../../utils/string.js";
+import { asArray, isNonEmptyArray, toMutableArray, toTrimmedString } from "../utils.js";
 import { getCommentArray } from "../../comment-utils.js";
 import { formatLineComment, getLineCommentRawText, resolveLineCommentOptions } from "../../line-comment/index.js";
 

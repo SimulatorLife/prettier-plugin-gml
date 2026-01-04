@@ -5,6 +5,7 @@ import {
     WorkflowPathFilter,
     WorkflowPathFilterOptions
 } from "../../workflow/path-filter.js";
+import { Core } from "@gml-modules/core";
 
 const DEFAULT_MESSAGE_FORMATTER = ({ manualSourceDescription }) =>
     `Using manual assets from ${manualSourceDescription}.`;
@@ -84,7 +85,7 @@ export async function prepareManualWorkflow({
             manualSourceDescription
         });
 
-        if (typeof message === "string" && message.length > 0 && typeof log === "function") {
+        if (Core.isNonEmptyString(message) && typeof log === "function") {
             log(message);
         }
     }

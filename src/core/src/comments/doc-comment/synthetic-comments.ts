@@ -11,8 +11,7 @@ import {
     promoteLeadingDocCommentTextToDescription,
     reorderDescriptionLinesToTop
 } from "./service/index.js";
-import { isNonEmptyArray, toMutableArray } from "../../utils/array.js";
-import { isNonEmptyTrimmedString } from "../../utils/string.js";
+import { isNonEmptyArray, isNonEmptyTrimmedString, toMutableArray } from "./utils.js";
 
 const STRING_TYPE = "string";
 
@@ -27,7 +26,7 @@ function processLeadingCommentLines(
     docLikeLeadingLines: string[];
     plainLeadingLines: string[];
 } | null {
-    const hasFunctionDoc = Array.isArray(functionNode.docComments) && functionNode.docComments.length > 0;
+    const hasFunctionDoc = isNonEmptyArray(functionNode.docComments);
 
     const { existingDocLines, remainingComments } = collectSyntheticDocCommentLines(
         targetNode,

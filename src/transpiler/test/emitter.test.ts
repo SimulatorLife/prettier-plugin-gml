@@ -1572,3 +1572,178 @@ void test("Transpiler.emitJavaScript handles delete in control flow", () => {
     const result = Transpiler.emitJavaScript(ast);
     assert.ok(result.includes("delete obj.temp"), "Should emit delete inside conditional");
 });
+
+// Compound Assignment Operators Tests
+void test("Transpiler.emitJavaScript handles += operator", () => {
+    const source = "x += 5";
+    const parser = new Parser.GMLParser(source);
+    const ast = parser.parse();
+    const result = Transpiler.emitJavaScript(ast);
+    assert.ok(result.includes("x += 5"), "Should emit += operator");
+});
+
+void test("Transpiler.emitJavaScript handles -= operator", () => {
+    const source = "y -= 3";
+    const parser = new Parser.GMLParser(source);
+    const ast = parser.parse();
+    const result = Transpiler.emitJavaScript(ast);
+    assert.ok(result.includes("y -= 3"), "Should emit -= operator");
+});
+
+void test("Transpiler.emitJavaScript handles *= operator", () => {
+    const source = "z *= 2";
+    const parser = new Parser.GMLParser(source);
+    const ast = parser.parse();
+    const result = Transpiler.emitJavaScript(ast);
+    assert.ok(result.includes("z *= 2"), "Should emit *= operator");
+});
+
+void test("Transpiler.emitJavaScript handles /= operator", () => {
+    const source = "w /= 4";
+    const parser = new Parser.GMLParser(source);
+    const ast = parser.parse();
+    const result = Transpiler.emitJavaScript(ast);
+    assert.ok(result.includes("w /= 4"), "Should emit /= operator");
+});
+
+void test("Transpiler.emitJavaScript handles %= operator", () => {
+    const source = "a %= 10";
+    const parser = new Parser.GMLParser(source);
+    const ast = parser.parse();
+    const result = Transpiler.emitJavaScript(ast);
+    assert.ok(result.includes("a %= 10"), "Should emit %= operator");
+});
+
+void test("Transpiler.emitJavaScript handles &= operator", () => {
+    const source = "b &= 7";
+    const parser = new Parser.GMLParser(source);
+    const ast = parser.parse();
+    const result = Transpiler.emitJavaScript(ast);
+    assert.ok(result.includes("b &= 7"), "Should emit &= operator");
+});
+
+void test("Transpiler.emitJavaScript handles |= operator", () => {
+    const source = "c |= 3";
+    const parser = new Parser.GMLParser(source);
+    const ast = parser.parse();
+    const result = Transpiler.emitJavaScript(ast);
+    assert.ok(result.includes("c |= 3"), "Should emit |= operator");
+});
+
+void test("Transpiler.emitJavaScript handles ^= operator", () => {
+    const source = "d ^= 1";
+    const parser = new Parser.GMLParser(source);
+    const ast = parser.parse();
+    const result = Transpiler.emitJavaScript(ast);
+    assert.ok(result.includes("d ^= 1"), "Should emit ^= operator");
+});
+
+void test("Transpiler.emitJavaScript handles <<= operator", () => {
+    const source = "e <<= 2";
+    const parser = new Parser.GMLParser(source);
+    const ast = parser.parse();
+    const result = Transpiler.emitJavaScript(ast);
+    assert.ok(result.includes("e <<= 2"), "Should emit <<= operator");
+});
+
+void test("Transpiler.emitJavaScript handles >>= operator", () => {
+    const source = "f >>= 1";
+    const parser = new Parser.GMLParser(source);
+    const ast = parser.parse();
+    const result = Transpiler.emitJavaScript(ast);
+    assert.ok(result.includes("f >>= 1"), "Should emit >>= operator");
+});
+
+void test("Transpiler.emitJavaScript handles compound assignment with complex expression", () => {
+    const source = "score += bonus * multiplier";
+    const parser = new Parser.GMLParser(source);
+    const ast = parser.parse();
+    const result = Transpiler.emitJavaScript(ast);
+    assert.ok(
+        result.includes("score += (bonus * multiplier)"),
+        "Should emit compound assignment with complex expression"
+    );
+});
+
+void test("Transpiler.emitJavaScript handles compound assignment with property access", () => {
+    const source = "player.health -= damage";
+    const parser = new Parser.GMLParser(source);
+    const ast = parser.parse();
+    const result = Transpiler.emitJavaScript(ast);
+    assert.ok(result.includes("player.health -= damage"), "Should emit compound assignment on property");
+});
+
+void test("Transpiler.emitJavaScript handles compound assignment with array index", () => {
+    const source = "arr[i] += value";
+    const parser = new Parser.GMLParser(source);
+    const ast = parser.parse();
+    const result = Transpiler.emitJavaScript(ast);
+    assert.ok(result.includes("arr[i] += value"), "Should emit compound assignment on array element");
+});
+
+void test("Transpiler.emitJavaScript handles compound assignment in control flow", () => {
+    const source = `
+        if (alive) {
+            health -= 10
+        }
+    `;
+    const parser = new Parser.GMLParser(source);
+    const ast = parser.parse();
+    const result = Transpiler.emitJavaScript(ast);
+    assert.ok(result.includes("health -= 10"), "Should emit compound assignment in if block");
+});
+
+void test("Transpiler.emitJavaScript handles compound assignment with nested property access", () => {
+    const source = "game.player.stats.strength *= level";
+    const parser = new Parser.GMLParser(source);
+    const ast = parser.parse();
+    const result = Transpiler.emitJavaScript(ast);
+    assert.ok(
+        result.includes("game.player.stats.strength *= level"),
+        "Should emit compound assignment on nested property"
+    );
+});
+
+void test("Transpiler.emitJavaScript handles multiple compound assignments", () => {
+    const source = `
+        x += 1
+        y -= 2
+        z *= 3
+    `;
+    const parser = new Parser.GMLParser(source);
+    const ast = parser.parse();
+    const result = Transpiler.emitJavaScript(ast);
+    assert.ok(result.includes("x += 1"), "Should emit first compound assignment");
+    assert.ok(result.includes("y -= 2"), "Should emit second compound assignment");
+    assert.ok(result.includes("z *= 3"), "Should emit third compound assignment");
+});
+
+void test("Transpiler.emitJavaScript handles compound assignment with function call result", () => {
+    const source = "total += calculate_bonus()";
+    const parser = new Parser.GMLParser(source);
+    const ast = parser.parse();
+    const result = Transpiler.emitJavaScript(ast);
+    assert.ok(result.includes("total += calculate_bonus()"), "Should emit compound assignment with function call");
+});
+
+void test("Transpiler.emitJavaScript handles compound assignment with parenthesized expression", () => {
+    const source = "result += (a + b) * c";
+    const parser = new Parser.GMLParser(source);
+    const ast = parser.parse();
+    const result = Transpiler.emitJavaScript(ast);
+    assert.ok(result.includes("result +="), "Should emit compound assignment");
+    assert.ok(result.includes("(a + b)"), "Should preserve parenthesization in right-hand side");
+});
+
+void test("Transpiler.emitJavaScript handles compound assignment in loop", () => {
+    const source = `
+        for (var i = 0; i < 10; i += 1) {
+            sum += i
+        }
+    `;
+    const parser = new Parser.GMLParser(source);
+    const ast = parser.parse();
+    const result = Transpiler.emitJavaScript(ast);
+    assert.ok(result.includes("i += 1"), "Should emit compound assignment in for loop update");
+    assert.ok(result.includes("sum += i"), "Should emit compound assignment in loop body");
+});

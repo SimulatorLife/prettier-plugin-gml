@@ -9,9 +9,11 @@ export const Refactor = Object.freeze({
 });
 
 export { RefactorEngine } from "./refactor-engine.js";
-export type { WorkspaceEdit } from "./workspace-edit.js";
+export { WorkspaceEdit } from "./workspace-edit.js";
 
 export { SymbolKind, isSymbolKind, parseSymbolKind, requireSymbolKind } from "./types.js";
+
+export { ConflictType, isConflictType, parseConflictType, requireConflictType } from "./types.js";
 
 export {
     classifyOccurrences,
@@ -29,6 +31,7 @@ export type {
     BatchRenameValidation,
     CascadeEntry,
     ConflictEntry,
+    ConflictTypeValue,
     DependencyAnalyzer,
     DependentSymbol,
     EditValidator,

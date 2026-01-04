@@ -12,6 +12,7 @@ import type {
     ShadowTestResult
 } from "./types.js";
 import { resolveBuiltinConstants } from "./builtin-constants.js";
+import { Core } from "@gml-modules/core";
 
 const APPROXIMATE_EQUALITY_SCALE_MULTIPLIER = 4;
 
@@ -80,7 +81,7 @@ function resolveInstanceStore(globalScope: RuntimeBindingGlobals): Record<string
 
 function resolveRuntimeId(patch: ScriptPatch): string {
     const candidate = (patch as { runtimeId?: unknown }).runtimeId;
-    if (typeof candidate === "string" && candidate.length > 0) {
+    if (Core.isNonEmptyString(candidate)) {
         return candidate;
     }
 

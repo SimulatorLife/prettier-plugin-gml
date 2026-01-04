@@ -3,7 +3,7 @@ import { Core } from "@gml-modules/core";
 const DEFAULT_FUNCTION_NAME = "parser";
 
 function toQualifiedSymbolKey(name, suffix) {
-    const qualified = typeof name === "string" && name.length > 0 ? name : DEFAULT_FUNCTION_NAME;
+    const qualified = Core.isNonEmptyString(name) ? name : DEFAULT_FUNCTION_NAME;
     return `prettier.gml.${qualified}.${suffix}`;
 }
 

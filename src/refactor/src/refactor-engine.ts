@@ -1,6 +1,7 @@
 import { WorkspaceEdit, type GroupedTextEdits } from "./workspace-edit.js";
 import { Core } from "@gml-modules/core";
 import {
+    ConflictType,
     SymbolKind,
     parseSymbolKind,
     type ApplyWorkspaceEditOptions,
@@ -348,7 +349,7 @@ export class RefactorEngine {
         );
 
         for (const conflict of conflicts) {
-            if (conflict.type === "reserved" || conflict.type === "shadow") {
+            if (conflict.type === ConflictType.RESERVED || conflict.type === ConflictType.SHADOW) {
                 errors.push(conflict.message);
             } else {
                 warnings.push(conflict.message);
@@ -651,7 +652,7 @@ export class RefactorEngine {
 
         // Build a workspace edit containing text edits for every occurrence. Each
         // edit replaces the old symbol name with the new name at its source location.
-        const workspace = WorkspaceEdit();
+        const workspace = new WorkspaceEdit();
 
         for (const occurrence of occurrences) {
             workspace.addEdit(occurrence.path, occurrence.start, occurrence.end, normalizedNewName);
@@ -864,7 +865,7 @@ export class RefactorEngine {
         // Combine all workspace edits into a single merged edit that can be applied
         // atomically. This ensures either all renames succeed together or none are
         // applied, maintaining consistency.
-        const merged = WorkspaceEdit();
+        const merged = new WorkspaceEdit();
         for (const workspace of workspaces) {
             for (const edit of workspace.edits) {
                 merged.addEdit(edit.path, edit.start, edit.end, edit.newText);
@@ -1266,7 +1267,7 @@ export class RefactorEngine {
             const exists = await this.validateSymbolExists(symbolId);
             if (!exists) {
                 conflicts.push({
-                    type: "missing_symbol",
+                    type: ConflictType.MISSING_SYMBOL,
                     message: `Symbol '${symbolId}' not found in semantic index`,
                     severity: "error"
                 });
@@ -1329,7 +1330,7 @@ export class RefactorEngine {
             // call sites), so these warnings encourage the user to review the scope.
             if (summary.totalOccurrences > 50) {
                 warnings.push({
-                    type: "large_rename",
+                    type: ConflictType.LARGE_RENAME,
                     message: `This rename will affect ${summary.totalOccurrences} occurrences across ${summary.affectedFiles.size} files`,
                     severity: "warning"
                 });
@@ -1337,14 +1338,14 @@ export class RefactorEngine {
 
             if (summary.dependentSymbols.size > 10) {
                 warnings.push({
-                    type: "many_dependents",
+                    type: ConflictType.MANY_DEPENDENTS,
                     message: `${summary.dependentSymbols.size} other symbols depend on this symbol`,
                     severity: "info"
                 });
             }
         } catch (error) {
             conflicts.push({
-                type: "analysis_error",
+                type: ConflictType.ANALYSIS_ERROR,
                 message: `Failed to analyze impact: ${error.message}`,
                 severity: "error"
             });
@@ -1701,8 +1702,8 @@ export class RefactorEngine {
         const conflicts = await detectRenameConflicts(symbolName, newName, occurrences, this.semantic, this.semantic);
 
         if (conflicts.length > 0) {
-            const hasReservedConflict = conflicts.some((c) => c.type === "reserved");
-            const hasShadowConflict = conflicts.some((c) => c.type === "shadow");
+            const hasReservedConflict = conflicts.some((c) => c.type === ConflictType.RESERVED);
+            const hasShadowConflict = conflicts.some((c) => c.type === ConflictType.SHADOW);
 
             if (hasReservedConflict) {
                 return {

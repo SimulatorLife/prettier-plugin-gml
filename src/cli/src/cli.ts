@@ -51,6 +51,7 @@ import { createCollectStatsCommand, runCollectStats } from "./commands/collect-s
 import { createFeatherMetadataCommand, runGenerateFeatherMetadata } from "./commands/generate-feather-metadata.js";
 import { createPrepareHotReloadCommand, runPrepareHotReloadCommand } from "./commands/prepare-hot-reload.js";
 import { createWatchCommand, runWatchCommand } from "./commands/watch.js";
+import { createWatchStatusCommand, runWatchStatusCommand } from "./commands/watch-status.js";
 import { isCliRunSkipped, SKIP_CLI_RUN_ENV_VAR } from "./shared/skip-cli-run.js";
 import {
     getDefaultIgnoredFileSampleLimit,
@@ -792,8 +793,16 @@ async function releaseSnapshot(snapshot) {
             try {
                 await rm(snapshotPath, { force: true });
             } catch {
-                // Ignore individual file cleanup failures to avoid masking the
-                // original error that triggered the revert.
+                // Suppress cleanup errors to ensure the original error is not masked.
+                // When a snapshot revert fails (e.g., temporary directory cleanup
+                // after a formatting error), we catch and ignore the failure rather
+                // than propagating it. The revert is a best-effort rollback triggered
+                // by an earlier error (parsing failure, write error, etc.), and
+                // throwing a new error here would hide the root cause in the output.
+                // By ignoring cleanup failures, we allow the original error to surface
+                // in diagnostics, making it easier for users to identify and fix the
+                // underlying issue. The temporary files may remain on disk, but this
+                // is preferable to obscuring the real problem.
             } finally {
                 if (revertSnapshotFileCount > 0) {
                     revertSnapshotFileCount -= 1;
@@ -1027,11 +1036,15 @@ async function detectNegatedIgnoreRules(ignoreFilePath) {
             ignoreRuleNegations.detected = true;
         }
     } catch {
-        // Ignore missing or unreadable files. This defensive posture prevents
-        // the ignore-file scanning process from crashing the formatter if a
-        // referenced ignore file is absent or has restrictive permissions.
-        // The formatter remains resilient and continues processing with the
-        // ignore rules it was able to load successfully.
+        // Tolerate missing or inaccessible ignore files during negation detection.
+        // The ignore-file scanning process attempts to detect negated rules
+        // (e.g., `!foo.gml`) across all referenced ignore files. If a file is
+        // missing, unreadable, or has restrictive permissions, we catch the error
+        // and continue without crashing the formatter. The defensive posture here
+        // ensures that the formatter remains operational even when the ignore-file
+        // infrastructure is incomplete or misconfigured. Missing negation detection
+        // for one file is acceptable—the formatter falls back to its default
+        // ignore behavior, which is safer than aborting the entire run.
     }
 }
 
@@ -1157,11 +1170,17 @@ async function collectExistingIgnoreFiles(candidatePaths) {
                 const stats = await stat(ignoreCandidate);
                 return stats.isFile() ? ignoreCandidate : null;
             } catch {
-                // Ignore missing files. This lets the formatter scan a standard
-                // set of ignore-file candidates (e.g., .prettierignore, .gitignore)
-                // without failing when some do not exist in a given project.
-                // Only files that are present and readable will be registered,
-                // keeping the collection logic simple and resilient.
+                // Tolerate missing or unreadable ignore files during discovery.
+                // The formatter scans a standard set of ignore-file candidates
+                // (e.g., .prettierignore, .gitignore) without requiring all of them
+                // to exist. Projects may provide only a subset of these files, and
+                // attempting to stat a missing file throws ENOENT. By catching and
+                // suppressing these errors, we register only the files that are
+                // present and readable, keeping the collection logic simple and
+                // resilient. Failures to read files that do exist (e.g., permission
+                // errors) are also silently ignored here, which is acceptable because
+                // the formatter falls back to default ignore rules when custom files
+                // are unavailable.
                 return null;
             }
         })
@@ -1188,7 +1207,86 @@ async function initializeProjectIgnorePaths(projectRoot) {
     await registerIgnorePaths([IGNORE_PATH, ...projectIgnorePaths]);
 }
 
-async function resolveTargetStats(target, { usage }: { usage?: string } = {}) {
+/**
+ * Detects if a path looks like a mistyped command name rather than a file path.
+ * Returns true if the input is a simple word (no path separators) that might be
+ * a command name the user meant to invoke.
+ *
+ * @param {string} target - The target path to check (should be the original input, not resolved)
+ * @returns {boolean}
+ */
+function looksLikeCommandName(target: string): boolean {
+    const KNOWN_COMMANDS = new Set([
+        "format",
+        "performance",
+        "memory",
+        "generate-gml-identifiers",
+        "generate-quality-report",
+        "collect-stats",
+        "generate-feather-metadata",
+        "prepare-hot-reload",
+        "watch",
+        "watch-status",
+        "help"
+    ]);
+
+    // Thresholds for similarity detection
+    const MAX_LENGTH_DIFFERENCE = 2;
+    const MAX_CHARACTER_DIFFERENCES = 2;
+
+    // Not a command if it contains path separators
+    if (target.includes("/") || target.includes("\\")) {
+        return false;
+    }
+
+    // Not a command if it looks like a file (has an extension)
+    if (/\.\w+$/.test(target)) {
+        return false;
+    }
+
+    // Exact match with known command
+    if (KNOWN_COMMANDS.has(target)) {
+        return true;
+    }
+
+    // Starts with a letter and contains only alphanumeric, hyphens, or underscores
+    // (typical command pattern)
+    if (/^[a-z][a-z0-9_-]*$/i.test(target)) {
+        // Check for common typos or similar command names using simple similarity heuristic
+        const lowerTarget = target.toLowerCase();
+        for (const command of KNOWN_COMMANDS) {
+            // Quick length check first (early termination optimization)
+            if (Math.abs(command.length - lowerTarget.length) > MAX_LENGTH_DIFFERENCE) {
+                continue;
+            }
+
+            // Count character differences at matching positions
+            let differences = 0;
+            const minLength = Math.min(command.length, lowerTarget.length);
+            for (let i = 0; i < minLength; i++) {
+                if (command[i] !== lowerTarget[i]) {
+                    differences++;
+                    // Early termination if too many differences
+                    if (differences > MAX_CHARACTER_DIFFERENCES) {
+                        break;
+                    }
+                }
+            }
+
+            // If 2 or fewer character differences and not more than half the string differs
+            if (differences <= MAX_CHARACTER_DIFFERENCES && differences < command.length / 2) {
+                return true;
+            }
+        }
+    }
+
+    return false;
+}
+
+async function resolveTargetStats(
+    target: string,
+    { usage, originalInput }: { usage?: string; originalInput?: string } = {}
+) {
     try {
         return await stat(target);
     } catch (error) {
@@ -1196,6 +1294,18 @@ async function resolveTargetStats(target, { usage }: { usage?: string } = {}) {
         const formattedTarget = formatPathForDisplay(target);
         const guidance = (() => {
             if (isErrorWithCode(error, "ENOENT")) {
+                // Check if the original input (before path resolution) looks like a command name
+                const inputToCheck = originalInput ?? target;
+                if (looksLikeCommandName(inputToCheck)) {
+                    const guidanceParts = [
+                        `Did you mean to run a command? If so, the command '${inputToCheck}' is not recognized.`,
+                        'Run "prettier-plugin-gml --help" to see available commands.',
+                        "If you intended to format a file or directory, verify the path exists relative",
+                        `to the current working directory (${initialWorkingDirectory}) or provide an absolute path.`
+                    ];
+                    return guidanceParts.join(" ");
+                }
+
                 const guidanceParts = [
                     "Verify the path exists relative to the current working directory",
                     `(${initialWorkingDirectory}) or provide an absolute path.`,
@@ -1235,11 +1345,15 @@ async function resolveDirectoryIgnoreContext(directory, inheritedIgnorePaths) {
             effectiveIgnorePaths = mergeUniqueValues(inheritedIgnorePaths, [localIgnorePath], { freeze: false });
         }
     } catch {
-        // Ignore missing files. When the local ignore file does not exist,
-        // the formatter proceeds with the inherited ignore paths from parent
-        // directories. This resilience ensures that formatting workflows do
-        // not break when a subdirectory lacks its own .prettierignore, while
-        // still allowing projects to layer ignore rules hierarchically.
+        // Tolerate missing local ignore files and inherit parent directory rules.
+        // When a subdirectory lacks its own .prettierignore file, we catch the
+        // stat error and proceed with the inherited ignore paths from parent
+        // directories. This resilience allows projects to layer ignore rules
+        // hierarchically (e.g., a repo-wide .prettierignore at the root with
+        // subdirectory overrides) without requiring every directory to have its
+        // own ignore file. Missing files are normal and expected in this workflow,
+        // so we suppress the error rather than propagating it and breaking the
+        // formatting run.
     }
 
     return {
@@ -1529,10 +1643,11 @@ async function prepareFormattingRun({
  *
  * @param {string} targetPath
  * @param {string} usage
+ * @param {string} [originalInput] - The original user input before path resolution
  * @returns {Promise<{ targetIsDirectory: boolean, projectRoot: string }>}
  */
-async function resolveTargetContext(targetPath, usage) {
-    const targetStats = await resolveTargetStats(targetPath, { usage });
+async function resolveTargetContext(targetPath, usage, originalInput) {
+    const targetStats = await resolveTargetStats(targetPath, { usage, originalInput });
     const targetIsDirectory = targetStats.isDirectory();
 
     if (!targetIsDirectory && !targetStats.isFile()) {
@@ -1612,10 +1727,10 @@ function finalizeFormattingRun({ targetPath, targetIsDirectory, targetPathProvid
 /**
  * Fully execute the formatting workflow for a validated target path.
  *
- * @param {{ targetPath: string, usage: string }} params
+ * @param {{ targetPath: string, usage: string, originalInput?: string }} params
  */
-async function runFormattingWorkflow({ targetPath, usage, targetPathProvided }) {
-    const { targetIsDirectory, projectRoot } = await resolveTargetContext(targetPath, usage);
+async function runFormattingWorkflow({ targetPath, usage, targetPathProvided, originalInput }) {
+    const { targetIsDirectory, projectRoot } = await resolveTargetContext(targetPath, usage, originalInput);
 
     await processResolvedTarget({
         targetPath,
@@ -1651,6 +1766,10 @@ async function executeFormatCommand(command) {
     const targetPath = resolveTargetPathFromInput(targetPathInput, {
         rawTargetPathInput
     });
+
+    // Keep the original input (before path resolution) for better error messages
+    const originalInput = typeof targetPathInput === "string" ? targetPathInput : undefined;
+
     await prepareFormattingRun({
         configuredExtensions: commandOptions.extensions,
         prettierLogLevel: commandOptions.prettierLogLevel,
@@ -1665,7 +1784,8 @@ async function executeFormatCommand(command) {
         await runFormattingWorkflow({
             targetPath,
             usage,
-            targetPathProvided
+            targetPathProvided,
+            originalInput
         });
     } finally {
         await discardFormattedFileOriginalContents();
@@ -2112,6 +2232,16 @@ cliCommandRegistry.registerCommand({
     onError: (error) =>
         handleCliError(error, {
             prefix: "Failed to start watch mode.",
+            exitCode: 1
+        })
+});
+
+cliCommandRegistry.registerCommand({
+    command: createWatchStatusCommand(),
+    run: ({ command }) => runWatchStatusCommand(command.opts()),
+    onError: (error) =>
+        handleCliError(error, {
+            prefix: "Failed to query watch status.",
             exitCode: 1
         })
 });

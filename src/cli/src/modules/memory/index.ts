@@ -8,7 +8,7 @@ import type { Stream } from "node:stream";
 import { Command, Option, InvalidArgumentError } from "commander";
 import { Core } from "@gml-modules/core";
 import { resolveModuleDefaultExport } from "../../shared/module.js";
-import { createStringEnumeratedOptionHelpers } from "../../shared/enumerated-option-helpers.js";
+import { createEnumeratedOptionHelpers } from "../../shared/enumerated-option-helpers.js";
 import {
     SuiteOutputFormat,
     collectSuiteResults,
@@ -72,11 +72,11 @@ export const MemorySuiteName = Object.freeze({
     PLUGIN_FORMAT: "plugin-format"
 });
 
-const memorySuiteHelpers = createStringEnumeratedOptionHelpers(
-    Object.values(MemorySuiteName),
-    "Memory suite name",
-    (list, received) => `Memory suite must be one of: ${list}. Received: ${received}.`
-);
+const memorySuiteHelpers = createEnumeratedOptionHelpers(Object.values(MemorySuiteName), {
+    formatError: (list, received) => `Memory suite must be one of: ${list}. Received: ${received}.`,
+    enforceStringType: true,
+    valueLabel: "Memory suite name"
+});
 
 /**
  * Format the supported memory suite identifiers into a human-readable list.

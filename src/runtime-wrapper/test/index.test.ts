@@ -1632,3 +1632,140 @@ void test("clearRegistry resets undo stack size", () => {
 
     assert.strictEqual(wrapper.getUndoStackSize(), 0);
 });
+
+void test("getPatchById returns all history entries for a patch ID", () => {
+    const wrapper = RuntimeWrapper.createRuntimeWrapper();
+
+    wrapper.applyPatch({
+        kind: "script",
+        id: "script:test",
+        js_body: "return 1;"
+    });
+
+    wrapper.applyPatch({
+        kind: "script",
+        id: "script:other",
+        js_body: "return 2;"
+    });
+
+    wrapper.applyPatch({
+        kind: "script",
+        id: "script:test",
+        js_body: "return 3;"
+    });
+
+    const entries = wrapper.getPatchById("script:test");
+    assert.strictEqual(entries.length, 2);
+    assert.strictEqual(entries[0].patch.id, "script:test");
+    assert.strictEqual(entries[0].version, 1);
+    assert.strictEqual(entries[1].patch.id, "script:test");
+    assert.strictEqual(entries[1].version, 3);
+});
+
+void test("getPatchById returns empty array for non-existent ID", () => {
+    const wrapper = RuntimeWrapper.createRuntimeWrapper();
+
+    wrapper.applyPatch({
+        kind: "script",
+        id: "script:exists",
+        js_body: "return 1;"
+    });
+
+    const entries = wrapper.getPatchById("script:nonexistent");
+    assert.strictEqual(entries.length, 0);
+});
+
+void test("getPatchById includes undo and rollback operations", () => {
+    const wrapper = RuntimeWrapper.createRuntimeWrapper();
+
+    wrapper.applyPatch({
+        kind: "script",
+        id: "script:test",
+        js_body: "return 1;"
+    });
+
+    wrapper.undo();
+
+    const entries = wrapper.getPatchById("script:test");
+    assert.strictEqual(entries.length, 2);
+    assert.strictEqual(entries[0].action, "apply");
+    assert.strictEqual(entries[1].action, "undo");
+});
+
+void test("getPatchesByKind returns all patches of specified kind", () => {
+    const wrapper = RuntimeWrapper.createRuntimeWrapper();
+
+    wrapper.applyPatch({
+        kind: "script",
+        id: "script:a",
+        js_body: "return 1;"
+    });
+
+    wrapper.applyPatch({
+        kind: "event",
+        id: "obj_test#Step",
+        js_body: "this.x += 1;"
+    });
+
+    wrapper.applyPatch({
+        kind: "script",
+        id: "script:b",
+        js_body: "return 2;"
+    });
+
+    wrapper.applyPatch({
+        kind: "closure",
+        id: "closure:c",
+        js_body: "return () => 3;"
+    });
+
+    const scriptEntries = wrapper.getPatchesByKind("script");
+    assert.strictEqual(scriptEntries.length, 2);
+    assert.strictEqual(scriptEntries[0].patch.id, "script:a");
+    assert.strictEqual(scriptEntries[1].patch.id, "script:b");
+
+    const eventEntries = wrapper.getPatchesByKind("event");
+    assert.strictEqual(eventEntries.length, 1);
+    assert.strictEqual(eventEntries[0].patch.id, "obj_test#Step");
+
+    const closureEntries = wrapper.getPatchesByKind("closure");
+    assert.strictEqual(closureEntries.length, 1);
+    assert.strictEqual(closureEntries[0].patch.id, "closure:c");
+});
+
+void test("getPatchesByKind returns empty array for kind with no patches", () => {
+    const wrapper = RuntimeWrapper.createRuntimeWrapper();
+
+    wrapper.applyPatch({
+        kind: "script",
+        id: "script:test",
+        js_body: "return 1;"
+    });
+
+    const eventEntries = wrapper.getPatchesByKind("event");
+    assert.strictEqual(eventEntries.length, 0);
+
+    const closureEntries = wrapper.getPatchesByKind("closure");
+    assert.strictEqual(closureEntries.length, 0);
+});
+
+void test("getPatchesByKind includes operations from batches", () => {
+    const wrapper = RuntimeWrapper.createRuntimeWrapper();
+
+    wrapper.applyPatchBatch([
+        { kind: "script", id: "script:batch1", js_body: "return 1;" },
+        { kind: "event", id: "obj_test#Create", js_body: "this.x = 0;" },
+        { kind: "script", id: "script:batch2", js_body: "return 2;" }
+    ]);
+
+    const scriptEntries = wrapper.getPatchesByKind("script");
+    // Includes the two script patches plus the batch marker
+    assert.strictEqual(scriptEntries.length, 3);
+    assert.strictEqual(scriptEntries[0].patch.id, "script:batch1");
+    assert.strictEqual(scriptEntries[1].patch.id, "script:batch2");
+    assert.ok(scriptEntries[2].patch.id.startsWith("batch:"));
+
+    const eventEntries = wrapper.getPatchesByKind("event");
+    assert.strictEqual(eventEntries.length, 1);
+    assert.strictEqual(eventEntries[0].patch.id, "obj_test#Create");
+});

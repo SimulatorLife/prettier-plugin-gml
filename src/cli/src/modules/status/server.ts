@@ -66,7 +66,13 @@ function handleStatusRequest(_req: IncomingMessage, res: ServerResponse, getSnap
         const snapshot = getSnapshot();
         sendJsonResponse(res, 200, snapshot);
     } catch (error) {
-        // Log detailed error information on the server, but do not expose it to the client.
+        // Withhold internal error details from HTTP clients to avoid leaking
+        // implementation specifics or stack traces. We log the full error on the
+        // server (stderr or logging backend) for debugging, then send a generic
+        // 500 response to the client. This defensive posture prevents accidental
+        // disclosure of file paths, module names, or environmental configuration
+        // that could aid attackers or confuse end users unfamiliar with the
+        // server's internal structure.
         console.error("Failed to generate status snapshot:", error);
         sendJsonResponse(res, 500, {
             error: "Failed to generate status snapshot"

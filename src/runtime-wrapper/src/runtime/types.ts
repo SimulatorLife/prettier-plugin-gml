@@ -173,6 +173,8 @@ export interface HistoryManager {
     undo(): { success: boolean; version?: number; message?: string };
     getPatchHistory(): Array<PatchHistoryEntry>;
     getUndoStackSize(): number;
+    getPatchById(id: string): Array<PatchHistoryEntry>;
+    getPatchesByKind(kind: PatchKind): Array<PatchHistoryEntry>;
 }
 
 /**

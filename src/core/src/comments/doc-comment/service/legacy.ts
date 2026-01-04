@@ -1,4 +1,4 @@
-import { capitalize, isNonEmptyTrimmedString, toTrimmedString } from "../../../utils/string.js";
+import { capitalize, isNonEmptyTrimmedString, toTrimmedString } from "../utils.js";
 import type { DocCommentLines } from "../../comment-utils.js";
 import { parseDocCommentMetadata, isDocCommentTagLine } from "./metadata.js";
 

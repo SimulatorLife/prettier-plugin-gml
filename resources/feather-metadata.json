@@ -1,10 +1,10 @@
 {
   "meta": {
-    "manualRoot": "/Users/henrykirk/gamemaker-language-parser/vendor/GameMaker-Manual",
+    "manualRoot": "/home/runner/work/prettier-plugin-gml/prettier-plugin-gml/vendor/GameMaker-Manual",
     "packageName": null,
     "packageVersion": null,
-    "generatedAt": "2026-01-03T16:29:35.091Z",
-    "source": "/Users/henrykirk/gamemaker-language-parser/vendor/GameMaker-Manual",
+    "generatedAt": "2026-01-04T13:35:51.921Z",
+    "source": "/home/runner/work/prettier-plugin-gml/prettier-plugin-gml/vendor/GameMaker-Manual",
     "manualPaths": {
       "diagnostics": "Manual/contents/The_Asset_Editors/Code_Editor_Properties/Feather_Messages.htm",
       "directives": "Manual/contents/The_Asset_Editors/Code_Editor_Properties/Feather_Directives.htm",

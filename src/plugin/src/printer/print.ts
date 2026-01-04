@@ -49,7 +49,6 @@ import {
 } from "./prettier-doc-builders.js";
 
 import { collectFunctionDocCommentDocs, normalizeFunctionDocCommentDocs } from "./doc-comment/function-docs.js";
-import { resolveDocCommentPrinterOptions } from "./doc-comment/doc-comment-options.js";
 import { buildPrintableDocCommentLines } from "./doc-comment/description-doc.js";
 
 import {
@@ -167,10 +166,15 @@ function getSemanticIdentifierCaseRenameForNode(node, options) {
         /* ignore */
     }
 
-    // If the facade lookup did not produce a rename, attempt a narrow
-    // direct lookup against the captured renameMap. This mirrors the
-    // planner's location-based key encoding and emits diagnostics to help
-    // triage any mismatches.
+    // Attempt a direct lookup in the captured renameMap when the facade lookup fails.
+    // The Semantic facade may not produce a rename due to lazy initialization,
+    // module loading order, or hot-reload timing. As a fallback, we consult the
+    // renameMap directly, using the same location-based key encoding that the
+    // planner uses. This ensures identifier-case corrections still apply even
+    // when the Semantic module isn't fully initialized. We emit diagnostics to
+    // help triage mismatches between the facade and direct lookup paths, which
+    // can occur when the renameMap is stale or the planner used a different key
+    // encoding strategy than expected.
     try {
         if (!finalResult) {
             const renameMap = options?.__identifierCaseRenameMap ?? null;
@@ -237,9 +241,13 @@ function isBlockWithinConstructor(path) {
         return false;
     }
 
-    // Hoist the `getParentNode` lookup so the tight loop can call it directly
-    // without paying for the generic helper's array normalization overhead on
-    // every iteration.
+    // Cache the getParentNode method to avoid repeated lookups during ancestor traversal.
+    // The tight loop below calls getParentNode repeatedly (up to 100 times) to walk
+    // up the AST until it finds a constructor or reaches the root. Each call to
+    // path.getParentNode invokes the generic helper, which performs array normalization
+    // and other overhead. By hoisting the method reference once before the loop, we
+    // eliminate that overhead on every iteration, keeping the traversal efficient
+    // without sacrificing clarity or correctness.
     const getParentNode = path.getParentNode;
     for (let depth = 0; depth < 100; depth += 1) {
         const ancestor = getParentNode.call(path, depth);
@@ -450,7 +458,6 @@ function tryPrintFunctionNode(node, path, options, print) {
                 }
             }
 
-            const docCommentOptions = resolveDocCommentPrinterOptions(options);
             ({ docCommentDocs, needsLeadingBlankLine } = normalizeFunctionDocCommentDocs({
                 docCommentDocs,
                 needsLeadingBlankLine,
@@ -459,7 +466,7 @@ function tryPrintFunctionNode(node, path, options, print) {
                 path,
                 overrides: { includeOverrideTag }
             }));
-            const printableDocComments = buildPrintableDocCommentLines(docCommentDocs, docCommentOptions.printWidth);
+            const printableDocComments = buildPrintableDocCommentLines(docCommentDocs);
 
             const shouldEmitPlainLeadingBeforeDoc =
                 plainLeadingLines.length > 0 && docCommentDocs.length > 0 && existingDocLines.length === 0;
@@ -496,15 +503,26 @@ function tryPrintFunctionNode(node, path, options, print) {
                 delete node[DOC_COMMENT_OUTPUT_FLAG];
             }
 
-            // Mark doc comments as printed since we handled them manually.
-            // We do NOT mark all comments as printed, because we want Prettier to handle
-            // regular comments (non-doc comments) that we didn't consume.
+            // Mark doc comments as printed to prevent Prettier from re-rendering them.
+            // We manually emit doc comments earlier in the printing pipeline (e.g.,
+            // during function declaration printing), so we must tell Prettier's
+            // comment-attachment logic to skip them. Setting `comment.printed = true`
+            // signals that these comments have already been incorporated into the
+            // output Doc. Regular inline/trailing comments remain unmarked so
+            // Prettier's built-in comment handling can attach them to appropriate
+            // nodes without duplication or omission.
             if (node.docComments) {
                 node.docComments.forEach((comment: any) => {
                     comment.printed = true;
                 });
             } else {
-                // If the function didn't have comments, we might have consumed them from the parent VariableDeclaration
+                // Retrieve doc comments from the parent VariableDeclaration when the
+                // function itself has none. During parsing, doc comments attached to
+                // a `var foo = function() {}` declaration may be stored on the
+                // VariableDeclaration node rather than the FunctionExpression. We
+                // climb the AST path to check if the parent or grandparent holds
+                // doc comments that apply to this function, then mark those as
+                // printed to prevent duplication in the output.
                 const parentNode = path.getParentNode();
                 if (parentNode && parentNode.type === VARIABLE_DECLARATOR) {
                     const grandParentNode = path.getParentNode(1);
@@ -622,7 +640,8 @@ function tryPrintVariableNode(node, path, options, print) {
             ) {
                 return "";
             }
-            return print("expression");
+            const printed = print("expression");
+            return printed === "" ? null : printed;
         }
         case "AssignmentExpression": {
             const parentNode = typeof path.getParentNode === "function" ? path.getParentNode() : (path.parent ?? null);
@@ -674,7 +693,7 @@ function tryPrintVariableNode(node, path, options, print) {
             const keptDeclarators = filterKeptDeclarators(declarators, functionNode, options);
 
             if (keptDeclarators.length === 0) {
-                return "";
+                return null;
             }
 
             if (keptDeclarators.length !== declarators.length) {
@@ -1162,6 +1181,13 @@ function printStructExpressionNode(node, path, options, print) {
         printCommaSeparatedList(path, print, "properties", "{", "}", options, {
             forceBreak: node.hasTrailingComma || shouldForceBreakStruct || shouldPreserveStructWrap,
             // Keep struct literals flush with their braces for now; GameMaker's
+            // canonical formatting style avoids inserting spaces after `{` or before
+            // `}` in struct literals, unlike JavaScript object literals which often
+            // use `{ key: value }` formatting. Forcing spaces here would conflict
+            // with the established GML convention and make diffs noisier when
+            // migrating existing codebases. Future work may add a user-configurable
+            // option for struct spacing, but until then we preserve the tight
+            // `{key: value}` style that GameMaker developers expect.
             // runtime formatter and the official documentation render `{foo: 1}`
             // without extra internal padding, and our fixtures rely on that output.
             padding: ""
@@ -1284,7 +1310,10 @@ function tryPrintDeclarationNode(node, path, options, print) {
                 typeof node.replacementSuffix === STRING_TYPE ? node.replacementSuffix.trim() : print("name");
 
             if (typeof suffixDoc === STRING_TYPE) {
-                return concat([directive, " ", suffixDoc]);
+                const trimmedSuffix = suffixDoc.trimStart();
+                const needsSeparator = trimmedSuffix.length > 0;
+
+                return needsSeparator ? concat([directive, " ", trimmedSuffix]) : concat(directive);
             }
 
             return concat([directive, " ", suffixDoc]);
@@ -2337,7 +2366,7 @@ function buildStatementPartsForPrinter({
     const isTopLevel = childPath.parent?.type === PROGRAM;
     const printed = print();
 
-    if (printed == null || printed === "") {
+    if (printed == null || (printed === "" && node.type !== "EmptyStatement")) {
         return { parts, previousNodeHadNewlineAddedAfter };
     }
 
@@ -4029,27 +4058,41 @@ function materializeParamDefaultsFromParamDefault(functionNode) {
                 // heuristics prefer to preserve the explicit `= undefined`
                 // form in printed signatures.
                 try {
-                    // Preserve parser/transforms-provided marker if present.
-                    // Do NOT automatically mark a parameter optional just because
-                    // its default expression is the `undefined` sentinel here;
-                    // the parser transform is the authoritative source of that
-                    // intent. Only propagate an existing marker from the
-                    // original param node.
+                    // Preserve the parser-provided optional-parameter marker when present.
+                    // The parser transform pass is the authoritative source for determining
+                    // which parameters are optional. We do not automatically mark a parameter
+                    // optional just because its default expression is `undefined`—that would
+                    // bypass the parser's intent and conflict with doc-comment-driven
+                    // optionality decisions. Instead, we propagate an existing
+                    // `_featherOptionalParameter` flag from the original param node to the
+                    // new DefaultParameter wrapper, preserving the parser's decision across
+                    // AST transformations. If the marker is absent, we leave the parameter
+                    // unmarked, allowing downstream heuristics (e.g., doc comment reconciliation)
+                    // to determine optionality based on authoritative metadata.
                     if (param._featherOptionalParameter === true) {
                         (defaultNode as any)._featherOptionalParameter = true;
                     }
                 } catch {
-                    // Ignore errors when copying the optional parameter marker.
-                    // If the marker property is absent or inaccessible, the printer
-                    // proceeds without marking the parameter as optional. This defensive
-                    // behavior prevents the optional-parameter detection logic from
-                    // crashing on AST nodes that lack the _featherOptionalParameter
-                    // metadata while still propagating the marker when it exists.
+                    // Tolerate missing or inaccessible optional-parameter markers without
+                    // crashing. If the `_featherOptionalParameter` property is absent or
+                    // throws when accessed (e.g., due to Object.freeze or exotic proxies),
+                    // we proceed without marking the parameter as optional. This defensive
+                    // posture keeps the printer resilient across varied AST shapes while
+                    // still propagating the marker when it legitimately exists, avoiding
+                    // the need for explicit presence checks or optional chaining at every
+                    // call site.
                 }
 
                 functionNode.params[i] = defaultNode;
             } catch {
-                // Non-fatal: if conversion fails, leave param alone.
+                // Tolerate conversion failures gracefully by leaving the parameter unchanged.
+                // Converting an Identifier to a DefaultParameter may fail if the param
+                // node is frozen, lacks expected properties, or encounters unexpected
+                // AST structure. Rather than aborting the entire printing pass, we
+                // catch the error and skip this parameter, allowing the printer to
+                // continue with the remaining parameters. The unconverted parameter
+                // will be printed in its original form, which is acceptable—this
+                // conversion is an enhancement, not a correctness requirement.
             }
         }
 
@@ -4078,11 +4121,16 @@ function materializeParamDefaultsFromParamDefault(functionNode) {
             functionNode.params[i] = defaultNode;
         }
 
-        // If the parser already created a DefaultParameter but left the `right`
-        // slot null (common when the parser emits an in-body argument_count
-        // fallback rather than materializing the default expression), try to
-        // locate the fallback in the function body and fill it in so the
-        // printer and doc synthesizer can observe the default value.
+        // Backfill missing default expressions by extracting in-body fallback logic.
+        // The parser sometimes creates a DefaultParameter node with a null `right`
+        // when the function uses an `if (argument_count < n)` guard to provide a
+        // default value inside the body rather than in the signature. We walk the
+        // function body to find these guards, extract the fallback expression, and
+        // materialize it as the DefaultParameter's `right` so the printer and
+        // doc comment synthesizer can observe the default value. This keeps the
+        // printed signature consistent with the function's actual behavior and
+        // allows downstream tools (e.g., hover hints, signature help) to surface
+        // accurate parameter metadata.
         if (param.type === "DefaultParameter" && param.right == null) {
             try {
                 const paramName = param.left && param.left.type === "Identifier" ? param.left.name : null;
@@ -4464,7 +4512,7 @@ function shouldOmitDefaultValueForParameter(path, options) {
     // parameter as optional (e.g. `/// @param [name]`) preserve it.
     const functionNode = findEnclosingFunctionDeclaration(path);
     if (functionNode) {
-        if (Array.isArray(functionNode.docComments) && functionNode.docComments.length > 0) {
+        if (Core.isNonEmptyArray(functionNode.docComments)) {
             const lines = functionNode.docComments.flatMap((comment) => {
                 const value = comment.value || "";
                 if (comment.type === "CommentBlock") {
@@ -5106,15 +5154,19 @@ function shouldOmitSyntheticParens(path) {
     if (parent.type === "TernaryExpression") {
         if (
             parentKey === "test" && // Trim redundant parentheses when the ternary guard is just a bare
-            // identifier or property lookup. The parser faithfully records the
-            // author-supplied parens as a `ParenthesizedExpression`, so without
-            // this branch the printer would emit `(foo) ?` style guards that look
-            // like extra precedence handling. The formatter's ternary examples in
-            // README.md#formatter-at-a-glance promise minimal grouping, and
-            // teams lean on that contract when reviewing formatter diffs. We keep
-            // the removal scoped to trivially safe shapes so we do not second-
-            // guess parentheses that communicate evaluation order for compound
-            // boolean logic or arithmetic.
+            // Strip trivial parentheses around simple ternary test expressions to
+            // minimize unnecessary grouping syntax. The parser records author-supplied
+            // parentheses as `ParenthesizedExpression` nodes even when they provide no
+            // semantic value (e.g., `(foo) ? a : b` where `foo` is a plain identifier).
+            // Without this check, the printer would emit these redundant parens,
+            // cluttering the output. The formatter's ternary examples in
+            // README.md#formatter-at-a-glance promise minimal grouping, and teams
+            // rely on that contract when reviewing diffs. We restrict removal to
+            // trivially safe shapes (Identifier, MemberDotExpression, MemberIndexExpression)
+            // to avoid second-guessing parentheses that communicate evaluation order
+            // in compound boolean expressions or arithmetic. Removing parens only
+            // when they demonstrably add no value keeps the output clean without
+            // risking semantic changes or precedence confusion.
             (expression?.type === "Identifier" ||
                 expression?.type === "MemberDotExpression" ||
                 expression?.type === "MemberIndexExpression")

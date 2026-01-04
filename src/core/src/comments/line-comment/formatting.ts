@@ -6,9 +6,7 @@ import {
 } from "./options.js";
 import { applyJsDocReplacements } from "../doc-comment/service/type-normalization.js";
 import { getCommentValue } from "../comment-utils.js";
-import { isObjectLike } from "../../utils/object.js";
-import { toTrimmedString } from "../../utils/string.js";
-import { isRegExpLike } from "../../utils/capability-probes.js";
+import { isNonEmptyString, isObjectLike, isRegExpLike, toTrimmedString } from "./utils.js";
 
 // BANNER DECORATION PATTERN DESIGN:
 //
@@ -376,8 +374,7 @@ function tryFormatCommentedOutCode(
         return null;
     }
 
-    const shouldPreserveTabs =
-        isObjectLike(comment) && typeof comment.leadingChar === "string" && comment.leadingChar.length > 0;
+    const shouldPreserveTabs = isObjectLike(comment) && isNonEmptyString(comment.leadingChar);
     const whitespaceSegment = shouldPreserveTabs ? leadingWhitespace : leadingWhitespace.replaceAll("\t", "    ");
     const formattedCommentLine = whitespaceSegment.length > 0 ? `//${whitespaceSegment}${coreValue}` : `//${coreValue}`;
 
@@ -567,8 +564,15 @@ function formatLineComment(comment, lineCommentOptions: any = DEFAULT_LINE_COMME
     // Default: format as a regular comment
     const fallbackLeadingWhitespace = typeof rawValue === "string" ? (rawValue.match(/^\s*/)?.[0] ?? "") : "";
     const normalizedFallbackWhitespace = fallbackLeadingWhitespace.replaceAll("\t", "    ");
-    const fallbackSpacing =
-        normalizedFallbackWhitespace.length > 0 ? normalizedFallbackWhitespace : trimmedValue.length > 0 ? " " : "";
+    const fallbackSpacing = isInlineComment
+        ? trimmedValue.length > 0
+            ? " "
+            : ""
+        : normalizedFallbackWhitespace.length > 0
+          ? normalizedFallbackWhitespace
+          : trimmedValue.length > 0
+            ? " "
+            : "";
     const fallbackContent = trimmedValue;
     const fallbackCommentLine = fallbackSpacing ? `//${fallbackSpacing}${fallbackContent}` : `//${fallbackContent}`;
 

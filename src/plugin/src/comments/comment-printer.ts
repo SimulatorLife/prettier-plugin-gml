@@ -945,6 +945,10 @@ function handleClauseBlockIntroComment(comment, _text, _options, _ast /*, isLast
         addDanglingComment(enclosingNode, comment, false);
     }
 
+    if (typeof comment.leadingWS === "string") {
+        comment.leadingWS = comment.leadingWS.replaceAll("\t", "    ");
+    }
+
     comment.leading = false;
     comment.trailing = false;
     delete comment.placement;

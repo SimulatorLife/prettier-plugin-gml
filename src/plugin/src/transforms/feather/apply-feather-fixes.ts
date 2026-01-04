@@ -357,7 +357,13 @@ function applyFeatherFixesImpl(ast: any, opts: ApplyFeatherFixesOptions = {}) {
         try {
             attachFeatherFixMetadata(ast, appliedFixes);
         } catch {
-            // swallow: attachment logging shouldn't break transforms
+            // Suppress metadata attachment failures to prevent breaking transforms.
+            // The attachFeatherFixMetadata call logs which fixes were applied to
+            // which nodes for debugging and telemetry purposes. If attaching this
+            // metadata throws (e.g., due to frozen nodes, proxy restrictions, or
+            // memory constraints), we catch the error and continue. Diagnostic
+            // metadata is a convenience, not a correctness requirement, so losing
+            // it is preferable to aborting the entire Feather fix pipeline.
             void 0;
         }
 
@@ -434,12 +440,17 @@ function applyFeatherFixesImpl(ast: any, opts: ApplyFeatherFixesOptions = {}) {
             // We need to be careful not to walk into nested functions
             if (node.body) {
                 walkAstNodes(node.body, (child) => {
-                    // Do not descend into nested function declarations because
-                    // argument0, argument1, etc. inside a nested function refer to
-                    // that nested function's parameters, not the outer function's.
-                    // Descending would incorrectly flag those inner references as
-                    // belonging to the outer function's parameter list, leading to
-                    // spurious or conflicting @param entries in the outer doc comment.
+                    // Restrict function body traversal to the immediate function scope only.
+                    // Nested function declarations (FunctionDeclaration, StructFunctionDeclaration)
+                    // define their own parameter namespaces, so `argument0`, `argument1`, etc.
+                    // inside a nested function refer to that inner function's parameters, not
+                    // the outer function's. If we descended into nested declarations, we would
+                    // incorrectly attribute those inner argument references to the outer
+                    // function's parameter list, generating spurious or conflicting @param
+                    // entries in the outer function's doc comment. By returning false here,
+                    // we prevent the walker from entering nested function bodies while still
+                    // allowing it to traverse other nested constructs (loops, conditionals, etc.)
+                    // that legitimately reference the outer function's parameters.
                     if (child.type === "FunctionDeclaration" || child.type === "StructFunctionDeclaration") {
                         return false;
                     }
@@ -6451,7 +6462,7 @@ function renameDuplicateParametersInFunction(functionNode, diagnostic) {
         const param = params[index];
         const identifier = getFunctionParameterIdentifier(param);
 
-        const hasIdentifier = identifier && typeof identifier.name === "string" && identifier.name.length > 0;
+        const hasIdentifier = identifier && Core.isNonEmptyString(identifier.name);
 
         if (!hasIdentifier) {
             continue;
@@ -13512,7 +13523,7 @@ function ensureVertexFormatDefinitionIsClosed(node, parent, property, diagnostic
 
     const commentPrefixText = "TODO: Incomplete vertex format definition automatically commented out (GM2015)";
 
-    if (typeof commentPrefixText === "string" && commentPrefixText.length > 0 && node && typeof node === "object") {
+    if (Core.isNonEmptyString(commentPrefixText) && node && typeof node === "object") {
         Object.defineProperty(node, FEATHER_COMMENT_PREFIX_TEXT_SYMBOL, {
             configurable: true,
             enumerable: false,
