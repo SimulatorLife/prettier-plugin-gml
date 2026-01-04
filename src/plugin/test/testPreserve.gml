@@ -128,7 +128,8 @@ global.lighting.draw(
 //}
 
 // Wobbling in z-axis
-z_wobble = ((sin(current_time * 0.004) + 1) * 2) + 2; // value between 0 and 2, this is subtracted from crabs height
+// Value between 0 and 2, this is subtracted from crabs height
+z_wobble = ((sin(current_time * 0.004) + 1) * 2) + 2;
 
 /// @description Functions for skyboxes using an octahedron vertex buffer
 /// @param {Asset.GMSprite} [sprite=noone]
