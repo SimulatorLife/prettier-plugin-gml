@@ -37,7 +37,7 @@ export interface TranspilationError {
 
 function resolveRuntimeId(filePath: string): string | null {
     const normalizedPath = path.normalize(filePath);
-    const segments = normalizedPath.split(path.sep).filter(Boolean);
+    const segments = Core.compactArray(normalizedPath.split(path.sep));
 
     for (let index = segments.length - 1; index >= 0; index -= 1) {
         if (segments[index] !== "objects") {

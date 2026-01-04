@@ -962,7 +962,7 @@ export function shouldGenerateSyntheticDocForFunction(
         return true;
     }
 
-    if (Array.isArray(existingDocLines) && existingDocLines.length > 0) {
+    if (isNonEmptyArray(existingDocLines)) {
         return true;
     }
 

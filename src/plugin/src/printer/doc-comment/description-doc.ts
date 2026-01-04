@@ -2,7 +2,7 @@ import { type Doc } from "prettier";
 import { align, concat, fill, group, hardline, join, line } from "../prettier-doc-builders.js";
 import { resolveDescriptionIndentation } from "../../transforms/doc-comment/description-utils.js";
 
-import type { MutableDocCommentLines } from "@gml-modules/core";
+import { Core, type MutableDocCommentLines } from "@gml-modules/core";
 
 const DESCRIPTION_TAG_PATTERN = /^\/\/\/\s*@description\b/i;
 
@@ -39,7 +39,7 @@ function buildDescriptionDoc(lineText: string, continuations: string[]): Doc {
     const { prefix } = resolveDescriptionIndentation(lineText);
     const continuationPrefix = `/// ${" ".repeat(Math.max(prefix.length - 4, 0))}`;
 
-    const fragments = [descriptionText, ...continuations].filter(Boolean).join(" ");
+    const fragments = Core.compactArray([descriptionText, ...continuations]).join(" ");
 
     const contentWords = fragments.split(/\s+/).filter((word) => word.length > 0);
 
