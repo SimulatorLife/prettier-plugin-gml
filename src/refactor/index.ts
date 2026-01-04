@@ -2,6 +2,7 @@ export { Refactor } from "./src/index.js";
 
 export type {
     ApplyWorkspaceEditOptions,
+    BatchRenamePlanSummary,
     BatchRenameValidation,
     DependencyAnalyzer,
     EditValidator,
