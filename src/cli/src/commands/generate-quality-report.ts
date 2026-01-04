@@ -8,6 +8,7 @@ import { Core } from "@gml-modules/core";
 import { CliUsageError, handleCliError } from "../cli-core/errors.js";
 import { applyStandardCommandOptions } from "../cli-core/command-standard-options.js";
 import { XMLParser } from "fast-xml-parser";
+import { TestCaseStatus, ParseResultStatus, ScanStatus } from "../modules/quality-report/index.js";
 
 const {
     assertArray,
@@ -109,12 +110,12 @@ function describeTestCase(testNode, suitePath) {
 function computeStatus(testNode) {
     const hasFailure = Object.hasOwn(testNode, "failure") || Object.hasOwn(testNode, "error");
     if (hasFailure) {
-        return "failed";
+        return TestCaseStatus.FAILED;
     }
     if (Object.hasOwn(testNode, "skipped")) {
-        return "skipped";
+        return TestCaseStatus.SKIPPED;
     }
-    return "passed";
+    return TestCaseStatus.PASSED;
 }
 
 function createTestTraversalQueue(root) {
@@ -429,7 +430,7 @@ function decrementLocatorCount(locator, store) {
 function scanResultDirectory(directory, root) {
     if (!isExistingDirectory(directory.resolved)) {
         return {
-            status: "missing",
+            status: ScanStatus.MISSING,
             notes: [],
             cases: [],
             coverage: null,
@@ -448,7 +449,7 @@ function scanResultDirectory(directory, root) {
 
     if (xmlFiles.length === 0) {
         return {
-            status: "empty",
+            status: ScanStatus.EMPTY,
             notes: [],
             cases: [],
             coverage: null,
@@ -466,7 +467,7 @@ function scanResultDirectory(directory, root) {
 
     if (cases.length === 0) {
         return {
-            status: "empty",
+            status: ScanStatus.EMPTY,
             notes,
             cases: [],
             coverage,
@@ -477,7 +478,7 @@ function scanResultDirectory(directory, root) {
     }
 
     return {
-        status: "found",
+        status: ScanStatus.FOUND,
         notes,
         cases,
         coverage,
@@ -561,7 +562,7 @@ function mergeTestCaseAggregate(target, additions) {
 
 function collectTestCasesFromXmlFile(filePath, displayPath) {
     const readResult = readXmlFile(filePath, displayPath);
-    if (readResult.status === "error") {
+    if (readResult.status === ParseResultStatus.ERROR) {
         return { cases: [], notes: [readResult.note] };
     }
 
@@ -571,11 +572,11 @@ function collectTestCasesFromXmlFile(filePath, displayPath) {
     }
 
     const parseResult = parseXmlTestCases(xml, displayPath);
-    if (parseResult.status === "error") {
+    if (parseResult.status === ParseResultStatus.ERROR) {
         return { cases: [], notes: [parseResult.note] };
     }
 
-    if (parseResult.status === "ignored") {
+    if (parseResult.status === ParseResultStatus.IGNORED) {
         return {
             cases: [],
             notes: parseResult.note ? [parseResult.note] : []
@@ -587,11 +588,11 @@ function collectTestCasesFromXmlFile(filePath, displayPath) {
 
 function readXmlFile(filePath, displayPath) {
     try {
-        return { status: "ok", contents: fs.readFileSync(filePath, "utf8") };
+        return { status: ParseResultStatus.OK, contents: fs.readFileSync(filePath, "utf8") };
     } catch (error) {
         const message = getErrorMessageOrFallback(error);
         return {
-            status: "error",
+            status: ParseResultStatus.ERROR,
             note: `Failed to read ${displayPath}: ${message}`
         };
     }
@@ -602,21 +603,21 @@ function parseXmlTestCases(xml, displayPath) {
         const data = parser.parse(xml);
         if (isCheckstyleDocument(data)) {
             return {
-                status: "ignored",
+                status: ParseResultStatus.IGNORED,
                 note: `Ignoring checkstyle report ${displayPath}; no test cases found.`
             };
         }
         if (!documentContainsTestElements(data)) {
             return {
-                status: "error",
+                status: ParseResultStatus.ERROR,
                 note: `Parsed ${displayPath} but it does not contain any test suites or cases.`
             };
         }
-        return { status: "ok", cases: collectTestCases(data) };
+        return { status: ParseResultStatus.OK, cases: collectTestCases(data) };
     } catch (error) {
         const message = getErrorMessageOrFallback(error);
         return {
-            status: "error",
+            status: ParseResultStatus.ERROR,
             note: `Failed to parse ${displayPath}: ${message}`
         };
     }
@@ -683,9 +684,9 @@ function recordTestCases(aggregates, testCases) {
         stats.total += 1;
         stats.time += testCase.time || 0;
 
-        if (testCase.status === "failed") {
+        if (testCase.status === TestCaseStatus.FAILED) {
             stats.failed += 1;
-        } else if (testCase.status === "skipped") {
+        } else if (testCase.status === TestCaseStatus.SKIPPED) {
             stats.skipped += 1;
         } else {
             stats.passed += 1;
@@ -719,12 +720,12 @@ function readTestResults(candidateDirs, { workspace }: DetectTestResultsOptions 
             notes.push(...scan.notes);
         }
 
-        if (scan.status === "missing") {
+        if (scan.status === ScanStatus.MISSING) {
             missingDirs.push(directory.display);
             continue;
         }
 
-        if (scan.status === "empty") {
+        if (scan.status === ScanStatus.EMPTY) {
             emptyDirs.push(directory.display);
             continue;
         }
@@ -788,19 +789,19 @@ function resolveResultsMap(resultSet) {
 }
 
 function createRegressionRecord({ baseResults, key, targetRecord }) {
-    if (!targetRecord || targetRecord.status !== "failed") {
+    if (!targetRecord || targetRecord.status !== TestCaseStatus.FAILED) {
         return null;
     }
 
     const baseRecord = baseResults.get(key);
     const baseStatus = baseRecord?.status;
-    if (baseStatus === "failed") {
+    if (baseStatus === TestCaseStatus.FAILED) {
         return null;
     }
 
     return {
         key,
-        from: baseStatus ?? "missing",
+        from: baseStatus ?? ScanStatus.MISSING,
         to: targetRecord.status,
         detail: targetRecord
     };
@@ -829,20 +830,20 @@ function collectRegressions({ baseResults, targetResults }) {
 
 function createResolvedFailureRecord({ baseResults, key, targetResults }) {
     const baseRecord = baseResults.get(key);
-    if (!baseRecord || baseRecord.status !== "failed") {
+    if (!baseRecord || baseRecord.status !== TestCaseStatus.FAILED) {
         return null;
     }
 
     const targetRecord = targetResults.get(key);
     const targetStatus = targetRecord?.status;
-    if (targetStatus === "failed") {
+    if (targetStatus === TestCaseStatus.FAILED) {
         return null;
     }
 
     return {
         key,
         from: baseRecord.status,
-        to: targetStatus ?? "missing",
+        to: targetStatus ?? ScanStatus.MISSING,
         detail: baseRecord
     };
 }
@@ -888,7 +889,7 @@ function detectResolvedFailures(baseResults, targetResults) {
 
 function formatRegression(regression) {
     const descriptor = regression.detail?.displayName || regression.key;
-    const fromLabel = regression.from === "missing" ? "missing" : regression.from;
+    const fromLabel = regression.from === ScanStatus.MISSING ? "missing" : regression.from;
     return `- ${descriptor} (${fromLabel} -> ${regression.to})`;
 }
 
@@ -1234,7 +1235,7 @@ function describeRegressionCause(regressions, diff) {
 
     const buckets = new Map();
     for (const item of regressions) {
-        const fromKey = String(item?.from ?? "missing").toLowerCase();
+        const fromKey = String(item?.from ?? ScanStatus.MISSING);
         buckets.set(fromKey, (buckets.get(fromKey) || 0) + 1);
     }
 
@@ -1248,25 +1249,25 @@ function describeRegressionCause(regressions, diff) {
     };
 
     addFragment(
-        buckets.get("missing") || 0,
+        buckets.get(ScanStatus.MISSING) || 0,
         "test is failing but was not present in base (added or renamed)",
         "tests are failing but were not present in base (added or renamed)"
     );
 
     addFragment(
-        buckets.get("passed") || 0,
+        buckets.get(TestCaseStatus.PASSED) || 0,
         "test is now failing after passing in base",
         "tests are now failing after passing in base"
     );
 
     addFragment(
-        buckets.get("skipped") || 0,
+        buckets.get(TestCaseStatus.SKIPPED) || 0,
         "test is now failing after being skipped in base",
         "tests are now failing after being skipped in base"
     );
 
     for (const [fromKey, count] of buckets.entries()) {
-        if (fromKey === "missing" || fromKey === "passed" || fromKey === "skipped") {
+        if (fromKey === ScanStatus.MISSING || fromKey === TestCaseStatus.PASSED || fromKey === TestCaseStatus.SKIPPED) {
             continue;
         }
         addFragment(
