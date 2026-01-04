@@ -49,7 +49,6 @@ import {
 } from "./prettier-doc-builders.js";
 
 import { collectFunctionDocCommentDocs, normalizeFunctionDocCommentDocs } from "./doc-comment/function-docs.js";
-import { resolveDocCommentPrinterOptions } from "./doc-comment/doc-comment-options.js";
 import { buildPrintableDocCommentLines } from "./doc-comment/description-doc.js";
 
 import {
@@ -459,7 +458,6 @@ function tryPrintFunctionNode(node, path, options, print) {
                 }
             }
 
-            const docCommentOptions = resolveDocCommentPrinterOptions(options);
             ({ docCommentDocs, needsLeadingBlankLine } = normalizeFunctionDocCommentDocs({
                 docCommentDocs,
                 needsLeadingBlankLine,
@@ -468,7 +466,7 @@ function tryPrintFunctionNode(node, path, options, print) {
                 path,
                 overrides: { includeOverrideTag }
             }));
-            const printableDocComments = buildPrintableDocCommentLines(docCommentDocs, docCommentOptions.printWidth);
+            const printableDocComments = buildPrintableDocCommentLines(docCommentDocs);
 
             const shouldEmitPlainLeadingBeforeDoc =
                 plainLeadingLines.length > 0 && docCommentDocs.length > 0 && existingDocLines.length === 0;
