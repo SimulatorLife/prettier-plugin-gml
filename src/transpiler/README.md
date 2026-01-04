@@ -80,6 +80,7 @@ The semantic oracle provides:
 - ✅ GML operator mapping (div → /, mod → %, and → &&, or → ||, etc.)
 - ✅ Strict equality conversion (== → ===, != → !==)
 - ✅ Assignment expressions
+- ✅ Compound assignment operators (+=, -=, *=, /=, %=, &=, |=, ^=, <<=, >>=)
 - ✅ Basic statements
 - ✅ Array indexing (arr[0], matrix[i][j])
 - ✅ Property access (obj.prop, nested.property.access)
@@ -138,9 +139,9 @@ The semantic oracle provides:
 - [x] Built-in function mapping (expanded to 60+ functions including comprehensive string, math, and random number support)
 - [x] Semantic oracle integration for identifier classification
 - [x] Script call indirection through runtime wrapper
+- [x] Compound assignment operators (+=, -=, *=, /=, %=, &=, |=, ^=, <<=, >>=)
 - [ ] Scope-aware identifier resolution with scope tracker (self, other fields)
 - [ ] Additional built-in function mapping (array functions, data structure functions, drawing functions)
-- [ ] Compound assignment operators (already parsed and working)
 
 ## Operator Mapping
 
