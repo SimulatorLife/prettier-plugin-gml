@@ -53,4 +53,18 @@ void describe("define normalization spacing", () => {
             "Expected the formatter to add a trailing semicolon after the normalized function assignment."
         );
     });
+
+    void it("normalizes #define to #macro with single space separator", async () => {
+        const input = "#define  LEGACY_MACRO 123456789\n";
+        const expected = "#macro LEGACY_MACRO 123456789\n";
+        const actual = await Plugin.format(input, {});
+        assert.strictEqual(actual, expected);
+    });
+
+    void it("trims leading whitespace from macro suffix", async () => {
+        const input = "#define    MY_CONSTANT    42\n";
+        const output = await Plugin.format(input, {});
+        assert.ok(output.startsWith("#macro MY_CONSTANT"));
+        assert.ok(!output.startsWith("#macro  "));
+    });
 });

@@ -1310,9 +1310,10 @@ function tryPrintDeclarationNode(node, path, options, print) {
             const suffixDoc = typeof node.replacementSuffix === STRING_TYPE ? node.replacementSuffix : print("name");
 
             if (typeof suffixDoc === STRING_TYPE) {
-                const needsSeparator = suffixDoc.length > 0 && !/^\s/.test(suffixDoc);
+                const trimmedSuffix = suffixDoc.trimStart();
+                const needsSeparator = trimmedSuffix.length > 0;
 
-                return needsSeparator ? concat([directive, " ", suffixDoc]) : concat([directive, suffixDoc]);
+                return needsSeparator ? concat([directive, " ", trimmedSuffix]) : concat(directive);
             }
 
             return concat([directive, suffixDoc]);
