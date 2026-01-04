@@ -113,7 +113,7 @@ export function detectCircularRenames(renames: Array<RenameRequest>): Array<stri
         let current = start;
 
         // Walk the chain from this starting node
-        while (current && graph.has(current)) {
+        while (graph.has(current)) {
             if (pathSet.has(current)) {
                 // Found a cycle - extract it
                 const cycleStart = path.indexOf(current);
@@ -123,9 +123,8 @@ export function detectCircularRenames(renames: Array<RenameRequest>): Array<stri
             path.push(current);
             pathSet.add(current);
             visited.add(current);
-            const next = graph.get(current);
-            if (!next) break;
-            current = next;
+            // Safe to assert non-null: graph.has(current) guarantees the key exists
+            current = graph.get(current);
         }
     }
 
