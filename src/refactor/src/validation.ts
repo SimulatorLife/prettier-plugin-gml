@@ -80,27 +80,6 @@ export async function detectRenameConflicts(
 }
 
 /**
- * Build a directed graph of rename operations for cycle detection.
- * Maps each source symbol ID to its target symbol ID after rename.
- *
- * @param renames - Array of rename operations
- * @returns Map from source symbol ID to target symbol ID
- */
-export function buildRenameGraph(renames: Array<RenameRequest>): Map<string, string> {
-    const graph = new Map<string, string>();
-
-    for (const rename of renames) {
-        const sourceId = rename.symbolId;
-        const pathParts = sourceId.split("/");
-        pathParts[pathParts.length - 1] = rename.newName;
-        const targetId = pathParts.join("/");
-        graph.set(sourceId, targetId);
-    }
-
-    return graph;
-}
-
-/**
  * Detect circular rename chains in a batch of rename operations.
  * Returns the first detected cycle as an array of symbol IDs, or an empty array if no cycles exist.
  *
@@ -115,56 +94,36 @@ export function buildRenameGraph(renames: Array<RenameRequest>): Map<string, str
  * @returns First detected cycle as symbol IDs, or empty array if no cycles
  */
 export function detectCircularRenames(renames: Array<RenameRequest>): Array<string> {
-    const graph = buildRenameGraph(renames);
+    // Build rename graph: source ID → target ID
+    const graph = new Map<string, string>();
+    for (const rename of renames) {
+        const pathParts = rename.symbolId.split("/");
+        pathParts[pathParts.length - 1] = rename.newName;
+        graph.set(rename.symbolId, pathParts.join("/"));
+    }
 
-    // Use depth-first search to detect cycles. We maintain a "visiting" set to
-    // track nodes currently on the recursion stack, which allows us to identify
-    // back edges that indicate cycles.
+    // For each source node, follow the chain until we hit a cycle or dead end
     const visited = new Set<string>();
-    const visiting = new Set<string>();
-    const path: Array<string> = [];
 
-    const dfs = (nodeId: string): Array<string> | null => {
-        if (visiting.has(nodeId)) {
-            // Found a back edge - extract the cycle from the current path.
-            // We append nodeId to close the cycle for clearer visualization
-            // in error messages (e.g., "A → B → C → A" instead of "A → B → C").
-            const cycleStart = path.indexOf(nodeId);
-            return [...path.slice(cycleStart), nodeId];
-        }
+    for (const start of graph.keys()) {
+        if (visited.has(start)) continue;
 
-        if (visited.has(nodeId)) {
-            return null;
-        }
+        const path: Array<string> = [];
+        const pathSet = new Set<string>();
+        let current = start;
 
-        visiting.add(nodeId);
-        path.push(nodeId);
-
-        // Follow the rename edge to the next node (target of this rename).
-        // We only recurse if the target is itself a source of another rename,
-        // allowing us to detect chains like A→B→C where B is also being renamed.
-        const nextId = graph.get(nodeId);
-        if (nextId && graph.has(nextId)) {
-            const cycle = dfs(nextId);
-            if (cycle) {
-                return cycle;
+        // Walk the chain from this starting node
+        while (current && graph.has(current)) {
+            if (pathSet.has(current)) {
+                // Found a cycle - extract it
+                const cycleStart = path.indexOf(current);
+                return [...path.slice(cycleStart), current];
             }
-        }
 
-        path.pop();
-        visiting.delete(nodeId);
-        visited.add(nodeId);
-
-        return null;
-    };
-
-    // Check each rename operation as a potential cycle starting point
-    for (const sourceId of graph.keys()) {
-        if (!visited.has(sourceId)) {
-            const cycle = dfs(sourceId);
-            if (cycle) {
-                return cycle;
-            }
+            path.push(current);
+            pathSet.add(current);
+            visited.add(current);
+            current = graph.get(current)!;
         }
     }
 
