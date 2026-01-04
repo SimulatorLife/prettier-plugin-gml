@@ -599,7 +599,7 @@ function ensureParameterInfoForMatch(
 }
 
 function ensureTrailingOptionalParametersHaveUndefinedDefaults(params: Array<any>) {
-    if (!Array.isArray(params) || params.length === 0) {
+    if (!Core.isNonEmptyArray(params)) {
         return false;
     }
 

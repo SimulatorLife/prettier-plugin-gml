@@ -2034,17 +2034,17 @@ export class RefactorEngine {
         const warnings: Array<string> = [];
 
         // Validate inputs - check both existence and type
-        if (symbolId === null || symbolId === undefined || typeof symbolId !== "string" || symbolId.trim() === "") {
+        if (!Core.isNonEmptyTrimmedString(symbolId)) {
             errors.push("Invalid symbolId");
             return { valid: false, errors, warnings };
         }
 
-        if (oldName === null || oldName === undefined || typeof oldName !== "string" || oldName.trim() === "") {
+        if (!Core.isNonEmptyTrimmedString(oldName)) {
             errors.push("Invalid oldName");
             return { valid: false, errors, warnings };
         }
 
-        if (newName === null || newName === undefined || typeof newName !== "string" || newName.trim() === "") {
+        if (!Core.isNonEmptyTrimmedString(newName)) {
             errors.push("Invalid newName");
             return { valid: false, errors, warnings };
         }
