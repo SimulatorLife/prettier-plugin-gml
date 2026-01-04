@@ -16,6 +16,20 @@ import {
 
 const { BINARY_EXPRESSION, LITERAL, PARENTHESIZED_EXPRESSION } = Core;
 
+/**
+ * Compute a tolerance scaled to a reference value's magnitude. Used to determine
+ * when a floating-point number is "close enough" to zero to avoid unsafe division
+ * or other arithmetic that would fail with strict equality checks.
+ *
+ * @param {number} reference Reference value whose magnitude determines scale.
+ * @returns {number} Non-negative tolerance value.
+ */
+function computeNumericTolerance(reference: number): number {
+    const scale = Math.max(1, Math.abs(reference));
+    // Use a multiplier of 4 to account for cumulative rounding during arithmetic
+    return Number.EPSILON * scale * 4;
+}
+
 type ParenthesizedExpressionNode = GameMakerAstNode & {
     expression?: GameMakerAstNode | null;
 };
@@ -89,7 +103,10 @@ function getMultiplicationFactor(node: GameMakerAstNode | null | undefined): num
 
     const literalValue = extractLiteralNumber(node);
     if (literalValue !== null && Number.isFinite(literalValue)) {
-        if (literalValue === 0) {
+        // Use tolerance-aware comparison to detect values extremely close to zero
+        // that might arise from floating-point rounding errors
+        const tolerance = computeNumericTolerance(literalValue);
+        if (Math.abs(literalValue) <= tolerance) {
             return null;
         }
         return 1 / literalValue;
@@ -97,7 +114,9 @@ function getMultiplicationFactor(node: GameMakerAstNode | null | undefined): num
 
     const reciprocalScalar = extractReciprocalScalar(node);
     if (reciprocalScalar !== null && Number.isFinite(reciprocalScalar)) {
-        if (reciprocalScalar === 0) {
+        // Use tolerance-aware comparison to avoid division by near-zero values
+        const tolerance = computeNumericTolerance(reciprocalScalar);
+        if (Math.abs(reciprocalScalar) <= tolerance) {
             return null;
         }
         return reciprocalScalar;

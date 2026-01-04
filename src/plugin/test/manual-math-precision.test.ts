@@ -631,12 +631,14 @@ void test("safely handles division by denominator near machine epsilon", async (
         optimizeMathExpressions: true
     });
 
+    // With tolerance-aware comparison, extremely small denominators (near epsilon)
+    // are now treated as potentially zero to avoid unsafe division transformations
     assert.strictEqual(
         formatted,
         [
             "/// @param value",
             "function test_tiny_denominator(value) {",
-            "    return value * 10000000000000000;",
+            "    return value / 0.0000000000000001;",
             "}",
             ""
         ].join("\n")
@@ -656,5 +658,36 @@ void test("correctly handles multiplicative chain with near-zero factor", async 
     assert.strictEqual(
         formatted,
         ["/// @param x", "function chain_with_tiny_factor(x) {", "    return x * 2000000000000000;", "}", ""].join("\n")
+    );
+});
+
+void test("handles division by value that rounds to zero due to floating-point noise", async () => {
+    const source = [
+        "function test_fp_noise_zero(value) {",
+        // This represents a value that due to floating point arithmetic
+        // might be represented as a tiny number very close to zero (e.g., 1e-17)
+        // rather than exactly zero, which could incorrectly bypass division-by-zero checks
+        "    var epsilon_val = 0.1 - 0.05 - 0.05;",
+        "    return value / epsilon_val;",
+        "}",
+        ""
+    ].join("\n");
+
+    const formatted = await Plugin.format(source, {
+        optimizeMathExpressions: true
+    });
+
+    // The arithmetic expression is preserved (not simplified to 0 in this test)
+    // but the important thing is the division operation is not unsafely transformed
+    assert.strictEqual(
+        formatted,
+        [
+            "/// @param value",
+            "function test_fp_noise_zero(value) {",
+            "    var epsilon_val = 0.1 - 0.05 - 0.05;",
+            "    return value / epsilon_val;",
+            "}",
+            ""
+        ].join("\n")
     );
 });
