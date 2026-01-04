@@ -1,4 +1,4 @@
-import type { MutableDocCommentLines } from "@gml-modules/core";
+import { Core, type MutableDocCommentLines } from "@gml-modules/core";
 
 const STRING_TYPE = "string";
 export const DESCRIPTION_TAG_PATTERN = /^\/\/\/\s*@description\b/i;
@@ -84,7 +84,10 @@ export function applyDescriptionContinuations(
     docCommentDocs: MutableDocCommentLines,
     continuations: string[]
 ): MutableDocCommentLines {
-    if (!Array.isArray(docCommentDocs) || continuations.length === 0) {
+    // Note: We preserve the original Array.isArray check for docCommentDocs (instead of
+    // using Core.isNonEmptyArray) to maintain exact semantics - the function proceeds
+    // even if docCommentDocs is empty, allowing findIndex to return -1 and exit naturally.
+    if (!Array.isArray(docCommentDocs) || !Core.isNonEmptyArray(continuations)) {
         return docCommentDocs;
     }
 

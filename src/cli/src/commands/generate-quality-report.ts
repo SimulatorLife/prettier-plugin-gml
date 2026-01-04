@@ -1229,7 +1229,7 @@ function scanProjectHealth(rootDir) {
 }
 
 function describeRegressionCause(regressions, diff) {
-    if (!Array.isArray(regressions) || regressions.length === 0) {
+    if (!Core.isNonEmptyArray(regressions)) {
         return "";
     }
 
@@ -1289,7 +1289,7 @@ function describeRegressionCause(regressions, diff) {
 }
 
 function summarizeRegressedTests(regressions, limit = 5) {
-    if (!Array.isArray(regressions) || regressions.length === 0) {
+    if (!Core.isNonEmptyArray(regressions)) {
         return "";
     }
 

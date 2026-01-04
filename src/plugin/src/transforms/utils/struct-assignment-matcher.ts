@@ -40,7 +40,7 @@ export class StructAssignmentMatcher {
                 return null;
             }
 
-            if (Array.isArray((declarator.init as any).properties) && (declarator.init as any).properties.length > 0) {
+            if (Core.isNonEmptyArray((declarator.init as any).properties)) {
                 return null;
             }
 
@@ -63,7 +63,7 @@ export class StructAssignmentMatcher {
                 return null;
             }
 
-            if (Array.isArray((statement.right as any).properties) && (statement.right as any).properties.length > 0) {
+            if (Core.isNonEmptyArray((statement.right as any).properties)) {
                 return null;
             }
 

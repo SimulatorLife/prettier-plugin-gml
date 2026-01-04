@@ -3079,7 +3079,7 @@ function collectMultiplicativeChain(node, output, includeInDenominator, context)
 }
 
 function cloneMultiplicativeTerms(terms, template) {
-    if (!Array.isArray(terms) || terms.length === 0) {
+    if (!Core.isNonEmptyArray(terms)) {
         return null;
     }
 

@@ -10378,7 +10378,7 @@ function createVertexBeginCall({ diagnostic, referenceCall, bufferIdentifier }) 
 
     const template = getVertexBeginTemplateFromDiagnostic(diagnostic);
 
-    if (template && Array.isArray(template.additionalArguments) && template.additionalArguments.length > 0) {
+    if (template && Core.isNonEmptyArray(template.additionalArguments)) {
         for (const argumentTemplate of template.additionalArguments) {
             const clonedArgument = Core.cloneAstNode(argumentTemplate);
 

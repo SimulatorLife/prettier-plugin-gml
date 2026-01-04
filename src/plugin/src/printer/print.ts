@@ -3658,7 +3658,7 @@ function getFunctionTagParamName(functionNode, paramIndex, options) {
         : Array.isArray(functionNode.comments)
           ? functionNode.comments
           : null;
-    if (!Array.isArray(docComments) || docComments.length === 0) {
+    if (!Core.isNonEmptyArray(docComments)) {
         return null;
     }
 
@@ -4047,7 +4047,7 @@ function materializeParamDefaultsFromParamDefault(functionNode) {
         return;
     }
 
-    if (!Array.isArray(functionNode.params) || functionNode.params.length === 0) {
+    if (!Core.isNonEmptyArray(functionNode.params)) {
         return;
     }
 

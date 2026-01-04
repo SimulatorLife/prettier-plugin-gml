@@ -194,7 +194,7 @@ function applyTrailingCommentPadding({ memberStats, maxMemberWidth, hasTrailingC
     for (let index = 0; index <= lastIndex; index += 1) {
         const entry = memberStats[index];
         const trailingComments = entry.trailingComments;
-        if (!Array.isArray(trailingComments) || trailingComments.length === 0) {
+        if (!Core.isNonEmptyArray(trailingComments)) {
             continue;
         }
 
