@@ -1,11 +1,29 @@
 import * as RefactorAPI from "./refactor-engine.js";
 import { WorkspaceEdit } from "./workspace-edit.js";
 import * as OccurrenceAnalysisAPI from "./occurrence-analysis.js";
+import {
+    ConflictType,
+    isConflictType,
+    parseConflictType,
+    requireConflictType,
+    SymbolKind,
+    isSymbolKind,
+    parseSymbolKind,
+    requireSymbolKind
+} from "./types.js";
 
 export const Refactor = Object.freeze({
     ...RefactorAPI,
     WorkspaceEdit,
-    ...OccurrenceAnalysisAPI
+    ...OccurrenceAnalysisAPI,
+    ConflictType,
+    isConflictType,
+    parseConflictType,
+    requireConflictType,
+    SymbolKind,
+    isSymbolKind,
+    parseSymbolKind,
+    requireSymbolKind
 });
 
 export { RefactorEngine } from "./refactor-engine.js";
@@ -28,6 +46,7 @@ export type { OccurrenceClassification } from "./occurrence-analysis.js";
 export type {
     ApplyWorkspaceEditOptions,
     AstNode,
+    BatchRenamePlanSummary,
     BatchRenameValidation,
     CascadeEntry,
     ConflictEntry,

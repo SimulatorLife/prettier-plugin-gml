@@ -6,6 +6,7 @@ import {
     parseSymbolKind,
     type ApplyWorkspaceEditOptions,
     type AstNode,
+    type BatchRenamePlanSummary,
     type BatchRenameValidation,
     type CascadeEntry,
     type ConflictEntry,
@@ -1048,6 +1049,189 @@ export class RefactorEngine {
             validation,
             hotReload: hotReloadValidation,
             analysis
+        };
+    }
+
+    /**
+     * Prepare a comprehensive batch rename plan with validation, impact analysis,
+     * and hot reload metadata for multiple coordinated symbol renames.
+     *
+     * This method extends {@link prepareBatchRename} by bundling all validation,
+     * impact analysis, and hot reload cascade computation into a single call,
+     * providing a complete preview of the batch operation before any files are modified.
+     *
+     * Unlike {@link planBatchRename}, this method does not throw errors for invalid
+     * renames; instead, it returns a comprehensive summary that includes all validation
+     * errors, warnings, and partial results to help callers understand what would happen.
+     *
+     * @param {Array<{symbolId: string, newName: string}>} renames - Rename operations to plan
+     * @param {Object} [options] - Additional validation controls
+     * @param {boolean} [options.validateHotReload=false] - Whether to perform hot reload compatibility checks
+     * @param {Object} [options.hotReloadOptions] - Options forwarded to {@link validateHotReloadCompatibility}
+     * @returns {Promise<{
+     *   workspace: WorkspaceEdit,
+     *   validation: ValidationSummary,
+     *   hotReload: ValidationSummary | null,
+     *   batchValidation: BatchRenameValidation,
+     *   impactAnalyses: Map<string, RenameImpactAnalysis>,
+     *   cascadeResult: HotReloadCascadeResult | null
+     * }>} Comprehensive batch rename plan
+     *
+     * @example
+     * const plan = await engine.prepareBatchRenamePlan([
+     *     { symbolId: "gml/script/scr_enemy_old", newName: "scr_enemy_new" },
+     *     { symbolId: "gml/script/scr_helper_old", newName: "scr_helper_new" }
+     * ], { validateHotReload: true });
+     *
+     * // Check batch-level conflicts
+     * if (!plan.batchValidation.valid) {
+     *     console.error("Batch validation failed:", plan.batchValidation.errors);
+     *     for (const set of plan.batchValidation.conflictingSets) {
+     *         console.error("Conflicting symbols:", set);
+     *     }
+     *     return;
+     * }
+     *
+     * // Review hot reload cascade to see all affected symbols
+     * if (plan.cascadeResult) {
+     *     console.log(`Total symbols to reload: ${plan.cascadeResult.metadata.totalSymbols}`);
+     *     console.log(`Max dependency distance: ${plan.cascadeResult.metadata.maxDistance}`);
+     *     if (plan.cascadeResult.metadata.hasCircular) {
+     *         console.warn("Circular dependencies detected:");
+     *         for (const cycle of plan.cascadeResult.circular) {
+     *             console.warn("  Cycle:", cycle.join(" → "));
+     *         }
+     *     }
+     * }
+     *
+     * // Review per-rename impact
+     * for (const [symbolId, analysis] of plan.impactAnalyses) {
+     *     console.log(`${symbolId}:`);
+     *     console.log(`  Files affected: ${analysis.summary.affectedFiles.length}`);
+     *     console.log(`  Occurrences: ${analysis.summary.totalOccurrences}`);
+     *     if (analysis.conflicts.length > 0) {
+     *         console.warn("  Conflicts:", analysis.conflicts);
+     *     }
+     * }
+     */
+    async prepareBatchRenamePlan(
+        renames: Array<RenameRequest>,
+        options?: PrepareRenamePlanOptions
+    ): Promise<BatchRenamePlanSummary> {
+        const opts = options ?? {};
+        const { validateHotReload = false, hotReloadOptions: rawHotOptions } = opts;
+        const hotReloadOptions: HotReloadValidationOptions = rawHotOptions ?? {};
+
+        // Validate the batch structure and individual renames up front, detecting
+        // conflicts like duplicate target names or circular rename chains before
+        // planning any workspace edits. This prevents wasted work when the batch
+        // is malformed.
+        const batchValidation = await this.validateBatchRenameRequest(renames, {
+            includeHotReload: validateHotReload
+        });
+
+        // Try to plan the batch rename to capture all edits across all symbols in a
+        // single merged workspace edit. If planning fails (e.g., due to conflicts),
+        // we'll still return validation results to show the caller what went wrong.
+        let workspace: WorkspaceEdit;
+        let validation: ValidationSummary;
+        let hotReloadValidation: ValidationSummary | null = null;
+        let planningSucceeded = false;
+
+        try {
+            workspace = await this.planBatchRename(renames);
+            validation = await this.validateRename(workspace);
+            planningSucceeded = true;
+
+            // Perform hot reload compatibility checks if requested
+            if (validateHotReload) {
+                const compatibility = await this.validateHotReloadCompatibility(workspace, hotReloadOptions);
+                hotReloadValidation = {
+                    valid: compatibility.valid,
+                    errors: [...compatibility.errors],
+                    warnings: [...compatibility.warnings]
+                };
+            }
+        } catch (error) {
+            // Planning failed, create an empty workspace and record the error
+            workspace = new WorkspaceEdit();
+            const errorMessage = error instanceof Error ? error.message : String(error);
+            validation = {
+                valid: false,
+                errors: [`Planning failed: ${errorMessage}`],
+                warnings: []
+            };
+
+            // Initialize hot reload validation with the error if requested
+            if (validateHotReload) {
+                hotReloadValidation = {
+                    valid: false,
+                    errors: [`Cannot validate hot reload: ${errorMessage}`],
+                    warnings: []
+                };
+            }
+        }
+
+        // Analyze the impact of each individual rename so callers can show
+        // per-symbol statistics (files affected, occurrence counts, conflicts).
+        const impactAnalyses = new Map<string, RenameImpactAnalysis>();
+        for (const rename of renames) {
+            try {
+                const analysis = await this.analyzeRenameImpact(rename);
+                impactAnalyses.set(rename.symbolId, analysis);
+            } catch (error) {
+                // If analysis fails for one rename, record a minimal error result
+                // so the caller still receives feedback about what went wrong.
+                impactAnalyses.set(rename.symbolId, {
+                    valid: false,
+                    summary: {
+                        symbolId: rename.symbolId,
+                        oldName: rename.symbolId.split("/").pop() ?? rename.symbolId,
+                        newName: rename.newName,
+                        affectedFiles: [],
+                        totalOccurrences: 0,
+                        definitionCount: 0,
+                        referenceCount: 0,
+                        hotReloadRequired: false,
+                        dependentSymbols: []
+                    },
+                    conflicts: [
+                        {
+                            type: ConflictType.ANALYSIS_ERROR,
+                            message: `Failed to analyze ${rename.symbolId}: ${error instanceof Error ? error.message : String(error)}`
+                        }
+                    ],
+                    warnings: []
+                });
+            }
+        }
+
+        // Compute the full hot reload dependency cascade for all changed symbols
+        // to determine which other symbols need reloading and in what order.
+        // Only compute if hot reload validation was requested and planning succeeded.
+        let cascadeResult: HotReloadCascadeResult | null = null;
+        if (validateHotReload && planningSucceeded) {
+            const changedSymbolIds = renames.map((r) => r.symbolId);
+            try {
+                cascadeResult = await this.computeHotReloadCascade(changedSymbolIds);
+            } catch (error) {
+                // If cascade computation fails, add a warning to the hot reload
+                // validation instead of failing the entire batch plan.
+                if (hotReloadValidation) {
+                    hotReloadValidation.warnings.push(
+                        `Failed to compute hot reload cascade: ${error instanceof Error ? error.message : String(error)}`
+                    );
+                }
+            }
+        }
+
+        return {
+            workspace,
+            validation,
+            hotReload: hotReloadValidation,
+            batchValidation,
+            impactAnalyses,
+            cascadeResult
         };
     }
 

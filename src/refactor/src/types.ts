@@ -343,6 +343,15 @@ export interface RenamePlanSummary {
     analysis: RenameImpactAnalysis;
 }
 
+export interface BatchRenamePlanSummary {
+    workspace: WorkspaceEdit;
+    validation: ValidationSummary;
+    hotReload: ValidationSummary | null;
+    batchValidation: BatchRenameValidation;
+    impactAnalyses: Map<string, RenameImpactAnalysis>;
+    cascadeResult: HotReloadCascadeResult | null;
+}
+
 export interface RenameImpactSummary {
     symbolId: string;
     oldName: string;
