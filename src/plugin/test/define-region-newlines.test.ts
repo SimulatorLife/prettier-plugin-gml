@@ -16,7 +16,7 @@ void describe("legacy define region normalization", () => {
         const formatted = await Plugin.format(source);
 
         const expected = [
-            "#macro  LEGACY_MACRO 123456",
+            "#macro LEGACY_MACRO 123456",
             "",
             "#region Block",
             "",
