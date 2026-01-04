@@ -128,8 +128,7 @@ function ensureBlankLineBeforeTopLevelLineComments(formatted: string): string {
                 !previousTrimmedStart.startsWith("///") &&
                 previousTrimmedStart === previousLine;
             if (
-                typeof previousLine === "string" &&
-                previousLine.trim().length > 0 &&
+                Core.isNonEmptyTrimmedString(previousLine) &&
                 previousLine.trim() !== "}" &&
                 !isPreviousPlainLineComment
             ) {

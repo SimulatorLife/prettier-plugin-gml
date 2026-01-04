@@ -1,5 +1,5 @@
 import { asArray, isNonEmptyArray } from "../utils/array.js";
-import { isObjectLike } from "../utils/object.js";
+import { getOptionalString, isObjectLike } from "../utils/object.js";
 import { isNonEmptyString } from "../utils/string.js";
 import { assignClonedLocation } from "./locations.js";
 import { hasComment } from "../comments/comment-utils.js";
@@ -285,10 +285,7 @@ export function resolveNodeName(node: GameMakerAstNode | null | undefined): stri
     if (isIdentifierNode(node)) {
         return node.name;
     }
-    if (isObjectLike(node) && typeof (node as any).name === "string") {
-        return (node as any).name;
-    }
-    return null;
+    return getOptionalString(node, "name");
 }
 
 /**
