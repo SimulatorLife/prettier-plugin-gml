@@ -2,7 +2,7 @@ import assert from "node:assert/strict";
 import { test } from "node:test";
 import { Plugin } from "../src/index.js";
 
-void test("preserves blank line between constructor header and first statement", async () => {
+void test("removes blank line between constructor header and first statement", async () => {
     const source = ["function Demo() constructor {", "", "    self.value = 1;", "}", ""].join("\n");
 
     const formatted = await Plugin.format(source);
@@ -11,7 +11,7 @@ void test("preserves blank line between constructor header and first statement",
     assert.equal(
         lines[1],
         "",
-        "Expected constructors to retain a blank line when the input separates the header from the first statement."
+        "Expected constructors to exclude a blank line when the input separates the header from the first statement."
     );
 });
 
