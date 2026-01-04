@@ -15,6 +15,10 @@ type RecursiveMkdirFsSync = Pick<typeof nodeFsSync, "mkdirSync">;
  * focused on cross-environment primitives while preserving the ergonomics the
  * command modules expect.
  *
+ * @param {string} dirPath Path to the directory that should exist.
+ * @param {RecursiveMkdirFs} [fsModule=nodeFs] Filesystem implementation
+ *        providing a `mkdir` method. Defaults to Node's promise-based `fs`.
+ * @returns {Promise<void>}
  */
 export async function ensureDir(dirPath: string, fsModule: RecursiveMkdirFs = nodeFs): Promise<void> {
     await fsModule.mkdir(dirPath, { recursive: true });
@@ -29,6 +33,10 @@ export async function ensureDir(dirPath: string, fsModule: RecursiveMkdirFs = no
  * async variant. Defaults to Node's synchronous `fs` facade but accepts any
  * compatible implementation.
  *
+ * @param {string} dirPath Path to the directory that should exist.
+ * @param {RecursiveMkdirFsSync} [fsModule=nodeFsSync] Filesystem implementation
+ *        providing a `mkdirSync` method. Defaults to Node's synchronous `fs`.
+ * @returns {void}
  */
 export function ensureDirSync(dirPath: string, fsModule: RecursiveMkdirFsSync = nodeFsSync): void {
     fsModule.mkdirSync(dirPath, { recursive: true });
