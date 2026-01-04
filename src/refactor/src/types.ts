@@ -86,6 +86,90 @@ export function requireSymbolKind(value: unknown, context?: string): SymbolKindV
     return value;
 }
 
+/**
+ * Enumerated constants for refactoring conflict types.
+ *
+ * Conflicts represent issues detected during rename validation that would
+ * break semantics or cause ambiguity. This enum centralizes valid conflict
+ * types to prevent stringly-typed branches and provides a single source of
+ * truth for validation.
+ *
+ * @example
+ * // Use typed constants instead of raw strings
+ * if (conflict.type === ConflictType.RESERVED) { ... }
+ *
+ * // Validate runtime strings
+ * const type = parseConflictType(rawInput);
+ */
+export const ConflictType = Object.freeze({
+    INVALID_IDENTIFIER: "invalid_identifier",
+    SHADOW: "shadow",
+    RESERVED: "reserved",
+    MISSING_SYMBOL: "missing_symbol",
+    LARGE_RENAME: "large_rename",
+    MANY_DEPENDENTS: "many_dependents",
+    ANALYSIS_ERROR: "analysis_error"
+} as const);
+
+export type ConflictTypeValue = (typeof ConflictType)[keyof typeof ConflictType];
+
+const CONFLICT_TYPE_VALUES = Object.freeze(Object.values(ConflictType)) as ReadonlyArray<ConflictTypeValue>;
+
+const CONFLICT_TYPE_SET: ReadonlySet<string> = new Set(CONFLICT_TYPE_VALUES);
+
+/**
+ * Check whether a value is a valid conflict type.
+ *
+ * @param value - Candidate value to test
+ * @returns True if value matches a known ConflictType constant
+ *
+ * @example
+ * if (isConflictType(rawString)) {
+ *   // Safe to use as ConflictTypeValue
+ * }
+ */
+export function isConflictType(value: unknown): value is ConflictTypeValue {
+    return typeof value === "string" && CONFLICT_TYPE_SET.has(value);
+}
+
+/**
+ * Parse and validate a conflict type string.
+ *
+ * @param value - Raw string to parse
+ * @returns Valid ConflictTypeValue or null if invalid
+ *
+ * @example
+ * const type = parseConflictType(rawInput);
+ * if (type === null) {
+ *   // Handle invalid type
+ * }
+ */
+export function parseConflictType(value: unknown): ConflictTypeValue | null {
+    return isConflictType(value) ? value : null;
+}
+
+/**
+ * Parse and validate a conflict type string, throwing on invalid input.
+ *
+ * @param value - Raw string to parse
+ * @param context - Optional context for error message
+ * @returns Valid ConflictTypeValue
+ * @throws {TypeError} If value is not a valid conflict type
+ *
+ * @example
+ * const type = requireConflictType(conflict.type, "validation");
+ */
+export function requireConflictType(value: unknown, context?: string): ConflictTypeValue {
+    if (!isConflictType(value)) {
+        const validTypes = CONFLICT_TYPE_VALUES.join(", ");
+        const contextInfo = context ? ` (in ${context})` : "";
+        throw new TypeError(
+            `Invalid conflict type: ${JSON.stringify(value)}${contextInfo}. Must be one of: ${validTypes}.`
+        );
+    }
+    return value;
+}
+
 export interface AstNode {
     type?: string;
     name?: string;
@@ -338,7 +422,7 @@ export interface BatchRenameValidation {
 }
 
 export interface ConflictEntry {
-    type: string;
+    type: ConflictTypeValue;
     message: string;
     severity?: string;
     path?: string;

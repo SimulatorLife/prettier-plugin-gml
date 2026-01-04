@@ -13,6 +13,8 @@ export type { WorkspaceEdit } from "./workspace-edit.js";
 
 export { SymbolKind, isSymbolKind, parseSymbolKind, requireSymbolKind } from "./types.js";
 
+export { ConflictType, isConflictType, parseConflictType, requireConflictType } from "./types.js";
+
 export {
     classifyOccurrences,
     filterOccurrencesByKind,
@@ -29,6 +31,7 @@ export type {
     BatchRenameValidation,
     CascadeEntry,
     ConflictEntry,
+    ConflictTypeValue,
     DependencyAnalyzer,
     DependentSymbol,
     EditValidator,
