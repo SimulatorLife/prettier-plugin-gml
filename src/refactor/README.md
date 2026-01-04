@@ -332,6 +332,83 @@ if (!validation.valid) {
 // - warnings: advisory information about potential issues
 ```
 
+### Batch Rename Planning
+
+Prepare a comprehensive plan for multiple coordinated renames before applying changes:
+
+```javascript
+const engine = new RefactorEngine({ semantic, parser, formatter });
+
+// Plan multiple related renames with full validation and impact analysis
+const plan = await engine.prepareBatchRenamePlan([
+    { symbolId: "gml/script/scr_enemy_old", newName: "scr_enemy_new" },
+    { symbolId: "gml/script/scr_helper_old", newName: "scr_helper_new" }
+], { 
+    validateHotReload: true,
+    hotReloadOptions: { checkTranspiler: true }
+});
+
+// Check batch-level validation
+if (!plan.batchValidation.valid) {
+    console.error("Batch validation failed:", plan.batchValidation.errors);
+    
+    // Show conflicting sets (e.g., duplicate target names, circular renames)
+    for (const set of plan.batchValidation.conflictingSets) {
+        console.error("Conflicting symbols:", set);
+    }
+    return;
+}
+
+// Review hot reload dependency cascade
+if (plan.cascadeResult) {
+    console.log(`Total symbols to reload: ${plan.cascadeResult.metadata.totalSymbols}`);
+    console.log(`Max dependency distance: ${plan.cascadeResult.metadata.maxDistance}`);
+    
+    if (plan.cascadeResult.metadata.hasCircular) {
+        console.warn("Circular dependencies detected:");
+        for (const cycle of plan.cascadeResult.circular) {
+            console.warn("  Cycle:", cycle.join(" → "));
+        }
+    }
+    
+    // Show reload order
+    console.log("Reload order:", plan.cascadeResult.order);
+}
+
+// Review per-symbol impact analysis
+for (const [symbolId, analysis] of plan.impactAnalyses) {
+    console.log(`${symbolId}:`);
+    console.log(`  Files affected: ${analysis.summary.affectedFiles.length}`);
+    console.log(`  Total occurrences: ${analysis.summary.totalOccurrences}`);
+    console.log(`  Definitions: ${analysis.summary.definitionCount}`);
+    console.log(`  References: ${analysis.summary.referenceCount}`);
+    console.log(`  Hot reload required: ${analysis.summary.hotReloadRequired}`);
+    console.log(`  Dependent symbols: ${analysis.summary.dependentSymbols.length}`);
+    
+    if (analysis.conflicts.length > 0) {
+        console.warn("  Conflicts:", analysis.conflicts.map(c => c.message));
+    }
+    
+    if (analysis.warnings.length > 0) {
+        console.warn("  Warnings:", analysis.warnings.map(w => w.message));
+    }
+}
+
+// The plan includes:
+// - plan.workspace: Combined workspace edit for all renames
+// - plan.validation: Structural validation of merged edits
+// - plan.hotReload: Hot reload compatibility validation (if requested)
+// - plan.batchValidation: Batch-specific validation (conflicts, circular renames)
+// - plan.impactAnalyses: Per-symbol impact analysis map
+// - plan.cascadeResult: Full dependency cascade (if hot reload enabled)
+```
+
+This method provides a complete preview of batch rename operations, making it ideal for:
+- IDE integrations that need to show comprehensive refactoring previews
+- CLI tools that want to present detailed impact reports before applying changes
+- Automated refactoring pipelines that need to validate complex multi-symbol renames
+- Coordinated renames where dependencies between symbols must be considered
+
 #### Advanced: Dependency Cascade Computation
 
 Compute the full transitive closure of dependencies for hot reload operations:
@@ -522,6 +599,7 @@ new RefactorEngine({ parser, semantic, formatter })
 #### Workspace Operations
 - `async applyWorkspaceEdit(workspace, options)` - Apply edits to files
 - `async prepareRenamePlan(request, options)` - Prepare a comprehensive rename plan with validation
+- `async prepareBatchRenamePlan(renames, options)` - Prepare a comprehensive batch rename plan with validation, impact analysis, and hot reload metadata
 
 #### Hot Reload Integration
 - `async prepareHotReloadUpdates(workspace)` - Prepare hot reload update metadata
