@@ -123,7 +123,7 @@ export function detectCircularRenames(renames: Array<RenameRequest>): Array<stri
             path.push(current);
             pathSet.add(current);
             visited.add(current);
-            // Safe to assert non-null: graph.has(current) guarantees the key exists
+            // Safe to assert: graph.has(current) guarantees the value exists
             current = graph.get(current);
         }
     }
