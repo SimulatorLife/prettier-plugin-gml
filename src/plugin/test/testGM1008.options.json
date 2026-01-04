@@ -1,3 +1,3 @@
 {
-  "applyFeatherFixes": true, "useStringInterpolation": false
+  "applyFeatherFixes": true, "useStringInterpolation": false, "printWidth": 150
 }
