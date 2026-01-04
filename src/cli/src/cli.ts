@@ -1206,7 +1206,74 @@ async function initializeProjectIgnorePaths(projectRoot) {
     await registerIgnorePaths([IGNORE_PATH, ...projectIgnorePaths]);
 }
 
-async function resolveTargetStats(target, { usage }: { usage?: string } = {}) {
+/**
+ * Detects if a path looks like a mistyped command name rather than a file path.
+ * Returns true if the input is a simple word (no path separators) that might be
+ * a command name the user meant to invoke.
+ *
+ * @param {string} target - The target path to check (should be the original input, not resolved)
+ * @returns {boolean}
+ */
+function looksLikeCommandName(target: string): boolean {
+    const KNOWN_COMMANDS = new Set([
+        "format",
+        "performance",
+        "memory",
+        "generate-gml-identifiers",
+        "generate-quality-report",
+        "collect-stats",
+        "generate-feather-metadata",
+        "prepare-hot-reload",
+        "watch",
+        "help"
+    ]);
+
+    // Not a command if it contains path separators
+    if (target.includes("/") || target.includes("\\")) {
+        return false;
+    }
+
+    // Not a command if it looks like a file (has an extension)
+    if (/\.\w+$/.test(target)) {
+        return false;
+    }
+
+    // Exact match with known command
+    if (KNOWN_COMMANDS.has(target)) {
+        return true;
+    }
+
+    // Starts with a letter and contains only alphanumeric, hyphens, or underscores
+    // (typical command pattern)
+    if (/^[a-z][a-z0-9_-]*$/i.test(target)) {
+        // Check for common typos or similar command names
+        const lowerTarget = target.toLowerCase();
+        for (const command of KNOWN_COMMANDS) {
+            // Simple similarity check: if the strings are very similar in length and content
+            if (Math.abs(command.length - lowerTarget.length) <= 2) {
+                // Likely a typo if only a few characters differ
+                let differences = 0;
+                const minLength = Math.min(command.length, lowerTarget.length);
+                for (let i = 0; i < minLength; i++) {
+                    if (command[i] !== lowerTarget[i]) {
+                        differences++;
+                    }
+                }
+                // If 2 or fewer character differences, it's likely a typo
+                if (differences <= 2 && differences < command.length / 2) {
+                    return true;
+                }
+            }
+        }
+    }
+
+    return false;
+}
+
+async function resolveTargetStats(
+    target: string,
+    { usage, originalInput }: { usage?: string; originalInput?: string } = {}
+) {
     try {
         return await stat(target);
     } catch (error) {
@@ -1214,6 +1281,18 @@ async function resolveTargetStats(target, { usage }: { usage?: string } = {}) {
         const formattedTarget = formatPathForDisplay(target);
         const guidance = (() => {
             if (isErrorWithCode(error, "ENOENT")) {
+                // Check if the original input (before path resolution) looks like a command name
+                const inputToCheck = originalInput ?? target;
+                if (looksLikeCommandName(inputToCheck)) {
+                    const guidanceParts = [
+                        `Did you mean to run a command? If so, the command '${inputToCheck}' is not recognized.`,
+                        'Run "prettier-plugin-gml --help" to see available commands.',
+                        "If you intended to format a file or directory, verify the path exists relative",
+                        `to the current working directory (${initialWorkingDirectory}) or provide an absolute path.`
+                    ];
+                    return guidanceParts.join(" ");
+                }
+
                 const guidanceParts = [
                     "Verify the path exists relative to the current working directory",
                     `(${initialWorkingDirectory}) or provide an absolute path.`,
@@ -1551,10 +1630,11 @@ async function prepareFormattingRun({
  *
  * @param {string} targetPath
  * @param {string} usage
+ * @param {string} [originalInput] - The original user input before path resolution
  * @returns {Promise<{ targetIsDirectory: boolean, projectRoot: string }>}
  */
-async function resolveTargetContext(targetPath, usage) {
-    const targetStats = await resolveTargetStats(targetPath, { usage });
+async function resolveTargetContext(targetPath, usage, originalInput) {
+    const targetStats = await resolveTargetStats(targetPath, { usage, originalInput });
     const targetIsDirectory = targetStats.isDirectory();
 
     if (!targetIsDirectory && !targetStats.isFile()) {
@@ -1634,10 +1714,10 @@ function finalizeFormattingRun({ targetPath, targetIsDirectory, targetPathProvid
 /**
  * Fully execute the formatting workflow for a validated target path.
  *
- * @param {{ targetPath: string, usage: string }} params
+ * @param {{ targetPath: string, usage: string, originalInput?: string }} params
  */
-async function runFormattingWorkflow({ targetPath, usage, targetPathProvided }) {
-    const { targetIsDirectory, projectRoot } = await resolveTargetContext(targetPath, usage);
+async function runFormattingWorkflow({ targetPath, usage, targetPathProvided, originalInput }) {
+    const { targetIsDirectory, projectRoot } = await resolveTargetContext(targetPath, usage, originalInput);
 
     await processResolvedTarget({
         targetPath,
@@ -1673,6 +1753,10 @@ async function executeFormatCommand(command) {
     const targetPath = resolveTargetPathFromInput(targetPathInput, {
         rawTargetPathInput
     });
+
+    // Keep the original input (before path resolution) for better error messages
+    const originalInput = typeof targetPathInput === "string" ? targetPathInput : undefined;
+
     await prepareFormattingRun({
         configuredExtensions: commandOptions.extensions,
         prettierLogLevel: commandOptions.prettierLogLevel,
@@ -1687,7 +1771,8 @@ async function executeFormatCommand(command) {
         await runFormattingWorkflow({
             targetPath,
             usage,
-            targetPathProvided
+            targetPathProvided,
+            originalInput
         });
     } finally {
         await discardFormattedFileOriginalContents();
