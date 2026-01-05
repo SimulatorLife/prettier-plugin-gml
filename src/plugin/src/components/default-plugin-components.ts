@@ -2,6 +2,7 @@ import type { GmlPluginComponentBundle } from "./plugin-types.js";
 import { resolveGmlPluginComponentDependencies } from "./plugin-component-bundles.js";
 import { createPrettierParserAdapter } from "../parsers/index.js";
 import type { GameMakerAstNode } from "@gml-modules/core";
+import { DEFAULT_ALIGN_ASSIGNMENTS_MIN_GROUP_SIZE } from "../options/assignment-alignment-option.js";
 
 export function createDefaultGmlPluginComponents(): GmlPluginComponentBundle {
     const { gmlParserAdapter, print, handleComments, printComment, identifierCaseOptions, LogicalOperatorsStyle } =
@@ -97,7 +98,7 @@ export function createDefaultGmlPluginComponents(): GmlPluginComponentBundle {
                 since: "0.0.0",
                 type: "int",
                 category: "gml",
-                default: 3,
+                default: DEFAULT_ALIGN_ASSIGNMENTS_MIN_GROUP_SIZE,
                 range: { start: 0, end: Infinity, step: 1 },
                 description:
                     "Minimum number of consecutive simple assignments required before the formatter aligns their '=' operators. Set to 0 to disable alignment entirely."

@@ -17,7 +17,7 @@
 
 import { Core, type MutableDocCommentLines } from "@gml-modules/core";
 import { util } from "prettier";
-import { gmlPluginComponents } from "../components/plugin-components.js";
+import { DEFAULT_ALIGN_ASSIGNMENTS_MIN_GROUP_SIZE } from "../options/assignment-alignment-option.js";
 
 import {
     countTrailingBlankLines,
@@ -2965,8 +2965,7 @@ export function applyAssignmentAlignment(statements, options, path = null, child
             "minGroupSize",
             minGroupSize
         );
-        const optionDefault = gmlPluginComponents.options.alignAssignmentsMinGroupSize?.default ?? 3;
-        const normalizedMinGroupSize = minGroupSize > 0 ? minGroupSize : optionDefault;
+        const normalizedMinGroupSize = minGroupSize > 0 ? minGroupSize : DEFAULT_ALIGN_ASSIGNMENTS_MIN_GROUP_SIZE;
         const alignmentEnabled = minGroupSize > 0;
         const effectiveMinGroupSize = alignmentEnabled ? normalizedMinGroupSize : minGroupSize;
         const meetsAlignmentThreshold = alignmentEnabled && groupEntries.length >= effectiveMinGroupSize;
@@ -3314,10 +3313,13 @@ function getMemberExpressionLength(expression) {
 }
 
 function getAssignmentAlignmentMinimum(options) {
-    const optionDefault = gmlPluginComponents.options.alignAssignmentsMinGroupSize?.default ?? 3;
-    return Core.coercePositiveIntegerOption(options?.alignAssignmentsMinGroupSize, optionDefault, {
-        zeroReplacement: 0
-    });
+    return Core.coercePositiveIntegerOption(
+        options?.alignAssignmentsMinGroupSize,
+        DEFAULT_ALIGN_ASSIGNMENTS_MIN_GROUP_SIZE,
+        {
+            zeroReplacement: 0
+        }
+    );
 }
 
 function isSimpleAssignment(node) {
