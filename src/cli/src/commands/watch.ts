@@ -18,7 +18,7 @@ import process from "node:process";
 
 import { Command, Option } from "commander";
 
-import { Core } from "@gml-modules/core";
+import { Core, type DebouncedFunction } from "@gml-modules/core";
 import { Transpiler } from "@gml-modules/transpiler";
 import {
     describeRuntimeSource,
@@ -48,9 +48,8 @@ import {
 } from "../modules/transpilation/coordinator.js";
 import { prepareHotReloadInjection, DEFAULT_GM_TEMP_ROOT } from "../modules/hot-reload/inject-runtime.js";
 import { formatCliError } from "../cli-core/errors.js";
-import { debounce, type DebouncedFunction } from "../shared/debounce.js";
 
-const { getErrorMessage } = Core;
+const { debounce, getErrorMessage } = Core;
 
 type RuntimeDescriptorFormatter = (source: RuntimeSourceDescriptor) => string;
 
