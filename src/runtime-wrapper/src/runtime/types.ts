@@ -2,9 +2,17 @@ export type RuntimeFunction = (...args: Array<unknown>) => unknown;
 
 export type PatchKind = "script" | "event" | "closure";
 
+export interface PatchMetadata {
+    sourcePath?: string;
+    sourceHash?: string;
+    timestamp?: number;
+    dependencies?: Array<string>;
+}
+
 export interface BasePatch {
     kind: PatchKind;
     id: string;
+    metadata?: PatchMetadata;
 }
 
 export interface ScriptPatch extends BasePatch {
@@ -50,7 +58,7 @@ export interface PatchSnapshot {
 export type PatchAction = "apply" | "undo" | "rollback";
 
 export interface PatchHistoryEntry {
-    patch: Pick<BasePatch, "kind" | "id">;
+    patch: Pick<BasePatch, "kind" | "id"> & { metadata?: PatchMetadata };
     version: number;
     timestamp: number;
     action: PatchAction;
@@ -110,6 +118,22 @@ export interface PatchStats {
     p50DurationMs?: number;
     p90DurationMs?: number;
     p99DurationMs?: number;
+}
+
+export interface PatchDiagnostics {
+    id: string;
+    kind: PatchKind;
+    applicationCount: number;
+    firstAppliedAt: number | null;
+    lastAppliedAt: number | null;
+    currentlyApplied: boolean;
+    undoCount: number;
+    rollbackCount: number;
+    averageDurationMs: number | null;
+    sourcePath: string | null;
+    sourceHash: string | null;
+    dependencies: Array<string>;
+    historyEntries: Array<PatchHistoryEntry>;
 }
 
 export interface RuntimeRegistrySnapshot {
@@ -223,6 +247,7 @@ export interface RegistryHealthIssue {
  */
 export interface RegistryDiagnostics {
     checkRegistryHealth(): RegistryHealthCheck;
+    getPatchDiagnostics(id: string): PatchDiagnostics | null;
 }
 
 /**
