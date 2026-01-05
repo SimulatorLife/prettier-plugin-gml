@@ -7,6 +7,7 @@
   },
   "tools": {
     "approvalMode": "yolo",
+    "autoAccept": true,
     "exclude": [
       "web_search",
       "web_fetch"
@@ -33,7 +34,10 @@
   "$version": 2,
   "approvalMode": "yolo",
   "model": {
-    "skipLoopDetection": true
+    "skipLoopDetection": true,
+    "chatCompression": {
+      "contextPercentageThreshold": 0.8
+    }
   },
   "advanced": {
     "excludedEnvVars": []
