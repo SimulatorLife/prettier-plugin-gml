@@ -1,4 +1,5 @@
 import { Parser } from "@gml-modules/parser";
+import { Core } from "@gml-modules/core";
 import {
     GmlToJsEmitter,
     makeDummyOracle,
@@ -67,9 +68,9 @@ export class GmlTranspiler {
             };
             return patch;
         } catch (error) {
-            const message = error instanceof Error ? error.message : String(error);
+            const message = Core.isErrorLike(error) ? error.message : String(error);
             throw new Error(`Failed to transpile script ${symbolId}: ${message}`, {
-                cause: error instanceof Error ? error : undefined
+                cause: Core.isErrorLike(error) ? error : undefined
             });
         }
     }
