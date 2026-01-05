@@ -32,7 +32,7 @@ export function createRange(
     };
 }
 
-export function createSymbolDeclaration(name: string, line: number, startIdx: number, endIdx: number) {
+function createSymbolLocation(name: string, line: number, startIdx: number, endIdx: number) {
     return {
         name,
         start: { line, column: 0, index: startIdx },
@@ -40,12 +40,12 @@ export function createSymbolDeclaration(name: string, line: number, startIdx: nu
     };
 }
 
+export function createSymbolDeclaration(name: string, line: number, startIdx: number, endIdx: number) {
+    return createSymbolLocation(name, line, startIdx, endIdx);
+}
+
 export function createSymbolReference(name: string, line: number, startIdx: number, endIdx: number) {
-    return {
-        name,
-        start: { line, column: startIdx - (line > 1 ? startIdx : 0), index: startIdx },
-        end: { line, column: endIdx - (line > 1 ? startIdx : 0), index: endIdx }
-    };
+    return createSymbolLocation(name, line, startIdx, endIdx);
 }
 
 export function declareTwoGlobalSymbols(tracker: ScopeTracker) {
