@@ -1605,13 +1605,9 @@ function printBlockStatementNode(node, path, options, print) {
         );
 
         const parentNode = typeof path.getParentNode === "function" ? path.getParentNode() : (path.parent ?? null);
-        const isConstructor = parentNode?.type === "FunctionDeclaration" && parentNode.constructor;
-
-        const preserveForConstructorText =
-            isConstructor &&
-            typeof originalText === STRING_TYPE &&
-            typeof node.start === NUMBER_TYPE &&
-            isNextLineEmpty(originalText, node.start);
+        const isConstructor =
+            parentNode?.type === "ConstructorDeclaration" ||
+            (parentNode?.type === "FunctionDeclaration" && parentNode.constructor);
 
         const preserveForLeadingComment = hasBlankLineBeforeLeadingComment(
             node,
@@ -1620,6 +1616,13 @@ function printBlockStatementNode(node, path, options, print) {
             firstStatementStartIndex
         );
 
+        const preserveForConstructorText =
+            isConstructor &&
+            typeof originalText === STRING_TYPE &&
+            typeof node.start === NUMBER_TYPE &&
+            isNextLineEmpty(originalText, node.start);
+
+        // For constructors, preserve blank lines between header and first statement
         shouldPreserveInitialBlankLine =
             shouldPreserveInitialBlankLine || preserveForConstructorText || preserveForLeadingComment;
     }
@@ -1638,13 +1641,27 @@ function printBlockStatementNode(node, path, options, print) {
         console.log("DEBUG stmts start for function expression block:", JSON.stringify(stmts.slice(0, 3)));
     }
 
-    return concat([
-        "{",
-        printDanglingComments(path, options, (comment) => comment.attachToBrace),
-        indent([...leadingDocs, stmts]),
-        hardline,
-        "}"
-    ]);
+    if (leadingDocs.length > 1) {
+        // If we have multiple leading docs (e.g., [hardline, hardline] for blank line),
+        // put the first one outside the indent and the rest inside
+        return concat([
+            "{",
+            printDanglingComments(path, options, (comment) => comment.attachToBrace),
+            leadingDocs[0], // First hardline outside indent (creates blank line)
+            indent(leadingDocs.slice(1).concat(stmts)), // Rest inside indent
+            hardline,
+            "}"
+        ]);
+    } else {
+        // For single leading doc, put everything inside indent
+        return concat([
+            "{",
+            printDanglingComments(path, options, (comment) => comment.attachToBrace),
+            indent([...leadingDocs, stmts]),
+            hardline,
+            "}"
+        ]);
+    }
 }
 
 function printSwitchStatementNode(node, path, options, print) {
@@ -2057,7 +2074,7 @@ function printElements(path, print, listKey, delimiter, lineBreak, maxElementsPe
                     parts.push(hardline);
                     itemsSinceLastBreak = 0;
                 } else {
-                    parts.push(lineBreak);
+                    parts.push(" ");
                 }
             } else {
                 parts.push(lineBreak);
@@ -2655,6 +2672,20 @@ function normalizeStatementSemicolon({
         return semi;
     }
 
+    // Check for static function assignments - these should have semicolons
+    if (!hasTerminatingSemicolon && isStaticDeclaration) {
+        const hasFunctionInitializer =
+            Array.isArray(node.declarations) &&
+            node.declarations.some((declaration) => {
+                const initType = declaration?.init?.type;
+                return initType === "FunctionExpression" || initType === "FunctionDeclaration";
+            });
+
+        if (hasFunctionInitializer) {
+            return ";";
+        }
+    }
+
     const shouldOmitSemicolon =
         !hasTerminatingSemicolon &&
         syntheticDocComment &&
@@ -2973,6 +3004,17 @@ export function applyAssignmentAlignment(statements, options, path = null, child
         const effectiveMinGroupSize = alignmentEnabled ? normalizedMinGroupSize : minGroupSize;
         const meetsAlignmentThreshold = alignmentEnabled && groupEntries.length >= effectiveMinGroupSize;
         const canAlign = meetsAlignmentThreshold && currentGroupHasAlias;
+
+        if (contextFunctionName === "handle_lighting") {
+            console.log("DEBUG handle_lighting alignment:", {
+                group: groupEntries.map((e) => e.node.id?.name),
+                meetsAlignmentThreshold,
+                currentGroupHasAlias,
+                canAlign,
+                minGroupSize,
+                effectiveMinGroupSize
+            });
+        }
 
         if (!canAlign) {
             for (const { node } of groupEntries) {

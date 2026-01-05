@@ -18,7 +18,6 @@ void describe("constructor static function assignments", () => {
 
         const expected = [
             "function Shape() constructor {",
-            "",
             "    static build = function() {",
             "        return 1;",
             "    };",
@@ -34,7 +33,7 @@ void describe("constructor static function assignments", () => {
 
         const formatted = await Plugin.format(source);
 
-        const expected = ["function Shape() constructor {", "", "    static value = 1;", "}", ""].join("\n");
+        const expected = ["function Shape() constructor {", "    static value = 1;", "}", ""].join("\n");
 
         assert.strictEqual(formatted, expected);
     });
@@ -44,7 +43,7 @@ void describe("constructor static function assignments", () => {
 
         const formatted = await Plugin.format(source);
 
-        const expected = ["function Shape() constructor {", "", "    static value = 1;", "}", ""].join("\n");
+        const expected = ["function Shape() constructor {", "    static value = 1;", "}", ""].join("\n");
 
         assert.strictEqual(formatted, expected);
     });
