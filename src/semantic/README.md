@@ -255,6 +255,60 @@ const externalRefs = tracker.getScopeExternalReferences("scope-1");
 
 **Use case:** Cross-scope dependency tracking for hot reload coordination. When editing a file/scope, query its external references to understand which parent symbols it depends on. This enables precise invalidation: if a parent scope's symbol changes, you can quickly identify all child scopes that reference it and selectively recompile only the affected code paths. This is essential for efficient hot reload in large projects where rebuilding everything would be prohibitively slow.
 
+### `getScopeDependencies(scopeId)`
+
+Get all scopes that a given scope depends on (scopes it references symbols from). This builds a direct dependency list by analyzing external references and resolving where those symbols are declared.
+
+```javascript
+const tracker = new ScopeTracker({ enabled: true });
+
+// Program scope declares symbols
+tracker.enterScope("program");
+tracker.declare("globalConfig", {...});
+
+// Function scope references global symbols
+const fnScope = tracker.enterScope("function");
+tracker.reference("globalConfig", {...});
+
+const dependencies = tracker.getScopeDependencies(fnScope.id);
+// Returns: [
+//   {
+//     dependencyScopeId: "scope-0",
+//     dependencyScopeKind: "program",
+//     symbols: ["globalConfig"]
+//   }
+// ]
+```
+
+**Use case:** When a scope changes, query which scopes it depends on to determine if those dependencies have changed and require recompilation. This enables precise invalidation in hot reload pipelines by understanding the dependency graph.
+
+### `getScopeDependents(scopeId)`
+
+Get all scopes that depend on a given scope (scopes that reference symbols declared in the queried scope). This is the inverse of `getScopeDependencies` and is critical for hot reload invalidation.
+
+```javascript
+const tracker = new ScopeTracker({ enabled: true });
+
+// Program scope declares a symbol
+const programScope = tracker.enterScope("program");
+tracker.declare("globalVar", {...});
+
+// Function scope references the global symbol
+const fnScope = tracker.enterScope("function");
+tracker.reference("globalVar", {...});
+
+const dependents = tracker.getScopeDependents(programScope.id);
+// Returns: [
+//   {
+//     dependentScopeId: "scope-1",
+//     dependentScopeKind: "function",
+//     symbols: ["globalVar"]
+//   }
+// ]
+```
+
+**Use case:** When a scope changes, query which scopes depend on it to identify what needs to be invalidated and recompiled. This is essential for efficient hot reload: if scope A declares symbol X and scope B references X, then changing scope A requires recompiling scope B.
+
 ### `exportScipOccurrences(options?)`
 
 Export occurrences in SCIP (SCIP Code Intelligence Protocol) format for hot reload coordination and cross-file dependency tracking. SCIP format represents each occurrence with a range tuple `[startLine, startCol, endLine, endCol]`, a qualified symbol identifier, and role flags indicating DEF (declaration) or REF (reference).
