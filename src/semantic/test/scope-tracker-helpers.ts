@@ -40,10 +40,18 @@ function createSymbolLocation(name: string, line: number, startIdx: number, endI
     };
 }
 
+/**
+ * Creates a symbol declaration fixture for testing.
+ * Semantically represents a declaration site (e.g., `var x = 5;`).
+ */
 export function createSymbolDeclaration(name: string, line: number, startIdx: number, endIdx: number) {
     return createSymbolLocation(name, line, startIdx, endIdx);
 }
 
+/**
+ * Creates a symbol reference fixture for testing.
+ * Semantically represents a reference/usage site (e.g., `console.log(x);`).
+ */
 export function createSymbolReference(name: string, line: number, startIdx: number, endIdx: number) {
     return createSymbolLocation(name, line, startIdx, endIdx);
 }
