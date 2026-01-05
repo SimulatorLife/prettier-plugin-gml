@@ -190,7 +190,11 @@ function recordSuiteTestCase(cases, node, suitePath) {
  */
 function processTraversalQueue<T>(queue: T[], visitor: (item: T, queue: T[]) => boolean | void): void {
     while (queue.length > 0) {
-        const item = queue.pop(); // Non-empty array guarantees a value
+        const item = queue.pop();
+        // Skip if undefined (defensive check for malformed queue entries)
+        if (item === undefined) {
+            continue;
+        }
         const shouldTerminate = visitor(item, queue);
         if (shouldTerminate === true) {
             break;
