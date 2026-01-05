@@ -179,23 +179,34 @@ function recordSuiteTestCase(cases, node, suitePath) {
     return cases;
 }
 
+/**
+ * Execute a visitor callback for each item in the traversal queue until exhausted.
+ *
+ * Isolates the low-level queue iteration mechanics from high-level processing logic.
+ */
+function processTraversalQueue(queue, visitor) {
+    while (queue.length > 0) {
+        const item = queue.pop();
+        visitor(item, queue);
+    }
+}
+
 function collectTestCases(root) {
     const cases = [];
     const queue = createTestTraversalQueue(root);
 
-    while (queue.length > 0) {
-        const { node, suitePath } = queue.pop();
+    processTraversalQueue(queue, ({ node, suitePath }, queue) => {
         if (!node) {
-            continue;
+            return;
         }
 
         if (Array.isArray(node)) {
             enqueueTraversalNodes(queue, node, suitePath);
-            continue;
+            return;
         }
 
         if (!isObjectLike(node)) {
-            continue;
+            return;
         }
 
         const hasTestcase = Object.hasOwn(node, "testcase");
@@ -218,7 +229,7 @@ function collectTestCases(root) {
         }
 
         enqueueObjectLikeChildren(queue, node, nextSuitePath);
-    }
+    });
 
     return cases;
 }
@@ -647,17 +658,20 @@ function isCheckstyleDocument(document) {
 
 function documentContainsTestElements(document) {
     const queue = [document];
+    let found = false;
 
-    while (queue.length > 0) {
-        const current = queue.pop();
+    processTraversalQueue(queue, (current, queue) => {
+        if (found) {
+            return;
+        }
 
         if (Array.isArray(current)) {
             queue.push(...current);
-            continue;
+            return;
         }
 
         if (!isObjectLike(current)) {
-            continue;
+            return;
         }
 
         if (
@@ -665,15 +679,16 @@ function documentContainsTestElements(document) {
             Object.hasOwn(current, "testsuite") ||
             Object.hasOwn(current, "testsuites")
         ) {
-            return true;
+            found = true;
+            return;
         }
 
         for (const value of Object.values(current)) {
             queue.push(value);
         }
-    }
+    });
 
-    return false;
+    return found;
 }
 
 function recordTestCases(aggregates, testCases) {
