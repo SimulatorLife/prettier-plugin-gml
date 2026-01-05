@@ -1592,7 +1592,10 @@ function printBlockStatementNode(node, path, options, print) {
     const firstStatement = node.body[0];
     const constructorStartLine = node?.loc?.start?.line ?? node?.start?.line ?? null;
     const firstStatementStartLine = firstStatement?.loc?.start?.line ?? firstStatement?.start?.line ?? null;
-    const constructorHasLineGap = false;
+    const constructorHasLineGap =
+        constructorStartLine !== null &&
+        firstStatementStartLine !== null &&
+        firstStatementStartLine > constructorStartLine + 1;
     let shouldPreserveInitialBlankLine = constructorHasLineGap;
 
     if (firstStatement) {
@@ -1601,7 +1604,14 @@ function printBlockStatementNode(node, path, options, print) {
             sourceMetadata
         );
 
-        const preserveForConstructorText = false;
+        const parentNode = typeof path.getParentNode === "function" ? path.getParentNode() : (path.parent ?? null);
+        const isConstructor = parentNode?.type === "FunctionDeclaration" && parentNode.constructor;
+
+        const preserveForConstructorText =
+            isConstructor &&
+            typeof originalText === STRING_TYPE &&
+            typeof node.start === NUMBER_TYPE &&
+            isNextLineEmpty(originalText, node.start);
 
         const preserveForLeadingComment = hasBlankLineBeforeLeadingComment(
             node,
