@@ -6,5 +6,4 @@ export { Core } from "@gml-modules/core";
 export * from "./find-repo-root.js";
 export * from "./module.js";
 export * from "./workspace-paths.js";
-export * from "./debounce.js";
 export * from "./error-guards.js";
