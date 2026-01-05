@@ -96,6 +96,14 @@ export function createWebSocketClient({
 
         state.manuallyDisconnected = false;
 
+        // Clear any pending reconnect timer before establishing a new connection
+        // This ensures that if connect() is called while a reconnect is scheduled,
+        // we don't leak the timer or create duplicate connection attempts
+        if (state.reconnectTimer !== null) {
+            clearTimeout(state.reconnectTimer);
+            state.reconnectTimer = null;
+        }
+
         try {
             const ctor = resolveWebSocketConstructor();
             const ws = new ctor(url);
@@ -349,6 +357,14 @@ function createCloseHandler({ state, onDisconnect, reconnectDelay, connect }: We
 
         if (onDisconnect) {
             onDisconnect();
+        }
+
+        // Clear any existing reconnect timer before potentially setting a new one
+        // This prevents timer leaks when close events occur in rapid succession
+        // or when the WebSocket is closed externally (e.g., server disconnect, network error)
+        if (websocketState.reconnectTimer !== null) {
+            clearTimeout(websocketState.reconnectTimer);
+            websocketState.reconnectTimer = null;
         }
 
         if (!websocketState.manuallyDisconnected && reconnectDelay > 0) {

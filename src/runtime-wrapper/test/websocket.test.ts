@@ -894,3 +894,155 @@ void test("WebSocket client metrics reset does not affect connection state", asy
         delete globalWithWebSocket.WebSocket;
     }
 });
+
+void test("WebSocket client clears reconnect timer when disconnect is called", async () => {
+    globalWithWebSocket.WebSocket = MockWebSocket;
+
+    const originalClearTimeout = globalThis.clearTimeout;
+    const clearedTimers = new Set<ReturnType<typeof setTimeout>>();
+
+    const restoreClearTimeout = () => {
+        globalThis.clearTimeout = originalClearTimeout;
+    };
+
+    let client: ReturnType<typeof RuntimeWrapper.createWebSocketClient> | null = null;
+
+    try {
+        globalThis.clearTimeout = ((handle: ReturnType<typeof setTimeout>) => {
+            clearedTimers.add(handle);
+            return originalClearTimeout(handle);
+        }) as typeof clearTimeout;
+
+        client = RuntimeWrapper.createWebSocketClient({
+            autoConnect: true,
+            reconnectDelay: 100
+        });
+
+        await flush();
+
+        const ws = client.getWebSocket();
+        assert.ok(ws, "WebSocket should be available");
+
+        ws.close();
+        await flush();
+
+        const timersBeforeDisconnect = clearedTimers.size;
+
+        client.disconnect();
+
+        assert.ok(clearedTimers.size > timersBeforeDisconnect, "disconnect() should have cleared the reconnect timer");
+    } finally {
+        restoreClearTimeout();
+        client?.disconnect();
+        delete globalWithWebSocket.WebSocket;
+    }
+});
+
+void test("WebSocket reconnect timer is properly cleared on rapid close events preventing leak", async () => {
+    globalWithWebSocket.WebSocket = MockWebSocket;
+
+    const originalSetTimeout = globalThis.setTimeout;
+    const originalClearTimeout = globalThis.clearTimeout;
+    const activeTimers = new Map<
+        ReturnType<typeof originalSetTimeout>,
+        {
+            cleared: boolean;
+            callback: (...args: Array<unknown>) => void;
+            delay: number;
+        }
+    >();
+
+    const restoreTimers = () => {
+        globalThis.setTimeout = originalSetTimeout;
+        globalThis.clearTimeout = originalClearTimeout;
+    };
+
+    try {
+        globalThis.setTimeout = ((
+            fn: (...callbackArgs: Array<unknown>) => void,
+            delay?: number,
+            ...args: Array<unknown>
+        ) => {
+            const handle = originalSetTimeout(() => {
+                const meta = activeTimers.get(handle);
+                if (meta && !meta.cleared) {
+                    meta.callback(...args);
+                }
+                activeTimers.delete(handle);
+            }, delay);
+
+            activeTimers.set(handle, {
+                cleared: false,
+                callback: fn,
+                delay: delay ?? 0
+            });
+            return handle;
+        }) as typeof setTimeout;
+
+        globalThis.clearTimeout = ((handle: ReturnType<typeof originalSetTimeout>) => {
+            const meta = activeTimers.get(handle);
+            if (meta) {
+                meta.cleared = true;
+            }
+
+            return originalClearTimeout(handle);
+        }) as typeof clearTimeout;
+
+        let client: ReturnType<typeof RuntimeWrapper.createWebSocketClient> | null =
+            RuntimeWrapper.createWebSocketClient({
+                autoConnect: true,
+                reconnectDelay: 50
+            });
+
+        await flush();
+
+        const ws = client.getWebSocket();
+        assert.ok(ws, "Initial WebSocket should be available");
+
+        // Close the WebSocket, which triggers reconnect timer
+        ws.close();
+        await flush();
+
+        const timersAfterFirstClose = [...activeTimers.values()].filter((meta) => !meta.cleared && meta.delay >= 50);
+        assert.strictEqual(
+            timersAfterFirstClose.length,
+            1,
+            "There should be exactly one uncleared reconnect timer after first close"
+        );
+
+        // Get the new WebSocket after reconnect
+        await wait(60);
+        const ws2 = client.getWebSocket();
+        assert.ok(ws2, "WebSocket should reconnect");
+
+        // Close again rapidly
+        ws2.close();
+        await flush();
+
+        const timersAfterSecondClose = [...activeTimers.values()].filter((meta) => !meta.cleared && meta.delay >= 50);
+        assert.strictEqual(
+            timersAfterSecondClose.length,
+            1,
+            "With the fix, there should still be only one active reconnect timer (old one cleared before new one set)"
+        );
+
+        // Verify the first timer was cleared
+        const firstTimer = timersAfterFirstClose[0];
+        assert.ok(firstTimer, "First timer should exist");
+        assert.strictEqual(
+            firstTimer.cleared,
+            true,
+            "The fix ensures the first timer was cleared before setting the second timer"
+        );
+
+        // Clean up
+        client.disconnect();
+        client = null;
+
+        const finalTimers = [...activeTimers.values()].filter((meta) => !meta.cleared && meta.delay >= 50);
+        assert.strictEqual(finalTimers.length, 0, "After disconnect(), all reconnect timers should be cleared");
+    } finally {
+        restoreTimers();
+        delete globalWithWebSocket.WebSocket;
+    }
+});
