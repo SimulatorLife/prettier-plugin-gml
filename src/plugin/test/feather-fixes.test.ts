@@ -2766,7 +2766,7 @@ void describe("Transforms.applyFeatherFixes transform", () => {
         assert.strictEqual(formatted.trimEnd(), expected);
     });
 
-    void it("ensures vertex format definitions are closed and records metadata", () => {
+    void it("ensures incomplete vertex format definitions are marked for commenting and records metadata", () => {
         const source = [
             "/// Create Event",
             "",
@@ -2787,11 +2787,13 @@ void describe("Transforms.applyFeatherFixes transform", () => {
         });
 
         const body = Array.isArray(ast.body) ? ast.body : [];
-        const insertedCall = body.at(-1);
 
-        assert.ok(insertedCall);
-        assert.strictEqual(insertedCall.type, "CallExpression");
-        assert.strictEqual(insertedCall.object?.name, "vertex_format_end");
+        // With the fix, we should NOT be inserting vertex_format_end
+        // Instead, the existing vertex format calls should be marked for commenting
+        const lastCall = body.at(-1);
+        assert.ok(lastCall);
+        assert.strictEqual(lastCall.type, "CallExpression");
+        assert.strictEqual(lastCall.object?.name, "vertex_format_add_texcoord");
 
         const appliedDiagnostics = ast._appliedFeatherDiagnostics ?? [];
         const gm2015 = appliedDiagnostics.find((entry) => entry.id === "GM2015");
@@ -2799,13 +2801,6 @@ void describe("Transforms.applyFeatherFixes transform", () => {
         assert.ok(gm2015, "Expected GM2015 metadata to be recorded on the AST.");
         assert.strictEqual(gm2015.automatic, true);
         assert.ok(gm2015.range);
-
-        const nodeDiagnostics = insertedCall._appliedFeatherDiagnostics ?? [];
-        assert.strictEqual(
-            nodeDiagnostics.some((entry) => entry.id === "GM2015"),
-            true,
-            "Expected GM2015 metadata to be attached to the inserted call."
-        );
     });
 
     void it("comments out incomplete vertex format definitions flagged by GM2015", async () => {
@@ -2821,8 +2816,7 @@ void describe("Transforms.applyFeatherFixes transform", () => {
             "",
             "// TODO: Incomplete vertex format definition automatically commented out (GM2015)",
             "//vertex_format_begin();",
-            "//vertex_format_add_position_3d();",
-            "//vertex_format_end();"
+            "//vertex_format_add_position_3d();"
         ].join("\n");
 
         assert.strictEqual(formatted.trimEnd(), expected);
@@ -2839,8 +2833,7 @@ void describe("Transforms.applyFeatherFixes transform", () => {
             "// vertex_format_begin();",
             "// vertex_format_add_position_3d();",
             "// vertex_format_add_colour();",
-            "// vertex_format_add_texcoord();",
-            "// vertex_format_end();"
+            "// vertex_format_add_texcoord();"
         ].join("\n");
 
         const formatted = await Plugin.format(source, {
@@ -2853,8 +2846,7 @@ void describe("Transforms.applyFeatherFixes transform", () => {
             "//vertex_format_begin();",
             "//vertex_format_add_position_3d();",
             "//vertex_format_add_colour();",
-            "//vertex_format_add_texcoord();",
-            "//vertex_format_end();"
+            "//vertex_format_add_texcoord();"
         ].join("\n");
 
         assert.strictEqual(formatted.trimEnd(), expected);

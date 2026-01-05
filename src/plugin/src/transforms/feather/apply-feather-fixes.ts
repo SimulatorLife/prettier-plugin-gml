@@ -13488,14 +13488,8 @@ function ensureVertexFormatDefinitionIsClosed(node, parent, property, diagnostic
         return null;
     }
 
-    const vertexFormatEndCall = createVertexFormatEndCall(node);
-
-    if (!vertexFormatEndCall) {
-        return null;
-    }
-
     const fixDetail = createFeatherFixDetail(diagnostic, {
-        target: "vertex_format_end",
+        target: "vertex_format_begin",
         range: {
             start: Core.getNodeStartIndex(node),
             end: Core.getNodeEndIndex(node)
@@ -13506,9 +13500,6 @@ function ensureVertexFormatDefinitionIsClosed(node, parent, property, diagnostic
         return null;
     }
 
-    siblings.splice(insertionIndex, 0, vertexFormatEndCall);
-    attachFeatherFixMetadata(vertexFormatEndCall, [fixDetail]);
-
     const commentTargets = [];
 
     for (let index = property; index < insertionIndex; index += 1) {
@@ -13518,8 +13509,6 @@ function ensureVertexFormatDefinitionIsClosed(node, parent, property, diagnostic
             commentTargets.push(candidate);
         }
     }
-
-    commentTargets.push(vertexFormatEndCall);
 
     const commentPrefixText = "TODO: Incomplete vertex format definition automatically commented out (GM2015)";
 
