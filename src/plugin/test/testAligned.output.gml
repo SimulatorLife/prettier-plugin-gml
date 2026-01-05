@@ -48,3 +48,16 @@ for (var i = 0; i < armNum; i++) {
     armPrevPos[i]   = armPos[i];
     armOvershoot[i] = [0, 0];
 }
+
+var dsin_lp = dsin(pdir_l + leg_spread),
+    dsin_lm = dsin(pdir_l - leg_spread),
+    dsin_rp = dsin(pdir_r + leg_spread),
+    dsin_rm = dsin(pdir_r - leg_spread),
+    dcos_lp = dcos(pdir_l + leg_spread),
+    dcos_lm = dcos(pdir_l - leg_spread),
+    dcos_rp = dcos(pdir_r + leg_spread),
+    dcos_rm = dcos(pdir_r - leg_spread),
+    dcosl   = dcos(pdir_l),
+    dsinl   = dsin(pdir_l),
+    dcosr   = dcos(pdir_r),
+    dsinr   = dsin(pdir_r);

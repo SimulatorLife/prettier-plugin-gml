@@ -2039,7 +2039,7 @@ function printElements(path, print, listKey, delimiter, lineBreak, maxElementsPe
                     parts.push(hardline);
                     itemsSinceLastBreak = 0;
                 } else {
-                    parts.push(" ");
+                    parts.push(lineBreak);
                 }
             } else {
                 parts.push(lineBreak);
@@ -2984,14 +2984,15 @@ export function applyAssignmentAlignment(statements, options, path = null, child
         if (entry) {
             if (
                 previousEntry &&
-                previousEntry.skipBreakAfter !== true &&
-                shouldBreakAssignmentAlignment(
-                    previousEntry.locationNode,
-                    entry.locationNode,
-                    originalText,
-                    locStart,
-                    locEnd
-                )
+                (previousEntry.category !== entry.category ||
+                    (previousEntry.skipBreakAfter !== true &&
+                        shouldBreakAssignmentAlignment(
+                            previousEntry.locationNode,
+                            entry.locationNode,
+                            originalText,
+                            locStart,
+                            locEnd
+                        )))
             ) {
                 flushGroup();
             }
@@ -3070,6 +3071,7 @@ export interface AssignmentLikeEntry {
     nameLength: number;
     enablesAlignment: boolean;
     prefixLength: number;
+    category: string;
     skipBreakAfter?: boolean;
 }
 
@@ -3087,7 +3089,8 @@ export function getSimpleAssignmentLikeEntry(
             paddingTarget: statement,
             nameLength: memberLength,
             enablesAlignment: true,
-            prefixLength: 0
+            prefixLength: 0,
+            category: "member"
         };
     }
 
@@ -3102,7 +3105,8 @@ export function getSimpleAssignmentLikeEntry(
             paddingTarget: statement,
             nameLength: identifier.name.length,
             enablesAlignment: true,
-            prefixLength: getGlobalIdentifierAlignmentPrefixLength(identifier, options)
+            prefixLength: getGlobalIdentifierAlignmentPrefixLength(identifier, options),
+            category: "simple"
         };
     }
 
@@ -3155,7 +3159,8 @@ export function getSimpleAssignmentLikeEntry(
         nameLength: (id.name as string).length,
         enablesAlignment: enablesAlignment || shouldEnableVarAlignment,
         skipBreakAfter,
-        prefixLength
+        prefixLength,
+        category: keyword
     };
 }
 
