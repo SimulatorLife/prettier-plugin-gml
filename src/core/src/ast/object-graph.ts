@@ -84,8 +84,8 @@ export function walkObjectGraph(root: unknown, options: WalkObjectGraphOptions =
         }
 
         const keys = Object.keys(objectValue);
-        // Object.keys() only returns own enumerable properties, so the
-        // Object.hasOwn check is redundant. Removing it reduces iterations
+        // Object.keys() only returns own enumerable string-keyed properties, so
+        // the Object.hasOwn check is redundant. Removing it reduces iterations
         // in this hot path by eliminating an unnecessary property lookup.
         for (let index = keys.length - 1; index >= 0; index -= 1) {
             const childKey = keys[index];
@@ -96,7 +96,7 @@ export function walkObjectGraph(root: unknown, options: WalkObjectGraphOptions =
 
             stack.push({
                 value: childValue as object | Array<unknown>,
-                parent: value as ObjectRecord | Array<unknown>,
+                parent: objectValue,
                 key: childKey
             });
         }
