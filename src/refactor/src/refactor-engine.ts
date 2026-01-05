@@ -18,12 +18,12 @@ import {
     type HotReloadUpdate,
     type HotReloadValidationOptions,
     type ParserBridge,
+    type PartialSemanticAnalyzer,
     type PrepareRenamePlanOptions,
     type RefactorEngineDependencies,
     type RenameImpactAnalysis,
     type RenamePlanSummary,
     type RenameRequest,
-    type SemanticAnalyzer,
     type SymbolLocation,
     type SymbolOccurrence,
     type TranspilerBridge,
@@ -42,7 +42,7 @@ import { detectCircularRenames, detectRenameConflicts } from "./validation.js";
  */
 export class RefactorEngine {
     public readonly parser: ParserBridge | null;
-    public readonly semantic: SemanticAnalyzer | null;
+    public readonly semantic: PartialSemanticAnalyzer | null;
     public readonly formatter: TranspilerBridge | null;
 
     constructor({ parser = null, semantic = null, formatter = null }: Partial<RefactorEngineDependencies> = {}) {
