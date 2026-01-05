@@ -969,7 +969,7 @@ export class ScopeTracker {
      * if those dependencies have changed and require recompilation. This enables
      * precise invalidation in hot reload pipelines.
      *
-     * @param {string} scopeId The scope identifier to query.
+     * @param {string | null | undefined} scopeId The scope identifier to query.
      * @returns {Array<{dependencyScopeId: string, dependencyScopeKind: string, symbols: string[]}>}
      *          Array of dependency records, or empty array if scope not found.
      */
@@ -1033,7 +1033,7 @@ export class ScopeTracker {
      * hot reload: if scope A declares symbol X and scope B references X, then
      * changing scope A requires recompiling scope B.
      *
-     * @param {string} scopeId The scope identifier to query.
+     * @param {string | null | undefined} scopeId The scope identifier to query.
      * @returns {Array<{dependentScopeId: string, dependentScopeKind: string, symbols: string[]}>}
      *          Array of dependent records, or empty array if scope not found.
      */
