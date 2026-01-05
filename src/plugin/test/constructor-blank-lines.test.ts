@@ -8,7 +8,7 @@ void test("removes blank line between constructor header and first statement", a
     const formatted = await Plugin.format(source);
     const lines = formatted.trim().split("\n");
 
-    assert.equal(
+    assert.notEqual(
         lines[1],
         "",
         "Expected constructors to exclude a blank line when the input separates the header from the first statement."
