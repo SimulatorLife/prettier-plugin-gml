@@ -10,8 +10,8 @@ import { Semantic } from "@gml-modules/semantic";
  * these tests catch drift by validating runtime behavior matches expectations.
  */
 
-describe("Type alignment between transpiler and semantic", () => {
-    test("SemKind values match between packages", () => {
+void describe("Type alignment between transpiler and semantic", () => {
+    void test("SemKind values match between packages", () => {
         // The transpiler duplicates SemKind from semantic due to namespace export constraints.
         // This test ensures the semantic package's kindOfIdent function returns values
         // that match our expected SemKind type definition.
