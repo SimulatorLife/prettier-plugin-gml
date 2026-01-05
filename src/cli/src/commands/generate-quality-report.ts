@@ -180,14 +180,24 @@ function recordSuiteTestCase(cases, node, suitePath) {
 }
 
 /**
- * Execute a visitor callback for each item in the traversal queue until exhausted.
+ * Execute a visitor callback for each item in the traversal queue until exhausted
+ * or the visitor signals early termination.
  *
  * Isolates the low-level queue iteration mechanics from high-level processing logic.
+ *
+ * @param queue - The traversal queue containing items to process
+ * @param visitor - Callback invoked for each item; returns `true` to terminate early
  */
-function processTraversalQueue(queue, visitor) {
+function processTraversalQueue<T>(queue: T[], visitor: (item: T, queue: T[]) => boolean | void): void {
     while (queue.length > 0) {
         const item = queue.pop();
-        visitor(item, queue);
+        if (!item) {
+            continue;
+        }
+        const shouldTerminate = visitor(item, queue);
+        if (shouldTerminate === true) {
+            break;
+        }
     }
 }
 
@@ -660,11 +670,7 @@ function documentContainsTestElements(document) {
     const queue = [document];
     let found = false;
 
-    processTraversalQueue(queue, (current, queue) => {
-        if (found) {
-            return;
-        }
-
+    processTraversalQueue(queue, (current) => {
         if (Array.isArray(current)) {
             queue.push(...current);
             return;
@@ -680,7 +686,7 @@ function documentContainsTestElements(document) {
             Object.hasOwn(current, "testsuites")
         ) {
             found = true;
-            return;
+            return true; // Terminate early
         }
 
         for (const value of Object.values(current)) {
