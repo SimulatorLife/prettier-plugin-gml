@@ -1,1 +1,0 @@
-export const MIN_DECLARATION_RUN_LENGTH = 4;
