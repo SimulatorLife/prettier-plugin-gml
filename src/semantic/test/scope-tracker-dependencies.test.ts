@@ -1,6 +1,7 @@
 import test from "node:test";
 import assert from "node:assert/strict";
 import ScopeTracker from "../src/scopes/scope-tracker.js";
+import { createSymbolDeclaration, createSymbolReference, declareTwoGlobalSymbols } from "./scope-tracker-helpers.js";
 
 void test("getScopeDependencies returns empty array for scope with no external references", () => {
     const tracker = new ScopeTracker({ enabled: true });
@@ -22,29 +23,12 @@ void test("getScopeDependencies identifies dependencies from external references
 
     // Program scope declares global symbols
     const programScope = tracker.enterScope("program");
-    tracker.declare("globalVar", {
-        name: "globalVar",
-        start: { line: 1, column: 0, index: 0 },
-        end: { line: 1, column: 9, index: 9 }
-    });
-    tracker.declare("anotherGlobal", {
-        name: "anotherGlobal",
-        start: { line: 2, column: 0, index: 10 },
-        end: { line: 2, column: 13, index: 23 }
-    });
+    declareTwoGlobalSymbols(tracker);
 
     // Function scope references global symbols
     const functionScope = tracker.enterScope("function");
-    tracker.reference("globalVar", {
-        name: "globalVar",
-        start: { line: 5, column: 4, index: 50 },
-        end: { line: 5, column: 13, index: 59 }
-    });
-    tracker.reference("anotherGlobal", {
-        name: "anotherGlobal",
-        start: { line: 6, column: 4, index: 64 },
-        end: { line: 6, column: 17, index: 77 }
-    });
+    tracker.reference("globalVar", createSymbolReference("globalVar", 5, 50, 59));
+    tracker.reference("anotherGlobal", createSymbolReference("anotherGlobal", 6, 64, 77));
 
     const dependencies = tracker.getScopeDependencies(functionScope.id);
 
@@ -59,31 +43,14 @@ void test("getScopeDependencies handles multiple dependency scopes", () => {
 
     // Program scope
     const programScope = tracker.enterScope("program");
-    tracker.declare("globalVar", {
-        name: "globalVar",
-        start: { line: 1, column: 0, index: 0 },
-        end: { line: 1, column: 9, index: 9 }
-    });
-    tracker.declare("anotherGlobal", {
-        name: "anotherGlobal",
-        start: { line: 2, column: 0, index: 10 },
-        end: { line: 2, column: 13, index: 23 }
-    });
+    declareTwoGlobalSymbols(tracker);
 
     // Function scope - nested block references both globals
     tracker.enterScope("function");
 
     const blockScope = tracker.enterScope("block");
-    tracker.reference("globalVar", {
-        name: "globalVar",
-        start: { line: 8, column: 4, index: 80 },
-        end: { line: 8, column: 13, index: 89 }
-    });
-    tracker.reference("anotherGlobal", {
-        name: "anotherGlobal",
-        start: { line: 9, column: 4, index: 94 },
-        end: { line: 9, column: 17, index: 107 }
-    });
+    tracker.reference("globalVar", createSymbolReference("globalVar", 8, 80, 89));
+    tracker.reference("anotherGlobal", createSymbolReference("anotherGlobal", 9, 94, 107));
 
     const dependencies = tracker.getScopeDependencies(blockScope.id);
 
@@ -157,38 +124,17 @@ void test("getScopeDependents handles multiple dependent scopes", () => {
 
     // Program scope declares symbols
     const programScope = tracker.enterScope("program");
-    tracker.declare("globalVar", {
-        name: "globalVar",
-        start: { line: 1, column: 0, index: 0 },
-        end: { line: 1, column: 9, index: 9 }
-    });
-    tracker.declare("anotherGlobal", {
-        name: "anotherGlobal",
-        start: { line: 2, column: 0, index: 10 },
-        end: { line: 2, column: 13, index: 23 }
-    });
+    declareTwoGlobalSymbols(tracker);
 
     // First function references globalVar
     const function1Scope = tracker.enterScope("function");
-    tracker.reference("globalVar", {
-        name: "globalVar",
-        start: { line: 5, column: 4, index: 50 },
-        end: { line: 5, column: 13, index: 59 }
-    });
+    tracker.reference("globalVar", createSymbolReference("globalVar", 5, 50, 59));
     tracker.exitScope();
 
     // Second function references both globals
     const function2Scope = tracker.enterScope("function");
-    tracker.reference("globalVar", {
-        name: "globalVar",
-        start: { line: 8, column: 4, index: 80 },
-        end: { line: 8, column: 13, index: 89 }
-    });
-    tracker.reference("anotherGlobal", {
-        name: "anotherGlobal",
-        start: { line: 9, column: 4, index: 94 },
-        end: { line: 9, column: 17, index: 107 }
-    });
+    tracker.reference("globalVar", createSymbolReference("globalVar", 8, 80, 89));
+    tracker.reference("anotherGlobal", createSymbolReference("anotherGlobal", 9, 94, 107));
 
     const dependents = tracker.getScopeDependents(programScope.id);
 
@@ -286,57 +232,21 @@ void test("dependency graph: comprehensive integration test", () => {
      */
 
     const programScope = tracker.enterScope("program");
-    tracker.declare("config", {
-        name: "config",
-        start: { line: 1, column: 0, index: 0 },
-        end: { line: 1, column: 6, index: 6 }
-    });
-    tracker.declare("state", {
-        name: "state",
-        start: { line: 2, column: 0, index: 7 },
-        end: { line: 2, column: 5, index: 12 }
-    });
+    tracker.declare("config", createSymbolDeclaration("config", 1, 0, 6));
+    tracker.declare("state", createSymbolDeclaration("state", 2, 7, 12));
 
     const function1Scope = tracker.enterScope("function");
-    tracker.declare("localA", {
-        name: "localA",
-        start: { line: 5, column: 4, index: 30 },
-        end: { line: 5, column: 10, index: 36 }
-    });
-    tracker.reference("config", {
-        name: "config",
-        start: { line: 6, column: 4, index: 41 },
-        end: { line: 6, column: 10, index: 47 }
-    });
+    tracker.declare("localA", createSymbolDeclaration("localA", 5, 30, 36));
+    tracker.reference("config", createSymbolReference("config", 6, 41, 47));
 
     const function2Scope = tracker.enterScope("function");
-    tracker.declare("localB", {
-        name: "localB",
-        start: { line: 10, column: 4, index: 70 },
-        end: { line: 10, column: 10, index: 76 }
-    });
-    tracker.reference("state", {
-        name: "state",
-        start: { line: 11, column: 4, index: 81 },
-        end: { line: 11, column: 9, index: 86 }
-    });
-    tracker.reference("localA", {
-        name: "localA",
-        start: { line: 12, column: 4, index: 91 },
-        end: { line: 12, column: 10, index: 97 }
-    });
+    tracker.declare("localB", createSymbolDeclaration("localB", 10, 70, 76));
+    tracker.reference("state", createSymbolReference("state", 11, 81, 86));
+    tracker.reference("localA", createSymbolReference("localA", 12, 91, 97));
 
     const blockScope = tracker.enterScope("block");
-    tracker.reference("state", {
-        name: "state",
-        start: { line: 15, column: 8, index: 120 },
-        end: { line: 15, column: 13, index: 125 }
-    });
-    tracker.reference("localB", {
-        name: "localB",
-        start: { line: 16, column: 8, index: 134 },
-        end: { line: 16, column: 14, index: 140 }
-    });
+    tracker.reference("state", createSymbolReference("state", 15, 120, 125));
+    tracker.reference("localB", createSymbolReference("localB", 16, 134, 140));
     tracker.exitScope(); // block
     tracker.exitScope(); // function2
     tracker.exitScope(); // function1
