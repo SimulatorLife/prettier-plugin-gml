@@ -4,9 +4,9 @@ import {
     Refactor,
     type HotReloadUpdate,
     type ParserBridge,
+    type PartialSemanticAnalyzer,
     type RefactorEngine,
     type RenameRequest,
-    type SemanticAnalyzer,
     type WorkspaceEdit,
     type WorkspaceReadFile,
     type WorkspaceWriteFile
@@ -28,7 +28,7 @@ void test("createRefactorEngine accepts dependencies", () => {
     const mockParser: ParserBridge = {
         parse: async () => ({ start: 0, end: 0, type: "root" })
     };
-    const mockSemantic: SemanticAnalyzer = {};
+    const mockSemantic: PartialSemanticAnalyzer = {};
     const engine = createRefactorEngine({
         parser: mockParser,
         semantic: mockSemantic
@@ -530,7 +530,7 @@ void test("executeRename validates required parameters", async () => {
 });
 
 void test("executeRename performs complete rename workflow", async () => {
-    const mockSemantic: SemanticAnalyzer = {
+    const mockSemantic: PartialSemanticAnalyzer = {
         hasSymbol: () => true,
         getSymbolOccurrences: () => [
             { path: "test.gml", start: 0, end: 5, scopeId: "scope-1" },
@@ -561,7 +561,7 @@ void test("executeRename performs complete rename workflow", async () => {
 });
 
 void test("executeRename rejects invalid planned edits", async () => {
-    const mockSemantic: SemanticAnalyzer = {
+    const mockSemantic: PartialSemanticAnalyzer = {
         hasSymbol: () => true,
         getSymbolOccurrences: () => [
             { path: "test.gml", start: 0, end: 5, scopeId: "scope-1" },
@@ -592,7 +592,7 @@ void test("executeRename rejects invalid planned edits", async () => {
 });
 
 void test("executeRename prepares hot reload updates when requested", async () => {
-    const mockSemantic: SemanticAnalyzer = {
+    const mockSemantic: PartialSemanticAnalyzer = {
         hasSymbol: () => true,
         getSymbolOccurrences: () => [{ path: "test.gml", start: 0, end: 5, scopeId: "scope-1" }],
         getFileSymbols: () => [{ id: "gml/script/scr_test" }]
@@ -2409,7 +2409,7 @@ void test("verifyPostEditIntegrity warns if new name not found", async () => {
 });
 
 void test("verifyPostEditIntegrity detects conflicts with existing symbols", async () => {
-    const mockSemantic: SemanticAnalyzer = {
+    const mockSemantic: PartialSemanticAnalyzer = {
         getSymbolOccurrences: async (name: string) => {
             if (name === "new") {
                 return [
@@ -2440,7 +2440,7 @@ void test("verifyPostEditIntegrity detects conflicts with existing symbols", asy
 });
 
 void test("verifyPostEditIntegrity detects reserved keyword conflicts", async () => {
-    const mockSemantic: SemanticAnalyzer = {
+    const mockSemantic: PartialSemanticAnalyzer = {
         getReservedKeywords: async () => ["if", "else", "for", "while"]
     };
     const engine = new RefactorEngineClass({ semantic: mockSemantic });
@@ -2504,7 +2504,7 @@ void test("verifyPostEditIntegrity handles file read errors", async () => {
 });
 
 void test("verifyPostEditIntegrity succeeds for valid rename", async () => {
-    const mockSemantic: SemanticAnalyzer = {
+    const mockSemantic: PartialSemanticAnalyzer = {
         getSymbolOccurrences: async () => [],
         getReservedKeywords: async () => ["if", "else", "for"]
     };
@@ -2554,7 +2554,7 @@ void test("validateRenameRequest validates parameter types", async () => {
 });
 
 void test("validateRenameRequest validates identifier syntax", async () => {
-    const mockSemantic: SemanticAnalyzer = {
+    const mockSemantic: PartialSemanticAnalyzer = {
         hasSymbol: async () => true
     };
     const engine = new RefactorEngineClass({ semantic: mockSemantic });
@@ -2569,7 +2569,7 @@ void test("validateRenameRequest validates identifier syntax", async () => {
 });
 
 void test("validateRenameRequest checks symbol existence", async () => {
-    const mockSemantic: SemanticAnalyzer = {
+    const mockSemantic: PartialSemanticAnalyzer = {
         hasSymbol: async (id) => id === "gml/script/exists"
     };
     const engine = new RefactorEngineClass({ semantic: mockSemantic });
@@ -2584,7 +2584,7 @@ void test("validateRenameRequest checks symbol existence", async () => {
 });
 
 void test("validateRenameRequest detects same name", async () => {
-    const mockSemantic: SemanticAnalyzer = {
+    const mockSemantic: PartialSemanticAnalyzer = {
         hasSymbol: async () => true,
         getSymbolOccurrences: async () => []
     };
@@ -2600,7 +2600,7 @@ void test("validateRenameRequest detects same name", async () => {
 });
 
 void test("validateRenameRequest detects reserved keywords", async () => {
-    const mockSemantic: SemanticAnalyzer = {
+    const mockSemantic: PartialSemanticAnalyzer = {
         hasSymbol: async () => true,
         getSymbolOccurrences: async () => [{ path: "test.gml", start: 0, end: 5, scopeId: "scope-1" }],
         getReservedKeywords: async () => ["if", "else", "for"]
@@ -2629,7 +2629,7 @@ void test("validateRenameRequest can include hot reload safety summary", async (
         }
     }
 
-    const mockSemantic: SemanticAnalyzer = {
+    const mockSemantic: PartialSemanticAnalyzer = {
         hasSymbol: async () => true,
         getSymbolOccurrences: async () => [{ path: "test.gml", start: 0, end: 5, scopeId: "scope-1" }],
         getReservedKeywords: async () => []
@@ -2664,7 +2664,7 @@ void test("validateRenameRequest passes through safe hot reload summary", async 
         }
     }
 
-    const mockSemantic: SemanticAnalyzer = {
+    const mockSemantic: PartialSemanticAnalyzer = {
         hasSymbol: async () => true,
         getSymbolOccurrences: async () => [{ path: "test.gml", start: 0, end: 3, scopeId: "scope-1" }],
         getReservedKeywords: async () => []
@@ -2687,7 +2687,7 @@ void test("validateRenameRequest passes through safe hot reload summary", async 
 });
 
 void test("validateRenameRequest warns about no occurrences", async () => {
-    const mockSemantic: SemanticAnalyzer = {
+    const mockSemantic: PartialSemanticAnalyzer = {
         hasSymbol: async () => true,
         getSymbolOccurrences: async () => []
     };
@@ -2704,7 +2704,7 @@ void test("validateRenameRequest warns about no occurrences", async () => {
 });
 
 void test("validateRenameRequest succeeds for valid rename", async () => {
-    const mockSemantic: SemanticAnalyzer = {
+    const mockSemantic: PartialSemanticAnalyzer = {
         hasSymbol: async () => true,
         getSymbolOccurrences: async () => [
             { path: "test.gml", start: 0, end: 5, scopeId: "scope-1" },
@@ -2744,7 +2744,7 @@ void test("getFileSymbols returns empty array without semantic analyzer", async 
 });
 
 void test("getFileSymbols queries semantic analyzer", async () => {
-    const mockSemantic: SemanticAnalyzer = {
+    const mockSemantic: PartialSemanticAnalyzer = {
         getFileSymbols: async (path) => {
             if (path === "scripts/player.gml") {
                 return [{ id: "gml/script/scr_player_move" }, { id: "gml/script/scr_player_attack" }];
@@ -2775,7 +2775,7 @@ void test("getSymbolDependents returns empty array without semantic analyzer", a
 });
 
 void test("getSymbolDependents queries semantic analyzer", async () => {
-    const mockSemantic: SemanticAnalyzer = {
+    const mockSemantic: PartialSemanticAnalyzer = {
         getDependents: async (symbolIds) => {
             if (symbolIds.includes("gml/script/scr_base") || symbolIds.includes("gml/script/scr_helper")) {
                 return [
@@ -2809,7 +2809,7 @@ void test("getSymbolDependents validates input type", async () => {
 });
 
 void test("getSymbolDependents handles empty array", async () => {
-    const mockSemantic: SemanticAnalyzer = {
+    const mockSemantic: PartialSemanticAnalyzer = {
         getDependents: async () => {
             throw new Error("Should not be called");
         }
@@ -2822,7 +2822,7 @@ void test("getSymbolDependents handles empty array", async () => {
 
 void test("computeHotReloadCascade traces full circular dependency path", async () => {
     // Create a circular dependency: A -> B -> C -> A
-    const mockSemantic: SemanticAnalyzer = {
+    const mockSemantic: PartialSemanticAnalyzer = {
         getDependents: async (symbolIds: Array<string>) => {
             const id = symbolIds[0];
             switch (id) {
@@ -2877,7 +2877,7 @@ void test("computeHotReloadCascade handles multiple separate cycles", async () =
     // Create two separate cycles:
     // Cycle 1: A -> B -> A
     // Cycle 2: X -> Y -> X
-    const mockSemantic: SemanticAnalyzer = {
+    const mockSemantic: PartialSemanticAnalyzer = {
         getDependents: async (symbolIds: Array<string>) => {
             const id = symbolIds[0];
             switch (id) {
@@ -2935,7 +2935,7 @@ void test("computeHotReloadCascade handles multiple separate cycles", async () =
 
 void test("computeHotReloadCascade handles non-circular dependencies correctly", async () => {
     // Create a linear dependency chain: A -> B -> C (no cycle)
-    const mockSemantic: SemanticAnalyzer = {
+    const mockSemantic: PartialSemanticAnalyzer = {
         getDependents: async (symbolIds: Array<string>) => {
             const id = symbolIds[0];
             if (id === "gml/script/scr_a") {
@@ -2986,7 +2986,7 @@ void test("validateBatchRenameRequest validates non-array input", async () => {
 });
 
 void test("validateBatchRenameRequest validates individual rename requests", async () => {
-    const mockSemantic: SemanticAnalyzer = {
+    const mockSemantic: PartialSemanticAnalyzer = {
         hasSymbol: () => true,
         getSymbolOccurrences: () => []
     };
@@ -3011,7 +3011,7 @@ void test("validateBatchRenameRequest validates individual rename requests", asy
 });
 
 void test("validateBatchRenameRequest detects duplicate target names", async () => {
-    const mockSemantic: SemanticAnalyzer = {
+    const mockSemantic: PartialSemanticAnalyzer = {
         hasSymbol: () => true,
         getSymbolOccurrences: () => []
     };
@@ -3029,7 +3029,7 @@ void test("validateBatchRenameRequest detects duplicate target names", async () 
 });
 
 void test("validateBatchRenameRequest detects circular rename chains", async () => {
-    const mockSemantic: SemanticAnalyzer = {
+    const mockSemantic: PartialSemanticAnalyzer = {
         hasSymbol: () => true,
         getSymbolOccurrences: () => []
     };
@@ -3046,7 +3046,7 @@ void test("validateBatchRenameRequest detects circular rename chains", async () 
 });
 
 void test("validateBatchRenameRequest warns about cross-rename confusion", async () => {
-    const mockSemantic: SemanticAnalyzer = {
+    const mockSemantic: PartialSemanticAnalyzer = {
         hasSymbol: () => true,
         getSymbolOccurrences: () => []
     };
@@ -3062,7 +3062,7 @@ void test("validateBatchRenameRequest warns about cross-rename confusion", async
 });
 
 void test("validateBatchRenameRequest passes for valid batch", async () => {
-    const mockSemantic: SemanticAnalyzer = {
+    const mockSemantic: PartialSemanticAnalyzer = {
         hasSymbol: () => true,
         getSymbolOccurrences: () => [{ path: "test.gml", start: 0, end: 5, scopeId: "scope-1" }]
     };
@@ -3080,7 +3080,7 @@ void test("validateBatchRenameRequest passes for valid batch", async () => {
 });
 
 void test("validateBatchRenameRequest includes hot reload checks when requested", async () => {
-    const mockSemantic: SemanticAnalyzer = {
+    const mockSemantic: PartialSemanticAnalyzer = {
         hasSymbol: () => true,
         getSymbolOccurrences: () => [{ path: "test.gml", start: 0, end: 5, scopeId: "scope-1" }]
     };

@@ -15,6 +15,7 @@ export type {
     OccurrenceClassification,
     OccurrenceTracker,
     ParserBridge,
+    PartialSemanticAnalyzer,
     RefactorEngine,
     RenameImpactAnalysis,
     RenameRequest,

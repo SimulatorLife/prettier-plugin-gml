@@ -68,6 +68,7 @@ export type {
     MaybePromise,
     OccurrenceTracker,
     ParserBridge,
+    PartialSemanticAnalyzer,
     PrepareRenamePlanOptions,
     Range,
     RefactorEngineDependencies,
