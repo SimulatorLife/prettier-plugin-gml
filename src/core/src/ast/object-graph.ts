@@ -52,8 +52,7 @@ export function walkObjectGraph(root: unknown, options: WalkObjectGraphOptions =
 
         if (Array.isArray(value)) {
             if (typeof enterArray === "function") {
-                const arrayValue = value as Array<unknown>;
-                const shouldTraverse = enterArray(arrayValue, parent, key);
+                const shouldTraverse = enterArray(value, parent, key);
                 if (shouldTraverse === false) {
                     continue;
                 }
@@ -65,10 +64,9 @@ export function walkObjectGraph(root: unknown, options: WalkObjectGraphOptions =
                     continue;
                 }
 
-                const nextValue = item as object | Array<unknown>;
                 stack.push({
-                    value: nextValue,
-                    parent: value as ObjectRecord | Array<unknown>,
+                    value: item as object | Array<unknown>,
+                    parent: value,
                     key: index
                 });
             }
@@ -86,20 +84,18 @@ export function walkObjectGraph(root: unknown, options: WalkObjectGraphOptions =
         }
 
         const keys = Object.keys(objectValue);
+        // Object.keys() only returns own enumerable properties, so the
+        // Object.hasOwn check is redundant. Removing it reduces iterations
+        // in this hot path by eliminating an unnecessary property lookup.
         for (let index = keys.length - 1; index >= 0; index -= 1) {
             const childKey = keys[index];
-            if (!Object.hasOwn(objectValue, childKey)) {
-                continue;
-            }
-
             const childValue = objectValue[childKey];
             if (!childValue || typeof childValue !== "object") {
                 continue;
             }
 
-            const nextValue = childValue as object | Array<unknown>;
             stack.push({
-                value: nextValue,
+                value: childValue as object | Array<unknown>,
                 parent: value as ObjectRecord | Array<unknown>,
                 key: childKey
             });
