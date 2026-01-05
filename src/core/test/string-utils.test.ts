@@ -6,6 +6,7 @@ import test from "node:test";
 
 import {
     assertNonEmptyString,
+    assertNoLeadingOrTrailingWhitespace,
     isNonEmptyString,
     isNonEmptyTrimmedString,
     isWordChar,
@@ -159,6 +160,55 @@ void test("assertNonEmptyString throws when value is not a non-empty string", ()
     assert.throws(() => assertNonEmptyString("   ", { trim: true }), TypeError);
     assert.throws(() => assertNonEmptyString(null), TypeError);
     assert.throws(() => assertNonEmptyString(42), TypeError);
+});
+
+void test("assertNoLeadingOrTrailingWhitespace returns the value when valid", () => {
+    assert.strictEqual(assertNoLeadingOrTrailingWhitespace("value"), "value");
+    assert.strictEqual(assertNoLeadingOrTrailingWhitespace("identifier_name"), "identifier_name");
+    assert.strictEqual(assertNoLeadingOrTrailingWhitespace("CamelCase"), "CamelCase");
+});
+
+void test("assertNoLeadingOrTrailingWhitespace throws when value has leading whitespace", () => {
+    assert.throws(() => assertNoLeadingOrTrailingWhitespace(" value"), Error);
+    assert.throws(() => assertNoLeadingOrTrailingWhitespace("\tvalue"), Error);
+    assert.throws(() => assertNoLeadingOrTrailingWhitespace("\nvalue"), Error);
+});
+
+void test("assertNoLeadingOrTrailingWhitespace throws when value has trailing whitespace", () => {
+    assert.throws(() => assertNoLeadingOrTrailingWhitespace("value "), Error);
+    assert.throws(() => assertNoLeadingOrTrailingWhitespace("value\t"), Error);
+    assert.throws(() => assertNoLeadingOrTrailingWhitespace("value\n"), Error);
+});
+
+void test("assertNoLeadingOrTrailingWhitespace throws when value has both leading and trailing whitespace", () => {
+    assert.throws(() => assertNoLeadingOrTrailingWhitespace(" value "), Error);
+    assert.throws(() => assertNoLeadingOrTrailingWhitespace("\tvalue\t"), Error);
+    assert.throws(() => assertNoLeadingOrTrailingWhitespace("  value  "), Error);
+});
+
+void test("assertNoLeadingOrTrailingWhitespace preserves internal whitespace", () => {
+    assert.strictEqual(assertNoLeadingOrTrailingWhitespace("two words"), "two words");
+    assert.strictEqual(assertNoLeadingOrTrailingWhitespace("multiple  spaces"), "multiple  spaces");
+});
+
+void test("assertNoLeadingOrTrailingWhitespace uses custom name in error message", () => {
+    try {
+        assertNoLeadingOrTrailingWhitespace(" value ", { name: "Custom field" });
+        assert.fail("Expected error to be thrown");
+    } catch (error) {
+        assert.ok(error instanceof Error);
+        assert.ok(error.message.includes("Custom field"));
+    }
+});
+
+void test("assertNoLeadingOrTrailingWhitespace uses custom error message when provided", () => {
+    try {
+        assertNoLeadingOrTrailingWhitespace(" value ", { errorMessage: "Custom error" });
+        assert.fail("Expected error to be thrown");
+    } catch (error) {
+        assert.ok(error instanceof Error);
+        assert.strictEqual(error.message, "Custom error");
+    }
 });
 
 void test("describeValueForError formats primitives and structured values", () => {
