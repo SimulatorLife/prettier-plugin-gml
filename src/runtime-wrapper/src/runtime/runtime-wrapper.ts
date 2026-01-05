@@ -555,12 +555,14 @@ export function createRuntimeWrapper(options: RuntimeWrapperOptions = {}): Runti
             (kind === "event" && hasEvent(id)) ||
             (kind === "closure" && hasClosure(id));
 
+        const hasApplyEntries = applyEntries.length > 0;
+
         return {
             id,
             kind,
             applicationCount: applyEntries.length,
-            firstAppliedAt: applyEntries.length > 0 ? applyEntries[0].timestamp : null,
-            lastAppliedAt: applyEntries.length > 0 ? applyEntries.at(-1).timestamp : null,
+            firstAppliedAt: hasApplyEntries ? applyEntries[0].timestamp : null,
+            lastAppliedAt: hasApplyEntries ? applyEntries.at(-1).timestamp : null,
             currentlyApplied,
             undoCount: undoEntries.length,
             rollbackCount: rollbackEntries.length,
