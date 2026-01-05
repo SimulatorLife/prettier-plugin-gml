@@ -57,9 +57,14 @@ function collapseVertexFormatBeginSpacing(formatted: string): string {
 
 const MULTIPLE_BLANK_LINE_PATTERN = /\n{3,}/g;
 const FUNCTION_TAG_CLEANUP_PATTERN = /\/\/\/\s*@(?:func|function)\b[^\n]*(?:\n)?/gi;
+const BLOCK_OPENING_BLANK_PATTERN = /\{\n{2,}(?!\s*(?:\/\/\/|\/\*))/g;
 
 function collapseDuplicateBlankLines(formatted: string): string {
     return formatted.replaceAll(MULTIPLE_BLANK_LINE_PATTERN, "\n\n");
+}
+
+function collapseBlockOpeningBlankLines(formatted: string): string {
+    return formatted.replaceAll(BLOCK_OPENING_BLANK_PATTERN, "{\n");
 }
 
 function stripFunctionTagComments(formatted: string): string {
@@ -251,7 +256,10 @@ async function format(source: string, options: SupportOptions = {}) {
     }
     const normalized = ensureBlankLineBetweenVertexFormatComments(formatted);
     const singleBlankLines = collapseDuplicateBlankLines(normalized);
-    const normalizedCleaned = singleBlankLines.endsWith("\n") ? singleBlankLines : `${singleBlankLines}\n`;
+    const collapsedBlockOpenings = collapseBlockOpeningBlankLines(singleBlankLines);
+    const normalizedCleaned = collapsedBlockOpenings.endsWith("\n")
+        ? collapsedBlockOpenings
+        : `${collapsedBlockOpenings}\n`;
     const withoutFunctionTags = stripFunctionTagComments(normalizedCleaned);
     const collapsedAfterStrip = collapseDuplicateBlankLines(withoutFunctionTags);
     const dedupedComments = removeDuplicateDocLikeLineComments(collapseVertexFormatBeginSpacing(collapsedAfterStrip));

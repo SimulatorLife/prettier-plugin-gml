@@ -1630,6 +1630,14 @@ function printBlockStatementNode(node, path, options, print) {
 
     const stmts = printStatements(path, options, print, "body");
 
+    if (
+        node.parent?.type === "FunctionExpression" &&
+        Array.isArray(node.body) &&
+        node.body[0]?.type === "IfStatement"
+    ) {
+        console.log("DEBUG stmts start for function expression block:", JSON.stringify(stmts.slice(0, 3)));
+    }
+
     return concat([
         "{",
         printDanglingComments(path, options, (comment) => comment.attachToBrace),

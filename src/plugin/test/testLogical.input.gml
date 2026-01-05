@@ -166,3 +166,21 @@ function scr_nearest_power_of_2(value) {
     // Use sign to handle both positive and negative values
     return power(2, round(log2(abs(value)))) * sign(value);
 }
+
+/// @returns {undefined}
+function scr_verbose_assignment() {
+    if (scr_custom_condition()) {
+        sprite_index = spr_enemy_alerted;
+    } else {
+        sprite_index = spr_enemy_idle;
+    }
+}
+
+/// @returns {undefined}
+function scr_verbose_return() {
+    if (scr_custom_condition()) {
+        return obj_enemy;
+    } else {
+        return obj_player;
+    }
+}

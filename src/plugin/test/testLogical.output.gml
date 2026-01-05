@@ -114,3 +114,13 @@ function scr_nearest_power_of_2(value) {
     // Use sign to handle both positive and negative values
     return power(2, round(log2(abs(value)))) * sign(value);
 }
+
+/// @returns {undefined}
+function scr_verbose_assignment() {
+    sprite_index = scr_custom_condition() ? spr_enemy_alerted : spr_enemy_idle;
+}
+
+/// @returns {undefined}
+function scr_verbose_return() {
+    return scr_custom_condition() ? obj_enemy : obj_player;
+}
