@@ -976,7 +976,9 @@ function printCallExpressionNode(node, path, options, print) {
             (argument) => argument?.type === FUNCTION_DECLARATION || argument?.type === CONSTRUCTOR_DECLARATION
         );
         const structArguments = node.arguments.filter((argument) => argument?.type === STRUCT_EXPRESSION);
-        const structArgumentsToBreak = structArguments.filter((argument) => shouldForceBreakStructArgument(argument));
+        const structArgumentsToBreak = structArguments.filter((argument) =>
+            shouldForceBreakStructArgument(argument, options)
+        );
 
         structArgumentsToBreak.forEach((argument) => {
             forcedStructArgumentBreaks.set(argument, getStructAlignmentInfo(argument, options));
@@ -2196,7 +2198,7 @@ function buildCallbackArgumentsWithSimplePrefix(path, print, simplePrefixLength)
     return shouldForcePrefixBreaks ? concat([breakParent, argumentGroup]) : argumentGroup;
 }
 
-function shouldForceBreakStructArgument(argument) {
+function shouldForceBreakStructArgument(argument, options) {
     if (!argument || argument.type !== "StructExpression") {
         return false;
     }
@@ -2214,7 +2216,11 @@ function shouldForceBreakStructArgument(argument) {
         return true;
     }
 
-    return properties.length > 2;
+    const maxStructPropertiesPerLine = Number.isFinite(options?.maxStructPropertiesPerLine)
+        ? options.maxStructPropertiesPerLine
+        : 2;
+    const threshold = maxStructPropertiesPerLine > 0 ? maxStructPropertiesPerLine : Infinity;
+    return properties.length > threshold;
 }
 
 function buildStructPropertyCommentSuffix(path, options) {
