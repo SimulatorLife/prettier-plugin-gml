@@ -191,7 +191,7 @@ function recordSuiteTestCase(cases, node, suitePath) {
 function processTraversalQueue<T>(queue: T[], visitor: (item: T, queue: T[]) => boolean | void): void {
     while (queue.length > 0) {
         const item = queue.pop();
-        if (!item) {
+        if (item === null || item === undefined) {
             continue;
         }
         const shouldTerminate = visitor(item, queue);
@@ -670,9 +670,9 @@ function documentContainsTestElements(document) {
     const queue = [document];
     let found = false;
 
-    processTraversalQueue(queue, (current) => {
+    processTraversalQueue(queue, (current, queueRef) => {
         if (Array.isArray(current)) {
-            queue.push(...current);
+            queueRef.push(...current);
             return;
         }
 
@@ -690,7 +690,7 @@ function documentContainsTestElements(document) {
         }
 
         for (const value of Object.values(current)) {
-            queue.push(value);
+            queueRef.push(value);
         }
     });
 
