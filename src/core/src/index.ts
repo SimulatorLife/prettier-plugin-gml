@@ -59,3 +59,4 @@ export const Core: CoreNamespace = Object.freeze({
 export type { GameMakerAstLocation, GameMakerAstNode, MutableGameMakerAstNode } from "./ast/types.js";
 export type { DocCommentLines, MutableDocCommentLines } from "./comments/comment-utils.js";
 export type { AbortSignalLike } from "./utils/abort.js";
+export type { DebouncedFunction } from "./utils/function.js";
