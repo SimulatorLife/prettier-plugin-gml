@@ -1047,15 +1047,9 @@ function formatSuiteError(error: unknown) {
             ? (error as {
                   name?: unknown;
                   stack?: unknown;
-                  constructor?: { name?: unknown };
               })
             : null;
-    const name =
-        typeof errorLike?.name === "string"
-            ? errorLike.name
-            : typeof errorLike?.constructor?.name === "string"
-              ? errorLike.constructor.name
-              : "Error";
+    const name = typeof errorLike?.name === "string" ? errorLike.name : "Error";
     const message = getErrorMessageOrFallback(error);
     const stackLines = typeof errorLike?.stack === "string" ? errorLike.stack.split("\n") : undefined;
 

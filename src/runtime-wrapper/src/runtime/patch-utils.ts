@@ -510,7 +510,7 @@ export function testPatchInShadow(patch: Patch): ShadowTestResult {
     } catch (error) {
         return {
             valid: false,
-            error: error instanceof Error ? error.message : String(error ?? "Unknown error")
+            error: Core.isErrorLike(error) ? error.message : String(error ?? "Unknown error")
         };
     }
 }

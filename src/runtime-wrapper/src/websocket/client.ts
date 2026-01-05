@@ -1,3 +1,4 @@
+import { Core } from "@gml-modules/core";
 import { validatePatch } from "../runtime/patch-utils.js";
 import type { Patch, PatchApplicator, RuntimePatchError, TrySafeApplyResult } from "../runtime/types.js";
 import type {
@@ -387,7 +388,7 @@ function createErrorHandler({ state, onError }: WebSocketErrorHandlerArgs): (eve
 
         if (onError) {
             const safeError = createRuntimePatchError(
-                event instanceof Error ? event.message : "Unknown WebSocket error"
+                Core.isErrorLike(event) ? event.message : "Unknown WebSocket error"
             );
             onError(safeError, "connection");
         }
@@ -522,7 +523,7 @@ function createRuntimePatchError(message: string, patch?: Patch): RuntimePatchEr
 }
 
 function resolveRuntimeErrorMessage(error: unknown): string {
-    if (error instanceof Error) {
+    if (Core.isErrorLike(error)) {
         return error.message;
     }
 

@@ -1,3 +1,4 @@
+import { Core } from "@gml-modules/core";
 import {
     applyPatchInternal,
     calculateTimingMetrics,
@@ -93,7 +94,7 @@ export function createRuntimeWrapper(options: RuntimeWrapperOptions = {}): Runti
 
             return result;
         } catch (error) {
-            const message = error instanceof Error ? error.message : String(error ?? UNKNOWN_ERROR_MESSAGE);
+            const message = Core.isErrorLike(error) ? error.message : String(error ?? UNKNOWN_ERROR_MESSAGE);
             throw new Error(`Failed to apply patch ${patch.id}: ${message}`);
         }
     }
@@ -211,7 +212,7 @@ export function createRuntimeWrapper(options: RuntimeWrapperOptions = {}): Runti
             state.undoStack.length = batchSnapshot.undoStackSize;
             state.patchHistory.length = batchSnapshot.historySize;
 
-            const message = error instanceof Error ? error.message : String(error ?? UNKNOWN_ERROR_MESSAGE);
+            const message = Core.isErrorLike(error) ? error.message : String(error ?? UNKNOWN_ERROR_MESSAGE);
 
             state.patchHistory.push({
                 patch: {
@@ -291,7 +292,7 @@ export function createRuntimeWrapper(options: RuntimeWrapperOptions = {}): Runti
                     };
                 }
             } catch (error) {
-                const message = error instanceof Error ? error.message : String(error ?? UNKNOWN_ERROR_MESSAGE);
+                const message = Core.isErrorLike(error) ? error.message : String(error ?? UNKNOWN_ERROR_MESSAGE);
                 return {
                     success: false,
                     error: message,
@@ -327,7 +328,7 @@ export function createRuntimeWrapper(options: RuntimeWrapperOptions = {}): Runti
                 state.undoStack.pop();
             }
 
-            const message = error instanceof Error ? error.message : String(error ?? UNKNOWN_ERROR_MESSAGE);
+            const message = Core.isErrorLike(error) ? error.message : String(error ?? UNKNOWN_ERROR_MESSAGE);
 
             state.patchHistory.push({
                 patch: { kind: patch.kind, id: patch.id, metadata: patch.metadata },

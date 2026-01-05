@@ -306,7 +306,7 @@ export class RefactorEngine {
         try {
             normalizedNewName = assertValidIdentifierName(newName);
         } catch (error) {
-            const errorMessage = error instanceof Error ? error.message : String(error);
+            const errorMessage = Core.isErrorLike(error) ? error.message : String(error);
             errors.push(errorMessage);
             return { valid: false, errors, warnings };
         }
@@ -1155,7 +1155,7 @@ export class RefactorEngine {
         } catch (error) {
             // Planning failed, create an empty workspace and record the error
             workspace = new WorkspaceEdit();
-            const errorMessage = error instanceof Error ? error.message : String(error);
+            const errorMessage = Core.isErrorLike(error) ? error.message : String(error);
             validation = {
                 valid: false,
                 errors: [`Planning failed: ${errorMessage}`],
@@ -1198,7 +1198,7 @@ export class RefactorEngine {
                     conflicts: [
                         {
                             type: ConflictType.ANALYSIS_ERROR,
-                            message: `Failed to analyze ${rename.symbolId}: ${error instanceof Error ? error.message : String(error)}`
+                            message: `Failed to analyze ${rename.symbolId}: ${Core.isErrorLike(error) ? error.message : String(error)}`
                         }
                     ],
                     warnings: []
@@ -1219,7 +1219,7 @@ export class RefactorEngine {
                 // validation instead of failing the entire batch plan.
                 if (hotReloadValidation) {
                     hotReloadValidation.warnings.push(
-                        `Failed to compute hot reload cascade: ${error instanceof Error ? error.message : String(error)}`
+                        `Failed to compute hot reload cascade: ${Core.isErrorLike(error) ? error.message : String(error)}`
                     );
                 }
             }

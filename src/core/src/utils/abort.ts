@@ -1,5 +1,6 @@
 import { isObjectOrFunction } from "./object.js";
 import { getNonEmptyString } from "./string.js";
+import { isErrorLike } from "./capability-probes.js";
 
 const DEFAULT_ABORT_MESSAGE = "Operation aborted.";
 
@@ -89,7 +90,7 @@ function normalizeAbortError(reason: unknown, fallbackMessage: string): AbortErr
 }
 
 function ensureAbortError(error: AbortErrorLike): Error {
-    if (error instanceof Error) {
+    if (isErrorLike(error)) {
         return error;
     }
 
