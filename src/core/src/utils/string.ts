@@ -164,6 +164,38 @@ export function assertNonEmptyString(
     return normalized;
 }
 
+/**
+ * Assert that a string value contains no leading or trailing whitespace.
+ *
+ * Centralizes the validation pattern used throughout identifier validation,
+ * option parsing, and user input sanitization where surrounding whitespace
+ * indicates either user error or data corruption. The check uses a simple
+ * trimmed-versus-original comparison so the guard runs without regular
+ * expression overhead on the hot path.
+ *
+ * @param {string} value String to validate for whitespace boundaries.
+ * @param {object} [options]
+ * @param {string} [options.name="value"] Descriptive name used when
+ *        constructing the default error message.
+ * @param {string} [options.errorMessage] Optional error message that overrides
+ *        the default message when validation fails.
+ * @returns {string} The original {@link value} when validation succeeds.
+ * @throws {Error} When {@link value} contains leading or trailing whitespace.
+ */
+export function assertNoLeadingOrTrailingWhitespace(
+    value: string,
+    { name = "value", errorMessage }: { name?: string; errorMessage?: string } = {}
+): string {
+    const trimmed = value.trim();
+
+    if (trimmed !== value) {
+        const message = errorMessage ?? `${name} must not include leading or trailing whitespace`;
+        throw new Error(message);
+    }
+
+    return value;
+}
+
 // Use explicit character code boundaries so the hot `isWordChar` guard can run
 // without invoking a regular expression on every call.
 const CHAR_CODE_DIGIT_START = 48; // 0

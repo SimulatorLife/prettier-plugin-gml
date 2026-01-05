@@ -15,25 +15,22 @@ import { Core } from "@gml-modules/core";
  * @throws {Error} If name is empty, has whitespace, or contains invalid characters
  */
 export function assertValidIdentifierName(name: unknown): string {
-    if (typeof name !== "string") {
-        throw new TypeError(`Identifier names must be strings. Received ${typeof name}.`);
+    const validated = Core.assertNonEmptyString(name, {
+        name: "Identifier names",
+        trim: false,
+        errorMessage: "Identifier names must be strings and must not be empty or whitespace-only"
+    });
+
+    Core.assertNoLeadingOrTrailingWhitespace(validated, {
+        name: "Identifier names",
+        errorMessage: "Identifier names must not include leading or trailing whitespace"
+    });
+
+    if (!Core.GML_IDENTIFIER_NAME_PATTERN.test(validated)) {
+        throw new Error(`Identifier '${validated}' is not a valid GML identifier (expected [A-Za-z_][A-Za-z0-9_]*)`);
     }
 
-    const trimmed = name.trim();
-
-    if (trimmed.length === 0) {
-        throw new Error("Identifier names must not be empty or whitespace-only");
-    }
-
-    if (trimmed !== name) {
-        throw new Error("Identifier names must not include leading or trailing whitespace");
-    }
-
-    if (!Core.GML_IDENTIFIER_NAME_PATTERN.test(name)) {
-        throw new Error(`Identifier '${name}' is not a valid GML identifier (expected [A-Za-z_][A-Za-z0-9_]*)`);
-    }
-
-    return name;
+    return validated;
 }
 
 /**
