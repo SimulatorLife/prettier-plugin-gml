@@ -163,14 +163,13 @@ async function sendFileResponse(res, filePath, { method }) {
             }
 
             if (error) {
-                const errorToReject =
-                    error instanceof Error
-                        ? error
-                        : new Error(
-                              getErrorMessage(error, {
-                                  fallback: "Stream error"
-                              })
-                          );
+                const errorToReject = Core.isErrorLike(error)
+                    ? error
+                    : new Error(
+                          getErrorMessage(error, {
+                              fallback: "Stream error"
+                          })
+                      );
                 reject(errorToReject);
             } else {
                 resolve();
@@ -246,7 +245,7 @@ export async function startRuntimeStaticServer({
         } catch (error) {
             const statusCode = error?.statusCode ?? 500;
             const message =
-                statusCode === 403 ? "Forbidden" : error instanceof Error ? error.message : "Internal Server Error";
+                statusCode === 403 ? "Forbidden" : Core.isErrorLike(error) ? error.message : "Internal Server Error";
             writeError(res, statusCode, message);
             return;
         }
@@ -261,7 +260,7 @@ export async function startRuntimeStaticServer({
                 return;
             }
 
-            const message = error instanceof Error ? error.message : String(error);
+            const message = Core.isErrorLike(error) ? error.message : String(error);
             writeError(res, 500, `Failed to read runtime asset: ${message}`);
         });
     });

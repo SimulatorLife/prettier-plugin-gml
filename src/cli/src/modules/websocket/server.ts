@@ -109,7 +109,7 @@ export async function startPatchWebSocketServer({
             return true;
         } catch (error) {
             if (verbose) {
-                const message = error instanceof Error ? error.message : String(error);
+                const message = Core.isErrorLike(error) ? error.message : String(error);
                 console.error(`[WebSocket] Failed to send to ${clientId}: ${message}`);
             }
             return false;
@@ -144,7 +144,7 @@ export async function startPatchWebSocketServer({
                 }
             } catch (error) {
                 if (verbose) {
-                    const message = error instanceof Error ? error.message : String(error);
+                    const message = Core.isErrorLike(error) ? error.message : String(error);
                     console.error(`[WebSocket] Failed to send initial messages to ${clientId}: ${message}`);
                 }
             }
@@ -227,7 +227,7 @@ export async function startPatchWebSocketServer({
 
         await new Promise<void>((resolve, reject) => {
             const rejectWithError = (reason: unknown): void => {
-                if (reason instanceof Error) {
+                if (Core.isErrorLike(reason)) {
                     reject(reason);
                     return;
                 }
