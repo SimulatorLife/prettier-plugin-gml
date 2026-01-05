@@ -956,6 +956,171 @@ export class ScopeTracker {
     }
 
     /**
+     * Get all scopes that a given scope depends on (scopes it references symbols from).
+     * This builds a direct dependency list by analyzing external references and
+     * resolving where those symbols are declared.
+     *
+     * Returns an array of dependency records, where each record contains:
+     * - dependencyScopeId: The scope ID that contains declarations the queried scope depends on
+     * - dependencyScopeKind: The kind of the dependency scope
+     * - symbols: Array of symbol names referenced from that dependency scope
+     *
+     * Use case: When a scope changes, query which scopes it depends on to determine
+     * if those dependencies have changed and require recompilation. This enables
+     * precise invalidation in hot reload pipelines.
+     *
+     * @param {string | null | undefined} scopeId The scope identifier to query.
+     * @returns {Array<{dependencyScopeId: string, dependencyScopeKind: string, symbols: string[]}>}
+     *          Array of dependency records, or empty array if scope not found.
+     */
+    getScopeDependencies(scopeId: string | null | undefined) {
+        if (!scopeId) {
+            return [];
+        }
+
+        const externalRefs = this.getScopeExternalReferences(scopeId);
+        if (externalRefs.length === 0) {
+            return [];
+        }
+
+        // Group symbols by their declaring scope
+        const dependenciesMap = new Map<string, Set<string>>();
+
+        for (const ref of externalRefs) {
+            if (!ref.declaringScopeId) {
+                continue;
+            }
+
+            let symbols = dependenciesMap.get(ref.declaringScopeId);
+            if (!symbols) {
+                symbols = new Set();
+                dependenciesMap.set(ref.declaringScopeId, symbols);
+            }
+
+            symbols.add(ref.name);
+        }
+
+        // Build result array with scope metadata
+        const dependencies = [];
+        for (const [depScopeId, symbols] of dependenciesMap) {
+            const depScope = this.scopesById.get(depScopeId);
+            if (!depScope) {
+                continue;
+            }
+
+            dependencies.push({
+                dependencyScopeId: depScopeId,
+                dependencyScopeKind: depScope.kind,
+                symbols: [...symbols].sort()
+            });
+        }
+
+        return dependencies.sort((a, b) => a.dependencyScopeId.localeCompare(b.dependencyScopeId));
+    }
+
+    /**
+     * Get all scopes that depend on a given scope (scopes that reference symbols
+     * declared in the queried scope). This is the inverse of `getScopeDependencies`
+     * and is critical for hot reload invalidation.
+     *
+     * Returns an array of dependent records, where each record contains:
+     * - dependentScopeId: The scope ID that references symbols from the queried scope
+     * - dependentScopeKind: The kind of the dependent scope
+     * - symbols: Array of symbol names from the queried scope that are referenced
+     *
+     * Use case: When a scope changes, query which scopes depend on it to identify
+     * what needs to be invalidated and recompiled. This is essential for efficient
+     * hot reload: if scope A declares symbol X and scope B references X, then
+     * changing scope A requires recompiling scope B.
+     *
+     * @param {string | null | undefined} scopeId The scope identifier to query.
+     * @returns {Array<{dependentScopeId: string, dependentScopeKind: string, symbols: string[]}>}
+     *          Array of dependent records, or empty array if scope not found.
+     */
+    getScopeDependents(scopeId: string | null | undefined) {
+        if (!scopeId) {
+            return [];
+        }
+
+        const scope = this.scopesById.get(scopeId);
+        if (!scope) {
+            return [];
+        }
+
+        // Get all symbols declared in this scope
+        const declaredSymbols = new Set(scope.symbolMetadata.keys());
+        if (declaredSymbols.size === 0) {
+            return [];
+        }
+
+        // Find scopes that reference any of these symbols
+        const dependentsMap = new Map<string, Set<string>>();
+
+        for (const symbol of declaredSymbols) {
+            const scopeSummaryMap = this.symbolToScopesIndex.get(symbol);
+            if (!scopeSummaryMap) {
+                continue;
+            }
+
+            for (const [refScopeId, summary] of scopeSummaryMap) {
+                // Skip the scope itself
+                if (refScopeId === scopeId) {
+                    continue;
+                }
+
+                // Only include scopes that actually reference the symbol (not just declare it)
+                if (!summary.hasReference) {
+                    continue;
+                }
+
+                // Verify this scope doesn't declare the symbol locally (external reference)
+                const refScope = this.scopesById.get(refScopeId);
+                if (!refScope) {
+                    continue;
+                }
+
+                const localDeclaration = refScope.symbolMetadata.get(symbol);
+                if (localDeclaration) {
+                    // Symbol is declared locally, so it's not a dependency on our scope
+                    continue;
+                }
+
+                // Verify the reference resolves to our scope
+                const resolved = this.resolveIdentifier(symbol, refScopeId);
+                if (resolved?.scopeId !== scopeId) {
+                    continue;
+                }
+
+                // This scope depends on the queried scope
+                let symbols = dependentsMap.get(refScopeId);
+                if (!symbols) {
+                    symbols = new Set();
+                    dependentsMap.set(refScopeId, symbols);
+                }
+
+                symbols.add(symbol);
+            }
+        }
+
+        // Build result array with scope metadata
+        const dependents = [];
+        for (const [depScopeId, symbols] of dependentsMap) {
+            const depScope = this.scopesById.get(depScopeId);
+            if (!depScope) {
+                continue;
+            }
+
+            dependents.push({
+                dependentScopeId: depScopeId,
+                dependentScopeKind: depScope.kind,
+                symbols: [...symbols].sort()
+            });
+        }
+
+        return dependents.sort((a, b) => a.dependentScopeId.localeCompare(b.dependentScopeId));
+    }
+
+    /**
      * Get modification metadata for a specific scope. Returns the last
      * modification timestamp and the total number of modifications, which
      * supports hot reload coordination by identifying which scopes have
