@@ -94,4 +94,39 @@ void describe("applyAssignmentAlignment", () => {
             "Global identifier should be padded to match the longest name"
         );
     });
+
+    void it("uses default minimum group size when option is not specified", () => {
+        const statements = [createAssignment("a"), createAssignment("b"), createAssignment("c")];
+
+        applyAssignmentAlignment(statements, {});
+
+        const first = statements[0] as any;
+        const second = statements[1] as any;
+        const third = statements[2] as any;
+
+        assert.strictEqual(
+            typeof first._alignAssignmentPadding,
+            "number",
+            "Should align when group meets default size of 3"
+        );
+        assert.strictEqual(first._alignAssignmentPadding, 0, "First assignment should not need padding");
+        assert.strictEqual(second._alignAssignmentPadding, 0, "Second assignment should not need padding");
+        assert.strictEqual(third._alignAssignmentPadding, 0, "Third assignment should not need padding");
+    });
+
+    void it("does not align when group is smaller than default minimum", () => {
+        const statements = [createAssignment("short"), createAssignment("longer")];
+
+        applyAssignmentAlignment(statements, {});
+
+        const first = statements[0] as any;
+        const second = statements[1] as any;
+
+        assert.strictEqual(first._alignAssignmentPadding, 0, "Should not align with only 2 assignments (default is 3)");
+        assert.strictEqual(
+            second._alignAssignmentPadding,
+            0,
+            "Should not align with only 2 assignments (default is 3)"
+        );
+    });
 });
