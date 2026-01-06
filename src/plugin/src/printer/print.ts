@@ -3005,16 +3005,14 @@ export function applyAssignmentAlignment(statements, options, path = null, child
         const meetsAlignmentThreshold = alignmentEnabled && groupEntries.length >= effectiveMinGroupSize;
         const canAlign = meetsAlignmentThreshold && currentGroupHasAlias;
 
-        if (contextFunctionName === "handle_lighting") {
-            console.log("DEBUG handle_lighting alignment:", {
-                group: groupEntries.map((e) => e.node.id?.name),
-                meetsAlignmentThreshold,
-                currentGroupHasAlias,
-                canAlign,
-                minGroupSize,
-                effectiveMinGroupSize
-            });
-        }
+        console.log(`DEBUG alignment group ${contextFunctionName ?? "<none>"}`, {
+            group: groupEntries.map((e) => e.nameLength),
+            meetsAlignmentThreshold,
+            currentGroupHasAlias,
+            canAlign,
+            minGroupSize,
+            effectiveMinGroupSize
+        });
 
         if (!canAlign) {
             for (const { node } of groupEntries) {
@@ -3211,7 +3209,7 @@ export function getSimpleAssignmentLikeEntry(
     const keyword = typeof statement.kind === STRING_TYPE && statement.kind.length > 0 ? statement.kind : "var";
     const prefixLength = keyword.length + 1;
 
-    const shouldEnableVarAlignment = keyword === "var";
+    const shouldEnableVarAlignment = keyword === "var" && enablesAlignment;
 
     return {
         locationNode: statement,
