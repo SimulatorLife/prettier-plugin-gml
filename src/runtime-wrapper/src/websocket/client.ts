@@ -271,7 +271,7 @@ function createMessageHandler({
             return;
         }
 
-        const patches = Array.isArray(payload) ? payload : [payload];
+        const patches = Core.toArray(payload);
         for (const patch of patches) {
             if (!applyIncomingPatch(patch)) {
                 break;

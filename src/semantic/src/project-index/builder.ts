@@ -309,7 +309,7 @@ function createFunctionLikeIdentifierRecord({ node, scopeRecord, fileRecord, cla
     if (!location) {
         return null;
     }
-    const classificationArray = Array.isArray(classification) ? classification : [classification];
+    const classificationArray = Core.toArray(classification);
     const classificationTags = ["identifier", "declaration"];
     for (const tag of classificationArray) {
         if (tag) {
