@@ -47,6 +47,7 @@ import {
     type RuntimeTranspilerPatch
 } from "../modules/transpilation/coordinator.js";
 import { prepareHotReloadInjection, DEFAULT_GM_TEMP_ROOT } from "../modules/hot-reload/inject-runtime.js";
+import { DependencyTracker } from "../modules/dependency-tracker.js";
 import { formatCliError } from "../cli-core/errors.js";
 
 const { debounce, getErrorMessage } = Core;
@@ -118,6 +119,7 @@ interface RuntimeContext
     statusServer: StatusServerController | null;
     startTime: number;
     debouncedHandlers: Map<string, DebouncedFunction<[string, string, FileChangeOptions]>>;
+    dependencyTracker: DependencyTracker;
 }
 
 interface FileChangeOptions {
@@ -425,6 +427,7 @@ export async function runWatchCommand(targetPath: string, options: WatchCommandO
     const shouldServeRuntime = hydrateRuntime === undefined ? runtimeServer !== false : Boolean(hydrateRuntime);
 
     const transpiler = new Transpiler.GmlTranspiler();
+    const dependencyTracker = new DependencyTracker();
     const runtimeContext: RuntimeContext = {
         root: null,
         packageName: null,
@@ -440,7 +443,8 @@ export async function runWatchCommand(targetPath: string, options: WatchCommandO
         websocketServer: null,
         statusServer: null,
         startTime: Date.now(),
-        debouncedHandlers: new Map()
+        debouncedHandlers: new Map(),
+        dependencyTracker
     };
 
     let runtimeServerController: RuntimeStaticServerInstance | null = null;
@@ -802,10 +806,29 @@ async function handleFileChange(
                 return;
             }
 
-            transpileFile(runtimeContext, filePath, content, lines, {
+            // Transpile the changed file
+            const result = transpileFile(runtimeContext, filePath, content, lines, {
                 verbose,
                 quiet
             });
+
+            // Track symbol definitions for dependency-aware hot-reload
+            // Future enhancement: When semantic analysis is integrated, this will:
+            // 1. Extract actual symbol definitions from the AST
+            // 2. Track symbol references to build dependency graph
+            // 3. Identify and re-transpile dependent files when symbols change
+            if (result.success && result.patch) {
+                const fileName = path.basename(filePath, path.extname(filePath));
+                const symbolId = `gml/script/${fileName}`;
+                runtimeContext.dependencyTracker.registerFileDefines(filePath, [symbolId]);
+
+                if (verbose && !quiet) {
+                    const stats = runtimeContext.dependencyTracker.getStatistics();
+                    console.log(
+                        `  ↳ Dependency tracker: ${stats.totalSymbols} symbols tracked across ${stats.totalFiles} files`
+                    );
+                }
+            }
         } catch (error) {
             const message = getErrorMessage(error, {
                 fallback: "Unknown file read error"
