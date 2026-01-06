@@ -231,6 +231,9 @@ export function transpileFile(
                     `  ↳ Transpiled to JavaScript (${patchPayload.js_body.length} chars in ${durationMs.toFixed(2)}ms)`
                 );
                 console.log(`  ↳ Patch ID: ${patchPayload.id}`);
+                if (patchPayload.metadata?.timestamp) {
+                    console.log(`  ↳ Generated at: ${new Date(patchPayload.metadata.timestamp).toISOString()}`);
+                }
             } else {
                 console.log(`  ↳ Generated patch: ${patchPayload.id}`);
             }
