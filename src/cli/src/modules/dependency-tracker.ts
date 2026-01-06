@@ -45,11 +45,12 @@ export class DependencyTracker {
      * @param symbols - Symbols defined in the file
      */
     registerFileDefines(filePath: string, symbols: ReadonlyArray<string>): void {
-        if (!this.fileToDefs.has(filePath)) {
-            this.fileToDefs.set(filePath, new Set());
+        let defs = this.fileToDefs.get(filePath);
+        if (!defs) {
+            defs = new Set();
+            this.fileToDefs.set(filePath, defs);
         }
 
-        const defs = this.fileToDefs.get(filePath);
         for (const symbol of symbols) {
             defs.add(symbol);
             this.symbolToDefFile.set(symbol, filePath);
@@ -62,18 +63,21 @@ export class DependencyTracker {
      * @param symbols - Symbols referenced in the file
      */
     registerFileReferences(filePath: string, symbols: ReadonlyArray<string>): void {
-        if (!this.fileToRefs.has(filePath)) {
-            this.fileToRefs.set(filePath, new Set());
+        let refs = this.fileToRefs.get(filePath);
+        if (!refs) {
+            refs = new Set();
+            this.fileToRefs.set(filePath, refs);
         }
 
-        const refs = this.fileToRefs.get(filePath);
         for (const symbol of symbols) {
             refs.add(symbol);
 
-            if (!this.symbolToRefFiles.has(symbol)) {
-                this.symbolToRefFiles.set(symbol, new Set());
+            let refFiles = this.symbolToRefFiles.get(symbol);
+            if (!refFiles) {
+                refFiles = new Set();
+                this.symbolToRefFiles.set(symbol, refFiles);
             }
-            this.symbolToRefFiles.get(symbol).add(filePath);
+            refFiles.add(filePath);
         }
     }
 
