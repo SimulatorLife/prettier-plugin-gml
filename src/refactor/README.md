@@ -626,6 +626,87 @@ Standalone utilities for analyzing symbol occurrences:
 - `findOccurrencesInFile(occurrences, filePath)` - Find occurrences within a specific file
 - `countAffectedFiles(occurrences)` - Count unique files affected by occurrences
 
+### Rename Preview Functions
+
+Utilities for generating human-readable previews and reports of rename operations:
+
+- `generateRenamePreview(workspace, oldName, newName)` - Generate a preview of changes that will be made by a workspace edit
+- `formatRenamePlanReport(plan)` - Format a rename plan summary as a multi-line text report
+- `formatBatchRenamePlanReport(plan)` - Format a batch rename plan summary as a multi-line text report
+- `formatOccurrencePreview(occurrences, oldName, newName)` - Format occurrence locations as a diff-style preview
+
+These functions are essential for:
+- IDE integrations that need to show diff-like previews before applying renames
+- CLI tools that want to present detailed impact reports to users
+- Automated refactoring pipelines that need to log changes before applying them
+- Debugging refactoring operations by visualizing what will change
+
+#### Example: Generating a Rename Preview
+
+```javascript
+const plan = await engine.prepareRenamePlan({
+    symbolId: "gml/script/scr_player",
+    newName: "scr_hero"
+}, { validateHotReload: true });
+
+// Generate human-readable report
+const report = formatRenamePlanReport(plan);
+console.log(report);
+
+// Output:
+// Rename Plan Report
+// ==================
+// Symbol: scr_player → scr_hero
+// Status: VALID
+//
+// Impact Summary:
+//   Total Occurrences: 15
+//   Definitions: 1
+//   References: 14
+//   Affected Files: 3
+//   Hot Reload Required: Yes
+//   Dependent Symbols: 2
+//
+// Workspace Changes:
+//   Total Edits: 15
+//   Files Modified: 3
+//
+// Hot Reload Status: SAFE
+//   Reason: Script renames are hot-reload-safe
+//   Requires Restart: No
+
+// Generate detailed file-by-file preview
+const preview = generateRenamePreview(plan.workspace, "scr_player", "scr_hero");
+console.log(`Renaming ${preview.summary.oldName} → ${preview.summary.newName}`);
+console.log(`Will modify ${preview.summary.affectedFiles} files with ${preview.summary.totalEdits} edits`);
+
+for (const file of preview.files) {
+    console.log(`\n${file.filePath}: ${file.editCount} changes`);
+    for (const edit of file.edits) {
+        console.log(`  Position ${edit.start}-${edit.end}: "${edit.oldText}" → "${edit.newText}"`);
+    }
+}
+
+// Format occurrence preview for user review
+const occurrences = await engine.gatherSymbolOccurrences("scr_player");
+const occPreview = formatOccurrencePreview(occurrences, "scr_player", "scr_hero");
+console.log(occPreview);
+
+// Output:
+// Symbol Occurrences: scr_player → scr_hero
+// Total: 15 occurrences in 3 files
+//
+// scripts/player.gml (10 occurrences):
+//   [definition] Position 0-10
+//   [reference] Position 45-55
+//   [reference] Position 123-133
+//   ...
+//
+// scripts/game.gml (3 occurrences):
+//   [reference] Position 200-210
+//   ...
+```
+
 ### WorkspaceEdit
 
 Container for text edits across multiple files.
@@ -637,6 +718,8 @@ Container for text edits across multiple files.
 
 ## Status
 The refactor engine now includes comprehensive rename planning, batch operations, impact analysis,
-hot reload validation, occurrence analysis utilities, and advanced dependency cascade computation.
-It integrates with the semantic analyzer to provide safe, scope-aware refactoring operations with
-full transitive dependency tracking for hot reload scenarios.
+hot reload validation, occurrence analysis utilities, rename preview and reporting utilities, and
+advanced dependency cascade computation. It integrates with the semantic analyzer to provide safe,
+scope-aware refactoring operations with full transitive dependency tracking for hot reload scenarios.
+The preview utilities enable IDE integrations and CLI tools to present detailed, human-readable
+reports of planned changes before applying them.
