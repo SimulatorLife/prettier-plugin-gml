@@ -2,6 +2,7 @@ import * as RefactorAPI from "./refactor-engine.js";
 import { WorkspaceEdit } from "./workspace-edit.js";
 import * as OccurrenceAnalysisAPI from "./occurrence-analysis.js";
 import * as RenamePreviewAPI from "./rename-preview.js";
+import * as ValidationAPI from "./validation.js";
 import {
     ConflictType,
     isConflictType,
@@ -18,6 +19,7 @@ export const Refactor = Object.freeze({
     WorkspaceEdit,
     ...OccurrenceAnalysisAPI,
     ...RenamePreviewAPI,
+    ...ValidationAPI,
     ConflictType,
     isConflictType,
     parseConflictType,
@@ -53,6 +55,8 @@ export {
 } from "./rename-preview.js";
 
 export type { FilePreview, RenamePreview } from "./rename-preview.js";
+
+export { detectRenameConflicts, detectCircularRenames, validateRenameStructure } from "./validation.js";
 
 export type {
     ApplyWorkspaceEditOptions,

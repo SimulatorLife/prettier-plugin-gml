@@ -98,6 +98,50 @@ This is essential for:
 - Automated refactoring tools
 - Ensuring atomicity and consistency in complex rename operations
 
+### Structural Validation (Pre-flight Check)
+
+Validate rename request structure before expensive operations like gathering occurrences. This provides fast fail-fast feedback for IDE integrations and CLI tools:
+
+```javascript
+import { validateRenameStructure } from "@gml-modules/refactor";
+
+// Quick structural validation before planning
+const errors = await validateRenameStructure(
+    "gml/script/scr_player",
+    "scr_hero",
+    semantic // Optional: validates symbol existence if provided
+);
+
+if (errors.length > 0) {
+    console.error("Invalid rename request:", errors);
+    // Display errors immediately without waiting for occurrence gathering
+    return;
+}
+
+// Proceed with full rename planning
+const workspace = await engine.planRename({
+    symbolId: "gml/script/scr_player",
+    newName: "scr_hero"
+});
+```
+
+This is especially useful for:
+- Fast validation in IDE real-time feedback (as users type)
+- CLI argument validation before expensive operations
+- API endpoint input validation
+- Early error detection in batch operations
+
+The function validates:
+- Request parameter presence and types
+- Identifier syntax (must match GML identifier pattern)
+- Symbol existence (if semantic resolver provided)
+- New name differs from old name
+
+Unlike full validation, this does **not** check for:
+- Shadowing conflicts (requires occurrence analysis)
+- Reserved keywords (handled by `detectRenameConflicts`)
+- Impact analysis (handled by `analyzeRenameImpact`)
+
 ### Direct Conflict Detection
 
 Detect conflicts for a rename operation without going through full validation, useful for inline IDE warnings:
@@ -615,6 +659,17 @@ new RefactorEngine({ parser, semantic, formatter })
 
 #### Conflict Detection
 - `async detectRenameConflicts(request)` - Detect conflicts for a proposed rename operation without throwing errors
+
+### Validation Functions
+
+Standalone utilities for validating rename requests:
+
+- `async validateRenameStructure(symbolId, newName, resolver)` - Fast structural validation of rename parameters before planning
+  - Validates parameter presence, identifier syntax, and optional symbol existence
+  - Returns array of error messages (empty if valid)
+  - Enables fail-fast pattern without expensive occurrence gathering
+- `detectCircularRenames(renames)` - Detect circular rename chains in batch operations
+  - Returns first detected cycle as array of symbol IDs (empty if no cycles)
 
 ### Occurrence Analysis Functions
 
