@@ -2971,16 +2971,17 @@ export function applyAssignmentAlignment(statements, options, path = null, child
             "minGroupSize",
             minGroupSize
         );
+        const enablerCount = groupEntries.filter((e) => e.enablesAlignment).length;
         const normalizedMinGroupSize = minGroupSize > 0 ? minGroupSize : DEFAULT_ALIGN_ASSIGNMENTS_MIN_GROUP_SIZE;
         const alignmentEnabled = minGroupSize > 0;
         const effectiveMinGroupSize = alignmentEnabled ? normalizedMinGroupSize : minGroupSize;
         const meetsAlignmentThreshold = alignmentEnabled && groupEntries.length >= effectiveMinGroupSize;
-        const canAlign = meetsAlignmentThreshold && currentGroupHasAlias;
+        const canAlign = meetsAlignmentThreshold && enablerCount >= effectiveMinGroupSize;
 
         console.log(`DEBUG alignment group ${contextFunctionName ?? "<none>"}`, {
             group: groupEntries.map((e) => e.nameLength),
             meetsAlignmentThreshold,
-            currentGroupHasAlias,
+            enablerCount,
             canAlign,
             minGroupSize,
             effectiveMinGroupSize
@@ -3003,45 +3004,71 @@ export function applyAssignmentAlignment(statements, options, path = null, child
     };
 
     for (const statement of statements) {
-        const entry = getSimpleAssignmentLikeEntry(
-            statement,
-            insideFunctionBody,
-            functionParameterNames,
-            functionNode,
-            options
-        );
-
-        if (entry) {
-            if (
-                previousEntry &&
-                (previousEntry.category !== entry.category ||
-                    (previousEntry.skipBreakAfter !== true &&
-                        shouldBreakAssignmentAlignment(
-                            previousEntry.locationNode,
-                            entry.locationNode,
-                            originalText,
-                            locStart,
-                            locEnd
-                        )))
-            ) {
-                flushGroup();
+        let entries = [];
+        if (statement.type === "VariableDeclaration") {
+            for (const declarator of statement.declarations) {
+                const entry = getSimpleAssignmentLikeEntry(
+                    declarator,
+                    insideFunctionBody,
+                    functionParameterNames,
+                    functionNode,
+                    options
+                );
+                if (entry) {
+                    entry.locationNode = statement;
+                    entry.category = statement.kind || "var";
+                    entry.prefixLength = entry.category.length + 1;
+                    entries.push(entry);
+                }
             }
-
-            const prefixLength = entry.prefixLength ?? 0;
-            currentGroup.push({
-                node: entry.paddingTarget,
-                nameLength: entry.nameLength,
-                prefixLength
-            });
-            const printedWidth = entry.nameLength + prefixLength;
-            if (printedWidth > currentGroupMaxLength) {
-                currentGroupMaxLength = printedWidth;
+        } else {
+            const entry = getSimpleAssignmentLikeEntry(
+                statement,
+                insideFunctionBody,
+                functionParameterNames,
+                functionNode,
+                options
+            );
+            if (entry) {
+                entries.push(entry);
             }
-            if (entry.enablesAlignment) {
-                currentGroupHasAlias = true;
-            }
+        }
 
-            previousEntry = entry;
+        if (entries.length > 0) {
+            for (const entry of entries) {
+                if (
+                    previousEntry &&
+                    (previousEntry.category !== entry.category ||
+                        (previousEntry.skipBreakAfter !== true &&
+                            shouldBreakAssignmentAlignment(
+                                previousEntry.locationNode,
+                                entry.locationNode,
+                                originalText,
+                                locStart,
+                                locEnd
+                            )))
+                ) {
+                    flushGroup();
+                }
+
+                const prefixLength = entry.prefixLength ?? 0;
+                currentGroup.push({
+                    node: entry.paddingTarget,
+                    nameLength: entry.nameLength,
+                    prefixLength,
+                    enablesAlignment: entry.enablesAlignment
+                });
+
+                const printedWidth = entry.nameLength + prefixLength;
+                if (printedWidth > currentGroupMaxLength) {
+                    currentGroupMaxLength = printedWidth;
+                }
+                if (entry.enablesAlignment) {
+                    currentGroupHasAlias = true;
+                }
+
+                previousEntry = entry;
+            }
         } else {
             flushGroup();
             previousEntry = null;
@@ -3114,33 +3141,53 @@ export function getSimpleAssignmentLikeEntry(
 ): AssignmentLikeEntry | null {
     const memberLength = getMemberAssignmentLength(statement);
     if (typeof memberLength === NUMBER_TYPE) {
+        let node = statement;
+        if (node && node.type === "ExpressionStatement") {
+            node = node.expression;
+        }
+
         return {
             locationNode: statement,
-            paddingTarget: statement,
+            paddingTarget: node,
             nameLength: memberLength,
             enablesAlignment: true,
             prefixLength: 0,
-            category: "member"
+            category: "assignment"
         };
     }
 
     if (isSimpleAssignment(statement)) {
-        const identifier = statement.left;
+        let node = statement;
+        if (node && node.type === "ExpressionStatement") {
+            node = node.expression;
+        }
+
+        const identifier = node.left;
         if (!identifier || typeof identifier.name !== STRING_TYPE) {
             return null;
         }
 
         return {
             locationNode: statement,
-            paddingTarget: statement,
+            paddingTarget: node,
             nameLength: identifier.name.length,
             enablesAlignment: true,
             prefixLength: getGlobalIdentifierAlignmentPrefixLength(identifier, options),
-            category: "simple"
+            category: "assignment"
         };
     }
 
-    const declarator = Core.getSingleVariableDeclarator(statement);
+    let declarator = null;
+    let keyword = "var";
+    if (statement.type === "VariableDeclarator") {
+        declarator = statement;
+    } else {
+        declarator = Core.getSingleVariableDeclarator(statement);
+        if (statement.type === "VariableDeclaration") {
+            keyword = statement.kind || "var";
+        }
+    }
+
     if (!declarator) {
         return null;
     }
@@ -3167,30 +3214,29 @@ export function getSimpleAssignmentLikeEntry(
             const hasNamedParameters = functionParameterNames && functionParameterNames.size > 0;
 
             if (argumentIndex !== null) {
-                if (!options?.applyFeatherFixes || hasNamedParameters) {
+                if (!options?.applyFeatherFixes || !hasNamedParameters) {
                     enablesAlignment = true;
                 }
             } else if (functionParameterNames?.has(init.name)) {
-                enablesAlignment = true;
+                if (!options?.applyFeatherFixes) {
+                    enablesAlignment = true;
+                }
             }
         }
     }
 
     const skipBreakAfter = shouldOmitParameterAlias(declarator, functionNode, options);
 
-    const keyword = typeof statement.kind === STRING_TYPE && statement.kind.length > 0 ? statement.kind : "var";
     const prefixLength = keyword.length + 1;
-
-    const shouldEnableVarAlignment = keyword === "var" && enablesAlignment;
 
     return {
         locationNode: statement,
         paddingTarget: declarator,
         nameLength: (id.name as string).length,
-        enablesAlignment: enablesAlignment || shouldEnableVarAlignment,
+        enablesAlignment: enablesAlignment || (!insideFunctionBody && keyword === "var"),
         skipBreakAfter,
         prefixLength,
-        category: keyword
+        category: keyword === "var" ? "assignment" : keyword
     };
 }
 
@@ -3234,11 +3280,16 @@ function getFunctionParameterNameSetFromPath(path) {
 }
 
 function getMemberAssignmentLength(statement) {
-    if (!statement || statement.type !== "AssignmentExpression" || statement.operator !== "=") {
+    let node = statement;
+    if (node && node.type === "ExpressionStatement") {
+        node = node.expression;
+    }
+
+    if (!node || node.type !== "AssignmentExpression" || node.operator !== "=") {
         return null;
     }
 
-    return getMemberExpressionLength(statement.left);
+    return getMemberExpressionLength(node.left);
 }
 
 function getMemberExpressionLength(expression) {
@@ -3326,7 +3377,12 @@ function getAssignmentAlignmentMinimum(options) {
     );
 }
 
-function isSimpleAssignment(node) {
+function isSimpleAssignment(statement) {
+    let node = statement;
+    if (node && node.type === "ExpressionStatement") {
+        node = node.expression;
+    }
+
     return !!(
         node &&
         node.type === "AssignmentExpression" &&

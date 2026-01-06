@@ -39,7 +39,10 @@ export function getIdentifierFromParameterNode(param: any) {
         return param;
     }
 
-    if (param.type === "DefaultParameter" && param.left?.type === "Identifier") {
+    if (
+        (param.type === "DefaultParameter" || param.type === "AssignmentPattern") &&
+        param.left?.type === "Identifier"
+    ) {
         return param.left;
     }
 
