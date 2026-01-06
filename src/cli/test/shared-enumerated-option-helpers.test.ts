@@ -1,7 +1,9 @@
 import assert from "node:assert/strict";
 import { describe, it } from "node:test";
 
-import { createEnumeratedOptionHelpers } from "../src/shared/enumerated-option-helpers.js";
+import { Core } from "@gml-modules/core";
+
+const { createEnumeratedOptionHelpers } = Core;
 
 void describe("createEnumeratedOptionHelpers", () => {
     void it("formats the sorted list of enumerated values", () => {

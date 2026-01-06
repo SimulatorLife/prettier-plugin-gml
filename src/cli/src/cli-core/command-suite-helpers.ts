@@ -4,11 +4,10 @@ import { CliUsageError, createCliErrorDetails } from "./errors.js";
 // Pull shared helpers from the barrel so new call sites avoid the legacy
 // `array-utils` shim slated for removal.
 import { Core } from "@gml-modules/core";
-import { createEnumeratedOptionHelpers } from "../shared/enumerated-option-helpers.js";
 import { resolveCommandUsage } from "./command-usage.js";
 import type { CommanderCommandLike } from "./commander-types.js";
 
-const { isNonEmptyArray, toMutableArray, stringifyJsonForFile } = Core;
+const { isNonEmptyArray, toMutableArray, stringifyJsonForFile, createEnumeratedOptionHelpers } = Core;
 
 export const SuiteOutputFormat = Object.freeze({
     JSON: "json",
