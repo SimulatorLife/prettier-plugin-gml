@@ -182,7 +182,14 @@ export function transpileFile(
             symbolId
         });
         const runtimeId = resolveRuntimeId(filePath);
-        const patchPayload = runtimeId === null ? patch : { ...patch, runtimeId };
+        const patchWithMetadata = {
+            ...patch,
+            metadata: {
+                ...patch.metadata,
+                sourcePath: filePath
+            }
+        };
+        const patchPayload = runtimeId === null ? patchWithMetadata : { ...patchWithMetadata, runtimeId };
 
         if (!validatePatch(patchPayload)) {
             throw new Error("Generated patch failed validation");
