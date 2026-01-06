@@ -56,7 +56,12 @@ export {
 
 export type { FilePreview, RenamePreview } from "./rename-preview.js";
 
-export { detectRenameConflicts, detectCircularRenames, validateRenameStructure } from "./validation.js";
+export {
+    detectRenameConflicts,
+    detectCircularRenames,
+    validateRenameStructure,
+    batchValidateScopeConflicts
+} from "./validation.js";
 
 export type {
     ApplyWorkspaceEditOptions,
