@@ -551,7 +551,7 @@ void describe("formatOccurrencePreview", () => {
         assert.ok(preview.includes("scripts/player.gml (2 occurrences):"));
         assert.ok(preview.includes("[definition] Position 10-20"));
         assert.ok(preview.includes("[reference] Position 50-60"));
-        assert.ok(preview.includes("scripts/enemy.gml (1 occurrences):"));
+        assert.ok(preview.includes("scripts/enemy.gml (1 occurrence):"));
         assert.ok(preview.includes("[reference] Position 30-40"));
     });
 
@@ -606,7 +606,7 @@ void describe("formatOccurrencePreview", () => {
         const preview = formatOccurrencePreview(occurrences, "test", "renamed");
 
         assert.ok(preview.includes("a.gml (2 occurrences):"));
-        assert.ok(preview.includes("b.gml (1 occurrences):"));
-        assert.ok(preview.includes("c.gml (1 occurrences):"));
+        assert.ok(preview.includes("b.gml (1 occurrence):"));
+        assert.ok(preview.includes("c.gml (1 occurrence):"));
     });
 });

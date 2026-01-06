@@ -144,8 +144,8 @@ export function generateRenamePreview(workspace: WorkspaceEdit, oldName: string,
  * //   Requires Restart: No
  */
 export function formatRenamePlanReport(plan: RenamePlanSummary): string {
-    const lines: Array<string> = [ "Rename Plan Report", "==================", ""];
-
+    const title = "Rename Plan Report";
+    const lines: Array<string> = [title, "=".repeat(title.length), ""];
 
     const symbolName = plan.analysis.summary.oldName;
     const newName = plan.analysis.summary.newName;
@@ -167,7 +167,16 @@ export function formatRenamePlanReport(plan: RenamePlanSummary): string {
         lines.push("");
     }
 
-    lines.push("Impact Summary:", `  Total Occurrences: ${plan.analysis.summary.totalOccurrences}`, `  Definitions: ${plan.analysis.summary.definitionCount}`, `  References: ${plan.analysis.summary.referenceCount}`, `  Affected Files: ${plan.analysis.summary.affectedFiles.length}`, `  Hot Reload Required: ${plan.analysis.summary.hotReloadRequired ? "Yes" : "No"}`, `  Dependent Symbols: ${plan.analysis.summary.dependentSymbols.length}`, "");
+    lines.push(
+        "Impact Summary:",
+        `  Total Occurrences: ${plan.analysis.summary.totalOccurrences}`,
+        `  Definitions: ${plan.analysis.summary.definitionCount}`,
+        `  References: ${plan.analysis.summary.referenceCount}`,
+        `  Affected Files: ${plan.analysis.summary.affectedFiles.length}`,
+        `  Hot Reload Required: ${plan.analysis.summary.hotReloadRequired ? "Yes" : "No"}`,
+        `  Dependent Symbols: ${plan.analysis.summary.dependentSymbols.length}`,
+        ""
+    );
 
     if (plan.analysis.conflicts.length > 0) {
         lines.push("Conflicts:");
@@ -189,12 +198,21 @@ export function formatRenamePlanReport(plan: RenamePlanSummary): string {
     }
 
     const grouped = plan.workspace.groupByFile();
-    lines.push("Workspace Changes:", `  Total Edits: ${plan.workspace.edits.length}`, `  Files Modified: ${grouped.size}`, "");
+    lines.push(
+        "Workspace Changes:",
+        `  Total Edits: ${plan.workspace.edits.length}`,
+        `  Files Modified: ${grouped.size}`,
+        ""
+    );
 
     if (plan.hotReload) {
         lines.push(`Hot Reload Status: ${plan.hotReload.valid ? "SAFE" : "UNSAFE"}`);
         if (plan.hotReload.hotReload) {
-            lines.push(`  Reason: ${plan.hotReload.hotReload.reason}`, `  Requires Restart: ${plan.hotReload.hotReload.requiresRestart ? "Yes" : "No"}`, `  Can Auto-Fix: ${plan.hotReload.hotReload.canAutoFix ? "Yes" : "No"}`);
+            lines.push(
+                `  Reason: ${plan.hotReload.hotReload.reason}`,
+                `  Requires Restart: ${plan.hotReload.hotReload.requiresRestart ? "Yes" : "No"}`,
+                `  Can Auto-Fix: ${plan.hotReload.hotReload.canAutoFix ? "Yes" : "No"}`
+            );
 
             if (plan.hotReload.hotReload.suggestions.length > 0) {
                 lines.push("  Suggestions:");
@@ -239,9 +257,15 @@ export function formatRenamePlanReport(plan: RenamePlanSummary): string {
  * console.log(report);
  */
 export function formatBatchRenamePlanReport(plan: BatchRenamePlanSummary): string {
-    const lines: Array<string> = [ "Batch Rename Plan Report", "========================", "", `Status: ${plan.batchValidation.valid ? "VALID" : "INVALID"}`, `Total Renames: ${plan.impactAnalyses.size}`, ""];
-
-
+    const title = "Batch Rename Plan Report";
+    const lines: Array<string> = [
+        title,
+        "=".repeat(title.length),
+        "",
+        `Status: ${plan.batchValidation.valid ? "VALID" : "INVALID"}`,
+        `Total Renames: ${plan.impactAnalyses.size}`,
+        ""
+    ];
 
     if (!plan.batchValidation.valid) {
         lines.push("Batch Validation Errors:");
@@ -270,9 +294,12 @@ export function formatBatchRenamePlanReport(plan: BatchRenamePlanSummary): strin
     lines.push("Per-Symbol Impact:");
     for (const [symbolId, analysis] of plan.impactAnalyses) {
         const summary = analysis.summary;
-        lines.push(`  ${summary.oldName} → ${summary.newName} (${symbolId})`, 
-            `    Occurrences: ${summary.totalOccurrences} (${summary.definitionCount} def, ${summary.referenceCount} ref)`
-        , `    Affected Files: ${summary.affectedFiles.length}`, `    Dependent Symbols: ${summary.dependentSymbols.length}`);
+        lines.push(
+            `  ${summary.oldName} → ${summary.newName} (${symbolId})`,
+            `    Occurrences: ${summary.totalOccurrences} (${summary.definitionCount} def, ${summary.referenceCount} ref)`,
+            `    Affected Files: ${summary.affectedFiles.length}`,
+            `    Dependent Symbols: ${summary.dependentSymbols.length}`
+        );
 
         if (analysis.conflicts.length > 0) {
             lines.push(`    Conflicts: ${analysis.conflicts.length}`);
@@ -291,10 +318,20 @@ export function formatBatchRenamePlanReport(plan: BatchRenamePlanSummary): strin
     }
 
     const grouped = plan.workspace.groupByFile();
-    lines.push("Workspace Changes:", `  Total Edits: ${plan.workspace.edits.length}`, `  Files Modified: ${grouped.size}`, "");
+    lines.push(
+        "Workspace Changes:",
+        `  Total Edits: ${plan.workspace.edits.length}`,
+        `  Files Modified: ${grouped.size}`,
+        ""
+    );
 
     if (plan.cascadeResult) {
-        lines.push("Hot Reload Dependency Cascade:", `  Total Symbols to Reload: ${plan.cascadeResult.metadata.totalSymbols}`, `  Max Dependency Distance: ${plan.cascadeResult.metadata.maxDistance}`, `  Has Circular Dependencies: ${plan.cascadeResult.metadata.hasCircular ? "Yes" : "No"}`);
+        lines.push(
+            "Hot Reload Dependency Cascade:",
+            `  Total Symbols to Reload: ${plan.cascadeResult.metadata.totalSymbols}`,
+            `  Max Dependency Distance: ${plan.cascadeResult.metadata.maxDistance}`,
+            `  Has Circular Dependencies: ${plan.cascadeResult.metadata.hasCircular ? "Yes" : "No"}`
+        );
 
         if (plan.cascadeResult.circular.length > 0) {
             lines.push("  Circular Dependency Chains:");
@@ -372,10 +409,17 @@ export function formatOccurrencePreview(
     const lines: Array<string> = [];
     const grouped = groupOccurrencesByFile(occurrences);
 
-    lines.push(`Symbol Occurrences: ${oldName} → ${newName}`, `Total: ${occurrences.length} occurrences in ${grouped.size} files`, "");
+    const totalOccurrencesText = occurrences.length === 1 ? "occurrence" : "occurrences";
+    const totalFilesText = grouped.size === 1 ? "file" : "files";
+    lines.push(
+        `Symbol Occurrences: ${oldName} → ${newName}`,
+        `Total: ${occurrences.length} ${totalOccurrencesText} in ${grouped.size} ${totalFilesText}`,
+        ""
+    );
 
     for (const [filePath, fileOccurrences] of grouped) {
-        lines.push(`${filePath} (${fileOccurrences.length} occurrences):`);
+        const fileOccurrencesText = fileOccurrences.length === 1 ? "occurrence" : "occurrences";
+        lines.push(`${filePath} (${fileOccurrences.length} ${fileOccurrencesText}):`);
 
         for (const occ of fileOccurrences) {
             const kind = occ.kind ?? "unknown";
