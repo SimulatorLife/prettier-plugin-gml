@@ -27,7 +27,6 @@ import { fileURLToPath } from "node:url";
 import { Command, InvalidArgumentError, Option } from "commander";
 import { Core } from "@gml-modules/core";
 import { Parser } from "@gml-modules/parser";
-import { createEnumeratedOptionHelpers } from "./shared/enumerated-option-helpers.js";
 import { isMissingModuleDependency, resolveModuleDefaultExport } from "./shared/module.js";
 import { ignoreRuleNegations } from "./shared/ignore-rules-negation-tracker.js";
 
@@ -67,6 +66,7 @@ import { normalizeExtensions } from "./cli-core/extension-normalizer.js";
 
 const {
     compactArray,
+    createEnumeratedOptionHelpers,
     getErrorMessageOrFallback,
     getObjectTagName,
     isErrorLike,

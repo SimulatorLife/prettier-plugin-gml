@@ -1,4 +1,6 @@
-import { createEnumeratedOptionHelpers } from "../../shared/enumerated-option-helpers.js";
+import { Core } from "@gml-modules/core";
+
+const { createEnumeratedOptionHelpers } = Core;
 
 const PerformanceSuiteName = Object.freeze({
     PARSER: "parser",

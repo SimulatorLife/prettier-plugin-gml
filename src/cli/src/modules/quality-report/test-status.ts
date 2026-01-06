@@ -6,7 +6,9 @@
  * This provides compile-time safety, IDE autocomplete, and validation helpers.
  */
 
-import { createEnumeratedOptionHelpers } from "../../shared/enumerated-option-helpers.js";
+import { Core } from "@gml-modules/core";
+
+const { createEnumeratedOptionHelpers } = Core;
 
 /**
  * Test case execution status.

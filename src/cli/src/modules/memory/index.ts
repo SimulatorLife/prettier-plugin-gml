@@ -8,7 +8,6 @@ import type { Stream } from "node:stream";
 import { Command, Option, InvalidArgumentError } from "commander";
 import { Core } from "@gml-modules/core";
 import { resolveModuleDefaultExport } from "../../shared/module.js";
-import { createEnumeratedOptionHelpers } from "../../shared/enumerated-option-helpers.js";
 import {
     SuiteOutputFormat,
     collectSuiteResults,
@@ -32,6 +31,7 @@ const {
     appendToCollection,
     callWithFallback,
     coercePositiveInteger: coreCoercePositiveInteger,
+    createEnumeratedOptionHelpers,
     createEnvConfiguredValue,
     describeValueWithArticle,
     getErrorMessageOrFallback,
