@@ -1,5 +1,11 @@
-export * as Runtime from "./runtime/index.js";
-export * as Clients from "./websocket/index.js";
+import * as Runtime from "./runtime/index.js";
+import * as Clients from "./websocket/index.js";
+
+export const RuntimeWrapper = Object.freeze({
+    ...Runtime,
+    ...Clients
+});
+
 export type {
     ApplyPatchResult,
     BatchApplyResult,
@@ -24,7 +30,7 @@ export type {
     RuntimeRegistry,
     RuntimeRegistrySnapshot,
     RuntimeRegistryOverrides,
-    RuntimeWrapper,
+    RuntimeWrapper as RuntimeWrapperApi,
     RuntimeWrapperOptions,
     RuntimeWrapperState,
     TrySafeApplyResult
@@ -39,3 +45,6 @@ export type {
     WebSocketClientState,
     WebSocketConnectionMetrics
 } from "./websocket/index.js";
+
+export * as Runtime from "./runtime/index.js";
+export * as Clients from "./websocket/index.js";

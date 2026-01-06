@@ -1,6 +1,6 @@
 import assert from "node:assert/strict";
 import test from "node:test";
-import { RuntimeWrapper } from "../index.js";
+import { RuntimeWrapper } from "../src/index.js";
 
 void test("createRuntimeWrapper returns hot wrapper state", () => {
     const wrapper = RuntimeWrapper.createRuntimeWrapper();
