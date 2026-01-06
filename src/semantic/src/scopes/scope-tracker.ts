@@ -1121,6 +1121,237 @@ export class ScopeTracker {
     }
 
     /**
+     * Get all scopes that transitively depend on a given scope. This computes
+     * the full dependency closure by recursively following dependent relationships.
+     * Unlike `getScopeDependents` which returns only direct dependents, this
+     * method returns all scopes in the dependency tree.
+     *
+     * This is essential for hot reload invalidation when a scope changes: you
+     * need to recompile not just the immediate dependents, but all transitive
+     * dependents as well, since changes can propagate through the dependency chain.
+     *
+     * @param {string | null | undefined} scopeId The scope identifier to query.
+     * @param {Set<string>} [visited] Internal parameter for cycle detection.
+     *                                 Do not pass this externally.
+     * @returns {Array<{dependentScopeId: string, dependentScopeKind: string, depth: number}>}
+     *          Array of all transitive dependent scopes with their depth from
+     *          the root scope. Depth 1 = direct dependent, depth 2 = dependent
+     *          of a dependent, etc. Returns empty array if scope not found.
+     */
+    getTransitiveDependents(
+        scopeId: string | null | undefined,
+        visited: Set<string> = new Set()
+    ): Array<{ dependentScopeId: string; dependentScopeKind: string; depth: number }> {
+        if (!scopeId) {
+            return [];
+        }
+
+        const scope = this.scopesById.get(scopeId);
+        if (!scope) {
+            return [];
+        }
+
+        // Avoid infinite loops in case of circular dependencies
+        if (visited.has(scopeId)) {
+            return [];
+        }
+
+        visited.add(scopeId);
+
+        const directDependents = this.getScopeDependents(scopeId);
+        const allDependents: Array<{
+            dependentScopeId: string;
+            dependentScopeKind: string;
+            depth: number;
+        }> = [];
+
+        // Add direct dependents at depth 1
+        for (const dep of directDependents) {
+            allDependents.push({
+                dependentScopeId: dep.dependentScopeId,
+                dependentScopeKind: dep.dependentScopeKind,
+                depth: 1
+            });
+
+            // Recursively get transitive dependents
+            const transitive = this.getTransitiveDependents(dep.dependentScopeId, new Set(visited));
+            for (const transDep of transitive) {
+                // Increment depth for each level of indirection
+                allDependents.push({
+                    dependentScopeId: transDep.dependentScopeId,
+                    dependentScopeKind: transDep.dependentScopeKind,
+                    depth: transDep.depth + 1
+                });
+            }
+        }
+
+        // Remove duplicates, keeping the minimum depth for each scope
+        const depthMap = new Map<string, { kind: string; depth: number }>();
+        for (const dep of allDependents) {
+            const existing = depthMap.get(dep.dependentScopeId);
+            if (!existing || dep.depth < existing.depth) {
+                depthMap.set(dep.dependentScopeId, {
+                    kind: dep.dependentScopeKind,
+                    depth: dep.depth
+                });
+            }
+        }
+
+        const result = [];
+        for (const [scopeId, { kind, depth }] of depthMap) {
+            result.push({
+                dependentScopeId: scopeId,
+                dependentScopeKind: kind,
+                depth
+            });
+        }
+
+        return result.sort((a, b) => {
+            // Sort by depth first (shallower dependencies first), then by scope ID
+            if (a.depth !== b.depth) {
+                return a.depth - b.depth;
+            }
+            return a.dependentScopeId.localeCompare(b.dependentScopeId);
+        });
+    }
+
+    /**
+     * Calculate the invalidation set for a given scope - all scopes that need
+     * to be recompiled if the given scope changes. This includes:
+     * 1. The scope itself
+     * 2. All transitive dependents (scopes that depend on it)
+     * 3. Optionally, all descendant scopes (child scopes within it)
+     *
+     * This is the primary method for hot reload coordination: when a file/scope
+     * changes, call this method to determine the complete set of scopes that
+     * need recompilation.
+     *
+     * @param {string | null | undefined} scopeId The scope identifier that changed.
+     * @param {{ includeDescendants?: boolean }} [options] Configuration options.
+     *        - includeDescendants: If true, include all child scopes nested
+     *          within the changed scope. Default: false.
+     * @returns {Array<{scopeId: string, scopeKind: string, reason: string}>}
+     *          Array of scopes that need recompilation with the reason for
+     *          invalidation. Reasons: 'self' (the changed scope), 'dependent'
+     *          (depends on the changed scope), 'descendant' (nested within).
+     */
+    getInvalidationSet(
+        scopeId: string | null | undefined,
+        { includeDescendants = false }: { includeDescendants?: boolean } = {}
+    ) {
+        if (!scopeId) {
+            return [];
+        }
+
+        const scope = this.scopesById.get(scopeId);
+        if (!scope) {
+            return [];
+        }
+
+        const invalidationSet: Array<{
+            scopeId: string;
+            scopeKind: string;
+            reason: string;
+        }> = [
+            {
+                scopeId: scope.id,
+                scopeKind: scope.kind,
+                reason: "self"
+            }
+        ];
+
+        // 1. Always include the scope itself
+
+        // 2. Include all transitive dependents
+        const dependents = this.getTransitiveDependents(scopeId);
+        for (const dep of dependents) {
+            invalidationSet.push({
+                scopeId: dep.dependentScopeId,
+                scopeKind: dep.dependentScopeKind,
+                reason: "dependent"
+            });
+        }
+
+        // 3. Optionally include descendant scopes
+        if (includeDescendants) {
+            const descendants = this.getDescendantScopes(scopeId);
+            for (const desc of descendants) {
+                // Avoid duplicates (scope might already be in the set as a dependent)
+                if (!invalidationSet.some((s) => s.scopeId === desc.scopeId)) {
+                    invalidationSet.push({
+                        scopeId: desc.scopeId,
+                        scopeKind: desc.scopeKind,
+                        reason: "descendant"
+                    });
+                }
+            }
+        }
+
+        return invalidationSet;
+    }
+
+    /**
+     * Get all descendant scopes (children, grandchildren, etc.) of a given scope.
+     * This traverses the scope tree depth-first to find all nested scopes.
+     *
+     * Useful for hot reload when you want to invalidate an entire scope tree,
+     * not just the direct children. For example, when a file changes, you might
+     * want to invalidate all scopes defined within that file.
+     *
+     * @param {string | null | undefined} scopeId The scope identifier to query.
+     * @returns {Array<{scopeId: string, scopeKind: string, depth: number}>}
+     *          Array of all descendant scopes with their nesting depth from
+     *          the queried scope. Depth 1 = direct child, depth 2 = grandchild, etc.
+     */
+    getDescendantScopes(scopeId: string | null | undefined) {
+        if (!scopeId) {
+            return [];
+        }
+
+        const scope = this.scopesById.get(scopeId);
+        if (!scope) {
+            return [];
+        }
+
+        const descendants: Array<{
+            scopeId: string;
+            scopeKind: string;
+            depth: number;
+        }> = [];
+
+        // Find all scopes where the queried scope is an ancestor
+        for (const candidateScope of this.scopesById.values()) {
+            if (candidateScope.id === scopeId) {
+                continue; // Skip the scope itself
+            }
+
+            // Walk up the parent chain to see if we find the queried scope
+            let current = candidateScope.parent;
+            let depth = 1;
+            while (current) {
+                if (current.id === scopeId) {
+                    descendants.push({
+                        scopeId: candidateScope.id,
+                        scopeKind: candidateScope.kind,
+                        depth
+                    });
+                    break;
+                }
+                current = current.parent;
+                depth += 1;
+            }
+        }
+
+        return descendants.sort((a, b) => {
+            // Sort by depth first, then by scope ID
+            if (a.depth !== b.depth) {
+                return a.depth - b.depth;
+            }
+            return a.scopeId.localeCompare(b.scopeId);
+        });
+    }
+
+    /**
      * Get modification metadata for a specific scope. Returns the last
      * modification timestamp and the total number of modifications, which
      * supports hot reload coordination by identifying which scopes have

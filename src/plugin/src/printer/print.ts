@@ -232,7 +232,7 @@ function callPathMethod(path: any, methodName: any, { args, defaultValue }: { ar
         return defaultValue;
     }
 
-    const normalizedArgs = args === undefined ? [] : Array.isArray(args) ? args : [args];
+    const normalizedArgs = Core.toArray(args);
 
     return method.apply(path, normalizedArgs);
 }

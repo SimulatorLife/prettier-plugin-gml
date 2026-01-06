@@ -98,6 +98,50 @@ This is essential for:
 - Automated refactoring tools
 - Ensuring atomicity and consistency in complex rename operations
 
+### Structural Validation (Pre-flight Check)
+
+Validate rename request structure before expensive operations like gathering occurrences. This provides fast fail-fast feedback for IDE integrations and CLI tools:
+
+```javascript
+import { validateRenameStructure } from "@gml-modules/refactor";
+
+// Quick structural validation before planning
+const errors = await validateRenameStructure(
+    "gml/script/scr_player",
+    "scr_hero",
+    semantic // Optional: validates symbol existence if provided
+);
+
+if (errors.length > 0) {
+    console.error("Invalid rename request:", errors);
+    // Display errors immediately without waiting for occurrence gathering
+    return;
+}
+
+// Proceed with full rename planning
+const workspace = await engine.planRename({
+    symbolId: "gml/script/scr_player",
+    newName: "scr_hero"
+});
+```
+
+This is especially useful for:
+- Fast validation in IDE real-time feedback (as users type)
+- CLI argument validation before expensive operations
+- API endpoint input validation
+- Early error detection in batch operations
+
+The function validates:
+- Request parameter presence and types
+- Identifier syntax (must match GML identifier pattern)
+- Symbol existence (if semantic resolver provided)
+- New name differs from old name
+
+Unlike full validation, this does **not** check for:
+- Shadowing conflicts (requires occurrence analysis)
+- Reserved keywords (handled by `detectRenameConflicts`)
+- Impact analysis (handled by `analyzeRenameImpact`)
+
 ### Direct Conflict Detection
 
 Detect conflicts for a rename operation without going through full validation, useful for inline IDE warnings:
@@ -138,6 +182,47 @@ The method detects:
 - Reserved keyword conflicts
 - Shadowing conflicts (new name collides with existing symbols in scope)
 - Uses both default GML keywords and semantic analyzer's custom keyword list
+
+### Batch Scope Validation
+
+Efficiently validate rename safety across multiple scopes for hot reload scenarios:
+
+```javascript
+import { batchValidateScopeConflicts } from "@gml-modules/refactor";
+
+// Get occurrences from semantic analyzer
+const occurrences = await engine.gatherSymbolOccurrences("player_hp");
+
+// Batch validate across all scopes (more efficient than per-occurrence checks)
+const conflicts = await batchValidateScopeConflicts(
+    occurrences,
+    "playerHealth",
+    semantic
+);
+
+if (conflicts.size > 0) {
+    console.log("Scope conflicts detected:");
+    for (const [scopeId, conflict] of conflicts) {
+        console.log(`  Scope ${scopeId}:`);
+        console.log(`    ${conflict.message}`);
+        console.log(`    Existing symbol: ${conflict.existingSymbol}`);
+    }
+} else {
+    console.log("No scope conflicts - rename is safe across all scopes");
+}
+```
+
+This function is especially useful for:
+- Hot reload workflows that need to validate changes quickly before patching
+- IDE integrations that show scope-specific warnings in real-time
+- Batch rename operations where many occurrences need validation
+- Reducing validation overhead by checking each unique scope only once instead of per-occurrence
+
+Benefits:
+- Groups occurrences by scope automatically
+- Performs only one lookup per unique scope (not per occurrence)
+- Returns structured conflict information per scope
+- Handles both scoped and global (unscoped) occurrences correctly
 
 ### Rename Operations
 
@@ -616,6 +701,22 @@ new RefactorEngine({ parser, semantic, formatter })
 #### Conflict Detection
 - `async detectRenameConflicts(request)` - Detect conflicts for a proposed rename operation without throwing errors
 
+### Validation Functions
+
+Standalone utilities for validating rename requests:
+
+- `async validateRenameStructure(symbolId, newName, resolver)` - Fast structural validation of rename parameters before planning
+  - Validates parameter presence, identifier syntax, and optional symbol existence
+  - Returns array of error messages (empty if valid)
+  - Enables fail-fast pattern without expensive occurrence gathering
+- `detectCircularRenames(renames)` - Detect circular rename chains in batch operations
+  - Returns first detected cycle as array of symbol IDs (empty if no cycles)
+- `async batchValidateScopeConflicts(occurrences, newName, resolver)` - Efficiently validate scope safety across multiple occurrences
+  - Groups occurrences by scope to minimize redundant lookups
+  - Returns map of scope IDs to conflict information
+  - Essential for hot reload scenarios where many symbols need validation quickly
+  - Reduces validation overhead by checking each unique scope only once
+
 ### Occurrence Analysis Functions
 
 Standalone utilities for analyzing symbol occurrences:
@@ -625,6 +726,87 @@ Standalone utilities for analyzing symbol occurrences:
 - `groupOccurrencesByFile(occurrences)` - Group occurrences by file path
 - `findOccurrencesInFile(occurrences, filePath)` - Find occurrences within a specific file
 - `countAffectedFiles(occurrences)` - Count unique files affected by occurrences
+
+### Rename Preview Functions
+
+Utilities for generating human-readable previews and reports of rename operations:
+
+- `generateRenamePreview(workspace, oldName, newName)` - Generate a preview of changes that will be made by a workspace edit
+- `formatRenamePlanReport(plan)` - Format a rename plan summary as a multi-line text report
+- `formatBatchRenamePlanReport(plan)` - Format a batch rename plan summary as a multi-line text report
+- `formatOccurrencePreview(occurrences, oldName, newName)` - Format occurrence locations as a diff-style preview
+
+These functions are essential for:
+- IDE integrations that need to show diff-like previews before applying renames
+- CLI tools that want to present detailed impact reports to users
+- Automated refactoring pipelines that need to log changes before applying them
+- Debugging refactoring operations by visualizing what will change
+
+#### Example: Generating a Rename Preview
+
+```javascript
+const plan = await engine.prepareRenamePlan({
+    symbolId: "gml/script/scr_player",
+    newName: "scr_hero"
+}, { validateHotReload: true });
+
+// Generate human-readable report
+const report = formatRenamePlanReport(plan);
+console.log(report);
+
+// Output:
+// Rename Plan Report
+// ==================
+// Symbol: scr_player → scr_hero
+// Status: VALID
+//
+// Impact Summary:
+//   Total Occurrences: 15
+//   Definitions: 1
+//   References: 14
+//   Affected Files: 3
+//   Hot Reload Required: Yes
+//   Dependent Symbols: 2
+//
+// Workspace Changes:
+//   Total Edits: 15
+//   Files Modified: 3
+//
+// Hot Reload Status: SAFE
+//   Reason: Script renames are hot-reload-safe
+//   Requires Restart: No
+
+// Generate detailed file-by-file preview
+const preview = generateRenamePreview(plan.workspace, "scr_player", "scr_hero");
+console.log(`Renaming ${preview.summary.oldName} → ${preview.summary.newName}`);
+console.log(`Will modify ${preview.summary.affectedFiles} files with ${preview.summary.totalEdits} edits`);
+
+for (const file of preview.files) {
+    console.log(`\n${file.filePath}: ${file.editCount} changes`);
+    for (const edit of file.edits) {
+        console.log(`  Position ${edit.start}-${edit.end}: "${edit.oldText}" → "${edit.newText}"`);
+    }
+}
+
+// Format occurrence preview for user review
+const occurrences = await engine.gatherSymbolOccurrences("scr_player");
+const occPreview = formatOccurrencePreview(occurrences, "scr_player", "scr_hero");
+console.log(occPreview);
+
+// Output:
+// Symbol Occurrences: scr_player → scr_hero
+// Total: 15 occurrences in 3 files
+//
+// scripts/player.gml (10 occurrences):
+//   [definition] Position 0-10
+//   [reference] Position 45-55
+//   [reference] Position 123-133
+//   ...
+//
+// scripts/game.gml (3 occurrences):
+//   [reference] Position 200-210
+//   ...
+```
 
 ### WorkspaceEdit
 
@@ -637,6 +819,8 @@ Container for text edits across multiple files.
 
 ## Status
 The refactor engine now includes comprehensive rename planning, batch operations, impact analysis,
-hot reload validation, occurrence analysis utilities, and advanced dependency cascade computation.
-It integrates with the semantic analyzer to provide safe, scope-aware refactoring operations with
-full transitive dependency tracking for hot reload scenarios.
+hot reload validation, occurrence analysis utilities, rename preview and reporting utilities, and
+advanced dependency cascade computation. It integrates with the semantic analyzer to provide safe,
+scope-aware refactoring operations with full transitive dependency tracking for hot reload scenarios.
+The preview utilities enable IDE integrations and CLI tools to present detailed, human-readable
+reports of planned changes before applying them.

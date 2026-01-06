@@ -309,6 +309,87 @@ const dependents = tracker.getScopeDependents(programScope.id);
 
 **Use case:** When a scope changes, query which scopes depend on it to identify what needs to be invalidated and recompiled. This is essential for efficient hot reload: if scope A declares symbol X and scope B references X, then changing scope A requires recompiling scope B.
 
+### `getTransitiveDependents(scopeId)`
+
+Get all scopes that transitively depend on a given scope. This computes the full dependency closure by recursively following dependent relationships. Unlike `getScopeDependents` which returns only direct dependents, this method returns all scopes in the dependency tree.
+
+```javascript
+const tracker = new ScopeTracker({ enabled: true });
+
+// Scope A declares symbol X
+const scopeA = tracker.enterScope("program");
+tracker.declare("symbolX", {...});
+
+// Scope B depends on A (references X) and declares Y
+const scopeB = tracker.enterScope("function");
+tracker.reference("symbolX", {...});
+tracker.declare("symbolY", {...});
+
+// Scope C nested in B depends on B (references Y)
+const scopeC = tracker.enterScope("block");
+tracker.reference("symbolY", {...});
+tracker.exitScope();
+
+const transitive = tracker.getTransitiveDependents(scopeA.id);
+// Returns: [
+//   { dependentScopeId: "scope-1", dependentScopeKind: "function", depth: 1 },  // B
+//   { dependentScopeId: "scope-2", dependentScopeKind: "block", depth: 2 }      // C
+// ]
+```
+
+**Use case:** Essential for hot reload invalidation when a scope changes. Identifies not just the immediate dependents but all scopes that transitively depend on the changed scope, ensuring the entire dependency chain is recompiled. The depth field indicates how far removed each dependent is from the root scope.
+
+### `getInvalidationSet(scopeId, options?)`
+
+Calculate the complete invalidation set for a given scope - all scopes that need recompilation if the given scope changes. This includes the scope itself, all transitive dependents, and optionally all descendant scopes (children nested within it).
+
+```javascript
+const tracker = new ScopeTracker({ enabled: true });
+
+const scopeA = tracker.enterScope("program");
+tracker.declare("globalVar", {...});
+
+const scopeB = tracker.enterScope("function");
+tracker.reference("globalVar", {...});
+
+const invalidationSet = tracker.getInvalidationSet(scopeA.id);
+// Returns: [
+//   { scopeId: "scope-0", scopeKind: "program", reason: "self" },
+//   { scopeId: "scope-1", scopeKind: "function", reason: "dependent" }
+// ]
+
+// Include nested child scopes
+const fullSet = tracker.getInvalidationSet(scopeA.id, { includeDescendants: true });
+// Returns: [
+//   { scopeId: "scope-0", scopeKind: "program", reason: "self" },
+//   { scopeId: "scope-1", scopeKind: "function", reason: "descendant" },
+//   { scopeId: "scope-2", scopeKind: "block", reason: "dependent" }
+// ]
+```
+
+**Use case:** Primary method for hot reload coordination. When a file/scope changes, call this method to determine the complete set of scopes that need recompilation. The `reason` field indicates why each scope is included: 'self' (the changed scope), 'dependent' (depends on the changed scope), or 'descendant' (nested within the changed scope).
+
+### `getDescendantScopes(scopeId)`
+
+Get all descendant scopes (children, grandchildren, etc.) of a given scope. This traverses the scope tree depth-first to find all nested scopes.
+
+```javascript
+const tracker = new ScopeTracker({ enabled: true });
+
+const root = tracker.enterScope("program");
+
+const child = tracker.enterScope("function");
+const grandchild = tracker.enterScope("block");
+
+const descendants = tracker.getDescendantScopes(root.id);
+// Returns: [
+//   { scopeId: "scope-1", scopeKind: "function", depth: 1 },
+//   { scopeId: "scope-2", scopeKind: "block", depth: 2 }
+// ]
+```
+
+**Use case:** Useful for hot reload when you want to invalidate an entire scope tree, not just the direct children. For example, when a file changes, you might want to invalidate all scopes defined within that file. The depth field indicates the nesting level from the queried scope.
+
 ### `exportScipOccurrences(options?)`
 
 Export occurrences in SCIP (SCIP Code Intelligence Protocol) format for hot reload coordination and cross-file dependency tracking. SCIP format represents each occurrence with a range tuple `[startLine, startCol, endLine, endCol]`, a qualified symbol identifier, and role flags indicating DEF (declaration) or REF (reference).

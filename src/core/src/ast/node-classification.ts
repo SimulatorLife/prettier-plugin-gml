@@ -57,6 +57,36 @@ export function isFunctionLikeDeclaration(node?: unknown): boolean {
     return type !== null && FUNCTION_LIKE_DECLARATION_TYPES.has(type);
 }
 
+/**
+ * Detects assignment statements where a function is bound to a variable.
+ *
+ * GML supports assigning functions to variables using either function
+ * declarations (`myFunc = function() { ... }`) or function expressions. The
+ * printer uses this predicate to apply special formatting rules—such as adding
+ * blank lines around top-level function assignments—that distinguish them from
+ * ordinary variable assignments.
+ *
+ * The function handles two input patterns:
+ * 1. Direct assignment expression nodes (`AssignmentExpression`)
+ * 2. Expression statements wrapping assignments (`ExpressionStatement` →
+ *    `AssignmentExpression`)
+ *
+ * @param node Candidate AST node to inspect (may be an assignment expression or
+ *     an expression statement).
+ * @returns `true` when {@link node} assigns a function declaration or function
+ *     expression to a variable using the `=` operator.
+ *
+ * @example
+ * ```gml
+ * // Matches:
+ * myFunc = function(x) { return x * 2; }
+ * handler = function() { show_debug_message("Called"); }
+ *
+ * // Does not match:
+ * myVar = 42;
+ * myFunc += function() { };  // Non-assignment operator
+ * ```
+ */
 export function isFunctionAssignmentStatement(node: any) {
     const assignmentExpression =
         node?.type === ASSIGNMENT_EXPRESSION
