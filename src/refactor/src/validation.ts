@@ -213,3 +213,74 @@ export async function validateRenameStructure(
 
     return errors;
 }
+
+/**
+ * Internal sentinel value to represent global (unscoped) symbol occurrences.
+ * Used to group occurrences without a scopeId for batch validation.
+ */
+const GLOBAL_SCOPE_KEY = "__global__";
+
+/**
+ * Batch validate scope safety for multiple occurrences efficiently.
+ * Groups occurrences by scope to minimize redundant lookups, essential for
+ * hot reload scenarios where many symbols need validation quickly.
+ *
+ * @param occurrences - Symbol occurrences to validate
+ * @param newName - Proposed new name to check for conflicts
+ * @param resolver - Symbol resolver for scope-aware checks
+ * @returns Map of scope IDs to conflict information
+ *
+ * @example
+ * const conflicts = await batchValidateScopeConflicts(
+ *   occurrences,
+ *   "newName",
+ *   semantic
+ * );
+ * for (const [scopeId, conflict] of conflicts) {
+ *   console.log(`Scope ${scopeId}: ${conflict.message}`);
+ * }
+ */
+export async function batchValidateScopeConflicts(
+    occurrences: Array<SymbolOccurrence>,
+    newName: string,
+    resolver: Partial<SymbolResolver> | null
+): Promise<Map<string, { message: string; existingSymbol: string }>> {
+    const conflicts = new Map<string, { message: string; existingSymbol: string }>();
+
+    if (!resolver || typeof resolver.lookup !== "function" || occurrences.length === 0) {
+        return conflicts;
+    }
+
+    let normalizedNewName: string;
+    try {
+        normalizedNewName = assertValidIdentifierName(newName);
+    } catch {
+        return conflicts;
+    }
+
+    const scopeGroups = new Map<string, Array<SymbolOccurrence>>();
+    for (const occurrence of occurrences) {
+        const scopeKey = occurrence.scopeId ?? GLOBAL_SCOPE_KEY;
+        if (!scopeGroups.has(scopeKey)) {
+            scopeGroups.set(scopeKey, []);
+        }
+        const group = scopeGroups.get(scopeKey);
+        if (group) {
+            group.push(occurrence);
+        }
+    }
+
+    for (const [scopeId] of scopeGroups) {
+        // eslint-disable-next-line no-await-in-loop -- Each scope must be validated sequentially for correctness
+        const existing = await resolver.lookup(normalizedNewName, scopeId === GLOBAL_SCOPE_KEY ? undefined : scopeId);
+        if (existing) {
+            const scopeDisplayName = scopeId === GLOBAL_SCOPE_KEY ? "global scope" : `scope '${scopeId}'`;
+            conflicts.set(scopeId, {
+                message: `Name '${normalizedNewName}' already exists in ${scopeDisplayName}`,
+                existingSymbol: existing.name
+            });
+        }
+    }
+
+    return conflicts;
+}
