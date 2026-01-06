@@ -87,6 +87,85 @@ function hasMultiLineDocCommentSummary(docLines: DocCommentLines | string[]): bo
     return false;
 }
 
+function copyDocCommentSpecialProperties(source: DocCommentLines | string[], target: MutableDocCommentLines): void {
+    if ((source as any)._preserveDescriptionBreaks === true) {
+        (target as any)._preserveDescriptionBreaks = true;
+    }
+    if ((source as any)._suppressLeadingBlank === true) {
+        (target as any)._suppressLeadingBlank = true;
+    }
+    if ((source as any)._blockCommentDocs === true) {
+        (target as any)._blockCommentDocs = true;
+    }
+}
+
+function checkOriginalDocLinesHasTags(existingDocLines: DocCommentLines | string[]): boolean {
+    return (
+        Array.isArray(existingDocLines) &&
+        existingDocLines.some((line) => (typeof line === STRING_TYPE ? parseDocCommentMetadata(line) : false))
+    );
+}
+
+function checkHasDeprecatedTag(existingDocLines: DocCommentLines | string[]): boolean {
+    return (
+        Array.isArray(existingDocLines) &&
+        existingDocLines.some((line) => {
+            if (typeof line !== STRING_TYPE) {
+                return false;
+            }
+
+            const metadata = parseDocCommentMetadata(line);
+            return metadata && typeof metadata.tag === STRING_TYPE && metadata.tag.toLowerCase() === "deprecated";
+        })
+    );
+}
+
+function checkHasDocLikePrefixes(existingDocLines: DocCommentLines | string[]): boolean {
+    return (
+        Array.isArray(existingDocLines) &&
+        existingDocLines.some((line) => (typeof line === STRING_TYPE ? /^\s*\/\/\s*\/\s*/.test(line) : false))
+    );
+}
+
+function filterEmptyDescriptionLines(
+    docs: MutableDocCommentLines,
+    isDescriptionLine: (line: string) => boolean
+): MutableDocCommentLines {
+    return docs.filter((line) => {
+        if (typeof line !== STRING_TYPE) {
+            return true;
+        }
+
+        if (!isDescriptionLine(line)) {
+            return true;
+        }
+
+        const metadata = parseDocCommentMetadata(line);
+        const descriptionText = typeof metadata?.name === STRING_TYPE ? metadata.name.trim() : "";
+
+        return descriptionText.length > 0;
+    }) as MutableDocCommentLines;
+}
+
+function filterEmptyDescriptionTags(docs: DocCommentLines): MutableDocCommentLines {
+    return toMutableArray(
+        docs.filter((line) => {
+            if (typeof line !== STRING_TYPE) {
+                return true;
+            }
+
+            if (!/^\/\/\/\s*@description\b/i.test(line.trim())) {
+                return true;
+            }
+
+            const metadata = parseDocCommentMetadata(line);
+            const descriptionText = toTrimmedString(metadata?.name);
+
+            return descriptionText.length > 0;
+        })
+    );
+}
+
 export function mergeSyntheticDocComments(
     node: any,
     existingDocLines: DocCommentLines | string[],
@@ -97,28 +176,9 @@ export function mergeSyntheticDocComments(
         existingDocLines.map((line) => line.trim())
     ) as MutableDocCommentLines;
 
-    if ((existingDocLines as any)._preserveDescriptionBreaks === true) {
-        (normalizedExistingLines as any)._preserveDescriptionBreaks = true;
-    }
-    if ((existingDocLines as any)._suppressLeadingBlank === true) {
-        (normalizedExistingLines as any)._suppressLeadingBlank = true;
-    }
-    if ((existingDocLines as any)._blockCommentDocs === true) {
-        (normalizedExistingLines as any)._blockCommentDocs = true;
-    }
-    const originalExistingHasTags =
-        Array.isArray(existingDocLines) &&
-        existingDocLines.some((line) => (typeof line === STRING_TYPE ? parseDocCommentMetadata(line) : false));
-    const originalHasDeprecatedTag =
-        Array.isArray(existingDocLines) &&
-        existingDocLines.some((line) => {
-            if (typeof line !== STRING_TYPE) {
-                return false;
-            }
-
-            const metadata = parseDocCommentMetadata(line);
-            return metadata && typeof metadata.tag === STRING_TYPE && metadata.tag.toLowerCase() === "deprecated";
-        });
+    copyDocCommentSpecialProperties(existingDocLines, normalizedExistingLines);
+    const originalExistingHasTags = checkOriginalDocLinesHasTags(existingDocLines);
+    const originalHasDeprecatedTag = checkHasDeprecatedTag(existingDocLines);
 
     // Compute synthetic lines early so promotion can consider synthetic tags
     // such as `/// @function` when deciding whether the file-top doc-like
@@ -160,9 +220,7 @@ export function mergeSyntheticDocComments(
     // summary text. This guards against synthetic tags causing plain single-
     // line summaries to be promoted unexpectedly while still supporting
     // multi-line narratives.
-    const originalExistingHasDocLikePrefixes =
-        Array.isArray(existingDocLines) &&
-        existingDocLines.some((line) => (typeof line === STRING_TYPE ? /^\s*\/\/\s*\/\s*/.test(line) : false));
+    const originalExistingHasDocLikePrefixes = checkHasDocLikePrefixes(existingDocLines);
     const hasMultiLineSummary = hasMultiLineDocCommentSummary(existingDocLines);
 
     ({ normalizedExistingLines, preserveDescriptionBreaks } = applyDocCommentPromotionIfNeeded({
@@ -256,20 +314,7 @@ export function mergeSyntheticDocComments(
 
     reorderedDocs = toMutableArray(reorderDescriptionLinesToTop(reorderedDocs)) as MutableDocCommentLines;
 
-    reorderedDocs = reorderedDocs.filter((line) => {
-        if (typeof line !== STRING_TYPE) {
-            return true;
-        }
-
-        if (!docTagHelpers.isDescriptionLine(line)) {
-            return true;
-        }
-
-        const metadata = parseDocCommentMetadata(line);
-        const descriptionText = typeof metadata?.name === STRING_TYPE ? metadata.name.trim() : "";
-
-        return descriptionText.length > 0;
-    }) as MutableDocCommentLines;
+    reorderedDocs = filterEmptyDescriptionLines(reorderedDocs, docTagHelpers.isDescriptionLine);
 
     if (suppressedCanonicals && suppressedCanonicals.size > 0) {
         reorderedDocs = reorderedDocs.filter((line) => {
@@ -353,22 +398,7 @@ export function mergeSyntheticDocComments(
         result._suppressLeadingBlank = true;
     }
 
-    let filteredResult: MutableDocCommentLines = toMutableArray(
-        result.filter((line) => {
-            if (typeof line !== STRING_TYPE) {
-                return true;
-            }
-
-            if (!/^\/\/\/\s*@description\b/i.test(line.trim())) {
-                return true;
-            }
-
-            const metadata = parseDocCommentMetadata(line);
-            const descriptionText = toTrimmedString(metadata?.name);
-
-            return descriptionText.length > 0;
-        })
-    );
+    let filteredResult: MutableDocCommentLines = filterEmptyDescriptionTags(result);
 
     if (result._suppressLeadingBlank) {
         filteredResult._suppressLeadingBlank = true;
@@ -390,13 +420,6 @@ export function mergeSyntheticDocComments(
         // comment's presentation. We only run promotion when the original source
         // already had structured metadata, ensuring synthetic additions don't alter
         // the author's intended comment style.
-        const originalExistingHasTags =
-            Array.isArray(existingDocLines) &&
-            existingDocLines.some((line) => (typeof line === STRING_TYPE ? parseDocCommentMetadata(line) : false));
-        const originalExistingHasDocLikePrefixes =
-            Array.isArray(existingDocLines) &&
-            existingDocLines.some((line) => (typeof line === STRING_TYPE ? /^\s*\/\/\s*\/\s*/.test(line) : false));
-
         const hasDescriptionTag = filteredResult.some(
             (line) => typeof line === STRING_TYPE && /^\/\/\/\s*@description\b/i.test(line.trim())
         );
