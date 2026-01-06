@@ -4,7 +4,8 @@ import assert from "node:assert";
 /**
  * Test helper that replicates the OLD buggy formatBytes implementation
  * without bounds checking. This demonstrates the floating-point precision
- * issue that the fix addresses.
+ * issue that the fix addresses. This is kept identical to the old code
+ * for accurate demonstration of the bug.
  */
 function formatBytesWithoutBoundsCheck(bytes: number): string {
     if (bytes === 0) return "0 B";
@@ -12,6 +13,7 @@ function formatBytesWithoutBoundsCheck(bytes: number): string {
     const sizes = ["B", "KB", "MB", "GB"];
     // OLD CODE: No bounds checking on array index
     const i = Math.floor(Math.log(bytes) / Math.log(k));
+    // Using Number.parseFloat to match the actual implementation style
     return `${Number.parseFloat((bytes / Math.pow(k, i)).toFixed(2))} ${sizes[i]}`;
 }
 
