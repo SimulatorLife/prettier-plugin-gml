@@ -6,9 +6,6 @@ export const RuntimeWrapper = Object.freeze({
     ...Clients
 });
 
-// Also export the nested namespaces for tests and internal consumers
-
-
 export type {
     ApplyPatchResult,
     BatchApplyResult,
