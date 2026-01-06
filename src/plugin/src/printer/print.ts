@@ -3167,7 +3167,7 @@ export function getSimpleAssignmentLikeEntry(
             const hasNamedParameters = functionParameterNames && functionParameterNames.size > 0;
 
             if (argumentIndex !== null) {
-                if (!options?.applyFeatherFixes || hasNamedParameters) {
+                if (!options?.applyFeatherFixes || !hasNamedParameters) {
                     enablesAlignment = true;
                 }
             } else if (functionParameterNames?.has(init.name)) {
