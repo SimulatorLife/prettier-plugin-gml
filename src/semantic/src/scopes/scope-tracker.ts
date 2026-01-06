@@ -138,6 +138,7 @@ function cloneDeclarationMetadata(metadata) {
         name: metadata.name ?? null,
         scopeId: metadata.scopeId ?? null,
         classifications: cloneClassifications(metadata.classifications),
+        declarationKind: metadata.declarationKind ?? null,
         start: Core.cloneLocation(metadata.start),
         end: Core.cloneLocation(metadata.end)
     };
@@ -406,11 +407,13 @@ export class ScopeTracker {
         const scope = this.resolveScopeOverride(role.scopeOverride);
         const scopeId = scope?.id ?? null;
         const classifications = this.buildClassifications(role, true);
+        const declarationKind = typeof role.kind === "string" ? role.kind : null;
 
         const metadata = {
             name,
             scopeId,
-            classifications
+            classifications,
+            declarationKind
         };
 
         Core.assignClonedLocation(metadata, node);
@@ -882,6 +885,48 @@ export class ScopeTracker {
         }
 
         return definitions;
+    }
+
+    /**
+     * Get declaration kind statistics for a specific scope. This aggregates
+     * counts of each declaration kind to provide a quick overview of what types
+     * of symbols are defined in a scope.
+     *
+     * Useful for hot reload optimization: scopes with many function declarations
+     * may require different invalidation strategies than scopes with only
+     * variable declarations.
+     *
+     * Use case: During hot reload, query scope statistics to determine whether
+     * a scope defines functions, variables, or parameters, and optimize the
+     * recompilation strategy accordingly.
+     *
+     * @param {string} scopeId The scope identifier to query.
+     * @returns {{total: number, byKind: Map<string, number>} | null}
+     *          Statistics object with total count and per-kind breakdown, or null if scope not found.
+     */
+    getScopeDeclarationKindStats(scopeId: string | null | undefined) {
+        if (!scopeId) {
+            return null;
+        }
+
+        const scope = this.scopesById.get(scopeId);
+        if (!scope) {
+            return null;
+        }
+
+        const byKind = new Map<string, number>();
+        let total = 0;
+
+        for (const metadata of scope.symbolMetadata.values()) {
+            total += 1;
+            const kind = metadata.declarationKind ?? "unknown";
+            byKind.set(kind, (byKind.get(kind) ?? 0) + 1);
+        }
+
+        return {
+            total,
+            byKind
+        };
     }
 
     /**
@@ -1467,6 +1512,56 @@ export class ScopeTracker {
         }
 
         return cloneDeclarationMetadata(metadata);
+    }
+
+    /**
+     * Get all declarations of a specific kind across all scopes.
+     * This enables targeted queries for hot reload coordination and refactoring
+     * tools that need to find all declarations of a particular type.
+     *
+     * For example, finding all function declarations to rebuild function tables,
+     * or all parameter declarations to validate arity changes during hot reload.
+     *
+     * Use case: When a declaration kind's semantics change (e.g., function
+     * signature updates), query all declarations of that kind to identify
+     * affected scopes for selective recompilation.
+     *
+     * @param {string} declarationKind The kind of declaration to find (e.g., "variable", "parameter", "function")
+     * @returns {Array<{name: string, scopeId: string, scopeKind: string, metadata: object}>}
+     *          Array of declaration records matching the specified kind, sorted by scope ID then symbol name.
+     */
+    getDeclarationsByKind(declarationKind: string | null | undefined) {
+        if (!declarationKind) {
+            return [];
+        }
+
+        const declarations: Array<{
+            name: string;
+            scopeId: string;
+            scopeKind: string;
+            metadata: ReturnType<typeof cloneDeclarationMetadata>;
+        }> = [];
+
+        for (const scope of this.scopesById.values()) {
+            for (const [name, metadata] of scope.symbolMetadata) {
+                if (metadata.declarationKind === declarationKind) {
+                    declarations.push({
+                        name,
+                        scopeId: scope.id,
+                        scopeKind: scope.kind,
+                        metadata: cloneDeclarationMetadata(metadata)
+                    });
+                }
+            }
+        }
+
+        return declarations.sort((a, b) => {
+            const scopeCmp = a.scopeId.localeCompare(b.scopeId);
+            if (scopeCmp !== 0) {
+                return scopeCmp;
+            }
+            return a.name.localeCompare(b.name);
+        });
     }
 
     /**
