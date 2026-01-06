@@ -39,6 +39,11 @@ Applies a patch to the runtime registry. The patch object must have:
 - `kind`: Either `"script"`, `"event"`, or `"closure"`
 - `id`: Unique identifier for the patch
 - `js_body`: JavaScript function body as a string
+- `metadata` (optional): Additional context about the patch:
+  - `sourcePath` (optional): File path where this patch originated
+  - `sourceHash` (optional): Hash of the source code for cache validation
+  - `timestamp` (optional): When the patch was created
+  - `dependencies` (optional): Array of patch IDs this patch depends on
 
 When `validateBeforeApply` is enabled, patches are validated in a shadow registry first. Invalid patches are rejected before touching the real registry.
 
@@ -447,6 +452,75 @@ if (health.healthy) {
 - Building health monitoring dashboards
 - Debugging unexpected patch application failures
 - Automated testing of runtime wrapper integrity
+
+#### `getPatchDiagnostics(id)`
+
+Returns detailed diagnostic information for a specific patch ID, or `null` if the patch has never been applied. This method aggregates historical data to provide comprehensive insights into a patch's lifecycle, making it easier to debug hot-reload issues and understand patch behavior.
+
+**Parameters:**
+
+- `id`: The patch identifier to get diagnostics for (e.g., `"script:player_move"` or `"obj_player#Step"`)
+
+**Returns:** A `PatchDiagnostics` object with:
+
+- `id` (string): The patch identifier
+- `kind` (PatchKind): The patch type (`"script"`, `"event"`, or `"closure"`)
+- `applicationCount` (number): Total number of times this patch has been applied
+- `firstAppliedAt` (number | null): Timestamp when the patch was first applied, or `null` if never applied
+- `lastAppliedAt` (number | null): Timestamp when the patch was most recently applied, or `null` if never applied
+- `currentlyApplied` (boolean): Whether this patch is currently active in the registry
+- `undoCount` (number): Number of times this patch has been undone
+- `rollbackCount` (number): Number of times this patch has been rolled back due to errors
+- `averageDurationMs` (number | null): Average time to apply this patch in milliseconds, or `null` if no timing data available
+- `sourcePath` (string | null): File path from patch metadata, or `null` if not provided
+- `sourceHash` (string | null): Source code hash from patch metadata, or `null` if not provided
+- `dependencies` (Array<string>): List of dependency identifiers from patch metadata, or empty array if not provided
+- `historyEntries` (Array<PatchHistoryEntry>): Complete history of all operations involving this patch
+
+**Example:**
+
+```javascript
+const wrapper = createRuntimeWrapper();
+
+// Apply a patch with metadata
+wrapper.applyPatch({
+    kind: "script",
+    id: "script:player_move",
+    js_body: "return args[0] * 2;",
+    metadata: {
+        sourcePath: "/game/scripts/player_move.gml",
+        sourceHash: "abc123def456",
+        timestamp: Date.now(),
+        dependencies: ["script:get_input", "script:apply_velocity"]
+    }
+});
+
+// Update the same patch
+wrapper.applyPatch({
+    kind: "script",
+    id: "script:player_move",
+    js_body: "return args[0] * 3;"
+});
+
+// Get comprehensive diagnostics
+const diagnostics = wrapper.getPatchDiagnostics("script:player_move");
+console.log(`Patch: ${diagnostics.id}`);
+console.log(`Applied ${diagnostics.applicationCount} times`);
+console.log(`Currently active: ${diagnostics.currentlyApplied}`);
+console.log(`Average apply time: ${diagnostics.averageDurationMs}ms`);
+console.log(`Source: ${diagnostics.sourcePath}`);
+console.log(`Dependencies: ${diagnostics.dependencies.join(", ")}`);
+console.log(`History: ${diagnostics.historyEntries.length} events`);
+```
+
+**Use cases:**
+
+- Debugging why a specific patch isn't behaving as expected
+- Tracking which source file a runtime function came from
+- Understanding patch dependencies for debugging cascade issues
+- Monitoring patch application performance for specific scripts
+- Building developer tooling that provides real-time patch insights
+- Generating audit trails for patch operations during development
 
 ### `createWebSocketClient(options)`
 

@@ -1,7 +1,7 @@
 /**
  * AST type definitions for the transpiler emitter.
  *
- * DUPLICATION WARNING: Many of these type definitions (SemKind, IdentifierMetadata,
+ * DUPLICATION WARNING: Many of these type definitions (IdentifierMetadata,
  * BaseNode, ProgramNode, etc.) are duplicated from or overlap with types defined in
  * the Core and Parser packages.
  *
@@ -15,7 +15,7 @@
  *   1. Which types are identical to Core/Parser and can be imported directly.
  *   2. Which types are transpiler-specific (e.g., have extra metadata for code generation)
  *      and should remain here but extend Core types.
- *   3. Which types represent shared concepts (e.g., SemKind, IdentifierMetadata) and
+ *   3. Which types represent shared concepts (e.g., IdentifierMetadata) and
  *      should be moved to Core so all packages can use the same definition.
  *
  * LONG-TERM GOAL: Consolidate AST types into Core, extend them in domain-specific packages
@@ -23,6 +23,17 @@
  * cross-package AST manipulation safer and reduce the risk of type drift.
  */
 
+/**
+ * Semantic kind classification for identifiers and call targets.
+ *
+ * SOURCE OF TRUTH: @gml-modules/semantic (src/symbols/sem-oracle.ts)
+ * This is a re-declaration maintained for transpiler use. The canonical definition
+ * lives in the semantic package. Keep this in sync with that definition.
+ *
+ * NOTE: This duplication exists because the Semantic package exports a const namespace
+ * which cannot be referenced in type position. A future architecture improvement would
+ * export both the namespace and a separate type-only export to enable direct imports.
+ */
 export type SemKind = "local" | "self_field" | "other_field" | "global_field" | "builtin" | "script";
 
 export interface IdentifierMetadata {

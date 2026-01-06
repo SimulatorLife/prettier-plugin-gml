@@ -179,23 +179,45 @@ function recordSuiteTestCase(cases, node, suitePath) {
     return cases;
 }
 
+/**
+ * Execute a visitor callback for each item in the traversal queue until exhausted
+ * or the visitor signals early termination.
+ *
+ * Isolates the low-level queue iteration mechanics from high-level processing logic.
+ *
+ * @param queue - The traversal queue containing items to process
+ * @param visitor - Callback invoked for each item; returns `true` to terminate early
+ */
+function processTraversalQueue<T>(queue: T[], visitor: (item: T, queue: T[]) => boolean | void): void {
+    while (queue.length > 0) {
+        const item = queue.pop();
+        // Skip if undefined (defensive check for malformed queue entries)
+        if (item === undefined) {
+            continue;
+        }
+        const shouldTerminate = visitor(item, queue);
+        if (shouldTerminate === true) {
+            break;
+        }
+    }
+}
+
 function collectTestCases(root) {
     const cases = [];
     const queue = createTestTraversalQueue(root);
 
-    while (queue.length > 0) {
-        const { node, suitePath } = queue.pop();
+    processTraversalQueue(queue, ({ node, suitePath }, queue) => {
         if (!node) {
-            continue;
+            return;
         }
 
         if (Array.isArray(node)) {
             enqueueTraversalNodes(queue, node, suitePath);
-            continue;
+            return;
         }
 
         if (!isObjectLike(node)) {
-            continue;
+            return;
         }
 
         const hasTestcase = Object.hasOwn(node, "testcase");
@@ -218,7 +240,7 @@ function collectTestCases(root) {
         }
 
         enqueueObjectLikeChildren(queue, node, nextSuitePath);
-    }
+    });
 
     return cases;
 }
@@ -647,17 +669,16 @@ function isCheckstyleDocument(document) {
 
 function documentContainsTestElements(document) {
     const queue = [document];
+    let found = false;
 
-    while (queue.length > 0) {
-        const current = queue.pop();
-
+    processTraversalQueue(queue, (current, queueRef) => {
         if (Array.isArray(current)) {
-            queue.push(...current);
-            continue;
+            queueRef.push(...current);
+            return;
         }
 
         if (!isObjectLike(current)) {
-            continue;
+            return;
         }
 
         if (
@@ -665,15 +686,16 @@ function documentContainsTestElements(document) {
             Object.hasOwn(current, "testsuite") ||
             Object.hasOwn(current, "testsuites")
         ) {
-            return true;
+            found = true;
+            return true; // Terminate early
         }
 
         for (const value of Object.values(current)) {
-            queue.push(value);
+            queueRef.push(value);
         }
-    }
+    });
 
-    return false;
+    return found;
 }
 
 function recordTestCases(aggregates, testCases) {
@@ -1160,9 +1182,14 @@ function generateQualityRow(label, results, healthStats = null) {
 
 function formatBytes(bytes) {
     if (bytes === 0) return "0 B";
+    if (bytes < 0 || !Number.isFinite(bytes)) {
+        return "Invalid";
+    }
     const k = 1024;
     const sizes = ["B", "KB", "MB", "GB"];
-    const i = Math.floor(Math.log(bytes) / Math.log(k));
+    // Clamp index to valid range to handle edge cases where logarithm
+    // might produce unexpected values due to floating-point precision
+    const i = Math.max(0, Math.min(Math.floor(Math.log(bytes) / Math.log(k)), sizes.length - 1));
     return `${Number.parseFloat((bytes / Math.pow(k, i)).toFixed(2))} ${sizes[i]}`;
 }
 

@@ -12,6 +12,7 @@ import {
     type SymbolResolver
 } from "./types.js";
 import { assertValidIdentifierName, DEFAULT_RESERVED_KEYWORDS } from "./validation-utils.js";
+import { Core } from "@gml-modules/core";
 
 /**
  * Detect conflicts that would arise from renaming a symbol.
@@ -37,7 +38,7 @@ export async function detectRenameConflicts(
     try {
         normalizedNewName = assertValidIdentifierName(newName);
     } catch (error) {
-        const errorMessage = error instanceof Error ? error.message : String(error);
+        const errorMessage = Core.isErrorLike(error) ? error.message : String(error);
         conflicts.push({
             type: ConflictType.INVALID_IDENTIFIER,
             message: errorMessage

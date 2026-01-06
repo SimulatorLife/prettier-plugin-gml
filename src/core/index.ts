@@ -8,5 +8,6 @@ export type {
     MutableGameMakerAstNode,
     DocCommentLines,
     MutableDocCommentLines,
-    AbortSignalLike
+    AbortSignalLike,
+    DebouncedFunction
 } from "./src/index.js";

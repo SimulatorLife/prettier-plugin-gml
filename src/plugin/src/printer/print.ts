@@ -17,6 +17,7 @@
 
 import { Core, type MutableDocCommentLines } from "@gml-modules/core";
 import { util } from "prettier";
+import { DEFAULT_ALIGN_ASSIGNMENTS_MIN_GROUP_SIZE } from "../options/assignment-alignment-option.js";
 
 import {
     countTrailingBlankLines,
@@ -234,39 +235,6 @@ function callPathMethod(path: any, methodName: any, { args, defaultValue }: { ar
     const normalizedArgs = args === undefined ? [] : Array.isArray(args) ? args : [args];
 
     return method.apply(path, normalizedArgs);
-}
-
-function isBlockWithinConstructor(path) {
-    if (!path || typeof path.getParentNode !== "function") {
-        return false;
-    }
-
-    // Cache the getParentNode method to avoid repeated lookups during ancestor traversal.
-    // The tight loop below calls getParentNode repeatedly (up to 100 times) to walk
-    // up the AST until it finds a constructor or reaches the root. Each call to
-    // path.getParentNode invokes the generic helper, which performs array normalization
-    // and other overhead. By hoisting the method reference once before the loop, we
-    // eliminate that overhead on every iteration, keeping the traversal efficient
-    // without sacrificing clarity or correctness.
-    const getParentNode = path.getParentNode;
-    for (let depth = 0; depth < 100; depth += 1) {
-        const ancestor = getParentNode.call(path, depth);
-
-        if (!ancestor) {
-            break;
-        }
-
-        if (ancestor.type === CONSTRUCTOR_DECLARATION) {
-            return true;
-        }
-
-        // Stop traversing if we hit a function boundary that isn't a constructor
-        if (ancestor.type === FUNCTION_DECLARATION || ancestor.type === FUNCTION_EXPRESSION) {
-            return false;
-        }
-    }
-
-    return false;
 }
 
 const BINARY_OPERATOR_INFO = new Map([
@@ -1008,7 +976,9 @@ function printCallExpressionNode(node, path, options, print) {
             (argument) => argument?.type === FUNCTION_DECLARATION || argument?.type === CONSTRUCTOR_DECLARATION
         );
         const structArguments = node.arguments.filter((argument) => argument?.type === STRUCT_EXPRESSION);
-        const structArgumentsToBreak = structArguments.filter((argument) => shouldForceBreakStructArgument(argument));
+        const structArgumentsToBreak = structArguments.filter((argument) =>
+            shouldForceBreakStructArgument(argument, options)
+        );
 
         structArgumentsToBreak.forEach((argument) => {
             forcedStructArgumentBreaks.set(argument, getStructAlignmentInfo(argument, options));
@@ -2228,7 +2198,7 @@ function buildCallbackArgumentsWithSimplePrefix(path, print, simplePrefixLength)
     return shouldForcePrefixBreaks ? concat([breakParent, argumentGroup]) : argumentGroup;
 }
 
-function shouldForceBreakStructArgument(argument) {
+function shouldForceBreakStructArgument(argument, options) {
     if (!argument || argument.type !== "StructExpression") {
         return false;
     }
@@ -2246,7 +2216,11 @@ function shouldForceBreakStructArgument(argument) {
         return true;
     }
 
-    return properties.length > 2;
+    const maxStructPropertiesPerLine = Number.isFinite(options?.maxStructPropertiesPerLine)
+        ? options.maxStructPropertiesPerLine
+        : 2;
+    const threshold = maxStructPropertiesPerLine > 0 ? maxStructPropertiesPerLine : Infinity;
+    return properties.length > threshold;
 }
 
 function buildStructPropertyCommentSuffix(path, options) {
@@ -2954,8 +2928,6 @@ function handleTerminalTrailingSpacing({
     return previousNodeHadNewlineAddedAfter;
 }
 
-const DEFAULT_ASSIGNMENT_ALIGNMENT_MIN_GROUP_SIZE = 3;
-
 export function applyAssignmentAlignment(statements, options, path = null, childrenAttribute = null) {
     const minGroupSize = getAssignmentAlignmentMinimum(options);
     /** @type {Array<{ node: any, nameLength: number, prefixLength: number }>} */
@@ -2999,7 +2971,7 @@ export function applyAssignmentAlignment(statements, options, path = null, child
             "minGroupSize",
             minGroupSize
         );
-        const normalizedMinGroupSize = minGroupSize > 0 ? minGroupSize : DEFAULT_ASSIGNMENT_ALIGNMENT_MIN_GROUP_SIZE;
+        const normalizedMinGroupSize = minGroupSize > 0 ? minGroupSize : DEFAULT_ALIGN_ASSIGNMENTS_MIN_GROUP_SIZE;
         const alignmentEnabled = minGroupSize > 0;
         const effectiveMinGroupSize = alignmentEnabled ? normalizedMinGroupSize : minGroupSize;
         const meetsAlignmentThreshold = alignmentEnabled && groupEntries.length >= effectiveMinGroupSize;
@@ -3347,7 +3319,7 @@ function getMemberExpressionLength(expression) {
 function getAssignmentAlignmentMinimum(options) {
     return Core.coercePositiveIntegerOption(
         options?.alignAssignmentsMinGroupSize,
-        DEFAULT_ASSIGNMENT_ALIGNMENT_MIN_GROUP_SIZE,
+        DEFAULT_ALIGN_ASSIGNMENTS_MIN_GROUP_SIZE,
         {
             zeroReplacement: 0
         }

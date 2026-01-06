@@ -1,3 +1,4 @@
+import { Core } from "@gml-modules/core";
 import {
     applyPatchInternal,
     calculateTimingMetrics,
@@ -72,7 +73,7 @@ export function createRuntimeWrapper(options: RuntimeWrapperOptions = {}): Runti
             state.undoStack.push(snapshot);
             trimUndoStack();
             state.patchHistory.push({
-                patch: { kind: patch.kind, id: patch.id },
+                patch: { kind: patch.kind, id: patch.id, metadata: patch.metadata },
                 version: state.registry.version,
                 timestamp: startTime,
                 action: "apply",
@@ -93,7 +94,7 @@ export function createRuntimeWrapper(options: RuntimeWrapperOptions = {}): Runti
 
             return result;
         } catch (error) {
-            const message = error instanceof Error ? error.message : String(error ?? UNKNOWN_ERROR_MESSAGE);
+            const message = Core.isErrorLike(error) ? error.message : String(error ?? UNKNOWN_ERROR_MESSAGE);
             throw new Error(`Failed to apply patch ${patch.id}: ${message}`);
         }
     }
@@ -166,7 +167,7 @@ export function createRuntimeWrapper(options: RuntimeWrapperOptions = {}): Runti
                 state.undoStack.push(snapshot);
                 trimUndoStack();
                 state.patchHistory.push({
-                    patch: { kind: patch.kind, id: patch.id },
+                    patch: { kind: patch.kind, id: patch.id, metadata: patch.metadata },
                     version: state.registry.version,
                     timestamp: patchStartTime,
                     action: "apply",
@@ -211,7 +212,7 @@ export function createRuntimeWrapper(options: RuntimeWrapperOptions = {}): Runti
             state.undoStack.length = batchSnapshot.undoStackSize;
             state.patchHistory.length = batchSnapshot.historySize;
 
-            const message = error instanceof Error ? error.message : String(error ?? UNKNOWN_ERROR_MESSAGE);
+            const message = Core.isErrorLike(error) ? error.message : String(error ?? UNKNOWN_ERROR_MESSAGE);
 
             state.patchHistory.push({
                 patch: {
@@ -291,7 +292,7 @@ export function createRuntimeWrapper(options: RuntimeWrapperOptions = {}): Runti
                     };
                 }
             } catch (error) {
-                const message = error instanceof Error ? error.message : String(error ?? UNKNOWN_ERROR_MESSAGE);
+                const message = Core.isErrorLike(error) ? error.message : String(error ?? UNKNOWN_ERROR_MESSAGE);
                 return {
                     success: false,
                     error: message,
@@ -327,10 +328,10 @@ export function createRuntimeWrapper(options: RuntimeWrapperOptions = {}): Runti
                 state.undoStack.pop();
             }
 
-            const message = error instanceof Error ? error.message : String(error ?? UNKNOWN_ERROR_MESSAGE);
+            const message = Core.isErrorLike(error) ? error.message : String(error ?? UNKNOWN_ERROR_MESSAGE);
 
             state.patchHistory.push({
-                patch: { kind: patch.kind, id: patch.id },
+                patch: { kind: patch.kind, id: patch.id, metadata: patch.metadata },
                 version: state.registry.version,
                 timestamp: Date.now(),
                 action: "rollback",
@@ -530,6 +531,50 @@ export function createRuntimeWrapper(options: RuntimeWrapperOptions = {}): Runti
         };
     }
 
+    function getPatchDiagnostics(id: string): import("./types.js").PatchDiagnostics | null {
+        const historyEntries = state.patchHistory.filter((entry) => entry.patch.id === id);
+        if (historyEntries.length === 0) {
+            return null;
+        }
+
+        const applyEntries = historyEntries.filter((entry) => entry.action === "apply");
+        const undoEntries = historyEntries.filter((entry) => entry.action === "undo");
+        const rollbackEntries = historyEntries.filter((entry) => entry.action === "rollback");
+
+        const durationsMs = applyEntries
+            .map((entry) => entry.durationMs)
+            .filter((duration): duration is number => typeof duration === "number");
+
+        const averageDurationMs =
+            durationsMs.length > 0 ? durationsMs.reduce((sum, d) => sum + d, 0) / durationsMs.length : null;
+
+        const kind = historyEntries[0].patch.kind;
+        const metadata = historyEntries.find((entry) => entry.patch.metadata)?.patch.metadata;
+
+        const currentlyApplied =
+            (kind === "script" && hasScript(id)) ||
+            (kind === "event" && hasEvent(id)) ||
+            (kind === "closure" && hasClosure(id));
+
+        const hasApplyEntries = applyEntries.length > 0;
+
+        return {
+            id,
+            kind,
+            applicationCount: applyEntries.length,
+            firstAppliedAt: hasApplyEntries ? applyEntries[0].timestamp : null,
+            lastAppliedAt: hasApplyEntries ? applyEntries.at(-1).timestamp : null,
+            currentlyApplied,
+            undoCount: undoEntries.length,
+            rollbackCount: rollbackEntries.length,
+            averageDurationMs,
+            sourcePath: metadata?.sourcePath ?? null,
+            sourceHash: metadata?.sourceHash ?? null,
+            dependencies: metadata?.dependencies ?? [],
+            historyEntries: [...historyEntries]
+        };
+    }
+
     return {
         state,
         applyPatch,
@@ -550,6 +595,7 @@ export function createRuntimeWrapper(options: RuntimeWrapperOptions = {}): Runti
         getClosure,
         hasClosure,
         clearRegistry,
-        checkRegistryHealth
+        checkRegistryHealth,
+        getPatchDiagnostics
     };
 }

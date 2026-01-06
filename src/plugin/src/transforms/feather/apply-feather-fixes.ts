@@ -98,6 +98,14 @@ const VERTEX_BEGIN_TEMPLATE_CACHE = new WeakMap();
 const FILE_FIND_BLOCK_CALL_TARGETS = new Set(["file_find_next"]);
 const FILE_FIND_CLOSE_FUNCTION_NAME = "file_find_close";
 const READ_ONLY_BUILT_IN_VARIABLES = new Set(["working_directory"]);
+const BREAKABLE_CONSTRUCT_TYPES = new Set([
+    "DoUntilStatement",
+    "ForStatement",
+    "RepeatStatement",
+    "SwitchStatement",
+    "WhileStatement",
+    "WithStatement"
+]);
 const FILE_ATTRIBUTE_IDENTIFIER_PATTERN = /^fa_[A-Za-z0-9_]+$/;
 const STRING_LENGTH_CALL_BLOCKLIST = new Set([
     "string_byte_at",
@@ -793,23 +801,7 @@ function removeBreakStatementsWithoutEnclosingLoops({ ast, diagnostic }) {
 }
 
 function isBreakableConstruct(node) {
-    if (!node || typeof node !== "object") {
-        return false;
-    }
-
-    switch (node.type) {
-        case "DoUntilStatement":
-        case "ForStatement":
-        case "RepeatStatement":
-        case "SwitchStatement":
-        case "WhileStatement":
-        case "WithStatement": {
-            return true;
-        }
-        default: {
-            return false;
-        }
-    }
+    return node && typeof node === "object" && BREAKABLE_CONSTRUCT_TYPES.has(node.type);
 }
 
 /**
@@ -13488,14 +13480,8 @@ function ensureVertexFormatDefinitionIsClosed(node, parent, property, diagnostic
         return null;
     }
 
-    const vertexFormatEndCall = createVertexFormatEndCall(node);
-
-    if (!vertexFormatEndCall) {
-        return null;
-    }
-
     const fixDetail = createFeatherFixDetail(diagnostic, {
-        target: "vertex_format_end",
+        target: "vertex_format_begin",
         range: {
             start: Core.getNodeStartIndex(node),
             end: Core.getNodeEndIndex(node)
@@ -13506,9 +13492,6 @@ function ensureVertexFormatDefinitionIsClosed(node, parent, property, diagnostic
         return null;
     }
 
-    siblings.splice(insertionIndex, 0, vertexFormatEndCall);
-    attachFeatherFixMetadata(vertexFormatEndCall, [fixDetail]);
-
     const commentTargets = [];
 
     for (let index = property; index < insertionIndex; index += 1) {
@@ -13518,8 +13501,6 @@ function ensureVertexFormatDefinitionIsClosed(node, parent, property, diagnostic
             commentTargets.push(candidate);
         }
     }
-
-    commentTargets.push(vertexFormatEndCall);
 
     const commentPrefixText = "TODO: Incomplete vertex format definition automatically commented out (GM2015)";
 

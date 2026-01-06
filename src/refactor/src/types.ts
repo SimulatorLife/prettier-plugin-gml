@@ -284,17 +284,39 @@ export interface EditValidator {
  * Complete semantic analyzer interface.
  *
  * Combines all role-focused interfaces for consumers that need full
- * semantic analysis capabilities. Consumers should prefer depending on
- * the minimal interface they need (SymbolResolver, OccurrenceTracker, etc.)
- * rather than this composite interface when possible.
+ * semantic analysis capabilities. All methods are required when implementing
+ * this interface. For partial implementations, use PartialSemanticAnalyzer.
+ *
+ * Consumers should prefer depending on the minimal interface they need
+ * (SymbolResolver, OccurrenceTracker, etc.) rather than this composite
+ * interface when possible.
  */
 export interface SemanticAnalyzer
-    extends Partial<SymbolResolver>,
-        Partial<OccurrenceTracker>,
-        Partial<FileSymbolProvider>,
-        Partial<DependencyAnalyzer>,
-        Partial<KeywordProvider>,
-        Partial<EditValidator> {}
+    extends SymbolResolver,
+        OccurrenceTracker,
+        FileSymbolProvider,
+        DependencyAnalyzer,
+        KeywordProvider,
+        EditValidator {}
+
+/**
+ * Partial semantic analyzer for dependency injection.
+ *
+ * Allows RefactorEngine and other consumers to accept semantic analyzers
+ * that only implement a subset of capabilities. This maintains flexibility
+ * while enforcing ISP: consumers must check capability availability at runtime
+ * (e.g., typeof semantic?.getSymbolOccurrences === "function") but the type
+ * system correctly represents that methods may be absent.
+ *
+ * Prefer depending on specific role interfaces (SymbolResolver, OccurrenceTracker)
+ * when the required capabilities are known at design time.
+ */
+export type PartialSemanticAnalyzer = Partial<SymbolResolver> &
+    Partial<OccurrenceTracker> &
+    Partial<FileSymbolProvider> &
+    Partial<DependencyAnalyzer> &
+    Partial<KeywordProvider> &
+    Partial<EditValidator>;
 
 export interface TranspilerBridge {
     transpileScript(request: { sourceText: string; symbolId: string }): MaybePromise<Record<string, unknown>>;
@@ -442,7 +464,7 @@ export type WorkspaceWriteFile = (path: string, content: string) => MaybePromise
 
 export interface RefactorEngineDependencies {
     parser: ParserBridge | null;
-    semantic: SemanticAnalyzer | null;
+    semantic: PartialSemanticAnalyzer | null;
     formatter: TranspilerBridge | null;
 }
 

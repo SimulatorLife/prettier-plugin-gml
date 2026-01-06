@@ -1,3 +1,4 @@
+import { Core } from "@gml-modules/core";
 import { validatePatch } from "../runtime/patch-utils.js";
 import type { Patch, PatchApplicator, RuntimePatchError, TrySafeApplyResult } from "../runtime/types.js";
 import type {
@@ -95,6 +96,14 @@ export function createWebSocketClient({
         }
 
         state.manuallyDisconnected = false;
+
+        // Clear any pending reconnect timer before establishing a new connection
+        // This ensures that if connect() is called while a reconnect is scheduled,
+        // we don't leak the timer or create duplicate connection attempts
+        if (state.reconnectTimer !== null) {
+            clearTimeout(state.reconnectTimer);
+            state.reconnectTimer = null;
+        }
 
         try {
             const ctor = resolveWebSocketConstructor();
@@ -351,6 +360,14 @@ function createCloseHandler({ state, onDisconnect, reconnectDelay, connect }: We
             onDisconnect();
         }
 
+        // Clear any existing reconnect timer before potentially setting a new one
+        // This prevents timer leaks when close events occur in rapid succession
+        // or when the WebSocket is closed externally (e.g., server disconnect, network error)
+        if (websocketState.reconnectTimer !== null) {
+            clearTimeout(websocketState.reconnectTimer);
+            websocketState.reconnectTimer = null;
+        }
+
         if (!websocketState.manuallyDisconnected && reconnectDelay > 0) {
             websocketState.connectionMetrics.totalReconnectAttempts += 1;
             websocketState.reconnectTimer = setTimeout(() => {
@@ -371,7 +388,7 @@ function createErrorHandler({ state, onError }: WebSocketErrorHandlerArgs): (eve
 
         if (onError) {
             const safeError = createRuntimePatchError(
-                event instanceof Error ? event.message : "Unknown WebSocket error"
+                Core.isErrorLike(event) ? event.message : "Unknown WebSocket error"
             );
             onError(safeError, "connection");
         }
@@ -506,7 +523,7 @@ function createRuntimePatchError(message: string, patch?: Patch): RuntimePatchEr
 }
 
 function resolveRuntimeErrorMessage(error: unknown): string {
-    if (error instanceof Error) {
+    if (Core.isErrorLike(error)) {
         return error.message;
     }
 

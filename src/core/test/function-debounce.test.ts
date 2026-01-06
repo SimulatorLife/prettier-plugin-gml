@@ -2,7 +2,7 @@ import { describe, it } from "node:test";
 import assert from "node:assert/strict";
 import { setTimeout as sleep } from "node:timers/promises";
 
-import { debounce } from "../src/shared/debounce.js";
+import { debounce } from "../src/utils/function.js";
 
 void describe("debounce", () => {
     void describe("basic debouncing", () => {

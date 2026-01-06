@@ -7,9 +7,14 @@ import { ensureDirSync } from "../shared/ensure-dir.js";
 
 function formatBytes(bytes: number) {
     if (bytes === 0) return "0 B";
+    if (bytes < 0 || !Number.isFinite(bytes)) {
+        return "Invalid";
+    }
     const k = 1024;
     const sizes = ["B", "KB", "MB", "GB"];
-    const i = Math.floor(Math.log(bytes) / Math.log(k));
+    // Clamp index to valid range to handle edge cases where logarithm
+    // might produce unexpected values due to floating-point precision
+    const i = Math.max(0, Math.min(Math.floor(Math.log(bytes) / Math.log(k)), sizes.length - 1));
     return `${Number.parseFloat((bytes / Math.pow(k, i)).toFixed(2))} ${sizes[i]}`;
 }
 

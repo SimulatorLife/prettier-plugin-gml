@@ -2,6 +2,7 @@ import test from "node:test";
 import assert from "node:assert/strict";
 import ScopeTracker from "../src/scopes/scope-tracker.js";
 import { ScopeOverrideKeyword } from "../src/scopes/index.js";
+import { createRange, type SourceLocation, type SourceRange } from "./scope-tracker-helpers.js";
 
 void test("resolveScopeOverride returns the root scope when using the global keyword", () => {
     const tracker = new ScopeTracker({ enabled: true });
@@ -529,16 +530,6 @@ void test("resolveIdentifier uses cached scope indices for efficient lookups", (
     );
 });
 
-type SourceLocation = {
-    line: number;
-    index: number;
-};
-
-type SourceRange = {
-    start: SourceLocation;
-    end: SourceLocation;
-};
-
 type ScopeSnapshot = {
     scopeId: string;
     scopeKind: string;
@@ -588,13 +579,6 @@ type ScopeSnapshot = {
         }>;
     }>;
 };
-
-function createRange(startLine: number, startIndex: number, endLine: number, endIndex: number): SourceRange {
-    return {
-        start: { line: startLine, index: startIndex },
-        end: { line: endLine, index: endIndex }
-    };
-}
 
 function cloneLocation(location: SourceLocation): SourceLocation {
     return { line: location.line, index: location.index };
