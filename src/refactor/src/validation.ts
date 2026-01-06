@@ -176,12 +176,12 @@ export async function validateRenameStructure(
 ): Promise<Array<string>> {
     const errors: Array<string> = [];
 
-    if (!symbolId || typeof symbolId !== "string") {
+    if (symbolId == null || typeof symbolId !== "string" || symbolId.trim() === "") {
         errors.push("symbolId must be a non-empty string");
         return errors;
     }
 
-    if (!newName || typeof newName !== "string") {
+    if (newName == null || typeof newName !== "string" || newName.trim() === "") {
         errors.push("newName must be a non-empty string");
         return errors;
     }
