@@ -8,7 +8,6 @@ export * from "./function.js";
 export * from "./json.js";
 export * from "./line-breaks.js";
 export * from "./number.js";
-export * from "./math.js";
 export * from "./numeric-options.js";
 export * from "./object.js";
 export * from "./regexp.js";
