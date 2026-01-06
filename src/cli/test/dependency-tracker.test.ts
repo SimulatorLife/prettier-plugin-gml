@@ -14,7 +14,7 @@ describe("DependencyTracker", () => {
             tracker.registerFileDefines("scripts/player.gml", ["gml_Script_player_move", "gml_Script_player_jump"]);
 
             const defs = tracker.getFileDefinitions("scripts/player.gml");
-            assert.deepEqual(defs.sort(), ["gml_Script_player_jump", "gml_Script_player_move"]);
+            assert.deepEqual([...defs].sort(), ["gml_Script_player_jump", "gml_Script_player_move"]);
         });
 
         it("should update symbol-to-file mapping", () => {
