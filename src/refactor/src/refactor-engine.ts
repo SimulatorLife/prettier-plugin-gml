@@ -2,13 +2,9 @@ import { WorkspaceEdit, type GroupedTextEdits } from "./workspace-edit.js";
 import { Core } from "@gml-modules/core";
 import {
     ConflictType,
-    SymbolKind,
-    parseSymbolKind,
     type ApplyWorkspaceEditOptions,
-    type AstNode,
     type BatchRenamePlanSummary,
     type BatchRenameValidation,
-    type CascadeEntry,
     type ConflictEntry,
     type ExecuteBatchRenameRequest,
     type ExecuteRenameRequest,
@@ -34,6 +30,8 @@ import {
 } from "./types.js";
 import { assertValidIdentifierName } from "./validation-utils.js";
 import { detectCircularRenames, detectRenameConflicts } from "./validation.js";
+import * as SymbolQueries from "./symbol-queries.js";
+import * as HotReload from "./hot-reload.js";
 
 /**
  * RefactorEngine coordinates semantic-safe edits across the project.
@@ -54,197 +52,41 @@ export class RefactorEngine {
     /**
      * Find the symbol at a specific location in a file.
      * Useful for triggering refactorings from editor positions.
-     * @param {string} filePath - File path
-     * @param {number} offset - Character offset in the file
-     * @returns {Promise<{symbolId: string, name: string, range: {start: number, end: number}} | null>}
      */
     async findSymbolAtLocation(filePath: string, offset: number): Promise<SymbolLocation | null> {
-        if (!this.semantic) {
-            return null;
-        }
-
-        // Attempt to use the semantic analyzer's position-based lookup if available.
-        // This is the preferred method because it understands scope, binding, and
-        // type information, allowing it to distinguish between identically-named
-        // symbols in different contexts (e.g., local variables vs. global functions).
-        const semantic = this.semantic;
-        if (typeof semantic.getSymbolAtPosition === "function") {
-            return semantic.getSymbolAtPosition(filePath, offset) ?? null;
-        }
-
-        // Fallback to parser-only AST traversal when the semantic analyzer doesn't
-        // provide position-based lookup. This is less accurate because it can't
-        // resolve bindings, but it still lets us find the syntactic node at the
-        // given offset for basic rename operations.
-        if (this.parser && typeof this.parser.parse === "function") {
-            try {
-                const ast = await this.parser.parse(filePath);
-                return this.findNodeAtOffset(ast, offset);
-            } catch {
-                return null;
-            }
-        }
-
-        return null;
-    }
-
-    /**
-     * Helper to find AST node at a specific offset.
-     * @private
-     */
-    private findNodeAtOffset(node: AstNode | null, offset: number): SymbolLocation | null {
-        if (!node || typeof node !== "object") {
-            return null;
-        }
-
-        // Determine whether this node's source range encompasses the given offset.
-        // We use closed-interval semantics (<=) so that offsets at the exact start
-        // or end positions match the node, which is crucial for cursor-based
-        // refactorings where the user clicks on the first or last character.
-        if (node.start <= offset && offset <= node.end) {
-            // Recurse into child nodes first (depth-first traversal) to find the
-            // most specific node at the offset. This ensures we return the innermost
-            // identifier or expression rather than a containing block statement.
-            if (node.children) {
-                for (const child of node.children) {
-                    const found = this.findNodeAtOffset(child, offset);
-                    if (found) {
-                        return found;
-                    }
-                }
-            }
-
-            // If no child matches, return this node if it's an identifier. We filter
-            // by type to avoid returning structural nodes like statements or blocks
-            // that happen to contain the offset but aren't meaningful rename targets.
-            if (node.type === "identifier" && node.name) {
-                return {
-                    symbolId: `gml/identifier/${node.name}`,
-                    name: node.name,
-                    range: { start: node.start, end: node.end }
-                };
-            }
-        }
-
-        return null;
+        return SymbolQueries.findSymbolAtLocation(filePath, offset, this.semantic, this.parser);
     }
 
     /**
      * Validate symbol exists in the semantic index.
-     * @param {string} symbolId - Symbol identifier (e.g., "gml/script/scr_name")
-     * @returns {Promise<boolean>} True if symbol exists
      */
     async validateSymbolExists(symbolId: string): Promise<boolean> {
-        if (!this.semantic) {
-            throw new Error("RefactorEngine requires a semantic analyzer to validate symbols");
-        }
-
-        // Query the semantic analyzer's symbol table to determine whether the given
-        // symbolId exists. This check prevents rename operations from targeting
-        // non-existent symbols, which would otherwise silently succeed but produce
-        // no edits, confusing users who expect feedback when they mistype a name.
-        const semantic = this.semantic;
-        if (typeof semantic.hasSymbol === "function") {
-            return semantic.hasSymbol(symbolId);
-        }
-
-        // If the semantic analyzer doesn't expose a validation method, assume the
-        // symbol exists. This fallback permits refactorings to proceed in
-        // environments where the semantic layer is minimal or still initializing.
-        return true;
+        return SymbolQueries.validateSymbolExists(symbolId, this.semantic);
     }
 
     /**
      * Gather all occurrences of a symbol from the semantic analyzer.
-     * @param {string} symbolName - Symbol name to find
-     * @returns {Promise<Array<{path: string, start: number, end: number, kind: string}>>}
      */
     async gatherSymbolOccurrences(symbolName: string): Promise<Array<SymbolOccurrence>> {
-        if (!this.semantic) {
-            return [];
-        }
-
-        // Request all occurrences (definitions and references) of the symbol from
-        // the semantic analyzer. This includes local variables, function parameters,
-        // global functions, and any other binding sites. The semantic layer tracks
-        // both the location (path, offset) and the kind (definition vs. reference)
-        // of each occurrence, which later phases use to construct text edits.
-        const semantic = this.semantic;
-        if (typeof semantic.getSymbolOccurrences === "function") {
-            return semantic.getSymbolOccurrences(symbolName);
-        }
-
-        // If occurrence tracking isn't available, return an empty array so the
-        // rename operation can proceed without edits, avoiding a hard error.
-        return [];
+        return SymbolQueries.gatherSymbolOccurrences(symbolName, this.semantic);
     }
 
     /**
      * Query the semantic analyzer for symbols defined in a specific file.
      * This is useful for hot reload coordination to determine which symbols
      * need recompilation when a file changes.
-     *
-     * @param {string} filePath - Path to the file to query
-     * @returns {Promise<Array<{id: string}>>} Array of symbol objects with IDs
-     *
-     * @example
-     * const symbols = await engine.getFileSymbols("scripts/scr_player.gml");
-     * console.log(`File defines ${symbols.length} symbols`);
-     * for (const symbol of symbols) {
-     *     console.log(`  - ${symbol.id}`);
-     * }
      */
     async getFileSymbols(filePath: string): Promise<Array<{ id: string }>> {
-        if (!filePath || typeof filePath !== "string") {
-            throw new TypeError("getFileSymbols requires a valid file path string");
-        }
-
-        if (!this.semantic) {
-            return [];
-        }
-
-        const semantic = this.semantic;
-        if (typeof semantic.getFileSymbols === "function") {
-            return (await semantic.getFileSymbols(filePath)) ?? [];
-        }
-
-        return [];
+        return SymbolQueries.getFileSymbols(filePath, this.semantic);
     }
 
     /**
      * Query the semantic analyzer for symbols that depend on the given symbols.
      * This is essential for hot reload to determine which symbols need recompilation
      * when dependencies change.
-     *
-     * @param {Array<string>} symbolIds - Array of symbol IDs to query dependencies for
-     * @returns {Promise<Array<{symbolId: string, filePath: string}>>} Dependent symbols
-     *
-     * @example
-     * const dependents = await engine.getSymbolDependents([
-     *     "gml/script/scr_base",
-     *     "gml/script/scr_helper"
-     * ]);
-     * console.log(`Found ${dependents.length} dependent symbols`);
      */
     async getSymbolDependents(symbolIds: Array<string>): Promise<Array<{ symbolId: string; filePath: string }>> {
-        if (!Array.isArray(symbolIds)) {
-            throw new TypeError("getSymbolDependents requires an array of symbol IDs");
-        }
-
-        if (symbolIds.length === 0) {
-            return [];
-        }
-
-        if (!this.semantic) {
-            return [];
-        }
-
-        const semantic = this.semantic;
-        if (typeof semantic.getDependents === "function") {
-            return (await semantic.getDependents(symbolIds)) ?? [];
-        }
-
-        return [];
+        return SymbolQueries.getSymbolDependents(symbolIds, this.semantic);
     }
 
     /**
@@ -1322,79 +1164,11 @@ export class RefactorEngine {
      * @param {WorkspaceEdit} workspace - Applied edits
      * @returns {Promise<Array<{symbolId: string, action: string, filePath: string, affectedRanges: Array<{start: number, end: number}>}>>}
      */
+    /**
+     * Prepare hot reload updates from a workspace edit.
+     */
     async prepareHotReloadUpdates(workspace: WorkspaceEdit): Promise<Array<HotReloadUpdate>> {
-        const updates: Array<HotReloadUpdate> = [];
-
-        if (!workspace || workspace.edits.length === 0) {
-            return updates;
-        }
-
-        // Group edits by file
-        const grouped = workspace.groupByFile();
-        const updatesBySymbol = new Map<string, HotReloadUpdate>();
-
-        for (const [filePath, edits] of grouped.entries()) {
-            // Determine which symbols are defined in this file
-            let affectedSymbols = [];
-
-            if (this.semantic && typeof this.semantic.getFileSymbols === "function") {
-                affectedSymbols = await this.semantic.getFileSymbols(filePath);
-            }
-
-            // If we have specific symbol information, create targeted updates
-            if (affectedSymbols.length > 0) {
-                for (const symbol of affectedSymbols) {
-                    const update: HotReloadUpdate = {
-                        symbolId: symbol.id,
-                        action: "recompile",
-                        filePath,
-                        affectedRanges: edits.map((e) => ({
-                            start: e.start,
-                            end: e.end
-                        }))
-                    };
-                    updates.push(update);
-                    updatesBySymbol.set(symbol.id, update);
-                }
-            } else {
-                // Fallback: create a generic update for the file
-                const update: HotReloadUpdate = {
-                    symbolId: `file://${filePath}`,
-                    action: "recompile",
-                    filePath,
-                    affectedRanges: edits.map((e) => ({
-                        start: e.start,
-                        end: e.end
-                    }))
-                };
-                updates.push(update);
-                updatesBySymbol.set(update.symbolId, update);
-            }
-        }
-
-        // Expand to transitive dependents using the cascade helper so hot reload
-        // consumers receive a full picture of which symbols should be refreshed.
-        const cascade = await this.computeHotReloadCascade(Array.from(updatesBySymbol.keys()));
-        for (const entry of cascade.cascade) {
-            if (updatesBySymbol.has(entry.symbolId)) {
-                continue;
-            }
-
-            if (!entry.filePath) {
-                continue;
-            }
-
-            const dependentUpdate: HotReloadUpdate = {
-                symbolId: entry.symbolId,
-                action: "notify",
-                filePath: entry.filePath,
-                affectedRanges: []
-            };
-            updates.push(dependentUpdate);
-            updatesBySymbol.set(entry.symbolId, dependentUpdate);
-        }
-
-        return updates;
+        return HotReload.prepareHotReloadUpdates(workspace, this.semantic);
     }
 
     /**
@@ -1549,458 +1323,16 @@ export class RefactorEngine {
      * Compute the full dependency cascade for hot reload operations.
      * Takes a set of changed symbols and computes all transitive dependents
      * that need to be reloaded, ordered for safe application.
-     * @param {Array<string>} changedSymbolIds - Symbol IDs that have changed
-     * @returns {Promise<{
-     *   cascade: Array<{symbolId: string, distance: number, reason: string}>,
-     *   order: Array<string>,
-     *   circular: Array<Array<string>>,
-     *   metadata: {totalSymbols: number, maxDistance: number, hasCircular: boolean}
-     * }>}
      */
     async computeHotReloadCascade(changedSymbolIds: Array<string>): Promise<HotReloadCascadeResult> {
-        if (!Array.isArray(changedSymbolIds)) {
-            throw new TypeError("computeHotReloadCascade requires an array of symbol IDs");
-        }
-
-        if (changedSymbolIds.length === 0) {
-            return {
-                cascade: [],
-                order: [],
-                circular: [],
-                metadata: {
-                    totalSymbols: 0,
-                    maxDistance: 0,
-                    hasCircular: false
-                }
-            };
-        }
-
-        // Track visited symbols to detect cycles and compute transitive closure
-        const visited = new Set<string>();
-        const visiting = new Set<string>(); // For cycle detection
-        const cascade = new Map<string, CascadeEntry>(); // symbolId -> entry
-        const circular: Array<Array<string>> = [];
-        const dependencyGraph = new Map<string, Array<string>>();
-
-        // Initialize changed symbols at distance 0
-        for (const symbolId of changedSymbolIds) {
-            cascade.set(symbolId, {
-                symbolId,
-                distance: 0,
-                reason: "direct change"
-            });
-            visited.add(symbolId);
-        }
-
-        // Track the traversal path during DFS for complete cycle reconstruction.
-        // This array is intentionally shared across all recursive calls to maintain
-        // the full call stack, enabling accurate cycle path tracing when a back edge
-        // is detected (e.g., A→B→C→A results in visitPath = [A, B, C] at the moment
-        // we discover C depends on A).
-        const visitPath: Array<string> = [];
-
-        // Helper to reconstruct a complete cycle path from the current traversal state.
-        // When we detect a symbol already in the visiting set, we know we've found a
-        // back edge. This function extracts the cycle from visitPath by finding where
-        // the cycle starts and appending the re-encountered symbol to close the loop.
-        const reconstructCyclePath = (cycleStartSymbol: string): Array<string> => {
-            const cycleStartIndex = visitPath.indexOf(cycleStartSymbol);
-            if (cycleStartIndex !== -1) {
-                return [...visitPath.slice(cycleStartIndex), cycleStartSymbol];
-            }
-            // Fallback if symbol isn't in path (shouldn't happen, but be defensive)
-            return [cycleStartSymbol];
-        };
-
-        // Helper to explore dependencies recursively
-        const exploreDependents = async (
-            symbolId: string,
-            currentDistance: number,
-            parentReason: string
-        ): Promise<{ cycleDetected: boolean; cycle?: Array<string> }> => {
-            // Check if we're already exploring this symbol (cycle detection)
-            if (visiting.has(symbolId)) {
-                // Found a cycle - reconstruct the full cycle path from visitPath.
-                // The cycle starts at the first occurrence of symbolId in visitPath
-                // and extends to the current position where we re-encountered it.
-                const cyclePath = reconstructCyclePath(symbolId);
-                return { cycleDetected: true, cycle: cyclePath };
-            }
-
-            visiting.add(symbolId);
-            visitPath.push(symbolId);
-
-            try {
-                // Query semantic analyzer for symbols that depend on this one
-                if (this.semantic && typeof this.semantic.getDependents === "function") {
-                    const dependents = (await this.semantic.getDependents([symbolId])) ?? [];
-
-                    for (const dep of dependents) {
-                        const depId = dep.symbolId;
-
-                        // Track the dependency edge for topological sort
-                        if (!dependencyGraph.has(symbolId)) {
-                            dependencyGraph.set(symbolId, []);
-                        }
-                        dependencyGraph.get(symbolId).push(depId);
-
-                        // Check if this creates a cycle by looking at the visiting set.
-                        // The visiting set contains symbols currently on the call stack,
-                        // so finding a dependent in that set means we've encountered a cycle.
-                        if (visiting.has(depId)) {
-                            // Reconstruct and record the complete cycle path
-                            const cyclePath = reconstructCyclePath(depId);
-                            circular.push(cyclePath);
-                            continue;
-                        }
-
-                        // If we haven't visited this dependent yet, explore it
-                        if (!visited.has(depId)) {
-                            const newDistance = currentDistance + 1;
-                            const reason = `depends on ${symbolId.split("/").pop()} (${parentReason})`;
-
-                            cascade.set(depId, {
-                                symbolId: depId,
-                                distance: newDistance,
-                                reason,
-                                filePath: dep.filePath
-                            });
-                            visited.add(depId);
-
-                            // Recursively explore this dependent's dependents
-                            const result = await exploreDependents(depId, newDistance, reason);
-                            if (result && result.cycleDetected && result.cycle) {
-                                circular.push(result.cycle);
-                            }
-                        }
-                    }
-                }
-            } finally {
-                visiting.delete(symbolId);
-                visitPath.pop();
-            }
-
-            return { cycleDetected: false };
-        };
-
-        // Explore from each changed symbol
-        for (const symbolId of changedSymbolIds) {
-            await exploreDependents(symbolId, 0, "initial change");
-        }
-
-        // Convert cascade to array and compute topological order
-        const cascadeArray = Array.from(cascade.values());
-
-        // Topological sort using Kahn's algorithm
-        // Build in-degree map
-        const inDegree = new Map();
-        for (const item of cascadeArray) {
-            inDegree.set(item.symbolId, 0);
-        }
-
-        for (const [, toList] of dependencyGraph.entries()) {
-            for (const to of toList) {
-                if (inDegree.has(to)) {
-                    inDegree.set(to, inDegree.get(to) + 1);
-                }
-            }
-        }
-
-        // Process symbols with no incoming edges first (leaves of dependency tree)
-        const queue: Array<string> = [];
-        for (const [symbolId, degree] of inDegree.entries()) {
-            if (degree === 0) {
-                queue.push(symbolId);
-            }
-        }
-
-        const order: Array<string> = [];
-        while (queue.length > 0) {
-            const current = queue.shift();
-            order.push(current);
-
-            // Reduce in-degree for dependents
-            const dependents = dependencyGraph.get(current) || [];
-            for (const dep of dependents) {
-                if (inDegree.has(dep)) {
-                    const newDegree = inDegree.get(dep) - 1;
-                    inDegree.set(dep, newDegree);
-                    if (newDegree === 0) {
-                        queue.push(dep);
-                    }
-                }
-            }
-        }
-
-        // If order doesn't include all symbols, we have cycles
-        const hasUnorderedSymbols = order.length < cascadeArray.length;
-
-        // Add any remaining symbols (those in cycles) to the end of the order
-        for (const item of cascadeArray) {
-            if (!order.includes(item.symbolId)) {
-                order.push(item.symbolId);
-            }
-        }
-
-        // Compute metadata
-        const maxDistance = cascadeArray.reduce((max, item) => Math.max(max, item.distance), 0);
-
-        return {
-            cascade: cascadeArray,
-            order,
-            circular,
-            metadata: {
-                totalSymbols: cascadeArray.length,
-                maxDistance,
-                hasCircular: circular.length > 0 || hasUnorderedSymbols
-            }
-        };
+        return HotReload.computeHotReloadCascade(changedSymbolIds, this.semantic);
     }
 
     /**
      * Check whether a rename operation is safe for hot reload.
-     * This method performs a comprehensive analysis of whether a rename can be
-     * applied without requiring a full game restart, taking into account symbol
-     * types, scope changes, and runtime implications.
-     *
-     * @param {Object} request - Rename request to validate
-     * @param {string} request.symbolId - Symbol to rename
-     * @param {string} request.newName - Proposed new name
-     * @returns {Promise<{
-     *   safe: boolean,
-     *   reason: string,
-     *   requiresRestart: boolean,
-     *   canAutoFix: boolean,
-     *   suggestions: Array<string>
-     * }>} Hot reload safety assessment
      */
     async checkHotReloadSafety(request: RenameRequest): Promise<HotReloadSafetySummary> {
-        const { symbolId, newName } = request ?? {};
-        const suggestions: Array<string> = [];
-
-        if (!symbolId || !newName) {
-            return {
-                safe: false,
-                reason: "Invalid rename request: missing symbolId or newName",
-                requiresRestart: true,
-                canAutoFix: false,
-                suggestions
-            };
-        }
-
-        // Validate identifier format first
-        try {
-            assertValidIdentifierName(newName);
-        } catch (error) {
-            return {
-                safe: false,
-                reason: `Invalid identifier name: ${error.message}`,
-                requiresRestart: true,
-                canAutoFix: false,
-                suggestions
-            };
-        }
-
-        // Hot reload safety analysis relies on semantic knowledge to confirm the
-        // symbol exists and to reason about scope conflicts. When the semantic
-        // analyzer is unavailable, return a guarded failure instead of throwing so
-        // callers receive actionable feedback they can surface to users.
-        if (!this.semantic) {
-            return {
-                safe: false,
-                reason: "Hot reload safety checks require a semantic analyzer to verify the rename",
-                requiresRestart: true,
-                canAutoFix: false,
-                suggestions: [
-                    "Run the semantic analysis pass before requesting hot reload safety",
-                    "Provide a semantic analyzer implementation when constructing RefactorEngine"
-                ]
-            };
-        }
-
-        // Check if symbol exists
-        const exists = await this.validateSymbolExists(symbolId);
-        if (!exists) {
-            return {
-                safe: false,
-                reason: `Symbol '${symbolId}' not found in semantic index`,
-                requiresRestart: true,
-                canAutoFix: false,
-                suggestions: [
-                    "Ensure the project has been analyzed before attempting renames",
-                    "Verify the symbolId is correct"
-                ]
-            };
-        }
-
-        // Extract symbol metadata from the ID
-        // SymbolId format: gml/{kind}/{name}, e.g., "gml/script/scr_player"
-        const symbolParts = symbolId.split("/");
-        if (symbolParts.length < 3) {
-            return {
-                safe: false,
-                reason: `Malformed symbolId '${symbolId}'`,
-                requiresRestart: true,
-                canAutoFix: false,
-                suggestions: [
-                    "Ensure symbolId follows the pattern: gml/{kind}/{name}",
-                    "Example: gml/script/scr_player, gml/var/hp, gml/event/create"
-                ]
-            };
-        }
-
-        const rawSymbolKind = symbolParts[1];
-        const symbolKind = parseSymbolKind(rawSymbolKind);
-        const symbolName = symbolParts.at(-1);
-
-        // Validate symbol kind
-        if (symbolKind === null) {
-            const validKinds = Object.values(SymbolKind).join(", ");
-            return {
-                safe: false,
-                reason: `Invalid symbol kind '${rawSymbolKind}' in symbolId`,
-                requiresRestart: true,
-                canAutoFix: false,
-                suggestions: [
-                    `Valid symbol kinds are: ${validKinds}`,
-                    "Ensure symbolId follows the pattern: gml/{kind}/{name}"
-                ]
-            };
-        }
-
-        // Check for name conflict
-        if (symbolName === newName) {
-            return {
-                safe: false,
-                reason: "New name matches the existing identifier",
-                requiresRestart: false,
-                canAutoFix: false,
-                suggestions: ["Choose a different name"]
-            };
-        }
-
-        // Gather occurrences to analyze scope and usage patterns
-        const occurrences = await this.gatherSymbolOccurrences(symbolName);
-
-        // Detect potential conflicts
-        const conflicts = await detectRenameConflicts(symbolName, newName, occurrences, this.semantic, this.semantic);
-
-        if (conflicts.length > 0) {
-            const hasReservedConflict = conflicts.some((c) => c.type === ConflictType.RESERVED);
-            const hasShadowConflict = conflicts.some((c) => c.type === ConflictType.SHADOW);
-
-            if (hasReservedConflict) {
-                return {
-                    safe: false,
-                    reason: "Cannot rename to a reserved keyword",
-                    requiresRestart: true,
-                    canAutoFix: false,
-                    suggestions: ["Choose a different name that isn't a reserved keyword"]
-                };
-            }
-
-            if (hasShadowConflict) {
-                return {
-                    safe: false,
-                    reason: "Rename would introduce shadowing conflicts",
-                    requiresRestart: false,
-                    canAutoFix: true,
-                    suggestions: [
-                        "The refactor engine can automatically qualify identifiers to avoid shadowing",
-                        "Consider using a less common name to avoid conflicts"
-                    ]
-                };
-            }
-
-            return {
-                safe: false,
-                reason: `Rename has ${conflicts.length} conflict(s)`,
-                requiresRestart: false,
-                canAutoFix: false,
-                suggestions: conflicts.map((c) => c.message)
-            };
-        }
-
-        // Analyze hot reload implications based on symbol kind
-        switch (symbolKind) {
-            case SymbolKind.SCRIPT: {
-                // Script renames are generally safe for hot reload as long as
-                // we update all call sites simultaneously
-                return {
-                    safe: true,
-                    reason: "Script renames are hot-reload-safe",
-                    requiresRestart: false,
-                    canAutoFix: true,
-                    suggestions: [
-                        "All script call sites will be updated atomically",
-                        "The hot reload system will recompile dependent scripts"
-                    ]
-                };
-            }
-
-            case SymbolKind.VAR: {
-                // Instance and global variable renames are safe if we update
-                // all references, but need careful handling of self/other context
-                if (symbolId.includes("::")) {
-                    // Instance variable (e.g., gml/var/obj_enemy::hp)
-                    return {
-                        safe: true,
-                        reason: "Instance variable renames are hot-reload-safe",
-                        requiresRestart: false,
-                        canAutoFix: true,
-                        suggestions: [
-                            "All references will be updated with proper scope qualification",
-                            "Existing instances will retain their current values"
-                        ]
-                    };
-                } else {
-                    // Global variable
-                    return {
-                        safe: true,
-                        reason: "Global variable renames are hot-reload-safe",
-                        requiresRestart: false,
-                        canAutoFix: true,
-                        suggestions: ["Global state will be preserved during hot reload"]
-                    };
-                }
-            }
-
-            case SymbolKind.EVENT: {
-                // Event renames require special handling but are generally safe
-                return {
-                    safe: true,
-                    reason: "Event renames are hot-reload-safe with reinit",
-                    requiresRestart: false,
-                    canAutoFix: true,
-                    suggestions: [
-                        "Event dispatch will be updated to use the new name",
-                        "Existing instances will have their event handlers updated"
-                    ]
-                };
-            }
-
-            case SymbolKind.MACRO:
-            case SymbolKind.ENUM: {
-                // Macros and enums are compile-time constructs, so renaming them
-                // requires recompiling all dependent code
-                return {
-                    safe: false,
-                    reason: "Macro/enum renames require dependent script recompilation",
-                    requiresRestart: false,
-                    canAutoFix: true,
-                    suggestions: [
-                        "The hot reload system will automatically recompile all dependent scripts",
-                        "Consider using the batch rename API to update multiple related symbols"
-                    ]
-                };
-            }
-
-            default: {
-                // Exhaustiveness check - TypeScript ensures all cases are handled
-                const _exhaustive: never = symbolKind;
-                return _exhaustive;
-            }
-        }
+        return HotReload.checkHotReloadSafety(request, this.semantic);
     }
 
     /**
@@ -2184,74 +1516,12 @@ export class RefactorEngine {
     /**
      * Integrate refactor results with the transpiler for hot reload.
      * Takes hot reload updates and generates transpiled patches.
-     * @param {Array<{symbolId: string, action: string, filePath: string}>} hotReloadUpdates - Updates from prepareHotReloadUpdates
-     * @param {Function} readFile - Function to read file content
-     * @returns {Promise<Array<{symbolId: string, patch: Object, filePath: string}>>}
      */
     async generateTranspilerPatches(
         hotReloadUpdates: Array<HotReloadUpdate>,
         readFile: WorkspaceReadFile
     ): Promise<Array<TranspilerPatch>> {
-        if (!Array.isArray(hotReloadUpdates)) {
-            throw new TypeError("generateTranspilerPatches requires an array of hot reload updates");
-        }
-
-        if (!readFile || typeof readFile !== "function") {
-            throw new TypeError("generateTranspilerPatches requires a readFile function");
-        }
-
-        const patches: Array<TranspilerPatch> = [];
-
-        for (const update of hotReloadUpdates) {
-            // Filter to recompile actions since only script recompilations produce
-            // runtime patches that can be hot-reloaded. Asset renames and other
-            // non-code changes don't require transpilation or runtime updates.
-            if (update.action !== "recompile") {
-                continue;
-            }
-
-            try {
-                const sourceText = await readFile(update.filePath);
-
-                // Transpile the updated script into a hot-reload patch if a transpiler
-                // is available. The patch contains executable JavaScript code that the
-                // GameMaker runtime can inject without restarting the game.
-                if (this.formatter && typeof this.formatter.transpileScript === "function") {
-                    const patch = await this.formatter.transpileScript({
-                        sourceText,
-                        symbolId: update.symbolId
-                    });
-
-                    patches.push({
-                        symbolId: update.symbolId,
-                        patch,
-                        filePath: update.filePath
-                    });
-                } else {
-                    // Fall back to a basic patch structure containing only the source
-                    // text when transpilation isn't available. This still allows the
-                    // caller to process the updated files, though it won't be directly
-                    // executable by GameMaker's runtime without manual intervention.
-                    patches.push({
-                        symbolId: update.symbolId,
-                        patch: {
-                            kind: "script",
-                            id: update.symbolId,
-                            sourceText,
-                            version: Date.now()
-                        },
-                        filePath: update.filePath
-                    });
-                }
-            } catch (error) {
-                // Log error but continue processing other updates
-                if (typeof console !== "undefined" && console.warn) {
-                    console.warn(`Failed to generate patch for ${update.symbolId}: ${error.message}`);
-                }
-            }
-        }
-
-        return patches;
+        return HotReload.generateTranspilerPatches(hotReloadUpdates, readFile, this.formatter);
     }
 
     /**
@@ -2259,27 +1529,6 @@ export class RefactorEngine {
      * This method provides low-level conflict detection without throwing errors,
      * making it ideal for IDE integrations that need to show inline warnings
      * or CLI tools that want to preview potential issues before planning edits.
-     *
-     * @param {Object} request - Conflict detection request
-     * @param {string} request.oldName - Current symbol name
-     * @param {string} request.newName - Proposed new name
-     * @param {Array<{path: string, start: number, end: number, scopeId?: string}>} request.occurrences - Symbol occurrences
-     * @returns {Promise<Array<{type: string, message: string, severity?: string, path?: string}>>} Array of detected conflicts
-     *
-     * @example
-     * const conflicts = await engine.detectRenameConflicts({
-     *     oldName: "player_hp",
-     *     newName: "playerHealth",
-     *     occurrences: [
-     *         { path: "scripts/player.gml", start: 100, end: 109, scopeId: "gml/script/scr_player" }
-     *     ]
-     * });
-     *
-     * if (conflicts.length > 0) {
-     *     for (const conflict of conflicts) {
-     *         console.warn(`${conflict.type}: ${conflict.message}`);
-     *     }
-     * }
      */
     async detectRenameConflicts(request: {
         oldName: string;
