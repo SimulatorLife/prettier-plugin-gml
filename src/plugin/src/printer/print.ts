@@ -3182,7 +3182,7 @@ export function getSimpleAssignmentLikeEntry(
         };
     }
 
-    let declarator = null;
+    let declarator;
     let keyword = "var";
     if (statement.type === "VariableDeclarator") {
         declarator = statement;
@@ -3223,8 +3223,8 @@ export function getSimpleAssignmentLikeEntry(
                     enablesAlignment = true;
                 }
             } else if (functionParameterNames?.has(init.name) && !options?.applyFeatherFixes) {
-                    enablesAlignment = true;
-                }
+                enablesAlignment = true;
+            }
         }
     }
 
