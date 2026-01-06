@@ -7,7 +7,7 @@
     "tsBuildInfoFile": "./dist/.tsbuildinfo",
     "baseUrl": ".",
     "paths": {
-      "@gml-modules/plugin": ["./index.ts"]
+      "@gml-modules/plugin": ["./src/index.ts"]
     }
   },
   "references": [
@@ -15,6 +15,6 @@
     { "path": "../parser" },
     { "path": "../semantic" }
   ],
-  "include": ["*.ts", "src/**/*.ts", "test/**/*.ts"],
+  "include": ["src/**/*.ts", "test/**/*.ts"],
   "exclude": ["dist"]
 }
