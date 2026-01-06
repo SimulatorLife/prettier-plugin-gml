@@ -277,7 +277,7 @@ export default class GameMakerASTBuilder {
 
     ensureArray(ctx: unknown): ParserContextWithMethods[] {
         if (!ctx) return [];
-        const arr = Array.isArray(ctx) ? ctx : [ctx];
+        const arr = Core.toArray(ctx);
         return arr.filter((c) => c !== null && c !== undefined) as ParserContextWithMethods[];
     }
 
