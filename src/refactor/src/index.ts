@@ -1,6 +1,7 @@
 import * as RefactorAPI from "./refactor-engine.js";
 import { WorkspaceEdit } from "./workspace-edit.js";
 import * as OccurrenceAnalysisAPI from "./occurrence-analysis.js";
+import * as RenamePreviewAPI from "./rename-preview.js";
 import {
     ConflictType,
     isConflictType,
@@ -16,6 +17,7 @@ export const Refactor = Object.freeze({
     ...RefactorAPI,
     WorkspaceEdit,
     ...OccurrenceAnalysisAPI,
+    ...RenamePreviewAPI,
     ConflictType,
     isConflictType,
     parseConflictType,
@@ -42,6 +44,15 @@ export {
 } from "./occurrence-analysis.js";
 
 export type { OccurrenceClassification } from "./occurrence-analysis.js";
+
+export {
+    generateRenamePreview,
+    formatRenamePlanReport,
+    formatBatchRenamePlanReport,
+    formatOccurrencePreview
+} from "./rename-preview.js";
+
+export type { FilePreview, RenamePreview } from "./rename-preview.js";
 
 export type {
     ApplyWorkspaceEditOptions,
