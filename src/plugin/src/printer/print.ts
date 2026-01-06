@@ -3004,7 +3004,7 @@ export function applyAssignmentAlignment(statements, options, path = null, child
     };
 
     for (const statement of statements) {
-        let entries = [];
+        const entries = [];
         if (statement.type === "VariableDeclaration") {
             for (const declarator of statement.declarations) {
                 const entry = getSimpleAssignmentLikeEntry(
@@ -3217,11 +3217,9 @@ export function getSimpleAssignmentLikeEntry(
                 if (!options?.applyFeatherFixes || !hasNamedParameters) {
                     enablesAlignment = true;
                 }
-            } else if (functionParameterNames?.has(init.name)) {
-                if (!options?.applyFeatherFixes) {
+            } else if (functionParameterNames?.has(init.name) && !options?.applyFeatherFixes) {
                     enablesAlignment = true;
                 }
-            }
         }
     }
 
