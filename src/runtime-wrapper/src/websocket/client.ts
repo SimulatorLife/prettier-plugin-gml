@@ -45,6 +45,17 @@ export function createWebSocketClient({
         connectionMetrics: createInitialMetrics()
     };
 
+    const recordPatchSuccess = (patch: Patch, applyDuration: number): void => {
+        state.connectionMetrics.patchesApplied += 1;
+        state.connectionMetrics.lastPatchAppliedAt = Date.now();
+        console.log(`[hot-reload] Patch ${patch.id} applied in ${applyDuration}ms`);
+    };
+
+    const recordPatchFailure = (): void => {
+        state.connectionMetrics.patchesFailed += 1;
+        state.connectionMetrics.patchErrors += 1;
+    };
+
     const applyIncomingPatch = (incoming: unknown): boolean => {
         const receivedAt = Date.now();
         state.connectionMetrics.patchesReceived += 1;
@@ -76,13 +87,9 @@ export function createWebSocketClient({
             const appliedStartAt = Date.now();
             const applied = applyPatchSafely(patch, wrapper, onError);
             if (applied) {
-                const applyDuration = Date.now() - appliedStartAt;
-                state.connectionMetrics.patchesApplied += 1;
-                state.connectionMetrics.lastPatchAppliedAt = Date.now();
-                console.log(`[hot-reload] Patch ${patch.id} applied in ${applyDuration}ms`);
+                recordPatchSuccess(patch, Date.now() - appliedStartAt);
             } else {
-                state.connectionMetrics.patchesFailed += 1;
-                state.connectionMetrics.patchErrors += 1;
+                recordPatchFailure();
             }
             return applied;
         }
@@ -91,13 +98,9 @@ export function createWebSocketClient({
             const appliedStartAt = Date.now();
             const applied = applyPatchDirectly(patch, wrapper, onError);
             if (applied) {
-                const applyDuration = Date.now() - appliedStartAt;
-                state.connectionMetrics.patchesApplied += 1;
-                state.connectionMetrics.lastPatchAppliedAt = Date.now();
-                console.log(`[hot-reload] Patch ${patch.id} applied in ${applyDuration}ms`);
+                recordPatchSuccess(patch, Date.now() - appliedStartAt);
             } else {
-                state.connectionMetrics.patchesFailed += 1;
-                state.connectionMetrics.patchErrors += 1;
+                recordPatchFailure();
             }
             return applied;
         }
