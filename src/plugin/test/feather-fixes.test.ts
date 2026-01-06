@@ -1329,22 +1329,22 @@ void describe("Transforms.applyFeatherFixes transform", () => {
         const [macro, varDeclaration, staticDeclaration] = ast.body ?? [];
 
         assert.ok(macro?.name);
-        assert.strictEqual(macro.name.name, "_image_index");
-        assert.strictEqual(macro._featherMacroText?.trimEnd(), "#macro _image_index 1");
+        assert.strictEqual(macro.name.name, "__featherFix_image_index");
+        assert.strictEqual(macro._featherMacroText?.trimEnd(), "#macro __featherFix_image_index 1");
         assert.ok(Array.isArray(macro.name._appliedFeatherDiagnostics));
         assert.strictEqual(macro.name._appliedFeatherDiagnostics[0].id, "GM1030");
         assert.strictEqual(macro.name._appliedFeatherDiagnostics[0].target, "image_index");
 
         const varDeclarator = varDeclaration?.declarations?.[0];
         assert.ok(varDeclarator?.id);
-        assert.strictEqual(varDeclarator.id.name, "_image_index");
+        assert.strictEqual(varDeclarator.id.name, "__featherFix_image_index");
         assert.ok(Array.isArray(varDeclarator.id._appliedFeatherDiagnostics));
         assert.strictEqual(varDeclarator.id._appliedFeatherDiagnostics[0].id, "GM1030");
         assert.strictEqual(varDeclarator.id._appliedFeatherDiagnostics[0].target, "image_index");
 
         const staticDeclarator = staticDeclaration?.declarations?.[0];
         assert.ok(staticDeclarator?.id);
-        assert.strictEqual(staticDeclarator.id.name, "_draw_text");
+        assert.strictEqual(staticDeclarator.id.name, "__featherFix_draw_text");
         assert.ok(Array.isArray(staticDeclarator.id._appliedFeatherDiagnostics));
         assert.strictEqual(staticDeclarator.id._appliedFeatherDiagnostics[0].id, "GM1030");
         assert.strictEqual(staticDeclarator.id._appliedFeatherDiagnostics[0].target, "draw_text");
