@@ -215,6 +215,12 @@ export async function validateRenameStructure(
 }
 
 /**
+ * Internal sentinel value to represent global (unscoped) symbol occurrences.
+ * Used to group occurrences without a scopeId for batch validation.
+ */
+const GLOBAL_SCOPE_KEY = "__global__";
+
+/**
  * Batch validate scope safety for multiple occurrences efficiently.
  * Groups occurrences by scope to minimize redundant lookups, essential for
  * hot reload scenarios where many symbols need validation quickly.
@@ -254,19 +260,23 @@ export async function batchValidateScopeConflicts(
 
     const scopeGroups = new Map<string, Array<SymbolOccurrence>>();
     for (const occurrence of occurrences) {
-        const scopeKey = occurrence.scopeId ?? "global";
+        const scopeKey = occurrence.scopeId ?? GLOBAL_SCOPE_KEY;
         if (!scopeGroups.has(scopeKey)) {
             scopeGroups.set(scopeKey, []);
         }
-        scopeGroups.get(scopeKey).push(occurrence);
+        const group = scopeGroups.get(scopeKey);
+        if (group) {
+            group.push(occurrence);
+        }
     }
 
     for (const [scopeId] of scopeGroups) {
         // eslint-disable-next-line no-await-in-loop -- Each scope must be validated sequentially for correctness
-        const existing = await resolver.lookup(normalizedNewName, scopeId === "global" ? undefined : scopeId);
+        const existing = await resolver.lookup(normalizedNewName, scopeId === GLOBAL_SCOPE_KEY ? undefined : scopeId);
         if (existing) {
+            const scopeDisplayName = scopeId === GLOBAL_SCOPE_KEY ? "global scope" : `scope '${scopeId}'`;
             conflicts.set(scopeId, {
-                message: `Name '${normalizedNewName}' already exists in scope '${scopeId}'`,
+                message: `Name '${normalizedNewName}' already exists in ${scopeDisplayName}`,
                 existingSymbol: existing.name
             });
         }
