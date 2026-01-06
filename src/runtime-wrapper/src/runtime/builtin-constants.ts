@@ -87,24 +87,16 @@ const MATH_CONSTANTS: ConstantMap = {
     pi2: Math.PI * 2
 };
 
-type RuntimeColorFactory = (red: number, green: number, blue: number) => number;
-
-function resolveColorFactory(globalScope: Record<string, unknown>): RuntimeColorFactory {
-    const makeColour = globalScope.make_colour_rgb;
-    if (typeof makeColour === "function") {
-        return makeColour as RuntimeColorFactory;
-    }
-
-    const makeColor = globalScope.make_color_rgb;
-    if (typeof makeColor === "function") {
-        return makeColor as RuntimeColorFactory;
-    }
-
-    return (red, green, blue) => (red & 0xff) | ((green & 0xff) << 8) | ((blue & 0xff) << 16);
-}
-
 function buildColorConstants(globalScope: Record<string, unknown>): ConstantMap {
-    const makeColor = resolveColorFactory(globalScope);
+    const makeColourRgb = globalScope.make_colour_rgb;
+    const makeColorRgb = globalScope.make_color_rgb;
+    const makeColor =
+        typeof makeColourRgb === "function"
+            ? (makeColourRgb as (r: number, g: number, b: number) => number)
+            : typeof makeColorRgb === "function"
+              ? (makeColorRgb as (r: number, g: number, b: number) => number)
+              : (red: number, green: number, blue: number) =>
+                    (red & 0xff) | ((green & 0xff) << 8) | ((blue & 0xff) << 16);
 
     return Object.fromEntries(
         Object.entries(COLOR_RGB).map(([name, rgb]) => [name, makeColor(rgb[0], rgb[1], rgb[2])])
