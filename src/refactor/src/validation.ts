@@ -55,6 +55,7 @@ export async function detectRenameConflicts(
             // Perform a scope-aware lookup for the new name at each occurrence
             // site. If we find an existing binding that isn't the symbol we're
             // renaming, record a conflict so the user can resolve it manually.
+            // eslint-disable-next-line no-await-in-loop -- Scope lookup must be sequential for each occurrence
             const existing = await resolver.lookup(normalizedNewName, occurrence.scopeId);
             if (existing && existing.name !== oldName) {
                 conflicts.push({
@@ -137,4 +138,78 @@ export function detectCircularRenames(renames: Array<RenameRequest>): Array<stri
     }
 
     return [];
+}
+
+/**
+ * Validate rename request structure and basic semantic constraints before planning.
+ * This is a pre-flight check that fails fast on invalid requests, avoiding expensive
+ * occurrence gathering and conflict detection when the rename is structurally unsound.
+ *
+ * Unlike full rename validation, this does not gather occurrences or check for
+ * shadowing conflicts. It only validates that:
+ * - The request has required fields
+ * - The identifier names are syntactically valid
+ * - The symbol exists in the semantic index (if available)
+ * - The new name differs from the old name
+ *
+ * @param symbolId - Symbol identifier to rename
+ * @param newName - Proposed new name
+ * @param resolver - Symbol resolver for existence checks (null if not available)
+ * @returns Array of validation errors (empty if valid)
+ *
+ * @example
+ * const errors = await validateRenameStructure(
+ *   "gml/script/scr_player",
+ *   "scr_hero",
+ *   semantic
+ * );
+ * if (errors.length > 0) {
+ *   console.error("Invalid rename:", errors);
+ *   return;
+ * }
+ * // Proceed with full rename planning
+ */
+export async function validateRenameStructure(
+    symbolId: string | undefined | null,
+    newName: string | undefined | null,
+    resolver: Partial<SymbolResolver> | null
+): Promise<Array<string>> {
+    const errors: Array<string> = [];
+
+    if (symbolId == null || typeof symbolId !== "string" || symbolId.trim() === "") {
+        errors.push("symbolId must be a non-empty string");
+        return errors;
+    }
+
+    if (newName == null || typeof newName !== "string" || newName.trim() === "") {
+        errors.push("newName must be a non-empty string");
+        return errors;
+    }
+
+    // Validate identifier syntax
+    try {
+        assertValidIdentifierName(newName);
+    } catch (error) {
+        const errorMessage = Core.isErrorLike(error) ? error.message : String(error);
+        errors.push(errorMessage);
+        return errors;
+    }
+
+    // Extract symbol name from ID
+    const symbolName = symbolId.split("/").pop() ?? symbolId;
+
+    if (symbolName === newName) {
+        errors.push(`The new name '${newName}' matches the existing identifier`);
+        return errors;
+    }
+
+    // Check symbol existence if resolver available
+    if (resolver && typeof resolver.hasSymbol === "function") {
+        const exists = await resolver.hasSymbol(symbolId);
+        if (!exists) {
+            errors.push(`Symbol '${symbolId}' not found in semantic index`);
+        }
+    }
+
+    return errors;
 }
