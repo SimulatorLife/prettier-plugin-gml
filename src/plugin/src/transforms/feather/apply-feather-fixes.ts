@@ -15912,15 +15912,17 @@ function renameReservedIdentifiers({ ast, diagnostic, sourceText }) {
     }
 
     const fixes = [];
+    const renameMap = new Map();
 
-    const visit = (node) => {
+    // First pass: find all declarations that need to be renamed
+    const collectRenamings = (node) => {
         if (!node) {
             return;
         }
 
         if (Array.isArray(node)) {
             for (const child of node) {
-                visit(child);
+                collectRenamings(child);
             }
             return;
         }
@@ -15934,25 +15936,111 @@ function renameReservedIdentifiers({ ast, diagnostic, sourceText }) {
 
             if (Core.isNonEmptyArray(declarationFixes)) {
                 fixes.push(...declarationFixes);
+                // Collect the renamed identifiers
+                for (const fix of declarationFixes) {
+                    if (fix?.target && fix?.replacement) {
+                        renameMap.set(fix.target, fix.replacement);
+                    }
+                }
             }
         } else if (node.type === "MacroDeclaration") {
             const macroFix = renameReservedIdentifierInMacro(node, diagnostic, sourceText);
 
             if (macroFix) {
                 fixes.push(macroFix);
+                if (macroFix?.target && macroFix?.replacement) {
+                    renameMap.set(macroFix.target, macroFix.replacement);
+                }
             }
         }
 
         for (const value of Object.values(node)) {
             if (value && typeof value === "object") {
-                visit(value);
+                collectRenamings(value);
             }
         }
     };
 
-    visit(ast);
+    collectRenamings(ast);
+
+    // Second pass: rename all identifier usages
+    if (renameMap.size > 0) {
+        const renameUsages = (node, parent, property) => {
+            if (!node) {
+                return;
+            }
+
+            if (Array.isArray(node)) {
+                for (let i = 0; i < node.length; i++) {
+                    renameUsages(node[i], node, i);
+                }
+                return;
+            }
+
+            if (typeof node !== "object") {
+                return;
+            }
+
+            // Skip renaming identifiers in certain contexts
+            if (shouldSkipIdentifierRenaming(node, parent, property)) {
+                return;
+            }
+
+            if (node.type === "Identifier" && node.name && renameMap.has(node.name)) {
+                node.name = renameMap.get(node.name);
+            }
+
+            for (const [key, value] of Object.entries(node)) {
+                if (value && typeof value === "object") {
+                    renameUsages(value, node, key);
+                }
+            }
+        };
+
+        renameUsages(ast, null, null);
+    }
 
     return fixes;
+}
+
+function shouldSkipIdentifierRenaming(node, parent, property) {
+    if (!parent) {
+        return false;
+    }
+
+    // Skip renaming the identifier in a variable declarator (already renamed in first pass)
+    if (parent.type === "VariableDeclarator" && property === "id") {
+        return true;
+    }
+
+    // Skip renaming in macro declarations (already renamed in first pass)
+    if (parent.type === "MacroDeclaration" && property === "name") {
+        return true;
+    }
+
+    // Skip renaming property names in member access expressions
+    if (parent.type === "MemberDotExpression" && property === "property") {
+        return true;
+    }
+
+    // Skip renaming in enum declarations
+    if (parent.type === "EnumDeclaration" && property === "name") {
+        return true;
+    }
+
+    // Skip renaming enum member names
+    if (parent.type === "EnumMember" && property === "name") {
+        return true;
+    }
+
+    // Skip renaming function parameter names (already handled separately if needed)
+    if (Array.isArray(parent)) {
+        // This case is not easily determinable without additional context
+        // We might need to check the parent's parent to see if it's a function
+        return false;
+    }
+
+    return false;
 }
 
 function isSupportedVariableDeclaration(node) {
@@ -16032,6 +16120,9 @@ function renameReservedIdentifierNode(identifier, diagnostic, options: RenameOpt
         return null;
     }
 
+    // Add the replacement name to the fix detail so it can be collected
+    fixDetail.replacement = replacement;
+
     identifier.name = replacement;
 
     if (typeof options.onRename === "function") {
@@ -16107,7 +16198,7 @@ function getReplacementIdentifierName(originalName) {
         return null;
     }
 
-    let candidate = `_${originalName}`;
+    let candidate = `__featherFix_${originalName}`;
     const seen = new Set();
 
     while (isReservedIdentifier(candidate)) {
