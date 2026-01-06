@@ -16225,10 +16225,15 @@ function buildMacroReplacementText({ macro, originalName, replacement, sourceTex
     }
 
     if (Core.isNonEmptyString(originalName)) {
-        const nameIndex = baseText.indexOf(originalName);
+        // Use a regular expression with word boundaries to avoid partial matches during renaming.
+        // We use the 'g' flag even though macros usually only contain the name once in the
+        // declaration header, as macros are text-based and could potentially reference
+        // themselves or others in a way that requires global replacement within the line.
+        const escapedName = originalName.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
+        const regex = new RegExp(`\\b${escapedName}\\b`, "g");
 
-        if (nameIndex !== -1) {
-            return baseText.slice(0, nameIndex) + replacement + baseText.slice(nameIndex + originalName.length);
+        if (regex.test(baseText)) {
+            return baseText.replace(regex, replacement);
         }
     }
 

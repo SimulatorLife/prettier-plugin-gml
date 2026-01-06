@@ -3004,8 +3004,12 @@ export function applyAssignmentAlignment(statements, options, path = null, child
     };
 
     for (const statement of statements) {
+        if (!statement) {
+            continue;
+        }
         const entries = [];
         if (statement.type === "VariableDeclaration") {
+            const kind = statement.kind || "var";
             for (const declarator of statement.declarations) {
                 const entry = getSimpleAssignmentLikeEntry(
                     declarator,
@@ -3016,8 +3020,9 @@ export function applyAssignmentAlignment(statements, options, path = null, child
                 );
                 if (entry) {
                     entry.locationNode = statement;
-                    entry.category = statement.kind || "var";
-                    entry.prefixLength = entry.category.length + 1;
+                    // Ensure the category and prefixLength match for all declarators in the group
+                    entry.category = kind === "var" ? "assignment" : kind;
+                    entry.prefixLength = kind.length + 1;
                     entries.push(entry);
                 }
             }
@@ -3231,7 +3236,7 @@ export function getSimpleAssignmentLikeEntry(
         locationNode: statement,
         paddingTarget: declarator,
         nameLength: (id.name as string).length,
-        enablesAlignment: enablesAlignment || (!insideFunctionBody && keyword === "var"),
+        enablesAlignment: enablesAlignment || keyword === "var",
         skipBreakAfter,
         prefixLength,
         category: keyword === "var" ? "assignment" : keyword
