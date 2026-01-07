@@ -16229,8 +16229,8 @@ function buildMacroReplacementText({ macro, originalName, replacement, sourceTex
         // We use the 'g' flag even though macros usually only contain the name once in the
         // declaration header, as macros are text-based and could potentially reference
         // themselves or others in a way that requires global replacement within the line.
-        const escapedName = originalName.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
-        const regex = new RegExp(`\\b${escapedName}\\b`, "g");
+        const escapedName = originalName.replaceAll(/[.*+?^${}()|[\]\\]/g, String.raw`\$&`);
+        const regex = new RegExp(String.raw`\b${escapedName}\b`, "g");
 
         if (regex.test(baseText)) {
             return baseText.replace(regex, replacement);
