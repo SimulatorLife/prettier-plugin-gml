@@ -3172,10 +3172,13 @@ export function getSimpleAssignmentLikeEntry(
             return null;
         }
 
+        const originalName = getOriginalIdentifierName(identifier);
+        const nameLength = originalName ? originalName.length : identifier.name.length;
+
         return {
             locationNode: statement,
             paddingTarget: node,
-            nameLength: identifier.name.length,
+            nameLength,
             enablesAlignment: true,
             prefixLength: getGlobalIdentifierAlignmentPrefixLength(identifier, options),
             category: "assignment"
@@ -3232,10 +3235,18 @@ export function getSimpleAssignmentLikeEntry(
 
     const prefixLength = keyword.length + 1;
 
+    let nameLength = (id.name as string).length;
+    if (Array.isArray((id)._appliedFeatherDiagnostics) && (id)._appliedFeatherDiagnostics.length > 0) {
+        const firstFix = (id)._appliedFeatherDiagnostics[0];
+        if (firstFix && typeof firstFix.target === "string") {
+            nameLength = firstFix.target.length;
+        }
+    }
+
     return {
         locationNode: statement,
         paddingTarget: declarator,
-        nameLength: (id.name as string).length,
+        nameLength,
         enablesAlignment: enablesAlignment || keyword === "var",
         skipBreakAfter,
         prefixLength,
@@ -3849,6 +3860,21 @@ function findFunctionParameterContext(path) {
     return null;
 }
 
+function getOriginalIdentifierName(identifier) {
+    if (!identifier || typeof identifier !== "object") {
+        return null;
+    }
+    
+    if (Array.isArray((identifier as any)._appliedFeatherDiagnostics) && (identifier as any)._appliedFeatherDiagnostics.length > 0) {
+        const firstFix = (identifier as any)._appliedFeatherDiagnostics[0];
+        if (firstFix && typeof firstFix.target === "string") {
+            return firstFix.target;
+        }
+    }
+    
+    return typeof (identifier as any).name === "string" ? (identifier as any).name : null;
+}
+
 function shouldOmitParameterAlias(declarator, functionNode, options) {
     if (
         !declarator ||
@@ -3861,14 +3887,46 @@ function shouldOmitParameterAlias(declarator, functionNode, options) {
         return false;
     }
 
+    let aliasName = declarator.id.name;
+    if (
+        Array.isArray((declarator.id)._appliedFeatherDiagnostics) &&
+        (declarator.id)._appliedFeatherDiagnostics.length > 0
+    ) {
+        const firstFix = (declarator.id)._appliedFeatherDiagnostics[0];
+        if (firstFix && typeof firstFix.target === "string") {
+            aliasName = firstFix.target;
+        }
+    }
+
+    const normalizedAliasName = normalizePreferredParameterName(aliasName);
+    const normalizedInitName = normalizePreferredParameterName(declarator.init.name);
+
+    if (normalizedAliasName && normalizedInitName && normalizedAliasName === normalizedInitName) {
+        return true;
+    }
+
     const argumentIndex = Core.getArgumentIndexFromIdentifier(declarator.init.name);
-    if (argumentIndex === null) {
+
+    let paramIndex = argumentIndex;
+    if (argumentIndex === null && functionNode) {
+        const params = getFunctionParams(functionNode);
+        for (const [i, param] of params.entries()) {
+            const paramId = Core.getIdentifierFromParameterNode(param);
+            if (paramId && paramId.name === declarator.init.name) {
+                paramIndex = i;
+                break;
+            }
+        }
+        if (paramIndex === null) {
+            return false;
+        }
+    } else if (argumentIndex === null) {
         return false;
     }
 
-    const preferredName = resolvePreferredParameterName(functionNode, argumentIndex, declarator.init.name, options);
+    const preferredName = resolvePreferredParameterName(functionNode, paramIndex, declarator.init.name, options);
 
-    const normalizedAlias = normalizePreferredParameterName(declarator.id.name);
+    const normalizedAlias = normalizePreferredParameterName(aliasName);
     if (!normalizedAlias) {
         return false;
     }
@@ -3878,11 +3936,11 @@ function shouldOmitParameterAlias(declarator, functionNode, options) {
     }
 
     const params = getFunctionParams(functionNode);
-    if (argumentIndex < 0 || argumentIndex >= params.length) {
+    if (paramIndex < 0 || paramIndex >= params.length) {
         return false;
     }
 
-    const identifier = Core.getIdentifierFromParameterNode(params[argumentIndex]);
+    const identifier = Core.getIdentifierFromParameterNode(params[paramIndex]);
     if (!identifier || typeof identifier.name !== STRING_TYPE) {
         return false;
     }
