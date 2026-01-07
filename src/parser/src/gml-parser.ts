@@ -17,18 +17,108 @@ const PredictionMode =
 
 installRecognitionExceptionLikeGuard();
 
+/**
+ * Merges parser option overrides with base defaults.
+ *
+ * @param baseOptions - The default parser options to use as a foundation.
+ * @param overrides - Optional partial overrides to apply on top of defaults. Non-object values are ignored.
+ * @returns A complete ParserOptions object with overrides applied.
+ *
+ * @remarks
+ * This function ensures that even when `overrides` is null, undefined, or a non-object,
+ * a valid options object is always returned by treating such values as empty overrides.
+ */
 function mergeParserOptions(baseOptions: ParserOptions, overrides: Partial<ParserOptions> | undefined): ParserOptions {
     const overrideObject = Core.isObjectLike(overrides) ? overrides : {};
     return Object.assign({}, baseOptions, overrideObject) as ParserOptions;
 }
 
+/**
+ * Parser for GameMaker Language (GML) source code.
+ *
+ * Transforms raw GML source text into an Abstract Syntax Tree (AST) suitable for
+ * formatting, analysis, or transformation. The parser leverages ANTLR-generated
+ * lexer and parser components and provides fine-grained control over output format,
+ * comment extraction, and location metadata.
+ *
+ * @example
+ * ```typescript
+ * // Parse with default options
+ * const ast = GMLParser.parse("x = 42;");
+ *
+ * // Parse with custom options
+ * const parser = new GMLParser("function foo() { return true; }", {
+ *   getComments: false,
+ *   simplifyLocations: false
+ * });
+ * const ast = parser.parse();
+ * ```
+ *
+ * @remarks
+ * The parser normalizes escape sequences in string literals during preprocessing
+ * to handle edge cases in ANTLR's lexer. The original literal text is restored
+ * post-parse if normalization occurred. Consumers should not rely on the internal
+ * `text` property differing from `originalText` except during active parsing.
+ */
 export class GMLParser {
+    /**
+     * The unmodified source text as provided to the constructor.
+     *
+     * @remarks
+     * This property preserves the exact input, including any escape sequences or
+     * formatting quirks, so that literal values can be restored after normalization.
+     */
     public originalText: string;
+
+    /**
+     * The preprocessed source text used for parsing.
+     *
+     * @remarks
+     * Escape sequences in string literals are normalized to avoid lexer ambiguities.
+     * After parsing completes, the original literal text is restored from `originalText`.
+     */
     public text: string;
+
+    /**
+     * Whitespace tokens collected during lexical analysis.
+     *
+     * @remarks
+     * Populated only when options.getComments is true. Each entry represents a
+     * contiguous span of whitespace extracted by the hidden-node processor.
+     */
     public whitespaces: Array<unknown>;
+
+    /**
+     * Comment tokens collected during lexical analysis.
+     *
+     * @remarks
+     * Populated only when options.getComments is true. Comments include both
+     * single-line (//) and multi-line (slash-star star-slash) forms, along with any adjacent
+     * whitespace needed to preserve formatting context.
+     */
     public comments: Array<unknown>;
+
+    /**
+     * Merged parser configuration.
+     *
+     * @remarks
+     * Combines the static optionDefaults from the parser class with any overrides
+     * provided at construction time. Subclasses can override optionDefaults to
+     * change the baseline behavior.
+     */
     public options: ParserOptions;
 
+    /**
+     * Constructs a new GML parser instance.
+     *
+     * @param text - The raw GML source code to parse.
+     * @param options - Optional configuration overrides. Defaults are merged from
+     *   the static optionDefaults property.
+     *
+     * @remarks
+     * The constructor normalizes escape sequences in text for lexer compatibility.
+     * The original text is preserved in originalText and restored post-parse if needed.
+     */
     constructor(text: string, options: Partial<ParserOptions> = {}) {
         this.originalText = text;
         this.text = Core.normalizeSimpleEscapeCase(text);
@@ -38,12 +128,68 @@ export class GMLParser {
         this.options = mergeParserOptions(parserConstructor.optionDefaults, options);
     }
 
+    /**
+     * Default parser options used when no overrides are provided.
+     *
+     * @remarks
+     * Subclasses can replace this property to change the baseline configuration.
+     * Instance constructors merge these defaults with any provided overrides.
+     */
     static optionDefaults: ParserOptions = defaultParserOptions;
 
+    /**
+     * Parses GML source code into an AST using a new parser instance.
+     *
+     * @param text - The GML source code to parse.
+     * @param options - Optional configuration overrides.
+     * @returns The parsed AST. Structure depends on the astFormat option:
+     *   - "gml" (default): GML-specific AST nodes.
+     *   - "estree": ESTree-compatible representation.
+     *   If asJSON is true, returns a JSON string instead of an object.
+     *
+     * @throws {Error} When the source contains syntax errors or the parser encounters
+     *   an unrecoverable state.
+     *
+     * @example
+     * ```typescript
+     * const ast = GMLParser.parse("x = 10;");
+     * ```
+     */
     static parse(text: string, options?: Partial<ParserOptions>) {
         return new this(text, options).parse();
     }
 
+    /**
+     * Parses the GML source code into an AST.
+     *
+     * @returns The parsed AST. The structure and format depend on the parser options:
+     *   - When options.astFormat is "gml" (default), returns GML-specific AST nodes.
+     *   - When options.astFormat is "estree", returns an ESTree-compatible representation.
+     *   - When options.asJSON is true, returns a JSON string instead of an object.
+     *   - When options.getComments is false, the comments property is omitted.
+     *   - When options.getLocations is false, location metadata is stripped from all nodes.
+     *
+     * @throws {Error} When the source contains syntax errors or the parser encounters
+     *   an unrecoverable state during lexing or parsing.
+     *
+     * @remarks
+     * The parse process follows these steps:
+     * 1. Tokenize the preprocessed source using the ANTLR lexer.
+     * 2. Parse tokens into a parse tree using SLL prediction mode for speed.
+     * 3. If getComments is enabled, re-lex to extract hidden tokens (comments, whitespace).
+     * 4. Build the AST from the parse tree.
+     * 5. Attach comments to the AST if requested.
+     * 6. Remove or simplify location metadata based on options.
+     * 7. Restore original literal text if normalization occurred.
+     * 8. Convert to ESTree format if requested.
+     * 9. Serialize to JSON if asJSON is enabled.
+     *
+     * Edge cases:
+     * - If the source is empty, returns a program node with an empty body.
+     * - Syntax errors trigger an exception with details from the error listener.
+     * - The parser uses SLL prediction mode by default; if parsing fails, the error
+     *   propagates immediately rather than retrying with LL mode.
+     */
     parse() {
         const chars = new antlr4.InputStream(this.text);
         const lexer = new GameMakerLanguageLexer(chars);
@@ -118,6 +264,23 @@ export class GMLParser {
         return astTree;
     }
 
+    /**
+     * Restores the original escape sequences and literal text in the AST.
+     *
+     * @param root - The AST root node to process.
+     *
+     * @remarks
+     * The parser normalizes escape sequences in string literals during preprocessing
+     * to avoid lexer ambiguities. After the AST is built, this method walks the tree
+     * and replaces the normalized text with the original literal text from originalText.
+     *
+     * Only applies to:
+     * - Literal nodes with quoted string values.
+     * - TemplateStringText nodes.
+     *
+     * The method uses start/end indices from the AST to extract the correct substring
+     * from originalText. If indices are invalid or missing, the node is left unchanged.
+     */
     restoreOriginalLiteralText(root) {
         if (!root || typeof root !== "object") {
             return;
@@ -155,8 +318,29 @@ export class GMLParser {
         });
     }
 
-    // Populates the comments array and whitespaces array.
-    // Comments are annotated with surrounding whitespace and characters.
+    /**
+     * Extracts comments and whitespace tokens from the source.
+     *
+     * @param lexer - The ANTLR lexer instance to tokenize the source.
+     *
+     * @remarks
+     * This method re-lexes the entire source to capture hidden tokens (comments and
+     * whitespace) that are normally ignored during parsing. The extracted tokens are
+     * stored in the comments and whitespaces arrays.
+     *
+     * Called only when options.getComments is true. The lexer is reset to the
+     * beginning of the input stream before processing to ensure all tokens are captured.
+     *
+     * Token types processed:
+     * - SingleLineComment: // ...
+     * - MultiLineComment: slash-star ... star-slash
+     * - WhiteSpaces: Runs of spaces, tabs, etc.
+     * - LineTerminator: Newlines and carriage returns.
+     * - EOF: End-of-file marker.
+     *
+     * The hidden-node processor annotates comments with surrounding whitespace
+     * and other contextual metadata needed for accurate formatting.
+     */
     getHiddenNodes(lexer) {
         const { EOF, SingleLineComment, MultiLineComment, WhiteSpaces, LineTerminator } = GameMakerLanguageLexer;
         const processor = createHiddenNodeProcessor({
@@ -176,13 +360,41 @@ export class GMLParser {
         }
     }
 
+    /**
+     * Removes all location metadata from the AST.
+     *
+     * @param obj - The AST node or tree to process.
+     *
+     * @remarks
+     * Delegates to Core.removeLocationMetadata to strip start/end/loc properties
+     * from all nodes in the tree. Used when options.getLocations is false to reduce
+     * memory footprint and simplify output for consumers that don't need position data.
+     */
     removeLocationInfo(obj) {
         Core.removeLocationMetadata(obj);
     }
 
+    /**
+     * Simplifies location metadata to a more compact representation.
+     *
+     * @param obj - The AST node or tree to process.
+     *
+     * @remarks
+     * Delegates to Core.simplifyLocationMetadata to convert verbose location objects
+     * to simpler forms (e.g., line/column tuples or offsets). Used when
+     * options.simplifyLocations is true to balance precision with memory efficiency.
+     */
     simplifyLocationInfo(obj) {
         Core.simplifyLocationMetadata(obj);
     }
 }
 
+/**
+ * Re-exported utility function for counting line breaks in a string.
+ *
+ * @remarks
+ * This convenience export allows consumers to access Core.getLineBreakCount
+ * directly from the parser module without importing @gml-modules/core.
+ * Useful for calculating line metrics or validating source spans.
+ */
 export const getLineBreakCount: typeof Core.getLineBreakCount = Core.getLineBreakCount;
