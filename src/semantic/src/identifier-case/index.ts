@@ -4,6 +4,7 @@ export * from "./option-store-defaults.js";
 export * from "./plan-service.js";
 export * from "./identifier-case-context.js";
 export * from "./identifier-case-report.js";
+export * from "./conflict-severity.js";
 export * from "./environment.js";
 export * from "./identifier-case-utils.js";
 // Local plan exports are intentionally not re-exported to avoid duplicating
