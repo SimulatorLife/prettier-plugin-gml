@@ -93,7 +93,7 @@ export class GMLParser {
      *
      * @remarks
      * Populated only when options.getComments is true. Comments include both
-     * single-line (//) and multi-line (slash-star star-slash) forms, along with any adjacent
+     * single-line (//) and multi-line (block comment) forms, along with any adjacent
      * whitespace needed to preserve formatting context.
      */
     public comments: Array<unknown>;
@@ -333,7 +333,7 @@ export class GMLParser {
      *
      * Token types processed:
      * - SingleLineComment: // ...
-     * - MultiLineComment: slash-star ... star-slash
+     * - MultiLineComment: block comment syntax
      * - WhiteSpaces: Runs of spaces, tabs, etc.
      * - LineTerminator: Newlines and carriage returns.
      * - EOF: End-of-file marker.
