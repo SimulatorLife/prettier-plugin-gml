@@ -176,13 +176,25 @@ export async function validateRenameStructure(
 ): Promise<Array<string>> {
     const errors: Array<string> = [];
 
-    if (symbolId == null || typeof symbolId !== "string" || symbolId.trim() === "") {
-        errors.push("symbolId must be a non-empty string");
+    try {
+        Core.assertNonEmptyString(symbolId, {
+            name: "symbolId",
+            trim: true
+        });
+    } catch (error) {
+        const errorMessage = Core.isErrorLike(error) ? error.message : String(error);
+        errors.push(errorMessage);
         return errors;
     }
 
-    if (newName == null || typeof newName !== "string" || newName.trim() === "") {
-        errors.push("newName must be a non-empty string");
+    try {
+        Core.assertNonEmptyString(newName, {
+            name: "newName",
+            trim: true
+        });
+    } catch (error) {
+        const errorMessage = Core.isErrorLike(error) ? error.message : String(error);
+        errors.push(errorMessage);
         return errors;
     }
 
