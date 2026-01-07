@@ -58,3 +58,11 @@ await test("transpileScript handles parsing errors gracefully", () => {
         { message: /Failed to transpile script/ }
     );
 });
+
+await test("transpileExpression handles parsing errors gracefully", () => {
+    const transpiler = new Transpiler.GmlTranspiler();
+
+    assert.throws(() => transpiler.transpileExpression("invalid syntax %%%%"), {
+        message: /Failed to transpile expression/
+    });
+});
