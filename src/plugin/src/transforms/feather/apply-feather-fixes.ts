@@ -16042,16 +16042,18 @@ function shouldSkipIdentifierRenaming(node, parent, property, grandparent) {
     }
 
     // Also handle the case where parent is the params array and we have a numeric index
-    if (Array.isArray(parent) && typeof property === "number" && grandparent && grandparent.type && // Check if grandparent is a function-like node with a params property
-        
-            (grandparent.type === "FunctionDeclaration" ||
-                grandparent.type === "FunctionExpression" ||
-                grandparent.type === "ConstructorDeclaration" ||
-                grandparent.type === "StructFunctionDeclaration") &&
-            grandparent.params === parent
-        ) {
+    if (Array.isArray(parent) && typeof property === "number" && grandparent && grandparent.type) {
+        // Check if grandparent is a function-like node with a params property
+        const isFunctionLike =
+            grandparent.type === "FunctionDeclaration" ||
+            grandparent.type === "FunctionExpression" ||
+            grandparent.type === "ConstructorDeclaration" ||
+            grandparent.type === "StructFunctionDeclaration";
+
+        if (isFunctionLike && grandparent.params === parent) {
             return true;
         }
+    }
 
     return false;
 }
@@ -16240,7 +16242,7 @@ function hasExactCaseMatch(name: string): boolean {
             return false;
         }
 
-        const identifiers = (metadata).identifiers;
+        const identifiers = metadata.identifiers;
         if (!identifiers || typeof identifiers !== "object") {
             return false;
         }
