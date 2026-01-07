@@ -9647,6 +9647,8 @@ function normalizeDrawVertexStatements(statements, diagnostic, ast) {
             continue;
         }
 
+        ensureDrawPrimitiveBeginHasArgument(primitiveBegin);
+
         if (primitiveEnd) {
             primitiveEnd._featherSuppressLeadingEmptyLine = true;
         }
@@ -9662,6 +9664,13 @@ function normalizeDrawVertexStatements(statements, diagnostic, ast) {
         fixes.push(...fixDetails);
 
         index += vertexStatements.length;
+    }
+
+    // Ensure all draw_primitive_begin calls have the required pr_trianglelist argument
+    for (const statement of statements) {
+        if (isDrawPrimitiveBeginCall(statement)) {
+            ensureDrawPrimitiveBeginHasArgument(statement);
+        }
     }
 
     return fixes;
@@ -9739,6 +9748,27 @@ function attachLeadingCommentsToWrappedPrimitive({
 
         mutableComment._featherHoistedTarget = primitiveBegin;
     }
+}
+
+function ensureDrawPrimitiveBeginHasArgument(callNode) {
+    if (!callNode || callNode.type !== "CallExpression") {
+        return;
+    }
+
+    if (Core.isNonEmptyArray(callNode.arguments)) {
+        return;
+    }
+
+    const prTrianglelistArg = Core.createIdentifierNode("pr_trianglelist", callNode);
+    if (!prTrianglelistArg) {
+        return;
+    }
+
+    if (!Array.isArray(callNode.arguments)) {
+        callNode.arguments = [];
+    }
+
+    callNode.arguments.push(prTrianglelistArg);
 }
 
 function hasOpenPrimitiveBefore(statements, index) {
