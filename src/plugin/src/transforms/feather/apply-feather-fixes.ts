@@ -9647,16 +9647,7 @@ function normalizeDrawVertexStatements(statements, diagnostic, ast) {
             continue;
         }
 
-        // Ensure draw_primitive_begin has the required pr_trianglelist argument
-        if (primitiveBegin.type === "CallExpression" && !Core.isNonEmptyArray(primitiveBegin.arguments)) {
-            const prTrianglelistArg = Core.createIdentifierNode("pr_trianglelist", primitiveBegin);
-            if (prTrianglelistArg) {
-                if (!Array.isArray(primitiveBegin.arguments)) {
-                    primitiveBegin.arguments = [];
-                }
-                primitiveBegin.arguments.push(prTrianglelistArg);
-            }
-        }
+        ensureDrawPrimitiveBeginHasArgument(primitiveBegin);
 
         if (primitiveEnd) {
             primitiveEnd._featherSuppressLeadingEmptyLine = true;
@@ -9677,15 +9668,9 @@ function normalizeDrawVertexStatements(statements, diagnostic, ast) {
 
     // Ensure all draw_primitive_begin calls have the required pr_trianglelist argument
     for (const statement of statements) {
-        if (isDrawPrimitiveBeginCall(statement) && statement.type === "CallExpression" && !Core.isNonEmptyArray(statement.arguments)) {
-                const prTrianglelistArg = Core.createIdentifierNode("pr_trianglelist", statement);
-                if (prTrianglelistArg) {
-                    if (!Array.isArray(statement.arguments)) {
-                        statement.arguments = [];
-                    }
-                    statement.arguments.push(prTrianglelistArg);
-                }
-            }
+        if (isDrawPrimitiveBeginCall(statement)) {
+            ensureDrawPrimitiveBeginHasArgument(statement);
+        }
     }
 
     return fixes;
@@ -9763,6 +9748,27 @@ function attachLeadingCommentsToWrappedPrimitive({
 
         mutableComment._featherHoistedTarget = primitiveBegin;
     }
+}
+
+function ensureDrawPrimitiveBeginHasArgument(callNode) {
+    if (!callNode || callNode.type !== "CallExpression") {
+        return;
+    }
+
+    if (Core.isNonEmptyArray(callNode.arguments)) {
+        return;
+    }
+
+    const prTrianglelistArg = Core.createIdentifierNode("pr_trianglelist", callNode);
+    if (!prTrianglelistArg) {
+        return;
+    }
+
+    if (!Array.isArray(callNode.arguments)) {
+        callNode.arguments = [];
+    }
+
+    callNode.arguments.push(prTrianglelistArg);
 }
 
 function hasOpenPrimitiveBefore(statements, index) {
