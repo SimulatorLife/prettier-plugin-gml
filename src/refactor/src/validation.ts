@@ -179,22 +179,22 @@ export async function validateRenameStructure(
     try {
         Core.assertNonEmptyString(symbolId, {
             name: "symbolId",
-            trim: true,
-            errorMessage: "symbolId must be a non-empty string"
+            trim: true
         });
-    } catch {
-        errors.push("symbolId must be a non-empty string");
+    } catch (error) {
+        const errorMessage = Core.isErrorLike(error) ? error.message : String(error);
+        errors.push(errorMessage);
         return errors;
     }
 
     try {
         Core.assertNonEmptyString(newName, {
             name: "newName",
-            trim: true,
-            errorMessage: "newName must be a non-empty string"
+            trim: true
         });
-    } catch {
-        errors.push("newName must be a non-empty string");
+    } catch (error) {
+        const errorMessage = Core.isErrorLike(error) ? error.message : String(error);
+        errors.push(errorMessage);
         return errors;
     }
 
