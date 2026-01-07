@@ -38,3 +38,26 @@ export { assertFunction } from "../../utils/object.js";
 
 // Capability probes
 export { isRegExpLike } from "../../utils/capability-probes.js";
+
+// AST node helpers
+export {
+    getBodyStatements,
+    getIdentifierText,
+    getNodeName,
+    isFunctionLikeNode,
+    isNode,
+    isUndefinedSentinel
+} from "../../ast/node-helpers.js";
+
+// AST location helpers
+export { getNodeEndIndex, getNodeStartIndex } from "../../ast/locations.js";
+
+// AST types
+export type { MutableGameMakerAstNode } from "../../ast/types.js";
+
+// Comment utilities
+export { getCommentArray, isLineComment } from "../comment-utils.js";
+export type { DocCommentLines, MutableDocCommentLines } from "../comment-utils.js";
+
+// Line comment utilities
+export { formatLineComment, getLineCommentRawText, resolveLineCommentOptions } from "../line-comment/index.js";
