@@ -4597,6 +4597,14 @@ function replaceDeprecatedIdentifier(node, parent, property, owner, ownerKey, di
         return null;
     }
 
+    // Skip deprecated identifier replacement if the identifier is also a reserved identifier.
+    // Reserved identifiers should be handled by GM1030 (renameReservedIdentifiers) instead,
+    // which applies the __featherFix_ prefix. This ensures consistent handling of identifiers
+    // that are both deprecated and reserved.
+    if (isReservedIdentifier(normalizedName)) {
+        return null;
+    }
+
     const originalName = node.name;
     const replacementName = replacementEntry.replacement;
 
@@ -10534,6 +10542,14 @@ function handleLocalVariableDeclarationPatterns({ context, ancestors, diagnostic
         return null;
     }
 
+    // Skip GM2043 fix for identifiers that have been renamed with the __featherFix_ prefix
+    // by GM1030 (reserved identifier renaming). These identifiers are intentionally renamed
+    // to avoid conflicts with built-in variables, and adding a variable declaration would
+    // change the semantics from implicit global/instance variable to local variable.
+    if (variableName.startsWith("__featherFix_")) {
+        return null;
+    }
+
     if (container && Array.isArray(container) && typeof index === "number") {
         const precedingNode = container[index - 1];
         const fixDetail = convertPrecedingAssignmentToVariableDeclaration({
@@ -15913,8 +15929,43 @@ function renameReservedIdentifiers({ ast, diagnostic, sourceText }) {
 
     const fixes = [];
     const renameMap = new Map();
+    const reservedIdentifiersFound = new Set();
 
-    // First pass: find all declarations that need to be renamed
+    // First pass: scan for all reserved identifiers in the AST
+    const scanForReservedIdentifiers = (node) => {
+        if (!node || typeof node !== "object") {
+            return;
+        }
+
+        if (Array.isArray(node)) {
+            for (const child of node) {
+                scanForReservedIdentifiers(child);
+            }
+            return;
+        }
+
+        if (node.type === "Identifier" && node.name && isReservedIdentifier(node.name)) {
+            reservedIdentifiersFound.add(node.name);
+        }
+
+        for (const value of Object.values(node)) {
+            if (value && typeof value === "object") {
+                scanForReservedIdentifiers(value);
+            }
+        }
+    };
+
+    scanForReservedIdentifiers(ast);
+
+    // Build rename map for all found reserved identifiers
+    for (const name of reservedIdentifiersFound) {
+        const replacement = getReplacementIdentifierName(name);
+        if (replacement && replacement !== name) {
+            renameMap.set(name, replacement);
+        }
+    }
+
+    // Second pass: find declarations and apply fixes
     const collectRenamings = (node) => {
         if (!node) {
             return;
@@ -15936,21 +15987,12 @@ function renameReservedIdentifiers({ ast, diagnostic, sourceText }) {
 
             if (Core.isNonEmptyArray(declarationFixes)) {
                 fixes.push(...declarationFixes);
-                // Collect the renamed identifiers
-                for (const fix of declarationFixes) {
-                    if (fix?.target && fix?.replacement) {
-                        renameMap.set(fix.target, fix.replacement);
-                    }
-                }
             }
         } else if (node.type === "MacroDeclaration") {
             const macroFix = renameReservedIdentifierInMacro(node, diagnostic, sourceText);
 
             if (macroFix) {
                 fixes.push(macroFix);
-                if (macroFix?.target && macroFix?.replacement) {
-                    renameMap.set(macroFix.target, macroFix.replacement);
-                }
             }
         }
 
@@ -15963,7 +16005,7 @@ function renameReservedIdentifiers({ ast, diagnostic, sourceText }) {
 
     collectRenamings(ast);
 
-    // Second pass: rename all identifier usages
+    // Third pass: rename all identifier usages
     if (renameMap.size > 0) {
         const renameUsages = (node, parent, property) => {
             if (!node) {
@@ -16030,6 +16072,11 @@ function shouldSkipIdentifierRenaming(node, parent, property) {
 
     // Skip renaming enum member names
     if (parent.type === "EnumMember" && property === "name") {
+        return true;
+    }
+
+    // Skip renaming function names in call expressions
+    if (parent.type === "CallExpression" && property === "callee") {
         return true;
     }
 
@@ -16229,8 +16276,8 @@ function buildMacroReplacementText({ macro, originalName, replacement, sourceTex
         // We use the 'g' flag even though macros usually only contain the name once in the
         // declaration header, as macros are text-based and could potentially reference
         // themselves or others in a way that requires global replacement within the line.
-        const escapedName = originalName.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
-        const regex = new RegExp(`\\b${escapedName}\\b`, "g");
+        const escapedName = originalName.replaceAll(/[.*+?^${}()|[\]\\]/g, String.raw`\$&`);
+        const regex = new RegExp(String.raw`\b${escapedName}\b`, "g");
 
         if (regex.test(baseText)) {
             return baseText.replace(regex, replacement);
