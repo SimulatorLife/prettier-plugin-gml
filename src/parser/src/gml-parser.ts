@@ -3,7 +3,7 @@ import antlr4 from "antlr4";
 import GameMakerLanguageLexer from "../generated/GameMakerLanguageLexer.js";
 import GameMakerLanguageParser from "../generated/GameMakerLanguageParser.js";
 import GameMakerASTBuilder from "./ast/gml-ast-builder.js";
-import GameMakerParseErrorListener, { GameMakerLexerErrorListener } from "./ast/gml-syntax-error.js";
+import createGameMakerParseErrorListener, { createGameMakerLexerErrorListener } from "./ast/gml-syntax-error.js";
 import { createHiddenNodeProcessor } from "./ast/hidden-node-processor.js";
 import { Core } from "@gml-modules/core";
 import { installRecognitionExceptionLikeGuard } from "./runtime/index.js";
@@ -194,14 +194,14 @@ export class GMLParser {
         const chars = new antlr4.InputStream(this.text);
         const lexer = new GameMakerLanguageLexer(chars);
         lexer.removeErrorListeners();
-        lexer.addErrorListener(new GameMakerLexerErrorListener());
+        lexer.addErrorListener(createGameMakerLexerErrorListener());
         lexer.strictMode = false;
         const tokens = new antlr4.CommonTokenStream(lexer);
         const parser = new GameMakerLanguageParser(tokens);
 
         parser._interp.predictionMode = PredictionMode.SLL;
         parser.removeErrorListeners();
-        parser.addErrorListener(new GameMakerParseErrorListener());
+        parser.addErrorListener(createGameMakerParseErrorListener());
 
         let tree;
         try {

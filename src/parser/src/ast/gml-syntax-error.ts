@@ -1,19 +1,4 @@
-import antlr4 from "antlr4";
-
 import { Core } from "@gml-modules/core";
-
-type AntlrErrorListenerConstructor = new (...args: unknown[]) => object;
-
-const typedAntlr4 = antlr4 as typeof antlr4 & {
-    error?: {
-        ErrorListener?: AntlrErrorListenerConstructor;
-    };
-};
-
-const ErrorListener = typedAntlr4.error?.ErrorListener;
-if (typeof ErrorListener !== "function") {
-    throw new TypeError("ANTLR ErrorListener is not available");
-}
 
 interface GameMakerSyntaxErrorOptions {
     message: string;
@@ -197,19 +182,10 @@ class ParserContextAnalyzer {
     }
 }
 
-export default class GameMakerParseErrorListener extends ErrorListener {
-    public formatter: SyntaxErrorFormatter;
-    public contextAnalyzer: ParserContextAnalyzer;
-
-    constructor({
-        formatter = new SyntaxErrorFormatter(),
-        contextAnalyzer = new ParserContextAnalyzer()
-    }: GameMakerParseErrorListenerOptions = {}) {
-        super();
-        this.formatter = formatter;
-        this.contextAnalyzer = contextAnalyzer;
-    }
-
+function createGameMakerParseErrorListener({
+    formatter = new SyntaxErrorFormatter(),
+    contextAnalyzer = new ParserContextAnalyzer()
+}: GameMakerParseErrorListenerOptions = {}) {
     // Broaden the diagnostic surface so syntax errors surface the same
     // hints that GameMaker Studio does. Today we lean on ANTLR's generic
     // messages, which are technically correct but omit recovery advice such as
@@ -219,12 +195,12 @@ export default class GameMakerParseErrorListener extends ErrorListener {
     // https://manual.gamemaker.io/monthly/en/#t=GameMaker_Language%2FGML_Overview%2FGML_Syntax.htm) would keep support queues
     // manageable and prevent editor integrations from falling back to
     // unhelpful "syntax error" toasts.
-    syntaxError(recognizer, offendingSymbol, line, column, _message, _error) {
+    function syntaxError(recognizer, offendingSymbol, line, column, _message, _error) {
         const parser = recognizer;
         void _message;
         void _error;
-        const offendingText = this.formatter.resolveOffendingSymbolText(offendingSymbol);
-        const wrongSymbol = this.formatter.formatWrongSymbol(offendingText);
+        const offendingText = formatter.resolveOffendingSymbolText(offendingSymbol);
+        const wrongSymbol = formatter.formatWrongSymbol(offendingText);
 
         const stack = parser.getRuleInvocationStack();
         const currentRule = stack[0];
@@ -239,7 +215,7 @@ export default class GameMakerParseErrorListener extends ErrorListener {
                 offendingText
             });
 
-        const specificMessage = this.contextAnalyzer.getSpecificErrorMessage({
+        const specificMessage = contextAnalyzer.getSpecificErrorMessage({
             parser,
             stack,
             currentRule,
@@ -252,7 +228,7 @@ export default class GameMakerParseErrorListener extends ErrorListener {
             throw createError(specificMessage);
         }
 
-        const currentRuleFormatted = this.formatter.formatRuleName(currentRule);
+        const currentRuleFormatted = formatter.formatRuleName(currentRule);
 
         throw createError(
             `Syntax Error (line ${line}, column ${column}): ` +
@@ -260,22 +236,25 @@ export default class GameMakerParseErrorListener extends ErrorListener {
                 ` while matching rule ${currentRuleFormatted}`
         );
     }
+
+    return {
+        syntaxError,
+        formatter,
+        contextAnalyzer
+    };
 }
 
-export class GameMakerLexerErrorListener extends ErrorListener {
-    public formatter: SyntaxErrorFormatter;
+export default createGameMakerParseErrorListener;
 
-    constructor({ formatter = new SyntaxErrorFormatter() }: GameMakerLexerErrorListenerOptions = {}) {
-        super();
-        this.formatter = formatter;
-    }
-
-    syntaxError(lexer, offendingSymbol, line, column, message, _error) {
+export function createGameMakerLexerErrorListener({
+    formatter = new SyntaxErrorFormatter()
+}: GameMakerLexerErrorListenerOptions = {}) {
+    function syntaxError(lexer, offendingSymbol, line, column, message, _error) {
         void _error;
         const offendingText =
-            this.formatter.resolveOffendingSymbolText(offendingSymbol) ??
-            this.formatter.extractOffendingTextFromLexerMessage(message);
-        const wrongSymbol = this.formatter.formatWrongSymbol(offendingText);
+            formatter.resolveOffendingSymbolText(offendingSymbol) ??
+            formatter.extractOffendingTextFromLexerMessage(message);
+        const wrongSymbol = formatter.formatWrongSymbol(offendingText);
 
         throw new GameMakerSyntaxError({
             message: `Syntax Error (line ${line}, column ${column}): ` + `unexpected ${wrongSymbol}`,
@@ -285,4 +264,9 @@ export class GameMakerLexerErrorListener extends ErrorListener {
             offendingText
         });
     }
+
+    return {
+        syntaxError,
+        formatter
+    };
 }
