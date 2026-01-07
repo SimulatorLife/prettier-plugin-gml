@@ -1,5 +1,8 @@
 import { Core } from "@gml-modules/core";
 import { builtInFunctions } from "./builtins.js";
+import { lowerEnumDeclaration } from "./enum-lowering.js";
+import { escapeTemplateText, stringifyStructKey } from "./string-utils.js";
+import { lowerWithStatement } from "./with-lowering.js";
 import type {
     ArrayExpressionNode,
     AssignmentExpressionNode,
@@ -34,7 +37,6 @@ import type {
     SwitchStatementNode,
     ThrowStatementNode,
     TemplateStringExpressionNode,
-    TemplateStringTextNode,
     TernaryExpressionNode,
     TryStatementNode,
     VariableDeclarationNode,
@@ -354,47 +356,12 @@ export class GmlToJsEmitter {
     private visitWithStatement(ast: WithStatementNode): string {
         const testExpr = this.wrapConditional(ast.test, true) || "undefined";
         const rawBody = this.wrapRawBody(ast.body);
-        const resolveWithTargets = this.options.resolveWithTargetsIdent;
         const indentedBody = rawBody
             .split("\n")
             .map((line) => (line ? `        ${line}` : ""))
             .join("\n");
 
-        return this.joinTruthy([
-            "{",
-            "    const __with_prev_self = self;",
-            "    const __with_prev_other = other;",
-            `    const __with_value = ${testExpr};`,
-            "    const __with_targets = (() => {",
-            `        if (typeof ${resolveWithTargets} === "function") {`,
-            `            return ${resolveWithTargets}(`,
-            "                __with_value,",
-            "                __with_prev_self,",
-            "                __with_prev_other",
-            "            );",
-            "        }",
-            "        if (__with_value == null) {",
-            "            return [];",
-            "        }",
-            "        if (Array.isArray(__with_value)) {",
-            "            return __with_value;",
-            "        }",
-            "        return [__with_value];",
-            "    })();",
-            "    for (",
-            "        let __with_index = 0;",
-            "        __with_index < __with_targets.length;",
-            "        __with_index += 1",
-            "    ) {",
-            "        const __with_self = __with_targets[__with_index];",
-            "        self = __with_self;",
-            "        other = __with_prev_self;",
-            indentedBody,
-            "    }",
-            "    self = __with_prev_self;",
-            "    other = __with_prev_other;",
-            "}"
-        ]);
+        return lowerWithStatement(testExpr, indentedBody, this.options.resolveWithTargetsIdent);
     }
 
     private visitReturnStatement(ast: ReturnStatementNode): string {
@@ -517,7 +484,7 @@ export class GmlToJsEmitter {
                 return "";
             }
             if (atom.type === "TemplateStringText") {
-                return this.escapeTemplateText(atom);
+                return escapeTemplateText(atom.value);
             }
             return `\${${this.visit(atom)}}`;
         });
@@ -540,22 +507,12 @@ export class GmlToJsEmitter {
 
     private visitEnumDeclaration(ast: EnumDeclarationNode): string {
         const name = this.visit(ast.name);
-        const lines = [`const ${name} = (() => {`, "    const __enum = {};", "    let __value = -1;"];
-        for (const member of ast.members ?? []) {
-            const memberName = this.resolveEnumMemberName(member);
-            if (member.initializer !== undefined && member.initializer !== null) {
-                const initializer =
-                    typeof member.initializer === "string" || typeof member.initializer === "number"
-                        ? String(member.initializer)
-                        : this.visit(member.initializer);
-                lines.push(`    __value = ${initializer};`);
-            } else {
-                lines.push("    __value += 1;");
-            }
-            lines.push(`    __enum.${memberName} = __value;`);
-        }
-        lines.push("    return __enum;", "})();");
-        return lines.join("\n");
+        return lowerEnumDeclaration(
+            name,
+            ast.members ?? [],
+            this.visitNodeHelper.bind(this),
+            this.resolveEnumMemberNameHelper.bind(this)
+        );
     }
 
     private visitFunctionDeclaration(ast: FunctionDeclarationNode): string {
@@ -655,6 +612,14 @@ export class GmlToJsEmitter {
         return Core.compactArray(lines).join("\n");
     }
 
+    private visitNodeHelper(node: unknown): string {
+        return this.visit(node as GmlNode);
+    }
+
+    private resolveEnumMemberNameHelper(member: EnumMemberNode): string {
+        return this.resolveEnumMemberName(member);
+    }
+
     private resolveIdentifierName(node: GmlNode | IdentifierMetadata | null | undefined): string | null {
         if (!node) {
             return null;
@@ -670,39 +635,9 @@ export class GmlToJsEmitter {
 
     private resolveStructKey(prop: StructPropertyNode): string {
         if (typeof prop.name === "string") {
-            return this.stringifyStructKey(prop.name);
+            return stringifyStructKey(prop.name);
         }
         return this.visit(prop.name);
-    }
-
-    private stringifyStructKey(rawKey: string): string {
-        const key = this.normalizeStructKeyText(rawKey);
-        if (this.isIdentifierLike(key) || /^[0-9]+$/.test(key)) {
-            return key;
-        }
-        return JSON.stringify(key);
-    }
-
-    private normalizeStructKeyText(value: string): string {
-        const startsWithQuote = value.startsWith('"') || value.startsWith("'");
-        const endsWithQuote = value.endsWith('"') || value.endsWith("'");
-        if (!startsWithQuote || !endsWithQuote || value.length < 2) {
-            return value;
-        }
-        const usesSameQuote =
-            (value.startsWith('"') && value.endsWith('"')) || (value.startsWith("'") && value.endsWith("'"));
-        if (!usesSameQuote) {
-            return value;
-        }
-        try {
-            return JSON.parse(value);
-        } catch {
-            return value.slice(1, -1);
-        }
-    }
-
-    private isIdentifierLike(value: string): boolean {
-        return /^[A-Za-z_$][A-Za-z0-9_$]*$/.test(value);
     }
 
     private resolveEnumMemberName(member: EnumMemberNode): string {
@@ -710,10 +645,6 @@ export class GmlToJsEmitter {
             return member.name;
         }
         return this.visit(member.name);
-    }
-
-    private escapeTemplateText(atom: TemplateStringTextNode): string {
-        return atom.value.replaceAll("`", "\\`").replaceAll("${", "\\${");
     }
 }
 
