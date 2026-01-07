@@ -526,41 +526,35 @@ export class GmlToJsEmitter {
     private visitMacroDeclaration(ast: MacroDeclarationNode): string {
         const name = this.visit(ast.name);
         const tokens = ast.tokens ?? [];
+        // Join tokens without spaces as they are pre-tokenized by the parser.
+        // For example, 'global.config' is tokenized as ['global', '.', 'config']
         const value = tokens.join("");
         return `const ${name} = ${value};`;
     }
 
     private visitFunctionDeclaration(ast: FunctionDeclarationNode): string {
-        let result = "function ";
-        if (ast.id) {
-            result += typeof ast.id === "string" ? ast.id : this.visit(ast.id);
-        }
-        result += "(";
-        if (ast.params && ast.params.length > 0) {
-            const params = ast.params
-                .map((param) => (typeof param === "string" ? param : this.visit(param)))
-                .join(", ");
-            result += params;
-        }
-        result += ")";
-        result += this.wrapConditionalBody(ast.body);
-        return result;
+        const id = ast.id ? (typeof ast.id === "string" ? ast.id : this.visit(ast.id)) : "";
+        return this.emitFunctionLike("function", id, ast.params, ast.body);
     }
 
     private visitConstructorDeclaration(ast: ConstructorDeclarationNode): string {
-        let result = "function ";
-        if (ast.id) {
-            result += ast.id;
-        }
-        result += "(";
-        if (ast.params && ast.params.length > 0) {
-            const params = ast.params
-                .map((param) => (typeof param === "string" ? param : this.visit(param)))
-                .join(", ");
-            result += params;
+        const id = ast.id ?? "";
+        return this.emitFunctionLike("function", id, ast.params, ast.body);
+    }
+
+    private emitFunctionLike(
+        keyword: string,
+        id: string,
+        params: ReadonlyArray<GmlNode | string>,
+        body: GmlNode
+    ): string {
+        let result = `${keyword} ${id}(`;
+        if (params && params.length > 0) {
+            const paramList = params.map((param) => (typeof param === "string" ? param : this.visit(param))).join(", ");
+            result += paramList;
         }
         result += ")";
-        result += this.wrapConditionalBody(ast.body);
+        result += this.wrapConditionalBody(body);
         return result;
     }
 
