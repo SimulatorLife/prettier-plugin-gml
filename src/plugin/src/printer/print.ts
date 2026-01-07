@@ -3172,16 +3172,8 @@ export function getSimpleAssignmentLikeEntry(
             return null;
         }
 
-        let nameLength = identifier.name.length;
-        if (
-            Array.isArray((identifier)._appliedFeatherDiagnostics) &&
-            (identifier)._appliedFeatherDiagnostics.length > 0
-        ) {
-            const firstFix = (identifier)._appliedFeatherDiagnostics[0];
-            if (firstFix && typeof firstFix.target === "string") {
-                nameLength = firstFix.target.length;
-            }
-        }
+        const originalName = getOriginalIdentifierName(identifier);
+        const nameLength = originalName ? originalName.length : identifier.name.length;
 
         return {
             locationNode: statement,
@@ -3866,6 +3858,21 @@ function findFunctionParameterContext(path) {
     }
 
     return null;
+}
+
+function getOriginalIdentifierName(identifier) {
+    if (!identifier || typeof identifier !== "object") {
+        return null;
+    }
+    
+    if (Array.isArray((identifier as any)._appliedFeatherDiagnostics) && (identifier as any)._appliedFeatherDiagnostics.length > 0) {
+        const firstFix = (identifier as any)._appliedFeatherDiagnostics[0];
+        if (firstFix && typeof firstFix.target === "string") {
+            return firstFix.target;
+        }
+    }
+    
+    return typeof (identifier as any).name === "string" ? (identifier as any).name : null;
 }
 
 function shouldOmitParameterAlias(declarator, functionNode, options) {
