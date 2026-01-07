@@ -1,4 +1,3 @@
-import type { DocCommentLines, MutableDocCommentLines } from "../../comment-utils.js";
 import {
     clamp,
     coercePositiveIntegerOption,
@@ -7,7 +6,9 @@ import {
     isNonEmptyString,
     isNonEmptyTrimmedString,
     toMutableArray,
-    toTrimmedString
+    toTrimmedString,
+    type DocCommentLines,
+    type MutableDocCommentLines
 } from "../utils.js";
 import { parseDocCommentMetadata } from "./metadata.js";
 import {

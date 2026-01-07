@@ -1,6 +1,4 @@
-import { getBodyStatements, getNodeName, isNode } from "../../../ast/node-helpers.js";
-import { getNodeStartIndex } from "../../../ast/locations.js";
-import { isLineComment } from "../../comment-utils.js";
+import { getBodyStatements, getNodeName, getNodeStartIndex, isLineComment, isNode } from "../utils.js";
 import { resolveDocCommentTraversalService } from "../manager.js";
 import { getCommentEndIndex, isWhitespaceBetween } from "./documented-params.js";
 
