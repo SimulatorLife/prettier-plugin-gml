@@ -22,7 +22,7 @@ type IdentifierCaseReportSummary = {
     impactedFileCount: number;
     totalReferenceCount: number;
     conflictCount: number;
-    severityCounts: Record<string, number>;
+    severityCounts: Partial<Record<ConflictSeverity, number>>;
 };
 
 type IdentifierCaseReference = {
