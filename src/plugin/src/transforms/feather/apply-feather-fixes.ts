@@ -15965,14 +15965,14 @@ function renameReservedIdentifiers({ ast, diagnostic, sourceText }) {
 
     // Second pass: rename all identifier usages
     if (renameMap.size > 0) {
-        const renameUsages = (node, parent, property) => {
+        const renameUsages = (node, parent, property, grandparent) => {
             if (!node) {
                 return;
             }
 
             if (Array.isArray(node)) {
                 for (let i = 0; i < node.length; i++) {
-                    renameUsages(node[i], node, i);
+                    renameUsages(node[i], node, i, parent);
                 }
                 return;
             }
@@ -15982,7 +15982,7 @@ function renameReservedIdentifiers({ ast, diagnostic, sourceText }) {
             }
 
             // Skip renaming identifiers in certain contexts
-            if (shouldSkipIdentifierRenaming(node, parent, property)) {
+            if (shouldSkipIdentifierRenaming(node, parent, property, grandparent)) {
                 return;
             }
 
@@ -15992,18 +15992,18 @@ function renameReservedIdentifiers({ ast, diagnostic, sourceText }) {
 
             for (const [key, value] of Object.entries(node)) {
                 if (value && typeof value === "object") {
-                    renameUsages(value, node, key);
+                    renameUsages(value, node, key, parent);
                 }
             }
         };
 
-        renameUsages(ast, null, null);
+        renameUsages(ast, null, null, null);
     }
 
     return fixes;
 }
 
-function shouldSkipIdentifierRenaming(node, parent, property) {
+function shouldSkipIdentifierRenaming(node, parent, property, grandparent) {
     if (!parent) {
         return false;
     }
@@ -16033,11 +16033,26 @@ function shouldSkipIdentifierRenaming(node, parent, property) {
         return true;
     }
 
-    // Skip renaming function parameter names (already handled separately if needed)
-    if (Array.isArray(parent)) {
-        // This case is not easily determinable without additional context
-        // We might need to check the parent's parent to see if it's a function
-        return false;
+    // Skip renaming function parameter names - they're lexically scoped and don't conflict
+    // with global reserved identifiers. Function parameters can shadow global names by design.
+    if (Array.isArray(parent) && grandparent && property === "params") {
+        // grandparent is the function node, parent is the params array, property is "params"
+        // This means we're looking at an identifier that's directly in the params array
+        return true;
+    }
+
+    // Also handle the case where parent is the params array and we have a numeric index
+    if (Array.isArray(parent) && typeof property === "number" && grandparent && grandparent.type) {
+        // Check if grandparent is a function-like node with a params property
+        const isFunctionLike =
+            grandparent.type === "FunctionDeclaration" ||
+            grandparent.type === "FunctionExpression" ||
+            grandparent.type === "ConstructorDeclaration" ||
+            grandparent.type === "StructFunctionDeclaration";
+
+        if (isFunctionLike && grandparent.params === parent) {
+            return true;
+        }
     }
 
     return false;
@@ -16184,13 +16199,60 @@ function renameReservedIdentifierInMacro(node, diagnostic, sourceText) {
  * RECOMMENDATION: Check if 'semantic' or 'refactor' already provides this functionality.
  * If so, import it instead of maintaining a separate implementation. If not, consider
  * moving this to Core or Semantic so all packages can use the same reserved-word list.
+ *
+ * NOTE: This function checks if an identifier conflicts with GML built-ins, BUT it
+ * only returns true for EXACT case matches. If the identifier differs only in case
+ * from a reserved name (e.g., "color" vs "Color"), it's allowed because:
+ * 1. PascalCase names in the metadata are often type annotations (Color, Array, etc.)
+ * 2. Users can legitimately use lowercase versions as variable names
+ * 3. Actual GML functions use snake_case (draw_text, show_debug_message)
  */
 function isReservedIdentifier(name) {
     if (typeof name !== "string" || name.length === 0) {
         return false;
     }
 
-    return getReservedIdentifierNames().has(name.toLowerCase());
+    const lowerName = name.toLowerCase();
+
+    // First check if the lowercase version is in the reserved set
+    if (!getReservedIdentifierNames().has(lowerName)) {
+        return false;
+    }
+
+    // If it is, we need to check if there's an exact case match in the original metadata
+    // to avoid false positives where "color" matches "Color" (a type annotation)
+    return hasExactCaseMatch(name);
+}
+
+/**
+ * Checks if an identifier has an exact case match in the GML identifier metadata.
+ * This prevents false positives where lowercase user variables (e.g., "color")
+ * match PascalCase type annotations (e.g., "Color") after case-insensitive comparison.
+ */
+function hasExactCaseMatch(name: string): boolean {
+    if (typeof name !== "string" || name.length === 0) {
+        return false;
+    }
+
+    try {
+        const metadata = Core.getIdentifierMetadata();
+        if (!metadata || typeof metadata !== "object") {
+            // If we can't load metadata, fall back to conservative behavior
+            // (don't rename unless we're sure)
+            return false;
+        }
+
+        const identifiers = metadata.identifiers;
+        if (!identifiers || typeof identifiers !== "object") {
+            return false;
+        }
+
+        // Check if there's an exact case match in the original metadata
+        return Object.hasOwn(identifiers, name);
+    } catch {
+        // On any error, be conservative and don't rename
+        return false;
+    }
 }
 
 function getReplacementIdentifierName(originalName) {
