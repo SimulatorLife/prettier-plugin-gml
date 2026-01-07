@@ -9,11 +9,10 @@
 import path from "node:path";
 
 import { Core } from "@gml-modules/core";
+import { Parser } from "@gml-modules/parser";
 import { Transpiler } from "@gml-modules/transpiler";
 import { formatCliError } from "../../cli-core/errors.js";
 import type { PatchBroadcaster } from "../websocket/server.js";
-
-const { getErrorMessage } = Core;
 
 type RuntimeTranspiler = InstanceType<typeof Transpiler.GmlTranspiler>;
 export type RuntimeTranspilerPatch = ReturnType<RuntimeTranspiler["transpileScript"]>;
@@ -28,11 +27,17 @@ export interface TranspilationMetrics {
     linesProcessed: number;
 }
 
+export type ErrorCategory = "syntax" | "validation" | "internal" | "unknown";
+
 export interface TranspilationError {
     timestamp: number;
     filePath: string;
     error: string;
     sourceSize?: number;
+    category: ErrorCategory;
+    line?: number;
+    column?: number;
+    recoveryHint?: string;
 }
 
 function resolveRuntimeId(filePath: string): string | null {
@@ -77,6 +82,101 @@ function resolveRuntimeId(filePath: string): string | null {
     }
 
     return null;
+}
+
+/**
+ * Classifies a transpilation error and extracts metadata for better error reporting.
+ */
+function classifyTranspilationError(error: unknown): {
+    category: ErrorCategory;
+    message: string;
+    line?: number;
+    column?: number;
+    recoveryHint?: string;
+} {
+    let targetError: unknown = error;
+
+    if (Core.isErrorLike(error) && error.cause) {
+        targetError = error.cause;
+    }
+
+    if (Parser.GameMakerSyntaxError.isParseError(targetError)) {
+        const syntaxError = targetError;
+        const line = syntaxError.line;
+        const column = syntaxError.column;
+
+        let recoveryHint: string | undefined;
+        if (syntaxError.message.includes("missing associated closing brace")) {
+            recoveryHint = "Add a closing brace '}' to match the opening brace.";
+        } else if (syntaxError.message.includes("unexpected end of file")) {
+            recoveryHint = "Check for unclosed blocks, parentheses, or brackets.";
+        } else if (syntaxError.message.includes("unexpected symbol")) {
+            recoveryHint = "Review the syntax at the indicated position. Check for typos or missing operators.";
+        } else if (syntaxError.message.includes("function parameters")) {
+            recoveryHint = "Function parameters must be valid identifiers separated by commas.";
+        }
+
+        return {
+            category: "syntax",
+            message: syntaxError.message,
+            line,
+            column,
+            recoveryHint
+        };
+    }
+
+    if (Core.isErrorLike(error)) {
+        if (error.message.includes("Generated patch failed validation")) {
+            return {
+                category: "validation",
+                message: error.message,
+                recoveryHint:
+                    "The transpiler produced invalid output. This may indicate an internal issue. Try simplifying the code."
+            };
+        }
+
+        if (
+            error.message.includes("requires a request object") ||
+            error.message.includes("requires a sourceText string") ||
+            error.message.includes("requires a symbolId string")
+        ) {
+            return {
+                category: "validation",
+                message: error.message,
+                recoveryHint: "Ensure the file is a valid GML source file."
+            };
+        }
+
+        if (error.message.includes("Failed to transpile script")) {
+            const causeMatch = /Failed to transpile script [^:]+: (.+)$/u.exec(error.message);
+            const innerMessage = causeMatch ? causeMatch[1] : error.message;
+            return {
+                category: "internal",
+                message: innerMessage,
+                recoveryHint:
+                    "An internal transpilation error occurred. This may be a bug. Check for unsupported GML features."
+            };
+        }
+
+        return {
+            category: "unknown",
+            message: error.message
+        };
+    }
+
+    let errorString: string;
+    if (Core.isErrorLike(error) && error.message) {
+        errorString = error.message;
+    } else if (error instanceof Error) {
+        errorString = error.toString();
+    } else {
+        errorString = "Unknown error";
+    }
+
+    return {
+        category: "unknown",
+        message: errorString
+    };
 }
 
 export interface TranspilationContext {
@@ -235,29 +335,44 @@ export function transpileFile(
             metrics
         };
     } catch (error) {
-        const errorMessage = getErrorMessage(error, {
-            fallback: "Unknown transpilation error"
-        });
+        const classified = classifyTranspilationError(error);
 
         const transpilationError: TranspilationError = {
             timestamp: Date.now(),
             filePath,
-            error: errorMessage,
-            sourceSize: content.length
+            error: classified.message,
+            sourceSize: content.length,
+            category: classified.category,
+            line: classified.line,
+            column: classified.column,
+            recoveryHint: classified.recoveryHint
         };
 
         addToBoundedCollection(context.errors, transpilationError, context.maxPatchHistory);
 
         if (context.websocketServer) {
-            const errorNotification = createErrorNotification(filePath, errorMessage);
+            const errorNotification = createErrorNotification(filePath, classified.message);
             context.websocketServer.broadcast(errorNotification);
         }
 
         if (verbose) {
             const formattedError = formatCliError(error);
-            console.error(`  ↳ Transpilation failed:\n${formattedError}`);
+            console.error(`  ↳ Transpilation failed (${classified.category}):\n${formattedError}`);
+            if (classified.line !== undefined && classified.column !== undefined) {
+                console.error(`  ↳ Location: line ${classified.line}, column ${classified.column}`);
+            }
+            if (classified.recoveryHint) {
+                console.error(`  ↳ Hint: ${classified.recoveryHint}`);
+            }
         } else {
-            console.error(`  ↳ Transpilation failed: ${errorMessage}`);
+            const locationInfo =
+                classified.line !== undefined && classified.column !== undefined
+                    ? ` (line ${classified.line}, column ${classified.column})`
+                    : "";
+            console.error(`  ↳ Transpilation failed: ${classified.message}${locationInfo}`);
+            if (classified.recoveryHint && !quiet) {
+                console.error(`  ↳ Hint: ${classified.recoveryHint}`);
+            }
         }
 
         return {
@@ -326,13 +441,35 @@ export function displayTranspilationStatistics(
 
     if (hasErrors) {
         console.log(`\nTotal errors: ${errors.length}`);
+
+        if (verbose) {
+            const errorsByCategory = new Map<ErrorCategory, number>();
+            for (const error of errors) {
+                const count = errorsByCategory.get(error.category) ?? 0;
+                errorsByCategory.set(error.category, count + 1);
+            }
+
+            console.log("\nErrors by category:");
+            for (const [category, count] of errorsByCategory.entries()) {
+                console.log(`  ${category}: ${count}`);
+            }
+        }
+
         if (verbose && errors.length > 0) {
             console.log("\nRecent errors:");
             const recentErrors = errors.slice(-5);
             for (const error of recentErrors) {
                 const timestamp = new Date(error.timestamp).toISOString();
-                console.log(`  [${timestamp}] ${path.basename(error.filePath)}`);
+                const locationInfo =
+                    error.line !== undefined && error.column !== undefined
+                        ? ` (line ${error.line}, col ${error.column})`
+                        : "";
+                console.log(`  [${timestamp}] ${path.basename(error.filePath)}${locationInfo}`);
+                console.log(`    Category: ${error.category}`);
                 console.log(`    ${error.error}`);
+                if (error.recoveryHint) {
+                    console.log(`    Hint: ${error.recoveryHint}`);
+                }
             }
         }
     }

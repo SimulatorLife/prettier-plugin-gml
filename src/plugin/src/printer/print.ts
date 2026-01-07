@@ -3236,8 +3236,8 @@ export function getSimpleAssignmentLikeEntry(
     const prefixLength = keyword.length + 1;
 
     let nameLength = (id.name as string).length;
-    if (Array.isArray((id)._appliedFeatherDiagnostics) && (id)._appliedFeatherDiagnostics.length > 0) {
-        const firstFix = (id)._appliedFeatherDiagnostics[0];
+    if (Array.isArray(id._appliedFeatherDiagnostics) && id._appliedFeatherDiagnostics.length > 0) {
+        const firstFix = id._appliedFeatherDiagnostics[0];
         if (firstFix && typeof firstFix.target === "string") {
             nameLength = firstFix.target.length;
         }
@@ -3864,15 +3864,15 @@ function getOriginalIdentifierName(identifier) {
     if (!identifier || typeof identifier !== "object") {
         return null;
     }
-    
-    if (Array.isArray((identifier as any)._appliedFeatherDiagnostics) && (identifier as any)._appliedFeatherDiagnostics.length > 0) {
-        const firstFix = (identifier as any)._appliedFeatherDiagnostics[0];
+
+    if (Array.isArray(identifier._appliedFeatherDiagnostics) && identifier._appliedFeatherDiagnostics.length > 0) {
+        const firstFix = identifier._appliedFeatherDiagnostics[0];
         if (firstFix && typeof firstFix.target === "string") {
             return firstFix.target;
         }
     }
-    
-    return typeof (identifier as any).name === "string" ? (identifier as any).name : null;
+
+    return typeof identifier.name === "string" ? identifier.name : null;
 }
 
 function shouldOmitParameterAlias(declarator, functionNode, options) {
@@ -3889,10 +3889,10 @@ function shouldOmitParameterAlias(declarator, functionNode, options) {
 
     let aliasName = declarator.id.name;
     if (
-        Array.isArray((declarator.id)._appliedFeatherDiagnostics) &&
-        (declarator.id)._appliedFeatherDiagnostics.length > 0
+        Array.isArray(declarator.id._appliedFeatherDiagnostics) &&
+        declarator.id._appliedFeatherDiagnostics.length > 0
     ) {
-        const firstFix = (declarator.id)._appliedFeatherDiagnostics[0];
+        const firstFix = declarator.id._appliedFeatherDiagnostics[0];
         if (firstFix && typeof firstFix.target === "string") {
             aliasName = firstFix.target;
         }
