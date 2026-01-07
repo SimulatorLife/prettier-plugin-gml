@@ -316,11 +316,11 @@ export class GmlToJsEmitter {
     }
 
     private visitProgram(ast: ProgramNode): string {
-        return this.joinTruthy((ast.body ?? []).map((stmt) => this.ensureStatementTermination(this.visit(stmt))));
+        return this.joinTruthy((ast.body ?? []).map((stmt) => this.ensureStatementTermination(this.emit(stmt))));
     }
 
     private visitBlockStatement(ast: BlockStatementNode): string {
-        const body = this.joinTruthy((ast.body ?? []).map((stmt) => this.ensureStatementTermination(this.visit(stmt))));
+        const body = this.joinTruthy((ast.body ?? []).map((stmt) => this.ensureStatementTermination(this.emit(stmt))));
         return `{\n${body}\n}`;
     }
 
