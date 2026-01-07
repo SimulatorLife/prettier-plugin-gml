@@ -10,6 +10,7 @@ import type {
     BlockStatementNode,
     CallExpressionNode,
     CallTargetAnalyzer,
+    ConstructorDeclarationNode,
     DefaultParameterNode,
     DeleteStatementNode,
     DoUntilStatementNode,
@@ -204,6 +205,9 @@ export class GmlToJsEmitter {
             }
             case "FunctionDeclaration": {
                 return this.visitFunctionDeclaration(ast);
+            }
+            case "ConstructorDeclaration": {
+                return this.visitConstructorDeclaration(ast);
             }
             default: {
                 return "";
@@ -530,6 +534,23 @@ export class GmlToJsEmitter {
         let result = "function ";
         if (ast.id) {
             result += typeof ast.id === "string" ? ast.id : this.visit(ast.id);
+        }
+        result += "(";
+        if (ast.params && ast.params.length > 0) {
+            const params = ast.params
+                .map((param) => (typeof param === "string" ? param : this.visit(param)))
+                .join(", ");
+            result += params;
+        }
+        result += ")";
+        result += this.wrapConditionalBody(ast.body);
+        return result;
+    }
+
+    private visitConstructorDeclaration(ast: ConstructorDeclarationNode): string {
+        let result = "function ";
+        if (ast.id) {
+            result += ast.id;
         }
         result += "(";
         if (ast.params && ast.params.length > 0) {

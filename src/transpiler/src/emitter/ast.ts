@@ -288,6 +288,14 @@ export interface FunctionDeclarationNode extends BaseNode {
     readonly body: GmlNode;
 }
 
+export interface ConstructorDeclarationNode extends BaseNode {
+    readonly type: "ConstructorDeclaration";
+    readonly id?: string | null;
+    readonly params: ReadonlyArray<GmlNode | string>;
+    readonly body: GmlNode;
+    readonly parent?: GmlNode | string | null;
+}
+
 export interface BreakStatementNode extends BaseNode {
     readonly type: "BreakStatement";
 }
@@ -328,6 +336,7 @@ export type StatementNode =
     | ExitStatementNode
     | DeleteStatementNode
     | FunctionDeclarationNode
+    | ConstructorDeclarationNode
     | EnumDeclarationNode
     | MacroDeclarationNode;
 
