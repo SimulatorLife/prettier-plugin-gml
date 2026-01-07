@@ -5,3 +5,5 @@ export { GmlToJsEmitter, emitJavaScript, makeDummyOracle, makeDefaultOracle } fr
 export type { SemanticOracleOptions } from "./semantic-factory.js";
 export { createSemanticOracle } from "./semantic-factory.js";
 export { isIdentifierLike, escapeTemplateText, stringifyStructKey, normalizeStructKeyText } from "./string-utils.js";
+export { lowerWithStatement } from "./with-lowering.js";
+export { lowerEnumDeclaration } from "./enum-lowering.js";

@@ -90,7 +90,8 @@ export function normalizeStructKeyText(value: string): string {
         return value;
     }
     try {
-        return JSON.parse(value);
+        const parsed: unknown = JSON.parse(value);
+        return typeof parsed === "string" ? parsed : value.slice(1, -1);
     } catch {
         return value.slice(1, -1);
     }
