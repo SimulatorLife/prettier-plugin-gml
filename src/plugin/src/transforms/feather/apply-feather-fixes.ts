@@ -4598,7 +4598,7 @@ function replaceDeprecatedIdentifier(node, parent, property, owner, ownerKey, di
     }
 
     const originalName = node.name;
-    const replacementName = replacementEntry.replacement;
+    const replacementName = `__featherFix_${originalName}`;
 
     if (!replacementName || replacementName === originalName) {
         return null;
