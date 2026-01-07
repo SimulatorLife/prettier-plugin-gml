@@ -9641,7 +9641,21 @@ function normalizeDrawVertexStatements(statements, diagnostic, ast) {
             continue;
         }
 
-        const [primitiveBegin] = statements.splice(beginIndex, 1);
+        // Check if there's an empty draw_primitive_begin() call immediately before the vertex block
+        const precedingStatement = index > 0 ? statements[index - 1] : null;
+        const hasEmptyPrimitiveBeginBefore =
+            precedingStatement &&
+            isDrawPrimitiveBeginCall(precedingStatement) &&
+            !Core.isNonEmptyArray(precedingStatement.arguments);
+
+        // Remove the empty draw_primitive_begin() if present
+        if (hasEmptyPrimitiveBeginBefore) {
+            statements.splice(index - 1, 1);
+            // Adjust indices after removal
+            index -= 1;
+        }
+
+        const [primitiveBegin] = statements.splice(hasEmptyPrimitiveBeginBefore ? beginIndex - 1 : beginIndex, 1);
 
         if (!primitiveBegin) {
             continue;
@@ -9778,7 +9792,11 @@ function hasOpenPrimitiveBefore(statements, index) {
         const statement = statements[cursor];
 
         if (isDrawPrimitiveBeginCall(statement)) {
-            depth += 1;
+            // Only count draw_primitive_begin calls that have arguments as "open primitives".
+            // Calls without arguments are considered orphaned and will be fixed later.
+            if (Core.isNonEmptyArray(statement.arguments)) {
+                depth += 1;
+            }
             continue;
         }
 
