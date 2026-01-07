@@ -1,6 +1,13 @@
-import { asArray, isNonEmptyArray, toMutableArray, toTrimmedString } from "../utils.js";
-import { getCommentArray } from "../../comment-utils.js";
-import { formatLineComment, getLineCommentRawText, resolveLineCommentOptions } from "../../line-comment/index.js";
+import {
+    asArray,
+    formatLineComment,
+    getCommentArray,
+    getLineCommentRawText,
+    isNonEmptyArray,
+    resolveLineCommentOptions,
+    toMutableArray,
+    toTrimmedString
+} from "../utils.js";
 
 const STRING_TYPE = "string" as const;
 const NUMBER_TYPE = "number" as const;

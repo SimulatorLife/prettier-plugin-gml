@@ -1,5 +1,4 @@
-import { isUndefinedSentinel } from "../../../ast/node-helpers.js";
-import { compactArray, isNonEmptyArray, isNonEmptyTrimmedString } from "../utils.js";
+import { compactArray, isNonEmptyArray, isNonEmptyTrimmedString, isUndefinedSentinel } from "../utils.js";
 import { parseDocCommentMetadata } from "./metadata.js";
 import { normalizeDocCommentTypeAnnotations } from "./type-normalization.js";
 import {
