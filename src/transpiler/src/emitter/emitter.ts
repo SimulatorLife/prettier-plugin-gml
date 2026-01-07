@@ -26,6 +26,7 @@ import type {
     IfStatementNode,
     IncDecStatementNode,
     LiteralNode,
+    MacroDeclarationNode,
     MemberDotExpressionNode,
     MemberIndexExpressionNode,
     NewExpressionNode,
@@ -197,6 +198,9 @@ export class GmlToJsEmitter {
             }
             case "EnumDeclaration": {
                 return this.visitEnumDeclaration(ast);
+            }
+            case "MacroDeclaration": {
+                return this.visitMacroDeclaration(ast);
             }
             case "FunctionDeclaration": {
                 return this.visitFunctionDeclaration(ast);
@@ -513,6 +517,13 @@ export class GmlToJsEmitter {
             this.visitNodeHelper.bind(this),
             this.resolveEnumMemberNameHelper.bind(this)
         );
+    }
+
+    private visitMacroDeclaration(ast: MacroDeclarationNode): string {
+        const name = this.visit(ast.name);
+        const tokens = ast.tokens ?? [];
+        const value = tokens.join("");
+        return `const ${name} = ${value};`;
     }
 
     private visitFunctionDeclaration(ast: FunctionDeclarationNode): string {

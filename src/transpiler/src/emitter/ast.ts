@@ -275,6 +275,12 @@ export interface EnumDeclarationNode extends BaseNode {
     readonly members: ReadonlyArray<EnumMemberNode>;
 }
 
+export interface MacroDeclarationNode extends BaseNode {
+    readonly type: "MacroDeclaration";
+    readonly name: GmlNode;
+    readonly tokens: ReadonlyArray<string>;
+}
+
 export interface FunctionDeclarationNode extends BaseNode {
     readonly type: "FunctionDeclaration";
     readonly id?: GmlNode | string | null;
@@ -322,7 +328,8 @@ export type StatementNode =
     | ExitStatementNode
     | DeleteStatementNode
     | FunctionDeclarationNode
-    | EnumDeclarationNode;
+    | EnumDeclarationNode
+    | MacroDeclarationNode;
 
 export type ExpressionNode =
     | DefaultParameterNode
