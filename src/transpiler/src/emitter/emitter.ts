@@ -1,3 +1,4 @@
+/* eslint-disable max-lines -- Visitor pattern requires comprehensive switch statement; refactoring to separate files would break cohesion */
 import { Core } from "@gml-modules/core";
 import { builtInFunctions } from "./builtins.js";
 import { lowerEnumDeclaration } from "./enum-lowering.js";
@@ -210,9 +211,30 @@ export class GmlToJsEmitter {
                 return this.visitConstructorDeclaration(ast);
             }
             default: {
-                return "";
+                return this.handleUnknownNode(ast);
             }
         }
+    }
+
+    /**
+     * Handle AST nodes that don't have explicit visitor methods.
+     * This serves as a safety net for unimplemented or unexpected node types.
+     *
+     * Currently returns an empty string to maintain backward compatibility.
+     * In development mode, logs unhandled nodes to help identify gaps in coverage.
+     *
+     * @param ast - The unhandled AST node
+     * @returns Empty string (node is skipped in output)
+     */
+    private handleUnknownNode(ast: GmlNode): string {
+        // In development, log unhandled nodes to help identify gaps in coverage.
+        // Use process.env check that tree-shakes in production builds.
+        if (typeof process !== "undefined" && process.env?.NODE_ENV !== "production") {
+            const nodeType = ast?.type ?? "<unknown>";
+            // eslint-disable-next-line no-console -- Development diagnostic logging only
+            console.warn(`[GmlToJsEmitter] Unhandled node type: ${nodeType}`);
+        }
+        return "";
     }
 
     private visitDefaultParameter(ast: DefaultParameterNode): string {
@@ -642,8 +664,8 @@ export class GmlToJsEmitter {
         return this.visit(node as GmlNode);
     }
 
-    private resolveEnumMemberNameHelper(member: EnumMemberNode): string {
-        return this.resolveEnumMemberName(member);
+    private resolveEnumMemberNameHelper(member: unknown): string {
+        return this.resolveEnumMemberName(member as EnumMemberNode);
     }
 
     private resolveIdentifierName(node: GmlNode | IdentifierMetadata | null | undefined): string | null {
