@@ -1814,6 +1814,7 @@ void test("GmlToJsEmitter warns about unknown nodes in development", () => {
         process.env.NODE_ENV = "development";
         // eslint-disable-next-line no-console -- Capturing console.warn for test validation
         console.warn = (message: string) => {
+            // eslint-disable-next-line prefer-named-capture-group -- Simple extraction pattern for test assertion
             const match = /Unhandled node type: (\w+)/.exec(message);
             warnings.push({
                 message,

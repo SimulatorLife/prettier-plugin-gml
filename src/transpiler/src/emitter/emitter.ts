@@ -540,7 +540,9 @@ export class GmlToJsEmitter {
         return lowerEnumDeclaration(
             name,
             ast.members ?? [],
+            // eslint-disable-next-line @typescript-eslint/no-unsafe-argument -- visitNodeHelper accepts unknown and casts internally
             this.visitNodeHelper.bind(this),
+            // eslint-disable-next-line @typescript-eslint/no-unsafe-argument -- resolveEnumMemberNameHelper accepts unknown and casts internally
             this.resolveEnumMemberNameHelper.bind(this)
         );
     }
