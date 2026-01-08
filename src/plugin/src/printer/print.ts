@@ -1617,8 +1617,8 @@ function printBlockStatementNode(node, path, options, print) {
         return concat([
             "{",
             printDanglingComments(path, options, (comment) => comment.attachToBrace),
-            leadingDocs[0], // First hardline outside indent (creates blank line)
-            indent(leadingDocs.slice(1).concat(stmts)), // Rest inside indent
+            leadingDocs[0],
+            indent(leadingDocs.slice(1).concat(stmts)),
             hardline,
             "}"
         ]);
