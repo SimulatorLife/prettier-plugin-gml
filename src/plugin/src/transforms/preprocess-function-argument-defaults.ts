@@ -74,45 +74,17 @@ export class PreprocessFunctionArgumentDefaultsTransform
             return ast;
         }
 
-        this.traverse(ast, (node) => {
-            if (!node || (node.type !== "FunctionDeclaration" && node.type !== "ConstructorDeclaration")) {
-                return;
-            }
+        Core.walkObjectGraph(ast, {
+            enterObject: (node) => {
+                if (!node || (node.type !== "FunctionDeclaration" && node.type !== "ConstructorDeclaration")) {
+                    return;
+                }
 
-            this.preprocessFunctionDeclaration(node, ast);
+                this.preprocessFunctionDeclaration(node, ast);
+            }
         });
 
         return ast;
-    }
-
-    // DFS helper that guards against cyclic references while invoking `visitor` on each node.
-    private traverse(node, visitor, seen = new Set()) {
-        if (!Core.isObjectLike(node)) {
-            return;
-        }
-
-        if (seen.has(node)) {
-            return;
-        }
-
-        seen.add(node);
-
-        if (Array.isArray(node)) {
-            for (const child of node) {
-                this.traverse(child, visitor, seen);
-            }
-            return;
-        }
-
-        visitor(node);
-
-        Core.forEachNodeChild(node, (value, key) => {
-            if (key === "parent") {
-                return;
-            }
-
-            this.traverse(value, visitor, seen);
-        });
     }
 
     // Normalize the parameters and apply argument_count fallback rewrites within a single declaration.
