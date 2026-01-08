@@ -1,7 +1,7 @@
 import fs from "node:fs/promises";
 import path from "node:path";
 
-import { Core } from "@gml-modules/core";
+import { walkAncestorDirectories } from "./path.js";
 
 /**
  * Check if a path exists and optionally satisfies a predicate.
@@ -28,7 +28,7 @@ async function pathExists(
 export async function findRepoRoot(startDir: string): Promise<string> {
     let lastPackageJson: string | null = null;
 
-    for (const dir of Core.walkAncestorDirectories(startDir)) {
+    for (const dir of walkAncestorDirectories(startDir)) {
         if (await pathExists(path.join(dir, "AGENTS.md"), (s) => s.isFile())) {
             return dir;
         }
