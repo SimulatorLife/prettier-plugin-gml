@@ -273,7 +273,11 @@ export async function batchValidateScopeConflicts(
     const scopeGroups = new Map<string, Array<SymbolOccurrence>>();
     for (const occurrence of occurrences) {
         const scopeKey = occurrence.scopeId ?? GLOBAL_SCOPE_KEY;
-        const group = Core.getOrCreateMapEntry(scopeGroups, scopeKey, () => []);
+        let group = scopeGroups.get(scopeKey);
+        if (!group) {
+            group = [];
+            scopeGroups.set(scopeKey, group);
+        }
         group.push(occurrence);
     }
 
