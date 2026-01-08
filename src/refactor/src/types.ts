@@ -5,6 +5,33 @@ export type MaybePromise<T> = T | Promise<T>;
 export type Range = { start: number; end: number };
 
 /**
+ * Generic helper for creating type-safe enum validators.
+ * Eliminates boilerplate for type guard, parser, and require functions.
+ */
+function createEnumHelpers<T extends Record<string, string>>(enumObj: T, typeName: string) {
+    type EnumValue = T[keyof T];
+    const values = Object.freeze(Object.values(enumObj)) as ReadonlyArray<EnumValue>;
+    const valueSet: ReadonlySet<string> = new Set(values);
+
+    const is = (value: unknown): value is EnumValue => typeof value === "string" && valueSet.has(value);
+
+    const parse = (value: unknown): EnumValue | null => (is(value) ? value : null);
+
+    const require = (value: unknown, context?: string): EnumValue => {
+        if (!is(value)) {
+            const validValues = values.join(", ");
+            const contextInfo = context ? ` (in ${context})` : "";
+            throw new TypeError(
+                `Invalid ${typeName}: ${JSON.stringify(value)}${contextInfo}. Must be one of: ${validValues}.`
+            );
+        }
+        return value;
+    };
+
+    return { is, parse, require };
+}
+
+/**
  * Enumerated constants for GML symbol kinds.
  *
  * Symbol IDs follow the pattern `gml/{kind}/{name}`, where `kind` identifies
@@ -29,9 +56,7 @@ export const SymbolKind = Object.freeze({
 
 export type SymbolKindValue = (typeof SymbolKind)[keyof typeof SymbolKind];
 
-const SYMBOL_KIND_VALUES = Object.freeze(Object.values(SymbolKind)) as ReadonlyArray<SymbolKindValue>;
-
-const SYMBOL_KIND_SET: ReadonlySet<string> = new Set(SYMBOL_KIND_VALUES);
+const symbolKindHelpers = createEnumHelpers(SymbolKind, "symbol kind");
 
 /**
  * Check whether a value is a valid symbol kind.
@@ -45,7 +70,7 @@ const SYMBOL_KIND_SET: ReadonlySet<string> = new Set(SYMBOL_KIND_VALUES);
  * }
  */
 export function isSymbolKind(value: unknown): value is SymbolKindValue {
-    return typeof value === "string" && SYMBOL_KIND_SET.has(value);
+    return symbolKindHelpers.is(value);
 }
 
 /**
@@ -61,7 +86,7 @@ export function isSymbolKind(value: unknown): value is SymbolKindValue {
  * }
  */
 export function parseSymbolKind(value: unknown): SymbolKindValue | null {
-    return isSymbolKind(value) ? value : null;
+    return symbolKindHelpers.parse(value);
 }
 
 /**
@@ -76,14 +101,7 @@ export function parseSymbolKind(value: unknown): SymbolKindValue | null {
  * const kind = requireSymbolKind(symbolParts[1], symbolId);
  */
 export function requireSymbolKind(value: unknown, context?: string): SymbolKindValue {
-    if (!isSymbolKind(value)) {
-        const validKinds = SYMBOL_KIND_VALUES.join(", ");
-        const contextInfo = context ? ` (in ${context})` : "";
-        throw new TypeError(
-            `Invalid symbol kind: ${JSON.stringify(value)}${contextInfo}. Must be one of: ${validKinds}.`
-        );
-    }
-    return value;
+    return symbolKindHelpers.require(value, context);
 }
 
 /**
@@ -113,9 +131,7 @@ export const ConflictType = Object.freeze({
 
 export type ConflictTypeValue = (typeof ConflictType)[keyof typeof ConflictType];
 
-const CONFLICT_TYPE_VALUES = Object.freeze(Object.values(ConflictType)) as ReadonlyArray<ConflictTypeValue>;
-
-const CONFLICT_TYPE_SET: ReadonlySet<string> = new Set(CONFLICT_TYPE_VALUES);
+const conflictTypeHelpers = createEnumHelpers(ConflictType, "conflict type");
 
 /**
  * Check whether a value is a valid conflict type.
@@ -129,7 +145,7 @@ const CONFLICT_TYPE_SET: ReadonlySet<string> = new Set(CONFLICT_TYPE_VALUES);
  * }
  */
 export function isConflictType(value: unknown): value is ConflictTypeValue {
-    return typeof value === "string" && CONFLICT_TYPE_SET.has(value);
+    return conflictTypeHelpers.is(value);
 }
 
 /**
@@ -145,7 +161,7 @@ export function isConflictType(value: unknown): value is ConflictTypeValue {
  * }
  */
 export function parseConflictType(value: unknown): ConflictTypeValue | null {
-    return isConflictType(value) ? value : null;
+    return conflictTypeHelpers.parse(value);
 }
 
 /**
@@ -160,14 +176,7 @@ export function parseConflictType(value: unknown): ConflictTypeValue | null {
  * const type = requireConflictType(conflict.type, "validation");
  */
 export function requireConflictType(value: unknown, context?: string): ConflictTypeValue {
-    if (!isConflictType(value)) {
-        const validTypes = CONFLICT_TYPE_VALUES.join(", ");
-        const contextInfo = context ? ` (in ${context})` : "";
-        throw new TypeError(
-            `Invalid conflict type: ${JSON.stringify(value)}${contextInfo}. Must be one of: ${validTypes}.`
-        );
-    }
-    return value;
+    return conflictTypeHelpers.require(value, context);
 }
 
 export interface AstNode {
