@@ -535,6 +535,45 @@ Creates a WebSocket client for receiving live patches from a development server.
 - `onError` (optional): Callback `(error, context)` invoked on errors. Context is either `"connection"` or `"patch"`.
 - `reconnectDelay` (optional): Milliseconds to wait before reconnecting after connection loss. Default is `800`. Set to `0` to disable reconnection.
 - `autoConnect` (optional): When `true`, connects immediately. Default is `true`.
+- `patchQueue` (optional): Configuration for patch queuing and batching:
+  - `enabled` (optional): When `true`, enables patch queuing. Default is `false`.
+  - `maxQueueSize` (optional): Maximum patches to buffer before forcing a flush. Default is `100`.
+  - `flushIntervalMs` (optional): Time in milliseconds to wait before flushing queued patches. Default is `50`ms.
+
+**Patch Queuing:**
+
+When `patchQueue.enabled` is `true`, incoming patches are buffered and flushed in batches rather than applied immediately. This provides several benefits:
+
+- **Reduced overhead**: Multiple patches are applied as a single atomic batch operation
+- **Improved throughput**: During rapid file changes, patches accumulate and are flushed together
+- **Better reliability**: Patches are buffered during temporary processing delays
+- **Automatic batching**: Leverages the existing `applyPatchBatch()` API for optimal performance
+
+The queue automatically flushes when:
+- The flush interval timer expires (default 50ms)
+- The queue reaches `maxQueueSize` (default 100 patches)
+- `disconnect()` is called
+- `flushPatchQueue()` is called manually
+
+**Example with Queuing:**
+
+```javascript
+const client = createWebSocketClient({
+    wrapper,
+    patchQueue: {
+        enabled: true,
+        maxQueueSize: 50,
+        flushIntervalMs: 100
+    }
+});
+
+// Patches arriving within 100ms are batched together
+// Queue metrics track buffering behavior
+const queueMetrics = client.getPatchQueueMetrics();
+console.log(`Queued: ${queueMetrics.totalQueued}`);
+console.log(`Flushed: ${queueMetrics.totalFlushed}`);
+console.log(`Peak depth: ${queueMetrics.maxQueueDepth}`);
+```
 
 **Returns:** An object with the following methods:
 
@@ -631,6 +670,68 @@ console.log(metrics.lastConnectedAt); // null
 - Testing scenarios that require clean metric baselines
 - Implementing sliding time-window metrics collection
 - Isolating metrics for specific debugging sessions
+
+**Note:** Resetting metrics does not affect the actual connection state. If the client is currently connected, it remains connected after calling `resetConnectionMetrics()`.
+
+#### `getPatchQueueMetrics()`
+
+Returns patch queue metrics if queuing is enabled, or `null` if queuing is disabled. The returned object includes:
+
+- `totalQueued`: Total number of patches added to the queue
+- `totalFlushed`: Total number of patches successfully flushed from the queue
+- `totalDropped`: Number of patches dropped when the queue was full (oldest patches are dropped)
+- `maxQueueDepth`: Peak queue depth observed during the session
+- `flushCount`: Number of flush operations performed
+- `lastFlushSize`: Number of patches in the most recent flush
+- `lastFlushedAt`: Timestamp of the last flush operation (milliseconds since epoch), or `null` if never flushed
+
+**Example:**
+
+```javascript
+const client = createWebSocketClient({
+    wrapper,
+    patchQueue: { enabled: true }
+});
+
+const metrics = client.getPatchQueueMetrics();
+if (metrics) {
+    console.log(`Queue depth: ${metrics.maxQueueDepth}`);
+    console.log(`Flush rate: ${metrics.flushCount} flushes`);
+    console.log(`Avg batch size: ${(metrics.totalFlushed / metrics.flushCount).toFixed(1)}`);
+}
+```
+
+The metrics object is frozen to prevent accidental modification. Use these metrics for:
+
+- Monitoring queue performance and efficiency
+- Tuning `maxQueueSize` and `flushIntervalMs` parameters
+- Detecting patch throughput bottlenecks
+- Understanding batching behavior during development
+- Diagnosing patch delivery issues
+
+#### `flushPatchQueue()`
+
+Manually flushes any queued patches immediately. Returns the number of patches flushed. Only applicable when patch queuing is enabled; returns `0` if queuing is disabled or the queue is empty.
+
+**Example:**
+
+```javascript
+const client = createWebSocketClient({
+    wrapper,
+    patchQueue: { enabled: true, flushIntervalMs: 10000 }
+});
+
+// Force immediate flush before a critical operation
+const flushed = client.flushPatchQueue();
+console.log(`Flushed ${flushed} pending patches`);
+```
+
+**Use cases:**
+
+- Forcing immediate patch application before switching contexts
+- Ensuring all patches are applied before running tests
+- Manually controlling flush timing in custom workflows
+- Debugging queue behavior during development
 
 **Note:** Resetting metrics does not affect the actual connection state. If the client is currently connected, it remains connected after calling `resetConnectionMetrics()`.
 
