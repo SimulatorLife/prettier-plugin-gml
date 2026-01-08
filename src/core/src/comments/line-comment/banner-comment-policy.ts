@@ -20,8 +20,6 @@
 export type BannerCommentPolicyContext = {
     /** Number of consecutive leading slashes in the comment (e.g., "////" = 4) */
     leadingSlashCount: number;
-    /** Whether the comment appears inline at the end of a code line */
-    isInlineComment: boolean;
     /** Whether the comment contains banner decoration characters */
     hasDecorations: boolean;
 };
@@ -74,18 +72,8 @@ export function evaluateBannerCommentPolicy(
     context: BannerCommentPolicyContext,
     config: BannerCommentPolicyConfig = DEFAULT_BANNER_COMMENT_POLICY_CONFIG
 ): BannerCommentPolicyEvaluation {
-    const { leadingSlashCount, isInlineComment, hasDecorations } = context;
+    const { leadingSlashCount, hasDecorations } = context;
     const { minLeadingSlashes } = config;
-
-    // Inline comments are never treated as banners, regardless of slash count
-    // or decorations. Banner comments are meant to visually separate blocks of
-    // code and are always on their own line.
-    if (isInlineComment) {
-        return {
-            isBanner: false,
-            reason: "inline-comment"
-        };
-    }
 
     // If the comment has enough leading slashes to meet the threshold,
     // treat it as a banner comment

@@ -182,7 +182,7 @@ function tryFormatBannerComment(
     trimmedValue: string,
     slashesMatch: RegExpMatchArray | null,
     hasDecorations: boolean,
-    context: { leadingSlashCount: number; isInlineComment: boolean }
+    leadingSlashCount: number
 ): string | null {
     if (!slashesMatch) {
         return null;
@@ -190,8 +190,7 @@ function tryFormatBannerComment(
 
     // Use the policy evaluator to determine if this is a banner comment
     const policyEvaluation = evaluateBannerCommentPolicy({
-        leadingSlashCount: context.leadingSlashCount,
-        isInlineComment: context.isInlineComment,
+        leadingSlashCount,
         hasDecorations
     });
 
@@ -447,7 +446,6 @@ function tryFormatPlainTripleSlash(
     // Use the policy evaluator to check if this should be treated as a banner
     const policyEvaluation = evaluateBannerCommentPolicy({
         leadingSlashCount,
-        isInlineComment,
         hasDecorations: false // No decorations present in plain triple-slash comments
     });
 
@@ -506,10 +504,14 @@ function formatLineComment(comment, lineCommentOptions: any = DEFAULT_LINE_COMME
     }
 
     // Try banner comment formatting
-    const bannerResult = tryFormatBannerComment(comment, trimmedOriginal, trimmedValue, slashesMatch, hasDecorations, {
-        leadingSlashCount,
-        isInlineComment
-    });
+    const bannerResult = tryFormatBannerComment(
+        comment,
+        trimmedOriginal,
+        trimmedValue,
+        slashesMatch,
+        hasDecorations,
+        leadingSlashCount
+    );
     if (bannerResult !== null) {
         return bannerResult;
     }
