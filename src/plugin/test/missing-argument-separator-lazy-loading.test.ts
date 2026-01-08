@@ -1,11 +1,17 @@
 import { describe, it } from "node:test";
 import assert from "node:assert";
 import { Core } from "@gml-modules/core";
+import { clearForbiddenCalleeIdentifiersCache } from "../src/transforms/missing-argument-separator-sanitizer.js";
+
+// Memory test thresholds
+const EXPECTED_METADATA_SIZE_BYTES = 100_000; // Identifier metadata should allocate at least 100KB
+const GC_VARIANCE_TOLERANCE_BYTES = 500_000; // Allow 500KB variance due to GC timing
 
 describe("Missing argument separator sanitizer lazy loading", () => {
     it("should demonstrate memory footprint reduction with lazy loading", () => {
         // Clear the cache to start fresh
         Core.clearIdentifierMetadataCache();
+        clearForbiddenCalleeIdentifiersCache();
 
         // Force GC if available
         if (typeof globalThis.gc === "function") {
@@ -29,6 +35,7 @@ describe("Missing argument separator sanitizer lazy loading", () => {
 
         // Clear the cache to free the memory
         Core.clearIdentifierMetadataCache();
+        clearForbiddenCalleeIdentifiersCache();
 
         if (typeof globalThis.gc === "function") {
             for (let i = 0; i < 5; i++) {
@@ -42,20 +49,27 @@ describe("Missing argument separator sanitizer lazy loading", () => {
         // The identifier metadata should consume significant memory
         // With lazy loading, this memory is only allocated when needed
         assert.ok(
-            loadedHeap > 100_000,
-            `Identifier metadata should allocate significant memory. Loaded: ${loadedHeap} bytes, keywords: ${keywordCount}`
+            loadedHeap > EXPECTED_METADATA_SIZE_BYTES,
+            `Identifier metadata should allocate significant memory. Loaded: ${loadedHeap} bytes, keywords: ${keywordCount}, expected: >${EXPECTED_METADATA_SIZE_BYTES} bytes`
         );
 
         // After clearing, memory should be reduced (allowing some GC variance)
+        // Negative values mean memory increased after clearing, which is acceptable
+        // up to the GC variance tolerance due to V8 internals
         assert.ok(
-            freedHeap > -500_000,
-            `Clearing cache should reduce memory footprint. Freed: ${freedHeap} bytes (negative means memory went up)`
+            freedHeap > -GC_VARIANCE_TOLERANCE_BYTES,
+            `Clearing cache should reduce memory footprint. Freed: ${freedHeap} bytes (negative means memory went up, tolerance: ${GC_VARIANCE_TOLERANCE_BYTES} bytes)`
         );
+
+        // Clean up
+        Core.clearIdentifierMetadataCache();
+        clearForbiddenCalleeIdentifiersCache();
     });
 
     it("should load metadata only when sanitizer is called", async () => {
         // Clear the cache to start fresh
         Core.clearIdentifierMetadataCache();
+        clearForbiddenCalleeIdentifiersCache();
 
         // Import the module
         const { sanitizeMissingArgumentSeparators } = await import(
@@ -79,11 +93,13 @@ describe("Missing argument separator sanitizer lazy loading", () => {
 
         // Clean up
         Core.clearIdentifierMetadataCache();
+        clearForbiddenCalleeIdentifiersCache();
     });
 
     it("should handle empty input without loading metadata", async () => {
         // Clear the cache
         Core.clearIdentifierMetadataCache();
+        clearForbiddenCalleeIdentifiersCache();
 
         const { sanitizeMissingArgumentSeparators } = await import(
             "../src/transforms/missing-argument-separator-sanitizer.js"
@@ -98,5 +114,6 @@ describe("Missing argument separator sanitizer lazy loading", () => {
 
         // Clean up
         Core.clearIdentifierMetadataCache();
+        clearForbiddenCalleeIdentifiersCache();
     });
 });

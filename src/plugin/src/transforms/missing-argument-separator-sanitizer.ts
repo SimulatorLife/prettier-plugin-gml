@@ -24,6 +24,17 @@ let FORBIDDEN_CALLEE_IDENTIFIERS: Set<string> | null = null;
 const FORBIDDEN_PRECEDING_IDENTIFIERS = new Set(FALLBACK_FORBIDDEN_PRECEDING);
 
 /**
+ * Clear the cached forbidden callee identifiers.
+ *
+ * This function should be called when the identifier metadata cache is cleared
+ * to ensure consistency between the core cache and this module's cache.
+ * It's primarily used in tests or when resetting the formatter's state.
+ */
+export function clearForbiddenCalleeIdentifiersCache(): void {
+    FORBIDDEN_CALLEE_IDENTIFIERS = null;
+}
+
+/**
  * Lazily initialize the forbidden callee identifiers set.
  *
  * Defers loading the 1.3 MB identifier metadata until the sanitizer is first
@@ -31,7 +42,7 @@ const FORBIDDEN_PRECEDING_IDENTIFIERS = new Set(FALLBACK_FORBIDDEN_PRECEDING);
  * load this module but never call sanitizeMissingArgumentSeparators.
  *
  * The metadata is loaded once and cached in FORBIDDEN_CALLEE_IDENTIFIERS for
- * subsequent calls.
+ * subsequent calls. Use clearForbiddenCalleeIdentifiersCache() to reset.
  */
 function ensureForbiddenCalleeIdentifiers(): Set<string> {
     if (FORBIDDEN_CALLEE_IDENTIFIERS !== null) {
