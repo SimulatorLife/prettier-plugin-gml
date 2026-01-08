@@ -870,6 +870,48 @@ void test("Transpiler.emitJavaScript handles ternary with function calls", () =>
     assert.ok(result.includes("getDefault()"), "Should include alternate function");
 });
 
+// Parenthesized expression tests
+void test("Transpiler.emitJavaScript handles simple parenthesized expression", () => {
+    const source = "x = (5)";
+    const parser = new Parser.GMLParser(source);
+    const ast = parser.parse();
+    const result = Transpiler.emitJavaScript(ast);
+    assert.ok(result.includes("(5)"), "Should preserve parentheses");
+});
+
+void test("Transpiler.emitJavaScript handles parenthesized binary expression", () => {
+    const source = "x = (a + b)";
+    const parser = new Parser.GMLParser(source);
+    const ast = parser.parse();
+    const result = Transpiler.emitJavaScript(ast);
+    assert.ok(result.includes("(a + b)"), "Should wrap binary expression in parentheses");
+});
+
+void test("Transpiler.emitJavaScript handles nested parenthesized expressions", () => {
+    const source = "x = ((a + b))";
+    const parser = new Parser.GMLParser(source);
+    const ast = parser.parse();
+    const result = Transpiler.emitJavaScript(ast);
+    assert.ok(result.includes("((a + b))"), "Should preserve nested parentheses");
+});
+
+void test("Transpiler.emitJavaScript handles parenthesized expression in arithmetic", () => {
+    const source = "x = (a + b) * c";
+    const parser = new Parser.GMLParser(source);
+    const ast = parser.parse();
+    const result = Transpiler.emitJavaScript(ast);
+    assert.ok(result.includes("(a + b)"), "Should preserve parentheses for precedence");
+    assert.ok(result.includes("* c"), "Should include multiplication");
+});
+
+void test("Transpiler.emitJavaScript handles parenthesized function call", () => {
+    const source = "x = (myFunc())";
+    const parser = new Parser.GMLParser(source);
+    const ast = parser.parse();
+    const result = Transpiler.emitJavaScript(ast);
+    assert.ok(result.includes("(myFunc())"), "Should wrap function call in parentheses");
+});
+
 // Error handling tests
 void test("Transpiler.emitJavaScript handles throw statements with string", () => {
     const source = 'throw "Error message"';
