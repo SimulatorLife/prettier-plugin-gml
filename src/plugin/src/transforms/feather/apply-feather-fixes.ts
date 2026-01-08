@@ -12681,7 +12681,7 @@ function moveGpuPopStateCallOutOfConditional(node, parent, property, diagnostic)
     }
 
     const fixDetail = createFeatherFixDetail(diagnostic, {
-        target: callExpression.object?.name ?? "gpu_pop_state",
+        target: (callExpression.object as { name?: unknown })?.name ?? "gpu_pop_state",
         range: {
             start: Core.getNodeStartIndex(callExpression),
             end: Core.getNodeEndIndex(callExpression)
@@ -12893,20 +12893,10 @@ function isGpuPushStateCallStatement(node) {
 }
 
 function getCallExpression(node) {
-    if (!node) {
-        return null;
-    }
+    const unwrapped = Core.unwrapExpressionStatement(node);
 
-    if (node.type === "CallExpression") {
-        return node;
-    }
-
-    if (node.type === "ExpressionStatement") {
-        const expression = node.expression;
-
-        if (expression && expression.type === "CallExpression") {
-            return expression;
-        }
+    if (unwrapped?.type === "CallExpression") {
+        return unwrapped;
     }
 
     return null;
@@ -13043,17 +13033,12 @@ function isCallExpressionStatementWithName(statement, name) {
     return calleeName === name;
 }
 
-function getCallExpressionCalleeName(node) {
-    if (!node || typeof node !== "object") {
-        return null;
-    }
+function getCallExpressionCalleeName(node): string | null {
+    const unwrapped = Core.unwrapExpressionStatement(node);
 
-    if (node.type === "CallExpression") {
-        return node.object?.name ?? null;
-    }
-
-    if (node.type === "ExpressionStatement") {
-        return getCallExpressionCalleeName(node.expression);
+    if (unwrapped?.type === "CallExpression") {
+        const name = (unwrapped.object as { name?: unknown })?.name;
+        return typeof name === "string" ? name : null;
     }
 
     return null;

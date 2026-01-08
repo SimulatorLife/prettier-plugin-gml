@@ -14,7 +14,8 @@ import {
     MEMBER_INDEX_EXPRESSION,
     PARENTHESIZED_EXPRESSION,
     BINARY_EXPRESSION,
-    MEMBER_DOT_EXPRESSION
+    MEMBER_DOT_EXPRESSION,
+    EXPRESSION_STATEMENT
 } from "./node-types.js";
 import type {
     AssignmentPatternNode,
@@ -108,6 +109,39 @@ export function getSingleBodyStatement(
     }
 
     return statement as GameMakerAstNode;
+}
+
+/**
+ * Unwrap an expression statement to retrieve its inner expression.
+ *
+ * Many parts of the codebase need to handle nodes that may be either wrapped in
+ * an ExpressionStatement or stand alone. This helper centralizes the unwrapping
+ * logic that was previously duplicated across printer and transform modules,
+ * eliminating the repeated pattern of checking `node.type === "ExpressionStatement"`
+ * and accessing `node.expression`.
+ *
+ * @param node Potential expression statement or expression node to unwrap.
+ * @returns The inner expression when {@link node} is an ExpressionStatement,
+ *   otherwise the original node. Returns `null` when the input is nullish.
+ *
+ * @example
+ * ```ts
+ * // Unwraps ExpressionStatement to get the assignment
+ * const expr = unwrapExpressionStatement(node);
+ * // expr is now either the original node or node.expression if it was wrapped
+ * ```
+ */
+export function unwrapExpressionStatement(node: GameMakerAstNode | null | undefined): GameMakerAstNode | null {
+    if (!node) {
+        return null;
+    }
+
+    if (node.type === EXPRESSION_STATEMENT) {
+        const expressionNode = node as { expression?: unknown };
+        return isNode(expressionNode.expression) ? expressionNode.expression : null;
+    }
+
+    return node;
 }
 
 /**

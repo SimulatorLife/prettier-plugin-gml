@@ -915,16 +915,9 @@ function isArgumentIndexAccess(node, argumentIndex) {
 }
 
 function matchAssignmentToArgumentIndex(node, argumentIndex) {
-    if (!node) {
-        return null;
-    }
+    const assignment = Core.unwrapExpressionStatement(node);
 
-    let assignment;
-    if (node.type === "ExpressionStatement" && node.expression && node.expression.type === "AssignmentExpression") {
-        assignment = node.expression;
-    } else if (node.type === "AssignmentExpression") {
-        assignment = node;
-    } else {
+    if (!assignment || assignment.type !== "AssignmentExpression") {
         return null;
     }
 
