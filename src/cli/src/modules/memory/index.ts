@@ -1066,6 +1066,119 @@ interface MemorySuitePayload {
 }
 
 /**
+ * Format a byte count into a human-readable string with appropriate units.
+ *
+ * @param {number | null | undefined} bytes Number of bytes to format.
+ * @returns {string} Formatted string with appropriate unit (B, KB, MB, GB).
+ */
+function formatBytes(bytes: number | null | undefined): string {
+    if (bytes === null || bytes === undefined || !Number.isFinite(bytes)) {
+        return "N/A";
+    }
+
+    const absoluteBytes = Math.abs(bytes);
+    const sign = bytes < 0 ? "-" : "";
+
+    if (absoluteBytes < 1024) {
+        return `${sign}${absoluteBytes.toFixed(0)} B`;
+    }
+
+    if (absoluteBytes < 1024 * 1024) {
+        return `${sign}${(absoluteBytes / 1024).toFixed(2)} KB`;
+    }
+
+    if (absoluteBytes < 1024 * 1024 * 1024) {
+        return `${sign}${(absoluteBytes / (1024 * 1024)).toFixed(2)} MB`;
+    }
+
+    return `${sign}${(absoluteBytes / (1024 * 1024 * 1024)).toFixed(2)} GB`;
+}
+
+/**
+ * Format a duration in milliseconds into a human-readable string.
+ *
+ * @param {number | null | undefined} ms Duration in milliseconds.
+ * @returns {string} Formatted duration string.
+ */
+function formatDuration(ms: number | null | undefined): string {
+    if (ms === null || ms === undefined || !Number.isFinite(ms)) {
+        return "N/A";
+    }
+
+    if (ms < 1) {
+        return `${ms.toFixed(3)} ms`;
+    }
+
+    if (ms < 1000) {
+        return `${ms.toFixed(2)} ms`;
+    }
+
+    return `${(ms / 1000).toFixed(2)} s`;
+}
+
+/**
+ * Format memory suite payload into human-readable lines.
+ *
+ * @param {MemorySuitePayload} payload The suite result payload.
+ * @returns {Array<string>} Array of formatted lines describing the result.
+ */
+function formatMemorySuitePayload(payload: MemorySuitePayload): Array<string> {
+    const lines: Array<string> = [];
+
+    if (payload.description && typeof payload.description === "string") {
+        lines.push(`  Description: ${payload.description}`);
+    }
+
+    if (typeof payload.iterations === "number") {
+        lines.push(`  Iterations: ${payload.iterations.toLocaleString()}`);
+    }
+
+    if (typeof payload.durationMs === "number") {
+        lines.push(`  Duration: ${formatDuration(payload.durationMs)}`);
+    }
+
+    if (typeof payload.heapUsedBefore === "number" && typeof payload.heapUsedAfter === "number") {
+        lines.push(`  Heap before: ${formatBytes(payload.heapUsedBefore)}`);
+        lines.push(`  Heap after: ${formatBytes(payload.heapUsedAfter)}`);
+
+        if (typeof payload.heapDelta === "number") {
+            const deltaSign = payload.heapDelta >= 0 ? "+" : "";
+            lines.push(`  Heap delta: ${deltaSign}${formatBytes(payload.heapDelta)}`);
+        }
+    }
+
+    if (
+        typeof payload.rssBefore === "number" &&
+        typeof payload.rssAfter === "number" &&
+        payload.rssBefore !== payload.rssAfter &&
+        typeof payload.rssDelta === "number"
+    ) {
+        const deltaSign = payload.rssDelta >= 0 ? "+" : "";
+        lines.push(`  RSS delta: ${deltaSign}${formatBytes(payload.rssDelta)}`);
+    }
+
+    if (payload.memory && typeof payload.memory === "object") {
+        const memory = payload.memory as Record<string, unknown>;
+        if (memory.deltaPerIteration && typeof memory.deltaPerIteration === "object") {
+            const deltaPerIter = memory.deltaPerIteration as Record<string, unknown>;
+            if (typeof deltaPerIter.heapUsed === "number") {
+                const perIterSign = deltaPerIter.heapUsed >= 0 ? "+" : "";
+                lines.push(`  Heap per iteration: ${perIterSign}${formatBytes(deltaPerIter.heapUsed)}`);
+            }
+        }
+    }
+
+    if (Array.isArray(payload.warnings) && payload.warnings.length > 0) {
+        lines.push(`  Warnings:`);
+        for (const warning of payload.warnings) {
+            lines.push(`    - ${warning}`);
+        }
+    }
+
+    return lines;
+}
+
+/**
  * Convert suite results into the newline-delimited lines printed when JSON
  * output is disabled. Keeps the formatting logic centralized without the
  * layering of the previous mini-pipeline helpers.
@@ -1078,11 +1191,12 @@ function createHumanReadableMemoryLines(results: Record<string, MemorySuitePaylo
 
         if (payload?.error) {
             const message = getErrorMessageOrFallback(payload.error);
-            lines.push(`  - error: ${message}`);
+            lines.push(`  Error: ${message}`);
             continue;
         }
 
-        lines.push(`  - result: ${JSON.stringify(payload)}`);
+        const formattedLines = formatMemorySuitePayload(payload);
+        lines.push(...formattedLines);
     }
 
     return lines;
