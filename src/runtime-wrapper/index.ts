@@ -21,10 +21,14 @@ export type {
     RuntimeWrapperState,
     TrySafeApplyResult,
     MessageEventLike,
+    PatchQueueMetrics,
+    PatchQueueOptions,
+    PatchQueueState,
     RuntimeWebSocketClient,
     RuntimeWebSocketConstructor,
     RuntimeWebSocketInstance,
     WebSocketEvent,
     WebSocketClientOptions,
-    WebSocketClientState
+    WebSocketClientState,
+    WebSocketConnectionMetrics
 } from "./src/index.js";
