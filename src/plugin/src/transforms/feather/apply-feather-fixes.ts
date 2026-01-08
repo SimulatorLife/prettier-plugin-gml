@@ -9103,6 +9103,9 @@ function liftDrawPrimitiveEndCallFromConditional(conditional, siblings, conditio
 
     siblings.splice(insertionIndex, 0, callNode);
 
+    markStatementToSuppressLeadingEmptyLine(callNode);
+    callNode._featherForceFollowingEmptyLine = true;
+
     attachFeatherFixMetadata(callNode, [fixDetail]);
 
     return fixDetail;
