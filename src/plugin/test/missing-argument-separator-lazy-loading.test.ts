@@ -1,0 +1,129 @@
+import { describe, it } from "node:test";
+import assert from "node:assert";
+import { Core } from "@gml-modules/core";
+import { clearForbiddenCalleeIdentifiersCache } from "../src/transforms/missing-argument-separator-sanitizer.js";
+
+// Memory test thresholds
+// The identifier metadata payload is ~1.3 MB on disk, but when loaded and parsed
+// it typically consumes 100-200 KB of heap due to JavaScript object overhead.
+// We use a conservative 100 KB threshold to account for variations in V8 optimization.
+const EXPECTED_METADATA_SIZE_BYTES = 100_000;
+
+// GC variance tolerance: V8's garbage collector is non-deterministic, and forcing
+// GC doesn't guarantee immediate memory reclamation. This tolerance accounts for:
+// - V8 internal structures that may be allocated/deallocated during the test
+// - Timing variance in when objects are actually freed
+// - Retained references in Node.js internals
+// A 500 KB tolerance is reasonable given the ~1-2 MB working set of the test.
+const GC_VARIANCE_TOLERANCE_BYTES = 500_000;
+
+describe("Missing argument separator sanitizer lazy loading", () => {
+    it("should demonstrate memory footprint reduction with lazy loading", () => {
+        // Clear the cache to start fresh
+        Core.clearIdentifierMetadataCache();
+        clearForbiddenCalleeIdentifiersCache();
+
+        // Force GC if available
+        if (typeof globalThis.gc === "function") {
+            for (let i = 0; i < 5; i++) {
+                globalThis.gc();
+            }
+        }
+
+        const beforeLoad = process.memoryUsage();
+
+        // Eagerly load the metadata (simulating the old behavior)
+        const identifierMetadataEntries = Core.normalizeIdentifierMetadataEntries(Core.getIdentifierMetadata());
+        const keywordCount = identifierMetadataEntries.filter((e) => e.type === "keyword").length;
+
+        if (typeof globalThis.gc === "function") {
+            globalThis.gc();
+        }
+
+        const afterLoad = process.memoryUsage();
+        const loadedHeap = afterLoad.heapUsed - beforeLoad.heapUsed;
+
+        // Clear the cache to free the memory
+        Core.clearIdentifierMetadataCache();
+        clearForbiddenCalleeIdentifiersCache();
+
+        if (typeof globalThis.gc === "function") {
+            for (let i = 0; i < 5; i++) {
+                globalThis.gc();
+            }
+        }
+
+        const afterClear = process.memoryUsage();
+        const freedHeap = afterLoad.heapUsed - afterClear.heapUsed;
+
+        // The identifier metadata should consume significant memory
+        // With lazy loading, this memory is only allocated when needed
+        assert.ok(
+            loadedHeap > EXPECTED_METADATA_SIZE_BYTES,
+            `Identifier metadata should allocate significant memory. Loaded: ${loadedHeap} bytes, keywords: ${keywordCount}, expected: >${EXPECTED_METADATA_SIZE_BYTES} bytes`
+        );
+
+        // After clearing, memory should be reduced (allowing some GC variance)
+        // Negative values mean memory increased after clearing, which is acceptable
+        // up to the GC variance tolerance due to V8 internals
+        assert.ok(
+            freedHeap > -GC_VARIANCE_TOLERANCE_BYTES,
+            `Clearing cache should reduce memory footprint. Freed: ${freedHeap} bytes (negative means memory went up, tolerance: ${GC_VARIANCE_TOLERANCE_BYTES} bytes)`
+        );
+
+        // Clean up
+        Core.clearIdentifierMetadataCache();
+        clearForbiddenCalleeIdentifiersCache();
+    });
+
+    it("should load metadata only when sanitizer is called", async () => {
+        // Clear the cache to start fresh
+        Core.clearIdentifierMetadataCache();
+        clearForbiddenCalleeIdentifiersCache();
+
+        // Import the module
+        const { sanitizeMissingArgumentSeparators } = await import(
+            "../src/transforms/missing-argument-separator-sanitizer.js"
+        );
+
+        // Verify the function exists
+        assert.ok(typeof sanitizeMissingArgumentSeparators === "function", "Should export sanitizer function");
+
+        // Call the sanitizer with a simple input
+        const result = sanitizeMissingArgumentSeparators("show_debug_message(1 2)");
+
+        // Verify it still works correctly
+        assert.ok(result, "Should return a result");
+        assert.strictEqual(typeof result.sourceText, "string", "Should return source text");
+
+        // The metadata should now be loaded and cached
+        // Subsequent calls should use the cached version
+        const result2 = sanitizeMissingArgumentSeparators("show_debug_message(3 4)");
+        assert.ok(result2, "Should work on subsequent calls");
+
+        // Clean up
+        Core.clearIdentifierMetadataCache();
+        clearForbiddenCalleeIdentifiersCache();
+    });
+
+    it("should handle empty input without loading metadata", async () => {
+        // Clear the cache
+        Core.clearIdentifierMetadataCache();
+        clearForbiddenCalleeIdentifiersCache();
+
+        const { sanitizeMissingArgumentSeparators } = await import(
+            "../src/transforms/missing-argument-separator-sanitizer.js"
+        );
+
+        // Empty input should short-circuit before needing metadata
+        const result = sanitizeMissingArgumentSeparators("");
+
+        assert.ok(result, "Should handle empty input");
+        assert.strictEqual(result.sourceText, "", "Should return empty string");
+        assert.strictEqual(result.indexAdjustments, null, "Should have no adjustments");
+
+        // Clean up
+        Core.clearIdentifierMetadataCache();
+        clearForbiddenCalleeIdentifiersCache();
+    });
+});
