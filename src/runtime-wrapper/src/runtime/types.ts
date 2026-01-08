@@ -96,6 +96,7 @@ export interface RuntimeWrapperState {
     registry: RuntimeRegistry;
     undoStack: Array<PatchSnapshot>;
     patchHistory: Array<PatchHistoryEntry>;
+    errorHistory: Array<PatchErrorOccurrence>;
     options: {
         validateBeforeApply: boolean;
         maxUndoStackSize: number;
@@ -263,6 +264,76 @@ export interface RuntimeMetrics {
 }
 
 /**
+ * Category of patch error.
+ *
+ * Categorizes errors that occur during patch validation and application:
+ * - validation: Structural or semantic validation failures before application
+ * - shadow: Errors detected during shadow registry testing
+ * - application: Errors that occur during actual patch application
+ * - rollback: Errors encountered during automatic rollback operations
+ */
+export type PatchErrorCategory = "validation" | "shadow" | "application" | "rollback";
+
+/**
+ * Individual error occurrence record.
+ *
+ * Captures detailed information about a single patch error occurrence
+ * for diagnostic and debugging purposes.
+ */
+export interface PatchErrorOccurrence {
+    patchId: string;
+    patchKind: PatchKind;
+    category: PatchErrorCategory;
+    error: string;
+    timestamp: number;
+    stackTrace?: string;
+}
+
+/**
+ * Aggregated error statistics for a specific patch ID.
+ *
+ * Provides summary statistics about error patterns for a given patch,
+ * helping developers identify problematic patches during development.
+ */
+export interface PatchErrorSummary {
+    patchId: string;
+    totalErrors: number;
+    errorsByCategory: Record<PatchErrorCategory, number>;
+    firstErrorAt: number;
+    lastErrorAt: number;
+    mostRecentError: string;
+    uniqueErrorMessages: number;
+}
+
+/**
+ * Complete error analytics snapshot.
+ *
+ * Provides comprehensive error statistics and patterns across all patches,
+ * enabling developers to quickly identify and diagnose hot-reload issues.
+ */
+export interface PatchErrorAnalytics {
+    totalErrors: number;
+    errorsByCategory: Record<PatchErrorCategory, number>;
+    errorsByKind: Record<PatchKind, number>;
+    uniquePatchesWithErrors: number;
+    mostProblematicPatches: Array<{ patchId: string; errorCount: number }>;
+    recentErrors: Array<PatchErrorOccurrence>;
+    errorRate: number;
+}
+
+/**
+ * Error analytics and tracking.
+ *
+ * Provides comprehensive error tracking and analysis capabilities
+ * for debugging hot-reload issues during development.
+ */
+export interface ErrorAnalytics {
+    getErrorAnalytics(): PatchErrorAnalytics;
+    getErrorsForPatch(patchId: string): PatchErrorSummary | null;
+    clearErrorHistory(): void;
+}
+
+/**
  * Complete runtime wrapper interface.
  *
  * Combines all role-focused interfaces for consumers that need full
@@ -276,6 +347,7 @@ export interface RuntimeWrapper
         RegistryReader,
         RegistryMutator,
         RuntimeMetrics,
-        RegistryDiagnostics {
+        RegistryDiagnostics,
+        ErrorAnalytics {
     state: RuntimeWrapperState;
 }

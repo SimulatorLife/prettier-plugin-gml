@@ -13,6 +13,9 @@ import type {
     ApplyPatchResult,
     BatchApplyResult,
     Patch,
+    PatchErrorAnalytics,
+    PatchErrorCategory,
+    PatchErrorSummary,
     PatchHistoryEntry,
     PatchStats,
     RegistryHealthCheck,
@@ -35,6 +38,7 @@ export function createRuntimeWrapper(options: RuntimeWrapperOptions = {}): Runti
         registry: baseRegistry,
         undoStack: [],
         patchHistory: [],
+        errorHistory: [],
         options: {
             validateBeforeApply: options.validateBeforeApply ?? false,
             maxUndoStackSize: options.maxUndoStackSize ?? DEFAULT_MAX_UNDO_STACK_SIZE
@@ -43,6 +47,31 @@ export function createRuntimeWrapper(options: RuntimeWrapperOptions = {}): Runti
 
     const onPatchApplied = options.onPatchApplied;
     const onChange = options.onChange;
+
+    function recordError(patch: Patch, category: PatchErrorCategory, error: unknown): void {
+        let errorMessage: string;
+        if (Core.isErrorLike(error)) {
+            errorMessage = error.message;
+        } else if (error === null || error === undefined) {
+            errorMessage = UNKNOWN_ERROR_MESSAGE;
+        } else if (typeof error === "string") {
+            errorMessage = error;
+        } else if (typeof error === "number" || typeof error === "boolean") {
+            errorMessage = String(error);
+        } else {
+            errorMessage = "Non-Error object thrown";
+        }
+        const stackTrace = Core.isErrorLike(error) && error.stack ? error.stack : undefined;
+
+        state.errorHistory.push({
+            patchId: patch.id,
+            patchKind: patch.kind,
+            category,
+            error: errorMessage,
+            timestamp: Date.now(),
+            stackTrace
+        });
+    }
 
     function trimUndoStack(): void {
         const maxSize = state.options.maxUndoStackSize;
@@ -58,6 +87,7 @@ export function createRuntimeWrapper(options: RuntimeWrapperOptions = {}): Runti
         if (state.options.validateBeforeApply) {
             const testResult = testPatchInShadow(patch);
             if (!testResult.valid) {
+                recordError(patch, "shadow", testResult.error ?? "Unknown shadow validation error");
                 throw new Error(`Patch validation failed for ${patch.id}: ${testResult.error}`);
             }
         }
@@ -94,6 +124,7 @@ export function createRuntimeWrapper(options: RuntimeWrapperOptions = {}): Runti
 
             return result;
         } catch (error) {
+            recordError(patch, "application", error);
             const message = Core.isErrorLike(error) ? error.message : String(error ?? UNKNOWN_ERROR_MESSAGE);
             throw new Error(`Failed to apply patch ${patch.id}: ${message}`);
         }
@@ -110,6 +141,7 @@ export function createRuntimeWrapper(options: RuntimeWrapperOptions = {}): Runti
             for (const [index, patch] of validatedPatches.entries()) {
                 const testResult = testPatchInShadow(patch);
                 if (!testResult.valid) {
+                    recordError(patch, "shadow", testResult.error ?? "Unknown shadow validation error");
                     return {
                         success: false,
                         appliedCount: 0,
@@ -208,6 +240,11 @@ export function createRuntimeWrapper(options: RuntimeWrapperOptions = {}): Runti
                 rolledBack: false
             };
         } catch (error) {
+            const failedPatch = validatedPatches[appliedCount];
+            if (failedPatch) {
+                recordError(failedPatch, "application", error);
+            }
+
             state.registry = batchSnapshot.registry;
             state.undoStack.length = batchSnapshot.undoStackSize;
             state.patchHistory.length = batchSnapshot.historySize;
@@ -274,6 +311,7 @@ export function createRuntimeWrapper(options: RuntimeWrapperOptions = {}): Runti
 
         const testResult = testPatchInShadow(patch);
         if (!testResult.valid) {
+            recordError(patch, "shadow", testResult.error ?? "Unknown shadow validation error");
             return {
                 success: false,
                 error: testResult.error,
@@ -285,6 +323,7 @@ export function createRuntimeWrapper(options: RuntimeWrapperOptions = {}): Runti
             try {
                 const validationResult = onValidate(patch);
                 if (validationResult === false) {
+                    recordError(patch, "validation", "Custom validation rejected patch");
                     return {
                         success: false,
                         error: "Custom validation rejected patch",
@@ -292,6 +331,7 @@ export function createRuntimeWrapper(options: RuntimeWrapperOptions = {}): Runti
                     };
                 }
             } catch (error) {
+                recordError(patch, "validation", error);
                 const message = Core.isErrorLike(error) ? error.message : String(error ?? UNKNOWN_ERROR_MESSAGE);
                 return {
                     success: false,
@@ -312,6 +352,8 @@ export function createRuntimeWrapper(options: RuntimeWrapperOptions = {}): Runti
                 rolledBack: false
             };
         } catch (error) {
+            recordError(patch, "rollback", error);
+
             const restoredRegistry = restoreSnapshot(state.registry, snapshot);
             state.registry = {
                 ...restoredRegistry,
@@ -575,6 +617,95 @@ export function createRuntimeWrapper(options: RuntimeWrapperOptions = {}): Runti
         };
     }
 
+    function getErrorAnalytics(): PatchErrorAnalytics {
+        const totalErrors = state.errorHistory.length;
+
+        const errorsByCategory: Record<PatchErrorCategory, number> = {
+            validation: 0,
+            shadow: 0,
+            application: 0,
+            rollback: 0
+        };
+
+        const errorsByKind: Record<import("./types.js").PatchKind, number> = {
+            script: 0,
+            event: 0,
+            closure: 0
+        };
+
+        const patchErrorCounts = new Map<string, number>();
+
+        for (const errorEntry of state.errorHistory) {
+            errorsByCategory[errorEntry.category] = (errorsByCategory[errorEntry.category] ?? 0) + 1;
+            errorsByKind[errorEntry.patchKind] = (errorsByKind[errorEntry.patchKind] ?? 0) + 1;
+
+            const currentCount = patchErrorCounts.get(errorEntry.patchId) ?? 0;
+            patchErrorCounts.set(errorEntry.patchId, currentCount + 1);
+        }
+
+        const uniquePatchesWithErrors = patchErrorCounts.size;
+
+        const sortedEntries = Array.from(patchErrorCounts.entries())
+            .map(([patchId, errorCount]) => ({ patchId, errorCount }))
+            .toSorted((a, b) => b.errorCount - a.errorCount);
+
+        const mostProblematicPatches = sortedEntries.slice(0, 10);
+
+        const recentErrors = state.errorHistory.slice(-20).map((entry) => ({ ...entry }));
+
+        const totalPatches = state.patchHistory.filter((entry) => entry.action === "apply").length;
+        const errorRate = totalPatches > 0 ? totalErrors / totalPatches : 0;
+
+        return {
+            totalErrors,
+            errorsByCategory,
+            errorsByKind,
+            uniquePatchesWithErrors,
+            mostProblematicPatches,
+            recentErrors,
+            errorRate
+        };
+    }
+
+    function getErrorsForPatch(patchId: string): PatchErrorSummary | null {
+        const errorsForPatch = state.errorHistory.filter((entry) => entry.patchId === patchId);
+
+        if (errorsForPatch.length === 0) {
+            return null;
+        }
+
+        const errorsByCategory: Record<PatchErrorCategory, number> = {
+            validation: 0,
+            shadow: 0,
+            application: 0,
+            rollback: 0
+        };
+
+        const uniqueErrors = new Set<string>();
+
+        for (const errorEntry of errorsForPatch) {
+            errorsByCategory[errorEntry.category] = (errorsByCategory[errorEntry.category] ?? 0) + 1;
+            uniqueErrors.add(errorEntry.error);
+        }
+
+        const firstError = errorsForPatch[0];
+        const lastError = errorsForPatch.at(-1);
+
+        return {
+            patchId,
+            totalErrors: errorsForPatch.length,
+            errorsByCategory,
+            firstErrorAt: firstError.timestamp,
+            lastErrorAt: lastError.timestamp,
+            mostRecentError: lastError.error,
+            uniqueErrorMessages: uniqueErrors.size
+        };
+    }
+
+    function clearErrorHistory(): void {
+        state.errorHistory = [];
+    }
+
     return {
         state,
         applyPatch,
@@ -596,6 +727,9 @@ export function createRuntimeWrapper(options: RuntimeWrapperOptions = {}): Runti
         hasClosure,
         clearRegistry,
         checkRegistryHealth,
-        getPatchDiagnostics
+        getPatchDiagnostics,
+        getErrorAnalytics,
+        getErrorsForPatch,
+        clearErrorHistory
     };
 }

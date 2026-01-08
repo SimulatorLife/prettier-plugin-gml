@@ -7,7 +7,12 @@ export const RuntimeWrapper = Object.freeze({
 
 export type {
     ApplyPatchResult,
+    ErrorAnalytics,
     Patch,
+    PatchErrorAnalytics,
+    PatchErrorCategory,
+    PatchErrorOccurrence,
+    PatchErrorSummary,
     PatchHistoryEntry,
     PatchKind,
     PatchStats,
