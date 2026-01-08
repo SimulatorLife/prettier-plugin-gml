@@ -9,6 +9,34 @@ import type { WorkspaceEdit } from "./workspace-edit.js";
 import { groupOccurrencesByFile } from "./occurrence-analysis.js";
 
 /**
+ * Append formatted error and warning messages to a lines array.
+ * Helper for consistent formatting of validation results in report functions.
+ *
+ * @param lines - Array to append formatted messages to
+ * @param errors - Array of error messages
+ * @param warnings - Array of warning messages
+ */
+function appendErrorsAndWarnings(
+    lines: Array<string>,
+    errors: ReadonlyArray<string>,
+    warnings: ReadonlyArray<string>
+): void {
+    if (errors.length > 0) {
+        lines.push("  Errors:");
+        for (const error of errors) {
+            lines.push(`    ✗ ${error}`);
+        }
+    }
+
+    if (warnings.length > 0) {
+        lines.push("  Warnings:");
+        for (const warning of warnings) {
+            lines.push(`    ⚠ ${warning}`);
+        }
+    }
+}
+
+/**
  * Preview entry for a single file in a rename operation.
  * Contains the file path and the edits that will be applied to it.
  */
@@ -222,19 +250,7 @@ export function formatRenamePlanReport(plan: RenamePlanSummary): string {
             }
         }
 
-        if (plan.hotReload.errors.length > 0) {
-            lines.push("  Errors:");
-            for (const error of plan.hotReload.errors) {
-                lines.push(`    ✗ ${error}`);
-            }
-        }
-
-        if (plan.hotReload.warnings.length > 0) {
-            lines.push("  Warnings:");
-            for (const warning of plan.hotReload.warnings) {
-                lines.push(`    ⚠ ${warning}`);
-            }
-        }
+        appendErrorsAndWarnings(lines, plan.hotReload.errors, plan.hotReload.warnings);
     }
 
     return lines.join("\n");
@@ -347,19 +363,7 @@ export function formatBatchRenamePlanReport(plan: BatchRenamePlanSummary): strin
     if (plan.hotReload) {
         lines.push(`Hot Reload Status: ${plan.hotReload.valid ? "SAFE" : "UNSAFE"}`);
 
-        if (plan.hotReload.errors.length > 0) {
-            lines.push("  Errors:");
-            for (const error of plan.hotReload.errors) {
-                lines.push(`    ✗ ${error}`);
-            }
-        }
-
-        if (plan.hotReload.warnings.length > 0) {
-            lines.push("  Warnings:");
-            for (const warning of plan.hotReload.warnings) {
-                lines.push(`    ⚠ ${warning}`);
-            }
-        }
+        appendErrorsAndWarnings(lines, plan.hotReload.errors, plan.hotReload.warnings);
     }
 
     return lines.join("\n");
