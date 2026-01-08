@@ -448,7 +448,7 @@ function tryFormatPlainTripleSlash(
     const policyEvaluation = evaluateBannerCommentPolicy({
         leadingSlashCount,
         isInlineComment,
-        hasDecorations: false // At this point we're checking slash count only
+        hasDecorations: false // No decorations present in plain triple-slash comments
     });
 
     if (policyEvaluation.isBanner) {
