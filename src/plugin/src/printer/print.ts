@@ -1592,9 +1592,16 @@ function printBlockStatementNode(node, path, options, print) {
             typeof node.start === NUMBER_TYPE &&
             isNextLineEmpty(originalText, node.start);
 
+        // Add blank line when first statement has a leading comment
+        const firstStatementHasLeadingComment =
+            Core.hasComment(firstStatement) && Core.hasLeadingComment(firstStatement);
+
         // For constructors, preserve blank lines between header and first statement
         shouldPreserveInitialBlankLine =
-            shouldPreserveInitialBlankLine || preserveForConstructorText || preserveForLeadingComment;
+            shouldPreserveInitialBlankLine ||
+            preserveForConstructorText ||
+            preserveForLeadingComment ||
+            firstStatementHasLeadingComment;
     }
 
     if (shouldPreserveInitialBlankLine) {
