@@ -1175,7 +1175,9 @@ function formatDecorativeBlockComment(value) {
         return null;
     }
 
-    // Use the same threshold as the banner comment policy for consistency
+    // Use the same threshold as defined in banner-comment-policy.ts
+    // (DEFAULT_BANNER_COMMENT_POLICY_CONFIG.minLeadingSlashes = 4)
+    // This ensures block comments and line comments share consistent criteria.
     const MIN_DECORATIVE_SLASHES = 4;
     const DECORATIVE_SLASH_LINE_PATTERN = new RegExp(String.raw`^\s*\*?\/{${MIN_DECORATIVE_SLASHES},}\*?\s*$`);
 
