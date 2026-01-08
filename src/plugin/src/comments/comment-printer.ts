@@ -1175,9 +1175,9 @@ function formatDecorativeBlockComment(value) {
         return null;
     }
 
-    const DECORATIVE_SLASH_LINE_PATTERN = new RegExp(
-        String.raw`^\s*\*?\/{${Core.LINE_COMMENT_BANNER_DETECTION_MIN_SLASHES},}\*?\s*$`
-    );
+    // Use the same threshold as the banner comment policy for consistency
+    const MIN_DECORATIVE_SLASHES = 4;
+    const DECORATIVE_SLASH_LINE_PATTERN = new RegExp(String.raw`^\s*\*?\/{${MIN_DECORATIVE_SLASHES},}\*?\s*$`);
 
     const lines = value.split(/\r?\n/).map((line) => line.replaceAll("\t", "    "));
     const significantLines = lines.filter((line) => Core.isNonEmptyTrimmedString(line));

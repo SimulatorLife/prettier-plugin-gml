@@ -1,9 +1,9 @@
 import {
     DEFAULT_COMMENTED_OUT_CODE_PATTERNS,
     DEFAULT_LINE_COMMENT_OPTIONS,
-    LINE_COMMENT_BANNER_DETECTION_MIN_SLASHES,
     normalizeLineCommentOptions
 } from "./options.js";
+import { evaluateBannerCommentPolicy, isBelowBannerSlashThreshold } from "./banner-comment-policy.js";
 import { applyJsDocReplacements } from "../doc-comment/service/type-normalization.js";
 import { getCommentValue } from "../comment-utils.js";
 import { isNonEmptyString, isObjectLike, isRegExpLike, toTrimmedString } from "./utils.js";
@@ -181,13 +181,21 @@ function tryFormatBannerComment(
     trimmedOriginal: string,
     trimmedValue: string,
     slashesMatch: RegExpMatchArray | null,
-    hasDecorations: boolean
+    hasDecorations: boolean,
+    context: { leadingSlashCount: number; isInlineComment: boolean }
 ): string | null {
     if (!slashesMatch) {
         return null;
     }
 
-    if (slashesMatch[1].length < LINE_COMMENT_BANNER_DETECTION_MIN_SLASHES && !hasDecorations) {
+    // Use the policy evaluator to determine if this is a banner comment
+    const policyEvaluation = evaluateBannerCommentPolicy({
+        leadingSlashCount: context.leadingSlashCount,
+        isInlineComment: context.isInlineComment,
+        hasDecorations
+    });
+
+    if (!policyEvaluation.isBanner) {
         return null;
     }
 
@@ -436,7 +444,14 @@ function tryFormatPlainTripleSlash(
         return applyInlinePadding(comment, formatted);
     }
 
-    if (leadingSlashCount >= LINE_COMMENT_BANNER_DETECTION_MIN_SLASHES && !isInlineComment) {
+    // Use the policy evaluator to check if this should be treated as a banner
+    const policyEvaluation = evaluateBannerCommentPolicy({
+        leadingSlashCount,
+        isInlineComment,
+        hasDecorations: false // At this point we're checking slash count only
+    });
+
+    if (policyEvaluation.isBanner) {
         return applyInlinePadding(comment, trimmedOriginal);
     }
 
@@ -485,13 +500,16 @@ function formatLineComment(comment, lineCommentOptions: any = DEFAULT_LINE_COMME
     if (
         contentWithoutSlashes.length === 0 &&
         trimmedValue.length > 0 &&
-        leadingSlashCount < LINE_COMMENT_BANNER_DETECTION_MIN_SLASHES
+        isBelowBannerSlashThreshold(leadingSlashCount)
     ) {
         return applyInlinePadding(comment, "//");
     }
 
     // Try banner comment formatting
-    const bannerResult = tryFormatBannerComment(comment, trimmedOriginal, trimmedValue, slashesMatch, hasDecorations);
+    const bannerResult = tryFormatBannerComment(comment, trimmedOriginal, trimmedValue, slashesMatch, hasDecorations, {
+        leadingSlashCount,
+        isInlineComment
+    });
     if (bannerResult !== null) {
         return bannerResult;
     }
