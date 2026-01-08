@@ -210,13 +210,33 @@ function printComment(commentPath, options) {
                 const blankLines = countTrailingBlankLines(options.originalText, endIndex + 1);
 
                 const shouldPrependBlankLine =
-                    hasLeadingBlankLine(comment) || hasLeadingBlankLineInSource(comment, options?.originalText);
+                    comment._featherForceLeadingBlankLine === true ||
+                    hasLeadingBlankLine(comment) ||
+                    hasLeadingBlankLineInSource(comment, options?.originalText);
                 const parts = [];
-                if (shouldPrependBlankLine) {
+                if (shouldPrependBlankLine && comment._featherForceLeadingBlankLine !== true) {
                     parts.push(hardline);
                 }
 
-                parts.push(decorated);
+                const leadingWhitespace = typeof comment.leadingWS === "string" ? comment.leadingWS : "";
+                const fallbackIndentation = " ".repeat(Math.max(1, options?.tabWidth ?? 4));
+                const newlineIndex = leadingWhitespace.lastIndexOf("\n");
+                let indentation = newlineIndex === -1 ? "" : leadingWhitespace.slice(newlineIndex + 1);
+                if (indentation) {
+                    if (options?.useTabs) {
+                        // keep tabs as-is when the host prefers tabs
+                    } else {
+                        indentation = indentation.replaceAll("\t", fallbackIndentation);
+                    }
+                } else {
+                    indentation = options?.useTabs ? "\t" : fallbackIndentation;
+                }
+                if (comment._featherForceLeadingBlankLine === true) {
+                    comment.leadingWS = "\n";
+                }
+                const decoratedWithLeadingPadding =
+                    comment._featherForceLeadingBlankLine === true ? `\n\n${indentation}${decorated}` : decorated;
+                parts.push(decoratedWithLeadingPadding);
                 if (blankLines > 0) {
                     parts.push(hardline, hardline);
                 } else {
@@ -746,8 +766,10 @@ function handleDetachedOwnLineComment(comment /*, text, options, ast */) {
     comment.trailing = false;
     comment.placement = "ownLine";
     const leadingWhitespace = typeof comment.leadingWS === "string" ? comment.leadingWS : "";
-    if (!/\r|\n/.test(leadingWhitespace)) {
-        comment.leadingWS = "\n";
+    if (!/[\r\n]/.test(leadingWhitespace)) {
+        comment.leadingWS = "\n\n";
+    } else if (!/[\r\n][\t ]*[\r\n]/.test(leadingWhitespace)) {
+        comment.leadingWS = `${leadingWhitespace}\n`;
     }
     comment.trailingWS = "\n";
     return true;
@@ -788,6 +810,7 @@ function handleDecorativeBlockCommentOwnLine(comment, _text, _options, ast) {
     comment.leading = true;
     comment.trailing = false;
     comment.placement = "ownLine";
+    comment._featherForceLeadingBlankLine = true;
     const leadingWhitespace = typeof comment.leadingWS === "string" ? comment.leadingWS : "";
     if (!/\r|\n/.test(leadingWhitespace)) {
         comment.leadingWS = "\n";
