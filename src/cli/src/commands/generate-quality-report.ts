@@ -9,6 +9,7 @@ import { CliUsageError, handleCliError } from "../cli-core/errors.js";
 import { applyStandardCommandOptions } from "../cli-core/command-standard-options.js";
 import { XMLParser } from "fast-xml-parser";
 import { TestCaseStatus, ParseResultStatus, ScanStatus } from "../modules/quality-report/index.js";
+import { formatByteSize } from "../shared/reporting/byte-format.js";
 
 const {
     assertArray,
@@ -1180,17 +1181,12 @@ function generateQualityRow(label, results, healthStats = null) {
     return `| ${label} | ${lintWarningsCell} | ${lintErrorsCell} | ${duplicatesCell} | ${buildSizeCell} | ${largeFilesCell} | ${todosCell} |`;
 }
 
-function formatBytes(bytes) {
+function formatBytes(bytes: number): string {
     if (bytes === 0) return "0 B";
     if (bytes < 0 || !Number.isFinite(bytes)) {
         return "Invalid";
     }
-    const k = 1024;
-    const sizes = ["B", "KB", "MB", "GB"];
-    // Clamp index to valid range to handle edge cases where logarithm
-    // might produce unexpected values due to floating-point precision
-    const i = Math.max(0, Math.min(Math.floor(Math.log(bytes) / Math.log(k)), sizes.length - 1));
-    return `${Number.parseFloat((bytes / Math.pow(k, i)).toFixed(2))} ${sizes[i]}`;
+    return formatByteSize(bytes, { decimals: 2 });
 }
 
 function getSourceFiles(dir, fileList = []) {
