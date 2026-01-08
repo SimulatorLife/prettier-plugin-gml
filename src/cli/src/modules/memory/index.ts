@@ -23,6 +23,7 @@ import { coercePositiveInteger, wrapInvalidArgumentResolver } from "../../cli-co
 import { isCommanderHelpDisplayedError } from "../../cli-core/commander-error-utils.js";
 import { REPO_ROOT, resolveFromRepoRoot } from "../../shared/workspace-paths.js";
 import { writeJsonArtifact } from "../../shared/fs-artifacts.js";
+import { formatByteSize } from "../../shared/reporting/byte-format.js";
 import { Parser } from "@gml-modules/parser";
 import { importPluginModule } from "../plugin-runtime-dependencies.js";
 import type { CommanderCommandLike } from "../../cli-core/commander-types.js";
@@ -1075,23 +1076,10 @@ function formatBytes(bytes: number | null | undefined): string {
     if (bytes === null || bytes === undefined || !Number.isFinite(bytes)) {
         return "N/A";
     }
-
-    const absoluteBytes = Math.abs(bytes);
+    // Handle negative values by preserving the sign separately
     const sign = bytes < 0 ? "-" : "";
-
-    if (absoluteBytes < 1024) {
-        return `${sign}${absoluteBytes.toFixed(0)} B`;
-    }
-
-    if (absoluteBytes < 1024 * 1024) {
-        return `${sign}${(absoluteBytes / 1024).toFixed(2)} KB`;
-    }
-
-    if (absoluteBytes < 1024 * 1024 * 1024) {
-        return `${sign}${(absoluteBytes / (1024 * 1024)).toFixed(2)} MB`;
-    }
-
-    return `${sign}${(absoluteBytes / (1024 * 1024 * 1024)).toFixed(2)} GB`;
+    const absoluteBytes = Math.abs(bytes);
+    return `${sign}${formatByteSize(absoluteBytes, { decimals: 2, decimalsForBytes: 0 })}`;
 }
 
 /**
