@@ -12,7 +12,7 @@ describe("banner-comment-policy", () => {
         it("should identify banner comments with 4+ leading slashes on their own line", () => {
             const context: BannerCommentPolicyContext = {
                 leadingSlashCount: 4,
-                isInlineComment: false,
+
                 hasDecorations: false
             };
 
@@ -25,7 +25,7 @@ describe("banner-comment-policy", () => {
         it("should identify banner comments with 5+ leading slashes", () => {
             const context: BannerCommentPolicyContext = {
                 leadingSlashCount: 10,
-                isInlineComment: false,
+
                 hasDecorations: false
             };
 
@@ -35,23 +35,10 @@ describe("banner-comment-policy", () => {
             assert.equal(result.reason, "sufficient-leading-slashes");
         });
 
-        it("should reject inline comments regardless of slash count", () => {
-            const context: BannerCommentPolicyContext = {
-                leadingSlashCount: 10,
-                isInlineComment: true,
-                hasDecorations: true
-            };
-
-            const result = evaluateBannerCommentPolicy(context);
-
-            assert.equal(result.isBanner, false);
-            assert.equal(result.reason, "inline-comment");
-        });
-
         it("should identify banner comments with decorations even if slash count is low", () => {
             const context: BannerCommentPolicyContext = {
                 leadingSlashCount: 2,
-                isInlineComment: false,
+
                 hasDecorations: true
             };
 
@@ -64,7 +51,7 @@ describe("banner-comment-policy", () => {
         it("should reject regular comments with insufficient slashes and no decorations", () => {
             const context: BannerCommentPolicyContext = {
                 leadingSlashCount: 2,
-                isInlineComment: false,
+
                 hasDecorations: false
             };
 
@@ -77,7 +64,7 @@ describe("banner-comment-policy", () => {
         it("should reject doc-style comments with 3 slashes", () => {
             const context: BannerCommentPolicyContext = {
                 leadingSlashCount: 3,
-                isInlineComment: false,
+
                 hasDecorations: false
             };
 
@@ -90,7 +77,7 @@ describe("banner-comment-policy", () => {
         it("should respect custom policy configuration with higher threshold", () => {
             const context: BannerCommentPolicyContext = {
                 leadingSlashCount: 5,
-                isInlineComment: false,
+
                 hasDecorations: false
             };
 
@@ -104,7 +91,7 @@ describe("banner-comment-policy", () => {
         it("should respect custom policy configuration with lower threshold", () => {
             const context: BannerCommentPolicyContext = {
                 leadingSlashCount: 3,
-                isInlineComment: false,
+
                 hasDecorations: false
             };
 
@@ -118,7 +105,7 @@ describe("banner-comment-policy", () => {
         it("should identify banners with decorations at exactly the default threshold", () => {
             const context: BannerCommentPolicyContext = {
                 leadingSlashCount: 4,
-                isInlineComment: false,
+
                 hasDecorations: true
             };
 
@@ -131,7 +118,7 @@ describe("banner-comment-policy", () => {
         it("should handle edge case: exactly at threshold minus one with decorations", () => {
             const context: BannerCommentPolicyContext = {
                 leadingSlashCount: 3,
-                isInlineComment: false,
+
                 hasDecorations: true
             };
 
@@ -188,7 +175,7 @@ describe("banner-comment-policy", () => {
         it("should correctly handle a typical decorative banner comment", () => {
             const context: BannerCommentPolicyContext = {
                 leadingSlashCount: 20,
-                isInlineComment: false,
+
                 hasDecorations: true
             };
 
@@ -200,7 +187,7 @@ describe("banner-comment-policy", () => {
         it("should correctly handle a minimal valid line comment", () => {
             const context: BannerCommentPolicyContext = {
                 leadingSlashCount: 2,
-                isInlineComment: false,
+
                 hasDecorations: false
             };
 
@@ -212,26 +199,12 @@ describe("banner-comment-policy", () => {
         it("should correctly handle doc comments", () => {
             const context: BannerCommentPolicyContext = {
                 leadingSlashCount: 3,
-                isInlineComment: false,
                 hasDecorations: false
             };
 
             const result = evaluateBannerCommentPolicy(context);
 
             assert.equal(result.isBanner, false);
-        });
-
-        it("should correctly reject inline trailing comments", () => {
-            const context: BannerCommentPolicyContext = {
-                leadingSlashCount: 2,
-                isInlineComment: true,
-                hasDecorations: false
-            };
-
-            const result = evaluateBannerCommentPolicy(context);
-
-            assert.equal(result.isBanner, false);
-            assert.equal(result.reason, "inline-comment");
         });
     });
 });
