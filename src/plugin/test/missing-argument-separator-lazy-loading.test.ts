@@ -4,8 +4,18 @@ import { Core } from "@gml-modules/core";
 import { clearForbiddenCalleeIdentifiersCache } from "../src/transforms/missing-argument-separator-sanitizer.js";
 
 // Memory test thresholds
-const EXPECTED_METADATA_SIZE_BYTES = 100_000; // Identifier metadata should allocate at least 100KB
-const GC_VARIANCE_TOLERANCE_BYTES = 500_000; // Allow 500KB variance due to GC timing
+// The identifier metadata payload is ~1.3 MB on disk, but when loaded and parsed
+// it typically consumes 100-200 KB of heap due to JavaScript object overhead.
+// We use a conservative 100 KB threshold to account for variations in V8 optimization.
+const EXPECTED_METADATA_SIZE_BYTES = 100_000;
+
+// GC variance tolerance: V8's garbage collector is non-deterministic, and forcing
+// GC doesn't guarantee immediate memory reclamation. This tolerance accounts for:
+// - V8 internal structures that may be allocated/deallocated during the test
+// - Timing variance in when objects are actually freed
+// - Retained references in Node.js internals
+// A 500 KB tolerance is reasonable given the ~1-2 MB working set of the test.
+const GC_VARIANCE_TOLERANCE_BYTES = 500_000;
 
 describe("Missing argument separator sanitizer lazy loading", () => {
     it("should demonstrate memory footprint reduction with lazy loading", () => {
