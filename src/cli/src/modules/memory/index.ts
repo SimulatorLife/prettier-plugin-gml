@@ -1117,6 +1117,38 @@ function formatDuration(ms: number | null | undefined): string {
 }
 
 /**
+ * Format a signed delta value with appropriate sign prefix.
+ *
+ * @param {number} value The delta value to format.
+ * @param {(value: number) => string} formatter Function to format the absolute value.
+ * @returns {string} Formatted string with sign prefix.
+ */
+function formatDelta(value: number, formatter: (value: number) => string): string {
+    const sign = value >= 0 ? "+" : "";
+    return `${sign}${formatter(value)}`;
+}
+
+/**
+ * Extract heap delta per iteration from a memory payload.
+ *
+ * @param {MemorySuitePayload} payload The suite result payload.
+ * @returns {number | null} Heap delta per iteration or null if unavailable.
+ */
+function extractHeapDeltaPerIteration(payload: MemorySuitePayload): number | null {
+    if (typeof payload.memory !== "object" || payload.memory === null) {
+        return null;
+    }
+
+    const memory = payload.memory as Record<string, unknown>;
+    if (typeof memory.deltaPerIteration !== "object" || memory.deltaPerIteration === null) {
+        return null;
+    }
+
+    const deltaPerIter = memory.deltaPerIteration as Record<string, unknown>;
+    return typeof deltaPerIter.heapUsed === "number" ? deltaPerIter.heapUsed : null;
+}
+
+/**
  * Format memory suite payload into human-readable lines.
  *
  * @param {MemorySuitePayload} payload The suite result payload.
@@ -1142,8 +1174,7 @@ function formatMemorySuitePayload(payload: MemorySuitePayload): Array<string> {
         lines.push(`  Heap after: ${formatBytes(payload.heapUsedAfter)}`);
 
         if (typeof payload.heapDelta === "number") {
-            const deltaSign = payload.heapDelta >= 0 ? "+" : "";
-            lines.push(`  Heap delta: ${deltaSign}${formatBytes(payload.heapDelta)}`);
+            lines.push(`  Heap delta: ${formatDelta(payload.heapDelta, formatBytes)}`);
         }
     }
 
@@ -1153,19 +1184,12 @@ function formatMemorySuitePayload(payload: MemorySuitePayload): Array<string> {
         payload.rssBefore !== payload.rssAfter &&
         typeof payload.rssDelta === "number"
     ) {
-        const deltaSign = payload.rssDelta >= 0 ? "+" : "";
-        lines.push(`  RSS delta: ${deltaSign}${formatBytes(payload.rssDelta)}`);
+        lines.push(`  RSS delta: ${formatDelta(payload.rssDelta, formatBytes)}`);
     }
 
-    if (payload.memory && typeof payload.memory === "object") {
-        const memory = payload.memory as Record<string, unknown>;
-        if (memory.deltaPerIteration && typeof memory.deltaPerIteration === "object") {
-            const deltaPerIter = memory.deltaPerIteration as Record<string, unknown>;
-            if (typeof deltaPerIter.heapUsed === "number") {
-                const perIterSign = deltaPerIter.heapUsed >= 0 ? "+" : "";
-                lines.push(`  Heap per iteration: ${perIterSign}${formatBytes(deltaPerIter.heapUsed)}`);
-            }
-        }
+    const heapPerIteration = extractHeapDeltaPerIteration(payload);
+    if (heapPerIteration !== null) {
+        lines.push(`  Heap per iteration: ${formatDelta(heapPerIteration, formatBytes)}`);
     }
 
     if (Array.isArray(payload.warnings) && payload.warnings.length > 0) {
