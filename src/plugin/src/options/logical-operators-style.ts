@@ -32,7 +32,7 @@ const logicalOperatorsStyleHelpers = createEnumeratedOptionHelpers(Object.values
  * @returns {boolean} `true` when the value maps to a known logical operator style.
  */
 export function isLogicalOperatorsStyle(value: unknown): boolean {
-    return logicalOperatorsStyleHelpers.valueSet.has(value as string);
+    return typeof value === "string" && logicalOperatorsStyleHelpers.valueSet.has(value);
 }
 
 /**
