@@ -1595,6 +1595,17 @@ function printBlockStatementNode(node, path, options, print) {
         // For constructors, preserve blank lines between header and first statement
         shouldPreserveInitialBlankLine =
             shouldPreserveInitialBlankLine || preserveForConstructorText || preserveForLeadingComment;
+        
+        // DEBUG: Log state for troubleshooting
+        if (parentNode?.type === "FunctionDeclaration" && parentNode.id === "twojointik") {
+            console.log("DEBUG twojointik blank line check:", {
+                constructorHasLineGap,
+                preserveForLeadingComment,
+                preserveForConstructorText,
+                shouldPreserveInitialBlankLine,
+                firstStatementType: firstStatement?.type
+            });
+        }
     }
 
     if (shouldPreserveInitialBlankLine) {
@@ -1602,6 +1613,18 @@ function printBlockStatementNode(node, path, options, print) {
     }
 
     const stmts = printStatements(path, options, print, "body");
+    
+    // DEBUG: Log for troubleshooting  
+    const debugParentNode = typeof path.getParentNode === "function" ? path.getParentNode() : (path.parent ?? null);
+    if (debugParentNode?.type === "FunctionDeclaration" && debugParentNode.id === "twojointik") {
+        console.log("DEBUG twojointik leadingDocs.length:", leadingDocs.length);
+        console.log("DEBUG twojointik stmts:", {
+            isArray: Array.isArray(stmts),
+            length: Array.isArray(stmts) ? stmts.length : "N/A",
+            firstElementType: Array.isArray(stmts) && stmts.length > 0 ? typeof stmts[0] : "N/A",
+            firstElementIsArray: Array.isArray(stmts) && stmts.length > 0 ? Array.isArray(stmts[0]) : "N/A"
+        });
+    }
 
     if (
         node.parent?.type === "FunctionExpression" &&
@@ -1617,8 +1640,8 @@ function printBlockStatementNode(node, path, options, print) {
         return concat([
             "{",
             printDanglingComments(path, options, (comment) => comment.attachToBrace),
-            leadingDocs[0], // First hardline outside indent (creates blank line)
-            indent(leadingDocs.slice(1).concat(stmts)), // Rest inside indent
+            hardline,
+            indent(["", hardline, stmts]),
             hardline,
             "}"
         ]);
