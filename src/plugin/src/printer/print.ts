@@ -3146,10 +3146,7 @@ export function getSimpleAssignmentLikeEntry(
 ): AssignmentLikeEntry | null {
     const memberLength = getMemberAssignmentLength(statement);
     if (typeof memberLength === NUMBER_TYPE) {
-        let node = statement;
-        if (node && node.type === "ExpressionStatement") {
-            node = node.expression;
-        }
+        const node = Core.unwrapExpressionStatement(statement);
 
         return {
             locationNode: statement,
@@ -3162,9 +3159,10 @@ export function getSimpleAssignmentLikeEntry(
     }
 
     if (isSimpleAssignment(statement)) {
-        let node = statement;
-        if (node && node.type === "ExpressionStatement") {
-            node = node.expression;
+        const node = Core.unwrapExpressionStatement(statement);
+
+        if (!node) {
+            return null;
         }
 
         const identifier = node.left;
@@ -3173,7 +3171,8 @@ export function getSimpleAssignmentLikeEntry(
         }
 
         const originalName = getOriginalIdentifierName(identifier);
-        const nameLength = originalName ? originalName.length : identifier.name.length;
+        const identifierName = identifier.name as string;
+        const nameLength = originalName ? originalName.length : identifierName.length;
 
         return {
             locationNode: statement,
@@ -3294,10 +3293,7 @@ function getFunctionParameterNameSetFromPath(path) {
 }
 
 function getMemberAssignmentLength(statement) {
-    let node = statement;
-    if (node && node.type === "ExpressionStatement") {
-        node = node.expression;
-    }
+    const node = Core.unwrapExpressionStatement(statement);
 
     if (!node || node.type !== "AssignmentExpression" || node.operator !== "=") {
         return null;
@@ -3392,10 +3388,7 @@ function getAssignmentAlignmentMinimum(options) {
 }
 
 function isSimpleAssignment(statement) {
-    let node = statement;
-    if (node && node.type === "ExpressionStatement") {
-        node = node.expression;
-    }
+    const node = Core.unwrapExpressionStatement(statement);
 
     return !!(
         node &&
@@ -4489,16 +4482,10 @@ function findFallbackAssignment(statements: Array<any>, paramName: string) {
 }
 
 function getAssignmentExpression(node: any) {
-    if (!node) {
-        return null;
-    }
+    const unwrapped = Core.unwrapExpressionStatement(node);
 
-    if (node.type === "ExpressionStatement" && node.expression && node.expression.type === "AssignmentExpression") {
-        return node.expression;
-    }
-
-    if (node.type === "AssignmentExpression") {
-        return node;
+    if (unwrapped?.type === "AssignmentExpression") {
+        return unwrapped;
     }
 
     return null;
