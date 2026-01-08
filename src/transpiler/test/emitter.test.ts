@@ -1806,6 +1806,7 @@ void test("GmlToJsEmitter handles unknown node types gracefully", () => {
 
 void test("GmlToJsEmitter warns about unknown nodes in development", () => {
     const originalEnv = process.env.NODE_ENV;
+    // eslint-disable-next-line no-console -- Save original console.warn to restore after test
     const originalWarn = console.warn;
     const warnings: Array<{ message: string; nodeType: string }> = [];
 
