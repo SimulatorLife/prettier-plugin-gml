@@ -919,10 +919,10 @@ function formatFailureLine({ suite, message }: { suite: string; message: string 
  * Convert an array of failure summaries into formatted console lines. Isolates
  * the bookkeeping of array iteration and formatting from the orchestrator.
  *
- * @param {Array<{ suite: string; message: string }>} failures - Array of failure summaries
- * @returns {Array<string>} Array of formatted failure lines ready for console output
+ * @param {{ suite: string; message: string }[]} failures - Array of failure summaries
+ * @returns {string[]} Array of formatted failure lines ready for console output
  */
-function formatFailureLines(failures: Array<{ suite: string; message: string }>): Array<string> {
+function formatFailureLines(failures: { suite: string; message: string }[]): string[] {
     return failures.map(formatFailureLine);
 }
 
