@@ -65,33 +65,92 @@ interface ExtensionMatcher {
     matches: (fileName: string) => boolean;
 }
 
-interface WatchCommandOptions {
+/**
+ * Configuration for file watching behavior.
+ * Controls which files to monitor and how to detect changes.
+ */
+interface FileWatchingConfig {
     extensions?: Array<string>;
     polling?: boolean;
     pollingInterval?: number;
+    debounceDelay?: number;
+    watchFactory?: WatchFactory;
+}
+
+/**
+ * Configuration for logging and console output.
+ * Controls verbosity and output suppression.
+ */
+interface LoggingConfig {
     verbose?: boolean;
     quiet?: boolean;
-    debounceDelay?: number;
+}
+
+/**
+ * Configuration for the WebSocket server used to stream patches.
+ * Enables real-time hot-reload patch delivery to connected clients.
+ */
+interface WebSocketServerConfig {
     websocketPort?: number;
     websocketHost?: string;
     websocketServer?: boolean;
+}
+
+/**
+ * Configuration for the HTTP status server.
+ * Provides queryable endpoints for watch command status.
+ */
+interface StatusServerConfig {
     statusPort?: number;
     statusHost?: string;
     statusServer?: boolean;
+}
+
+/**
+ * Configuration for the HTML5 runtime static server.
+ * Controls runtime asset serving and resolution.
+ */
+interface RuntimeServerConfig {
     runtimeRoot?: string;
     runtimePackage?: string;
     runtimeServer?: boolean;
     hydrateRuntime?: boolean;
-    maxPatchHistory?: number;
-    autoInject?: boolean;
-    html5Output?: string;
-    gmTempRoot?: string;
     runtimeResolver?: RuntimeSourceResolver;
     runtimeDescriptor?: RuntimeDescriptorFormatter;
     runtimeServerStarter?: typeof startRuntimeStaticServer;
-    abortSignal?: AbortSignal;
-    watchFactory?: WatchFactory;
 }
+
+/**
+ * Configuration for hot-reload injection and patch management.
+ * Controls automatic runtime wrapper injection and patch history.
+ */
+interface HotReloadConfig {
+    autoInject?: boolean;
+    html5Output?: string;
+    gmTempRoot?: string;
+    maxPatchHistory?: number;
+}
+
+/**
+ * Infrastructure configuration for testing and lifecycle management.
+ * Provides abort signals and other cross-cutting concerns.
+ */
+interface InfrastructureConfig {
+    abortSignal?: AbortSignal;
+}
+
+/**
+ * Complete configuration for the watch command.
+ * Composes all specialized configuration interfaces into a single contract.
+ */
+interface WatchCommandOptions
+    extends FileWatchingConfig,
+        LoggingConfig,
+        WebSocketServerConfig,
+        StatusServerConfig,
+        RuntimeServerConfig,
+        HotReloadConfig,
+        InfrastructureConfig {}
 
 interface RuntimeContext
     extends Omit<
@@ -122,9 +181,7 @@ interface RuntimeContext
     dependencyTracker: DependencyTracker;
 }
 
-interface FileChangeOptions {
-    verbose?: boolean;
-    quiet?: boolean;
+interface FileChangeOptions extends LoggingConfig {
     runtimeContext?: RuntimeContext;
 }
 
