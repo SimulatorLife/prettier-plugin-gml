@@ -1066,6 +1066,143 @@ interface MemorySuitePayload {
 }
 
 /**
+ * Format a byte count into a human-readable string with appropriate units.
+ *
+ * @param {number | null | undefined} bytes Number of bytes to format.
+ * @returns {string} Formatted string with appropriate unit (B, KB, MB, GB).
+ */
+function formatBytes(bytes: number | null | undefined): string {
+    if (bytes === null || bytes === undefined || !Number.isFinite(bytes)) {
+        return "N/A";
+    }
+
+    const absoluteBytes = Math.abs(bytes);
+    const sign = bytes < 0 ? "-" : "";
+
+    if (absoluteBytes < 1024) {
+        return `${sign}${absoluteBytes.toFixed(0)} B`;
+    }
+
+    if (absoluteBytes < 1024 * 1024) {
+        return `${sign}${(absoluteBytes / 1024).toFixed(2)} KB`;
+    }
+
+    if (absoluteBytes < 1024 * 1024 * 1024) {
+        return `${sign}${(absoluteBytes / (1024 * 1024)).toFixed(2)} MB`;
+    }
+
+    return `${sign}${(absoluteBytes / (1024 * 1024 * 1024)).toFixed(2)} GB`;
+}
+
+/**
+ * Format a duration in milliseconds into a human-readable string.
+ *
+ * @param {number | null | undefined} ms Duration in milliseconds.
+ * @returns {string} Formatted duration string.
+ */
+function formatDuration(ms: number | null | undefined): string {
+    if (ms === null || ms === undefined || !Number.isFinite(ms)) {
+        return "N/A";
+    }
+
+    if (ms < 1) {
+        return `${ms.toFixed(3)} ms`;
+    }
+
+    if (ms < 1000) {
+        return `${ms.toFixed(2)} ms`;
+    }
+
+    return `${(ms / 1000).toFixed(2)} s`;
+}
+
+/**
+ * Format a signed delta value with appropriate sign prefix.
+ *
+ * @param {number} value The delta value to format.
+ * @param {(value: number) => string} formatter Function to format the absolute value.
+ * @returns {string} Formatted string with sign prefix.
+ */
+function formatDelta(value: number, formatter: (value: number) => string): string {
+    const sign = value >= 0 ? "+" : "";
+    return `${sign}${formatter(value)}`;
+}
+
+/**
+ * Extract heap delta per iteration from a memory payload.
+ *
+ * @param {MemorySuitePayload} payload The suite result payload.
+ * @returns {number | null} Heap delta per iteration or null if unavailable.
+ */
+function extractHeapDeltaPerIteration(payload: MemorySuitePayload): number | null {
+    if (typeof payload.memory !== "object" || payload.memory === null) {
+        return null;
+    }
+
+    const memory = payload.memory as Record<string, unknown>;
+    if (typeof memory.deltaPerIteration !== "object" || memory.deltaPerIteration === null) {
+        return null;
+    }
+
+    const deltaPerIter = memory.deltaPerIteration as Record<string, unknown>;
+    return typeof deltaPerIter.heapUsed === "number" ? deltaPerIter.heapUsed : null;
+}
+
+/**
+ * Format memory suite payload into human-readable lines.
+ *
+ * @param {MemorySuitePayload} payload The suite result payload.
+ * @returns {Array<string>} Array of formatted lines describing the result.
+ */
+function formatMemorySuitePayload(payload: MemorySuitePayload): Array<string> {
+    const lines: Array<string> = [];
+
+    if (payload.description && typeof payload.description === "string") {
+        lines.push(`  Description: ${payload.description}`);
+    }
+
+    if (typeof payload.iterations === "number") {
+        lines.push(`  Iterations: ${payload.iterations.toLocaleString()}`);
+    }
+
+    if (typeof payload.durationMs === "number") {
+        lines.push(`  Duration: ${formatDuration(payload.durationMs)}`);
+    }
+
+    if (typeof payload.heapUsedBefore === "number" && typeof payload.heapUsedAfter === "number") {
+        lines.push(`  Heap before: ${formatBytes(payload.heapUsedBefore)}`);
+        lines.push(`  Heap after: ${formatBytes(payload.heapUsedAfter)}`);
+
+        if (typeof payload.heapDelta === "number") {
+            lines.push(`  Heap delta: ${formatDelta(payload.heapDelta, formatBytes)}`);
+        }
+    }
+
+    if (
+        typeof payload.rssBefore === "number" &&
+        typeof payload.rssAfter === "number" &&
+        payload.rssBefore !== payload.rssAfter &&
+        typeof payload.rssDelta === "number"
+    ) {
+        lines.push(`  RSS delta: ${formatDelta(payload.rssDelta, formatBytes)}`);
+    }
+
+    const heapPerIteration = extractHeapDeltaPerIteration(payload);
+    if (heapPerIteration !== null) {
+        lines.push(`  Heap per iteration: ${formatDelta(heapPerIteration, formatBytes)}`);
+    }
+
+    if (Array.isArray(payload.warnings) && payload.warnings.length > 0) {
+        lines.push(`  Warnings:`);
+        for (const warning of payload.warnings) {
+            lines.push(`    - ${warning}`);
+        }
+    }
+
+    return lines;
+}
+
+/**
  * Convert suite results into the newline-delimited lines printed when JSON
  * output is disabled. Keeps the formatting logic centralized without the
  * layering of the previous mini-pipeline helpers.
@@ -1078,11 +1215,12 @@ function createHumanReadableMemoryLines(results: Record<string, MemorySuitePaylo
 
         if (payload?.error) {
             const message = getErrorMessageOrFallback(payload.error);
-            lines.push(`  - error: ${message}`);
+            lines.push(`  Error: ${message}`);
             continue;
         }
 
-        lines.push(`  - result: ${JSON.stringify(payload)}`);
+        const formattedLines = formatMemorySuitePayload(payload);
+        lines.push(...formattedLines);
     }
 
     return lines;
