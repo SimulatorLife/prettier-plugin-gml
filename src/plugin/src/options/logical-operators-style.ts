@@ -24,15 +24,14 @@ const logicalOperatorsStyleHelpers = createEnumeratedOptionHelpers(Object.values
  *
  * Consumers frequently receive untyped config (for example CLI flags or JSON
  * options) and need a quick membership test without re-threading the
- * enumerated set. Non-string values are rejected by the underlying `Set`
- * membership check, keeping the guard aligned with
- * {@link normalizeLogicalOperatorsStyle}.
+ * enumerated set. The value is normalized (trimmed and lowercased) before
+ * checking, making this consistent with {@link normalizeLogicalOperatorsStyle}.
  *
  * @param {unknown} value Candidate option value to inspect.
  * @returns {boolean} `true` when the value maps to a known logical operator style.
  */
 export function isLogicalOperatorsStyle(value: unknown): boolean {
-    return typeof value === "string" && logicalOperatorsStyleHelpers.valueSet.has(value);
+    return logicalOperatorsStyleHelpers.normalize(value, null) !== null;
 }
 
 /**
