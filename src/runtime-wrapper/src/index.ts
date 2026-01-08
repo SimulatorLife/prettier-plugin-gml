@@ -31,6 +31,9 @@ export type {
 } from "./runtime/index.js";
 export type {
     MessageEventLike,
+    PatchQueueMetrics,
+    PatchQueueOptions,
+    PatchQueueState,
     RuntimeWebSocketClient,
     RuntimeWebSocketConstructor,
     RuntimeWebSocketInstance,
