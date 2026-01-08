@@ -5,6 +5,17 @@ import { Transpiler } from "../index.js";
 
 type SemanticAnalyzers = ConstructorParameters<typeof Transpiler.GmlToJsEmitter>[0];
 
+/**
+ * Create a mock AST node with an unknown type for testing error handling.
+ * @param type - The node type string to use in the mock
+ * @returns A mock AST node
+ */
+function createMockUnknownNode(type: string) {
+    return {
+        type: type as "UnknownNodeType"
+    };
+}
+
 void test("GmlToJsEmitter handles number literals in AST", () => {
     const source = "42";
     const parser = new Parser.GMLParser(source);
@@ -1792,10 +1803,7 @@ void test("Transpiler.emitJavaScript handles compound assignment in loop", () =>
 
 void test("GmlToJsEmitter handles unknown node types gracefully", () => {
     // Create a mock AST node with an unrecognized type
-    const mockAst = {
-        type: "UnknownNodeType" as const
-        // Mock node structure
-    };
+    const mockAst = createMockUnknownNode("UnknownNodeType");
 
     // The emitter should handle unknown nodes gracefully by returning empty string
     const emitter = new Transpiler.GmlToJsEmitter(Transpiler.makeDefaultOracle());
@@ -1824,9 +1832,7 @@ void test("GmlToJsEmitter warns about unknown nodes in development", () => {
         };
 
         // Create a mock AST with unknown type
-        const mockAst = {
-            type: "FutureNodeType" as const
-        };
+        const mockAst = createMockUnknownNode("FutureNodeType");
 
         const emitter = new Transpiler.GmlToJsEmitter(Transpiler.makeDefaultOracle());
         emitter.emit(mockAst as unknown as Parameters<typeof emitter.emit>[0]);

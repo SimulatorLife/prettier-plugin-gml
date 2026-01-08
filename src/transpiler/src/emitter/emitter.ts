@@ -666,8 +666,8 @@ export class GmlToJsEmitter {
         return this.visit(node as GmlNode);
     }
 
-    private resolveEnumMemberNameHelper(member: unknown): string {
-        return this.resolveEnumMemberName(member as EnumMemberNode);
+    private resolveEnumMemberNameHelper(member: EnumMemberNode): string {
+        return this.resolveEnumMemberName(member);
     }
 
     private resolveIdentifierName(node: GmlNode | IdentifierMetadata | null | undefined): string | null {
