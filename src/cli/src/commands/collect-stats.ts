@@ -7,11 +7,11 @@ import { ensureDirSync } from "../shared/ensure-dir.js";
 import { formatByteSize } from "../shared/reporting/byte-format.js";
 
 function formatBytes(bytes: number): string {
-    if (bytes === 0) return "0 B";
     if (bytes < 0 || !Number.isFinite(bytes)) {
         return "Invalid";
     }
-    return formatByteSize(bytes, { decimals: 2 });
+    // formatByteSize returns "0B" without space, but we need "0 B" with space
+    return formatByteSize(bytes, { decimals: 2, separator: " " });
 }
 
 function getSourceFiles(dir: string, fileList: string[] = []) {

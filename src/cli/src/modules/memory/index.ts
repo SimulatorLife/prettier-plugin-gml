@@ -1076,7 +1076,10 @@ function formatBytes(bytes: number | null | undefined): string {
     if (bytes === null || bytes === undefined || !Number.isFinite(bytes)) {
         return "N/A";
     }
-    return formatByteSize(bytes, { decimals: 2, decimalsForBytes: 0 });
+    // Handle negative values by preserving the sign separately
+    const sign = bytes < 0 ? "-" : "";
+    const absoluteBytes = Math.abs(bytes);
+    return `${sign}${formatByteSize(absoluteBytes, { decimals: 2, decimalsForBytes: 0 })}`;
 }
 
 /**
