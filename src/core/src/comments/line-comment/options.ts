@@ -1,11 +1,5 @@
 import { assertFunction, isNonEmptyString, isObjectLike, isRegExpLike } from "./utils.js";
 
-// Any line comment that starts with at least this many consecutive `/`
-// characters is considered a "banner" comment for formatting purposes.
-// 2 slashes is the minimum to form a valid line comment in GML.
-// 3 slashes is for doc-comments. Anything 4 or more is considered decorative.
-const LINE_COMMENT_BANNER_DETECTION_MIN_SLASHES = 4;
-
 const DEFAULT_BOILERPLATE_COMMENT_FRAGMENTS = Object.freeze([
     "Script assets have changed for v2.3.0",
     "https://help.yoyogames.com/hc/en-us/articles/360005277377 for more information",
@@ -114,7 +108,6 @@ function restoreDefaultLineCommentOptionsResolver() {
 export {
     DEFAULT_LINE_COMMENT_OPTIONS,
     DEFAULT_COMMENTED_OUT_CODE_PATTERNS,
-    LINE_COMMENT_BANNER_DETECTION_MIN_SLASHES,
     normalizeLineCommentOptions,
     resolveLineCommentOptions,
     restoreDefaultLineCommentOptionsResolver,
