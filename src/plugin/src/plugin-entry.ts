@@ -57,7 +57,7 @@ function collapseVertexFormatBeginSpacing(formatted: string): string {
 
 const MULTIPLE_BLANK_LINE_PATTERN = /\n{3,}/g;
 const FUNCTION_TAG_CLEANUP_PATTERN = /\/\/\/\s*@(?:func|function)\b[^\n]*(?:\n)?/gi;
-const BLOCK_OPENING_BLANK_PATTERN = /\{\n{2,}(?!\s*(?:\/\/\/|\/\*))/g;
+const BLOCK_OPENING_BLANK_PATTERN = /\{\n(?:[ \t]*\n){1,}(?!\s*(?:\/\/\/|\/\*))/g;
 const DECORATIVE_COMMENT_BLANK_PATTERN = /\{\n[ \t]+\n(?=\s*\/\/)/g;
 
 function collapseDuplicateBlankLines(formatted: string): string {
@@ -65,7 +65,25 @@ function collapseDuplicateBlankLines(formatted: string): string {
 }
 
 function collapseBlockOpeningBlankLines(formatted: string): string {
-    return formatted.replaceAll(BLOCK_OPENING_BLANK_PATTERN, "{\n");
+    return formatted.replaceAll(
+        BLOCK_OPENING_BLANK_PATTERN,
+        (matched, offset, source) => {
+            const remaining = source.slice(offset + matched.length);
+            const hasPlainLineComment = /^\s*\/\/(?!\/)/.test(remaining);
+
+            if (hasPlainLineComment) {
+                const previousNewlineIndex = source.lastIndexOf("\n", offset - 1);
+                const lineStart = previousNewlineIndex === -1 ? 0 : previousNewlineIndex + 1;
+                const openingLine = source.slice(lineStart, offset).trim();
+
+                if (openingLine.includes("function")) {
+                    return "{\n\n";
+                }
+            }
+
+            return "{\n";
+        }
+    );
 }
 
 function trimDecorativeCommentBlankLines(formatted: string): string {
