@@ -5,8 +5,7 @@ import type { Patch, RegistryChangeEvent } from "../src/runtime/types.js";
 
 class MockConsole implements Console {
     public logs: Array<{ level: string; args: Array<unknown> }> = [];
-    // Use globalThis.console to avoid no-console lint warning
-    Console = (globalThis as { console: Console }).console.Console;
+    Console = globalThis.console.Console;
 
     log(...args: Array<unknown>): void {
         this.logs.push({ level: "log", args });

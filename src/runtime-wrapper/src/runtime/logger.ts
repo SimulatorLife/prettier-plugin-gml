@@ -193,7 +193,7 @@ export function createLogger(options: LoggerOptions = {}): Logger {
     const prefix = options.prefix ?? "[hot-reload]";
     const timestamps = options.timestamps ?? false;
     const styled = options.styled ?? true;
-    const consoleOutput = options.console ?? (globalThis as { console?: Console }).console ?? console;
+    const consoleOutput = options.console ?? console;
 
     let currentLevel: LogLevel = level;
 
