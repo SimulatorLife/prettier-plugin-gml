@@ -9655,8 +9655,10 @@ function normalizeDrawVertexStatements(statements, diagnostic, ast) {
             index -= 1;
 
             // Also remove the orphaned draw_primitive_end() that was matching the empty begin
-            // After removing the begin, endIndex shifts down by 1
-            // The orphaned end should be right after the end we're using for wrapping
+            // After removing the begin at index-1, all indices shift down by 1:
+            //   - endIndex (the end for our wrapper) is now at endIndex - 1
+            //   - The orphaned end (originally after our wrapper's end) is now at (endIndex - 1) + 1 = endIndex
+            // We check if there's actually an end call at that position before removing it
             const adjustedEndIndex = endIndex - 1;
             const orphanedEndIndex = adjustedEndIndex + 1;
             if (orphanedEndIndex < statements.length && isDrawPrimitiveEndCall(statements[orphanedEndIndex])) {
@@ -9707,7 +9709,9 @@ function normalizeDrawVertexStatements(statements, diagnostic, ast) {
         if (isDrawPrimitiveBeginCall(current) && isDrawPrimitiveEndCall(next)) {
             // This is an empty begin/end pair - remove both
             statements.splice(index, 2);
-            index -= 1; // Adjust index after removal
+            // Decrement index so we re-examine the current position on next iteration
+            // (which now contains what was at index+2 before the splice)
+            index -= 1;
         }
     }
 
