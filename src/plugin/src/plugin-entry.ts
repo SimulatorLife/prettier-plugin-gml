@@ -65,25 +65,22 @@ function collapseDuplicateBlankLines(formatted: string): string {
 }
 
 function collapseBlockOpeningBlankLines(formatted: string): string {
-    return formatted.replaceAll(
-        BLOCK_OPENING_BLANK_PATTERN,
-        (matched, offset, source) => {
-            const remaining = source.slice(offset + matched.length);
-            const hasPlainLineComment = /^\s*\/\/(?!\/)/.test(remaining);
+    return formatted.replaceAll(BLOCK_OPENING_BLANK_PATTERN, (matched, offset, source) => {
+        const remaining = source.slice(offset + matched.length);
+        const hasPlainLineComment = /^\s*\/\/(?!\/)/.test(remaining);
 
-            if (hasPlainLineComment) {
-                const previousNewlineIndex = source.lastIndexOf("\n", offset - 1);
-                const lineStart = previousNewlineIndex === -1 ? 0 : previousNewlineIndex + 1;
-                const openingLine = source.slice(lineStart, offset).trim();
+        if (hasPlainLineComment) {
+            const previousNewlineIndex = source.lastIndexOf("\n", offset - 1);
+            const lineStart = previousNewlineIndex === -1 ? 0 : previousNewlineIndex + 1;
+            const openingLine = source.slice(lineStart, offset).trim();
 
-                if (openingLine.includes("function")) {
-                    return "{\n\n";
-                }
+            if (openingLine.includes("function")) {
+                return "{\n\n";
             }
-
-            return "{\n";
         }
-    );
+
+        return "{\n";
+    });
 }
 
 function trimDecorativeCommentBlankLines(formatted: string): string {
