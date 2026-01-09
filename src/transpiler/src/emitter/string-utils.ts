@@ -85,8 +85,9 @@ export function normalizeStructKeyText(value: string): string {
 
     const first = value[0];
     const last = value.at(-1);
+    const isQuote = first === '"' || first === "'";
 
-    if ((first !== '"' && first !== "'") || first !== last) {
+    if (!isQuote || first !== last) {
         return value;
     }
 
