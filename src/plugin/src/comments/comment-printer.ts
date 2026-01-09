@@ -218,24 +218,44 @@ function printComment(commentPath, options) {
                     parts.push(hardline);
                 }
 
-                const leadingWhitespace = typeof comment.leadingWS === "string" ? comment.leadingWS : "";
-                const fallbackIndentation = " ".repeat(Math.max(1, options?.tabWidth ?? 4));
-                const newlineIndex = leadingWhitespace.lastIndexOf("\n");
-                let indentation = newlineIndex === -1 ? "" : leadingWhitespace.slice(newlineIndex + 1);
-                if (indentation) {
-                    if (options?.useTabs) {
-                        // keep tabs as-is when the host prefers tabs
-                    } else {
-                        indentation = indentation.replaceAll("\t", fallbackIndentation);
-                    }
-                } else {
-                    indentation = options?.useTabs ? "\t" : fallbackIndentation;
-                }
+                // When forcing a leading blank line for decorated comments, reset leadingWS
+                // so we extract the correct indentation (or lack thereof)
                 if (comment._gmlForceLeadingBlankLine === true) {
                     comment.leadingWS = "\n";
                 }
+
+                const leadingWhitespace = typeof comment.leadingWS === "string" ? comment.leadingWS : "";
+                const fallbackIndentation = " ".repeat(Math.max(1, options?.tabWidth ?? 4));
+                const newlineIndex = leadingWhitespace.lastIndexOf("\n");
+                let indentation = "";
+
+                // For decorated comments with forced leading blank line, always use no indentation
+                if (comment._gmlForceLeadingBlankLine !== true) {
+                    if (newlineIndex === -1) {
+                        // No newline in leadingWS, use fallback indentation
+                        indentation = options?.useTabs ? "\t" : fallbackIndentation;
+                    } else {
+                        // Extract indentation after the last newline
+                        indentation = leadingWhitespace.slice(newlineIndex + 1);
+                        // If there's actual indentation, normalize tabs to spaces if needed
+                        if (indentation && !options?.useTabs) {
+                            indentation = indentation.replaceAll("\t", fallbackIndentation);
+                        }
+                        // Empty string after newline means top-level (no indentation), which is correct
+                    }
+                }
+
+                // Apply indentation to each line of multi-line decorated comments
+                const decoratedLines = decorated.split("\n");
+                const indentedDecorated = decoratedLines
+                    .map((line, index) => (index === 0 ? line : `${indentation}${line}`))
+                    .join("\n");
+
+                // When adding leading padding, apply indentation to the FIRST line as well
                 const decoratedWithLeadingPadding =
-                    comment._gmlForceLeadingBlankLine === true ? `\n\n${indentation}${decorated}` : decorated;
+                    comment._gmlForceLeadingBlankLine === true
+                        ? `\n\n${decoratedLines.map((line) => `${indentation}${line}`).join("\n")}`
+                        : indentedDecorated;
                 parts.push(decoratedWithLeadingPadding);
                 if (blankLines > 0) {
                     parts.push(hardline, hardline);
