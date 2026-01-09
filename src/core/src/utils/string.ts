@@ -238,8 +238,8 @@ function toSafeString(value: unknown) {
         return OBJECT_TO_STRING(value);
     }
 
-    // All primitives (number, bigint, boolean, symbol, function) are coercible to string
-    // eslint-disable-next-line @typescript-eslint/no-base-to-string -- value is guaranteed to be a primitive at this point
+    // Remaining types (number, bigint, boolean, symbol, function) are coercible to string
+    // eslint-disable-next-line @typescript-eslint/no-base-to-string -- value is guaranteed to be a primitive or function at this point
     return String(value);
 }
 
