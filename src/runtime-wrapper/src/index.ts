@@ -32,7 +32,10 @@ export type {
     RuntimeWrapper,
     RuntimeWrapperOptions,
     RuntimeWrapperState,
-    TrySafeApplyResult
+    TrySafeApplyResult,
+    Logger,
+    LoggerOptions,
+    LogLevel
 } from "./runtime/index.js";
 export type {
     MessageEventLike,
