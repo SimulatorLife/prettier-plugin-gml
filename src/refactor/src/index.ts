@@ -3,6 +3,7 @@ import { WorkspaceEdit } from "./workspace-edit.js";
 import * as OccurrenceAnalysisAPI from "./occurrence-analysis.js";
 import * as RenamePreviewAPI from "./rename-preview.js";
 import * as ValidationAPI from "./validation.js";
+import * as HotReloadAPI from "./hot-reload.js";
 import {
     ConflictType,
     isConflictType,
@@ -20,6 +21,7 @@ export const Refactor = Object.freeze({
     ...OccurrenceAnalysisAPI,
     ...RenamePreviewAPI,
     ...ValidationAPI,
+    ...HotReloadAPI,
     ConflictType,
     isConflictType,
     parseConflictType,
@@ -63,6 +65,14 @@ export {
     batchValidateScopeConflicts
 } from "./validation.js";
 
+export {
+    computeHotReloadCascade,
+    checkHotReloadSafety,
+    prepareHotReloadUpdates,
+    generateTranspilerPatches,
+    computeRenameImpactGraph
+} from "./hot-reload.js";
+
 export type {
     ApplyWorkspaceEditOptions,
     AstNode,
@@ -93,6 +103,8 @@ export type {
     Range,
     RefactorEngineDependencies,
     RenameImpactAnalysis,
+    RenameImpactGraph,
+    RenameImpactNode,
     RenameImpactSummary,
     RenamePlanSummary,
     RenameRequest,

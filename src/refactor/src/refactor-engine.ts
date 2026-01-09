@@ -1336,6 +1336,34 @@ export class RefactorEngine {
     }
 
     /**
+     * Compute a detailed dependency impact graph for a rename operation.
+     * This provides visualization-ready data showing how a rename will propagate
+     * through the dependency graph, essential for hot reload planning and
+     * understanding the full scope of changes.
+     *
+     * @param symbolId - The symbol being renamed
+     * @returns Impact graph with nodes, edges, critical path, and timing estimates
+     *
+     * @example
+     * const graph = await engine.computeRenameImpactGraph("gml/script/scr_base");
+     * console.log(`Rename will affect ${graph.totalAffectedSymbols} symbols`);
+     * console.log(`Critical path depth: ${graph.maxDepth}`);
+     * console.log(`Critical path: ${graph.criticalPath.join(" → ")}`);
+     * console.log(`Estimated reload time: ${graph.estimatedTotalReloadTime}ms`);
+     *
+     * // Visualize the dependency graph
+     * for (const [id, node] of graph.nodes) {
+     *     console.log(`${node.symbolName} (distance: ${node.distance})`);
+     *     if (node.dependents.length > 0) {
+     *         console.log(`  Dependents: ${node.dependents.join(", ")}`);
+     *     }
+     * }
+     */
+    async computeRenameImpactGraph(symbolId: string): Promise<import("./types.js").RenameImpactGraph> {
+        return HotReload.computeRenameImpactGraph(symbolId, this.semantic);
+    }
+
+    /**
      * Verify semantic integrity after applying edits.
      * This validates that renamed symbols still resolve correctly and no accidental
      * shadowing or scope capture occurred. Essential for ensuring hot reload safety.

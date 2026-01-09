@@ -482,3 +482,23 @@ export interface ApplyWorkspaceEditOptions {
     readFile: WorkspaceReadFile;
     writeFile?: WorkspaceWriteFile;
 }
+
+export interface RenameImpactNode {
+    symbolId: string;
+    symbolName: string;
+    distance: number;
+    isDirectlyAffected: boolean;
+    dependents: Array<string>;
+    dependsOn: Array<string>;
+    filePath?: string;
+    estimatedReloadTime?: number;
+}
+
+export interface RenameImpactGraph {
+    nodes: Map<string, RenameImpactNode>;
+    rootSymbol: string;
+    totalAffectedSymbols: number;
+    maxDepth: number;
+    criticalPath: Array<string>;
+    estimatedTotalReloadTime: number;
+}

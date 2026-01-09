@@ -210,11 +210,11 @@ function printComment(commentPath, options) {
                 const blankLines = countTrailingBlankLines(options.originalText, endIndex + 1);
 
                 const shouldPrependBlankLine =
-                    comment._featherForceLeadingBlankLine === true ||
+                    comment._gmlForceLeadingBlankLine === true ||
                     hasLeadingBlankLine(comment) ||
                     hasLeadingBlankLineInSource(comment, options?.originalText);
                 const parts = [];
-                if (shouldPrependBlankLine && comment._featherForceLeadingBlankLine !== true) {
+                if (shouldPrependBlankLine && comment._gmlForceLeadingBlankLine !== true) {
                     parts.push(hardline);
                 }
 
@@ -231,11 +231,11 @@ function printComment(commentPath, options) {
                 } else {
                     indentation = options?.useTabs ? "\t" : fallbackIndentation;
                 }
-                if (comment._featherForceLeadingBlankLine === true) {
+                if (comment._gmlForceLeadingBlankLine === true) {
                     comment.leadingWS = "\n";
                 }
                 const decoratedWithLeadingPadding =
-                    comment._featherForceLeadingBlankLine === true ? `\n\n${indentation}${decorated}` : decorated;
+                    comment._gmlForceLeadingBlankLine === true ? `\n\n${indentation}${decorated}` : decorated;
                 parts.push(decoratedWithLeadingPadding);
                 if (blankLines > 0) {
                     parts.push(hardline, hardline);
@@ -263,7 +263,7 @@ function printComment(commentPath, options) {
                 return "";
             }
             const shouldPrependBlankLine =
-                comment._featherForceLeadingBlankLine === true ||
+                comment._gmlForceLeadingBlankLine === true ||
                 hasLeadingBlankLine(comment) ||
                 hasLeadingBlankLineInSource(comment, options?.originalText);
             if (shouldPrependBlankLine) {
@@ -810,7 +810,7 @@ function handleDecorativeBlockCommentOwnLine(comment, _text, _options, ast) {
     comment.leading = true;
     comment.trailing = false;
     comment.placement = "ownLine";
-    comment._featherForceLeadingBlankLine = true;
+    comment._gmlForceLeadingBlankLine = true;
     const leadingWhitespace = typeof comment.leadingWS === "string" ? comment.leadingWS : "";
     if (!/\r|\n/.test(leadingWhitespace)) {
         comment.leadingWS = "\n";
@@ -1198,9 +1198,11 @@ function formatDecorativeBlockComment(value) {
         return null;
     }
 
-    const DECORATIVE_SLASH_LINE_PATTERN = new RegExp(
-        String.raw`^\s*\*?\/{${Core.LINE_COMMENT_BANNER_DETECTION_MIN_SLASHES},}\*?\s*$`
-    );
+    // Use the same threshold as defined in banner-comment-policy.ts
+    // (DEFAULT_BANNER_COMMENT_POLICY_CONFIG.minLeadingSlashes = 4)
+    // This ensures block comments and line comments share consistent criteria.
+    const MIN_DECORATIVE_SLASHES = 4;
+    const DECORATIVE_SLASH_LINE_PATTERN = new RegExp(String.raw`^\s*\*?\/{${MIN_DECORATIVE_SLASHES},}\*?\s*$`);
 
     const lines = value.split(/\r?\n/).map((line) => line.replaceAll("\t", "    "));
     const significantLines = lines.filter((line) => Core.isNonEmptyTrimmedString(line));
