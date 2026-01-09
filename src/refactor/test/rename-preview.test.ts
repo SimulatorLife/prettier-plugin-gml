@@ -69,12 +69,12 @@ void describe("generateRenamePreview", () => {
 
         assert.throws(() => generateRenamePreview(workspace, "", "new"), {
             name: "TypeError",
-            message: /requires a non-empty oldName string/
+            message: /requires oldName as a non-empty string/
         });
 
         assert.throws(() => generateRenamePreview(workspace, "old", ""), {
             name: "TypeError",
-            message: /requires a non-empty newName string/
+            message: /requires newName as a non-empty string/
         });
     });
 
@@ -587,12 +587,12 @@ void describe("formatOccurrencePreview", () => {
 
         assert.throws(() => formatOccurrencePreview(occurrences, "", "new"), {
             name: "TypeError",
-            message: /requires a non-empty oldName string/
+            message: /requires oldName as a non-empty string/
         });
 
         assert.throws(() => formatOccurrencePreview(occurrences, "old", ""), {
             name: "TypeError",
-            message: /requires a non-empty newName string/
+            message: /requires newName as a non-empty string/
         });
     });
 

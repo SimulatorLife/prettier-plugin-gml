@@ -29,7 +29,7 @@ import {
     type ValidationSummary,
     type WorkspaceReadFile
 } from "./types.js";
-import { assertValidIdentifierName } from "./validation-utils.js";
+import { assertValidIdentifierName, assertNonEmptyNameString } from "./validation-utils.js";
 import { detectCircularRenames, detectRenameConflicts } from "./validation.js";
 import * as SymbolQueries from "./symbol-queries.js";
 import * as HotReload from "./hot-reload.js";
@@ -1566,13 +1566,8 @@ export class RefactorEngine {
     }): Promise<Array<ConflictEntry>> {
         const { oldName, newName, occurrences } = request ?? {};
 
-        if (typeof oldName !== "string" || oldName.length === 0) {
-            throw new TypeError("detectRenameConflicts requires oldName as a non-empty string");
-        }
-
-        if (typeof newName !== "string" || newName.length === 0) {
-            throw new TypeError("detectRenameConflicts requires newName as a non-empty string");
-        }
+        assertNonEmptyNameString(oldName, "oldName", "detectRenameConflicts");
+        assertNonEmptyNameString(newName, "newName", "detectRenameConflicts");
 
         if (!Array.isArray(occurrences)) {
             throw new TypeError("detectRenameConflicts requires occurrences as an array");
