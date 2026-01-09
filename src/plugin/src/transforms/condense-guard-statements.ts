@@ -195,7 +195,8 @@ export class CondenseGuardStatementsTransform
             type: "TernaryExpression",
             test: cloneIfAvailable(test),
             consequent: cloneIfAvailable(consequent),
-            alternate: cloneIfAvailable(alternate)
+            alternate: cloneIfAvailable(alternate),
+            __skipTernaryParens: true
         };
 
         const assignment: any = {
