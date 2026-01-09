@@ -69,14 +69,24 @@ export class GmlToJsEmitter {
     private readonly globalVars: Set<string>;
 
     constructor(
-        semantic: {
-            identifier: IdentifierAnalyzer;
-            callTarget: CallTargetAnalyzer;
-        },
+        semantic:
+            | (IdentifierAnalyzer & CallTargetAnalyzer)
+            | {
+                  identifier: IdentifierAnalyzer;
+                  callTarget: CallTargetAnalyzer;
+              },
         options: Partial<EmitOptions> = {}
     ) {
-        this.identifierAnalyzer = semantic.identifier;
-        this.callTargetAnalyzer = semantic.callTarget;
+        // Support both the new simplified interface (single oracle) and
+        // the legacy interface (object with identifier/callTarget properties)
+        // for backward compatibility
+        if ("identifier" in semantic && "callTarget" in semantic) {
+            this.identifierAnalyzer = semantic.identifier;
+            this.callTargetAnalyzer = semantic.callTarget;
+        } else {
+            this.identifierAnalyzer = semantic;
+            this.callTargetAnalyzer = semantic;
+        }
         this.options = { ...DEFAULT_OPTIONS, ...options };
         this.globalVars = new Set();
     }
@@ -751,35 +761,10 @@ export class GmlToJsEmitter {
     }
 }
 
-export function emitJavaScript(
-    ast: StatementLike,
-    sem?: {
-        identifier: IdentifierAnalyzer;
-        callTarget: CallTargetAnalyzer;
-    }
-): string {
-    const oracle = sem ?? makeDefaultOracle();
+export function emitJavaScript(ast: StatementLike, sem?: IdentifierAnalyzer & CallTargetAnalyzer): string {
+    const oracle = sem ?? createSemanticOracle();
     const emitter = new GmlToJsEmitter(oracle);
     return emitter.emit(ast);
-}
-
-/**
- * Create a default semantic oracle with full built-in function knowledge.
- * This provides better code generation than the dummy oracle by correctly
- * classifying built-in functions and generating proper SCIP symbols.
- *
- * Use this when you want semantic analysis without a scope tracker or
- * script tracking (suitable for standalone expression/statement transpilation).
- */
-export function makeDefaultOracle(): {
-    identifier: IdentifierAnalyzer;
-    callTarget: CallTargetAnalyzer;
-} {
-    const oracle = createSemanticOracle();
-    return {
-        identifier: oracle,
-        callTarget: oracle
-    };
 }
 
 /**
@@ -787,8 +772,8 @@ export function makeDefaultOracle(): {
  * analysis is not needed. This oracle has no knowledge of built-ins or
  * scripts and classifies everything as local or unknown.
  *
- * @deprecated Use `makeDefaultOracle()` or `createSemanticOracle()` instead
- * for better code generation with proper semantic analysis.
+ * @deprecated Use `createSemanticOracle()` instead for better code
+ * generation with proper semantic analysis.
  */
 export function makeDummyOracle(): {
     identifier: IdentifierAnalyzer;
