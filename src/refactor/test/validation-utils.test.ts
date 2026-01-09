@@ -50,10 +50,9 @@ void describe("hasMethod", () => {
         assert.strictEqual(hasMethod(instance, "nonexistent"), false);
     });
 
-    void test("returns false for inherited Object methods when not present", () => {
+    void test("works with inherited methods like toString", () => {
         const obj = {};
-        // toString exists but on the prototype, not as an own property
-        // Our implementation checks the object itself, so this should still work
+        // toString exists on the prototype and should be detected
         assert.strictEqual(hasMethod(obj, "toString"), true);
     });
 

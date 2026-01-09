@@ -62,10 +62,10 @@ export function assertNonEmptyNameString(value: unknown, parameterName: string, 
  *     const occurrences = await semantic.getSymbolOccurrences(name);
  * }
  */
-export function hasMethod<T>(
+export function hasMethod<T, K extends string>(
     obj: T | null | undefined,
-    methodName: string
-): obj is T & Record<string, (...args: never[]) => unknown> {
+    methodName: K
+): obj is T & { [P in K]: (...args: never[]) => unknown } {
     return obj != null && typeof (obj as Record<string, unknown>)[methodName] === "function";
 }
 
