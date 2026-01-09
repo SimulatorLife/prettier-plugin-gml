@@ -12632,6 +12632,12 @@ function ensureGpuStateIsPopped({ ast, diagnostic }) {
 
     visit(ast, null, null);
 
+    // After moving misplaced gpu_pop_state calls, check if we still need to insert missing ones
+    const insertFixes = insertMissingGpuPopStateCalls(ast, diagnostic);
+    if (Core.isNonEmptyArray(insertFixes)) {
+        fixes.push(...insertFixes);
+    }
+
     return fixes;
 }
 
@@ -12784,6 +12790,79 @@ function hasGpuPushStateBeforeIndex(statements, index) {
     }
 
     return false;
+}
+
+function insertMissingGpuPopStateCalls(ast, diagnostic) {
+    if (!Core.isProgramOrBlockStatement(ast)) {
+        return [];
+    }
+
+    const statements = Core.getBodyStatements(ast) as MutableGameMakerAstNode[];
+    if (!Core.isNonEmptyArray(statements)) {
+        return [];
+    }
+
+    const fixes = [];
+    const stack = [];
+
+    // Track push/pop balance
+    for (const [index, statement] of statements.entries()) {
+
+        if (isGpuPushStateCallStatement(statement)) {
+            stack.push({ index, statement });
+        } else if (isGpuPopStateCallStatement(statement) && stack.length > 0) {
+                stack.pop();
+            }
+    }
+
+    // If there are unmatched push calls, insert pop calls at the end
+    if (stack.length > 0) {
+        for (const entry of stack) {
+            const popCall = createGpuPopStateCall(entry.statement);
+
+            if (!popCall) {
+                continue;
+            }
+
+            const fixDetail = createFeatherFixDetail(diagnostic, {
+                target: "gpu_pop_state",
+                range: {
+                    start: Core.getNodeStartIndex(entry.statement),
+                    end: Core.getNodeEndIndex(entry.statement)
+                }
+            });
+
+            if (!fixDetail) {
+                continue;
+            }
+
+            statements.push(popCall);
+            attachFeatherFixMetadata(popCall, [fixDetail]);
+            fixes.push(fixDetail);
+        }
+    }
+
+    return fixes;
+}
+
+function createGpuPopStateCall(template) {
+    const identifier = Core.createIdentifierNode("gpu_pop_state", template?.object);
+
+    if (!identifier) {
+        return null;
+    }
+
+    const callExpression = {
+        type: "CallExpression",
+        object: identifier,
+        arguments: []
+    };
+
+    if (template && typeof template === "object") {
+        Core.assignClonedLocation(callExpression, template);
+    }
+
+    return callExpression;
 }
 
 /**
