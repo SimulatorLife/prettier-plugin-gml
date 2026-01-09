@@ -146,6 +146,7 @@ function __ChatterboxBufferBatch() constructor {
             __destroyed = true;
         }
     };
+
 }
 
 /// @param [name="friend"]
@@ -251,6 +252,7 @@ get_debug_text = function() {
 /// @param [trans_mat]
 /// @returns {undefined}
 function vertex_buffer_write_triangular_prism(vbuff, colour = c_white, alpha = 1, trans_mat = undefined) {
+
     var hx = 0.5, hy = 0.5, h = 1;
 
     // Base corners (Z = 0)

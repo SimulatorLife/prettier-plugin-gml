@@ -44,7 +44,7 @@ export function normalizeExtensions(
             : rawExtensions && typeof rawExtensions[Symbol.iterator] === "function"
               ? Array.from(rawExtensions)
               : [rawExtensions]
-    ).flatMap(splitExtensionInput);
+    ).flatMap((value) => splitExtensionInput(value));
 
     const coerced = fragments.map((fragment) => coerceExtensionValue(fragment));
     const normalized = uniqueArray(compactArray(coerced), {

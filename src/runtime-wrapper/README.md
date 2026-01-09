@@ -983,6 +983,215 @@ const wrapper = createRuntimeWrapper({
 });
 ```
 
+## Error Analytics
+
+The runtime wrapper provides comprehensive error tracking and analytics to help developers debug hot-reload issues during development. Error analytics categorize failures, detect patterns, and provide statistical insights into patch application problems.
+
+### Error Categories
+
+Errors are categorized by the phase in which they occur:
+
+- **validation**: Structural or semantic validation failures before application
+- **shadow**: Errors detected during shadow registry testing
+- **application**: Errors that occur during actual patch application
+- **rollback**: Errors encountered during automatic rollback operations
+
+### `getErrorAnalytics()`
+
+Returns comprehensive error statistics and patterns across all patches.
+
+**Returns:** A `PatchErrorAnalytics` object with:
+
+- `totalErrors` (number): Total number of errors recorded
+- `errorsByCategory` (Record<PatchErrorCategory, number>): Error counts grouped by category
+- `errorsByKind` (Record<PatchKind, number>): Error counts grouped by patch type (script, event, closure)
+- `uniquePatchesWithErrors` (number): Number of unique patch IDs that have encountered errors
+- `mostProblematicPatches` (Array<{ patchId: string; errorCount: number }>): Top 10 patches by error count
+- `recentErrors` (Array<PatchErrorOccurrence>): Last 20 error occurrences with full details
+- `errorRate` (number): Ratio of errors to successful patch applications
+
+**Example:**
+
+```javascript
+const wrapper = createRuntimeWrapper({ validateBeforeApply: true });
+
+// Apply several patches, some failing
+wrapper.applyPatch({ kind: "script", id: "script:good", js_body: "return 1;" });
+
+try {
+    wrapper.applyPatch({
+        kind: "script",
+        id: "script:bad_syntax",
+        js_body: "return {{ invalid"
+    });
+} catch {
+    // Error is automatically recorded
+}
+
+// Get comprehensive error analytics
+const analytics = wrapper.getErrorAnalytics();
+
+console.log(`Total errors: ${analytics.totalErrors}`);
+console.log(`Error rate: ${(analytics.errorRate * 100).toFixed(1)}%`);
+console.log(`Shadow errors: ${analytics.errorsByCategory.shadow}`);
+console.log(`Unique problematic patches: ${analytics.uniquePatchesWithErrors}`);
+
+// Identify most problematic patches
+for (const { patchId, errorCount } of analytics.mostProblematicPatches) {
+    console.log(`  ${patchId}: ${errorCount} errors`);
+}
+
+// Review recent errors
+for (const error of analytics.recentErrors.slice(-5)) {
+    console.log(`[${error.category}] ${error.patchId}: ${error.error}`);
+}
+```
+
+### `getErrorsForPatch(id)`
+
+Returns detailed error summary for a specific patch ID.
+
+**Parameters:**
+
+- `id` (string): The patch identifier to get error information for
+
+**Returns:** A `PatchErrorSummary` object or `null` if the patch has no errors:
+
+- `patchId` (string): The patch identifier
+- `totalErrors` (number): Total number of errors for this patch
+- `errorsByCategory` (Record<PatchErrorCategory, number>): Error counts by category
+- `firstErrorAt` (number): Timestamp of the first error occurrence
+- `lastErrorAt` (number): Timestamp of the most recent error occurrence
+- `mostRecentError` (string): Error message from the most recent failure
+- `uniqueErrorMessages` (number): Number of distinct error messages encountered
+
+**Example:**
+
+```javascript
+const wrapper = createRuntimeWrapper({ validateBeforeApply: true });
+
+// Apply the same problematic patch multiple times
+for (let i = 0; i < 5; i++) {
+    try {
+        wrapper.applyPatch({
+            kind: "script",
+            id: "script:flaky",
+            js_body: "return {{ bad syntax"
+        });
+    } catch {
+        // Expected
+    }
+}
+
+// Get detailed error summary for this specific patch
+const summary = wrapper.getErrorsForPatch("script:flaky");
+
+if (summary) {
+    console.log(`Patch: ${summary.patchId}`);
+    console.log(`Total failures: ${summary.totalErrors}`);
+    console.log(`First failed: ${new Date(summary.firstErrorAt).toISOString()}`);
+    console.log(`Last failed: ${new Date(summary.lastErrorAt).toISOString()}`);
+    console.log(`Error: ${summary.mostRecentError}`);
+    console.log(`Unique error messages: ${summary.uniqueErrorMessages}`);
+    console.log(
+        `Category breakdown: shadow=${summary.errorsByCategory.shadow}, validation=${summary.errorsByCategory.validation}`
+    );
+}
+```
+
+### `clearErrorHistory()`
+
+Clears all error history records, resetting error analytics to initial state. This is useful for starting fresh error tracking in long-running development sessions or for testing scenarios that require clean baselines.
+
+**Example:**
+
+```javascript
+const wrapper = createRuntimeWrapper();
+
+// Accumulate some errors during development
+try {
+    wrapper.applyPatch({
+        kind: "script",
+        id: "script:test",
+        js_body: "return {{ bad"
+    });
+} catch {
+    // Expected
+}
+
+console.log(wrapper.getErrorAnalytics().totalErrors); // 1
+
+// Start a fresh monitoring period
+wrapper.clearErrorHistory();
+
+console.log(wrapper.getErrorAnalytics().totalErrors); // 0
+```
+
+**Note:** Clearing error history does not affect patch history or the registry state. Only error tracking records are removed.
+
+### Error Analytics Use Cases
+
+**Debugging recurring failures:**
+
+```javascript
+const analytics = wrapper.getErrorAnalytics();
+
+if (analytics.errorRate > 0.1) {
+    console.warn("High error rate detected!");
+
+    for (const { patchId, errorCount } of analytics.mostProblematicPatches.slice(0, 3)) {
+        const summary = wrapper.getErrorsForPatch(patchId);
+        console.log(`\nProblematic patch: ${patchId} (${errorCount} errors)`);
+        console.log(`Most recent error: ${summary.mostRecentError}`);
+    }
+}
+```
+
+**Monitoring development workflow:**
+
+```javascript
+const wrapper = createRuntimeWrapper({
+    validateBeforeApply: true,
+    onChange: (event) => {
+        if (event.type === "patch-applied") {
+            const analytics = wrapper.getErrorAnalytics();
+
+            // Update HUD overlay
+            updateDevHUD({
+                successRate: (1 - analytics.errorRate) * 100,
+                recentErrors: analytics.recentErrors.length,
+                problematicPatches: analytics.uniquePatchesWithErrors
+            });
+        }
+    }
+});
+```
+
+**Building diagnostic dashboards:**
+
+```javascript
+function generateErrorReport() {
+    const analytics = wrapper.getErrorAnalytics();
+
+    return {
+        summary: {
+            totalErrors: analytics.totalErrors,
+            errorRate: `${(analytics.errorRate * 100).toFixed(1)}%`,
+            affectedPatches: analytics.uniquePatchesWithErrors
+        },
+        byCategory: analytics.errorsByCategory,
+        byKind: analytics.errorsByKind,
+        topProblems: analytics.mostProblematicPatches.slice(0, 5),
+        recentFailures: analytics.recentErrors.slice(-10).map((e) => ({
+            patch: e.patchId,
+            category: e.category,
+            error: e.error,
+            when: new Date(e.timestamp).toISOString()
+        }))
+    };
+}
+```
+
 ## Status
 
-The module implements core patch application, diagnostic capabilities, performance instrumentation, WebSocket integration, and registry lifecycle hooks. The change event system provides a unified way to observe all registry mutations for debugging, monitoring, and reactive integration patterns.
+The module implements core patch application, diagnostic capabilities, performance instrumentation, WebSocket integration, registry lifecycle hooks, and comprehensive error analytics. The error tracking system provides developers with detailed insights into hot-reload failures, enabling rapid identification and resolution of development issues.
