@@ -200,8 +200,10 @@ function visit(
     }
 
     if (Array.isArray(node)) {
-        // Snapshot the array before iteration to avoid traversal hazards if any
-        // visited child mutates the collection during the visit callback.
+        // Snapshot the array before iteration to avoid traversal hazards.
+        // If a visited child mutates the original array (e.g., by removing or
+        // adding elements), the iteration would skip or revisit elements. The
+        // snapshot ensures each element is visited exactly once.
         const snapshot = [...node];
         for (const item of snapshot) {
             visit(item, tracker, commentTools, matcher, commentHandler);
