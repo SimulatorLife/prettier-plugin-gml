@@ -9648,10 +9648,23 @@ function normalizeDrawVertexStatements(statements, diagnostic, ast) {
             !Core.isNonEmptyArray(precedingStatement.arguments);
 
         // Remove the empty draw_primitive_begin() if present
+        let removedOrphanedEnd = false;
         if (hasEmptyPrimitiveBeginBefore) {
             statements.splice(index - 1, 1);
             // Adjust indices after removal
             index -= 1;
+
+            // Also remove the orphaned draw_primitive_end() that was matching the empty begin
+            // After removing the begin at index-1, all indices shift down by 1:
+            //   - endIndex (the end for our wrapper) is now at endIndex - 1
+            //   - The orphaned end (originally after our wrapper's end) is now at (endIndex - 1) + 1 = endIndex
+            // We check if there's actually an end call at that position before removing it
+            const adjustedEndIndex = endIndex - 1;
+            const orphanedEndIndex = adjustedEndIndex + 1;
+            if (orphanedEndIndex < statements.length && isDrawPrimitiveEndCall(statements[orphanedEndIndex])) {
+                statements.splice(orphanedEndIndex, 1);
+                removedOrphanedEnd = true;
+            }
         }
 
         const [primitiveBegin] = statements.splice(hasEmptyPrimitiveBeginBefore ? beginIndex - 1 : beginIndex, 1);
@@ -9662,7 +9675,9 @@ function normalizeDrawVertexStatements(statements, diagnostic, ast) {
 
         ensureDrawPrimitiveBeginHasArgument(primitiveBegin);
 
-        if (primitiveEnd) {
+        // Only suppress leading empty line if we didn't remove an orphaned end
+        // (i.e., the wrapper was originally empty with no extra structure)
+        if (primitiveEnd && !removedOrphanedEnd) {
             primitiveEnd._featherSuppressLeadingEmptyLine = true;
         }
 
@@ -9683,6 +9698,20 @@ function normalizeDrawVertexStatements(statements, diagnostic, ast) {
     for (const statement of statements) {
         if (isDrawPrimitiveBeginCall(statement)) {
             ensureDrawPrimitiveBeginHasArgument(statement);
+        }
+    }
+
+    // Remove empty draw_primitive_begin/end pairs (pairs with no vertices between them)
+    for (let index = 0; index < statements.length - 1; index += 1) {
+        const current = statements[index];
+        const next = statements[index + 1];
+
+        if (isDrawPrimitiveBeginCall(current) && isDrawPrimitiveEndCall(next)) {
+            // This is an empty begin/end pair - remove both
+            statements.splice(index, 2);
+            // Decrement index so we re-examine the current position on next iteration
+            // (which now contains what was at index+2 before the splice)
+            index -= 1;
         }
     }
 
