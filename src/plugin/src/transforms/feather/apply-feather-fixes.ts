@@ -1180,16 +1180,6 @@ const FEATHER_FIX_BUILDERS = new Map<string, FeatherFixBuilder>([
 
                 return resolveAutomaticFixes(fixes, { ast, diagnostic });
             }
-    ],
-    [
-        "GM2035",
-        (diagnostic) =>
-            () =>
-            ({ ast }) => {
-                const fixes = ensureGpuStateIsPopped({ ast, diagnostic });
-
-                return resolveAutomaticFixes(fixes, { ast, diagnostic });
-            }
     ]
 ]);
 
@@ -1830,6 +1820,13 @@ function createAutomaticFeatherFixHandlers() {
         ["GM2029", ({ ast, diagnostic }) => ensureDrawVertexCallsAreWrapped({ ast, diagnostic })],
         ["GM1063", ({ ast, diagnostic }) => harmonizeTexturePointerTernaries({ ast, diagnostic })],
         ["GM2042", ({ ast, diagnostic }) => balanceGpuStateStack({ ast, diagnostic })],
+        [
+            "GM2035",
+            ({ ast, diagnostic }) => {
+                const fixes = ensureGpuStateIsPopped({ ast, diagnostic });
+                return fixes;
+            }
+        ],
         ["GM2044", ({ ast, diagnostic }) => deduplicateLocalVariableDeclarations({ ast, diagnostic })],
         ["GM2046", ({ ast, diagnostic }) => ensureSurfaceTargetsAreReset({ ast, diagnostic })],
         ["GM2048", ({ ast, diagnostic }) => ensureBlendEnableIsReset({ ast, diagnostic })],
@@ -16554,7 +16551,7 @@ function balanceGpuStateStack({ ast, diagnostic }) {
         if (Core.isProgramOrBlockStatement(node)) {
             const statements = Core.getBodyStatements(node);
 
-            if (statements.length > 0 && node.type !== "Program") {
+            if (statements.length > 0) {
                 const blockFixes = balanceGpuStateCallsInStatements(statements, diagnostic, node);
 
                 if (blockFixes.length > 0) {
