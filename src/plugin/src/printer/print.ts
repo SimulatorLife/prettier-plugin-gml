@@ -1654,7 +1654,7 @@ function printBlockStatementNode(node, path, options, print) {
         Array.isArray(node.body) &&
         node.body[0]?.type === "IfStatement"
     ) {
-        console.log("DEBUG stmts start for function expression block:", JSON.stringify(stmts.slice(0, 3)));
+        // console.log("DEBUG stmts start for function expression block:", JSON.stringify(stmts.slice(0, 3)));
     }
 
     if (leadingDocs.length > 1) {
@@ -2979,7 +2979,7 @@ export function applyAssignmentAlignment(statements, options, path = null, child
     /** @type {Array<{ node: any, nameLength: number, prefixLength: number }>} */
     const currentGroup = [];
     let currentGroupMaxLength = 0;
-    let currentGroupHasAlias = false;
+    // let currentGroupHasAlias = false;
 
     const { originalText, locStart, locEnd } = resolvePrinterSourceMetadata(options);
 
@@ -2992,7 +2992,7 @@ export function applyAssignmentAlignment(statements, options, path = null, child
     const resetGroup = () => {
         currentGroup.length = 0;
         currentGroupMaxLength = 0;
-        currentGroupHasAlias = false;
+        // currentGroupHasAlias = false;
     };
 
     const flushGroup = () => {
@@ -3002,21 +3002,21 @@ export function applyAssignmentAlignment(statements, options, path = null, child
         }
 
         const groupEntries = [...currentGroup];
-        const contextFunctionName =
-            functionNode?.id?.name ?? (functionNode?.name ? functionNode.name.name : null) ?? "<none>";
-        console.log(
-            "alignment group",
-            contextFunctionName,
-            groupEntries.map(({ node }) => {
-                return node?.id?.name ?? node?.left?.name ?? node?.left?.property?.name ?? "<unknown>";
-            }),
-            "length",
-            groupEntries.length,
-            "alias",
-            currentGroupHasAlias,
-            "minGroupSize",
-            minGroupSize
-        );
+        // const contextFunctionName =
+        //     functionNode?.id?.name ?? (functionNode?.name ? functionNode.name.name : null) ?? "<none>";
+        // console.log(
+        //     "alignment group",
+        //     contextFunctionName,
+        //     groupEntries.map(({ node }) => {
+        //         return node?.id?.name ?? node?.left?.name ?? node?.left?.property?.name ?? "<unknown>";
+        //     }),
+        //     "length",
+        //     groupEntries.length,
+        //     "alias",
+        //     currentGroupHasAlias,
+        //     "minGroupSize",
+        //     minGroupSize
+        // );
         const enablerCount = groupEntries.filter((e) => e.enablesAlignment).length;
         const normalizedMinGroupSize = minGroupSize > 0 ? minGroupSize : DEFAULT_ALIGN_ASSIGNMENTS_MIN_GROUP_SIZE;
         const alignmentEnabled = minGroupSize > 0;
@@ -3024,14 +3024,14 @@ export function applyAssignmentAlignment(statements, options, path = null, child
         const meetsAlignmentThreshold = alignmentEnabled && groupEntries.length >= effectiveMinGroupSize;
         const canAlign = meetsAlignmentThreshold && enablerCount >= effectiveMinGroupSize;
 
-        console.log(`DEBUG alignment group ${contextFunctionName ?? "<none>"}`, {
-            group: groupEntries.map((e) => e.nameLength),
-            meetsAlignmentThreshold,
-            enablerCount,
-            canAlign,
-            minGroupSize,
-            effectiveMinGroupSize
-        });
+        // console.log(`DEBUG alignment group ${contextFunctionName ?? "<none>"}`, {
+        //     group: groupEntries.map((e) => e.nameLength),
+        //     meetsAlignmentThreshold,
+        //     enablerCount,
+        //     canAlign,
+        //     minGroupSize,
+        //     effectiveMinGroupSize
+        // });
 
         if (!canAlign) {
             for (const { node } of groupEntries) {
@@ -3115,7 +3115,7 @@ export function applyAssignmentAlignment(statements, options, path = null, child
                     currentGroupMaxLength = printedWidth;
                 }
                 if (entry.enablesAlignment) {
-                    currentGroupHasAlias = true;
+                    // currentGroupHasAlias = true;
                 }
 
                 previousEntry = entry;
@@ -4838,7 +4838,7 @@ function getDocParamOptionality(lines, paramName) {
         }
         const raw = match[1];
         const normalized = normalizeDocParamNameFromRaw(raw);
-        console.log(`Checking param: ${paramName}, raw: ${raw}, normalized: ${normalized}`);
+        // console.log(`Checking param: ${paramName}, raw: ${raw}, normalized: ${normalized}`);
         if (normalized === paramName) {
             return /^\[.*\]$/.test(raw) || raw.endsWith("*") || raw.startsWith("*");
         }
