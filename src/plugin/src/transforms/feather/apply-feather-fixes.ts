@@ -9648,10 +9648,23 @@ function normalizeDrawVertexStatements(statements, diagnostic, ast) {
             !Core.isNonEmptyArray(precedingStatement.arguments);
 
         // Remove the empty draw_primitive_begin() if present
+        let removedOrphanedEnd = false;
         if (hasEmptyPrimitiveBeginBefore) {
             statements.splice(index - 1, 1);
             // Adjust indices after removal
             index -= 1;
+
+            // Also remove the orphaned draw_primitive_end() that was matching the empty begin
+            // After removing the begin at index-1, all indices shift down by 1:
+            //   - endIndex (the end for our wrapper) is now at endIndex - 1
+            //   - The orphaned end (originally after our wrapper's end) is now at (endIndex - 1) + 1 = endIndex
+            // We check if there's actually an end call at that position before removing it
+            const adjustedEndIndex = endIndex - 1;
+            const orphanedEndIndex = adjustedEndIndex + 1;
+            if (orphanedEndIndex < statements.length && isDrawPrimitiveEndCall(statements[orphanedEndIndex])) {
+                statements.splice(orphanedEndIndex, 1);
+                removedOrphanedEnd = true;
+            }
         }
 
         const [primitiveBegin] = statements.splice(hasEmptyPrimitiveBeginBefore ? beginIndex - 1 : beginIndex, 1);
@@ -9662,10 +9675,10 @@ function normalizeDrawVertexStatements(statements, diagnostic, ast) {
 
         ensureDrawPrimitiveBeginHasArgument(primitiveBegin);
 
-        // After removing the begin, adjust endIndex
-        let adjustedEndIndex = endIndex;
-        if (endIndex > (hasEmptyPrimitiveBeginBefore ? beginIndex - 1 : beginIndex)) {
-            adjustedEndIndex -= 1;
+        // Only suppress leading empty line if we didn't remove an orphaned end
+        // (i.e., the wrapper was originally empty with no extra structure)
+        if (primitiveEnd && !removedOrphanedEnd) {
+            primitiveEnd._featherSuppressLeadingEmptyLine = true;
         }
 
         statements.splice(index, 0, primitiveBegin);
@@ -9678,25 +9691,6 @@ function normalizeDrawVertexStatements(statements, diagnostic, ast) {
         });
         fixes.push(...fixDetails);
 
-        // After moving the begin to wrap vertices, the end() call at adjustedEndIndex
-        // becomes the closing call for the wrapped block. Any draw_primitive_begin/end
-        // calls after this end() are now redundant empty blocks and should be removed.
-        let removalIndex = adjustedEndIndex + 1;
-
-        while (removalIndex < statements.length) {
-            const stmt = statements[removalIndex];
-            if (isDrawPrimitiveBeginCall(stmt) || isDrawPrimitiveEndCall(stmt)) {
-                statements.splice(removalIndex, 1);
-                // Don't increment since we removed an element
-            } else if (stmt && stmt.type === "EmptyStatement") {
-                // Skip blank lines
-                removalIndex += 1;
-            } else {
-                // Stop at first non-primitive, non-blank statement
-                break;
-            }
-        }
-
         index += vertexStatements.length;
     }
 
@@ -9704,6 +9698,20 @@ function normalizeDrawVertexStatements(statements, diagnostic, ast) {
     for (const statement of statements) {
         if (isDrawPrimitiveBeginCall(statement)) {
             ensureDrawPrimitiveBeginHasArgument(statement);
+        }
+    }
+
+    // Remove empty draw_primitive_begin/end pairs (pairs with no vertices between them)
+    for (let index = 0; index < statements.length - 1; index += 1) {
+        const current = statements[index];
+        const next = statements[index + 1];
+
+        if (isDrawPrimitiveBeginCall(current) && isDrawPrimitiveEndCall(next)) {
+            // This is an empty begin/end pair - remove both
+            statements.splice(index, 2);
+            // Decrement index so we re-examine the current position on next iteration
+            // (which now contains what was at index+2 before the splice)
+            index -= 1;
         }
     }
 
