@@ -9662,10 +9662,8 @@ function normalizeDrawVertexStatements(statements, diagnostic, ast) {
 
         ensureDrawPrimitiveBeginHasArgument(primitiveBegin);
 
-        // After removing the begin, adjust endIndex
-        let adjustedEndIndex = endIndex;
-        if (endIndex > (hasEmptyPrimitiveBeginBefore ? beginIndex - 1 : beginIndex)) {
-            adjustedEndIndex -= 1;
+        if (primitiveEnd) {
+            primitiveEnd._featherSuppressLeadingEmptyLine = true;
         }
 
         statements.splice(index, 0, primitiveBegin);
@@ -9677,25 +9675,6 @@ function normalizeDrawVertexStatements(statements, diagnostic, ast) {
             insertionIndex: index
         });
         fixes.push(...fixDetails);
-
-        // After moving the begin to wrap vertices, the end() call at adjustedEndIndex
-        // becomes the closing call for the wrapped block. Any draw_primitive_begin/end
-        // calls after this end() are now redundant empty blocks and should be removed.
-        let removalIndex = adjustedEndIndex + 1;
-
-        while (removalIndex < statements.length) {
-            const stmt = statements[removalIndex];
-            if (isDrawPrimitiveBeginCall(stmt) || isDrawPrimitiveEndCall(stmt)) {
-                statements.splice(removalIndex, 1);
-                // Don't increment since we removed an element
-            } else if (stmt && stmt.type === "EmptyStatement") {
-                // Skip blank lines
-                removalIndex += 1;
-            } else {
-                // Stop at first non-primitive, non-blank statement
-                break;
-            }
-        }
 
         index += vertexStatements.length;
     }
