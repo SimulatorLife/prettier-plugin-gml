@@ -209,10 +209,10 @@ function printComment(commentPath, options) {
                 const endIndex = comment.end && typeof comment.end.index === "number" ? comment.end.index : comment.end;
                 const blankLines = countTrailingBlankLines(options.originalText, endIndex + 1);
 
+                const alreadyHasLeadingBlankLine =
+                    hasLeadingBlankLine(comment) || hasLeadingBlankLineInSource(comment, options?.originalText);
                 const shouldPrependBlankLine =
-                    comment._gmlForceLeadingBlankLine === true ||
-                    hasLeadingBlankLine(comment) ||
-                    hasLeadingBlankLineInSource(comment, options?.originalText);
+                    comment._gmlForceLeadingBlankLine === true || !alreadyHasLeadingBlankLine;
                 const parts = [];
                 if (shouldPrependBlankLine && comment._gmlForceLeadingBlankLine !== true) {
                     parts.push(hardline);

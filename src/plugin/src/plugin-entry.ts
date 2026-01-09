@@ -56,12 +56,22 @@ function collapseVertexFormatBeginSpacing(formatted: string): string {
 }
 
 const MULTIPLE_BLANK_LINE_PATTERN = /\n{3,}/g;
+const WHITESPACE_ONLY_BLANK_LINE_PATTERN = /\n[ \t]+\n/g;
+const LINE_COMMENT_TO_BLOCK_COMMENT_BLANK_PATTERN = /(\/\/(?!\/)[^\n]*\n)(?:\s*\n)+(?=\s*\/\*)/g;
 const FUNCTION_TAG_CLEANUP_PATTERN = /\/\/\/\s*@(?:func|function)\b[^\n]*(?:\n)?/gi;
 const BLOCK_OPENING_BLANK_PATTERN = /\{\n(?:[ \t]*\n){1,}(?!\s*(?:\/\/\/|\/\*))/g;
 const DECORATIVE_COMMENT_BLANK_PATTERN = /\{\n[ \t]+\n(?=\s*\/\/)/g;
 
 function collapseDuplicateBlankLines(formatted: string): string {
     return formatted.replaceAll(MULTIPLE_BLANK_LINE_PATTERN, "\n\n");
+}
+
+function collapseWhitespaceOnlyBlankLines(formatted: string): string {
+    return formatted.replaceAll(WHITESPACE_ONLY_BLANK_LINE_PATTERN, "\n\n");
+}
+
+function collapseLineCommentToBlockCommentBlankLines(formatted: string): string {
+    return formatted.replaceAll(LINE_COMMENT_TO_BLOCK_COMMENT_BLANK_PATTERN, "$1\n");
 }
 
 function collapseBlockOpeningBlankLines(formatted: string): string {
@@ -288,7 +298,12 @@ async function format(source: string, options: SupportOptions = {}) {
     const trimmedDecorativeBlanks = trimDecorativeCommentBlankLines(spacedComments);
     const collapsedAfterDecorativeTrim = collapseDuplicateBlankLines(trimmedDecorativeBlanks);
     const trimmedAfterBlockComments = trimWhitespaceAfterBlockComments(collapsedAfterDecorativeTrim);
-    return reapplyLineCommentTrailingWhitespace(trimmedAfterBlockComments, source);
+    const collapsedWhitespaceOnlyLines = collapseWhitespaceOnlyBlankLines(trimmedAfterBlockComments);
+    const normalizedLineCommentBlockSpacing = collapseLineCommentToBlockCommentBlankLines(
+        collapsedWhitespaceOnlyLines
+    );
+    const afterTrailingWhitespace = reapplyLineCommentTrailingWhitespace(normalizedLineCommentBlockSpacing, source);
+    return collapseWhitespaceOnlyBlankLines(afterTrailingWhitespace);
 }
 
 export { parsers, printers, pluginOptions, defaultOptions };
