@@ -200,7 +200,12 @@ function visit(
     }
 
     if (Array.isArray(node)) {
-        for (const item of node) {
+        // Snapshot the array before iteration to avoid traversal hazards.
+        // If a visited child mutates the original array (e.g., by removing or
+        // adding elements), the iteration would skip or revisit elements. The
+        // snapshot ensures each element is visited exactly once.
+        const snapshot = [...node];
+        for (const item of snapshot) {
             visit(item, tracker, commentTools, matcher, commentHandler);
         }
         return;
@@ -208,7 +213,12 @@ function visit(
 
     if (Array.isArray(node.body)) {
         consolidateBlock(node.body, tracker, commentTools, matcher, commentHandler);
-        for (const child of node.body) {
+        // Snapshot the body array before iteration to avoid traversal hazards.
+        // consolidateBlock mutates node.body by splicing out consolidated property
+        // assignments, so we iterate over a copy to ensure all remaining children
+        // (after consolidation) are visited exactly once.
+        const bodySnapshot = [...node.body];
+        for (const child of bodySnapshot) {
             visit(child, tracker, commentTools, matcher, commentHandler);
         }
     } else if (Core.isNode(node.body)) {
