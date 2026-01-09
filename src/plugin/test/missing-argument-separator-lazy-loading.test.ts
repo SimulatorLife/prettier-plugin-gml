@@ -82,9 +82,8 @@ describe("Missing argument separator sanitizer lazy loading", () => {
         clearForbiddenCalleeIdentifiersCache();
 
         // Import the module
-        const { sanitizeMissingArgumentSeparators } = await import(
-            "../src/transforms/missing-argument-separator-sanitizer.js"
-        );
+        const { sanitizeMissingArgumentSeparators } =
+            await import("../src/transforms/missing-argument-separator-sanitizer.js");
 
         // Verify the function exists
         assert.ok(typeof sanitizeMissingArgumentSeparators === "function", "Should export sanitizer function");
@@ -111,9 +110,8 @@ describe("Missing argument separator sanitizer lazy loading", () => {
         Core.clearIdentifierMetadataCache();
         clearForbiddenCalleeIdentifiersCache();
 
-        const { sanitizeMissingArgumentSeparators } = await import(
-            "../src/transforms/missing-argument-separator-sanitizer.js"
-        );
+        const { sanitizeMissingArgumentSeparators } =
+            await import("../src/transforms/missing-argument-separator-sanitizer.js");
 
         // Empty input should short-circuit before needing metadata
         const result = sanitizeMissingArgumentSeparators("");
