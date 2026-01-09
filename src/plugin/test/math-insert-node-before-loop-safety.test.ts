@@ -6,8 +6,8 @@ import { describe, it } from "node:test";
 import { strict as assert } from "node:assert";
 import { Plugin } from "../src/index.js";
 
-describe("Math traversal-normalization insertNodeBefore loop safety", () => {
-    it("should not skip array elements when inserting nodes during traversal", async () => {
+void describe("Math traversal-normalization insertNodeBefore loop safety", () => {
+    void it("should not skip array elements when inserting nodes during traversal", async () => {
         const input = `
 var a = 1;
 var b = lengthdir_x(10, 45);
@@ -29,7 +29,7 @@ var d = 3;
         assert.ok(formatted.includes("var d"), "Variable d should be preserved");
     });
 
-    it("should correctly insert nodes before target in nested array structures", async () => {
+    void it("should correctly insert nodes before target in nested array structures", async () => {
         const input = `
 {
     var x = lengthdir_x(10, 45);
@@ -49,7 +49,7 @@ var d = 3;
         assert.ok(statementCount >= 3, `Expected at least 3 var statements, found ${statementCount}`);
     });
 
-    it("should handle multiple manual math conversions in sequence", async () => {
+    void it("should handle multiple manual math conversions in sequence", async () => {
         const input = `
 var a = lengthdir_x(10, 45);
 var b = lengthdir_y(10, 45);
