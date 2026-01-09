@@ -7,6 +7,7 @@
 import type { RenamePlanSummary, BatchRenamePlanSummary, SymbolOccurrence } from "./types.js";
 import type { WorkspaceEdit } from "./workspace-edit.js";
 import { groupOccurrencesByFile } from "./occurrence-analysis.js";
+import { assertNonEmptyNameString } from "./validation-utils.js";
 
 /**
  * Append formatted error and warning messages to a lines array.
@@ -96,13 +97,8 @@ export function generateRenamePreview(workspace: WorkspaceEdit, oldName: string,
         throw new TypeError("generateRenamePreview requires a valid WorkspaceEdit");
     }
 
-    if (typeof oldName !== "string" || oldName.length === 0) {
-        throw new TypeError("generateRenamePreview requires a non-empty oldName string");
-    }
-
-    if (typeof newName !== "string" || newName.length === 0) {
-        throw new TypeError("generateRenamePreview requires a non-empty newName string");
-    }
+    assertNonEmptyNameString(oldName, "oldName", "generateRenamePreview");
+    assertNonEmptyNameString(newName, "newName", "generateRenamePreview");
 
     const grouped = workspace.groupByFile();
     const files: Array<FilePreview> = [];
@@ -402,13 +398,8 @@ export function formatOccurrencePreview(
         throw new TypeError("formatOccurrencePreview requires an array of occurrences");
     }
 
-    if (typeof oldName !== "string" || oldName.length === 0) {
-        throw new TypeError("formatOccurrencePreview requires a non-empty oldName string");
-    }
-
-    if (typeof newName !== "string" || newName.length === 0) {
-        throw new TypeError("formatOccurrencePreview requires a non-empty newName string");
-    }
+    assertNonEmptyNameString(oldName, "oldName", "formatOccurrencePreview");
+    assertNonEmptyNameString(newName, "newName", "formatOccurrencePreview");
 
     const lines: Array<string> = [];
     const grouped = groupOccurrencesByFile(occurrences);
