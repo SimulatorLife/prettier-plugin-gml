@@ -4,18 +4,14 @@ import process from "node:process";
 import { Command } from "commander";
 import { applyStandardCommandOptions } from "../cli-core/command-standard-options.js";
 import { ensureDirSync } from "../shared/ensure-dir.js";
+import { formatByteSize } from "../shared/reporting/byte-format.js";
 
-function formatBytes(bytes: number) {
-    if (bytes === 0) return "0 B";
+function formatBytes(bytes: number): string {
     if (bytes < 0 || !Number.isFinite(bytes)) {
         return "Invalid";
     }
-    const k = 1024;
-    const sizes = ["B", "KB", "MB", "GB"];
-    // Clamp index to valid range to handle edge cases where logarithm
-    // might produce unexpected values due to floating-point precision
-    const i = Math.max(0, Math.min(Math.floor(Math.log(bytes) / Math.log(k)), sizes.length - 1));
-    return `${Number.parseFloat((bytes / Math.pow(k, i)).toFixed(2))} ${sizes[i]}`;
+    // formatByteSize returns "0B" without space, but we need "0 B" with space
+    return formatByteSize(bytes, { decimals: 2, separator: " " });
 }
 
 function getSourceFiles(dir: string, fileList: string[] = []) {

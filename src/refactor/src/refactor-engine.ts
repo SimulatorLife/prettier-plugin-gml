@@ -2,6 +2,7 @@ import { WorkspaceEdit, type GroupedTextEdits } from "./workspace-edit.js";
 import { Core } from "@gml-modules/core";
 import {
     ConflictType,
+    OccurrenceKind,
     type ApplyWorkspaceEditOptions,
     type BatchRenamePlanSummary,
     type BatchRenameValidation,
@@ -28,7 +29,7 @@ import {
     type ValidationSummary,
     type WorkspaceReadFile
 } from "./types.js";
-import { assertValidIdentifierName } from "./validation-utils.js";
+import { assertValidIdentifierName, assertNonEmptyNameString, hasMethod } from "./validation-utils.js";
 import { detectCircularRenames, detectRenameConflicts } from "./validation.js";
 import * as SymbolQueries from "./symbol-queries.js";
 import * as HotReload from "./hot-reload.js";
@@ -557,7 +558,7 @@ export class RefactorEngine {
 
         // If semantic analyzer is available, perform deeper validation
         const semantic = this.semantic;
-        if (semantic && typeof semantic.validateEdits === "function") {
+        if (hasMethod(semantic, "validateEdits")) {
             try {
                 const semanticValidation = (await semantic.validateEdits(workspace)) ?? {};
                 errors.push(...(semanticValidation.errors || []));
@@ -1145,7 +1146,7 @@ export class RefactorEngine {
         }
 
         // If transpiler check is requested, validate transpilation will work
-        if (checkTranspiler && this.formatter && typeof this.formatter.transpileScript === "function") {
+        if (checkTranspiler && hasMethod(this.formatter, "transpileScript")) {
             // We'll check if any symbols being edited can be transpiled
             // This is a placeholder for more sophisticated checks
             warnings.push("Transpiler compatibility check requested - ensure changed symbols can be transpiled");
@@ -1247,7 +1248,7 @@ export class RefactorEngine {
             // reference (where it's used), giving insight into the symbol's role.
             for (const occ of occurrences) {
                 summary.affectedFiles.add(occ.path);
-                if (occ.kind === "definition") {
+                if (occ.kind === OccurrenceKind.DEFINITION) {
                     summary.definitionCount++;
                 } else {
                     summary.referenceCount++;
@@ -1274,7 +1275,7 @@ export class RefactorEngine {
             if (summary.totalOccurrences > 0) {
                 summary.hotReloadRequired = true;
 
-                if (this.semantic && typeof this.semantic.getDependents === "function") {
+                if (hasMethod(this.semantic, "getDependents")) {
                     const dependents = (await this.semantic.getDependents([symbolId])) ?? [];
                     for (const dep of dependents) {
                         summary.dependentSymbols.add(dep.symbolId);
@@ -1333,6 +1334,34 @@ export class RefactorEngine {
      */
     async checkHotReloadSafety(request: RenameRequest): Promise<HotReloadSafetySummary> {
         return HotReload.checkHotReloadSafety(request, this.semantic);
+    }
+
+    /**
+     * Compute a detailed dependency impact graph for a rename operation.
+     * This provides visualization-ready data showing how a rename will propagate
+     * through the dependency graph, essential for hot reload planning and
+     * understanding the full scope of changes.
+     *
+     * @param symbolId - The symbol being renamed
+     * @returns Impact graph with nodes, edges, critical path, and timing estimates
+     *
+     * @example
+     * const graph = await engine.computeRenameImpactGraph("gml/script/scr_base");
+     * console.log(`Rename will affect ${graph.totalAffectedSymbols} symbols`);
+     * console.log(`Critical path depth: ${graph.maxDepth}`);
+     * console.log(`Critical path: ${graph.criticalPath.join(" → ")}`);
+     * console.log(`Estimated reload time: ${graph.estimatedTotalReloadTime}ms`);
+     *
+     * // Visualize the dependency graph
+     * for (const [id, node] of graph.nodes) {
+     *     console.log(`${node.symbolName} (distance: ${node.distance})`);
+     *     if (node.dependents.length > 0) {
+     *         console.log(`  Dependents: ${node.dependents.join(", ")}`);
+     *     }
+     * }
+     */
+    async computeRenameImpactGraph(symbolId: string): Promise<import("./types.js").RenameImpactGraph> {
+        return HotReload.computeRenameImpactGraph(symbolId, this.semantic);
     }
 
     /**
@@ -1455,7 +1484,7 @@ export class RefactorEngine {
         }
 
         // Use semantic analyzer to check for new conflicts or shadowing
-        if (this.semantic && typeof this.semantic.getSymbolOccurrences === "function") {
+        if (hasMethod(this.semantic, "getSymbolOccurrences")) {
             try {
                 // Query occurrences of the new name to detect any potential conflicts
                 const newOccurrences = await this.semantic.getSymbolOccurrences(newName);
@@ -1475,7 +1504,7 @@ export class RefactorEngine {
         }
 
         // Use semantic analyzer to check for reserved keyword violations
-        if (this.semantic && typeof this.semantic.getReservedKeywords === "function") {
+        if (hasMethod(this.semantic, "getReservedKeywords")) {
             try {
                 const keywords = await this.semantic.getReservedKeywords();
                 if (keywords.includes(newName.toLowerCase())) {
@@ -1488,7 +1517,7 @@ export class RefactorEngine {
 
         // If parser is available, we could re-parse files and verify binding integrity
         // This is more expensive but provides the strongest guarantee
-        if (this.parser && typeof this.parser.parse === "function") {
+        if (hasMethod(this.parser, "parse")) {
             for (const filePath of affectedFiles) {
                 try {
                     // Attempt to parse the file to ensure syntax is still valid
@@ -1537,13 +1566,8 @@ export class RefactorEngine {
     }): Promise<Array<ConflictEntry>> {
         const { oldName, newName, occurrences } = request ?? {};
 
-        if (typeof oldName !== "string" || oldName.length === 0) {
-            throw new TypeError("detectRenameConflicts requires oldName as a non-empty string");
-        }
-
-        if (typeof newName !== "string" || newName.length === 0) {
-            throw new TypeError("detectRenameConflicts requires newName as a non-empty string");
-        }
+        assertNonEmptyNameString(oldName, "oldName", "detectRenameConflicts");
+        assertNonEmptyNameString(newName, "newName", "detectRenameConflicts");
 
         if (!Array.isArray(occurrences)) {
             throw new TypeError("detectRenameConflicts requires occurrences as an array");

@@ -1,5 +1,9 @@
+/* eslint-disable max-lines -- Visitor pattern requires comprehensive switch statement; refactoring to separate files would break cohesion */
 import { Core } from "@gml-modules/core";
 import { builtInFunctions } from "./builtins.js";
+import { lowerEnumDeclaration } from "./enum-lowering.js";
+import { escapeTemplateText, stringifyStructKey } from "./string-utils.js";
+import { lowerWithStatement } from "./with-lowering.js";
 import type {
     ArrayExpressionNode,
     AssignmentExpressionNode,
@@ -7,10 +11,13 @@ import type {
     BlockStatementNode,
     CallExpressionNode,
     CallTargetAnalyzer,
+    ConstructorDeclarationNode,
     DefaultParameterNode,
+    DefineStatementNode,
     DeleteStatementNode,
     DoUntilStatementNode,
     EmitOptions,
+    EndRegionStatementNode,
     EnumDeclarationNode,
     EnumMemberNode,
     FunctionDeclarationNode,
@@ -23,10 +30,12 @@ import type {
     IfStatementNode,
     IncDecStatementNode,
     LiteralNode,
+    MacroDeclarationNode,
     MemberDotExpressionNode,
     MemberIndexExpressionNode,
     NewExpressionNode,
     ProgramNode,
+    RegionStatementNode,
     RepeatStatementNode,
     ReturnStatementNode,
     StructExpressionNode,
@@ -34,7 +43,6 @@ import type {
     SwitchStatementNode,
     ThrowStatementNode,
     TemplateStringExpressionNode,
-    TemplateStringTextNode,
     TernaryExpressionNode,
     TryStatementNode,
     VariableDeclarationNode,
@@ -61,14 +69,24 @@ export class GmlToJsEmitter {
     private readonly globalVars: Set<string>;
 
     constructor(
-        semantic: {
-            identifier: IdentifierAnalyzer;
-            callTarget: CallTargetAnalyzer;
-        },
+        semantic:
+            | (IdentifierAnalyzer & CallTargetAnalyzer)
+            | {
+                  identifier: IdentifierAnalyzer;
+                  callTarget: CallTargetAnalyzer;
+              },
         options: Partial<EmitOptions> = {}
     ) {
-        this.identifierAnalyzer = semantic.identifier;
-        this.callTargetAnalyzer = semantic.callTarget;
+        // Support both the new simplified interface (single oracle) and
+        // the legacy interface (object with identifier/callTarget properties)
+        // for backward compatibility
+        if ("identifier" in semantic && "callTarget" in semantic) {
+            this.identifierAnalyzer = semantic.identifier;
+            this.callTargetAnalyzer = semantic.callTarget;
+        } else {
+            this.identifierAnalyzer = semantic;
+            this.callTargetAnalyzer = semantic;
+        }
         this.options = { ...DEFAULT_OPTIONS, ...options };
         this.globalVars = new Set();
     }
@@ -196,13 +214,49 @@ export class GmlToJsEmitter {
             case "EnumDeclaration": {
                 return this.visitEnumDeclaration(ast);
             }
+            case "MacroDeclaration": {
+                return this.visitMacroDeclaration(ast);
+            }
             case "FunctionDeclaration": {
                 return this.visitFunctionDeclaration(ast);
             }
+            case "ConstructorDeclaration": {
+                return this.visitConstructorDeclaration(ast);
+            }
+            case "RegionStatement": {
+                return this.visitRegionStatement(ast);
+            }
+            case "EndRegionStatement": {
+                return this.visitEndRegionStatement(ast);
+            }
+            case "DefineStatement": {
+                return this.visitDefineStatement(ast);
+            }
             default: {
-                return "";
+                return this.handleUnknownNode(ast);
             }
         }
+    }
+
+    /**
+     * Handle AST nodes that don't have explicit visitor methods.
+     * This serves as a safety net for unimplemented or unexpected node types.
+     *
+     * Currently returns an empty string to maintain backward compatibility.
+     * In development mode, logs unhandled nodes to help identify gaps in coverage.
+     *
+     * @param ast - The unhandled AST node
+     * @returns Empty string (node is skipped in output)
+     */
+    private handleUnknownNode(ast: GmlNode): string {
+        // In development, log unhandled nodes to help identify gaps in coverage.
+        // Use process.env check that tree-shakes in production builds.
+        if (typeof process !== "undefined" && process.env?.NODE_ENV !== "production") {
+            const nodeType = ast?.type ?? "<unknown>";
+            // eslint-disable-next-line no-console -- Development diagnostic logging only
+            console.warn(`[GmlToJsEmitter] Unhandled node type: ${nodeType}`);
+        }
+        return "";
     }
 
     private visitDefaultParameter(ast: DefaultParameterNode): string {
@@ -310,11 +364,11 @@ export class GmlToJsEmitter {
     }
 
     private visitProgram(ast: ProgramNode): string {
-        return this.joinTruthy((ast.body ?? []).map((stmt) => this.ensureStatementTermination(this.visit(stmt))));
+        return this.joinTruthy((ast.body ?? []).map((stmt) => this.ensureStatementTermination(this.emit(stmt))));
     }
 
     private visitBlockStatement(ast: BlockStatementNode): string {
-        const body = this.joinTruthy((ast.body ?? []).map((stmt) => this.ensureStatementTermination(this.visit(stmt))));
+        const body = this.joinTruthy((ast.body ?? []).map((stmt) => this.ensureStatementTermination(this.emit(stmt))));
         return `{\n${body}\n}`;
     }
 
@@ -354,47 +408,12 @@ export class GmlToJsEmitter {
     private visitWithStatement(ast: WithStatementNode): string {
         const testExpr = this.wrapConditional(ast.test, true) || "undefined";
         const rawBody = this.wrapRawBody(ast.body);
-        const resolveWithTargets = this.options.resolveWithTargetsIdent;
         const indentedBody = rawBody
             .split("\n")
             .map((line) => (line ? `        ${line}` : ""))
             .join("\n");
 
-        return this.joinTruthy([
-            "{",
-            "    const __with_prev_self = self;",
-            "    const __with_prev_other = other;",
-            `    const __with_value = ${testExpr};`,
-            "    const __with_targets = (() => {",
-            `        if (typeof ${resolveWithTargets} === "function") {`,
-            `            return ${resolveWithTargets}(`,
-            "                __with_value,",
-            "                __with_prev_self,",
-            "                __with_prev_other",
-            "            );",
-            "        }",
-            "        if (__with_value == null) {",
-            "            return [];",
-            "        }",
-            "        if (Array.isArray(__with_value)) {",
-            "            return __with_value;",
-            "        }",
-            "        return [__with_value];",
-            "    })();",
-            "    for (",
-            "        let __with_index = 0;",
-            "        __with_index < __with_targets.length;",
-            "        __with_index += 1",
-            "    ) {",
-            "        const __with_self = __with_targets[__with_index];",
-            "        self = __with_self;",
-            "        other = __with_prev_self;",
-            indentedBody,
-            "    }",
-            "    self = __with_prev_self;",
-            "    other = __with_prev_other;",
-            "}"
-        ]);
+        return lowerWithStatement(testExpr, indentedBody, this.options.resolveWithTargetsIdent);
     }
 
     private visitReturnStatement(ast: ReturnStatementNode): string {
@@ -439,20 +458,17 @@ export class GmlToJsEmitter {
                 const body = this.joinTruthy(
                     (caseNode.body ?? []).map((stmt) => {
                         const code = this.visit(stmt);
-                        const trimmed = code.trim();
-                        if (
-                            !code ||
-                            code.endsWith(";") ||
-                            code.endsWith("}") ||
-                            trimmed === "break" ||
-                            trimmed === "continue" ||
-                            trimmed.startsWith("return")
-                        ) {
+                        if (!code) {
                             return code;
                         }
-                        return `${code};`;
+                        // Use the standard termination policy for all statements
+                        return this.ensureStatementTermination(code);
                     })
                 );
+                // Skip empty case bodies (fall-through cases)
+                if (!body) {
+                    return header;
+                }
                 return `${header}\n${body}`;
             })
             .join("\n");
@@ -517,7 +533,7 @@ export class GmlToJsEmitter {
                 return "";
             }
             if (atom.type === "TemplateStringText") {
-                return this.escapeTemplateText(atom);
+                return escapeTemplateText(atom.value);
             }
             return `\${${this.visit(atom)}}`;
         });
@@ -540,38 +556,92 @@ export class GmlToJsEmitter {
 
     private visitEnumDeclaration(ast: EnumDeclarationNode): string {
         const name = this.visit(ast.name);
-        const lines = [`const ${name} = (() => {`, "    const __enum = {};", "    let __value = -1;"];
-        for (const member of ast.members ?? []) {
-            const memberName = this.resolveEnumMemberName(member);
-            if (member.initializer !== undefined && member.initializer !== null) {
-                const initializer =
-                    typeof member.initializer === "string" || typeof member.initializer === "number"
-                        ? String(member.initializer)
-                        : this.visit(member.initializer);
-                lines.push(`    __value = ${initializer};`);
-            } else {
-                lines.push("    __value += 1;");
-            }
-            lines.push(`    __enum.${memberName} = __value;`);
-        }
-        lines.push("    return __enum;", "})();");
-        return lines.join("\n");
+        return lowerEnumDeclaration(
+            name,
+            ast.members ?? [],
+            // eslint-disable-next-line @typescript-eslint/no-unsafe-argument -- visitNodeHelper accepts unknown and casts internally
+            this.visitNodeHelper.bind(this),
+            // eslint-disable-next-line @typescript-eslint/no-unsafe-argument -- resolveEnumMemberNameHelper accepts unknown and casts internally
+            this.resolveEnumMemberNameHelper.bind(this)
+        );
+    }
+
+    private visitMacroDeclaration(ast: MacroDeclarationNode): string {
+        const name = this.visit(ast.name);
+        const tokens = ast.tokens ?? [];
+        // Join tokens without spaces as they are pre-tokenized by the parser.
+        // For example, 'global.config' is tokenized as ['global', '.', 'config']
+        const value = tokens.join("");
+        return `const ${name} = ${value};`;
     }
 
     private visitFunctionDeclaration(ast: FunctionDeclarationNode): string {
-        let result = "function ";
-        if (ast.id) {
-            result += typeof ast.id === "string" ? ast.id : this.visit(ast.id);
-        }
-        result += "(";
-        if (ast.params && ast.params.length > 0) {
-            const params = ast.params
-                .map((param) => (typeof param === "string" ? param : this.visit(param)))
-                .join(", ");
-            result += params;
+        const id = ast.id ? (typeof ast.id === "string" ? ast.id : this.visit(ast.id)) : "";
+        return this.emitFunctionLike("function", id, ast.params, ast.body);
+    }
+
+    private visitConstructorDeclaration(ast: ConstructorDeclarationNode): string {
+        const id = ast.id ?? "";
+        return this.emitFunctionLike("function", id, ast.params, ast.body);
+    }
+
+    /**
+     * Visit a RegionStatement node.
+     * Region statements are GML preprocessor directives used for code folding
+     * in the GameMaker IDE. They have no runtime effect and should not appear
+     * in the transpiled JavaScript output.
+     *
+     * @param ast - The RegionStatement node
+     * @returns Empty string (region markers are stripped from output)
+     */
+    private visitRegionStatement(ast: RegionStatementNode): string {
+        // Region statements are preprocessor directives that have no runtime effect.
+        // Verify the node type for consistency, then emit nothing.
+        return ast.type === "RegionStatement" ? "" : "";
+    }
+
+    /**
+     * Visit an EndRegionStatement node.
+     * EndRegion statements are GML preprocessor directives that close a region block.
+     * They have no runtime effect and should not appear in the transpiled JavaScript output.
+     *
+     * @param ast - The EndRegionStatement node
+     * @returns Empty string (endregion markers are stripped from output)
+     */
+    private visitEndRegionStatement(ast: EndRegionStatementNode): string {
+        // EndRegion statements are preprocessor directives that have no runtime effect.
+        // Verify the node type for consistency, then emit nothing.
+        return ast.type === "EndRegionStatement" ? "" : "";
+    }
+
+    /**
+     * Visit a DefineStatement node.
+     * DefineStatement nodes can represent various preprocessor directives including
+     * #region, #endregion, and #macro. Region directives have no runtime effect.
+     * Macro directives are already handled separately by MacroDeclaration nodes.
+     *
+     * @param ast - The DefineStatement node
+     * @returns Empty string (preprocessor directives are stripped from output)
+     */
+    private visitDefineStatement(ast: DefineStatementNode): string {
+        // DefineStatement nodes for regions have no runtime effect.
+        // Verify the node type for consistency, then emit nothing.
+        return ast.type === "DefineStatement" ? "" : "";
+    }
+
+    private emitFunctionLike(
+        keyword: string,
+        id: string,
+        params: ReadonlyArray<GmlNode | string>,
+        body: GmlNode
+    ): string {
+        let result = `${keyword} ${id}(`;
+        if (params && params.length > 0) {
+            const paramList = params.map((param) => (typeof param === "string" ? param : this.visit(param))).join(", ");
+            result += paramList;
         }
         result += ")";
-        result += this.wrapConditionalBody(ast.body);
+        result += this.wrapConditionalBody(body);
         return result;
     }
 
@@ -655,6 +725,14 @@ export class GmlToJsEmitter {
         return Core.compactArray(lines).join("\n");
     }
 
+    private visitNodeHelper(node: unknown): string {
+        return this.visit(node as GmlNode);
+    }
+
+    private resolveEnumMemberNameHelper(member: EnumMemberNode): string {
+        return this.resolveEnumMemberName(member);
+    }
+
     private resolveIdentifierName(node: GmlNode | IdentifierMetadata | null | undefined): string | null {
         if (!node) {
             return null;
@@ -670,39 +748,9 @@ export class GmlToJsEmitter {
 
     private resolveStructKey(prop: StructPropertyNode): string {
         if (typeof prop.name === "string") {
-            return this.stringifyStructKey(prop.name);
+            return stringifyStructKey(prop.name);
         }
         return this.visit(prop.name);
-    }
-
-    private stringifyStructKey(rawKey: string): string {
-        const key = this.normalizeStructKeyText(rawKey);
-        if (this.isIdentifierLike(key) || /^[0-9]+$/.test(key)) {
-            return key;
-        }
-        return JSON.stringify(key);
-    }
-
-    private normalizeStructKeyText(value: string): string {
-        const startsWithQuote = value.startsWith('"') || value.startsWith("'");
-        const endsWithQuote = value.endsWith('"') || value.endsWith("'");
-        if (!startsWithQuote || !endsWithQuote || value.length < 2) {
-            return value;
-        }
-        const usesSameQuote =
-            (value.startsWith('"') && value.endsWith('"')) || (value.startsWith("'") && value.endsWith("'"));
-        if (!usesSameQuote) {
-            return value;
-        }
-        try {
-            return JSON.parse(value);
-        } catch {
-            return value.slice(1, -1);
-        }
-    }
-
-    private isIdentifierLike(value: string): boolean {
-        return /^[A-Za-z_$][A-Za-z0-9_$]*$/.test(value);
     }
 
     private resolveEnumMemberName(member: EnumMemberNode): string {
@@ -711,41 +759,12 @@ export class GmlToJsEmitter {
         }
         return this.visit(member.name);
     }
-
-    private escapeTemplateText(atom: TemplateStringTextNode): string {
-        return atom.value.replaceAll("`", "\\`").replaceAll("${", "\\${");
-    }
 }
 
-export function emitJavaScript(
-    ast: StatementLike,
-    sem?: {
-        identifier: IdentifierAnalyzer;
-        callTarget: CallTargetAnalyzer;
-    }
-): string {
-    const oracle = sem ?? makeDefaultOracle();
+export function emitJavaScript(ast: StatementLike, sem?: IdentifierAnalyzer & CallTargetAnalyzer): string {
+    const oracle = sem ?? createSemanticOracle();
     const emitter = new GmlToJsEmitter(oracle);
     return emitter.emit(ast);
-}
-
-/**
- * Create a default semantic oracle with full built-in function knowledge.
- * This provides better code generation than the dummy oracle by correctly
- * classifying built-in functions and generating proper SCIP symbols.
- *
- * Use this when you want semantic analysis without a scope tracker or
- * script tracking (suitable for standalone expression/statement transpilation).
- */
-export function makeDefaultOracle(): {
-    identifier: IdentifierAnalyzer;
-    callTarget: CallTargetAnalyzer;
-} {
-    const oracle = createSemanticOracle();
-    return {
-        identifier: oracle,
-        callTarget: oracle
-    };
 }
 
 /**
@@ -753,8 +772,8 @@ export function makeDefaultOracle(): {
  * analysis is not needed. This oracle has no knowledge of built-ins or
  * scripts and classifies everything as local or unknown.
  *
- * @deprecated Use `makeDefaultOracle()` or `createSemanticOracle()` instead
- * for better code generation with proper semantic analysis.
+ * @deprecated Use `createSemanticOracle()` instead for better code
+ * generation with proper semantic analysis.
  */
 export function makeDummyOracle(): {
     identifier: IdentifierAnalyzer;

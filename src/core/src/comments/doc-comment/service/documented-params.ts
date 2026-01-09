@@ -1,9 +1,11 @@
-import { isFunctionLikeNode } from "../../../ast/node-helpers.js";
-import { getNodeStartIndex } from "../../../ast/locations.js";
-import type { MutableGameMakerAstNode } from "../../../ast/types.js";
-import { isLineComment } from "../../comment-utils.js";
 import { resolveDocCommentTraversalService } from "../manager.js";
-import { toNormalizedLowerCaseString } from "../utils.js";
+import {
+    getNodeStartIndex,
+    isLineComment,
+    isFunctionLikeNode,
+    toNormalizedLowerCaseString,
+    type MutableGameMakerAstNode
+} from "../utils.js";
 
 type DocCommentTraversalService = {
     forEach(callback: (node: unknown, comments?: readonly unknown[] | null) => void): void;

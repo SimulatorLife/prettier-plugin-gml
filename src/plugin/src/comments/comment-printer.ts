@@ -210,13 +210,53 @@ function printComment(commentPath, options) {
                 const blankLines = countTrailingBlankLines(options.originalText, endIndex + 1);
 
                 const shouldPrependBlankLine =
-                    hasLeadingBlankLine(comment) || hasLeadingBlankLineInSource(comment, options?.originalText);
+                    comment._gmlForceLeadingBlankLine === true ||
+                    hasLeadingBlankLine(comment) ||
+                    hasLeadingBlankLineInSource(comment, options?.originalText);
                 const parts = [];
-                if (shouldPrependBlankLine) {
+                if (shouldPrependBlankLine && comment._gmlForceLeadingBlankLine !== true) {
                     parts.push(hardline);
                 }
 
-                parts.push(decorated);
+                // When forcing a leading blank line for decorated comments, reset leadingWS
+                // so we extract the correct indentation (or lack thereof)
+                if (comment._gmlForceLeadingBlankLine === true) {
+                    comment.leadingWS = "\n";
+                }
+
+                const leadingWhitespace = typeof comment.leadingWS === "string" ? comment.leadingWS : "";
+                const fallbackIndentation = " ".repeat(Math.max(1, options?.tabWidth ?? 4));
+                const newlineIndex = leadingWhitespace.lastIndexOf("\n");
+                let indentation = "";
+
+                // For decorated comments with forced leading blank line, always use no indentation
+                if (comment._gmlForceLeadingBlankLine !== true) {
+                    if (newlineIndex === -1) {
+                        // No newline in leadingWS, use fallback indentation
+                        indentation = options?.useTabs ? "\t" : fallbackIndentation;
+                    } else {
+                        // Extract indentation after the last newline
+                        indentation = leadingWhitespace.slice(newlineIndex + 1);
+                        // If there's actual indentation, normalize tabs to spaces if needed
+                        if (indentation && !options?.useTabs) {
+                            indentation = indentation.replaceAll("\t", fallbackIndentation);
+                        }
+                        // Empty string after newline means top-level (no indentation), which is correct
+                    }
+                }
+
+                // Apply indentation to each line of multi-line decorated comments
+                const decoratedLines = decorated.split("\n");
+                const indentedDecorated = decoratedLines
+                    .map((line, index) => (index === 0 ? line : `${indentation}${line}`))
+                    .join("\n");
+
+                // When adding leading padding, apply indentation to the FIRST line as well
+                const decoratedWithLeadingPadding =
+                    comment._gmlForceLeadingBlankLine === true
+                        ? `\n\n${decoratedLines.map((line) => `${indentation}${line}`).join("\n")}`
+                        : indentedDecorated;
+                parts.push(decoratedWithLeadingPadding);
                 if (blankLines > 0) {
                     parts.push(hardline, hardline);
                 } else {
@@ -243,7 +283,7 @@ function printComment(commentPath, options) {
                 return "";
             }
             const shouldPrependBlankLine =
-                comment._featherForceLeadingBlankLine === true ||
+                comment._gmlForceLeadingBlankLine === true ||
                 hasLeadingBlankLine(comment) ||
                 hasLeadingBlankLineInSource(comment, options?.originalText);
             if (shouldPrependBlankLine) {
@@ -746,8 +786,10 @@ function handleDetachedOwnLineComment(comment /*, text, options, ast */) {
     comment.trailing = false;
     comment.placement = "ownLine";
     const leadingWhitespace = typeof comment.leadingWS === "string" ? comment.leadingWS : "";
-    if (!/\r|\n/.test(leadingWhitespace)) {
-        comment.leadingWS = "\n";
+    if (!/[\r\n]/.test(leadingWhitespace)) {
+        comment.leadingWS = "\n\n";
+    } else if (!/[\r\n][\t ]*[\r\n]/.test(leadingWhitespace)) {
+        comment.leadingWS = `${leadingWhitespace}\n`;
     }
     comment.trailingWS = "\n";
     return true;
@@ -788,6 +830,7 @@ function handleDecorativeBlockCommentOwnLine(comment, _text, _options, ast) {
     comment.leading = true;
     comment.trailing = false;
     comment.placement = "ownLine";
+    comment._gmlForceLeadingBlankLine = true;
     const leadingWhitespace = typeof comment.leadingWS === "string" ? comment.leadingWS : "";
     if (!/\r|\n/.test(leadingWhitespace)) {
         comment.leadingWS = "\n";
@@ -826,10 +869,20 @@ function findFollowingNodeForComment(ast, comment) {
             }
         }
 
-        for (const [key, value] of Object.entries(node)) {
+        // Use for...in instead of Object.entries to avoid allocating intermediate
+        // [key, value] tuple arrays on every visited node. Benchmarked at ~16% faster
+        // in AST traversals. Mirrors the optimization in collectCommentNodes
+        // (src/core/src/comments/comment-utils.ts).
+        for (const key in node) {
+            if (!Object.hasOwn(node, key)) {
+                continue;
+            }
+
             if (key === "comments" || key === "docComments") {
                 continue;
             }
+
+            const value = node[key];
             pushChildrenToStack(stack, value);
         }
     }
@@ -1165,9 +1218,11 @@ function formatDecorativeBlockComment(value) {
         return null;
     }
 
-    const DECORATIVE_SLASH_LINE_PATTERN = new RegExp(
-        String.raw`^\s*\*?\/{${Core.LINE_COMMENT_BANNER_DETECTION_MIN_SLASHES},}\*?\s*$`
-    );
+    // Use the same threshold as defined in banner-comment-policy.ts
+    // (DEFAULT_BANNER_COMMENT_POLICY_CONFIG.minLeadingSlashes = 4)
+    // This ensures block comments and line comments share consistent criteria.
+    const MIN_DECORATIVE_SLASHES = 4;
+    const DECORATIVE_SLASH_LINE_PATTERN = new RegExp(String.raw`^\s*\*?\/{${MIN_DECORATIVE_SLASHES},}\*?\s*$`);
 
     const lines = value.split(/\r?\n/).map((line) => line.replaceAll("\t", "    "));
     const significantLines = lines.filter((line) => Core.isNonEmptyTrimmedString(line));

@@ -62,9 +62,10 @@ function hasExplicitDefaultParameterToLeft(node: MutableGameMakerAstNode, parame
 }
 
 /** Orchestrates the normalization of function parameter default values. */
-export class PreprocessFunctionArgumentDefaultsTransform
-    implements ParserTransform<MutableGameMakerAstNode, PreprocessFunctionArgumentDefaultsTransformOptions>
-{
+export class PreprocessFunctionArgumentDefaultsTransform implements ParserTransform<
+    MutableGameMakerAstNode,
+    PreprocessFunctionArgumentDefaultsTransformOptions
+> {
     public readonly name = "preprocess-function-argument-defaults";
     public readonly defaultOptions = Object.freeze({}) as PreprocessFunctionArgumentDefaultsTransformOptions;
 
@@ -74,45 +75,17 @@ export class PreprocessFunctionArgumentDefaultsTransform
             return ast;
         }
 
-        this.traverse(ast, (node) => {
-            if (!node || (node.type !== "FunctionDeclaration" && node.type !== "ConstructorDeclaration")) {
-                return;
-            }
+        Core.walkObjectGraph(ast, {
+            enterObject: (node) => {
+                if (!node || (node.type !== "FunctionDeclaration" && node.type !== "ConstructorDeclaration")) {
+                    return;
+                }
 
-            this.preprocessFunctionDeclaration(node, ast);
+                this.preprocessFunctionDeclaration(node, ast);
+            }
         });
 
         return ast;
-    }
-
-    // DFS helper that guards against cyclic references while invoking `visitor` on each node.
-    private traverse(node, visitor, seen = new Set()) {
-        if (!Core.isObjectLike(node)) {
-            return;
-        }
-
-        if (seen.has(node)) {
-            return;
-        }
-
-        seen.add(node);
-
-        if (Array.isArray(node)) {
-            for (const child of node) {
-                this.traverse(child, visitor, seen);
-            }
-            return;
-        }
-
-        visitor(node);
-
-        Core.forEachNodeChild(node, (value, key) => {
-            if (key === "parent") {
-                return;
-            }
-
-            this.traverse(value, visitor, seen);
-        });
     }
 
     // Normalize the parameters and apply argument_count fallback rewrites within a single declaration.
@@ -943,16 +916,9 @@ function isArgumentIndexAccess(node, argumentIndex) {
 }
 
 function matchAssignmentToArgumentIndex(node, argumentIndex) {
-    if (!node) {
-        return null;
-    }
+    const assignment = Core.unwrapExpressionStatement(node);
 
-    let assignment;
-    if (node.type === "ExpressionStatement" && node.expression && node.expression.type === "AssignmentExpression") {
-        assignment = node.expression;
-    } else if (node.type === "AssignmentExpression") {
-        assignment = node;
-    } else {
+    if (!assignment || assignment.type !== "AssignmentExpression") {
         return null;
     }
 

@@ -1,6 +1,11 @@
-import { getIdentifierText, isUndefinedSentinel } from "../../../ast/node-helpers.js";
-import { getNodeEndIndex, getNodeStartIndex } from "../../../ast/locations.js";
-import { getNonEmptyString, isNonEmptyTrimmedString } from "../utils.js";
+import {
+    getIdentifierText,
+    getNodeEndIndex,
+    getNodeStartIndex,
+    getNonEmptyString,
+    isNonEmptyTrimmedString,
+    isUndefinedSentinel
+} from "../utils.js";
 import { normalizeDocMetadataName } from "./params.js";
 
 const STRING_TYPE = "string";
@@ -39,7 +44,10 @@ export function getIdentifierFromParameterNode(param: any) {
         return param;
     }
 
-    if (param.type === "DefaultParameter" && param.left?.type === "Identifier") {
+    if (
+        (param.type === "DefaultParameter" || param.type === "AssignmentPattern") &&
+        param.left?.type === "Identifier"
+    ) {
         return param.left;
     }
 

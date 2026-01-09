@@ -15,13 +15,14 @@ import { warnWithReason } from "./logger.js";
 
 import { consumeIdentifierCaseDryRunContext } from "./identifier-case-context.js";
 import { defaultIdentifierCaseFsFacade as defaultFsFacade } from "./fs-facade.js";
+import { ConflictSeverity, normalizeConflictSeverityWithFallback } from "./conflict-severity.js";
 
 type IdentifierCaseReportSummary = {
     renameCount: number;
     impactedFileCount: number;
     totalReferenceCount: number;
     conflictCount: number;
-    severityCounts: Record<string, number>;
+    severityCounts: Partial<Record<ConflictSeverity, number>>;
 };
 
 type IdentifierCaseReference = {
@@ -42,7 +43,7 @@ type IdentifierCaseOperation = {
 };
 
 type IdentifierCaseConflict = {
-    severity?: string;
+    severity?: ConflictSeverity;
     scope: {
         displayName?: string | null;
         id?: string | null;
@@ -223,7 +224,7 @@ function normalizeConflict(rawConflict) {
         (conflict) => {
             const scope = normalizeScope(conflict.scope ?? {});
             const severityCandidate = Core.coalesceTrimmedString(conflict.severity);
-            const severity = severityCandidate ? severityCandidate.toLowerCase() : "error";
+            const severity = normalizeConflictSeverityWithFallback(severityCandidate, ConflictSeverity.ERROR);
 
             const suggestions = Core.compactArray(
                 Core.toArray(conflict.suggestions ?? conflict.hints).map((entry) => Core.coalesceTrimmedString(entry))
@@ -268,10 +269,10 @@ function sortOperations(operations) {
 }
 
 function sortConflicts(conflicts) {
-    const severityOrder = new Map([
-        ["error", 0],
-        ["warning", 1],
-        ["info", 2]
+    const severityOrder = new Map<ConflictSeverity, number>([
+        [ConflictSeverity.ERROR, 0],
+        [ConflictSeverity.WARNING, 1],
+        [ConflictSeverity.INFO, 2]
     ]);
 
     return conflicts.reduce((acc, item) => {
@@ -317,9 +318,9 @@ export function summarizeIdentifierCasePlan({ renamePlan, conflicts = [] }: Iden
         }
     }
 
-    const severityCounts = new Map();
+    const severityCounts = new Map<ConflictSeverity, number>();
     for (const conflict of normalizedConflicts) {
-        const severity = conflict.severity ?? "info";
+        const severity = conflict.severity ?? ConflictSeverity.INFO;
         Core.incrementMapValue(severityCounts, severity);
     }
 
@@ -473,20 +474,20 @@ function buildLogPayload(report: IdentifierCaseReportData | null, generatedAt) {
     };
 }
 
-function resolveSummarySeverity(conflicts) {
+function resolveSummarySeverity(conflicts): ConflictSeverity {
     if (!Core.isNonEmptyArray(conflicts)) {
-        return "info";
+        return ConflictSeverity.INFO;
     }
 
-    if (conflicts.some((conflict) => conflict.severity === "error")) {
-        return "error";
+    if (conflicts.some((conflict) => conflict.severity === ConflictSeverity.ERROR)) {
+        return ConflictSeverity.ERROR;
     }
 
-    if (conflicts.some((conflict) => conflict.severity === "warning")) {
-        return "warning";
+    if (conflicts.some((conflict) => conflict.severity === ConflictSeverity.WARNING)) {
+        return ConflictSeverity.WARNING;
     }
 
-    return "info";
+    return ConflictSeverity.INFO;
 }
 
 function pushDiagnosticEntry({

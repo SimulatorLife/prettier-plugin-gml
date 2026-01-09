@@ -47,6 +47,7 @@ import {
     type RuntimeTranspilerPatch
 } from "../modules/transpilation/coordinator.js";
 import { prepareHotReloadInjection, DEFAULT_GM_TEMP_ROOT } from "../modules/hot-reload/inject-runtime.js";
+import { DependencyTracker } from "../modules/dependency-tracker.js";
 import { formatCliError } from "../cli-core/errors.js";
 
 const { debounce, getErrorMessage } = Core;
@@ -64,45 +65,98 @@ interface ExtensionMatcher {
     matches: (fileName: string) => boolean;
 }
 
-interface WatchCommandOptions {
+/**
+ * Configuration for file watching behavior.
+ * Controls which files to monitor and how to detect changes.
+ */
+interface FileWatchingConfig {
     extensions?: Array<string>;
     polling?: boolean;
     pollingInterval?: number;
+    debounceDelay?: number;
+    watchFactory?: WatchFactory;
+}
+
+/**
+ * Configuration for logging and console output.
+ * Controls verbosity and output suppression.
+ */
+interface LoggingConfig {
     verbose?: boolean;
     quiet?: boolean;
-    debounceDelay?: number;
+}
+
+/**
+ * Configuration for the WebSocket server used to stream patches.
+ * Enables real-time hot-reload patch delivery to connected clients.
+ */
+interface WebSocketServerConfig {
     websocketPort?: number;
     websocketHost?: string;
     websocketServer?: boolean;
+}
+
+/**
+ * Configuration for the HTTP status server.
+ * Provides queryable endpoints for watch command status.
+ */
+interface StatusServerConfig {
     statusPort?: number;
     statusHost?: string;
     statusServer?: boolean;
+}
+
+/**
+ * Configuration for the HTML5 runtime static server.
+ * Controls runtime asset serving and resolution.
+ */
+interface RuntimeServerConfig {
     runtimeRoot?: string;
     runtimePackage?: string;
     runtimeServer?: boolean;
     hydrateRuntime?: boolean;
-    maxPatchHistory?: number;
-    autoInject?: boolean;
-    html5Output?: string;
-    gmTempRoot?: string;
     runtimeResolver?: RuntimeSourceResolver;
     runtimeDescriptor?: RuntimeDescriptorFormatter;
     runtimeServerStarter?: typeof startRuntimeStaticServer;
-    abortSignal?: AbortSignal;
-    watchFactory?: WatchFactory;
 }
 
-interface RuntimeContext
-    extends Omit<
-        TranspilationContext,
-        | "transpiler"
-        | "patches"
-        | "metrics"
-        | "errors"
-        | "lastSuccessfulPatches"
-        | "maxPatchHistory"
-        | "websocketServer"
-    > {
+/**
+ * Configuration for hot-reload injection and patch management.
+ * Controls automatic runtime wrapper injection and patch history.
+ */
+interface HotReloadConfig {
+    autoInject?: boolean;
+    html5Output?: string;
+    gmTempRoot?: string;
+    maxPatchHistory?: number;
+}
+
+/**
+ * Infrastructure configuration for testing and lifecycle management.
+ * Provides abort signals and other cross-cutting concerns.
+ */
+interface InfrastructureConfig {
+    abortSignal?: AbortSignal;
+}
+
+/**
+ * Complete configuration for the watch command.
+ * Composes all specialized configuration interfaces into a single contract.
+ */
+interface WatchCommandOptions
+    extends
+        FileWatchingConfig,
+        LoggingConfig,
+        WebSocketServerConfig,
+        StatusServerConfig,
+        RuntimeServerConfig,
+        HotReloadConfig,
+        InfrastructureConfig {}
+
+interface RuntimeContext extends Omit<
+    TranspilationContext,
+    "transpiler" | "patches" | "metrics" | "errors" | "lastSuccessfulPatches" | "maxPatchHistory" | "websocketServer"
+> {
     root: string | null;
     packageName: string | null;
     packageJson: Record<string, unknown> | null;
@@ -118,11 +172,10 @@ interface RuntimeContext
     statusServer: StatusServerController | null;
     startTime: number;
     debouncedHandlers: Map<string, DebouncedFunction<[string, string, FileChangeOptions]>>;
+    dependencyTracker: DependencyTracker;
 }
 
-interface FileChangeOptions {
-    verbose?: boolean;
-    quiet?: boolean;
+interface FileChangeOptions extends LoggingConfig {
     runtimeContext?: RuntimeContext;
 }
 
@@ -425,6 +478,7 @@ export async function runWatchCommand(targetPath: string, options: WatchCommandO
     const shouldServeRuntime = hydrateRuntime === undefined ? runtimeServer !== false : Boolean(hydrateRuntime);
 
     const transpiler = new Transpiler.GmlTranspiler();
+    const dependencyTracker = new DependencyTracker();
     const runtimeContext: RuntimeContext = {
         root: null,
         packageName: null,
@@ -440,7 +494,8 @@ export async function runWatchCommand(targetPath: string, options: WatchCommandO
         websocketServer: null,
         statusServer: null,
         startTime: Date.now(),
-        debouncedHandlers: new Map()
+        debouncedHandlers: new Map(),
+        dependencyTracker
     };
 
     let runtimeServerController: RuntimeStaticServerInstance | null = null;
@@ -802,10 +857,29 @@ async function handleFileChange(
                 return;
             }
 
-            transpileFile(runtimeContext, filePath, content, lines, {
+            // Transpile the changed file
+            const result = transpileFile(runtimeContext, filePath, content, lines, {
                 verbose,
                 quiet
             });
+
+            // Track symbol definitions for dependency-aware hot-reload
+            // Future enhancement: When semantic analysis is integrated, this will:
+            // 1. Extract actual symbol definitions from the AST
+            // 2. Track symbol references to build dependency graph
+            // 3. Identify and re-transpile dependent files when symbols change
+            if (result.success && result.patch) {
+                const fileName = path.basename(filePath, path.extname(filePath));
+                const symbolId = `gml/script/${fileName}`;
+                runtimeContext.dependencyTracker.registerFileDefines(filePath, [symbolId]);
+
+                if (verbose && !quiet) {
+                    const stats = runtimeContext.dependencyTracker.getStatistics();
+                    console.log(
+                        `  ↳ Dependency tracker: ${stats.totalSymbols} symbols tracked across ${stats.totalFiles} files`
+                    );
+                }
+            }
         } catch (error) {
             const message = getErrorMessage(error, {
                 fallback: "Unknown file read error"

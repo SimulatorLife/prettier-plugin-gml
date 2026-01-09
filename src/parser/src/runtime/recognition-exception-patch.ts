@@ -109,13 +109,13 @@ function ensureTokenMetadata(
     if (typeof token.type !== "number") {
         token.type =
             typeof fallback === "object" && typeof fallback.type === "number"
-                ? (fallback).type
+                ? fallback.type
                 : antlr4.Token.INVALID_TYPE;
     }
 
     if (typeof token.tokenIndex !== "number") {
         const fallbackIndex = firstNumber(
-            typeof fallback === "object" ? (fallback).tokenIndex : undefined,
+            typeof fallback === "object" ? fallback.tokenIndex : undefined,
             token.index,
             token.startIndex
         );
@@ -126,11 +126,11 @@ function ensureTokenMetadata(
     if (typeof token.line !== "number") {
         token.line =
             firstNumber(
-                typeof fallback === "object" ? (fallback).line : undefined,
+                typeof fallback === "object" ? fallback.line : undefined,
                 typeof fallback === "object"
-                    ? typeof (fallback).start === "number"
-                        ? (fallback).start
-                        : (fallback).start?.line
+                    ? typeof fallback.start === "number"
+                        ? fallback.start
+                        : fallback.start?.line
                     : undefined,
                 typeof token.start === "number" ? token.start : token.start?.line
             ) ?? INVALID_INDEX_FALLBACK;
@@ -139,11 +139,11 @@ function ensureTokenMetadata(
     if (typeof token.column !== "number") {
         token.column =
             firstNumber(
-                typeof fallback === "object" ? (fallback).column : undefined,
+                typeof fallback === "object" ? fallback.column : undefined,
                 typeof fallback === "object"
-                    ? typeof (fallback).start === "number"
-                        ? (fallback).start
-                        : (fallback).start?.column
+                    ? typeof fallback.start === "number"
+                        ? fallback.start
+                        : fallback.start?.column
                     : undefined,
                 typeof token.start === "number" ? token.start : token.start?.column
             ) ?? INVALID_INDEX_FALLBACK;

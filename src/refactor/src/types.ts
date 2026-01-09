@@ -5,6 +5,33 @@ export type MaybePromise<T> = T | Promise<T>;
 export type Range = { start: number; end: number };
 
 /**
+ * Generic helper for creating type-safe enum validators.
+ * Eliminates boilerplate for type guard, parser, and require functions.
+ */
+function createEnumHelpers<T extends Record<string, string>>(enumObj: T, typeName: string) {
+    type EnumValue = T[keyof T];
+    const values = Object.freeze(Object.values(enumObj)) as ReadonlyArray<EnumValue>;
+    const valueSet: ReadonlySet<string> = new Set(values);
+
+    const is = (value: unknown): value is EnumValue => typeof value === "string" && valueSet.has(value);
+
+    const parse = (value: unknown): EnumValue | null => (is(value) ? value : null);
+
+    const require = (value: unknown, context?: string): EnumValue => {
+        if (!is(value)) {
+            const validValues = values.join(", ");
+            const contextInfo = context ? ` (in ${context})` : "";
+            throw new TypeError(
+                `Invalid ${typeName}: ${JSON.stringify(value)}${contextInfo}. Must be one of: ${validValues}.`
+            );
+        }
+        return value;
+    };
+
+    return { is, parse, require };
+}
+
+/**
  * Enumerated constants for GML symbol kinds.
  *
  * Symbol IDs follow the pattern `gml/{kind}/{name}`, where `kind` identifies
@@ -29,9 +56,7 @@ export const SymbolKind = Object.freeze({
 
 export type SymbolKindValue = (typeof SymbolKind)[keyof typeof SymbolKind];
 
-const SYMBOL_KIND_VALUES = Object.freeze(Object.values(SymbolKind)) as ReadonlyArray<SymbolKindValue>;
-
-const SYMBOL_KIND_SET: ReadonlySet<string> = new Set(SYMBOL_KIND_VALUES);
+const symbolKindHelpers = createEnumHelpers(SymbolKind, "symbol kind");
 
 /**
  * Check whether a value is a valid symbol kind.
@@ -45,7 +70,7 @@ const SYMBOL_KIND_SET: ReadonlySet<string> = new Set(SYMBOL_KIND_VALUES);
  * }
  */
 export function isSymbolKind(value: unknown): value is SymbolKindValue {
-    return typeof value === "string" && SYMBOL_KIND_SET.has(value);
+    return symbolKindHelpers.is(value);
 }
 
 /**
@@ -61,7 +86,7 @@ export function isSymbolKind(value: unknown): value is SymbolKindValue {
  * }
  */
 export function parseSymbolKind(value: unknown): SymbolKindValue | null {
-    return isSymbolKind(value) ? value : null;
+    return symbolKindHelpers.parse(value);
 }
 
 /**
@@ -76,14 +101,7 @@ export function parseSymbolKind(value: unknown): SymbolKindValue | null {
  * const kind = requireSymbolKind(symbolParts[1], symbolId);
  */
 export function requireSymbolKind(value: unknown, context?: string): SymbolKindValue {
-    if (!isSymbolKind(value)) {
-        const validKinds = SYMBOL_KIND_VALUES.join(", ");
-        const contextInfo = context ? ` (in ${context})` : "";
-        throw new TypeError(
-            `Invalid symbol kind: ${JSON.stringify(value)}${contextInfo}. Must be one of: ${validKinds}.`
-        );
-    }
-    return value;
+    return symbolKindHelpers.require(value, context);
 }
 
 /**
@@ -113,9 +131,7 @@ export const ConflictType = Object.freeze({
 
 export type ConflictTypeValue = (typeof ConflictType)[keyof typeof ConflictType];
 
-const CONFLICT_TYPE_VALUES = Object.freeze(Object.values(ConflictType)) as ReadonlyArray<ConflictTypeValue>;
-
-const CONFLICT_TYPE_SET: ReadonlySet<string> = new Set(CONFLICT_TYPE_VALUES);
+const conflictTypeHelpers = createEnumHelpers(ConflictType, "conflict type");
 
 /**
  * Check whether a value is a valid conflict type.
@@ -129,7 +145,7 @@ const CONFLICT_TYPE_SET: ReadonlySet<string> = new Set(CONFLICT_TYPE_VALUES);
  * }
  */
 export function isConflictType(value: unknown): value is ConflictTypeValue {
-    return typeof value === "string" && CONFLICT_TYPE_SET.has(value);
+    return conflictTypeHelpers.is(value);
 }
 
 /**
@@ -145,7 +161,7 @@ export function isConflictType(value: unknown): value is ConflictTypeValue {
  * }
  */
 export function parseConflictType(value: unknown): ConflictTypeValue | null {
-    return isConflictType(value) ? value : null;
+    return conflictTypeHelpers.parse(value);
 }
 
 /**
@@ -160,14 +176,77 @@ export function parseConflictType(value: unknown): ConflictTypeValue | null {
  * const type = requireConflictType(conflict.type, "validation");
  */
 export function requireConflictType(value: unknown, context?: string): ConflictTypeValue {
-    if (!isConflictType(value)) {
-        const validTypes = CONFLICT_TYPE_VALUES.join(", ");
-        const contextInfo = context ? ` (in ${context})` : "";
-        throw new TypeError(
-            `Invalid conflict type: ${JSON.stringify(value)}${contextInfo}. Must be one of: ${validTypes}.`
-        );
-    }
-    return value;
+    return conflictTypeHelpers.require(value, context);
+}
+
+/**
+ * Enumerated constants for symbol occurrence kinds.
+ *
+ * Occurrence kinds distinguish between definitions (where symbols are declared)
+ * and references (where symbols are used). This enum centralizes valid occurrence
+ * kinds to prevent stringly-typed branches and provides a single source of truth
+ * for validation.
+ *
+ * @example
+ * // Use typed constants instead of raw strings
+ * if (occurrence.kind === OccurrenceKind.DEFINITION) { ... }
+ *
+ * // Validate runtime strings
+ * const kind = parseOccurrenceKind(rawInput);
+ */
+export const OccurrenceKind = Object.freeze({
+    DEFINITION: "definition",
+    REFERENCE: "reference"
+} as const);
+
+export type OccurrenceKindValue = (typeof OccurrenceKind)[keyof typeof OccurrenceKind];
+
+const occurrenceKindHelpers = createEnumHelpers(OccurrenceKind, "occurrence kind");
+
+/**
+ * Check whether a value is a valid occurrence kind.
+ *
+ * @param value - Candidate value to test
+ * @returns True if value matches a known OccurrenceKind constant
+ *
+ * @example
+ * if (isOccurrenceKind(rawString)) {
+ *   // Safe to use as OccurrenceKindValue
+ * }
+ */
+export function isOccurrenceKind(value: unknown): value is OccurrenceKindValue {
+    return occurrenceKindHelpers.is(value);
+}
+
+/**
+ * Parse and validate an occurrence kind string.
+ *
+ * @param value - Raw string to parse
+ * @returns Valid OccurrenceKindValue or null if invalid
+ *
+ * @example
+ * const kind = parseOccurrenceKind(occ.kind);
+ * if (kind === null) {
+ *   // Handle invalid kind
+ * }
+ */
+export function parseOccurrenceKind(value: unknown): OccurrenceKindValue | null {
+    return occurrenceKindHelpers.parse(value);
+}
+
+/**
+ * Parse and validate an occurrence kind string, throwing on invalid input.
+ *
+ * @param value - Raw string to parse
+ * @param context - Optional context for error message
+ * @returns Valid OccurrenceKindValue
+ * @throws {TypeError} If value is not a valid occurrence kind
+ *
+ * @example
+ * const kind = requireOccurrenceKind(occ.kind, "occurrence analysis");
+ */
+export function requireOccurrenceKind(value: unknown, context?: string): OccurrenceKindValue {
+    return occurrenceKindHelpers.require(value, context);
 }
 
 export interface AstNode {
@@ -189,7 +268,7 @@ export interface SymbolOccurrence {
     start: number;
     end: number;
     scopeId?: string;
-    kind?: string;
+    kind?: OccurrenceKindValue;
 }
 
 export interface SymbolLookupResult {
@@ -292,12 +371,7 @@ export interface EditValidator {
  * interface when possible.
  */
 export interface SemanticAnalyzer
-    extends SymbolResolver,
-        OccurrenceTracker,
-        FileSymbolProvider,
-        DependencyAnalyzer,
-        KeywordProvider,
-        EditValidator {}
+    extends SymbolResolver, OccurrenceTracker, FileSymbolProvider, DependencyAnalyzer, KeywordProvider, EditValidator {}
 
 /**
  * Partial semantic analyzer for dependency injection.
@@ -472,4 +546,24 @@ export interface ApplyWorkspaceEditOptions {
     dryRun?: boolean;
     readFile: WorkspaceReadFile;
     writeFile?: WorkspaceWriteFile;
+}
+
+export interface RenameImpactNode {
+    symbolId: string;
+    symbolName: string;
+    distance: number;
+    isDirectlyAffected: boolean;
+    dependents: Array<string>;
+    dependsOn: Array<string>;
+    filePath?: string;
+    estimatedReloadTime?: number;
+}
+
+export interface RenameImpactGraph {
+    nodes: Map<string, RenameImpactNode>;
+    rootSymbol: string;
+    totalAffectedSymbols: number;
+    maxDepth: number;
+    criticalPath: Array<string>;
+    estimatedTotalReloadTime: number;
 }

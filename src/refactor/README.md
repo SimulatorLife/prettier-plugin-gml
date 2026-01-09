@@ -183,6 +183,47 @@ The method detects:
 - Shadowing conflicts (new name collides with existing symbols in scope)
 - Uses both default GML keywords and semantic analyzer's custom keyword list
 
+### Batch Scope Validation
+
+Efficiently validate rename safety across multiple scopes for hot reload scenarios:
+
+```javascript
+import { batchValidateScopeConflicts } from "@gml-modules/refactor";
+
+// Get occurrences from semantic analyzer
+const occurrences = await engine.gatherSymbolOccurrences("player_hp");
+
+// Batch validate across all scopes (more efficient than per-occurrence checks)
+const conflicts = await batchValidateScopeConflicts(
+    occurrences,
+    "playerHealth",
+    semantic
+);
+
+if (conflicts.size > 0) {
+    console.log("Scope conflicts detected:");
+    for (const [scopeId, conflict] of conflicts) {
+        console.log(`  Scope ${scopeId}:`);
+        console.log(`    ${conflict.message}`);
+        console.log(`    Existing symbol: ${conflict.existingSymbol}`);
+    }
+} else {
+    console.log("No scope conflicts - rename is safe across all scopes");
+}
+```
+
+This function is especially useful for:
+- Hot reload workflows that need to validate changes quickly before patching
+- IDE integrations that show scope-specific warnings in real-time
+- Batch rename operations where many occurrences need validation
+- Reducing validation overhead by checking each unique scope only once instead of per-occurrence
+
+Benefits:
+- Groups occurrences by scope automatically
+- Performs only one lookup per unique scope (not per occurrence)
+- Returns structured conflict information per scope
+- Handles both scoped and global (unscoped) occurrences correctly
+
 ### Rename Operations
 
 #### Single Symbol Rename
@@ -515,6 +556,50 @@ const cascade = await engine.computeHotReloadCascade(
 );
 ```
 
+#### Compute Rename Impact Graph
+
+Generate a detailed dependency graph showing how a rename will propagate through the codebase:
+
+```javascript
+// Get comprehensive impact visualization for a rename
+const impactGraph = await engine.computeRenameImpactGraph("gml/script/scr_base");
+
+console.log(`Rename will affect ${impactGraph.totalAffectedSymbols} symbols`);
+console.log(`Maximum dependency depth: ${impactGraph.maxDepth}`);
+console.log(`Critical path length: ${impactGraph.criticalPath.length}`);
+console.log(`Estimated total reload time: ${impactGraph.estimatedTotalReloadTime}ms`);
+
+// Visualize the dependency graph
+for (const [symbolId, node] of impactGraph.nodes) {
+    console.log(`${node.symbolName} (distance: ${node.distance}, reload: ${node.estimatedReloadTime}ms)`);
+    
+    if (node.dependents.length > 0) {
+        console.log(`  Depends on this: ${node.dependents.map(id => id.split("/").pop()).join(", ")}`);
+    }
+    
+    if (node.dependsOn.length > 0) {
+        console.log(`  Depends on: ${node.dependsOn.map(id => id.split("/").pop()).join(", ")}`);
+    }
+}
+
+// Display critical path (longest dependency chain)
+console.log("Critical path:");
+for (let i = 0; i < impactGraph.criticalPath.length; i++) {
+    const symbolId = impactGraph.criticalPath[i];
+    const node = impactGraph.nodes.get(symbolId);
+    const indent = "  ".repeat(i);
+    console.log(`${indent}→ ${node.symbolName}`);
+}
+```
+
+This is particularly useful for:
+- Understanding the full scope of a rename before applying it
+- Estimating hot reload impact and timing
+- Identifying critical dependency chains that affect reload performance
+- Visualizing dependency relationships in IDE tooling
+- Planning batch renames to minimize reload cascades
+```
+
 #### Query Symbol Dependencies
 
 Find which symbols depend on changed symbols to coordinate hot reload:
@@ -649,6 +734,7 @@ new RefactorEngine({ parser, semantic, formatter })
 - `async prepareHotReloadUpdates(workspace)` - Prepare hot reload update metadata
 - `async generateTranspilerPatches(hotReloadUpdates, readFile)` - Generate transpiled patches
 - `async computeHotReloadCascade(changedSymbolIds)` - Compute transitive dependency closure for hot reload
+- `async computeRenameImpactGraph(symbolId)` - Compute detailed dependency impact graph with critical path analysis
 
 #### Symbol Queries
 - `async findSymbolAtLocation(filePath, offset)` - Find symbol at position
@@ -670,6 +756,11 @@ Standalone utilities for validating rename requests:
   - Enables fail-fast pattern without expensive occurrence gathering
 - `detectCircularRenames(renames)` - Detect circular rename chains in batch operations
   - Returns first detected cycle as array of symbol IDs (empty if no cycles)
+- `async batchValidateScopeConflicts(occurrences, newName, resolver)` - Efficiently validate scope safety across multiple occurrences
+  - Groups occurrences by scope to minimize redundant lookups
+  - Returns map of scope IDs to conflict information
+  - Essential for hot reload scenarios where many symbols need validation quickly
+  - Reduces validation overhead by checking each unique scope only once
 
 ### Occurrence Analysis Functions
 
@@ -695,6 +786,23 @@ These functions are essential for:
 - CLI tools that want to present detailed impact reports to users
 - Automated refactoring pipelines that need to log changes before applying them
 - Debugging refactoring operations by visualizing what will change
+
+### Hot Reload Functions
+
+Standalone utilities for hot reload coordination and analysis:
+
+- `computeHotReloadCascade(changedSymbolIds, semantic)` - Compute transitive dependency closure for hot reload
+- `checkHotReloadSafety(request, semantic)` - Check if a rename is safe for hot reload
+- `prepareHotReloadUpdates(workspace, semantic)` - Prepare hot reload update metadata from workspace edit
+- `generateTranspilerPatches(hotReloadUpdates, readFile, formatter)` - Generate transpiled patches from hot reload updates
+- `computeRenameImpactGraph(symbolId, semantic)` - Compute detailed dependency impact graph with critical path analysis
+
+The `computeRenameImpactGraph` function is particularly useful for:
+- Visualizing the full scope of a rename's impact on the codebase
+- Understanding dependency relationships and reload propagation
+- Estimating hot reload timing and identifying performance bottlenecks
+- Planning complex refactorings that affect multiple interconnected symbols
+- Building interactive dependency visualization tools in IDEs
 
 #### Example: Generating a Rename Preview
 
@@ -773,8 +881,9 @@ Container for text edits across multiple files.
 
 ## Status
 The refactor engine now includes comprehensive rename planning, batch operations, impact analysis,
-hot reload validation, occurrence analysis utilities, rename preview and reporting utilities, and
-advanced dependency cascade computation. It integrates with the semantic analyzer to provide safe,
-scope-aware refactoring operations with full transitive dependency tracking for hot reload scenarios.
-The preview utilities enable IDE integrations and CLI tools to present detailed, human-readable
-reports of planned changes before applying them.
+hot reload validation, occurrence analysis utilities, rename preview and reporting utilities,
+advanced dependency cascade computation, and detailed rename impact graph visualization. It integrates
+with the semantic analyzer to provide safe, scope-aware refactoring operations with full transitive
+dependency tracking for hot reload scenarios. The impact graph computation provides critical path
+analysis and timing estimates, enabling IDE integrations and CLI tools to present detailed, human-readable
+reports of planned changes and their hot reload implications before applying them.

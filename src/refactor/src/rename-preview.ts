@@ -7,6 +7,35 @@
 import type { RenamePlanSummary, BatchRenamePlanSummary, SymbolOccurrence } from "./types.js";
 import type { WorkspaceEdit } from "./workspace-edit.js";
 import { groupOccurrencesByFile } from "./occurrence-analysis.js";
+import { assertNonEmptyNameString } from "./validation-utils.js";
+
+/**
+ * Append formatted error and warning messages to a lines array.
+ * Helper for consistent formatting of validation results in report functions.
+ *
+ * @param lines - Array to append formatted messages to
+ * @param errors - Array of error messages
+ * @param warnings - Array of warning messages
+ */
+function appendErrorsAndWarnings(
+    lines: Array<string>,
+    errors: ReadonlyArray<string>,
+    warnings: ReadonlyArray<string>
+): void {
+    if (errors.length > 0) {
+        lines.push("  Errors:");
+        for (const error of errors) {
+            lines.push(`    ✗ ${error}`);
+        }
+    }
+
+    if (warnings.length > 0) {
+        lines.push("  Warnings:");
+        for (const warning of warnings) {
+            lines.push(`    ⚠ ${warning}`);
+        }
+    }
+}
 
 /**
  * Preview entry for a single file in a rename operation.
@@ -68,13 +97,8 @@ export function generateRenamePreview(workspace: WorkspaceEdit, oldName: string,
         throw new TypeError("generateRenamePreview requires a valid WorkspaceEdit");
     }
 
-    if (typeof oldName !== "string" || oldName.length === 0) {
-        throw new TypeError("generateRenamePreview requires a non-empty oldName string");
-    }
-
-    if (typeof newName !== "string" || newName.length === 0) {
-        throw new TypeError("generateRenamePreview requires a non-empty newName string");
-    }
+    assertNonEmptyNameString(oldName, "oldName", "generateRenamePreview");
+    assertNonEmptyNameString(newName, "newName", "generateRenamePreview");
 
     const grouped = workspace.groupByFile();
     const files: Array<FilePreview> = [];
@@ -222,19 +246,7 @@ export function formatRenamePlanReport(plan: RenamePlanSummary): string {
             }
         }
 
-        if (plan.hotReload.errors.length > 0) {
-            lines.push("  Errors:");
-            for (const error of plan.hotReload.errors) {
-                lines.push(`    ✗ ${error}`);
-            }
-        }
-
-        if (plan.hotReload.warnings.length > 0) {
-            lines.push("  Warnings:");
-            for (const warning of plan.hotReload.warnings) {
-                lines.push(`    ⚠ ${warning}`);
-            }
-        }
+        appendErrorsAndWarnings(lines, plan.hotReload.errors, plan.hotReload.warnings);
     }
 
     return lines.join("\n");
@@ -347,19 +359,7 @@ export function formatBatchRenamePlanReport(plan: BatchRenamePlanSummary): strin
     if (plan.hotReload) {
         lines.push(`Hot Reload Status: ${plan.hotReload.valid ? "SAFE" : "UNSAFE"}`);
 
-        if (plan.hotReload.errors.length > 0) {
-            lines.push("  Errors:");
-            for (const error of plan.hotReload.errors) {
-                lines.push(`    ✗ ${error}`);
-            }
-        }
-
-        if (plan.hotReload.warnings.length > 0) {
-            lines.push("  Warnings:");
-            for (const warning of plan.hotReload.warnings) {
-                lines.push(`    ⚠ ${warning}`);
-            }
-        }
+        appendErrorsAndWarnings(lines, plan.hotReload.errors, plan.hotReload.warnings);
     }
 
     return lines.join("\n");
@@ -398,13 +398,8 @@ export function formatOccurrencePreview(
         throw new TypeError("formatOccurrencePreview requires an array of occurrences");
     }
 
-    if (typeof oldName !== "string" || oldName.length === 0) {
-        throw new TypeError("formatOccurrencePreview requires a non-empty oldName string");
-    }
-
-    if (typeof newName !== "string" || newName.length === 0) {
-        throw new TypeError("formatOccurrencePreview requires a non-empty newName string");
-    }
+    assertNonEmptyNameString(oldName, "oldName", "formatOccurrencePreview");
+    assertNonEmptyNameString(newName, "newName", "formatOccurrencePreview");
 
     const lines: Array<string> = [];
     const grouped = groupOccurrencesByFile(occurrences);

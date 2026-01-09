@@ -1184,25 +1184,25 @@ void describe("Transforms.applyFeatherFixes transform", () => {
 
         assert.ok(firstAssignment);
         assert.strictEqual(firstAssignment.type, "AssignmentExpression");
-        assert.strictEqual(firstAssignment.left?.name, "points");
+        assert.strictEqual(firstAssignment.left?.name, "__featherFix_score");
         assert.strictEqual(firstAssignment.right?.value, "0");
 
         assert.ok(secondAssignment);
         assert.strictEqual(secondAssignment.type, "AssignmentExpression");
-        assert.strictEqual(secondAssignment.left?.name, "points");
+        assert.strictEqual(secondAssignment.left?.name, "__featherFix_score");
         assert.strictEqual(secondAssignment.right?.type, "BinaryExpression");
-        assert.strictEqual(secondAssignment.right?.left?.name, "points");
+        assert.strictEqual(secondAssignment.right?.left?.name, "__featherFix_score");
 
         assert.ok(memberAssignment);
         assert.strictEqual(memberAssignment.type, "AssignmentExpression");
         assert.strictEqual(memberAssignment.left?.property?.name, "score");
-        assert.strictEqual(memberAssignment.right?.name, "points");
+        assert.strictEqual(memberAssignment.right?.name, "__featherFix_score");
 
         assert.ok(declaration);
         assert.strictEqual(declaration.type, "VariableDeclaration");
         const [declarator] = declaration.declarations ?? [];
         assert.strictEqual(declarator?.id?.name, "local_score");
-        assert.strictEqual(declarator?.init?.name, "points");
+        assert.strictEqual(declarator?.init?.name, "__featherFix_score");
 
         const identifierMetadata = firstAssignment.left?._appliedFeatherDiagnostics;
         assert.ok(Array.isArray(identifierMetadata));

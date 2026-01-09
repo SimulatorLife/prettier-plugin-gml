@@ -56,10 +56,7 @@ const oracle = createSemanticOracle({
 
 // Use it with the emitter for improved code generation
 import { GmlToJsEmitter } from "gamemaker-language-transpiler";
-const emitter = new GmlToJsEmitter({
-    identifier: oracle,
-    callTarget: oracle
-});
+const emitter = new GmlToJsEmitter(oracle);
 
 const jsCode = emitter.emit(ast);
 ```
