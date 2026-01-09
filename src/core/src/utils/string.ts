@@ -222,39 +222,25 @@ function normalizeIndefiniteArticle(label) {
 }
 
 function toSafeString(value: unknown) {
-    if (value === null) {
-        return "null";
-    }
-
-    if (value === undefined) {
-        return "undefined";
-    }
-
-    if (typeof value === "object") {
-        const candidate = value as { toString?: unknown };
-        const toString = candidate.toString;
-        if (typeof toString !== "function" || toString === Object.prototype.toString) {
-            return OBJECT_TO_STRING(value);
-        }
-
-        return (toString as (this: unknown) => string).call(value);
+    if (value == null) {
+        return value === null ? "null" : "undefined";
     }
 
     if (typeof value === "string") {
         return value;
     }
 
-    if (
-        typeof value === "number" ||
-        typeof value === "bigint" ||
-        typeof value === "boolean" ||
-        typeof value === "symbol" ||
-        typeof value === "function"
-    ) {
-        return String(value);
+    if (typeof value === "object") {
+        const toString = (value as { toString?: unknown }).toString;
+        if (typeof toString === "function" && toString !== Object.prototype.toString) {
+            return (toString as (this: unknown) => string).call(value);
+        }
+        return OBJECT_TO_STRING(value);
     }
 
-    return OBJECT_TO_STRING(value);
+    // Remaining types (number, bigint, boolean, symbol, function) are coercible to string
+    // eslint-disable-next-line @typescript-eslint/no-base-to-string -- value is guaranteed to be a primitive or function at this point
+    return String(value);
 }
 
 /**

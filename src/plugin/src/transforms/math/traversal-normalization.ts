@@ -15,8 +15,7 @@ const {
     MEMBER_INDEX_EXPRESSION,
     PARENTHESIZED_EXPRESSION,
     UNARY_EXPRESSION,
-    VARIABLE_DECLARATION,
-    VARIABLE_DECLARATOR
+    VARIABLE_DECLARATION
 } = Core;
 
 export type ConvertManualMathTransformOptions = {
@@ -2057,23 +2056,6 @@ function attemptConvertSquare(node, context) {
     mutateToCallExpression(node, "sqr", [Core.cloneAstNode(left)], node);
     unwrapEnclosingParentheses(node, context);
     return true;
-}
-
-function isAssignmentInitializer(node) {
-    const parent = node?.parent;
-    if (!parent || typeof parent !== "object") {
-        return false;
-    }
-
-    if (parent.type === ASSIGNMENT_EXPRESSION && parent.right === node) {
-        return true;
-    }
-
-    if (parent.type === VARIABLE_DECLARATOR && parent.init === node) {
-        return true;
-    }
-
-    return false;
 }
 
 function attemptConvertRepeatedPower(node) {
@@ -4180,13 +4162,20 @@ function insertNodeBefore(root, target, statement) {
         visited.add(node);
 
         if (Array.isArray(node)) {
-            for (let index = 0; index < node.length; index += 1) {
-                const element = node[index];
+            let targetIndex = -1;
+            for (const [index, element] of node.entries()) {
                 if (element === target) {
-                    node.splice(index, 0, statement);
-                    return true;
+                    targetIndex = index;
+                    break;
                 }
+            }
 
+            if (targetIndex !== -1) {
+                node.splice(targetIndex, 0, statement);
+                return true;
+            }
+
+            for (const element of node) {
                 stack.push(element);
             }
             continue;

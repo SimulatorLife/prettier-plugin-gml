@@ -60,20 +60,7 @@ const gmlPluginComponentDependencies = Object.freeze(
     createDefaultGmlPluginComponentDependencies(gmlPluginComponentImplementations)
 );
 
-function resolveGmlPluginComponentImplementations(): GmlPluginComponentContract {
-    return gmlPluginComponentImplementations;
-}
-
-function resolveGmlPluginComponentDependencies(): GmlPluginComponentContract {
-    return gmlPluginComponentDependencies;
-}
-
-export {
-    gmlPluginComponentImplementations,
-    resolveGmlPluginComponentImplementations,
-    gmlPluginComponentDependencies,
-    resolveGmlPluginComponentDependencies
-};
+export { gmlPluginComponentImplementations, gmlPluginComponentDependencies };
 
 export const defaultGmlPluginComponentImplementations = gmlPluginComponentImplementations;
 export const defaultGmlPluginComponentDependencies = gmlPluginComponentDependencies;

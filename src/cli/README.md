@@ -313,7 +313,16 @@ The watch command now integrates with the transpiler module (`src/transpiler`) t
 
 **Planned: Semantic Analysis Integration**
 
-Future iterations will integrate with the semantic analyzer (`src/semantic`) to enable dependency-aware hot-reload:
+The watch command now includes a **dependency tracker** that maintains file-to-symbol mappings as a foundation for future semantic integration. When files change, the tracker records which symbols they define, preparing the system for dependency-aware hot-reload.
+
+**Current Status:**
+- ✅ Lightweight dependency tracker integrated into watch command
+- ✅ Symbol definitions tracked per file
+- ✅ Foundation for dependency graph construction
+
+**Planned Enhancements:**
+
+Future iterations will integrate with the semantic analyzer (`src/semantic`) to enable full dependency-aware hot-reload:
 
 1. Parse changed files to extract AST
 2. Analyze files semantically to identify symbol definitions and references
@@ -713,6 +722,12 @@ Provides ANTLR-based GML parsing used by the transpiler.
 
 ### Recent Updates
 
+- **2026-01-06**: Integrated dependency tracker for watch command
+  - Added DependencyTracker module for file-to-symbol mapping
+  - Tracks symbol definitions to enable future dependency-aware invalidation
+  - Foundation for semantic analysis integration
+  - Provides statistics on tracked symbols in verbose mode
+  - Designed for efficient dependency graph queries
 - **2025-11-06**: Completed hot-reload integration loop
   - Added WebSocket server to watch command for real-time patch streaming
   - Integrated patch broadcasting to all connected runtime wrapper clients

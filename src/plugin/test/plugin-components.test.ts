@@ -1,23 +1,19 @@
 import assert from "node:assert/strict";
 import test from "node:test";
 
-import { gmlPluginComponents, resolveGmlPluginComponents } from "../src/components/plugin-components.js";
+import { gmlPluginComponents } from "../src/components/plugin-components.js";
 
 void test("GML plugin component registry", async (t) => {
     await t.test("exposes validated defaults", () => {
-        const resolved = resolveGmlPluginComponents();
+        assert.ok(Object.isFrozen(gmlPluginComponents), "component bundle should be frozen");
+        assert.ok(Object.isFrozen(gmlPluginComponents.parsers), "parsers map should be frozen");
+        assert.ok(Object.isFrozen(gmlPluginComponents.printers), "printers map should be frozen");
+        assert.ok(Object.isFrozen(gmlPluginComponents.options), "options map should be frozen");
 
-        assert.strictEqual(resolved, gmlPluginComponents, "resolver should return the shared default bundle");
-
-        assert.ok(Object.isFrozen(resolved), "component bundle should be frozen");
-        assert.ok(Object.isFrozen(resolved.parsers), "parsers map should be frozen");
-        assert.ok(Object.isFrozen(resolved.printers), "printers map should be frozen");
-        assert.ok(Object.isFrozen(resolved.options), "options map should be frozen");
-
-        assert.ok(resolved.parsers["gml-parse"], "default parser should be registered");
-        assert.ok(resolved.printers["gml-ast"], "default printer should be registered");
+        assert.ok(gmlPluginComponents.parsers["gml-parse"], "default parser should be registered");
+        assert.ok(gmlPluginComponents.printers["gml-ast"], "default printer should be registered");
         assert.ok(
-            Object.hasOwn(resolved.options, "optimizeLoopLengthHoisting"),
+            Object.hasOwn(gmlPluginComponents.options, "optimizeLoopLengthHoisting"),
             "default options should be registered"
         );
 
@@ -28,18 +24,17 @@ void test("GML plugin component registry", async (t) => {
             "maintainWithIndentation",
             "maintainSwitchIndentation"
         ]) {
-            assert.ok(!Object.hasOwn(resolved.options, removedOption), `${removedOption} should stay unregistered`);
+            assert.ok(
+                !Object.hasOwn(gmlPluginComponents.options, removedOption),
+                `${removedOption} should stay unregistered`
+            );
         }
-
-        assert.strictEqual(resolveGmlPluginComponents(), resolved, "resolver should reuse the same object reference");
     });
 
     await t.test("components are immutable", () => {
-        const resolved = resolveGmlPluginComponents();
-
         assert.throws(
             () => {
-                (resolved.parsers as any)["modified-parser"] = {};
+                (gmlPluginComponents.parsers as any)["modified-parser"] = {};
             },
             TypeError,
             "frozen parsers should reject new properties"
@@ -47,7 +42,7 @@ void test("GML plugin component registry", async (t) => {
 
         assert.throws(
             () => {
-                (resolved.printers as any)["modified-printer"] = {};
+                (gmlPluginComponents.printers as any)["modified-printer"] = {};
             },
             TypeError,
             "frozen printers should reject new properties"
@@ -55,7 +50,7 @@ void test("GML plugin component registry", async (t) => {
 
         assert.throws(
             () => {
-                (resolved.options as any)["modified-option"] = {};
+                (gmlPluginComponents.options as any)["modified-option"] = {};
             },
             TypeError,
             "frozen options should reject new properties"
@@ -63,13 +58,6 @@ void test("GML plugin component registry", async (t) => {
     });
 
     await t.test("component bundle is initialized at module load", () => {
-        // Verify that gmlPluginComponents is available immediately
         assert.ok(gmlPluginComponents, "component bundle should be available as module-level constant");
-
-        assert.strictEqual(
-            gmlPluginComponents,
-            resolveGmlPluginComponents(),
-            "constant export and resolver should return the same object"
-        );
     });
 });

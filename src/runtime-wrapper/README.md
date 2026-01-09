@@ -1,6 +1,6 @@
 # Runtime Wrapper Module
 
-This package will host the browser-side runtime wrapper described in
+This package hosts the browser-side runtime wrapper described in
 `docs/live-reloading-concept.md`. It receives transpiler patches from the CLI over a WebSocket
 connection and swaps them into the running GameMaker HTML5 export without restarting the game.
 
@@ -10,6 +10,7 @@ connection and swaps them into the running GameMaker HTML5 export without restar
 - Provide patch application helpers that the development shell can call.
 - Surface lifecycle hooks for migrations when hot-reloading Create events.
 - Offer lightweight diagnostics so the CLI and developer can inspect patch state.
+- Provide structured diagnostic logging for development debugging.
 
 ## Directory layout
 
@@ -535,6 +536,45 @@ Creates a WebSocket client for receiving live patches from a development server.
 - `onError` (optional): Callback `(error, context)` invoked on errors. Context is either `"connection"` or `"patch"`.
 - `reconnectDelay` (optional): Milliseconds to wait before reconnecting after connection loss. Default is `800`. Set to `0` to disable reconnection.
 - `autoConnect` (optional): When `true`, connects immediately. Default is `true`.
+- `patchQueue` (optional): Configuration for patch queuing and batching:
+  - `enabled` (optional): When `true`, enables patch queuing. Default is `false`.
+  - `maxQueueSize` (optional): Maximum patches to buffer before forcing a flush. Default is `100`.
+  - `flushIntervalMs` (optional): Time in milliseconds to wait before flushing queued patches. Default is `50`ms.
+
+**Patch Queuing:**
+
+When `patchQueue.enabled` is `true`, incoming patches are buffered and flushed in batches rather than applied immediately. This provides several benefits:
+
+- **Reduced overhead**: Multiple patches are applied as a single atomic batch operation
+- **Improved throughput**: During rapid file changes, patches accumulate and are flushed together
+- **Better reliability**: Patches are buffered during temporary processing delays
+- **Automatic batching**: Leverages the existing `applyPatchBatch()` API for optimal performance
+
+The queue automatically flushes when:
+- The flush interval timer expires (default 50ms)
+- The queue reaches `maxQueueSize` (default 100 patches)
+- `disconnect()` is called
+- `flushPatchQueue()` is called manually
+
+**Example with Queuing:**
+
+```javascript
+const client = createWebSocketClient({
+    wrapper,
+    patchQueue: {
+        enabled: true,
+        maxQueueSize: 50,
+        flushIntervalMs: 100
+    }
+});
+
+// Patches arriving within 100ms are batched together
+// Queue metrics track buffering behavior
+const queueMetrics = client.getPatchQueueMetrics();
+console.log(`Queued: ${queueMetrics.totalQueued}`);
+console.log(`Flushed: ${queueMetrics.totalFlushed}`);
+console.log(`Peak depth: ${queueMetrics.maxQueueDepth}`);
+```
 
 **Returns:** An object with the following methods:
 
@@ -631,6 +671,68 @@ console.log(metrics.lastConnectedAt); // null
 - Testing scenarios that require clean metric baselines
 - Implementing sliding time-window metrics collection
 - Isolating metrics for specific debugging sessions
+
+**Note:** Resetting metrics does not affect the actual connection state. If the client is currently connected, it remains connected after calling `resetConnectionMetrics()`.
+
+#### `getPatchQueueMetrics()`
+
+Returns patch queue metrics if queuing is enabled, or `null` if queuing is disabled. The returned object includes:
+
+- `totalQueued`: Total number of patches added to the queue
+- `totalFlushed`: Total number of patches successfully flushed from the queue
+- `totalDropped`: Number of patches dropped when the queue was full (oldest patches are dropped)
+- `maxQueueDepth`: Peak queue depth observed during the session
+- `flushCount`: Number of flush operations performed
+- `lastFlushSize`: Number of patches in the most recent flush
+- `lastFlushedAt`: Timestamp of the last flush operation (milliseconds since epoch), or `null` if never flushed
+
+**Example:**
+
+```javascript
+const client = createWebSocketClient({
+    wrapper,
+    patchQueue: { enabled: true }
+});
+
+const metrics = client.getPatchQueueMetrics();
+if (metrics) {
+    console.log(`Queue depth: ${metrics.maxQueueDepth}`);
+    console.log(`Flush rate: ${metrics.flushCount} flushes`);
+    console.log(`Avg batch size: ${(metrics.totalFlushed / metrics.flushCount).toFixed(1)}`);
+}
+```
+
+The metrics object is frozen to prevent accidental modification. Use these metrics for:
+
+- Monitoring queue performance and efficiency
+- Tuning `maxQueueSize` and `flushIntervalMs` parameters
+- Detecting patch throughput bottlenecks
+- Understanding batching behavior during development
+- Diagnosing patch delivery issues
+
+#### `flushPatchQueue()`
+
+Manually flushes any queued patches immediately. Returns the number of patches flushed. Only applicable when patch queuing is enabled; returns `0` if queuing is disabled or the queue is empty.
+
+**Example:**
+
+```javascript
+const client = createWebSocketClient({
+    wrapper,
+    patchQueue: { enabled: true, flushIntervalMs: 10000 }
+});
+
+// Force immediate flush before a critical operation
+const flushed = client.flushPatchQueue();
+console.log(`Flushed ${flushed} pending patches`);
+```
+
+**Use cases:**
+
+- Forcing immediate patch application before switching contexts
+- Ensuring all patches are applied before running tests
+- Manually controlling flush timing in custom workflows
+- Debugging queue behavior during development
 
 **Note:** Resetting metrics does not affect the actual connection state. If the client is currently connected, it remains connected after calling `resetConnectionMetrics()`.
 
@@ -882,6 +984,335 @@ const wrapper = createRuntimeWrapper({
 });
 ```
 
+## Error Analytics
+
+The runtime wrapper provides comprehensive error tracking and analytics to help developers debug hot-reload issues during development. Error analytics categorize failures, detect patterns, and provide statistical insights into patch application problems.
+
+### Error Categories
+
+Errors are categorized by the phase in which they occur:
+
+- **validation**: Structural or semantic validation failures before application
+- **shadow**: Errors detected during shadow registry testing
+- **application**: Errors that occur during actual patch application
+- **rollback**: Errors encountered during automatic rollback operations
+
+### `getErrorAnalytics()`
+
+Returns comprehensive error statistics and patterns across all patches.
+
+**Returns:** A `PatchErrorAnalytics` object with:
+
+- `totalErrors` (number): Total number of errors recorded
+- `errorsByCategory` (Record<PatchErrorCategory, number>): Error counts grouped by category
+- `errorsByKind` (Record<PatchKind, number>): Error counts grouped by patch type (script, event, closure)
+- `uniquePatchesWithErrors` (number): Number of unique patch IDs that have encountered errors
+- `mostProblematicPatches` (Array<{ patchId: string; errorCount: number }>): Top 10 patches by error count
+- `recentErrors` (Array<PatchErrorOccurrence>): Last 20 error occurrences with full details
+- `errorRate` (number): Ratio of errors to successful patch applications
+
+**Example:**
+
+```javascript
+const wrapper = createRuntimeWrapper({ validateBeforeApply: true });
+
+// Apply several patches, some failing
+wrapper.applyPatch({ kind: "script", id: "script:good", js_body: "return 1;" });
+
+try {
+    wrapper.applyPatch({
+        kind: "script",
+        id: "script:bad_syntax",
+        js_body: "return {{ invalid"
+    });
+} catch {
+    // Error is automatically recorded
+}
+
+// Get comprehensive error analytics
+const analytics = wrapper.getErrorAnalytics();
+
+console.log(`Total errors: ${analytics.totalErrors}`);
+console.log(`Error rate: ${(analytics.errorRate * 100).toFixed(1)}%`);
+console.log(`Shadow errors: ${analytics.errorsByCategory.shadow}`);
+console.log(`Unique problematic patches: ${analytics.uniquePatchesWithErrors}`);
+
+// Identify most problematic patches
+for (const { patchId, errorCount } of analytics.mostProblematicPatches) {
+    console.log(`  ${patchId}: ${errorCount} errors`);
+}
+
+// Review recent errors
+for (const error of analytics.recentErrors.slice(-5)) {
+    console.log(`[${error.category}] ${error.patchId}: ${error.error}`);
+}
+```
+
+### `getErrorsForPatch(id)`
+
+Returns detailed error summary for a specific patch ID.
+
+**Parameters:**
+
+- `id` (string): The patch identifier to get error information for
+
+**Returns:** A `PatchErrorSummary` object or `null` if the patch has no errors:
+
+- `patchId` (string): The patch identifier
+- `totalErrors` (number): Total number of errors for this patch
+- `errorsByCategory` (Record<PatchErrorCategory, number>): Error counts by category
+- `firstErrorAt` (number): Timestamp of the first error occurrence
+- `lastErrorAt` (number): Timestamp of the most recent error occurrence
+- `mostRecentError` (string): Error message from the most recent failure
+- `uniqueErrorMessages` (number): Number of distinct error messages encountered
+
+**Example:**
+
+```javascript
+const wrapper = createRuntimeWrapper({ validateBeforeApply: true });
+
+// Apply the same problematic patch multiple times
+for (let i = 0; i < 5; i++) {
+    try {
+        wrapper.applyPatch({
+            kind: "script",
+            id: "script:flaky",
+            js_body: "return {{ bad syntax"
+        });
+    } catch {
+        // Expected
+    }
+}
+
+// Get detailed error summary for this specific patch
+const summary = wrapper.getErrorsForPatch("script:flaky");
+
+if (summary) {
+    console.log(`Patch: ${summary.patchId}`);
+    console.log(`Total failures: ${summary.totalErrors}`);
+    console.log(`First failed: ${new Date(summary.firstErrorAt).toISOString()}`);
+    console.log(`Last failed: ${new Date(summary.lastErrorAt).toISOString()}`);
+    console.log(`Error: ${summary.mostRecentError}`);
+    console.log(`Unique error messages: ${summary.uniqueErrorMessages}`);
+    console.log(
+        `Category breakdown: shadow=${summary.errorsByCategory.shadow}, validation=${summary.errorsByCategory.validation}`
+    );
+}
+```
+
+### `clearErrorHistory()`
+
+Clears all error history records, resetting error analytics to initial state. This is useful for starting fresh error tracking in long-running development sessions or for testing scenarios that require clean baselines.
+
+**Example:**
+
+```javascript
+const wrapper = createRuntimeWrapper();
+
+// Accumulate some errors during development
+try {
+    wrapper.applyPatch({
+        kind: "script",
+        id: "script:test",
+        js_body: "return {{ bad"
+    });
+} catch {
+    // Expected
+}
+
+console.log(wrapper.getErrorAnalytics().totalErrors); // 1
+
+// Start a fresh monitoring period
+wrapper.clearErrorHistory();
+
+console.log(wrapper.getErrorAnalytics().totalErrors); // 0
+```
+
+**Note:** Clearing error history does not affect patch history or the registry state. Only error tracking records are removed.
+
+### Error Analytics Use Cases
+
+**Debugging recurring failures:**
+
+```javascript
+const analytics = wrapper.getErrorAnalytics();
+
+if (analytics.errorRate > 0.1) {
+    console.warn("High error rate detected!");
+
+    for (const { patchId, errorCount } of analytics.mostProblematicPatches.slice(0, 3)) {
+        const summary = wrapper.getErrorsForPatch(patchId);
+        console.log(`\nProblematic patch: ${patchId} (${errorCount} errors)`);
+        console.log(`Most recent error: ${summary.mostRecentError}`);
+    }
+}
+```
+
+**Monitoring development workflow:**
+
+```javascript
+const wrapper = createRuntimeWrapper({
+    validateBeforeApply: true,
+    onChange: (event) => {
+        if (event.type === "patch-applied") {
+            const analytics = wrapper.getErrorAnalytics();
+
+            // Update HUD overlay
+            updateDevHUD({
+                successRate: (1 - analytics.errorRate) * 100,
+                recentErrors: analytics.recentErrors.length,
+                problematicPatches: analytics.uniquePatchesWithErrors
+            });
+        }
+    }
+});
+```
+
+**Building diagnostic dashboards:**
+
+```javascript
+function generateErrorReport() {
+    const analytics = wrapper.getErrorAnalytics();
+
+    return {
+        summary: {
+            totalErrors: analytics.totalErrors,
+            errorRate: `${(analytics.errorRate * 100).toFixed(1)}%`,
+            affectedPatches: analytics.uniquePatchesWithErrors
+        },
+        byCategory: analytics.errorsByCategory,
+        byKind: analytics.errorsByKind,
+        topProblems: analytics.mostProblematicPatches.slice(0, 5),
+        recentFailures: analytics.recentErrors.slice(-10).map((e) => ({
+            patch: e.patchId,
+            category: e.category,
+            error: e.error,
+            when: new Date(e.timestamp).toISOString()
+        }))
+    };
+}
+```
+
 ## Status
 
-The module implements core patch application, diagnostic capabilities, performance instrumentation, WebSocket integration, and registry lifecycle hooks. The change event system provides a unified way to observe all registry mutations for debugging, monitoring, and reactive integration patterns.
+The module implements core patch application, diagnostic capabilities, performance instrumentation, WebSocket integration, registry lifecycle hooks, comprehensive error analytics, and structured development logging. The error tracking system provides developers with detailed insights into hot-reload failures, enabling rapid identification and resolution of development issues. The diagnostic logger provides real-time visibility into patch operations during development.
+
+## Diagnostic Logging
+
+The runtime wrapper includes a configurable diagnostic logger for debugging hot-reload operations. The logger provides pretty-printed console output with emoji indicators, timestamps, and performance timing.
+
+### `createLogger(options)`
+
+Creates a diagnostic logger for runtime wrapper operations.
+
+**Options:**
+
+- `level` (optional): Minimum log level to output. Options: `"silent"`, `"error"`, `"warn"`, `"info"`, `"debug"`. Default is `"error"`.
+- `prefix` (optional): Prefix to prepend to all log messages. Default is `"[hot-reload]"`.
+- `timestamps` (optional): Whether to include timestamps in log output. Default is `false`.
+- `styled` (optional): Whether to use colors and emoji in console output. Default is `true`.
+- `console` (optional): Custom console-like object for output. Useful for testing or custom log routing.
+
+**Returns:** A `Logger` object with methods for logging patch lifecycle events, validation errors, WebSocket events, and general messages.
+
+**Example:**
+
+```javascript
+import { createLogger, createChangeEventLogger, createRuntimeWrapper } from "@prettier-plugin-gml/runtime-wrapper";
+
+// Create logger with info level for development
+const logger = createLogger({
+    level: "info",
+    timestamps: true,
+    prefix: "[dev-reload]"
+});
+
+// Integrate with runtime wrapper onChange hook
+const wrapper = createRuntimeWrapper({
+    onChange: createChangeEventLogger(logger)
+});
+
+// Apply patches - logger will automatically output diagnostic info
+wrapper.applyPatch({
+    kind: "script",
+    id: "script:player_move",
+    js_body: "return args[0] * 2;"
+});
+// Output: [dev-reload] ✅ Patch script:player_move applied in 2ms (v1)
+
+// Manual logging
+logger.info("Starting hot reload session");
+logger.debug("Detailed diagnostic information");
+logger.warn("Shadow validation took longer than expected");
+logger.error("Failed to apply patch");
+
+// Change log level dynamically
+logger.setLevel("debug");
+```
+
+**Logger Methods:**
+
+The logger provides specialized methods for different types of hot-reload events:
+
+- `patchApplied(patch, version, durationMs?)` - Log successful patch application
+- `patchUndone(patchId, version)` - Log patch undo operation
+- `patchRolledBack(patch, version, error)` - Log patch rollback due to error
+- `registryCleared(version)` - Log registry clear operation
+- `validationError(patchId, error)` - Log patch validation failure
+- `shadowValidationFailed(patchId, error)` - Log shadow validation failure
+- `websocketConnected(url)` - Log WebSocket connection
+- `websocketDisconnected(reason?)` - Log WebSocket disconnection
+- `websocketReconnecting(attempt, delayMs)` - Log reconnection attempt
+- `websocketError(error)` - Log WebSocket error
+- `patchQueueFlushed(count, durationMs)` - Log patch queue flush
+- `patchQueued(patchId, queueDepth)` - Log patch added to queue
+- `info(message, ...args)` - Log general info message
+- `warn(message, ...args)` - Log warning message
+- `error(message, ...args)` - Log error message
+- `debug(message, ...args)` - Log debug message
+- `setLevel(level)` - Update current log level
+- `getLevel()` - Get current log level
+
+### `createChangeEventLogger(logger)`
+
+Creates a logger function that integrates with the runtime wrapper's `onChange` hook. This function listens to registry change events and automatically logs them using the provided logger.
+
+**Parameters:**
+
+- `logger`: A `Logger` instance created with `createLogger()`
+
+**Returns:** A function that can be passed as the `onChange` option when creating a runtime wrapper.
+
+**Example:**
+
+```javascript
+const logger = createLogger({ level: "info" });
+const eventLogger = createChangeEventLogger(logger);
+
+const wrapper = createRuntimeWrapper({
+    onChange: eventLogger  // Automatically log all registry changes
+});
+```
+
+**Log Level Priority:**
+
+Log levels are ordered from least to most verbose:
+1. `silent` - No output
+2. `error` - Only errors
+3. `warn` - Errors and warnings
+4. `info` - Errors, warnings, and informational messages
+5. `debug` - All messages including detailed diagnostics
+
+**Production Usage:**
+
+For production builds, set the log level to `"silent"` or `"error"` to minimize console noise:
+
+```javascript
+const logger = createLogger({
+    level: process.env.NODE_ENV === "production" ? "error" : "debug"
+});
+```
+
+**Performance Impact:**
+
+The logger is designed to have minimal performance impact. When a log level is configured, messages below that level are completely skipped without string formatting or console calls. Enable `debug` level only during active development to avoid potential performance overhead in long-running sessions.

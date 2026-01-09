@@ -11,7 +11,7 @@ import {
     type SymbolOccurrence,
     type SymbolResolver
 } from "./types.js";
-import { assertValidIdentifierName, DEFAULT_RESERVED_KEYWORDS } from "./validation-utils.js";
+import { assertValidIdentifierName, DEFAULT_RESERVED_KEYWORDS, hasMethod } from "./validation-utils.js";
 import { Core } from "@gml-modules/core";
 
 /**
@@ -50,7 +50,7 @@ export async function detectRenameConflicts(
     // name collides with an existing symbol in the same scope. For example,
     // renaming a local variable `x` to `y` when `y` is already defined in that
     // scope would hide the original `y`, breaking references to it.
-    if (resolver && typeof resolver.lookup === "function") {
+    if (hasMethod(resolver, "lookup")) {
         for (const occurrence of occurrences) {
             // Perform a scope-aware lookup for the new name at each occurrence
             // site. If we find an existing binding that isn't the symbol we're
@@ -73,7 +73,7 @@ export async function detectRenameConflicts(
     // language constructs, breaking both the parser and runtime semantics.
     let reservedKeywords = DEFAULT_RESERVED_KEYWORDS;
 
-    if (keywordProvider && typeof keywordProvider.getReservedKeywords === "function") {
+    if (hasMethod(keywordProvider, "getReservedKeywords")) {
         const semanticReserved = (await keywordProvider.getReservedKeywords()) ?? [];
         reservedKeywords = new Set([...reservedKeywords, ...semanticReserved.map((keyword) => keyword.toLowerCase())]);
     }
@@ -176,13 +176,25 @@ export async function validateRenameStructure(
 ): Promise<Array<string>> {
     const errors: Array<string> = [];
 
-    if (symbolId == null || typeof symbolId !== "string" || symbolId.trim() === "") {
-        errors.push("symbolId must be a non-empty string");
+    try {
+        Core.assertNonEmptyString(symbolId, {
+            name: "symbolId",
+            trim: true
+        });
+    } catch (error) {
+        const errorMessage = Core.isErrorLike(error) ? error.message : String(error);
+        errors.push(errorMessage);
         return errors;
     }
 
-    if (newName == null || typeof newName !== "string" || newName.trim() === "") {
-        errors.push("newName must be a non-empty string");
+    try {
+        Core.assertNonEmptyString(newName, {
+            name: "newName",
+            trim: true
+        });
+    } catch (error) {
+        const errorMessage = Core.isErrorLike(error) ? error.message : String(error);
+        errors.push(errorMessage);
         return errors;
     }
 
@@ -204,7 +216,7 @@ export async function validateRenameStructure(
     }
 
     // Check symbol existence if resolver available
-    if (resolver && typeof resolver.hasSymbol === "function") {
+    if (hasMethod(resolver, "hasSymbol")) {
         const exists = await resolver.hasSymbol(symbolId);
         if (!exists) {
             errors.push(`Symbol '${symbolId}' not found in semantic index`);
@@ -212,4 +224,74 @@ export async function validateRenameStructure(
     }
 
     return errors;
+}
+
+/**
+ * Internal sentinel value to represent global (unscoped) symbol occurrences.
+ * Used to group occurrences without a scopeId for batch validation.
+ */
+const GLOBAL_SCOPE_KEY = "__global__";
+
+/**
+ * Batch validate scope safety for multiple occurrences efficiently.
+ * Groups occurrences by scope to minimize redundant lookups, essential for
+ * hot reload scenarios where many symbols need validation quickly.
+ *
+ * @param occurrences - Symbol occurrences to validate
+ * @param newName - Proposed new name to check for conflicts
+ * @param resolver - Symbol resolver for scope-aware checks
+ * @returns Map of scope IDs to conflict information
+ *
+ * @example
+ * const conflicts = await batchValidateScopeConflicts(
+ *   occurrences,
+ *   "newName",
+ *   semantic
+ * );
+ * for (const [scopeId, conflict] of conflicts) {
+ *   console.log(`Scope ${scopeId}: ${conflict.message}`);
+ * }
+ */
+export async function batchValidateScopeConflicts(
+    occurrences: Array<SymbolOccurrence>,
+    newName: string,
+    resolver: Partial<SymbolResolver> | null
+): Promise<Map<string, { message: string; existingSymbol: string }>> {
+    const conflicts = new Map<string, { message: string; existingSymbol: string }>();
+
+    if (!resolver || typeof resolver.lookup !== "function" || occurrences.length === 0) {
+        return conflicts;
+    }
+
+    let normalizedNewName: string;
+    try {
+        normalizedNewName = assertValidIdentifierName(newName);
+    } catch {
+        return conflicts;
+    }
+
+    const scopeGroups = new Map<string, Array<SymbolOccurrence>>();
+    for (const occurrence of occurrences) {
+        const scopeKey = occurrence.scopeId ?? GLOBAL_SCOPE_KEY;
+        let group = scopeGroups.get(scopeKey);
+        if (!group) {
+            group = [];
+            scopeGroups.set(scopeKey, group);
+        }
+        group.push(occurrence);
+    }
+
+    for (const [scopeId] of scopeGroups) {
+        // eslint-disable-next-line no-await-in-loop -- Each scope must be validated sequentially for correctness
+        const existing = await resolver.lookup(normalizedNewName, scopeId === GLOBAL_SCOPE_KEY ? undefined : scopeId);
+        if (existing) {
+            const scopeDisplayName = scopeId === GLOBAL_SCOPE_KEY ? "global scope" : `scope '${scopeId}'`;
+            conflicts.set(scopeId, {
+                message: `Name '${normalizedNewName}' already exists in ${scopeDisplayName}`,
+                existingSymbol: existing.name
+            });
+        }
+    }
+
+    return conflicts;
 }

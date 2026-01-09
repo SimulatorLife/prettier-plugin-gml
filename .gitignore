@@ -7,6 +7,8 @@ tools/
 /*.txt
 /*.ts
 /*.js
+/*.cjs
+/*.mjs
 */**/*debug*.txt
 
 # TypeScript

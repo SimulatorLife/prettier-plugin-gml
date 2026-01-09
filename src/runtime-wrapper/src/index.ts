@@ -9,10 +9,15 @@ export const RuntimeWrapper = Object.freeze({
 export type {
     ApplyPatchResult,
     BatchApplyResult,
+    ErrorAnalytics,
     HistoryManager,
     Patch,
     PatchApplicator,
     PatchDiagnostics,
+    PatchErrorAnalytics,
+    PatchErrorCategory,
+    PatchErrorOccurrence,
+    PatchErrorSummary,
     PatchHistoryEntry,
     PatchKind,
     PatchMetadata,
@@ -33,10 +38,16 @@ export type {
     RuntimeWrapper as RuntimeWrapperApi,
     RuntimeWrapperOptions,
     RuntimeWrapperState,
-    TrySafeApplyResult
+    TrySafeApplyResult,
+    Logger,
+    LoggerOptions,
+    LogLevel
 } from "./runtime/index.js";
 export type {
     MessageEventLike,
+    PatchQueueMetrics,
+    PatchQueueOptions,
+    PatchQueueState,
     RuntimeWebSocketClient,
     RuntimeWebSocketConstructor,
     RuntimeWebSocketInstance,

@@ -58,6 +58,7 @@ import {
 } from "./doc-comment/synthetic-doc-comments.js";
 
 import {
+    hasBlankLineAfterOpeningBrace,
     hasBlankLineBeforeLeadingComment,
     hasBlankLineBetweenLastCommentAndClosingBrace,
     getOriginalTextFromOptions,
@@ -1546,6 +1547,32 @@ function printProgramNode(node, path, options, print) {
     }
 }
 
+/**
+ * Check if a comment is a decorative block comment that will be reformatted
+ * (i.e., contains banner-style slashes)
+ */
+function isDecorativeBlockComment(comment) {
+    if (!comment || (comment.type !== "BlockComment" && comment.type !== "CommentBlock")) {
+        return false;
+    }
+
+    const value = comment.value;
+    if (typeof value !== "string") {
+        return false;
+    }
+
+    const MIN_DECORATIVE_SLASHES = 4;
+    const DECORATIVE_SLASH_LINE_PATTERN = new RegExp(String.raw`^\s*\*?\/{${MIN_DECORATIVE_SLASHES},}\*?\s*$`);
+
+    const lines = value.split(/\r?\n/).map((line) => line.replaceAll("\t", "    "));
+    const significantLines = lines.filter((line) => Core.isNonEmptyTrimmedString(line));
+    if (significantLines.length === 0) {
+        return false;
+    }
+
+    return significantLines.some((line) => DECORATIVE_SLASH_LINE_PATTERN.test(line));
+}
+
 function printBlockStatementNode(node, path, options, print) {
     if (node.body.length === 0) {
         return concat(printEmptyBlock(path, options));
@@ -1592,9 +1619,27 @@ function printBlockStatementNode(node, path, options, print) {
             typeof node.start === NUMBER_TYPE &&
             isNextLineEmpty(originalText, node.start);
 
+        const preserveForInitialSpacing = hasBlankLineAfterOpeningBrace(node, sourceMetadata, firstStatementStartIndex);
+
+        // When a decorative block comment (like banner comments) is attached to the
+        // first statement, it will be reformatted as a line comment. We need to add
+        // a blank line before it to maintain visual separation from the function header.
+        const leadingComments = firstStatement.leadingComments || firstStatement.comments;
+        if (Array.isArray(leadingComments) && leadingComments.length > 0) {
+            for (const comment of leadingComments) {
+                if (isDecorativeBlockComment(comment)) {
+                    // Mark the comment to force a leading blank line
+                    comment._gmlForceLeadingBlankLine = true;
+                }
+            }
+        }
+
         // For constructors, preserve blank lines between header and first statement
         shouldPreserveInitialBlankLine =
-            shouldPreserveInitialBlankLine || preserveForConstructorText || preserveForLeadingComment;
+            shouldPreserveInitialBlankLine ||
+            preserveForConstructorText ||
+            preserveForLeadingComment ||
+            preserveForInitialSpacing;
     }
 
     if (shouldPreserveInitialBlankLine) {
@@ -1617,8 +1662,8 @@ function printBlockStatementNode(node, path, options, print) {
         return concat([
             "{",
             printDanglingComments(path, options, (comment) => comment.attachToBrace),
-            leadingDocs[0], // First hardline outside indent (creates blank line)
-            indent(leadingDocs.slice(1).concat(stmts)), // Rest inside indent
+            leadingDocs[0],
+            indent(leadingDocs.slice(1).concat(stmts)),
             hardline,
             "}"
         ]);
@@ -2971,16 +3016,17 @@ export function applyAssignmentAlignment(statements, options, path = null, child
             "minGroupSize",
             minGroupSize
         );
+        const enablerCount = groupEntries.filter((e) => e.enablesAlignment).length;
         const normalizedMinGroupSize = minGroupSize > 0 ? minGroupSize : DEFAULT_ALIGN_ASSIGNMENTS_MIN_GROUP_SIZE;
         const alignmentEnabled = minGroupSize > 0;
         const effectiveMinGroupSize = alignmentEnabled ? normalizedMinGroupSize : minGroupSize;
         const meetsAlignmentThreshold = alignmentEnabled && groupEntries.length >= effectiveMinGroupSize;
-        const canAlign = meetsAlignmentThreshold && currentGroupHasAlias;
+        const canAlign = meetsAlignmentThreshold && enablerCount >= effectiveMinGroupSize;
 
         console.log(`DEBUG alignment group ${contextFunctionName ?? "<none>"}`, {
             group: groupEntries.map((e) => e.nameLength),
             meetsAlignmentThreshold,
-            currentGroupHasAlias,
+            enablerCount,
             canAlign,
             minGroupSize,
             effectiveMinGroupSize
@@ -3003,45 +3049,76 @@ export function applyAssignmentAlignment(statements, options, path = null, child
     };
 
     for (const statement of statements) {
-        const entry = getSimpleAssignmentLikeEntry(
-            statement,
-            insideFunctionBody,
-            functionParameterNames,
-            functionNode,
-            options
-        );
-
-        if (entry) {
-            if (
-                previousEntry &&
-                (previousEntry.category !== entry.category ||
-                    (previousEntry.skipBreakAfter !== true &&
-                        shouldBreakAssignmentAlignment(
-                            previousEntry.locationNode,
-                            entry.locationNode,
-                            originalText,
-                            locStart,
-                            locEnd
-                        )))
-            ) {
-                flushGroup();
+        if (!statement) {
+            continue;
+        }
+        const entries = [];
+        if (statement.type === "VariableDeclaration") {
+            const kind = statement.kind || "var";
+            for (const declarator of statement.declarations) {
+                const entry = getSimpleAssignmentLikeEntry(
+                    declarator,
+                    insideFunctionBody,
+                    functionParameterNames,
+                    functionNode,
+                    options
+                );
+                if (entry) {
+                    entry.locationNode = statement;
+                    // Ensure the category and prefixLength match for all declarators in the group
+                    entry.category = kind === "var" ? "assignment" : kind;
+                    entry.prefixLength = kind.length + 1;
+                    entries.push(entry);
+                }
             }
-
-            const prefixLength = entry.prefixLength ?? 0;
-            currentGroup.push({
-                node: entry.paddingTarget,
-                nameLength: entry.nameLength,
-                prefixLength
-            });
-            const printedWidth = entry.nameLength + prefixLength;
-            if (printedWidth > currentGroupMaxLength) {
-                currentGroupMaxLength = printedWidth;
+        } else {
+            const entry = getSimpleAssignmentLikeEntry(
+                statement,
+                insideFunctionBody,
+                functionParameterNames,
+                functionNode,
+                options
+            );
+            if (entry) {
+                entries.push(entry);
             }
-            if (entry.enablesAlignment) {
-                currentGroupHasAlias = true;
-            }
+        }
 
-            previousEntry = entry;
+        if (entries.length > 0) {
+            for (const entry of entries) {
+                if (
+                    previousEntry &&
+                    (previousEntry.category !== entry.category ||
+                        (previousEntry.skipBreakAfter !== true &&
+                            shouldBreakAssignmentAlignment(
+                                previousEntry.locationNode,
+                                entry.locationNode,
+                                originalText,
+                                locStart,
+                                locEnd
+                            )))
+                ) {
+                    flushGroup();
+                }
+
+                const prefixLength = entry.prefixLength ?? 0;
+                currentGroup.push({
+                    node: entry.paddingTarget,
+                    nameLength: entry.nameLength,
+                    prefixLength,
+                    enablesAlignment: entry.enablesAlignment
+                });
+
+                const printedWidth = entry.nameLength + prefixLength;
+                if (printedWidth > currentGroupMaxLength) {
+                    currentGroupMaxLength = printedWidth;
+                }
+                if (entry.enablesAlignment) {
+                    currentGroupHasAlias = true;
+                }
+
+                previousEntry = entry;
+            }
         } else {
             flushGroup();
             previousEntry = null;
@@ -3114,33 +3191,55 @@ export function getSimpleAssignmentLikeEntry(
 ): AssignmentLikeEntry | null {
     const memberLength = getMemberAssignmentLength(statement);
     if (typeof memberLength === NUMBER_TYPE) {
+        const node = Core.unwrapExpressionStatement(statement);
+
         return {
             locationNode: statement,
-            paddingTarget: statement,
+            paddingTarget: node,
             nameLength: memberLength,
             enablesAlignment: true,
             prefixLength: 0,
-            category: "member"
+            category: "assignment"
         };
     }
 
     if (isSimpleAssignment(statement)) {
-        const identifier = statement.left;
+        const node = Core.unwrapExpressionStatement(statement);
+
+        if (!node) {
+            return null;
+        }
+
+        const identifier = node.left;
         if (!identifier || typeof identifier.name !== STRING_TYPE) {
             return null;
         }
 
+        const originalName = getOriginalIdentifierName(identifier);
+        const identifierName = identifier.name as string;
+        const nameLength = originalName ? originalName.length : identifierName.length;
+
         return {
             locationNode: statement,
-            paddingTarget: statement,
-            nameLength: identifier.name.length,
+            paddingTarget: node,
+            nameLength,
             enablesAlignment: true,
             prefixLength: getGlobalIdentifierAlignmentPrefixLength(identifier, options),
-            category: "simple"
+            category: "assignment"
         };
     }
 
-    const declarator = Core.getSingleVariableDeclarator(statement);
+    let declarator;
+    let keyword = "var";
+    if (statement.type === "VariableDeclarator") {
+        declarator = statement;
+    } else {
+        declarator = Core.getSingleVariableDeclarator(statement);
+        if (statement.type === "VariableDeclaration") {
+            keyword = statement.kind || "var";
+        }
+    }
+
     if (!declarator) {
         return null;
     }
@@ -3170,7 +3269,7 @@ export function getSimpleAssignmentLikeEntry(
                 if (!options?.applyFeatherFixes || !hasNamedParameters) {
                     enablesAlignment = true;
                 }
-            } else if (functionParameterNames?.has(init.name)) {
+            } else if (functionParameterNames?.has(init.name) && !options?.applyFeatherFixes) {
                 enablesAlignment = true;
             }
         }
@@ -3178,19 +3277,24 @@ export function getSimpleAssignmentLikeEntry(
 
     const skipBreakAfter = shouldOmitParameterAlias(declarator, functionNode, options);
 
-    const keyword = typeof statement.kind === STRING_TYPE && statement.kind.length > 0 ? statement.kind : "var";
     const prefixLength = keyword.length + 1;
 
-    const shouldEnableVarAlignment = keyword === "var" && enablesAlignment;
+    let nameLength = (id.name as string).length;
+    if (Array.isArray(id._appliedFeatherDiagnostics) && id._appliedFeatherDiagnostics.length > 0) {
+        const firstFix = id._appliedFeatherDiagnostics[0];
+        if (firstFix && typeof firstFix.target === "string") {
+            nameLength = firstFix.target.length;
+        }
+    }
 
     return {
         locationNode: statement,
         paddingTarget: declarator,
-        nameLength: (id.name as string).length,
-        enablesAlignment: enablesAlignment || shouldEnableVarAlignment,
+        nameLength,
+        enablesAlignment: enablesAlignment || keyword === "var",
         skipBreakAfter,
         prefixLength,
-        category: keyword
+        category: keyword === "var" ? "assignment" : keyword
     };
 }
 
@@ -3234,11 +3338,13 @@ function getFunctionParameterNameSetFromPath(path) {
 }
 
 function getMemberAssignmentLength(statement) {
-    if (!statement || statement.type !== "AssignmentExpression" || statement.operator !== "=") {
+    const node = Core.unwrapExpressionStatement(statement);
+
+    if (!node || node.type !== "AssignmentExpression" || node.operator !== "=") {
         return null;
     }
 
-    return getMemberExpressionLength(statement.left);
+    return getMemberExpressionLength(node.left);
 }
 
 function getMemberExpressionLength(expression) {
@@ -3326,7 +3432,9 @@ function getAssignmentAlignmentMinimum(options) {
     );
 }
 
-function isSimpleAssignment(node) {
+function isSimpleAssignment(statement) {
+    const node = Core.unwrapExpressionStatement(statement);
+
     return !!(
         node &&
         node.type === "AssignmentExpression" &&
@@ -3790,6 +3898,21 @@ function findFunctionParameterContext(path) {
     return null;
 }
 
+function getOriginalIdentifierName(identifier) {
+    if (!identifier || typeof identifier !== "object") {
+        return null;
+    }
+
+    if (Array.isArray(identifier._appliedFeatherDiagnostics) && identifier._appliedFeatherDiagnostics.length > 0) {
+        const firstFix = identifier._appliedFeatherDiagnostics[0];
+        if (firstFix && typeof firstFix.target === "string") {
+            return firstFix.target;
+        }
+    }
+
+    return typeof identifier.name === "string" ? identifier.name : null;
+}
+
 function shouldOmitParameterAlias(declarator, functionNode, options) {
     if (
         !declarator ||
@@ -3802,14 +3925,46 @@ function shouldOmitParameterAlias(declarator, functionNode, options) {
         return false;
     }
 
+    let aliasName = declarator.id.name;
+    if (
+        Array.isArray(declarator.id._appliedFeatherDiagnostics) &&
+        declarator.id._appliedFeatherDiagnostics.length > 0
+    ) {
+        const firstFix = declarator.id._appliedFeatherDiagnostics[0];
+        if (firstFix && typeof firstFix.target === "string") {
+            aliasName = firstFix.target;
+        }
+    }
+
+    const normalizedAliasName = normalizePreferredParameterName(aliasName);
+    const normalizedInitName = normalizePreferredParameterName(declarator.init.name);
+
+    if (normalizedAliasName && normalizedInitName && normalizedAliasName === normalizedInitName) {
+        return true;
+    }
+
     const argumentIndex = Core.getArgumentIndexFromIdentifier(declarator.init.name);
-    if (argumentIndex === null) {
+
+    let paramIndex = argumentIndex;
+    if (argumentIndex === null && functionNode) {
+        const params = getFunctionParams(functionNode);
+        for (const [i, param] of params.entries()) {
+            const paramId = Core.getIdentifierFromParameterNode(param);
+            if (paramId && paramId.name === declarator.init.name) {
+                paramIndex = i;
+                break;
+            }
+        }
+        if (paramIndex === null) {
+            return false;
+        }
+    } else if (argumentIndex === null) {
         return false;
     }
 
-    const preferredName = resolvePreferredParameterName(functionNode, argumentIndex, declarator.init.name, options);
+    const preferredName = resolvePreferredParameterName(functionNode, paramIndex, declarator.init.name, options);
 
-    const normalizedAlias = normalizePreferredParameterName(declarator.id.name);
+    const normalizedAlias = normalizePreferredParameterName(aliasName);
     if (!normalizedAlias) {
         return false;
     }
@@ -3819,11 +3974,11 @@ function shouldOmitParameterAlias(declarator, functionNode, options) {
     }
 
     const params = getFunctionParams(functionNode);
-    if (argumentIndex < 0 || argumentIndex >= params.length) {
+    if (paramIndex < 0 || paramIndex >= params.length) {
         return false;
     }
 
-    const identifier = Core.getIdentifierFromParameterNode(params[argumentIndex]);
+    const identifier = Core.getIdentifierFromParameterNode(params[paramIndex]);
     if (!identifier || typeof identifier.name !== STRING_TYPE) {
         return false;
     }
@@ -4372,16 +4527,10 @@ function findFallbackAssignment(statements: Array<any>, paramName: string) {
 }
 
 function getAssignmentExpression(node: any) {
-    if (!node) {
-        return null;
-    }
+    const unwrapped = Core.unwrapExpressionStatement(node);
 
-    if (node.type === "ExpressionStatement" && node.expression && node.expression.type === "AssignmentExpression") {
-        return node.expression;
-    }
-
-    if (node.type === "AssignmentExpression") {
-        return node;
+    if (unwrapped?.type === "AssignmentExpression") {
+        return unwrapped;
     }
 
     return null;

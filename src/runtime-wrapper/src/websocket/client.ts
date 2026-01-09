@@ -3,6 +3,8 @@ import { validatePatch } from "../runtime/patch-utils.js";
 import type { Patch, PatchApplicator, RuntimePatchError, TrySafeApplyResult } from "../runtime/types.js";
 import type {
     MessageEventLike,
+    PatchQueueMetrics,
+    PatchQueueState,
     RuntimeWebSocketClient,
     RuntimeWebSocketConstructor,
     RuntimeWebSocketInstance,
@@ -10,6 +12,9 @@ import type {
     WebSocketClientState,
     WebSocketConnectionMetrics
 } from "./types.js";
+
+const DEFAULT_MAX_QUEUE_SIZE = 100;
+const DEFAULT_FLUSH_INTERVAL_MS = 50;
 
 function createInitialMetrics(): WebSocketConnectionMetrics {
     return {
@@ -28,6 +33,26 @@ function createInitialMetrics(): WebSocketConnectionMetrics {
     };
 }
 
+function createInitialQueueMetrics(): PatchQueueMetrics {
+    return {
+        totalQueued: 0,
+        totalFlushed: 0,
+        totalDropped: 0,
+        maxQueueDepth: 0,
+        flushCount: 0,
+        lastFlushSize: 0,
+        lastFlushedAt: null
+    };
+}
+
+function createPatchQueueState(): PatchQueueState {
+    return {
+        queue: [],
+        flushTimer: null,
+        queueMetrics: createInitialQueueMetrics()
+    };
+}
+
 export function createWebSocketClient({
     url = "ws://127.0.0.1:17890",
     wrapper = null,
@@ -35,19 +60,128 @@ export function createWebSocketClient({
     onDisconnect,
     onError,
     reconnectDelay = 800,
-    autoConnect = true
+    autoConnect = true,
+    patchQueue
 }: WebSocketClientOptions = {}): RuntimeWebSocketClient {
+    const queueEnabled = patchQueue?.enabled ?? false;
+    const maxQueueSize = patchQueue?.maxQueueSize ?? DEFAULT_MAX_QUEUE_SIZE;
+    const flushIntervalMs = patchQueue?.flushIntervalMs ?? DEFAULT_FLUSH_INTERVAL_MS;
+
     const state: WebSocketClientState = {
         ws: null,
         isConnected: false,
         reconnectTimer: null,
         manuallyDisconnected: false,
-        connectionMetrics: createInitialMetrics()
+        connectionMetrics: createInitialMetrics(),
+        patchQueue: queueEnabled ? createPatchQueueState() : null
+    };
+
+    const flushQueuedPatches = (): number => {
+        if (!state.patchQueue || !wrapper) {
+            return 0;
+        }
+
+        const queueState = state.patchQueue;
+        if (queueState.queue.length === 0) {
+            return 0;
+        }
+
+        if (queueState.flushTimer !== null) {
+            clearTimeout(queueState.flushTimer);
+            queueState.flushTimer = null;
+        }
+
+        const patchesToFlush = queueState.queue.splice(0);
+        const flushSize = patchesToFlush.length;
+
+        queueState.queueMetrics.flushCount += 1;
+        queueState.queueMetrics.lastFlushSize = flushSize;
+        queueState.queueMetrics.lastFlushedAt = Date.now();
+
+        if (wrapper.applyPatchBatch) {
+            const result = wrapper.applyPatchBatch(patchesToFlush);
+            const applied = result.success ? result.appliedCount : result.appliedCount;
+            const failed = flushSize - applied;
+
+            state.connectionMetrics.patchesApplied += applied;
+            state.connectionMetrics.patchesFailed += failed;
+            queueState.queueMetrics.totalFlushed += applied;
+
+            if (result.success) {
+                state.connectionMetrics.lastPatchAppliedAt = Date.now();
+            }
+        } else {
+            let applied = 0;
+            for (const patch of patchesToFlush) {
+                const success = applyIncomingPatch(patch);
+                if (success) {
+                    applied += 1;
+                }
+            }
+            queueState.queueMetrics.totalFlushed += applied;
+        }
+
+        return flushSize;
+    };
+
+    const scheduleFlush = (): void => {
+        if (!state.patchQueue) {
+            return;
+        }
+
+        const queueState = state.patchQueue;
+        if (queueState.flushTimer !== null) {
+            return;
+        }
+
+        queueState.flushTimer = setTimeout(() => {
+            queueState.flushTimer = null;
+            flushQueuedPatches();
+        }, flushIntervalMs);
+    };
+
+    const enqueuePatch = (patch: unknown): void => {
+        if (!state.patchQueue) {
+            return;
+        }
+
+        const queueState = state.patchQueue;
+
+        if (queueState.queue.length >= maxQueueSize) {
+            queueState.queue.shift();
+            queueState.queueMetrics.totalDropped += 1;
+        }
+
+        queueState.queue.push(patch);
+        queueState.queueMetrics.totalQueued += 1;
+
+        const currentDepth = queueState.queue.length;
+        if (currentDepth > queueState.queueMetrics.maxQueueDepth) {
+            queueState.queueMetrics.maxQueueDepth = currentDepth;
+        }
+
+        if (currentDepth >= maxQueueSize) {
+            flushQueuedPatches();
+        } else {
+            scheduleFlush();
+        }
+    };
+
+    const recordPatchSuccess = (patch: Patch, applyDuration: number): void => {
+        state.connectionMetrics.patchesApplied += 1;
+        state.connectionMetrics.lastPatchAppliedAt = Date.now();
+        console.log(`[hot-reload] Patch ${patch.id} applied in ${applyDuration}ms`);
+    };
+
+    const recordPatchFailure = (): void => {
+        state.connectionMetrics.patchesFailed += 1;
+        state.connectionMetrics.patchErrors += 1;
     };
 
     const applyIncomingPatch = (incoming: unknown): boolean => {
+        const receivedAt = Date.now();
         state.connectionMetrics.patchesReceived += 1;
-        state.connectionMetrics.lastPatchReceivedAt = Date.now();
+        state.connectionMetrics.lastPatchReceivedAt = receivedAt;
 
         const patchResult = validatePatchCandidate(incoming, onError);
         if (patchResult.status === "skip") {
@@ -63,26 +197,32 @@ export function createWebSocketClient({
 
         const patch = patchResult.patch;
 
+        // Log end-to-end timing if patch has metadata timestamp
+        if (patch.metadata?.timestamp && typeof patch.metadata.timestamp === "number" && patch.metadata.timestamp > 0) {
+            const transportLatency = receivedAt - patch.metadata.timestamp;
+            console.log(
+                `[hot-reload] Patch ${patch.id} transport latency: ${transportLatency}ms (generated at ${new Date(patch.metadata.timestamp).toISOString()})`
+            );
+        }
+
         if (wrapper && wrapper.trySafeApply) {
+            const appliedStartAt = Date.now();
             const applied = applyPatchSafely(patch, wrapper, onError);
             if (applied) {
-                state.connectionMetrics.patchesApplied += 1;
-                state.connectionMetrics.lastPatchAppliedAt = Date.now();
+                recordPatchSuccess(patch, Date.now() - appliedStartAt);
             } else {
-                state.connectionMetrics.patchesFailed += 1;
-                state.connectionMetrics.patchErrors += 1;
+                recordPatchFailure();
             }
             return applied;
         }
 
         if (wrapper) {
+            const appliedStartAt = Date.now();
             const applied = applyPatchDirectly(patch, wrapper, onError);
             if (applied) {
-                state.connectionMetrics.patchesApplied += 1;
-                state.connectionMetrics.lastPatchAppliedAt = Date.now();
+                recordPatchSuccess(patch, Date.now() - appliedStartAt);
             } else {
-                state.connectionMetrics.patchesFailed += 1;
-                state.connectionMetrics.patchErrors += 1;
+                recordPatchFailure();
             }
             return applied;
         }
@@ -118,6 +258,7 @@ export function createWebSocketClient({
                 onError,
                 reconnectDelay,
                 applyIncomingPatch,
+                enqueuePatch,
                 connect
             });
         } catch (error) {
@@ -127,6 +268,14 @@ export function createWebSocketClient({
 
     function disconnect() {
         state.manuallyDisconnected = true;
+
+        if (state.patchQueue) {
+            if (state.patchQueue.flushTimer !== null) {
+                clearTimeout(state.patchQueue.flushTimer);
+                state.patchQueue.flushTimer = null;
+            }
+            flushQueuedPatches();
+        }
 
         if (state.reconnectTimer) {
             clearTimeout(state.reconnectTimer);
@@ -166,6 +315,17 @@ export function createWebSocketClient({
         state.connectionMetrics = createInitialMetrics();
     }
 
+    function getPatchQueueMetrics(): Readonly<PatchQueueMetrics> | null {
+        if (!state.patchQueue) {
+            return null;
+        }
+        return Object.freeze({ ...state.patchQueue.queueMetrics });
+    }
+
+    function flushPatchQueue(): number {
+        return flushQueuedPatches();
+    }
+
     if (autoConnect) {
         connect();
     }
@@ -177,7 +337,9 @@ export function createWebSocketClient({
         send,
         getWebSocket,
         getConnectionMetrics,
-        resetConnectionMetrics
+        resetConnectionMetrics,
+        getPatchQueueMetrics,
+        flushPatchQueue
     };
 }
 
@@ -189,12 +351,15 @@ type WebSocketEventListenerArgs = {
     onError?: WebSocketClientOptions["onError"];
     reconnectDelay: number;
     applyIncomingPatch: (incoming: unknown) => boolean;
+    enqueuePatch: (patch: unknown) => void;
     connect: () => void;
 };
 
 type WebSocketMessageHandlerArgs = {
+    state: WebSocketClientState;
     wrapper: WebSocketClientOptions["wrapper"];
     applyIncomingPatch: (incoming: unknown) => boolean;
+    enqueuePatch: (patch: unknown) => void;
     onError?: WebSocketClientOptions["onError"];
 };
 
@@ -215,8 +380,10 @@ function attachWebSocketEventListeners(ws: RuntimeWebSocketInstance, args: WebSo
     ws.addEventListener(
         "message",
         createMessageHandler({
+            state: args.state,
             wrapper: args.wrapper,
             applyIncomingPatch: args.applyIncomingPatch,
+            enqueuePatch: args.enqueuePatch,
             onError: args.onError
         })
     );
@@ -257,8 +424,10 @@ function createOpenHandler(state: WebSocketClientState, onConnect?: WebSocketCli
 }
 
 function createMessageHandler({
+    state,
     wrapper,
     applyIncomingPatch,
+    enqueuePatch,
     onError
 }: WebSocketMessageHandlerArgs): (event?: MessageEventLike | Error) => void {
     return (event?: MessageEventLike | Error) => {
@@ -272,9 +441,16 @@ function createMessageHandler({
         }
 
         const patches = Core.toArray(payload);
-        for (const patch of patches) {
-            if (!applyIncomingPatch(patch)) {
-                break;
+
+        if (state.patchQueue) {
+            for (const patch of patches) {
+                enqueuePatch(patch);
+            }
+        } else {
+            for (const patch of patches) {
+                if (!applyIncomingPatch(patch)) {
+                    break;
+                }
             }
         }
     };

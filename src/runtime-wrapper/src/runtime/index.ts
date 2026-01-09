@@ -1,11 +1,19 @@
 export { createRuntimeWrapper } from "./runtime-wrapper.js";
+export { testPatchInShadow } from "./patch-utils.js";
+export { resolveBuiltinConstants } from "./builtin-constants.js";
+export { createLogger, createChangeEventLogger } from "./logger.js";
 export type {
     ApplyPatchResult,
     BatchApplyResult,
+    ErrorAnalytics,
     HistoryManager,
     Patch,
     PatchApplicator,
     PatchDiagnostics,
+    PatchErrorAnalytics,
+    PatchErrorCategory,
+    PatchErrorOccurrence,
+    PatchErrorSummary,
     PatchHistoryEntry,
     PatchKind,
     PatchMetadata,
@@ -28,3 +36,4 @@ export type {
     RuntimeWrapperState,
     TrySafeApplyResult
 } from "./types.js";
+export type { Logger, LoggerOptions, LogLevel } from "./logger.js";

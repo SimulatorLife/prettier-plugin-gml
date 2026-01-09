@@ -15,11 +15,13 @@ import {
     type HotReloadUpdate,
     type PartialSemanticAnalyzer,
     type RenameRequest,
+    type RenameImpactGraph,
+    type RenameImpactNode,
     type TranspilerBridge,
     type TranspilerPatch,
     type WorkspaceReadFile
 } from "./types.js";
-import { assertValidIdentifierName } from "./validation-utils.js";
+import { assertValidIdentifierName, hasMethod } from "./validation-utils.js";
 import { detectRenameConflicts } from "./validation.js";
 import * as SymbolQueries from "./symbol-queries.js";
 
@@ -45,7 +47,7 @@ export async function prepareHotReloadUpdates(
         // Determine which symbols are defined in this file
         let affectedSymbols = [];
 
-        if (semantic && typeof semantic.getFileSymbols === "function") {
+        if (hasMethod(semantic, "getFileSymbols")) {
             affectedSymbols = await semantic.getFileSymbols(filePath);
         }
 
@@ -188,7 +190,7 @@ export async function computeHotReloadCascade(
 
         try {
             // Query semantic analyzer for symbols that depend on this one
-            if (semantic && typeof semantic.getDependents === "function") {
+            if (hasMethod(semantic, "getDependents")) {
                 const dependents = (await semantic.getDependents([symbolId])) ?? [];
 
                 for (const dep of dependents) {
@@ -584,7 +586,7 @@ export async function generateTranspilerPatches(
             // Transpile the updated script into a hot-reload patch if a transpiler
             // is available. The patch contains executable JavaScript code that the
             // GameMaker runtime can inject without restarting the game.
-            if (formatter && typeof formatter.transpileScript === "function") {
+            if (hasMethod(formatter, "transpileScript")) {
                 const patch = await formatter.transpileScript({
                     sourceText,
                     symbolId: update.symbolId
@@ -620,4 +622,167 @@ export async function generateTranspilerPatches(
     }
 
     return patches;
+}
+
+/**
+ * Compute a detailed dependency impact graph for a rename operation.
+ * This provides visualization-ready data showing how a rename will propagate
+ * through the dependency graph, essential for hot reload planning.
+ *
+ * @param symbolId - The symbol being renamed
+ * @param semantic - Semantic analyzer for dependency queries
+ * @returns Impact graph with nodes, edges, and critical path analysis
+ *
+ * @example
+ * const graph = await computeRenameImpactGraph("gml/script/scr_base", semantic);
+ * console.log(`Rename will affect ${graph.totalAffectedSymbols} symbols`);
+ * console.log(`Critical path: ${graph.criticalPath.join(" → ")}`);
+ * console.log(`Estimated reload time: ${graph.estimatedTotalReloadTime}ms`);
+ */
+export async function computeRenameImpactGraph(
+    symbolId: string,
+    semantic: PartialSemanticAnalyzer | null
+): Promise<RenameImpactGraph> {
+    if (!symbolId || typeof symbolId !== "string") {
+        throw new TypeError("computeRenameImpactGraph requires a valid symbolId");
+    }
+
+    const nodes = new Map<string, RenameImpactNode>();
+    const symbolName = symbolId.split("/").pop() ?? symbolId;
+
+    // Initialize root node
+    nodes.set(symbolId, {
+        symbolId,
+        symbolName,
+        distance: 0,
+        isDirectlyAffected: true,
+        dependents: [],
+        dependsOn: [],
+        estimatedReloadTime: 50
+    });
+
+    // If no semantic analyzer, return minimal graph
+    if (!semantic) {
+        return {
+            nodes,
+            rootSymbol: symbolId,
+            totalAffectedSymbols: 1,
+            maxDepth: 0,
+            criticalPath: [symbolId],
+            estimatedTotalReloadTime: 50
+        };
+    }
+
+    // Build dependency graph using BFS
+    const visited = new Set<string>([symbolId]);
+    const queue: Array<{ id: string; distance: number }> = [{ id: symbolId, distance: 0 }];
+
+    while (queue.length > 0) {
+        const current = queue.shift();
+        if (!current) {
+            break;
+        }
+
+        const { id: currentId, distance: currentDistance } = current;
+
+        // Query dependents for this symbol
+        const dependents = await SymbolQueries.getSymbolDependents([currentId], semantic);
+
+        for (const dep of dependents) {
+            const depId = dep.symbolId;
+            const depName = depId.split("/").pop() ?? depId;
+
+            // Add dependent edge to current node
+            const currentNode = nodes.get(currentId);
+            if (currentNode && !currentNode.dependents.includes(depId)) {
+                currentNode.dependents.push(depId);
+            }
+
+            // Skip if already visited to prevent cycles
+            if (visited.has(depId)) {
+                continue;
+            }
+
+            visited.add(depId);
+
+            // Create node for dependent
+            const dependentNode: RenameImpactNode = {
+                symbolId: depId,
+                symbolName: depName,
+                distance: currentDistance + 1,
+                isDirectlyAffected: false,
+                dependents: [],
+                dependsOn: [currentId],
+                filePath: dep.filePath,
+                estimatedReloadTime: 30
+            };
+
+            nodes.set(depId, dependentNode);
+            queue.push({ id: depId, distance: currentDistance + 1 });
+        }
+    }
+
+    // Compute metrics
+    const maxDepth = Math.max(...Array.from(nodes.values()).map((n) => n.distance));
+    const totalAffectedSymbols = nodes.size;
+
+    // Find critical path (longest dependency chain)
+    const criticalPath = findCriticalPath(nodes, symbolId);
+
+    // Estimate total reload time
+    const estimatedTotalReloadTime = Array.from(nodes.values()).reduce(
+        (sum, node) => sum + (node.estimatedReloadTime ?? 0),
+        0
+    );
+
+    return {
+        nodes,
+        rootSymbol: symbolId,
+        totalAffectedSymbols,
+        maxDepth,
+        criticalPath,
+        estimatedTotalReloadTime
+    };
+}
+
+/**
+ * Find the critical path (longest dependency chain) in the impact graph.
+ * Uses DFS to find the path with maximum depth.
+ * @private
+ */
+function findCriticalPath(nodes: Map<string, RenameImpactNode>, rootSymbol: string): Array<string> {
+    const visited = new Set<string>();
+    let longestPath: Array<string> = [];
+
+    function dfs(symbolId: string, currentPath: Array<string>): void {
+        if (visited.has(symbolId)) {
+            return;
+        }
+
+        visited.add(symbolId);
+        currentPath.push(symbolId);
+
+        const node = nodes.get(symbolId);
+        if (!node) {
+            visited.delete(symbolId);
+            currentPath.pop();
+            return;
+        }
+
+        // If this is a leaf node and the path is longer, update longest path
+        if (node.dependents.length === 0 && currentPath.length > longestPath.length) {
+            longestPath = [...currentPath];
+        }
+
+        // Recurse into dependents
+        for (const depId of node.dependents) {
+            dfs(depId, currentPath);
+        }
+
+        visited.delete(symbolId);
+        currentPath.pop();
+    }
+
+    dfs(rootSymbol, []);
+    return longestPath.length > 0 ? longestPath : [rootSymbol];
 }

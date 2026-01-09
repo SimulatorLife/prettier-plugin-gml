@@ -4,7 +4,7 @@
  * rename planning, hot reload coordination, and impact preview.
  */
 
-import type { SymbolOccurrence } from "./types.js";
+import { OccurrenceKind, type SymbolOccurrence } from "./types.js";
 
 /**
  * Classification result for symbol occurrences.
@@ -53,9 +53,9 @@ export function classifyOccurrences(occurrences: Array<SymbolOccurrence>): Occur
 
         // Count definitions vs references
         const kind = occurrence.kind ?? "unknown";
-        if (kind === "definition") {
+        if (kind === OccurrenceKind.DEFINITION) {
             classification.definitions++;
-        } else if (kind === "reference") {
+        } else if (kind === OccurrenceKind.REFERENCE) {
             classification.references++;
         }
 

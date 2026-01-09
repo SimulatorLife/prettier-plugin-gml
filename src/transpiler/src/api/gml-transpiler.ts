@@ -13,12 +13,18 @@ export interface TranspileScriptRequest {
     readonly symbolId: string;
 }
 
+export interface PatchMetadata {
+    readonly timestamp: number;
+    readonly sourcePath?: string;
+}
+
 export interface ScriptPatch {
     readonly kind: "script";
     readonly id: string;
     readonly js_body: string;
     readonly sourceText: string;
     readonly version: number;
+    readonly metadata?: PatchMetadata;
 }
 
 export interface TranspilerDependencies {
@@ -59,12 +65,16 @@ export class GmlTranspiler {
             const oracle = this.semantic ?? makeDummyOracle();
             const emitter = new GmlToJsEmitter(oracle, this.emitterOptions);
             const jsBody = emitter.emit(ast);
+            const timestamp = Date.now();
             const patch: ScriptPatch = {
                 kind: "script",
                 id: symbolId,
                 js_body: jsBody,
                 sourceText,
-                version: Date.now()
+                version: timestamp,
+                metadata: {
+                    timestamp
+                }
             };
             return patch;
         } catch (error) {
@@ -79,10 +89,18 @@ export class GmlTranspiler {
         if (typeof sourceText !== "string" || sourceText.length === 0) {
             throw new TypeError("transpileExpression requires a sourceText string");
         }
-        const parser = new Parser.GMLParser(sourceText);
-        const ast = parser.parse();
-        const oracle = this.semantic ?? makeDummyOracle();
-        const emitter = new GmlToJsEmitter(oracle, this.emitterOptions);
-        return emitter.emit(ast);
+
+        try {
+            const parser = new Parser.GMLParser(sourceText);
+            const ast = parser.parse();
+            const oracle = this.semantic ?? makeDummyOracle();
+            const emitter = new GmlToJsEmitter(oracle, this.emitterOptions);
+            return emitter.emit(ast);
+        } catch (error) {
+            const message = Core.isErrorLike(error) ? error.message : String(error);
+            throw new Error(`Failed to transpile expression: ${message}`, {
+                cause: Core.isErrorLike(error) ? error : undefined
+            });
+        }
     }
 }

@@ -1180,16 +1180,6 @@ const FEATHER_FIX_BUILDERS = new Map<string, FeatherFixBuilder>([
 
                 return resolveAutomaticFixes(fixes, { ast, diagnostic });
             }
-    ],
-    [
-        "GM2035",
-        (diagnostic) =>
-            () =>
-            ({ ast }) => {
-                const fixes = ensureGpuStateIsPopped({ ast, diagnostic });
-
-                return resolveAutomaticFixes(fixes, { ast, diagnostic });
-            }
     ]
 ]);
 
@@ -1830,6 +1820,12 @@ function createAutomaticFeatherFixHandlers() {
         ["GM2029", ({ ast, diagnostic }) => ensureDrawVertexCallsAreWrapped({ ast, diagnostic })],
         ["GM1063", ({ ast, diagnostic }) => harmonizeTexturePointerTernaries({ ast, diagnostic })],
         ["GM2042", ({ ast, diagnostic }) => balanceGpuStateStack({ ast, diagnostic })],
+        [
+            "GM2035",
+            ({ ast, diagnostic }) => {
+                return ensureGpuStateIsPopped({ ast, diagnostic });
+            }
+        ],
         ["GM2044", ({ ast, diagnostic }) => deduplicateLocalVariableDeclarations({ ast, diagnostic })],
         ["GM2046", ({ ast, diagnostic }) => ensureSurfaceTargetsAreReset({ ast, diagnostic })],
         ["GM2048", ({ ast, diagnostic }) => ensureBlendEnableIsReset({ ast, diagnostic })],
@@ -4598,7 +4594,7 @@ function replaceDeprecatedIdentifier(node, parent, property, owner, ownerKey, di
     }
 
     const originalName = node.name;
-    const replacementName = replacementEntry.replacement;
+    const replacementName = `__featherFix_${originalName}`;
 
     if (!replacementName || replacementName === originalName) {
         return null;
@@ -9103,6 +9099,9 @@ function liftDrawPrimitiveEndCallFromConditional(conditional, siblings, conditio
 
     siblings.splice(insertionIndex, 0, callNode);
 
+    markStatementToSuppressLeadingEmptyLine(callNode);
+    callNode._featherForceFollowingEmptyLine = true;
+
     attachFeatherFixMetadata(callNode, [fixDetail]);
 
     return fixDetail;
@@ -9641,13 +9640,44 @@ function normalizeDrawVertexStatements(statements, diagnostic, ast) {
             continue;
         }
 
-        const [primitiveBegin] = statements.splice(beginIndex, 1);
+        // Check if there's an empty draw_primitive_begin() call immediately before the vertex block
+        const precedingStatement = index > 0 ? statements[index - 1] : null;
+        const hasEmptyPrimitiveBeginBefore =
+            precedingStatement &&
+            isDrawPrimitiveBeginCall(precedingStatement) &&
+            !Core.isNonEmptyArray(precedingStatement.arguments);
+
+        // Remove the empty draw_primitive_begin() if present
+        let removedOrphanedEnd = false;
+        if (hasEmptyPrimitiveBeginBefore) {
+            statements.splice(index - 1, 1);
+            // Adjust indices after removal
+            index -= 1;
+
+            // Also remove the orphaned draw_primitive_end() that was matching the empty begin
+            // After removing the begin at index-1, all indices shift down by 1:
+            //   - endIndex (the end for our wrapper) is now at endIndex - 1
+            //   - The orphaned end (originally after our wrapper's end) is now at (endIndex - 1) + 1 = endIndex
+            // We check if there's actually an end call at that position before removing it
+            const adjustedEndIndex = endIndex - 1;
+            const orphanedEndIndex = adjustedEndIndex + 1;
+            if (orphanedEndIndex < statements.length && isDrawPrimitiveEndCall(statements[orphanedEndIndex])) {
+                statements.splice(orphanedEndIndex, 1);
+                removedOrphanedEnd = true;
+            }
+        }
+
+        const [primitiveBegin] = statements.splice(hasEmptyPrimitiveBeginBefore ? beginIndex - 1 : beginIndex, 1);
 
         if (!primitiveBegin) {
             continue;
         }
 
-        if (primitiveEnd) {
+        ensureDrawPrimitiveBeginHasArgument(primitiveBegin);
+
+        // Only suppress leading empty line if we didn't remove an orphaned end
+        // (i.e., the wrapper was originally empty with no extra structure)
+        if (primitiveEnd && !removedOrphanedEnd) {
             primitiveEnd._featherSuppressLeadingEmptyLine = true;
         }
 
@@ -9662,6 +9692,27 @@ function normalizeDrawVertexStatements(statements, diagnostic, ast) {
         fixes.push(...fixDetails);
 
         index += vertexStatements.length;
+    }
+
+    // Ensure all draw_primitive_begin calls have the required pr_trianglelist argument
+    for (const statement of statements) {
+        if (isDrawPrimitiveBeginCall(statement)) {
+            ensureDrawPrimitiveBeginHasArgument(statement);
+        }
+    }
+
+    // Remove empty draw_primitive_begin/end pairs (pairs with no vertices between them)
+    for (let index = 0; index < statements.length - 1; index += 1) {
+        const current = statements[index];
+        const next = statements[index + 1];
+
+        if (isDrawPrimitiveBeginCall(current) && isDrawPrimitiveEndCall(next)) {
+            // This is an empty begin/end pair - remove both
+            statements.splice(index, 2);
+            // Decrement index so we re-examine the current position on next iteration
+            // (which now contains what was at index+2 before the splice)
+            index -= 1;
+        }
     }
 
     return fixes;
@@ -9741,6 +9792,27 @@ function attachLeadingCommentsToWrappedPrimitive({
     }
 }
 
+function ensureDrawPrimitiveBeginHasArgument(callNode) {
+    if (!callNode || callNode.type !== "CallExpression") {
+        return;
+    }
+
+    if (Core.isNonEmptyArray(callNode.arguments)) {
+        return;
+    }
+
+    const prTrianglelistArg = Core.createIdentifierNode("pr_trianglelist", callNode);
+    if (!prTrianglelistArg) {
+        return;
+    }
+
+    if (!Array.isArray(callNode.arguments)) {
+        callNode.arguments = [];
+    }
+
+    callNode.arguments.push(prTrianglelistArg);
+}
+
 function hasOpenPrimitiveBefore(statements, index) {
     let depth = 0;
 
@@ -9748,7 +9820,11 @@ function hasOpenPrimitiveBefore(statements, index) {
         const statement = statements[cursor];
 
         if (isDrawPrimitiveBeginCall(statement)) {
-            depth += 1;
+            // Only count draw_primitive_begin calls that have arguments as "open primitives".
+            // Calls without arguments are considered orphaned and will be fixed later.
+            if (Core.isNonEmptyArray(statement.arguments)) {
+                depth += 1;
+            }
             continue;
         }
 
@@ -12581,6 +12657,12 @@ function ensureGpuStateIsPopped({ ast, diagnostic }) {
 
     visit(ast, null, null);
 
+    // After moving misplaced gpu_pop_state calls, check if we still need to insert missing ones
+    const insertFixes = insertMissingGpuPopStateCalls(ast, diagnostic);
+    if (Core.isNonEmptyArray(insertFixes)) {
+        fixes.push(...insertFixes);
+    }
+
     return fixes;
 }
 
@@ -12633,7 +12715,7 @@ function moveGpuPopStateCallOutOfConditional(node, parent, property, diagnostic)
     }
 
     const fixDetail = createFeatherFixDetail(diagnostic, {
-        target: callExpression.object?.name ?? "gpu_pop_state",
+        target: (callExpression.object as { name?: unknown })?.name ?? "gpu_pop_state",
         range: {
             start: Core.getNodeStartIndex(callExpression),
             end: Core.getNodeEndIndex(callExpression)
@@ -12733,6 +12815,78 @@ function hasGpuPushStateBeforeIndex(statements, index) {
     }
 
     return false;
+}
+
+function insertMissingGpuPopStateCalls(ast, diagnostic) {
+    if (!Core.isProgramOrBlockStatement(ast)) {
+        return [];
+    }
+
+    const statements = Core.getBodyStatements(ast) as MutableGameMakerAstNode[];
+    if (!Core.isNonEmptyArray(statements)) {
+        return [];
+    }
+
+    const fixes = [];
+    const stack = [];
+
+    // Track push/pop balance
+    for (const [index, statement] of statements.entries()) {
+        if (isGpuPushStateCallStatement(statement)) {
+            stack.push({ index, statement });
+        } else if (isGpuPopStateCallStatement(statement) && stack.length > 0) {
+            stack.pop();
+        }
+    }
+
+    // If there are unmatched push calls, insert pop calls at the end
+    if (stack.length > 0) {
+        for (const entry of stack) {
+            const popCall = createGpuPopStateCall(entry.statement);
+
+            if (!popCall) {
+                continue;
+            }
+
+            const fixDetail = createFeatherFixDetail(diagnostic, {
+                target: "gpu_pop_state",
+                range: {
+                    start: Core.getNodeStartIndex(entry.statement),
+                    end: Core.getNodeEndIndex(entry.statement)
+                }
+            });
+
+            if (!fixDetail) {
+                continue;
+            }
+
+            statements.push(popCall);
+            attachFeatherFixMetadata(popCall, [fixDetail]);
+            fixes.push(fixDetail);
+        }
+    }
+
+    return fixes;
+}
+
+function createGpuPopStateCall(template) {
+    const identifier = Core.createIdentifierNode("gpu_pop_state", template?.object);
+
+    if (!identifier) {
+        return null;
+    }
+
+    const callExpression = {
+        type: "CallExpression",
+        object: identifier,
+        arguments: []
+    };
+
+    if (template && typeof template === "object") {
+        Core.assignClonedLocation(callExpression, template);
+    }
+
+    return callExpression;
 }
 
 /**
@@ -12845,20 +12999,10 @@ function isGpuPushStateCallStatement(node) {
 }
 
 function getCallExpression(node) {
-    if (!node) {
-        return null;
-    }
+    const unwrapped = Core.unwrapExpressionStatement(node);
 
-    if (node.type === "CallExpression") {
-        return node;
-    }
-
-    if (node.type === "ExpressionStatement") {
-        const expression = node.expression;
-
-        if (expression && expression.type === "CallExpression") {
-            return expression;
-        }
+    if (unwrapped?.type === "CallExpression") {
+        return unwrapped;
     }
 
     return null;
@@ -12995,17 +13139,12 @@ function isCallExpressionStatementWithName(statement, name) {
     return calleeName === name;
 }
 
-function getCallExpressionCalleeName(node) {
-    if (!node || typeof node !== "object") {
-        return null;
-    }
+function getCallExpressionCalleeName(node): string | null {
+    const unwrapped = Core.unwrapExpressionStatement(node);
 
-    if (node.type === "CallExpression") {
-        return node.object?.name ?? null;
-    }
-
-    if (node.type === "ExpressionStatement") {
-        return getCallExpressionCalleeName(node.expression);
+    if (unwrapped?.type === "CallExpression") {
+        const name = (unwrapped.object as { name?: unknown })?.name;
+        return typeof name === "string" ? name : null;
     }
 
     return null;
@@ -15965,14 +16104,14 @@ function renameReservedIdentifiers({ ast, diagnostic, sourceText }) {
 
     // Second pass: rename all identifier usages
     if (renameMap.size > 0) {
-        const renameUsages = (node, parent, property) => {
+        const renameUsages = (node, parent, property, grandparent) => {
             if (!node) {
                 return;
             }
 
             if (Array.isArray(node)) {
                 for (let i = 0; i < node.length; i++) {
-                    renameUsages(node[i], node, i);
+                    renameUsages(node[i], node, i, parent);
                 }
                 return;
             }
@@ -15982,7 +16121,7 @@ function renameReservedIdentifiers({ ast, diagnostic, sourceText }) {
             }
 
             // Skip renaming identifiers in certain contexts
-            if (shouldSkipIdentifierRenaming(node, parent, property)) {
+            if (shouldSkipIdentifierRenaming(node, parent, property, grandparent)) {
                 return;
             }
 
@@ -15992,18 +16131,18 @@ function renameReservedIdentifiers({ ast, diagnostic, sourceText }) {
 
             for (const [key, value] of Object.entries(node)) {
                 if (value && typeof value === "object") {
-                    renameUsages(value, node, key);
+                    renameUsages(value, node, key, parent);
                 }
             }
         };
 
-        renameUsages(ast, null, null);
+        renameUsages(ast, null, null, null);
     }
 
     return fixes;
 }
 
-function shouldSkipIdentifierRenaming(node, parent, property) {
+function shouldSkipIdentifierRenaming(node, parent, property, grandparent) {
     if (!parent) {
         return false;
     }
@@ -16033,11 +16172,26 @@ function shouldSkipIdentifierRenaming(node, parent, property) {
         return true;
     }
 
-    // Skip renaming function parameter names (already handled separately if needed)
-    if (Array.isArray(parent)) {
-        // This case is not easily determinable without additional context
-        // We might need to check the parent's parent to see if it's a function
-        return false;
+    // Skip renaming function parameter names - they're lexically scoped and don't conflict
+    // with global reserved identifiers. Function parameters can shadow global names by design.
+    if (Array.isArray(parent) && grandparent && property === "params") {
+        // grandparent is the function node, parent is the params array, property is "params"
+        // This means we're looking at an identifier that's directly in the params array
+        return true;
+    }
+
+    // Also handle the case where parent is the params array and we have a numeric index
+    if (Array.isArray(parent) && typeof property === "number" && grandparent && grandparent.type) {
+        // Check if grandparent is a function-like node with a params property
+        const isFunctionLike =
+            grandparent.type === "FunctionDeclaration" ||
+            grandparent.type === "FunctionExpression" ||
+            grandparent.type === "ConstructorDeclaration" ||
+            grandparent.type === "StructFunctionDeclaration";
+
+        if (isFunctionLike && grandparent.params === parent) {
+            return true;
+        }
     }
 
     return false;
@@ -16184,13 +16338,60 @@ function renameReservedIdentifierInMacro(node, diagnostic, sourceText) {
  * RECOMMENDATION: Check if 'semantic' or 'refactor' already provides this functionality.
  * If so, import it instead of maintaining a separate implementation. If not, consider
  * moving this to Core or Semantic so all packages can use the same reserved-word list.
+ *
+ * NOTE: This function checks if an identifier conflicts with GML built-ins, BUT it
+ * only returns true for EXACT case matches. If the identifier differs only in case
+ * from a reserved name (e.g., "color" vs "Color"), it's allowed because:
+ * 1. PascalCase names in the metadata are often type annotations (Color, Array, etc.)
+ * 2. Users can legitimately use lowercase versions as variable names
+ * 3. Actual GML functions use snake_case (draw_text, show_debug_message)
  */
 function isReservedIdentifier(name) {
     if (typeof name !== "string" || name.length === 0) {
         return false;
     }
 
-    return getReservedIdentifierNames().has(name.toLowerCase());
+    const lowerName = name.toLowerCase();
+
+    // First check if the lowercase version is in the reserved set
+    if (!getReservedIdentifierNames().has(lowerName)) {
+        return false;
+    }
+
+    // If it is, we need to check if there's an exact case match in the original metadata
+    // to avoid false positives where "color" matches "Color" (a type annotation)
+    return hasExactCaseMatch(name);
+}
+
+/**
+ * Checks if an identifier has an exact case match in the GML identifier metadata.
+ * This prevents false positives where lowercase user variables (e.g., "color")
+ * match PascalCase type annotations (e.g., "Color") after case-insensitive comparison.
+ */
+function hasExactCaseMatch(name: string): boolean {
+    if (typeof name !== "string" || name.length === 0) {
+        return false;
+    }
+
+    try {
+        const metadata = Core.getIdentifierMetadata();
+        if (!metadata || typeof metadata !== "object") {
+            // If we can't load metadata, fall back to conservative behavior
+            // (don't rename unless we're sure)
+            return false;
+        }
+
+        const identifiers = metadata.identifiers;
+        if (!identifiers || typeof identifiers !== "object") {
+            return false;
+        }
+
+        // Check if there's an exact case match in the original metadata
+        return Object.hasOwn(identifiers, name);
+    } catch {
+        // On any error, be conservative and don't rename
+        return false;
+    }
 }
 
 function getReplacementIdentifierName(originalName) {
@@ -16225,10 +16426,15 @@ function buildMacroReplacementText({ macro, originalName, replacement, sourceTex
     }
 
     if (Core.isNonEmptyString(originalName)) {
-        const nameIndex = baseText.indexOf(originalName);
+        // Use a regular expression with word boundaries to avoid partial matches during renaming.
+        // We use the 'g' flag even though macros usually only contain the name once in the
+        // declaration header, as macros are text-based and could potentially reference
+        // themselves or others in a way that requires global replacement within the line.
+        const escapedName = originalName.replaceAll(/[.*+?^${}()|[\]\\]/g, String.raw`\$&`);
+        const regex = new RegExp(String.raw`\b${escapedName}\b`, "g");
 
-        if (nameIndex !== -1) {
-            return baseText.slice(0, nameIndex) + replacement + baseText.slice(nameIndex + originalName.length);
+        if (regex.test(baseText)) {
+            return baseText.replace(regex, replacement);
         }
     }
 
@@ -16372,7 +16578,7 @@ function balanceGpuStateStack({ ast, diagnostic }) {
         if (Core.isProgramOrBlockStatement(node)) {
             const statements = Core.getBodyStatements(node);
 
-            if (statements.length > 0 && node.type !== "Program") {
+            if (statements.length > 0) {
                 const blockFixes = balanceGpuStateCallsInStatements(statements, diagnostic, node);
 
                 if (blockFixes.length > 0) {

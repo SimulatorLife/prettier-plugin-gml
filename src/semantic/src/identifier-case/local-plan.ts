@@ -22,6 +22,7 @@ import {
 import { planAssetRenames, applyAssetRenames } from "./asset-renames.js";
 import { getDefaultIdentifierCaseFsFacade } from "./fs-facade.js";
 import { evaluateIdentifierCaseAssetRenamePolicy } from "./asset-rename-policy.js";
+import { ConflictSeverity } from "./conflict-severity.js";
 
 type IdentifierCaseDeclaration = {
     name?: string | null;
@@ -358,7 +359,7 @@ function createCrossScopeCollisionConflict({ scopeType, currentName, convertedNa
 
     return createConflict({
         code: COLLISION_CONFLICT_CODE,
-        severity: "error",
+        severity: ConflictSeverity.ERROR,
         message,
         scope: scopeDescriptor,
         identifier: currentName
@@ -423,7 +424,7 @@ function planIdentifierRenamesForScope({
             conflicts.push(
                 createConflict({
                     code: configConflict.code,
-                    severity: "info",
+                    severity: ConflictSeverity.INFO,
                     message,
                     scope: scopeDescriptor,
                     identifier: currentName
@@ -1275,7 +1276,7 @@ function gatherActiveLocalCandidates({
             conflicts.push(
                 createConflict({
                     code: configConflict.code,
-                    severity: "info",
+                    severity: ConflictSeverity.INFO,
                     message,
                     scope: scopeDescriptor,
                     identifier: declaration.name
@@ -1292,7 +1293,7 @@ function gatherActiveLocalCandidates({
             conflicts.push(
                 createConflict({
                     code: COLLISION_CONFLICT_CODE,
-                    severity: "error",
+                    severity: ConflictSeverity.ERROR,
                     message: `Renaming '${declaration.name}' to '${convertedName}' collides with existing identifier '${convertedName}'.`,
                     scope: scopeDescriptor,
                     identifier: declaration.name
@@ -1358,7 +1359,7 @@ function resolveLocalCandidateCollisions({
                     conflicts.push(
                         createConflict({
                             code: COLLISION_CONFLICT_CODE,
-                            severity: "error",
+                            severity: ConflictSeverity.ERROR,
                             message: `Renaming '${candidate.declaration.name}' to '${convertedName}' collides with ${otherNames
                                 .map((name) => `'${name}'`)
                                 .join(", ")}.`,
