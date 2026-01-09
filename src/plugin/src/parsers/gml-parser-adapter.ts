@@ -381,6 +381,7 @@ function applyOptionalTransforms(
     }
 
     if (options?.condenseLogicalExpressions) {
+        Transforms.condenseGuardStatementsTransform.transform(ast);
         Transforms.condenseLogicalExpressionsTransform.transform(ast);
     }
 

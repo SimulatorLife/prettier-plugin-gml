@@ -5610,6 +5610,11 @@ function isComparisonWithinLogicalChain(path) {
 }
 
 function shouldWrapTernaryExpression(path) {
+    const node = callPathMethod(path, "getValue", { defaultValue: null });
+    if (node && node.__skipTernaryParens) {
+        return false;
+    }
+
     const parent = callPathMethod(path, "getParentNode", {
         defaultValue: null
     });

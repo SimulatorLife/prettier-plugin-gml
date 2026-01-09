@@ -179,6 +179,64 @@ function ensureBlankLineBeforeTopLevelLineComments(formatted: string): string {
     return result.join("\n");
 }
 
+function isPlainLineCommentLine(line: string | undefined): boolean {
+    if (typeof line !== "string") {
+        return false;
+    }
+
+    const trimmed = line.trimStart();
+    return trimmed.startsWith("//") && !trimmed.startsWith("///");
+}
+
+function getNextNonBlankLine(lines: string[], startIndex: number): string | undefined {
+    for (let index = startIndex; index < lines.length; index += 1) {
+        const current = lines[index];
+        if (current.trim().length > 0) {
+            return current;
+        }
+    }
+
+    return undefined;
+}
+
+function getPreviousNonBlankLine(lines: string[]): string | undefined {
+    for (let index = lines.length - 1; index >= 0; index -= 1) {
+        if (lines[index].trim().length > 0) {
+            return lines[index];
+        }
+    }
+
+    return undefined;
+}
+
+function isGuardCommentSequence(lines: string[], commentIndex: number): boolean {
+    const nextLine = getNextNonBlankLine(lines, commentIndex + 1);
+    return typeof nextLine === "string" && /^\s*if\b/.test(nextLine);
+}
+
+function removeBlankLinesBeforeGuardComments(formatted: string): string {
+    const lines = formatted.split(/\r?\n/);
+    const normalized: string[] = [];
+
+    for (let index = 0; index < lines.length; index += 1) {
+        const line = lines[index];
+
+        if (
+            line.trim().length === 0 &&
+            index + 1 < lines.length &&
+            isPlainLineCommentLine(lines[index + 1]) &&
+            isGuardCommentSequence(lines, index + 1) &&
+            getPreviousNonBlankLine(normalized)?.trim().endsWith("{")
+        ) {
+            continue;
+        }
+
+        normalized.push(line);
+    }
+
+    return normalized.join("\n");
+}
+
 function trimWhitespaceAfterBlockComments(formatted: string): string {
     return formatted.replaceAll(/\*\/\r?\n[ \t]+/g, "*/\n");
 }
@@ -302,7 +360,10 @@ async function format(source: string, options: SupportOptions = {}) {
     const normalizedLineCommentBlockSpacing = collapseLineCommentToBlockCommentBlankLines(
         collapsedWhitespaceOnlyLines
     );
-    const afterTrailingWhitespace = reapplyLineCommentTrailingWhitespace(normalizedLineCommentBlockSpacing, source);
+    const cleanedGuardComments = removeBlankLinesBeforeGuardComments(
+        normalizedLineCommentBlockSpacing
+    );
+    const afterTrailingWhitespace = reapplyLineCommentTrailingWhitespace(cleanedGuardComments, source);
     return collapseWhitespaceOnlyBlankLines(afterTrailingWhitespace);
 }
 
