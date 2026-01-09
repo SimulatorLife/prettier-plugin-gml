@@ -902,6 +902,30 @@ function collectSuiteFailureSummaries(results) {
     return createSuiteFailureSummariesFromEntries(entries);
 }
 
+/**
+ * Format a single failure summary into a human-readable line suitable for
+ * logging to the console.
+ *
+ * @param {Object} failure - The failure summary containing suite and message
+ * @param {string} failure.suite - The name of the suite that failed
+ * @param {string} failure.message - The error message describing the failure
+ * @returns {string} A formatted failure line prefixed with a bullet point
+ */
+function formatFailureLine({ suite, message }: { suite: string; message: string }): string {
+    return `- ${suite}: ${message}`;
+}
+
+/**
+ * Convert an array of failure summaries into formatted console lines. Isolates
+ * the bookkeeping of array iteration and formatting from the orchestrator.
+ *
+ * @param {{ suite: string; message: string }[]} failures - Array of failure summaries
+ * @returns {string[]} Array of formatted failure lines ready for console output
+ */
+function formatFailureLines(failures: { suite: string; message: string }[]): string[] {
+    return failures.map(formatFailureLine);
+}
+
 function formatFailureFollowUp({
     stdout,
     format,
@@ -943,7 +967,7 @@ function logSuiteFailureSummary(
 
     const heading =
         failures.length === 1 ? "Performance suite failure detected:" : "Performance suite failures detected:";
-    const failureLines = failures.map(({ suite, message }) => `- ${suite}: ${message}`);
+    const failureLines = formatFailureLines(failures);
 
     const displayPath = reportResult?.path ? formatReportFilePath(reportResult.path) : "";
     const followUp = formatFailureFollowUp({

@@ -52,11 +52,27 @@ export function createSemanticOracle(options: SemanticOracleOptions = {}): Ident
     const builtinNames = options.builtinNames ?? Core.loadManualFunctionNames();
     const scriptNames = options.scriptNames ?? new Set<string>();
 
-    // TODO: Implement scope tracker integration for local variable resolution.
-    // The BasicSemanticOracle supports a ScopeTracker parameter, but ScopeTracker
-    // is not part of the public Semantic API. For now, we pass null to use
-    // default classification without scope resolution.
+    // SCOPE TRACKING DECISION: We pass `null` for the scope tracker parameter.
+    //
+    // The transpiler operates on individual AST nodes in isolation, emitting
+    // JavaScript code without needing full project context or cross-file scope
+    // information. The semantic oracle's built-in function knowledge and script
+    // name classification are sufficient for code generation.
+    //
+    // Scope tracking would only be beneficial if the transpiler needed to:
+    //   1. Distinguish between local variables and instance fields with the same name
+    //   2. Handle shadowing across nested function scopes
+    //   3. Generate different code based on declaration site
+    //
+    // Currently, the transpiler relies on GML's runtime semantics where undeclared
+    // identifiers are treated as instance variables. This matches GameMaker's
+    // behavior and avoids requiring full project analysis for transpilation.
+    //
+    // If scope-aware transpilation becomes necessary in the future, the integration
+    // point would be through the public Semantic API (SemanticScopeCoordinator),
+    // not the internal ScopeTracker class.
     const scopeTracker = null;
 
+    // eslint-disable-next-line @typescript-eslint/no-unsafe-argument -- null is a valid ScopeTracker parameter per BasicSemanticOracle interface
     return new Semantic.BasicSemanticOracle(scopeTracker, builtinNames, scriptNames);
 }

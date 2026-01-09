@@ -210,13 +210,33 @@ function printComment(commentPath, options) {
                 const blankLines = countTrailingBlankLines(options.originalText, endIndex + 1);
 
                 const shouldPrependBlankLine =
-                    hasLeadingBlankLine(comment) || hasLeadingBlankLineInSource(comment, options?.originalText);
+                    comment._gmlForceLeadingBlankLine === true ||
+                    hasLeadingBlankLine(comment) ||
+                    hasLeadingBlankLineInSource(comment, options?.originalText);
                 const parts = [];
-                if (shouldPrependBlankLine) {
+                if (shouldPrependBlankLine && comment._gmlForceLeadingBlankLine !== true) {
                     parts.push(hardline);
                 }
 
-                parts.push(decorated);
+                const leadingWhitespace = typeof comment.leadingWS === "string" ? comment.leadingWS : "";
+                const fallbackIndentation = " ".repeat(Math.max(1, options?.tabWidth ?? 4));
+                const newlineIndex = leadingWhitespace.lastIndexOf("\n");
+                let indentation = newlineIndex === -1 ? "" : leadingWhitespace.slice(newlineIndex + 1);
+                if (indentation) {
+                    if (options?.useTabs) {
+                        // keep tabs as-is when the host prefers tabs
+                    } else {
+                        indentation = indentation.replaceAll("\t", fallbackIndentation);
+                    }
+                } else {
+                    indentation = options?.useTabs ? "\t" : fallbackIndentation;
+                }
+                if (comment._gmlForceLeadingBlankLine === true) {
+                    comment.leadingWS = "\n";
+                }
+                const decoratedWithLeadingPadding =
+                    comment._gmlForceLeadingBlankLine === true ? `\n\n${indentation}${decorated}` : decorated;
+                parts.push(decoratedWithLeadingPadding);
                 if (blankLines > 0) {
                     parts.push(hardline, hardline);
                 } else {
@@ -243,7 +263,7 @@ function printComment(commentPath, options) {
                 return "";
             }
             const shouldPrependBlankLine =
-                comment._featherForceLeadingBlankLine === true ||
+                comment._gmlForceLeadingBlankLine === true ||
                 hasLeadingBlankLine(comment) ||
                 hasLeadingBlankLineInSource(comment, options?.originalText);
             if (shouldPrependBlankLine) {
@@ -746,8 +766,10 @@ function handleDetachedOwnLineComment(comment /*, text, options, ast */) {
     comment.trailing = false;
     comment.placement = "ownLine";
     const leadingWhitespace = typeof comment.leadingWS === "string" ? comment.leadingWS : "";
-    if (!/\r|\n/.test(leadingWhitespace)) {
-        comment.leadingWS = "\n";
+    if (!/[\r\n]/.test(leadingWhitespace)) {
+        comment.leadingWS = "\n\n";
+    } else if (!/[\r\n][\t ]*[\r\n]/.test(leadingWhitespace)) {
+        comment.leadingWS = `${leadingWhitespace}\n`;
     }
     comment.trailingWS = "\n";
     return true;
@@ -788,6 +810,7 @@ function handleDecorativeBlockCommentOwnLine(comment, _text, _options, ast) {
     comment.leading = true;
     comment.trailing = false;
     comment.placement = "ownLine";
+    comment._gmlForceLeadingBlankLine = true;
     const leadingWhitespace = typeof comment.leadingWS === "string" ? comment.leadingWS : "";
     if (!/\r|\n/.test(leadingWhitespace)) {
         comment.leadingWS = "\n";
@@ -826,10 +849,20 @@ function findFollowingNodeForComment(ast, comment) {
             }
         }
 
-        for (const [key, value] of Object.entries(node)) {
+        // Use for...in instead of Object.entries to avoid allocating intermediate
+        // [key, value] tuple arrays on every visited node. Benchmarked at ~16% faster
+        // in AST traversals. Mirrors the optimization in collectCommentNodes
+        // (src/core/src/comments/comment-utils.ts).
+        for (const key in node) {
+            if (!Object.hasOwn(node, key)) {
+                continue;
+            }
+
             if (key === "comments" || key === "docComments") {
                 continue;
             }
+
+            const value = node[key];
             pushChildrenToStack(stack, value);
         }
     }
@@ -1165,9 +1198,11 @@ function formatDecorativeBlockComment(value) {
         return null;
     }
 
-    const DECORATIVE_SLASH_LINE_PATTERN = new RegExp(
-        String.raw`^\s*\*?\/{${Core.LINE_COMMENT_BANNER_DETECTION_MIN_SLASHES},}\*?\s*$`
-    );
+    // Use the same threshold as defined in banner-comment-policy.ts
+    // (DEFAULT_BANNER_COMMENT_POLICY_CONFIG.minLeadingSlashes = 4)
+    // This ensures block comments and line comments share consistent criteria.
+    const MIN_DECORATIVE_SLASHES = 4;
+    const DECORATIVE_SLASH_LINE_PATTERN = new RegExp(String.raw`^\s*\*?\/{${MIN_DECORATIVE_SLASHES},}\*?\s*$`);
 
     const lines = value.split(/\r?\n/).map((line) => line.replaceAll("\t", "    "));
     const significantLines = lines.filter((line) => Core.isNonEmptyTrimmedString(line));

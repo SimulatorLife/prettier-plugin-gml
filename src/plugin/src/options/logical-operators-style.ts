@@ -1,17 +1,22 @@
 import { Core } from "@gml-modules/core";
 
+const { createEnumeratedOptionHelpers } = Core;
+
 const LogicalOperatorsStyle = Object.freeze({
     KEYWORDS: "keywords",
     SYMBOLS: "symbols"
-});
-
-const LOGICAL_OPERATORS_STYLE_VALUES = Object.freeze(Object.values(LogicalOperatorsStyle));
-
-const LOGICAL_OPERATORS_STYLE_SET = new Set(LOGICAL_OPERATORS_STYLE_VALUES);
-
-const VALID_STYLES_MESSAGE = LOGICAL_OPERATORS_STYLE_VALUES.map((value) => `'${value}'`).join(", ");
+} as const);
 
 export const DEFAULT_LOGICAL_OPERATORS_STYLE = LogicalOperatorsStyle.KEYWORDS;
+
+/**
+ * Helpers for validating and normalizing logical operators style values.
+ */
+const logicalOperatorsStyleHelpers = createEnumeratedOptionHelpers(Object.values(LogicalOperatorsStyle), {
+    formatError: (list, received) => `logicalOperatorsStyle must be one of: ${list}. Received: ${received}.`,
+    enforceStringType: true,
+    valueLabel: "logicalOperatorsStyle"
+});
 
 /**
  * Check whether the provided value matches one of the supported logical
@@ -19,16 +24,14 @@ export const DEFAULT_LOGICAL_OPERATORS_STYLE = LogicalOperatorsStyle.KEYWORDS;
  *
  * Consumers frequently receive untyped config (for example CLI flags or JSON
  * options) and need a quick membership test without re-threading the
- * enumerated set. Non-string values are rejected by the underlying `Set`
- * membership check, keeping the guard aligned with
- * {@link normalizeLogicalOperatorsStyle}.
+ * enumerated set. The value is normalized (trimmed and lowercased) before
+ * checking, making this consistent with {@link normalizeLogicalOperatorsStyle}.
  *
  * @param {unknown} value Candidate option value to inspect.
- * @returns {value is keyof typeof LogicalOperatorsStyle} `true` when the value
- *          maps to a known logical operator style.
+ * @returns {boolean} `true` when the value maps to a known logical operator style.
  */
-export function isLogicalOperatorsStyle(value) {
-    return LOGICAL_OPERATORS_STYLE_SET.has(value);
+export function isLogicalOperatorsStyle(value: unknown): boolean {
+    return logicalOperatorsStyleHelpers.normalize(value, null) !== null;
 }
 
 /**
@@ -37,36 +40,21 @@ export function isLogicalOperatorsStyle(value) {
  *
  * The helper trims surrounding whitespace, enforces that the result is one of
  * the enumerated styles, and falls back to the default when callers omit the
- * option altogether. Invalid values raise descriptive `TypeError`/`RangeError`
+ * option altogether. Invalid values raise descriptive `TypeError` or `RangeError`
  * instances so CLI error messaging can surface actionable feedback.
  *
  * @param {unknown} rawStyle Untrusted option value supplied by the caller.
- * @returns {LogicalOperatorsStyle} Canonical logical operator style string.
- * @throws {TypeError | RangeError} When the value cannot be coerced into a
+ * @returns {string} Canonical logical operator style string.
+ * @throws {TypeError} When the value is not a string.
+ * @throws {RangeError} When the value cannot be coerced into a
  *         supported style label.
  */
-export function normalizeLogicalOperatorsStyle(rawStyle?: unknown) {
+export function normalizeLogicalOperatorsStyle(rawStyle?: unknown): string {
     if (rawStyle === undefined) {
         return DEFAULT_LOGICAL_OPERATORS_STYLE;
     }
 
-    const normalized = Core.normalizeEnumeratedOption(rawStyle, null, LOGICAL_OPERATORS_STYLE_SET, {
-        coerce(value) {
-            if (typeof value !== "string") {
-                throw new TypeError(`logicalOperatorsStyle must be provided as a string. Received: ${typeof value}.`);
-            }
-
-            return value.trim();
-        }
-    });
-
-    if (normalized === null) {
-        throw new RangeError(
-            `logicalOperatorsStyle must be one of: ${VALID_STYLES_MESSAGE}. Received: ${JSON.stringify(rawStyle)}.`
-        );
-    }
-
-    return normalized;
+    return logicalOperatorsStyleHelpers.requireValue(rawStyle, RangeError);
 }
 
 export { LogicalOperatorsStyle };

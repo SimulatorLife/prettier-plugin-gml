@@ -186,18 +186,18 @@ function collectAssetReferences(root, callback) {
     const stack = [{ value: root, path: "" }];
 
     while (stack.length > 0) {
-        const { value, path } = stack.pop();
+        const { value, path: nodePath } = stack.pop();
 
         if (Array.isArray(value)) {
             for (let index = value.length - 1; index >= 0; index -= 1) {
-                pushChildNode(stack, path, index, value[index]);
+                pushChildNode(stack, nodePath, index, value[index]);
             }
             continue;
         }
 
         if (typeof value.path === "string") {
             callback({
-                propertyPath: path,
+                propertyPath: nodePath,
                 targetPath: value.path,
                 targetName: typeof value.name === "string" ? value.name : null
             });
@@ -206,7 +206,7 @@ function collectAssetReferences(root, callback) {
         const entries = Object.entries(value);
         for (let i = entries.length - 1; i >= 0; i -= 1) {
             const [key, child] = entries[i];
-            pushChildNode(stack, path, key, child);
+            pushChildNode(stack, nodePath, key, child);
         }
     }
 }

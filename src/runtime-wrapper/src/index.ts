@@ -3,10 +3,15 @@ export * as Clients from "./websocket/index.js";
 export type {
     ApplyPatchResult,
     BatchApplyResult,
+    ErrorAnalytics,
     HistoryManager,
     Patch,
     PatchApplicator,
     PatchDiagnostics,
+    PatchErrorAnalytics,
+    PatchErrorCategory,
+    PatchErrorOccurrence,
+    PatchErrorSummary,
     PatchHistoryEntry,
     PatchKind,
     PatchMetadata,
@@ -31,6 +36,9 @@ export type {
 } from "./runtime/index.js";
 export type {
     MessageEventLike,
+    PatchQueueMetrics,
+    PatchQueueOptions,
+    PatchQueueState,
     RuntimeWebSocketClient,
     RuntimeWebSocketConstructor,
     RuntimeWebSocketInstance,

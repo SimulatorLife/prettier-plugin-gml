@@ -14,16 +14,3 @@ import type { GmlPluginComponentBundle } from "./plugin-types.js";
 export const gmlPluginComponents: GmlPluginComponentBundle = Object.freeze(
     normalizeGmlPluginComponents(createDefaultGmlPluginComponents())
 );
-
-/**
- * Returns the static plugin component bundle.
- *
- * This function exists for backwards compatibility and to provide a clear
- * access point for the component bundle. It always returns the same frozen
- * `gmlPluginComponents` constant.
- *
- * @returns The immutable plugin component bundle
- */
-export function resolveGmlPluginComponents(): GmlPluginComponentBundle {
-    return gmlPluginComponents;
-}

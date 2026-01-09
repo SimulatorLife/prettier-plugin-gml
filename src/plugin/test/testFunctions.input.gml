@@ -54,7 +54,6 @@ function Shape(color = undefined) constructor {
 			group &= ~cmGroupSolid // Remove solid flag
 		}
 	};
-	
 }
 
 /// @param {real} r -  The radius of the circle

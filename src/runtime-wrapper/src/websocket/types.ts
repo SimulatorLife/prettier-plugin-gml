@@ -15,6 +15,12 @@ export interface RuntimeWebSocketInstance {
 
 export type RuntimeWebSocketConstructor = new (url: string) => RuntimeWebSocketInstance;
 
+export interface PatchQueueOptions {
+    maxQueueSize?: number;
+    flushIntervalMs?: number;
+    enabled?: boolean;
+}
+
 export interface WebSocketClientOptions {
     url?: string;
     wrapper?: PatchApplicator | null;
@@ -23,6 +29,13 @@ export interface WebSocketClientOptions {
     onError?: (error: RuntimePatchError, phase: "connection" | "patch") => void;
     reconnectDelay?: number;
     autoConnect?: boolean;
+    patchQueue?: PatchQueueOptions;
+}
+
+export interface PatchQueueState {
+    queue: Array<unknown>;
+    flushTimer: ReturnType<typeof setTimeout> | null;
+    queueMetrics: PatchQueueMetrics;
 }
 
 export interface WebSocketClientState {
@@ -31,6 +44,17 @@ export interface WebSocketClientState {
     reconnectTimer: ReturnType<typeof setTimeout> | null;
     manuallyDisconnected: boolean;
     connectionMetrics: WebSocketConnectionMetrics;
+    patchQueue: PatchQueueState | null;
+}
+
+export interface PatchQueueMetrics {
+    totalQueued: number;
+    totalFlushed: number;
+    totalDropped: number;
+    maxQueueDepth: number;
+    flushCount: number;
+    lastFlushSize: number;
+    lastFlushedAt: number | null;
 }
 
 export interface WebSocketConnectionMetrics {
@@ -67,4 +91,15 @@ export interface RuntimeWebSocketClient {
      * or for testing scenarios that require clean metric baselines.
      */
     resetConnectionMetrics(): void;
+    /**
+     * Returns patch queue metrics if queuing is enabled, null otherwise.
+     * These metrics track queuing behavior for diagnostic and tuning purposes.
+     */
+    getPatchQueueMetrics(): Readonly<PatchQueueMetrics> | null;
+    /**
+     * Manually flushes any queued patches immediately.
+     * Only applicable when patch queuing is enabled.
+     * Returns the number of patches flushed.
+     */
+    flushPatchQueue(): number;
 }

@@ -13,6 +13,7 @@ import {
 import { createAssetRenameExecutor } from "./asset-rename-executor.js";
 import { defaultIdentifierCaseFsFacade } from "./fs-facade.js";
 import { IdentifierCaseStyle, normalizeIdentifierCaseAssetStyle } from "./options.js";
+import { ConflictSeverity } from "./conflict-severity.js";
 
 const RESERVED_IDENTIFIER_NAMES = Core.loadReservedIdentifierNames();
 
@@ -73,7 +74,7 @@ type AssetConflictOptions = {
     metrics?: MetricsRecorder | null;
     metricKey?: string | null;
     code: string;
-    severity?: string;
+    severity?: ConflictSeverity;
     message: string;
     resourcePath?: string | null;
     resourceType?: string | null;
@@ -151,7 +152,7 @@ function pushAssetRenameConflict({
     metrics,
     metricKey,
     code,
-    severity = "error",
+    severity = ConflictSeverity.ERROR,
     message,
     resourcePath,
     resourceType,
@@ -534,7 +535,7 @@ function planRenameForResource({
         pushAssetRenameConflict({
             conflicts,
             code: configConflict.code,
-            severity: "info",
+            severity: ConflictSeverity.INFO,
             message,
             resourcePath,
             resourceType: resourceRecord.resourceType,
