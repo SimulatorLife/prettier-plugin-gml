@@ -1823,8 +1823,7 @@ function createAutomaticFeatherFixHandlers() {
         [
             "GM2035",
             ({ ast, diagnostic }) => {
-                const fixes = ensureGpuStateIsPopped({ ast, diagnostic });
-                return fixes;
+                return ensureGpuStateIsPopped({ ast, diagnostic });
             }
         ],
         ["GM2044", ({ ast, diagnostic }) => deduplicateLocalVariableDeclarations({ ast, diagnostic })],
@@ -12804,12 +12803,11 @@ function insertMissingGpuPopStateCalls(ast, diagnostic) {
 
     // Track push/pop balance
     for (const [index, statement] of statements.entries()) {
-
         if (isGpuPushStateCallStatement(statement)) {
             stack.push({ index, statement });
         } else if (isGpuPopStateCallStatement(statement) && stack.length > 0) {
-                stack.pop();
-            }
+            stack.pop();
+        }
     }
 
     // If there are unmatched push calls, insert pop calls at the end

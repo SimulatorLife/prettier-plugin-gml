@@ -1619,11 +1619,7 @@ function printBlockStatementNode(node, path, options, print) {
             typeof node.start === NUMBER_TYPE &&
             isNextLineEmpty(originalText, node.start);
 
-        const preserveForInitialSpacing = hasBlankLineAfterOpeningBrace(
-            node,
-            sourceMetadata,
-            firstStatementStartIndex
-        );
+        const preserveForInitialSpacing = hasBlankLineAfterOpeningBrace(node, sourceMetadata, firstStatementStartIndex);
 
         // When a decorative block comment (like banner comments) is attached to the
         // first statement, it will be reformatted as a line comment. We need to add
