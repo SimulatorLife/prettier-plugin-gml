@@ -989,6 +989,7 @@ function printCallExpressionNode(node, path, options, print) {
             maxParamsPerLine <= 0 &&
             callbackArguments.length === 0 &&
             structArguments.length === 0 &&
+            node.arguments.length <= 3 &&
             node.arguments.every((argument) => !isComplexArgumentNode(argument));
 
         const effectiveElementsPerLineLimit = shouldFavorInlineArguments ? node.arguments.length : elementsPerLineLimit;
