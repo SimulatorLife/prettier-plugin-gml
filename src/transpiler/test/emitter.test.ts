@@ -1806,7 +1806,7 @@ void test("GmlToJsEmitter handles unknown node types gracefully", () => {
     const mockAst = createMockUnknownNode("UnknownNodeType");
 
     // The emitter should handle unknown nodes gracefully by returning empty string
-    const emitter = new Transpiler.GmlToJsEmitter(Transpiler.makeDefaultOracle());
+    const emitter = new Transpiler.GmlToJsEmitter(Transpiler.createSemanticOracle());
     const result = emitter.emit(mockAst as unknown as Parameters<typeof emitter.emit>[0]);
 
     assert.strictEqual(result, "", "Should return empty string for unknown node types");
@@ -1834,7 +1834,7 @@ void test("GmlToJsEmitter warns about unknown nodes in development", () => {
         // Create a mock AST with unknown type
         const mockAst = createMockUnknownNode("FutureNodeType");
 
-        const emitter = new Transpiler.GmlToJsEmitter(Transpiler.makeDefaultOracle());
+        const emitter = new Transpiler.GmlToJsEmitter(Transpiler.createSemanticOracle());
         emitter.emit(mockAst as unknown as Parameters<typeof emitter.emit>[0]);
 
         // Verify warning was logged
