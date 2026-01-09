@@ -210,10 +210,12 @@ function printComment(commentPath, options) {
                 const blankLines = countTrailingBlankLines(options.originalText, endIndex + 1);
 
                 const shouldPrependBlankLine =
-                    hasLeadingBlankLine(comment) || hasLeadingBlankLineInSource(comment, options?.originalText);
+                    comment._gmlForceLeadingBlankLine === true ||
+                    hasLeadingBlankLine(comment) ||
+                    hasLeadingBlankLineInSource(comment, options?.originalText);
                 const parts = [];
                 if (shouldPrependBlankLine) {
-                    parts.push(hardline);
+                    parts.push(hardline, hardline);
                 }
 
                 parts.push(decorated);
