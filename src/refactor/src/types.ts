@@ -179,6 +179,76 @@ export function requireConflictType(value: unknown, context?: string): ConflictT
     return conflictTypeHelpers.require(value, context);
 }
 
+/**
+ * Enumerated constants for symbol occurrence kinds.
+ *
+ * Occurrence kinds distinguish between definitions (where symbols are declared)
+ * and references (where symbols are used). This enum centralizes valid occurrence
+ * kinds to prevent stringly-typed branches and provides a single source of truth
+ * for validation.
+ *
+ * @example
+ * // Use typed constants instead of raw strings
+ * if (occurrence.kind === OccurrenceKind.DEFINITION) { ... }
+ *
+ * // Validate runtime strings
+ * const kind = parseOccurrenceKind(rawInput);
+ */
+export const OccurrenceKind = Object.freeze({
+    DEFINITION: "definition",
+    REFERENCE: "reference"
+} as const);
+
+export type OccurrenceKindValue = (typeof OccurrenceKind)[keyof typeof OccurrenceKind];
+
+const occurrenceKindHelpers = createEnumHelpers(OccurrenceKind, "occurrence kind");
+
+/**
+ * Check whether a value is a valid occurrence kind.
+ *
+ * @param value - Candidate value to test
+ * @returns True if value matches a known OccurrenceKind constant
+ *
+ * @example
+ * if (isOccurrenceKind(rawString)) {
+ *   // Safe to use as OccurrenceKindValue
+ * }
+ */
+export function isOccurrenceKind(value: unknown): value is OccurrenceKindValue {
+    return occurrenceKindHelpers.is(value);
+}
+
+/**
+ * Parse and validate an occurrence kind string.
+ *
+ * @param value - Raw string to parse
+ * @returns Valid OccurrenceKindValue or null if invalid
+ *
+ * @example
+ * const kind = parseOccurrenceKind(occ.kind);
+ * if (kind === null) {
+ *   // Handle invalid kind
+ * }
+ */
+export function parseOccurrenceKind(value: unknown): OccurrenceKindValue | null {
+    return occurrenceKindHelpers.parse(value);
+}
+
+/**
+ * Parse and validate an occurrence kind string, throwing on invalid input.
+ *
+ * @param value - Raw string to parse
+ * @param context - Optional context for error message
+ * @returns Valid OccurrenceKindValue
+ * @throws {TypeError} If value is not a valid occurrence kind
+ *
+ * @example
+ * const kind = requireOccurrenceKind(occ.kind, "occurrence analysis");
+ */
+export function requireOccurrenceKind(value: unknown, context?: string): OccurrenceKindValue {
+    return occurrenceKindHelpers.require(value, context);
+}
+
 export interface AstNode {
     type?: string;
     name?: string;
@@ -198,7 +268,7 @@ export interface SymbolOccurrence {
     start: number;
     end: number;
     scopeId?: string;
-    kind?: string;
+    kind?: OccurrenceKindValue;
 }
 
 export interface SymbolLookupResult {

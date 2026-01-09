@@ -13,6 +13,7 @@ import {
 import { WorkspaceEdit } from "../src/workspace-edit.js";
 import {
     ConflictType,
+    OccurrenceKind,
     type RenamePlanSummary,
     type BatchRenamePlanSummary,
     type SymbolOccurrence
@@ -528,19 +529,19 @@ void describe("formatOccurrencePreview", () => {
                 path: "scripts/player.gml",
                 start: 10,
                 end: 20,
-                kind: "definition"
+                kind: OccurrenceKind.DEFINITION
             },
             {
                 path: "scripts/player.gml",
                 start: 50,
                 end: 60,
-                kind: "reference"
+                kind: OccurrenceKind.REFERENCE
             },
             {
                 path: "scripts/enemy.gml",
                 start: 30,
                 end: 40,
-                kind: "reference"
+                kind: OccurrenceKind.REFERENCE
             }
         ];
 
@@ -597,10 +598,10 @@ void describe("formatOccurrencePreview", () => {
 
     void it("groups occurrences by file correctly", () => {
         const occurrences: Array<SymbolOccurrence> = [
-            { path: "a.gml", start: 0, end: 5, kind: "definition" },
-            { path: "b.gml", start: 10, end: 15, kind: "reference" },
-            { path: "a.gml", start: 20, end: 25, kind: "reference" },
-            { path: "c.gml", start: 30, end: 35, kind: "reference" }
+            { path: "a.gml", start: 0, end: 5, kind: OccurrenceKind.DEFINITION },
+            { path: "b.gml", start: 10, end: 15, kind: OccurrenceKind.REFERENCE },
+            { path: "a.gml", start: 20, end: 25, kind: OccurrenceKind.REFERENCE },
+            { path: "c.gml", start: 30, end: 35, kind: OccurrenceKind.REFERENCE }
         ];
 
         const preview = formatOccurrencePreview(occurrences, "test", "renamed");

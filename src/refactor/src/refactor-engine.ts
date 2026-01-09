@@ -2,6 +2,7 @@ import { WorkspaceEdit, type GroupedTextEdits } from "./workspace-edit.js";
 import { Core } from "@gml-modules/core";
 import {
     ConflictType,
+    OccurrenceKind,
     type ApplyWorkspaceEditOptions,
     type BatchRenamePlanSummary,
     type BatchRenameValidation,
@@ -1247,7 +1248,7 @@ export class RefactorEngine {
             // reference (where it's used), giving insight into the symbol's role.
             for (const occ of occurrences) {
                 summary.affectedFiles.add(occ.path);
-                if (occ.kind === "definition") {
+                if (occ.kind === OccurrenceKind.DEFINITION) {
                     summary.definitionCount++;
                 } else {
                     summary.referenceCount++;
