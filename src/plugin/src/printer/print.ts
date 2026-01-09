@@ -58,6 +58,7 @@ import {
 } from "./doc-comment/synthetic-doc-comments.js";
 
 import {
+    hasBlankLineAfterOpeningBrace,
     hasBlankLineBeforeLeadingComment,
     hasBlankLineBetweenLastCommentAndClosingBrace,
     getOriginalTextFromOptions,
@@ -1618,6 +1619,12 @@ function printBlockStatementNode(node, path, options, print) {
             typeof node.start === NUMBER_TYPE &&
             isNextLineEmpty(originalText, node.start);
 
+        const preserveForInitialSpacing = hasBlankLineAfterOpeningBrace(
+            node,
+            sourceMetadata,
+            firstStatementStartIndex
+        );
+
         // When a decorative block comment (like banner comments) is attached to the
         // first statement, it will be reformatted as a line comment. We need to add
         // a blank line before it to maintain visual separation from the function header.
@@ -1633,7 +1640,10 @@ function printBlockStatementNode(node, path, options, print) {
 
         // For constructors, preserve blank lines between header and first statement
         shouldPreserveInitialBlankLine =
-            shouldPreserveInitialBlankLine || preserveForConstructorText || preserveForLeadingComment;
+            shouldPreserveInitialBlankLine ||
+            preserveForConstructorText ||
+            preserveForLeadingComment ||
+            preserveForInitialSpacing;
     }
 
     if (shouldPreserveInitialBlankLine) {
