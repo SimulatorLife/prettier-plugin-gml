@@ -1,10 +1,7 @@
 import assert from "node:assert/strict";
 import test from "node:test";
 
-import {
-    gmlPluginComponentDependencies,
-    resolveGmlPluginComponentDependencies
-} from "../src/components/plugin-component-bundles.js";
+import { gmlPluginComponentDependencies } from "../src/components/plugin-component-bundles.js";
 import { createDefaultGmlPluginComponents } from "../src/components/default-plugin-components.js";
 
 const SAMPLE_SOURCE = "function example() { return 1; }";
@@ -22,16 +19,6 @@ void test("dependency bundle is frozen and exposes expected contract keys", () =
             "print",
             "printComment"
         ].sort()
-    );
-});
-
-void test("resolver returns the canonical dependency bundle", () => {
-    const resolved = resolveGmlPluginComponentDependencies();
-
-    assert.strictEqual(
-        resolved,
-        gmlPluginComponentDependencies,
-        "resolver should return the default dependency bundle"
     );
 });
 

@@ -1,10 +1,7 @@
 import assert from "node:assert/strict";
 import test from "node:test";
 
-import {
-    gmlPluginComponentImplementations,
-    resolveGmlPluginComponentImplementations
-} from "../src/components/plugin-component-bundles.js";
+import { gmlPluginComponentImplementations } from "../src/components/plugin-component-bundles.js";
 import { gmlParserAdapter } from "../src/parsers/index.js";
 import { print } from "../src/printer/index.js";
 import { Semantic } from "@gml-modules/semantic";
@@ -20,14 +17,4 @@ void test("default implementation bundle is frozen and reuses canonical referenc
     assert.strictEqual(gmlPluginComponentImplementations.handleComments, handleComments);
     assert.strictEqual(gmlPluginComponentImplementations.identifierCaseOptions, Semantic.identifierCaseOptions);
     assert.strictEqual(gmlPluginComponentImplementations.LogicalOperatorsStyle, LogicalOperatorsStyle);
-});
-
-void test("resolver returns the canonical implementation bundle", () => {
-    const resolved = resolveGmlPluginComponentImplementations();
-
-    assert.strictEqual(
-        resolved,
-        gmlPluginComponentImplementations,
-        "resolver should return the default implementation bundle"
-    );
 });
