@@ -29,7 +29,7 @@ import {
     type ValidationSummary,
     type WorkspaceReadFile
 } from "./types.js";
-import { assertValidIdentifierName, assertNonEmptyNameString } from "./validation-utils.js";
+import { assertValidIdentifierName, assertNonEmptyNameString, hasMethod } from "./validation-utils.js";
 import { detectCircularRenames, detectRenameConflicts } from "./validation.js";
 import * as SymbolQueries from "./symbol-queries.js";
 import * as HotReload from "./hot-reload.js";
@@ -558,7 +558,7 @@ export class RefactorEngine {
 
         // If semantic analyzer is available, perform deeper validation
         const semantic = this.semantic;
-        if (semantic && typeof semantic.validateEdits === "function") {
+        if (hasMethod(semantic, "validateEdits")) {
             try {
                 const semanticValidation = (await semantic.validateEdits(workspace)) ?? {};
                 errors.push(...(semanticValidation.errors || []));
@@ -1146,7 +1146,7 @@ export class RefactorEngine {
         }
 
         // If transpiler check is requested, validate transpilation will work
-        if (checkTranspiler && this.formatter && typeof this.formatter.transpileScript === "function") {
+        if (checkTranspiler && hasMethod(this.formatter, "transpileScript")) {
             // We'll check if any symbols being edited can be transpiled
             // This is a placeholder for more sophisticated checks
             warnings.push("Transpiler compatibility check requested - ensure changed symbols can be transpiled");
@@ -1275,7 +1275,7 @@ export class RefactorEngine {
             if (summary.totalOccurrences > 0) {
                 summary.hotReloadRequired = true;
 
-                if (this.semantic && typeof this.semantic.getDependents === "function") {
+                if (hasMethod(this.semantic, "getDependents")) {
                     const dependents = (await this.semantic.getDependents([symbolId])) ?? [];
                     for (const dep of dependents) {
                         summary.dependentSymbols.add(dep.symbolId);
@@ -1484,7 +1484,7 @@ export class RefactorEngine {
         }
 
         // Use semantic analyzer to check for new conflicts or shadowing
-        if (this.semantic && typeof this.semantic.getSymbolOccurrences === "function") {
+        if (hasMethod(this.semantic, "getSymbolOccurrences")) {
             try {
                 // Query occurrences of the new name to detect any potential conflicts
                 const newOccurrences = await this.semantic.getSymbolOccurrences(newName);
@@ -1504,7 +1504,7 @@ export class RefactorEngine {
         }
 
         // Use semantic analyzer to check for reserved keyword violations
-        if (this.semantic && typeof this.semantic.getReservedKeywords === "function") {
+        if (hasMethod(this.semantic, "getReservedKeywords")) {
             try {
                 const keywords = await this.semantic.getReservedKeywords();
                 if (keywords.includes(newName.toLowerCase())) {
@@ -1517,7 +1517,7 @@ export class RefactorEngine {
 
         // If parser is available, we could re-parse files and verify binding integrity
         // This is more expensive but provides the strongest guarantee
-        if (this.parser && typeof this.parser.parse === "function") {
+        if (hasMethod(this.parser, "parse")) {
             for (const filePath of affectedFiles) {
                 try {
                     // Attempt to parse the file to ensure syntax is still valid

@@ -4,6 +4,7 @@
  * from the semantic analyzer and parser.
  */
 
+import { hasMethod } from "./validation-utils.js";
 import type {
     AstNode,
     FileSymbol,
@@ -32,7 +33,7 @@ export async function findSymbolAtLocation(
     // This is the preferred method because it understands scope, binding, and
     // type information, allowing it to distinguish between identically-named
     // symbols in different contexts (e.g., local variables vs. global functions).
-    if (typeof semantic.getSymbolAtPosition === "function") {
+    if (hasMethod(semantic, "getSymbolAtPosition")) {
         return semantic.getSymbolAtPosition(filePath, offset) ?? null;
     }
 
@@ -40,7 +41,7 @@ export async function findSymbolAtLocation(
     // provide position-based lookup. This is less accurate because it can't
     // resolve bindings, but it still lets us find the syntactic node at the
     // given offset for basic rename operations.
-    if (parser && typeof parser.parse === "function") {
+    if (hasMethod(parser, "parse")) {
         try {
             const ast = await parser.parse(filePath);
             return findNodeAtOffset(ast, offset);
@@ -108,7 +109,7 @@ export async function validateSymbolExists(
     // symbolId exists. This check prevents rename operations from targeting
     // non-existent symbols, which would otherwise silently succeed but produce
     // no edits, confusing users who expect feedback when they mistype a name.
-    if (typeof semantic.hasSymbol === "function") {
+    if (hasMethod(semantic, "hasSymbol")) {
         return semantic.hasSymbol(symbolId);
     }
 
@@ -134,7 +135,7 @@ export async function gatherSymbolOccurrences(
     // global functions, and any other binding sites. The semantic layer tracks
     // both the location (path, offset) and the kind (definition vs. reference)
     // of each occurrence, which later phases use to construct text edits.
-    if (typeof semantic.getSymbolOccurrences === "function") {
+    if (hasMethod(semantic, "getSymbolOccurrences")) {
         return semantic.getSymbolOccurrences(symbolName);
     }
 
@@ -160,7 +161,7 @@ export async function getFileSymbols(
         return [];
     }
 
-    if (typeof semantic.getFileSymbols === "function") {
+    if (hasMethod(semantic, "getFileSymbols")) {
         return (await semantic.getFileSymbols(filePath)) ?? [];
     }
 
@@ -188,7 +189,7 @@ export async function getSymbolDependents(
         return [];
     }
 
-    if (typeof semantic.getDependents === "function") {
+    if (hasMethod(semantic, "getDependents")) {
         return (await semantic.getDependents(symbolIds)) ?? [];
     }
 
