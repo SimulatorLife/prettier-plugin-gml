@@ -233,13 +233,14 @@ function toSafeString(value: unknown) {
     if (typeof value === "object") {
         const toString = (value as { toString?: unknown }).toString;
         if (typeof toString === "function" && toString !== Object.prototype.toString) {
-            return toString.call(value);
+            return (toString as (this: unknown) => string).call(value);
         }
         return OBJECT_TO_STRING(value);
     }
 
     // All primitives (number, bigint, boolean, symbol, function) are coercible to string
-    return String(value as number | bigint | boolean | symbol | ((...args: unknown[]) => unknown));
+    // eslint-disable-next-line @typescript-eslint/no-base-to-string -- value is guaranteed to be a primitive at this point
+    return String(value);
 }
 
 /**
