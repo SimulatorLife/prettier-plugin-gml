@@ -4162,14 +4162,23 @@ function insertNodeBefore(root, target, statement) {
         visited.add(node);
 
         if (Array.isArray(node)) {
-            for (let index = 0; index < node.length; index += 1) {
-                const element = node[index];
+            let targetIndex = -1;
+            for (const [index, element] of node.entries()) {
                 if (element === target) {
-                    node.splice(index, 0, statement);
-                    return true;
+                    targetIndex = index;
+                    break;
                 }
+            }
 
-                stack.push(element);
+            if (targetIndex !== -1) {
+                node.splice(targetIndex, 0, statement);
+                return true;
+            }
+
+            for (const element of node) {
+                if (element && typeof element === "object") {
+                    stack.push(element);
+                }
             }
             continue;
         }
