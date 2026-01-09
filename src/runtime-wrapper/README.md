@@ -1,6 +1,6 @@
 # Runtime Wrapper Module
 
-This package will host the browser-side runtime wrapper described in
+This package hosts the browser-side runtime wrapper described in
 `docs/live-reloading-concept.md`. It receives transpiler patches from the CLI over a WebSocket
 connection and swaps them into the running GameMaker HTML5 export without restarting the game.
 
@@ -10,6 +10,7 @@ connection and swaps them into the running GameMaker HTML5 export without restar
 - Provide patch application helpers that the development shell can call.
 - Surface lifecycle hooks for migrations when hot-reloading Create events.
 - Offer lightweight diagnostics so the CLI and developer can inspect patch state.
+- Provide structured diagnostic logging for development debugging.
 
 ## Directory layout
 
@@ -1194,4 +1195,124 @@ function generateErrorReport() {
 
 ## Status
 
-The module implements core patch application, diagnostic capabilities, performance instrumentation, WebSocket integration, registry lifecycle hooks, and comprehensive error analytics. The error tracking system provides developers with detailed insights into hot-reload failures, enabling rapid identification and resolution of development issues.
+The module implements core patch application, diagnostic capabilities, performance instrumentation, WebSocket integration, registry lifecycle hooks, comprehensive error analytics, and structured development logging. The error tracking system provides developers with detailed insights into hot-reload failures, enabling rapid identification and resolution of development issues. The diagnostic logger provides real-time visibility into patch operations during development.
+
+## Diagnostic Logging
+
+The runtime wrapper includes a configurable diagnostic logger for debugging hot-reload operations. The logger provides pretty-printed console output with emoji indicators, timestamps, and performance timing.
+
+### `createLogger(options)`
+
+Creates a diagnostic logger for runtime wrapper operations.
+
+**Options:**
+
+- `level` (optional): Minimum log level to output. Options: `"silent"`, `"error"`, `"warn"`, `"info"`, `"debug"`. Default is `"error"`.
+- `prefix` (optional): Prefix to prepend to all log messages. Default is `"[hot-reload]"`.
+- `timestamps` (optional): Whether to include timestamps in log output. Default is `false`.
+- `styled` (optional): Whether to use colors and emoji in console output. Default is `true`.
+- `console` (optional): Custom console-like object for output. Useful for testing or custom log routing.
+
+**Returns:** A `Logger` object with methods for logging patch lifecycle events, validation errors, WebSocket events, and general messages.
+
+**Example:**
+
+```javascript
+import { createLogger, createChangeEventLogger, createRuntimeWrapper } from "@prettier-plugin-gml/runtime-wrapper";
+
+// Create logger with info level for development
+const logger = createLogger({
+    level: "info",
+    timestamps: true,
+    prefix: "[dev-reload]"
+});
+
+// Integrate with runtime wrapper onChange hook
+const wrapper = createRuntimeWrapper({
+    onChange: createChangeEventLogger(logger)
+});
+
+// Apply patches - logger will automatically output diagnostic info
+wrapper.applyPatch({
+    kind: "script",
+    id: "script:player_move",
+    js_body: "return args[0] * 2;"
+});
+// Output: [dev-reload] ✅ Patch script:player_move applied in 2ms (v1)
+
+// Manual logging
+logger.info("Starting hot reload session");
+logger.debug("Detailed diagnostic information");
+logger.warn("Shadow validation took longer than expected");
+logger.error("Failed to apply patch");
+
+// Change log level dynamically
+logger.setLevel("debug");
+```
+
+**Logger Methods:**
+
+The logger provides specialized methods for different types of hot-reload events:
+
+- `patchApplied(patch, version, durationMs?)` - Log successful patch application
+- `patchUndone(patchId, version)` - Log patch undo operation
+- `patchRolledBack(patch, version, error)` - Log patch rollback due to error
+- `registryCleared(version)` - Log registry clear operation
+- `validationError(patchId, error)` - Log patch validation failure
+- `shadowValidationFailed(patchId, error)` - Log shadow validation failure
+- `websocketConnected(url)` - Log WebSocket connection
+- `websocketDisconnected(reason?)` - Log WebSocket disconnection
+- `websocketReconnecting(attempt, delayMs)` - Log reconnection attempt
+- `websocketError(error)` - Log WebSocket error
+- `patchQueueFlushed(count, durationMs)` - Log patch queue flush
+- `patchQueued(patchId, queueDepth)` - Log patch added to queue
+- `info(message, ...args)` - Log general info message
+- `warn(message, ...args)` - Log warning message
+- `error(message, ...args)` - Log error message
+- `debug(message, ...args)` - Log debug message
+- `setLevel(level)` - Update current log level
+- `getLevel()` - Get current log level
+
+### `createChangeEventLogger(logger)`
+
+Creates a logger function that integrates with the runtime wrapper's `onChange` hook. This function listens to registry change events and automatically logs them using the provided logger.
+
+**Parameters:**
+
+- `logger`: A `Logger` instance created with `createLogger()`
+
+**Returns:** A function that can be passed as the `onChange` option when creating a runtime wrapper.
+
+**Example:**
+
+```javascript
+const logger = createLogger({ level: "info" });
+const eventLogger = createChangeEventLogger(logger);
+
+const wrapper = createRuntimeWrapper({
+    onChange: eventLogger  // Automatically log all registry changes
+});
+```
+
+**Log Level Priority:**
+
+Log levels are ordered from least to most verbose:
+1. `silent` - No output
+2. `error` - Only errors
+3. `warn` - Errors and warnings
+4. `info` - Errors, warnings, and informational messages
+5. `debug` - All messages including detailed diagnostics
+
+**Production Usage:**
+
+For production builds, set the log level to `"silent"` or `"error"` to minimize console noise:
+
+```javascript
+const logger = createLogger({
+    level: process.env.NODE_ENV === "production" ? "error" : "debug"
+});
+```
+
+**Performance Impact:**
+
+The logger is designed to have minimal performance impact. When a log level is configured, messages below that level are completely skipped without string formatting or console calls. Enable `debug` level only during active development to avoid potential performance overhead in long-running sessions.

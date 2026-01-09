@@ -9,6 +9,10 @@ import {
     isConflictType,
     parseConflictType,
     requireConflictType,
+    OccurrenceKind,
+    isOccurrenceKind,
+    parseOccurrenceKind,
+    requireOccurrenceKind,
     SymbolKind,
     isSymbolKind,
     parseSymbolKind,
@@ -26,6 +30,10 @@ export const Refactor = Object.freeze({
     isConflictType,
     parseConflictType,
     requireConflictType,
+    OccurrenceKind,
+    isOccurrenceKind,
+    parseOccurrenceKind,
+    requireOccurrenceKind,
     SymbolKind,
     isSymbolKind,
     parseSymbolKind,
@@ -38,6 +46,8 @@ export { WorkspaceEdit } from "./workspace-edit.js";
 export { SymbolKind, isSymbolKind, parseSymbolKind, requireSymbolKind } from "./types.js";
 
 export { ConflictType, isConflictType, parseConflictType, requireConflictType } from "./types.js";
+
+export { OccurrenceKind, isOccurrenceKind, parseOccurrenceKind, requireOccurrenceKind } from "./types.js";
 
 export {
     classifyOccurrences,
@@ -96,6 +106,7 @@ export type {
     HotReloadValidationOptions,
     KeywordProvider,
     MaybePromise,
+    OccurrenceKindValue,
     OccurrenceTracker,
     ParserBridge,
     PartialSemanticAnalyzer,

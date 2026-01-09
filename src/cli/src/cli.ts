@@ -1249,7 +1249,7 @@ function looksLikeCommandName(target: string): boolean {
     }
 
     // Starts with a letter and contains only alphanumeric, hyphens, or underscores
-    // (typical command pattern)
+    // (typical command pattern) - treat this as a likely command attempt
     if (/^[a-z][a-z0-9_-]*$/i.test(target)) {
         // Check for common typos or similar command names using simple similarity heuristic
         const lowerTarget = target.toLowerCase();
@@ -1277,6 +1277,11 @@ function looksLikeCommandName(target: string): boolean {
                 return true;
             }
         }
+
+        // Even if no close match was found, if it matches the command pattern
+        // (single word, no path separators, no file extension), treat it as
+        // a likely command attempt to provide better error messaging
+        return true;
     }
 
     return false;

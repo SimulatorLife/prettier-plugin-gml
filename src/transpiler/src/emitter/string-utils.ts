@@ -79,16 +79,18 @@ export function stringifyStructKey(rawKey: string): string {
  * normalizeStructKeyText('""')          // ""
  */
 export function normalizeStructKeyText(value: string): string {
-    const startsWithQuote = value.startsWith('"') || value.startsWith("'");
-    const endsWithQuote = value.endsWith('"') || value.endsWith("'");
-    if (!startsWithQuote || !endsWithQuote || value.length < 2) {
+    if (value.length < 2) {
         return value;
     }
-    const usesSameQuote =
-        (value.startsWith('"') && value.endsWith('"')) || (value.startsWith("'") && value.endsWith("'"));
-    if (!usesSameQuote) {
+
+    const first = value[0];
+    const last = value.at(-1);
+    const isQuote = first === '"' || first === "'";
+
+    if (!isQuote || first !== last) {
         return value;
     }
+
     try {
         const parsed: unknown = JSON.parse(value);
         return typeof parsed === "string" ? parsed : value.slice(1, -1);

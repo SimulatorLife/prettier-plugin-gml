@@ -1180,16 +1180,6 @@ const FEATHER_FIX_BUILDERS = new Map<string, FeatherFixBuilder>([
 
                 return resolveAutomaticFixes(fixes, { ast, diagnostic });
             }
-    ],
-    [
-        "GM2035",
-        (diagnostic) =>
-            () =>
-            ({ ast }) => {
-                const fixes = ensureGpuStateIsPopped({ ast, diagnostic });
-
-                return resolveAutomaticFixes(fixes, { ast, diagnostic });
-            }
     ]
 ]);
 
@@ -1830,6 +1820,13 @@ function createAutomaticFeatherFixHandlers() {
         ["GM2029", ({ ast, diagnostic }) => ensureDrawVertexCallsAreWrapped({ ast, diagnostic })],
         ["GM1063", ({ ast, diagnostic }) => harmonizeTexturePointerTernaries({ ast, diagnostic })],
         ["GM2042", ({ ast, diagnostic }) => balanceGpuStateStack({ ast, diagnostic })],
+        [
+            "GM2035",
+            ({ ast, diagnostic }) => {
+                const fixes = ensureGpuStateIsPopped({ ast, diagnostic });
+                return fixes;
+            }
+        ],
         ["GM2044", ({ ast, diagnostic }) => deduplicateLocalVariableDeclarations({ ast, diagnostic })],
         ["GM2046", ({ ast, diagnostic }) => ensureSurfaceTargetsAreReset({ ast, diagnostic })],
         ["GM2048", ({ ast, diagnostic }) => ensureBlendEnableIsReset({ ast, diagnostic })],
@@ -12632,6 +12629,12 @@ function ensureGpuStateIsPopped({ ast, diagnostic }) {
 
     visit(ast, null, null);
 
+    // After moving misplaced gpu_pop_state calls, check if we still need to insert missing ones
+    const insertFixes = insertMissingGpuPopStateCalls(ast, diagnostic);
+    if (Core.isNonEmptyArray(insertFixes)) {
+        fixes.push(...insertFixes);
+    }
+
     return fixes;
 }
 
@@ -12784,6 +12787,79 @@ function hasGpuPushStateBeforeIndex(statements, index) {
     }
 
     return false;
+}
+
+function insertMissingGpuPopStateCalls(ast, diagnostic) {
+    if (!Core.isProgramOrBlockStatement(ast)) {
+        return [];
+    }
+
+    const statements = Core.getBodyStatements(ast) as MutableGameMakerAstNode[];
+    if (!Core.isNonEmptyArray(statements)) {
+        return [];
+    }
+
+    const fixes = [];
+    const stack = [];
+
+    // Track push/pop balance
+    for (const [index, statement] of statements.entries()) {
+
+        if (isGpuPushStateCallStatement(statement)) {
+            stack.push({ index, statement });
+        } else if (isGpuPopStateCallStatement(statement) && stack.length > 0) {
+                stack.pop();
+            }
+    }
+
+    // If there are unmatched push calls, insert pop calls at the end
+    if (stack.length > 0) {
+        for (const entry of stack) {
+            const popCall = createGpuPopStateCall(entry.statement);
+
+            if (!popCall) {
+                continue;
+            }
+
+            const fixDetail = createFeatherFixDetail(diagnostic, {
+                target: "gpu_pop_state",
+                range: {
+                    start: Core.getNodeStartIndex(entry.statement),
+                    end: Core.getNodeEndIndex(entry.statement)
+                }
+            });
+
+            if (!fixDetail) {
+                continue;
+            }
+
+            statements.push(popCall);
+            attachFeatherFixMetadata(popCall, [fixDetail]);
+            fixes.push(fixDetail);
+        }
+    }
+
+    return fixes;
+}
+
+function createGpuPopStateCall(template) {
+    const identifier = Core.createIdentifierNode("gpu_pop_state", template?.object);
+
+    if (!identifier) {
+        return null;
+    }
+
+    const callExpression = {
+        type: "CallExpression",
+        object: identifier,
+        arguments: []
+    };
+
+    if (template && typeof template === "object") {
+        Core.assignClonedLocation(callExpression, template);
+    }
+
+    return callExpression;
 }
 
 /**
@@ -16475,7 +16551,7 @@ function balanceGpuStateStack({ ast, diagnostic }) {
         if (Core.isProgramOrBlockStatement(node)) {
             const statements = Core.getBodyStatements(node);
 
-            if (statements.length > 0 && node.type !== "Program") {
+            if (statements.length > 0) {
                 const blockFixes = balanceGpuStateCallsInStatements(statements, diagnostic, node);
 
                 if (blockFixes.length > 0) {
