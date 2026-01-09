@@ -448,20 +448,17 @@ export class GmlToJsEmitter {
                 const body = this.joinTruthy(
                     (caseNode.body ?? []).map((stmt) => {
                         const code = this.visit(stmt);
-                        const trimmed = code.trim();
-                        if (
-                            !code ||
-                            code.endsWith(";") ||
-                            code.endsWith("}") ||
-                            trimmed === "break" ||
-                            trimmed === "continue" ||
-                            trimmed.startsWith("return")
-                        ) {
+                        if (!code) {
                             return code;
                         }
-                        return `${code};`;
+                        // Use the standard termination policy for all statements
+                        return this.ensureStatementTermination(code);
                     })
                 );
+                // Skip empty case bodies (fall-through cases)
+                if (!body) {
+                    return header;
+                }
                 return `${header}\n${body}`;
             })
             .join("\n");
