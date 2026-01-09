@@ -1546,6 +1546,32 @@ function printProgramNode(node, path, options, print) {
     }
 }
 
+/**
+ * Check if a comment is a decorative block comment that will be reformatted
+ * (i.e., contains banner-style slashes)
+ */
+function isDecorativeBlockComment(comment) {
+    if (!comment || (comment.type !== "BlockComment" && comment.type !== "CommentBlock")) {
+        return false;
+    }
+
+    const value = comment.value;
+    if (typeof value !== "string") {
+        return false;
+    }
+
+    const MIN_DECORATIVE_SLASHES = 4;
+    const DECORATIVE_SLASH_LINE_PATTERN = new RegExp(String.raw`^\s*\*?\/{${MIN_DECORATIVE_SLASHES},}\*?\s*$`);
+
+    const lines = value.split(/\r?\n/).map((line) => line.replaceAll("\t", "    "));
+    const significantLines = lines.filter((line) => Core.isNonEmptyTrimmedString(line));
+    if (significantLines.length === 0) {
+        return false;
+    }
+
+    return significantLines.some((line) => DECORATIVE_SLASH_LINE_PATTERN.test(line));
+}
+
 function printBlockStatementNode(node, path, options, print) {
     if (node.body.length === 0) {
         return concat(printEmptyBlock(path, options));
@@ -1591,6 +1617,19 @@ function printBlockStatementNode(node, path, options, print) {
             typeof originalText === STRING_TYPE &&
             typeof node.start === NUMBER_TYPE &&
             isNextLineEmpty(originalText, node.start);
+
+        // When a decorative block comment (like banner comments) is attached to the
+        // first statement, it will be reformatted as a line comment. We need to add
+        // a blank line before it to maintain visual separation from the function header.
+        const leadingComments = firstStatement.leadingComments || firstStatement.comments;
+        if (Array.isArray(leadingComments) && leadingComments.length > 0) {
+            for (const comment of leadingComments) {
+                if (isDecorativeBlockComment(comment)) {
+                    // Mark the comment to force a leading blank line
+                    comment._gmlForceLeadingBlankLine = true;
+                }
+            }
+        }
 
         // For constructors, preserve blank lines between header and first statement
         shouldPreserveInitialBlankLine =
