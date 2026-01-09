@@ -1572,30 +1572,6 @@ function isDecorativeBlockComment(comment) {
     return significantLines.some((line) => DECORATIVE_SLASH_LINE_PATTERN.test(line));
 }
 
-/**
- * Check if the first statement has leading decorative block comments that
- * will be reformatted and thus need a blank line before them.
- */
-function hasLeadingDecorativeBlockComment(statement) {
-    if (!statement) {
-        return false;
-    }
-
-    const leadingComments = statement.leadingComments || statement.comments;
-    if (!Array.isArray(leadingComments) || leadingComments.length === 0) {
-        return false;
-    }
-
-    // Check if any of the leading comments are decorative block comments
-    for (const comment of leadingComments) {
-        if (isDecorativeBlockComment(comment)) {
-            return true;
-        }
-    }
-
-    return false;
-}
-
 function printBlockStatementNode(node, path, options, print) {
     if (node.body.length === 0) {
         return concat(printEmptyBlock(path, options));
