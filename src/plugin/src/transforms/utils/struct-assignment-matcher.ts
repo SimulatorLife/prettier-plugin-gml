@@ -28,52 +28,61 @@ export class StructAssignmentMatcher {
         }
 
         if (statement.type === VARIABLE_DECLARATION) {
-            const declarator = Core.getSingleVariableDeclarator(statement) as MutableGameMakerAstNode | null;
-            if (!Core.isNode(declarator)) {
-                return null;
-            }
-            if (!Core.isIdentifierNode(declarator.id)) {
-                return null;
-            }
-
-            if (Core.getNodeType(declarator.init) !== STRUCT_EXPRESSION) {
-                return null;
-            }
-
-            if (Core.isNonEmptyArray((declarator.init as any).properties)) {
-                return null;
-            }
-
-            return {
-                identifierName: declarator.id.name,
-                structNode: declarator.init as MutableGameMakerAstNode
-            };
+            return this.extractFromVariableDeclaration(statement as MutableGameMakerAstNode);
         }
 
         if (statement.type === ASSIGNMENT_EXPRESSION) {
-            if (statement.operator !== "=") {
-                return null;
-            }
-
-            if (!Core.isIdentifierNode(statement.left)) {
-                return null;
-            }
-
-            if (Core.getNodeType(statement.right) !== STRUCT_EXPRESSION) {
-                return null;
-            }
-
-            if (Core.isNonEmptyArray((statement.right as any).properties)) {
-                return null;
-            }
-
-            return {
-                identifierName: statement.left.name,
-                structNode: statement.right as MutableGameMakerAstNode
-            };
+            return this.extractFromAssignment(statement as MutableGameMakerAstNode);
         }
 
         return null;
+    }
+
+    private extractFromVariableDeclaration(statement: MutableGameMakerAstNode): StructInitializer | null {
+        const declarator = Core.getSingleVariableDeclarator(statement) as MutableGameMakerAstNode | null;
+        if (!Core.isNode(declarator)) {
+            return null;
+        }
+
+        if (!Core.isIdentifierNode(declarator.id)) {
+            return null;
+        }
+
+        if (!this.isEmptyStructExpression(declarator.init)) {
+            return null;
+        }
+
+        return {
+            identifierName: declarator.id.name,
+            structNode: declarator.init as MutableGameMakerAstNode
+        };
+    }
+
+    private extractFromAssignment(statement: MutableGameMakerAstNode): StructInitializer | null {
+        if (statement.operator !== "=") {
+            return null;
+        }
+
+        if (!Core.isIdentifierNode(statement.left)) {
+            return null;
+        }
+
+        if (!this.isEmptyStructExpression(statement.right)) {
+            return null;
+        }
+
+        return {
+            identifierName: statement.left.name,
+            structNode: statement.right as MutableGameMakerAstNode
+        };
+    }
+
+    private isEmptyStructExpression(node: unknown): boolean {
+        if (Core.getNodeType(node) !== STRUCT_EXPRESSION) {
+            return false;
+        }
+
+        return !Core.isNonEmptyArray((node as any).properties);
     }
 
     getStructPropertyAssignmentDetails(statement: unknown, identifierName: string): AssignmentDetails | null {
