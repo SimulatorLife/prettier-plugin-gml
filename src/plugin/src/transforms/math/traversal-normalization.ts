@@ -4176,9 +4176,7 @@ function insertNodeBefore(root, target, statement) {
             }
 
             for (const element of node) {
-                if (element && typeof element === "object") {
-                    stack.push(element);
-                }
+                stack.push(element);
             }
             continue;
         }
