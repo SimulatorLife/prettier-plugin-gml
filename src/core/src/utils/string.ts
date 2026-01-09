@@ -222,39 +222,24 @@ function normalizeIndefiniteArticle(label) {
 }
 
 function toSafeString(value: unknown) {
-    if (value === null) {
-        return "null";
-    }
-
-    if (value === undefined) {
-        return "undefined";
-    }
-
-    if (typeof value === "object") {
-        const candidate = value as { toString?: unknown };
-        const toString = candidate.toString;
-        if (typeof toString !== "function" || toString === Object.prototype.toString) {
-            return OBJECT_TO_STRING(value);
-        }
-
-        return (toString as (this: unknown) => string).call(value);
+    if (value == null) {
+        return value === null ? "null" : "undefined";
     }
 
     if (typeof value === "string") {
         return value;
     }
 
-    if (
-        typeof value === "number" ||
-        typeof value === "bigint" ||
-        typeof value === "boolean" ||
-        typeof value === "symbol" ||
-        typeof value === "function"
-    ) {
-        return String(value);
+    if (typeof value === "object") {
+        const toString = (value as { toString?: unknown }).toString;
+        if (typeof toString === "function" && toString !== Object.prototype.toString) {
+            return toString.call(value);
+        }
+        return OBJECT_TO_STRING(value);
     }
 
-    return OBJECT_TO_STRING(value);
+    // All primitives (number, bigint, boolean, symbol, function) are coercible to string
+    return String(value as number | bigint | boolean | symbol | ((...args: unknown[]) => unknown));
 }
 
 /**
