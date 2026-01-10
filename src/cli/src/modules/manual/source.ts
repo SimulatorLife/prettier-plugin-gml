@@ -5,7 +5,7 @@ import { createRequire } from "node:module";
 import { Core } from "@gml-modules/core";
 import { resolveFromRepoRoot } from "../../shared/workspace-paths.js";
 
-const { assertNonEmptyString, getErrorMessageOrFallback, isFsErrorCode } = Core;
+const { assertNonEmptyString, getErrorMessageOrFallback, isFsErrorCode, resolveContainedRelativePath, toPosixPath } = Core;
 
 export interface ManualSourceDescriptor {
     root: string;
@@ -139,4 +139,28 @@ export function describeManualSource(source: ManualSourceDescriptor) {
     }
 
     return root;
+}
+
+/**
+ * Normalize the manual root path used within generated metadata payloads.
+ *
+ * When the manual root lives inside the repository tree, this emits a
+ * repository-relative POSIX string so the generated artefacts avoid
+ * environment-specific absolute paths. If the manual root sits outside the
+ * repo, we fall back to the provided root with POSIX separators intact.
+ *
+ * @param source Descriptor for the resolved manual source.
+ * @returns Normalized manual root representation for metadata.
+ */
+export function getManualRootMetadataPath(source: ManualSourceDescriptor) {
+    const repoRoot = resolveFromRepoRoot();
+    const relativeRoot = resolveContainedRelativePath(source.root, repoRoot);
+    const candidate =
+        relativeRoot === null
+            ? source.root
+            : relativeRoot === ""
+            ? "."
+            : relativeRoot;
+
+    return toPosixPath(candidate);
 }

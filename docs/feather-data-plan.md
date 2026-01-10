@@ -34,7 +34,7 @@
    - For `Feather_Data_Types`, extract the base type list, specifier examples, and explanatory text so we can normalise Feather type annotations when generating documentation or enforcing formatter-aware heuristics.【ec129e†L1-L80】
 4. **Normalisation & schema**
       - Define a JSON schema that groups diagnostics under `{ id, title, defaultSeverity?, description, notes[], examples[], strictModeOnly }`. Severity is not spelled out in the HTML, so leave it optional for now and plan a follow-up investigation into IDE config files once we locate them.
-      - Emit separate top-level sections for `diagnostics`, `namingRules`, `directives`, and `types`. Include metadata (`manualRoot`, `packageName`, `packageVersion`, `generatedAt`, `source`) mirroring the identifier artefact for traceability.
+      - Emit separate top-level sections for `diagnostics`, `namingRules`, `directives`, and `types`. Include metadata (`manualRoot`, `packageName`, `packageVersion`, `generatedAt`) that records the repository-relative manual root so snapshots do not embed machine-specific absolute paths.
 5. **Tooling integration**
   - Expose a dedicated CLI entry point in `src/cli/src/commands/generate-feather-metadata.js`, sharing ergonomics with the identifier generator and wiring it into `npm run build:feather-metadata` for easy regeneration and CI checks. Document the regeneration workflow alongside the identifier snapshot instructions in the [README](../README.md#regenerate-metadata-snapshots).
   - Write smoke tests that parse the generated JSON and assert that key sentinel rules (e.g. GM2017 naming rule) are present, flagging upstream changes early.

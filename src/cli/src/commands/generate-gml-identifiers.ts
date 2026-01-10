@@ -12,7 +12,7 @@ import { applyStandardCommandOptions } from "../cli-core/command-standard-option
 import { isMainModule, runAsMainModule } from "../cli-core/main-module-runner.js";
 import { wrapInvalidArgumentResolver } from "../cli-core/command-parsing.js";
 import { decodeManualKeywordsPayload, decodeManualTagsPayload } from "../modules/manual/payload-validation.js";
-import { describeManualSource, readManualText } from "../modules/manual/source.js";
+import { getManualRootMetadataPath, readManualText } from "../modules/manual/source.js";
 import { ManualWorkflowOptions, prepareManualWorkflow } from "../modules/manual/workflow.js";
 import { resolveFromRepoRoot } from "../shared/workspace-paths.js";
 
@@ -570,11 +570,10 @@ function createIdentifierArtifactPayload({ identifierMap, manualSource, verbose 
     return {
         payload: {
             meta: {
-                manualRoot: manualSource.root,
+                manualRoot: getManualRootMetadataPath(manualSource),
                 packageName: manualSource.packageName,
                 packageVersion: manualSource.packageJson?.version ?? null,
-                generatedAt: Core.formatGeneratedDate(),
-                source: describeManualSource(manualSource)
+                generatedAt: Core.formatGeneratedDate()
             },
             identifiers
         },
