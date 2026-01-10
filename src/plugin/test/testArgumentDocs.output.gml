@@ -1,3 +1,5 @@
+/// @description Create collectible particles and inherit
+
 /// @param x1
 /// @param y1
 /// @param x2
