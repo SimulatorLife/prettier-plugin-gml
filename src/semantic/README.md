@@ -183,6 +183,38 @@ const occurrences = tracker.getSymbolOccurrences("myVariable");
 
 **Use case:** Identify what needs to be recompiled when a symbol changes, supporting faster invalidation in hot reload pipelines.
 
+### `getBatchSymbolOccurrences(names)`
+
+Find all occurrences (declarations and references) for multiple symbols in a single query. This is more efficient than calling `getSymbolOccurrences` multiple times, as it batches the lookups and minimizes redundant scope traversals.
+
+```javascript
+const tracker = new ScopeTracker({ enabled: true });
+// ... track declarations and references across multiple scopes ...
+
+// When multiple symbols change (e.g., in a file edit), query them all at once
+const changedSymbols = ["CONFIG_MAX_HP", "CONFIG_MAX_MP", "initPlayer"];
+const results = tracker.getBatchSymbolOccurrences(changedSymbols);
+
+// Returns: Map<string, Array<{scopeId, scopeKind, kind, occurrence}>>
+// Each entry maps a symbol name to its occurrence records:
+// Map {
+//   "CONFIG_MAX_HP" => [
+//     { scopeId: "scope-0", scopeKind: "program", kind: "declaration", occurrence: {...} },
+//     { scopeId: "scope-1", scopeKind: "function", kind: "reference", occurrence: {...} }
+//   ],
+//   "CONFIG_MAX_MP" => [...],
+//   "initPlayer" => [...]
+// }
+
+// Symbols not found are omitted from the result (not mapped to empty arrays)
+```
+
+The method accepts any iterable of symbol names (Array, Set, etc.) and returns a Map. Symbols that have no occurrences are omitted from the result entirely.
+
+**Use case:** When a file changes during hot reload and multiple symbols are modified, batch-query all affected symbols to determine the complete invalidation set without N individual lookups. This provides better performance than sequential queries, especially in large projects with many symbols.
+
+**Performance:** For querying N symbols, this method performs O(N) lookups against the internal symbol index, compared to O(N) separate method calls if using `getSymbolOccurrences` individually. The batching also improves cache locality and reduces function call overhead.
+
 ### `getScopeSymbols(scopeId)`
 
 Get all unique identifier names declared or referenced in a specific scope. Returns an array of symbol names.
