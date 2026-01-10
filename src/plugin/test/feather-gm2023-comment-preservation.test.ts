@@ -21,7 +21,7 @@ import { test } from "node:test";
 import { strictEqual } from "node:assert";
 import { Plugin } from "../src/index.js";
 
-test("preserves leading comments when extracting nested calls (GM2023)", async () => {
+void test("preserves leading comments when extracting nested calls (GM2023)", async () => {
     const input = `
 // This comment describes the block below
 colmesh_shape = new ColmeshBlock(scr_matrix_build(round(x), round(y), round(z), 0, 0, 0, max(a, b), 4, max(c, d)));
@@ -50,7 +50,7 @@ colmesh_shape = new ColmeshBlock(scr_matrix_build(round(x), round(y), round(z), 
     strictEqual(commentLineIndex, 0, "Comment should be the first line of the formatted output");
 });
 
-test("preserves multiple leading comments when extracting nested calls", async () => {
+void test("preserves multiple leading comments when extracting nested calls", async () => {
     const input = `
 // Comment 1
 // Comment 2
