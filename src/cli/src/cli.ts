@@ -27,6 +27,7 @@ import { fileURLToPath } from "node:url";
 import { Command, InvalidArgumentError, Option } from "commander";
 import { Core } from "@gml-modules/core";
 import { Parser } from "@gml-modules/parser";
+import { normalizeFormattedOutput } from "@gml-modules/plugin";
 import { isMissingModuleDependency, resolveModuleDefaultExport } from "./shared/module.js";
 import { ignoreRuleNegations } from "./shared/ignore-rules-negation-tracker.js";
 
@@ -1486,8 +1487,9 @@ async function processFile(filePath, activeIgnorePaths = []) {
 
         const data = await readFile(filePath, "utf8");
         const formatted = await prettier.format(data, formattingOptions);
+        const normalizedOutput = normalizeFormattedOutput(formatted, data);
 
-        if (formatted === data) {
+        if (normalizedOutput === data) {
             return;
         }
 
@@ -1498,7 +1500,7 @@ async function processFile(filePath, activeIgnorePaths = []) {
         }
 
         await recordFormattedFileOriginalContents(filePath, data);
-        await writeFile(filePath, formatted);
+        await writeFile(filePath, normalizedOutput);
         formattedFileCount += 1;
         console.log(`Formatted ${filePath}`);
     } catch (error) {
