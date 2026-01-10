@@ -24,11 +24,15 @@ jobs:
       prompt: >
         Locate one pocket of unnecessary complexity—an unused abstraction layer, a factory
         pattern used only once, or a redundant configuration toggle. Replace it with the
-        simplest implementation that preserves behavior while improving readability.
+        simplest implementation that preserves behavior while improving readability and
+        maintainability. If the existing design is over-engineered for performance reasons
+        (including cases where this is documented in comments), you may only refactor it if
+        performance is maintained or improved; do not simplify in ways that introduce
+        measurable slowdowns.
 
         Requirements:
           • Include a before/after complexity discussion in the PR body explaining why the
-            simplification is safe and beneficial.
+            simplification is safe, beneficial, and performance-neutral or better.
           • Add or update regression tests that exercise the simplified path so future
             contributors have confidence in the leaner design.
           • Keep the change narrowly scoped to related modules and avoid deleting extension
