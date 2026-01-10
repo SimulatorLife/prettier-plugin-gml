@@ -1208,7 +1208,6 @@ function getArgumentIndexFromIdentifier(name: unknown) {
     const match = name.match(/^argument(\d+)$/);
     if (!match) return null;
     const parsed = Number.parseInt(match[1]);
-    // console.log("DEBUG: getArgumentIndexFromIdentifier", name, parsed);
     return Number.isInteger(parsed) && parsed >= 0 ? parsed : null;
 }
 

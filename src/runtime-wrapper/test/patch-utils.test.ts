@@ -132,12 +132,6 @@ void describe("calculateTimingMetrics", () => {
         const lower = Math.floor(index);
         const upper = Math.ceil(index);
 
-        // Diagnostic output commented out to avoid lint warnings
-        // During development, uncomment these to verify behavior:
-        // console.log(`index = ${index}, lower = ${lower}, upper = ${upper}`);
-        // console.log(`lower === upper: ${lower === upper}`);
-        // console.log(`result75 = ${result75}`);
-
         // The old implementation using strict === may or may not work correctly
         // depending on the exact floating-point representation. With epsilon-based
         // comparison, the behavior is robust and predictable.

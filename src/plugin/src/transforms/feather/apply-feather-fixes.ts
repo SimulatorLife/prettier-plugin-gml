@@ -538,16 +538,6 @@ function attachFixWithOptionalTarget(node: MutableGameMakerAstNode, fix: any) {
 }
 
 function attachFeatherFixToNamedFunction(ast: MutableGameMakerAstNode, fix: any): void {
-    try {
-        // console.warn(
-        //     `[feather:diagnostic] reattach-guard fix=${fix.id} target=${String(
-        //         fix.target
-        //     )}`
-        // );
-    } catch {
-        void 0;
-    }
-
     const targetNode = findFunctionDeclaration(ast, (node) => getFunctionIdentifierName(node) === String(fix.target));
 
     if (targetNode) {
@@ -556,14 +546,6 @@ function attachFeatherFixToNamedFunction(ast: MutableGameMakerAstNode, fix: any)
 }
 
 function attachFeatherFixToRange(ast: MutableGameMakerAstNode, fix: any): void {
-    try {
-        // console.warn(
-        //     `[feather:diagnostic] reattach-guard-range fix=${fix.id} target=<range:${fix.range.start}-${fix.range.end}>`
-        // );
-    } catch {
-        void 0;
-    }
-
     const { start, end } = fix.range;
     const targetNode = findFunctionDeclaration(ast, (node) => rangeMatchesNode(node, start, end));
 
@@ -15152,16 +15134,6 @@ function reorderFunctionOptionalParameters(node, diagnostic, ast) {
 
     if (!fixDetail) {
         return null;
-    }
-
-    try {
-        // Log the function identifier name and the fix target to help
-        // trace why per-function GM1056 metadata may be missing in tests.
-        console.warn(
-            `[feather:diagnostic] reorderFunctionOptionalParameters fnName=${getFunctionIdentifierName(node)} fixTarget=${String(fixDetail.target)}`
-        );
-    } catch {
-        void 0;
     }
 
     // Attach to the specific function node so callers can inspect per-function

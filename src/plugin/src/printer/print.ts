@@ -343,8 +343,6 @@ function _printImplCore(node, path, options, print) {
     if (doc !== undefined) {
         return doc;
     }
-
-    console.warn(`Print.js:print encountered unhandled node type: ${node.type}`, node);
 }
 
 function tryPrintControlStructureNode(node, path, options, print) {
@@ -1523,17 +1521,6 @@ function printProgramNode(node, path, options, print) {
             return concat(printDanglingCommentsAsGroup(path, options, () => true));
         }
         const bodyParts = printStatements(path, options, print, "body");
-
-        // DEBUG: Check if comments are attached to Program
-        // if (node.comments && node.comments.length > 0) {
-        //     console.log(
-        //         "[DEBUG] Program has comments:",
-        //         JSON.stringify(node.comments, null, 2)
-        //     );
-        // } else {
-        //     console.log("[DEBUG] Program has NO comments");
-        // }
-
         const programComments = printDanglingCommentsAsGroup(path, options, () => true);
 
         return concat([programComments, concat(bodyParts)]);
@@ -1724,7 +1711,6 @@ function _sanitizeDocOutput(doc) {
 }
 
 export function print(path, options, print) {
-    // console.log("print called. options.originalText length:", options.originalText?.length);
     const doc = _printImpl(path, options, print);
     return _sanitizeDocOutput(doc);
 }
@@ -1878,9 +1864,7 @@ function buildCallArgumentsDocs(
     const firstArgumentIsStringLiteral =
         firstArgumentNode?.type === LITERAL &&
         typeof firstArgumentText === STRING_TYPE &&
-        (firstArgumentText.startsWith('"') ||
-            firstArgumentText.startsWith("'") ||
-            firstArgumentText.startsWith('@"'));
+        (firstArgumentText.startsWith('"') || firstArgumentText.startsWith("'") || firstArgumentText.startsWith('@"'));
 
     // NOTE: intentionally omit logging to keep production output clean.
 
@@ -2014,7 +1998,6 @@ function printCommaSeparatedList(path, print, listKey, startChar, endChar, optio
             ? shouldAllowTrailingComma(options)
             : overrides.allowTrailingDelimiter;
 
-    // console.log(`[DEBUG] printCommaSeparatedList result type: ${typeof result}`);
     return printDelimitedList(path, print, listKey, startChar, endChar, {
         delimiter: ",",
         ...overrides,
@@ -3023,36 +3006,12 @@ export function applyAssignmentAlignment(statements, options, path = null, child
         }
 
         const groupEntries = [...currentGroup];
-        // const contextFunctionName =
-        //     functionNode?.id?.name ?? (functionNode?.name ? functionNode.name.name : null) ?? "<none>";
-        // console.log(
-        //     "alignment group",
-        //     contextFunctionName,
-        //     groupEntries.map(({ node }) => {
-        //         return node?.id?.name ?? node?.left?.name ?? node?.left?.property?.name ?? "<unknown>";
-        //     }),
-        //     "length",
-        //     groupEntries.length,
-        //     "alias",
-        //     currentGroupHasAlias,
-        //     "minGroupSize",
-        //     minGroupSize
-        // );
         const enablerCount = groupEntries.filter((e) => e.enablesAlignment).length;
         const normalizedMinGroupSize = minGroupSize > 0 ? minGroupSize : DEFAULT_ALIGN_ASSIGNMENTS_MIN_GROUP_SIZE;
         const alignmentEnabled = minGroupSize > 0;
         const effectiveMinGroupSize = alignmentEnabled ? normalizedMinGroupSize : minGroupSize;
         const meetsAlignmentThreshold = alignmentEnabled && groupEntries.length >= effectiveMinGroupSize;
         const canAlign = meetsAlignmentThreshold && enablerCount >= effectiveMinGroupSize;
-
-        // console.log(`DEBUG alignment group ${contextFunctionName ?? "<none>"}`, {
-        //     group: groupEntries.map((e) => e.nameLength),
-        //     meetsAlignmentThreshold,
-        //     enablerCount,
-        //     canAlign,
-        //     minGroupSize,
-        //     effectiveMinGroupSize
-        // });
 
         if (!canAlign) {
             for (const { node } of groupEntries) {
@@ -4859,7 +4818,6 @@ function getDocParamOptionality(lines, paramName) {
         }
         const raw = match[1];
         const normalized = normalizeDocParamNameFromRaw(raw);
-        // console.log(`Checking param: ${paramName}, raw: ${raw}, normalized: ${normalized}`);
         if (normalized === paramName) {
             return /^\[.*\]$/.test(raw) || raw.endsWith("*") || raw.startsWith("*");
         }
