@@ -1168,7 +1168,12 @@ export class ScopeTracker {
             }
 
             for (const [refScopeId, summary] of scopeSummaryMap) {
-                // Skip the scope itself
+                // Skip the scope itself to avoid self-referential dependencies.
+                // REASON: A scope cannot be a dependent of itself. Including scopeId
+                // in its own dependents list would create a trivial cycle and break
+                // downstream dependency-ordering algorithms that expect acyclic graphs.
+                // WHAT WOULD BREAK: Removing this check would cause infinite loops in
+                // dependency traversal and make hot-reload ordering unpredictable.
                 if (refScopeId === scopeId) {
                     continue;
                 }

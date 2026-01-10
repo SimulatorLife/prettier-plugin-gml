@@ -4305,13 +4305,17 @@ function materializeParamDefaultsFromParamDefault(functionNode) {
                 // and downstream checks observe `value: "undefined"`.
                 right: { type: "Literal", value: "undefined" }
             };
-            // Do not mark synthesized trailing `= undefined` defaults as optional
-            // here. Optionality markers should originate from the parser's transform
-            // pipeline or from explicit JSDoc @param annotations, not from the
-            // printer's fallback logic. Keeping the optionality decision upstream
-            // ensures that downstream heuristics (doc comment generation, Feather
-            // fixes, etc.) observe a consistent model of which parameters are truly
-            // optional versus which are merely receiving fallback defaults.
+            // Do not mark synthesized trailing `= undefined` defaults as optional here.
+            // REASON: Optionality markers should originate from the parser's transform
+            // pipeline or from explicit JSDoc @param annotations, not from the printer's
+            // fallback logic. Keeping the optionality decision upstream ensures that
+            // downstream heuristics (doc comment generation, Feather fixes, etc.) observe
+            // a consistent model of which parameters are truly optional versus which are
+            // merely receiving fallback defaults.
+            // WHAT WOULD BREAK: If the printer were to unilaterally mark these as optional,
+            // it would bypass the parser's intent and conflict with doc-comment-driven
+            // optionality decisions, leading to inconsistent function signatures and
+            // incorrect documentation generation across formatting passes.
             functionNode.params[i] = defaultNode;
         }
 
@@ -4346,10 +4350,14 @@ function materializeParamDefaultsFromParamDefault(functionNode) {
                     param.end = fallback.fallback.end;
                 }
                 // Do NOT set the _featherOptionalParameter marker here.
-                // The parser-transform is the authoritative source for
-                // optional parameter intent. If the parser produced
-                // the marker it will already be present on the param
-                // (and copied when materialized above).
+                // REASON: The parser-transform is the authoritative source for optional
+                // parameter intent. If the parser produced the marker it will already be
+                // present on the param (and copied when materialized above). Setting it
+                // in the printer would create a second source of truth and lead to
+                // inconsistencies when the parser's optionality logic changes.
+                // WHAT WOULD BREAK: Adding the marker here would cause parameters to be
+                // marked as optional even when the parser's analysis determined they
+                // weren't, resulting in incorrect JSDoc generation and type mismatches.
                 // Remove the matched statement from the body
                 const idx = body.body.indexOf(fallback.statement);
                 if (idx !== -1) {
@@ -4775,7 +4783,14 @@ function shouldOmitDefaultValueForParameter(path, options) {
             return false;
         }
     } catch {
-        // swallow
+        // Swallow flag-check errors and fall back to default heuristics.
+        // REASON: If accessing _featherMaterializedTrailingUndefined throws (e.g.,
+        // due to a getter that fails or a malformed node), we proceed with the
+        // normal optionality logic below. The flag is a performance hint, not
+        // a required property, so failing to read it is non-fatal.
+        // WHAT WOULD BREAK: Propagating the exception would abort optionality
+        // determination for this parameter and potentially cause incorrect
+        // printing or missing default values in the formatted output.
     }
 
     if (!Core.isUndefinedSentinel(node.right) || typeof path.getParentNode !== "function") {
