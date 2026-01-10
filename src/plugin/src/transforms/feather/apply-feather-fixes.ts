@@ -12829,6 +12829,7 @@ function insertMissingGpuPopStateCalls(ast, diagnostic) {
 
     const fixes = [];
     const stack = [];
+    let lastPopIndex = -1;
 
     // Track push/pop balance
     for (const [index, statement] of statements.entries()) {
@@ -12836,12 +12837,16 @@ function insertMissingGpuPopStateCalls(ast, diagnostic) {
             stack.push({ index, statement });
         } else if (isGpuPopStateCallStatement(statement) && stack.length > 0) {
             stack.pop();
+            lastPopIndex = index;
         }
     }
 
     // If there are unmatched push calls, insert pop calls at the end
-    if (stack.length > 0) {
-        for (const entry of stack) {
+    const removablePushes =
+        lastPopIndex >= 0 ? stack.filter((entry) => entry.index < lastPopIndex) : [...stack];
+
+    if (removablePushes.length > 0) {
+        for (const entry of removablePushes) {
             const popCall = createGpuPopStateCall(entry.statement);
 
             if (!popCall) {
@@ -16578,7 +16583,7 @@ function balanceGpuStateStack({ ast, diagnostic }) {
         if (Core.isProgramOrBlockStatement(node)) {
             const statements = Core.getBodyStatements(node);
 
-            if (statements.length > 0) {
+            if (statements.length > 0 && node.type !== "Program") {
                 const blockFixes = balanceGpuStateCallsInStatements(statements, diagnostic, node);
 
                 if (blockFixes.length > 0) {
@@ -16656,30 +16661,36 @@ function balanceGpuStateCallsInStatements(statements, diagnostic, container) {
     const fixes = [];
     const indicesToRemove = new Set();
     let hasPopCall = false;
+    let lastPopIndex = -1;
 
     for (const [index, statement] of statements.entries()) {
         if (!statement || typeof statement !== "object") {
             continue;
         }
 
-        if (isGpuPushStateCall(statement)) {
-            unmatchedPushes.push({ index, node: statement });
+        if (isGpuPushStateCallStatement(statement)) {
+            const callExpression = getCallExpression(statement);
+            unmatchedPushes.push({ index, node: statement, call: callExpression });
             continue;
         }
 
-        if (isGpuPopStateCall(statement)) {
+        if (isGpuPopStateCallStatement(statement)) {
             hasPopCall = true;
+            lastPopIndex = index;
 
             if (unmatchedPushes.length > 0) {
                 unmatchedPushes.pop();
                 continue;
             }
 
+            const callExpression = getCallExpression(statement);
+            const targetName =
+                Core.getCallExpressionIdentifierName(callExpression ?? statement) ?? "gpu_pop_state";
             const fixDetail = createFeatherFixDetail(diagnostic, {
-                target: statement.object?.name ?? "gpu_pop_state",
+                target: targetName,
                 range: {
-                    start: Core.getNodeStartIndex(statement),
-                    end: Core.getNodeEndIndex(statement)
+                    start: Core.getNodeStartIndex(callExpression ?? statement),
+                    end: Core.getNodeEndIndex(callExpression ?? statement)
                 }
             });
 
@@ -16693,23 +16704,30 @@ function balanceGpuStateCallsInStatements(statements, diagnostic, container) {
         }
     }
 
-    if (unmatchedPushes.length > 0 && hasPopCall) {
-        for (const entry of unmatchedPushes) {
-            const fixDetail = createFeatherFixDetail(diagnostic, {
-                target: entry.node?.object?.name ?? "gpu_push_state",
-                range: {
-                    start: Core.getNodeStartIndex(entry.node),
-                    end: Core.getNodeEndIndex(entry.node)
+    if (hasPopCall) {
+        const removablePushes = unmatchedPushes.filter((entry) => entry.index < lastPopIndex);
+
+        if (removablePushes.length > 0) {
+            for (const entry of removablePushes) {
+                const callExpression = entry.call ?? getCallExpression(entry.node);
+                const targetName =
+                    Core.getCallExpressionIdentifierName(callExpression ?? entry.node) ?? "gpu_push_state";
+                const fixDetail = createFeatherFixDetail(diagnostic, {
+                    target: targetName,
+                    range: {
+                        start: Core.getNodeStartIndex(callExpression ?? entry.node),
+                        end: Core.getNodeEndIndex(callExpression ?? entry.node)
+                    }
+                });
+
+                indicesToRemove.add(entry.index);
+
+                if (!fixDetail) {
+                    continue;
                 }
-            });
 
-            indicesToRemove.add(entry.index);
-
-            if (!fixDetail) {
-                continue;
+                fixes.push(fixDetail);
             }
-
-            fixes.push(fixDetail);
         }
     }
 
@@ -16726,14 +16744,6 @@ function balanceGpuStateCallsInStatements(statements, diagnostic, container) {
     }
 
     return fixes;
-}
-
-function isGpuPushStateCall(node) {
-    return isGpuStateCall(node, "gpu_push_state");
-}
-
-function isGpuPopStateCall(node) {
-    return isGpuStateCall(node, "gpu_pop_state");
 }
 
 function getManualFeatherFixRegistry(ast) {
