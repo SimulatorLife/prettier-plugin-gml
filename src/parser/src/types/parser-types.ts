@@ -21,18 +21,53 @@ export interface ParserToken extends Token {
     symbol?: Token | null;
 }
 
-export interface ScopeTracker {
+/**
+ * Global identifier tracking.
+ *
+ * Provides the ability to mark and apply global identifiers without
+ * coupling to role management or scope lifecycle operations.
+ */
+export interface GlobalIdentifierTracker {
     markGlobalIdentifier(node: MutableGameMakerAstNode | null | undefined): void;
     applyGlobalIdentifiersToNode(node: MutableGameMakerAstNode | null | undefined): void;
+    globalIdentifiers?: Set<unknown> | null;
+}
+
+/**
+ * Identifier role management.
+ *
+ * Provides role tracking and manipulation operations for identifiers
+ * without coupling to global tracking or scope lifecycle.
+ */
+export interface IdentifierRoleManager {
     withRole?<T>(role: object | null, callback: () => T): T;
-    withScope?<T>(kind: string, callback: () => T): T;
     cloneRole(role: object | null): object | null;
     applyCurrentRoleToIdentifier(
         name: string | null | undefined,
         node: MutableGameMakerAstNode | null | undefined
     ): void;
-    globalIdentifiers?: Set<unknown> | null;
 }
+
+/**
+ * Scope lifecycle management.
+ *
+ * Provides the ability to manage scope boundaries during parsing
+ * without coupling to identifier tracking or role management.
+ */
+export interface ScopeLifecycle {
+    withScope?<T>(kind: string, callback: () => T): T;
+}
+
+/**
+ * Complete scope tracker interface.
+ *
+ * Combines all role-focused interfaces for consumers that need full
+ * scope tracking capabilities. Consumers should prefer depending on
+ * the minimal interface they need (GlobalIdentifierTracker,
+ * IdentifierRoleManager, ScopeLifecycle) rather than this composite
+ * interface when possible.
+ */
+export interface ScopeTracker extends GlobalIdentifierTracker, IdentifierRoleManager, ScopeLifecycle {}
 
 export type ScopeTrackerOptions = {
     enabled: boolean;
