@@ -94,13 +94,6 @@ type ReportIdentifierCasePlanOptions = IdentifierCasePlanData & {
 const REPORT_NAMESPACE = "gml-identifier-case";
 const LOG_VERSION = 1;
 
-function formatIdentifierCaseGeneratedAt(value?: number | Date | null): string {
-    const date = value == null ? new Date() : value instanceof Date ? value : new Date(value);
-    const iso = date.toISOString();
-    const t = iso.indexOf("T");
-    return t >= 0 ? iso.slice(0, t) : iso;
-}
-
 function defaultNow() {
     return Date.now();
 }
@@ -552,7 +545,7 @@ export function reportIdentifierCasePlan({
 
     if (logFilePath) {
         try {
-            const payload = buildLogPayload(report, formatIdentifierCaseGeneratedAt(now()));
+            const payload = buildLogPayload(report, Core.formatGeneratedDate(now()));
             const directory = path.dirname(logFilePath);
             if (fsFacade?.mkdirSync) {
                 fsFacade.mkdirSync(directory, { recursive: true });

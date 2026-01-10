@@ -62,10 +62,9 @@ function hasExplicitDefaultParameterToLeft(node: MutableGameMakerAstNode, parame
 }
 
 /** Orchestrates the normalization of function parameter default values. */
-export class PreprocessFunctionArgumentDefaultsTransform implements ParserTransform<
-    MutableGameMakerAstNode,
-    PreprocessFunctionArgumentDefaultsTransformOptions
-> {
+export class PreprocessFunctionArgumentDefaultsTransform
+    implements ParserTransform<MutableGameMakerAstNode, PreprocessFunctionArgumentDefaultsTransformOptions>
+{
     public readonly name = "preprocess-function-argument-defaults";
     public readonly defaultOptions = Object.freeze({}) as PreprocessFunctionArgumentDefaultsTransformOptions;
 

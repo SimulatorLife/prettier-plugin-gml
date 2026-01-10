@@ -6,7 +6,6 @@ import { CliUsageError, createCliErrorDetails } from "./errors.js";
 import { Core } from "@gml-modules/core";
 import { resolveCommandUsage } from "./command-usage.js";
 import type { CommanderCommandLike } from "./commander-types.js";
-import { formatGeneratedDate } from "./generated-date.js";
 
 const { isNonEmptyArray, toMutableArray, stringifyJsonForFile, createEnumeratedOptionHelpers } = Core;
 
@@ -157,7 +156,7 @@ export function createSuiteResultsPayload(
     { generatedAt }: SuiteResultsPayloadOptions = {}
 ) {
     return {
-        generatedAt: generatedAt ?? formatGeneratedDate(),
+        generatedAt: generatedAt ?? Core.formatGeneratedDate(),
         environment: {
             nodeVersion: process.version,
             platform: process.platform,

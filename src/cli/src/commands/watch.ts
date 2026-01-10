@@ -144,8 +144,7 @@ interface InfrastructureConfig {
  * Composes all specialized configuration interfaces into a single contract.
  */
 interface WatchCommandOptions
-    extends
-        FileWatchingConfig,
+    extends FileWatchingConfig,
         LoggingConfig,
         WebSocketServerConfig,
         StatusServerConfig,
@@ -153,10 +152,17 @@ interface WatchCommandOptions
         HotReloadConfig,
         InfrastructureConfig {}
 
-interface RuntimeContext extends Omit<
-    TranspilationContext,
-    "transpiler" | "patches" | "metrics" | "errors" | "lastSuccessfulPatches" | "maxPatchHistory" | "websocketServer"
-> {
+interface RuntimeContext
+    extends Omit<
+        TranspilationContext,
+        | "transpiler"
+        | "patches"
+        | "metrics"
+        | "errors"
+        | "lastSuccessfulPatches"
+        | "maxPatchHistory"
+        | "websocketServer"
+    > {
     root: string | null;
     packageName: string | null;
     packageJson: Record<string, unknown> | null;
