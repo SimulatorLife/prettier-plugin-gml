@@ -218,7 +218,7 @@ export function applyIdentifierCasePlanSnapshot(snapshot, options) {
                     const size = isMap && typeof value.size === "number" ? value.size : 0;
                     if (isMap && size > 0 && !object[optionKey]) {
                         setIdentifierCaseOption(object, optionKey, value);
-                        logIdentifierCaseRenameMapSamples(value as Map<unknown, unknown>, optionKey, object);
+                        logIdentifierCaseRenameMapSamples(value as Map<unknown, unknown>);
                     }
                     // After writing the option, emit an identity check to confirm
                     // whether the snapshot's map instance is the same object that

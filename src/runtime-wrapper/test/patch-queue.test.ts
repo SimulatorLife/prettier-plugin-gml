@@ -50,6 +50,72 @@ class MockWebSocket {
     }
 }
 
+const DEFAULT_PATCH_QUEUE_OPTIONS = {
+    enabled: true,
+    flushIntervalMs: 1000,
+    maxQueueSize: 50
+};
+
+type RuntimeWrapperInstance = ReturnType<typeof createRuntimeWrapper>;
+type WebSocketClientOptions = Parameters<typeof createWebSocketClient>[0];
+type WebSocketClientInstance = ReturnType<typeof createWebSocketClient>;
+
+type PatchQueueClientSetupOptions = {
+    patchQueue?: WebSocketClientOptions["patchQueue"];
+    wrapperMutator?: (wrapper: RuntimeWrapperInstance) => RuntimeWrapperInstance;
+    waitAfterConnectMs?: number;
+};
+
+function installMockWebSocket(): void {
+    (globalThis as unknown as { WebSocket: typeof MockWebSocket }).WebSocket = MockWebSocket;
+}
+
+function sendScriptPatch(ws: MockWebSocket, id: string, jsBody = "return 1;"): void {
+    ws.simulateMessage(JSON.stringify({ kind: "script", id, js_body: jsBody }));
+}
+
+function sendScriptPatchBatch(ws: MockWebSocket, patches: Array<{ id: string; js_body?: string }>): void {
+    ws.simulateMessage(
+        JSON.stringify(
+            patches.map((patch) => ({
+                kind: "script",
+                id: patch.id,
+                js_body: patch.js_body ?? "return 1;"
+            }))
+        )
+    );
+}
+
+function wait(durationMs: number): Promise<void> {
+    return new Promise((resolve) => setTimeout(resolve, durationMs));
+}
+
+async function createConnectedPatchQueueClient(
+    options: PatchQueueClientSetupOptions = {}
+): Promise<{ wrapper: RuntimeWrapperInstance; client: WebSocketClientInstance; ws: MockWebSocket }> {
+    const wrapper = createRuntimeWrapper();
+    const configuredWrapper = options.wrapperMutator ? options.wrapperMutator(wrapper) : wrapper;
+
+    const client = createWebSocketClient({
+        wrapper: configuredWrapper,
+        autoConnect: false,
+        patchQueue: {
+            ...DEFAULT_PATCH_QUEUE_OPTIONS,
+            ...options.patchQueue
+        }
+    });
+
+    installMockWebSocket();
+
+    client.connect();
+    await wait(options.waitAfterConnectMs ?? 50);
+
+    const ws = client.getWebSocket() as unknown as MockWebSocket;
+    assert.ok(ws);
+
+    return { wrapper, client, ws };
+}
+
 void test("getPatchQueueMetrics returns null when queuing is disabled", () => {
     const wrapper = createRuntimeWrapper();
     const client = createWebSocketClient({
@@ -83,47 +149,31 @@ void test("getPatchQueueMetrics returns initial metrics when queuing is enabled"
 });
 
 void test("patch queue enqueues patches instead of applying immediately", async () => {
-    const wrapper = createRuntimeWrapper();
     let patchesApplied = 0;
 
-    const client = createWebSocketClient({
-        wrapper: {
-            ...wrapper,
-            applyPatchBatch: (patches: Array<unknown>) => {
-                patchesApplied += patches.length;
-                return wrapper.applyPatchBatch(patches);
-            }
-        },
-        autoConnect: false,
+    const { client, ws } = await createConnectedPatchQueueClient({
         patchQueue: {
-            enabled: true,
             flushIntervalMs: 100,
             maxQueueSize: 10
+        },
+        wrapperMutator: (wrapper) => {
+            const originalApplyPatchBatch = wrapper.applyPatchBatch.bind(wrapper);
+            wrapper.applyPatchBatch = (patches: Array<unknown>) => {
+                patchesApplied += patches.length;
+                return originalApplyPatchBatch(patches);
+            };
+            return wrapper;
         }
     });
 
-    (globalThis as unknown as { WebSocket: typeof MockWebSocket }).WebSocket = MockWebSocket;
-
-    client.connect();
-    await new Promise((resolve) => setTimeout(resolve, 50));
-
-    const ws = client.getWebSocket() as unknown as MockWebSocket;
-    assert.ok(ws);
-
-    ws.simulateMessage(
-        JSON.stringify({
-            kind: "script",
-            id: "script:test1",
-            js_body: "return 1;"
-        })
-    );
+    sendScriptPatch(ws, "script:test1");
 
     const metricsBeforeFlush = client.getPatchQueueMetrics();
     assert.ok(metricsBeforeFlush !== null);
     assert.strictEqual(metricsBeforeFlush.totalQueued, 1);
     assert.strictEqual(patchesApplied, 0);
 
-    await new Promise((resolve) => setTimeout(resolve, 150));
+    await wait(150);
 
     const metricsAfterFlush = client.getPatchQueueMetrics();
     assert.ok(metricsAfterFlush !== null);
@@ -135,37 +185,24 @@ void test("patch queue enqueues patches instead of applying immediately", async 
 });
 
 void test("patch queue flushes automatically when reaching max size", async () => {
-    const wrapper = createRuntimeWrapper();
-
-    const client = createWebSocketClient({
-        wrapper,
-        autoConnect: false,
+    const { client, ws } = await createConnectedPatchQueueClient({
         patchQueue: {
-            enabled: true,
             flushIntervalMs: 1000,
             maxQueueSize: 3
         }
     });
 
-    (globalThis as unknown as { WebSocket: typeof MockWebSocket }).WebSocket = MockWebSocket;
-
-    client.connect();
-    await new Promise((resolve) => setTimeout(resolve, 50));
-
-    const ws = client.getWebSocket() as unknown as MockWebSocket;
-    assert.ok(ws);
-
-    ws.simulateMessage(JSON.stringify({ kind: "script", id: "script:test1", js_body: "return 1;" }));
-    ws.simulateMessage(JSON.stringify({ kind: "script", id: "script:test2", js_body: "return 2;" }));
+    sendScriptPatch(ws, "script:test1");
+    sendScriptPatch(ws, "script:test2");
 
     let metrics = client.getPatchQueueMetrics();
     assert.ok(metrics !== null);
     assert.strictEqual(metrics.totalQueued, 2);
     assert.strictEqual(metrics.flushCount, 0);
 
-    ws.simulateMessage(JSON.stringify({ kind: "script", id: "script:test3", js_body: "return 3;" }));
+    sendScriptPatch(ws, "script:test3");
 
-    await new Promise((resolve) => setTimeout(resolve, 50));
+    await wait(50);
 
     metrics = client.getPatchQueueMetrics();
     assert.ok(metrics !== null);
@@ -178,36 +215,23 @@ void test("patch queue flushes automatically when reaching max size", async () =
 });
 
 void test("patch queue drops oldest patches when exceeding max size", async () => {
-    const wrapper = createRuntimeWrapper();
-
-    const client = createWebSocketClient({
-        wrapper,
-        autoConnect: false,
+    const { client, ws } = await createConnectedPatchQueueClient({
         patchQueue: {
-            enabled: true,
             flushIntervalMs: 1000,
             maxQueueSize: 2
         }
     });
 
-    (globalThis as unknown as { WebSocket: typeof MockWebSocket }).WebSocket = MockWebSocket;
-
-    client.connect();
-    await new Promise((resolve) => setTimeout(resolve, 50));
-
-    const ws = client.getWebSocket() as unknown as MockWebSocket;
-    assert.ok(ws);
-
-    ws.simulateMessage(JSON.stringify({ kind: "script", id: "script:test1", js_body: "return 1;" }));
+    sendScriptPatch(ws, "script:test1");
 
     let metrics = client.getPatchQueueMetrics();
     assert.ok(metrics !== null);
     assert.strictEqual(metrics.totalQueued, 1);
     assert.strictEqual(metrics.totalDropped, 0);
 
-    ws.simulateMessage(JSON.stringify({ kind: "script", id: "script:test2", js_body: "return 2;" }));
+    sendScriptPatch(ws, "script:test2");
 
-    await new Promise((resolve) => setTimeout(resolve, 50));
+    await wait(50);
 
     metrics = client.getPatchQueueMetrics();
     assert.ok(metrics !== null);
@@ -218,31 +242,18 @@ void test("patch queue drops oldest patches when exceeding max size", async () =
 });
 
 void test("flushPatchQueue manually flushes queued patches", async () => {
-    const wrapper = createRuntimeWrapper();
-
-    const client = createWebSocketClient({
-        wrapper,
-        autoConnect: false,
+    const { client, ws } = await createConnectedPatchQueueClient({
         patchQueue: {
-            enabled: true,
             flushIntervalMs: 10_000,
             maxQueueSize: 50
         }
     });
 
-    (globalThis as unknown as { WebSocket: typeof MockWebSocket }).WebSocket = MockWebSocket;
+    sendScriptPatch(ws, "script:test1");
+    sendScriptPatch(ws, "script:test2");
+    sendScriptPatch(ws, "script:test3");
 
-    client.connect();
-    await new Promise((resolve) => setTimeout(resolve, 50));
-
-    const ws = client.getWebSocket() as unknown as MockWebSocket;
-    assert.ok(ws);
-
-    ws.simulateMessage(JSON.stringify({ kind: "script", id: "script:test1", js_body: "return 1;" }));
-    ws.simulateMessage(JSON.stringify({ kind: "script", id: "script:test2", js_body: "return 2;" }));
-    ws.simulateMessage(JSON.stringify({ kind: "script", id: "script:test3", js_body: "return 3;" }));
-
-    await new Promise((resolve) => setTimeout(resolve, 50));
+    await wait(50);
 
     let metrics = client.getPatchQueueMetrics();
     assert.ok(metrics !== null);
@@ -289,37 +300,27 @@ void test("flushPatchQueue returns zero when queuing is disabled", () => {
 });
 
 void test("patch queue uses applyPatchBatch when available", async () => {
-    const wrapper = createRuntimeWrapper();
     const batchCalls: Array<Array<unknown>> = [];
 
-    const client = createWebSocketClient({
-        wrapper: {
-            ...wrapper,
-            applyPatchBatch: (patches: Array<unknown>) => {
-                batchCalls.push(patches);
-                return wrapper.applyPatchBatch(patches);
-            }
-        },
-        autoConnect: false,
+    const { client, ws } = await createConnectedPatchQueueClient({
         patchQueue: {
-            enabled: true,
             flushIntervalMs: 50,
             maxQueueSize: 10
+        },
+        wrapperMutator: (wrapper) => {
+            const originalApplyPatchBatch = wrapper.applyPatchBatch.bind(wrapper);
+            wrapper.applyPatchBatch = (patches: Array<unknown>) => {
+                batchCalls.push(patches);
+                return originalApplyPatchBatch(patches);
+            };
+            return wrapper;
         }
     });
 
-    (globalThis as unknown as { WebSocket: typeof MockWebSocket }).WebSocket = MockWebSocket;
+    sendScriptPatch(ws, "script:test1");
+    sendScriptPatch(ws, "script:test2");
 
-    client.connect();
-    await new Promise((resolve) => setTimeout(resolve, 50));
-
-    const ws = client.getWebSocket() as unknown as MockWebSocket;
-    assert.ok(ws);
-
-    ws.simulateMessage(JSON.stringify({ kind: "script", id: "script:test1", js_body: "return 1;" }));
-    ws.simulateMessage(JSON.stringify({ kind: "script", id: "script:test2", js_body: "return 2;" }));
-
-    await new Promise((resolve) => setTimeout(resolve, 100));
+    await wait(100);
 
     assert.strictEqual(batchCalls.length, 1);
     assert.strictEqual(batchCalls[0].length, 2);
@@ -328,30 +329,17 @@ void test("patch queue uses applyPatchBatch when available", async () => {
 });
 
 void test("disconnect flushes pending patches", async () => {
-    const wrapper = createRuntimeWrapper();
-
-    const client = createWebSocketClient({
-        wrapper,
-        autoConnect: false,
+    const { client, ws } = await createConnectedPatchQueueClient({
         patchQueue: {
-            enabled: true,
             flushIntervalMs: 10_000,
             maxQueueSize: 50
         }
     });
 
-    (globalThis as unknown as { WebSocket: typeof MockWebSocket }).WebSocket = MockWebSocket;
+    sendScriptPatch(ws, "script:test1");
+    sendScriptPatch(ws, "script:test2");
 
-    client.connect();
-    await new Promise((resolve) => setTimeout(resolve, 50));
-
-    const ws = client.getWebSocket() as unknown as MockWebSocket;
-    assert.ok(ws);
-
-    ws.simulateMessage(JSON.stringify({ kind: "script", id: "script:test1", js_body: "return 1;" }));
-    ws.simulateMessage(JSON.stringify({ kind: "script", id: "script:test2", js_body: "return 2;" }));
-
-    await new Promise((resolve) => setTimeout(resolve, 50));
+    await wait(50);
 
     let metrics = client.getPatchQueueMetrics();
     assert.ok(metrics !== null);
@@ -367,40 +355,27 @@ void test("disconnect flushes pending patches", async () => {
 });
 
 void test("patch queue tracks max queue depth correctly", async () => {
-    const wrapper = createRuntimeWrapper();
-
-    const client = createWebSocketClient({
-        wrapper,
-        autoConnect: false,
+    const { client, ws } = await createConnectedPatchQueueClient({
         patchQueue: {
-            enabled: true,
             flushIntervalMs: 200,
             maxQueueSize: 50
         }
     });
 
-    (globalThis as unknown as { WebSocket: typeof MockWebSocket }).WebSocket = MockWebSocket;
+    sendScriptPatch(ws, "script:test1");
 
-    client.connect();
-    await new Promise((resolve) => setTimeout(resolve, 50));
+    await wait(20);
 
-    const ws = client.getWebSocket() as unknown as MockWebSocket;
-    assert.ok(ws);
+    sendScriptPatch(ws, "script:test2");
+    sendScriptPatch(ws, "script:test3");
 
-    ws.simulateMessage(JSON.stringify({ kind: "script", id: "script:test1", js_body: "return 1;" }));
-
-    await new Promise((resolve) => setTimeout(resolve, 20));
-
-    ws.simulateMessage(JSON.stringify({ kind: "script", id: "script:test2", js_body: "return 2;" }));
-    ws.simulateMessage(JSON.stringify({ kind: "script", id: "script:test3", js_body: "return 3;" }));
-
-    await new Promise((resolve) => setTimeout(resolve, 20));
+    await wait(20);
 
     let metrics = client.getPatchQueueMetrics();
     assert.ok(metrics !== null);
     assert.strictEqual(metrics.maxQueueDepth, 3);
 
-    await new Promise((resolve) => setTimeout(resolve, 200));
+    await wait(200);
 
     metrics = client.getPatchQueueMetrics();
     assert.ok(metrics !== null);
@@ -430,41 +405,22 @@ void test("patch queue metrics are frozen", () => {
 });
 
 void test("patch queue handles array of patches correctly", async () => {
-    const wrapper = createRuntimeWrapper();
-
-    const client = createWebSocketClient({
-        wrapper,
-        autoConnect: false,
+    const { client, ws } = await createConnectedPatchQueueClient({
         patchQueue: {
-            enabled: true,
             flushIntervalMs: 50,
             maxQueueSize: 10
         }
     });
 
-    (globalThis as unknown as { WebSocket: typeof MockWebSocket }).WebSocket = MockWebSocket;
+    sendScriptPatchBatch(ws, [{ id: "script:test1" }, { id: "script:test2" }, { id: "script:test3" }]);
 
-    client.connect();
-    await new Promise((resolve) => setTimeout(resolve, 50));
-
-    const ws = client.getWebSocket() as unknown as MockWebSocket;
-    assert.ok(ws);
-
-    ws.simulateMessage(
-        JSON.stringify([
-            { kind: "script", id: "script:test1", js_body: "return 1;" },
-            { kind: "script", id: "script:test2", js_body: "return 2;" },
-            { kind: "script", id: "script:test3", js_body: "return 3;" }
-        ])
-    );
-
-    await new Promise((resolve) => setTimeout(resolve, 20));
+    await wait(20);
 
     let metrics = client.getPatchQueueMetrics();
     assert.ok(metrics !== null);
     assert.strictEqual(metrics.totalQueued, 3);
 
-    await new Promise((resolve) => setTimeout(resolve, 100));
+    await wait(100);
 
     metrics = client.getPatchQueueMetrics();
     assert.ok(metrics !== null);
@@ -474,33 +430,20 @@ void test("patch queue handles array of patches correctly", async () => {
 });
 
 void test("patch queue clears flush timer on disconnect", async () => {
-    const wrapper = createRuntimeWrapper();
-
-    const client = createWebSocketClient({
-        wrapper,
-        autoConnect: false,
+    const { client, ws } = await createConnectedPatchQueueClient({
         patchQueue: {
-            enabled: true,
             flushIntervalMs: 10_000,
             maxQueueSize: 50
         }
     });
 
-    (globalThis as unknown as { WebSocket: typeof MockWebSocket }).WebSocket = MockWebSocket;
+    sendScriptPatch(ws, "script:test1");
 
-    client.connect();
-    await new Promise((resolve) => setTimeout(resolve, 50));
-
-    const ws = client.getWebSocket() as unknown as MockWebSocket;
-    assert.ok(ws);
-
-    ws.simulateMessage(JSON.stringify({ kind: "script", id: "script:test1", js_body: "return 1;" }));
-
-    await new Promise((resolve) => setTimeout(resolve, 50));
+    await wait(50);
 
     client.disconnect();
 
-    await new Promise((resolve) => setTimeout(resolve, 100));
+    await wait(100);
 
     const metrics = client.getPatchQueueMetrics();
     assert.ok(metrics !== null);

@@ -17,9 +17,8 @@
  * ```
  */
 
-import path from "node:path";
-
 import { Core } from "@gml-modules/core";
+import { resolveObjectRuntimeIdFromSegments, getRuntimePathSegments } from "./runtime-identifiers.js";
 
 const { FUNCTION_DECLARATION, VARIABLE_DECLARATOR, ASSIGNMENT_EXPRESSION } = {
     FUNCTION_DECLARATION: Core.FUNCTION_DECLARATION,
@@ -114,39 +113,12 @@ function extractFromAssignment(node: AstNode, filePath: string): Array<string> {
  * Uses path heuristics to determine if it's a script or object event.
  */
 function resolveRuntimeIdFromPath(filePath: string, symbolName: string): string | null {
-    const normalizedPath = path.normalize(filePath);
-    const segments = Core.compactArray(normalizedPath.split(path.sep));
-
-    // Check if this is in an objects/ directory (object event)
-    for (let index = segments.length - 1; index >= 0; index -= 1) {
-        if (segments[index] !== "objects") {
-            continue;
-        }
-
-        const objectName = segments[index + 1];
-        const eventFile = segments[index + 2];
-        if (!objectName || !eventFile) {
-            continue;
-        }
-
-        const eventName = path.basename(eventFile, path.extname(eventFile));
-        if (!eventName) {
-            continue;
-        }
-
-        return `gml_Object_${objectName}_${eventName}`;
+    const segments = getRuntimePathSegments(filePath);
+    const objectRuntimeId = resolveObjectRuntimeIdFromSegments(segments);
+    if (objectRuntimeId) {
+        return objectRuntimeId;
     }
 
-    // Check if this is in a scripts/ directory (script file)
-    for (let index = segments.length - 1; index >= 0; index -= 1) {
-        if (segments[index] !== "scripts") {
-            continue;
-        }
-
-        return `gml_Script_${symbolName}`;
-    }
-
-    // Fallback: use symbol name directly
     return `gml_Script_${symbolName}`;
 }
 

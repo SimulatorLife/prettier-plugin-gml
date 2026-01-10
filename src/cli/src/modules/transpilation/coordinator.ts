@@ -14,6 +14,11 @@ import { Transpiler } from "@gml-modules/transpiler";
 import { formatCliError } from "../../cli-core/errors.js";
 import type { PatchBroadcaster } from "../websocket/server.js";
 import { extractSymbolsFromAst } from "./symbol-extraction.js";
+import {
+    getRuntimePathSegments,
+    resolveObjectRuntimeIdFromSegments,
+    resolveScriptFileNameFromSegments
+} from "./runtime-identifiers.js";
 
 type RuntimeTranspiler = InstanceType<typeof Transpiler.GmlTranspiler>;
 export type RuntimeTranspilerPatch = ReturnType<RuntimeTranspiler["transpileScript"]>;
@@ -42,43 +47,14 @@ export interface TranspilationError {
 }
 
 function resolveRuntimeId(filePath: string): string | null {
-    const normalizedPath = path.normalize(filePath);
-    const segments = Core.compactArray(normalizedPath.split(path.sep));
-
-    for (let index = segments.length - 1; index >= 0; index -= 1) {
-        if (segments[index] !== "objects") {
-            continue;
-        }
-
-        const objectName = segments[index + 1];
-        const eventFile = segments[index + 2];
-        if (!objectName || !eventFile) {
-            continue;
-        }
-
-        const eventName = path.basename(eventFile, path.extname(eventFile));
-        if (!eventName) {
-            continue;
-        }
-
-        return `gml_Object_${objectName}_${eventName}`;
+    const segments = getRuntimePathSegments(filePath);
+    const objectRuntimeId = resolveObjectRuntimeIdFromSegments(segments);
+    if (objectRuntimeId) {
+        return objectRuntimeId;
     }
 
-    for (let index = segments.length - 1; index >= 0; index -= 1) {
-        if (segments[index] !== "scripts") {
-            continue;
-        }
-
-        const scriptFile = segments[index + 1];
-        if (!scriptFile) {
-            continue;
-        }
-
-        const scriptName = path.basename(scriptFile, path.extname(scriptFile));
-        if (!scriptName) {
-            continue;
-        }
-
+    const scriptName = resolveScriptFileNameFromSegments(segments);
+    if (scriptName) {
         return `gml_Script_${scriptName}`;
     }
 
