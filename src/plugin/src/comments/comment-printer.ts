@@ -196,8 +196,8 @@ function printComment(commentPath, options) {
             if (trimmed === "" || trimmed === "*") {
                 return "";
             }
-            const decorated = formatDecorativeBlockComment(comment.value);
-            if (decorated !== null) {
+            const decorated = formatDecorativeBlockComment(comment);
+    if (decorated !== null) {
                 if (decorated === "") {
                     return "";
                 }
@@ -802,7 +802,7 @@ function handleDecorativeBlockCommentOwnLine(comment, _text, _options, ast) {
         return false;
     }
 
-    const decorated = formatDecorativeBlockComment(comment.value);
+    const decorated = formatDecorativeBlockComment(comment);
     if (decorated === null) {
         return false;
     }
@@ -930,7 +930,7 @@ function isDecorativeBlockComment(comment) {
         return false;
     }
 
-    return formatDecorativeBlockComment(comment.value) !== null;
+    return formatDecorativeBlockComment(comment) !== null;
 }
 
 function handleCommentAttachedToOpenBrace(comment, _text, _options, ast /*, isLastComment */) {
@@ -1213,8 +1213,9 @@ function findEmptyProgramTarget(ast, enclosingNode, followingNode) {
     return null;
 }
 
-function formatDecorativeBlockComment(value) {
-    if (typeof value !== "string") {
+function formatDecorativeBlockComment(comment) {
+    const value = typeof comment?.value === "string" ? comment.value : null;
+    if (value === null) {
         return null;
     }
 
@@ -1231,7 +1232,14 @@ function formatDecorativeBlockComment(value) {
     }
 
     const hasDecoration = significantLines.some((line) => DECORATIVE_SLASH_LINE_PATTERN.test(line));
-    if (!hasDecoration) {
+    const hasLeadingLineBreak = comment?._gmlForceLeadingBlankLine === true
+        ? true
+        : typeof comment?.leadingWS === "string"
+            ? /\r|\n/.test(comment.leadingWS)
+            : false;
+    const hasMultipleLines = lines.length > 1;
+    const shouldDecorate = hasDecoration || (hasMultipleLines && hasLeadingLineBreak);
+    if (!shouldDecorate) {
         return null;
     }
 
