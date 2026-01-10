@@ -105,6 +105,63 @@ const metadata = tracker.getScopeMetadata(scope.id);
 
 **Use case:** Enable file-based hot reload invalidation by tracking which scopes belong to which source files. When a file changes, query all scopes in that file and compute their invalidation sets to determine what needs recompilation. The source range information supports precise source mapping for debugging and error reporting.
 
+### `getScopesByPath(path)`
+
+Get all scopes associated with a specific file path. This enables efficient hot reload invalidation when a file changes by quickly identifying all scopes in that file.
+
+```javascript
+const tracker = new ScopeTracker({ enabled: true });
+
+// Create multiple scopes with path metadata
+tracker.enterScope("program", {
+    name: "player_movement",
+    path: "scripts/player_movement/player_movement.gml"
+});
+
+tracker.enterScope("function", {
+    name: "updatePlayer",
+    path: "scripts/player_movement/player_movement.gml",
+    start: { line: 10, column: 0, index: 250 },
+    end: { line: 25, column: 1, index: 500 }
+});
+
+tracker.enterScope("function", {
+    name: "resetPlayer",
+    path: "scripts/player_movement/player_movement.gml",
+    start: { line: 30, column: 0, index: 600 },
+    end: { line: 35, column: 1, index: 700 }
+});
+
+const scopes = tracker.getScopesByPath("scripts/player_movement/player_movement.gml");
+// Returns: [
+//   {
+//     scopeId: "scope-0",
+//     scopeKind: "program",
+//     name: "player_movement",
+//     start: undefined,
+//     end: undefined
+//   },
+//   {
+//     scopeId: "scope-1",
+//     scopeKind: "function",
+//     name: "updatePlayer",
+//     start: { line: 10, column: 0, index: 250 },
+//     end: { line: 25, column: 1, index: 500 }
+//   },
+//   {
+//     scopeId: "scope-2",
+//     scopeKind: "function",
+//     name: "resetPlayer",
+//     start: { line: 30, column: 0, index: 600 },
+//     end: { line: 35, column: 1, index: 700 }
+//   }
+// ]
+```
+
+**Use case:** Essential for file-based hot reload. When a file changes, call this method to get all scopes defined in that file. For each scope, you can then call `getInvalidationSet()` to determine what downstream code needs recompilation. The method uses an internal index for O(1) average-case lookup, making it efficient even for large projects with thousands of scopes.
+
+**Performance:** This method provides constant-time lookup regardless of the total number of scopes in the tracker, as it uses an internal path-to-scope index. This is significantly faster than scanning all scopes, which would be O(n).
+
 ## Symbol Resolution Queries
 
 The `ScopeTracker` provides query methods that enable hot reload coordination and dependency tracking:
