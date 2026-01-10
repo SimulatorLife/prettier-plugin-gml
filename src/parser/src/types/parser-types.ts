@@ -40,8 +40,40 @@ export interface GlobalIdentifierTracker {
  * without coupling to global tracking or scope lifecycle.
  */
 export interface IdentifierRoleManager {
+    /**
+     * Execute a callback within an identifier role context.
+     *
+     * Pushes the provided role onto an internal stack, executes the callback,
+     * and then pops the role. The role object typically contains:
+     * - `type`: "declaration" or "reference"
+     * - `kind`: Semantic kind (e.g., "variable", "function", "parameter")
+     * - `tags`: Additional classification tags
+     * - `scopeOverride`: Optional scope override for cross-scope declarations
+     *
+     * @param role Role descriptor object to apply during callback execution
+     * @param callback Function to execute with the role active
+     * @returns The result of the callback function
+     */
     withRole?<T>(role: object | null, callback: () => T): T;
+
+    /**
+     * Create a deep copy of an identifier role object.
+     *
+     * @param role Role object to clone
+     * @returns Cloned role with independent arrays and nested objects
+     */
     cloneRole(role: object | null): object | null;
+
+    /**
+     * Apply the current active role to an identifier node.
+     *
+     * Annotates the node with metadata from the role stack, including
+     * classification tags and scope information. This enables downstream
+     * semantic analysis and code generation.
+     *
+     * @param name Identifier name being annotated
+     * @param node AST node to receive role metadata
+     */
     applyCurrentRoleToIdentifier(
         name: string | null | undefined,
         node: MutableGameMakerAstNode | null | undefined
@@ -55,6 +87,23 @@ export interface IdentifierRoleManager {
  * without coupling to identifier tracking or role management.
  */
 export interface ScopeLifecycle {
+    /**
+     * Execute a callback within a new scope context.
+     *
+     * Creates a new scope with the specified kind, executes the callback,
+     * and then exits the scope. Scopes form a stack during parsing, with
+     * each scope tracking its own declarations and references.
+     *
+     * Common scope kinds include:
+     * - "program" - Root scope for the entire file
+     * - "function" - Function body scope
+     * - "block" - Statement block scope
+     * - "with" - GameMaker's `with` statement scope
+     *
+     * @param kind Semantic kind of scope being entered
+     * @param callback Function to execute within the new scope
+     * @returns The result of the callback function
+     */
     withScope?<T>(kind: string, callback: () => T): T;
 }
 
