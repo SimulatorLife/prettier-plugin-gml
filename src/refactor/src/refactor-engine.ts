@@ -563,7 +563,9 @@ export class RefactorEngine {
                 errors.push(...(semanticValidation.errors || []));
                 warnings.push(...(semanticValidation.warnings || []));
             } catch (error) {
-                warnings.push(`Semantic validation failed: ${error.message}. Proceeding with basic validation only.`);
+                warnings.push(
+                    `Semantic validation failed: ${Core.getErrorMessage(error)}. Proceeding with basic validation only.`
+                );
             }
         }
 
@@ -1039,7 +1041,7 @@ export class RefactorEngine {
                     conflicts: [
                         {
                             type: ConflictType.ANALYSIS_ERROR,
-                            message: `Failed to analyze ${rename.symbolId}: ${Core.isErrorLike(error) ? error.message : String(error)}`
+                            message: `Failed to analyze ${rename.symbolId}: ${Core.getErrorMessage(error)}`
                         }
                     ],
                     warnings: []
@@ -1060,7 +1062,7 @@ export class RefactorEngine {
                 // validation instead of failing the entire batch plan.
                 if (hotReloadValidation) {
                     hotReloadValidation.warnings.push(
-                        `Failed to compute hot reload cascade: ${Core.isErrorLike(error) ? error.message : String(error)}`
+                        `Failed to compute hot reload cascade: ${Core.getErrorMessage(error)}`
                     );
                 }
             }
@@ -1303,7 +1305,7 @@ export class RefactorEngine {
         } catch (error) {
             conflicts.push({
                 type: ConflictType.ANALYSIS_ERROR,
-                message: `Failed to analyze impact: ${error.message}`,
+                message: `Failed to analyze impact: ${Core.getErrorMessage(error)}`,
                 severity: "error"
             });
         }
@@ -1431,7 +1433,7 @@ export class RefactorEngine {
             try {
                 content = await readFile(filePath);
             } catch (error) {
-                errors.push(`Failed to read ${filePath} for post-edit validation: ${error.message}`);
+                errors.push(`Failed to read ${filePath} for post-edit validation: ${Core.getErrorMessage(error)}`);
                 continue;
             }
 
@@ -1497,7 +1499,7 @@ export class RefactorEngine {
                     );
                 }
             } catch (error) {
-                warnings.push(`Could not verify occurrences of new name: ${error.message}`);
+                warnings.push(`Could not verify occurrences of new name: ${Core.getErrorMessage(error)}`);
             }
         }
 
@@ -1509,7 +1511,7 @@ export class RefactorEngine {
                     errors.push(`New name '${newName}' conflicts with reserved keyword`);
                 }
             } catch (error) {
-                warnings.push(`Could not verify reserved keywords: ${error.message}`);
+                warnings.push(`Could not verify reserved keywords: ${Core.getErrorMessage(error)}`);
             }
         }
 
@@ -1522,7 +1524,7 @@ export class RefactorEngine {
                     await this.parser.parse(filePath);
                 } catch (parseError) {
                     errors.push(
-                        `Parse error in ${filePath} after rename: ${parseError.message} - edits may have broken syntax`
+                        `Parse error in ${filePath} after rename: ${Core.getErrorMessage(parseError)} - edits may have broken syntax`
                     );
                 }
             }
