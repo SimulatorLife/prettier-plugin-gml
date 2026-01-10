@@ -13,9 +13,11 @@ import type {
     CallTargetAnalyzer,
     ConstructorDeclarationNode,
     DefaultParameterNode,
+    DefineStatementNode,
     DeleteStatementNode,
     DoUntilStatementNode,
     EmitOptions,
+    EndRegionStatementNode,
     EnumDeclarationNode,
     EnumMemberNode,
     FunctionDeclarationNode,
@@ -33,6 +35,7 @@ import type {
     MemberIndexExpressionNode,
     NewExpressionNode,
     ProgramNode,
+    RegionStatementNode,
     RepeatStatementNode,
     ReturnStatementNode,
     StructExpressionNode,
@@ -66,14 +69,24 @@ export class GmlToJsEmitter {
     private readonly globalVars: Set<string>;
 
     constructor(
-        semantic: {
-            identifier: IdentifierAnalyzer;
-            callTarget: CallTargetAnalyzer;
-        },
+        semantic:
+            | (IdentifierAnalyzer & CallTargetAnalyzer)
+            | {
+                  identifier: IdentifierAnalyzer;
+                  callTarget: CallTargetAnalyzer;
+              },
         options: Partial<EmitOptions> = {}
     ) {
-        this.identifierAnalyzer = semantic.identifier;
-        this.callTargetAnalyzer = semantic.callTarget;
+        // Support both the new simplified interface (single oracle) and
+        // the legacy interface (object with identifier/callTarget properties)
+        // for backward compatibility
+        if ("identifier" in semantic && "callTarget" in semantic) {
+            this.identifierAnalyzer = semantic.identifier;
+            this.callTargetAnalyzer = semantic.callTarget;
+        } else {
+            this.identifierAnalyzer = semantic;
+            this.callTargetAnalyzer = semantic;
+        }
         this.options = { ...DEFAULT_OPTIONS, ...options };
         this.globalVars = new Set();
     }
@@ -209,6 +222,15 @@ export class GmlToJsEmitter {
             }
             case "ConstructorDeclaration": {
                 return this.visitConstructorDeclaration(ast);
+            }
+            case "RegionStatement": {
+                return this.visitRegionStatement(ast);
+            }
+            case "EndRegionStatement": {
+                return this.visitEndRegionStatement(ast);
+            }
+            case "DefineStatement": {
+                return this.visitDefineStatement(ast);
             }
             default: {
                 return this.handleUnknownNode(ast);
@@ -436,20 +458,17 @@ export class GmlToJsEmitter {
                 const body = this.joinTruthy(
                     (caseNode.body ?? []).map((stmt) => {
                         const code = this.visit(stmt);
-                        const trimmed = code.trim();
-                        if (
-                            !code ||
-                            code.endsWith(";") ||
-                            code.endsWith("}") ||
-                            trimmed === "break" ||
-                            trimmed === "continue" ||
-                            trimmed.startsWith("return")
-                        ) {
+                        if (!code) {
                             return code;
                         }
-                        return `${code};`;
+                        // Use the standard termination policy for all statements
+                        return this.ensureStatementTermination(code);
                     })
                 );
+                // Skip empty case bodies (fall-through cases)
+                if (!body) {
+                    return header;
+                }
                 return `${header}\n${body}`;
             })
             .join("\n");
@@ -564,6 +583,50 @@ export class GmlToJsEmitter {
     private visitConstructorDeclaration(ast: ConstructorDeclarationNode): string {
         const id = ast.id ?? "";
         return this.emitFunctionLike("function", id, ast.params, ast.body);
+    }
+
+    /**
+     * Visit a RegionStatement node.
+     * Region statements are GML preprocessor directives used for code folding
+     * in the GameMaker IDE. They have no runtime effect and should not appear
+     * in the transpiled JavaScript output.
+     *
+     * @param ast - The RegionStatement node
+     * @returns Empty string (region markers are stripped from output)
+     */
+    private visitRegionStatement(ast: RegionStatementNode): string {
+        // Region statements are preprocessor directives that have no runtime effect.
+        // Verify the node type for consistency, then emit nothing.
+        return ast.type === "RegionStatement" ? "" : "";
+    }
+
+    /**
+     * Visit an EndRegionStatement node.
+     * EndRegion statements are GML preprocessor directives that close a region block.
+     * They have no runtime effect and should not appear in the transpiled JavaScript output.
+     *
+     * @param ast - The EndRegionStatement node
+     * @returns Empty string (endregion markers are stripped from output)
+     */
+    private visitEndRegionStatement(ast: EndRegionStatementNode): string {
+        // EndRegion statements are preprocessor directives that have no runtime effect.
+        // Verify the node type for consistency, then emit nothing.
+        return ast.type === "EndRegionStatement" ? "" : "";
+    }
+
+    /**
+     * Visit a DefineStatement node.
+     * DefineStatement nodes can represent various preprocessor directives including
+     * #region, #endregion, and #macro. Region directives have no runtime effect.
+     * Macro directives are already handled separately by MacroDeclaration nodes.
+     *
+     * @param ast - The DefineStatement node
+     * @returns Empty string (preprocessor directives are stripped from output)
+     */
+    private visitDefineStatement(ast: DefineStatementNode): string {
+        // DefineStatement nodes for regions have no runtime effect.
+        // Verify the node type for consistency, then emit nothing.
+        return ast.type === "DefineStatement" ? "" : "";
     }
 
     private emitFunctionLike(
@@ -698,35 +761,10 @@ export class GmlToJsEmitter {
     }
 }
 
-export function emitJavaScript(
-    ast: StatementLike,
-    sem?: {
-        identifier: IdentifierAnalyzer;
-        callTarget: CallTargetAnalyzer;
-    }
-): string {
-    const oracle = sem ?? makeDefaultOracle();
+export function emitJavaScript(ast: StatementLike, sem?: IdentifierAnalyzer & CallTargetAnalyzer): string {
+    const oracle = sem ?? createSemanticOracle();
     const emitter = new GmlToJsEmitter(oracle);
     return emitter.emit(ast);
-}
-
-/**
- * Create a default semantic oracle with full built-in function knowledge.
- * This provides better code generation than the dummy oracle by correctly
- * classifying built-in functions and generating proper SCIP symbols.
- *
- * Use this when you want semantic analysis without a scope tracker or
- * script tracking (suitable for standalone expression/statement transpilation).
- */
-export function makeDefaultOracle(): {
-    identifier: IdentifierAnalyzer;
-    callTarget: CallTargetAnalyzer;
-} {
-    const oracle = createSemanticOracle();
-    return {
-        identifier: oracle,
-        callTarget: oracle
-    };
 }
 
 /**
@@ -734,8 +772,8 @@ export function makeDefaultOracle(): {
  * analysis is not needed. This oracle has no knowledge of built-ins or
  * scripts and classifies everything as local or unknown.
  *
- * @deprecated Use `makeDefaultOracle()` or `createSemanticOracle()` instead
- * for better code generation with proper semantic analysis.
+ * @deprecated Use `createSemanticOracle()` instead for better code
+ * generation with proper semantic analysis.
  */
 export function makeDummyOracle(): {
     identifier: IdentifierAnalyzer;

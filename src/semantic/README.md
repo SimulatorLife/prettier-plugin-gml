@@ -68,6 +68,100 @@ SCIP symbols follow a deterministic URI-like format for cross-reference tracking
 
 These symbols enable hot reload pipelines to track dependencies and coordinate invalidation when symbols change.
 
+## Scope Metadata Tracking
+
+The `ScopeTracker` now supports enriched scope metadata to improve hot reload coordination and debugging. When entering a scope, you can optionally provide metadata including:
+
+- `name`: Human-readable scope name (e.g., function name, object name)
+- `path`: Source file path where the scope is defined
+- `start`: Start location (line, column, index)
+- `end`: End location (line, column, index)
+
+### `getScopeMetadata(scopeId)`
+
+Retrieve metadata for a specific scope, enabling file-based invalidation and source mapping.
+
+```javascript
+const tracker = new ScopeTracker({ enabled: true });
+
+// Create a scope with full metadata
+const scope = tracker.enterScope("function", {
+    name: "updatePlayer",
+    path: "scripts/player_movement/player_movement.gml",
+    start: { line: 10, column: 0, index: 250 },
+    end: { line: 25, column: 1, index: 500 }
+});
+
+const metadata = tracker.getScopeMetadata(scope.id);
+// Returns: {
+//   scopeId: "scope-0",
+//   scopeKind: "function",
+//   name: "updatePlayer",
+//   path: "scripts/player_movement/player_movement.gml",
+//   start: { line: 10, column: 0, index: 250 },
+//   end: { line: 25, column: 1, index: 500 }
+// }
+```
+
+**Use case:** Enable file-based hot reload invalidation by tracking which scopes belong to which source files. When a file changes, query all scopes in that file and compute their invalidation sets to determine what needs recompilation. The source range information supports precise source mapping for debugging and error reporting.
+
+### `getScopesByPath(path)`
+
+Get all scopes associated with a specific file path. This enables efficient hot reload invalidation when a file changes by quickly identifying all scopes in that file.
+
+```javascript
+const tracker = new ScopeTracker({ enabled: true });
+
+// Create multiple scopes with path metadata
+tracker.enterScope("program", {
+    name: "player_movement",
+    path: "scripts/player_movement/player_movement.gml"
+});
+
+tracker.enterScope("function", {
+    name: "updatePlayer",
+    path: "scripts/player_movement/player_movement.gml",
+    start: { line: 10, column: 0, index: 250 },
+    end: { line: 25, column: 1, index: 500 }
+});
+
+tracker.enterScope("function", {
+    name: "resetPlayer",
+    path: "scripts/player_movement/player_movement.gml",
+    start: { line: 30, column: 0, index: 600 },
+    end: { line: 35, column: 1, index: 700 }
+});
+
+const scopes = tracker.getScopesByPath("scripts/player_movement/player_movement.gml");
+// Returns: [
+//   {
+//     scopeId: "scope-0",
+//     scopeKind: "program",
+//     name: "player_movement",
+//     start: undefined,
+//     end: undefined
+//   },
+//   {
+//     scopeId: "scope-1",
+//     scopeKind: "function",
+//     name: "updatePlayer",
+//     start: { line: 10, column: 0, index: 250 },
+//     end: { line: 25, column: 1, index: 500 }
+//   },
+//   {
+//     scopeId: "scope-2",
+//     scopeKind: "function",
+//     name: "resetPlayer",
+//     start: { line: 30, column: 0, index: 600 },
+//     end: { line: 35, column: 1, index: 700 }
+//   }
+// ]
+```
+
+**Use case:** Essential for file-based hot reload. When a file changes, call this method to get all scopes defined in that file. For each scope, you can then call `getInvalidationSet()` to determine what downstream code needs recompilation. The method uses an internal index for O(1) average-case lookup, making it efficient even for large projects with thousands of scopes.
+
+**Performance:** This method provides constant-time lookup regardless of the total number of scopes in the tracker, as it uses an internal path-to-scope index. This is significantly faster than scanning all scopes, which would be O(n).
+
 ## Symbol Resolution Queries
 
 The `ScopeTracker` provides query methods that enable hot reload coordination and dependency tracking:
@@ -145,6 +239,38 @@ const occurrences = tracker.getSymbolOccurrences("myVariable");
 ```
 
 **Use case:** Identify what needs to be recompiled when a symbol changes, supporting faster invalidation in hot reload pipelines.
+
+### `getBatchSymbolOccurrences(names)`
+
+Find all occurrences (declarations and references) for multiple symbols in a single query. This is more efficient than calling `getSymbolOccurrences` multiple times, as it batches the lookups and minimizes redundant scope traversals.
+
+```javascript
+const tracker = new ScopeTracker({ enabled: true });
+// ... track declarations and references across multiple scopes ...
+
+// When multiple symbols change (e.g., in a file edit), query them all at once
+const changedSymbols = ["CONFIG_MAX_HP", "CONFIG_MAX_MP", "initPlayer"];
+const results = tracker.getBatchSymbolOccurrences(changedSymbols);
+
+// Returns: Map<string, Array<{scopeId, scopeKind, kind, occurrence}>>
+// Each entry maps a symbol name to its occurrence records:
+// Map {
+//   "CONFIG_MAX_HP" => [
+//     { scopeId: "scope-0", scopeKind: "program", kind: "declaration", occurrence: {...} },
+//     { scopeId: "scope-1", scopeKind: "function", kind: "reference", occurrence: {...} }
+//   ],
+//   "CONFIG_MAX_MP" => [...],
+//   "initPlayer" => [...]
+// }
+
+// Symbols not found are omitted from the result (not mapped to empty arrays)
+```
+
+The method accepts any iterable of symbol names (Array, Set, etc.) and returns a Map. Symbols that have no occurrences are omitted from the result entirely.
+
+**Use case:** When a file changes during hot reload and multiple symbols are modified, batch-query all affected symbols to determine the complete invalidation set without N individual lookups. This provides better performance than sequential queries, especially in large projects with many symbols.
+
+**Performance:** For querying N symbols, this method performs O(N) lookups against the internal symbol index, compared to O(N) separate method calls if using `getSymbolOccurrences` individually. The batching also improves cache locality and reduces function call overhead.
 
 ### `getScopeSymbols(scopeId)`
 

@@ -108,63 +108,9 @@ export function ensureSuitesAreKnown(
     });
 }
 
-function assertSuiteRunnerLookup(availableSuites: Map<string, SuiteRunner>): void {
-    if (!availableSuites || typeof availableSuites.get !== "function") {
-        throw new TypeError("availableSuites must provide a get function returning suite runners");
-    }
-}
-
-/**
- * Execute an individual suite runner and normalize the resulting entry.
- *
- * Offloading this bookkeeping keeps {@link collectSuiteResults} focused on
- * sequencing suites at a single abstraction layer instead of juggling raw
- * result mutations and error handling inline.
- *
- * @param {{
- *   suiteName: string,
- *   availableSuites: Map<string, unknown>,
- *   runnerOptions: unknown,
- *   handleSuiteError: (error: unknown, context: { suiteName: string }) => unknown
- * }} context
- * @returns {Promise<[string, unknown] | null>}
- */
-async function executeSuiteRunner({
-    suiteName,
-    availableSuites,
-    runnerOptions,
-    handleSuiteError
-}: {
-    suiteName: string;
-    availableSuites: Map<string, SuiteRunner>;
-    runnerOptions: unknown;
-    handleSuiteError: (error: unknown, context: { suiteName: string }) => unknown;
-}): Promise<[string, unknown] | null> {
-    const runner = availableSuites.get(suiteName);
-    if (typeof runner !== "function") {
-        return null;
-    }
-
-    try {
-        const result = await runner(runnerOptions);
-        return [suiteName, result];
-    } catch (error) {
-        const fallback = handleSuiteError(error, { suiteName });
-        return [suiteName, fallback];
-    }
-}
-
 /**
  * Execute the provided suite runners and collect their results, applying an
  * optional error mapper when a runner throws.
- *
- * @param {{
- *     suiteNames: Array<string>,
- *     availableSuites: Map<string, unknown>,
- *     runnerOptions?: unknown,
- *     onError?: (error: unknown, context: { suiteName: string }) => unknown
- * }} parameters
- * @returns {Promise<Record<string, unknown>>}
  */
 export async function collectSuiteResults({
     suiteNames,
@@ -177,8 +123,6 @@ export async function collectSuiteResults({
     runnerOptions?: unknown;
     onError?: (error: unknown, context: { suiteName: string }) => unknown;
 }): Promise<Record<string, unknown>> {
-    assertSuiteRunnerLookup(availableSuites);
-
     if (!isNonEmptyArray(suiteNames)) {
         return {};
     }
@@ -186,14 +130,20 @@ export async function collectSuiteResults({
     const handleSuiteError = typeof onError === "function" ? onError : defaultSuiteErrorHandler;
 
     const executionResults = await Promise.all(
-        suiteNames.map((suiteName) =>
-            executeSuiteRunner({
-                suiteName,
-                availableSuites,
-                runnerOptions,
-                handleSuiteError
-            })
-        )
+        suiteNames.map(async (suiteName) => {
+            const runner = availableSuites.get(suiteName);
+            if (typeof runner !== "function") {
+                return null;
+            }
+
+            try {
+                const result = await runner(runnerOptions);
+                return [suiteName, result] as [string, unknown];
+            } catch (error) {
+                const fallback = handleSuiteError(error, { suiteName });
+                return [suiteName, fallback] as [string, unknown];
+            }
+        })
     );
 
     const entries = executionResults.filter((result): result is [string, unknown] => result !== null);

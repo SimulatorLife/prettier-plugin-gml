@@ -7,6 +7,7 @@
 import type { RenamePlanSummary, BatchRenamePlanSummary, SymbolOccurrence } from "./types.js";
 import type { WorkspaceEdit } from "./workspace-edit.js";
 import { groupOccurrencesByFile } from "./occurrence-analysis.js";
+import { assertNonEmptyString, assertArray } from "./validation-utils.js";
 
 /**
  * Append formatted error and warning messages to a lines array.
@@ -96,13 +97,8 @@ export function generateRenamePreview(workspace: WorkspaceEdit, oldName: string,
         throw new TypeError("generateRenamePreview requires a valid WorkspaceEdit");
     }
 
-    if (typeof oldName !== "string" || oldName.length === 0) {
-        throw new TypeError("generateRenamePreview requires a non-empty oldName string");
-    }
-
-    if (typeof newName !== "string" || newName.length === 0) {
-        throw new TypeError("generateRenamePreview requires a non-empty newName string");
-    }
+    assertNonEmptyString(oldName, "oldName as a non-empty string", "generateRenamePreview");
+    assertNonEmptyString(newName, "newName as a non-empty string", "generateRenamePreview");
 
     const grouped = workspace.groupByFile();
     const files: Array<FilePreview> = [];
@@ -398,17 +394,9 @@ export function formatOccurrencePreview(
     oldName: string,
     newName: string
 ): string {
-    if (!Array.isArray(occurrences)) {
-        throw new TypeError("formatOccurrencePreview requires an array of occurrences");
-    }
-
-    if (typeof oldName !== "string" || oldName.length === 0) {
-        throw new TypeError("formatOccurrencePreview requires a non-empty oldName string");
-    }
-
-    if (typeof newName !== "string" || newName.length === 0) {
-        throw new TypeError("formatOccurrencePreview requires a non-empty newName string");
-    }
+    assertArray(occurrences, "an array of occurrences", "formatOccurrencePreview");
+    assertNonEmptyString(oldName, "oldName as a non-empty string", "formatOccurrencePreview");
+    assertNonEmptyString(newName, "newName as a non-empty string", "formatOccurrencePreview");
 
     const lines: Array<string> = [];
     const grouped = groupOccurrencesByFile(occurrences);

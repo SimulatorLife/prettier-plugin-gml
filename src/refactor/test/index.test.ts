@@ -16,7 +16,8 @@ const {
     RefactorEngine: RefactorEngineClass,
     WorkspaceEdit: WorkspaceEditFactory,
     createRefactorEngine,
-    ConflictType
+    ConflictType,
+    OccurrenceKind
 } = Refactor;
 
 void test("createRefactorEngine returns a RefactorEngine", () => {
@@ -624,14 +625,14 @@ void test("prepareRenamePlan aggregates planning, validation, and analysis", asy
                 start: 0,
                 end: 6,
                 scopeId: "scope-1",
-                kind: "definition"
+                kind: OccurrenceKind.DEFINITION
             },
             {
                 path: "scripts/player.gml",
                 start: 20,
                 end: 26,
                 scopeId: "scope-1",
-                kind: "reference"
+                kind: OccurrenceKind.REFERENCE
             }
         ],
         validateEdits: async () => ({
@@ -673,7 +674,7 @@ void test("prepareRenamePlan optionally validates hot reload compatibility", asy
                 start: 0,
                 end: 6,
                 scopeId: "scope-1",
-                kind: "definition"
+                kind: OccurrenceKind.DEFINITION
             }
         ]
     };
@@ -712,7 +713,7 @@ void test("prepareRenamePlan surfaces hot reload safety for macro renames", asyn
                 start: 0,
                 end: 7,
                 scopeId: "scope-1",
-                kind: "definition"
+                kind: OccurrenceKind.DEFINITION
             }
         ]
     };
@@ -747,7 +748,7 @@ void test("prepareBatchRenamePlan aggregates batch planning and validation", asy
                 start: 0,
                 end: name.length,
                 scopeId: "scope-1",
-                kind: "definition"
+                kind: OccurrenceKind.DEFINITION
             }
         ]
     };
@@ -777,7 +778,7 @@ void test("prepareBatchRenamePlan includes hot reload cascade when requested", a
                 start: 0,
                 end: name.length,
                 scopeId: "scope-1",
-                kind: "definition"
+                kind: OccurrenceKind.DEFINITION
             }
         ],
         getDependents: (symbolIds: Array<string>) => {
@@ -837,7 +838,7 @@ void test("prepareBatchRenamePlan includes per-symbol impact analysis", async ()
                 start: i * 10,
                 end: i * 10 + name.length,
                 scopeId: `scope-${i}`,
-                kind: i === 0 ? "definition" : "reference"
+                kind: i === 0 ? OccurrenceKind.DEFINITION : OccurrenceKind.REFERENCE
             }));
         }
     };
@@ -875,7 +876,7 @@ void test("prepareBatchRenamePlan handles individual analysis failures gracefull
                     start: 0,
                     end: name.length,
                     scopeId: "scope-1",
-                    kind: "definition"
+                    kind: OccurrenceKind.DEFINITION
                 }
             ];
         }
@@ -910,7 +911,7 @@ void test("prepareBatchRenamePlan validates hot reload compatibility when reques
                 start: 0,
                 end: 10,
                 scopeId: "scope-1",
-                kind: "definition"
+                kind: OccurrenceKind.DEFINITION
             }
         ]
     };
@@ -937,7 +938,7 @@ void test("prepareBatchRenamePlan handles cascade computation failures gracefull
                 start: 0,
                 end: name.length,
                 scopeId: "scope-1",
-                kind: "definition"
+                kind: OccurrenceKind.DEFINITION
             }
         ],
         getDependents: () => {
@@ -965,7 +966,7 @@ void test("prepareBatchRenamePlan includes circular dependency detection", async
                 start: 0,
                 end: name.length,
                 scopeId: "scope-1",
-                kind: "definition"
+                kind: OccurrenceKind.DEFINITION
             }
         ],
         getDependents: (symbolIds: Array<string>) => {
@@ -998,7 +999,7 @@ void test("prepareBatchRenamePlan works without hot reload validation", async ()
                 start: 0,
                 end: name.length,
                 scopeId: "scope-1",
-                kind: "definition"
+                kind: OccurrenceKind.DEFINITION
             }
         ]
     };
@@ -1473,21 +1474,21 @@ void test("analyzeRenameImpact provides comprehensive summary", async () => {
                 start: 0,
                 end: 10,
                 scopeId: "scope-1",
-                kind: "definition"
+                kind: OccurrenceKind.DEFINITION
             },
             {
                 path: "file1.gml",
                 start: 50,
                 end: 60,
                 scopeId: "scope-1",
-                kind: "reference"
+                kind: OccurrenceKind.REFERENCE
             },
             {
                 path: "file2.gml",
                 start: 20,
                 end: 30,
                 scopeId: "scope-2",
-                kind: "reference"
+                kind: OccurrenceKind.REFERENCE
             }
         ]
     };
@@ -1535,7 +1536,7 @@ void test("analyzeRenameImpact warns about large renames", async () => {
             start: i * 100,
             end: i * 100 + 10,
             scopeId: `scope-${i}`,
-            kind: "reference"
+            kind: OccurrenceKind.REFERENCE
         });
     }
 
@@ -2417,7 +2418,7 @@ void test("verifyPostEditIntegrity detects conflicts with existing symbols", asy
                         path: "other.gml",
                         start: 10,
                         end: 13,
-                        kind: "definition"
+                        kind: OccurrenceKind.DEFINITION
                     }
                 ];
             }

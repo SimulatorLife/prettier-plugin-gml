@@ -37,15 +37,13 @@ export interface SemanticOracleOptions {
  * ```typescript
  * // Basic usage with just built-in functions
  * const oracle = createSemanticOracle();
- * const emitter = new GmlToJsEmitter({
- *   identifier: oracle,
- *   callTarget: oracle
- * });
+ * const emitter = new GmlToJsEmitter(oracle);
  *
  * // With script tracking for hot reload
  * const oracle = createSemanticOracle({
  *   scriptNames: new Set(['scr_player_move', 'scr_enemy_ai'])
  * });
+ * const emitter = new GmlToJsEmitter(oracle);
  * ```
  */
 export function createSemanticOracle(options: SemanticOracleOptions = {}): IdentifierAnalyzer & CallTargetAnalyzer {

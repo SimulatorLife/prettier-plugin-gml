@@ -67,6 +67,11 @@ function grandchild_struct(_foo, _value, _bar) : child_struct(_foo, _value) cons
     static print = function() {
         show_debug_message($"I'm a grandchild struct and my foo is {self.foo}");
     }
+    /// @override
+    /// @returns {undefined}
+     static draw_points =function(){
+// Do nothing
+    }
 }
 
 // Print function with different scope 

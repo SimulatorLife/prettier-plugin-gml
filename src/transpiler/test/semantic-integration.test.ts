@@ -93,25 +93,22 @@ void test("emitJavaScript with custom oracle classifies scripts", () => {
         scriptNames: new Set(["scr_custom"])
     });
 
-    const result = Transpiler.emitJavaScript(ast, {
-        identifier: oracle,
-        callTarget: oracle
-    });
+    const result = Transpiler.emitJavaScript(ast, oracle);
 
     // Script calls should go through the runtime wrapper
     assert.ok(result.includes("__call_script"), "Should use script wrapper");
     assert.ok(result.includes("scr_custom"), "Should reference script name");
 });
 
-void test("makeDefaultOracle creates oracle with builtin knowledge", () => {
-    const oracle = Transpiler.makeDefaultOracle();
+void test("createSemanticOracle creates oracle with builtin knowledge", () => {
+    const oracle = Transpiler.createSemanticOracle();
 
     const builtinNode = {
         type: "CallExpression" as const,
         object: { name: "sqrt" },
         arguments: []
     };
-    const kind = oracle.callTarget.callTargetKind(builtinNode as unknown as CallExpressionNode);
+    const kind = oracle.callTargetKind(builtinNode as unknown as CallExpressionNode);
 
     assert.equal(kind, "builtin", "Should recognize sqrt as builtin");
 });
