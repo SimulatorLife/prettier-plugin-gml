@@ -1,3 +1,4 @@
+import { randomUUID } from "node:crypto";
 import { mkdir, rm, writeFile } from "node:fs/promises";
 import path from "node:path";
 
@@ -8,7 +9,7 @@ export interface WatchTestFixture {
 }
 
 export async function createWatchTestFixture(): Promise<WatchTestFixture> {
-    const dir = path.join(process.cwd(), "tmp", `watch-test-${Date.now()}-${Math.random().toString(36).slice(2, 9)}`);
+    const dir = path.join(process.cwd(), "tmp", `watch-test-${Date.now()}-${randomUUID()}`);
 
     await mkdir(dir, { recursive: true });
 

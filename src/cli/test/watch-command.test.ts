@@ -1,5 +1,6 @@
 import { describe, it } from "node:test";
 import assert from "node:assert/strict";
+import { randomUUID } from "node:crypto";
 import { mkdir, rm, writeFile } from "node:fs/promises";
 import path from "node:path";
 import { setTimeout as sleep } from "node:timers/promises";
@@ -80,7 +81,7 @@ void describe("watch command integration", () => {
 
     void it("should normalize file extensions", async () => {
         // Create a temporary directory for testing
-        const testDir = path.join("/tmp", `watch-test-${Date.now()}-${Math.random().toString(36).slice(2, 9)}`);
+        const testDir = path.join("/tmp", `watch-test-${Date.now()}-${randomUUID()}`);
 
         await mkdir(testDir, { recursive: true });
 
@@ -124,10 +125,7 @@ void describe("watch command integration", () => {
 
     void it("should transpile GML files when they change", async () => {
         // Create a temporary directory for testing
-        const testDir = path.join(
-            "/tmp",
-            `watch-test-transpile-${Date.now()}-${Math.random().toString(36).slice(2, 9)}`
-        );
+        const testDir = path.join("/tmp", `watch-test-transpile-${Date.now()}-${randomUUID()}`);
 
         await mkdir(testDir, { recursive: true });
 
