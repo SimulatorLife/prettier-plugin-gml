@@ -1873,6 +1873,27 @@ function buildCallArgumentsDocs(
         return { inlineDoc, multilineDoc };
     }
 
+    const firstArgumentNode = node.arguments[0];
+    const firstArgumentText = firstArgumentNode?.value;
+    const firstArgumentIsStringLiteral =
+        firstArgumentNode?.type === LITERAL &&
+        typeof firstArgumentText === STRING_TYPE &&
+        (firstArgumentText.startsWith('"') ||
+            firstArgumentText.startsWith("'") ||
+            firstArgumentText.startsWith('@"'));
+
+    // NOTE: intentionally omit logging to keep production output clean.
+
+    if (
+        simplePrefixLength > 1 &&
+        !hasCallbackArguments &&
+        maxElementsPerLine === Infinity &&
+        firstArgumentIsStringLiteral
+    ) {
+        const multilineDoc = buildCallbackArgumentsWithSimplePrefix(path, print, simplePrefixLength);
+        return { inlineDoc: null, multilineDoc };
+    }
+
     const multilineDoc = printCommaSeparatedList(path, print, "arguments", "(", ")", options, {
         forceBreak,
         maxElementsPerLine
