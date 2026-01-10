@@ -40,5 +40,15 @@ jobs:
           • Run tests, lint, and formatting checks before opening the PR and report the
             results.
 
+        Example (why it's unnecessary): removing a wrapper like the below 'defaultNow'. It 
+        adds an extra indirection with no added semantics or testability—it just
+        re-exports a standard API under a new name, increasing surface area and implying
+        flexibility that does not exist. Instead, call `Date.now()` directly.
+        ```js
+        function defaultNow() {
+            return Date.now();
+        }
+        ```
+
         If nothing merits simplification, summarize the review in the PR body and leave
         suggestions for future sweeps instead of forcing churn.
