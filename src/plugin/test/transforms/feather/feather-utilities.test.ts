@@ -1,7 +1,8 @@
 import assert from "node:assert/strict";
 import { test } from "node:test";
 
-import { resolveCallExpressionArrayContext, walkAstNodes } from "../../../src/transforms/feather/ast-traversal.js";
+import { Core } from "@gml-modules/core";
+import { resolveCallExpressionArrayContext } from "../../../src/transforms/feather/ast-traversal.js";
 import { parseExample } from "../../../src/transforms/feather/parser-bootstrap.js";
 import {
     applyRemovedIndexAdjustments,
@@ -31,7 +32,7 @@ void test("resolveCallExpressionArrayContext reports array metadata", () => {
     assert.equal(context?.siblings[0], callExpression);
 });
 
-void test("walkAstNodes iterates nested nodes", () => {
+void test("Core.walkAst iterates nested nodes", () => {
     const identifiers: string[] = [];
     const ast = {
         type: "Program",
@@ -47,7 +48,7 @@ void test("walkAstNodes iterates nested nodes", () => {
         ]
     };
 
-    walkAstNodes(ast, (node) => {
+    Core.walkAst(ast, (node) => {
         if (node.type === "Identifier") {
             identifiers.push(node.name as string);
         }

@@ -1,4 +1,5 @@
 import { isObjectLike } from "../utils/object.js";
+import { isNode } from "./node-helpers.js";
 
 type ObjectRecord = Record<string, unknown>;
 
@@ -101,4 +102,42 @@ export function walkObjectGraph(root: unknown, options: WalkObjectGraphOptions =
             });
         }
     }
+}
+
+/**
+ * Simplified AST walker that visits each AST node with a single callback.
+ *
+ * This helper wraps `walkObjectGraph` to provide a simpler interface for AST
+ * traversal where the visitor function receives each node along with its parent
+ * and key context. The visitor can return `false` to prevent descending into
+ * child nodes.
+ *
+ * Unlike `walkObjectGraph`, which separates object and array handling, this
+ * function filters to AST nodes (via `isNode`) and provides a unified callback
+ * signature that matches the common pattern used throughout the plugin layer.
+ *
+ * @param root The root node or value to start traversal from.
+ * @param visitor Callback invoked for each AST node. Receives the node, its
+ *                parent (object or array), and the key (string or number) by
+ *                which it's referenced. Return `false` to skip descending into
+ *                this node's children.
+ */
+export function walkAst(
+    root: unknown,
+    visitor: (node: any, parent: unknown, key: string | number | null) => void | boolean
+): void {
+    walkObjectGraph(root, {
+        enterObject(value, parent, key) {
+            if (!isNode(value)) {
+                return;
+            }
+
+            return visitor(value, parent, key);
+        },
+        enterArray() {
+            // Arrays themselves are not AST nodes, but we need to traverse
+            // them to reach the nodes they contain. Always descend into arrays.
+            
+        }
+    });
 }
