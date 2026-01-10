@@ -200,8 +200,8 @@ function resolvePrettier() {
             if (isMissingPrettierDependency(error)) {
                 const instructions = [
                     "Prettier v3 must be installed alongside prettier-plugin-gml.",
-                "Install it with:",
-                "  pnpm add -D prettier@^3"
+                    "Install it with:",
+                    "  pnpm add -D prettier@^3"
                 ].join("\n");
                 const cliError = new CliUsageError(instructions);
                 if (isErrorLike(error)) {
