@@ -257,7 +257,7 @@ export function applyIdentifierCasePlanSnapshot(snapshot, options) {
 
 export { buildRenameKey };
 
-function logIdentifierCaseRenameMapSamples(value: Map<unknown, unknown>, optionKey: string, object: any): void {
+function logIdentifierCaseRenameMapSamples(value: Map<unknown, unknown>): void {
     try {
         const formatKey = (key: unknown) => {
             if (typeof key === "string") {
