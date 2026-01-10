@@ -33,8 +33,7 @@ import {
     getEndFromNode,
     getStartFromNode,
     hasArrayParentWithNumericIndex,
-    resolveCallExpressionArrayContext,
-    walkAstNodes
+    resolveCallExpressionArrayContext
 } from "./ast-traversal.js";
 import {
     hasFeatherDiagnosticContext,
@@ -190,7 +189,7 @@ const FEATHER_DIAGNOSTICS = Core.getFeatherDiagnostics();
 function updateStaticFunctionDocComments(ast: any) {
     const allComments = ast.comments || [];
 
-    walkAstNodes(ast, (node) => {
+    Core.walkAst(ast, (node) => {
         if (node.type === "VariableDeclaration" && node.kind === "static") {
             if (node.declarations.length !== 1) {
                 return;
@@ -435,7 +434,7 @@ function applyFeatherFixesImpl(ast: any, opts: ApplyFeatherFixesOptions = {}) {
 
     // Re-scan the transformed AST to update hasDirectReference metadata
     // This is crucial for GM1032 fixes where arguments are re-indexed or aliased
-    walkAstNodes(ast, (node) => {
+    Core.walkAst(ast, (node) => {
         if (
             node &&
             (node.type === "FunctionDeclaration" || node.type === "StructFunctionDeclaration") &&
@@ -447,7 +446,7 @@ function applyFeatherFixesImpl(ast: any, opts: ApplyFeatherFixesOptions = {}) {
             // Walk the function body to find argument references
             // We need to be careful not to walk into nested functions
             if (node.body) {
-                walkAstNodes(node.body, (child) => {
+                Core.walkAst(node.body, (child) => {
                     // Restrict function body traversal to the immediate function scope only.
                     // Nested function declarations (FunctionDeclaration, StructFunctionDeclaration)
                     // define their own parameter namespaces, so `argument0`, `argument1`, etc.
@@ -482,7 +481,7 @@ function applyFeatherFixesImpl(ast: any, opts: ApplyFeatherFixesOptions = {}) {
 
 function isGM1056FixAlreadyAttached(fix: any, ast: MutableGameMakerAstNode) {
     let alreadyAttached = false;
-    walkAstNodes(ast, (node) => {
+    Core.walkAst(ast, (node) => {
         if (!node || node.type !== "FunctionDeclaration") {
             return;
         }
@@ -499,7 +498,7 @@ function isGM1056FixAlreadyAttached(fix: any, ast: MutableGameMakerAstNode) {
 }
 
 function attachGM1056FixToUndefinedParameters(fix: any, ast: MutableGameMakerAstNode) {
-    walkAstNodes(ast, (node) => {
+    Core.walkAst(ast, (node) => {
         if (!node || node.type !== "FunctionDeclaration") {
             return;
         }
@@ -560,7 +559,7 @@ function findFunctionDeclaration(
 ): MutableGameMakerAstNode | null {
     let targetNode: MutableGameMakerAstNode | null = null;
 
-    walkAstNodes(ast, (node) => {
+    Core.walkAst(ast, (node) => {
         if (!node || node.type !== "FunctionDeclaration") {
             return;
         }
@@ -2849,7 +2848,7 @@ function createReadOnlyReplacementName(originalName, nameRegistry) {
 function collectAllIdentifierNames(root) {
     const names = new Set();
 
-    walkAstNodes(root, (node) => {
+    Core.walkAst(root, (node) => {
         const identifierDetails = Core.getIdentifierDetails(node);
         if (identifierDetails) {
             names.add(identifierDetails.name);
@@ -2866,7 +2865,7 @@ function convertFileAttributeAdditionsToBitwiseOr({ ast, diagnostic }) {
 
     const fixes = [];
 
-    walkAstNodes(ast, (node) => {
+    Core.walkAst(ast, (node) => {
         if (node.type !== "BinaryExpression") {
             return;
         }
@@ -2969,7 +2968,7 @@ function convertRoomNavigationArithmetic({ ast, diagnostic, sourceText }) {
 
     const fixes = [];
 
-    walkAstNodes(ast, (node, parent, property) => {
+    Core.walkAst(ast, (node, parent, property) => {
         if (node.type === "CallExpression") {
             const fix = rewriteRoomGotoCall({
                 node,
