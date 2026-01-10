@@ -5,7 +5,12 @@ import path from "node:path";
 import test from "node:test";
 
 import { Core } from "@gml-modules/core";
-import { describeManualSource, getManualRootMetadataPath, readManualText, resolveManualSource } from "../src/modules/manual/source.js";
+import {
+    describeManualSource,
+    getManualRootMetadataPath,
+    readManualText,
+    resolveManualSource
+} from "../src/modules/manual/source.js";
 import { resolveFromRepoRoot } from "../src/shared/workspace-paths.js";
 
 void test("resolveManualSource returns explicit manual root", async (t) => {

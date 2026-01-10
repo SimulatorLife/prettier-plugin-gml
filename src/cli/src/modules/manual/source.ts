@@ -5,7 +5,8 @@ import { createRequire } from "node:module";
 import { Core } from "@gml-modules/core";
 import { resolveFromRepoRoot } from "../../shared/workspace-paths.js";
 
-const { assertNonEmptyString, getErrorMessageOrFallback, isFsErrorCode, resolveContainedRelativePath, toPosixPath } = Core;
+const { assertNonEmptyString, getErrorMessageOrFallback, isFsErrorCode, resolveContainedRelativePath, toPosixPath } =
+    Core;
 
 export interface ManualSourceDescriptor {
     root: string;
@@ -155,12 +156,7 @@ export function describeManualSource(source: ManualSourceDescriptor) {
 export function getManualRootMetadataPath(source: ManualSourceDescriptor) {
     const repoRoot = resolveFromRepoRoot();
     const relativeRoot = resolveContainedRelativePath(source.root, repoRoot);
-    const candidate =
-        relativeRoot === null
-            ? source.root
-            : relativeRoot === ""
-            ? "."
-            : relativeRoot;
+    const candidate = relativeRoot === null ? source.root : relativeRoot === "" ? "." : relativeRoot;
 
     return toPosixPath(candidate);
 }
