@@ -8,6 +8,20 @@ import { OccurrenceKind, type SymbolOccurrence } from "./types.js";
 import { assertArray } from "./validation-utils.js";
 
 /**
+ * Check if an occurrence object is valid (non-null, defined, and an object).
+ */
+function isValidOccurrence(occurrence: unknown): occurrence is SymbolOccurrence {
+    return occurrence !== null && occurrence !== undefined && typeof occurrence === "object";
+}
+
+/**
+ * Check if an occurrence has a valid path (non-empty string).
+ */
+function hasValidPath(occurrence: SymbolOccurrence): boolean {
+    return typeof occurrence.path === "string" && occurrence.path.length > 0;
+}
+
+/**
  * Classification result for symbol occurrences.
  * Breaks down occurrences into categories useful for rename planning
  * and hot reload coordination.
@@ -46,7 +60,7 @@ export function classifyOccurrences(occurrences: Array<SymbolOccurrence>): Occur
     };
 
     for (const occurrence of occurrences) {
-        if (!occurrence || typeof occurrence !== "object") {
+        if (!isValidOccurrence(occurrence)) {
             continue;
         }
 
@@ -59,7 +73,7 @@ export function classifyOccurrences(occurrences: Array<SymbolOccurrence>): Occur
         }
 
         // Track occurrences by file (skip occurrences without valid paths)
-        if (occurrence.path !== null && occurrence.path !== undefined && occurrence.path !== "") {
+        if (hasValidPath(occurrence)) {
             const filePath = occurrence.path;
             classification.byFile.set(filePath, (classification.byFile.get(filePath) ?? 0) + 1);
         }
@@ -93,8 +107,7 @@ export function filterOccurrencesByKind(
 
     const kindSet = new Set(kinds);
     return occurrences.filter((occ) => {
-        // Skip malformed occurrences
-        if (!occ || typeof occ !== "object") {
+        if (!isValidOccurrence(occ)) {
             return false;
         }
         const kind = occ.kind ?? "unknown";
@@ -124,12 +137,7 @@ export function groupOccurrencesByFile(occurrences: Array<SymbolOccurrence>): Ma
     const grouped = new Map<string, Array<SymbolOccurrence>>();
 
     for (const occurrence of occurrences) {
-        if (!occurrence || typeof occurrence !== "object") {
-            continue;
-        }
-
-        // Skip occurrences without valid file paths
-        if (occurrence.path === null || occurrence.path === undefined || occurrence.path === "") {
+        if (!isValidOccurrence(occurrence) || !hasValidPath(occurrence)) {
             continue;
         }
 
@@ -164,7 +172,7 @@ export function findOccurrencesInFile(occurrences: Array<SymbolOccurrence>, file
         throw new TypeError("findOccurrencesInFile requires a non-empty file path string");
     }
 
-    return occurrences.filter((occ) => occ && typeof occ === "object" && occ.path === filePath);
+    return occurrences.filter((occ) => isValidOccurrence(occ) && occ.path === filePath);
 }
 
 /**
@@ -186,14 +194,7 @@ export function countAffectedFiles(occurrences: Array<SymbolOccurrence>): number
 
     const uniqueFiles = new Set<string>();
     for (const occurrence of occurrences) {
-        // Skip occurrences without valid paths
-        if (
-            occurrence &&
-            typeof occurrence === "object" &&
-            occurrence.path !== null &&
-            occurrence.path !== undefined &&
-            occurrence.path !== ""
-        ) {
+        if (isValidOccurrence(occurrence) && hasValidPath(occurrence)) {
             uniqueFiles.add(occurrence.path);
         }
     }
