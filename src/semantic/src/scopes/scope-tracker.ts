@@ -40,6 +40,13 @@ type ScopeModificationDetails = {
     }>;
 };
 
+type ScopeMetadata = {
+    name?: string;
+    path?: string;
+    start?: { line: number; column: number; index: number };
+    end?: { line: number; column: number; index: number };
+};
+
 class Scope {
     public id: string;
     public kind: string;
@@ -49,8 +56,9 @@ class Scope {
     public stackIndex: number | null;
     public lastModifiedTimestamp: number;
     public modificationCount: number;
+    public metadata: ScopeMetadata;
 
-    constructor(id, kind, parent: Scope | null = null) {
+    constructor(id, kind, parent: Scope | null = null, metadata: ScopeMetadata = {}) {
         this.id = id;
         this.kind = kind;
         this.parent = parent;
@@ -59,6 +67,7 @@ class Scope {
         this.stackIndex = null;
         this.lastModifiedTimestamp = -1;
         this.modificationCount = 0;
+        this.metadata = metadata;
     }
 
     markModified() {
@@ -223,8 +232,8 @@ export class ScopeTracker {
         this.resolveIdentifierCache = new Map();
     }
 
-    withScope<T>(kind: string, callback: () => T): T {
-        this.enterScope(kind);
+    withScope<T>(kind: string, callback: () => T, metadata: ScopeMetadata = {}): T {
+        this.enterScope(kind, metadata);
         try {
             return callback();
         } finally {
@@ -232,9 +241,9 @@ export class ScopeTracker {
         }
     }
 
-    enterScope(kind) {
+    enterScope(kind, metadata: ScopeMetadata = {}) {
         const parent = this.scopeStack.at(-1) ?? null;
-        const scope = new Scope(`scope-${this.scopeCounter++}`, kind ?? "unknown", parent);
+        const scope = new Scope(`scope-${this.scopeCounter++}`, kind ?? "unknown", parent, metadata);
         this.scopeStack.push(scope);
         this.scopesById.set(scope.id, scope);
         scope.stackIndex = this.scopeStack.length - 1;
@@ -1361,6 +1370,37 @@ export class ScopeTracker {
      * @returns {{scopeId: string, scopeKind: string, lastModified: number, modificationCount: number} | null}
      *          Modification metadata or null if scope not found.
      */
+    /**
+     * Get metadata for a specific scope, including name, path, and source range.
+     * This enriches hot reload coordination by providing context about where scopes
+     * are defined in the source code.
+     *
+     * @param {string | null | undefined} scopeId The scope identifier to query.
+     * @returns {{ scopeId: string; scopeKind: string; name?: string; path?: string;
+     *            start?: { line: number; column: number; index: number };
+     *            end?: { line: number; column: number; index: number } } | null}
+     *          Scope metadata object or null if scope not found.
+     */
+    getScopeMetadata(scopeId: string | null | undefined) {
+        if (!scopeId) {
+            return null;
+        }
+
+        const scope = this.scopesById.get(scopeId);
+        if (!scope) {
+            return null;
+        }
+
+        return {
+            scopeId: scope.id,
+            scopeKind: scope.kind,
+            name: scope.metadata.name,
+            path: scope.metadata.path,
+            start: scope.metadata.start ? Core.cloneLocation(scope.metadata.start) : undefined,
+            end: scope.metadata.end ? Core.cloneLocation(scope.metadata.end) : undefined
+        };
+    }
+
     getScopeModificationMetadata(scopeId: string | null | undefined) {
         if (!scopeId) {
             return null;

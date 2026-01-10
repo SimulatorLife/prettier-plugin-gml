@@ -68,7 +68,44 @@ SCIP symbols follow a deterministic URI-like format for cross-reference tracking
 
 These symbols enable hot reload pipelines to track dependencies and coordinate invalidation when symbols change.
 
-## Symbol Resolution Queries
+## Scope Metadata Tracking
+
+The `ScopeTracker` now supports enriched scope metadata to improve hot reload coordination and debugging. When entering a scope, you can optionally provide metadata including:
+
+- `name`: Human-readable scope name (e.g., function name, object name)
+- `path`: Source file path where the scope is defined
+- `start`: Start location (line, column, index)
+- `end`: End location (line, column, index)
+
+### `getScopeMetadata(scopeId)`
+
+Retrieve metadata for a specific scope, enabling file-based invalidation and source mapping.
+
+```javascript
+const tracker = new ScopeTracker({ enabled: true });
+
+// Create a scope with full metadata
+const scope = tracker.enterScope("function", {
+    name: "updatePlayer",
+    path: "scripts/player_movement/player_movement.gml",
+    start: { line: 10, column: 0, index: 250 },
+    end: { line: 25, column: 1, index: 500 }
+});
+
+const metadata = tracker.getScopeMetadata(scope.id);
+// Returns: {
+//   scopeId: "scope-0",
+//   scopeKind: "function",
+//   name: "updatePlayer",
+//   path: "scripts/player_movement/player_movement.gml",
+//   start: { line: 10, column: 0, index: 250 },
+//   end: { line: 25, column: 1, index: 500 }
+// }
+```
+
+**Use case:** Enable file-based hot reload invalidation by tracking which scopes belong to which source files. When a file changes, query all scopes in that file and compute their invalidation sets to determine what needs recompilation. The source range information supports precise source mapping for debugging and error reporting.
+
+
 
 The `ScopeTracker` provides query methods that enable hot reload coordination and dependency tracking:
 
