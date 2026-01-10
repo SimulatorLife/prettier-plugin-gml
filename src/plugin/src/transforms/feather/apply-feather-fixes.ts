@@ -12822,6 +12822,10 @@ function insertMissingGpuPopStateCalls(ast, diagnostic) {
         return [];
     }
 
+    if (containsGpuPopStateCall(ast)) {
+        return [];
+    }
+
     const statements = Core.getBodyStatements(ast) as MutableGameMakerAstNode[];
     if (!Core.isNonEmptyArray(statements)) {
         return [];
@@ -12829,24 +12833,21 @@ function insertMissingGpuPopStateCalls(ast, diagnostic) {
 
     const fixes = [];
     const stack = [];
-    let lastPopIndex = -1;
 
     // Track push/pop balance
     for (const [index, statement] of statements.entries()) {
         if (isGpuPushStateCallStatement(statement)) {
             stack.push({ index, statement });
-        } else if (isGpuPopStateCallStatement(statement) && stack.length > 0) {
+            continue;
+        }
+
+        if (isGpuPopStateCallStatement(statement) && stack.length > 0) {
             stack.pop();
-            lastPopIndex = index;
         }
     }
 
-    // If there are unmatched push calls, insert pop calls at the end
-    const removablePushes =
-        lastPopIndex >= 0 ? stack.filter((entry) => entry.index < lastPopIndex) : [...stack];
-
-    if (removablePushes.length > 0) {
-        for (const entry of removablePushes) {
+    if (stack.length > 0) {
+        for (const entry of stack) {
             const popCall = createGpuPopStateCall(entry.statement);
 
             if (!popCall) {
@@ -12872,6 +12873,38 @@ function insertMissingGpuPopStateCalls(ast, diagnostic) {
     }
 
     return fixes;
+}
+
+function containsGpuPopStateCall(node) {
+    if (!node || typeof node !== "object") {
+        return false;
+    }
+
+    if (Array.isArray(node)) {
+        for (const item of node) {
+            if (containsGpuPopStateCall(item)) {
+                return true;
+            }
+        }
+
+        return false;
+    }
+
+    if (node.type === "ExpressionStatement") {
+        return containsGpuPopStateCall(node.expression);
+    }
+
+    if (node.type === "CallExpression" && Core.isIdentifierWithName(node.object, "gpu_pop_state")) {
+        return true;
+    }
+
+    for (const value of Object.values(node)) {
+        if (containsGpuPopStateCall(value)) {
+            return true;
+        }
+    }
+
+    return false;
 }
 
 function createGpuPopStateCall(template) {
