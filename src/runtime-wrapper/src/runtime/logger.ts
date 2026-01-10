@@ -44,10 +44,13 @@ export interface LoggerOptions {
 }
 
 /**
- * Diagnostic logger for runtime wrapper hot-reload operations.
- * Provides structured, pretty-printed console output with configurable verbosity.
+ * Patch lifecycle logging.
+ *
+ * Provides logging operations for patch application, rollback, validation,
+ * and queuing events without coupling to WebSocket, registry, or general
+ * logging concerns.
  */
-export interface Logger {
+export interface PatchLifecycleLogger {
     /**
      * Log a patch applied successfully.
      */
@@ -64,11 +67,6 @@ export interface Logger {
     patchRolledBack(patch: Patch, version: number, error: string): void;
 
     /**
-     * Log when the registry is cleared.
-     */
-    registryCleared(version: number): void;
-
-    /**
      * Log a patch validation error.
      */
     validationError(patchId: string, error: string): void;
@@ -78,6 +76,38 @@ export interface Logger {
      */
     shadowValidationFailed(patchId: string, error: string): void;
 
+    /**
+     * Log patch queue flush operation.
+     */
+    patchQueueFlushed(count: number, durationMs: number): void;
+
+    /**
+     * Log when a patch is queued.
+     */
+    patchQueued(patchId: string, queueDepth: number): void;
+}
+
+/**
+ * Registry lifecycle logging.
+ *
+ * Provides logging operations for registry management events
+ * without coupling to patch or WebSocket logging.
+ */
+export interface RegistryLifecycleLogger {
+    /**
+     * Log when the registry is cleared.
+     */
+    registryCleared(version: number): void;
+}
+
+/**
+ * WebSocket connection logging.
+ *
+ * Provides logging operations for WebSocket events (connection,
+ * disconnection, reconnection, errors) without coupling to patch
+ * or registry logging.
+ */
+export interface WebSocketLogger {
     /**
      * Log WebSocket connection event.
      */
@@ -97,17 +127,16 @@ export interface Logger {
      * Log a WebSocket error.
      */
     websocketError(error: string): void;
+}
 
-    /**
-     * Log patch queue flush operation.
-     */
-    patchQueueFlushed(count: number, durationMs: number): void;
-
-    /**
-     * Log when a patch is queued.
-     */
-    patchQueued(patchId: string, queueDepth: number): void;
-
+/**
+ * General-purpose logging.
+ *
+ * Provides generic logging methods (warn, error, info, debug)
+ * for unstructured messages without coupling to domain-specific
+ * patch, registry, or WebSocket logging.
+ */
+export interface GeneralLogger {
     /**
      * Log a warning message.
      */
@@ -127,7 +156,15 @@ export interface Logger {
      * Log a debug message.
      */
     debug(message: string, ...args: Array<unknown>): void;
+}
 
+/**
+ * Logger configuration.
+ *
+ * Provides runtime control over logging verbosity without
+ * coupling to specific logging operations.
+ */
+export interface LoggerConfiguration {
     /**
      * Update the current log level.
      */
@@ -138,6 +175,21 @@ export interface Logger {
      */
     getLevel(): LogLevel;
 }
+
+/**
+ * Complete diagnostic logger for runtime wrapper hot-reload operations.
+ *
+ * Combines all role-focused logging interfaces for consumers that need
+ * full logging capabilities. Consumers should prefer depending on the
+ * minimal interface they need (PatchLifecycleLogger, WebSocketLogger, etc.)
+ * rather than this composite interface when possible.
+ */
+export interface Logger
+    extends PatchLifecycleLogger,
+        RegistryLifecycleLogger,
+        WebSocketLogger,
+        GeneralLogger,
+        LoggerConfiguration {}
 
 const LOG_LEVEL_PRIORITY: Record<LogLevel, number> = {
     silent: 0,
@@ -319,8 +371,14 @@ export function createLogger(options: LoggerOptions = {}): Logger {
 
 /**
  * Creates a logger that listens to registry change events and automatically logs them.
+ *
+ * Depends only on patch and registry lifecycle logging, demonstrating
+ * Interface Segregation: this function doesn't need WebSocket, general
+ * logging, or configuration capabilities.
  */
-export function createChangeEventLogger(logger: Logger): (event: RegistryChangeEvent) => void {
+export function createChangeEventLogger(
+    logger: PatchLifecycleLogger & RegistryLifecycleLogger
+): (event: RegistryChangeEvent) => void {
     return (event: RegistryChangeEvent): void => {
         switch (event.type) {
             case "patch-applied": {
