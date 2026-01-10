@@ -4,7 +4,7 @@
  * from the semantic analyzer and parser.
  */
 
-import { hasMethod } from "./validation-utils.js";
+import { hasMethod, assertNonEmptyString, assertArray } from "./validation-utils.js";
 import type {
     AstNode,
     FileSymbol,
@@ -153,9 +153,7 @@ export async function getFileSymbols(
     filePath: string,
     semantic: PartialSemanticAnalyzer | null
 ): Promise<Array<FileSymbol>> {
-    if (!filePath || typeof filePath !== "string") {
-        throw new TypeError("getFileSymbols requires a valid file path string");
-    }
+    assertNonEmptyString(filePath, "a valid file path string", "getFileSymbols");
 
     if (!semantic) {
         return [];
@@ -177,9 +175,7 @@ export async function getSymbolDependents(
     symbolIds: Array<string>,
     semantic: PartialSemanticAnalyzer | null
 ): Promise<Array<DependentSymbol>> {
-    if (!Array.isArray(symbolIds)) {
-        throw new TypeError("getSymbolDependents requires an array of symbol IDs");
-    }
+    assertArray(symbolIds, "an array of symbol IDs", "getSymbolDependents");
 
     if (symbolIds.length === 0) {
         return [];
