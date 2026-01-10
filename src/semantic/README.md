@@ -105,7 +105,7 @@ const metadata = tracker.getScopeMetadata(scope.id);
 
 **Use case:** Enable file-based hot reload invalidation by tracking which scopes belong to which source files. When a file changes, query all scopes in that file and compute their invalidation sets to determine what needs recompilation. The source range information supports precise source mapping for debugging and error reporting.
 
-
+## Symbol Resolution Queries
 
 The `ScopeTracker` provides query methods that enable hot reload coordination and dependency tracking:
 

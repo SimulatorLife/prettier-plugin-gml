@@ -241,7 +241,7 @@ export class ScopeTracker {
         }
     }
 
-    enterScope(kind, metadata: ScopeMetadata = {}) {
+    enterScope(kind: string, metadata: ScopeMetadata = {}) {
         const parent = this.scopeStack.at(-1) ?? null;
         const scope = new Scope(`scope-${this.scopeCounter++}`, kind ?? "unknown", parent, metadata);
         this.scopeStack.push(scope);
