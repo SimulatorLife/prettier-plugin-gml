@@ -1456,7 +1456,7 @@ export class RefactorEngine {
                 const unexpectedOccurrences = newOccurrences.filter((occ) => !affectedFiles.includes(occ.path));
 
                 if (unexpectedOccurrences.length > 0) {
-                    const conflictPaths = Array.from(new Set(unexpectedOccurrences.map((o) => o.path)));
+                    const conflictPaths = Core.uniqueArray(unexpectedOccurrences.map((o) => o.path)) as Array<string>;
                     warnings.push(
                         `New name '${newName}' already exists in ${conflictPaths.length} other file(s): ${conflictPaths.join(", ")} - verify no shadowing occurred`
                     );
