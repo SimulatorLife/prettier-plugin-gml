@@ -2,33 +2,33 @@ import { describe, it } from "node:test";
 import assert from "node:assert/strict";
 import { ScopeTracker } from "../src/scopes/scope-tracker.js";
 
-describe("ScopeTracker: getScopesByPath", () => {
-    it("returns empty array for null path", () => {
+void describe("ScopeTracker: getScopesByPath", () => {
+    void it("returns empty array for null path", () => {
         const tracker = new ScopeTracker({ enabled: true });
         const result = tracker.getScopesByPath(null);
         assert.deepStrictEqual(result, []);
     });
 
-    it("returns empty array for undefined path", () => {
+    void it("returns empty array for undefined path", () => {
         const tracker = new ScopeTracker({ enabled: true });
         const result = tracker.getScopesByPath(undefined);
         assert.deepStrictEqual(result, []);
     });
 
-    it("returns empty array for empty string path", () => {
+    void it("returns empty array for empty string path", () => {
         const tracker = new ScopeTracker({ enabled: true });
         const result = tracker.getScopesByPath("");
         assert.deepStrictEqual(result, []);
     });
 
-    it("returns empty array for non-existent path", () => {
+    void it("returns empty array for non-existent path", () => {
         const tracker = new ScopeTracker({ enabled: true });
         tracker.enterScope("program", { path: "scripts/file1.gml" });
         const result = tracker.getScopesByPath("scripts/file2.gml");
         assert.deepStrictEqual(result, []);
     });
 
-    it("returns single scope for file with one scope", () => {
+    void it("returns single scope for file with one scope", () => {
         const tracker = new ScopeTracker({ enabled: true });
         tracker.enterScope("program", {
             name: "main",
@@ -42,7 +42,7 @@ describe("ScopeTracker: getScopesByPath", () => {
         assert.strictEqual(result[0].name, "main");
     });
 
-    it("returns multiple scopes for file with multiple scopes", () => {
+    void it("returns multiple scopes for file with multiple scopes", () => {
         const tracker = new ScopeTracker({ enabled: true });
         tracker.enterScope("program", {
             name: "player_movement",
@@ -76,7 +76,7 @@ describe("ScopeTracker: getScopesByPath", () => {
         assert.strictEqual(result[2].name, "resetPlayer");
     });
 
-    it("returns scopes sorted by scope ID", () => {
+    void it("returns scopes sorted by scope ID", () => {
         const tracker = new ScopeTracker({ enabled: true });
         // Add scopes in non-sequential order but all with same path
         tracker.enterScope("function", {
@@ -104,7 +104,7 @@ describe("ScopeTracker: getScopesByPath", () => {
         assert.strictEqual(result[2].name, "second");
     });
 
-    it("preserves source location metadata in results", () => {
+    void it("preserves source location metadata in results", () => {
         const tracker = new ScopeTracker({ enabled: true });
         tracker.enterScope("function", {
             name: "myFunction",
@@ -119,7 +119,7 @@ describe("ScopeTracker: getScopesByPath", () => {
         assert.deepStrictEqual(result[0].end, { line: 10, column: 5, index: 200 });
     });
 
-    it("handles scopes without location metadata", () => {
+    void it("handles scopes without location metadata", () => {
         const tracker = new ScopeTracker({ enabled: true });
         tracker.enterScope("program", {
             name: "noLocation",
@@ -132,7 +132,7 @@ describe("ScopeTracker: getScopesByPath", () => {
         assert.strictEqual(result[0].end, undefined);
     });
 
-    it("isolates scopes by path", () => {
+    void it("isolates scopes by path", () => {
         const tracker = new ScopeTracker({ enabled: true });
         tracker.enterScope("program", { path: "scripts/file1.gml", name: "file1" });
         tracker.enterScope("function", { path: "scripts/file2.gml", name: "file2_func" });
@@ -154,7 +154,7 @@ describe("ScopeTracker: getScopesByPath", () => {
         assert.strictEqual(file3Scopes[0].name, "file3_func");
     });
 
-    it("supports hot reload use case: file change invalidation", () => {
+    void it("supports hot reload use case: file change invalidation", () => {
         const tracker = new ScopeTracker({ enabled: true });
 
         // Simulate a project with multiple files
@@ -182,7 +182,7 @@ describe("ScopeTracker: getScopesByPath", () => {
         assert.ok(invalidationSets[1].length > 0);
     });
 
-    it("handles nested scopes with same path", () => {
+    void it("handles nested scopes with same path", () => {
         const tracker = new ScopeTracker({ enabled: true });
         tracker.enterScope("program", { path: "scripts/nested.gml", name: "outer" });
         tracker.enterScope("function", { path: "scripts/nested.gml", name: "middle" });
@@ -198,7 +198,7 @@ describe("ScopeTracker: getScopesByPath", () => {
         assert.strictEqual(result[2].name, "inner");
     });
 
-    it("clones location metadata to prevent mutation", () => {
+    void it("clones location metadata to prevent mutation", () => {
         const tracker = new ScopeTracker({ enabled: true });
         const originalStart = { line: 5, column: 2, index: 100 };
         const originalEnd = { line: 10, column: 5, index: 200 };
@@ -227,7 +227,7 @@ describe("ScopeTracker: getScopesByPath", () => {
         assert.strictEqual(result2[0].end?.line, 10);
     });
 
-    it("returns only scopes with the exact path match", () => {
+    void it("returns only scopes with the exact path match", () => {
         const tracker = new ScopeTracker({ enabled: true });
         tracker.enterScope("program", { path: "scripts/player.gml" });
         tracker.enterScope("program", { path: "scripts/player_movement.gml" });
