@@ -214,5 +214,5 @@ function walkNode(node: unknown, filePath: string, symbols: Array<string>): void
 export function extractSymbolsFromAst(ast: AstNode, filePath: string): Array<string> {
     const symbols: Array<string> = [];
     walkNode(ast, filePath, symbols);
-    return Array.from(new Set(symbols));
+    return Core.uniqueArray(symbols) as Array<string>;
 }
