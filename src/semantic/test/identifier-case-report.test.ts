@@ -251,7 +251,8 @@ void describe("identifier case reporting", () => {
             const parsedLog = JSON.parse(writeEntry.contents);
             assert.equal(parsedLog.summary.renameCount, 2);
             assert.equal(parsedLog.summary.conflictCount, 2);
-            assert.equal(parsedLog.generatedAt, new Date(timestamp).toISOString());
+            const expectedGeneratedAt = new Date(timestamp).toISOString().slice(0, 10);
+            assert.equal(parsedLog.generatedAt, expectedGeneratedAt);
         } finally {
             await fs.rm(tempRoot, { recursive: true, force: true });
         }

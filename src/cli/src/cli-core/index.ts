@@ -4,6 +4,7 @@ export * from "./command-parsing.js";
 export * from "./command-standard-options.js";
 export * from "./command-suite-helpers.js";
 export * from "./command-usage.js";
+export * from "./generated-date.js";
 export * from "./commander-contract.js";
 export * from "./commander-error-utils.js";
 export * from "./commander-types.js";

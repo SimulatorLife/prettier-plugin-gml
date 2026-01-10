@@ -15,6 +15,7 @@ import { decodeManualKeywordsPayload, decodeManualTagsPayload } from "../modules
 import { describeManualSource, readManualText } from "../modules/manual/source.js";
 import { ManualWorkflowOptions, prepareManualWorkflow } from "../modules/manual/workflow.js";
 import { resolveFromRepoRoot } from "../shared/workspace-paths.js";
+import { formatGeneratedDate } from "../cli-core/generated-date.js";
 
 const {
     createVerboseDurationLogger,
@@ -573,7 +574,7 @@ function createIdentifierArtifactPayload({ identifierMap, manualSource, verbose 
                 manualRoot: manualSource.root,
                 packageName: manualSource.packageName,
                 packageVersion: manualSource.packageJson?.version ?? null,
-                generatedAt: new Date().toISOString(),
+                generatedAt: formatGeneratedDate(),
                 source: describeManualSource(manualSource)
             },
             identifiers
