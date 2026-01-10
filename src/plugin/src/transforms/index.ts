@@ -2,6 +2,7 @@ import type { MutableGameMakerAstNode } from "@gml-modules/core";
 import { applyFeatherFixesTransform } from "./feather/apply-feather-fixes.js";
 import { annotateStaticFunctionOverridesTransform } from "./annotate-static-overrides.js";
 import { collapseRedundantMissingCallArgumentsTransform } from "./collapse-redundant-arguments.js";
+import { condenseGuardStatementsTransform } from "./condense-guard-statements.js";
 import { condenseLogicalExpressionsTransform } from "./condense-logical-expressions.js";
 import { consolidateStructAssignmentsTransform } from "./consolidate-struct-assignments.js";
 import { convertStringConcatenationsTransform } from "./convert-string-concatenations.js";
@@ -28,6 +29,7 @@ const TRANSFORM_REGISTRY_ENTRIES = [
     enforceVariableBlockSpacingTransform,
     convertStringConcatenationsTransform,
     condenseLogicalExpressionsTransform,
+    condenseGuardStatementsTransform,
     optimizeMathExpressionsTransform,
     docCommentNormalizationTransform,
     convertUndefinedGuardAssignmentsTransform,
@@ -107,6 +109,7 @@ export {
 } from "./feather/apply-feather-fixes.js";
 export { applyRemovedIndexAdjustments, preprocessSourceForFeatherFixes } from "./feather/enum-handling.js";
 export { condenseLogicalExpressionsTransform } from "./condense-logical-expressions.js";
+export { condenseGuardStatementsTransform } from "./condense-guard-statements.js";
 export { consolidateStructAssignmentsTransform } from "./consolidate-struct-assignments.js";
 export { CommentTracker } from "./utils/comment-tracker.js";
 export { optimizeMathExpressionsTransform } from "./optimize-math-expressions.js";

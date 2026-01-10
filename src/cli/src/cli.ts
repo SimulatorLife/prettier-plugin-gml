@@ -27,6 +27,7 @@ import { fileURLToPath } from "node:url";
 import { Command, InvalidArgumentError, Option } from "commander";
 import { Core } from "@gml-modules/core";
 import { Parser } from "@gml-modules/parser";
+import { normalizeFormattedOutput } from "@gml-modules/plugin";
 import { isMissingModuleDependency, resolveModuleDefaultExport } from "./shared/module.js";
 import { ignoreRuleNegations } from "./shared/ignore-rules-negation-tracker.js";
 
@@ -1249,7 +1250,7 @@ function looksLikeCommandName(target: string): boolean {
     }
 
     // Starts with a letter and contains only alphanumeric, hyphens, or underscores
-    // (typical command pattern)
+    // (typical command pattern) - treat this as a likely command attempt
     if (/^[a-z][a-z0-9_-]*$/i.test(target)) {
         // Check for common typos or similar command names using simple similarity heuristic
         const lowerTarget = target.toLowerCase();
@@ -1277,6 +1278,11 @@ function looksLikeCommandName(target: string): boolean {
                 return true;
             }
         }
+
+        // Even if no close match was found, if it matches the command pattern
+        // (single word, no path separators, no file extension), treat it as
+        // a likely command attempt to provide better error messaging
+        return true;
     }
 
     return false;
@@ -1481,8 +1487,9 @@ async function processFile(filePath, activeIgnorePaths = []) {
 
         const data = await readFile(filePath, "utf8");
         const formatted = await prettier.format(data, formattingOptions);
+        const normalizedOutput = normalizeFormattedOutput(formatted, data);
 
-        if (formatted === data) {
+        if (normalizedOutput === data) {
             return;
         }
 
@@ -1493,7 +1500,7 @@ async function processFile(filePath, activeIgnorePaths = []) {
         }
 
         await recordFormattedFileOriginalContents(filePath, data);
-        await writeFile(filePath, formatted);
+        await writeFile(filePath, normalizedOutput);
         formattedFileCount += 1;
         console.log(`Formatted ${filePath}`);
     } catch (error) {

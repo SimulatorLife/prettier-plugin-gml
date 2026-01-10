@@ -218,6 +218,35 @@ export function hasBlankLineBeforeLeadingComment(
     return /\r?\n[^\S\r\n]*\r?\n[^\S\r\n]*$/.test(textBeforeComment);
 }
 
+export function hasBlankLineAfterOpeningBrace(
+    blockNode: unknown,
+    sourceMetadata: PrinterSourceMetadata,
+    firstStatementStartIndex: number | null
+): boolean {
+    const { originalText } = sourceMetadata;
+
+    if (!blockNode || typeof originalText !== STRING_TYPE || typeof firstStatementStartIndex !== NUMBER_TYPE) {
+        return false;
+    }
+
+    const { startIndex: blockStartIndex } = resolveNodeIndexRangeWithSource(blockNode, sourceMetadata);
+    if (typeof blockStartIndex !== NUMBER_TYPE || blockStartIndex >= firstStatementStartIndex) {
+        return false;
+    }
+
+    const openBraceIndex = originalText.indexOf("{", blockStartIndex);
+    if (openBraceIndex === -1 || openBraceIndex >= firstStatementStartIndex) {
+        return false;
+    }
+
+    const interiorSlice = sliceOriginalText(originalText, openBraceIndex + 1, firstStatementStartIndex);
+    if (!interiorSlice) {
+        return false;
+    }
+
+    return /\r?\n[^\S\r\n]*\r?\n[^\S\r\n]*$/.test(interiorSlice);
+}
+
 /**
  * Determine whether a trailing blank line exists between the final comment and
  * a block's closing brace.

@@ -14,6 +14,7 @@ export type {
     HotReloadUpdate,
     KeywordProvider,
     OccurrenceClassification,
+    OccurrenceKindValue,
     OccurrenceTracker,
     ParserBridge,
     PartialSemanticAnalyzer,

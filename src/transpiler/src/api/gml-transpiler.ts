@@ -13,12 +13,18 @@ export interface TranspileScriptRequest {
     readonly symbolId: string;
 }
 
+export interface PatchMetadata {
+    readonly timestamp: number;
+    readonly sourcePath?: string;
+}
+
 export interface ScriptPatch {
     readonly kind: "script";
     readonly id: string;
     readonly js_body: string;
     readonly sourceText: string;
     readonly version: number;
+    readonly metadata?: PatchMetadata;
 }
 
 export interface TranspilerDependencies {
@@ -59,12 +65,16 @@ export class GmlTranspiler {
             const oracle = this.semantic ?? makeDummyOracle();
             const emitter = new GmlToJsEmitter(oracle, this.emitterOptions);
             const jsBody = emitter.emit(ast);
+            const timestamp = Date.now();
             const patch: ScriptPatch = {
                 kind: "script",
                 id: symbolId,
                 js_body: jsBody,
                 sourceText,
-                version: Date.now()
+                version: timestamp,
+                metadata: {
+                    timestamp
+                }
             };
             return patch;
         } catch (error) {

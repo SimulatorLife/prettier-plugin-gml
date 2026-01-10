@@ -4,7 +4,8 @@
  * rename planning, hot reload coordination, and impact preview.
  */
 
-import type { SymbolOccurrence } from "./types.js";
+import { OccurrenceKind, type SymbolOccurrence } from "./types.js";
+import { assertArray } from "./validation-utils.js";
 
 /**
  * Classification result for symbol occurrences.
@@ -34,9 +35,7 @@ export interface OccurrenceClassification {
  * console.log(`Affects ${classification.byFile.size} files`);
  */
 export function classifyOccurrences(occurrences: Array<SymbolOccurrence>): OccurrenceClassification {
-    if (!Array.isArray(occurrences)) {
-        throw new TypeError("classifyOccurrences requires an array of occurrences");
-    }
+    assertArray(occurrences, "an array of occurrences", "classifyOccurrences");
 
     const classification: OccurrenceClassification = {
         total: occurrences.length,
@@ -53,9 +52,9 @@ export function classifyOccurrences(occurrences: Array<SymbolOccurrence>): Occur
 
         // Count definitions vs references
         const kind = occurrence.kind ?? "unknown";
-        if (kind === "definition") {
+        if (kind === OccurrenceKind.DEFINITION) {
             classification.definitions++;
-        } else if (kind === "reference") {
+        } else if (kind === OccurrenceKind.REFERENCE) {
             classification.references++;
         }
 
@@ -89,13 +88,8 @@ export function filterOccurrencesByKind(
     occurrences: Array<SymbolOccurrence>,
     kinds: Array<string>
 ): Array<SymbolOccurrence> {
-    if (!Array.isArray(occurrences)) {
-        throw new TypeError("filterOccurrencesByKind requires an array of occurrences");
-    }
-
-    if (!Array.isArray(kinds)) {
-        throw new TypeError("filterOccurrencesByKind requires an array of kinds");
-    }
+    assertArray(occurrences, "an array of occurrences", "filterOccurrencesByKind");
+    assertArray(kinds, "an array of kinds", "filterOccurrencesByKind");
 
     const kindSet = new Set(kinds);
     return occurrences.filter((occ) => {

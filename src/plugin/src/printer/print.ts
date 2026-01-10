@@ -58,6 +58,7 @@ import {
 } from "./doc-comment/synthetic-doc-comments.js";
 
 import {
+    hasBlankLineAfterOpeningBrace,
     hasBlankLineBeforeLeadingComment,
     hasBlankLineBetweenLastCommentAndClosingBrace,
     getOriginalTextFromOptions,
@@ -988,6 +989,7 @@ function printCallExpressionNode(node, path, options, print) {
             maxParamsPerLine <= 0 &&
             callbackArguments.length === 0 &&
             structArguments.length === 0 &&
+            node.arguments.length <= 3 &&
             node.arguments.every((argument) => !isComplexArgumentNode(argument));
 
         const effectiveElementsPerLineLimit = shouldFavorInlineArguments ? node.arguments.length : elementsPerLineLimit;
@@ -1618,6 +1620,8 @@ function printBlockStatementNode(node, path, options, print) {
             typeof node.start === NUMBER_TYPE &&
             isNextLineEmpty(originalText, node.start);
 
+        const preserveForInitialSpacing = hasBlankLineAfterOpeningBrace(node, sourceMetadata, firstStatementStartIndex);
+
         // When a decorative block comment (like banner comments) is attached to the
         // first statement, it will be reformatted as a line comment. We need to add
         // a blank line before it to maintain visual separation from the function header.
@@ -1636,7 +1640,7 @@ function printBlockStatementNode(node, path, options, print) {
             shouldPreserveInitialBlankLine ||
             preserveForConstructorText ||
             preserveForLeadingComment ||
-            firstStatementHasLeadingComment;
+            preserveForInitialSpacing;
     }
 
     if (shouldPreserveInitialBlankLine) {
@@ -1650,7 +1654,7 @@ function printBlockStatementNode(node, path, options, print) {
         Array.isArray(node.body) &&
         node.body[0]?.type === "IfStatement"
     ) {
-        console.log("DEBUG stmts start for function expression block:", JSON.stringify(stmts.slice(0, 3)));
+        // console.log("DEBUG stmts start for function expression block:", JSON.stringify(stmts.slice(0, 3)));
     }
 
     if (leadingDocs.length > 1) {
@@ -1867,6 +1871,25 @@ function buildCallArgumentsDocs(
         const multilineDoc = buildCallbackArgumentsWithSimplePrefix(path, print, simplePrefixLength);
 
         return { inlineDoc, multilineDoc };
+    }
+
+    const firstArgumentNode = node.arguments[0];
+    const firstArgumentText = firstArgumentNode?.value;
+    const firstArgumentIsStringLiteral =
+        firstArgumentNode?.type === LITERAL &&
+        typeof firstArgumentText === STRING_TYPE &&
+        (firstArgumentText.startsWith('"') || firstArgumentText.startsWith("'") || firstArgumentText.startsWith('@"'));
+
+    // NOTE: intentionally omit logging to keep production output clean.
+
+    if (
+        simplePrefixLength > 1 &&
+        !hasCallbackArguments &&
+        maxElementsPerLine === Infinity &&
+        firstArgumentIsStringLiteral
+    ) {
+        const multilineDoc = buildCallbackArgumentsWithSimplePrefix(path, print, simplePrefixLength);
+        return { inlineDoc: null, multilineDoc };
     }
 
     const multilineDoc = printCommaSeparatedList(path, print, "arguments", "(", ")", options, {
@@ -2975,7 +2998,7 @@ export function applyAssignmentAlignment(statements, options, path = null, child
     /** @type {Array<{ node: any, nameLength: number, prefixLength: number }>} */
     const currentGroup = [];
     let currentGroupMaxLength = 0;
-    let currentGroupHasAlias = false;
+    // let currentGroupHasAlias = false;
 
     const { originalText, locStart, locEnd } = resolvePrinterSourceMetadata(options);
 
@@ -2988,7 +3011,7 @@ export function applyAssignmentAlignment(statements, options, path = null, child
     const resetGroup = () => {
         currentGroup.length = 0;
         currentGroupMaxLength = 0;
-        currentGroupHasAlias = false;
+        // currentGroupHasAlias = false;
     };
 
     const flushGroup = () => {
@@ -2998,21 +3021,21 @@ export function applyAssignmentAlignment(statements, options, path = null, child
         }
 
         const groupEntries = [...currentGroup];
-        const contextFunctionName =
-            functionNode?.id?.name ?? (functionNode?.name ? functionNode.name.name : null) ?? "<none>";
-        console.log(
-            "alignment group",
-            contextFunctionName,
-            groupEntries.map(({ node }) => {
-                return node?.id?.name ?? node?.left?.name ?? node?.left?.property?.name ?? "<unknown>";
-            }),
-            "length",
-            groupEntries.length,
-            "alias",
-            currentGroupHasAlias,
-            "minGroupSize",
-            minGroupSize
-        );
+        // const contextFunctionName =
+        //     functionNode?.id?.name ?? (functionNode?.name ? functionNode.name.name : null) ?? "<none>";
+        // console.log(
+        //     "alignment group",
+        //     contextFunctionName,
+        //     groupEntries.map(({ node }) => {
+        //         return node?.id?.name ?? node?.left?.name ?? node?.left?.property?.name ?? "<unknown>";
+        //     }),
+        //     "length",
+        //     groupEntries.length,
+        //     "alias",
+        //     currentGroupHasAlias,
+        //     "minGroupSize",
+        //     minGroupSize
+        // );
         const enablerCount = groupEntries.filter((e) => e.enablesAlignment).length;
         const normalizedMinGroupSize = minGroupSize > 0 ? minGroupSize : DEFAULT_ALIGN_ASSIGNMENTS_MIN_GROUP_SIZE;
         const alignmentEnabled = minGroupSize > 0;
@@ -3020,14 +3043,14 @@ export function applyAssignmentAlignment(statements, options, path = null, child
         const meetsAlignmentThreshold = alignmentEnabled && groupEntries.length >= effectiveMinGroupSize;
         const canAlign = meetsAlignmentThreshold && enablerCount >= effectiveMinGroupSize;
 
-        console.log(`DEBUG alignment group ${contextFunctionName ?? "<none>"}`, {
-            group: groupEntries.map((e) => e.nameLength),
-            meetsAlignmentThreshold,
-            enablerCount,
-            canAlign,
-            minGroupSize,
-            effectiveMinGroupSize
-        });
+        // console.log(`DEBUG alignment group ${contextFunctionName ?? "<none>"}`, {
+        //     group: groupEntries.map((e) => e.nameLength),
+        //     meetsAlignmentThreshold,
+        //     enablerCount,
+        //     canAlign,
+        //     minGroupSize,
+        //     effectiveMinGroupSize
+        // });
 
         if (!canAlign) {
             for (const { node } of groupEntries) {
@@ -3111,7 +3134,7 @@ export function applyAssignmentAlignment(statements, options, path = null, child
                     currentGroupMaxLength = printedWidth;
                 }
                 if (entry.enablesAlignment) {
-                    currentGroupHasAlias = true;
+                    // currentGroupHasAlias = true;
                 }
 
                 previousEntry = entry;
@@ -4834,7 +4857,7 @@ function getDocParamOptionality(lines, paramName) {
         }
         const raw = match[1];
         const normalized = normalizeDocParamNameFromRaw(raw);
-        console.log(`Checking param: ${paramName}, raw: ${raw}, normalized: ${normalized}`);
+        // console.log(`Checking param: ${paramName}, raw: ${raw}, normalized: ${normalized}`);
         if (normalized === paramName) {
             return /^\[.*\]$/.test(raw) || raw.endsWith("*") || raw.startsWith("*");
         }
@@ -5606,6 +5629,11 @@ function isComparisonWithinLogicalChain(path) {
 }
 
 function shouldWrapTernaryExpression(path) {
+    const node = callPathMethod(path, "getValue", { defaultValue: null });
+    if (node && node.__skipTernaryParens) {
+        return false;
+    }
+
     const parent = callPathMethod(path, "getParentNode", {
         defaultValue: null
     });

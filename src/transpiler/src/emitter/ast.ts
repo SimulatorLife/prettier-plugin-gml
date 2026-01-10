@@ -314,6 +314,23 @@ export interface DeleteStatementNode extends BaseNode {
     readonly argument: GmlNode;
 }
 
+export interface RegionStatementNode extends BaseNode {
+    readonly type: "RegionStatement";
+    readonly name?: string | null;
+}
+
+export interface EndRegionStatementNode extends BaseNode {
+    readonly type: "EndRegionStatement";
+    readonly name?: string | null;
+}
+
+export interface DefineStatementNode extends BaseNode {
+    readonly type: "DefineStatement";
+    readonly name?: string | null;
+    readonly replacementDirective?: string | null;
+    readonly replacementSuffix?: string | null;
+}
+
 export type StatementNode =
     | IdentifierStatementNode
     | ExpressionStatementNode
@@ -338,7 +355,10 @@ export type StatementNode =
     | FunctionDeclarationNode
     | ConstructorDeclarationNode
     | EnumDeclarationNode
-    | MacroDeclarationNode;
+    | MacroDeclarationNode
+    | RegionStatementNode
+    | EndRegionStatementNode
+    | DefineStatementNode;
 
 export type ExpressionNode =
     | DefaultParameterNode

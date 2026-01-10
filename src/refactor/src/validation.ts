@@ -11,7 +11,7 @@ import {
     type SymbolOccurrence,
     type SymbolResolver
 } from "./types.js";
-import { assertValidIdentifierName, DEFAULT_RESERVED_KEYWORDS } from "./validation-utils.js";
+import { assertValidIdentifierName, DEFAULT_RESERVED_KEYWORDS, hasMethod } from "./validation-utils.js";
 import { Core } from "@gml-modules/core";
 
 /**
@@ -38,10 +38,9 @@ export async function detectRenameConflicts(
     try {
         normalizedNewName = assertValidIdentifierName(newName);
     } catch (error) {
-        const errorMessage = Core.isErrorLike(error) ? error.message : String(error);
         conflicts.push({
             type: ConflictType.INVALID_IDENTIFIER,
-            message: errorMessage
+            message: Core.getErrorMessage(error)
         });
         return conflicts;
     }
@@ -50,7 +49,7 @@ export async function detectRenameConflicts(
     // name collides with an existing symbol in the same scope. For example,
     // renaming a local variable `x` to `y` when `y` is already defined in that
     // scope would hide the original `y`, breaking references to it.
-    if (resolver && typeof resolver.lookup === "function") {
+    if (hasMethod(resolver, "lookup")) {
         for (const occurrence of occurrences) {
             // Perform a scope-aware lookup for the new name at each occurrence
             // site. If we find an existing binding that isn't the symbol we're
@@ -73,7 +72,7 @@ export async function detectRenameConflicts(
     // language constructs, breaking both the parser and runtime semantics.
     let reservedKeywords = DEFAULT_RESERVED_KEYWORDS;
 
-    if (keywordProvider && typeof keywordProvider.getReservedKeywords === "function") {
+    if (hasMethod(keywordProvider, "getReservedKeywords")) {
         const semanticReserved = (await keywordProvider.getReservedKeywords()) ?? [];
         reservedKeywords = new Set([...reservedKeywords, ...semanticReserved.map((keyword) => keyword.toLowerCase())]);
     }
@@ -182,8 +181,7 @@ export async function validateRenameStructure(
             trim: true
         });
     } catch (error) {
-        const errorMessage = Core.isErrorLike(error) ? error.message : String(error);
-        errors.push(errorMessage);
+        errors.push(Core.getErrorMessage(error));
         return errors;
     }
 
@@ -193,8 +191,7 @@ export async function validateRenameStructure(
             trim: true
         });
     } catch (error) {
-        const errorMessage = Core.isErrorLike(error) ? error.message : String(error);
-        errors.push(errorMessage);
+        errors.push(Core.getErrorMessage(error));
         return errors;
     }
 
@@ -202,8 +199,7 @@ export async function validateRenameStructure(
     try {
         assertValidIdentifierName(newName);
     } catch (error) {
-        const errorMessage = Core.isErrorLike(error) ? error.message : String(error);
-        errors.push(errorMessage);
+        errors.push(Core.getErrorMessage(error));
         return errors;
     }
 
@@ -216,7 +212,7 @@ export async function validateRenameStructure(
     }
 
     // Check symbol existence if resolver available
-    if (resolver && typeof resolver.hasSymbol === "function") {
+    if (hasMethod(resolver, "hasSymbol")) {
         const exists = await resolver.hasSymbol(symbolId);
         if (!exists) {
             errors.push(`Symbol '${symbolId}' not found in semantic index`);

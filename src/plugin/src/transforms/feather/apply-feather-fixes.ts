@@ -1180,16 +1180,6 @@ const FEATHER_FIX_BUILDERS = new Map<string, FeatherFixBuilder>([
 
                 return resolveAutomaticFixes(fixes, { ast, diagnostic });
             }
-    ],
-    [
-        "GM2035",
-        (diagnostic) =>
-            () =>
-            ({ ast }) => {
-                const fixes = ensureGpuStateIsPopped({ ast, diagnostic });
-
-                return resolveAutomaticFixes(fixes, { ast, diagnostic });
-            }
     ]
 ]);
 
@@ -1830,6 +1820,12 @@ function createAutomaticFeatherFixHandlers() {
         ["GM2029", ({ ast, diagnostic }) => ensureDrawVertexCallsAreWrapped({ ast, diagnostic })],
         ["GM1063", ({ ast, diagnostic }) => harmonizeTexturePointerTernaries({ ast, diagnostic })],
         ["GM2042", ({ ast, diagnostic }) => balanceGpuStateStack({ ast, diagnostic })],
+        [
+            "GM2035",
+            ({ ast, diagnostic }) => {
+                return ensureGpuStateIsPopped({ ast, diagnostic });
+            }
+        ],
         ["GM2044", ({ ast, diagnostic }) => deduplicateLocalVariableDeclarations({ ast, diagnostic })],
         ["GM2046", ({ ast, diagnostic }) => ensureSurfaceTargetsAreReset({ ast, diagnostic })],
         ["GM2048", ({ ast, diagnostic }) => ensureBlendEnableIsReset({ ast, diagnostic })],
@@ -7300,6 +7296,28 @@ function normalizeCallExpressionArguments({ node, diagnostic, ancestors, state }
 
     const insertionIndex = statementContext.index + insertionOffset;
 
+    // Adjust source positions: to ensure Prettier attaches any leading comments
+    // to the temp variables rather than the target statement, give the first temp
+    // variable a position that precedes the target statement in the source.
+    const targetStatement = statementContext.statements[insertionIndex];
+    if (declarations.length > 0 && targetStatement) {
+        const targetStart = Core.getNodeStartIndex(targetStatement);
+        if (typeof targetStart === "number") {
+            const firstDeclaration = declarations[0];
+            // Set the first declaration's start to just before the target statement
+            // so Prettier will attach leading comments to it instead
+            firstDeclaration.start = targetStart - 1;
+            // Also update the declarator and id if they exist
+            if (firstDeclaration.declarations && firstDeclaration.declarations[0]) {
+                const declarator = firstDeclaration.declarations[0];
+                declarator.start = targetStart - 1;
+                if (declarator.id) {
+                    declarator.id.start = targetStart - 1;
+                }
+            }
+        }
+    }
+
     statementContext.statements.splice(insertionIndex, 0, ...declarations);
 
     if (insertionInfo) {
@@ -9652,10 +9670,23 @@ function normalizeDrawVertexStatements(statements, diagnostic, ast) {
             !Core.isNonEmptyArray(precedingStatement.arguments);
 
         // Remove the empty draw_primitive_begin() if present
+        let removedOrphanedEnd = false;
         if (hasEmptyPrimitiveBeginBefore) {
             statements.splice(index - 1, 1);
             // Adjust indices after removal
             index -= 1;
+
+            // Also remove the orphaned draw_primitive_end() that was matching the empty begin
+            // After removing the begin at index-1, all indices shift down by 1:
+            //   - endIndex (the end for our wrapper) is now at endIndex - 1
+            //   - The orphaned end (originally after our wrapper's end) is now at (endIndex - 1) + 1 = endIndex
+            // We check if there's actually an end call at that position before removing it
+            const adjustedEndIndex = endIndex - 1;
+            const orphanedEndIndex = adjustedEndIndex + 1;
+            if (orphanedEndIndex < statements.length && isDrawPrimitiveEndCall(statements[orphanedEndIndex])) {
+                statements.splice(orphanedEndIndex, 1);
+                removedOrphanedEnd = true;
+            }
         }
 
         const [primitiveBegin] = statements.splice(hasEmptyPrimitiveBeginBefore ? beginIndex - 1 : beginIndex, 1);
@@ -9666,7 +9697,9 @@ function normalizeDrawVertexStatements(statements, diagnostic, ast) {
 
         ensureDrawPrimitiveBeginHasArgument(primitiveBegin);
 
-        if (primitiveEnd) {
+        // Only suppress leading empty line if we didn't remove an orphaned end
+        // (i.e., the wrapper was originally empty with no extra structure)
+        if (primitiveEnd && !removedOrphanedEnd) {
             primitiveEnd._featherSuppressLeadingEmptyLine = true;
         }
 
@@ -9687,6 +9720,20 @@ function normalizeDrawVertexStatements(statements, diagnostic, ast) {
     for (const statement of statements) {
         if (isDrawPrimitiveBeginCall(statement)) {
             ensureDrawPrimitiveBeginHasArgument(statement);
+        }
+    }
+
+    // Remove empty draw_primitive_begin/end pairs (pairs with no vertices between them)
+    for (let index = 0; index < statements.length - 1; index += 1) {
+        const current = statements[index];
+        const next = statements[index + 1];
+
+        if (isDrawPrimitiveBeginCall(current) && isDrawPrimitiveEndCall(next)) {
+            // This is an empty begin/end pair - remove both
+            statements.splice(index, 2);
+            // Decrement index so we re-examine the current position on next iteration
+            // (which now contains what was at index+2 before the splice)
+            index -= 1;
         }
     }
 
@@ -12632,6 +12679,12 @@ function ensureGpuStateIsPopped({ ast, diagnostic }) {
 
     visit(ast, null, null);
 
+    // After moving misplaced gpu_pop_state calls, check if we still need to insert missing ones
+    const insertFixes = insertMissingGpuPopStateCalls(ast, diagnostic);
+    if (Core.isNonEmptyArray(insertFixes)) {
+        fixes.push(...insertFixes);
+    }
+
     return fixes;
 }
 
@@ -12784,6 +12837,116 @@ function hasGpuPushStateBeforeIndex(statements, index) {
     }
 
     return false;
+}
+
+function insertMissingGpuPopStateCalls(ast, diagnostic) {
+    if (!Core.isProgramOrBlockStatement(ast)) {
+        return [];
+    }
+
+    if (containsGpuPopStateCall(ast)) {
+        return [];
+    }
+
+    const statements = Core.getBodyStatements(ast) as MutableGameMakerAstNode[];
+    if (!Core.isNonEmptyArray(statements)) {
+        return [];
+    }
+
+    const fixes = [];
+    const stack = [];
+
+    // Track push/pop balance
+    for (const [index, statement] of statements.entries()) {
+        if (isGpuPushStateCallStatement(statement)) {
+            stack.push({ index, statement });
+            continue;
+        }
+
+        if (isGpuPopStateCallStatement(statement) && stack.length > 0) {
+            stack.pop();
+        }
+    }
+
+    if (stack.length > 0) {
+        for (const entry of stack) {
+            const popCall = createGpuPopStateCall(entry.statement);
+
+            if (!popCall) {
+                continue;
+            }
+
+            const fixDetail = createFeatherFixDetail(diagnostic, {
+                target: "gpu_pop_state",
+                range: {
+                    start: Core.getNodeStartIndex(entry.statement),
+                    end: Core.getNodeEndIndex(entry.statement)
+                }
+            });
+
+            if (!fixDetail) {
+                continue;
+            }
+
+            statements.push(popCall);
+            attachFeatherFixMetadata(popCall, [fixDetail]);
+            fixes.push(fixDetail);
+        }
+    }
+
+    return fixes;
+}
+
+function containsGpuPopStateCall(node) {
+    if (!node || typeof node !== "object") {
+        return false;
+    }
+
+    if (Array.isArray(node)) {
+        for (const item of node) {
+            if (containsGpuPopStateCall(item)) {
+                return true;
+            }
+        }
+
+        return false;
+    }
+
+    if (node.type === "ExpressionStatement") {
+        return containsGpuPopStateCall(node.expression);
+    }
+
+    if (node.type === "CallExpression" && Core.isIdentifierWithName(node.object, "gpu_pop_state")) {
+        return true;
+    }
+
+    for (const value of Object.values(node)) {
+        if (containsGpuPopStateCall(value)) {
+            return true;
+        }
+    }
+
+    return false;
+}
+
+function createGpuPopStateCall(template) {
+    const identifier = Core.createIdentifierNode("gpu_pop_state", template?.object);
+
+    if (!identifier) {
+        return null;
+    }
+
+    const callExpression = {
+        type: "CallExpression",
+        object: identifier,
+        arguments: []
+    };
+
+    if (template && typeof template === "object") {
+        Core.assignClonedLocation(callExpression, template);
+    }
+
+    return callExpression;
 }
 
 /**
@@ -16553,30 +16716,35 @@ function balanceGpuStateCallsInStatements(statements, diagnostic, container) {
     const fixes = [];
     const indicesToRemove = new Set();
     let hasPopCall = false;
+    let lastPopIndex = -1;
 
     for (const [index, statement] of statements.entries()) {
         if (!statement || typeof statement !== "object") {
             continue;
         }
 
-        if (isGpuPushStateCall(statement)) {
-            unmatchedPushes.push({ index, node: statement });
+        if (isGpuPushStateCallStatement(statement)) {
+            const callExpression = getCallExpression(statement);
+            unmatchedPushes.push({ index, node: statement, call: callExpression });
             continue;
         }
 
-        if (isGpuPopStateCall(statement)) {
+        if (isGpuPopStateCallStatement(statement)) {
             hasPopCall = true;
+            lastPopIndex = index;
 
             if (unmatchedPushes.length > 0) {
                 unmatchedPushes.pop();
                 continue;
             }
 
+            const callExpression = getCallExpression(statement);
+            const targetName = Core.getCallExpressionIdentifierName(callExpression ?? statement) ?? "gpu_pop_state";
             const fixDetail = createFeatherFixDetail(diagnostic, {
-                target: statement.object?.name ?? "gpu_pop_state",
+                target: targetName,
                 range: {
-                    start: Core.getNodeStartIndex(statement),
-                    end: Core.getNodeEndIndex(statement)
+                    start: Core.getNodeStartIndex(callExpression ?? statement),
+                    end: Core.getNodeEndIndex(callExpression ?? statement)
                 }
             });
 
@@ -16590,23 +16758,30 @@ function balanceGpuStateCallsInStatements(statements, diagnostic, container) {
         }
     }
 
-    if (unmatchedPushes.length > 0 && hasPopCall) {
-        for (const entry of unmatchedPushes) {
-            const fixDetail = createFeatherFixDetail(diagnostic, {
-                target: entry.node?.object?.name ?? "gpu_push_state",
-                range: {
-                    start: Core.getNodeStartIndex(entry.node),
-                    end: Core.getNodeEndIndex(entry.node)
+    if (hasPopCall) {
+        const removablePushes = unmatchedPushes.filter((entry) => entry.index < lastPopIndex);
+
+        if (removablePushes.length > 0) {
+            for (const entry of removablePushes) {
+                const callExpression = entry.call ?? getCallExpression(entry.node);
+                const targetName =
+                    Core.getCallExpressionIdentifierName(callExpression ?? entry.node) ?? "gpu_push_state";
+                const fixDetail = createFeatherFixDetail(diagnostic, {
+                    target: targetName,
+                    range: {
+                        start: Core.getNodeStartIndex(callExpression ?? entry.node),
+                        end: Core.getNodeEndIndex(callExpression ?? entry.node)
+                    }
+                });
+
+                indicesToRemove.add(entry.index);
+
+                if (!fixDetail) {
+                    continue;
                 }
-            });
 
-            indicesToRemove.add(entry.index);
-
-            if (!fixDetail) {
-                continue;
+                fixes.push(fixDetail);
             }
-
-            fixes.push(fixDetail);
         }
     }
 
@@ -16623,14 +16798,6 @@ function balanceGpuStateCallsInStatements(statements, diagnostic, container) {
     }
 
     return fixes;
-}
-
-function isGpuPushStateCall(node) {
-    return isGpuStateCall(node, "gpu_push_state");
-}
-
-function isGpuPopStateCall(node) {
-    return isGpuStateCall(node, "gpu_pop_state");
 }
 
 function getManualFeatherFixRegistry(ast) {

@@ -21,7 +21,13 @@ import {
     type TranspilerPatch,
     type WorkspaceReadFile
 } from "./types.js";
-import { assertValidIdentifierName } from "./validation-utils.js";
+import {
+    assertValidIdentifierName,
+    assertArray,
+    assertFunction,
+    assertNonEmptyString,
+    hasMethod
+} from "./validation-utils.js";
 import { detectRenameConflicts } from "./validation.js";
 import * as SymbolQueries from "./symbol-queries.js";
 
@@ -47,7 +53,7 @@ export async function prepareHotReloadUpdates(
         // Determine which symbols are defined in this file
         let affectedSymbols = [];
 
-        if (semantic && typeof semantic.getFileSymbols === "function") {
+        if (hasMethod(semantic, "getFileSymbols")) {
             affectedSymbols = await semantic.getFileSymbols(filePath);
         }
 
@@ -116,9 +122,7 @@ export async function computeHotReloadCascade(
     changedSymbolIds: Array<string>,
     semantic: PartialSemanticAnalyzer | null
 ): Promise<HotReloadCascadeResult> {
-    if (!Array.isArray(changedSymbolIds)) {
-        throw new TypeError("computeHotReloadCascade requires an array of symbol IDs");
-    }
+    assertArray(changedSymbolIds, "an array of symbol IDs", "computeHotReloadCascade");
 
     if (changedSymbolIds.length === 0) {
         return {
@@ -190,7 +194,7 @@ export async function computeHotReloadCascade(
 
         try {
             // Query semantic analyzer for symbols that depend on this one
-            if (semantic && typeof semantic.getDependents === "function") {
+            if (hasMethod(semantic, "getDependents")) {
                 const dependents = (await semantic.getDependents([symbolId])) ?? [];
 
                 for (const dep of dependents) {
@@ -562,13 +566,8 @@ export async function generateTranspilerPatches(
     readFile: WorkspaceReadFile,
     formatter: TranspilerBridge | null
 ): Promise<Array<TranspilerPatch>> {
-    if (!Array.isArray(hotReloadUpdates)) {
-        throw new TypeError("generateTranspilerPatches requires an array of hot reload updates");
-    }
-
-    if (!readFile || typeof readFile !== "function") {
-        throw new TypeError("generateTranspilerPatches requires a readFile function");
-    }
+    assertArray(hotReloadUpdates, "an array of hot reload updates", "generateTranspilerPatches");
+    assertFunction(readFile, "readFile", "generateTranspilerPatches");
 
     const patches: Array<TranspilerPatch> = [];
 
@@ -586,7 +585,7 @@ export async function generateTranspilerPatches(
             // Transpile the updated script into a hot-reload patch if a transpiler
             // is available. The patch contains executable JavaScript code that the
             // GameMaker runtime can inject without restarting the game.
-            if (formatter && typeof formatter.transpileScript === "function") {
+            if (hasMethod(formatter, "transpileScript")) {
                 const patch = await formatter.transpileScript({
                     sourceText,
                     symbolId: update.symbolId
@@ -643,9 +642,7 @@ export async function computeRenameImpactGraph(
     symbolId: string,
     semantic: PartialSemanticAnalyzer | null
 ): Promise<RenameImpactGraph> {
-    if (!symbolId || typeof symbolId !== "string") {
-        throw new TypeError("computeRenameImpactGraph requires a valid symbolId");
-    }
+    assertNonEmptyString(symbolId, "a valid symbolId", "computeRenameImpactGraph");
 
     const nodes = new Map<string, RenameImpactNode>();
     const symbolName = symbolId.split("/").pop() ?? symbolId;

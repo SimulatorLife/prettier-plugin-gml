@@ -11,7 +11,7 @@ import {
     findOccurrencesInFile,
     countAffectedFiles
 } from "../src/occurrence-analysis.js";
-import type { SymbolOccurrence } from "../src/types.js";
+import { OccurrenceKind, type SymbolOccurrence } from "../src/types.js";
 
 void describe("classifyOccurrences", () => {
     void it("classifies empty array", () => {
@@ -29,7 +29,7 @@ void describe("classifyOccurrences", () => {
                 path: "scripts/player.gml",
                 start: 0,
                 end: 10,
-                kind: "definition"
+                kind: OccurrenceKind.DEFINITION
             }
         ];
 
@@ -39,7 +39,7 @@ void describe("classifyOccurrences", () => {
         assert.equal(result.references, 0);
         assert.equal(result.byFile.size, 1);
         assert.equal(result.byFile.get("scripts/player.gml"), 1);
-        assert.equal(result.byKind.get("definition"), 1);
+        assert.equal(result.byKind.get(OccurrenceKind.DEFINITION), 1);
     });
 
     void it("classifies single reference", () => {
@@ -48,7 +48,7 @@ void describe("classifyOccurrences", () => {
                 path: "scripts/enemy.gml",
                 start: 50,
                 end: 60,
-                kind: "reference"
+                kind: OccurrenceKind.REFERENCE
             }
         ];
 
@@ -56,7 +56,7 @@ void describe("classifyOccurrences", () => {
         assert.equal(result.total, 1);
         assert.equal(result.definitions, 0);
         assert.equal(result.references, 1);
-        assert.equal(result.byKind.get("reference"), 1);
+        assert.equal(result.byKind.get(OccurrenceKind.REFERENCE), 1);
     });
 
     void it("classifies mixed occurrences", () => {
@@ -65,19 +65,19 @@ void describe("classifyOccurrences", () => {
                 path: "scripts/player.gml",
                 start: 0,
                 end: 10,
-                kind: "definition"
+                kind: OccurrenceKind.DEFINITION
             },
             {
                 path: "scripts/player.gml",
                 start: 100,
                 end: 110,
-                kind: "reference"
+                kind: OccurrenceKind.REFERENCE
             },
             {
                 path: "scripts/enemy.gml",
                 start: 50,
                 end: 60,
-                kind: "reference"
+                kind: OccurrenceKind.REFERENCE
             }
         ];
 
@@ -112,7 +112,7 @@ void describe("classifyOccurrences", () => {
                 path: "",
                 start: 0,
                 end: 10,
-                kind: "reference"
+                kind: OccurrenceKind.REFERENCE
             }
         ];
 
@@ -139,7 +139,7 @@ void describe("classifyOccurrences", () => {
         const occurrences = [
             null,
             undefined,
-            { path: "scripts/test.gml", start: 0, end: 10, kind: "definition" }
+            { path: "scripts/test.gml", start: 0, end: 10, kind: OccurrenceKind.DEFINITION }
         ] as unknown as Array<SymbolOccurrence>;
 
         const result = classifyOccurrences(occurrences);
@@ -150,21 +150,20 @@ void describe("classifyOccurrences", () => {
 
 void describe("filterOccurrencesByKind", () => {
     const occurrences: Array<SymbolOccurrence> = [
-        { path: "a.gml", start: 0, end: 10, kind: "definition" },
-        { path: "b.gml", start: 0, end: 10, kind: "reference" },
-        { path: "c.gml", start: 0, end: 10, kind: "reference" },
-        { path: "d.gml", start: 0, end: 10, kind: "write" }
+        { path: "a.gml", start: 0, end: 10, kind: OccurrenceKind.DEFINITION },
+        { path: "b.gml", start: 0, end: 10, kind: OccurrenceKind.REFERENCE },
+        { path: "c.gml", start: 0, end: 10, kind: OccurrenceKind.REFERENCE }
     ];
 
     void it("filters by single kind", () => {
-        const definitions = filterOccurrencesByKind(occurrences, ["definition"]);
+        const definitions = filterOccurrencesByKind(occurrences, [OccurrenceKind.DEFINITION]);
         assert.equal(definitions.length, 1);
-        assert.equal(definitions[0].kind, "definition");
+        assert.equal(definitions[0].kind, OccurrenceKind.DEFINITION);
     });
 
     void it("filters by multiple kinds", () => {
-        const refs = filterOccurrencesByKind(occurrences, ["reference", "write"]);
-        assert.equal(refs.length, 3);
+        const refs = filterOccurrencesByKind(occurrences, [OccurrenceKind.REFERENCE]);
+        assert.equal(refs.length, 2);
     });
 
     void it("returns empty array for no matches", () => {
@@ -178,15 +177,18 @@ void describe("filterOccurrencesByKind", () => {
     });
 
     void it("handles empty occurrences array", () => {
-        const result = filterOccurrencesByKind([], ["definition"]);
+        const result = filterOccurrencesByKind([], [OccurrenceKind.DEFINITION]);
         assert.equal(result.length, 0);
     });
 
     void it("validates input types", () => {
-        assert.throws(() => filterOccurrencesByKind(null as unknown as Array<SymbolOccurrence>, ["definition"]), {
-            name: "TypeError",
-            message: /requires an array of occurrences/
-        });
+        assert.throws(
+            () => filterOccurrencesByKind(null as unknown as Array<SymbolOccurrence>, [OccurrenceKind.DEFINITION]),
+            {
+                name: "TypeError",
+                message: /requires an array of occurrences/
+            }
+        );
 
         assert.throws(() => filterOccurrencesByKind(occurrences, "not an array" as unknown as Array<string>), {
             name: "TypeError",
@@ -196,7 +198,7 @@ void describe("filterOccurrencesByKind", () => {
 
     void it("handles occurrences without kind field", () => {
         const mixed: Array<SymbolOccurrence> = [
-            { path: "a.gml", start: 0, end: 10, kind: "definition" },
+            { path: "a.gml", start: 0, end: 10, kind: OccurrenceKind.DEFINITION },
             { path: "b.gml", start: 0, end: 10 }
         ];
 
@@ -208,9 +210,9 @@ void describe("filterOccurrencesByKind", () => {
 void describe("groupOccurrencesByFile", () => {
     void it("groups occurrences by file path", () => {
         const occurrences: Array<SymbolOccurrence> = [
-            { path: "a.gml", start: 0, end: 10, kind: "definition" },
-            { path: "a.gml", start: 20, end: 30, kind: "reference" },
-            { path: "b.gml", start: 0, end: 10, kind: "reference" }
+            { path: "a.gml", start: 0, end: 10, kind: OccurrenceKind.DEFINITION },
+            { path: "a.gml", start: 20, end: 30, kind: OccurrenceKind.REFERENCE },
+            { path: "b.gml", start: 0, end: 10, kind: OccurrenceKind.REFERENCE }
         ];
 
         const grouped = groupOccurrencesByFile(occurrences);
@@ -226,8 +228,8 @@ void describe("groupOccurrencesByFile", () => {
 
     void it("handles single file", () => {
         const occurrences: Array<SymbolOccurrence> = [
-            { path: "test.gml", start: 0, end: 10, kind: "definition" },
-            { path: "test.gml", start: 20, end: 30, kind: "reference" }
+            { path: "test.gml", start: 0, end: 10, kind: OccurrenceKind.DEFINITION },
+            { path: "test.gml", start: 20, end: 30, kind: OccurrenceKind.REFERENCE }
         ];
 
         const grouped = groupOccurrencesByFile(occurrences);
@@ -243,7 +245,9 @@ void describe("groupOccurrencesByFile", () => {
     });
 
     void it("handles occurrences without path", () => {
-        const occurrences = [{ path: "", start: 0, end: 10, kind: "definition" }] as unknown as Array<SymbolOccurrence>;
+        const occurrences = [
+            { path: "", start: 0, end: 10, kind: OccurrenceKind.DEFINITION }
+        ] as unknown as Array<SymbolOccurrence>;
 
         const grouped = groupOccurrencesByFile(occurrences);
         // Empty paths are now skipped
@@ -253,7 +257,7 @@ void describe("groupOccurrencesByFile", () => {
     void it("handles malformed occurrences", () => {
         const occurrences = [
             null,
-            { path: "a.gml", start: 0, end: 10, kind: "definition" },
+            { path: "a.gml", start: 0, end: 10, kind: OccurrenceKind.DEFINITION },
             undefined
         ] as unknown as Array<SymbolOccurrence>;
 
@@ -265,9 +269,9 @@ void describe("groupOccurrencesByFile", () => {
 
 void describe("findOccurrencesInFile", () => {
     const occurrences: Array<SymbolOccurrence> = [
-        { path: "scripts/player.gml", start: 0, end: 10, kind: "definition" },
-        { path: "scripts/player.gml", start: 20, end: 30, kind: "reference" },
-        { path: "scripts/enemy.gml", start: 0, end: 10, kind: "reference" }
+        { path: "scripts/player.gml", start: 0, end: 10, kind: OccurrenceKind.DEFINITION },
+        { path: "scripts/player.gml", start: 20, end: 30, kind: OccurrenceKind.REFERENCE },
+        { path: "scripts/enemy.gml", start: 0, end: 10, kind: OccurrenceKind.REFERENCE }
     ];
 
     void it("finds occurrences in specific file", () => {
@@ -316,15 +320,15 @@ void describe("countAffectedFiles", () => {
                 path: "scripts/player.gml",
                 start: 0,
                 end: 10,
-                kind: "definition"
+                kind: OccurrenceKind.DEFINITION
             },
             {
                 path: "scripts/player.gml",
                 start: 20,
                 end: 30,
-                kind: "reference"
+                kind: OccurrenceKind.REFERENCE
             },
-            { path: "scripts/enemy.gml", start: 0, end: 10, kind: "reference" }
+            { path: "scripts/enemy.gml", start: 0, end: 10, kind: OccurrenceKind.REFERENCE }
         ];
 
         const count = countAffectedFiles(occurrences);
@@ -338,8 +342,8 @@ void describe("countAffectedFiles", () => {
 
     void it("returns 1 for single file", () => {
         const occurrences: Array<SymbolOccurrence> = [
-            { path: "test.gml", start: 0, end: 10, kind: "definition" },
-            { path: "test.gml", start: 20, end: 30, kind: "reference" }
+            { path: "test.gml", start: 0, end: 10, kind: OccurrenceKind.DEFINITION },
+            { path: "test.gml", start: 20, end: 30, kind: OccurrenceKind.REFERENCE }
         ];
 
         const count = countAffectedFiles(occurrences);
@@ -355,8 +359,8 @@ void describe("countAffectedFiles", () => {
 
     void it("handles occurrences without path field", () => {
         const occurrences = [
-            { path: "a.gml", start: 0, end: 10, kind: "definition" },
-            { start: 0, end: 10, kind: "reference" }
+            { path: "a.gml", start: 0, end: 10, kind: OccurrenceKind.DEFINITION },
+            { start: 0, end: 10, kind: OccurrenceKind.REFERENCE }
         ] as unknown as Array<SymbolOccurrence>;
 
         const count = countAffectedFiles(occurrences);
@@ -366,9 +370,9 @@ void describe("countAffectedFiles", () => {
     void it("handles malformed occurrences", () => {
         const occurrences = [
             null,
-            { path: "a.gml", start: 0, end: 10, kind: "definition" },
+            { path: "a.gml", start: 0, end: 10, kind: OccurrenceKind.DEFINITION },
             undefined,
-            { path: "b.gml", start: 0, end: 10, kind: "definition" }
+            { path: "b.gml", start: 0, end: 10, kind: OccurrenceKind.DEFINITION }
         ] as unknown as Array<SymbolOccurrence>;
 
         const count = countAffectedFiles(occurrences);
@@ -377,8 +381,8 @@ void describe("countAffectedFiles", () => {
 
     void it("skips empty paths", () => {
         const occurrences = [
-            { path: "", start: 0, end: 10, kind: "definition" },
-            { path: "a.gml", start: 0, end: 10, kind: "definition" }
+            { path: "", start: 0, end: 10, kind: OccurrenceKind.DEFINITION },
+            { path: "a.gml", start: 0, end: 10, kind: OccurrenceKind.DEFINITION }
         ] as unknown as Array<SymbolOccurrence>;
 
         const count = countAffectedFiles(occurrences);
