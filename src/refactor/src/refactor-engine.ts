@@ -149,8 +149,7 @@ export class RefactorEngine {
         try {
             normalizedNewName = assertValidIdentifierName(newName);
         } catch (error) {
-            const errorMessage = Core.isErrorLike(error) ? error.message : String(error);
-            errors.push(errorMessage);
+            errors.push(Core.getErrorMessage(error));
             return { valid: false, errors, warnings };
         }
 
@@ -998,10 +997,9 @@ export class RefactorEngine {
         } catch (error) {
             // Planning failed, create an empty workspace and record the error
             workspace = new WorkspaceEdit();
-            const errorMessage = Core.isErrorLike(error) ? error.message : String(error);
             validation = {
                 valid: false,
-                errors: [`Planning failed: ${errorMessage}`],
+                errors: [`Planning failed: ${Core.getErrorMessage(error)}`],
                 warnings: []
             };
 
@@ -1009,7 +1007,7 @@ export class RefactorEngine {
             if (validateHotReload) {
                 hotReloadValidation = {
                     valid: false,
-                    errors: [`Cannot validate hot reload: ${errorMessage}`],
+                    errors: [`Cannot validate hot reload: ${Core.getErrorMessage(error)}`],
                     warnings: []
                 };
             }

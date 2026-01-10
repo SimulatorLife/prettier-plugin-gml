@@ -38,10 +38,9 @@ export async function detectRenameConflicts(
     try {
         normalizedNewName = assertValidIdentifierName(newName);
     } catch (error) {
-        const errorMessage = Core.isErrorLike(error) ? error.message : String(error);
         conflicts.push({
             type: ConflictType.INVALID_IDENTIFIER,
-            message: errorMessage
+            message: Core.getErrorMessage(error)
         });
         return conflicts;
     }
@@ -182,8 +181,7 @@ export async function validateRenameStructure(
             trim: true
         });
     } catch (error) {
-        const errorMessage = Core.isErrorLike(error) ? error.message : String(error);
-        errors.push(errorMessage);
+        errors.push(Core.getErrorMessage(error));
         return errors;
     }
 
@@ -193,8 +191,7 @@ export async function validateRenameStructure(
             trim: true
         });
     } catch (error) {
-        const errorMessage = Core.isErrorLike(error) ? error.message : String(error);
-        errors.push(errorMessage);
+        errors.push(Core.getErrorMessage(error));
         return errors;
     }
 
@@ -202,8 +199,7 @@ export async function validateRenameStructure(
     try {
         assertValidIdentifierName(newName);
     } catch (error) {
-        const errorMessage = Core.isErrorLike(error) ? error.message : String(error);
-        errors.push(errorMessage);
+        errors.push(Core.getErrorMessage(error));
         return errors;
     }
 
