@@ -140,7 +140,13 @@ export class DependencyTracker {
         if (defs) {
             for (const symbol of defs) {
                 this.symbolToDefFile.delete(symbol);
-                // Do not delete symbolToRefFiles here - other files may still reference this symbol
+                // Do not delete symbolToRefFiles here - other files may still reference this symbol.
+                // REASON: When a file is removed, its symbol definitions are no longer available,
+                // but other files in the workspace may still contain references to those symbols.
+                // Preserving the reference mapping allows the dependency tracker to detect
+                // broken references and report "undefined symbol" diagnostics to the user.
+                // WHAT WOULD BREAK: Deleting symbolToRefFiles entries prematurely would hide
+                // broken references and prevent the tracker from warning about missing imports.
             }
             this.fileToDefs.delete(filePath);
         }
