@@ -175,6 +175,35 @@ export function macroTextHasExplicitTrailingBlankLine(text: string | null): bool
 }
 
 /**
+ * Extract the text between a block's opening brace and the first statement,
+ * performing all necessary validation and bounds checking.
+ *
+ * Returns null if any validation fails or if the slice would be empty.
+ */
+function extractBlockInteriorBeforeFirstStatement(
+    blockNode: unknown,
+    sourceMetadata: PrinterSourceMetadata,
+    originalText: string | null,
+    firstStatementStartIndex: number | null
+): string | null {
+    if (!blockNode || typeof originalText !== STRING_TYPE || typeof firstStatementStartIndex !== NUMBER_TYPE) {
+        return null;
+    }
+
+    const { startIndex: blockStartIndex } = resolveNodeIndexRangeWithSource(blockNode, sourceMetadata);
+    if (typeof blockStartIndex !== NUMBER_TYPE || blockStartIndex >= firstStatementStartIndex) {
+        return null;
+    }
+
+    const openBraceIndex = originalText.indexOf("{", blockStartIndex);
+    if (openBraceIndex === -1 || openBraceIndex >= firstStatementStartIndex) {
+        return null;
+    }
+
+    return sliceOriginalText(originalText, openBraceIndex + 1, firstStatementStartIndex);
+}
+
+/**
  * Detect whether a block body starts with a blank line before its leading
  * comment.
  */
@@ -184,22 +213,12 @@ export function hasBlankLineBeforeLeadingComment(
     originalText: string | null,
     firstStatementStartIndex: number | null
 ): boolean {
-    if (!blockNode || typeof originalText !== STRING_TYPE || typeof firstStatementStartIndex !== NUMBER_TYPE) {
-        return false;
-    }
-
-    const { startIndex: blockStartIndex } = resolveNodeIndexRangeWithSource(blockNode, sourceMetadata);
-
-    if (typeof blockStartIndex !== NUMBER_TYPE || blockStartIndex >= firstStatementStartIndex) {
-        return false;
-    }
-
-    const openBraceIndex = originalText.indexOf("{", blockStartIndex);
-    if (openBraceIndex === -1 || openBraceIndex >= firstStatementStartIndex) {
-        return false;
-    }
-
-    const interiorSlice = sliceOriginalText(originalText, openBraceIndex + 1, firstStatementStartIndex);
+    const interiorSlice = extractBlockInteriorBeforeFirstStatement(
+        blockNode,
+        sourceMetadata,
+        originalText,
+        firstStatementStartIndex
+    );
 
     if (!interiorSlice) {
         return false;
@@ -225,21 +244,13 @@ export function hasBlankLineAfterOpeningBrace(
 ): boolean {
     const { originalText } = sourceMetadata;
 
-    if (!blockNode || typeof originalText !== STRING_TYPE || typeof firstStatementStartIndex !== NUMBER_TYPE) {
-        return false;
-    }
+    const interiorSlice = extractBlockInteriorBeforeFirstStatement(
+        blockNode,
+        sourceMetadata,
+        originalText,
+        firstStatementStartIndex
+    );
 
-    const { startIndex: blockStartIndex } = resolveNodeIndexRangeWithSource(blockNode, sourceMetadata);
-    if (typeof blockStartIndex !== NUMBER_TYPE || blockStartIndex >= firstStatementStartIndex) {
-        return false;
-    }
-
-    const openBraceIndex = originalText.indexOf("{", blockStartIndex);
-    if (openBraceIndex === -1 || openBraceIndex >= firstStatementStartIndex) {
-        return false;
-    }
-
-    const interiorSlice = sliceOriginalText(originalText, openBraceIndex + 1, firstStatementStartIndex);
     if (!interiorSlice) {
         return false;
     }
