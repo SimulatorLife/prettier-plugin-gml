@@ -229,10 +229,12 @@ void describe("ScopeTracker: scope metadata", () => {
         for (const scopeId of allScopeIds) {
             const metadata = tracker.getScopeMetadata(scopeId);
             if (metadata?.path) {
-                if (!scopesByFile.has(metadata.path)) {
-                    scopesByFile.set(metadata.path, []);
+                const scopes = scopesByFile.get(metadata.path);
+                if (scopes) {
+                    scopes.push(scopeId);
+                } else {
+                    scopesByFile.set(metadata.path, [scopeId]);
                 }
-                scopesByFile.get(metadata.path).push(scopeId);
             }
         }
 
