@@ -4,7 +4,12 @@ export type {
     ApplyPatchResult,
     BatchApplyResult,
     ErrorAnalytics,
+    GeneralLogger,
     HistoryManager,
+    Logger,
+    LoggerConfiguration,
+    LoggerOptions,
+    LogLevel,
     Patch,
     PatchApplicator,
     PatchDiagnostics,
@@ -14,6 +19,7 @@ export type {
     PatchErrorSummary,
     PatchHistoryEntry,
     PatchKind,
+    PatchLifecycleLogger,
     PatchMetadata,
     PatchStats,
     RegistryChangeEvent,
@@ -21,6 +27,7 @@ export type {
     RegistryDiagnostics,
     RegistryHealthCheck,
     RegistryHealthIssue,
+    RegistryLifecycleLogger,
     RegistryMutator,
     RegistryReader,
     RuntimeFunction,
@@ -33,9 +40,7 @@ export type {
     RuntimeWrapperOptions,
     RuntimeWrapperState,
     TrySafeApplyResult,
-    Logger,
-    LoggerOptions,
-    LogLevel
+    WebSocketLogger
 } from "./runtime/index.js";
 export type {
     MessageEventLike,
