@@ -71,7 +71,7 @@ export function createFeatherMetadataCommand() {
         .option("--manual-root <path>", "Override the manual asset root (defaults to vendor/GameMaker-Manual).")
         .option(
             "--manual-package <name>",
-            "Manual npm package name used when neither --manual-root nor the vendor submodule is available."
+            "Manual pnpm package name used when neither --manual-root nor the vendor submodule is available."
         )
         .option("--quiet", "Suppress progress output (useful in CI).");
 

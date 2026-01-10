@@ -1127,7 +1127,7 @@ void describe("Prettier wrapper CLI", () => {
             );
             assert.ok(
                 stdout.includes(
-                    "For example: npx prettier-plugin-gml format path/to/project or npm run format:gml -- path/to/project."
+                    "For example: pnpm dlx prettier-plugin-gml format path/to/project or pnpm run format:gml -- path/to/project."
                 ),
                 "Expected stdout to suggest both the CLI and workspace wrapper commands"
             );
@@ -1161,7 +1161,7 @@ void describe("Prettier wrapper CLI", () => {
             );
             assert.ok(
                 stdout.includes(
-                    "For example: npx prettier-plugin-gml format path/to/project or npm run format:gml -- path/to/project."
+                    "For example: pnpm dlx prettier-plugin-gml format path/to/project or pnpm run format:gml -- path/to/project."
                 ),
                 "Expected stdout to repeat the CLI guidance when formatting finds no targets"
             );
@@ -1241,7 +1241,7 @@ void describe("Prettier wrapper CLI", () => {
             );
             assert.ok(
                 stdout.includes(
-                    "For example: npx prettier-plugin-gml format path/to/project or npm run format:gml -- path/to/project."
+                    "For example: pnpm dlx prettier-plugin-gml format path/to/project or pnpm run format:gml -- path/to/project."
                 ),
                 "Expected stdout to repeat the CLI guidance when invoked from the repository root"
             );
@@ -1281,15 +1281,15 @@ void describe("Prettier wrapper CLI", () => {
         assert.strictEqual(stderr, "", "Expected stderr to be empty");
         assert.match(stdout, /Examples:/, "Expected help to include an examples section");
         assert.ok(
-            stdout.includes("  npx prettier-plugin-gml format path/to/project"),
-            "Expected help output to include the npx usage example"
+            stdout.includes("  pnpm dlx prettier-plugin-gml format path/to/project"),
+            "Expected help output to include the pnpm dlx usage example"
         );
         assert.ok(
-            stdout.includes("  npm run format:gml -- path/to/project"),
+            stdout.includes("  pnpm run format:gml -- path/to/project"),
             "Expected help output to include the workspace wrapper example"
         );
         assert.ok(
-            stdout.includes("  npx prettier-plugin-gml format --check path/to/script.gml"),
+            stdout.includes("  pnpm dlx prettier-plugin-gml format --check path/to/script.gml"),
             "Expected help output to include the --check example"
         );
     });

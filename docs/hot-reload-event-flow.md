@@ -35,7 +35,7 @@ This document describes the complete event flow of the hot reload integration lo
 ```
 ┌─────────────────────────────────────────┐
 │  1. User starts watch command          │
-│     $ npm run demo:watch                │
+│     $ pnpm run demo:watch                │
 └────────────────┬────────────────────────┘
                  │
                  ▼

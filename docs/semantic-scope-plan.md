@@ -620,7 +620,7 @@ Pragmatic TypeScript snippets below show how to emit and query SCIP using `proto
 
 ### Install Dependencies
 ```
-npm i protobufjs
+pnpm add protobufjs
 # fetch scip.proto from https://github.com/sourcegraph/scip
 # then generate TS or load at runtime with protobufjs
 ```

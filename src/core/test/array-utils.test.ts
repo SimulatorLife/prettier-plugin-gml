@@ -4,7 +4,7 @@ import test from "node:test";
 // Node deprecated the loose equality helpers (for example `assert.equal`).
 // These tests intentionally rely on the strict variants so future refactors do
 // not reintroduce the legacy assertions. Behaviour has been revalidated via
-// `npm test src/shared/test/array-utils.test.js`.
+// `pnpm test src/shared/test/array-utils.test.js`.
 
 import {
     asArray,

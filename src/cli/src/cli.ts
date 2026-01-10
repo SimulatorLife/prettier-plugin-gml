@@ -104,9 +104,9 @@ const parseErrorActionOption = createEnumeratedOptionHelpers(
 );
 const logLevelOption = createEnumeratedOptionHelpers(VALID_PRETTIER_LOG_LEVELS, (list) => `Must be one of: ${list}`);
 
-const FORMAT_COMMAND_CLI_EXAMPLE = "npx prettier-plugin-gml format path/to/project";
-const FORMAT_COMMAND_WORKSPACE_EXAMPLE = "npm run format:gml -- path/to/project";
-const FORMAT_COMMAND_CHECK_EXAMPLE = `npx prettier-plugin-gml format --check path/to/script${GML_EXTENSION}`;
+const FORMAT_COMMAND_CLI_EXAMPLE = "pnpm dlx prettier-plugin-gml format path/to/project";
+const FORMAT_COMMAND_WORKSPACE_EXAMPLE = "pnpm run format:gml -- path/to/project";
+const FORMAT_COMMAND_CHECK_EXAMPLE = `pnpm dlx prettier-plugin-gml format --check path/to/script${GML_EXTENSION}`;
 
 const PRETTIER_MODULE_ID = process.env.PRETTIER_PLUGIN_GML_PRETTIER_MODULE ?? "prettier";
 
@@ -200,8 +200,8 @@ function resolvePrettier() {
             if (isMissingPrettierDependency(error)) {
                 const instructions = [
                     "Prettier v3 must be installed alongside prettier-plugin-gml.",
-                    "Install it with:",
-                    "  npm install --save-dev prettier@^3"
+                "Install it with:",
+                "  pnpm add -D prettier@^3"
                 ].join("\n");
                 const cliError = new CliUsageError(instructions);
                 if (isErrorLike(error)) {

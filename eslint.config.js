@@ -53,6 +53,7 @@ const baseIgnorePatterns = [
     "**/*.gml",
     ".DS_Store",
     "LICENSE",
+    "pnpm-lock.yaml",
     "**/*.g4",
     "scripts/**",
     "tools/**",

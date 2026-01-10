@@ -137,8 +137,8 @@ use the formatter.
 - Node.js **25.0.0+**. Run `nvm use` against the bundled `.nvmrc` so local
   tooling matches CI. The workspace enforces the same floor across the parser,
   plugin, and CLI packages.
-- npm (bundled with Node.js). Double-check availability with `node -v` and
-  `npm -v`.
+- pnpm (install via `corepack enable pnpm` or your preferred installer). Double-check availability with `node -v` and
+  `pnpm -v`.
 
 <details>
 <summary><strong>Install Node.js with nvm</strong></summary>
@@ -160,14 +160,14 @@ nvm alias default node
 2. Pick the distribution that matches your workflow and configure Prettier to
    resolve the plugin consistently:
 
-   #### Option A — Published npm release (plugin only)
+   #### Option A — Published release (plugin only)
 
    ```bash
-   npm install --save-dev prettier@^3 antlr4@^4.13.2 prettier-plugin-gamemaker@latest
+   pnpm add -D prettier@^3 antlr4@^4.13.2 prettier-plugin-gamemaker@latest
    ```
 
    Add the plugin to your Prettier configuration so editor integrations and
-   `npx prettier` share the same parser wiring:
+   `pnpm dlx prettier` share the same parser wiring:
 
    ```json
    {
@@ -194,13 +194,13 @@ nvm alias default node
    }
    ```
 
-   Run the script with `npm run format:gml -- --check` when you prefer dry-run
+   Run the script with `pnpm run format:gml -- --check` when you prefer dry-run
    enforcement.
 
    #### Option B — GitHub workspace / nightly build (includes CLI)
 
    ```bash
-   npm install --save-dev "prettier@^3" "antlr4@^4.13.2" \
+   pnpm add -D "prettier@^3" "antlr4@^4.13.2" \
        github:SimulatorLife/prettier-plugin-gml#main
    ```
 
@@ -229,7 +229,7 @@ nvm alias default node
    }
    ```
 
-   Pass arguments with `npm run format:gml -- <flags>` so wrapper improvements
+   Pass arguments with `pnpm run format:gml -- <flags>` so wrapper improvements
    propagate automatically. See
    [CLI wrapper environment knobs](#cli-wrapper-environment-knobs) for
    overrides such as `PRETTIER_PLUGIN_GML_PLUGIN_PATHS` when CI builds the
@@ -243,15 +243,15 @@ nvm alias default node
 
    ```bash
    # Using the wrapper script you defined above
-   npm run format:gml
-   npm run format:gml -- --check
-   npm run format:gml -- --path . --extensions=.gml --extensions=.yy
+   pnpm run format:gml
+   pnpm run format:gml -- --check
+   pnpm run format:gml -- --path . --extensions=.gml --extensions=.yy
 
    # Direct access to the bundled CLI (Git installs)
    node ./node_modules/root/src/cli/src/cli.js --help
 
-   # Direct access to Prettier (npm installs)
-   npx prettier --plugin=prettier-plugin-gamemaker --check "**/*.gml"
+   # Direct access to Prettier (pnpm installs)
+   pnpm dlx prettier --plugin=prettier-plugin-gamemaker --check "**/*.gml"
    ```
 
 ### 3. Use a local clone
@@ -262,14 +262,14 @@ nvm alias default node
    git clone https://github.com/SimulatorLife/prettier-plugin-gml.git
    cd prettier-plugin-gml
    nvm use
-   npm ci
+   pnpm install
    ```
 
 2. Run the aggregated validation once to confirm your local install matches CI
    before pointing the formatter at a project:
 
    ```bash
-   npm run check
+   pnpm run check
    ```
 
    The command runs the formatter smoke test, CI-mode lint, and the full Node.js
@@ -284,12 +284,12 @@ nvm alias default node
    elsewhere so the command formats the intended project:
 
    ```bash
-   npm run format:gml -- /absolute/path/to/MyGame --extensions .gml --extensions .yy
+   pnpm run format:gml -- /absolute/path/to/MyGame --extensions .gml --extensions .yy
    ```
 
    The wrapper also accepts an explicit `--path` flag when the target might be
    mistaken for a command name or begins with a hyphen. Running
-   `npm run format:gml` without extra arguments formats the repository itself.
+   `pnpm run format:gml` without extra arguments formats the repository itself.
 
    The wrapper:
 
@@ -315,8 +315,8 @@ nvm alias default node
    - accepts either a positional path or the explicit `--path` option when you
      need to format outside the current working directory.
 
-   Explore additional helpers with `npm run format:gml -- --help`,
-   `npm run cli -- --help`, or the dedicated
+   Explore additional helpers with `pnpm run format:gml -- --help`,
+   `pnpm run cli -- --help`, or the dedicated
    [CLI reference](#cli-wrapper-environment-knobs). Repeat `--extensions` to
    include additional file types (for example, `--extensions .gml --extensions .yy`
    to process both code and metadata files).
@@ -325,7 +325,7 @@ nvm alias default node
 <summary><strong>Optional: global install</strong></summary>
 
 ```bash
-npm install --global --save-exact prettier prettier-plugin-gamemaker
+pnpm add -g --save-exact prettier prettier-plugin-gamemaker
 prettier --plugin=prettier-plugin-gamemaker --write "**/*.gml"
 ```
 
@@ -339,18 +339,18 @@ folders created by previous installs and retry.
 Run these commands after dependency updates or when onboarding a new contributor.
 Add `--extensions` when your project stores `.yy` metadata alongside `.gml`.
 
-_Installed from npm_
+_Installed via pnpm_
 
 ```bash
-npx prettier --plugin=prettier-plugin-gamemaker --support-info
-npx prettier --plugin=prettier-plugin-gamemaker --check "**/*.gml"
+pnpm dlx prettier --plugin=prettier-plugin-gamemaker --support-info
+pnpm dlx prettier --plugin=prettier-plugin-gamemaker --check "**/*.gml"
 ```
 
 _Installed from Git_
 
 ```bash
-npx prettier --plugin=./node_modules/root/src/plugin/src/plugin-entry.js --support-info
-npx prettier --plugin=./node_modules/root/src/plugin/src/plugin-entry.js --check "**/*.gml"
+pnpm dlx prettier --plugin=./node_modules/root/src/plugin/src/plugin-entry.js --support-info
+pnpm dlx prettier --plugin=./node_modules/root/src/plugin/src/plugin-entry.js --check "**/*.gml"
 ```
 
 The `--support-info` output should list `gml-parse` under "Parsers" when the
@@ -359,9 +359,9 @@ plugin resolves correctly. Append `| grep gml-parse` on macOS or Linux, or use
 single-line confirmation.
 
 ```bash
-npm run format:gml -- --extensions .gml --extensions .yy
+pnpm run format:gml -- --extensions .gml --extensions .yy
 node ./node_modules/root/src/cli/src/cli.js --help
-npm run cli -- --help
+pnpm run cli -- --help
 ```
 
 Consult the archived [legacy identifier-case plan](docs/legacy-identifier-case-plan.md)
@@ -395,10 +395,10 @@ points while sharing utilities via the `src/shared/src/` module.
 | Metadata snapshots | `resources/` | Generated datasets consumed by the formatter (identifier inventories, Feather metadata). |
 | Documentation | `docs/` | Planning notes, rollout guides, and deep-dive references. Start with [`docs/README.md`](docs/README.md) for an index. |
 
-The `npm run format:gml` script wires the CLI wrapper to the workspace copy of
+The `pnpm run format:gml` script wires the CLI wrapper to the workspace copy of
 Prettier so both local development and project integrations resolve the same
-plugin entry. Regeneration helpers such as `npm run build:gml-identifiers` and
-`npm run build:feather-metadata` refresh the datasets under `resources/` when the
+plugin entry. Regeneration helpers such as `pnpm run build:gml-identifiers` and
+`pnpm run build:feather-metadata` refresh the datasets under `resources/` when the
 upstream GameMaker releases change. See the [Development](#development) section
 for the full suite of contributor commands.
 
@@ -422,38 +422,38 @@ layout stays consistent.
 - Format everything in the current project:
 
   ```bash
-  npx prettier --plugin=prettier-plugin-gamemaker --write .
+  pnpm dlx prettier --plugin=prettier-plugin-gamemaker --write .
   ```
 
 - Dry-run formatting for CI or pre-commit checks:
 
   ```bash
-  npx prettier --plugin=prettier-plugin-gamemaker --check "rooms/**/*.gml"
+  pnpm dlx prettier --plugin=prettier-plugin-gamemaker --check "rooms/**/*.gml"
   ```
 
 - Format a single file:
 
   ```bash
-  npx prettier --plugin=prettier-plugin-gamemaker --write scripts/player_attack.gml
+  pnpm dlx prettier --plugin=prettier-plugin-gamemaker --write scripts/player_attack.gml
   ```
 
-- Use the wrapper helper (accepts the same flags as `npm run format:gml --`).
+- Use the wrapper helper (accepts the same flags as `pnpm run format:gml --`).
   Pass the project or file you want to format explicitly:
 
   ```bash
-  npm run cli path/to/project
+  pnpm run cli path/to/project
   ```
 
 - Preview formatting changes without writing them back:
 
   ```bash
-  npm run cli --check path/to/project
+  pnpm run cli --check path/to/project
   ```
 
 - Discover supported flags or double-check defaults:
 
   ```bash
-  npm run cli --help
+  pnpm run cli --help
   ```
 
 ## Configuration reference
@@ -577,49 +577,49 @@ The Prettier plugin printer centralizes semicolon emission, cleanup, and stateme
 ```bash
 git submodule update --init --recursive # pulls vendor/GameMaker-* runtime assets plus 3DSpider demo project
 nvm use # aligns your Node.js version with the workspace baseline
-npm ci # installs dependencies from package-lock.json
+pnpm install # installs dependencies from pnpm-lock.yaml
 ```
 
-If you prefer `npm install`, run it only after confirming the lockfile is up to date. The initial install wires up a local [Husky](https://typicode.github.io/husky/) pre-commit hook that runs `npm run format` and `npm run lint:fix`. Set `HUSKY=0` to bypass the hook when necessary (for example in CI environments).
+If you prefer rerunning `pnpm install`, validate that `pnpm-lock.yaml` is up to date beforehand. The initial install wires up a local [Husky](https://typicode.github.io/husky/) pre-commit hook that runs `pnpm run format` and `pnpm run lint:fix`. Set `HUSKY=0` to bypass the hook when necessary (for example in CI environments).
 
 ### Commands Overview
 
 ```bash
 # Run all tests
-npm test
+pnpm test
 
 # Run tests for each package individually
-npm run test:plugin
-npm run test:parser
+pnpm run test:plugin
+pnpm run test:parser
 # etc.
 
 # Run linting and formatting checks
-npm run lint:fix
-npm run format
-npm run lint:ci
+pnpm run lint:fix
+pnpm run format
+pnpm run lint:ci
 
 # Generate unit test report, checkstyle report, code coverage report, etc.
-npm run report
+pnpm run report
 
 # Regenerate metadata snapshots
-npm run build:gml-identifiers
-npm run build:feather-metadata
+pnpm run build:gml-identifiers
+pnpm run build:feather-metadata
 
 # Regenerate the parser grammar
 # Install [ANTLR 4](https://www.antlr.org/download.html) and Java, then run:
-npm run build:antlr
+pnpm run build:antlr
 
 # Audit repository formatting without writes
-npm run format:check
+pnpm run format:check
 
 # Explore CLI utilities without switching directories
-npm run cli -- --help
+pnpm run cli -- --help
 
 # Run the benchmarking helper
-npm run cli -- performance
+pnpm run cli -- performance
 
 # Run the hot-reload watcher against the 3DSpider demo (injects wrapper into the latest HTML5 output)
-npm run demo:watch
+pnpm run demo:watch
 ```
 
 See [package.json](package.json) for the full list of available scripts.
