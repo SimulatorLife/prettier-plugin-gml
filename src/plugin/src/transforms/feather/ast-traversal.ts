@@ -1,47 +1,12 @@
 /**
  * Utilities to traverse AST fragments needed by Feather diagnostic fixers.
+ *
+ * NOTE: AST traversal is now handled by Core.walkAst from @gml-modules/core,
+ * which provides a unified, iterative walker that avoids deep recursion. This
+ * module retains only the Feather-specific helper functions for extracting
+ * context from AST nodes during traversal.
  */
 import { Core } from "@gml-modules/core";
-
-/**
- * Simple walker that invokes a visitor for every node and respects a visitor opt-out signal.
- */
-export function walkAstNodes(
-    root: unknown,
-    visitor: (node: any, parent: unknown, key: string | number | null) => void | boolean
-) {
-    const visit = (node: unknown, parent: unknown, key: string | number | null): void => {
-        if (!node) {
-            return;
-        }
-
-        if (Array.isArray(node)) {
-            for (let index = 0; index < node.length; index += 1) {
-                visit(node[index], node, index);
-            }
-
-            return;
-        }
-
-        if (!Core.isNode(node)) {
-            return;
-        }
-
-        const shouldDescend = visitor(node, parent, key);
-
-        if (shouldDescend === false) {
-            return;
-        }
-
-        for (const [childKey, childValue] of Object.entries(node)) {
-            if (childValue && typeof childValue === "object") {
-                visit(childValue, node, childKey);
-            }
-        }
-    };
-
-    visit(root, null, null);
-}
 
 export function hasArrayParentWithNumericIndex(parent: unknown, property: unknown) {
     return Array.isArray(parent) && typeof property === "number";
