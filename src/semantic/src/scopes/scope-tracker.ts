@@ -619,6 +619,87 @@ export class ScopeTracker {
     }
 
     /**
+     * Find all occurrences (declarations and references) for multiple symbols
+     * in a single query. This is more efficient than calling getSymbolOccurrences
+     * multiple times, as it batches the lookups and minimizes redundant scope
+     * traversals.
+     *
+     * Use case: When a file changes during hot reload and multiple symbols are
+     * modified, batch-query all affected symbols to determine the complete
+     * invalidation set without N individual lookups.
+     *
+     * @param {Iterable<string>} names Array or Set of symbol names to query.
+     * @returns {Map<string, Array<{scopeId: string, scopeKind: string, kind: string, occurrence: object}>>}
+     *          Map from symbol name to its occurrence records. Symbols not found
+     *          are omitted from the result (not mapped to empty arrays).
+     */
+    getBatchSymbolOccurrences(names: Iterable<string>) {
+        const results = new Map<
+            string,
+            Array<{
+                scopeId: string;
+                scopeKind: string;
+                kind: "declaration" | "reference";
+                occurrence: ReturnType<typeof cloneOccurrence>;
+            }>
+        >();
+
+        for (const name of names) {
+            if (!name) {
+                continue;
+            }
+
+            const scopeSummaryMap = this.symbolToScopesIndex.get(name);
+            if (!scopeSummaryMap || scopeSummaryMap.size === 0) {
+                continue;
+            }
+
+            const occurrences: Array<{
+                scopeId: string;
+                scopeKind: string;
+                kind: "declaration" | "reference";
+                occurrence: ReturnType<typeof cloneOccurrence>;
+            }> = [];
+
+            for (const scopeId of scopeSummaryMap.keys()) {
+                const scope = this.scopesById.get(scopeId);
+                if (!scope) {
+                    continue;
+                }
+
+                const entry = scope.occurrences.get(name);
+                if (!entry) {
+                    continue;
+                }
+
+                for (const declaration of entry.declarations) {
+                    occurrences.push({
+                        scopeId: scope.id,
+                        scopeKind: scope.kind,
+                        kind: "declaration",
+                        occurrence: cloneOccurrence(declaration)
+                    });
+                }
+
+                for (const reference of entry.references) {
+                    occurrences.push({
+                        scopeId: scope.id,
+                        scopeKind: scope.kind,
+                        kind: "reference",
+                        occurrence: cloneOccurrence(reference)
+                    });
+                }
+            }
+
+            if (occurrences.length > 0) {
+                results.set(name, occurrences);
+            }
+        }
+
+        return results;
+    }
+
+    /**
      * Get all scope IDs that contain occurrences (declarations or references) of
      * a specific symbol. This is optimized using an internal index for O(1)
      * average case lookup instead of scanning all scopes. Useful for hot reload
