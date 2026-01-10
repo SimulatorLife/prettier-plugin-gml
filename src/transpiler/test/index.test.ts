@@ -1,6 +1,6 @@
 import assert from "node:assert/strict";
 import test from "node:test";
-import { Transpiler } from "../index.js";
+import { Transpiler } from "../src/index.js";
 
 type TranspilerInstance = InstanceType<typeof Transpiler.GmlTranspiler>;
 type TranspileScriptArgs = Parameters<TranspilerInstance["transpileScript"]>[0];

@@ -10,7 +10,7 @@ import {
     type WorkspaceEdit,
     type WorkspaceReadFile,
     type WorkspaceWriteFile
-} from "../index.js";
+} from "../src/index.js";
 
 const {
     RefactorEngine: RefactorEngineClass,

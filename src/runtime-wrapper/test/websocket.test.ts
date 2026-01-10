@@ -7,7 +7,7 @@ import {
     type RuntimeWebSocketConstructor,
     type RuntimeWebSocketInstance,
     type WebSocketEvent
-} from "../index.js";
+} from "../src/index.js";
 
 const globalWithWebSocket = globalThis as unknown as {
     WebSocket?: RuntimeWebSocketConstructor;

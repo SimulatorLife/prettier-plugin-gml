@@ -7,14 +7,13 @@
     "baseUrl": ".",
     "allowJs": true,
     "paths": {
-      "@gml-modules/parser": ["./index.ts"]
+      "@gml-modules/parser": ["./src/index.ts"]
     }
   },
   "references": [
     { "path": "../core" }
   ],
   "include": [
-  "*.ts",
   "src/**/*.ts",
   "test/**/*.ts",
   "generated/**/*.js",

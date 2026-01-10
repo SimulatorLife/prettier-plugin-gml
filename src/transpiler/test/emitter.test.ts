@@ -1,7 +1,7 @@
 import assert from "node:assert/strict";
 import test from "node:test";
 import { Parser } from "@gml-modules/parser";
-import { Transpiler } from "../index.js";
+import { Transpiler } from "../src/index.js";
 
 type SemanticAnalyzers = ConstructorParameters<typeof Transpiler.GmlToJsEmitter>[0];
 
