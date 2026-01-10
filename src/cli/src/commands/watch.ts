@@ -870,22 +870,18 @@ async function handleFileChange(
             });
 
             // Track symbol definitions for dependency-aware hot-reload
-            // Future enhancement: When semantic analysis is integrated, this will:
-            // 1. Extract actual symbol definitions from the AST
-            // 2. Track symbol references to build dependency graph
-            // 3. Identify and re-transpile dependent files when symbols change
-            if (result.success && result.patch) {
-                const fileName = path.basename(filePath, path.extname(filePath));
-                const symbolId = `gml/script/${fileName}`;
-                runtimeContext.dependencyTracker.registerFileDefines(filePath, [symbolId]);
+            // Uses AST-based extraction to identify actual function/script definitions
+            // instead of relying on file name heuristics
+            if (result.success && result.patch && result.symbols && result.symbols.length > 0) {
+                    runtimeContext.dependencyTracker.registerFileDefines(filePath, result.symbols);
 
-                if (verbose && !quiet) {
-                    const stats = runtimeContext.dependencyTracker.getStatistics();
-                    console.log(
-                        `  ↳ Dependency tracker: ${stats.totalSymbols} symbols tracked across ${stats.totalFiles} files`
-                    );
+                    if (verbose && !quiet) {
+                        const stats = runtimeContext.dependencyTracker.getStatistics();
+                        console.log(
+                            `  ↳ Dependency tracker: ${stats.totalSymbols} symbols tracked across ${stats.totalFiles} files`
+                        );
+                    }
                 }
-            }
         } catch (error) {
             const message = getErrorMessage(error, {
                 fallback: "Unknown file read error"
