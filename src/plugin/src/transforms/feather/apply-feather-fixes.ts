@@ -7296,6 +7296,28 @@ function normalizeCallExpressionArguments({ node, diagnostic, ancestors, state }
 
     const insertionIndex = statementContext.index + insertionOffset;
 
+    // Adjust source positions: to ensure Prettier attaches any leading comments
+    // to the temp variables rather than the target statement, give the first temp
+    // variable a position that precedes the target statement in the source.
+    const targetStatement = statementContext.statements[insertionIndex];
+    if (declarations.length > 0 && targetStatement) {
+        const targetStart = Core.getNodeStartIndex(targetStatement);
+        if (typeof targetStart === "number") {
+            const firstDeclaration = declarations[0];
+            // Set the first declaration's start to just before the target statement
+            // so Prettier will attach leading comments to it instead
+            firstDeclaration.start = targetStart - 1;
+            // Also update the declarator and id if they exist
+            if (firstDeclaration.declarations && firstDeclaration.declarations[0]) {
+                const declarator = firstDeclaration.declarations[0];
+                declarator.start = targetStart - 1;
+                if (declarator.id) {
+                    declarator.id.start = targetStart - 1;
+                }
+            }
+        }
+    }
+
     statementContext.statements.splice(insertionIndex, 0, ...declarations);
 
     if (insertionInfo) {
@@ -16717,8 +16739,7 @@ function balanceGpuStateCallsInStatements(statements, diagnostic, container) {
             }
 
             const callExpression = getCallExpression(statement);
-            const targetName =
-                Core.getCallExpressionIdentifierName(callExpression ?? statement) ?? "gpu_pop_state";
+            const targetName = Core.getCallExpressionIdentifierName(callExpression ?? statement) ?? "gpu_pop_state";
             const fixDetail = createFeatherFixDetail(diagnostic, {
                 target: targetName,
                 range: {
