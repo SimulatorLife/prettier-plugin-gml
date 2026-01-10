@@ -2,20 +2,20 @@ import { strict as assert } from "node:assert";
 import { describe, test } from "node:test";
 import ScopeTracker from "../src/scopes/scope-tracker.js";
 
-describe("ScopeTracker: scope metadata", () => {
-    test("getScopeMetadata returns null for non-existent scope", () => {
+void describe("ScopeTracker: scope metadata", () => {
+    void test("getScopeMetadata returns null for non-existent scope", () => {
         const tracker = new ScopeTracker({ enabled: true });
         const result = tracker.getScopeMetadata("scope-999");
         assert.strictEqual(result, null);
     });
 
-    test("getScopeMetadata returns null for null scope", () => {
+    void test("getScopeMetadata returns null for null scope", () => {
         const tracker = new ScopeTracker({ enabled: true });
         const result = tracker.getScopeMetadata(null);
         assert.strictEqual(result, null);
     });
 
-    test("getScopeMetadata returns basic scope info without optional metadata", () => {
+    void test("getScopeMetadata returns basic scope info without optional metadata", () => {
         const tracker = new ScopeTracker({ enabled: true });
         const scope = tracker.enterScope("function");
 
@@ -29,7 +29,7 @@ describe("ScopeTracker: scope metadata", () => {
         assert.strictEqual(metadata.end, undefined);
     });
 
-    test("getScopeMetadata returns scope with name metadata", () => {
+    void test("getScopeMetadata returns scope with name metadata", () => {
         const tracker = new ScopeTracker({ enabled: true });
         const scope = tracker.enterScope("function", { name: "myFunction" });
 
@@ -43,7 +43,7 @@ describe("ScopeTracker: scope metadata", () => {
         assert.strictEqual(metadata.end, undefined);
     });
 
-    test("getScopeMetadata returns scope with path metadata", () => {
+    void test("getScopeMetadata returns scope with path metadata", () => {
         const tracker = new ScopeTracker({ enabled: true });
         const scope = tracker.enterScope("program", {
             path: "scripts/player_movement/player_movement.gml"
@@ -56,7 +56,7 @@ describe("ScopeTracker: scope metadata", () => {
         assert.strictEqual(metadata.path, "scripts/player_movement/player_movement.gml");
     });
 
-    test("getScopeMetadata returns scope with full location metadata", () => {
+    void test("getScopeMetadata returns scope with full location metadata", () => {
         const tracker = new ScopeTracker({ enabled: true });
         const scope = tracker.enterScope("function", {
             name: "updatePlayer",
@@ -81,7 +81,7 @@ describe("ScopeTracker: scope metadata", () => {
         assert.strictEqual(metadata.end.index, 500);
     });
 
-    test("getScopeMetadata clones location data to prevent mutations", () => {
+    void test("getScopeMetadata clones location data to prevent mutations", () => {
         const tracker = new ScopeTracker({ enabled: true });
         const scope = tracker.enterScope("function", {
             start: { line: 1, column: 0, index: 0 },
@@ -99,7 +99,7 @@ describe("ScopeTracker: scope metadata", () => {
         assert.deepStrictEqual(metadata1.end, metadata2.end);
     });
 
-    test("withScope accepts metadata parameter", () => {
+    void test("withScope accepts metadata parameter", () => {
         const tracker = new ScopeTracker({ enabled: true });
 
         const result = tracker.withScope(
@@ -118,7 +118,7 @@ describe("ScopeTracker: scope metadata", () => {
         assert.strictEqual(metadata.path, "test.gml");
     });
 
-    test("scope metadata supports hot reload file tracking", () => {
+    void test("scope metadata supports hot reload file tracking", () => {
         const tracker = new ScopeTracker({ enabled: true });
 
         // Simulate multiple scopes in different files
@@ -163,7 +163,7 @@ describe("ScopeTracker: scope metadata", () => {
         assert.strictEqual(fn2Meta?.end?.line, 30);
     });
 
-    test("scope metadata supports nested scope tracking", () => {
+    void test("scope metadata supports nested scope tracking", () => {
         const tracker = new ScopeTracker({ enabled: true });
 
         const programScope = tracker.enterScope("program", {
@@ -204,7 +204,7 @@ describe("ScopeTracker: scope metadata", () => {
         assert.ok(blockMeta.end.index <= functionMeta.end.index);
     });
 
-    test("scope metadata enables file-based invalidation queries", () => {
+    void test("scope metadata enables file-based invalidation queries", () => {
         const tracker = new ScopeTracker({ enabled: true });
 
         // Create scopes in multiple files
