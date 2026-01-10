@@ -873,15 +873,15 @@ async function handleFileChange(
             // Uses AST-based extraction to identify actual function/script definitions
             // instead of relying on file name heuristics
             if (result.success && result.patch && result.symbols && result.symbols.length > 0) {
-                    runtimeContext.dependencyTracker.registerFileDefines(filePath, result.symbols);
+                runtimeContext.dependencyTracker.registerFileDefines(filePath, result.symbols);
 
-                    if (verbose && !quiet) {
-                        const stats = runtimeContext.dependencyTracker.getStatistics();
-                        console.log(
-                            `  ↳ Dependency tracker: ${stats.totalSymbols} symbols tracked across ${stats.totalFiles} files`
-                        );
-                    }
+                if (verbose && !quiet) {
+                    const stats = runtimeContext.dependencyTracker.getStatistics();
+                    console.log(
+                        `  ↳ Dependency tracker: ${stats.totalSymbols} symbols tracked across ${stats.totalFiles} files`
+                    );
                 }
+            }
         } catch (error) {
             const message = getErrorMessage(error, {
                 fallback: "Unknown file read error"

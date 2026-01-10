@@ -197,7 +197,7 @@ function printComment(commentPath, options) {
                 return "";
             }
             const decorated = formatDecorativeBlockComment(comment);
-    if (decorated !== null) {
+            if (decorated !== null) {
                 if (decorated === "") {
                     return "";
                 }
@@ -1232,11 +1232,12 @@ function formatDecorativeBlockComment(comment) {
     }
 
     const hasDecoration = significantLines.some((line) => DECORATIVE_SLASH_LINE_PATTERN.test(line));
-    const hasLeadingLineBreak = comment?._gmlForceLeadingBlankLine === true
-        ? true
-        : typeof comment?.leadingWS === "string"
-            ? /\r|\n/.test(comment.leadingWS)
-            : false;
+    const hasLeadingLineBreak =
+        comment?._gmlForceLeadingBlankLine === true
+            ? true
+            : typeof comment?.leadingWS === "string"
+              ? /\r|\n/.test(comment.leadingWS)
+              : false;
     const hasMultipleLines = lines.length > 1;
     const shouldDecorate = hasDecoration || (hasMultipleLines && hasLeadingLineBreak);
     if (!shouldDecorate) {

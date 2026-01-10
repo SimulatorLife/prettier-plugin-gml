@@ -33,7 +33,6 @@ const BASE_PRETTIER_DEFAULTS: Record<string, unknown> = {
     singleQuote: false
 };
 
-
 function extractOptionDefaults(optionConfigMap: SupportOptions): Record<string, unknown> {
     return Object.fromEntries(
         Object.entries(optionConfigMap)
