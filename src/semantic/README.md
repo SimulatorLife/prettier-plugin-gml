@@ -68,6 +68,46 @@ SCIP symbols follow a deterministic URI-like format for cross-reference tracking
 
 These symbols enable hot reload pipelines to track dependencies and coordinate invalidation when symbols change.
 
+## Declaration Metadata
+
+Each symbol declaration tracked by the `ScopeTracker` includes rich metadata that enables precise analysis and efficient hot reload coordination:
+
+### Declaration Metadata Structure
+
+```javascript
+{
+  name: string,                    // Symbol name
+  scopeId: string,                 // Scope where declared
+  classifications: string[],       // Classification tags (e.g., ["identifier", "declaration", "variable"])
+  declarationKind: string | null,  // Explicit kind: "variable", "parameter", "function", etc.
+  start: { line, index, column },  // Start location
+  end: { line, index, column }     // End location
+}
+```
+
+### Declaration Kind
+
+The `declarationKind` field provides a first-class property for identifying the type of declaration, making queries faster and more explicit than parsing the `classifications` array. Common declaration kinds include:
+
+- `"variable"` - Variable declarations
+- `"parameter"` - Function parameters
+- `"function"` - Function declarations
+- `"script"` - Script definitions
+- `"enum"` - Enum members
+- `"macro"` - Macro definitions
+
+The declaration kind is captured from the `kind` field in the `role` parameter passed to `declare()`:
+
+```javascript
+tracker.declare("myVar", node, { kind: "variable" });
+tracker.declare("x", node, { kind: "parameter" });
+tracker.declare("initGame", node, { kind: "function" });
+```
+
+When no `kind` is provided, `declarationKind` is `null`.
+
+**Use case:** Hot reload systems can query declarations by kind to implement targeted invalidation strategies. For example, when function signatures change, query all `"parameter"` declarations to validate arity; when updating variable initializers, query all `"variable"` declarations to rebuild initialization sequences.
+
 ## Symbol Resolution Queries
 
 The `ScopeTracker` provides query methods that enable hot reload coordination and dependency tracking:
@@ -225,6 +265,48 @@ const metadata = tracker.getDeclarationInScope("localVar", "scope-1");
 ```
 
 **Use case:** Efficient single-symbol lookup when you need to check if a symbol is declared in a known scope. This is more efficient than `getAllDeclarations()` for targeted queries during incremental analysis or refactoring validation.
+
+### `getDeclarationsByKind(declarationKind)`
+
+Get all declarations of a specific kind across all scopes. This enables targeted queries for hot reload coordination and refactoring tools that need to find all declarations of a particular type.
+
+```javascript
+const tracker = new ScopeTracker({ enabled: true });
+// ... track declarations across multiple scopes ...
+
+// Find all function declarations
+const functions = tracker.getDeclarationsByKind("function");
+// Returns: [
+//   { name: "initGame", scopeId: "scope-0", scopeKind: "program", metadata: {...} },
+//   { name: "update", scopeId: "scope-0", scopeKind: "program", metadata: {...} }
+// ]
+
+// Find all parameters
+const parameters = tracker.getDeclarationsByKind("parameter");
+// Returns: [
+//   { name: "x", scopeId: "scope-1", scopeKind: "function", metadata: {...} },
+//   { name: "y", scopeId: "scope-1", scopeKind: "function", metadata: {...} }
+// ]
+```
+
+**Use case:** When a declaration kind's semantics change (e.g., function signature updates), query all declarations of that kind to identify affected scopes for selective recompilation. For example, finding all function declarations to rebuild function tables, or all parameter declarations to validate arity changes during hot reload.
+
+### `getScopeDeclarationKindStats(scopeId)`
+
+Get declaration kind statistics for a specific scope. This aggregates counts of each declaration kind to provide a quick overview of what types of symbols are defined in a scope.
+
+```javascript
+const stats = tracker.getScopeDeclarationKindStats("scope-1");
+// Returns: {
+//   total: 5,
+//   byKind: Map {
+//     "parameter" => 2,
+//     "variable" => 3
+//   }
+// }
+```
+
+**Use case:** During hot reload, query scope statistics to determine whether a scope defines functions, variables, or parameters, and optimize the recompilation strategy accordingly. Scopes with many function declarations may require different invalidation strategies than scopes with only variable declarations.
 
 ### `getScopesForSymbol(name)`
 

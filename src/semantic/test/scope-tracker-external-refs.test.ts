@@ -38,6 +38,7 @@ void test("getScopeExternalReferences returns references to symbols declared out
         name: "globalVar",
         scopeId: rootScope.id,
         classifications: ["identifier", "declaration", "variable", "global"],
+        declarationKind: "variable",
         start: { line: 1, index: 0 },
         end: { line: 1, index: 9 }
     });
@@ -77,6 +78,7 @@ void test("getScopeExternalReferences handles nested scopes correctly", () => {
         name: "topLevel",
         scopeId: rootScope.id,
         classifications: ["identifier", "declaration", "variable"],
+        declarationKind: "variable",
         start: { line: 1, index: 0 },
         end: { line: 1, index: 8 }
     });
@@ -87,6 +89,7 @@ void test("getScopeExternalReferences handles nested scopes correctly", () => {
         name: "outerVar",
         scopeId: outerScope.id,
         classifications: ["identifier", "declaration", "variable"],
+        declarationKind: "variable",
         start: { line: 3, index: 0 },
         end: { line: 3, index: 8 }
     });
@@ -153,6 +156,7 @@ void test("getScopeExternalReferences groups multiple references to same externa
         name: "shared",
         scopeId: rootScope.id,
         classifications: ["identifier", "declaration", "variable"],
+        declarationKind: "variable",
         start: { line: 1, index: 0 },
         end: { line: 1, index: 6 }
     });
@@ -210,6 +214,7 @@ void test("getScopeExternalReferences returns cloned declaration metadata", () =
                 name: "shared",
                 scopeId: rootScope.id,
                 classifications: ["identifier", "declaration", "variable"],
+                declarationKind: "variable",
                 start: { line: 1, index: 0 },
                 end: { line: 1, index: 6 }
             },
@@ -279,6 +284,7 @@ void test("getScopeExternalReferences performance is efficient for many referenc
             name: `global${idx}`,
             scopeId: rootScope.id,
             classifications: ["identifier", "declaration", "variable"],
+            declarationKind: "variable",
             start: { line: idx, index: 0 },
             end: { line: idx, index: 10 }
         });
