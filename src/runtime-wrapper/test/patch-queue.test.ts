@@ -28,7 +28,11 @@ class MockWebSocket {
     }
 
     send(): void {
-        // No-op for testing
+        // No-op for testing: Mock WebSocket implementation doesn't transmit
+        // messages over the network. Tests verify client-side behavior
+        // (event handling, reconnection logic, state management) without
+        // requiring an actual WebSocket server. Real message transmission
+        // would add test flakiness and infrastructure dependencies.
     }
 
     close(): void {

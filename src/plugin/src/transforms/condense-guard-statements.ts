@@ -24,9 +24,10 @@ function cloneIfAvailable(node: any) {
     return Core.cloneAstNode(node);
 }
 
-export class CondenseGuardStatementsTransform
-    implements ParserTransform<MutableGameMakerAstNode, Record<string, never>>
-{
+export class CondenseGuardStatementsTransform implements ParserTransform<
+    MutableGameMakerAstNode,
+    Record<string, never>
+> {
     public readonly name = "condense-guard-statements";
     public readonly defaultOptions = Object.freeze({});
 

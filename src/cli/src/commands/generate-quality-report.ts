@@ -1049,7 +1049,13 @@ function runCli(options: any = {}) {
                     label = `Local (${branch})`;
                 }
             } catch {
-                // ignore
+                // Ignore git command errors to avoid breaking the report generation.
+                // REASON: Retrieving the current git branch name is a cosmetic enhancement
+                // for the quality report label. If the git command fails (e.g., not in a
+                // git repository, git not installed, or detached HEAD state), we fall back
+                // to the default label without branch information rather than aborting.
+                // WHAT WOULD BREAK: Propagating the exception would prevent the quality
+                // report from being generated, even though the underlying data is valid.
             }
         }
         testTableRows.push(generateTestRow(label, head, diffStats.head));
