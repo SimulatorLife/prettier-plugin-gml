@@ -1,6 +1,7 @@
 import { describe, it } from "node:test";
 import assert from "node:assert/strict";
 import { Parser } from "../src/index.js";
+import { validateSourceText } from "../src/utils/input-validation.js";
 
 const { GMLParser } = Parser;
 
@@ -168,7 +169,7 @@ function test() {
             const maxLength = 100;
             const source = "x".repeat(maxLength + 1);
             try {
-                Parser.validateSourceText(source, { maxLength });
+                validateSourceText(source, { maxLength });
                 assert.fail("Should have thrown");
             } catch (error) {
                 assert.ok(error instanceof Error);
