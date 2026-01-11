@@ -651,7 +651,7 @@ export function createRuntimeWrapper(options: RuntimeWrapperOptions = {}): Runti
 
         const mostProblematicPatches = sortedEntries.slice(0, 10);
 
-        const recentErrors = state.errorHistory.slice(-20).map((entry) => ({ ...entry }));
+        const recentErrors = Core.cloneObjectEntries(state.errorHistory.slice(-20));
 
         const totalPatches = state.patchHistory.filter((entry) => entry.action === "apply").length;
         const errorRate = totalPatches > 0 ? totalErrors / totalPatches : 0;

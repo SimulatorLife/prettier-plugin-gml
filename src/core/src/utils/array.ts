@@ -1,4 +1,5 @@
 import { identity } from "./function.js";
+import { isObjectLike } from "./object.js";
 
 // Reuse a frozen empty array to avoid allocating a new array on every call to
 // `asArray`. The array is frozen so accidental mutations surface loudly during
@@ -360,6 +361,26 @@ export function mergeUniqueValues(
     }
 
     return freeze ? Object.freeze(merged) : merged;
+}
+
+/**
+ * Create shallow clones of object-like entries in an array.
+ *
+ * Many modules require defensive copies of object entries before mutation or
+ * serialization to avoid corrupting shared state. Centralizing the cloning
+ * logic keeps call sites focused on their domain logic while preserving the
+ * lightweight defensive guards that transforms and serializers rely on.
+ *
+ * @template T
+ * @param {Array<T> | null | undefined} entries Collection of entries to clone.
+ * @returns {Array<T>} Array containing shallow clones of object entries.
+ */
+export function cloneObjectEntries(entries?) {
+    if (!isNonEmptyArray(entries)) {
+        return [];
+    }
+
+    return entries.map((entry) => (isObjectLike(entry) ? { ...entry } : entry));
 }
 
 /**
