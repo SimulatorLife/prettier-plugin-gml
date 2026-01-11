@@ -1596,7 +1596,7 @@ function describeTargetPathInput(value) {
  * @param {unknown} input - The input to check
  * @returns {boolean} True if the input appears to be a help request
  */
-function isHelpRequest(input) {
+function isHelpRequest(input: unknown): boolean {
     if (typeof input !== "string") {
         return false;
     }
