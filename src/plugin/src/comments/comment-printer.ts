@@ -332,7 +332,7 @@ function hasFeatherDiagnosticWithId(node, ids) {
         return false;
     }
 
-    const metadata = Array.isArray(node._appliedFeatherDiagnostics) ? node._appliedFeatherDiagnostics : [];
+    const metadata = Core.asArray<any>(node._appliedFeatherDiagnostics);
 
     if (metadata.length === 0) {
         return false;

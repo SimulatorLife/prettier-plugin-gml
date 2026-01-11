@@ -455,7 +455,7 @@ function matchLengthdirReassignment(expression, identifierName) {
         return null;
     }
 
-    const args = Array.isArray(callExpression.arguments) ? callExpression.arguments : [];
+    const args = Core.asArray<any>(callExpression.arguments);
 
     if (args.length !== 2) {
         return null;
@@ -3794,8 +3794,8 @@ function areNodesEquivalent(a, b) {
                 return false;
             }
 
-            const leftArgs = Array.isArray(left.arguments) ? left.arguments : [];
-            const rightArgs = Array.isArray(right.arguments) ? right.arguments : [];
+            const leftArgs = Core.asArray<any>(left.arguments);
+            const rightArgs = Core.asArray<any>(right.arguments);
 
             if (leftArgs.length !== rightArgs.length) {
                 return false;
@@ -4653,7 +4653,7 @@ function isLnCall(node) {
         return false;
     }
 
-    const args = Array.isArray(expression.arguments) ? expression.arguments : [];
+    const args = Core.asArray(expression.arguments);
 
     return args.length === 1;
 }

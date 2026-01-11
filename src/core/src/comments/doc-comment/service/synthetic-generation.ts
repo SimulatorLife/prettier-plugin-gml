@@ -1,4 +1,4 @@
-import { compactArray, isNonEmptyArray, isNonEmptyTrimmedString, isUndefinedSentinel } from "../utils.js";
+import { asArray, compactArray, isNonEmptyArray, isNonEmptyTrimmedString, isUndefinedSentinel } from "../utils.js";
 import { parseDocCommentMetadata } from "./metadata.js";
 import { normalizeDocCommentTypeAnnotations } from "./type-normalization.js";
 import {
@@ -214,9 +214,7 @@ export function computeSyntheticFunctionDocLines(
         return [];
     }
 
-    const metadata = (
-        Array.isArray(existingDocLines) ? compactArray(existingDocLines.map(parseDocCommentMetadata)) : []
-    ) as DocMeta[];
+    const metadata = compactArray(asArray(existingDocLines).map(parseDocCommentMetadata)) as DocMeta[];
 
     let orderedParamMetadata = metadata.filter((meta) => meta.tag === "param");
 
