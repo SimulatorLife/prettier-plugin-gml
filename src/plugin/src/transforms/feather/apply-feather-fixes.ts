@@ -538,16 +538,6 @@ function attachFixWithOptionalTarget(node: MutableGameMakerAstNode, fix: any) {
 }
 
 function attachFeatherFixToNamedFunction(ast: MutableGameMakerAstNode, fix: any): void {
-    try {
-        // console.warn(
-        //     `[feather:diagnostic] reattach-guard fix=${fix.id} target=${String(
-        //         fix.target
-        //     )}`
-        // );
-    } catch {
-        void 0;
-    }
-
     const targetNode = findFunctionDeclaration(ast, (node) => getFunctionIdentifierName(node) === String(fix.target));
 
     if (targetNode) {
@@ -556,14 +546,6 @@ function attachFeatherFixToNamedFunction(ast: MutableGameMakerAstNode, fix: any)
 }
 
 function attachFeatherFixToRange(ast: MutableGameMakerAstNode, fix: any): void {
-    try {
-        // console.warn(
-        //     `[feather:diagnostic] reattach-guard-range fix=${fix.id} target=<range:${fix.range.start}-${fix.range.end}>`
-        // );
-    } catch {
-        void 0;
-    }
-
     const { start, end } = fix.range;
     const targetNode = findFunctionDeclaration(ast, (node) => rangeMatchesNode(node, start, end));
 
@@ -7295,6 +7277,28 @@ function normalizeCallExpressionArguments({ node, diagnostic, ancestors, state }
     const declarations = temporaryDeclarations.map(({ declaration }) => declaration);
 
     const insertionIndex = statementContext.index + insertionOffset;
+
+    // Adjust source positions: to ensure Prettier attaches any leading comments
+    // to the temp variables rather than the target statement, give the first temp
+    // variable a position that precedes the target statement in the source.
+    const targetStatement = statementContext.statements[insertionIndex];
+    if (declarations.length > 0 && targetStatement) {
+        const targetStart = Core.getNodeStartIndex(targetStatement);
+        if (typeof targetStart === "number") {
+            const firstDeclaration = declarations[0];
+            // Set the first declaration's start to just before the target statement
+            // so Prettier will attach leading comments to it instead
+            firstDeclaration.start = targetStart - 1;
+            // Also update the declarator and id if they exist
+            if (firstDeclaration.declarations && firstDeclaration.declarations[0]) {
+                const declarator = firstDeclaration.declarations[0];
+                declarator.start = targetStart - 1;
+                if (declarator.id) {
+                    declarator.id.start = targetStart - 1;
+                }
+            }
+        }
+    }
 
     statementContext.statements.splice(insertionIndex, 0, ...declarations);
 
@@ -15130,16 +15134,6 @@ function reorderFunctionOptionalParameters(node, diagnostic, ast) {
 
     if (!fixDetail) {
         return null;
-    }
-
-    try {
-        // Log the function identifier name and the fix target to help
-        // trace why per-function GM1056 metadata may be missing in tests.
-        console.warn(
-            `[feather:diagnostic] reorderFunctionOptionalParameters fnName=${getFunctionIdentifierName(node)} fixTarget=${String(fixDetail.target)}`
-        );
-    } catch {
-        void 0;
     }
 
     // Attach to the specific function node so callers can inspect per-function

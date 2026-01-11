@@ -441,7 +441,7 @@ minimal locals-first run.
 ```json
 {
   "version": 1,
-  "generatedAt": "2024-03-07T12:34:56.789Z",
+  "generatedAt": "2024-03-07",
   "summary": {
     "renameCount": 1,
     "impactedFileCount": 1,

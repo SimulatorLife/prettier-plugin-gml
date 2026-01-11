@@ -1,0 +1,9 @@
+packages:
+  - src/cli
+  - src/plugin
+  - src/parser
+  - src/core
+  - src/semantic
+  - src/transpiler
+  - src/runtime-wrapper
+  - src/refactor

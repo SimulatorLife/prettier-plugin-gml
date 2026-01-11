@@ -4,7 +4,13 @@ import os from "node:os";
 import path from "node:path";
 import test from "node:test";
 
-import { describeManualSource, readManualText, resolveManualSource } from "../src/modules/manual/source.js";
+import { Core } from "@gml-modules/core";
+import {
+    describeManualSource,
+    getManualRootMetadataPath,
+    readManualText,
+    resolveManualSource
+} from "../src/modules/manual/source.js";
 import { resolveFromRepoRoot } from "../src/shared/workspace-paths.js";
 
 void test("resolveManualSource returns explicit manual root", async (t) => {
@@ -67,4 +73,25 @@ void test("describeManualSource falls back to manual root", () => {
     });
 
     assert.equal(description, "/tmp/manual");
+});
+
+void test("getManualRootMetadataPath returns repo-relative path", () => {
+    const manualSource = {
+        root: resolveFromRepoRoot("vendor", "GameMaker-Manual"),
+        packageName: null,
+        packageJson: null
+    };
+
+    assert.equal(getManualRootMetadataPath(manualSource), "vendor/GameMaker-Manual");
+});
+
+void test("getManualRootMetadataPath falls back to external roots", () => {
+    const externalRoot = path.join(os.tmpdir(), "manual-metadata-test");
+    const manualSource = {
+        root: externalRoot,
+        packageName: null,
+        packageJson: null
+    };
+
+    assert.equal(getManualRootMetadataPath(manualSource), Core.toPosixPath(externalRoot));
 });

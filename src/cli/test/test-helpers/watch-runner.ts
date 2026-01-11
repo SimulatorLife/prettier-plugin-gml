@@ -1,3 +1,4 @@
+import { randomUUID } from "node:crypto";
 import { mkdir, rm } from "node:fs/promises";
 import path from "node:path";
 import { runWatchCommand } from "../../src/commands/watch.js";
@@ -17,7 +18,7 @@ export async function runWatchTest(
     options: WatchCommandOptions,
     testFn: (context: WatchTestContext) => Promise<void>
 ): Promise<void> {
-    const testDir = path.join("/tmp", `${testName}-${Date.now()}-${Math.random().toString(36).slice(2, 9)}`);
+    const testDir = path.join("/tmp", `${testName}-${Date.now()}-${randomUUID()}`);
 
     await mkdir(testDir, { recursive: true });
 

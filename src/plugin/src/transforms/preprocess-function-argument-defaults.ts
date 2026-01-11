@@ -191,7 +191,14 @@ export class PreprocessFunctionArgumentDefaultsTransform
         const matches = [];
 
         for (const [statementIndex, statement] of statements.entries()) {
-            // Skip statements that were already condensed into ternaries
+            // Skip statements that were already condensed into ternaries by prior transforms.
+            // REASON: Earlier AST transformation passes may have rewritten argument_count
+            // guards into compact ternary expressions and marked them with the
+            // _skipArgumentCountDefault flag. Re-processing these condensed statements
+            // would risk double-application, incorrect fallback extraction, or AST corruption.
+            // WHAT WOULD BREAK: Removing this check would cause the transform to
+            // incorrectly parse already-transformed ternaries as if they were still
+            // traditional if-statement guards, leading to malformed parameter defaults.
             if ((statement as any)?._skipArgumentCountDefault === true) {
                 continue;
             }
@@ -311,7 +318,14 @@ export class PreprocessFunctionArgumentDefaultsTransform
         try {
             node.params = params;
         } catch {
-            // ignore
+            // Ignore property-assignment errors when writing back the params array.
+            // REASON: The function node may be frozen, sealed, or otherwise non-configurable.
+            // If we can't update the params property, the original params array remains
+            // in place, and the downstream printer will use whatever was already there,
+            // which is preferable to aborting the entire preprocessing pass.
+            // WHAT WOULD BREAK: Propagating the exception would prevent finalization for
+            // this function and all subsequent functions in the file, leaving params
+            // arrays in inconsistent states and causing print failures downstream.
         }
 
         // Normalize any parser-produced DefaultParameter nodes that have a
@@ -341,7 +355,15 @@ export class PreprocessFunctionArgumentDefaultsTransform
                 }
             }
         } catch {
-            // swallow normalization errors
+            // Swallow normalization errors to continue processing other parameters.
+            // REASON: The conditional normalization and dematerialization logic above
+            // attempts to clean up parser-produced DefaultParameter nodes. If any
+            // node manipulation throws (e.g., due to frozen objects or missing
+            // properties), we continue processing the rest of the params array
+            // rather than aborting the entire finalization pass.
+            // WHAT WOULD BREAK: Propagating the exception would prevent finalization
+            // for all subsequent parameters in the function and leave the params
+            // array in an inconsistent state.
         }
 
         // Post-finalization sweep: ensure materializations that originated from
@@ -365,7 +387,15 @@ export class PreprocessFunctionArgumentDefaultsTransform
         try {
             reconcileDocOptionality(node, ast);
         } catch {
-            // swallow
+            // Swallow reconciliation errors to avoid blocking the entire transform.
+            // REASON: reconcileDocOptionality performs non-critical heuristic analysis
+            // to align parameter optionality flags with JSDoc annotations. If it fails
+            // (e.g., due to malformed nodes or missing metadata), the function's
+            // signature and fallback defaults remain intact from prior finalization.
+            // WHAT WOULD BREAK: Propagating exceptions here would abort the entire
+            // function preprocessing pass, preventing other functions in the file
+            // from receiving default-parameter normalization and causing downstream
+            // print failures or missing doc-comment synthesis.
         }
 
         // After we've canonicalized DefaultParameter nodes, collect implicit
@@ -397,7 +427,14 @@ export class PreprocessFunctionArgumentDefaultsTransform
         try {
             reconcileDocOptionality(node, ast);
         } catch {
-            // swallow
+            // Swallow reconciliation errors to avoid blocking the entire transform.
+            // REASON: reconcileDocOptionality performs non-critical heuristic analysis
+            // to align parameter optionality flags with JSDoc annotations. If it fails
+            // (e.g., due to malformed nodes or missing metadata), the materialized
+            // placeholders from prior steps remain valid and usable by the printer.
+            // WHAT WOULD BREAK: Propagating exceptions here would abort preprocessing
+            // for all remaining functions, causing incomplete default-parameter
+            // normalization and potentially missing JSDoc synthesis downstream.
         }
     }
 }
@@ -454,7 +491,15 @@ function finalizeTrailingUndefinedDefaults(params: Array<any>): boolean {
             break;
         }
     } catch {
-        // swallow
+        // Swallow finalization errors to preserve partial progress.
+        // REASON: finalizeTrailingUndefinedDefaults performs a best-effort
+        // transformation to materialize implicit trailing defaults. If the
+        // transform fails midway (e.g., due to unexpected node shapes or
+        // frozen objects), any defaults materialized before the error
+        // remain valid and improve formatting consistency.
+        // WHAT WOULD BREAK: Propagating the exception would discard all
+        // partial finalization work and leave the params array in an
+        // inconsistent state, causing downstream print failures.
     }
 
     return changed;
@@ -561,7 +606,14 @@ function ensureParameterInfoForMatch(
                 return registerInfo(argumentIndex, fallBackIdentifier);
             }
         } catch {
-            // swallow
+            // Swallow parameter lookup errors and return null.
+            // REASON: getIdentifierFromParameter attempts to extract a name from
+            // the fallback parameter at the given index. If the params array is
+            // malformed, the index is out of bounds, or the parameter has an
+            // unexpected shape, we gracefully fail by returning null rather than
+            // aborting the entire argument_count fallback detection pass.
+            // WHAT WOULD BREAK: Propagating the exception would prevent detection
+            // of other valid argument_count guards in the same function body.
         }
 
         return null;
@@ -592,7 +644,14 @@ function ensureTrailingOptionalParametersHaveUndefinedDefaults(params: Array<any
                     }
                 }
             } catch {
-                // swallow
+                // Swallow sentinel-check errors to continue processing remaining parameters.
+                // REASON: Core.isUndefinedSentinel may throw if param.right has an unexpected
+                // shape or missing properties. Since this check is only used to track whether
+                // we've seen explicit (non-undefined) defaults to the left, failing on one
+                // parameter shouldn't prevent processing the rest of the parameter list.
+                // WHAT WOULD BREAK: Propagating the exception would abort the entire
+                // ensureTrailingOptionalParametersHaveUndefinedDefaults pass, leaving
+                // some trailing optional parameters without their required `= undefined`.
             }
 
             continue;
@@ -667,7 +726,14 @@ function reconcileDocOptionality(node: MutableGameMakerAstNode, ast: MutableGame
                 try {
                     p._featherOptionalParameter = paramDocMap.get(leftName) === true;
                 } catch {
-                    // swallow
+                    // Swallow property-assignment errors when setting optionality flags.
+                    // REASON: The parameter object may be frozen, sealed, or otherwise
+                    // non-configurable. If we can't attach the _featherOptionalParameter
+                    // marker, the downstream printer will fall back to its default
+                    // optionality heuristics, which is acceptable for robustness.
+                    // WHAT WOULD BREAK: Propagating the exception would abort reconciliation
+                    // for the entire function, preventing any JSDoc-driven optionality
+                    // alignment for subsequent parameters.
                 }
                 continue;
             }
@@ -677,7 +743,12 @@ function reconcileDocOptionality(node: MutableGameMakerAstNode, ast: MutableGame
                     continue;
                 }
             } catch {
-                // swallow
+                // Swallow property-access errors when checking existing optionality flags.
+                // REASON: The parameter object may have getters that throw or properties
+                // that are inaccessible. If we can't read _featherOptionalParameter, we
+                // proceed to the fallback heuristic below rather than aborting.
+                // WHAT WOULD BREAK: Propagating the exception would prevent reconciliation
+                // for all remaining parameters in the function.
             }
 
             try {
@@ -691,14 +762,29 @@ function reconcileDocOptionality(node: MutableGameMakerAstNode, ast: MutableGame
                     continue;
                 }
             } catch {
-                // swallow
+                // Swallow heuristic-check errors and skip optionality assignment.
+                // REASON: This try-catch guards the materialization-flag checks and the
+                // hasExplicitDefaultParameterToLeft helper. If either operation throws
+                // (e.g., due to malformed AST nodes or missing parent references), we
+                // skip setting _featherOptionalParameter for this param and continue
+                // processing the rest, rather than aborting the entire reconciliation.
+                // WHAT WOULD BREAK: Propagating the exception would prevent optionality
+                // reconciliation for all subsequent parameters in the function.
             }
 
             if (node.type === "ConstructorDeclaration") {
                 try {
                     p._featherOptionalParameter = true;
                 } catch {
-                    // swallow
+                    // Swallow property-assignment errors for constructor parameters.
+                    // REASON: Constructor parameters default to optional in GML semantics.
+                    // If the parameter object is frozen or non-configurable, we can't
+                    // attach the _featherOptionalParameter marker, but the downstream
+                    // printer will still infer optionality from the ConstructorDeclaration
+                    // context, so this is a non-fatal failure.
+                    // WHAT WOULD BREAK: Propagating the exception would abort reconciliation
+                    // for the entire constructor, preventing optionality alignment for
+                    // other parameters that may be mutable.
                 }
                 continue;
             }
@@ -706,11 +792,24 @@ function reconcileDocOptionality(node: MutableGameMakerAstNode, ast: MutableGame
             try {
                 p._featherOptionalParameter = false;
             } catch {
-                // swallow
+                // Swallow property-assignment errors for default non-optional marking.
+                // REASON: If we can't set _featherOptionalParameter to false (e.g., the
+                // parameter object is frozen), the printer's fallback heuristics will
+                // treat the parameter as required by default, which is the desired
+                // behavior. This is a safe failure mode.
+                // WHAT WOULD BREAK: Propagating the exception would abort reconciliation
+                // for all remaining parameters in the function.
             }
         }
     } catch {
-        // swallow
+        // Swallow top-level reconciliation errors to preserve formatting robustness.
+        // REASON: reconcileDocOptionality performs best-effort JSDoc alignment. If
+        // the entire function fails (e.g., due to missing properties, malformed AST,
+        // or unexpected node structures), we allow the formatting pass to continue
+        // using parser-provided optionality flags or printer fallback heuristics.
+        // WHAT WOULD BREAK: Propagating the exception would abort preprocessing for
+        // the entire file, preventing default-parameter normalization and JSDoc
+        // synthesis for all subsequent functions.
     }
 }
 
@@ -1208,7 +1307,6 @@ function getArgumentIndexFromIdentifier(name: unknown) {
     const match = name.match(/^argument(\d+)$/);
     if (!match) return null;
     const parsed = Number.parseInt(match[1]);
-    // console.log("DEBUG: getArgumentIndexFromIdentifier", name, parsed);
     return Number.isInteger(parsed) && parsed >= 0 ? parsed : null;
 }
 
@@ -1296,7 +1394,14 @@ function applyArgumentCountMatches(args: {
                     (defaultParamNode as any)._featherMaterializedTrailingUndefined = true;
                 }
             } catch {
-                // swallow
+                // Swallow sentinel-check errors when setting materialization flags.
+                // REASON: Core.isUndefinedSentinel may throw if the fallback expression
+                // has an unexpected shape. Since the _featherMaterializedTrailingUndefined
+                // flag is an optimization hint for the printer, failing to set it doesn't
+                // prevent the default parameter from working correctly.
+                // WHAT WOULD BREAK: Propagating the exception would abort materialization
+                // of argument_count fallback defaults for this function, leaving
+                // parameters without their intended default values.
             }
 
             node.params[paramInfo.index] = defaultParamNode;
@@ -1304,7 +1409,14 @@ function applyArgumentCountMatches(args: {
             try {
                 currentParam.right = match.fallbackExpression;
             } catch {
-                // swallow
+                // Swallow property-assignment errors when filling in default expressions.
+                // REASON: The existing DefaultParameter node may be frozen, sealed, or
+                // otherwise non-configurable. If we can't set the `right` property, the
+                // parameter retains its empty default (null/undefined) and the printer
+                // will handle it as best it can, which is preferable to aborting.
+                // WHAT WOULD BREAK: Propagating the exception would prevent materialization
+                // of argument_count fallback defaults for all subsequent matches in the
+                // function, leaving parameters without their intended default values.
             }
         }
     }
@@ -1412,7 +1524,14 @@ function applyFallbackArgumentMatch(args: {
                 (defaultParamNode as any)._featherMaterializedTrailingUndefined = true;
             }
         } catch {
-            // swallow
+            // Swallow sentinel-check errors when setting materialization flags.
+            // REASON: Core.isUndefinedSentinel may throw if the fallback expression
+            // has an unexpected shape. Since the _featherMaterializedTrailingUndefined
+            // flag is an optimization hint for the printer, failing to set it doesn't
+            // prevent the default parameter from working correctly.
+            // WHAT WOULD BREAK: Propagating the exception would abort materialization
+            // of this specific fallback and leave the parameter without its intended
+            // default value from the argument_count guard.
         }
         node.params[paramIndex] = defaultParamNode;
         const ridx = statements.indexOf(statementNode);
@@ -1426,7 +1545,14 @@ function applyFallbackArgumentMatch(args: {
                 currentParam._featherMaterializedTrailingUndefined = true;
             }
         } catch {
-            // swallow
+            // Swallow property-assignment errors when filling in fallback expressions.
+            // REASON: The existing DefaultParameter node may be frozen, sealed, or
+            // otherwise non-configurable. If we can't set the `right` property or the
+            // materialization flag, the parameter retains its empty default and the
+            // printer will handle it as best it can, which is preferable to aborting.
+            // WHAT WOULD BREAK: Propagating the exception would prevent this specific
+            // fallback from being applied and leave the parameter without its intended
+            // default value from the argument_count guard.
         }
         const ridx = statements.indexOf(statementNode);
         if (ridx !== -1) {

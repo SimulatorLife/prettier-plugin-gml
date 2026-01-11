@@ -23,7 +23,7 @@ then return here for deeper context.
 - [Locals-first identifier-case configuration](legacy-identifier-case-plan.md#locals-first-configuration-script)
   — Scripted configuration that warms the project-index cache and captures
   dry-run reports for review alongside a sample JSON payload.
-- [Quick start](../README.md#quick-start) &mdash; Installation flows for npm
+- [Quick start](../README.md#quick-start) &mdash; Installation flows for pnpm
   consumers and nightly testers, including side-by-side snippets for the
   published package versus the Git workspace install, plus wrapper scripts you
   can copy into your GameMaker project.

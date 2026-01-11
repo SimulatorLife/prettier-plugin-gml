@@ -29,7 +29,14 @@ import {
     type ValidationSummary,
     type WorkspaceReadFile
 } from "./types.js";
-import { assertValidIdentifierName, assertNonEmptyNameString, hasMethod } from "./validation-utils.js";
+import {
+    assertValidIdentifierName,
+    assertRenameRequest,
+    assertArray,
+    assertFunction,
+    assertNonEmptyString,
+    hasMethod
+} from "./validation-utils.js";
 import { detectCircularRenames, detectRenameConflicts } from "./validation.js";
 import * as SymbolQueries from "./symbol-queries.js";
 import * as HotReload from "./hot-reload.js";
@@ -437,18 +444,8 @@ export class RefactorEngine {
      * @returns {Promise<WorkspaceEdit>} Workspace edit with all necessary changes
      */
     async planRename(request: RenameRequest): Promise<WorkspaceEdit> {
-        const { symbolId, newName } = request ?? {};
-
-        // Ensure both symbolId and newName are provided and have the correct types.
-        // Early validation prevents downstream failures and gives clear error messages
-        // when callers pass incorrect arguments (e.g., undefined or numeric values).
-        if (!symbolId || !newName) {
-            throw new TypeError("planRename requires symbolId and newName");
-        }
-
-        if (typeof symbolId !== "string") {
-            throw new TypeError(`symbolId must be a string, got ${typeof symbolId}`);
-        }
+        assertRenameRequest(request, "planRename");
+        const { symbolId, newName } = request;
 
         const normalizedNewName = assertValidIdentifierName(newName);
 
@@ -563,7 +560,9 @@ export class RefactorEngine {
                 errors.push(...(semanticValidation.errors || []));
                 warnings.push(...(semanticValidation.warnings || []));
             } catch (error) {
-                warnings.push(`Semantic validation failed: ${error.message}. Proceeding with basic validation only.`);
+                warnings.push(
+                    `Semantic validation failed: ${Core.getErrorMessage(error)}. Proceeding with basic validation only.`
+                );
             }
         }
 
@@ -591,12 +590,10 @@ export class RefactorEngine {
             throw new TypeError("applyWorkspaceEdit requires a WorkspaceEdit");
         }
 
-        if (!readFile || typeof readFile !== "function") {
-            throw new TypeError("applyWorkspaceEdit requires a readFile function");
-        }
+        assertFunction(readFile, "readFile", "applyWorkspaceEdit");
 
-        if (!dryRun && (!writeFile || typeof writeFile !== "function")) {
-            throw new TypeError("applyWorkspaceEdit requires a writeFile function when not in dry-run mode");
+        if (!dryRun) {
+            assertFunction(writeFile, "writeFile", "applyWorkspaceEdit (when not in dry-run mode)");
         }
 
         // Verify the workspace edit is structurally sound and free of conflicts
@@ -646,9 +643,7 @@ export class RefactorEngine {
      * @returns {Promise<WorkspaceEdit>} Combined workspace edit for all renames
      */
     async planBatchRename(renames: Array<RenameRequest>): Promise<WorkspaceEdit> {
-        if (!Array.isArray(renames)) {
-            throw new TypeError("planBatchRename requires an array of renames");
-        }
+        assertArray(renames, "an array of renames", "planBatchRename");
 
         if (renames.length === 0) {
             throw new Error("planBatchRename requires at least one rename");
@@ -656,14 +651,7 @@ export class RefactorEngine {
 
         // Validate all rename requests first
         for (const rename of renames) {
-            if (!rename.symbolId || !rename.newName) {
-                throw new TypeError("Each rename requires symbolId and newName");
-            }
-
-            if (typeof rename.symbolId !== "string") {
-                throw new TypeError(`symbolId must be a string, got ${typeof rename.symbolId}`);
-            }
-
+            assertRenameRequest(rename, "Each rename in planBatchRename");
             assertValidIdentifierName(rename.newName);
         }
 
@@ -744,17 +732,9 @@ export class RefactorEngine {
             prepareHotReload = false
         } = request ?? ({} as ExecuteRenameRequest);
 
-        if (!symbolId || !newName) {
-            throw new TypeError("executeRename requires symbolId and newName");
-        }
-
-        if (!readFile || typeof readFile !== "function") {
-            throw new TypeError("executeRename requires a readFile function to load files");
-        }
-
-        if (!writeFile || typeof writeFile !== "function") {
-            throw new TypeError("executeRename requires a writeFile function to save files");
-        }
+        assertRenameRequest({ symbolId, newName }, "executeRename");
+        assertFunction(readFile, "readFile", "executeRename");
+        assertFunction(writeFile, "writeFile", "executeRename");
 
         // Plan the rename
         const workspace = await this.planRename({ symbolId, newName });
@@ -795,17 +775,9 @@ export class RefactorEngine {
     async executeBatchRename(request: ExecuteBatchRenameRequest): Promise<ExecuteRenameResult> {
         const { renames, readFile, writeFile, prepareHotReload = false } = request ?? ({} as ExecuteBatchRenameRequest);
 
-        if (!renames) {
-            throw new TypeError("executeBatchRename requires renames array");
-        }
-
-        if (!readFile || typeof readFile !== "function") {
-            throw new TypeError("executeBatchRename requires a readFile function");
-        }
-
-        if (!writeFile || typeof writeFile !== "function") {
-            throw new TypeError("executeBatchRename requires a writeFile function");
-        }
+        assertArray(renames, "renames array", "executeBatchRename");
+        assertFunction(readFile, "readFile", "executeBatchRename");
+        assertFunction(writeFile, "writeFile", "executeBatchRename");
 
         // Plan the batch rename
         const workspace = await this.planBatchRename(renames);
@@ -1039,7 +1011,7 @@ export class RefactorEngine {
                     conflicts: [
                         {
                             type: ConflictType.ANALYSIS_ERROR,
-                            message: `Failed to analyze ${rename.symbolId}: ${Core.isErrorLike(error) ? error.message : String(error)}`
+                            message: `Failed to analyze ${rename.symbolId}: ${Core.getErrorMessage(error)}`
                         }
                     ],
                     warnings: []
@@ -1060,7 +1032,7 @@ export class RefactorEngine {
                 // validation instead of failing the entire batch plan.
                 if (hotReloadValidation) {
                     hotReloadValidation.warnings.push(
-                        `Failed to compute hot reload cascade: ${Core.isErrorLike(error) ? error.message : String(error)}`
+                        `Failed to compute hot reload cascade: ${Core.getErrorMessage(error)}`
                     );
                 }
             }
@@ -1179,15 +1151,8 @@ export class RefactorEngine {
      * @returns {Promise<{valid: boolean, summary: Object, conflicts: Array, warnings: Array}>}
      */
     async analyzeRenameImpact(request: RenameRequest): Promise<RenameImpactAnalysis> {
-        const { symbolId, newName } = request ?? {};
-
-        if (!symbolId || !newName) {
-            throw new TypeError("analyzeRenameImpact requires symbolId and newName");
-        }
-
-        if (typeof symbolId !== "string") {
-            throw new TypeError(`symbolId must be a string, got ${typeof symbolId}`);
-        }
+        assertRenameRequest(request, "analyzeRenameImpact");
+        const { symbolId, newName } = request;
 
         const normalizedNewName = assertValidIdentifierName(newName);
 
@@ -1303,7 +1268,7 @@ export class RefactorEngine {
         } catch (error) {
             conflicts.push({
                 type: ConflictType.ANALYSIS_ERROR,
-                message: `Failed to analyze impact: ${error.message}`,
+                message: `Failed to analyze impact: ${Core.getErrorMessage(error)}`,
                 severity: "error"
             });
         }
@@ -1431,7 +1396,7 @@ export class RefactorEngine {
             try {
                 content = await readFile(filePath);
             } catch (error) {
-                errors.push(`Failed to read ${filePath} for post-edit validation: ${error.message}`);
+                errors.push(`Failed to read ${filePath} for post-edit validation: ${Core.getErrorMessage(error)}`);
                 continue;
             }
 
@@ -1491,13 +1456,13 @@ export class RefactorEngine {
                 const unexpectedOccurrences = newOccurrences.filter((occ) => !affectedFiles.includes(occ.path));
 
                 if (unexpectedOccurrences.length > 0) {
-                    const conflictPaths = Array.from(new Set(unexpectedOccurrences.map((o) => o.path)));
+                    const conflictPaths = Core.uniqueArray(unexpectedOccurrences.map((o) => o.path)) as Array<string>;
                     warnings.push(
                         `New name '${newName}' already exists in ${conflictPaths.length} other file(s): ${conflictPaths.join(", ")} - verify no shadowing occurred`
                     );
                 }
             } catch (error) {
-                warnings.push(`Could not verify occurrences of new name: ${error.message}`);
+                warnings.push(`Could not verify occurrences of new name: ${Core.getErrorMessage(error)}`);
             }
         }
 
@@ -1509,7 +1474,7 @@ export class RefactorEngine {
                     errors.push(`New name '${newName}' conflicts with reserved keyword`);
                 }
             } catch (error) {
-                warnings.push(`Could not verify reserved keywords: ${error.message}`);
+                warnings.push(`Could not verify reserved keywords: ${Core.getErrorMessage(error)}`);
             }
         }
 
@@ -1522,7 +1487,7 @@ export class RefactorEngine {
                     await this.parser.parse(filePath);
                 } catch (parseError) {
                     errors.push(
-                        `Parse error in ${filePath} after rename: ${parseError.message} - edits may have broken syntax`
+                        `Parse error in ${filePath} after rename: ${Core.getErrorMessage(parseError)} - edits may have broken syntax`
                     );
                 }
             }
@@ -1564,12 +1529,9 @@ export class RefactorEngine {
     }): Promise<Array<ConflictEntry>> {
         const { oldName, newName, occurrences } = request ?? {};
 
-        assertNonEmptyNameString(oldName, "oldName", "detectRenameConflicts");
-        assertNonEmptyNameString(newName, "newName", "detectRenameConflicts");
-
-        if (!Array.isArray(occurrences)) {
-            throw new TypeError("detectRenameConflicts requires occurrences as an array");
-        }
+        assertNonEmptyString(oldName, "oldName as a non-empty string", "detectRenameConflicts");
+        assertNonEmptyString(newName, "newName as a non-empty string", "detectRenameConflicts");
+        assertArray(occurrences, "occurrences as an array", "detectRenameConflicts");
 
         // Pass semantic analyzer twice: once as SymbolResolver for scope lookups,
         // once as KeywordProvider for reserved keyword checks. The SemanticAnalyzer

@@ -34,21 +34,6 @@ export function assertValidIdentifierName(name: unknown): string {
 }
 
 /**
- * Validates that a value is a non-empty string.
- * Used to validate rename operation parameters like oldName and newName.
- *
- * @param value - The value to validate
- * @param parameterName - The parameter name for error messages
- * @param functionName - The function name for error messages
- * @throws {TypeError} If value is not a non-empty string
- */
-export function assertNonEmptyNameString(value: unknown, parameterName: string, functionName: string): void {
-    if (typeof value !== "string" || value.length === 0) {
-        throw new TypeError(`${functionName} requires ${parameterName} as a non-empty string`);
-    }
-}
-
-/**
  * Check if an object has a callable method with the given name.
  * This helper eliminates the repeated pattern of checking
  * `obj && typeof obj.method === "function"` throughout the refactor codebase.
@@ -67,6 +52,94 @@ export function hasMethod<T, K extends string>(
     methodName: K
 ): obj is T & { [P in K]: (...args: never[]) => unknown } {
     return obj != null && typeof (obj as Record<string, unknown>)[methodName] === "function";
+}
+
+/**
+ * Assert that a value is an array.
+ * Provides consistent error messages for array parameter validation.
+ *
+ * @param value - The value to validate
+ * @param parameterName - The parameter name for error messages
+ * @param functionName - The function name for error messages (optional)
+ * @throws {TypeError} If value is not an array
+ */
+export function assertArray<T = unknown>(
+    value: unknown,
+    parameterName: string,
+    functionName?: string
+): asserts value is Array<T> {
+    if (!Array.isArray(value)) {
+        const context = functionName ? `${functionName} requires` : "Expected";
+        throw new TypeError(`${context} ${parameterName}`);
+    }
+}
+
+/**
+ * Assert that a value is a function.
+ * Provides consistent error messages for function parameter validation.
+ *
+ * @param value - The value to validate
+ * @param parameterName - The parameter name for error messages
+ * @param functionName - The function name for error messages (optional)
+ * @throws {TypeError} If value is not a function
+ */
+export function assertFunction<T extends (...args: never[]) => unknown = (...args: never[]) => unknown>(
+    value: unknown,
+    parameterName: string,
+    functionName?: string
+): asserts value is T {
+    if (!value || typeof value !== "function") {
+        const context = functionName ? `${functionName} requires` : "Expected";
+        throw new TypeError(`${context} a ${parameterName} function`);
+    }
+}
+
+/**
+ * Assert that a value is a non-empty string.
+ * Provides consistent error messages for string parameter validation.
+ *
+ * @param value - The value to validate
+ * @param parameterDescription - The parameter description for error messages (e.g., "file path string", "oldName as a non-empty string")
+ * @param functionName - The function name for error messages (optional)
+ * @throws {TypeError} If value is not a non-empty string
+ */
+export function assertNonEmptyString(
+    value: unknown,
+    parameterDescription: string,
+    functionName?: string
+): asserts value is string {
+    const context = functionName ? `${functionName} requires` : "Expected";
+    if (!value || typeof value !== "string") {
+        throw new TypeError(`${context} ${parameterDescription}`);
+    }
+}
+
+/**
+ * Assert that a rename request object has symbolId and newName properties.
+ * Validates presence and that symbolId is a string.
+ * Note: newName type validation is left to assertValidIdentifierName.
+ *
+ * @param request - The request object to validate
+ * @param functionName - The function name for error messages
+ * @throws {TypeError} If symbolId or newName are missing, or symbolId is not a string
+ */
+export function assertRenameRequest(
+    request: unknown,
+    functionName: string
+): asserts request is { symbolId: string; newName: unknown } {
+    if (!request || typeof request !== "object") {
+        throw new TypeError(`${functionName} requires a request object`);
+    }
+
+    const req = request as Record<string, unknown>;
+
+    if (!req.symbolId || !req.newName) {
+        throw new TypeError(`${functionName} requires symbolId and newName`);
+    }
+
+    if (typeof req.symbolId !== "string") {
+        throw new TypeError(`symbolId must be a string, got ${typeof req.symbolId}`);
+    }
 }
 
 /**

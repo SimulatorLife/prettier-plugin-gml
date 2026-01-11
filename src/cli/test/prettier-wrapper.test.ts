@@ -10,6 +10,7 @@ import { execFile, type ExecFileOptions } from "node:child_process";
 import { describe, it } from "node:test";
 import { CLI } from "@gml-modules/cli";
 import { Core } from "@gml-modules/core";
+import { Plugin } from "@gml-modules/plugin";
 
 const { runCliTestCommand } = CLI;
 
@@ -147,6 +148,35 @@ void describe("Prettier wrapper CLI", () => {
 
             const formatted = await fs.readFile(targetFile, "utf8");
             assert.strictEqual(formatted, "var a = 1;\n");
+        } finally {
+            await fs.rm(tempDirectory, { recursive: true, force: true });
+        }
+    });
+
+    void it("applies plugin newline normalization when run through the wrapper CLI", async () => {
+        const repoRootDirectory = await Core.findRepoRoot(currentDirectory);
+        const fixturePath = path.join(repoRootDirectory, "src/plugin/test/testPreserveNewlines.gml");
+        const optionsPath = path.join(repoRootDirectory, "src/plugin/test/testPreserveNewlines.options.json");
+
+        const [source, optionsContent] = await Promise.all([
+            fs.readFile(fixturePath, "utf8"),
+            fs.readFile(optionsPath, "utf8")
+        ]);
+        const pluginOptions = JSON.parse(optionsContent);
+
+        const tempDirectory = await createTemporaryDirectory();
+
+        try {
+            await fs.writeFile(path.join(tempDirectory, ".prettierrc"), JSON.stringify(pluginOptions, null, 4), "utf8");
+            const targetFile = path.join(tempDirectory, "script.gml");
+            await fs.writeFile(targetFile, source, "utf8");
+
+            await execFileAsync("node", [wrapperPath, tempDirectory]);
+
+            const actual = await fs.readFile(targetFile, "utf8");
+            const expected = await Plugin.format(source, pluginOptions);
+
+            assert.strictEqual(actual, expected);
         } finally {
             await fs.rm(tempDirectory, { recursive: true, force: true });
         }
@@ -1097,7 +1127,7 @@ void describe("Prettier wrapper CLI", () => {
             );
             assert.ok(
                 stdout.includes(
-                    "For example: npx prettier-plugin-gml format path/to/project or npm run format:gml -- path/to/project."
+                    "For example: pnpm dlx prettier-plugin-gml format path/to/project or pnpm run format:gml -- path/to/project."
                 ),
                 "Expected stdout to suggest both the CLI and workspace wrapper commands"
             );
@@ -1131,7 +1161,7 @@ void describe("Prettier wrapper CLI", () => {
             );
             assert.ok(
                 stdout.includes(
-                    "For example: npx prettier-plugin-gml format path/to/project or npm run format:gml -- path/to/project."
+                    "For example: pnpm dlx prettier-plugin-gml format path/to/project or pnpm run format:gml -- path/to/project."
                 ),
                 "Expected stdout to repeat the CLI guidance when formatting finds no targets"
             );
@@ -1211,7 +1241,7 @@ void describe("Prettier wrapper CLI", () => {
             );
             assert.ok(
                 stdout.includes(
-                    "For example: npx prettier-plugin-gml format path/to/project or npm run format:gml -- path/to/project."
+                    "For example: pnpm dlx prettier-plugin-gml format path/to/project or pnpm run format:gml -- path/to/project."
                 ),
                 "Expected stdout to repeat the CLI guidance when invoked from the repository root"
             );
@@ -1251,15 +1281,15 @@ void describe("Prettier wrapper CLI", () => {
         assert.strictEqual(stderr, "", "Expected stderr to be empty");
         assert.match(stdout, /Examples:/, "Expected help to include an examples section");
         assert.ok(
-            stdout.includes("  npx prettier-plugin-gml format path/to/project"),
-            "Expected help output to include the npx usage example"
+            stdout.includes("  pnpm dlx prettier-plugin-gml format path/to/project"),
+            "Expected help output to include the pnpm dlx usage example"
         );
         assert.ok(
-            stdout.includes("  npm run format:gml -- path/to/project"),
+            stdout.includes("  pnpm run format:gml -- path/to/project"),
             "Expected help output to include the workspace wrapper example"
         );
         assert.ok(
-            stdout.includes("  npx prettier-plugin-gml format --check path/to/script.gml"),
+            stdout.includes("  pnpm dlx prettier-plugin-gml format --check path/to/script.gml"),
             "Expected help output to include the --check example"
         );
     });

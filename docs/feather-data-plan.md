@@ -7,7 +7,7 @@
 
 ## Current implementation
 - [`src/cli/src/commands/generate-feather-metadata.js`](../src/cli/src/commands/generate-feather-metadata.js) implements the scraper and defaults to writing `resources/feather-metadata.json`, keeping the generated dataset beside the identifier snapshot for easy consumption. All tooling now lives under the CLI—do not add stand-alone scripts when expanding the pipeline.
-- Manual content now lives in the `vendor/GameMaker-Manual` git submodule, eliminating bespoke GitHub downloads and caches. When iterating on unpublished builds, pass `--manual-root` to point at an alternate snapshot or `--manual-package` to fall back to an npm package if needed.
+- Manual content now lives in the `vendor/GameMaker-Manual` git submodule, eliminating bespoke GitHub downloads and caches. When iterating on unpublished builds, pass `--manual-root` to point at an alternate snapshot or `--manual-package` to fall back to an npm registry package installed via `pnpm add` if needed.
 - The CLI surface is intentionally small: `--output` selects the destination file (defaulting to `resources/feather-metadata.json`), the manual source flags above control the asset location, and `--quiet` suppresses status logging for CI and scripted runs.
 
 ## Upstream sources worth harvesting
@@ -34,14 +34,14 @@
    - For `Feather_Data_Types`, extract the base type list, specifier examples, and explanatory text so we can normalise Feather type annotations when generating documentation or enforcing formatter-aware heuristics.【ec129e†L1-L80】
 4. **Normalisation & schema**
       - Define a JSON schema that groups diagnostics under `{ id, title, defaultSeverity?, description, notes[], examples[], strictModeOnly }`. Severity is not spelled out in the HTML, so leave it optional for now and plan a follow-up investigation into IDE config files once we locate them.
-      - Emit separate top-level sections for `diagnostics`, `namingRules`, `directives`, and `types`. Include metadata (`manualRoot`, `packageName`, `packageVersion`, `generatedAt`, `source`) mirroring the identifier artefact for traceability.
+      - Emit separate top-level sections for `diagnostics`, `namingRules`, `directives`, and `types`. Include metadata (`manualRoot`, `packageName`, `packageVersion`, `generatedAt`) that records the repository-relative manual root so snapshots do not embed machine-specific absolute paths.
 5. **Tooling integration**
-  - Expose a dedicated CLI entry point in `src/cli/src/commands/generate-feather-metadata.js`, sharing ergonomics with the identifier generator and wiring it into `npm run build:feather-metadata` for easy regeneration and CI checks. Document the regeneration workflow alongside the identifier snapshot instructions in the [README](../README.md#regenerate-metadata-snapshots).
+  - Expose a dedicated CLI entry point in `src/cli/src/commands/generate-feather-metadata.js`, sharing ergonomics with the identifier generator and wiring it into `pnpm run build:feather-metadata` for easy regeneration and CI checks. Document the regeneration workflow alongside the identifier snapshot instructions in the [README](../README.md#regenerate-metadata-snapshots).
   - Write smoke tests that parse the generated JSON and assert that key sentinel rules (e.g. GM2017 naming rule) are present, flagging upstream changes early.
 
 ## Regeneration helper
-- Run `npm run build:feather-metadata` to load the Feather topics from `vendor/GameMaker-Manual` and write them to `resources/feather-metadata.json`.
-- Update the submodule to the desired revision (for example, `git submodule update --remote vendor/GameMaker-Manual`) or pass `--manual-root <path>` when working against a local unpacked build. If you prefer to source from npm instead, install the package and pass `--manual-package <name>`.
+- Run `pnpm run build:feather-metadata` to load the Feather topics from `vendor/GameMaker-Manual` and write them to `resources/feather-metadata.json`.
+- Update the submodule to the desired revision (for example, `git submodule update --remote vendor/GameMaker-Manual`) or pass `--manual-root <path>` when working against a local unpacked build. If you prefer to source from the npm registry instead, install the package via `pnpm add` and pass `--manual-package <name>`.
 - See the [README regeneration guide](../README.md#regenerate-metadata-snapshots) for a condensed workflow and related tooling entry points.
 
 ## Open questions / future research

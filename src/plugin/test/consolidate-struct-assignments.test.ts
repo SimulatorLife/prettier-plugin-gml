@@ -3,6 +3,89 @@ import { describe, it } from "node:test";
 
 import { CommentTracker, consolidateStructAssignmentsTransform } from "../src/transforms/index.js";
 
+const location = (index: number, line: number) => ({ index, line });
+
+type Range = {
+    startIndex: number;
+    startLine: number;
+    endIndex: number;
+    endLine: number;
+};
+
+function range(startIndex: number, startLine: number, endIndex: number, endLine: number): Range {
+    return { startIndex, startLine, endIndex, endLine };
+}
+
+function createStructExpression(range: Range) {
+    return {
+        type: "StructExpression",
+        properties: [],
+        start: location(range.startIndex, range.startLine),
+        end: location(range.endIndex, range.endLine)
+    };
+}
+
+function createInitializer(name: string, structExpression: unknown, idRange: Range, declarationRange: Range) {
+    return {
+        type: "VariableDeclaration",
+        declarations: [
+            {
+                type: "VariableDeclarator",
+                id: {
+                    type: "Identifier",
+                    name,
+                    start: location(idRange.startIndex, idRange.startLine),
+                    end: location(idRange.endIndex, idRange.endLine)
+                },
+                init: structExpression,
+                start: location(declarationRange.startIndex, declarationRange.startLine),
+                end: location(declarationRange.endIndex, declarationRange.endLine)
+            }
+        ],
+        start: location(declarationRange.startIndex, declarationRange.startLine),
+        end: location(declarationRange.endIndex, declarationRange.endLine)
+    };
+}
+
+function createPropertyAssignment(
+    objectName: string,
+    propertyName: string,
+    objectRange: Range,
+    propertyRange: Range,
+    valueRange: Range,
+    value: number
+) {
+    return {
+        type: "AssignmentExpression",
+        operator: "=",
+        left: {
+            type: "MemberDotExpression",
+            object: {
+                type: "Identifier",
+                name: objectName,
+                start: location(objectRange.startIndex, objectRange.startLine),
+                end: location(objectRange.endIndex, objectRange.endLine)
+            },
+            property: {
+                type: "Identifier",
+                name: propertyName,
+                start: location(propertyRange.startIndex, propertyRange.startLine),
+                end: location(propertyRange.endIndex, propertyRange.endLine)
+            },
+            start: location(objectRange.startIndex, objectRange.startLine),
+            end: location(propertyRange.endIndex, propertyRange.endLine)
+        },
+        right: {
+            type: "Literal",
+            value,
+            start: location(valueRange.startIndex, valueRange.startLine),
+            end: location(valueRange.endIndex, valueRange.endLine)
+        },
+        start: location(objectRange.startIndex, objectRange.startLine),
+        end: location(valueRange.endIndex, valueRange.endLine)
+    };
+}
+
 void describe("CommentTracker", () => {
     void it("ignores consumed comments when checking for later comments", () => {
         const tracker = new CommentTracker([{ start: { index: 10 } }, { start: { index: 20 } }]);
@@ -50,8 +133,6 @@ void describe("CommentTracker", () => {
 
 void describe("consolidateStructAssignments", () => {
     void it("attaches trailing comments using the fallback comment tools", () => {
-        const location = (index, line) => ({ index, line });
-
         const structExpression = {
             type: "StructExpression",
             properties: [],
@@ -131,8 +212,6 @@ void describe("consolidateStructAssignments", () => {
     });
 
     void it("normalizes inline comment leading characters for consolidated struct properties", () => {
-        const location = (index, line) => ({ index, line });
-
         const structExpression = {
             type: "StructExpression",
             properties: [],
@@ -216,125 +295,29 @@ void describe("consolidateStructAssignments", () => {
     });
 
     void it("handles multiple consecutive struct initializers without skipping", () => {
-        const location = (index, line) => ({ index, line });
+        const struct1 = createStructExpression(range(0, 1, 10, 1));
+        const initializer1 = createInitializer("obj1", struct1, range(0, 1, 4, 1), range(0, 1, 10, 1));
 
-        // First struct initializer
-        const struct1 = {
-            type: "StructExpression",
-            properties: [],
-            start: location(0, 1),
-            end: location(10, 1)
-        };
+        const property1 = createPropertyAssignment(
+            "obj1",
+            "x",
+            range(20, 2, 24, 2),
+            range(25, 2, 26, 2),
+            range(29, 2, 30, 2),
+            1
+        );
 
-        const initializer1 = {
-            type: "VariableDeclaration",
-            declarations: [
-                {
-                    type: "VariableDeclarator",
-                    id: {
-                        type: "Identifier",
-                        name: "obj1",
-                        start: location(0, 1),
-                        end: location(4, 1)
-                    },
-                    init: struct1,
-                    start: location(0, 1),
-                    end: location(10, 1)
-                }
-            ],
-            start: location(0, 1),
-            end: location(10, 1)
-        };
+        const struct2 = createStructExpression(range(40, 3, 50, 3));
+        const initializer2 = createInitializer("obj2", struct2, range(40, 3, 44, 3), range(40, 3, 50, 3));
 
-        // First struct property assignment
-        const property1 = {
-            type: "AssignmentExpression",
-            operator: "=",
-            left: {
-                type: "MemberDotExpression",
-                object: {
-                    type: "Identifier",
-                    name: "obj1",
-                    start: location(20, 2),
-                    end: location(24, 2)
-                },
-                property: {
-                    type: "Identifier",
-                    name: "x",
-                    start: location(25, 2),
-                    end: location(26, 2)
-                },
-                start: location(20, 2),
-                end: location(26, 2)
-            },
-            right: {
-                type: "Literal",
-                value: 1,
-                start: location(29, 2),
-                end: location(30, 2)
-            },
-            start: location(20, 2),
-            end: location(30, 2)
-        };
-
-        // Second struct initializer - this could be skipped due to mutation bug
-        const struct2 = {
-            type: "StructExpression",
-            properties: [],
-            start: location(40, 3),
-            end: location(50, 3)
-        };
-
-        const initializer2 = {
-            type: "VariableDeclaration",
-            declarations: [
-                {
-                    type: "VariableDeclarator",
-                    id: {
-                        type: "Identifier",
-                        name: "obj2",
-                        start: location(40, 3),
-                        end: location(44, 3)
-                    },
-                    init: struct2,
-                    start: location(40, 3),
-                    end: location(50, 3)
-                }
-            ],
-            start: location(40, 3),
-            end: location(50, 3)
-        };
-
-        // Second struct property assignment
-        const property2 = {
-            type: "AssignmentExpression",
-            operator: "=",
-            left: {
-                type: "MemberDotExpression",
-                object: {
-                    type: "Identifier",
-                    name: "obj2",
-                    start: location(60, 4),
-                    end: location(64, 4)
-                },
-                property: {
-                    type: "Identifier",
-                    name: "y",
-                    start: location(65, 4),
-                    end: location(66, 4)
-                },
-                start: location(60, 4),
-                end: location(66, 4)
-            },
-            right: {
-                type: "Literal",
-                value: 2,
-                start: location(69, 4),
-                end: location(70, 4)
-            },
-            start: location(60, 4),
-            end: location(70, 4)
-        };
+        const property2 = createPropertyAssignment(
+            "obj2",
+            "y",
+            range(60, 4, 64, 4),
+            range(65, 4, 66, 4),
+            range(69, 4, 70, 4),
+            2
+        );
 
         const ast = {
             type: "Program",
@@ -358,97 +341,27 @@ void describe("consolidateStructAssignments", () => {
     });
 
     void it("handles struct initializer immediately after removed properties", () => {
-        const location = (index, line) => ({ index, line });
-
         // First struct with TWO properties to consolidate
-        const struct1 = {
-            type: "StructExpression",
-            properties: [],
-            start: location(0, 1),
-            end: location(10, 1)
-        };
+        const struct1 = createStructExpression(range(0, 1, 10, 1));
+        const initializer1 = createInitializer("obj1", struct1, range(0, 1, 4, 1), range(0, 1, 10, 1));
 
-        const initializer1 = {
-            type: "VariableDeclaration",
-            declarations: [
-                {
-                    type: "VariableDeclarator",
-                    id: {
-                        type: "Identifier",
-                        name: "obj1",
-                        start: location(0, 1),
-                        end: location(4, 1)
-                    },
-                    init: struct1,
-                    start: location(0, 1),
-                    end: location(10, 1)
-                }
-            ],
-            start: location(0, 1),
-            end: location(10, 1)
-        };
+        const property1a = createPropertyAssignment(
+            "obj1",
+            "x",
+            range(20, 2, 24, 2),
+            range(25, 2, 26, 2),
+            range(29, 2, 30, 2),
+            1
+        );
 
-        // First property for obj1
-        const property1a = {
-            type: "AssignmentExpression",
-            operator: "=",
-            left: {
-                type: "MemberDotExpression",
-                object: {
-                    type: "Identifier",
-                    name: "obj1",
-                    start: location(20, 2),
-                    end: location(24, 2)
-                },
-                property: {
-                    type: "Identifier",
-                    name: "x",
-                    start: location(25, 2),
-                    end: location(26, 2)
-                },
-                start: location(20, 2),
-                end: location(26, 2)
-            },
-            right: {
-                type: "Literal",
-                value: 1,
-                start: location(29, 2),
-                end: location(30, 2)
-            },
-            start: location(20, 2),
-            end: location(30, 2)
-        };
-
-        // Second property for obj1
-        const property1b = {
-            type: "AssignmentExpression",
-            operator: "=",
-            left: {
-                type: "MemberDotExpression",
-                object: {
-                    type: "Identifier",
-                    name: "obj1",
-                    start: location(35, 3),
-                    end: location(39, 3)
-                },
-                property: {
-                    type: "Identifier",
-                    name: "y",
-                    start: location(40, 3),
-                    end: location(41, 3)
-                },
-                start: location(35, 3),
-                end: location(41, 3)
-            },
-            right: {
-                type: "Literal",
-                value: 2,
-                start: location(44, 3),
-                end: location(45, 3)
-            },
-            start: location(35, 3),
-            end: location(45, 3)
-        };
+        const property1b = createPropertyAssignment(
+            "obj1",
+            "y",
+            range(35, 3, 39, 3),
+            range(40, 3, 41, 3),
+            range(44, 3, 45, 3),
+            2
+        );
 
         // Second struct immediately after the removed properties
         const struct2 = {
@@ -533,8 +446,6 @@ void describe("consolidateStructAssignments", () => {
     });
 
     void it("recursively visits nested blocks after consolidation", () => {
-        const location = (index, line) => ({ index, line });
-
         // Outer struct
         const outerStruct = {
             type: "StructExpression",

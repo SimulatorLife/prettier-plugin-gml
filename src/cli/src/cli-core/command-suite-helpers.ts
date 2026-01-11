@@ -156,7 +156,7 @@ export function createSuiteResultsPayload(
     { generatedAt }: SuiteResultsPayloadOptions = {}
 ) {
     return {
-        generatedAt: generatedAt ?? new Date().toISOString(),
+        generatedAt: generatedAt ?? Core.formatGeneratedDate(),
         environment: {
             nodeVersion: process.version,
             platform: process.platform,

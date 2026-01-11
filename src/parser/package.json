@@ -13,15 +13,15 @@
   ],
   "dependencies": {
     "antlr4": "^4.13.2",
-    "@gml-modules/core": "0.0.1"
+    "@gml-modules/core": "workspace:*"
   },
   "engines": {
     "node": ">=25.0.0"
   },
   "scripts": {
-    "build:types": "npm run build:types --workspace=@gml-modules/core && tsc -p tsconfig.json",
+    "build:types": "pnpm --filter @gml-modules/core run build:types && tsc -p tsconfig.json",
     "clean:types": "rm -rf dist",
-    "test": "npm run build:types && node --test dist/test/*.test.js",
+    "test": "pnpm run build:types && node --test dist/test/*.test.js",
     "antlr": "java -Xmx500M -jar ../../resources/antlr/antlr4-4.13.2-complete.jar -Dlanguage=JavaScript -visitor -o generated/ GameMakerLanguageLexer.g4 && java -Xmx500M -jar ../../resources/antlr/antlr4-4.13.2-complete.jar -Dlanguage=JavaScript -visitor -o generated/ GameMakerLanguageParser.g4"
   }
 }

@@ -644,15 +644,6 @@ export async function prepareIdentifierCasePlan(options) {
     // rename planner so we can generate dry-run diagnostics, collision reports,
     // and rename maps without mutating sources when the style is disabled.
 
-    try {
-        // console.debug("[DBG] prepareIdentifierCasePlan start", {
-        //     filepath: options?.filepath ?? null,
-        //     dryRun: options?.__identifierCaseDryRun
-        // });
-    } catch {
-        /* ignore */
-    }
-
     const normalizedOptions: any = normalizeIdentifierCaseOptions(options);
     const styleSettings = resolveIdentifierCaseStyles(normalizedOptions);
     const planFlags = resolveIdentifierCasePlanFlags(styleSettings);
@@ -792,13 +783,6 @@ export async function prepareIdentifierCasePlan(options) {
     }
 
     setIdentifierCaseOption(options, "__identifierCaseRenameMap", renameMap);
-    try {
-        // console.debug(
-        //     `[DBG] prepareIdentifierCasePlan set renameMap id=${getDebugId(renameMap)} size=${renameMap.size} operations=${operations.length} conflicts=${conflicts.length}`
-        // );
-    } catch {
-        /* ignore */
-    }
     finalizeIdentifierCasePlan({
         options,
         operations,
@@ -1004,13 +988,6 @@ function finalizeIdentifierCasePlan({
 
     if (operations.length === 0 && conflicts.length === 0) {
         setIdentifierCaseOption(options, "__identifierCasePlanGeneratedInternally", true);
-        try {
-            // console.debug(
-            //     "[DBG] prepareIdentifierCasePlan set planGenerated=true"
-            // );
-        } catch {
-            /* ignore */
-        }
         return;
     }
 

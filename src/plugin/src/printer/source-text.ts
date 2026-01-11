@@ -123,6 +123,30 @@ export function sliceOriginalText(
     return originalText.slice(startIndex, endIndex);
 }
 
+function getInteriorSliceForLeadingComment(
+    blockNode: unknown,
+    sourceMetadata: PrinterSourceMetadata,
+    originalText: string | null,
+    firstStatementStartIndex: number | null
+): string | null {
+    if (!blockNode || typeof originalText !== STRING_TYPE || typeof firstStatementStartIndex !== NUMBER_TYPE) {
+        return null;
+    }
+
+    const { startIndex: blockStartIndex } = resolveNodeIndexRangeWithSource(blockNode, sourceMetadata);
+
+    if (typeof blockStartIndex !== NUMBER_TYPE || blockStartIndex >= firstStatementStartIndex) {
+        return null;
+    }
+
+    const openBraceIndex = originalText.indexOf("{", blockStartIndex);
+    if (openBraceIndex === -1 || openBraceIndex >= firstStatementStartIndex) {
+        return null;
+    }
+
+    return sliceOriginalText(originalText, openBraceIndex + 1, firstStatementStartIndex);
+}
+
 /**
  * Determine whether a macro body explicitly contains a trailing blank line.
  */
@@ -175,35 +199,6 @@ export function macroTextHasExplicitTrailingBlankLine(text: string | null): bool
 }
 
 /**
- * Extract the text between a block's opening brace and the first statement,
- * performing all necessary validation and bounds checking.
- *
- * Returns null if any validation fails or if the slice would be empty.
- */
-function extractBlockInteriorBeforeFirstStatement(
-    blockNode: unknown,
-    sourceMetadata: PrinterSourceMetadata,
-    originalText: string | null,
-    firstStatementStartIndex: number | null
-): string | null {
-    if (!blockNode || typeof originalText !== STRING_TYPE || typeof firstStatementStartIndex !== NUMBER_TYPE) {
-        return null;
-    }
-
-    const { startIndex: blockStartIndex } = resolveNodeIndexRangeWithSource(blockNode, sourceMetadata);
-    if (typeof blockStartIndex !== NUMBER_TYPE || blockStartIndex >= firstStatementStartIndex) {
-        return null;
-    }
-
-    const openBraceIndex = originalText.indexOf("{", blockStartIndex);
-    if (openBraceIndex === -1 || openBraceIndex >= firstStatementStartIndex) {
-        return null;
-    }
-
-    return sliceOriginalText(originalText, openBraceIndex + 1, firstStatementStartIndex);
-}
-
-/**
  * Detect whether a block body starts with a blank line before its leading
  * comment.
  */
@@ -213,7 +208,7 @@ export function hasBlankLineBeforeLeadingComment(
     originalText: string | null,
     firstStatementStartIndex: number | null
 ): boolean {
-    const interiorSlice = extractBlockInteriorBeforeFirstStatement(
+    const interiorSlice = getInteriorSliceForLeadingComment(
         blockNode,
         sourceMetadata,
         originalText,
@@ -242,12 +237,10 @@ export function hasBlankLineAfterOpeningBrace(
     sourceMetadata: PrinterSourceMetadata,
     firstStatementStartIndex: number | null
 ): boolean {
-    const { originalText } = sourceMetadata;
-
-    const interiorSlice = extractBlockInteriorBeforeFirstStatement(
+    const interiorSlice = getInteriorSliceForLeadingComment(
         blockNode,
         sourceMetadata,
-        originalText,
+        sourceMetadata.originalText,
         firstStatementStartIndex
     );
 

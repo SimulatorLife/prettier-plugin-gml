@@ -119,10 +119,6 @@ async function parseImpl(
     let environmentPrepared = false;
     const activeOptions = isOptionsObject(options) ? options : undefined;
 
-    if (process.env.GML_PRINTER_DEBUG) {
-        console.debug("[DEBUG] parseImpl options:", JSON.stringify(activeOptions, null, 2));
-    }
-
     if (activeOptions) {
         Reflect.set(activeOptions, "originalText", text);
     }
@@ -131,15 +127,10 @@ async function parseImpl(
         environmentPrepared = await prepareIdentifierCaseEnvironment(activeOptions);
 
         const preparation = preprocessSource(text, activeOptions);
-        if (process.env.GML_PRINTER_DEBUG) {
-            console.debug("[DEBUG] Preprocessed source:", preparation.parseSource);
-        }
         const ast = parseSourceWithRecovery(preparation.parseSource, parserOptions, activeOptions);
 
         Semantic.attachIdentifierCasePlanSnapshot(ast, activeOptions);
         filterParserComments(ast, activeOptions);
-
-        // console.log("AST comments length:", ast.comments?.length);
 
         if (!ast || typeof ast !== "object") {
             throw new Error("GameMaker parser returned no AST for the provided source.");
@@ -171,10 +162,6 @@ function preprocessSource(text: string, options?: GmlParserAdapterOptions): Pars
     const { sourceText: commentFixedSource, indexMapper: commentFixMapper } = Parser.Utils.fixMalformedComments(
         featherResult.parseSource
     );
-
-    if (process.env.GML_PRINTER_DEBUG) {
-        console.debug("[DEBUG] commentFixedSource:", commentFixedSource);
-    }
 
     const conditionalResult = Transforms.sanitizeConditionalAssignments(commentFixedSource) as SanitizerResult;
     const conditionalSource = normalizeToString(conditionalResult.sourceText, commentFixedSource);
@@ -228,10 +215,7 @@ function parseSourceWithRecovery(
     options?: GmlParserAdapterOptions
 ): MutableGameMakerAstNode {
     try {
-        const ast = Parser.GMLParser.parse(sourceText, parserOptions) as MutableGameMakerAstNode;
-
-        logParsedCommentCount(ast);
-        return ast;
+        return Parser.GMLParser.parse(sourceText, parserOptions) as MutableGameMakerAstNode;
     } catch (error) {
         if (!options?.applyFeatherFixes) {
             throw error;
@@ -243,26 +227,12 @@ function parseSourceWithRecovery(
         }
 
         const ast = Parser.GMLParser.parse(recoveredSource, parserOptions) as MutableGameMakerAstNode;
-        logParsedCommentCount(ast);
         try {
             Reflect.set(ast, "_featherRecoveredSource", true);
         } catch {
             // Best-effort only; recovery metadata is optional.
         }
         return ast;
-    }
-}
-
-function logParsedCommentCount(ast: MutableGameMakerAstNode | null): void {
-    if (!process.env.GML_PRINTER_DEBUG) {
-        return;
-    }
-
-    try {
-        const length = Array.isArray(ast?.comments) ? ast.comments.length : 0;
-        console.debug(`[DBG] gml-parser-adapter: parse called with getComments=true; ast.comments=${length}`);
-    } catch {
-        // ignore
     }
 }
 

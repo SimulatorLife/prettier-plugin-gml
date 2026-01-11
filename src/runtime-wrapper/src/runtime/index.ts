@@ -36,4 +36,13 @@ export type {
     RuntimeWrapperState,
     TrySafeApplyResult
 } from "./types.js";
-export type { Logger, LoggerOptions, LogLevel } from "./logger.js";
+export type {
+    Logger,
+    LoggerOptions,
+    LogLevel,
+    PatchLifecycleLogger,
+    RegistryLifecycleLogger,
+    WebSocketLogger,
+    GeneralLogger,
+    LoggerConfiguration
+} from "./logger.js";

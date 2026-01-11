@@ -168,7 +168,7 @@ The transpiler integrates with the broader hot-reload pipeline:
 Run tests with:
 
 ```bash
-npm test
+pnpm test
 ```
 
 The test suite includes:

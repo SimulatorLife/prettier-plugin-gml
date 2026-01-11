@@ -545,7 +545,7 @@ export function reportIdentifierCasePlan({
 
     if (logFilePath) {
         try {
-            const payload = buildLogPayload(report, new Date(now()).toISOString());
+            const payload = buildLogPayload(report, Core.formatGeneratedDate(now()));
             const directory = path.dirname(logFilePath);
             if (fsFacade?.mkdirSync) {
                 fsFacade.mkdirSync(directory, { recursive: true });
