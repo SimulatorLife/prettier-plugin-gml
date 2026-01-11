@@ -23,10 +23,6 @@ void describe("mapBinaryOperator", () => {
         assert.strictEqual(mapBinaryOperator("xor"), "^");
     });
 
-    void it("maps GML not operator to JavaScript !", () => {
-        assert.strictEqual(mapBinaryOperator("not"), "!");
-    });
-
     void it("maps == to === for strict equality", () => {
         assert.strictEqual(mapBinaryOperator("=="), "===");
     });

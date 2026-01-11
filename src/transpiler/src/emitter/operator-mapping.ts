@@ -33,7 +33,6 @@ export function mapBinaryOperator(op: string): string {
         and: "&&",
         or: "||",
         xor: "^",
-        not: "!",
         "==": "===",
         "!=": "!==",
         "&": "&",
