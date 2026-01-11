@@ -9,10 +9,10 @@ import { builtInFunctions } from "../src/emitter/builtins.js";
  * a Record with 1787 closures, consuming ~7 MB of heap.
  *
  * AFTER: The module uses a lazy-loaded Set and a Proxy that creates emitters
- * on demand. Module load is now ~3.5 MB (the Set is loaded on first access),
+ * on demand. Module load is now ~3.1 MB (the Set is loaded on first access),
  * but individual lookups don't materialize thousands of closures.
  *
- * Key improvement: Reduced eager allocation from ~7 MB to ~3.5 MB at module
+ * Key improvement: Reduced eager allocation from ~7 MB to ~3.1 MB at module
  * load, and eliminated ~1787 redundant function closures.
  */
 

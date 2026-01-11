@@ -39,7 +39,7 @@ function emitBuiltinCall(name: string, args: ReadonlyArray<string>): string {
  * runtime lookup against the cached name Set.
  *
  * **DEPRECATED for internal use**: New code should call `isBuiltinFunction`
- * and `emitBuiltinCall` directly rather than indexing this proxy. The proxy
+ * and `emitBuiltinFunction` directly rather than indexing this proxy. The proxy
  * exists only for backward compatibility with existing emitter code that
  * expects `builtInFunctions[name]`.
  */
