@@ -11,7 +11,12 @@ import {
     type SymbolOccurrence,
     type SymbolResolver
 } from "./types.js";
-import { assertValidIdentifierName, DEFAULT_RESERVED_KEYWORDS, hasMethod } from "./validation-utils.js";
+import {
+    assertValidIdentifierName,
+    extractSymbolName,
+    DEFAULT_RESERVED_KEYWORDS,
+    hasMethod
+} from "./validation-utils.js";
 import { Core } from "@gml-modules/core";
 
 /**
@@ -204,7 +209,7 @@ export async function validateRenameStructure(
     }
 
     // Extract symbol name from ID
-    const symbolName = symbolId.split("/").pop() ?? symbolId;
+    const symbolName = extractSymbolName(symbolId);
 
     if (symbolName === newName) {
         errors.push(`The new name '${newName}' matches the existing identifier`);
