@@ -208,7 +208,7 @@ function hasFeatherFix(node, id) {
         return false;
     }
 
-    const metadata = Array.isArray(node._appliedFeatherDiagnostics) ? node._appliedFeatherDiagnostics : [];
+    const metadata = Core.asArray<any>(node._appliedFeatherDiagnostics);
 
     if (metadata.length === 0) {
         return false;
@@ -679,7 +679,7 @@ function tryPrintVariableNode(node, path, options, print) {
         }
         case "VariableDeclaration": {
             const functionNode = findEnclosingFunctionNode(path);
-            const declarators = Core.asArray(node.declarations);
+            const declarators = Core.asArray<any>(node.declarations);
 
             const keptDeclarators = filterKeptDeclarators(declarators, functionNode, options);
 
@@ -4474,7 +4474,7 @@ function flattenStatementList(node: any) {
     }
 
     if (node.type === "BlockStatement") {
-        return Array.isArray(node.body) ? node.body : [];
+        return Core.asArray<any>(node.body);
     }
 
     return [node];
@@ -5203,9 +5203,9 @@ function collectGlobalVarNamesFromNode(node, names) {
     }
 
     if (node.type === GLOBAL_VAR_STATEMENT) {
-        const declarations = Core.asArray(node.declarations);
+        const declarations = Core.asArray<any>(node.declarations);
         for (const declarator of declarations) {
-            const identifierName = Core.getIdentifierText((declarator as any)?.id ?? null);
+            const identifierName = Core.getIdentifierText(declarator?.id ?? null);
             if (Core.isNonEmptyString(identifierName)) {
                 names.add(identifierName);
             }
@@ -5283,7 +5283,7 @@ function getManualMathRatio(node) {
 
     switch (node.type) {
         case "VariableDeclaration": {
-            const declarations = Array.isArray(node.declarations) ? node.declarations : [];
+            const declarations = Core.asArray<any>(node.declarations);
 
             for (const declarator of declarations) {
                 const ratio = getManualMathRatio(declarator);

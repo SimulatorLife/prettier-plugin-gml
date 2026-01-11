@@ -487,7 +487,7 @@ function isGM1056FixAlreadyAttached(fix: any, ast: MutableGameMakerAstNode) {
             return;
         }
 
-        const existing = Array.isArray(node._appliedFeatherDiagnostics) ? node._appliedFeatherDiagnostics : [];
+        const existing = Core.asArray<any>(node._appliedFeatherDiagnostics);
 
         if (existing.some((entry) => entry && entry.id === fix.id)) {
             alreadyAttached = true;
@@ -504,7 +504,7 @@ function attachGM1056FixToUndefinedParameters(fix: any, ast: MutableGameMakerAst
             return;
         }
 
-        const params = Array.isArray(node.params) ? node.params : [];
+        const params = Core.asArray<any>(node.params);
         for (const param of params) {
             if (!isUndefinedDefaultParameter(param)) {
                 continue;
@@ -575,7 +575,7 @@ function findFunctionDeclaration(
 }
 
 function attachFeatherFixToFunctionNode(targetNode: MutableGameMakerAstNode, fix: any): void {
-    const existing = Array.isArray(targetNode._appliedFeatherDiagnostics) ? targetNode._appliedFeatherDiagnostics : [];
+    const existing = Core.asArray<any>(targetNode._appliedFeatherDiagnostics);
 
     const already = existing.some(
         (entry) =>
@@ -1449,7 +1449,7 @@ function convertIdentifierReference({
     const candidates = variableDeclarations.get(identifier.name);
     const hasCandidates = Core.isNonEmptyArray(candidates);
 
-    const withBodies = Core.asArray(context?.withBodies);
+    const withBodies = Core.asArray<any>(context?.withBodies);
     const identifierStart = Core.getNodeStartIndex(identifier);
     const identifierEnd = Core.getNodeEndIndex(identifier);
 
@@ -2187,7 +2187,7 @@ function splitGlobalVarStatementInitializers({ statement, parent, property, diag
         return [];
     }
 
-    const declarators = Array.isArray(statement.declarations) ? statement.declarations : [];
+    const declarators = Core.asArray<any>(statement.declarations);
 
     if (declarators.length === 0) {
         return [];
@@ -4223,7 +4223,7 @@ function maybeInsertImplicitFunctionParameters({ functionNode, promotionPlan }) 
         return;
     }
 
-    const existingParams = Array.isArray(functionNode.params) ? functionNode.params : [];
+    const existingParams = Core.asArray(functionNode.params);
     if (existingParams.length > 0) {
         return;
     }
@@ -5608,7 +5608,7 @@ function extractVariableDeclarationTarget(node) {
         return null;
     }
 
-    const declarations = Array.isArray(node.declarations) ? node.declarations : [];
+    const declarations = Core.asArray<any>(node.declarations);
 
     if (declarations.length === 0) {
         return null;
@@ -6202,7 +6202,7 @@ function deduplicateLocalVariableDeclarations({ ast, diagnostic }) {
     };
 
     const handleVariableDeclaration = (node, parent, property) => {
-        const declarations = Array.isArray(node.declarations) ? node.declarations : [];
+        const declarations = Core.asArray<any>(node.declarations);
 
         if (declarations.length === 0) {
             return [];
@@ -6419,7 +6419,7 @@ function renameDuplicateFunctionParameters({
 }
 
 function renameDuplicateParametersInFunction(functionNode, diagnostic) {
-    const params = Array.isArray(functionNode?.params) ? functionNode.params : [];
+    const params = Core.asArray(functionNode?.params);
 
     if (params.length === 0) {
         return [];
@@ -6915,7 +6915,7 @@ function getLoopIndexInfo(init) {
     }
 
     if (init.type === "VariableDeclaration") {
-        const declarations = Array.isArray(init.declarations) ? init.declarations : [];
+        const declarations = Core.asArray<any>(init.declarations);
 
         if (declarations.length !== 1) {
             return null;
@@ -8385,7 +8385,7 @@ function ensureFileFindFirstBeforeCloseCall(node, parent, property, diagnostic) 
         return null;
     }
 
-    const diagnosticMetadata = Array.isArray(node._appliedFeatherDiagnostics) ? node._appliedFeatherDiagnostics : [];
+    const diagnosticMetadata = Core.asArray<any>(node._appliedFeatherDiagnostics);
 
     const insertedForSerializedSearch = diagnosticMetadata.some((entry) => entry?.id === "GM2031");
 
@@ -10839,7 +10839,7 @@ function hasVariableDeclarationInContainer(container, variableName, uptoIndex) {
             continue;
         }
 
-        const declarations = Array.isArray(node.declarations) ? node.declarations : [];
+        const declarations = Core.asArray<any>(node.declarations);
 
         for (const declarator of declarations) {
             if (!declarator || declarator.type !== "VariableDeclarator") {
@@ -12351,7 +12351,7 @@ function ensureFileFindSearchesAreSerialized({ ast, diagnostic }) {
                 break;
             }
             case "SwitchStatement": {
-                const cases = Array.isArray(statement.cases) ? statement.cases : [];
+                const cases = Core.asArray<any>(statement.cases);
 
                 for (const caseClause of cases) {
                     const branchState = cloneFileFindState(currentState);
@@ -12461,7 +12461,7 @@ function ensureFileFindSearchesAreSerialized({ ast, diagnostic }) {
                 return getFileFindFirstCallFromExpression(statement.right);
             }
             case "VariableDeclaration": {
-                const declarations = Array.isArray(statement.declarations) ? statement.declarations : [];
+                const declarations = Core.asArray<any>(statement.declarations);
 
                 for (const declarator of declarations) {
                     const call = getFileFindFirstCallFromExpression(declarator?.init);
@@ -12502,7 +12502,7 @@ function ensureFileFindSearchesAreSerialized({ ast, diagnostic }) {
         }
 
         if (expression.type === "SequenceExpression") {
-            const expressions = Array.isArray(expression.expressions) ? expression.expressions : [];
+            const expressions = Core.asArray(expression.expressions);
 
             for (const item of expressions) {
                 const call = getFileFindFirstCallFromExpression(item);
@@ -13713,7 +13713,7 @@ function suppressDuplicateVertexFormatComments(ast, commentTargets, node) {
         return;
     }
 
-    const comments = Core.asArray(ast.comments);
+    const comments = Core.asArray<any>(ast.comments);
 
     if (comments.length === 0) {
         return;
@@ -14042,7 +14042,7 @@ function annotateVariableStructProperties(structExpression, diagnostic) {
         return [];
     }
 
-    const properties = Array.isArray(structExpression.properties) ? structExpression.properties : [];
+    const properties = Core.asArray(structExpression.properties);
 
     if (properties.length === 0) {
         return [];
@@ -14809,7 +14809,7 @@ function createColourWriteEnableResetCall(template) {
         return null;
     }
 
-    const templateArgs = Array.isArray(template.arguments) ? template.arguments : [];
+    const templateArgs = Core.asArray(template.arguments);
     const argumentsList = [];
 
     for (let index = 0; index < 4; index += 1) {
@@ -14980,7 +14980,7 @@ function createFogResetCall(template) {
         return null;
     }
 
-    const [argument0, argument1, argument2, argument3] = Array.isArray(template.arguments) ? template.arguments : [];
+    const [argument0, argument1, argument2, argument3] = Core.asArray(template.arguments);
 
     const falseLiteral = createLiteral("false", argument0);
     const colorIdentifier = Core.createIdentifierNode("c_black", argument1);
@@ -16247,7 +16247,7 @@ function isSupportedVariableDeclaration(node) {
  * with the 'refactor' and 'semantic' modules.
  */
 function renameReservedIdentifiersInVariableDeclaration(node, diagnostic) {
-    const declarations = Array.isArray(node?.declarations) ? node.declarations : [];
+    const declarations = Core.asArray<any>(node?.declarations);
 
     if (declarations.length === 0) {
         return [];

@@ -1,3 +1,4 @@
+import { toMutableArray } from "../../../utils/array.js";
 import { capitalize, isNonEmptyTrimmedString, toTrimmedString } from "../utils.js";
 import type { DocCommentLines } from "../../comment-utils.js";
 import { parseDocCommentMetadata, isDocCommentTagLine } from "./metadata.js";
@@ -83,7 +84,7 @@ export function dedupeReturnDocLines(
 }
 
 export function reorderDescriptionLinesToTop(docLines: DocCommentLines | string[]): DocCommentLines {
-    const normalizedDocLines: string[] = Array.isArray(docLines) ? [...docLines] : [];
+    const normalizedDocLines: string[] = toMutableArray(docLines, { clone: true });
 
     if (normalizedDocLines.length === 0) {
         return normalizedDocLines as DocCommentLines;
@@ -164,7 +165,7 @@ export function convertLegacyReturnsDescriptionLinesToMetadata(
     docLines: DocCommentLines | string[],
     opts: { normalizeDocCommentTypeAnnotations?: (line: string) => string } = {}
 ) {
-    const normalizedLines: string[] = Array.isArray(docLines) ? [...docLines] : [];
+    const normalizedLines: string[] = toMutableArray(docLines, { clone: true });
 
     if (normalizedLines.length === 0) {
         return normalizedLines as DocCommentLines;
@@ -345,7 +346,7 @@ export function promoteLeadingDocCommentTextToDescription(
     extraTaggedDocLines: DocCommentLines | string[] = [],
     forcePromotion = false
 ) {
-    const normalizedLines = Array.isArray(docLines) ? [...docLines] : [];
+    const normalizedLines = toMutableArray(docLines, { clone: true });
 
     if (normalizedLines.length === 0) {
         return normalizedLines as DocCommentLines;
@@ -462,7 +463,7 @@ export function promoteLeadingDocCommentTextToDescription(
 }
 
 export function hasLegacyReturnsDescriptionLines(docLines: DocCommentLines | string[]) {
-    const normalizedLines: string[] = Array.isArray(docLines) ? [...docLines] : [];
+    const normalizedLines: string[] = toMutableArray(docLines, { clone: true });
     if (normalizedLines.length === 0) {
         return false;
     }
