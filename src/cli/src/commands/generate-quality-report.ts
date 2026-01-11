@@ -539,10 +539,10 @@ function isExistingDirectory(resolvedPath) {
 }
 
 /**
- * Check if a file path represents a JUnit XML file.
+ * Check if a file path represents an XML file.
  *
  * @param {string} filePath - The file path to check
- * @returns {boolean} True if the file is an XML file
+ * @returns {boolean} True if the file has an .xml extension
  */
 function isXmlFile(filePath: string): boolean {
     return filePath.endsWith(".xml");
@@ -597,7 +597,13 @@ function isProjectHealthFile(filePath: string): boolean {
  * @param {string[]} files - Array of file paths to classify
  * @returns {Object} Object containing categorized file arrays
  */
-function classifyReportFiles(files: string[]) {
+function classifyReportFiles(files: string[]): {
+    xmlFiles: string[];
+    lcovFiles: string[];
+    checkstyleFiles: string[];
+    jscpdFiles: string[];
+    healthFiles: string[];
+} {
     return {
         xmlFiles: files.filter(isXmlFile),
         lcovFiles: files.filter(isLcovFile),
