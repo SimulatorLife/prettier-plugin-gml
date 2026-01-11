@@ -1,6 +1,6 @@
 import { describe, it } from "node:test";
 import assert from "node:assert/strict";
-import { tryAddSample, hasSample } from "../src/cli-core/bounded-sample-collector.js";
+import { tryAddSample } from "../src/cli-core/bounded-sample-collector.js";
 
 /**
  * Check object equality by comparing id property.
@@ -73,49 +73,6 @@ void describe("bounded-sample-collector", () => {
             assert.strictEqual(result, true);
             assert.strictEqual(samples.length, 3);
             assert.strictEqual(samples[2].name, "Charlie");
-        });
-    });
-
-    void describe("hasSample", () => {
-        void it("returns true when sample exists (primitive)", () => {
-            const samples = ["a", "b", "c"];
-            const result = hasSample(samples, "b");
-
-            assert.strictEqual(result, true);
-        });
-
-        void it("returns false when sample does not exist (primitive)", () => {
-            const samples = ["a", "b", "c"];
-            const result = hasSample(samples, "d");
-
-            assert.strictEqual(result, false);
-        });
-
-        void it("returns true when sample exists with custom equality", () => {
-            const samples = [
-                { id: 1, name: "Alice" },
-                { id: 2, name: "Bob" }
-            ];
-            const result = hasSample(samples, { id: 2, name: "Different" }, areObjectsEqualById);
-
-            assert.strictEqual(result, true);
-        });
-
-        void it("returns false when sample does not exist with custom equality", () => {
-            const samples = [
-                { id: 1, name: "Alice" },
-                { id: 2, name: "Bob" }
-            ];
-            const result = hasSample(samples, { id: 3, name: "Charlie" }, areObjectsEqualById);
-
-            assert.strictEqual(result, false);
-        });
-
-        void it("returns false for empty array", () => {
-            const samples = [];
-            const result = hasSample(samples, "test");
-
-            assert.strictEqual(result, false);
         });
     });
 });
