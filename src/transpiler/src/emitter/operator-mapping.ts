@@ -57,13 +57,7 @@ const BINARY_OPERATOR_MAP: Readonly<Record<string, string>> = Object.freeze({
 
     // Equality operators (map to strict variants)
     "==": "===",
-    "!=": "!==",
-
-    // Bitwise operators (included for completeness, same as JavaScript)
-    "&": "&",
-    "|": "|",
-    "<<": "<<",
-    ">>": ">>"
+    "!=": "!=="
 });
 
 /**
@@ -75,10 +69,7 @@ const BINARY_OPERATOR_MAP: Readonly<Record<string, string>> = Object.freeze({
  * @internal
  */
 const UNARY_OPERATOR_MAP: Readonly<Record<string, string>> = Object.freeze({
-    not: "!",
-    "~": "~",
-    "-": "-",
-    "+": "+"
+    not: "!"
 });
 
 /**
