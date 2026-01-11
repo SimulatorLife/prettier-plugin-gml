@@ -143,6 +143,24 @@ export function assertRenameRequest(
 }
 
 /**
+ * Extract the symbol name from a fully-qualified symbol ID.
+ * Symbol IDs follow the pattern `gml/{kind}/{name}`, e.g., "gml/script/scr_player".
+ * This helper extracts the final segment (the symbol name) without requiring
+ * repeated split/pop calls throughout the refactor codebase.
+ *
+ * @param symbolId - The fully-qualified symbol ID (e.g., "gml/script/scr_player")
+ * @returns The symbol name (last path segment), or the original ID if splitting fails
+ *
+ * @example
+ * extractSymbolName("gml/script/scr_player")  // "scr_player"
+ * extractSymbolName("gml/var/hp")             // "hp"
+ * extractSymbolName("invalid")                // "invalid"
+ */
+export function extractSymbolName(symbolId: string): string {
+    return symbolId.split("/").pop() ?? symbolId;
+}
+
+/**
  * Default set of GML reserved keywords.
  * These are keywords that cannot be used as identifiers.
  * Frozen to prevent accidental modification and ensure immutability.

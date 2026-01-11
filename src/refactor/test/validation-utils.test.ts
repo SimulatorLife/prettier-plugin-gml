@@ -1,6 +1,11 @@
 import { describe, test } from "node:test";
 import assert from "node:assert/strict";
-import { hasMethod, assertValidIdentifierName, assertNonEmptyString } from "../src/validation-utils.js";
+import {
+    hasMethod,
+    assertValidIdentifierName,
+    assertNonEmptyString,
+    extractSymbolName
+} from "../src/validation-utils.js";
 
 void describe("hasMethod", () => {
     void test("returns true when object has the specified method", () => {
@@ -161,5 +166,34 @@ void describe("assertNonEmptyString", () => {
             name: "TypeError",
             message: /testFunction requires testParam/
         });
+    });
+});
+
+void describe("extractSymbolName", () => {
+    void test("extracts symbol name from fully-qualified ID", () => {
+        assert.strictEqual(extractSymbolName("gml/script/scr_player"), "scr_player");
+        assert.strictEqual(extractSymbolName("gml/var/hp"), "hp");
+        assert.strictEqual(extractSymbolName("gml/event/create"), "create");
+    });
+
+    void test("returns original ID when no slashes present", () => {
+        assert.strictEqual(extractSymbolName("invalid"), "invalid");
+        assert.strictEqual(extractSymbolName("simple"), "simple");
+    });
+
+    void test("handles trailing slash", () => {
+        assert.strictEqual(extractSymbolName("gml/script/"), "");
+    });
+
+    void test("handles multiple slashes", () => {
+        assert.strictEqual(extractSymbolName("gml/nested/path/to/symbol"), "symbol");
+    });
+
+    void test("handles empty string", () => {
+        assert.strictEqual(extractSymbolName(""), "");
+    });
+
+    void test("handles single segment", () => {
+        assert.strictEqual(extractSymbolName("segment"), "segment");
     });
 });
