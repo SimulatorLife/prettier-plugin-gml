@@ -41,7 +41,7 @@ export class CommentTracker {
 
     // Save the current comment state so we can revert if a rewrite branch fails.
     checkpoint() {
-        this.checkpoints.push(this.entries.map((e) => ({ ...e })));
+        this.checkpoints.push(Core.cloneObjectEntries(this.entries));
     }
 
     // Revert to the last checkpoint when the pending rewrite should be discarded.
