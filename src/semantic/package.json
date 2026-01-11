@@ -12,14 +12,14 @@
     "dist"
   ],
   "dependencies": {
-    "@gml-modules/core": "0.0.1",
-    "@gml-modules/parser": "0.0.1"
+    "@gml-modules/core": "workspace:*",
+    "@gml-modules/parser": "workspace:*"
 
   },
   "scripts": {
     "build:types": "tsc -p tsconfig.json",
     "clean:types": "rm -rf dist",
-    "test": "npm run build:types && node --test dist/test/*.test.js"
+    "test": "pnpm run build:types && node --test dist/test/*.test.js"
   },
   "engines": {
     "node": ">=25.0.0"

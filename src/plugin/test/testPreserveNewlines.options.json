@@ -1,0 +1,10 @@
+{
+	"useStringInterpolation": true,
+	"preserveGlobalVarStatements": false,
+	"applyFeatherFixes": false,
+	"condenseLogicalExpressions": true,
+	"optimizeLoopLengthHoisting": true,
+	"allowSingleLineIfStatements": true,
+	"optimizeMathExpressions": true,
+	"condenseStructAssignments": true
+}

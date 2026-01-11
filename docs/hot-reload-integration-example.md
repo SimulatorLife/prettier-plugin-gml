@@ -38,7 +38,7 @@ If you want a ready-made project, the vendored 3DSpider demo can be used as a ho
 git submodule update --init --recursive
 
 # Prepare hot reload + watch the 3DSpider project
-npm run demo:watch
+pnpm run demo:watch
 ```
 
 ### Terminal 3: Runtime Wrapper (Injected)
@@ -127,7 +127,7 @@ createWebSocketClient({
 Run the integration test to verify the complete pipeline:
 
 ```bash
-npm run test:cli -- src/cli/test/hot-reload-integration.test.js
+pnpm run test:cli -- src/cli/test/hot-reload-integration.test.js
 ```
 
 The test validates:

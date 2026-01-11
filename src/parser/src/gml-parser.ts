@@ -8,6 +8,7 @@ import { createHiddenNodeProcessor } from "./ast/hidden-node-processor.js";
 import { Core } from "@gml-modules/core";
 import { installRecognitionExceptionLikeGuard } from "./runtime/index.js";
 import convertToESTree from "./utils/estree-converter.js";
+import { validateSourceText } from "./utils/input-validation.js";
 import { defaultParserOptions, type ParserOptions } from "./types/index.js";
 
 const PredictionMode =
@@ -115,13 +116,19 @@ export class GMLParser {
      * @param options - Optional configuration overrides. Defaults are merged from
      *   the static optionDefaults property.
      *
+     * @throws {SourceTextValidationError} When text is null, undefined, not a string,
+     *   or exceeds the maximum allowed length (10MB by default).
+     *
      * @remarks
-     * The constructor normalizes escape sequences in text for lexer compatibility.
-     * The original text is preserved in originalText and restored post-parse if needed.
+     * The constructor validates the input text before processing to prevent crashes
+     * from malformed or malicious input. It then normalizes escape sequences in text
+     * for lexer compatibility. The original text is preserved in originalText and
+     * restored post-parse if needed.
      */
     constructor(text: string, options: Partial<ParserOptions> = {}) {
-        this.originalText = text;
-        this.text = Core.normalizeSimpleEscapeCase(text);
+        const validatedText = validateSourceText(text);
+        this.originalText = validatedText;
+        this.text = Core.normalizeSimpleEscapeCase(validatedText);
         this.whitespaces = [];
         this.comments = [];
         const parserConstructor = (this.constructor as typeof GMLParser | undefined) ?? GMLParser;

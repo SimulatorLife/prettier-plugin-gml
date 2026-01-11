@@ -25,17 +25,17 @@ jobs:
         uses: actions/setup-node@v4
         with:
           node-version-file: .nvmrc
-          cache: npm
-          cache-dependency-path: package-lock.json
+          cache: pnpm
+          cache-dependency-path: pnpm-lock.yaml
 
       - name: Install dependencies
-        run: npm ci
+        run: pnpm install --frozen-lockfile
 
       - name: Run test suite
         id: run_tests
         run: |
           set +e
-          npm test
+          pnpm test
           status=$?
           if [ "$status" -ne 0 ]; then
             echo "Test suite exited with $status"
@@ -56,7 +56,7 @@ jobs:
       pr_title: "Agent: Recover Failing Test"
       prompt: >
         There is at least one failing unit test in the codebase. Start by running the
-        full automated test suite (npm test). Then, identify a single failing test
+        full automated test suite (pnpm test). Then, identify a single failing test
         (or the smallest cluster of related failures with a shared root cause).
         Focus on isolating and fixing the smallest piece of missing or broken
         behavior within that failure. If a golden fixture encodes multiple
@@ -68,7 +68,7 @@ jobs:
         will still fail afterward—add a new, focused test (unit or integration)
         that explicitly demonstrates the corrected behavior. Even if the original
         fixture test continues to fail, your new targeted test should now pass. Re-
-        run npm test (or the relevant subset) to ensure all previously passing suites
+        run pnpm test (or the relevant subset) to ensure all previously passing suites
         remain green and that your new test passes. Stop after delivering that
         single verified improvement; do not pursue additional failures in the same
         run.

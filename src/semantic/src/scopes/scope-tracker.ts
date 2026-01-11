@@ -215,6 +215,7 @@ export class ScopeTracker {
     private rootScope: Scope | null;
     private scopesById: Map<string, Scope>;
     private symbolToScopesIndex: Map<string, Map<string, ScopeSummary>>; // symbol -> Map<scopeId, ScopeSummary>
+    private pathToScopesIndex: Map<string, Set<string>>; // path -> Set<scopeId>
     private enabled: boolean;
     private identifierRoleTracker: IdentifierRoleTracker;
     private globalIdentifierRegistry: GlobalIdentifierRegistry;
@@ -226,6 +227,8 @@ export class ScopeTracker {
         this.scopesById = new Map();
         // Map: symbol -> Map<scopeId, { hasDeclaration: boolean, hasReference: boolean }>
         this.symbolToScopesIndex = new Map<string, Map<string, { hasDeclaration: boolean; hasReference: boolean }>>();
+        // Map: path -> Set<scopeId>
+        this.pathToScopesIndex = new Map<string, Set<string>>();
         this.enabled = Boolean(enabled);
         this.identifierRoleTracker = new IdentifierRoleTracker();
         this.globalIdentifierRegistry = new GlobalIdentifierRegistry();
@@ -250,6 +253,18 @@ export class ScopeTracker {
         if (!this.rootScope) {
             this.rootScope = scope;
         }
+
+        // Update path-to-scope index if scope has a path
+        const path = metadata?.path;
+        if (typeof path === "string" && path.length > 0) {
+            let scopeSet = this.pathToScopesIndex.get(path);
+            if (!scopeSet) {
+                scopeSet = new Set<string>();
+                this.pathToScopesIndex.set(path, scopeSet);
+            }
+            scopeSet.add(scope.id);
+        }
+
         return scope;
     }
 
@@ -612,6 +627,87 @@ export class ScopeTracker {
                     kind: "reference",
                     occurrence: cloneOccurrence(reference)
                 });
+            }
+        }
+
+        return results;
+    }
+
+    /**
+     * Find all occurrences (declarations and references) for multiple symbols
+     * in a single query. This is more efficient than calling getSymbolOccurrences
+     * multiple times, as it batches the lookups and minimizes redundant scope
+     * traversals.
+     *
+     * Use case: When a file changes during hot reload and multiple symbols are
+     * modified, batch-query all affected symbols to determine the complete
+     * invalidation set without N individual lookups.
+     *
+     * @param {Iterable<string>} names Array or Set of symbol names to query.
+     * @returns {Map<string, Array<{scopeId: string, scopeKind: string, kind: string, occurrence: object}>>}
+     *          Map from symbol name to its occurrence records. Symbols not found
+     *          are omitted from the result (not mapped to empty arrays).
+     */
+    getBatchSymbolOccurrences(names: Iterable<string>) {
+        const results = new Map<
+            string,
+            Array<{
+                scopeId: string;
+                scopeKind: string;
+                kind: "declaration" | "reference";
+                occurrence: ReturnType<typeof cloneOccurrence>;
+            }>
+        >();
+
+        for (const name of names) {
+            if (!name) {
+                continue;
+            }
+
+            const scopeSummaryMap = this.symbolToScopesIndex.get(name);
+            if (!scopeSummaryMap || scopeSummaryMap.size === 0) {
+                continue;
+            }
+
+            const occurrences: Array<{
+                scopeId: string;
+                scopeKind: string;
+                kind: "declaration" | "reference";
+                occurrence: ReturnType<typeof cloneOccurrence>;
+            }> = [];
+
+            for (const scopeId of scopeSummaryMap.keys()) {
+                const scope = this.scopesById.get(scopeId);
+                if (!scope) {
+                    continue;
+                }
+
+                const entry = scope.occurrences.get(name);
+                if (!entry) {
+                    continue;
+                }
+
+                for (const declaration of entry.declarations) {
+                    occurrences.push({
+                        scopeId: scope.id,
+                        scopeKind: scope.kind,
+                        kind: "declaration",
+                        occurrence: cloneOccurrence(declaration)
+                    });
+                }
+
+                for (const reference of entry.references) {
+                    occurrences.push({
+                        scopeId: scope.id,
+                        scopeKind: scope.kind,
+                        kind: "reference",
+                        occurrence: cloneOccurrence(reference)
+                    });
+                }
+            }
+
+            if (occurrences.length > 0) {
+                results.set(name, occurrences);
             }
         }
 
@@ -1072,7 +1168,12 @@ export class ScopeTracker {
             }
 
             for (const [refScopeId, summary] of scopeSummaryMap) {
-                // Skip the scope itself
+                // Skip the scope itself to avoid self-referential dependencies.
+                // REASON: A scope cannot be a dependent of itself. Including scopeId
+                // in its own dependents list would create a trivial cycle and break
+                // downstream dependency-ordering algorithms that expect acyclic graphs.
+                // WHAT WOULD BREAK: Removing this check would cause infinite loops in
+                // dependency traversal and make hot-reload ordering unpredictable.
                 if (refScopeId === scopeId) {
                     continue;
                 }
@@ -1399,6 +1500,52 @@ export class ScopeTracker {
             start: scope.metadata.start ? Core.cloneLocation(scope.metadata.start) : undefined,
             end: scope.metadata.end ? Core.cloneLocation(scope.metadata.end) : undefined
         };
+    }
+
+    /**
+     * Get all scopes associated with a specific file path. This enables efficient
+     * hot reload invalidation when a file changes: identify all scopes in that
+     * file and compute their complete invalidation sets to determine what needs
+     * recompilation.
+     *
+     * The method uses an internal index for O(1) average-case lookup, making it
+     * significantly faster than scanning all scopes. This is critical for large
+     * projects where linear scans would be prohibitively expensive.
+     *
+     * Use case: When a file changes during hot reload, call this method to get
+     * all scopes defined in that file. For each scope, you can then call
+     * `getInvalidationSet()` to determine what downstream code needs recompilation.
+     *
+     * @param {string | null | undefined} path The file path to query.
+     * @returns {Array<{scopeId: string, scopeKind: string, name?: string, start?: object, end?: object}>}
+     *          Array of scope descriptors for scopes in the specified file, sorted by scope ID.
+     *          Returns empty array if path is null/undefined or no scopes exist for that path.
+     */
+    getScopesByPath(path: string | null | undefined) {
+        if (!path || typeof path !== "string" || path.length === 0) {
+            return [];
+        }
+
+        const scopeIds = this.pathToScopesIndex.get(path);
+        if (!scopeIds || scopeIds.size === 0) {
+            return [];
+        }
+
+        const scopes = [];
+        for (const scopeId of scopeIds) {
+            const scope = this.scopesById.get(scopeId);
+            if (scope) {
+                scopes.push({
+                    scopeId: scope.id,
+                    scopeKind: scope.kind,
+                    name: scope.metadata.name,
+                    start: scope.metadata.start ? Core.cloneLocation(scope.metadata.start) : undefined,
+                    end: scope.metadata.end ? Core.cloneLocation(scope.metadata.end) : undefined
+                });
+            }
+        }
+
+        return scopes.sort((a, b) => a.scopeId.localeCompare(b.scopeId));
     }
 
     getScopeModificationMetadata(scopeId: string | null | undefined) {

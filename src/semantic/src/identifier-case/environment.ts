@@ -87,13 +87,6 @@ function disposeBootstrap(bootstrapResult, logger = null) {
 }
 
 export function prepareIdentifierCaseEnvironment(options) {
-    try {
-        // console.debug(
-        //     `[DBG] prepareIdentifierCaseEnvironment: enter filepath=${options?.filepath ?? null}`
-        // );
-    } catch {
-        /* ignore */
-    }
     return Core.withObjectLike(
         options,
         async (object) => {
@@ -149,13 +142,6 @@ export function attachIdentifierCasePlanSnapshot(ast, options) {
                         c += 1;
                         if (c >= 5) break;
                     }
-                    // console.debug(
-                    //     `[DBG] attachIdentifierCasePlanSnapshot: attaching snapshot for filepath=${options?.filepath ?? null} planGenerated=${Boolean(snapshot.planGenerated)} renameMapSize=${snapshot.renameMap.size} renameMapId=${getDebugId(snapshot.renameMap)} samples=${JSON.stringify(samples)}`
-                    // );
-                } else {
-                    // console.debug(
-                    //     `[DBG] attachIdentifierCasePlanSnapshot: attaching snapshot for filepath=${options?.filepath ?? null} planGenerated=${Boolean(snapshot.planGenerated)} renameMapSize=0 renameMapId=${null}`
-                    // );
                 }
             } catch {
                 /* ignore */

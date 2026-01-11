@@ -8,9 +8,9 @@ for generating JavaScript parser and lexer code from the
 ## Prerequisites
 
 * Java 21 (or any modern JVM capable of running the ANTLR tool JAR).
-* Node.js dependencies installed via `npm ci` at the repository root.
+* Node.js dependencies installed via `pnpm install` at the repository root.
 
-The ANTLR runtime for JavaScript remains an npm dependency (`antlr4@4.13.2`);
+The ANTLR runtime for JavaScript remains an npm registry dependency (`antlr4@4.13.2`);
 it is distinct from the tool JAR that produces the generated sources.
 
 ## Regenerating Parser Artifacts
@@ -19,7 +19,7 @@ it is distinct from the tool JAR that produces the generated sources.
 2. From the repository root run:
 
    ```bash
-   npm run build:antlr
+   pnpm run build:antlr
    ```
 
    The root script changes into `src/parser` and invokes the workspace
@@ -72,4 +72,4 @@ The following grammar fixes accompany the extracted extensions:
   `: AbstractInputButton(button, eInputType.keyboard)` are valid.
 
 When additional grammar updates are required, modify the `.g4` sources first
-and rerun `npm run build:antlr` to refresh the generated JavaScript output.
+and rerun `pnpm run build:antlr` to refresh the generated JavaScript output.

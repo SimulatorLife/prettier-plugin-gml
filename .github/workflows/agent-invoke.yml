@@ -21,7 +21,7 @@ on:
       agent_command:
         type: string
         required: false
-      npm_package:
+      agent_package:
         type: string
         required: false
     secrets:
@@ -171,22 +171,22 @@ jobs:
         uses: actions/setup-node@v4
         with:
           node-version-file: '.nvmrc'
-          cache: 'npm'
+          cache: 'pnpm'
           cache-dependency-path: |
-            package-lock.json
-            **/package-lock.json
+            pnpm-lock.yaml
+            **/pnpm-lock.yaml
 
       - name: Install dependencies and build (root/workspaces)
-        run: npm ci && npm run build:ts
+        run: pnpm install --frozen-lockfile && pnpm run build:ts
 
       - name: Install agent CLI (from child)
-        if: ${{ inputs.npm_package != '' }}
+        if: ${{ inputs.agent_package != '' }}
         run: |
-          echo "Checking for CLI: ${{ inputs.agent }} (from npm package: ${{ inputs.npm_package }})"
+          echo "Checking for CLI: ${{ inputs.agent }} (from pnpm package: ${{ inputs.agent_package }})"
           if ! command -v ${{ inputs.agent }} >/dev/null 2>&1; then
-            echo "Not found, installing ${{ inputs.npm_package }} via npm..."
-            npm install -g ${{ inputs.npm_package }}
-            echo "Installed ${{ inputs.npm_package }}. CLI location: $(command -v ${{ inputs.agent }})"
+            echo "Not found, installing ${{ inputs.agent_package }} via pnpm..."
+            pnpm add -g ${{ inputs.agent_package }}
+            echo "Installed ${{ inputs.agent_package }}. CLI location: $(command -v ${{ inputs.agent }})"
           else
             echo "${{ inputs.agent }} CLI already installed at: $(command -v ${{ inputs.agent }})"
           fi

@@ -12,7 +12,7 @@ import { applyStandardCommandOptions } from "../cli-core/command-standard-option
 import { isMainModule, runAsMainModule } from "../cli-core/main-module-runner.js";
 import { wrapInvalidArgumentResolver } from "../cli-core/command-parsing.js";
 import { decodeManualKeywordsPayload, decodeManualTagsPayload } from "../modules/manual/payload-validation.js";
-import { describeManualSource, readManualText } from "../modules/manual/source.js";
+import { getManualRootMetadataPath, readManualText } from "../modules/manual/source.js";
 import { ManualWorkflowOptions, prepareManualWorkflow } from "../modules/manual/workflow.js";
 import { resolveFromRepoRoot } from "../shared/workspace-paths.js";
 
@@ -89,7 +89,7 @@ export function createGenerateIdentifiersCommand({ env = process.env } = {}) {
         .option("--manual-root <path>", "Override the manual asset root (defaults to vendor/GameMaker-Manual).")
         .option(
             "--manual-package <name>",
-            "Manual npm package name used when neither --manual-root nor the vendor submodule is available."
+            "Manual pnpm package name used when neither --manual-root nor the vendor submodule is available."
         )
         .addOption(
             new Option(
@@ -570,11 +570,10 @@ function createIdentifierArtifactPayload({ identifierMap, manualSource, verbose 
     return {
         payload: {
             meta: {
-                manualRoot: manualSource.root,
+                manualRoot: getManualRootMetadataPath(manualSource),
                 packageName: manualSource.packageName,
                 packageVersion: manualSource.packageJson?.version ?? null,
-                generatedAt: new Date().toISOString(),
-                source: describeManualSource(manualSource)
+                generatedAt: Core.formatGeneratedDate()
             },
             identifiers
         },

@@ -619,13 +619,13 @@ The CLI package is organized into focused, single-responsibility modules:
 
 ```bash
 # All CLI tests
-npm run test:cli
+pnpm run test:cli
 
 # Specific test file
 node --test src/cli/test/watch-command.test.js
 
 # Watch mode
-npm run test:cli -- --watch
+pnpm run test:cli -- --watch
 ```
 
 ### Testing Watch Command

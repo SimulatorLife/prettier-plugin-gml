@@ -98,8 +98,6 @@ function getArgumentIndexFromNode(node: any) {
         return node.property.value;
     }
 
-    // console.log("DEBUG: getArgumentIndexFromNode unknown type", node.type);
-
     return null;
 }
 

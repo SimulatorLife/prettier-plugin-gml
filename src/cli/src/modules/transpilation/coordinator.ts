@@ -13,6 +13,12 @@ import { Parser } from "@gml-modules/parser";
 import { Transpiler } from "@gml-modules/transpiler";
 import { formatCliError } from "../../cli-core/errors.js";
 import type { PatchBroadcaster } from "../websocket/server.js";
+import { extractSymbolsFromAst } from "./symbol-extraction.js";
+import {
+    getRuntimePathSegments,
+    resolveObjectRuntimeIdFromSegments,
+    resolveScriptFileNameFromSegments
+} from "./runtime-identifiers.js";
 
 type RuntimeTranspiler = InstanceType<typeof Transpiler.GmlTranspiler>;
 export type RuntimeTranspilerPatch = ReturnType<RuntimeTranspiler["transpileScript"]>;
@@ -41,43 +47,14 @@ export interface TranspilationError {
 }
 
 function resolveRuntimeId(filePath: string): string | null {
-    const normalizedPath = path.normalize(filePath);
-    const segments = Core.compactArray(normalizedPath.split(path.sep));
-
-    for (let index = segments.length - 1; index >= 0; index -= 1) {
-        if (segments[index] !== "objects") {
-            continue;
-        }
-
-        const objectName = segments[index + 1];
-        const eventFile = segments[index + 2];
-        if (!objectName || !eventFile) {
-            continue;
-        }
-
-        const eventName = path.basename(eventFile, path.extname(eventFile));
-        if (!eventName) {
-            continue;
-        }
-
-        return `gml_Object_${objectName}_${eventName}`;
+    const segments = getRuntimePathSegments(filePath);
+    const objectRuntimeId = resolveObjectRuntimeIdFromSegments(segments);
+    if (objectRuntimeId) {
+        return objectRuntimeId;
     }
 
-    for (let index = segments.length - 1; index >= 0; index -= 1) {
-        if (segments[index] !== "scripts") {
-            continue;
-        }
-
-        const scriptFile = segments[index + 1];
-        if (!scriptFile) {
-            continue;
-        }
-
-        const scriptName = path.basename(scriptFile, path.extname(scriptFile));
-        if (!scriptName) {
-            continue;
-        }
-
+    const scriptName = resolveScriptFileNameFromSegments(segments);
+    if (scriptName) {
         return `gml_Script_${scriptName}`;
     }
 
@@ -199,6 +176,7 @@ export interface TranspilationResult {
     patch?: RuntimeTranspilerPatch;
     metrics?: TranspilationMetrics;
     error?: TranspilationError;
+    symbols?: Array<string>;
 }
 
 /**
@@ -261,7 +239,7 @@ function createErrorNotification(
 
 /**
  * Transpiles a GML file and manages the complete lifecycle including metrics
- * tracking, patch validation, and WebSocket broadcasting.
+ * tracking, patch validation, symbol extraction, and WebSocket broadcasting.
  */
 export function transpileFile(
     context: TranspilationContext,
@@ -293,6 +271,23 @@ export function transpileFile(
 
         if (!validatePatch(patchPayload)) {
             throw new Error("Generated patch failed validation");
+        }
+
+        // Parse the AST to extract actual symbol definitions
+        let extractedSymbols: Array<string> = [];
+        try {
+            const parser = new Parser.GMLParser(content, {});
+            const ast = parser.parse();
+            extractedSymbols = extractSymbolsFromAst(ast, filePath);
+        } catch (parseError) {
+            // If AST parsing fails, fall back to empty symbol list
+            // The transpiler already succeeded, so this is non-fatal
+            if (verbose && !quiet) {
+                const message = Core.getErrorMessage(parseError, {
+                    fallback: "Unknown parse error"
+                });
+                console.log(`  ↳ Warning: Could not extract symbols from AST: ${message}`);
+            }
         }
 
         const durationMs = performance.now() - startTime;
@@ -334,6 +329,9 @@ export function transpileFile(
                 if (patchPayload.metadata?.timestamp) {
                     console.log(`  ↳ Generated at: ${new Date(patchPayload.metadata.timestamp).toISOString()}`);
                 }
+                if (extractedSymbols.length > 0) {
+                    console.log(`  ↳ Extracted symbols: ${extractedSymbols.join(", ")}`);
+                }
             } else {
                 console.log(`  ↳ Generated patch: ${patchPayload.id}`);
             }
@@ -342,7 +340,8 @@ export function transpileFile(
         return {
             success: true,
             patch: patchPayload,
-            metrics
+            metrics,
+            symbols: extractedSymbols
         };
     } catch (error) {
         const classified = classifyTranspilationError(error);

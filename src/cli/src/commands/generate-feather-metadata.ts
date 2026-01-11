@@ -8,7 +8,7 @@ import { Core } from "@gml-modules/core";
 import { resolveFromRepoRoot } from "../shared/workspace-paths.js";
 import { assertSupportedNodeVersion } from "../shared/node-version.js";
 import { writeJsonArtifact } from "../shared/fs-artifacts.js";
-import { describeManualSource, readManualText } from "../modules/manual/source.js";
+import { getManualRootMetadataPath, readManualText } from "../modules/manual/source.js";
 import { ManualWorkflowOptions, prepareManualWorkflow } from "../modules/manual/workflow.js";
 import { applyStandardCommandOptions } from "../cli-core/command-standard-options.js";
 import { isMainModule, runAsMainModule } from "../cli-core/main-module-runner.js";
@@ -71,7 +71,7 @@ export function createFeatherMetadataCommand() {
         .option("--manual-root <path>", "Override the manual asset root (defaults to vendor/GameMaker-Manual).")
         .option(
             "--manual-package <name>",
-            "Manual npm package name used when neither --manual-root nor the vendor submodule is available."
+            "Manual pnpm package name used when neither --manual-root nor the vendor submodule is available."
         )
         .option("--quiet", "Suppress progress output (useful in CI).");
 
@@ -1046,11 +1046,10 @@ function parseTypeSystem(html) {
 function createFeatherManualMetadataPayload({ manualSource, sections }) {
     return {
         meta: {
-            manualRoot: manualSource.root,
+            manualRoot: getManualRootMetadataPath(manualSource),
             packageName: manualSource.packageName,
             packageVersion: manualSource.packageJson?.version ?? null,
-            generatedAt: new Date().toISOString(),
-            source: describeManualSource(manualSource),
+            generatedAt: Core.formatGeneratedDate(),
             manualPaths: { ...FEATHER_PAGES }
         },
         ...sections

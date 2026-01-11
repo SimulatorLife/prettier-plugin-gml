@@ -17,13 +17,13 @@
   "scripts": {
     "build:types": "tsc -b tsconfig.json",
     "clean:types": "rm -rf dist",
-    "test": "npm run build:types && node --test dist/test/*.test.js"
+    "test": "pnpm run build:types && node --test dist/test/*.test.js"
   },
   "dependencies": {
-    "@gml-modules/core": "0.0.1",
-    "@gml-modules/parser": "0.0.1",
-    "@gml-modules/plugin": "0.0.1",
-    "@gml-modules/transpiler": "0.0.1",
+    "@gml-modules/core": "workspace:*",
+    "@gml-modules/parser": "workspace:*",
+    "@gml-modules/plugin": "workspace:*",
+    "@gml-modules/transpiler": "workspace:*",
     "commander": "^14.0.2",
     "linkedom": "^0.18.12",
     "fast-xml-parser": "^5.3.0",

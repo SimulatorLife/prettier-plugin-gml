@@ -53,6 +53,7 @@ const baseIgnorePatterns = [
     "**/*.gml",
     ".DS_Store",
     "LICENSE",
+    "pnpm-lock.yaml",
     "**/*.g4",
     "scripts/**",
     "tools/**",
@@ -257,7 +258,7 @@ const tsConfig = defineConfig({
         "max-params": ["warn", 5],
         "max-statements": ["error", 90],
         "max-statements-per-line": ["error", { max: 1 }],
-        "max-nested-callbacks": ["warn", 3],
+        "max-nested-callbacks": ["error", 4],
         "require-atomic-updates": "warn",
         "no-implicit-coercion": ["error", { boolean: false }], // allow !!
         "no-implied-eval": "error",

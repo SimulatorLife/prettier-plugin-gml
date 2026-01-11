@@ -343,8 +343,6 @@ function _printImplCore(node, path, options, print) {
     if (doc !== undefined) {
         return doc;
     }
-
-    console.warn(`Print.js:print encountered unhandled node type: ${node.type}`, node);
 }
 
 function tryPrintControlStructureNode(node, path, options, print) {
@@ -1523,17 +1521,6 @@ function printProgramNode(node, path, options, print) {
             return concat(printDanglingCommentsAsGroup(path, options, () => true));
         }
         const bodyParts = printStatements(path, options, print, "body");
-
-        // DEBUG: Check if comments are attached to Program
-        // if (node.comments && node.comments.length > 0) {
-        //     console.log(
-        //         "[DEBUG] Program has comments:",
-        //         JSON.stringify(node.comments, null, 2)
-        //     );
-        // } else {
-        //     console.log("[DEBUG] Program has NO comments");
-        // }
-
         const programComments = printDanglingCommentsAsGroup(path, options, () => true);
 
         return concat([programComments, concat(bodyParts)]);
@@ -1724,7 +1711,6 @@ function _sanitizeDocOutput(doc) {
 }
 
 export function print(path, options, print) {
-    // console.log("print called. options.originalText length:", options.originalText?.length);
     const doc = _printImpl(path, options, print);
     return _sanitizeDocOutput(doc);
 }
@@ -1878,9 +1864,7 @@ function buildCallArgumentsDocs(
     const firstArgumentIsStringLiteral =
         firstArgumentNode?.type === LITERAL &&
         typeof firstArgumentText === STRING_TYPE &&
-        (firstArgumentText.startsWith('"') ||
-            firstArgumentText.startsWith("'") ||
-            firstArgumentText.startsWith('@"'));
+        (firstArgumentText.startsWith('"') || firstArgumentText.startsWith("'") || firstArgumentText.startsWith('@"'));
 
     // NOTE: intentionally omit logging to keep production output clean.
 
@@ -2014,7 +1998,6 @@ function printCommaSeparatedList(path, print, listKey, startChar, endChar, optio
             ? shouldAllowTrailingComma(options)
             : overrides.allowTrailingDelimiter;
 
-    // console.log(`[DEBUG] printCommaSeparatedList result type: ${typeof result}`);
     return printDelimitedList(path, print, listKey, startChar, endChar, {
         delimiter: ",",
         ...overrides,
@@ -3023,36 +3006,12 @@ export function applyAssignmentAlignment(statements, options, path = null, child
         }
 
         const groupEntries = [...currentGroup];
-        // const contextFunctionName =
-        //     functionNode?.id?.name ?? (functionNode?.name ? functionNode.name.name : null) ?? "<none>";
-        // console.log(
-        //     "alignment group",
-        //     contextFunctionName,
-        //     groupEntries.map(({ node }) => {
-        //         return node?.id?.name ?? node?.left?.name ?? node?.left?.property?.name ?? "<unknown>";
-        //     }),
-        //     "length",
-        //     groupEntries.length,
-        //     "alias",
-        //     currentGroupHasAlias,
-        //     "minGroupSize",
-        //     minGroupSize
-        // );
         const enablerCount = groupEntries.filter((e) => e.enablesAlignment).length;
         const normalizedMinGroupSize = minGroupSize > 0 ? minGroupSize : DEFAULT_ALIGN_ASSIGNMENTS_MIN_GROUP_SIZE;
         const alignmentEnabled = minGroupSize > 0;
         const effectiveMinGroupSize = alignmentEnabled ? normalizedMinGroupSize : minGroupSize;
         const meetsAlignmentThreshold = alignmentEnabled && groupEntries.length >= effectiveMinGroupSize;
         const canAlign = meetsAlignmentThreshold && enablerCount >= effectiveMinGroupSize;
-
-        // console.log(`DEBUG alignment group ${contextFunctionName ?? "<none>"}`, {
-        //     group: groupEntries.map((e) => e.nameLength),
-        //     meetsAlignmentThreshold,
-        //     enablerCount,
-        //     canAlign,
-        //     minGroupSize,
-        //     effectiveMinGroupSize
-        // });
 
         if (!canAlign) {
             for (const { node } of groupEntries) {
@@ -4346,13 +4305,17 @@ function materializeParamDefaultsFromParamDefault(functionNode) {
                 // and downstream checks observe `value: "undefined"`.
                 right: { type: "Literal", value: "undefined" }
             };
-            // Do not mark synthesized trailing `= undefined` defaults as optional
-            // here. Optionality markers should originate from the parser's transform
-            // pipeline or from explicit JSDoc @param annotations, not from the
-            // printer's fallback logic. Keeping the optionality decision upstream
-            // ensures that downstream heuristics (doc comment generation, Feather
-            // fixes, etc.) observe a consistent model of which parameters are truly
-            // optional versus which are merely receiving fallback defaults.
+            // Do not mark synthesized trailing `= undefined` defaults as optional here.
+            // REASON: Optionality markers should originate from the parser's transform
+            // pipeline or from explicit JSDoc @param annotations, not from the printer's
+            // fallback logic. Keeping the optionality decision upstream ensures that
+            // downstream heuristics (doc comment generation, Feather fixes, etc.) observe
+            // a consistent model of which parameters are truly optional versus which are
+            // merely receiving fallback defaults.
+            // WHAT WOULD BREAK: If the printer were to unilaterally mark these as optional,
+            // it would bypass the parser's intent and conflict with doc-comment-driven
+            // optionality decisions, leading to inconsistent function signatures and
+            // incorrect documentation generation across formatting passes.
             functionNode.params[i] = defaultNode;
         }
 
@@ -4387,10 +4350,14 @@ function materializeParamDefaultsFromParamDefault(functionNode) {
                     param.end = fallback.fallback.end;
                 }
                 // Do NOT set the _featherOptionalParameter marker here.
-                // The parser-transform is the authoritative source for
-                // optional parameter intent. If the parser produced
-                // the marker it will already be present on the param
-                // (and copied when materialized above).
+                // REASON: The parser-transform is the authoritative source for optional
+                // parameter intent. If the parser produced the marker it will already be
+                // present on the param (and copied when materialized above). Setting it
+                // in the printer would create a second source of truth and lead to
+                // inconsistencies when the parser's optionality logic changes.
+                // WHAT WOULD BREAK: Adding the marker here would cause parameters to be
+                // marked as optional even when the parser's analysis determined they
+                // weren't, resulting in incorrect JSDoc generation and type mismatches.
                 // Remove the matched statement from the body
                 const idx = body.body.indexOf(fallback.statement);
                 if (idx !== -1) {
@@ -4816,7 +4783,14 @@ function shouldOmitDefaultValueForParameter(path, options) {
             return false;
         }
     } catch {
-        // swallow
+        // Swallow flag-check errors and fall back to default heuristics.
+        // REASON: If accessing _featherMaterializedTrailingUndefined throws (e.g.,
+        // due to a getter that fails or a malformed node), we proceed with the
+        // normal optionality logic below. The flag is a performance hint, not
+        // a required property, so failing to read it is non-fatal.
+        // WHAT WOULD BREAK: Propagating the exception would abort optionality
+        // determination for this parameter and potentially cause incorrect
+        // printing or missing default values in the formatted output.
     }
 
     if (!Core.isUndefinedSentinel(node.right) || typeof path.getParentNode !== "function") {
@@ -4859,7 +4833,6 @@ function getDocParamOptionality(lines, paramName) {
         }
         const raw = match[1];
         const normalized = normalizeDocParamNameFromRaw(raw);
-        // console.log(`Checking param: ${paramName}, raw: ${raw}, normalized: ${normalized}`);
         if (normalized === paramName) {
             return /^\[.*\]$/.test(raw) || raw.endsWith("*") || raw.startsWith("*");
         }

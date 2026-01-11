@@ -11,7 +11,7 @@ Replace the ad‑hoc `wrapDocDescriptionLines` string reflow code with a Prettie
   * **Flag cleanup**: Remove `_preserveDescriptionBreaks` and any other bespoke wrapping flags so Prettier alone determines line breaks. Update callers/tests to reflect the new behavior.
   * **Cleanup**: Remove the obsolete `description-wrapping.ts`, `wrapDocDescriptionLines`, and similar helpers once their behavior is fully replaced by `description-doc.ts`/Prettier docs; keep only the shared `description-utils.ts` exports (like `resolveDescriptionIndentation`) that are still needed elsewhere for continuation detection or indentation.
 3. **Validation**
-   * Run `npm run build:types --workspace=@gml-modules/plugin` and then `npm run test:plugin` (which internally builds and runs node tests) to ensure the suite passes against the updated fixtures.
+  * Run `pnpm --filter @gml-modules/plugin run build:types` and then `pnpm run test:plugin` (which internally builds and runs node tests) to ensure the suite passes against the updated fixtures.
    * After regenerating any golden files, double-check they are the only files modified and meet the new wrapping expectations before staging.
 
 ## Risks & Follow-ups

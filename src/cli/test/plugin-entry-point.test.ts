@@ -9,7 +9,7 @@ import { importPluginModule, resolvePluginEntryPoint } from "../src/plugin-runti
 
 // Node deprecated the legacy assert.equal helper; rely on the strict
 // assertions to keep this suite locked to the modern API.
-// Manual validation: `npm test -- src/cli/test/plugin-entry-point.test.js` still
+// Manual validation: `pnpm test -- src/cli/test/plugin-entry-point.test.js` still
 // passes after migrating the call sites, confirming behaviour parity.
 const temporaryDirectories = new Set<string>();
 

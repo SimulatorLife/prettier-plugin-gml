@@ -21,7 +21,7 @@ jobs:
       agent: ${{ inputs.agent }}
       pr_title: "Agent: Usability Exerciser"
       prompt: >
-        Identify one meaningful entrypoint—CLI command, npm script, executable, or other
+        Identify one meaningful entrypoint—CLI command, pnpm script, executable, or other
         runnable task—that a typical contributor or user would run during day-to-day
         work. Execute it end-to-end and capture how approachable and informative the
         experience feels, focusing on clear help text, obvious success/failure signals,

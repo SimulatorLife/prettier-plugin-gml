@@ -591,7 +591,7 @@ Given the project's goals (hot-reload, efficient dev loop, semantic/refactor too
 - Queryability: Having a well-structured tree means you can implement features like semantic queries, refactors, and code navigation more easily.
 
 ## Replace Bespoke Fetchers for YoyoGames Repos?
-We now pin the HTML5 runtime and manual as Git submodules inside `vendor/`, which keeps the repositories available offline and avoids npm network fetches during environment setup. The CLI reads the runtime directly from `vendor/GameMaker-HTML5` (falling back to an installed package if the submodule is missing). Future tooling ideas should continue to assume the runtime is vendored locally rather than fetched via npm.
+We now pin the HTML5 runtime and manual as Git submodules inside `vendor/`, which keeps the repositories available offline and avoids npm registry network fetches during `pnpm install`. The CLI reads the runtime directly from `vendor/GameMaker-HTML5` (falling back to an installed package if the submodule is missing). Future tooling ideas should continue to assume the runtime is vendored locally rather than fetched via the npm registry.
 
 ## Appendix A – JavaScript Wrapper Starter
 The following files form a drop-in, no-fork development wrapper that layers hot reload capabilities on top of an unmodified HTML5 export.
@@ -1357,14 +1357,14 @@ function compile_gml_to_js_stub(_src: string, file: string): string {
     {
       "label": "hotdev: build wrapper (once)",
       "type": "shell",
-      "command": "npm run build",
+      "command": "pnpm run build",
       "group": "build",
       "problemMatcher": []
     },
     {
       "label": "hotdev: dev (watch+serve)",
       "type": "shell",
-      "command": "npm run dev",
+      "command": "pnpm run dev",
       "isBackground": true,
       "problemMatcher": []
     }

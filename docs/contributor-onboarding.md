@@ -9,8 +9,7 @@ checks.
 
 1. Install **Node.js 25.0.0 or newer**. The workspace ships an `.nvmrc`; run
    `nvm install` followed by `nvm use` so local tooling matches CI.
-2. Ensure npm is available (bundled with Node.js). Confirm versions with
-   `node -v` and `npm -v`.
+2. Ensure pnpm is available. Confirm versions with `node -v` and `pnpm -v`.
 3. Optional but recommended: install [Husky](https://typicode.github.io/husky/)
    Git hooks by keeping `HUSKY` unset. Set `HUSKY=0` to bypass the hooks (for
    example, in ad-hoc CI jobs).
@@ -19,30 +18,30 @@ checks.
 
 ```bash
 nvm use
-npm ci
+pnpm install
 ```
 
-`npm ci` installs the exact dependency graph captured in `package-lock.json`.
-Use `npm install` only after verifying the lockfile is current.
+`pnpm install` installs the exact dependency graph captured in `pnpm-lock.yaml`.
+Use `pnpm install` only after verifying the lockfile is current.
 
 ## 3. Validate the workspace
 
 Run the aggregated checks before opening a pull request:
 
 ```bash
-npm run check
+pnpm run check
 ```
 
-`npm run check` runs the formatter audit, CI-mode lint, and the full Node.js test
+`pnpm run check` runs the formatter audit, CI-mode lint, and the full Node.js test
 suite. Re-run targeted suites when you touch scoped areas:
 
 ```bash
-npm run test:parser
-npm run test:plugin
-npm run test:semantic
-npm run test:cli
-npm run lint
-npm run format:check
+pnpm run test:parser
+pnpm run test:plugin
+pnpm run test:semantic
+pnpm run test:cli
+pnpm run lint
+pnpm run format:check
 ```
 
 Fixtures under `src/plugin/test/` and `src/parser/test/input/` are golden—do not
@@ -54,22 +53,22 @@ Use these commands to verify the formatter wiring before experimenting on a
 GameMaker project:
 
 ```bash
-npm run format:gml -- --help
-npm run format:gml -- --check
-npm run cli -- --help
+pnpm run format:gml -- --help
+pnpm run format:gml -- --check
+pnpm run cli -- --help
 ```
 
 The `format:gml` workspace script now pins the `format` subcommand so the help
 output spotlights formatter-specific flags. Pair it with the
 [CLI wrapper reference](../README.md#cli-wrapper-environment-knobs) when
-scripting automation, and fall back to `npm run cli -- --help` for the global
+scripting automation, and fall back to `pnpm run cli -- --help` for the global
 command inventory.
 
 When you're ready to try the wrapper against a project, provide the target
 directory explicitly so the command has GameMaker sources to process:
 
 ```bash
-npm run format:gml -- path/to/project
+pnpm run format:gml -- path/to/project
 ```
 
 ## 5. Explore supporting documentation

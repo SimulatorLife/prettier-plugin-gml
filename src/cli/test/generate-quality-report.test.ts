@@ -16,7 +16,7 @@ const xmlHeader = '<?xml version="1.0" encoding="utf-8"?>\n';
 
 // These tests intentionally rely on assert.strictEqual-style comparisons because
 // Node.js deprecated the legacy assert.equal API. Behaviour has been
-// revalidated via `npm test src/cli/test/detect-test-regressions.test.js`.
+// revalidated via `pnpm test src/cli/test/detect-test-regressions.test.js`.
 
 function writeXml(dir, name, contents) {
     fs.mkdirSync(dir, { recursive: true });

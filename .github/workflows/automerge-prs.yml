@@ -68,19 +68,20 @@ jobs:
         uses: actions/setup-node@v4
         with:
           node-version-file: .nvmrc
-          cache: 'npm'
+          cache: 'pnpm'
+          cache-dependency-path: pnpm-lock.yaml
 
       - name: Install deps (${{ matrix.target }})
-        run: npm ci
+        run: pnpm install --frozen-lockfile
         continue-on-error: ${{ matrix.target == 'merge' }}
 
       - name: Build typescript (${{ matrix.target }})
-        run: npm run build:ts
+        run: pnpm run build:ts
         continue-on-error: ${{ matrix.target == 'merge' }}
 
       # Runs tests once, generating both JUnit XML and LCOV coverage
       - name: Run tests & coverage (${{ matrix.target }})
-        run: npm run test:ci
+        run: pnpm run test:ci
         continue-on-error: true
 
       - name: Publish test summary (${{ matrix.target }})
@@ -95,15 +96,15 @@ jobs:
           use-actions-summary: false
 
       - name: Run lint (${{ matrix.target }})
-        run: npm run lint:report
+        run: pnpm run lint:report
         continue-on-error: true
 
       - name: Run duplicates check (${{ matrix.target }})
-        run: npm run lint:duplicates:report
+        run: pnpm run lint:duplicates:report
         continue-on-error: true
 
       - name: Collect project stats (${{ matrix.target }})
-        run: npm run stats:report
+        run: pnpm run stats:report
         continue-on-error: true
 
       - name: Upload report artifacts (${{ matrix.target }})
@@ -134,13 +135,14 @@ jobs:
         uses: actions/setup-node@v4
         with:
           node-version-file: .nvmrc
-          cache: 'npm'
+          cache: 'pnpm'
+          cache-dependency-path: pnpm-lock.yaml
 
       - name: Install deps
-        run: npm ci
+        run: pnpm install --frozen-lockfile
 
       - name: Build typescript
-        run: npm run build:ts
+        run: pnpm run build:ts
       
       - name: Download artifacts
         uses: actions/download-artifact@v4
@@ -159,7 +161,7 @@ jobs:
           mkdir -p reports
 
           # Run the CLI command with explicit paths to the downloaded artifacts
-          npm run cli -- generate-quality-report \
+          pnpm run cli -- generate-quality-report \
             --base report-base \
             --head report-head \
             --merge report-merge \
@@ -255,7 +257,7 @@ jobs:
               `${agentMention} The auto-merge workflow detected test regressions on this PR while comparing \`${pr.head.ref}\` against \`${pr.base.ref}\`. Please review the failing suites, identify the root cause, and provide the fixes so this change can be merged.`,
               '',
               'Suggested next steps:',
-              '1. Reproduce the failures locally (for example, `npm run test:report` and `npm run test:coverage`) to confirm the regression.',
+              '1. Reproduce the failures locally (for example, `pnpm run test:report` and `pnpm run test:coverage`) to confirm the regression.',
               '2. Deliver the smallest possible fix—or a precise explanation of the required follow-up—that resolves the regression blocking auto-merge.'
             ];
 

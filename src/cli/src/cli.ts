@@ -25,8 +25,10 @@ import process from "node:process";
 import { fileURLToPath } from "node:url";
 
 import { Command, InvalidArgumentError, Option } from "commander";
+import type { Options as PrettierOptions } from "prettier";
 import { Core } from "@gml-modules/core";
 import { Parser } from "@gml-modules/parser";
+import { normalizeFormattedOutput } from "@gml-modules/plugin";
 import { isMissingModuleDependency, resolveModuleDefaultExport } from "./shared/module.js";
 import { ignoreRuleNegations } from "./shared/ignore-rules-negation-tracker.js";
 
@@ -81,6 +83,34 @@ const {
     withObjectLike
 } = Core;
 
+const formattingCache = new Map<string, string>();
+
+function stringifyCacheComponent(value: unknown) {
+    if (value === undefined || value === null) {
+        return "";
+    }
+
+    if (typeof value === "string" || typeof value === "number" || typeof value === "boolean") {
+        return String(value);
+    }
+
+    return JSON.stringify(value);
+}
+
+function createFormattingCacheKey(data: string, formattingOptions: PrettierOptions) {
+    const { parser, tabWidth, printWidth, semi, useTabs, plugins } = formattingOptions;
+    const pluginKey = Array.isArray(plugins) ? plugins.map(String).sort().join(",") : "";
+    return [
+        stringifyCacheComponent(parser),
+        stringifyCacheComponent(tabWidth),
+        stringifyCacheComponent(printWidth),
+        stringifyCacheComponent(semi),
+        stringifyCacheComponent(useTabs),
+        pluginKey,
+        data
+    ].join("|");
+}
+
 const WRAPPER_DIRECTORY = path.dirname(fileURLToPath(import.meta.url));
 const PLUGIN_PATH = resolveCliPluginEntryPoint();
 const IGNORE_PATH = path.resolve(WRAPPER_DIRECTORY, ".prettierignore");
@@ -103,9 +133,9 @@ const parseErrorActionOption = createEnumeratedOptionHelpers(
 );
 const logLevelOption = createEnumeratedOptionHelpers(VALID_PRETTIER_LOG_LEVELS, (list) => `Must be one of: ${list}`);
 
-const FORMAT_COMMAND_CLI_EXAMPLE = "npx prettier-plugin-gml format path/to/project";
-const FORMAT_COMMAND_WORKSPACE_EXAMPLE = "npm run format:gml -- path/to/project";
-const FORMAT_COMMAND_CHECK_EXAMPLE = `npx prettier-plugin-gml format --check path/to/script${GML_EXTENSION}`;
+const FORMAT_COMMAND_CLI_EXAMPLE = "pnpm dlx prettier-plugin-gml format path/to/project";
+const FORMAT_COMMAND_WORKSPACE_EXAMPLE = "pnpm run format:gml -- path/to/project";
+const FORMAT_COMMAND_CHECK_EXAMPLE = `pnpm dlx prettier-plugin-gml format --check path/to/script${GML_EXTENSION}`;
 
 const PRETTIER_MODULE_ID = process.env.PRETTIER_PLUGIN_GML_PRETTIER_MODULE ?? "prettier";
 
@@ -200,7 +230,7 @@ function resolvePrettier() {
                 const instructions = [
                     "Prettier v3 must be installed alongside prettier-plugin-gml.",
                     "Install it with:",
-                    "  npm install --save-dev prettier@^3"
+                    "  pnpm add -D prettier@^3"
                 ].join("\n");
                 const cliError = new CliUsageError(instructions);
                 if (isErrorLike(error)) {
@@ -1425,7 +1455,7 @@ async function processDirectory(directory, inheritedIgnorePaths = []) {
     await processDirectoryEntries(directory, files, effectiveIgnorePaths);
 }
 
-async function resolveFormattingOptions(filePath) {
+async function resolveFormattingOptions(filePath): Promise<PrettierOptions> {
     const prettier = await resolvePrettier();
     let resolvedConfig = null;
 
@@ -1438,18 +1468,18 @@ async function resolveFormattingOptions(filePath) {
         console.warn(`Unable to resolve Prettier config for ${filePath}: ${message}`);
     }
 
-    const mergedOptions = {
+    const mergedOptions: PrettierOptions = {
         ...options,
         ...resolvedConfig,
         filepath: filePath
-    };
+    } as PrettierOptions;
 
     const basePlugins = toArray(options.plugins);
     const resolvedPlugins = toArray(resolvedConfig?.plugins);
     const combinedPlugins = uniqueArray([...basePlugins, ...resolvedPlugins]);
 
     if (combinedPlugins.length > 0) {
-        mergedOptions.plugins = combinedPlugins;
+        mergedOptions.plugins = combinedPlugins as PrettierOptions["plugins"];
     }
 
     mergedOptions.parser = options.parser;
@@ -1485,9 +1515,16 @@ async function processFile(filePath, activeIgnorePaths = []) {
         encounteredFormattableFile = true;
 
         const data = await readFile(filePath, "utf8");
-        const formatted = await prettier.format(data, formattingOptions);
+        const cacheKey = createFormattingCacheKey(data, formattingOptions);
+        let formatted = formattingCache.get(cacheKey);
 
-        if (formatted === data) {
+        if (formatted === undefined) {
+            formatted = await prettier.format(data, formattingOptions);
+            formattingCache.set(cacheKey, formatted);
+        }
+        const normalizedOutput = normalizeFormattedOutput(formatted, data);
+
+        if (normalizedOutput === data) {
             return;
         }
 
@@ -1498,7 +1535,7 @@ async function processFile(filePath, activeIgnorePaths = []) {
         }
 
         await recordFormattedFileOriginalContents(filePath, data);
-        await writeFile(filePath, formatted);
+        await writeFile(filePath, normalizedOutput);
         formattedFileCount += 1;
         console.log(`Formatted ${filePath}`);
     } catch (error) {
