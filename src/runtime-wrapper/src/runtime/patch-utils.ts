@@ -14,22 +14,6 @@ import type {
 import { resolveBuiltinConstants } from "./builtin-constants.js";
 import { Core } from "@gml-modules/core";
 
-const APPROXIMATE_EQUALITY_SCALE_MULTIPLIER = 4;
-
-function areNumbersApproximatelyEqual(a: number, b: number): boolean {
-    if (a === b) {
-        return true;
-    }
-
-    if (!Number.isFinite(a) || !Number.isFinite(b)) {
-        return false;
-    }
-
-    const scale = Math.max(1, Math.abs(a), Math.abs(b));
-    const tolerance = Number.EPSILON * scale * APPROXIMATE_EQUALITY_SCALE_MULTIPLIER;
-    return Math.abs(a - b) <= tolerance;
-}
-
 type RuntimeBindingGlobals = {
     JSON_game?: {
         ScriptNames?: Array<string>;
@@ -767,7 +751,7 @@ function calculatePercentile(sorted: Array<number>, percentile: number): number 
     // 8.999999999999998 instead of an exact 9, so we compare the raw index to
     // its rounded integer rather than comparing floor/ceil directly.
     const nearest = Math.round(index);
-    if (areNumbersApproximatelyEqual(index, nearest)) {
+    if (Core.areNumbersApproximatelyEqual(index, nearest)) {
         return sorted[nearest];
     }
 
