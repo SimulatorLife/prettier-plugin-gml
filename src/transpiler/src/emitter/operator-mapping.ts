@@ -8,7 +8,8 @@
  *
  * ## Design Principles
  *
- * - **Explicit over implicit**: Every GML operator is listed, even when it maps 1:1 to JavaScript
+ * - **Minimal explicit mappings**: Only operators that require transformation are listed
+ * - **Pass-through for standard operators**: JavaScript operators that work as-is rely on nullish coalescing
  * - **Strict equality by default**: GML's `==` and `!=` map to JavaScript's `===` and `!==` to avoid type coercion
  * - **Immutable mappings**: The operator tables are frozen to prevent accidental modification
  *
