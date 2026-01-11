@@ -8,6 +8,6 @@ import { Core } from "@gml-modules/core";
  * @param {Array<T> | null | undefined} entries Collection of entries to clone.
  * @returns {Array<T>} Array containing shallow clones of object entries.
  */
-export function cloneObjectEntries<T>(entries?: Array<T> | null  ): Array<T> {
+export function cloneObjectEntries<T>(entries?: Array<T> | null): Array<T> {
     return Core.cloneObjectEntries(entries);
 }
