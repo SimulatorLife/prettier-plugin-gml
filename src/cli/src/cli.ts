@@ -25,6 +25,7 @@ import process from "node:process";
 import { fileURLToPath } from "node:url";
 
 import { Command, InvalidArgumentError, Option } from "commander";
+import type { Options as PrettierOptions } from "prettier";
 import { Core } from "@gml-modules/core";
 import { Parser } from "@gml-modules/parser";
 import { normalizeFormattedOutput } from "@gml-modules/plugin";
@@ -81,6 +82,34 @@ const {
     walkAncestorDirectories,
     withObjectLike
 } = Core;
+
+const formattingCache = new Map<string, string>();
+
+function stringifyCacheComponent(value: unknown) {
+    if (value === undefined || value === null) {
+        return "";
+    }
+
+    if (typeof value === "string" || typeof value === "number" || typeof value === "boolean") {
+        return String(value);
+    }
+
+    return JSON.stringify(value);
+}
+
+function createFormattingCacheKey(data: string, formattingOptions: PrettierOptions) {
+    const { parser, tabWidth, printWidth, semi, useTabs, plugins } = formattingOptions;
+    const pluginKey = Array.isArray(plugins) ? plugins.map(String).sort().join(",") : "";
+    return [
+        stringifyCacheComponent(parser),
+        stringifyCacheComponent(tabWidth),
+        stringifyCacheComponent(printWidth),
+        stringifyCacheComponent(semi),
+        stringifyCacheComponent(useTabs),
+        pluginKey,
+        data
+    ].join("|");
+}
 
 const WRAPPER_DIRECTORY = path.dirname(fileURLToPath(import.meta.url));
 const PLUGIN_PATH = resolveCliPluginEntryPoint();
@@ -1426,7 +1455,7 @@ async function processDirectory(directory, inheritedIgnorePaths = []) {
     await processDirectoryEntries(directory, files, effectiveIgnorePaths);
 }
 
-async function resolveFormattingOptions(filePath) {
+async function resolveFormattingOptions(filePath): Promise<PrettierOptions> {
     const prettier = await resolvePrettier();
     let resolvedConfig = null;
 
@@ -1439,18 +1468,18 @@ async function resolveFormattingOptions(filePath) {
         console.warn(`Unable to resolve Prettier config for ${filePath}: ${message}`);
     }
 
-    const mergedOptions = {
+    const mergedOptions: PrettierOptions = {
         ...options,
         ...resolvedConfig,
         filepath: filePath
-    };
+    } as PrettierOptions;
 
     const basePlugins = toArray(options.plugins);
     const resolvedPlugins = toArray(resolvedConfig?.plugins);
     const combinedPlugins = uniqueArray([...basePlugins, ...resolvedPlugins]);
 
     if (combinedPlugins.length > 0) {
-        mergedOptions.plugins = combinedPlugins;
+        mergedOptions.plugins = combinedPlugins as PrettierOptions["plugins"];
     }
 
     mergedOptions.parser = options.parser;
@@ -1486,7 +1515,13 @@ async function processFile(filePath, activeIgnorePaths = []) {
         encounteredFormattableFile = true;
 
         const data = await readFile(filePath, "utf8");
-        const formatted = await prettier.format(data, formattingOptions);
+        const cacheKey = createFormattingCacheKey(data, formattingOptions);
+        let formatted = formattingCache.get(cacheKey);
+
+        if (formatted === undefined) {
+            formatted = await prettier.format(data, formattingOptions);
+            formattingCache.set(cacheKey, formatted);
+        }
         const normalizedOutput = normalizeFormattedOutput(formatted, data);
 
         if (normalizedOutput === data) {
