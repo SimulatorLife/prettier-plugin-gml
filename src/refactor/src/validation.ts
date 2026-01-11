@@ -173,16 +173,13 @@ export async function validateRenameStructure(
     newName: string | undefined | null,
     resolver: Partial<SymbolResolver> | null
 ): Promise<Array<string>> {
-    const errors: Array<string> = [];
-
     try {
         Core.assertNonEmptyString(symbolId, {
             name: "symbolId",
             trim: true
         });
     } catch (error) {
-        errors.push(Core.getErrorMessage(error));
-        return errors;
+        return [Core.getErrorMessage(error)];
     }
 
     try {
@@ -191,35 +188,29 @@ export async function validateRenameStructure(
             trim: true
         });
     } catch (error) {
-        errors.push(Core.getErrorMessage(error));
-        return errors;
+        return [Core.getErrorMessage(error)];
     }
 
-    // Validate identifier syntax
     try {
         assertValidIdentifierName(newName);
     } catch (error) {
-        errors.push(Core.getErrorMessage(error));
-        return errors;
+        return [Core.getErrorMessage(error)];
     }
 
-    // Extract symbol name from ID
     const symbolName = symbolId.split("/").pop() ?? symbolId;
 
     if (symbolName === newName) {
-        errors.push(`The new name '${newName}' matches the existing identifier`);
-        return errors;
+        return [`The new name '${newName}' matches the existing identifier`];
     }
 
-    // Check symbol existence if resolver available
     if (hasMethod(resolver, "hasSymbol")) {
         const exists = await resolver.hasSymbol(symbolId);
         if (!exists) {
-            errors.push(`Symbol '${symbolId}' not found in semantic index`);
+            return [`Symbol '${symbolId}' not found in semantic index`];
         }
     }
 
-    return errors;
+    return [];
 }
 
 /**
