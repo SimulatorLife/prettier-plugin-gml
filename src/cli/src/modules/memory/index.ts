@@ -26,7 +26,7 @@ import { writeJsonArtifact } from "../../shared/fs-artifacts.js";
 import { formatByteSize } from "../../shared/reporting/byte-format.js";
 import { Parser } from "@gml-modules/parser";
 import { importPluginModule } from "../plugin-runtime-dependencies.js";
-import type { CommanderCommandLike } from "../../cli-core/commander-types.js";
+import type { CommanderOptionSetter, CommanderCommandLike } from "../../cli-core/commander-types.js";
 
 const {
     appendToCollection,
@@ -741,7 +741,7 @@ export {
 export { resolveMemoryIterations, resolveMemoryReportDirectory, resolveMemoryReportFileName };
 
 interface MemoryEnvOptionOverridesContext {
-    command?: CommanderCommandLike;
+    command?: CommanderOptionSetter;
     env?: NodeJS.ProcessEnv;
 }
 
