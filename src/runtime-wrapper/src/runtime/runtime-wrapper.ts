@@ -7,7 +7,8 @@ import {
     createRegistry,
     restoreSnapshot,
     testPatchInShadow,
-    validatePatch
+    validatePatch,
+    validatePatchDependencies
 } from "./patch-utils.js";
 import type {
     ApplyPatchResult,
@@ -84,6 +85,15 @@ export function createRuntimeWrapper(options: RuntimeWrapperOptions = {}): Runti
         validatePatch(patchCandidate);
         const patch = patchCandidate;
 
+        // Validate dependencies before proceeding
+        const depValidation = validatePatchDependencies(patch, state.registry);
+        if (!depValidation.satisfied) {
+            const missingDeps = depValidation.missingDependencies.join(", ");
+            const errorMessage = `Patch ${patch.id} has unsatisfied dependencies: ${missingDeps}`;
+            recordError(patch, "validation", errorMessage);
+            throw new Error(errorMessage);
+        }
+
         if (state.options.validateBeforeApply) {
             const testResult = testPatchInShadow(patch);
             if (!testResult.valid) {
@@ -135,6 +145,24 @@ export function createRuntimeWrapper(options: RuntimeWrapperOptions = {}): Runti
         for (const candidate of patchCandidates) {
             validatePatch(candidate);
             validatedPatches.push(candidate);
+        }
+
+        // Validate dependencies for each patch in the batch
+        for (const [index, patch] of validatedPatches.entries()) {
+            const depValidation = validatePatchDependencies(patch, state.registry);
+            if (!depValidation.satisfied) {
+                const missingDeps = depValidation.missingDependencies.join(", ");
+                const errorMessage = `Patch ${patch.id} has unsatisfied dependencies: ${missingDeps}`;
+                recordError(patch, "validation", errorMessage);
+                return {
+                    success: false,
+                    appliedCount: 0,
+                    failedIndex: index,
+                    error: "dependency_validation_failed",
+                    message: `Batch dependency validation failed at patch ${index} (${patch.id}): ${errorMessage}`,
+                    rolledBack: false
+                };
+            }
         }
 
         if (state.options.validateBeforeApply) {

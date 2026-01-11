@@ -440,6 +440,40 @@ export function validatePatch(patch: unknown): asserts patch is Patch {
     }
 }
 
+export interface DependencyValidationResult {
+    satisfied: boolean;
+    missingDependencies: Array<string>;
+}
+
+export function validatePatchDependencies(patch: Patch, registry: RuntimeRegistry): DependencyValidationResult {
+    const dependencies = patch.metadata?.dependencies;
+    
+    if (!dependencies || !Array.isArray(dependencies) || dependencies.length === 0) {
+        return { satisfied: true, missingDependencies: [] };
+    }
+
+    const missingDependencies: Array<string> = [];
+
+    for (const depId of dependencies) {
+        if (typeof depId !== "string" || !depId) {
+            continue;
+        }
+
+        const existsInScripts = depId in registry.scripts;
+        const existsInEvents = depId in registry.events;
+        const existsInClosures = depId in registry.closures;
+
+        if (!existsInScripts && !existsInEvents && !existsInClosures) {
+            missingDependencies.push(depId);
+        }
+    }
+
+    return {
+        satisfied: missingDependencies.length === 0,
+        missingDependencies
+    };
+}
+
 export function applyPatchToRegistry(registry: RuntimeRegistry, patch: Patch): RuntimeRegistry {
     switch (patch.kind) {
         case "script": {
