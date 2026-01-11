@@ -30,7 +30,6 @@ void test("builtInFunctions Proxy provides on-demand access", () => {
 
 void test("builtInFunctions Proxy supports enumeration", () => {
     const keys = Object.keys(builtInFunctions);
-    console.log(`  builtInFunctions entry count: ${keys.length}`);
 
     // GameMaker has 1000+ built-in functions
     assert.ok(keys.length > 1000, `Expected > 1000 builtin functions, got ${keys.length}`);

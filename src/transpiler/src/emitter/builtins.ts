@@ -49,6 +49,7 @@ export const builtInFunctions: Record<string, BuiltInEmitter> = new Proxy({} as 
         if (builtins.has(prop)) {
             return (args: ReadonlyArray<string>) => emitBuiltinCall(prop, args);
         }
+        // eslint-disable-next-line consistent-return -- Returning undefined for non-builtin names is intentional
         return undefined;
     },
     has(_target, prop: string): boolean {
@@ -67,6 +68,7 @@ export const builtInFunctions: Record<string, BuiltInEmitter> = new Proxy({} as 
                 value: (args: ReadonlyArray<string>) => emitBuiltinCall(prop, args)
             };
         }
+        // eslint-disable-next-line consistent-return -- Returning undefined for non-builtin names is intentional
         return undefined;
     }
 });
