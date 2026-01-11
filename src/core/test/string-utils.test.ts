@@ -104,6 +104,63 @@ void test("string utility helpers interoperate with trimmed strings", () => {
     assert.strictEqual(capitalize("example"), "Example");
 });
 
+void test("isNonEmptyTrimmedString handles control characters correctly", () => {
+    // Control characters (codes 0-31 except tab, newline, etc.) should NOT be considered whitespace
+    // as they are not trimmed by String.prototype.trim()
+    assert.strictEqual(
+        isNonEmptyTrimmedString(String.fromCharCode(0)),
+        true,
+        "Null character (code 0) should be considered non-whitespace"
+    );
+    assert.strictEqual(
+        isNonEmptyTrimmedString(String.fromCharCode(1)),
+        true,
+        "Control character (code 1) should be considered non-whitespace"
+    );
+    assert.strictEqual(
+        isNonEmptyTrimmedString(String.fromCharCode(8)),
+        true,
+        "Backspace (code 8) should be considered non-whitespace"
+    );
+    assert.strictEqual(
+        isNonEmptyTrimmedString(String.fromCharCode(14)),
+        true,
+        "Control character (code 14) should be considered non-whitespace"
+    );
+    assert.strictEqual(
+        isNonEmptyTrimmedString(String.fromCharCode(31)),
+        true,
+        "Control character (code 31) should be considered non-whitespace"
+    );
+});
+
+void test("isNonEmptyTrimmedString handles Unicode whitespace correctly", () => {
+    // Non-breaking space (U+00A0) IS trimmed by String.prototype.trim()
+    assert.strictEqual(
+        isNonEmptyTrimmedString(String.fromCharCode(160)),
+        false,
+        "Non-breaking space (code 160) should be considered whitespace"
+    );
+
+    // Line separator (U+2028) and paragraph separator (U+2029) ARE trimmed
+    assert.strictEqual(
+        isNonEmptyTrimmedString(String.fromCharCode(8232)),
+        false,
+        "Line separator (code 8232) should be considered whitespace"
+    );
+    assert.strictEqual(
+        isNonEmptyTrimmedString(String.fromCharCode(8233)),
+        false,
+        "Paragraph separator (code 8233) should be considered whitespace"
+    );
+
+    // Regular ASCII whitespace should still work
+    assert.strictEqual(isNonEmptyTrimmedString(" "), false, "Space should be considered whitespace");
+    assert.strictEqual(isNonEmptyTrimmedString("\t"), false, "Tab should be considered whitespace");
+    assert.strictEqual(isNonEmptyTrimmedString("\n"), false, "Newline should be considered whitespace");
+    assert.strictEqual(isNonEmptyTrimmedString("\r"), false, "Carriage return should be considered whitespace");
+});
+
 void test("getNonEmptyString returns null for empty candidates", () => {
     assert.strictEqual(getNonEmptyString("value"), "value");
     assert.strictEqual(getNonEmptyString(""), null);
