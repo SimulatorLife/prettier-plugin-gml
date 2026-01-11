@@ -12,7 +12,7 @@ void describe("validateCrossFileConsistency", () => {
 
     void it("returns empty array when file provider lacks getFileSymbols", async () => {
         const occurrences: Array<SymbolOccurrence> = [{ path: "file1.gml", start: 0, end: 10 }];
-        const provider = {};
+        const provider: Partial<FileSymbolProvider> = {};
         const errors = await validateCrossFileConsistency("gml/script/scr_test", "scr_renamed", occurrences, provider);
         assert.equal(errors.length, 0);
     });
