@@ -357,12 +357,8 @@ async function format(source: string, options: SupportOptions = {}) {
     const collapsedAfterDecorativeTrim = collapseDuplicateBlankLines(trimmedDecorativeBlanks);
     const trimmedAfterBlockComments = trimWhitespaceAfterBlockComments(collapsedAfterDecorativeTrim);
     const collapsedWhitespaceOnlyLines = collapseWhitespaceOnlyBlankLines(trimmedAfterBlockComments);
-    const normalizedLineCommentBlockSpacing = collapseLineCommentToBlockCommentBlankLines(
-        collapsedWhitespaceOnlyLines
-    );
-    const cleanedGuardComments = removeBlankLinesBeforeGuardComments(
-        normalizedLineCommentBlockSpacing
-    );
+    const normalizedLineCommentBlockSpacing = collapseLineCommentToBlockCommentBlankLines(collapsedWhitespaceOnlyLines);
+    const cleanedGuardComments = removeBlankLinesBeforeGuardComments(normalizedLineCommentBlockSpacing);
     const afterTrailingWhitespace = reapplyLineCommentTrailingWhitespace(cleanedGuardComments, source);
     return collapseWhitespaceOnlyBlankLines(afterTrailingWhitespace);
 }

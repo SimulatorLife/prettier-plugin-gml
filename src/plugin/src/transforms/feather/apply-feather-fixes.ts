@@ -16717,8 +16717,7 @@ function balanceGpuStateCallsInStatements(statements, diagnostic, container) {
             }
 
             const callExpression = getCallExpression(statement);
-            const targetName =
-                Core.getCallExpressionIdentifierName(callExpression ?? statement) ?? "gpu_pop_state";
+            const targetName = Core.getCallExpressionIdentifierName(callExpression ?? statement) ?? "gpu_pop_state";
             const fixDetail = createFeatherFixDetail(diagnostic, {
                 target: targetName,
                 range: {

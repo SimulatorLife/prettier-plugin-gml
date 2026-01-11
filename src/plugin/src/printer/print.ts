@@ -1878,9 +1878,7 @@ function buildCallArgumentsDocs(
     const firstArgumentIsStringLiteral =
         firstArgumentNode?.type === LITERAL &&
         typeof firstArgumentText === STRING_TYPE &&
-        (firstArgumentText.startsWith('"') ||
-            firstArgumentText.startsWith("'") ||
-            firstArgumentText.startsWith('@"'));
+        (firstArgumentText.startsWith('"') || firstArgumentText.startsWith("'") || firstArgumentText.startsWith('@"'));
 
     // NOTE: intentionally omit logging to keep production output clean.
 
