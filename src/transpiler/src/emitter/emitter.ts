@@ -2,6 +2,7 @@
 import { Core } from "@gml-modules/core";
 import { builtInFunctions } from "./builtins.js";
 import { lowerEnumDeclaration } from "./enum-lowering.js";
+import { mapBinaryOperator, mapUnaryOperator } from "./operator-mapping.js";
 import { escapeTemplateText, stringifyStructKey } from "./string-utils.js";
 import { lowerWithStatement } from "./with-lowering.js";
 import type {
@@ -295,13 +296,13 @@ export class GmlToJsEmitter {
     private visitBinaryExpression(ast: BinaryExpressionNode): string {
         const left = this.visit(ast.left);
         const right = this.visit(ast.right);
-        const op = this.mapOperator(ast.operator);
+        const op = mapBinaryOperator(ast.operator);
         return `(${left} ${op} ${right})`;
     }
 
     private visitUnaryExpression(ast: UnaryExpressionNode): string {
         const operand = this.visit(ast.argument);
-        const op = this.mapUnaryOperator(ast.operator);
+        const op = mapUnaryOperator(ast.operator);
         if (ast.argument.type === "Literal") {
             return `${op}${operand}`;
         }
@@ -645,32 +646,30 @@ export class GmlToJsEmitter {
         return result;
     }
 
+    /**
+     * Maps a GML binary operator to its JavaScript equivalent.
+     *
+     * @deprecated Use the standalone `mapBinaryOperator` function from operator-mapping.ts instead.
+     * This method is kept for backward compatibility but delegates to the extracted module.
+     *
+     * @param op - The GML binary operator to map
+     * @returns The equivalent JavaScript operator
+     */
     public mapOperator(op: string): string {
-        const mapping: Record<string, string> = {
-            div: "/",
-            mod: "%",
-            and: "&&",
-            or: "||",
-            xor: "^",
-            not: "!",
-            "==": "===",
-            "!=": "!==",
-            "&": "&",
-            "|": "|",
-            "<<": "<<",
-            ">>": ">>"
-        };
-        return mapping[op] ?? op;
+        return mapBinaryOperator(op);
     }
 
+    /**
+     * Maps a GML unary operator to its JavaScript equivalent.
+     *
+     * @deprecated Use the standalone `mapUnaryOperator` function from operator-mapping.ts instead.
+     * This method is kept for backward compatibility but delegates to the extracted module.
+     *
+     * @param op - The GML unary operator to map
+     * @returns The equivalent JavaScript operator
+     */
     public mapUnaryOperator(op: string): string {
-        const mapping: Record<string, string> = {
-            not: "!",
-            "~": "~",
-            "-": "-",
-            "+": "+"
-        };
-        return mapping[op] ?? op;
+        return mapUnaryOperator(op);
     }
 
     private wrapConditional(node: GmlNode | null | undefined, raw = false): string {
