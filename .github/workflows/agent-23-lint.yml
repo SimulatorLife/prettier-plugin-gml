@@ -21,7 +21,7 @@ jobs:
       agent: ${{ inputs.agent }}
       pr_title: "Agent: Lint Fixes"
       prompt: >
-        Run `npm run lint` and parse its output. Identify all ESLint warnings and errors, then select
+        Run `pnpm run lint` and parse its output. Identify all ESLint warnings and errors, then select
         one focused class of issues to fix (for example, all instances of the same rule violation 
         within a single file or function): focus on the selected/targeted area rather than
         project-wide formatting. Prioritize errors over warnings. Your goal is to make a small,
@@ -30,7 +30,7 @@ jobs:
         absolutely required by the rule itself. When selecting which issue to fix, prefer one that is
         deterministic, locally fixable, and least likely to alter runtime behavior. Once selected,
         explain briefly what the problem is and why your fix satisfies the ESLint rule.
-        After applying the fix, re-run `npm run lint` to confirm that the specific issue is resolved
+        After applying the fix, re-run `pnpm run lint` to confirm that the specific issue is resolved
         and that the total number of warnings/errors has decreased. If the change affects logic,
         include a short explanation of why behavior is preserved. Provide a concise sumary message
         describing the rule fixed and file/function updated. Never disable a lint rule, and never

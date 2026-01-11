@@ -22,7 +22,7 @@ jobs:
       pr_number: ${{ github.event.issue.number }}
       additional_context: ${{ github.event.comment.body }}
       agent: gemini
-      npm_package: '@google/gemini-cli@latest'
+      agent_package: '@google/gemini-cli@latest'
       agent_command: |
         set -euo pipefail
 
