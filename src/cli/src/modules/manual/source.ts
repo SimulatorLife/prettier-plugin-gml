@@ -3,7 +3,7 @@ import path from "node:path";
 import { createRequire } from "node:module";
 
 import { Core } from "@gml-modules/core";
-import { resolveFromRepoRoot } from "../../shared/workspace-paths.js";
+import { resolveFromRepoRoot } from "../../shared/index.js";
 
 const { assertNonEmptyString, getErrorMessageOrFallback, isFsErrorCode, resolveContainedRelativePath, toPosixPath } =
     Core;

@@ -4,7 +4,7 @@ import {
     ensureManualWorkflowArtifactsAllowed,
     WorkflowPathFilter,
     WorkflowPathFilterOptions
-} from "../../workflow/path-filter.js";
+} from "../../workflow/index.js";
 import { Core } from "@gml-modules/core";
 
 const DEFAULT_MESSAGE_FORMATTER = ({ manualSourceDescription }) =>
