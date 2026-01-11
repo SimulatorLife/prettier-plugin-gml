@@ -540,9 +540,6 @@ function isExistingDirectory(resolvedPath) {
 
 /**
  * Check if a file path represents an XML file.
- *
- * @param {string} filePath - The file path to check
- * @returns {boolean} True if the file has an .xml extension
  */
 function isXmlFile(filePath: string): boolean {
     return filePath.endsWith(".xml");
@@ -550,9 +547,6 @@ function isXmlFile(filePath: string): boolean {
 
 /**
  * Check if a file path represents an LCOV coverage file.
- *
- * @param {string} filePath - The file path to check
- * @returns {boolean} True if the file is an lcov.info file
  */
 function isLcovFile(filePath: string): boolean {
     return path.basename(filePath) === "lcov.info";
@@ -560,9 +554,6 @@ function isLcovFile(filePath: string): boolean {
 
 /**
  * Check if a file path represents a Checkstyle report file.
- *
- * @param {string} filePath - The file path to check
- * @returns {boolean} True if the file is a checkstyle report
  */
 function isCheckstyleFile(filePath: string): boolean {
     return /checkstyle/i.test(path.basename(filePath));
@@ -570,9 +561,6 @@ function isCheckstyleFile(filePath: string): boolean {
 
 /**
  * Check if a file path represents a JSCPD duplicate detection report.
- *
- * @param {string} filePath - The file path to check
- * @returns {boolean} True if the file is a jscpd-report.json file
  */
 function isJscpdReportFile(filePath: string): boolean {
     return path.basename(filePath) === "jscpd-report.json";
@@ -580,9 +568,6 @@ function isJscpdReportFile(filePath: string): boolean {
 
 /**
  * Check if a file path represents a project health report.
- *
- * @param {string} filePath - The file path to check
- * @returns {boolean} True if the file is a project-health.json file
  */
 function isProjectHealthFile(filePath: string): boolean {
     return path.basename(filePath) === "project-health.json";
@@ -593,9 +578,6 @@ function isProjectHealthFile(filePath: string): boolean {
  *
  * Centralizes file type detection logic so orchestrator functions work with
  * classified file collections instead of raw predicates and inline filters.
- *
- * @param {string[]} files - Array of file paths to classify
- * @returns {Object} Object containing categorized file arrays
  */
 function classifyReportFiles(files: string[]): {
     xmlFiles: string[];
