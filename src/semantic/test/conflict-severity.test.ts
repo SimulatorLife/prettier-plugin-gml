@@ -9,44 +9,44 @@ import {
     formatConflictSeverityList
 } from "../src/identifier-case/conflict-severity.js";
 
-describe("ConflictSeverity", () => {
-    test("enum contains expected values", () => {
+void describe("ConflictSeverity", () => {
+    void test("enum contains expected values", () => {
         assert.strictEqual(ConflictSeverity.ERROR, "error");
         assert.strictEqual(ConflictSeverity.WARNING, "warning");
         assert.strictEqual(ConflictSeverity.INFO, "info");
     });
 
-    test("enum is frozen", () => {
+    void test("enum is frozen", () => {
         assert.throws(() => {
             (ConflictSeverity as any).CUSTOM = "custom";
         }, /Cannot add property/);
     });
 
-    describe("normalizeConflictSeverity", () => {
-        test("accepts valid lowercase severity", () => {
+    void describe("normalizeConflictSeverity", () => {
+        void test("accepts valid lowercase severity", () => {
             assert.strictEqual(normalizeConflictSeverity("error"), ConflictSeverity.ERROR);
             assert.strictEqual(normalizeConflictSeverity("warning"), ConflictSeverity.WARNING);
             assert.strictEqual(normalizeConflictSeverity("info"), ConflictSeverity.INFO);
         });
 
-        test("accepts valid uppercase severity", () => {
+        void test("accepts valid uppercase severity", () => {
             assert.strictEqual(normalizeConflictSeverity("ERROR"), ConflictSeverity.ERROR);
             assert.strictEqual(normalizeConflictSeverity("WARNING"), ConflictSeverity.WARNING);
             assert.strictEqual(normalizeConflictSeverity("INFO"), ConflictSeverity.INFO);
         });
 
-        test("accepts valid mixed-case severity", () => {
+        void test("accepts valid mixed-case severity", () => {
             assert.strictEqual(normalizeConflictSeverity("Error"), ConflictSeverity.ERROR);
             assert.strictEqual(normalizeConflictSeverity("Warning"), ConflictSeverity.WARNING);
             assert.strictEqual(normalizeConflictSeverity("Info"), ConflictSeverity.INFO);
         });
 
-        test("trims whitespace from valid severity", () => {
+        void test("trims whitespace from valid severity", () => {
             assert.strictEqual(normalizeConflictSeverity("  error  "), ConflictSeverity.ERROR);
             assert.strictEqual(normalizeConflictSeverity("\twarning\n"), ConflictSeverity.WARNING);
         });
 
-        test("rejects invalid string severity", () => {
+        void test("rejects invalid string severity", () => {
             assert.throws(() => {
                 normalizeConflictSeverity("invalid");
             }, /Conflict severity must be one of:/);
@@ -56,7 +56,7 @@ describe("ConflictSeverity", () => {
             }, /Conflict severity must be one of:/);
         });
 
-        test("rejects non-string severity", () => {
+        void test("rejects non-string severity", () => {
             assert.throws(() => {
                 normalizeConflictSeverity(42);
             }, /Conflict severity must be provided as a string/);
@@ -74,7 +74,7 @@ describe("ConflictSeverity", () => {
             }, /Conflict severity must be provided as a string/);
         });
 
-        test("accepts custom error constructor", () => {
+        void test("accepts custom error constructor", () => {
             class CustomError extends Error {}
 
             assert.throws(() => {
@@ -83,19 +83,19 @@ describe("ConflictSeverity", () => {
         });
     });
 
-    describe("normalizeConflictSeverityWithFallback", () => {
-        test("returns normalized value for valid severity", () => {
+    void describe("normalizeConflictSeverityWithFallback", () => {
+        void test("returns normalized value for valid severity", () => {
             assert.strictEqual(normalizeConflictSeverityWithFallback("error"), ConflictSeverity.ERROR);
             assert.strictEqual(normalizeConflictSeverityWithFallback("WARNING"), ConflictSeverity.WARNING);
         });
 
-        test("returns ERROR fallback for invalid severity by default", () => {
+        void test("returns ERROR fallback for invalid severity by default", () => {
             assert.strictEqual(normalizeConflictSeverityWithFallback("invalid"), ConflictSeverity.ERROR);
             assert.strictEqual(normalizeConflictSeverityWithFallback(42), ConflictSeverity.ERROR);
             assert.strictEqual(normalizeConflictSeverityWithFallback(null), ConflictSeverity.ERROR);
         });
 
-        test("returns custom fallback for invalid severity", () => {
+        void test("returns custom fallback for invalid severity", () => {
             assert.strictEqual(
                 normalizeConflictSeverityWithFallback("invalid", ConflictSeverity.WARNING),
                 ConflictSeverity.WARNING
@@ -106,7 +106,7 @@ describe("ConflictSeverity", () => {
             );
         });
 
-        test("does not throw for invalid values", () => {
+        void test("does not throw for invalid values", () => {
             assert.doesNotThrow(() => {
                 normalizeConflictSeverityWithFallback("critical");
             });
@@ -116,14 +116,14 @@ describe("ConflictSeverity", () => {
         });
     });
 
-    describe("isConflictSeverity", () => {
-        test("returns true for valid severity values", () => {
+    void describe("isConflictSeverity", () => {
+        void test("returns true for valid severity values", () => {
             assert.strictEqual(isConflictSeverity("error"), true);
             assert.strictEqual(isConflictSeverity("warning"), true);
             assert.strictEqual(isConflictSeverity("info"), true);
         });
 
-        test("returns false for invalid severity values", () => {
+        void test("returns false for invalid severity values", () => {
             assert.strictEqual(isConflictSeverity("invalid"), false);
             assert.strictEqual(isConflictSeverity("critical"), false);
             assert.strictEqual(isConflictSeverity("ERROR"), false); // Case-sensitive check
@@ -134,8 +134,8 @@ describe("ConflictSeverity", () => {
         });
     });
 
-    describe("getConflictSeverityValues", () => {
-        test("returns all severity values", () => {
+    void describe("getConflictSeverityValues", () => {
+        void test("returns all severity values", () => {
             const values = getConflictSeverityValues();
             assert.strictEqual(values.length, 3);
             assert.ok(values.includes(ConflictSeverity.ERROR));
@@ -144,8 +144,8 @@ describe("ConflictSeverity", () => {
         });
     });
 
-    describe("formatConflictSeverityList", () => {
-        test("returns formatted list of severity values", () => {
+    void describe("formatConflictSeverityList", () => {
+        void test("returns formatted list of severity values", () => {
             const list = formatConflictSeverityList();
             assert.ok(typeof list === "string");
             assert.ok(list.includes("error"));
@@ -154,8 +154,8 @@ describe("ConflictSeverity", () => {
         });
     });
 
-    describe("integration with identifier-case-report", () => {
-        test("severity types work with conflict objects", () => {
+    void describe("integration with identifier-case-report", () => {
+        void test("severity types work with conflict objects", () => {
             const conflict = {
                 severity: ConflictSeverity.ERROR,
                 code: "TEST_CODE",
@@ -169,7 +169,7 @@ describe("ConflictSeverity", () => {
             assert.strictEqual(conflict.severity, "error");
         });
 
-        test("severity can be compared safely", () => {
+        void test("severity can be compared safely", () => {
             const conflicts = [
                 { severity: ConflictSeverity.ERROR },
                 { severity: ConflictSeverity.WARNING },
