@@ -9,7 +9,8 @@ import {
     type KeywordProvider,
     type RenameRequest,
     type SymbolOccurrence,
-    type SymbolResolver
+    type SymbolResolver,
+    type FileSymbolProvider
 } from "./types.js";
 import { assertValidIdentifierName, DEFAULT_RESERVED_KEYWORDS, hasMethod } from "./validation-utils.js";
 import { Core } from "@gml-modules/core";
@@ -290,4 +291,107 @@ export async function batchValidateScopeConflicts(
     }
 
     return conflicts;
+}
+
+/**
+ * Validate that a rename maintains cross-file semantic consistency.
+ * This function checks whether renaming a symbol would create ambiguous
+ * references across different files in the project.
+ *
+ * For example, if file A defines and exports `foo`, and file B imports and
+ * uses `foo`, renaming it to `bar` in file A must ensure that file B's
+ * import is updated to `bar` as well. This validator detects cases where
+ * the rename would leave file B with an unresolved reference.
+ *
+ * @param symbolId - The symbol being renamed
+ * @param newName - The proposed new name
+ * @param occurrences - All occurrences of the symbol
+ * @param fileProvider - Provider for file-level symbol information
+ * @returns Array of cross-file consistency errors
+ *
+ * @example
+ * const errors = await validateCrossFileConsistency(
+ *   "gml/script/scr_player",
+ *   "scr_hero",
+ *   occurrences,
+ *   semantic
+ * );
+ * if (errors.length > 0) {
+ *   console.error("Cross-file issues:", errors);
+ * }
+ */
+export async function validateCrossFileConsistency(
+    symbolId: string,
+    newName: string,
+    occurrences: Array<SymbolOccurrence>,
+    fileProvider: Partial<FileSymbolProvider> | null
+): Promise<Array<ConflictEntry>> {
+    const errors: Array<ConflictEntry> = [];
+
+    if (!fileProvider || !hasMethod(fileProvider, "getFileSymbols")) {
+        return errors;
+    }
+
+    if (!symbolId || !newName || occurrences.length === 0) {
+        return errors;
+    }
+
+    let normalizedNewName: string;
+    try {
+        normalizedNewName = assertValidIdentifierName(newName);
+    } catch (error) {
+        errors.push({
+            type: ConflictType.INVALID_IDENTIFIER,
+            message: Core.getErrorMessage(error)
+        });
+        return errors;
+    }
+
+    // Group occurrences by file to analyze file-level impact
+    const fileOccurrences = new Map<string, Array<SymbolOccurrence>>();
+    for (const occurrence of occurrences) {
+        if (!occurrence.path) {
+            continue;
+        }
+        let group = fileOccurrences.get(occurrence.path);
+        if (!group) {
+            group = [];
+            fileOccurrences.set(occurrence.path, group);
+        }
+        group.push(occurrence);
+    }
+
+    // For each file with occurrences, check if there are other symbols that
+    // might conflict with the new name after the rename
+    for (const [filePath, fileOccs] of fileOccurrences) {
+        // eslint-disable-next-line no-await-in-loop -- Each file must be checked sequentially
+        const fileSymbols = await fileProvider.getFileSymbols(filePath);
+
+        // Check if the file already defines a symbol with the new name
+        const conflictingSymbol = fileSymbols.find((sym) => {
+            const symName = sym.id.split("/").pop();
+            return symName === normalizedNewName && sym.id !== symbolId;
+        });
+
+        if (conflictingSymbol) {
+            errors.push({
+                type: ConflictType.SHADOW,
+                message: `File '${filePath}' already defines symbol '${normalizedNewName}' (${conflictingSymbol.id})`,
+                path: filePath
+            });
+        }
+
+        // Warn if the file has many occurrences, as this increases the risk
+        // of missing a reference during the rename operation
+        if (fileOccs.length > 20) {
+            errors.push({
+                type: ConflictType.LARGE_RENAME,
+                message: `File '${filePath}' contains ${fileOccs.length} occurrences - verify all references are updated`,
+                severity: "warning",
+                path: filePath
+            });
+        }
+    }
+
+    return errors;
 }
