@@ -140,3 +140,36 @@ export function getErrorMessageOrFallback(error: unknown, { fallback }: GetError
     const normalized = describeValueForError(fallback);
     return normalized.length > 0 ? normalized : UNKNOWN_ERROR_FALLBACK;
 }
+
+/**
+ * Format a type validation error message with a standardized structure.
+ *
+ * Consolidates the repeated pattern of formatting "must be provided as <expected>
+ * (received type '<actual>')" error messages that appear across validation
+ * helpers in enumerated-options.ts and numeric-options.ts. Centralizes both the
+ * message structure and the logic for determining the actual type so call sites
+ * can focus on their specific validation rules without duplicating formatting
+ * logic.
+ *
+ * @param {string} expectedType The type that was expected (e.g., "string", "number", "an array").
+ * @param {unknown} receivedValue The actual value that was received.
+ * @param {{ label?: string }} [options] Optional configuration.
+ * @param {string} [options.label="Value"] Label to use in the error message (e.g., "Output format").
+ * @returns {string} Formatted error message.
+ *
+ * @example
+ * formatTypeValidationError("string", 42);
+ * // => "Value must be provided as a string (received type 'number')."
+ *
+ * @example
+ * formatTypeValidationError("number", "text", { label: "Port" });
+ * // => "Port must be provided as a number (received type 'string')."
+ */
+export function formatTypeValidationError(
+    expectedType: string,
+    receivedValue: unknown,
+    { label = "Value" }: { label?: string } = {}
+): string {
+    const receivedType = typeof receivedValue;
+    return `${label} must be provided as ${expectedType} (received type '${receivedType}').`;
+}
