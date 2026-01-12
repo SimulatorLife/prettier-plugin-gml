@@ -76,71 +76,58 @@ void test("GmlToJsEmitter handles simple binary expressions in AST", () => {
 });
 
 void test("GmlToJsEmitter maps GML div operator to JavaScript division", () => {
-    const emitter = new Transpiler.GmlToJsEmitter(Transpiler.makeDummyOracle());
-    assert.equal(emitter.mapOperator("div"), "/");
+    assert.equal(Transpiler.mapBinaryOperator("div"), "/");
 });
 
 void test("GmlToJsEmitter maps GML mod operator to JavaScript modulo", () => {
-    const emitter = new Transpiler.GmlToJsEmitter(Transpiler.makeDummyOracle());
-    assert.equal(emitter.mapOperator("mod"), "%");
+    assert.equal(Transpiler.mapBinaryOperator("mod"), "%");
 });
 
 void test("GmlToJsEmitter maps GML and operator to JavaScript &&", () => {
-    const emitter = new Transpiler.GmlToJsEmitter(Transpiler.makeDummyOracle());
-    assert.equal(emitter.mapOperator("and"), "&&");
+    assert.equal(Transpiler.mapBinaryOperator("and"), "&&");
 });
 
 void test("GmlToJsEmitter maps GML or operator to JavaScript ||", () => {
-    const emitter = new Transpiler.GmlToJsEmitter(Transpiler.makeDummyOracle());
-    assert.equal(emitter.mapOperator("or"), "||");
+    assert.equal(Transpiler.mapBinaryOperator("or"), "||");
 });
 
 void test("GmlToJsEmitter maps GML not operator to JavaScript !", () => {
-    const emitter = new Transpiler.GmlToJsEmitter(Transpiler.makeDummyOracle());
-    assert.equal(emitter.mapUnaryOperator("not"), "!"); // GML does not support the operator 'not'; this is included to automatic fixing
+    assert.equal(Transpiler.mapUnaryOperator("not"), "!"); // GML does not support the operator 'not'; this is included to automatic fixing
 });
 
 void test("GmlToJsEmitter maps == to === for strict equality", () => {
-    const emitter = new Transpiler.GmlToJsEmitter(Transpiler.makeDummyOracle());
-    assert.equal(emitter.mapOperator("=="), "===");
+    assert.equal(Transpiler.mapBinaryOperator("=="), "===");
 });
 
 void test("GmlToJsEmitter maps != to !== for strict inequality", () => {
-    const emitter = new Transpiler.GmlToJsEmitter(Transpiler.makeDummyOracle());
-    assert.equal(emitter.mapOperator("!="), "!==");
+    assert.equal(Transpiler.mapBinaryOperator("!="), "!==");
 });
 
 void test("GmlToJsEmitter maps bitwise AND operator", () => {
-    const emitter = new Transpiler.GmlToJsEmitter(Transpiler.makeDummyOracle());
-    assert.equal(emitter.mapOperator("&"), "&");
+    assert.equal(Transpiler.mapBinaryOperator("&"), "&");
 });
 
 void test("GmlToJsEmitter maps bitwise OR operator", () => {
-    const emitter = new Transpiler.GmlToJsEmitter(Transpiler.makeDummyOracle());
-    assert.equal(emitter.mapOperator("|"), "|");
+    assert.equal(Transpiler.mapBinaryOperator("|"), "|");
 });
 
 void test("GmlToJsEmitter maps bitwise XOR operator", () => {
-    const emitter = new Transpiler.GmlToJsEmitter(Transpiler.makeDummyOracle());
-    assert.equal(emitter.mapOperator("xor"), "^");
+    assert.equal(Transpiler.mapBinaryOperator("xor"), "^");
 });
 
 void test("GmlToJsEmitter maps left shift operator", () => {
-    const emitter = new Transpiler.GmlToJsEmitter(Transpiler.makeDummyOracle());
-    assert.equal(emitter.mapOperator("<<"), "<<");
+    assert.equal(Transpiler.mapBinaryOperator("<<"), "<<");
 });
 
 void test("GmlToJsEmitter maps right shift operator", () => {
-    const emitter = new Transpiler.GmlToJsEmitter(Transpiler.makeDummyOracle());
-    assert.equal(emitter.mapOperator(">>"), ">>");
+    assert.equal(Transpiler.mapBinaryOperator(">>"), ">>");
 });
 
 void test("GmlToJsEmitter preserves standard JavaScript operators", () => {
-    const emitter = new Transpiler.GmlToJsEmitter(Transpiler.makeDummyOracle());
-    assert.equal(emitter.mapOperator("+"), "+");
-    assert.equal(emitter.mapOperator("-"), "-");
-    assert.equal(emitter.mapOperator("*"), "*");
-    assert.equal(emitter.mapOperator("/"), "/");
+    assert.equal(Transpiler.mapBinaryOperator("+"), "+");
+    assert.equal(Transpiler.mapBinaryOperator("-"), "-");
+    assert.equal(Transpiler.mapBinaryOperator("*"), "*");
+    assert.equal(Transpiler.mapBinaryOperator("/"), "/");
 });
 
 void test("Transpiler.emitJavaScript exports a function", () => {

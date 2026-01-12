@@ -6,8 +6,14 @@
  * business concerns rather than primitive bookkeeping.
  */
 
+import { Core } from "@gml-modules/core";
+
 /**
  * Add a sample to a collection if the limit hasn't been reached and it's not already present.
+ *
+ * Delegates deduplication to {@link Core.pushUnique} while adding capacity-aware
+ * boundary checking so callers can enforce collection size limits without
+ * repeating the guard logic.
  *
  * @template T
  * @param {T[]} samples - The array to add the sample to
@@ -26,27 +32,5 @@ export function tryAddSample<T>(
         return false;
     }
 
-    if (hasSample(samples, sample, isEqual)) {
-        return false;
-    }
-
-    samples.push(sample);
-    return true;
-}
-
-/**
- * Check if a sample is already in the collection.
- *
- * @template T
- * @param {T[]} samples - The array to search
- * @param {T} sample - The sample to look for
- * @param {(existing: T, candidate: T) => boolean} [isEqual] - Optional equality check
- * @returns {boolean} True if the sample exists, false otherwise
- */
-export function hasSample<T>(samples: Array<T>, sample: T, isEqual?: (existing: T, candidate: T) => boolean): boolean {
-    if (isEqual) {
-        return samples.some((existing) => isEqual(existing, sample));
-    }
-
-    return samples.includes(sample);
+    return Core.pushUnique(samples, sample, { isEqual });
 }

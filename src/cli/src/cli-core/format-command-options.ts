@@ -82,7 +82,7 @@ export function collectFormatCommandOptions(
     }: CollectFormatCommandOptionsParameters = {}
 ): FormatCommandOptionsResult {
     const options = (command?.opts?.() ?? {}) as CommandOptionsRecord;
-    const args = Array.isArray(command?.args) ? [...command.args] : [];
+    const args = Core.toMutableArray(command?.args, { clone: true });
     const positionalTarget = args.length > 0 ? args[0] : null;
     const rawTarget = options.path ?? positionalTarget ?? null;
 

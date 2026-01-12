@@ -7,7 +7,7 @@ import type { Stream } from "node:stream";
 
 import { Command, Option, InvalidArgumentError } from "commander";
 import { Core } from "@gml-modules/core";
-import { resolveModuleDefaultExport } from "../../shared/module.js";
+import { Parser } from "@gml-modules/parser";
 import {
     SuiteOutputFormat,
     collectSuiteResults,
@@ -15,18 +15,25 @@ import {
     emitSuiteResults as emitSuiteResultsJson,
     ensureSuitesAreKnown,
     resolveRequestedSuites,
-    resolveSuiteOutputFormatOrThrow
-} from "../../cli-core/command-suite-helpers.js";
-import { applyEnvOptionOverrides } from "../../cli-core/env-overrides.js";
-import { applyStandardCommandOptions } from "../../cli-core/command-standard-options.js";
-import { coercePositiveInteger, wrapInvalidArgumentResolver } from "../../cli-core/command-parsing.js";
-import { isCommanderHelpDisplayedError } from "../../cli-core/commander-error-utils.js";
-import { REPO_ROOT, resolveFromRepoRoot } from "../../shared/workspace-paths.js";
-import { writeJsonArtifact } from "../../shared/fs-artifacts.js";
-import { formatByteSize } from "../../shared/reporting/byte-format.js";
-import { Parser } from "@gml-modules/parser";
+    resolveSuiteOutputFormatOrThrow,
+    applyEnvOptionOverrides,
+    applyStandardCommandOptions,
+    coercePositiveInteger,
+    wrapInvalidArgumentResolver,
+    isCommanderHelpDisplayedError,
+    type CommanderCommandLike
+} from "../../cli-core/index.js";
+import {
+    REPO_ROOT,
+    resolveFromRepoRoot,
+    resolveModuleDefaultExport,
+    writeJsonArtifact,
+    Reporting
+} from "../../shared/index.js";
 import { importPluginModule } from "../plugin-runtime-dependencies.js";
-import type { CommanderCommandLike } from "../../cli-core/commander-types.js";
+
+const { formatByteSize } = Reporting;
+import type { CommanderOptionSetter, CommanderCommandLike } from "../../cli-core/commander-types.js";
 
 const {
     appendToCollection,
@@ -741,7 +748,7 @@ export {
 export { resolveMemoryIterations, resolveMemoryReportDirectory, resolveMemoryReportFileName };
 
 interface MemoryEnvOptionOverridesContext {
-    command?: CommanderCommandLike;
+    command?: CommanderOptionSetter;
     env?: NodeJS.ProcessEnv;
 }
 

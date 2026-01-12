@@ -1,5 +1,5 @@
 var str = $"SMF demo 2: Interpolating between animations:\nFPS: {fps}  FPS_real: {fps_real}\nThis shows how a basic animated model can be drawn, and how to interpolate smoothly between animations\nPress E to enable sample interpolation.\nInterpolation: {
-    (global.enableInterpolation ? "Enabled" : "Disabled")
+    global.enableInterpolation ? "Enabled" : "Disabled"
     }\nControls: Mouse, WASD, Shift, Space\nPress 1 through 6 to switch rooms";
 
 var _b = $"This is a string split across multiple 

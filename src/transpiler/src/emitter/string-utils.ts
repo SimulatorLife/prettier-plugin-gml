@@ -85,16 +85,21 @@ export function normalizeStructKeyText(value: string): string {
 
     const first = value[0];
     const last = value.at(-1);
-    const isQuote = first === '"' || first === "'";
 
-    if (!isQuote || first !== last) {
+    if ((first !== '"' && first !== "'") || first !== last) {
         return value;
     }
 
-    try {
-        const parsed: unknown = JSON.parse(value);
-        return typeof parsed === "string" ? parsed : value.slice(1, -1);
-    } catch {
-        return value.slice(1, -1);
+    // For double-quoted strings, use JSON.parse to handle escape sequences.
+    // For single-quoted strings or when JSON.parse fails, strip the quotes.
+    if (first === '"') {
+        try {
+            return JSON.parse(value) as string;
+        } catch {
+            // Malformed JSON; fall through to quote stripping below
+        }
     }
+
+    // Strip surrounding quotes and return the raw content
+    return value.slice(1, -1);
 }

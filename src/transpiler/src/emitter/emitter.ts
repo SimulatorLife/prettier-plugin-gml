@@ -1,7 +1,9 @@
 /* eslint-disable max-lines -- Visitor pattern requires comprehensive switch statement; refactoring to separate files would break cohesion */
 import { Core } from "@gml-modules/core";
 import { builtInFunctions } from "./builtins.js";
+import { wrapConditional, wrapConditionalBody, wrapRawBody } from "./code-wrapping.js";
 import { lowerEnumDeclaration } from "./enum-lowering.js";
+import { mapBinaryOperator, mapUnaryOperator } from "./operator-mapping.js";
 import { escapeTemplateText, stringifyStructKey } from "./string-utils.js";
 import { lowerWithStatement } from "./with-lowering.js";
 import type {
@@ -295,13 +297,13 @@ export class GmlToJsEmitter {
     private visitBinaryExpression(ast: BinaryExpressionNode): string {
         const left = this.visit(ast.left);
         const right = this.visit(ast.right);
-        const op = this.mapOperator(ast.operator);
+        const op = mapBinaryOperator(ast.operator);
         return `(${left} ${op} ${right})`;
     }
 
     private visitUnaryExpression(ast: UnaryExpressionNode): string {
         const operand = this.visit(ast.argument);
-        const op = this.mapUnaryOperator(ast.operator);
+        const op = mapUnaryOperator(ast.operator);
         if (ast.argument.type === "Literal") {
             return `${op}${operand}`;
         }
@@ -373,15 +375,15 @@ export class GmlToJsEmitter {
     }
 
     private visitIfStatement(ast: IfStatementNode): string {
-        const test = this.wrapConditional(ast.test);
-        const consequent = this.wrapConditionalBody(ast.consequent);
+        const test = wrapConditional(ast.test, this.visit.bind(this));
+        const consequent = wrapConditionalBody(ast.consequent, this.visit.bind(this));
         if (!ast.alternate) {
             return `if ${test}${consequent}`;
         }
         const alternate =
             ast.alternate.type === "IfStatement"
                 ? ` else ${this.visit(ast.alternate)}`
-                : ` else ${this.wrapConditionalBody(ast.alternate)}`;
+                : ` else ${wrapConditionalBody(ast.alternate, this.visit.bind(this))}`;
         return `if ${test}${consequent}${alternate}`;
     }
 
@@ -389,25 +391,25 @@ export class GmlToJsEmitter {
         const init = ast.init ? this.visit(ast.init) : "";
         const test = ast.test ? this.visit(ast.test) : "";
         const update = ast.update ? this.visit(ast.update) : "";
-        const body = this.wrapConditionalBody(ast.body);
+        const body = wrapConditionalBody(ast.body, this.visit.bind(this));
         return `for (${init}; ${test}; ${update})${body}`;
     }
 
     private visitWhileStatement(ast: WhileStatementNode): string {
-        const test = this.wrapConditional(ast.test);
-        const body = this.wrapConditionalBody(ast.body);
+        const test = wrapConditional(ast.test, this.visit.bind(this));
+        const body = wrapConditionalBody(ast.body, this.visit.bind(this));
         return `while ${test}${body}`;
     }
 
     private visitDoUntilStatement(ast: DoUntilStatementNode): string {
-        const testExpr = this.wrapConditional(ast.test, true);
-        const body = this.wrapConditionalBody(ast.body);
+        const testExpr = wrapConditional(ast.test, this.visit.bind(this), true);
+        const body = wrapConditionalBody(ast.body, this.visit.bind(this));
         return `do${body} while (!(${testExpr}))`;
     }
 
     private visitWithStatement(ast: WithStatementNode): string {
-        const testExpr = this.wrapConditional(ast.test, true) || "undefined";
-        const rawBody = this.wrapRawBody(ast.body);
+        const testExpr = wrapConditional(ast.test, this.visit.bind(this), true) || "undefined";
+        const rawBody = wrapRawBody(ast.body, this.visit.bind(this));
         const indentedBody = rawBody
             .split("\n")
             .map((line) => (line ? `        ${line}` : ""))
@@ -436,22 +438,24 @@ export class GmlToJsEmitter {
     }
 
     private visitTryStatement(ast: TryStatementNode): string {
-        const block = this.wrapConditionalBody(ast.block);
+        const block = wrapConditionalBody(ast.block, this.visit.bind(this));
         const handler = ast.handler
-            ? ` catch (${ast.handler.param ? this.visit(ast.handler.param) : "err"})${this.wrapConditionalBody(ast.handler.body)}`
+            ? ` catch (${ast.handler.param ? this.visit(ast.handler.param) : "err"})${wrapConditionalBody(ast.handler.body, this.visit.bind(this))}`
             : "";
-        const finalizer = ast.finalizer ? ` finally${this.wrapConditionalBody(ast.finalizer.body)}` : "";
+        const finalizer = ast.finalizer
+            ? ` finally${wrapConditionalBody(ast.finalizer.body, this.visit.bind(this))}`
+            : "";
         return `try${block}${handler}${finalizer}`;
     }
 
     private visitRepeatStatement(ast: RepeatStatementNode): string {
-        const testExpr = this.wrapConditional(ast.test, true) || "0";
-        const body = this.wrapConditionalBody(ast.body);
+        const testExpr = wrapConditional(ast.test, this.visit.bind(this), true) || "0";
+        const body = wrapConditionalBody(ast.body, this.visit.bind(this));
         return `for (let __repeat_count = ${testExpr}; __repeat_count > 0; __repeat_count--)${body}`;
     }
 
     private visitSwitchStatement(ast: SwitchStatementNode): string {
-        const discriminant = this.wrapConditional(ast.discriminant);
+        const discriminant = wrapConditional(ast.discriminant, this.visit.bind(this));
         const cases = (ast.cases ?? [])
             .map((caseNode) => {
                 const header = caseNode.test === null ? "default:" : `case ${this.visit(caseNode.test)}:`;
@@ -513,7 +517,7 @@ export class GmlToJsEmitter {
     }
 
     private visitTernaryExpression(ast: TernaryExpressionNode): string {
-        const test = this.wrapConditional(ast.test, true);
+        const test = wrapConditional(ast.test, this.visit.bind(this), true);
         const consequent = this.visit(ast.consequent);
         const alternate = this.visit(ast.alternate);
         return `(${test} ? ${consequent} : ${alternate})`;
@@ -641,72 +645,8 @@ export class GmlToJsEmitter {
             result += paramList;
         }
         result += ")";
-        result += this.wrapConditionalBody(body);
+        result += wrapConditionalBody(body, this.visit.bind(this));
         return result;
-    }
-
-    public mapOperator(op: string): string {
-        const mapping: Record<string, string> = {
-            div: "/",
-            mod: "%",
-            and: "&&",
-            or: "||",
-            xor: "^",
-            not: "!",
-            "==": "===",
-            "!=": "!==",
-            "&": "&",
-            "|": "|",
-            "<<": "<<",
-            ">>": ">>"
-        };
-        return mapping[op] ?? op;
-    }
-
-    public mapUnaryOperator(op: string): string {
-        const mapping: Record<string, string> = {
-            not: "!",
-            "~": "~",
-            "-": "-",
-            "+": "+"
-        };
-        return mapping[op] ?? op;
-    }
-
-    private wrapConditional(node: GmlNode | null | undefined, raw = false): string {
-        if (!node) {
-            return raw ? "" : "(undefined)";
-        }
-        const expression = node.type === "ParenthesizedExpression" ? this.visit(node.expression) : this.visit(node);
-        return raw ? expression : `(${expression})`;
-    }
-
-    private wrapConditionalBody(node: GmlNode | null | undefined): string {
-        if (!node) {
-            return " {\n}\n";
-        }
-        if (node.type === "BlockStatement") {
-            return ` ${this.visit(node)}`;
-        }
-        let statement = this.visit(node);
-        if (statement && !statement.trim().endsWith(";")) {
-            statement += ";";
-        }
-        return ` {\n${statement}\n}`;
-    }
-
-    private wrapRawBody(node: GmlNode | null | undefined): string {
-        if (!node) {
-            return "{\n}\n";
-        }
-        if (node.type === "BlockStatement") {
-            return this.visit(node);
-        }
-        let statement = this.visit(node);
-        if (statement && !statement.trim().endsWith(";")) {
-            statement += ";";
-        }
-        return `\n{\n${statement}\n}`.trim();
     }
 
     private ensureStatementTermination(code: string): string {
