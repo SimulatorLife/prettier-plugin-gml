@@ -102,6 +102,7 @@ export type {
     FileSymbolProvider,
     HotReloadCascadeMetadata,
     HotReloadCascadeResult,
+    HotReloadDiagnostics,
     HotReloadSafetySummary,
     HotReloadUpdate,
     HotReloadValidationOptions,
