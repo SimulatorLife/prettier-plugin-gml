@@ -287,6 +287,12 @@ export class ScopeTracker {
      * Get all descendant scope IDs efficiently without additional metadata.
      * Used internally for cache invalidation.
      *
+     * Performance note: This method has O(n*m) complexity where n is the total
+     * number of scopes and m is the average depth of the scope tree. It's only
+     * called during declaration operations (not on hot paths), so this is
+     * acceptable for typical use cases. For very large scope hierarchies with
+     * frequent declarations, consider building a parent-to-children index.
+     *
      * @param {string} scopeId The scope whose descendants to retrieve.
      * @returns {Set<string>} Set of descendant scope IDs.
      */

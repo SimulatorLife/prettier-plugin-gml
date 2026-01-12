@@ -154,6 +154,7 @@ describe("ScopeTracker: targeted cache invalidation", () => {
 
         // Declare with null scope (conservative fallback)
         // This simulates the old behavior where we clear all caches
+        // Using `as any` to test the fallback path explicitly
         tracker.exitScope();
         tracker.declare(
             "a",
