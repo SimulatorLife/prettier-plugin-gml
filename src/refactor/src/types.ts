@@ -426,6 +426,20 @@ export interface PrepareRenamePlanOptions {
 
 export interface HotReloadValidationOptions {
     checkTranspiler?: boolean;
+    includeDiagnostics?: boolean;
+}
+
+export interface HotReloadDiagnostics {
+    affectedSymbols: Array<{
+        symbolId: string;
+        filePath: string;
+        changeType: "rename" | "modification";
+        hotReloadable: boolean;
+        reason?: string;
+    }>;
+    recompilationRequired: boolean;
+    estimatedReloadTime?: number;
+    safeDuringGameplay: boolean;
 }
 
 export interface ValidationSummary {
@@ -435,6 +449,7 @@ export interface ValidationSummary {
     symbolName?: string;
     occurrenceCount?: number;
     hotReload?: HotReloadSafetySummary;
+    hotReloadDiagnostics?: HotReloadDiagnostics;
 }
 
 export interface RenamePlanSummary {
@@ -536,6 +551,7 @@ export interface ConflictEntry {
     message: string;
     severity?: string;
     path?: string;
+    suggestions?: Array<string>;
 }
 
 export type WorkspaceReadFile = (path: string) => MaybePromise<string>;

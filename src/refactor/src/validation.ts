@@ -46,7 +46,12 @@ export async function detectRenameConflicts(
     } catch (error) {
         conflicts.push({
             type: ConflictType.INVALID_IDENTIFIER,
-            message: Core.getErrorMessage(error)
+            message: Core.getErrorMessage(error),
+            suggestions: [
+                "Ensure the identifier starts with a letter or underscore",
+                "Use only alphanumeric characters and underscores",
+                "Remove any leading or trailing whitespace"
+            ]
         });
         return conflicts;
     }
@@ -56,6 +61,7 @@ export async function detectRenameConflicts(
     // renaming a local variable `x` to `y` when `y` is already defined in that
     // scope would hide the original `y`, breaking references to it.
     if (hasMethod(resolver, "lookup")) {
+        const shadowedScopes = new Set<string>();
         for (const occurrence of occurrences) {
             // Perform a scope-aware lookup for the new name at each occurrence
             // site. If we find an existing binding that isn't the symbol we're
@@ -63,11 +69,20 @@ export async function detectRenameConflicts(
             // eslint-disable-next-line no-await-in-loop -- Scope lookup must be sequential for each occurrence
             const existing = await resolver.lookup(normalizedNewName, occurrence.scopeId);
             if (existing && existing.name !== oldName) {
-                conflicts.push({
-                    type: ConflictType.SHADOW,
-                    message: `Renaming '${oldName}' to '${normalizedNewName}' would shadow existing symbol in scope`,
-                    path: occurrence.path
-                });
+                const scopeId = occurrence.scopeId ?? "global";
+                if (!shadowedScopes.has(scopeId)) {
+                    shadowedScopes.add(scopeId);
+                    conflicts.push({
+                        type: ConflictType.SHADOW,
+                        message: `Renaming '${oldName}' to '${normalizedNewName}' would shadow existing symbol '${existing.name}' in scope`,
+                        path: occurrence.path,
+                        suggestions: [
+                            `Choose a different name that doesn't conflict with '${existing.name}'`,
+                            `Rename '${existing.name}' first to avoid the conflict`,
+                            `Consider using a more specific name like '${normalizedNewName}_new' or '${normalizedNewName}_v2'`
+                        ]
+                    });
+                }
             }
         }
     }
@@ -84,9 +99,16 @@ export async function detectRenameConflicts(
     }
 
     if (reservedKeywords.has(normalizedNewName.toLowerCase())) {
+        const similarName = `${normalizedNewName}_value`;
+        const alternativeName = `my${normalizedNewName.charAt(0).toUpperCase()}${normalizedNewName.slice(1)}`;
         conflicts.push({
             type: ConflictType.RESERVED,
-            message: `'${normalizedNewName}' is a reserved keyword and cannot be used as an identifier`
+            message: `'${normalizedNewName}' is a reserved keyword and cannot be used as an identifier`,
+            suggestions: [
+                `Try a variation like '${similarName}' or '${alternativeName}'`,
+                "Append a prefix or suffix to avoid the reserved word",
+                "Choose a semantically equivalent but distinct name"
+            ]
         });
     }
 
@@ -374,7 +396,12 @@ export async function validateCrossFileConsistency(
             errors.push({
                 type: ConflictType.SHADOW,
                 message: `File '${filePath}' already defines symbol '${normalizedNewName}' (${conflictingSymbol.id})`,
-                path: filePath
+                path: filePath,
+                suggestions: [
+                    `Rename the existing symbol '${normalizedNewName}' in this file first`,
+                    `Choose a different target name that doesn't conflict`,
+                    `Review the file to ensure the existing symbol can be safely replaced`
+                ]
             });
         }
 
@@ -385,7 +412,12 @@ export async function validateCrossFileConsistency(
                 type: ConflictType.LARGE_RENAME,
                 message: `File '${filePath}' contains ${fileOccs.length} occurrences - verify all references are updated`,
                 severity: "warning",
-                path: filePath
+                path: filePath,
+                suggestions: [
+                    "Review the file carefully after the rename to ensure correctness",
+                    "Consider running tests after applying the rename",
+                    "Use version control to track and verify the changes"
+                ]
             });
         }
     }
