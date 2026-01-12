@@ -317,7 +317,14 @@ export class RefactorEngine {
             }
         }
 
-        // Check for duplicate target names across the batch
+        // Check for duplicate target names across the batch. If multiple renames
+        // attempt to use the same new name (e.g., renaming both `foo` and `bar` to
+        // `baz`), we'd create ambiguous references where calls to `baz()` can't be
+        // resolved to a single definition. This validation ensures each new name is
+        // unique within the batch, preventing symbol-table corruption and runtime
+        // errors from duplicate definitions. The check runs before applying any
+        // edits so we can reject the entire batch early rather than leaving the
+        // codebase in a partially-renamed, broken state.
         const newNameToSymbols = new Map<string, Array<string>>();
         for (const rename of renames) {
             if (
@@ -378,7 +385,12 @@ export class RefactorEngine {
         }
 
         // Check for cross-rename conflicts where one rename's new name matches another's old name
-        // (but not in a circular way - that's already handled above)
+        // (but not in a circular way - that's already handled above). This catches cases like
+        // renaming `foo→bar` and `bar→baz` in the same batch, which creates a temporal ordering
+        // problem: we can't apply both renames simultaneously because the intermediate state
+        // would have duplicate symbols or references to non-existent names. These conflicts
+        // require the user to either sequence the renames across multiple operations or choose
+        // different target names that don't collide with existing symbols in the batch.
         const oldNames = new Set<string>();
         const newNames = new Set<string>();
 
@@ -1079,7 +1091,14 @@ export class RefactorEngine {
         // Group edits by file
         const grouped = workspace.groupByFile();
 
-        // Check each file for hot reload compatibility
+        // Check each file for hot reload compatibility. Hot reload allows updating
+        // running code without restarting the entire application, but only when the
+        // changes don't break assumptions that the runtime depends on (e.g., function
+        // signatures, global state structure). We iterate through each modified file
+        // and validate that the proposed edits can be safely applied at runtime. If
+        // any file contains unsafe changes (e.g., renaming a constructor, changing
+        // event handlers), we flag it so the user knows a full restart is required
+        // instead of attempting a hot reload that would corrupt the running state.
         for (const [filePath, edits] of grouped.entries()) {
             // Validate file is a GML script (hot reloadable)
             if (!filePath.endsWith(".gml")) {

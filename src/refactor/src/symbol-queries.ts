@@ -46,6 +46,13 @@ export async function findSymbolAtLocation(
             const ast = await parser.parse(filePath);
             return findNodeAtOffset(ast, offset);
         } catch {
+            // Silently ignore parse errors and return null instead of propagating
+            // the exception. Symbol lookup is advisory—if the file contains syntax
+            // errors, the refactor engine will detect them during the main validation
+            // pass and present actionable diagnostics to the user. Letting parse
+            // failures here crash the symbol query would prevent partial symbol
+            // analysis on otherwise valid sections of the codebase and break workflows
+            // that rely on querying symbols in files with temporary syntax issues.
             return null;
         }
     }

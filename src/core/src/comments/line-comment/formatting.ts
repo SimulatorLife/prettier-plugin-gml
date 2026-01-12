@@ -466,12 +466,21 @@ function formatLineComment(comment, lineCommentOptions: any = DEFAULT_LINE_COMME
     const rawValue = getCommentValue(comment);
     const trimmedValue = getCommentValue(comment, { trim: true });
 
-    // Guard: empty comments
+    // Guard: empty comments. Formatting a zero-length comment serves no purpose
+    // and would produce an empty line or whitespace-only output that adds no
+    // semantic value. Returning null here signals to the caller that this comment
+    // should be omitted from the formatted result, keeping the output clean and
+    // preventing the accumulation of meaningless blank comment lines.
     if (trimmedValue.length === 0) {
         return null;
     }
 
-    // Guard: suppress boilerplate
+    // Guard: suppress boilerplate. Auto-generated or IDE-inserted placeholder
+    // comments (e.g., "TODO", "FIXME", generic section headers) clutter the
+    // codebase without conveying intent. By filtering these out during formatting,
+    // we ensure only meaningful, developer-authored comments survive in the final
+    // output. This keeps the formatted code focused on substantive documentation
+    // rather than stale scaffolding artifacts.
     if (containsBoilerplate(trimmedValue, boilerplateFragments)) {
         return null;
     }
