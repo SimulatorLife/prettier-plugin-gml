@@ -1057,33 +1057,77 @@ export class RefactorEngine {
      * @param {boolean} options.checkTranspiler - Whether to validate transpiler compatibility
      * @returns {Promise<{valid: boolean, errors: Array<string>, warnings: Array<string>}>}
      */
-    validateHotReloadCompatibility(
+    async validateHotReloadCompatibility(
         workspace: WorkspaceEdit,
         options?: HotReloadValidationOptions
     ): Promise<ValidationSummary> {
         const opts = options ?? {};
-        const { checkTranspiler = false } = opts;
+        const { checkTranspiler = false, includeDiagnostics = false } = opts;
         const errors: Array<string> = [];
         const warnings: Array<string> = [];
+        const affectedSymbols: Array<{
+            symbolId: string;
+            filePath: string;
+            changeType: "rename" | "modification";
+            hotReloadable: boolean;
+            reason?: string;
+        }> = [];
 
         if (!workspace || !Core.isWorkspaceEditLike(workspace)) {
             errors.push("Invalid workspace edit");
-            return Promise.resolve({ valid: false, errors, warnings });
+            return { valid: false, errors, warnings };
         }
 
         if (workspace.edits.length === 0) {
             warnings.push("Workspace edit contains no changes - hot reload not needed");
-            return Promise.resolve({ valid: true, errors, warnings });
+            return { valid: true, errors, warnings };
         }
 
         // Group edits by file
         const grouped = workspace.groupByFile();
+        let requiresRecompilation = false;
+        let safeDuringGameplay = true;
+        let estimatedReloadTime = 0;
 
         // Check each file for hot reload compatibility
         for (const [filePath, edits] of grouped.entries()) {
             // Validate file is a GML script (hot reloadable)
             if (!filePath.endsWith(".gml")) {
                 warnings.push(`File ${filePath} is not a GML script - hot reload may not apply`);
+                safeDuringGameplay = false;
+                continue;
+            }
+
+            // Query symbols in this file for detailed diagnostics
+            let fileSymbols: Array<{ id: string }> = [];
+            if (includeDiagnostics && this.semantic && hasMethod(this.semantic, "getFileSymbols")) {
+                fileSymbols = await this.semantic.getFileSymbols(filePath);
+            }
+
+            // Analyze symbols being modified
+            for (const symbol of fileSymbols) {
+                const symbolKindMatch = symbol.id.match(/gml\/([^/]+)\//);
+                const symbolKind = symbolKindMatch ? symbolKindMatch[1] : "unknown";
+                let hotReloadable = true;
+                let reason: string | undefined;
+
+                // Macros and enums require recompilation
+                if (symbolKind === "macro" || symbolKind === "enum") {
+                    hotReloadable = false;
+                    requiresRecompilation = true;
+                    reason = `${symbolKind} changes require full recompilation`;
+                }
+
+                affectedSymbols.push({
+                    symbolId: symbol.id,
+                    filePath,
+                    changeType: "rename",
+                    hotReloadable,
+                    reason
+                });
+
+                // Estimate reload time: ~50ms per symbol, more for macros/enums
+                estimatedReloadTime += hotReloadable ? 50 : 200;
             }
 
             // Examine each edit to detect whether it introduces language constructs
@@ -1094,14 +1138,19 @@ export class RefactorEngine {
             for (const edit of edits) {
                 if (edit.newText.includes("globalvar")) {
                     warnings.push(`Edit in ${filePath} introduces 'globalvar' - may require full reload`);
+                    safeDuringGameplay = false;
                 }
 
                 if (edit.newText.includes("#macro")) {
                     warnings.push(`Edit in ${filePath} introduces '#macro' - may require full reload`);
+                    requiresRecompilation = true;
+                    safeDuringGameplay = false;
                 }
 
                 if (edit.newText.includes("enum ")) {
                     warnings.push(`Edit in ${filePath} introduces 'enum' - may require full reload`);
+                    requiresRecompilation = true;
+                    safeDuringGameplay = false;
                 }
             }
 
@@ -1113,21 +1162,32 @@ export class RefactorEngine {
             const totalCharsChanged = edits.reduce((sum, e) => sum + e.newText.length, 0);
             if (totalCharsChanged > 5000) {
                 warnings.push(`Large edit in ${filePath} (${totalCharsChanged} characters) - consider full reload`);
+                estimatedReloadTime += 500;
             }
         }
 
         // If transpiler check is requested, validate transpilation will work
         if (checkTranspiler && hasMethod(this.formatter, "transpileScript")) {
-            // We'll check if any symbols being edited can be transpiled
-            // This is a placeholder for more sophisticated checks
             warnings.push("Transpiler compatibility check requested - ensure changed symbols can be transpiled");
         }
 
-        return Promise.resolve({
+        const result: ValidationSummary = {
             valid: errors.length === 0,
             errors,
             warnings
-        });
+        };
+
+        // Include diagnostics if requested
+        if (includeDiagnostics) {
+            result.hotReloadDiagnostics = {
+                affectedSymbols,
+                recompilationRequired: requiresRecompilation,
+                estimatedReloadTime,
+                safeDuringGameplay
+            };
+        }
+
+        return result;
     }
 
     /**
