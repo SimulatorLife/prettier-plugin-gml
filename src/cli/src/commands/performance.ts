@@ -166,7 +166,11 @@ function formatErrorDetails(error: unknown, { fallbackMessage }: FormatErrorDeta
     });
 }
 
-async function traverseForFixtures(directory, visitor, pathFilter) {
+async function traverseForFixtures(
+    directory: string,
+    visitor: (filePath: string) => void,
+    pathFilter?: ReturnType<typeof createPathFilter>
+): Promise<void> {
     if (pathFilter && !pathFilter.allowsDirectory(directory)) {
         return;
     }
@@ -197,24 +201,46 @@ async function traverseForFixtures(directory, visitor, pathFilter) {
     }
 }
 
-async function collectFixtureFilePaths(directories, pathFilterOptions) {
+/**
+ * Adds a file path to the deduplication map using its relative path as the key.
+ * Ensures each unique relative path appears only once in the collection.
+ *
+ * @param fileMap - Map for deduplicating paths by relative key
+ * @param filePath - Absolute path to the file
+ */
+function addUniqueFixturePath(fileMap: Map<string, string>, filePath: string): void {
+    const relative = path.relative(REPO_ROOT, filePath);
+    if (!fileMap.has(relative)) {
+        fileMap.set(relative, filePath);
+    }
+}
+
+/**
+ * Extracts and sorts file paths from the deduplication map.
+ *
+ * @param fileMap - Map containing deduplicated file paths
+ * @returns Sorted array of absolute file paths
+ */
+function extractSortedPaths(fileMap: Map<string, string>): Array<string> {
+    return [...fileMap.values()].sort((a, b) => a.localeCompare(b));
+}
+
+async function collectFixtureFilePaths(
+    directories: ReadonlyArray<string>,
+    pathFilterOptions?: Parameters<typeof createPathFilter>[0]
+): Promise<Array<string>> {
     const pathFilter = createPathFilter(pathFilterOptions);
-    const fileMap = new Map();
+    const fileMap = new Map<string, string>();
 
     for (const directory of directories) {
         await traverseForFixtures(
             directory,
-            (filePath) => {
-                const relative = path.relative(REPO_ROOT, filePath);
-                if (!fileMap.has(relative)) {
-                    fileMap.set(relative, filePath);
-                }
-            },
+            (filePath) => addUniqueFixturePath(fileMap, filePath),
             pathFilter
         );
     }
 
-    return [...fileMap.values()].sort((a, b) => a.localeCompare(b));
+    return extractSortedPaths(fileMap);
 }
 
 interface LoadFixtureDatasetOptions {
