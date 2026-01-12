@@ -1,3 +1,4 @@
+import { asArray } from "../../../utils/array.js";
 import { resolveDocCommentTraversalService } from "../manager.js";
 import {
     getNodeStartIndex,
@@ -133,7 +134,7 @@ export function extractDocumentedParamNames(
         return documentedNames;
     }
 
-    const candidateComments = Array.isArray(docComments) ? docComments : [];
+    const candidateComments = asArray(docComments);
 
     // Check for @function tag first
     for (const comment of candidateComments) {

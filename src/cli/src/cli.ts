@@ -1590,6 +1590,21 @@ function describeTargetPathInput(value) {
     return `${article} ${tagName} object`;
 }
 
+/**
+ * Checks if the given input looks like a help flag or help command.
+ *
+ * @param {unknown} input - The input to check
+ * @returns {boolean} True if the input appears to be a help request
+ */
+function isHelpRequest(input: unknown): boolean {
+    if (typeof input !== "string") {
+        return false;
+    }
+
+    const normalized = input.trim().toLowerCase();
+    return normalized === "--help" || normalized === "-h" || normalized === "help";
+}
+
 function validateTargetPathInput({ targetPathProvided, targetPathInput, usage }) {
     if (!targetPathProvided) {
         return;
@@ -1801,6 +1816,14 @@ async function executeFormatCommand(command) {
         ignoredFileSampleLimit,
         unsupportedExtensionSampleLimit
     } = commandOptions;
+
+    // If the targetPath looks like a help flag, display help instead of treating it as a path.
+    // This handles cases where --help is passed after -- (e.g., `pnpm run format:gml -- --help`)
+    // and gets interpreted as a positional argument rather than a flag.
+    if (targetPathProvided && isHelpRequest(targetPathInput)) {
+        command.outputHelp();
+        return;
+    }
 
     validateTargetPathInput(commandOptions);
 

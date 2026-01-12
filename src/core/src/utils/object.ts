@@ -1,5 +1,6 @@
 import { toFiniteNumber } from "./number.js";
 import { formatWithIndefiniteArticle, isNonEmptyString } from "./string.js";
+import { asArray } from "./array.js";
 
 type AssertFunctionOptions = {
     errorMessage?: string;
@@ -558,5 +559,5 @@ export function getOptionalArray(obj: unknown, key: string): unknown[] {
         return [];
     }
     const value = (obj as Record<string, unknown>)[key];
-    return Array.isArray(value) ? value : [];
+    return asArray(value);
 }

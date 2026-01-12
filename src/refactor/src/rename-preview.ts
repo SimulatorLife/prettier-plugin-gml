@@ -7,7 +7,7 @@
 import type { RenamePlanSummary, BatchRenamePlanSummary, SymbolOccurrence } from "./types.js";
 import type { WorkspaceEdit } from "./workspace-edit.js";
 import { groupOccurrencesByFile } from "./occurrence-analysis.js";
-import { assertNonEmptyString, assertArray } from "./validation-utils.js";
+import { assertNonEmptyString, assertArray, extractSymbolName } from "./validation-utils.js";
 
 /**
  * Append formatted error and warning messages to a lines array.
@@ -348,7 +348,7 @@ export function formatBatchRenamePlanReport(plan: BatchRenamePlanSummary): strin
         if (plan.cascadeResult.circular.length > 0) {
             lines.push("  Circular Dependency Chains:");
             for (const cycle of plan.cascadeResult.circular) {
-                const formattedCycle = cycle.map((id) => id.split("/").pop()).join(" → ");
+                const formattedCycle = cycle.map((id) => extractSymbolName(id)).join(" → ");
                 lines.push(`    ⚠ ${formattedCycle}`);
             }
         }
