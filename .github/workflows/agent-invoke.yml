@@ -171,6 +171,11 @@ jobs:
         id: read-node-version
         run: echo "version=$(cat .nvmrc)" >> "$GITHUB_OUTPUT"
 
+      - name: Enable pnpm via Corepack
+        run: |
+          corepack enable
+          corepack prepare pnpm@9.0.0 --activate
+
       - name: Use Node from .nvmrc
         uses: actions/setup-node@v4
         with:
@@ -179,11 +184,6 @@ jobs:
           cache-dependency-path: |
             pnpm-lock.yaml
             **/pnpm-lock.yaml
-
-      - name: Enable pnpm via Corepack
-        run: |
-          corepack enable
-          corepack prepare pnpm@9.0.0 --activate
 
       - name: Install dependencies and build (root/workspaces)
         run: pnpm install --frozen-lockfile && pnpm run build:ts
