@@ -1,11 +1,9 @@
-import { createRequire } from "node:module";
+import fs from "node:fs";
 
 import { asArray, assertArray } from "../utils/array.js";
 import { assertPlainObject } from "../utils/object.js";
 import { toTrimmedString } from "../utils/string.js";
 import { resolveBundledResourcePath, resolveBundledResourceUrl } from "./resource-locator.js";
-
-const require = createRequire(import.meta.url);
 
 export const FEATHER_METADATA_URL = resolveBundledResourceUrl("feather-metadata.json");
 
@@ -23,7 +21,8 @@ export type FeatherMetadata = {
 };
 
 export function loadBundledFeatherMetadata() {
-    return require(FEATHER_METADATA_PATH);
+    const contents = fs.readFileSync(FEATHER_METADATA_PATH, "utf8");
+    return JSON.parse(contents);
 }
 
 function normalizeFeatherDiagnostic(diagnostic: unknown, index: number): FeatherDiagnostic {
