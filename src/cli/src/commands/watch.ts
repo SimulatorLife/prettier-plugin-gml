@@ -152,34 +152,79 @@ interface WatchCommandOptions
         HotReloadConfig,
         InfrastructureConfig {}
 
-interface RuntimeContext
-    extends Omit<
-        TranspilationContext,
-        | "transpiler"
-        | "patches"
-        | "metrics"
-        | "errors"
-        | "lastSuccessfulPatches"
-        | "maxPatchHistory"
-        | "websocketServer"
-    > {
+/**
+ * Core transpilation capabilities required for processing file changes.
+ * Focuses on the essential dependencies needed to transpile GML files.
+ */
+interface TranspilationDependencies {
+    transpiler: InstanceType<typeof Transpiler.GmlTranspiler>;
+    dependencyTracker: DependencyTracker;
+}
+
+/**
+ * Runtime package metadata and server handles.
+ * Separates server management concerns from core transpilation.
+ */
+interface RuntimePackageInfo {
     root: string | null;
     packageName: string | null;
     packageJson: Record<string, unknown> | null;
     server: RuntimeStaticServerHandle | null;
     noticeLogged: boolean;
-    transpiler: InstanceType<typeof Transpiler.GmlTranspiler>;
+}
+
+/**
+ * Patch history and metrics tracking.
+ * Groups patch management and monitoring concerns together.
+ */
+interface PatchHistory {
     patches: Array<RuntimeTranspilerPatch>;
     metrics: Array<TranspilationMetrics>;
     errors: Array<TranspilationError>;
     lastSuccessfulPatches: Map<string, RuntimeTranspilerPatch>;
     maxPatchHistory: number;
+}
+
+/**
+ * Server controllers for patch streaming and status endpoints.
+ * Isolates server infrastructure from core transpilation logic.
+ */
+interface ServerControllers {
     websocketServer: PatchBroadcaster | null;
     statusServer: StatusServerController | null;
+}
+
+/**
+ * Watch command lifecycle management.
+ * Tracks command start time and debounced file change handlers.
+ */
+interface WatchLifecycle {
     startTime: number;
     debouncedHandlers: Map<string, DebouncedFunction<[string, string, FileChangeOptions]>>;
-    dependencyTracker: DependencyTracker;
 }
+
+/**
+ * Complete runtime context for the watch command.
+ * Composes all role-focused interfaces. Prefer depending on specific
+ * role interfaces (TranspilationDependencies, PatchHistory, etc.) rather
+ * than this composite when possible.
+ */
+interface RuntimeContext
+    extends Omit<
+            TranspilationContext,
+            | "transpiler"
+            | "patches"
+            | "metrics"
+            | "errors"
+            | "lastSuccessfulPatches"
+            | "maxPatchHistory"
+            | "websocketServer"
+        >,
+        TranspilationDependencies,
+        RuntimePackageInfo,
+        PatchHistory,
+        ServerControllers,
+        WatchLifecycle {}
 
 interface FileChangeOptions extends LoggingConfig {
     runtimeContext?: RuntimeContext;
