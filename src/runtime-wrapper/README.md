@@ -48,6 +48,50 @@ Applies a patch to the runtime registry. The patch object must have:
 
 When `validateBeforeApply` is enabled, patches are validated in a shadow registry first. Invalid patches are rejected before touching the real registry.
 
+**Dependency Validation:**
+
+The runtime wrapper automatically validates that all dependencies specified in `patch.metadata.dependencies` are satisfied before applying the patch. A dependency is considered satisfied if a patch with the specified ID exists in any of the registry collections (scripts, events, or closures).
+
+If any dependencies are missing, the patch application fails with a validation error that lists all unsatisfied dependencies. This prevents runtime errors caused by calling functions or referencing patches that haven't been applied yet.
+
+**Example with dependencies:**
+
+```javascript
+const wrapper = createRuntimeWrapper();
+
+// Apply base function first
+wrapper.applyPatch({
+    kind: "script",
+    id: "script:calculate_base",
+    js_body: "return args[0] * 10;"
+});
+
+// Apply dependent function - succeeds because dependency exists
+wrapper.applyPatch({
+    kind: "script",
+    id: "script:calculate_bonus",
+    js_body: "return calculate_base(args[0]) + 5;",
+    metadata: {
+        dependencies: ["script:calculate_base"]
+    }
+});
+
+// This would fail - missing dependency
+try {
+    wrapper.applyPatch({
+        kind: "script",
+        id: "script:broken",
+        js_body: "return missing_fn();",
+        metadata: {
+            dependencies: ["script:missing_fn"]
+        }
+    });
+} catch (error) {
+    console.error(error.message);
+    // "Patch script:broken has unsatisfied dependencies: script:missing_fn"
+}
+```
+
 Returns `{ success: true, version: <number> }` on success.
 
 #### `applyPatchBatch(patches)`
@@ -60,11 +104,19 @@ Applies multiple patches atomically as a single operation. Either all patches su
 
 **Behavior:**
 
-1. Validates all patches upfront (structure and shadow validation if enabled)
-2. If validation fails, returns error without applying any patches
+1. Validates all patches upfront (structure, dependency, and shadow validation if enabled)
+2. If validation fails (including unsatisfied dependencies), returns error without applying any patches
 3. Applies patches sequentially, recording each in the undo stack
 4. If any patch fails during application, automatically rolls back all previously applied patches in the batch
 5. Records a batch operation marker in the patch history
+
+**Dependency Validation in Batches:**
+
+Dependencies are validated against the current registry state before the batch begins. This means that patches in a batch cannot depend on other patches within the same batch - all dependencies must already exist in the registry before the batch starts.
+
+If you need to apply interdependent patches, either:
+- Apply them in separate calls in dependency order
+- Ensure all dependencies exist in the registry before calling `applyPatchBatch()`
 
 **Returns:**
 

@@ -14,22 +14,6 @@ import type {
 import { resolveBuiltinConstants } from "./builtin-constants.js";
 import { Core } from "@gml-modules/core";
 
-const APPROXIMATE_EQUALITY_SCALE_MULTIPLIER = 4;
-
-function areNumbersApproximatelyEqual(a: number, b: number): boolean {
-    if (a === b) {
-        return true;
-    }
-
-    if (!Number.isFinite(a) || !Number.isFinite(b)) {
-        return false;
-    }
-
-    const scale = Math.max(1, Math.abs(a), Math.abs(b));
-    const tolerance = Number.EPSILON * scale * APPROXIMATE_EQUALITY_SCALE_MULTIPLIER;
-    return Math.abs(a - b) <= tolerance;
-}
-
 type RuntimeBindingGlobals = {
     JSON_game?: {
         ScriptNames?: Array<string>;
@@ -440,6 +424,40 @@ export function validatePatch(patch: unknown): asserts patch is Patch {
     }
 }
 
+export interface DependencyValidationResult {
+    satisfied: boolean;
+    missingDependencies: Array<string>;
+}
+
+export function validatePatchDependencies(patch: Patch, registry: RuntimeRegistry): DependencyValidationResult {
+    const dependencies = patch.metadata?.dependencies;
+
+    if (!dependencies || !Array.isArray(dependencies) || dependencies.length === 0) {
+        return { satisfied: true, missingDependencies: [] };
+    }
+
+    const missingDependencies: Array<string> = [];
+
+    for (const depId of dependencies) {
+        if (typeof depId !== "string" || !depId) {
+            continue;
+        }
+
+        const existsInScripts = depId in registry.scripts;
+        const existsInEvents = depId in registry.events;
+        const existsInClosures = depId in registry.closures;
+
+        if (!existsInScripts && !existsInEvents && !existsInClosures) {
+            missingDependencies.push(depId);
+        }
+    }
+
+    return {
+        satisfied: missingDependencies.length === 0,
+        missingDependencies
+    };
+}
+
 export function applyPatchToRegistry(registry: RuntimeRegistry, patch: Patch): RuntimeRegistry {
     switch (patch.kind) {
         case "script": {
@@ -767,7 +785,7 @@ function calculatePercentile(sorted: Array<number>, percentile: number): number 
     // 8.999999999999998 instead of an exact 9, so we compare the raw index to
     // its rounded integer rather than comparing floor/ceil directly.
     const nearest = Math.round(index);
-    if (areNumbersApproximatelyEqual(index, nearest)) {
+    if (Core.areNumbersApproximatelyEqual(index, nearest)) {
         return sorted[nearest];
     }
 

@@ -122,8 +122,8 @@ function ensureIdentifierCollectionEntry({ collection, key, identifierId, initia
             references: initialReferences,
             ...rest
         } = Core.isObjectLike(initializerValue) ? initializerValue : {};
-        const declarations = Array.isArray(initialDeclarations) ? [...initialDeclarations] : [];
-        const references = Array.isArray(initialReferences) ? [...initialReferences] : [];
+        const declarations = Core.toMutableArray(initialDeclarations, { clone: true });
+        const references = Core.toMutableArray(initialReferences, { clone: true });
         return {
             identifierId,
             declarations,

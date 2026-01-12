@@ -44,6 +44,7 @@ export {
     getBodyStatements,
     getIdentifierText,
     getNodeName,
+    getSingleVariableDeclarator,
     isFunctionLikeNode,
     isNode,
     isUndefinedSentinel

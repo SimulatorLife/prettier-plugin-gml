@@ -421,7 +421,7 @@ function canDropUnreachableStatement(node, helpers) {
             return true;
         }
         case "VariableDeclaration": {
-            const declarations = Array.isArray(node.declarations) ? node.declarations : [];
+            const declarations = Core.asArray<any>(node.declarations);
             for (const declarator of declarations) {
                 if (!isNode(declarator)) {
                     continue;

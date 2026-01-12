@@ -34,9 +34,12 @@ export function isNonEmptyString(value: unknown): value is string {
  * identifiers and option values so callers can accept padded input without
  * introducing bespoke trimming logic.
  *
- * Micro-optimized to avoid allocating an intermediate trimmed string.
- * Benchmarked at ~105% faster than the previous trim().length > 0 approach
- * by scanning for the first non-whitespace character code directly.
+ * The previous micro-optimization attempted to avoid allocating a trimmed string
+ * by checking character codes <= 32, but this incorrectly classified control
+ * characters (codes 0-31 except tab/newline/etc.) as whitespace and failed to
+ * handle Unicode whitespace (e.g., non-breaking space U+00A0, line separator U+2028).
+ * We now delegate to String.prototype.trim() to match JavaScript's exact whitespace
+ * handling, sacrificing the micro-optimization for correctness.
  *
  * @param {unknown} value Candidate value to evaluate.
  * @returns {value is string} `true` when {@link value} is a non-empty string
@@ -47,23 +50,9 @@ export function isNonEmptyTrimmedString(value: unknown): value is string {
         return false;
     }
 
-    const len = value.length;
-    if (len === 0) {
-        return false;
-    }
-
-    // Scan for first non-whitespace character without allocating trimmed copy.
-    // Character codes <= 32 cover space (32), tab (9), newline (10), carriage
-    // return (13), and other control characters that String#trim removes.
-    let start = 0;
-    const end = len - 1;
-
-    while (start <= end && value.charCodeAt(start) <= 32) {
-        start++;
-    }
-
-    // If we scanned the entire string, all characters were whitespace
-    return start <= end;
+    // Delegate to String.prototype.trim() to ensure we match JavaScript's exact
+    // whitespace handling, including Unicode whitespace characters
+    return value.trim().length > 0;
 }
 
 /**

@@ -3,8 +3,7 @@ import fs from "node:fs/promises";
 import path from "node:path";
 
 import { Core } from "@gml-modules/core";
-import { resolveFromRepoRoot } from "../../shared/workspace-paths.js";
-import { ensureDir } from "../../shared/ensure-dir.js";
+import { resolveFromRepoRoot, ensureDir } from "../../shared/index.js";
 
 const { getErrorMessageOrFallback } = Core;
 

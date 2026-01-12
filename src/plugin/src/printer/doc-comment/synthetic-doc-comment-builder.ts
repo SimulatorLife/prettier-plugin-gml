@@ -47,7 +47,7 @@ export function buildSyntheticDocCommentDoc(
 }
 
 function normalizePlainLeadingLines(lines: unknown): Doc[] {
-    return Array.isArray(lines) ? (lines as Doc[]) : [];
+    return Core.asArray(lines);
 }
 
 function buildDocFromSyntheticResult(result: SyntheticDocCommentCoreResult | null): SyntheticDocCommentDoc | null {

@@ -1,100 +1,97 @@
+import { describe, it } from "node:test";
 import assert from "node:assert/strict";
-import test from "node:test";
-import { Transpiler } from "../index.js";
+import { mapBinaryOperator, mapUnaryOperator } from "../src/emitter/operator-mapping.js";
 
-// Test binary operator mapping
-void test("mapBinaryOperator maps GML div operator to JavaScript division", () => {
-    assert.equal(Transpiler.mapBinaryOperator("div"), "/");
+void describe("mapBinaryOperator", () => {
+    void it("maps GML div operator to JavaScript division", () => {
+        assert.strictEqual(mapBinaryOperator("div"), "/");
+    });
+
+    void it("maps GML mod operator to JavaScript modulo", () => {
+        assert.strictEqual(mapBinaryOperator("mod"), "%");
+    });
+
+    void it("maps GML and operator to JavaScript &&", () => {
+        assert.strictEqual(mapBinaryOperator("and"), "&&");
+    });
+
+    void it("maps GML or operator to JavaScript ||", () => {
+        assert.strictEqual(mapBinaryOperator("or"), "||");
+    });
+
+    void it("maps GML xor operator to JavaScript ^", () => {
+        assert.strictEqual(mapBinaryOperator("xor"), "^");
+    });
+
+    void it("maps == to === for strict equality", () => {
+        assert.strictEqual(mapBinaryOperator("=="), "===");
+    });
+
+    void it("maps != to !== for strict inequality", () => {
+        assert.strictEqual(mapBinaryOperator("!="), "!==");
+    });
+
+    void it("preserves bitwise AND operator &", () => {
+        assert.strictEqual(mapBinaryOperator("&"), "&");
+    });
+
+    void it("preserves bitwise OR operator |", () => {
+        assert.strictEqual(mapBinaryOperator("|"), "|");
+    });
+
+    void it("preserves left shift operator <<", () => {
+        assert.strictEqual(mapBinaryOperator("<<"), "<<");
+    });
+
+    void it("preserves right shift operator >>", () => {
+        assert.strictEqual(mapBinaryOperator(">>"), ">>");
+    });
+
+    void it("passes through standard JavaScript operators unchanged", () => {
+        assert.strictEqual(mapBinaryOperator("+"), "+");
+        assert.strictEqual(mapBinaryOperator("-"), "-");
+        assert.strictEqual(mapBinaryOperator("*"), "*");
+        assert.strictEqual(mapBinaryOperator("/"), "/");
+        assert.strictEqual(mapBinaryOperator("%"), "%");
+        assert.strictEqual(mapBinaryOperator("<"), "<");
+        assert.strictEqual(mapBinaryOperator(">"), ">");
+        assert.strictEqual(mapBinaryOperator("<="), "<=");
+        assert.strictEqual(mapBinaryOperator(">="), ">=");
+    });
+
+    void it("passes through unknown operators unchanged", () => {
+        assert.strictEqual(mapBinaryOperator("???"), "???");
+        assert.strictEqual(mapBinaryOperator("custom_op"), "custom_op");
+    });
 });
 
-void test("mapBinaryOperator maps GML mod operator to JavaScript modulo", () => {
-    assert.equal(Transpiler.mapBinaryOperator("mod"), "%");
-});
+void describe("mapUnaryOperator", () => {
+    void it("maps GML not operator to JavaScript !", () => {
+        assert.strictEqual(mapUnaryOperator("not"), "!");
+    });
 
-void test("mapBinaryOperator maps GML and operator to JavaScript &&", () => {
-    assert.equal(Transpiler.mapBinaryOperator("and"), "&&");
-});
+    void it("preserves bitwise NOT operator ~", () => {
+        assert.strictEqual(mapUnaryOperator("~"), "~");
+    });
 
-void test("mapBinaryOperator maps GML or operator to JavaScript ||", () => {
-    assert.equal(Transpiler.mapBinaryOperator("or"), "||");
-});
+    void it("preserves unary minus operator -", () => {
+        assert.strictEqual(mapUnaryOperator("-"), "-");
+    });
 
-void test("mapBinaryOperator maps GML xor operator to JavaScript ^", () => {
-    assert.equal(Transpiler.mapBinaryOperator("xor"), "^");
-});
+    void it("preserves unary plus operator +", () => {
+        assert.strictEqual(mapUnaryOperator("+"), "+");
+    });
 
-void test("mapBinaryOperator maps == to === for strict equality", () => {
-    assert.equal(Transpiler.mapBinaryOperator("=="), "===");
-});
+    void it("passes through JavaScript increment operator ++", () => {
+        assert.strictEqual(mapUnaryOperator("++"), "++");
+    });
 
-void test("mapBinaryOperator maps != to !== for strict inequality", () => {
-    assert.equal(Transpiler.mapBinaryOperator("!="), "!==");
-});
+    void it("passes through JavaScript decrement operator --", () => {
+        assert.strictEqual(mapUnaryOperator("--"), "--");
+    });
 
-void test("mapBinaryOperator preserves bitwise AND operator", () => {
-    assert.equal(Transpiler.mapBinaryOperator("&"), "&");
-});
-
-void test("mapBinaryOperator preserves bitwise OR operator", () => {
-    assert.equal(Transpiler.mapBinaryOperator("|"), "|");
-});
-
-void test("mapBinaryOperator preserves left shift operator", () => {
-    assert.equal(Transpiler.mapBinaryOperator("<<"), "<<");
-});
-
-void test("mapBinaryOperator preserves right shift operator", () => {
-    assert.equal(Transpiler.mapBinaryOperator(">>"), ">>");
-});
-
-void test("mapBinaryOperator returns unmapped operators unchanged", () => {
-    assert.equal(Transpiler.mapBinaryOperator("+"), "+");
-    assert.equal(Transpiler.mapBinaryOperator("-"), "-");
-    assert.equal(Transpiler.mapBinaryOperator("*"), "*");
-    assert.equal(Transpiler.mapBinaryOperator("/"), "/");
-    assert.equal(Transpiler.mapBinaryOperator("%"), "%");
-    assert.equal(Transpiler.mapBinaryOperator("<"), "<");
-    assert.equal(Transpiler.mapBinaryOperator(">"), ">");
-    assert.equal(Transpiler.mapBinaryOperator("<="), "<=");
-    assert.equal(Transpiler.mapBinaryOperator(">="), ">=");
-    assert.equal(Transpiler.mapBinaryOperator("==="), "===");
-    assert.equal(Transpiler.mapBinaryOperator("!=="), "!==");
-});
-
-// Test unary operator mapping
-void test("mapUnaryOperator maps GML not operator to JavaScript !", () => {
-    assert.equal(Transpiler.mapUnaryOperator("not"), "!");
-});
-
-void test("mapUnaryOperator preserves bitwise NOT operator", () => {
-    assert.equal(Transpiler.mapUnaryOperator("~"), "~");
-});
-
-void test("mapUnaryOperator preserves unary negation operator", () => {
-    assert.equal(Transpiler.mapUnaryOperator("-"), "-");
-});
-
-void test("mapUnaryOperator preserves unary plus operator", () => {
-    assert.equal(Transpiler.mapUnaryOperator("+"), "+");
-});
-
-void test("mapUnaryOperator returns unmapped operators unchanged", () => {
-    assert.equal(Transpiler.mapUnaryOperator("!"), "!");
-    assert.equal(Transpiler.mapUnaryOperator("++"), "++");
-    assert.equal(Transpiler.mapUnaryOperator("--"), "--");
-});
-
-// Test backward compatibility through GmlToJsEmitter methods
-void test("GmlToJsEmitter.mapOperator delegates to mapBinaryOperator", () => {
-    const emitter = new Transpiler.GmlToJsEmitter(Transpiler.makeDummyOracle());
-    assert.equal(emitter.mapOperator("div"), "/");
-    assert.equal(emitter.mapOperator("mod"), "%");
-    assert.equal(emitter.mapOperator("and"), "&&");
-    assert.equal(emitter.mapOperator("=="), "===");
-});
-
-void test("GmlToJsEmitter.mapUnaryOperator delegates to standalone function", () => {
-    const emitter = new Transpiler.GmlToJsEmitter(Transpiler.makeDummyOracle());
-    assert.equal(emitter.mapUnaryOperator("not"), "!");
-    assert.equal(emitter.mapUnaryOperator("~"), "~");
+    void it("passes through unknown operators unchanged", () => {
+        assert.strictEqual(mapUnaryOperator("???"), "???");
+        assert.strictEqual(mapUnaryOperator("custom_op"), "custom_op");
+    });
 });

@@ -1,6 +1,7 @@
 .DS_Store
 *.cpuprofile
 tmp/
+tmp-*/
 src/parser/.antlr/
 .tools/
 tools/
