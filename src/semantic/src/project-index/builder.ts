@@ -12,7 +12,6 @@ import { analyseResourceFiles, createFileScopeDescriptor } from "./resource-anal
 import { scanProjectTree } from "./project-tree.js";
 import { PROJECT_INDEX_BUILD_ABORT_MESSAGE, createProjectIndexAbortGuard } from "./abort-guard.js";
 import { loadBuiltInIdentifiers } from "./built-in-identifiers.js";
-import { cloneObjectEntries } from "./clone-object-entries.js";
 import { IdentifierRole, assertValidIdentifierRole } from "./identifier-roles.js";
 
 type BuildProjectIndexFunction = (
@@ -38,7 +37,7 @@ type ProjectIndexCoordinatorOptions = {
  */
 function cloneEntryCollections(entry, ...keys) {
     const source = Core.isObjectLike(entry) ? entry : {};
-    return Object.fromEntries(keys.map((key) => [key, cloneObjectEntries(source[key])]));
+    return Object.fromEntries(keys.map((key) => [key, Core.cloneObjectEntries(source[key])]));
 }
 export function createProjectIndexCoordinator(options: ProjectIndexCoordinatorOptions = {}) {
     const {
