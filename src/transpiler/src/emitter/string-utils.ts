@@ -91,14 +91,15 @@ export function normalizeStructKeyText(value: string): string {
     }
 
     // For double-quoted strings, use JSON.parse to handle escape sequences.
-    // For single-quoted strings or when JSON.parse fails, just remove quotes.
+    // For single-quoted strings or when JSON.parse fails, strip the quotes.
     if (first === '"') {
         try {
             return JSON.parse(value) as string;
         } catch {
-            // Malformed JSON; strip quotes and return raw content
+            // Malformed JSON; fall through to quote stripping below
         }
     }
 
+    // Strip surrounding quotes and return the raw content
     return value.slice(1, -1);
 }
