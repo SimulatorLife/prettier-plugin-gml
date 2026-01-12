@@ -221,7 +221,10 @@ function extractSortedPaths(fileMap: Map<string, string>): Array<string> {
     return [...fileMap.values()].sort((a, b) => a.localeCompare(b));
 }
 
-async function collectFixtureFilePaths(directories, pathFilterOptions) {
+async function collectFixtureFilePaths(
+    directories: ReadonlyArray<string>,
+    pathFilterOptions?: ReturnType<typeof createPathFilter>
+): Promise<Array<string>> {
     const pathFilter = createPathFilter(pathFilterOptions);
     const fileMap = new Map<string, string>();
 
