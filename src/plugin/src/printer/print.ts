@@ -1631,7 +1631,7 @@ function printBlockStatementNode(node, path, options, print) {
         // first statement, it will be reformatted as a line comment. We need to add
         // a blank line before it to maintain visual separation from the function header.
         const leadingComments = firstStatement.leadingComments || firstStatement.comments;
-        if (Array.isArray(leadingComments) && leadingComments.length > 0) {
+        if (Core.isNonEmptyArray(leadingComments)) {
             for (const comment of leadingComments) {
                 if (isDecorativeBlockComment(comment)) {
                     // Mark the comment to force a leading blank line
@@ -3284,7 +3284,7 @@ export function getSimpleAssignmentLikeEntry(
     const prefixLength = keyword.length + 1;
 
     let nameLength = (id.name as string).length;
-    if (Array.isArray(id._appliedFeatherDiagnostics) && id._appliedFeatherDiagnostics.length > 0) {
+    if (Core.isNonEmptyArray(id._appliedFeatherDiagnostics)) {
         const firstFix = id._appliedFeatherDiagnostics[0];
         if (firstFix && typeof firstFix.target === "string") {
             nameLength = firstFix.target.length;
@@ -3907,7 +3907,7 @@ function getOriginalIdentifierName(identifier) {
         return null;
     }
 
-    if (Array.isArray(identifier._appliedFeatherDiagnostics) && identifier._appliedFeatherDiagnostics.length > 0) {
+    if (Core.isNonEmptyArray(identifier._appliedFeatherDiagnostics)) {
         const firstFix = identifier._appliedFeatherDiagnostics[0];
         if (firstFix && typeof firstFix.target === "string") {
             return firstFix.target;
