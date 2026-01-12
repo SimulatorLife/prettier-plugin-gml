@@ -924,7 +924,7 @@ AVAILABLE_SUITES.set(MemorySuiteName.NORMALIZE_STRING_LIST, runNormalizeStringLi
 async function runParserAstSuite({ iterations }) {
     const tracker = createMemoryTracker({ requirePreciseGc: true });
     const requestedIterations = typeof iterations === "number" ? iterations : 1;
-    const effectiveIterations = Math.max(1, Math.min(requestedIterations, getMaxParserIterations()));
+    const effectiveIterations = Core.clamp(requestedIterations, 1, getMaxParserIterations());
 
     const { contents: source, path: samplePath } = await loadSampleText("parser:sample", PARSER_SAMPLE_RELATIVE_PATH);
 
@@ -969,7 +969,7 @@ async function runPluginFormatSuite({ iterations }) {
     const tracker = createMemoryTracker({ requirePreciseGc: true });
     const requestedIterations = typeof iterations === "number" ? iterations : 1;
     const maxIterations = getMaxFormatIterations();
-    const effectiveIterations = Math.max(1, Math.min(requestedIterations, maxIterations));
+    const effectiveIterations = Core.clamp(requestedIterations, 1, maxIterations);
 
     const notes = [];
     if (effectiveIterations !== requestedIterations) {
