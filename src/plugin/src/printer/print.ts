@@ -5615,31 +5615,9 @@ function shouldWrapTernaryExpression(path) {
         return false;
     }
 
-    const parent = callPathMethod(path, "getParentNode", {
-        defaultValue: null
-    });
-    if (!parent) {
-        return false;
-    }
-
-    if (parent.type === "ParenthesizedExpression") {
-        return false;
-    }
-
-    const parentKey = callPathMethod(path, "getName");
-
-    if (parent.type === "VariableDeclarator" && parentKey === "init") {
-        return true;
-    }
-
-    if (parent.type === "AssignmentExpression" && parentKey === "right") {
-        return true;
-    }
-
-    if (parent.type === "TemplateStringExpression") {
-        return true;
-    }
-
+    // Do not wrap ternary expressions in parentheses by default.
+    // The golden fixture tests expect ternary expressions to remain unwrapped
+    // in variable declarations, assignments, and template strings.
     return false;
 }
 
