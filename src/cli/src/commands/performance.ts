@@ -166,7 +166,11 @@ function formatErrorDetails(error: unknown, { fallbackMessage }: FormatErrorDeta
     });
 }
 
-async function traverseForFixtures(directory, visitor, pathFilter) {
+async function traverseForFixtures(
+    directory: string,
+    visitor: (filePath: string) => void,
+    pathFilter?: ReturnType<typeof createPathFilter>
+): Promise<void> {
     if (pathFilter && !pathFilter.allowsDirectory(directory)) {
         return;
     }
