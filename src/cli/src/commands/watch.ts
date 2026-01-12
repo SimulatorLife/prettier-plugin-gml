@@ -612,6 +612,18 @@ export async function runWatchCommand(targetPath: string, options: WatchCommandO
             });
             const formattedError = formatCliError(new Error(`Failed to start WebSocket server: ${message}`));
             console.error(formattedError);
+
+            if (runtimeServerController) {
+                try {
+                    await runtimeServerController.stop();
+                } catch (stopError) {
+                    const stopMessage = getErrorMessage(stopError, {
+                        fallback: "Unknown server stop error"
+                    });
+                    console.error(`Failed to stop runtime server during cleanup: ${stopMessage}`);
+                }
+            }
+
             process.exit(1);
         }
     } else if (verbose && !quiet) {
@@ -653,6 +665,29 @@ export async function runWatchCommand(targetPath: string, options: WatchCommandO
             });
             const formattedError = formatCliError(new Error(`Failed to start status server: ${message}`));
             console.error(formattedError);
+
+            if (runtimeServerController) {
+                try {
+                    await runtimeServerController.stop();
+                } catch (stopError) {
+                    const stopMessage = getErrorMessage(stopError, {
+                        fallback: "Unknown server stop error"
+                    });
+                    console.error(`Failed to stop runtime server during cleanup: ${stopMessage}`);
+                }
+            }
+
+            if (websocketServerController) {
+                try {
+                    await websocketServerController.stop();
+                } catch (stopError) {
+                    const stopMessage = getErrorMessage(stopError, {
+                        fallback: "Unknown server stop error"
+                    });
+                    console.error(`Failed to stop WebSocket server during cleanup: ${stopMessage}`);
+                }
+            }
+
             process.exit(1);
         }
     } else if (verbose && !quiet) {
