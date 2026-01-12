@@ -455,7 +455,7 @@ function normalizeTextBlock(block) {
     if (!block) {
         return null;
     }
-    if (block.type === "list" && Array.isArray(block.items) && block.items.length > 0) {
+    if (block.type === "list" && isNonEmptyArray(block.items)) {
         return getNonEmptyTrimmedString(block.items.join("\n"));
     }
     return getNonEmptyTrimmedString(block.text);

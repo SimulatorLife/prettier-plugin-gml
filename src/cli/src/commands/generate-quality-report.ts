@@ -16,6 +16,7 @@ const {
     compactArray,
     ensureMap,
     getErrorMessageOrFallback,
+    isNonEmptyArray,
     isNonEmptyTrimmedString,
     isObjectLike,
     toArray,
@@ -364,7 +365,7 @@ function normalizeLocator(testCase) {
     if (className) {
         return `class:${className}`.toLowerCase();
     }
-    if (Array.isArray(testCase?.suitePath) && testCase.suitePath.length > 0) {
+    if (isNonEmptyArray(testCase?.suitePath)) {
         return `suite:${testCase.suitePath.join("::")}`.toLowerCase();
     }
     return null;

@@ -13,6 +13,7 @@ import { Core } from "@gml-modules/core";
 import { Plugin } from "@gml-modules/plugin";
 
 const { runCliTestCommand } = CLI;
+const { isNonEmptyArray } = Core;
 
 class ExecFileAsyncError extends Error {
     public readonly code: number;
@@ -32,7 +33,7 @@ const execFileBase = promisify(execFile);
 const normalizeExecOutput = (value: string | Buffer) => (typeof value === "string" ? value : value.toString());
 
 async function execFileAsync(command: string, args: Array<string>, options?: ExecFileOptions) {
-    if (command === "node" && Array.isArray(args) && args.length > 0 && args[0] === wrapperPath) {
+    if (command === "node" && isNonEmptyArray(args) && args[0] === wrapperPath) {
         const [, ...cliArgs] = args;
         const result = await runCliTestCommand({
             argv: cliArgs,
