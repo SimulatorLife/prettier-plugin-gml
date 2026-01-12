@@ -179,7 +179,7 @@ jobs:
           mkdir -p reports
 
           # Run the CLI command with explicit paths to the downloaded artifacts
-          pnpm run cli -- generate-quality-report \
+          pnpm run cli generate-quality-report \
             --base report-base \
             --head report-head \
             --merge report-merge \

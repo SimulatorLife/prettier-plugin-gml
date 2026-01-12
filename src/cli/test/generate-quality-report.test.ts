@@ -8,7 +8,8 @@ import {
     detectResolvedFailures,
     readTestResults,
     ensureResultsAvailability,
-    reportRegressionSummary
+    reportRegressionSummary,
+    createGenerateQualityReportCommand
 } from "../src/commands/generate-quality-report.js";
 import { isCliUsageError } from "../src/cli-core/errors.js";
 
@@ -450,4 +451,51 @@ void test("readTestResults preserves project health stats when present", () => {
     const result = readTestResults(["reports"], { workspace });
 
     assert.deepStrictEqual(result.health, health);
+});
+
+void test("command accepts options without positional arguments", async () => {
+    const command = createGenerateQualityReportCommand();
+
+    // Parse the command with options (simulating CLI invocation)
+    // Note: When parseAsync is called on a subcommand directly, we don't pass the command name again
+    await command.parseAsync([
+        "node",
+        "cli.js",
+        "--base",
+        "report-base",
+        "--head",
+        "report-head",
+        "--merge",
+        "report-merge",
+        "--report-file",
+        "reports/summary-report.md"
+    ]);
+
+    const options = command.opts();
+
+    assert.strictEqual(options.base, "report-base");
+    assert.strictEqual(options.head, "report-head");
+    assert.strictEqual(options.merge, "report-merge");
+    assert.strictEqual(options.reportFile, "reports/summary-report.md");
+});
+
+void test("command rejects excess positional arguments", async () => {
+    const command = createGenerateQualityReportCommand();
+
+    // Try to parse with positional arguments (should fail)
+    await assert.rejects(
+        async () => {
+            await command.parseAsync(["node", "cli.js", "extra-arg", "--base", "report-base"]);
+        },
+        (error: unknown) => {
+            // Commander throws an error for excess arguments
+            const errorObj = error as { code?: string; message?: string };
+            return (
+                errorObj.code === "commander.excessArguments" ||
+                errorObj.message?.includes("too many arguments") ||
+                errorObj.message?.includes("excess arguments") ||
+                false
+            );
+        }
+    );
 });
