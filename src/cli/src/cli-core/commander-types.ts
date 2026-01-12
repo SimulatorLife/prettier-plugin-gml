@@ -33,7 +33,15 @@ export interface CommanderCommandHost extends CommanderUsageProvider, CommanderL
     action?: (handler: CommanderActionHandler) => unknown;
 }
 
-export interface CommanderProgramLike extends CommanderCommandHost {
+/**
+ * Command execution operations.
+ *
+ * Provides the core capability to parse arguments and execute command logic
+ * without coupling to configuration, help display, or option management.
+ * Consumers that only need to run commands (e.g., test harnesses) should
+ * depend on this interface rather than the full CommanderCommandLike.
+ */
+export interface CommanderExecutor extends CommanderCommandHost {
     parse?: (argv?: Array<string>, options?: CommanderParseOptions) => unknown;
     parseAsync?: (argv?: Array<string>, options?: CommanderParseOptions) => Promise<unknown>;
     args?: Array<string>;
@@ -41,11 +49,45 @@ export interface CommanderProgramLike extends CommanderCommandHost {
     opts?: () => Record<string, unknown>;
 }
 
-export interface CommanderCommandLike extends CommanderProgramLike {
+/**
+ * Command behavior configuration.
+ *
+ * Provides the ability to configure command behavior such as error handling,
+ * help display, and argument validation without coupling to execution or
+ * option value management. Used primarily during command initialization.
+ */
+export interface CommanderConfigurator {
     exitOverride?: (...args: Array<unknown>) => unknown;
     allowExcessArguments?: (allow?: boolean) => unknown;
     helpOption?: (flags?: string, description?: string) => unknown;
     showHelpAfterError?: (message?: string | boolean) => unknown;
     configureOutput?: (options: CommanderConfigureOutputOptions) => unknown;
+}
+
+/**
+ * Option value management.
+ *
+ * Provides the ability to set option values programmatically with source
+ * tracking without coupling to execution or configuration operations.
+ * Used primarily by environment variable override utilities.
+ */
+export interface CommanderOptionSetter {
     setOptionValueWithSource?: (optionName: string, value: unknown, source?: string) => unknown;
 }
+
+/**
+ * Legacy combined program interface.
+ *
+ * @deprecated Use CommanderExecutor for execution-only operations.
+ */
+export type CommanderProgramLike = CommanderExecutor;
+
+/**
+ * Complete command interface.
+ *
+ * Combines all role-focused interfaces for consumers that need full
+ * command capabilities. Consumers should prefer depending on the minimal
+ * interface they need (CommanderExecutor, CommanderConfigurator,
+ * CommanderOptionSetter) rather than this composite interface when possible.
+ */
+export interface CommanderCommandLike extends CommanderExecutor, CommanderConfigurator, CommanderOptionSetter {}
