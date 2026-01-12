@@ -469,7 +469,14 @@ export class GmlToJsEmitter {
                         return this.ensureStatementTermination(code);
                     })
                 );
-                // Skip empty case bodies (fall-through cases)
+                // Skip empty case bodies (fall-through cases). In GML and JavaScript,
+                // when a case has no body, execution falls through to the next case label.
+                // We don't emit any code for these empty cases—just the case header—so
+                // that the transpiled JavaScript preserves the same fall-through semantics.
+                // Attempting to emit a body for an empty case would either produce invalid
+                // syntax (empty block) or break fall-through behavior by inserting an
+                // unintended break statement, causing runtime behavior to diverge from
+                // the original GML logic.
                 if (!body) {
                     return header;
                 }

@@ -1091,7 +1091,14 @@ export class RefactorEngine {
         // Group edits by file
         const grouped = workspace.groupByFile();
 
-        // Check each file for hot reload compatibility
+        // Check each file for hot reload compatibility. Hot reload allows updating
+        // running code without restarting the entire application, but only when the
+        // changes don't break assumptions that the runtime depends on (e.g., function
+        // signatures, global state structure). We iterate through each modified file
+        // and validate that the proposed edits can be safely applied at runtime. If
+        // any file contains unsafe changes (e.g., renaming a constructor, changing
+        // event handlers), we flag it so the user knows a full restart is required
+        // instead of attempting a hot reload that would corrupt the running state.
         for (const [filePath, edits] of grouped.entries()) {
             // Validate file is a GML script (hot reloadable)
             if (!filePath.endsWith(".gml")) {
