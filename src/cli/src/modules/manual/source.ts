@@ -1,9 +1,13 @@
 import fs from "node:fs/promises";
 import path from "node:path";
-import { createRequire } from "node:module";
 
 import { Core } from "@gml-modules/core";
-import { resolveFromRepoRoot } from "../../shared/index.js";
+import {
+    resolveFromRepoRoot,
+    resolveCandidateRoot,
+    readPackageJson,
+    resolvePackageJsonPath
+} from "../../shared/index.js";
 
 const { assertNonEmptyString, getErrorMessageOrFallback, isFsErrorCode, resolveContainedRelativePath, toPosixPath } =
     Core;
@@ -21,34 +25,7 @@ export interface ManualSourceResolverOptions {
 
 export type ManualSourceResolver = (options?: ManualSourceResolverOptions) => Promise<ManualSourceDescriptor>;
 
-const require = createRequire(import.meta.url);
-
 const DEFAULT_MANUAL_ROOT = resolveFromRepoRoot("vendor", "GameMaker-Manual");
-
-function resolveCandidateRoot(manualRoot) {
-    if (!manualRoot) {
-        return null;
-    }
-
-    const normalized = path.resolve(manualRoot);
-    return { root: normalized, packageName: null, packageJson: null };
-}
-
-async function readPackageJson(packageJsonPath) {
-    const contents = await fs.readFile(packageJsonPath, "utf8");
-    return JSON.parse(contents);
-}
-
-function resolvePackageJsonPath(packageName) {
-    try {
-        return require.resolve(`${packageName}/package.json`);
-    } catch (error) {
-        const message = getErrorMessageOrFallback(error);
-        throw new Error(
-            `Unable to resolve manual package '${packageName}'. Install it or pass --manual-root. (${message})`
-        );
-    }
-}
 
 async function ensureDirectoryExists(root, { required, label }) {
     try {
@@ -98,7 +75,7 @@ export async function resolveManualSource({ manualRoot, manualPackage }: ManualS
         errorMessage: "Manual package name must be provided."
     });
 
-    const packageJsonPath = resolvePackageJsonPath(normalizedPackageName);
+    const packageJsonPath = resolvePackageJsonPath(normalizedPackageName, "manual");
     const packageJson = await readPackageJson(packageJsonPath);
     const root = path.dirname(packageJsonPath);
 
