@@ -1,3 +1,4 @@
+import { formatTypeValidationError } from "./error.js";
 import { toNormalizedInteger } from "./number.js";
 import { describeValueForError } from "./string.js";
 
@@ -57,7 +58,9 @@ function parseStringOption(
     return coerce(parsed, { received: `'${rawValue}'` });
 }
 
-function createTypeErrorMessage(typeErrorMessage, type) {
+function createTypeErrorMessage(typeErrorMessage, rawValue) {
+    const type = typeof rawValue;
+
     if (typeof typeErrorMessage === "function") {
         return typeErrorMessage(type);
     }
@@ -66,7 +69,7 @@ function createTypeErrorMessage(typeErrorMessage, type) {
         return typeErrorMessage;
     }
 
-    return `Value must be provided as a number (received type '${type}').`;
+    return formatTypeValidationError("a number", rawValue);
 }
 
 function coerceInteger(value: unknown, { min, received, createErrorMessage }: CoerceIntegerOptions) {
@@ -216,8 +219,7 @@ export function resolveIntegerOption(
         });
     }
 
-    const type = typeof rawValue;
-    throw new TypeError(createTypeErrorMessage(typeErrorMessage, type));
+    throw new TypeError(createTypeErrorMessage(typeErrorMessage, rawValue));
 }
 
 /**
