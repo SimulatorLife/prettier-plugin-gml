@@ -197,24 +197,43 @@ async function traverseForFixtures(directory, visitor, pathFilter) {
     }
 }
 
+/**
+ * Adds a file path to the deduplication map using its relative path as the key.
+ * Ensures each unique relative path appears only once in the collection.
+ *
+ * @param {Map<string, string>} fileMap - Map for deduplicating paths by relative key
+ * @param {string} filePath - Absolute path to the file
+ */
+function addUniqueFixturePath(fileMap: Map<string, string>, filePath: string): void {
+    const relative = path.relative(REPO_ROOT, filePath);
+    if (!fileMap.has(relative)) {
+        fileMap.set(relative, filePath);
+    }
+}
+
+/**
+ * Extracts and sorts file paths from the deduplication map.
+ *
+ * @param {Map<string, string>} fileMap - Map containing deduplicated file paths
+ * @returns {Array<string>} Sorted array of absolute file paths
+ */
+function extractSortedPaths(fileMap: Map<string, string>): Array<string> {
+    return [...fileMap.values()].sort((a, b) => a.localeCompare(b));
+}
+
 async function collectFixtureFilePaths(directories, pathFilterOptions) {
     const pathFilter = createPathFilter(pathFilterOptions);
-    const fileMap = new Map();
+    const fileMap = new Map<string, string>();
 
     for (const directory of directories) {
         await traverseForFixtures(
             directory,
-            (filePath) => {
-                const relative = path.relative(REPO_ROOT, filePath);
-                if (!fileMap.has(relative)) {
-                    fileMap.set(relative, filePath);
-                }
-            },
+            (filePath) => addUniqueFixturePath(fileMap, filePath),
             pathFilter
         );
     }
 
-    return [...fileMap.values()].sort((a, b) => a.localeCompare(b));
+    return extractSortedPaths(fileMap);
 }
 
 interface LoadFixtureDatasetOptions {
