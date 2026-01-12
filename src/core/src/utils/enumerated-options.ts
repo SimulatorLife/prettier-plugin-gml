@@ -20,7 +20,7 @@ export interface EnumeratedOptionHelpers {
  *
  * @param values - Iterable of valid enumerated values
  * @param options - Configuration options
- * @param options.formatError - Optional function to format validation error messages
+ * @param options.formatError - Optional function to format validation error messages (legacy: can be passed directly as function)
  * @param options.enforceStringType - If true, rejects non-string inputs early with TypeError
  * @param options.valueLabel - Label for the value type in error messages (only with enforceStringType)
  * @returns Frozen helper object with validation and normalization methods
@@ -49,32 +49,34 @@ export function createEnumeratedOptionHelpers(
               valueLabel?: string;
           }
 ): EnumeratedOptionHelpers {
-    const formatError = typeof options === "function" ? options : options?.formatError;
-    const enforceStringType = typeof options === "object" ? (options.enforceStringType ?? false) : false;
-    const valueLabel = typeof options === "object" ? options.valueLabel?.trim() || "Value" : "Value";
+    // Normalize options to object form for consistent handling
+    const config = typeof options === "function" ? { formatError: options } : (options ?? {});
+    const { formatError, enforceStringType = false, valueLabel = "Value" } = config;
 
     const valueSet = new Set(Array.from(values));
     const listLabel = [...valueSet].toSorted().join(", ");
+
+    // Shared normalization logic used by both normalize and requireValue
+    const tryNormalize = (value: unknown): EnumeratedValue | null => {
+        if (value == null || (enforceStringType && typeof value !== "string")) {
+            return null;
+        }
+        const normalized = toNormalizedLowerCaseString(value) as string;
+        return normalized && valueSet.has(normalized) ? normalized : null;
+    };
 
     return Object.freeze({
         valueSet,
         formatList: () => listLabel,
         normalize: (value: unknown, fallback: EnumeratedValue | null = null) => {
-            if (value == null) {
-                return fallback;
-            }
-            if (enforceStringType && typeof value !== "string") {
-                return fallback;
-            }
-            const normalized = toNormalizedLowerCaseString(value) as string;
-            return normalized && valueSet.has(normalized) ? normalized : fallback;
+            return tryNormalize(value) ?? fallback;
         },
         requireValue: (value: unknown, ErrorConstructor: new (message: string) => Error = Error) => {
             if (enforceStringType && typeof value !== "string") {
                 throw new TypeError(`${valueLabel} must be provided as a string (received type '${typeof value}').`);
             }
-            const normalized = toNormalizedLowerCaseString(value);
-            if (normalized && valueSet.has(normalized)) {
+            const normalized = tryNormalize(value);
+            if (normalized !== null) {
                 return normalized;
             }
             const received = describeValueForError(value);
