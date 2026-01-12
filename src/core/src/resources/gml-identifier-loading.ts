@@ -1,12 +1,10 @@
-import { createRequire } from "node:module";
+import fs from "node:fs";
 
 import { resolveBundledResourcePath, resolveBundledResourceUrl } from "./resource-locator.js";
 
 import { noop } from "../utils/function.js";
 import { isObjectLike } from "../utils/object.js";
 import { getNonEmptyString } from "../utils/string.js";
-
-const require = createRequire(import.meta.url);
 
 export const GML_IDENTIFIER_METADATA_URL = resolveBundledResourceUrl("gml-identifiers.json");
 
@@ -22,7 +20,8 @@ export const GML_IDENTIFIER_METADATA_PATH = resolveBundledResourcePath("gml-iden
  * @returns {unknown} Raw identifier metadata payload bundled with the package.
  */
 export function loadBundledIdentifierMetadata() {
-    return require(GML_IDENTIFIER_METADATA_PATH);
+    const contents = fs.readFileSync(GML_IDENTIFIER_METADATA_PATH, "utf8");
+    return JSON.parse(contents);
 }
 
 /** @type {unknown | null} */
