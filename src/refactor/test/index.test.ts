@@ -699,9 +699,7 @@ void test("prepareRenamePlan optionally validates hot reload compatibility", asy
     assert.equal(result.validation.valid, true);
     assert.ok(result.hotReload);
     assert.equal(result.hotReload.valid, true);
-    assert.ok(
-        result.hotReload.warnings.some((warning) => warning.includes("Transpiler compatibility check requested"))
-    );
+    assert.ok(result.hotReload.warnings.some((warning) => warning.includes("Transpiler compatibility validated")));
 });
 
 void test("prepareRenamePlan surfaces hot reload safety for macro renames", async () => {
@@ -1683,6 +1681,87 @@ void test("validateHotReloadCompatibility passes for simple renames", async () =
     const result = await engine.validateHotReloadCompatibility(ws);
     assert.equal(result.valid, true);
     assert.equal(result.errors.length, 0);
+});
+
+void test("validateHotReloadCompatibility detects transpilation failures", async () => {
+    const mockTranspiler = {
+        transpileScript: async ({ symbolId }: { symbolId: string }) => {
+            throw new Error(`Syntax error in ${symbolId}`);
+        }
+    };
+    const engine = new RefactorEngineClass({ formatter: mockTranspiler });
+    const ws = new WorkspaceEditFactory();
+    ws.addEdit("test.gml", 0, 5, "invalid GML syntax @#$");
+
+    const result = await engine.validateHotReloadCompatibility(ws, {
+        checkTranspiler: true
+    });
+    assert.equal(result.valid, false);
+    assert.ok(result.errors.length > 0);
+    assert.ok(result.errors.some((e) => e.includes("Transpilation failed")));
+    assert.ok(result.errors.some((e) => e.includes("Syntax error")));
+});
+
+void test("validateHotReloadCompatibility handles multiple files", async () => {
+    const transpiledSymbols: Array<string> = [];
+    const mockTranspiler = {
+        transpileScript: async ({ symbolId }: { symbolId: string }) => {
+            transpiledSymbols.push(symbolId);
+            return { kind: "script", js_body: "ok" };
+        }
+    };
+    const mockSemantic = {
+        getFileSymbols: async (filePath: string) => {
+            if (filePath === "file1.gml") {
+                return [{ id: "gml/script/scr_file1" }];
+            }
+            if (filePath === "file2.gml") {
+                return [{ id: "gml/script/scr_file2" }];
+            }
+            return [];
+        }
+    };
+    const engine = new RefactorEngineClass({
+        formatter: mockTranspiler,
+        semantic: mockSemantic
+    });
+    const ws = new WorkspaceEditFactory();
+    ws.addEdit("file1.gml", 0, 5, "code1");
+    ws.addEdit("file2.gml", 0, 5, "code2");
+
+    const result = await engine.validateHotReloadCompatibility(ws, {
+        checkTranspiler: true
+    });
+
+    assert.equal(result.valid, true);
+    assert.equal(result.errors.length, 0);
+    assert.ok(result.warnings.some((w) => w.includes("Transpiler compatibility validated")));
+    assert.ok(result.warnings.some((w) => w.includes("2 file(s)")));
+    assert.ok(transpiledSymbols.includes("gml/script/scr_file1"));
+    assert.ok(transpiledSymbols.includes("gml/script/scr_file2"));
+});
+
+void test("validateHotReloadCompatibility skips non-GML files", async () => {
+    const transpiledSymbols: Array<string> = [];
+    const mockTranspiler = {
+        transpileScript: async ({ symbolId }: { symbolId: string }) => {
+            transpiledSymbols.push(symbolId);
+            return { kind: "script", js_body: "ok" };
+        }
+    };
+    const engine = new RefactorEngineClass({ formatter: mockTranspiler });
+    const ws = new WorkspaceEditFactory();
+    ws.addEdit("test.txt", 0, 5, "text");
+    ws.addEdit("test.json", 0, 5, "{}");
+
+    const result = await engine.validateHotReloadCompatibility(ws, {
+        checkTranspiler: true
+    });
+
+    assert.equal(result.valid, true);
+    assert.equal(result.errors.length, 0);
+    assert.equal(transpiledSymbols.length, 0);
+    assert.ok(result.warnings.some((w) => w.includes("No GML files found")));
 });
 
 // Hot reload cascade tests
