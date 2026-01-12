@@ -7,3 +7,5 @@ export { createSemanticOracle } from "./semantic-factory.js";
 export { isIdentifierLike, escapeTemplateText, stringifyStructKey, normalizeStructKeyText } from "./string-utils.js";
 export { lowerWithStatement } from "./with-lowering.js";
 export { lowerEnumDeclaration } from "./enum-lowering.js";
+export { mapBinaryOperator, mapUnaryOperator } from "./operator-mapping.js";
+export { wrapConditional, wrapConditionalBody, wrapRawBody } from "./code-wrapping.js";
