@@ -12,7 +12,12 @@ import {
     type SymbolResolver,
     type FileSymbolProvider
 } from "./types.js";
-import { assertValidIdentifierName, DEFAULT_RESERVED_KEYWORDS, hasMethod } from "./validation-utils.js";
+import {
+    assertValidIdentifierName,
+    extractSymbolName,
+    DEFAULT_RESERVED_KEYWORDS,
+    hasMethod
+} from "./validation-utils.js";
 import { Core } from "@gml-modules/core";
 
 /**
@@ -198,7 +203,8 @@ export async function validateRenameStructure(
         return [Core.getErrorMessage(error)];
     }
 
-    const symbolName = symbolId.split("/").pop() ?? symbolId;
+    // Extract symbol name from ID
+    const symbolName = extractSymbolName(symbolId);
 
     if (symbolName === newName) {
         return [`The new name '${newName}' matches the existing identifier`];

@@ -26,6 +26,7 @@ import {
     assertArray,
     assertFunction,
     assertNonEmptyString,
+    extractSymbolName,
     hasMethod
 } from "./validation-utils.js";
 import { detectRenameConflicts } from "./validation.js";
@@ -219,7 +220,7 @@ export async function computeHotReloadCascade(
                     // If we haven't visited this dependent yet, explore it
                     if (!visited.has(depId)) {
                         const newDistance = currentDistance + 1;
-                        const reason = `depends on ${symbolId.split("/").pop()} (${parentReason})`;
+                        const reason = `depends on ${extractSymbolName(symbolId)} (${parentReason})`;
 
                         cascade.set(depId, {
                             symbolId: depId,
@@ -645,7 +646,7 @@ export async function computeRenameImpactGraph(
     assertNonEmptyString(symbolId, "a valid symbolId", "computeRenameImpactGraph");
 
     const nodes = new Map<string, RenameImpactNode>();
-    const symbolName = symbolId.split("/").pop() ?? symbolId;
+    const symbolName = extractSymbolName(symbolId);
 
     // Initialize root node
     nodes.set(symbolId, {
@@ -687,7 +688,7 @@ export async function computeRenameImpactGraph(
 
         for (const dep of dependents) {
             const depId = dep.symbolId;
-            const depName = depId.split("/").pop() ?? depId;
+            const depName = extractSymbolName(depId);
 
             // Add dependent edge to current node
             const currentNode = nodes.get(currentId);

@@ -35,6 +35,7 @@ import {
     assertArray,
     assertFunction,
     assertNonEmptyString,
+    extractSymbolName,
     hasMethod
 } from "./validation-utils.js";
 import { detectCircularRenames, detectRenameConflicts } from "./validation.js";
@@ -175,7 +176,7 @@ export class RefactorEngine {
         // Symbol IDs follow the pattern "gml/{kind}/{name}" where {name} is the
         // last path component (e.g., "gml/script/scr_foo" → "scr_foo").
         // This name is used to search for all occurrences in the codebase.
-        const symbolName = symbolId.split("/").pop() ?? symbolId;
+        const symbolName = extractSymbolName(symbolId);
 
         if (symbolName === normalizedNewName) {
             errors.push(`The new name '${normalizedNewName}' matches the existing identifier`);
@@ -371,7 +372,7 @@ export class RefactorEngine {
 
         const circularChain = detectCircularRenames(validRenames);
         if (circularChain.length > 0) {
-            const chain = circularChain.map((id) => id.split("/").pop()).join(" → ");
+            const chain = circularChain.map((id) => extractSymbolName(id)).join(" → ");
             errors.push(`Circular rename chain detected: ${chain}. Cannot rename symbols in a cycle.`);
             conflictingSets.push(circularChain);
         }
@@ -383,7 +384,7 @@ export class RefactorEngine {
 
         // First pass: collect all old and new names
         for (const rename of validRenames) {
-            const oldName = rename.symbolId.split("/").pop();
+            const oldName = extractSymbolName(rename.symbolId);
             if (oldName) {
                 oldNames.add(oldName);
             }
@@ -402,7 +403,7 @@ export class RefactorEngine {
 
         // Second pass: detect confusion where new name was an old name
         for (const rename of validRenames) {
-            const oldName = rename.symbolId.split("/").pop();
+            const oldName = extractSymbolName(rename.symbolId);
             if (!oldName) {
                 continue;
             }
@@ -463,7 +464,7 @@ export class RefactorEngine {
         // Extract the symbol's base name from its fully-qualified ID by taking the
         // last path component. For example, "gml/script/scr_foo" becomes "scr_foo",
         // which we use to search for all occurrences in the codebase.
-        const symbolName = symbolId.split("/").pop() ?? symbolId;
+        const symbolName = extractSymbolName(symbolId);
 
         if (symbolName === normalizedNewName) {
             throw new Error(`The new name '${normalizedNewName}' matches the existing identifier`);
@@ -677,7 +678,7 @@ export class RefactorEngine {
         // and checking for strongly connected components.
         const circularChain = detectCircularRenames(renames);
         if (circularChain.length > 0) {
-            const chain = circularChain.map((id) => id.split("/").pop()).join(" → ");
+            const chain = circularChain.map((id) => extractSymbolName(id)).join(" → ");
             throw new Error(
                 `Circular rename chain detected: ${chain}. ` +
                     `Cannot rename symbols in a cycle as it would create conflicts.`
@@ -999,7 +1000,7 @@ export class RefactorEngine {
                     valid: false,
                     summary: {
                         symbolId: rename.symbolId,
-                        oldName: rename.symbolId.split("/").pop() ?? rename.symbolId,
+                        oldName: extractSymbolName(rename.symbolId),
                         newName: rename.newName,
                         affectedFiles: [],
                         totalOccurrences: 0,
@@ -1156,7 +1157,7 @@ export class RefactorEngine {
 
         const normalizedNewName = assertValidIdentifierName(newName);
 
-        const oldName = symbolId.split("/").pop() ?? symbolId;
+        const oldName = extractSymbolName(symbolId);
         const summary = {
             symbolId,
             oldName,
