@@ -72,7 +72,8 @@ export {
     detectRenameConflicts,
     detectCircularRenames,
     validateRenameStructure,
-    batchValidateScopeConflicts
+    batchValidateScopeConflicts,
+    validateCrossFileConsistency
 } from "./validation.js";
 
 export {
