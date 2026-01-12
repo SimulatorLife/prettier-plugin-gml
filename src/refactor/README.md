@@ -98,6 +98,45 @@ This is essential for:
 - Automated refactoring tools
 - Ensuring atomicity and consistency in complex rename operations
 
+### Cross-File Consistency Validation
+
+Ensure renames maintain semantic consistency across file boundaries:
+
+```javascript
+import { validateCrossFileConsistency } from "@gml-modules/refactor";
+
+// Get occurrences for the symbol being renamed
+const occurrences = await engine.gatherSymbolOccurrences("scr_player");
+
+// Validate cross-file consistency
+const errors = await validateCrossFileConsistency(
+    "gml/script/scr_player",
+    "scr_hero",
+    occurrences,
+    semantic
+);
+
+if (errors.length > 0) {
+    console.error("Cross-file issues detected:");
+    for (const error of errors) {
+        if (error.severity === "warning") {
+            console.warn(`  [${error.type}] ${error.message} in ${error.path}`);
+        } else {
+            console.error(`  [${error.type}] ${error.message} in ${error.path}`);
+        }
+    }
+} else {
+    console.log("✓ Rename maintains cross-file semantic consistency");
+}
+```
+
+This validation is particularly useful for:
+- Multi-file refactorings where symbols are imported/exported
+- Detecting file-level symbol name conflicts before applying renames
+- Warning about large-scale renames that affect many occurrences in a single file
+- IDE integrations that need to show file-specific validation errors
+- Ensuring import statements and references remain valid after renaming
+
 ### Structural Validation (Pre-flight Check)
 
 Validate rename request structure before expensive operations like gathering occurrences. This provides fast fail-fast feedback for IDE integrations and CLI tools:
@@ -761,6 +800,12 @@ Standalone utilities for validating rename requests:
   - Returns map of scope IDs to conflict information
   - Essential for hot reload scenarios where many symbols need validation quickly
   - Reduces validation overhead by checking each unique scope only once
+- `async validateCrossFileConsistency(symbolId, newName, occurrences, fileProvider)` - Validate cross-file semantic consistency for renames
+  - Checks whether renaming would create ambiguous references across files
+  - Detects file-level symbol conflicts where new name already exists
+  - Warns about large rename operations (>20 occurrences per file)
+  - Essential for multi-file refactorings and ensuring import/export consistency
+  - Returns array of conflict entries with file paths and severity levels
 
 ### Occurrence Analysis Functions
 

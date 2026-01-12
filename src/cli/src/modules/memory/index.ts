@@ -33,6 +33,7 @@ import {
 import { importPluginModule } from "../plugin-runtime-dependencies.js";
 
 const { formatByteSize } = Reporting;
+import type { CommanderOptionSetter, CommanderCommandLike } from "../../cli-core/commander-types.js";
 
 const {
     appendToCollection,
@@ -747,7 +748,7 @@ export {
 export { resolveMemoryIterations, resolveMemoryReportDirectory, resolveMemoryReportFileName };
 
 interface MemoryEnvOptionOverridesContext {
-    command?: CommanderCommandLike;
+    command?: CommanderOptionSetter;
     env?: NodeJS.ProcessEnv;
 }
 
