@@ -536,6 +536,7 @@ export interface ConflictEntry {
     message: string;
     severity?: string;
     path?: string;
+    suggestions?: Array<string>;
 }
 
 export type WorkspaceReadFile = (path: string) => MaybePromise<string>;
