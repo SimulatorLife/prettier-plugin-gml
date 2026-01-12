@@ -457,9 +457,10 @@ void test("readTestResults preserves project health stats when present", () => {
 void test("command accepts options without positional arguments", async () => {
     const command = createGenerateQualityReportCommand();
 
-    // Parse the command with options (simulating CLI invocation)
-    // Note: When parseAsync is called on a subcommand object directly, we don't include
-    // the subcommand name (e.g., 'generate-quality-report') in the argv array, only the options.
+    // Test that the command can be invoked with only options, no positional arguments.
+    // When testing a subcommand directly via parseAsync, we simulate a CLI invocation
+    // with argv containing the process name and script, but the subcommand name itself
+    // is handled by the Commander.js framework through the Command instance.
     await command.parseAsync([
         "node",
         "cli.js",
@@ -490,16 +491,13 @@ void test("command rejects excess positional arguments", async () => {
             await command.parseAsync(["node", "cli.js", "extra-arg", "--base", "report-base"]);
         },
         (error: unknown) => {
-            // Commander throws an error for excess arguments
+            // Commander.js should throw a specific error for excess arguments
             if (!isCommanderErrorLike(error)) {
                 return false;
             }
 
-            return (
-                error.code === "commander.excessArguments" ||
-                error.message.includes("too many arguments") ||
-                error.message.includes("excess arguments")
-            );
+            // Rely on the specific error code rather than message content
+            return error.code === "commander.excessArguments";
         }
     );
 });
