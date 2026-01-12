@@ -31,9 +31,9 @@ import {
     Reporting
 } from "../../shared/index.js";
 import { importPluginModule } from "../plugin-runtime-dependencies.js";
+import type { CommanderOptionSetter } from "../../cli-core/commander-types.js";
 
 const { formatByteSize } = Reporting;
-import type { CommanderOptionSetter, CommanderCommandLike } from "../../cli-core/commander-types.js";
 
 const {
     appendToCollection,

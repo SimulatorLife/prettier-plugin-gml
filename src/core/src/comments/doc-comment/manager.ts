@@ -139,11 +139,17 @@ function normalizeDocCommentWhitespace(ast) {
 
     for (const comment of comments) {
         if (
-            comment?.type === "CommentLine" &&
-            typeof comment.leadingWS === "string" &&
-            /(?:\r\n|\r|\n|\u2028|\u2029)\s*(?:\r\n|\r|\n|\u2028|\u2029)/.test(comment.leadingWS)
+            typeof comment === "object" &&
+            comment !== null &&
+            "type" in comment &&
+            (comment as { type: unknown }).type === "CommentLine" &&
+            "leadingWS" in comment &&
+            typeof (comment as { leadingWS: unknown }).leadingWS === "string" &&
+            /(?:\r\n|\r|\n|\u2028|\u2029)\s*(?:\r\n|\r|\n|\u2028|\u2029)/.test(
+                (comment as { leadingWS: string }).leadingWS
+            )
         ) {
-            comment.leadingWS = "\n";
+            (comment as { leadingWS: string }).leadingWS = "\n";
         }
     }
 }
@@ -172,7 +178,16 @@ function mapDocCommentsToFunctions(ast) {
             continue;
         }
 
-        const commentIndex = typeof comment?.start === "number" ? comment.start : (comment?.start?.index ?? null);
+        const commentStart =
+            typeof comment === "object" && comment !== null && "start" in comment
+                ? (comment as { start: unknown }).start
+                : null;
+        const commentIndex =
+            typeof commentStart === "number"
+                ? commentStart
+                : typeof commentStart === "object" && commentStart !== null && "index" in commentStart
+                  ? (commentStart as { index: unknown }).index
+                  : null;
         if (typeof commentIndex !== "number") {
             continue;
         }

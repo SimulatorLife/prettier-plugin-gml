@@ -112,7 +112,10 @@ function extractInitializerText(initializer) {
 function collectTrailingEnumComments(member) {
     const trailingComments = getCommentArray(member).filter(
         (comment) =>
-            comment && typeof comment === "object" && (comment.trailing === true || comment.placement === "endOfLine")
+            comment &&
+            typeof comment === "object" &&
+            (("trailing" in comment && (comment as { trailing: unknown }).trailing === true) ||
+                ("placement" in comment && (comment as { placement: unknown }).placement === "endOfLine"))
     );
 
     return trailingComments.length > 0 ? trailingComments : null;
