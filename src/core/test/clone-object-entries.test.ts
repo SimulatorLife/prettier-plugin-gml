@@ -1,7 +1,7 @@
 import assert from "node:assert/strict";
 import test from "node:test";
 
-import { cloneObjectEntries } from "../src/project-index/clone-object-entries.js";
+import { cloneObjectEntries } from "../src/utils/array.js";
 
 void test("cloneObjectEntries shallowly clones object entries", () => {
     const original = [{ value: 1 }, { value: 2 }];

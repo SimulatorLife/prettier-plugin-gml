@@ -7,7 +7,6 @@ export * from "./constants.js";
 export * from "./concurrency.js";
 export * from "./identifier-roles.js";
 export * from "./path-info.js";
-export * from "./clone-object-entries.js";
 export * from "./built-in-identifiers.js";
 export * from "./metrics.js";
 export * from "./project-root.js";
