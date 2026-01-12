@@ -1370,9 +1370,16 @@ export class ScopeTracker {
             }
         ];
 
-        // 1. Always include the scope itself
+        // 1. Always include the scope itself (already added to invalidationSet above)
 
-        // 2. Include all transitive dependents
+        // 2. Include all transitive dependents. These are scopes that depend on
+        // the target scope either directly (distance 1) or indirectly through a
+        // chain of dependencies (distance 2+). Computing the transitive closure
+        // ensures we capture the full impact of a change to `scopeId`, not just
+        // the immediate dependents. This is critical for hot-reload validation,
+        // where we must reload all transitively impacted scopes to maintain
+        // runtime consistency—missing a transitive dependent would leave stale
+        // code executing, causing subtle bugs or crashes.
         const dependents = this.getTransitiveDependents(scopeId);
         for (const dep of dependents) {
             invalidationSet.push({
@@ -1382,7 +1389,15 @@ export class ScopeTracker {
             });
         }
 
-        // 3. Optionally include descendant scopes
+        // 3. Optionally include descendant scopes. Descendants are scopes nested
+        // inside the target scope (e.g., block scopes within a function, local
+        // variables within a loop). When `includeDescendants` is true, we add
+        // these to the result set because changes to a parent scope can affect
+        // nested scopes' behavior (e.g., renaming a function parameter impacts
+        // all references inside the function body). Including descendants ensures
+        // the invalidation set captures both "upstream" dependents (scopes that
+        // reference this one) and "downstream" children (scopes defined inside
+        // this one), providing a complete picture of the scope's impact radius.
         if (includeDescendants) {
             const descendants = this.getDescendantScopes(scopeId);
             for (const desc of descendants) {

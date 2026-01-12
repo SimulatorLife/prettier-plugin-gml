@@ -42,17 +42,30 @@ type MemberIndexNode = {
 function inferAccessorFromVariableName(name: string): string | null {
     const lowerName = name.toLowerCase();
 
-    // Check for list indicators
+    // Check for list indicators. GameMaker uses a naming convention where variables
+    // holding list data structures often contain "list" or "lst" in their names (e.g.,
+    // `enemyList`, `inventoryLst`). This heuristic lets the normalizer infer that
+    // accessor operations on these variables should use the list accessor syntax `[|`.
+    // Without this inference, the formatter couldn't automatically suggest or apply
+    // idiomatic data structure access patterns, leaving developers to manually convert
+    // generic function calls to structured accessor syntax.
     if (lowerName.includes("list") || lowerName.includes("lst")) {
         return "[|";
     }
 
-    // Check for map indicators
+    // Check for map indicators. Variables holding map data structures typically include
+    // "map" in their names (e.g., `configMap`, `playerMap`). Detecting this pattern
+    // allows the normalizer to recommend the map accessor syntax `[?`, ensuring that
+    // map operations use GameMaker's structured accessor notation instead of legacy
+    // function-call forms like `ds_map_find_value(myMap, key)`.
     if (lowerName.includes("map")) {
         return "[?";
     }
 
-    // Check for grid indicators
+    // Check for grid indicators. Variables holding grid data structures often contain
+    // "grid" in their names (e.g., `terrainGrid`, `gameGrid`). Identifying these lets
+    // the normalizer recommend the grid accessor syntax `[#`, promoting consistent use
+    // of GameMaker's modern structured access notation for multi-dimensional data.
     if (lowerName.includes("grid")) {
         return "[#";
     }

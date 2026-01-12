@@ -226,7 +226,15 @@ export class GMLParser {
         }
 
         if (this.options.getComments) {
-            // Reset the lexer to the beginning of the input stream
+            // Reset the lexer to the beginning of the input stream. This is critical
+            // because the lexer maintains internal position state from the previous parse
+            // attempt. If we don't reset it, the lexer would start tokenizing from wherever
+            // it stopped during the main parse (e.g., midway through the file), causing
+            // the comment extraction pass to miss leading comments or produce corrupted
+            // token positions. Resetting ensures the comment pass starts fresh, treating
+            // the input as a complete document. Without this reset, comment attachment
+            // would be unreliable, and users would see missing or misplaced comments in
+            // the formatted output.
             lexer.reset();
             (chars as any).seek(0);
             lexer.ignoreNewline = false;

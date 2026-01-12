@@ -261,6 +261,12 @@ export async function batchValidateScopeConflicts(
     try {
         normalizedNewName = assertValidIdentifierName(newName);
     } catch {
+        // Return early if the new name is syntactically invalid (e.g., reserved
+        // keyword, contains illegal characters). There's no point checking for
+        // conflicts when the rename target itself is malformed—validation will
+        // fail at the assertion stage anyway. Returning the empty conflicts array
+        // here keeps the caller's error reporting focused on the primary validation
+        // failure rather than cascading into false-positive conflict detection.
         return conflicts;
     }
 

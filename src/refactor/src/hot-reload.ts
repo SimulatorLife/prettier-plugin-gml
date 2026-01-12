@@ -145,7 +145,13 @@ export async function computeHotReloadCascade(
     const circular: Array<Array<string>> = [];
     const dependencyGraph = new Map<string, Array<string>>();
 
-    // Initialize changed symbols at distance 0
+    // Initialize changed symbols at distance 0. These are the root symbols directly
+    // modified by the user (e.g., a renamed function or edited variable). All other
+    // symbols in the cascade are transitively impacted through dependency edges.
+    // Starting with distance=0 establishes the baseline for computing how far each
+    // dependent is from the original change, which is critical for prioritizing
+    // hot-reload patches (closer symbols reload first) and for generating meaningful
+    // impact reports that show developers the ripple effects of their edits.
     for (const symbolId of changedSymbolIds) {
         cascade.set(symbolId, {
             symbolId,
@@ -269,7 +275,14 @@ export async function computeHotReloadCascade(
         }
     }
 
-    // Process symbols with no incoming edges first (leaves of dependency tree)
+    // Process symbols with no incoming edges first (leaves of dependency tree).
+    // In a dependency graph, leaves are symbols that other symbols depend on but
+    // which themselves have no dependencies. Processing these first is essential
+    // for hot-reload because we must reload foundational symbols before their
+    // dependents—attempting to reload a dependent before its dependencies are
+    // ready would trigger runtime errors. This topological sort ensures the reload
+    // sequence is safe and deterministic, preventing cascade failures where one
+    // bad reload corrupts the entire symbol table.
     const queue: Array<string> = [];
     for (const [symbolId, degree] of inDegree.entries()) {
         if (degree === 0) {
@@ -648,7 +661,14 @@ export async function computeRenameImpactGraph(
     const nodes = new Map<string, RenameImpactNode>();
     const symbolName = extractSymbolName(symbolId);
 
-    // Initialize root node
+    // Initialize root node. This is the starting point for the breadth-first
+    // traversal that will explore all transitive dependents. Setting distance=0
+    // and isDirectlyAffected=true marks this as the origin symbol (the one being
+    // renamed), which allows downstream logic to distinguish between the renamed
+    // symbol itself and its transitive dependents. The root node anchors the
+    // impact graph so we can trace back from any dependent to understand the
+    // chain of references that caused it to be affected, and provides the baseline
+    // for estimating reload times during hot-reload operations.
     nodes.set(symbolId, {
         symbolId,
         symbolName,
@@ -696,7 +716,13 @@ export async function computeRenameImpactGraph(
                 currentNode.dependents.push(depId);
             }
 
-            // Skip if already visited to prevent cycles
+            // Skip if already visited to prevent infinite cycles in the dependency
+            // graph. Without this guard, circular dependencies (A→B→C→A) would cause
+            // the traversal to loop indefinitely, consuming unbounded memory and CPU.
+            // The visited set acts as a termination condition: once a symbol has been
+            // explored, we record its impact and move on. Removing this check would
+            // break hot-reload analysis for any project with mutual dependencies,
+            // which are common in GameMaker codebases (e.g., state machines, observers).
             if (visited.has(depId)) {
                 continue;
             }
