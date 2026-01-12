@@ -227,7 +227,7 @@ function extractSortedPaths(fileMap: Map<string, string>): Array<string> {
 
 async function collectFixtureFilePaths(
     directories: ReadonlyArray<string>,
-    pathFilterOptions?: ReturnType<typeof createPathFilter>
+    pathFilterOptions?: Parameters<typeof createPathFilter>[0]
 ): Promise<Array<string>> {
     const pathFilter = createPathFilter(pathFilterOptions);
     const fileMap = new Map<string, string>();
