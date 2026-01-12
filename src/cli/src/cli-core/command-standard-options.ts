@@ -1,5 +1,5 @@
 import { Core } from "@gml-modules/core";
-import type { CommanderCommandLike } from "./commander-types.js";
+import type { CommanderConfigurator } from "./commander-types.js";
 
 const { noop } = Core;
 
@@ -16,12 +16,12 @@ const DEFAULT_HELP_AFTER_ERROR = "(add --help for usage information)";
  * returns the same command so call sites can continue chaining additional
  * configuration without re-validating the object.
  *
- * @template {import("commander").Command} TCommand
+ * @template {CommanderConfigurator} TCommand
  * @param {TCommand} command Commander command that should expose the standard
  *        help semantics.
  * @returns {TCommand} The original command for fluent chaining.
  */
-export function applyStandardCommandOptions<TCommand extends CommanderCommandLike>(command: TCommand): TCommand {
+export function applyStandardCommandOptions<TCommand extends CommanderConfigurator>(command: TCommand): TCommand {
     if (!command || typeof command.exitOverride !== "function") {
         throw new TypeError("applyStandardCommandOptions expects a Commander Command instance.");
     }

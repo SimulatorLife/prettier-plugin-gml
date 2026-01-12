@@ -64,12 +64,21 @@ jobs:
           ref: ${{ steps.ref.outputs.ref }}
         continue-on-error: ${{ matrix.target == 'merge' }}
 
+      - name: Read Node version from .nvmrc
+        id: node-version
+        run: echo "version=$(cat .nvmrc)" >> "$GITHUB_OUTPUT"
+
       - name: Setup Node (${{ matrix.target }})
         uses: actions/setup-node@v4
         with:
-          node-version-file: .nvmrc
+          node-version: ${{ steps.node-version.outputs.version }}
           cache: 'pnpm'
           cache-dependency-path: pnpm-lock.yaml
+
+      - name: Enable pnpm via Corepack (${{ matrix.target }})
+        run: |
+          corepack enable
+          corepack prepare pnpm@9.0.0 --activate
 
       - name: Install deps (${{ matrix.target }})
         run: pnpm install --frozen-lockfile
@@ -131,12 +140,21 @@ jobs:
       - name: Checkout repo (for scripts)
         uses: actions/checkout@v4
 
+      - name: Read Node version from .nvmrc
+        id: node-version-summary
+        run: echo "version=$(cat .nvmrc)" >> "$GITHUB_OUTPUT"
+
       - name: Setup Node
         uses: actions/setup-node@v4
         with:
-          node-version-file: .nvmrc
+          node-version: ${{ steps.node-version-summary.outputs.version }}
           cache: 'pnpm'
           cache-dependency-path: pnpm-lock.yaml
+
+      - name: Enable pnpm via Corepack (summary)
+        run: |
+          corepack enable
+          corepack prepare pnpm@9.0.0 --activate
 
       - name: Install deps
         run: pnpm install --frozen-lockfile

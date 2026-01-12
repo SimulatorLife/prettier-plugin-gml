@@ -464,11 +464,7 @@ function scanResultDirectory(directory, root) {
     }
 
     const allFiles = listFilesRecursive(directory.resolved);
-    const xmlFiles = allFiles.filter((file) => file.endsWith(".xml"));
-    const lcovFiles = allFiles.filter((file) => path.basename(file) === "lcov.info");
-    const checkstyleFiles = allFiles.filter((file) => /checkstyle/i.test(path.basename(file)));
-    const jscpdFiles = allFiles.filter((file) => path.basename(file) === "jscpd-report.json");
-    const healthFiles = allFiles.filter((file) => path.basename(file) === "project-health.json");
+    const { xmlFiles, lcovFiles, checkstyleFiles, jscpdFiles, healthFiles } = classifyReportFiles(allFiles);
 
     if (xmlFiles.length === 0) {
         return {
@@ -540,6 +536,63 @@ function readProjectHealth(files) {
 
 function isExistingDirectory(resolvedPath) {
     return fs.existsSync(resolvedPath) && fs.statSync(resolvedPath).isDirectory();
+}
+
+/**
+ * Check if a file path represents an XML file.
+ */
+function isXmlFile(filePath: string): boolean {
+    return filePath.endsWith(".xml");
+}
+
+/**
+ * Check if a file path represents an LCOV coverage file.
+ */
+function isLcovFile(filePath: string): boolean {
+    return path.basename(filePath) === "lcov.info";
+}
+
+/**
+ * Check if a file path represents a Checkstyle report file.
+ */
+function isCheckstyleFile(filePath: string): boolean {
+    return /checkstyle/i.test(path.basename(filePath));
+}
+
+/**
+ * Check if a file path represents a JSCPD duplicate detection report.
+ */
+function isJscpdReportFile(filePath: string): boolean {
+    return path.basename(filePath) === "jscpd-report.json";
+}
+
+/**
+ * Check if a file path represents a project health report.
+ */
+function isProjectHealthFile(filePath: string): boolean {
+    return path.basename(filePath) === "project-health.json";
+}
+
+/**
+ * Classify a list of files into specific report types.
+ *
+ * Centralizes file type detection logic so orchestrator functions work with
+ * classified file collections instead of raw predicates and inline filters.
+ */
+function classifyReportFiles(files: string[]): {
+    xmlFiles: string[];
+    lcovFiles: string[];
+    checkstyleFiles: string[];
+    jscpdFiles: string[];
+    healthFiles: string[];
+} {
+    return {
+        xmlFiles: files.filter(isXmlFile),
+        lcovFiles: files.filter(isLcovFile),
+        checkstyleFiles: files.filter(isCheckstyleFile),
+        jscpdFiles: files.filter(isJscpdReportFile),
+        healthFiles: files.filter(isProjectHealthFile)
+    };
 }
 
 function collectDirectoryTestCases(xmlFiles, root) {

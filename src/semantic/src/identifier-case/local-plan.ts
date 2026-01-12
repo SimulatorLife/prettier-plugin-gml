@@ -656,9 +656,7 @@ export async function prepareIdentifierCasePlan(options) {
 
     const preservedIdentifiers = normalizedOptions.preservedIdentifiers;
     const preservedSet: Set<string> = new Set(
-        (Array.isArray(preservedIdentifiers) ? preservedIdentifiers : []).filter(
-            (v) => typeof v === "string"
-        ) as string[]
+        Core.asArray(preservedIdentifiers).filter((v) => typeof v === "string") as string[]
     );
     const ignoreMatchers = buildPatternMatchers(normalizedOptions.ignorePatterns ?? []);
 

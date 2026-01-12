@@ -332,7 +332,7 @@ function hasFeatherDiagnosticWithId(node, ids) {
         return false;
     }
 
-    const metadata = Array.isArray(node._appliedFeatherDiagnostics) ? node._appliedFeatherDiagnostics : [];
+    const metadata = Core.asArray<any>(node._appliedFeatherDiagnostics);
 
     if (metadata.length === 0) {
         return false;
@@ -1219,10 +1219,9 @@ function formatDecorativeBlockComment(comment) {
         return null;
     }
 
-    // Use the same threshold as defined in banner-comment-policy.ts
-    // (DEFAULT_BANNER_COMMENT_POLICY_CONFIG.minLeadingSlashes = 4)
-    // This ensures block comments and line comments share consistent criteria.
-    const MIN_DECORATIVE_SLASHES = 4;
+    // Use the centralized banner comment policy configuration to ensure
+    // block comments and line comments share consistent criteria.
+    const MIN_DECORATIVE_SLASHES = Core.DEFAULT_BANNER_COMMENT_POLICY_CONFIG.minLeadingSlashes;
     const DECORATIVE_SLASH_LINE_PATTERN = new RegExp(String.raw`^\s*\*?\/{${MIN_DECORATIVE_SLASHES},}\*?\s*$`);
 
     const lines = value.split(/\r?\n/).map((line) => line.replaceAll("\t", "    "));

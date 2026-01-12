@@ -29,6 +29,14 @@ void describe("getPatchDiagnostics", () => {
 
     void it("tracks patch metadata", () => {
         const wrapper = Runtime.createRuntimeWrapper();
+
+        // Apply dependency first so it's satisfied
+        wrapper.applyPatch({
+            kind: "script",
+            id: "script:other",
+            js_body: "return 1;"
+        });
+
         const metadata = {
             sourcePath: "/path/to/script.gml",
             sourceHash: "abc123",

@@ -1,7 +1,7 @@
 import { CliUsageError } from "./errors.js";
 import { Core } from "@gml-modules/core";
 import { asErrorLike } from "../shared/error-guards.js";
-import type { CommanderCommandLike } from "./commander-types.js";
+import type { CommanderOptionSetter } from "./commander-types.js";
 
 const { isNonEmptyString, assertArray, isObjectLike } = Core;
 
@@ -18,7 +18,7 @@ interface EnvOptionOverride {
 }
 
 interface ApplyEnvOverridesOptions {
-    command: CommanderCommandLike;
+    command: CommanderOptionSetter;
     env?: NodeJS.ProcessEnv;
     overrides: Array<EnvOptionOverride>;
     getUsage?: UsageResolver;
@@ -89,7 +89,7 @@ function createOverrideError({
  * focus on the mapping logic instead of defensive plumbing.
  *
  * @param {object} parameters
- * @param {import("commander").Command} parameters.command Command receiving
+ * @param {CommanderOptionSetter} parameters.command Command receiving
  *                                                          the override.
  * @param {NodeJS.ProcessEnv | undefined} parameters.env Environment variables
  *                                                       to read from.
@@ -112,7 +112,7 @@ export function applyEnvOptionOverride({
     source = DEFAULT_SOURCE,
     getUsage
 }: EnvOptionOverride & {
-    command: CommanderCommandLike;
+    command: CommanderOptionSetter;
     env?: NodeJS.ProcessEnv;
 }): void {
     if (!command || typeof command.setOptionValueWithSource !== "function") {
@@ -146,7 +146,7 @@ export function applyEnvOptionOverride({
  * fallback usage wiring.
  *
  * @param {object} parameters
- * @param {import("commander").Command} parameters.command Command receiving
+ * @param {CommanderOptionSetter} parameters.command Command receiving
  *                                                          the overrides.
  * @param {NodeJS.ProcessEnv | undefined} parameters.env Environment variables
  *                                                       to read from.
