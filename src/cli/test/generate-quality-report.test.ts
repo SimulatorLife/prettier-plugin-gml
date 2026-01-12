@@ -12,6 +12,7 @@ import {
     createGenerateQualityReportCommand
 } from "../src/commands/generate-quality-report.js";
 import { isCliUsageError } from "../src/cli-core/errors.js";
+import { isCommanderErrorLike } from "../src/cli-core/commander-error-utils.js";
 
 const xmlHeader = '<?xml version="1.0" encoding="utf-8"?>\n';
 
@@ -489,12 +490,14 @@ void test("command rejects excess positional arguments", async () => {
         },
         (error: unknown) => {
             // Commander throws an error for excess arguments
-            const errorObj = error as { code?: string; message?: string };
+            if (!isCommanderErrorLike(error)) {
+                return false;
+            }
+
             return (
-                errorObj.code === "commander.excessArguments" ||
-                errorObj.message?.includes("too many arguments") ||
-                errorObj.message?.includes("excess arguments") ||
-                false
+                error.code === "commander.excessArguments" ||
+                error.message.includes("too many arguments") ||
+                error.message.includes("excess arguments")
             );
         }
     );
