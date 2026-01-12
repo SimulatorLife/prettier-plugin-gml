@@ -1549,7 +1549,8 @@ function isDecorativeBlockComment(comment) {
         return false;
     }
 
-    const MIN_DECORATIVE_SLASHES = 4;
+    // Use the centralized banner comment policy configuration
+    const MIN_DECORATIVE_SLASHES = Core.DEFAULT_BANNER_COMMENT_POLICY_CONFIG.minLeadingSlashes;
     const DECORATIVE_SLASH_LINE_PATTERN = new RegExp(String.raw`^\s*\*?\/{${MIN_DECORATIVE_SLASHES},}\*?\s*$`);
 
     const lines = value.split(/\r?\n/).map((line) => line.replaceAll("\t", "    "));
