@@ -1,4 +1,4 @@
-import { WorkspaceEdit, type GroupedTextEdits } from "./workspace-edit.js";
+import { WorkspaceEdit, type GroupedTextEdits, type TextEdit } from "./workspace-edit.js";
 import { Core } from "@gml-modules/core";
 import {
     ConflictType,
@@ -1057,7 +1057,7 @@ export class RefactorEngine {
      * @param {boolean} options.checkTranspiler - Whether to validate transpiler compatibility
      * @returns {Promise<{valid: boolean, errors: Array<string>, warnings: Array<string>}>}
      */
-    validateHotReloadCompatibility(
+    async validateHotReloadCompatibility(
         workspace: WorkspaceEdit,
         options?: HotReloadValidationOptions
     ): Promise<ValidationSummary> {
@@ -1068,12 +1068,12 @@ export class RefactorEngine {
 
         if (!workspace || !Core.isWorkspaceEditLike(workspace)) {
             errors.push("Invalid workspace edit");
-            return Promise.resolve({ valid: false, errors, warnings });
+            return { valid: false, errors, warnings };
         }
 
         if (workspace.edits.length === 0) {
             warnings.push("Workspace edit contains no changes - hot reload not needed");
-            return Promise.resolve({ valid: true, errors, warnings });
+            return { valid: true, errors, warnings };
         }
 
         // Group edits by file
@@ -1118,16 +1118,123 @@ export class RefactorEngine {
 
         // If transpiler check is requested, validate transpilation will work
         if (checkTranspiler && hasMethod(this.formatter, "transpileScript")) {
-            // We'll check if any symbols being edited can be transpiled
-            // This is a placeholder for more sophisticated checks
-            warnings.push("Transpiler compatibility check requested - ensure changed symbols can be transpiled");
+            const transpilerValidation = await this.validateTranspilerCompatibility(workspace);
+            errors.push(...transpilerValidation.errors);
+            warnings.push(...transpilerValidation.warnings);
         }
 
-        return Promise.resolve({
+        return {
             valid: errors.length === 0,
             errors,
             warnings
-        });
+        };
+    }
+
+    /**
+     * Validate that modified symbols can be successfully transpiled.
+     * This ensures hot reload patches can be generated without errors.
+     * @internal
+     */
+    private async validateTranspilerCompatibility(workspace: WorkspaceEdit): Promise<{
+        errors: Array<string>;
+        warnings: Array<string>;
+    }> {
+        const errors: Array<string> = [];
+        const warnings: Array<string> = [];
+
+        if (!hasMethod(this.formatter, "transpileScript")) {
+            warnings.push("No transpiler available - cannot validate transpilation compatibility");
+            return { errors, warnings };
+        }
+
+        const grouped = workspace.groupByFile();
+        let validatedFiles = 0;
+        let validatedSymbols = 0;
+
+        for (const [filePath, edits] of grouped.entries()) {
+            // Only validate GML files that can be transpiled
+            if (!filePath.endsWith(".gml")) {
+                continue;
+            }
+
+            // Get symbols defined in this file
+            let symbolsInFile: Array<{ id: string }> = [];
+            if (hasMethod(this.semantic, "getFileSymbols")) {
+                try {
+                    symbolsInFile = await this.semantic.getFileSymbols(filePath);
+                } catch (error) {
+                    warnings.push(`Could not query symbols for ${filePath}: ${Core.getErrorMessage(error)}`);
+                    continue;
+                }
+            }
+
+            // If we don't have symbol information, create a generic symbol ID from the file path
+            if (symbolsInFile.length === 0) {
+                const fileName =
+                    filePath
+                        .split("/")
+                        .pop()
+                        ?.replace(/\.gml$/, "") ?? "unknown";
+                symbolsInFile = [{ id: `gml/script/${fileName}` }];
+            }
+
+            // Apply edits to reconstruct the modified file content
+            let modifiedContent: string;
+            try {
+                modifiedContent = this.applyEditsToContent("", edits);
+            } catch (error) {
+                errors.push(`Failed to apply edits to ${filePath}: ${Core.getErrorMessage(error)}`);
+                continue;
+            }
+
+            // Validate each symbol can be transpiled with the modified content
+            for (const symbol of symbolsInFile) {
+                try {
+                    await this.formatter.transpileScript({
+                        sourceText: modifiedContent,
+                        symbolId: symbol.id
+                    });
+                    validatedSymbols++;
+                } catch (error) {
+                    const errorMessage = Core.getErrorMessage(error);
+                    errors.push(`Transpilation failed for ${symbol.id} in ${filePath}: ${errorMessage}`);
+                }
+            }
+
+            validatedFiles++;
+        }
+
+        // Add informational message about transpiler validation status
+        if (validatedFiles > 0 && errors.length === 0) {
+            warnings.push(
+                `Transpiler compatibility validated for ${validatedSymbols} symbol(s) in ${validatedFiles} file(s)`
+            );
+        } else if (validatedFiles === 0) {
+            warnings.push("No GML files found for transpiler compatibility validation");
+        }
+
+        return { errors, warnings };
+    }
+
+    /**
+     * Apply a series of text edits to source content.
+     * Edits must be sorted in descending order by start position.
+     * @internal
+     */
+    private applyEditsToContent(
+        originalContent: string,
+        edits: Array<Pick<TextEdit, "start" | "end" | "newText">>
+    ): string {
+        let content = originalContent;
+
+        // Edits are already sorted descending by groupByFile()
+        for (const edit of edits) {
+            const before = content.slice(0, Math.max(0, edit.start));
+            const after = content.slice(Math.max(0, edit.end));
+            content = before + edit.newText + after;
+        }
+
+        return content;
     }
 
     /**
