@@ -1179,7 +1179,7 @@ async function processWithConcurrency(items, limit, worker, options = {}) {
     const { ensureNotAborted } = createProjectIndexAbortGuard(options);
     const limitValue = Number(limit);
     const effectiveLimit = Number.isFinite(limitValue) && limitValue > 0 ? limitValue : items.length;
-    const workerCount = Math.min(items.length, Math.max(1, Math.ceil(effectiveLimit)));
+    const workerCount = Core.clamp(Math.ceil(effectiveLimit), 1, items.length);
     let nextIndex = 0;
     const runWorker = async () => {
         ensureNotAborted();
