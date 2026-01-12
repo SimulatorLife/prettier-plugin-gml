@@ -207,6 +207,9 @@ const GM1015_DIAGNOSTIC_ID = "GM1015";
  * Cached regex for detecting decorative banner-style comment lines.
  * Hoisted to module scope to avoid re-creating the same regex on every
  * isDecorativeBlockComment() call, reducing allocations in the hot printer path.
+ *
+ * SAFETY: This pattern depends on Core.DEFAULT_BANNER_COMMENT_POLICY_CONFIG.minLeadingSlashes,
+ * which is frozen (Object.freeze) and immutable, so caching at module scope is safe.
  */
 const DECORATIVE_SLASH_LINE_PATTERN = new RegExp(
     String.raw`^\s*\*?\/{${Core.DEFAULT_BANNER_COMMENT_POLICY_CONFIG.minLeadingSlashes},}\*?\s*$`
