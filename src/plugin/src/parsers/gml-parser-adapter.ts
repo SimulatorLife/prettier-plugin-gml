@@ -8,6 +8,7 @@ import { util } from "prettier";
 import { Parser, type ScopeTracker } from "@gml-modules/parser";
 import * as Transforms from "../transforms/index.js";
 import { Semantic } from "@gml-modules/semantic";
+import { fixMalformedComments, recoverParseSourceFromMissingBrace } from "./source-preprocessing.js";
 
 const { getNodeStartIndex, getNodeEndIndex } = Core;
 const { addTrailingComment } = util;
@@ -159,7 +160,7 @@ async function prepareIdentifierCaseEnvironment(options?: GmlParserAdapterOption
 function preprocessSource(text: string, options?: GmlParserAdapterOptions): ParserPreparationContext {
     const featherResult = preprocessFeatherFixes(text, options?.applyFeatherFixes);
 
-    const { sourceText: commentFixedSource, indexMapper: commentFixMapper } = Parser.Utils.fixMalformedComments(
+    const { sourceText: commentFixedSource, indexMapper: commentFixMapper } = fixMalformedComments(
         featherResult.parseSource
     );
 
@@ -221,7 +222,7 @@ function parseSourceWithRecovery(
             throw error;
         }
 
-        const recoveredSource = Parser.Utils.recoverParseSourceFromMissingBrace(sourceText, error) as unknown;
+        const recoveredSource = recoverParseSourceFromMissingBrace(sourceText, error) as unknown;
         if (typeof recoveredSource !== "string" || recoveredSource === sourceText) {
             throw error;
         }
