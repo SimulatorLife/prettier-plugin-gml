@@ -1,4 +1,3 @@
-import { getSingleVariableDeclarator } from "../../ast/node-helpers.js";
 import { hasComment } from "../comment-utils.js";
 import {
     collectAdjacentLeadingSourceLineComments,
@@ -11,7 +10,7 @@ import {
     promoteLeadingDocCommentTextToDescription,
     reorderDescriptionLinesToTop
 } from "./service/index.js";
-import { isNonEmptyArray, isNonEmptyTrimmedString, toMutableArray } from "./utils.js";
+import { getSingleVariableDeclarator, isNonEmptyArray, isNonEmptyTrimmedString, toMutableArray } from "./utils.js";
 
 const STRING_TYPE = "string";
 
