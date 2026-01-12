@@ -1,3 +1,4 @@
+import { formatTypeValidationError } from "./error.js";
 import { assertFunctionProperties } from "./object.js";
 import { describeValueForError, isNonEmptyString, toNormalizedLowerCaseString } from "./string.js";
 
@@ -71,7 +72,7 @@ export function createEnumeratedOptionHelpers(
         },
         requireValue: (value: unknown, ErrorConstructor: new (message: string) => Error = Error) => {
             if (enforceStringType && typeof value !== "string") {
-                throw new TypeError(`${valueLabel} must be provided as a string (received type '${typeof value}').`);
+                throw new TypeError(formatTypeValidationError("a string", value, { label: valueLabel }));
             }
             const normalized = toNormalizedLowerCaseString(value);
             if (normalized && valueSet.has(normalized)) {
