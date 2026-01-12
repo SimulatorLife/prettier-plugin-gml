@@ -146,7 +146,7 @@ function nodeDeclaresIdentifier(node: MutableGameMakerAstNode | null | undefined
     }
 
     if (node.type === "VariableDeclaration") {
-        const declarations = Array.isArray(node.declarations) ? node.declarations : [];
+        const declarations = Core.asArray<any>(node.declarations);
 
         for (const declarator of declarations) {
             if (
