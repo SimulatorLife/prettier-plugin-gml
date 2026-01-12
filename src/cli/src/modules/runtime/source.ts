@@ -1,41 +1,15 @@
 import fs from "node:fs/promises";
 import path from "node:path";
 import process from "node:process";
-import { createRequire } from "node:module";
 
 import { Core } from "@gml-modules/core";
+import { resolveCandidateRoot, readPackageJson, resolvePackageJsonPath } from "../../shared/index.js";
 
 const { assertNonEmptyString, getErrorMessageOrFallback } = Core;
 
-const require = createRequire(import.meta.url);
 const DEFAULT_VENDOR_RUNTIME_PATH = path.resolve(process.cwd(), "vendor", "GameMaker-HTML5");
 
 export const DEFAULT_RUNTIME_PACKAGE = "gamemaker-html5";
-
-function resolveCandidateRoot(runtimeRoot) {
-    if (!runtimeRoot) {
-        return null;
-    }
-
-    const normalized = path.resolve(runtimeRoot);
-    return { root: normalized, packageName: null, packageJson: null };
-}
-
-function resolvePackageJsonPath(packageName) {
-    try {
-        return require.resolve(`${packageName}/package.json`);
-    } catch (error) {
-        const message = getErrorMessageOrFallback(error);
-        throw new Error(
-            `Unable to resolve runtime package '${packageName}'. Install it or pass --runtime-root. (${message})`
-        );
-    }
-}
-
-async function readPackageJson(packageJsonPath) {
-    const contents = await fs.readFile(packageJsonPath, "utf8");
-    return JSON.parse(contents);
-}
 
 async function resolveVendorRuntimeRoot() {
     try {
@@ -111,7 +85,7 @@ export async function resolveRuntimeSource({
         errorMessage: "Runtime package name must be provided."
     });
 
-    const packageJsonPath = resolvePackageJsonPath(normalizedPackageName);
+    const packageJsonPath = resolvePackageJsonPath(normalizedPackageName, "runtime");
     const packageJson = await readPackageJson(packageJsonPath);
     const root = path.dirname(packageJsonPath);
 
