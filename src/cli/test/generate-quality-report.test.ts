@@ -458,7 +458,8 @@ void test("command accepts options without positional arguments", async () => {
     const command = createGenerateQualityReportCommand();
 
     // Parse the command with options (simulating CLI invocation)
-    // Note: When parseAsync is called on a subcommand directly, we don't pass the command name again
+    // Note: When parseAsync is called on a subcommand object directly, we don't include
+    // the subcommand name (e.g., 'generate-quality-report') in the argv array, only the options.
     await command.parseAsync([
         "node",
         "cli.js",
