@@ -283,12 +283,87 @@ export class ScopeTracker {
         return this.rootScope;
     }
 
-    private clearResolveIdentifierCacheForName(name: string | null | undefined) {
+    /**
+     * Get all descendant scope IDs efficiently without additional metadata.
+     * Used internally for cache invalidation.
+     *
+     * Performance note: This method has O(n*m) complexity where n is the total
+     * number of scopes and m is the average depth of the scope tree. It's only
+     * called during declaration operations (not on hot paths), so this is
+     * acceptable for typical use cases. For very large scope hierarchies with
+     * frequent declarations, consider building a parent-to-children index.
+     *
+     * @param {string} scopeId The scope whose descendants to retrieve.
+     * @returns {Set<string>} Set of descendant scope IDs.
+     */
+    private getDescendantScopeIds(scopeId: string): Set<string> {
+        const descendants = new Set<string>();
+        const scope = this.scopesById.get(scopeId);
+
+        if (!scope) {
+            return descendants;
+        }
+
+        // Find all scopes where the queried scope is an ancestor
+        for (const candidateScope of this.scopesById.values()) {
+            if (candidateScope.id === scopeId) {
+                continue; // Skip the scope itself
+            }
+
+            // Walk up the parent chain to see if we find the queried scope
+            let current = candidateScope.parent;
+            while (current) {
+                if (current.id === scopeId) {
+                    descendants.add(candidateScope.id);
+                    break;
+                }
+                current = current.parent;
+            }
+        }
+
+        return descendants;
+    }
+
+    /**
+     * Clear resolve identifier cache for a symbol, but only for scopes that
+     * could be affected. When a symbol is declared in a scope, only descendant
+     * scopes (child scopes) need cache invalidation because their resolution
+     * chain is affected. Parent and sibling scopes remain unaffected.
+     *
+     * This targeted invalidation improves performance during hot reload by
+     * preserving cache hits for unaffected scopes.
+     *
+     * @param {string | null | undefined} name Symbol name to invalidate.
+     * @param {string | null | undefined} declaringScopeId Scope where the
+     *        declaration was added. If null, clears cache for all scopes (conservative fallback).
+     */
+    private clearResolveIdentifierCacheForName(name: string | null | undefined, declaringScopeId?: string | null) {
         if (!name) {
             return;
         }
 
-        this.resolveIdentifierCache.delete(name);
+        const cache = this.resolveIdentifierCache.get(name);
+        if (!cache) {
+            return;
+        }
+
+        // Conservative fallback: clear entire cache for this symbol if no declaring scope provided
+        if (!declaringScopeId) {
+            this.resolveIdentifierCache.delete(name);
+            return;
+        }
+
+        // Targeted invalidation: only clear cache for descendant scopes
+        const descendantIds = this.getDescendantScopeIds(declaringScopeId);
+
+        for (const scopeId of descendantIds) {
+            cache.delete(scopeId);
+        }
+
+        // If cache is now empty, remove the symbol entry entirely
+        if (cache.size === 0) {
+            this.resolveIdentifierCache.delete(name);
+        }
     }
 
     private readResolveIdentifierCache(name: string, scopeId: string): ScopeSymbolMetadata | null | undefined {
@@ -440,7 +515,7 @@ export class ScopeTracker {
         Core.assignClonedLocation(metadata, node);
 
         this.storeDeclaration(scope, name, metadata);
-        this.clearResolveIdentifierCacheForName(name);
+        this.clearResolveIdentifierCacheForName(name, scopeId);
 
         node.scopeId = scopeId;
         node.declaration = Core.assignClonedLocation({ scopeId }, metadata);

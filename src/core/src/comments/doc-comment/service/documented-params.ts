@@ -138,19 +138,25 @@ export function extractDocumentedParamNames(
 
     // Check for @function tag first
     for (const comment of candidateComments) {
-        if (isLineComment(comment) && typeof comment.value === "string") {
-            const functionParams = extractFunctionTagParams(comment.value);
-            if (functionParams.length > 0) {
-                return functionParams;
+        if (isLineComment(comment)) {
+            const commentValue = (comment as { value?: unknown }).value;
+            if (typeof commentValue === "string") {
+                const functionParams = extractFunctionTagParams(commentValue);
+                if (functionParams.length > 0) {
+                    return functionParams;
+                }
             }
         }
     }
 
     const paramComments = candidateComments
-        .filter(
-            (comment): comment is { value: string } =>
-                isLineComment(comment) && typeof comment.value === "string" && /@param\b/i.test(comment.value)
-        )
+        .filter((comment): comment is { value: string } => {
+            if (!isLineComment(comment)) {
+                return false;
+            }
+            const commentValue = (comment as { value?: unknown }).value;
+            return typeof commentValue === "string" && /@param\b/i.test(commentValue);
+        })
         .sort((left, right) => {
             const leftPos = getCommentStartIndex(left);
             const rightPos = getCommentStartIndex(right);
