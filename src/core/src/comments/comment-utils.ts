@@ -1,67 +1,86 @@
 import { isObjectLike } from "../utils/object.js";
 
 /**
- * @typedef {object} CommentLineNode
- * @property {"CommentLine"} type
- * @property {string} value
- * @property {number} [start]
- * @property {number} [end]
+ * Represents the boundary (start or end) of a comment in the source.
  */
+export interface CommentBoundary {
+    line?: number;
+    index?: number;
+    column?: number;
+}
 
 /**
- * @typedef {object} CommentBlockNode
- * @property {"CommentBlock"} type
- * @property {string} value
- * @property {number} [start]
- * @property {number} [end]
+ * Base properties shared by all comment nodes.
  */
+interface BaseCommentNode {
+    value: string;
+    start?: number | CommentBoundary;
+    end?: number | CommentBoundary;
+    leadingWS?: string;
+    trailingWS?: string;
+    leadingChar?: string;
+    trailingChar?: string;
+    printed?: boolean;
+    leading?: boolean;
+    trailing?: boolean;
+    placement?: string;
+    inlinePadding?: number;
+    _structPropertyTrailing?: boolean;
+    _structPropertyHandled?: boolean;
+    _gmlForceLeadingBlankLine?: boolean;
+}
+
+/**
+ * Represents a line comment node in the AST.
+ */
+export interface CommentLineNode extends BaseCommentNode {
+    type: "CommentLine";
+}
+
+/**
+ * Represents a block comment node in the AST.
+ */
+export interface CommentBlockNode extends BaseCommentNode {
+    type: "CommentBlock";
+    lineCount?: number;
+}
 
 /**
  * Frozen reusable empty array so repeated `getCommentArray` calls do not
  * allocate. Mirrors the shared array utilities while letting the hot comment
  * path avoid extra helper indirection.
- * @type {ReadonlyArray<never>}
  */
-const EMPTY_COMMENT_ARRAY = Object.freeze([]);
+const EMPTY_COMMENT_ARRAY = Object.freeze([]) as ReadonlyArray<never>;
 
 /**
  * Determines whether a value is a well-formed comment node.
- *
- * @param {unknown} node
- * @returns {node is CommentBlockNode | CommentLineNode}
  */
-export function isCommentNode(node) {
-    return isObjectLike(node) && (node.type === "CommentBlock" || node.type === "CommentLine");
+export function isCommentNode(node: unknown): node is CommentBlockNode | CommentLineNode {
+    return (
+        isObjectLike(node) &&
+        "type" in (node as object) &&
+        ((node as { type: string }).type === "CommentBlock" || (node as { type: string }).type === "CommentLine")
+    );
 }
 
 /**
  * Internal helper to check whether a comment node matches a given type.
- *
- * @param {unknown} comment
- * @param {"CommentBlock" | "CommentLine"} expectedType
- * @returns {boolean}
  */
-function commentTypeMatches(comment, expectedType) {
+function commentTypeMatches(comment: unknown, expectedType: "CommentBlock" | "CommentLine"): boolean {
     return isCommentNode(comment) && comment.type === expectedType;
 }
 
 /**
  * Checks if a node is a line comment.
- *
- * @param {unknown} node
- * @returns {node is CommentLineNode}
  */
-export function isLineComment(node) {
+export function isLineComment(node: unknown): node is CommentLineNode {
     return commentTypeMatches(node, "CommentLine");
 }
 
 /**
  * Checks if a node is a block comment.
- *
- * @param {unknown} node
- * @returns {node is CommentBlockNode}
  */
-export function isBlockComment(node) {
+export function isBlockComment(node: unknown): node is CommentBlockNode {
     return commentTypeMatches(node, "CommentBlock");
 }
 
@@ -75,12 +94,12 @@ export function isBlockComment(node) {
  * metadata while still treating an existing, but empty, `comments` array as
  * "no comments".
  *
- * @param {unknown} node Candidate AST node to inspect. Non-object inputs are
+ * @param node Candidate AST node to inspect. Non-object inputs are
  *                       treated as comment-free.
- * @returns {boolean} `true` when the node owns at least one well-formed
+ * @returns `true` when the node owns at least one well-formed
  *                     comment node.
  */
-export function hasComment(node) {
+export function hasComment(node: unknown): boolean {
     return getCommentArray(node).some(isCommentNode);
 }
 
@@ -90,17 +109,16 @@ export function hasComment(node) {
  * value. The returned array is the original reference so that callers can
  * observe mutations performed by upstream tooling.
  *
- * @param {unknown} owner Candidate AST node whose comments should be fetched.
- * @returns {Array<CommentBlockNode | CommentLineNode | unknown>} Either the
- *          node's comment array or a frozen empty array when no valid
+ * @param owner Candidate AST node whose comments should be fetched.
+ * @returns Either the node's comment array or a frozen empty array when no valid
  *          collection exists.
  */
-export function getCommentArray(owner) {
-    if (!isObjectLike(owner)) {
+export function getCommentArray(owner: unknown): ReadonlyArray<CommentBlockNode | CommentLineNode | unknown> {
+    if (!isObjectLike(owner) || !("comments" in (owner as object))) {
         return EMPTY_COMMENT_ARRAY;
     }
 
-    const comments = owner.comments;
+    const comments = (owner as { comments?: unknown }).comments;
     return Array.isArray(comments) ? comments : EMPTY_COMMENT_ARRAY;
 }
 
@@ -113,20 +131,24 @@ export function getCommentArray(owner) {
  * text while preserving trailing whitespace for consumers that rely on the
  * original value.
  *
- * @param {unknown} comment Comment node or string-like value to normalize.
- * @param {{ trim?: boolean }} [options]
- * @returns {string} Normalized comment string (trimmed when requested).
+ * @param comment Comment node or string-like value to normalize.
+ * @param options Options for trimming the comment value.
+ * @returns Normalized comment string (trimmed when requested).
  */
-export function getCommentValue(comment, { trim = false } = {}) {
+export function getCommentValue(comment: unknown, { trim = false }: { trim?: boolean } = {}): string {
     if (typeof comment === "string") {
         return trim ? comment.trim() : comment;
     }
 
-    if (!isObjectLike(comment) || typeof comment?.value !== "string") {
+    if (
+        !isObjectLike(comment) ||
+        !("value" in (comment as object)) ||
+        typeof (comment as { value: unknown }).value !== "string"
+    ) {
         return "";
     }
 
-    const value = comment.value;
+    const value = (comment as { value: string }).value;
     return trim ? value.trim() : value;
 }
 
