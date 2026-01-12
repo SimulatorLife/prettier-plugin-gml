@@ -372,7 +372,7 @@ export async function validateCrossFileConsistency(
 
         // Check if the file already defines a symbol with the new name
         const conflictingSymbol = fileSymbols.find((sym) => {
-            const symName = sym.id.split("/").pop();
+            const symName = extractSymbolName(sym.id);
             return symName === normalizedNewName && sym.id !== symbolId;
         });
 
