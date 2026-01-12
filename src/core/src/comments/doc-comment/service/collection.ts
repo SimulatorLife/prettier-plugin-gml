@@ -393,12 +393,37 @@ export function collectLeadingProgramLineComments(
 
     for (let i = programComments.length - 1; i >= 0; i -= 1) {
         const comment = programComments[i];
-        if (!comment || comment.type !== "CommentLine" || comment.printed) {
+        if (
+            !comment ||
+            typeof comment !== "object" ||
+            !("type" in comment) ||
+            (comment as { type: unknown }).type !== "CommentLine" ||
+            ("printed" in comment && (comment as { printed: unknown }).printed)
+        ) {
             continue;
         }
 
-        const commentEnd = typeof comment.end === NUMBER_TYPE ? comment.end : (comment?.end?.index ?? null);
-        const commentStart = typeof comment.start === NUMBER_TYPE ? comment.start : (comment?.start?.index ?? null);
+        const commentEndRaw =
+            typeof comment === "object" && comment !== null && "end" in comment
+                ? (comment as { end: unknown }).end
+                : null;
+        const commentEnd =
+            typeof commentEndRaw === NUMBER_TYPE
+                ? commentEndRaw
+                : typeof commentEndRaw === "object" && commentEndRaw !== null && "index" in commentEndRaw
+                  ? (commentEndRaw as { index: unknown }).index
+                  : null;
+
+        const commentStartRaw =
+            typeof comment === "object" && comment !== null && "start" in comment
+                ? (comment as { start: unknown }).start
+                : null;
+        const commentStart =
+            typeof commentStartRaw === NUMBER_TYPE
+                ? commentStartRaw
+                : typeof commentStartRaw === "object" && commentStartRaw !== null && "index" in commentStartRaw
+                  ? (commentStartRaw as { index: unknown }).index
+                  : null;
 
         if (!Number.isInteger(commentEnd) || commentEnd >= anchorIndex) {
             continue;
@@ -416,7 +441,7 @@ export function collectLeadingProgramLineComments(
             continue;
         }
 
-        if (typeof sourceText === STRING_TYPE) {
+        if (typeof sourceText === STRING_TYPE && typeof commentEnd === "number") {
             const gapText = sourceText.slice(commentEnd, anchorIndex);
             const blankLines = (gapText.match(/\n/g) || []).length;
             if (blankLines >= 2) {
@@ -424,9 +449,10 @@ export function collectLeadingProgramLineComments(
             }
         }
 
-        comment.printed = true;
+        (comment as unknown as { printed: boolean }).printed = true;
         leadingLines.unshift(typeof formatted === STRING_TYPE ? formatted : "");
-        anchorIndex = Number.isInteger(commentStart) ? commentStart : commentEnd;
+        anchorIndex =
+            typeof commentStart === "number" ? commentStart : typeof commentEnd === "number" ? commentEnd : anchorIndex;
     }
 
     return leadingLines;

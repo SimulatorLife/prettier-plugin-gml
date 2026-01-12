@@ -206,7 +206,16 @@ function printComment(commentPath, options) {
                 }
                 comment.trailingWS = "\n";
 
-                const endIndex = comment.end && typeof comment.end.index === "number" ? comment.end.index : comment.end;
+                const endIndexRaw =
+                    typeof comment.end === "number"
+                        ? comment.end
+                        : typeof comment.end === "object" &&
+                            comment.end !== null &&
+                            "index" in comment.end &&
+                            typeof comment.end.index === "number"
+                          ? comment.end.index
+                          : comment.end;
+                const endIndex = typeof endIndexRaw === "number" ? endIndexRaw : 0;
                 const blankLines = countTrailingBlankLines(options.originalText, endIndex + 1);
 
                 const alreadyHasLeadingBlankLine =
@@ -292,7 +301,7 @@ function printComment(commentPath, options) {
             return normalized;
         }
         default: {
-            throw new Error(`Unknown comment type: ${comment.type}`);
+            throw new Error(`Unknown comment type`);
         }
     }
 }

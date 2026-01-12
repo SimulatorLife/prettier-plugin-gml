@@ -6690,8 +6690,16 @@ function maybePrintInlineEmptyBlockComment(path, options) {
     }
 
     const comment = comments[inlineIndex];
-    const leadingSpacing = getInlineBlockCommentSpacing(comment.leadingWS, " ");
-    const trailingSpacing = getInlineBlockCommentSpacing(comment.trailingWS, " ");
+    const commentLeadingWS =
+        typeof comment === "object" && comment !== null && "leadingWS" in comment
+            ? (comment as { leadingWS: unknown }).leadingWS
+            : undefined;
+    const commentTrailingWS =
+        typeof comment === "object" && comment !== null && "trailingWS" in comment
+            ? (comment as { trailingWS: unknown }).trailingWS
+            : undefined;
+    const leadingSpacing = getInlineBlockCommentSpacing(commentLeadingWS, " ");
+    const trailingSpacing = getInlineBlockCommentSpacing(commentTrailingWS, " ");
 
     return [
         "{",
