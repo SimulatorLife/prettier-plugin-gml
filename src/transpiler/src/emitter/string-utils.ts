@@ -96,7 +96,13 @@ export function normalizeStructKeyText(value: string): string {
         try {
             return JSON.parse(value) as string;
         } catch {
-            // Malformed JSON; fall through to quote stripping below
+            // JSON.parse failed, meaning the double-quoted string contains invalid
+            // escape sequences or malformed JSON syntax. Instead of crashing, fall
+            // through to the quote-stripping fallback which naively removes the
+            // surrounding quotes and returns the raw content. This graceful degradation
+            // ensures the transpiler can still emit partial output for malformed strings
+            // rather than halting on every syntax edge case, allowing developers to see
+            // the broader transpilation result and fix string literals incrementally.
         }
     }
 
