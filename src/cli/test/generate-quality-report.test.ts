@@ -8,9 +8,11 @@ import {
     detectResolvedFailures,
     readTestResults,
     ensureResultsAvailability,
-    reportRegressionSummary
+    reportRegressionSummary,
+    createGenerateQualityReportCommand
 } from "../src/commands/generate-quality-report.js";
 import { isCliUsageError } from "../src/cli-core/errors.js";
+import { isCommanderErrorLike } from "../src/cli-core/commander-error-utils.js";
 
 const xmlHeader = '<?xml version="1.0" encoding="utf-8"?>\n';
 
@@ -450,4 +452,52 @@ void test("readTestResults preserves project health stats when present", () => {
     const result = readTestResults(["reports"], { workspace });
 
     assert.deepStrictEqual(result.health, health);
+});
+
+void test("command accepts options without positional arguments", async () => {
+    const command = createGenerateQualityReportCommand();
+
+    // Test that the command can be invoked with only options, no positional arguments.
+    // When testing a subcommand directly via parseAsync, we simulate a CLI invocation
+    // with argv containing the process name and script, but the subcommand name itself
+    // is handled by the Commander.js framework through the Command instance.
+    await command.parseAsync([
+        "node",
+        "cli.js",
+        "--base",
+        "report-base",
+        "--head",
+        "report-head",
+        "--merge",
+        "report-merge",
+        "--report-file",
+        "reports/summary-report.md"
+    ]);
+
+    const options = command.opts();
+
+    assert.strictEqual(options.base, "report-base");
+    assert.strictEqual(options.head, "report-head");
+    assert.strictEqual(options.merge, "report-merge");
+    assert.strictEqual(options.reportFile, "reports/summary-report.md");
+});
+
+void test("command rejects excess positional arguments", async () => {
+    const command = createGenerateQualityReportCommand();
+
+    // Try to parse with positional arguments (should fail)
+    await assert.rejects(
+        async () => {
+            await command.parseAsync(["node", "cli.js", "extra-arg", "--base", "report-base"]);
+        },
+        (error: unknown) => {
+            // Commander.js should throw a specific error for excess arguments
+            if (!isCommanderErrorLike(error)) {
+                return false;
+            }
+
+            // Rely on the specific error code rather than message content
+            return error.code === "commander.excessArguments";
+        }
+    );
 });
