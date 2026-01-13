@@ -1183,20 +1183,15 @@ function printStructExpressionNode(node, path, options, print) {
     const shouldPreserveStructWrap =
         objectWrapOption === ObjectWrapOption.PRESERVE && structLiteralHasLeadingLineBreak(node, options);
 
+    // Respect Prettier's bracketSpacing option for struct literals
+    // bracketSpacing: true  → { x: 1 } (with spaces)
+    // bracketSpacing: false → {x: 1}   (without spaces)
+    const padding = options.bracketSpacing ? " " : "";
+
     return concat(
         printCommaSeparatedList(path, print, "properties", "{", "}", options, {
             forceBreak: node.hasTrailingComma || shouldForceBreakStruct || shouldPreserveStructWrap,
-            // Keep struct literals flush with their braces for now; GameMaker's
-            // canonical formatting style avoids inserting spaces after `{` or before
-            // `}` in struct literals, unlike JavaScript object literals which often
-            // use `{ key: value }` formatting. Forcing spaces here would conflict
-            // with the established GML convention and make diffs noisier when
-            // migrating existing codebases. Future work may add a user-configurable
-            // option for struct spacing, but until then we preserve the tight
-            // `{key: value}` style that GameMaker developers expect.
-            // runtime formatter and the official documentation render `{foo: 1}`
-            // without extra internal padding, and our fixtures rely on that output.
-            padding: ""
+            padding
         })
     );
 }
