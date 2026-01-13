@@ -180,6 +180,97 @@ function tryStartStringOrComment(
 }
 
 /**
+ * Skips forward over whitespace and comments starting at the given index.
+ * Returns the index of the first non-trivia character.
+ */
+function skipTrivia(text: string, startIndex: number): number {
+    const length = text.length;
+    let index = startIndex;
+
+    while (index < length) {
+        const character = text[index];
+
+        if (isWhitespaceCharacter(character)) {
+            index += 1;
+            continue;
+        }
+
+        if (character === "/" && index + 1 < length) {
+            const nextCharacter = text[index + 1];
+
+            if (nextCharacter === "/") {
+                index += 2;
+                while (index < length && text[index] !== "\n") {
+                    index += 1;
+                }
+                continue;
+            }
+
+            if (nextCharacter === "*") {
+                index += 2;
+                while (index < length) {
+                    if (text[index] === "*" && index + 1 < length && text[index + 1] === "/") {
+                        index += 2;
+                        break;
+                    }
+                    index += 1;
+                }
+                continue;
+            }
+        }
+
+        break;
+    }
+
+    return index;
+}
+
+/**
+ * Skips backward over whitespace and comments before the given index.
+ * Returns the index of the last non-trivia character, or -1 if none found.
+ */
+function skipTriviaBackward(text: string, startIndex: number): number {
+    let current = startIndex;
+
+    while (current >= 0) {
+        const character = text[current];
+
+        if (isWhitespaceCharacter(character)) {
+            current -= 1;
+            continue;
+        }
+
+        if (character === "/" && current > 0) {
+            const previous = text[current - 1];
+
+            if (previous === "/") {
+                current -= 2;
+                while (current >= 0 && text[current] !== "\n") {
+                    current -= 1;
+                }
+                continue;
+            }
+
+            if (previous === "*") {
+                current -= 2;
+                while (current >= 1) {
+                    if (text[current - 1] === "/" && text[current] === "*") {
+                        current -= 2;
+                        break;
+                    }
+                    current -= 1;
+                }
+                continue;
+            }
+        }
+
+        break;
+    }
+
+    return current;
+}
+
+/**
  * Detects and processes adjacent numeric literals separated only by trivia,
  * inserting a comma between them if necessary.
  */
@@ -440,7 +531,7 @@ function matchFunctionCall(sourceText: string, startIndex: number): { openParenI
         return null;
     }
 
-    const openParenIndex = skipCallTrivia(sourceText, index);
+    const openParenIndex = skipTrivia(sourceText, index);
 
     if (openParenIndex >= length || sourceText[openParenIndex] !== "(") {
         return null;
@@ -449,119 +540,35 @@ function matchFunctionCall(sourceText: string, startIndex: number): { openParenI
     return { openParenIndex };
 }
 
-function skipCallTrivia(sourceText: string, startIndex: number): number {
-    const length = sourceText.length;
-    let index = startIndex;
-
-    while (index < length) {
-        const character = sourceText[index];
-
-        if (isWhitespaceCharacter(character)) {
-            index += 1;
-            continue;
-        }
-
-        if (character === "/" && index + 1 < length) {
-            const nextCharacter = sourceText[index + 1];
-
-            if (nextCharacter === "/") {
-                index += 2;
-
-                while (index < length && sourceText[index] !== "\n") {
-                    index += 1;
-                }
-
-                continue;
-            }
-
-            if (nextCharacter === "*") {
-                index += 2;
-
-                while (index < length) {
-                    if (sourceText[index] === "*" && index + 1 < length && sourceText[index + 1] === "/") {
-                        index += 2;
-                        break;
-                    }
-
-                    index += 1;
-                }
-
-                continue;
-            }
-        }
-
-        break;
-    }
-
-    return index;
-}
-
 function skipBalancedSection(sourceText: string, startIndex: number, openChar: string, closeChar: string): number {
     const length = sourceText.length;
     let index = startIndex + 1;
     let depth = 1;
-    let stringQuote: string | null = null;
-    let stringEscape = false;
-    let inLineComment = false;
-    let inBlockComment = false;
+    const state: CallProcessingState = {
+        stringQuote: null,
+        stringEscape: false,
+        inLineComment: false,
+        inBlockComment: false,
+        depth: 0
+    };
 
-    while (index < length) {
+    while (index < length && depth > 0) {
         const character = sourceText[index];
 
-        if (stringQuote !== null) {
-            if (stringEscape) {
-                stringEscape = false;
-            } else if (character === "\\") {
-                stringEscape = true;
-            } else if (character === stringQuote) {
-                stringQuote = null;
-            }
-
-            index += 1;
+        if (state.stringQuote !== null) {
+            index = advanceThroughStringLiteral(sourceText, index, state);
             continue;
         }
 
-        if (inLineComment) {
-            if (character === "\n") {
-                inLineComment = false;
-            }
-
-            index += 1;
+        if (state.inLineComment || state.inBlockComment) {
+            index = advanceThroughComment(sourceText, length, index, state);
             continue;
         }
 
-        if (inBlockComment) {
-            if (character === "*" && index + 1 < length && sourceText[index + 1] === "/") {
-                inBlockComment = false;
-                index += 2;
-                continue;
-            }
-
-            index += 1;
+        const stringOrCommentIndex = tryStartStringOrComment(sourceText, length, index, state);
+        if (stringOrCommentIndex !== index) {
+            index = stringOrCommentIndex;
             continue;
-        }
-
-        if (character === "'" || character === '"' || character === "`") {
-            stringQuote = character;
-            stringEscape = false;
-            index += 1;
-            continue;
-        }
-
-        if (character === "/" && index + 1 < length) {
-            const nextCharacter = sourceText[index + 1];
-
-            if (nextCharacter === "/") {
-                inLineComment = true;
-                index += 2;
-                continue;
-            }
-
-            if (nextCharacter === "*") {
-                inBlockComment = true;
-                index += 2;
-                continue;
-            }
         }
 
         if (character === openChar) {
@@ -573,74 +580,30 @@ function skipBalancedSection(sourceText: string, startIndex: number, openChar: s
         if (character === closeChar) {
             depth -= 1;
             index += 1;
-
-            if (depth === 0) {
-                return index;
-            }
-
             continue;
         }
 
         index += 1;
     }
 
-    return -1;
+    return depth === 0 ? index : -1;
 }
 
 function readIdentifierBefore(sourceText: string, index: number): string | null {
-    let current = index - 1;
-
-    while (current >= 0) {
-        const character = sourceText[current];
-
-        if (isWhitespaceCharacter(character)) {
-            current -= 1;
-            continue;
-        }
-
-        if (character === "/" && current > 0) {
-            const previous = sourceText[current - 1];
-
-            if (previous === "/") {
-                current -= 2;
-
-                while (current >= 0 && sourceText[current] !== "\n") {
-                    current -= 1;
-                }
-
-                continue;
-            }
-
-            if (previous === "*") {
-                current -= 2;
-
-                while (current >= 1) {
-                    if (sourceText[current - 1] === "/" && sourceText[current] === "*") {
-                        current -= 2;
-                        break;
-                    }
-
-                    current -= 1;
-                }
-
-                continue;
-            }
-        }
-
-        break;
-    }
+    const current = skipTriviaBackward(sourceText, index - 1);
 
     if (current < 0 || !isIdentifierCharacter(sourceText[current])) {
         return null;
     }
 
     const end = current + 1;
+    let start = current;
 
-    while (current >= 0 && isIdentifierCharacter(sourceText[current])) {
-        current -= 1;
+    while (start >= 0 && isIdentifierCharacter(sourceText[start])) {
+        start -= 1;
     }
 
-    return sourceText.slice(current + 1, end);
+    return sourceText.slice(start + 1, end);
 }
 
 function isIdentifierBoundaryAt(sourceText: string, index: number) {
@@ -734,104 +697,14 @@ function readNumericLiteral(text: string, startIndex: number) {
 }
 
 function readCallSeparatorTrivia(text: string, startIndex: number) {
-    const length = text.length;
-    let index = startIndex;
-    let consumed = false;
-
-    while (index < length) {
-        const character = text[index];
-
-        if (isWhitespaceCharacter(character)) {
-            index += 1;
-            consumed = true;
-            continue;
-        }
-
-        if (character === "/" && index + 1 < length) {
-            const nextCharacter = text[index + 1];
-
-            if (nextCharacter === "/") {
-                index += 2;
-
-                while (index < length && text[index] !== "\n") {
-                    index += 1;
-                }
-
-                if (index < length) {
-                    index += 1;
-                }
-
-                consumed = true;
-                continue;
-            }
-
-            if (nextCharacter === "*") {
-                index += 2;
-
-                while (index < length && (text[index] !== "*" || index + 1 >= length || text[index + 1] !== "/")) {
-                    index += 1;
-                }
-
-                if (index < length) {
-                    index += 2;
-                }
-
-                consumed = true;
-                continue;
-            }
-        }
-
-        break;
-    }
-
+    const endIndex = skipTrivia(text, startIndex);
     return {
-        endIndex: index,
-        hasContent: consumed
+        endIndex,
+        hasContent: endIndex > startIndex
     };
 }
 
 function readNonTriviaCharacterBefore(text: string, index: number) {
-    let current = index - 1;
-
-    while (current >= 0) {
-        const character = text[current];
-
-        if (isWhitespaceCharacter(character)) {
-            current -= 1;
-            continue;
-        }
-
-        if (character === "/" && current > 0) {
-            const previous = text[current - 1];
-
-            if (previous === "/") {
-                current -= 2;
-
-                while (current >= 0 && text[current] !== "\n") {
-                    current -= 1;
-                }
-
-                continue;
-            }
-
-            if (previous === "*") {
-                current -= 2;
-
-                while (current >= 1) {
-                    if (text[current - 1] === "/" && text[current] === "*") {
-                        current -= 2;
-                        break;
-                    }
-
-                    current -= 1;
-                }
-
-                continue;
-            }
-        }
-
-        return character;
-    }
-
-    return null;
+    const current = skipTriviaBackward(text, index - 1);
+    return current >= 0 ? text[current] : null;
 }
