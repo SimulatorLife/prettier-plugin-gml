@@ -588,6 +588,7 @@ Creates a WebSocket client for receiving live patches from a development server.
 - `onError` (optional): Callback `(error, context)` invoked on errors. Context is either `"connection"` or `"patch"`.
 - `reconnectDelay` (optional): Milliseconds to wait before reconnecting after connection loss. Default is `800`. Set to `0` to disable reconnection.
 - `autoConnect` (optional): When `true`, connects immediately. Default is `true`.
+- `logger` (optional): Logger instance for structured diagnostic logging. See [Diagnostic Logging](#diagnostic-logging) for details.
 - `patchQueue` (optional): Configuration for patch queuing and batching:
   - `enabled` (optional): When `true`, enables patch queuing. Default is `false`.
   - `maxQueueSize` (optional): Maximum patches to buffer before forcing a flush. Default is `100`.
@@ -793,8 +794,16 @@ console.log(`Flushed ${flushed} pending patches`);
 ```javascript
 import {
     createRuntimeWrapper,
-    createWebSocketClient
+    createWebSocketClient,
+    createLogger
 } from "@prettier-plugin-gml/runtime-wrapper";
+
+// Create logger for structured diagnostics
+const logger = createLogger({
+    level: "info",
+    timestamps: true,
+    prefix: "[gml-dev]"
+});
 
 // Create wrapper
 const wrapper = createRuntimeWrapper({
@@ -803,14 +812,22 @@ const wrapper = createRuntimeWrapper({
     }
 });
 
-// Create WebSocket client that automatically applies patches
+// Create WebSocket client with logger integration
 const client = createWebSocketClient({
     url: "ws://localhost:17890",
     wrapper,
+    logger, // Enable structured logging for all WebSocket events
     onConnect: () => console.log("Connected to dev server"),
     onDisconnect: () => console.log("Disconnected from dev server"),
     onError: (error, context) => console.error(`Error (${context}):`, error)
 });
+
+// The logger will automatically log:
+// - WebSocket connection/disconnection events
+// - Reconnection attempts
+// - Patch queue flush operations (when queuing is enabled)
+// - Patch application timing
+// - Transport latency for patches with timestamps
 
 // Apply various patch types
 wrapper.applyPatch({
