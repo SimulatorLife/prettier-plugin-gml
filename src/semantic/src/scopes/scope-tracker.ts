@@ -1978,6 +1978,67 @@ export class ScopeTracker {
     }
 
     /**
+     * Default symbol generator for SCIP export that follows the pattern "scopeId::name".
+     * @param {string} name Symbol name
+     * @param {string} scopeId Scope ID where the symbol occurs
+     * @returns {string} Qualified symbol identifier
+     */
+    private defaultScipSymbolGenerator(name: string, scopeId: string): string {
+        return `${scopeId}::${name}`;
+    }
+
+    /**
+     * Convert an occurrence to SCIP format with range, symbol, and role information.
+     * @param {any} occurrence Occurrence object with location and name data
+     * @param {number} symbolRoles SCIP role flags (ROLE_DEF or ROLE_REF)
+     * @param {(name: string, scopeId: string) => string | null} getSymbol Function to generate qualified symbol
+     * @returns {{range: [number, number, number, number], symbol: string, symbolRoles: number} | null}
+     */
+    private toScipOccurrence(
+        occurrence: any,
+        symbolRoles: number,
+        getSymbol: (name: string, scopeId: string) => string | null
+    ): {
+        range: [number, number, number, number];
+        symbol: string;
+        symbolRoles: number;
+    } | null {
+        const start = occurrence?.start;
+        const end = occurrence?.end;
+
+        if (!start || !end) {
+            return null;
+        }
+
+        const startLine = typeof start.line === "number" ? start.line : null;
+        const startCol = typeof start.column === "number" ? start.column : 0;
+        const endLine = typeof end.line === "number" ? end.line : null;
+        const endCol = typeof end.column === "number" ? end.column : 0;
+
+        if (startLine === null || endLine === null) {
+            return null;
+        }
+
+        const name = occurrence?.name;
+        const occScopeId = occurrence?.scopeId;
+
+        if (!name || !occScopeId) {
+            return null;
+        }
+
+        const symbol = getSymbol(name, occScopeId);
+        if (!symbol) {
+            return null;
+        }
+
+        return {
+            range: [startLine, startCol, endLine, endCol],
+            symbol,
+            symbolRoles
+        };
+    }
+
+    /**
      * Export occurrences in SCIP (SCIP Code Intelligence Protocol) format for
      * hot reload coordination and cross-file dependency tracking.
      *
@@ -2024,58 +2085,7 @@ export class ScopeTracker {
             }>;
         }> = [];
 
-        // Helper to generate default symbol names
-        const defaultSymbolGenerator = (name: string, scopeId: string) => {
-            return `${scopeId}::${name}`;
-        };
-
-        const getSymbol = symbolGenerator ?? defaultSymbolGenerator;
-
-        // Helper to convert occurrence to SCIP format
-        const toScipOccurrence = (
-            occurrence: any,
-            symbolRoles: number
-        ): {
-            range: [number, number, number, number];
-            symbol: string;
-            symbolRoles: number;
-        } | null => {
-            // Extract location data
-            const start = occurrence?.start;
-            const end = occurrence?.end;
-
-            if (!start || !end) {
-                return null;
-            }
-
-            const startLine = typeof start.line === "number" ? start.line : null;
-            const startCol = typeof start.column === "number" ? start.column : 0;
-            const endLine = typeof end.line === "number" ? end.line : null;
-            const endCol = typeof end.column === "number" ? end.column : 0;
-
-            if (startLine === null || endLine === null) {
-                return null;
-            }
-
-            // Generate symbol identifier
-            const name = occurrence?.name;
-            const occScopeId = occurrence?.scopeId;
-
-            if (!name || !occScopeId) {
-                return null;
-            }
-
-            const symbol = getSymbol(name, occScopeId);
-            if (!symbol) {
-                return null;
-            }
-
-            return {
-                range: [startLine, startCol, endLine, endCol],
-                symbol,
-                symbolRoles
-            };
-        };
+        const getSymbol = symbolGenerator ?? this.defaultScipSymbolGenerator.bind(this);
 
         // Determine which scopes to process
         const scopesToProcess = scopeId
@@ -2092,7 +2102,7 @@ export class ScopeTracker {
             for (const entry of scope.occurrences.values()) {
                 // Process declarations
                 for (const declaration of entry.declarations) {
-                    const scipOcc = toScipOccurrence(declaration, ROLE_DEF);
+                    const scipOcc = this.toScipOccurrence(declaration, ROLE_DEF, getSymbol);
                     if (scipOcc) {
                         occurrences.push(scipOcc);
                     }
@@ -2101,7 +2111,7 @@ export class ScopeTracker {
                 // Process references if requested
                 if (includeReferences) {
                     for (const reference of entry.references) {
-                        const scipOcc = toScipOccurrence(reference, ROLE_REF);
+                        const scipOcc = this.toScipOccurrence(reference, ROLE_REF, getSymbol);
                         if (scipOcc) {
                             occurrences.push(scipOcc);
                         }
@@ -2183,56 +2193,7 @@ export class ScopeTracker {
             }>;
         }> = [];
 
-        // Helper to generate default symbol names
-        const defaultSymbolGenerator = (name: string, scopeId: string) => {
-            return `${scopeId}::${name}`;
-        };
-
-        const getSymbol = symbolGenerator ?? defaultSymbolGenerator;
-
-        // Helper to convert occurrence to SCIP format
-        const toScipOccurrence = (
-            occurrence: any,
-            symbolRoles: number
-        ): {
-            range: [number, number, number, number];
-            symbol: string;
-            symbolRoles: number;
-        } | null => {
-            const start = occurrence?.start;
-            const end = occurrence?.end;
-
-            if (!start || !end) {
-                return null;
-            }
-
-            const startLine = typeof start.line === "number" ? start.line : null;
-            const startCol = typeof start.column === "number" ? start.column : 0;
-            const endLine = typeof end.line === "number" ? end.line : null;
-            const endCol = typeof end.column === "number" ? end.column : 0;
-
-            if (startLine === null || endLine === null) {
-                return null;
-            }
-
-            const name = occurrence?.name;
-            const occScopeId = occurrence?.scopeId;
-
-            if (!name || !occScopeId) {
-                return null;
-            }
-
-            const symbol = getSymbol(name, occScopeId);
-            if (!symbol) {
-                return null;
-            }
-
-            return {
-                range: [startLine, startCol, endLine, endCol],
-                symbol,
-                symbolRoles
-            };
-        };
+        const getSymbol = symbolGenerator ?? this.defaultScipSymbolGenerator.bind(this);
 
         // Determine which scopes to process
         const scopesToProcess = scopeId
@@ -2254,7 +2215,7 @@ export class ScopeTracker {
 
                 // Process declarations
                 for (const declaration of entry.declarations) {
-                    const scipOcc = toScipOccurrence(declaration, ROLE_DEF);
+                    const scipOcc = this.toScipOccurrence(declaration, ROLE_DEF, getSymbol);
                     if (scipOcc) {
                         occurrences.push(scipOcc);
                     }
@@ -2263,7 +2224,7 @@ export class ScopeTracker {
                 // Process references if requested
                 if (includeReferences) {
                     for (const reference of entry.references) {
-                        const scipOcc = toScipOccurrence(reference, ROLE_REF);
+                        const scipOcc = this.toScipOccurrence(reference, ROLE_REF, getSymbol);
                         if (scipOcc) {
                             occurrences.push(scipOcc);
                         }
