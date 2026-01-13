@@ -431,7 +431,7 @@ export interface DependencyValidationResult {
 
 export function validatePatchDependencies(patch: Patch, registry: RuntimeRegistry): DependencyValidationResult {
     const dependencies = patch.metadata?.dependencies;
-    
+
     if (!dependencies || !Array.isArray(dependencies) || dependencies.length === 0) {
         return { satisfied: true, missingDependencies: [] };
     }
