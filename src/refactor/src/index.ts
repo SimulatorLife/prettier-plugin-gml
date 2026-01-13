@@ -5,6 +5,7 @@ import * as RenamePreviewAPI from "./rename-preview.js";
 import * as ValidationAPI from "./validation.js";
 import * as HotReloadAPI from "./hot-reload.js";
 import { SemanticQueryCache } from "./semantic-cache.js";
+import { RenameValidationCache } from "./rename-validation-cache.js";
 import {
     ConflictType,
     isConflictType,
@@ -24,6 +25,7 @@ export const Refactor = Object.freeze({
     ...RefactorAPI,
     WorkspaceEdit,
     SemanticQueryCache,
+    RenameValidationCache,
     ...OccurrenceAnalysisAPI,
     ...RenamePreviewAPI,
     ...ValidationAPI,
@@ -46,6 +48,12 @@ export { RefactorEngine } from "./refactor-engine.js";
 export { WorkspaceEdit } from "./workspace-edit.js";
 export { SemanticQueryCache } from "./semantic-cache.js";
 export type { SemanticCacheConfig, CacheStats } from "./semantic-cache.js";
+export { RenameValidationCache } from "./rename-validation-cache.js";
+export type {
+    RenameValidationCacheConfig,
+    ValidationCacheStats,
+    CachedValidationResult
+} from "./rename-validation-cache.js";
 
 export { SymbolKind, isSymbolKind, parseSymbolKind, requireSymbolKind } from "./types.js";
 
