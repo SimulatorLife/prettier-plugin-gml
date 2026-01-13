@@ -76,6 +76,7 @@ interface CallProcessingState {
     stringEscape: boolean;
     inLineComment: boolean;
     inBlockComment: boolean;
+    /** Parenthesis nesting depth (only used by processCall, not by helper functions) */
     depth: number;
 }
 
@@ -228,6 +229,11 @@ function skipTrivia(text: string, startIndex: number): number {
 /**
  * Skips backward over whitespace and comments before the given index.
  * Returns the index of the last non-trivia character, or -1 if none found.
+ *
+ * Note: This implementation handles line comments by checking if the current
+ * position falls within a line comment (between // and newline) and skipping
+ * back to before the // if so. This is necessary because when scanning backward,
+ * we encounter comment content before we encounter the // marker.
  */
 function skipTriviaBackward(text: string, startIndex: number): number {
     let current = startIndex;
@@ -240,30 +246,39 @@ function skipTriviaBackward(text: string, startIndex: number): number {
             continue;
         }
 
-        if (character === "/" && current > 0) {
-            const previous = text[current - 1];
-
-            if (previous === "/") {
-                current -= 2;
-                while (current >= 0 && text[current] !== "\n") {
-                    current -= 1;
+        // Check if we're positioned at the end of a block comment (*/)
+        if (character === "/" && current > 0 && text[current - 1] === "*") {
+            current -= 2;
+            // Scan backward to find the opening /*
+            while (current >= 1) {
+                if (text[current - 1] === "/" && text[current] === "*") {
+                    current -= 2;
+                    break;
                 }
-                continue;
+                current -= 1;
             }
-
-            if (previous === "*") {
-                current -= 2;
-                while (current >= 1) {
-                    if (text[current - 1] === "/" && text[current] === "*") {
-                        current -= 2;
-                        break;
-                    }
-                    current -= 1;
-                }
-                continue;
-            }
+            continue;
         }
 
+        // Check if current position is within a line comment
+        // Scan backward on the current line to see if there's a // before us
+        let lineStart = current;
+        while (lineStart >= 0 && text[lineStart] !== "\n") {
+            if (text[lineStart] === "/" && lineStart > 0 && text[lineStart - 1] === "/") {
+                // Found // before our position on this line, skip to before it
+                current = lineStart - 2;
+                // Continue the outer loop to process what comes before the //
+                break;
+            }
+            lineStart -= 1;
+        }
+
+        // If we found and skipped a //, continue the outer loop
+        if (lineStart >= 0 && text[lineStart] === "/" && lineStart > 0 && text[lineStart - 1] === "/") {
+            continue;
+        }
+
+        // Not trivia, not in a comment, this is our result
         break;
     }
 
@@ -544,6 +559,8 @@ function skipBalancedSection(sourceText: string, startIndex: number, openChar: s
     const length = sourceText.length;
     let index = startIndex + 1;
     let depth = 1;
+    // Note: The depth tracking for balanced sections is done via the local `depth` variable,
+    // not via state.depth. The state object is only used for string/comment tracking.
     const state: CallProcessingState = {
         stringQuote: null,
         stringEscape: false,
