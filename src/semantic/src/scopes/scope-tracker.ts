@@ -1978,6 +1978,67 @@ export class ScopeTracker {
     }
 
     /**
+     * Default symbol generator for SCIP export that follows the pattern "scopeId::name".
+     * @param {string} name Symbol name
+     * @param {string} scopeId Scope ID where the symbol occurs
+     * @returns {string} Qualified symbol identifier
+     */
+    private defaultScipSymbolGenerator(name: string, scopeId: string): string {
+        return `${scopeId}::${name}`;
+    }
+
+    /**
+     * Convert an occurrence to SCIP format with range, symbol, and role information.
+     * @param {any} occurrence Occurrence object with location and name data
+     * @param {number} symbolRoles SCIP role flags (ROLE_DEF or ROLE_REF)
+     * @param {(name: string, scopeId: string) => string | null} getSymbol Function to generate qualified symbol
+     * @returns {{range: [number, number, number, number], symbol: string, symbolRoles: number} | null}
+     */
+    private toScipOccurrence(
+        occurrence: any,
+        symbolRoles: number,
+        getSymbol: (name: string, scopeId: string) => string | null
+    ): {
+        range: [number, number, number, number];
+        symbol: string;
+        symbolRoles: number;
+    } | null {
+        const start = occurrence?.start;
+        const end = occurrence?.end;
+
+        if (!start || !end) {
+            return null;
+        }
+
+        const startLine = typeof start.line === "number" ? start.line : null;
+        const startCol = typeof start.column === "number" ? start.column : 0;
+        const endLine = typeof end.line === "number" ? end.line : null;
+        const endCol = typeof end.column === "number" ? end.column : 0;
+
+        if (startLine === null || endLine === null) {
+            return null;
+        }
+
+        const name = occurrence?.name;
+        const occScopeId = occurrence?.scopeId;
+
+        if (!name || !occScopeId) {
+            return null;
+        }
+
+        const symbol = getSymbol(name, occScopeId);
+        if (!symbol) {
+            return null;
+        }
+
+        return {
+            range: [startLine, startCol, endLine, endCol],
+            symbol,
+            symbolRoles
+        };
+    }
+
+    /**
      * Export occurrences in SCIP (SCIP Code Intelligence Protocol) format for
      * hot reload coordination and cross-file dependency tracking.
      *
@@ -2024,58 +2085,7 @@ export class ScopeTracker {
             }>;
         }> = [];
 
-        // Helper to generate default symbol names
-        const defaultSymbolGenerator = (name: string, scopeId: string) => {
-            return `${scopeId}::${name}`;
-        };
-
-        const getSymbol = symbolGenerator ?? defaultSymbolGenerator;
-
-        // Helper to convert occurrence to SCIP format
-        const toScipOccurrence = (
-            occurrence: any,
-            symbolRoles: number
-        ): {
-            range: [number, number, number, number];
-            symbol: string;
-            symbolRoles: number;
-        } | null => {
-            // Extract location data
-            const start = occurrence?.start;
-            const end = occurrence?.end;
-
-            if (!start || !end) {
-                return null;
-            }
-
-            const startLine = typeof start.line === "number" ? start.line : null;
-            const startCol = typeof start.column === "number" ? start.column : 0;
-            const endLine = typeof end.line === "number" ? end.line : null;
-            const endCol = typeof end.column === "number" ? end.column : 0;
-
-            if (startLine === null || endLine === null) {
-                return null;
-            }
-
-            // Generate symbol identifier
-            const name = occurrence?.name;
-            const occScopeId = occurrence?.scopeId;
-
-            if (!name || !occScopeId) {
-                return null;
-            }
-
-            const symbol = getSymbol(name, occScopeId);
-            if (!symbol) {
-                return null;
-            }
-
-            return {
-                range: [startLine, startCol, endLine, endCol],
-                symbol,
-                symbolRoles
-            };
-        };
+        const getSymbol = symbolGenerator ?? this.defaultScipSymbolGenerator.bind(this);
 
         // Determine which scopes to process
         const scopesToProcess = scopeId
@@ -2092,7 +2102,7 @@ export class ScopeTracker {
             for (const entry of scope.occurrences.values()) {
                 // Process declarations
                 for (const declaration of entry.declarations) {
-                    const scipOcc = toScipOccurrence(declaration, ROLE_DEF);
+                    const scipOcc = this.toScipOccurrence(declaration, ROLE_DEF, getSymbol);
                     if (scipOcc) {
                         occurrences.push(scipOcc);
                     }
@@ -2101,7 +2111,7 @@ export class ScopeTracker {
                 // Process references if requested
                 if (includeReferences) {
                     for (const reference of entry.references) {
-                        const scipOcc = toScipOccurrence(reference, ROLE_REF);
+                        const scipOcc = this.toScipOccurrence(reference, ROLE_REF, getSymbol);
                         if (scipOcc) {
                             occurrences.push(scipOcc);
                         }
@@ -2109,6 +2119,120 @@ export class ScopeTracker {
                 }
             }
 
+            if (occurrences.length > 0) {
+                results.push({
+                    scopeId: scope.id,
+                    scopeKind: scope.kind,
+                    occurrences
+                });
+            }
+        }
+
+        return results.sort((a, b) => a.scopeId.localeCompare(b.scopeId));
+    }
+
+    /**
+     * Export occurrences for a specific set of symbols in SCIP format.
+     * This method enables targeted occurrence export for hot reload coordination
+     * when only specific symbols have changed.
+     *
+     * Unlike `exportScipOccurrences`, which exports all symbols or all symbols
+     * in a scope, this method filters to only the requested symbol names,
+     * reducing payload size and processing time during incremental updates.
+     *
+     * @param {Iterable<string>} symbolNames Set or array of symbol names to export
+     * @param {object} [options] Export options
+     * @param {string} [options.scopeId] Limit export to a specific scope (omit for all scopes)
+     * @param {boolean} [options.includeReferences=true] Include reference occurrences
+     * @param {(name: string, scopeId: string) => string | null} [options.symbolGenerator]
+     *        Custom function to generate qualified symbol names. If not provided,
+     *        uses default format: "scopeId::name".
+     * @returns {Array<{scopeId: string, scopeKind: string, occurrences: Array<{range: [number, number, number, number], symbol: string, symbolRoles: number}>}>}
+     *          Array of scope occurrence payloads in SCIP format, sorted by scope ID.
+     *          Scopes with no matching symbols are omitted from the result.
+     *
+     * @example
+     * // Export occurrences for specific symbols that changed
+     * const changedSymbols = ["player_hp", "enemy_count"];
+     * const occurrences = tracker.exportOccurrencesBySymbols(changedSymbols);
+     *
+     * @example
+     * // Export with custom symbol generator for hot reload
+     * const occurrences = tracker.exportOccurrencesBySymbols(
+     *   ["scr_player_move"],
+     *   {
+     *     symbolGenerator: (name, scopeId) => `gml/script/${name}`
+     *   }
+     * );
+     */
+    exportOccurrencesBySymbols(
+        symbolNames: Iterable<string>,
+        options: {
+            scopeId?: string | null;
+            includeReferences?: boolean;
+            symbolGenerator?: (name: string, scopeId: string) => string | null;
+        } = {}
+    ) {
+        const { scopeId = null, includeReferences = true, symbolGenerator = null } = options;
+
+        // Convert to Set for O(1) lookup
+        const symbolSet = new Set(symbolNames);
+
+        // Early return if no symbols requested
+        if (symbolSet.size === 0) {
+            return [];
+        }
+
+        const results: Array<{
+            scopeId: string;
+            scopeKind: string;
+            occurrences: Array<{
+                range: [number, number, number, number];
+                symbol: string;
+                symbolRoles: number;
+            }>;
+        }> = [];
+
+        const getSymbol = symbolGenerator ?? this.defaultScipSymbolGenerator.bind(this);
+
+        // Determine which scopes to process
+        const scopesToProcess = scopeId
+            ? Core.compactArray([this.scopesById.get(scopeId)])
+            : Array.from(this.scopesById.values());
+
+        for (const scope of scopesToProcess) {
+            const occurrences: Array<{
+                range: [number, number, number, number];
+                symbol: string;
+                symbolRoles: number;
+            }> = [];
+
+            // Only process entries for symbols in our filter set
+            for (const [name, entry] of scope.occurrences.entries()) {
+                if (!symbolSet.has(name)) {
+                    continue;
+                }
+
+                // Process declarations
+                for (const declaration of entry.declarations) {
+                    const scipOcc = this.toScipOccurrence(declaration, ROLE_DEF, getSymbol);
+                    if (scipOcc) {
+                        occurrences.push(scipOcc);
+                    }
+                }
+
+                // Process references if requested
+                if (includeReferences) {
+                    for (const reference of entry.references) {
+                        const scipOcc = this.toScipOccurrence(reference, ROLE_REF, getSymbol);
+                        if (scipOcc) {
+                            occurrences.push(scipOcc);
+                        }
+                    }
+                }
+            }
+
+            // Only include scopes that have matching occurrences
             if (occurrences.length > 0) {
                 results.push({
                     scopeId: scope.id,
