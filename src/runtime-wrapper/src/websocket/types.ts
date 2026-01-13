@@ -1,4 +1,5 @@
 import type { PatchApplicator, RuntimePatchError } from "../runtime/types.js";
+import type { Logger } from "../runtime/logger.js";
 
 export type WebSocketEvent = "open" | "message" | "close" | "error";
 
@@ -30,6 +31,7 @@ export interface WebSocketClientOptions {
     reconnectDelay?: number;
     autoConnect?: boolean;
     patchQueue?: PatchQueueOptions;
+    logger?: Logger;
 }
 
 export interface PatchQueueState {

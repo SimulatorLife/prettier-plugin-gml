@@ -1046,3 +1046,164 @@ void test("WebSocket reconnect timer is properly cleared on rapid close events p
         delete globalWithWebSocket.WebSocket;
     }
 });
+
+void test("WebSocket client integrates with logger for lifecycle events", async () => {
+    const wrapper = RuntimeWrapper.createRuntimeWrapper();
+    const logEvents: Array<{ level: string; message: string }> = [];
+
+    const mockLogger = {
+        websocketConnected(url: string) {
+            logEvents.push({ level: "info", message: `Connected to ${url}` });
+        },
+        websocketDisconnected() {
+            logEvents.push({ level: "info", message: "Disconnected" });
+        },
+        websocketReconnecting(attempt: number, delayMs: number) {
+            logEvents.push({ level: "info", message: `Reconnecting (attempt ${attempt}, delay ${delayMs}ms)` });
+        },
+        websocketError(error: string) {
+            logEvents.push({ level: "error", message: `Error: ${error}` });
+        },
+        patchQueueFlushed(count: number, durationMs: number) {
+            logEvents.push({ level: "info", message: `Flushed ${count} patches in ${durationMs}ms` });
+        },
+        patchQueued(patchId: string, queueDepth: number) {
+            logEvents.push({ level: "debug", message: `Queued ${patchId} (depth: ${queueDepth})` });
+        },
+        info(message: string) {
+            logEvents.push({ level: "info", message });
+        },
+        debug(message: string) {
+            logEvents.push({ level: "debug", message });
+        },
+        warn() {},
+        error() {},
+        patchApplied() {},
+        patchUndone() {},
+        patchRolledBack() {},
+        validationError() {},
+        shadowValidationFailed() {},
+        registryCleared() {},
+        setLevel() {},
+        getLevel() {
+            return "info" as const;
+        }
+    };
+
+    globalWithWebSocket.WebSocket = MockWebSocket;
+
+    const client = RuntimeWrapper.createWebSocketClient({
+        wrapper,
+        logger: mockLogger,
+        autoConnect: false
+    });
+
+    client.connect();
+    await wait(50);
+
+    assert.strictEqual(logEvents.length, 1);
+    assert.strictEqual(logEvents[0].level, "info");
+    assert.ok(logEvents[0].message.includes("Connected to"));
+
+    client.disconnect();
+    await wait(50);
+
+    assert.ok(logEvents.some((e) => e.message.includes("Disconnected")));
+
+    delete globalWithWebSocket.WebSocket;
+});
+
+void test("WebSocket client integrates with logger for patch queue events", async () => {
+    const wrapper = RuntimeWrapper.createRuntimeWrapper();
+    const logEvents: Array<{ level: string; message: string }> = [];
+
+    const mockLogger = {
+        patchQueueFlushed(count: number, durationMs: number) {
+            logEvents.push({ level: "info", message: `Flushed ${count} patches in ${durationMs}ms` });
+        },
+        patchQueued(patchId: string, queueDepth: number) {
+            logEvents.push({ level: "debug", message: `Queued ${patchId} (depth: ${queueDepth})` });
+        },
+        info(message: string) {
+            logEvents.push({ level: "info", message });
+        },
+        debug(message: string) {
+            logEvents.push({ level: "debug", message });
+        },
+        websocketConnected() {},
+        websocketDisconnected() {},
+        websocketReconnecting() {},
+        websocketError() {},
+        warn() {},
+        error() {},
+        patchApplied() {},
+        patchUndone() {},
+        patchRolledBack() {},
+        validationError() {},
+        shadowValidationFailed() {},
+        registryCleared() {},
+        setLevel() {},
+        getLevel() {
+            return "debug" as const;
+        }
+    };
+
+    globalWithWebSocket.WebSocket = MockWebSocket;
+
+    const client = RuntimeWrapper.createWebSocketClient({
+        wrapper,
+        logger: mockLogger,
+        autoConnect: false,
+        patchQueue: {
+            enabled: true,
+            flushIntervalMs: 100,
+            maxQueueSize: 10
+        }
+    });
+
+    client.connect();
+    await wait(50);
+
+    const ws = client.getWebSocket();
+    assert.ok(ws instanceof MockWebSocket);
+
+    ws.simulateMessage(JSON.stringify({ kind: "script", id: "script:test1", js_body: "return 1;" }));
+
+    const queuedEvents = logEvents.filter((e) => e.message.includes("Queued"));
+    assert.strictEqual(queuedEvents.length, 1);
+    assert.ok(queuedEvents[0].message.includes("script:test1"));
+
+    await wait(150);
+
+    const flushedEvents = logEvents.filter((e) => e.message.includes("Flushed"));
+    assert.strictEqual(flushedEvents.length, 1);
+    assert.ok(flushedEvents[0].message.includes("1 patches"));
+
+    client.disconnect();
+    delete globalWithWebSocket.WebSocket;
+});
+
+void test("WebSocket client works without logger (backward compatibility)", async () => {
+    const wrapper = RuntimeWrapper.createRuntimeWrapper();
+
+    globalWithWebSocket.WebSocket = MockWebSocket;
+
+    const client = RuntimeWrapper.createWebSocketClient({
+        wrapper,
+        autoConnect: false
+    });
+
+    client.connect();
+    await wait(50);
+
+    const ws = client.getWebSocket();
+    assert.ok(ws instanceof MockWebSocket);
+
+    ws.simulateMessage(JSON.stringify({ kind: "script", id: "script:test", js_body: "return 42;" }));
+    await wait(50);
+
+    assert.ok(wrapper.hasScript("script:test"));
+
+    client.disconnect();
+    delete globalWithWebSocket.WebSocket;
+});
