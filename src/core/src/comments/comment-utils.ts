@@ -113,7 +113,7 @@ export function hasComment(node: unknown): boolean {
  * @returns Either the node's comment array or a frozen empty array when no valid
  *          collection exists.
  */
-export function getCommentArray(owner: unknown): ReadonlyArray<CommentBlockNode | CommentLineNode | unknown> {
+export function getCommentArray(owner: unknown): ReadonlyArray<unknown> {
     if (!isObjectLike(owner) || !("comments" in (owner as object))) {
         return EMPTY_COMMENT_ARRAY;
     }
