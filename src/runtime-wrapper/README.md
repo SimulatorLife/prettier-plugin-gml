@@ -1368,3 +1368,51 @@ const logger = createLogger({
 **Performance Impact:**
 
 The logger is designed to have minimal performance impact. When a log level is configured, messages below that level are completely skipped without string formatting or console calls. Enable `debug` level only during active development to avoid potential performance overhead in long-running sessions.
+
+## Architecture and Interface Segregation
+
+### WebSocket Client Interfaces
+
+The `RuntimeWebSocketClient` interface follows the Interface Segregation Principle (ISP) by splitting responsibilities into role-focused interfaces. This allows consumers to depend only on the capabilities they need:
+
+- **`WebSocketConnectionLifecycle`** - Connection management (`connect`, `disconnect`, `isConnected`)
+- **`WebSocketMessageSender`** - Message transmission (`send`)
+- **`WebSocketInstanceProvider`** - WebSocket access (`getWebSocket`)
+- **`WebSocketMetricsCollector`** - Metrics tracking (`getConnectionMetrics`, `resetConnectionMetrics`)
+- **`WebSocketPatchQueueManager`** - Patch queue management (`getPatchQueueMetrics`, `flushPatchQueue`)
+
+**Example - Depending on minimal interfaces:**
+
+```javascript
+// Consumer that only needs lifecycle control
+function setupConnection(client: WebSocketConnectionLifecycle) {
+    client.connect();
+    // Only has access to connect/disconnect/isConnected
+}
+
+// Consumer that only needs to send messages
+function broadcastPatch(sender: WebSocketMessageSender, patch: unknown) {
+    sender.send(patch);
+    // Only has access to send
+}
+
+// Consumer that needs full capabilities
+function manageWebSocket(client: RuntimeWebSocketClient) {
+    client.connect();
+    client.send({ type: "ping" });
+    console.log(client.getConnectionMetrics());
+    // Has access to all methods
+}
+```
+
+This design provides several benefits:
+
+1. **Explicit dependencies** - Function signatures clearly communicate what capabilities they require
+2. **Easier testing** - Mock objects only need to implement the minimal interface
+3. **Better encapsulation** - Consumers can't accidentally call methods they shouldn't use
+4. **Future flexibility** - New implementations can provide subsets of functionality without full compliance
+
+The same pattern is applied to other major interfaces in this module:
+
+- **`RuntimeWrapper`** extends `PatchApplicator`, `HistoryManager`, `RegistryReader`, `RegistryMutator`, `RuntimeMetrics`, `RegistryDiagnostics`, and `ErrorAnalytics`
+- **`Logger`** extends `PatchLifecycleLogger`, `RegistryLifecycleLogger`, `WebSocketLogger`, `GeneralLogger`, and `LoggerConfiguration`
