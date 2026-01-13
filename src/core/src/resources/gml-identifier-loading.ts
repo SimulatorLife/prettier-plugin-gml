@@ -178,11 +178,22 @@ function resolveExcludedTypes(types: unknown): Set<string> {
     return normalized;
 }
 
+/**
+ * Generate a stable cache key from excluded types Set.
+ * Uses a sorted, joined string representation for consistent lookups.
+ */
+function createExcludedTypesCacheKey(excludedTypes: Set<string>): string {
+    if (excludedTypes.size === 0) {
+        return "";
+    }
+    
+    // Sort only once when creating the cache key
+    return Array.from(excludedTypes).toSorted().join(",");
+}
+
 export function loadReservedIdentifierNames({ disallowedTypes }: { disallowedTypes?: string[] } = {}) {
-    // Create a cache key from the excluded types to enable per-configuration caching.
-    // Sort the types to ensure consistent keys for equivalent configurations.
     const excludedTypes = resolveExcludedTypes(disallowedTypes);
-    const cacheKey = Array.from(excludedTypes).toSorted().join(",");
+    const cacheKey = createExcludedTypesCacheKey(excludedTypes);
 
     // Return cached Set if available
     const cached = cachedReservedIdentifierNames.get(cacheKey);
