@@ -89,7 +89,7 @@ function flushQueuedPatchesInternal(options: FlushQueueOptions): number {
 
     if (wrapper.applyPatchBatch) {
         const result = wrapper.applyPatchBatch(patchesToFlush);
-        const applied = result.success ? result.appliedCount : result.appliedCount;
+        const applied = result.appliedCount;
         const failed = flushSize - applied;
 
         state.connectionMetrics.patchesApplied += applied;
