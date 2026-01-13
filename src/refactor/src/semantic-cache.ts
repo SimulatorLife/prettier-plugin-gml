@@ -27,7 +27,7 @@ interface CacheEntry<T> {
 export interface SemanticCacheConfig {
     /**
      * Maximum number of entries to store per cache type.
-     * When exceeded, oldest entries are evicted (LRU).
+     * When exceeded, oldest entries are evicted (FIFO).
      * Default: 100
      */
     maxSize?: number;
@@ -288,7 +288,7 @@ export class SemanticQueryCache {
         if (!this.semantic || !hasMethod(this.semantic, "getSymbolOccurrences")) {
             return Promise.resolve([]);
         }
-         
+
         return Promise.resolve(this.semantic.getSymbolOccurrences(symbolName));
     }
 
