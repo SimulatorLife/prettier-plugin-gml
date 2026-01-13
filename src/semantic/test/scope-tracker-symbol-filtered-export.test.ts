@@ -12,18 +12,22 @@ import ScopeTracker from "../src/scopes/scope-tracker.js";
  * @returns Configured ScopeTracker instance
  */
 function createTrackerWithVariable(varName: string, referenceCount = 0): ScopeTracker {
+    const DECLARATION_LINE = 1;
+    const REFERENCE_START_LINE = 2;
+    const CHARS_PER_LINE = 10;
+
     const tracker = new ScopeTracker({ enabled: true });
     tracker.enterScope("program");
 
     tracker.declare(varName, {
         name: varName,
-        start: { line: 1, column: 0, index: 0 },
-        end: { line: 1, column: varName.length, index: varName.length }
+        start: { line: DECLARATION_LINE, column: 0, index: 0 },
+        end: { line: DECLARATION_LINE, column: varName.length, index: varName.length }
     });
 
     for (let i = 0; i < referenceCount; i += 1) {
-        const lineNum = i + 2;
-        const startIndex = (lineNum - 1) * 10;
+        const lineNum = REFERENCE_START_LINE + i;
+        const startIndex = (lineNum - 1) * CHARS_PER_LINE;
         tracker.reference(varName, {
             name: varName,
             start: { line: lineNum, column: 0, index: startIndex },
