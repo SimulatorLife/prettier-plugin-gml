@@ -1,6 +1,6 @@
 import { type Doc } from "prettier";
 import { align, concat, fill, group, hardline, join, line } from "../prettier-doc-builders.js";
-import { resolveDescriptionIndentation } from "../../transforms/doc-comment/description-utils.js";
+import { DescriptionUtils } from "../../transforms/doc-comment/index.js";
 
 import { Core, type MutableDocCommentLines } from "@gml-modules/core";
 
@@ -36,7 +36,7 @@ function buildDescriptionDoc(lineText: string, continuations: string[]): Doc {
     const trimmedLine = lineText.trim();
     const descriptionText = trimmedLine.replace(DESCRIPTION_TAG_PATTERN, "").trim();
 
-    const { prefix } = resolveDescriptionIndentation(lineText);
+    const { prefix } = DescriptionUtils.resolveDescriptionIndentation(lineText);
     const continuationPrefix = `/// ${" ".repeat(Math.max(prefix.length - 4, 0))}`;
 
     const fragments = Core.compactArray([descriptionText, ...continuations]).join(" ");
@@ -86,7 +86,7 @@ export function buildPrintableDocCommentLines(docCommentDocs: MutableDocCommentL
         const { continuations, linesConsumed } = collectDescriptionContinuations(docCommentDocs, index);
 
         if (preserveBreaks) {
-            const { prefix } = resolveDescriptionIndentation(entry);
+            const { prefix } = DescriptionUtils.resolveDescriptionIndentation(entry);
             const continuationPrefix = `/// ${" ".repeat(Math.max(prefix.length - 4, 0))}`;
 
             const descriptionText = entry.trim().replace(DESCRIPTION_TAG_PATTERN, "").trim();

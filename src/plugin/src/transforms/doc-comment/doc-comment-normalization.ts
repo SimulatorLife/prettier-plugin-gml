@@ -1,6 +1,6 @@
 import { Core, type MutableDocCommentLines, type MutableGameMakerAstNode } from "@gml-modules/core";
 import { createParserTransform } from "../functional-transform.js";
-import { resolveDocCommentPrinterOptions } from "../../printer/doc-comment/doc-comment-options.js";
+import { resolveDocCommentPrinterOptions } from "../../printer/doc-comment/index.js";
 import {
     applyDescriptionContinuations,
     collectDescriptionContinuations,
@@ -8,8 +8,8 @@ import {
 } from "./description-utils.js";
 import { setDocCommentNormalization } from "./normalization-utils.js";
 import { setDocCommentMetadata, setDeprecatedDocCommentFunctionSet } from "./doc-comment-metadata.js";
-import { removeFunctionDocCommentLines } from "../../doc-comment/function-tag-filter.js";
-import { normalizeDocLikeLineComment } from "../../comments/doc-like-line-normalization.js";
+import { removeFunctionDocCommentLines } from "../../doc-comment/index.js";
+import { normalizeDocLikeLineComment } from "../../comments/index.js";
 
 type DocCommentNormalizationTransformOptions = {
     enabled?: boolean;

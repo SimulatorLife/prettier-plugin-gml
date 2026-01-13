@@ -1,14 +1,9 @@
 import { Core, type MutableDocCommentLines } from "@gml-modules/core";
-import { removeFunctionDocCommentLines } from "../../doc-comment/function-tag-filter.js";
+import { removeFunctionDocCommentLines } from "../../doc-comment/index.js";
 
 import { resolveDocCommentPrinterOptions } from "./doc-comment-options.js";
-import {
-    applyDescriptionContinuations,
-    collectDescriptionContinuations,
-    ensureDescriptionContinuations
-} from "../../transforms/doc-comment/description-utils.js";
-import { getDocCommentNormalization } from "../../transforms/doc-comment/normalization-utils.js";
-import { normalizeDocLikeLineComment } from "../../comments/doc-like-line-normalization.js";
+import { DescriptionUtils, NormalizationUtils } from "../../transforms/doc-comment/index.js";
+import { normalizeDocLikeLineComment } from "../../comments/index.js";
 
 const STRING_TYPE = "string";
 const BLANK_LINE_PATTERN = /(?:\r\n|\r|\n|\u2028|\u2029)\s*(?:\r\n|\r|\n|\u2028|\u2029)/;
@@ -470,7 +465,7 @@ export function collectFunctionDocCommentDocs({ node, options, path, nodeStartIn
     if (nodeComments.some((comment) => comment?._docCommentBlockConverted === true)) {
         (docCommentDocs as any)._blockCommentDocs = true;
     }
-    ensureDescriptionContinuations(docCommentDocs);
+    DescriptionUtils.ensureDescriptionContinuations(docCommentDocs);
 
     return {
         docCommentDocs,
@@ -494,7 +489,7 @@ export function normalizeFunctionDocCommentDocs({
     path,
     overrides
 }: any) {
-    const normalizedMetadata = getDocCommentNormalization(node);
+    const normalizedMetadata = NormalizationUtils.getDocCommentNormalization(node);
 
     if (normalizedMetadata) {
         const docs = normalizedMetadata.docCommentDocs;
@@ -518,7 +513,7 @@ export function normalizeFunctionDocCommentDocs({
     }
 
     const docCommentOptions = resolveDocCommentPrinterOptions(options);
-    const descriptionContinuations = collectDescriptionContinuations(docCommentDocs);
+    const descriptionContinuations = DescriptionUtils.collectDescriptionContinuations(docCommentDocs);
     const preserveDescriptionBreaks =
         Array.isArray(docCommentDocs) && (docCommentDocs as any)._preserveDescriptionBreaks === true;
     if (Core.shouldGenerateSyntheticDocForFunction(path, docCommentDocs, docCommentOptions)) {
@@ -526,7 +521,7 @@ export function normalizeFunctionDocCommentDocs({
             Core.mergeSyntheticDocComments(node, docCommentDocs, docCommentOptions, overrides)
         ) as MutableDocCommentLines;
 
-        docCommentDocs = applyDescriptionContinuations(docCommentDocs, descriptionContinuations);
+        docCommentDocs = DescriptionUtils.applyDescriptionContinuations(docCommentDocs, descriptionContinuations);
         if (Array.isArray(docCommentDocs)) {
             while (
                 docCommentDocs.length > 0 &&

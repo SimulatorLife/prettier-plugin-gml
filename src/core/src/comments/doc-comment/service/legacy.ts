@@ -1,5 +1,4 @@
-import { toMutableArray } from "../../../utils/array.js";
-import { capitalize, isNonEmptyTrimmedString, toTrimmedString } from "../utils.js";
+import { toMutableArray, capitalize, isNonEmptyTrimmedString, toTrimmedString } from "../utils.js";
 import type { DocCommentLines } from "../../comment-utils.js";
 import { parseDocCommentMetadata, isDocCommentTagLine } from "./metadata.js";
 
