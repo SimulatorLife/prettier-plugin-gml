@@ -4,6 +4,7 @@ import * as OccurrenceAnalysisAPI from "./occurrence-analysis.js";
 import * as RenamePreviewAPI from "./rename-preview.js";
 import * as ValidationAPI from "./validation.js";
 import * as HotReloadAPI from "./hot-reload.js";
+import { SemanticQueryCache } from "./semantic-cache.js";
 import {
     ConflictType,
     isConflictType,
@@ -22,6 +23,7 @@ import {
 export const Refactor = Object.freeze({
     ...RefactorAPI,
     WorkspaceEdit,
+    SemanticQueryCache,
     ...OccurrenceAnalysisAPI,
     ...RenamePreviewAPI,
     ...ValidationAPI,
@@ -42,6 +44,8 @@ export const Refactor = Object.freeze({
 
 export { RefactorEngine } from "./refactor-engine.js";
 export { WorkspaceEdit } from "./workspace-edit.js";
+export { SemanticQueryCache } from "./semantic-cache.js";
+export type { SemanticCacheConfig, CacheStats } from "./semantic-cache.js";
 
 export { SymbolKind, isSymbolKind, parseSymbolKind, requireSymbolKind } from "./types.js";
 
