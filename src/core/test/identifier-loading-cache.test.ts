@@ -1,0 +1,139 @@
+import assert from "node:assert/strict";
+import test from "node:test";
+
+import {
+    loadManualFunctionNames,
+    loadReservedIdentifierNames,
+    clearIdentifierMetadataCache,
+    resetReservedIdentifierMetadataLoader,
+    setReservedIdentifierMetadataLoader
+} from "../src/resources/gml-identifier-loading.js";
+
+test.afterEach(() => {
+    resetReservedIdentifierMetadataLoader();
+    clearIdentifierMetadataCache();
+});
+
+void test("loadManualFunctionNames returns the same cached Set instance on repeated calls", () => {
+    const firstCall = loadManualFunctionNames();
+    const secondCall = loadManualFunctionNames();
+    const thirdCall = loadManualFunctionNames();
+
+    // Verify all calls return the exact same Set instance (not just equal Sets)
+    assert.strictEqual(firstCall, secondCall, "Second call should return same Set instance");
+    assert.strictEqual(secondCall, thirdCall, "Third call should return same Set instance");
+    assert.strictEqual(firstCall, thirdCall, "First and third calls should return same Set instance");
+});
+
+void test("loadManualFunctionNames returns new Set after cache is cleared", () => {
+    const firstCall = loadManualFunctionNames();
+    
+    clearIdentifierMetadataCache();
+    
+    const secondCall = loadManualFunctionNames();
+
+    // After clearing cache, we should get a new instance
+    assert.notStrictEqual(firstCall, secondCall, "Should return new Set instance after cache clear");
+    
+    // But the contents should be identical
+    assert.deepEqual(Array.from(firstCall).toSorted(), Array.from(secondCall).toSorted());
+});
+
+void test("loadReservedIdentifierNames returns the same cached Set for identical configurations", () => {
+    const firstCall = loadReservedIdentifierNames({ disallowedTypes: ["literal", "keyword"] });
+    const secondCall = loadReservedIdentifierNames({ disallowedTypes: ["literal", "keyword"] });
+    const thirdCall = loadReservedIdentifierNames({ disallowedTypes: ["literal", "keyword"] });
+
+    // All calls with the same configuration should return the same instance
+    assert.strictEqual(firstCall, secondCall, "Same config should return same Set instance");
+    assert.strictEqual(secondCall, thirdCall, "Same config should return same Set instance");
+});
+
+void test("loadReservedIdentifierNames returns different cached Sets for different configurations", () => {
+    const config1 = loadReservedIdentifierNames({ disallowedTypes: ["literal"] });
+    const config2 = loadReservedIdentifierNames({ disallowedTypes: ["keyword"] });
+    const config3 = loadReservedIdentifierNames({ disallowedTypes: ["literal", "keyword"] });
+
+    // Different configurations should return different instances
+    assert.notStrictEqual(config1, config2, "Different configs should return different Set instances");
+    assert.notStrictEqual(config1, config3, "Different configs should return different Set instances");
+    assert.notStrictEqual(config2, config3, "Different configs should return different Set instances");
+});
+
+void test("loadReservedIdentifierNames handles configuration order consistently", () => {
+    // Configurations with the same types in different order should return the same Set
+    const ordered1 = loadReservedIdentifierNames({ disallowedTypes: ["literal", "keyword"] });
+    const ordered2 = loadReservedIdentifierNames({ disallowedTypes: ["keyword", "literal"] });
+
+    // The cache key is sorted, so different order should return the same cached instance
+    assert.strictEqual(ordered1, ordered2, "Same types in different order should use same cache");
+});
+
+void test("loadReservedIdentifierNames with default config returns cached instance", () => {
+    const firstCall = loadReservedIdentifierNames();
+    const secondCall = loadReservedIdentifierNames();
+    const thirdCall = loadReservedIdentifierNames({});
+
+    assert.strictEqual(firstCall, secondCall, "Default config should return same instance");
+    assert.strictEqual(secondCall, thirdCall, "Empty config should match default config");
+});
+
+void test("clearIdentifierMetadataCache clears all derived caches", () => {
+    // Populate caches
+    const manualFunctions1 = loadManualFunctionNames();
+    const reservedIds1 = loadReservedIdentifierNames();
+    const customReserved1 = loadReservedIdentifierNames({ disallowedTypes: ["literal"] });
+
+    // Clear all caches
+    clearIdentifierMetadataCache();
+
+    // Get new instances
+    const manualFunctions2 = loadManualFunctionNames();
+    const reservedIds2 = loadReservedIdentifierNames();
+    const customReserved2 = loadReservedIdentifierNames({ disallowedTypes: ["literal"] });
+
+    // All should be new instances
+    assert.notStrictEqual(manualFunctions1, manualFunctions2, "Manual functions should be new instance");
+    assert.notStrictEqual(reservedIds1, reservedIds2, "Reserved identifiers should be new instance");
+    assert.notStrictEqual(customReserved1, customReserved2, "Custom reserved should be new instance");
+});
+
+void test("cache persists across metadata loader changes", () => {
+    // Populate cache with custom loader
+    const cleanup = setReservedIdentifierMetadataLoader(() => ({
+        identifiers: {
+            foo: { type: "function" },
+            bar: { type: "variable" }
+        }
+    }));
+
+    const firstCall = loadManualFunctionNames();
+    const secondCall = loadManualFunctionNames();
+
+    // Verify caching works with custom loader
+    assert.strictEqual(firstCall, secondCall, "Cache should work with custom loader");
+    assert.deepEqual(Array.from(firstCall).toSorted(), ["foo"]);
+
+    cleanup();
+});
+
+void test("memory allocation is reduced by caching", () => {
+    // This test verifies the optimization by ensuring multiple calls
+    // don't create new Set instances, thus reducing memory allocations
+
+    const iterations = 100;
+    const sets = new Set<Set<string>>();
+
+    // Call loadManualFunctionNames many times
+    for (let i = 0; i < iterations; i++) {
+        const result = loadManualFunctionNames();
+        sets.add(result);
+    }
+
+    // All calls should have returned the same Set instance
+    assert.strictEqual(
+        sets.size,
+        1,
+        `Expected only 1 unique Set instance, but got ${sets.size}. Cache is not working properly.`
+    );
+});
