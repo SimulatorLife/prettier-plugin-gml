@@ -7,7 +7,7 @@ import {
     applyFormatMaxIterationsEnvOverride,
     getMaxFormatIterations,
     setMaxFormatIterations
-} from "../src/modules/memory/index.js";
+} from "../src/commands/memory.js";
 
 void describe("memory format iteration limit configuration", () => {
     afterEach(() => {

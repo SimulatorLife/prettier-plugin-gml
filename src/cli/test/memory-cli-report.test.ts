@@ -21,7 +21,7 @@ import {
     applyMemoryReportFileNameEnvOverride,
     setAstCommonNodeTypeLimit,
     MemorySuiteName
-} from "../src/modules/memory/index.js";
+} from "../src/commands/memory.js";
 
 void test("memory CLI writes suite results to a JSON report", async (t) => {
     const workspace = await mkdtemp(path.join(os.tmpdir(), "memory-cli-report-"));

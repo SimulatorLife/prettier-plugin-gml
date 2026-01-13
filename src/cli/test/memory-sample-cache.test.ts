@@ -4,7 +4,7 @@ import os from "node:os";
 import path from "node:path";
 import { afterEach, beforeEach, describe, it } from "node:test";
 
-import { __test__ } from "../src/modules/memory/index.js";
+import { __test__ } from "../src/commands/memory.js";
 
 const { SAMPLE_CACHE_MAX_ENTRIES, loadSampleTextForTests, clearSampleCacheForTests, getSampleCacheLabelsForTests } =
     __test__;

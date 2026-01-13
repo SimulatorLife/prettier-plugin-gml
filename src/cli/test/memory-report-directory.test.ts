@@ -8,7 +8,7 @@ import {
     getDefaultMemoryReportDirectory,
     resolveMemoryReportDirectory,
     setDefaultMemoryReportDirectory
-} from "../src/modules/memory/index.js";
+} from "../src/commands/memory.js";
 
 void describe("memory report directory configuration", () => {
     afterEach(() => {

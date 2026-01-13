@@ -1,7 +1,7 @@
 import assert from "node:assert/strict";
 import { describe, it } from "node:test";
 
-import { parseFormatterOptionsFixture } from "../src/modules/memory/index.js";
+import { parseFormatterOptionsFixture } from "../src/commands/memory.js";
 import { Core } from "../src/shared/index.js";
 // Use Core.JsonParseError per AGENTS.md rather than destructuring
 
