@@ -560,6 +560,62 @@ const scipData = tracker.exportScipOccurrences();
 
 The custom symbol generator allows integration with project-wide symbol naming schemes. For example, use `(name, scopeId) => "gml/script/" + name` to match the transpiler's qualified symbol format for scripts.
 
+### `exportOccurrencesBySymbols(symbolNames, options?)`
+
+Export occurrences for a specific set of symbols in SCIP format, enabling targeted occurrence export for hot reload coordination when only specific symbols have changed. Unlike `exportScipOccurrences`, which exports all symbols or all symbols in a scope, this method filters to only the requested symbol names, reducing payload size and processing time during incremental updates.
+
+```javascript
+const tracker = new ScopeTracker({ enabled: true });
+tracker.enterScope("program");
+tracker.declare("player_hp", {
+    name: "player_hp",
+    start: { line: 1, column: 0, index: 0 },
+    end: { line: 1, column: 9, index: 9 }
+});
+tracker.declare("enemy_count", {
+    name: "enemy_count",
+    start: { line: 2, column: 0, index: 20 },
+    end: { line: 2, column: 11, index: 31 }
+});
+tracker.declare("game_state", {
+    name: "game_state",
+    start: { line: 3, column: 0, index: 40 },
+    end: { line: 3, column: 10, index: 50 }
+});
+
+// Export occurrences for only the symbols that changed
+const changedSymbols = ["player_hp", "enemy_count"];
+const occurrences = tracker.exportOccurrencesBySymbols(changedSymbols);
+// Returns: [
+//   {
+//     scopeId: "scope-0",
+//     scopeKind: "program",
+//     occurrences: [
+//       { range: [1, 0, 1, 9], symbol: "scope-0::player_hp", symbolRoles: 1 },
+//       { range: [2, 0, 2, 11], symbol: "scope-0::enemy_count", symbolRoles: 1 }
+//     ]
+//   }
+// ]
+// Note: game_state is not included because it wasn't in the requested set
+```
+
+**Parameters:**
+- `symbolNames`: Iterable<string> - Set or array of symbol names to export
+- `options.scopeId`: Limit export to a specific scope (omit for all scopes)
+- `options.includeReferences`: Include reference occurrences (default: `true`)
+- `options.symbolGenerator`: Custom function to generate qualified symbol names. Default format is `"scopeId::name"`.
+
+**Returns:** Array of scope occurrence payloads in SCIP format, sorted by scope ID. Scopes with no matching symbols are omitted from the result.
+
+**Use case:** Essential for incremental hot reload when a file edit changes only a subset of symbols. Instead of exporting all occurrences (which can be expensive for large codebases), query only the symbols that changed. For example:
+1. File watcher detects edit to `player.gml`
+2. Parse the file to identify changed symbols: `["player_hp", "player_update"]`
+3. Call `exportOccurrencesBySymbols(["player_hp", "player_update"])` to get targeted occurrences
+4. Use the filtered occurrences to build a minimal invalidation set
+5. Send only the affected code to the hot reload pipeline
+
+This targeted approach dramatically reduces hot reload latency in large projects by avoiding full-project symbol exports on every file change.
+
 ## Scope Modification Tracking
 
 The `ScopeTracker` maintains modification metadata for each scope, enabling efficient incremental hot reload by tracking when scopes change and identifying which scopes need recompilation.
