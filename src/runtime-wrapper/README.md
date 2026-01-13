@@ -1391,7 +1391,7 @@ function setupConnection(client: WebSocketConnectionLifecycle) {
 }
 
 // Consumer that only needs to send messages
-function broadcastPatch(sender: WebSocketMessageSender, patch: Patch) {
+function broadcastPatch(sender: WebSocketMessageSender, patch: unknown) {
     sender.send(patch);
     // Only has access to send
 }

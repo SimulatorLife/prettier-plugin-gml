@@ -108,7 +108,7 @@ export interface WebSocketMessageSender {
     /**
      * Sends arbitrary data over the WebSocket connection.
      * Data is stringified if not already a string.
-     * @throws Error if the WebSocket is not connected
+     * @throws {Error} Throws an Error with message "WebSocket is not connected" if the connection is not established
      */
     send(data: unknown): void;
 }
