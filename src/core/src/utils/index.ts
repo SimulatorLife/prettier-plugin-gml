@@ -6,6 +6,7 @@ export * from "./date.js";
 export * from "./environment.js";
 export * from "./error.js";
 export * from "./function.js";
+export * from "./js-string.js";
 export * from "./json.js";
 export * from "./line-breaks.js";
 export * from "./number.js";

@@ -1,7 +1,14 @@
 /**
- * String manipulation utilities for the GML to JavaScript transpiler.
- * These functions handle identifier validation, template string escaping,
- * and struct key normalization.
+ * JavaScript string manipulation utilities for GML tooling.
+ * 
+ * This module provides utilities for working with JavaScript identifiers,
+ * template literals, and object keys when emitting or manipulating JavaScript
+ * code generated from GML source.
+ * 
+ * Key capabilities:
+ * - Validating ECMAScript identifier syntax
+ * - Escaping template string content
+ * - Normalizing and quoting object property keys
  */
 
 /**
