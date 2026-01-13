@@ -4,7 +4,6 @@ import { builtInFunctions } from "./builtins.js";
 import { wrapConditional, wrapConditionalBody, wrapRawBody } from "./code-wrapping.js";
 import { lowerEnumDeclaration } from "./enum-lowering.js";
 import { mapBinaryOperator, mapUnaryOperator } from "./operator-mapping.js";
-import { escapeTemplateText, stringifyStructKey } from "./string-utils.js";
 import { lowerWithStatement } from "./with-lowering.js";
 import type {
     ArrayExpressionNode,
@@ -544,7 +543,7 @@ export class GmlToJsEmitter {
                 return "";
             }
             if (atom.type === "TemplateStringText") {
-                return escapeTemplateText(atom.value);
+                return Core.escapeTemplateText(atom.value);
             }
             return `\${${this.visit(atom)}}`;
         });
@@ -695,7 +694,7 @@ export class GmlToJsEmitter {
 
     private resolveStructKey(prop: StructPropertyNode): string {
         if (typeof prop.name === "string") {
-            return stringifyStructKey(prop.name);
+            return Core.stringifyStructKey(prop.name);
         }
         return this.visit(prop.name);
     }
