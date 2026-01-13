@@ -263,18 +263,19 @@ function skipTriviaBackward(text: string, startIndex: number): number {
         // Check if current position is within a line comment
         // Scan backward on the current line to see if there's a // before us
         let lineStart = current;
+        let foundLineComment = false;
         while (lineStart >= 0 && text[lineStart] !== "\n") {
-            if (text[lineStart] === "/" && lineStart > 0 && text[lineStart - 1] === "/") {
+            if (lineStart > 0 && text[lineStart - 1] === "/" && text[lineStart] === "/") {
                 // Found // before our position on this line, skip to before it
                 current = lineStart - 2;
-                // Continue the outer loop to process what comes before the //
+                foundLineComment = true;
                 break;
             }
             lineStart -= 1;
         }
 
         // If we found and skipped a //, continue the outer loop
-        if (lineStart >= 0 && text[lineStart] === "/" && lineStart > 0 && text[lineStart - 1] === "/") {
+        if (foundLineComment) {
             continue;
         }
 
