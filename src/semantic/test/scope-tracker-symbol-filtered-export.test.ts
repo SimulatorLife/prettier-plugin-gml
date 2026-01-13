@@ -3,6 +3,41 @@ import assert from "node:assert/strict";
 
 import ScopeTracker from "../src/scopes/scope-tracker.js";
 
+/**
+ * Helper to create a tracker with a declared variable and optional references.
+ * Reduces test setup duplication.
+ *
+ * @param varName - Name of the variable to declare
+ * @param referenceCount - Number of references to add (default: 0)
+ * @returns Configured ScopeTracker instance
+ */
+function createTrackerWithVariable(varName: string, referenceCount = 0): ScopeTracker {
+    const DECLARATION_LINE = 1;
+    const REFERENCE_START_LINE = 2;
+    const CHARS_PER_LINE = 10;
+
+    const tracker = new ScopeTracker({ enabled: true });
+    tracker.enterScope("program");
+
+    tracker.declare(varName, {
+        name: varName,
+        start: { line: DECLARATION_LINE, column: 0, index: 0 },
+        end: { line: DECLARATION_LINE, column: varName.length, index: varName.length }
+    });
+
+    for (let i = 0; i < referenceCount; i += 1) {
+        const lineNum = REFERENCE_START_LINE + i;
+        const startIndex = (lineNum - 1) * CHARS_PER_LINE;
+        tracker.reference(varName, {
+            name: varName,
+            start: { line: lineNum, column: 0, index: startIndex },
+            end: { line: lineNum, column: varName.length, index: startIndex + varName.length }
+        });
+    }
+
+    return tracker;
+}
+
 void test("exportOccurrencesBySymbols: returns empty array for empty symbol set", () => {
     const tracker = new ScopeTracker({ enabled: true });
     tracker.enterScope("program");
@@ -77,26 +112,7 @@ void test("exportOccurrencesBySymbols: returns occurrences for multiple requeste
 });
 
 void test("exportOccurrencesBySymbols: filters references when includeReferences is true", () => {
-    const tracker = new ScopeTracker({ enabled: true });
-    tracker.enterScope("program");
-
-    tracker.declare("myVar", {
-        name: "myVar",
-        start: { line: 1, column: 0, index: 0 },
-        end: { line: 1, column: 5, index: 5 }
-    });
-
-    tracker.reference("myVar", {
-        name: "myVar",
-        start: { line: 2, column: 0, index: 10 },
-        end: { line: 2, column: 5, index: 15 }
-    });
-
-    tracker.reference("myVar", {
-        name: "myVar",
-        start: { line: 3, column: 0, index: 20 },
-        end: { line: 3, column: 5, index: 25 }
-    });
+    const tracker = createTrackerWithVariable("myVar", 2);
 
     const result = tracker.exportOccurrencesBySymbols(["myVar"], {
         includeReferences: true
@@ -111,20 +127,7 @@ void test("exportOccurrencesBySymbols: filters references when includeReferences
 });
 
 void test("exportOccurrencesBySymbols: excludes references when includeReferences is false", () => {
-    const tracker = new ScopeTracker({ enabled: true });
-    tracker.enterScope("program");
-
-    tracker.declare("myVar", {
-        name: "myVar",
-        start: { line: 1, column: 0, index: 0 },
-        end: { line: 1, column: 5, index: 5 }
-    });
-
-    tracker.reference("myVar", {
-        name: "myVar",
-        start: { line: 2, column: 0, index: 10 },
-        end: { line: 2, column: 5, index: 15 }
-    });
+    const tracker = createTrackerWithVariable("myVar", 1);
 
     const result = tracker.exportOccurrencesBySymbols(["myVar"], {
         includeReferences: false
