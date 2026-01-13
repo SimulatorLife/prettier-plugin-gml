@@ -5,7 +5,7 @@ import {
     escapeTemplateText,
     stringifyStructKey,
     normalizeStructKeyText
-} from "../src/emitter/string-utils.js";
+} from "../../src/utils/js-string.js";
 
 // Tests for isIdentifierLike
 void test("isIdentifierLike accepts valid JavaScript identifiers", () => {
