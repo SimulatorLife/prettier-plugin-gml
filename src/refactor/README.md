@@ -732,6 +732,55 @@ These utilities are particularly useful for:
 - Providing detailed impact summaries in CLI tools
 - Filtering occurrences for targeted analysis
 
+## Performance Optimization
+
+### Semantic Query Cache
+
+The refactor engine supports caching of semantic analyzer queries to optimize batch operations and impact analysis. During complex refactoring workflows, the same semantic data is often queried repeatedly (e.g., symbol occurrences, dependencies). The `SemanticQueryCache` memoizes these results within a session to reduce redundant queries.
+
+```javascript
+import { SemanticQueryCache } from "@gml-modules/refactor";
+
+// Create cache with custom configuration
+const cache = new SemanticQueryCache(semantic, {
+    maxSize: 100,      // Maximum entries per cache type (default: 100)
+    ttlMs: 60000,      // Time-to-live in milliseconds (default: 60000)
+    enabled: true      // Enable/disable caching (default: true)
+});
+
+// First call queries the semantic analyzer
+const occurrences1 = await cache.getSymbolOccurrences("player_hp");
+
+// Second call returns cached result (no semantic query)
+const occurrences2 = await cache.getSymbolOccurrences("player_hp");
+
+// Clear cache when source files change
+cache.invalidateAll();
+
+// Or invalidate specific files
+cache.invalidateFile("scripts/player.gml");
+
+// Check cache performance
+const stats = cache.getStats();
+console.log(`Hits: ${stats.hits}, Misses: ${stats.misses}, Evictions: ${stats.evictions}`);
+```
+
+The cache is particularly beneficial for:
+
+- **Batch rename operations**: Avoids re-querying the same symbol dependencies multiple times
+- **Impact analysis**: Caches occurrence data when analyzing multiple related symbols
+- **Hot reload workflows**: Reduces overhead when computing dependency cascades
+- **IDE integrations**: Provides faster feedback during interactive refactoring
+
+**Cache behavior:**
+
+- Entries are evicted using FIFO when `maxSize` is exceeded
+- Entries expire after `ttlMs` milliseconds
+- Each cache type (occurrences, file symbols, dependents, existence) has its own storage
+- The cache is session-scoped and should be created per refactoring workflow
+- Call `invalidateAll()` when source files change to prevent stale results
+- Call `invalidateFile(path)` to selectively invalidate affected entries
+
 ## Directory layout
 - `src/` – core refactoring primitives and orchestrators.
 - `test/` – Node tests that validate refactor strategies against fixture projects.
@@ -924,11 +973,45 @@ Container for text edits across multiple files.
 - `addEdit(path, start, end, newText)` - Add a text edit
 - `groupByFile()` - Group edits by file path (sorted for safe application)
 
+### SemanticQueryCache
+
+Caching layer for semantic analyzer queries during refactoring operations.
+
+**Constructor:**
+```javascript
+new SemanticQueryCache(semantic, config)
+```
+
+**Configuration:**
+- `maxSize` - Maximum entries per cache type (default: 100)
+- `ttlMs` - Time-to-live in milliseconds (default: 60000)
+- `enabled` - Enable/disable caching (default: true)
+
+**Methods:**
+
+- `async getSymbolOccurrences(symbolName)` - Get cached symbol occurrences
+- `async getFileSymbols(filePath)` - Get cached file symbols
+- `async getDependents(symbolIds)` - Get cached dependent symbols
+- `async hasSymbol(symbolId)` - Check cached symbol existence
+- `invalidateAll()` - Clear all cached entries
+- `invalidateFile(filePath)` - Clear entries for specific file
+- `getStats()` - Get cache performance statistics
+- `resetStats()` - Reset performance counters
+
+**Statistics:**
+- `hits` - Number of cache hits
+- `misses` - Number of cache misses
+- `evictions` - Number of entries evicted due to size limits
+- `size` - Current total cache size across all types
+
 ## Status
 The refactor engine now includes comprehensive rename planning, batch operations, impact analysis,
 hot reload validation, occurrence analysis utilities, rename preview and reporting utilities,
-advanced dependency cascade computation, and detailed rename impact graph visualization. It integrates
-with the semantic analyzer to provide safe, scope-aware refactoring operations with full transitive
-dependency tracking for hot reload scenarios. The impact graph computation provides critical path
-analysis and timing estimates, enabling IDE integrations and CLI tools to present detailed, human-readable
-reports of planned changes and their hot reload implications before applying them.
+advanced dependency cascade computation, detailed rename impact graph visualization, and semantic
+query caching for performance optimization. It integrates with the semantic analyzer to provide
+safe, scope-aware refactoring operations with full transitive dependency tracking for hot reload
+scenarios. The impact graph computation provides critical path analysis and timing estimates,
+enabling IDE integrations and CLI tools to present detailed, human-readable reports of planned
+changes and their hot reload implications before applying them. The query cache layer optimizes
+repeated semantic queries during batch operations, significantly improving performance for
+complex refactoring workflows.
