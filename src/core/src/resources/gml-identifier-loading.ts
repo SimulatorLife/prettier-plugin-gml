@@ -28,6 +28,18 @@ export function loadBundledIdentifierMetadata() {
 let cachedIdentifierMetadata = null;
 
 /**
+ * Cached Set of manual function names to avoid re-allocating on every call.
+ * Reset alongside metadata cache to maintain consistency.
+ */
+let cachedManualFunctionNames: Set<string> | null = null;
+
+/**
+ * Cached Map of reserved identifier names keyed by excluded types.
+ * Maintains separate caches for different exclusion configurations.
+ */
+const cachedReservedIdentifierNames = new Map<string, Set<string>>();
+
+/**
  * Retrieve the cached identifier metadata payload.
  *
  * @returns {unknown} Cached identifier metadata payload.
@@ -42,9 +54,12 @@ export function getIdentifierMetadata() {
 
 /**
  * Reset the metadata cache so test harnesses can force a reload.
+ * Also clears derived caches (function names, reserved identifiers).
  */
 export function clearIdentifierMetadataCache() {
     cachedIdentifierMetadata = null;
+    cachedManualFunctionNames = null;
+    cachedReservedIdentifierNames.clear();
 }
 
 /**
@@ -124,10 +139,15 @@ export function setReservedIdentifierMetadataLoader(loader) {
     const wrappedLoader = () => safelyLoadIdentifierMetadata(loader);
 
     metadataLoader = wrappedLoader;
+    
+    // Clear caches when the loader changes to prevent stale data
+    clearIdentifierMetadataCache();
 
     return () => {
         if (metadataLoader === wrappedLoader) {
             metadataLoader = previousLoader;
+            // Clear caches when restoring to prevent using cached data from the custom loader
+            clearIdentifierMetadataCache();
         }
     };
 }
@@ -138,6 +158,8 @@ export function setReservedIdentifierMetadataLoader(loader) {
  */
 export function resetReservedIdentifierMetadataLoader() {
     metadataLoader = defaultLoadIdentifierMetadata;
+    // Clear caches when resetting to ensure fresh data from default loader
+    clearIdentifierMetadataCache();
 }
 
 function resolveExcludedTypes(types: unknown): Set<string> {
@@ -156,15 +178,39 @@ function resolveExcludedTypes(types: unknown): Set<string> {
     return normalized;
 }
 
+/**
+ * Generate a stable cache key from excluded types Set.
+ * Uses a sorted, joined string representation for consistent lookups.
+ */
+function createExcludedTypesCacheKey(excludedTypes: Set<string>): string {
+    if (excludedTypes.size === 0) {
+        return "";
+    }
+    
+    // Sort only once when creating the cache key
+    return Array.from(excludedTypes).toSorted().join(",");
+}
+
 export function loadReservedIdentifierNames({ disallowedTypes }: { disallowedTypes?: string[] } = {}) {
+    const excludedTypes = resolveExcludedTypes(disallowedTypes);
+    const cacheKey = createExcludedTypesCacheKey(excludedTypes);
+
+    // Return cached Set if available
+    const cached = cachedReservedIdentifierNames.get(cacheKey);
+    if (cached) {
+        return cached;
+    }
+
+    // Cache miss - compute the Set
     const metadata = loadIdentifierMetadata();
     const entries = normalizeIdentifierMetadataEntries(metadata);
 
     if (entries.length === 0) {
-        return new Set<string>();
+        const emptySet = new Set<string>();
+        cachedReservedIdentifierNames.set(cacheKey, emptySet);
+        return emptySet;
     }
 
-    const excludedTypes = resolveExcludedTypes(disallowedTypes);
     const names = new Set<string>();
 
     for (const { name, type } of entries) {
@@ -179,20 +225,32 @@ export function loadReservedIdentifierNames({ disallowedTypes }: { disallowedTyp
         }
     }
 
+    // Store in cache and return
+    cachedReservedIdentifierNames.set(cacheKey, names);
     return names;
 }
 
 /**
  * Load manual function identifiers from the bundled metadata payload.
  *
- * @returns {Set<string>} A set of function names declared in the manual data.
+ * The result is cached to avoid re-allocating the Set on every call.
+ * Multiple calls return the same Set instance, reducing memory churn.
+ *
+ * @returns {Set<string>} A cached set of function names declared in the manual data.
  */
 export function loadManualFunctionNames(): Set<string> {
+    // Return cached Set if available
+    if (cachedManualFunctionNames !== null) {
+        return cachedManualFunctionNames;
+    }
+
+    // Cache miss - compute the Set
     const metadata = loadIdentifierMetadata();
     const entries = normalizeIdentifierMetadataEntries(metadata);
 
     if (entries.length === 0) {
-        return new Set<string>();
+        cachedManualFunctionNames = new Set<string>();
+        return cachedManualFunctionNames;
     }
 
     const names = new Set<string>();
@@ -208,5 +266,7 @@ export function loadManualFunctionNames(): Set<string> {
         }
     }
 
-    return names;
+    // Store in cache and return
+    cachedManualFunctionNames = names;
+    return cachedManualFunctionNames;
 }
