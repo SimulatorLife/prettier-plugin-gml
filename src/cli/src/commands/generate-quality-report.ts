@@ -782,6 +782,69 @@ interface DetectTestResultsOptions {
     workspace?: string;
 }
 
+/**
+ * Append missing directory diagnostic messages to the notes collection.
+ * Centralizes the bookkeeping logic so the orchestrator can delegate.
+ */
+function appendMissingDirectoryNotes(notes: string[], missingDirs: string[]): void {
+    if (missingDirs.length === 1) {
+        notes.push(`No directory found at ${missingDirs[0]}.`);
+    } else if (missingDirs.length > 1) {
+        notes.push(`No directory found at any of: ${missingDirs.join(", ")}.`);
+    }
+}
+
+/**
+ * Append empty directory diagnostic messages to the notes collection.
+ * Centralizes the bookkeeping logic so the orchestrator can delegate.
+ */
+function appendEmptyDirectoryNotes(notes: string[], emptyDirs: string[]): void {
+    if (emptyDirs.length === 1) {
+        notes.push(`No JUnit XML files found in ${emptyDirs[0]}.`);
+    } else if (emptyDirs.length > 1) {
+        notes.push(`No JUnit XML files found in: ${emptyDirs.join(", ")}.`);
+    }
+}
+
+/**
+ * Attempt to locate duplicate detection report in the parent directory.
+ * Isolates the fallback logic so the orchestrator delegates rather than
+ * manipulating filesystem paths directly.
+ */
+function resolveDuplicatesWithFallback(scan: { duplicates: unknown }, directory: { resolved: string }): unknown {
+    if (scan.duplicates) {
+        return scan.duplicates;
+    }
+
+    const parentFile = path.join(directory.resolved, "..", "jscpd-report.json");
+    if (fs.existsSync(parentFile)) {
+        return readDuplicates([parentFile]);
+    }
+
+    return null;
+}
+
+/**
+ * Record the scan result for tracking diagnostic purposes.
+ * Isolates the array mutations and status checks so the orchestrator
+ * reads as a sequence of delegation steps.
+ */
+function recordScanDiagnostics(
+    scan: { status: ScanStatus; notes: string[] },
+    directory: { display: string },
+    { notes, missingDirs, emptyDirs }: { notes: string[]; missingDirs: string[]; emptyDirs: string[] }
+): void {
+    if (scan.notes.length > 0) {
+        notes.push(...scan.notes);
+    }
+
+    if (scan.status === ScanStatus.MISSING) {
+        missingDirs.push(directory.display);
+    } else if (scan.status === ScanStatus.EMPTY) {
+        emptyDirs.push(directory.display);
+    }
+}
+
 function readTestResults(candidateDirs, { workspace }: DetectTestResultsOptions = {}) {
     const workspaceRoot = workspace || process.env.GITHUB_WORKSPACE || process.cwd();
     const directories = normalizeResultDirectories(candidateDirs, workspaceRoot);
@@ -793,29 +856,15 @@ function readTestResults(candidateDirs, { workspace }: DetectTestResultsOptions 
     for (const directory of directories) {
         const scan = scanResultDirectory(directory, workspaceRoot);
 
-        if (scan.notes.length > 0) {
-            notes.push(...scan.notes);
-        }
+        recordScanDiagnostics(scan, directory, { notes, missingDirs, emptyDirs });
 
-        if (scan.status === ScanStatus.MISSING) {
-            missingDirs.push(directory.display);
-            continue;
-        }
-
-        if (scan.status === ScanStatus.EMPTY) {
-            emptyDirs.push(directory.display);
+        if (scan.status === ScanStatus.MISSING || scan.status === ScanStatus.EMPTY) {
             continue;
         }
 
         recordTestCases(aggregates, scan.cases);
 
-        let duplicates = scan.duplicates;
-        if (!duplicates) {
-            const parentFile = path.join(directory.resolved, "..", "jscpd-report.json");
-            if (fs.existsSync(parentFile)) {
-                duplicates = readDuplicates([parentFile]);
-            }
-        }
+        const duplicates = resolveDuplicatesWithFallback(scan, directory);
 
         return {
             ...aggregates,
@@ -829,17 +878,8 @@ function readTestResults(candidateDirs, { workspace }: DetectTestResultsOptions 
         };
     }
 
-    if (missingDirs.length === 1) {
-        notes.push(`No directory found at ${missingDirs[0]}.`);
-    } else if (missingDirs.length > 1) {
-        notes.push(`No directory found at any of: ${missingDirs.join(", ")}.`);
-    }
-
-    if (emptyDirs.length === 1) {
-        notes.push(`No JUnit XML files found in ${emptyDirs[0]}.`);
-    } else if (emptyDirs.length > 1) {
-        notes.push(`No JUnit XML files found in: ${emptyDirs.join(", ")}.`);
-    }
+    appendMissingDirectoryNotes(notes, missingDirs);
+    appendEmptyDirectoryNotes(notes, emptyDirs);
 
     return {
         ...aggregates,
