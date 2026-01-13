@@ -10,5 +10,10 @@ export type {
     WebSocketEvent,
     WebSocketClientOptions,
     WebSocketClientState,
-    WebSocketConnectionMetrics
+    WebSocketConnectionMetrics,
+    WebSocketConnectionLifecycle,
+    WebSocketMessageSender,
+    WebSocketInstanceProvider,
+    WebSocketMetricsCollector,
+    WebSocketPatchQueueManager
 } from "./types.js";

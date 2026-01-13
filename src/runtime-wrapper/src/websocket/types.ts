@@ -72,30 +72,93 @@ export interface WebSocketConnectionMetrics {
     patchErrors: number;
 }
 
-export interface RuntimeWebSocketClient {
-    connect(): void;
-    disconnect(): void;
-    isConnected(): boolean;
+/**
+ * Connection lifecycle management.
+ *
+ * Provides the ability to establish, tear down, and check the status
+ * of the WebSocket connection without coupling to message transmission,
+ * metrics tracking, or patch queue management.
+ */
+export interface WebSocketConnectionLifecycle {
     /**
-     * Sends arbitrary data that is stringified when necessary.
+     * Establishes a WebSocket connection to the server.
+     * Does nothing if already connected.
+     */
+    connect(): void;
+
+    /**
+     * Disconnects from the WebSocket server and flushes any pending patches.
+     * Prevents automatic reconnection attempts.
+     */
+    disconnect(): void;
+
+    /**
+     * Returns true if the WebSocket is currently connected, false otherwise.
+     */
+    isConnected(): boolean;
+}
+
+/**
+ * Message transmission.
+ *
+ * Provides the ability to send messages over the WebSocket connection
+ * without coupling to connection lifecycle or metrics.
+ */
+export interface WebSocketMessageSender {
+    /**
+     * Sends arbitrary data over the WebSocket connection.
+     * Data is stringified if not already a string.
+     * @throws Error if the WebSocket is not connected
      */
     send(data: unknown): void;
+}
+
+/**
+ * WebSocket instance access.
+ *
+ * Provides access to the underlying WebSocket instance for advanced
+ * use cases without coupling to lifecycle management or metrics.
+ */
+export interface WebSocketInstanceProvider {
+    /**
+     * Returns the underlying WebSocket instance, or null if not connected.
+     */
     getWebSocket(): RuntimeWebSocketInstance | null;
+}
+
+/**
+ * Connection metrics tracking.
+ *
+ * Provides diagnostics and monitoring capabilities for connection
+ * health without coupling to message transmission or lifecycle.
+ */
+export interface WebSocketMetricsCollector {
     /**
      * Returns connection health metrics for diagnostics and monitoring.
      */
     getConnectionMetrics(): Readonly<WebSocketConnectionMetrics>;
+
     /**
      * Resets all connection metrics to their initial state.
      * Useful for starting fresh metric collection in long-running sessions
      * or for testing scenarios that require clean metric baselines.
      */
     resetConnectionMetrics(): void;
+}
+
+/**
+ * Patch queue management.
+ *
+ * Provides control over patch queueing behavior and metrics
+ * without coupling to connection lifecycle or message transmission.
+ */
+export interface WebSocketPatchQueueManager {
     /**
      * Returns patch queue metrics if queuing is enabled, null otherwise.
      * These metrics track queuing behavior for diagnostic and tuning purposes.
      */
     getPatchQueueMetrics(): Readonly<PatchQueueMetrics> | null;
+
     /**
      * Manually flushes any queued patches immediately.
      * Only applicable when patch queuing is enabled.
@@ -103,3 +166,19 @@ export interface RuntimeWebSocketClient {
      */
     flushPatchQueue(): number;
 }
+
+/**
+ * Complete WebSocket client interface.
+ *
+ * Combines all role-focused interfaces for consumers that need full
+ * WebSocket client capabilities. Consumers should prefer depending on
+ * the minimal interface they need (WebSocketConnectionLifecycle,
+ * WebSocketMessageSender, etc.) rather than this composite interface
+ * when possible.
+ */
+export interface RuntimeWebSocketClient
+    extends WebSocketConnectionLifecycle,
+        WebSocketMessageSender,
+        WebSocketInstanceProvider,
+        WebSocketMetricsCollector,
+        WebSocketPatchQueueManager {}
