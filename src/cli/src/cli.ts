@@ -46,7 +46,7 @@ import { resolveCliVersion } from "./cli-core/version.js";
 import { wrapInvalidArgumentResolver } from "./cli-core/command-parsing.js";
 import { collectFormatCommandOptions } from "./cli-core/format-command-options.js";
 import { createPerformanceCommand, runPerformanceCommand } from "./commands/performance.js";
-import { createMemoryCommand, runMemoryCommand } from "./modules/memory/index.js";
+import { createMemoryCommand, runMemoryCommand } from "./commands/memory.js";
 import { createGenerateIdentifiersCommand, runGenerateGmlIdentifiers } from "./commands/generate-gml-identifiers.js";
 import { createGenerateQualityReportCommand, runGenerateQualityReport } from "./commands/generate-quality-report.js";
 import { createCollectStatsCommand, runCollectStats } from "./commands/collect-stats.js";
