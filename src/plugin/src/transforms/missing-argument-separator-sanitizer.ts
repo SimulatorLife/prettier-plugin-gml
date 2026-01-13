@@ -71,12 +71,22 @@ interface SanitizeMissingSeparatorsResult {
     indexAdjustments: Array<number> | null;
 }
 
-interface CallProcessingState {
+/**
+ * State for tracking string literals and comments during parsing.
+ * Used by helper functions like advanceThroughStringLiteral and advanceThroughComment.
+ */
+interface StringCommentState {
     stringQuote: string | null;
     stringEscape: boolean;
     inLineComment: boolean;
     inBlockComment: boolean;
-    /** Parenthesis nesting depth (only used by processCall, not by helper functions) */
+}
+
+/**
+ * Extended state for processing call expressions, including parenthesis nesting depth.
+ */
+interface CallProcessingState extends StringCommentState {
+    /** Parenthesis nesting depth (only used by processCall function) */
     depth: number;
 }
 
@@ -101,7 +111,7 @@ function createCallProcessingState(): CallProcessingState {
 /**
  * Advances the index through string literal content, updating state accordingly.
  */
-function advanceThroughStringLiteral(text: string, currentIndex: number, state: CallProcessingState): number {
+function advanceThroughStringLiteral(text: string, currentIndex: number, state: StringCommentState): number {
     const character = text[currentIndex];
     const nextIndex = currentIndex + 1;
 
@@ -126,7 +136,7 @@ function advanceThroughStringLiteral(text: string, currentIndex: number, state: 
  * Advances the index through comment content, updating state accordingly.
  * This function should only be called when state.inLineComment or state.inBlockComment is true.
  */
-function advanceThroughComment(text: string, length: number, currentIndex: number, state: CallProcessingState): number {
+function advanceThroughComment(text: string, length: number, currentIndex: number, state: StringCommentState): number {
     const character = text[currentIndex];
     const nextIndex = currentIndex + 1;
 
@@ -153,7 +163,7 @@ function tryStartStringOrComment(
     text: string,
     length: number,
     currentIndex: number,
-    state: CallProcessingState
+    state: StringCommentState
 ): number {
     const character = text[currentIndex];
 
@@ -560,14 +570,12 @@ function skipBalancedSection(sourceText: string, startIndex: number, openChar: s
     const length = sourceText.length;
     let index = startIndex + 1;
     let depth = 1;
-    // Note: The depth tracking for balanced sections is done via the local `depth` variable,
-    // not via state.depth. The state object is only used for string/comment tracking.
-    const state: CallProcessingState = {
+    // State is only used for string/comment tracking, not depth tracking
+    const state: StringCommentState = {
         stringQuote: null,
         stringEscape: false,
         inLineComment: false,
-        inBlockComment: false,
-        depth: 0
+        inBlockComment: false
     };
 
     while (index < length && depth > 0) {
