@@ -160,6 +160,85 @@ function enqueuePatchInternal(options: EnqueuePatchOptions): void {
     }
 }
 
+type ApplyIncomingPatchOptions = {
+    incoming: unknown;
+    state: WebSocketClientState;
+    wrapper: PatchApplicator | null;
+    onError?: WebSocketClientOptions["onError"];
+    logger?: Logger;
+};
+
+function applyIncomingPatchInternal(options: ApplyIncomingPatchOptions): boolean {
+    const { incoming, state, wrapper, onError, logger } = options;
+
+    const receivedAt = Date.now();
+    state.connectionMetrics.patchesReceived += 1;
+    state.connectionMetrics.lastPatchReceivedAt = receivedAt;
+
+    const patchResult = validatePatchCandidate(incoming, onError);
+    if (patchResult.status === "skip") {
+        state.connectionMetrics.patchErrors += 1;
+        return true;
+    }
+
+    if (patchResult.status === "error") {
+        state.connectionMetrics.patchesFailed += 1;
+        state.connectionMetrics.patchErrors += 1;
+        return false;
+    }
+
+    const patch = patchResult.patch;
+
+    if (
+        logger &&
+        patch.metadata?.timestamp &&
+        typeof patch.metadata.timestamp === "number" &&
+        patch.metadata.timestamp > 0
+    ) {
+        const transportLatency = receivedAt - patch.metadata.timestamp;
+        logger.debug(
+            `Patch ${patch.id} transport latency: ${transportLatency}ms (generated at ${new Date(patch.metadata.timestamp).toISOString()})`
+        );
+    }
+
+    const recordSuccess = (applyDuration: number) => {
+        state.connectionMetrics.patchesApplied += 1;
+        state.connectionMetrics.lastPatchAppliedAt = Date.now();
+        if (logger) {
+            logger.info(`Patch ${patch.id} applied in ${applyDuration}ms`);
+        }
+    };
+
+    const recordFailure = () => {
+        state.connectionMetrics.patchesFailed += 1;
+        state.connectionMetrics.patchErrors += 1;
+    };
+
+    if (wrapper && wrapper.trySafeApply) {
+        const appliedStartAt = Date.now();
+        const applied = applyPatchSafely(patch, wrapper, onError);
+        if (applied) {
+            recordSuccess(Date.now() - appliedStartAt);
+        } else {
+            recordFailure();
+        }
+        return applied;
+    }
+
+    if (wrapper) {
+        const appliedStartAt = Date.now();
+        const applied = applyPatchDirectly(patch, wrapper, onError);
+        if (applied) {
+            recordSuccess(Date.now() - appliedStartAt);
+        } else {
+            recordFailure();
+        }
+        return applied;
+    }
+
+    return true;
+}
+
 export function createWebSocketClient({
     url = "ws://127.0.0.1:17890",
     wrapper = null,
@@ -220,74 +299,14 @@ export function createWebSocketClient({
         });
     };
 
-    const recordPatchSuccess = (patch: Patch, applyDuration: number): void => {
-        state.connectionMetrics.patchesApplied += 1;
-        state.connectionMetrics.lastPatchAppliedAt = Date.now();
-        if (logger) {
-            logger.info(`Patch ${patch.id} applied in ${applyDuration}ms`);
-        }
-    };
-
-    const recordPatchFailure = (): void => {
-        state.connectionMetrics.patchesFailed += 1;
-        state.connectionMetrics.patchErrors += 1;
-    };
-
     const applyIncomingPatch = (incoming: unknown): boolean => {
-        const receivedAt = Date.now();
-        state.connectionMetrics.patchesReceived += 1;
-        state.connectionMetrics.lastPatchReceivedAt = receivedAt;
-
-        const patchResult = validatePatchCandidate(incoming, onError);
-        if (patchResult.status === "skip") {
-            state.connectionMetrics.patchErrors += 1;
-            return true;
-        }
-
-        if (patchResult.status === "error") {
-            state.connectionMetrics.patchesFailed += 1;
-            state.connectionMetrics.patchErrors += 1;
-            return false;
-        }
-
-        const patch = patchResult.patch;
-
-        // Log end-to-end timing if patch has metadata timestamp
-        if (
-            logger &&
-            patch.metadata?.timestamp &&
-            typeof patch.metadata.timestamp === "number" &&
-            patch.metadata.timestamp > 0
-        ) {
-            const transportLatency = receivedAt - patch.metadata.timestamp;
-            logger.debug(
-                `Patch ${patch.id} transport latency: ${transportLatency}ms (generated at ${new Date(patch.metadata.timestamp).toISOString()})`
-            );
-        }
-
-        if (wrapper && wrapper.trySafeApply) {
-            const appliedStartAt = Date.now();
-            const applied = applyPatchSafely(patch, wrapper, onError);
-            if (applied) {
-                recordPatchSuccess(patch, Date.now() - appliedStartAt);
-            } else {
-                recordPatchFailure();
-            }
-            return applied;
-        }
-
-        if (wrapper) {
-            const appliedStartAt = Date.now();
-            const applied = applyPatchDirectly(patch, wrapper, onError);
-            if (applied) {
-                recordPatchSuccess(patch, Date.now() - appliedStartAt);
-            } else {
-                recordPatchFailure();
-            }
-            return applied;
-        }
-
-        return true;
+        return applyIncomingPatchInternal({
+            incoming,
+            state,
+            wrapper,
+            onError,
+            logger
+        });
     };
 
     function connect() {
