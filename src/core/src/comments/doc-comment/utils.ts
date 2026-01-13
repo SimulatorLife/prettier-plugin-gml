@@ -13,6 +13,14 @@
  *
  * This follows the architectural principle that modules should depend on
  * stable public APIs rather than implementation details.
+ *
+ * Architectural boundaries:
+ * - Core/utils owns: Array, string, object, and AST utilities
+ * - Core/comments/doc-comment owns: Doc-comment-specific logic
+ * - This facade: Re-exports only the utilities needed by doc-comment code
+ *
+ * All doc-comment service files should import from this facade, never
+ * directly from ../../utils/ paths.
  */
 
 // Array utilities

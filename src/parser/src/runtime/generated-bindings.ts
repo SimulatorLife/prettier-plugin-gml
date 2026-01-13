@@ -1,3 +1,23 @@
+/**
+ * Stable abstraction layer for generated ANTLR parser classes.
+ *
+ * This module provides a clean facade over the generated ANTLR parser code,
+ * allowing runtime code to depend on stable constructors and prototypes rather
+ * than importing directly from the generated output.
+ *
+ * Architectural boundaries:
+ * - Parser/generated owns: ANTLR-generated lexer, parser, listener, and visitor
+ * - Parser/runtime owns: Custom parse tree traversal, AST building, and runtime logic
+ * - This facade: Provides stable handles to generated classes without exposing internals
+ *
+ * The deep relative imports (../../generated/) are acceptable here because:
+ * 1. They're internal to the parser workspace
+ * 2. The generated code location is fixed and predictable
+ * 3. This file IS the abstraction layer that shields other code from these details
+ *
+ * All other parser code should import from this facade, not from generated/ directly.
+ */
+
 import type { ParserContext } from "../types/index.js";
 import GameMakerLanguageParserListenerBase from "../../generated/GameMakerLanguageParserListener.js";
 import GameMakerLanguageParserVisitorBase from "../../generated/GameMakerLanguageParserVisitor.js";

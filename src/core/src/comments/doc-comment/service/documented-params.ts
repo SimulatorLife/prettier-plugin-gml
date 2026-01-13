@@ -1,6 +1,6 @@
-import { asArray } from "../../../utils/array.js";
 import { resolveDocCommentTraversalService } from "../manager.js";
 import {
+    asArray,
     getNodeStartIndex,
     isLineComment,
     isFunctionLikeNode,
