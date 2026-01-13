@@ -781,6 +781,71 @@ The cache is particularly beneficial for:
 - Call `invalidateAll()` when source files change to prevent stale results
 - Call `invalidateFile(path)` to selectively invalidate affected entries
 
+### Rename Validation Cache
+
+The refactor engine also provides a specialized cache for rename validation results. During interactive rename sessions (e.g., IDE rename dialogs), the same symbol-to-name combinations are often validated repeatedly as users type new names. The `RenameValidationCache` caches validation results to provide faster feedback for IDE integrations.
+
+```javascript
+import { RenameValidationCache } from "@gml-modules/refactor";
+
+// Create cache with custom configuration
+const validationCache = new RenameValidationCache({
+    maxSize: 50,       // Maximum cached validation results (default: 50)
+    ttlMs: 30000,      // Time-to-live in milliseconds (default: 30000)
+    enabled: true      // Enable/disable caching (default: true)
+});
+
+// First validation: performs full validation with occurrence gathering and conflict detection
+const result1 = await validationCache.getOrCompute(
+    "gml/script/scr_player",
+    "scr_hero",
+    async () => engine.validateRenameRequest({
+        symbolId: "gml/script/scr_player",
+        newName: "scr_hero"
+    })
+);
+
+// Second validation within TTL: returns cached result instantly
+const result2 = await validationCache.getOrCompute(
+    "gml/script/scr_player",
+    "scr_hero",
+    async () => engine.validateRenameRequest({
+        symbolId: "gml/script/scr_player",
+        newName: "scr_hero"
+    })
+);
+
+// Invalidate specific symbol-name pair when symbol changes
+validationCache.invalidate("gml/script/scr_player", "scr_hero");
+
+// Invalidate all validation results for a symbol when its definition changes
+validationCache.invalidateSymbol("gml/script/scr_player");
+
+// Clear all cached validations when source files change
+validationCache.invalidateAll();
+
+// Check cache performance
+const stats = validationCache.getStats();
+console.log(`Hits: ${stats.hits}, Misses: ${stats.misses}, Evictions: ${stats.evictions}`);
+```
+
+The validation cache is particularly beneficial for:
+
+- **IDE rename dialogs**: Provides instant validation feedback as users type new names
+- **Interactive refactoring**: Reduces latency during rename preview and validation
+- **Autocomplete suggestions**: Enables fast validation of suggested names
+- **Batch rename planning**: Speeds up validation when users adjust rename targets
+
+**Cache behavior:**
+
+- Entries are evicted using FIFO when `maxSize` is exceeded (oldest first)
+- Entries expire after `ttlMs` milliseconds (shorter TTL than semantic cache)
+- Each symbol-name pair has its own cache entry
+- The cache is session-scoped and should be created per IDE session or refactoring workflow
+- Call `invalidateAll()` when source files change to prevent stale validation results
+- Call `invalidateSymbol(symbolId)` when a specific symbol's definition or dependencies change
+- The cache stores the full validation result including errors, warnings, occurrence counts, and hot reload metadata
+
 ## Directory layout
 - `src/` – core refactoring primitives and orchestrators.
 - `test/` – Node tests that validate refactor strategies against fixture projects.
@@ -1004,14 +1069,45 @@ new SemanticQueryCache(semantic, config)
 - `evictions` - Number of entries evicted due to size limits
 - `size` - Current total cache size across all types
 
+### RenameValidationCache
+
+Caching layer for rename validation results during interactive refactoring.
+
+**Constructor:**
+```javascript
+new RenameValidationCache(config)
+```
+
+**Configuration:**
+- `maxSize` - Maximum cached validation results (default: 50)
+- `ttlMs` - Time-to-live in milliseconds (default: 30000)
+- `enabled` - Enable/disable caching (default: true)
+
+**Methods:**
+
+- `async getOrCompute(symbolId, newName, compute)` - Get cached validation or compute new result
+- `invalidate(symbolId, newName)` - Invalidate specific symbol-name pair
+- `invalidateSymbol(symbolId)` - Invalidate all cached validations for a symbol
+- `invalidateAll()` - Clear all cached validation results
+- `getStats()` - Get cache performance statistics
+- `resetStats()` - Reset performance counters
+
+**Statistics:**
+- `hits` - Number of cache hits
+- `misses` - Number of cache misses
+- `evictions` - Number of entries evicted due to size limits
+- `size` - Current cache size
+
 ## Status
 The refactor engine now includes comprehensive rename planning, batch operations, impact analysis,
 hot reload validation, occurrence analysis utilities, rename preview and reporting utilities,
-advanced dependency cascade computation, detailed rename impact graph visualization, and semantic
-query caching for performance optimization. It integrates with the semantic analyzer to provide
-safe, scope-aware refactoring operations with full transitive dependency tracking for hot reload
-scenarios. The impact graph computation provides critical path analysis and timing estimates,
-enabling IDE integrations and CLI tools to present detailed, human-readable reports of planned
-changes and their hot reload implications before applying them. The query cache layer optimizes
-repeated semantic queries during batch operations, significantly improving performance for
-complex refactoring workflows.
+advanced dependency cascade computation, detailed rename impact graph visualization, semantic
+query caching, and rename validation caching for performance optimization. It integrates with the
+semantic analyzer to provide safe, scope-aware refactoring operations with full transitive
+dependency tracking for hot reload scenarios. The impact graph computation provides critical path
+analysis and timing estimates, enabling IDE integrations and CLI tools to present detailed,
+human-readable reports of planned changes and their hot reload implications before applying them.
+The query cache layer optimizes repeated semantic queries during batch operations, while the
+validation cache layer speeds up interactive rename workflows by caching validation results as
+users type new names, significantly improving performance for complex refactoring workflows and
+providing instant feedback in IDE rename dialogs.
