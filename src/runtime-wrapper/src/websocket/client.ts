@@ -1,6 +1,7 @@
 import { Core } from "@gml-modules/core";
 import { validatePatch } from "../runtime/patch-utils.js";
 import type { Patch, PatchApplicator, RuntimePatchError, TrySafeApplyResult } from "../runtime/types.js";
+import type { Logger } from "../runtime/logger.js";
 import type {
     MessageEventLike,
     PatchQueueMetrics,
@@ -53,6 +54,112 @@ function createPatchQueueState(): PatchQueueState {
     };
 }
 
+type FlushQueueOptions = {
+    state: WebSocketClientState;
+    wrapper: PatchApplicator | null;
+    applyIncomingPatch: (incoming: unknown) => boolean;
+    logger?: Logger;
+};
+
+function flushQueuedPatchesInternal(options: FlushQueueOptions): number {
+    const { state, wrapper, applyIncomingPatch, logger } = options;
+
+    if (!state.patchQueue || !wrapper) {
+        return 0;
+    }
+
+    const queueState = state.patchQueue;
+    if (queueState.queue.length === 0) {
+        return 0;
+    }
+
+    if (queueState.flushTimer !== null) {
+        clearTimeout(queueState.flushTimer);
+        queueState.flushTimer = null;
+    }
+
+    const patchesToFlush = queueState.queue.splice(0);
+    const flushSize = patchesToFlush.length;
+
+    queueState.queueMetrics.flushCount += 1;
+    queueState.queueMetrics.lastFlushSize = flushSize;
+    queueState.queueMetrics.lastFlushedAt = Date.now();
+
+    const flushStartTime = Date.now();
+
+    if (wrapper.applyPatchBatch) {
+        const result = wrapper.applyPatchBatch(patchesToFlush);
+        const applied = result.success ? result.appliedCount : result.appliedCount;
+        const failed = flushSize - applied;
+
+        state.connectionMetrics.patchesApplied += applied;
+        state.connectionMetrics.patchesFailed += failed;
+        queueState.queueMetrics.totalFlushed += applied;
+
+        if (result.success) {
+            state.connectionMetrics.lastPatchAppliedAt = Date.now();
+        }
+    } else {
+        let applied = 0;
+        for (const patch of patchesToFlush) {
+            const success = applyIncomingPatch(patch);
+            if (success) {
+                applied += 1;
+            }
+        }
+        queueState.queueMetrics.totalFlushed += applied;
+    }
+
+    const flushDuration = Date.now() - flushStartTime;
+    if (logger) {
+        logger.patchQueueFlushed(flushSize, flushDuration);
+    }
+
+    return flushSize;
+}
+
+type EnqueuePatchOptions = {
+    patch: unknown;
+    state: WebSocketClientState;
+    maxQueueSize: number;
+    flushQueuedPatches: () => number;
+    scheduleFlush: () => void;
+    logger?: Logger;
+};
+
+function enqueuePatchInternal(options: EnqueuePatchOptions): void {
+    const { patch, state, maxQueueSize, flushQueuedPatches, scheduleFlush, logger } = options;
+
+    if (!state.patchQueue) {
+        return;
+    }
+
+    const queueState = state.patchQueue;
+
+    if (queueState.queue.length >= maxQueueSize) {
+        queueState.queue.shift();
+        queueState.queueMetrics.totalDropped += 1;
+    }
+
+    queueState.queue.push(patch);
+    queueState.queueMetrics.totalQueued += 1;
+
+    const currentDepth = queueState.queue.length;
+    if (currentDepth > queueState.queueMetrics.maxQueueDepth) {
+        queueState.queueMetrics.maxQueueDepth = currentDepth;
+    }
+
+    if (logger && typeof patch === "object" && patch !== null && "id" in patch && typeof patch.id === "string") {
+        logger.patchQueued(patch.id, currentDepth);
+    }
+
+    if (currentDepth >= maxQueueSize) {
+        flushQueuedPatches();
+    } else {
+        scheduleFlush();
+    }
+}
+
 export function createWebSocketClient({
     url = "ws://127.0.0.1:17890",
     wrapper = null,
@@ -61,7 +168,8 @@ export function createWebSocketClient({
     onError,
     reconnectDelay = 800,
     autoConnect = true,
-    patchQueue
+    patchQueue,
+    logger
 }: WebSocketClientOptions = {}): RuntimeWebSocketClient {
     const queueEnabled = patchQueue?.enabled ?? false;
     const maxQueueSize = patchQueue?.maxQueueSize ?? DEFAULT_MAX_QUEUE_SIZE;
@@ -77,51 +185,12 @@ export function createWebSocketClient({
     };
 
     const flushQueuedPatches = (): number => {
-        if (!state.patchQueue || !wrapper) {
-            return 0;
-        }
-
-        const queueState = state.patchQueue;
-        if (queueState.queue.length === 0) {
-            return 0;
-        }
-
-        if (queueState.flushTimer !== null) {
-            clearTimeout(queueState.flushTimer);
-            queueState.flushTimer = null;
-        }
-
-        const patchesToFlush = queueState.queue.splice(0);
-        const flushSize = patchesToFlush.length;
-
-        queueState.queueMetrics.flushCount += 1;
-        queueState.queueMetrics.lastFlushSize = flushSize;
-        queueState.queueMetrics.lastFlushedAt = Date.now();
-
-        if (wrapper.applyPatchBatch) {
-            const result = wrapper.applyPatchBatch(patchesToFlush);
-            const applied = result.success ? result.appliedCount : result.appliedCount;
-            const failed = flushSize - applied;
-
-            state.connectionMetrics.patchesApplied += applied;
-            state.connectionMetrics.patchesFailed += failed;
-            queueState.queueMetrics.totalFlushed += applied;
-
-            if (result.success) {
-                state.connectionMetrics.lastPatchAppliedAt = Date.now();
-            }
-        } else {
-            let applied = 0;
-            for (const patch of patchesToFlush) {
-                const success = applyIncomingPatch(patch);
-                if (success) {
-                    applied += 1;
-                }
-            }
-            queueState.queueMetrics.totalFlushed += applied;
-        }
-
-        return flushSize;
+        return flushQueuedPatchesInternal({
+            state,
+            wrapper,
+            applyIncomingPatch,
+            logger
+        });
     };
 
     const scheduleFlush = (): void => {
@@ -141,36 +210,22 @@ export function createWebSocketClient({
     };
 
     const enqueuePatch = (patch: unknown): void => {
-        if (!state.patchQueue) {
-            return;
-        }
-
-        const queueState = state.patchQueue;
-
-        if (queueState.queue.length >= maxQueueSize) {
-            queueState.queue.shift();
-            queueState.queueMetrics.totalDropped += 1;
-        }
-
-        queueState.queue.push(patch);
-        queueState.queueMetrics.totalQueued += 1;
-
-        const currentDepth = queueState.queue.length;
-        if (currentDepth > queueState.queueMetrics.maxQueueDepth) {
-            queueState.queueMetrics.maxQueueDepth = currentDepth;
-        }
-
-        if (currentDepth >= maxQueueSize) {
-            flushQueuedPatches();
-        } else {
-            scheduleFlush();
-        }
+        enqueuePatchInternal({
+            patch,
+            state,
+            maxQueueSize,
+            flushQueuedPatches,
+            scheduleFlush,
+            logger
+        });
     };
 
     const recordPatchSuccess = (patch: Patch, applyDuration: number): void => {
         state.connectionMetrics.patchesApplied += 1;
         state.connectionMetrics.lastPatchAppliedAt = Date.now();
-        console.log(`[hot-reload] Patch ${patch.id} applied in ${applyDuration}ms`);
+        if (logger) {
+            logger.info(`Patch ${patch.id} applied in ${applyDuration}ms`);
+        }
     };
 
     const recordPatchFailure = (): void => {
@@ -198,10 +253,15 @@ export function createWebSocketClient({
         const patch = patchResult.patch;
 
         // Log end-to-end timing if patch has metadata timestamp
-        if (patch.metadata?.timestamp && typeof patch.metadata.timestamp === "number" && patch.metadata.timestamp > 0) {
+        if (
+            logger &&
+            patch.metadata?.timestamp &&
+            typeof patch.metadata.timestamp === "number" &&
+            patch.metadata.timestamp > 0
+        ) {
             const transportLatency = receivedAt - patch.metadata.timestamp;
-            console.log(
-                `[hot-reload] Patch ${patch.id} transport latency: ${transportLatency}ms (generated at ${new Date(patch.metadata.timestamp).toISOString()})`
+            logger.debug(
+                `Patch ${patch.id} transport latency: ${transportLatency}ms (generated at ${new Date(patch.metadata.timestamp).toISOString()})`
             );
         }
 
@@ -259,7 +319,9 @@ export function createWebSocketClient({
                 reconnectDelay,
                 applyIncomingPatch,
                 enqueuePatch,
-                connect
+                connect,
+                logger,
+                url
             });
         } catch (error) {
             handleConnectionError(error, onError);
@@ -353,6 +415,8 @@ type WebSocketEventListenerArgs = {
     applyIncomingPatch: (incoming: unknown) => boolean;
     enqueuePatch: (patch: unknown) => void;
     connect: () => void;
+    logger?: Logger;
+    url: string;
 };
 
 type WebSocketMessageHandlerArgs = {
@@ -368,15 +432,17 @@ type WebSocketCloseHandlerArgs = {
     onDisconnect?: WebSocketClientOptions["onDisconnect"];
     reconnectDelay: number;
     connect: () => void;
+    logger?: Logger;
 };
 
 type WebSocketErrorHandlerArgs = {
     state: WebSocketClientState;
     onError?: WebSocketClientOptions["onError"];
+    logger?: Logger;
 };
 
 function attachWebSocketEventListeners(ws: RuntimeWebSocketInstance, args: WebSocketEventListenerArgs): void {
-    ws.addEventListener("open", createOpenHandler(args.state, args.onConnect));
+    ws.addEventListener("open", createOpenHandler(args.state, args.onConnect, args.logger, args.url));
     ws.addEventListener(
         "message",
         createMessageHandler({
@@ -393,19 +459,26 @@ function attachWebSocketEventListeners(ws: RuntimeWebSocketInstance, args: WebSo
             state: args.state,
             onDisconnect: args.onDisconnect,
             reconnectDelay: args.reconnectDelay,
-            connect: args.connect
+            connect: args.connect,
+            logger: args.logger
         })
     );
     ws.addEventListener(
         "error",
         createErrorHandler({
             state: args.state,
-            onError: args.onError
+            onError: args.onError,
+            logger: args.logger
         })
     );
 }
 
-function createOpenHandler(state: WebSocketClientState, onConnect?: WebSocketClientOptions["onConnect"]): () => void {
+function createOpenHandler(
+    state: WebSocketClientState,
+    onConnect?: WebSocketClientOptions["onConnect"],
+    logger?: Logger,
+    url?: string
+): () => void {
     return () => {
         const websocketState = state;
         websocketState.isConnected = true;
@@ -415,6 +488,10 @@ function createOpenHandler(state: WebSocketClientState, onConnect?: WebSocketCli
         if (websocketState.reconnectTimer) {
             clearTimeout(websocketState.reconnectTimer);
             websocketState.reconnectTimer = null;
+        }
+
+        if (logger && url) {
+            logger.websocketConnected(url);
         }
 
         if (onConnect) {
@@ -524,13 +601,23 @@ function toUint8Array(payload: ArrayBuffer | ArrayBufferView): Uint8Array {
     return new Uint8Array(payload.buffer, payload.byteOffset, payload.byteLength);
 }
 
-function createCloseHandler({ state, onDisconnect, reconnectDelay, connect }: WebSocketCloseHandlerArgs): () => void {
+function createCloseHandler({
+    state,
+    onDisconnect,
+    reconnectDelay,
+    connect,
+    logger
+}: WebSocketCloseHandlerArgs): () => void {
     return () => {
         const websocketState = state;
         websocketState.isConnected = false;
         websocketState.ws = null;
         websocketState.connectionMetrics.totalDisconnections += 1;
         websocketState.connectionMetrics.lastDisconnectedAt = Date.now();
+
+        if (logger) {
+            logger.websocketDisconnected();
+        }
 
         if (onDisconnect) {
             onDisconnect();
@@ -546,6 +633,9 @@ function createCloseHandler({ state, onDisconnect, reconnectDelay, connect }: We
 
         if (!websocketState.manuallyDisconnected && reconnectDelay > 0) {
             websocketState.connectionMetrics.totalReconnectAttempts += 1;
+            if (logger) {
+                logger.websocketReconnecting(websocketState.connectionMetrics.totalReconnectAttempts, reconnectDelay);
+            }
             websocketState.reconnectTimer = setTimeout(() => {
                 connect();
             }, reconnectDelay);
@@ -553,19 +643,23 @@ function createCloseHandler({ state, onDisconnect, reconnectDelay, connect }: We
     };
 }
 
-function createErrorHandler({ state, onError }: WebSocketErrorHandlerArgs): (event?: Error) => void {
+function createErrorHandler({ state, onError, logger }: WebSocketErrorHandlerArgs): (event?: Error) => void {
     return (event?: Error) => {
         const websocketState = state;
         websocketState.connectionMetrics.connectionErrors += 1;
+
+        const errorMessage = Core.isErrorLike(event) ? event.message : "Unknown WebSocket error";
+
+        if (logger) {
+            logger.websocketError(errorMessage);
+        }
 
         if (websocketState.ws) {
             websocketState.ws.close();
         }
 
         if (onError) {
-            const safeError = createRuntimePatchError(
-                Core.isErrorLike(event) ? event.message : "Unknown WebSocket error"
-            );
+            const safeError = createRuntimePatchError(errorMessage);
             onError(safeError, "connection");
         }
     };
