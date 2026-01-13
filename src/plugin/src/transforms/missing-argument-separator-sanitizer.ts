@@ -71,11 +71,22 @@ interface SanitizeMissingSeparatorsResult {
     indexAdjustments: Array<number> | null;
 }
 
-interface CallProcessingState {
+/**
+ * State for tracking string literals and comments during parsing.
+ * Used by helper functions like advanceThroughStringLiteral and advanceThroughComment.
+ */
+interface StringCommentState {
     stringQuote: string | null;
     stringEscape: boolean;
     inLineComment: boolean;
     inBlockComment: boolean;
+}
+
+/**
+ * Extended state for processing call expressions, including parenthesis nesting depth.
+ */
+interface CallProcessingState extends StringCommentState {
+    /** Parenthesis nesting depth (only used by processCall function) */
     depth: number;
 }
 
@@ -100,7 +111,7 @@ function createCallProcessingState(): CallProcessingState {
 /**
  * Advances the index through string literal content, updating state accordingly.
  */
-function advanceThroughStringLiteral(text: string, currentIndex: number, state: CallProcessingState): number {
+function advanceThroughStringLiteral(text: string, currentIndex: number, state: StringCommentState): number {
     const character = text[currentIndex];
     const nextIndex = currentIndex + 1;
 
@@ -125,7 +136,7 @@ function advanceThroughStringLiteral(text: string, currentIndex: number, state: 
  * Advances the index through comment content, updating state accordingly.
  * This function should only be called when state.inLineComment or state.inBlockComment is true.
  */
-function advanceThroughComment(text: string, length: number, currentIndex: number, state: CallProcessingState): number {
+function advanceThroughComment(text: string, length: number, currentIndex: number, state: StringCommentState): number {
     const character = text[currentIndex];
     const nextIndex = currentIndex + 1;
 
@@ -152,7 +163,7 @@ function tryStartStringOrComment(
     text: string,
     length: number,
     currentIndex: number,
-    state: CallProcessingState
+    state: StringCommentState
 ): number {
     const character = text[currentIndex];
 
@@ -177,6 +188,112 @@ function tryStartStringOrComment(
     }
 
     return currentIndex;
+}
+
+/**
+ * Skips forward over whitespace and comments starting at the given index.
+ * Returns the index of the first non-trivia character.
+ */
+function skipTrivia(text: string, startIndex: number): number {
+    const length = text.length;
+    let index = startIndex;
+
+    while (index < length) {
+        const character = text[index];
+
+        if (isWhitespaceCharacter(character)) {
+            index += 1;
+            continue;
+        }
+
+        if (character === "/" && index + 1 < length) {
+            const nextCharacter = text[index + 1];
+
+            if (nextCharacter === "/") {
+                index += 2;
+                while (index < length && text[index] !== "\n") {
+                    index += 1;
+                }
+                continue;
+            }
+
+            if (nextCharacter === "*") {
+                index += 2;
+                while (index < length) {
+                    if (text[index] === "*" && index + 1 < length && text[index + 1] === "/") {
+                        index += 2;
+                        break;
+                    }
+                    index += 1;
+                }
+                continue;
+            }
+        }
+
+        break;
+    }
+
+    return index;
+}
+
+/**
+ * Skips backward over whitespace and comments before the given index.
+ * Returns the index of the last non-trivia character, or -1 if none found.
+ *
+ * Note: This implementation handles line comments by checking if the current
+ * position falls within a line comment (between // and newline) and skipping
+ * back to before the // if so. This is necessary because when scanning backward,
+ * we encounter comment content before we encounter the // marker.
+ */
+function skipTriviaBackward(text: string, startIndex: number): number {
+    let current = startIndex;
+
+    while (current >= 0) {
+        const character = text[current];
+
+        if (isWhitespaceCharacter(character)) {
+            current -= 1;
+            continue;
+        }
+
+        // Check if we're positioned at the end of a block comment (*/)
+        if (character === "/" && current > 0 && text[current - 1] === "*") {
+            current -= 2;
+            // Scan backward to find the opening /*
+            while (current >= 1) {
+                if (text[current - 1] === "/" && text[current] === "*") {
+                    current -= 2;
+                    break;
+                }
+                current -= 1;
+            }
+            continue;
+        }
+
+        // Check if current position is within a line comment
+        // Scan backward on the current line to see if there's a // before us
+        let lineStart = current;
+        let foundLineComment = false;
+        while (lineStart >= 0 && text[lineStart] !== "\n") {
+            if (lineStart > 0 && text[lineStart - 1] === "/" && text[lineStart] === "/") {
+                // Found // before our position on this line, skip to before it
+                current = lineStart - 2;
+                foundLineComment = true;
+                break;
+            }
+            lineStart -= 1;
+        }
+
+        // If we found and skipped a //, continue the outer loop
+        if (foundLineComment) {
+            continue;
+        }
+
+        // Not trivia, not in a comment, this is our result
+        break;
+    }
+
+    return current;
 }
 
 /**
@@ -440,7 +557,7 @@ function matchFunctionCall(sourceText: string, startIndex: number): { openParenI
         return null;
     }
 
-    const openParenIndex = skipCallTrivia(sourceText, index);
+    const openParenIndex = skipTrivia(sourceText, index);
 
     if (openParenIndex >= length || sourceText[openParenIndex] !== "(") {
         return null;
@@ -449,119 +566,35 @@ function matchFunctionCall(sourceText: string, startIndex: number): { openParenI
     return { openParenIndex };
 }
 
-function skipCallTrivia(sourceText: string, startIndex: number): number {
-    const length = sourceText.length;
-    let index = startIndex;
-
-    while (index < length) {
-        const character = sourceText[index];
-
-        if (isWhitespaceCharacter(character)) {
-            index += 1;
-            continue;
-        }
-
-        if (character === "/" && index + 1 < length) {
-            const nextCharacter = sourceText[index + 1];
-
-            if (nextCharacter === "/") {
-                index += 2;
-
-                while (index < length && sourceText[index] !== "\n") {
-                    index += 1;
-                }
-
-                continue;
-            }
-
-            if (nextCharacter === "*") {
-                index += 2;
-
-                while (index < length) {
-                    if (sourceText[index] === "*" && index + 1 < length && sourceText[index + 1] === "/") {
-                        index += 2;
-                        break;
-                    }
-
-                    index += 1;
-                }
-
-                continue;
-            }
-        }
-
-        break;
-    }
-
-    return index;
-}
-
 function skipBalancedSection(sourceText: string, startIndex: number, openChar: string, closeChar: string): number {
     const length = sourceText.length;
     let index = startIndex + 1;
     let depth = 1;
-    let stringQuote: string | null = null;
-    let stringEscape = false;
-    let inLineComment = false;
-    let inBlockComment = false;
+    // State is only used for string/comment tracking, not depth tracking
+    const state: StringCommentState = {
+        stringQuote: null,
+        stringEscape: false,
+        inLineComment: false,
+        inBlockComment: false
+    };
 
-    while (index < length) {
+    while (index < length && depth > 0) {
         const character = sourceText[index];
 
-        if (stringQuote !== null) {
-            if (stringEscape) {
-                stringEscape = false;
-            } else if (character === "\\") {
-                stringEscape = true;
-            } else if (character === stringQuote) {
-                stringQuote = null;
-            }
-
-            index += 1;
+        if (state.stringQuote !== null) {
+            index = advanceThroughStringLiteral(sourceText, index, state);
             continue;
         }
 
-        if (inLineComment) {
-            if (character === "\n") {
-                inLineComment = false;
-            }
-
-            index += 1;
+        if (state.inLineComment || state.inBlockComment) {
+            index = advanceThroughComment(sourceText, length, index, state);
             continue;
         }
 
-        if (inBlockComment) {
-            if (character === "*" && index + 1 < length && sourceText[index + 1] === "/") {
-                inBlockComment = false;
-                index += 2;
-                continue;
-            }
-
-            index += 1;
+        const stringOrCommentIndex = tryStartStringOrComment(sourceText, length, index, state);
+        if (stringOrCommentIndex !== index) {
+            index = stringOrCommentIndex;
             continue;
-        }
-
-        if (character === "'" || character === '"' || character === "`") {
-            stringQuote = character;
-            stringEscape = false;
-            index += 1;
-            continue;
-        }
-
-        if (character === "/" && index + 1 < length) {
-            const nextCharacter = sourceText[index + 1];
-
-            if (nextCharacter === "/") {
-                inLineComment = true;
-                index += 2;
-                continue;
-            }
-
-            if (nextCharacter === "*") {
-                inBlockComment = true;
-                index += 2;
-                continue;
-            }
         }
 
         if (character === openChar) {
@@ -573,74 +606,30 @@ function skipBalancedSection(sourceText: string, startIndex: number, openChar: s
         if (character === closeChar) {
             depth -= 1;
             index += 1;
-
-            if (depth === 0) {
-                return index;
-            }
-
             continue;
         }
 
         index += 1;
     }
 
-    return -1;
+    return depth === 0 ? index : -1;
 }
 
 function readIdentifierBefore(sourceText: string, index: number): string | null {
-    let current = index - 1;
-
-    while (current >= 0) {
-        const character = sourceText[current];
-
-        if (isWhitespaceCharacter(character)) {
-            current -= 1;
-            continue;
-        }
-
-        if (character === "/" && current > 0) {
-            const previous = sourceText[current - 1];
-
-            if (previous === "/") {
-                current -= 2;
-
-                while (current >= 0 && sourceText[current] !== "\n") {
-                    current -= 1;
-                }
-
-                continue;
-            }
-
-            if (previous === "*") {
-                current -= 2;
-
-                while (current >= 1) {
-                    if (sourceText[current - 1] === "/" && sourceText[current] === "*") {
-                        current -= 2;
-                        break;
-                    }
-
-                    current -= 1;
-                }
-
-                continue;
-            }
-        }
-
-        break;
-    }
+    const current = skipTriviaBackward(sourceText, index - 1);
 
     if (current < 0 || !isIdentifierCharacter(sourceText[current])) {
         return null;
     }
 
     const end = current + 1;
+    let start = current;
 
-    while (current >= 0 && isIdentifierCharacter(sourceText[current])) {
-        current -= 1;
+    while (start >= 0 && isIdentifierCharacter(sourceText[start])) {
+        start -= 1;
     }
 
-    return sourceText.slice(current + 1, end);
+    return sourceText.slice(start + 1, end);
 }
 
 function isIdentifierBoundaryAt(sourceText: string, index: number) {
@@ -734,104 +723,14 @@ function readNumericLiteral(text: string, startIndex: number) {
 }
 
 function readCallSeparatorTrivia(text: string, startIndex: number) {
-    const length = text.length;
-    let index = startIndex;
-    let consumed = false;
-
-    while (index < length) {
-        const character = text[index];
-
-        if (isWhitespaceCharacter(character)) {
-            index += 1;
-            consumed = true;
-            continue;
-        }
-
-        if (character === "/" && index + 1 < length) {
-            const nextCharacter = text[index + 1];
-
-            if (nextCharacter === "/") {
-                index += 2;
-
-                while (index < length && text[index] !== "\n") {
-                    index += 1;
-                }
-
-                if (index < length) {
-                    index += 1;
-                }
-
-                consumed = true;
-                continue;
-            }
-
-            if (nextCharacter === "*") {
-                index += 2;
-
-                while (index < length && (text[index] !== "*" || index + 1 >= length || text[index + 1] !== "/")) {
-                    index += 1;
-                }
-
-                if (index < length) {
-                    index += 2;
-                }
-
-                consumed = true;
-                continue;
-            }
-        }
-
-        break;
-    }
-
+    const endIndex = skipTrivia(text, startIndex);
     return {
-        endIndex: index,
-        hasContent: consumed
+        endIndex,
+        hasContent: endIndex > startIndex
     };
 }
 
 function readNonTriviaCharacterBefore(text: string, index: number) {
-    let current = index - 1;
-
-    while (current >= 0) {
-        const character = text[current];
-
-        if (isWhitespaceCharacter(character)) {
-            current -= 1;
-            continue;
-        }
-
-        if (character === "/" && current > 0) {
-            const previous = text[current - 1];
-
-            if (previous === "/") {
-                current -= 2;
-
-                while (current >= 0 && text[current] !== "\n") {
-                    current -= 1;
-                }
-
-                continue;
-            }
-
-            if (previous === "*") {
-                current -= 2;
-
-                while (current >= 1) {
-                    if (text[current - 1] === "/" && text[current] === "*") {
-                        current -= 2;
-                        break;
-                    }
-
-                    current -= 1;
-                }
-
-                continue;
-            }
-        }
-
-        return character;
-    }
-
-    return null;
+    const current = skipTriviaBackward(text, index - 1);
+    return current >= 0 ? text[current] : null;
 }
