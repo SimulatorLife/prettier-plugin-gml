@@ -314,37 +314,55 @@ function isDiagnosticStdoutMessage(message) {
     return false;
 }
 
+/**
+ * Configure console methods to filter diagnostic messages when silent mode is enabled.
+ * When silent is true, console.debug is disabled and stderr/stdout methods filter diagnostic output.
+ * When silent is false, console methods are restored to their original implementations.
+ *
+ * @param silent - Whether to enable silent mode with diagnostic filtering
+ */
+function configureConsoleMethods(silent: boolean): void {
+    if (silent) {
+        console.debug = () => {};
+        console.error = (...args) => {
+            if (args.length > 0 && isDiagnosticErrorMessage(String(args[0]))) {
+                return;
+            }
+            return originalConsoleError.apply(console, args);
+        };
+        console.warn = (...args) => {
+            if (args.length > 0 && isDiagnosticErrorMessage(String(args[0]))) {
+                return;
+            }
+            return originalConsoleWarn.apply(console, args as any);
+        };
+        console.log = (...args) => {
+            if (args.length > 0 && isDiagnosticStdoutMessage(String(args[0]))) {
+                return;
+            }
+            return originalConsoleLog.apply(console, args);
+        };
+        console.info = (...args) => {
+            if (args.length > 0 && isDiagnosticStdoutMessage(String(args[0]))) {
+                return;
+            }
+            return originalConsoleInfo.apply(console, args);
+        };
+    } else {
+        console.debug = originalConsoleDebug;
+        console.error = originalConsoleError;
+        console.warn = originalConsoleWarn;
+        console.log = originalConsoleLog;
+        console.info = originalConsoleInfo;
+    }
+}
+
 // If the environment explicitly requests the plugin log level to be silent
 // at process start, disable console.debug early on so dependencies cannot
 // write noisy debug output before the CLI finishes its configuration. This
 // mirrors behaviour also applied later by configurePrettierOptions().
 if (process.env.PRETTIER_PLUGIN_GML_LOG_LEVEL === "silent") {
-    console.debug = () => {};
-    console.error = (...args) => {
-        // Filter only the diagnostic-style errors; forward everything else.
-        if (args.length > 0 && isDiagnosticErrorMessage(String(args[0]))) {
-            return;
-        }
-        return originalConsoleError.apply(console, args);
-    };
-    console.warn = (...args) => {
-        if (args.length > 0 && isDiagnosticErrorMessage(String(args[0]))) {
-            return;
-        }
-        return originalConsoleWarn.apply(console, args as any);
-    };
-    console.log = (...args) => {
-        if (args.length > 0 && isDiagnosticStdoutMessage(String(args[0]))) {
-            return;
-        }
-        return originalConsoleLog.apply(console, args);
-    };
-    console.info = (...args) => {
-        if (args.length > 0 && isDiagnosticStdoutMessage(String(args[0]))) {
-            return;
-        }
-        return originalConsoleInfo.apply(console, args);
-    };
+    configureConsoleMethods(true);
 }
 
 const FORMAT_ACTION = "format";
@@ -632,39 +650,7 @@ function configurePrettierOptions({
     // Prettier log level so internal debug and diagnostic output is suppressed
     // when requested. We filter diagnostic lines to avoid hiding genuine
     // runtime errors while keeping repo-wide runs deterministic in tests.
-    if (normalized === "silent") {
-        console.debug = () => {};
-        console.error = (...args) => {
-            if (args.length > 0 && isDiagnosticErrorMessage(String(args[0]))) {
-                return;
-            }
-            return originalConsoleError.apply(console, args);
-        };
-        console.warn = (...args) => {
-            if (args.length > 0 && isDiagnosticErrorMessage(String(args[0]))) {
-                return;
-            }
-            return originalConsoleWarn.apply(console, args as any);
-        };
-        console.log = (...args) => {
-            if (args.length > 0 && isDiagnosticStdoutMessage(String(args[0]))) {
-                return;
-            }
-            return originalConsoleLog.apply(console, args);
-        };
-        console.info = (...args) => {
-            if (args.length > 0 && isDiagnosticStdoutMessage(String(args[0]))) {
-                return;
-            }
-            return originalConsoleInfo.apply(console, args);
-        };
-    } else {
-        console.debug = originalConsoleDebug;
-        console.error = originalConsoleError;
-        console.warn = originalConsoleWarn;
-        console.log = originalConsoleLog;
-        console.info = originalConsoleInfo;
-    }
+    configureConsoleMethods(normalized === "silent");
 }
 
 const skippedFileSummary = {
