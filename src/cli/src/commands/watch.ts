@@ -1079,10 +1079,21 @@ async function handleFileChange(
                             console.log(`  ↳ Retranspiling ${path.relative(path.dirname(filePath), dependentFile)}`);
                         }
 
-                        transpileFile(runtimeContext, dependentFile, dependentContent, dependentLines, {
+                        const dependentResult = transpileFile(runtimeContext, dependentFile, dependentContent, dependentLines, {
                             verbose: false,
                             quiet
                         });
+
+                        // Update dependency tracker with new symbols/references from retranspiled file
+                        if (dependentResult.success) {
+                            if (dependentResult.symbols && dependentResult.symbols.length > 0) {
+                                runtimeContext.dependencyTracker.registerFileDefines(dependentFile, dependentResult.symbols);
+                            }
+
+                            if (dependentResult.references && dependentResult.references.length > 0) {
+                                runtimeContext.dependencyTracker.registerFileReferences(dependentFile, dependentResult.references);
+                            }
+                        }
                     } catch (error) {
                         const message = getErrorMessage(error, {
                             fallback: "Unknown file read error"
