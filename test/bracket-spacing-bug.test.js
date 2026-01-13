@@ -19,8 +19,7 @@ test("bracketSpacing: false should remove spaces inside braces", async () => {
         bracketSpacing: false
     });
 
-    // Expected: {x:1,y:2} or {x: 1, y: 2} without spaces around braces
-    // Currently the plugin ignores this option and always adds spaces
+    // Expected: {x: 1, y: 2} without spaces inside braces
     assert.ok(
         formatted.includes("{x:") || formatted.includes("{x :"),
         `Expected no space after opening brace, but got: ${formatted}`
