@@ -12,7 +12,7 @@
  */
 
 import { watch, type FSWatcher, type WatchListener, type WatchOptions } from "node:fs";
-import { readFile, stat } from "node:fs/promises";
+import { readFile, stat, readdir } from "node:fs/promises";
 import path from "node:path";
 import process from "node:process";
 
@@ -374,6 +374,96 @@ export function createWatchCommand(): Command {
 }
 
 /**
+ * Recursively scans a directory for GML files and processes them to build the initial dependency graph.
+ *
+ * @param {string} dirPath - Directory to scan
+ * @param {ExtensionMatcher} extensionMatcher - File extension matcher
+ * @param {RuntimeContext} runtimeContext - Runtime context with transpiler and dependency tracker
+ * @param {boolean} verbose - Whether verbose logging is enabled
+ * @param {boolean} quiet - Whether quiet mode is enabled
+ */
+async function performInitialScan(
+    dirPath: string,
+    extensionMatcher: ExtensionMatcher,
+    runtimeContext: RuntimeContext,
+    verbose: boolean,
+    quiet: boolean
+): Promise<void> {
+    const { getErrorMessage: getCoreErrorMessage } = Core;
+
+    async function processFile(fullPath: string): Promise<void> {
+        try {
+            const content = await readFile(fullPath, "utf8");
+            const lines = content.split("\n").length;
+
+            // Transpile the file (quietly unless verbose mode is on)
+            const result = transpileFile(runtimeContext, fullPath, content, lines, {
+                verbose: false,
+                quiet: true
+            });
+
+            // Track symbols and references
+            if (result.success) {
+                if (result.symbols && result.symbols.length > 0) {
+                    runtimeContext.dependencyTracker.registerFileDefines(fullPath, result.symbols);
+                }
+
+                if (result.references && result.references.length > 0) {
+                    runtimeContext.dependencyTracker.registerFileReferences(fullPath, result.references);
+                }
+            }
+        } catch (error) {
+            if (verbose && !quiet) {
+                const message = getCoreErrorMessage(error, {
+                    fallback: "Unknown file read error"
+                });
+                console.error(`  Warning: Could not process ${path.basename(fullPath)}: ${message}`);
+            }
+        }
+    }
+
+    async function scanDirectory(currentPath: string): Promise<void> {
+        try {
+            const entries = await readdir(currentPath, { withFileTypes: true });
+
+            for (const entry of entries) {
+                const fullPath = path.join(currentPath, entry.name);
+
+                if (entry.isDirectory()) {
+                    await scanDirectory(fullPath);
+                } else if (entry.isFile() && extensionMatcher.matches(entry.name)) {
+                    await processFile(fullPath);
+                }
+            }
+        } catch (error) {
+            if (verbose && !quiet) {
+                const message = getCoreErrorMessage(error, {
+                    fallback: "Unknown directory read error"
+                });
+                console.error(`  Warning: Could not scan directory ${currentPath}: ${message}`);
+            }
+        }
+    }
+
+    await scanDirectory(dirPath);
+
+    const stats = runtimeContext.dependencyTracker.getStatistics();
+    if (!quiet) {
+        if (verbose) {
+            console.log(
+                `Initial scan complete: ${stats.totalSymbols} symbols tracked across ${stats.totalFiles} files`
+            );
+            console.log(`  Files with definitions: ${stats.filesWithDefs}`);
+            console.log(`  Files with references: ${stats.filesWithRefs}`);
+            console.log(`  Average definitions per file: ${stats.averageDefsPerFile.toFixed(1)}`);
+            console.log(`  Average references per file: ${stats.averageRefsPerFile.toFixed(1)}`);
+        } else {
+            console.log(`Scanned ${stats.totalFiles} files, tracking ${stats.totalSymbols} symbols`);
+        }
+    }
+}
+
+/**
  * Validates and resolves the target directory path.
  *
  * @param {string} targetPath - Directory to validate
@@ -696,6 +786,13 @@ export async function runWatchCommand(targetPath: string, options: WatchCommandO
 
     logWatchStartup(normalizedPath, extensionSet, polling, pollingInterval, verbose, quiet);
 
+    // Perform initial scan of all GML files to build the dependency graph
+    if (!quiet && verbose) {
+        console.log("Scanning existing GML files to build dependency graph...");
+    }
+
+    await performInitialScan(normalizedPath, extensionMatcher, runtimeContext, verbose, quiet);
+
     const watchOptions: WatchOptions = {
         recursive: true,
         ...(polling && { persistent: true })
@@ -949,17 +1046,60 @@ async function handleFileChange(
                 quiet
             });
 
-            // Track symbol definitions for dependency-aware hot-reload
-            // Uses AST-based extraction to identify actual function/script definitions
-            // instead of relying on file name heuristics
-            if (result.success && result.patch && result.symbols && result.symbols.length > 0) {
-                runtimeContext.dependencyTracker.registerFileDefines(filePath, result.symbols);
+            // Track symbol definitions and references for dependency-aware hot-reload
+            // Uses AST-based extraction to identify actual function/script definitions and usages
+            if (result.success && result.patch) {
+                if (result.symbols && result.symbols.length > 0) {
+                    runtimeContext.dependencyTracker.registerFileDefines(filePath, result.symbols);
+                }
+
+                if (result.references && result.references.length > 0) {
+                    runtimeContext.dependencyTracker.registerFileReferences(filePath, result.references);
+                }
 
                 if (verbose && !quiet) {
                     const stats = runtimeContext.dependencyTracker.getStatistics();
                     console.log(
                         `  ↳ Dependency tracker: ${stats.totalSymbols} symbols tracked across ${stats.totalFiles} files`
                     );
+                }
+
+                // Transpile dependent files
+                const dependentFiles = runtimeContext.dependencyTracker.getDependentFiles(filePath);
+                if (dependentFiles.length > 0 && !quiet) {
+                    console.log(`  ↳ Retranspiling ${dependentFiles.length} dependent file(s)...`);
+                }
+
+                for (const dependentFile of dependentFiles) {
+                    try {
+                        const dependentContent = await readFile(dependentFile, "utf8");
+                        const dependentLines = dependentContent.split("\n").length;
+
+                        if (verbose && !quiet) {
+                            console.log(`  ↳ Retranspiling ${path.relative(path.dirname(filePath), dependentFile)}`);
+                        }
+
+                        const dependentResult = transpileFile(runtimeContext, dependentFile, dependentContent, dependentLines, {
+                            verbose: false,
+                            quiet
+                        });
+
+                        // Update dependency tracker with new symbols/references from retranspiled file
+                        if (dependentResult.success) {
+                            if (dependentResult.symbols && dependentResult.symbols.length > 0) {
+                                runtimeContext.dependencyTracker.registerFileDefines(dependentFile, dependentResult.symbols);
+                            }
+
+                            if (dependentResult.references && dependentResult.references.length > 0) {
+                                runtimeContext.dependencyTracker.registerFileReferences(dependentFile, dependentResult.references);
+                            }
+                        }
+                    } catch (error) {
+                        const message = getErrorMessage(error, {
+                            fallback: "Unknown file read error"
+                        });
+                        console.error(`  ↳ Error retranspiling dependent file ${dependentFile}: ${message}`);
+                    }
                 }
             }
         } catch (error) {

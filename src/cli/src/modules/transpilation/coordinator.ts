@@ -13,7 +13,7 @@ import { Parser } from "@gml-modules/parser";
 import { Transpiler } from "@gml-modules/transpiler";
 import { formatCliError } from "../../cli-core/index.js";
 import type { PatchBroadcaster } from "../websocket/server.js";
-import { extractSymbolsFromAst } from "./symbol-extraction.js";
+import { extractSymbolsFromAst, extractReferencesFromAst } from "./symbol-extraction.js";
 import {
     getRuntimePathSegments,
     resolveObjectRuntimeIdFromSegments,
@@ -177,6 +177,7 @@ export interface TranspilationResult {
     metrics?: TranspilationMetrics;
     error?: TranspilationError;
     symbols?: Array<string>;
+    references?: Array<string>;
 }
 
 /**
@@ -273,20 +274,22 @@ export function transpileFile(
             throw new Error("Generated patch failed validation");
         }
 
-        // Parse the AST to extract actual symbol definitions
+        // Parse the AST to extract actual symbol definitions and references
         let extractedSymbols: Array<string> = [];
+        let extractedReferences: Array<string> = [];
         try {
             const parser = new Parser.GMLParser(content, {});
             const ast = parser.parse();
             extractedSymbols = extractSymbolsFromAst(ast, filePath);
+            extractedReferences = extractReferencesFromAst(ast);
         } catch (parseError) {
-            // If AST parsing fails, fall back to empty symbol list
+            // If AST parsing fails, fall back to empty symbol/reference lists
             // The transpiler already succeeded, so this is non-fatal
             if (verbose && !quiet) {
                 const message = Core.getErrorMessage(parseError, {
                     fallback: "Unknown parse error"
                 });
-                console.log(`  ↳ Warning: Could not extract symbols from AST: ${message}`);
+                console.log(`  ↳ Warning: Could not extract symbols/references from AST: ${message}`);
             }
         }
 
@@ -332,6 +335,9 @@ export function transpileFile(
                 if (extractedSymbols.length > 0) {
                     console.log(`  ↳ Extracted symbols: ${extractedSymbols.join(", ")}`);
                 }
+                if (extractedReferences.length > 0) {
+                    console.log(`  ↳ Extracted references: ${extractedReferences.join(", ")}`);
+                }
             } else {
                 console.log(`  ↳ Generated patch: ${patchPayload.id}`);
             }
@@ -341,7 +347,8 @@ export function transpileFile(
             success: true,
             patch: patchPayload,
             metrics,
-            symbols: extractedSymbols
+            symbols: extractedSymbols,
+            references: extractedReferences
         };
     } catch (error) {
         const classified = classifyTranspilationError(error);
