@@ -9,7 +9,7 @@ import {
     getDefaultMemoryIterations,
     resolveMemoryIterations,
     setDefaultMemoryIterations
-} from "../src/modules/memory/index.js";
+} from "../src/commands/memory.js";
 import { isCliUsageError } from "../src/cli-core/errors.js";
 
 void describe("memory iteration configuration", () => {

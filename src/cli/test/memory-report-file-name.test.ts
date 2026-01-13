@@ -8,7 +8,7 @@ import {
     getDefaultMemoryReportFileName,
     resolveMemoryReportFileName,
     setDefaultMemoryReportFileName
-} from "../src/modules/memory/index.js";
+} from "../src/commands/memory.js";
 
 void describe("memory report file name configuration", () => {
     afterEach(() => {

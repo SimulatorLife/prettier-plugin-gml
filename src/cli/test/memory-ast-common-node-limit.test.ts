@@ -8,7 +8,7 @@ import {
     getAstCommonNodeTypeLimit,
     setAstCommonNodeTypeLimit,
     __test__
-} from "../src/modules/memory/index.js";
+} from "../src/commands/memory.js";
 
 const { collectCommonNodeTypes } = __test__;
 
