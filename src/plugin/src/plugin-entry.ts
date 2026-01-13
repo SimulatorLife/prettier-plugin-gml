@@ -29,7 +29,7 @@ const BASE_PRETTIER_DEFAULTS: Record<string, unknown> = {
     tabWidth: 4,
     semi: true,
     printWidth: 120,
-    bracketSpacing: true,
+    bracketSpacing: false, // Changed to false to maintain backward compatibility with existing GML code
     singleQuote: false
 };
 
