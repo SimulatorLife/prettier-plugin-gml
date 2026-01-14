@@ -7174,12 +7174,16 @@ function normalizeFunctionCallArgumentOrder({ ast, diagnostic }) {
             return;
         }
 
+        // Visit children first (post-order traversal)
         for (const [key, value] of Object.entries(node)) {
             if (value && typeof value === "object") {
                 visit(value, node, key, nextAncestors);
             }
         }
 
+        // Check and transform CallExpressions AFTER visiting children
+        // This ensures inner/nested calls are transformed before outer calls,
+        // which is necessary for proper hoisting order in GM2023 fixes
         if (node.type === "CallExpression") {
             const fix = normalizeCallExpressionArguments({
                 node,
@@ -7241,7 +7245,16 @@ const PURE_MATH_FUNCTIONS = new Set([
     "arctan",
     "arctan2",
     "degtorad",
-    "radtodeg"
+    "radtodeg",
+    // Matrix and transform functions
+    "scr_matrix_build",
+    "matrix_build",
+    "matrix_build_identity",
+    "matrix_build_lookat",
+    "matrix_build_projection_ortho",
+    "matrix_build_projection_perspective",
+    "matrix_multiply",
+    "matrix_transform_vertex"
 ]);
 
 function hasSideEffectFunctions(callExpressionArguments) {
@@ -7362,20 +7375,19 @@ function normalizeCallExpressionArguments({ node, diagnostic, ancestors, state }
     //
     // Apply the transformation if:
     // 1. Any of the call expression arguments use known side-effect functions, OR
-    // 2. The call expressions are deeply nested AND NOT all pure math functions
+    // 2. NOT all pure math functions (unknown functions may have side effects)
     //
     // This heuristic balances between catching real issues and avoiding false positives.
     const argumentNodes = callArgumentInfos.map((info) => info.argument);
     const hasSideEffects = hasSideEffectFunctions(argumentNodes);
-    const hasDeepNesting = hasDeepNestedCalls(argumentNodes);
     const allPureMath = areAllPureMathFunctions(argumentNodes);
 
     // Apply the transformation if:
     // - Functions with side effects are present, OR
-    // - Deep nesting exists with non-pure functions
+    // - Not all functions are pure math (unknown functions may have side effects)
     //
-    // Skip transformation if all functions are pure math (even if deeply nested)
-    if (hasSideEffects || (hasDeepNesting && !allPureMath)) {
+    // Skip transformation only if ALL functions are pure math
+    if (hasSideEffects || !allPureMath) {
         // Continue with transformation
     } else {
         return null;
