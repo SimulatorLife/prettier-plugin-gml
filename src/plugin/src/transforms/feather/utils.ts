@@ -91,8 +91,8 @@ export function hasFeatherSourceTextContext(ast, diagnostic, sourceText, { allow
  * to provide a custom handler for individual nodes. Automatically skips falsy values,
  * recursively processes arrays, and filters out non-object primitives.
  */
-export function visitFeatherAST(ast, handler) {
-    const visit = (node) => {
+export function visitFeatherAST(ast: unknown, handler: (node: any) => void): void {
+    const visit = (node: unknown): void => {
         if (!node) {
             return;
         }
@@ -106,7 +106,7 @@ export function visitFeatherAST(ast, handler) {
             return;
         }
 
-        handler(node, visit);
+        handler(node);
 
         Core.visitChildNodes(node, visit);
     };
