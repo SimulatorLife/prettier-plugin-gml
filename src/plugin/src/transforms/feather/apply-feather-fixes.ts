@@ -7265,12 +7265,12 @@ function hasSideEffectFunctions(callExpressionArguments) {
 
 function areAllPureMathFunctions(callExpressionArguments) {
     if (!Array.isArray(callExpressionArguments) || callExpressionArguments.length === 0) {
-        return false;
+        return true; // No call expressions means no non-pure functions
     }
 
     for (const arg of callExpressionArguments) {
         if (!Core.isNode(arg) || arg.type !== "CallExpression") {
-            continue;
+            continue; // Skip non-CallExpression arguments
         }
 
         // Check if this call is pure math
@@ -7370,20 +7370,14 @@ function normalizeCallExpressionArguments({ node, diagnostic, ancestors, state }
     const hasDeepNesting = hasDeepNestedCalls(argumentNodes);
     const allPureMath = areAllPureMathFunctions(argumentNodes);
 
-    // If there are side effects, always transform
-    if (hasSideEffects) {
+    // Apply the transformation if:
+    // - Functions with side effects are present, OR
+    // - Deep nesting exists with non-pure functions
+    //
+    // Skip transformation if all functions are pure math (even if deeply nested)
+    if (hasSideEffects || (hasDeepNesting && !allPureMath)) {
         // Continue with transformation
-    }
-    // If there's deep nesting but all functions are pure math, skip transformation
-    else if (hasDeepNesting && allPureMath) {
-        return null;
-    }
-    // If there's deep nesting and NOT all pure math, transform
-    else if (hasDeepNesting) {
-        // Continue with transformation
-    }
-    // Otherwise (no side effects, no deep nesting, or all pure math), skip
-    else {
+    } else {
         return null;
     }
 
