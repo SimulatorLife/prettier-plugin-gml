@@ -563,7 +563,7 @@ function tryPrintFunctionNode(node, path, options, print) {
                     ? Core.isNonEmptyString(functionNameDoc)
                     : Boolean(functionNameDoc);
 
-            parts.push(["function", hasFunctionName || !node.id ? " " : "", functionNameDoc]);
+            parts.push(["function", hasFunctionName ? " " : "", functionNameDoc]);
 
             const hasParameters = Core.isNonEmptyArray(node.params);
 
@@ -1230,24 +1230,11 @@ function printArrayExpressionNode(node, path, options, print) {
 }
 
 function printNewExpressionNode(node, path, options, print) {
-    if (node.arguments.length === 0) {
-        return concat(["new ", print("expression"), printEmptyParens(path, options)]);
-    }
-
-    const callbackArguments = node.arguments.filter(
-        (argument) => argument?.type === FUNCTION_DECLARATION || argument?.type === CONSTRUCTOR_DECLARATION
-    );
-    const hasCallbackArguments = callbackArguments.length > 0;
-
-    const { inlineDoc, multilineDoc } = buildCallArgumentsDocs(path, print, options, {
-        forceBreak: false,
-        hasCallbackArguments,
-        includeInlineVariant: true
-    });
-
-    const argsPrinted = inlineDoc ? conditionalGroup([inlineDoc, multilineDoc]) : multilineDoc;
-
-    return concat(["new ", print("expression"), argsPrinted]);
+    const argsPrinted =
+        node.arguments.length === 0
+            ? [printEmptyParens(path, options)]
+            : [printCommaSeparatedList(path, print, "arguments", "(", ")", options)];
+    return concat(["new ", print("expression"), ...argsPrinted]);
 }
 
 function tryPrintDeclarationNode(node, path, options, print) {
