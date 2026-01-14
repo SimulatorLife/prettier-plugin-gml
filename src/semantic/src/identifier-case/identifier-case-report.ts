@@ -94,10 +94,6 @@ type ReportIdentifierCasePlanOptions = IdentifierCasePlanData & {
 const REPORT_NAMESPACE = "gml-identifier-case";
 const LOG_VERSION = 1;
 
-function defaultNow() {
-    return Date.now();
-}
-
 function getNormalizedOperations(report) {
     return Core.asArray(report?.operations);
 }
@@ -525,7 +521,7 @@ export function reportIdentifierCasePlan({
     diagnostics = null,
     logFilePath = null,
     fsFacade = defaultFsFacade,
-    now = defaultNow
+    now = Date.now
 }: ReportIdentifierCasePlanOptions = {}) {
     const report = summarizeIdentifierCasePlan({
         renamePlan,
@@ -641,7 +637,7 @@ function resolveReportIo(options, context) {
     const diagnostics = context.diagnostics ?? toDiagnosticsArray(options.diagnostics);
     const logFilePath = context.logFilePath ?? getIdentifierCaseOption(options, "ReportLogPath", { fallback: null });
     const fsFacade = context.fsFacade ?? getIdentifierCaseOption(options, "Fs", { fallback: defaultFsFacade });
-    const now = context.now ?? pickFunction(options.__identifierCaseNow, options.identifierCaseNow) ?? defaultNow;
+    const now = context.now ?? pickFunction(options.__identifierCaseNow, options.identifierCaseNow) ?? Date.now;
 
     return { logger, diagnostics, logFilePath, fsFacade, now };
 }
