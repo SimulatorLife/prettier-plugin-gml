@@ -1424,7 +1424,7 @@ export default class GameMakerASTBuilder {
         const body = this.withScope("function", () => {
             if (paramListCtx != null) {
                 const p = this.visit(paramListCtx);
-                params = Array.isArray(p) ? p : p ? [p] : [];
+                params = p ? Core.toArray(p) : [];
             }
             return this.visit(ctx.block());
         });
