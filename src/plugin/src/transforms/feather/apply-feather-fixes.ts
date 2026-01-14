@@ -7245,7 +7245,16 @@ const PURE_MATH_FUNCTIONS = new Set([
     "arctan",
     "arctan2",
     "degtorad",
-    "radtodeg"
+    "radtodeg",
+    // Matrix and transform functions
+    "scr_matrix_build",
+    "matrix_build",
+    "matrix_build_identity",
+    "matrix_build_lookat",
+    "matrix_build_projection_ortho",
+    "matrix_build_projection_perspective",
+    "matrix_multiply",
+    "matrix_transform_vertex"
 ]);
 
 function hasSideEffectFunctions(callExpressionArguments) {
