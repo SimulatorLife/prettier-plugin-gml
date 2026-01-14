@@ -10,7 +10,7 @@ void describe("new expression respects printWidth", () => {
 \t}
 });`;
 
-        const expected = `collider = new ColmeshColliderCapsule(x, y, z, 0, 0, 1, radius, radius * 2, 0, function (o) {
+        const expected = `collider = new ColmeshColliderCapsule(x, y, z, 0, 0, 1, radius, radius * 2, 0, function(o) {
     if (instance_exists(o) && o.actor_take_damage_type(damage_type, bonus_damage) && is_destroyed_on_hit) {
         instance_destroy();
     }
@@ -30,11 +30,11 @@ void describe("new expression respects printWidth", () => {
         );
     });
 
-    void it("should add space after function keyword in anonymous functions", async () => {
+    void it("should not add space after function keyword in anonymous functions", async () => {
         const input = "var fn = function(x) { return x; };";
         const result = await Plugin.format(input);
 
-        // Should have space after 'function'
-        assert.ok(result.includes("function (x)"), "Anonymous function should have space after 'function' keyword");
+        // Should NOT have space after 'function' for anonymous functions
+        assert.ok(result.includes("function(x)"), "Anonymous function should not have space after 'function' keyword");
     });
 });

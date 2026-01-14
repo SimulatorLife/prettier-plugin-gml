@@ -563,7 +563,7 @@ function tryPrintFunctionNode(node, path, options, print) {
                     ? Core.isNonEmptyString(functionNameDoc)
                     : Boolean(functionNameDoc);
 
-            parts.push(["function", hasFunctionName || !node.id ? " " : "", functionNameDoc]);
+            parts.push(["function", hasFunctionName ? " " : "", functionNameDoc]);
 
             const hasParameters = Core.isNonEmptyArray(node.params);
 
