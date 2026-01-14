@@ -58,6 +58,8 @@ export function hasMethod<T, K extends string>(
  * Assert that a value is an array.
  * Provides consistent error messages for array parameter validation.
  *
+ * Delegates to Core.assertArray with adapted error message format.
+ *
  * @param value - The value to validate
  * @param parameterName - The parameter name for error messages
  * @param functionName - The function name for error messages (optional)
@@ -68,15 +70,17 @@ export function assertArray<T = unknown>(
     parameterName: string,
     functionName?: string
 ): asserts value is Array<T> {
-    if (!Array.isArray(value)) {
-        const context = functionName ? `${functionName} requires` : "Expected";
-        throw new TypeError(`${context} ${parameterName}`);
-    }
+    const context = functionName ? `${functionName} requires` : "Expected";
+    Core.assertArray<T>(value, {
+        errorMessage: `${context} ${parameterName}`
+    });
 }
 
 /**
  * Assert that a value is a function.
  * Provides consistent error messages for function parameter validation.
+ *
+ * Delegates to Core.assertFunction with adapted error message format.
  *
  * @param value - The value to validate
  * @param parameterName - The parameter name for error messages
@@ -88,15 +92,17 @@ export function assertFunction<T extends (...args: never[]) => unknown = (...arg
     parameterName: string,
     functionName?: string
 ): asserts value is T {
-    if (!value || typeof value !== "function") {
-        const context = functionName ? `${functionName} requires` : "Expected";
-        throw new TypeError(`${context} a ${parameterName} function`);
-    }
+    const context = functionName ? `${functionName} requires` : "Expected";
+    Core.assertFunction(value, parameterName, {
+        errorMessage: `${context} a ${parameterName} function`
+    });
 }
 
 /**
  * Assert that a value is a non-empty string.
  * Provides consistent error messages for string parameter validation.
+ *
+ * Delegates to Core.assertNonEmptyString with adapted error message format.
  *
  * @param value - The value to validate
  * @param parameterDescription - The parameter description for error messages (e.g., "file path string", "oldName as a non-empty string")
@@ -109,9 +115,9 @@ export function assertNonEmptyString(
     functionName?: string
 ): asserts value is string {
     const context = functionName ? `${functionName} requires` : "Expected";
-    if (!value || typeof value !== "string") {
-        throw new TypeError(`${context} ${parameterDescription}`);
-    }
+    Core.assertNonEmptyString(value, {
+        errorMessage: `${context} ${parameterDescription}`
+    });
 }
 
 /**
