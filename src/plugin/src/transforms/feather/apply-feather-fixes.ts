@@ -7308,33 +7308,6 @@ function areAllPureMathFunctions(callExpressionArguments) {
     return true; // All are pure math functions (including nested ones)
 }
 
-function hasDeepNestedCalls(callExpressionArguments) {
-    if (!Array.isArray(callExpressionArguments)) {
-        return false;
-    }
-
-    // Check if any of the call expression arguments themselves have call expression arguments
-    for (const arg of callExpressionArguments) {
-        if (!Core.isNode(arg) || arg.type !== "CallExpression") {
-            continue;
-        }
-
-        const nestedArgs = Core.getCallExpressionArguments(arg);
-        if (!Array.isArray(nestedArgs)) {
-            continue;
-        }
-
-        // Check if this call has any call expression arguments
-        for (const nestedArg of nestedArgs) {
-            if (Core.isNode(nestedArg) && nestedArg.type === "CallExpression") {
-                return true; // Found a nested call expression
-            }
-        }
-    }
-
-    return false;
-}
-
 function normalizeCallExpressionArguments({ node, diagnostic, ancestors, state }) {
     if (!node || node.type !== "CallExpression") {
         return null;

@@ -44,7 +44,8 @@ import {
     type TranspilationMetrics,
     type TranspilationError,
     type TranspilationContext,
-    type RuntimeTranspilerPatch
+    type RuntimeTranspilerPatch,
+    type TranspilationResult
 } from "../modules/transpilation/coordinator.js";
 import { prepareHotReloadInjection, DEFAULT_GM_TEMP_ROOT } from "../modules/hot-reload/inject-runtime.js";
 import { DependencyTracker } from "../modules/dependency-tracker.js";
@@ -1066,52 +1067,11 @@ async function handleFileChange(
 
                 // Transpile dependent files
                 const dependentFiles = runtimeContext.dependencyTracker.getDependentFiles(filePath);
-                if (dependentFiles.length > 0 && !quiet) {
-                    console.log(`  ↳ Retranspiling ${dependentFiles.length} dependent file(s)...`);
-                }
-
-                for (const dependentFile of dependentFiles) {
-                    try {
-                        const dependentContent = await readFile(dependentFile, "utf8");
-                        const dependentLines = dependentContent.split("\n").length;
-
-                        if (verbose && !quiet) {
-                            console.log(`  ↳ Retranspiling ${path.relative(path.dirname(filePath), dependentFile)}`);
-                        }
-
-                        const dependentResult = transpileFile(
-                            runtimeContext,
-                            dependentFile,
-                            dependentContent,
-                            dependentLines,
-                            {
-                                verbose: false,
-                                quiet
-                            }
-                        );
-
-                        // Update dependency tracker with new symbols/references from retranspiled file
-                        if (dependentResult.success) {
-                            if (dependentResult.symbols && dependentResult.symbols.length > 0) {
-                                runtimeContext.dependencyTracker.registerFileDefines(
-                                    dependentFile,
-                                    dependentResult.symbols
-                                );
-                            }
-
-                            if (dependentResult.references && dependentResult.references.length > 0) {
-                                runtimeContext.dependencyTracker.registerFileReferences(
-                                    dependentFile,
-                                    dependentResult.references
-                                );
-                            }
-                        }
-                    } catch (error) {
-                        const message = getErrorMessage(error, {
-                            fallback: "Unknown file read error"
-                        });
-                        console.error(`  ↳ Error retranspiling dependent file ${dependentFile}: ${message}`);
+                if (dependentFiles.length > 0) {
+                    if (!quiet) {
+                        console.log(`  ↳ Retranspiling ${dependentFiles.length} dependent file(s)...`);
                     }
+                    await retranspileDependentFiles(runtimeContext, filePath, dependentFiles, verbose, quiet);
                 }
             }
         } catch (error) {
@@ -1126,5 +1086,66 @@ async function handleFileChange(
 
             console.error(formattedMessage);
         }
+    }
+}
+
+async function retranspileDependentFiles(
+    runtimeContext: RuntimeContext,
+    filePath: string,
+    dependentFiles: Array<string>,
+    verbose: boolean,
+    quiet: boolean
+): Promise<void> {
+    for (const dependentFile of dependentFiles) {
+        try {
+            await retranspileDependentFile(runtimeContext, filePath, dependentFile, verbose, quiet);
+        } catch (error) {
+            const message = getErrorMessage(error, {
+                fallback: "Unknown file read error"
+            });
+            console.error(`  ↳ Error retranspiling dependent file ${dependentFile}: ${message}`);
+        }
+    }
+}
+
+async function retranspileDependentFile(
+    runtimeContext: RuntimeContext,
+    filePath: string,
+    dependentFile: string,
+    verbose: boolean,
+    quiet: boolean
+): Promise<void> {
+    const dependentContent = await readFile(dependentFile, "utf8");
+    const dependentLines = dependentContent.split("\n").length;
+
+    if (verbose && !quiet) {
+        console.log(`  ↳ Retranspiling ${path.relative(path.dirname(filePath), dependentFile)}`);
+    }
+
+    const dependentResult = transpileFile(runtimeContext, dependentFile, dependentContent, dependentLines, {
+        verbose: false,
+        quiet
+    });
+
+    registerDependencyTrackerUpdates(runtimeContext, dependentFile, dependentResult);
+}
+
+function registerDependencyTrackerUpdates(
+    runtimeContext: RuntimeContext,
+    dependentFile: string,
+    dependentResult: TranspilationResult
+): void {
+    if (!dependentResult.success) {
+        return;
+    }
+
+    const { symbols, references } = dependentResult;
+
+    if (symbols && symbols.length > 0) {
+        runtimeContext.dependencyTracker.registerFileDefines(dependentFile, symbols);
+    }
+
+    if (references && references.length > 0) {
+        runtimeContext.dependencyTracker.registerFileReferences(dependentFile, references);
     }
 }
