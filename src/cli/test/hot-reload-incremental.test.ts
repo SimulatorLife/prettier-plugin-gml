@@ -9,7 +9,7 @@ import { describe, it, before, after } from "node:test";
 import assert from "node:assert";
 import { writeFile, mkdir, rm } from "node:fs/promises";
 import path from "node:path";
-import WebSocket from "ws";
+import { connectToHotReloadWebSocket, type WebSocketPatchStream } from "./test-helpers/websocket-client.js";
 
 import { runWatchCommand } from "../src/commands/watch.js";
 import { findAvailablePort } from "./test-helpers/free-port.js";
@@ -18,12 +18,7 @@ void describe("Hot reload incremental transpilation", () => {
     let testDir: string;
     let baseFile: string;
     let dependentFile: string;
-    let websocketClient;
-    let receivedPatches: Array<{
-        kind: string;
-        id: string;
-        js_body: string;
-    }>;
+    let websocketContext: WebSocketPatchStream | null = null;
 
     before(async () => {
         testDir = path.join(process.cwd(), "tmp", `test-incremental-${Date.now()}`);
@@ -49,20 +44,12 @@ void describe("Hot reload incremental transpilation", () => {
 }`,
             "utf8"
         );
-
-        receivedPatches = [];
     });
 
     after(async () => {
-        if (websocketClient) {
-            await new Promise<void>((resolve) => {
-                try {
-                    websocketClient!.once("close", () => resolve());
-                    websocketClient!.close();
-                } catch {
-                    resolve();
-                }
-            });
+        if (websocketContext) {
+            await websocketContext.disconnect();
+            websocketContext = null;
         }
         if (testDir) {
             await rm(testDir, { recursive: true, force: true });
@@ -89,32 +76,7 @@ void describe("Hot reload incremental transpilation", () => {
         await new Promise((resolve) => setTimeout(resolve, 1000));
 
         // Connect WebSocket client
-        await new Promise<void>((resolve, reject) => {
-            websocketClient = new WebSocket(`ws://127.0.0.1:${websocketPort}`);
-
-            websocketClient.on("open", () => {
-                resolve();
-            });
-
-            websocketClient.on("error", (error) => {
-                reject(
-                    error instanceof Error
-                        ? error
-                        : new Error(`WebSocket error: ${error === undefined ? "unknown" : String(error)}`)
-                );
-            });
-
-            websocketClient.on("message", (data) => {
-                try {
-                    const patch = JSON.parse(data.toString());
-                    if (patch.kind === "script") {
-                        receivedPatches.push(patch);
-                    }
-                } catch {
-                    // Ignore parse errors in test
-                }
-            });
-        });
+        websocketContext = await connectToHotReloadWebSocket(`ws://127.0.0.1:${websocketPort}`);
 
         // Modify the base script
         await writeFile(
@@ -140,8 +102,10 @@ void describe("Hot reload incremental transpilation", () => {
         // Verify that we received patches for both the base file and the dependent file
         // The base file should be transpiled because it changed
         // The dependent file should be retranspiled because it depends on base_script
-        const basePatches = receivedPatches.filter((p) => p.id.includes("base_script"));
-        const dependentPatches = receivedPatches.filter((p) => p.id.includes("dependent_script"));
+        const context = websocketContext;
+        assert.ok(context, "WebSocket client should be connected");
+        const basePatches = context.receivedPatches.filter((p) => p.id.includes("base_script"));
+        const dependentPatches = context.receivedPatches.filter((p) => p.id.includes("dependent_script"));
 
         assert.ok(basePatches.length > 0, "Should have received at least one patch for base_script");
         assert.ok(
