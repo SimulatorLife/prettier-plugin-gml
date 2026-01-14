@@ -1242,10 +1242,10 @@ function printNewExpressionNode(node, path, options, print) {
     const { inlineDoc, multilineDoc } = buildCallArgumentsDocs(path, print, options, {
         forceBreak: false,
         hasCallbackArguments,
-        includeInlineVariant: hasCallbackArguments
+        includeInlineVariant: true
     });
 
-    const argsPrinted = hasCallbackArguments && inlineDoc ? conditionalGroup([inlineDoc, multilineDoc]) : multilineDoc;
+    const argsPrinted = inlineDoc ? conditionalGroup([inlineDoc, multilineDoc]) : multilineDoc;
 
     return concat(["new ", print("expression"), argsPrinted]);
 }
