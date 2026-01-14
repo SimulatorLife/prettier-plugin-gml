@@ -6,7 +6,8 @@ import {
     hasFeatherDiagnosticContext,
     createFeatherFixDetail,
     attachFeatherFixMetadata,
-    isIntegerLiteralString
+    isIntegerLiteralString,
+    visitFeatherAST
 } from "./utils.js";
 import { getEndFromNode } from "./ast-traversal.js";
 import { removeDuplicateSemicolons } from "./semicolon-fixes.js";
@@ -21,20 +22,7 @@ export function removeDuplicateEnumMembers({ ast, diagnostic, sourceText }) {
 
     const fixes = [];
 
-    const visit = (node) => {
-        if (!node) {
-            return;
-        }
-
-        if (Array.isArray(node)) {
-            Core.visitChildNodes(node, visit);
-            return;
-        }
-
-        if (typeof node !== "object") {
-            return;
-        }
-
+    visitFeatherAST(ast, (node) => {
         if (node.type === "EnumDeclaration") {
             const members = Core.asArray(node.members);
 
@@ -121,13 +109,7 @@ export function removeDuplicateEnumMembers({ ast, diagnostic, sourceText }) {
                 }
             }
         }
-
-        Core.forEachNodeChild(node, (value) => {
-            visit(value);
-        });
-    };
-
-    visit(ast);
+    });
 
     // If no fixes were discovered via AST-bounded scanning, fall back to a
     // conservative full-source scan for duplicate-semicolon runs. This
@@ -159,20 +141,7 @@ export function sanitizeEnumAssignments({ ast, diagnostic }) {
 
     const fixes = [];
 
-    const visit = (node) => {
-        if (!node) {
-            return;
-        }
-
-        if (Array.isArray(node)) {
-            Core.visitChildNodes(node, visit);
-            return;
-        }
-
-        if (typeof node !== "object") {
-            return;
-        }
-
+    visitFeatherAST(ast, (node) => {
         if (node.type === "EnumMember") {
             const fix = sanitizeEnumMember(node, diagnostic);
 
@@ -180,11 +149,7 @@ export function sanitizeEnumAssignments({ ast, diagnostic }) {
                 fixes.push(fix);
             }
         }
-
-        Core.visitChildNodes(node, visit);
-    };
-
-    visit(ast);
+    });
 
     return fixes;
 }
