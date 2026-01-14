@@ -66,9 +66,6 @@ export function buildLocationKey(location: unknown): string | null {
             line = loc.start;
             if (line == null) {
                 line = loc.first_line;
-                if (line == null) {
-                    line = null;
-                }
             }
         }
     }
@@ -81,9 +78,6 @@ export function buildLocationKey(location: unknown): string | null {
             column = loc.columnStart;
             if (column == null) {
                 column = loc.first_column;
-                if (column == null) {
-                    column = null;
-                }
             }
         }
     }
@@ -92,9 +86,6 @@ export function buildLocationKey(location: unknown): string | null {
     let index = loc.index;
     if (index == null) {
         index = loc.offset;
-        if (index == null) {
-            index = null;
-        }
     }
 
     // Fast path: return null if all fields are undefined
@@ -118,7 +109,7 @@ export function buildLocationKey(location: unknown): string | null {
  * @returns {string | null} File-qualified location key, or `null` when no
  *                          usable location data is available.
  */
-export function buildFileLocationKey(filePath, location) {
+export function buildFileLocationKey(filePath: string | null | undefined, location: unknown): string | null {
     const locationKey = buildLocationKey(location);
     if (!locationKey) {
         return null;
