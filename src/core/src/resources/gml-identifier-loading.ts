@@ -139,7 +139,7 @@ export function setReservedIdentifierMetadataLoader(loader) {
     const wrappedLoader = () => safelyLoadIdentifierMetadata(loader);
 
     metadataLoader = wrappedLoader;
-    
+
     // Clear caches when the loader changes to prevent stale data
     clearIdentifierMetadataCache();
 
@@ -186,7 +186,7 @@ function createExcludedTypesCacheKey(excludedTypes: Set<string>): string {
     if (excludedTypes.size === 0) {
         return "";
     }
-    
+
     // Sort only once when creating the cache key
     return Array.from(excludedTypes).toSorted().join(",");
 }

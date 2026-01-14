@@ -233,11 +233,7 @@ async function collectFixtureFilePaths(
     const fileMap = new Map<string, string>();
 
     for (const directory of directories) {
-        await traverseForFixtures(
-            directory,
-            (filePath) => addUniqueFixturePath(fileMap, filePath),
-            pathFilter
-        );
+        await traverseForFixtures(directory, (filePath) => addUniqueFixturePath(fileMap, filePath), pathFilter);
     }
 
     return extractSortedPaths(fileMap);

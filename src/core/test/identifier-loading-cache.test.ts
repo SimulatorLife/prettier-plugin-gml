@@ -27,14 +27,14 @@ void test("loadManualFunctionNames returns the same cached Set instance on repea
 
 void test("loadManualFunctionNames returns new Set after cache is cleared", () => {
     const firstCall = loadManualFunctionNames();
-    
+
     clearIdentifierMetadataCache();
-    
+
     const secondCall = loadManualFunctionNames();
 
     // After clearing cache, we should get a new instance
     assert.notStrictEqual(firstCall, secondCall, "Should return new Set instance after cache clear");
-    
+
     // But the contents should be identical
     assert.deepEqual(Array.from(firstCall).toSorted(), Array.from(secondCall).toSorted());
 });

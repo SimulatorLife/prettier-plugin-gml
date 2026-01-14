@@ -137,7 +137,6 @@ export function walkAst(
         enterArray() {
             // Arrays themselves are not AST nodes, but we need to traverse
             // them to reach the nodes they contain. Always descend into arrays.
-            
         }
     });
 }
