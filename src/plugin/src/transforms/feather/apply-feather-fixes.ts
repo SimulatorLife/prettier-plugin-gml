@@ -7174,12 +7174,16 @@ function normalizeFunctionCallArgumentOrder({ ast, diagnostic }) {
             return;
         }
 
+        // Visit children first (post-order traversal)
         for (const [key, value] of Object.entries(node)) {
             if (value && typeof value === "object") {
                 visit(value, node, key, nextAncestors);
             }
         }
 
+        // Check and transform CallExpressions AFTER visiting children
+        // This ensures inner/nested calls are transformed before outer calls,
+        // which is necessary for proper hoisting order in GM2023 fixes
         if (node.type === "CallExpression") {
             const fix = normalizeCallExpressionArguments({
                 node,
@@ -7197,6 +7201,138 @@ function normalizeFunctionCallArgumentOrder({ ast, diagnostic }) {
     visit(ast, null, null, []);
 
     return fixes;
+}
+
+// Functions known to have sequential side effects where argument evaluation order matters.
+// These are the functions where GM2023 fixes are necessary.
+const GM2023_SIDE_EFFECT_FUNCTIONS = new Set([
+    "buffer_read",
+    "buffer_peek",
+    "buffer_poke",
+    "file_text_read_real",
+    "file_text_readln",
+    "file_bin_read_byte",
+    "ds_queue_dequeue",
+    "ds_stack_pop",
+    "ds_list_find_value", // when used sequentially can have order issues
+    "ini_read_real",
+    "ini_read_string"
+    // Add more as needed based on actual GM2023 use cases
+]);
+
+// Pure mathematical functions that don't have side effects and are safe to call in any order.
+const PURE_MATH_FUNCTIONS = new Set([
+    "round",
+    "floor",
+    "ceil",
+    "abs",
+    "min",
+    "max",
+    "clamp",
+    "lerp",
+    "sqrt",
+    "sqr",
+    "power",
+    "exp",
+    "ln",
+    "log2",
+    "log10",
+    "sin",
+    "cos",
+    "tan",
+    "arcsin",
+    "arccos",
+    "arctan",
+    "arctan2",
+    "degtorad",
+    "radtodeg",
+    // Matrix and transform functions
+    "scr_matrix_build",
+    "matrix_build",
+    "matrix_build_identity",
+    "matrix_build_lookat",
+    "matrix_build_projection_ortho",
+    "matrix_build_projection_perspective",
+    "matrix_multiply",
+    "matrix_transform_vertex"
+]);
+
+function hasSideEffectFunctions(callExpressionArguments) {
+    if (!Array.isArray(callExpressionArguments)) {
+        return false;
+    }
+
+    for (const arg of callExpressionArguments) {
+        if (!Core.isNode(arg) || arg.type !== "CallExpression") {
+            continue;
+        }
+
+        const calleeName = Core.getCallExpressionIdentifierName(arg);
+        if (calleeName && GM2023_SIDE_EFFECT_FUNCTIONS.has(calleeName)) {
+            return true;
+        }
+    }
+
+    return false;
+}
+
+function areAllPureMathFunctions(callExpressionArguments) {
+    if (!Array.isArray(callExpressionArguments) || callExpressionArguments.length === 0) {
+        return true; // No call expressions means no non-pure functions
+    }
+
+    for (const arg of callExpressionArguments) {
+        if (!Core.isNode(arg) || arg.type !== "CallExpression") {
+            continue; // Skip non-CallExpression arguments
+        }
+
+        // Check if this call is pure math
+        const calleeName = Core.getCallExpressionIdentifierName(arg);
+        if (!calleeName || !PURE_MATH_FUNCTIONS.has(calleeName)) {
+            return false; // Found a non-pure-math function
+        }
+
+        // Recursively check nested call expressions
+        const nestedArgs = Core.getCallExpressionArguments(arg);
+        if (Array.isArray(nestedArgs) && nestedArgs.length > 0) {
+            const nestedCalls = nestedArgs.filter(
+                (nestedArg) => Core.isNode(nestedArg) && nestedArg.type === "CallExpression"
+            );
+
+            if (nestedCalls.length > 0 && !areAllPureMathFunctions(nestedCalls)) {
+                return false; // Found a nested non-pure-math function
+            }
+        }
+    }
+
+    return true; // All are pure math functions (including nested ones)
+}
+
+function hasDeepNestedCalls(callExpressionArguments) {
+    if (!Array.isArray(callExpressionArguments)) {
+        return false;
+    }
+
+    // Check if any of the call expression arguments themselves have call expression arguments
+    for (const arg of callExpressionArguments) {
+        if (!Core.isNode(arg) || arg.type !== "CallExpression") {
+            continue;
+        }
+
+        const nestedArgs = Core.getCallExpressionArguments(arg);
+        if (!Array.isArray(nestedArgs)) {
+            continue;
+        }
+
+        // Check if this call has any call expression arguments
+        for (const nestedArg of nestedArgs) {
+            if (Core.isNode(nestedArg) && nestedArg.type === "CallExpression") {
+                return true; // Found a nested call expression
+            }
+        }
+    }
+
+    return false;
 }
 
 function normalizeCallExpressionArguments({ node, diagnostic, ancestors, state }) {
@@ -7223,6 +7359,37 @@ function normalizeCallExpressionArguments({ node, diagnostic, ancestors, state }
     }
 
     if (callArgumentInfos.length < 2) {
+        return null;
+    }
+
+    // GM2023 fixes argument evaluation order issues, but this transformation should
+    // only apply when the nested call expressions have side effects, sequential
+    // dependencies, or deep nesting of non-pure functions.
+    //
+    // For example:
+    //   - `vertex_position_3d(vb, buffer_read(...), buffer_read(...), ...)` NEEDS the fix
+    //     because buffer_read advances the buffer position, so order matters.
+    //   - `foo(bar(quux(baz(), qux()), corge()), grault())` NEEDS the fix because of deep nesting.
+    //   - `scr_matrix_build(round(x), round(y), max(ceil(...), 10), ...)` does NOT need the fix
+    //     because all calls (including nested ones) are pure math functions.
+    //
+    // Apply the transformation if:
+    // 1. Any of the call expression arguments use known side-effect functions, OR
+    // 2. NOT all pure math functions (unknown functions may have side effects)
+    //
+    // This heuristic balances between catching real issues and avoiding false positives.
+    const argumentNodes = callArgumentInfos.map((info) => info.argument);
+    const hasSideEffects = hasSideEffectFunctions(argumentNodes);
+    const allPureMath = areAllPureMathFunctions(argumentNodes);
+
+    // Apply the transformation if:
+    // - Functions with side effects are present, OR
+    // - Not all functions are pure math (unknown functions may have side effects)
+    //
+    // Skip transformation only if ALL functions are pure math
+    if (hasSideEffects || !allPureMath) {
+        // Continue with transformation
+    } else {
         return null;
     }
 

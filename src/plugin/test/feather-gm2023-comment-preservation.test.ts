@@ -24,7 +24,7 @@ import { Plugin } from "../src/index.js";
 void test("preserves leading comments when extracting nested calls (GM2023)", async () => {
     const input = `
 // This comment describes the block below
-colmesh_shape = new ColmeshBlock(scr_matrix_build(round(x), round(y), round(z), 0, 0, 0, max(a, b), 4, max(c, d)));
+result = someFunction(anotherFunction(nested1(a, b), nested2(c, d)));
 `.trim();
 
     const formatted = await Plugin.format(input, {
