@@ -7199,6 +7199,42 @@ function normalizeFunctionCallArgumentOrder({ ast, diagnostic }) {
     return fixes;
 }
 
+// Functions known to have sequential side effects where argument evaluation order matters.
+// These are the functions where GM2023 fixes are necessary.
+const GM2023_SIDE_EFFECT_FUNCTIONS = new Set([
+    "buffer_read",
+    "buffer_peek",
+    "buffer_poke",
+    "file_text_read_real",
+    "file_text_readln",
+    "file_bin_read_byte",
+    "ds_queue_dequeue",
+    "ds_stack_pop",
+    "ds_list_find_value", // when used sequentially can have order issues
+    "ini_read_real",
+    "ini_read_string"
+    // Add more as needed based on actual GM2023 use cases
+]);
+
+function hasSideEffectFunctions(callExpressionArguments) {
+    if (!Array.isArray(callExpressionArguments)) {
+        return false;
+    }
+
+    for (const arg of callExpressionArguments) {
+        if (!Core.isNode(arg) || arg.type !== "CallExpression") {
+            continue;
+        }
+
+        const calleeName = Core.getCallExpressionIdentifierName(arg);
+        if (calleeName && GM2023_SIDE_EFFECT_FUNCTIONS.has(calleeName)) {
+            return true;
+        }
+    }
+
+    return false;
+}
+
 function normalizeCallExpressionArguments({ node, diagnostic, ancestors, state }) {
     if (!node || node.type !== "CallExpression") {
         return null;
@@ -7223,6 +7259,29 @@ function normalizeCallExpressionArguments({ node, diagnostic, ancestors, state }
     }
 
     if (callArgumentInfos.length < 2) {
+        return null;
+    }
+
+    // GM2023 fixes argument evaluation order issues, but this transformation should
+    // only apply when the nested call expressions have side effects or sequential
+    // dependencies that make evaluation order matter.
+    //
+    // For example:
+    //   - `vertex_position_3d(vb, buffer_read(...), buffer_read(...), ...)` NEEDS the fix
+    //     because buffer_read advances the buffer position, so order matters.
+    //   - `new ColmeshBlock(scr_matrix_build(round(x), round(y), ...), ...)` does NOT need
+    //     the fix because round() has no side effects and order doesn't matter.
+    //
+    // Apply the transformation if:
+    // 1. Any of the call expression arguments use known side-effect functions, OR
+    // 2. There are 3+ call expression arguments (less likely to be intentional nesting)
+    //
+    // This heuristic balances between catching real issues and avoiding false positives.
+    const argumentNodes = callArgumentInfos.map((info) => info.argument);
+    const hasSideEffects = hasSideEffectFunctions(argumentNodes);
+    const hasManyCalls = callArgumentInfos.length >= 3;
+
+    if (!hasSideEffects && !hasManyCalls) {
         return null;
     }
 
