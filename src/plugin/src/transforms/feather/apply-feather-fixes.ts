@@ -7199,89 +7199,8 @@ function normalizeFunctionCallArgumentOrder({ ast, diagnostic }) {
     return fixes;
 }
 
-/**
- * Checks if a CallExpression node is nested within certain expression contexts where
- * GM2023 argument extraction should NOT apply.
- *
- * GM2023 is specifically about evaluation order of function call arguments. It should
- * recursively extract nested calls within call argument lists, but it should NOT
- * extract calls from other expression contexts like assignments, constructors, etc.
- *
- * @param ancestors - Array of ancestor node info objects from the AST traversal
- * @returns true if the node is nested in a non-call expression context
- */
-function isNestedAsCallArgument(ancestors) {
-    if (!Array.isArray(ancestors) || ancestors.length === 0) {
-        return false;
-    }
-
-    // Walk backwards through ancestors looking for expression contexts.
-    for (let i = ancestors.length - 1; i >= 0; i -= 1) {
-        const ancestorInfo = ancestors[i];
-
-        if (!ancestorInfo || typeof ancestorInfo !== "object") {
-            continue;
-        }
-
-        const ancestor = ancestorInfo.node;
-
-        if (!ancestor || typeof ancestor !== "object") {
-            continue;
-        }
-
-        // If we hit a statement-level node, stop - we're at the top level
-        if (Core.isProgramOrBlockStatement(ancestor)) {
-            return false;
-        }
-
-        // CallExpression is OK - GM2023 should recursively extract nested calls
-        if (ancestor.type === "CallExpression") {
-            continue;
-        }
-
-        // ExpressionStatement is OK - it's just a wrapper around the actual expression
-        if (ancestor.type === "ExpressionStatement") {
-            continue;
-        }
-
-        // Any other expression type means we're nested in a context where
-        // GM2023 should NOT apply
-        const nonCallExpressionTypes = new Set([
-            "NewExpression",
-            "AssignmentExpression",
-            "BinaryExpression",
-            "UnaryExpression",
-            "UpdateExpression",
-            "LogicalExpression",
-            "MemberDotExpression",
-            "MemberIndexExpression",
-            "ConditionalExpression",
-            "SequenceExpression",
-            "ArrayExpression",
-            "ObjectExpression",
-            "StructExpression"
-        ]);
-
-        if (nonCallExpressionTypes.has(ancestor.type)) {
-            return true;
-        }
-    }
-
-    return false;
-}
-
 function normalizeCallExpressionArguments({ node, diagnostic, ancestors, state }) {
     if (!node || node.type !== "CallExpression") {
-        return null;
-    }
-
-    // Don't extract arguments from call expressions that are themselves nested
-    // as arguments to another call expression. This prevents over-aggressive
-    // extraction that breaks apart naturally grouped function calls.
-    // For example, in `foo(bar(baz(1), qux(2)))`, we should not extract
-    // `baz(1)` and `qux(2)` from `bar`'s arguments just because `bar` itself
-    // is an argument to `foo`.
-    if (isNestedAsCallArgument(ancestors)) {
         return null;
     }
 
