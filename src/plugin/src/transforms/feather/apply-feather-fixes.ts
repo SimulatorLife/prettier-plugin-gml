@@ -7174,12 +7174,9 @@ function normalizeFunctionCallArgumentOrder({ ast, diagnostic }) {
             return;
         }
 
-        for (const [key, value] of Object.entries(node)) {
-            if (value && typeof value === "object") {
-                visit(value, node, key, nextAncestors);
-            }
-        }
-
+        // Check and transform CallExpressions BEFORE visiting children
+        // This ensures outer calls are transformed before inner calls,
+        // which is necessary for proper hoisting order in GM2023 fixes
         if (node.type === "CallExpression") {
             const fix = normalizeCallExpressionArguments({
                 node,
@@ -7190,6 +7187,13 @@ function normalizeFunctionCallArgumentOrder({ ast, diagnostic }) {
 
             if (fix) {
                 fixes.push(fix);
+            }
+        }
+
+        // Visit children after checking this node
+        for (const [key, value] of Object.entries(node)) {
+            if (value && typeof value === "object") {
+                visit(value, node, key, nextAncestors);
             }
         }
     };
