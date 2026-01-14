@@ -26,7 +26,7 @@ function registerComment(state, list, comment) {
     markTopCommentIfNeeded(state);
 }
 
-function handleSingleLineComment(token, tokenText, context) {
+function processSingleLineCommentToken(token, tokenText, context) {
     const { state, comments } = context;
     const comment = Core.createCommentLineNode({
         token,
@@ -37,7 +37,7 @@ function handleSingleLineComment(token, tokenText, context) {
     registerComment(state, comments, comment);
 }
 
-function handleMultiLineComment(token, tokenText, context) {
+function processMultiLineCommentToken(token, tokenText, context) {
     const { state, comments } = context;
     const comment = Core.createCommentBlockNode({
         token,
@@ -48,7 +48,7 @@ function handleMultiLineComment(token, tokenText, context) {
     registerComment(state, comments, comment);
 }
 
-function handleWhitespace(token, tokenText, isNewline, context) {
+function processWhitespaceToken(token, tokenText, isNewline, context) {
     const { state, whitespaces } = context;
     const whitespace = Core.createWhitespaceNode({
         token,
@@ -65,7 +65,7 @@ function handleWhitespace(token, tokenText, isNewline, context) {
     state.prevWS += whitespace.value;
 }
 
-function handleSignificantToken(tokenText, state) {
+function recordSignificantToken(tokenText, state) {
     const text = typeof tokenText === "string" ? tokenText : "";
     state.foundFirstSignificantToken = true;
 
@@ -78,7 +78,7 @@ function handleSignificantToken(tokenText, state) {
     state.prevSignificantChar = text.slice(-1);
 }
 
-function handleEOF(state) {
+function markEndOfFile(state) {
     state.reachedEOF = true;
     if (state.finalComment) {
         state.finalComment.isBottomComment = true;
@@ -97,28 +97,28 @@ export function createHiddenNodeProcessor({ comments, whitespaces, lexerTokens }
             const tokenType = token?.type;
 
             if (tokenType === tokens.EOF) {
-                handleEOF(state);
+                markEndOfFile(state);
                 return;
             }
 
             const tokenText = token?.text ?? "";
 
             if (tokenType === tokens.SingleLineComment) {
-                handleSingleLineComment(token, tokenText, { state, comments });
+                processSingleLineCommentToken(token, tokenText, { state, comments });
                 return;
             }
 
             if (tokenType === tokens.MultiLineComment) {
-                handleMultiLineComment(token, tokenText, { state, comments });
+                processMultiLineCommentToken(token, tokenText, { state, comments });
                 return;
             }
 
             if (tokenType === tokens.WhiteSpaces || tokenType === tokens.LineTerminator) {
-                handleWhitespace(token, tokenText, tokenType === tokens.LineTerminator, { state, whitespaces });
+                processWhitespaceToken(token, tokenText, tokenType === tokens.LineTerminator, { state, whitespaces });
                 return;
             }
 
-            handleSignificantToken(tokenText, state);
+            recordSignificantToken(tokenText, state);
         }
     };
 }
