@@ -433,8 +433,10 @@ export class ScopeTracker {
         }
 
         const entry = ensureIdentifierOccurrences(scope, name);
+        const isReference = occurrence.kind === "reference";
 
-        if (occurrence.kind === "reference") {
+        // Record occurrence in appropriate array
+        if (isReference) {
             entry.references.push(occurrence);
         } else {
             entry.declarations.push(occurrence);
@@ -456,7 +458,8 @@ export class ScopeTracker {
             scopeSummaryMap.set(scope.id, scopeSummary);
         }
 
-        if (occurrence.kind === "reference") {
+        // Update summary flags
+        if (isReference) {
             scopeSummary.hasReference = true;
         } else {
             scopeSummary.hasDeclaration = true;
