@@ -1,6 +1,6 @@
 import { toFiniteNumber } from "./number.js";
 import { formatWithIndefiniteArticle, isNonEmptyString } from "./string.js";
-import { asArray } from "./array.js";
+import { asArray, toArray } from "./array.js";
 
 type AssertFunctionOptions = {
     errorMessage?: string;
@@ -238,7 +238,7 @@ export function assertFunctionProperties(
     methodNames,
     { name = "value", errorMessage }: AssertFunctionPropertiesOptions = {}
 ) {
-    const requiredMethods = methodNames === null ? [] : Array.isArray(methodNames) ? methodNames : [methodNames];
+    const requiredMethods = toArray(methodNames);
 
     if (requiredMethods.length === 0) {
         return /** @type {TObject} */ value;
@@ -432,7 +432,7 @@ export function coalesceOption(object, keys, { fallback, acceptNull = false }: C
         return fallback;
     }
 
-    const normalizedKeys = Array.isArray(keys) ? keys : keys === null ? [] : [keys];
+    const normalizedKeys = toArray(keys);
 
     for (const key of normalizedKeys) {
         const value = object[key];
