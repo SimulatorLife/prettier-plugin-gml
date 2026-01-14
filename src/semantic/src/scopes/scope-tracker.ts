@@ -134,10 +134,6 @@ function extractUsageContext(node: unknown) {
     return Object.keys(context).length > 0 ? context : null;
 }
 
-function cloneClassifications(classifications: ReadonlyArray<string> | null | undefined) {
-    return Core.toMutableArray(classifications, { clone: true });
-}
-
 function cloneDeclarationMetadata(metadata) {
     if (!metadata) {
         return null;
@@ -146,7 +142,7 @@ function cloneDeclarationMetadata(metadata) {
     return {
         name: metadata.name ?? null,
         scopeId: metadata.scopeId ?? null,
-        classifications: cloneClassifications(metadata.classifications),
+        classifications: Core.toMutableArray(metadata.classifications, { clone: true }),
         start: Core.cloneLocation(metadata.start),
         end: Core.cloneLocation(metadata.end)
     };
@@ -171,7 +167,7 @@ function cloneOccurrence(occurrence) {
 
     return {
         ...occurrence,
-        classifications: cloneClassifications(occurrence.classifications),
+        classifications: Core.toMutableArray(occurrence.classifications, { clone: true }),
         declaration: declarationClone,
         usageContext: usageContextClone,
         start: Core.cloneLocation(occurrence.start),
