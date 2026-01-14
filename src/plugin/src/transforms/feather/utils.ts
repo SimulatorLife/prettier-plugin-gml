@@ -85,3 +85,31 @@ export function hasFeatherSourceTextContext(ast, diagnostic, sourceText, { allow
         (allowEmpty || sourceText.length > 0)
     );
 }
+
+/**
+ * Generic AST visitor that handles common traversal boilerplate, allowing callers
+ * to provide a custom handler for individual nodes. Automatically skips falsy values,
+ * recursively processes arrays, and filters out non-object primitives.
+ */
+export function visitFeatherAST(ast, handler) {
+    const visit = (node) => {
+        if (!node) {
+            return;
+        }
+
+        if (Array.isArray(node)) {
+            Core.visitChildNodes(node, visit);
+            return;
+        }
+
+        if (typeof node !== "object") {
+            return;
+        }
+
+        handler(node, visit);
+
+        Core.visitChildNodes(node, visit);
+    };
+
+    visit(ast);
+}

@@ -2,7 +2,12 @@
  * Helpers for detecting and reporting duplicate semicolons so Feather diagnostics can suggest cleanup.
  */
 import { Core } from "@gml-modules/core";
-import { hasFeatherSourceTextContext, createFeatherFixDetail, attachFeatherFixMetadata } from "./utils.js";
+import {
+    hasFeatherSourceTextContext,
+    createFeatherFixDetail,
+    attachFeatherFixMetadata,
+    visitFeatherAST
+} from "./utils.js";
 
 /**
  * Scan the AST/source text for consecutive semicolons and produce metadata consumable by the plugin.
@@ -87,20 +92,7 @@ export function removeDuplicateSemicolons({ ast, sourceText, diagnostic }) {
         }
     };
 
-    const visit = (node) => {
-        if (!node) {
-            return;
-        }
-
-        if (Array.isArray(node)) {
-            Core.visitChildNodes(node, visit);
-            return;
-        }
-
-        if (typeof node !== "object") {
-            return;
-        }
-
+    visitFeatherAST(ast, (node) => {
         switch (node.type) {
             case "BlockStatement": {
                 processStatementList(node, node.body);
@@ -119,11 +111,7 @@ export function removeDuplicateSemicolons({ ast, sourceText, diagnostic }) {
             }
             // No default
         }
-
-        Core.visitChildNodes(node, visit);
-    };
-
-    visit(ast);
+    });
 
     return fixes;
 }
