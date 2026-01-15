@@ -58,6 +58,60 @@ void test("script patch function executes correctly", () => {
     assert.strictEqual(result, 8);
 });
 
+void test("script patch prefers builtin constants over conflicting globals", () => {
+    const wrapper = RuntimeWrapper.createRuntimeWrapper();
+    const globalScope = globalThis as Record<string, unknown>;
+    const savedColor = globalScope.c_white;
+
+    try {
+        globalScope.c_white = "rgb(255,255,255)";
+
+        wrapper.applyPatch({
+            kind: "script",
+            id: "script:color_constant",
+            js_body: "return typeof c_white;"
+        });
+
+        const fn = wrapper.getScript("script:color_constant");
+        assert.ok(fn);
+        const result = fn(null, null, []) as string;
+        assert.strictEqual(result, "number");
+    } finally {
+        if (savedColor === undefined) {
+            delete globalScope.c_white;
+        } else {
+            globalScope.c_white = savedColor;
+        }
+    }
+});
+
+void test("script patch resolves global constants via globalThis", () => {
+    const wrapper = RuntimeWrapper.createRuntimeWrapper();
+    const globalScope = globalThis as Record<string, unknown>;
+    const previousValue = globalScope.sArm;
+
+    try {
+        globalScope.sArm = { id: 321 };
+
+        wrapper.applyPatch({
+            kind: "script",
+            id: "script:global_sprite",
+            js_body: "return sArm.id;"
+        });
+
+        const fn = wrapper.getScript("script:global_sprite");
+        assert.ok(fn);
+        const result = fn(null, null, []) as number;
+        assert.strictEqual(result, 321);
+    } finally {
+        if (previousValue === undefined) {
+            delete globalScope.sArm;
+        } else {
+            globalScope.sArm = previousValue;
+        }
+    }
+});
+
 void test("applyPatch handles event patches", () => {
     const wrapper = RuntimeWrapper.createRuntimeWrapper();
     const patch = {

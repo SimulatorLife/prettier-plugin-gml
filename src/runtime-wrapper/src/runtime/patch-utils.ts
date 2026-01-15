@@ -562,6 +562,9 @@ function applyScriptPatch(registry: RuntimeRegistry, patch: ScriptPatch): Runtim
         "__gml_constants",
         "__gml_builtins",
         `const __gml_scope = self && typeof self === "object" ? self : Object.create(null);
+const __global_scope = typeof globalThis === "object" && globalThis !== null ? globalThis : null;
+const __html_color_pattern = /^rgba?\\(/;
+const __is_html_color_string = (value) => typeof value === "string" && __html_color_pattern.test(value);
 const __computeGmlPropertyNames = (prop) => [\`gml\${prop}\`, \`__\${prop}\`];
 const __gml_proxy = new Proxy(__gml_scope, {
     has(target, prop) {
@@ -578,10 +581,11 @@ const __gml_proxy = new Proxy(__gml_scope, {
         if (underscoreProp in target) {
             return true;
         }
-        if (typeof globalThis?.[prop] === "number") {
+        const __has_global_value = __global_scope && prop in __global_scope;
+        if (Object.prototype.hasOwnProperty.call(__gml_constants, prop)) {
             return true;
         }
-        if (Object.prototype.hasOwnProperty.call(__gml_constants, prop)) {
+        if (__has_global_value) {
             return true;
         }
         if (
@@ -606,11 +610,16 @@ const __gml_proxy = new Proxy(__gml_scope, {
         if (underscoreProp in target) {
             return Reflect.get(target, underscoreProp, receiver);
         }
-        if (typeof globalThis?.[prop] === "number") {
-            return globalThis[prop];
-        }
+        const __has_global_value = __global_scope && prop in __global_scope;
+        const __global_value = __has_global_value ? __global_scope[prop] : undefined;
         if (Object.prototype.hasOwnProperty.call(__gml_constants, prop)) {
-            return __gml_constants[prop];
+            if (__global_value === undefined || __is_html_color_string(__global_value)) {
+                return __gml_constants[prop];
+            }
+            return __global_value;
+        }
+        if (__has_global_value) {
+            return __global_value;
         }
         if (__gml_builtins) {
             const getter = __gml_builtins[\`get_\${prop}\`];
