@@ -1377,9 +1377,9 @@ Log levels are ordered from least to most verbose:
 For production builds, set the log level to `"silent"` or `"error"` to minimize console noise:
 
 ```javascript
-const logger = createLogger({
-    level: process.env.NODE_ENV === "production" ? "error" : "debug"
-});
+    const logger = createLogger({
+        level: process.env.NODE_ENV === "production" ? "error" : "debug"
+    });
 ```
 
 **Performance Impact:**
@@ -1397,6 +1397,10 @@ The `RuntimeWebSocketClient` interface follows the Interface Segregation Princip
 - **`WebSocketInstanceProvider`** - WebSocket access (`getWebSocket`)
 - **`WebSocketMetricsCollector`** - Metrics tracking (`getConnectionMetrics`, `resetConnectionMetrics`)
 - **`WebSocketPatchQueueManager`** - Patch queue management (`getPatchQueueMetrics`, `flushPatchQueue`)
+
+### Browser-Compatible Core Helpers
+
+The runtime wrapper ships into the GameMaker HTML5 build as part of the hot-reload runtime bundle. Because that bundle runs inside a browser environment, it cannot statically resolve workspace-import specifiers such as `@gml-modules/core`. The runtime wrapper therefore carries its own miniature helper module (`src/runtime/runtime-core-helpers.ts`) that reimplements just the predicates and utilities (`isErrorLike`, `isNonEmptyString`, `cloneObjectEntries`, `areNumbersApproximatelyEqual`, `toArray`) required by `runtime-wrapper.ts`, `patch-utils.ts`, and the WebSocket client. Keeping this helper module narrow avoids bundling the entire `@gml-modules/core` namespace into the injected assets while still letting the runtime wrapper reuse well-tested core-like helpers.
 
 **Example - Depending on minimal interfaces:**
 

@@ -74,16 +74,13 @@ function collapseVertexFormatBeginSpacing(formatted: string): string {
 }
 
 function collapseCustomFunctionToFormatEndSpacing(formatted: string): string {
-    return formatted.replaceAll(
-        CUSTOM_FUNCTION_CALL_TO_FORMAT_END_PATTERN,
-        (match, functionLine, formatLine) => {
-            if (!isSimpleFunctionCallLine(functionLine) || !isVertexFormatEndAssignmentLine(formatLine)) {
-                return match;
-            }
-
-            return `${functionLine}\n${formatLine}`;
+    return formatted.replaceAll(CUSTOM_FUNCTION_CALL_TO_FORMAT_END_PATTERN, (match, functionLine, formatLine) => {
+        if (!isSimpleFunctionCallLine(functionLine) || !isVertexFormatEndAssignmentLine(formatLine)) {
+            return match;
         }
-    );
+
+        return `${functionLine}\n${formatLine}`;
+    });
 }
 
 function collapseDuplicateBlankLines(formatted: string): string {

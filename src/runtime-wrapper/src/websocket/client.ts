@@ -1,4 +1,4 @@
-import { Core } from "@gml-modules/core";
+import { isErrorLike, toArray } from "../runtime/runtime-core-helpers.js";
 import { validatePatch } from "../runtime/patch-utils.js";
 import type { Patch, PatchApplicator, RuntimePatchError, TrySafeApplyResult } from "../runtime/types.js";
 import type { Logger } from "../runtime/logger.js";
@@ -536,7 +536,7 @@ function createMessageHandler({
             return;
         }
 
-        const patches = Core.toArray(payload);
+        const patches = toArray(payload);
 
         if (state.patchQueue) {
             for (const patch of patches) {
@@ -667,7 +667,7 @@ function createErrorHandler({ state, onError, logger }: WebSocketErrorHandlerArg
         const websocketState = state;
         websocketState.connectionMetrics.connectionErrors += 1;
 
-        const errorMessage = Core.isErrorLike(event) ? event.message : "Unknown WebSocket error";
+        const errorMessage = isErrorLike(event) ? event.message : "Unknown WebSocket error";
 
         if (logger) {
             logger.websocketError(errorMessage);
@@ -812,7 +812,7 @@ function createRuntimePatchError(message: string, patch?: Patch): RuntimePatchEr
 }
 
 function resolveRuntimeErrorMessage(error: unknown): string {
-    if (Core.isErrorLike(error)) {
+    if (isErrorLike(error)) {
         return error.message;
     }
 
