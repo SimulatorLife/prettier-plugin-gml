@@ -565,6 +565,31 @@ function applyScriptPatch(registry: RuntimeRegistry, patch: ScriptPatch): Runtim
 const __global_scope = typeof globalThis === "object" && globalThis !== null ? globalThis : null;
 const __html_color_pattern = /^rgba?\\(/;
 const __is_html_color_string = (value) => typeof value === "string" && __html_color_pattern.test(value);
+const __resolveSpriteConstant = (prop) => {
+    const jsonGame = __global_scope?.JSON_game;
+    const sprites = jsonGame?.Sprites;
+    if (Array.isArray(sprites)) {
+        const index = sprites.findIndex((sprite) => sprite?.pName === prop);
+        if (index !== -1) {
+            return index;
+        }
+    }
+
+    const spriteManager = __global_scope?.g_pSpriteManager;
+    if (!spriteManager || typeof spriteManager.Sprite_Find !== "function") {
+        return undefined;
+    }
+
+    const value = spriteManager.Sprite_Find(prop);
+    if (typeof value === "number" && value >= 0) {
+        if (__global_scope && prop in __global_scope === false) {
+            __global_scope[prop] = value;
+        }
+        return value;
+    }
+
+    return undefined;
+};
 const __computeGmlPropertyNames = (prop) => [\`gml\${prop}\`, \`__\${prop}\`];
 const __gml_proxy = new Proxy(__gml_scope, {
     has(target, prop) {
@@ -585,7 +610,11 @@ const __gml_proxy = new Proxy(__gml_scope, {
         if (Object.prototype.hasOwnProperty.call(__gml_constants, prop)) {
             return true;
         }
-        if (__has_global_value) {
+        const __global_value = __has_global_value ? __global_scope[prop] : undefined;
+        if (__has_global_value && __global_value !== undefined) {
+            return true;
+        }
+        if (__resolveSpriteConstant(prop) !== undefined) {
             return true;
         }
         if (
@@ -612,14 +641,18 @@ const __gml_proxy = new Proxy(__gml_scope, {
         }
         const __has_global_value = __global_scope && prop in __global_scope;
         const __global_value = __has_global_value ? __global_scope[prop] : undefined;
+        const __sprite_constant = __resolveSpriteConstant(prop);
         if (Object.prototype.hasOwnProperty.call(__gml_constants, prop)) {
             if (__global_value === undefined || __is_html_color_string(__global_value)) {
                 return __gml_constants[prop];
             }
             return __global_value;
         }
-        if (__has_global_value) {
+        if (__has_global_value && __global_value !== undefined) {
             return __global_value;
+        }
+        if (__sprite_constant !== undefined) {
+            return __sprite_constant;
         }
         if (__gml_builtins) {
             const getter = __gml_builtins[\`get_\${prop}\`];

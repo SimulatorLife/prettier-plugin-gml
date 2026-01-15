@@ -16,6 +16,7 @@ import type {
 
 const DEFAULT_MAX_QUEUE_SIZE = 100;
 const DEFAULT_FLUSH_INTERVAL_MS = 50;
+const READINESS_POLL_INTERVAL_MS = 50;
 
 function createInitialMetrics(): WebSocketConnectionMetrics {
     return {
@@ -260,7 +261,54 @@ export function createWebSocketClient({
         reconnectTimer: null,
         manuallyDisconnected: false,
         connectionMetrics: createInitialMetrics(),
-        patchQueue: queueEnabled ? createPatchQueueState() : null
+        patchQueue: queueEnabled ? createPatchQueueState() : null,
+        pendingPatches: [],
+        readinessTimer: null
+    };
+
+    const runtimeReady = (): boolean => {
+        const globals = globalThis as Record<string, unknown>;
+        const builtins = globals?.g_pBuiltIn;
+        return typeof builtins === "object" && builtins !== null;
+    };
+
+    const clearReadinessTimer = (): void => {
+        if (state.readinessTimer !== null) {
+            clearInterval(state.readinessTimer);
+            state.readinessTimer = null;
+        }
+    };
+
+    const flushPendingPatches = (): void => {
+        if (!runtimeReady()) {
+            return;
+        }
+
+        while (state.pendingPatches.length > 0) {
+            const patch = state.pendingPatches.shift();
+            if (patch !== undefined) {
+                applyIncomingPatch(patch);
+            }
+        }
+
+        clearReadinessTimer();
+    };
+
+    const ensureReadinessTimer = (): void => {
+        if (state.readinessTimer !== null) {
+            return;
+        }
+
+        state.readinessTimer = setInterval(() => {
+            if (runtimeReady()) {
+                flushPendingPatches();
+            }
+        }, READINESS_POLL_INTERVAL_MS);
+    };
+
+    const queuePendingPatch = (patch: unknown): void => {
+        state.pendingPatches.push(patch);
+        ensureReadinessTimer();
     };
 
     const flushQueuedPatches = (): number => {
@@ -300,6 +348,11 @@ export function createWebSocketClient({
     };
 
     const applyIncomingPatch = (incoming: unknown): boolean => {
+        if (!runtimeReady()) {
+            queuePendingPatch(incoming);
+            return false;
+        }
+
         return applyIncomingPatchInternal({
             incoming,
             state,
@@ -369,6 +422,8 @@ export function createWebSocketClient({
         }
 
         state.isConnected = false;
+        state.pendingPatches.length = 0;
+        clearReadinessTimer();
     }
 
     function isConnected(): boolean {

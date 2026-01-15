@@ -221,6 +221,66 @@ void test("WebSocket client applies batch patches from messages", async () => {
     delete globalWithWebSocket.WebSocket;
 });
 
+void test("WebSocket client waits for GameMaker builtins before applying patches", async () => {
+    const wrapper = RuntimeWrapper.createRuntimeWrapper();
+    globalWithWebSocket.WebSocket = MockWebSocket;
+
+    const globals = globalThis as Record<string, unknown>;
+    const savedBuiltins = globals.g_pBuiltIn;
+
+    delete globals.g_pBuiltIn;
+
+    const client = RuntimeWrapper.createWebSocketClient({
+        wrapper,
+        autoConnect: true
+    });
+
+    try {
+        await wait(50);
+
+        const patch = {
+            kind: "script",
+            id: "script:application_surface",
+            js_body: "return application_surface;"
+        };
+
+        const ws = client.getWebSocket();
+        assert.ok(ws, "WebSocket should be available");
+        const mockSocket = ws as MockWebSocket;
+        mockSocket.simulateMessage(JSON.stringify(patch));
+
+        await wait(20);
+
+        assert.ok(!wrapper.hasScript(patch.id), "Patch should be deferred until builtins are ready");
+
+        globals.g_pBuiltIn = {
+            application_surface: 123,
+            get_application_surface() {
+                const self = this as Record<string, unknown>;
+                return self.application_surface;
+            }
+        };
+
+        await wait(150);
+
+        assert.ok(wrapper.hasScript(patch.id));
+        const fn = wrapper.getScript(patch.id);
+        assert.ok(fn);
+        const result = fn(null, null, []) as number;
+        assert.strictEqual(result, 123);
+    } finally {
+        client.disconnect();
+
+        if (savedBuiltins === undefined) {
+            delete globals.g_pBuiltIn;
+        } else {
+            globals.g_pBuiltIn = savedBuiltins;
+        }
+
+        delete globalWithWebSocket.WebSocket;
+    }
+});
+
 void test("WebSocket client accepts structured payloads", async () => {
     const wrapper = RuntimeWrapper.createRuntimeWrapper();
 

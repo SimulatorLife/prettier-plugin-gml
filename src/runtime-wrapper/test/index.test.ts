@@ -85,6 +85,80 @@ void test("script patch prefers builtin constants over conflicting globals", () 
     }
 });
 
+void test("script patch resolves sprite constants through sprite manager", () => {
+    const wrapper = RuntimeWrapper.createRuntimeWrapper();
+    const globalScope = globalThis as Record<string, unknown>;
+    const savedSpriteManager = globalScope.g_pSpriteManager;
+    const savedValue = globalScope.sArm;
+
+    try {
+        globalScope.sArm = undefined;
+        globalScope.g_pSpriteManager = {
+            Sprite_Find(name: string) {
+                return name === "sArm" ? 7 : -1;
+            }
+        };
+
+        wrapper.applyPatch({
+            kind: "script",
+            id: "script:sprite_constant",
+            js_body: "return sArm;"
+        });
+
+        const fn = wrapper.getScript("script:sprite_constant");
+        assert.ok(fn);
+        const result = fn(null, null, []) as number;
+        assert.strictEqual(result, 7);
+    } finally {
+        if (savedSpriteManager === undefined) {
+            delete globalScope.g_pSpriteManager;
+        } else {
+            globalScope.g_pSpriteManager = savedSpriteManager;
+        }
+
+        if (savedValue === undefined) {
+            delete globalScope.sArm;
+        } else {
+            globalScope.sArm = savedValue;
+        }
+    }
+});
+
+void test("script patch resolves sprite constants via JSON_game metadata", () => {
+    const wrapper = RuntimeWrapper.createRuntimeWrapper();
+    const globalScope = globalThis as Record<string, unknown>;
+    const savedJson = globalScope.JSON_game;
+    const savedArm = globalScope.sArm;
+
+    try {
+        globalScope.JSON_game = { Sprites: [{ pName: "sArm" }] };
+        delete globalScope.sArm;
+
+        wrapper.applyPatch({
+            kind: "script",
+            id: "script:sprite_constant_json",
+            js_body: "return sArm;"
+        });
+
+        const fn = wrapper.getScript("script:sprite_constant_json");
+        assert.ok(fn);
+        const result = fn(null, null, []) as number;
+        assert.strictEqual(result, 0);
+    } finally {
+        if (savedJson === undefined) {
+            delete globalScope.JSON_game;
+        } else {
+            globalScope.JSON_game = savedJson;
+        }
+
+        if (savedArm === undefined) {
+            delete globalScope.sArm;
+        } else {
+            globalScope.sArm = savedArm;
+        }
+    }
+});
+
 void test("script patch resolves global constants via globalThis", () => {
     const wrapper = RuntimeWrapper.createRuntimeWrapper();
     const globalScope = globalThis as Record<string, unknown>;

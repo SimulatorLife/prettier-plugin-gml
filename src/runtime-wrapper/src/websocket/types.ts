@@ -47,6 +47,8 @@ export interface WebSocketClientState {
     manuallyDisconnected: boolean;
     connectionMetrics: WebSocketConnectionMetrics;
     patchQueue: PatchQueueState | null;
+    pendingPatches: Array<unknown>;
+    readinessTimer: ReturnType<typeof setInterval> | null;
 }
 
 export interface PatchQueueMetrics {
