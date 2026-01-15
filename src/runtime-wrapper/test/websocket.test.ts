@@ -13,6 +13,12 @@ const globalWithWebSocket = globalThis as unknown as {
     WebSocket?: RuntimeWebSocketConstructor;
 };
 
+const globalBuiltins = globalThis as Record<string, unknown>;
+
+if (!globalBuiltins.g_pBuiltIn) {
+    globalBuiltins.g_pBuiltIn = { application_surface: -1 };
+}
+
 const wait = (ms: number) =>
     new Promise<void>((resolve) => {
         setTimeout(resolve, ms);

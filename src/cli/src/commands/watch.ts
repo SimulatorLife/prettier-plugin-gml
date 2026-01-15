@@ -50,6 +50,10 @@ import {
 import { prepareHotReloadInjection, DEFAULT_GM_TEMP_ROOT } from "../modules/hot-reload/inject-runtime.js";
 import { DependencyTracker } from "../modules/dependency-tracker.js";
 import { formatCliError } from "../cli-core/errors.js";
+import {
+    getRuntimePathSegments,
+    resolveScriptFileNameFromSegments
+} from "../modules/transpilation/runtime-identifiers.js";
 
 const { debounce, getErrorMessage } = Core;
 
@@ -225,7 +229,9 @@ interface RuntimeContext
         RuntimePackageInfo,
         PatchHistory,
         ServerControllers,
-        WatchLifecycle {}
+        WatchLifecycle {
+    scriptNames: Set<string>;
+}
 
 interface FileChangeOptions extends LoggingConfig {
     runtimeContext?: RuntimeContext;
@@ -396,6 +402,8 @@ async function performInitialScan(
         try {
             const content = await readFile(fullPath, "utf8");
             const lines = content.split("\n").length;
+
+            ensureScriptNameRegistered(fullPath, runtimeContext.scriptNames);
 
             // Transpile the file (quietly unless verbose mode is on)
             const result = transpileFile(runtimeContext, fullPath, content, lines, {
@@ -580,6 +588,8 @@ export async function runWatchCommand(targetPath: string, options: WatchCommandO
     const extensionMatcher = createExtensionMatcher(extensions);
     const extensionSet = extensionMatcher.extensions;
 
+    const scriptNames = await collectScriptNames(normalizedPath, extensionMatcher);
+
     // Auto-inject hot-reload runtime wrapper if requested
     if (autoInject) {
         if (!quiet) {
@@ -619,7 +629,13 @@ export async function runWatchCommand(targetPath: string, options: WatchCommandO
 
     const shouldServeRuntime = hydrateRuntime === undefined ? runtimeServer !== false : Boolean(hydrateRuntime);
 
-    const transpiler = new Transpiler.GmlTranspiler();
+    const semanticOracle = Transpiler.createSemanticOracle({ scriptNames });
+    const transpiler = new Transpiler.GmlTranspiler({
+        semantic: {
+            identifier: semanticOracle,
+            callTarget: semanticOracle
+        }
+    });
     const dependencyTracker = new DependencyTracker();
     const runtimeContext: RuntimeContext = {
         root: null,
@@ -628,6 +644,7 @@ export async function runWatchCommand(targetPath: string, options: WatchCommandO
         server: null,
         noticeLogged: Boolean(verbose),
         transpiler,
+        scriptNames,
         patches: [],
         metrics: [],
         errors: [],
@@ -1022,6 +1039,9 @@ async function handleFileChange(
             if (verbose && !quiet) {
                 console.log(`  ↳ File removed (deleted or renamed away)`);
             }
+            if (runtimeContext?.scriptNames) {
+                unregisterScriptName(filePath, runtimeContext.scriptNames);
+            }
             return;
         }
     }
@@ -1040,6 +1060,8 @@ async function handleFileChange(
             if (!runtimeContext?.transpiler) {
                 return;
             }
+
+            ensureScriptNameRegistered(filePath, runtimeContext.scriptNames);
 
             // Transpile the changed file
             const result = transpileFile(runtimeContext, filePath, content, lines, {
@@ -1115,6 +1137,8 @@ async function retranspileDependentFile(
     verbose: boolean,
     quiet: boolean
 ): Promise<void> {
+    ensureScriptNameRegistered(dependentFile, runtimeContext.scriptNames);
+
     const dependentContent = await readFile(dependentFile, "utf8");
     const dependentLines = dependentContent.split("\n").length;
 
@@ -1148,4 +1172,58 @@ function registerDependencyTrackerUpdates(
     if (references && references.length > 0) {
         runtimeContext.dependencyTracker.registerFileReferences(dependentFile, references);
     }
+}
+
+function getScriptNameFromPath(filePath: string): string | null {
+    const segments = getRuntimePathSegments(filePath);
+    return resolveScriptFileNameFromSegments(segments);
+}
+
+function ensureScriptNameRegistered(filePath: string, scriptNames: Set<string>): void {
+    const scriptName = getScriptNameFromPath(filePath);
+    if (scriptName) {
+        scriptNames.add(scriptName);
+    }
+}
+
+function unregisterScriptName(filePath: string, scriptNames: Set<string>): void {
+    const scriptName = getScriptNameFromPath(filePath);
+    if (scriptName) {
+        scriptNames.delete(scriptName);
+    }
+}
+
+async function collectScriptNames(
+    rootPath: string,
+    extensionMatcher: ExtensionMatcher
+): Promise<Set<string>> {
+    const scriptNames = new Set<string>();
+
+    async function scan(currentPath: string): Promise<void> {
+        const entries = await readdir(currentPath, { withFileTypes: true });
+        for (const entry of entries) {
+            const candidatePath = path.join(currentPath, entry.name);
+            if (entry.isDirectory()) {
+                await scan(candidatePath);
+                continue;
+            }
+
+            if (!entry.isFile() || !extensionMatcher.matches(entry.name)) {
+                continue;
+            }
+
+            const scriptName = getScriptNameFromPath(candidatePath);
+            if (scriptName) {
+                scriptNames.add(scriptName);
+            }
+        }
+    }
+
+    try {
+        await scan(rootPath);
+    } catch {
+        // Fail silently; fallback to empty set
+    }
+
+    return scriptNames;
 }
