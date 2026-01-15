@@ -7,8 +7,8 @@ const EMPTY_VERTEX_FORMAT_COMMENT_TEXT =
 const KEEP_VERTEX_FORMAT_COMMENT_TEXT =
     "// If a vertex format might be completed within a function call, then it should be kept";
 
-const VERTEX_FORMAT_BEGIN_CUSTOM_FUNCTION_PATTERN = /vertex_format_begin\(\);\n\s*\n(scr_custom_function\(\);)/g;
-const SCR_CUSTOM_FUNCTION_TO_FORMAT_END_PATTERN = /scr_custom_function\(\);\n\s*\n(format2 = vertex_format_end\(\);)/g;
+const VERTEX_FORMAT_FUNCTION_BEGIN_PATTERN = /(vertex_format_begin\(\);\n)(?:[ \t]*\n)+([^\n]+)/g;
+const CUSTOM_FUNCTION_CALL_TO_FORMAT_END_PATTERN = /([^\n]+\);\s*)\n(?:[ \t]*\n)+([^\n]*vertex_format_end\(\);)/g;
 
 const MULTIPLE_BLANK_LINE_PATTERN = /\n{3,}/g;
 const WHITESPACE_ONLY_BLANK_LINE_PATTERN = /\n[ \t]+\n/g;
@@ -19,6 +19,39 @@ const DECORATIVE_COMMENT_BLANK_PATTERN = /\{\n[ \t]+\n(?=\s*\/\/)/g;
 
 const INLINE_TRAILING_COMMENT_SPACING_PATTERN = /(?<=[^\s/,])[ \t]{2,}(?=\/\/(?!\/))/g;
 
+function stripInlineLineComment(line: string): string {
+    const commentIndex = line.indexOf("//");
+    return commentIndex === -1 ? line : line.slice(0, commentIndex);
+}
+
+function isSimpleFunctionCallLine(line: string): boolean {
+    const trimmed = stripInlineLineComment(line).trim();
+    if (!trimmed.endsWith(";")) {
+        return false;
+    }
+
+    const withoutSemicolon = trimmed.slice(0, -1).trim();
+    const parenIndex = withoutSemicolon.indexOf("(");
+    if (parenIndex === -1) {
+        return false;
+    }
+
+    const identifierPortion = withoutSemicolon.slice(0, parenIndex).trim();
+    if (identifierPortion.length === 0 || identifierPortion.includes("=")) {
+        return false;
+    }
+
+    return /^[A-Za-z_$][\w$]*(?:\.[A-Za-z_$][\w$]*)*$/.test(identifierPortion);
+}
+
+function isVertexFormatEndAssignmentLine(line: string): boolean {
+    const trimmed = stripInlineLineComment(line).trim();
+    const normalized = trimmed.endsWith(";") ? trimmed.slice(0, -1).trim() : trimmed;
+    return /^(?:const|let|var\s+)?[A-Za-z_$][\w$]*(?:\.[A-Za-z_$][\w$]*)*\s*=\s*vertex_format_end\(\)$/.test(
+        normalized
+    );
+}
+
 function ensureBlankLineBetweenVertexFormatComments(formatted: string): string {
     const target = `${EMPTY_VERTEX_FORMAT_COMMENT_TEXT}\n${KEEP_VERTEX_FORMAT_COMMENT_TEXT}`;
     const replacement = `${EMPTY_VERTEX_FORMAT_COMMENT_TEXT}\n\n${KEEP_VERTEX_FORMAT_COMMENT_TEXT}`;
@@ -26,9 +59,31 @@ function ensureBlankLineBetweenVertexFormatComments(formatted: string): string {
 }
 
 function collapseVertexFormatBeginSpacing(formatted: string): string {
-    return formatted
-        .replaceAll(VERTEX_FORMAT_BEGIN_CUSTOM_FUNCTION_PATTERN, "vertex_format_begin();\n$1")
-        .replaceAll(SCR_CUSTOM_FUNCTION_TO_FORMAT_END_PATTERN, "scr_custom_function();\n$1");
+    const collapsedBegin = formatted.replaceAll(
+        VERTEX_FORMAT_FUNCTION_BEGIN_PATTERN,
+        (match, prefix, candidateLine) => {
+            if (!isSimpleFunctionCallLine(candidateLine)) {
+                return match;
+            }
+
+            return `${prefix}${candidateLine}`;
+        }
+    );
+
+    return collapseCustomFunctionToFormatEndSpacing(collapsedBegin);
+}
+
+function collapseCustomFunctionToFormatEndSpacing(formatted: string): string {
+    return formatted.replaceAll(
+        CUSTOM_FUNCTION_CALL_TO_FORMAT_END_PATTERN,
+        (match, functionLine, formatLine) => {
+            if (!isSimpleFunctionCallLine(functionLine) || !isVertexFormatEndAssignmentLine(formatLine)) {
+                return match;
+            }
+
+            return `${functionLine}\n${formatLine}`;
+        }
+    );
 }
 
 function collapseDuplicateBlankLines(formatted: string): string {
