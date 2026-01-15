@@ -9,7 +9,7 @@ import prettier, { type SupportLanguage, type SupportOptions } from "prettier";
 
 import type { GmlPlugin, GmlPluginDefaultOptions } from "./components/plugin-types.js";
 import { gmlPluginComponents } from "./components/plugin-components.js";
-import { normalizeFormattedOutput } from "./format-normalizer.js";
+import { normalizeFormattedOutput } from "./printer/normalize-formatted-output.js";
 import { resolveCoreOptionOverrides } from "./options/core-option-overrides.js";
 
 const parsers = gmlPluginComponents.parsers;
