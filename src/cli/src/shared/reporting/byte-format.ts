@@ -79,6 +79,14 @@ export interface FormatByteSizeOptions {
     radix?: number | string;
 }
 
+export interface FormatByteSizeDisplayOptions {
+    decimals?: number;
+    decimalsForBytes?: number;
+    separator?: string;
+    invalidValue?: string;
+    allowNegative?: boolean;
+}
+
 function normalizeByteCount(value: NumericLike): number {
     if (typeof value === "bigint") {
         const numericValue = Number(value);
@@ -138,6 +146,30 @@ function formatByteSize(
     return `${formattedValue}${unitSeparator}${BYTE_UNITS[unitIndex]}`;
 }
 
+function formatByteSizeDisplay(
+    bytes: number | null | undefined,
+    {
+        decimals = 2,
+        decimalsForBytes = 0,
+        separator = "",
+        invalidValue = "N/A",
+        allowNegative = false
+    }: FormatByteSizeDisplayOptions = {}
+): string {
+    if (bytes === null || bytes === undefined || !Number.isFinite(bytes)) {
+        return invalidValue;
+    }
+
+    if (!allowNegative && bytes < 0) {
+        return invalidValue;
+    }
+
+    const sign = allowNegative && bytes < 0 ? "-" : "";
+    const absoluteBytes = allowNegative ? Math.abs(bytes) : bytes;
+
+    return `${sign}${formatByteSize(absoluteBytes, { decimals, decimalsForBytes, separator })}`;
+}
+
 function formatBytes(text: string): string {
     const size = Buffer.byteLength(text, "utf8");
     return formatByteSize(size, { decimals: 1 });
@@ -148,6 +180,7 @@ export {
     DEFAULT_BYTE_FORMAT_RADIX,
     applyByteFormatRadixEnvOverride,
     formatByteSize,
+    formatByteSizeDisplay,
     formatBytes,
     getDefaultByteFormatRadix,
     resolveByteFormatRadix,

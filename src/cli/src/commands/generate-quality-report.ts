@@ -9,7 +9,7 @@ import { CliUsageError, handleCliError } from "../cli-core/errors.js";
 import { applyStandardCommandOptions } from "../cli-core/command-standard-options.js";
 import { XMLParser } from "fast-xml-parser";
 import { TestCaseStatus, ParseResultStatus, ScanStatus } from "../modules/quality-report/index.js";
-import { formatByteSize } from "../shared/reporting/byte-format.js";
+import { formatByteSizeDisplay } from "../shared/reporting/byte-format.js";
 
 const {
     assertArray,
@@ -1281,14 +1281,6 @@ function generateQualityRow(label, results, healthStats = null) {
     return `| ${label} | ${lintWarningsCell} | ${lintErrorsCell} | ${duplicatesCell} | ${buildSizeCell} | ${largeFilesCell} | ${todosCell} |`;
 }
 
-function formatBytes(bytes: number): string {
-    if (bytes < 0 || !Number.isFinite(bytes)) {
-        return "Invalid";
-    }
-    // formatByteSize returns "0B" without space, but we need "0 B" with space
-    return formatByteSize(bytes, { decimals: 2, separator: " " });
-}
-
 function getSourceFiles(dir, fileList = []) {
     const ignoredDirectories = new Set(["node_modules", "dist", "generated", "vendor", "tmp"]);
     traverseDirectoryEntries(dir, {
@@ -1347,7 +1339,11 @@ function scanProjectHealth(rootDir) {
     return {
         largeFiles,
         todos,
-        buildSize: formatBytes(totalBuildSize)
+        buildSize: formatByteSizeDisplay(totalBuildSize, {
+            decimals: 2,
+            separator: " ",
+            invalidValue: "Invalid"
+        })
     };
 }
 
