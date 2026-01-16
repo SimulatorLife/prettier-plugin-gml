@@ -22,6 +22,10 @@ import {
     setDefaultProjectIndexCacheMaxSize,
     applyProjectIndexCacheEnvOverride
 } from "../src/project-index/index.js";
+import {
+    evaluateProjectIndexCacheSizePolicy,
+    normalizeProjectIndexCacheMaxSizeBytes
+} from "../src/project-index/cache-write-policy.js";
 
 function createProjectIndex(projectRoot, metrics = null) {
     return {
@@ -184,6 +188,28 @@ void test("saveProjectIndexCache allows unlimited size when maxSizeBytes is 0", 
         assert.equal(loadResult.status, ProjectIndexCacheStatus.HIT);
         assert.deepEqual(loadResult.projectIndex, projectIndex);
     });
+});
+
+void test("project index cache size policy evaluates size ceilings", () => {
+    assert.equal(normalizeProjectIndexCacheMaxSizeBytes(null), null);
+    assert.equal(normalizeProjectIndexCacheMaxSizeBytes("42"), 42);
+    assert.equal(normalizeProjectIndexCacheMaxSizeBytes(-1), null);
+
+    const skipDecision = evaluateProjectIndexCacheSizePolicy({
+        maxSizeBytes: 1,
+        payloadSizeBytes: 10
+    });
+    assert.equal(skipDecision.shouldWrite, false);
+    assert.equal(skipDecision.reason, "payload-too-large");
+    assert.equal(skipDecision.effectiveMaxSizeBytes, 1);
+
+    const writeDecision = evaluateProjectIndexCacheSizePolicy({
+        maxSizeBytes: 0,
+        payloadSizeBytes: 10_000
+    });
+    assert.equal(writeDecision.shouldWrite, true);
+    assert.equal(writeDecision.reason, null);
+    assert.equal(writeDecision.effectiveMaxSizeBytes, 0);
 });
 
 void test("loadProjectIndexCache reports version mismatches", async () => {
