@@ -20,6 +20,7 @@
     {"weight":0.334,"name":"agent-22-bugfix"},
     {"weight":0.4,"name":"agent-23-lint"},
     {"weight":0.55,"name":"agent-24-simplify"},
+    {"weight":0.03,"name":"agent-25-duplicates"},
     {"weight":0.334,"name":"agent-30-organization"},
     {"weight":0.1,"name":"agent-36-docstrings"},
     {"weight":0.16,"name":"agent-37-helper-substitution"},
