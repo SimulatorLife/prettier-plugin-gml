@@ -74,7 +74,7 @@ import { TRAILING_COMMA } from "../options/trailing-comma-option.js";
 import { Semantic } from "@gml-modules/semantic";
 import { LogicalOperatorsStyle, normalizeLogicalOperatorsStyle } from "../options/logical-operators-style.js";
 import { ObjectWrapOption, resolveObjectWrapOption } from "../options/object-wrap-option.js";
-import { NUMERIC_STRING_LITERAL_PATTERN } from "../transforms/feather/utils.js";
+import { NUMERIC_STRING_LITERAL_PATTERN } from "../literals/numeric-literals.js";
 
 // Import node type constants to replace magic strings
 const {

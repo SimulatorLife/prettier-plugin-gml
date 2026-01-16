@@ -3,8 +3,6 @@
  */
 import { Core } from "@gml-modules/core";
 
-export const NUMERIC_STRING_LITERAL_PATTERN = /^[+-]?(?:\d+(?:\.\d*)?|\.\d+)(?:[eE][+-]?\d+)?$/;
-
 /**
  * Test whether a candidate string represents an integer literal.
  * Supports decimal, hexadecimal (0x/0X), and binary (0b/0B) formats with optional sign.
