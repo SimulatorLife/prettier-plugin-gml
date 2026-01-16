@@ -1230,77 +1230,98 @@ async function initializeProjectIgnorePaths(projectRoot) {
  * @param {string} target - The target path to check (should be the original input, not resolved)
  * @returns {boolean}
  */
+const KNOWN_COMMANDS = new Set([
+    "format",
+    "performance",
+    "memory",
+    "generate-gml-identifiers",
+    "generate-quality-report",
+    "collect-stats",
+    "generate-feather-metadata",
+    "prepare-hot-reload",
+    "watch",
+    "watch-status",
+    "help"
+]);
+
+const MAX_COMMAND_LENGTH_DIFFERENCE = 2;
+const MAX_COMMAND_CHARACTER_DIFFERENCES = 2;
+const COMMAND_PATTERN = /^[a-z][a-z0-9_-]*$/i;
+
 function looksLikeCommandName(target: string): boolean {
-    const KNOWN_COMMANDS = new Set([
-        "format",
-        "performance",
-        "memory",
-        "generate-gml-identifiers",
-        "generate-quality-report",
-        "collect-stats",
-        "generate-feather-metadata",
-        "prepare-hot-reload",
-        "watch",
-        "watch-status",
-        "help"
-    ]);
-
-    // Thresholds for similarity detection
-    const MAX_LENGTH_DIFFERENCE = 2;
-    const MAX_CHARACTER_DIFFERENCES = 2;
-
-    // Not a command if it contains path separators
-    if (target.includes("/") || target.includes("\\")) {
+    if (!isCommandInputCandidate(target)) {
         return false;
     }
 
-    // Not a command if it looks like a file (has an extension)
-    if (/\.\w+$/.test(target)) {
-        return false;
-    }
-
-    // Exact match with known command
     if (KNOWN_COMMANDS.has(target)) {
         return true;
     }
 
-    // Starts with a letter and contains only alphanumeric, hyphens, or underscores
-    // (typical command pattern) - treat this as a likely command attempt
-    if (/^[a-z][a-z0-9_-]*$/i.test(target)) {
-        // Check for common typos or similar command names using simple similarity heuristic
-        const lowerTarget = target.toLowerCase();
-        for (const command of KNOWN_COMMANDS) {
-            // Quick length check first (early termination optimization)
-            if (Math.abs(command.length - lowerTarget.length) > MAX_LENGTH_DIFFERENCE) {
-                continue;
-            }
+    if (!COMMAND_PATTERN.test(target)) {
+        return false;
+    }
 
-            // Count character differences at matching positions
-            let differences = 0;
-            const minLength = Math.min(command.length, lowerTarget.length);
-            for (let i = 0; i < minLength; i++) {
-                if (command[i] !== lowerTarget[i]) {
-                    differences++;
-                    // Early termination if too many differences
-                    if (differences > MAX_CHARACTER_DIFFERENCES) {
-                        break;
-                    }
-                }
-            }
-
-            // If 2 or fewer character differences and not more than half the string differs
-            if (differences <= MAX_CHARACTER_DIFFERENCES && differences < command.length / 2) {
-                return true;
-            }
-        }
-
-        // Even if no close match was found, if it matches the command pattern
-        // (single word, no path separators, no file extension), treat it as
-        // a likely command attempt to provide better error messaging
+    if (hasSimilarKnownCommand(target, KNOWN_COMMANDS)) {
         return true;
     }
 
+    return true;
+}
+
+/**
+ * Check whether input could plausibly be a command rather than a path.
+ */
+function isCommandInputCandidate(target: string): boolean {
+    if (target.includes("/") || target.includes("\\")) {
+        return false;
+    }
+
+    return !/\.\w+$/.test(target);
+}
+
+/**
+ * Identify likely command typos by comparing character positions.
+ */
+function hasSimilarKnownCommand(target: string, knownCommands: Set<string>): boolean {
+    const lowerTarget = target.toLowerCase();
+
+    for (const command of knownCommands) {
+        if (!isWithinCommandLengthThreshold(command, lowerTarget)) {
+            continue;
+        }
+
+        const differences = countCommandCharacterDifferences(command, lowerTarget, MAX_COMMAND_CHARACTER_DIFFERENCES);
+
+        if (isWithinCommandSimilarityThreshold(differences, command.length)) {
+            return true;
+        }
+    }
+
     return false;
+}
+
+function isWithinCommandLengthThreshold(command: string, target: string): boolean {
+    return Math.abs(command.length - target.length) <= MAX_COMMAND_LENGTH_DIFFERENCE;
+}
+
+function countCommandCharacterDifferences(command: string, target: string, maxDifferences: number): number {
+    let differences = 0;
+    const minLength = Math.min(command.length, target.length);
+
+    for (let i = 0; i < minLength; i++) {
+        if (command[i] !== target[i]) {
+            differences++;
+            if (differences > maxDifferences) {
+                break;
+            }
+        }
+    }
+
+    return differences;
+}
+
+function isWithinCommandSimilarityThreshold(differences: number, commandLength: number): boolean {
+    return differences <= MAX_COMMAND_CHARACTER_DIFFERENCES && differences < commandLength / 2;
 }
 
 async function resolveTargetStats(
