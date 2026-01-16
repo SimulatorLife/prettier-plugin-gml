@@ -3,6 +3,7 @@ import { Core } from "@gml-modules/core";
 import { createHash, randomUUID } from "node:crypto";
 
 import { isProjectManifestPath } from "./constants.js";
+import { evaluateProjectIndexCacheSizePolicy, normalizeProjectIndexCacheMaxSizeBytes } from "./cache-write-policy.js";
 import { defaultFsFacade, type ProjectIndexFsFacade } from "./fs-facade.js";
 
 export const PROJECT_INDEX_CACHE_SCHEMA_VERSION = 1;
@@ -23,7 +24,7 @@ const projectIndexCacheSizeConfig = Core.createEnvConfiguredValueWithFallback({
     defaultValue: PROJECT_INDEX_CACHE_MAX_SIZE_BASELINE,
     envVar: PROJECT_INDEX_CACHE_MAX_SIZE_ENV_VAR,
     resolve: (value, { fallback }) => {
-        const normalized = normalizeMaxSizeBytes(value);
+        const normalized = normalizeProjectIndexCacheMaxSizeBytes(value);
         if (normalized !== null) {
             return normalized;
         }
@@ -33,7 +34,7 @@ const projectIndexCacheSizeConfig = Core.createEnvConfiguredValueWithFallback({
         if (trimmed !== null) {
             const numeric = Core.toFiniteNumber(trimmed);
 
-            // We inline the >= 0 check here instead of calling normalizeMaxSizeBytes(numeric)
+            // We inline the >= 0 check here instead of calling normalizeProjectIndexCacheMaxSizeBytes(numeric)
             // to avoid unnecessary function call depth, since numeric is already validated
             // by toFiniteNumber.
             if (numeric !== null && numeric >= 0) {
@@ -125,22 +126,6 @@ function resolveCacheFilePath(projectRoot, cacheFilePath) {
         return path.resolve(cacheFilePath);
     }
     return path.join(projectRoot, PROJECT_INDEX_CACHE_DIRECTORY, PROJECT_INDEX_CACHE_FILENAME);
-}
-
-function normalizeMaxSizeBytes(maxSizeBytes) {
-    if (maxSizeBytes === null) {
-        return null;
-    }
-
-    const numericLimit = Core.toFiniteNumber(maxSizeBytes);
-    if (numericLimit === null || numericLimit < 0) {
-        return null;
-    }
-
-    // Explicitly preserve 0 as a sentinel value meaning "no limit"
-    // rather than coercing it to null, so the caller can distinguish
-    // "explicitly disabled" from "unconfigured".
-    return numericLimit;
 }
 
 function cloneMtimeMap(source) {
@@ -377,13 +362,14 @@ export async function saveProjectIndexCache(
     const serialized = JSON.stringify(payload);
     const byteLength = Buffer.byteLength(serialized, "utf8");
 
-    const effectiveMaxSize = normalizeMaxSizeBytes(maxSizeBytes);
-    // Check for a positive limit: 0 and null both mean "no limit".
-    // The > 0 check implicitly handles null since (null > 0) is false.
-    if (effectiveMaxSize > 0 && byteLength > effectiveMaxSize) {
+    const sizeDecision = evaluateProjectIndexCacheSizePolicy({
+        maxSizeBytes,
+        payloadSizeBytes: byteLength
+    });
+    if (!sizeDecision.shouldWrite) {
         return createCacheResult(ProjectIndexCacheStatus.SKIPPED, {
             cacheFilePath,
-            reason: "payload-too-large",
+            reason: sizeDecision.reason,
             size: byteLength
         });
     }
