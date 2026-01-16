@@ -80,15 +80,21 @@ export interface FormatByteSizeOptions {
 }
 
 function normalizeByteCount(value: NumericLike): number {
-    const numericValue = typeof value === "bigint" ? Number(value) : value;
+    if (typeof value === "bigint") {
+        const numericValue = Number(value);
 
-    if (!isFiniteNumber(numericValue)) {
+        if (!isFiniteNumber(numericValue)) {
+            return 0;
+        }
+
+        return Math.max(numericValue, 0);
+    }
+
+    if (!isFiniteNumber(value)) {
         return 0;
     }
 
-    const normalizedValue = typeof numericValue === "number" ? numericValue : Number(numericValue);
-
-    return Math.max(normalizedValue, 0);
+    return value > 0 ? value : 0;
 }
 
 function resolveRadixOverride(radix: number | string | undefined, defaultRadix: number): number {
