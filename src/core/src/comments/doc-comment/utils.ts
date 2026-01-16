@@ -24,7 +24,7 @@
  */
 
 // Array utilities
-export { asArray, compactArray, findLastIndex, isNonEmptyArray, toMutableArray } from "../../utils/array.js";
+export { asArray, compactArray, findLastIndex, isNonEmptyArray, toMutableArray } from "../../utils/index.js";
 
 // String utilities
 export {
@@ -35,17 +35,16 @@ export {
     isNonEmptyTrimmedString,
     toNormalizedLowerCaseString,
     toTrimmedString
-} from "../../utils/string.js";
+} from "../../utils/index.js";
 
 // Numeric utilities
-export { clamp } from "../../utils/number.js";
-export { coercePositiveIntegerOption } from "../../utils/numeric-options.js";
+export { clamp, coercePositiveIntegerOption } from "../../utils/index.js";
 
 // Object utilities
-export { assertFunction } from "../../utils/object.js";
+export { assertFunction } from "../../utils/index.js";
 
 // Capability probes
-export { isRegExpLike } from "../../utils/capability-probes.js";
+export { isRegExpLike } from "../../utils/index.js";
 
 // AST node helpers
 export {
@@ -56,13 +55,13 @@ export {
     isFunctionLikeNode,
     isNode,
     isUndefinedSentinel
-} from "../../ast/node-helpers.js";
+} from "../../ast/index.js";
 
 // AST location helpers
-export { getNodeEndIndex, getNodeStartIndex } from "../../ast/locations.js";
+export { getNodeEndIndex, getNodeStartIndex } from "../../ast/index.js";
 
 // AST types
-export type { MutableGameMakerAstNode } from "../../ast/types.js";
+export type { MutableGameMakerAstNode } from "../../ast/index.js";
 
 // Comment utilities
 export { getCommentArray, isLineComment } from "../comment-utils.js";
