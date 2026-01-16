@@ -64,6 +64,15 @@ void test("lowerWithStatement wraps in block scope", () => {
     strictEqual(result.endsWith("}"), true);
 });
 
+void test("lowerWithStatement ensures self/other restoration in finally", () => {
+    const result = lowerWithStatement("obj", "        code;", "resolver");
+
+    strictEqual(result.includes("try {"), true);
+    strictEqual(result.includes("} finally {"), true);
+    strictEqual(result.includes("self = __with_prev_self;"), true);
+    strictEqual(result.includes("other = __with_prev_other;"), true);
+});
+
 void test("lowerWithStatement assigns self and other in loop", () => {
     const result = lowerWithStatement("targets", "        action();", "resolver");
 
