@@ -58,7 +58,9 @@ export const DEFAULT_DOC_COMMENT_TYPE_NORMALIZATION = Object.freeze({
     nativeTypes: Object.freeze([
         // These types, when printed out, will use this exact casing (all lowercase)
         // See: https://manual.gamemaker.io/beta/en/The_Asset_Editors/Code_Editor_Properties/Feather_Data_Types.htm
-        // NOTE JSDoc base types are case-insensitive, so string and String are the same, however specifiers (after the .) are case-sensitive, meaning Id.DsList is valid (referring to a DS List) but Id.dslist is not
+        // NOTE: JSDoc base types are case-insensitive, so string and String are the same.
+        // Specifiers (after the .) are case-sensitive, meaning Id.DsList is valid (referring
+        // to a DS List) but Id.dslist is not.
 
         // Allow this group to be recognized as native types and specifiers
         // So, for example, these are all valid:
