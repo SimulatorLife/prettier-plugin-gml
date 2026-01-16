@@ -29,7 +29,7 @@ void test("areNumbersApproximatelyEqual respects scaled tolerance", () => {
     const nearDelta = Number.EPSILON * 2;
     assert.ok(areNumbersApproximatelyEqual(1, 1 + nearDelta));
     assert.strictEqual(areNumbersApproximatelyEqual(1, 1 + 0.1), false);
-    assert.strictEqual(areNumbersApproximatelyEqual(NaN, 1), false);
+    assert.strictEqual(areNumbersApproximatelyEqual(Number.NaN, 1), false);
 });
 
 void test("isErrorLike guards message and optional name shape", () => {
