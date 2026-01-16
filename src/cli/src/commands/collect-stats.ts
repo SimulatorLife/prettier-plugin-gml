@@ -4,15 +4,7 @@ import process from "node:process";
 import { Command } from "commander";
 import { applyStandardCommandOptions } from "../cli-core/command-standard-options.js";
 import { ensureDirSync } from "../shared/ensure-dir.js";
-import { formatByteSize } from "../shared/reporting/byte-format.js";
-
-function formatBytes(bytes: number): string {
-    if (bytes < 0 || !Number.isFinite(bytes)) {
-        return "Invalid";
-    }
-    // formatByteSize returns "0B" without space, but we need "0 B" with space
-    return formatByteSize(bytes, { decimals: 2, separator: " " });
-}
+import { formatByteSizeDisplay } from "../shared/reporting/byte-format.js";
 
 function getSourceFiles(dir: string, fileList: string[] = []) {
     if (!fs.existsSync(dir)) {
@@ -91,7 +83,11 @@ function scanProjectHealth(rootDir: string) {
     return {
         largeFiles,
         todos,
-        buildSize: formatBytes(totalBuildSize)
+        buildSize: formatByteSizeDisplay(totalBuildSize, {
+            decimals: 2,
+            separator: " ",
+            invalidValue: "Invalid"
+        })
     };
 }
 

@@ -33,7 +33,7 @@ import {
 import { importPluginModule } from "../modules/plugin-runtime-dependencies.js";
 import type { CommanderOptionSetter } from "../cli-core/commander-types.js";
 
-const { formatByteSize } = Reporting;
+const { formatByteSizeDisplay } = Reporting;
 
 const {
     appendToCollection,
@@ -1080,13 +1080,12 @@ interface MemorySuitePayload {
  * @returns {string} Formatted string with appropriate unit (B, KB, MB, GB).
  */
 function formatBytes(bytes: number | null | undefined): string {
-    if (bytes === null || bytes === undefined || !Number.isFinite(bytes)) {
-        return "N/A";
-    }
-    // Handle negative values by preserving the sign separately
-    const sign = bytes < 0 ? "-" : "";
-    const absoluteBytes = Math.abs(bytes);
-    return `${sign}${formatByteSize(absoluteBytes, { decimals: 2, decimalsForBytes: 0 })}`;
+    return formatByteSizeDisplay(bytes, {
+        allowNegative: true,
+        decimals: 2,
+        decimalsForBytes: 0,
+        invalidValue: "N/A"
+    });
 }
 
 /**
