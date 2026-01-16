@@ -3,7 +3,7 @@ import fs from "node:fs";
 import { resolveBundledResourcePath, resolveBundledResourceUrl } from "./resource-locator.js";
 
 import { noop } from "../utils/function.js";
-import { isObjectLike } from "../utils/object.js";
+import { isObjectLike, isPlainObject } from "../utils/object.js";
 import { getNonEmptyString } from "../utils/string.js";
 
 export const GML_IDENTIFIER_METADATA_URL = resolveBundledResourceUrl("gml-identifiers.json");
@@ -69,28 +69,57 @@ export function clearIdentifierMetadataCache() {
  * @returns {Array<{ name: string, type: string, descriptor: object }>}
  */
 export function normalizeIdentifierMetadataEntries(metadata) {
-    const identifiers = metadata && typeof metadata === "object" && metadata.identifiers;
+    const identifiers =
+        metadata && typeof metadata === "object" && "identifiers" in metadata
+            ? (metadata as { identifiers?: unknown }).identifiers
+            : null;
 
-    if (!identifiers || typeof identifiers !== "object") {
+    if (!isPlainObject(identifiers)) {
         return [];
     }
 
     return Object.entries(identifiers).reduce((entries, [name, descriptor]) => {
-        if (!name) {
+        const normalizedName = getNonEmptyString(name);
+        if (!normalizedName) {
             return entries;
         }
 
-        // Descriptor must be a non-null object
-        if (!descriptor || typeof descriptor !== "object") {
+        const normalizedDescriptor = normalizeIdentifierDescriptor(normalizedName, descriptor);
+        if (!normalizedDescriptor) {
             return entries;
         }
 
-        const typedDescriptor = descriptor as { type?: unknown };
-        const type = typeof typedDescriptor.type === "string" ? typedDescriptor.type.toLowerCase() : "";
+        entries.push({
+            name: normalizedName,
+            type: normalizedDescriptor.type.toLowerCase(),
+            descriptor: normalizedDescriptor
+        });
 
-        entries.push({ name, type, descriptor });
         return entries;
     }, []);
+}
+
+type IdentifierMetadataDescriptor = {
+    type: string;
+    [key: string]: unknown;
+};
+
+function normalizeIdentifierDescriptor(name: string, descriptor: unknown): IdentifierMetadataDescriptor | null {
+    if (!isPlainObject(descriptor)) {
+        return null;
+    }
+
+    const descriptorRecord = descriptor as Record<string, unknown>;
+    const normalizedType = getNonEmptyString(descriptorRecord.type);
+    if (!normalizedType) {
+        return null;
+    }
+
+    if (descriptorRecord.type === normalizedType) {
+        return descriptorRecord as IdentifierMetadataDescriptor;
+    }
+
+    return { ...descriptorRecord, type: normalizedType };
 }
 
 const DEFAULT_EXCLUDED_TYPES = new Set(["literal", "keyword"]);
