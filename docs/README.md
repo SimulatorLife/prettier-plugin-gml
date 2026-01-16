@@ -16,10 +16,6 @@ then return here for deeper context.
   file tuned for common GameMaker metadata folders.
 
 ## Usage & rollout
-
-- [Legacy identifier-case plan](legacy-identifier-case-plan.md) — Preserves the
-  step-by-step rollout checklist, scope coverage tables, and cache management
-  guidance from the previous semantic implementation.
 - [Locals-first identifier-case configuration](legacy-identifier-case-plan.md#locals-first-configuration-script)
   — Scripted configuration that warms the project-index cache and captures
   dry-run reports for review alongside a sample JSON payload.
