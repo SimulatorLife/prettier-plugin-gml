@@ -24,10 +24,10 @@
  */
 
 // Object utilities
-export { assertFunction, isObjectLike } from "../../utils/object.js";
+export { assertFunction, isObjectLike } from "../../utils/index.js";
 
 // String utilities
-export { isNonEmptyString, toTrimmedString } from "../../utils/string.js";
+export { isNonEmptyString, toTrimmedString } from "../../utils/index.js";
 
 // Capability probes
-export { isRegExpLike } from "../../utils/capability-probes.js";
+export { isRegExpLike } from "../../utils/index.js";
