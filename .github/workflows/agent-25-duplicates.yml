@@ -53,11 +53,12 @@ jobs:
           else
             found="false"
           fi
+          delimiter="EOF_$(date +%s%N)"
           {
             echo "duplicates_found=$found"
-            echo "duplicates_output<<'EOF'"
-            echo "$output"
-            echo "EOF"
+            echo "duplicates_output<<$delimiter"
+            printf '%s\n' "$output"
+            echo "$delimiter"
           } >> "$GITHUB_OUTPUT"
           exit 0
 
