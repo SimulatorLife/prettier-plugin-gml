@@ -66,4 +66,11 @@ void describe("cli help command normalization", () => {
 
         assert.deepEqual(normalized, ["format", "--help"]);
     });
+
+    void it("treats pnpm-style double-dash help as a top-level help request", async () => {
+        const { normalizeCommandLineArguments } = await loadCliTestUtilities();
+        const normalized = normalizeCommandLineArguments(["--", "--help"]);
+
+        assert.deepEqual(normalized, ["--help"]);
+    });
 });
