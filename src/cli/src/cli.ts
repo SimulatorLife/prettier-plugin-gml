@@ -2195,6 +2195,10 @@ function normalizeCommandLineArguments(argv) {
         return resolveDefaultAction() === FORMAT_ACTION ? [] : ["--help"];
     }
 
+    if (argv[0] === "--" && argv.length === 2 && isHelpRequest(argv[1])) {
+        return ["--help"];
+    }
+
     if (argv[0] !== "help") {
         return [...argv];
     }
