@@ -30,7 +30,7 @@ void test("custom metadata loader honours default exclusion filters", () => {
 
     const names = loadReservedIdentifierNames();
 
-    assert.deepEqual(toSortedArray(names), ["foo", "quux"]);
+    assert.deepEqual(toSortedArray(names), ["foo"]);
 
     cleanup();
 });

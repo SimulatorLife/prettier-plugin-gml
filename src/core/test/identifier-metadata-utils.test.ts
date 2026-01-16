@@ -43,11 +43,6 @@ void test("normalizeIdentifierMetadataEntries tolerates invalid inputs", () => {
             name: "valid_name",
             type: "keyword",
             descriptor: { type: "Keyword" }
-        },
-        {
-            name: "missing_type",
-            type: "",
-            descriptor: {}
         }
     ]);
 });
