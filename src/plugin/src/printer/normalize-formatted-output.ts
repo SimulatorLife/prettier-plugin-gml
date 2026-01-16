@@ -168,30 +168,27 @@ function ensureBlankLineBeforeTopLevelLineComments(formatted: string): string {
     const result: string[] = [];
 
     for (const line of lines) {
-        const trimmedStart = line.trimStart();
-        const isPlainLineComment =
-            trimmedStart.startsWith("//") && !trimmedStart.startsWith("///") && trimmedStart === line;
-
-        if (isPlainLineComment && result.length > 0) {
-            const previousLine = result.at(-1);
-            const previousTrimmedStart = typeof previousLine === "string" ? previousLine.trimStart() : undefined;
-            const isPreviousPlainLineComment =
-                typeof previousLine === "string" &&
-                previousTrimmedStart !== undefined &&
-                previousTrimmedStart.startsWith("//") &&
-                !previousTrimmedStart.startsWith("///") &&
-                previousTrimmedStart === previousLine;
-            if (isNonEmptyTrimmedString(previousLine) && previousLine.trim() !== "}" && !isPreviousPlainLineComment) {
-                result.push("");
-            } else if (typeof previousLine === "string" && previousLine.trim() === "}") {
-                result.push("");
-            }
+        if (isTopLevelPlainLineComment(line) && shouldInsertBlankLineBeforeTopLevelComment(result.at(-1))) {
+            result.push("");
         }
 
         result.push(line);
     }
 
     return result.join("\n");
+}
+
+function isTopLevelPlainLineComment(line: string | undefined): boolean {
+    if (typeof line !== "string") {
+        return false;
+    }
+
+    const trimmedStart = line.trimStart();
+    return trimmedStart.startsWith("//") && !trimmedStart.startsWith("///") && trimmedStart === line;
+}
+
+function shouldInsertBlankLineBeforeTopLevelComment(previousLine: string | undefined): boolean {
+    return isNonEmptyTrimmedString(previousLine) && !isTopLevelPlainLineComment(previousLine);
 }
 
 function isPlainLineCommentLine(line: string | undefined): boolean {
