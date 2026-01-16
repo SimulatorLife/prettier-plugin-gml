@@ -40,13 +40,13 @@ import {
     createFeatherFixDetail,
     attachFeatherFixMetadata,
     createCallExpressionTargetFixDetail,
-    hasFeatherSourceTextContext,
-    NUMERIC_STRING_LITERAL_PATTERN
+    hasFeatherSourceTextContext
 } from "./utils.js";
 import { removeDuplicateSemicolons, findDuplicateSemicolonRanges } from "./semicolon-fixes.js";
 import { removeDuplicateEnumMembers, sanitizeEnumAssignments } from "./enum-fixes.js";
 import { parseExample } from "./parser-bootstrap.js";
 import { preprocessFunctionArgumentDefaultsTransform } from "../preprocess-function-argument-defaults.js";
+import { NUMERIC_STRING_LITERAL_PATTERN } from "../../literals/numeric-literals.js";
 import {
     getDocCommentMetadata,
     getDeprecatedDocCommentFunctionSet,
