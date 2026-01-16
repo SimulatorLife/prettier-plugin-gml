@@ -121,15 +121,25 @@ export function normalizeMemorySuiteName(value: unknown, { errorConstructor }: N
     return memorySuiteHelpers.requireValue(value, errorConstructor);
 }
 
-function normalizeMemoryReportDirectory(value, fallback) {
-    return getNonEmptyTrimmedString(value) ?? fallback;
+function normalizeMemoryReportText(value: unknown, fallback: string | null | undefined) {
+    const normalizedValue = getNonEmptyTrimmedString(value);
+    if (normalizedValue) {
+        return normalizedValue;
+    }
+
+    if (fallback === null || fallback === undefined) {
+        return fallback;
+    }
+
+    const normalizedFallback = getNonEmptyTrimmedString(fallback);
+    return normalizedFallback ?? fallback;
 }
 
 const memoryReportDirectoryConfig = createEnvConfiguredValue({
     defaultValue: DEFAULT_MEMORY_REPORT_DIR,
     envVar: MEMORY_REPORT_DIRECTORY_ENV_VAR,
     normalize: (value, { defaultValue: baseline, previousValue }) =>
-        normalizeMemoryReportDirectory(value, previousValue ?? baseline ?? DEFAULT_MEMORY_REPORT_DIR)
+        normalizeMemoryReportText(value, previousValue ?? baseline ?? DEFAULT_MEMORY_REPORT_DIR)
 });
 
 function getDefaultMemoryReportDirectory() {
@@ -148,20 +158,16 @@ function resolveMemoryReportDirectory(
     value?: string | null,
     { defaultValue }: ResolveMemoryReportDirectoryOptions = {}
 ) {
-    const fallback = normalizeMemoryReportDirectory(defaultValue, getDefaultMemoryReportDirectory());
+    const fallback = normalizeMemoryReportText(defaultValue, getDefaultMemoryReportDirectory());
 
-    return normalizeMemoryReportDirectory(value, fallback);
-}
-
-function normalizeMemoryReportFileName(value, fallback) {
-    return getNonEmptyTrimmedString(value) ?? fallback;
+    return normalizeMemoryReportText(value, fallback);
 }
 
 const memoryReportFileNameConfig = createEnvConfiguredValue({
     defaultValue: DEFAULT_MEMORY_REPORT_FILENAME,
     envVar: MEMORY_REPORT_FILENAME_ENV_VAR,
     normalize: (value, { defaultValue: baseline, previousValue }) =>
-        normalizeMemoryReportFileName(value, previousValue ?? baseline ?? DEFAULT_MEMORY_REPORT_FILENAME)
+        normalizeMemoryReportText(value, previousValue ?? baseline ?? DEFAULT_MEMORY_REPORT_FILENAME)
 });
 
 function getDefaultMemoryReportFileName() {
@@ -177,9 +183,9 @@ interface ResolveMemoryReportFileNameOptions {
 }
 
 function resolveMemoryReportFileName(value?: string | null, { defaultValue }: ResolveMemoryReportFileNameOptions = {}) {
-    const fallback = normalizeMemoryReportFileName(defaultValue, getDefaultMemoryReportFileName());
+    const fallback = normalizeMemoryReportText(defaultValue, getDefaultMemoryReportFileName());
 
-    return normalizeMemoryReportFileName(value, fallback);
+    return normalizeMemoryReportText(value, fallback);
 }
 
 function applyMemoryReportFileNameEnvOverride(env) {
