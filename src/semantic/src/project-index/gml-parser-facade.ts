@@ -31,7 +31,8 @@ type ParserNamespace = typeof import("@gml-modules/parser").Parser;
 type ProjectIndexParser = (sourceText: string, context?: unknown) => unknown;
 
 let parserNamespace: ParserNamespace | null = null;
-let defaultProjectIndexParser: ProjectIndexParser | null = null;
+const defaultProjectIndexParser: ProjectIndexParser = (sourceText: string, context = {}) =>
+    parseProjectIndexSource(sourceText, context);
 
 const PARSER_FACADE_OPTION_KEYS = ["identifierCaseProjectIndexParserFacade", "gmlParserFacade", "parserFacade"];
 
@@ -99,14 +100,6 @@ function parseProjectIndexSource(sourceText: string, context = {}, parser: Parse
     }
 }
 
-function resolveDefaultProjectIndexParser(): ProjectIndexParser {
-    if (!defaultProjectIndexParser) {
-        defaultProjectIndexParser = getDefaultProjectIndexParser();
-    }
-
-    return defaultProjectIndexParser;
-}
-
 export function getDefaultProjectIndexParser(parser: ParserNamespace | null = null) {
     return (sourceText: string, context = {}) => parseProjectIndexSource(sourceText, context, parser);
 }
@@ -131,5 +124,5 @@ export function getProjectIndexParserOverride(options) {
 }
 
 export function resolveProjectIndexParser(options) {
-    return getProjectIndexParserOverride(options)?.parse ?? resolveDefaultProjectIndexParser();
+    return getProjectIndexParserOverride(options)?.parse ?? defaultProjectIndexParser;
 }
