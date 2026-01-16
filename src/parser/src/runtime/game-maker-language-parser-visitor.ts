@@ -26,6 +26,14 @@ const { instance: WRAPPER_INSTANCE_MARKER, patchFlag: HAS_INSTANCE_PATCHED_MARKE
 // Methods exposed by antlr4's ParseTreeVisitor that we still need to provide on
 // our compositional wrapper. We delegate to the original prototype so consumer
 // code continues to observe the same behaviour without inheriting directly.
+// This is intentionally redundant with the generated visitor surface: some
+// downstream tooling checks for these methods (or calls them reflectively) to
+// decide whether a visitor is "ANTLR-compatible." Removing or renaming them
+// would break those checks, and in turn would skip traversal logic or fall back
+// to slower generic paths. We keep the wrapper in the runtime layer (rather
+// than editing generated sources) to preserve regeneration safety; see
+// docs/antlr-regeneration.md for the rationale and guardrails around these
+// extension hooks.
 const INHERITED_METHOD_NAMES = Object.freeze(collectPrototypeMethodNames(PARSE_TREE_VISITOR_PROTOTYPE));
 
 export const VISIT_METHOD_NAMES = Object.freeze(collectVisitMethodNames(GameMakerLanguageParserVisitorBase));
