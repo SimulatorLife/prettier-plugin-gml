@@ -58,6 +58,21 @@ export class DependencyTracker {
     }
 
     /**
+     * Replace symbols defined by a file, clearing previous definitions first.
+     *
+     * @param filePath - Path to the file
+     * @param symbols - Symbols defined in the file
+     */
+    replaceFileDefines(filePath: string, symbols: ReadonlyArray<string>): void {
+        this.clearFileDefinitions(filePath);
+        if (symbols.length === 0) {
+            return;
+        }
+
+        this.registerFileDefines(filePath, symbols);
+    }
+
+    /**
      * Register symbols referenced by a file.
      * @param filePath - Path to the file
      * @param symbols - Symbols referenced in the file
@@ -79,6 +94,21 @@ export class DependencyTracker {
             }
             refFiles.add(filePath);
         }
+    }
+
+    /**
+     * Replace symbols referenced by a file, clearing previous references first.
+     *
+     * @param filePath - Path to the file
+     * @param symbols - Symbols referenced in the file
+     */
+    replaceFileReferences(filePath: string, symbols: ReadonlyArray<string>): void {
+        this.clearFileReferences(filePath);
+        if (symbols.length === 0) {
+            return;
+        }
+
+        this.registerFileReferences(filePath, symbols);
     }
 
     /**
@@ -129,6 +159,47 @@ export class DependencyTracker {
         return refs ? Array.from(refs) : [];
     }
 
+    private clearFileDefinitions(filePath: string): void {
+        const defs = this.fileToDefs.get(filePath);
+        if (!defs) {
+            return;
+        }
+
+        for (const symbol of defs) {
+            if (this.symbolToDefFile.get(symbol) === filePath) {
+                this.symbolToDefFile.delete(symbol);
+            }
+            // Do not delete symbolToRefFiles here - other files may still reference this symbol.
+            // REASON: When a file is removed, its symbol definitions are no longer available,
+            // but other files in the workspace may still contain references to those symbols.
+            // Preserving the reference mapping allows the dependency tracker to detect
+            // broken references and report "undefined symbol" diagnostics to the user.
+            // WHAT WOULD BREAK: Deleting symbolToRefFiles entries prematurely would hide
+            // broken references and prevent the tracker from warning about missing imports.
+        }
+
+        this.fileToDefs.delete(filePath);
+    }
+
+    private clearFileReferences(filePath: string): void {
+        const refs = this.fileToRefs.get(filePath);
+        if (!refs) {
+            return;
+        }
+
+        for (const symbol of refs) {
+            const refFiles = this.symbolToRefFiles.get(symbol);
+            if (refFiles) {
+                refFiles.delete(filePath);
+                if (refFiles.size === 0) {
+                    this.symbolToRefFiles.delete(symbol);
+                }
+            }
+        }
+
+        this.fileToRefs.delete(filePath);
+    }
+
     /**
      * Remove all tracking data for a file.
      * Call this when a file is deleted.
@@ -136,34 +207,8 @@ export class DependencyTracker {
      * @param filePath - Path to the file
      */
     removeFile(filePath: string): void {
-        const defs = this.fileToDefs.get(filePath);
-        if (defs) {
-            for (const symbol of defs) {
-                this.symbolToDefFile.delete(symbol);
-                // Do not delete symbolToRefFiles here - other files may still reference this symbol.
-                // REASON: When a file is removed, its symbol definitions are no longer available,
-                // but other files in the workspace may still contain references to those symbols.
-                // Preserving the reference mapping allows the dependency tracker to detect
-                // broken references and report "undefined symbol" diagnostics to the user.
-                // WHAT WOULD BREAK: Deleting symbolToRefFiles entries prematurely would hide
-                // broken references and prevent the tracker from warning about missing imports.
-            }
-            this.fileToDefs.delete(filePath);
-        }
-
-        const refs = this.fileToRefs.get(filePath);
-        if (refs) {
-            for (const symbol of refs) {
-                const refFiles = this.symbolToRefFiles.get(symbol);
-                if (refFiles) {
-                    refFiles.delete(filePath);
-                    if (refFiles.size === 0) {
-                        this.symbolToRefFiles.delete(symbol);
-                    }
-                }
-            }
-            this.fileToRefs.delete(filePath);
-        }
+        this.clearFileDefinitions(filePath);
+        this.clearFileReferences(filePath);
     }
 
     /**
