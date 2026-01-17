@@ -110,6 +110,9 @@ export class GmlToJsEmitter {
             case "Identifier": {
                 return this.visitIdentifier(ast);
             }
+            case "MissingOptionalArgument": {
+                return "undefined";
+            }
             case "IdentifierStatement": {
                 return `${this.visit(ast.name)};`;
             }

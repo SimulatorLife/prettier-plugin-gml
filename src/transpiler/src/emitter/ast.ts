@@ -121,6 +121,16 @@ export interface CallExpressionNode extends BaseNode {
     readonly arguments: ReadonlyArray<GmlNode>;
 }
 
+/**
+ * Placeholder for a missing argument in a call expression.
+ *
+ * Represents omitted arguments such as `func(, arg2)` in GML, which should
+ * be emitted as `undefined` in JavaScript to preserve positional semantics.
+ */
+export interface MissingOptionalArgumentNode extends BaseNode {
+    readonly type: "MissingOptionalArgument";
+}
+
 export interface NewExpressionNode extends BaseNode {
     readonly type: "NewExpression";
     readonly expression: GmlNode;
@@ -364,6 +374,7 @@ export type ExpressionNode =
     | DefaultParameterNode
     | LiteralNode
     | IdentifierNode
+    | MissingOptionalArgumentNode
     | BinaryExpressionNode
     | UnaryExpressionNode
     | AssignmentExpressionNode
