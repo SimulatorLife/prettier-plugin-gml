@@ -227,6 +227,49 @@ void test("WebSocket client applies batch patches from messages", async () => {
     delete globalWithWebSocket.WebSocket;
 });
 
+void test("WebSocket client reports hot reload error notifications", async () => {
+    const wrapper = RuntimeWrapper.createRuntimeWrapper();
+    let reportedError: RuntimePatchError | null = null;
+    let reportedPhase: "connection" | "patch" | null = null;
+
+    globalWithWebSocket.WebSocket = MockWebSocket;
+
+    const client = RuntimeWrapper.createWebSocketClient({
+        wrapper,
+        autoConnect: true,
+        onError: (error, phase) => {
+            reportedError = error;
+            reportedPhase = phase;
+        }
+    });
+
+    await wait(50);
+
+    const ws = client.getWebSocket();
+    assert.ok(ws, "WebSocket should be available");
+    const mockSocket = ws as MockWebSocket;
+
+    mockSocket.simulateMessage(
+        JSON.stringify({
+            kind: "error",
+            filePath: "test_script.gml",
+            error: "Syntax error at line 4",
+            timestamp: Date.now()
+        })
+    );
+
+    await wait(10);
+
+    assert.ok(reportedError, "Should surface hot reload errors");
+    assert.strictEqual(reportedPhase, "patch");
+    assert.match(reportedError.message, /test_script\.gml/u);
+    assert.match(reportedError.message, /Syntax error at line 4/u);
+    assert.strictEqual(wrapper.hasScript("test_script"), false);
+
+    client.disconnect();
+    delete globalWithWebSocket.WebSocket;
+});
+
 void test("WebSocket client waits for GameMaker builtins before applying patches", async () => {
     const wrapper = RuntimeWrapper.createRuntimeWrapper();
     globalWithWebSocket.WebSocket = MockWebSocket;
