@@ -1,6 +1,6 @@
+import { asArray, toArray } from "./array.js";
 import { toFiniteNumber } from "./number.js";
 import { formatWithIndefiniteArticle, isNonEmptyString } from "./string.js";
-import { asArray, toArray } from "./array.js";
 
 type AssertFunctionOptions = {
     errorMessage?: string;

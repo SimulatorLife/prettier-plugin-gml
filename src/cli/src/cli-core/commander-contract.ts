@@ -1,7 +1,8 @@
 import { Core } from "@gml-modules/core";
+
 import type {
-    CommanderAddCommandOptions,
     CommanderActionHandler,
+    CommanderAddCommandOptions,
     CommanderCommandLike,
     CommanderHookListener,
     CommanderParseOptions,

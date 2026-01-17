@@ -1,13 +1,13 @@
-import path from "node:path";
 import { promises as fs } from "node:fs";
+import path from "node:path";
 
 import { Core } from "@gml-modules/core";
 
 import { createProjectIndexAbortGuard } from "./abort-guard.js";
 import {
     normalizeProjectFileCategory,
-    resolveProjectFileCategory,
-    ProjectFileCategory
+    ProjectFileCategory,
+    resolveProjectFileCategory
 } from "./project-file-categories.js";
 
 type ProjectIndexFsFacade = typeof fs;

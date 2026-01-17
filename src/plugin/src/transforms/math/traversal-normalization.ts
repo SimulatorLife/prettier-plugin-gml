@@ -4762,20 +4762,20 @@ function traverseForScalarCondense(
 
 export {
     applyScalarCondensing,
-    simplifyZeroDivisionNumerators,
     attemptCancelReciprocalRatios,
     attemptCollectDistributedScalars,
     attemptCondenseNumericChainWithMultipleBases,
     attemptCondenseScalarProduct,
     attemptCondenseSimpleScalarProduct,
     attemptConvertDegreesToRadians,
-    matchDegreesToRadians,
     attemptRemoveAdditiveIdentity,
     attemptRemoveMultiplicativeIdentity,
     attemptSimplifyDivisionByReciprocal,
     attemptSimplifyNegativeDivisionProduct,
     attemptSimplifyOneMinusFactor,
-    normalizeTraversalContext,
     isIdentityReplacementSafeExpression,
-    replaceNodeWith
+    matchDegreesToRadians,
+    normalizeTraversalContext,
+    replaceNodeWith,
+    simplifyZeroDivisionNumerators
 };

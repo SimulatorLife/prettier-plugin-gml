@@ -1,6 +1,6 @@
+import { isErrorLike } from "./capability-probes.js";
 import { isObjectOrFunction } from "./object.js";
 import { getNonEmptyString } from "./string.js";
-import { isErrorLike } from "./capability-probes.js";
 
 const DEFAULT_ABORT_MESSAGE = "Operation aborted.";
 

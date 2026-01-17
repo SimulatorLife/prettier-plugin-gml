@@ -5,8 +5,9 @@
  * pr_trianglelist argument to draw_primitive_begin() calls that are missing it.
  */
 
-import { describe, it } from "node:test";
 import assert from "node:assert/strict";
+import { describe, it } from "node:test";
+
 import { Plugin } from "../src/plugin-entry.js";
 
 void describe("draw_primitive_begin missing argument fix", () => {

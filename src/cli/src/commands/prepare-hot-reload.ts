@@ -1,15 +1,15 @@
 import process from "node:process";
 
+import { Core } from "@gml-modules/core";
 import { Command, Option } from "commander";
 
-import { Core } from "@gml-modules/core";
-import type { CommanderCommandLike } from "../cli-core/commander-types.js";
 import { applyStandardCommandOptions } from "../cli-core/command-standard-options.js";
+import type { CommanderCommandLike } from "../cli-core/commander-types.js";
 import { formatCliError } from "../cli-core/errors.js";
 import {
-    prepareHotReloadInjection,
     DEFAULT_GM_TEMP_ROOT,
-    DEFAULT_WEBSOCKET_URL
+    DEFAULT_WEBSOCKET_URL,
+    prepareHotReloadInjection
 } from "../modules/hot-reload/inject-runtime.js";
 
 const { getErrorMessage } = Core;

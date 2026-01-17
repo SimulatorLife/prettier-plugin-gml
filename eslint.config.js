@@ -27,6 +27,7 @@ import pluginEslintComments from "eslint-plugin-eslint-comments";
 import pluginUnusedImports from "eslint-plugin-unused-imports";
 import pluginDeMorgan from "eslint-plugin-de-morgan";
 import pluginYml from "eslint-plugin-yml";
+import pluginSimpleImportSort from "eslint-plugin-simple-import-sort";
 
 // Prettier config
 import eslintConfigPrettier from "eslint-config-prettier";
@@ -128,7 +129,8 @@ const tsConfig = defineConfig({
         boundaries: pluginBoundaries,
         "no-secrets": pluginNoSecrets,
         "eslint-comments": pluginEslintComments,
-        "unused-imports": pluginUnusedImports
+        "unused-imports": pluginUnusedImports,
+        "simple-import-sort": pluginSimpleImportSort
     },
 
     settings: {
@@ -367,6 +369,8 @@ const tsConfig = defineConfig({
         "import/no-mutable-exports": "error",
         "import/no-cycle": ["error", { maxDepth: 3 }],
         "import/newline-after-import": ["error", { count: 1 }],
+        "simple-import-sort/imports": "error",
+        "simple-import-sort/exports": "error",
 
         /* --- plugin: promise (stricter async) --- */
         "promise/no-return-wrap": "warn",

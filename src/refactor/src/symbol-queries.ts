@@ -4,16 +4,16 @@
  * from the semantic analyzer and parser.
  */
 
-import { hasMethod, assertNonEmptyString, assertArray } from "./validation-utils.js";
 import type {
     AstNode,
-    FileSymbol,
     DependentSymbol,
+    FileSymbol,
     ParserBridge,
     PartialSemanticAnalyzer,
     SymbolLocation,
     SymbolOccurrence
 } from "./types.js";
+import { assertArray, assertNonEmptyString, hasMethod } from "./validation-utils.js";
 
 /**
  * Find the symbol at a specific location in a file.

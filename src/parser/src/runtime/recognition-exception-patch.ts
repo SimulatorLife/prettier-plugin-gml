@@ -1,5 +1,6 @@
-import antlr4, { type Recognizer, type RecognitionException, type Token, type TokenStream } from "antlr4";
 import { Core } from "@gml-modules/core";
+import antlr4, { type RecognitionException, type Recognizer, type Token, type TokenStream } from "antlr4";
+
 import type { TokenMetadataOptions } from "../types/index.js";
 
 type RecognitionExceptionConstructor = new (...args: unknown[]) => object;

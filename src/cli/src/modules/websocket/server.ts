@@ -6,8 +6,9 @@
  * wrapper clients when GML source files change.
  */
 
-import { WebSocketServer, WebSocket } from "ws";
 import { Core } from "@gml-modules/core";
+import { WebSocket, WebSocketServer } from "ws";
+
 import type { ServerEndpoint, ServerLifecycle } from "../shared-server-types.js";
 
 const { describeValueForError } = Core;

@@ -1,11 +1,11 @@
 import assert from "node:assert/strict";
-
 import { describe, it } from "node:test";
+
+import { Core } from "@gml-modules/core";
 import { Command, InvalidArgumentError } from "commander";
 
 import { parseCommandLine, wrapInvalidArgumentResolver } from "../src/cli-core/command-parsing.js";
 import { isCliUsageError } from "../src/cli-core/errors.js";
-import { Core } from "@gml-modules/core";
 
 const { isObjectLike } = Core;
 

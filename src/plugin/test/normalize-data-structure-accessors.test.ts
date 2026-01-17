@@ -6,8 +6,10 @@
 
 import assert from "node:assert/strict";
 import { describe, it } from "node:test";
-import { normalizeDataStructureAccessorsTransform } from "../src/transforms/normalize-data-structure-accessors.js";
+
 import { Parser } from "@gml-modules/parser";
+
+import { normalizeDataStructureAccessorsTransform } from "../src/transforms/normalize-data-structure-accessors.js";
 
 /**
  * Helper function to find a MemberIndexExpression node in an AST.

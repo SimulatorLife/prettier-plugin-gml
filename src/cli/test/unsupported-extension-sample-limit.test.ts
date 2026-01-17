@@ -2,12 +2,12 @@ import assert from "node:assert/strict";
 import { afterEach, describe, it } from "node:test";
 
 import {
-    DEFAULT_UNSUPPORTED_EXTENSION_SAMPLE_LIMIT,
-    UNSUPPORTED_EXTENSION_SAMPLE_LIMIT_ENV_VAR,
     applyUnsupportedExtensionSampleLimitEnvOverride,
+    DEFAULT_UNSUPPORTED_EXTENSION_SAMPLE_LIMIT,
     getDefaultUnsupportedExtensionSampleLimit,
     resolveUnsupportedExtensionSampleLimit,
-    setDefaultUnsupportedExtensionSampleLimit
+    setDefaultUnsupportedExtensionSampleLimit,
+    UNSUPPORTED_EXTENSION_SAMPLE_LIMIT_ENV_VAR
 } from "../src/runtime-options/sample-limits.js";
 
 void describe("unsupported extension sample limit", () => {

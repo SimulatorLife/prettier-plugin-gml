@@ -5,9 +5,10 @@
  * transpilation metrics including timing, sizes, and aggregate statistics.
  */
 
-import { describe, it, before, after } from "node:test";
 import assert from "node:assert";
 import { writeFile } from "node:fs/promises";
+import { after, before, describe, it } from "node:test";
+
 import { runWatchCommand } from "../src/commands/watch.js";
 import {
     createWatchTestFixture,

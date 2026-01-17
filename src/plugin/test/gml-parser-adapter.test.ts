@@ -1,6 +1,7 @@
 import assert from "node:assert/strict";
-import type { MutableGameMakerAstNode } from "@gml-modules/core";
 import { describe, it } from "node:test";
+
+import type { MutableGameMakerAstNode } from "@gml-modules/core";
 
 import { gmlParserAdapter } from "../src/parsers/gml-parser-adapter.js";
 

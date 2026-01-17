@@ -1,7 +1,17 @@
-export { createRuntimeWrapper } from "./runtime-wrapper.js";
-export { testPatchInShadow } from "./patch-utils.js";
 export { resolveBuiltinConstants } from "./builtin-constants.js";
-export { createLogger, createChangeEventLogger } from "./logger.js";
+export type {
+    GeneralLogger,
+    Logger,
+    LoggerConfiguration,
+    LoggerOptions,
+    LogLevel,
+    PatchLifecycleLogger,
+    RegistryLifecycleLogger,
+    WebSocketLogger
+} from "./logger.js";
+export { createChangeEventLogger, createLogger } from "./logger.js";
+export { testPatchInShadow } from "./patch-utils.js";
+export { createRuntimeWrapper } from "./runtime-wrapper.js";
 export type {
     ApplyPatchResult,
     BatchApplyResult,
@@ -29,20 +39,10 @@ export type {
     RuntimeMetrics,
     RuntimePatchError,
     RuntimeRegistry,
-    RuntimeRegistrySnapshot,
     RuntimeRegistryOverrides,
+    RuntimeRegistrySnapshot,
     RuntimeWrapper,
     RuntimeWrapperOptions,
     RuntimeWrapperState,
     TrySafeApplyResult
 } from "./types.js";
-export type {
-    Logger,
-    LoggerOptions,
-    LogLevel,
-    PatchLifecycleLogger,
-    RegistryLifecycleLogger,
-    WebSocketLogger,
-    GeneralLogger,
-    LoggerConfiguration
-} from "./logger.js";

@@ -1,4 +1,4 @@
-import { doc, type Doc } from "prettier";
+import { type Doc, doc } from "prettier";
 
 const { builders, utils } = doc;
 const rawJoin = builders.join;
@@ -149,4 +149,4 @@ export function align(widthOrString: number | string, parts: DocChild): Doc {
     return alignBuilder(widthOrString, sanitizeDocChild(parts));
 }
 
-export { breakParent, line, hardline, softline, lineSuffixBoundary, willBreak };
+export { breakParent, hardline, line, lineSuffixBoundary, softline, willBreak };

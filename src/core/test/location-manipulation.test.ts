@@ -2,8 +2,8 @@ import assert from "node:assert/strict";
 import test from "node:test";
 
 import {
-    removeLocationMetadata,
     remapLocationMetadata,
+    removeLocationMetadata,
     simplifyLocationMetadata
 } from "../src/ast/location-manipulation.js";
 

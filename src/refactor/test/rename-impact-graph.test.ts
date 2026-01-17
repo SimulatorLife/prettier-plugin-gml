@@ -3,10 +3,11 @@
  * Validates dependency graph analysis and critical path finding.
  */
 
-import { describe, it } from "node:test";
 import assert from "node:assert/strict";
+import { describe, it } from "node:test";
+
 import { computeRenameImpactGraph } from "../src/hot-reload.js";
-import type { PartialSemanticAnalyzer, DependentSymbol } from "../src/types.js";
+import type { DependentSymbol, PartialSemanticAnalyzer } from "../src/types.js";
 
 describe("computeRenameImpactGraph", () => {
     it("requires a valid symbolId", async () => {

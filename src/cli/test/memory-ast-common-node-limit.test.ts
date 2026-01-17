@@ -2,12 +2,12 @@ import assert from "node:assert/strict";
 import { afterEach, describe, it } from "node:test";
 
 import {
-    DEFAULT_MEMORY_AST_COMMON_NODE_LIMIT,
-    MEMORY_AST_COMMON_NODE_LIMIT_ENV_VAR,
+    __test__,
     applyAstCommonNodeTypeLimitEnvOverride,
+    DEFAULT_MEMORY_AST_COMMON_NODE_LIMIT,
     getAstCommonNodeTypeLimit,
-    setAstCommonNodeTypeLimit,
-    __test__
+    MEMORY_AST_COMMON_NODE_LIMIT_ENV_VAR,
+    setAstCommonNodeTypeLimit
 } from "../src/commands/memory.js";
 
 const { collectCommonNodeTypes } = __test__;

@@ -3,10 +3,10 @@ import { describe, it, mock } from "node:test";
 
 import {
     CliUsageError,
+    createCliErrorDetails,
     formatCliError,
     handleCliError,
-    markAsCliUsageError,
-    createCliErrorDetails
+    markAsCliUsageError
 } from "../src/cli-core/errors.js";
 
 void describe("cli error formatting", () => {

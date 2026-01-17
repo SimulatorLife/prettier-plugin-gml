@@ -3,7 +3,8 @@ import fs from "node:fs/promises";
 import path from "node:path";
 
 import { Core } from "@gml-modules/core";
-import { resolveFromRepoRoot, ensureDir } from "../../shared/index.js";
+
+import { ensureDir, resolveFromRepoRoot } from "../../shared/index.js";
 
 const { getErrorMessageOrFallback } = Core;
 

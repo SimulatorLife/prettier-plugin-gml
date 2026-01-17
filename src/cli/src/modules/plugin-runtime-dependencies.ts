@@ -7,5 +7,4 @@
 // dependency bundle lean and makes the runtime boundary explicit for consumers
 // that actually need it.
 export { importPluginModule, resolvePluginEntryPoint } from "../plugin-runtime/entry-point.js";
-
 export { resolvePluginEntryPoint as resolveCliPluginEntryPoint } from "../plugin-runtime/entry-point.js";

@@ -6,11 +6,12 @@
  * be replayed immediately.
  */
 
-import { describe, it, before, after } from "node:test";
 import assert from "node:assert";
 import { Buffer } from "node:buffer";
 import { mkdir, rm, writeFile } from "node:fs/promises";
 import path from "node:path";
+import { after, before, describe, it } from "node:test";
+
 import WebSocket from "ws";
 
 import { runWatchCommand } from "../src/commands/watch.js";

@@ -1,7 +1,7 @@
 import assert from "node:assert/strict";
 import test from "node:test";
 
-import { walkObjectGraph, walkAst } from "../src/ast/object-graph.js";
+import { walkAst, walkObjectGraph } from "../src/ast/object-graph.js";
 
 void test("walkObjectGraph visits each object once even with cycles", () => {
     const shared: Record<string, unknown> & { value: number } = { value: 1 };

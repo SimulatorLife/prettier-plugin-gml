@@ -1,8 +1,8 @@
 export {
-    startRuntimeStaticServer,
+    type RuntimeServerProperties,
     type RuntimeStaticServerHandle,
     type RuntimeStaticServerInstance,
-    type RuntimeServerProperties,
-    type RuntimeStaticServerOptions
+    type RuntimeStaticServerOptions,
+    startRuntimeStaticServer
 } from "./server.js";
 export * from "./source.js";

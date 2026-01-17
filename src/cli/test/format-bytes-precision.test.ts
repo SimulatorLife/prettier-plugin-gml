@@ -1,5 +1,5 @@
-import { describe, it } from "node:test";
 import assert from "node:assert";
+import { describe, it } from "node:test";
 
 /**
  * Test helper that replicates the OLD buggy formatBytes implementation

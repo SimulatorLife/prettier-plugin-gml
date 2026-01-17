@@ -1,7 +1,8 @@
 import { strict as assert } from "node:assert";
 import { describe, test } from "node:test";
-import { createRuntimeWrapper } from "../src/runtime/runtime-wrapper.js";
+
 import { validatePatchDependencies } from "../src/runtime/patch-utils.js";
+import { createRuntimeWrapper } from "../src/runtime/runtime-wrapper.js";
 import type { Patch, RuntimeRegistry } from "../src/runtime/types.js";
 
 describe("Dependency Validation", () => {

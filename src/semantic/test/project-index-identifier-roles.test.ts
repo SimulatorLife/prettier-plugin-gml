@@ -1,7 +1,7 @@
 import assert from "node:assert/strict";
 import test from "node:test";
 
-import { IdentifierRole, assertValidIdentifierRole } from "../src/project-index/identifier-roles.js";
+import { assertValidIdentifierRole, IdentifierRole } from "../src/project-index/identifier-roles.js";
 
 void test("assertValidIdentifierRole accepts declared roles", () => {
     assert.equal(assertValidIdentifierRole(IdentifierRole.DECLARATION), IdentifierRole.DECLARATION);

@@ -2,9 +2,10 @@ import assert from "node:assert/strict";
 import test from "node:test";
 
 import antlr4 from "antlr4";
+
 import {
-    isRecognitionExceptionLike,
-    installRecognitionExceptionLikeGuard
+    installRecognitionExceptionLikeGuard,
+    isRecognitionExceptionLike
 } from "../src/runtime/recognition-exception-patch.js";
 
 type RecognitionExceptionConstructor = new (...args: unknown[]) => object;

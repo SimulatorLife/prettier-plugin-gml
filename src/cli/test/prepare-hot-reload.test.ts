@@ -1,15 +1,15 @@
 import assert from "node:assert/strict";
-import { describe, it } from "node:test";
 import fs from "node:fs/promises";
 import os from "node:os";
 import path from "node:path";
+import { describe, it } from "node:test";
 
 import { createPrepareHotReloadCommand } from "../src/commands/prepare-hot-reload.js";
 import {
-    prepareHotReloadInjection,
+    __test__,
     DEFAULT_GM_TEMP_ROOT,
     DEFAULT_WEBSOCKET_URL,
-    __test__
+    prepareHotReloadInjection
 } from "../src/modules/hot-reload/inject-runtime.js";
 
 const { HOT_RELOAD_MARKER_START, extractGmWebServerRoot } = __test__;

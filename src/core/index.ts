@@ -3,11 +3,11 @@ export { Core } from "./src/index.js";
 
 // Re-export key types for consumer usage
 export type {
+    AbortSignalLike,
+    DebouncedFunction,
+    DocCommentLines,
     GameMakerAstLocation,
     GameMakerAstNode,
-    MutableGameMakerAstNode,
-    DocCommentLines,
     MutableDocCommentLines,
-    AbortSignalLike,
-    DebouncedFunction
+    MutableGameMakerAstNode
 } from "./src/index.js";

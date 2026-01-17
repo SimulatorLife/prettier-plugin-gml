@@ -1,5 +1,6 @@
-import { describe, it } from "node:test";
 import assert from "node:assert/strict";
+import { describe, it } from "node:test";
+
 import { Parser } from "../src/index.js";
 import { validateSourceText } from "../src/utils/input-validation.js";
 

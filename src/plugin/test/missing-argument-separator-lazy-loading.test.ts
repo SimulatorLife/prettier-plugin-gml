@@ -1,6 +1,8 @@
-import { describe, it } from "node:test";
 import assert from "node:assert";
+import { describe, it } from "node:test";
+
 import { Core } from "@gml-modules/core";
+
 import { clearForbiddenCalleeIdentifiersCache } from "../src/transforms/missing-argument-separator-sanitizer.js";
 
 // Memory test thresholds

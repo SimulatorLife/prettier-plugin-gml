@@ -1,5 +1,12 @@
 import { Core } from "@gml-modules/core";
+
 import type { ParserContext, VisitorOptions, VisitorPayload } from "../types/index.js";
+import {
+    getParserVisitorBase,
+    getParseTreeVisitorPrototype,
+    type ParserVisitorBaseConstructor,
+    type ParserVisitorPrototype
+} from "./generated-bindings.js";
 import {
     collectPrototypeMethodNames,
     collectVisitMethodNames,
@@ -7,12 +14,6 @@ import {
     definePrototypeMethods,
     ensureHasInstancePatched
 } from "./parse-tree-helpers.js";
-import {
-    getParseTreeVisitorPrototype,
-    getParserVisitorBase,
-    type ParserVisitorBaseConstructor,
-    type ParserVisitorPrototype
-} from "./generated-bindings.js";
 
 const DEFAULT_VISIT_CHILDREN_DELEGATE = ({ fallback }: VisitorPayload) => fallback();
 

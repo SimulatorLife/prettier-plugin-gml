@@ -1,3 +1,4 @@
+import { Core } from "@gml-modules/core";
 import antlr4 from "antlr4";
 
 import GameMakerLanguageLexer from "../generated/GameMakerLanguageLexer.js";
@@ -5,11 +6,10 @@ import GameMakerLanguageParser from "../generated/GameMakerLanguageParser.js";
 import GameMakerASTBuilder from "./ast/gml-ast-builder.js";
 import createGameMakerParseErrorListener, { createGameMakerLexerErrorListener } from "./ast/gml-syntax-error.js";
 import { createHiddenNodeProcessor } from "./ast/hidden-node-processor.js";
-import { Core } from "@gml-modules/core";
 import { installRecognitionExceptionLikeGuard } from "./runtime/index.js";
+import { defaultParserOptions, type ParserOptions } from "./types/index.js";
 import convertToESTree from "./utils/estree-converter.js";
 import { validateSourceText } from "./utils/input-validation.js";
-import { defaultParserOptions, type ParserOptions } from "./types/index.js";
 
 const PredictionMode =
     (antlr4 as unknown as { atn?: { PredictionMode: unknown } }).atn?.PredictionMode ??

@@ -1,7 +1,7 @@
-import { describe, it } from "node:test";
 import assert from "node:assert/strict";
 import { writeFile } from "node:fs/promises";
 import path from "node:path";
+import { describe, it } from "node:test";
 import { setTimeout as sleep } from "node:timers/promises";
 
 import { runWatchTest } from "./test-helpers/watch-runner.js";

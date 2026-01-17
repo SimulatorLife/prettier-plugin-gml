@@ -1,13 +1,14 @@
 import { Semantic } from "@gml-modules/semantic";
+
+import { handleComments, printComment } from "../comments/index.js";
 import { LogicalOperatorsStyle } from "../options/logical-operators-style.js";
-import type { GmlPluginComponentContract } from "./plugin-types.js";
-import { selectPluginComponentContractEntries } from "./plugin-component-contract.js";
 // Concrete adapter imports - encapsulated at this module boundary.
 // Higher-level code receives these through the factory function rather than
 // importing them directly, establishing a proper dependency inversion boundary.
 import { gmlParserAdapter } from "../parsers/index.js";
 import { print } from "../printer/index.js";
-import { handleComments, printComment } from "../comments/index.js";
+import { selectPluginComponentContractEntries } from "./plugin-component-contract.js";
+import type { GmlPluginComponentContract } from "./plugin-types.js";
 
 /**
  * Dependencies required to build the plugin component implementations.
@@ -60,7 +61,7 @@ const gmlPluginComponentDependencies = Object.freeze(
     createDefaultGmlPluginComponentDependencies(gmlPluginComponentImplementations)
 );
 
-export { gmlPluginComponentImplementations, gmlPluginComponentDependencies };
+export { gmlPluginComponentDependencies, gmlPluginComponentImplementations };
 
 export const defaultGmlPluginComponentImplementations = gmlPluginComponentImplementations;
 export const defaultGmlPluginComponentDependencies = gmlPluginComponentDependencies;

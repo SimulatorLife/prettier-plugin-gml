@@ -2,14 +2,15 @@
  * Tests for occurrence analysis utilities.
  */
 
-import { describe, it } from "node:test";
 import * as assert from "node:assert/strict";
+import { describe, it } from "node:test";
+
 import {
     classifyOccurrences,
+    countAffectedFiles,
     filterOccurrencesByKind,
-    groupOccurrencesByFile,
     findOccurrencesInFile,
-    countAffectedFiles
+    groupOccurrencesByFile
 } from "../src/occurrence-analysis.js";
 import { OccurrenceKind, type SymbolOccurrence } from "../src/types.js";
 

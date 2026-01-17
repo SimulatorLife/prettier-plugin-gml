@@ -27,31 +27,32 @@
  * The transforms here mutate the AST, gather fix metadata, and expose diagnostics-driven helpers to the CLI plugin.
  */
 
-import { Core, type MutableGameMakerAstNode, type GameMakerAstNode } from "@gml-modules/core";
+import { Core, type GameMakerAstNode, type MutableGameMakerAstNode } from "@gml-modules/core";
+
+import { NUMERIC_STRING_LITERAL_PATTERN } from "../../literals/numeric-literals.js";
+import {
+    getDeprecatedDocCommentFunctionSet,
+    getDocCommentMetadata,
+    setDeprecatedDocCommentFunctionSet
+} from "../doc-comment/doc-comment-metadata.js";
 import type { ParserTransform } from "../functional-transform.js";
+import { preprocessFunctionArgumentDefaultsTransform } from "../preprocess-function-argument-defaults.js";
 import {
     getEndFromNode,
     getStartFromNode,
     hasArrayParentWithNumericIndex,
     resolveCallExpressionArrayContext
 } from "./ast-traversal.js";
-import {
-    hasFeatherDiagnosticContext,
-    createFeatherFixDetail,
-    attachFeatherFixMetadata,
-    createCallExpressionTargetFixDetail,
-    hasFeatherSourceTextContext
-} from "./utils.js";
-import { removeDuplicateSemicolons, findDuplicateSemicolonRanges } from "./semicolon-fixes.js";
 import { removeDuplicateEnumMembers, sanitizeEnumAssignments } from "./enum-fixes.js";
 import { parseExample } from "./parser-bootstrap.js";
-import { preprocessFunctionArgumentDefaultsTransform } from "../preprocess-function-argument-defaults.js";
-import { NUMERIC_STRING_LITERAL_PATTERN } from "../../literals/numeric-literals.js";
+import { findDuplicateSemicolonRanges, removeDuplicateSemicolons } from "./semicolon-fixes.js";
 import {
-    getDocCommentMetadata,
-    getDeprecatedDocCommentFunctionSet,
-    setDeprecatedDocCommentFunctionSet
-} from "../doc-comment/doc-comment-metadata.js";
+    attachFeatherFixMetadata,
+    createCallExpressionTargetFixDetail,
+    createFeatherFixDetail,
+    hasFeatherDiagnosticContext,
+    hasFeatherSourceTextContext
+} from "./utils.js";
 
 type RenameOptions = {
     // DUPLICATION WARNING: The identifier renaming logic in this file may overlap

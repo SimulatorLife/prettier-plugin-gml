@@ -1,7 +1,8 @@
 /**
  * Ensures optional function parameters with implicit `undefined` defaults are materialized before downstream transforms run.
  */
-import { Core, type MutableGameMakerAstNode, type GameMakerAstNode } from "@gml-modules/core";
+import { Core, type GameMakerAstNode, type MutableGameMakerAstNode } from "@gml-modules/core";
+
 import type { ParserTransform } from "./functional-transform.js";
 
 type PreprocessFunctionArgumentDefaultsTransformOptions = Record<string, never>;

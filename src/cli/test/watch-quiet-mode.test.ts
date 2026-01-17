@@ -5,10 +5,11 @@
  * while keeping errors and server URLs visible.
  */
 
-import { describe, it, before, after } from "node:test";
 import assert from "node:assert";
-import { writeFile, mkdir, rm } from "node:fs/promises";
+import { mkdir, rm, writeFile } from "node:fs/promises";
 import path from "node:path";
+import { after, before, describe, it } from "node:test";
+
 import { runWatchCommand } from "../src/commands/watch.js";
 import { findAvailablePort } from "./test-helpers/free-port.js";
 

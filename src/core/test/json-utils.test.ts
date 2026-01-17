@@ -1,13 +1,13 @@
 import assert from "node:assert/strict";
 import { describe, it } from "node:test";
 
+import { isErrorLike } from "../src/utils/capability-probes.js";
 import {
     isJsonParseError,
+    type JsonParseError,
     parseJsonWithContext,
-    stringifyJsonForFile,
-    type JsonParseError
+    stringifyJsonForFile
 } from "../src/utils/json.js";
-import { isErrorLike } from "../src/utils/capability-probes.js";
 
 void describe("parseJsonWithContext", () => {
     void it("parses JSON payloads with optional revivers", () => {

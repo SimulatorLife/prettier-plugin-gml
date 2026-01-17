@@ -1,8 +1,9 @@
 import assert from "node:assert/strict";
 import test from "node:test";
 
-import { decodeManualKeywordsPayload, decodeManualTagsPayload } from "../src/modules/manual/payload-validation.js";
 import { Core } from "@gml-modules/core";
+
+import { decodeManualKeywordsPayload, decodeManualTagsPayload } from "../src/modules/manual/payload-validation.js";
 
 const { getErrorMessageOrFallback, isJsonParseError } = Core;
 

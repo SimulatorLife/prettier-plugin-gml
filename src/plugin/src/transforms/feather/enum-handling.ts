@@ -3,6 +3,7 @@
  * The module rewrites numeric literal strings and tracks trimmed indentation so fix metadata stays aligned.
  */
 import { Core } from "@gml-modules/core";
+
 import { isIntegerLiteralString } from "./utils.js";
 
 function sanitizeEnumBodyInitializerStrings(body: string, bodyStartIndex: number, totalRemoved: number) {

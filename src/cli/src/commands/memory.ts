@@ -1,37 +1,38 @@
-import path from "node:path";
-import process from "node:process";
-import { readFile, type FileHandle } from "node:fs/promises";
-import { performance } from "node:perf_hooks";
 import type { PathLike, WriteFileOptions } from "node:fs";
+import { type FileHandle, readFile } from "node:fs/promises";
+import path from "node:path";
+import { performance } from "node:perf_hooks";
+import process from "node:process";
 import type { Stream } from "node:stream";
 
-import { Command, Option, InvalidArgumentError } from "commander";
 import { Core } from "@gml-modules/core";
 import { Parser } from "@gml-modules/parser";
+import { Command, InvalidArgumentError, Option } from "commander";
+
+import type { CommanderOptionSetter } from "../cli-core/commander-types.js";
 import {
-    SuiteOutputFormat,
-    collectSuiteResults,
-    createSuiteResultsPayload,
-    emitSuiteResults as emitSuiteResultsJson,
-    ensureSuitesAreKnown,
-    resolveRequestedSuites,
-    resolveSuiteOutputFormatOrThrow,
     applyEnvOptionOverrides,
     applyStandardCommandOptions,
     coercePositiveInteger,
-    wrapInvalidArgumentResolver,
+    collectSuiteResults,
+    type CommanderCommandLike,
+    createSuiteResultsPayload,
+    emitSuiteResults as emitSuiteResultsJson,
+    ensureSuitesAreKnown,
     isCommanderHelpDisplayedError,
-    type CommanderCommandLike
+    resolveRequestedSuites,
+    resolveSuiteOutputFormatOrThrow,
+    SuiteOutputFormat,
+    wrapInvalidArgumentResolver
 } from "../cli-core/index.js";
+import { importPluginModule } from "../modules/plugin-runtime-dependencies.js";
 import {
     REPO_ROOT,
+    Reporting,
     resolveFromRepoRoot,
     resolveModuleDefaultExport,
-    writeJsonArtifact,
-    Reporting
+    writeJsonArtifact
 } from "../shared/index.js";
-import { importPluginModule } from "../modules/plugin-runtime-dependencies.js";
-import type { CommanderOptionSetter } from "../cli-core/commander-types.js";
 
 const { formatByteSizeDisplay } = Reporting;
 
@@ -730,25 +731,25 @@ function applyMemoryIterationsEnvOverride(env?: NodeJS.ProcessEnv): number | und
 }
 
 export {
-    getDefaultMemoryIterations,
-    setDefaultMemoryIterations,
-    applyMemoryIterationsEnvOverride,
-    getMaxParserIterations,
-    setMaxParserIterations,
-    applyParserMaxIterationsEnvOverride,
-    getMaxFormatIterations,
-    setMaxFormatIterations,
-    applyFormatMaxIterationsEnvOverride,
-    getAstCommonNodeTypeLimit,
-    setAstCommonNodeTypeLimit,
     applyAstCommonNodeTypeLimitEnvOverride,
-    resolveAstCommonNodeTypeLimit,
-    getDefaultMemoryReportDirectory,
-    setDefaultMemoryReportDirectory,
+    applyFormatMaxIterationsEnvOverride,
+    applyMemoryIterationsEnvOverride,
     applyMemoryReportDirectoryEnvOverride,
+    applyMemoryReportFileNameEnvOverride,
+    applyParserMaxIterationsEnvOverride,
+    getAstCommonNodeTypeLimit,
+    getDefaultMemoryIterations,
+    getDefaultMemoryReportDirectory,
     getDefaultMemoryReportFileName,
+    getMaxFormatIterations,
+    getMaxParserIterations,
+    resolveAstCommonNodeTypeLimit,
+    setAstCommonNodeTypeLimit,
+    setDefaultMemoryIterations,
+    setDefaultMemoryReportDirectory,
     setDefaultMemoryReportFileName,
-    applyMemoryReportFileNameEnvOverride
+    setMaxFormatIterations,
+    setMaxParserIterations
 };
 
 export { resolveMemoryIterations, resolveMemoryReportDirectory, resolveMemoryReportFileName };

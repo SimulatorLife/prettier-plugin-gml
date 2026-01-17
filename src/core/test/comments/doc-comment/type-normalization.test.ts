@@ -1,5 +1,6 @@
 import assert from "node:assert/strict";
 import { test } from "node:test";
+
 import { Core } from "@gml-modules/core";
 
 const NORMALIZATION_CASES = [

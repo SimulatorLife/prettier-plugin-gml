@@ -2,12 +2,12 @@ import assert from "node:assert/strict";
 import { afterEach, describe, it } from "node:test";
 
 import {
+    applyVmEvalTimeoutEnvOverride,
     DEFAULT_VM_EVAL_TIMEOUT_MS,
-    resolveVmEvalTimeout,
     getDefaultVmEvalTimeoutMs,
+    resolveVmEvalTimeout,
     setDefaultVmEvalTimeoutMs,
-    VM_EVAL_TIMEOUT_ENV_VAR,
-    applyVmEvalTimeoutEnvOverride
+    VM_EVAL_TIMEOUT_ENV_VAR
 } from "../src/runtime-options/vm-eval-timeout.js";
 
 const originalDefaultTimeout = getDefaultVmEvalTimeoutMs();

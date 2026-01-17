@@ -1,9 +1,10 @@
-import path from "node:path";
-import { Core } from "@gml-modules/core";
 import { createHash, randomUUID } from "node:crypto";
+import path from "node:path";
 
-import { isProjectManifestPath } from "./constants.js";
+import { Core } from "@gml-modules/core";
+
 import { evaluateProjectIndexCacheSizePolicy, normalizeProjectIndexCacheMaxSizeBytes } from "./cache-write-policy.js";
+import { isProjectManifestPath } from "./constants.js";
 import { defaultFsFacade, type ProjectIndexFsFacade } from "./fs-facade.js";
 
 export const PROJECT_INDEX_CACHE_SCHEMA_VERSION = 1;
@@ -214,7 +215,7 @@ function validateCachePayload(payload) {
     return true;
 }
 
-export { getDefaultProjectIndexCacheMaxSize, setDefaultProjectIndexCacheMaxSize, applyProjectIndexCacheEnvOverride };
+export { applyProjectIndexCacheEnvOverride, getDefaultProjectIndexCacheMaxSize, setDefaultProjectIndexCacheMaxSize };
 
 export async function loadProjectIndexCache(
     descriptor,

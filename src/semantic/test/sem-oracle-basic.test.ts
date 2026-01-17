@@ -1,8 +1,8 @@
-import test from "node:test";
 import assert from "node:assert/strict";
+import test from "node:test";
 
-import { BasicSemanticOracle } from "../src/symbols/sem-oracle.js";
 import ScopeTracker from "../src/scopes/scope-tracker.js";
+import { BasicSemanticOracle } from "../src/symbols/sem-oracle.js";
 
 void test("BasicSemanticOracle: kindOfIdent returns 'local' for null node", () => {
     const oracle = new BasicSemanticOracle(null);

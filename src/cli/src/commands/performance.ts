@@ -2,15 +2,16 @@ import fs from "node:fs/promises";
 import path from "node:path";
 import { performance } from "node:perf_hooks";
 import process from "node:process";
-import { normalizeFixtureRoots, createPathFilter } from "../workflow/fixture-roots.js";
-import { Command, Option, InvalidArgumentError } from "commander";
+
 import { Core } from "@gml-modules/core";
-import { applyStandardCommandOptions } from "../cli-core/command-standard-options.js";
+import { Command, InvalidArgumentError, Option } from "commander";
+
 import {
     coercePositiveInteger,
     resolveIntegerOption,
     wrapInvalidArgumentResolver
 } from "../cli-core/command-parsing.js";
+import { applyStandardCommandOptions } from "../cli-core/command-standard-options.js";
 import {
     collectSuiteResults,
     emitSuiteResults,
@@ -20,22 +21,23 @@ import {
     SuiteOutputFormat,
     type SuiteRunner
 } from "../cli-core/command-suite-helpers.js";
+import type { CommanderCommandLike } from "../cli-core/commander-types.js";
 import { createCliErrorDetails } from "../cli-core/errors.js";
-import { createCliRunSkippedError, isCliRunSkipped } from "../shared/skip-cli-run.js";
-import { formatByteSize } from "../shared/reporting/byte-format.js";
-import { REPO_ROOT } from "../shared/workspace-paths.js";
-import { resolveModuleDefaultExport } from "../shared/module.js";
-import { writeJsonArtifact } from "../shared/fs-artifacts.js";
-import { resolvePluginEntryPoint as resolveCliPluginEntryPoint } from "../modules/plugin-runtime-dependencies.js";
+import { formatMetricValue } from "../modules/performance/metric-formatters.js";
 import {
-    PerformanceSuiteName,
     formatPerformanceSuiteList,
     isPerformanceThroughputSuite,
-    normalizePerformanceSuiteName
+    normalizePerformanceSuiteName,
+    PerformanceSuiteName
 } from "../modules/performance/suite-options.js";
-import { formatMetricValue } from "../modules/performance/metric-formatters.js";
+import { resolvePluginEntryPoint as resolveCliPluginEntryPoint } from "../modules/plugin-runtime-dependencies.js";
+import { writeJsonArtifact } from "../shared/fs-artifacts.js";
+import { resolveModuleDefaultExport } from "../shared/module.js";
+import { formatByteSize } from "../shared/reporting/byte-format.js";
+import { createCliRunSkippedError, isCliRunSkipped } from "../shared/skip-cli-run.js";
+import { REPO_ROOT } from "../shared/workspace-paths.js";
+import { createPathFilter, normalizeFixtureRoots } from "../workflow/fixture-roots.js";
 import type { WorkflowPathFilterOptions } from "../workflow/path-filter.js";
-import type { CommanderCommandLike } from "../cli-core/commander-types.js";
 
 const {
     appendToCollection,

@@ -18,7 +18,8 @@
  */
 
 import { Core } from "@gml-modules/core";
-import { resolveObjectRuntimeIdFromSegments, getRuntimePathSegments } from "./runtime-identifiers.js";
+
+import { getRuntimePathSegments, resolveObjectRuntimeIdFromSegments } from "./runtime-identifiers.js";
 
 const { FUNCTION_DECLARATION, VARIABLE_DECLARATOR, ASSIGNMENT_EXPRESSION } = {
     FUNCTION_DECLARATION: Core.FUNCTION_DECLARATION,

@@ -7,13 +7,13 @@ export type {
     RuntimeWebSocketClient,
     RuntimeWebSocketConstructor,
     RuntimeWebSocketInstance,
-    WebSocketEvent,
     WebSocketClientOptions,
     WebSocketClientState,
-    WebSocketConnectionMetrics,
     WebSocketConnectionLifecycle,
-    WebSocketMessageSender,
+    WebSocketConnectionMetrics,
+    WebSocketEvent,
     WebSocketInstanceProvider,
+    WebSocketMessageSender,
     WebSocketMetricsCollector,
     WebSocketPatchQueueManager
 } from "./types.js";

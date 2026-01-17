@@ -2,10 +2,10 @@ import assert from "node:assert/strict";
 import { afterEach, describe, it } from "node:test";
 
 import {
-    DEFAULT_MAX_FORMAT_ITERATIONS,
-    MEMORY_FORMAT_MAX_ITERATIONS_ENV_VAR,
     applyFormatMaxIterationsEnvOverride,
+    DEFAULT_MAX_FORMAT_ITERATIONS,
     getMaxFormatIterations,
+    MEMORY_FORMAT_MAX_ITERATIONS_ENV_VAR,
     setMaxFormatIterations
 } from "../src/commands/memory.js";
 

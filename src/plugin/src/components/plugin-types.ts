@@ -1,5 +1,5 @@
-import type { Parser, ParserOptions, Plugin, Printer, SupportOptions } from "prettier";
 import type { MutableGameMakerAstNode } from "@gml-modules/core";
+import type { Parser, ParserOptions, Plugin, Printer, SupportOptions } from "prettier";
 
 export type GmlAst = MutableGameMakerAstNode;
 

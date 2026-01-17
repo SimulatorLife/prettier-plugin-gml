@@ -2,8 +2,9 @@
  * Tests for the watch-status command.
  */
 
-import { describe, it } from "node:test";
 import assert from "node:assert/strict";
+import { describe, it } from "node:test";
+
 import { createWatchStatusCommand, runWatchStatusCommand } from "../src/commands/watch-status.js";
 
 describe("watch-status command", () => {

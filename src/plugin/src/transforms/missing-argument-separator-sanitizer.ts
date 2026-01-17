@@ -3,12 +3,13 @@
  * The sanitizer emits index adjustments for downstream location remapping.
  */
 import { Core } from "@gml-modules/core";
+
 import {
     advanceThroughComment,
     advanceThroughStringLiteral,
     createStringCommentScanState,
-    tryStartStringOrComment,
-    type StringCommentScanState
+    type StringCommentScanState,
+    tryStartStringOrComment
 } from "./source-text/string-comment-scan.js";
 
 const FALLBACK_FORBIDDEN_CALLEE = [

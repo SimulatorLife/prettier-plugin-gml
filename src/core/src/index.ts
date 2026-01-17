@@ -22,9 +22,9 @@ import * as AST from "./ast/index.js";
 import * as Comments from "./comments/index.js";
 import * as FS from "./fs/index.js";
 import * as Metrics from "./metrics/index.js";
-import * as Utils from "./utils/index.js";
-import * as Resources from "./resources/index.js";
 import * as IdentifierMetadata from "./resources/gml-identifier-loading.js";
+import * as Resources from "./resources/index.js";
+import * as Utils from "./utils/index.js";
 
 // Define the Core namespace type from existing module types
 type CoreNamespace = typeof AST &

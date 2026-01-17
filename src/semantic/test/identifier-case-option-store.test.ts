@@ -2,14 +2,14 @@ import assert from "node:assert/strict";
 import test from "node:test";
 
 import {
-    setIdentifierCaseOption,
-    getIdentifierCaseOptionStore,
     clearIdentifierCaseOptionStore,
-    MAX_IDENTIFIER_CASE_OPTION_STORE_ENTRIES,
     deleteIdentifierCaseOption,
     getDefaultIdentifierCaseOptionStoreMaxEntries,
+    getIdentifierCaseOptionStore,
+    IDENTIFIER_CASE_OPTION_STORE_MAX_ENTRIES_BASELINE,
+    MAX_IDENTIFIER_CASE_OPTION_STORE_ENTRIES,
     setDefaultIdentifierCaseOptionStoreMaxEntries,
-    IDENTIFIER_CASE_OPTION_STORE_MAX_ENTRIES_BASELINE
+    setIdentifierCaseOption
 } from "../src/identifier-case/option-store.js";
 
 function buildOptions(fileIndex, overrides = {}) {

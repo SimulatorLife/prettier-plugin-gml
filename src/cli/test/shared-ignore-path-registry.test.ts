@@ -2,11 +2,11 @@ import assert from "node:assert/strict";
 import { describe, it } from "node:test";
 
 import {
-    registerIgnorePath,
-    hasRegisteredIgnorePath,
-    resetRegisteredIgnorePaths,
     getRegisteredIgnorePathCount,
-    getRegisteredIgnorePathsSnapshot
+    getRegisteredIgnorePathsSnapshot,
+    hasRegisteredIgnorePath,
+    registerIgnorePath,
+    resetRegisteredIgnorePaths
 } from "../src/shared/ignore-path-registry.js";
 
 void describe("ignore path registry", () => {

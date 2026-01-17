@@ -1,19 +1,20 @@
 import path from "node:path";
 
 import { Core } from "@gml-modules/core";
-import { formatIdentifierCase } from "./identifier-case-utils.js";
+
+import { createAssetRenameExecutor } from "./asset-rename-executor.js";
 import {
     COLLISION_CONFLICT_CODE,
-    RESERVED_CONFLICT_CODE,
     createConflict,
     formatConfigurationConflictMessage,
+    RESERVED_CONFLICT_CODE,
     resolveIdentifierConfigurationConflict,
     summarizeReferenceFileOccurrences
 } from "./common.js";
-import { createAssetRenameExecutor } from "./asset-rename-executor.js";
-import { defaultIdentifierCaseFsFacade } from "./fs-facade.js";
-import { IdentifierCaseStyle, normalizeIdentifierCaseAssetStyle } from "./options.js";
 import { ConflictSeverity } from "./conflict-severity.js";
+import { defaultIdentifierCaseFsFacade } from "./fs-facade.js";
+import { formatIdentifierCase } from "./identifier-case-utils.js";
+import { IdentifierCaseStyle, normalizeIdentifierCaseAssetStyle } from "./options.js";
 
 const RESERVED_IDENTIFIER_NAMES = Core.loadReservedIdentifierNames();
 

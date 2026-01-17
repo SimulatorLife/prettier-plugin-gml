@@ -3,10 +3,10 @@ import path from "node:path";
 import test from "node:test";
 
 import {
+    __loadBuiltInIdentifiersForTests as loadBuiltInIdentifiersForTests,
     deriveCacheKey,
     findProjectRoot,
-    PROJECT_MANIFEST_EXTENSION,
-    __loadBuiltInIdentifiersForTests as loadBuiltInIdentifiersForTests
+    PROJECT_MANIFEST_EXTENSION
 } from "../src/project-index/index.js";
 
 function createMockFs(entries) {

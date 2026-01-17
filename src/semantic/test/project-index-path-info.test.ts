@@ -1,6 +1,6 @@
 import assert from "node:assert/strict";
-import { describe, it } from "node:test";
 import path from "node:path";
+import { describe, it } from "node:test";
 
 import { resolveProjectPathInfo } from "../src/project-index/path-info.js";
 

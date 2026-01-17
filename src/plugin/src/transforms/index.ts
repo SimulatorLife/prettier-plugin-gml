@@ -1,5 +1,5 @@
 import type { MutableGameMakerAstNode } from "@gml-modules/core";
-import { applyFeatherFixesTransform } from "./feather/apply-feather-fixes.js";
+
 import { annotateStaticFunctionOverridesTransform } from "./annotate-static-overrides.js";
 import { collapseRedundantMissingCallArgumentsTransform } from "./collapse-redundant-arguments.js";
 import { condenseGuardStatementsTransform } from "./condense-guard-statements.js";
@@ -7,14 +7,15 @@ import { condenseLogicalExpressionsTransform } from "./condense-logical-expressi
 import { consolidateStructAssignmentsTransform } from "./consolidate-struct-assignments.js";
 import { convertStringConcatenationsTransform } from "./convert-string-concatenations.js";
 import { convertUndefinedGuardAssignmentsTransform } from "./convert-undefined-guard-assignments.js";
+import { docCommentNormalizationTransform } from "./doc-comment/doc-comment-normalization.js";
 import { enforceVariableBlockSpacingTransform } from "./enforce-variable-block-spacing.js";
+import { applyFeatherFixesTransform } from "./feather/apply-feather-fixes.js";
+import type { ParserTransform } from "./functional-transform.js";
 import { markCallsMissingArgumentSeparatorsTransform } from "./mark-missing-separators.js";
 import { normalizeDataStructureAccessorsTransform } from "./normalize-data-structure-accessors.js";
 import { optimizeMathExpressionsTransform } from "./optimize-math-expressions.js";
 import { preprocessFunctionArgumentDefaultsTransform } from "./preprocess-function-argument-defaults.js";
 import { stripCommentsTransform } from "./strip-comments.js";
-import { docCommentNormalizationTransform } from "./doc-comment/doc-comment-normalization.js";
-import type { ParserTransform } from "./functional-transform.js";
 
 /**
  * Central registry for parser transforms exposed by the plugin pipeline.
@@ -101,6 +102,20 @@ export const availableTransforms = TRANSFORM_REGISTRY_ENTRIES.map(
     (transform) => transform.name
 ) as readonly ParserTransformName[];
 
+export { annotateStaticFunctionOverridesTransform } from "./annotate-static-overrides.js";
+export { collapseRedundantMissingCallArgumentsTransform } from "./collapse-redundant-arguments.js";
+export { condenseGuardStatementsTransform } from "./condense-guard-statements.js";
+export { condenseLogicalExpressionsTransform } from "./condense-logical-expressions.js";
+export {
+    applySanitizedIndexAdjustments,
+    conditionalAssignmentSanitizerTransform,
+    sanitizeConditionalAssignments
+} from "./conditional-assignment-sanitizer.js";
+export { consolidateStructAssignmentsTransform } from "./consolidate-struct-assignments.js";
+export { convertStringConcatenationsTransform } from "./convert-string-concatenations.js";
+export { convertUndefinedGuardAssignmentsTransform } from "./convert-undefined-guard-assignments.js";
+export { docCommentNormalizationTransform } from "./doc-comment/doc-comment-normalization.js";
+export { enforceVariableBlockSpacingTransform } from "./enforce-variable-block-spacing.js";
 export {
     applyFeatherFixesTransform,
     getFeatherDiagnosticFixers,
@@ -108,26 +123,12 @@ export {
     ROOM_NAVIGATION_DIRECTION
 } from "./feather/apply-feather-fixes.js";
 export { applyRemovedIndexAdjustments, preprocessSourceForFeatherFixes } from "./feather/enum-handling.js";
-export { condenseLogicalExpressionsTransform } from "./condense-logical-expressions.js";
-export { condenseGuardStatementsTransform } from "./condense-guard-statements.js";
-export { consolidateStructAssignmentsTransform } from "./consolidate-struct-assignments.js";
-export { CommentTracker } from "./utils/comment-tracker.js";
+export { applyIndexAdjustmentsIfPresent } from "./index-adjustments.js";
+export { hoistLoopLengthBounds } from "./loop-size-hoisting/index.js";
+export { markCallsMissingArgumentSeparatorsTransform } from "./mark-missing-separators.js";
+export { sanitizeMissingArgumentSeparators } from "./missing-argument-separator-sanitizer.js";
+export { normalizeDataStructureAccessorsTransform } from "./normalize-data-structure-accessors.js";
 export { optimizeMathExpressionsTransform } from "./optimize-math-expressions.js";
-export { convertStringConcatenationsTransform } from "./convert-string-concatenations.js";
-export { convertUndefinedGuardAssignmentsTransform } from "./convert-undefined-guard-assignments.js";
-export { enforceVariableBlockSpacingTransform } from "./enforce-variable-block-spacing.js";
 export { preprocessFunctionArgumentDefaultsTransform } from "./preprocess-function-argument-defaults.js";
 export { stripCommentsTransform } from "./strip-comments.js";
-export { annotateStaticFunctionOverridesTransform } from "./annotate-static-overrides.js";
-export {
-    conditionalAssignmentSanitizerTransform,
-    sanitizeConditionalAssignments,
-    applySanitizedIndexAdjustments
-} from "./conditional-assignment-sanitizer.js";
-export { applyIndexAdjustmentsIfPresent } from "./index-adjustments.js";
-export { sanitizeMissingArgumentSeparators } from "./missing-argument-separator-sanitizer.js";
-export { collapseRedundantMissingCallArgumentsTransform } from "./collapse-redundant-arguments.js";
-export { markCallsMissingArgumentSeparatorsTransform } from "./mark-missing-separators.js";
-export { normalizeDataStructureAccessorsTransform } from "./normalize-data-structure-accessors.js";
-export { hoistLoopLengthBounds } from "./loop-size-hoisting/index.js";
-export { docCommentNormalizationTransform } from "./doc-comment/doc-comment-normalization.js";
+export { CommentTracker } from "./utils/comment-tracker.js";

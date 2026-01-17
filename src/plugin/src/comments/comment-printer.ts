@@ -1,11 +1,12 @@
 // Comment handling helpers relocated to the plugin so Prettier can format comments directly.
 
+import { Core } from "@gml-modules/core";
 import { util } from "prettier";
 import { builders } from "prettier/doc";
-import { Core } from "@gml-modules/core";
+
 import { isFunctionDocCommentLine } from "../doc-comment/function-tag-filter.js";
-import { normalizeDocLikeLineComment } from "./doc-like-line-normalization.js";
 import { countTrailingBlankLines } from "../printer/semicolons.js";
+import { normalizeDocLikeLineComment } from "./doc-like-line-normalization.js";
 
 const { addDanglingComment, addLeadingComment } = util;
 const { join, hardline } = builders;

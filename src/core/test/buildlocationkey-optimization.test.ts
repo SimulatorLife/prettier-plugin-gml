@@ -1,6 +1,7 @@
-import { describe, it } from "node:test";
 import * as assert from "node:assert/strict";
-import { buildLocationKey, buildFileLocationKey } from "../src/ast/location-keys.js";
+import { describe, it } from "node:test";
+
+import { buildFileLocationKey, buildLocationKey } from "../src/ast/location-keys.js";
 
 /**
  * Validates that the inlined buildLocationKey optimization preserves exact

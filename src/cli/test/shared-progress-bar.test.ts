@@ -2,10 +2,10 @@ import assert from "node:assert/strict";
 import { afterEach, describe, it } from "node:test";
 
 import {
-    DEFAULT_PROGRESS_BAR_WIDTH,
-    PROGRESS_BAR_WIDTH_ENV_VAR,
     applyProgressBarWidthEnvOverride,
+    DEFAULT_PROGRESS_BAR_WIDTH,
     getDefaultProgressBarWidth,
+    PROGRESS_BAR_WIDTH_ENV_VAR,
     resolveProgressBarWidth,
     setDefaultProgressBarWidth
 } from "../src/runtime-options/progress-bar.js";

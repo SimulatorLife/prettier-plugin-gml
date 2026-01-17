@@ -4,12 +4,13 @@
  * recording how indices shift so downstream diagnostics can stay in sync.
  */
 import { Core } from "@gml-modules/core";
+
 import {
     advanceThroughComment,
     advanceThroughStringLiteral,
     createStringCommentScanState,
-    tryStartStringOrComment,
-    type StringCommentScanState
+    type StringCommentScanState,
+    tryStartStringOrComment
 } from "./source-text/string-comment-scan.js";
 
 const ASSIGNMENT_GUARD_CHARACTERS = new Set(["*", "+", "-", "/", "%", "|", "&", "^", "<", ">", "!", "=", ":"]);

@@ -2,11 +2,11 @@ import assert from "node:assert/strict";
 import test from "node:test";
 
 import {
-    coercePositiveInteger,
     coerceNonNegativeInteger,
+    coercePositiveInteger,
     coercePositiveIntegerOption,
-    resolveIntegerOption,
-    normalizeNumericOption
+    normalizeNumericOption,
+    resolveIntegerOption
 } from "../src/utils/numeric-options.js";
 
 void test("coercePositiveInteger enforces a minimum of 1", () => {

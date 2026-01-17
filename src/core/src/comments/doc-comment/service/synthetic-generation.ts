@@ -1,6 +1,5 @@
 import { asArray, compactArray, isNonEmptyArray, isNonEmptyTrimmedString, isUndefinedSentinel } from "../utils.js";
 import { parseDocCommentMetadata } from "./metadata.js";
-import { normalizeDocCommentTypeAnnotations } from "./type-normalization.js";
 import {
     docParamNamesLooselyEqual,
     getCanonicalParamNameFromText,
@@ -16,12 +15,13 @@ import {
     getIdentifierFromParameterNode,
     getParameterDocInfo,
     getSourceTextForNode,
+    ImplicitArgumentDocEntry,
+    preferredParamDocNamesByNode,
     shouldOmitUndefinedDefaultForFunctionNode,
     suppressedImplicitDocCanonicalByNode,
-    preferredParamDocNamesByNode,
-    SyntheticDocGenerationOptions,
-    ImplicitArgumentDocEntry
+    SyntheticDocGenerationOptions
 } from "./synthetic-helpers.js";
+import { normalizeDocCommentTypeAnnotations } from "./type-normalization.js";
 
 const STRING_TYPE = "string";
 const NUMBER_TYPE = "number";

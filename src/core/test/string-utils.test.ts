@@ -3,26 +3,25 @@ import test from "node:test";
 
 // Prefer strict assertion helpers to avoid relying on Node.js' deprecated
 // loose equality variants like assert.equal/assert.deepEqual.
-
 import {
-    assertNonEmptyString,
     assertNoLeadingOrTrailingWhitespace,
-    isNonEmptyString,
-    isNonEmptyTrimmedString,
-    isWordChar,
-    toTrimmedString,
-    coalesceTrimmedString,
-    toNormalizedLowerCaseString,
-    toNormalizedLowerCaseSet,
-    normalizeStringList,
+    assertNonEmptyString,
     capitalize,
-    getNonEmptyString,
-    stripStringQuotes,
+    coalesceTrimmedString,
     createListSplitPattern,
     describeValueForError,
     formatWithIndefiniteArticle,
+    getNonEmptyString,
+    isIdentifierBoundaryCharacter,
+    isNonEmptyString,
+    isNonEmptyTrimmedString,
+    isWordChar,
     normalizeExtensionSuffix,
-    isIdentifierBoundaryCharacter
+    normalizeStringList,
+    stripStringQuotes,
+    toNormalizedLowerCaseSet,
+    toNormalizedLowerCaseString,
+    toTrimmedString
 } from "../src/utils/string.js";
 
 void test("toTrimmedString returns trimmed strings", () => {

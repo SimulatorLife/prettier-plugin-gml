@@ -18,9 +18,9 @@
  * All other parser code should import from this facade, not from generated/ directly.
  */
 
-import type { ParserContext } from "../types/index.js";
 import GameMakerLanguageParserListenerBase from "../../generated/GameMakerLanguageParserListener.js";
 import GameMakerLanguageParserVisitorBase from "../../generated/GameMakerLanguageParserVisitor.js";
+import type { ParserContext } from "../types/index.js";
 
 export type ParseTreeListenerMethod = (...args: unknown[]) => unknown;
 

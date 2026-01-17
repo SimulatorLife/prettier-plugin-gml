@@ -1,14 +1,15 @@
-import { describe, it } from "node:test";
 import assert from "node:assert/strict";
-import { writeFile, mkdir, rm } from "node:fs/promises";
-import path from "node:path";
+import { mkdir, rm, writeFile } from "node:fs/promises";
 import { tmpdir } from "node:os";
+import path from "node:path";
+import { describe, it } from "node:test";
 
 import { Transpiler } from "@gml-modules/transpiler";
+
 import {
-    transpileFile,
+    type ErrorCategory,
     type TranspilationContext,
-    type ErrorCategory
+    transpileFile
 } from "../src/modules/transpilation/coordinator.js";
 
 describe("Transpilation error classification", () => {

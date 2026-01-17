@@ -1,6 +1,7 @@
 import assert from "node:assert";
 import { test } from "node:test";
-import { Runtime, Clients } from "../src/index.js";
+
+import { Clients, Runtime } from "../src/index.js";
 
 const { createRuntimeWrapper } = Runtime;
 const { createWebSocketClient } = Clients;

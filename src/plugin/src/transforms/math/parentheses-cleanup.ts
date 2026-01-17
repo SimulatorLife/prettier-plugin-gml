@@ -3,12 +3,13 @@
  * This cleanup keeps expressions concise for the printer while respecting structural safety rules.
  */
 import { Core } from "@gml-modules/core";
+
 import {
     attemptCondenseScalarProduct,
     attemptCondenseSimpleScalarProduct,
+    type ConvertManualMathTransformOptions,
     isIdentityReplacementSafeExpression,
-    replaceNodeWith,
-    type ConvertManualMathTransformOptions
+    replaceNodeWith
 } from "./traversal-normalization.js";
 
 const { BINARY_EXPRESSION, PARENTHESIZED_EXPRESSION, UNARY_EXPRESSION } = Core;

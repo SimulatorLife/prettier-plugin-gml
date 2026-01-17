@@ -2,9 +2,9 @@ import { Core, type GameMakerAstNode } from "@gml-modules/core";
 
 import { prepareIdentifierCasePlan as defaultPrepareIdentifierCasePlan } from "./local-plan.js";
 import {
-    getIdentifierCaseRenameForNode as defaultGetIdentifierCaseRenameForNode,
+    applyIdentifierCasePlanSnapshot as defaultApplyIdentifierCasePlanSnapshot,
     captureIdentifierCasePlanSnapshot as defaultCaptureIdentifierCasePlanSnapshot,
-    applyIdentifierCasePlanSnapshot as defaultApplyIdentifierCasePlanSnapshot
+    getIdentifierCaseRenameForNode as defaultGetIdentifierCaseRenameForNode
 } from "./plan-state.js";
 
 // Use canonical Core namespace instead of destructuring

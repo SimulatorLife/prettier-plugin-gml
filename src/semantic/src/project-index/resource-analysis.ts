@@ -3,12 +3,12 @@ import path from "node:path";
 import { Core } from "@gml-modules/core";
 
 import {
-    PROJECT_MANIFEST_EXTENSION,
     isProjectManifestPath,
-    matchProjectResourceMetadataExtension
+    matchProjectResourceMetadataExtension,
+    PROJECT_MANIFEST_EXTENSION
 } from "./constants.js";
-import { normalizeProjectResourcePath } from "./path-normalization.js";
 import { defaultFsFacade, type ProjectIndexFsFacade } from "./fs-facade.js";
+import { normalizeProjectResourcePath } from "./path-normalization.js";
 
 const RESOURCE_ANALYSIS_ABORT_MESSAGE = "Project index build was aborted.";
 

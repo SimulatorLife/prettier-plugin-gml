@@ -3,15 +3,15 @@ import { promises as fs } from "node:fs";
 import { describe, it, mock } from "node:test";
 import { fileURLToPath } from "node:url";
 
+import { Core } from "@gml-modules/core";
 import prettier from "prettier";
 
 import {
-    setIdentifierCaseDryRunContext,
-    clearIdentifierCaseDryRunContexts
+    clearIdentifierCaseDryRunContexts,
+    setIdentifierCaseDryRunContext
 } from "../src/identifier-case/identifier-case-context.js";
-import { prepareIdentifierCasePlan } from "../src/identifier-case/plan-service.js";
 import { maybeReportIdentifierCaseDryRun } from "../src/identifier-case/identifier-case-report.js";
-import { Core } from "@gml-modules/core";
+import { prepareIdentifierCasePlan } from "../src/identifier-case/plan-service.js";
 import {
     createIdentifierCaseProject,
     resolveIdentifierCaseFixturesDirectory,

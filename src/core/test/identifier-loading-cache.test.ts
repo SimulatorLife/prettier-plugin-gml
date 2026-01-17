@@ -2,9 +2,9 @@ import assert from "node:assert/strict";
 import test from "node:test";
 
 import {
+    clearIdentifierMetadataCache,
     loadManualFunctionNames,
     loadReservedIdentifierNames,
-    clearIdentifierMetadataCache,
     resetReservedIdentifierMetadataLoader,
     setReservedIdentifierMetadataLoader
 } from "../src/resources/gml-identifier-loading.js";

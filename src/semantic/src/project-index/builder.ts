@@ -2,17 +2,17 @@ import path from "node:path";
 
 import { Core } from "@gml-modules/core";
 
+import { createProjectIndexAbortGuard, PROJECT_INDEX_BUILD_ABORT_MESSAGE } from "./abort-guard.js";
+import { loadBuiltInIdentifiers } from "./built-in-identifiers.js";
 import { getDefaultProjectIndexCacheMaxSize, loadProjectIndexCache, saveProjectIndexCache } from "./cache.js";
 import { clampConcurrency } from "./concurrency.js";
 import { createProjectIndexCoordinator as createProjectIndexCoordinatorCore } from "./coordinator.js";
 import { defaultFsFacade, type ProjectIndexFsFacade } from "./fs-facade.js";
 import { resolveProjectIndexParser } from "./gml-parser-facade.js";
+import { assertValidIdentifierRole, IdentifierRole } from "./identifier-roles.js";
 import { createProjectIndexMetrics, finalizeProjectIndexMetrics } from "./metrics.js";
-import { analyseResourceFiles, createFileScopeDescriptor } from "./resource-analysis.js";
 import { scanProjectTree } from "./project-tree.js";
-import { PROJECT_INDEX_BUILD_ABORT_MESSAGE, createProjectIndexAbortGuard } from "./abort-guard.js";
-import { loadBuiltInIdentifiers } from "./built-in-identifiers.js";
-import { IdentifierRole, assertValidIdentifierRole } from "./identifier-roles.js";
+import { analyseResourceFiles, createFileScopeDescriptor } from "./resource-analysis.js";
 
 type BuildProjectIndexFunction = (
     projectRoot: string,

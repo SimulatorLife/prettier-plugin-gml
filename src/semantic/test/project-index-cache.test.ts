@@ -1,5 +1,5 @@
 import assert from "node:assert/strict";
-import { mkdtemp, mkdir, rm, writeFile } from "node:fs/promises";
+import { mkdir, mkdtemp, rm, writeFile } from "node:fs/promises";
 import os from "node:os";
 import path from "node:path";
 import test from "node:test";
@@ -7,25 +7,25 @@ import test from "node:test";
 import type { AbortSignalLike } from "@gml-modules/core";
 
 import {
-    loadProjectIndexCache,
-    saveProjectIndexCache,
-    createProjectIndexCoordinator,
-    ProjectIndexCacheMissReason,
-    ProjectIndexCacheStatus,
-    assertProjectIndexCacheStatus,
-    PROJECT_INDEX_CACHE_DIRECTORY,
-    PROJECT_INDEX_CACHE_FILENAME,
-    PROJECT_INDEX_CACHE_SCHEMA_VERSION,
-    PROJECT_INDEX_CACHE_MAX_SIZE_BASELINE,
-    PROJECT_INDEX_CACHE_MAX_SIZE_ENV_VAR,
-    getDefaultProjectIndexCacheMaxSize,
-    setDefaultProjectIndexCacheMaxSize,
-    applyProjectIndexCacheEnvOverride
-} from "../src/project-index/index.js";
-import {
     evaluateProjectIndexCacheSizePolicy,
     normalizeProjectIndexCacheMaxSizeBytes
 } from "../src/project-index/cache-write-policy.js";
+import {
+    applyProjectIndexCacheEnvOverride,
+    assertProjectIndexCacheStatus,
+    createProjectIndexCoordinator,
+    getDefaultProjectIndexCacheMaxSize,
+    loadProjectIndexCache,
+    PROJECT_INDEX_CACHE_DIRECTORY,
+    PROJECT_INDEX_CACHE_FILENAME,
+    PROJECT_INDEX_CACHE_MAX_SIZE_BASELINE,
+    PROJECT_INDEX_CACHE_MAX_SIZE_ENV_VAR,
+    PROJECT_INDEX_CACHE_SCHEMA_VERSION,
+    ProjectIndexCacheMissReason,
+    ProjectIndexCacheStatus,
+    saveProjectIndexCache,
+    setDefaultProjectIndexCacheMaxSize
+} from "../src/project-index/index.js";
 
 function createProjectIndex(projectRoot, metrics = null) {
     return {

@@ -4,10 +4,11 @@
 // rest of the plugin configuration.
 
 import { Core, type MutableGameMakerAstNode } from "@gml-modules/core";
-import { util } from "prettier";
 import { Parser, type ScopeTracker } from "@gml-modules/parser";
-import * as Transforms from "../transforms/index.js";
 import { Semantic } from "@gml-modules/semantic";
+import { util } from "prettier";
+
+import * as Transforms from "../transforms/index.js";
 import { fixMalformedComments, recoverParseSourceFromMissingBrace } from "./source-preprocessing.js";
 
 const { getNodeStartIndex, getNodeEndIndex } = Core;

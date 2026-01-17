@@ -6,8 +6,9 @@
  * the original implementation across all possible inputs.
  */
 
-import { describe, it } from "node:test";
 import assert from "node:assert/strict";
+import { describe, it } from "node:test";
+
 import { isWordChar } from "../src/utils/string.js";
 
 describe("isWordChar optimization verification", () => {

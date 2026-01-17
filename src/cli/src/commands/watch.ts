@@ -11,49 +11,49 @@
  * wrapper to enable true hot-reloading without game restarts.
  */
 
-import { watch, type FSWatcher, type WatchListener, type WatchOptions } from "node:fs";
-import { readFile, stat, readdir } from "node:fs/promises";
+import { type FSWatcher, watch, type WatchListener, type WatchOptions } from "node:fs";
+import { readdir, readFile, stat } from "node:fs/promises";
 import path from "node:path";
 import process from "node:process";
 
-import { Command, Option } from "commander";
-
 import { Core, type DebouncedFunction } from "@gml-modules/core";
 import { Transpiler } from "@gml-modules/transpiler";
+import { Command, Option } from "commander";
+
+import { formatCliError } from "../cli-core/errors.js";
+import { DependencyTracker } from "../modules/dependency-tracker.js";
+import { DEFAULT_GM_TEMP_ROOT, prepareHotReloadInjection } from "../modules/hot-reload/inject-runtime.js";
 import {
+    type RuntimeStaticServerHandle,
+    type RuntimeStaticServerInstance,
+    startRuntimeStaticServer
+} from "../modules/runtime/server.js";
+import {
+    DEFAULT_RUNTIME_PACKAGE,
     describeRuntimeSource,
     resolveRuntimeSource,
-    DEFAULT_RUNTIME_PACKAGE,
     type RuntimeSourceDescriptor,
     type RuntimeSourceResolver
 } from "../modules/runtime/source.js";
-import {
-    startRuntimeStaticServer,
-    type RuntimeStaticServerHandle,
-    type RuntimeStaticServerInstance
-} from "../modules/runtime/server.js";
-import {
-    startPatchWebSocketServer,
-    type PatchBroadcaster,
-    type PatchWebSocketServer
-} from "../modules/websocket/server.js";
 import { startStatusServer, type StatusServerController } from "../modules/status/server.js";
 import {
-    transpileFile,
     displayTranspilationStatistics,
-    type TranspilationMetrics,
-    type TranspilationError,
-    type TranspilationContext,
     type RuntimeTranspilerPatch,
-    type TranspilationResult
+    type TranspilationContext,
+    type TranspilationError,
+    type TranspilationMetrics,
+    type TranspilationResult,
+    transpileFile
 } from "../modules/transpilation/coordinator.js";
-import { prepareHotReloadInjection, DEFAULT_GM_TEMP_ROOT } from "../modules/hot-reload/inject-runtime.js";
-import { DependencyTracker } from "../modules/dependency-tracker.js";
-import { formatCliError } from "../cli-core/errors.js";
 import {
     getRuntimePathSegments,
     resolveScriptFileNameFromSegments
 } from "../modules/transpilation/runtime-identifiers.js";
+import {
+    type PatchBroadcaster,
+    type PatchWebSocketServer,
+    startPatchWebSocketServer
+} from "../modules/websocket/server.js";
 
 const { debounce, getErrorMessage } = Core;
 

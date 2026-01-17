@@ -3,6 +3,7 @@
  * The rule triggers after a minimum number of declarations and only inserts spacing before `for` loops.
  */
 import { Core, type MutableGameMakerAstNode } from "@gml-modules/core";
+
 import { createParserTransform, type EmptyTransformOptions } from "./functional-transform.js";
 
 // Enforce consistent spacing after variable blocks without exposing user

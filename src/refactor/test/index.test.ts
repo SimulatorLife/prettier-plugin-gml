@@ -1,10 +1,11 @@
 import assert from "node:assert/strict";
 import test from "node:test";
+
 import {
-    Refactor,
     type HotReloadUpdate,
     type ParserBridge,
     type PartialSemanticAnalyzer,
+    Refactor,
     type RefactorEngine,
     type RenameRequest,
     type WorkspaceEdit,

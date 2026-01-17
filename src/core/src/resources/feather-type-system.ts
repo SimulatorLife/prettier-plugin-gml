@@ -1,6 +1,6 @@
-import { getFeatherMetadata } from "./feather-metadata.js";
 import { asArray } from "../utils/array.js";
 import { toTrimmedString } from "../utils/string.js";
+import { getFeatherMetadata } from "./feather-metadata.js";
 
 type FeatherTypeSystemEntry = {
     name?: string | null;

@@ -50,7 +50,7 @@ const CLI_SRC_DIRECTORY = path.resolve(CLI_PACKAGE_DIRECTORY, "src");
 const WORKSPACE_SOURCE_DIRECTORY = path.resolve(CLI_PACKAGE_DIRECTORY, "..");
 const REPO_ROOT = Core.findRepoRootSync(SHARED_DIRECTORY);
 
-export { CLI_SRC_DIRECTORY, CLI_PACKAGE_DIRECTORY, WORKSPACE_SOURCE_DIRECTORY, REPO_ROOT };
+export { CLI_PACKAGE_DIRECTORY, CLI_SRC_DIRECTORY, REPO_ROOT, WORKSPACE_SOURCE_DIRECTORY };
 
 /**
  * Resolve a path relative to the repository root using the shared directory

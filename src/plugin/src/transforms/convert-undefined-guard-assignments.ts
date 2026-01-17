@@ -3,6 +3,7 @@
  * This keeps downstream printers from emitting bloated conditionals when the intent is a fallback assignment.
  */
 import { Core, type MutableGameMakerAstNode } from "@gml-modules/core";
+
 import type { ParserTransform } from "./functional-transform.js";
 
 /**

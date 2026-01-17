@@ -24,38 +24,31 @@ import path from "node:path";
 import process from "node:process";
 import { fileURLToPath } from "node:url";
 
-import { Command, InvalidArgumentError, Option } from "commander";
-import type { Options as PrettierOptions } from "prettier";
 import { Core } from "@gml-modules/core";
 import { Parser } from "@gml-modules/parser";
 import { normalizeFormattedOutput } from "@gml-modules/plugin";
-import { isMissingModuleDependency, resolveModuleDefaultExport } from "./shared/module.js";
-import { ignoreRuleNegations } from "./shared/ignore-rules-negation-tracker.js";
+import { Command, InvalidArgumentError, Option } from "commander";
+import type { Options as PrettierOptions } from "prettier";
 
-import { CliUsageError, formatCliError, handleCliError } from "./cli-core/errors.js";
-import { applyStandardCommandOptions } from "./cli-core/command-standard-options.js";
-import { resolvePluginEntryPoint as resolveCliPluginEntryPoint } from "./plugin-runtime/entry-point.js";
 import { tryAddSample } from "./cli-core/bounded-sample-collector.js";
-import {
-    hasRegisteredIgnorePath,
-    registerIgnorePath,
-    resetRegisteredIgnorePaths
-} from "./shared/ignore-path-registry.js";
 import { createCliCommandManager } from "./cli-core/command-manager.js";
-import { resolveCliVersion } from "./cli-core/version.js";
 import { wrapInvalidArgumentResolver } from "./cli-core/command-parsing.js";
+import { applyStandardCommandOptions } from "./cli-core/command-standard-options.js";
+import { CliUsageError, formatCliError, handleCliError } from "./cli-core/errors.js";
+import { normalizeExtensions } from "./cli-core/extension-normalizer.js";
 import { collectFormatCommandOptions } from "./cli-core/format-command-options.js";
-import { createPerformanceCommand, runPerformanceCommand } from "./commands/performance.js";
-import { createMemoryCommand, runMemoryCommand } from "./commands/memory.js";
-import { createGenerateIdentifiersCommand, runGenerateGmlIdentifiers } from "./commands/generate-gml-identifiers.js";
-import { createGenerateQualityReportCommand, runGenerateQualityReport } from "./commands/generate-quality-report.js";
+import { resolveCliVersion } from "./cli-core/version.js";
 import { createCollectStatsCommand, runCollectStats } from "./commands/collect-stats.js";
 import { createFeatherMetadataCommand, runGenerateFeatherMetadata } from "./commands/generate-feather-metadata.js";
+import { createGenerateIdentifiersCommand, runGenerateGmlIdentifiers } from "./commands/generate-gml-identifiers.js";
+import { createGenerateQualityReportCommand, runGenerateQualityReport } from "./commands/generate-quality-report.js";
+import { createMemoryCommand, runMemoryCommand } from "./commands/memory.js";
+import { createPerformanceCommand, runPerformanceCommand } from "./commands/performance.js";
 import { createPrepareHotReloadCommand, runPrepareHotReloadCommand } from "./commands/prepare-hot-reload.js";
 import { createRefactorCommand, runRefactorCommand } from "./commands/refactor.js";
 import { createWatchCommand, runWatchCommand } from "./commands/watch.js";
 import { createWatchStatusCommand, runWatchStatusCommand } from "./commands/watch-status.js";
-import { isCliRunSkipped, SKIP_CLI_RUN_ENV_VAR } from "./shared/skip-cli-run.js";
+import { resolvePluginEntryPoint as resolveCliPluginEntryPoint } from "./plugin-runtime/entry-point.js";
 import {
     getDefaultIgnoredFileSampleLimit,
     getDefaultSkippedDirectorySampleLimit,
@@ -64,7 +57,14 @@ import {
     resolveSkippedDirectorySampleLimit,
     resolveUnsupportedExtensionSampleLimit
 } from "./runtime-options/sample-limits.js";
-import { normalizeExtensions } from "./cli-core/extension-normalizer.js";
+import {
+    hasRegisteredIgnorePath,
+    registerIgnorePath,
+    resetRegisteredIgnorePaths
+} from "./shared/ignore-path-registry.js";
+import { ignoreRuleNegations } from "./shared/ignore-rules-negation-tracker.js";
+import { isMissingModuleDependency, resolveModuleDefaultExport } from "./shared/module.js";
+import { isCliRunSkipped, SKIP_CLI_RUN_ENV_VAR } from "./shared/skip-cli-run.js";
 
 const {
     compactArray,

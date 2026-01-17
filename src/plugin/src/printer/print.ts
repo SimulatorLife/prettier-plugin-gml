@@ -16,27 +16,26 @@
  */
 
 import { Core, type MutableDocCommentLines } from "@gml-modules/core";
+import { Semantic } from "@gml-modules/semantic";
 import { util } from "prettier";
-import { DEFAULT_ALIGN_ASSIGNMENTS_MIN_GROUP_SIZE } from "../options/assignment-alignment-option.js";
 
+import { printComment, printDanglingComments, printDanglingCommentsAsGroup } from "../comments/index.js";
+import { NUMERIC_STRING_LITERAL_PATTERN } from "../literals/numeric-literals.js";
+import { DEFAULT_ALIGN_ASSIGNMENTS_MIN_GROUP_SIZE } from "../options/assignment-alignment-option.js";
+import { LogicalOperatorsStyle, normalizeLogicalOperatorsStyle } from "../options/logical-operators-style.js";
+import { ObjectWrapOption, resolveObjectWrapOption } from "../options/object-wrap-option.js";
+import { TRAILING_COMMA } from "../options/trailing-comma-option.js";
+import { buildPrintableDocCommentLines } from "./doc-comment/description-doc.js";
+import { collectFunctionDocCommentDocs, normalizeFunctionDocCommentDocs } from "./doc-comment/function-docs.js";
 import {
-    countTrailingBlankLines,
-    getNextNonWhitespaceCharacter,
-    isLastStatement,
-    isSkippableSemicolonWhitespace,
-    optionalSemicolon
-} from "./semicolons.js";
+    getSyntheticDocCommentForFunctionAssignment,
+    getSyntheticDocCommentForStaticVariable
+} from "./doc-comment/synthetic-doc-comment-builder.js";
 import { getEnumNameAlignmentPadding, prepareEnumMembersForPrinting } from "./enum-alignment.js";
 import {
-    shouldForceBlankLineBetweenReturnPaths,
-    shouldForceTrailingBlankLineForNestedFunction,
-    shouldSuppressEmptyLineBetween,
-    shouldAddNewlinesAroundStatement
-} from "./statement-spacing-policy.js";
-import {
-    conditionalGroup,
-    concat,
     breakParent,
+    concat,
+    conditionalGroup,
     group,
     hardline,
     ifBreak,
@@ -48,33 +47,30 @@ import {
     softline,
     willBreak
 } from "./prettier-doc-builders.js";
-
-import { collectFunctionDocCommentDocs, normalizeFunctionDocCommentDocs } from "./doc-comment/function-docs.js";
-import { buildPrintableDocCommentLines } from "./doc-comment/description-doc.js";
-
 import {
-    getSyntheticDocCommentForFunctionAssignment,
-    getSyntheticDocCommentForStaticVariable
-} from "./doc-comment/synthetic-doc-comment-builder.js";
-
+    countTrailingBlankLines,
+    getNextNonWhitespaceCharacter,
+    isLastStatement,
+    isSkippableSemicolonWhitespace,
+    optionalSemicolon
+} from "./semicolons.js";
 import {
+    getOriginalTextFromOptions,
     hasBlankLineAfterOpeningBrace,
     hasBlankLineBeforeLeadingComment,
     hasBlankLineBetweenLastCommentAndClosingBrace,
-    getOriginalTextFromOptions,
     macroTextHasExplicitTrailingBlankLine,
     resolveNodeIndexRangeWithSource,
     resolvePrinterSourceMetadata,
     sliceOriginalText,
     stripTrailingLineTerminators
 } from "./source-text.js";
-import { printComment, printDanglingComments, printDanglingCommentsAsGroup } from "../comments/index.js";
-import { TRAILING_COMMA } from "../options/trailing-comma-option.js";
-
-import { Semantic } from "@gml-modules/semantic";
-import { LogicalOperatorsStyle, normalizeLogicalOperatorsStyle } from "../options/logical-operators-style.js";
-import { ObjectWrapOption, resolveObjectWrapOption } from "../options/object-wrap-option.js";
-import { NUMERIC_STRING_LITERAL_PATTERN } from "../literals/numeric-literals.js";
+import {
+    shouldAddNewlinesAroundStatement,
+    shouldForceBlankLineBetweenReturnPaths,
+    shouldForceTrailingBlankLineForNestedFunction,
+    shouldSuppressEmptyLineBetween
+} from "./statement-spacing-policy.js";
 
 // Import node type constants to replace magic strings
 const {

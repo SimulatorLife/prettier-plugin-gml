@@ -1,10 +1,6 @@
 /* eslint-disable max-lines -- Visitor pattern requires comprehensive switch statement; refactoring to separate files would break cohesion */
 import { Core } from "@gml-modules/core";
-import { builtInFunctions } from "./builtins.js";
-import { wrapConditional, wrapConditionalBody, wrapRawBody } from "./code-wrapping.js";
-import { lowerEnumDeclaration } from "./enum-lowering.js";
-import { mapBinaryOperator, mapUnaryOperator } from "./operator-mapping.js";
-import { lowerWithStatement } from "./with-lowering.js";
+
 import type {
     ArrayExpressionNode,
     AssignmentExpressionNode,
@@ -21,10 +17,10 @@ import type {
     EndRegionStatementNode,
     EnumDeclarationNode,
     EnumMemberNode,
-    FunctionDeclarationNode,
     ForStatementNode,
-    GmlNode,
+    FunctionDeclarationNode,
     GlobalVarStatementNode,
+    GmlNode,
     IdentifierAnalyzer,
     IdentifierMetadata,
     IdentifierNode,
@@ -42,18 +38,23 @@ import type {
     StructExpressionNode,
     StructPropertyNode,
     SwitchStatementNode,
-    ThrowStatementNode,
     TemplateStringExpressionNode,
     TernaryExpressionNode,
+    ThrowStatementNode,
     TryStatementNode,
+    UnaryExpressionNode,
     VariableDeclarationNode,
     VariableDeclaratorNode,
     WhileStatementNode,
-    WithStatementNode,
-    UnaryExpressionNode
+    WithStatementNode
 } from "./ast.js";
+import { builtInFunctions } from "./builtins.js";
+import { wrapConditional, wrapConditionalBody, wrapRawBody } from "./code-wrapping.js";
+import { lowerEnumDeclaration } from "./enum-lowering.js";
+import { mapBinaryOperator, mapUnaryOperator } from "./operator-mapping.js";
 import { createSemanticOracle } from "./semantic-factory.js";
 import { evaluateStatementTerminationPolicy } from "./statement-termination-policy.js";
+import { lowerWithStatement } from "./with-lowering.js";
 
 type StatementLike = GmlNode | undefined | null;
 

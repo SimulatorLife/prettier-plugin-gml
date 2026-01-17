@@ -3,10 +3,11 @@
  * The transform tracks moved comments and ensures no semantic data is lost while shifting property initializers.
  */
 import { Core, type MutableGameMakerAstNode } from "@gml-modules/core";
+
 import { createParserTransform } from "./functional-transform.js";
-import { CommentTracker } from "./utils/comment-tracker.js";
-import { StructAssignmentMatcher, type AssignmentDetails } from "./utils/struct-assignment-matcher.js";
 import { AssignmentCommentHandler } from "./utils/assignment-comment-handler.js";
+import { CommentTracker } from "./utils/comment-tracker.js";
+import { type AssignmentDetails, StructAssignmentMatcher } from "./utils/struct-assignment-matcher.js";
 
 type CommentTools = {
     addTrailingComment: (...args: Array<unknown>) => unknown;

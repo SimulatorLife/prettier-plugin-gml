@@ -1,7 +1,7 @@
 import { Core } from "@gml-modules/core";
-import { bootstrapProjectIndex, applyBootstrappedProjectIndex } from "./project-index-bootstrap.js";
 
 import { setIdentifierCaseOption } from "./option-store.js";
+import { applyBootstrappedProjectIndex, bootstrapProjectIndex } from "./project-index-bootstrap.js";
 
 function getExistingProjectIndex(options) {
     return Core.coalesceOption(options, ["__identifierCaseProjectIndex", "identifierCaseProjectIndex"], {

@@ -14,13 +14,13 @@
  * clean, discoverable APIs for consumers while keeping implementation details private.
  */
 
+export * as DescriptionUtils from "./description-utils.js";
 export type { DocCommentMetadata } from "./doc-comment-metadata.js";
 export {
+    getDeprecatedDocCommentFunctionSet,
     getDocCommentMetadata,
-    setDocCommentMetadata,
     setDeprecatedDocCommentFunctionSet,
-    getDeprecatedDocCommentFunctionSet
+    setDocCommentMetadata
 } from "./doc-comment-metadata.js";
 export { docCommentNormalizationTransform } from "./doc-comment-normalization.js";
-export * as DescriptionUtils from "./description-utils.js";
 export * as NormalizationUtils from "./normalization-utils.js";

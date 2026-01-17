@@ -3,7 +3,6 @@ import { describe, it } from "node:test";
 
 // Use the strict assertion helpers to avoid relying on Node.js' deprecated
 // legacy equality APIs while keeping behaviour identical for the test inputs.
-
 import {
     applySanitizedIndexAdjustments,
     sanitizeConditionalAssignments

@@ -5,7 +5,7 @@
  * users type new names in IDE rename dialogs).
  */
 
-import type { ValidationSummary, HotReloadSafetySummary } from "./types.js";
+import type { HotReloadSafetySummary, ValidationSummary } from "./types.js";
 
 /**
  * Configuration for the rename validation cache.

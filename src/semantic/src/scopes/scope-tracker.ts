@@ -1,10 +1,11 @@
 import { Core, type GameMakerAstNode, type MutableGameMakerAstNode } from "@gml-modules/core";
-import {
-    ScopeOverrideKeyword,
-    formatKnownScopeOverrideKeywords,
-    isScopeOverrideKeyword
-} from "./scope-override-keywords.js";
+
 import { ROLE_DEF, ROLE_REF } from "../symbols/scip-types.js";
+import {
+    formatKnownScopeOverrideKeywords,
+    isScopeOverrideKeyword,
+    ScopeOverrideKeyword
+} from "./scope-override-keywords.js";
 
 type IdentifierOccurrences = {
     declarations: Array<ReturnType<typeof createOccurrence>>;

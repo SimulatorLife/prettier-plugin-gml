@@ -1,4 +1,5 @@
 import { Core, type MutableGameMakerAstNode } from "@gml-modules/core";
+
 import type { CommentTracker } from "./comment-tracker.js";
 
 type CommentTools = {

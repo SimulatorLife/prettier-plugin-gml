@@ -1,9 +1,9 @@
-import { describe, it } from "node:test";
 import assert from "node:assert/strict";
-import { mkdtemp, mkdir, rm } from "node:fs/promises";
+import type { FSWatcher, PathLike, WatchListener, WatchOptions } from "node:fs";
+import { mkdir, mkdtemp, rm } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import path from "node:path";
-import type { FSWatcher, PathLike, WatchListener, WatchOptions } from "node:fs";
+import { describe, it } from "node:test";
 
 import { runWatchCommand } from "../src/commands/watch.js";
 

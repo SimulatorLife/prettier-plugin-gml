@@ -1,8 +1,10 @@
 import assert from "node:assert/strict";
 import { describe, it } from "node:test";
-import { createPerformanceCommand } from "../src/commands/performance.js";
-import { PerformanceSuiteName, formatPerformanceSuiteList } from "../src/modules/performance/suite-options.js";
+
 import type { ParseOptions } from "commander";
+
+import { createPerformanceCommand } from "../src/commands/performance.js";
+import { formatPerformanceSuiteList, PerformanceSuiteName } from "../src/modules/performance/suite-options.js";
 
 const USER_PARSE_OPTIONS: ParseOptions = { from: "user" };
 

@@ -2,10 +2,11 @@ import fs from "node:fs/promises";
 import path from "node:path";
 
 import { Core } from "@gml-modules/core";
+
 import {
-    resolveFromRepoRoot,
-    resolveCandidateRoot,
     readPackageJson,
+    resolveCandidateRoot,
+    resolveFromRepoRoot,
     resolvePackageJsonPath
 } from "../../shared/index.js";
 

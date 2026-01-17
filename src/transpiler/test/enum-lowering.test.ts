@@ -1,5 +1,6 @@
 import { strictEqual } from "node:assert";
 import { test } from "node:test";
+
 import { lowerEnumDeclaration } from "../src/emitter/enum-lowering.js";
 
 interface MockMember {

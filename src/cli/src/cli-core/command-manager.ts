@@ -1,16 +1,17 @@
-import { CliUsageError, handleCliError } from "./errors.js";
+import { Core } from "@gml-modules/core";
+
 import { DEFAULT_HELP_AFTER_ERROR } from "./command-standard-options.js";
-import { isCommanderErrorLike } from "./commander-error-utils.js";
+import { resolveCommandUsage } from "./command-usage.js";
 import {
+    type CommanderCommandContract,
+    type CommanderProgramContract,
     createCommanderCommandContract,
     createCommanderProgramContract,
-    isCommanderCommandLike,
-    type CommanderProgramContract,
-    type CommanderCommandContract
+    isCommanderCommandLike
 } from "./commander-contract.js";
+import { isCommanderErrorLike } from "./commander-error-utils.js";
 import type { CommanderCommandLike, CommanderProgramLike } from "./commander-types.js";
-import { Core } from "@gml-modules/core";
-import { resolveCommandUsage } from "./command-usage.js";
+import { CliUsageError, handleCliError } from "./errors.js";
 
 const { compactArray } = Core;
 

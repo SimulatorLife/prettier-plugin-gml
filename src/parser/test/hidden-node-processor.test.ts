@@ -2,6 +2,7 @@ import assert from "node:assert/strict";
 import test from "node:test";
 
 import { Core } from "@gml-modules/core";
+
 import { createHiddenNodeProcessor } from "../src/ast/hidden-node-processor.js";
 
 void test("createCommentLineNode strips leading markers and records metadata", () => {

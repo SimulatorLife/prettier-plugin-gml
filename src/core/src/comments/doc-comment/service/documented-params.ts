@@ -2,10 +2,10 @@ import { resolveDocCommentTraversalService } from "../manager.js";
 import {
     asArray,
     getNodeStartIndex,
-    isLineComment,
     isFunctionLikeNode,
-    toNormalizedLowerCaseString,
-    type MutableGameMakerAstNode
+    isLineComment,
+    type MutableGameMakerAstNode,
+    toNormalizedLowerCaseString
 } from "../utils.js";
 
 type DocCommentTraversalService = {

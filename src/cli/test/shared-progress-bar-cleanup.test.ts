@@ -3,8 +3,8 @@ import { afterEach, describe, it, mock } from "node:test";
 
 import {
     renderProgressBar,
-    withProgressBarCleanup,
-    resetProgressBarRegistryForTesting
+    resetProgressBarRegistryForTesting,
+    withProgressBarCleanup
 } from "../src/runtime-options/progress-bar.js";
 
 function createMockStdout() {

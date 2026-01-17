@@ -1,8 +1,9 @@
-import { CliUsageError } from "./errors.js";
-import { isCommanderErrorLike, isCommanderHelpDisplayedError } from "./commander-error-utils.js";
-import { InvalidArgumentError } from "commander";
 import { Core } from "@gml-modules/core";
+import { InvalidArgumentError } from "commander";
+
+import { isCommanderErrorLike, isCommanderHelpDisplayedError } from "./commander-error-utils.js";
 import type { CommanderCommandLike } from "./commander-types.js";
+import { CliUsageError } from "./errors.js";
 
 const { assertFunction, getErrorMessage } = Core;
 

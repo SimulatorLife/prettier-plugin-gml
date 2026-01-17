@@ -9,13 +9,12 @@
 import path from "node:path";
 
 import { Core } from "@gml-modules/core";
-import { setIdentifierCaseOption } from "./option-store.js";
 
-import { warnWithReason } from "./logger.js";
-
-import { consumeIdentifierCaseDryRunContext } from "./identifier-case-context.js";
-import { defaultIdentifierCaseFsFacade as defaultFsFacade } from "./fs-facade.js";
 import { ConflictSeverity, normalizeConflictSeverityWithFallback } from "./conflict-severity.js";
+import { defaultIdentifierCaseFsFacade as defaultFsFacade } from "./fs-facade.js";
+import { consumeIdentifierCaseDryRunContext } from "./identifier-case-context.js";
+import { warnWithReason } from "./logger.js";
+import { setIdentifierCaseOption } from "./option-store.js";
 
 type IdentifierCaseReportSummary = {
     renameCount: number;

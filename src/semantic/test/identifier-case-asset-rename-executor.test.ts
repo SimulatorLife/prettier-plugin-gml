@@ -2,8 +2,8 @@ import assert from "node:assert/strict";
 import path from "node:path";
 import { describe, it } from "node:test";
 
-import { DEFAULT_WRITE_ACCESS_MODE } from "../src/identifier-case/common.js";
 import { __private__ } from "../src/identifier-case/asset-rename-executor.js";
+import { DEFAULT_WRITE_ACCESS_MODE } from "../src/identifier-case/common.js";
 
 const { ensureWritableDirectory, ensureWritableFile, readJsonFile } = __private__;
 

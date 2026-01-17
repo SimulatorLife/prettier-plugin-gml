@@ -1,5 +1,6 @@
 import { Core } from "@gml-modules/core";
-import { TRAILING_COMMA, assertTrailingCommaValue } from "./trailing-comma-option.js";
+
+import { assertTrailingCommaValue, TRAILING_COMMA } from "./trailing-comma-option.js";
 
 type TrailingCommaOption = (typeof TRAILING_COMMA)[keyof typeof TRAILING_COMMA];
 type ArrowParensOption = "always" | "avoid";

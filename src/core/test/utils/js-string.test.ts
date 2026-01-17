@@ -1,10 +1,11 @@
 import { strictEqual } from "node:assert";
 import { test } from "node:test";
+
 import {
-    isIdentifierLike,
     escapeTemplateText,
-    stringifyStructKey,
-    normalizeStructKeyText
+    isIdentifierLike,
+    normalizeStructKeyText,
+    stringifyStructKey
 } from "../../src/utils/js-string.js";
 
 // Tests for isIdentifierLike

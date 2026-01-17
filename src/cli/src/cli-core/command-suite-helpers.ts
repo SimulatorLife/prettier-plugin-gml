@@ -1,11 +1,12 @@
 import process from "node:process";
 
-import { CliUsageError, createCliErrorDetails } from "./errors.js";
 // Pull shared helpers from the barrel so new call sites avoid the legacy
 // `array-utils` shim slated for removal.
 import { Core } from "@gml-modules/core";
+
 import { resolveCommandUsage } from "./command-usage.js";
 import type { CommanderCommandLike } from "./commander-types.js";
+import { CliUsageError, createCliErrorDetails } from "./errors.js";
 
 const { isNonEmptyArray, toMutableArray, stringifyJsonForFile, createEnumeratedOptionHelpers } = Core;
 

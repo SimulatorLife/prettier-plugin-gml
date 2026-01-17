@@ -31,7 +31,7 @@ import { fileURLToPath } from "node:url";
 
 import prettier from "prettier";
 
-import { getIdentifierCaseOptionStore, clearIdentifierCaseOptionStore } from "../src/identifier-case/option-store.js";
+import { clearIdentifierCaseOptionStore, getIdentifierCaseOptionStore } from "../src/identifier-case/option-store.js";
 import {
     createIdentifierCaseProject,
     resolveIdentifierCaseFixturesDirectory,

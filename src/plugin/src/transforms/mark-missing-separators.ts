@@ -2,6 +2,7 @@
  * Detects call expressions written without commas between arguments and flags them so downstream formatters preserve the raw text.
  */
 import { Core, type MutableGameMakerAstNode } from "@gml-modules/core";
+
 import { createParserTransform } from "./functional-transform.js";
 
 type MarkCallsMissingArgumentSeparatorsTransformOptions = {

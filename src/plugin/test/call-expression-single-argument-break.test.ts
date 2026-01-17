@@ -1,5 +1,6 @@
 import assert from "node:assert/strict";
 import { test } from "node:test";
+
 import { Plugin } from "../src/index.js";
 
 void test("wraps single call expression arguments when enforcing maxParamsPerLine", async () => {

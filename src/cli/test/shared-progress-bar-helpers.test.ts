@@ -3,10 +3,10 @@ import { afterEach, describe, it, mock } from "node:test";
 
 import {
     disposeProgressBars,
-    renderProgressBar,
-    resetProgressBarRegistryForTesting,
     type ProgressBarLike,
-    type ProgressBarStream
+    type ProgressBarStream,
+    renderProgressBar,
+    resetProgressBarRegistryForTesting
 } from "../src/runtime-options/progress-bar.js";
 
 const ESCAPE_PREFIX = String.fromCharCode(0x1b);

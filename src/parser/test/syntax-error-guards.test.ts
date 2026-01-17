@@ -1,5 +1,6 @@
 import assert from "node:assert/strict";
 import { describe, it } from "node:test";
+
 import { isSyntaxErrorWithLocation } from "../src/utils/syntax-error-guards.js";
 
 void describe("isSyntaxErrorWithLocation", () => {

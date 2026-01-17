@@ -76,10 +76,10 @@ applyIdentifierCaseOptionStoreEnvOverride();
 const DEFAULT_IDENTIFIER_CASE_OPTION_STORE_MAX_ENTRIES = getDefaultIdentifierCaseOptionStoreMaxEntries();
 
 export {
+    applyIdentifierCaseOptionStoreEnvOverride,
     DEFAULT_IDENTIFIER_CASE_OPTION_STORE_MAX_ENTRIES,
+    getDefaultIdentifierCaseOptionStoreMaxEntries,
     IDENTIFIER_CASE_OPTION_STORE_MAX_ENTRIES_BASELINE,
     IDENTIFIER_CASE_OPTION_STORE_MAX_ENTRIES_ENV_VAR,
-    applyIdentifierCaseOptionStoreEnvOverride,
-    getDefaultIdentifierCaseOptionStoreMaxEntries,
     setDefaultIdentifierCaseOptionStoreMaxEntries
 };

@@ -1,8 +1,8 @@
 import assert from "node:assert/strict";
 import test from "node:test";
 
-import { gmlPluginComponentDependencies } from "../src/components/plugin-component-bundles.js";
 import { createDefaultGmlPluginComponents } from "../src/components/default-plugin-components.js";
+import { gmlPluginComponentDependencies } from "../src/components/plugin-component-bundles.js";
 
 const SAMPLE_SOURCE = "function example() { return 1; }";
 

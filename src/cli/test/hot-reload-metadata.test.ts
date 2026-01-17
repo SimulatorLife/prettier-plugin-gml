@@ -6,10 +6,11 @@
  * to the WebSocket clients for end-to-end timing analysis.
  */
 
-import { describe, it, before, after } from "node:test";
 import assert from "node:assert";
-import { writeFile, mkdir, rm } from "node:fs/promises";
+import { mkdir, rm, writeFile } from "node:fs/promises";
 import path from "node:path";
+import { after, before, describe, it } from "node:test";
+
 import WebSocket from "ws";
 
 import { runWatchCommand } from "../src/commands/watch.js";

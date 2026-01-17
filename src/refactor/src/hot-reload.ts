@@ -4,33 +4,33 @@
  * and hot reload update preparation.
  */
 
-import { WorkspaceEdit } from "./workspace-edit.js";
+import * as SymbolQueries from "./symbol-queries.js";
 import {
-    ConflictType,
-    SymbolKind,
-    parseSymbolKind,
     type CascadeEntry,
+    ConflictType,
     type HotReloadCascadeResult,
     type HotReloadSafetySummary,
     type HotReloadUpdate,
+    parseSymbolKind,
     type PartialSemanticAnalyzer,
-    type RenameRequest,
     type RenameImpactGraph,
     type RenameImpactNode,
+    type RenameRequest,
+    SymbolKind,
     type TranspilerBridge,
     type TranspilerPatch,
     type WorkspaceReadFile
 } from "./types.js";
+import { detectRenameConflicts } from "./validation.js";
 import {
-    assertValidIdentifierName,
     assertArray,
     assertFunction,
     assertNonEmptyString,
+    assertValidIdentifierName,
     extractSymbolName,
     hasMethod
 } from "./validation-utils.js";
-import { detectRenameConflicts } from "./validation.js";
-import * as SymbolQueries from "./symbol-queries.js";
+import { WorkspaceEdit } from "./workspace-edit.js";
 
 /**
  * Prepare hot reload updates from a workspace edit.

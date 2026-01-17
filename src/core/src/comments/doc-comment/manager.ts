@@ -1,8 +1,8 @@
-import { getCommentArray, isDocCommentLine, type DocCommentLines } from "../comment-utils.js";
+import { type DocCommentLines, getCommentArray, isDocCommentLine } from "../comment-utils.js";
 import {
+    getNodeStartIndex,
     isFunctionLikeNode,
     isNode,
-    getNodeStartIndex,
     isNonEmptyArray,
     isNonEmptyTrimmedString,
     toMutableArray

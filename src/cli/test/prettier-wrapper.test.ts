@@ -1,13 +1,13 @@
 import assert from "node:assert/strict";
-import fs from "node:fs/promises";
+import { execFile, type ExecFileOptions } from "node:child_process";
 import fsSync from "node:fs";
+import fs from "node:fs/promises";
 import os from "node:os";
 import path from "node:path";
+import { describe, it } from "node:test";
 import { fileURLToPath } from "node:url";
 import { promisify } from "node:util";
-import { execFile, type ExecFileOptions } from "node:child_process";
 
-import { describe, it } from "node:test";
 import { CLI } from "@gml-modules/cli";
 import { Core } from "@gml-modules/core";
 import { Plugin } from "@gml-modules/plugin";

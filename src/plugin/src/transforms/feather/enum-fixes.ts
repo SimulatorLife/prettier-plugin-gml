@@ -2,15 +2,16 @@
  * Feather-specific enum helpers ensure automatic fixes either remove duplicate members or sanitize invalid initializers.
  */
 import { Core } from "@gml-modules/core";
+
+import { getEndFromNode } from "./ast-traversal.js";
+import { removeDuplicateSemicolons } from "./semicolon-fixes.js";
 import {
-    hasFeatherDiagnosticContext,
-    createFeatherFixDetail,
     attachFeatherFixMetadata,
+    createFeatherFixDetail,
+    hasFeatherDiagnosticContext,
     isIntegerLiteralString,
     visitFeatherAST
 } from "./utils.js";
-import { getEndFromNode } from "./ast-traversal.js";
-import { removeDuplicateSemicolons } from "./semicolon-fixes.js";
 
 /**
  * Remove repeated `enum` members and emit Feather fix metadata describing the deletions.

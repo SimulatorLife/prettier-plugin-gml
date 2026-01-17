@@ -4,10 +4,10 @@
  * operations before applying them, essential for IDE integrations and CLI tools.
  */
 
-import type { RenamePlanSummary, BatchRenamePlanSummary, SymbolOccurrence } from "./types.js";
-import type { WorkspaceEdit } from "./workspace-edit.js";
 import { groupOccurrencesByFile } from "./occurrence-analysis.js";
-import { assertNonEmptyString, assertArray, extractSymbolName } from "./validation-utils.js";
+import type { BatchRenamePlanSummary, RenamePlanSummary, SymbolOccurrence } from "./types.js";
+import { assertArray, assertNonEmptyString, extractSymbolName } from "./validation-utils.js";
+import type { WorkspaceEdit } from "./workspace-edit.js";
 
 /**
  * Append formatted error and warning messages to a lines array.

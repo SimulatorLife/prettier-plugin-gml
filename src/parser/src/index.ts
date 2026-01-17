@@ -1,7 +1,6 @@
-import * as GMLParserModule from "./gml-parser.js";
 import * as AST from "./ast/index.js";
+import * as GMLParserModule from "./gml-parser.js";
 import * as Runtime from "./runtime/index.js";
-
 // DESIGN SMELL: The "Utils" module has accumulated miscellaneous helper functions
 // without a clear conceptual boundary. A module should have a single, well-defined
 // responsibility that can be expressed in 1-2 words (e.g., "tokenization", "validation",

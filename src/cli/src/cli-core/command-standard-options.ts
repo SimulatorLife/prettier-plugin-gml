@@ -1,4 +1,5 @@
 import { Core } from "@gml-modules/core";
+
 import type { CommanderConfigurator } from "./commander-types.js";
 
 const { noop } = Core;
@@ -53,4 +54,4 @@ export function applyStandardCommandOptions<TCommand extends CommanderConfigurat
     return command;
 }
 
-export { DEFAULT_HELP_FLAG, DEFAULT_HELP_DESCRIPTION, DEFAULT_HELP_AFTER_ERROR };
+export { DEFAULT_HELP_AFTER_ERROR, DEFAULT_HELP_DESCRIPTION, DEFAULT_HELP_FLAG };

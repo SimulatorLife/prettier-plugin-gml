@@ -3,8 +3,8 @@ import { describe, it } from "node:test";
 
 import {
     DEFAULT_BYTE_FORMAT_RADIX,
-    formatByteSize,
     formatBytes,
+    formatByteSize,
     getDefaultByteFormatRadix,
     setDefaultByteFormatRadix
 } from "../src/shared/reporting/byte-format.js";

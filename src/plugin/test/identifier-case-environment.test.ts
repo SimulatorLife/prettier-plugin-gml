@@ -3,6 +3,7 @@ import path from "node:path";
 import test from "node:test";
 
 import { Semantic } from "@gml-modules/semantic";
+
 import { Plugin } from "../index.js";
 
 const { prepareIdentifierCaseEnvironment, teardownIdentifierCaseEnvironment, clearIdentifierCaseOptionStore } =

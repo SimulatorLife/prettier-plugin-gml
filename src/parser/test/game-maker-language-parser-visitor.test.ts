@@ -1,10 +1,10 @@
 import assert from "node:assert/strict";
 import { test } from "node:test";
 
+import GameMakerLanguageParserVisitorBase from "../generated/GameMakerLanguageParserVisitor.js";
 import GameMakerLanguageParserVisitor, {
     VISIT_METHOD_NAMES
 } from "../src/runtime/game-maker-language-parser-visitor.js";
-import GameMakerLanguageParserVisitorBase from "../generated/GameMakerLanguageParserVisitor.js";
 
 void test("default visitor delegates to visitChildren", () => {
     const visitor = new GameMakerLanguageParserVisitor();

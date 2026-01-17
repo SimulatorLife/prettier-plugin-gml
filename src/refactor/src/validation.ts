@@ -3,22 +3,23 @@
  * Handles conflict detection, circular rename detection, and batch rename validation.
  */
 
+import { Core } from "@gml-modules/core";
+
 import {
-    ConflictType,
     type ConflictEntry,
+    ConflictType,
+    type FileSymbolProvider,
     type KeywordProvider,
     type RenameRequest,
     type SymbolOccurrence,
-    type SymbolResolver,
-    type FileSymbolProvider
+    type SymbolResolver
 } from "./types.js";
 import {
     assertValidIdentifierName,
-    extractSymbolName,
     DEFAULT_RESERVED_KEYWORDS,
+    extractSymbolName,
     hasMethod
 } from "./validation-utils.js";
-import { Core } from "@gml-modules/core";
 
 /**
  * Detect conflicts that would arise from renaming a symbol.

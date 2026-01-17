@@ -6,8 +6,8 @@
  * interrupting the running watcher.
  */
 
-import { Command, Option } from "commander";
 import { Core } from "@gml-modules/core";
+import { Command, Option } from "commander";
 
 const { getErrorMessage } = Core;
 

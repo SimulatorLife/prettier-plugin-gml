@@ -131,17 +131,17 @@ function normalizeConcurrencyValue(
 }
 
 export {
+    applyProjectIndexConcurrencyEnvOverride,
+    applyProjectIndexConcurrencyLimitEnvOverride,
+    clampConcurrency,
     DEFAULT_PROJECT_INDEX_GML_CONCURRENCY,
     DEFAULT_PROJECT_INDEX_GML_CONCURRENCY_LIMIT,
+    getDefaultProjectIndexGmlConcurrency,
+    getDefaultProjectIndexGmlConcurrencyLimit,
     PROJECT_INDEX_GML_CONCURRENCY_BASELINE,
     PROJECT_INDEX_GML_CONCURRENCY_ENV_VAR,
     PROJECT_INDEX_GML_MAX_CONCURRENCY_BASELINE,
     PROJECT_INDEX_GML_MAX_CONCURRENCY_ENV_VAR,
-    applyProjectIndexConcurrencyEnvOverride,
-    applyProjectIndexConcurrencyLimitEnvOverride,
-    clampConcurrency,
-    getDefaultProjectIndexGmlConcurrency,
-    getDefaultProjectIndexGmlConcurrencyLimit,
     setDefaultProjectIndexGmlConcurrency,
     setDefaultProjectIndexGmlConcurrencyLimit
 };

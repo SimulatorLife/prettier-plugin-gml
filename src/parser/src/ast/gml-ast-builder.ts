@@ -1,15 +1,16 @@
-import GameMakerLanguageParserVisitor from "../runtime/game-maker-language-parser-visitor.js";
 import { Core, type GameMakerAstLocation, type GameMakerAstNode } from "@gml-modules/core";
-import BinaryExpressionDelegate from "./binary-expression-delegate.js";
+import type { Token } from "antlr4";
+
+import GameMakerLanguageParserVisitor from "../runtime/game-maker-language-parser-visitor.js";
 import type {
     ParserContext,
     ParserContextWithMethods,
+    ParserOptions,
     ParserToken,
-    ScopeTrackerOptions,
     ScopeTracker,
-    ParserOptions
+    ScopeTrackerOptions
 } from "../types/index.js";
-import type { Token } from "antlr4";
+import BinaryExpressionDelegate from "./binary-expression-delegate.js";
 
 type BinaryOperatorAssoc = "left" | "right";
 type BinaryOperatorType = "unary" | "arithmetic" | "bitwise" | "comparison" | "logical" | "assign";

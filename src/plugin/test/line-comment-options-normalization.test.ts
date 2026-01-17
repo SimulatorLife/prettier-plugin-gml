@@ -1,5 +1,6 @@
 import assert from "node:assert/strict";
 import { afterEach, describe, it } from "node:test";
+
 import { Core } from "@gml-modules/core";
 
 type LineComment = {

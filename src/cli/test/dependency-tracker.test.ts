@@ -2,8 +2,8 @@
  * Tests for dependency tracker module.
  */
 
-import { describe, it } from "node:test";
 import assert from "node:assert/strict";
+import { describe, it } from "node:test";
 
 import { DependencyTracker } from "../src/modules/dependency-tracker.js";
 

@@ -1,33 +1,33 @@
 import {
     clamp,
     coercePositiveIntegerOption,
+    type DocCommentLines,
     findLastIndex,
     isNonEmptyArray,
     isNonEmptyString,
     isNonEmptyTrimmedString,
+    type MutableDocCommentLines,
     toMutableArray,
-    toTrimmedString,
-    type DocCommentLines,
-    type MutableDocCommentLines
+    toTrimmedString
 } from "../utils.js";
-import { parseDocCommentMetadata } from "./metadata.js";
 import {
-    dedupeReturnDocLines,
-    reorderDescriptionLinesToTop,
     convertLegacyReturnsDescriptionLinesToMetadata,
+    dedupeReturnDocLines,
+    hasLegacyReturnsDescriptionLines,
     promoteLeadingDocCommentTextToDescription,
-    hasLegacyReturnsDescriptionLines
+    reorderDescriptionLinesToTop
 } from "./legacy.js";
-import { normalizeDocCommentTypeAnnotations, normalizeGameMakerType } from "./type-normalization.js";
+import { parseDocCommentMetadata } from "./metadata.js";
+import { getCanonicalParamNameFromText } from "./params.js";
+import { computeSyntheticFunctionDocLines } from "./synthetic-generation.js";
 import {
     collectImplicitArgumentDocNames,
     getParameterDocInfo,
+    ImplicitArgumentDocEntry,
     preferredParamDocNamesByNode,
-    suppressedImplicitDocCanonicalByNode,
-    ImplicitArgumentDocEntry
+    suppressedImplicitDocCanonicalByNode
 } from "./synthetic-helpers.js";
-import { getCanonicalParamNameFromText } from "./params.js";
-import { computeSyntheticFunctionDocLines } from "./synthetic-generation.js";
+import { normalizeDocCommentTypeAnnotations, normalizeGameMakerType } from "./type-normalization.js";
 
 const STRING_TYPE = "string";
 

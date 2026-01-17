@@ -1,19 +1,19 @@
-import vm from "node:vm";
 import process from "node:process";
+import vm from "node:vm";
 
-import { Command, Option } from "commander";
-import type { CommanderCommandLike } from "../cli-core/commander-types.js";
-
-import { assertSupportedNodeVersion } from "../shared/node-version.js";
 import { Core } from "@gml-modules/core";
-import { writeJsonArtifact } from "../shared/fs-artifacts.js";
-import { resolveVmEvalTimeout, getDefaultVmEvalTimeoutMs } from "../runtime-options/vm-eval-timeout.js";
-import { applyStandardCommandOptions } from "../cli-core/command-standard-options.js";
-import { isMainModule, runAsMainModule } from "../cli-core/main-module-runner.js";
+import { Command, Option } from "commander";
+
 import { wrapInvalidArgumentResolver } from "../cli-core/command-parsing.js";
+import { applyStandardCommandOptions } from "../cli-core/command-standard-options.js";
+import type { CommanderCommandLike } from "../cli-core/commander-types.js";
+import { isMainModule, runAsMainModule } from "../cli-core/main-module-runner.js";
 import { decodeManualKeywordsPayload, decodeManualTagsPayload } from "../modules/manual/payload-validation.js";
 import { getManualRootMetadataPath, readManualText } from "../modules/manual/source.js";
 import { ManualWorkflowOptions, prepareManualWorkflow } from "../modules/manual/workflow.js";
+import { getDefaultVmEvalTimeoutMs, resolveVmEvalTimeout } from "../runtime-options/vm-eval-timeout.js";
+import { writeJsonArtifact } from "../shared/fs-artifacts.js";
+import { assertSupportedNodeVersion } from "../shared/node-version.js";
 import { resolveFromRepoRoot } from "../shared/workspace-paths.js";
 
 const {

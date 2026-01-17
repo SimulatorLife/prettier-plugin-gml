@@ -6,7 +6,8 @@
  * WebSocket client count.
  */
 
-import { createServer, type Server, type IncomingMessage, type ServerResponse } from "node:http";
+import { createServer, type IncomingMessage, type Server, type ServerResponse } from "node:http";
+
 import type { ServerEndpoint, ServerLifecycle } from "../shared-server-types.js";
 
 export interface StatusSnapshot {

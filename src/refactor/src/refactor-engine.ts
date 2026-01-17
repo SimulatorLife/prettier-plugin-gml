@@ -1,12 +1,13 @@
-import { WorkspaceEdit, type GroupedTextEdits, type TextEdit } from "./workspace-edit.js";
 import { Core } from "@gml-modules/core";
+
+import * as HotReload from "./hot-reload.js";
+import * as SymbolQueries from "./symbol-queries.js";
 import {
-    ConflictType,
-    OccurrenceKind,
     type ApplyWorkspaceEditOptions,
     type BatchRenamePlanSummary,
     type BatchRenameValidation,
     type ConflictEntry,
+    ConflictType,
     type ExecuteBatchRenameRequest,
     type ExecuteRenameRequest,
     type ExecuteRenameResult,
@@ -14,6 +15,7 @@ import {
     type HotReloadSafetySummary,
     type HotReloadUpdate,
     type HotReloadValidationOptions,
+    OccurrenceKind,
     type ParserBridge,
     type PartialSemanticAnalyzer,
     type PrepareRenamePlanOptions,
@@ -29,18 +31,17 @@ import {
     type ValidationSummary,
     type WorkspaceReadFile
 } from "./types.js";
+import { detectCircularRenames, detectRenameConflicts } from "./validation.js";
 import {
-    assertValidIdentifierName,
-    assertRenameRequest,
     assertArray,
     assertFunction,
     assertNonEmptyString,
+    assertRenameRequest,
+    assertValidIdentifierName,
     extractSymbolName,
     hasMethod
 } from "./validation-utils.js";
-import { detectCircularRenames, detectRenameConflicts } from "./validation.js";
-import * as SymbolQueries from "./symbol-queries.js";
-import * as HotReload from "./hot-reload.js";
+import { type GroupedTextEdits, type TextEdit, WorkspaceEdit } from "./workspace-edit.js";
 
 /**
  * RefactorEngine coordinates semantic-safe edits across the project.

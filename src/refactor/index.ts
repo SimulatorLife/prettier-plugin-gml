@@ -1,5 +1,3 @@
-export { Refactor } from "./src/index.js";
-
 export type {
     ApplyWorkspaceEditOptions,
     BatchRenamePlanSummary,
@@ -33,3 +31,4 @@ export type {
     WorkspaceReadFile,
     WorkspaceWriteFile
 } from "./src/index.js";
+export { Refactor } from "./src/index.js";

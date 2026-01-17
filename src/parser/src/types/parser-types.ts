@@ -1,5 +1,5 @@
-import type { ParserRuleContext, Token, TokenStream } from "antlr4";
 import type { MutableGameMakerAstNode } from "@gml-modules/core";
+import type { ParserRuleContext, Token, TokenStream } from "antlr4";
 
 export type ParserContext =
     | (ParserRuleContext & {

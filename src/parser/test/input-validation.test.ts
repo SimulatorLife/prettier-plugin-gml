@@ -1,6 +1,7 @@
-import { describe, it } from "node:test";
 import assert from "node:assert/strict";
-import { validateSourceText, isValidSourceTextType, SourceTextValidationError } from "../src/utils/input-validation.js";
+import { describe, it } from "node:test";
+
+import { isValidSourceTextType, SourceTextValidationError, validateSourceText } from "../src/utils/input-validation.js";
 
 describe("validateSourceText", () => {
     describe("successful validation", () => {
