@@ -810,13 +810,6 @@ export async function runWatchCommand(targetPath: string, options: WatchCommandO
 
     logWatchStartup(normalizedPath, extensionSet, polling, pollingInterval, verbose, quiet);
 
-    // Perform initial scan of all GML files to build the dependency graph
-    if (!quiet && verbose) {
-        console.log("Scanning existing GML files to build dependency graph...");
-    }
-
-    await performInitialScan(normalizedPath, extensionMatcher, runtimeContext, verbose, quiet);
-
     const watchOptions: WatchOptions = {
         recursive: true,
         ...(polling && { persistent: true })
@@ -1000,6 +993,16 @@ export async function runWatchCommand(targetPath: string, options: WatchCommandO
             );
 
             watcher.on("error", handleWatcherError);
+
+            // Perform initial scan after the watcher is established so test harnesses
+            // and callers can trigger events immediately without waiting for the scan.
+            void (async () => {
+                if (!quiet && verbose) {
+                    console.log("Scanning existing GML files to build dependency graph...");
+                }
+
+                await performInitialScan(normalizedPath, extensionMatcher, runtimeContext, verbose, quiet);
+            })();
         } catch (error) {
             handleWatcherError(error);
         }
