@@ -17,7 +17,9 @@ import type {
     PatchErrorAnalytics,
     PatchErrorCategory,
     PatchErrorSummary,
+    PatchDiagnostics,
     PatchHistoryEntry,
+    PatchKind,
     PatchStats,
     RegistryHealthCheck,
     RegistryHealthIssue,
@@ -601,7 +603,7 @@ export function createRuntimeWrapper(options: RuntimeWrapperOptions = {}): Runti
         };
     }
 
-    function getPatchDiagnostics(id: string): import("./types.js").PatchDiagnostics | null {
+    function getPatchDiagnostics(id: string): PatchDiagnostics | null {
         const historyEntries = state.patchHistory.filter((entry) => entry.patch.id === id);
         if (historyEntries.length === 0) {
             return null;
@@ -655,7 +657,7 @@ export function createRuntimeWrapper(options: RuntimeWrapperOptions = {}): Runti
             rollback: 0
         };
 
-        const errorsByKind: Record<import("./types.js").PatchKind, number> = {
+        const errorsByKind: Record<PatchKind, number> = {
             script: 0,
             event: 0,
             closure: 0
