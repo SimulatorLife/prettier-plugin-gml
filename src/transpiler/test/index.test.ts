@@ -40,6 +40,31 @@ await test("transpileScript includes source text in result", () => {
     assert.equal(result.sourceText, sourceText);
 });
 
+await test("transpileScript includes source path metadata when provided", () => {
+    const transpiler = new Transpiler.GmlTranspiler();
+    const result = transpiler.transpileScript({
+        sourceText: "x = 1 + 2",
+        symbolId: "gml/script/test",
+        sourcePath: "scripts/player_move.gml"
+    });
+
+    assert.equal(result.metadata?.sourcePath, "scripts/player_move.gml");
+});
+
+await test("transpileScript rejects empty source paths", () => {
+    const transpiler = new Transpiler.GmlTranspiler();
+
+    assert.throws(
+        () =>
+            transpiler.transpileScript({
+                sourceText: "x = 1 + 2",
+                symbolId: "gml/script/test",
+                sourcePath: ""
+            }),
+        { name: "TypeError" }
+    );
+});
+
 await test("transpileExpression generates JavaScript for simple expressions", () => {
     const transpiler = new Transpiler.GmlTranspiler();
     const result = transpiler.transpileExpression("x = 1 + 2");

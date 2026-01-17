@@ -9,6 +9,11 @@ import {
 } from "../emitter/index.js";
 
 export interface TranspileScriptRequest {
+    /**
+     * Absolute or workspace-relative file path that produced the source.
+     * This is surfaced in patch metadata for runtime diagnostics.
+     */
+    readonly sourcePath?: string;
     readonly sourceText: string;
     readonly symbolId: string;
 }
@@ -52,11 +57,15 @@ export class GmlTranspiler {
             throw new TypeError("transpileScript requires a request object");
         }
         const { sourceText, symbolId } = request;
+        const sourcePath = request.sourcePath;
         if (typeof sourceText !== "string" || sourceText.length === 0) {
             throw new TypeError("transpileScript requires a sourceText string");
         }
         if (typeof symbolId !== "string" || symbolId.length === 0) {
             throw new TypeError("transpileScript requires a symbolId string");
+        }
+        if (sourcePath !== undefined && (typeof sourcePath !== "string" || sourcePath.length === 0)) {
+            throw new TypeError("transpileScript requires sourcePath to be a non-empty string when provided");
         }
 
         try {
@@ -73,6 +82,7 @@ export class GmlTranspiler {
                 sourceText,
                 version: timestamp,
                 metadata: {
+                    ...(sourcePath ? { sourcePath } : {}),
                     timestamp
                 }
             };
