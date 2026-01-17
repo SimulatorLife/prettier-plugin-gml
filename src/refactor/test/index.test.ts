@@ -1159,6 +1159,25 @@ void test("planBatchRename validates each rename request", async () => {
     );
 });
 
+void test("planBatchRename rejects duplicate symbol IDs", async () => {
+    const mockSemantic = {
+        hasSymbol: () => true,
+        getSymbolOccurrences: () => []
+    };
+    const engine = new RefactorEngineClass({ semantic: mockSemantic });
+
+    await assert.rejects(
+        () =>
+            engine.planBatchRename([
+                { symbolId: "gml/script/scr_a", newName: "scr_new_a" },
+                { symbolId: "gml/script/scr_a", newName: "scr_new_b" }
+            ]),
+        {
+            message: /Duplicate rename request for symbolId/
+        }
+    );
+});
+
 void test("planBatchRename detects duplicate target names", async () => {
     const mockSemantic = {
         hasSymbol: () => true,
@@ -3104,6 +3123,24 @@ void test("validateBatchRenameRequest detects duplicate target names", async () 
 
     assert.equal(validation.valid, false);
     assert.ok(validation.errors.some((e) => e.includes("scr_same")));
+    assert.equal(validation.conflictingSets.length, 1);
+    assert.equal(validation.conflictingSets[0].length, 2);
+});
+
+void test("validateBatchRenameRequest detects duplicate symbol IDs", async () => {
+    const mockSemantic: PartialSemanticAnalyzer = {
+        hasSymbol: () => true,
+        getSymbolOccurrences: () => []
+    };
+    const engine = new RefactorEngineClass({ semantic: mockSemantic });
+
+    const validation = await engine.validateBatchRenameRequest([
+        { symbolId: "gml/script/scr_a", newName: "scr_new_a" },
+        { symbolId: "gml/script/scr_a", newName: "scr_new_b" }
+    ]);
+
+    assert.equal(validation.valid, false);
+    assert.ok(validation.errors.some((e) => e.includes("Duplicate rename request")));
     assert.equal(validation.conflictingSets.length, 1);
     assert.equal(validation.conflictingSets[0].length, 2);
 });
