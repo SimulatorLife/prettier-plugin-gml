@@ -84,6 +84,54 @@ const {
 } = Core;
 
 const formattingCache = new Map<string, string>();
+// Bound cache growth so large formatting runs do not retain every unique file payload.
+const MAX_FORMATTING_CACHE_ENTRIES = 100;
+
+function trimFormattingCache(limit = MAX_FORMATTING_CACHE_ENTRIES) {
+    if (!Number.isFinite(limit)) {
+        return;
+    }
+
+    if (limit <= 0) {
+        formattingCache.clear();
+        return;
+    }
+
+    while (formattingCache.size > limit) {
+        const { value: oldestKey, done } = formattingCache.keys().next();
+        if (done) {
+            break;
+        }
+
+        formattingCache.delete(oldestKey);
+    }
+}
+
+function getFormattingCacheEntry(cacheKey: string): string | undefined {
+    const cached = formattingCache.get(cacheKey);
+    if (cached === undefined) {
+        return undefined;
+    }
+
+    formattingCache.delete(cacheKey);
+    formattingCache.set(cacheKey, cached);
+    return cached;
+}
+
+function storeFormattingCacheEntry(cacheKey: string, formatted: string) {
+    formattingCache.set(cacheKey, formatted);
+    trimFormattingCache();
+}
+
+function estimateFormattingCacheBytes() {
+    let total = 0;
+    for (const [key, value] of formattingCache.entries()) {
+        total += Buffer.byteLength(key, "utf8");
+        total += Buffer.byteLength(value, "utf8");
+    }
+
+    return total;
+}
 
 function stringifyCacheComponent(value: unknown) {
     if (value === undefined || value === null) {
@@ -891,6 +939,7 @@ async function resetFormattingSession(onParseError) {
     encounteredFormattableFile = false;
     resetCheckModeTracking();
     resetFormattedFileTracking();
+    formattingCache.clear();
 }
 
 /**
@@ -1523,11 +1572,11 @@ async function processFile(filePath, activeIgnorePaths = []) {
 
         const data = await readFile(filePath, "utf8");
         const cacheKey = createFormattingCacheKey(data, formattingOptions);
-        let formatted = formattingCache.get(cacheKey);
+        let formatted = getFormattingCacheEntry(cacheKey);
 
         if (formatted === undefined) {
             formatted = await prettier.format(data, formattingOptions);
-            formattingCache.set(cacheKey, formatted);
+            storeFormattingCacheEntry(cacheKey, formatted);
         }
         const normalizedOutput = normalizeFormattedOutput(formatted, data);
 
@@ -2216,7 +2265,16 @@ export const __test__ = Object.freeze({
     configurePrettierOptionsForTests: configurePrettierOptions,
     getPrettierOptionsForTests: () => options,
     validateTargetPathInputForTests: validateTargetPathInput,
-    resolveTargetPathFromInputForTests: resolveTargetPathFromInput
+    resolveTargetPathFromInputForTests: resolveTargetPathFromInput,
+    clearFormattingCacheForTests: () => formattingCache.clear(),
+    getFormattingCacheStatsForTests: () => ({
+        size: formattingCache.size,
+        estimatedBytes: estimateFormattingCacheBytes(),
+        maxEntries: MAX_FORMATTING_CACHE_ENTRIES
+    }),
+    setFormattingCacheEntryForTests: (cacheKey: string, formatted: string) =>
+        storeFormattingCacheEntry(cacheKey, formatted),
+    getFormattingCacheKeysForTests: () => [...formattingCache.keys()]
 });
 
 const formatCommand = createFormatCommand({ name: FORMAT_ACTION });
