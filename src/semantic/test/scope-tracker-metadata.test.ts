@@ -118,6 +118,34 @@ void describe("ScopeTracker: scope metadata", () => {
         assert.strictEqual(metadata.path, "test.gml");
     });
 
+    void test("updateScopeMetadata refreshes path index and merges metadata", () => {
+        const tracker = new ScopeTracker({ enabled: true });
+
+        const scope = tracker.enterScope("function", {
+            name: "initPlayer",
+            path: "scripts/old-path.gml",
+            start: { line: 1, column: 0, index: 0 }
+        });
+
+        assert.strictEqual(tracker.getScopesByPath("scripts/old-path.gml").length, 1);
+        assert.strictEqual(tracker.getScopesByPath("scripts/new-path.gml").length, 0);
+
+        tracker.updateScopeMetadata(scope.id, { path: "scripts/new-path.gml" });
+
+        assert.strictEqual(tracker.getScopesByPath("scripts/old-path.gml").length, 0);
+        assert.strictEqual(tracker.getScopesByPath("scripts/new-path.gml").length, 1);
+
+        const updated = tracker.getScopeMetadata(scope.id);
+        assert.strictEqual(updated?.name, "initPlayer");
+        assert.strictEqual(updated?.path, "scripts/new-path.gml");
+        assert.ok(updated?.start);
+        assert.strictEqual(updated.start.line, 1);
+
+        tracker.updateScopeMetadata(scope.id, { path: "" });
+        assert.strictEqual(tracker.getScopesByPath("scripts/new-path.gml").length, 0);
+        assert.strictEqual(tracker.getScopeMetadata(scope.id)?.path, undefined);
+    });
+
     void test("scope metadata supports hot reload file tracking", () => {
         const tracker = new ScopeTracker({ enabled: true });
 
