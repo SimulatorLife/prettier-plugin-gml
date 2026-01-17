@@ -36,7 +36,7 @@ export class CommentTracker {
                 return { index, comment };
             })
             .filter((entry) => typeof entry.index === "number")
-            .sort((a, b) => a.index - b.index);
+            .toSorted((a, b) => a.index - b.index);
     }
 
     // Save the current comment state so we can revert if a rewrite branch fails.
