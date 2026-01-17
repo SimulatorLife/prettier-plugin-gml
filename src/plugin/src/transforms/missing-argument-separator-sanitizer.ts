@@ -3,6 +3,13 @@
  * The sanitizer emits index adjustments for downstream location remapping.
  */
 import { Core } from "@gml-modules/core";
+import {
+    advanceThroughComment,
+    advanceThroughStringLiteral,
+    createStringCommentScanState,
+    tryStartStringOrComment,
+    type StringCommentScanState
+} from "./source-text/string-comment-scan.js";
 
 const FALLBACK_FORBIDDEN_CALLEE = [
     "if",
@@ -72,20 +79,9 @@ interface SanitizeMissingSeparatorsResult {
 }
 
 /**
- * State for tracking string literals and comments during parsing.
- * Used by helper functions like advanceThroughStringLiteral and advanceThroughComment.
- */
-interface StringCommentState {
-    stringQuote: string | null;
-    stringEscape: boolean;
-    inLineComment: boolean;
-    inBlockComment: boolean;
-}
-
-/**
  * Extended state for processing call expressions, including parenthesis nesting depth.
  */
-interface CallProcessingState extends StringCommentState {
+interface CallProcessingState extends StringCommentScanState {
     /** Parenthesis nesting depth (only used by processCall function) */
     depth: number;
 }
@@ -100,94 +96,9 @@ interface CallProcessingResult {
  */
 function createCallProcessingState(): CallProcessingState {
     return {
-        stringQuote: null,
-        stringEscape: false,
-        inLineComment: false,
-        inBlockComment: false,
+        ...createStringCommentScanState(),
         depth: 1
     };
-}
-
-/**
- * Advances the index through string literal content, updating state accordingly.
- */
-function advanceThroughStringLiteral(text: string, currentIndex: number, state: StringCommentState): number {
-    const character = text[currentIndex];
-    const nextIndex = currentIndex + 1;
-
-    if (state.stringEscape) {
-        state.stringEscape = false;
-        return nextIndex;
-    }
-
-    if (character === "\\") {
-        state.stringEscape = true;
-        return nextIndex;
-    }
-
-    if (character === state.stringQuote) {
-        state.stringQuote = null;
-    }
-
-    return nextIndex;
-}
-
-/**
- * Advances the index through comment content, updating state accordingly.
- * This function should only be called when state.inLineComment or state.inBlockComment is true.
- */
-function advanceThroughComment(text: string, length: number, currentIndex: number, state: StringCommentState): number {
-    const character = text[currentIndex];
-    const nextIndex = currentIndex + 1;
-
-    if (state.inLineComment) {
-        if (character === "\n") {
-            state.inLineComment = false;
-        }
-        return nextIndex;
-    }
-
-    if (character === "*" && currentIndex + 1 < length && text[currentIndex + 1] === "/") {
-        state.inBlockComment = false;
-        return currentIndex + 2;
-    }
-
-    return nextIndex;
-}
-
-/**
- * Attempts to start tracking a string literal or comment.
- * Returns the new index if successful, or the original index if not applicable.
- */
-function tryStartStringOrComment(
-    text: string,
-    length: number,
-    currentIndex: number,
-    state: StringCommentState
-): number {
-    const character = text[currentIndex];
-
-    if (character === "'" || character === '"' || character === "`") {
-        state.stringQuote = character;
-        state.stringEscape = false;
-        return currentIndex + 1;
-    }
-
-    if (character === "/" && currentIndex + 1 < length) {
-        const nextCharacter = text[currentIndex + 1];
-
-        if (nextCharacter === "/") {
-            state.inLineComment = true;
-            return currentIndex + 2;
-        }
-
-        if (nextCharacter === "*") {
-            state.inBlockComment = true;
-            return currentIndex + 2;
-        }
-    }
-
-    return currentIndex;
 }
 
 /**
@@ -571,12 +482,7 @@ function skipBalancedSection(sourceText: string, startIndex: number, openChar: s
     let index = startIndex + 1;
     let depth = 1;
     // State is only used for string/comment tracking, not depth tracking
-    const state: StringCommentState = {
-        stringQuote: null,
-        stringEscape: false,
-        inLineComment: false,
-        inBlockComment: false
-    };
+    const state = createStringCommentScanState();
 
     while (index < length && depth > 0) {
         const character = sourceText[index];

@@ -4,6 +4,13 @@
  * recording how indices shift so downstream diagnostics can stay in sync.
  */
 import { Core } from "@gml-modules/core";
+import {
+    advanceThroughComment,
+    advanceThroughStringLiteral,
+    createStringCommentScanState,
+    tryStartStringOrComment,
+    type StringCommentScanState
+} from "./source-text/string-comment-scan.js";
 
 const ASSIGNMENT_GUARD_CHARACTERS = new Set(["*", "+", "-", "/", "%", "|", "&", "^", "<", ">", "!", "=", ":"]);
 
@@ -35,19 +42,11 @@ function createIndexMapper(insertPositions: Array<number | null | undefined> | n
     };
 }
 
-function isQuoteCharacter(char: string) {
-    return `"'\``.includes(char);
-}
-
-type ConditionalAssignmentScanState = {
+type ConditionalAssignmentScanState = StringCommentScanState & {
     parts: string[];
     adjustmentPositions: number[];
     index: number;
     modified: boolean;
-    inLineComment: boolean;
-    inBlockComment: boolean;
-    stringQuote: string | null;
-    escapeNext: boolean;
     justSawIfKeyword: boolean;
     ifConditionDepth: number;
     insertionsSoFar: number;
@@ -57,81 +56,29 @@ function appendCharacter(state: ConditionalAssignmentScanState, character: strin
     state.parts.push(character);
 }
 
-function handleLineComment(state: ConditionalAssignmentScanState, character: string) {
-    if (!state.inLineComment) {
-        return false;
-    }
-
-    appendCharacter(state, character);
-    if (character === "\n" || character === "\r") {
-        state.inLineComment = false;
-    }
-    state.index += 1;
-    return true;
-}
-
-function handleBlockComment(state: ConditionalAssignmentScanState, character: string, nextCharacter: string) {
-    if (!state.inBlockComment) {
-        return false;
-    }
-
-    appendCharacter(state, character);
-    if (character === "*" && nextCharacter === "/") {
-        appendCharacter(state, nextCharacter);
-        state.index += 2;
-        state.inBlockComment = false;
-        return true;
-    }
-    state.index += 1;
-    return true;
-}
-
-function handleStringLiteral(state: ConditionalAssignmentScanState, character: string) {
-    if (!state.stringQuote) {
-        return false;
-    }
-
-    appendCharacter(state, character);
-    if (state.escapeNext) {
-        state.escapeNext = false;
-    } else if (character === "\\") {
-        state.escapeNext = true;
-    } else if (character === state.stringQuote) {
-        state.stringQuote = null;
-    }
-    state.index += 1;
-    return true;
-}
-
-function handleCommentStart(state: ConditionalAssignmentScanState, character: string, nextCharacter: string) {
-    if (character === "/" && nextCharacter === "/") {
-        appendCharacter(state, character);
-        appendCharacter(state, nextCharacter);
-        state.index += 2;
-        state.inLineComment = true;
+function advanceThroughStringOrComment(state: ConditionalAssignmentScanState, text: string, length: number) {
+    if (state.inLineComment || state.inBlockComment) {
+        const nextIndex = advanceThroughComment(text, length, state.index, state);
+        appendCharacter(state, text.slice(state.index, nextIndex));
+        state.index = nextIndex;
         return true;
     }
 
-    if (character === "/" && nextCharacter === "*") {
-        appendCharacter(state, character);
-        appendCharacter(state, nextCharacter);
-        state.index += 2;
-        state.inBlockComment = true;
+    if (state.stringQuote) {
+        const nextIndex = advanceThroughStringLiteral(text, state.index, state);
+        appendCharacter(state, text.slice(state.index, nextIndex));
+        state.index = nextIndex;
+        return true;
+    }
+
+    const stringOrCommentIndex = tryStartStringOrComment(text, length, state.index, state);
+    if (stringOrCommentIndex !== state.index) {
+        appendCharacter(state, text.slice(state.index, stringOrCommentIndex));
+        state.index = stringOrCommentIndex;
         return true;
     }
 
     return false;
-}
-
-function handleQuoteStart(state: ConditionalAssignmentScanState, character: string) {
-    if (!isQuoteCharacter(character)) {
-        return false;
-    }
-
-    state.stringQuote = character;
-    appendCharacter(state, character);
-    state.index += 1;
-    return true;
 }
 
 function handleIfKeyword(
@@ -236,10 +183,7 @@ function scanConditionalAssignments(text: string) {
         adjustmentPositions: [],
         index: 0,
         modified: false,
-        inLineComment: false,
-        inBlockComment: false,
-        stringQuote: null,
-        escapeNext: false,
+        ...createStringCommentScanState(),
         justSawIfKeyword: false,
         ifConditionDepth: 0,
         insertionsSoFar: 0
@@ -249,29 +193,13 @@ function scanConditionalAssignments(text: string) {
 
     while (state.index < length) {
         const character = text[state.index];
+        if (advanceThroughStringOrComment(state, text, length)) {
+            continue;
+        }
+
         const nextCharacter = state.index + 1 < length ? text[state.index + 1] : "";
         const followingCharacter = state.index + 2 < length ? text[state.index + 2] : "";
         const prevCharacter = state.index > 0 ? text[state.index - 1] : "";
-
-        if (handleLineComment(state, character)) {
-            continue;
-        }
-
-        if (handleBlockComment(state, character, nextCharacter)) {
-            continue;
-        }
-
-        if (handleStringLiteral(state, character)) {
-            continue;
-        }
-
-        if (handleCommentStart(state, character, nextCharacter)) {
-            continue;
-        }
-
-        if (handleQuoteStart(state, character)) {
-            continue;
-        }
 
         if (handleIfKeyword(state, character, nextCharacter, followingCharacter, prevCharacter)) {
             continue;
