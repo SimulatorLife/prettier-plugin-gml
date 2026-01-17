@@ -239,6 +239,49 @@ interface FileChangeOptions extends LoggingConfig {
 
 const DEFAULT_WATCH_FACTORY: WatchFactory = (pathToWatch, options, listener) => watch(pathToWatch, options, listener);
 
+async function runAutoInjectHotReload(
+    quiet: boolean,
+    verbose: boolean,
+    websocketHost: string,
+    websocketPort: number,
+    html5Output: string | undefined,
+    gmTempRoot: string
+): Promise<void> {
+    if (!quiet) {
+        console.log("Preparing hot-reload injection...");
+    }
+
+    try {
+        const websocketUrl = `ws://${websocketHost}:${websocketPort}`;
+        const injectionResult = await prepareHotReloadInjection({
+            html5OutputRoot: html5Output,
+            gmTempRoot,
+            websocketUrl,
+            force: false
+        });
+
+        if (!quiet) {
+            const injectedMessage = injectionResult.injected
+                ? "Injected hot-reload snippet into HTML5 output."
+                : "Hot-reload snippet already present in HTML5 output.";
+            console.log(injectedMessage);
+            if (verbose) {
+                console.log(`  HTML5 output: ${injectionResult.outputRoot}`);
+                console.log(`  Index file: ${injectionResult.indexPath}`);
+                console.log(`  Runtime wrapper: ${injectionResult.runtimeWrapperTargetRoot}`);
+                console.log(`  WebSocket URL: ${injectionResult.websocketUrl}`);
+            }
+        }
+    } catch (error) {
+        const message = getErrorMessage(error, {
+            fallback: "Unknown hot-reload injection error"
+        });
+        const formattedError = formatCliError(new Error(`Failed to prepare hot-reload injection: ${message}`));
+        console.error(formattedError);
+        process.exit(1);
+    }
+}
+
 /**
  * Creates a matcher for file extensions that normalizes case and ensures each
  * entry begins with a leading dot. The matcher exposes the normalized set for
@@ -413,13 +456,8 @@ async function performInitialScan(
 
             // Track symbols and references
             if (result.success) {
-                if (result.symbols && result.symbols.length > 0) {
-                    runtimeContext.dependencyTracker.registerFileDefines(fullPath, result.symbols);
-                }
-
-                if (result.references && result.references.length > 0) {
-                    runtimeContext.dependencyTracker.registerFileReferences(fullPath, result.references);
-                }
+                runtimeContext.dependencyTracker.replaceFileDefines(fullPath, result.symbols ?? []);
+                runtimeContext.dependencyTracker.replaceFileReferences(fullPath, result.references ?? []);
             }
         } catch (error) {
             if (verbose && !quiet) {
@@ -592,39 +630,7 @@ export async function runWatchCommand(targetPath: string, options: WatchCommandO
 
     // Auto-inject hot-reload runtime wrapper if requested
     if (autoInject) {
-        if (!quiet) {
-            console.log("Preparing hot-reload injection...");
-        }
-
-        try {
-            const websocketUrl = `ws://${websocketHost}:${websocketPort}`;
-            const injectionResult = await prepareHotReloadInjection({
-                html5OutputRoot: html5Output,
-                gmTempRoot,
-                websocketUrl,
-                force: false
-            });
-
-            if (!quiet) {
-                const injectedMessage = injectionResult.injected
-                    ? "Injected hot-reload snippet into HTML5 output."
-                    : "Hot-reload snippet already present in HTML5 output.";
-                console.log(injectedMessage);
-                if (verbose) {
-                    console.log(`  HTML5 output: ${injectionResult.outputRoot}`);
-                    console.log(`  Index file: ${injectionResult.indexPath}`);
-                    console.log(`  Runtime wrapper: ${injectionResult.runtimeWrapperTargetRoot}`);
-                    console.log(`  WebSocket URL: ${injectionResult.websocketUrl}`);
-                }
-            }
-        } catch (error) {
-            const message = getErrorMessage(error, {
-                fallback: "Unknown hot-reload injection error"
-            });
-            const formattedError = formatCliError(new Error(`Failed to prepare hot-reload injection: ${message}`));
-            console.error(formattedError);
-            process.exit(1);
-        }
+        await runAutoInjectHotReload(quiet, verbose, websocketHost, websocketPort, html5Output, gmTempRoot);
     }
 
     const shouldServeRuntime = hydrateRuntime === undefined ? runtimeServer !== false : Boolean(hydrateRuntime);
@@ -1072,13 +1078,8 @@ async function handleFileChange(
             // Track symbol definitions and references for dependency-aware hot-reload
             // Uses AST-based extraction to identify actual function/script definitions and usages
             if (result.success && result.patch) {
-                if (result.symbols && result.symbols.length > 0) {
-                    runtimeContext.dependencyTracker.registerFileDefines(filePath, result.symbols);
-                }
-
-                if (result.references && result.references.length > 0) {
-                    runtimeContext.dependencyTracker.registerFileReferences(filePath, result.references);
-                }
+                runtimeContext.dependencyTracker.replaceFileDefines(filePath, result.symbols ?? []);
+                runtimeContext.dependencyTracker.replaceFileReferences(filePath, result.references ?? []);
 
                 if (verbose && !quiet) {
                     const stats = runtimeContext.dependencyTracker.getStatistics();
@@ -1163,15 +1164,8 @@ function registerDependencyTrackerUpdates(
         return;
     }
 
-    const { symbols, references } = dependentResult;
-
-    if (symbols && symbols.length > 0) {
-        runtimeContext.dependencyTracker.registerFileDefines(dependentFile, symbols);
-    }
-
-    if (references && references.length > 0) {
-        runtimeContext.dependencyTracker.registerFileReferences(dependentFile, references);
-    }
+    runtimeContext.dependencyTracker.replaceFileDefines(dependentFile, dependentResult.symbols ?? []);
+    runtimeContext.dependencyTracker.replaceFileReferences(dependentFile, dependentResult.references ?? []);
 }
 
 function getScriptNameFromPath(filePath: string): string | null {
@@ -1193,10 +1187,7 @@ function unregisterScriptName(filePath: string, scriptNames: Set<string>): void 
     }
 }
 
-async function collectScriptNames(
-    rootPath: string,
-    extensionMatcher: ExtensionMatcher
-): Promise<Set<string>> {
+async function collectScriptNames(rootPath: string, extensionMatcher: ExtensionMatcher): Promise<Set<string>> {
     const scriptNames = new Set<string>();
 
     async function scan(currentPath: string): Promise<void> {

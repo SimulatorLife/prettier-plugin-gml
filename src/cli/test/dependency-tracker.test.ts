@@ -37,6 +37,34 @@ describe("DependencyTracker", () => {
         });
     });
 
+    describe("replaceFileDefines", () => {
+        it("should replace existing definitions for a file", () => {
+            const tracker = new DependencyTracker();
+            tracker.registerFileDefines("scripts/player.gml", ["gml_Script_player_move", "gml_Script_player_jump"]);
+
+            tracker.replaceFileDefines("scripts/player.gml", ["gml_Script_player_dash"]);
+
+            const defs = tracker.getFileDefinitions("scripts/player.gml");
+            assert.deepEqual(defs, ["gml_Script_player_dash"]);
+
+            const snapshot = tracker.getSnapshot();
+            assert.equal(snapshot.symbolToDefFile.has("gml_Script_player_move"), false);
+            assert.equal(snapshot.symbolToDefFile.has("gml_Script_player_jump"), false);
+        });
+
+        it("should clear definitions when replacement is empty", () => {
+            const tracker = new DependencyTracker();
+            tracker.registerFileDefines("scripts/player.gml", ["gml_Script_player_move"]);
+
+            tracker.replaceFileDefines("scripts/player.gml", []);
+
+            assert.deepEqual(tracker.getFileDefinitions("scripts/player.gml"), []);
+
+            const snapshot = tracker.getSnapshot();
+            assert.equal(snapshot.symbolToDefFile.has("gml_Script_player_move"), false);
+        });
+    });
+
     describe("registerFileReferences", () => {
         it("should register symbols referenced by a file", () => {
             const tracker = new DependencyTracker();
@@ -67,6 +95,34 @@ describe("DependencyTracker", () => {
             assert.equal(refFiles.size, 2);
             assert.ok(refFiles.has("scripts/enemy.gml"));
             assert.ok(refFiles.has("scripts/boss.gml"));
+        });
+    });
+
+    describe("replaceFileReferences", () => {
+        it("should replace existing references for a file", () => {
+            const tracker = new DependencyTracker();
+            tracker.registerFileReferences("scripts/enemy.gml", ["gml_Script_player_move", "gml_Script_player_jump"]);
+
+            tracker.replaceFileReferences("scripts/enemy.gml", ["gml_Script_player_dash"]);
+
+            const refs = tracker.getFileReferences("scripts/enemy.gml");
+            assert.deepEqual(refs, ["gml_Script_player_dash"]);
+
+            const snapshot = tracker.getSnapshot();
+            assert.equal(snapshot.symbolToRefFiles.has("gml_Script_player_move"), false);
+            assert.equal(snapshot.symbolToRefFiles.has("gml_Script_player_jump"), false);
+        });
+
+        it("should clear references when replacement is empty", () => {
+            const tracker = new DependencyTracker();
+            tracker.registerFileReferences("scripts/enemy.gml", ["gml_Script_player_move"]);
+
+            tracker.replaceFileReferences("scripts/enemy.gml", []);
+
+            assert.deepEqual(tracker.getFileReferences("scripts/enemy.gml"), []);
+
+            const snapshot = tracker.getSnapshot();
+            assert.equal(snapshot.symbolToRefFiles.has("gml_Script_player_move"), false);
         });
     });
 
