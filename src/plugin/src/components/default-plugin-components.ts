@@ -1,7 +1,8 @@
+import type { GameMakerAstNode } from "@gml-modules/core";
+
 import type { GmlPluginComponentBundle } from "./plugin-types.js";
 import { gmlPluginComponentDependencies } from "./plugin-component-bundles.js";
 import { createPrettierParserAdapter } from "../parsers/index.js";
-import type { GameMakerAstNode } from "@gml-modules/core";
 import { DEFAULT_ALIGN_ASSIGNMENTS_MIN_GROUP_SIZE } from "../options/assignment-alignment-option.js";
 
 export function createDefaultGmlPluginComponents(): GmlPluginComponentBundle {
