@@ -83,6 +83,39 @@ export function createRuntimeWrapper(options: RuntimeWrapperOptions = {}): Runti
         }
     }
 
+    /**
+     * Records a successfully applied patch in the undo stack and history,
+     * then notifies observers about the registry update.
+     */
+    function recordAppliedPatch(
+        patch: Patch,
+        snapshot: ReturnType<typeof captureSnapshot>,
+        appliedAt: number,
+        durationMs: number
+    ): void {
+        state.undoStack.push(snapshot);
+        trimUndoStack();
+        state.patchHistory.push({
+            patch: { kind: patch.kind, id: patch.id, metadata: patch.metadata },
+            version: state.registry.version,
+            timestamp: appliedAt,
+            action: "apply",
+            durationMs
+        });
+
+        if (onPatchApplied) {
+            onPatchApplied(patch, state.registry.version);
+        }
+
+        if (onChange) {
+            onChange({
+                type: "patch-applied",
+                patch,
+                version: state.registry.version
+            });
+        }
+    }
+
     function applyPatch(patchCandidate: unknown): ApplyPatchResult {
         validatePatch(patchCandidate);
         const patch = patchCandidate;
@@ -112,27 +145,7 @@ export function createRuntimeWrapper(options: RuntimeWrapperOptions = {}): Runti
             const durationMs = Date.now() - startTime;
 
             state.registry = nextRegistry;
-            state.undoStack.push(snapshot);
-            trimUndoStack();
-            state.patchHistory.push({
-                patch: { kind: patch.kind, id: patch.id, metadata: patch.metadata },
-                version: state.registry.version,
-                timestamp: startTime,
-                action: "apply",
-                durationMs
-            });
-
-            if (onPatchApplied) {
-                onPatchApplied(patch, state.registry.version);
-            }
-
-            if (onChange) {
-                onChange({
-                    type: "patch-applied",
-                    patch,
-                    version: state.registry.version
-                });
-            }
+            recordAppliedPatch(patch, snapshot, startTime, durationMs);
 
             return result;
         } catch (error) {
@@ -226,29 +239,8 @@ export function createRuntimeWrapper(options: RuntimeWrapperOptions = {}): Runti
                 const durationMs = Date.now() - patchStartTime;
 
                 state.registry = nextRegistry;
-                state.undoStack.push(snapshot);
-                trimUndoStack();
-                state.patchHistory.push({
-                    patch: { kind: patch.kind, id: patch.id, metadata: patch.metadata },
-                    version: state.registry.version,
-                    timestamp: patchStartTime,
-                    action: "apply",
-                    durationMs
-                });
-
+                recordAppliedPatch(patch, snapshot, patchStartTime, durationMs);
                 appliedCount++;
-
-                if (onPatchApplied) {
-                    onPatchApplied(patch, state.registry.version);
-                }
-
-                if (onChange) {
-                    onChange({
-                        type: "patch-applied",
-                        patch,
-                        version: state.registry.version
-                    });
-                }
             }
 
             const totalDuration = Date.now() - startTime;
