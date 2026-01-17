@@ -90,25 +90,24 @@ function flushQueuedPatchesInternal(options: FlushQueueOptions): number {
 
     if (wrapper.applyPatchBatch) {
         const result = wrapper.applyPatchBatch(patchesToFlush);
-        const applied = result.appliedCount;
-        const failed = flushSize - applied;
+        const applied = result.success && !result.rolledBack ? result.appliedCount : 0;
+        const failed = result.success ? 0 : flushSize;
 
         state.connectionMetrics.patchesApplied += applied;
         state.connectionMetrics.patchesFailed += failed;
-        queueState.queueMetrics.totalFlushed += applied;
+        if (failed > 0) {
+            state.connectionMetrics.patchErrors += failed;
+        }
+        queueState.queueMetrics.totalFlushed += flushSize;
 
-        if (result.success) {
+        if (result.success && applied > 0) {
             state.connectionMetrics.lastPatchAppliedAt = Date.now();
         }
     } else {
-        let applied = 0;
         for (const patch of patchesToFlush) {
-            const success = applyIncomingPatch(patch);
-            if (success) {
-                applied += 1;
-            }
+            applyIncomingPatch(patch);
         }
-        queueState.queueMetrics.totalFlushed += applied;
+        queueState.queueMetrics.totalFlushed += flushSize;
     }
 
     const flushDuration = Date.now() - flushStartTime;

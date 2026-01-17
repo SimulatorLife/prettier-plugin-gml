@@ -433,6 +433,36 @@ void test("patch queue handles array of patches correctly", async () => {
     client.disconnect();
 });
 
+void test("patch queue reports failures when a batch rolls back", async () => {
+    const { wrapper, client, ws } = await createConnectedPatchQueueClient({
+        patchQueue: {
+            flushIntervalMs: 50,
+            maxQueueSize: 10
+        }
+    });
+
+    sendScriptPatchBatch(ws, [
+        { id: "script:good", js_body: "return 1;" },
+        { id: "script:bad", js_body: "return {{ invalid syntax" }
+    ]);
+
+    await wait(100);
+
+    const queueMetrics = client.getPatchQueueMetrics();
+    assert.ok(queueMetrics !== null);
+    assert.strictEqual(queueMetrics.totalFlushed, 2);
+    assert.strictEqual(queueMetrics.flushCount, 1);
+
+    const connectionMetrics = client.getConnectionMetrics();
+    assert.strictEqual(connectionMetrics.patchesApplied, 0);
+    assert.strictEqual(connectionMetrics.patchesFailed, 2);
+    assert.strictEqual(connectionMetrics.patchErrors, 2);
+
+    assert.strictEqual(wrapper.hasScript("script:good"), false);
+
+    client.disconnect();
+});
+
 void test("patch queue clears flush timer on disconnect", async () => {
     const { client, ws } = await createConnectedPatchQueueClient({
         patchQueue: {
