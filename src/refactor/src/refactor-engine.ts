@@ -317,6 +317,23 @@ export class RefactorEngine {
             }
         }
 
+        // Detect duplicate symbol IDs in the batch. Renaming the same symbol more
+        // than once creates ambiguous intent and would generate conflicting edits.
+        const symbolIdCounts = new Map<string, number>();
+        for (const rename of renames) {
+            if (rename && typeof rename === "object" && typeof rename.symbolId === "string") {
+                const count = (symbolIdCounts.get(rename.symbolId) ?? 0) + 1;
+                symbolIdCounts.set(rename.symbolId, count);
+            }
+        }
+
+        for (const [symbolId, count] of symbolIdCounts.entries()) {
+            if (count > 1) {
+                errors.push(`Duplicate rename request for symbolId '${symbolId}' (${count} entries)`);
+                conflictingSets.push(Array.from({ length: count }, () => symbolId));
+            }
+        }
+
         // Check for duplicate target names across the batch. If multiple renames
         // attempt to use the same new name (e.g., renaming both `foo` and `bar` to
         // `baz`), we'd create ambiguous references where calls to `baz()` can't be
@@ -663,8 +680,13 @@ export class RefactorEngine {
         }
 
         // Validate all rename requests first
+        const symbolIds = new Set<string>();
         for (const rename of renames) {
             assertRenameRequest(rename, "Each rename in planBatchRename");
+            if (symbolIds.has(rename.symbolId)) {
+                throw new Error(`Duplicate rename request for symbolId '${rename.symbolId}'`);
+            }
+            symbolIds.add(rename.symbolId);
             assertValidIdentifierName(rename.newName);
         }
 
