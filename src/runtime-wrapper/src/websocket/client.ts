@@ -749,9 +749,43 @@ function handleConnectionError(error: unknown, onError?: WebSocketClientOptions[
 
 type PatchValidationResult = { status: "skip" } | { status: "error" } | { status: "ok"; patch: Patch };
 
+type HotReloadErrorNotification = {
+    kind: "error";
+    error: string;
+    filePath?: string;
+    timestamp?: number;
+};
+
+function isHotReloadErrorNotification(payload: Record<string, unknown>): payload is HotReloadErrorNotification {
+    if (payload.kind !== "error") {
+        return false;
+    }
+
+    return typeof payload.error === "string" && payload.error.length > 0;
+}
+
+function reportHotReloadErrorNotification(
+    payload: HotReloadErrorNotification,
+    onError?: WebSocketClientOptions["onError"]
+): void {
+    if (!onError) {
+        return;
+    }
+
+    const fileDescriptor = payload.filePath ? ` in ${payload.filePath}` : "";
+    const message = `Hot reload error${fileDescriptor}: ${payload.error}`;
+    const error = createRuntimePatchError(message);
+    onError(error, "patch");
+}
+
 function validatePatchCandidate(incoming: unknown, onError?: WebSocketClientOptions["onError"]): PatchValidationResult {
     if (!incoming || typeof incoming !== "object") {
         reportMalformedPatch(onError, "Received non-object patch payload; skipping message");
+        return { status: "skip" };
+    }
+
+    if (isHotReloadErrorNotification(incoming as Record<string, unknown>)) {
+        reportHotReloadErrorNotification(incoming as HotReloadErrorNotification, onError);
         return { status: "skip" };
     }
 
