@@ -3,6 +3,8 @@ import { Core } from "@gml-modules/core";
 const STRING_TYPE = "string" as const;
 const NUMBER_TYPE = "number" as const;
 const FUNCTION_TYPE = "function" as const;
+const TRAILING_BLANK_LINE_PATTERN = /\r?\n[^\S\r\n]*\r?\n[^\S\r\n]*$/;
+const INTERIOR_BLANK_LINE_PATTERN = /\r?\n[^\S\r\n]*\r?\n/;
 
 export type PrinterSourceMetadataOptions = {
     originalText?: unknown;
@@ -147,6 +149,15 @@ function getInteriorSliceForLeadingComment(
     return sliceOriginalText(originalText, openBraceIndex + 1, firstStatementStartIndex);
 }
 
+function hasBlankLineMatch(text: string, pattern: "trailing" | "interior"): boolean {
+    if (typeof text !== STRING_TYPE || text.length === 0) {
+        return false;
+    }
+
+    const matcher = pattern === "trailing" ? TRAILING_BLANK_LINE_PATTERN : INTERIOR_BLANK_LINE_PATTERN;
+    return matcher.test(text);
+}
+
 /**
  * Determine whether a macro body explicitly contains a trailing blank line.
  */
@@ -229,7 +240,7 @@ export function hasBlankLineBeforeLeadingComment(
         return false;
     }
 
-    return /\r?\n[^\S\r\n]*\r?\n[^\S\r\n]*$/.test(textBeforeComment);
+    return hasBlankLineMatch(textBeforeComment, "trailing");
 }
 
 export function hasBlankLineAfterOpeningBrace(
@@ -248,7 +259,7 @@ export function hasBlankLineAfterOpeningBrace(
         return false;
     }
 
-    return /\r?\n[^\S\r\n]*\r?\n[^\S\r\n]*$/.test(interiorSlice);
+    return hasBlankLineMatch(interiorSlice, "trailing");
 }
 
 /**
@@ -301,5 +312,5 @@ export function hasBlankLineBetweenLastCommentAndClosingBrace(
         return false;
     }
 
-    return /\r?\n[^\S\r\n]*\r?\n/.test(betweenText);
+    return hasBlankLineMatch(betweenText, "interior");
 }
