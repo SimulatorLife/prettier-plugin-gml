@@ -55,7 +55,7 @@ import { buildPrintableDocCommentLines } from "./doc-comment/description-doc.js"
 import {
     getSyntheticDocCommentForFunctionAssignment,
     getSyntheticDocCommentForStaticVariable
-} from "./doc-comment/synthetic-doc-comments.js";
+} from "./doc-comment/synthetic-doc-comment-builder.js";
 
 import {
     hasBlankLineAfterOpeningBrace,
