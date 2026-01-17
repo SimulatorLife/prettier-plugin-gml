@@ -1656,6 +1656,71 @@ export class ScopeTracker {
     }
 
     /**
+     * Update stored metadata for a scope, merging the provided values onto the
+     * existing metadata entry. This is useful when scope metadata becomes
+     * available after initial scope creation (e.g., once a file path or source
+     * range is known). Updating the path also refreshes the internal path index
+     * so file-based invalidation queries stay accurate.
+     *
+     * @param {string | null | undefined} scopeId The scope identifier to update.
+     * @param {ScopeMetadata} metadata New metadata values to merge.
+     * @returns {{ scopeId: string; scopeKind: string; name?: string; path?: string;
+     *            start?: { line: number; column: number; index: number };
+     *            end?: { line: number; column: number; index: number } } | null}
+     *          Updated scope metadata object or null if scope not found.
+     */
+    updateScopeMetadata(scopeId: string | null | undefined, metadata: ScopeMetadata) {
+        if (!scopeId) {
+            return null;
+        }
+
+        const scope = this.scopesById.get(scopeId);
+        if (!scope) {
+            return null;
+        }
+
+        if (Object.hasOwn(metadata, "name")) {
+            scope.metadata.name = metadata.name;
+        }
+
+        if (Object.hasOwn(metadata, "path")) {
+            const previousPath = scope.metadata.path;
+            const nextPath = typeof metadata.path === "string" && metadata.path.length > 0 ? metadata.path : undefined;
+
+            if (previousPath && previousPath !== nextPath) {
+                const scopeSet = this.pathToScopesIndex.get(previousPath);
+                if (scopeSet) {
+                    scopeSet.delete(scope.id);
+                    if (scopeSet.size === 0) {
+                        this.pathToScopesIndex.delete(previousPath);
+                    }
+                }
+            }
+
+            if (nextPath && nextPath !== previousPath) {
+                let scopeSet = this.pathToScopesIndex.get(nextPath);
+                if (!scopeSet) {
+                    scopeSet = new Set<string>();
+                    this.pathToScopesIndex.set(nextPath, scopeSet);
+                }
+                scopeSet.add(scope.id);
+            }
+
+            scope.metadata.path = nextPath;
+        }
+
+        if (Object.hasOwn(metadata, "start")) {
+            scope.metadata.start = metadata.start ? Core.cloneLocation(metadata.start) : undefined;
+        }
+
+        if (Object.hasOwn(metadata, "end")) {
+            scope.metadata.end = metadata.end ? Core.cloneLocation(metadata.end) : undefined;
+        }
+
+        return this.getScopeMetadata(scopeId);
+    }
+
+    /**
      * Get all scopes modified after a specific timestamp. This enables
      * incremental hot reload by identifying only the scopes that have changed
      * since the last compilation, avoiding full project rebuilds.

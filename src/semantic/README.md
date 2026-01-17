@@ -105,6 +105,32 @@ const metadata = tracker.getScopeMetadata(scope.id);
 
 **Use case:** Enable file-based hot reload invalidation by tracking which scopes belong to which source files. When a file changes, query all scopes in that file and compute their invalidation sets to determine what needs recompilation. The source range information supports precise source mapping for debugging and error reporting.
 
+### `updateScopeMetadata(scopeId, metadata)`
+
+Update stored scope metadata after a scope is created (for example, once the
+file path or source range is known). The path index is refreshed when the path
+changes, keeping file-based invalidation queries accurate.
+
+```javascript
+const tracker = new ScopeTracker({ enabled: true });
+const scope = tracker.enterScope("function", { name: "initPlayer" });
+
+tracker.updateScopeMetadata(scope.id, {
+    path: "scripts/player/player.gml",
+    start: { line: 1, column: 0, index: 0 }
+});
+
+const metadata = tracker.getScopeMetadata(scope.id);
+// Returns: {
+//   scopeId: "scope-0",
+//   scopeKind: "function",
+//   name: "initPlayer",
+//   path: "scripts/player/player.gml",
+//   start: { line: 1, column: 0, index: 0 },
+//   end: undefined
+// }
+```
+
 ### `getScopesByPath(path)`
 
 Get all scopes associated with a specific file path. This enables efficient hot reload invalidation when a file changes by quickly identifying all scopes in that file.
