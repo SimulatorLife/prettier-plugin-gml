@@ -17,49 +17,43 @@ export function getRuntimePathSegments(filePath: string): ReadonlyArray<string> 
  * Resolve an object event runtime identifier from previously normalized segments.
  */
 export function resolveObjectRuntimeIdFromSegments(segments: ReadonlyArray<string>): string | null {
-    for (let index = segments.length - 1; index >= 0; index -= 1) {
-        if (segments[index] !== OBJECTS_DIRECTORY) {
-            continue;
-        }
-
-        const objectName = segments[index + 1];
-        const eventFile = segments[index + 2];
-        if (!objectName || !eventFile) {
-            continue;
-        }
-
-        const eventName = path.basename(eventFile, path.extname(eventFile));
-        if (!eventName) {
-            continue;
-        }
-
-        return `gml_Object_${objectName}_${eventName}`;
+    const objectDirectoryIndex = segments.lastIndexOf(OBJECTS_DIRECTORY);
+    if (objectDirectoryIndex === -1) {
+        return null;
     }
 
-    return null;
+    const objectName = segments[objectDirectoryIndex + 1];
+    const eventFile = segments[objectDirectoryIndex + 2];
+    if (!objectName || !eventFile) {
+        return null;
+    }
+
+    const eventName = path.basename(eventFile, path.extname(eventFile));
+    if (!eventName) {
+        return null;
+    }
+
+    return `gml_Object_${objectName}_${eventName}`;
 }
 
 /**
  * Extract the script file basename from normalized segments when the path is inside scripts/.
  */
 export function resolveScriptFileNameFromSegments(segments: ReadonlyArray<string>): string | null {
-    for (let index = segments.length - 1; index >= 0; index -= 1) {
-        if (segments[index] !== SCRIPTS_DIRECTORY) {
-            continue;
-        }
-
-        const scriptFile = segments[index + 1];
-        if (!scriptFile) {
-            continue;
-        }
-
-        const scriptName = path.basename(scriptFile, path.extname(scriptFile));
-        if (!scriptName) {
-            continue;
-        }
-
-        return scriptName;
+    const scriptDirectoryIndex = segments.lastIndexOf(SCRIPTS_DIRECTORY);
+    if (scriptDirectoryIndex === -1) {
+        return null;
     }
 
-    return null;
+    const scriptFile = segments[scriptDirectoryIndex + 1];
+    if (!scriptFile) {
+        return null;
+    }
+
+    const scriptName = path.basename(scriptFile, path.extname(scriptFile));
+    if (!scriptName) {
+        return null;
+    }
+
+    return scriptName;
 }
