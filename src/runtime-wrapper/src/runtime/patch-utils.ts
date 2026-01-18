@@ -623,6 +623,9 @@ const __gml_proxy = new Proxy(__gml_scope, {
         ) {
             return true;
         }
+        if (__gml_builtins && prop in __gml_builtins) {
+            return true;
+        }
         return false;
     },
     get(target, prop, receiver) {
@@ -658,6 +661,9 @@ const __gml_proxy = new Proxy(__gml_scope, {
             const getter = __gml_builtins[\`get_\${prop}\`];
             if (typeof getter === "function") {
                 return getter.call(__gml_builtins);
+            }
+            if (prop in __gml_builtins) {
+                return __gml_builtins[prop];
             }
         }
         return Reflect.get(target, prop, receiver);
