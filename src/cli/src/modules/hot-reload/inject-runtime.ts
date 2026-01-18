@@ -1,4 +1,5 @@
 import { spawnSync } from "node:child_process";
+import type { Dirent } from "node:fs";
 import fs from "node:fs/promises";
 import path from "node:path";
 import { fileURLToPath } from "node:url";
@@ -177,7 +178,18 @@ async function resolveHtml5Output({
     }
 
     const tempRoot = path.resolve(gmTempRoot);
-    const entries = await fs.readdir(tempRoot, { withFileTypes: true });
+    let entries: Array<Dirent>;
+    try {
+        entries = await fs.readdir(tempRoot, { withFileTypes: true });
+    } catch (error) {
+        const err = error as NodeJS.ErrnoException;
+        if (err?.code === "ENOENT") {
+            throw new Error(
+                `GameMaker HTML5 temporary output root '${tempRoot}' was not found. Run the HTML5 runner (Build → Run for HTML5) once so the directory exists before preparing hot reload.`
+            );
+        }
+        throw error;
+    }
     let best: Html5OutputResolution | null = null;
     let bestMtime = 0;
 

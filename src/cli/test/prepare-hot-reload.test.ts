@@ -60,6 +60,21 @@ void describe("prepareHotReloadInjection", () => {
 
         assert.equal(result.outputRoot, newer);
     });
+
+    void it("fails fast when the HTML5 temp root is missing", async () => {
+        const root = await createTempDir("gml-hot-reload-missing-");
+        const missingRoot = path.join(root, "gml-missing");
+        await fs.rm(missingRoot, { recursive: true, force: true });
+
+        await assert.rejects(
+            () => prepareHotReloadInjection({ gmTempRoot: missingRoot }),
+            (error) => {
+                assert.ok(error instanceof Error);
+                assert.match(error.message, /GameMaker HTML5 temporary output root '.*' was not found/i);
+                return true;
+            }
+        );
+    });
 });
 
 void describe("GMWebServ root parsing", () => {
