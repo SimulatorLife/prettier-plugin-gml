@@ -6,6 +6,22 @@ import { Clients, Runtime } from "../src/index.js";
 const { createRuntimeWrapper } = Runtime;
 const { createWebSocketClient } = Clients;
 
+const globalBuiltins = globalThis as Record<string, unknown>;
+if (!globalBuiltins.g_pBuiltIn) {
+    globalBuiltins.g_pBuiltIn = { application_surface: -1 };
+}
+
+const globalWithJson = globalThis as Record<string, unknown> & {
+    JSON_game?: { ScriptNames?: Array<string>; Scripts?: Array<unknown> };
+};
+
+if (!globalWithJson.JSON_game) {
+    globalWithJson.JSON_game = {
+        ScriptNames: ["gml_Script_runtime_ready"],
+        Scripts: [() => null]
+    };
+}
+
 class MockWebSocket {
     public readyState = 0;
     private listeners = new Map<string, Set<(event?: unknown) => void>>();
@@ -187,6 +203,61 @@ void test("patch queue enqueues patches instead of applying immediately", async 
     assert.strictEqual(patchesApplied, 1);
 
     client.disconnect();
+});
+
+void test("patch queue waits for runtime readiness before flushing", async () => {
+    const globals = globalThis as Record<string, unknown>;
+    const savedBuiltins = globals.g_pBuiltIn;
+    const savedJson = (globals as { JSON_game?: { ScriptNames?: Array<string>; Scripts?: Array<unknown> } }).JSON_game;
+
+    delete globals.g_pBuiltIn;
+    delete (globals as { JSON_game?: unknown }).JSON_game;
+
+    const { client, ws, wrapper } = await createConnectedPatchQueueClient({
+        patchQueue: {
+            flushIntervalMs: 50,
+            maxQueueSize: 5
+        }
+    });
+
+    try {
+        sendScriptPatch(ws, "script:queued_before_ready");
+
+        await wait(120);
+
+        assert.strictEqual(wrapper.hasScript("script:queued_before_ready"), false);
+
+        globals.g_pBuiltIn = {
+            application_surface: 0
+        };
+        (globals as { JSON_game?: { ScriptNames?: Array<string>; Scripts?: Array<unknown> } }).JSON_game = {
+            ScriptNames: ["gml_Script_ready"],
+            Scripts: [
+                function readyScript() {
+                    return true;
+                }
+            ]
+        };
+
+        await wait(150);
+
+        assert.strictEqual(wrapper.hasScript("script:queued_before_ready"), true);
+    } finally {
+        client.disconnect();
+
+        if (savedBuiltins === undefined) {
+            delete globals.g_pBuiltIn;
+        } else {
+            globals.g_pBuiltIn = savedBuiltins;
+        }
+
+        if (savedJson === undefined) {
+            delete (globals as { JSON_game?: unknown }).JSON_game;
+        } else {
+            (globals as { JSON_game?: { ScriptNames?: Array<string>; Scripts?: Array<unknown> } }).JSON_game =
+                savedJson;
+        }
+    }
 });
 
 void test("patch queue flushes automatically when reaching max size", async () => {
