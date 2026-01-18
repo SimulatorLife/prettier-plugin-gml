@@ -245,7 +245,7 @@ function buildInjectionSnippet(websocketUrl: string): string {
     return [
         HOT_RELOAD_MARKER_START,
         '<script type="module">',
-        'import { createRuntimeWrapper } from "./.gml-hot-reload/runtime-wrapper/src/runtime/index.js";',
+        'import { createRuntimeWrapper, installScriptCallAdapter } from "./.gml-hot-reload/runtime-wrapper/src/runtime/index.js";',
         'import { createWebSocketClient } from "./.gml-hot-reload/runtime-wrapper/src/websocket/index.js";',
         'console.log("[hot-reload] bootstrap loaded");',
         "const wrapper = createRuntimeWrapper({",
@@ -253,6 +253,7 @@ function buildInjectionSnippet(websocketUrl: string): string {
         "        console.log(`[hot-reload] applied ${patch.id} @${version}`);",
         "    }",
         "});",
+        "installScriptCallAdapter(wrapper);",
         "createWebSocketClient({",
         `    url: "${websocketUrl}",`,
         "    wrapper,",

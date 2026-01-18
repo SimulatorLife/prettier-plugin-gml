@@ -12,6 +12,7 @@ export type {
 export { createChangeEventLogger, createLogger } from "./logger.js";
 export { testPatchInShadow } from "./patch-utils.js";
 export { createRuntimeWrapper } from "./runtime-wrapper.js";
+export { installScriptCallAdapter } from "./script-call-adapter.js";
 export type {
     ApplyPatchResult,
     BatchApplyResult,

@@ -165,6 +165,7 @@ export interface TranspilationContext {
     lastSuccessfulPatches: Map<string, RuntimeTranspilerPatch>;
     maxPatchHistory: number;
     websocketServer: PatchBroadcaster | null;
+    scriptNames?: Set<string>;
 }
 
 export interface TranspilationOptions {
@@ -255,7 +256,23 @@ export function transpileFile(
 
     try {
         const fileName = path.basename(filePath, path.extname(filePath));
-        const symbolId = `gml/script/${fileName}`;
+        const defaultSymbolId = `gml/script/${fileName}`;
+
+        let parsedSymbols: Array<string> = [];
+        let parsedReferences: Array<string> = [];
+        let parseError: unknown | null = null;
+
+        try {
+            const parser = new Parser.GMLParser(content, {});
+            const ast = parser.parse();
+            parsedSymbols = extractSymbolsFromAst(ast, filePath);
+            parsedReferences = extractReferencesFromAst(ast);
+        } catch (error) {
+            parseError = error;
+        }
+
+        const scriptSymbolId = getPrimaryScriptPatchId(parsedSymbols);
+        const symbolId = scriptSymbolId ?? defaultSymbolId;
 
         const patch = context.transpiler.transpileScript({
             sourceText: content,
@@ -275,25 +292,6 @@ export function transpileFile(
             throw new Error("Generated patch failed validation");
         }
 
-        // Parse the AST to extract actual symbol definitions and references
-        let extractedSymbols: Array<string> = [];
-        let extractedReferences: Array<string> = [];
-        try {
-            const parser = new Parser.GMLParser(content, {});
-            const ast = parser.parse();
-            extractedSymbols = extractSymbolsFromAst(ast, filePath);
-            extractedReferences = extractReferencesFromAst(ast);
-        } catch (parseError) {
-            // If AST parsing fails, fall back to empty symbol/reference lists
-            // The transpiler already succeeded, so this is non-fatal
-            if (verbose && !quiet) {
-                const message = Core.getErrorMessage(parseError, {
-                    fallback: "Unknown parse error"
-                });
-                console.log(`  ↳ Warning: Could not extract symbols/references from AST: ${message}`);
-            }
-        }
-
         const durationMs = performance.now() - startTime;
 
         const metrics: TranspilationMetrics = {
@@ -309,6 +307,10 @@ export function transpileFile(
         addToBoundedCollection(context.metrics, metrics, context.maxPatchHistory);
 
         context.lastSuccessfulPatches.set(symbolId, patchPayload);
+
+        if (context.scriptNames) {
+            registerScriptNamesFromSymbols(parsedSymbols, context.scriptNames);
+        }
 
         addToBoundedCollection(context.patches, patchPayload, context.maxPatchHistory);
 
@@ -333,11 +335,17 @@ export function transpileFile(
                 if (patchPayload.metadata?.timestamp) {
                     console.log(`  ↳ Generated at: ${new Date(patchPayload.metadata.timestamp).toISOString()}`);
                 }
-                if (extractedSymbols.length > 0) {
-                    console.log(`  ↳ Extracted symbols: ${extractedSymbols.join(", ")}`);
+                if (parsedSymbols.length > 0) {
+                    console.log(`  ↳ Extracted symbols: ${parsedSymbols.join(", ")}`);
                 }
-                if (extractedReferences.length > 0) {
-                    console.log(`  ↳ Extracted references: ${extractedReferences.join(", ")}`);
+                if (parsedReferences.length > 0) {
+                    console.log(`  ↳ Extracted references: ${parsedReferences.join(", ")}`);
+                }
+                if (parseError) {
+                    const message = Core.getErrorMessage(parseError, {
+                        fallback: "Unknown parse error"
+                    });
+                    console.log(`  ↳ Warning: Could not extract symbols/references from AST: ${message}`);
                 }
             } else {
                 console.log(`  ↳ Generated patch: ${patchPayload.id}`);
@@ -348,8 +356,8 @@ export function transpileFile(
             success: true,
             patch: patchPayload,
             metrics,
-            symbols: extractedSymbols,
-            references: extractedReferences
+            symbols: parsedSymbols,
+            references: parsedReferences
         };
     } catch (error) {
         const classified = classifyTranspilationError(error);
@@ -492,4 +500,41 @@ export function displayTranspilationStatistics(
     }
 
     console.log("-------------------------------\n");
+}
+
+export function registerScriptNamesFromSymbols(symbols: ReadonlyArray<string>, scriptNames: Set<string>): void {
+    for (const symbol of symbols) {
+        const scriptName = symbolIdToScriptName(symbol);
+        if (scriptName) {
+            scriptNames.add(scriptName);
+        }
+    }
+}
+
+function symbolIdToScriptName(symbolId: string): string | null {
+    if (symbolId.startsWith("gml_Script_")) {
+        return symbolId.slice("gml_Script_".length);
+    }
+    if (symbolId.startsWith("gml_GlobalScript_")) {
+        return symbolId.slice("gml_GlobalScript_".length);
+    }
+    return null;
+}
+
+function runtimeSymbolToPatchId(symbolId: string): string | null {
+    const scriptName = symbolIdToScriptName(symbolId);
+    if (scriptName) {
+        return `gml/script/${scriptName}`;
+    }
+    return null;
+}
+
+function getPrimaryScriptPatchId(symbols: ReadonlyArray<string>): string | null {
+    for (const symbol of symbols) {
+        const patchId = runtimeSymbolToPatchId(symbol);
+        if (patchId) {
+            return patchId;
+        }
+    }
+    return null;
 }

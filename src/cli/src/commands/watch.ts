@@ -17,6 +17,7 @@ import path from "node:path";
 import process from "node:process";
 
 import { Core, type DebouncedFunction } from "@gml-modules/core";
+import { Parser } from "@gml-modules/parser";
 import { Transpiler } from "@gml-modules/transpiler";
 import { Command, Option } from "commander";
 
@@ -39,6 +40,7 @@ import {
 import { startStatusServer, type StatusServerController } from "../modules/status/server.js";
 import {
     displayTranspilationStatistics,
+    registerScriptNamesFromSymbols,
     type RuntimeTranspilerPatch,
     type TranspilationContext,
     type TranspilationError,
@@ -50,6 +52,7 @@ import {
     getRuntimePathSegments,
     resolveScriptFileNameFromSegments
 } from "../modules/transpilation/runtime-identifiers.js";
+import { extractSymbolsFromAst } from "../modules/transpilation/symbol-extraction.js";
 import {
     type PatchBroadcaster,
     type PatchWebSocketServer,
@@ -1246,10 +1249,7 @@ async function collectScriptNames(rootPath: string, extensionMatcher: ExtensionM
                 return;
             }
 
-            const scriptName = getScriptNameFromPath(candidatePath);
-            if (scriptName) {
-                scriptNames.add(scriptName);
-            }
+            await addScriptNamesFromFile(candidatePath, scriptNames);
         });
     }
 
@@ -1260,4 +1260,24 @@ async function collectScriptNames(rootPath: string, extensionMatcher: ExtensionM
     }
 
     return scriptNames;
+}
+
+async function addScriptNamesFromFile(filePath: string, scriptNames: Set<string>): Promise<void> {
+    const beforeSize = scriptNames.size;
+
+    try {
+        const contents = await readFile(filePath, "utf8");
+        const parser = new Parser.GMLParser(contents, {});
+        const ast = parser.parse();
+        registerScriptNamesFromSymbols(extractSymbolsFromAst(ast, filePath), scriptNames);
+    } catch {
+        // Ignore parse errors; fallback to file-name based script
+    }
+
+    if (scriptNames.size === beforeSize) {
+        const scriptName = getScriptNameFromPath(filePath);
+        if (scriptName) {
+            scriptNames.add(scriptName);
+        }
+    }
 }
