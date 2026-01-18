@@ -1,8 +1,8 @@
 import assert from "node:assert/strict";
 import { describe, test } from "node:test";
 
-import type { SymbolOccurrence, SymbolResolver } from "../src/types.js";
-import { batchValidateScopeConflicts, validateRenameStructure } from "../src/validation.js";
+import { ConflictType, type SymbolOccurrence, type SymbolResolver } from "../src/types.js";
+import { batchValidateScopeConflicts, detectRenameConflicts, validateRenameStructure } from "../src/validation.js";
 
 void describe("validateRenameStructure", () => {
     void test("returns error for missing symbolId", async () => {
@@ -361,5 +361,24 @@ void describe("batchValidateScopeConflicts", () => {
         assert.ok(scopesChecked.includes("scope1"));
         assert.ok(scopesChecked.includes("scope2"));
         assert.ok(scopesChecked.includes(undefined));
+    });
+});
+
+void describe("detectRenameConflicts", () => {
+    void test("deduplicates shadow conflicts per file in the same scope", async () => {
+        const occurrences: Array<SymbolOccurrence> = [
+            { path: "scripts/player.gml", start: 0, end: 5, scopeId: "scope-1" },
+            { path: "scripts/player.gml", start: 10, end: 15, scopeId: "scope-1" }
+        ];
+
+        const resolver: Partial<SymbolResolver> = {
+            lookup: async () => ({ name: "existing" })
+        };
+
+        const conflicts = await detectRenameConflicts("old_name", "new_name", occurrences, resolver, null);
+
+        assert.equal(conflicts.length, 1);
+        assert.equal(conflicts[0].type, ConflictType.SHADOW);
+        assert.equal(conflicts[0].path, "scripts/player.gml");
     });
 });
