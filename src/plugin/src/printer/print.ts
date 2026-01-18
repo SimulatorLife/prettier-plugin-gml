@@ -1087,10 +1087,7 @@ function printCallExpressionNode(node, path, options, print) {
             if (shouldForceBreakArguments) {
                 printedArgs = [concat([breakParent, multilineDoc])];
             } else if (inlineDoc) {
-                const shouldPreferInlineCallbackPrefix = hasCallbackArguments && simplePrefixLength > 1;
-                printedArgs = shouldPreferInlineCallbackPrefix
-                    ? [inlineDoc]
-                    : [conditionalGroup([inlineDoc, multilineDoc])];
+                printedArgs = [conditionalGroup([inlineDoc, multilineDoc])];
             } else {
                 printedArgs = [multilineDoc];
             }
@@ -1172,8 +1169,7 @@ function printCallLikeArguments(node, path, options, print) {
         }
 
         if (inlineDoc) {
-            const shouldPreferInlineCallbackPrefix = hasCallbackArguments && simplePrefixLength > 1;
-            return shouldPreferInlineCallbackPrefix ? [inlineDoc] : [conditionalGroup([inlineDoc, multilineDoc])];
+            return [conditionalGroup([inlineDoc, multilineDoc])];
         }
 
         return [multilineDoc];
