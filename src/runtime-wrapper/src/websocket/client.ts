@@ -286,7 +286,7 @@ export function createWebSocketClient({
         while (state.pendingPatches.length > 0) {
             const patch = state.pendingPatches.shift();
             if (patch !== undefined) {
-                applyIncomingPatch(patch);
+                handleIncomingPatch(patch);
             }
         }
 
@@ -347,11 +347,6 @@ export function createWebSocketClient({
     };
 
     const applyIncomingPatch = (incoming: unknown): boolean => {
-        if (!runtimeReady()) {
-            queuePendingPatch(incoming);
-            return false;
-        }
-
         return applyIncomingPatchInternal({
             incoming,
             state,
@@ -359,6 +354,20 @@ export function createWebSocketClient({
             onError,
             logger
         });
+    };
+
+    const handleIncomingPatch = (incoming: unknown): boolean => {
+        if (!runtimeReady()) {
+            queuePendingPatch(incoming);
+            return false;
+        }
+
+        if (state.patchQueue) {
+            enqueuePatch(incoming);
+            return true;
+        }
+
+        return applyIncomingPatch(incoming);
     };
 
     function connect() {
@@ -388,8 +397,7 @@ export function createWebSocketClient({
                 onDisconnect,
                 onError,
                 reconnectDelay,
-                applyIncomingPatch,
-                enqueuePatch,
+                handleIncomingPatch,
                 connect,
                 logger,
                 url
@@ -485,18 +493,15 @@ type WebSocketEventListenerArgs = {
     onDisconnect?: WebSocketClientOptions["onDisconnect"];
     onError?: WebSocketClientOptions["onError"];
     reconnectDelay: number;
-    applyIncomingPatch: (incoming: unknown) => boolean;
-    enqueuePatch: (patch: unknown) => void;
+    handleIncomingPatch: (incoming: unknown) => boolean;
     connect: () => void;
     logger?: Logger;
     url: string;
 };
 
 type WebSocketMessageHandlerArgs = {
-    state: WebSocketClientState;
     wrapper: WebSocketClientOptions["wrapper"];
-    applyIncomingPatch: (incoming: unknown) => boolean;
-    enqueuePatch: (patch: unknown) => void;
+    handleIncomingPatch: (incoming: unknown) => boolean;
     onError?: WebSocketClientOptions["onError"];
 };
 
@@ -519,10 +524,8 @@ function attachWebSocketEventListeners(ws: RuntimeWebSocketInstance, args: WebSo
     ws.addEventListener(
         "message",
         createMessageHandler({
-            state: args.state,
             wrapper: args.wrapper,
-            applyIncomingPatch: args.applyIncomingPatch,
-            enqueuePatch: args.enqueuePatch,
+            handleIncomingPatch: args.handleIncomingPatch,
             onError: args.onError
         })
     );
@@ -574,10 +577,8 @@ function createOpenHandler(
 }
 
 function createMessageHandler({
-    state,
     wrapper,
-    applyIncomingPatch,
-    enqueuePatch,
+    handleIncomingPatch,
     onError
 }: WebSocketMessageHandlerArgs): (event?: MessageEventLike | Error) => void {
     return (event?: MessageEventLike | Error) => {
@@ -592,15 +593,9 @@ function createMessageHandler({
 
         const patches = toArray(payload);
 
-        if (state.patchQueue) {
-            for (const patch of patches) {
-                enqueuePatch(patch);
-            }
-        } else {
-            for (const patch of patches) {
-                if (!applyIncomingPatch(patch)) {
-                    break;
-                }
+        for (const patch of patches) {
+            if (!handleIncomingPatch(patch)) {
+                break;
             }
         }
     };
