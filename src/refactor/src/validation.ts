@@ -22,6 +22,12 @@ import {
 } from "./validation-utils.js";
 
 /**
+ * Internal sentinel value to represent global (unscoped) symbol occurrences.
+ * Used to group occurrences without a scopeId for batch validation.
+ */
+const GLOBAL_SCOPE_KEY = "__global__";
+
+/**
  * Detect conflicts that would arise from renaming a symbol.
  * Checks for reserved keywords and shadowing conflicts.
  *
@@ -57,18 +63,47 @@ export async function detectRenameConflicts(
     // renaming a local variable `x` to `y` when `y` is already defined in that
     // scope would hide the original `y`, breaking references to it.
     if (hasMethod(resolver, "lookup")) {
+        const scopeToPaths = new Map<string, Set<string>>();
+
         for (const occurrence of occurrences) {
-            // Perform a scope-aware lookup for the new name at each occurrence
-            // site. If we find an existing binding that isn't the symbol we're
-            // renaming, record a conflict so the user can resolve it manually.
-            // eslint-disable-next-line no-await-in-loop -- Scope lookup must be sequential for each occurrence
-            const existing = await resolver.lookup(normalizedNewName, occurrence.scopeId);
+            const scopeKey = occurrence.scopeId ?? GLOBAL_SCOPE_KEY;
+            let paths = scopeToPaths.get(scopeKey);
+            if (!paths) {
+                paths = new Set();
+                scopeToPaths.set(scopeKey, paths);
+            }
+
+            if (occurrence.path) {
+                paths.add(occurrence.path);
+            }
+        }
+
+        for (const [scopeKey, paths] of scopeToPaths) {
+            // Perform a scope-aware lookup for the new name at each unique scope.
+            // If we find an existing binding that isn't the symbol we're renaming,
+            // record a conflict so the user can resolve it manually. We emit at
+            // most one conflict per file path in the scope to avoid duplicates.
+            // eslint-disable-next-line no-await-in-loop -- Scope lookup must be sequential per scope
+            const existing = await resolver.lookup(
+                normalizedNewName,
+                scopeKey === GLOBAL_SCOPE_KEY ? undefined : scopeKey
+            );
             if (existing && existing.name !== oldName) {
-                conflicts.push({
-                    type: ConflictType.SHADOW,
-                    message: `Renaming '${oldName}' to '${normalizedNewName}' would shadow existing symbol in scope`,
-                    path: occurrence.path
-                });
+                if (paths.size === 0) {
+                    conflicts.push({
+                        type: ConflictType.SHADOW,
+                        message: `Renaming '${oldName}' to '${normalizedNewName}' would shadow existing symbol in scope`
+                    });
+                    continue;
+                }
+
+                for (const path of paths) {
+                    conflicts.push({
+                        type: ConflictType.SHADOW,
+                        message: `Renaming '${oldName}' to '${normalizedNewName}' would shadow existing symbol in scope`,
+                        path
+                    });
+                }
             }
         }
     }
@@ -220,12 +255,6 @@ export async function validateRenameStructure(
 
     return [];
 }
-
-/**
- * Internal sentinel value to represent global (unscoped) symbol occurrences.
- * Used to group occurrences without a scopeId for batch validation.
- */
-const GLOBAL_SCOPE_KEY = "__global__";
 
 /**
  * Batch validate scope safety for multiple occurrences efficiently.
