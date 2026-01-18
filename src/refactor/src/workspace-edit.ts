@@ -43,8 +43,8 @@ export class WorkspaceEdit {
             });
         }
 
-        for (const fileEdits of grouped.values()) {
-            fileEdits.sort((a, b) => b.start - a.start);
+        for (const [path, fileEdits] of grouped.entries()) {
+            grouped.set(path, fileEdits.toSorted((a, b) => b.start - a.start));
         }
 
         return grouped;

@@ -1191,11 +1191,11 @@ export class ScopeTracker {
             dependencies.push({
                 dependencyScopeId: depScopeId,
                 dependencyScopeKind: depScope.kind,
-                symbols: [...symbols].sort()
+                symbols: [...symbols].toSorted()
             });
         }
 
-        return dependencies.sort((a, b) => a.dependencyScopeId.localeCompare(b.dependencyScopeId));
+        return dependencies.toSorted((a, b) => a.dependencyScopeId.localeCompare(b.dependencyScopeId));
     }
 
     /**
@@ -1298,11 +1298,11 @@ export class ScopeTracker {
             dependents.push({
                 dependentScopeId: depScopeId,
                 dependentScopeKind: depScope.kind,
-                symbols: [...symbols].sort()
+                symbols: [...symbols].toSorted()
             });
         }
 
-        return dependents.sort((a, b) => a.dependentScopeId.localeCompare(b.dependentScopeId));
+        return dependents.toSorted((a, b) => a.dependentScopeId.localeCompare(b.dependentScopeId));
     }
 
     /**
@@ -1391,7 +1391,7 @@ export class ScopeTracker {
             });
         }
 
-        return result.sort((a, b) => {
+        return result.toSorted((a, b) => {
             // Sort by depth first (shallower dependencies first), then by scope ID
             if (a.depth !== b.depth) {
                 return a.depth - b.depth;
@@ -1542,7 +1542,7 @@ export class ScopeTracker {
             }
         }
 
-        return descendants.sort((a, b) => {
+        return descendants.toSorted((a, b) => {
             // Sort by depth first, then by scope ID
             if (a.depth !== b.depth) {
                 return a.depth - b.depth;
@@ -1635,7 +1635,7 @@ export class ScopeTracker {
             }
         }
 
-        return scopes.sort((a, b) => a.scopeId.localeCompare(b.scopeId));
+        return scopes.toSorted((a, b) => a.scopeId.localeCompare(b.scopeId));
     }
 
     getScopeModificationMetadata(scopeId: string | null | undefined) {
@@ -1816,7 +1816,7 @@ export class ScopeTracker {
             });
         }
 
-        symbols.sort((a, b) => a.name.localeCompare(b.name));
+        const sortedSymbols = symbols.toSorted((a, b) => a.name.localeCompare(b.name));
 
         return {
             scopeId: scope.id,
@@ -1825,8 +1825,8 @@ export class ScopeTracker {
             modificationCount: scope.modificationCount,
             declarationCount: totalDeclarations,
             referenceCount: totalReferences,
-            symbolCount: symbols.length,
-            symbols
+            symbolCount: sortedSymbols.length,
+            symbols: sortedSymbols
         };
     }
 
@@ -2003,7 +2003,7 @@ export class ScopeTracker {
             }
         }
 
-        return declarations.sort((a, b) => {
+        return declarations.toSorted((a, b) => {
             const scopeCmp = a.scopeId.localeCompare(b.scopeId);
             if (scopeCmp !== 0) {
                 return scopeCmp;
@@ -2193,7 +2193,7 @@ export class ScopeTracker {
             }
         }
 
-        return results.sort((a, b) => a.scopeId.localeCompare(b.scopeId));
+        return results.toSorted((a, b) => a.scopeId.localeCompare(b.scopeId));
     }
 
     /**
@@ -2307,7 +2307,7 @@ export class ScopeTracker {
             }
         }
 
-        return results.sort((a, b) => a.scopeId.localeCompare(b.scopeId));
+        return results.toSorted((a, b) => a.scopeId.localeCompare(b.scopeId));
     }
 }
 

@@ -454,7 +454,7 @@ export function collectFunctionDocCommentDocs({ node, options, path, nodeStartIn
         }
     }
 
-    const mergedDocs = [...originalDocDocs, ...filteredNodeDocs].sort((a, b) => a.start - b.start);
+    const mergedDocs = [...originalDocDocs, ...filteredNodeDocs].toSorted((a, b) => a.start - b.start);
 
     const newDocCommentDocs = mergedDocs.map((x) => x.text);
 

@@ -543,10 +543,10 @@ function recordScriptCallMetricsAndReferences({ relationships, metrics, identifi
 }
 function mapToObject(map, transform, { sortEntries = true } = {}) {
     const entries = [...map.entries()];
-    if (sortEntries) {
-        entries.sort(([a], [b]) => (typeof a === "string" && typeof b === "string" ? a.localeCompare(b) : 0));
-    }
-    return Object.fromEntries(entries.map(([key, value]) => [key, transform(value, key)]));
+    const orderedEntries = sortEntries
+        ? entries.toSorted(([a], [b]) => (typeof a === "string" && typeof b === "string" ? a.localeCompare(b) : 0))
+        : entries;
+    return Object.fromEntries(orderedEntries.map(([key, value]) => [key, transform(value, key)]));
 }
 function registerMacroOccurrence({ identifierCollections, identifierRecord, filePath, role }) {
     if (!identifierRecord?.name) {

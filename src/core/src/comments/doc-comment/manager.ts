@@ -155,7 +155,7 @@ function normalizeDocCommentWhitespace(ast) {
 }
 
 function mapDocCommentsToFunctions(ast) {
-    const functions = collectFunctionNodes(ast).sort((a, b) => {
+    const functions = collectFunctionNodes(ast).toSorted((a, b) => {
         const aStart = getNodeStartIndex(a) ?? 0;
         const bStart = getNodeStartIndex(b) ?? 0;
         return aStart - bStart;

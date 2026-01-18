@@ -14,7 +14,7 @@ void describe("resolveCoreOptionOverrides", () => {
         const overrides = resolveCoreOptionOverrides();
 
         assert.strictEqual(overrides, DEFAULT_CORE_OPTION_OVERRIDES);
-        assert.deepEqual(Object.keys(overrides).sort(), [
+        assert.deepEqual(Object.keys(overrides).toSorted(), [
             "arrowParens",
             "htmlWhitespaceSensitivity",
             "jsxSingleQuote",

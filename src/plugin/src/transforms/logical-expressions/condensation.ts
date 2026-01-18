@@ -1455,7 +1455,7 @@ function buildBinaryAst(operator, terms, context) {
 
     const orderedTerms =
         operator === "||"
-            ? [...terms].sort((left, right) => {
+            ? [...terms].toSorted((left, right) => {
                   const leftPriority = getBooleanOrTermPriority(left);
                   const rightPriority = getBooleanOrTermPriority(right);
                   if (leftPriority !== rightPriority) {
@@ -1787,7 +1787,7 @@ function isOrOfNegatedVariables(expression) {
 
 function collectVariableIndices(terms) {
     const indices = terms.map((term) => term?.variable?.index).filter((index) => typeof index === "number");
-    return indices.sort((a, b) => a - b);
+    return indices.toSorted((a, b) => a - b);
 }
 
 function arraysEqual(a, b) {
@@ -1893,11 +1893,11 @@ function booleanExpressionKey(expression) {
             return `n:${booleanExpressionKey(expression.argument)}`;
         }
         case BOOLEAN_NODE_TYPES.AND: {
-            const keys = expression.terms.map((term) => booleanExpressionKey(term)).sort();
+            const keys = expression.terms.map((term) => booleanExpressionKey(term)).toSorted();
             return `a:${keys.join(",")}`;
         }
         case BOOLEAN_NODE_TYPES.OR: {
-            const keys = expression.terms.map((term) => booleanExpressionKey(term)).sort();
+            const keys = expression.terms.map((term) => booleanExpressionKey(term)).toSorted();
             return `o:${keys.join(",")}`;
         }
         default: {

@@ -231,7 +231,7 @@ function normalizeRemovalAdjustments(adjustments: unknown) {
             };
             return Number.isFinite(index) && Number.isFinite(delta) && typeof delta === "number" && delta > 0;
         })
-        .sort((a, b) => a.index - b.index);
+        .toSorted((a, b) => a.index - b.index);
 }
 
 /**

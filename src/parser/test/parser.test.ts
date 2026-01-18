@@ -24,7 +24,7 @@ async function loadFixtures() {
     return entries
         .filter((entry) => entry.isFile() && entry.name.endsWith(fixtureExtension))
         .map((entry) => entry.name)
-        .sort();
+        .toSorted();
 }
 
 async function readFixture(fileName) {

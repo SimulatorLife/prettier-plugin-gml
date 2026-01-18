@@ -188,9 +188,9 @@ async function traverseForFixtures(
         throw error;
     }
 
-    entries.sort((a, b) => a.name.localeCompare(b.name));
+    const orderedEntries = entries.toSorted((a, b) => a.name.localeCompare(b.name));
 
-    await runSequentially(entries, async (entry) => {
+    await runSequentially(orderedEntries, async (entry) => {
         const resolvedPath = path.join(directory, entry.name);
         if (entry.isDirectory()) {
             await traverseForFixtures(resolvedPath, visitor, pathFilter);
@@ -228,7 +228,7 @@ function addUniqueFixturePath(fileMap: Map<string, string>, filePath: string): v
  * @returns Sorted array of absolute file paths
  */
 function extractSortedPaths(fileMap: Map<string, string>): Array<string> {
-    return [...fileMap.values()].sort((a, b) => a.localeCompare(b));
+    return [...fileMap.values()].toSorted((a, b) => a.localeCompare(b));
 }
 
 async function collectFixtureFilePaths(

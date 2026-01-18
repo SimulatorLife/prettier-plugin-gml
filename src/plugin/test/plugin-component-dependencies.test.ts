@@ -10,7 +10,7 @@ void test("dependency bundle is frozen and exposes expected contract keys", () =
     assert.ok(Object.isFrozen(gmlPluginComponentDependencies), "dependency bundle should be frozen");
 
     assert.deepStrictEqual(
-        Object.keys(gmlPluginComponentDependencies).sort(),
+        Object.keys(gmlPluginComponentDependencies).toSorted(),
         [
             "LogicalOperatorsStyle",
             "gmlParserAdapter",
@@ -18,7 +18,7 @@ void test("dependency bundle is frozen and exposes expected contract keys", () =
             "identifierCaseOptions",
             "print",
             "printComment"
-        ].sort()
+        ].toSorted()
     );
 });
 

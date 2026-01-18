@@ -629,13 +629,13 @@ function sortIdentifierEntries(identifierMap) {
             identifier,
             {
                 type: data.type,
-                sources: data.sources ? [...data.sources].sort() : [],
+                sources: data.sources ? [...data.sources].toSorted() : [],
                 manualPath: data.manualPath,
-                tags: data.tags ? [...data.tags].sort() : [],
+                tags: data.tags ? [...data.tags].toSorted() : [],
                 deprecated: data.deprecated
             }
         ])
-        .sort(([a], [b]) => a.localeCompare(b));
+        .toSorted(([a], [b]) => a.localeCompare(b));
 }
 
 async function loadManualPayloads({ manualSource, manualGmlPath, manualKeywordsPath, manualTagsPath }) {

@@ -148,7 +148,7 @@ function stringifyCacheComponent(value: unknown) {
 
 function createFormattingCacheKey(data: string, formattingOptions: PrettierOptions) {
     const { parser, tabWidth, printWidth, semi, useTabs, plugins } = formattingOptions;
-    const pluginKey = Array.isArray(plugins) ? plugins.map(String).sort().join(",") : "";
+    const pluginKey = Array.isArray(plugins) ? plugins.map(String).toSorted().join(",") : "";
     return [
         stringifyCacheComponent(parser),
         stringifyCacheComponent(tabWidth),
@@ -1252,7 +1252,7 @@ async function resolveProjectIgnorePaths(directory) {
     const { resolvedDirectory, searchRoot } = resolveIgnoreSearchBounds(directory);
     const directoriesToInspect = collectIgnoreSearchDirectories(resolvedDirectory, searchRoot);
     const candidatePaths = collectIgnoreCandidatePaths(directoriesToInspect);
-    return collectExistingIgnoreFiles(candidatePaths);
+    return await collectExistingIgnoreFiles(candidatePaths);
 }
 
 /**

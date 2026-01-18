@@ -41,7 +41,7 @@ void describe("watch command", () => {
     void it("normalizes extensions case-insensitively", () => {
         const matcher = createExtensionMatcher([".gml", "YY"]);
 
-        assert.deepEqual([...matcher.extensions].sort(), [".gml", ".yy"]);
+        assert.deepEqual([...matcher.extensions].toSorted(), [".gml", ".yy"]);
         assert.ok(matcher.matches("example.GML"));
         assert.ok(matcher.matches("event.YY"));
     });

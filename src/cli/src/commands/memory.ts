@@ -618,7 +618,7 @@ function collectCommonNodeTypes(typeCounts) {
     }
 
     return [...typeCounts.entries()]
-        .sort((left, right) => right[1] - left[1])
+        .toSorted((left, right) => right[1] - left[1])
         .slice(0, limit)
         .map(([type, count]) => ({ type, count }));
 }

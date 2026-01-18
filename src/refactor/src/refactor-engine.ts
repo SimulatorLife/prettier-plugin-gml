@@ -65,21 +65,21 @@ export class RefactorEngine {
      * Useful for triggering refactorings from editor positions.
      */
     async findSymbolAtLocation(filePath: string, offset: number): Promise<SymbolLocation | null> {
-        return SymbolQueries.findSymbolAtLocation(filePath, offset, this.semantic, this.parser);
+        return await SymbolQueries.findSymbolAtLocation(filePath, offset, this.semantic, this.parser);
     }
 
     /**
      * Validate symbol exists in the semantic index.
      */
     async validateSymbolExists(symbolId: string): Promise<boolean> {
-        return SymbolQueries.validateSymbolExists(symbolId, this.semantic);
+        return await SymbolQueries.validateSymbolExists(symbolId, this.semantic);
     }
 
     /**
      * Gather all occurrences of a symbol from the semantic analyzer.
      */
     async gatherSymbolOccurrences(symbolName: string): Promise<Array<SymbolOccurrence>> {
-        return SymbolQueries.gatherSymbolOccurrences(symbolName, this.semantic);
+        return await SymbolQueries.gatherSymbolOccurrences(symbolName, this.semantic);
     }
 
     /**
@@ -88,7 +88,7 @@ export class RefactorEngine {
      * need recompilation when a file changes.
      */
     async getFileSymbols(filePath: string): Promise<Array<{ id: string }>> {
-        return SymbolQueries.getFileSymbols(filePath, this.semantic);
+        return await SymbolQueries.getFileSymbols(filePath, this.semantic);
     }
 
     /**
@@ -97,7 +97,7 @@ export class RefactorEngine {
      * when dependencies change.
      */
     async getSymbolDependents(symbolIds: Array<string>): Promise<Array<{ symbolId: string; filePath: string }>> {
-        return SymbolQueries.getSymbolDependents(symbolIds, this.semantic);
+        return await SymbolQueries.getSymbolDependents(symbolIds, this.semantic);
     }
 
     /**
@@ -1290,7 +1290,7 @@ export class RefactorEngine {
      * Prepare hot reload updates from a workspace edit.
      */
     async prepareHotReloadUpdates(workspace: WorkspaceEdit): Promise<Array<HotReloadUpdate>> {
-        return HotReload.prepareHotReloadUpdates(workspace, this.semantic);
+        return await HotReload.prepareHotReloadUpdates(workspace, this.semantic);
     }
 
     /**
@@ -1445,14 +1445,14 @@ export class RefactorEngine {
      * that need to be reloaded, ordered for safe application.
      */
     async computeHotReloadCascade(changedSymbolIds: Array<string>): Promise<HotReloadCascadeResult> {
-        return HotReload.computeHotReloadCascade(changedSymbolIds, this.semantic);
+        return await HotReload.computeHotReloadCascade(changedSymbolIds, this.semantic);
     }
 
     /**
      * Check whether a rename operation is safe for hot reload.
      */
     async checkHotReloadSafety(request: RenameRequest): Promise<HotReloadSafetySummary> {
-        return HotReload.checkHotReloadSafety(request, this.semantic);
+        return await HotReload.checkHotReloadSafety(request, this.semantic);
     }
 
     /**
@@ -1480,7 +1480,7 @@ export class RefactorEngine {
      * }
      */
     async computeRenameImpactGraph(symbolId: string): Promise<import("./types.js").RenameImpactGraph> {
-        return HotReload.computeRenameImpactGraph(symbolId, this.semantic);
+        return await HotReload.computeRenameImpactGraph(symbolId, this.semantic);
     }
 
     /**
@@ -1669,7 +1669,7 @@ export class RefactorEngine {
         hotReloadUpdates: Array<HotReloadUpdate>,
         readFile: WorkspaceReadFile
     ): Promise<Array<TranspilerPatch>> {
-        return HotReload.generateTranspilerPatches(hotReloadUpdates, readFile, this.formatter);
+        return await HotReload.generateTranspilerPatches(hotReloadUpdates, readFile, this.formatter);
     }
 
     /**
@@ -1692,7 +1692,7 @@ export class RefactorEngine {
         // Pass semantic analyzer twice: once as SymbolResolver for scope lookups,
         // once as KeywordProvider for reserved keyword checks. The SemanticAnalyzer
         // interface supports both roles through optional method implementations.
-        return detectRenameConflicts(oldName, newName, occurrences, this.semantic, this.semantic);
+        return await detectRenameConflicts(oldName, newName, occurrences, this.semantic, this.semantic);
     }
 }
 

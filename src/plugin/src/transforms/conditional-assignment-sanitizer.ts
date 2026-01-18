@@ -26,7 +26,7 @@ function createIndexMapper(insertPositions: Array<number | null | undefined> | n
                       (position): position is number => typeof position === "number" && Number.isFinite(position)
                   )
               )
-          ].sort((a, b) => a - b)
+          ].toSorted((a, b) => a - b)
         : [];
 
     if (offsets.length === 0) {

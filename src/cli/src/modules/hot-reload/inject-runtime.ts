@@ -1,13 +1,45 @@
 import { spawnSync } from "node:child_process";
 import fs from "node:fs/promises";
 import path from "node:path";
+import { fileURLToPath } from "node:url";
 
 import { Core } from "@gml-modules/core";
 
-import { ensureDir, resolveFromRepoRoot } from "../../shared/index.js";
-import { runSequentially } from "../cli-core/index.js";
 
 const { getErrorMessageOrFallback } = Core;
+
+const MODULE_DIRECTORY = path.dirname(fileURLToPath(import.meta.url));
+const REPO_ROOT = Core.findRepoRootSync(MODULE_DIRECTORY);
+
+function resolveRepositoryPath(...segments: Array<string>) {
+    return path.resolve(REPO_ROOT, ...segments);
+}
+
+async function ensureDirectoryExists(dirPath: string) {
+    await fs.mkdir(dirPath, { recursive: true });
+}
+
+type HotReloadSequentialCallback<T> = (value: T, index: number) => void | Promise<void>;
+
+async function runSequentiallyLocal<T>(
+    values: Iterable<T>,
+    callback: HotReloadSequentialCallback<T>
+): Promise<void> {
+    const entries = Array.from(values);
+    let index = 0;
+
+    const runNext = async (): Promise<void> => {
+        if (index >= entries.length) {
+            return;
+        }
+
+        const currentIndex = index++;
+        await callback(entries[currentIndex], currentIndex);
+        await runNext();
+    };
+
+    await runNext();
+}
 
 /**
  * Default GameMaker HTML5 temporary output root used on macOS.
@@ -16,7 +48,7 @@ export const DEFAULT_GM_TEMP_ROOT = "/private/tmp/GameMakerStudio2/GMS2TEMP";
 /**
  * Default runtime wrapper distribution root in the repository.
  */
-export const DEFAULT_RUNTIME_WRAPPER_ROOT = resolveFromRepoRoot("src", "runtime-wrapper", "dist");
+export const DEFAULT_RUNTIME_WRAPPER_ROOT = resolveRepositoryPath("src", "runtime-wrapper", "dist");
 /**
  * Default WebSocket URL for the hot-reload patch server.
  */
@@ -153,7 +185,7 @@ async function resolveHtml5Output({
     let best: Html5OutputResolution | null = null;
     let bestMtime = 0;
 
-    await runSequentially(entries, async (entry) => {
+    await runSequentiallyLocal(entries, async (entry) => {
         if (!entry.isDirectory()) {
             return;
         }
@@ -189,7 +221,7 @@ async function copyRuntimeWrapperAssets(runtimeWrapperRoot: string, outputRoot: 
     }
 
     const targetRoot = path.join(outputRoot, HOT_RELOAD_DIR_NAME, "runtime-wrapper");
-    await ensureDir(targetRoot);
+    await ensureDirectoryExists(targetRoot);
     await fs.cp(resolvedSource, targetRoot, {
         recursive: true,
         force: true,

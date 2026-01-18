@@ -49,10 +49,10 @@ function createProjectTreeCollector(metrics = null) {
     }
 
     function snapshot() {
-        yyFiles.sort((a, b) => a.relativePath.localeCompare(b.relativePath));
-        gmlFiles.sort((a, b) => a.relativePath.localeCompare(b.relativePath));
+        const sortedYyFiles = yyFiles.toSorted((a, b) => a.relativePath.localeCompare(b.relativePath));
+        const sortedGmlFiles = gmlFiles.toSorted((a, b) => a.relativePath.localeCompare(b.relativePath));
 
-        return { yyFiles, gmlFiles };
+        return { yyFiles: sortedYyFiles, gmlFiles: sortedGmlFiles };
     }
 
     return {

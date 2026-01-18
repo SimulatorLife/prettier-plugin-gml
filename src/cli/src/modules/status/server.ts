@@ -207,7 +207,7 @@ export async function startStatusServer({
         url: `http://${actualHost}:${actualPort}/status`,
         host: actualHost,
         port: actualPort,
-        async stop() {
+        stop() {
             return new Promise<void>((resolve, reject) => {
                 server.close((err) => {
                     if (err) {

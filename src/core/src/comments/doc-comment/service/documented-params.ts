@@ -157,7 +157,7 @@ export function extractDocumentedParamNames(
             const commentValue = (comment as { value?: unknown }).value;
             return typeof commentValue === "string" && /@param\b/i.test(commentValue);
         })
-        .sort((left, right) => {
+        .toSorted((left, right) => {
             const leftPos = getCommentStartIndex(left);
             const rightPos = getCommentStartIndex(right);
 

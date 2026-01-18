@@ -222,9 +222,9 @@ function updateStaticFunctionDocComments(ast: any) {
                 const nodeStart = getStartFromNode(node);
                 if (nodeStart !== undefined) {
                     // Find comments that end before the node starts
-                    const precedingComments = allComments.filter((c: any) => c.end <= nodeStart);
-                    // Sort by end descending (closest to node first)
-                    precedingComments.sort((a: any, b: any) => b.end - a.end);
+                    const precedingComments = allComments
+                        .filter((c: any) => c.end <= nodeStart)
+                        .toSorted((a: any, b: any) => b.end - a.end);
 
                     // We only care about the closest block of comments.
                     // But simpler: just look for the first @function comment.
@@ -4359,7 +4359,7 @@ function createArgumentIndexMapping(indices: unknown[]) {
                 )
             )
         ] as number[]
-    ).sort((left, right) => left - right);
+    ).toSorted((left, right) => left - right);
 
     if (uniqueIndices.length === 0) {
         return null;

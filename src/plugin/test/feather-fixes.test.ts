@@ -2176,8 +2176,8 @@ void describe("Transforms.applyFeatherFixes transform", () => {
 
         assert.strictEqual(changedIdentifiers.length > 0, true, "Expected some argument built-ins to be renamed.");
 
-        const changedNames = changedIdentifiers.map((entry) => entry.node.name).sort();
-        const expectedNames = ["argument0", "argument1", "argument1", "argument2"].sort();
+        const changedNames = changedIdentifiers.map((entry) => entry.node.name).toSorted();
+        const expectedNames = ["argument0", "argument1", "argument1", "argument2"].toSorted();
 
         assert.deepStrictEqual(
             changedNames,
