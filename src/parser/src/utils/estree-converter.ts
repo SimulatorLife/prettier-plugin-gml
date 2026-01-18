@@ -77,8 +77,14 @@ function convertNode(value, state) {
     const isAstNode = Core.isNonEmptyString(value.type);
     const result: any = isAstNode ? { type: value.type } : {};
 
-    const entries = Object.entries(value);
-    for (const [key, child] of entries) {
+    // Avoid Object.entries allocation in this hot path by walking own enumerable
+    // properties directly. This keeps the traversal allocation-free while
+    // preserving the same key filtering behavior.
+    for (const key in value) {
+        if (!Object.hasOwn(value, key)) {
+            continue;
+        }
+
         if (key === "type" || key === "start" || key === "end") {
             continue;
         }
@@ -91,7 +97,7 @@ function convertNode(value, state) {
             continue;
         }
 
-        result[key] = convertNode(child, state);
+        result[key] = convertNode(value[key], state);
     }
 
     if (isAstNode) {
