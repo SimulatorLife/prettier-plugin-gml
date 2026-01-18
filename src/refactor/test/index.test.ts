@@ -1692,6 +1692,28 @@ void test("validateHotReloadCompatibility handles transpiler check option", asyn
     assert.ok(result.warnings.some((w) => w.includes("Transpiler compatibility")));
 });
 
+void test("validateHotReloadCompatibility applies edits over file content for transpiler checks", async () => {
+    let observedSourceText = "";
+    const mockTranspiler = {
+        transpileScript: async ({ sourceText }: { sourceText: string }) => {
+            observedSourceText = sourceText;
+            return { kind: "script", js_body: "ok" };
+        }
+    };
+    const engine = new RefactorEngineClass({ formatter: mockTranspiler });
+    const ws = new WorkspaceEditFactory();
+    const originalContent = "let foo = bar;";
+    ws.addEdit("test.gml", 10, 13, "baz");
+
+    const result = await engine.validateHotReloadCompatibility(ws, {
+        checkTranspiler: true,
+        readFile: async () => originalContent
+    });
+
+    assert.equal(result.valid, true);
+    assert.equal(observedSourceText, "let foo = baz;");
+});
+
 void test("validateHotReloadCompatibility passes for simple renames", async () => {
     const engine = new RefactorEngineClass();
     const ws = new WorkspaceEditFactory();
