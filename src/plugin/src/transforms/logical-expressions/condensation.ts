@@ -632,7 +632,7 @@ function evaluateTruthTable(expression, variableCount) {
 }
 
 function buildAssignment(mask, variableCount) {
-    const assignment = new Array(variableCount);
+    const assignment = Array.from({ length: variableCount });
     for (let index = 0; index < variableCount; index++) {
         assignment[index] = (mask & (1 << index)) !== 0;
     }

@@ -10,7 +10,7 @@ function getExistingProjectIndex(options) {
 }
 
 export async function bootstrapIdentifierCaseProjectIndex(options) {
-    return bootstrapProjectIndex(options, setIdentifierCaseOption);
+    return await bootstrapProjectIndex(options, setIdentifierCaseOption);
 }
 
 export function applyBootstrappedIdentifierCaseProjectIndex(options) {
