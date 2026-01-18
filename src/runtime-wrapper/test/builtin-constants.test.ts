@@ -32,6 +32,27 @@ function restoreGlobals(snapshot: GlobalSnapshot): void {
     }
 }
 
+type BuiltinSnapshot = {
+    g_pBuiltIn?: Record<string, unknown>;
+};
+
+function snapshotBuiltins(): BuiltinSnapshot {
+    const globals = globalThis as Record<string, unknown>;
+    return {
+        g_pBuiltIn: globals.g_pBuiltIn as Record<string, unknown> | undefined
+    };
+}
+
+function restoreBuiltins(snapshot: BuiltinSnapshot): void {
+    const globals = globalThis as Record<string, unknown>;
+
+    if (snapshot.g_pBuiltIn === undefined) {
+        delete globals.g_pBuiltIn;
+    } else {
+        globals.g_pBuiltIn = snapshot.g_pBuiltIn;
+    }
+}
+
 await test("builtin constants use make_colour_rgb when available", () => {
     const snapshot = snapshotGlobals();
 
@@ -177,5 +198,28 @@ await test("builtin constants include math constants", () => {
         assert.ok(Math.abs(result - expected) < 1e-9);
     } finally {
         restoreGlobals(snapshot);
+    }
+});
+
+await test("scripts can read builtin properties even without getters", () => {
+    const snapshot = snapshotBuiltins();
+
+    try {
+        const globals = globalThis as Record<string, unknown>;
+        globals.g_pBuiltIn = { application_surface: 555 };
+
+        const wrapper = RuntimeWrapper.createRuntimeWrapper();
+        wrapper.applyPatch({
+            kind: "script",
+            id: "script:application_surface_property",
+            js_body: "return application_surface;"
+        });
+
+        const fn = wrapper.getScript("script:application_surface_property");
+        assert.ok(fn);
+        const result = fn(null, null, []) as number;
+        assert.strictEqual(result, 555);
+    } finally {
+        restoreBuiltins(snapshot);
     }
 });

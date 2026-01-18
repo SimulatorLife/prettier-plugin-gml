@@ -18,6 +18,35 @@ const DEFAULT_MAX_QUEUE_SIZE = 100;
 const DEFAULT_FLUSH_INTERVAL_MS = 50;
 const READINESS_POLL_INTERVAL_MS = 50;
 
+function ensureApplicationSurfaceAccessor(): void {
+    const globals = globalThis as Record<string, unknown>;
+    const builtins = globals.g_pBuiltIn;
+    if (!builtins || typeof builtins !== "object") {
+        return;
+    }
+
+    if (Object.hasOwn(globals, "application_surface")) {
+        return;
+    }
+
+    Object.defineProperty(globals, "application_surface", {
+        configurable: true,
+        enumerable: true,
+        get() {
+            const runtimeGlobals = globalThis as Record<string, unknown>;
+            const runtimeBuiltins = runtimeGlobals.g_pBuiltIn as Record<string, unknown> | undefined;
+            return runtimeBuiltins?.application_surface;
+        },
+        set(value) {
+            const runtimeGlobals = globalThis as Record<string, unknown>;
+            const runtimeBuiltins = runtimeGlobals.g_pBuiltIn as Record<string, unknown> | undefined;
+            if (runtimeBuiltins) {
+                runtimeBuiltins.application_surface = value;
+            }
+        }
+    });
+}
+
 function createInitialMetrics(): WebSocketConnectionMetrics {
     return {
         totalConnections: 0,
@@ -283,6 +312,8 @@ export function createWebSocketClient({
             return;
         }
 
+        ensureApplicationSurfaceAccessor();
+
         while (state.pendingPatches.length > 0) {
             const patch = state.pendingPatches.shift();
             if (patch !== undefined) {
@@ -351,6 +382,8 @@ export function createWebSocketClient({
             queuePendingPatch(incoming);
             return false;
         }
+
+        ensureApplicationSurfaceAccessor();
 
         return applyIncomingPatchInternal({
             incoming,
