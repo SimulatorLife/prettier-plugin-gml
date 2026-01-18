@@ -1,6 +1,57 @@
 import { Core, type MutableDocCommentLines } from "@gml-modules/core";
 
 const STRING_TYPE = "string";
+
+/**
+ * Outcome of evaluating a potential `@description` continuation line.
+ */
+export type DescriptionContinuationLineClassification =
+    | {
+          kind: "stop";
+      }
+    | {
+          kind: "empty";
+          trimmedLine: string;
+      }
+    | {
+          kind: "text";
+          originalLine: string;
+          trimmedLine: string;
+          suffix: string;
+      };
+
+/**
+ * Classify a doc-comment line following `@description` to determine whether it
+ * continues the description text, should be skipped, or signals a stop.
+ */
+export function classifyDescriptionContinuationLine(line: unknown): DescriptionContinuationLineClassification {
+    if (typeof line !== "string") {
+        return { kind: "stop" };
+    }
+
+    const trimmedLine = line.trim();
+
+    if (!trimmedLine.startsWith("///")) {
+        return { kind: "stop" };
+    }
+
+    if (/^\/\/\/\s*@/.test(trimmedLine)) {
+        return { kind: "stop" };
+    }
+
+    const suffix = trimmedLine.slice(3).trim();
+
+    if (suffix.length === 0) {
+        return { kind: "empty", trimmedLine };
+    }
+
+    return {
+        kind: "text",
+        originalLine: line,
+        trimmedLine,
+        suffix
+    };
+}
 export const DESCRIPTION_TAG_PATTERN = /^\/\/\/\s*@description\b/i;
 
 export function resolveDescriptionIndentation(line: string) {
@@ -56,25 +107,17 @@ export function collectDescriptionContinuations(docCommentDocs: MutableDocCommen
 
     for (let index = descriptionIndex + 1; index < docCommentDocs.length; index += 1) {
         const line = docCommentDocs[index];
+        const classification = classifyDescriptionContinuationLine(line);
 
-        if (typeof line !== STRING_TYPE) {
+        if (classification.kind === "stop") {
             break;
         }
 
-        if (!line.trim().startsWith("///")) {
-            break;
-        }
-
-        if (/^\/\/\/\s*@/.test(line.trim())) {
-            break;
-        }
-
-        const suffix = line.trim().slice(3).trim();
-        if (suffix.length === 0) {
+        if (classification.kind === "empty") {
             continue;
         }
 
-        continuations.push(line);
+        continuations.push(classification.originalLine);
     }
 
     return continuations;
@@ -158,17 +201,13 @@ export function ensureDescriptionContinuations(docCommentDocs: MutableDocComment
     for (let index = descriptionIndex + 1; index < docCommentDocs.length; index += 1) {
         const line = docCommentDocs[index];
 
-        if (typeof line !== STRING_TYPE) {
+        const classification = classifyDescriptionContinuationLine(line);
+        if (classification.kind === "stop") {
             break;
         }
 
-        const trimmed = line.trim();
-        if (!trimmed.startsWith("///")) {
-            break;
-        }
-
-        if (/^\/\/\/\s*@/.test(trimmed)) {
-            break;
+        if (classification.kind === "empty") {
+            continue;
         }
 
         const formatted = formatDescriptionContinuationLine(line, continuationPrefix);

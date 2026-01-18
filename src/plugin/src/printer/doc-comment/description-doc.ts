@@ -12,20 +12,18 @@ function collectDescriptionContinuations(lines: MutableDocCommentLines, startInd
 
     while (lookahead < lines.length) {
         const candidate = lines[lookahead];
-        if (typeof candidate !== "string") {
+        const classification = DescriptionUtils.classifyDescriptionContinuationLine(candidate);
+        if (classification.kind === "stop") {
             break;
         }
 
-        const trimmed = candidate.trim();
-        if (!trimmed.startsWith("///")) {
-            break;
+        if (classification.kind === "empty") {
+            continuations.push("");
+            lookahead += 1;
+            continue;
         }
 
-        if (/^\/\/\/\s*@/.test(trimmed)) {
-            break;
-        }
-
-        continuations.push(trimmed.slice(3).trim());
+        continuations.push(classification.suffix);
         lookahead += 1;
     }
 
