@@ -21,6 +21,7 @@ import { Transpiler } from "@gml-modules/transpiler";
 import { Command, Option } from "commander";
 
 import { formatCliError } from "../cli-core/errors.js";
+import { runSequentially } from "../cli-core/sequential-runner.js";
 import { DependencyTracker } from "../modules/dependency-tracker.js";
 import { DEFAULT_GM_TEMP_ROOT, prepareHotReloadInjection } from "../modules/hot-reload/inject-runtime.js";
 import {
@@ -473,15 +474,18 @@ async function performInitialScan(
         try {
             const entries = await readdir(currentPath, { withFileTypes: true });
 
-            for (const entry of entries) {
+            await runSequentially(entries, async (entry) => {
                 const fullPath = path.join(currentPath, entry.name);
 
                 if (entry.isDirectory()) {
                     await scanDirectory(fullPath);
-                } else if (entry.isFile() && extensionMatcher.matches(entry.name)) {
+                    return;
+                }
+
+                if (entry.isFile() && extensionMatcher.matches(entry.name)) {
                     await processFile(fullPath);
                 }
-            }
+            });
         } catch (error) {
             if (verbose && !quiet) {
                 const message = getCoreErrorMessage(error, {
@@ -1122,7 +1126,7 @@ async function retranspileDependentFiles(
     verbose: boolean,
     quiet: boolean
 ): Promise<void> {
-    for (const dependentFile of dependentFiles) {
+    await runSequentially(dependentFiles, async (dependentFile) => {
         try {
             await retranspileDependentFile(runtimeContext, filePath, dependentFile, verbose, quiet);
         } catch (error) {
@@ -1131,7 +1135,7 @@ async function retranspileDependentFiles(
             });
             console.error(`  ↳ Error retranspiling dependent file ${dependentFile}: ${message}`);
         }
-    }
+    });
 }
 
 async function retranspileDependentFile(
@@ -1195,22 +1199,22 @@ async function collectScriptNames(rootPath: string, extensionMatcher: ExtensionM
 
     async function scan(currentPath: string): Promise<void> {
         const entries = await readdir(currentPath, { withFileTypes: true });
-        for (const entry of entries) {
+        await runSequentially(entries, async (entry) => {
             const candidatePath = path.join(currentPath, entry.name);
             if (entry.isDirectory()) {
                 await scan(candidatePath);
-                continue;
+                return;
             }
 
             if (!entry.isFile() || !extensionMatcher.matches(entry.name)) {
-                continue;
+                return;
             }
 
             const scriptName = getScriptNameFromPath(candidatePath);
             if (scriptName) {
                 scriptNames.add(scriptName);
             }
-        }
+        });
     }
 
     try {

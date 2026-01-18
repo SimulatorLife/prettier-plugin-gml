@@ -1183,12 +1183,21 @@ async function processWithConcurrency(items, limit, worker, options = {}) {
     let nextIndex = 0;
     const runWorker = async () => {
         ensureNotAborted();
-        let currentIndex;
-        while ((currentIndex = nextIndex++) < items.length) {
+
+        const processNext = async (): Promise<void> => {
+            ensureNotAborted();
+            const currentIndex = nextIndex++;
+            if (currentIndex >= items.length) {
+                return;
+            }
+
             ensureNotAborted();
             await worker(items[currentIndex], currentIndex);
             ensureNotAborted();
-        }
+            await processNext();
+        };
+
+        await processNext();
     };
     const workerHandles = [];
     for (let index = 0; index < workerCount; index++) {

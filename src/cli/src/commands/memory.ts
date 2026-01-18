@@ -25,6 +25,7 @@ import {
     SuiteOutputFormat,
     wrapInvalidArgumentResolver
 } from "../cli-core/index.js";
+import { runSequentially } from "../cli-core/sequential-runner.js";
 import { importPluginModule } from "../modules/plugin-runtime-dependencies.js";
 import {
     REPO_ROOT,
@@ -1016,9 +1017,12 @@ async function runPluginFormatSuite({ iterations }) {
 
     const measurement = await tracker.measure(async () => {
         let lastOutput = "";
-        for (let index = 0; index < effectiveIterations; index += 1) {
-            lastOutput = await prettier.format(source, formatOptions);
-        }
+        await runSequentially(
+            Array.from({ length: effectiveIterations }, (_, index) => index),
+            async () => {
+                lastOutput = await prettier.format(source, formatOptions);
+            }
+        );
 
         const sampleBytes = Buffer.byteLength(source, "utf8");
         const outputBytes = Buffer.byteLength(lastOutput, "utf8");

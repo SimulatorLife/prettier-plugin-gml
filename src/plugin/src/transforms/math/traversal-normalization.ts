@@ -296,10 +296,12 @@ function unwrapIdentityReplacementResult(node) {
         node.expression &&
         isIdentityReplacementSafeExpression(node.expression)
     ) {
-        if (!replaceNodeWith(node, node.expression)) {
+        const nextNode = node.expression;
+        if (!replaceNodeWith(node, nextNode)) {
             break;
         }
 
+        node = nextNode;
         node.__fromMultiplicativeIdentity = true;
     }
 }

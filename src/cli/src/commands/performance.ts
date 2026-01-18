@@ -23,6 +23,7 @@ import {
 } from "../cli-core/command-suite-helpers.js";
 import type { CommanderCommandLike } from "../cli-core/commander-types.js";
 import { createCliErrorDetails } from "../cli-core/errors.js";
+import { runSequentially } from "../cli-core/sequential-runner.js";
 import { formatMetricValue } from "../modules/performance/metric-formatters.js";
 import {
     formatPerformanceSuiteList,
@@ -189,18 +190,21 @@ async function traverseForFixtures(
 
     entries.sort((a, b) => a.name.localeCompare(b.name));
 
-    for (const entry of entries) {
+    await runSequentially(entries, async (entry) => {
         const resolvedPath = path.join(directory, entry.name);
         if (entry.isDirectory()) {
             await traverseForFixtures(resolvedPath, visitor, pathFilter);
-        } else if (
+            return;
+        }
+
+        if (
             entry.isFile() &&
             entry.name.toLowerCase().endsWith(".gml") &&
             (!pathFilter || pathFilter.allowsPath(resolvedPath))
         ) {
             visitor(resolvedPath);
         }
-    }
+    });
 }
 
 /**
@@ -234,9 +238,9 @@ async function collectFixtureFilePaths(
     const pathFilter = createPathFilter(pathFilterOptions);
     const fileMap = new Map<string, string>();
 
-    for (const directory of directories) {
-        await traverseForFixtures(directory, (filePath) => addUniqueFixturePath(fileMap, filePath), pathFilter);
-    }
+    await runSequentially(directories, (directory) =>
+        traverseForFixtures(directory, (filePath) => addUniqueFixturePath(fileMap, filePath), pathFilter)
+    );
 
     return extractSortedPaths(fileMap);
 }
@@ -294,9 +298,10 @@ function createDatasetFromFiles(files) {
  */
 async function loadFixtureFiles(fixturePaths) {
     const records = [];
-    for (const absolutePath of fixturePaths) {
+    await runSequentially(fixturePaths, async (absolutePath) => {
         records.push(await readFixtureFileRecord(absolutePath));
-    }
+    });
+
     return records;
 }
 
@@ -503,10 +508,10 @@ function createBenchmarkResult({ dataset, durations, iterations }) {
 async function measureSingleIterationDuration({ files, worker, now }) {
     const start = now();
 
-    for (const file of files) {
+    await runSequentially(files, async (file) => {
         // Await in case callers provide asynchronous worker implementations.
         await worker(file);
-    }
+    });
 
     return now() - start;
 }
@@ -517,15 +522,16 @@ async function measureSingleIterationDuration({ files, worker, now }) {
  */
 async function measureBenchmarkDurations({ dataset, iterations, worker, now }) {
     const durations = [];
+    const iterationsToRun = Array.from({ length: iterations }, (_, index) => index);
 
-    for (let iteration = 0; iteration < iterations; iteration += 1) {
+    await runSequentially(iterationsToRun, async () => {
         const duration = await measureSingleIterationDuration({
             files: dataset.files,
             worker,
             now
         });
         durations.push(duration);
-    }
+    });
 
     return durations;
 }

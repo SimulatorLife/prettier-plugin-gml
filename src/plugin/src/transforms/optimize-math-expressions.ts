@@ -159,12 +159,14 @@ function flattenMultiplicativeOperand(node: MutableGameMakerAstNode) {
         return;
     }
 
-    const current = node.left as ParenthesizedExpressionNode | null;
+    let current = node.left as ParenthesizedExpressionNode | null;
     while (current && current.type === PARENTHESIZED_EXPRESSION) {
         const expression = current.expression;
         if (!expression || !replaceNodeWith(current, expression)) {
             break;
         }
+
+        current = expression as ParenthesizedExpressionNode | null;
     }
 }
 

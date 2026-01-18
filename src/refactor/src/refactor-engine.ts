@@ -1,6 +1,7 @@
 import { Core } from "@gml-modules/core";
 
 import * as HotReload from "./hot-reload.js";
+import { runSequentially } from "./sequential-runner.js";
 import * as SymbolQueries from "./symbol-queries.js";
 import {
     type ApplyWorkspaceEditOptions,
@@ -293,16 +294,16 @@ export class RefactorEngine {
         }
 
         // Validate each rename request individually
-        for (const rename of renames) {
+        await runSequentially(renames, async (rename) => {
             if (!rename || typeof rename !== "object") {
                 errors.push("Each rename must be a valid request object");
-                continue;
+                return;
             }
 
             const { symbolId } = rename;
             if (!symbolId || typeof symbolId !== "string") {
                 errors.push("Each rename must have a valid symbolId string property");
-                continue;
+                return;
             }
 
             // Validate individual rename request
@@ -316,7 +317,7 @@ export class RefactorEngine {
             if (validation.warnings.length > 0) {
                 warnings.push(...validation.warnings.map((w) => `${symbolId}: ${w}`));
             }
-        }
+        });
 
         // Detect duplicate symbol IDs in the batch. Renaming the same symbol more
         // than once creates ambiguous intent and would generate conflicting edits.
@@ -643,7 +644,7 @@ export class RefactorEngine {
 
         // Process each file by loading its current content, applying all edits for
         // that file, and optionally writing the modified content back to disk.
-        for (const [filePath, edits] of grouped.entries()) {
+        await runSequentially(grouped.entries(), async ([filePath, edits]) => {
             const originalContent = await readFile(filePath);
 
             // Apply edits from high to low offset (reverse order) so that earlier
@@ -662,7 +663,7 @@ export class RefactorEngine {
             if (!dryRun) {
                 await writeFile(filePath, newContent);
             }
-        }
+        });
 
         return results;
     }
@@ -724,10 +725,10 @@ export class RefactorEngine {
         // We defer merging until all renames are validated so that a single invalid
         // rename doesn't invalidate the entire batch.
         const workspaces: Array<WorkspaceEdit> = [];
-        for (const rename of renames) {
+        await runSequentially(renames, async (rename) => {
             const workspace = await this.planRename(rename);
             workspaces.push(workspace);
-        }
+        });
 
         // Combine all workspace edits into a single merged edit that can be applied
         // atomically. This ensures either all renames succeed together or none are
@@ -1024,7 +1025,7 @@ export class RefactorEngine {
         // Analyze the impact of each individual rename so callers can show
         // per-symbol statistics (files affected, occurrence counts, conflicts).
         const impactAnalyses = new Map<string, RenameImpactAnalysis>();
-        for (const rename of renames) {
+        await runSequentially(renames, async (rename) => {
             try {
                 const analysis = await this.analyzeRenameImpact(rename);
                 impactAnalyses.set(rename.symbolId, analysis);
@@ -1053,7 +1054,7 @@ export class RefactorEngine {
                     warnings: []
                 });
             }
-        }
+        });
 
         // Compute the full hot reload dependency cascade for all changed symbols
         // to determine which other symbols need reloading and in what order.
@@ -1193,10 +1194,10 @@ export class RefactorEngine {
         let validatedFiles = 0;
         let validatedSymbols = 0;
 
-        for (const [filePath, edits] of grouped.entries()) {
+        await runSequentially(grouped.entries(), async ([filePath, edits]) => {
             // Only validate GML files that can be transpiled
             if (!filePath.endsWith(".gml")) {
-                continue;
+                return;
             }
 
             // Get symbols defined in this file
@@ -1206,7 +1207,7 @@ export class RefactorEngine {
                     symbolsInFile = await this.semantic.getFileSymbols(filePath);
                 } catch (error) {
                     warnings.push(`Could not query symbols for ${filePath}: ${Core.getErrorMessage(error)}`);
-                    continue;
+                    return;
                 }
             }
 
@@ -1226,11 +1227,11 @@ export class RefactorEngine {
                 modifiedContent = this.applyEditsToContent("", edits);
             } catch (error) {
                 errors.push(`Failed to apply edits to ${filePath}: ${Core.getErrorMessage(error)}`);
-                continue;
+                return;
             }
 
             // Validate each symbol can be transpiled with the modified content
-            for (const symbol of symbolsInFile) {
+            await runSequentially(symbolsInFile, async (symbol) => {
                 try {
                     await this.formatter.transpileScript({
                         sourceText: modifiedContent,
@@ -1241,10 +1242,10 @@ export class RefactorEngine {
                     const errorMessage = Core.getErrorMessage(error);
                     errors.push(`Transpilation failed for ${symbol.id} in ${filePath}: ${errorMessage}`);
                 }
-            }
+            });
 
             validatedFiles++;
-        }
+        });
 
         // Add informational message about transpiler validation status
         if (validatedFiles > 0 && errors.length === 0) {
@@ -1546,13 +1547,13 @@ export class RefactorEngine {
         // These catch obvious issues like lingering old names or missing new names
 
         // Verify the old name no longer exists in edited files
-        for (const filePath of affectedFiles) {
+        await runSequentially(affectedFiles, async (filePath) => {
             let content: string;
             try {
                 content = await readFile(filePath);
             } catch (error) {
                 errors.push(`Failed to read ${filePath} for post-edit validation: ${Core.getErrorMessage(error)}`);
-                continue;
+                return;
             }
 
             // Simple heuristic: check if the old name still appears as an identifier
@@ -1599,7 +1600,7 @@ export class RefactorEngine {
             if (!newNameMatches || newNameMatches.length === 0) {
                 warnings.push(`New name '${newName}' does not appear in ${filePath} - verify edits were applied`);
             }
-        }
+        });
 
         // Use semantic analyzer to check for new conflicts or shadowing
         if (hasMethod(this.semantic, "getSymbolOccurrences")) {
@@ -1636,7 +1637,7 @@ export class RefactorEngine {
         // If parser is available, we could re-parse files and verify binding integrity
         // This is more expensive but provides the strongest guarantee
         if (hasMethod(this.parser, "parse")) {
-            for (const filePath of affectedFiles) {
+            await runSequentially(affectedFiles, async (filePath) => {
                 try {
                     // Attempt to parse the file to ensure syntax is still valid
                     await this.parser.parse(filePath);
@@ -1645,7 +1646,7 @@ export class RefactorEngine {
                         `Parse error in ${filePath} after rename: ${Core.getErrorMessage(parseError)} - edits may have broken syntax`
                     );
                 }
-            }
+            });
         }
 
         // Warn if no semantic analyzer for deeper validation

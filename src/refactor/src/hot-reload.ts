@@ -4,6 +4,7 @@
  * and hot reload update preparation.
  */
 
+import { runSequentially } from "./sequential-runner.js";
 import * as SymbolQueries from "./symbol-queries.js";
 import {
     type CascadeEntry,
@@ -50,7 +51,7 @@ export async function prepareHotReloadUpdates(
     const grouped = workspace.groupByFile();
     const updatesBySymbol = new Map<string, HotReloadUpdate>();
 
-    for (const [filePath, edits] of grouped.entries()) {
+    await runSequentially(grouped.entries(), async ([filePath, edits]) => {
         // Determine which symbols are defined in this file
         let affectedSymbols = [];
 
@@ -73,21 +74,22 @@ export async function prepareHotReloadUpdates(
                 updates.push(update);
                 updatesBySymbol.set(symbol.id, update);
             }
-        } else {
-            // Fallback: create a generic update for the file
-            const update: HotReloadUpdate = {
-                symbolId: `file://${filePath}`,
-                action: "recompile",
-                filePath,
-                affectedRanges: edits.map((e) => ({
-                    start: e.start,
-                    end: e.end
-                }))
-            };
-            updates.push(update);
-            updatesBySymbol.set(update.symbolId, update);
+            return;
         }
-    }
+
+        // Fallback: create a generic update for the file
+        const update: HotReloadUpdate = {
+            symbolId: `file://${filePath}`,
+            action: "recompile",
+            filePath,
+            affectedRanges: edits.map((e) => ({
+                start: e.start,
+                end: e.end
+            }))
+        };
+        updates.push(update);
+        updatesBySymbol.set(update.symbolId, update);
+    });
 
     // Expand to transitive dependents using the cascade helper so hot reload
     // consumers receive a full picture of which symbols should be refreshed.
@@ -203,8 +205,7 @@ export async function computeHotReloadCascade(
             // Query semantic analyzer for symbols that depend on this one
             if (hasMethod(semantic, "getDependents")) {
                 const dependents = (await semantic.getDependents([symbolId])) ?? [];
-
-                for (const dep of dependents) {
+                await runSequentially(dependents, async (dep) => {
                     const depId = dep.symbolId;
 
                     // Track the dependency edge for topological sort
@@ -220,7 +221,7 @@ export async function computeHotReloadCascade(
                         // Reconstruct and record the complete cycle path
                         const cyclePath = reconstructCyclePath(depId);
                         circular.push(cyclePath);
-                        continue;
+                        return;
                     }
 
                     // If we haven't visited this dependent yet, explore it
@@ -242,7 +243,7 @@ export async function computeHotReloadCascade(
                             circular.push(result.cycle);
                         }
                     }
-                }
+                });
             }
         } finally {
             visiting.delete(symbolId);
@@ -253,9 +254,7 @@ export async function computeHotReloadCascade(
     };
 
     // Explore from each changed symbol
-    for (const symbolId of changedSymbolIds) {
-        await exploreDependents(symbolId, 0, "initial change");
-    }
+    await runSequentially(changedSymbolIds, (symbolId) => exploreDependents(symbolId, 0, "initial change"));
 
     // Convert cascade to array and compute topological order
     const cascadeArray = Array.from(cascade.values());
@@ -585,12 +584,12 @@ export async function generateTranspilerPatches(
 
     const patches: Array<TranspilerPatch> = [];
 
-    for (const update of hotReloadUpdates) {
+    await runSequentially(hotReloadUpdates, async (update) => {
         // Filter to recompile actions since only script recompilations produce
         // runtime patches that can be hot-reloaded. Asset renames and other
         // non-code changes don't require transpilation or runtime updates.
         if (update.action !== "recompile") {
-            continue;
+            return;
         }
 
         try {
@@ -632,7 +631,7 @@ export async function generateTranspilerPatches(
                 console.warn(`Failed to generate patch for ${update.symbolId}: ${error.message}`);
             }
         }
-    }
+    });
 
     return patches;
 }
@@ -695,10 +694,10 @@ export async function computeRenameImpactGraph(
     const visited = new Set<string>([symbolId]);
     const queue: Array<{ id: string; distance: number }> = [{ id: symbolId, distance: 0 }];
 
-    while (queue.length > 0) {
+    const processQueue = async (): Promise<void> => {
         const current = queue.shift();
         if (!current) {
-            break;
+            return;
         }
 
         const { id: currentId, distance: currentDistance } = current;
@@ -744,7 +743,11 @@ export async function computeRenameImpactGraph(
             nodes.set(depId, dependentNode);
             queue.push({ id: depId, distance: currentDistance + 1 });
         }
-    }
+
+        await processQueue();
+    };
+
+    await processQueue();
 
     // Compute metrics
     const maxDepth = Math.max(...Array.from(nodes.values()).map((n) => n.distance));

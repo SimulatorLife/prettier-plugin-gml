@@ -37,6 +37,7 @@ import { applyStandardCommandOptions } from "./cli-core/command-standard-options
 import { CliUsageError, formatCliError, handleCliError } from "./cli-core/errors.js";
 import { normalizeExtensions } from "./cli-core/extension-normalizer.js";
 import { collectFormatCommandOptions } from "./cli-core/format-command-options.js";
+import { runSequentially } from "./cli-core/sequential-runner.js";
 import { resolveCliVersion } from "./cli-core/version.js";
 import { createCollectStatsCommand, runCollectStats } from "./commands/collect-stats.js";
 import { createFeatherMetadataCommand, runGenerateFeatherMetadata } from "./commands/generate-feather-metadata.js";
@@ -879,7 +880,7 @@ async function discardFormattedFileOriginalContents() {
     const snapshots = [...formattedFileOriginalContents.values()];
     formattedFileOriginalContents.clear();
 
-    for (const snapshot of snapshots) {
+    await runSequentially(snapshots, async (snapshot) => {
         // Release each snapshot in sequence so the shared
         // `revertSnapshotFileCount` accounting stays in sync with the
         // filesystem. `releaseSnapshot` also decides whether the directory can
@@ -887,7 +888,7 @@ async function discardFormattedFileOriginalContents() {
         // this loop serial avoids racy cleanups that might drop still-needed
         // backups when the process is under heavy I/O pressure.
         await releaseSnapshot(snapshot);
-    }
+    });
 
     if (revertSnapshotFileCount === 0) {
         await cleanupRevertSnapshotDirectory();
@@ -999,7 +1000,7 @@ async function revertFormattedFiles() {
         } due to parser failure.`
     );
 
-    for (const [filePath, snapshot] of revertEntries) {
+    await runSequentially(revertEntries, async ([filePath, snapshot]) => {
         try {
             const originalContents = await readSnapshotContents(snapshot);
             if (originalContents == null) {
@@ -1017,7 +1018,7 @@ async function revertFormattedFiles() {
             // `revertSnapshotFileCount` counter desynchronized from reality.
             await releaseSnapshot(snapshot);
         }
-    }
+    });
 
     if (revertSnapshotFileCount === 0) {
         await cleanupRevertSnapshotDirectory();
@@ -1129,9 +1130,7 @@ async function registerIgnoreFile(ignoreFilePath) {
 }
 
 async function registerIgnorePaths(ignoreFiles) {
-    for (const ignoreFilePath of ignoreFiles) {
-        await registerIgnoreFile(ignoreFilePath);
-    }
+    await runSequentially(ignoreFiles, (ignoreFilePath) => registerIgnoreFile(ignoreFilePath));
 }
 
 function getIgnorePathOptions(additionalIgnorePaths = []) {
@@ -1475,18 +1474,18 @@ async function processDirectoryEntry(filePath, currentIgnorePaths) {
 }
 
 async function processDirectoryEntries(directory, files, currentIgnorePaths) {
-    for (const file of files) {
+    await runSequentially(files, async (file) => {
         if (abortRequested) {
-            return;
+            return false;
         }
 
         const filePath = path.join(directory, file);
         await processDirectoryEntry(filePath, currentIgnorePaths);
 
         if (abortRequested) {
-            return;
+            return false;
         }
-    }
+    });
 }
 
 async function processDirectory(directory, inheritedIgnorePaths = []) {

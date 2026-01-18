@@ -75,6 +75,7 @@ export type {
 export { RenameValidationCache } from "./rename-validation-cache.js";
 export type { CacheStats, SemanticCacheConfig } from "./semantic-cache.js";
 export { SemanticQueryCache } from "./semantic-cache.js";
+export * from "./sequential-runner.js";
 export type {
     ApplyWorkspaceEditOptions,
     AstNode,

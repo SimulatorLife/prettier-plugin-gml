@@ -5,6 +5,7 @@ import path from "node:path";
 import { Core } from "@gml-modules/core";
 
 import { ensureDir, resolveFromRepoRoot } from "../../shared/index.js";
+import { runSequentially } from "../cli-core/sequential-runner.js";
 
 const { getErrorMessageOrFallback } = Core;
 
@@ -152,23 +153,23 @@ async function resolveHtml5Output({
     let best: Html5OutputResolution | null = null;
     let bestMtime = 0;
 
-    for (const entry of entries) {
+    await runSequentially(entries, async (entry) => {
         if (!entry.isDirectory()) {
-            continue;
+            return;
         }
 
         const outputRoot = path.join(tempRoot, entry.name);
         const indexPath = path.join(outputRoot, "index.html");
         const stats = await fs.stat(indexPath).catch(() => null);
         if (!stats) {
-            continue;
+            return;
         }
 
         if (!best || stats.mtimeMs > bestMtime) {
             bestMtime = stats.mtimeMs;
             best = { outputRoot, indexPath };
         }
-    }
+    });
 
     if (!best) {
         throw new Error(`No HTML5 index.html found under '${tempRoot}'. Run the GameMaker HTML5 build first.`);

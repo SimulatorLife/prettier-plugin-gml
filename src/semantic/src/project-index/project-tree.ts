@@ -9,6 +9,7 @@ import {
     ProjectFileCategory,
     resolveProjectFileCategory
 } from "./project-file-categories.js";
+import { runSequentially } from "./sequential-runner.js";
 
 type ProjectIndexFsFacade = typeof fs;
 
@@ -135,7 +136,7 @@ async function processDirectoryEntries({
     signal
 }) {
     void signal;
-    for (const entry of entries) {
+    await runSequentially(entries, async (entry) => {
         ensureNotAborted();
         const descriptor = createDirectoryEntryDescriptor(directoryContext, entry, projectRoot);
         const stats = await resolveEntryStats({
@@ -146,16 +147,16 @@ async function processDirectoryEntries({
         });
 
         if (!stats) {
-            continue;
+            return;
         }
 
         if (isDirectoryStat(stats)) {
             traversal.enqueue(descriptor.relativePath);
-            continue;
+            return;
         }
 
         collector.register(descriptor.relativePosix, descriptor.absolutePath);
-    }
+    });
 }
 
 export async function scanProjectTree(projectRoot, fsFacade: ProjectIndexFsFacade = fs, metrics = null, options = {}) {

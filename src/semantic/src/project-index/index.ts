@@ -15,4 +15,5 @@ export * from "./project-file-categories.js";
 export * from "./project-root.js";
 export * from "./project-tree.js";
 export * from "./resource-analysis.js";
+export * from "./sequential-runner.js";
 export * from "./syntax-error-formatter.js";

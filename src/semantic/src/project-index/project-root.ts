@@ -24,18 +24,26 @@ export async function findProjectRoot(
 
     const startDirectory = path.dirname(path.resolve(filepath));
 
-    for (const directory of Core.walkAncestorDirectories(startDirectory)) {
-        ensureNotAborted();
+    const directories = [...Core.walkAncestorDirectories(startDirectory)];
+    return await directories.reduce(
+        (previousPromise, directory) =>
+            previousPromise.then(async (found) => {
+                if (found) {
+                    return found;
+                }
 
-        const entries = await Core.listDirectory(fsFacade, directory, {
-            signal
-        });
-        ensureNotAborted();
+                ensureNotAborted();
+                const entries = await Core.listDirectory(fsFacade, directory, {
+                    signal
+                });
+                ensureNotAborted();
 
-        if (entries.some(isProjectManifestPath)) {
-            return directory;
-        }
-    }
+                if (entries.some(isProjectManifestPath)) {
+                    return directory;
+                }
 
-    return null;
+                return null;
+            }),
+        Promise.resolve<string | null>(null)
+    );
 }
