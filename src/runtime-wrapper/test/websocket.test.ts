@@ -20,6 +20,14 @@ if (!globalBuiltins.g_pBuiltIn) {
     globalBuiltins.g_pBuiltIn = { application_surface: -1 };
 }
 
+const globalWithJson = globalThis as Record<string, unknown> & {
+    JSON_game?: { ScriptNames?: Array<string>; Scripts?: Array<unknown> };
+};
+
+if (!globalWithJson.JSON_game) {
+    globalWithJson.JSON_game = { ScriptNames: [], Scripts: [] };
+}
+
 const wait = (ms: number) =>
     new Promise<void>((resolve) => {
         setTimeout(resolve, ms);
@@ -325,6 +333,84 @@ void test("WebSocket client waits for GameMaker builtins before applying patches
             delete globals.g_pBuiltIn;
         } else {
             globals.g_pBuiltIn = savedBuiltins;
+        }
+
+        delete globalWithWebSocket.WebSocket;
+    }
+});
+
+void test("WebSocket client waits for JSON_game before applying patches", async () => {
+    const wrapper = RuntimeWrapper.createRuntimeWrapper();
+    globalWithWebSocket.WebSocket = MockWebSocket;
+
+    const globals = globalThis as Record<string, unknown>;
+    const savedBuiltins = globals.g_pBuiltIn;
+    const savedJson = globals.JSON_game;
+
+    delete globals.JSON_game;
+    globals.g_pBuiltIn = {
+        application_surface: -1,
+        get_application_surface() {
+            const self = this as Record<string, unknown>;
+            return self.application_surface;
+        }
+    };
+
+    let client: ReturnType<typeof RuntimeWrapper.createWebSocketClient> | null = null;
+
+    try {
+        client = RuntimeWrapper.createWebSocketClient({
+            wrapper,
+            autoConnect: true
+        });
+
+        await wait(50);
+
+        const patch = {
+            kind: "script",
+            id: "script:application_surface_property",
+            js_body: "return application_surface;"
+        };
+
+        const ws = client.getWebSocket();
+        assert.ok(ws, "WebSocket should be available");
+        (ws as MockWebSocket).simulateMessage(JSON.stringify(patch));
+
+        await wait(20);
+
+        assert.ok(!wrapper.hasScript(patch.id), "Patch should wait for JSON_game");
+
+        globals.JSON_game = {
+            ScriptNames: ["gml_Script_application_surface"],
+            Scripts: [
+                function applicationSurfaceScript() {
+                    const runtimeGlobals = globalThis as Record<string, unknown>;
+                    const runtimeBuiltins = runtimeGlobals.g_pBuiltIn as Record<string, unknown> | undefined;
+                    return runtimeBuiltins?.application_surface;
+                }
+            ]
+        };
+
+        await wait(150);
+
+        assert.ok(wrapper.hasScript(patch.id));
+        const fn = wrapper.getScript(patch.id);
+        assert.ok(fn);
+        const result = fn(null, null, []) as number;
+        assert.strictEqual(result, -1);
+    } finally {
+        client?.disconnect();
+
+        if (savedBuiltins === undefined) {
+            delete globals.g_pBuiltIn;
+        } else {
+            globals.g_pBuiltIn = savedBuiltins;
+        }
+
+        if (savedJson === undefined) {
+            delete globals.JSON_game;
+        } else {
+            globals.JSON_game = savedJson;
         }
 
         delete globalWithWebSocket.WebSocket;

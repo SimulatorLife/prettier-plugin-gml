@@ -18,6 +18,14 @@ const DEFAULT_MAX_QUEUE_SIZE = 100;
 const DEFAULT_FLUSH_INTERVAL_MS = 50;
 const READINESS_POLL_INTERVAL_MS = 50;
 
+type RuntimeReadyGlobals = Record<string, unknown> & {
+    g_pBuiltIn?: Record<string, unknown>;
+    JSON_game?: {
+        ScriptNames?: Array<string>;
+        Scripts?: Array<unknown>;
+    };
+};
+
 function ensureApplicationSurfaceAccessor(): void {
     const globals = globalThis as Record<string, unknown>;
     const builtins = globals.g_pBuiltIn;
@@ -295,9 +303,23 @@ export function createWebSocketClient({
     };
 
     const runtimeReady = (): boolean => {
-        const globals = globalThis as Record<string, unknown>;
+        const globals = globalThis as RuntimeReadyGlobals;
         const builtins = globals?.g_pBuiltIn;
-        return typeof builtins === "object" && builtins !== null;
+        if (typeof builtins !== "object" || builtins === null) {
+            return false;
+        }
+
+        const jsonGame = globals.JSON_game;
+        if (!jsonGame || typeof jsonGame !== "object") {
+            return false;
+        }
+
+        const { ScriptNames, Scripts } = jsonGame;
+        if (!Array.isArray(ScriptNames) || !Array.isArray(Scripts)) {
+            return false;
+        }
+
+        return Scripts.some((entry) => typeof entry === "function");
     };
 
     const clearReadinessTimer = (): void => {

@@ -187,6 +187,44 @@ void test("script patch resolves global constants via globalThis", () => {
     }
 });
 
+void test("script patch resolves JSON_game script entries when globals are missing", () => {
+    const wrapper = RuntimeWrapper.createRuntimeWrapper();
+    const globals = globalThis as Record<string, unknown>;
+    const savedJson = globals.JSON_game;
+    const savedFunction = globals.twojointik;
+
+    try {
+        delete globals.twojointik;
+        globals.JSON_game = {
+            ScriptNames: ["gml_Script_twojointik"],
+            Scripts: [() => 777]
+        };
+
+        wrapper.applyPatch({
+            kind: "script",
+            id: "script:json_script_lookup",
+            js_body: "return twojointik();"
+        });
+
+        const fn = wrapper.getScript("script:json_script_lookup");
+        assert.ok(fn);
+        const result = fn(null, null, []) as number;
+        assert.strictEqual(result, 777);
+    } finally {
+        if (savedJson === undefined) {
+            delete globals.JSON_game;
+        } else {
+            globals.JSON_game = savedJson;
+        }
+
+        if (savedFunction === undefined) {
+            delete globals.twojointik;
+        } else {
+            globals.twojointik = savedFunction;
+        }
+    }
+});
+
 void test("applyPatch handles event patches", () => {
     const wrapper = RuntimeWrapper.createRuntimeWrapper();
     const patch = {

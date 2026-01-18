@@ -590,6 +590,26 @@ const __resolveSpriteConstant = (prop) => {
 
     return undefined;
 };
+const __resolveScriptFunction = (prop) => {
+    const jsonGame = __global_scope?.JSON_game;
+    const scriptNames = jsonGame?.ScriptNames;
+    const scripts = jsonGame?.Scripts;
+    if (!Array.isArray(scriptNames) || !Array.isArray(scripts)) {
+        return undefined;
+    }
+
+    const scriptIndex = scriptNames.indexOf(\`gml_Script_\${prop}\`);
+    if (scriptIndex !== -1 && scriptIndex < scripts.length) {
+        return scripts[scriptIndex];
+    }
+
+    const globalScriptIndex = scriptNames.indexOf(\`gml_GlobalScript_\${prop}\`);
+    if (globalScriptIndex !== -1 && globalScriptIndex < scripts.length) {
+        return scripts[globalScriptIndex];
+    }
+
+    return undefined;
+};
 const __computeGmlPropertyNames = (prop) => [\`gml\${prop}\`, \`__\${prop}\`];
 const __gml_proxy = new Proxy(__gml_scope, {
     has(target, prop) {
@@ -615,6 +635,9 @@ const __gml_proxy = new Proxy(__gml_scope, {
             return true;
         }
         if (__resolveSpriteConstant(prop) !== undefined) {
+            return true;
+        }
+        if (__resolveScriptFunction(prop) !== undefined) {
             return true;
         }
         if (
@@ -645,6 +668,7 @@ const __gml_proxy = new Proxy(__gml_scope, {
         const __has_global_value = __global_scope && prop in __global_scope;
         const __global_value = __has_global_value ? __global_scope[prop] : undefined;
         const __sprite_constant = __resolveSpriteConstant(prop);
+        const __script_function = __resolveScriptFunction(prop);
         if (Object.prototype.hasOwnProperty.call(__gml_constants, prop)) {
             if (__global_value === undefined || __is_html_color_string(__global_value)) {
                 return __gml_constants[prop];
@@ -656,6 +680,9 @@ const __gml_proxy = new Proxy(__gml_scope, {
         }
         if (__sprite_constant !== undefined) {
             return __sprite_constant;
+        }
+        if (__script_function !== undefined) {
+            return __script_function;
         }
         if (__gml_builtins) {
             const getter = __gml_builtins[\`get_\${prop}\`];
