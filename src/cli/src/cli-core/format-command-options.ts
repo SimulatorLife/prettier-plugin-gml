@@ -22,6 +22,12 @@ interface ResolvedPrettierConfiguration {
     checkMode: boolean;
 }
 
+interface TargetPathResolution {
+    targetPathInput: unknown;
+    targetPathProvided: boolean;
+    rawTargetPathInput?: string;
+}
+
 export interface CollectFormatCommandOptionsParameters {
     defaultExtensions?: ReadonlyArray<string>;
     defaultParseErrorAction?: string;
@@ -74,17 +80,16 @@ function resolvePrettierConfiguration(
     };
 }
 
-export function collectFormatCommandOptions(
-    command: CommanderCommandLike,
-    {
-        defaultExtensions = [],
-        defaultParseErrorAction,
-        defaultPrettierLogLevel
-    }: CollectFormatCommandOptionsParameters = {}
-): FormatCommandOptionsResult {
-    const options = (command?.opts?.() ?? {}) as CommandOptionsRecord;
-    const args = Core.toMutableArray(command?.args, { clone: true });
-    const positionalTarget = args.length > 0 ? args[0] : null;
+function getFirstPositionalArgument(args: Array<unknown>): unknown {
+    if (args.length > 0) {
+        return args[0];
+    }
+
+    return null;
+}
+
+function resolveTargetPathInput(options: CommandOptionsRecord, args: Array<unknown>): TargetPathResolution {
+    const positionalTarget = getFirstPositionalArgument(args);
     const rawTarget = options.path ?? positionalTarget ?? null;
 
     let targetPathInput: unknown = null;
@@ -103,6 +108,21 @@ export function collectFormatCommandOptions(
         targetPathInput = rawTarget;
         targetPathProvided = true;
     }
+
+    return { targetPathInput, targetPathProvided, rawTargetPathInput };
+}
+
+export function collectFormatCommandOptions(
+    command: CommanderCommandLike,
+    {
+        defaultExtensions = [],
+        defaultParseErrorAction,
+        defaultPrettierLogLevel
+    }: CollectFormatCommandOptionsParameters = {}
+): FormatCommandOptionsResult {
+    const options = (command?.opts?.() ?? {}) as CommandOptionsRecord;
+    const args = Core.toMutableArray(command?.args, { clone: true });
+    const { targetPathInput, targetPathProvided, rawTargetPathInput } = resolveTargetPathInput(options, args);
 
     const { skippedDirectorySampleLimit, ignoredFileSampleLimit, unsupportedExtensionSampleLimit } =
         resolveFormatCommandSampleLimits(options);
