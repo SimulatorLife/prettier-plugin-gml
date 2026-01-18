@@ -427,9 +427,7 @@ export async function deriveCacheKey(
 
     if (resolvedRoot) {
         const entries = await Core.listDirectory(fsFacade, resolvedRoot);
-        const manifestNames = entries
-            .filter(isProjectManifestPath)
-            .reduce<string[]>((acc, item) => {
+        const manifestNames = entries.filter(isProjectManifestPath).reduce<string[]>((acc, item) => {
             const insertIndex = acc.findIndex((existing) => existing.localeCompare(item) > 0);
             return insertIndex === -1
                 ? [...acc, item]

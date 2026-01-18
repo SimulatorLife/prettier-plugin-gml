@@ -44,7 +44,10 @@ export class WorkspaceEdit {
         }
 
         for (const [path, fileEdits] of grouped.entries()) {
-            grouped.set(path, fileEdits.toSorted((a, b) => b.start - a.start));
+            grouped.set(
+                path,
+                fileEdits.toSorted((a, b) => b.start - a.start)
+            );
         }
 
         return grouped;

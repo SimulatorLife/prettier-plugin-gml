@@ -5,7 +5,6 @@ import { fileURLToPath } from "node:url";
 
 import { Core } from "@gml-modules/core";
 
-
 const { getErrorMessageOrFallback } = Core;
 
 const MODULE_DIRECTORY = path.dirname(fileURLToPath(import.meta.url));
@@ -21,10 +20,7 @@ async function ensureDirectoryExists(dirPath: string) {
 
 type HotReloadSequentialCallback<T> = (value: T, index: number) => void | Promise<void>;
 
-async function runSequentiallyLocal<T>(
-    values: Iterable<T>,
-    callback: HotReloadSequentialCallback<T>
-): Promise<void> {
+async function runSequentiallyLocal<T>(values: Iterable<T>, callback: HotReloadSequentialCallback<T>): Promise<void> {
     const entries = Array.from(values);
     let index = 0;
 
