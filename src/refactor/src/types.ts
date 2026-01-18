@@ -426,6 +426,7 @@ export interface PrepareRenamePlanOptions {
 
 export interface HotReloadValidationOptions {
     checkTranspiler?: boolean;
+    readFile?: WorkspaceReadFile;
 }
 
 export interface ValidationSummary {

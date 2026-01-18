@@ -1091,6 +1091,7 @@ export class RefactorEngine {
      * @param {WorkspaceEdit} workspace - The workspace edit to validate
      * @param {Object} options - Validation options
      * @param {boolean} options.checkTranspiler - Whether to validate transpiler compatibility
+     * @param {Function} [options.readFile] - Optional reader for file contents when validating transpiler output
      * @returns {Promise<{valid: boolean, errors: Array<string>, warnings: Array<string>}>}
      */
     async validateHotReloadCompatibility(
@@ -1098,7 +1099,7 @@ export class RefactorEngine {
         options?: HotReloadValidationOptions
     ): Promise<ValidationSummary> {
         const opts = options ?? {};
-        const { checkTranspiler = false } = opts;
+        const { checkTranspiler = false, readFile } = opts;
         const errors: Array<string> = [];
         const warnings: Array<string> = [];
 
@@ -1161,7 +1162,7 @@ export class RefactorEngine {
 
         // If transpiler check is requested, validate transpilation will work
         if (checkTranspiler && hasMethod(this.formatter, "transpileScript")) {
-            const transpilerValidation = await this.validateTranspilerCompatibility(workspace);
+            const transpilerValidation = await this.validateTranspilerCompatibility(workspace, readFile);
             errors.push(...transpilerValidation.errors);
             warnings.push(...transpilerValidation.warnings);
         }
@@ -1178,7 +1179,10 @@ export class RefactorEngine {
      * This ensures hot reload patches can be generated without errors.
      * @internal
      */
-    private async validateTranspilerCompatibility(workspace: WorkspaceEdit): Promise<{
+    private async validateTranspilerCompatibility(
+        workspace: WorkspaceEdit,
+        readFile?: WorkspaceReadFile
+    ): Promise<{
         errors: Array<string>;
         warnings: Array<string>;
     }> {
@@ -1224,7 +1228,8 @@ export class RefactorEngine {
             // Apply edits to reconstruct the modified file content
             let modifiedContent: string;
             try {
-                modifiedContent = this.applyEditsToContent("", edits);
+                const originalContent = readFile ? await readFile(filePath) : "";
+                modifiedContent = this.applyEditsToContent(originalContent, edits);
             } catch (error) {
                 errors.push(`Failed to apply edits to ${filePath}: ${Core.getErrorMessage(error)}`);
                 return;
