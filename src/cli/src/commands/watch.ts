@@ -1055,6 +1055,9 @@ async function handleFileChange(
             if (runtimeContext?.scriptNames) {
                 unregisterScriptName(filePath, runtimeContext.scriptNames);
             }
+            if (runtimeContext) {
+                cleanupRemovedFile(runtimeContext, filePath, verbose, quiet);
+            }
             return;
         }
     }
@@ -1201,6 +1204,29 @@ function unregisterScriptName(filePath: string, scriptNames: Set<string>): void 
     const scriptName = getScriptNameFromPath(filePath);
     if (scriptName) {
         scriptNames.delete(scriptName);
+    }
+}
+
+function getSymbolIdFromFilePath(filePath: string): string {
+    const fileName = path.basename(filePath, path.extname(filePath));
+    return `gml/script/${fileName}`;
+}
+
+function cleanupRemovedFile(runtimeContext: RuntimeContext, filePath: string, verbose: boolean, quiet: boolean): void {
+    runtimeContext.dependencyTracker.removeFile(filePath);
+
+    const symbolId = getSymbolIdFromFilePath(filePath);
+    const removedPatch = runtimeContext.lastSuccessfulPatches.delete(symbolId);
+
+    const debouncedHandler = runtimeContext.debouncedHandlers.get(filePath);
+    if (debouncedHandler) {
+        debouncedHandler.cancel();
+        runtimeContext.debouncedHandlers.delete(filePath);
+    }
+
+    if (verbose && !quiet) {
+        const patchMessage = removedPatch ? "cleared cached patch" : "no cached patch found";
+        console.log(`  ↳ Removed dependency tracking (${patchMessage})`);
     }
 }
 
