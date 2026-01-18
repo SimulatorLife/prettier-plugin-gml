@@ -70,8 +70,7 @@ export function createSemanticOracle(options: SemanticOracleOptions = {}): Ident
     // If scope-aware transpilation becomes necessary in the future, the integration
     // point would be through the public Semantic API (SemanticScopeCoordinator),
     // not the internal ScopeTracker class.
-    const scopeTracker = null;
+    const scopeTracker: ConstructorParameters<typeof Semantic.BasicSemanticOracle>[0] = null;
 
-    // eslint-disable-next-line @typescript-eslint/no-unsafe-argument -- null is a valid ScopeTracker parameter per BasicSemanticOracle interface
     return new Semantic.BasicSemanticOracle(scopeTracker, builtinNames, scriptNames);
 }
