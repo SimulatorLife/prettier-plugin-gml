@@ -1473,18 +1473,14 @@ async function processDirectoryEntry(filePath, currentIgnorePaths) {
     recordUnsupportedExtension(filePath);
 }
 
-async function processDirectoryEntries(directory, files, currentIgnorePaths) {
+async function processDirectoryEntries(directory: string, files: Array<string>, currentIgnorePaths) {
     await runSequentially(files, async (file) => {
         if (abortRequested) {
-            return false;
+            return;
         }
 
         const filePath = path.join(directory, file);
         await processDirectoryEntry(filePath, currentIgnorePaths);
-
-        if (abortRequested) {
-            return false;
-        }
     });
 }
 

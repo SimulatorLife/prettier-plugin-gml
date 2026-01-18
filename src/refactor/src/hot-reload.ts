@@ -254,7 +254,9 @@ export async function computeHotReloadCascade(
     };
 
     // Explore from each changed symbol
-    await runSequentially(changedSymbolIds, (symbolId) => exploreDependents(symbolId, 0, "initial change"));
+    await runSequentially(changedSymbolIds, async (symbolId) => {
+        await exploreDependents(symbolId, 0, "initial change");
+    });
 
     // Convert cascade to array and compute topological order
     const cascadeArray = Array.from(cascade.values());

@@ -1,3 +1,4 @@
+import type { Dirent } from "node:fs";
 import fs from "node:fs/promises";
 import path from "node:path";
 import { performance } from "node:perf_hooks";
@@ -178,7 +179,7 @@ async function traverseForFixtures(
         return;
     }
 
-    let entries;
+    let entries: Dirent[];
     try {
         entries = await fs.readdir(directory, { withFileTypes: true });
     } catch (error) {
@@ -296,7 +297,7 @@ function createDatasetFromFiles(files) {
  *
  * @param {Array<string>} fixturePaths
  */
-async function loadFixtureFiles(fixturePaths) {
+async function loadFixtureFiles(fixturePaths: Array<string>) {
     const records = [];
     await runSequentially(fixturePaths, async (absolutePath) => {
         records.push(await readFixtureFileRecord(absolutePath));
