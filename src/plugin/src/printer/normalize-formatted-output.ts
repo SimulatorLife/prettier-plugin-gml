@@ -201,7 +201,8 @@ function isPlainLineCommentLine(line: string | undefined): boolean {
 }
 
 function getNextNonBlankLine(lines: string[], startIndex: number): string | undefined {
-    for (let index = startIndex; index < lines.length; index += 1) {
+    const length = lines.length;
+    for (let index = startIndex; index < length; index += 1) {
         const current = lines[index];
         if (current.trim().length > 0) {
             return current;
@@ -229,13 +230,14 @@ function isGuardCommentSequence(lines: string[], commentIndex: number): boolean 
 function removeBlankLinesBeforeGuardComments(formatted: string): string {
     const lines = formatted.split(/\r?\n/);
     const normalized: string[] = [];
+    const length = lines.length;
 
-    for (let index = 0; index < lines.length; index += 1) {
+    for (let index = 0; index < length; index += 1) {
         const line = lines[index];
 
         if (
             line.trim().length === 0 &&
-            index + 1 < lines.length &&
+            index + 1 < length &&
             isPlainLineCommentLine(lines[index + 1]) &&
             isGuardCommentSequence(lines, index + 1) &&
             getPreviousNonBlankLine(normalized)?.trim().endsWith("{")
