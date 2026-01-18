@@ -4,6 +4,25 @@ import { describe, it } from "node:test";
 import { ScopeTracker } from "../src/scopes/scope-tracker.js";
 
 describe("ScopeTracker: targeted cache invalidation", () => {
+    it("invalidates cache for the declaring scope when new declarations are added", () => {
+        const tracker = new ScopeTracker({ enabled: true });
+
+        const rootScope = tracker.enterScope("program");
+
+        const initial = tracker.resolveIdentifier("alpha", rootScope.id);
+        assert.strictEqual(initial, null, "Initial lookup should be cached as null");
+
+        tracker.declare("alpha", {
+            name: "alpha",
+            start: { line: 1, column: 0, index: 0 },
+            end: { line: 1, column: 5, index: 5 }
+        });
+
+        const afterDeclaration = tracker.resolveIdentifier("alpha", rootScope.id);
+        assert.ok(afterDeclaration, "Declaring scope should resolve newly declared symbol");
+        assert.strictEqual(afterDeclaration?.scopeId, rootScope.id, "Declaration should resolve to root scope");
+    });
+
     it("invalidates cache only for descendant scopes when symbol is declared", () => {
         const tracker = new ScopeTracker({ enabled: true });
 

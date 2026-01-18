@@ -334,9 +334,10 @@ export class ScopeTracker {
 
     /**
      * Clear resolve identifier cache for a symbol, but only for scopes that
-     * could be affected. When a symbol is declared in a scope, only descendant
-     * scopes (child scopes) need cache invalidation because their resolution
-     * chain is affected. Parent and sibling scopes remain unaffected.
+     * could be affected. When a symbol is declared in a scope, only the
+     * declaring scope and its descendants (child scopes) need cache
+     * invalidation because their resolution chain is affected. Parent and
+     * sibling scopes remain unaffected.
      *
      * This targeted invalidation improves performance during hot reload by
      * preserving cache hits for unaffected scopes.
@@ -361,8 +362,10 @@ export class ScopeTracker {
             return;
         }
 
-        // Targeted invalidation: only clear cache for descendant scopes
+        // Targeted invalidation: clear cache for declaring scope + descendants
         const descendantIds = this.getDescendantScopeIds(declaringScopeId);
+
+        cache.delete(declaringScopeId);
 
         for (const scopeId of descendantIds) {
             cache.delete(scopeId);
