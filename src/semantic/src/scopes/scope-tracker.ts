@@ -41,6 +41,17 @@ type ScopeModificationDetails = {
     }>;
 };
 
+type ScopeEntry = {
+    declarations: Array<any>;
+    references: Array<any>;
+};
+
+type ScipOccurrence = {
+    range: [number, number, number, number];
+    symbol: string;
+    symbolRoles: number;
+};
+
 type ScopeMetadata = {
     name?: string;
     path?: string;
@@ -2165,22 +2176,9 @@ export class ScopeTracker {
             }> = [];
 
             for (const entry of scope.occurrences.values()) {
-                // Process declarations
-                for (const declaration of entry.declarations) {
-                    const scipOcc = this.toScipOccurrence(declaration, ROLE_DEF, getSymbol);
-                    if (scipOcc) {
-                        occurrences.push(scipOcc);
-                    }
-                }
-
-                // Process references if requested
+                this.appendScipDeclarations(entry, occurrences, getSymbol);
                 if (includeReferences) {
-                    for (const reference of entry.references) {
-                        const scipOcc = this.toScipOccurrence(reference, ROLE_REF, getSymbol);
-                        if (scipOcc) {
-                            occurrences.push(scipOcc);
-                        }
-                    }
+                    this.appendScipReferences(entry, occurrences, getSymbol);
                 }
             }
 
@@ -2194,6 +2192,32 @@ export class ScopeTracker {
         }
 
         return results.toSorted((a, b) => a.scopeId.localeCompare(b.scopeId));
+    }
+
+    private appendScipDeclarations(
+        entry: ScopeEntry,
+        occurrences: Array<ScipOccurrence>,
+        getSymbol: (name: string, scopeId: string) => string | null
+    ): void {
+        for (const declaration of entry.declarations) {
+            const scipOcc = this.toScipOccurrence(declaration, ROLE_DEF, getSymbol);
+            if (scipOcc) {
+                occurrences.push(scipOcc);
+            }
+        }
+    }
+
+    private appendScipReferences(
+        entry: ScopeEntry,
+        occurrences: Array<ScipOccurrence>,
+        getSymbol: (name: string, scopeId: string) => string | null
+    ): void {
+        for (const reference of entry.references) {
+            const scipOcc = this.toScipOccurrence(reference, ROLE_REF, getSymbol);
+            if (scipOcc) {
+                occurrences.push(scipOcc);
+            }
+        }
     }
 
     /**
@@ -2278,22 +2302,9 @@ export class ScopeTracker {
                     continue;
                 }
 
-                // Process declarations
-                for (const declaration of entry.declarations) {
-                    const scipOcc = this.toScipOccurrence(declaration, ROLE_DEF, getSymbol);
-                    if (scipOcc) {
-                        occurrences.push(scipOcc);
-                    }
-                }
-
-                // Process references if requested
+                this.appendScipDeclarations(entry, occurrences, getSymbol);
                 if (includeReferences) {
-                    for (const reference of entry.references) {
-                        const scipOcc = this.toScipOccurrence(reference, ROLE_REF, getSymbol);
-                        if (scipOcc) {
-                            occurrences.push(scipOcc);
-                        }
-                    }
+                    this.appendScipReferences(entry, occurrences, getSymbol);
                 }
             }
 

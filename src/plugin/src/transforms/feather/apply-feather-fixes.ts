@@ -219,43 +219,167 @@ function updateStaticFunctionDocComments(ast: any) {
 
             // If no attached comments, search in global comments
             if (commentsToSearch.length === 0 && allComments.length > 0) {
-                const nodeStart = getStartFromNode(node);
-                if (nodeStart !== undefined) {
-                    // Find comments that end before the node starts
-                    const precedingComments = allComments
-                        .filter((c: any) => c.end <= nodeStart)
-                        .toSorted((a: any, b: any) => b.end - a.end);
-
-                    // We only care about the closest block of comments.
-                    // But simpler: just look for the first @function comment.
-                    // It is highly unlikely that we skip over another function's @function comment
-                    // because that function would be between the comment and this node.
-                    commentsToSearch = precedingComments;
-                }
+                commentsToSearch = collectPrecedingFunctionComments(node, allComments);
             }
 
             if (commentsToSearch.length > 0) {
-                for (const comment of commentsToSearch) {
-                    const value = comment.value;
-                    // Match @function followed by identifier
-                    const match = /(@function\s+)([A-Za-z_][A-Za-z0-9_]*)/.exec(value);
-                    if (match) {
-                        const currentTagName = match[2];
-                        if (currentTagName !== functionName) {
-                            comment.value = value.replace(/(@function\s+)[A-Za-z_][A-Za-z0-9_]*/, `$1${functionName}`);
-                            // Force the printer to use the new value by removing source location
-                            delete comment.start;
-                            delete comment.end;
-                            delete comment.loc;
-                        }
-                        // Once we found the @function tag for this function, stop searching.
-                        // We assume the first one we find (going backwards) is the correct one.
-                        break;
-                    }
-                }
+                updateFunctionTagName(commentsToSearch, functionName);
             }
         }
     });
+}
+
+function collectPrecedingFunctionComments(node: any, allComments: Array<any>): Array<any> {
+    const nodeStart = getStartFromNode(node);
+    if (nodeStart === undefined) {
+        return [];
+    }
+
+    // We only care about the closest block of comments that end before this node.
+    // It's unlikely that another @function block exists between the comment and
+    // the node we're analyzing, so we just pick the most recent candidates.
+    return allComments.filter((comment) => comment.end <= nodeStart).toSorted((a: any, b: any) => b.end - a.end);
+}
+
+function updateFunctionTagName(comments: Array<any>, functionName: string) {
+    for (const comment of comments) {
+        const value = comment.value;
+        const match = /(@function\s+)([A-Za-z_][A-Za-z0-9_]*)/.exec(value);
+        if (!match) {
+            continue;
+        }
+
+        const currentTagName = match[2];
+        if (currentTagName !== functionName) {
+            comment.value = value.replace(/(@function\s+)[A-Za-z_][A-Za-z0-9_]*/, `$1${functionName}`);
+            delete comment.start;
+            delete comment.end;
+            delete comment.loc;
+        }
+
+        break;
+    }
+}
+
+function regenerateMissingGM1033Fixes(
+    ast: any,
+    sourceText: string | undefined,
+    appliedFixes: Array<any>
+): Array<any> | null {
+    const hasBadGM1033 = appliedFixes.some(
+        (f) =>
+            f?.id === "GM1033" &&
+            (f.range == null || typeof f.range.start !== "number" || typeof f.range.end !== "number")
+    );
+
+    if (!hasBadGM1033 || !Array.isArray(FEATHER_DIAGNOSTICS)) {
+        return null;
+    }
+
+    const gm1033Diagnostic = FEATHER_DIAGNOSTICS.find((d) => d?.id === "GM1033");
+    if (!gm1033Diagnostic) {
+        return null;
+    }
+
+    const regenerated = removeDuplicateSemicolons({
+        ast,
+        sourceText,
+        diagnostic: gm1033Diagnostic
+    });
+
+    if (!Core.isNonEmptyArray(regenerated)) {
+        return null;
+    }
+
+    const kept = appliedFixes.filter(
+        (f) =>
+            f?.id !== "GM1033" ||
+            (f.range != null && typeof f.range.start === "number" && typeof f.range.end === "number")
+    );
+
+    return [...kept, ...regenerated];
+}
+
+function attachFixToFunction(ast: any, fix: any): void {
+    if (!fix) {
+        return;
+    }
+
+    if (typeof fix.target === "string") {
+        attachFeatherFixToNamedFunction(ast, fix);
+        return;
+    }
+
+    if (fix.range && typeof fix.range.start === "number" && typeof fix.range.end === "number") {
+        attachFeatherFixToRange(ast, fix);
+    }
+
+    try {
+        if (String(fix.id) === "GM1056" && !isGM1056FixAlreadyAttached(fix, ast)) {
+            attachGM1056FixToUndefinedParameters(fix, ast);
+        }
+    } catch {
+        void 0;
+    }
+}
+
+function handleConstructorParentClause(
+    node: any,
+    functions: Map<string, any>,
+    constructors: Map<string, any>,
+    diagnostic: any,
+    fixes: Array<any>
+): void {
+    const parentClause = node.parent;
+    if (!parentClause || typeof parentClause !== "object") {
+        return;
+    }
+
+    const parentName = parentClause.id;
+    if (!Core.isNonEmptyString(parentName) || constructors.has(parentName)) {
+        return;
+    }
+
+    const fallback = functions.get(parentName);
+    if (fallback && fallback.type === "FunctionDeclaration") {
+        fallback.type = "ConstructorDeclaration";
+        if (!Object.hasOwn(fallback, "parent")) {
+            fallback.parent = null;
+        }
+
+        constructors.set(parentName, fallback);
+        functions.delete(parentName);
+
+        const fixDetail = createFeatherFixDetail(diagnostic, {
+            target: parentName,
+            range: {
+                start: Core.getNodeStartIndex(fallback),
+                end: Core.getNodeEndIndex(fallback)
+            }
+        });
+
+        if (fixDetail) {
+            attachFeatherFixMetadata(fallback, [fixDetail]);
+            fixes.push(fixDetail);
+        }
+        return;
+    }
+
+    const fixDetail = createFeatherFixDetail(diagnostic, {
+        target: parentName,
+        range: {
+            start: Core.getNodeStartIndex(parentClause),
+            end: Core.getNodeEndIndex(parentClause)
+        }
+    });
+
+    if (!fixDetail) {
+        return;
+    }
+
+    node.parent = null;
+    attachFeatherFixMetadata(node, [fixDetail]);
+    fixes.push(fixDetail);
 }
 
 function applyFeatherFixesImpl(ast: any, opts: ApplyFeatherFixesOptions = {}) {
@@ -323,37 +447,10 @@ function applyFeatherFixesImpl(ast: any, opts: ApplyFeatherFixesOptions = {}) {
     // any nullary entries so downstream consumers can rely on ranges.
     if (appliedFixes.length > 0) {
         try {
-            const hasBadGM1033 = appliedFixes.some(
-                (f) =>
-                    f?.id === "GM1033" &&
-                    (f.range == null || typeof f.range.start !== "number" || typeof f.range.end !== "number")
-            );
-
-            if (hasBadGM1033 && Array.isArray(FEATHER_DIAGNOSTICS)) {
-                const gm1033Diagnostic = FEATHER_DIAGNOSTICS.find((d) => d?.id === "GM1033");
-
-                if (gm1033Diagnostic) {
-                    const regenerated = removeDuplicateSemicolons({
-                        ast,
-                        sourceText,
-                        diagnostic: gm1033Diagnostic
-                    });
-
-                    if (Core.isNonEmptyArray(regenerated)) {
-                        // Replace any GM1033 entries lacking ranges with the
-                        // regenerated, range-bearing fixes.
-                        const kept = appliedFixes.filter(
-                            (f) =>
-                                f?.id !== "GM1033" ||
-                                (f.range != null &&
-                                    typeof f.range.start === "number" &&
-                                    typeof f.range.end === "number")
-                        );
-
-                        appliedFixes.length = 0;
-                        appliedFixes.push(...kept, ...regenerated);
-                    }
-                }
+            const regenerated = regenerateMissingGM1033Fixes(ast, sourceText, appliedFixes);
+            if (regenerated) {
+                appliedFixes.length = 0;
+                appliedFixes.push(...regenerated);
             }
         } catch {
             // Be conservative: don't let the post-processing fail the entire
@@ -385,45 +482,7 @@ function applyFeatherFixesImpl(ast: any, opts: ApplyFeatherFixesOptions = {}) {
         // Declaration node if not already present.
         try {
             for (const fix of appliedFixes) {
-                if (!fix) {
-                    continue;
-                }
-
-                // If the fixer provided a stable function name target, prefer
-                // name-based reattachment. This is the common path for many
-                // diagnostic fixes.
-                if (typeof fix.target === "string") {
-                    attachFeatherFixToNamedFunction(ast, fix);
-                    continue;
-                }
-
-                // Fallback: some fixers attach a range but omit a human-friendly
-                // target name (target === null). Attempt to match on the numeric
-                // range to attach the fix to the live FunctionDeclaration node.
-                if (fix.range && typeof fix.range.start === "number" && typeof fix.range.end === "number") {
-                    attachFeatherFixToRange(ast, fix);
-                }
-
-                // If we didn't attach via range matching, continue to the
-                // next fix. A narrow GM1056-specific heuristic is executed
-                // after the main name/range attempts below so it runs even
-                // when the fix lacks a numeric range.
-
-                // GM1056-specific fallback: some GM1056 fixes may be emitted
-                // without a reliable target name or numeric range. As a
-                // last-resort, but still narrow, attempt to attach GM1056 to
-                // any live FunctionDeclaration that contains a
-                // DefaultParameter whose right-hand side is the canonical
-                // undefined literal. Before attaching, check whether this
-                // fix id has already been attached to any function to avoid
-                // duplicate attachments.
-                try {
-                    if (String(fix.id) === "GM1056" && !isGM1056FixAlreadyAttached(fix, ast)) {
-                        attachGM1056FixToUndefinedParameters(fix, ast);
-                    }
-                } catch {
-                    void 0;
-                }
+                attachFixToFunction(ast, fix);
             }
         } catch {
             // Non-fatal: don't let this guard step break the transform.
@@ -8860,53 +8919,7 @@ function ensureConstructorParentsExist({ ast, diagnostic }) {
         }
 
         if (node.type === "ConstructorDeclaration") {
-            const parentClause = node.parent;
-
-            if (parentClause && typeof parentClause === "object") {
-                const parentName = parentClause.id;
-
-                if (Core.isNonEmptyString(parentName) && !constructors.has(parentName)) {
-                    const fallback = functions.get(parentName);
-
-                    if (fallback && fallback.type === "FunctionDeclaration") {
-                        fallback.type = "ConstructorDeclaration";
-
-                        if (!Object.hasOwn(fallback, "parent")) {
-                            fallback.parent = null;
-                        }
-
-                        constructors.set(parentName, fallback);
-                        functions.delete(parentName);
-
-                        const fixDetail = createFeatherFixDetail(diagnostic, {
-                            target: parentName,
-                            range: {
-                                start: Core.getNodeStartIndex(fallback),
-                                end: Core.getNodeEndIndex(fallback)
-                            }
-                        });
-
-                        if (fixDetail) {
-                            attachFeatherFixMetadata(fallback, [fixDetail]);
-                            fixes.push(fixDetail);
-                        }
-                    } else {
-                        const fixDetail = createFeatherFixDetail(diagnostic, {
-                            target: parentName,
-                            range: {
-                                start: Core.getNodeStartIndex(parentClause),
-                                end: Core.getNodeEndIndex(parentClause)
-                            }
-                        });
-
-                        if (fixDetail) {
-                            node.parent = null;
-                            attachFeatherFixMetadata(node, [fixDetail]);
-                            fixes.push(fixDetail);
-                        }
-                    }
-                }
-            }
+            handleConstructorParentClause(node, functions, constructors, diagnostic, fixes);
         }
 
         for (const value of Object.values(node)) {
@@ -8929,6 +8942,37 @@ function ensurePrimitiveBeginPrecedesEnd({ ast, diagnostic }) {
     const fixes = [];
     const ancestors = [];
 
+    const processStatementArray = (
+        statements: Array<any>,
+        diagnostic: any,
+        ancestors: Array<any>,
+        fixes: Array<any>,
+        visitFn: (node: any, parent: any, property: any) => void
+    ) => {
+        let index = 0;
+
+        while (index < statements.length) {
+            const statement = statements[index];
+
+            if (isDrawPrimitiveEndCall(statement)) {
+                const fix = ensurePrimitiveBeginBeforeEnd({
+                    statements,
+                    index,
+                    endCall: statement,
+                    diagnostic,
+                    ancestors
+                });
+
+                if (fix) {
+                    fixes.push(fix);
+                }
+            }
+
+            visitFn(statements[index], statements, index);
+            index += 1;
+        }
+    };
+
     const visit = (node, parent, property) => {
         if (!node) {
             return;
@@ -8939,29 +8983,7 @@ function ensurePrimitiveBeginPrecedesEnd({ ast, diagnostic }) {
 
         if (Array.isArray(node)) {
             if (isStatementArray(entry)) {
-                let index = 0;
-
-                while (index < node.length) {
-                    const statement = node[index];
-
-                    if (isDrawPrimitiveEndCall(statement)) {
-                        const fix = ensurePrimitiveBeginBeforeEnd({
-                            statements: node,
-                            index,
-                            endCall: statement,
-                            diagnostic,
-                            ancestors
-                        });
-
-                        if (fix) {
-                            fixes.push(fix);
-                        }
-                    }
-
-                    visit(node[index], node, index);
-                    index += 1;
-                }
-
+                processStatementArray(node, diagnostic, ancestors, fixes, visit);
                 ancestors.pop();
                 return;
             }
@@ -16654,25 +16676,9 @@ function registerManualFeatherFix({ ast, diagnostic, sourceText }) {
     // duplicate-semicolon fixes so tests receive concrete numeric ranges
     // instead of a null-range manual placeholder.
     try {
-        const ctxSource = typeof sourceText === "string" ? sourceText : null;
-
-        if (diagnostic?.id === "GM1033" && typeof ctxSource === "string") {
-            const regenerated = removeDuplicateSemicolons({
-                ast,
-                sourceText: ctxSource,
-                diagnostic
-            });
-
-            if (Core.isNonEmptyArray(regenerated)) {
-                // Attach regenerated fixes and mark as manual (automatic: false)
-                for (const f of regenerated) {
-                    if (f && typeof f === "object") {
-                        f.automatic = false;
-                    }
-                }
-
-                return regenerated;
-            }
+        const regenerated = regenerateManualGM1033Fixes(ast, diagnostic, sourceText);
+        if (regenerated) {
+            return regenerated;
         }
     } catch {
         // Fall through to create a manual placeholder if regeneration fails.
@@ -16682,34 +16688,9 @@ function registerManualFeatherFix({ ast, diagnostic, sourceText }) {
     // full-source scan for duplicate-semicolon runs so we can return
     // concrete ranges instead of a null-range placeholder.
     try {
-        const ctxSource = typeof sourceText === "string" ? sourceText : null;
-
-        if (diagnostic?.id === "GM1033" && typeof ctxSource === "string") {
-            const ranges = findDuplicateSemicolonRanges(ctxSource, 0);
-
-            if (Core.isNonEmptyArray(ranges)) {
-                const manualFixes = [];
-
-                for (const range of ranges) {
-                    if (!range || typeof range.start !== "number" || typeof range.end !== "number") {
-                        continue;
-                    }
-
-                    const fixDetail = createFeatherFixDetail(diagnostic, {
-                        automatic: false,
-                        target: null,
-                        range
-                    });
-
-                    if (fixDetail) {
-                        manualFixes.push(fixDetail);
-                    }
-                }
-
-                if (manualFixes.length > 0) {
-                    return manualFixes;
-                }
-            }
+        const manualFixes = collectManualGM1033RangeFixes(diagnostic, sourceText);
+        if (manualFixes) {
+            return manualFixes;
         }
     } catch {
         // ignore and fall back to null-range placeholder
@@ -16722,6 +16703,70 @@ function registerManualFeatherFix({ ast, diagnostic, sourceText }) {
     });
 
     return [fixDetail];
+}
+
+function regenerateManualGM1033Fixes(ast: any, diagnostic: any, sourceText: unknown) {
+    if (diagnostic?.id !== "GM1033") {
+        return null;
+    }
+
+    const ctxSource = typeof sourceText === "string" ? sourceText : null;
+    if (typeof ctxSource !== "string") {
+        return null;
+    }
+
+    const regenerated = removeDuplicateSemicolons({
+        ast,
+        sourceText: ctxSource,
+        diagnostic
+    });
+
+    if (!Core.isNonEmptyArray(regenerated)) {
+        return null;
+    }
+
+    for (const fix of regenerated) {
+        if (fix && typeof fix === "object") {
+            fix.automatic = false;
+        }
+    }
+
+    return regenerated;
+}
+
+function collectManualGM1033RangeFixes(diagnostic: any, sourceText: unknown): Array<any> | null {
+    if (diagnostic?.id !== "GM1033") {
+        return null;
+    }
+
+    const ctxSource = typeof sourceText === "string" ? sourceText : null;
+    if (typeof ctxSource !== "string") {
+        return null;
+    }
+
+    const ranges = findDuplicateSemicolonRanges(ctxSource, 0);
+    if (!Core.isNonEmptyArray(ranges)) {
+        return null;
+    }
+
+    const manualFixes = [];
+    for (const range of ranges) {
+        if (!range || typeof range.start !== "number" || typeof range.end !== "number") {
+            continue;
+        }
+
+        const fixDetail = createFeatherFixDetail(diagnostic, {
+            automatic: false,
+            target: null,
+            range
+        });
+
+        if (fixDetail) {
+            manualFixes.push(fixDetail);
+        }
+    }
+
+    return manualFixes.length > 0 ? manualFixes : null;
 }
 
 function balanceGpuStateStack({ ast, diagnostic }) {

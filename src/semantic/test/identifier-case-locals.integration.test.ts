@@ -59,13 +59,14 @@ void describe("identifier case local renaming", { concurrency: false }, () => {
                     messages.push(`WARN: ${message}`);
                 }
             };
+            const diagnostics = [];
             setIdentifierCaseDryRunContext({
                 filepath: gmlPath,
                 projectIndex,
                 dryRun: true,
-                logger
+                logger,
+                diagnostics
             });
-            const diagnostics = [];
 
             const formatOptions = {
                 plugins: [pluginPath],
@@ -98,41 +99,24 @@ void describe("identifier case local renaming", { concurrency: false }, () => {
             assert.match(summaryText, /Conflicts: 3/);
             assert.match(summaryText, /counter_value -> counterValue/);
 
-            const codes = new Set();
-            if (Core.isNonEmptyArray(diagnostics)) {
-                const summaryDiagnostic = diagnostics.find((entry) => entry?.code === "gml-identifier-case-summary");
-                if (summaryDiagnostic) {
-                    assert.strictEqual(summaryDiagnostic.summary.renameCount, 1);
-                    assert.strictEqual(summaryDiagnostic.summary.conflictCount, 3);
+            const summaryDiagnostic =
+                Core.isNonEmptyArray(diagnostics) &&
+                diagnostics.find((entry) => entry?.code === "gml-identifier-case-summary");
 
-                    const renamePlan = summaryDiagnostic.renames ?? [];
-                    assert.strictEqual(renamePlan.length, 1);
-                    const [operation] = renamePlan;
-                    assert.strictEqual(operation.fromName, "counter_value");
-                    assert.strictEqual(operation.toName, "counterValue");
-
-                    const conflicts = summaryDiagnostic.conflicts ?? [];
-                    for (const conflict of conflicts) {
-                        if (conflict?.code) {
-                            codes.add(conflict.code);
-                        }
-                    }
-                }
+            if (!summaryDiagnostic) {
+                assert.fail("Expected identifier case summary diagnostic to be emitted");
             }
 
-            if (codes.size === 0) {
-                for (const line of summaryText.split("\n")) {
-                    if (line.includes("[preserve]")) {
-                        codes.add("preserve");
-                    }
-                    if (line.includes("[ignored]")) {
-                        codes.add("ignored");
-                    }
-                    if (line.includes("[collision]")) {
-                        codes.add("collision");
-                    }
-                }
-            }
+            assert.strictEqual(summaryDiagnostic.summary.renameCount, 1);
+            assert.strictEqual(summaryDiagnostic.summary.conflictCount, 3);
+
+            const renamePlan = summaryDiagnostic.renames ?? [];
+            assert.strictEqual(renamePlan.length, 1);
+            const [operation] = renamePlan;
+            assert.strictEqual(operation.fromName, "counter_value");
+            assert.strictEqual(operation.toName, "counterValue");
+
+            const codes = collectIdentifierCaseConflictCodes(summaryDiagnostic, summaryText);
 
             assert.ok(codes.has("preserve"));
             assert.ok(codes.has("ignored"));
@@ -143,6 +127,31 @@ void describe("identifier case local renaming", { concurrency: false }, () => {
             await fs.rm(projectRoot, { recursive: true, force: true });
         }
     });
+
+    function collectIdentifierCaseConflictCodes(summaryDiagnostic, summaryText) {
+        const codes = new Set<string>();
+        for (const conflict of summaryDiagnostic.conflicts ?? []) {
+            if (conflict?.code) {
+                codes.add(conflict.code);
+            }
+        }
+
+        if (codes.size === 0) {
+            for (const line of summaryText.split("\n")) {
+                if (line.includes("[preserve]")) {
+                    codes.add("preserve");
+                }
+                if (line.includes("[ignored]")) {
+                    codes.add("ignored");
+                }
+                if (line.includes("[collision]")) {
+                    codes.add("collision");
+                }
+            }
+        }
+
+        return codes;
+    }
 
     void it("applies local identifier renames when write mode is enabled", async () => {
         const { projectRoot, fixtureSource, gmlPath, projectIndex } = await createTempProject();

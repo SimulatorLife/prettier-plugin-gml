@@ -118,31 +118,43 @@ function skipTrivia(text: string, startIndex: number): number {
             continue;
         }
 
-        if (character === "/" && index + 1 < length) {
-            const nextCharacter = text[index + 1];
-
-            if (nextCharacter === "/") {
-                index += 2;
-                while (index < length && text[index] !== "\n") {
-                    index += 1;
-                }
-                continue;
-            }
-
-            if (nextCharacter === "*") {
-                index += 2;
-                while (index < length) {
-                    if (text[index] === "*" && index + 1 < length && text[index + 1] === "/") {
-                        index += 2;
-                        break;
-                    }
-                    index += 1;
-                }
-                continue;
-            }
+        const nextIndex = skipComment(text, index);
+        if (nextIndex !== index) {
+            index = nextIndex;
+            continue;
         }
 
         break;
+    }
+
+    return index;
+}
+
+function skipComment(text: string, index: number): number {
+    const length = text.length;
+    if (text[index] !== "/" || index + 1 >= length) {
+        return index;
+    }
+
+    const nextCharacter = text[index + 1];
+    if (nextCharacter === "/") {
+        index += 2;
+        while (index < length && text[index] !== "\n") {
+            index += 1;
+        }
+        return index;
+    }
+
+    if (nextCharacter === "*") {
+        index += 2;
+        while (index < length) {
+            if (text[index] === "*" && index + 1 < length && text[index + 1] === "/") {
+                index += 2;
+                break;
+            }
+            index += 1;
+        }
+        return index;
     }
 
     return index;

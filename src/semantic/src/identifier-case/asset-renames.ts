@@ -70,6 +70,16 @@ type MetricsRecorder = {
     };
 };
 
+type AssetRenameEntry = {
+    directory: string;
+    resourcePath: string;
+    resourceType: string | null;
+    originalName: string;
+    finalName: string;
+    isRename: boolean;
+    rename: AssetRename | null;
+};
+
 type AssetConflictOptions = {
     conflicts: Array<unknown>;
     metrics?: MetricsRecorder | null;
@@ -325,20 +335,12 @@ function detectAssetRenameConflicts({
                     continue;
                 }
 
-                const otherRenames = [];
-                let otherNames = "";
-                for (const [otherIndex, otherEntry] of renameEntries.entries()) {
-                    if (otherIndex === index) {
-                        continue;
-                    }
-
-                    otherRenames.push(otherEntry);
-                    otherNames = otherNames ? `${otherNames}, ${renameNames[otherIndex]}` : renameNames[otherIndex];
-                }
-
-                if (otherRenames.length === 0) {
+                const otherRenameInfo = collectOtherRenameEntries(renameEntries, index, renameNames);
+                if (!otherRenameInfo) {
                     continue;
                 }
+
+                const { otherRenames, otherNames } = otherRenameInfo;
 
                 recordAssetRenameCollision({
                     conflicts,
@@ -372,6 +374,30 @@ function detectAssetRenameConflicts({
     }
 
     return conflicts;
+}
+
+function collectOtherRenameEntries(
+    renameEntries: readonly AssetRenameEntry[],
+    currentIndex: number,
+    renameNames: string[]
+) {
+    const otherRenames: AssetRenameEntry[] = [];
+    let otherNames = "";
+
+    for (const [otherIndex, otherEntry] of renameEntries.entries()) {
+        if (otherIndex === currentIndex) {
+            continue;
+        }
+
+        otherRenames.push(otherEntry);
+        otherNames = otherNames ? `${otherNames}, ${renameNames[otherIndex]}` : renameNames[otherIndex];
+    }
+
+    if (otherRenames.length === 0) {
+        return null;
+    }
+
+    return { otherRenames, otherNames };
 }
 
 function summarizeReferences(referenceMutations, resourcePath) {

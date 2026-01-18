@@ -2937,31 +2937,7 @@ function handleTerminalTrailingSpacing({
         ) {
             shouldPreserveTrailingBlankLine = true;
         } else if (hasExplicitTrailingBlankLine && originalText !== null) {
-            const textLength = originalText.length;
-            let scanIndex = trailingProbeIndex;
-            let nextCharacter = null;
-
-            while (scanIndex < textLength) {
-                nextCharacter = getNextNonWhitespaceCharacter(originalText, scanIndex);
-
-                if (nextCharacter === ";") {
-                    if (hasFunctionInitializer) {
-                        break;
-                    }
-
-                    const semicolonIndex = originalText.indexOf(";", scanIndex);
-                    if (semicolonIndex === -1) {
-                        nextCharacter = null;
-                        break;
-                    }
-
-                    scanIndex = semicolonIndex + 1;
-                    continue;
-                }
-
-                break;
-            }
-
+            const nextCharacter = findNextTerminalCharacter(originalText, trailingProbeIndex, hasFunctionInitializer);
             const shouldPreserve = nextCharacter === null ? false : nextCharacter !== "}";
 
             shouldPreserveTrailingBlankLine = shouldCollapseExcessBlankLines ? false : shouldPreserve;
@@ -2985,6 +2961,37 @@ function handleTerminalTrailingSpacing({
     }
 
     return previousNodeHadNewlineAddedAfter;
+}
+
+function findNextTerminalCharacter(
+    originalText: string,
+    startIndex: number,
+    hasFunctionInitializer: boolean
+): string | null {
+    const textLength = originalText.length;
+    let scanIndex = startIndex;
+
+    while (scanIndex < textLength) {
+        const nextCharacter = getNextNonWhitespaceCharacter(originalText, scanIndex);
+
+        if (nextCharacter === ";") {
+            if (hasFunctionInitializer) {
+                return ";";
+            }
+
+            const semicolonIndex = originalText.indexOf(";", scanIndex);
+            if (semicolonIndex === -1) {
+                return null;
+            }
+
+            scanIndex = semicolonIndex + 1;
+            continue;
+        }
+
+        return nextCharacter;
+    }
+
+    return null;
 }
 
 export function applyAssignmentAlignment(statements, options, path = null, childrenAttribute = null) {
@@ -3821,22 +3828,44 @@ function getFunctionTagParamName(functionNode, paramIndex, options) {
         return paramIndex < params.length ? params[paramIndex] : null;
     }
 
-    const originalText = options?.originalText;
-    if (typeof originalText === STRING_TYPE) {
-        const functionStart = Core.getNodeStartIndex(functionNode);
-        if (typeof functionStart === NUMBER_TYPE) {
-            const prefix = originalText.slice(0, functionStart);
-            const lastDocIndex = prefix.lastIndexOf("///");
-            if (lastDocIndex !== -1) {
-                const docBlock = prefix.slice(lastDocIndex);
-                const lines = Core.splitLines(docBlock);
-                for (const line of lines) {
-                    const params = Core.extractFunctionTagParams(line);
-                    if (params.length > 0) {
-                        return paramIndex < params.length ? params[paramIndex] : null;
-                    }
-                }
-            }
+    const docParamFromOriginalText = getFunctionTagParamFromOriginalText(
+        options?.originalText,
+        functionNode,
+        paramIndex
+    );
+    if (docParamFromOriginalText !== null) {
+        return docParamFromOriginalText;
+    }
+
+    return null;
+}
+
+function getFunctionTagParamFromOriginalText(
+    originalText: string | null | undefined,
+    functionNode: unknown,
+    paramIndex: number
+): string | null {
+    if (typeof originalText !== STRING_TYPE) {
+        return null;
+    }
+
+    const functionStart = Core.getNodeStartIndex(functionNode);
+    if (typeof functionStart !== NUMBER_TYPE) {
+        return null;
+    }
+
+    const prefix = originalText.slice(0, functionStart);
+    const lastDocIndex = prefix.lastIndexOf("///");
+    if (lastDocIndex === -1) {
+        return null;
+    }
+
+    const docBlock = prefix.slice(lastDocIndex);
+    const lines = Core.splitLines(docBlock);
+    for (const line of lines) {
+        const params = Core.extractFunctionTagParams(line);
+        if (params.length > 0) {
+            return paramIndex < params.length ? params[paramIndex] : null;
         }
     }
 
@@ -4246,62 +4275,7 @@ function materializeParamDefaultsFromParamDefault(functionNode) {
         // it into a DefaultParameter node that the printer already knows how
         // to consume. Avoid touching nodes that are already DefaultParameter.
         if (param.type === "Identifier" && param.default !== null) {
-            try {
-                const defaultExpr = param.default;
-                const defaultNode = {
-                    type: "DefaultParameter",
-                    left: param,
-                    right: defaultExpr
-                };
-                if (param.leadingComments) {
-                    (defaultNode as any).leadingComments = param.leadingComments;
-                }
-                if (param.trailingComments) {
-                    (defaultNode as any).trailingComments = param.trailingComments;
-                }
-
-                // Preserve parser/transforms-provided marker if present. Also
-                // explicitly mark parameters whose default expression is an
-                // `undefined` sentinel as optional so downstream omission
-                // heuristics prefer to preserve the explicit `= undefined`
-                // form in printed signatures.
-                try {
-                    // Preserve the parser-provided optional-parameter marker when present.
-                    // The parser transform pass is the authoritative source for determining
-                    // which parameters are optional. We do not automatically mark a parameter
-                    // optional just because its default expression is `undefined`—that would
-                    // bypass the parser's intent and conflict with doc-comment-driven
-                    // optionality decisions. Instead, we propagate an existing
-                    // `_featherOptionalParameter` flag from the original param node to the
-                    // new DefaultParameter wrapper, preserving the parser's decision across
-                    // AST transformations. If the marker is absent, we leave the parameter
-                    // unmarked, allowing downstream heuristics (e.g., doc comment reconciliation)
-                    // to determine optionality based on authoritative metadata.
-                    if (param._featherOptionalParameter === true) {
-                        (defaultNode as any)._featherOptionalParameter = true;
-                    }
-                } catch {
-                    // Tolerate missing or inaccessible optional-parameter markers without
-                    // crashing. If the `_featherOptionalParameter` property is absent or
-                    // throws when accessed (e.g., due to Object.freeze or exotic proxies),
-                    // we proceed without marking the parameter as optional. This defensive
-                    // posture keeps the printer resilient across varied AST shapes while
-                    // still propagating the marker when it legitimately exists, avoiding
-                    // the need for explicit presence checks or optional chaining at every
-                    // call site.
-                }
-
-                functionNode.params[i] = defaultNode;
-            } catch {
-                // Tolerate conversion failures gracefully by leaving the parameter unchanged.
-                // Converting an Identifier to a DefaultParameter may fail if the param
-                // node is frozen, lacks expected properties, or encounters unexpected
-                // AST structure. Rather than aborting the entire printing pass, we
-                // catch the error and skip this parameter, allowing the printer to
-                // continue with the remaining parameters. The unconverted parameter
-                // will be printed in its original form, which is acceptable—this
-                // conversion is an enhancement, not a correctness requirement.
-            }
+            materializeParserProvidedDefaultParameter(functionNode, param, i);
         }
 
         // Fallback: if the parser did not provide a `.default` but a prior
@@ -4479,6 +4453,66 @@ function deriveArgumentIndex(test: any) {
         default: {
             return null;
         }
+    }
+}
+
+function materializeParserProvidedDefaultParameter(functionNode: any, param: any, index: number): void {
+    try {
+        const defaultExpr = param.default;
+        const defaultNode = {
+            type: "DefaultParameter",
+            left: param,
+            right: defaultExpr
+        };
+
+        if (param.leadingComments) {
+            (defaultNode as any).leadingComments = param.leadingComments;
+        }
+        if (param.trailingComments) {
+            (defaultNode as any).trailingComments = param.trailingComments;
+        }
+
+        // Preserve parser/transforms-provided marker if present. Also
+        // explicitly mark parameters whose default expression is an
+        // `undefined` sentinel as optional so downstream omission
+        // heuristics prefer to preserve the explicit `= undefined`
+        // form in printed signatures.
+        try {
+            // Preserve the parser-provided optional-parameter marker when present.
+            // The parser transform pass is the authoritative source for determining
+            // which parameters are optional. We do not automatically mark a parameter
+            // optional just because its default expression is `undefined`—that would
+            // bypass the parser's intent and conflict with doc-comment-driven
+            // optionality decisions. Instead, we propagate an existing
+            // `_featherOptionalParameter` flag from the original param node to the
+            // new DefaultParameter wrapper, preserving the parser's decision across
+            // AST transformations. If the marker is absent, we leave the parameter
+            // unmarked, allowing downstream heuristics (e.g., doc comment reconciliation)
+            // to determine optionality based on authoritative metadata.
+            if (param._featherOptionalParameter === true) {
+                (defaultNode as any)._featherOptionalParameter = true;
+            }
+        } catch {
+            // Tolerate missing or inaccessible optional-parameter markers without
+            // crashing. If the `_featherOptionalParameter` property is absent or
+            // throws when accessed (e.g., due to Object.freeze or exotic proxies),
+            // we proceed without marking the parameter as optional. This defensive
+            // posture keeps the printer resilient across varied AST shapes while
+            // still propagating the marker when it legitimately exists, avoiding
+            // the need for explicit presence checks or optional chaining at every
+            // call site.
+        }
+
+        functionNode.params[index] = defaultNode;
+    } catch {
+        // Tolerate conversion failures gracefully by leaving the parameter unchanged.
+        // Converting an Identifier to a DefaultParameter may fail if the param
+        // node is frozen, lacks expected properties, or encounters unexpected
+        // AST structure. Rather than aborting the entire printing pass, we
+        // catch the error and skip this parameter, allowing the printer to
+        // continue with the remaining parameters. The unconverted parameter
+        // will be printed in its original form, which is acceptable—this
+        // conversion is an enhancement, not a correctness requirement.
     }
 }
 
@@ -4715,68 +4749,12 @@ function shouldOmitDefaultValueForParameter(path, options) {
         return false;
     }
 
-    // If original source text is available, prefer explicit doc comment
-    // cues directly preceding the function declaration. A doc-line
-    // `/// @param name` (without brackets) should cause an accompanying
-    // `= undefined` default to be omitted; if the doc-line marks the
-    // parameter as optional (e.g. `/// @param [name]`) preserve it.
+    const paramName = node.left && node.left.name ? node.left.name : null;
     const functionNode = findEnclosingFunctionDeclaration(path);
-    if (functionNode) {
-        if (Core.isNonEmptyArray(functionNode.docComments)) {
-            const lines = functionNode.docComments.flatMap((comment) => {
-                const value = comment.value || "";
-                if (comment.type === "CommentBlock") {
-                    return Core.splitLines(value).map((line) => `/// ${line}`);
-                }
-                return `/// ${value}`;
-            });
-
-            const paramName = node.left && node.left.name ? node.left.name : null;
-            if (paramName) {
-                const optionalDocFlag = getDocParamOptionality(lines, paramName);
-                if (optionalDocFlag !== null) {
-                    return !optionalDocFlag;
-                }
-            }
-        }
-
-        const originalText = getOriginalTextFromOptions(options);
-        if (typeof originalText === STRING_TYPE && originalText.length > 0) {
-            const fnStart = Core.getNodeStartIndex(functionNode) ?? 0;
-            const prefix = originalText.slice(0, fnStart);
-            // Scan backwards for doc comments, handling mixed styles and block comments
-            const lines = Core.splitLines(prefix);
-            const docLines = [];
-
-            for (let i = lines.length - 1; i >= 0; i--) {
-                const line = lines[i].trim();
-                if (line === "") {
-                    continue;
-                }
-
-                if (line.startsWith("///")) {
-                    docLines.unshift(line);
-                } else if (line.startsWith("/*") && line.endsWith("*/")) {
-                    const content = line.slice(2, -2).trim();
-                    docLines.unshift(`/// ${content}`);
-                } else if (line.startsWith("//")) {
-                    if (line.includes("@param") || line.includes("@function")) {
-                        docLines.unshift(`/// ${line.replace(/^\/+/, "").trim()}`);
-                    }
-                } else {
-                    break;
-                }
-            }
-
-            if (docLines.length > 0) {
-                const paramName = node.left && node.left.name ? node.left.name : null;
-                if (paramName) {
-                    const optionalDocFlag = getDocParamOptionality(docLines, paramName);
-                    if (optionalDocFlag !== null) {
-                        return !optionalDocFlag;
-                    }
-                }
-            }
+    if (functionNode && paramName) {
+        const optionalDocFlag = resolveDocParamOptionality(functionNode, paramName, options);
+        if (optionalDocFlag !== null) {
+            return !optionalDocFlag;
         }
     }
 
@@ -4836,6 +4814,94 @@ function shouldOmitDefaultValueForParameter(path, options) {
     }
 
     return false;
+}
+
+function resolveDocParamOptionality(functionNode, paramName, options) {
+    const commentLines = collectDocLinesFromFunctionComments(functionNode, options);
+    if (commentLines.length > 0) {
+        const optionalFlag = getDocParamOptionality(commentLines, paramName);
+        if (optionalFlag !== null) {
+            return optionalFlag;
+        }
+    }
+
+    const sourceLines = collectDocLinesFromSource(functionNode, options);
+    if (sourceLines.length > 0) {
+        const optionalFlag = getDocParamOptionality(sourceLines, paramName);
+        if (optionalFlag !== null) {
+            return optionalFlag;
+        }
+    }
+
+    return null;
+}
+
+function collectDocLinesFromFunctionComments(functionNode, options) {
+    const docComments = Array.isArray(functionNode.docComments)
+        ? functionNode.docComments
+        : Array.isArray(functionNode.comments)
+          ? functionNode.comments
+          : null;
+    if (!Core.isNonEmptyArray(docComments)) {
+        return [];
+    }
+
+    const lineCommentOptions = Core.resolveLineCommentOptions(options);
+    const formattingOptions = {
+        ...lineCommentOptions,
+        originalText: options?.originalText
+    };
+
+    const docLines = [];
+    for (const comment of docComments) {
+        const formatted = Core.formatLineComment(comment, formattingOptions);
+        const rawValue = formatted ?? (typeof comment?.value === "string" ? comment.value : null);
+        if (!Core.isNonEmptyString(rawValue)) {
+            continue;
+        }
+
+        docLines.push(rawValue);
+    }
+
+    return docLines;
+}
+
+function collectDocLinesFromSource(functionNode, options) {
+    const originalText = getOriginalTextFromOptions(options);
+    if (typeof originalText !== STRING_TYPE || originalText.length === 0) {
+        return [];
+    }
+
+    const fnStart = Core.getNodeStartIndex(functionNode);
+    if (typeof fnStart !== NUMBER_TYPE) {
+        return [];
+    }
+
+    const prefix = originalText.slice(0, fnStart);
+    const lines = Core.splitLines(prefix);
+    const docLines = [];
+
+    for (let i = lines.length - 1; i >= 0; i -= 1) {
+        const line = lines[i].trim();
+        if (line === "") {
+            continue;
+        }
+
+        if (line.startsWith("///")) {
+            docLines.unshift(line);
+        } else if (line.startsWith("/*") && line.endsWith("*/")) {
+            const content = line.slice(2, -2).trim();
+            docLines.unshift(`/// ${content}`);
+        } else if (line.startsWith("//")) {
+            if (line.includes("@param") || line.includes("@function")) {
+                docLines.unshift(`/// ${line.replace(/^\/+/u, "").trim()}`);
+            }
+        } else {
+            break;
+        }
+    }
+
+    return docLines;
 }
 
 function getDocParamOptionality(lines, paramName) {
@@ -5365,31 +5431,8 @@ function shouldOmitSyntheticParens(path) {
         return true;
     }
 
-    // For ternary expressions, omit unnecessary parentheses around simple
-    // identifiers or member expressions in the test position
     if (parent.type === "TernaryExpression") {
-        if (
-            parentKey === "test" && // Trim redundant parentheses when the ternary guard is just a bare
-            // Strip trivial parentheses around simple ternary test expressions to
-            // minimize unnecessary grouping syntax. The parser records author-supplied
-            // parentheses as `ParenthesizedExpression` nodes even when they provide no
-            // semantic value (e.g., `(foo) ? a : b` where `foo` is a plain identifier).
-            // Without this check, the printer would emit these redundant parens,
-            // cluttering the output. The formatter's ternary examples in
-            // README.md#formatter-at-a-glance promise minimal grouping, and teams
-            // rely on that contract when reviewing diffs. We restrict removal to
-            // trivially safe shapes (Identifier, MemberDotExpression, MemberIndexExpression)
-            // to avoid second-guessing parentheses that communicate evaluation order
-            // in compound boolean expressions or arithmetic. Removing parens only
-            // when they demonstrably add no value keeps the output clean without
-            // risking semantic changes or precedence confusion.
-            (expression?.type === "Identifier" ||
-                expression?.type === "MemberDotExpression" ||
-                expression?.type === "MemberIndexExpression")
-        ) {
-            return true;
-        }
-        return false;
+        return shouldFlattenTernaryTest(parentKey, expression);
     }
 
     // For non-ternary cases, only process synthetic parentheses
@@ -5398,28 +5441,7 @@ function shouldOmitSyntheticParens(path) {
     }
 
     if (parent.type === "CallExpression") {
-        if (!isSyntheticParenFlatteningEnabled(path) || !isNumericCallExpression(parent)) {
-            return false;
-        }
-
-        if (expression?.type !== "BinaryExpression") {
-            return false;
-        }
-
-        if (!isNumericComputationNode(expression)) {
-            return false;
-        }
-
-        if (binaryExpressionContainsString(expression)) {
-            return false;
-        }
-
-        const sanitizedMacroNames = getSanitizedMacroNames(path);
-        if (sanitizedMacroNames && expressionReferencesSanitizedMacro(expression, sanitizedMacroNames)) {
-            return false;
-        }
-
-        return true;
+        return shouldFlattenSyntheticCall(parent, expression, path);
     }
 
     if (parent.type !== "BinaryExpression") {
@@ -5439,63 +5461,16 @@ function shouldOmitSyntheticParens(path) {
         const childInfo = getBinaryOperatorInfo(expression.operator);
 
         if (childInfo !== undefined && childInfo.precedence > parentInfo.precedence) {
-            if (
-                (parent.operator === "&&" ||
-                    parent.operator === "and" ||
-                    parent.operator === "||" ||
-                    parent.operator === "or") &&
-                Core.isComparisonBinaryOperator(expression.operator) &&
-                isControlFlowLogicalTest(path)
-            ) {
+            if (shouldFlattenComparisonLogicalTest(parent, expression, path)) {
                 return true;
             }
 
-            if (isNumericComputationNode(expression)) {
-                if (parent.operator === "+" || parent.operator === "-") {
-                    const childOperator = expression.operator;
-                    const flatteningForced = childOperator === "*" ? isSyntheticParenFlatteningForced(path) : false;
-
-                    if (
-                        childOperator === "/" ||
-                        childOperator === "div" ||
-                        childOperator === "%" ||
-                        childOperator === "mod" ||
-                        (childOperator === "*" &&
-                            !flatteningForced &&
-                            !isWithinNumericCallArgument(path) &&
-                            !isSelfMultiplicationExpression(expression))
-                    ) {
-                        return false;
-                    }
-
-                    if (parent.operator === "-" && childOperator === "*" && !flatteningForced) {
-                        return false;
-                    }
-
-                    const sanitizedMacroNames = getSanitizedMacroNames(path);
-
-                    if (
-                        sanitizedMacroNames &&
-                        (expressionReferencesSanitizedMacro(parent, sanitizedMacroNames) ||
-                            expressionReferencesSanitizedMacro(expression, sanitizedMacroNames))
-                    ) {
-                        return false;
-                    }
-
-                    return true;
-                }
-
-                if (expression.operator === "*") {
-                    if (
-                        Core.isComparisonBinaryOperator(parent.operator) &&
-                        isSelfMultiplicationExpression(expression) &&
-                        isComparisonWithinLogicalChain(path)
-                    ) {
-                        return true;
-                    }
-
-                    return false;
-                }
+            const numericDecision = evaluateNumericBinaryFlattening(parent, expression, path);
+            if (numericDecision === "allow") {
+                return true;
+            }
+            if (numericDecision === "deny") {
+                return false;
             }
         }
 
@@ -5574,6 +5549,117 @@ function isControlFlowLogicalTest(path) {
 
         return false;
     }
+}
+
+// For ternary expressions, omit unnecessary parentheses around simple identifiers
+// or member expressions in the guard/test position. This mirrors the previous
+// inline logic that only trimmed parentheses when they added no semantic value,
+// keeping the formatter's promise of minimal grouping while avoiding precedence
+// changes in more complex logical expressions.
+function shouldFlattenTernaryTest(parentKey, expression) {
+    if (parentKey !== "test") {
+        return false;
+    }
+
+    const expressionType = expression?.type;
+    if (!expressionType) {
+        return false;
+    }
+
+    return (
+        expressionType === "Identifier" ||
+        expressionType === "MemberDotExpression" ||
+        expressionType === "MemberIndexExpression"
+    );
+}
+
+function shouldFlattenSyntheticCall(parent, expression, path) {
+    if (!isSyntheticParenFlatteningEnabled(path) || !isNumericCallExpression(parent)) {
+        return false;
+    }
+
+    if (expression?.type !== "BinaryExpression") {
+        return false;
+    }
+
+    if (!isNumericComputationNode(expression)) {
+        return false;
+    }
+
+    if (binaryExpressionContainsString(expression)) {
+        return false;
+    }
+
+    const sanitizedMacroNames = getSanitizedMacroNames(path);
+    if (sanitizedMacroNames && expressionReferencesSanitizedMacro(expression, sanitizedMacroNames)) {
+        return false;
+    }
+
+    return true;
+}
+
+function shouldFlattenComparisonLogicalTest(parent, expression, path) {
+    return (
+        (parent.operator === "&&" ||
+            parent.operator === "and" ||
+            parent.operator === "||" ||
+            parent.operator === "or") &&
+        Core.isComparisonBinaryOperator(expression.operator) &&
+        isControlFlowLogicalTest(path)
+    );
+}
+
+function evaluateNumericBinaryFlattening(parent: any, expression: any, path: any): "allow" | "deny" | null {
+    if (!isNumericComputationNode(expression)) {
+        return null;
+    }
+
+    if (parent.operator === "+" || parent.operator === "-") {
+        const childOperator = expression.operator;
+        const flatteningForced = childOperator === "*" ? isSyntheticParenFlatteningForced(path) : false;
+
+        if (
+            childOperator === "/" ||
+            childOperator === "div" ||
+            childOperator === "%" ||
+            childOperator === "mod" ||
+            (childOperator === "*" &&
+                !flatteningForced &&
+                !isWithinNumericCallArgument(path) &&
+                !isSelfMultiplicationExpression(expression))
+        ) {
+            return "deny";
+        }
+
+        if (parent.operator === "-" && childOperator === "*" && !flatteningForced) {
+            return "deny";
+        }
+
+        const sanitizedMacroNames = getSanitizedMacroNames(path);
+        if (
+            sanitizedMacroNames &&
+            (expressionReferencesSanitizedMacro(parent, sanitizedMacroNames) ||
+                expressionReferencesSanitizedMacro(expression, sanitizedMacroNames))
+        ) {
+            return "deny";
+        }
+
+        return "allow";
+    }
+
+    if (expression.operator === "*") {
+        if (
+            Core.isComparisonBinaryOperator(parent.operator) &&
+            isSelfMultiplicationExpression(expression) &&
+            isComparisonWithinLogicalChain(path)
+        ) {
+            return "allow";
+        }
+
+        return "deny";
+    }
+
+    return null;
 }
 
 function isComparisonWithinLogicalChain(path) {
@@ -5989,11 +6075,8 @@ function expressionReferencesSanitizedMacro(node, sanitizedMacroNames) {
             return true;
         }
 
-        if (current.type === "CallExpression") {
-            const calleeName = Core.getIdentifierText(current.object);
-            if (typeof calleeName === STRING_TYPE && sanitizedMacroNames.has(calleeName)) {
-                return true;
-            }
+        if (isCallExpressionSanitized(current, sanitizedMacroNames)) {
+            return true;
         }
 
         // Iterate directly over object properties using for...in to avoid
@@ -6006,27 +6089,45 @@ function expressionReferencesSanitizedMacro(node, sanitizedMacroNames) {
                 continue;
             }
 
-            const value = current[key];
-            if (!value || typeof value !== OBJECT_TYPE) {
-                continue;
-            }
-
-            if (Array.isArray(value)) {
-                for (const entry of value) {
-                    if (entry && typeof entry === OBJECT_TYPE) {
-                        stack.push(entry);
-                    }
-                }
-                continue;
-            }
-
-            if (value.type) {
-                stack.push(value);
-            }
+            pushSanitizedMacroChildren(stack, current[key]);
         }
     }
 
     return false;
+}
+
+function isCallExpressionSanitized(current: unknown, sanitizedMacroNames: Set<string>) {
+    if (!current || typeof current !== OBJECT_TYPE || sanitizedMacroNames.size === 0) {
+        return false;
+    }
+
+    const expression = current as { type?: string; object?: unknown };
+    if (expression.type !== "CallExpression") {
+        return false;
+    }
+
+    const calleeName = Core.getIdentifierText(expression.object);
+    return typeof calleeName === STRING_TYPE && sanitizedMacroNames.has(calleeName);
+}
+
+function pushSanitizedMacroChildren(stack: Array<any>, value: unknown): void {
+    if (!value || typeof value !== OBJECT_TYPE) {
+        return;
+    }
+
+    if (Array.isArray(value)) {
+        for (const entry of value) {
+            if (entry && typeof entry === OBJECT_TYPE) {
+                stack.push(entry);
+            }
+        }
+        return;
+    }
+
+    const objectValue = value as { type?: string };
+    if (objectValue.type) {
+        stack.push(objectValue);
+    }
 }
 
 // Synthetic parenthesis flattening only treats select call expressions as

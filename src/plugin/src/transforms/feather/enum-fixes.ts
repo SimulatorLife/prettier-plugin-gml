@@ -66,6 +66,15 @@ export function removeDuplicateEnumMembers({ ast, diagnostic, sourceText }) {
                     return removalIndex;
                 };
 
+                const removeMemberAndAdjustIndex = (targetMember, currentIndex) => {
+                    const removalIndex = removeMember(targetMember);
+                    if (removalIndex !== -1 && removalIndex <= currentIndex) {
+                        return currentIndex - 1;
+                    }
+
+                    return currentIndex;
+                };
+
                 for (let index = 0; index < members.length; index += 1) {
                     const member = members[index];
 
@@ -91,18 +100,12 @@ export function removeDuplicateEnumMembers({ ast, diagnostic, sourceText }) {
                     const currentHasInitializer = (member as any).initializer != null;
 
                     if (!existingHasInitializer && currentHasInitializer) {
-                        const removalIndex = removeMember(existingMember);
-                        if (removalIndex !== -1 && removalIndex <= index) {
-                            index -= 1;
-                        }
+                        index = removeMemberAndAdjustIndex(existingMember, index);
                         seen.set(normalizedName, member);
                         continue;
                     }
 
-                    const removalIndex = removeMember(member);
-                    if (removalIndex !== -1) {
-                        index -= 1;
-                    }
+                    index = removeMemberAndAdjustIndex(member, index);
                 }
 
                 if (members.length === 0) {

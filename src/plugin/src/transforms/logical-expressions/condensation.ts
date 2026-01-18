@@ -1198,33 +1198,12 @@ function factorOrExpression(expression) {
 
         const factor = occurrences[0].factor;
         const involvedIndices = new Set(occurrences.map((item) => item.termIndex));
-        const residualTerms = [];
-        let factorPosition = null;
-
-        for (const { index, factors } of andTerms) {
-            if (!involvedIndices.has(index)) {
-                continue;
-            }
-
-            const remaining = [];
-            for (const { factor: candidate, position } of factors) {
-                if (booleanExpressionKey(candidate) === key) {
-                    if (factorPosition == undefined) {
-                        factorPosition = position;
-                    }
-                    continue;
-                }
-                remaining.push(candidate);
-            }
-
-            if (remaining.length === 0) {
-                // Factoring would remove the entire term, skip this factor.
-                factorPosition = null;
-                break;
-            }
-
-            residualTerms.push(remaining.length === 1 ? remaining[0] : createBooleanAnd(remaining));
-        }
+        const { residualTerms, factorPosition } = buildResidualTermsForKey(
+            andTerms,
+            involvedIndices,
+            key,
+            createBooleanAnd
+        );
 
         if (factorPosition == undefined) {
             continue;
@@ -1276,32 +1255,12 @@ function factorAndExpression(expression) {
 
         const factor = occurrences[0].factor;
         const involvedIndices = new Set(occurrences.map((item) => item.termIndex));
-        const residualTerms = [];
-        let factorPosition = null;
-
-        for (const { index, factors } of orTerms) {
-            if (!involvedIndices.has(index)) {
-                continue;
-            }
-
-            const remaining = [];
-            for (const { factor: candidate, position } of factors) {
-                if (booleanExpressionKey(candidate) === key) {
-                    if (factorPosition == undefined) {
-                        factorPosition = position;
-                    }
-                    continue;
-                }
-                remaining.push(candidate);
-            }
-
-            if (remaining.length === 0) {
-                factorPosition = null;
-                break;
-            }
-
-            residualTerms.push(remaining.length === 1 ? remaining[0] : createBooleanOr(remaining));
-        }
+        const { residualTerms, factorPosition } = buildResidualTermsForKey(
+            orTerms,
+            involvedIndices,
+            key,
+            createBooleanOr
+        );
 
         if (factorPosition == undefined) {
             continue;
@@ -1399,6 +1358,38 @@ function chooseBestCandidate(candidates) {
         }
     }
     return best;
+}
+
+function buildResidualTermsForKey(terms, involvedIndices, key, createResidualExpression) {
+    const residualTerms = [];
+    let factorPosition = null;
+
+    for (const { index, factors } of terms) {
+        if (!involvedIndices.has(index)) {
+            continue;
+        }
+
+        const remaining = [];
+        for (const { factor: candidate, position } of factors) {
+            if (booleanExpressionKey(candidate) === key) {
+                if (factorPosition == undefined) {
+                    factorPosition = position;
+                }
+                continue;
+            }
+
+            remaining.push(candidate);
+        }
+
+        if (remaining.length === 0) {
+            factorPosition = null;
+            break;
+        }
+
+        residualTerms.push(remaining.length === 1 ? remaining[0] : createResidualExpression(remaining));
+    }
+
+    return { residualTerms, factorPosition };
 }
 
 function booleanExpressionToAst(expression, context) {

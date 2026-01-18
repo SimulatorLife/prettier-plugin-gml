@@ -1419,15 +1419,8 @@ function buildRemainingRatioTerms({
     for (const [index, term] of chain.numerators.entries()) {
         if (removalPlan.indicesToRemove.has(index)) {
             const replacements = removalPlan.replacementsByIndex.get(index);
-            if (replacements) {
-                for (const replacement of replacements) {
-                    const clone = Core.cloneAstNode(replacement);
-                    if (!clone) {
-                        return null;
-                    }
-
-                    remainingTerms.push(clone);
-                }
+            if (!pushRatioReplacements(remainingTerms, replacements)) {
+                return null;
             }
 
             continue;
@@ -1442,6 +1435,23 @@ function buildRemainingRatioTerms({
     }
 
     return remainingTerms;
+}
+
+function pushRatioReplacements(remainingTerms: Array<any>, replacements: Array<any> | undefined): boolean {
+    if (!replacements || replacements.length === 0) {
+        return true;
+    }
+
+    for (const replacement of replacements) {
+        const clone = Core.cloneAstNode(replacement);
+        if (!clone) {
+            return false;
+        }
+
+        remainingTerms.push(clone);
+    }
+
+    return true;
 }
 
 function buildReciprocalRatioReplacement({ remainingTerms, node }: { remainingTerms: any[]; node: any }) {
@@ -4215,19 +4225,7 @@ function markPreviousSiblingForBlankLine(root, target, context) {
                 const element = node[index];
 
                 if (element === target) {
-                    const previous = node[index - 1];
-                    const next = node[index + 1];
-
-                    if (
-                        previous &&
-                        typeof previous === "object" &&
-                        shouldPreserveRemovedBlankLine(target, next, sourceText)
-                    ) {
-                        previous._gmlForceFollowingEmptyLine = true;
-                        return previous;
-                    }
-
-                    return null;
+                    return preserveBlankLineIfNeeded(node, index, target, sourceText);
                 }
 
                 stack.push(element);
@@ -4240,6 +4238,18 @@ function markPreviousSiblingForBlankLine(root, target, context) {
                 stack.push(value);
             }
         }
+    }
+
+    return null;
+}
+
+function preserveBlankLineIfNeeded(nodeArray: Array<any>, index: number, target: any, sourceText: string | null) {
+    const previous = nodeArray[index - 1];
+    const next = nodeArray[index + 1];
+
+    if (previous && typeof previous === "object" && shouldPreserveRemovedBlankLine(target, next, sourceText)) {
+        previous._gmlForceFollowingEmptyLine = true;
+        return previous;
     }
 
     return null;

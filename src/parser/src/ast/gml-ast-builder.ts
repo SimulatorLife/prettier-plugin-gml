@@ -1596,16 +1596,7 @@ export default class GameMakerASTBuilder {
             const expressionContext = this.ensureSingle(ctx.expression());
             if (expressionContext) {
                 initializer = this.visit(expressionContext);
-                if (initializer && typeof initializer === "object") {
-                    if (initializer.type === "Literal") {
-                        initializer = initializer.value;
-                    } else {
-                        const initializerText = this.ensureToken(expressionContext)?.getText();
-                        if (typeof initializerText === "string") {
-                            initializer._enumInitializerText = initializerText.trim();
-                        }
-                    }
-                }
+                initializer = this.normalizeEnumInitializer(initializer, expressionContext);
             }
         }
 
@@ -1635,6 +1626,23 @@ export default class GameMakerASTBuilder {
             ),
             initializer
         });
+    }
+
+    private normalizeEnumInitializer(initializer: any, expressionContext: ParserContext | null): any {
+        if (!expressionContext || !initializer || typeof initializer !== "object") {
+            return initializer;
+        }
+
+        if (initializer.type === "Literal") {
+            return initializer.value;
+        }
+
+        const initializerText = this.ensureToken(expressionContext)?.getText();
+        if (typeof initializerText === "string") {
+            initializer._enumInitializerText = initializerText.trim();
+        }
+
+        return initializer;
     }
 
     // Visit a parse tree produced by GameMakerLanguageParser#macroStatement.
