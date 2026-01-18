@@ -5,7 +5,7 @@ import path from "node:path";
 import { Core } from "@gml-modules/core";
 
 import { ensureDir, resolveFromRepoRoot } from "../../shared/index.js";
-import { runSequentially } from "../cli-core/sequential-runner.js";
+import { runSequentially } from "../cli-core/index.js";
 
 const { getErrorMessageOrFallback } = Core;
 

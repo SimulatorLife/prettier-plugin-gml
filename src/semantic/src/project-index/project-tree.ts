@@ -164,10 +164,14 @@ export async function scanProjectTree(projectRoot, fsFacade: ProjectIndexFsFacad
     const traversal = createDirectoryTraversal(projectRoot);
     const collector = createProjectTreeCollector(metrics);
 
-    while (traversal.hasPending()) {
+    const processNextDirectory = async (): Promise<void> => {
+        if (!traversal.hasPending()) {
+            return;
+        }
+
         const directoryContext = traversal.next();
         if (!directoryContext) {
-            continue;
+            return processNextDirectory();
         }
 
         const entries = await resolveDirectoryListing({
@@ -189,7 +193,11 @@ export async function scanProjectTree(projectRoot, fsFacade: ProjectIndexFsFacad
             metrics,
             signal
         });
-    }
+
+        return processNextDirectory();
+    };
+
+    await processNextDirectory();
 
     return collector.snapshot();
 }
