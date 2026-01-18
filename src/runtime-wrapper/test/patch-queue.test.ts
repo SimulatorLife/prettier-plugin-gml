@@ -189,6 +189,57 @@ void test("patch queue enqueues patches instead of applying immediately", async 
     client.disconnect();
 });
 
+void test("patch queue waits for GameMaker builtins before flushing", async () => {
+    const globals = globalThis as Record<string, unknown>;
+    const savedBuiltins = globals.g_pBuiltIn;
+
+    delete globals.g_pBuiltIn;
+
+    installMockWebSocket();
+
+    const wrapper = createRuntimeWrapper();
+    const client = createWebSocketClient({
+        wrapper,
+        autoConnect: false,
+        patchQueue: {
+            enabled: true,
+            flushIntervalMs: 50,
+            maxQueueSize: 10
+        }
+    });
+
+    try {
+        client.connect();
+        await wait(50);
+
+        const ws = client.getWebSocket() as unknown as MockWebSocket;
+        assert.ok(ws);
+
+        sendScriptPatch(ws, "script:deferred", "return application_surface;");
+
+        await wait(120);
+
+        assert.strictEqual(wrapper.hasScript("script:deferred"), false);
+
+        globals.g_pBuiltIn = {
+            application_surface: 321
+        };
+
+        await wait(200);
+
+        assert.strictEqual(wrapper.hasScript("script:deferred"), true);
+    } finally {
+        client.disconnect();
+        delete (globalThis as unknown as { WebSocket?: typeof MockWebSocket }).WebSocket;
+
+        if (savedBuiltins === undefined) {
+            delete globals.g_pBuiltIn;
+        } else {
+            globals.g_pBuiltIn = savedBuiltins;
+        }
+    }
+});
+
 void test("patch queue flushes automatically when reaching max size", async () => {
     const { client, ws } = await createConnectedPatchQueueClient({
         patchQueue: {
