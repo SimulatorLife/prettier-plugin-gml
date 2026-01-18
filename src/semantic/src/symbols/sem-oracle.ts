@@ -290,12 +290,3 @@ export function callTargetKind(node: CallExpressionNode): "script" | "builtin" |
 export function callTargetSymbol(node: CallExpressionNode): string | null {
     return defaultOracle.callTargetSymbol(node);
 }
-
-export default {
-    kindOfIdent,
-    nameOfIdent,
-    qualifiedSymbol,
-    callTargetKind,
-    callTargetSymbol,
-    BasicSemanticOracle
-};
