@@ -58,44 +58,47 @@ export function loadBuiltInIdentifiers(
     options: any = {}
 ) {
     const { fallbackMessage, ...guardOptions } = options ?? {};
-    const { signal, ensureNotAborted } = createProjectIndexAbortGuard(guardOptions, { fallbackMessage });
 
-    return Core.getFileMtime(fsFacade, GML_IDENTIFIER_FILE_PATH, { signal }).then((currentMtime) => {
-        ensureNotAborted();
-        const cached = cachedBuiltInIdentifiers;
-        const cachedMtime = cached?.metadata?.mtimeMs ?? null;
+    return Promise.resolve().then(() => {
+        const { signal, ensureNotAborted } = createProjectIndexAbortGuard(guardOptions, { fallbackMessage });
 
-        if (cached && areMtimesEquivalent(cachedMtime, currentMtime)) {
-            metrics?.caches?.recordHit("builtInIdentifiers");
-            return cached;
-        }
+        return Core.getFileMtime(fsFacade, GML_IDENTIFIER_FILE_PATH, { signal }).then((currentMtime) => {
+            ensureNotAborted();
+            const cached = cachedBuiltInIdentifiers;
+            const cachedMtime = cached?.metadata?.mtimeMs ?? null;
 
-        if (cached) {
-            metrics?.caches?.recordStale("builtInIdentifiers");
-        } else {
-            metrics?.caches?.recordMiss("builtInIdentifiers");
-        }
+            if (cached && areMtimesEquivalent(cachedMtime, currentMtime)) {
+                metrics?.caches?.recordHit("builtInIdentifiers");
+                return cached;
+            }
 
-        return fsFacade
-            .readFile(GML_IDENTIFIER_FILE_PATH, "utf8")
-            .then((rawContents) => {
-                ensureNotAborted();
-                const names = parseBuiltInIdentifierNames(rawContents);
-                const updated = {
-                    metadata: { mtimeMs: currentMtime },
-                    names
-                };
-                cachedBuiltInIdentifiers = updated;
-                return updated;
-            })
-            .catch(() => {
-                const updated = {
-                    metadata: { mtimeMs: currentMtime },
-                    names: new Set<string>()
-                };
-                cachedBuiltInIdentifiers = updated;
-                return updated;
-            });
+            if (cached) {
+                metrics?.caches?.recordStale("builtInIdentifiers");
+            } else {
+                metrics?.caches?.recordMiss("builtInIdentifiers");
+            }
+
+            return fsFacade
+                .readFile(GML_IDENTIFIER_FILE_PATH, "utf8")
+                .then((rawContents) => {
+                    ensureNotAborted();
+                    const names = parseBuiltInIdentifierNames(rawContents);
+                    const updated = {
+                        metadata: { mtimeMs: currentMtime },
+                        names
+                    };
+                    cachedBuiltInIdentifiers = updated;
+                    return updated;
+                })
+                .catch(() => {
+                    const updated = {
+                        metadata: { mtimeMs: currentMtime },
+                        names: new Set<string>()
+                    };
+                    cachedBuiltInIdentifiers = updated;
+                    return updated;
+                });
+        });
     });
 }
 
