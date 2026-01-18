@@ -25,7 +25,14 @@ const globalWithJson = globalThis as Record<string, unknown> & {
 };
 
 if (!globalWithJson.JSON_game) {
-    globalWithJson.JSON_game = { ScriptNames: [], Scripts: [] };
+    globalWithJson.JSON_game = {
+        ScriptNames: ["gml_Script_ready"],
+        Scripts: [
+            function runtimeReadyScript() {
+                return true;
+            }
+        ]
+    };
 }
 
 const wait = (ms: number) =>
