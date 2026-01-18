@@ -32,7 +32,7 @@ import {
     type ValidationSummary,
     type WorkspaceReadFile
 } from "./types.js";
-import { detectCircularRenames, detectRenameConflicts } from "./validation.js";
+import { detectCircularRenames, detectRenameConflicts, validateCrossFileConsistency } from "./validation.js";
 import {
     assertArray,
     assertFunction,
@@ -206,6 +206,21 @@ export class RefactorEngine {
                 errors.push(conflict.message);
             } else {
                 warnings.push(conflict.message);
+            }
+        }
+
+        const crossFileConflicts = await validateCrossFileConsistency(
+            symbolId,
+            normalizedNewName,
+            occurrences,
+            this.semantic
+        );
+
+        for (const conflict of crossFileConflicts) {
+            if (conflict.severity === "warning") {
+                warnings.push(conflict.message);
+            } else {
+                errors.push(conflict.message);
             }
         }
 

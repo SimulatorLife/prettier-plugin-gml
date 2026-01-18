@@ -2738,6 +2738,28 @@ void test("validateRenameRequest detects reserved keywords", async () => {
     assert.ok(result.errors.some((e) => e.includes("reserved keyword")));
 });
 
+void test("validateRenameRequest surfaces cross-file conflicts", async () => {
+    const mockSemantic: PartialSemanticAnalyzer = {
+        hasSymbol: async () => true,
+        getSymbolOccurrences: async () => [{ path: "scripts/player.gml", start: 0, end: 5, scopeId: "scope-1" }],
+        getFileSymbols: async (path) => {
+            if (path === "scripts/player.gml") {
+                return [{ id: "gml/script/scr_player" }, { id: "gml/script/scr_hero" }];
+            }
+            return [];
+        }
+    };
+    const engine = new RefactorEngineClass({ semantic: mockSemantic });
+
+    const result = await engine.validateRenameRequest({
+        symbolId: "gml/script/scr_player",
+        newName: "scr_hero"
+    });
+
+    assert.equal(result.valid, false);
+    assert.ok(result.errors.some((e) => e.includes("already defines symbol")));
+});
+
 void test("validateRenameRequest can include hot reload safety summary", async () => {
     class MockEngine extends RefactorEngineClass {
         override async checkHotReloadSafety() {
