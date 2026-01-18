@@ -1333,6 +1333,8 @@ export class RefactorEngine {
 
         const conflicts: Array<ConflictEntry> = [];
         const warnings: Array<ConflictEntry> = [];
+        let totalOccurrences = 0;
+        let hotReloadRequired = false;
 
         try {
             // Validate symbol exists
@@ -1353,7 +1355,7 @@ export class RefactorEngine {
 
             // Gather occurrences
             const occurrences = await this.gatherSymbolOccurrences(summary.oldName);
-            summary.totalOccurrences = occurrences.length;
+            totalOccurrences = occurrences.length;
 
             // Record which files will be modified by this rename so the user can
             // review the scope before applying changes. We also categorize each
@@ -1385,8 +1387,8 @@ export class RefactorEngine {
             // without a full restart. If occurrences exist, we assume hot reload is
             // needed and query the semantic analyzer to identify dependent symbols
             // that also need reloading to maintain consistency.
-            if (summary.totalOccurrences > 0) {
-                summary.hotReloadRequired = true;
+            if (totalOccurrences > 0) {
+                hotReloadRequired = true;
 
                 if (hasMethod(this.semantic, "getDependents")) {
                     const dependents = (await this.semantic.getDependents([symbolId])) ?? [];
@@ -1400,10 +1402,10 @@ export class RefactorEngine {
             // dependencies. Large-scale renames increase the risk of unintended
             // side effects (e.g., renaming a common utility function breaks dozens of
             // call sites), so these warnings encourage the user to review the scope.
-            if (summary.totalOccurrences > 50) {
+            if (totalOccurrences > 50) {
                 warnings.push({
                     type: ConflictType.LARGE_RENAME,
-                    message: `This rename will affect ${summary.totalOccurrences} occurrences across ${summary.affectedFiles.size} files`,
+                    message: `This rename will affect ${totalOccurrences} occurrences across ${summary.affectedFiles.size} files`,
                     severity: "warning"
                 });
             }
@@ -1422,6 +1424,9 @@ export class RefactorEngine {
                 severity: "error"
             });
         }
+
+        summary.totalOccurrences = totalOccurrences;
+        summary.hotReloadRequired = hotReloadRequired;
 
         const serializedSummary = serializeSummary();
 

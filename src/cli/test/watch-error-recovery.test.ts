@@ -4,6 +4,7 @@ import path from "node:path";
 import { describe, it } from "node:test";
 import { setTimeout as sleep } from "node:timers/promises";
 
+import { withTemporaryProperty } from "./test-helpers/temporary-property.js";
 import { runWatchTest } from "./test-helpers/watch-runner.js";
 
 void describe("Watch command error recovery", () => {
@@ -118,33 +119,34 @@ void describe("Watch command error recovery", () => {
         // Capture console output to verify error stats are displayed
         const logs: Array<string> = [];
         const originalLog = console.log;
-        console.log = (...args: Array<unknown>) => {
-            logs.push(args.map(String).join(" "));
-            originalLog(...args);
-        };
 
-        try {
-            await runWatchTest(
-                "watch-error-stats",
-                {
-                    websocketServer: false,
-                    statusServer: false,
-                    runtimeServer: false,
-                    verbose: true
-                },
-                async ({ testDir }) => {
-                    await sleep(200);
+        await withTemporaryProperty(
+            console,
+            "log",
+            (...args: Array<unknown>) => {
+                logs.push(args.map(String).join(" "));
+                originalLog(...args);
+            },
+            async () =>
+                runWatchTest(
+                    "watch-error-stats",
+                    {
+                        websocketServer: false,
+                        statusServer: false,
+                        runtimeServer: false,
+                        verbose: true
+                    },
+                    async ({ testDir }) => {
+                        await sleep(200);
 
-                    // Create some files that might error
-                    await writeFile(path.join(testDir, "bad1.gml"), "function broken {");
-                    await sleep(200);
-                    await writeFile(path.join(testDir, "good.gml"), "var x = 10;");
-                    await sleep(200);
-                }
-            );
-        } finally {
-            console.log = originalLog;
-        }
+                        // Create some files that might error
+                        await writeFile(path.join(testDir, "bad1.gml"), "function broken {");
+                        await sleep(200);
+                        await writeFile(path.join(testDir, "good.gml"), "var x = 10;");
+                        await sleep(200);
+                    }
+                )
+        );
 
         // Verify statistics were displayed
         const statsOutput = logs.join("\n");

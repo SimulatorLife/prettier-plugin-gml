@@ -12,6 +12,7 @@ import { after, before, describe, it } from "node:test";
 
 import { runWatchCommand } from "../src/commands/watch.js";
 import { findAvailablePort } from "./test-helpers/free-port.js";
+import { withTemporaryProperty } from "./test-helpers/temporary-property.js";
 
 void describe("Watch command quiet mode", () => {
     let testDir: string;
@@ -58,38 +59,37 @@ void describe("Watch command quiet mode", () => {
 
     void it("should reject both --verbose and --quiet together", async () => {
         const capturedErrors: Array<string> = [];
-        const originalError = console.error;
-
-        console.error = (message: string, ...args: Array<unknown>): void => {
-            capturedErrors.push(String(message));
-            if (args.length > 0) {
-                capturedErrors.push(...args.map(String));
-            }
-        };
-
-        const originalExit = process.exit;
         let exitCode: number | undefined;
 
-        // Mock process.exit to capture the exit code
-        process.exit = ((code?: number) => {
-            exitCode = code;
-            throw new Error("process.exit called");
-        }) as typeof process.exit;
-
-        try {
-            await runWatchCommand(testDir, {
-                extensions: [".gml"],
-                quiet: true,
-                verbose: true,
-                runtimeServer: false,
-                websocketServer: false
-            });
-        } catch {
-            // Expected to throw from mocked process.exit
-        } finally {
-            process.exit = originalExit;
-            console.error = originalError;
-        }
+        await withTemporaryProperty(
+            console,
+            "error",
+            (message: string, ...args: Array<unknown>): void => {
+                capturedErrors.push(String(message));
+                if (args.length > 0) {
+                    capturedErrors.push(...args.map(String));
+                }
+            },
+            () =>
+                withTemporaryProperty(
+                    process,
+                    "exit",
+                    ((code?: number) => {
+                        exitCode = code;
+                        throw new Error("process.exit called");
+                    }) as typeof process.exit,
+                    () =>
+                        runWatchCommand(testDir, {
+                            extensions: [".gml"],
+                            quiet: true,
+                            verbose: true,
+                            runtimeServer: false,
+                            websocketServer: false
+                        }).catch(() => {
+                            // Expected to throw from mocked process.exit
+                        })
+                )
+        );
 
         assert.strictEqual(exitCode, 1, "Should exit with code 1");
         assert.ok(

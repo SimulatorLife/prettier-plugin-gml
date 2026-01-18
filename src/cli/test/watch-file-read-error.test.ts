@@ -6,6 +6,7 @@ import path from "node:path";
 import { describe, it } from "node:test";
 
 import { runWatchCommand } from "../src/commands/watch.js";
+import { withTemporaryProperty } from "./test-helpers/temporary-property.js";
 
 void describe("Watch command file read errors", () => {
     void it("logs read failures even in quiet mode", async () => {
@@ -15,7 +16,6 @@ void describe("Watch command file read errors", () => {
 
         const abortController = new AbortController();
         const capturedErrors: Array<string> = [];
-        const originalError = console.error;
         let resolveErrorLogged: (() => void) | null = null;
         const errorLogged = new Promise<void>((resolve) => {
             resolveErrorLogged = resolve;
@@ -92,35 +92,37 @@ void describe("Watch command file read errors", () => {
             return watcher;
         };
 
-        console.error = (...args: Array<unknown>): void => {
-            capturedErrors.push(args.map(String).join(" "));
-            resolveErrorLogged?.();
-        };
+        await withTemporaryProperty(
+            console,
+            "error",
+            (...args: Array<unknown>): void => {
+                capturedErrors.push(args.map(String).join(" "));
+                resolveErrorLogged?.();
+            },
+            async () => {
+                const watchPromise = runWatchCommand(root, {
+                    extensions: [".gml"],
+                    quiet: true,
+                    verbose: false,
+                    runtimeServer: false,
+                    websocketServer: false,
+                    statusServer: false,
+                    abortSignal: abortController.signal,
+                    watchFactory
+                });
 
-        try {
-            const watchPromise = runWatchCommand(root, {
-                extensions: [".gml"],
-                quiet: true,
-                verbose: false,
-                runtimeServer: false,
-                websocketServer: false,
-                statusServer: false,
-                abortSignal: abortController.signal,
-                watchFactory
-            });
+                await new Promise((resolve) => setTimeout(resolve, 50));
 
-            await new Promise((resolve) => setTimeout(resolve, 50));
+                capturedListener?.("change", path.basename(problematicDir));
 
-            capturedListener?.("change", path.basename(problematicDir));
+                await Promise.race([errorLogged, new Promise((resolve) => setTimeout(resolve, 500))]);
 
-            await Promise.race([errorLogged, new Promise((resolve) => setTimeout(resolve, 500))]);
+                abortController.abort();
+                await watchPromise;
+            }
+        );
 
-            abortController.abort();
-            await watchPromise;
-        } finally {
-            console.error = originalError;
-            await rm(root, { recursive: true, force: true });
-        }
+        await rm(root, { recursive: true, force: true });
 
         assert.ok(
             capturedErrors.some((line) => line.includes("Error reading dir-as-file.gml")),

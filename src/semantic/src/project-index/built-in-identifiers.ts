@@ -52,7 +52,7 @@ function areMtimesEquivalent(cachedMtime, currentMtime) {
     return Core.areNumbersApproximatelyEqual(cachedMtime, currentMtime);
 }
 
-export async function loadBuiltInIdentifiers(
+export function loadBuiltInIdentifiers(
     fsFacade: Required<Pick<ProjectIndexFsFacade, "readFile" | "stat">> = defaultFsFacade,
     metrics = null,
     options: any = {}
@@ -60,43 +60,43 @@ export async function loadBuiltInIdentifiers(
     const { fallbackMessage, ...guardOptions } = options ?? {};
     const { signal, ensureNotAborted } = createProjectIndexAbortGuard(guardOptions, { fallbackMessage });
 
-    const currentMtime = await Core.getFileMtime(fsFacade, GML_IDENTIFIER_FILE_PATH, { signal });
-    ensureNotAborted();
-    const cached = cachedBuiltInIdentifiers;
-    const cachedMtime = cached?.metadata?.mtimeMs ?? null;
-
-    if (cached && areMtimesEquivalent(cachedMtime, currentMtime)) {
-        metrics?.caches?.recordHit("builtInIdentifiers");
-        return cached;
-    }
-
-    if (cached) {
-        metrics?.caches?.recordStale("builtInIdentifiers");
-    } else {
-        metrics?.caches?.recordMiss("builtInIdentifiers");
-    }
-
-    let names = new Set();
-
-    try {
-        const rawContents = await fsFacade.readFile(GML_IDENTIFIER_FILE_PATH, "utf8");
+    return Core.getFileMtime(fsFacade, GML_IDENTIFIER_FILE_PATH, { signal }).then((currentMtime) => {
         ensureNotAborted();
-        names = parseBuiltInIdentifierNames(rawContents);
-    } catch {
-        // Built-in identifier metadata ships with the formatter bundle; if the
-        // file is missing or unreadable we intentionally degrade to an empty
-        // set rather than aborting project indexing. That keeps the CLI usable
-        // when installations are partially upgraded or when read permissions
-        // are restricted, and the metrics recorder above still notes the cache
-        // miss for observability.
-    }
+        const cached = cachedBuiltInIdentifiers;
+        const cachedMtime = cached?.metadata?.mtimeMs ?? null;
 
-    cachedBuiltInIdentifiers = {
-        metadata: { mtimeMs: currentMtime },
-        names
-    };
+        if (cached && areMtimesEquivalent(cachedMtime, currentMtime)) {
+            metrics?.caches?.recordHit("builtInIdentifiers");
+            return cached;
+        }
 
-    return cachedBuiltInIdentifiers;
+        if (cached) {
+            metrics?.caches?.recordStale("builtInIdentifiers");
+        } else {
+            metrics?.caches?.recordMiss("builtInIdentifiers");
+        }
+
+        return fsFacade
+            .readFile(GML_IDENTIFIER_FILE_PATH, "utf8")
+            .then((rawContents) => {
+                ensureNotAborted();
+                const names = parseBuiltInIdentifierNames(rawContents);
+                const updated = {
+                    metadata: { mtimeMs: currentMtime },
+                    names
+                };
+                cachedBuiltInIdentifiers = updated;
+                return updated;
+            })
+            .catch(() => {
+                const updated = {
+                    metadata: { mtimeMs: currentMtime },
+                    names: new Set<string>()
+                };
+                cachedBuiltInIdentifiers = updated;
+                return updated;
+            });
+    });
 }
 
 export { GML_IDENTIFIER_FILE_PATH as __BUILT_IN_IDENTIFIER_PATH_FOR_TESTS };

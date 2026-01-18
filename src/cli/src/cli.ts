@@ -162,7 +162,6 @@ function createFormattingCacheKey(data: string, formattingOptions: PrettierOptio
 const WRAPPER_DIRECTORY = path.dirname(fileURLToPath(import.meta.url));
 const PLUGIN_PATH = resolveCliPluginEntryPoint();
 const IGNORE_PATH = path.resolve(WRAPPER_DIRECTORY, ".prettierignore");
-let initialWorkingDirectory = path.resolve(process.cwd());
 
 const GML_EXTENSION = ".gml";
 
@@ -237,7 +236,7 @@ function createSampleLimitState({ getDefaultLimit, resolveLimit }) {
 
 function formatPathForDisplay(targetPath) {
     const resolvedTarget = path.resolve(targetPath);
-    const resolvedCwd = initialWorkingDirectory;
+    const resolvedCwd = process.cwd();
     const relativePath = path.relative(resolvedCwd, resolvedTarget);
 
     if (resolvedTarget === resolvedCwd) {
@@ -477,13 +476,11 @@ export async function runCliTestCommand({ argv = [], env = {}, cwd }: RunCliTest
     }
 
     const originalCwd = process.cwd();
-    const originalInitialWorkingDirectory = initialWorkingDirectory;
     const normalizedCwd =
         typeof cwd === "string" ? cwd : typeof cwd?.toString === "function" ? cwd.toString() : undefined;
     if (normalizedCwd) {
         process.chdir(normalizedCwd);
     }
-    initialWorkingDirectory = process.cwd();
 
     const capturedStdout: Array<string> = [];
     const capturedStderr: Array<string> = [];
@@ -534,7 +531,6 @@ export async function runCliTestCommand({ argv = [], env = {}, cwd }: RunCliTest
     } finally {
         process.exit = originalExit;
         process.exitCode = 0;
-        initialWorkingDirectory = originalInitialWorkingDirectory;
         process.stdout.write = originalStdoutWrite;
         process.stderr.write = originalStderrWrite;
 
@@ -1188,7 +1184,7 @@ async function shouldSkipDirectory(directory, activeIgnorePaths = []) {
  */
 function resolveIgnoreSearchBounds(directory) {
     const resolvedDirectory = path.resolve(directory);
-    const resolvedWorkingDirectory = initialWorkingDirectory;
+    const resolvedWorkingDirectory = process.cwd();
     const shouldLimitToWorkingDirectory = isPathInside(resolvedDirectory, resolvedWorkingDirectory);
 
     return {
@@ -1391,14 +1387,14 @@ async function resolveTargetStats(
                         `Did you mean to run a command? If so, the command '${inputToCheck}' is not recognized.`,
                         'Run "prettier-plugin-gml --help" to see available commands.',
                         "If you intended to format a file or directory, verify the path exists relative",
-                        `to the current working directory (${initialWorkingDirectory}) or provide an absolute path.`
+                        `to the current working directory (${process.cwd()}) or provide an absolute path.`
                     ];
                     return guidanceParts.join(" ");
                 }
 
                 const guidanceParts = [
                     "Verify the path exists relative to the current working directory",
-                    `(${initialWorkingDirectory}) or provide an absolute path.`,
+                    `(${process.cwd()}) or provide an absolute path.`,
                     'Run "prettier-plugin-gml --help" to review available commands and usage examples.'
                 ];
 

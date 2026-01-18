@@ -6,6 +6,7 @@ import { describe, it } from "node:test";
 import { setTimeout as sleep } from "node:timers/promises";
 
 import { createExtensionMatcher, createWatchCommand } from "../src/commands/watch.js";
+import { withTemporaryProperty } from "./test-helpers/temporary-property.js";
 
 void describe("watch command", () => {
     void it("should create a command instance with correct configuration", () => {
@@ -55,26 +56,28 @@ void describe("watch command integration", () => {
         // We expect the command to exit with code 1
         // Since we can't easily test process.exit in the current setup,
         // we'll just verify the function handles the error
-        const originalExit = process.exit;
         const exitCodeHolder = { code: null };
 
-        process.exit = (code) => {
-            exitCodeHolder.code = code;
-            throw new Error(`process.exit called with code ${code}`);
-        };
-
-        try {
-            await runWatchCommand(nonExistentPath, {
-                extensions: [".gml"],
-                polling: false,
-                pollingInterval: 1000,
-                verbose: false
-            });
-        } catch (error) {
-            assert.ok(error.message.includes("process.exit called"), "Should call process.exit");
-        } finally {
-            process.exit = originalExit;
-        }
+        await withTemporaryProperty(
+            process,
+            "exit",
+            (code?: number) => {
+                exitCodeHolder.code = code;
+                throw new Error(`process.exit called with code ${code}`);
+            },
+            async () => {
+                try {
+                    await runWatchCommand(nonExistentPath, {
+                        extensions: [".gml"],
+                        polling: false,
+                        pollingInterval: 1000,
+                        verbose: false
+                    });
+                } catch (error) {
+                    assert.ok(error.message.includes("process.exit called"), "Should call process.exit");
+                }
+            }
+        );
 
         assert.equal(exitCodeHolder.code, 1, "Should exit with code 1");
     });
