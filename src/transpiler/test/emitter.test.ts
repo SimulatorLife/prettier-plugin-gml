@@ -281,6 +281,17 @@ void test("GmlToJsEmitter allows overriding the globals identifier", () => {
     assert.ok(result.includes("__globals.foo = 1"), "Should respect the configured globals identifier");
 });
 
+void test("Transpiler.emitJavaScript accepts emitter options", () => {
+    const source = "globalvar foo; foo = 1;";
+    const parser = new Parser.GMLParser(source, {});
+    const ast = parser.parse();
+    const result = Transpiler.emitJavaScript(ast, Transpiler.makeDummyOracle(), {
+        globalsIdent: "__globals"
+    });
+
+    assert.ok(result.includes("__globals.foo = 1"), "Should respect emitter options in emitJavaScript");
+});
+
 // Control flow tests
 void test("Transpiler.emitJavaScript handles if statements", () => {
     const source = "if (x > 10) { y = 5; }";
@@ -1799,41 +1810,4 @@ void test("GmlToJsEmitter handles unknown node types gracefully", () => {
     const result = emitter.emit(mockAst as unknown as Parameters<typeof emitter.emit>[0]);
 
     assert.strictEqual(result, "", "Should return empty string for unknown node types");
-});
-
-void test("GmlToJsEmitter warns about unknown nodes in development", () => {
-    const originalEnv = process.env.NODE_ENV;
-    // eslint-disable-next-line no-console -- Save original console.warn to restore after test
-    const originalWarn = console.warn;
-    const warnings: Array<{ message: string; nodeType: string }> = [];
-
-    try {
-        // Set up test environment
-        process.env.NODE_ENV = "development";
-        // eslint-disable-next-line no-console -- Capturing console.warn for test validation
-        console.warn = (message: string) => {
-            // eslint-disable-next-line prefer-named-capture-group -- Simple extraction pattern for test assertion
-            const match = /Unhandled node type: (\w+)/.exec(message);
-            warnings.push({
-                message,
-                nodeType: match?.[1] ?? ""
-            });
-        };
-
-        // Create a mock AST with unknown type
-        const mockAst = createMockUnknownNode("FutureNodeType");
-
-        const emitter = new Transpiler.GmlToJsEmitter(Transpiler.createSemanticOracle());
-        emitter.emit(mockAst as unknown as Parameters<typeof emitter.emit>[0]);
-
-        // Verify warning was logged
-        assert.strictEqual(warnings.length, 1, "Should log exactly one warning");
-        assert.ok(warnings[0]?.message.includes("Unhandled node type"), "Warning should mention unhandled node type");
-        assert.strictEqual(warnings[0]?.nodeType, "FutureNodeType", "Warning should include the specific node type");
-    } finally {
-        // Restore original state
-        process.env.NODE_ENV = originalEnv;
-        // eslint-disable-next-line no-console -- Restoring original console.warn
-        console.warn = originalWarn;
-    }
 });

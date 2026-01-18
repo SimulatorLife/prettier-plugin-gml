@@ -46,11 +46,7 @@ function emitBuiltinCall(name: string, args: ReadonlyArray<string>): string {
 export const builtInFunctions: Record<string, BuiltInEmitter> = new Proxy({} as Record<string, BuiltInEmitter>, {
     get(_target, prop: string): BuiltInEmitter | undefined {
         const builtins = getBuiltinNames();
-        if (builtins.has(prop)) {
-            return (args: ReadonlyArray<string>) => emitBuiltinCall(prop, args);
-        }
-        // eslint-disable-next-line consistent-return -- Returning undefined for non-builtin names is intentional
-        return undefined;
+        return builtins.has(prop) ? (args: ReadonlyArray<string>) => emitBuiltinCall(prop, args) : undefined;
     },
     has(_target, prop: string): boolean {
         return getBuiltinNames().has(prop);
@@ -60,16 +56,14 @@ export const builtInFunctions: Record<string, BuiltInEmitter> = new Proxy({} as 
     },
     getOwnPropertyDescriptor(_target, prop: string): PropertyDescriptor | undefined {
         const builtins = getBuiltinNames();
-        if (builtins.has(prop)) {
-            return {
-                enumerable: true,
-                configurable: true,
-                writable: false,
-                value: (args: ReadonlyArray<string>) => emitBuiltinCall(prop, args)
-            };
-        }
-        // eslint-disable-next-line consistent-return -- Returning undefined for non-builtin names is intentional
-        return undefined;
+        return builtins.has(prop)
+            ? {
+                  enumerable: true,
+                  configurable: true,
+                  writable: false,
+                  value: (args: ReadonlyArray<string>) => emitBuiltinCall(prop, args)
+              }
+            : undefined;
     }
 });
 

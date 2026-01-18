@@ -1,6 +1,7 @@
 import { strictEqual } from "node:assert";
 import { test } from "node:test";
 
+import type { GmlNode } from "../src/emitter/ast.js";
 import { lowerEnumDeclaration } from "../src/emitter/enum-lowering.js";
 
 interface MockMember {
@@ -10,6 +11,7 @@ interface MockMember {
 
 const mockResolveName = (member: MockMember): string => member.name;
 const customResolver = (member: MockMember): string => `PREFIX_${member.name}`;
+const visitNode = String;
 
 void test("lowerEnumDeclaration generates correct structure", () => {
     const result = lowerEnumDeclaration(
@@ -18,7 +20,7 @@ void test("lowerEnumDeclaration generates correct structure", () => {
             { name: "RED", initializer: null },
             { name: "GREEN", initializer: null }
         ],
-        String,
+        visitNode,
         mockResolveName
     );
 
@@ -37,7 +39,7 @@ void test("lowerEnumDeclaration handles auto-incremented values", () => {
             { name: "WALKING", initializer: null },
             { name: "RUNNING", initializer: null }
         ],
-        String,
+        visitNode,
         mockResolveName
     );
 
@@ -55,7 +57,7 @@ void test("lowerEnumDeclaration handles explicit numeric initializers", () => {
             { name: "LOW", initializer: 1 },
             { name: "HIGH", initializer: 10 }
         ],
-        String,
+        visitNode,
         mockResolveName
     );
 
@@ -72,7 +74,7 @@ void test("lowerEnumDeclaration handles explicit string initializers", () => {
             { name: "ENTER", initializer: "enter" },
             { name: "ESC", initializer: "escape" }
         ],
-        String,
+        visitNode,
         mockResolveName
     );
 
@@ -83,7 +85,7 @@ void test("lowerEnumDeclaration handles explicit string initializers", () => {
 void test("lowerEnumDeclaration handles expression initializers", () => {
     const result = lowerEnumDeclaration(
         "Computed",
-        [{ name: "TWO", initializer: { type: "BinaryExpression" } as unknown as number }],
+        [{ name: "TWO", initializer: { type: "BinaryExpression" } as unknown as GmlNode }],
         () => "(1 + 1)",
         mockResolveName
     );
@@ -100,7 +102,7 @@ void test("lowerEnumDeclaration handles mixed auto and explicit values", () => {
             { name: "SECOND", initializer: 10 },
             { name: "THIRD", initializer: null }
         ],
-        String,
+        visitNode,
         mockResolveName
     );
 
@@ -112,7 +114,7 @@ void test("lowerEnumDeclaration handles mixed auto and explicit values", () => {
 });
 
 void test("lowerEnumDeclaration handles empty member list", () => {
-    const result = lowerEnumDeclaration("Empty", [], String, mockResolveName);
+    const result = lowerEnumDeclaration("Empty", [], visitNode, mockResolveName);
 
     strictEqual(result.includes("const Empty = (() => {"), true);
     strictEqual(result.includes("const __enum = {};"), true);
@@ -123,7 +125,7 @@ void test("lowerEnumDeclaration preserves enum name", () => {
     const result = lowerEnumDeclaration(
         "MyCustomEnum",
         [{ name: "VALUE", initializer: null }],
-        String,
+        visitNode,
         mockResolveName
     );
 
@@ -131,7 +133,7 @@ void test("lowerEnumDeclaration preserves enum name", () => {
 });
 
 void test("lowerEnumDeclaration uses custom resolver for member names", () => {
-    const result = lowerEnumDeclaration("Test", [{ name: "ITEM", initializer: null }], String, customResolver);
+    const result = lowerEnumDeclaration("Test", [{ name: "ITEM", initializer: null }], visitNode, customResolver);
 
     strictEqual(result.includes("__enum.PREFIX_ITEM = __value;"), true);
 });

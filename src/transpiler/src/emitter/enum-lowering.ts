@@ -6,7 +6,7 @@
  * JavaScript IIFE pattern that creates an enum-like object.
  */
 
-import type { EnumMemberNode } from "./ast.js";
+import type { EnumMemberNode, GmlNode } from "./ast.js";
 
 /**
  * Generate JavaScript code that lowers a GML enum declaration.
@@ -45,19 +45,20 @@ import type { EnumMemberNode } from "./ast.js";
 export function lowerEnumDeclaration(
     name: string,
     members: ReadonlyArray<EnumMemberNode>,
-    visitNode: (node: unknown) => string,
+    visitNode: (node: GmlNode) => string,
     resolveEnumMemberName: (member: EnumMemberNode) => string
 ): string {
     const lines = [`const ${name} = (() => {`, "    const __enum = {};", "    let __value = -1;"];
 
     for (const member of members ?? []) {
         const memberName = resolveEnumMemberName(member);
-        if (member.initializer !== undefined && member.initializer !== null) {
-            const initializer =
-                typeof member.initializer === "string" || typeof member.initializer === "number"
-                    ? String(member.initializer)
-                    : visitNode(member.initializer);
-            lines.push(`    __value = ${initializer};`);
+        const initializer = member.initializer;
+        if (initializer !== undefined && initializer !== null) {
+            const value =
+                typeof initializer === "string" || typeof initializer === "number"
+                    ? String(initializer)
+                    : visitNode(initializer);
+            lines.push(`    __value = ${value};`);
         } else {
             lines.push("    __value += 1;");
         }
