@@ -2,8 +2,8 @@ import assert from "node:assert/strict";
 import { describe, it } from "node:test";
 
 import {
-    resolvePluginEntryPoint,
-    resolvePluginEntryPoint as resolveCliPluginEntryPoint
+    resolvePluginEntryPoint as resolveCliPluginEntryPoint,
+    resolvePluginEntryPoint
 } from "../src/plugin-runtime/entry-point.js";
 
 void describe("resolveCliPluginEntryPoint", () => {

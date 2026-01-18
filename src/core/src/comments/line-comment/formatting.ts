@@ -1,11 +1,11 @@
+import { getCommentValue } from "../comment-utils.js";
+import { applyJsDocReplacements } from "../doc-comment/service/type-normalization.js";
+import { evaluateBannerCommentPolicy, isBelowBannerSlashThreshold } from "./banner-comment-policy.js";
 import {
     DEFAULT_COMMENTED_OUT_CODE_PATTERNS,
     DEFAULT_LINE_COMMENT_OPTIONS,
     normalizeLineCommentOptions
 } from "./options.js";
-import { evaluateBannerCommentPolicy, isBelowBannerSlashThreshold } from "./banner-comment-policy.js";
-import { applyJsDocReplacements } from "../doc-comment/service/type-normalization.js";
-import { getCommentValue } from "../comment-utils.js";
 import { isNonEmptyString, isObjectLike, isRegExpLike, toTrimmedString } from "./utils.js";
 
 // BANNER DECORATION PATTERN DESIGN:

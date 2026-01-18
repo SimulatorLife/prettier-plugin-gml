@@ -1,10 +1,9 @@
 import fs from "node:fs";
 
-import { resolveBundledResourcePath, resolveBundledResourceUrl } from "./resource-locator.js";
-
 import { noop } from "../utils/function.js";
 import { isObjectLike, isPlainObject } from "../utils/object.js";
 import { getNonEmptyString } from "../utils/string.js";
+import { resolveBundledResourcePath, resolveBundledResourceUrl } from "./resource-locator.js";
 
 export const GML_IDENTIFIER_METADATA_URL = resolveBundledResourceUrl("gml-identifiers.json");
 

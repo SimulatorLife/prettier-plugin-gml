@@ -5,10 +5,11 @@
  * to WebSocket patch delivery.
  */
 
-import { describe, it, before, after } from "node:test";
 import assert from "node:assert";
-import { writeFile, mkdir, rm } from "node:fs/promises";
+import { mkdir, rm, writeFile } from "node:fs/promises";
 import path from "node:path";
+import { after, before, describe, it } from "node:test";
+
 import { runWatchCommand } from "../src/commands/watch.js";
 import { findAvailablePort } from "./test-helpers/free-port.js";
 import { connectToHotReloadWebSocket, type WebSocketPatchStream } from "./test-helpers/websocket-client.js";
@@ -16,7 +17,7 @@ import { connectToHotReloadWebSocket, type WebSocketPatchStream } from "./test-h
 void describe("Hot reload integration loop", () => {
     let testDir;
     let testFile;
-    let websocketContext: WebSocketPatchStream | null = null;
+    let websocketContextPromise: Promise<WebSocketPatchStream> | null = null;
 
     before(async () => {
         testDir = path.join(process.cwd(), "tmp", `test-watch-${Date.now()}`);
@@ -26,10 +27,18 @@ void describe("Hot reload integration loop", () => {
     });
 
     after(async () => {
-        if (websocketContext) {
-            await websocketContext.disconnect();
-            websocketContext = null;
+        const contextPromise = websocketContextPromise;
+        websocketContextPromise = null;
+
+        if (contextPromise !== null) {
+            try {
+                const context = await contextPromise;
+                await context.disconnect();
+            } catch {
+                // Ignore cleanup failures; tests already manage log output
+            }
         }
+
         if (testDir) {
             await rm(testDir, { recursive: true, force: true });
         }
@@ -51,11 +60,14 @@ void describe("Hot reload integration loop", () => {
 
         await new Promise((resolve) => setTimeout(resolve, 1000));
 
-        websocketContext = await connectToHotReloadWebSocket(`ws://127.0.0.1:${websocketPort}`, {
+        const contextPromise = connectToHotReloadWebSocket(`ws://127.0.0.1:${websocketPort}`, {
             onParseError: (error) => {
                 console.error("Failed to parse patch:", error);
             }
         });
+
+        websocketContextPromise = contextPromise;
+        const context = await contextPromise;
 
         await writeFile(testFile, "// Updated content\nvar y = 20;", "utf8");
 
@@ -69,7 +81,6 @@ void describe("Hot reload integration loop", () => {
             // Expected when aborting
         }
 
-        const context = websocketContext;
         assert.ok(context, "WebSocket client should be connected");
         assert.ok(
             context.receivedPatches.length > 0,

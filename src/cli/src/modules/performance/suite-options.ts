@@ -37,9 +37,9 @@ function isPerformanceThroughputSuite(name: PerformanceSuite) {
 }
 
 export {
-    PerformanceSuiteName,
-    type PerformanceSuite,
     formatPerformanceSuiteList,
+    isPerformanceThroughputSuite,
     normalizePerformanceSuiteName,
-    isPerformanceThroughputSuite
+    type PerformanceSuite,
+    PerformanceSuiteName
 };

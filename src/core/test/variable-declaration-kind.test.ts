@@ -1,12 +1,12 @@
 import assert from "node:assert/strict";
 import { describe, it } from "node:test";
-import type { VariableDeclarationNode } from "../src/ast/types.js";
 
 import {
     getVariableDeclarationKind,
     isVariableDeclarationOfKind,
     isVarVariableDeclaration
 } from "../src/ast/node-helpers.js";
+import type { VariableDeclarationNode } from "../src/ast/types.js";
 
 void describe("variable declaration helpers", () => {
     void describe("getVariableDeclarationKind", () => {

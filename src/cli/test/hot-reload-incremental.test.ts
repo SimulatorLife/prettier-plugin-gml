@@ -5,20 +5,20 @@
  * retranspiled and patched.
  */
 
-import { describe, it, before, after } from "node:test";
 import assert from "node:assert";
-import { writeFile, mkdir, rm } from "node:fs/promises";
+import { mkdir, rm, writeFile } from "node:fs/promises";
 import path from "node:path";
-import { connectToHotReloadWebSocket, type WebSocketPatchStream } from "./test-helpers/websocket-client.js";
+import { after, before, describe, it } from "node:test";
 
 import { runWatchCommand } from "../src/commands/watch.js";
 import { findAvailablePort } from "./test-helpers/free-port.js";
+import { connectToHotReloadWebSocket, type WebSocketPatchStream } from "./test-helpers/websocket-client.js";
 
 void describe("Hot reload incremental transpilation", () => {
     let testDir: string;
     let baseFile: string;
     let dependentFile: string;
-    let websocketContext: WebSocketPatchStream | null = null;
+    let websocketContextPromise: Promise<WebSocketPatchStream> | null = null;
 
     before(async () => {
         testDir = path.join(process.cwd(), "tmp", `test-incremental-${Date.now()}`);
@@ -47,10 +47,18 @@ void describe("Hot reload incremental transpilation", () => {
     });
 
     after(async () => {
-        if (websocketContext) {
-            await websocketContext.disconnect();
-            websocketContext = null;
+        const contextPromise = websocketContextPromise;
+        websocketContextPromise = null;
+
+        if (contextPromise !== null) {
+            try {
+                const context = await contextPromise;
+                await context.disconnect();
+            } catch {
+                // Ignore cleanup failures; tests already handle connection lifecycle
+            }
         }
+
         if (testDir) {
             await rm(testDir, { recursive: true, force: true });
         }
@@ -76,7 +84,9 @@ void describe("Hot reload incremental transpilation", () => {
         await new Promise((resolve) => setTimeout(resolve, 1000));
 
         // Connect WebSocket client
-        websocketContext = await connectToHotReloadWebSocket(`ws://127.0.0.1:${websocketPort}`);
+        const contextPromise = connectToHotReloadWebSocket(`ws://127.0.0.1:${websocketPort}`);
+        websocketContextPromise = contextPromise;
+        const context = await contextPromise;
 
         // Modify the base script
         await writeFile(
@@ -102,7 +112,6 @@ void describe("Hot reload incremental transpilation", () => {
         // Verify that we received patches for both the base file and the dependent file
         // The base file should be transpiled because it changed
         // The dependent file should be retranspiled because it depends on base_script
-        const context = websocketContext;
         assert.ok(context, "WebSocket client should be connected");
         const basePatches = context.receivedPatches.filter((p) => p.id.includes("base_script"));
         const dependentPatches = context.receivedPatches.filter((p) => p.id.includes("dependent_script"));

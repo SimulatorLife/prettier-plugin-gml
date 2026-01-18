@@ -1,5 +1,6 @@
 import assert from "node:assert/strict";
 import { test } from "node:test";
+
 import { Plugin } from "../src/index.js";
 
 void test("omits blank lines between nested and enclosing block braces", async () => {

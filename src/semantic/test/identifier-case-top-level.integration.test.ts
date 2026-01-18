@@ -5,12 +5,12 @@ import { fileURLToPath } from "node:url";
 
 import prettier from "prettier";
 
-import {
-    setIdentifierCaseDryRunContext,
-    clearIdentifierCaseDryRunContexts
-} from "../src/identifier-case/identifier-case-context.js";
 import { COLLISION_CONFLICT_CODE } from "../src/identifier-case/common.js";
-import { getIdentifierCaseOptionStore, clearIdentifierCaseOptionStore } from "../src/identifier-case/option-store.js";
+import {
+    clearIdentifierCaseDryRunContexts,
+    setIdentifierCaseDryRunContext
+} from "../src/identifier-case/identifier-case-context.js";
+import { clearIdentifierCaseOptionStore, getIdentifierCaseOptionStore } from "../src/identifier-case/option-store.js";
 import {
     createIdentifierCaseProject,
     resolveIdentifierCaseFixturesDirectory,

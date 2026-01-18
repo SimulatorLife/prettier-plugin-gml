@@ -1,10 +1,10 @@
 import { Core } from "@gml-modules/core";
-import { bootstrapIdentifierCaseProjectIndex } from "./project-index-gateway.js";
-import { prepareIdentifierCasePlan, captureIdentifierCasePlanSnapshot } from "./plan-service.js";
-import { type IdentifierCasePlanSnapshot } from "./types.js";
 
-import { setIdentifierCaseOption, deleteIdentifierCaseOption } from "./option-store.js";
 import { warnWithReason } from "./logger.js";
+import { deleteIdentifierCaseOption, setIdentifierCaseOption } from "./option-store.js";
+import { captureIdentifierCasePlanSnapshot, prepareIdentifierCasePlan } from "./plan-service.js";
+import { bootstrapIdentifierCaseProjectIndex } from "./project-index-gateway.js";
+import { type IdentifierCasePlanSnapshot } from "./types.js";
 
 // Use the canonical Core namespace for helpers per AGENTS.md
 // (avoid destructuring from the package namespace)

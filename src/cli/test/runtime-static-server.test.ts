@@ -1,9 +1,9 @@
-import { describe, it } from "node:test";
 import assert from "node:assert/strict";
-import { mkdtemp, rm, writeFile, chmod } from "node:fs/promises";
+import { chmod, mkdtemp, rm, writeFile } from "node:fs/promises";
+import net from "node:net";
 import os from "node:os";
 import path from "node:path";
-import net from "node:net";
+import { describe, it } from "node:test";
 
 import { startRuntimeStaticServer } from "../src/modules/runtime/server.js";
 

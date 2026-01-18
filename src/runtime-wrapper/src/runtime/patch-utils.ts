@@ -1,3 +1,5 @@
+import { resolveBuiltinConstants } from "./builtin-constants.js";
+import { areNumbersApproximatelyEqual, isErrorLike, isNonEmptyString } from "./runtime-core-helpers.js";
 import type {
     ApplyPatchResult,
     ClosurePatch,
@@ -11,8 +13,6 @@ import type {
     ScriptPatch,
     ShadowTestResult
 } from "./types.js";
-import { resolveBuiltinConstants } from "./builtin-constants.js";
-import { areNumbersApproximatelyEqual, isErrorLike, isNonEmptyString } from "./runtime-core-helpers.js";
 
 type RuntimeBindingGlobals = {
     JSON_game?: {

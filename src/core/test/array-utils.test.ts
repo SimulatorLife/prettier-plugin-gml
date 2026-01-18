@@ -5,7 +5,6 @@ import test from "node:test";
 // These tests intentionally rely on the strict variants so future refactors do
 // not reintroduce the legacy assertions. Behaviour has been revalidated via
 // `pnpm test src/shared/test/array-utils.test.js`.
-
 import {
     asArray,
     compactArray,

@@ -259,26 +259,28 @@ export function collectCommentNodes(root) {
             }
 
             const value = current[key];
-            if (value && typeof value === "object") {
-                // Fast path: non-array objects can be pushed directly. This optimization
-                // avoids the Array.isArray check and length enumeration overhead for the
-                // common case where a node property holds a single child object (e.g.,
-                // `node.expression` or `node.left`). Pushing these objects directly to
-                // the stack keeps the traversal loop tight and minimizes branch mispredictions,
-                // which matters when iterating over thousands of AST nodes during comment
-                // attachment or tree transformation passes.
-                if (!Array.isArray(value)) {
-                    stack.push(value);
-                    continue;
-                }
+            if (!value || typeof value !== "object") {
+                continue;
+            }
 
-                // Array path: enqueue all object children
-                const { length } = value;
-                for (let index = 0; index < length; index += 1) {
-                    const item = value[index];
-                    if (item !== null && typeof item === "object") {
-                        stack.push(item);
-                    }
+            // Fast path: non-array objects can be pushed directly. This optimization
+            // avoids the Array.isArray check and length enumeration overhead for the
+            // common case where a node property holds a single child object (e.g.,
+            // `node.expression` or `node.left`). Pushing these objects directly to
+            // the stack keeps the traversal loop tight and minimizes branch mispredictions,
+            // which matters when iterating over thousands of AST nodes during comment
+            // attachment or tree transformation passes.
+            if (!Array.isArray(value)) {
+                stack.push(value);
+                continue;
+            }
+
+            // Array path: enqueue all object children
+            const { length } = value;
+            for (let index = 0; index < length; index += 1) {
+                const item = value[index];
+                if (item !== null && typeof item === "object") {
+                    stack.push(item);
                 }
             }
         }

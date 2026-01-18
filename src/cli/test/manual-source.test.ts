@@ -5,6 +5,7 @@ import path from "node:path";
 import test from "node:test";
 
 import { Core } from "@gml-modules/core";
+
 import {
     describeManualSource,
     getManualRootMetadataPath,

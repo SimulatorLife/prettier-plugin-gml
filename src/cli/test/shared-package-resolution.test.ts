@@ -1,9 +1,10 @@
-import { describe, it } from "node:test";
 import assert from "node:assert/strict";
-import path from "node:path";
 import fs from "node:fs/promises";
 import os from "node:os";
-import { resolveCandidateRoot, readPackageJson, resolvePackageJsonPath } from "../src/shared/package-resolution.js";
+import path from "node:path";
+import { describe, it } from "node:test";
+
+import { readPackageJson, resolveCandidateRoot, resolvePackageJsonPath } from "../src/shared/package-resolution.js";
 
 describe("shared package resolution utilities", () => {
     it("resolveCandidateRoot returns null for falsy inputs", () => {

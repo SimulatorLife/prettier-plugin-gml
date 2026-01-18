@@ -21,6 +21,7 @@
  */
 
 import { Core, type MutableGameMakerAstNode } from "@gml-modules/core";
+
 import type { ParserTransform } from "./functional-transform.js";
 
 type NormalizeDataStructureAccessorsOptions = {

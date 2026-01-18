@@ -1,6 +1,5 @@
 import { asArray, compactArray, isNonEmptyArray, isNonEmptyTrimmedString, isUndefinedSentinel } from "../utils.js";
 import { parseDocCommentMetadata } from "./metadata.js";
-import { normalizeDocCommentTypeAnnotations } from "./type-normalization.js";
 import {
     docParamNamesLooselyEqual,
     getCanonicalParamNameFromText,
@@ -16,12 +15,13 @@ import {
     getIdentifierFromParameterNode,
     getParameterDocInfo,
     getSourceTextForNode,
+    ImplicitArgumentDocEntry,
+    preferredParamDocNamesByNode,
     shouldOmitUndefinedDefaultForFunctionNode,
     suppressedImplicitDocCanonicalByNode,
-    preferredParamDocNamesByNode,
-    SyntheticDocGenerationOptions,
-    ImplicitArgumentDocEntry
+    SyntheticDocGenerationOptions
 } from "./synthetic-helpers.js";
+import { normalizeDocCommentTypeAnnotations } from "./type-normalization.js";
 
 const STRING_TYPE = "string";
 const NUMBER_TYPE = "number";
@@ -370,29 +370,10 @@ function computeInitialSuppressedCanonicals(
                     canonicalOrdinal &&
                     canonicalParamName &&
                     canonicalOrdinal !== canonicalParamName &&
-                    !paramMetadataByCanonical.has(canonicalParamName)
+                    !paramMetadataByCanonical.has(canonicalParamName) &&
+                    shouldSuppressImplicitOrdinal(canonicalOrdinal, paramIndex, node, options, aliasByIndex)
                 ) {
-                    const canonicalOrdinalMatchesDeclaredParam =
-                        Array.isArray(node?.params) &&
-                        node.params.some((candidate: any, candidateIndex: number) => {
-                            if (candidateIndex === paramIndex) {
-                                return false;
-                            }
-
-                            const candidateInfo = getParameterDocInfo(candidate, node, options);
-                            const candidateCanonical = candidateInfo?.name
-                                ? getCanonicalParamNameFromText(candidateInfo.name)
-                                : null;
-
-                            return candidateCanonical === canonicalOrdinal;
-                        });
-
-                    const canonicalOrdinalMatchesImplicitAlias =
-                        aliasByIndex.size > 0 && Array.from(aliasByIndex.values()).includes(canonicalOrdinal);
-
-                    if (!canonicalOrdinalMatchesDeclaredParam && !canonicalOrdinalMatchesImplicitAlias) {
-                        suppressed.add(canonicalOrdinal);
-                    }
+                    suppressed.add(canonicalOrdinal);
                 }
             }
         }
@@ -404,6 +385,39 @@ function computeInitialSuppressedCanonicals(
     }
 
     return suppressed;
+}
+
+function shouldSuppressImplicitOrdinal(
+    canonicalOrdinal: string,
+    paramIndex: number,
+    node: any,
+    options: any,
+    aliasByIndex: Map<number, string>
+): boolean {
+    if (!canonicalOrdinal || !Array.isArray(node?.params)) {
+        return false;
+    }
+
+    const canonicalOrdinalMatchesDeclaredParam = node.params.some((candidate: unknown, candidateIndex: number) => {
+        const candidateInfo = getParameterDocInfo(candidate, node, options);
+        const candidateCanonical = candidateInfo?.name ? getCanonicalParamNameFromText(candidateInfo.name) : null;
+
+        return candidateIndex !== paramIndex && candidateCanonical === canonicalOrdinal;
+    });
+
+    if (canonicalOrdinalMatchesDeclaredParam) {
+        return false;
+    }
+
+    if (aliasByIndex.size > 0) {
+        for (const alias of aliasByIndex.values()) {
+            if (alias === canonicalOrdinal) {
+                return false;
+            }
+        }
+    }
+
+    return true;
 }
 
 function appendImplicitFallbackDocLines(

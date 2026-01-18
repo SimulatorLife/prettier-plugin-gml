@@ -252,8 +252,8 @@ function isIteratorUpdateMatching(update, iteratorName) {
 }
 
 export {
-    DEFAULT_SIZE_RETRIEVAL_FUNCTION_SUFFIXES,
     buildCachedSizeVariableName,
+    DEFAULT_SIZE_RETRIEVAL_FUNCTION_SUFFIXES,
     getLoopLengthHoistInfo,
     getSizeRetrievalFunctionSuffixes
 };

@@ -1,7 +1,8 @@
 /**
  * Ensures optional function parameters with implicit `undefined` defaults are materialized before downstream transforms run.
  */
-import { Core, type MutableGameMakerAstNode, type GameMakerAstNode } from "@gml-modules/core";
+import { Core, type GameMakerAstNode, type MutableGameMakerAstNode } from "@gml-modules/core";
+
 import type { ParserTransform } from "./functional-transform.js";
 
 type PreprocessFunctionArgumentDefaultsTransformOptions = Record<string, never>;
@@ -227,7 +228,7 @@ export class PreprocessFunctionArgumentDefaultsTransform
         // function body contains unrelated statements but no argument_count
         // fallback matches.
 
-        matches.sort((a, b) => {
+        const orderedMatches = matches.toSorted((a, b) => {
             if (a.argumentIndex !== b.argumentIndex) {
                 return a.argumentIndex - b.argumentIndex;
             }
@@ -236,7 +237,7 @@ export class PreprocessFunctionArgumentDefaultsTransform
         });
 
         applyArgumentCountMatches({
-            matches,
+            matches: orderedMatches,
             params,
             node,
             statements,
@@ -249,7 +250,7 @@ export class PreprocessFunctionArgumentDefaultsTransform
         // function body no longer contains the redundant assignment/if.
         // This mirrors the behavior already applied for the var+if
         // condensation earlier and keeps the AST canonical.
-        for (const match of matches) {
+        for (const match of orderedMatches) {
             if (!match || !match.statementNode) {
                 continue;
             }
@@ -258,8 +259,9 @@ export class PreprocessFunctionArgumentDefaultsTransform
         }
 
         // Remove matched fallback statements in reverse order to keep indices stable.
-        const orderedRemovals = Array.from(statementsToRemove);
-        orderedRemovals.sort((a, b) => Core.getNodeStartIndex(b) - Core.getNodeStartIndex(a));
+        const orderedRemovals = Array.from(statementsToRemove).toSorted((a, b) => {
+            return Core.getNodeStartIndex(b) - Core.getNodeStartIndex(a);
+        });
 
         for (const removal of orderedRemovals) {
             const index = statements.indexOf(removal);
@@ -448,23 +450,9 @@ function finalizeTrailingUndefinedDefaults(params: Array<any>): boolean {
             if (!param) continue;
 
             if (param.type === "DefaultParameter") {
-                if (param.right == null) {
-                    if (seenExplicitDefaultToLeft) {
-                        param.right = {
-                            type: "Literal",
-                            value: "undefined"
-                        };
-                        param._featherMaterializedTrailingUndefined = true;
-                        param._featherMaterializedFromExplicitLeft = true;
-                        param._featherOptionalParameter = true;
-                        changed = true;
-                    }
-                } else {
-                    const isUndef = Core.isUndefinedSentinel(param.right);
-                    if (!isUndef) {
-                        seenExplicitDefaultToLeft = true;
-                    }
-                }
+                const result = processDefaultParameterTrailingUndefined(param, seenExplicitDefaultToLeft);
+                changed ||= result.changed;
+                seenExplicitDefaultToLeft = result.seenExplicit;
                 continue;
             }
 
@@ -636,24 +624,7 @@ function ensureTrailingOptionalParametersHaveUndefinedDefaults(params: Array<any
         }
 
         if (param.type === "DefaultParameter") {
-            try {
-                if (param.right != null) {
-                    const isUndef = Core.isUndefinedSentinel(param.right);
-                    if (!isUndef) {
-                        seenExplicitDefaultToLeft = true;
-                    }
-                }
-            } catch {
-                // Swallow sentinel-check errors to continue processing remaining parameters.
-                // REASON: Core.isUndefinedSentinel may throw if param.right has an unexpected
-                // shape or missing properties. Since this check is only used to track whether
-                // we've seen explicit (non-undefined) defaults to the left, failing on one
-                // parameter shouldn't prevent processing the rest of the parameter list.
-                // WHAT WOULD BREAK: Propagating the exception would abort the entire
-                // ensureTrailingOptionalParametersHaveUndefinedDefaults pass, leaving
-                // some trailing optional parameters without their required `= undefined`.
-            }
-
+            seenExplicitDefaultToLeft = determineExplicitDefaultFromDefaultParameter(param, seenExplicitDefaultToLeft);
             continue;
         }
 
@@ -811,6 +782,42 @@ function reconcileDocOptionality(node: MutableGameMakerAstNode, ast: MutableGame
         // the entire file, preventing default-parameter normalization and JSDoc
         // synthesis for all subsequent functions.
     }
+}
+
+function processDefaultParameterTrailingUndefined(param: any, seenExplicitDefaultToLeft: boolean) {
+    if (param.right == null) {
+        if (!seenExplicitDefaultToLeft) {
+            return { changed: false, seenExplicit: seenExplicitDefaultToLeft };
+        }
+
+        param.right = {
+            type: "Literal",
+            value: "undefined"
+        };
+        param._featherMaterializedTrailingUndefined = true;
+        param._featherMaterializedFromExplicitLeft = true;
+        param._featherOptionalParameter = true;
+
+        return { changed: true, seenExplicit: seenExplicitDefaultToLeft };
+    }
+
+    const isUndef = Core.isUndefinedSentinel(param.right);
+    return { changed: false, seenExplicit: seenExplicitDefaultToLeft || !isUndef };
+}
+
+function determineExplicitDefaultFromDefaultParameter(param: any, seenExplicitDefaultToLeft: boolean) {
+    try {
+        if (param.right != null) {
+            const isUndef = Core.isUndefinedSentinel(param.right);
+            if (!isUndef) {
+                return true;
+            }
+        }
+    } catch {
+        // Swallow sentinel-check errors to keep processing other parameters.
+    }
+
+    return seenExplicitDefaultToLeft;
 }
 
 function matchArgumentCountFallbackVarThenIf(varStatement, ifStatement) {
@@ -1261,7 +1268,7 @@ function collectImplicitArgumentReferences(functionNode: GameMakerAstNode) {
 
     if (!referencedIndices || referencedIndices.size === 0) return [];
 
-    const sorted = [...referencedIndices].sort((a, b) => a - b);
+    const sorted = [...referencedIndices].toSorted((a, b) => a - b);
     return sorted.map((index) => {
         const fallbackName = `argument${index}`;
         const alias = aliasByIndex.get(index);

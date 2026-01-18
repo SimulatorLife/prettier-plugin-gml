@@ -2,8 +2,8 @@
  * Tests for dependency tracker module.
  */
 
-import { describe, it } from "node:test";
 import assert from "node:assert/strict";
+import { describe, it } from "node:test";
 
 import { DependencyTracker } from "../src/modules/dependency-tracker.js";
 
@@ -14,7 +14,7 @@ describe("DependencyTracker", () => {
             tracker.registerFileDefines("scripts/player.gml", ["gml_Script_player_move", "gml_Script_player_jump"]);
 
             const defs = tracker.getFileDefinitions("scripts/player.gml");
-            assert.deepEqual([...defs].sort(), ["gml_Script_player_jump", "gml_Script_player_move"]);
+            assert.deepEqual([...defs].toSorted(), ["gml_Script_player_jump", "gml_Script_player_move"]);
         });
 
         it("should update symbol-to-file mapping", () => {

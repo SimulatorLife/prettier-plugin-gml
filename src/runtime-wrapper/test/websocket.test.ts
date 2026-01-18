@@ -1,11 +1,12 @@
 import assert from "node:assert/strict";
 import test from "node:test";
+
 import {
-    RuntimeWrapper,
     type MessageEventLike,
     type RuntimePatchError,
     type RuntimeWebSocketConstructor,
     type RuntimeWebSocketInstance,
+    RuntimeWrapper,
     type WebSocketEvent
 } from "../index.js";
 

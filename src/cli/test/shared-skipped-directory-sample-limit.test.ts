@@ -2,12 +2,12 @@ import assert from "node:assert/strict";
 import { afterEach, describe, it } from "node:test";
 
 import {
-    DEFAULT_SKIPPED_DIRECTORY_SAMPLE_LIMIT,
-    SKIPPED_DIRECTORY_SAMPLE_LIMIT_ENV_VAR,
     applySkippedDirectorySampleLimitEnvOverride,
+    DEFAULT_SKIPPED_DIRECTORY_SAMPLE_LIMIT,
     getDefaultSkippedDirectorySampleLimit,
     resolveSkippedDirectorySampleLimit,
-    setDefaultSkippedDirectorySampleLimit
+    setDefaultSkippedDirectorySampleLimit,
+    SKIPPED_DIRECTORY_SAMPLE_LIMIT_ENV_VAR
 } from "../src/runtime-options/sample-limits.js";
 
 void describe("skipped directory sample limit", () => {

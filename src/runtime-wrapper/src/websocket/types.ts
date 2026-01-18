@@ -1,5 +1,5 @@
-import type { PatchApplicator, RuntimePatchError } from "../runtime/types.js";
 import type { Logger } from "../runtime/logger.js";
+import type { PatchApplicator, RuntimePatchError } from "../runtime/types.js";
 
 export type WebSocketEvent = "open" | "message" | "close" | "error";
 

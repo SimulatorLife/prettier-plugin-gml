@@ -1,9 +1,10 @@
 import assert from "node:assert/strict";
 import test from "node:test";
 
-import { createMemoryCommand } from "../src/commands/memory.js";
-import { SuiteOutputFormat } from "../src/cli-core/command-suite-helpers.js";
 import type { ParseOptions } from "commander";
+
+import { SuiteOutputFormat } from "../src/cli-core/command-suite-helpers.js";
+import { createMemoryCommand } from "../src/commands/memory.js";
 
 const USER_PARSE_OPTIONS: ParseOptions = { from: "user" };
 

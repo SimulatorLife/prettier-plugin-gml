@@ -17,8 +17,9 @@
  * relative to the logical code block it describes.
  */
 
-import { test } from "node:test";
 import { strictEqual } from "node:assert";
+import { test } from "node:test";
+
 import { Plugin } from "../src/index.js";
 
 void test("preserves leading comments when extracting nested calls (GM2023)", async () => {

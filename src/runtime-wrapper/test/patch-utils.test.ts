@@ -1,5 +1,6 @@
-import { describe, it } from "node:test";
 import assert from "node:assert";
+import { describe, it } from "node:test";
+
 import { calculateTimingMetrics } from "../src/runtime/patch-utils.js";
 
 // Internal test helper that intentionally uses the OLD buggy implementation

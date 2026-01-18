@@ -1,5 +1,6 @@
-import test from "node:test";
 import assert from "node:assert/strict";
+import test from "node:test";
+
 import ScopeTracker from "../src/scopes/scope-tracker.js";
 import { createSymbolDeclaration, createSymbolReference, declareTwoGlobalSymbols } from "./scope-tracker-helpers.js";
 
@@ -141,7 +142,7 @@ void test("getScopeDependents handles multiple dependent scopes", () => {
     assert.strictEqual(dependents.length, 2);
 
     // Dependents should be sorted by scope ID
-    const sortedDeps = [...dependents].sort((a, b) => a.dependentScopeId.localeCompare(b.dependentScopeId));
+    const sortedDeps = [...dependents].toSorted((a, b) => a.dependentScopeId.localeCompare(b.dependentScopeId));
 
     assert.strictEqual(sortedDeps[0].dependentScopeId, function1Scope.id);
     assert.deepStrictEqual(sortedDeps[0].symbols, ["globalVar"]);

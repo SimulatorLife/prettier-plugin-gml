@@ -2,8 +2,9 @@
  * Tests for the refactor command.
  */
 
-import { describe, it } from "node:test";
 import assert from "node:assert/strict";
+import { describe, it } from "node:test";
+
 import { createRefactorCommand } from "../src/commands/refactor.js";
 
 void describe("Refactor command", () => {

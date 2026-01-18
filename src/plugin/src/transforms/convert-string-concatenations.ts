@@ -2,6 +2,7 @@
  * Normalizes sequences of string concatenation (`"a" + b + "c"`) into template string literals (`$"{a}{b}{c}"`) so the printer renders more idiomatic GML.
  */
 import { Core, type MutableGameMakerAstNode } from "@gml-modules/core";
+
 import type { ParserTransform } from "./functional-transform.js";
 
 const BINARY_EXPRESSION = "BinaryExpression";
@@ -230,14 +231,14 @@ export class ConvertStringConcatenationsTransform
                         return null;
                     }
 
-                    if (!Core.isNode(nestedAtom)) continue;
-                    if ((nestedAtom as any).type === TEMPLATE_STRING_TEXT) {
-                        if (typeof (nestedAtom as any).value !== "string") {
-                            return null;
-                        }
-
-                        pendingText += (nestedAtom as any).value;
+                    const templateTextValue = extractTemplateStringTextValue(nestedAtom);
+                    if (templateTextValue !== null) {
+                        pendingText += templateTextValue;
                         containsStringLiteral = true;
+                        continue;
+                    }
+
+                    if (!Core.isNode(nestedAtom)) {
                         continue;
                     }
 
@@ -389,6 +390,19 @@ export class ConvertStringConcatenationsTransform
 
         return Core.stripStringQuotes(raw) ?? "";
     }
+}
+
+function extractTemplateStringTextValue(node: unknown): string | null {
+    if (!Core.isNode(node)) {
+        return null;
+    }
+
+    if ((node as any).type !== TEMPLATE_STRING_TEXT) {
+        return null;
+    }
+
+    const value = (node as any).value;
+    return typeof value === "string" ? value : null;
 }
 
 export const convertStringConcatenationsTransform = new ConvertStringConcatenationsTransform();

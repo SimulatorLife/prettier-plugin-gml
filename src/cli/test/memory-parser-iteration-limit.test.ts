@@ -2,10 +2,10 @@ import assert from "node:assert/strict";
 import { afterEach, describe, it } from "node:test";
 
 import {
-    DEFAULT_MAX_PARSER_ITERATIONS,
-    MEMORY_PARSER_MAX_ITERATIONS_ENV_VAR,
     applyParserMaxIterationsEnvOverride,
+    DEFAULT_MAX_PARSER_ITERATIONS,
     getMaxParserIterations,
+    MEMORY_PARSER_MAX_ITERATIONS_ENV_VAR,
     setMaxParserIterations
 } from "../src/commands/memory.js";
 

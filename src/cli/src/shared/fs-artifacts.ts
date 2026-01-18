@@ -2,8 +2,9 @@ import { writeFile as writeFileAsync } from "node:fs/promises";
 import path from "node:path";
 
 import { Core } from "@gml-modules/core";
-import { ensureDir } from "./ensure-dir.js";
+
 import { ensureWorkflowPathsAllowed } from "../workflow/path-filter.js";
+import { ensureDir } from "./ensure-dir.js";
 
 const { isNonEmptyString, stringifyJsonForFile } = Core;
 

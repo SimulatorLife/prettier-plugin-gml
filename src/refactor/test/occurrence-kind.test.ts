@@ -1,11 +1,12 @@
 import assert from "node:assert/strict";
 import test from "node:test";
+
 import {
-    OccurrenceKind,
     isOccurrenceKind,
+    OccurrenceKind,
+    type OccurrenceKindValue,
     parseOccurrenceKind,
-    requireOccurrenceKind,
-    type OccurrenceKindValue
+    requireOccurrenceKind
 } from "../src/types.js";
 
 void test("OccurrenceKind enum contains expected values", () => {

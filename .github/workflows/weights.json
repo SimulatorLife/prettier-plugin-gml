@@ -55,6 +55,7 @@
     {"weight":0.4,"name":"agent-95-hot-semantic"},
     {"weight":0.4,"name":"agent-96-hot-transpiler"},
     {"weight":0.4,"name":"agent-97-hot-cli"},
-    {"weight":0.125,"name":"agent-98-hot-integration"}
+    {"weight":0.125,"name":"agent-98-hot-integration"},
+    {"weight":0.05,"name":"agent-99-test-duration"}
   ]
 }

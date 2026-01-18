@@ -1,7 +1,7 @@
 import { Core } from "@gml-modules/core";
 
-import { IDENTIFIER_CASE_OPTION_STORE_MAX_ENTRIES_OPTION_NAME } from "./options.js";
 import { getDefaultIdentifierCaseOptionStoreMaxEntries } from "./option-store-defaults.js";
+import { IDENTIFIER_CASE_OPTION_STORE_MAX_ENTRIES_OPTION_NAME } from "./options.js";
 
 // Use canonical Core namespace instead of destructuring
 // Helpers used from Core.Utils:
@@ -202,10 +202,9 @@ export {
     getDefaultIdentifierCaseOptionStoreMaxEntries,
     setDefaultIdentifierCaseOptionStoreMaxEntries
 } from "./option-store-defaults.js";
-
 export {
     DEFAULT_IDENTIFIER_CASE_OPTION_STORE_MAX_ENTRIES as DEFAULT_MAX_IDENTIFIER_CASE_OPTION_STORE_ENTRIES,
-    DEFAULT_IDENTIFIER_CASE_OPTION_STORE_MAX_ENTRIES as MAX_IDENTIFIER_CASE_OPTION_STORE_ENTRIES,
     IDENTIFIER_CASE_OPTION_STORE_MAX_ENTRIES_BASELINE,
-    IDENTIFIER_CASE_OPTION_STORE_MAX_ENTRIES_ENV_VAR
+    IDENTIFIER_CASE_OPTION_STORE_MAX_ENTRIES_ENV_VAR,
+    DEFAULT_IDENTIFIER_CASE_OPTION_STORE_MAX_ENTRIES as MAX_IDENTIFIER_CASE_OPTION_STORE_ENTRIES
 } from "./option-store-defaults.js";

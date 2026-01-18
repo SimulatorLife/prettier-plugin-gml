@@ -1,12 +1,12 @@
 import {
-    readFileSync as nodeReadFileSync,
-    writeFileSync as nodeWriteFileSync,
-    renameSync as nodeRenameSync,
     accessSync as nodeAccessSync,
-    statSync as nodeStatSync,
-    mkdirSync as nodeMkdirSync,
     existsSync as nodeExistsSync,
-    type PathOrFileDescriptor
+    mkdirSync as nodeMkdirSync,
+    type PathOrFileDescriptor,
+    readFileSync as nodeReadFileSync,
+    renameSync as nodeRenameSync,
+    statSync as nodeStatSync,
+    writeFileSync as nodeWriteFileSync
 } from "node:fs";
 
 import { DEFAULT_WRITE_ACCESS_MODE } from "./common.js";

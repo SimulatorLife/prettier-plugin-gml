@@ -8,19 +8,18 @@ import test from "node:test";
 // deprecated legacy equality APIs. Manual validation: run
 // `node --test src/cli/test/memory-cli-report.test.js` to confirm behaviour
 // parity with the previous implementation.
-
 import {
+    applyMemoryReportFileNameEnvOverride,
     DEFAULT_MEMORY_AST_COMMON_NODE_LIMIT,
     DEFAULT_MEMORY_REPORT_DIR,
     DEFAULT_MEMORY_REPORT_FILENAME,
     MEMORY_REPORT_DIRECTORY_ENV_VAR,
     MEMORY_REPORT_FILENAME_ENV_VAR,
+    MemorySuiteName,
     runMemoryCli,
-    setDefaultMemoryReportDirectory,
-    setDefaultMemoryReportFileName,
-    applyMemoryReportFileNameEnvOverride,
     setAstCommonNodeTypeLimit,
-    MemorySuiteName
+    setDefaultMemoryReportDirectory,
+    setDefaultMemoryReportFileName
 } from "../src/commands/memory.js";
 
 void test("memory CLI writes suite results to a JSON report", async (t) => {

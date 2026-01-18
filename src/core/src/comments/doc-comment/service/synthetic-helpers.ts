@@ -395,11 +395,18 @@ function processImplicitArgumentEntries(functionNode: any, entries: ImplicitArgu
 
         if (referenceInfo.aliasByIndex.size > 0) {
             for (const entry of entries) {
-                if (entry && entry.index !== undefined && referenceInfo.aliasByIndex.has(entry.index)) {
-                    const alias = referenceInfo.aliasByIndex.get(entry.index);
-                    if (alias) {
-                        entry.name = alias;
-                    }
+                if (!entry) {
+                    continue;
+                }
+
+                const entryIndex = entry.index;
+                if (entryIndex === undefined) {
+                    continue;
+                }
+
+                const alias = referenceInfo.aliasByIndex.get(entryIndex);
+                if (alias) {
+                    entry.name = alias;
                 }
             }
         }

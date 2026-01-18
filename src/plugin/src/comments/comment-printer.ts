@@ -1,11 +1,12 @@
 // Comment handling helpers relocated to the plugin so Prettier can format comments directly.
 
+import { Core } from "@gml-modules/core";
 import { util } from "prettier";
 import { builders } from "prettier/doc";
-import { Core } from "@gml-modules/core";
+
 import { isFunctionDocCommentLine } from "../doc-comment/function-tag-filter.js";
-import { normalizeDocLikeLineComment } from "./doc-like-line-normalization.js";
 import { countTrailingBlankLines } from "../printer/semicolons.js";
+import { normalizeDocLikeLineComment } from "./doc-like-line-normalization.js";
 
 const { addDanglingComment, addLeadingComment } = util;
 const { join, hardline } = builders;
@@ -236,23 +237,21 @@ function printComment(commentPath, options) {
                 const leadingWhitespace = typeof comment.leadingWS === "string" ? comment.leadingWS : "";
                 const fallbackIndentation = " ".repeat(Math.max(1, options?.tabWidth ?? 4));
                 const newlineIndex = leadingWhitespace.lastIndexOf("\n");
-                let indentation = "";
 
-                // For decorated comments with forced leading blank line, always use no indentation
-                if (comment._gmlForceLeadingBlankLine !== true) {
+                const computeIndentation = (): string => {
                     if (newlineIndex === -1) {
-                        // No newline in leadingWS, use fallback indentation
-                        indentation = options?.useTabs ? "\t" : fallbackIndentation;
-                    } else {
-                        // Extract indentation after the last newline
-                        indentation = leadingWhitespace.slice(newlineIndex + 1);
-                        // If there's actual indentation, normalize tabs to spaces if needed
-                        if (indentation && !options?.useTabs) {
-                            indentation = indentation.replaceAll("\t", fallbackIndentation);
-                        }
-                        // Empty string after newline means top-level (no indentation), which is correct
+                        return options?.useTabs ? "\t" : fallbackIndentation;
                     }
-                }
+
+                    const indentationFragment = leadingWhitespace.slice(newlineIndex + 1);
+                    if (!indentationFragment || options?.useTabs) {
+                        return indentationFragment;
+                    }
+
+                    return indentationFragment.replaceAll("\t", fallbackIndentation);
+                };
+
+                const indentation = comment._gmlForceLeadingBlankLine === true ? "" : computeIndentation();
 
                 // Apply indentation to each line of multi-line decorated comments
                 const decoratedLines = decorated.split("\n");
@@ -1081,11 +1080,7 @@ function findBraceOwnerForComment(ast, comment) {
 
         for (const value of Object.values(node)) {
             if (Array.isArray(value)) {
-                for (const entry of value) {
-                    if (hasTypeProperty(entry) && entry.type) {
-                        stack.push(entry);
-                    }
-                }
+                pushTypedEntries(stack, value);
                 continue;
             }
 
@@ -1096,6 +1091,14 @@ function findBraceOwnerForComment(ast, comment) {
     }
 
     return match;
+}
+
+function pushTypedEntries(stack: Array<any>, entries: Array<unknown>): void {
+    for (const entry of entries) {
+        if (hasTypeProperty(entry) && entry.type) {
+            stack.push(entry);
+        }
+    }
 }
 
 function getLocationMetadata(position) {

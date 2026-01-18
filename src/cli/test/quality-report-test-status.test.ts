@@ -2,15 +2,15 @@ import assert from "node:assert/strict";
 import { describe, it } from "node:test";
 
 import {
-    TestCaseStatus,
-    ParseResultStatus,
-    ScanStatus,
-    normalizeTestCaseStatus,
+    isParseResultStatus,
+    isScanStatus,
+    isTestCaseStatus,
     normalizeParseResultStatus,
     normalizeScanStatus,
-    isTestCaseStatus,
-    isParseResultStatus,
-    isScanStatus
+    normalizeTestCaseStatus,
+    ParseResultStatus,
+    ScanStatus,
+    TestCaseStatus
 } from "../src/modules/quality-report/test-status.js";
 
 void describe("TestCaseStatus enum", () => {

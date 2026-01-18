@@ -6,9 +6,9 @@
 
 import { Core } from "@gml-modules/core";
 
-import { getIdentifierCaseStyleMetadata } from "./identifier-case-utils.js";
 import { getDefaultProjectIndexCacheMaxSize } from "../project-index/cache.js";
 import { getDefaultProjectIndexGmlConcurrency } from "../project-index/concurrency.js";
+import { getIdentifierCaseStyleMetadata } from "./identifier-case-utils.js";
 import { DEFAULT_IDENTIFIER_CASE_OPTION_STORE_MAX_ENTRIES } from "./option-store-defaults.js";
 
 export { DEFAULT_IDENTIFIER_CASE_OPTION_STORE_MAX_ENTRIES } from "./option-store-defaults.js";

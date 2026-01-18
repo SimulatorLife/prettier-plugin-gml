@@ -1,6 +1,7 @@
-import { describe, it } from "node:test";
 import assert from "node:assert/strict";
-import { RenameValidationCache, type CachedValidationResult } from "../src/rename-validation-cache.js";
+import { describe, it } from "node:test";
+
+import { type CachedValidationResult, RenameValidationCache } from "../src/rename-validation-cache.js";
 
 // Helper to create a simple valid result
 const createValidResult = async (): Promise<CachedValidationResult> => ({

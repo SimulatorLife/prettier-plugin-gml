@@ -1,19 +1,20 @@
 import path from "node:path";
 
 import { Core } from "@gml-modules/core";
-import { formatIdentifierCase } from "./identifier-case-utils.js";
+
+import { createAssetRenameExecutor } from "./asset-rename-executor.js";
 import {
     COLLISION_CONFLICT_CODE,
-    RESERVED_CONFLICT_CODE,
     createConflict,
     formatConfigurationConflictMessage,
+    RESERVED_CONFLICT_CODE,
     resolveIdentifierConfigurationConflict,
     summarizeReferenceFileOccurrences
 } from "./common.js";
-import { createAssetRenameExecutor } from "./asset-rename-executor.js";
-import { defaultIdentifierCaseFsFacade } from "./fs-facade.js";
-import { IdentifierCaseStyle, normalizeIdentifierCaseAssetStyle } from "./options.js";
 import { ConflictSeverity } from "./conflict-severity.js";
+import { defaultIdentifierCaseFsFacade } from "./fs-facade.js";
+import { formatIdentifierCase } from "./identifier-case-utils.js";
+import { IdentifierCaseStyle, normalizeIdentifierCaseAssetStyle } from "./options.js";
 
 const RESERVED_IDENTIFIER_NAMES = Core.loadReservedIdentifierNames();
 
@@ -67,6 +68,16 @@ type MetricsRecorder = {
     counters?: {
         increment?: (key: string, amount?: number) => void;
     };
+};
+
+type AssetRenameEntry = {
+    directory: string;
+    resourcePath: string;
+    resourceType: string | null;
+    originalName: string;
+    finalName: string;
+    isRename: boolean;
+    rename: AssetRename | null;
 };
 
 type AssetConflictOptions = {
@@ -324,20 +335,12 @@ function detectAssetRenameConflicts({
                     continue;
                 }
 
-                const otherRenames = [];
-                let otherNames = "";
-                for (const [otherIndex, otherEntry] of renameEntries.entries()) {
-                    if (otherIndex === index) {
-                        continue;
-                    }
-
-                    otherRenames.push(otherEntry);
-                    otherNames = otherNames ? `${otherNames}, ${renameNames[otherIndex]}` : renameNames[otherIndex];
-                }
-
-                if (otherRenames.length === 0) {
+                const otherRenameInfo = collectOtherRenameEntries(renameEntries, index, renameNames);
+                if (!otherRenameInfo) {
                     continue;
                 }
+
+                const { otherRenames, otherNames } = otherRenameInfo;
 
                 recordAssetRenameCollision({
                     conflicts,
@@ -371,6 +374,30 @@ function detectAssetRenameConflicts({
     }
 
     return conflicts;
+}
+
+function collectOtherRenameEntries(
+    renameEntries: readonly AssetRenameEntry[],
+    currentIndex: number,
+    renameNames: string[]
+) {
+    const otherRenames: AssetRenameEntry[] = [];
+    let otherNames = "";
+
+    for (const [otherIndex, otherEntry] of renameEntries.entries()) {
+        if (otherIndex === currentIndex) {
+            continue;
+        }
+
+        otherRenames.push(otherEntry);
+        otherNames = otherNames ? `${otherNames}, ${renameNames[otherIndex]}` : renameNames[otherIndex];
+    }
+
+    if (otherRenames.length === 0) {
+        return null;
+    }
+
+    return { otherRenames, otherNames };
 }
 
 function summarizeReferences(referenceMutations, resourcePath) {

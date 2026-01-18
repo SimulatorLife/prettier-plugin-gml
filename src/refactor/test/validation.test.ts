@@ -1,7 +1,8 @@
-import { describe, test } from "node:test";
 import assert from "node:assert/strict";
-import { validateRenameStructure, batchValidateScopeConflicts } from "../src/validation.js";
-import type { SymbolResolver, SymbolOccurrence } from "../src/types.js";
+import { describe, test } from "node:test";
+
+import type { SymbolOccurrence, SymbolResolver } from "../src/types.js";
+import { batchValidateScopeConflicts, validateRenameStructure } from "../src/validation.js";
 
 void describe("validateRenameStructure", () => {
     void test("returns error for missing symbolId", async () => {

@@ -3,6 +3,7 @@
  * The module rewrites numeric literal strings and tracks trimmed indentation so fix metadata stays aligned.
  */
 import { Core } from "@gml-modules/core";
+
 import { isIntegerLiteralString } from "./utils.js";
 
 function sanitizeEnumBodyInitializerStrings(body: string, bodyStartIndex: number, totalRemoved: number) {
@@ -230,7 +231,7 @@ function normalizeRemovalAdjustments(adjustments: unknown) {
             };
             return Number.isFinite(index) && Number.isFinite(delta) && typeof delta === "number" && delta > 0;
         })
-        .sort((a, b) => a.index - b.index);
+        .toSorted((a, b) => a.index - b.index);
 }
 
 /**

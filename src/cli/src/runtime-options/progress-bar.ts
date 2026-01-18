@@ -310,14 +310,14 @@ async function withProgressBarCleanup<TResult>(callback: () => Promise<TResult> 
 }
 
 export {
-    DEFAULT_PROGRESS_BAR_WIDTH,
-    PROGRESS_BAR_WIDTH_ENV_VAR,
     applyProgressBarWidthEnvOverride,
+    DEFAULT_PROGRESS_BAR_WIDTH,
     disposeProgressBars,
     getDefaultProgressBarWidth,
-    setDefaultProgressBarWidth,
+    PROGRESS_BAR_WIDTH_ENV_VAR,
     renderProgressBar,
+    resetProgressBarRegistryForTesting,
     resolveProgressBarWidth,
-    withProgressBarCleanup,
-    resetProgressBarRegistryForTesting
+    setDefaultProgressBarWidth,
+    withProgressBarCleanup
 };

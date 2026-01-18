@@ -3,16 +3,17 @@ import fs from "node:fs";
 import os from "node:os";
 import path from "node:path";
 import { afterEach, beforeEach, test } from "node:test";
+
+import { isCommanderErrorLike } from "../src/cli-core/commander-error-utils.js";
+import { isCliUsageError } from "../src/cli-core/errors.js";
 import {
+    createGenerateQualityReportCommand,
     detectRegressions,
     detectResolvedFailures,
-    readTestResults,
     ensureResultsAvailability,
-    reportRegressionSummary,
-    createGenerateQualityReportCommand
+    readTestResults,
+    reportRegressionSummary
 } from "../src/commands/generate-quality-report.js";
-import { isCliUsageError } from "../src/cli-core/errors.js";
-import { isCommanderErrorLike } from "../src/cli-core/commander-error-utils.js";
 
 const xmlHeader = '<?xml version="1.0" encoding="utf-8"?>\n';
 

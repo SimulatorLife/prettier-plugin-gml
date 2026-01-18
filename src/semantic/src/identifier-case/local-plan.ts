@@ -1,28 +1,28 @@
 import { Core } from "@gml-modules/core";
-import { formatIdentifierCase } from "./identifier-case-utils.js";
-import { peekIdentifierCaseDryRunContext } from "./identifier-case-context.js";
-import { buildRenameKey } from "./plan-state.js";
 
-import { normalizeIdentifierCaseOptions, IdentifierCaseStyle, normalizeIdentifierCaseAssetStyle } from "./options.js";
 import { resolveProjectRelativeFilePath } from "../project-index/path-normalization.js";
+import { evaluateIdentifierCaseAssetRenamePolicy } from "./asset-rename-policy.js";
+import { applyAssetRenames, planAssetRenames } from "./asset-renames.js";
 import {
-    applyBootstrappedIdentifierCaseProjectIndex,
-    ensureIdentifierCaseProjectIndex,
-    resolveIdentifierCaseProjectIndex
-} from "./project-index-gateway.js";
-import { setIdentifierCaseOption } from "./option-store.js";
-import {
-    COLLISION_CONFLICT_CODE,
     buildPatternMatchers,
+    COLLISION_CONFLICT_CODE,
     createConflict,
     formatConfigurationConflictMessage,
     resolveIdentifierConfigurationConflict,
     summarizeReferenceFileOccurrences
 } from "./common.js";
-import { planAssetRenames, applyAssetRenames } from "./asset-renames.js";
-import { getDefaultIdentifierCaseFsFacade } from "./fs-facade.js";
-import { evaluateIdentifierCaseAssetRenamePolicy } from "./asset-rename-policy.js";
 import { ConflictSeverity } from "./conflict-severity.js";
+import { getDefaultIdentifierCaseFsFacade } from "./fs-facade.js";
+import { peekIdentifierCaseDryRunContext } from "./identifier-case-context.js";
+import { formatIdentifierCase } from "./identifier-case-utils.js";
+import { setIdentifierCaseOption } from "./option-store.js";
+import { IdentifierCaseStyle, normalizeIdentifierCaseAssetStyle, normalizeIdentifierCaseOptions } from "./options.js";
+import { buildRenameKey } from "./plan-state.js";
+import {
+    applyBootstrappedIdentifierCaseProjectIndex,
+    ensureIdentifierCaseProjectIndex,
+    resolveIdentifierCaseProjectIndex
+} from "./project-index-gateway.js";
 
 type IdentifierCaseDeclaration = {
     name?: string | null;
@@ -1410,7 +1410,7 @@ function registerLocalOperations({
 }
 
 export {
-    getIdentifierCaseRenameForNode,
+    applyIdentifierCasePlanSnapshot,
     captureIdentifierCasePlanSnapshot,
-    applyIdentifierCasePlanSnapshot
+    getIdentifierCaseRenameForNode
 } from "./plan-state.js";

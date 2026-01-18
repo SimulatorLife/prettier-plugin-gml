@@ -3,12 +3,13 @@ import path from "node:path";
 import { Core } from "@gml-modules/core";
 
 import {
-    PROJECT_MANIFEST_EXTENSION,
     isProjectManifestPath,
-    matchProjectResourceMetadataExtension
+    matchProjectResourceMetadataExtension,
+    PROJECT_MANIFEST_EXTENSION
 } from "./constants.js";
-import { normalizeProjectResourcePath } from "./path-normalization.js";
 import { defaultFsFacade, type ProjectIndexFsFacade } from "./fs-facade.js";
+import { normalizeProjectResourcePath } from "./path-normalization.js";
+import { runSequentially } from "./sequential-runner.js";
 
 const RESOURCE_ANALYSIS_ABORT_MESSAGE = "Project index build was aborted.";
 
@@ -383,11 +384,11 @@ export async function analyseResourceFiles({
 }) {
     const context = createResourceAnalysisContext();
 
-    for (const file of yyFiles) {
+    await runSequentially(yyFiles, async (file) => {
         Core.throwIfAborted(signal, RESOURCE_ANALYSIS_ABORT_MESSAGE);
         const parsed = await loadResourceDocument(file, fsFacade, { signal });
         if (!parsed) {
-            continue;
+            return;
         }
 
         const resourceRecord = ensureResourceRecordForDocument(context, file, parsed);
@@ -399,7 +400,7 @@ export async function analyseResourceFiles({
             resourcePath: file.relativePath,
             projectRoot
         });
-    }
+    });
 
     annotateAssetReferenceTargets(context.assetReferences, context.resourcesMap);
 

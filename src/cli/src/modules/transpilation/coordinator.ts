@@ -11,14 +11,15 @@ import path from "node:path";
 import { Core } from "@gml-modules/core";
 import { Parser } from "@gml-modules/parser";
 import { Transpiler } from "@gml-modules/transpiler";
+
 import { formatCliError } from "../../cli-core/index.js";
 import type { PatchBroadcaster } from "../websocket/server.js";
-import { extractSymbolsFromAst, extractReferencesFromAst } from "./symbol-extraction.js";
 import {
     getRuntimePathSegments,
     resolveObjectRuntimeIdFromSegments,
     resolveScriptFileNameFromSegments
 } from "./runtime-identifiers.js";
+import { extractReferencesFromAst, extractSymbolsFromAst } from "./symbol-extraction.js";
 
 type RuntimeTranspiler = InstanceType<typeof Transpiler.GmlTranspiler>;
 export type RuntimeTranspilerPatch = ReturnType<RuntimeTranspiler["transpileScript"]>;

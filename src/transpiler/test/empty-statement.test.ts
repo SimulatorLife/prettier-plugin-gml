@@ -1,6 +1,8 @@
-import { describe, it } from "node:test";
 import assert from "node:assert/strict";
+import { describe, it } from "node:test";
+
 import { Parser } from "@gml-modules/parser";
+
 import { Transpiler } from "../index.js";
 
 void describe("Transpiler.emitJavaScript empty statement handling", () => {

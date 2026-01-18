@@ -24,38 +24,32 @@ import path from "node:path";
 import process from "node:process";
 import { fileURLToPath } from "node:url";
 
-import { Command, InvalidArgumentError, Option } from "commander";
-import type { Options as PrettierOptions } from "prettier";
 import { Core } from "@gml-modules/core";
 import { Parser } from "@gml-modules/parser";
 import { normalizeFormattedOutput } from "@gml-modules/plugin";
-import { isMissingModuleDependency, resolveModuleDefaultExport } from "./shared/module.js";
-import { ignoreRuleNegations } from "./shared/ignore-rules-negation-tracker.js";
+import { Command, InvalidArgumentError, Option } from "commander";
+import type { Options as PrettierOptions } from "prettier";
 
-import { CliUsageError, formatCliError, handleCliError } from "./cli-core/errors.js";
-import { applyStandardCommandOptions } from "./cli-core/command-standard-options.js";
-import { resolvePluginEntryPoint as resolveCliPluginEntryPoint } from "./plugin-runtime/entry-point.js";
 import { tryAddSample } from "./cli-core/bounded-sample-collector.js";
-import {
-    hasRegisteredIgnorePath,
-    registerIgnorePath,
-    resetRegisteredIgnorePaths
-} from "./shared/ignore-path-registry.js";
 import { createCliCommandManager } from "./cli-core/command-manager.js";
-import { resolveCliVersion } from "./cli-core/version.js";
 import { wrapInvalidArgumentResolver } from "./cli-core/command-parsing.js";
+import { applyStandardCommandOptions } from "./cli-core/command-standard-options.js";
+import { CliUsageError, formatCliError, handleCliError } from "./cli-core/errors.js";
+import { normalizeExtensions } from "./cli-core/extension-normalizer.js";
 import { collectFormatCommandOptions } from "./cli-core/format-command-options.js";
-import { createPerformanceCommand, runPerformanceCommand } from "./commands/performance.js";
-import { createMemoryCommand, runMemoryCommand } from "./commands/memory.js";
-import { createGenerateIdentifiersCommand, runGenerateGmlIdentifiers } from "./commands/generate-gml-identifiers.js";
-import { createGenerateQualityReportCommand, runGenerateQualityReport } from "./commands/generate-quality-report.js";
+import { runSequentially } from "./cli-core/sequential-runner.js";
+import { resolveCliVersion } from "./cli-core/version.js";
 import { createCollectStatsCommand, runCollectStats } from "./commands/collect-stats.js";
 import { createFeatherMetadataCommand, runGenerateFeatherMetadata } from "./commands/generate-feather-metadata.js";
+import { createGenerateIdentifiersCommand, runGenerateGmlIdentifiers } from "./commands/generate-gml-identifiers.js";
+import { createGenerateQualityReportCommand, runGenerateQualityReport } from "./commands/generate-quality-report.js";
+import { createMemoryCommand, runMemoryCommand } from "./commands/memory.js";
+import { createPerformanceCommand, runPerformanceCommand } from "./commands/performance.js";
 import { createPrepareHotReloadCommand, runPrepareHotReloadCommand } from "./commands/prepare-hot-reload.js";
 import { createRefactorCommand, runRefactorCommand } from "./commands/refactor.js";
 import { createWatchCommand, runWatchCommand } from "./commands/watch.js";
 import { createWatchStatusCommand, runWatchStatusCommand } from "./commands/watch-status.js";
-import { isCliRunSkipped, SKIP_CLI_RUN_ENV_VAR } from "./shared/skip-cli-run.js";
+import { resolvePluginEntryPoint as resolveCliPluginEntryPoint } from "./plugin-runtime/entry-point.js";
 import {
     getDefaultIgnoredFileSampleLimit,
     getDefaultSkippedDirectorySampleLimit,
@@ -64,7 +58,14 @@ import {
     resolveSkippedDirectorySampleLimit,
     resolveUnsupportedExtensionSampleLimit
 } from "./runtime-options/sample-limits.js";
-import { normalizeExtensions } from "./cli-core/extension-normalizer.js";
+import {
+    hasRegisteredIgnorePath,
+    registerIgnorePath,
+    resetRegisteredIgnorePaths
+} from "./shared/ignore-path-registry.js";
+import { ignoreRuleNegations } from "./shared/ignore-rules-negation-tracker.js";
+import { isMissingModuleDependency, resolveModuleDefaultExport } from "./shared/module.js";
+import { isCliRunSkipped, SKIP_CLI_RUN_ENV_VAR } from "./shared/skip-cli-run.js";
 
 const {
     compactArray,
@@ -147,7 +148,7 @@ function stringifyCacheComponent(value: unknown) {
 
 function createFormattingCacheKey(data: string, formattingOptions: PrettierOptions) {
     const { parser, tabWidth, printWidth, semi, useTabs, plugins } = formattingOptions;
-    const pluginKey = Array.isArray(plugins) ? plugins.map(String).sort().join(",") : "";
+    const pluginKey = Array.isArray(plugins) ? plugins.map(String).toSorted().join(",") : "";
     return [
         stringifyCacheComponent(parser),
         stringifyCacheComponent(tabWidth),
@@ -162,7 +163,6 @@ function createFormattingCacheKey(data: string, formattingOptions: PrettierOptio
 const WRAPPER_DIRECTORY = path.dirname(fileURLToPath(import.meta.url));
 const PLUGIN_PATH = resolveCliPluginEntryPoint();
 const IGNORE_PATH = path.resolve(WRAPPER_DIRECTORY, ".prettierignore");
-let initialWorkingDirectory = path.resolve(process.cwd());
 
 const GML_EXTENSION = ".gml";
 
@@ -237,7 +237,7 @@ function createSampleLimitState({ getDefaultLimit, resolveLimit }) {
 
 function formatPathForDisplay(targetPath) {
     const resolvedTarget = path.resolve(targetPath);
-    const resolvedCwd = initialWorkingDirectory;
+    const resolvedCwd = process.cwd();
     const relativePath = path.relative(resolvedCwd, resolvedTarget);
 
     if (resolvedTarget === resolvedCwd) {
@@ -477,13 +477,11 @@ export async function runCliTestCommand({ argv = [], env = {}, cwd }: RunCliTest
     }
 
     const originalCwd = process.cwd();
-    const originalInitialWorkingDirectory = initialWorkingDirectory;
     const normalizedCwd =
         typeof cwd === "string" ? cwd : typeof cwd?.toString === "function" ? cwd.toString() : undefined;
     if (normalizedCwd) {
         process.chdir(normalizedCwd);
     }
-    initialWorkingDirectory = process.cwd();
 
     const capturedStdout: Array<string> = [];
     const capturedStderr: Array<string> = [];
@@ -534,7 +532,6 @@ export async function runCliTestCommand({ argv = [], env = {}, cwd }: RunCliTest
     } finally {
         process.exit = originalExit;
         process.exitCode = 0;
-        initialWorkingDirectory = originalInitialWorkingDirectory;
         process.stdout.write = originalStdoutWrite;
         process.stderr.write = originalStderrWrite;
 
@@ -883,7 +880,7 @@ async function discardFormattedFileOriginalContents() {
     const snapshots = [...formattedFileOriginalContents.values()];
     formattedFileOriginalContents.clear();
 
-    for (const snapshot of snapshots) {
+    await runSequentially(snapshots, async (snapshot) => {
         // Release each snapshot in sequence so the shared
         // `revertSnapshotFileCount` accounting stays in sync with the
         // filesystem. `releaseSnapshot` also decides whether the directory can
@@ -891,7 +888,7 @@ async function discardFormattedFileOriginalContents() {
         // this loop serial avoids racy cleanups that might drop still-needed
         // backups when the process is under heavy I/O pressure.
         await releaseSnapshot(snapshot);
-    }
+    });
 
     if (revertSnapshotFileCount === 0) {
         await cleanupRevertSnapshotDirectory();
@@ -1003,7 +1000,7 @@ async function revertFormattedFiles() {
         } due to parser failure.`
     );
 
-    for (const [filePath, snapshot] of revertEntries) {
+    await runSequentially(revertEntries, async ([filePath, snapshot]) => {
         try {
             const originalContents = await readSnapshotContents(snapshot);
             if (originalContents == null) {
@@ -1021,7 +1018,7 @@ async function revertFormattedFiles() {
             // `revertSnapshotFileCount` counter desynchronized from reality.
             await releaseSnapshot(snapshot);
         }
-    }
+    });
 
     if (revertSnapshotFileCount === 0) {
         await cleanupRevertSnapshotDirectory();
@@ -1133,9 +1130,7 @@ async function registerIgnoreFile(ignoreFilePath) {
 }
 
 async function registerIgnorePaths(ignoreFiles) {
-    for (const ignoreFilePath of ignoreFiles) {
-        await registerIgnoreFile(ignoreFilePath);
-    }
+    await runSequentially(ignoreFiles, (ignoreFilePath) => registerIgnoreFile(ignoreFilePath));
 }
 
 function getIgnorePathOptions(additionalIgnorePaths = []) {
@@ -1188,7 +1183,7 @@ async function shouldSkipDirectory(directory, activeIgnorePaths = []) {
  */
 function resolveIgnoreSearchBounds(directory) {
     const resolvedDirectory = path.resolve(directory);
-    const resolvedWorkingDirectory = initialWorkingDirectory;
+    const resolvedWorkingDirectory = process.cwd();
     const shouldLimitToWorkingDirectory = isPathInside(resolvedDirectory, resolvedWorkingDirectory);
 
     return {
@@ -1257,7 +1252,7 @@ async function resolveProjectIgnorePaths(directory) {
     const { resolvedDirectory, searchRoot } = resolveIgnoreSearchBounds(directory);
     const directoriesToInspect = collectIgnoreSearchDirectories(resolvedDirectory, searchRoot);
     const candidatePaths = collectIgnoreCandidatePaths(directoriesToInspect);
-    return collectExistingIgnoreFiles(candidatePaths);
+    return await collectExistingIgnoreFiles(candidatePaths);
 }
 
 /**
@@ -1391,14 +1386,14 @@ async function resolveTargetStats(
                         `Did you mean to run a command? If so, the command '${inputToCheck}' is not recognized.`,
                         'Run "prettier-plugin-gml --help" to see available commands.',
                         "If you intended to format a file or directory, verify the path exists relative",
-                        `to the current working directory (${initialWorkingDirectory}) or provide an absolute path.`
+                        `to the current working directory (${process.cwd()}) or provide an absolute path.`
                     ];
                     return guidanceParts.join(" ");
                 }
 
                 const guidanceParts = [
                     "Verify the path exists relative to the current working directory",
-                    `(${initialWorkingDirectory}) or provide an absolute path.`,
+                    `(${process.cwd()}) or provide an absolute path.`,
                     'Run "prettier-plugin-gml --help" to review available commands and usage examples.'
                 ];
 
@@ -1478,19 +1473,15 @@ async function processDirectoryEntry(filePath, currentIgnorePaths) {
     recordUnsupportedExtension(filePath);
 }
 
-async function processDirectoryEntries(directory, files, currentIgnorePaths) {
-    for (const file of files) {
+async function processDirectoryEntries(directory: string, files: Array<string>, currentIgnorePaths) {
+    await runSequentially(files, async (file) => {
         if (abortRequested) {
             return;
         }
 
         const filePath = path.join(directory, file);
         await processDirectoryEntry(filePath, currentIgnorePaths);
-
-        if (abortRequested) {
-            return;
-        }
-    }
+    });
 }
 
 async function processDirectory(directory, inheritedIgnorePaths = []) {

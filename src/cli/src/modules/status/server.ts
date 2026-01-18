@@ -6,7 +6,8 @@
  * WebSocket client count.
  */
 
-import { createServer, type Server, type IncomingMessage, type ServerResponse } from "node:http";
+import { createServer, type IncomingMessage, type Server, type ServerResponse } from "node:http";
+
 import type { ServerEndpoint, ServerLifecycle } from "../shared-server-types.js";
 
 export interface StatusSnapshot {
@@ -206,7 +207,7 @@ export async function startStatusServer({
         url: `http://${actualHost}:${actualPort}/status`,
         host: actualHost,
         port: actualPort,
-        async stop() {
+        stop() {
             return new Promise<void>((resolve, reject) => {
                 server.close((err) => {
                     if (err) {

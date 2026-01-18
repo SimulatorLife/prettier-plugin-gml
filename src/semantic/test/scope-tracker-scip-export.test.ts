@@ -1,5 +1,6 @@
-import { describe, it } from "node:test";
 import assert from "node:assert/strict";
+import { describe, it } from "node:test";
+
 import { ScopeTracker } from "../src/scopes/scope-tracker.js";
 import { ROLE_DEF, ROLE_REF } from "../src/symbols/scip-types.js";
 

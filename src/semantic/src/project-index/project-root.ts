@@ -2,7 +2,7 @@ import path from "node:path";
 
 import { Core } from "@gml-modules/core";
 
-import { PROJECT_ROOT_DISCOVERY_ABORT_MESSAGE, createProjectIndexAbortGuard } from "./abort-guard.js";
+import { createProjectIndexAbortGuard, PROJECT_ROOT_DISCOVERY_ABORT_MESSAGE } from "./abort-guard.js";
 import { isProjectManifestPath } from "./constants.js";
 import { defaultFsFacade, type ProjectIndexFsFacade } from "./fs-facade.js";
 
@@ -24,18 +24,26 @@ export async function findProjectRoot(
 
     const startDirectory = path.dirname(path.resolve(filepath));
 
-    for (const directory of Core.walkAncestorDirectories(startDirectory)) {
-        ensureNotAborted();
+    const directories = [...Core.walkAncestorDirectories(startDirectory)];
+    return await directories.reduce(
+        (previousPromise, directory) =>
+            previousPromise.then(async (found) => {
+                if (found) {
+                    return found;
+                }
 
-        const entries = await Core.listDirectory(fsFacade, directory, {
-            signal
-        });
-        ensureNotAborted();
+                ensureNotAborted();
+                const entries = await Core.listDirectory(fsFacade, directory, {
+                    signal
+                });
+                ensureNotAborted();
 
-        if (entries.some(isProjectManifestPath)) {
-            return directory;
-        }
-    }
+                if (entries.some(isProjectManifestPath)) {
+                    return directory;
+                }
 
-    return null;
+                return null;
+            }),
+        Promise.resolve<string | null>(null)
+    );
 }

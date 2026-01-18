@@ -10,8 +10,9 @@
  * The expected behavior is to remove the empty begin and move the proper one before the vertices.
  */
 
-import { describe, it } from "node:test";
 import assert from "node:assert/strict";
+import { describe, it } from "node:test";
+
 import { Plugin } from "../src/plugin-entry.js";
 
 void describe("orphaned vertices with empty draw_primitive_begin fix", () => {

@@ -11,49 +11,50 @@
  * wrapper to enable true hot-reloading without game restarts.
  */
 
-import { watch, type FSWatcher, type WatchListener, type WatchOptions } from "node:fs";
-import { readFile, stat, readdir } from "node:fs/promises";
+import { type FSWatcher, watch, type WatchListener, type WatchOptions } from "node:fs";
+import { readdir, readFile, stat } from "node:fs/promises";
 import path from "node:path";
 import process from "node:process";
 
-import { Command, Option } from "commander";
-
 import { Core, type DebouncedFunction } from "@gml-modules/core";
 import { Transpiler } from "@gml-modules/transpiler";
+import { Command, Option } from "commander";
+
+import { formatCliError } from "../cli-core/errors.js";
+import { runSequentially } from "../cli-core/sequential-runner.js";
+import { DependencyTracker } from "../modules/dependency-tracker.js";
+import { DEFAULT_GM_TEMP_ROOT, prepareHotReloadInjection } from "../modules/hot-reload/inject-runtime.js";
 import {
+    type RuntimeStaticServerHandle,
+    type RuntimeStaticServerInstance,
+    startRuntimeStaticServer
+} from "../modules/runtime/server.js";
+import {
+    DEFAULT_RUNTIME_PACKAGE,
     describeRuntimeSource,
     resolveRuntimeSource,
-    DEFAULT_RUNTIME_PACKAGE,
     type RuntimeSourceDescriptor,
     type RuntimeSourceResolver
 } from "../modules/runtime/source.js";
-import {
-    startRuntimeStaticServer,
-    type RuntimeStaticServerHandle,
-    type RuntimeStaticServerInstance
-} from "../modules/runtime/server.js";
-import {
-    startPatchWebSocketServer,
-    type PatchBroadcaster,
-    type PatchWebSocketServer
-} from "../modules/websocket/server.js";
 import { startStatusServer, type StatusServerController } from "../modules/status/server.js";
 import {
-    transpileFile,
     displayTranspilationStatistics,
-    type TranspilationMetrics,
-    type TranspilationError,
-    type TranspilationContext,
     type RuntimeTranspilerPatch,
-    type TranspilationResult
+    type TranspilationContext,
+    type TranspilationError,
+    type TranspilationMetrics,
+    type TranspilationResult,
+    transpileFile
 } from "../modules/transpilation/coordinator.js";
-import { prepareHotReloadInjection, DEFAULT_GM_TEMP_ROOT } from "../modules/hot-reload/inject-runtime.js";
-import { DependencyTracker } from "../modules/dependency-tracker.js";
-import { formatCliError } from "../cli-core/errors.js";
 import {
     getRuntimePathSegments,
     resolveScriptFileNameFromSegments
 } from "../modules/transpilation/runtime-identifiers.js";
+import {
+    type PatchBroadcaster,
+    type PatchWebSocketServer,
+    startPatchWebSocketServer
+} from "../modules/websocket/server.js";
 
 const { debounce, getErrorMessage } = Core;
 
@@ -473,15 +474,18 @@ async function performInitialScan(
         try {
             const entries = await readdir(currentPath, { withFileTypes: true });
 
-            for (const entry of entries) {
+            await runSequentially(entries, async (entry) => {
                 const fullPath = path.join(currentPath, entry.name);
 
                 if (entry.isDirectory()) {
                     await scanDirectory(fullPath);
-                } else if (entry.isFile() && extensionMatcher.matches(entry.name)) {
+                    return;
+                }
+
+                if (entry.isFile() && extensionMatcher.matches(entry.name)) {
                     await processFile(fullPath);
                 }
-            }
+            });
         } catch (error) {
             if (verbose && !quiet) {
                 const message = getCoreErrorMessage(error, {
@@ -1078,28 +1082,7 @@ async function handleFileChange(
                 quiet
             });
 
-            // Track symbol definitions and references for dependency-aware hot-reload
-            // Uses AST-based extraction to identify actual function/script definitions and usages
-            if (result.success && result.patch) {
-                runtimeContext.dependencyTracker.replaceFileDefines(filePath, result.symbols ?? []);
-                runtimeContext.dependencyTracker.replaceFileReferences(filePath, result.references ?? []);
-
-                if (verbose && !quiet) {
-                    const stats = runtimeContext.dependencyTracker.getStatistics();
-                    console.log(
-                        `  ↳ Dependency tracker: ${stats.totalSymbols} symbols tracked across ${stats.totalFiles} files`
-                    );
-                }
-
-                // Transpile dependent files
-                const dependentFiles = runtimeContext.dependencyTracker.getDependentFiles(filePath);
-                if (dependentFiles.length > 0) {
-                    if (!quiet) {
-                        console.log(`  ↳ Retranspiling ${dependentFiles.length} dependent file(s)...`);
-                    }
-                    await retranspileDependentFiles(runtimeContext, filePath, dependentFiles, verbose, quiet);
-                }
-            }
+            await processTranspileResult(runtimeContext, filePath, result, verbose, quiet);
         } catch (error) {
             const message = getErrorMessage(error, {
                 fallback: "Unknown file read error"
@@ -1122,7 +1105,7 @@ async function retranspileDependentFiles(
     verbose: boolean,
     quiet: boolean
 ): Promise<void> {
-    for (const dependentFile of dependentFiles) {
+    await runSequentially(dependentFiles, async (dependentFile) => {
         try {
             await retranspileDependentFile(runtimeContext, filePath, dependentFile, verbose, quiet);
         } catch (error) {
@@ -1131,7 +1114,38 @@ async function retranspileDependentFiles(
             });
             console.error(`  ↳ Error retranspiling dependent file ${dependentFile}: ${message}`);
         }
+    });
+}
+
+async function processTranspileResult(
+    runtimeContext: RuntimeContext,
+    filePath: string,
+    result: TranspilationResult,
+    verbose: boolean,
+    quiet: boolean
+): Promise<void> {
+    if (!result.success || !result.patch) {
+        return;
     }
+
+    runtimeContext.dependencyTracker.replaceFileDefines(filePath, result.symbols ?? []);
+    runtimeContext.dependencyTracker.replaceFileReferences(filePath, result.references ?? []);
+
+    if (verbose && !quiet) {
+        const stats = runtimeContext.dependencyTracker.getStatistics();
+        console.log(`  ↳ Dependency tracker: ${stats.totalSymbols} symbols tracked across ${stats.totalFiles} files`);
+    }
+
+    const dependentFiles = runtimeContext.dependencyTracker.getDependentFiles(filePath);
+    if (dependentFiles.length === 0) {
+        return;
+    }
+
+    if (!quiet) {
+        console.log(`  ↳ Retranspiling ${dependentFiles.length} dependent file(s)...`);
+    }
+
+    await retranspileDependentFiles(runtimeContext, filePath, dependentFiles, verbose, quiet);
 }
 
 async function retranspileDependentFile(
@@ -1195,22 +1209,22 @@ async function collectScriptNames(rootPath: string, extensionMatcher: ExtensionM
 
     async function scan(currentPath: string): Promise<void> {
         const entries = await readdir(currentPath, { withFileTypes: true });
-        for (const entry of entries) {
+        await runSequentially(entries, async (entry) => {
             const candidatePath = path.join(currentPath, entry.name);
             if (entry.isDirectory()) {
                 await scan(candidatePath);
-                continue;
+                return;
             }
 
             if (!entry.isFile() || !extensionMatcher.matches(entry.name)) {
-                continue;
+                return;
             }
 
             const scriptName = getScriptNameFromPath(candidatePath);
             if (scriptName) {
                 scriptNames.add(scriptName);
             }
-        }
+        });
     }
 
     try {

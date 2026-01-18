@@ -1,10 +1,12 @@
 import path from "node:path";
 import process from "node:process";
 import { fileURLToPath } from "node:url";
+
 import { Command } from "commander";
+
 import { createCliCommandManager } from "./command-manager.js";
-import { handleCliError } from "./errors.js";
 import type { CommanderCommandLike } from "./commander-types.js";
+import { handleCliError } from "./errors.js";
 
 /**
  * Configuration for running a CLI command as a main module.

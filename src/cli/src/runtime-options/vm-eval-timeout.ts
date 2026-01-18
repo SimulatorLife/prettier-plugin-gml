@@ -70,4 +70,4 @@ function applyVmEvalTimeoutEnvOverride(env?: NodeJS.ProcessEnv): number | undefi
 
 applyVmEvalTimeoutEnvOverride();
 
-export { getDefaultVmEvalTimeoutMs, setDefaultVmEvalTimeoutMs, resolveVmEvalTimeout, applyVmEvalTimeoutEnvOverride };
+export { applyVmEvalTimeoutEnvOverride, getDefaultVmEvalTimeoutMs, resolveVmEvalTimeout, setDefaultVmEvalTimeoutMs };

@@ -1,33 +1,33 @@
 import {
     clamp,
     coercePositiveIntegerOption,
+    type DocCommentLines,
     findLastIndex,
     isNonEmptyArray,
     isNonEmptyString,
     isNonEmptyTrimmedString,
+    type MutableDocCommentLines,
     toMutableArray,
-    toTrimmedString,
-    type DocCommentLines,
-    type MutableDocCommentLines
+    toTrimmedString
 } from "../utils.js";
-import { parseDocCommentMetadata } from "./metadata.js";
 import {
-    dedupeReturnDocLines,
-    reorderDescriptionLinesToTop,
     convertLegacyReturnsDescriptionLinesToMetadata,
+    dedupeReturnDocLines,
+    hasLegacyReturnsDescriptionLines,
     promoteLeadingDocCommentTextToDescription,
-    hasLegacyReturnsDescriptionLines
+    reorderDescriptionLinesToTop
 } from "./legacy.js";
-import { normalizeDocCommentTypeAnnotations, normalizeGameMakerType } from "./type-normalization.js";
+import { parseDocCommentMetadata } from "./metadata.js";
+import { getCanonicalParamNameFromText } from "./params.js";
+import { computeSyntheticFunctionDocLines } from "./synthetic-generation.js";
 import {
     collectImplicitArgumentDocNames,
     getParameterDocInfo,
+    ImplicitArgumentDocEntry,
     preferredParamDocNamesByNode,
-    suppressedImplicitDocCanonicalByNode,
-    ImplicitArgumentDocEntry
+    suppressedImplicitDocCanonicalByNode
 } from "./synthetic-helpers.js";
-import { getCanonicalParamNameFromText } from "./params.js";
-import { computeSyntheticFunctionDocLines } from "./synthetic-generation.js";
+import { normalizeDocCommentTypeAnnotations, normalizeGameMakerType } from "./type-normalization.js";
 
 const STRING_TYPE = "string";
 
@@ -904,43 +904,42 @@ function reorderDocLines({
     }
     const reordered: string[] = [];
 
+    const tryAppendDocLine = (canonical: string | null | undefined): boolean => {
+        if (!canonical) {
+            return false;
+        }
+
+        const docLine = docsByCanonical.get(canonical);
+        if (!docLine) {
+            return false;
+        }
+
+        reordered.push(docLine);
+        docsByCanonical.delete(canonical);
+        return true;
+    };
+
     if (Array.isArray(node.params)) {
         for (const [index, param] of node.params.entries()) {
             const implicitEntry = implicitEntryByIndex.get(index);
             if (implicitEntry) {
                 const implicitCanonical = implicitEntry.canonical || getCanonicalParamNameFromText(implicitEntry.name);
-                if (implicitCanonical && docsByCanonical.has(implicitCanonical)) {
-                    const docLine = docsByCanonical.get(implicitCanonical);
-                    if (docLine) {
-                        reordered.push(docLine);
-                        docsByCanonical.delete(implicitCanonical);
-                        continue;
-                    }
+                if (tryAppendDocLine(implicitCanonical)) {
+                    continue;
                 }
             }
 
             const preferredName = preferredDocs?.get(index);
             if (preferredName) {
                 const preferredCanonical = getCanonicalParamNameFromText(preferredName);
-                if (preferredCanonical && docsByCanonical.has(preferredCanonical)) {
-                    const docLine = docsByCanonical.get(preferredCanonical);
-                    if (docLine) {
-                        reordered.push(docLine);
-                        docsByCanonical.delete(preferredCanonical);
-                        continue;
-                    }
+                if (tryAppendDocLine(preferredCanonical)) {
+                    continue;
                 }
             }
 
             const paramInfo = getParameterDocInfo(param, node, options);
             const paramCanonical = paramInfo?.name ? getCanonicalParamNameFromText(paramInfo.name) : null;
-            if (paramCanonical && docsByCanonical.has(paramCanonical)) {
-                const docLine = docsByCanonical.get(paramCanonical);
-                if (docLine) {
-                    reordered.push(docLine);
-                    docsByCanonical.delete(paramCanonical);
-                }
-            }
+            tryAppendDocLine(paramCanonical);
         }
     }
 

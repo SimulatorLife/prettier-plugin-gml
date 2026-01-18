@@ -3,7 +3,6 @@ import { describe, it } from "node:test";
 
 // Node deprecates the legacy assert.equal helper; keep these tests on the
 // strict variants to mirror runtime behaviour in production code.
-
 import { createAbortError, createAbortGuard, isAbortError, throwIfAborted } from "../src/utils/abort.js";
 
 void describe("createAbortError", () => {

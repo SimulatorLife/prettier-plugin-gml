@@ -1,10 +1,12 @@
-import path from "node:path";
-import { Core } from "@gml-modules/core";
 import { createHash, randomUUID } from "node:crypto";
+import path from "node:path";
 
-import { isProjectManifestPath } from "./constants.js";
+import { Core } from "@gml-modules/core";
+
 import { evaluateProjectIndexCacheSizePolicy, normalizeProjectIndexCacheMaxSizeBytes } from "./cache-write-policy.js";
+import { isProjectManifestPath } from "./constants.js";
 import { defaultFsFacade, type ProjectIndexFsFacade } from "./fs-facade.js";
+import { runSequentially } from "./sequential-runner.js";
 
 export const PROJECT_INDEX_CACHE_SCHEMA_VERSION = 1;
 export const PROJECT_INDEX_CACHE_DIRECTORY = ".prettier-plugin-gml";
@@ -214,7 +216,7 @@ function validateCachePayload(payload) {
     return true;
 }
 
-export { getDefaultProjectIndexCacheMaxSize, setDefaultProjectIndexCacheMaxSize, applyProjectIndexCacheEnvOverride };
+export { applyProjectIndexCacheEnvOverride, getDefaultProjectIndexCacheMaxSize, setDefaultProjectIndexCacheMaxSize };
 
 export async function loadProjectIndexCache(
     descriptor,
@@ -425,14 +427,14 @@ export async function deriveCacheKey(
 
     if (resolvedRoot) {
         const entries = await Core.listDirectory(fsFacade, resolvedRoot);
-        const manifestNames = entries.filter(isProjectManifestPath).reduce((acc, item) => {
+        const manifestNames = entries.filter(isProjectManifestPath).reduce<string[]>((acc, item) => {
             const insertIndex = acc.findIndex((existing) => existing.localeCompare(item) > 0);
             return insertIndex === -1
                 ? [...acc, item]
                 : [...acc.slice(0, insertIndex), item, ...acc.slice(insertIndex)];
         }, []);
 
-        for (const manifestName of manifestNames) {
+        await runSequentially(manifestNames, async (manifestName) => {
             const manifestPath = path.join(resolvedRoot, manifestName);
             const mtime = await Core.getFileMtime(fsFacade, manifestPath);
             if (mtime !== null) {
@@ -441,7 +443,7 @@ export async function deriveCacheKey(
                 hash.update(String(mtime));
                 hash.update("\0");
             }
-        }
+        });
     }
 
     if (filepath) {

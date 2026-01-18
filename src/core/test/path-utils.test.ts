@@ -1,6 +1,6 @@
 import assert from "node:assert/strict";
-import { describe, it } from "node:test";
 import path from "node:path";
+import { describe, it } from "node:test";
 
 // Node.js deprecated the legacy assert.equal-style helpers; use the strict
 // variants to ensure consistent comparisons across runtimes.

@@ -3,6 +3,7 @@
  * The `_overridesStaticFunction` flag ensures downstream normalizers and formatters know when a collision exists.
  */
 import { Core, type MutableGameMakerAstNode } from "@gml-modules/core";
+
 import { createParserTransform } from "./functional-transform.js";
 
 type AnnotateStaticFunctionOverridesTransformOptions = Record<string, never>;

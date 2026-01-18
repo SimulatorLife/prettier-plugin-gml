@@ -1,5 +1,6 @@
 import assert from "node:assert/strict";
 import { test } from "node:test";
+
 import { Plugin } from "../src/index.js";
 
 function format(source, options: any = {}) {

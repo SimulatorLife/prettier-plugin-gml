@@ -1,4 +1,9 @@
 export {
+    buildDeprecatedBuiltinVariableReplacements,
+    type DeprecatedReplacementEntry,
+    getDeprecatedBuiltinReplacementEntry
+} from "./deprecated-builtin-variable-replacements.js";
+export {
     clearFeatherMetadataCache,
     FEATHER_METADATA_PATH,
     FEATHER_METADATA_URL,
@@ -7,6 +12,7 @@ export {
     getFeatherMetadata,
     loadBundledFeatherMetadata
 } from "./feather-metadata.js";
+export * from "./feather-type-system.js";
 export {
     clearIdentifierMetadataCache,
     getIdentifierMetadata,
@@ -20,9 +26,3 @@ export {
     setReservedIdentifierMetadataLoader
 } from "./gml-identifier-loading.js";
 export { resolveBundledResourcePath, resolveBundledResourceUrl } from "./resource-locator.js";
-export * from "./feather-type-system.js";
-export {
-    buildDeprecatedBuiltinVariableReplacements,
-    getDeprecatedBuiltinReplacementEntry,
-    type DeprecatedReplacementEntry
-} from "./deprecated-builtin-variable-replacements.js";

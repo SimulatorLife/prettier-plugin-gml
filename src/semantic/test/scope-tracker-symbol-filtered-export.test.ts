@@ -1,5 +1,5 @@
-import test from "node:test";
 import assert from "node:assert/strict";
+import test from "node:test";
 
 import ScopeTracker from "../src/scopes/scope-tracker.js";
 
@@ -301,7 +301,7 @@ void test("exportOccurrencesBySymbols: returns results sorted by scopeId", () =>
     assert.strictEqual(result.length, 2);
     // Results should be sorted by scopeId
     const scopeIds = [result[0].scopeId, result[1].scopeId];
-    const sortedIds = [...scopeIds].sort();
+    const sortedIds = [...scopeIds].toSorted();
     assert.deepStrictEqual(scopeIds, sortedIds);
 });
 
@@ -350,7 +350,7 @@ void test("exportOccurrencesBySymbols: performance optimization for hot reload u
 
     const exportedSymbols = result[0].occurrences.map((occ) => occ.symbol.split("::")[1]);
 
-    const sortedExpected = [...changedSymbols].sort();
-    const sortedExported = [...exportedSymbols].sort();
+    const sortedExpected = [...changedSymbols].toSorted();
+    const sortedExported = [...exportedSymbols].toSorted();
     assert.deepStrictEqual(sortedExported, sortedExpected);
 });

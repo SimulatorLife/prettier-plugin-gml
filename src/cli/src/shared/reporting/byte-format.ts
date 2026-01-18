@@ -176,12 +176,12 @@ function formatBytes(text: string): string {
 }
 
 export {
+    applyByteFormatRadixEnvOverride,
     BYTE_FORMAT_RADIX_ENV_VAR,
     DEFAULT_BYTE_FORMAT_RADIX,
-    applyByteFormatRadixEnvOverride,
+    formatBytes,
     formatByteSize,
     formatByteSizeDisplay,
-    formatBytes,
     getDefaultByteFormatRadix,
     resolveByteFormatRadix,
     setDefaultByteFormatRadix

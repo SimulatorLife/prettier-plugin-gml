@@ -1,10 +1,10 @@
 import assert from "node:assert/strict";
 import fs from "node:fs/promises";
 import path from "node:path";
+import { describe, it } from "node:test";
 import { fileURLToPath } from "node:url";
 
 import { Plugin } from "../src/index.js";
-import { describe, it } from "node:test";
 
 const rawDirectory = fileURLToPath(new URL(".", import.meta.url));
 const currentDirectory = rawDirectory.includes(`${path.sep}dist${path.sep}`)
@@ -88,7 +88,7 @@ async function loadTestCases() {
         caseMap.set(baseName, { ...existing, singleFile: entry });
     }
 
-    const sortedBaseNames = [...caseMap.keys()].sort();
+    const sortedBaseNames = [...caseMap.keys()].toSorted();
 
     return Promise.all(
         sortedBaseNames.map(async (baseName) => {

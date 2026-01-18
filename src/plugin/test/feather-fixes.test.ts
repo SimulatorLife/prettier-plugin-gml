@@ -1,11 +1,10 @@
 import assert from "node:assert/strict";
-
-import { Core } from "@gml-modules/core";
-
 import { describe, it } from "node:test";
 
-import { Plugin } from "../src/index.js";
+import { Core } from "@gml-modules/core";
 import { Parser } from "@gml-modules/parser";
+
+import { Plugin } from "../src/index.js";
 import * as Transforms from "../src/transforms/index.js";
 
 // Using Plugin.format wrapper instead of pluginPath
@@ -2177,8 +2176,8 @@ void describe("Transforms.applyFeatherFixes transform", () => {
 
         assert.strictEqual(changedIdentifiers.length > 0, true, "Expected some argument built-ins to be renamed.");
 
-        const changedNames = changedIdentifiers.map((entry) => entry.node.name).sort();
-        const expectedNames = ["argument0", "argument1", "argument1", "argument2"].sort();
+        const changedNames = changedIdentifiers.map((entry) => entry.node.name).toSorted();
+        const expectedNames = ["argument0", "argument1", "argument1", "argument2"].toSorted();
 
         assert.deepStrictEqual(
             changedNames,

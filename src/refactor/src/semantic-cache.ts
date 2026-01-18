@@ -10,7 +10,7 @@
  * when the underlying source files change.
  */
 
-import type { PartialSemanticAnalyzer, SymbolOccurrence, FileSymbol, DependentSymbol } from "./types.js";
+import type { DependentSymbol, FileSymbol, PartialSemanticAnalyzer, SymbolOccurrence } from "./types.js";
 import { hasMethod } from "./validation-utils.js";
 
 /**

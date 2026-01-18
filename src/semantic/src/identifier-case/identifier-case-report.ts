@@ -9,13 +9,12 @@
 import path from "node:path";
 
 import { Core } from "@gml-modules/core";
-import { setIdentifierCaseOption } from "./option-store.js";
 
-import { warnWithReason } from "./logger.js";
-
-import { consumeIdentifierCaseDryRunContext } from "./identifier-case-context.js";
-import { defaultIdentifierCaseFsFacade as defaultFsFacade } from "./fs-facade.js";
 import { ConflictSeverity, normalizeConflictSeverityWithFallback } from "./conflict-severity.js";
+import { defaultIdentifierCaseFsFacade as defaultFsFacade } from "./fs-facade.js";
+import { consumeIdentifierCaseDryRunContext } from "./identifier-case-context.js";
+import { warnWithReason } from "./logger.js";
+import { setIdentifierCaseOption } from "./option-store.js";
 
 type IdentifierCaseReportSummary = {
     renameCount: number;
@@ -595,16 +594,41 @@ function resolveInlineReportContext(options, renamePlan) {
     };
 }
 
+function mergeReportContexts(primary, fallback) {
+    if (!primary) {
+        return fallback;
+    }
+
+    if (!fallback) {
+        return primary;
+    }
+
+    return {
+        ...primary,
+        logger: primary.logger ?? fallback.logger,
+        diagnostics: primary.diagnostics ?? fallback.diagnostics,
+        logFilePath: primary.logFilePath ?? fallback.logFilePath,
+        fsFacade: primary.fsFacade ?? fallback.fsFacade,
+        now: primary.now ?? fallback.now,
+        dryRun: primary.dryRun ?? fallback.dryRun,
+        conflicts: primary.conflicts ?? fallback.conflicts,
+        renamePlan: primary.renamePlan ?? fallback.renamePlan
+    };
+}
+
 function resolveReportContext(options) {
     const inlinePlan = getIdentifierCaseOption(options, "RenamePlan", {
         fallback: null
     });
 
+    const context = consumeIdentifierCaseDryRunContext(options.filepath ?? null);
+
     if (inlinePlan) {
-        return resolveInlineReportContext(options, inlinePlan);
+        const inlineContext = resolveInlineReportContext(options, inlinePlan);
+        return mergeReportContexts(inlineContext, context);
     }
 
-    return consumeIdentifierCaseDryRunContext(options.filepath ?? null);
+    return context;
 }
 
 function resolveDryRunFlag(options, contextDryRun) {
@@ -648,7 +672,6 @@ export function maybeReportIdentifierCaseDryRun(options) {
     }
 
     const context = resolveReportContext(options);
-
     if (!context) {
         return null;
     }

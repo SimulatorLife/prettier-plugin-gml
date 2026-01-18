@@ -1,25 +1,25 @@
-import * as RefactorAPI from "./refactor-engine.js";
-import { WorkspaceEdit } from "./workspace-edit.js";
-import * as OccurrenceAnalysisAPI from "./occurrence-analysis.js";
-import * as RenamePreviewAPI from "./rename-preview.js";
-import * as ValidationAPI from "./validation.js";
 import * as HotReloadAPI from "./hot-reload.js";
-import { SemanticQueryCache } from "./semantic-cache.js";
+import * as OccurrenceAnalysisAPI from "./occurrence-analysis.js";
+import * as RefactorAPI from "./refactor-engine.js";
+import * as RenamePreviewAPI from "./rename-preview.js";
 import { RenameValidationCache } from "./rename-validation-cache.js";
+import { SemanticQueryCache } from "./semantic-cache.js";
 import {
     ConflictType,
     isConflictType,
-    parseConflictType,
-    requireConflictType,
-    OccurrenceKind,
     isOccurrenceKind,
-    parseOccurrenceKind,
-    requireOccurrenceKind,
-    SymbolKind,
     isSymbolKind,
+    OccurrenceKind,
+    parseConflictType,
+    parseOccurrenceKind,
     parseSymbolKind,
-    requireSymbolKind
+    requireConflictType,
+    requireOccurrenceKind,
+    requireSymbolKind,
+    SymbolKind
 } from "./types.js";
+import * as ValidationAPI from "./validation.js";
+import { WorkspaceEdit } from "./workspace-edit.js";
 
 export const Refactor = Object.freeze({
     ...RefactorAPI,
@@ -44,58 +44,38 @@ export const Refactor = Object.freeze({
     requireSymbolKind
 });
 
-export { RefactorEngine } from "./refactor-engine.js";
-export { WorkspaceEdit } from "./workspace-edit.js";
-export { SemanticQueryCache } from "./semantic-cache.js";
-export type { SemanticCacheConfig, CacheStats } from "./semantic-cache.js";
-export { RenameValidationCache } from "./rename-validation-cache.js";
-export type {
-    RenameValidationCacheConfig,
-    ValidationCacheStats,
-    CachedValidationResult
-} from "./rename-validation-cache.js";
-
-export { SymbolKind, isSymbolKind, parseSymbolKind, requireSymbolKind } from "./types.js";
-
-export { ConflictType, isConflictType, parseConflictType, requireConflictType } from "./types.js";
-
-export { OccurrenceKind, isOccurrenceKind, parseOccurrenceKind, requireOccurrenceKind } from "./types.js";
-
+export {
+    checkHotReloadSafety,
+    computeHotReloadCascade,
+    computeRenameImpactGraph,
+    generateTranspilerPatches,
+    prepareHotReloadUpdates
+} from "./hot-reload.js";
+export type { OccurrenceClassification } from "./occurrence-analysis.js";
 export {
     classifyOccurrences,
+    countAffectedFiles,
     filterOccurrencesByKind,
-    groupOccurrencesByFile,
     findOccurrencesInFile,
-    countAffectedFiles
+    groupOccurrencesByFile
 } from "./occurrence-analysis.js";
-
-export type { OccurrenceClassification } from "./occurrence-analysis.js";
-
-export {
-    generateRenamePreview,
-    formatRenamePlanReport,
-    formatBatchRenamePlanReport,
-    formatOccurrencePreview
-} from "./rename-preview.js";
-
+export { RefactorEngine } from "./refactor-engine.js";
 export type { FilePreview, RenamePreview } from "./rename-preview.js";
-
 export {
-    detectRenameConflicts,
-    detectCircularRenames,
-    validateRenameStructure,
-    batchValidateScopeConflicts,
-    validateCrossFileConsistency
-} from "./validation.js";
-
-export {
-    computeHotReloadCascade,
-    checkHotReloadSafety,
-    prepareHotReloadUpdates,
-    generateTranspilerPatches,
-    computeRenameImpactGraph
-} from "./hot-reload.js";
-
+    formatBatchRenamePlanReport,
+    formatOccurrencePreview,
+    formatRenamePlanReport,
+    generateRenamePreview
+} from "./rename-preview.js";
+export type {
+    CachedValidationResult,
+    RenameValidationCacheConfig,
+    ValidationCacheStats
+} from "./rename-validation-cache.js";
+export { RenameValidationCache } from "./rename-validation-cache.js";
+export type { CacheStats, SemanticCacheConfig } from "./semantic-cache.js";
+export { SemanticQueryCache } from "./semantic-cache.js";
+export * from "./sequential-runner.js";
 export type {
     ApplyWorkspaceEditOptions,
     AstNode,
@@ -146,3 +126,14 @@ export type {
     WorkspaceReadFile,
     WorkspaceWriteFile
 } from "./types.js";
+export { isSymbolKind, parseSymbolKind, requireSymbolKind, SymbolKind } from "./types.js";
+export { ConflictType, isConflictType, parseConflictType, requireConflictType } from "./types.js";
+export { isOccurrenceKind, OccurrenceKind, parseOccurrenceKind, requireOccurrenceKind } from "./types.js";
+export {
+    batchValidateScopeConflicts,
+    detectCircularRenames,
+    detectRenameConflicts,
+    validateCrossFileConsistency,
+    validateRenameStructure
+} from "./validation.js";
+export { WorkspaceEdit } from "./workspace-edit.js";

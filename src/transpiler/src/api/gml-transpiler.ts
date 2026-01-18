@@ -1,11 +1,12 @@
-import { Parser } from "@gml-modules/parser";
 import { Core } from "@gml-modules/core";
+import { Parser } from "@gml-modules/parser";
+
 import {
-    GmlToJsEmitter,
-    makeDummyOracle,
+    type CallTargetAnalyzer,
     type EmitOptions,
+    GmlToJsEmitter,
     type IdentifierAnalyzer,
-    type CallTargetAnalyzer
+    makeDummyOracle
 } from "../emitter/index.js";
 
 export interface TranspileScriptRequest {

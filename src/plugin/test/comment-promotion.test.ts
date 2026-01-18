@@ -1,6 +1,7 @@
 import assert from "node:assert/strict";
-import { Plugin } from "../src/index.js";
 import { describe, it } from "node:test";
+
+import { Plugin } from "../src/index.js";
 
 void describe("comment promotion and normalization", () => {
     void it("promotes leading summary comments to @description", async () => {

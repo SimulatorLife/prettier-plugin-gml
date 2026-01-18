@@ -2,17 +2,17 @@ import path from "node:path";
 
 import { Core } from "@gml-modules/core";
 
+import { createProjectIndexAbortGuard, PROJECT_INDEX_BUILD_ABORT_MESSAGE } from "./abort-guard.js";
+import { loadBuiltInIdentifiers } from "./built-in-identifiers.js";
 import { getDefaultProjectIndexCacheMaxSize, loadProjectIndexCache, saveProjectIndexCache } from "./cache.js";
 import { clampConcurrency } from "./concurrency.js";
 import { createProjectIndexCoordinator as createProjectIndexCoordinatorCore } from "./coordinator.js";
 import { defaultFsFacade, type ProjectIndexFsFacade } from "./fs-facade.js";
 import { resolveProjectIndexParser } from "./gml-parser-facade.js";
+import { assertValidIdentifierRole, IdentifierRole } from "./identifier-roles.js";
 import { createProjectIndexMetrics, finalizeProjectIndexMetrics } from "./metrics.js";
-import { analyseResourceFiles, createFileScopeDescriptor } from "./resource-analysis.js";
 import { scanProjectTree } from "./project-tree.js";
-import { PROJECT_INDEX_BUILD_ABORT_MESSAGE, createProjectIndexAbortGuard } from "./abort-guard.js";
-import { loadBuiltInIdentifiers } from "./built-in-identifiers.js";
-import { IdentifierRole, assertValidIdentifierRole } from "./identifier-roles.js";
+import { analyseResourceFiles, createFileScopeDescriptor } from "./resource-analysis.js";
 
 type BuildProjectIndexFunction = (
     projectRoot: string,
@@ -348,54 +348,72 @@ function createEnumLookup(ast, filePath) {
         }
         seen.add(node);
         if (node.type === "EnumDeclaration") {
-            const enumIdentifier = node.name;
-            if (!Core.isIdentifierNode(enumIdentifier)) {
-                continue;
-            }
-            const enumKey = Core.buildFileLocationKey(filePath, enumIdentifier.start);
-            if (enumKey) {
-                enumDeclarations.set(enumKey, {
-                    key: enumKey,
-                    name: enumIdentifier.name ?? null,
-                    filePath: filePath ?? null
-                });
-                for (const member of Core.asArray(node.members)) {
-                    if (!Core.isObjectLike(member)) {
-                        continue;
-                    }
-                    const memberNode = member as Record<string, unknown>;
-                    const memberIdentifier = memberNode.name;
-                    if (!Core.isIdentifierNode(memberIdentifier)) {
-                        continue;
-                    }
-                    const memberKey = Core.buildFileLocationKey(filePath, memberIdentifier.start);
-                    if (!memberKey) {
-                        continue;
-                    }
-                    memberDeclarations.set(memberKey, {
-                        key: memberKey,
-                        name: memberIdentifier.name ?? null,
-                        enumKey,
-                        filePath: filePath ?? null
-                    });
+            const enumData = collectEnumDeclarationData(node, filePath);
+            if (enumData) {
+                enumDeclarations.set(enumData.enumEntry.key, enumData.enumEntry);
+                for (const memberEntry of enumData.memberEntries) {
+                    memberDeclarations.set(memberEntry.key, memberEntry);
                 }
             }
         }
         const values = Object.values(node);
         for (const value of values) {
-            if (Array.isArray(value)) {
-                for (let index = value.length - 1; index >= 0; index -= 1) {
-                    const child = value[index];
-                    if (Core.isObjectLike(child)) {
-                        visitStack.push(child);
-                    }
-                }
-            } else if (Core.isObjectLike(value)) {
-                visitStack.push(value);
-            }
+            pushNodeValueChildren(visitStack, value);
         }
     }
     return { enumDeclarations, memberDeclarations };
+}
+
+function collectEnumDeclarationData(node: any, filePath: string | null) {
+    const enumIdentifier = node.name;
+    if (!Core.isIdentifierNode(enumIdentifier)) {
+        return null;
+    }
+
+    const enumKey = Core.buildFileLocationKey(filePath, enumIdentifier.start);
+    if (!enumKey) {
+        return null;
+    }
+
+    const enumEntry = {
+        key: enumKey,
+        name: enumIdentifier.name ?? null,
+        filePath: filePath ?? null
+    };
+
+    const memberEntries = [];
+    for (const member of Core.asArray(node.members)) {
+        const memberEntry = buildEnumMemberEntry(member, enumKey, filePath);
+        if (memberEntry) {
+            memberEntries.push(memberEntry);
+        }
+    }
+
+    return { enumEntry, memberEntries };
+}
+
+function buildEnumMemberEntry(member: unknown, enumKey: string, filePath: string | null) {
+    if (!Core.isObjectLike(member)) {
+        return null;
+    }
+
+    const memberNode = member as Record<string, unknown>;
+    const memberIdentifier = memberNode.name;
+    if (!Core.isIdentifierNode(memberIdentifier)) {
+        return null;
+    }
+
+    const memberKey = Core.buildFileLocationKey(filePath, memberIdentifier.start);
+    if (!memberKey) {
+        return null;
+    }
+
+    return {
+        key: memberKey,
+        name: memberIdentifier.name ?? null,
+        enumKey,
+        filePath: filePath ?? null
+    };
 }
 function ensureScriptEntry(identifierCollections, descriptor) {
     if (!descriptor || !descriptor.id || descriptor.kind !== "script") {
@@ -543,10 +561,10 @@ function recordScriptCallMetricsAndReferences({ relationships, metrics, identifi
 }
 function mapToObject(map, transform, { sortEntries = true } = {}) {
     const entries = [...map.entries()];
-    if (sortEntries) {
-        entries.sort(([a], [b]) => (typeof a === "string" && typeof b === "string" ? a.localeCompare(b) : 0));
-    }
-    return Object.fromEntries(entries.map(([key, value]) => [key, transform(value, key)]));
+    const orderedEntries = sortEntries
+        ? entries.toSorted(([a], [b]) => (typeof a === "string" && typeof b === "string" ? a.localeCompare(b) : 0))
+        : entries;
+    return Object.fromEntries(orderedEntries.map(([key, value]) => [key, transform(value, key)]));
 }
 function registerMacroOccurrence({ identifierCollections, identifierRecord, filePath, role }) {
     if (!identifierRecord?.name) {
@@ -850,18 +868,29 @@ function traverseAst(root, visitor) {
             if (!Object.hasOwn(node, key)) {
                 continue;
             }
-            const value = node[key];
-            if (Array.isArray(value)) {
-                for (let i = value.length - 1; i >= 0; i -= 1) {
-                    const child = value[i];
-                    if (Core.isObjectLike(child)) {
-                        stack.push(child);
-                    }
-                }
-            } else if (Core.isObjectLike(value)) {
-                stack.push(value);
+
+            pushNodeValueChildren(stack, node[key]);
+        }
+    }
+}
+
+function pushNodeValueChildren(stack: Array<any>, value: unknown) {
+    if (!value || typeof value !== "object") {
+        return;
+    }
+
+    if (Array.isArray(value)) {
+        for (let i = value.length - 1; i >= 0; i -= 1) {
+            const child = value[i];
+            if (Core.isObjectLike(child)) {
+                stack.push(child);
             }
         }
+        return;
+    }
+
+    if (Core.isObjectLike(value)) {
+        stack.push(value);
     }
 }
 function handleScriptScopeFunctionDeclarationNode({
@@ -1183,12 +1212,21 @@ async function processWithConcurrency(items, limit, worker, options = {}) {
     let nextIndex = 0;
     const runWorker = async () => {
         ensureNotAborted();
-        let currentIndex;
-        while ((currentIndex = nextIndex++) < items.length) {
+
+        const processNext = async (): Promise<void> => {
+            ensureNotAborted();
+            const currentIndex = nextIndex++;
+            if (currentIndex >= items.length) {
+                return;
+            }
+
             ensureNotAborted();
             await worker(items[currentIndex], currentIndex);
             ensureNotAborted();
-        }
+            await processNext();
+        };
+
+        await processNext();
     };
     const workerHandles = [];
     for (let index = 0; index < workerCount; index++) {

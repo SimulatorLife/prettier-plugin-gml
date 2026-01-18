@@ -7,11 +7,12 @@
  * avoid scope capture or shadowing.
  */
 
-import { Command, Option } from "commander";
 import path from "node:path";
 import process from "node:process";
 
 import { Core } from "@gml-modules/core";
+import { Command, Option } from "commander";
+
 import { formatCliError } from "../cli-core/errors.js";
 
 const { getErrorMessage } = Core;

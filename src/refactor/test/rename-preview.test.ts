@@ -2,22 +2,23 @@
  * Tests for rename preview utilities.
  */
 
-import { describe, it } from "node:test";
 import * as assert from "node:assert/strict";
+import { describe, it } from "node:test";
+
 import {
-    generateRenamePreview,
-    formatRenamePlanReport,
     formatBatchRenamePlanReport,
-    formatOccurrencePreview
+    formatOccurrencePreview,
+    formatRenamePlanReport,
+    generateRenamePreview
 } from "../src/rename-preview.js";
-import { WorkspaceEdit } from "../src/workspace-edit.js";
 import {
+    type BatchRenamePlanSummary,
     ConflictType,
     OccurrenceKind,
     type RenamePlanSummary,
-    type BatchRenamePlanSummary,
     type SymbolOccurrence
 } from "../src/types.js";
+import { WorkspaceEdit } from "../src/workspace-edit.js";
 
 void describe("generateRenamePreview", () => {
     void it("generates preview for simple rename", () => {

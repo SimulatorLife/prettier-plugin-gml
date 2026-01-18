@@ -1,10 +1,11 @@
-import { describe, it } from "node:test";
 import * as assert from "node:assert/strict";
+import { describe, it } from "node:test";
+
 import {
-    evaluateBannerCommentPolicy,
-    isBelowBannerSlashThreshold,
+    type BannerCommentPolicyContext,
     DEFAULT_BANNER_COMMENT_POLICY_CONFIG,
-    type BannerCommentPolicyContext
+    evaluateBannerCommentPolicy,
+    isBelowBannerSlashThreshold
 } from "../src/comments/line-comment/banner-comment-policy.js";
 
 describe("banner-comment-policy", () => {

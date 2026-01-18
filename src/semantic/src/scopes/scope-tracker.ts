@@ -1,10 +1,11 @@
 import { Core, type GameMakerAstNode, type MutableGameMakerAstNode } from "@gml-modules/core";
-import {
-    ScopeOverrideKeyword,
-    formatKnownScopeOverrideKeywords,
-    isScopeOverrideKeyword
-} from "./scope-override-keywords.js";
+
 import { ROLE_DEF, ROLE_REF } from "../symbols/scip-types.js";
+import {
+    formatKnownScopeOverrideKeywords,
+    isScopeOverrideKeyword,
+    ScopeOverrideKeyword
+} from "./scope-override-keywords.js";
 
 type IdentifierOccurrences = {
     declarations: Array<ReturnType<typeof createOccurrence>>;
@@ -38,6 +39,17 @@ type ScopeModificationDetails = {
         declarationCount: number;
         referenceCount: number;
     }>;
+};
+
+type ScopeEntry = {
+    declarations: Array<any>;
+    references: Array<any>;
+};
+
+type ScipOccurrence = {
+    range: [number, number, number, number];
+    symbol: string;
+    symbolRoles: number;
 };
 
 type ScopeMetadata = {
@@ -1190,11 +1202,11 @@ export class ScopeTracker {
             dependencies.push({
                 dependencyScopeId: depScopeId,
                 dependencyScopeKind: depScope.kind,
-                symbols: [...symbols].sort()
+                symbols: [...symbols].toSorted()
             });
         }
 
-        return dependencies.sort((a, b) => a.dependencyScopeId.localeCompare(b.dependencyScopeId));
+        return dependencies.toSorted((a, b) => a.dependencyScopeId.localeCompare(b.dependencyScopeId));
     }
 
     /**
@@ -1297,11 +1309,11 @@ export class ScopeTracker {
             dependents.push({
                 dependentScopeId: depScopeId,
                 dependentScopeKind: depScope.kind,
-                symbols: [...symbols].sort()
+                symbols: [...symbols].toSorted()
             });
         }
 
-        return dependents.sort((a, b) => a.dependentScopeId.localeCompare(b.dependentScopeId));
+        return dependents.toSorted((a, b) => a.dependentScopeId.localeCompare(b.dependentScopeId));
     }
 
     /**
@@ -1390,7 +1402,7 @@ export class ScopeTracker {
             });
         }
 
-        return result.sort((a, b) => {
+        return result.toSorted((a, b) => {
             // Sort by depth first (shallower dependencies first), then by scope ID
             if (a.depth !== b.depth) {
                 return a.depth - b.depth;
@@ -1541,7 +1553,7 @@ export class ScopeTracker {
             }
         }
 
-        return descendants.sort((a, b) => {
+        return descendants.toSorted((a, b) => {
             // Sort by depth first, then by scope ID
             if (a.depth !== b.depth) {
                 return a.depth - b.depth;
@@ -1634,7 +1646,7 @@ export class ScopeTracker {
             }
         }
 
-        return scopes.sort((a, b) => a.scopeId.localeCompare(b.scopeId));
+        return scopes.toSorted((a, b) => a.scopeId.localeCompare(b.scopeId));
     }
 
     getScopeModificationMetadata(scopeId: string | null | undefined) {
@@ -1815,7 +1827,7 @@ export class ScopeTracker {
             });
         }
 
-        symbols.sort((a, b) => a.name.localeCompare(b.name));
+        const sortedSymbols = symbols.toSorted((a, b) => a.name.localeCompare(b.name));
 
         return {
             scopeId: scope.id,
@@ -1824,8 +1836,8 @@ export class ScopeTracker {
             modificationCount: scope.modificationCount,
             declarationCount: totalDeclarations,
             referenceCount: totalReferences,
-            symbolCount: symbols.length,
-            symbols
+            symbolCount: sortedSymbols.length,
+            symbols: sortedSymbols
         };
     }
 
@@ -2002,7 +2014,7 @@ export class ScopeTracker {
             }
         }
 
-        return declarations.sort((a, b) => {
+        return declarations.toSorted((a, b) => {
             const scopeCmp = a.scopeId.localeCompare(b.scopeId);
             if (scopeCmp !== 0) {
                 return scopeCmp;
@@ -2164,22 +2176,9 @@ export class ScopeTracker {
             }> = [];
 
             for (const entry of scope.occurrences.values()) {
-                // Process declarations
-                for (const declaration of entry.declarations) {
-                    const scipOcc = this.toScipOccurrence(declaration, ROLE_DEF, getSymbol);
-                    if (scipOcc) {
-                        occurrences.push(scipOcc);
-                    }
-                }
-
-                // Process references if requested
+                this.appendScipDeclarations(entry, occurrences, getSymbol);
                 if (includeReferences) {
-                    for (const reference of entry.references) {
-                        const scipOcc = this.toScipOccurrence(reference, ROLE_REF, getSymbol);
-                        if (scipOcc) {
-                            occurrences.push(scipOcc);
-                        }
-                    }
+                    this.appendScipReferences(entry, occurrences, getSymbol);
                 }
             }
 
@@ -2192,7 +2191,33 @@ export class ScopeTracker {
             }
         }
 
-        return results.sort((a, b) => a.scopeId.localeCompare(b.scopeId));
+        return results.toSorted((a, b) => a.scopeId.localeCompare(b.scopeId));
+    }
+
+    private appendScipDeclarations(
+        entry: ScopeEntry,
+        occurrences: Array<ScipOccurrence>,
+        getSymbol: (name: string, scopeId: string) => string | null
+    ): void {
+        for (const declaration of entry.declarations) {
+            const scipOcc = this.toScipOccurrence(declaration, ROLE_DEF, getSymbol);
+            if (scipOcc) {
+                occurrences.push(scipOcc);
+            }
+        }
+    }
+
+    private appendScipReferences(
+        entry: ScopeEntry,
+        occurrences: Array<ScipOccurrence>,
+        getSymbol: (name: string, scopeId: string) => string | null
+    ): void {
+        for (const reference of entry.references) {
+            const scipOcc = this.toScipOccurrence(reference, ROLE_REF, getSymbol);
+            if (scipOcc) {
+                occurrences.push(scipOcc);
+            }
+        }
     }
 
     /**
@@ -2277,22 +2302,9 @@ export class ScopeTracker {
                     continue;
                 }
 
-                // Process declarations
-                for (const declaration of entry.declarations) {
-                    const scipOcc = this.toScipOccurrence(declaration, ROLE_DEF, getSymbol);
-                    if (scipOcc) {
-                        occurrences.push(scipOcc);
-                    }
-                }
-
-                // Process references if requested
+                this.appendScipDeclarations(entry, occurrences, getSymbol);
                 if (includeReferences) {
-                    for (const reference of entry.references) {
-                        const scipOcc = this.toScipOccurrence(reference, ROLE_REF, getSymbol);
-                        if (scipOcc) {
-                            occurrences.push(scipOcc);
-                        }
-                    }
+                    this.appendScipReferences(entry, occurrences, getSymbol);
                 }
             }
 
@@ -2306,7 +2318,7 @@ export class ScopeTracker {
             }
         }
 
-        return results.sort((a, b) => a.scopeId.localeCompare(b.scopeId));
+        return results.toSorted((a, b) => a.scopeId.localeCompare(b.scopeId));
     }
 }
 

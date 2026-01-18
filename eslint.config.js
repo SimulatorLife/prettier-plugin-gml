@@ -27,6 +27,7 @@ import pluginEslintComments from "eslint-plugin-eslint-comments";
 import pluginUnusedImports from "eslint-plugin-unused-imports";
 import pluginDeMorgan from "eslint-plugin-de-morgan";
 import pluginYml from "eslint-plugin-yml";
+import pluginSimpleImportSort from "eslint-plugin-simple-import-sort";
 
 // Prettier config
 import eslintConfigPrettier from "eslint-config-prettier";
@@ -128,7 +129,8 @@ const tsConfig = defineConfig({
         boundaries: pluginBoundaries,
         "no-secrets": pluginNoSecrets,
         "eslint-comments": pluginEslintComments,
-        "unused-imports": pluginUnusedImports
+        "unused-imports": pluginUnusedImports,
+        "simple-import-sort": pluginSimpleImportSort
     },
 
     settings: {
@@ -182,20 +184,20 @@ const tsConfig = defineConfig({
         "array-callback-return": ["error", { allowImplicit: true }], // map/filter/etc. must return
         "default-param-last": "error", // avoid surprising param order
         "dot-notation": "error", // prefer obj.prop over obj["prop"]
-        "no-await-in-loop": "warn", // agents love to do this
+        "no-await-in-loop": "error", // agents love to do this
         "no-constant-binary-expression": "error", // 1 + 2 === 3 style mistakes
-        "no-constructor-return": "warn",
+        "no-constructor-return": "error", // almost always a mistake
         "no-new-wrappers": "error", // new String(), etc.
         "no-promise-executor-return": "error", // returning inside new Promise((res) => ...)
         "no-self-compare": "error", // x === x is almost always a smell
-        "no-unmodified-loop-condition": "warn", // loop condition never changes
+        "no-unmodified-loop-condition": "error", // loop condition never changes
         "no-unsafe-optional-chaining": "error", // e.g. foo?.bar()
         "prefer-object-has-own": "error", // use Object.hasOwn over hasOwnProperty
         "no-unassigned-vars": "error", // vars that are never assigned a value
         "no-useless-assignment": "error", // x = x;
 
         // --- Async / performance hygiene ---
-        "require-await": "warn", // async fn must actually await
+        "require-await": "error", // async fn must actually await
         "no-return-await": "warn", // return await → return (unless needed)
         "prefer-named-capture-group": "warn", // clearer regexes for agents
 
@@ -259,7 +261,7 @@ const tsConfig = defineConfig({
         "max-statements": ["error", 90],
         "max-statements-per-line": ["error", { max: 1 }],
         "max-nested-callbacks": ["error", 4],
-        "require-atomic-updates": "warn",
+        "require-atomic-updates": "error",
         "no-implicit-coercion": ["error", { boolean: false }], // allow !!
         "no-implied-eval": "error",
         "no-param-reassign": ["warn", { props: true }],
@@ -315,7 +317,7 @@ const tsConfig = defineConfig({
         "unicorn/no-zero-fractions": "error",
         "unicorn/prevent-abbreviations": "off",
         "unicorn/prefer-code-point": "warn",
-        "unicorn/no-array-sort": "warn",
+        "unicorn/no-array-sort": "error",
         "unicorn/no-array-callback-reference": "warn",
         "unicorn/prefer-ternary": "warn",
         "unicorn/no-useless-undefined": "warn",
@@ -330,7 +332,7 @@ const tsConfig = defineConfig({
         "unicorn/prefer-array-some": "warn",
         "unicorn/no-this-assignment": "warn",
         "unicorn/prefer-at": "warn",
-        "unicorn/no-new-array": "warn",
+        "unicorn/no-new-array": "error", // Instead of new Array(1, 2, 3) use [1, 2, 3]
         "unicorn/no-array-reverse": "warn",
         "unicorn/no-array-reduce": "off",
         "unicorn/prefer-spread": "off",
@@ -367,6 +369,8 @@ const tsConfig = defineConfig({
         "import/no-mutable-exports": "error",
         "import/no-cycle": ["error", { maxDepth: 3 }],
         "import/newline-after-import": ["error", { count: 1 }],
+        "simple-import-sort/imports": "error",
+        "simple-import-sort/exports": "error",
 
         /* --- plugin: promise (stricter async) --- */
         "promise/no-return-wrap": "warn",
@@ -576,6 +580,7 @@ export default [
             "require-await": "off",
             "boundaries/entry-point": "off",
             "unicorn/no-useless-undefined": "off",
+            "no-await-in-loop": "warn",
 
             // TS-specific overrides:
             "@typescript-eslint/require-await": "off",

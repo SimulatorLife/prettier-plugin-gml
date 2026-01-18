@@ -632,7 +632,7 @@ function evaluateTruthTable(expression, variableCount) {
 }
 
 function buildAssignment(mask, variableCount) {
-    const assignment = new Array(variableCount);
+    const assignment = Array.from({ length: variableCount });
     for (let index = 0; index < variableCount; index++) {
         assignment[index] = (mask & (1 << index)) !== 0;
     }
@@ -1198,33 +1198,12 @@ function factorOrExpression(expression) {
 
         const factor = occurrences[0].factor;
         const involvedIndices = new Set(occurrences.map((item) => item.termIndex));
-        const residualTerms = [];
-        let factorPosition = null;
-
-        for (const { index, factors } of andTerms) {
-            if (!involvedIndices.has(index)) {
-                continue;
-            }
-
-            const remaining = [];
-            for (const { factor: candidate, position } of factors) {
-                if (booleanExpressionKey(candidate) === key) {
-                    if (factorPosition == undefined) {
-                        factorPosition = position;
-                    }
-                    continue;
-                }
-                remaining.push(candidate);
-            }
-
-            if (remaining.length === 0) {
-                // Factoring would remove the entire term, skip this factor.
-                factorPosition = null;
-                break;
-            }
-
-            residualTerms.push(remaining.length === 1 ? remaining[0] : createBooleanAnd(remaining));
-        }
+        const { residualTerms, factorPosition } = buildResidualTermsForKey(
+            andTerms,
+            involvedIndices,
+            key,
+            createBooleanAnd
+        );
 
         if (factorPosition == undefined) {
             continue;
@@ -1276,32 +1255,12 @@ function factorAndExpression(expression) {
 
         const factor = occurrences[0].factor;
         const involvedIndices = new Set(occurrences.map((item) => item.termIndex));
-        const residualTerms = [];
-        let factorPosition = null;
-
-        for (const { index, factors } of orTerms) {
-            if (!involvedIndices.has(index)) {
-                continue;
-            }
-
-            const remaining = [];
-            for (const { factor: candidate, position } of factors) {
-                if (booleanExpressionKey(candidate) === key) {
-                    if (factorPosition == undefined) {
-                        factorPosition = position;
-                    }
-                    continue;
-                }
-                remaining.push(candidate);
-            }
-
-            if (remaining.length === 0) {
-                factorPosition = null;
-                break;
-            }
-
-            residualTerms.push(remaining.length === 1 ? remaining[0] : createBooleanOr(remaining));
-        }
+        const { residualTerms, factorPosition } = buildResidualTermsForKey(
+            orTerms,
+            involvedIndices,
+            key,
+            createBooleanOr
+        );
 
         if (factorPosition == undefined) {
             continue;
@@ -1401,6 +1360,38 @@ function chooseBestCandidate(candidates) {
     return best;
 }
 
+function buildResidualTermsForKey(terms, involvedIndices, key, createResidualExpression) {
+    const residualTerms = [];
+    let factorPosition = null;
+
+    for (const { index, factors } of terms) {
+        if (!involvedIndices.has(index)) {
+            continue;
+        }
+
+        const remaining = [];
+        for (const { factor: candidate, position } of factors) {
+            if (booleanExpressionKey(candidate) === key) {
+                if (factorPosition == undefined) {
+                    factorPosition = position;
+                }
+                continue;
+            }
+
+            remaining.push(candidate);
+        }
+
+        if (remaining.length === 0) {
+            factorPosition = null;
+            break;
+        }
+
+        residualTerms.push(remaining.length === 1 ? remaining[0] : createResidualExpression(remaining));
+    }
+
+    return { residualTerms, factorPosition };
+}
+
 function booleanExpressionToAst(expression, context) {
     switch (expression.type) {
         case BOOLEAN_NODE_TYPES.CONST: {
@@ -1455,7 +1446,7 @@ function buildBinaryAst(operator, terms, context) {
 
     const orderedTerms =
         operator === "||"
-            ? [...terms].sort((left, right) => {
+            ? [...terms].toSorted((left, right) => {
                   const leftPriority = getBooleanOrTermPriority(left);
                   const rightPriority = getBooleanOrTermPriority(right);
                   if (leftPriority !== rightPriority) {
@@ -1787,7 +1778,7 @@ function isOrOfNegatedVariables(expression) {
 
 function collectVariableIndices(terms) {
     const indices = terms.map((term) => term?.variable?.index).filter((index) => typeof index === "number");
-    return indices.sort((a, b) => a - b);
+    return indices.toSorted((a, b) => a - b);
 }
 
 function arraysEqual(a, b) {
@@ -1893,11 +1884,11 @@ function booleanExpressionKey(expression) {
             return `n:${booleanExpressionKey(expression.argument)}`;
         }
         case BOOLEAN_NODE_TYPES.AND: {
-            const keys = expression.terms.map((term) => booleanExpressionKey(term)).sort();
+            const keys = expression.terms.map((term) => booleanExpressionKey(term)).toSorted();
             return `a:${keys.join(",")}`;
         }
         case BOOLEAN_NODE_TYPES.OR: {
-            const keys = expression.terms.map((term) => booleanExpressionKey(term)).sort();
+            const keys = expression.terms.map((term) => booleanExpressionKey(term)).toSorted();
             return `o:${keys.join(",")}`;
         }
         default: {

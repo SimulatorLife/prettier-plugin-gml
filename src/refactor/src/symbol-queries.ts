@@ -4,16 +4,16 @@
  * from the semantic analyzer and parser.
  */
 
-import { hasMethod, assertNonEmptyString, assertArray } from "./validation-utils.js";
 import type {
     AstNode,
-    FileSymbol,
     DependentSymbol,
+    FileSymbol,
     ParserBridge,
     PartialSemanticAnalyzer,
     SymbolLocation,
     SymbolOccurrence
 } from "./types.js";
+import { assertArray, assertNonEmptyString, hasMethod } from "./validation-utils.js";
 
 /**
  * Find the symbol at a specific location in a file.
@@ -117,7 +117,7 @@ export async function validateSymbolExists(
     // non-existent symbols, which would otherwise silently succeed but produce
     // no edits, confusing users who expect feedback when they mistype a name.
     if (hasMethod(semantic, "hasSymbol")) {
-        return semantic.hasSymbol(symbolId);
+        return await semantic.hasSymbol(symbolId);
     }
 
     // If the semantic analyzer doesn't expose a validation method, assume the
@@ -143,7 +143,7 @@ export async function gatherSymbolOccurrences(
     // both the location (path, offset) and the kind (definition vs. reference)
     // of each occurrence, which later phases use to construct text edits.
     if (hasMethod(semantic, "getSymbolOccurrences")) {
-        return semantic.getSymbolOccurrences(symbolName);
+        return await semantic.getSymbolOccurrences(symbolName);
     }
 
     // If occurrence tracking isn't available, return an empty array so the

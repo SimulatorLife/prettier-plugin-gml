@@ -1,16 +1,18 @@
+import type { Dirent } from "node:fs";
 import fs from "node:fs/promises";
 import path from "node:path";
 import { performance } from "node:perf_hooks";
 import process from "node:process";
-import { normalizeFixtureRoots, createPathFilter } from "../workflow/fixture-roots.js";
-import { Command, Option, InvalidArgumentError } from "commander";
+
 import { Core } from "@gml-modules/core";
-import { applyStandardCommandOptions } from "../cli-core/command-standard-options.js";
+import { Command, InvalidArgumentError, Option } from "commander";
+
 import {
     coercePositiveInteger,
     resolveIntegerOption,
     wrapInvalidArgumentResolver
 } from "../cli-core/command-parsing.js";
+import { applyStandardCommandOptions } from "../cli-core/command-standard-options.js";
 import {
     collectSuiteResults,
     emitSuiteResults,
@@ -20,22 +22,24 @@ import {
     SuiteOutputFormat,
     type SuiteRunner
 } from "../cli-core/command-suite-helpers.js";
+import type { CommanderCommandLike } from "../cli-core/commander-types.js";
 import { createCliErrorDetails } from "../cli-core/errors.js";
-import { createCliRunSkippedError, isCliRunSkipped } from "../shared/skip-cli-run.js";
-import { formatByteSize } from "../shared/reporting/byte-format.js";
-import { REPO_ROOT } from "../shared/workspace-paths.js";
-import { resolveModuleDefaultExport } from "../shared/module.js";
-import { writeJsonArtifact } from "../shared/fs-artifacts.js";
-import { resolvePluginEntryPoint as resolveCliPluginEntryPoint } from "../modules/plugin-runtime-dependencies.js";
+import { runSequentially } from "../cli-core/sequential-runner.js";
+import { formatMetricValue } from "../modules/performance/metric-formatters.js";
 import {
-    PerformanceSuiteName,
     formatPerformanceSuiteList,
     isPerformanceThroughputSuite,
-    normalizePerformanceSuiteName
+    normalizePerformanceSuiteName,
+    PerformanceSuiteName
 } from "../modules/performance/suite-options.js";
-import { formatMetricValue } from "../modules/performance/metric-formatters.js";
+import { resolvePluginEntryPoint as resolveCliPluginEntryPoint } from "../modules/plugin-runtime-dependencies.js";
+import { writeJsonArtifact } from "../shared/fs-artifacts.js";
+import { resolveModuleDefaultExport } from "../shared/module.js";
+import { formatByteSize } from "../shared/reporting/byte-format.js";
+import { createCliRunSkippedError, isCliRunSkipped } from "../shared/skip-cli-run.js";
+import { REPO_ROOT } from "../shared/workspace-paths.js";
+import { createPathFilter, normalizeFixtureRoots } from "../workflow/fixture-roots.js";
 import type { WorkflowPathFilterOptions } from "../workflow/path-filter.js";
-import type { CommanderCommandLike } from "../cli-core/commander-types.js";
 
 const {
     appendToCollection,
@@ -175,7 +179,7 @@ async function traverseForFixtures(
         return;
     }
 
-    let entries;
+    let entries: Dirent[];
     try {
         entries = await fs.readdir(directory, { withFileTypes: true });
     } catch (error) {
@@ -185,20 +189,23 @@ async function traverseForFixtures(
         throw error;
     }
 
-    entries.sort((a, b) => a.name.localeCompare(b.name));
+    const orderedEntries = entries.toSorted((a, b) => a.name.localeCompare(b.name));
 
-    for (const entry of entries) {
+    await runSequentially(orderedEntries, async (entry) => {
         const resolvedPath = path.join(directory, entry.name);
         if (entry.isDirectory()) {
             await traverseForFixtures(resolvedPath, visitor, pathFilter);
-        } else if (
+            return;
+        }
+
+        if (
             entry.isFile() &&
             entry.name.toLowerCase().endsWith(".gml") &&
             (!pathFilter || pathFilter.allowsPath(resolvedPath))
         ) {
             visitor(resolvedPath);
         }
-    }
+    });
 }
 
 /**
@@ -222,7 +229,7 @@ function addUniqueFixturePath(fileMap: Map<string, string>, filePath: string): v
  * @returns Sorted array of absolute file paths
  */
 function extractSortedPaths(fileMap: Map<string, string>): Array<string> {
-    return [...fileMap.values()].sort((a, b) => a.localeCompare(b));
+    return [...fileMap.values()].toSorted((a, b) => a.localeCompare(b));
 }
 
 async function collectFixtureFilePaths(
@@ -232,9 +239,9 @@ async function collectFixtureFilePaths(
     const pathFilter = createPathFilter(pathFilterOptions);
     const fileMap = new Map<string, string>();
 
-    for (const directory of directories) {
-        await traverseForFixtures(directory, (filePath) => addUniqueFixturePath(fileMap, filePath), pathFilter);
-    }
+    await runSequentially(directories, (directory) =>
+        traverseForFixtures(directory, (filePath) => addUniqueFixturePath(fileMap, filePath), pathFilter)
+    );
 
     return extractSortedPaths(fileMap);
 }
@@ -290,11 +297,12 @@ function createDatasetFromFiles(files) {
  *
  * @param {Array<string>} fixturePaths
  */
-async function loadFixtureFiles(fixturePaths) {
+async function loadFixtureFiles(fixturePaths: Array<string>) {
     const records = [];
-    for (const absolutePath of fixturePaths) {
+    await runSequentially(fixturePaths, async (absolutePath) => {
         records.push(await readFixtureFileRecord(absolutePath));
-    }
+    });
+
     return records;
 }
 
@@ -501,10 +509,10 @@ function createBenchmarkResult({ dataset, durations, iterations }) {
 async function measureSingleIterationDuration({ files, worker, now }) {
     const start = now();
 
-    for (const file of files) {
+    await runSequentially(files, async (file) => {
         // Await in case callers provide asynchronous worker implementations.
         await worker(file);
-    }
+    });
 
     return now() - start;
 }
@@ -515,15 +523,16 @@ async function measureSingleIterationDuration({ files, worker, now }) {
  */
 async function measureBenchmarkDurations({ dataset, iterations, worker, now }) {
     const durations = [];
+    const iterationsToRun = Array.from({ length: iterations }, (_, index) => index);
 
-    for (let iteration = 0; iteration < iterations; iteration += 1) {
+    await runSequentially(iterationsToRun, async () => {
         const duration = await measureSingleIterationDuration({
             files: dataset.files,
             worker,
             now
         });
         durations.push(duration);
-    }
+    });
 
     return durations;
 }

@@ -1,7 +1,8 @@
-import { describe, it } from "node:test";
 import assert from "node:assert/strict";
+import { describe, it } from "node:test";
+
 import { SemanticQueryCache } from "../src/semantic-cache.js";
-import type { PartialSemanticAnalyzer, SymbolOccurrence, FileSymbol, DependentSymbol } from "../src/types.js";
+import type { DependentSymbol, FileSymbol, PartialSemanticAnalyzer, SymbolOccurrence } from "../src/types.js";
 
 describe("SemanticQueryCache", () => {
     describe("getSymbolOccurrences", () => {

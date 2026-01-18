@@ -2,10 +2,11 @@
  * Helpers for detecting and reporting duplicate semicolons so Feather diagnostics can suggest cleanup.
  */
 import { Core } from "@gml-modules/core";
+
 import {
-    hasFeatherSourceTextContext,
-    createFeatherFixDetail,
     attachFeatherFixMetadata,
+    createFeatherFixDetail,
+    hasFeatherSourceTextContext,
     visitFeatherAST
 } from "./utils.js";
 

@@ -35,4 +35,4 @@ function assertTrailingCommaValue(value: unknown): TrailingCommaOption {
     throw new TypeError(`Trailing comma override must be one of: ${TRAILING_COMMA_LIST}. Received: ${received}.`);
 }
 
-export { TRAILING_COMMA, assertTrailingCommaValue, isTrailingCommaValue };
+export { assertTrailingCommaValue, isTrailingCommaValue, TRAILING_COMMA };

@@ -4,12 +4,13 @@
  * recording how indices shift so downstream diagnostics can stay in sync.
  */
 import { Core } from "@gml-modules/core";
+
 import {
     advanceThroughComment,
     advanceThroughStringLiteral,
     createStringCommentScanState,
-    tryStartStringOrComment,
-    type StringCommentScanState
+    type StringCommentScanState,
+    tryStartStringOrComment
 } from "./source-text/string-comment-scan.js";
 
 const ASSIGNMENT_GUARD_CHARACTERS = new Set(["*", "+", "-", "/", "%", "|", "&", "^", "<", ">", "!", "=", ":"]);
@@ -25,7 +26,7 @@ function createIndexMapper(insertPositions: Array<number | null | undefined> | n
                       (position): position is number => typeof position === "number" && Number.isFinite(position)
                   )
               )
-          ].sort((a, b) => a - b)
+          ].toSorted((a, b) => a - b)
         : [];
 
     if (offsets.length === 0) {

@@ -1,21 +1,21 @@
+import { hasComment } from "../comments/comment-utils.js";
 import { asArray, isNonEmptyArray } from "../utils/array.js";
 import { getOptionalString, isObjectLike } from "../utils/object.js";
 import { isNonEmptyString } from "../utils/string.js";
 import { assignClonedLocation } from "./locations.js";
-import { hasComment } from "../comments/comment-utils.js";
 import {
-    VARIABLE_DECLARATION,
-    VARIABLE_DECLARATOR,
+    ASSIGNMENT_PATTERN,
+    BINARY_EXPRESSION,
     BLOCK_STATEMENT,
+    CALL_EXPRESSION,
+    EXPRESSION_STATEMENT,
     IDENTIFIER,
     LITERAL,
-    ASSIGNMENT_PATTERN,
-    CALL_EXPRESSION,
+    MEMBER_DOT_EXPRESSION,
     MEMBER_INDEX_EXPRESSION,
     PARENTHESIZED_EXPRESSION,
-    BINARY_EXPRESSION,
-    MEMBER_DOT_EXPRESSION,
-    EXPRESSION_STATEMENT
+    VARIABLE_DECLARATION,
+    VARIABLE_DECLARATOR
 } from "./node-types.js";
 import type {
     AssignmentPatternNode,

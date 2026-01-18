@@ -1,16 +1,16 @@
 import assert from "node:assert/strict";
 import { afterEach, describe, it } from "node:test";
 
+import { isCliUsageError } from "../src/cli-core/errors.js";
 import {
-    DEFAULT_ITERATIONS,
-    MEMORY_ITERATIONS_ENV_VAR,
     applyMemoryEnvOptionOverrides,
     applyMemoryIterationsEnvOverride,
+    DEFAULT_ITERATIONS,
     getDefaultMemoryIterations,
+    MEMORY_ITERATIONS_ENV_VAR,
     resolveMemoryIterations,
     setDefaultMemoryIterations
 } from "../src/commands/memory.js";
-import { isCliUsageError } from "../src/cli-core/errors.js";
 
 void describe("memory iteration configuration", () => {
     afterEach(() => {

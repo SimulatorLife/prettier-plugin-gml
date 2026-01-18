@@ -138,7 +138,7 @@ function appendMissingClosingBraces(sourceText: string): string {
         normalized += "\n";
     }
 
-    const closingLines = new Array(missingBraceCount).fill("}").join("\n");
+    const closingLines = Array.from({ length: missingBraceCount }, () => "}").join("\n");
 
     return `${normalized}${closingLines}`;
 }

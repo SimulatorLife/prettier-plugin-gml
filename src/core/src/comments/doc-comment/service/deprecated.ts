@@ -1,5 +1,5 @@
-import { getBodyStatements, getNodeName, getNodeStartIndex, isLineComment, isNode } from "../utils.js";
 import { resolveDocCommentTraversalService } from "../manager.js";
+import { getBodyStatements, getNodeName, getNodeStartIndex, isLineComment, isNode } from "../utils.js";
 import { getCommentEndIndex, isWhitespaceBetween } from "./documented-params.js";
 
 type CandidateCommentNode = {

@@ -1,6 +1,6 @@
-import { toMutableArray, capitalize, isNonEmptyTrimmedString, toTrimmedString } from "../utils.js";
 import type { DocCommentLines } from "../../comment-utils.js";
-import { parseDocCommentMetadata, isDocCommentTagLine } from "./metadata.js";
+import { capitalize, isNonEmptyTrimmedString, toMutableArray, toTrimmedString } from "../utils.js";
+import { isDocCommentTagLine, parseDocCommentMetadata } from "./metadata.js";
 
 const STRING_TYPE = "string";
 

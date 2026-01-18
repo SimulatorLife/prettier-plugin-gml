@@ -1,12 +1,14 @@
-import { WorkspaceEdit, type GroupedTextEdits, type TextEdit } from "./workspace-edit.js";
 import { Core } from "@gml-modules/core";
+
+import * as HotReload from "./hot-reload.js";
+import { runSequentially } from "./sequential-runner.js";
+import * as SymbolQueries from "./symbol-queries.js";
 import {
-    ConflictType,
-    OccurrenceKind,
     type ApplyWorkspaceEditOptions,
     type BatchRenamePlanSummary,
     type BatchRenameValidation,
     type ConflictEntry,
+    ConflictType,
     type ExecuteBatchRenameRequest,
     type ExecuteRenameRequest,
     type ExecuteRenameResult,
@@ -14,6 +16,7 @@ import {
     type HotReloadSafetySummary,
     type HotReloadUpdate,
     type HotReloadValidationOptions,
+    OccurrenceKind,
     type ParserBridge,
     type PartialSemanticAnalyzer,
     type PrepareRenamePlanOptions,
@@ -29,18 +32,17 @@ import {
     type ValidationSummary,
     type WorkspaceReadFile
 } from "./types.js";
+import { detectCircularRenames, detectRenameConflicts } from "./validation.js";
 import {
-    assertValidIdentifierName,
-    assertRenameRequest,
     assertArray,
     assertFunction,
     assertNonEmptyString,
+    assertRenameRequest,
+    assertValidIdentifierName,
     extractSymbolName,
     hasMethod
 } from "./validation-utils.js";
-import { detectCircularRenames, detectRenameConflicts } from "./validation.js";
-import * as SymbolQueries from "./symbol-queries.js";
-import * as HotReload from "./hot-reload.js";
+import { type GroupedTextEdits, type TextEdit, WorkspaceEdit } from "./workspace-edit.js";
 
 /**
  * RefactorEngine coordinates semantic-safe edits across the project.
@@ -63,21 +65,21 @@ export class RefactorEngine {
      * Useful for triggering refactorings from editor positions.
      */
     async findSymbolAtLocation(filePath: string, offset: number): Promise<SymbolLocation | null> {
-        return SymbolQueries.findSymbolAtLocation(filePath, offset, this.semantic, this.parser);
+        return await SymbolQueries.findSymbolAtLocation(filePath, offset, this.semantic, this.parser);
     }
 
     /**
      * Validate symbol exists in the semantic index.
      */
     async validateSymbolExists(symbolId: string): Promise<boolean> {
-        return SymbolQueries.validateSymbolExists(symbolId, this.semantic);
+        return await SymbolQueries.validateSymbolExists(symbolId, this.semantic);
     }
 
     /**
      * Gather all occurrences of a symbol from the semantic analyzer.
      */
     async gatherSymbolOccurrences(symbolName: string): Promise<Array<SymbolOccurrence>> {
-        return SymbolQueries.gatherSymbolOccurrences(symbolName, this.semantic);
+        return await SymbolQueries.gatherSymbolOccurrences(symbolName, this.semantic);
     }
 
     /**
@@ -86,7 +88,7 @@ export class RefactorEngine {
      * need recompilation when a file changes.
      */
     async getFileSymbols(filePath: string): Promise<Array<{ id: string }>> {
-        return SymbolQueries.getFileSymbols(filePath, this.semantic);
+        return await SymbolQueries.getFileSymbols(filePath, this.semantic);
     }
 
     /**
@@ -95,7 +97,7 @@ export class RefactorEngine {
      * when dependencies change.
      */
     async getSymbolDependents(symbolIds: Array<string>): Promise<Array<{ symbolId: string; filePath: string }>> {
-        return SymbolQueries.getSymbolDependents(symbolIds, this.semantic);
+        return await SymbolQueries.getSymbolDependents(symbolIds, this.semantic);
     }
 
     /**
@@ -292,16 +294,16 @@ export class RefactorEngine {
         }
 
         // Validate each rename request individually
-        for (const rename of renames) {
+        await runSequentially(renames, async (rename) => {
             if (!rename || typeof rename !== "object") {
                 errors.push("Each rename must be a valid request object");
-                continue;
+                return;
             }
 
             const { symbolId } = rename;
             if (!symbolId || typeof symbolId !== "string") {
                 errors.push("Each rename must have a valid symbolId string property");
-                continue;
+                return;
             }
 
             // Validate individual rename request
@@ -315,7 +317,7 @@ export class RefactorEngine {
             if (validation.warnings.length > 0) {
                 warnings.push(...validation.warnings.map((w) => `${symbolId}: ${w}`));
             }
-        }
+        });
 
         // Detect duplicate symbol IDs in the batch. Renaming the same symbol more
         // than once creates ambiguous intent and would generate conflicting edits.
@@ -642,7 +644,7 @@ export class RefactorEngine {
 
         // Process each file by loading its current content, applying all edits for
         // that file, and optionally writing the modified content back to disk.
-        for (const [filePath, edits] of grouped.entries()) {
+        await runSequentially(grouped.entries(), async ([filePath, edits]) => {
             const originalContent = await readFile(filePath);
 
             // Apply edits from high to low offset (reverse order) so that earlier
@@ -661,7 +663,7 @@ export class RefactorEngine {
             if (!dryRun) {
                 await writeFile(filePath, newContent);
             }
-        }
+        });
 
         return results;
     }
@@ -723,10 +725,10 @@ export class RefactorEngine {
         // We defer merging until all renames are validated so that a single invalid
         // rename doesn't invalidate the entire batch.
         const workspaces: Array<WorkspaceEdit> = [];
-        for (const rename of renames) {
+        await runSequentially(renames, async (rename) => {
             const workspace = await this.planRename(rename);
             workspaces.push(workspace);
-        }
+        });
 
         // Combine all workspace edits into a single merged edit that can be applied
         // atomically. This ensures either all renames succeed together or none are
@@ -1023,7 +1025,7 @@ export class RefactorEngine {
         // Analyze the impact of each individual rename so callers can show
         // per-symbol statistics (files affected, occurrence counts, conflicts).
         const impactAnalyses = new Map<string, RenameImpactAnalysis>();
-        for (const rename of renames) {
+        await runSequentially(renames, async (rename) => {
             try {
                 const analysis = await this.analyzeRenameImpact(rename);
                 impactAnalyses.set(rename.symbolId, analysis);
@@ -1052,7 +1054,7 @@ export class RefactorEngine {
                     warnings: []
                 });
             }
-        }
+        });
 
         // Compute the full hot reload dependency cascade for all changed symbols
         // to determine which other symbols need reloading and in what order.
@@ -1192,10 +1194,10 @@ export class RefactorEngine {
         let validatedFiles = 0;
         let validatedSymbols = 0;
 
-        for (const [filePath, edits] of grouped.entries()) {
+        await runSequentially(grouped.entries(), async ([filePath, edits]) => {
             // Only validate GML files that can be transpiled
             if (!filePath.endsWith(".gml")) {
-                continue;
+                return;
             }
 
             // Get symbols defined in this file
@@ -1205,7 +1207,7 @@ export class RefactorEngine {
                     symbolsInFile = await this.semantic.getFileSymbols(filePath);
                 } catch (error) {
                     warnings.push(`Could not query symbols for ${filePath}: ${Core.getErrorMessage(error)}`);
-                    continue;
+                    return;
                 }
             }
 
@@ -1225,11 +1227,11 @@ export class RefactorEngine {
                 modifiedContent = this.applyEditsToContent("", edits);
             } catch (error) {
                 errors.push(`Failed to apply edits to ${filePath}: ${Core.getErrorMessage(error)}`);
-                continue;
+                return;
             }
 
             // Validate each symbol can be transpiled with the modified content
-            for (const symbol of symbolsInFile) {
+            await runSequentially(symbolsInFile, async (symbol) => {
                 try {
                     await this.formatter.transpileScript({
                         sourceText: modifiedContent,
@@ -1240,10 +1242,10 @@ export class RefactorEngine {
                     const errorMessage = Core.getErrorMessage(error);
                     errors.push(`Transpilation failed for ${symbol.id} in ${filePath}: ${errorMessage}`);
                 }
-            }
+            });
 
             validatedFiles++;
-        }
+        });
 
         // Add informational message about transpiler validation status
         if (validatedFiles > 0 && errors.length === 0) {
@@ -1288,7 +1290,7 @@ export class RefactorEngine {
      * Prepare hot reload updates from a workspace edit.
      */
     async prepareHotReloadUpdates(workspace: WorkspaceEdit): Promise<Array<HotReloadUpdate>> {
-        return HotReload.prepareHotReloadUpdates(workspace, this.semantic);
+        return await HotReload.prepareHotReloadUpdates(workspace, this.semantic);
     }
 
     /**
@@ -1332,6 +1334,8 @@ export class RefactorEngine {
 
         const conflicts: Array<ConflictEntry> = [];
         const warnings: Array<ConflictEntry> = [];
+        let totalOccurrences = 0;
+        let hotReloadRequired = false;
 
         try {
             // Validate symbol exists
@@ -1352,7 +1356,7 @@ export class RefactorEngine {
 
             // Gather occurrences
             const occurrences = await this.gatherSymbolOccurrences(summary.oldName);
-            summary.totalOccurrences = occurrences.length;
+            totalOccurrences = occurrences.length;
 
             // Record which files will be modified by this rename so the user can
             // review the scope before applying changes. We also categorize each
@@ -1384,8 +1388,8 @@ export class RefactorEngine {
             // without a full restart. If occurrences exist, we assume hot reload is
             // needed and query the semantic analyzer to identify dependent symbols
             // that also need reloading to maintain consistency.
-            if (summary.totalOccurrences > 0) {
-                summary.hotReloadRequired = true;
+            if (totalOccurrences > 0) {
+                hotReloadRequired = true;
 
                 if (hasMethod(this.semantic, "getDependents")) {
                     const dependents = (await this.semantic.getDependents([symbolId])) ?? [];
@@ -1399,10 +1403,10 @@ export class RefactorEngine {
             // dependencies. Large-scale renames increase the risk of unintended
             // side effects (e.g., renaming a common utility function breaks dozens of
             // call sites), so these warnings encourage the user to review the scope.
-            if (summary.totalOccurrences > 50) {
+            if (totalOccurrences > 50) {
                 warnings.push({
                     type: ConflictType.LARGE_RENAME,
-                    message: `This rename will affect ${summary.totalOccurrences} occurrences across ${summary.affectedFiles.size} files`,
+                    message: `This rename will affect ${totalOccurrences} occurrences across ${summary.affectedFiles.size} files`,
                     severity: "warning"
                 });
             }
@@ -1422,6 +1426,9 @@ export class RefactorEngine {
             });
         }
 
+        summary.totalOccurrences = totalOccurrences;
+        summary.hotReloadRequired = hotReloadRequired;
+
         const serializedSummary = serializeSummary();
 
         return {
@@ -1438,14 +1445,14 @@ export class RefactorEngine {
      * that need to be reloaded, ordered for safe application.
      */
     async computeHotReloadCascade(changedSymbolIds: Array<string>): Promise<HotReloadCascadeResult> {
-        return HotReload.computeHotReloadCascade(changedSymbolIds, this.semantic);
+        return await HotReload.computeHotReloadCascade(changedSymbolIds, this.semantic);
     }
 
     /**
      * Check whether a rename operation is safe for hot reload.
      */
     async checkHotReloadSafety(request: RenameRequest): Promise<HotReloadSafetySummary> {
-        return HotReload.checkHotReloadSafety(request, this.semantic);
+        return await HotReload.checkHotReloadSafety(request, this.semantic);
     }
 
     /**
@@ -1473,7 +1480,7 @@ export class RefactorEngine {
      * }
      */
     async computeRenameImpactGraph(symbolId: string): Promise<import("./types.js").RenameImpactGraph> {
-        return HotReload.computeRenameImpactGraph(symbolId, this.semantic);
+        return await HotReload.computeRenameImpactGraph(symbolId, this.semantic);
     }
 
     /**
@@ -1540,13 +1547,13 @@ export class RefactorEngine {
         // These catch obvious issues like lingering old names or missing new names
 
         // Verify the old name no longer exists in edited files
-        for (const filePath of affectedFiles) {
+        await runSequentially(affectedFiles, async (filePath) => {
             let content: string;
             try {
                 content = await readFile(filePath);
             } catch (error) {
                 errors.push(`Failed to read ${filePath} for post-edit validation: ${Core.getErrorMessage(error)}`);
-                continue;
+                return;
             }
 
             // Simple heuristic: check if the old name still appears as an identifier
@@ -1593,7 +1600,7 @@ export class RefactorEngine {
             if (!newNameMatches || newNameMatches.length === 0) {
                 warnings.push(`New name '${newName}' does not appear in ${filePath} - verify edits were applied`);
             }
-        }
+        });
 
         // Use semantic analyzer to check for new conflicts or shadowing
         if (hasMethod(this.semantic, "getSymbolOccurrences")) {
@@ -1630,7 +1637,7 @@ export class RefactorEngine {
         // If parser is available, we could re-parse files and verify binding integrity
         // This is more expensive but provides the strongest guarantee
         if (hasMethod(this.parser, "parse")) {
-            for (const filePath of affectedFiles) {
+            await runSequentially(affectedFiles, async (filePath) => {
                 try {
                     // Attempt to parse the file to ensure syntax is still valid
                     await this.parser.parse(filePath);
@@ -1639,7 +1646,7 @@ export class RefactorEngine {
                         `Parse error in ${filePath} after rename: ${Core.getErrorMessage(parseError)} - edits may have broken syntax`
                     );
                 }
-            }
+            });
         }
 
         // Warn if no semantic analyzer for deeper validation
@@ -1662,7 +1669,7 @@ export class RefactorEngine {
         hotReloadUpdates: Array<HotReloadUpdate>,
         readFile: WorkspaceReadFile
     ): Promise<Array<TranspilerPatch>> {
-        return HotReload.generateTranspilerPatches(hotReloadUpdates, readFile, this.formatter);
+        return await HotReload.generateTranspilerPatches(hotReloadUpdates, readFile, this.formatter);
     }
 
     /**
@@ -1685,7 +1692,7 @@ export class RefactorEngine {
         // Pass semantic analyzer twice: once as SymbolResolver for scope lookups,
         // once as KeywordProvider for reserved keyword checks. The SemanticAnalyzer
         // interface supports both roles through optional method implementations.
-        return detectRenameConflicts(oldName, newName, occurrences, this.semantic, this.semantic);
+        return await detectRenameConflicts(oldName, newName, occurrences, this.semantic, this.semantic);
     }
 }
 

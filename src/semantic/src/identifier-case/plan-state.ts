@@ -1,5 +1,10 @@
-import { Core, type MutableGameMakerAstNode } from "@gml-modules/core";
+import { Core, type GameMakerAstNode, type MutableGameMakerAstNode } from "@gml-modules/core";
+
 import { setIdentifierCaseOption } from "./option-store.js";
+
+type IdentifierCasePlanLookupOptions = {
+    filepath?: string | null;
+};
 
 function buildRenameKey(_scopeId, location) {
     // Accept numeric start indices as well as location objects. Some AST
@@ -45,37 +50,12 @@ export function getIdentifierCaseRenameForNode(node: MutableGameMakerAstNode | n
         return null;
     }
 
-    const renameTarget = renameMap.get(key) ?? null;
+    let renameTarget = renameMap.get(key) ?? null;
     if (!renameTarget) {
-        try {
-            // If the lookup failed, emit a few example keys from the map to
-            // help diagnose mismatched key encoding (scopeId/start vs the
-            // map keys used during planning).
-            if (typeof renameMap.has === "function" && !renameMap.has(key)) {
-                const sample = [];
-                let i = 0;
-                for (const k of renameMap.keys()) {
-                    sample.push(String(k));
-                    i += 1;
-                    if (i >= 3) break;
-                }
-                // Also attempt a file-qualified lookup as some planning paths
-                // may persist keys that include the file path. Try the
-                // file-qualified location key before emitting the diagnostic
-                // sample so we can detect which encoding is present.
-                try {
-                    const loc = typeof node.start === "number" ? { index: node.start } : node.start;
-                    const fileKey = Core.buildFileLocationKey(options?.filepath ?? null, loc);
-                    if (fileKey && typeof renameMap.has === "function" && renameMap.has(fileKey)) {
-                        return renameMap.get(fileKey) ?? null;
-                    }
-                } catch {
-                    /* ignore */
-                }
-            }
-        } catch {
-            /* ignore */
-        }
+        renameTarget = tryResolveRenameTarget(renameMap, key, node, options);
+    }
+
+    if (!renameTarget) {
         return null;
     }
 
@@ -90,6 +70,39 @@ export function getIdentifierCaseRenameForNode(node: MutableGameMakerAstNode | n
     }
 
     return renameTarget;
+}
+
+function tryResolveRenameTarget(
+    renameMap: Map<string, unknown>,
+    key: string,
+    node: GameMakerAstNode,
+    options: IdentifierCasePlanLookupOptions
+): unknown {
+    try {
+        if (typeof renameMap.has === "function" && renameMap.has(key) === false) {
+            const sample = [];
+            let i = 0;
+            for (const k of renameMap.keys()) {
+                sample.push(String(k));
+                i += 1;
+                if (i >= 3) break;
+            }
+
+            try {
+                const loc = typeof node.start === "number" ? { index: node.start } : node.start;
+                const fileKey = Core.buildFileLocationKey(options?.filepath ?? null, loc);
+                if (fileKey && typeof renameMap.has === "function" && renameMap.has(fileKey)) {
+                    return renameMap.get(fileKey) ?? null;
+                }
+            } catch {
+                /* ignore */
+            }
+        }
+    } catch {
+        /* ignore */
+    }
+
+    return null;
 }
 
 /**

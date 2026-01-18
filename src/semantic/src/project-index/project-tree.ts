@@ -1,14 +1,15 @@
-import path from "node:path";
 import { promises as fs } from "node:fs";
+import path from "node:path";
 
 import { Core } from "@gml-modules/core";
 
 import { createProjectIndexAbortGuard } from "./abort-guard.js";
 import {
     normalizeProjectFileCategory,
-    resolveProjectFileCategory,
-    ProjectFileCategory
+    ProjectFileCategory,
+    resolveProjectFileCategory
 } from "./project-file-categories.js";
+import { runSequentially } from "./sequential-runner.js";
 
 type ProjectIndexFsFacade = typeof fs;
 
@@ -48,10 +49,10 @@ function createProjectTreeCollector(metrics = null) {
     }
 
     function snapshot() {
-        yyFiles.sort((a, b) => a.relativePath.localeCompare(b.relativePath));
-        gmlFiles.sort((a, b) => a.relativePath.localeCompare(b.relativePath));
+        const sortedYyFiles = yyFiles.toSorted((a, b) => a.relativePath.localeCompare(b.relativePath));
+        const sortedGmlFiles = gmlFiles.toSorted((a, b) => a.relativePath.localeCompare(b.relativePath));
 
-        return { yyFiles, gmlFiles };
+        return { yyFiles: sortedYyFiles, gmlFiles: sortedGmlFiles };
     }
 
     return {
@@ -135,7 +136,7 @@ async function processDirectoryEntries({
     signal
 }) {
     void signal;
-    for (const entry of entries) {
+    await runSequentially(entries, async (entry) => {
         ensureNotAborted();
         const descriptor = createDirectoryEntryDescriptor(directoryContext, entry, projectRoot);
         const stats = await resolveEntryStats({
@@ -146,16 +147,16 @@ async function processDirectoryEntries({
         });
 
         if (!stats) {
-            continue;
+            return;
         }
 
         if (isDirectoryStat(stats)) {
             traversal.enqueue(descriptor.relativePath);
-            continue;
+            return;
         }
 
         collector.register(descriptor.relativePosix, descriptor.absolutePath);
-    }
+    });
 }
 
 export async function scanProjectTree(projectRoot, fsFacade: ProjectIndexFsFacade = fs, metrics = null, options = {}) {
@@ -163,10 +164,14 @@ export async function scanProjectTree(projectRoot, fsFacade: ProjectIndexFsFacad
     const traversal = createDirectoryTraversal(projectRoot);
     const collector = createProjectTreeCollector(metrics);
 
-    while (traversal.hasPending()) {
+    const processNextDirectory = async (): Promise<void> => {
+        if (!traversal.hasPending()) {
+            return;
+        }
+
         const directoryContext = traversal.next();
         if (!directoryContext) {
-            continue;
+            return processNextDirectory();
         }
 
         const entries = await resolveDirectoryListing({
@@ -188,7 +193,11 @@ export async function scanProjectTree(projectRoot, fsFacade: ProjectIndexFsFacad
             metrics,
             signal
         });
-    }
+
+        return processNextDirectory();
+    };
+
+    await processNextDirectory();
 
     return collector.snapshot();
 }

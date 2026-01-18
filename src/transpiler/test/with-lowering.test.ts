@@ -1,5 +1,6 @@
 import { strictEqual } from "node:assert";
 import { test } from "node:test";
+
 import { lowerWithStatement } from "../src/emitter/with-lowering.js";
 
 void test("lowerWithStatement generates correct structure", () => {

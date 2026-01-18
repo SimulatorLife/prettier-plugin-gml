@@ -1,7 +1,7 @@
 import assert from "node:assert/strict";
 import test from "node:test";
 
-import { getDefaultProjectIndexParser, formatProjectIndexSyntaxError } from "../src/project-index/index.js";
+import { formatProjectIndexSyntaxError, getDefaultProjectIndexParser } from "../src/project-index/index.js";
 
 void test("project index parser reports syntax errors with context", () => {
     const parser = getDefaultProjectIndexParser();

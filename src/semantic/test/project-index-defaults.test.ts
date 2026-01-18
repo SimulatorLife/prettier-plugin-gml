@@ -4,12 +4,12 @@ import test from "node:test";
 import {
     getDefaultProjectIndexGmlConcurrency,
     getDefaultProjectIndexGmlConcurrencyLimit,
-    setDefaultProjectIndexGmlConcurrency,
-    setDefaultProjectIndexGmlConcurrencyLimit,
-    PROJECT_INDEX_GML_CONCURRENCY_ENV_VAR,
     PROJECT_INDEX_GML_CONCURRENCY_BASELINE,
+    PROJECT_INDEX_GML_CONCURRENCY_ENV_VAR,
+    PROJECT_INDEX_GML_MAX_CONCURRENCY_BASELINE,
     PROJECT_INDEX_GML_MAX_CONCURRENCY_ENV_VAR,
-    PROJECT_INDEX_GML_MAX_CONCURRENCY_BASELINE
+    setDefaultProjectIndexGmlConcurrency,
+    setDefaultProjectIndexGmlConcurrencyLimit
 } from "../src/project-index/concurrency.js";
 
 void test("project index concurrency default can be tuned programmatically", () => {

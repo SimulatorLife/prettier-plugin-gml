@@ -1,5 +1,5 @@
-import { describeValueForError, isNonEmptyString } from "./string.js";
 import { isErrorLike } from "./capability-probes.js";
+import { describeValueForError, isNonEmptyString } from "./string.js";
 
 type ErrorMessageFallback = string | ((value: unknown) => string) | undefined;
 

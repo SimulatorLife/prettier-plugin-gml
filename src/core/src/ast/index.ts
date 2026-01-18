@@ -1,9 +1,9 @@
 export * from "./location-keys.js";
-export * from "./locations.js";
 export * from "./location-manipulation.js";
-export * from "./node-types.js";
-export * from "./node-helpers.js";
+export * from "./locations.js";
 export * from "./node-classification.js";
+export * from "./node-helpers.js";
+export * from "./node-types.js";
 export * from "./object-graph.js";
 export type {
     FeatherFixDetail,

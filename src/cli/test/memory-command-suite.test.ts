@@ -1,8 +1,9 @@
 import assert from "node:assert/strict";
 import test from "node:test";
 
-import { createMemoryCommand, MemorySuiteName, formatMemorySuiteNameList } from "../src/commands/memory.js";
 import type { ParseOptions } from "commander";
+
+import { createMemoryCommand, formatMemorySuiteNameList, MemorySuiteName } from "../src/commands/memory.js";
 
 const USER_PARSE_OPTIONS: ParseOptions = { from: "user" };
 

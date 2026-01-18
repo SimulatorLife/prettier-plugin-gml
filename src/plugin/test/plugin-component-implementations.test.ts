@@ -1,12 +1,13 @@
 import assert from "node:assert/strict";
 import test from "node:test";
 
+import { Semantic } from "@gml-modules/semantic";
+
+import { handleComments, printComment } from "../src/comments/index.js";
 import { gmlPluginComponentImplementations } from "../src/components/plugin-component-bundles.js";
+import { LogicalOperatorsStyle } from "../src/options/logical-operators-style.js";
 import { gmlParserAdapter } from "../src/parsers/index.js";
 import { print } from "../src/printer/index.js";
-import { Semantic } from "@gml-modules/semantic";
-import { LogicalOperatorsStyle } from "../src/options/logical-operators-style.js";
-import { handleComments, printComment } from "../src/comments/index.js";
 
 void test("default implementation bundle is frozen and reuses canonical references", () => {
     assert.ok(Object.isFrozen(gmlPluginComponentImplementations), "implementation bundle should be frozen");

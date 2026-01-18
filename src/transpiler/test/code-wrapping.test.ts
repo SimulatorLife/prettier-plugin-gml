@@ -1,7 +1,8 @@
-import { describe, it } from "node:test";
 import assert from "node:assert/strict";
-import { wrapConditional, wrapConditionalBody, wrapRawBody } from "../src/emitter/code-wrapping.js";
+import { describe, it } from "node:test";
+
 import type { GmlNode } from "../src/emitter/ast.js";
+import { wrapConditional, wrapConditionalBody, wrapRawBody } from "../src/emitter/code-wrapping.js";
 
 // Simple visitor that returns the node type for testing
 function mockVisitor(node: GmlNode): string {

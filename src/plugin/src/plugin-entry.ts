@@ -7,10 +7,10 @@
 
 import prettier, { type SupportLanguage, type SupportOptions } from "prettier";
 
-import type { GmlPlugin, GmlPluginDefaultOptions } from "./components/plugin-types.js";
 import { gmlPluginComponents } from "./components/plugin-components.js";
-import { normalizeFormattedOutput } from "./printer/normalize-formatted-output.js";
+import type { GmlPlugin, GmlPluginDefaultOptions } from "./components/plugin-types.js";
 import { resolveCoreOptionOverrides } from "./options/core-option-overrides.js";
+import { normalizeFormattedOutput } from "./printer/normalize-formatted-output.js";
 
 const parsers = gmlPluginComponents.parsers;
 const printers = gmlPluginComponents.printers;
@@ -76,7 +76,7 @@ async function format(source: string, options: SupportOptions = {}) {
     return normalizeFormattedOutput(formatted, source);
 }
 
-export { parsers, printers, pluginOptions, defaultOptions };
+export { defaultOptions, parsers, pluginOptions, printers };
 export { pluginOptions as options };
 
 export const Plugin: GmlPlugin = {

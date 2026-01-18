@@ -1,7 +1,8 @@
-import { describe, it } from "node:test";
 import assert from "node:assert/strict";
+import { describe, it } from "node:test";
+
+import { ConflictType, type FileSymbolProvider, type SymbolOccurrence } from "../src/types.js";
 import { validateCrossFileConsistency } from "../src/validation.js";
-import { ConflictType, type SymbolOccurrence, type FileSymbolProvider } from "../src/types.js";
 
 void describe("validateCrossFileConsistency", () => {
     void it("returns empty array without file provider", async () => {

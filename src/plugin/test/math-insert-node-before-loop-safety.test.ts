@@ -2,8 +2,9 @@
  * Tests for the insertNodeBefore loop mutation safety fix.
  * This test ensures that the function correctly handles array traversal without skipping elements.
  */
-import { describe, it } from "node:test";
 import { strict as assert } from "node:assert";
+import { describe, it } from "node:test";
+
 import { Plugin } from "../src/index.js";
 
 void describe("Math traversal-normalization insertNodeBefore loop safety", () => {

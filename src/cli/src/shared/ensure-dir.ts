@@ -1,5 +1,5 @@
-import nodeFs from "node:fs/promises";
 import nodeFsSync from "node:fs";
+import nodeFs from "node:fs/promises";
 
 type RecursiveMkdirFs = Pick<typeof nodeFs, "mkdir">;
 type RecursiveMkdirFsSync = Pick<typeof nodeFsSync, "mkdirSync">;

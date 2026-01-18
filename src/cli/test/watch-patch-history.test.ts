@@ -1,6 +1,7 @@
-import { describe, it, before, after } from "node:test";
 import assert from "node:assert";
 import { writeFile } from "node:fs/promises";
+import { after, before, describe, it } from "node:test";
+
 import { runWatchCommand } from "../src/commands/watch.js";
 import {
     createWatchTestFixture,
@@ -11,15 +12,21 @@ import {
 void describe("Watch command patch history limit", () => {
     let fixture: WatchTestFixture | null = null;
 
-    before(async () => {
-        fixture = await createWatchTestFixture();
-    });
+    before(() =>
+        createWatchTestFixture().then((created) => {
+            fixture = created;
+            return created;
+        })
+    );
 
-    after(async () => {
-        if (fixture) {
-            await disposeWatchTestFixture(fixture.dir);
-            fixture = null;
+    after(() => {
+        if (!fixture) {
+            return;
         }
+
+        const targetFixture = fixture;
+        fixture = null;
+        return disposeWatchTestFixture(targetFixture.dir);
     });
 
     void it("should respect max patch history limit", async () => {

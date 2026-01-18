@@ -123,7 +123,7 @@ function collectTrailingEnumComments(member) {
 
 function collectEnumMemberStats(members, resolveName) {
     const memberCount = members.length;
-    const memberStats = new Array(memberCount);
+    const memberStats = Array.from({ length: memberCount });
     let maxInitializerNameLength = 0;
     let allMembersHaveInitializer = true;
 

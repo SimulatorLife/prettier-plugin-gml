@@ -1,5 +1,6 @@
 import { Core } from "@gml-modules/core";
 import { Semantic } from "@gml-modules/semantic";
+
 import type { CallTargetAnalyzer, IdentifierAnalyzer } from "./ast.js";
 
 /**

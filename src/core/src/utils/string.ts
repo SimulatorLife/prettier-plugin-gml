@@ -529,12 +529,12 @@ export function createListSplitPattern(separators, { includeWhitespace = false }
         throw new TypeError("createListSplitPattern requires at least one separator or includeWhitespace=true.");
     }
 
-    entries.sort((a, b) => {
+    const sortedEntries = entries.toSorted((a, b) => {
         const lengthDifference = b.length - a.length;
         return lengthDifference === 0 ? a.order - b.order : lengthDifference;
     });
 
-    const patternSource = entries.map((entry) => entry.pattern).join("|");
+    const patternSource = sortedEntries.map((entry) => entry.pattern).join("|");
 
     return new RegExp(`(?:${patternSource})+`);
 }

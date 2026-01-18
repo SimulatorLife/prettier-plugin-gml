@@ -1,4 +1,4 @@
-import { doc, type Doc } from "prettier";
+import { type Doc, doc } from "prettier";
 
 const { builders, utils } = doc;
 const rawJoin = builders.join;
@@ -23,7 +23,7 @@ function sanitizeDocChild(child: DocChild): Doc {
         // nested doc fragments), this optimization yields ~22% overall speedup
         // when combined with similar changes in concat, join, and conditionalGroup.
         const length = child.length;
-        const result: Doc[] = new Array(length);
+        const result: Doc[] = Array.from({ length });
         for (let i = 0; i < length; i++) {
             result[i] = sanitizeDocChild(child[i]);
         }
@@ -54,7 +54,7 @@ export function concat(parts: DocChild | DocChild[]): Doc {
     // with sanitizeDocChild's optimization. This micro-optimization reduces
     // allocations in the hot printer path.
     const length = parts.length;
-    const result: Doc[] = new Array(length);
+    const result: Doc[] = Array.from({ length });
     for (let i = 0; i < length; i++) {
         result[i] = sanitizeDocChild(parts[i]);
     }
@@ -74,7 +74,7 @@ export function join(separator: Doc, parts: DocChild | DocChild[]): Doc {
     // Use pre-sized array and for-loop to match the optimization in concat
     // and sanitizeDocChild, reducing overhead in this frequently-called helper.
     const length = parts.length;
-    const sanitizedParts: Doc[] = new Array(length);
+    const sanitizedParts: Doc[] = Array.from({ length });
     for (let i = 0; i < length; i++) {
         sanitizedParts[i] = sanitizeDocChild(parts[i]);
     }
@@ -90,7 +90,7 @@ export function fill(parts: DocChild | DocChild[]): Doc {
     }
 
     const length = parts.length;
-    const sanitizedParts: Doc[] = new Array(length);
+    const sanitizedParts: Doc[] = Array.from({ length });
     for (let i = 0; i < length; i += 1) {
         sanitizedParts[i] = sanitizeDocChild(parts[i]);
     }
@@ -114,7 +114,7 @@ export function conditionalGroup(parts: DocChild[], opts?: Record<string, unknow
     // sanitizeDocChild and concat, maintaining consistent performance
     // characteristics across all doc builder helpers on the hot formatting path.
     const length = parts.length;
-    const sanitizedParts: Doc[] = new Array(length);
+    const sanitizedParts: Doc[] = Array.from({ length });
     for (let i = 0; i < length; i++) {
         sanitizedParts[i] = sanitizeDocChild(parts[i]);
     }
@@ -149,4 +149,4 @@ export function align(widthOrString: number | string, parts: DocChild): Doc {
     return alignBuilder(widthOrString, sanitizeDocChild(parts));
 }
 
-export { breakParent, line, hardline, softline, lineSuffixBoundary, willBreak };
+export { breakParent, hardline, line, lineSuffixBoundary, softline, willBreak };

@@ -42,19 +42,34 @@ function pathExistsSync(filePath: string, predicate?: (stat: ReturnType<typeof f
  */
 export async function findRepoRoot(startDir: string): Promise<string> {
     let lastPackageJson: string | null = null;
+    const directories = [...walkAncestorDirectories(startDir)];
 
-    for (const dir of walkAncestorDirectories(startDir)) {
-        if (await pathExists(path.join(dir, "AGENTS.md"), (stat) => stat.isFile())) {
-            return dir;
-        }
+    const root = await directories.reduce(
+        (previousPromise, dir) =>
+            previousPromise.then(async (found) => {
+                if (found) {
+                    return found;
+                }
 
-        if (await pathExists(path.join(dir, ".git"), (stat) => stat.isDirectory())) {
-            return dir;
-        }
+                if (await pathExists(path.join(dir, "AGENTS.md"), (stat) => stat.isFile())) {
+                    return dir;
+                }
 
-        if (await pathExists(path.join(dir, "package.json"))) {
-            lastPackageJson = dir;
-        }
+                if (await pathExists(path.join(dir, ".git"), (stat) => stat.isDirectory())) {
+                    return dir;
+                }
+
+                if (await pathExists(path.join(dir, "package.json"))) {
+                    lastPackageJson = dir;
+                }
+
+                return null;
+            }),
+        Promise.resolve<string | null>(null)
+    );
+
+    if (root) {
+        return root;
     }
 
     if (lastPackageJson) {

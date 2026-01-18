@@ -106,8 +106,8 @@ function restoreDefaultLineCommentOptionsResolver() {
 }
 
 export {
-    DEFAULT_LINE_COMMENT_OPTIONS,
     DEFAULT_COMMENTED_OUT_CODE_PATTERNS,
+    DEFAULT_LINE_COMMENT_OPTIONS,
     normalizeLineCommentOptions,
     resolveLineCommentOptions,
     restoreDefaultLineCommentOptionsResolver,

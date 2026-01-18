@@ -1,5 +1,3 @@
-export * as Runtime from "./runtime/index.js";
-export * as Clients from "./websocket/index.js";
 export type {
     ApplyPatchResult,
     BatchApplyResult,
@@ -34,14 +32,15 @@ export type {
     RuntimeMetrics,
     RuntimePatchError,
     RuntimeRegistry,
-    RuntimeRegistrySnapshot,
     RuntimeRegistryOverrides,
+    RuntimeRegistrySnapshot,
     RuntimeWrapper,
     RuntimeWrapperOptions,
     RuntimeWrapperState,
     TrySafeApplyResult,
     WebSocketLogger
 } from "./runtime/index.js";
+export * as Runtime from "./runtime/index.js";
 export type {
     MessageEventLike,
     PatchQueueMetrics,
@@ -50,13 +49,14 @@ export type {
     RuntimeWebSocketClient,
     RuntimeWebSocketConstructor,
     RuntimeWebSocketInstance,
-    WebSocketEvent,
     WebSocketClientOptions,
     WebSocketClientState,
-    WebSocketConnectionMetrics,
     WebSocketConnectionLifecycle,
-    WebSocketMessageSender,
+    WebSocketConnectionMetrics,
+    WebSocketEvent,
     WebSocketInstanceProvider,
+    WebSocketMessageSender,
     WebSocketMetricsCollector,
     WebSocketPatchQueueManager
 } from "./websocket/index.js";
+export * as Clients from "./websocket/index.js";

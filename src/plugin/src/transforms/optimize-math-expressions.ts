@@ -2,16 +2,17 @@
  * Encourages canonical math expressions so the printer outputs briefly simplified operations via normalization utilities.
  */
 import { Core, type GameMakerAstNode, type MutableGameMakerAstNode } from "@gml-modules/core";
+
 import { createParserTransform } from "./functional-transform.js";
 import { cleanupMultiplicativeIdentityParentheses } from "./math/parentheses-cleanup.js";
 import {
     applyManualMathNormalization,
+    applyScalarCondensing,
+    type ConvertManualMathTransformOptions,
     matchDegreesToRadians,
     normalizeTraversalContext,
-    applyScalarCondensing,
-    simplifyZeroDivisionNumerators,
     replaceNodeWith,
-    type ConvertManualMathTransformOptions
+    simplifyZeroDivisionNumerators
 } from "./math/traversal-normalization.js";
 
 const { BINARY_EXPRESSION, LITERAL, PARENTHESIZED_EXPRESSION } = Core;
@@ -158,12 +159,14 @@ function flattenMultiplicativeOperand(node: MutableGameMakerAstNode) {
         return;
     }
 
-    const current = node.left as ParenthesizedExpressionNode | null;
+    let current = node.left as ParenthesizedExpressionNode | null;
     while (current && current.type === PARENTHESIZED_EXPRESSION) {
         const expression = current.expression;
         if (!expression || !replaceNodeWith(current, expression)) {
             break;
         }
+
+        current = expression as ParenthesizedExpressionNode | null;
     }
 }
 

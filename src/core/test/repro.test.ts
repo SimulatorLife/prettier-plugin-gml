@@ -1,5 +1,6 @@
-import { describe, it } from "node:test";
 import assert from "node:assert";
+import { describe, it } from "node:test";
+
 import { formatLineComment } from "../src/comments/line-comment/formatting.js";
 
 void describe("repro", () => {

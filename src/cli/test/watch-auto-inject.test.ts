@@ -6,12 +6,13 @@
  * starting the file watcher.
  */
 
-import { describe, it } from "node:test";
 import assert from "node:assert/strict";
 import { randomUUID } from "node:crypto";
-import { mkdir, writeFile, readFile, rm } from "node:fs/promises";
+import { mkdir, readFile, rm, writeFile } from "node:fs/promises";
 import path from "node:path";
+import { describe, it } from "node:test";
 import { setTimeout as setTimeoutPromise } from "node:timers/promises";
+
 import { runWatchCommand } from "../src/commands/watch.js";
 
 describe("Watch command auto-inject flag", () => {

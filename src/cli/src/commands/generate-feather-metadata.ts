@@ -1,17 +1,17 @@
+import { Core } from "@gml-modules/core";
+import { Command } from "commander";
 import { parseHTML } from "linkedom";
 import type { Element } from "linkedom/types/interface/element.js";
 
-import { Command } from "commander";
+import { applyStandardCommandOptions } from "../cli-core/command-standard-options.js";
 import type { CommanderCommandLike } from "../cli-core/commander-types.js";
-
-import { Core } from "@gml-modules/core";
-import { resolveFromRepoRoot } from "../shared/workspace-paths.js";
-import { assertSupportedNodeVersion } from "../shared/node-version.js";
-import { writeJsonArtifact } from "../shared/fs-artifacts.js";
+import { isMainModule, runAsMainModule } from "../cli-core/main-module-runner.js";
+import { runSequentially } from "../cli-core/sequential-runner.js";
 import { getManualRootMetadataPath, readManualText } from "../modules/manual/source.js";
 import { ManualWorkflowOptions, prepareManualWorkflow } from "../modules/manual/workflow.js";
-import { applyStandardCommandOptions } from "../cli-core/command-standard-options.js";
-import { isMainModule, runAsMainModule } from "../cli-core/main-module-runner.js";
+import { writeJsonArtifact } from "../shared/fs-artifacts.js";
+import { assertSupportedNodeVersion } from "../shared/node-version.js";
+import { resolveFromRepoRoot } from "../shared/workspace-paths.js";
 
 const {
     compactArray,
@@ -1059,13 +1059,13 @@ function createFeatherManualMetadataPayload({ manualSource, sections }) {
 async function readFeatherManualPayloads({ manualSource, onRead }) {
     const payloads = Object.create(null);
 
-    for (const [key, manualPath] of Object.entries(FEATHER_PAGES)) {
+    await runSequentially(Object.entries(FEATHER_PAGES), async ([key, manualPath]) => {
         if (typeof onRead === "function") {
             onRead(manualPath);
         }
 
         payloads[key] = await readManualText(manualSource.root, manualPath);
-    }
+    });
 
     return payloads;
 }

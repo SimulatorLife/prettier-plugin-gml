@@ -2,6 +2,7 @@
  * Provides a configurable transform that can remove comments or JSDoc before formatting/printing.
  */
 import { Core, type MutableGameMakerAstNode } from "@gml-modules/core";
+
 import { createParserTransform } from "./functional-transform.js";
 
 type StripCommentsTransformOptions = {

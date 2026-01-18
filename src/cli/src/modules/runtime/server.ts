@@ -1,9 +1,10 @@
-import http from "node:http";
 import { createReadStream } from "node:fs";
 import fs from "node:fs/promises";
+import http from "node:http";
 import path from "node:path";
 
 import { Core } from "@gml-modules/core";
+
 import type { ServerEndpoint, ServerLifecycle } from "../shared-server-types.js";
 
 const { isFsErrorCode, getErrorMessage } = Core;

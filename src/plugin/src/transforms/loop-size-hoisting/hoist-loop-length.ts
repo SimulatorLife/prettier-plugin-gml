@@ -1,4 +1,5 @@
 import { Core, type MutableGameMakerAstNode } from "@gml-modules/core";
+
 import { buildCachedSizeVariableName, getLoopLengthHoistInfo, getSizeRetrievalFunctionSuffixes } from "./helpers.js";
 
 type LoopLengthHoistTransformOptions = Record<string, unknown> & {

@@ -3,7 +3,8 @@ import path from "node:path";
 import process from "node:process";
 
 import { Core } from "@gml-modules/core";
-import { resolveCandidateRoot, readPackageJson, resolvePackageJsonPath } from "../../shared/index.js";
+
+import { readPackageJson, resolveCandidateRoot, resolvePackageJsonPath } from "../../shared/index.js";
 
 const { assertNonEmptyString, getErrorMessageOrFallback } = Core;
 

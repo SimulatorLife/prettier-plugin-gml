@@ -8,6 +8,7 @@
  * reducing noise during the printer stage.
  */
 import { Core, type MutableGameMakerAstNode } from "@gml-modules/core";
+
 import { createParserTransform } from "./functional-transform.js";
 
 type CollapseRedundantMissingCallArgumentsTransformOptions = Record<string, never>;

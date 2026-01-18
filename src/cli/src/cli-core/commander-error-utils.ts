@@ -1,4 +1,5 @@
 import { Core } from "@gml-modules/core";
+
 import type { CommanderCommandLike } from "./commander-types.js";
 
 const { isErrorLike } = Core;

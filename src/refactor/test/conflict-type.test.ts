@@ -1,11 +1,12 @@
 import assert from "node:assert/strict";
 import test from "node:test";
+
 import {
     ConflictType,
+    type ConflictTypeValue,
     isConflictType,
     parseConflictType,
-    requireConflictType,
-    type ConflictTypeValue
+    requireConflictType
 } from "../src/types.js";
 
 void test("ConflictType enum contains expected values", () => {

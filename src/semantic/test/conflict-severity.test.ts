@@ -1,12 +1,13 @@
 import assert from "node:assert";
 import { describe, test } from "node:test";
+
 import {
     ConflictSeverity,
-    normalizeConflictSeverity,
-    normalizeConflictSeverityWithFallback,
-    isConflictSeverity,
+    formatConflictSeverityList,
     getConflictSeverityValues,
-    formatConflictSeverityList
+    isConflictSeverity,
+    normalizeConflictSeverity,
+    normalizeConflictSeverityWithFallback
 } from "../src/identifier-case/conflict-severity.js";
 
 void describe("ConflictSeverity", () => {

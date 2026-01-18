@@ -283,12 +283,12 @@ function getNodeEndLine(node) {
 }
 
 export {
-    getNodeStartIndex,
-    getNodeEndIndex,
-    getNodeRangeIndices,
-    getNodeStartLine,
-    getNodeEndLine,
-    getPreferredLocation,
+    assignClonedLocation,
     cloneLocation,
-    assignClonedLocation
+    getNodeEndIndex,
+    getNodeEndLine,
+    getNodeRangeIndices,
+    getNodeStartIndex,
+    getNodeStartLine,
+    getPreferredLocation
 };

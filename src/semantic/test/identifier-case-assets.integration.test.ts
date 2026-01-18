@@ -4,15 +4,15 @@ import path from "node:path";
 import { describe, it } from "node:test";
 import { fileURLToPath } from "node:url";
 
+import { Core } from "@gml-modules/core";
 import prettier from "prettier";
 
-import { buildProjectIndex } from "../src/project-index/index.js";
 import {
     clearIdentifierCaseDryRunContexts,
     setIdentifierCaseDryRunContext
 } from "../src/identifier-case/identifier-case-context.js";
 import { prepareIdentifierCasePlan } from "../src/identifier-case/plan-service.js";
-import { Core } from "@gml-modules/core";
+import { buildProjectIndex } from "../src/project-index/index.js";
 import {
     createAssetCollisionProject,
     createAssetRenameProject,

@@ -1,12 +1,14 @@
 import assert from "node:assert/strict";
 import fs from "node:fs/promises";
 import path from "node:path";
-import { fileURLToPath } from "node:url";
 import { describe, it } from "node:test";
-import { GMLParser } from "../src/gml-parser.js";
+import { fileURLToPath } from "node:url";
+
+import { Core } from "@gml-modules/core";
+
 import GameMakerASTBuilder from "../src/ast/gml-ast-builder.js";
 import { GameMakerSyntaxError } from "../src/ast/gml-syntax-error.js";
-import { Core } from "@gml-modules/core";
+import { GMLParser } from "../src/gml-parser.js";
 import { defaultParserOptions, type ParserOptions } from "../src/types/index.js";
 
 const currentDirectory = fileURLToPath(new URL(".", import.meta.url));
@@ -22,7 +24,7 @@ async function loadFixtures() {
     return entries
         .filter((entry) => entry.isFile() && entry.name.endsWith(fixtureExtension))
         .map((entry) => entry.name)
-        .sort();
+        .toSorted();
 }
 
 async function readFixture(fileName) {

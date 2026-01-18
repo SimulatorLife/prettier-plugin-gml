@@ -2,16 +2,16 @@ import assert from "node:assert/strict";
 import test from "node:test";
 
 import {
-    ProjectFileCategory,
-    normalizeProjectFileCategory,
-    resolveProjectFileCategory,
     getProjectIndexSourceExtensions,
-    resetProjectIndexSourceExtensions,
-    setProjectIndexSourceExtensions,
     getProjectResourceMetadataExtensions,
+    matchProjectResourceMetadataExtension,
+    normalizeProjectFileCategory,
+    ProjectFileCategory,
+    resetProjectIndexSourceExtensions,
     resetProjectResourceMetadataExtensions,
-    setProjectResourceMetadataExtensions,
-    matchProjectResourceMetadataExtension
+    resolveProjectFileCategory,
+    setProjectIndexSourceExtensions,
+    setProjectResourceMetadataExtensions
 } from "../src/project-index/index.js";
 
 test.afterEach(() => {

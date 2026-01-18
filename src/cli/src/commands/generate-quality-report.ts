@@ -1,14 +1,16 @@
+import { execSync } from "node:child_process";
 import fs from "node:fs";
 import path from "node:path";
 import process from "node:process";
-import { execSync } from "node:child_process";
 import { fileURLToPath } from "node:url";
-import { Command } from "commander";
+
 import { Core } from "@gml-modules/core";
-import { CliUsageError, handleCliError } from "../cli-core/errors.js";
-import { applyStandardCommandOptions } from "../cli-core/command-standard-options.js";
+import { Command } from "commander";
 import { XMLParser } from "fast-xml-parser";
-import { TestCaseStatus, ParseResultStatus, ScanStatus } from "../modules/quality-report/index.js";
+
+import { applyStandardCommandOptions } from "../cli-core/command-standard-options.js";
+import { CliUsageError, handleCliError } from "../cli-core/errors.js";
+import { ParseResultStatus, ScanStatus, TestCaseStatus } from "../modules/quality-report/index.js";
 import { formatByteSizeDisplay } from "../shared/reporting/byte-format.js";
 
 const {
@@ -1217,8 +1219,8 @@ export {
     collectTestCases,
     detectRegressions,
     detectResolvedFailures,
-    readTestResults,
     ensureResultsAvailability,
+    readTestResults,
     reportRegressionSummary
 };
 

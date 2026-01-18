@@ -1,4 +1,5 @@
 import assert from "node:assert/strict";
+import { mkdtempSync } from "node:fs";
 import fs from "node:fs/promises";
 import os from "node:os";
 import path from "node:path";
@@ -19,17 +20,20 @@ async function createSampleFile(directory, label, size = 256 * 1024) {
 void describe("memory module sample cache", () => {
     let tempDir;
 
-    beforeEach(async () => {
-        tempDir = await fs.mkdtemp(path.join(os.tmpdir(), "prettier-plugin-gml-memory-cache-"));
+    beforeEach(() => {
+        tempDir = mkdtempSync(path.join(os.tmpdir(), "prettier-plugin-gml-memory-cache-"));
         clearSampleCacheForTests();
     });
 
     afterEach(async () => {
         clearSampleCacheForTests();
-        if (tempDir) {
-            await fs.rm(tempDir, { recursive: true, force: true });
-            tempDir = null;
+        if (!tempDir) {
+            return;
         }
+
+        const directoryToRemove = tempDir;
+        tempDir = null;
+        await fs.rm(directoryToRemove, { recursive: true, force: true });
     });
 
     void it("evicts the oldest samples when exceeding the cache capacity", async () => {

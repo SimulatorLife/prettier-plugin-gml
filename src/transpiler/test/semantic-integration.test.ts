@@ -1,6 +1,8 @@
 import assert from "node:assert/strict";
 import test from "node:test";
+
 import { Parser } from "@gml-modules/parser";
+
 import { Transpiler } from "../index.js";
 import type { CallExpressionNode } from "../src/emitter/ast.js";
 

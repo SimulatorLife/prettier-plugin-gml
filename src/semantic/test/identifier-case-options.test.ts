@@ -2,15 +2,15 @@ import assert from "node:assert/strict";
 import { describe, it } from "node:test";
 
 import {
-    IDENTIFIER_CASE_BASE_OPTION_NAME,
-    IDENTIFIER_CASE_SCOPE_NAMES,
-    IDENTIFIER_CASE_INHERIT_VALUE,
-    IDENTIFIER_CASE_ACKNOWLEDGE_ASSETS_OPTION_NAME,
-    IdentifierCaseStyle,
-    normalizeIdentifierCaseOptions,
     getIdentifierCaseScopeOptionName,
+    IDENTIFIER_CASE_ACKNOWLEDGE_ASSETS_OPTION_NAME,
+    IDENTIFIER_CASE_BASE_OPTION_NAME,
     IDENTIFIER_CASE_IGNORE_OPTION_NAME,
-    IDENTIFIER_CASE_PRESERVE_OPTION_NAME
+    IDENTIFIER_CASE_INHERIT_VALUE,
+    IDENTIFIER_CASE_PRESERVE_OPTION_NAME,
+    IDENTIFIER_CASE_SCOPE_NAMES,
+    IdentifierCaseStyle,
+    normalizeIdentifierCaseOptions
 } from "../src/identifier-case/options.js";
 
 void describe("gml identifier case option normalization", () => {

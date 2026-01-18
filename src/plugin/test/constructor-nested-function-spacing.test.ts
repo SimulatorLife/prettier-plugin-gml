@@ -1,5 +1,6 @@
 import assert from "node:assert/strict";
 import { describe, it } from "node:test";
+
 import { Plugin } from "../src/index.js";
 
 void describe("constructor nested function spacing", () => {

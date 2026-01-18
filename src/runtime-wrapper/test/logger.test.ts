@@ -1,6 +1,7 @@
-import { describe, it } from "node:test";
 import assert from "node:assert/strict";
-import { createLogger, createChangeEventLogger } from "../src/runtime/logger.js";
+import { describe, it } from "node:test";
+
+import { createChangeEventLogger, createLogger } from "../src/runtime/logger.js";
 import type { Patch, RegistryChangeEvent } from "../src/runtime/types.js";
 
 class MockConsole implements Console {
