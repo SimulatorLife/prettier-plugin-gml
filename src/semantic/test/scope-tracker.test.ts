@@ -483,11 +483,11 @@ void test("getScopeDefinitions returns cloned metadata", () => {
     });
 
     const defs1 = tracker.getScopeDefinitions(scope.id);
-    defs1[0].metadata.mutated = true;
+    (defs1[0].metadata as any).mutated = true;
 
     const defs2 = tracker.getScopeDefinitions(scope.id);
 
-    assert.strictEqual(defs2[0].metadata.mutated, undefined);
+    assert.strictEqual((defs2[0].metadata as any).mutated, undefined);
 });
 
 void test("resolveIdentifier uses cached scope indices for efficient lookups", () => {

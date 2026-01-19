@@ -18,7 +18,7 @@ void test("installScriptCallAdapter routes script calls through the wrapper", ()
     const savedOriginal = globals.__hot_call_script_original;
 
     try {
-        const fallbackCallScript: CallScriptFn = (id, self, other, args) => `fallback:${id}`;
+        const fallbackCallScript: CallScriptFn = (id) => `fallback:${id}`;
         globals.__call_script = fallbackCallScript;
 
         const wrapper = RuntimeWrapper.createRuntimeWrapper();

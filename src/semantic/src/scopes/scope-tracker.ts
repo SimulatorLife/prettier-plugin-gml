@@ -1,211 +1,51 @@
-import { Core, type GameMakerAstNode, type MutableGameMakerAstNode } from "@gml-modules/core";
+import { Core, type MutableGameMakerAstNode } from "@gml-modules/core";
 
 import { ROLE_DEF, ROLE_REF } from "../symbols/scip-types.js";
+import { cloneDeclarationMetadata, cloneOccurrence, createOccurrence } from "./occurrence.js";
+import { GlobalIdentifierRegistry } from "./registry.js";
+import { IdentifierRoleTracker } from "./role-tracker.js";
+import { ensureIdentifierOccurrences, Scope } from "./scope.js";
 import {
     formatKnownScopeOverrideKeywords,
     isScopeOverrideKeyword,
     ScopeOverrideKeyword
 } from "./scope-override-keywords.js";
+import type {
+    AllSymbolsSummaryItem,
+    ExternalReference,
+    IdentifierOccurrences,
+    Occurrence,
+    ScipOccurrence,
+    ScopeDependency,
+    ScopeDependent,
+    ScopeDetails,
+    ScopeMetadata,
+    ScopeModificationDetails,
+    ScopeModificationMetadata,
+    ScopeOccurrencesSummary,
+    ScopeRole,
+    ScopeScipOccurrences,
+    ScopeSummary,
+    ScopeSymbolMetadata,
+    SymbolDeclarationInfo,
+    SymbolDefinition,
+    SymbolOccurrence,
+    SymbolScopeSummary
+} from "./types.js";
 
-type IdentifierOccurrences = {
-    declarations: Array<ReturnType<typeof createOccurrence>>;
-    references: Array<ReturnType<typeof createOccurrence>>;
-};
-
-type Occurrence = Record<string, unknown>;
-
-type ScopeSummary = {
-    hasDeclaration: boolean;
-    hasReference: boolean;
-};
-
-type ScopeRole = {
-    type?: string;
-    scopeOverride?: unknown;
-    tags?: Iterable<string>;
-    kind?: string;
-};
-
-type ScopeModificationDetails = {
-    scopeId: string;
-    scopeKind: string;
-    lastModified: number;
-    modificationCount: number;
-    declarationCount: number;
-    referenceCount: number;
-    symbolCount: number;
-    symbols: Array<{
-        name: string;
-        declarationCount: number;
-        referenceCount: number;
-    }>;
-};
-
-type ScopeEntry = {
-    declarations: Array<any>;
-    references: Array<any>;
-};
-
-type ScipOccurrence = {
-    range: [number, number, number, number];
-    symbol: string;
-    symbolRoles: number;
-};
-
-type ScopeMetadata = {
-    name?: string;
-    path?: string;
-    start?: { line: number; column: number; index: number };
-    end?: { line: number; column: number; index: number };
-};
-
-class Scope {
-    public id: string;
-    public kind: string;
-    public parent: Scope | null;
-    public symbolMetadata: Map<string, ReturnType<typeof cloneDeclarationMetadata>>;
-    public occurrences: Map<string, IdentifierOccurrences>;
-    public stackIndex: number | null;
-    public lastModifiedTimestamp: number;
-    public modificationCount: number;
-    public metadata: ScopeMetadata;
-
-    constructor(id, kind, parent: Scope | null = null, metadata: ScopeMetadata = {}) {
-        this.id = id;
-        this.kind = kind;
-        this.parent = parent;
-        this.symbolMetadata = new Map();
-        this.occurrences = new Map();
-        this.stackIndex = null;
-        this.lastModifiedTimestamp = -1;
-        this.modificationCount = 0;
-        this.metadata = metadata;
-    }
-
-    markModified() {
-        this.lastModifiedTimestamp = Date.now();
-        this.modificationCount += 1;
-    }
-}
-
-function createOccurrence(kind, metadata, source, declarationMetadata) {
-    const declaration = declarationMetadata
-        ? Core.assignClonedLocation({ scopeId: declarationMetadata.scopeId ?? null }, declarationMetadata)
-        : null;
-
-    const usageContext = kind === "declaration" ? null : extractUsageContext(source);
-
-    return Core.assignClonedLocation(
-        {
-            kind,
-            name: metadata?.name ?? null,
-            scopeId: metadata?.scopeId ?? null,
-            classifications: Core.toMutableArray(metadata?.classifications, {
-                clone: true
-            }) as string[],
-            declaration,
-            usageContext
-        },
-        source ?? {}
-    );
-}
-
-function extractUsageContext(node: unknown) {
-    if (!Core.isObjectLike(node)) {
-        return null;
-    }
-
-    const context: {
-        isRead?: boolean;
-        isWrite?: boolean;
-        isAssignmentTarget?: boolean;
-        isCallTarget?: boolean;
-        parentType?: string;
-    } = {};
-
-    const nodeAny = node as Record<string, unknown>;
-
-    if (nodeAny.isAssignmentTarget === true) {
-        context.isAssignmentTarget = true;
-        context.isWrite = true;
-    }
-
-    if (nodeAny.isCallTarget === true) {
-        context.isCallTarget = true;
-        context.isRead = true;
-    }
-
-    if (typeof nodeAny.parentType === "string") {
-        context.parentType = nodeAny.parentType;
-    }
-
-    if (!context.isWrite && !context.isRead) {
-        context.isRead = true;
-    }
-
-    return Object.keys(context).length > 0 ? context : null;
-}
-
-function cloneDeclarationMetadata(metadata) {
-    if (!metadata) {
-        return null;
-    }
-
-    return {
-        name: metadata.name ?? null,
-        scopeId: metadata.scopeId ?? null,
-        classifications: Core.toMutableArray(metadata.classifications, { clone: true }),
-        start: Core.cloneLocation(metadata.start),
-        end: Core.cloneLocation(metadata.end)
-    };
-}
-
-type ScopeSymbolMetadata = NonNullable<ReturnType<typeof cloneDeclarationMetadata>>;
-
-function cloneOccurrence(occurrence) {
-    if (!occurrence) {
-        return null;
-    }
-
-    const declarationClone = occurrence.declaration
-        ? {
-              scopeId: occurrence.declaration.scopeId ?? null,
-              start: Core.cloneLocation(occurrence.declaration.start),
-              end: Core.cloneLocation(occurrence.declaration.end)
-          }
-        : null;
-
-    const usageContextClone = occurrence.usageContext ? { ...occurrence.usageContext } : null;
-
-    return {
-        ...occurrence,
-        classifications: Core.toMutableArray(occurrence.classifications, { clone: true }),
-        declaration: declarationClone,
-        usageContext: usageContextClone,
-        start: Core.cloneLocation(occurrence.start),
-        end: Core.cloneLocation(occurrence.end)
-    };
-}
-
-function ensureIdentifierOccurrences(scope, name) {
-    let entry = scope.occurrences.get(name);
-    if (!entry) {
-        entry = {
-            declarations: [],
-            references: []
-        };
-        scope.occurrences.set(name, entry);
-    }
-
-    return entry;
-}
-
-function resolveStringScopeOverride(tracker, scopeOverride, currentScope) {
+/**
+ * Resolves a scope override string to a scope object.
+ */
+function resolveStringScopeOverride(
+    tracker: ScopeTracker,
+    scopeOverride: string,
+    currentScope: Scope | null
+): Scope | null {
     if (isScopeOverrideKeyword(scopeOverride)) {
-        return scopeOverride === ScopeOverrideKeyword.GLOBAL ? (tracker.rootScope ?? currentScope) : currentScope;
+        return scopeOverride === ScopeOverrideKeyword.GLOBAL ? (tracker.getRootScope() ?? currentScope) : currentScope;
     }
 
-    const found = tracker.scopeStack.find((scope) => scope.id === scopeOverride);
+    const found = tracker.getScopeStack().find((scope) => scope.id === scopeOverride);
 
     if (found) {
         return found;
@@ -217,13 +57,16 @@ function resolveStringScopeOverride(tracker, scopeOverride, currentScope) {
     );
 }
 
+/**
+ * Manages lexical and structural scopes, symbol declarations, and references.
+ */
 export class ScopeTracker {
     private scopeCounter: number = 0;
     private scopeStack: Scope[];
     private rootScope: Scope | null;
     private scopesById: Map<string, Scope>;
-    private symbolToScopesIndex: Map<string, Map<string, ScopeSummary>>; // symbol -> Map<scopeId, ScopeSummary>
-    private pathToScopesIndex: Map<string, Set<string>>; // path -> Set<scopeId>
+    private symbolToScopesIndex: Map<string, Map<string, ScopeSummary>>;
+    private pathToScopesIndex: Map<string, Set<string>>;
     private enabled: boolean;
     private identifierRoleTracker: IdentifierRoleTracker;
     private globalIdentifierRegistry: GlobalIdentifierRegistry;
@@ -233,17 +76,18 @@ export class ScopeTracker {
         this.scopeStack = [];
         this.rootScope = null;
         this.scopesById = new Map();
-        // Map: symbol -> Map<scopeId, { hasDeclaration: boolean, hasReference: boolean }>
-        this.symbolToScopesIndex = new Map<string, Map<string, { hasDeclaration: boolean; hasReference: boolean }>>();
-        // Map: path -> Set<scopeId>
-        this.pathToScopesIndex = new Map<string, Set<string>>();
+        this.symbolToScopesIndex = new Map();
+        this.pathToScopesIndex = new Map();
         this.enabled = Boolean(enabled);
         this.identifierRoleTracker = new IdentifierRoleTracker();
         this.globalIdentifierRegistry = new GlobalIdentifierRegistry();
         this.resolveIdentifierCache = new Map();
     }
 
-    withScope<T>(kind: string, callback: () => T, metadata: ScopeMetadata = {}): T {
+    /**
+     * Executes a callback within a new scope of the specified kind.
+     */
+    public withScope<T>(kind: string, callback: () => T, metadata: ScopeMetadata = {}): T {
         this.enterScope(kind, metadata);
         try {
             return callback();
@@ -252,7 +96,10 @@ export class ScopeTracker {
         }
     }
 
-    enterScope(kind: string, metadata: ScopeMetadata = {}) {
+    /**
+     * Enters a new scope.
+     */
+    public enterScope(kind: string, metadata: ScopeMetadata = {}): Scope {
         const parent = this.scopeStack.at(-1) ?? null;
         const scope = new Scope(`scope-${this.scopeCounter++}`, kind ?? "unknown", parent, metadata);
         this.scopeStack.push(scope);
@@ -262,7 +109,6 @@ export class ScopeTracker {
             this.rootScope = scope;
         }
 
-        // Update path-to-scope index if scope has a path
         const path = metadata?.path;
         if (typeof path === "string" && path.length > 0) {
             let scopeSet = this.pathToScopesIndex.get(path);
@@ -276,34 +122,37 @@ export class ScopeTracker {
         return scope;
     }
 
-    exitScope() {
+    /**
+     * Exits the current scope.
+     */
+    public exitScope(): void {
         const scope = this.scopeStack.pop();
         if (scope) {
             scope.stackIndex = null;
         }
     }
 
-    currentScope() {
+    /**
+     * Returns the current active scope.
+     */
+    public currentScope(): Scope | null {
         return this.scopeStack.at(-1) ?? null;
     }
 
-    getRootScope() {
+    /**
+     * Returns the root scope of the tracker.
+     */
+    public getRootScope(): Scope | null {
         return this.rootScope;
     }
 
     /**
-     * Get all descendant scope IDs efficiently without additional metadata.
-     * Used internally for cache invalidation.
-     *
-     * Performance note: This method has O(n*m) complexity where n is the total
-     * number of scopes and m is the average depth of the scope tree. It's only
-     * called during declaration operations (not on hot paths), so this is
-     * acceptable for typical use cases. For very large scope hierarchies with
-     * frequent declarations, consider building a parent-to-children index.
-     *
-     * @param {string} scopeId The scope whose descendants to retrieve.
-     * @returns {Set<string>} Set of descendant scope IDs.
+     * Internal getter for the scope stack.
      */
+    public getScopeStack(): Scope[] {
+        return this.scopeStack;
+    }
+
     private getDescendantScopeIds(scopeId: string): Set<string> {
         const descendants = new Set<string>();
         const scope = this.scopesById.get(scopeId);
@@ -312,13 +161,11 @@ export class ScopeTracker {
             return descendants;
         }
 
-        // Find all scopes where the queried scope is an ancestor
         for (const candidateScope of this.scopesById.values()) {
             if (candidateScope.id === scopeId) {
-                continue; // Skip the scope itself
+                continue;
             }
 
-            // Walk up the parent chain to see if we find the queried scope
             let current = candidateScope.parent;
             while (current) {
                 if (current.id === scopeId) {
@@ -332,21 +179,10 @@ export class ScopeTracker {
         return descendants;
     }
 
-    /**
-     * Clear resolve identifier cache for a symbol, but only for scopes that
-     * could be affected. When a symbol is declared in a scope, only the
-     * declaring scope and its descendants (child scopes) need cache
-     * invalidation because their resolution chain is affected. Parent and
-     * sibling scopes remain unaffected.
-     *
-     * This targeted invalidation improves performance during hot reload by
-     * preserving cache hits for unaffected scopes.
-     *
-     * @param {string | null | undefined} name Symbol name to invalidate.
-     * @param {string | null | undefined} declaringScopeId Scope where the
-     *        declaration was added. If null, clears cache for all scopes (conservative fallback).
-     */
-    private clearResolveIdentifierCacheForName(name: string | null | undefined, declaringScopeId?: string | null) {
+    private clearResolveIdentifierCacheForName(
+        name: string | null | undefined,
+        declaringScopeId?: string | null
+    ): void {
         if (!name) {
             return;
         }
@@ -356,22 +192,17 @@ export class ScopeTracker {
             return;
         }
 
-        // Conservative fallback: clear entire cache for this symbol if no declaring scope provided
         if (!declaringScopeId) {
             this.resolveIdentifierCache.delete(name);
             return;
         }
 
-        // Targeted invalidation: clear cache for declaring scope + descendants
         const descendantIds = this.getDescendantScopeIds(declaringScopeId);
-
         cache.delete(declaringScopeId);
-
         for (const scopeId of descendantIds) {
             cache.delete(scopeId);
         }
 
-        // If cache is now empty, remove the symbol entry entirely
         if (cache.size === 0) {
             this.resolveIdentifierCache.delete(name);
         }
@@ -386,7 +217,7 @@ export class ScopeTracker {
         return cache.get(scopeId);
     }
 
-    private writeResolveIdentifierCache(name: string, scopeId: string, declaration: ScopeSymbolMetadata | null) {
+    private writeResolveIdentifierCache(name: string, scopeId: string, declaration: ScopeSymbolMetadata | null): void {
         let cache = this.resolveIdentifierCache.get(name);
         if (!cache) {
             cache = new Map();
@@ -396,15 +227,20 @@ export class ScopeTracker {
         cache.set(scopeId, declaration);
     }
 
-    resolveScopeOverride(scopeOverride) {
+    public resolveScopeOverride(scopeOverride: unknown): Scope | null {
         const currentScope = this.currentScope();
 
         if (!scopeOverride) {
             return currentScope;
         }
 
-        if (Core.getOptionalString(scopeOverride, "id") !== null) {
-            return scopeOverride;
+        if (
+            typeof scopeOverride === "object" &&
+            scopeOverride !== null &&
+            "id" in scopeOverride &&
+            typeof (scopeOverride as any).id === "string"
+        ) {
+            return scopeOverride as Scope;
         }
 
         if (typeof scopeOverride === "string") {
@@ -414,7 +250,7 @@ export class ScopeTracker {
         return currentScope;
     }
 
-    buildClassifications(role?: ScopeRole | null, isDeclaration: boolean = false) {
+    public buildClassifications(role?: ScopeRole | null, isDeclaration: boolean = false): string[] {
         const tags = new Set(["identifier", isDeclaration ? "declaration" : "reference"]);
 
         const roleKind = role?.kind;
@@ -422,23 +258,29 @@ export class ScopeTracker {
             tags.add(roleKind);
         }
 
-        for (const tag of Core.toArray(role?.tags)) {
-            if (tag) {
-                tags.add(tag);
+        if (role?.tags) {
+            for (const tag of role.tags) {
+                if (tag) {
+                    tags.add(tag);
+                }
             }
         }
 
         return [...tags];
     }
 
-    storeDeclaration(scope, name, metadata) {
+    private storeDeclaration(scope: Scope | null, name: string, metadata: ScopeSymbolMetadata): void {
         if (!scope || !name) {
             return;
         }
         scope.symbolMetadata.set(name, metadata);
     }
 
-    recordScopeOccurrence(scope: Scope | null | undefined, name: string | null | undefined, occurrence: Occurrence) {
+    private recordScopeOccurrence(
+        scope: Scope | null | undefined,
+        name: string | null | undefined,
+        occurrence: Occurrence
+    ): void {
         if (!scope || !name || !occurrence) {
             return;
         }
@@ -446,7 +288,6 @@ export class ScopeTracker {
         const entry = ensureIdentifierOccurrences(scope, name);
         const isReference = occurrence.kind === "reference";
 
-        // Record occurrence in appropriate array
         if (isReference) {
             entry.references.push(occurrence);
         } else {
@@ -455,21 +296,18 @@ export class ScopeTracker {
 
         scope.markModified();
 
-        // Ensure a per-symbol index exists
         let scopeSummaryMap = this.symbolToScopesIndex.get(name);
         if (!scopeSummaryMap) {
             scopeSummaryMap = new Map<string, ScopeSummary>();
             this.symbolToScopesIndex.set(name, scopeSummaryMap);
         }
 
-        // Ensure a summary entry exists for this scope
         let scopeSummary = scopeSummaryMap.get(scope.id);
         if (!scopeSummary) {
             scopeSummary = { hasDeclaration: false, hasReference: false };
             scopeSummaryMap.set(scope.id, scopeSummary);
         }
 
-        // Update summary flags
         if (isReference) {
             scopeSummary.hasReference = true;
         } else {
@@ -477,7 +315,7 @@ export class ScopeTracker {
         }
     }
 
-    lookup(name: string | null | undefined) {
+    public lookup(name: string | null | undefined): ScopeSymbolMetadata | null {
         if (!this.enabled || !name) {
             return null;
         }
@@ -493,25 +331,11 @@ export class ScopeTracker {
         return null;
     }
 
-    /**
-     * Annotate {@link node} as the declaration site for {@link name}. The
-     * method persists metadata on the active scope tree so later references can
-     * resolve back to their defining scope.
-     *
-     * When {@link role} includes a `scopeOverride` value, the declaration is
-     * stored against that target instead of the current scope. The helper
-     * tolerates missing identifiers and nodes so callers can guard optional
-     * grammar branches without bespoke checks.
-     *
-     * @param name Identifier being declared.
-     * @param node AST node whose identifier declarations are captured.
-     * @param role Classification hints used for semantic tokens.
-     */
-    declare(
+    public declare(
         name: string | null | undefined,
         node: MutableGameMakerAstNode | null | undefined,
         role: ScopeRole = { type: "declaration" }
-    ) {
+    ): void {
         if (!this.enabled || !name || !node) {
             return;
         }
@@ -520,10 +344,12 @@ export class ScopeTracker {
         const scopeId = scope?.id ?? null;
         const classifications = this.buildClassifications(role, true);
 
-        const metadata = {
+        const metadata: ScopeSymbolMetadata = {
             name,
-            scopeId,
-            classifications
+            scopeId: scopeId ?? "",
+            classifications,
+            start: { line: 0, column: 0, index: 0 },
+            end: { line: 0, column: 0, index: 0 }
         };
 
         Core.assignClonedLocation(metadata, node);
@@ -532,18 +358,18 @@ export class ScopeTracker {
         this.clearResolveIdentifierCacheForName(name, scopeId);
 
         node.scopeId = scopeId;
-        node.declaration = Core.assignClonedLocation({ scopeId }, metadata);
+        node.declaration = Core.assignClonedLocation({ scopeId: scopeId ?? undefined }, metadata);
         node.classifications = classifications as any;
 
-        const occurrence = createOccurrence("declaration", metadata, metadata, metadata);
-        this.recordScopeOccurrence(scope, name, occurrence as unknown as Occurrence);
+        const occurrence = createOccurrence("declaration", metadata, node, metadata);
+        this.recordScopeOccurrence(scope, name, occurrence);
     }
 
-    reference(
+    public reference(
         name: string | null | undefined,
         node: MutableGameMakerAstNode | null | undefined,
         role: ScopeRole = { type: "reference" }
-    ) {
+    ): void {
         if (!name || !node) {
             return;
         }
@@ -552,14 +378,14 @@ export class ScopeTracker {
         const scopeId = scope?.id ?? null;
         const declaration = this.lookup(name);
 
-        let derivedTags = [];
+        let derivedTags: string[] = [];
         if (declaration?.classifications) {
             derivedTags = declaration.classifications.filter((tag) => tag !== "identifier" && tag !== "declaration");
         }
 
-        const combinedRole = {
+        const combinedRole: ScopeRole = {
             ...role,
-            tags: [...derivedTags, ...Core.toArray(role?.tags)]
+            tags: [...derivedTags, ...Array.from(role?.tags ?? [])]
         };
 
         const classifications = this.buildClassifications(combinedRole, false);
@@ -577,17 +403,19 @@ export class ScopeTracker {
             classifications
         };
 
-        const occurrence = createOccurrence("reference", occurrenceMetadata, node, declaration ?? null);
-        this.recordScopeOccurrence(scope, name, occurrence as unknown as Occurrence);
+        const occurrence = createOccurrence("reference", occurrenceMetadata, node, declaration);
+        this.recordScopeOccurrence(scope, name, occurrence);
     }
 
-    exportOccurrences(includeReferences: boolean | { includeReferences?: boolean } = true) {
+    public exportOccurrences(
+        includeReferences: boolean | { includeReferences?: boolean } = true
+    ): ScopeOccurrencesSummary[] {
         const includeRefs =
             typeof includeReferences === "boolean" ? includeReferences : Boolean(includeReferences?.includeReferences);
-        const results = [];
+        const results: ScopeOccurrencesSummary[] = [];
 
         for (const scope of this.scopesById.values()) {
-            const identifiers = [];
+            const identifiers: ScopeOccurrencesSummary["identifiers"] = [];
 
             for (const [name, entry] of scope.occurrences) {
                 const declarations = entry.declarations.map((occurrence) => cloneOccurrence(occurrence));
@@ -618,20 +446,10 @@ export class ScopeTracker {
         return results;
     }
 
-    /**
-     * Export declaration and reference occurrences for a specific scope. The
-     * structure mirrors {@link exportOccurrences} but narrows the output to a
-     * single scope so consumers do not need to scan the entire project graph
-     * when responding to focused hot reload events.
-     *
-     * @param {string} scopeId The scope identifier to export.
-     * @param {{ includeReferences?: boolean }} [options]
-     *        Controls whether reference occurrences should be included.
-     * @returns {{scopeId: string, scopeKind: string, lastModified: number, modificationCount: number, identifiers: Array}} | null
-     *          Scope occurrence payload, including modification metadata, or
-     *          null if the tracker is disabled or the scope is unknown.
-     */
-    getScopeOccurrences(scopeId: string | null | undefined, { includeReferences = true } = {}) {
+    public getScopeOccurrences(
+        scopeId: string | null | undefined,
+        { includeReferences = true } = {}
+    ): ScopeOccurrencesSummary | null {
         if (!scopeId) {
             return null;
         }
@@ -642,7 +460,7 @@ export class ScopeTracker {
         }
 
         const includeRefs = Boolean(includeReferences);
-        const identifiers = [];
+        const identifiers: ScopeOccurrencesSummary["identifiers"] = [];
 
         for (const [name, entry] of scope.occurrences) {
             const declarations = entry.declarations.map((occurrence) => cloneOccurrence(occurrence));
@@ -668,16 +486,7 @@ export class ScopeTracker {
         };
     }
 
-    /**
-     * Find all occurrences (declarations and references) of a specific symbol
-     * across all scopes. This supports hot reload coordination by identifying
-     * what needs to be recompiled when a symbol changes.
-     *
-     * @param {string} name The identifier name to search for.
-     * @returns {Array<{scopeId: string, scopeKind: string, kind: string, occurrence: object}>}
-     *          Array of occurrence records with scope context.
-     */
-    getSymbolOccurrences(name: string | null | undefined) {
+    public getSymbolOccurrences(name: string | null | undefined): SymbolOccurrence[] {
         if (!name) {
             return [];
         }
@@ -687,7 +496,7 @@ export class ScopeTracker {
             return [];
         }
 
-        const results = [];
+        const results: SymbolOccurrence[] = [];
 
         for (const scopeId of scopeSummaryMap.keys()) {
             const scope = this.scopesById.get(scopeId);
@@ -722,79 +531,11 @@ export class ScopeTracker {
         return results;
     }
 
-    /**
-     * Find all occurrences (declarations and references) for multiple symbols
-     * in a single query. This is more efficient than calling getSymbolOccurrences
-     * multiple times, as it batches the lookups and minimizes redundant scope
-     * traversals.
-     *
-     * Use case: When a file changes during hot reload and multiple symbols are
-     * modified, batch-query all affected symbols to determine the complete
-     * invalidation set without N individual lookups.
-     *
-     * @param {Iterable<string>} names Array or Set of symbol names to query.
-     * @returns {Map<string, Array<{scopeId: string, scopeKind: string, kind: string, occurrence: object}>>}
-     *          Map from symbol name to its occurrence records. Symbols not found
-     *          are omitted from the result (not mapped to empty arrays).
-     */
-    getBatchSymbolOccurrences(names: Iterable<string>) {
-        const results = new Map<
-            string,
-            Array<{
-                scopeId: string;
-                scopeKind: string;
-                kind: "declaration" | "reference";
-                occurrence: ReturnType<typeof cloneOccurrence>;
-            }>
-        >();
+    public getBatchSymbolOccurrences(names: Iterable<string>): Map<string, SymbolOccurrence[]> {
+        const results = new Map<string, SymbolOccurrence[]>();
 
         for (const name of names) {
-            if (!name) {
-                continue;
-            }
-
-            const scopeSummaryMap = this.symbolToScopesIndex.get(name);
-            if (!scopeSummaryMap || scopeSummaryMap.size === 0) {
-                continue;
-            }
-
-            const occurrences: Array<{
-                scopeId: string;
-                scopeKind: string;
-                kind: "declaration" | "reference";
-                occurrence: ReturnType<typeof cloneOccurrence>;
-            }> = [];
-
-            for (const scopeId of scopeSummaryMap.keys()) {
-                const scope = this.scopesById.get(scopeId);
-                if (!scope) {
-                    continue;
-                }
-
-                const entry = scope.occurrences.get(name);
-                if (!entry) {
-                    continue;
-                }
-
-                for (const declaration of entry.declarations) {
-                    occurrences.push({
-                        scopeId: scope.id,
-                        scopeKind: scope.kind,
-                        kind: "declaration",
-                        occurrence: cloneOccurrence(declaration)
-                    });
-                }
-
-                for (const reference of entry.references) {
-                    occurrences.push({
-                        scopeId: scope.id,
-                        scopeKind: scope.kind,
-                        kind: "reference",
-                        occurrence: cloneOccurrence(reference)
-                    });
-                }
-            }
-
+            const occurrences = this.getSymbolOccurrences(name);
             if (occurrences.length > 0) {
                 results.set(name, occurrences);
             }
@@ -803,18 +544,7 @@ export class ScopeTracker {
         return results;
     }
 
-    /**
-     * Get all scope IDs that contain occurrences (declarations or references) of
-     * a specific symbol. This is optimized using an internal index for O(1)
-     * average case lookup instead of scanning all scopes. Useful for hot reload
-     * invalidation to quickly identify which scopes need recompilation when a
-     * symbol changes.
-     *
-     * @param {string} name The symbol name to look up.
-     * @returns {Array<string>} Array of scope IDs that contain the symbol, or
-     *          empty array if not found or disabled.
-     */
-    getScopesForSymbol(name: string | null | undefined) {
+    public getScopesForSymbol(name: string | null | undefined): string[] {
         if (!name) {
             return [];
         }
@@ -827,18 +557,7 @@ export class ScopeTracker {
         return [...scopeSummaryMap.keys()];
     }
 
-    /**
-     * Get per-scope summary metadata for a specific symbol. Each summary entry
-     * indicates whether the symbol is declared and/or referenced within the
-     * scope. This supports hot reload invalidation by distinguishing definition
-     * scopes from dependent scopes without requiring callers to walk occurrence
-     * lists manually.
-     *
-     * @param {string} name The symbol name to summarise.
-     * @returns {Array<{scopeId: string, scopeKind: string, hasDeclaration: boolean, hasReference: boolean}>}
-     *          Array of summary records for each scope containing the symbol.
-     */
-    getSymbolScopeSummary(name: string | null | undefined) {
+    public getSymbolScopeSummary(name: string | null | undefined): SymbolScopeSummary[] {
         if (!name) {
             return [];
         }
@@ -848,7 +567,7 @@ export class ScopeTracker {
             return [];
         }
 
-        const summaries = [];
+        const summaries: SymbolScopeSummary[] = [];
 
         for (const [scopeId, summary] of scopeSummaryMap) {
             const scope = this.scopesById.get(scopeId);
@@ -867,27 +586,17 @@ export class ScopeTracker {
         return summaries;
     }
 
-    /**
-     * Get a global summary of all symbols across all scopes. Returns aggregated
-     * metadata for each unique symbol showing which scopes declare and reference
-     * it, along with occurrence counts. This provides a bird's-eye view of the
-     * entire symbol table for hot reload coordination, enabling quick assessment
-     * of symbol usage patterns without iterating through individual scopes.
-     *
-     * @returns {Array<{name: string, scopeCount: number, declarationCount: number, referenceCount: number, scopes: Array<{scopeId: string, scopeKind: string, hasDeclaration: boolean, hasReference: boolean}>}>}
-     *          Array of symbol summaries with aggregated usage metadata.
-     */
-    getAllSymbolsSummary() {
+    public getAllSymbolsSummary(): AllSymbolsSummaryItem[] {
         if (!this.enabled) {
             return [];
         }
 
-        const summaries = [];
+        const summaries: AllSymbolsSummaryItem[] = [];
 
         for (const [name, scopeSummaryMap] of this.symbolToScopesIndex) {
             let totalDeclarations = 0;
             let totalReferences = 0;
-            const scopeDetails = [];
+            const scopeDetails: SymbolScopeSummary[] = [];
 
             for (const [scopeId, summary] of scopeSummaryMap) {
                 const scope = this.scopesById.get(scopeId);
@@ -921,15 +630,7 @@ export class ScopeTracker {
         return summaries;
     }
 
-    /**
-     * Get all symbols (unique identifier names) declared or referenced in a
-     * specific scope. This helps track dependencies and supports selective
-     * recompilation strategies.
-     *
-     * @param {string} scopeId The scope identifier to query.
-     * @returns {Array<string>} Array of unique identifier names in the scope.
-     */
-    getScopeSymbols(scopeId: string | null | undefined) {
+    public getScopeSymbols(scopeId: string | null | undefined): string[] {
         if (!scopeId) {
             return [];
         }
@@ -942,17 +643,7 @@ export class ScopeTracker {
         return [...scope.occurrences.keys()];
     }
 
-    /**
-     * Resolve an identifier name to its declaration metadata by walking up the
-     * scope chain from a specified scope. This implements proper lexical scoping
-     * rules and supports accurate binding resolution for transpilation.
-     *
-     * @param {string} name The identifier name to resolve.
-     * @param {string} [scopeId] The scope to start resolution from. If omitted,
-     *        uses the current scope.
-     * @returns {object | null} The declaration metadata if found, or null.
-     */
-    resolveIdentifier(name: string | null | undefined, scopeId?: string | null) {
+    public resolveIdentifier(name: string | null | undefined, scopeId?: string | null): ScopeSymbolMetadata | null {
         if (!name) {
             return null;
         }
@@ -986,14 +677,14 @@ export class ScopeTracker {
             this.scopeStack[storedIndex] === startScope
                 ? storedIndex
                 : undefined;
+
         if (startIndex === undefined) {
-            let current = startScope;
+            let current: Scope | null = startScope;
             while (current) {
                 const declaration = current.symbolMetadata.get(name);
                 if (declaration) {
-                    const clone = cloneDeclarationMetadata(declaration);
                     this.writeResolveIdentifierCache(name, cacheScopeId, declaration);
-                    return clone;
+                    return cloneDeclarationMetadata(declaration);
                 }
                 current = current.parent;
             }
@@ -1005,9 +696,8 @@ export class ScopeTracker {
             const scope = this.scopeStack[i];
             const declaration = scope.symbolMetadata.get(name);
             if (declaration) {
-                const clone = cloneDeclarationMetadata(declaration);
                 this.writeResolveIdentifierCache(name, cacheScopeId, declaration);
-                return clone;
+                return cloneDeclarationMetadata(declaration);
             }
         }
 
@@ -1015,16 +705,7 @@ export class ScopeTracker {
         return null;
     }
 
-    /**
-     * Get the parent scope chain for a given scope, walking from the specified
-     * scope up to the root. This enables efficient dependency tracking and
-     * supports faster invalidation in hot reload pipelines.
-     *
-     * @param {string} scopeId The scope identifier to start from.
-     * @returns {Array<{id: string, kind: string}>} Array of parent scopes from
-     *          nearest to root, or empty array if scope not found or disabled.
-     */
-    getScopeChain(scopeId: string | null | undefined) {
+    public getScopeChain(scopeId: string | null | undefined): Array<{ id: string; kind: string }> {
         if (!scopeId) {
             return [];
         }
@@ -1035,7 +716,7 @@ export class ScopeTracker {
         }
 
         const chain = [];
-        let current = scope;
+        let current: Scope | null = scope;
         while (current) {
             chain.push({
                 id: current.id,
@@ -1047,17 +728,7 @@ export class ScopeTracker {
         return chain;
     }
 
-    /**
-     * Get all declarations defined directly in a specific scope. This returns
-     * only declarations in the specified scope, not from parent scopes. Useful
-     * for hot reload coordination to identify what symbols are defined in a
-     * particular file or scope unit.
-     *
-     * @param {string} scopeId The scope identifier to query.
-     * @returns {Array<{name: string, metadata: object}>} Array of declarations
-     *          with their names and full metadata.
-     */
-    getScopeDefinitions(scopeId: string | null | undefined) {
+    public getScopeDefinitions(scopeId: string | null | undefined): SymbolDefinition[] {
         if (!scopeId) {
             return [];
         }
@@ -1067,7 +738,7 @@ export class ScopeTracker {
             return [];
         }
 
-        const definitions = [];
+        const definitions: SymbolDefinition[] = [];
         for (const [name, metadata] of scope.symbolMetadata) {
             definitions.push({
                 name,
@@ -1078,27 +749,7 @@ export class ScopeTracker {
         return definitions;
     }
 
-    /**
-     * Get all external references from a specific scope - references to symbols
-     * declared in parent or ancestor scopes. This is crucial for hot reload
-     * coordination because it identifies cross-scope dependencies: when a scope
-     * is modified, any scope that references its symbols needs to be invalidated.
-     *
-     * Each external reference includes:
-     * - The symbol name being referenced
-     * - The scope where it was declared (or null if undeclared)
-     * - Cloned declaration metadata for the resolved symbol (or null)
-     * - All occurrence records where it's referenced in the queried scope
-     *
-     * This enables efficient dependency tracking: when editing a file/scope,
-     * query its external references to know which parent symbols it depends on,
-     * then update only the affected code paths during hot reload.
-     *
-     * @param {string} scopeId The scope identifier to query.
-     * @returns {Array<{name: string, declaringScopeId: string | null, referencingScopeId: string, declaration: object | null, occurrences: Array<object>}>}
-     *          Array of external reference records grouped by symbol name.
-     */
-    getScopeExternalReferences(scopeId: string | null | undefined) {
+    public getScopeExternalReferences(scopeId: string | null | undefined): ExternalReference[] {
         if (!scopeId) {
             return [];
         }
@@ -1108,7 +759,7 @@ export class ScopeTracker {
             return [];
         }
 
-        const externalRefs = [];
+        const externalRefs: ExternalReference[] = [];
         const processedSymbols = new Set();
 
         for (const [name, entry] of scope.occurrences) {
@@ -1126,8 +777,7 @@ export class ScopeTracker {
             }
 
             const resolvedDeclaration = this.resolveIdentifier(name, scopeId);
-            const resolvedDeclarationClone = cloneDeclarationMetadata(resolvedDeclaration);
-            const declaringScopeId = resolvedDeclarationClone?.scopeId ?? null;
+            const declaringScopeId = resolvedDeclaration?.scopeId ?? null;
 
             if (declaringScopeId === scopeId) {
                 continue;
@@ -1139,7 +789,7 @@ export class ScopeTracker {
                 name,
                 declaringScopeId,
                 referencingScopeId: scopeId,
-                declaration: resolvedDeclarationClone,
+                declaration: resolvedDeclaration ? cloneDeclarationMetadata(resolvedDeclaration) : null,
                 occurrences
             });
 
@@ -1149,25 +799,7 @@ export class ScopeTracker {
         return externalRefs;
     }
 
-    /**
-     * Get all scopes that a given scope depends on (scopes it references symbols from).
-     * This builds a direct dependency list by analyzing external references and
-     * resolving where those symbols are declared.
-     *
-     * Returns an array of dependency records, where each record contains:
-     * - dependencyScopeId: The scope ID that contains declarations the queried scope depends on
-     * - dependencyScopeKind: The kind of the dependency scope
-     * - symbols: Array of symbol names referenced from that dependency scope
-     *
-     * Use case: When a scope changes, query which scopes it depends on to determine
-     * if those dependencies have changed and require recompilation. This enables
-     * precise invalidation in hot reload pipelines.
-     *
-     * @param {string | null | undefined} scopeId The scope identifier to query.
-     * @returns {Array<{dependencyScopeId: string, dependencyScopeKind: string, symbols: string[]}>}
-     *          Array of dependency records, or empty array if scope not found.
-     */
-    getScopeDependencies(scopeId: string | null | undefined) {
+    public getScopeDependencies(scopeId: string | null | undefined): ScopeDependency[] {
         if (!scopeId) {
             return [];
         }
@@ -1177,7 +809,6 @@ export class ScopeTracker {
             return [];
         }
 
-        // Group symbols by their declaring scope
         const dependenciesMap = new Map<string, Set<string>>();
 
         for (const ref of externalRefs) {
@@ -1194,8 +825,7 @@ export class ScopeTracker {
             symbols.add(ref.name);
         }
 
-        // Build result array with scope metadata
-        const dependencies = [];
+        const dependencies: ScopeDependency[] = [];
         for (const [depScopeId, symbols] of dependenciesMap) {
             const depScope = this.scopesById.get(depScopeId);
             if (!depScope) {
@@ -1212,26 +842,7 @@ export class ScopeTracker {
         return dependencies.toSorted((a, b) => a.dependencyScopeId.localeCompare(b.dependencyScopeId));
     }
 
-    /**
-     * Get all scopes that depend on a given scope (scopes that reference symbols
-     * declared in the queried scope). This is the inverse of `getScopeDependencies`
-     * and is critical for hot reload invalidation.
-     *
-     * Returns an array of dependent records, where each record contains:
-     * - dependentScopeId: The scope ID that references symbols from the queried scope
-     * - dependentScopeKind: The kind of the dependent scope
-     * - symbols: Array of symbol names from the queried scope that are referenced
-     *
-     * Use case: When a scope changes, query which scopes depend on it to identify
-     * what needs to be invalidated and recompiled. This is essential for efficient
-     * hot reload: if scope A declares symbol X and scope B references X, then
-     * changing scope A requires recompiling scope B.
-     *
-     * @param {string | null | undefined} scopeId The scope identifier to query.
-     * @returns {Array<{dependentScopeId: string, dependentScopeKind: string, symbols: string[]}>}
-     *          Array of dependent records, or empty array if scope not found.
-     */
-    getScopeDependents(scopeId: string | null | undefined) {
+    public getScopeDependents(scopeId: string | null | undefined): ScopeDependent[] {
         if (!scopeId) {
             return [];
         }
@@ -1241,13 +852,11 @@ export class ScopeTracker {
             return [];
         }
 
-        // Get all symbols declared in this scope
         const declaredSymbols = new Set(scope.symbolMetadata.keys());
         if (declaredSymbols.size === 0) {
             return [];
         }
 
-        // Find scopes that reference any of these symbols
         const dependentsMap = new Map<string, Set<string>>();
 
         for (const symbol of declaredSymbols) {
@@ -1257,22 +866,14 @@ export class ScopeTracker {
             }
 
             for (const [refScopeId, summary] of scopeSummaryMap) {
-                // Skip the scope itself to avoid self-referential dependencies.
-                // REASON: A scope cannot be a dependent of itself. Including scopeId
-                // in its own dependents list would create a trivial cycle and break
-                // downstream dependency-ordering algorithms that expect acyclic graphs.
-                // WHAT WOULD BREAK: Removing this check would cause infinite loops in
-                // dependency traversal and make hot-reload ordering unpredictable.
                 if (refScopeId === scopeId) {
                     continue;
                 }
 
-                // Only include scopes that actually reference the symbol (not just declare it)
                 if (!summary.hasReference) {
                     continue;
                 }
 
-                // Verify this scope doesn't declare the symbol locally (external reference)
                 const refScope = this.scopesById.get(refScopeId);
                 if (!refScope) {
                     continue;
@@ -1280,17 +881,14 @@ export class ScopeTracker {
 
                 const localDeclaration = refScope.symbolMetadata.get(symbol);
                 if (localDeclaration) {
-                    // Symbol is declared locally, so it's not a dependency on our scope
                     continue;
                 }
 
-                // Verify the reference resolves to our scope
                 const resolved = this.resolveIdentifier(symbol, refScopeId);
                 if (resolved?.scopeId !== scopeId) {
                     continue;
                 }
 
-                // This scope depends on the queried scope
                 let symbols = dependentsMap.get(refScopeId);
                 if (!symbols) {
                     symbols = new Set();
@@ -1301,8 +899,7 @@ export class ScopeTracker {
             }
         }
 
-        // Build result array with scope metadata
-        const dependents = [];
+        const dependents: ScopeDependent[] = [];
         for (const [depScopeId, symbols] of dependentsMap) {
             const depScope = this.scopesById.get(depScopeId);
             if (!depScope) {
@@ -1319,25 +916,7 @@ export class ScopeTracker {
         return dependents.toSorted((a, b) => a.dependentScopeId.localeCompare(b.dependentScopeId));
     }
 
-    /**
-     * Get all scopes that transitively depend on a given scope. This computes
-     * the full dependency closure by recursively following dependent relationships.
-     * Unlike `getScopeDependents` which returns only direct dependents, this
-     * method returns all scopes in the dependency tree.
-     *
-     * This is essential for hot reload invalidation when a scope changes: you
-     * need to recompile not just the immediate dependents, but all transitive
-     * dependents as well, since changes can propagate through the dependency chain.
-     *
-     * @param {string | null | undefined} scopeId The scope identifier to query.
-     * @param {Set<string>} [visited] Internal parameter for cycle detection.
-     *                                 Do not pass this externally.
-     * @returns {Array<{dependentScopeId: string, dependentScopeKind: string, depth: number}>}
-     *          Array of all transitive dependent scopes with their depth from
-     *          the root scope. Depth 1 = direct dependent, depth 2 = dependent
-     *          of a dependent, etc. Returns empty array if scope not found.
-     */
-    getTransitiveDependents(
+    public getTransitiveDependents(
         scopeId: string | null | undefined,
         visited: Set<string> = new Set()
     ): Array<{ dependentScopeId: string; dependentScopeKind: string; depth: number }> {
@@ -1350,7 +929,6 @@ export class ScopeTracker {
             return [];
         }
 
-        // Avoid infinite loops in case of circular dependencies
         if (visited.has(scopeId)) {
             return [];
         }
@@ -1364,7 +942,6 @@ export class ScopeTracker {
             depth: number;
         }> = [];
 
-        // Add direct dependents at depth 1
         for (const dep of directDependents) {
             allDependents.push({
                 dependentScopeId: dep.dependentScopeId,
@@ -1372,10 +949,8 @@ export class ScopeTracker {
                 depth: 1
             });
 
-            // Recursively get transitive dependents
             const transitive = this.getTransitiveDependents(dep.dependentScopeId, new Set(visited));
             for (const transDep of transitive) {
-                // Increment depth for each level of indirection
                 allDependents.push({
                     dependentScopeId: transDep.dependentScopeId,
                     dependentScopeKind: transDep.dependentScopeKind,
@@ -1384,7 +959,6 @@ export class ScopeTracker {
             }
         }
 
-        // Remove duplicates, keeping the minimum depth for each scope
         const depthMap = new Map<string, { kind: string; depth: number }>();
         for (const dep of allDependents) {
             const existing = depthMap.get(dep.dependentScopeId);
@@ -1397,16 +971,15 @@ export class ScopeTracker {
         }
 
         const result = [];
-        for (const [scopeId, { kind, depth }] of depthMap) {
+        for (const [id, { kind, depth }] of depthMap) {
             result.push({
-                dependentScopeId: scopeId,
+                dependentScopeId: id,
                 dependentScopeKind: kind,
                 depth
             });
         }
 
         return result.toSorted((a, b) => {
-            // Sort by depth first (shallower dependencies first), then by scope ID
             if (a.depth !== b.depth) {
                 return a.depth - b.depth;
             }
@@ -1414,30 +987,10 @@ export class ScopeTracker {
         });
     }
 
-    /**
-     * Calculate the invalidation set for a given scope - all scopes that need
-     * to be recompiled if the given scope changes. This includes:
-     * 1. The scope itself
-     * 2. All transitive dependents (scopes that depend on it)
-     * 3. Optionally, all descendant scopes (child scopes within it)
-     *
-     * This is the primary method for hot reload coordination: when a file/scope
-     * changes, call this method to determine the complete set of scopes that
-     * need recompilation.
-     *
-     * @param {string | null | undefined} scopeId The scope identifier that changed.
-     * @param {{ includeDescendants?: boolean }} [options] Configuration options.
-     *        - includeDescendants: If true, include all child scopes nested
-     *          within the changed scope. Default: false.
-     * @returns {Array<{scopeId: string, scopeKind: string, reason: string}>}
-     *          Array of scopes that need recompilation with the reason for
-     *          invalidation. Reasons: 'self' (the changed scope), 'dependent'
-     *          (depends on the changed scope), 'descendant' (nested within).
-     */
-    getInvalidationSet(
+    public getInvalidationSet(
         scopeId: string | null | undefined,
         { includeDescendants = false }: { includeDescendants?: boolean } = {}
-    ) {
+    ): Array<{ scopeId: string; scopeKind: string; reason: string }> {
         if (!scopeId) {
             return [];
         }
@@ -1459,16 +1012,6 @@ export class ScopeTracker {
             }
         ];
 
-        // 1. Always include the scope itself (already added to invalidationSet above)
-
-        // 2. Include all transitive dependents. These are scopes that depend on
-        // the target scope either directly (distance 1) or indirectly through a
-        // chain of dependencies (distance 2+). Computing the transitive closure
-        // ensures we capture the full impact of a change to `scopeId`, not just
-        // the immediate dependents. This is critical for hot-reload validation,
-        // where we must reload all transitively impacted scopes to maintain
-        // runtime consistency—missing a transitive dependent would leave stale
-        // code executing, causing subtle bugs or crashes.
         const dependents = this.getTransitiveDependents(scopeId);
         for (const dep of dependents) {
             invalidationSet.push({
@@ -1478,19 +1021,9 @@ export class ScopeTracker {
             });
         }
 
-        // 3. Optionally include descendant scopes. Descendants are scopes nested
-        // inside the target scope (e.g., block scopes within a function, local
-        // variables within a loop). When `includeDescendants` is true, we add
-        // these to the result set because changes to a parent scope can affect
-        // nested scopes' behavior (e.g., renaming a function parameter impacts
-        // all references inside the function body). Including descendants ensures
-        // the invalidation set captures both "upstream" dependents (scopes that
-        // reference this one) and "downstream" children (scopes defined inside
-        // this one), providing a complete picture of the scope's impact radius.
         if (includeDescendants) {
             const descendants = this.getDescendantScopes(scopeId);
             for (const desc of descendants) {
-                // Avoid duplicates (scope might already be in the set as a dependent)
                 if (!invalidationSet.some((s) => s.scopeId === desc.scopeId)) {
                     invalidationSet.push({
                         scopeId: desc.scopeId,
@@ -1504,20 +1037,9 @@ export class ScopeTracker {
         return invalidationSet;
     }
 
-    /**
-     * Get all descendant scopes (children, grandchildren, etc.) of a given scope.
-     * This traverses the scope tree depth-first to find all nested scopes.
-     *
-     * Useful for hot reload when you want to invalidate an entire scope tree,
-     * not just the direct children. For example, when a file changes, you might
-     * want to invalidate all scopes defined within that file.
-     *
-     * @param {string | null | undefined} scopeId The scope identifier to query.
-     * @returns {Array<{scopeId: string, scopeKind: string, depth: number}>}
-     *          Array of all descendant scopes with their nesting depth from
-     *          the queried scope. Depth 1 = direct child, depth 2 = grandchild, etc.
-     */
-    getDescendantScopes(scopeId: string | null | undefined) {
+    public getDescendantScopes(
+        scopeId: string | null | undefined
+    ): Array<{ scopeId: string; scopeKind: string; depth: number }> {
         if (!scopeId) {
             return [];
         }
@@ -1533,14 +1055,12 @@ export class ScopeTracker {
             depth: number;
         }> = [];
 
-        // Find all scopes where the queried scope is an ancestor
         for (const candidateScope of this.scopesById.values()) {
             if (candidateScope.id === scopeId) {
-                continue; // Skip the scope itself
+                continue;
             }
 
-            // Walk up the parent chain to see if we find the queried scope
-            let current = candidateScope.parent;
+            let current: Scope | null = candidateScope.parent;
             let depth = 1;
             while (current) {
                 if (current.id === scopeId) {
@@ -1557,7 +1077,6 @@ export class ScopeTracker {
         }
 
         return descendants.toSorted((a, b) => {
-            // Sort by depth first, then by scope ID
             if (a.depth !== b.depth) {
                 return a.depth - b.depth;
             }
@@ -1565,28 +1084,7 @@ export class ScopeTracker {
         });
     }
 
-    /**
-     * Get modification metadata for a specific scope. Returns the last
-     * modification timestamp and the total number of modifications, which
-     * supports hot reload coordination by identifying which scopes have
-     * changed and need recompilation.
-     *
-     * @param {string} scopeId The scope identifier to query.
-     * @returns {{scopeId: string, scopeKind: string, lastModified: number, modificationCount: number} | null}
-     *          Modification metadata or null if scope not found.
-     */
-    /**
-     * Get metadata for a specific scope, including name, path, and source range.
-     * This enriches hot reload coordination by providing context about where scopes
-     * are defined in the source code.
-     *
-     * @param {string | null | undefined} scopeId The scope identifier to query.
-     * @returns {{ scopeId: string; scopeKind: string; name?: string; path?: string;
-     *            start?: { line: number; column: number; index: number };
-     *            end?: { line: number; column: number; index: number } } | null}
-     *          Scope metadata object or null if scope not found.
-     */
-    getScopeMetadata(scopeId: string | null | undefined) {
+    public getScopeMetadata(scopeId: string | null | undefined): ScopeDetails | null {
         if (!scopeId) {
             return null;
         }
@@ -1606,26 +1104,7 @@ export class ScopeTracker {
         };
     }
 
-    /**
-     * Get all scopes associated with a specific file path. This enables efficient
-     * hot reload invalidation when a file changes: identify all scopes in that
-     * file and compute their complete invalidation sets to determine what needs
-     * recompilation.
-     *
-     * The method uses an internal index for O(1) average-case lookup, making it
-     * significantly faster than scanning all scopes. This is critical for large
-     * projects where linear scans would be prohibitively expensive.
-     *
-     * Use case: When a file changes during hot reload, call this method to get
-     * all scopes defined in that file. For each scope, you can then call
-     * `getInvalidationSet()` to determine what downstream code needs recompilation.
-     *
-     * @param {string | null | undefined} path The file path to query.
-     * @returns {Array<{scopeId: string, scopeKind: string, name?: string, start?: object, end?: object}>}
-     *          Array of scope descriptors for scopes in the specified file, sorted by scope ID.
-     *          Returns empty array if path is null/undefined or no scopes exist for that path.
-     */
-    getScopesByPath(path: string | null | undefined) {
+    public getScopesByPath(path: string | null | undefined): ScopeDetails[] {
         if (!path || typeof path !== "string" || path.length === 0) {
             return [];
         }
@@ -1635,7 +1114,7 @@ export class ScopeTracker {
             return [];
         }
 
-        const scopes = [];
+        const scopes: ScopeDetails[] = [];
         for (const scopeId of scopeIds) {
             const scope = this.scopesById.get(scopeId);
             if (scope) {
@@ -1643,6 +1122,7 @@ export class ScopeTracker {
                     scopeId: scope.id,
                     scopeKind: scope.kind,
                     name: scope.metadata.name,
+                    path: scope.metadata.path,
                     start: scope.metadata.start ? Core.cloneLocation(scope.metadata.start) : undefined,
                     end: scope.metadata.end ? Core.cloneLocation(scope.metadata.end) : undefined
                 });
@@ -1652,7 +1132,7 @@ export class ScopeTracker {
         return scopes.toSorted((a, b) => a.scopeId.localeCompare(b.scopeId));
     }
 
-    getScopeModificationMetadata(scopeId: string | null | undefined) {
+    public getScopeModificationMetadata(scopeId: string | null | undefined): ScopeModificationMetadata | null {
         if (!scopeId) {
             return null;
         }
@@ -1670,21 +1150,7 @@ export class ScopeTracker {
         };
     }
 
-    /**
-     * Update stored metadata for a scope, merging the provided values onto the
-     * existing metadata entry. This is useful when scope metadata becomes
-     * available after initial scope creation (e.g., once a file path or source
-     * range is known). Updating the path also refreshes the internal path index
-     * so file-based invalidation queries stay accurate.
-     *
-     * @param {string | null | undefined} scopeId The scope identifier to update.
-     * @param {ScopeMetadata} metadata New metadata values to merge.
-     * @returns {{ scopeId: string; scopeKind: string; name?: string; path?: string;
-     *            start?: { line: number; column: number; index: number };
-     *            end?: { line: number; column: number; index: number } } | null}
-     *          Updated scope metadata object or null if scope not found.
-     */
-    updateScopeMetadata(scopeId: string | null | undefined, metadata: ScopeMetadata) {
+    public updateScopeMetadata(scopeId: string | null | undefined, metadata: ScopeMetadata): ScopeDetails | null {
         if (!scopeId) {
             return null;
         }
@@ -1735,17 +1201,8 @@ export class ScopeTracker {
         return this.getScopeMetadata(scopeId);
     }
 
-    /**
-     * Get all scopes modified after a specific timestamp. This enables
-     * incremental hot reload by identifying only the scopes that have changed
-     * since the last compilation, avoiding full project rebuilds.
-     *
-     * @param {number} sinceTimestamp Only return scopes modified after this timestamp.
-     * @returns {Array<{scopeId: string, scopeKind: string, lastModified: number, modificationCount: number}>}
-     *          Array of modification metadata for scopes modified after the timestamp.
-     */
-    getModifiedScopes(sinceTimestamp: number = 0) {
-        const modifiedScopes = [];
+    public getModifiedScopes(sinceTimestamp: number = 0): ScopeModificationMetadata[] {
+        const modifiedScopes: ScopeModificationMetadata[] = [];
 
         for (const scope of this.scopesById.values()) {
             if (scope.lastModifiedTimestamp > sinceTimestamp) {
@@ -1761,15 +1218,7 @@ export class ScopeTracker {
         return modifiedScopes;
     }
 
-    /**
-     * Get the most recently modified scope across all tracked scopes. This
-     * helps identify the latest change in the symbol table for hot reload
-     * coordination and incremental invalidation.
-     *
-     * @returns {{scopeId: string, scopeKind: string, lastModified: number, modificationCount: number} | null}
-     *          Metadata for the most recently modified scope, or null if no scopes exist.
-     */
-    getMostRecentlyModifiedScope() {
+    public getMostRecentlyModifiedScope(): ScopeModificationMetadata | null {
         let mostRecent: Scope | null = null;
         let latestTimestamp = -1;
 
@@ -1792,17 +1241,7 @@ export class ScopeTracker {
         };
     }
 
-    /**
-     * Get detailed modification metadata for a specific scope, including counts
-     * of declarations and references tracked. This provides richer information
-     * than `getScopeModificationMetadata` for hot reload systems that need to
-     * understand what type of changes occurred in a scope.
-     *
-     * @param {string} scopeId The scope identifier.
-     * @returns {ScopeModificationDetails | null}
-     *          Detailed modification metadata including symbol-level counts, or null if scope not found.
-     */
-    getScopeModificationDetails(scopeId: string | null | undefined): ScopeModificationDetails | null {
+    public getScopeModificationDetails(scopeId: string | null | undefined): ScopeModificationDetails | null {
         if (!scopeId) {
             return null;
         }
@@ -1844,17 +1283,7 @@ export class ScopeTracker {
         };
     }
 
-    /**
-     * Get all write operations (assignments) for a specific symbol across all
-     * scopes. This supports hot reload invalidation by identifying which scopes
-     * write to a symbol, enabling precise dependency tracking for incremental
-     * recompilation.
-     *
-     * @param {string} name The symbol name to query.
-     * @returns {Array<{scopeId: string, scopeKind: string, occurrence: object}>}
-     *          Array of write occurrence records with scope context.
-     */
-    getSymbolWrites(name: string | null | undefined) {
+    public getSymbolWrites(name: string | null | undefined): SymbolOccurrence[] {
         if (!name) {
             return [];
         }
@@ -1864,7 +1293,7 @@ export class ScopeTracker {
             return [];
         }
 
-        const writes = [];
+        const writes: SymbolOccurrence[] = [];
 
         for (const scopeId of scopeSummaryMap.keys()) {
             const scope = this.scopesById.get(scopeId);
@@ -1882,6 +1311,7 @@ export class ScopeTracker {
                     writes.push({
                         scopeId: scope.id,
                         scopeKind: scope.kind,
+                        kind: "reference",
                         occurrence: cloneOccurrence(reference)
                     });
                 }
@@ -1891,16 +1321,7 @@ export class ScopeTracker {
         return writes;
     }
 
-    /**
-     * Get all read operations for a specific symbol across all scopes. This
-     * helps identify dependencies when a symbol's value changes, enabling
-     * targeted invalidation for hot reload.
-     *
-     * @param {string} name The symbol name to query.
-     * @returns {Array<{scopeId: string, scopeKind: string, occurrence: object}>}
-     *          Array of read occurrence records with scope context.
-     */
-    getSymbolReads(name: string | null | undefined) {
+    public getSymbolReads(name: string | null | undefined): SymbolOccurrence[] {
         if (!name) {
             return [];
         }
@@ -1910,7 +1331,7 @@ export class ScopeTracker {
             return [];
         }
 
-        const reads = [];
+        const reads: SymbolOccurrence[] = [];
 
         for (const scopeId of scopeSummaryMap.keys()) {
             const scope = this.scopesById.get(scopeId);
@@ -1928,6 +1349,7 @@ export class ScopeTracker {
                     reads.push({
                         scopeId: scope.id,
                         scopeKind: scope.kind,
+                        kind: "reference",
                         occurrence: cloneOccurrence(reference)
                     });
                 }
@@ -1937,21 +1359,22 @@ export class ScopeTracker {
         return reads;
     }
 
-    // Role tracking API (previously provided by SemanticScopeCoordinator)
-    withRole(role: ScopeRole | null, callback: () => any) {
+    public withRole<T>(role: ScopeRole | null, callback: () => T): T {
         return this.identifierRoleTracker.withRole(role, callback);
     }
 
-    cloneRole(role: ScopeRole | null) {
+    public cloneRole(role: ScopeRole | null): ScopeRole {
         return this.identifierRoleTracker.cloneRole(role);
     }
 
-    getCurrentRole() {
+    public getCurrentRole(): ScopeRole | null {
         return this.identifierRoleTracker.getCurrentRole();
     }
 
-    // Public helper to apply the current role to an identifier node
-    applyCurrentRoleToIdentifier(name: string | null | undefined, node: GameMakerAstNode | null | undefined) {
+    public applyCurrentRoleToIdentifier(
+        name: string | null | undefined,
+        node: MutableGameMakerAstNode | null | undefined
+    ): void {
         if (!name || !Core.isIdentifierNode(node)) {
             return;
         }
@@ -1960,51 +1383,26 @@ export class ScopeTracker {
         const roleType = role?.type === "declaration" ? "declaration" : "reference";
 
         if (roleType === "declaration") {
-            this.declare(name, node as MutableGameMakerAstNode, role);
+            this.declare(name, node, role);
         } else {
-            this.reference(name, node as MutableGameMakerAstNode, role);
+            this.reference(name, node, role);
         }
     }
 
-    // Global identifier registry API
-    get globalIdentifiers() {
-        return this.globalIdentifierRegistry.globalIdentifiers;
+    public get globalIdentifiers(): Set<string> {
+        return (this.globalIdentifierRegistry as any).globalIdentifiers;
     }
 
-    markGlobalIdentifier(node: MutableGameMakerAstNode | null | undefined) {
+    public markGlobalIdentifier(node: MutableGameMakerAstNode | null | undefined): void {
         this.globalIdentifierRegistry.markIdentifier(node);
     }
 
-    applyGlobalIdentifiersToNode(node: MutableGameMakerAstNode | null | undefined) {
+    public applyGlobalIdentifiersToNode(node: MutableGameMakerAstNode | null | undefined): void {
         this.globalIdentifierRegistry.applyToNode(node);
     }
 
-    /**
-     * Get all symbol declarations across all scopes in the tracker.
-     * Returns an array of declaration records with scope context, enabling
-     * project-wide symbol analysis for dependency graphs, refactoring,
-     * and hot reload coordination.
-     *
-     * Each record includes:
-     * - Symbol name
-     * - Scope ID where declared
-     * - Scope kind (program, function, block, etc.)
-     * - Cloned declaration metadata (location, classifications, etc.)
-     *
-     * Use case: Build a complete symbol table for the project to power
-     * IDE features (go-to-definition, find-all-references), refactoring
-     * tools (rename, extract function), and hot reload dependency tracking.
-     *
-     * @returns {Array<{name: string, scopeId: string, scopeKind: string, metadata: object}>}
-     *          Array of declaration records sorted by scope ID then symbol name.
-     */
-    getAllDeclarations() {
-        const declarations: Array<{
-            name: string;
-            scopeId: string;
-            scopeKind: string;
-            metadata: ReturnType<typeof cloneDeclarationMetadata>;
-        }> = [];
+    public getAllDeclarations(): SymbolDeclarationInfo[] {
+        const declarations: SymbolDeclarationInfo[] = [];
 
         for (const scope of this.scopesById.values()) {
             for (const [name, metadata] of scope.symbolMetadata) {
@@ -2026,19 +1424,10 @@ export class ScopeTracker {
         });
     }
 
-    /**
-     * Get metadata for a specific symbol declaration by name and scope.
-     * Returns the declaration metadata if found, or null if the symbol
-     * is not declared in the specified scope.
-     *
-     * This is more efficient than `getAllDeclarations()` when you need
-     * to check a single symbol in a known scope.
-     *
-     * @param {string} name Symbol name to look up
-     * @param {string} scopeId Scope identifier where the symbol should be declared
-     * @returns {object | null} Cloned declaration metadata or null if not found
-     */
-    getDeclarationInScope(name: string | null | undefined, scopeId: string | null | undefined) {
+    public getDeclarationInScope(
+        name: string | null | undefined,
+        scopeId: string | null | undefined
+    ): ScopeSymbolMetadata | null {
         if (!name || !scopeId) {
             return null;
         }
@@ -2056,32 +1445,15 @@ export class ScopeTracker {
         return cloneDeclarationMetadata(metadata);
     }
 
-    /**
-     * Default symbol generator for SCIP export that follows the pattern "scopeId::name".
-     * @param {string} name Symbol name
-     * @param {string} scopeId Scope ID where the symbol occurs
-     * @returns {string} Qualified symbol identifier
-     */
     private defaultScipSymbolGenerator(name: string, scopeId: string): string {
         return `${scopeId}::${name}`;
     }
 
-    /**
-     * Convert an occurrence to SCIP format with range, symbol, and role information.
-     * @param {any} occurrence Occurrence object with location and name data
-     * @param {number} symbolRoles SCIP role flags (ROLE_DEF or ROLE_REF)
-     * @param {(name: string, scopeId: string) => string | null} getSymbol Function to generate qualified symbol
-     * @returns {{range: [number, number, number, number], symbol: string, symbolRoles: number} | null}
-     */
     private toScipOccurrence(
-        occurrence: any,
+        occurrence: Occurrence,
         symbolRoles: number,
         getSymbol: (name: string, scopeId: string) => string | null
-    ): {
-        range: [number, number, number, number];
-        symbol: string;
-        symbolRoles: number;
-    } | null {
+    ): ScipOccurrence | null {
         const start = occurrence?.start;
         const end = occurrence?.end;
 
@@ -2117,66 +1489,24 @@ export class ScopeTracker {
         };
     }
 
-    /**
-     * Export occurrences in SCIP (SCIP Code Intelligence Protocol) format for
-     * hot reload coordination and cross-file dependency tracking.
-     *
-     * SCIP format represents each occurrence with:
-     * - range: [startLine, startCol, endLine, endCol] tuple
-     * - symbol: Qualified symbol identifier (e.g., "local::varName", "scope-0::param")
-     * - symbolRoles: Bit flags indicating DEF (declaration) or REF (reference)
-     *
-     * This format enables the hot reload pipeline to:
-     * - Track which symbols are defined/referenced in each file
-     * - Build cross-file dependency graphs for selective recompilation
-     * - Identify downstream code that needs invalidation when symbols change
-     * - Support IDE features like go-to-definition and find-all-references
-     *
-     * Use case: When a file changes during hot reload, export its SCIP
-     * occurrences to determine which symbols changed and which dependent
-     * files need recompilation.
-     *
-     * @param {object} [options] Configuration options
-     * @param {string} [options.scopeId] Limit export to a specific scope (omit for all scopes)
-     * @param {boolean} [options.includeReferences=true] Include reference occurrences
-     * @param {(name: string, scopeId: string) => string | null} [options.symbolGenerator]
-     *        Custom function to generate qualified symbol names. If not provided,
-     *        uses default format: "scopeId::name" for declarations, "local::name" for references.
-     * @returns {Array<{scopeId: string, scopeKind: string, occurrences: Array<{range: [number, number, number, number], symbol: string, symbolRoles: number}>}>}
-     *          Array of scope occurrence payloads in SCIP format, sorted by scope ID.
-     */
-    exportScipOccurrences(
+    public exportScipOccurrences(
         options: {
             scopeId?: string | null;
             includeReferences?: boolean;
             symbolGenerator?: (name: string, scopeId: string) => string | null;
         } = {}
-    ) {
+    ): ScopeScipOccurrences[] {
         const { scopeId = null, includeReferences = true, symbolGenerator = null } = options;
 
-        const results: Array<{
-            scopeId: string;
-            scopeKind: string;
-            occurrences: Array<{
-                range: [number, number, number, number];
-                symbol: string;
-                symbolRoles: number;
-            }>;
-        }> = [];
-
+        const results: ScopeScipOccurrences[] = [];
         const getSymbol = symbolGenerator ?? this.defaultScipSymbolGenerator.bind(this);
 
-        // Determine which scopes to process
         const scopesToProcess = scopeId
-            ? Core.compactArray([this.scopesById.get(scopeId)])
+            ? [this.scopesById.get(scopeId)].filter((s): s is Scope => s !== undefined)
             : Array.from(this.scopesById.values());
 
         for (const scope of scopesToProcess) {
-            const occurrences: Array<{
-                range: [number, number, number, number];
-                symbol: string;
-                symbolRoles: number;
-            }> = [];
+            const occurrences: ScipOccurrence[] = [];
 
             for (const entry of scope.occurrences.values()) {
                 this.appendScipDeclarations(entry, occurrences, getSymbol);
@@ -2198,7 +1528,7 @@ export class ScopeTracker {
     }
 
     private appendScipDeclarations(
-        entry: ScopeEntry,
+        entry: IdentifierOccurrences,
         occurrences: Array<ScipOccurrence>,
         getSymbol: (name: string, scopeId: string) => string | null
     ): void {
@@ -2211,7 +1541,7 @@ export class ScopeTracker {
     }
 
     private appendScipReferences(
-        entry: ScopeEntry,
+        entry: IdentifierOccurrences,
         occurrences: Array<ScipOccurrence>,
         getSymbol: (name: string, scopeId: string) => string | null
     ): void {
@@ -2223,83 +1553,31 @@ export class ScopeTracker {
         }
     }
 
-    /**
-     * Export occurrences for a specific set of symbols in SCIP format.
-     * This method enables targeted occurrence export for hot reload coordination
-     * when only specific symbols have changed.
-     *
-     * Unlike `exportScipOccurrences`, which exports all symbols or all symbols
-     * in a scope, this method filters to only the requested symbol names,
-     * reducing payload size and processing time during incremental updates.
-     *
-     * @param {Iterable<string>} symbolNames Set or array of symbol names to export
-     * @param {object} [options] Export options
-     * @param {string} [options.scopeId] Limit export to a specific scope (omit for all scopes)
-     * @param {boolean} [options.includeReferences=true] Include reference occurrences
-     * @param {(name: string, scopeId: string) => string | null} [options.symbolGenerator]
-     *        Custom function to generate qualified symbol names. If not provided,
-     *        uses default format: "scopeId::name".
-     * @returns {Array<{scopeId: string, scopeKind: string, occurrences: Array<{range: [number, number, number, number], symbol: string, symbolRoles: number}>}>}
-     *          Array of scope occurrence payloads in SCIP format, sorted by scope ID.
-     *          Scopes with no matching symbols are omitted from the result.
-     *
-     * @example
-     * // Export occurrences for specific symbols that changed
-     * const changedSymbols = ["player_hp", "enemy_count"];
-     * const occurrences = tracker.exportOccurrencesBySymbols(changedSymbols);
-     *
-     * @example
-     * // Export with custom symbol generator for hot reload
-     * const occurrences = tracker.exportOccurrencesBySymbols(
-     *   ["scr_player_move"],
-     *   {
-     *     symbolGenerator: (name, scopeId) => `gml/script/${name}`
-     *   }
-     * );
-     */
-    exportOccurrencesBySymbols(
+    public exportOccurrencesBySymbols(
         symbolNames: Iterable<string>,
         options: {
             scopeId?: string | null;
             includeReferences?: boolean;
             symbolGenerator?: (name: string, scopeId: string) => string | null;
         } = {}
-    ) {
+    ): ScopeScipOccurrences[] {
         const { scopeId = null, includeReferences = true, symbolGenerator = null } = options;
-
-        // Convert to Set for O(1) lookup
         const symbolSet = new Set(symbolNames);
 
-        // Early return if no symbols requested
         if (symbolSet.size === 0) {
             return [];
         }
 
-        const results: Array<{
-            scopeId: string;
-            scopeKind: string;
-            occurrences: Array<{
-                range: [number, number, number, number];
-                symbol: string;
-                symbolRoles: number;
-            }>;
-        }> = [];
-
+        const results: ScopeScipOccurrences[] = [];
         const getSymbol = symbolGenerator ?? this.defaultScipSymbolGenerator.bind(this);
 
-        // Determine which scopes to process
         const scopesToProcess = scopeId
-            ? Core.compactArray([this.scopesById.get(scopeId)])
+            ? [this.scopesById.get(scopeId)].filter((s): s is Scope => s !== undefined)
             : Array.from(this.scopesById.values());
 
         for (const scope of scopesToProcess) {
-            const occurrences: Array<{
-                range: [number, number, number, number];
-                symbol: string;
-                symbolRoles: number;
-            }> = [];
+            const occurrences: ScipOccurrence[] = [];
 
-            // Only process entries for symbols in our filter set
             for (const [name, entry] of scope.occurrences.entries()) {
                 if (!symbolSet.has(name)) {
                     continue;
@@ -2311,7 +1589,6 @@ export class ScopeTracker {
                 }
             }
 
-            // Only include scopes that have matching occurrences
             if (occurrences.length > 0) {
                 results.push({
                     scopeId: scope.id,
@@ -2325,129 +1602,4 @@ export class ScopeTracker {
     }
 }
 
-// Provide a default export for backwards-compatible imports that import the
-// module file directly (tests and some callers use a default import).
 export default ScopeTracker;
-
-// Internal identifier role tracker and registry (extracted from identifier-scope.ts)
-class IdentifierRoleTracker {
-    identifierRoles: Array<ScopeRole>;
-
-    constructor() {
-        this.identifierRoles = [];
-    }
-
-    withRole(role: ScopeRole | null, callback: () => any) {
-        this.identifierRoles.push(role ?? ({} as ScopeRole));
-        try {
-            return callback();
-        } finally {
-            this.identifierRoles.pop();
-        }
-    }
-
-    getCurrentRole() {
-        if (this.identifierRoles.length === 0) {
-            return null;
-        }
-
-        return this.identifierRoles.at(-1) ?? null;
-    }
-
-    cloneRole(role: ScopeRole | null) {
-        if (!role) {
-            return { type: "reference" } as ScopeRole;
-        }
-
-        const cloned = { ...role } as ScopeRole;
-
-        if (role.tags !== undefined) {
-            cloned.tags = [...Core.toArray(role.tags)];
-        }
-
-        // Ensure type is present on the cloned role for callers that expect
-        // a fully formed role (e.g., parser identifier role usage expects a
-        // `type` property to be present). Default to 'reference'.
-        if (cloned.type === undefined) {
-            cloned.type = "reference";
-        }
-
-        return cloned;
-    }
-}
-
-class GlobalIdentifierRegistry {
-    globalIdentifiers: Set<string>;
-
-    constructor({ globalIdentifiers = new Set<string>() } = {}) {
-        this.globalIdentifiers = globalIdentifiers;
-    }
-
-    markIdentifier(node: MutableGameMakerAstNode | null | undefined) {
-        if (!Core.isIdentifierNode(node) || !Core.isObjectLike(node)) {
-            return;
-        }
-
-        const { name } = node as { name?: unknown };
-        if (typeof name !== "string" || name.length === 0) {
-            return;
-        }
-
-        this.globalIdentifiers.add(name);
-        const mutableNode = node as MutableGameMakerAstNode;
-        mutableNode.isGlobalIdentifier = true;
-    }
-
-    applyToNode(node: MutableGameMakerAstNode | null | undefined) {
-        if (!Core.isIdentifierNode(node)) {
-            return;
-        }
-
-        if (this.globalIdentifiers.has(node.name)) {
-            const mutableNode = node as MutableGameMakerAstNode;
-            mutableNode.isGlobalIdentifier = true;
-        }
-    }
-}
-
-/**
- * Build a `{ start, end }` location object from a token, preserving `line`, `index`,
- * and optional `column` data. Returns `null` if no token is provided.
- * @param {object} token
- * @returns {{start: object, end: object} | null}
- */
-export function createIdentifierLocation(token: any) {
-    if (!token) {
-        return null;
-    }
-
-    const { line } = token;
-    const startIndex = token.start ?? token.startIndex;
-    const stopIndex = token.stop ?? token.stopIndex ?? startIndex;
-    const startColumn = token.column;
-    const identifierLength =
-        Number.isInteger(startIndex) && Number.isInteger(stopIndex) ? stopIndex - startIndex + 1 : undefined;
-
-    const buildPoint = (
-        index: number | undefined,
-        column?: number
-    ): { line: number; index: number; column?: number } => {
-        const point: { line: number; index: number; column?: number } = {
-            line,
-            index: index ?? 0
-        } as any;
-        if (column !== undefined) {
-            point.column = column;
-        }
-
-        return point;
-    };
-
-    return {
-        start: buildPoint(startIndex, startColumn),
-        end: buildPoint(
-            stopIndex === undefined ? undefined : stopIndex + 1,
-            startColumn !== undefined && identifierLength !== undefined ? startColumn + identifierLength : undefined
-        )
-    } as any;
-}

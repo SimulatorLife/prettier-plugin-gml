@@ -3,8 +3,8 @@ import { describe, it } from "node:test";
 
 import { ScopeTracker } from "../src/scopes/scope-tracker.js";
 
-describe("ScopeTracker: targeted cache invalidation", () => {
-    it("invalidates cache for the declaring scope when new declarations are added", () => {
+void describe("ScopeTracker: targeted cache invalidation", () => {
+    void it("invalidates cache for the declaring scope when new declarations are added", () => {
         const tracker = new ScopeTracker({ enabled: true });
 
         const rootScope = tracker.enterScope("program");
@@ -23,7 +23,7 @@ describe("ScopeTracker: targeted cache invalidation", () => {
         assert.strictEqual(afterDeclaration?.scopeId, rootScope.id, "Declaration should resolve to root scope");
     });
 
-    it("invalidates cache only for descendant scopes when symbol is declared", () => {
+    void it("invalidates cache only for descendant scopes when symbol is declared", () => {
         const tracker = new ScopeTracker({ enabled: true });
 
         // Create scope hierarchy:
@@ -80,7 +80,7 @@ describe("ScopeTracker: targeted cache invalidation", () => {
         assert.strictEqual(sibling1After?.scopeId, root.id, "Sibling1 should resolve to root scope");
     });
 
-    it("preserves cache for non-descendant scopes when symbol is declared", () => {
+    void it("preserves cache for non-descendant scopes when symbol is declared", () => {
         const tracker = new ScopeTracker({ enabled: true });
 
         // Create scope hierarchy:
@@ -126,7 +126,7 @@ describe("ScopeTracker: targeted cache invalidation", () => {
         assert.strictEqual(child1After, null, "child1 should not resolve 'y' (cache should be preserved)");
     });
 
-    it("handles deeply nested scopes correctly during cache invalidation", () => {
+    void it("handles deeply nested scopes correctly during cache invalidation", () => {
         const tracker = new ScopeTracker({ enabled: true });
 
         //   root
@@ -162,7 +162,7 @@ describe("ScopeTracker: targeted cache invalidation", () => {
         assert.strictEqual(level3After?.scopeId, level1.id);
     });
 
-    it("clears all caches when declaring scope is unknown (fallback)", () => {
+    void it("clears all caches when declaring scope is unknown (fallback)", () => {
         const tracker = new ScopeTracker({ enabled: true });
 
         const scope1 = tracker.enterScope("function");
@@ -187,7 +187,7 @@ describe("ScopeTracker: targeted cache invalidation", () => {
         assert.ok(scope2After);
     });
 
-    it("cache invalidation improves hot reload performance", () => {
+    void it("cache invalidation improves hot reload performance", () => {
         // This test demonstrates the hot reload use case:
         // When editing a single file/scope, only descendant scopes need cache refresh
         const tracker = new ScopeTracker({ enabled: true });

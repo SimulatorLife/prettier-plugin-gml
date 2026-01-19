@@ -260,7 +260,7 @@ export function transpileFile(
 
         let parsedSymbols: Array<string> = [];
         let parsedReferences: Array<string> = [];
-        let parseError: unknown | null = null;
+        let parseError: unknown = null;
 
         try {
             const parser = new Parser.GMLParser(content, {});
