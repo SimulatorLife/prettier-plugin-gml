@@ -17205,7 +17205,6 @@ function findArgumentReferenceOutsideFunctions(node) {
             visit(value, false);
 
             if (match) {
-                
             }
         });
     };
