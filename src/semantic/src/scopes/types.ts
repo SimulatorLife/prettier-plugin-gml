@@ -16,11 +16,13 @@ export type Occurrence = {
     name: string | null;
     scopeId: string | null;
     classifications: string[];
-    declaration: (MutableGameMakerAstNode & {
-        scopeId: string | null;
-        start: GameMakerAstLocation;
-        end: GameMakerAstLocation;
-    }) | null;
+    declaration:
+        | (MutableGameMakerAstNode & {
+              scopeId: string | null;
+              start: GameMakerAstLocation;
+              end: GameMakerAstLocation;
+          })
+        | null;
     usageContext: {
         isRead?: boolean;
         isWrite?: boolean;

@@ -348,7 +348,7 @@ export class ScopeTracker {
             name,
             scopeId: scopeId ?? "",
             classifications,
-            node: node as MutableGameMakerAstNode,
+            node,
             start: { line: 0, column: 0, index: 0 },
             end: { line: 0, column: 0, index: 0 }
         };
@@ -362,7 +362,7 @@ export class ScopeTracker {
         node.classifications = classifications as any;
 
         // At the declaration site, the node is its own declaration.
-        // We provide a thin metadata object for consistency with reference 
+        // We provide a thin metadata object for consistency with reference
         // nodes, ensuring it has the correct scopeId.
         const declarationMetadata = {
             ...node,
@@ -404,7 +404,7 @@ export class ScopeTracker {
         node.classifications = classifications as any;
 
         if (declaration?.node) {
-            // Create a declaration metadata object that preserves the essential 
+            // Create a declaration metadata object that preserves the essential
             // properties of the original declaration node (like init, type, etc.)
             // while making sure the scopeId is correctly assigned for this resolution.
             const declarationMetadata = {
@@ -412,7 +412,7 @@ export class ScopeTracker {
                 scopeId: declaration.scopeId
             } as any;
 
-            // Ensure locations are correctly cloned onto the metadata to avoid 
+            // Ensure locations are correctly cloned onto the metadata to avoid
             // accidental mutation of the original declaration node's location.
             Core.assignClonedLocation(declarationMetadata, declaration.node);
             node.declaration = declarationMetadata;

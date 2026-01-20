@@ -82,10 +82,10 @@ export function cloneDeclarationMetadata(metadata: ScopeSymbolMetadata | null | 
         name: metadata.name,
         scopeId: metadata.scopeId,
         node: metadata.node ? Core.assignClonedLocation({ ...metadata.node }, metadata.node) : undefined,
-        classifications: Core.toMutableArray(metadata.classifications, { clone: true }),
+        classifications: Core.toMutableArray(metadata.classifications, { clone: true })
     } as ScopeSymbolMetadata;
 
-    return Core.assignClonedLocation(cloned, base) as ScopeSymbolMetadata;
+    return Core.assignClonedLocation(cloned, base);
 }
 
 /**
