@@ -348,6 +348,7 @@ export class ScopeTracker {
             name,
             scopeId: scopeId ?? "",
             classifications,
+            node: node as MutableGameMakerAstNode,
             start: { line: 0, column: 0, index: 0 },
             end: { line: 0, column: 0, index: 0 }
         };
@@ -358,8 +359,17 @@ export class ScopeTracker {
         this.clearResolveIdentifierCacheForName(name, scopeId);
 
         node.scopeId = scopeId;
-        node.declaration = Core.assignClonedLocation({ scopeId: scopeId ?? undefined }, metadata);
         node.classifications = classifications as any;
+
+        // At the declaration site, the node is its own declaration.
+        // We provide a thin metadata object for consistency with reference 
+        // nodes, ensuring it has the correct scopeId.
+        const declarationMetadata = {
+            ...node,
+            scopeId: scopeId ?? undefined
+        } as any;
+        Core.assignClonedLocation(declarationMetadata, node);
+        node.declaration = declarationMetadata;
 
         const occurrence = createOccurrence("declaration", metadata, node, metadata);
         this.recordScopeOccurrence(scope, name, occurrence);
@@ -393,9 +403,22 @@ export class ScopeTracker {
         node.scopeId = scopeId;
         node.classifications = classifications as any;
 
-        node.declaration = declaration
-            ? Core.assignClonedLocation({ scopeId: declaration.scopeId }, declaration)
-            : null;
+        if (declaration?.node) {
+            // Create a declaration metadata object that preserves the essential 
+            // properties of the original declaration node (like init, type, etc.)
+            // while making sure the scopeId is correctly assigned for this resolution.
+            const declarationMetadata = {
+                ...declaration.node,
+                scopeId: declaration.scopeId
+            } as any;
+
+            // Ensure locations are correctly cloned onto the metadata to avoid 
+            // accidental mutation of the original declaration node's location.
+            Core.assignClonedLocation(declarationMetadata, declaration.node);
+            node.declaration = declarationMetadata;
+        } else {
+            node.declaration = null;
+        }
 
         const occurrenceMetadata = {
             name,

@@ -176,22 +176,56 @@ export function cloneAstNode(node?: unknown) {
  * @param callback Invoked for each enumerable own property whose value is
  *     object-like.
  */
-const IGNORED_NODE_CHILD_KEYS = new Set(["parent", "enclosingNode", "precedingNode", "followingNode"]);
+export const IGNORED_NODE_CHILD_KEYS = new Set([
+    "parent",
+    "enclosingNode",
+    "precedingNode",
+    "followingNode",
+    "declaration",
+    "scopeId",
+    "symbolMetadata",
+    "start",
+    "end",
+    "loc",
+    "range",
+    "comments"
+]);
 
-export function forEachNodeChild(node: unknown, callback: (child: GameMakerAstNode, key: string) => void) {
+export function forEachNodeChild(
+    node: unknown,
+    callback: (child: any, key: string, container: any[] | null, index: number | null) => void
+) {
     if (!isObjectLike(node)) {
         return;
     }
 
-    for (const key in node as Record<string, unknown>) {
+    const objectValue = node as Record<string, unknown>;
+    for (const key in objectValue) {
         if (IGNORED_NODE_CHILD_KEYS.has(key)) {
             continue;
         }
 
-        if (Object.hasOwn(node as object, key)) {
-            const value = (node as GameMakerAstNode)[key as keyof GameMakerAstNode];
-            if (isObjectLike(value)) {
-                callback(value, key);
+        if (Object.hasOwn(objectValue, key)) {
+            const value = objectValue[key];
+            if (Array.isArray(value)) {
+                let i = 0;
+                while (i < value.length) {
+                    const item = value[i];
+                    const preLength = value.length;
+
+                    if (isNode(item)) {
+                        callback(item, key, value, i);
+                    }
+
+                    // If the callback removed the item from the array, don't increment i
+                    // so we visit the next item which shifted into the current index.
+                    if (value.length < preLength) {
+                        continue;
+                    }
+                    i++;
+                }
+            } else if (isNode(value)) {
+                callback(value, key, null, null);
             }
         }
     }
@@ -945,7 +979,7 @@ export function getNodeType(node?: unknown): string | null {
  * @returns `true` when {@link value} is a non-null object.
  */
 export function isNode(value: unknown): value is GameMakerAstNode {
-    return value != null && typeof value === "object";
+    return value != null && typeof value === "object" && typeof (value as any).type === "string";
 }
 
 const FUNCTION_LIKE_NODE_TYPES: ReadonlyArray<string> = Object.freeze([

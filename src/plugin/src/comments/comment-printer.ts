@@ -877,22 +877,9 @@ function findFollowingNodeForComment(ast, comment) {
             }
         }
 
-        // Use for...in instead of Object.entries to avoid allocating intermediate
-        // [key, value] tuple arrays on every visited node. Benchmarked at ~16% faster
-        // in AST traversals. Mirrors the optimization in collectCommentNodes
-        // (src/core/src/comments/comment-utils.ts).
-        for (const key in node) {
-            if (!Object.hasOwn(node, key)) {
-                continue;
-            }
-
-            if (key === "comments" || key === "docComments") {
-                continue;
-            }
-
-            const value = node[key];
+        Core.forEachNodeChild(node, (value) => {
             pushChildrenToStack(stack, value);
-        }
+        });
     }
 
     return candidate;
@@ -1078,16 +1065,16 @@ function findBraceOwnerForComment(ast, comment) {
             match = node;
         }
 
-        for (const value of Object.values(node)) {
+        Core.forEachNodeChild(node, (value) => {
             if (Array.isArray(value)) {
                 pushTypedEntries(stack, value);
-                continue;
+                return;
             }
 
             if (hasTypeProperty(value) && value.type && value.type !== "CommentBlock" && value.type !== "CommentLine") {
                 stack.push(value);
             }
-        }
+        });
     }
 
     return match;

@@ -67,12 +67,9 @@ function execute(
             parentByNode.set(candidate, parent);
         }
 
-        for (const value of Object.values(candidate)) {
-            if (!value || typeof value !== "object") {
-                continue;
-            }
+        Core.forEachNodeChild(candidate, (value) => {
             walkWithParents(value, candidate);
-        }
+        });
     };
 
     walkWithParents(ast, null);
