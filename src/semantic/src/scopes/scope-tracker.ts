@@ -695,9 +695,9 @@ export class ScopeTracker {
         const storedIndex = startScope.stackIndex;
         const startIndex =
             typeof storedIndex === "number" &&
-                storedIndex >= 0 &&
-                storedIndex < this.scopeStack.length &&
-                this.scopeStack[storedIndex] === startScope
+            storedIndex >= 0 &&
+            storedIndex < this.scopeStack.length &&
+            this.scopeStack[storedIndex] === startScope
                 ? storedIndex
                 : undefined;
 
@@ -1028,12 +1028,12 @@ export class ScopeTracker {
             scopeKind: string;
             reason: string;
         }> = [
-                {
-                    scopeId: scope.id,
-                    scopeKind: scope.kind,
-                    reason: "self"
-                }
-            ];
+            {
+                scopeId: scope.id,
+                scopeKind: scope.kind,
+                reason: "self"
+            }
+        ];
 
         const dependents = this.getTransitiveDependents(scopeId);
         for (const dep of dependents) {

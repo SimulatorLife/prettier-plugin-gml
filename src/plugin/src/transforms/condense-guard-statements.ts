@@ -26,7 +26,8 @@ function cloneIfAvailable(node: any) {
 }
 
 export class CondenseGuardStatementsTransform
-    implements ParserTransform<MutableGameMakerAstNode, Record<string, never>> {
+    implements ParserTransform<MutableGameMakerAstNode, Record<string, never>>
+{
     public readonly name = "condense-guard-statements";
     public readonly defaultOptions = Object.freeze({});
 

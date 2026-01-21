@@ -1425,9 +1425,9 @@ function createProjectIndexResultSnapshot({
                 targetResourcePath: reference.targetResourcePath ?? null,
                 location: reference.location
                     ? {
-                        start: Core.cloneLocation(reference.location.start),
-                        end: Core.cloneLocation(reference.location.end)
-                    }
+                          start: Core.cloneLocation(reference.location.start),
+                          end: Core.cloneLocation(reference.location.end)
+                      }
                     : null,
                 isResolved: reference.isResolved ?? false
             }))

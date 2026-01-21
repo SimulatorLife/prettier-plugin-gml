@@ -214,8 +214,8 @@ function printComment(commentPath, options) {
                             comment.end !== null &&
                             "index" in comment.end &&
                             typeof comment.end.index === "number"
-                            ? comment.end.index
-                            : comment.end;
+                          ? comment.end.index
+                          : comment.end;
                 const endIndex = typeof endIndexRaw === "number" ? endIndexRaw : 0;
                 const blankLines = countTrailingBlankLines(options.originalText, endIndex + 1);
 
@@ -1238,8 +1238,8 @@ function formatDecorativeBlockComment(comment) {
         comment?._gmlForceLeadingBlankLine === true
             ? true
             : typeof comment?.leadingWS === "string"
-                ? /\r|\n/.test(comment.leadingWS)
-                : false;
+              ? /\r|\n/.test(comment.leadingWS)
+              : false;
     const hasMultipleLines = lines.length > 1;
     const shouldDecorate = hasDecoration || (hasMultipleLines && hasLeadingLineBreak);
     if (!shouldDecorate) {

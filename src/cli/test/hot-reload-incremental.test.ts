@@ -113,8 +113,12 @@ void describe("Hot reload incremental transpilation", () => {
         // The base file should be transpiled because it changed
         // The dependent file should be retranspiled because it depends on base_script
         assert.ok(context, "WebSocket client should be connected");
-        const basePatches = context.receivedPatches.filter((p) => p.id.includes("base_script") || p.id.includes("helper_function"));
-        const dependentPatches = context.receivedPatches.filter((p) => p.id.includes("dependent_script") || p.id.includes("use_helper"));
+        const basePatches = context.receivedPatches.filter(
+            (p) => p.id.includes("base_script") || p.id.includes("helper_function")
+        );
+        const dependentPatches = context.receivedPatches.filter(
+            (p) => p.id.includes("dependent_script") || p.id.includes("use_helper")
+        );
 
         assert.ok(basePatches.length > 0, "Should have received at least one patch for base_script");
         assert.ok(

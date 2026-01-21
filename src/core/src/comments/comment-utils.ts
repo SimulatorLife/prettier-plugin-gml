@@ -1,4 +1,4 @@
-import { IGNORED_NODE_CHILD_KEYS,isNode } from "../ast/node-helpers.js";
+import { IGNORED_NODE_CHILD_KEYS, isNode } from "../ast/node-helpers.js";
 import { isObjectLike } from "../utils/object.js";
 
 /**

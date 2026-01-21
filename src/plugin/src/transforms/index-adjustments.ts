@@ -7,12 +7,12 @@ import { Core } from "@gml-modules/core";
 export function createIndexMapper(insertPositions: Array<number | null | undefined> | null | undefined) {
     const offsets = Core.isNonEmptyArray(insertPositions)
         ? [
-            ...new Set(
-                insertPositions.filter(
-                    (position): position is number => typeof position === "number" && Number.isFinite(position)
-                )
-            )
-        ].toSorted((a, b) => a - b)
+              ...new Set(
+                  insertPositions.filter(
+                      (position): position is number => typeof position === "number" && Number.isFinite(position)
+                  )
+              )
+          ].toSorted((a, b) => a - b)
         : [];
 
     if (offsets.length === 0) {
