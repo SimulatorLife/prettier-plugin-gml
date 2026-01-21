@@ -5,7 +5,9 @@ import { Core, type GameMakerAstNode, type MutableGameMakerAstNode } from "@gml-
 
 import type { ParserTransform } from "./functional-transform.js";
 
-type PreprocessFunctionArgumentDefaultsTransformOptions = Record<string, never>;
+type PreprocessFunctionArgumentDefaultsTransformOptions = {
+    sourceText?: string;
+};
 
 type TernaryExpressionNode = GameMakerAstNode & {
     type: "TernaryExpression";
@@ -64,12 +66,16 @@ function hasExplicitDefaultParameterToLeft(node: MutableGameMakerAstNode, parame
 
 /** Orchestrates the normalization of function parameter default values. */
 export class PreprocessFunctionArgumentDefaultsTransform
-    implements ParserTransform<MutableGameMakerAstNode, PreprocessFunctionArgumentDefaultsTransformOptions>
-{
+    implements ParserTransform<MutableGameMakerAstNode, PreprocessFunctionArgumentDefaultsTransformOptions> {
     public readonly name = "preprocess-function-argument-defaults";
     public readonly defaultOptions = Object.freeze({}) as PreprocessFunctionArgumentDefaultsTransformOptions;
 
-    public transform(ast: MutableGameMakerAstNode): MutableGameMakerAstNode {
+    public transform(
+        ast: MutableGameMakerAstNode,
+        options?: PreprocessFunctionArgumentDefaultsTransformOptions
+    ): MutableGameMakerAstNode {
+        const { sourceText } = options ?? {};
+
         // Visit each function/constructor once and ensure trailing undefined defaults are explicitly modeled.
         if (!Core.isObjectLike(ast)) {
             return ast;
@@ -81,7 +87,7 @@ export class PreprocessFunctionArgumentDefaultsTransform
                     return;
                 }
 
-                this.preprocessFunctionDeclaration(node, ast);
+                this.preprocessFunctionDeclaration(node, ast, sourceText);
             }
         });
 
@@ -89,7 +95,7 @@ export class PreprocessFunctionArgumentDefaultsTransform
     }
 
     // Normalize the parameters and apply argument_count fallback rewrites within a single declaration.
-    private preprocessFunctionDeclaration(node, ast) {
+    private preprocessFunctionDeclaration(node, ast, sourceText?: string) {
         if (!node || (node.type !== "FunctionDeclaration" && node.type !== "ConstructorDeclaration")) {
             return;
         }
@@ -171,8 +177,13 @@ export class PreprocessFunctionArgumentDefaultsTransform
         applyCondenseMatches({
             condenseMatches,
             statementsToRemove,
-            body
+            statements,
+            body,
+            sourceText
         });
+
+        console.log("DEBUG: statements after condense:", statements.length);
+        if (statements.length > 1) console.log("DEBUG: statement 1 type:", statements[1].type);
 
         const paramInfoByName = new Map();
         for (const [index, param] of params.entries()) {
@@ -975,8 +986,8 @@ function matchArgumentCountFallbackVariableDeclaration(statement) {
     const argumentExpression = consequentIsArgument
         ? consequentExpression
         : alternateIsArgument
-          ? alternateExpression
-          : undefined;
+            ? alternateExpression
+            : undefined;
     const fallbackExpression = consequentIsArgument ? alternateExpression : consequentExpression;
 
     if (!fallbackExpression) {
@@ -1320,9 +1331,33 @@ function getArgumentIndexFromIdentifier(name: unknown) {
 function applyCondenseMatches(params: {
     condenseMatches: Array<Record<string, any>>;
     statementsToRemove: Set<GameMakerAstNode>;
+    statements: GameMakerAstNode[];
     body: GameMakerAstNode;
+    sourceText?: string;
 }) {
-    const { condenseMatches, statementsToRemove, body } = params;
+    const { condenseMatches, statementsToRemove, statements, body, sourceText } = params;
+
+    const isNextLineEmpty = (text: string, index: number) => {
+        if (index < 0 || index >= text.length) return false;
+        let p = index;
+        // consume current line rest
+        while (p < text.length && text[p] !== "\n" && text[p] !== "\r") {
+            p++;
+        }
+        if (p >= text.length) return false;
+        // consume newline char(s)
+        if (text[p] === "\r" && text[p + 1] === "\n") p += 2;
+        else p++;
+
+        // check if next line is empty (contains only whitespace until newline)
+        while (p < text.length && text[p] !== "\n" && text[p] !== "\r") {
+            if (text[p] !== " " && text[p] !== "\t") {
+                return false;
+            }
+            p++;
+        }
+        return true;
+    };
 
     for (const condense of condenseMatches) {
         const { declarator, guardExpression, argumentExpression, fallbackExpression, ifStatement, sourceStatement } =
@@ -1336,8 +1371,34 @@ function applyCondenseMatches(params: {
         };
 
         sourceStatement._skipArgumentCountDefault = true;
-        statementsToRemove.add(ifStatement);
-        extendStatementEndLocation(sourceStatement, ifStatement);
+
+        let preservedBlankLine = false;
+
+        if (sourceText && ifStatement && ifStatement.end) {
+            const endIndex = typeof ifStatement.end === "object" ? ifStatement.end.index : ifStatement.end;
+            if (typeof endIndex === "number" && isNextLineEmpty(sourceText, endIndex)) {
+                preservedBlankLine = true;
+            }
+        }
+
+        if (preservedBlankLine) {
+            const index = statements.indexOf(ifStatement);
+            if (index !== -1) {
+                statements[index] = {
+                    type: "EmptyStatement",
+                    start: ifStatement.start,
+                    end: ifStatement.end
+                } as any;
+            } else {
+                statementsToRemove.add(ifStatement);
+            }
+            // Do NOT extendStatementEndLocation if we keep a separator (EmptyStatement)
+            sourceStatement._gmlForceFollowingEmptyLine = true; // Fallback
+        } else {
+            statementsToRemove.add(ifStatement);
+            extendStatementEndLocation(sourceStatement, ifStatement);
+        }
+
         (body as any)._gmlForceInitialBlankLine = true;
     }
 }
