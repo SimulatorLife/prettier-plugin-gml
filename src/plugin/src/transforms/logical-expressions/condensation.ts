@@ -63,8 +63,8 @@ function resolveHelpers(helpers?: CondenseLogicalExpressionsOptions["helpers"]) 
         typeof helpers === "function"
             ? helpers
             : Core.isObjectLike(helpers) && typeof helpers.hasComment === "function"
-              ? helpers.hasComment
-              : Core.hasComment;
+                ? helpers.hasComment
+                : Core.hasComment;
 
     return { hasComment: resolvedHasComment };
 }
@@ -485,7 +485,8 @@ function buildCondensedReturn(
         type: "ReturnStatement",
         argument: argumentAst,
         start: cloneLocation(statement.start),
-        end: cloneLocation(source.end)
+        end: cloneLocation(source.end),
+        comments: (statement as any).comments
     };
 }
 
@@ -1447,22 +1448,22 @@ function buildBinaryAst(operator, terms, context) {
     const orderedTerms =
         operator === "||"
             ? [...terms].toSorted((left, right) => {
-                  const leftPriority = getBooleanOrTermPriority(left);
-                  const rightPriority = getBooleanOrTermPriority(right);
-                  if (leftPriority !== rightPriority) {
-                      return leftPriority - rightPriority;
-                  }
+                const leftPriority = getBooleanOrTermPriority(left);
+                const rightPriority = getBooleanOrTermPriority(right);
+                if (leftPriority !== rightPriority) {
+                    return leftPriority - rightPriority;
+                }
 
-                  const leftStart = getBooleanExpressionSourceStart(left, context);
-                  const rightStart = getBooleanExpressionSourceStart(right, context);
-                  if (leftStart !== rightStart) {
-                      return leftStart - rightStart;
-                  }
+                const leftStart = getBooleanExpressionSourceStart(left, context);
+                const rightStart = getBooleanExpressionSourceStart(right, context);
+                if (leftStart !== rightStart) {
+                    return leftStart - rightStart;
+                }
 
-                  const leftIndex = getOriginalBooleanTermIndex(originalOrOrder, left);
-                  const rightIndex = getOriginalBooleanTermIndex(originalOrOrder, right);
-                  return leftIndex - rightIndex;
-              })
+                const leftIndex = getOriginalBooleanTermIndex(originalOrOrder, left);
+                const rightIndex = getOriginalBooleanTermIndex(originalOrOrder, right);
+                return leftIndex - rightIndex;
+            })
             : terms;
 
     let current = booleanExpressionToAst(orderedTerms[0], context);
@@ -1961,9 +1962,8 @@ function getAstNodeKey(node: unknown) {
             return `MemberIndex:${getAstNodeKey(typedNode.object)}[${indices}]`;
         }
         case "CallExpression": {
-            return `Call:${getAstNodeKey(typedNode.object)}(${
-                Array.isArray(typedNode.arguments) ? typedNode.arguments.map((arg) => getAstNodeKey(arg)).join(",") : ""
-            })`;
+            return `Call:${getAstNodeKey(typedNode.object)}(${Array.isArray(typedNode.arguments) ? typedNode.arguments.map((arg) => getAstNodeKey(arg)).join(",") : ""
+                })`;
         }
         case "UnaryExpression": {
             return `Unary:${stringifyNodeScalar(typedNode.operator)}(${getAstNodeKey(typedNode.argument)})`;
