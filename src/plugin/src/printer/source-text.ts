@@ -87,15 +87,14 @@ export function resolveNodeIndexRangeWithSource(
     let fallbackEnd = fallbackStart;
 
     if (typeof end === NUMBER_TYPE) {
-        const inclusiveEnd = end - 1;
-        fallbackEnd = Math.max(inclusiveEnd, fallbackStart);
+        fallbackEnd = Math.max(end, fallbackStart);
     }
 
     const resolvedStart = typeof locStart === "function" ? locStart(node) : null;
     const startIndex = typeof resolvedStart === NUMBER_TYPE ? resolvedStart : fallbackStart;
 
     const resolvedEnd = typeof locEnd === "function" ? locEnd(node) : null;
-    const computedEnd = typeof resolvedEnd === NUMBER_TYPE ? resolvedEnd - 1 : fallbackEnd;
+    const computedEnd = typeof resolvedEnd === NUMBER_TYPE ? resolvedEnd : fallbackEnd;
     const endIndex = Math.max(computedEnd, startIndex);
 
     return { startIndex, endIndex };

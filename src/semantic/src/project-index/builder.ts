@@ -847,7 +847,7 @@ function ensureFileRecord(filesMap, relativePath, scopeId) {
         scriptCalls: []
     }));
 }
-function traverseAst(root, visitor) {
+function traverseAst(root: any, visitor: (node: any) => void) {
     if (!Core.isObjectLike(root)) {
         return;
     }
@@ -855,41 +855,17 @@ function traverseAst(root, visitor) {
     const seen = new WeakSet();
     while (stack.length > 0) {
         const node = stack.pop();
-        if (!Core.isObjectLike(node)) {
-            continue;
-        }
-        if (seen.has(node)) {
+        if (!Core.isObjectLike(node) || seen.has(node)) {
             continue;
         }
         seen.add(node);
         visitor(node);
-        for (const key in node) {
-            if (!Object.hasOwn(node, key)) {
-                continue;
-            }
 
-            pushNodeValueChildren(stack, node[key]);
-        }
-    }
-}
-
-function pushNodeValueChildren(stack: Array<any>, value: unknown) {
-    if (!value || typeof value !== "object") {
-        return;
-    }
-
-    if (Array.isArray(value)) {
-        for (let i = value.length - 1; i >= 0; i -= 1) {
-            const child = value[i];
+        Core.forEachNodeChild(node, (child) => {
             if (Core.isObjectLike(child)) {
                 stack.push(child);
             }
-        }
-        return;
-    }
-
-    if (Core.isObjectLike(value)) {
-        stack.push(value);
+        });
     }
 }
 function handleScriptScopeFunctionDeclarationNode({
@@ -1449,9 +1425,9 @@ function createProjectIndexResultSnapshot({
                 targetResourcePath: reference.targetResourcePath ?? null,
                 location: reference.location
                     ? {
-                          start: Core.cloneLocation(reference.location.start),
-                          end: Core.cloneLocation(reference.location.end)
-                      }
+                        start: Core.cloneLocation(reference.location.start),
+                        end: Core.cloneLocation(reference.location.end)
+                    }
                     : null,
                 isResolved: reference.isResolved ?? false
             }))

@@ -36,7 +36,7 @@
   "model": {
     "skipLoopDetection": true,
     "chatCompression": {
-      "contextPercentageThreshold": 0.8
+      "contextPercentageThreshold": 0.9
     }
   },
   "advanced": {

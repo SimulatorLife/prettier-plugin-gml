@@ -45,7 +45,7 @@ void describe("printer source text helpers", () => {
             { originalText: null, locStart: () => 10, locEnd: () => 15 }
         );
 
-        assert.deepEqual(range, { startIndex: 10, endIndex: 14 });
+        assert.deepEqual(range, { startIndex: 10, endIndex: 15 });
     });
 
     void it("slices text only when bounds are valid", () => {

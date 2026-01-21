@@ -33,10 +33,11 @@ void test("line and block helpers classify comment nodes", () => {
 
 void test("hasComment reports when nodes contain comments", () => {
     const nodeWithComment = {
+        type: "Mock",
         comments: [{ type: "CommentLine", value: "// comment" }]
     };
-    const nodeWithoutComment = { comments: [] };
-    const nodeWithoutCommentsProperty = {};
+    const nodeWithoutComment = { type: "Mock", comments: [] };
+    const nodeWithoutCommentsProperty = { type: "Mock" };
 
     assert.equal(hasComment(nodeWithComment), true);
     assert.equal(hasComment(nodeWithoutComment), false);
@@ -45,9 +46,9 @@ void test("hasComment reports when nodes contain comments", () => {
 
 void test("getCommentArray normalizes comment collections", () => {
     const comment = { type: "CommentLine", value: "// comment" };
-    const nodeWithComments = { comments: [comment] };
-    const nodeWithoutComments = {};
-    const nodeWithInvalidComments = { comments: "not an array" };
+    const nodeWithComments = { type: "Mock", comments: [comment] };
+    const nodeWithoutComments = { type: "Mock" };
+    const nodeWithInvalidComments = { type: "Mock", comments: "not an array" };
 
     assert.equal(getCommentArray(nodeWithComments), nodeWithComments.comments);
     assert.deepEqual(getCommentArray(nodeWithoutComments), []);

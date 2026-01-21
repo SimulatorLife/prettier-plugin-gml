@@ -11,20 +11,20 @@ void describe("visitChildNodes", () => {
     void it("invokes the callback for every array entry", () => {
         const calls: unknown[][] = [];
 
-        visitChildNodes([1, { nested: true }], (...args) => {
+        visitChildNodes([1, { type: "Child", nested: true }], (...args) => {
             calls.push(args);
         });
 
         assert.equal(calls.length, 2);
         assert.deepEqual(calls[0], [1]);
-        assert.deepEqual(calls[1], [{ nested: true }]);
+        assert.deepEqual(calls[1], [{ type: "Child", nested: true }]);
     });
 
     void it("only forwards object values from plain objects", () => {
-        const child = { nested: true };
+        const child = { type: "Child", nested: true };
         const calls: unknown[][] = [];
 
-        visitChildNodes({ child, count: 1, empty: null }, (...args) => {
+        visitChildNodes({ type: "Parent", child, count: 1, empty: null }, (...args) => {
             calls.push(args);
         });
 

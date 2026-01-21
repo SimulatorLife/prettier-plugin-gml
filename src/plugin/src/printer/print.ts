@@ -303,14 +303,19 @@ function applyLogicalOperatorsStyle(operator, style) {
 function _printImpl(path, options, print) {
     const node = path.getValue();
 
-    if (!node) {
-        return concat("");
+    if (node === null || node === undefined) {
+        return "";
+    }
+
+    if (typeof node === STRING_TYPE) {
+        return node;
+    }
+
+    if (typeof node !== OBJECT_TYPE) {
+        return "";
     }
 
     if (!Core.isNode(node)) {
-        if (typeof node === STRING_TYPE) {
-            return concat(node);
-        }
         return "";
     }
 

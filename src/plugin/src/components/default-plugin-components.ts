@@ -33,18 +33,13 @@ export function createDefaultGmlPluginComponents(): GmlPluginComponentBundle {
                             return false;
                         }
 
-                        // Hardened shielding for known metadata keys
+                        // Shield internal metadata and parent links
                         if (
                             key.startsWith("_") ||
-                            key === "declaration" ||
                             key === "parent" ||
                             key === "enclosingNode" ||
                             key === "precedingNode" ||
                             key === "followingNode" ||
-                            key === "scopeId" ||
-                            key === "symbolMetadata" ||
-                            key === "comments" ||
-                            key === "docComments" ||
                             key === "docCommentMetadata"
                         ) {
                             return false;
@@ -56,10 +51,7 @@ export function createDefaultGmlPluginComponents(): GmlPluginComponentBundle {
                         }
 
                         if (Array.isArray(value)) {
-                            // If it's an array, it's a child property if it contains nodes,
-                            // or if it's a known child property even if empty.
-                            // For GML, mostly everything that's an array in a node is a child list.
-                            return value.length === 0 || value.some((item) => Core.isNode(item));
+                            return value.length === 0 || value.some((item) => Core.isNode(item) || Array.isArray(item));
                         }
 
                         return false;

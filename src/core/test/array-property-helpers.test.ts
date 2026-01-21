@@ -19,21 +19,21 @@ void describe("array property helpers", () => {
 
     void it("returns the original array reference when present", () => {
         const values = [1, 2, 3];
-        const node = { values };
+        const node = { type: "Mock", values };
         assert.equal(getArrayProperty(node, "values"), values);
 
         const statements = [{ type: "ExpressionStatement" }];
-        const bodyNode = { body: statements };
+        const bodyNode = { type: "Program", body: statements };
         assert.equal(getBodyStatements(bodyNode), statements);
     });
 
     void it("detects whether an array property has entries", () => {
-        assert.equal(hasArrayPropertyEntries({ items: [] }, "items"), false);
-        assert.equal(hasArrayPropertyEntries({ items: [0] }, "items"), true);
-        assert.equal(hasArrayPropertyEntries({}, "items"), false);
+        assert.equal(hasArrayPropertyEntries({ type: "Mock", items: [] }, "items"), false);
+        assert.equal(hasArrayPropertyEntries({ type: "Mock", items: [0] }, "items"), true);
+        assert.equal(hasArrayPropertyEntries({ type: "Mock" }, "items"), false);
 
-        assert.equal(hasBodyStatements({ body: [] }), false);
-        assert.equal(hasBodyStatements({ body: [{ type: "ExpressionStatement" }] }), true);
+        assert.equal(hasBodyStatements({ type: "Program", body: [] }), false);
+        assert.equal(hasBodyStatements({ type: "Program", body: [{ type: "ExpressionStatement" }] }), true);
     });
 
     void it("identifies program and block statement nodes", () => {

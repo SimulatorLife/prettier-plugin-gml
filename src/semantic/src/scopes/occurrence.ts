@@ -14,10 +14,13 @@ export function createOccurrence(
     let declaration = null;
     if (declarationMetadata) {
         const base = declarationMetadata.node ?? declarationMetadata;
+        const copy = { ...base } as any;
+        delete copy.classifications;
+        delete copy.declaration;
         declaration = {
-            ...base,
+            ...copy,
             scopeId: declarationMetadata.scopeId
-        } as any;
+        };
         Core.assignClonedLocation(declaration, base);
     }
 
@@ -78,10 +81,16 @@ export function cloneDeclarationMetadata(metadata: ScopeSymbolMetadata | null | 
     }
 
     const base = metadata.node ?? metadata;
+    const nodeBase = metadata.node ? { ...metadata.node } : undefined;
+    if (nodeBase) {
+        delete (nodeBase as any).classifications;
+        delete (nodeBase as any).declaration;
+    }
+
     const cloned = {
         name: metadata.name,
         scopeId: metadata.scopeId,
-        node: metadata.node ? Core.assignClonedLocation({ ...metadata.node }, metadata.node) : undefined,
+        node: nodeBase ? Core.assignClonedLocation(nodeBase, metadata.node) : undefined,
         classifications: Core.toMutableArray(metadata.classifications, { clone: true })
     } as ScopeSymbolMetadata;
 
