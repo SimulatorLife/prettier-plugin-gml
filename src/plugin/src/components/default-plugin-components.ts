@@ -33,6 +33,23 @@ export function createDefaultGmlPluginComponents(): GmlPluginComponentBundle {
                             return false;
                         }
 
+                        // Hardened shielding for known metadata keys
+                        if (
+                            key.startsWith("_") ||
+                            key === "declaration" ||
+                            key === "parent" ||
+                            key === "enclosingNode" ||
+                            key === "precedingNode" ||
+                            key === "followingNode" ||
+                            key === "scopeId" ||
+                            key === "symbolMetadata" ||
+                            key === "comments" ||
+                            key === "docComments" ||
+                            key === "docCommentMetadata"
+                        ) {
+                            return false;
+                        }
+
                         const value = node[key];
                         if (Core.isNode(value)) {
                             return true;

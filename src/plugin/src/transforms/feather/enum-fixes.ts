@@ -178,8 +178,8 @@ function sanitizeEnumMember(node, diagnostic) {
     node._featherOriginalInitializer = initializer ?? null;
     node.initializer = null;
 
-    if (Object.hasOwn(node.name ?? {}, "end")) {
-        node.end = getEndFromNode(node.name) ?? null;
+    if (node.name?.end) {
+        node.end = node.name.end;
     }
 
     const fixDetail = createFeatherFixDetail(diagnostic, {

@@ -4692,7 +4692,7 @@ function rewriteInvalidPostfixExpressions({ ast, diagnostic }) {
         }
 
         Core.forEachNodeChild(node, (value, key, container, index) => {
-            visit(value, container || node, index === null ? key : index);
+            visit(value, container || node, index === null ? key : index, container ? node : null);
         });
     };
 
@@ -6820,9 +6820,9 @@ function convertUnusedIndexForLoops({ ast, diagnostic }) {
             }
         }
 
-        Core.forEachNodeChild(node, (value, key) => {
+        Core.forEachNodeChild(node, (value, key, container, index) => {
             if (value && typeof value === "object") {
-                visit(value, node, key);
+                visit(value, container || node, index ?? key);
             }
         });
     };
@@ -7111,9 +7111,9 @@ function convertAllDotAssignmentsToWithStatements({ ast, diagnostic }) {
             }
         }
 
-        Core.forEachNodeChild(node, (value, key) => {
+        Core.forEachNodeChild(node, (value, key, container, index) => {
             if (value && typeof value === "object") {
-                visit(value, node, key);
+                visit(value, container || node, index ?? key);
             }
         });
     };
@@ -7176,9 +7176,9 @@ function normalizeFunctionCallArgumentOrder({ ast, diagnostic }) {
         }
 
         // Visit children first (post-order traversal)
-        Core.forEachNodeChild(node, (value, key) => {
+        Core.forEachNodeChild(node, (value, key, container, index) => {
             if (value && typeof value === "object") {
-                visit(value, node, key, nextAncestors);
+                visit(value, container || node, index ?? key, nextAncestors);
             }
         });
 
@@ -7682,8 +7682,8 @@ function convertNullishCoalesceOpportunities({ ast, diagnostic }) {
             }
         }
 
-        Core.forEachNodeChild(node, (value, key) => {
-            visit(value, node, key);
+        Core.forEachNodeChild(node, (value, key, container, index) => {
+            visit(value, container || node, index ?? key);
         });
 
         return false;
@@ -7904,8 +7904,8 @@ function ensureShaderResetIsCalled({ ast, diagnostic, sourceText }) {
             }
         }
 
-        Core.forEachNodeChild(node, (value, key) => {
-            visit(value, node, key);
+        Core.forEachNodeChild(node, (value, key, container, index) => {
+            visit(value, container || node, index ?? key);
         });
     };
 
@@ -8007,8 +8007,8 @@ function ensureFogIsReset({ ast, diagnostic }) {
             }
         }
 
-        Core.forEachNodeChild(node, (value, key) => {
-            visit(value, node, key);
+        Core.forEachNodeChild(node, (value, key, container, index) => {
+            visit(value, container || node, index ?? key);
         });
     };
 
@@ -8117,8 +8117,8 @@ function ensureSurfaceTargetsAreReset({ ast, diagnostic }) {
             }
         }
 
-        Core.forEachNodeChild(node, (value, key) => {
-            visit(value, node, key);
+        Core.forEachNodeChild(node, (value, key, container, index) => {
+            visit(value, container || node, index ?? key);
         });
     };
 
@@ -8232,8 +8232,8 @@ function ensureBlendEnableIsReset({ ast, diagnostic }) {
             }
         }
 
-        Core.forEachNodeChild(node, (value, key) => {
-            visit(value, node, key);
+        Core.forEachNodeChild(node, (value, key, container, index) => {
+            visit(value, container || node, index ?? key);
         });
     };
 
@@ -8355,8 +8355,8 @@ function ensureBlendModeIsReset({ ast, diagnostic }) {
             }
         }
 
-        Core.forEachNodeChild(node, (value, key) => {
-            visit(value, node, key);
+        Core.forEachNodeChild(node, (value, key, container, index) => {
+            visit(value, container || node, index ?? key);
         });
     };
 
@@ -8488,8 +8488,8 @@ function ensureFileFindFirstBeforeClose({ ast, diagnostic }) {
             }
         }
 
-        Core.forEachNodeChild(node, (value, key) => {
-            visit(value, node, key);
+        Core.forEachNodeChild(node, (value, key, container, index) => {
+            visit(value, container || node, index ?? key);
         });
     };
 
@@ -8613,8 +8613,8 @@ function ensureAlphaTestEnableIsReset({ ast, diagnostic }) {
             }
         }
 
-        Core.forEachNodeChild(node, (value, key) => {
-            visit(value, node, key);
+        Core.forEachNodeChild(node, (value, key, container, index) => {
+            visit(value, container || node, index ?? key);
         });
     };
 
@@ -8655,8 +8655,8 @@ function ensureAlphaTestRefIsReset({ ast, diagnostic }) {
             }
         }
 
-        Core.forEachNodeChild(node, (value, key) => {
-            visit(value, node, key);
+        Core.forEachNodeChild(node, (value, key, container, index) => {
+            visit(value, container || node, index ?? key);
         });
     };
 
@@ -8772,8 +8772,8 @@ function ensureHalignIsReset({ ast, diagnostic }) {
             }
         }
 
-        Core.forEachNodeChild(node, (value, key) => {
-            visit(value, node, key);
+        Core.forEachNodeChild(node, (value, key, container, index) => {
+            visit(value, container || node, index ?? key);
         });
     };
 
@@ -8920,8 +8920,8 @@ function ensurePrimitiveBeginPrecedesEnd({ ast, diagnostic }) {
             return;
         }
 
-        Core.forEachNodeChild(node, (value, key) => {
-            visit(value, node, key);
+        Core.forEachNodeChild(node, (value, key, container, index) => {
+            visit(value, container || node, index ?? key);
         });
 
         ancestors.pop();
@@ -9081,9 +9081,9 @@ function ensureDrawPrimitiveEndCallsAreBalanced({ ast, diagnostic }) {
             return;
         }
 
-        Core.forEachNodeChild(node, (value, key) => {
+        Core.forEachNodeChild(node, (value, key, container, index) => {
             if (value && typeof value === "object") {
-                visit(value, node, key);
+                visit(value, container || node, index ?? key);
             }
         });
     };
@@ -9491,9 +9491,9 @@ function ensureSurfaceTargetResetForGM2005({ ast, diagnostic }) {
             }
         }
 
-        Core.forEachNodeChild(node, (value, key) => {
+        Core.forEachNodeChild(node, (value, key, container, index) => {
             if (value && typeof value === "object") {
-                visit(value, node, key);
+                visit(value, container || node, index ?? key);
             }
         });
     };
@@ -10002,9 +10002,9 @@ function ensureCullModeIsReset({ ast, diagnostic }) {
             }
         }
 
-        Core.forEachNodeChild(node, (value, key) => {
+        Core.forEachNodeChild(node, (value, key, container, index) => {
             if (value && typeof value === "object") {
-                visit(value, node, key);
+                visit(value, container || node, index ?? key);
             }
         });
     };
@@ -10120,9 +10120,9 @@ function ensureVertexBeginPrecedesEnd({ ast, diagnostic, options }) {
             return;
         }
 
-        Core.forEachNodeChild(node, (value, key) => {
+        Core.forEachNodeChild(node, (value, key, container, index) => {
             if (value && typeof value === "object") {
-                visit(value, node, key);
+                visit(value, container || node, index ?? key);
             }
         });
     };
@@ -10264,9 +10264,9 @@ function ensureVertexBuffersAreClosed({ ast, diagnostic }) {
             }
         }
 
-        Core.forEachNodeChild(node, (value, key) => {
+        Core.forEachNodeChild(node, (value, key, container, index) => {
             if (value && typeof value === "object") {
-                visit(value, node, key);
+                visit(value, container || node, index ?? key);
             }
         });
     };
@@ -11212,9 +11212,9 @@ function ensureColourWriteEnableIsReset({ ast, diagnostic }) {
             }
         }
 
-        Core.forEachNodeChild(node, (value, key) => {
+        Core.forEachNodeChild(node, (value, key, container, index) => {
             if (value && typeof value === "object") {
-                visit(value, node, key);
+                visit(value, container || node, index ?? key);
             }
         });
     };
@@ -12008,9 +12008,9 @@ function ensureTextureRepeatIsReset({ ast, diagnostic }) {
             }
         }
 
-        Core.forEachNodeChild(node, (value, key) => {
+        Core.forEachNodeChild(node, (value, key, container, index) => {
             if (value && typeof value === "object") {
-                visit(value, node, key);
+                visit(value, container || node, index ?? key);
             }
         });
     };
@@ -12723,9 +12723,9 @@ function ensureGpuStateIsPopped({ ast, diagnostic }) {
             }
         }
 
-        Core.forEachNodeChild(node, (value, key) => {
+        Core.forEachNodeChild(node, (value, key, container, index) => {
             if (value && typeof value === "object") {
-                visit(value, node, key);
+                visit(value, container || node, index ?? key);
             }
         });
     };
@@ -13149,9 +13149,9 @@ function removeDanglingFileFindCalls({ ast, diagnostic }) {
             return;
         }
 
-        Core.forEachNodeChild(node, (value, key) => {
+        Core.forEachNodeChild(node, (value, key, container, index) => {
             if (value && typeof value === "object") {
-                visit(value, node, key);
+                visit(value, container || node, index ?? key);
             }
         });
     };
@@ -13296,9 +13296,9 @@ function ensureVertexFormatDefinitionsAreClosed({ ast, diagnostic }) {
             }
         }
 
-        Core.forEachNodeChild(node, (value, key) => {
+        Core.forEachNodeChild(node, (value, key, container, index) => {
             if (value && typeof value === "object") {
-                visit(value, node, key);
+                visit(value, container || node, index ?? key);
             }
         });
     };
@@ -13336,9 +13336,9 @@ function ensureVertexFormatsClosedBeforeStartingNewOnes({ ast, diagnostic }) {
             return;
         }
 
-        Core.forEachNodeChild(node, (value, key) => {
+        Core.forEachNodeChild(node, (value, key, container, index) => {
             if (value && typeof value === "object") {
-                visit(value, node, key);
+                visit(value, container || node, index ?? key);
             }
         });
     };
@@ -13986,9 +13986,9 @@ function harmonizeTexturePointerTernaries({ ast, diagnostic }) {
             }
         }
 
-        Core.forEachNodeChild(node, (value, key) => {
+        Core.forEachNodeChild(node, (value, key, container, index) => {
             if (value && typeof value === "object") {
-                visit(value, node, key);
+                visit(value, container || node, index ?? key);
             }
         });
     };
@@ -16234,7 +16234,7 @@ function renameReservedIdentifiers({ ast, diagnostic, sourceText }) {
                 node.name = renameMap.get(node.name);
             }
 
-            Core.forEachNodeChild(node, (value, key) => {
+            Core.forEachNodeChild(node, (value, key, container, index) => {
                 if (value && typeof value === "object") {
                     renameUsages(value, node, key, parent);
                 }
@@ -16718,7 +16718,7 @@ function balanceGpuStateStack({ ast, diagnostic }) {
                 visit(statement);
             }
 
-            Core.forEachNodeChild(node, (value, key) => {
+            Core.forEachNodeChild(node, (value, key, container, index) => {
                 if (key === "body") {
                     return;
                 }
@@ -16750,7 +16750,7 @@ function balanceGpuStateStack({ ast, diagnostic }) {
                 visit(statement);
             }
 
-            Core.forEachNodeChild(node, (value, key) => {
+            Core.forEachNodeChild(node, (value, key, container, index) => {
                 if (key === "consequent" || key === "test") {
                     return;
                 }

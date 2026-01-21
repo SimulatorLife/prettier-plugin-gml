@@ -307,8 +307,11 @@ function _printImpl(path, options, print) {
         return concat("");
     }
 
-    if (typeof node === STRING_TYPE) {
-        return concat(node);
+    if (!Core.isNode(node)) {
+        if (typeof node === STRING_TYPE) {
+            return concat(node);
+        }
+        return "";
     }
 
     return _printImplCore(node, path, options, print);

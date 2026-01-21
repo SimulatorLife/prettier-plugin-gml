@@ -1,0 +1,1442 @@
+
+> @gml-modules/plugin@0.0.1 test /Users/henrykirk/gamemaker-language-parser/src/plugin
+> pnpm run build:types && node --test dist/test/*.test.js -- -n 'formats testFunctions'
+
+
+> @gml-modules/plugin@0.0.1 build:types /Users/henrykirk/gamemaker-language-parser/src/plugin
+> tsc -p tsconfig.json
+
+✔ expands single-line if statements by default (75.187583ms)
+✔ preserves compact return guards inside functions when disabled (13.813917ms)
+✔ expands guarded returns with values when single-line is disabled (10.231042ms)
+▶ annotateStaticFunctionOverrides
+  ✔ marks overriding static functions (0.46575ms)
+  ✔ ignores static declarations without identifier targets (0.112417ms)
+✔ annotateStaticFunctionOverrides (1.3865ms)
+▶ applyAssignmentAlignment
+  ✔ iterates safely when the active group is mutated during traversal (1.078708ms)
+  ✔ resets alignment groups across blank lines and leading comments (0.319667ms)
+  ✔ aligns assignments targeting self member properties (0.113792ms)
+  ✔ aligns argument aliases inside function bodies (0.489584ms)
+  ✔ does not align argument aliases at the program level (0.093459ms)
+  ✔ argument aliases are aligned when functions lack named parameters (0.118917ms)
+  ✔ aligns alias groups that reference named parameters and subsequent declarations (0.160583ms)
+  ✔ continues alignment when parameter alias declarations are omitted (2.875292ms)
+✔ applyAssignmentAlignment (5.791208ms)
+✔ preserves blank line after condensing argument_count fallbacks (80.286166ms)
+▶ block initial static spacing
+  ✔ keeps the first static declaration adjacent to the opening brace (53.840666ms)
+✔ block initial static spacing (54.235583ms)
+✔ omits blank lines between nested and enclosing block braces (49.674291ms)
+✔ adds a blank line after nested function declarations (24.426125ms)
+✔ breaks simple prefix arguments when callbacks follow (61.376958ms)
+✔ keeps simple leading arguments inline when callbacks follow (94.60075ms)
+✔ keeps member call property on the same line as the object (104.714916ms)
+✔ keeps simple leading arguments on the same line when callbacks follow (7.529834ms)
+✔ wraps single call expression arguments when enforcing maxParamsPerLine (102.438291ms)
+✔ prints clause trailing comments with non-block bodies (65.718084ms)
+▶ comment attachment
+  ✔ treats detached own-line comments as leading comments (114.157917ms)
+✔ comment attachment (114.54975ms)
+▶ comment promotion and normalization
+  ✔ promotes leading summary comments to @description (40.584708ms)
+✔ comment promotion and normalization (40.988666ms)
+✔ condenses boolean branches with unreachable statements (95.476542ms)
+✔ preserves guard extraction descriptions when condensing (54.91925ms)
+✔ preserves branching return descriptions without equivalence suffixes (17.130834ms)
+✔ retains original multi-branch descriptions when condensing (22.137459ms)
+✔ preserves distinct functions that condense to the same expression (7.202875ms)
+✔ prioritizes negated guard when condensing guard fallbacks (10.418917ms)
+▶ applySanitizedIndexAdjustments
+  ✔ maps numeric location fields back to their original indices (0.453583ms)
+  ✔ leaves values unchanged when no adjustments are provided (0.36325ms)
+✔ applySanitizedIndexAdjustments (1.251834ms)
+▶ sanitizeConditionalAssignments
+  ✔ returns null adjustments when nothing changes (0.761583ms)
+  ✔ rewrites bare assignments inside if conditions and records positions (0.087792ms)
+✔ sanitizeConditionalAssignments (0.929208ms)
+▶ CommentTracker
+  ✔ ignores consumed comments when checking for later comments (0.405833ms)
+  ✔ removes consumed comments from the original collection (0.377792ms)
+  ✔ correctly takes multiple consecutive matching comments without skipping (0.118084ms)
+✔ CommentTracker (1.363833ms)
+▶ consolidateStructAssignments
+  ✔ attaches trailing comments using the fallback comment tools (0.785833ms)
+  ✔ normalizes inline comment leading characters for consolidated struct properties (0.226166ms)
+  ✔ handles multiple consecutive struct initializers without skipping (0.218ms)
+  ✔ handles struct initializer immediately after removed properties (0.186709ms)
+  ✔ recursively visits nested blocks after consolidation (0.1855ms)
+✔ consolidateStructAssignments (1.745542ms)
+✔ removes blank line between constructor header and first statement (80.082875ms)
+✔ preserves blank line before constructor closing brace (25.162167ms)
+✔ preserves blank line after documented static constructor members (5.633584ms)
+✔ preserves blank lines after nested function declarations inside constructors (1.994708ms)
+✔ inserts trailing blank line after nested constructor functions when missing (1.632875ms)
+✔ collapses blank lines between simple constructor assignments (7.308625ms)
+✔ inserts blank line after synthetic constructor doc comments (32.499ms)
+▶ constructor instance method semicolons
+  ✔ omits semicolons for assignments inside constructor methods (42.41225ms)
+✔ constructor instance method semicolons (42.812417ms)
+▶ constructor nested function spacing
+  ✔ inserts a blank line after nested functions before closing the constructor (66.658625ms)
+✔ constructor nested function spacing (67.079583ms)
+✔ keeps constructor parent clauses inline (68.031292ms)
+✔ preserves inline constructor parameters when parent clause is present (58.879708ms)
+▶ convertUndefinedGuardAssignments
+  ✖ condenses undefined guard assignments into ternary expressions (17.242084ms)
+✖ convertUndefinedGuardAssignments (20.599541ms)
+▶ resolveCoreOptionOverrides
+  ✔ returns the default override map when no resolver is registered (0.616ms)
+  ✔ allows hosts to replace opinionated values via the resolver hook (0.246584ms)
+  ✔ throws when the resolver returns an invalid trailing comma override (0.250625ms)
+  ✔ treats null or undefined entries as opt-outs so user configs can apply (0.09775ms)
+  ✔ falls back to the default map when the resolver returns invalid data (0.069042ms)
+✔ resolveCoreOptionOverrides (1.769792ms)
+✔ default dependency bundle exposes canonical components (0.404542ms)
+✔ default dependency bundle maintains a stable reference (0.066917ms)
+▶ define normalization spacing
+  ✔ surrounds normalized region defines with blank lines (53.1775ms)
+  ✔ adds trailing semicolons when normalizing legacy function assignments (3.130375ms)
+  ✔ normalizes #define to #macro with single space separator (1.139167ms)
+  ✔ trims leading whitespace from macro suffix (0.986542ms)
+✔ define normalization spacing (58.929125ms)
+▶ legacy define region normalization
+  ✔ surrounds region directives rewritten from legacy defines with blank lines (24.717625ms)
+✔ legacy define region normalization (25.120709ms)
+▶ delete statements
+  ✔ adds semicolons to delete statements (17.251125ms)
+  ✔ preserves trailing comments when inserting semicolons (19.865834ms)
+✔ delete statements (37.583875ms)
+✔ converts division by two with inline comments into multiplication by one half (53.945ms)
+✔ promotes leading doc comment text to description metadata (35.005667ms)
+✔ promotes multi-line doc comments to description metadata (63.042167ms)
+✔ normalizes doc-like comment prefixes before promoting description metadata (2.8045ms)
+✔ normalizes extra spaces before doc parameter names (94.193125ms)
+✔ omits empty doc descriptions on struct static functions (64.152583ms)
+✔ collectImplicitArgumentDocNames omits superseded argument docs (53.434375ms)
+✔ collectImplicitArgumentDocNames prefers alias docs without Feather fixes (4.47025ms)
+✔ collectImplicitArgumentDocNames reuses documented names when alias is missing (10.206375ms)
+✔ collectImplicitArgumentDocNames keeps documented names for direct references (2.523375ms)
+✔ collectImplicitArgumentDocNames retains descriptive docs when alias is shorter (2.040959ms)
+✔ merges doc comments without duplicating returns metadata (89.914ms)
+✔ uses actual parameter name when documented name differs (31.3155ms)
+✔ converts Returns comment lines into returns metadata (11.505916ms)
+✔ doc comments preserve optional parameter defaults with nested brackets (82.524792ms)
+✔ doc comment normalization keeps nested optional defaults intact (8.133792ms)
+✔ orders doc comments for implicit argument references (80.610875ms)
+✔ retains misordered optional parameter docs (17.06875ms)
+✔ struct static functions drop stray @param tags when no parameters (98.586625ms)
+✔ struct static functions keep implicit argument docs (26.68825ms)
+✔ treats undefined defaults as required when the signature omits the default (80.844125ms)
+✔ preserves optional annotations when parameters are explicitly documented as optional (4.2485ms)
+✔ omits optional syntax for synthesized docs with undefined defaults (35.612ms)
+✔ retains optional syntax when constructors keep explicit undefined defaults (7.429708ms)
+✔ synthesized docs mark retained undefined defaults as optional (457.614375ms)
+✔ wraps long @description doc comments at the formatter width (77.247292ms)
+✔ wraps @description doc comments when printWidth exceeds the description length (3.886334ms)
+✔ wraps @description doc comments when printWidth is narrow but prevents a single word from being wrapped (5.342958ms)
+✔ preserves doc comment continuation labels without indentation (15.2325ms)
+✔ pads retained @description continuation lines when they lack indentation (5.926917ms)
+✔ does not expand preformatted doc comment continuations (8.139583ms)
+✔ wraps function doc descriptions while honoring printWidth (6.872791ms)
+✔ wraps long @param descriptions with continuation lines (2.09275ms)
+▶ draw_primitive_begin missing argument fix
+  ✖ adds pr_trianglelist argument to draw_primitive_begin() with no arguments (57.158083ms)
+  ✔ preserves existing pr_trianglelist argument (55.383875ms)
+  ✖ adds pr_trianglelist to multiple draw_primitive_begin() calls (17.192667ms)
+  ✔ does not add argument when applyFeatherFixes is false (14.681833ms)
+✖ draw_primitive_begin missing argument fix (145.073791ms)
+▶ empty block comments
+  ✔ keeps single-line block comments inline inside empty blocks (40.871583ms)
+  ✔ removes standalone empty block comments (33.453834ms)
+✔ empty block comments (74.784709ms)
+▶ enum trailing comment spacing
+  ✔ keeps inline comments snug after aligned initializers (50.38475ms)
+✔ enum trailing comment spacing (50.774708ms)
+▶ Feather fix regressions
+  ✔ resets draw_set_halign calls without leaving blank separators (88.524917ms)
+  ✔ removes standalone vertex_end calls without preceding vertex_begin (4.522584ms)
+✔ Feather fix regressions (93.493ms)
+▶ Feather diagnostic fixer registry
+  ✔ registers a fixer entry for every diagnostic (0.359542ms)
+✔ Feather diagnostic fixer registry (0.759125ms)
+▶ Transforms.applyFeatherFixes transform
+  ✔ removes trailing macro semicolons and records fix metadata (8.539125ms)
+  ✔ removes trailing macro semicolons before inline comments (1.635708ms)
+  ✔ removes break statements without enclosing loops and records GM1000 metadata (1.354959ms)
+  ✔ splits inline globalvar initializers into assignments (16.885917ms)
+  ✔ terminates var declarations flagged by GM2007 and records metadata (4.116459ms)
+  ✔ rewrites counted for-loops flagged by GM2004 into repeat statements (52.772959ms)
+  ✔ inserts the missing argument for GM1005 and records fix metadata (0.690792ms)
+  ✔ removes duplicate enum members and records fix metadata (4.024916ms)
+  ✔ removes non-integer enum assignments and records GM1003 metadata (0.866084ms)
+  ✔ replaces read-only built-in assignments with local variables (15.492709ms)
+  ✔ replaces file attribute additions with bitwise OR operations (4.911542ms)
+  ✔ converts room navigation arithmetic into dedicated helpers (1.905292ms)
+  ✔ maps room navigation directions to helper names (0.058417ms)
+  ✔ rejects unrecognized room navigation directions (0.220417ms)
+  ✔ annotates invalid assignment targets with GM1007 metadata (3.620667ms)
+  ✔ removes invalid assignment statements flagged by GM1007 (2.621166ms)
+  ✔ promotes local variables used within with(other) scopes (12.709166ms)
+  ✔ preserves function-scoped vars when resolving with(other) references (14.192042ms)
+  ✔ coerces string literal operands flagged by GM1010 (0.90525ms)
+  ✔ wraps identifier operands flagged by GM1010 when no literal coercion occurs (0.884416ms)
+  ✔ leaves non-numeric string operands unchanged when coercion is unnecessary (8.379541ms)
+  ✔ converts string length property access into string_length calls (4.948167ms)
+  ✔ corrects GM1021 typoed function calls using metadata guidance (31.490834ms)
+  ✔ renames deprecated built-in variables and records fix metadata (1.484042ms)
+  ✔ replaces deprecated constants highlighted by GM1023 (10.2665ms)
+  ✔ rewrites postfix increment statements flagged by GM1026 (1.083458ms)
+  ✔ renames reserved identifiers and records fix metadata (4.254792ms)
+  ✔ converts numeric string call arguments into numeric literals for GM1029 (2.212333ms)
+  ✔ normalizes multidimensional array indexing and records metadata (37.949917ms)
+  ✔ converts instance creation asset strings to identifiers and records metadata (24.684125ms)
+  ✔ replaces invalid delete statements and records fix metadata (2.115ms)
+  ✔ marks constructor declarations for functions instantiated with new (1.765666ms)
+  ✔ removes duplicate function parameters and records metadata (0.893834ms)
+  ✔ removes duplicate constructor parameters flagged by GM1059 (0.783209ms)
+  ✔ continues visiting parameters inserted during GM1059 fixes (0.171083ms)
+  ✔ adds missing enum members and records fix metadata (1.149625ms)
+  ✔ initialises missing enum member lists before adding fixes (0.4645ms)
+  ✔ records manual Feather fix metadata for every diagnostic (0.449833ms)
+  ✔ ensures shader_set calls are followed by shader_reset and records metadata (0.941792ms)
+  ✔ inserts surface target resets for GM2046 sequences and records metadata (5.732625ms)
+  ✔ appends surface target resets after vertex submissions that draw to the active target (14.587ms)
+  ✔ captures metadata for deprecated function calls flagged by GM1017 (1.658ms)
+  ✔ corrects mismatched data structure accessors using metadata (32.407208ms)
+  ✔ normalizes argument built-ins flagged by GM1032 (1.878708ms)
+  ✔ replaces direct argument references with documented aliases for GM1032 (13.121083ms)
+  ✔ records duplicate semicolon fixes for GM1033 (2.635917ms)
+  ✔ moves argument references into the preceding function body (10.374917ms)
+  ✔ removes duplicate macro declarations and records fix metadata (0.984209ms)
+  ✔ normalizes missing constructor parent clauses and records fix metadata (1.429292ms)
+  ✔ assigns undefined defaults to required parameters following optional ones (1.47025ms)
+  ✔ resets texture repeat flagged by GM2056 and records metadata (1.994334ms)
+  ✔ re-enables blending flagged by GM2048 and records metadata (0.7545ms)
+  ✔ suppresses blank lines when inserting GM2048 resets (0.62725ms)
+  ✔ resets fog flagged by GM2050 and records metadata (0.724ms)
+  ✔ resets alpha test enable flagged by GM2053 and records metadata (0.655334ms)
+  ✔ suppresses blank lines when resetting alpha test enable flagged by GM2053 (0.518125ms)
+  ✔ formats alpha test resets without inserting extra blank lines (14.127334ms)
+  ✔ ensures incomplete vertex format definitions are marked for commenting and records metadata (0.988625ms)
+  ✔ comments out incomplete vertex format definitions flagged by GM2015 (7.104958ms)
+  ✔ avoids duplicating vertex format comments when definitions are already commented (2.06175ms)
+  ✖ removes incomplete vertex format definitions before subsequent begins and records metadata (1.255958ms)
+  ✖ removes dangling vertex_format_end statements before beginning a new definition (0.830375ms)
+  ✖ removes empty vertex format definitions without recorded assignments (0.933958ms)
+  ✖ inserts missing vertex_end before subsequent begins and records metadata (1.700583ms)
+  ✔ harmonizes texture ternaries flagged by GM1063 and records metadata (2.703ms)
+  ✔ closes vertex buffers flagged by GM2011 and records metadata (1.2525ms)
+  ✖ removes stray draw_primitive_end calls when fixing GM2028 and records metadata (0.378458ms)
+  ✔ resets gpu_set_cullmode calls flagged by GM2051 and records metadata (0.703541ms)
+  ✔ normalizes simple syntax errors flagged by GM1100 and records metadata (0.601833ms)
+  ✔ normalizes zero denominators flagged by GM1015 and records metadata (2.114917ms)
+  ✖ normalizes zero denominators flagged by GM1015 even when the statement list mutates (0.497917ms)
+  ✖ removes stray boolean literal statements flagged by GM1016 and records metadata (0.362084ms)
+  ✔ preprocesses stray boolean literal statements flagged by GM1016 (0.659334ms)
+  ✔ preprocesses numeric string enum initializers flagged by GM1003 (0.48225ms)
+  ✔ deduplicates local variables flagged by GM2044 and records metadata (1.149375ms)
+  ✔ inserts a file_find_close call before nested file_find_first invocations flagged by GM2031 (1.1435ms)
+  ✔ moves gpu_pop_state calls flagged by GM2035 outside of conditionals and records metadata (0.799667ms)
+  ✖ hoists multiple call arguments flagged by GM2023 and records metadata (7.744084ms)
+  ✖ maintains GM2023 hoist order for nested call arguments (39.30125ms)
+  ✔ coalesces undefined fallbacks flagged by GM2061 (1.025333ms)
+  ✔ replaces undefined guards with nullish assignment for GM2061 (0.489584ms)
+  ✔ resets colour write enable after disabling channels and records metadata (6.887584ms)
+  ✔ suppresses blank lines when resetting colour write enable flagged by GM2052 (0.574334ms)
+  ✔ resets gpu_set_cullmode calls flagged by GM2051 and records metadata (0.433709ms)
+  ✔ removes orphaned event_inherited calls flagged by GM2040 and records metadata (18.658542ms)
+  ✖ removes stray file_find_next calls flagged by GM2033 (5.791583ms)
+  ✔ removes consecutive file_find_close calls flagged by GM2032 (0.5475ms)
+  ✖ moves draw_primitive_end calls outside flagged GM2030 conditionals (1.198459ms)
+  ✖ wraps draw vertex calls flagged by GM2029 and records metadata (1.802583ms)
+  ✔ resets draw_set_halign calls flagged by GM2026 and records metadata (1.039333ms)
+  ✔ closes vertex buffers flagged by GM2011 and records metadata (0.742625ms)
+  ✔ inserts vertex_begin before vertex_end flagged by GM2009 and records metadata (0.5935ms)
+  ✖ inserts missing vertex_end calls flagged by GM2008 and records metadata (0.659625ms)
+  ✖ suppresses blank lines after vertex_begin calls when closing vertex batches (0.713292ms)
+  ✔ inserts surface_reset_target after surface_set_target flagged by GM2005 and records metadata (0.554125ms)
+  ✔ resets blend modes flagged by GM2000 and records metadata (2.872667ms)
+  ✔ removes redeclared global functions flagged by GM1064 and records metadata (0.849917ms)
+  ✔ records manual metadata for GM2025 user event references (0.743708ms)
+✖ Transforms.applyFeatherFixes transform (512.227875ms)
+✖ preserves leading comments when extracting nested calls (GM2023) (104.423375ms)
+✖ preserves multiple leading comments when extracting nested calls (26.167708ms)
+✔ pads bare decimal literals by default (63.545583ms)
+✔ preserves compact augmented assignment spacing in for loop updates (75.86825ms)
+▶ function assignment semicolons
+  ✔ includes semicolons when assigning function declarations (57.740667ms)
+✔ function assignment semicolons (58.12925ms)
+✔ printer tolerates function declarations missing params arrays (37.013834ms)
+✔ adds padding after trailing function declarations in blocks (55.597708ms)
+✔ formats function parameters using documented argument names (114.142709ms)
+✔ initializes argument aliases using parameter names (9.055083ms)
+✔ replaces argument index references inside function bodies (4.383333ms)
+✔ reuses renamed parameters when formatting argument references (24.120167ms)
+✔ omits redundant argument aliases after parameter renaming (3.151667ms)
+✔ preserves parameter order when doc comments are misordered (6.273834ms)
+✔ retains existing parameter names when docs reference other names (2.892625ms)
+✔ normalizes doc comments that reference renamed parameters (6.657833ms)
+✔ preserves doc comment types when renaming parameters (2.137666ms)
+✔ inlines default parameter functions with single call bodies (123.453208ms)
+▶ GM2007 trailing comment spacing
+  ✔ preserves inline comment alignment when terminating var declarations (54.879458ms)
+✔ GM2007 trailing comment spacing (55.287791ms)
+✔ GML entry point exports static plugin components (5.833375ms)
+✔ GML entry point exports are immutable (0.234125ms)
+▶ gml parser adapter
+  ✔ recovers when Feather fixes are enabled (64.313833ms)
+  ✔ propagates parser errors when Feather fixes are disabled (1.289125ms)
+  ✔ parses scr_matrix_build calls that omit separators between numeric literals (15.041833ms)
+  ✔ parses scr_matrix_build calls with inline comments between numeric literals (1.0655ms)
+  ✔ parses generic calls that omit separators between numeric literals (0.825041ms)
+✔ gml parser adapter (83.064334ms)
+✔ identifier case bootstrap disposes when the environment is torn down (0.731875ms)
+✔ identifier case bootstrap is disposed when parsing fails (5.904292ms)
+✔ retains argument aliases when no parameters are declared (45.5765ms)
+▶ line comment banner handling
+  ✔ collapses banner comments into a minimal single-line comment (1.136709ms)
+  ✔ drops decorative banners that have no descriptive text (0.178417ms)
+  ✔ preserves regular comments that do not resemble banners (0.47375ms)
+✔ line comment banner handling (2.235833ms)
+▶ line comment boilerplate defaults
+  ✔ removes the YoYo asset banner without extra configuration (0.449791ms)
+  ✔ removes GameMaker's default script description stub (0.528792ms)
+  ✔ removes the default editor guidance stub (0.06825ms)
+  ✔ preserves unrelated comments (0.699459ms)
+✔ line comment boilerplate defaults (2.213834ms)
+▶ line comment formatting helpers
+  ✔ format triple slash-with-space comment into standard comment (3.174208ms)
+  ✔ formats a long inline comment with preserved spacing (0.133ms)
+  ✔ retains banner content when decorations were stripped upstream (0.191791ms)
+  ✔ preserves 'Scenario 2' comment (0.284042ms)
+  ✔ strips boilerplate comments (0.063792ms)
+  ✔ formats 'banner' comments with 4+ slashes into standard comments (0.094625ms)
+  ✔ preserves commented out code (0.068125ms)
+  ✔ treats @func comments as doc comment markers (0.512458ms)
+  ✔ formats decorated banner comments (0.088208ms)
+  ✔ preserves inline triple slash doc (0.23875ms)
+  ✔ preserves plain triple slash numeric (0.072417ms)
+  ✔ strips custom boilerplate comments (0.093167ms)
+  ✔ splits multi-sentence comments into multiple lines (0.088833ms)
+  ✔ splits merged comments separated by // (0.066208ms)
+  ✔ promotes high-slash banner with @tag to triple-slash (0.071ms)
+  ✔ formats doc tag line with parenthesis style (0.102875ms)
+  ✔ expands tabs to spaces in comments (0.051583ms)
+  ✔ removes banner comments with excessive slashes and no content (0.050875ms)
+  ✔ debug: normalizeBannerCommentText works (0.04075ms)
+✔ line comment formatting helpers (6.143875ms)
+▶ resolveLineCommentOptions
+  ✔ returns the default option object when no resolver is installed (0.433417ms)
+  ✔ allows integrators to extend boilerplate heuristics via resolver hook (0.495125ms)
+  ✔ falls back to defaults when the resolver returns invalid data (0.113625ms)
+✔ resolveLineCommentOptions (1.490292ms)
+▶ formatLineComment
+  ✔ treats control-flow snippets as commented-out code using defaults (2.738708ms)
+  ✔ respects sanitized override objects when supplied directly (0.142875ms)
+✔ formatLineComment (2.981458ms)
+✔ reformats logical comparisons without introducing synthetic parentheses (99.953083ms)
+✔ preserves explicit comparator grouping inside logical expressions (4.039958ms)
+▶ normalizeLogicalOperatorsStyle
+  ✔ defaults to keywords when the option is unset (0.316667ms)
+  ✔ accepts the symbolic operator style (0.109583ms)
+  ✔ throws for unrecognised string values (0.340333ms)
+✔ normalizeLogicalOperatorsStyle (1.218208ms)
+✔ caches suffix maps on extensible option bags (0.47225ms)
+✔ returns new suffix maps for primitive option inputs (0.074ms)
+✔ memoizes suffix maps for frozen option objects (0.143042ms)
+✔ parses loop length suffix overrides from string lists (0.604292ms)
+✔ accepts array inputs when normalizing suffix overrides (0.079083ms)
+✔ memoizes suffix overrides per options object (0.103625ms)
+✔ plural array identifiers fall back to bare length suffix (0.06925ms)
+✔ macro declarations avoid duplicate blank lines (23.91025ms)
+✔ macro declarations add a blank line before following statements (24.388417ms)
+✔ macro declarations stay separated on consecutive lines (3.910667ms)
+✔ Feather-sanitized macros preserve blank lines before following statements (30.641334ms)
+✔ legacy #define macro replacements keep adjacent statements (2.453166ms)
+✔ converts manual mean with floating point noise (69.973417ms)
+✔ converts literal square with floating point noise (3.7045ms)
+✔ preserves inline comments between manual math operands (4.915125ms)
+✔ converts distance formula with floating point noise (29.326875ms)
+✔ condenses chained scalar multipliers into a single coefficient (2.465583ms)
+✖ promotes lengthdir half-difference assignments into the declaration (10.480083ms)
+✖ combines sequential lengthdir scalar assignments (3.656208ms)
+✖ preserves blank line before comments when promoting lengthdir assignments (34.322417ms)
+✔ simplifies division by a reciprocal denominator (2.501958ms)
+✔ preserves grouping when simplifying reciprocal denominators with composite factors (5.774708ms)
+✔ condenses subtraction-based scalar multipliers (1.69425ms)
+✔ simplifies negative reciprocal multiplication (8.683666ms)
+✔ cancels reciprocal factors paired with their denominator (2.171458ms)
+✔ removes additive identity scalars with trailing comments (1.456584ms)
+✔ preserves other trailing comments when stripping additive identity (1.514334ms)
+✔ preserves punctuation-heavy trailing comments when stripping additive identity (1.211542ms)
+✔ removes multiplicative zero factors inside additive chains (1.253708ms)
+✔ condenses chained multipliers with composite operands (1.335333ms)
+✔ collects shared scalar factors across addition (1.279625ms)
+✔ reduces shared scalar additions that sum to one (1.20875ms)
+✔ condenses division by reciprocal scalar multipliers (1.14175ms)
+✔ optimizes reciprocal assignment expression (1.129583ms)
+✔ condenses subtraction-only scalar factors (0.947542ms)
+✔ condenses nested ratios that mix scalar and non-scalar factors (1.79625ms)
+✔ cancels reciprocal ratio pairs before scalar condensation (1.118584ms)
+✔ simplifies reciprocal products with unit numerators (1.022875ms)
+✔ cancels numeric identity factors introduced by scalar condensation (0.9775ms)
+✔ converts simple division within a function (1.097542ms)
+✔ prioritizes converting multiplicative degree ratios into degtorad over converting division to multiplication (8.022167ms)
+✔ simplifies degree-based cos and sin expressions into dcos and dsin (3.962417ms)
+✔ downgrades numbered triple-slash comments to standard comments (1.047416ms)
+✔ uses tolerance-aware comparison for ratio numerator simplification (0.778167ms)
+✔ safely handles division by denominator near machine epsilon (0.962417ms)
+✔ correctly handles multiplicative chain with near-zero factor (0.989833ms)
+✔ handles division by value that rounds to zero due to floating-point noise (3.558666ms)
+▶ Math traversal-normalization insertNodeBefore loop safety
+  ✔ should not skip array elements when inserting nodes during traversal (49.364167ms)
+  ✔ should correctly insert nodes before target in nested array structures (53.3195ms)
+  ✔ should handle multiple manual math conversions in sequence (30.341042ms)
+✔ Math traversal-normalization insertNodeBefore loop safety (133.6215ms)
+✔ enforces the maxParamsPerLine limit even when inline would fit (28.305375ms)
+✔ breaks struct with 3 properties when maxStructPropertiesPerLine is 2 (default) (46.324333ms)
+✔ keeps struct with 2 properties inline when maxStructPropertiesPerLine is 2 (default) (2.365041ms)
+✔ keeps struct with 3 properties inline when maxStructPropertiesPerLine is 3 (1.711ms)
+✔ breaks struct with 4 properties when maxStructPropertiesPerLine is 3 (1.666542ms)
+✔ disables struct property limit when maxStructPropertiesPerLine is 0 (1.627541ms)
+✔ still breaks struct with comments even when maxStructPropertiesPerLine is 0 (3.669375ms)
+▶ Missing argument separator sanitizer lazy loading
+  ✔ should demonstrate memory footprint reduction with lazy loading (5.603333ms)
+  ✔ should load metadata only when sanitizer is called (6.685709ms)
+  ✔ should handle empty input without loading metadata (0.137625ms)
+✔ Missing argument separator sanitizer lazy loading (12.892542ms)
+✔ inserts synthetic separators for numeric call arguments that rely on whitespace (35.191375ms)
+✔ preserves multiline whitespace when synthesizing numeric call separators (18.466583ms)
+✔ prints undefined for missing optional arguments by default (44.794458ms)
+✔ plugin no longer exposes removed options (0.110292ms)
+✔ collapses redundant missing optional arguments when no values are provided (16.347084ms)
+✔ emits a separating blank line after documented nested functions (38.800292ms)
+✔ adds a blank line before closing blocks after nested functions (36.374042ms)
+▶ normalize-data-structure-accessors
+  ✔ normalizes [? to [| for list variables (52.794667ms)
+  ✔ normalizes [| to [? for map variables (7.780083ms)
+  ✔ preserves correct accessor for list variables (0.444833ms)
+  ✔ does not modify accessor for non-data-structure variables (0.399292ms)
+  ✔ can be disabled via options (0.371458ms)
+✔ normalize-data-structure-accessors (62.323042ms)
+▶ resolveObjectWrapOption
+  ✔ preserves object wrapping by default (0.350833ms)
+  ✔ honours the collapse option provided by Prettier (0.078917ms)
+✔ resolveObjectWrapOption (0.906958ms)
+✔ struct literals stay multi-line when objectWrap preserves the leading break (25.062375ms)
+✔ struct literals collapse to a single line when objectWrap is set to collapse (13.53625ms)
+✔ collapsed structs still wrap when the literal exceeds the print width (2.030625ms)
+✔ adds undefined defaults for trailing optional parameters (83.088416ms)
+▶ orphaned vertices with empty draw_primitive_begin fix
+  ✖ moves valid begin before vertices and removes empty begin (117.2825ms)
+  ✖ handles consecutive vertices without blank lines (24.540167ms)
+✖ orphaned vertices with empty draw_primitive_begin fix (142.444042ms)
+✔ dependency bundle is frozen and exposes expected contract keys (0.633708ms)
+✔ default component factory wires the dependency bundle (14.475041ms)
+✔ default implementation bundle is frozen and reuses canonical references (0.357584ms)
+▶ GML plugin component registry
+  ✔ exposes validated defaults (0.2965ms)
+  ✔ components are immutable (0.208958ms)
+  ✔ component bundle is initialized at module load (0.054833ms)
+✔ GML plugin component registry (1.028708ms)
+▶ Prettier GameMaker plugin fixtures
+  ✔ formats define-normalization (51.49375ms)
+  ✔ formats testAligned (73.722666ms)
+  ✖ formats testArgumentDocs (185.279667ms)
+  ✔ formats testBanner (39.776209ms)
+  ✖ formats testComments (99.05425ms)
+  ✔ formats testDrawEvent (3.001375ms)
+  ✔ formats testEmptyParamsComment (1.385417ms)
+  ✔ formats testFlow (40.692ms)
+  ✔ formats testFoo (2.332375ms)
+  ✔ formats testFormatting (37.842917ms)
+  ✔ formats testFunctionDescription (8.299ms)
+  ✖ formats testFunctions (97.942291ms)
+  ✔ formats testGM1000 (1.587583ms)
+  ✔ formats testGM1002 (1.754458ms)
+  ✖ formats testGM1003 (3.909584ms)
+  ✔ formats testGM1004 (1.927375ms)
+  ✔ formats testGM1005 (1.299916ms)
+  ✔ formats testGM1007 (2.610166ms)
+  ✔ formats testGM1008 (2.61925ms)
+  ✔ formats testGM1009 (1.881708ms)
+  ✔ formats testGM1010 (2.104209ms)
+  ✔ formats testGM1012 (4.928209ms)
+  ✔ formats testGM1013 (18.03425ms)
+  ✔ formats testGM1014 (1.695ms)
+  ✔ formats testGM1015 (1.30875ms)
+  ✔ formats testGM1016 (0.805208ms)
+  ✔ formats testGM1017 (1.305583ms)
+  ✔ formats testGM1023 (1.6515ms)
+  ✔ formats testGM1024 (1.390541ms)
+  ✔ formats testGM1026 (0.919167ms)
+  ✔ formats testGM1028 (3.216833ms)
+  ✔ formats testGM1029 (1.499042ms)
+  ✔ formats testGM1030 (1.482334ms)
+  ✔ formats testGM1032 (6.406833ms)
+  ✔ formats testGM1033 (1.630375ms)
+  ✔ formats testGM1034 (5.968041ms)
+  ✔ formats testGM1036 (8.975209ms)
+  ✔ formats testGM1038 (1.369208ms)
+  ✔ formats testGM1041 (1.271625ms)
+  ✔ formats testGM1051 (2.345167ms)
+  ✔ formats testGM1052 (4.11375ms)
+  ✔ formats testGM1056 (1.81ms)
+  ✔ formats testGM1058 (1.30125ms)
+  ✔ formats testGM1059 (1.172209ms)
+  ✔ formats testGM1062 (2.632ms)
+  ✔ formats testGM1063 (1.578958ms)
+  ✔ formats testGM1064 (1.805334ms)
+  ✔ formats testGM1100 (0.953667ms)
+  ✔ formats testGM2000 (1.134625ms)
+  ✔ formats testGM2003 (1.1715ms)
+  ✔ formats testGM2004 (3.368667ms)
+  ✔ formats testGM2005 (1.874958ms)
+  ✔ formats testGM2007 (2.053875ms)
+  ✖ formats testGM2008 (1.511875ms)
+  ✔ formats testGM2009 (0.751834ms)
+  ✔ formats testGM2011 (1.470291ms)
+  ✖ formats testGM2012 (2.59675ms)
+  ✔ formats testGM2015 (1.020917ms)
+  ✔ formats testGM2020 (1.223333ms)
+  ✔ formats testGM2026 (1.542833ms)
+  ✖ formats testGM2028 (0.825375ms)
+  ✖ formats testGM2029 (2.810958ms)
+  ✖ formats testGM2029Attachment (4.120833ms)
+  ✖ formats testGM2030 (1.475292ms)
+  ✔ formats testGM2031 (2.430875ms)
+  ✔ formats testGM2032 (0.684209ms)
+  ✖ formats testGM2033 (1.861291ms)
+  ✔ formats testGM2035 (1.547916ms)
+  ✔ formats testGM2042 (3.153542ms)
+  ✔ formats testGM2043 (1.925375ms)
+  ✔ formats testGM2044 (2.053959ms)
+  ✔ formats testGM2046 (3.43725ms)
+  ✔ formats testGM2048 (1.232584ms)
+  ✔ formats testGM2050 (1.058375ms)
+  ✔ formats testGM2051 (1.180875ms)
+  ✔ formats testGM2052 (1.287084ms)
+  ✔ formats testGM2053 (0.940541ms)
+  ✔ formats testGM2054 (1.162667ms)
+  ✔ formats testGM2056 (1.142791ms)
+  ✔ formats testGM2061 (1.042041ms)
+  ✔ formats testGlobalVars (1.077334ms)
+  ✔ formats testHoist (3.021625ms)
+  ✔ formats testHoistDisabled (1.353083ms)
+  ✔ formats testIfBraces (0.936ms)
+  ✔ formats testIgnore (0.886ms)
+  ✖ formats testLogical (36.228916ms)
+  ✔ formats testManualMath (12.6425ms)
+  ✖ formats testMath (23.608541ms)
+  ✖ formats testOperators (7.834042ms)
+  ✔ formats testParams (22.137625ms)
+  ✔ formats testPreserve (104.530667ms)
+  ✖ formats testPreserveNewlines (5.093416ms)
+  ✖ formats testPrintWidth (13.361542ms)
+  ✔ formats testSingleLineIf (5.142917ms)
+  ✔ formats testStrings (2.024459ms)
+  ✔ formats testStructs (29.435542ms)
+  ✔ formats testStructsLoose (1.32175ms)
+✖ Prettier GameMaker plugin fixtures (1069.75075ms)
+▶ doc builder sanitization
+  ✔ replaces nullish fragments when concatenating (0.599666ms)
+  ✔ sanitizes join fragments (0.111917ms)
+  ✔ wraps sanitized content in groups (0.114041ms)
+✔ doc builder sanitization (1.2615ms)
+✔ call expressions guard missing parent nodes in lvalue chain detection (0.933417ms)
+✔ prints statements and element lists for GML programs (41.468875ms)
+✔ prints all call arguments in order (34.676417ms)
+✔ omits redundant unary plus before identifiers (2.488541ms)
+✔ preserves unary plus conversions (1.257333ms)
+✔ Core.loadReservedIdentifierNames returns lowercase reserved names (6.351834ms)
+✔ Core.loadReservedIdentifierNames respects custom disallowed types (5.635042ms)
+✔ Core.loadReservedIdentifierNames allows overriding the metadata loader (5.608166ms)
+▶ Semicolons helper utilities
+  ✔ flags statement nodes that require a terminator (0.346125ms)
+  ✔ counts trailing blank lines after a given index (0.091292ms)
+  ✔ finds the next non-whitespace character (0.088958ms)
+  ✔ recognizes whitespace characters the semicolon scanner skips (0.061625ms)
+  ✔ determines whether the path references the last statement (0.106291ms)
+✔ Semicolons helper utilities (1.692833ms)
+▶ printer source text helpers
+  ✔ trims trailing line terminators without regex allocation (0.354458ms)
+  ✔ normalizes printer metadata inputs (0.374167ms)
+  ✔ extracts original text from printer options (0.072042ms)
+  ✔ computes node ranges with metadata overrides (0.154ms)
+  ✔ slices text only when bounds are valid (0.0645ms)
+  ✔ detects explicit trailing blank lines in macro text (0.066ms)
+  ✔ reports absence of surrounding blank lines for compact blocks (0.216958ms)
+✔ printer source text helpers (1.792584ms)
+▶ statement spacing policy
+  ✔ detects macro-like statements (0.445167ms)
+  ✔ requires nested functions to keep trailing padding (0.12925ms)
+  ✔ enforces padding between divergent return paths (0.163625ms)
+  ✔ keeps default newline padding behavior (0.118375ms)
+  ✔ allows internal consumers to register extra padded statement types (0.137584ms)
+✔ statement spacing policy (1.477083ms)
+▶ constructor static function assignments
+  ✔ adds semicolons for static function assignments (57.202375ms)
+  ✔ adds semicolons for static non-function members (2.276833ms)
+  ✔ omits semicolons for constructor functions (1.58525ms)
+✔ constructor static function assignments (61.522542ms)
+✔ formats struct call arguments across multiple lines with aligned colons (69.285417ms)
+✔ keeps small struct arguments inline (95.887417ms)
+✔ still breaks struct arguments with many properties (6.942708ms)
+✔ buildSyntheticDocComment converts core doc lines into a Prettier doc (1.175208ms)
+✔ buildSyntheticDocComment returns null when core declines to synthesize (0.096084ms)
+✔ omits synthetic docs for anonymous functions without return value (56.27625ms)
+✔ omits synthetic docs for anonymous functions with return value (14.640084ms)
+✔ adds synthetic @returns doc for onymous/named functions without return value (3.387959ms)
+✔ separates synthetic doc comments from preceding line comments (7.984125ms)
+✔ adds synthetic @returns doc for empty onymous/named function bodies (3.782583ms)
+✔ augments static function doc comments with missing @returns metadata (8.208ms)
+✔ adds synthetic @returns metadata for parameterless static functions (11.6445ms)
+✔ adds synthetic docs for named constructor assignments (2.391792ms)
+✔ synthetic constructor docs include trailing parameters (4.647417ms)
+✔ annotates overriding static functions with @override metadata (3.308ms)
+✔ adds synthetic @returns metadata when defaults replace argument_count fallbacks (14.999084ms)
+✔ reorders description doc comments between parameters and returns (7.157583ms)
+✔ omits alias-style description doc comments when synthetic metadata is emitted (4.752917ms)
+✔ respects printWidth for wrapping description doc comments (2.518792ms)
+✔ wraps long description doc comments using printWidth (1.830709ms)
+✔ flatten synthetic addition parentheses from reordered optional parameters (55.551542ms)
+✔ flattens synthetic addition parentheses by default (2.978041ms)
+✔ omits grouping in longer chains of addition (1.831416ms)
+✔ flattens additive chains that include call expressions (7.169333ms)
+✔ omits extraneous multiplication grouping inside sqrt function (31.505625ms)
+✔ flattens chained multiplication operands when optimizeMathExpressions is enabled (12.689417ms)
+✔ keeps division-by-constant grouping when optimizeMathExpressions is disabled (2.998625ms)
+✔ math optimization is not tied to Feather fixes (8.710542ms)
+✔ groups multiplication expressions added together (2.27575ms)
+✔ optimizes squared products by prioritizing sqr() function over dot_product() and omits redundant parentheses (2.361917ms)
+✔ maintains multiplication groups inside a function definition but omits extraneous parentheses layer (6.947042ms)
+✔ preserves chains of sqr calls without additional parentheses (3.767125ms)
+✔ addition grouping is omitted within sqrt calls (5.168167ms)
+✔ includes squared comparison grouping within logical expressions (4.035041ms)
+✔ includes synthetic multiplication parentheses within comparisons (1.393167ms)
+✔ retains synthetic multiplication grouping when subtracting values (7.389ms)
+✔ does not wrap ternary initializers in parentheses (46.816958ms)
+✔ keeps multi-sentence inline comments on the same line (42.532459ms)
+✔ struct property trailing comments remain inline without blank separators (11.138625ms)
+✔ inserts a blank line between large variable blocks and following loops (37.056208ms)
+✔ formats struct static functions without infinite recursion (42.731041ms)
+ℹ tests 530
+ℹ suites 42
+ℹ pass 490
+ℹ fail 40
+ℹ cancelled 0
+ℹ skipped 0
+ℹ todo 0
+ℹ duration_ms 3567.764083
+
+✖ failing tests:
+
+test at dist/test/convert-undefined-guard-assignments.test.js:11:10
+✖ condenses undefined guard assignments into ternary expressions (17.242084ms)
+  AssertionError [ERR_ASSERTION]: Expected values to be strictly equal:
+  
+  undefined !== 1
+  
+      at TestContext.<anonymous> (file:///Users/henrykirk/gamemaker-language-parser/src/plugin/dist/test/convert-undefined-guard-assignments.test.js:57:16)
+      at Test.runInAsyncScope (node:async_hooks:213:14)
+      at Test.run (node:internal/test_runner/test:1106:25)
+      at Test.start (node:internal/test_runner/test:1003:17)
+      at node:internal/test_runner/test:1516:71
+      at node:internal/per_context/primordials:466:82
+      at new Promise (<anonymous>)
+      at new SafePromise (node:internal/per_context/primordials:435:3)
+      at node:internal/per_context/primordials:466:9
+      at Array.map (<anonymous>) {
+    generatedMessage: true,
+    code: 'ERR_ASSERTION',
+    actual: undefined,
+    expected: 1,
+    operator: 'strictEqual',
+    diff: 'simple'
+  }
+
+test at dist/test/draw-primitive-begin-missing-argument.test.js:11:10
+✖ adds pr_trianglelist argument to draw_primitive_begin() with no arguments (57.158083ms)
+  AssertionError [ERR_ASSERTION]: Expected values to be strictly equal:
+  + actual - expected
+  
+  + 'draw_primitive_begin();\ndraw_vertex(100, 100);\ndraw_primitive_end();\n'
+  - 'draw_primitive_begin(pr_trianglelist);\n' +
+  -   'draw_vertex(100, 100);\n' +
+  -   'draw_primitive_end();\n'
+  
+      at TestContext.<anonymous> (file:///Users/henrykirk/gamemaker-language-parser/src/plugin/dist/test/draw-primitive-begin-missing-argument.test.js:23:16)
+      at async Test.run (node:internal/test_runner/test:1113:7)
+      at async Promise.all (index 0)
+      at async Suite.run (node:internal/test_runner/test:1518:7)
+      at async startSubtestAfterBootstrap (node:internal/test_runner/harness:358:3) {
+    generatedMessage: true,
+    code: 'ERR_ASSERTION',
+    actual: 'draw_primitive_begin();\ndraw_vertex(100, 100);\ndraw_primitive_end();\n',
+    expected: 'draw_primitive_begin(pr_trianglelist);\ndraw_vertex(100, 100);\ndraw_primitive_end();\n',
+    operator: 'strictEqual',
+    diff: 'simple'
+  }
+
+test at dist/test/draw-primitive-begin-missing-argument.test.js:39:10
+✖ adds pr_trianglelist to multiple draw_primitive_begin() calls (17.192667ms)
+  AssertionError [ERR_ASSERTION]: Expected values to be strictly equal:
+  + actual - expected
+  
+  + 'draw_primitive_begin();\n' +
+  - 'draw_primitive_begin(pr_trianglelist);\n' +
+      'draw_vertex(100, 100);\n' +
+      'draw_primitive_end();\n' +
+      '\n' +
+  +   'draw_primitive_begin();\n' +
+  -   'draw_primitive_begin(pr_trianglelist);\n' +
+      'draw_vertex(200, 200);\n' +
+      'draw_primitive_end();\n'
+  
+      at TestContext.<anonymous> (file:///Users/henrykirk/gamemaker-language-parser/src/plugin/dist/test/draw-primitive-begin-missing-argument.test.js:59:16)
+      at async Test.run (node:internal/test_runner/test:1113:7)
+      at async Suite.processPendingSubtests (node:internal/test_runner/test:788:7) {
+    generatedMessage: true,
+    code: 'ERR_ASSERTION',
+    actual: 'draw_primitive_begin();\ndraw_vertex(100, 100);\ndraw_primitive_end();\n\ndraw_primitive_begin();\ndraw_vertex(200, 200);\ndraw_primitive_end();\n',
+    expected: 'draw_primitive_begin(pr_trianglelist);\ndraw_vertex(100, 100);\ndraw_primitive_end();\n\ndraw_primitive_begin(pr_trianglelist);\ndraw_vertex(200, 200);\ndraw_primitive_end();\n',
+    operator: 'strictEqual',
+    diff: 'simple'
+  }
+
+test at dist/test/feather-fixes.test.js:2033:10
+✖ removes incomplete vertex format definitions before subsequent begins and records metadata (1.255958ms)
+  AssertionError [ERR_ASSERTION]: Expected values to be strictly equal:
+  
+  5 !== 3
+  
+      at TestContext.<anonymous> (file:///Users/henrykirk/gamemaker-language-parser/src/plugin/dist/test/feather-fixes.test.js:2049:16)
+      at Test.runInAsyncScope (node:async_hooks:213:14)
+      at Test.run (node:internal/test_runner/test:1106:25)
+      at Suite.processPendingSubtests (node:internal/test_runner/test:788:18)
+      at Test.postRun (node:internal/test_runner/test:1235:19)
+      at Test.run (node:internal/test_runner/test:1163:12)
+      at async Suite.processPendingSubtests (node:internal/test_runner/test:788:7) {
+    generatedMessage: true,
+    code: 'ERR_ASSERTION',
+    actual: 5,
+    expected: 3,
+    operator: 'strictEqual',
+    diff: 'simple'
+  }
+
+test at dist/test/feather-fixes.test.js:2067:10
+✖ removes dangling vertex_format_end statements before beginning a new definition (0.830375ms)
+  AssertionError [ERR_ASSERTION]: Expected the stray vertex_format_end statement to be removed before formatting begins.
+  + actual - expected
+  
+  + 'vertex_format_end'
+  - 'vertex_format_begin'
+                   ^
+  
+      at TestContext.<anonymous> (file:///Users/henrykirk/gamemaker-language-parser/src/plugin/dist/test/feather-fixes.test.js:2083:16)
+      at Test.runInAsyncScope (node:async_hooks:213:14)
+      at Test.run (node:internal/test_runner/test:1106:25)
+      at Suite.processPendingSubtests (node:internal/test_runner/test:788:18)
+      at Test.postRun (node:internal/test_runner/test:1235:19)
+      at Test.run (node:internal/test_runner/test:1163:12)
+      at async Suite.processPendingSubtests (node:internal/test_runner/test:788:7) {
+    generatedMessage: false,
+    code: 'ERR_ASSERTION',
+    actual: 'vertex_format_end',
+    expected: 'vertex_format_begin',
+    operator: 'strictEqual',
+    diff: 'simple'
+  }
+
+test at dist/test/feather-fixes.test.js:2086:10
+✖ removes empty vertex format definitions without recorded assignments (0.933958ms)
+  AssertionError [ERR_ASSERTION]: Expected values to be strictly deep-equal:
+  + actual - expected
+  
+    [
+      'vertex_format_begin',
+  +   'vertex_format_end',
+  +   'vertex_format_begin',
+      'vertex_format_add_texcoord'
+    ]
+  
+      at TestContext.<anonymous> (file:///Users/henrykirk/gamemaker-language-parser/src/plugin/dist/test/feather-fixes.test.js:2103:16)
+      at Test.runInAsyncScope (node:async_hooks:213:14)
+      at Test.run (node:internal/test_runner/test:1106:25)
+      at Suite.processPendingSubtests (node:internal/test_runner/test:788:18)
+      at Test.postRun (node:internal/test_runner/test:1235:19)
+      at Test.run (node:internal/test_runner/test:1163:12)
+      at async Suite.processPendingSubtests (node:internal/test_runner/test:788:7) {
+    generatedMessage: true,
+    code: 'ERR_ASSERTION',
+    actual: [ 'vertex_format_begin', 'vertex_format_end', 'vertex_format_begin', 'vertex_format_add_texcoord' ],
+    expected: [ 'vertex_format_begin', 'vertex_format_add_texcoord' ],
+    operator: 'deepStrictEqual',
+    diff: 'simple'
+  }
+
+test at dist/test/feather-fixes.test.js:2109:10
+✖ inserts missing vertex_end before subsequent begins and records metadata (1.700583ms)
+  AssertionError [ERR_ASSERTION]: Expected values to be strictly equal:
+  
+  5 !== 6
+  
+      at TestContext.<anonymous> (file:///Users/henrykirk/gamemaker-language-parser/src/plugin/dist/test/feather-fixes.test.js:2125:16)
+      at Test.runInAsyncScope (node:async_hooks:213:14)
+      at Test.run (node:internal/test_runner/test:1106:25)
+      at Suite.processPendingSubtests (node:internal/test_runner/test:788:18)
+      at Test.postRun (node:internal/test_runner/test:1235:19)
+      at Test.run (node:internal/test_runner/test:1163:12)
+      at async Suite.processPendingSubtests (node:internal/test_runner/test:788:7) {
+    generatedMessage: true,
+    code: 'ERR_ASSERTION',
+    actual: 5,
+    expected: 6,
+    operator: 'strictEqual',
+    diff: 'simple'
+  }
+
+test at dist/test/feather-fixes.test.js:2212:10
+✖ removes stray draw_primitive_end calls when fixing GM2028 and records metadata (0.378458ms)
+  AssertionError [ERR_ASSERTION]: Expected values to be strictly equal:
+  
+  1 !== 0
+  
+      at TestContext.<anonymous> (file:///Users/henrykirk/gamemaker-language-parser/src/plugin/dist/test/feather-fixes.test.js:2222:16)
+      at Test.runInAsyncScope (node:async_hooks:213:14)
+      at Test.run (node:internal/test_runner/test:1106:25)
+      at Suite.processPendingSubtests (node:internal/test_runner/test:788:18)
+      at Test.postRun (node:internal/test_runner/test:1235:19)
+      at Test.run (node:internal/test_runner/test:1163:12)
+      at async Suite.processPendingSubtests (node:internal/test_runner/test:788:7) {
+    generatedMessage: true,
+    code: 'ERR_ASSERTION',
+    actual: 1,
+    expected: 0,
+    operator: 'strictEqual',
+    diff: 'simple'
+  }
+
+test at dist/test/feather-fixes.test.js:2336:10
+✖ normalizes zero denominators flagged by GM1015 even when the statement list mutates (0.497917ms)
+  AssertionError [ERR_ASSERTION]: Expected values to be strictly equal:
+  
+  '0' !== '1'
+  
+      at TestContext.<anonymous> (file:///Users/henrykirk/gamemaker-language-parser/src/plugin/dist/test/feather-fixes.test.js:2369:16)
+      at Test.runInAsyncScope (node:async_hooks:213:14)
+      at Test.run (node:internal/test_runner/test:1106:25)
+      at Suite.processPendingSubtests (node:internal/test_runner/test:788:18)
+      at Test.postRun (node:internal/test_runner/test:1235:19)
+      at Test.run (node:internal/test_runner/test:1163:12)
+      at async Suite.processPendingSubtests (node:internal/test_runner/test:788:7) {
+    generatedMessage: true,
+    code: 'ERR_ASSERTION',
+    actual: '0',
+    expected: '1',
+    operator: 'strictEqual',
+    diff: 'simple'
+  }
+
+test at dist/test/feather-fixes.test.js:2371:10
+✖ removes stray boolean literal statements flagged by GM1016 and records metadata (0.362084ms)
+  AssertionError [ERR_ASSERTION]: Expected stray boolean literal to be removed from the program body.
+  
+  2 !== 1
+  
+      at TestContext.<anonymous> (file:///Users/henrykirk/gamemaker-language-parser/src/plugin/dist/test/feather-fixes.test.js:2423:16)
+      at Test.runInAsyncScope (node:async_hooks:213:14)
+      at Test.run (node:internal/test_runner/test:1106:25)
+      at Suite.processPendingSubtests (node:internal/test_runner/test:788:18)
+      at Test.postRun (node:internal/test_runner/test:1235:19)
+      at Test.run (node:internal/test_runner/test:1163:12)
+      at async Suite.processPendingSubtests (node:internal/test_runner/test:788:7) {
+    generatedMessage: false,
+    code: 'ERR_ASSERTION',
+    actual: 2,
+    expected: 1,
+    operator: 'strictEqual',
+    diff: 'simple'
+  }
+
+test at dist/test/feather-fixes.test.js:2615:10
+✖ hoists multiple call arguments flagged by GM2023 and records metadata (7.744084ms)
+  AssertionError [ERR_ASSERTION]: Expected temporaries to be hoisted before the call expression.
+  
+  false !== true
+  
+      at TestContext.<anonymous> (file:///Users/henrykirk/gamemaker-language-parser/src/plugin/dist/test/feather-fixes.test.js:2625:16)
+      at Test.runInAsyncScope (node:async_hooks:213:14)
+      at Test.run (node:internal/test_runner/test:1106:25)
+      at Suite.processPendingSubtests (node:internal/test_runner/test:788:18)
+      at Test.postRun (node:internal/test_runner/test:1235:19)
+      at Test.run (node:internal/test_runner/test:1163:12)
+      at async Suite.processPendingSubtests (node:internal/test_runner/test:788:7) {
+    generatedMessage: false,
+    code: 'ERR_ASSERTION',
+    actual: false,
+    expected: true,
+    operator: 'strictEqual',
+    diff: 'simple'
+  }
+
+test at dist/test/feather-fixes.test.js:2657:10
+✖ maintains GM2023 hoist order for nested call arguments (39.30125ms)
+  AssertionError [ERR_ASSERTION]: Expected temporaries to be hoisted before the call expression.
+  
+  false !== true
+  
+      at TestContext.<anonymous> (file:///Users/henrykirk/gamemaker-language-parser/src/plugin/dist/test/feather-fixes.test.js:2667:16)
+      at Test.runInAsyncScope (node:async_hooks:213:14)
+      at Test.run (node:internal/test_runner/test:1106:25)
+      at Suite.processPendingSubtests (node:internal/test_runner/test:788:18)
+      at Test.postRun (node:internal/test_runner/test:1235:19)
+      at Test.run (node:internal/test_runner/test:1163:12)
+      at async Suite.processPendingSubtests (node:internal/test_runner/test:788:7) {
+    generatedMessage: false,
+    code: 'ERR_ASSERTION',
+    actual: false,
+    expected: true,
+    operator: 'strictEqual',
+    diff: 'simple'
+  }
+
+test at dist/test/feather-fixes.test.js:2880:10
+✖ removes stray file_find_next calls flagged by GM2033 (5.791583ms)
+  AssertionError [ERR_ASSERTION]: Expected trailing file_find_next() call to be removed.
+  
+  true !== false
+  
+      at TestContext.<anonymous> (file:///Users/henrykirk/gamemaker-language-parser/src/plugin/dist/test/feather-fixes.test.js:2905:16)
+      at Test.runInAsyncScope (node:async_hooks:213:14)
+      at Test.run (node:internal/test_runner/test:1106:25)
+      at Suite.processPendingSubtests (node:internal/test_runner/test:788:18)
+      at Test.postRun (node:internal/test_runner/test:1235:19)
+      at Test.run (node:internal/test_runner/test:1163:12)
+      at async Suite.processPendingSubtests (node:internal/test_runner/test:788:7) {
+    generatedMessage: false,
+    code: 'ERR_ASSERTION',
+    actual: true,
+    expected: false,
+    operator: 'strictEqual',
+    diff: 'simple'
+  }
+
+test at dist/test/feather-fixes.test.js:2933:10
+✖ moves draw_primitive_end calls outside flagged GM2030 conditionals (1.198459ms)
+  AssertionError [ERR_ASSERTION]: Expected values to be strictly equal:
+  + actual - expected
+  
+  + 'draw_text'
+  - 'draw_primitive_end'
+          ^
+  
+      at TestContext.<anonymous> (file:///Users/henrykirk/gamemaker-language-parser/src/plugin/dist/test/feather-fixes.test.js:2963:16)
+      at Test.runInAsyncScope (node:async_hooks:213:14)
+      at Test.run (node:internal/test_runner/test:1106:25)
+      at Suite.processPendingSubtests (node:internal/test_runner/test:788:18)
+      at Test.postRun (node:internal/test_runner/test:1235:19)
+      at Test.run (node:internal/test_runner/test:1163:12)
+      at async Suite.processPendingSubtests (node:internal/test_runner/test:788:7) {
+    generatedMessage: true,
+    code: 'ERR_ASSERTION',
+    actual: 'draw_text',
+    expected: 'draw_primitive_end',
+    operator: 'strictEqual',
+    diff: 'simple'
+  }
+
+test at dist/test/feather-fixes.test.js:2973:10
+✖ wraps draw vertex calls flagged by GM2029 and records metadata (1.802583ms)
+  AssertionError [ERR_ASSERTION]: Expected values to be strictly equal:
+  + actual - expected
+  
+  + 'draw_vertex'
+  - 'draw_primitive_begin'
+          ^
+  
+      at TestContext.<anonymous> (file:///Users/henrykirk/gamemaker-language-parser/src/plugin/dist/test/feather-fixes.test.js:2994:16)
+      at Test.runInAsyncScope (node:async_hooks:213:14)
+      at Test.run (node:internal/test_runner/test:1106:25)
+      at Suite.processPendingSubtests (node:internal/test_runner/test:788:18)
+      at Test.postRun (node:internal/test_runner/test:1235:19)
+      at Test.run (node:internal/test_runner/test:1163:12)
+      at async Suite.processPendingSubtests (node:internal/test_runner/test:788:7) {
+    generatedMessage: true,
+    code: 'ERR_ASSERTION',
+    actual: 'draw_vertex',
+    expected: 'draw_primitive_begin',
+    operator: 'strictEqual',
+    diff: 'simple'
+  }
+
+test at dist/test/feather-fixes.test.js:3108:10
+✖ inserts missing vertex_end calls flagged by GM2008 and records metadata (0.659625ms)
+  AssertionError [ERR_ASSERTION]: Expected values to be strictly equal:
+  
+  5 !== 6
+  
+      at TestContext.<anonymous> (file:///Users/henrykirk/gamemaker-language-parser/src/plugin/dist/test/feather-fixes.test.js:3124:16)
+      at Test.runInAsyncScope (node:async_hooks:213:14)
+      at Test.run (node:internal/test_runner/test:1106:25)
+      at Suite.processPendingSubtests (node:internal/test_runner/test:788:18)
+      at Test.postRun (node:internal/test_runner/test:1235:19)
+      at Test.run (node:internal/test_runner/test:1163:12)
+      at async Suite.processPendingSubtests (node:internal/test_runner/test:788:7) {
+    generatedMessage: true,
+    code: 'ERR_ASSERTION',
+    actual: 5,
+    expected: 6,
+    operator: 'strictEqual',
+    diff: 'simple'
+  }
+
+test at dist/test/feather-fixes.test.js:3139:10
+✖ suppresses blank lines after vertex_begin calls when closing vertex batches (0.713292ms)
+  AssertionError [ERR_ASSERTION]: Expected values to be strictly equal:
+  
+  5 !== 6
+  
+      at TestContext.<anonymous> (file:///Users/henrykirk/gamemaker-language-parser/src/plugin/dist/test/feather-fixes.test.js:3156:16)
+      at Test.runInAsyncScope (node:async_hooks:213:14)
+      at Test.run (node:internal/test_runner/test:1106:25)
+      at Suite.processPendingSubtests (node:internal/test_runner/test:788:18)
+      at Test.postRun (node:internal/test_runner/test:1235:19)
+      at Test.run (node:internal/test_runner/test:1163:12)
+      at async Suite.processPendingSubtests (node:internal/test_runner/test:788:7) {
+    generatedMessage: true,
+    code: 'ERR_ASSERTION',
+    actual: 5,
+    expected: 6,
+    operator: 'strictEqual',
+    diff: 'simple'
+  }
+
+test at dist/test/feather-gm2023-comment-preservation.test.js:22:6
+✖ preserves leading comments when extracting nested calls (GM2023) (104.423375ms)
+  AssertionError [ERR_ASSERTION]: Comment should appear before temp variables. Comment at line 1, first temp var at line 0
+  
+  false !== true
+  
+      at TestContext.<anonymous> (file:///Users/henrykirk/gamemaker-language-parser/src/plugin/dist/test/feather-gm2023-comment-preservation.test.js:37:5)
+      at async Test.run (node:internal/test_runner/test:1113:7)
+      at async startSubtestAfterBootstrap (node:internal/test_runner/harness:358:3) {
+    generatedMessage: false,
+    code: 'ERR_ASSERTION',
+    actual: false,
+    expected: true,
+    operator: 'strictEqual',
+    diff: 'simple'
+  }
+
+test at dist/test/feather-gm2023-comment-preservation.test.js:41:6
+✖ preserves multiple leading comments when extracting nested calls (26.167708ms)
+  AssertionError [ERR_ASSERTION]: Comment 1 should appear before temp variables
+  
+  false !== true
+  
+      at TestContext.<anonymous> (file:///Users/henrykirk/gamemaker-language-parser/src/plugin/dist/test/feather-gm2023-comment-preservation.test.js:59:5)
+      at async Test.run (node:internal/test_runner/test:1113:7)
+      at async Test.processPendingSubtests (node:internal/test_runner/test:788:7) {
+    generatedMessage: false,
+    code: 'ERR_ASSERTION',
+    actual: false,
+    expected: true,
+    operator: 'strictEqual',
+    diff: 'simple'
+  }
+
+test at dist/test/manual-math-precision.test.js:51:6
+✖ promotes lengthdir half-difference assignments into the declaration (10.480083ms)
+  AssertionError [ERR_ASSERTION]: Expected values to be strictly equal:
+  + actual - expected
+  
+    '/// @param size\n' +
+      '/// @param angle\n' +
+      'function promote_lengthdir(size, angle) {\n' +
+      '    var s = size * 0.052 * (1 - lengthdir_x(1, angle));\n' +
+  +   '    s = s * 0.5 * (1 - lengthdir_x(1, angle));\n' +
+      '    return s;\n' +
+      '}\n'
+  
+      at TestContext.<anonymous> (file:///Users/henrykirk/gamemaker-language-parser/src/plugin/dist/test/manual-math-precision.test.js:63:12)
+      at async Test.run (node:internal/test_runner/test:1113:7)
+      at async Test.processPendingSubtests (node:internal/test_runner/test:788:7) {
+    generatedMessage: true,
+    code: 'ERR_ASSERTION',
+    actual: '/// @param size\n/// @param angle\nfunction promote_lengthdir(size, angle) {\n    var s = size * 0.052 * (1 - lengthdir_x(1, angle));\n    s = s * 0.5 * (1 - lengthdir_x(1, angle));\n    return s;\n}\n',
+    expected: '/// @param size\n/// @param angle\nfunction promote_lengthdir(size, angle) {\n    var s = size * 0.052 * (1 - lengthdir_x(1, angle));\n    return s;\n}\n',
+    operator: 'strictEqual',
+    diff: 'simple'
+  }
+
+test at dist/test/manual-math-precision.test.js:73:6
+✖ combines sequential lengthdir scalar assignments (3.656208ms)
+  AssertionError [ERR_ASSERTION]: Expected values to be strictly equal:
+  + actual - expected
+  
+    '/// @param size\n' +
+      '/// @param angle\n' +
+      'function combine_lengthdir(size, angle) {\n' +
+      '    var s = size * 0.052 * (1 - lengthdir_x(1, angle));\n' +
+  +   '    s = s * 0.5 * (1 - lengthdir_x(1, angle));\n' +
+      '    return s;\n' +
+      '}\n'
+  
+      at TestContext.<anonymous> (file:///Users/henrykirk/gamemaker-language-parser/src/plugin/dist/test/manual-math-precision.test.js:85:12)
+      at async Test.run (node:internal/test_runner/test:1113:7)
+      at async Test.processPendingSubtests (node:internal/test_runner/test:788:7) {
+    generatedMessage: true,
+    code: 'ERR_ASSERTION',
+    actual: '/// @param size\n/// @param angle\nfunction combine_lengthdir(size, angle) {\n    var s = size * 0.052 * (1 - lengthdir_x(1, angle));\n    s = s * 0.5 * (1 - lengthdir_x(1, angle));\n    return s;\n}\n',
+    expected: '/// @param size\n/// @param angle\nfunction combine_lengthdir(size, angle) {\n    var s = size * 0.052 * (1 - lengthdir_x(1, angle));\n    return s;\n}\n',
+    operator: 'strictEqual',
+    diff: 'simple'
+  }
+
+test at dist/test/manual-math-precision.test.js:95:6
+✖ preserves blank line before comments when promoting lengthdir assignments (34.322417ms)
+  AssertionError [ERR_ASSERTION]: Expected values to be strictly equal:
+  + actual - expected
+  
+    '/// @param size\n' +
+      '/// @param angle\n' +
+      'function promote_lengthdir_with_comment(size, angle) {\n' +
+      '    var s = size * 0.052 * (1 - lengthdir_x(1, angle));\n' +
+  +   '    s = s * 0.5 * (1 - lengthdir_x(1, angle));\n' +
+      '\n' +
+      '    // manual adjustment\n' +
+      '    return s;\n' +
+      '}\n'
+  
+      at TestContext.<anonymous> (file:///Users/henrykirk/gamemaker-language-parser/src/plugin/dist/test/manual-math-precision.test.js:109:12)
+      at async Test.run (node:internal/test_runner/test:1113:7)
+      at async Test.processPendingSubtests (node:internal/test_runner/test:788:7) {
+    generatedMessage: true,
+    code: 'ERR_ASSERTION',
+    actual: '/// @param size\n/// @param angle\nfunction promote_lengthdir_with_comment(size, angle) {\n    var s = size * 0.052 * (1 - lengthdir_x(1, angle));\n    s = s * 0.5 * (1 - lengthdir_x(1, angle));\n\n    // manual adjustment\n    return s;\n}\n',
+    expected: '/// @param size\n/// @param angle\nfunction promote_lengthdir_with_comment(size, angle) {\n    var s = size * 0.052 * (1 - lengthdir_x(1, angle));\n\n    // manual adjustment\n    return s;\n}\n',
+    operator: 'strictEqual',
+    diff: 'simple'
+  }
+
+test at dist/test/orphaned-vertices-with-empty-begin.test.js:16:10
+✖ moves valid begin before vertices and removes empty begin (117.2825ms)
+  AssertionError [ERR_ASSERTION]: draw_primitive_begin should come before draw_vertex calls
+      at TestContext.<anonymous> (file:///Users/henrykirk/gamemaker-language-parser/src/plugin/dist/test/orphaned-vertices-with-empty-begin.test.js:39:16)
+      at async Test.run (node:internal/test_runner/test:1113:7)
+      at async Promise.all (index 0)
+      at async Suite.run (node:internal/test_runner/test:1518:7)
+      at async startSubtestAfterBootstrap (node:internal/test_runner/harness:358:3) {
+    generatedMessage: false,
+    code: 'ERR_ASSERTION',
+    actual: false,
+    expected: true,
+    operator: '==',
+    diff: 'simple'
+  }
+
+test at dist/test/orphaned-vertices-with-empty-begin.test.js:44:10
+✖ handles consecutive vertices without blank lines (24.540167ms)
+  AssertionError [ERR_ASSERTION]: begin should come before first vertex
+      at TestContext.<anonymous> (file:///Users/henrykirk/gamemaker-language-parser/src/plugin/dist/test/orphaned-vertices-with-empty-begin.test.js:60:16)
+      at async Test.run (node:internal/test_runner/test:1113:7)
+      at async Suite.processPendingSubtests (node:internal/test_runner/test:788:7) {
+    generatedMessage: false,
+    code: 'ERR_ASSERTION',
+    actual: false,
+    expected: true,
+    operator: '==',
+    diff: 'simple'
+  }
+
+test at dist/test/plugin.test.js:116:14
+✖ formats testArgumentDocs (185.279667ms)
+  AssertionError [ERR_ASSERTION]: Line 2 does not match.
+  + actual - expected
+  
+  + '    var w = width;'
+  - '    var w         = width;'
+               ^
+  
+      at TestContext.<anonymous> (file:///Users/henrykirk/gamemaker-language-parser/src/plugin/dist/test/plugin.test.js:140:28)
+      at async Test.run (node:internal/test_runner/test:1113:7)
+      at async Suite.processPendingSubtests (node:internal/test_runner/test:788:7) {
+    generatedMessage: false,
+    code: 'ERR_ASSERTION',
+    actual: '    var w = width;',
+    expected: '    var w         = width;',
+    operator: 'strictEqual',
+    diff: 'simple'
+  }
+
+test at dist/test/plugin.test.js:116:14
+✖ formats testComments (99.05425ms)
+  AssertionError [ERR_ASSERTION]: Line 40 does not match.
+  + actual - expected
+  
+  + 'global.room_colmesh.add_shape('
+  - 'global.room_colmesh.add_shape(colmesh_shape, true, false, true, false, undefined, function (o) {'
+  
+      at TestContext.<anonymous> (file:///Users/henrykirk/gamemaker-language-parser/src/plugin/dist/test/plugin.test.js:140:28)
+      at async Test.run (node:internal/test_runner/test:1113:7)
+      at async Suite.processPendingSubtests (node:internal/test_runner/test:788:7) {
+    generatedMessage: false,
+    code: 'ERR_ASSERTION',
+    actual: 'global.room_colmesh.add_shape(',
+    expected: 'global.room_colmesh.add_shape(colmesh_shape, true, false, true, false, undefined, function (o) {',
+    operator: 'strictEqual',
+    diff: 'simple'
+  }
+
+test at dist/test/plugin.test.js:116:14
+✖ formats testFunctions (97.942291ms)
+  AssertionError [ERR_ASSERTION]: Line 42 does not match.
+  + actual - expected
+  
+  + '    ///              After a mesh has been frozen, it can no longer be added to a colmesh.'
+  - '    ///              It will not delete any geometry added to a ColMesh.'
+  
+      at TestContext.<anonymous> (file:///Users/henrykirk/gamemaker-language-parser/src/plugin/dist/test/plugin.test.js:140:28)
+      at async Test.run (node:internal/test_runner/test:1113:7)
+      at async Suite.processPendingSubtests (node:internal/test_runner/test:788:7) {
+    generatedMessage: false,
+    code: 'ERR_ASSERTION',
+    actual: '    ///              After a mesh has been frozen, it can no longer be added to a colmesh.',
+    expected: '    ///              It will not delete any geometry added to a ColMesh.',
+    operator: 'strictEqual',
+    diff: 'simple'
+  }
+
+test at dist/test/plugin.test.js:116:14
+✖ formats testGM1003 (3.909584ms)
+  Error: Comment location overlaps with node location
+      at decorateComment (file:///Users/henrykirk/gamemaker-language-parser/node_modules/.pnpm/prettier@3.7.4/node_modules/prettier/index.mjs:15121:11)
+      at file:///Users/henrykirk/gamemaker-language-parser/node_modules/.pnpm/prettier@3.7.4/node_modules/prettier/index.mjs:15160:8
+      at Array.map (<anonymous>)
+      at attachComments (file:///Users/henrykirk/gamemaker-language-parser/node_modules/.pnpm/prettier@3.7.4/node_modules/prettier/index.mjs:15159:38)
+      at prepareToPrint (file:///Users/henrykirk/gamemaker-language-parser/node_modules/.pnpm/prettier@3.7.4/node_modules/prettier/index.mjs:16653:3)
+      at printAstToDoc (file:///Users/henrykirk/gamemaker-language-parser/node_modules/.pnpm/prettier@3.7.4/node_modules/prettier/index.mjs:16575:13)
+      at coreFormat (file:///Users/henrykirk/gamemaker-language-parser/node_modules/.pnpm/prettier@3.7.4/node_modules/prettier/index.mjs:16959:20)
+      at async formatWithCursor (file:///Users/henrykirk/gamemaker-language-parser/node_modules/.pnpm/prettier@3.7.4/node_modules/prettier/index.mjs:17172:14)
+      at async Object.format2 (file:///Users/henrykirk/gamemaker-language-parser/node_modules/.pnpm/prettier@3.7.4/node_modules/prettier/index.mjs:18730:25)
+      at async Object.format (file:///Users/henrykirk/gamemaker-language-parser/src/plugin/dist/src/plugin-entry.js:53:23)
+
+test at dist/test/plugin.test.js:116:14
+✖ formats testGM2008 (1.511875ms)
+  AssertionError [ERR_ASSERTION]: Line 2 does not match.
+  + actual - expected
+  
+  + ''
+  - 'vertex_position_3d(vb, x, y, z);'
+  
+      at TestContext.<anonymous> (file:///Users/henrykirk/gamemaker-language-parser/src/plugin/dist/test/plugin.test.js:140:28)
+      at async Test.run (node:internal/test_runner/test:1113:7)
+      at async Suite.processPendingSubtests (node:internal/test_runner/test:788:7) {
+    generatedMessage: false,
+    code: 'ERR_ASSERTION',
+    actual: '',
+    expected: 'vertex_position_3d(vb, x, y, z);',
+    operator: 'strictEqual',
+    diff: 'simple'
+  }
+
+test at dist/test/plugin.test.js:116:14
+✖ formats testGM2012 (2.59675ms)
+  AssertionError [ERR_ASSERTION]: Line 2 does not match.
+  + actual - expected
+  
+  + 'vertex_format_end();'
+  - 'vertex_format_begin();'
+                   ^
+  
+      at TestContext.<anonymous> (file:///Users/henrykirk/gamemaker-language-parser/src/plugin/dist/test/plugin.test.js:140:28)
+      at async Test.run (node:internal/test_runner/test:1113:7)
+      at async Suite.processPendingSubtests (node:internal/test_runner/test:788:7) {
+    generatedMessage: false,
+    code: 'ERR_ASSERTION',
+    actual: 'vertex_format_end();',
+    expected: 'vertex_format_begin();',
+    operator: 'strictEqual',
+    diff: 'simple'
+  }
+
+test at dist/test/plugin.test.js:116:14
+✖ formats testGM2028 (0.825375ms)
+  AssertionError [ERR_ASSERTION]: Expected line 2 is missing.
+      at TestContext.<anonymous> (file:///Users/henrykirk/gamemaker-language-parser/src/plugin/dist/test/plugin.test.js:134:28)
+      at async Test.run (node:internal/test_runner/test:1113:7)
+      at async Suite.processPendingSubtests (node:internal/test_runner/test:788:7) {
+    generatedMessage: false,
+    code: 'ERR_ASSERTION',
+    actual: undefined,
+    expected: undefined,
+    operator: 'fail',
+    diff: 'simple'
+  }
+
+test at dist/test/plugin.test.js:116:14
+✖ formats testGM2029 (2.810958ms)
+  AssertionError [ERR_ASSERTION]: Line 3 does not match.
+  + actual - expected
+  
+  + 'draw_primitive_begin();'
+  - 'draw_primitive_begin(pr_trianglelist);'
+                          ^
+  
+      at TestContext.<anonymous> (file:///Users/henrykirk/gamemaker-language-parser/src/plugin/dist/test/plugin.test.js:140:28)
+      at async Test.run (node:internal/test_runner/test:1113:7)
+      at async Suite.processPendingSubtests (node:internal/test_runner/test:788:7) {
+    generatedMessage: false,
+    code: 'ERR_ASSERTION',
+    actual: 'draw_primitive_begin();',
+    expected: 'draw_primitive_begin(pr_trianglelist);',
+    operator: 'strictEqual',
+    diff: 'simple'
+  }
+
+test at dist/test/plugin.test.js:116:14
+✖ formats testGM2029Attachment (4.120833ms)
+  AssertionError [ERR_ASSERTION]: Line 9 does not match.
+  + actual - expected
+  
+  + 'draw_vertex(top[0], top[1]);'
+  - 'draw_primitive_begin(pr_trianglelist);'
+          ^
+  
+      at TestContext.<anonymous> (file:///Users/henrykirk/gamemaker-language-parser/src/plugin/dist/test/plugin.test.js:140:28)
+      at async Test.run (node:internal/test_runner/test:1113:7)
+      at async Suite.processPendingSubtests (node:internal/test_runner/test:788:7) {
+    generatedMessage: false,
+    code: 'ERR_ASSERTION',
+    actual: 'draw_vertex(top[0], top[1]);',
+    expected: 'draw_primitive_begin(pr_trianglelist);',
+    operator: 'strictEqual',
+    diff: 'simple'
+  }
+
+test at dist/test/plugin.test.js:116:14
+✖ formats testGM2030 (1.475292ms)
+  AssertionError [ERR_ASSERTION]: Line 4 does not match.
+  + actual - expected
+  
+  + '    draw_primitive_end();'
+  - '} else {'
+  
+      at TestContext.<anonymous> (file:///Users/henrykirk/gamemaker-language-parser/src/plugin/dist/test/plugin.test.js:140:28)
+      at async Test.run (node:internal/test_runner/test:1113:7)
+      at async Suite.processPendingSubtests (node:internal/test_runner/test:788:7) {
+    generatedMessage: false,
+    code: 'ERR_ASSERTION',
+    actual: '    draw_primitive_end();',
+    expected: '} else {',
+    operator: 'strictEqual',
+    diff: 'simple'
+  }
+
+test at dist/test/plugin.test.js:116:14
+✖ formats testGM2033 (1.861291ms)
+  AssertionError [ERR_ASSERTION]: Expected line 13 is missing.
+      at TestContext.<anonymous> (file:///Users/henrykirk/gamemaker-language-parser/src/plugin/dist/test/plugin.test.js:134:28)
+      at async Test.run (node:internal/test_runner/test:1113:7)
+      at async Suite.processPendingSubtests (node:internal/test_runner/test:788:7) {
+    generatedMessage: false,
+    code: 'ERR_ASSERTION',
+    actual: undefined,
+    expected: undefined,
+    operator: 'fail',
+    diff: 'simple'
+  }
+
+test at dist/test/plugin.test.js:116:14
+✖ formats testLogical (36.228916ms)
+  AssertionError [ERR_ASSERTION]: Line 63 does not match.
+  + actual - expected
+  
+  + '}'
+  - '    sprite_index = scr_custom_condition() ? spr_enemy_alerted : spr_enemy_idle;'
+  
+      at TestContext.<anonymous> (file:///Users/henrykirk/gamemaker-language-parser/src/plugin/dist/test/plugin.test.js:140:28)
+      at async Test.run (node:internal/test_runner/test:1113:7)
+      at async Suite.processPendingSubtests (node:internal/test_runner/test:788:7) {
+    generatedMessage: false,
+    code: 'ERR_ASSERTION',
+    actual: '}',
+    expected: '    sprite_index = scr_custom_condition() ? spr_enemy_alerted : spr_enemy_idle;',
+    operator: 'strictEqual',
+    diff: 'simple'
+  }
+
+test at dist/test/plugin.test.js:116:14
+✖ formats testMath (23.608541ms)
+  AssertionError [ERR_ASSERTION]: Line 58 does not match.
+  + actual - expected
+  
+  + 's = s * 0.5 * (1 - lengthdir_x(1, swim_rot));'
+  - ''
+  
+      at TestContext.<anonymous> (file:///Users/henrykirk/gamemaker-language-parser/src/plugin/dist/test/plugin.test.js:140:28)
+      at async Test.run (node:internal/test_runner/test:1113:7)
+      at async Suite.processPendingSubtests (node:internal/test_runner/test:788:7) {
+    generatedMessage: false,
+    code: 'ERR_ASSERTION',
+    actual: 's = s * 0.5 * (1 - lengthdir_x(1, swim_rot));',
+    expected: '',
+    operator: 'strictEqual',
+    diff: 'simple'
+  }
+
+test at dist/test/plugin.test.js:116:14
+✖ formats testOperators (7.834042ms)
+  Error: Comment "Fall state" was not printed. Please report this error!
+      at ensureAllCommentsPrinted (file:///Users/henrykirk/gamemaker-language-parser/node_modules/.pnpm/prettier@3.7.4/node_modules/prettier/index.mjs:15459:13)
+      at printAstToDoc (file:///Users/henrykirk/gamemaker-language-parser/node_modules/.pnpm/prettier@3.7.4/node_modules/prettier/index.mjs:16582:3)
+      at async coreFormat (file:///Users/henrykirk/gamemaker-language-parser/node_modules/.pnpm/prettier@3.7.4/node_modules/prettier/index.mjs:16959:14)
+      at async formatWithCursor (file:///Users/henrykirk/gamemaker-language-parser/node_modules/.pnpm/prettier@3.7.4/node_modules/prettier/index.mjs:17172:14)
+      at async Object.format2 (file:///Users/henrykirk/gamemaker-language-parser/node_modules/.pnpm/prettier@3.7.4/node_modules/prettier/index.mjs:18730:25)
+      at async Object.format (file:///Users/henrykirk/gamemaker-language-parser/src/plugin/dist/src/plugin-entry.js:53:23)
+      at async TestContext.<anonymous> (file:///Users/henrykirk/gamemaker-language-parser/src/plugin/dist/test/plugin.test.js:117:31)
+      at async Test.run (node:internal/test_runner/test:1113:7)
+      at async Suite.processPendingSubtests (node:internal/test_runner/test:788:7)
+
+test at dist/test/plugin.test.js:116:14
+✖ formats testPreserveNewlines (5.093416ms)
+  AssertionError [ERR_ASSERTION]: Line 10 does not match.
+  + actual - expected
+  
+  + '///                                                                                        spawn. If we already have'
+  - 'function try_spawn_enemies(num_enemies = irandom_range(wave_enemy_max * 0.25, wave_enemy_max * 0.34)) {'
+  
+      at TestContext.<anonymous> (file:///Users/henrykirk/gamemaker-language-parser/src/plugin/dist/test/plugin.test.js:140:28)
+      at async Test.run (node:internal/test_runner/test:1113:7)
+      at async Suite.processPendingSubtests (node:internal/test_runner/test:788:7) {
+    generatedMessage: false,
+    code: 'ERR_ASSERTION',
+    actual: '///                                                                                        spawn. If we already have',
+    expected: 'function try_spawn_enemies(num_enemies = irandom_range(wave_enemy_max * 0.25, wave_enemy_max * 0.34)) {',
+    operator: 'strictEqual',
+    diff: 'simple'
+  }
+
+test at dist/test/plugin.test.js:116:14
+✖ formats testPrintWidth (13.361542ms)
+  AssertionError [ERR_ASSERTION]: Line 1 does not match.
+  + actual - expected
+  
+  + 'collider = new ColmeshColliderCapsule('
+  - 'collider = new ColmeshColliderCapsule(x, y, z, 0, 0, 1, radius, radius * 2, 0, function (o) {'
+  
+      at TestContext.<anonymous> (file:///Users/henrykirk/gamemaker-language-parser/src/plugin/dist/test/plugin.test.js:140:28)
+      at async Test.run (node:internal/test_runner/test:1113:7)
+      at async Suite.processPendingSubtests (node:internal/test_runner/test:788:7) {
+    generatedMessage: false,
+    code: 'ERR_ASSERTION',
+    actual: 'collider = new ColmeshColliderCapsule(',
+    expected: 'collider = new ColmeshColliderCapsule(x, y, z, 0, 0, 1, radius, radius * 2, 0, function (o) {',
+    operator: 'strictEqual',
+    diff: 'simple'
+  }
+ ERR_PNPM_RECURSIVE_RUN_FIRST_FAIL  @gml-modules/plugin@0.0.1 test: `pnpm run build:types && node --test dist/test/*.test.js -- -n 'formats testFunctions'`
+Exit status 1
