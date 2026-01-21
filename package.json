@@ -94,7 +94,7 @@
     "build:ts": "timeout -t 2m -- tsc -b",
     "memory": "pnpm --filter @gml-modules/cli run build:types && node --expose-gc ./src/cli/dist/index.js memory --format human",
     "example:plugin": "cd src/plugin && pnpm run example",
-    "postinstall": "git submodule update --init --recursive && git update-index --skip-worktree vendor/* && chmod -R a-w vendor && chmod -R a+X vendor && chmod -R u+w vendor/3DSpider || echo \"Skipping vendor submodules\" && patch-package",
+    "postinstall": "(git submodule update --init --recursive && git update-index --skip-worktree vendor/* && chmod -R a-w vendor && chmod -R a+X vendor && chmod -R u+w vendor/3DSpider) || echo \"Skipping vendor submodules\"; ln -sf ../AGENTS.md .github/copilot-instructions.md; patch-package",
     "prepare": "husky",
     "submodules": "git submodule foreach --recursive 'git reset --hard && git clean -fd' && git submodule sync --recursive && git submodule update --init --recursive --remote",
     "cli": "pnpm --filter @gml-modules/cli run build:types && node ./src/cli/dist/index.js",
