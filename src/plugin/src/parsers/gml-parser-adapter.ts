@@ -159,11 +159,7 @@ async function prepareIdentifierCaseEnvironment(options?: GmlParserAdapterOption
 }
 
 function preprocessSource(text: string, options?: GmlParserAdapterOptions): ParserPreparationContext {
-    const featherResult = preprocessFeatherFixes(text, options?.applyFeatherFixes);
-
-    const { sourceText: commentFixedSource, indexMapper: commentFixMapper } = fixMalformedComments(
-        featherResult.parseSource
-    );
+    const { sourceText: commentFixedSource, indexMapper: commentFixMapper } = fixMalformedComments(text);
 
     const conditionalResult = Transforms.sanitizeConditionalAssignments(commentFixedSource) as SanitizerResult;
     const conditionalSource = normalizeToString(conditionalResult.sourceText, commentFixedSource);
@@ -180,8 +176,8 @@ function preprocessSource(text: string, options?: GmlParserAdapterOptions): Pars
         parseSource: callSanitizedSource,
         callIndexAdjustments: callSanitizedResult?.indexAdjustments ?? null,
         conditionalAssignmentIndexAdjustments: conditionalResult.indexAdjustments ?? null,
-        enumIndexAdjustments: featherResult.enumIndexAdjustments,
-        preprocessedFixMetadata: featherResult.metadata,
+        enumIndexAdjustments: null,
+        preprocessedFixMetadata: null,
         commentFixMapper
     };
 }
