@@ -1,6 +1,6 @@
 import { hasComment } from "../comments/comment-utils.js";
 import { asArray, isNonEmptyArray } from "../utils/array.js";
-import { getOptionalString, isObjectLike } from "../utils/object.js";
+import { getOptionalString } from "../utils/object.js";
 import { isNonEmptyString } from "../utils/string.js";
 import { assignClonedLocation } from "./locations.js";
 import {
@@ -176,26 +176,12 @@ export function cloneAstNode(node?: unknown) {
  * @param callback Invoked for each enumerable own property whose value is
  *     object-like.
  */
-export const IGNORED_NODE_CHILD_KEYS = new Set([
-    "parent",
-    "enclosingNode",
-    "precedingNode",
-    "followingNode",
-    "declaration",
-    "scopeId",
-    "symbolMetadata",
-    "start",
-    "end",
-    "loc",
-    "range",
-    "comments"
-]);
-
+export const IGNORED_NODE_CHILD_KEYS = new Set(["parent", "declaration", "scopeId", "symbolMetadata", "comments"]);
 export function forEachNodeChild(
     node: unknown,
     callback: (child: any, key: string, container: any[] | null, index: number | null) => void
 ) {
-    if (!isObjectLike(node)) {
+    if (!isNode(node)) {
         return;
     }
 
@@ -979,9 +965,15 @@ export function getNodeType(node?: unknown): string | null {
  * @returns `true` when {@link value} is a non-null object.
  */
 export function isNode(value: unknown): value is GameMakerAstNode {
-    return value != null && typeof value === "object" && typeof (value as any).type === "string";
+    const type = (value as any)?.type;
+    return (
+        value != null &&
+        typeof value === "object" &&
+        typeof type === "string" &&
+        !type.includes(".") &&
+        !type.includes(" ")
+    );
 }
-
 const FUNCTION_LIKE_NODE_TYPES: ReadonlyArray<string> = Object.freeze([
     "FunctionDeclaration",
     "FunctionExpression",
@@ -1127,10 +1119,6 @@ export function isNumericLiteralBoundaryCharacter(character: string): boolean {
  * @param callback Invoked for each child value that should be visited.
  */
 export function visitChildNodes(node: unknown, callback: (child: unknown) => void): void {
-    if (node == null) {
-        return;
-    }
-
     if (Array.isArray(node)) {
         const snapshot = [...node];
         for (const item of snapshot) {
@@ -1139,14 +1127,28 @@ export function visitChildNodes(node: unknown, callback: (child: unknown) => voi
         return;
     }
 
-    if (typeof node !== "object") {
+    if (!isNode(node)) {
         return;
     }
 
-    for (const key in node) {
-        if (Object.hasOwn(node, key)) {
-            const value = (node as Record<string, unknown>)[key];
-            if (isObjectLike(value)) {
+    const objectValue = node as Record<string, unknown>;
+    for (const key in objectValue) {
+        if (IGNORED_NODE_CHILD_KEYS.has(key)) {
+            continue;
+        }
+
+        if (Object.hasOwn(objectValue, key)) {
+            const value = objectValue[key];
+            if (Array.isArray(value)) {
+                let i = 0;
+                while (i < value.length) {
+                    const item = value[i];
+                    if (isNode(item)) {
+                        callback(item);
+                    }
+                    i++;
+                }
+            } else if (isNode(value)) {
                 callback(value);
             }
         }

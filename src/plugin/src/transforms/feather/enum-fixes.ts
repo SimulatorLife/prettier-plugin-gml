@@ -3,7 +3,6 @@
  */
 import { Core } from "@gml-modules/core";
 
-import { getEndFromNode } from "./ast-traversal.js";
 import { removeDuplicateSemicolons } from "./semicolon-fixes.js";
 import {
     attachFeatherFixMetadata,

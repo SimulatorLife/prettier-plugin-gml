@@ -1,3 +1,4 @@
+import { IGNORED_NODE_CHILD_KEYS,isNode } from "../ast/node-helpers.js";
 import { isObjectLike } from "../utils/object.js";
 
 /**
@@ -100,9 +101,11 @@ export function isBlockComment(node: unknown): node is CommentBlockNode {
  *                     comment node.
  */
 export function hasComment(node: unknown): boolean {
+    if (!isNode(node)) {
+        return false;
+    }
     return getCommentArray(node).some(isCommentNode);
 }
-
 /**
  * Returns the raw `comments` collection for a node while gracefully handling
  * parser variations where the property might be missing or hold a non-array
@@ -114,7 +117,7 @@ export function hasComment(node: unknown): boolean {
  *          collection exists.
  */
 export function getCommentArray(owner: unknown): ReadonlyArray<unknown> {
-    if (!isObjectLike(owner) || !("comments" in (owner as object))) {
+    if (!isNode(owner) || !("comments" in (owner as object))) {
         return EMPTY_COMMENT_ARRAY;
     }
 
@@ -253,8 +256,13 @@ export function collectCommentNodes(root) {
         // NOTE: The truthy check `if (value && typeof value === "object")` matches the
         // original helper's `!value || typeof value !== "object"` guard (inverted logic).
         // Array items use the stricter `!== null` check to match the original behavior.
+        const isCurrentNode = isNode(current);
         for (const key in current) {
             if (!Object.hasOwn(current, key)) {
+                continue;
+            }
+
+            if (isCurrentNode && IGNORED_NODE_CHILD_KEYS.has(key) && key !== "comments") {
                 continue;
             }
 

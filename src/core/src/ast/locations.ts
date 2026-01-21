@@ -89,6 +89,10 @@ function getNodeStartIndex(node: unknown): number | null {
  *                          data is unavailable.
  */
 function getNodeEndIndex(node: unknown): number | null {
+    if (isObjectLike(node) && typeof (node as any).end === "number") {
+        return (node as any).end;
+    }
+
     const endIndex = getLocationIndex(node, "end");
     if (typeof endIndex === "number") {
         return endIndex + 1;
