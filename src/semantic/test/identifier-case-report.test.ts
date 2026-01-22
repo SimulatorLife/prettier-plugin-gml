@@ -1,5 +1,5 @@
 import assert from "node:assert/strict";
-import { existsSync, promises as fs } from "node:fs";
+import { promises as fs } from "node:fs";
 import os from "node:os";
 import path from "node:path";
 import { describe, it } from "node:test";
@@ -12,30 +12,10 @@ import {
     setIdentifierCaseDryRunContext
 } from "../src/identifier-case/identifier-case-context.js";
 import { maybeReportIdentifierCaseDryRun } from "../src/identifier-case/identifier-case-report.js";
+import { resolveIdentifierCasePluginPath } from "./identifier-case-test-helpers.js";
 
 const currentDirectory = fileURLToPath(new URL(".", import.meta.url));
-const pluginPath = (() => {
-    const candidates = [
-        path.resolve(currentDirectory, "../../plugin/dist/src/plugin-entry.js"),
-        path.resolve(currentDirectory, "../../plugin/dist/src/plugin-entry.js"),
-        path.resolve(currentDirectory, "../../plugin/dist/index.js"),
-        path.resolve(currentDirectory, "../../plugin/src/plugin-entry.js"),
-        path.resolve(currentDirectory, "../../plugin/src/index.js"),
-        path.resolve(currentDirectory, "../../plugin/src/plugin-entry.ts"),
-        path.resolve(currentDirectory, "../../../plugin/dist/src/plugin-entry.js"),
-        path.resolve(currentDirectory, "../../../plugin/dist/src/plugin-entry.js"),
-        path.resolve(currentDirectory, "../../../plugin/dist/index.js"),
-        path.resolve(currentDirectory, "../../../plugin/src/plugin-entry.js"),
-        path.resolve(currentDirectory, "../../../plugin/src/index.js"),
-        path.resolve(currentDirectory, "../../../plugin/src/plugin-entry.ts")
-    ];
-
-    for (const p of candidates) {
-        if (existsSync(p)) return p;
-    }
-
-    return candidates[0];
-})();
+const pluginPath = resolveIdentifierCasePluginPath(currentDirectory);
 
 function createSampleRenamePlan() {
     return {
