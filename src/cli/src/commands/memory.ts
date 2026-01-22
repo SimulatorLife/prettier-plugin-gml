@@ -234,6 +234,33 @@ interface MemoryIterationEnvOverrideOptions {
     fallback: number | undefined;
 }
 
+interface IntegerEnvConfiguredValueOptions {
+    defaultValue: number;
+    envVar: string;
+    coerce: (value: unknown, context?: Record<string, unknown>) => number | null | undefined;
+    typeErrorMessage: (type: string) => string;
+}
+
+function createIntegerEnvConfiguredValue({
+    defaultValue,
+    envVar,
+    coerce,
+    typeErrorMessage
+}: IntegerEnvConfiguredValueOptions) {
+    return createEnvConfiguredValue<number | undefined>({
+        defaultValue,
+        envVar,
+        normalize: (value, { defaultValue: baseline, previousValue }) => {
+            return resolveIntegerOption(value, {
+                defaultValue: baseline ?? previousValue,
+                coerce,
+                typeErrorMessage,
+                blankStringReturnsDefault: true
+            });
+        }
+    });
+}
+
 // Shared coercion function for iteration counts
 const iterationCoerce = (value: unknown, context = {}) => {
     const opts = {
@@ -243,25 +270,12 @@ const iterationCoerce = (value: unknown, context = {}) => {
     return coercePositiveInteger(value, opts);
 };
 
-function createIterationState({ defaultValue, envVar }: { defaultValue: number; envVar: string }) {
-    return createEnvConfiguredValue<number | undefined>({
-        defaultValue,
-        envVar,
-        normalize: (value, { defaultValue: baseline, previousValue }) => {
-            return resolveIntegerOption(value, {
-                defaultValue: baseline ?? previousValue,
-                coerce: iterationCoerce,
-                typeErrorMessage: createIterationTypeErrorMessage,
-                blankStringReturnsDefault: true
-            });
-        }
-    });
-}
-
 // Parser iteration limit configuration
-const parserIterationState = createIterationState({
+const parserIterationState = createIntegerEnvConfiguredValue({
     defaultValue: DEFAULT_MAX_PARSER_ITERATIONS,
-    envVar: MEMORY_PARSER_MAX_ITERATIONS_ENV_VAR
+    envVar: MEMORY_PARSER_MAX_ITERATIONS_ENV_VAR,
+    coerce: iterationCoerce,
+    typeErrorMessage: createIterationTypeErrorMessage
 });
 
 function getMaxParserIterations(): number | undefined {
@@ -316,9 +330,11 @@ function applyParserMaxIterationsEnvOverride(env?: NodeJS.ProcessEnv): number | 
 }
 
 // Format iteration limit configuration
-const formatIterationState = createIterationState({
+const formatIterationState = createIntegerEnvConfiguredValue({
     defaultValue: DEFAULT_MAX_FORMAT_ITERATIONS,
-    envVar: MEMORY_FORMAT_MAX_ITERATIONS_ENV_VAR
+    envVar: MEMORY_FORMAT_MAX_ITERATIONS_ENV_VAR,
+    coerce: iterationCoerce,
+    typeErrorMessage: createIterationTypeErrorMessage
 });
 
 function getMaxFormatIterations(): number | undefined {
@@ -347,17 +363,11 @@ const astCommonNodeLimitCoerce = (value: unknown, context = {}) => {
     return coreCoercePositiveInteger(value, opts);
 };
 
-const astCommonNodeLimitState = createEnvConfiguredValue<number | undefined>({
+const astCommonNodeLimitState = createIntegerEnvConfiguredValue({
     defaultValue: DEFAULT_MEMORY_AST_COMMON_NODE_LIMIT,
     envVar: MEMORY_AST_COMMON_NODE_LIMIT_ENV_VAR,
-    normalize: (value, { defaultValue: baseline, previousValue }) => {
-        return resolveIntegerOption(value, {
-            defaultValue: baseline ?? previousValue,
-            coerce: astCommonNodeLimitCoerce,
-            typeErrorMessage: createAstCommonNodeLimitTypeErrorMessage,
-            blankStringReturnsDefault: true
-        });
-    }
+    coerce: astCommonNodeLimitCoerce,
+    typeErrorMessage: createAstCommonNodeLimitTypeErrorMessage
 });
 
 function getAstCommonNodeTypeLimit(): number | undefined {
@@ -702,9 +712,11 @@ function summarizeAst(root) {
 }
 
 // Memory iterations configuration
-const memoryIterationsState = createIterationState({
+const memoryIterationsState = createIntegerEnvConfiguredValue({
     defaultValue: DEFAULT_ITERATIONS,
-    envVar: MEMORY_ITERATIONS_ENV_VAR
+    envVar: MEMORY_ITERATIONS_ENV_VAR,
+    coerce: iterationCoerce,
+    typeErrorMessage: createIterationTypeErrorMessage
 });
 
 function getDefaultMemoryIterations(): number | undefined {
