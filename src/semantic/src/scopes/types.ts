@@ -1,4 +1,4 @@
-import { type GameMakerAstLocation } from "@gml-modules/core";
+import { type GameMakerAstLocation, type MutableGameMakerAstNode } from "@gml-modules/core";
 
 /**
  * A location range in the source code.
@@ -16,11 +16,13 @@ export type Occurrence = {
     name: string | null;
     scopeId: string | null;
     classifications: string[];
-    declaration: {
-        scopeId: string | null;
-        start: GameMakerAstLocation;
-        end: GameMakerAstLocation;
-    } | null;
+    declaration:
+        | (MutableGameMakerAstNode & {
+              scopeId: string | null;
+              start: GameMakerAstLocation;
+              end: GameMakerAstLocation;
+          })
+        | null;
     usageContext: {
         isRead?: boolean;
         isWrite?: boolean;
@@ -127,6 +129,13 @@ export type ScopeSymbolMetadata = {
     name: string | null;
     scopeId: string | null;
     classifications: string[];
+    /**
+     * The original AST node that declared this symbol.
+     * Preserving the node reference allows downstream consumers (like the printer)
+     * to access non-scoping metadata (like initializers or type annotations)
+     * that reside on the declaration site.
+     */
+    node?: MutableGameMakerAstNode;
 } & Location;
 
 /**

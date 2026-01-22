@@ -11,9 +11,15 @@ export function createOccurrence(
     source: GameMakerAstNode | null | undefined,
     declarationMetadata: ScopeSymbolMetadata | null | undefined
 ): Occurrence {
-    const declaration = declarationMetadata
-        ? Core.assignClonedLocation({ scopeId: declarationMetadata.scopeId }, declarationMetadata)
-        : null;
+    let declaration = null;
+    if (declarationMetadata) {
+        const base = declarationMetadata.node ?? declarationMetadata;
+        declaration = {
+            ...base,
+            scopeId: declarationMetadata.scopeId
+        } as any;
+        Core.assignClonedLocation(declaration, base);
+    }
 
     const usageContext = kind === "declaration" ? null : extractUsageContext(source);
 
@@ -71,13 +77,15 @@ export function cloneDeclarationMetadata(metadata: ScopeSymbolMetadata | null | 
         return null;
     }
 
-    return {
+    const base = metadata.node ?? metadata;
+    const cloned = {
         name: metadata.name,
         scopeId: metadata.scopeId,
-        classifications: Core.toMutableArray(metadata.classifications, { clone: true }),
-        start: Core.cloneLocation(metadata.start),
-        end: Core.cloneLocation(metadata.end)
+        node: metadata.node ? Core.assignClonedLocation({ ...metadata.node }, metadata.node) : undefined,
+        classifications: Core.toMutableArray(metadata.classifications, { clone: true })
     } as ScopeSymbolMetadata;
+
+    return Core.assignClonedLocation(cloned, base);
 }
 
 /**
@@ -89,11 +97,7 @@ export function cloneOccurrence(occurrence: Occurrence | null | undefined): Occu
     }
 
     const declarationClone = occurrence.declaration
-        ? {
-              scopeId: occurrence.declaration.scopeId,
-              start: Core.cloneLocation(occurrence.declaration.start),
-              end: Core.cloneLocation(occurrence.declaration.end)
-          }
+        ? Core.assignClonedLocation({ ...occurrence.declaration }, occurrence.declaration)
         : null;
 
     const usageContextClone = occurrence.usageContext ? { ...occurrence.usageContext } : null;

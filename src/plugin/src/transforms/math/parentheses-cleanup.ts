@@ -51,9 +51,9 @@ export function cleanupMultiplicativeIdentityParentheses(
         return;
     }
 
-    for (const value of Object.values(node)) {
+    Core.forEachNodeChild(node, (value) => {
         if (!value || typeof value !== "object") {
-            continue;
+            return;
         }
 
         if (Array.isArray(value)) {
@@ -63,7 +63,7 @@ export function cleanupMultiplicativeIdentityParentheses(
         } else {
             cleanupMultiplicativeIdentityParentheses(value, context, node);
         }
-    }
+    });
 
     if (node.type === BINARY_EXPRESSION && !attemptCondenseScalarProduct(node, context)) {
         attemptCondenseSimpleScalarProduct(node, context);

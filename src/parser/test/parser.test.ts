@@ -47,13 +47,14 @@ function hasLocationInformation(node) {
         return true;
     }
 
-    for (const value of Object.values(node)) {
-        if (hasLocationInformation(value)) {
-            return true;
+    let found = false;
+    Core.forEachNodeChild(node, (child) => {
+        if (!found && hasLocationInformation(child)) {
+            found = true;
         }
-    }
+    });
 
-    return false;
+    return found;
 }
 
 type ParserTestHarnessOptions = {

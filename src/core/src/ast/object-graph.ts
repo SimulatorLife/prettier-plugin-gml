@@ -1,5 +1,5 @@
 import { isObjectLike } from "../utils/object.js";
-import { isNode } from "./node-helpers.js";
+import { IGNORED_NODE_CHILD_KEYS, isNode } from "./node-helpers.js";
 
 type ObjectRecord = Record<string, unknown>;
 
@@ -90,6 +90,11 @@ export function walkObjectGraph(root: unknown, options: WalkObjectGraphOptions =
         // in this hot path by eliminating an unnecessary property lookup.
         for (let index = keys.length - 1; index >= 0; index -= 1) {
             const childKey = keys[index];
+
+            if (IGNORED_NODE_CHILD_KEYS.has(childKey)) {
+                continue;
+            }
+
             const childValue = objectValue[childKey];
             if (!childValue || typeof childValue !== "object") {
                 continue;

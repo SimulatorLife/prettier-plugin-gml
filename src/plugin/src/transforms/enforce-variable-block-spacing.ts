@@ -59,11 +59,11 @@ function visitNode(node, visitedNodes, minDeclarationRunLength) {
         enforceSpacingInBlock(node.body, minDeclarationRunLength);
     }
 
-    for (const value of Object.values(node)) {
+    Core.forEachNodeChild(node, (value) => {
         if (value && typeof value === "object") {
             visitNode(value, visitedNodes, minDeclarationRunLength);
         }
-    }
+    });
 }
 
 /**
