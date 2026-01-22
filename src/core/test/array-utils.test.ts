@@ -10,6 +10,7 @@ import {
     compactArray,
     findLastIndex,
     isNonEmptyArray,
+    mergeUniqueValues,
     pushUnique,
     toArray,
     toArrayFromIterable,
@@ -51,6 +52,16 @@ void test("isNonEmptyArray identifies arrays with elements", () => {
 
 void test("uniqueArray removes duplicates while preserving order", () => {
     assert.deepEqual(uniqueArray(["alpha", "beta", "alpha", "gamma", "beta"]), ["alpha", "beta", "gamma"]);
+});
+
+void test("mergeUniqueValues combines unique values and can coerce entries", () => {
+    const result = mergeUniqueValues(["alpha", "beta"], ["beta", "", "gamma", null], {
+        coerce: (value) => (typeof value === "string" && value.length > 0 ? value : null),
+        freeze: false
+    });
+
+    assert.deepEqual(result, ["alpha", "beta", "gamma"]);
+    assert.ok(!Object.isFrozen(result));
 });
 
 void test("toArrayFromIterable snapshots arrays before mutation", () => {
