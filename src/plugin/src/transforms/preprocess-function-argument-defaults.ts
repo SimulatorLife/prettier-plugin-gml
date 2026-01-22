@@ -182,9 +182,6 @@ export class PreprocessFunctionArgumentDefaultsTransform
             sourceText
         });
 
-        console.log("DEBUG: statements after condense:", statements.length);
-        if (statements.length > 1) console.log("DEBUG: statement 1 type:", statements[1].type);
-
         const paramInfoByName = new Map();
         for (const [index, param] of params.entries()) {
             const identifier = getIdentifierFromParameter(param);

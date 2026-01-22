@@ -2825,10 +2825,6 @@ function handleIntermediateTrailingSpacing({
     const forceFollowingEmptyLine =
         node?._featherForceFollowingEmptyLine === true || node?._gmlForceFollowingEmptyLine === true;
 
-    if (node?._gmlForceFollowingEmptyLine) {
-        console.log("Printer sees forceFollowingEmptyLine for node", node.type);
-    }
-
     const nextLineEmpty =
         suppressFollowingEmptyLine || suppressLeadingEmptyLine
             ? false
