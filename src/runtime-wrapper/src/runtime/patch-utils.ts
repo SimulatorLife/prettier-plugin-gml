@@ -569,26 +569,24 @@ const __resolveSpriteConstant = (prop) => {
     const jsonGame = __global_scope?.JSON_game;
     const sprites = jsonGame?.Sprites;
     if (Array.isArray(sprites)) {
-        const index = sprites.findIndex((sprite) => sprite?.pName === prop);
+        const index = sprites.findIndex(
+            (sprite) => sprite?.pName === prop || sprite?.Name === prop
+        );
         if (index !== -1) {
             return index;
         }
     }
 
     const spriteManager = __global_scope?.g_pSpriteManager;
-    if (!spriteManager || typeof spriteManager.Sprite_Find !== "function") {
-        return undefined;
-    }
-
-    const value = spriteManager.Sprite_Find(prop);
-    if (typeof value === "number" && value >= 0) {
-        if (__global_scope && prop in __global_scope === false) {
-            __global_scope[prop] = value;
+    if (spriteManager && typeof spriteManager.Sprite_Find === "function") {
+        const value = spriteManager.Sprite_Find(prop);
+        if (typeof value === "number" && value >= 0) {
+            return value;
         }
-        return value;
     }
 
-    return undefined;
+    console.warn(\`[HotReload] Could not resolve sprite: \${prop}\`);
+    return -1;
 };
 const __resolveScriptFunction = (prop) => {
     const jsonGame = __global_scope?.JSON_game;

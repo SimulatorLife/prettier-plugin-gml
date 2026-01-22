@@ -4,6 +4,7 @@ import { Parser } from "@gml-modules/parser";
 import {
     type CallTargetAnalyzer,
     type EmitOptions,
+    type FunctionDeclarationNode,
     GmlToJsEmitter,
     type IdentifierAnalyzer,
     makeDummyOracle
@@ -74,7 +75,50 @@ export class GmlTranspiler {
             const ast = parser.parse();
             const oracle = this.semantic ?? makeDummyOracle();
             const emitter = new GmlToJsEmitter(oracle, this.emitterOptions);
-            const jsBody = emitter.emit(ast);
+            let jsBody = "";
+
+            // Special handling for GML 2.3+ scripts that contain a single function declaration.
+            // When hot-reloading, we want to execute the function body immediately when the patch is applied,
+            // rather than just defining the function in the local scope.
+            // We unwrap the function, generating code to unpack 'args' into the named parameters,
+            // and then emit the body of the function.
+            if (ast.body.length === 1 && ast.body[0].type === "FunctionDeclaration") {
+                const func = ast.body[0] as unknown as FunctionDeclarationNode;
+                const params = func.params || [];
+                const paramUnpacking = params
+                    .map((p, i) => {
+                        if (typeof p === "string") {
+                            // Should not happen in AST, params are nodes
+                            return "";
+                        }
+                        if (p.type === "Identifier") {
+                            return `var ${(p).name} = args[${i}];`;
+                        }
+                        if (p.type === "DefaultParameter") {
+                            const left = p.left;
+                            if (left.type === "Identifier") {
+                                const name = (left).name;
+                                if (p.right) {
+                                    const defaultVal = emitter.emit(p.right);
+                                    return `var ${name} = args[${i}] === undefined ? ${defaultVal} : args[${i}];`;
+                                }
+                                return `var ${name} = args[${i}];`;
+                            }
+                        }
+                        return "";
+                    })
+                    .join("\n");
+
+                const bodyRaw = emitter.emit(func.body).trim();
+                // Strip surrounding braces if present (BlockStatement)
+                const bodyContent =
+                    bodyRaw.startsWith("{") && bodyRaw.endsWith("}") ? bodyRaw.slice(1, -1).trim() : bodyRaw;
+
+                jsBody = `${paramUnpacking  }\n${  bodyContent}`;
+            } else {
+                jsBody = emitter.emit(ast);
+            }
+
             const timestamp = Date.now();
             const patch: ScriptPatch = {
                 kind: "script",
