@@ -356,10 +356,9 @@ function createEnumLookup(ast, filePath) {
                 }
             }
         }
-        const values = Object.values(node);
-        for (const value of values) {
-            pushNodeValueChildren(visitStack, value);
-        }
+        Core.forEachNodeChild(node, (child) => {
+            visitStack.push(child);
+        });
     }
     return { enumDeclarations, memberDeclarations };
 }

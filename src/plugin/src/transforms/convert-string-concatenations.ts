@@ -61,15 +61,11 @@ export class ConvertStringConcatenationsTransform
             return;
         }
 
-        for (const [childKey, value] of Object.entries(node)) {
-            if (childKey === "parent") {
-                continue;
-            }
-
+        Core.forEachNodeChild(node, (value, childKey) => {
             if (Core.isObjectLike(value)) {
                 this.traverse(value, node, childKey, traversalState);
             }
-        }
+        });
 
         if (node.type === BINARY_EXPRESSION) {
             this.attemptConvertConcatenation(node, parent, key, stack);

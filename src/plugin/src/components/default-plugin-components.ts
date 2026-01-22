@@ -1,4 +1,4 @@
-import type { GameMakerAstNode } from "@gml-modules/core";
+import { Core, type GameMakerAstNode } from "@gml-modules/core";
 
 import { DEFAULT_ALIGN_ASSIGNMENTS_MIN_GROUP_SIZE } from "../options/assignment-alignment-option.js";
 import { createPrettierParserAdapter } from "../parsers/index.js";
@@ -24,6 +24,30 @@ export function createDefaultGmlPluginComponents(): GmlPluginComponentBundle {
                 isBlockComment: (comment: GameMakerAstNode) => comment?.type === "CommentBlock",
                 canAttachComment: (node: GameMakerAstNode) =>
                     node?.type && !node.type.includes("Comment") && node?.type !== "EmptyStatement",
+                getVisitorKeys: (node: any, nonTraversableKeys: any) => {
+                    return Object.keys(node).filter((key) => {
+                        if (nonTraversableKeys.has(key)) {
+                            return false;
+                        }
+                        if (Core.IGNORED_NODE_CHILD_KEYS.has(key)) {
+                            return false;
+                        }
+
+                        const value = node[key];
+                        if (Core.isNode(value)) {
+                            return true;
+                        }
+
+                        if (Array.isArray(value)) {
+                            // If it's an array, it's a child property if it contains nodes,
+                            // or if it's a known child property even if empty.
+                            // For GML, mostly everything that's an array in a node is a child list.
+                            return value.length === 0 || value.some((item) => Core.isNode(item));
+                        }
+
+                        return false;
+                    });
+                },
                 printComment,
                 handleComments
             }

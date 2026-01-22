@@ -140,13 +140,9 @@ function traverse(node, seen, context, parent = null) {
             continue;
         }
 
-        for (const [key, value] of Object.entries(node)) {
-            if (key === "parent" || !value || typeof value !== "object") {
-                continue;
-            }
-
+        Core.forEachNodeChild(node, (value) => {
             traverse(value, seen, context, node);
-        }
+        });
     }
 }
 
@@ -313,13 +309,13 @@ function combineLengthdirScalarAssignments(ast) {
 
     const body = Array.isArray(ast.body) ? ast.body : null;
     if (!body) {
-        for (const value of Object.values(ast)) {
+        Core.forEachNodeChild(ast, (value) => {
             if (!value || typeof value !== "object") {
-                continue;
+                return;
             }
 
             combineLengthdirScalarAssignments(value);
-        }
+        });
         return;
     }
 
@@ -617,27 +613,27 @@ function findFirstNumericLiteral(node) {
         return parseNumericLiteral(node) === null ? null : node;
     }
 
-    for (const value of Object.values(node)) {
-        if (!value || typeof value !== "object") {
-            continue;
-        }
+    let result = null;
+    Core.forEachNodeChild(node, (value) => {
+        if (result) return;
 
         if (Array.isArray(value)) {
             for (const element of value) {
-                const result = findFirstNumericLiteral(element);
-                if (result) {
-                    return result;
+                const subResult = findFirstNumericLiteral(element);
+                if (subResult) {
+                    result = subResult;
+                    return;
                 }
             }
         } else {
-            const result = findFirstNumericLiteral(value);
-            if (result) {
-                return result;
+            const subResult = findFirstNumericLiteral(value);
+            if (subResult) {
+                result = subResult;
             }
         }
-    }
+    });
 
-    return null;
+    return result;
 }
 
 /**
@@ -934,13 +930,9 @@ function findParentEntry(root, target) {
             continue;
         }
 
-        for (const [childKey, childValue] of Object.entries(node)) {
-            if (childKey === "parent") {
-                continue;
-            }
-
+        Core.forEachNodeChild(node, (childValue, childKey) => {
             stack.push({ parent: node, key: childKey, node: childValue });
-        }
+        });
     }
 
     return null;
@@ -4193,11 +4185,9 @@ function insertNodeBefore(root, target, statement) {
             continue;
         }
 
-        for (const value of Object.values(node)) {
-            if (value && typeof value === "object") {
-                stack.push(value);
-            }
-        }
+        Core.forEachNodeChild(node, (value) => {
+            stack.push(value);
+        });
     }
 
     return false;
@@ -4233,11 +4223,9 @@ function markPreviousSiblingForBlankLine(root, target, context) {
             continue;
         }
 
-        for (const value of Object.values(node)) {
-            if (value && typeof value === "object") {
-                stack.push(value);
-            }
-        }
+        Core.forEachNodeChild(node, (value) => {
+            stack.push(value);
+        });
     }
 
     return null;
@@ -4396,11 +4384,9 @@ function findAssignmentExpressionForRight(root, target) {
             return node;
         }
 
-        for (const value of Object.values(node)) {
-            if (value && typeof value === "object") {
-                stack.push(value);
-            }
-        }
+        Core.forEachNodeChild(node, (value) => {
+            stack.push(value);
+        });
     }
 
     return null;
@@ -4433,11 +4419,9 @@ function findVariableDeclaratorForInit(root, target) {
             return node;
         }
 
-        for (const value of Object.values(node)) {
-            if (value && typeof value === "object") {
-                stack.push(value);
-            }
-        }
+        Core.forEachNodeChild(node, (value) => {
+            stack.push(value);
+        });
     }
 
     return null;
@@ -4475,11 +4459,9 @@ function findVariableDeclarationByName(root, identifierName) {
             }
         }
 
-        for (const value of Object.values(node)) {
-            if (value && typeof value === "object") {
-                stack.push(value);
-            }
-        }
+        Core.forEachNodeChild(node, (value) => {
+            stack.push(value);
+        });
     }
 
     return null;
@@ -4514,11 +4496,9 @@ function removeNodeFromAst(root, target) {
             continue;
         }
 
-        for (const value of Object.values(node)) {
-            if (value && typeof value === "object") {
-                stack.push(value);
-            }
-        }
+        Core.forEachNodeChild(node, (value) => {
+            stack.push(value);
+        });
     }
 
     return false;
@@ -4573,11 +4553,11 @@ function traverseZeroDivisionNumerators(node, context) {
         return;
     }
 
-    for (const value of Object.values(node)) {
+    Core.forEachNodeChild(node, (value) => {
         if (value && typeof value === "object") {
             traverseZeroDivisionNumerators(value, context);
         }
-    }
+    });
 }
 
 function trySimplifyZeroDivision(node, context) {
@@ -4763,13 +4743,9 @@ function traverseForScalarCondense(
         attemptCondenseSimpleScalarProduct(node, context);
     }
 
-    for (const [key, value] of Object.entries(node)) {
-        if (key === "parent" || !value || typeof value !== "object") {
-            continue;
-        }
-
+    Core.forEachNodeChild(node, (value) => {
         traverseForScalarCondense(value as ScalarCondensingTarget, seen, context);
-    }
+    });
 }
 
 export {

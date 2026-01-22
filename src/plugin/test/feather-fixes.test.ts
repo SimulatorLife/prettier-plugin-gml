@@ -260,11 +260,9 @@ void describe("Transforms.applyFeatherFixes transform", () => {
                 allDeclarations.push(node);
             }
 
-            for (const value of Object.values(node)) {
-                if (value && typeof value === "object") {
-                    collectDeclarations(value);
-                }
-            }
+            Core.forEachNodeChild(node, (child) => {
+                collectDeclarations(child);
+            });
         };
 
         collectDeclarations(ast);
@@ -2159,11 +2157,9 @@ void describe("Transforms.applyFeatherFixes transform", () => {
                 });
             }
 
-            for (const value of Object.values(node)) {
-                if (value && typeof value === "object") {
-                    collectArgumentIdentifiers(value);
-                }
-            }
+            Core.forEachNodeChild(node, (child) => {
+                collectArgumentIdentifiers(child);
+            });
         };
 
         collectArgumentIdentifiers(ast);

@@ -305,9 +305,9 @@ export function applyRemovedIndexAdjustments(target: unknown, adjustments: unkno
         adjustLocationForRemoval(current as Record<string, unknown>, "start", normalized);
         adjustLocationForRemoval(current as Record<string, unknown>, "end", normalized);
 
-        for (const value of Object.values(current)) {
+        Core.forEachNodeChild(current, (value) => {
             stack.push(value);
-        }
+        });
     }
 }
 

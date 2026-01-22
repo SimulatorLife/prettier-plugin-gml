@@ -48,6 +48,7 @@ export { isRegExpLike } from "../../utils/index.js";
 
 // AST node helpers
 export {
+    forEachNodeChild,
     getBodyStatements,
     getIdentifierText,
     getNodeName,

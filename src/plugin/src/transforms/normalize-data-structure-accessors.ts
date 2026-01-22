@@ -124,11 +124,11 @@ function visitAndNormalize(node: unknown): void {
         processMemberIndex(typedNode as MemberIndexNode);
     }
 
-    for (const value of Object.values(typedNode)) {
+    Core.forEachNodeChild(typedNode, (value) => {
         if (value && typeof value === "object") {
             visitAndNormalize(value);
         }
-    }
+    });
 }
 
 /**

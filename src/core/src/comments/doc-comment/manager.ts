@@ -1,5 +1,6 @@
 import { type DocCommentLines, getCommentArray, isDocCommentLine } from "../comment-utils.js";
 import {
+    forEachNodeChild,
     getNodeStartIndex,
     isFunctionLikeNode,
     isNode,
@@ -248,28 +249,9 @@ function collectFunctionNodes(ast) {
             functions.push(node);
         }
 
-        const keys = Object.keys(node);
-
-        for (const key of keys) {
-            if (key === "start" || key === "end" || key === "comments") {
-                continue;
-            }
-
-            const value = node[key];
-
-            if (Array.isArray(value)) {
-                // Collect children from a shallow snapshot so visitors that
-                // splice the original array (for example transforms pruning
-                // siblings during traversal) do not cause us to skip entries.
-                const snapshot = value.slice();
-
-                for (const child of snapshot) {
-                    traverse(child);
-                }
-            } else if (isNode(value)) {
-                traverse(value);
-            }
-        }
+        forEachNodeChild(node, (child) => {
+            traverse(child);
+        });
     }
 
     traverse(ast);

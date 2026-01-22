@@ -824,13 +824,8 @@ function removeBreakStatementsWithoutEnclosingLoops({ ast, diagnostic }) {
 
         const nextBreakableDepth = breakableDepth + (isBreakableConstruct(node) ? 1 : 0);
 
-        Core.forEachNodeChild(node, (value, key) => {
-            if (Array.isArray(value)) {
-                visitArray(value, node, key, nextBreakableDepth);
-                return;
-            }
-
-            visit(value, node, key, nextBreakableDepth, node);
+        Core.forEachNodeChild(node, (value, key, container, index) => {
+            visit(value, container || node, index ?? key, nextBreakableDepth, container || node);
         });
 
         return false;
@@ -1400,17 +1395,16 @@ function resolveWithOtherVariableReferences({ ast, diagnostic }) {
             return;
         }
 
-        for (const [key, value] of Object.entries(node)) {
-            if (!value || typeof value !== "object") {
-                continue;
-            }
-
-            if (Array.isArray(value)) {
-                visit(value, node, key, node, key, context);
-            } else {
-                visit(value, node, key, null, null, context);
-            }
-        }
+        Core.forEachNodeChild(node, (value, key, container, index) => {
+            visit(
+                value,
+                container || node,
+                index === null ? key : index,
+                container ? node : null,
+                container ? key : null,
+                context
+            );
+        });
 
         ancestorStack.pop();
     };
@@ -1912,8 +1906,8 @@ function convertStringLengthPropertyAccesses({ ast, diagnostic }) {
             }
         }
 
-        Core.forEachNodeChild(node, (value, key) => {
-            visit(value, node, key);
+        Core.forEachNodeChild(node, (value, key, container, index) => {
+            visit(value, container || node, index === null ? key : index);
         });
     };
 
@@ -2227,8 +2221,8 @@ function splitGlobalVarInlineInitializers({ ast, diagnostic }) {
             return;
         }
 
-        Core.forEachNodeChild(node, (value, key) => {
-            visit(value, node, key);
+        Core.forEachNodeChild(node, (value, key, container, index) => {
+            visit(value, container || node, index === null ? key : index);
         });
     };
 
@@ -2426,18 +2420,9 @@ function flagInvalidAssignmentTargets({ ast, diagnostic, sourceText }) {
             return null;
         }
 
-        for (const [childKey, value] of Object.entries(node)) {
-            if (!value || typeof value !== "object") {
-                continue;
-            }
-
-            if (Array.isArray(value)) {
-                visit(value, node, childKey, value, null);
-                continue;
-            }
-
-            visit(value, node, childKey, null, null);
-        }
+        Core.forEachNodeChild(node, (value, childKey, container, index) => {
+            visit(value, node, childKey, container, index);
+        });
 
         return null;
     };
@@ -2619,8 +2604,8 @@ function convertReadOnlyBuiltInAssignments({ ast, diagnostic }) {
             }
         }
 
-        Core.forEachNodeChild(node, (value, key) => {
-            visit(value, node, key);
+        Core.forEachNodeChild(node, (value, key, container, index) => {
+            visit(value, container || node, index === null ? key : index);
         });
     };
 
@@ -2764,11 +2749,11 @@ function renameIdentifiersInNode(root, originalName, replacementName) {
 
         const nextAncestors = [...ancestors, { node, parent, property }];
 
-        Core.forEachNodeChild(node, (value, key) => {
+        Core.forEachNodeChild(node, (value, key, container, index) => {
             stack.push({
                 node: value,
-                parent: node,
-                property: key,
+                parent: container || node,
+                property: index ?? key,
                 ancestors: nextAncestors
             });
         });
@@ -3329,11 +3314,9 @@ function preventDivisionOrModuloByZero({ ast, diagnostic }) {
             }
         }
 
-        for (const value of Object.values(node)) {
-            if (value && typeof value === "object") {
-                visit(value);
-            }
-        }
+        Core.forEachNodeChild(node, (value) => {
+            visit(value);
+        });
     };
 
     visit(ast);
@@ -3557,19 +3540,9 @@ function cleanupSelfAssignments(node) {
             return;
         }
 
-        for (const key of Object.keys(n)) {
-            if (
-                key === "parent" ||
-                key === "loc" ||
-                key === "start" ||
-                key === "end" ||
-                key === "range" ||
-                key === "comments"
-            ) {
-                continue;
-            }
-            traverse(n[key]);
-        }
+        Core.forEachNodeChild(n, (value) => {
+            traverse(value);
+        });
     };
 
     traverse(node);
@@ -3591,19 +3564,9 @@ function cleanupSelfAssignments(node) {
                 n.name = renames.get(n.name);
             }
 
-            for (const key of Object.keys(n)) {
-                if (
-                    key === "parent" ||
-                    key === "loc" ||
-                    key === "start" ||
-                    key === "end" ||
-                    key === "range" ||
-                    key === "comments"
-                ) {
-                    continue;
-                }
-                applyRenames(n[key]);
-            }
+            Core.forEachNodeChild(n, (value) => {
+                applyRenames(value);
+            });
         };
 
         applyRenames(node);
@@ -3651,11 +3614,9 @@ function normalizeArgumentBuiltinReferences({ ast, diagnostic, collectionService
             return;
         }
 
-        for (const value of Object.values(node)) {
-            if (value && typeof value === "object") {
-                visit(value);
-            }
-        }
+        Core.forEachNodeChild(node, (value) => {
+            visit(value);
+        });
     };
 
     visit(ast);
@@ -4025,11 +3986,9 @@ function collectArgumentReferenceState({
             return;
         }
 
-        for (const value of Object.values(node)) {
-            if (value && typeof value === "object") {
-                traverse(value);
-            }
-        }
+        Core.forEachNodeChild(node, (value) => {
+            traverse(value);
+        });
     };
 
     const body = functionNode?.body;
@@ -4551,8 +4510,8 @@ function removeDuplicateMacroDeclarations({ ast, diagnostic }) {
             return true;
         }
 
-        Core.forEachNodeChild(node, (value, key) => {
-            visit(value, node, key);
+        Core.forEachNodeChild(node, (value, key, container, index) => {
+            visit(value, container || node, index === null ? key : index);
         });
 
         return false;
@@ -4595,8 +4554,8 @@ function replaceDeprecatedBuiltinVariables({ ast, diagnostic }) {
             }
         }
 
-        Core.forEachNodeChild(node, (value, key) => {
-            visit(value, node, key, node, key);
+        Core.forEachNodeChild(node, (value, key, container, index) => {
+            visit(value, container || node, index ?? key, node, key);
         });
     };
 
@@ -4707,14 +4666,14 @@ function rewriteInvalidPostfixExpressions({ ast, diagnostic }) {
 
     const fixes = [];
 
-    const visit = (node, parent = null, property = null) => {
+    const visit = (node, parent = null, property = null, owner = null) => {
         if (!node) {
             return;
         }
 
         if (Array.isArray(node)) {
             for (let index = 0; index < node.length; index += 1) {
-                visit(node[index], node, index);
+                visit(node[index], node, index, parent);
             }
             return;
         }
@@ -4724,7 +4683,7 @@ function rewriteInvalidPostfixExpressions({ ast, diagnostic }) {
         }
 
         if (node.type === "IncDecStatement") {
-            const fix = rewritePostfixStatement(node, parent, property, diagnostic);
+            const fix = rewritePostfixStatement(node, parent, property, diagnostic, owner);
 
             if (fix) {
                 fixes.push(fix);
@@ -4732,8 +4691,8 @@ function rewriteInvalidPostfixExpressions({ ast, diagnostic }) {
             }
         }
 
-        Core.forEachNodeChild(node, (value, key) => {
-            visit(value, node, key);
+        Core.forEachNodeChild(node, (value, key, container, index) => {
+            visit(value, container || node, index === null ? key : index);
         });
     };
 
@@ -4742,8 +4701,22 @@ function rewriteInvalidPostfixExpressions({ ast, diagnostic }) {
     return fixes;
 }
 
-function rewritePostfixStatement(node, parent, property, diagnostic) {
+function rewritePostfixStatement(node, parent, property, diagnostic, owner = null) {
     if (!hasArrayParentWithNumericIndex(parent, property)) {
+        return null;
+    }
+
+    // Postfix rewriting into multiple statements (var declaration + increment)
+    // is only safe when the parent array is a statement-carrying block.
+    // Splicing into expression lists (like CallExpression arguments) would
+    // produce invalid GML.
+    const isStatementContext =
+        owner?.type === "BlockStatement" ||
+        owner?.type === "Program" ||
+        owner?.type === "SwitchCase" ||
+        owner?.type === "ConstructorDeclaration";
+
+    if (!isStatementContext) {
         return null;
     }
 
@@ -4871,11 +4844,9 @@ function normalizeMultidimensionalArrayIndexing({ ast, diagnostic }) {
             }
         }
 
-        for (const [key, value] of Object.entries(node)) {
-            if (value && typeof value === "object") {
-                visit(value, node, key);
-            }
-        }
+        Core.forEachNodeChild(node, (value, key, container, index) => {
+            visit(value, container || node, index === null ? key : index);
+        });
     };
 
     visit(ast);
@@ -5095,11 +5066,9 @@ function removeTrailingMacroSemicolons({ ast, sourceText, diagnostic }) {
             }
         }
 
-        for (const value of Object.values(node)) {
-            if (value && typeof value === "object") {
-                visit(value);
-            }
-        }
+        Core.forEachNodeChild(node, (value) => {
+            visit(value);
+        });
     };
 
     visit(ast);
@@ -5147,19 +5116,12 @@ function removeBooleanLiteralStatements({ ast, diagnostic, metadata }) {
             return;
         }
 
-        for (const value of Object.values(node)) {
-            if (!value || typeof value !== "object") {
-                continue;
+        Core.forEachNodeChild(node, (value, _key, container) => {
+            if (container) {
+                arrayOwners.set(container, node);
             }
-
-            if (Array.isArray(value)) {
-                arrayOwners.set(value, node);
-                visitArray(value);
-                continue;
-            }
-
             visitNode(value);
-        }
+        });
     };
 
     const visitArray = (array) => {
@@ -5278,11 +5240,9 @@ function replaceDeprecatedConstantReferences({ ast, diagnostic }) {
             return;
         }
 
-        for (const value of Object.values(node)) {
-            if (value && typeof value === "object") {
-                visit(value);
-            }
-        }
+        Core.forEachNodeChild(node, (value) => {
+            visit(value);
+        });
     };
 
     visit(ast);
@@ -5459,6 +5419,13 @@ function findInnermostBlockForRange(ast, startIndex, endIndex) {
             return;
         }
 
+        if (Array.isArray(node)) {
+            for (const item of node) {
+                visit(item);
+            }
+            return;
+        }
+
         const nodeStart = Core.getNodeStartIndex(node);
         const nodeEnd = Core.getNodeEndIndex(node);
 
@@ -5488,16 +5455,9 @@ function findInnermostBlockForRange(ast, startIndex, endIndex) {
             }
         }
 
-        for (const value of Object.values(node)) {
-            if (Array.isArray(value)) {
-                for (const item of value) {
-                    visit(item);
-                }
-                continue;
-            }
-
+        Core.forEachNodeChild(node, (value) => {
             visit(value);
-        }
+        });
     };
 
     visit(ast);
@@ -5616,11 +5576,9 @@ function ensureVarDeclarationsAreTerminated({ ast, sourceText, diagnostic }) {
             }
         }
 
-        for (const value of Object.values(node)) {
-            if (value && typeof value === "object") {
-                visit(value);
-            }
-        }
+        Core.forEachNodeChild(node, (value) => {
+            visit(value);
+        });
     };
 
     visit(ast);
@@ -6021,11 +5979,9 @@ function convertNumericStringArgumentsToNumbers({ ast, diagnostic }) {
             }
         }
 
-        for (const value of Object.values(node)) {
-            if (value && typeof value === "object") {
-                visit(value);
-            }
-        }
+        Core.forEachNodeChild(node, (value) => {
+            visit(value);
+        });
     };
 
     visit(ast);
@@ -6175,11 +6131,9 @@ function ensureConstructorDeclarationsForNewExpressions({ ast, diagnostic }) {
             }
         }
 
-        for (const value of Object.values(node)) {
-            if (value && typeof value === "object") {
-                visit(value);
-            }
-        }
+        Core.forEachNodeChild(node, (value) => {
+            visit(value);
+        });
     };
 
     visit(ast);
@@ -6396,17 +6350,13 @@ function deduplicateLocalVariableDeclarations({ ast, diagnostic }) {
             }
         }
 
-        for (const [key, value] of Object.entries(node)) {
+        Core.forEachNodeChild(node, (value, key, container, index) => {
             if (key === "body" && Core.isFunctionLikeNode(node)) {
-                continue;
+                return;
             }
 
-            if (!value || typeof value !== "object") {
-                continue;
-            }
-
-            visit(value, node, key);
-        }
+            visit(value, container || node, index === null ? key : index);
+        });
     };
 
     pushScope();
@@ -6465,11 +6415,9 @@ function renameDuplicateFunctionParameters({
             }
         }
 
-        for (const value of Object.values(node)) {
-            if (value && typeof value === "object") {
-                visit(value);
-            }
-        }
+        Core.forEachNodeChild(node, (value) => {
+            visit(value);
+        });
     };
 
     visit(ast);
@@ -6578,11 +6526,9 @@ function replaceInvalidDeleteStatements({ ast, diagnostic }) {
             }
         }
 
-        for (const [key, value] of Object.entries(node)) {
-            if (value && typeof value === "object") {
-                visit(value, node, key);
-            }
-        }
+        Core.forEachNodeChild(node, (value, key, container, index) => {
+            visit(value, container || node, index === null ? key : index);
+        });
     };
 
     visit(ast, null, null);
@@ -6723,11 +6669,9 @@ function closeOpenVertexBatches({ ast, diagnostic }) {
             return;
         }
 
-        for (const [key, value] of Object.entries(node)) {
-            if (value && typeof value === "object") {
-                visit(value, node, key);
-            }
-        }
+        Core.forEachNodeChild(node, (value, key, container, index) => {
+            visit(value, container || node, index === null ? key : index);
+        });
     };
 
     visit(ast, null, null);
@@ -6876,11 +6820,11 @@ function convertUnusedIndexForLoops({ ast, diagnostic }) {
             }
         }
 
-        for (const [key, value] of Object.entries(node)) {
+        Core.forEachNodeChild(node, (value, key) => {
             if (value && typeof value === "object") {
                 visit(value, node, key);
             }
-        }
+        });
     };
 
     visit(ast, null, null);
@@ -7124,14 +7068,11 @@ function doesNodeUseIdentifier(node, name) {
             return;
         }
 
-        for (const value of Object.values(current)) {
+        Core.forEachNodeChild(current, (value) => {
             if (value && typeof value === "object") {
                 visit(value);
-                if (found) {
-                    break;
-                }
             }
-        }
+        });
     };
 
     visit(node);
@@ -7170,11 +7111,11 @@ function convertAllDotAssignmentsToWithStatements({ ast, diagnostic }) {
             }
         }
 
-        for (const [key, value] of Object.entries(node)) {
+        Core.forEachNodeChild(node, (value, key) => {
             if (value && typeof value === "object") {
                 visit(value, node, key);
             }
-        }
+        });
     };
 
     visit(ast, null, null);
@@ -7235,11 +7176,11 @@ function normalizeFunctionCallArgumentOrder({ ast, diagnostic }) {
         }
 
         // Visit children first (post-order traversal)
-        for (const [key, value] of Object.entries(node)) {
+        Core.forEachNodeChild(node, (value, key) => {
             if (value && typeof value === "object") {
                 visit(value, node, key, nextAncestors);
             }
-        }
+        });
 
         // Check and transform CallExpressions AFTER visiting children
         // This ensures inner/nested calls are transformed before outer calls,
@@ -7741,11 +7682,9 @@ function convertNullishCoalesceOpportunities({ ast, diagnostic }) {
             }
         }
 
-        for (const [key, value] of Object.entries(node)) {
-            if (value && typeof value === "object") {
-                visit(value, node, key);
-            }
-        }
+        Core.forEachNodeChild(node, (value, key) => {
+            visit(value, node, key);
+        });
 
         return false;
     };
@@ -7965,11 +7904,9 @@ function ensureShaderResetIsCalled({ ast, diagnostic, sourceText }) {
             }
         }
 
-        for (const [key, value] of Object.entries(node)) {
-            if (value && typeof value === "object") {
-                visit(value, node, key);
-            }
-        }
+        Core.forEachNodeChild(node, (value, key) => {
+            visit(value, node, key);
+        });
     };
 
     visit(ast, null, null);
@@ -8070,11 +8007,9 @@ function ensureFogIsReset({ ast, diagnostic }) {
             }
         }
 
-        for (const [key, value] of Object.entries(node)) {
-            if (value && typeof value === "object") {
-                visit(value, node, key);
-            }
-        }
+        Core.forEachNodeChild(node, (value, key) => {
+            visit(value, node, key);
+        });
     };
 
     visit(ast, null, null);
@@ -8182,11 +8117,9 @@ function ensureSurfaceTargetsAreReset({ ast, diagnostic }) {
             }
         }
 
-        for (const [key, value] of Object.entries(node)) {
-            if (value && typeof value === "object") {
-                visit(value, node, key);
-            }
-        }
+        Core.forEachNodeChild(node, (value, key) => {
+            visit(value, node, key);
+        });
     };
 
     visit(ast, null, null);
@@ -8299,11 +8232,9 @@ function ensureBlendEnableIsReset({ ast, diagnostic }) {
             }
         }
 
-        for (const [key, value] of Object.entries(node)) {
-            if (value && typeof value === "object") {
-                visit(value, node, key);
-            }
-        }
+        Core.forEachNodeChild(node, (value, key) => {
+            visit(value, node, key);
+        });
     };
 
     visit(ast, null, null);
@@ -8424,11 +8355,9 @@ function ensureBlendModeIsReset({ ast, diagnostic }) {
             }
         }
 
-        for (const [key, value] of Object.entries(node)) {
-            if (value && typeof value === "object") {
-                visit(value, node, key);
-            }
-        }
+        Core.forEachNodeChild(node, (value, key) => {
+            visit(value, node, key);
+        });
     };
 
     visit(ast, null, null);
@@ -8559,11 +8488,9 @@ function ensureFileFindFirstBeforeClose({ ast, diagnostic }) {
             }
         }
 
-        for (const [key, value] of Object.entries(node)) {
-            if (value && typeof value === "object") {
-                visit(value, node, key);
-            }
-        }
+        Core.forEachNodeChild(node, (value, key) => {
+            visit(value, node, key);
+        });
     };
 
     visit(ast, null, null);
@@ -8643,13 +8570,15 @@ function containsFileFindFirstCall(node) {
         return true;
     }
 
-    for (const value of Object.values(node)) {
-        if (value && typeof value === "object" && containsFileFindFirstCall(value)) {
-            return true;
+    let found = false;
+    Core.forEachNodeChild(node, (value) => {
+        if (found) return;
+        if (containsFileFindFirstCall(value)) {
+            found = true;
         }
-    }
+    });
 
-    return false;
+    return found;
 }
 
 function ensureAlphaTestEnableIsReset({ ast, diagnostic }) {
@@ -8684,11 +8613,9 @@ function ensureAlphaTestEnableIsReset({ ast, diagnostic }) {
             }
         }
 
-        for (const [key, value] of Object.entries(node)) {
-            if (value && typeof value === "object") {
-                visit(value, node, key);
-            }
-        }
+        Core.forEachNodeChild(node, (value, key) => {
+            visit(value, node, key);
+        });
     };
 
     visit(ast, null, null);
@@ -8728,11 +8655,9 @@ function ensureAlphaTestRefIsReset({ ast, diagnostic }) {
             }
         }
 
-        for (const [key, value] of Object.entries(node)) {
-            if (value && typeof value === "object") {
-                visit(value, node, key);
-            }
-        }
+        Core.forEachNodeChild(node, (value, key) => {
+            visit(value, node, key);
+        });
     };
 
     visit(ast, null, null);
@@ -8847,11 +8772,9 @@ function ensureHalignIsReset({ ast, diagnostic }) {
             }
         }
 
-        for (const [key, value] of Object.entries(node)) {
-            if (value && typeof value === "object") {
-                visit(value, node, key);
-            }
-        }
+        Core.forEachNodeChild(node, (value, key) => {
+            visit(value, node, key);
+        });
     };
 
     visit(ast, null, null);
@@ -8891,11 +8814,9 @@ function ensureConstructorParentsExist({ ast, diagnostic }) {
             functions.set(node.id, node);
         }
 
-        for (const value of Object.values(node)) {
-            if (value && typeof value === "object") {
-                collect(value);
-            }
-        }
+        Core.forEachNodeChild(node, (value) => {
+            collect(value);
+        });
     };
 
     collect(ast);
@@ -8922,11 +8843,9 @@ function ensureConstructorParentsExist({ ast, diagnostic }) {
             handleConstructorParentClause(node, functions, constructors, diagnostic, fixes);
         }
 
-        for (const value of Object.values(node)) {
-            if (value && typeof value === "object") {
-                visit(value);
-            }
-        }
+        Core.forEachNodeChild(node, (value) => {
+            visit(value);
+        });
     };
 
     visit(ast);
@@ -9001,11 +8920,9 @@ function ensurePrimitiveBeginPrecedesEnd({ ast, diagnostic }) {
             return;
         }
 
-        for (const [key, value] of Object.entries(node)) {
-            if (value && typeof value === "object") {
-                visit(value, node, key);
-            }
-        }
+        Core.forEachNodeChild(node, (value, key) => {
+            visit(value, node, key);
+        });
 
         ancestors.pop();
     };
@@ -9164,11 +9081,11 @@ function ensureDrawPrimitiveEndCallsAreBalanced({ ast, diagnostic }) {
             return;
         }
 
-        for (const [key, value] of Object.entries(node)) {
+        Core.forEachNodeChild(node, (value, key) => {
             if (value && typeof value === "object") {
                 visit(value, node, key);
             }
-        }
+        });
     };
 
     visit(ast, null, null);
@@ -9574,11 +9491,11 @@ function ensureSurfaceTargetResetForGM2005({ ast, diagnostic }) {
             }
         }
 
-        for (const [key, value] of Object.entries(node)) {
+        Core.forEachNodeChild(node, (value, key) => {
             if (value && typeof value === "object") {
                 visit(value, node, key);
             }
-        }
+        });
     };
 
     visit(ast, null, null);
@@ -9732,11 +9649,11 @@ function ensureDrawVertexCallsAreWrapped({ ast, diagnostic }) {
             return;
         }
 
-        for (const value of Object.values(node)) {
+        Core.forEachNodeChild(node, (value) => {
             if (value && typeof value === "object") {
                 visit(value);
             }
-        }
+        });
     };
 
     visit(ast);
@@ -10085,11 +10002,11 @@ function ensureCullModeIsReset({ ast, diagnostic }) {
             }
         }
 
-        for (const [key, value] of Object.entries(node)) {
+        Core.forEachNodeChild(node, (value, key) => {
             if (value && typeof value === "object") {
                 visit(value, node, key);
             }
-        }
+        });
     };
 
     visit(ast, null, null);
@@ -10203,11 +10120,11 @@ function ensureVertexBeginPrecedesEnd({ ast, diagnostic, options }) {
             return;
         }
 
-        for (const [key, value] of Object.entries(node)) {
+        Core.forEachNodeChild(node, (value, key) => {
             if (value && typeof value === "object") {
                 visit(value, node, key);
             }
-        }
+        });
     };
 
     visit(ast, null, null);
@@ -10347,11 +10264,11 @@ function ensureVertexBuffersAreClosed({ ast, diagnostic }) {
             }
         }
 
-        for (const [key, value] of Object.entries(node)) {
+        Core.forEachNodeChild(node, (value, key) => {
             if (value && typeof value === "object") {
                 visit(value, node, key);
             }
-        }
+        });
     };
 
     visit(ast, null, null);
@@ -10730,20 +10647,13 @@ function ensureLocalVariablesAreDeclaredBeforeUse({ ast, diagnostic }) {
             return;
         }
 
-        for (const [key, value] of Object.entries(node)) {
+        Core.forEachNodeChild(node, (value, key, container, index) => {
             if (!value || typeof value !== "object") {
-                continue;
+                return;
             }
 
-            if (Array.isArray(value)) {
-                for (let childIndex = 0; childIndex < value.length; childIndex += 1) {
-                    visitNode(value[childIndex], node, key, value, childIndex);
-                }
-                continue;
-            }
-
-            visitNode(value, node, key, null, null);
-        }
+            visitNode(value, node, key, container, index);
+        });
 
         ancestors.pop();
     };
@@ -11230,17 +11140,13 @@ function removeInvalidEventInheritedCalls({ ast, diagnostic }) {
             }
         }
 
-        for (const [key, value] of Object.entries(node)) {
+        Core.forEachNodeChild(node, (value, key, container, index) => {
             if (!value || typeof value !== "object") {
-                continue;
+                return;
             }
 
-            if (Array.isArray(value)) {
-                visitArray(value, node, key);
-            } else {
-                visit(value, node, key, node, key);
-            }
-        }
+            visit(value, container || node, index === null ? key : index, node, key);
+        });
 
         return false;
     };
@@ -11306,11 +11212,11 @@ function ensureColourWriteEnableIsReset({ ast, diagnostic }) {
             }
         }
 
-        for (const [key, value] of Object.entries(node)) {
+        Core.forEachNodeChild(node, (value, key) => {
             if (value && typeof value === "object") {
                 visit(value, node, key);
             }
-        }
+        });
     };
 
     visit(ast, null, null);
@@ -11449,11 +11355,11 @@ function ensureRequiredArgumentProvided({ ast, diagnostic, callTemplate }) {
             }
         }
 
-        for (const value of Object.values(node)) {
+        Core.forEachNodeChild(node, (value) => {
             if (value && typeof value === "object") {
                 visit(value);
             }
-        }
+        });
     };
 
     visit(ast);
@@ -11554,15 +11460,18 @@ function findFirstCallExpression(node) {
         return node;
     }
 
-    for (const value of Object.values(node)) {
-        const result = findFirstCallExpression(value);
-
+    let result = null;
+    Core.forEachNodeChild(node, (value) => {
         if (result) {
-            return result;
+            return;
         }
-    }
+        const childResult = findFirstCallExpression(value);
+        if (childResult) {
+            result = childResult;
+        }
+    });
 
-    return null;
+    return result;
 }
 
 /**
@@ -11642,11 +11551,11 @@ function ensureNumericOperationsUseRealLiteralCoercion({ ast, diagnostic }) {
             }
         }
 
-        for (const value of Object.values(node)) {
+        Core.forEachNodeChild(node, (value) => {
             if (value && typeof value === "object") {
                 visit(value);
             }
-        }
+        });
     };
 
     visit(ast);
@@ -11887,11 +11796,11 @@ function addMissingEnumMembers({ ast, diagnostic }) {
             }
         }
 
-        for (const value of Object.values(node)) {
+        Core.forEachNodeChild(node, (value) => {
             if (value && typeof value === "object") {
                 visit(value);
             }
-        }
+        });
     };
 
     visit(ast);
@@ -11946,11 +11855,11 @@ function collectEnumDeclarations(ast) {
             }
         }
 
-        for (const value of Object.values(node)) {
+        Core.forEachNodeChild(node, (value) => {
             if (value && typeof value === "object") {
                 visit(value);
             }
-        }
+        });
     };
 
     visit(ast);
@@ -12099,11 +12008,11 @@ function ensureTextureRepeatIsReset({ ast, diagnostic }) {
             }
         }
 
-        for (const [key, value] of Object.entries(node)) {
+        Core.forEachNodeChild(node, (value, key) => {
             if (value && typeof value === "object") {
                 visit(value, node, key);
             }
-        }
+        });
     };
 
     visit(ast, null, null);
@@ -12335,11 +12244,11 @@ function correctDataStructureAccessorTokens({ ast, diagnostic, metadata }) {
             }
         }
 
-        for (const value of Object.values(node)) {
+        Core.forEachNodeChild(node, (value) => {
             if (value && typeof value === "object") {
                 visit(value);
             }
-        }
+        });
     };
 
     visit(ast);
@@ -12814,11 +12723,11 @@ function ensureGpuStateIsPopped({ ast, diagnostic }) {
             }
         }
 
-        for (const [key, value] of Object.entries(node)) {
+        Core.forEachNodeChild(node, (value, key) => {
             if (value && typeof value === "object") {
                 visit(value, node, key);
             }
-        }
+        });
     };
 
     visit(ast, null, null);
@@ -13064,13 +12973,14 @@ function containsGpuPopStateCall(node) {
         return true;
     }
 
-    for (const value of Object.values(node)) {
-        if (containsGpuPopStateCall(value)) {
-            return true;
+    let found = false;
+    Core.forEachNodeChild(node, (value) => {
+        if (!found && containsGpuPopStateCall(value)) {
+            found = true;
         }
-    }
+    });
 
-    return false;
+    return found;
 }
 
 function createGpuPopStateCall(template) {
@@ -13164,11 +13074,11 @@ function referencesIdentifier(node, variableName) {
             }
         }
 
-        for (const [childKey, childValue] of Object.entries(value)) {
+        Core.forEachNodeChild(value, (childValue, childKey) => {
             if (childValue && typeof childValue === "object") {
-                stack.push({ value: childValue, parent: value, key: childKey });
+                stack.push({ value: childValue, parent: value as GameMakerAstNode, key: childKey });
             }
-        }
+        });
     }
 
     return false;
@@ -13239,11 +13149,11 @@ function removeDanglingFileFindCalls({ ast, diagnostic }) {
             return;
         }
 
-        for (const [key, value] of Object.entries(node)) {
+        Core.forEachNodeChild(node, (value, key) => {
             if (value && typeof value === "object") {
                 visit(value, node, key);
             }
-        }
+        });
     };
 
     visit(ast, null, null);
@@ -13386,11 +13296,11 @@ function ensureVertexFormatDefinitionsAreClosed({ ast, diagnostic }) {
             }
         }
 
-        for (const [key, value] of Object.entries(node)) {
+        Core.forEachNodeChild(node, (value, key) => {
             if (value && typeof value === "object") {
                 visit(value, node, key);
             }
-        }
+        });
     };
 
     visit(ast, null, null);
@@ -13426,11 +13336,11 @@ function ensureVertexFormatsClosedBeforeStartingNewOnes({ ast, diagnostic }) {
             return;
         }
 
-        for (const [key, value] of Object.entries(node)) {
+        Core.forEachNodeChild(node, (value, key) => {
             if (value && typeof value === "object") {
                 visit(value, node, key);
             }
-        }
+        });
     };
 
     visit(ast, null, null);
@@ -13778,11 +13688,11 @@ function countVertexFormatEndCalls(node) {
             continue;
         }
 
-        for (const value of Object.values(current)) {
+        Core.forEachNodeChild(current, (value) => {
             if (value && typeof value === "object") {
                 stack.push(value);
             }
-        }
+        });
     }
 
     return count;
@@ -13945,13 +13855,14 @@ function nodeContainsVertexFormatEndCall(node) {
         return node.some(nodeContainsVertexFormatEndCall);
     }
 
-    for (const value of Object.values(node)) {
-        if (nodeContainsVertexFormatEndCall(value)) {
-            return true;
+    let found = false;
+    Core.forEachNodeChild(node, (value) => {
+        if (!found && nodeContainsVertexFormatEndCall(value)) {
+            found = true;
         }
-    }
+    });
 
-    return false;
+    return found;
 }
 
 function isVertexFormatEndCall(node) {
@@ -14075,11 +13986,11 @@ function harmonizeTexturePointerTernaries({ ast, diagnostic }) {
             }
         }
 
-        for (const [key, value] of Object.entries(node)) {
+        Core.forEachNodeChild(node, (value, key) => {
             if (value && typeof value === "object") {
                 visit(value, node, key);
             }
-        }
+        });
     };
 
     visit(ast, null, null);
@@ -14128,11 +14039,11 @@ function annotateInstanceVariableStructAssignments({ ast, diagnostic }) {
             }
         }
 
-        for (const value of Object.values(node)) {
+        Core.forEachNodeChild(node, (value) => {
             if (value && typeof value === "object") {
                 visit(value);
             }
-        }
+        });
     };
 
     visit(ast);
@@ -14307,11 +14218,11 @@ function annotateMissingUserEvents({ ast, diagnostic }) {
             }
         }
 
-        for (const value of Object.values(node)) {
+        Core.forEachNodeChild(node, (value) => {
             if (value && typeof value === "object") {
                 visit(value);
             }
-        }
+        });
     };
 
     visit(ast);
@@ -15232,11 +15143,11 @@ function reorderOptionalParameters({ ast, diagnostic }) {
             }
         }
 
-        for (const value of Object.values(node)) {
+        Core.forEachNodeChild(node, (value) => {
             if (value && typeof value === "object") {
                 visit(value);
             }
-        }
+        });
     };
 
     visit(ast);
@@ -16032,11 +15943,11 @@ function collectIdentifierNames(node, registry) {
         registry.add(identifierDetails.name);
     }
 
-    for (const value of Object.values(node)) {
+    Core.forEachNodeChild(node, (value) => {
         if (value && typeof value === "object") {
             collectIdentifierNames(value, registry);
         }
-    }
+    });
 }
 
 function isSpriteGetTextureCall(node) {
@@ -16287,11 +16198,11 @@ function renameReservedIdentifiers({ ast, diagnostic, sourceText }) {
             }
         }
 
-        for (const value of Object.values(node)) {
+        Core.forEachNodeChild(node, (value) => {
             if (value && typeof value === "object") {
                 collectRenamings(value);
             }
-        }
+        });
     };
 
     collectRenamings(ast);
@@ -16323,11 +16234,11 @@ function renameReservedIdentifiers({ ast, diagnostic, sourceText }) {
                 node.name = renameMap.get(node.name);
             }
 
-            for (const [key, value] of Object.entries(node)) {
+            Core.forEachNodeChild(node, (value, key) => {
                 if (value && typeof value === "object") {
                     renameUsages(value, node, key, parent);
                 }
-            }
+            });
         };
 
         renameUsages(ast, null, null, null);
@@ -16807,15 +16718,15 @@ function balanceGpuStateStack({ ast, diagnostic }) {
                 visit(statement);
             }
 
-            for (const [key, value] of Object.entries(node)) {
+            Core.forEachNodeChild(node, (value, key) => {
                 if (key === "body") {
-                    continue;
+                    return;
                 }
 
                 if (value && typeof value === "object") {
                     visit(value);
                 }
-            }
+            });
 
             return;
         }
@@ -16839,24 +16750,24 @@ function balanceGpuStateStack({ ast, diagnostic }) {
                 visit(statement);
             }
 
-            for (const [key, value] of Object.entries(node)) {
+            Core.forEachNodeChild(node, (value, key) => {
                 if (key === "consequent" || key === "test") {
-                    continue;
+                    return;
                 }
 
                 if (value && typeof value === "object") {
                     visit(value);
                 }
-            }
+            });
 
             return;
         }
 
-        for (const value of Object.values(node)) {
+        Core.forEachNodeChild(node, (value) => {
             if (value && typeof value === "object") {
                 visit(value);
             }
-        }
+        });
     };
 
     visit(ast);
@@ -17014,11 +16925,11 @@ function applyMissingFunctionCallCorrections({ ast, diagnostic }) {
             }
         }
 
-        for (const value of Object.values(node)) {
+        Core.forEachNodeChild(node, (value) => {
             if (value && typeof value === "object") {
                 visit(value);
             }
-        }
+        });
     };
 
     visit(ast);
@@ -17286,17 +17197,16 @@ function findArgumentReferenceOutsideFunctions(node) {
             return;
         }
 
-        for (const value of Object.values(current)) {
+        Core.forEachNodeChild(current, (value) => {
             if (!value || (typeof value !== "object" && !Array.isArray(value))) {
-                continue;
+                return;
             }
 
             visit(value, false);
 
             if (match) {
-                break;
             }
-        }
+        });
     };
 
     visit(node, true);
@@ -17350,11 +17260,11 @@ function collectGM1100Candidates(node) {
             }
         }
 
-        for (const value of Object.values(candidate)) {
+        Core.forEachNodeChild(candidate, (value) => {
             if (value && typeof value === "object") {
                 visit(value);
             }
-        }
+        });
     };
 
     visit(node);

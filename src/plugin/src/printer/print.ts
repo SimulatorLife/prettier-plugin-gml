@@ -6079,18 +6079,9 @@ function expressionReferencesSanitizedMacro(node, sanitizedMacroNames) {
             return true;
         }
 
-        // Iterate directly over object properties using for...in to avoid
-        // allocating an intermediate array via Object.values(). This reduces
-        // allocations in the hot AST traversal path (~34% faster based on
-        // micro-benchmarks with typical AST node structures).
-        for (const key in current) {
-            // eslint-disable-next-line no-prototype-builtins
-            if (!current.hasOwnProperty(key)) {
-                continue;
-            }
-
-            pushSanitizedMacroChildren(stack, current[key]);
-        }
+        Core.forEachNodeChild(current, (value) => {
+            pushSanitizedMacroChildren(stack, value);
+        });
     }
 
     return false;

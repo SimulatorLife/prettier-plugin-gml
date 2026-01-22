@@ -7,6 +7,7 @@
 import assert from "node:assert/strict";
 import { describe, it } from "node:test";
 
+import { Core } from "@gml-modules/core";
 import { Parser } from "@gml-modules/parser";
 
 import { normalizeDataStructureAccessorsTransform } from "../src/transforms/normalize-data-structure-accessors.js";
@@ -21,13 +22,15 @@ function findMemberIndexExpression(node: unknown): unknown {
     if ((node as { type?: string }).type === "MemberIndexExpression") {
         return node;
     }
-    for (const value of Object.values(node)) {
-        const found = findMemberIndexExpression(value);
-        if (found) {
-            return found;
+
+    let found: unknown = null;
+    Core.forEachNodeChild(node, (child) => {
+        if (!found) {
+            found = findMemberIndexExpression(child);
         }
-    }
-    return null;
+    });
+
+    return found;
 }
 
 void describe("normalize-data-structure-accessors", () => {
