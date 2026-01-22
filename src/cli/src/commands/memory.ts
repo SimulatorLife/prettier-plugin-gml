@@ -49,6 +49,7 @@ const {
     incrementMapValue,
     isFsErrorCode,
     isNonEmptyString,
+    mergeUniqueValues,
     normalizeStringList,
     parseJsonObjectWithContext,
     resolveIntegerOption,
@@ -592,10 +593,13 @@ function buildSuiteResult({ measurement, extraWarnings = [] }) {
         memory
     };
 
-    const mergedWarnings = [...(warnings ?? []), ...extraWarnings].filter((warning) => isNonEmptyString(warning));
+    const mergedWarnings = mergeUniqueValues([], [...(warnings ?? []), ...extraWarnings], {
+        coerce: (warning) => (isNonEmptyString(warning) ? warning : null),
+        freeze: false
+    });
 
     if (mergedWarnings.length > 0) {
-        response.warnings = [...new Set(mergedWarnings)];
+        response.warnings = mergedWarnings;
     }
 
     return response;
