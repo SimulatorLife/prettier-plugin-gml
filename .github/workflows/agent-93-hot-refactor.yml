@@ -22,7 +22,6 @@ jobs:
       agent: ${{ inputs.agent }}
       component: "refactor engine (src/refactor)"
       extra_context: >
-        Focus on expanding the semantic-safe refactoring workflows, especially rename planning,
-        validation, and integration hooks needed for hot reload. Coordinate with the semantic
-        and transpiler packages where necessary, add targeted tests, and keep scope small but
-        meaningful.
+        Focus on expanding semantic-safe refactoring workflows—especially rename planning, validation, and the integration hooks required for hot reload—with an explicit priority on speed, low overhead, and fast edit-to-reload turnaround. Every change must be as performant or more performant than the previous state, avoiding additional analysis passes, graph walks, or bookkeeping that increase steady-state or incremental cost.
+        Keep scope small and strictly focused on refactoring behavior that directly impacts hot reload correctness or latency. Coordinate with the semantic and transpiler packages only where necessary, and prefer reusing existing semantic data, compiler infrastructure, or runtime capabilities rather than introducing parallel logic.
+        Add targeted, low-cost tests that lock in refactoring behavior and hot-reload integration without materially slowing the test suite or expanding the surface area of the refactoring system.

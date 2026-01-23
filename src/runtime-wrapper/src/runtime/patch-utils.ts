@@ -309,8 +309,8 @@ function updateInstances(
                 typeof instanceObject?.pName === "string"
                     ? instanceObject.pName
                     : typeof instanceObject?._lx === "string"
-                      ? instanceObject._lx
-                      : null;
+                        ? instanceObject._lx
+                        : null;
             if (instanceObjectName && instanceObjectName !== objectName) {
                 continue;
             }
@@ -585,8 +585,7 @@ const __resolveSpriteConstant = (prop) => {
         }
     }
 
-    console.warn(\`[HotReload] Could not resolve sprite: \${prop}\`);
-    return -1;
+    return undefined;
 };
 const __resolveScriptFunction = (prop) => {
     const jsonGame = __global_scope?.JSON_game;
