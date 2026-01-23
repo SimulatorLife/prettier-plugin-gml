@@ -309,8 +309,8 @@ function updateInstances(
                 typeof instanceObject?.pName === "string"
                     ? instanceObject.pName
                     : typeof instanceObject?._lx === "string"
-                        ? instanceObject._lx
-                        : null;
+                      ? instanceObject._lx
+                      : null;
             if (instanceObjectName && instanceObjectName !== objectName) {
                 continue;
             }

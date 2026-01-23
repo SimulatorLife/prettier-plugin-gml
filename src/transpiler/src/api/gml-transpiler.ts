@@ -92,12 +92,12 @@ export class GmlTranspiler {
                             return "";
                         }
                         if (p.type === "Identifier") {
-                            return `var ${(p).name} = args[${i}];`;
+                            return `var ${p.name} = args[${i}];`;
                         }
                         if (p.type === "DefaultParameter") {
                             const left = p.left;
                             if (left.type === "Identifier") {
-                                const name = (left).name;
+                                const name = left.name;
                                 if (p.right) {
                                     const defaultVal = emitter.emit(p.right);
                                     return `var ${name} = args[${i}] === undefined ? ${defaultVal} : args[${i}];`;
@@ -114,7 +114,7 @@ export class GmlTranspiler {
                 const bodyContent =
                     bodyRaw.startsWith("{") && bodyRaw.endsWith("}") ? bodyRaw.slice(1, -1).trim() : bodyRaw;
 
-                jsBody = `${paramUnpacking  }\n${  bodyContent}`;
+                jsBody = `${paramUnpacking}\n${bodyContent}`;
             } else {
                 jsBody = emitter.emit(ast);
             }
