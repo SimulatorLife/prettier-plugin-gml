@@ -402,10 +402,15 @@ export function createWebSocketClient({
     const applyIncomingPatch = (incoming: unknown): boolean => {
         if (!runtimeReady()) {
             queuePendingPatch(incoming);
-            return false;
+            return true;
         }
 
         ensureApplicationSurfaceAccessor();
+
+        if (state.patchQueue) {
+            enqueuePatch(incoming);
+            return true;
+        }
 
         return applyIncomingPatchInternal({
             incoming,
@@ -444,7 +449,6 @@ export function createWebSocketClient({
                 onError,
                 reconnectDelay,
                 applyIncomingPatch,
-                enqueuePatch,
                 connect,
                 logger,
                 url
@@ -541,17 +545,14 @@ type WebSocketEventListenerArgs = {
     onError?: WebSocketClientOptions["onError"];
     reconnectDelay: number;
     applyIncomingPatch: (incoming: unknown) => boolean;
-    enqueuePatch: (patch: unknown) => void;
     connect: () => void;
     logger?: Logger;
     url: string;
 };
 
 type WebSocketMessageHandlerArgs = {
-    state: WebSocketClientState;
     wrapper: WebSocketClientOptions["wrapper"];
     applyIncomingPatch: (incoming: unknown) => boolean;
-    enqueuePatch: (patch: unknown) => void;
     onError?: WebSocketClientOptions["onError"];
 };
 
@@ -574,10 +575,8 @@ function attachWebSocketEventListeners(ws: RuntimeWebSocketInstance, args: WebSo
     ws.addEventListener(
         "message",
         createMessageHandler({
-            state: args.state,
             wrapper: args.wrapper,
             applyIncomingPatch: args.applyIncomingPatch,
-            enqueuePatch: args.enqueuePatch,
             onError: args.onError
         })
     );
@@ -629,10 +628,8 @@ function createOpenHandler(
 }
 
 function createMessageHandler({
-    state,
     wrapper,
     applyIncomingPatch,
-    enqueuePatch,
     onError
 }: WebSocketMessageHandlerArgs): (event?: MessageEventLike | Error) => void {
     return (event?: MessageEventLike | Error) => {
@@ -647,15 +644,9 @@ function createMessageHandler({
 
         const patches = toArray(payload);
 
-        if (state.patchQueue) {
-            for (const patch of patches) {
-                enqueuePatch(patch);
-            }
-        } else {
-            for (const patch of patches) {
-                if (!applyIncomingPatch(patch)) {
-                    break;
-                }
+        for (const patch of patches) {
+            if (!applyIncomingPatch(patch)) {
+                break;
             }
         }
     };

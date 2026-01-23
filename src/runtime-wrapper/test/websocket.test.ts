@@ -239,6 +239,58 @@ void test("WebSocket client applies batch patches from messages", async () => {
     delete globalWithWebSocket.WebSocket;
 });
 
+void test("WebSocket client defers patch batches until runtime readiness", async () => {
+    const wrapper = RuntimeWrapper.createRuntimeWrapper();
+
+    globalWithWebSocket.WebSocket = MockWebSocket;
+
+    const readyJsonGame = {
+        ScriptNames: ["gml_Script_bootstrap"],
+        Scripts: [() => void 0]
+    };
+
+    globalWithJson.JSON_game = {
+        ScriptNames: readyJsonGame.ScriptNames,
+        Scripts: [null]
+    };
+
+    const client = RuntimeWrapper.createWebSocketClient({
+        wrapper,
+        autoConnect: true
+    });
+
+    try {
+        await wait(50);
+
+        const ws = client.getWebSocket();
+        assert.ok(ws, "WebSocket should be available");
+        const mockSocket = ws as MockWebSocket;
+
+        const pendingPatches = [
+            { kind: "script", id: "script:pending_one", js_body: "return 1;" },
+            { kind: "script", id: "script:pending_two", js_body: "return 2;" }
+        ];
+
+        mockSocket.simulateMessage(JSON.stringify(pendingPatches));
+
+        await wait(50);
+
+        assert.strictEqual(wrapper.hasScript("script:pending_one"), false);
+        assert.strictEqual(wrapper.hasScript("script:pending_two"), false);
+
+        globalWithJson.JSON_game = readyJsonGame;
+
+        await wait(100);
+
+        assert.ok(wrapper.hasScript("script:pending_one"));
+        assert.ok(wrapper.hasScript("script:pending_two"));
+    } finally {
+        client.disconnect();
+        globalWithJson.JSON_game = readyJsonGame;
+        delete globalWithWebSocket.WebSocket;
+    }
+});
+
 void test("WebSocket client reports hot reload error notifications", async () => {
     const wrapper = RuntimeWrapper.createRuntimeWrapper();
     let reportedError: RuntimePatchError | null = null;
