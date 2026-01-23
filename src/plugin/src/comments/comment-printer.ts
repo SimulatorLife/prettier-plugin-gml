@@ -78,7 +78,8 @@ function handleHoistedDeclarationLeadingComment(comment: PrinterComment) {
     }
 
     addLeadingComment(target, comment);
-    delete comment._featherHoistedTarget;
+    const targetComment = comment;
+    delete targetComment._featherHoistedTarget;
 
     return true;
 }
@@ -145,7 +146,8 @@ function suppressFormattedComment(comment, options) {
         return false;
     }
 
-    comment.printed = true;
+    const targetComment = comment;
+    targetComment.printed = true;
     return true;
 }
 
