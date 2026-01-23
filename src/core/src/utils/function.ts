@@ -9,7 +9,7 @@ import { assertFunction } from "./object.js";
  * @param {T} value
  * @returns {T}
  */
-export function identity(value) {
+export function identity<T>(value: T): T {
     return value;
 }
 
@@ -53,10 +53,11 @@ export function callWithFallback<TResult>(
     action: () => TResult,
     { fallback, onError }: CallWithFallbackOptions<TResult> = {}
 ) {
-    const invoke = assertFunction(action, "action");
-    const fallbackProvider: (error: unknown) => TResult =
-        typeof fallback === "function" ? (fallback as (error: unknown) => TResult) : () => fallback;
-    const errorHandler = onError === undefined ? undefined : assertFunction(onError, "onError");
+    const invoke = assertFunction<() => TResult>(action, "action");
+    const fallbackProvider: (error: unknown) => TResult | undefined =
+        typeof fallback === "function" ? (error) => (fallback as (error: unknown) => TResult)(error) : () => fallback;
+    const errorHandler =
+        onError === undefined ? undefined : assertFunction<(error: unknown) => void>(onError, "onError");
 
     try {
         return invoke();
