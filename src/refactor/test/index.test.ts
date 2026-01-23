@@ -2046,6 +2046,7 @@ void test("computeHotReloadCascade detects circular dependencies", async () => {
 
     // All symbols should still be in the order (possibly with cycles broken)
     assert.equal(result.order.length, 3);
+    assert.equal(new Set(result.order).size, result.order.length);
 });
 
 void test("computeHotReloadCascade handles diamond dependencies", async () => {
