@@ -86,7 +86,7 @@ function normalizeLineCommentOptions(options) {
 
 function resolveLineCommentOptions(options = {}) {
     if (!customResolver) {
-        return DEFAULT_LINE_COMMENT_OPTIONS;
+        return normalizeLineCommentOptions(options);
     }
     const result = customResolver(options);
     return normalizeLineCommentOptions(result);
