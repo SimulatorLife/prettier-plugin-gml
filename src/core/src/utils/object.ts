@@ -40,9 +40,13 @@ export function isPlainObject(value, { allowNullPrototype = true } = {}) {
  * @param {string} name Descriptive name used when constructing the error.
  * @returns {TFunction} The validated function reference.
  */
-export function assertFunction(value, name, { errorMessage }: AssertFunctionOptions = {}) {
+export function assertFunction<TFunction extends Callable>(
+    value: unknown,
+    name: string,
+    { errorMessage }: AssertFunctionOptions = {}
+): TFunction {
     if (typeof value === "function") {
-        return /** @type {TFunction} */ value;
+        return value as TFunction;
     }
 
     const message =
