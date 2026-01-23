@@ -34,6 +34,7 @@ interface AstNode {
     init?: AstNode | null;
     left?: AstNode | null;
     right?: AstNode | null;
+    object?: AstNode | null;
     body?: Array<unknown> | null;
     declarations?: Array<AstNode> | null;
 }
@@ -203,9 +204,11 @@ function walkNodeForReferences(node: unknown, references: Set<string>): void {
 
     // Extract from CallExpression nodes (e.g., player_move(), enemy_attack())
     if (astNode.type === "CallExpression") {
-        const callee = (astNode as { callee?: AstNode }).callee;
-        if (callee) {
-            const calleeName = extractIdentifierName(callee);
+        const calleeCandidate = (astNode as { callee?: AstNode | null }).callee;
+        const objectCandidate = astNode.object;
+        const callTarget = calleeCandidate ?? objectCandidate;
+        if (callTarget) {
+            const calleeName = extractIdentifierName(callTarget);
             if (calleeName) {
                 // Convert to runtime ID format
                 const runtimeId = `gml_Script_${calleeName}`;

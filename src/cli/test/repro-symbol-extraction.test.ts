@@ -1,9 +1,9 @@
 import assert from "node:assert";
 import { test } from "node:test";
 
-import { Parser } from "@gml-modules/parser";
+import * as Parser from "@gml-modules/parser";
+import * as Transpiler from "@gml-modules/transpiler";
 
-import { createSemanticOracle } from "../../transpiler/src/emitter/semantic-factory.js";
 import { extractSymbolsFromAst } from "../src/modules/transpilation/symbol-extraction.js";
 
 test("extractSymbolsFromAst finds twojointik in InverseKinematics.gml", () => {
@@ -21,7 +21,7 @@ function twojointik(x1, y1, z1, x2dir, y2dir, z2dir, x3, y3, z3, length1, length
 }
     `;
 
-    const parser = new Parser.GMLParser(sourceText, {});
+    const parser = new Parser.Parser.GMLParser(sourceText, {});
     const ast = parser.parse();
 
     // filePath is irrelevant for symbol name extraction in isolation logic,
@@ -36,7 +36,7 @@ function twojointik(x1, y1, z1, x2dir, y2dir, z2dir, x3, y3, z3, length1, length
 
 test("SemanticOracle classifies twojointik as script", () => {
     const scriptNames = new Set(["twojointik"]);
-    const oracle = createSemanticOracle({ scriptNames });
+    const oracle = Transpiler.Transpiler.createSemanticOracle({ scriptNames });
 
     // Mock CallExpressionNode
     const callNode = {

@@ -271,8 +271,7 @@ export function transpileFile(
             parseError = error;
         }
 
-        const scriptSymbolId = getPrimaryScriptPatchId(parsedSymbols);
-        const symbolId = scriptSymbolId ?? defaultSymbolId;
+        const symbolId = getPrimaryScriptPatchId(parsedSymbols, defaultSymbolId);
 
         const patch = context.transpiler.transpileScript({
             sourceText: content,
@@ -529,12 +528,31 @@ function runtimeSymbolToPatchId(symbolId: string): string | null {
     return null;
 }
 
-function getPrimaryScriptPatchId(symbols: ReadonlyArray<string>): string | null {
+function patchIdToScriptName(patchId: string): string | null {
+    if (patchId.startsWith("gml/script/")) {
+        return patchId.slice("gml/script/".length);
+    }
+    return null;
+}
+
+function getPrimaryScriptPatchId(symbols: ReadonlyArray<string>, defaultPatchId: string): string {
+    const scriptName = patchIdToScriptName(defaultPatchId);
+    if (!scriptName) {
+        return defaultPatchId;
+    }
+
+    const expectedSymbols = new Set([`gml_Script_${scriptName}`, `gml_GlobalScript_${scriptName}`]);
+
     for (const symbol of symbols) {
+        if (!expectedSymbols.has(symbol)) {
+            continue;
+        }
+
         const patchId = runtimeSymbolToPatchId(symbol);
         if (patchId) {
             return patchId;
         }
     }
-    return null;
+
+    return defaultPatchId;
 }
