@@ -550,10 +550,17 @@ export function applyPatchInternal(
     };
 }
 
-function applyScriptPatch(registry: RuntimeRegistry, patch: ScriptPatch): RuntimeRegistry {
-    if (!patch.js_body || typeof patch.js_body !== "string") {
-        throw new TypeError("Script patch must have a 'js_body' string");
+function requirePatchBody(patch: Patch, label: string): string {
+    const body = patch.js_body;
+    if (!body || typeof body !== "string") {
+        throw new TypeError(`${label} patch must have a 'js_body' string`);
     }
+
+    return body;
+}
+
+function applyScriptPatch(registry: RuntimeRegistry, patch: ScriptPatch): RuntimeRegistry {
+    const patchBody = requirePatchBody(patch, "Script");
 
     const rawFn = new Function(
         "self",
@@ -710,7 +717,7 @@ const __gml_proxy = new Proxy(__gml_scope, {
     }
 });
 with (__gml_proxy) {
-${patch.js_body}
+${patchBody}
 }`
     ) as RuntimeFunction;
 
@@ -734,13 +741,11 @@ ${patch.js_body}
 }
 
 function applyEventPatch(registry: RuntimeRegistry, patch: EventPatch): RuntimeRegistry {
-    if (!patch.js_body || typeof patch.js_body !== "string") {
-        throw new TypeError("Event patch must have a 'js_body' string");
-    }
+    const patchBody = requirePatchBody(patch, "Event");
 
     const thisName = patch.this_name || "self";
     const argsDecl = patch.js_args || "";
-    const fn = new Function(thisName, argsDecl, patch.js_body) as RuntimeFunction;
+    const fn = new Function(thisName, argsDecl, patchBody) as RuntimeFunction;
 
     const eventWrapper = function (...incomingArgs: Array<unknown>) {
         return fn.call(this, this, ...incomingArgs);
@@ -756,11 +761,9 @@ function applyEventPatch(registry: RuntimeRegistry, patch: EventPatch): RuntimeR
 }
 
 function applyClosurePatch(registry: RuntimeRegistry, patch: ClosurePatch): RuntimeRegistry {
-    if (!patch.js_body || typeof patch.js_body !== "string") {
-        throw new TypeError("Closure patch must have a 'js_body' string");
-    }
+    const patchBody = requirePatchBody(patch, "Closure");
 
-    const fn = new Function("...args", patch.js_body) as RuntimeFunction;
+    const fn = new Function("...args", patchBody) as RuntimeFunction;
 
     return {
         ...registry,

@@ -1,14 +1,14 @@
 import assert from "node:assert/strict";
 import { describe, it } from "node:test";
 
-import { getSingleBodyStatement } from "../../src/ast/node-helpers.js";
+import { Core } from "../../index.js";
 
 void describe("getSingleBodyStatement", () => {
     void it("returns null for non-block nodes", () => {
-        assert.equal(getSingleBodyStatement(null), null);
-        assert.equal(getSingleBodyStatement(undefined), null);
-        assert.equal(getSingleBodyStatement({ type: "Identifier" }), null);
-        assert.equal(getSingleBodyStatement({ type: "ExpressionStatement" }), null);
+        assert.equal(Core.getSingleBodyStatement(null), null);
+        assert.equal(Core.getSingleBodyStatement(undefined), null);
+        assert.equal(Core.getSingleBodyStatement({ type: "Identifier" }), null);
+        assert.equal(Core.getSingleBodyStatement({ type: "ExpressionStatement" }), null);
     });
 
     void it("returns null when block has no statements", () => {
@@ -16,7 +16,7 @@ void describe("getSingleBodyStatement", () => {
             type: "BlockStatement",
             body: []
         };
-        assert.equal(getSingleBodyStatement(emptyBlock), null);
+        assert.equal(Core.getSingleBodyStatement(emptyBlock), null);
     });
 
     void it("returns null when block has multiple statements", () => {
@@ -24,7 +24,7 @@ void describe("getSingleBodyStatement", () => {
             type: "BlockStatement",
             body: [{ type: "ExpressionStatement" }, { type: "ReturnStatement" }]
         };
-        assert.equal(getSingleBodyStatement(multipleStatements), null);
+        assert.equal(Core.getSingleBodyStatement(multipleStatements), null);
     });
 
     void it("returns the single statement when present", () => {
@@ -32,7 +32,7 @@ void describe("getSingleBodyStatement", () => {
             type: "BlockStatement",
             body: [{ type: "ReturnStatement", argument: null }]
         };
-        const result = getSingleBodyStatement(singleStatement);
+        const result = Core.getSingleBodyStatement(singleStatement);
         assert.notEqual(result, null);
         assert.equal(result?.type, "ReturnStatement");
     });
@@ -43,7 +43,7 @@ void describe("getSingleBodyStatement", () => {
             body: [{ type: "ReturnStatement" }],
             comments: [{ type: "CommentLine", value: "test" }]
         };
-        assert.equal(getSingleBodyStatement(blockWithComment), null);
+        assert.equal(Core.getSingleBodyStatement(blockWithComment), null);
     });
 
     void it("allows blocks with comments when skipBlockCommentCheck is true", () => {
@@ -52,7 +52,7 @@ void describe("getSingleBodyStatement", () => {
             body: [{ type: "ReturnStatement", argument: null }],
             comments: [{ type: "CommentLine", value: "test" }]
         };
-        const result = getSingleBodyStatement(blockWithComment, {
+        const result = Core.getSingleBodyStatement(blockWithComment, {
             skipBlockCommentCheck: true
         });
         assert.notEqual(result, null);
@@ -70,7 +70,7 @@ void describe("getSingleBodyStatement", () => {
                 }
             ]
         };
-        assert.equal(getSingleBodyStatement(blockWithCommentedStatement), null);
+        assert.equal(Core.getSingleBodyStatement(blockWithCommentedStatement), null);
     });
 
     void it("allows statements with comments when skipStatementCommentCheck is true", () => {
@@ -84,7 +84,7 @@ void describe("getSingleBodyStatement", () => {
                 }
             ]
         };
-        const result = getSingleBodyStatement(blockWithCommentedStatement, {
+        const result = Core.getSingleBodyStatement(blockWithCommentedStatement, {
             skipStatementCommentCheck: true
         });
         assert.notEqual(result, null);
@@ -103,7 +103,7 @@ void describe("getSingleBodyStatement", () => {
             ],
             comments: [{ type: "CommentLine", value: "block" }]
         };
-        const result = getSingleBodyStatement(fullyCommented, {
+        const result = Core.getSingleBodyStatement(fullyCommented, {
             skipBlockCommentCheck: true,
             skipStatementCommentCheck: true
         });
@@ -116,7 +116,7 @@ void describe("getSingleBodyStatement", () => {
             type: "BlockStatement",
             body: null
         };
-        assert.equal(getSingleBodyStatement(invalidBlock), null);
+        assert.equal(Core.getSingleBodyStatement(invalidBlock), null);
     });
 
     void it("returns null when single statement is null or undefined", () => {
@@ -124,6 +124,6 @@ void describe("getSingleBodyStatement", () => {
             type: "BlockStatement",
             body: [null]
         };
-        assert.equal(getSingleBodyStatement(blockWithNullStatement), null);
+        assert.equal(Core.getSingleBodyStatement(blockWithNullStatement), null);
     });
 });

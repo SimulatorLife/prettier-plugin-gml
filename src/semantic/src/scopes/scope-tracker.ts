@@ -65,6 +65,7 @@ export class ScopeTracker {
     private scopeStack: Scope[];
     private rootScope: Scope | null;
     private scopesById: Map<string, Scope>;
+    private scopeChildrenIndex: Map<string, Set<string>>;
     private symbolToScopesIndex: Map<string, Map<string, ScopeSummary>>;
     private pathToScopesIndex: Map<string, Set<string>>;
     private enabled: boolean;
@@ -76,6 +77,7 @@ export class ScopeTracker {
         this.scopeStack = [];
         this.rootScope = null;
         this.scopesById = new Map();
+        this.scopeChildrenIndex = new Map();
         this.symbolToScopesIndex = new Map();
         this.pathToScopesIndex = new Map();
         this.enabled = Boolean(enabled);
@@ -107,6 +109,14 @@ export class ScopeTracker {
         scope.stackIndex = this.scopeStack.length - 1;
         if (!this.rootScope) {
             this.rootScope = scope;
+        }
+        if (parent) {
+            let children = this.scopeChildrenIndex.get(parent.id);
+            if (!children) {
+                children = new Set<string>();
+                this.scopeChildrenIndex.set(parent.id, children);
+            }
+            children.add(scope.id);
         }
 
         const path = metadata?.path;
@@ -155,24 +165,26 @@ export class ScopeTracker {
 
     private getDescendantScopeIds(scopeId: string): Set<string> {
         const descendants = new Set<string>();
-        const scope = this.scopesById.get(scopeId);
+        const children = this.scopeChildrenIndex.get(scopeId);
 
-        if (!scope) {
+        if (!children || children.size === 0) {
             return descendants;
         }
 
-        for (const candidateScope of this.scopesById.values()) {
-            if (candidateScope.id === scopeId) {
+        const stack = [...children];
+        while (stack.length > 0) {
+            const childId = stack.pop();
+            if (!childId || descendants.has(childId)) {
                 continue;
             }
 
-            let current = candidateScope.parent;
-            while (current) {
-                if (current.id === scopeId) {
-                    descendants.add(candidateScope.id);
-                    break;
+            descendants.add(childId);
+
+            const grandChildren = this.scopeChildrenIndex.get(childId);
+            if (grandChildren && grandChildren.size > 0) {
+                for (const grandChildId of grandChildren) {
+                    stack.push(grandChildId);
                 }
-                current = current.parent;
             }
         }
 
@@ -1044,35 +1056,43 @@ export class ScopeTracker {
             return [];
         }
 
-        const scope = this.scopesById.get(scopeId);
-        if (!scope) {
-            return [];
-        }
-
         const descendants: Array<{
             scopeId: string;
             scopeKind: string;
             depth: number;
         }> = [];
+        const children = this.scopeChildrenIndex.get(scopeId);
+        if (!children || children.size === 0) {
+            return descendants;
+        }
 
-        for (const candidateScope of this.scopesById.values()) {
-            if (candidateScope.id === scopeId) {
+        const queue: Array<{ scopeId: string; depth: number }> = [];
+        for (const childId of children) {
+            queue.push({ scopeId: childId, depth: 1 });
+        }
+
+        while (queue.length > 0) {
+            const current = queue.shift();
+            if (!current) {
                 continue;
             }
 
-            let current: Scope | null = candidateScope.parent;
-            let depth = 1;
-            while (current) {
-                if (current.id === scopeId) {
-                    descendants.push({
-                        scopeId: candidateScope.id,
-                        scopeKind: candidateScope.kind,
-                        depth
-                    });
-                    break;
+            const scope = this.scopesById.get(current.scopeId);
+            if (!scope) {
+                continue;
+            }
+
+            descendants.push({
+                scopeId: scope.id,
+                scopeKind: scope.kind,
+                depth: current.depth
+            });
+
+            const grandChildren = this.scopeChildrenIndex.get(scope.id);
+            if (grandChildren && grandChildren.size > 0) {
+                for (const grandChildId of grandChildren) {
+                    queue.push({ scopeId: grandChildId, depth: current.depth + 1 });
                 }
-                current = current.parent;
-                depth += 1;
             }
         }
 

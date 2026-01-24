@@ -121,6 +121,22 @@ describe("RenameValidationCache", () => {
             assert.equal(computeCount, 2);
         });
 
+        it("tracks evictions when entries expire", async () => {
+            const cache = new RenameValidationCache({ ttlMs: 50, maxSize: 5 });
+
+            await cache.getOrCompute("gml/script/scr_test", "scr_new", createValidResult);
+
+            await new Promise((resolve) => {
+                setTimeout(resolve, 75);
+            });
+
+            await cache.getOrCompute("gml/script/scr_test", "scr_new", createValidResult);
+
+            const stats = cache.getStats();
+            assert.equal(stats.evictions, 1);
+            assert.equal(stats.size, 1);
+        });
+
         it("preserves all validation result fields", async () => {
             const cache = new RenameValidationCache();
 

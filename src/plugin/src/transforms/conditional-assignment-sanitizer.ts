@@ -32,7 +32,7 @@ function createIndexMapper(
         : [];
 
     if (offsets.length === 0) {
-        return Core.identity;
+        return (index) => index;
     }
 
     return (index: number) => {

@@ -158,4 +158,38 @@ describe("Transpilation error classification", () => {
         assert.ok(result.metrics);
         assert.strictEqual(context.errors.length, 0);
     });
+
+    it("should store patch history without retaining full payloads", async (t) => {
+        const tempDir = await mkdir(path.join(tmpdir(), `transpile-test-${Date.now()}`), { recursive: true });
+        const testFile = path.join(tempDir, "history.gml");
+
+        t.after(async () => {
+            await rm(tempDir, { recursive: true, force: true });
+        });
+
+        const context: TranspilationContext = {
+            transpiler: new Transpiler.GmlTranspiler(),
+            patches: [],
+            metrics: [],
+            errors: [],
+            lastSuccessfulPatches: new Map(),
+            maxPatchHistory: 10,
+            websocketServer: null
+        };
+
+        const content = "function test() {\n    var x = 10;\n    return x;\n}";
+        const result = transpileFile(context, testFile, content, 4, { verbose: false, quiet: true });
+
+        assert.strictEqual(result.success, true);
+        assert.ok(result.patch);
+        assert.strictEqual(context.patches.length, 1);
+
+        const patchHistory = context.patches[0];
+        assert.ok(!("js_body" in patchHistory), "Patch history should not retain JavaScript payloads");
+        assert.strictEqual(
+            patchHistory.jsBodyBytes,
+            Buffer.byteLength(result.patch.js_body, "utf8"),
+            "Patch history should retain payload size for memory tracking"
+        );
+    });
 });

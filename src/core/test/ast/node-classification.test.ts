@@ -1,12 +1,7 @@
 import assert from "node:assert/strict";
 import { describe, it } from "node:test";
 
-import {
-    DefineReplacementDirective,
-    getNormalizedDefineReplacementDirective,
-    isFunctionLikeDeclaration,
-    isMacroLikeStatement
-} from "../../src/ast/node-classification.js";
+import { Core } from "../../index.js";
 
 void describe("AST node classification helpers", () => {
     void it("normalizes define directives case-insensitively", () => {
@@ -19,20 +14,20 @@ void describe("AST node classification helpers", () => {
             replacementDirective: "  #MACRO  "
         };
 
-        assert.equal(getNormalizedDefineReplacementDirective(regionNode), DefineReplacementDirective.REGION);
-        assert.equal(getNormalizedDefineReplacementDirective(macroNode), DefineReplacementDirective.MACRO);
+        assert.equal(Core.getNormalizedDefineReplacementDirective(regionNode), Core.DefineReplacementDirective.REGION);
+        assert.equal(Core.getNormalizedDefineReplacementDirective(macroNode), Core.DefineReplacementDirective.MACRO);
     });
 
     void it("returns null when define statements lack directives", () => {
-        assert.equal(getNormalizedDefineReplacementDirective(null), null);
+        assert.equal(Core.getNormalizedDefineReplacementDirective(null), null);
         assert.equal(
-            getNormalizedDefineReplacementDirective({
+            Core.getNormalizedDefineReplacementDirective({
                 type: "DefineStatement"
             }),
             null
         );
         assert.equal(
-            getNormalizedDefineReplacementDirective({
+            Core.getNormalizedDefineReplacementDirective({
                 type: "DefineStatement",
                 replacementDirective: "   "
             }),
@@ -43,7 +38,7 @@ void describe("AST node classification helpers", () => {
     void it("throws when encountering an unsupported directive", () => {
         assert.throws(
             () =>
-                getNormalizedDefineReplacementDirective({
+                Core.getNormalizedDefineReplacementDirective({
                     type: "DefineStatement",
                     replacementDirective: "#unknown"
                 }),
@@ -59,15 +54,15 @@ void describe("AST node classification helpers", () => {
         };
         const unrelated = { type: "ReturnStatement" };
 
-        assert.equal(isMacroLikeStatement(macroDeclaration), true);
-        assert.equal(isMacroLikeStatement(defineMacro), true);
-        assert.equal(isMacroLikeStatement(unrelated), false);
+        assert.equal(Core.isMacroLikeStatement(macroDeclaration), true);
+        assert.equal(Core.isMacroLikeStatement(defineMacro), true);
+        assert.equal(Core.isMacroLikeStatement(unrelated), false);
     });
 
     void it("recognizes function-like declarations", () => {
-        assert.equal(isFunctionLikeDeclaration({ type: "FunctionDeclaration" }), true);
-        assert.equal(isFunctionLikeDeclaration({ type: "ConstructorDeclaration" }), true);
-        assert.equal(isFunctionLikeDeclaration({ type: "FunctionExpression" }), true);
-        assert.equal(isFunctionLikeDeclaration({ type: "StructDeclaration" }), false);
+        assert.equal(Core.isFunctionLikeDeclaration({ type: "FunctionDeclaration" }), true);
+        assert.equal(Core.isFunctionLikeDeclaration({ type: "ConstructorDeclaration" }), true);
+        assert.equal(Core.isFunctionLikeDeclaration({ type: "FunctionExpression" }), true);
+        assert.equal(Core.isFunctionLikeDeclaration({ type: "StructDeclaration" }), false);
     });
 });
