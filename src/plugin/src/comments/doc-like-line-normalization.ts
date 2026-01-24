@@ -4,6 +4,8 @@ type LineComment = {
     value?: string;
 };
 
+type LineCommentOptions = Record<string, unknown>;
+
 function resolveRawDocLikeRemainder(rawText: string): string {
     const trimmed = rawText.trimStart();
     const docLikePrefixMatch = trimmed.match(/^\/+/);
@@ -11,6 +13,19 @@ function resolveRawDocLikeRemainder(rawText: string): string {
         return trimmed.slice(docLikePrefixMatch[0].length).trimStart();
     }
     return trimmed;
+}
+
+function formatDocLikeLineComment(
+    comment: LineComment,
+    lineCommentOptions: LineCommentOptions,
+    originalText: string | null | undefined
+): string | null {
+    const formattingOptions = originalText === undefined ? lineCommentOptions : { ...lineCommentOptions, originalText };
+    const formatted = Core.formatLineComment(comment, formattingOptions);
+    if (typeof formatted !== "string") {
+        return null;
+    }
+    return normalizeDocLikeLineComment(comment, formatted, originalText);
 }
 
 function normalizeDocLikeLineComment(comment: LineComment, formatted: string, originalText?: string | null): string {
@@ -109,4 +124,4 @@ function normalizeDocLikeLineComment(comment: LineComment, formatted: string, or
     return formatted;
 }
 
-export { normalizeDocLikeLineComment };
+export { formatDocLikeLineComment, normalizeDocLikeLineComment };
