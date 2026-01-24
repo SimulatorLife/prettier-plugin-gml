@@ -1593,7 +1593,11 @@ export class ScopeTracker {
 
         const scopesToProcess = scopeId
             ? [this.scopesById.get(scopeId)].filter((s): s is Scope => s !== undefined)
-            : Array.from(this.scopesById.values());
+            : this.collectScopesForSymbols(symbolSet);
+
+        if (scopesToProcess.length === 0) {
+            return [];
+        }
 
         for (const scope of scopesToProcess) {
             const occurrences: ScipOccurrence[] = [];
@@ -1619,6 +1623,35 @@ export class ScopeTracker {
         }
 
         return results.toSorted((a, b) => a.scopeId.localeCompare(b.scopeId));
+    }
+
+    private collectScopesForSymbols(symbolSet: Set<string>): Scope[] {
+        const scopeIds = new Set<string>();
+
+        for (const symbol of symbolSet) {
+            const scopeSummaryMap = this.symbolToScopesIndex.get(symbol);
+            if (!scopeSummaryMap) {
+                continue;
+            }
+
+            for (const scopeId of scopeSummaryMap.keys()) {
+                scopeIds.add(scopeId);
+            }
+        }
+
+        if (scopeIds.size === 0) {
+            return [];
+        }
+
+        const scopes: Scope[] = [];
+        for (const scopeId of scopeIds) {
+            const scope = this.scopesById.get(scopeId);
+            if (scope) {
+                scopes.push(scope);
+            }
+        }
+
+        return scopes;
     }
 }
 
