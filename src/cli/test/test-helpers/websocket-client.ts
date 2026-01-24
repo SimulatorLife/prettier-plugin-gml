@@ -68,7 +68,7 @@ async function connectWithRetry(
 
     while (Date.now() - start < timeoutMs) {
         try {
-            const websocketClient = await new Promise<WebSocket>((resolve, reject) => {
+            return await new Promise<WebSocket>((resolve, reject) => {
                 const client = new WebSocket(websocketUrl);
                 registerHandlers(client);
                 const cleanup = () => {
@@ -91,8 +91,6 @@ async function connectWithRetry(
                     );
                 });
             });
-
-            return websocketClient;
         } catch (error) {
             lastError = error instanceof Error ? error : new Error(String(error));
             await delay(retryIntervalMs);

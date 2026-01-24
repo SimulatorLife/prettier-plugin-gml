@@ -100,10 +100,12 @@ void describe("Hot reload incremental transpilation", () => {
 
             await waitForScanComplete(`http://127.0.0.1:${statusPort}`, 1500, 25);
 
-            const initialHelperCount = context.receivedPatches.filter((patch) => patch.id.includes("helper_function"))
-                .length;
-            const initialDependentCount = context.receivedPatches.filter((patch) => patch.id.includes("use_helper"))
-                .length;
+            const initialHelperCount = context.receivedPatches.filter((patch) =>
+                patch.id.includes("helper_function")
+            ).length;
+            const initialDependentCount = context.receivedPatches.filter((patch) =>
+                patch.id.includes("use_helper")
+            ).length;
 
             // Modify the base script
             await writeFile(
@@ -126,7 +128,8 @@ void describe("Hot reload incremental transpilation", () => {
             await context.waitForPatches({
                 timeoutMs: 2000,
                 minCount: 1,
-                predicate: (patch: HotReloadScriptPatch): patch is HotReloadScriptPatch => patch.id.includes("use_helper"),
+                predicate: (patch: HotReloadScriptPatch): patch is HotReloadScriptPatch =>
+                    patch.id.includes("use_helper"),
                 startCount: initialDependentCount
             });
         } finally {

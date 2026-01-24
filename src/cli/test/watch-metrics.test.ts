@@ -10,12 +10,12 @@ import { writeFile } from "node:fs/promises";
 import { after, before, describe, it } from "node:test";
 
 import { runWatchCommand } from "../src/commands/watch.js";
+import { findAvailablePort } from "./test-helpers/free-port.js";
 import {
     createWatchTestFixture,
     disposeWatchTestFixture,
     type WatchTestFixture
 } from "./test-helpers/watch-fixtures.js";
-import { findAvailablePort } from "./test-helpers/free-port.js";
 import { connectToHotReloadWebSocket, type HotReloadScriptPatch } from "./test-helpers/websocket-client.js";
 
 void describe("Watch command metrics tracking", () => {

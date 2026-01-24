@@ -168,9 +168,7 @@ async function waitForQueueMetrics(
     throw new Error(`Timed out waiting for ${label}. Latest metrics: ${snapshot}`);
 }
 
-async function createConnectedPatchQueueClient(
-    options: PatchQueueClientSetupOptions = {}
-): Promise<{
+async function createConnectedPatchQueueClient(options: PatchQueueClientSetupOptions = {}): Promise<{
     wrapper: RuntimeWrapperInstance;
     client: WebSocketClientInstance;
     ws: MockWebSocket;
@@ -557,11 +555,7 @@ void test("patch queue handles array of patches correctly", async () => {
         );
         assert.strictEqual(metrics.totalQueued, 3);
 
-        metrics = await waitForQueueMetrics(
-            client,
-            "queue to flush batch",
-            (snapshot) => snapshot.totalFlushed === 3
-        );
+        metrics = await waitForQueueMetrics(client, "queue to flush batch", (snapshot) => snapshot.totalFlushed === 3);
         assert.strictEqual(metrics.totalFlushed, 3);
     } finally {
         client.disconnect();

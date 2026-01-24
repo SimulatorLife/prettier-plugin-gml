@@ -2,9 +2,10 @@ import assert from "node:assert/strict";
 import { writeFile } from "node:fs/promises";
 import path from "node:path";
 import { describe, it } from "node:test";
+
+import { waitForErrorCount, waitForPatchCount } from "./test-helpers/status-polling.js";
 import { withTemporaryProperty } from "./test-helpers/temporary-property.js";
 import { runWatchTest } from "./test-helpers/watch-runner.js";
-import { waitForErrorCount, waitForPatchCount } from "./test-helpers/status-polling.js";
 
 void describe("Watch command error recovery", () => {
     void it("should continue watching after transpilation errors", async () => {

@@ -4,13 +4,13 @@ import { writeFile } from "node:fs/promises";
 import { after, before, describe, it } from "node:test";
 
 import { runWatchCommand } from "../src/commands/watch.js";
+import { findAvailablePort } from "./test-helpers/free-port.js";
+import { fetchStatusPayload, waitForPatchCount, waitForStatusReady } from "./test-helpers/status-polling.js";
 import {
     createWatchTestFixture,
     disposeWatchTestFixture,
     type WatchTestFixture
 } from "./test-helpers/watch-fixtures.js";
-import { findAvailablePort } from "./test-helpers/free-port.js";
-import { fetchStatusPayload, waitForPatchCount, waitForStatusReady } from "./test-helpers/status-polling.js";
 
 void describe("Watch command patch history limit", () => {
     let fixture: WatchTestFixture | null = null;

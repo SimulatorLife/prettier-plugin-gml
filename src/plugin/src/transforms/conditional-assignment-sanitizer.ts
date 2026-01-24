@@ -18,7 +18,9 @@ const ASSIGNMENT_GUARD_CHARACTERS = new Set(["*", "+", "-", "/", "%", "|", "&", 
 /**
  * Returns a helper to translate character positions after insertions happen during sanitization.
  */
-function createIndexMapper(insertPositions: Array<number | null | undefined> | null | undefined): (index: number) => number {
+function createIndexMapper(
+    insertPositions: Array<number | null | undefined> | null | undefined
+): (index: number) => number {
     const offsets = Core.isNonEmptyArray(insertPositions)
         ? [
               ...new Set(
