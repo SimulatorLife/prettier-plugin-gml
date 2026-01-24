@@ -17,6 +17,18 @@ const STORE_BLOCKLIST = new Set([
     "__identifierCasePlanSnapshot"
 ]);
 
+function getIdentifierCaseOptionsObject(options: unknown): Record<string, unknown> | null {
+    if (!Core.isObjectLike(options)) {
+        return null;
+    }
+
+    if (Array.isArray(options)) {
+        return null;
+    }
+
+    return options as Record<string, unknown>;
+}
+
 function trimOptionStoreMap(maxEntries = getDefaultIdentifierCaseOptionStoreMaxEntries()) {
     if (!Number.isFinite(maxEntries)) {
         return;
@@ -51,38 +63,42 @@ function trimOptionStoreMap(maxEntries = getDefaultIdentifierCaseOptionStoreMaxE
  * baseline when the caller omits or misconfigures the override.
  */
 function resolveMaxOptionStoreEntries(options) {
-    if (!Core.isObjectLike(options)) {
+    const resolvedOptions = getIdentifierCaseOptionsObject(options);
+    if (!resolvedOptions) {
         return getDefaultIdentifierCaseOptionStoreMaxEntries();
     }
 
-    const configured = options[IDENTIFIER_CASE_OPTION_STORE_MAX_ENTRIES_OPTION_NAME];
+    const configured = resolvedOptions[IDENTIFIER_CASE_OPTION_STORE_MAX_ENTRIES_OPTION_NAME];
 
     if (configured === Infinity) {
         return configured;
     }
 
-    if (!Core.isFiniteNumber(configured)) {
+    const numericConfigured = Core.toFiniteNumber(configured);
+
+    if (numericConfigured === null) {
         return getDefaultIdentifierCaseOptionStoreMaxEntries();
     }
 
-    if (configured <= 0) {
+    if (numericConfigured <= 0) {
         return 0;
     }
 
-    return Math.floor(configured);
+    return Math.floor(numericConfigured);
 }
 
 function getStoreKey(options) {
-    if (!Core.isObjectLike(options)) {
+    const resolvedOptions = getIdentifierCaseOptionsObject(options);
+    if (!resolvedOptions) {
         return null;
     }
 
-    if (options.__identifierCaseOptionsStoreKey !== undefined) {
-        return options.__identifierCaseOptionsStoreKey;
+    if (resolvedOptions.__identifierCaseOptionsStoreKey !== undefined) {
+        return resolvedOptions.__identifierCaseOptionsStoreKey;
     }
 
-    if (Core.isNonEmptyString(options.filepath)) {
-        return options.filepath;
+    if (Core.isNonEmptyString(resolvedOptions.filepath)) {
+        return resolvedOptions.filepath;
     }
 
     return null;
@@ -101,16 +117,17 @@ function getOrCreateStoreEntry(storeKey) {
 }
 
 function updateStore(options, key, value) {
-    if (!Core.isObjectLike(options)) {
+    const resolvedOptions = getIdentifierCaseOptionsObject(options);
+    if (!resolvedOptions) {
         return;
     }
 
-    const store = options.__identifierCaseOptionsStore;
+    const store = resolvedOptions.__identifierCaseOptionsStore;
     if (Core.isObjectLike(store)) {
         store[key] = value;
     }
 
-    const storeKey = getStoreKey(options);
+    const storeKey = getStoreKey(resolvedOptions);
     // treat both `null` and `undefined` as "no store key" so callers that
     // explicitly pass `null` (test helpers use `clearIdentifierCaseOptionStore(null)`)
     // behave as expected. Using loose equality here intentionally covers both
@@ -151,28 +168,30 @@ function deleteFromStore(storeKey, key) {
 }
 
 export function setIdentifierCaseOption(options, key, value) {
-    if (!Core.isObjectLike(options)) {
+    const resolvedOptions = getIdentifierCaseOptionsObject(options);
+    if (!resolvedOptions) {
         return;
     }
 
-    options[key] = value;
-    updateStore(options, key, value);
+    resolvedOptions[key] = value;
+    updateStore(resolvedOptions, key, value);
 }
 
 export function deleteIdentifierCaseOption(options, key) {
-    if (!Core.isObjectLike(options) || key === undefined) {
+    const resolvedOptions = getIdentifierCaseOptionsObject(options);
+    if (!resolvedOptions || key === undefined) {
         return;
     }
 
-    if (Object.hasOwn(options, key)) {
+    if (Object.hasOwn(resolvedOptions, key)) {
         try {
-            delete options[key];
+            delete resolvedOptions[key];
         } catch {
-            options[key] = undefined;
+            resolvedOptions[key] = undefined;
         }
     }
 
-    const storeKey = getStoreKey(options);
+    const storeKey = getStoreKey(resolvedOptions);
     deleteFromStore(storeKey, key);
 }
 
