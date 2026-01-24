@@ -156,7 +156,7 @@ const tsConfig = defineConfig({
     },
 
     rules: {
-        "no-unused-vars": "off", // base rule off, use unused-imports plugin instead
+        "no-unused-vars": "off", // base rule off, we use 'unused-imports' plugin instead
         "unused-imports/no-unused-imports": "error",
         "unused-imports/no-unused-vars": [
             "error",
@@ -169,12 +169,12 @@ const tsConfig = defineConfig({
         ],
         "no-console": ["warn"],
         "no-prototype-builtins": ["warn"],
-        "no-useless-escape": ["warn"],
+        "no-useless-escape": ["error"],
         "no-with": ["error"],
         "no-undef": ["error"],
 
         // built-in additions
-        "no-shadow": "warn",
+        "no-shadow": "error",
         "no-misleading-character-class": "error",
         "no-loss-of-precision": "error",
         "no-new-native-nonconstructor": "error",
@@ -305,7 +305,7 @@ const tsConfig = defineConfig({
 
         /* unicorn plugin tweaks beyond the preset */
         "unicorn/no-empty-file": "error",
-        "unicorn/consistent-function-scoping": "error",
+        "unicorn/consistent-function-scoping": "error", // Can improve performance due to less allocations
         "unicorn/no-abusive-eslint-disable": "error",
         "unicorn/error-message": "error",
         "unicorn/no-useless-length-check": "error",
@@ -324,10 +324,10 @@ const tsConfig = defineConfig({
         // Prettier's path.map(callback, property) requires the second argument,
         // so disable the auto-fix that strips it as an unused thisArg.
         "unicorn/no-array-method-this-argument": "off",
-        "unicorn/no-object-as-default-parameter": "warn",
+        "unicorn/no-object-as-default-parameter": "error", // Default parameters are re-evaluated on each call, so every call allocates a new object/array
         "unicorn/prefer-single-call": "error",
         "unicorn/prefer-default-parameters": "warn",
-        "unicorn/prefer-top-level-await": "warn",
+        "unicorn/prefer-top-level-await": "error",
         "unicorn/prefer-switch": "warn",
         "unicorn/prefer-array-some": "warn",
         "unicorn/no-this-assignment": "error",
@@ -337,7 +337,7 @@ const tsConfig = defineConfig({
             { "checkAllIndexAccess": false }
         ],
         "unicorn/no-new-array": "error", // Instead of new Array(1, 2, 3) use [1, 2, 3]
-        "unicorn/no-array-reverse": "warn",
+        "unicorn/no-array-reverse": "warn", // This is not error because it can be perfornance-negative to copy first
         "unicorn/no-array-reduce": "off",
         "unicorn/prefer-spread": "off",
         "unicorn/no-array-for-each": "off",
