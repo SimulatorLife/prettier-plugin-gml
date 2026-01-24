@@ -618,8 +618,10 @@ function createIdentifierTextDataset() {
     ];
 }
 
+const DEFAULT_IDENTIFIER_TEXT_ITERATIONS = 500_000;
+
 function resolveIdentifierTextIterations() {
-    return 5_000_000;
+    return DEFAULT_IDENTIFIER_TEXT_ITERATIONS;
 }
 
 function benchmarkIdentifierTextDataset(dataset, iterations) {

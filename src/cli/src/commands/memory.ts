@@ -402,6 +402,32 @@ function clearSampleCache() {
     sampleCache.clear();
 }
 
+/**
+ * Override a cached sample record for tests.
+ *
+ * @param {string} label Cache label used by the memory suite.
+ * @param {{ contents: string; path: string }} record Sample contents and path.
+ */
+function setSampleCacheRecordForTests(label: string, record: { contents: string; path: string }) {
+    if (!isNonEmptyString(label)) {
+        throw new TypeError("Sample cache label must be a non-empty string.");
+    }
+
+    if (!record || typeof record !== "object") {
+        throw new TypeError("Sample cache record must be an object.");
+    }
+
+    if (!isNonEmptyString(record.contents)) {
+        throw new TypeError("Sample cache contents must be a non-empty string.");
+    }
+
+    if (!isNonEmptyString(record.path)) {
+        throw new TypeError("Sample cache path must be a non-empty string.");
+    }
+
+    rememberSampleRecord(label, { contents: record.contents, path: record.path });
+}
+
 function getSampleCacheRecord(label) {
     const cached = sampleCache.get(label) ?? null;
     if (cached === null) {
@@ -1381,6 +1407,7 @@ export const __test__ = Object.freeze({
     collectCommonNodeTypes,
     SAMPLE_CACHE_MAX_ENTRIES,
     loadSampleTextForTests: loadSampleText,
+    setSampleCacheRecordForTests,
     clearSampleCacheForTests: clearSampleCache,
     getSampleCacheLabelsForTests: getSampleCacheLabels
 });

@@ -15,6 +15,8 @@ import {
     disposeWatchTestFixture,
     type WatchTestFixture
 } from "./test-helpers/watch-fixtures.js";
+import { findAvailablePort } from "./test-helpers/free-port.js";
+import { connectToHotReloadWebSocket, type HotReloadScriptPatch } from "./test-helpers/websocket-client.js";
 
 void describe("Watch command metrics tracking", () => {
     let fixture: WatchTestFixture | null = null;
@@ -38,6 +40,7 @@ void describe("Watch command metrics tracking", () => {
 
     void it("should track metrics for multiple transpilations", async () => {
         const abortController = new AbortController();
+        const websocketPort = await findAvailablePort();
 
         if (!fixture) {
             throw new Error("Watch fixture was not initialized");
@@ -46,29 +49,44 @@ void describe("Watch command metrics tracking", () => {
         const watchPromise = runWatchCommand(fixture.dir, {
             extensions: [".gml"],
             verbose: true,
-            websocketServer: false,
+            websocketPort,
+            websocketHost: "127.0.0.1",
+            websocketServer: true,
             statusServer: false,
             runtimeServer: false,
             abortSignal: abortController.signal
         });
 
-        // Wait for watch to start
-        await new Promise((resolve) => setTimeout(resolve, 500));
-
-        // Trigger multiple file changes
-        await writeFile(fixture.script1, "var x = 100; // Modified", "utf8");
-        await new Promise((resolve) => setTimeout(resolve, 200));
-
-        await writeFile(fixture.script2, "var y = 200; // Modified", "utf8");
-        await new Promise((resolve) => setTimeout(resolve, 200));
-
-        // Stop the watcher
-        abortController.abort();
+        let websocketClient: Awaited<ReturnType<typeof connectToHotReloadWebSocket>> | null = null;
 
         try {
-            await watchPromise;
-        } catch {
-            // Expected when aborting
+            websocketClient = await connectToHotReloadWebSocket(`ws://127.0.0.1:${websocketPort}`, {
+                connectionTimeoutMs: 1200,
+                retryIntervalMs: 25
+            });
+
+            // Trigger multiple file changes
+            await writeFile(fixture.script1, "var x = 100; // Modified", "utf8");
+            await writeFile(fixture.script2, "var y = 200; // Modified", "utf8");
+            await websocketClient.waitForPatches({
+                timeoutMs: 1500,
+                minCount: 2,
+                predicate: (patch: HotReloadScriptPatch): patch is HotReloadScriptPatch =>
+                    patch.id.includes("script1") || patch.id.includes("script2")
+            });
+        } finally {
+            // Stop the watcher
+            abortController.abort();
+
+            if (websocketClient) {
+                await websocketClient.disconnect();
+            }
+
+            try {
+                await watchPromise;
+            } catch {
+                // Expected when aborting
+            }
         }
 
         // Test passes if no errors were thrown and statistics were displayed
