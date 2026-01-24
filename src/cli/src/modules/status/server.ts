@@ -9,6 +9,11 @@
 import { createServer, type IncomingMessage, type Server, type ServerResponse } from "node:http";
 
 import type { ServerEndpoint, ServerLifecycle } from "../shared-server-types.js";
+import {
+    DEFAULT_STATUS_HEALTH_POLICY_CONFIG,
+    evaluateReadiness,
+    evaluateTranspilationHealth
+} from "./status-health-policy.js";
 
 export interface StatusSnapshot {
     uptime: number;
@@ -47,13 +52,6 @@ export interface StatusServerController extends ServerEndpoint, ServerLifecycle 
 const DEFAULT_STATUS_HOST = "127.0.0.1";
 const DEFAULT_STATUS_PORT = 17_891;
 
-/**
- * Readiness threshold: server is considered ready if successful patches
- * outnumber errors by at least this ratio. This ensures the watcher is
- * operational even if occasional transpilation failures occur.
- */
-const READINESS_SUCCESS_TO_ERROR_RATIO = 2;
-
 function sendJsonResponse(res: ServerResponse, statusCode: number, data: unknown): void {
     res.writeHead(statusCode, {
         "Content-Type": "application/json",
@@ -90,9 +88,10 @@ function handleHealthRequest(_req: IncomingMessage, res: ServerResponse, getSnap
             uptime: snapshot.uptime,
             checks: {
                 transpilation: {
-                    status: snapshot.errorCount === 0 || snapshot.patchCount > snapshot.errorCount ? "pass" : "warn",
-                    patchCount: snapshot.patchCount,
-                    errorCount: snapshot.errorCount
+                    ...evaluateTranspilationHealth({
+                        patchCount: snapshot.patchCount,
+                        errorCount: snapshot.errorCount
+                    })
                 },
                 websocket: {
                     status: "pass",
@@ -120,12 +119,13 @@ function handlePingRequest(_req: IncomingMessage, res: ServerResponse): void {
 function handleReadyRequest(_req: IncomingMessage, res: ServerResponse, getSnapshot: () => StatusSnapshot): void {
     try {
         const snapshot = getSnapshot();
-        // Ready if the server is operational and not experiencing excessive errors.
-        // We consider the server ready if successful patches outnumber errors by
-        // the configured ratio, allowing for occasional transpilation failures
-        // without marking the service as unavailable.
-        const isReady =
-            snapshot.errorCount === 0 || snapshot.patchCount > snapshot.errorCount * READINESS_SUCCESS_TO_ERROR_RATIO;
+        const { isReady } = evaluateReadiness(
+            {
+                patchCount: snapshot.patchCount,
+                errorCount: snapshot.errorCount
+            },
+            DEFAULT_STATUS_HEALTH_POLICY_CONFIG
+        );
         const statusCode = isReady ? 200 : 503;
         sendJsonResponse(res, statusCode, {
             ready: isReady,
