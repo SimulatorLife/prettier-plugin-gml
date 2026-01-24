@@ -4,6 +4,7 @@ import { Core } from "@gml-modules/core";
 
 const {
     callWithFallback,
+    clamp,
     coercePositiveInteger,
     createEnvConfiguredValue,
     createNumericTypeErrorFormatter,
@@ -95,14 +96,14 @@ function normalizeByteCount(value: NumericLike): number {
             return 0;
         }
 
-        return Math.max(numericValue, 0);
+        return clamp(numericValue, 0, Number.POSITIVE_INFINITY);
     }
 
     if (!isFiniteNumber(value)) {
         return 0;
     }
 
-    return value > 0 ? value : 0;
+    return clamp(value, 0, Number.POSITIVE_INFINITY);
 }
 
 function resolveRadixOverride(radix: number | string | undefined, defaultRadix: number): number {
@@ -133,7 +134,7 @@ function formatByteSize(
         value /= resolvedRadix;
     }
 
-    const decimalPlaces = Math.max(0, unitIndex === 0 ? decimalsForBytes : decimals);
+    const decimalPlaces = clamp(unitIndex === 0 ? decimalsForBytes : decimals, 0, Number.POSITIVE_INFINITY);
 
     let formattedValue = value.toFixed(decimalPlaces);
 
