@@ -159,7 +159,19 @@ function classifyTranspilationError(error: unknown): {
 
 export interface TranspilationContext {
     transpiler: RuntimeTranspiler;
-    patches: Array<RuntimeTranspilerPatch>;
+    /**
+     * Lightweight summaries of recent patches, trimmed to avoid retaining full
+     * JavaScript payloads in memory. `jsBodyBytes` records the payload size so
+     * memory usage can be tracked without storing the full string.
+     */
+    patches: Array<{
+        id: string;
+        kind: string;
+        runtimeId?: string;
+        sourcePath?: string;
+        timestamp?: number;
+        jsBodyBytes: number;
+    }>;
     metrics: Array<TranspilationMetrics>;
     errors: Array<TranspilationError>;
     lastSuccessfulPatches: Map<string, RuntimeTranspilerPatch>;
@@ -240,6 +252,23 @@ function createErrorNotification(
     };
 }
 
+function createPatchSummary(patchPayload: RuntimeTranspilerPatch) {
+    const metadata = Core.isObjectLike(patchPayload.metadata) ? patchPayload.metadata : null;
+    const sourcePath = Core.isNonEmptyString(metadata?.sourcePath) ? metadata.sourcePath : undefined;
+    const timestamp = Core.isFiniteNumber(metadata?.timestamp) ? metadata.timestamp : undefined;
+    const runtimeIdValue = (patchPayload as { runtimeId?: unknown }).runtimeId;
+    const runtimeId = Core.isNonEmptyString(runtimeIdValue) ? runtimeIdValue : undefined;
+
+    return {
+        id: patchPayload.id,
+        kind: patchPayload.kind,
+        runtimeId,
+        sourcePath,
+        timestamp,
+        jsBodyBytes: Buffer.byteLength(patchPayload.js_body, "utf8")
+    };
+}
+
 /**
  * Transpiles a GML file and manages the complete lifecycle including metrics
  * tracking, patch validation, symbol extraction, and WebSocket broadcasting.
@@ -312,7 +341,7 @@ export function transpileFile(
             registerScriptNamesFromSymbols(parsedSymbols, context.scriptNames);
         }
 
-        addToBoundedCollection(context.patches, patchPayload, context.maxPatchHistory);
+        addToBoundedCollection(context.patches, createPatchSummary(patchPayload), context.maxPatchHistory);
 
         const broadcastResult = context.websocketServer?.broadcast(patchPayload);
         if (broadcastResult && !quiet) {
