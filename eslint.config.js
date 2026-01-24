@@ -159,7 +159,7 @@ const tsConfig = defineConfig({
         "no-unused-vars": "off", // base rule off, use unused-imports plugin instead
         "unused-imports/no-unused-imports": "error",
         "unused-imports/no-unused-vars": [
-            "warn",
+            "error",
             {
                 vars: "all",
                 varsIgnorePattern: "^_",
@@ -206,7 +206,7 @@ const tsConfig = defineConfig({
         "no-useless-catch": "error", // catch that just rethrows
         "no-useless-constructor": "error", // empty class constructors
         "no-useless-return": "error", // last line `return;`
-        "object-shorthand": ["warn", "always"], // { foo: foo } → { foo }
+        "object-shorthand": ["error", "always"], // { foo: foo } → { foo }
         "prefer-const": ["error", { destructuring: "all" }], // stabilize bindings
         "no-var": "error", // always use let/const
         "prefer-template": "error", // "a " + b → `a ${b}`
@@ -257,7 +257,7 @@ const tsConfig = defineConfig({
                 skipComments: true
             }
         ],
-        "max-params": ["warn", 5],
+        "max-params": ["error", 8],
         "max-statements": ["error", 90],
         "max-statements-per-line": ["error", { max: 1 }],
         "max-nested-callbacks": ["error", 4],
