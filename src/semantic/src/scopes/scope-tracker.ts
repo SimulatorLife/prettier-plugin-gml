@@ -1016,33 +1016,32 @@ export class ScopeTracker {
             scopeId: string;
             scopeKind: string;
             reason: string;
-        }> = [
-            {
-                scopeId: scope.id,
-                scopeKind: scope.kind,
-                reason: "self"
+        }> = [];
+        const seenScopes = new Set<string>();
+
+        const addScope = (scopeIdToAdd: string, scopeKind: string, reason: string): void => {
+            if (seenScopes.has(scopeIdToAdd)) {
+                return;
             }
-        ];
+            seenScopes.add(scopeIdToAdd);
+            invalidationSet.push({
+                scopeId: scopeIdToAdd,
+                scopeKind,
+                reason
+            });
+        };
+
+        addScope(scope.id, scope.kind, "self");
 
         const dependents = this.getTransitiveDependents(scopeId);
         for (const dep of dependents) {
-            invalidationSet.push({
-                scopeId: dep.dependentScopeId,
-                scopeKind: dep.dependentScopeKind,
-                reason: "dependent"
-            });
+            addScope(dep.dependentScopeId, dep.dependentScopeKind, "dependent");
         }
 
         if (includeDescendants) {
             const descendants = this.getDescendantScopes(scopeId);
             for (const desc of descendants) {
-                if (!invalidationSet.some((s) => s.scopeId === desc.scopeId)) {
-                    invalidationSet.push({
-                        scopeId: desc.scopeId,
-                        scopeKind: desc.scopeKind,
-                        reason: "descendant"
-                    });
-                }
+                addScope(desc.scopeId, desc.scopeKind, "descendant");
             }
         }
 
@@ -1071,12 +1070,8 @@ export class ScopeTracker {
             queue.push({ scopeId: childId, depth: 1 });
         }
 
-        while (queue.length > 0) {
-            const current = queue.shift();
-            if (!current) {
-                continue;
-            }
-
+        for (let i = 0; i < queue.length; i += 1) {
+            const current = queue[i];
             const scope = this.scopesById.get(current.scopeId);
             if (!scope) {
                 continue;
