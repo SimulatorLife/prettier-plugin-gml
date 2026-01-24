@@ -325,12 +325,12 @@ const tsConfig = defineConfig({
         // so disable the auto-fix that strips it as an unused thisArg.
         "unicorn/no-array-method-this-argument": "off",
         "unicorn/no-object-as-default-parameter": "warn",
-        "unicorn/prefer-single-call": "warn",
+        "unicorn/prefer-single-call": "error",
         "unicorn/prefer-default-parameters": "warn",
         "unicorn/prefer-top-level-await": "warn",
         "unicorn/prefer-switch": "warn",
         "unicorn/prefer-array-some": "warn",
-        "unicorn/no-this-assignment": "warn",
+        "unicorn/no-this-assignment": "error",
         "unicorn/prefer-at": [
             "error",
             // Enforce .at() only for negative-index patterns; allow bracket access in hot paths

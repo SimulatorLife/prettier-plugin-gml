@@ -593,8 +593,7 @@ function tryPrintFunctionNode(node, path, options, print) {
                 return concat(parts);
             }
 
-            parts.push(" ");
-            parts.push(printInBlock(path, options, print, "body"));
+            parts.push(" ", printInBlock(path, options, print, "body"));
             return concat(parts);
         }
     }

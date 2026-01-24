@@ -782,29 +782,20 @@ function createHumanReadableSuiteLines({ suite, payload }) {
 
     if (isPerformanceThroughputSuite(suite)) {
         const datasetBytes = payload?.dataset?.totalBytes ?? 0;
-        lines.push(`  - iterations: ${payload?.iterations}`, `  - files: ${payload?.dataset?.files ?? 0}`);
+        const totalDuration = formatMetricValue(payload?.totalDurationMs, { unit: "ms" });
+        const averageDuration = formatMetricValue(payload?.averageDurationMs, { unit: "ms" });
+        const datasetSize = formatByteSize(datasetBytes, { decimals: 2, decimalsForBytes: 2, separator: " " });
+        const throughputFiles = formatMetricValue(payload?.throughput?.filesPerMs, { unit: "files/ms" });
+        const throughputBytes = formatMetricValue(payload?.throughput?.bytesPerMs, { unit: "bytes/ms" });
+
         lines.push(
-            `  - total duration: ${formatMetricValue(payload?.totalDurationMs, {
-                unit: "ms"
-            })}`
-        );
-        lines.push(
-            `  - average duration: ${formatMetricValue(payload?.averageDurationMs, {
-                unit: "ms"
-            })}`
-        );
-        lines.push(
-            `  - dataset size: ${formatByteSize(datasetBytes, {
-                decimals: 2,
-                decimalsForBytes: 2,
-                separator: " "
-            })}`
-        );
-        lines.push(
-            `  - throughput (files/ms): ${formatMetricValue(payload?.throughput?.filesPerMs, { unit: "files/ms" })}`
-        );
-        lines.push(
-            `  - throughput (bytes/ms): ${formatMetricValue(payload?.throughput?.bytesPerMs, { unit: "bytes/ms" })}`
+            `  - iterations: ${payload?.iterations}`,
+            `  - files: ${payload?.dataset?.files ?? 0}`,
+            `  - total duration: ${totalDuration}`,
+            `  - average duration: ${averageDuration}`,
+            `  - dataset size: ${datasetSize}`,
+            `  - throughput (files/ms): ${throughputFiles}`,
+            `  - throughput (bytes/ms): ${throughputBytes}`
         );
         return lines;
     }

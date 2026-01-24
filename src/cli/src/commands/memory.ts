@@ -1217,8 +1217,10 @@ function formatMemorySuitePayload(payload: MemorySuitePayload): Array<string> {
     }
 
     if (typeof payload.heapUsedBefore === "number" && typeof payload.heapUsedAfter === "number") {
-        lines.push(`  Heap before: ${formatBytes(payload.heapUsedBefore)}`);
-        lines.push(`  Heap after: ${formatBytes(payload.heapUsedAfter)}`);
+        lines.push(
+            `  Heap before: ${formatBytes(payload.heapUsedBefore)}`,
+            `  Heap after: ${formatBytes(payload.heapUsedAfter)}`
+        );
 
         if (typeof payload.heapDelta === "number") {
             lines.push(`  Heap delta: ${formatDelta(payload.heapDelta, formatBytes)}`);
