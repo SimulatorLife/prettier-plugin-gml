@@ -126,14 +126,13 @@ function normalizeInlineTrailingCommentSpacing(formatted: string): string {
     return formatted.replaceAll(INLINE_TRAILING_COMMENT_SPACING_PATTERN, " ");
 }
 
-function extractLineCommentPayload(line: string): string | null {
-    const trimmed = line.trim();
-    if (trimmed.startsWith("///")) {
-        return trimmed.slice(3).trim();
+function extractLineCommentPayload(trimmedStart: string): string | null {
+    if (trimmedStart.startsWith("///")) {
+        return trimmedStart.slice(3).trim();
     }
 
-    if (trimmed.startsWith("//")) {
-        return trimmed.slice(2).trim();
+    if (trimmedStart.startsWith("//")) {
+        return trimmedStart.slice(2).trim();
     }
 
     return null;
@@ -142,19 +141,23 @@ function extractLineCommentPayload(line: string): string | null {
 function removeDuplicateDocLikeLineComments(formatted: string): string {
     const lines = formatted.split(/\r?\n/);
     const result: string[] = [];
+    // Cache the previous doc payload to avoid re-parsing the last emitted line.
+    let previousDocPayload: string | null = null;
 
     for (const line of lines) {
-        const trimmed = line.trim();
+        const trimmedStart = line.trimStart();
 
-        if (trimmed.startsWith("///")) {
-            const docPayload = extractLineCommentPayload(line);
-            const previousLine = result.at(-1);
-            if (docPayload !== null && typeof previousLine === "string") {
-                const previousPayload = extractLineCommentPayload(previousLine);
-                if (previousPayload !== null && previousPayload === docPayload) {
-                    continue;
-                }
+        if (trimmedStart.startsWith("///")) {
+            const docPayload = extractLineCommentPayload(trimmedStart);
+            if (docPayload !== null && previousDocPayload !== null && previousDocPayload === docPayload) {
+                continue;
             }
+
+            previousDocPayload = docPayload;
+        } else if (trimmedStart.startsWith("//")) {
+            previousDocPayload = extractLineCommentPayload(trimmedStart);
+        } else {
+            previousDocPayload = null;
         }
 
         result.push(line);
