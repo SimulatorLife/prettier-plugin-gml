@@ -559,7 +559,8 @@ function tryPrintFunctionNode(node, path, options, print) {
                     ? Core.isNonEmptyString(functionNameDoc)
                     : Boolean(functionNameDoc);
 
-            parts.push(["function", hasFunctionName ? " " : "", functionNameDoc]);
+            const shouldPadAnonymousFunction = !hasFunctionName && parentNode?.type === "NewExpression";
+            parts.push(["function", hasFunctionName || shouldPadAnonymousFunction ? " " : "", functionNameDoc]);
 
             const hasParameters = Core.isNonEmptyArray(node.params);
 
@@ -894,7 +895,53 @@ function printBinaryExpressionNode(node, path, options, print) {
         }
     }
 
-    return group([left, " ", group([operator, line, right])]);
+    const shouldForceLogicalBreak =
+        isLogicalOperatorToken(operator) && (hasLogicalOperatorChild(node) || hasLogicalOperatorParent(path));
+    const logicalLineBreak = shouldForceLogicalBreak ? hardline : line;
+
+    return group([left, " ", group([operator, logicalLineBreak, right])]);
+}
+
+function isLogicalOperatorToken(operator) {
+    return operator === "&&" || operator === "||" || operator === "and" || operator === "or" || operator === "xor";
+}
+
+function hasLogicalOperatorChild(node) {
+    if (!node) {
+        return false;
+    }
+
+    const leftOperator = getLogicalOperatorFromNode(node.left);
+    const rightOperator = getLogicalOperatorFromNode(node.right);
+
+    return isLogicalOperatorToken(leftOperator) || isLogicalOperatorToken(rightOperator);
+}
+
+function hasLogicalOperatorParent(path) {
+    if (!path || typeof path.getParentNode !== "function") {
+        return false;
+    }
+
+    const parentNode = path.getParentNode();
+    if (parentNode?.type === "BinaryExpression") {
+        return isLogicalOperatorToken(parentNode.operator);
+    }
+
+    if (parentNode?.type === "ParenthesizedExpression") {
+        const grandParentNode = path.getParentNode(1);
+        return grandParentNode?.type === "BinaryExpression" && isLogicalOperatorToken(grandParentNode.operator);
+    }
+
+    return false;
+}
+
+function getLogicalOperatorFromNode(node) {
+    if (!node) {
+        return null;
+    }
+
+    const unwrapped = node.type === "ParenthesizedExpression" ? node.expression : node;
+    return unwrapped?.type === "BinaryExpression" ? unwrapped.operator : null;
 }
 
 function printUnaryLikeExpressionNode(node, path, _options, print) {
@@ -979,7 +1026,10 @@ function printCallExpressionNode(node, path, options, print) {
         const elementsPerLineLimit = maxParamsPerLine > 0 ? maxParamsPerLine : Infinity;
 
         const callbackArguments = node.arguments.filter(
-            (argument) => argument?.type === FUNCTION_DECLARATION || argument?.type === CONSTRUCTOR_DECLARATION
+            (argument) =>
+                argument?.type === FUNCTION_DECLARATION ||
+                argument?.type === FUNCTION_EXPRESSION ||
+                argument?.type === CONSTRUCTOR_DECLARATION
         );
         const structArguments = node.arguments.filter((argument) => argument?.type === STRUCT_EXPRESSION);
         const structArgumentsToBreak = structArguments.filter((argument) =>
@@ -1015,6 +1065,7 @@ function printCallExpressionNode(node, path, options, print) {
         const shouldUseCallbackLayout = [node.arguments[0], node.arguments.at(-1)].some(
             (argumentNode) =>
                 argumentNode?.type === FUNCTION_DECLARATION ||
+                argumentNode?.type === FUNCTION_EXPRESSION ||
                 argumentNode?.type === CONSTRUCTOR_DECLARATION ||
                 argumentNode?.type === STRUCT_EXPRESSION
         );
@@ -1047,6 +1098,83 @@ function printCallExpressionNode(node, path, options, print) {
     const calleeDoc = print(OBJECT_TYPE);
 
     return isInLValueChain(path) ? concat([calleeDoc, ...printedArgs]) : group([calleeDoc, ...printedArgs]);
+}
+
+function printCallLikeArguments(node, path, options, print) {
+    if (!node || !Array.isArray(node.arguments)) {
+        return [printEmptyParens(path, options)];
+    }
+
+    if (node.arguments.length === 0) {
+        return [printEmptyParens(path, options)];
+    }
+
+    const maxParamsPerLine = Number.isFinite(options?.maxParamsPerLine) ? options.maxParamsPerLine : 0;
+    const elementsPerLineLimit = maxParamsPerLine > 0 ? maxParamsPerLine : Infinity;
+
+    const callbackArguments = node.arguments.filter(
+        (argument) =>
+            argument?.type === FUNCTION_DECLARATION ||
+            argument?.type === FUNCTION_EXPRESSION ||
+            argument?.type === CONSTRUCTOR_DECLARATION
+    );
+    const structArguments = node.arguments.filter((argument) => argument?.type === STRUCT_EXPRESSION);
+    const structArgumentsToBreak = structArguments.filter((argument) =>
+        shouldForceBreakStructArgument(argument, options)
+    );
+
+    structArgumentsToBreak.forEach((argument) => {
+        forcedStructArgumentBreaks.set(argument, getStructAlignmentInfo(argument, options));
+    });
+
+    const shouldFavorInlineArguments =
+        maxParamsPerLine <= 0 &&
+        callbackArguments.length === 0 &&
+        structArguments.length === 0 &&
+        node.arguments.length <= 3 &&
+        node.arguments.every((argument) => !isComplexArgumentNode(argument));
+
+    const effectiveElementsPerLineLimit = shouldFavorInlineArguments ? node.arguments.length : elementsPerLineLimit;
+    const simplePrefixLength = countLeadingSimpleCallArguments(node);
+    const shouldForceCallbackBreaks = callbackArguments.length > 0 && simplePrefixLength <= 1;
+
+    const shouldForceBreakArguments =
+        (maxParamsPerLine > 0 && node.arguments.length > maxParamsPerLine) ||
+        callbackArguments.length > 1 ||
+        structArgumentsToBreak.length > 0 ||
+        shouldForceCallbackBreaks;
+
+    const shouldUseCallbackLayout = [node.arguments[0], node.arguments.at(-1)].some(
+        (argumentNode) =>
+            argumentNode?.type === FUNCTION_DECLARATION ||
+            argumentNode?.type === FUNCTION_EXPRESSION ||
+            argumentNode?.type === CONSTRUCTOR_DECLARATION ||
+            argumentNode?.type === STRUCT_EXPRESSION
+    );
+
+    const shouldIncludeInlineVariant = shouldUseCallbackLayout && !shouldForceBreakArguments && simplePrefixLength > 1;
+    const hasCallbackArguments = callbackArguments.length > 0;
+
+    const { inlineDoc, multilineDoc } = buildCallArgumentsDocs(path, print, options, {
+        forceBreak: shouldForceBreakArguments,
+        maxElementsPerLine: effectiveElementsPerLineLimit,
+        includeInlineVariant: shouldIncludeInlineVariant,
+        hasCallbackArguments
+    });
+
+    if (shouldUseCallbackLayout) {
+        if (shouldForceBreakArguments) {
+            return [concat([breakParent, multilineDoc])];
+        }
+
+        if (inlineDoc) {
+            return [conditionalGroup([inlineDoc, multilineDoc])];
+        }
+
+        return [multilineDoc];
+    }
+
+    return shouldForceBreakArguments ? [concat([breakParent, multilineDoc])] : [multilineDoc];
 }
 
 function getNumericValueFromRealCall(node) {
@@ -1225,10 +1353,7 @@ function printArrayExpressionNode(node, path, options, print) {
 }
 
 function printNewExpressionNode(node, path, options, print) {
-    const argsPrinted =
-        node.arguments.length === 0
-            ? [printEmptyParens(path, options)]
-            : [printCommaSeparatedList(path, print, "arguments", "(", ")", options)];
+    const argsPrinted = printCallLikeArguments(node, path, options, print);
     return concat(["new ", print("expression"), ...argsPrinted]);
 }
 
@@ -2160,7 +2285,10 @@ function isComplexArgumentNode(node) {
     }
 
     return (
-        nodeType === "FunctionDeclaration" || nodeType === "ConstructorDeclaration" || nodeType === "StructExpression"
+        nodeType === "FunctionDeclaration" ||
+        nodeType === "FunctionExpression" ||
+        nodeType === "ConstructorDeclaration" ||
+        nodeType === "StructExpression"
     );
 }
 
@@ -2224,6 +2352,7 @@ function buildCallbackArgumentsWithSimplePrefix(path, print, simplePrefixLength)
         const argumentType = argument?.type;
         return (
             argumentType === "FunctionDeclaration" ||
+            argumentType === "FunctionExpression" ||
             argumentType === "ConstructorDeclaration" ||
             argumentType === "StructExpression"
         );
