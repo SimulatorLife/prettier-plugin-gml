@@ -346,7 +346,7 @@ export function handleCliError(error: unknown, { exitCode = 1, prefix }: HandleC
 
     const output = lines.join("\n");
     if (output) {
-        console.error(output);
+        process.stderr.write(`${output}\n`);
     }
 
     process.exit(exitCode);
