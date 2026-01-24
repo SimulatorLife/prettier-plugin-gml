@@ -369,7 +369,7 @@ export function mergeSyntheticDocComments(
             let normalizedDescription: string;
 
             if (hyphenMatch) {
-                const [, , rawDescription = ""] = hyphenMatch;
+                const rawDescription = hyphenMatch[2] ?? "";
                 normalizedDescription = rawDescription.trim();
             } else {
                 normalizedDescription = remainderText.replace(/^[-\s]+/, "");

@@ -305,18 +305,18 @@ const tsConfig = defineConfig({
 
         /* unicorn plugin tweaks beyond the preset */
         "unicorn/no-empty-file": "error",
-        "unicorn/consistent-function-scoping": "warn",
+        "unicorn/consistent-function-scoping": "error",
         "unicorn/no-abusive-eslint-disable": "error",
         "unicorn/error-message": "error",
         "unicorn/no-useless-length-check": "error",
         "unicorn/no-array-push-push": "error",
-        "unicorn/prefer-query-selector": "warn",
-        "unicorn/no-unreadable-array-destructuring": "warn",
+        "unicorn/prefer-query-selector": "off", // prefer getElementById etc. for performance
+        "unicorn/no-unreadable-array-destructuring": "error",
         "unicorn/no-await-in-promise-methods": "error",
         "unicorn/no-hex-escape": "error",
         "unicorn/no-zero-fractions": "error",
         "unicorn/prevent-abbreviations": "off",
-        "unicorn/prefer-code-point": "warn",
+        "unicorn/prefer-code-point": "off", // 'charCodeAt' is more performant than 'codePointAt'
         "unicorn/no-array-sort": "error",
         "unicorn/no-array-callback-reference": "warn",
         "unicorn/prefer-ternary": "warn",
@@ -586,6 +586,7 @@ export default [
             "unicorn/no-useless-undefined": "off",
             "no-await-in-loop": "warn",
             "no-secrets/no-secrets": "off",
+            "unicorn/consistent-function-scoping": "warn",
 
             // TS-specific overrides:
             "@typescript-eslint/require-await": "off",
