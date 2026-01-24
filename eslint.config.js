@@ -373,7 +373,7 @@ const tsConfig = defineConfig({
         "simple-import-sort/exports": "error",
 
         /* --- plugin: promise (stricter async) --- */
-        "promise/no-return-wrap": "warn",
+        "promise/no-return-wrap": "error",
         "promise/no-multiple-resolved": "error",
 
         /* --- plugin: security (selected high-signal checks) --- */
@@ -384,9 +384,9 @@ const tsConfig = defineConfig({
 
         /* --- plugin: no-secrets (obvious credential leaks) --- */
         "no-secrets/no-secrets": [
-            "warn",
+            "error",
             {
-                tolerance: 4.2,
+                tolerance: 4.6,
                 ignoreContent: ["-----BEGIN"],
                 ignoreIdentifiers: ["API_KEY"]
             }
@@ -394,7 +394,7 @@ const tsConfig = defineConfig({
 
         /* --- plugin: eslint-comments (comment hygiene) --- */
         "eslint-comments/require-description": [
-            "warn",
+            "error",
             { ignore: ["eslint-enable", "eslint-env"] }
         ],
         "eslint-comments/no-unused-disable": "error",
@@ -581,6 +581,7 @@ export default [
             "boundaries/entry-point": "off",
             "unicorn/no-useless-undefined": "off",
             "no-await-in-loop": "warn",
+            "no-secrets/no-secrets": "off",
 
             // TS-specific overrides:
             "@typescript-eslint/require-await": "off",

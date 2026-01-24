@@ -55,7 +55,7 @@ void describe("resolveLineCommentOptions", () => {
     });
 });
 
-describe("formatLineComment", () => {
+void describe("format line comment", () => {
     void it("treats control-flow snippets as commented-out code using defaults", () => {
         const comment = createLineComment(" if (player.hp <= 0) return;", "// if (player.hp <= 0) return;");
         const formatted = Core.formatLineComment(comment, Core.DEFAULT_LINE_COMMENT_OPTIONS);

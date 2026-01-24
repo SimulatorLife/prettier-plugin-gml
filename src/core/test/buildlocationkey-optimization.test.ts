@@ -8,29 +8,29 @@ import { buildFileLocationKey, buildLocationKey } from "../src/ast/location-keys
  * behavior for all location field name variations and edge cases.
  */
 
-describe("buildLocationKey optimization", () => {
-    it("handles standard location format with all fields", () => {
+void describe("buildLocationKey optimization", () => {
+    void it("handles standard location format with all fields", () => {
         const location = { line: 10, column: 5, index: 123 };
         assert.equal(buildLocationKey(location), "10:5:123");
     });
 
-    it("handles alternative field names for line", () => {
+    void it("handles alternative field names for line", () => {
         assert.equal(buildLocationKey({ row: 20, column: 8, index: 456 }), "20:8:456");
         assert.equal(buildLocationKey({ start: 15, column: 10, index: 234 }), "15:10:234");
         assert.equal(buildLocationKey({ first_line: 5, column: 3, index: 89 }), "5:3:89");
     });
 
-    it("handles alternative field names for column", () => {
+    void it("handles alternative field names for column", () => {
         assert.equal(buildLocationKey({ line: 10, col: 7, index: 100 }), "10:7:100");
         assert.equal(buildLocationKey({ line: 20, columnStart: 12, index: 200 }), "20:12:200");
         assert.equal(buildLocationKey({ line: 30, first_column: 15, index: 300 }), "30:15:300");
     });
 
-    it("handles alternative field names for index", () => {
+    void it("handles alternative field names for index", () => {
         assert.equal(buildLocationKey({ line: 10, column: 5, offset: 999 }), "10:5:999");
     });
 
-    it("prioritizes first matching field name", () => {
+    void it("prioritizes first matching field name", () => {
         // When multiple field names exist, should pick the first in priority order
         const location = {
             line: 1,
@@ -43,38 +43,38 @@ describe("buildLocationKey optimization", () => {
         assert.equal(buildLocationKey(location), "1:2:3");
     });
 
-    it("handles partial locations with missing fields", () => {
+    void it("handles partial locations with missing fields", () => {
         assert.equal(buildLocationKey({ line: 42, column: 7 }), "42:7:");
         assert.equal(buildLocationKey({ line: 33 }), "33::");
         assert.equal(buildLocationKey({ index: 999 }), "::999");
         assert.equal(buildLocationKey({ column: 5, index: 100 }), ":5:100");
     });
 
-    it("handles zero values correctly", () => {
+    void it("handles zero values correctly", () => {
         assert.equal(buildLocationKey({ line: 0, column: 0, index: 0 }), "0:0:0");
     });
 
-    it("returns null for empty location objects", () => {
+    void it("returns null for empty location objects", () => {
         assert.equal(buildLocationKey({}), null);
     });
 
-    it("returns null for null or undefined", () => {
+    void it("returns null for null or undefined", () => {
         assert.equal(buildLocationKey(null), null);
         assert.equal(buildLocationKey(undefined), null);
     });
 
-    it("returns null for non-object values", () => {
+    void it("returns null for non-object values", () => {
         assert.equal(buildLocationKey("not an object"), null);
         assert.equal(buildLocationKey(123), null);
         assert.equal(buildLocationKey(true), null);
     });
 
-    it("handles location objects with only undefined/null fields", () => {
+    void it("handles location objects with only undefined/null fields", () => {
         assert.equal(buildLocationKey({ line: null, column: undefined }), null);
         assert.equal(buildLocationKey({ row: undefined, col: null, offset: undefined }), null);
     });
 
-    it("preserves falsy values that are not null/undefined", () => {
+    void it("preserves falsy values that are not null/undefined", () => {
         // 0 is falsy but should be preserved
         assert.equal(buildLocationKey({ line: 0 }), "0::");
         assert.equal(buildLocationKey({ column: 0 }), ":0:");
@@ -85,7 +85,7 @@ describe("buildLocationKey optimization", () => {
         assert.equal(buildLocationKey({ line: "", column: 5 }), ":5:");
     });
 
-    it("works with buildFileLocationKey wrapper", () => {
+    void it("works with buildFileLocationKey wrapper", () => {
         const location = { line: 10, column: 5, index: 123 };
         assert.equal(buildFileLocationKey("/path/to/file.gml", location), "/path/to/file.gml::10:5:123");
         assert.equal(buildFileLocationKey(null, location), "<unknown>::10:5:123");
@@ -93,7 +93,7 @@ describe("buildLocationKey optimization", () => {
         assert.equal(buildFileLocationKey("/path/to/file.gml", {}), null);
     });
 
-    it("handles mixed valid and invalid field names", () => {
+    void it("handles mixed valid and invalid field names", () => {
         const location = {
             line: 10,
             invalidField: "ignored",
@@ -104,7 +104,7 @@ describe("buildLocationKey optimization", () => {
         assert.equal(buildLocationKey(location), "10:5:123");
     });
 
-    it("validates optimization produces identical output to original", () => {
+    void it("validates optimization produces identical output to original", () => {
         // This test ensures the inlined version matches the original array-based version
         const testCases = [
             { line: 1, column: 2, index: 3 },

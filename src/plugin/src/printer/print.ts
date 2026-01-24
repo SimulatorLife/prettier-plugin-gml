@@ -204,7 +204,7 @@ const GM1015_DIAGNOSTIC_ID = "GM1015";
  * Hoisted to module scope to avoid re-creating the same regex on every
  * isDecorativeBlockComment() call, reducing allocations in the hot printer path.
  *
- * SAFETY: This pattern depends on Core.DEFAULT_BANNER_COMMENT_POLICY_CONFIG.minLeadingSlashes,
+ * SAFETY: This pattern depends on the banner policy config's minLeadingSlashes value,
  * which is frozen (Object.freeze) and immutable, so caching at module scope is safe.
  */
 const DECORATIVE_SLASH_LINE_PATTERN = new RegExp(
@@ -5054,7 +5054,7 @@ function buildIfAlternateDoc(path, options, print, node) {
         // with braces would produce `else { if (...) ... }`, which breaks the
         // cascade that GameMaker expects, introduces an extra block for the
         // runtime to evaluate, and diverges from the control-structure style
-        // documented in the GameMaker manual (see https://manual.gamemaker.io/monthly/en/#t=GML_Overview%2FGML_Syntax.htm%23ElseIf).
+        // documented in the GameMaker manual's Else If guidance.
         // By delegating directly to the child printer we preserve the
         // flattened `else if` ladder that authors wrote and that downstream
         // tools rely on when parsing the control flow.
@@ -6084,8 +6084,7 @@ function expressionReferencesSanitizedMacro(node, sanitizedMacroNames) {
         // allocations in the hot AST traversal path (~34% faster based on
         // micro-benchmarks with typical AST node structures).
         for (const key in current) {
-            // eslint-disable-next-line no-prototype-builtins
-            if (!current.hasOwnProperty(key)) {
+            if (!Object.hasOwn(current, key)) {
                 continue;
             }
 

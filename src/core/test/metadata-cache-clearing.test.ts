@@ -3,8 +3,8 @@ import { describe, it } from "node:test";
 
 import { Core } from "../src/index.js";
 
-describe("Metadata cache clearing", () => {
-    it("should clear feather metadata cache and allow reload", () => {
+void describe("Metadata cache clearing", () => {
+    void it("should clear feather metadata cache and allow reload", () => {
         // Load metadata to populate cache
         const metadata1 = Core.getFeatherMetadata();
         assert.ok(metadata1, "Should load feather metadata");
@@ -19,7 +19,7 @@ describe("Metadata cache clearing", () => {
         assert.deepStrictEqual(metadata1.diagnostics, metadata2.diagnostics, "Reloaded metadata should match original");
     });
 
-    it("should clear identifier metadata cache and allow reload", () => {
+    void it("should clear identifier metadata cache and allow reload", () => {
         // Load metadata to populate cache
         const metadata1 = Core.getIdentifierMetadata();
         assert.ok(metadata1, "Should load identifier metadata");
@@ -33,7 +33,7 @@ describe("Metadata cache clearing", () => {
         assert.deepStrictEqual(metadata1, metadata2, "Reloaded metadata should match original");
     });
 
-    it("should demonstrate memory footprint reduction", () => {
+    void it("should demonstrate memory footprint reduction", () => {
         if (typeof globalThis.gc !== "function") {
             // Skip if --expose-gc not enabled
             return;

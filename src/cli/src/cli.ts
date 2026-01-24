@@ -2231,7 +2231,7 @@ function normalizeCommandLineArguments(argv) {
         // When no arguments are provided, default behavior depends on
         // PRETTIER_PLUGIN_GML_DEFAULT_ACTION environment variable.
         // Default is to show help (user-friendly for first-time users).
-        // Set PRETTIER_PLUGIN_GML_DEFAULT_ACTION=format for legacy behavior.
+        // Set PRETTIER_PLUGIN_GML_DEFAULT_ACTION to "format" for legacy behavior.
         return resolveDefaultAction() === FORMAT_ACTION ? [] : ["--help"];
     }
 

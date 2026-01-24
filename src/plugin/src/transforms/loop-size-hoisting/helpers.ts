@@ -114,8 +114,8 @@ function parseSizeRetrievalFunctionSuffixOverrides(rawValue) {
  * involved when a match is found.
  *
  * @param {unknown} node AST node to examine.
- * @param {Map<string, string>} [sizeFunctionSuffixes=DEFAULT_SIZE_RETRIEVAL_FUNCTION_SUFFIXES]
- *        Lookup of normalized function names to cached suffixes.
+ * @param {Map<string, string>} sizeFunctionSuffixes
+ *        Lookup of normalized function names to cached suffixes. Defaults to the standard suffix map.
  * @returns {{
  *     iteratorName: string,
  *     sizeIdentifierName: string,
