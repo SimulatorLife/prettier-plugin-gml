@@ -1010,14 +1010,16 @@ export async function runWatchCommand(targetPath: string, options: WatchCommandO
 
             // Perform initial scan after the watcher is established so test harnesses
             // and callers can trigger events immediately without waiting for the scan.
-            void (async () => {
-                if (!quiet && verbose) {
-                    console.log("Scanning existing GML files to build dependency graph...");
-                }
+            if (!quiet && verbose) {
+                console.log("Scanning existing GML files to build dependency graph...");
+            }
 
-                await performInitialScan(normalizedPath, extensionMatcher, runtimeContext, verbose, quiet);
-                runtimeContext.scanComplete = true;
-            })();
+            void performInitialScan(normalizedPath, extensionMatcher, runtimeContext, verbose, quiet)
+                .then(() => {
+                    runtimeContext.scanComplete = true;
+                    return undefined;
+                })
+                .catch(handleWatcherError);
         } catch (error) {
             handleWatcherError(error);
         }
