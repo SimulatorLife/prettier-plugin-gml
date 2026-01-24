@@ -585,7 +585,7 @@ export default [
             // TS-specific overrides:
             "@typescript-eslint/require-await": "off",
             "no-promise-executor-return": "off",
-            "@typescript-eslint/no-floating-promises": "warn",
+            "@typescript-eslint/no-floating-promises": "error",
             "@typescript-eslint/no-unsafe-argument": "off",
             "@typescript-eslint/no-unsafe-call": "off",
             "@typescript-eslint/no-unsafe-member-access": "off",
