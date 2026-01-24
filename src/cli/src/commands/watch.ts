@@ -187,7 +187,7 @@ interface RuntimePackageInfo {
  * Groups patch management and monitoring concerns together.
  */
 interface PatchHistory {
-    patches: Array<RuntimeTranspilerPatch>;
+    patches: TranspilationContext["patches"];
     metrics: Array<TranspilationMetrics>;
     errors: Array<TranspilationError>;
     lastSuccessfulPatches: Map<string, RuntimeTranspilerPatch>;
